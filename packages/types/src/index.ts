@@ -6,37 +6,31 @@
  * include Zod schemas for runtime validation.
  */
 
-// Core validation primitives (must be first - contains base types)
-export * from './validation';
-
 // API types
-export * from './api';
-
+export * from './api'
 // Blockchain & DeFi
-export * from './bridge';
-export * from './chain';
-export * from './contracts';
-export * from './defi';
-
-// Cross-chain interoperability
-export * from './eil';
-export * from './nft-eil';
-export * from './oif';
-
+export * from './bridge'
 // Infrastructure
-export * from './cdn';
-export * from './compute';
-export * from './external-compute';
-export * from './infrastructure';
-export * from './vpn';
-
+export * from './cdn'
+export * from './chain'
+export * from './compute'
+export * from './contracts'
+export * from './defi'
+// Cross-chain interoperability
+export * from './eil'
 // Domain-specific
-export * from './events';
-export * from './funding';
-export * from './governance';
-export * from './health';
-export * from './moderation';
-export * from './names';
-export * from './oracle';
-export * from './torrent';
-export * from './vendor';
+export * from './events'
+export * from './external-compute'
+export * from './governance'
+export * from './health'
+export * from './infrastructure'
+export * from './moderation'
+export * from './names'
+export * from './nft-eil'
+export * from './oif'
+export * from './oracle'
+export * from './torrent'
+// Core validation primitives (must be first - contains base types)
+export * from './validation'
+export * from './vendor'
+export * from './vpn'

@@ -2,25 +2,32 @@
  * Inference Action - AI model inference
  */
 
+import type {
+  Action,
+  HandlerCallback,
+  IAgentRuntime,
+  Memory,
+  State,
+} from '@elizaos/core'
+import { JEJU_SERVICE_NAME, type JejuService } from '../service'
 import {
-  type Action,
-  type HandlerCallback,
-  type IAgentRuntime,
-  type Memory,
-  type State,
-} from "@elizaos/core";
-import { JEJU_SERVICE_NAME, type JejuService } from "../service";
-import { getMessageText, expect, validateServiceExists } from "../validation";
+  expect,
+  getMessageText,
+  MAX_MESSAGE_LENGTH,
+  sanitizeText,
+  truncateOutput,
+  validateServiceExists,
+} from '../validation'
 
 export const runInferenceAction: Action = {
-  name: "RUN_INFERENCE",
-  description: "Run AI inference on the network decentralized compute",
+  name: 'RUN_INFERENCE',
+  description: 'Run AI inference on the network decentralized compute',
   similes: [
-    "run inference",
-    "ai inference",
-    "call model",
-    "use llm",
-    "generate text",
+    'run inference',
+    'ai inference',
+    'call model',
+    'use llm',
+    'generate text',
   ],
 
   validate: async (runtime: IAgentRuntime): Promise<boolean> =>
@@ -33,62 +40,66 @@ export const runInferenceAction: Action = {
     _options?: Record<string, unknown>,
     callback?: HandlerCallback,
   ): Promise<void> => {
-    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
-    const client = service.getClient();
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
+    const client = service.getClient()
 
     // List available models
-    const models = await client.compute.listModels();
+    const models = await client.compute.listModels()
 
     if (models.length === 0) {
-      callback?.({ text: "No inference models available on the network." });
-      return;
+      callback?.({ text: 'No inference models available on the network.' })
+      return
     }
 
-    // Use the prompt from the message
-    const prompt = getMessageText(message);
+    // Use the prompt from the message (sanitized with length limit)
+    const rawPrompt = getMessageText(message)
+    const prompt = sanitizeText(rawPrompt.slice(0, MAX_MESSAGE_LENGTH))
 
     // Find a suitable model (prefer llama or gpt)
     const preferredModel = models.find((m: { model: string }) =>
       /llama|gpt|mistral/i.test(m.model),
-    );
+    )
     const model = expect(
       preferredModel ?? models[0],
-      "available inference model",
-    );
+      'available inference model',
+    )
 
-    callback?.({ text: `Running inference on ${model.model}...` });
+    callback?.({ text: `Running inference on ${model.model}...` })
 
     const result = await client.compute.inference({
       model: model.model,
-      messages: [{ role: "user", content: prompt }],
-    });
+      messages: [{ role: 'user', content: prompt }],
+    })
+
+    // Truncate and sanitize the inference result
+    const responseContent = truncateOutput(result.content ?? '', 20000)
 
     callback?.({
       text: `Inference result:
 
-${result.content}
+${responseContent}
 
 ---
 Model: ${result.model}
 Tokens: ${result.usage.totalTokens}`,
       content: {
         model: result.model,
-        response: result.content,
+        response: responseContent,
         usage: result.usage,
       },
-    });
+    })
   },
 
   examples: [
     [
       {
-        name: "user",
-        content: { text: "Run inference: What is the meaning of life?" },
+        name: 'user',
+        content: { text: 'Run inference: What is the meaning of life?' },
       },
       {
-        name: "agent",
-        content: { text: "Running inference on llama-3-70b... [response]" },
+        name: 'agent',
+        content: { text: 'Running inference on llama-3-70b... [response]' },
       },
     ],
   ],
-};
+}

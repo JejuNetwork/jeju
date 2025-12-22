@@ -1,6 +1,6 @@
 /**
  * Jeju Email SDK
- * 
+ *
  * Client SDK for interacting with Jeju Mail:
  * - Send/receive encrypted emails
  * - Manage mailbox and folders
@@ -8,6 +8,6 @@
  * - IMAP client configuration
  */
 
-export * from './client';
-export * from './types';
-export * from './encryption';
+export * from './client'
+export * from './encryption'
+export * from './types'

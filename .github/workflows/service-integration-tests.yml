@@ -113,7 +113,7 @@ jobs:
       - name: Check TypeScript
         run: bunx tsc --noEmit
 
-      - name: Run ESLint
+      - name: Run Biome
         run: bun run lint
 
       - name: Check Solidity formatting

@@ -1,13 +1,13 @@
 /**
  * Cross-Chain Router
- * 
+ *
  * Integrates all cross-chain mechanisms into a single routing layer:
  * - ZKSolBridge (EVM ↔ Solana with ZK proofs)
  * - EIL (Ethereum Interop Layer for EVM L2s)
  * - OIF (Open Intents Framework for solver-based routing)
  * - Hyperlane (Permissionless messaging for any chain)
  * - CCIP (Chainlink permissionless token transfers)
- * 
+ *
  * Revenue Optimization:
  * - Cross-chain arbitrage detection (Solana ↔ EVM, Hyperliquid)
  * - MEV capture via Flashbots/Jito integration
@@ -16,32 +16,32 @@
  * - Solver fees from intent fulfillment
  */
 
-import type { Address } from 'viem';
+import type { Address } from 'viem'
 
 // ============ Chain Types ============
 
 export enum ChainType {
   EVM_L1 = 'EVM_L1',
-  EVM_L2 = 'EVM_L2', 
+  EVM_L2 = 'EVM_L2',
   SOLANA = 'SOLANA',
   HYPERLIQUID = 'HYPERLIQUID',
   POLKADOT = 'POLKADOT',
 }
 
 export interface ChainInfo {
-  chainId: number | string;
-  name: string;
-  type: ChainType;
-  rpcUrl: string;
-  nativeCurrency: { name: string; symbol: string; decimals: number };
+  chainId: number | string
+  name: string
+  type: ChainType
+  rpcUrl: string
+  nativeCurrency: { name: string; symbol: string; decimals: number }
   bridgeContracts: {
-    zkBridge?: Address;
-    eilPaymaster?: Address;
-    oifInputSettler?: Address;
-    oifOutputSettler?: Address;
-    hyperlaneMailbox?: Address;
-    warpRoute?: Address;
-  };
+    zkBridge?: Address
+    eilPaymaster?: Address
+    oifInputSettler?: Address
+    oifOutputSettler?: Address
+    hyperlaneMailbox?: Address
+    warpRoute?: Address
+  }
 }
 
 // ============ Supported Chains ============
@@ -119,7 +119,7 @@ export const SUPPORTED_CHAINS: Record<string, ChainInfo> = {
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
     bridgeContracts: {},
   },
-};
+}
 
 // ============ Aster Contract Addresses ============
 
@@ -152,7 +152,7 @@ export const ASTER_CONTRACTS = {
     token: '0x5A110fC00474038f6c02E89C707D638602EA44B5' as Address,
     minting: '0xC271fc70dD9E678ac1AB632f797894fe4BE2C345' as Address,
   },
-};
+}
 
 // ============ Route Types ============
 
@@ -168,188 +168,205 @@ export enum BridgeMechanism {
 }
 
 export interface RouteStep {
-  mechanism: BridgeMechanism;
-  sourceChain: string;
-  destChain: string;
-  token: Address | string;
-  estimatedTime: number; // seconds
-  estimatedFee: bigint;
-  trustLevel: 'trustless' | 'optimistic' | 'oracle' | 'federated';
+  mechanism: BridgeMechanism
+  sourceChain: string
+  destChain: string
+  token: Address | string
+  estimatedTime: number // seconds
+  estimatedFee: bigint
+  trustLevel: 'trustless' | 'optimistic' | 'oracle' | 'federated'
 }
 
 export interface Route {
-  id: string;
-  steps: RouteStep[];
-  totalEstimatedTime: number;
-  totalEstimatedFee: bigint;
-  overallTrustLevel: 'trustless' | 'optimistic' | 'oracle' | 'federated';
-  revenueOpportunity: bigint; // MEV/arb potential
+  id: string
+  steps: RouteStep[]
+  totalEstimatedTime: number
+  totalEstimatedFee: bigint
+  overallTrustLevel: 'trustless' | 'optimistic' | 'oracle' | 'federated'
+  revenueOpportunity: bigint // MEV/arb potential
 }
 
 export interface RouteRequest {
-  sourceChain: string;
-  destChain: string;
-  sourceToken: Address | string;
-  destToken: Address | string;
-  amount: bigint;
-  sender: Address | string;
-  recipient: Address | string;
-  slippageBps: number;
-  preferTrustless: boolean;
-  maxFee?: bigint;
-  deadline?: number;
+  sourceChain: string
+  destChain: string
+  sourceToken: Address | string
+  destToken: Address | string
+  amount: bigint
+  sender: Address | string
+  recipient: Address | string
+  slippageBps: number
+  preferTrustless: boolean
+  maxFee?: bigint
+  deadline?: number
 }
 
 // ============ Router Configuration ============
 
 export interface RouterConfig {
   // Contract addresses per chain
-  contracts: Record<string, ChainInfo['bridgeContracts']>;
+  contracts: Record<string, ChainInfo['bridgeContracts']>
   // Fee settings
-  protocolFeeBps: number; // Base protocol fee (e.g., 10 = 0.1%)
-  xlpFeeBps: number; // XLP margin fee
-  solverFeeBps: number; // Solver margin fee
+  protocolFeeBps: number // Base protocol fee (e.g., 10 = 0.1%)
+  xlpFeeBps: number // XLP margin fee
+  solverFeeBps: number // Solver margin fee
   // Identity integration
-  identityRegistryAddress?: Address;
-  moderationAddress?: Address;
+  identityRegistryAddress?: Address
+  moderationAddress?: Address
   // MEV/Arb settings
-  enableMEV: boolean;
-  minArbProfitBps: number;
+  enableMEV: boolean
+  minArbProfitBps: number
 }
 
 // ============ Cross-Chain Router ============
 
 export class CrossChainRouter {
-  private config: RouterConfig;
+  private config: RouterConfig
 
   constructor(config: RouterConfig) {
-    this.config = config;
+    this.config = config
   }
 
   /**
    * Find optimal routes for a cross-chain transfer
    */
   async findRoutes(request: RouteRequest): Promise<Route[]> {
-    const routes: Route[] = [];
-    const sourceChain = SUPPORTED_CHAINS[request.sourceChain];
-    const destChain = SUPPORTED_CHAINS[request.destChain];
+    const routes: Route[] = []
+    const sourceChain = SUPPORTED_CHAINS[request.sourceChain]
+    const destChain = SUPPORTED_CHAINS[request.destChain]
 
     if (!sourceChain || !destChain) {
-      throw new Error(`Unsupported chain: ${request.sourceChain} or ${request.destChain}`);
+      throw new Error(
+        `Unsupported chain: ${request.sourceChain} or ${request.destChain}`,
+      )
     }
 
     // 1. Check for direct EVM L2 <-> L2 via EIL
     if (this.canUseEIL(sourceChain, destChain)) {
-      const eilRoute = await this.buildEILRoute(request);
-      if (eilRoute) routes.push(eilRoute);
+      const eilRoute = await this.buildEILRoute(request)
+      if (eilRoute) routes.push(eilRoute)
     }
 
     // 2. Check for Solana via ZKSolBridge
     if (this.involveSolana(sourceChain, destChain)) {
-      const zkRoute = await this.buildZKSolRoute(request);
-      if (zkRoute) routes.push(zkRoute);
+      const zkRoute = await this.buildZKSolRoute(request)
+      if (zkRoute) routes.push(zkRoute)
     }
 
     // 3. Check for Hyperliquid via CCIP
     if (this.involveHyperliquid(sourceChain, destChain)) {
-      const hyperRoute = await this.buildHyperliquidRoute(request);
-      if (hyperRoute) routes.push(hyperRoute);
+      const hyperRoute = await this.buildHyperliquidRoute(request)
+      if (hyperRoute) routes.push(hyperRoute)
     }
 
     // 4. Check for Hyperlane routes (permissionless fallback)
-    const hyperlaneRoute = await this.buildHyperlaneRoute(request);
-    if (hyperlaneRoute) routes.push(hyperlaneRoute);
+    const hyperlaneRoute = await this.buildHyperlaneRoute(request)
+    if (hyperlaneRoute) routes.push(hyperlaneRoute)
 
     // 5. Check for OIF solver routes
-    const oifRoute = await this.buildOIFRoute(request);
-    if (oifRoute) routes.push(oifRoute);
+    const oifRoute = await this.buildOIFRoute(request)
+    if (oifRoute) routes.push(oifRoute)
 
     // Sort by user preference (trust level first if preferTrustless, then fee)
     routes.sort((a, b) => {
       if (request.preferTrustless) {
-        const trustOrder = { trustless: 0, optimistic: 1, oracle: 2, federated: 3 };
-        const trustDiff = trustOrder[a.overallTrustLevel] - trustOrder[b.overallTrustLevel];
-        if (trustDiff !== 0) return trustDiff;
+        const trustOrder = {
+          trustless: 0,
+          optimistic: 1,
+          oracle: 2,
+          federated: 3,
+        }
+        const trustDiff =
+          trustOrder[a.overallTrustLevel] - trustOrder[b.overallTrustLevel]
+        if (trustDiff !== 0) return trustDiff
       }
-      return Number(a.totalEstimatedFee - b.totalEstimatedFee);
-    });
+      return Number(a.totalEstimatedFee - b.totalEstimatedFee)
+    })
 
-    return routes;
+    return routes
   }
 
   /**
    * Execute a specific route
    */
-  async executeRoute(route: Route, request: RouteRequest): Promise<{
-    success: boolean;
-    transactionHash?: string;
-    error?: string;
+  async executeRoute(
+    route: Route,
+    request: RouteRequest,
+  ): Promise<{
+    success: boolean
+    transactionHash?: string
+    error?: string
   }> {
     // Check identity/moderation status
-    const identityCheck = await this.checkIdentity(request.sender as Address);
+    const identityCheck = await this.checkIdentity(request.sender as Address)
     if (!identityCheck.allowed) {
-      return { success: false, error: identityCheck.reason };
+      return { success: false, error: identityCheck.reason }
     }
 
     // Execute each step
     for (const step of route.steps) {
-      const result = await this.executeStep(step, request);
+      const result = await this.executeStep(step, request)
       if (!result.success) {
-        return result;
+        return result
       }
     }
 
-    return { success: true };
+    return { success: true }
   }
 
   /**
    * Calculate fees and revenue share
    */
-  calculateFees(amount: bigint, route: Route): {
-    protocolFee: bigint;
-    xlpFee: bigint;
-    solverFee: bigint;
-    totalFee: bigint;
-    userReceives: bigint;
+  calculateFees(
+    amount: bigint,
+    route: Route,
+  ): {
+    protocolFee: bigint
+    xlpFee: bigint
+    solverFee: bigint
+    totalFee: bigint
+    userReceives: bigint
   } {
-    const protocolFee = (amount * BigInt(this.config.protocolFeeBps)) / 10000n;
-    const xlpFee = (amount * BigInt(this.config.xlpFeeBps)) / 10000n;
-    const solverFee = (amount * BigInt(this.config.solverFeeBps)) / 10000n;
-    const totalFee = protocolFee + xlpFee + solverFee + route.totalEstimatedFee;
-    const userReceives = amount - totalFee;
+    const protocolFee = (amount * BigInt(this.config.protocolFeeBps)) / 10000n
+    const xlpFee = (amount * BigInt(this.config.xlpFeeBps)) / 10000n
+    const solverFee = (amount * BigInt(this.config.solverFeeBps)) / 10000n
+    const totalFee = protocolFee + xlpFee + solverFee + route.totalEstimatedFee
+    const userReceives = amount - totalFee
 
-    return { protocolFee, xlpFee, solverFee, totalFee, userReceives };
+    return { protocolFee, xlpFee, solverFee, totalFee, userReceives }
   }
 
   /**
    * Check for MEV/arbitrage opportunities along route
    */
   async findArbOpportunity(_route: Route): Promise<{
-    hasOpportunity: boolean;
-    expectedProfit: bigint;
-    strategy: 'sandwich' | 'backrun' | 'cross_chain_arb' | null;
+    hasOpportunity: boolean
+    expectedProfit: bigint
+    strategy: 'sandwich' | 'backrun' | 'cross_chain_arb' | null
   }> {
     if (!this.config.enableMEV) {
-      return { hasOpportunity: false, expectedProfit: 0n, strategy: null };
+      return { hasOpportunity: false, expectedProfit: 0n, strategy: null }
     }
 
     // Check price differences across chains for arb
     // This would integrate with DEX price feeds
-    return { hasOpportunity: false, expectedProfit: 0n, strategy: null };
+    return { hasOpportunity: false, expectedProfit: 0n, strategy: null }
   }
 
   // ============ Private Methods ============
 
   private canUseEIL(source: ChainInfo, dest: ChainInfo): boolean {
-    return source.type === ChainType.EVM_L2 && dest.type === ChainType.EVM_L2;
+    return source.type === ChainType.EVM_L2 && dest.type === ChainType.EVM_L2
   }
 
   private involveSolana(source: ChainInfo, dest: ChainInfo): boolean {
-    return source.type === ChainType.SOLANA || dest.type === ChainType.SOLANA;
+    return source.type === ChainType.SOLANA || dest.type === ChainType.SOLANA
   }
 
   private involveHyperliquid(source: ChainInfo, dest: ChainInfo): boolean {
-    return source.type === ChainType.HYPERLIQUID || dest.type === ChainType.HYPERLIQUID;
+    return (
+      source.type === ChainType.HYPERLIQUID ||
+      dest.type === ChainType.HYPERLIQUID
+    )
   }
 
   private async buildEILRoute(request: RouteRequest): Promise<Route | null> {
@@ -361,7 +378,7 @@ export class CrossChainRouter {
       estimatedTime: 12, // ~1 block
       estimatedFee: (request.amount * 10n) / 10000n, // 0.1%
       trustLevel: 'trustless',
-    };
+    }
 
     return {
       id: `eil-${Date.now()}`,
@@ -370,7 +387,7 @@ export class CrossChainRouter {
       totalEstimatedFee: step.estimatedFee,
       overallTrustLevel: 'trustless',
       revenueOpportunity: 0n,
-    };
+    }
   }
 
   private async buildZKSolRoute(request: RouteRequest): Promise<Route | null> {
@@ -382,7 +399,7 @@ export class CrossChainRouter {
       estimatedTime: 60, // ~1 minute with ZK proofs
       estimatedFee: (request.amount * 20n) / 10000n, // 0.2%
       trustLevel: 'trustless', // Full ZK verification
-    };
+    }
 
     return {
       id: `zksol-${Date.now()}`,
@@ -391,10 +408,12 @@ export class CrossChainRouter {
       totalEstimatedFee: step.estimatedFee,
       overallTrustLevel: 'trustless',
       revenueOpportunity: 0n,
-    };
+    }
   }
 
-  private async buildHyperliquidRoute(request: RouteRequest): Promise<Route | null> {
+  private async buildHyperliquidRoute(
+    request: RouteRequest,
+  ): Promise<Route | null> {
     const step: RouteStep = {
       mechanism: BridgeMechanism.CCIP,
       sourceChain: request.sourceChain,
@@ -403,7 +422,7 @@ export class CrossChainRouter {
       estimatedTime: 300, // ~5 minutes via CCIP
       estimatedFee: (request.amount * 30n) / 10000n, // 0.3%
       trustLevel: 'oracle', // Chainlink DON
-    };
+    }
 
     return {
       id: `hyperliquid-${Date.now()}`,
@@ -412,10 +431,12 @@ export class CrossChainRouter {
       totalEstimatedFee: step.estimatedFee,
       overallTrustLevel: 'oracle',
       revenueOpportunity: 0n,
-    };
+    }
   }
 
-  private async buildHyperlaneRoute(request: RouteRequest): Promise<Route | null> {
+  private async buildHyperlaneRoute(
+    request: RouteRequest,
+  ): Promise<Route | null> {
     const step: RouteStep = {
       mechanism: BridgeMechanism.HYPERLANE,
       sourceChain: request.sourceChain,
@@ -424,7 +445,7 @@ export class CrossChainRouter {
       estimatedTime: 600, // ~10 minutes optimistic
       estimatedFee: (request.amount * 15n) / 10000n, // 0.15%
       trustLevel: 'optimistic',
-    };
+    }
 
     return {
       id: `hyperlane-${Date.now()}`,
@@ -433,7 +454,7 @@ export class CrossChainRouter {
       totalEstimatedFee: step.estimatedFee,
       overallTrustLevel: 'optimistic',
       revenueOpportunity: 0n,
-    };
+    }
   }
 
   private async buildOIFRoute(request: RouteRequest): Promise<Route | null> {
@@ -445,7 +466,7 @@ export class CrossChainRouter {
       estimatedTime: 30, // Solver-dependent
       estimatedFee: (request.amount * 25n) / 10000n, // 0.25% (solver margin)
       trustLevel: 'optimistic', // Oracle attestation
-    };
+    }
 
     return {
       id: `oif-${Date.now()}`,
@@ -454,120 +475,162 @@ export class CrossChainRouter {
       totalEstimatedFee: step.estimatedFee,
       overallTrustLevel: 'optimistic',
       revenueOpportunity: 0n,
-    };
+    }
   }
 
-  private async checkIdentity(_sender: Address): Promise<{ allowed: boolean; reason?: string }> {
+  private async checkIdentity(
+    _sender: Address,
+  ): Promise<{ allowed: boolean; reason?: string }> {
     if (!this.config.identityRegistryAddress) {
-      return { allowed: true };
+      return { allowed: true }
     }
 
     // Check if sender is registered and not banned
     // This would call the IdentityRegistry contract
-    return { allowed: true };
+    return { allowed: true }
   }
 
-  private async executeStep(step: RouteStep, request: RouteRequest): Promise<{
-    success: boolean;
-    transactionHash?: string;
-    error?: string;
+  private async executeStep(
+    step: RouteStep,
+    request: RouteRequest,
+  ): Promise<{
+    success: boolean
+    transactionHash?: string
+    error?: string
   }> {
     switch (step.mechanism) {
       case BridgeMechanism.EIL_XLP:
-        return this.executeEILStep(step, request);
+        return this.executeEILStep(step, request)
       case BridgeMechanism.ZK_SOL_BRIDGE:
-        return this.executeZKSolStep(step, request);
+        return this.executeZKSolStep(step, request)
       case BridgeMechanism.HYPERLANE:
-        return this.executeHyperlaneStep(step, request);
+        return this.executeHyperlaneStep(step, request)
       case BridgeMechanism.CCIP:
-        return this.executeCCIPStep(step, request);
+        return this.executeCCIPStep(step, request)
       case BridgeMechanism.OIF_SOLVER:
-        return this.executeOIFStep(step, request);
+        return this.executeOIFStep(step, request)
       default:
-        return { success: false, error: `Unknown mechanism: ${step.mechanism}` };
+        return {
+          success: false,
+          error: `Unknown mechanism: ${step.mechanism}`,
+        }
     }
   }
 
-  private async executeEILStep(step: RouteStep, _request: RouteRequest): Promise<{
-    success: boolean;
-    transactionHash?: string;
-    error?: string;
+  private async executeEILStep(
+    step: RouteStep,
+    _request: RouteRequest,
+  ): Promise<{
+    success: boolean
+    transactionHash?: string
+    error?: string
   }> {
-    const contracts = this.config.contracts[step.sourceChain];
+    const contracts = this.config.contracts[step.sourceChain]
     if (!contracts?.eilPaymaster) {
-      return { success: false, error: `EIL paymaster not configured for chain ${step.sourceChain}` };
+      return {
+        success: false,
+        error: `EIL paymaster not configured for chain ${step.sourceChain}`,
+      }
     }
     // EIL requires external paymaster integration - route through MultiBridgeRouter
-    return { 
-      success: false, 
-      error: 'EIL execution requires MultiBridgeRouter with configured paymaster. Use MultiBridgeRouter.transfer() instead.' 
-    };
+    return {
+      success: false,
+      error:
+        'EIL execution requires MultiBridgeRouter with configured paymaster. Use MultiBridgeRouter.transfer() instead.',
+    }
   }
 
-  private async executeZKSolStep(step: RouteStep, _request: RouteRequest): Promise<{
-    success: boolean;
-    transactionHash?: string;
-    error?: string;
+  private async executeZKSolStep(
+    step: RouteStep,
+    _request: RouteRequest,
+  ): Promise<{
+    success: boolean
+    transactionHash?: string
+    error?: string
   }> {
-    const contracts = this.config.contracts[step.sourceChain];
+    const contracts = this.config.contracts[step.sourceChain]
     if (!contracts?.zkBridge) {
-      return { success: false, error: `ZK Bridge not configured for chain ${step.sourceChain}` };
+      return {
+        success: false,
+        error: `ZK Bridge not configured for chain ${step.sourceChain}`,
+      }
     }
     // ZK bridge execution requires EVMClient with wallet - route through MultiBridgeRouter
-    return { 
-      success: false, 
-      error: 'ZKSolBridge execution requires MultiBridgeRouter with configured EVMClient. Use MultiBridgeRouter.transfer() instead.' 
-    };
+    return {
+      success: false,
+      error:
+        'ZKSolBridge execution requires MultiBridgeRouter with configured EVMClient. Use MultiBridgeRouter.transfer() instead.',
+    }
   }
 
-  private async executeHyperlaneStep(step: RouteStep, _request: RouteRequest): Promise<{
-    success: boolean;
-    transactionHash?: string;
-    error?: string;
+  private async executeHyperlaneStep(
+    step: RouteStep,
+    _request: RouteRequest,
+  ): Promise<{
+    success: boolean
+    transactionHash?: string
+    error?: string
   }> {
-    const contracts = this.config.contracts[step.sourceChain];
+    const contracts = this.config.contracts[step.sourceChain]
     if (!contracts?.hyperlaneMailbox) {
-      return { success: false, error: `Hyperlane mailbox not configured for chain ${step.sourceChain}` };
+      return {
+        success: false,
+        error: `Hyperlane mailbox not configured for chain ${step.sourceChain}`,
+      }
     }
     // Hyperlane execution requires wallet client - route through MultiBridgeRouter
-    return { 
-      success: false, 
-      error: 'Hyperlane execution requires MultiBridgeRouter with configured wallet. Use MultiBridgeRouter.transfer() instead.' 
-    };
+    return {
+      success: false,
+      error:
+        'Hyperlane execution requires MultiBridgeRouter with configured wallet. Use MultiBridgeRouter.transfer() instead.',
+    }
   }
 
-  private async executeCCIPStep(_step: RouteStep, _request: RouteRequest): Promise<{
-    success: boolean;
-    transactionHash?: string;
-    error?: string;
+  private async executeCCIPStep(
+    _step: RouteStep,
+    _request: RouteRequest,
+  ): Promise<{
+    success: boolean
+    transactionHash?: string
+    error?: string
   }> {
     // CCIP execution requires CCIPAdapter - route through MultiBridgeRouter
-    return { 
-      success: false, 
-      error: 'CCIP execution requires MultiBridgeRouter with CCIPAdapter. Use MultiBridgeRouter.transfer() instead.' 
-    };
+    return {
+      success: false,
+      error:
+        'CCIP execution requires MultiBridgeRouter with CCIPAdapter. Use MultiBridgeRouter.transfer() instead.',
+    }
   }
 
-  private async executeOIFStep(step: RouteStep, _request: RouteRequest): Promise<{
-    success: boolean;
-    transactionHash?: string;
-    error?: string;
+  private async executeOIFStep(
+    step: RouteStep,
+    _request: RouteRequest,
+  ): Promise<{
+    success: boolean
+    transactionHash?: string
+    error?: string
   }> {
-    const contracts = this.config.contracts[step.sourceChain];
+    const contracts = this.config.contracts[step.sourceChain]
     if (!contracts?.oifInputSettler) {
-      return { success: false, error: `OIF input settler not configured for chain ${step.sourceChain}` };
+      return {
+        success: false,
+        error: `OIF input settler not configured for chain ${step.sourceChain}`,
+      }
     }
     // OIF execution requires wallet and settler integration - route through MultiBridgeRouter
-    return { 
-      success: false, 
-      error: 'OIF execution requires MultiBridgeRouter with configured OIF settler. Use MultiBridgeRouter.transfer() instead.' 
-    };
+    return {
+      success: false,
+      error:
+        'OIF execution requires MultiBridgeRouter with configured OIF settler. Use MultiBridgeRouter.transfer() instead.',
+    }
   }
 }
 
 // ============ Factory ============
 
-export function createRouter(config: Partial<RouterConfig> = {}): CrossChainRouter {
+export function createRouter(
+  config: Partial<RouterConfig> = {},
+): CrossChainRouter {
   const defaultConfig: RouterConfig = {
     contracts: {},
     protocolFeeBps: 10, // 0.1%
@@ -576,8 +639,7 @@ export function createRouter(config: Partial<RouterConfig> = {}): CrossChainRout
     enableMEV: true,
     minArbProfitBps: 50, // 0.5% min profit for arb
     ...config,
-  };
+  }
 
-  return new CrossChainRouter(defaultConfig);
+  return new CrossChainRouter(defaultConfig)
 }
-

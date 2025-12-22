@@ -6,11 +6,11 @@
  * that are wrapped and resold through the network with unified payment handling.
  */
 
-import type { Address, Hex } from 'viem';
-import { GPUType } from './compute';
+import type { Address, Hex } from 'viem'
+import { GPUType } from './compute'
 
 // Re-export GPUType for convenience
-export { GPUType };
+export { GPUType }
 
 // ============================================================================
 // Provider Types
@@ -19,9 +19,10 @@ export { GPUType };
 export const ExternalProviderTypes = {
   AKASH: 'akash',
   NATIVE: 'native',
-} as const;
+} as const
 
-export type ExternalProviderType = (typeof ExternalProviderTypes)[keyof typeof ExternalProviderTypes];
+export type ExternalProviderType =
+  (typeof ExternalProviderTypes)[keyof typeof ExternalProviderTypes]
 
 export const ProviderStatus = {
   COLD: 'cold',
@@ -31,9 +32,10 @@ export const ProviderStatus = {
   DRAINING: 'draining',
   ERROR: 'error',
   TERMINATED: 'terminated',
-} as const;
+} as const
 
-export type ProviderStatusType = (typeof ProviderStatus)[keyof typeof ProviderStatus];
+export type ProviderStatusType =
+  (typeof ProviderStatus)[keyof typeof ProviderStatus]
 
 // ============================================================================
 // Hardware Specifications
@@ -51,31 +53,31 @@ export function getGPUTypeName(gpuType: GPUType): string {
     [GPUType.APPLE_M1_MAX]: 'Apple M1 Max',
     [GPUType.APPLE_M2_ULTRA]: 'Apple M2 Ultra',
     [GPUType.APPLE_M3_MAX]: 'Apple M3 Max',
-  };
-  const name = names[gpuType];
-  if (name === undefined) {
-    throw new Error(`Unknown GPUType: ${gpuType}`);
   }
-  return name;
+  const name = names[gpuType]
+  if (name === undefined) {
+    throw new Error(`Unknown GPUType: ${gpuType}`)
+  }
+  return name
 }
 
 export interface HardwareRequirements {
-  cpuCores: number;
-  memoryGb: number;
-  storageGb: number;
-  gpuType: GPUType;
-  gpuCount: number;
-  gpuMemoryGb: number;
-  bandwidthMbps: number;
-  teeRequired: boolean;
-  teeType?: 'intel-tdx' | 'intel-sgx' | 'amd-sev' | 'none';
+  cpuCores: number
+  memoryGb: number
+  storageGb: number
+  gpuType: GPUType
+  gpuCount: number
+  gpuMemoryGb: number
+  bandwidthMbps: number
+  teeRequired: boolean
+  teeType?: 'intel-tdx' | 'intel-sgx' | 'amd-sev' | 'none'
 }
 
 export interface HardwareCapabilities extends HardwareRequirements {
-  cpuModel: string;
-  region: string;
-  availableSlots: number;
-  maxConcurrentDeployments: number;
+  cpuModel: string
+  region: string
+  availableSlots: number
+  maxConcurrentDeployments: number
 }
 
 // ============================================================================
@@ -84,21 +86,21 @@ export interface HardwareCapabilities extends HardwareRequirements {
 
 export interface ExternalProviderPricing {
   /** Price per hour in wei (ETH equivalent) */
-  pricePerHourWei: bigint;
+  pricePerHourWei: bigint
   /** Minimum rental duration in hours */
-  minimumHours: number;
+  minimumHours: number
   /** Maximum rental duration in hours */
-  maximumHours: number;
+  maximumHours: number
   /** network markup in basis points (100 = 1%) */
-  markupBps: number;
+  markupBps: number
   /** Original provider price before markup (for transparency) */
-  originalPricePerHour: bigint;
+  originalPricePerHour: bigint
   /** Currency of original price (e.g., 'AKT', 'USD') */
-  originalCurrency: string;
+  originalCurrency: string
   /** Timestamp of last price update */
-  priceUpdatedAt: number;
+  priceUpdatedAt: number
   /** Price staleness tolerance in seconds */
-  priceStalenessToleranceSec: number;
+  priceStalenessToleranceSec: number
 }
 
 // ============================================================================
@@ -107,52 +109,52 @@ export interface ExternalProviderPricing {
 
 export interface ContainerConfig {
   /** Container image (from the network registry CID or external registry URL) */
-  image: string;
+  image: string
   /** Whether image is from the network decentralized registry */
-  isChainRegistry: boolean;
+  isChainRegistry: boolean
   /** CID if from the network registry */
-  cid?: string;
+  cid?: string
   /** Command to run */
-  command?: string[];
+  command?: string[]
   /** Arguments to command */
-  args?: string[];
+  args?: string[]
   /** Environment variables (non-secret) */
-  env?: Record<string, string>;
+  env?: Record<string, string>
   /** Secret references (IDs from SecretVault) */
-  secretRefs?: string[];
+  secretRefs?: string[]
   /** Exposed ports */
   ports?: Array<{
-    containerPort: number;
-    protocol: 'tcp' | 'udp';
-    expose: boolean;
-  }>;
+    containerPort: number
+    protocol: 'tcp' | 'udp'
+    expose: boolean
+  }>
   /** Resource limits */
-  resources: HardwareRequirements;
+  resources: HardwareRequirements
 }
 
 export interface DeploymentConfig {
   /** Unique deployment ID */
-  deploymentId: string;
+  deploymentId: string
   /** Container configuration */
-  container: ContainerConfig;
+  container: ContainerConfig
   /** Requested duration in hours */
-  durationHours: number;
+  durationHours: number
   /** Whether to auto-renew */
-  autoRenew: boolean;
+  autoRenew: boolean
   /** Maximum auto-renew budget (wei) */
-  maxAutoRenewBudget?: bigint;
+  maxAutoRenewBudget?: bigint
   /** User wallet address */
-  userAddress: Address;
+  userAddress: Address
   /** SSH public key for access */
-  sshPublicKey?: string;
+  sshPublicKey?: string
   /** Health check configuration */
   healthCheck?: {
-    path: string;
-    port: number;
-    intervalSeconds: number;
-    timeoutSeconds: number;
-    initialDelaySeconds: number;
-  };
+    path: string
+    port: number
+    intervalSeconds: number
+    timeoutSeconds: number
+    initialDelaySeconds: number
+  }
 }
 
 // ============================================================================
@@ -161,43 +163,43 @@ export interface DeploymentConfig {
 
 export interface ExternalDeployment {
   /** Network deployment ID */
-  deploymentId: string;
+  deploymentId: string
   /** External provider type */
-  providerType: ExternalProviderType;
+  providerType: ExternalProviderType
   /** External provider's deployment ID */
-  externalDeploymentId: string;
+  externalDeploymentId: string
   /** Current status */
-  status: ProviderStatusType;
+  status: ProviderStatusType
   /** Access endpoint (for HTTP) */
-  httpEndpoint?: string;
+  httpEndpoint?: string
   /** SSH access details */
   ssh?: {
-    host: string;
-    port: number;
-    username: string;
-  };
+    host: string
+    port: number
+    username: string
+  }
   /** Start timestamp */
-  startedAt: number;
+  startedAt: number
   /** Scheduled end timestamp */
-  expiresAt: number;
+  expiresAt: number
   /** Total cost paid (wei) */
-  totalCostPaid: bigint;
+  totalCostPaid: bigint
   /** Hardware allocated */
-  hardware: HardwareCapabilities;
+  hardware: HardwareCapabilities
   /** Pricing at time of deployment */
-  pricing: ExternalProviderPricing;
+  pricing: ExternalProviderPricing
   /** Bridge node that provisioned this */
-  bridgeNodeAddress: Address;
+  bridgeNodeAddress: Address
   /** TEE attestation if applicable */
   attestation?: {
-    hash: Hex;
-    timestamp: number;
-    verified: boolean;
-  };
+    hash: Hex
+    timestamp: number
+    verified: boolean
+  }
   /** Error message if status is ERROR */
-  error?: string;
+  error?: string
   /** Logs URL */
-  logsUrl?: string;
+  logsUrl?: string
 }
 
 // ============================================================================
@@ -206,52 +208,52 @@ export interface ExternalDeployment {
 
 export interface BridgeNodeConfig {
   /** Bridge node wallet address */
-  address: Address;
+  address: Address
   /** ERC-8004 agent ID */
-  agentId: bigint;
+  agentId: bigint
   /** Supported external provider types */
-  supportedProviders: ExternalProviderType[];
+  supportedProviders: ExternalProviderType[]
   /** Stake amount (wei) */
-  stake: bigint;
+  stake: bigint
   /** Minimum stake required (wei) */
-  minStakeRequired: bigint;
+  minStakeRequired: bigint
   /** Markup basis points (on top of network default) */
-  markupBps: number;
+  markupBps: number
   /** Regions supported */
-  regions: string[];
+  regions: string[]
   /** Maximum concurrent deployments */
-  maxConcurrentDeployments: number;
+  maxConcurrentDeployments: number
   /** Current active deployments */
-  activeDeployments: number;
+  activeDeployments: number
   /** Total deployments completed */
-  totalDeploymentsCompleted: bigint;
+  totalDeploymentsCompleted: bigint
   /** Total revenue earned (wei) */
-  totalRevenueEarned: bigint;
+  totalRevenueEarned: bigint
   /** Total slashed amount (wei) */
-  totalSlashed: bigint;
+  totalSlashed: bigint
   /** Reputation score (0-100) */
-  reputationScore: number;
+  reputationScore: number
   /** Whether bridge node is active */
-  active: boolean;
+  active: boolean
   /** Registered timestamp */
-  registeredAt: number;
+  registeredAt: number
 }
 
 export interface BridgeNodeCredential {
   /** Secret ID in SecretVault */
-  secretId: string;
+  secretId: string
   /** Provider type this credential is for */
-  providerType: ExternalProviderType;
+  providerType: ExternalProviderType
   /** Credential owner (must match bridge node address) */
-  owner: Address;
+  owner: Address
   /** Description */
-  description: string;
+  description: string
   /** Whether credential is verified working */
-  verified: boolean;
+  verified: boolean
   /** Last verification timestamp */
-  lastVerifiedAt: number;
+  lastVerifiedAt: number
   /** Expiration timestamp (if applicable) */
-  expiresAt?: number;
+  expiresAt?: number
 }
 
 // ============================================================================
@@ -264,44 +266,45 @@ export const SlashingReasons = {
   SLA_VIOLATION: 'sla_violation',
   INVALID_ATTESTATION: 'invalid_attestation',
   PRICE_MANIPULATION: 'price_manipulation',
-} as const;
+} as const
 
-export type SlashingReason = (typeof SlashingReasons)[keyof typeof SlashingReasons];
+export type SlashingReason =
+  (typeof SlashingReasons)[keyof typeof SlashingReasons]
 
 export interface SlashingConfig {
   /** Slash revenue (not stake) on failure - basis points */
-  revenueSlashBps: number;
+  revenueSlashBps: number
   /** Minimum reputation before stake slashing kicks in */
-  minReputationForStakeProtection: number;
+  minReputationForStakeProtection: number
   /** Stake slash amount for repeated offenders (bps) */
-  stakeSlashBps: number;
+  stakeSlashBps: number
   /** Cooldown between slashing events (seconds) */
-  slashingCooldownSec: number;
+  slashingCooldownSec: number
   /** DAO governance address that can modify these */
-  governanceAddress: Address;
+  governanceAddress: Address
 }
 
 export interface SlashingEvent {
   /** Event ID */
-  eventId: Hex;
+  eventId: Hex
   /** Bridge node address */
-  bridgeNode: Address;
+  bridgeNode: Address
   /** Reason for slashing */
-  reason: SlashingReason;
+  reason: SlashingReason
   /** Amount slashed (wei) - from revenue, not stake */
-  amountSlashed: bigint;
+  amountSlashed: bigint
   /** Whether stake was slashed (only for repeat offenders) */
-  stakeSlashed: boolean;
+  stakeSlashed: boolean
   /** Deployment ID that caused this */
-  deploymentId: string;
+  deploymentId: string
   /** Timestamp */
-  timestamp: number;
+  timestamp: number
   /** Evidence hash */
-  evidenceHash: Hex;
+  evidenceHash: Hex
   /** Disputed flag */
-  disputed: boolean;
+  disputed: boolean
   /** Resolution if disputed */
-  resolution?: 'upheld' | 'reversed';
+  resolution?: 'upheld' | 'reversed'
 }
 
 // ============================================================================
@@ -310,49 +313,65 @@ export interface SlashingEvent {
 
 export interface ExternalComputeProvider {
   /** Provider type identifier */
-  readonly type: ExternalProviderType;
+  readonly type: ExternalProviderType
   /** Human-readable name */
-  readonly name: string;
+  readonly name: string
 
   /** Check if provider is available */
-  isAvailable(): Promise<boolean>;
+  isAvailable(): Promise<boolean>
 
   /** Get available hardware options with pricing */
-  listOfferings(filter?: Partial<HardwareRequirements>): Promise<Array<{
-    hardware: HardwareCapabilities;
-    pricing: ExternalProviderPricing;
-    availableCount: number;
-  }>>;
+  listOfferings(filter?: Partial<HardwareRequirements>): Promise<
+    Array<{
+      hardware: HardwareCapabilities
+      pricing: ExternalProviderPricing
+      availableCount: number
+    }>
+  >
 
   /** Get quote for deployment */
   getQuote(config: DeploymentConfig): Promise<{
-    totalCost: bigint;
-    pricePerHour: bigint;
-    estimatedReadyTime: number;
-    warnings: string[];
-  }>;
+    totalCost: bigint
+    pricePerHour: bigint
+    estimatedReadyTime: number
+    warnings: string[]
+  }>
 
   /** Create deployment */
-  deploy(config: DeploymentConfig, credentials: BridgeNodeCredential): Promise<ExternalDeployment>;
+  deploy(
+    config: DeploymentConfig,
+    credentials: BridgeNodeCredential,
+  ): Promise<ExternalDeployment>
 
   /** Get deployment status */
-  getDeployment(deploymentId: string): Promise<ExternalDeployment | null>;
+  getDeployment(deploymentId: string): Promise<ExternalDeployment | null>
 
   /** Terminate deployment */
-  terminate(deploymentId: string, credentials: BridgeNodeCredential): Promise<void>;
+  terminate(
+    deploymentId: string,
+    credentials: BridgeNodeCredential,
+  ): Promise<void>
 
   /** Extend deployment */
-  extend(deploymentId: string, additionalHours: number, credentials: BridgeNodeCredential): Promise<ExternalDeployment>;
+  extend(
+    deploymentId: string,
+    additionalHours: number,
+    credentials: BridgeNodeCredential,
+  ): Promise<ExternalDeployment>
 
   /** Get logs */
-  getLogs(deploymentId: string, credentials: BridgeNodeCredential, tail?: number): Promise<string>;
+  getLogs(
+    deploymentId: string,
+    credentials: BridgeNodeCredential,
+    tail?: number,
+  ): Promise<string>
 
   /** Health check */
   healthCheck(deploymentId: string): Promise<{
-    healthy: boolean;
-    latencyMs: number;
-    lastCheck: number;
-  }>;
+    healthy: boolean
+    latencyMs: number
+    lastCheck: number
+  }>
 }
 
 // ============================================================================
@@ -361,38 +380,38 @@ export interface ExternalComputeProvider {
 
 export interface ExternalPaymentConfig {
   /** Chain ID for payment source */
-  sourceChainId: number;
+  sourceChainId: number
   /** Token address for payment (address(0) = ETH) */
-  paymentToken: Address;
+  paymentToken: Address
   /** Amount to pay (wei) */
-  amount: bigint;
+  amount: bigint
   /** Recipient (bridge node) */
-  recipient: Address;
+  recipient: Address
   /** Whether to use EIL for cross-chain payment */
-  useEIL: boolean;
+  useEIL: boolean
   /** Destination chain ID if using EIL */
-  destinationChainId?: number;
+  destinationChainId?: number
   /** Destination token (e.g., AKT for Akash) */
-  destinationToken?: string;
+  destinationToken?: string
   /** Slippage tolerance (bps) */
-  slippageBps?: number;
+  slippageBps?: number
 }
 
 export interface PaymentResult {
   /** Success flag */
-  success: boolean;
+  success: boolean
   /** Transaction hash on source chain */
-  sourceTxHash: Hex;
+  sourceTxHash: Hex
   /** Transaction hash on destination chain (if EIL) */
-  destinationTxHash?: Hex;
+  destinationTxHash?: Hex
   /** Amount paid in source token */
-  amountPaid: bigint;
+  amountPaid: bigint
   /** Amount received in destination token */
-  amountReceived?: bigint;
+  amountReceived?: bigint
   /** Fee paid (wei) */
-  feePaid: bigint;
+  feePaid: bigint
   /** Timestamp */
-  timestamp: number;
+  timestamp: number
 }
 
 // ============================================================================
@@ -401,42 +420,41 @@ export interface PaymentResult {
 
 export interface ExternalComputeEvents {
   DeploymentCreated: {
-    deploymentId: string;
-    providerType: ExternalProviderType;
-    bridgeNode: Address;
-    user: Address;
-    hardware: HardwareRequirements;
-    durationHours: number;
-    totalCost: bigint;
-  };
+    deploymentId: string
+    providerType: ExternalProviderType
+    bridgeNode: Address
+    user: Address
+    hardware: HardwareRequirements
+    durationHours: number
+    totalCost: bigint
+  }
   DeploymentReady: {
-    deploymentId: string;
-    httpEndpoint?: string;
-    sshHost?: string;
-    sshPort?: number;
-  };
+    deploymentId: string
+    httpEndpoint?: string
+    sshHost?: string
+    sshPort?: number
+  }
   DeploymentTerminated: {
-    deploymentId: string;
-    reason: 'expired' | 'user_cancelled' | 'bridge_terminated' | 'error';
-    refundAmount?: bigint;
-  };
+    deploymentId: string
+    reason: 'expired' | 'user_cancelled' | 'bridge_terminated' | 'error'
+    refundAmount?: bigint
+  }
   BridgeNodeRegistered: {
-    address: Address;
-    agentId: bigint;
-    stake: bigint;
-    supportedProviders: ExternalProviderType[];
-  };
+    address: Address
+    agentId: bigint
+    stake: bigint
+    supportedProviders: ExternalProviderType[]
+  }
   BridgeNodeSlashed: {
-    address: Address;
-    reason: SlashingReason;
-    amount: bigint;
-    stakeSlashed: boolean;
-  };
+    address: Address
+    reason: SlashingReason
+    amount: bigint
+    stakeSlashed: boolean
+  }
   PricingUpdated: {
-    providerType: ExternalProviderType;
-    bridgeNode: Address;
-    oldPricePerHour: bigint;
-    newPricePerHour: bigint;
-  };
+    providerType: ExternalProviderType
+    bridgeNode: Address
+    oldPricePerHour: bigint
+    newPricePerHour: bigint
+  }
 }
-

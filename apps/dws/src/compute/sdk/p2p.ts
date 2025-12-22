@@ -13,42 +13,76 @@
  * In production: Can use Iroh for lower-latency gossip and blob transfer
  */
 
-import type { Address, Hex, PublicClient } from 'viem';
-import { createPublicClient, http, keccak256, toBytes } from 'viem';
+import type { Address, Chain, Hex } from 'viem'
+import { createPublicClient, http, keccak256, toBytes } from 'viem'
+
+// ============================================================================
+// Chain Inference
+// ============================================================================
+
+function inferChainFromRpcUrl(rpcUrl: string): Chain {
+  if (
+    rpcUrl.includes('localhost') ||
+    rpcUrl.includes('127.0.0.1') ||
+    rpcUrl.includes(':9545') ||
+    rpcUrl.includes(':8545')
+  ) {
+    return {
+      id: 1337,
+      name: 'Local Network',
+      nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+      rpcUrls: { default: { http: [rpcUrl] } },
+    }
+  }
+  if (rpcUrl.includes('testnet')) {
+    return {
+      id: 420691,
+      name: 'Network Testnet',
+      nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+      rpcUrls: { default: { http: [rpcUrl] } },
+    }
+  }
+  return {
+    id: 42069,
+    name: 'Network',
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+    rpcUrls: { default: { http: [rpcUrl] } },
+  }
+}
 
 // ============================================================================
 // Types
 // ============================================================================
 
 export interface P2PConfig {
-  rpcUrl: string;
-  identityRegistryAddress: Address;
-  selfEndpoint: string;
-  selfAgentId?: bigint;
+  rpcUrl: string
+  identityRegistryAddress: Address
+  selfEndpoint: string
+  selfAgentId?: bigint
 }
 
 export interface PeerNode {
-  agentId: bigint;
-  endpoint: string;
-  publicKey: Hex;
-  lastSeen: number;
-  latency: number;
-  capabilities: string[];
+  agentId: bigint
+  endpoint: string
+  publicKey: Hex
+  lastSeen: number
+  latency: number
+  capabilities: string[]
 }
 
 export interface GossipMessage {
-  type: 'witness' | 'gradient' | 'checkpoint' | 'heartbeat' | 'round_data';
-  runId: Hex;
-  sender: Address;
-  timestamp: number;
-  payload: Uint8Array;
-  signature: Hex;
+  type: 'witness' | 'gradient' | 'checkpoint' | 'heartbeat' | 'round_data'
+  runId: Hex
+  sender: Address
+  timestamp: number
+  payload: Uint8Array
+  signature: Hex
 }
 
 export interface BlobReference {
-  hash: Hex;
-  size: number;
-  providers: string[];
+  hash: Hex
+  size: number
+  providers: string[]
 }
 
 // ============================================================================
@@ -103,97 +137,93 @@ const IDENTITY_REGISTRY_ABI = [
     ],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 // ============================================================================
 // Peer Discovery
 // ============================================================================
 
 export class PeerDiscovery {
-  private publicClient: PublicClient;
-  private registryAddress: Address;
-  private peerCache: Map<string, PeerNode> = new Map();
-  private cacheExpiry = 30000; // 30 seconds
-  private lastRefresh = 0;
+  private publicClient: ReturnType<typeof createPublicClient>
+  private registryAddress: Address
+  private peerCache: Map<string, PeerNode> = new Map()
+  private cacheExpiry = 30000 // 30 seconds
+  private lastRefresh = 0
 
   constructor(rpcUrl: string, registryAddress: Address) {
-    this.publicClient = createPublicClient({
-      transport: http(rpcUrl),
-    });
-    this.registryAddress = registryAddress;
+    const chain = inferChainFromRpcUrl(rpcUrl)
+    this.publicClient = createPublicClient({ chain, transport: http(rpcUrl) })
+    this.registryAddress = registryAddress
+  }
+
+  private async read<T>(
+    functionName: string,
+    args: readonly (string | bigint)[] = [],
+  ): Promise<T> {
+    return this.publicClient.readContract({
+      address: this.registryAddress,
+      abi: IDENTITY_REGISTRY_ABI as never,
+      functionName,
+      args,
+    } as never) as Promise<T>
   }
 
   async discoverTrainingNodes(): Promise<PeerNode[]> {
-    const now = Date.now();
+    const now = Date.now()
     if (now - this.lastRefresh < this.cacheExpiry && this.peerCache.size > 0) {
-      return Array.from(this.peerCache.values());
+      return Array.from(this.peerCache.values())
     }
 
     // Find all agents tagged as training nodes
-    const agentIds = (await this.publicClient.readContract({
-      address: this.registryAddress,
-      abi: IDENTITY_REGISTRY_ABI,
-      functionName: 'getAgentsByTag',
-      args: ['dws-training'],
-    })) as bigint[];
+    const agentIds = await this.read<bigint[]>('getAgentsByTag', [
+      'dws-training',
+    ])
 
-    const peers: PeerNode[] = [];
+    const peers: PeerNode[] = []
     for (const agentId of agentIds) {
-      const peer = await this.getPeerInfo(agentId);
+      const peer = await this.getPeerInfo(agentId)
       if (peer) {
-        peers.push(peer);
-        this.peerCache.set(agentId.toString(), peer);
+        peers.push(peer)
+        this.peerCache.set(agentId.toString(), peer)
       }
     }
 
-    this.lastRefresh = now;
-    return peers;
+    this.lastRefresh = now
+    return peers
   }
 
   async getPeerInfo(agentId: bigint): Promise<PeerNode | null> {
-    const cached = this.peerCache.get(agentId.toString());
+    const cached = this.peerCache.get(agentId.toString())
     if (cached && Date.now() - cached.lastSeen < this.cacheExpiry) {
-      return cached;
+      return cached
     }
 
-    const agent = (await this.publicClient.readContract({
-      address: this.registryAddress,
-      abi: IDENTITY_REGISTRY_ABI,
-      functionName: 'getAgent',
-      args: [agentId],
-    })) as {
-      agentId: bigint;
-      owner: Address;
-      isBanned: boolean;
-    };
+    const agent = await this.read<{
+      agentId: bigint
+      owner: Address
+      isBanned: boolean
+    }>('getAgent', [agentId])
 
-    if (agent.isBanned) return null;
+    if (agent.isBanned) return null
 
-    const endpoint = (await this.publicClient.readContract({
-      address: this.registryAddress,
-      abi: IDENTITY_REGISTRY_ABI,
-      functionName: 'getA2AEndpoint',
-      args: [agentId],
-    })) as string;
+    const endpoint = await this.read<string>('getA2AEndpoint', [agentId])
 
-    if (!endpoint) return null;
+    if (!endpoint) return null
 
     // Get public key from metadata
-    const pubKeyBytes = (await this.publicClient.readContract({
-      address: this.registryAddress,
-      abi: IDENTITY_REGISTRY_ABI,
-      functionName: 'getMetadata',
-      args: [agentId, 'p2pPublicKey'],
-    })) as Hex;
+    const pubKeyBytes = await this.read<Hex>('getMetadata', [
+      agentId,
+      'p2pPublicKey',
+    ])
 
-    const publicKey = pubKeyBytes || ('0x' as Hex);
+    const publicKey = pubKeyBytes || ('0x' as Hex)
 
     // Ping to measure latency
-    const start = Date.now();
-    const healthy = await this.pingPeer(endpoint);
-    const latency = healthy ? Date.now() - start : Infinity;
+    const start = Date.now()
+    const healthy = await this.pingPeer(endpoint)
+    const latency = healthy ? Date.now() - start : Infinity
 
-    if (!healthy) return null;
+    if (!healthy) return null
 
     return {
       agentId,
@@ -202,25 +232,25 @@ export class PeerDiscovery {
       lastSeen: Date.now(),
       latency,
       capabilities: ['training', 'witness'],
-    };
+    }
   }
 
   private async pingPeer(endpoint: string): Promise<boolean> {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 5000)
 
     const response = await fetch(`${endpoint}/health`, {
       signal: controller.signal,
     })
       .catch(() => null)
-      .finally(() => clearTimeout(timeout));
+      .finally(() => clearTimeout(timeout))
 
-    return response?.ok ?? false;
+    return response?.ok ?? false
   }
 
   async findFastestPeers(count: number): Promise<PeerNode[]> {
-    const peers = await this.discoverTrainingNodes();
-    return peers.sort((a, b) => a.latency - b.latency).slice(0, count);
+    const peers = await this.discoverTrainingNodes()
+    return peers.sort((a, b) => a.latency - b.latency).slice(0, count)
   }
 }
 
@@ -229,40 +259,44 @@ export class PeerDiscovery {
 // ============================================================================
 
 export class GossipNetwork {
-  private discovery: PeerDiscovery;
-  private selfEndpoint: string;
-  private messageHandlers: Map<string, (msg: GossipMessage) => Promise<void>> = new Map();
-  private seenMessages: Set<string> = new Set();
-  private maxSeenMessages = 10000;
-  private fanout = 8; // Number of peers to gossip to
+  private discovery: PeerDiscovery
+  private selfEndpoint: string
+  private messageHandlers: Map<string, (msg: GossipMessage) => Promise<void>> =
+    new Map()
+  private seenMessages: Set<string> = new Set()
+  private maxSeenMessages = 10000
+  private fanout = 8 // Number of peers to gossip to
 
   constructor(discovery: PeerDiscovery, selfEndpoint: string) {
-    this.discovery = discovery;
-    this.selfEndpoint = selfEndpoint;
+    this.discovery = discovery
+    this.selfEndpoint = selfEndpoint
   }
 
-  onMessage(type: GossipMessage['type'], handler: (msg: GossipMessage) => Promise<void>): void {
-    this.messageHandlers.set(type, handler);
+  onMessage(
+    type: GossipMessage['type'],
+    handler: (msg: GossipMessage) => Promise<void>,
+  ): void {
+    this.messageHandlers.set(type, handler)
   }
 
   async broadcast(message: Omit<GossipMessage, 'timestamp'>): Promise<void> {
     const fullMessage: GossipMessage = {
       ...message,
       timestamp: Date.now(),
-    };
+    }
 
-    const messageId = this.getMessageId(fullMessage);
-    if (this.seenMessages.has(messageId)) return;
+    const messageId = this.getMessageId(fullMessage)
+    if (this.seenMessages.has(messageId)) return
 
-    this.seenMessages.add(messageId);
-    this.pruneSeenMessages();
+    this.seenMessages.add(messageId)
+    this.pruneSeenMessages()
 
     // Get fastest peers to gossip to
-    const peers = await this.discovery.findFastestPeers(this.fanout);
+    const peers = await this.discovery.findFastestPeers(this.fanout)
 
     await Promise.all(
       peers.map(async (peer) => {
-        if (peer.endpoint === this.selfEndpoint) return;
+        if (peer.endpoint === this.selfEndpoint) return
 
         await fetch(`${peer.endpoint}/training/gossip`, {
           method: 'POST',
@@ -276,19 +310,21 @@ export class GossipNetwork {
             signature: fullMessage.signature,
           }),
         }).catch((err) => {
-          console.warn(`[P2P] Failed to gossip to ${peer.endpoint}: ${err.message}`);
-        });
-      })
-    );
+          console.warn(
+            `[P2P] Failed to gossip to ${peer.endpoint}: ${err.message}`,
+          )
+        })
+      }),
+    )
   }
 
   async handleIncoming(raw: {
-    type: string;
-    runId: Hex;
-    sender: Address;
-    timestamp: number;
-    payload: string;
-    signature: Hex;
+    type: string
+    runId: Hex
+    sender: Address
+    timestamp: number
+    payload: string
+    signature: Hex
   }): Promise<void> {
     const message: GossipMessage = {
       type: raw.type as GossipMessage['type'],
@@ -297,48 +333,52 @@ export class GossipNetwork {
       timestamp: raw.timestamp,
       payload: new Uint8Array(Buffer.from(raw.payload, 'base64')),
       signature: raw.signature,
-    };
+    }
 
-    const messageId = this.getMessageId(message);
-    if (this.seenMessages.has(messageId)) return;
+    const messageId = this.getMessageId(message)
+    if (this.seenMessages.has(messageId)) return
 
-    this.seenMessages.add(messageId);
-    this.pruneSeenMessages();
+    this.seenMessages.add(messageId)
+    this.pruneSeenMessages()
 
     // Handle locally
-    const handler = this.messageHandlers.get(message.type);
+    const handler = this.messageHandlers.get(message.type)
     if (handler) {
-      await handler(message);
+      await handler(message)
     }
 
     // Re-broadcast to other peers
-    const peers = await this.discovery.findFastestPeers(this.fanout / 2);
+    const peers = await this.discovery.findFastestPeers(this.fanout / 2)
     await Promise.all(
       peers.map(async (peer) => {
-        if (peer.endpoint === this.selfEndpoint) return;
+        if (peer.endpoint === this.selfEndpoint) return
 
         await fetch(`${peer.endpoint}/training/gossip`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(raw),
         }).catch((err) => {
-          console.warn(`[P2P] Failed to re-broadcast to ${peer.endpoint}: ${err.message}`);
-        });
-      })
-    );
+          console.warn(
+            `[P2P] Failed to re-broadcast to ${peer.endpoint}: ${err.message}`,
+          )
+        })
+      }),
+    )
   }
 
   private getMessageId(msg: GossipMessage): string {
-    return keccak256(toBytes(`${msg.runId}:${msg.sender}:${msg.timestamp}:${msg.type}`)).slice(2, 18);
+    return keccak256(
+      toBytes(`${msg.runId}:${msg.sender}:${msg.timestamp}:${msg.type}`),
+    ).slice(2, 18)
   }
 
   private pruneSeenMessages(): void {
     if (this.seenMessages.size > this.maxSeenMessages) {
-      const toDelete = this.seenMessages.size - this.maxSeenMessages / 2;
-      const iterator = this.seenMessages.values();
+      const toDelete = this.seenMessages.size - this.maxSeenMessages / 2
+      const iterator = this.seenMessages.values()
       for (let i = 0; i < toDelete; i++) {
-        const value = iterator.next().value;
-        if (value) this.seenMessages.delete(value);
+        const value = iterator.next().value
+        if (value) this.seenMessages.delete(value)
       }
     }
   }
@@ -349,92 +389,98 @@ export class GossipNetwork {
 // ============================================================================
 
 export class BlobStore {
-  private discovery: PeerDiscovery;
-  private selfEndpoint: string;
-  private localBlobs: Map<string, Uint8Array> = new Map();
-  private maxLocalSize = 1024 * 1024 * 1024; // 1GB
-  private currentSize = 0;
+  private discovery: PeerDiscovery
+  private selfEndpoint: string
+  private localBlobs: Map<string, Uint8Array> = new Map()
+  private maxLocalSize = 1024 * 1024 * 1024 // 1GB
+  private currentSize = 0
 
   constructor(discovery: PeerDiscovery, selfEndpoint: string) {
-    this.discovery = discovery;
-    this.selfEndpoint = selfEndpoint;
+    this.discovery = discovery
+    this.selfEndpoint = selfEndpoint
   }
 
   async store(data: Uint8Array): Promise<BlobReference> {
-    const hash = keccak256(data) as Hex;
+    const hash = keccak256(data) as Hex
 
     // Store locally
-    this.evictIfNeeded(data.length);
-    this.localBlobs.set(hash, data);
-    this.currentSize += data.length;
+    this.evictIfNeeded(data.length)
+    this.localBlobs.set(hash, data)
+    this.currentSize += data.length
 
     return {
       hash,
       size: data.length,
       providers: [this.selfEndpoint],
-    };
+    }
   }
 
   async fetch(ref: BlobReference): Promise<Uint8Array> {
     // Check local cache
-    const local = this.localBlobs.get(ref.hash);
-    if (local) return local;
+    const local = this.localBlobs.get(ref.hash)
+    if (local) return local
 
     // Try known providers
     for (const provider of ref.providers) {
-      const data = await this.fetchFromPeer(provider, ref.hash);
+      const data = await this.fetchFromPeer(provider, ref.hash)
       if (data) {
         // Cache locally
-        this.evictIfNeeded(data.length);
-        this.localBlobs.set(ref.hash, data);
-        this.currentSize += data.length;
-        return data;
+        this.evictIfNeeded(data.length)
+        this.localBlobs.set(ref.hash, data)
+        this.currentSize += data.length
+        return data
       }
     }
 
     // Try all known peers
-    const peers = await this.discovery.discoverTrainingNodes();
+    const peers = await this.discovery.discoverTrainingNodes()
     for (const peer of peers) {
-      const data = await this.fetchFromPeer(peer.endpoint, ref.hash);
+      const data = await this.fetchFromPeer(peer.endpoint, ref.hash)
       if (data) {
-        this.evictIfNeeded(data.length);
-        this.localBlobs.set(ref.hash, data);
-        this.currentSize += data.length;
-        return data;
+        this.evictIfNeeded(data.length)
+        this.localBlobs.set(ref.hash, data)
+        this.currentSize += data.length
+        return data
       }
     }
 
-    throw new Error(`Blob not found: ${ref.hash}`);
+    throw new Error(`Blob not found: ${ref.hash}`)
   }
 
-  private async fetchFromPeer(endpoint: string, hash: Hex): Promise<Uint8Array | null> {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000);
+  private async fetchFromPeer(
+    endpoint: string,
+    hash: Hex,
+  ): Promise<Uint8Array | null> {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 30000)
 
     const response = await fetch(`${endpoint}/training/blob/${hash}`, {
       signal: controller.signal,
     })
       .catch(() => null)
-      .finally(() => clearTimeout(timeout));
+      .finally(() => clearTimeout(timeout))
 
-    if (!response?.ok) return null;
+    if (!response?.ok) return null
 
-    return new Uint8Array(await response.arrayBuffer());
+    return new Uint8Array(await response.arrayBuffer())
   }
 
   serveBlob(hash: Hex): Uint8Array | null {
-    return this.localBlobs.get(hash) ?? null;
+    return this.localBlobs.get(hash) ?? null
   }
 
   private evictIfNeeded(newSize: number): void {
-    while (this.currentSize + newSize > this.maxLocalSize && this.localBlobs.size > 0) {
-      const oldest = this.localBlobs.keys().next().value;
-      if (!oldest) break;
+    while (
+      this.currentSize + newSize > this.maxLocalSize &&
+      this.localBlobs.size > 0
+    ) {
+      const oldest = this.localBlobs.keys().next().value
+      if (!oldest) break
 
-      const blob = this.localBlobs.get(oldest);
+      const blob = this.localBlobs.get(oldest)
       if (blob) {
-        this.currentSize -= blob.length;
-        this.localBlobs.delete(oldest);
+        this.currentSize -= blob.length
+        this.localBlobs.delete(oldest)
       }
     }
   }
@@ -443,7 +489,7 @@ export class BlobStore {
     return {
       blobCount: this.localBlobs.size,
       totalSize: this.currentSize,
-    };
+    }
   }
 }
 
@@ -452,38 +498,48 @@ export class BlobStore {
 // ============================================================================
 
 export class P2PTrainingNetwork {
-  private discovery: PeerDiscovery;
-  private gossip: GossipNetwork;
-  private blobs: BlobStore;
-  // @ts-expect-error Reserved for configuration
-  private _config: P2PConfig;
+  private discovery: PeerDiscovery
+  private gossip: GossipNetwork
+  private blobs: BlobStore
 
   constructor(config: P2PConfig) {
-    this._config = config;
-    this.discovery = new PeerDiscovery(config.rpcUrl, config.identityRegistryAddress);
-    this.gossip = new GossipNetwork(this.discovery, config.selfEndpoint);
-    this.blobs = new BlobStore(this.discovery, config.selfEndpoint);
+    this.discovery = new PeerDiscovery(
+      config.rpcUrl,
+      config.identityRegistryAddress,
+    )
+    this.gossip = new GossipNetwork(this.discovery, config.selfEndpoint)
+    this.blobs = new BlobStore(this.discovery, config.selfEndpoint)
   }
 
   async start(): Promise<void> {
     // Initial peer discovery
-    const peers = await this.discovery.discoverTrainingNodes();
-    console.log(`[P2P] Discovered ${peers.length} training nodes`);
+    const peers = await this.discovery.discoverTrainingNodes()
+    console.log(`[P2P] Discovered ${peers.length} training nodes`)
   }
 
-  async broadcastWitness(runId: Hex, sender: Address, witnessData: Uint8Array, signature: Hex): Promise<void> {
+  async broadcastWitness(
+    runId: Hex,
+    sender: Address,
+    witnessData: Uint8Array,
+    signature: Hex,
+  ): Promise<void> {
     await this.gossip.broadcast({
       type: 'witness',
       runId,
       sender,
       payload: witnessData,
       signature,
-    });
+    })
   }
 
-  async broadcastGradients(runId: Hex, sender: Address, gradients: Uint8Array, signature: Hex): Promise<BlobReference> {
+  async broadcastGradients(
+    runId: Hex,
+    sender: Address,
+    gradients: Uint8Array,
+    signature: Hex,
+  ): Promise<BlobReference> {
     // Store blob first
-    const ref = await this.blobs.store(gradients);
+    const ref = await this.blobs.store(gradients)
 
     // Broadcast reference
     await this.gossip.broadcast({
@@ -492,18 +548,18 @@ export class P2PTrainingNetwork {
       sender,
       payload: new TextEncoder().encode(JSON.stringify(ref)),
       signature,
-    });
+    })
 
-    return ref;
+    return ref
   }
 
   async broadcastCheckpoint(
     runId: Hex,
     sender: Address,
     checkpoint: Uint8Array,
-    signature: Hex
+    signature: Hex,
   ): Promise<BlobReference> {
-    const ref = await this.blobs.store(checkpoint);
+    const ref = await this.blobs.store(checkpoint)
 
     await this.gossip.broadcast({
       type: 'checkpoint',
@@ -511,60 +567,70 @@ export class P2PTrainingNetwork {
       sender,
       payload: new TextEncoder().encode(JSON.stringify(ref)),
       signature,
-    });
+    })
 
-    return ref;
+    return ref
   }
 
-  onWitness(handler: (runId: Hex, sender: Address, data: Uint8Array) => Promise<void>): void {
+  onWitness(
+    handler: (runId: Hex, sender: Address, data: Uint8Array) => Promise<void>,
+  ): void {
     this.gossip.onMessage('witness', async (msg) => {
-      await handler(msg.runId, msg.sender, msg.payload);
-    });
+      await handler(msg.runId, msg.sender, msg.payload)
+    })
   }
 
-  onGradients(handler: (runId: Hex, sender: Address, ref: BlobReference) => Promise<void>): void {
+  onGradients(
+    handler: (runId: Hex, sender: Address, ref: BlobReference) => Promise<void>,
+  ): void {
     this.gossip.onMessage('gradient', async (msg) => {
-      const ref = JSON.parse(new TextDecoder().decode(msg.payload)) as BlobReference;
-      await handler(msg.runId, msg.sender, ref);
-    });
+      const ref = JSON.parse(
+        new TextDecoder().decode(msg.payload),
+      ) as BlobReference
+      await handler(msg.runId, msg.sender, ref)
+    })
   }
 
-  onCheckpoint(handler: (runId: Hex, sender: Address, ref: BlobReference) => Promise<void>): void {
+  onCheckpoint(
+    handler: (runId: Hex, sender: Address, ref: BlobReference) => Promise<void>,
+  ): void {
     this.gossip.onMessage('checkpoint', async (msg) => {
-      const ref = JSON.parse(new TextDecoder().decode(msg.payload)) as BlobReference;
-      await handler(msg.runId, msg.sender, ref);
-    });
+      const ref = JSON.parse(
+        new TextDecoder().decode(msg.payload),
+      ) as BlobReference
+      await handler(msg.runId, msg.sender, ref)
+    })
   }
 
   async fetchBlob(ref: BlobReference): Promise<Uint8Array> {
-    return this.blobs.fetch(ref);
+    return this.blobs.fetch(ref)
   }
 
   serveBlob(hash: Hex): Uint8Array | null {
-    return this.blobs.serveBlob(hash);
+    return this.blobs.serveBlob(hash)
   }
 
   async handleGossip(raw: {
-    type: string;
-    runId: Hex;
-    sender: Address;
-    timestamp: number;
-    payload: string;
-    signature: Hex;
+    type: string
+    runId: Hex
+    sender: Address
+    timestamp: number
+    payload: string
+    signature: Hex
   }): Promise<void> {
-    await this.gossip.handleIncoming(raw);
+    await this.gossip.handleIncoming(raw)
   }
 
   async getPeers(): Promise<PeerNode[]> {
-    return this.discovery.discoverTrainingNodes();
+    return this.discovery.discoverTrainingNodes()
   }
 
   getStats(): { peers: number; blobs: { count: number; size: number } } {
-    const blobStats = this.blobs.getStats();
+    const blobStats = this.blobs.getStats()
     return {
       peers: 0, // Will be populated on next discovery
       blobs: { count: blobStats.blobCount, size: blobStats.totalSize },
-    };
+    }
   }
 }
 
@@ -573,6 +639,5 @@ export class P2PTrainingNetwork {
 // ============================================================================
 
 export function createP2PNetwork(config: P2PConfig): P2PTrainingNetwork {
-  return new P2PTrainingNetwork(config);
+  return new P2PTrainingNetwork(config)
 }
-

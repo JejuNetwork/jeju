@@ -1,70 +1,103 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { useAccount } from 'wagmi';
+import { clsx } from 'clsx'
 import {
-  GitPullRequest,
-  ArrowLeft,
-  GitBranch,
-  ChevronDown,
-  ArrowRight,
-  Loader2,
-  Send,
   AlertCircle,
+  ArrowLeft,
+  ArrowRight,
   CheckCircle,
+  ChevronDown,
   FileCode,
-  Plus,
+  GitBranch,
+  GitPullRequest,
+  Loader2,
   Minus,
-} from 'lucide-react';
-import Link from 'next/link';
-import { clsx } from 'clsx';
-import { useRepo, useCreatePullRequest } from '../../../../../../hooks';
+  Plus,
+  Send,
+} from 'lucide-react'
+import Link from 'next/link'
+import { useParams, useRouter } from 'next/navigation'
+import { useState } from 'react'
+import { useAccount } from 'wagmi'
+
+const branches = [
+  'main',
+  'develop',
+  'feature/auth',
+  'feature/models',
+  'fix/verification',
+  'refactor/api',
+]
+
+interface DiffFile {
+  path: string
+  additions: number
+  deletions: number
+  status: 'modified' | 'added' | 'deleted'
+}
+
+const mockDiff: {
+  files: DiffFile[]
+  stats: {
+    additions: number
+    deletions: number
+    files: number
+    commits: number
+  }
+} = {
+  files: [
+    {
+      path: 'src/lib/verify.ts',
+      additions: 15,
+      deletions: 3,
+      status: 'modified',
+    },
+    {
+      path: 'src/lib/deploy.ts',
+      additions: 8,
+      deletions: 2,
+      status: 'modified',
+    },
+    {
+      path: 'tests/verify.test.ts',
+      additions: 45,
+      deletions: 0,
+      status: 'added',
+    },
+  ],
+  stats: {
+    additions: 68,
+    deletions: 5,
+    files: 3,
+    commits: 2,
+  },
+}
 
 export default function NewPullRequestPage() {
-  const params = useParams();
-  const router = useRouter();
-  const { isConnected } = useAccount();
-  const owner = params.owner as string;
-  const repo = params.repo as string;
+  const params = useParams()
+  const router = useRouter()
+  const { isConnected } = useAccount()
+  const owner = params.owner as string
+  const repo = params.repo as string
 
-  const { repo: repoData, isLoading: repoLoading } = useRepo(owner, repo);
-  const createPR = useCreatePullRequest(owner, repo);
+  const [title, setTitle] = useState('')
+  const [body, setBody] = useState('')
+  const [sourceBranch, setSourceBranch] = useState('feature/auth')
+  const [targetBranch, setTargetBranch] = useState('main')
+  const [isDraft, setIsDraft] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showSourceDropdown, setShowSourceDropdown] = useState(false)
+  const [showTargetDropdown, setShowTargetDropdown] = useState(false)
 
-  const [title, setTitle] = useState('');
-  const [body, setBody] = useState('');
-  const [sourceBranch, setSourceBranch] = useState('');
-  const [targetBranch, setTargetBranch] = useState('main');
-  const [isDraft, setIsDraft] = useState(false);
-  const [showSourceDropdown, setShowSourceDropdown] = useState(false);
-  const [showTargetDropdown, setShowTargetDropdown] = useState(false);
-
-  const branches = repoData?.branches || ['main'];
-  const canMerge = sourceBranch && targetBranch && sourceBranch !== targetBranch;
+  const canMerge = sourceBranch !== targetBranch
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim() || !canMerge) return;
+    e.preventDefault()
+    if (!title.trim() || !canMerge) return
 
-    const result = await createPR.mutateAsync({
-      title,
-      body,
-      head: sourceBranch,
-      base: targetBranch,
-      draft: isDraft,
-    });
-
-    if (result) {
-      router.push(`/git/${owner}/${repo}/pulls/${result.number}`);
-    }
-  };
-
-  if (repoLoading) {
-    return (
-      <div className="min-h-screen p-8 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-accent-400" />
-      </div>
-    );
+    setIsSubmitting(true)
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+    router.push(`/git/${owner}/${repo}`)
   }
 
   return (
@@ -96,21 +129,24 @@ export default function NewPullRequestPage() {
               >
                 <GitBranch className="w-4 h-4 text-factory-400" />
                 <span className="text-factory-200">base:</span>
-                <span className="text-factory-100 font-medium">{targetBranch}</span>
+                <span className="text-factory-100 font-medium">
+                  {targetBranch}
+                </span>
                 <ChevronDown className="w-4 h-4 text-factory-400" />
               </button>
               {showTargetDropdown && (
                 <div className="absolute top-full left-0 mt-1 w-48 bg-factory-900 border border-factory-700 rounded-lg shadow-xl z-10">
-                  {branches.map(branch => (
+                  {branches.map((branch) => (
                     <button
                       key={branch}
                       onClick={() => {
-                        setTargetBranch(branch);
-                        setShowTargetDropdown(false);
+                        setTargetBranch(branch)
+                        setShowTargetDropdown(false)
                       }}
                       className={clsx(
                         'w-full text-left px-3 py-2 text-sm hover:bg-factory-800',
-                        branch === targetBranch && 'bg-factory-800 text-accent-400'
+                        branch === targetBranch &&
+                          'bg-factory-800 text-accent-400',
                       )}
                     >
                       {branch}
@@ -130,21 +166,24 @@ export default function NewPullRequestPage() {
               >
                 <GitBranch className="w-4 h-4 text-factory-400" />
                 <span className="text-factory-200">compare:</span>
-                <span className="text-factory-100 font-medium">{sourceBranch || 'Select branch'}</span>
+                <span className="text-factory-100 font-medium">
+                  {sourceBranch}
+                </span>
                 <ChevronDown className="w-4 h-4 text-factory-400" />
               </button>
               {showSourceDropdown && (
                 <div className="absolute top-full left-0 mt-1 w-48 bg-factory-900 border border-factory-700 rounded-lg shadow-xl z-10">
-                  {branches.filter(b => b !== targetBranch).map(branch => (
+                  {branches.map((branch) => (
                     <button
                       key={branch}
                       onClick={() => {
-                        setSourceBranch(branch);
-                        setShowSourceDropdown(false);
+                        setSourceBranch(branch)
+                        setShowSourceDropdown(false)
                       }}
                       className={clsx(
                         'w-full text-left px-3 py-2 text-sm hover:bg-factory-800',
-                        branch === sourceBranch && 'bg-factory-800 text-accent-400'
+                        branch === sourceBranch &&
+                          'bg-factory-800 text-accent-400',
                       )}
                     >
                       {branch}
@@ -161,15 +200,10 @@ export default function NewPullRequestPage() {
                 <CheckCircle className="w-4 h-4" />
                 Able to merge
               </span>
-            ) : sourceBranch === targetBranch ? (
+            ) : (
               <span className="flex items-center gap-2 text-red-400 text-sm">
                 <AlertCircle className="w-4 h-4" />
                 Cannot merge same branch
-              </span>
-            ) : (
-              <span className="flex items-center gap-2 text-factory-500 text-sm">
-                <AlertCircle className="w-4 h-4" />
-                Select branches to compare
               </span>
             )}
           </div>
@@ -181,18 +215,59 @@ export default function NewPullRequestPage() {
             <div className="card p-4 mb-6">
               <div className="flex items-center gap-6 text-sm">
                 <span className="text-factory-400">
-                  Comparing changes
+                  <strong className="text-factory-100">
+                    {mockDiff.stats.commits}
+                  </strong>{' '}
+                  commits
+                </span>
+                <span className="text-factory-400">
+                  <strong className="text-factory-100">
+                    {mockDiff.stats.files}
+                  </strong>{' '}
+                  files changed
                 </span>
                 <span className="text-green-400">
-                  <Plus className="w-4 h-4 inline" /> additions
+                  <Plus className="w-4 h-4 inline" /> {mockDiff.stats.additions}
                 </span>
                 <span className="text-red-400">
-                  <Minus className="w-4 h-4 inline" /> deletions
+                  <Minus className="w-4 h-4 inline" />{' '}
+                  {mockDiff.stats.deletions}
                 </span>
               </div>
-              <p className="text-factory-500 text-sm mt-2">
-                Files will be shown once you select branches with differences.
-              </p>
+
+              {/* File List */}
+              <div className="mt-4 space-y-2">
+                {mockDiff.files.map((file) => (
+                  <div
+                    key={file.path}
+                    className="flex items-center gap-3 p-2 bg-factory-800/50 rounded"
+                  >
+                    <FileCode className="w-4 h-4 text-factory-400" />
+                    <span className="text-factory-200 text-sm font-mono flex-1">
+                      {file.path}
+                    </span>
+                    <span className="text-green-400 text-sm">
+                      +{file.additions}
+                    </span>
+                    <span className="text-red-400 text-sm">
+                      -{file.deletions}
+                    </span>
+                    <span
+                      className={clsx(
+                        'badge text-xs',
+                        file.status === 'added' &&
+                          'bg-green-500/20 text-green-400',
+                        file.status === 'modified' &&
+                          'bg-yellow-500/20 text-yellow-400',
+                        file.status === 'deleted' &&
+                          'bg-red-500/20 text-red-400',
+                      )}
+                    >
+                      {file.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* PR Form */}
@@ -214,7 +289,7 @@ export default function NewPullRequestPage() {
                 <textarea
                   value={body}
                   onChange={(e) => setBody(e.target.value)}
-                  placeholder={`Add a description...
+                  placeholder="Add a description...
 
 ## Summary
 What does this PR do?
@@ -227,7 +302,7 @@ What does this PR do?
 How was this tested?
 
 ## Related Issues
-Closes #`}
+Closes #"
                   rows={12}
                   className="input resize-none font-mono text-sm mb-4"
                 />
@@ -240,21 +315,28 @@ Closes #`}
                     onChange={(e) => setIsDraft(e.target.checked)}
                     className="rounded border-factory-600 bg-factory-800 text-accent-500"
                   />
-                  <span className="text-factory-300">Create as draft pull request</span>
-                  <span className="text-factory-500 text-sm">(mark as not ready for review)</span>
+                  <span className="text-factory-300">
+                    Create as draft pull request
+                  </span>
+                  <span className="text-factory-500 text-sm">
+                    (mark as not ready for review)
+                  </span>
                 </label>
 
                 {/* Submit */}
                 <div className="flex justify-end gap-3">
-                  <Link href={`/git/${owner}/${repo}`} className="btn btn-secondary">
+                  <Link
+                    href={`/git/${owner}/${repo}`}
+                    className="btn btn-secondary"
+                  >
                     Cancel
                   </Link>
                   <button
                     type="submit"
-                    disabled={!title.trim() || createPR.isPending || !isConnected}
+                    disabled={!title.trim() || isSubmitting || !isConnected}
                     className="btn btn-primary"
                   >
-                    {createPR.isPending ? (
+                    {isSubmitting ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
                         Creating...
@@ -273,5 +355,5 @@ Closes #`}
         )}
       </div>
     </div>
-  );
+  )
 }

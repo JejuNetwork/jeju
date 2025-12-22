@@ -1,4 +1,4 @@
-import { Address } from 'viem'
+import type { Address } from 'viem'
 
 export interface TokenInfo {
   address: Address | string
@@ -24,14 +24,18 @@ export const TOKENS: Record<string, TokenInfo> = {
     hasPaymaster: true,
   },
   WETH: {
-    address: process.env.NEXT_PUBLIC_WETH_ADDRESS || '0x4200000000000000000000000000000000000006',
+    address:
+      process.env.NEXT_PUBLIC_WETH_ADDRESS ||
+      '0x4200000000000000000000000000000000000006',
     name: 'Wrapped Ether',
     symbol: 'WETH',
     decimals: 18,
     hasPaymaster: true,
   },
   JEJU: {
-    address: process.env.NEXT_PUBLIC_JEJU_TOKEN_ADDRESS || '0x0000000000000000000000000000000000000000',
+    address:
+      process.env.NEXT_PUBLIC_JEJU_TOKEN_ADDRESS ||
+      '0x0000000000000000000000000000000000000000',
     name: 'Jeju',
     symbol: 'JEJU',
     decimals: 18,
@@ -39,7 +43,9 @@ export const TOKENS: Record<string, TokenInfo> = {
     description: 'Native governance token',
   },
   USDC: {
-    address: process.env.NEXT_PUBLIC_USDC_ADDRESS || '0x0000000000000000000000000000000000000000',
+    address:
+      process.env.NEXT_PUBLIC_USDC_ADDRESS ||
+      '0x0000000000000000000000000000000000000000',
     name: 'USD Coin',
     symbol: 'USDC',
     decimals: 6,
@@ -52,7 +58,7 @@ export const WRAPPED_NATIVE: TokenInfo = TOKENS.WETH
 export const PREFERRED_TOKEN: TokenInfo | undefined = TOKENS.JEJU
 
 export function getPreferredToken(): TokenInfo | undefined {
-  return TOKENS.JEJU || Object.values(TOKENS).find(t => t.hasPaymaster)
+  return TOKENS.JEJU || Object.values(TOKENS).find((t) => t.hasPaymaster)
 }
 
 export function getPaymasterTokensSorted(): TokenInfo[] {
@@ -68,7 +74,9 @@ export function getTokenBySymbol(symbol: string): TokenInfo | undefined {
 }
 
 export function getTokenByAddress(address: string): TokenInfo | undefined {
-  return Object.values(TOKENS).find(t => t.address.toLowerCase() === address.toLowerCase())
+  return Object.values(TOKENS).find(
+    (t) => t.address.toLowerCase() === address.toLowerCase(),
+  )
 }
 
 export function getAllTokens(): TokenInfo[] {
@@ -76,7 +84,7 @@ export function getAllTokens(): TokenInfo[] {
 }
 
 export function getPaymasterTokens(): TokenInfo[] {
-  return getAllTokens().filter(t => t.hasPaymaster)
+  return getAllTokens().filter((t) => t.hasPaymaster)
 }
 
 export function isTokenDeployed(token: TokenInfo): boolean {

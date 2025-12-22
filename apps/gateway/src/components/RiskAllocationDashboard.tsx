@@ -1,32 +1,23 @@
-import { useState, useMemo, type ComponentType } from 'react';
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
-import { parseEther, formatEther, type Address } from 'viem';
-import { Shield, Zap, Flame, type LucideProps } from 'lucide-react';
-import { useEILConfig } from '../hooks/useEIL';
+import { Flame, type LucideProps, Shield, Zap } from 'lucide-react'
+import { type ComponentType, useState } from 'react'
+import { type Address, formatEther, parseEther } from 'viem'
+import {
+  useAccount,
+  useReadContract,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from 'wagmi'
+import { useEILConfig } from '../hooks/useEIL'
 
-const ShieldIcon = Shield as ComponentType<LucideProps>;
-const ZapIcon = Zap as ComponentType<LucideProps>;
-const FlameIcon = Flame as ComponentType<LucideProps>;
+const ShieldIcon = Shield as ComponentType<LucideProps>
+const ZapIcon = Zap as ComponentType<LucideProps>
+const FlameIcon = Flame as ComponentType<LucideProps>
 
 // Risk tier enum matching the contract
 enum RiskTier {
   CONSERVATIVE = 0,
   BALANCED = 1,
   AGGRESSIVE = 2,
-}
-
-interface SleeveStats {
-  deposited: bigint;
-  utilized: bigint;
-  available: bigint;
-  utilizationBps: bigint;
-  yieldBps: bigint;
-}
-
-interface UserPosition {
-  deposited: bigint;
-  pendingYield: bigint;
-  depositDuration: bigint;
 }
 
 const RISK_SLEEVE_ABI = [
@@ -81,16 +72,16 @@ const RISK_SLEEVE_ABI = [
       { name: 'yieldBps', type: 'uint256' },
     ],
   },
-] as const;
+] as const
 
 interface TierConfig {
-  tier: RiskTier;
-  name: string;
-  description: string;
-  icon: ComponentType<LucideProps>;
-  color: string;
-  bgColor: string;
-  expectedApy: string;
+  tier: RiskTier
+  name: string
+  description: string
+  icon: ComponentType<LucideProps>
+  color: string
+  bgColor: string
+  expectedApy: string
 }
 
 const TIER_CONFIGS: TierConfig[] = [
@@ -121,56 +112,58 @@ const TIER_CONFIGS: TierConfig[] = [
     bgColor: 'var(--warning-soft)',
     expectedApy: '15-25%',
   },
-];
+]
 
-function TierCard({ 
-  config, 
+function TierCard({
+  config,
   riskSleeveAddress,
   userDeposit,
   totalDeposited,
   isExpanded,
   onToggle,
 }: {
-  config: TierConfig;
-  riskSleeveAddress: Address;
-  userDeposit: bigint;
-  totalDeposited: bigint;
-  isExpanded: boolean;
-  onToggle: () => void;
+  config: TierConfig
+  riskSleeveAddress: Address
+  userDeposit: bigint
+  totalDeposited: bigint
+  isExpanded: boolean
+  onToggle: () => void
 }) {
-  const [depositAmount, setDepositAmount] = useState('');
-  const [withdrawAmount, setWithdrawAmount] = useState('');
-  
-  const { writeContract, data: hash, isPending } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const [depositAmount, setDepositAmount] = useState('')
+  const [withdrawAmount, setWithdrawAmount] = useState('')
 
-  const isLoading = isPending || isConfirming;
-  const Icon = config.icon;
+  const { writeContract, data: hash, isPending } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
+
+  const isLoading = isPending || isConfirming
+  const Icon = config.icon
 
   const handleDeposit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const amount = parseEther(depositAmount);
+    e.preventDefault()
+    const amount = parseEther(depositAmount)
     writeContract({
       address: riskSleeveAddress,
       abi: RISK_SLEEVE_ABI,
       functionName: 'deposit',
       args: [config.tier],
       value: amount,
-    });
-    setDepositAmount('');
-  };
+    })
+    setDepositAmount('')
+  }
 
   const handleWithdraw = (e: React.FormEvent) => {
-    e.preventDefault();
-    const amount = parseEther(withdrawAmount);
+    e.preventDefault()
+    const amount = parseEther(withdrawAmount)
     writeContract({
       address: riskSleeveAddress,
       abi: RISK_SLEEVE_ABI,
       functionName: 'withdraw',
       args: [config.tier, amount],
-    });
-    setWithdrawAmount('');
-  };
+    })
+    setWithdrawAmount('')
+  }
 
   const handleClaimYield = () => {
     writeContract({
@@ -178,11 +171,11 @@ function TierCard({
       abi: RISK_SLEEVE_ABI,
       functionName: 'claimYield',
       args: [config.tier],
-    });
-  };
+    })
+  }
 
   return (
-    <div 
+    <div
       style={{
         padding: '1.5rem',
         background: isExpanded ? config.bgColor : 'var(--surface)',
@@ -192,34 +185,69 @@ function TierCard({
         transition: 'all 0.2s',
       }}
     >
-      <div 
+      <div
         onClick={onToggle}
-        style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: isExpanded ? '1.5rem' : 0 }}
-      >
-        <div style={{
-          width: '48px',
-          height: '48px',
-          borderRadius: '12px',
-          background: config.bgColor,
+        style={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-        }}>
+          gap: '1rem',
+          marginBottom: isExpanded ? '1.5rem' : 0,
+        }}
+      >
+        <div
+          style={{
+            width: '48px',
+            height: '48px',
+            borderRadius: '12px',
+            background: config.bgColor,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
           <Icon size={24} style={{ color: config.color }} />
         </div>
-        
+
         <div style={{ flex: 1 }}>
-          <h3 style={{ fontSize: '1.125rem', fontWeight: '700', margin: 0, color: config.color }}>
+          <h3
+            style={{
+              fontSize: '1.125rem',
+              fontWeight: '700',
+              margin: 0,
+              color: config.color,
+            }}
+          >
             {config.name}
           </h3>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.25rem 0 0' }}>
+          <p
+            style={{
+              fontSize: '0.75rem',
+              color: 'var(--text-secondary)',
+              margin: '0.25rem 0 0',
+            }}
+          >
             {config.description}
           </p>
         </div>
 
         <div style={{ textAlign: 'right' }}>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>Expected APY</p>
-          <p style={{ fontSize: '1.25rem', fontWeight: '700', margin: 0, color: config.color }}>
+          <p
+            style={{
+              fontSize: '0.75rem',
+              color: 'var(--text-muted)',
+              margin: 0,
+            }}
+          >
+            Expected APY
+          </p>
+          <p
+            style={{
+              fontSize: '1.25rem',
+              fontWeight: '700',
+              margin: 0,
+              color: config.color,
+            }}
+          >
             {config.expectedApy}
           </p>
         </div>
@@ -227,34 +255,77 @@ function TierCard({
 
       {isExpanded && (
         <div>
-          <div className="grid grid-2" style={{ gap: '1rem', marginBottom: '1.5rem' }}>
-            <div style={{ 
-              padding: '1rem', 
-              background: 'var(--surface)', 
-              borderRadius: '12px',
-              textAlign: 'center' 
-            }}>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>Your Deposit</p>
-              <p style={{ fontSize: '1.25rem', fontWeight: '700', margin: '0.5rem 0', color: config.color }}>
+          <div
+            className="grid grid-2"
+            style={{ gap: '1rem', marginBottom: '1.5rem' }}
+          >
+            <div
+              style={{
+                padding: '1rem',
+                background: 'var(--surface)',
+                borderRadius: '12px',
+                textAlign: 'center',
+              }}
+            >
+              <p
+                style={{
+                  fontSize: '0.75rem',
+                  color: 'var(--text-secondary)',
+                  margin: 0,
+                }}
+              >
+                Your Deposit
+              </p>
+              <p
+                style={{
+                  fontSize: '1.25rem',
+                  fontWeight: '700',
+                  margin: '0.5rem 0',
+                  color: config.color,
+                }}
+              >
                 {formatEther(userDeposit)} ETH
               </p>
             </div>
-            
-            <div style={{ 
-              padding: '1rem', 
-              background: 'var(--surface)', 
-              borderRadius: '12px',
-              textAlign: 'center' 
-            }}>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>Total in Pool</p>
-              <p style={{ fontSize: '1.25rem', fontWeight: '700', margin: '0.5rem 0' }}>
+
+            <div
+              style={{
+                padding: '1rem',
+                background: 'var(--surface)',
+                borderRadius: '12px',
+                textAlign: 'center',
+              }}
+            >
+              <p
+                style={{
+                  fontSize: '0.75rem',
+                  color: 'var(--text-secondary)',
+                  margin: 0,
+                }}
+              >
+                Total in Pool
+              </p>
+              <p
+                style={{
+                  fontSize: '1.25rem',
+                  fontWeight: '700',
+                  margin: '0.5rem 0',
+                }}
+              >
                 {formatEther(totalDeposited)} ETH
               </p>
             </div>
           </div>
 
           <form onSubmit={handleDeposit} style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600', fontSize: '0.875rem' }}>
+            <label
+              style={{
+                display: 'block',
+                marginBottom: '0.5rem',
+                fontWeight: '600',
+                fontSize: '0.875rem',
+              }}
+            >
               Deposit ETH
             </label>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -282,7 +353,14 @@ function TierCard({
           {userDeposit > 0n && (
             <>
               <form onSubmit={handleWithdraw} style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600', fontSize: '0.875rem' }}>
+                <label
+                  style={{
+                    display: 'block',
+                    marginBottom: '0.5rem',
+                    fontWeight: '600',
+                    fontSize: '0.875rem',
+                  }}
+                >
                   Withdraw ETH
                 </label>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -318,13 +396,21 @@ function TierCard({
           )}
 
           {isSuccess && (
-            <div style={{ 
-              padding: '1rem', 
-              background: 'var(--success-soft)', 
-              borderRadius: '8px',
-              marginTop: '1rem'
-            }}>
-              <p style={{ color: 'var(--success)', margin: 0, fontWeight: '600' }}>
+            <div
+              style={{
+                padding: '1rem',
+                background: 'var(--success-soft)',
+                borderRadius: '8px',
+                marginTop: '1rem',
+              }}
+            >
+              <p
+                style={{
+                  color: 'var(--success)',
+                  margin: 0,
+                  fontWeight: '600',
+                }}
+              >
                 Transaction successful.
               </p>
             </div>
@@ -332,13 +418,13 @@ function TierCard({
         </div>
       )}
     </div>
-  );
+  )
 }
 
 export default function RiskAllocationDashboard() {
-  const { isConnected, address } = useAccount();
-  const { riskSleeve } = useEILConfig();
-  const [expandedTier, setExpandedTier] = useState<RiskTier | null>(null);
+  const { isConnected, address } = useAccount()
+  const { riskSleeve } = useEILConfig()
+  const [expandedTier, setExpandedTier] = useState<RiskTier | null>(null)
 
   // Fetch user positions for each tier (getUserPosition returns: deposited, pendingYield, depositDuration)
   const { data: conservativePositionData } = useReadContract({
@@ -347,8 +433,8 @@ export default function RiskAllocationDashboard() {
     functionName: 'getUserPosition',
     args: address ? [address, RiskTier.CONSERVATIVE] : undefined,
     query: { enabled: !!address && !!riskSleeve },
-  });
-  const conservativeDeposit = conservativePositionData?.[0] ?? 0n;
+  })
+  const conservativeDeposit = conservativePositionData?.[0] ?? 0n
 
   const { data: balancedPositionData } = useReadContract({
     address: riskSleeve,
@@ -356,8 +442,8 @@ export default function RiskAllocationDashboard() {
     functionName: 'getUserPosition',
     args: address ? [address, RiskTier.BALANCED] : undefined,
     query: { enabled: !!address && !!riskSleeve },
-  });
-  const balancedDeposit = balancedPositionData?.[0] ?? 0n;
+  })
+  const balancedDeposit = balancedPositionData?.[0] ?? 0n
 
   const { data: aggressivePositionData } = useReadContract({
     address: riskSleeve,
@@ -365,8 +451,8 @@ export default function RiskAllocationDashboard() {
     functionName: 'getUserPosition',
     args: address ? [address, RiskTier.AGGRESSIVE] : undefined,
     query: { enabled: !!address && !!riskSleeve },
-  });
-  const aggressiveDeposit = aggressivePositionData?.[0] ?? 0n;
+  })
+  const aggressiveDeposit = aggressivePositionData?.[0] ?? 0n
 
   // Fetch sleeve stats for each tier (getSleeveStats returns: deposited, utilized, available, utilizationBps, yieldBps)
   const { data: conservativeSleeveData } = useReadContract({
@@ -375,8 +461,8 @@ export default function RiskAllocationDashboard() {
     functionName: 'getSleeveStats',
     args: [RiskTier.CONSERVATIVE],
     query: { enabled: !!riskSleeve },
-  });
-  const conservativeTotal = conservativeSleeveData?.[0] ?? 0n; // deposited is first element
+  })
+  const conservativeTotal = conservativeSleeveData?.[0] ?? 0n // deposited is first element
 
   const { data: balancedSleeveData } = useReadContract({
     address: riskSleeve,
@@ -384,8 +470,8 @@ export default function RiskAllocationDashboard() {
     functionName: 'getSleeveStats',
     args: [RiskTier.BALANCED],
     query: { enabled: !!riskSleeve },
-  });
-  const balancedTotal = balancedSleeveData?.[0] ?? 0n; // deposited is first element
+  })
+  const balancedTotal = balancedSleeveData?.[0] ?? 0n // deposited is first element
 
   const { data: aggressiveSleeveData } = useReadContract({
     address: riskSleeve,
@@ -393,75 +479,134 @@ export default function RiskAllocationDashboard() {
     functionName: 'getSleeveStats',
     args: [RiskTier.AGGRESSIVE],
     query: { enabled: !!riskSleeve },
-  });
-  const aggressiveTotal = aggressiveSleeveData?.[0] ?? 0n; // deposited is first element
+  })
+  const aggressiveTotal = aggressiveSleeveData?.[0] ?? 0n // deposited is first element
 
   const deposits: Record<RiskTier, bigint> = {
     [RiskTier.CONSERVATIVE]: conservativeDeposit,
     [RiskTier.BALANCED]: balancedDeposit,
     [RiskTier.AGGRESSIVE]: aggressiveDeposit,
-  };
+  }
 
   const totals: Record<RiskTier, bigint> = {
     [RiskTier.CONSERVATIVE]: conservativeTotal,
     [RiskTier.BALANCED]: balancedTotal,
     [RiskTier.AGGRESSIVE]: aggressiveTotal,
-  };
+  }
 
-  const totalUserDeposit = conservativeDeposit + balancedDeposit + aggressiveDeposit;
-  const totalPoolValue = conservativeTotal + balancedTotal + aggressiveTotal;
+  const totalUserDeposit =
+    conservativeDeposit + balancedDeposit + aggressiveDeposit
+  const totalPoolValue = conservativeTotal + balancedTotal + aggressiveTotal
 
   if (!isConnected) {
     return (
       <div className="card">
-        <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>Risk-Based Liquidity</h2>
-        <p style={{ color: 'var(--text-secondary)' }}>Connect your wallet to manage liquidity allocations</p>
+        <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>
+          Risk-Based Liquidity
+        </h2>
+        <p style={{ color: 'var(--text-secondary)' }}>
+          Connect your wallet to manage liquidity allocations
+        </p>
       </div>
-    );
+    )
   }
 
   if (!riskSleeve) {
     return (
       <div className="card">
-        <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>Risk-Based Liquidity</h2>
-        <div style={{ padding: '1rem', background: 'var(--warning-soft)', borderRadius: '8px' }}>
+        <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>
+          Risk-Based Liquidity
+        </h2>
+        <div
+          style={{
+            padding: '1rem',
+            background: 'var(--warning-soft)',
+            borderRadius: '8px',
+          }}
+        >
           <p style={{ color: 'var(--warning)', margin: 0 }}>
             RiskSleeve contract not configured. Please deploy first.
           </p>
         </div>
       </div>
-    );
+    )
   }
 
   return (
     <div>
       <div className="card" style={{ marginBottom: '1rem' }}>
-        <h2 style={{ fontSize: '1.25rem', margin: '0 0 0.5rem', fontWeight: 700 }}>Risk-Based Liquidity</h2>
-        <p style={{ color: 'var(--text-secondary)', margin: '0 0 1.5rem', fontSize: '0.875rem' }}>
-          Allocate your liquidity across different risk tiers for optimized yields
+        <h2
+          style={{ fontSize: '1.25rem', margin: '0 0 0.5rem', fontWeight: 700 }}
+        >
+          Risk-Based Liquidity
+        </h2>
+        <p
+          style={{
+            color: 'var(--text-secondary)',
+            margin: '0 0 1.5rem',
+            fontSize: '0.875rem',
+          }}
+        >
+          Allocate your liquidity across different risk tiers for optimized
+          yields
         </p>
 
-        <div className="grid grid-2" style={{ gap: '1rem', marginBottom: '1.5rem' }}>
-          <div style={{ 
-            padding: '1.5rem', 
-            background: 'var(--surface-hover)', 
-            borderRadius: '12px',
-            textAlign: 'center' 
-          }}>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>Your Total Deposits</p>
-            <p style={{ fontSize: '1.5rem', fontWeight: '700', margin: '0.5rem 0' }}>
+        <div
+          className="grid grid-2"
+          style={{ gap: '1rem', marginBottom: '1.5rem' }}
+        >
+          <div
+            style={{
+              padding: '1.5rem',
+              background: 'var(--surface-hover)',
+              borderRadius: '12px',
+              textAlign: 'center',
+            }}
+          >
+            <p
+              style={{
+                fontSize: '0.75rem',
+                color: 'var(--text-secondary)',
+                margin: 0,
+              }}
+            >
+              Your Total Deposits
+            </p>
+            <p
+              style={{
+                fontSize: '1.5rem',
+                fontWeight: '700',
+                margin: '0.5rem 0',
+              }}
+            >
               {formatEther(totalUserDeposit)} ETH
             </p>
           </div>
-          
-          <div style={{ 
-            padding: '1.5rem', 
-            background: 'var(--surface-hover)', 
-            borderRadius: '12px',
-            textAlign: 'center' 
-          }}>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>Total Pool Value</p>
-            <p style={{ fontSize: '1.5rem', fontWeight: '700', margin: '0.5rem 0' }}>
+
+          <div
+            style={{
+              padding: '1.5rem',
+              background: 'var(--surface-hover)',
+              borderRadius: '12px',
+              textAlign: 'center',
+            }}
+          >
+            <p
+              style={{
+                fontSize: '0.75rem',
+                color: 'var(--text-secondary)',
+                margin: 0,
+              }}
+            >
+              Total Pool Value
+            </p>
+            <p
+              style={{
+                fontSize: '1.5rem',
+                fontWeight: '700',
+                margin: '0.5rem 0',
+              }}
+            >
               {formatEther(totalPoolValue)} ETH
             </p>
           </div>
@@ -476,12 +621,15 @@ export default function RiskAllocationDashboard() {
               userDeposit={deposits[config.tier]}
               totalDeposited={totals[config.tier]}
               isExpanded={expandedTier === config.tier}
-              onToggle={() => setExpandedTier(expandedTier === config.tier ? null : config.tier)}
+              onToggle={() =>
+                setExpandedTier(
+                  expandedTier === config.tier ? null : config.tier,
+                )
+              }
             />
           ))}
         </div>
       </div>
     </div>
-  );
+  )
 }
-

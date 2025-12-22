@@ -19,7 +19,8 @@ computeNode:
   
   image:
     repository: jeju/compute
-    tag: latest
+    # SECURITY: Always specify a version tag, never use 'latest' in production
+    tag: "v1.0.0"
     pullPolicy: IfNotPresent
   
   service:
@@ -55,7 +56,8 @@ workerRuntime:
   
   image:
     repository: jeju/compute
-    tag: latest
+    # SECURITY: Always specify a version tag, never use 'latest' in production
+    tag: "v1.0.0"
     pullPolicy: IfNotPresent
   
   service:
@@ -91,7 +93,8 @@ mpcNode:
   
   image:
     repository: jeju/compute
-    tag: latest
+    # SECURITY: Always specify a version tag, never use 'latest' in production
+    tag: "v1.0.0"
     pullPolicy: IfNotPresent
   
   service:

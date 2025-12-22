@@ -1,4 +1,3 @@
-export * from './navigation';
-export * from './mobile-nav';
-export * from './dws-status';
-
+export * from './dws-status'
+export * from './mobile-nav'
+export * from './navigation'

@@ -10,10 +10,10 @@
  * No manual bridging, routing, or chain switching required.
  */
 
-import type { Address, Hex, PublicClient, WalletClient } from 'viem';
-import { parseEther, encodeAbiParameters } from 'viem';
-import type { Intent, IntentParams, IntentQuote, IntentStatus } from './types';
-import { getChainContracts } from './chains';
+import type { Address, Hex, PublicClient, WalletClient } from 'viem'
+import { encodeAbiParameters, parseEther } from 'viem'
+import { getChainContracts } from './chains'
+import type { Intent, IntentParams, IntentQuote, IntentStatus } from './types'
 
 // ============================================================================
 // ABI Fragments
@@ -122,7 +122,7 @@ const INPUT_SETTLER_ABI = [
     outputs: [{ name: '', type: 'uint256' }],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 const SOLVER_REGISTRY_ABI = [
   {
@@ -152,73 +152,74 @@ const SOLVER_REGISTRY_ABI = [
     outputs: [{ name: '', type: 'address[]' }],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 // ============================================================================
 // Constants
 // ============================================================================
 
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address
 const SWAP_ORDER_TYPE =
-  '0x43726f7373436861696e53776170000000000000000000000000000000000000' as Hex;
-const DEFAULT_OPEN_DEADLINE_BLOCKS = 50; // ~100 seconds
-const DEFAULT_FILL_DEADLINE_BLOCKS = 200; // ~400 seconds
+  '0x43726f7373436861696e53776170000000000000000000000000000000000000' as Hex
+const DEFAULT_OPEN_DEADLINE_BLOCKS = 50 // ~100 seconds
+const DEFAULT_FILL_DEADLINE_BLOCKS = 200 // ~400 seconds
 
 // ============================================================================
 // OIF Client
 // ============================================================================
 
 export interface OIFClientConfig {
-  chainId: number;
-  publicClient: PublicClient;
-  walletClient?: WalletClient;
-  inputSettlerAddress?: Address;
-  solverRegistryAddress?: Address;
-  quoteApiUrl?: string;
+  chainId: number
+  publicClient: PublicClient
+  walletClient?: WalletClient
+  inputSettlerAddress?: Address
+  solverRegistryAddress?: Address
+  quoteApiUrl?: string
 }
 
 export interface GaslessCrossChainOrder {
-  originSettler: Address;
-  user: Address;
-  nonce: bigint;
-  originChainId: bigint;
-  openDeadline: number;
-  fillDeadline: number;
-  orderDataType: Hex;
-  orderData: Hex;
+  originSettler: Address
+  user: Address
+  nonce: bigint
+  originChainId: bigint
+  openDeadline: number
+  fillDeadline: number
+  orderDataType: Hex
+  orderData: Hex
 }
 
 export class OIFClient {
-  private config: OIFClientConfig;
-  private inputSettlerAddress: Address;
-  private solverRegistryAddress: Address;
-  private quoteApiUrl: string;
-  private isConfigured: boolean;
+  private config: OIFClientConfig
+  private inputSettlerAddress: Address
+  private solverRegistryAddress: Address
+  private quoteApiUrl: string
+  private isConfigured: boolean
 
   constructor(config: OIFClientConfig) {
-    this.config = config;
-    const contracts = getChainContracts(config.chainId);
-    this.inputSettlerAddress = config.inputSettlerAddress ?? contracts.inputSettler ?? ZERO_ADDRESS;
+    this.config = config
+    const contracts = getChainContracts(config.chainId)
+    this.inputSettlerAddress =
+      config.inputSettlerAddress ?? contracts.inputSettler ?? ZERO_ADDRESS
     this.solverRegistryAddress =
-      config.solverRegistryAddress ?? contracts.solverRegistry ?? ZERO_ADDRESS;
-    this.quoteApiUrl = config.quoteApiUrl ?? 'http://localhost:4010/oif'; // Local gateway
-    
+      config.solverRegistryAddress ?? contracts.solverRegistry ?? ZERO_ADDRESS
+    this.quoteApiUrl = config.quoteApiUrl ?? 'http://localhost:4010/oif' // Local gateway
+
     // Track if contracts are actually configured
-    this.isConfigured = this.inputSettlerAddress !== ZERO_ADDRESS;
-    
+    this.isConfigured = this.inputSettlerAddress !== ZERO_ADDRESS
+
     if (!this.isConfigured) {
       console.warn(
         `[OIFClient] InputSettler not configured for chain ${config.chainId}. ` +
-        `Intent creation will fail. Deploy contracts and update chainContracts.`
-      );
+          `Intent creation will fail. Deploy contracts and update chainContracts.`,
+      )
     }
   }
-  
+
   /**
    * Check if the client is properly configured
    */
   isReady(): boolean {
-    return this.isConfigured;
+    return this.isConfigured
   }
 
   /**
@@ -240,14 +241,14 @@ export class OIFClient {
         destinationChainId: params.destinationChainId,
         recipient: params.recipient,
       }),
-    });
+    })
 
     if (!response.ok) {
       // Fallback to estimated quote
-      return this.estimateQuote(params);
+      return this.estimateQuote(params)
     }
 
-    return response.json();
+    return response.json()
   }
 
   /**
@@ -255,14 +256,17 @@ export class OIFClient {
    */
   private estimateQuote(params: IntentParams): IntentQuote {
     // Simple estimate: 0.3% fee, same output as input (assumes 1:1 wrapped tokens)
-    const fee = (params.inputAmount * 30n) / 10000n;
-    const outputAmount = params.inputAmount - fee;
+    const fee = (params.inputAmount * 30n) / 10000n
+    const outputAmount = params.inputAmount - fee
 
     return {
       inputToken: params.inputToken,
       inputAmount: params.inputAmount,
       outputToken: params.outputToken,
-      outputAmount: outputAmount > params.minOutputAmount ? outputAmount : params.minOutputAmount,
+      outputAmount:
+        outputAmount > params.minOutputAmount
+          ? outputAmount
+          : params.minOutputAmount,
       fee,
       route: [
         {
@@ -277,35 +281,37 @@ export class OIFClient {
       ],
       estimatedTime: 120, // 2 minutes
       priceImpact: 0.003,
-    };
+    }
   }
 
   /**
    * Create and submit an intent
    */
-  async createIntent(params: IntentParams): Promise<{ intentId: Hex; txHash: Hex }> {
+  async createIntent(
+    params: IntentParams,
+  ): Promise<{ intentId: Hex; txHash: Hex }> {
     if (!this.isConfigured) {
       throw new Error(
         `OIF not configured for chain ${this.config.chainId}. ` +
-        `InputSettler contract address not set. Deploy contracts first.`
-      );
-    }
-    
-    const { walletClient, publicClient } = this.config;
-    if (!walletClient?.account) {
-      throw new Error('Wallet not connected');
+          `InputSettler contract address not set. Deploy contracts first.`,
+      )
     }
 
-    const userAddress = walletClient.account.address;
-    const recipient = params.recipient ?? userAddress;
+    const { walletClient, publicClient } = this.config
+    if (!walletClient?.account) {
+      throw new Error('Wallet not connected')
+    }
+
+    const userAddress = walletClient.account.address
+    const recipient = params.recipient ?? userAddress
 
     // Get user's current nonce
-    const nonce = await this.getUserNonce(userAddress);
+    const nonce = await this.getUserNonce(userAddress)
 
     // Get current block for deadline calculation
-    const currentBlock = await publicClient.getBlockNumber();
-    const openDeadline = Number(currentBlock) + DEFAULT_OPEN_DEADLINE_BLOCKS;
-    const fillDeadline = Number(currentBlock) + DEFAULT_FILL_DEADLINE_BLOCKS;
+    const currentBlock = await publicClient.getBlockNumber()
+    const openDeadline = Number(currentBlock) + DEFAULT_OPEN_DEADLINE_BLOCKS
+    const fillDeadline = Number(currentBlock) + DEFAULT_FILL_DEADLINE_BLOCKS
 
     // Encode order data
     const orderData = encodeAbiParameters(
@@ -326,8 +332,8 @@ export class OIFClient {
         BigInt(params.destinationChainId),
         recipient,
         params.maxFee ?? parseEther('0.01'),
-      ]
-    );
+      ],
+    )
 
     const order: GaslessCrossChainOrder = {
       originSettler: this.inputSettlerAddress,
@@ -338,13 +344,13 @@ export class OIFClient {
       fillDeadline,
       orderDataType: SWAP_ORDER_TYPE,
       orderData,
-    };
+    }
 
     // For native token, ensure approval is not needed
     // For ERC20, caller must have approved InputSettler
 
     // Cast through const to satisfy strict ABI typing
-    const args = [order] as const;
+    const args = [order] as const
     const hash = await walletClient.writeContract({
       chain: null,
       account: walletClient.account,
@@ -352,14 +358,14 @@ export class OIFClient {
       abi: INPUT_SETTLER_ABI,
       functionName: 'open',
       args,
-    });
+    })
 
-    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    const receipt = await publicClient.waitForTransactionReceipt({ hash })
 
     // Parse intentId from logs
-    const intentId = (receipt.logs[0]?.topics[1] ?? '0x') as Hex;
+    const intentId = (receipt.logs[0]?.topics[1] ?? '0x') as Hex
 
-    return { intentId, txHash: hash };
+    return { intentId, txHash: hash }
   }
 
   /**
@@ -367,18 +373,18 @@ export class OIFClient {
    */
   async createGaslessIntent(
     params: IntentParams,
-    signatureCallback: (order: GaslessCrossChainOrder) => Promise<Hex>
+    signatureCallback: (order: GaslessCrossChainOrder) => Promise<Hex>,
   ): Promise<{ intentId: Hex; order: GaslessCrossChainOrder; signature: Hex }> {
-    const { walletClient, publicClient } = this.config;
+    const { walletClient, publicClient } = this.config
     if (!walletClient?.account) {
-      throw new Error('Wallet not connected');
+      throw new Error('Wallet not connected')
     }
 
-    const userAddress = walletClient.account.address;
-    const recipient = params.recipient ?? userAddress;
+    const userAddress = walletClient.account.address
+    const recipient = params.recipient ?? userAddress
 
-    const nonce = await this.getUserNonce(userAddress);
-    const currentBlock = await publicClient.getBlockNumber();
+    const nonce = await this.getUserNonce(userAddress)
+    const currentBlock = await publicClient.getBlockNumber()
 
     const orderData = encodeAbiParameters(
       [
@@ -398,8 +404,8 @@ export class OIFClient {
         BigInt(params.destinationChainId),
         recipient,
         params.maxFee ?? parseEther('0.01'),
-      ]
-    );
+      ],
+    )
 
     const order: GaslessCrossChainOrder = {
       originSettler: this.inputSettlerAddress,
@@ -410,18 +416,18 @@ export class OIFClient {
       fillDeadline: Number(currentBlock) + DEFAULT_FILL_DEADLINE_BLOCKS,
       orderDataType: SWAP_ORDER_TYPE,
       orderData,
-    };
+    }
 
-    const signature = await signatureCallback(order);
+    const signature = await signatureCallback(order)
 
     // Generate intent ID
     const intentId = `0x${Buffer.from(
-      JSON.stringify({ order, nonce: nonce.toString() })
+      JSON.stringify({ order, nonce: nonce.toString() }),
     )
       .toString('hex')
-      .slice(0, 64)}` as Hex;
+      .slice(0, 64)}` as Hex
 
-    return { intentId, order, signature };
+    return { intentId, order, signature }
   }
 
   /**
@@ -433,14 +439,14 @@ export class OIFClient {
       abi: INPUT_SETTLER_ABI,
       functionName: 'getOrder',
       args: [intentId],
-    });
+    })
 
-    if (result.user === ZERO_ADDRESS) return null;
+    if (result.user === ZERO_ADDRESS) return null
 
-    let status: IntentStatus = 'open';
-    if (result.solver !== ZERO_ADDRESS) status = 'pending';
-    if (result.filled) status = 'filled';
-    if (result.refunded) status = 'expired';
+    let status: IntentStatus = 'open'
+    if (result.solver !== ZERO_ADDRESS) status = 'pending'
+    if (result.filled) status = 'filled'
+    if (result.refunded) status = 'expired'
 
     return {
       id: intentId,
@@ -458,7 +464,7 @@ export class OIFClient {
       status,
       solver: result.solver !== ZERO_ADDRESS ? result.solver : undefined,
       createdAt: Date.now(), // Would need to fetch from events in production
-    };
+    }
   }
 
   /**
@@ -470,17 +476,17 @@ export class OIFClient {
       abi: INPUT_SETTLER_ABI,
       functionName: 'canRefund',
       args: [intentId],
-    });
-    return result;
+    })
+    return result
   }
 
   /**
    * Refund an expired intent
    */
   async refundIntent(intentId: Hex): Promise<Hex> {
-    const { walletClient } = this.config;
+    const { walletClient } = this.config
     if (!walletClient?.account) {
-      throw new Error('Wallet not connected');
+      throw new Error('Wallet not connected')
     }
 
     const hash = await walletClient.writeContract({
@@ -490,9 +496,9 @@ export class OIFClient {
       abi: INPUT_SETTLER_ABI,
       functionName: 'refund',
       args: [intentId],
-    });
+    })
 
-    return hash;
+    return hash
   }
 
   /**
@@ -504,23 +510,23 @@ export class OIFClient {
       abi: INPUT_SETTLER_ABI,
       functionName: 'getUserNonce',
       args: [userAddress],
-    });
-    return nonce;
+    })
+    return nonce
   }
 
   /**
    * Get active solvers
    */
   async getActiveSolvers(): Promise<Address[]> {
-    if (this.solverRegistryAddress === ZERO_ADDRESS) return [];
+    if (this.solverRegistryAddress === ZERO_ADDRESS) return []
 
     const solvers = await this.config.publicClient.readContract({
       address: this.solverRegistryAddress,
       abi: SOLVER_REGISTRY_ABI,
       functionName: 'getActiveSolvers',
       args: [],
-    });
-    return [...solvers];
+    })
+    return [...solvers]
   }
 
   /**
@@ -528,28 +534,28 @@ export class OIFClient {
    */
   watchIntent(
     intentId: Hex,
-    callback: (status: IntentStatus) => void
+    callback: (status: IntentStatus) => void,
   ): () => void {
-    let cancelled = false;
+    let cancelled = false
 
     const poll = async () => {
       while (!cancelled) {
-        const intent = await this.getIntent(intentId);
+        const intent = await this.getIntent(intentId)
         if (intent) {
-          callback(intent.status);
+          callback(intent.status)
           if (intent.status === 'filled' || intent.status === 'expired') {
-            break;
+            break
           }
         }
-        await new Promise((r) => setTimeout(r, 5000));
+        await new Promise((r) => setTimeout(r, 5000))
       }
-    };
+    }
 
-    poll();
+    poll()
 
     return () => {
-      cancelled = true;
-    };
+      cancelled = true
+    }
   }
 }
 
@@ -558,6 +564,5 @@ export class OIFClient {
 // ============================================================================
 
 export function createOIFClient(config: OIFClientConfig): OIFClient {
-  return new OIFClient(config);
+  return new OIFClient(config)
 }
-

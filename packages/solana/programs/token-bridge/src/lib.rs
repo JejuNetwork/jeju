@@ -38,11 +38,13 @@ pub mod token_bridge {
     pub fn initialize(
         ctx: Context<Initialize>,
         evm_chain_id: u64,
+        evm_bridge_address: [u8; 20],
     ) -> Result<()> {
         let state = &mut ctx.accounts.state;
 
         state.admin = ctx.accounts.admin.key();
         state.evm_light_client = ctx.accounts.evm_light_client.key();
+        state.evm_bridge_address = evm_bridge_address;
         state.evm_chain_id = evm_chain_id;
         state.transfer_nonce = 0;
         state.total_locked = 0;
@@ -362,7 +364,11 @@ pub struct InitiateTransfer<'info> {
     )]
     pub bridge_vault: Account<'info, TokenAccount>,
 
-    #[account(mut)]
+    #[account(
+        mut,
+        token::mint = mint,
+        token::authority = sender
+    )]
     pub sender_token_account: Account<'info, TokenAccount>,
 
     #[account(mut)]
@@ -415,7 +421,11 @@ pub struct CompleteTransfer<'info> {
     )]
     pub bridge_vault: Account<'info, TokenAccount>,
 
-    #[account(mut)]
+    #[account(
+        mut,
+        token::mint = mint,
+        token::authority = recipient
+    )]
     pub recipient_token_account: Account<'info, TokenAccount>,
 
     /// CHECK: Recipient of the tokens
@@ -546,6 +556,15 @@ pub enum ErrorCode {
 
     #[msg("Invalid light client account")]
     InvalidLightClient,
+
+    #[msg("Invalid light client program - does not match registered program")]
+    InvalidLightClientProgram,
+
+    #[msg("EVM bridge address not configured")]
+    EVMBridgeAddressNotConfigured,
+
+    #[msg("Math overflow")]
+    MathOverflow,
 }
 
 // =============================================================================

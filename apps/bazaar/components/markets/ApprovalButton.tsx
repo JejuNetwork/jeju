@@ -1,27 +1,34 @@
-'use client';
+'use client'
 
-import { useState, useEffect } from 'react';
-import { useAccount, useWriteContract, useReadContract, useWaitForTransactionReceipt } from 'wagmi';
-import { parseEther, maxUint256, erc20Abi } from 'viem';
+import { useEffect, useState } from 'react'
+import { erc20Abi, maxUint256, parseEther } from 'viem'
+import {
+  useAccount,
+  useReadContract,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from 'wagmi'
 
 interface ApprovalButtonProps {
-  tokenAddress: `0x${string}`;
-  spenderAddress: `0x${string}`;
-  amount: string;
-  onApproved: () => void;
-  tokenSymbol?: string;
+  tokenAddress: `0x${string}`
+  spenderAddress: `0x${string}`
+  amount: string
+  onApproved: () => void
+  tokenSymbol?: string
 }
 
-export function ApprovalButton({ 
-  tokenAddress, 
-  spenderAddress, 
+export function ApprovalButton({
+  tokenAddress,
+  spenderAddress,
   amount,
   onApproved,
-  tokenSymbol = 'ETH'
+  tokenSymbol = 'ETH',
 }: ApprovalButtonProps) {
-  const { address } = useAccount();
-  const { writeContract, data: hash, isPending } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { address } = useAccount()
+  const { writeContract, data: hash, isPending } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
   const { data: allowance, refetch } = useReadContract({
     address: tokenAddress,
@@ -31,27 +38,27 @@ export function ApprovalButton({
     query: {
       enabled: !!address,
     },
-  });
+  })
 
-  const [needsApproval, setNeedsApproval] = useState(false);
+  const [needsApproval, setNeedsApproval] = useState(false)
 
   useEffect(() => {
     if (allowance !== undefined && amount) {
       try {
-        const amountWei = parseEther(amount);
-        setNeedsApproval(allowance < amountWei);
+        const amountWei = parseEther(amount)
+        setNeedsApproval(allowance < amountWei)
       } catch {
-        setNeedsApproval(false);
+        setNeedsApproval(false)
       }
     }
-  }, [allowance, amount]);
+  }, [allowance, amount])
 
   useEffect(() => {
     if (isSuccess) {
-      refetch();
-      onApproved();
+      refetch()
+      onApproved()
     }
-  }, [isSuccess, refetch, onApproved]);
+  }, [isSuccess, refetch, onApproved])
 
   const handleApprove = () => {
     writeContract({
@@ -59,11 +66,11 @@ export function ApprovalButton({
       abi: erc20Abi,
       functionName: 'approve',
       args: [spenderAddress, maxUint256],
-    });
-  };
+    })
+  }
 
   if (!needsApproval) {
-    return null;
+    return null
   }
 
   return (
@@ -75,5 +82,5 @@ export function ApprovalButton({
     >
       {isPending || isConfirming ? 'Approving...' : `Approve ${tokenSymbol}`}
     </button>
-  );
+  )
 }

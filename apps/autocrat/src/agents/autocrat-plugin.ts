@@ -1,36 +1,44 @@
 /**
  * Autocrat Agent Plugin
- * 
+ *
  * ElizaOS plugin that provides autocrat agents with:
  * - Service discovery (A2A, MCP)
  * - Governance data providers
  * - Deliberation actions
  * - Cross-agent communication
- * 
+ *
  * FULLY DECENTRALIZED - Endpoints resolved from network config
  */
 
-import { getAutocratA2AUrl, getAutocratUrl } from '@jejunetwork/config';
-import type { Plugin, Action, IAgentRuntime, Memory, State, HandlerCallback, HandlerOptions } from '@elizaos/core';
-import { autocratProviders } from './autocrat-providers';
+import type {
+  Action,
+  HandlerCallback,
+  HandlerOptions,
+  IAgentRuntime,
+  Memory,
+  Plugin,
+  State,
+} from '@elizaos/core'
+import { getAutocratA2AUrl, getAutocratUrl } from '@jejunetwork/config'
+import { autocratProviders } from './autocrat-providers'
 
 // ============================================================================
 // Configuration (Network-Aware)
 // ============================================================================
 
 function getA2AEndpoint(): string {
-  return process.env.AUTOCRAT_A2A_URL ?? getAutocratA2AUrl();
+  return process.env.AUTOCRAT_A2A_URL ?? getAutocratA2AUrl()
 }
 
 function getMCPEndpoint(): string {
-  return process.env.AUTOCRAT_MCP_URL ?? `${getAutocratUrl()}/mcp`;
+  return process.env.AUTOCRAT_MCP_URL ?? `${getAutocratUrl()}/mcp`
 }
 
 async function callA2A(
   skillId: string,
-  params: Record<string, unknown> = {}
+  params: Record<string, unknown> = {},
 ): Promise<Record<string, unknown>> {
-  const a2aEndpoint = getA2AEndpoint();
+  const a2aEndpoint = getA2AEndpoint()
   const response = await fetch(a2aEndpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -41,14 +49,16 @@ async function callA2A(
       params: {
         message: {
           messageId: `autocrat-action-${Date.now()}`,
-          parts: [{ kind: 'data', data: { skillId, params } }]
-        }
-      }
+          parts: [{ kind: 'data', data: { skillId, params } }],
+        },
+      },
     }),
-  });
+  })
 
-  const result = await response.json() as { result?: { parts?: Array<{ kind: string; data?: Record<string, unknown> }> } };
-  return result.result?.parts?.find((p) => p.kind === 'data')?.data ?? {};
+  const result = (await response.json()) as {
+    result?: { parts?: Array<{ kind: string; data?: Record<string, unknown> }> }
+  }
+  return result.result?.parts?.find((p) => p.kind === 'data')?.data ?? {}
 }
 
 // ============================================================================
@@ -62,17 +72,32 @@ async function callA2A(
 const discoverServicesAction: Action = {
   name: 'DISCOVER_SERVICES',
   description: 'Discover available A2A agents and MCP services in the network',
-  similes: ['find services', 'list services', 'what services are available', 'show endpoints'],
+  similes: [
+    'find services',
+    'list services',
+    'what services are available',
+    'show endpoints',
+  ],
   examples: [
     [
       { name: 'user', content: { text: 'What services are available?' } },
-      { name: 'agent', content: { text: 'Let me discover the available services...' } }
-    ]
+      {
+        name: 'agent',
+        content: { text: 'Let me discover the available services...' },
+      },
+    ],
   ],
 
-  validate: async (_runtime: IAgentRuntime, message: Memory): Promise<boolean> => {
-    const content = message.content?.text?.toLowerCase() ?? '';
-    return content.includes('service') || content.includes('discover') || content.includes('endpoint');
+  validate: async (
+    _runtime: IAgentRuntime,
+    message: Memory,
+  ): Promise<boolean> => {
+    const content = message.content?.text?.toLowerCase() ?? ''
+    return (
+      content.includes('service') ||
+      content.includes('discover') ||
+      content.includes('endpoint')
+    )
   },
 
   handler: async (
@@ -80,31 +105,45 @@ const discoverServicesAction: Action = {
     _message: Memory,
     _state?: State,
     _options?: HandlerOptions,
-    callback?: HandlerCallback
+    callback?: HandlerCallback,
   ): Promise<void> => {
     const services = [
       { name: 'Autocrat A2A', url: getA2AEndpoint(), type: 'a2a' },
-      { name: 'CEO A2A', url: process.env.CEO_A2A_URL ?? `${getAutocratUrl().replace('4040', '4004')}/a2a`, type: 'a2a' },
+      {
+        name: 'CEO A2A',
+        url:
+          process.env.CEO_A2A_URL ??
+          `${getAutocratUrl().replace('4040', '4004')}/a2a`,
+        type: 'a2a',
+      },
       { name: 'Autocrat MCP', url: getMCPEndpoint(), type: 'mcp' },
-      { name: 'CEO MCP', url: process.env.CEO_MCP_URL ?? `${getAutocratUrl().replace('4040', '4004')}/mcp`, type: 'mcp' },
-    ];
+      {
+        name: 'CEO MCP',
+        url:
+          process.env.CEO_MCP_URL ??
+          `${getAutocratUrl().replace('4040', '4004')}/mcp`,
+        type: 'mcp',
+      },
+    ]
 
-    const results: string[] = [];
+    const results: string[] = []
     for (const service of services) {
-      const healthUrl = service.url.replace('/a2a', '/health').replace('/mcp', '/health');
-      const response = await fetch(healthUrl);
-      const status = response.ok ? '✅ Online' : '❌ Offline';
-      results.push(`${status} ${service.name}: ${service.url}`);
+      const healthUrl = service.url
+        .replace('/a2a', '/health')
+        .replace('/mcp', '/health')
+      const response = await fetch(healthUrl)
+      const status = response.ok ? '✅ Online' : '❌ Offline'
+      results.push(`${status} ${service.name}: ${service.url}`)
     }
 
     if (callback) {
       await callback({
         text: `🔍 SERVICE DISCOVERY\n\n${results.join('\n')}`,
         action: 'DISCOVER_SERVICES',
-      });
+      })
     }
   },
-};
+}
 
 /**
  * Action: Cast Vote
@@ -113,17 +152,29 @@ const discoverServicesAction: Action = {
 const castVoteAction: Action = {
   name: 'CAST_VOTE',
   description: 'Cast a deliberation vote on a proposal',
-  similes: ['vote on proposal', 'approve proposal', 'reject proposal', 'submit vote'],
+  similes: [
+    'vote on proposal',
+    'approve proposal',
+    'reject proposal',
+    'submit vote',
+  ],
   examples: [
     [
       { name: 'user', content: { text: 'Vote APPROVE on proposal 0x1234...' } },
-      { name: 'agent', content: { text: 'Casting vote on the proposal...' } }
-    ]
+      { name: 'agent', content: { text: 'Casting vote on the proposal...' } },
+    ],
   ],
 
-  validate: async (_runtime: IAgentRuntime, message: Memory): Promise<boolean> => {
-    const content = message.content?.text?.toLowerCase() ?? '';
-    return content.includes('vote') || content.includes('approve') || content.includes('reject');
+  validate: async (
+    _runtime: IAgentRuntime,
+    message: Memory,
+  ): Promise<boolean> => {
+    const content = message.content?.text?.toLowerCase() ?? ''
+    return (
+      content.includes('vote') ||
+      content.includes('approve') ||
+      content.includes('reject')
+    )
   },
 
   handler: async (
@@ -131,27 +182,30 @@ const castVoteAction: Action = {
     message: Memory,
     _state?: State,
     _options?: HandlerOptions,
-    callback?: HandlerCallback
+    callback?: HandlerCallback,
   ): Promise<void> => {
-    const content = message.content?.text ?? '';
-    const proposalMatch = content.match(/0x[a-fA-F0-9]{64}/);
-    
+    const content = message.content?.text ?? ''
+    const proposalMatch = content.match(/0x[a-fA-F0-9]{64}/)
+
     if (!proposalMatch) {
       if (callback) {
         await callback({
           text: 'Please specify a proposal ID (0x...) to vote on.',
           action: 'CAST_VOTE',
-        });
+        })
       }
-      return;
+      return
     }
 
-    const proposalId = proposalMatch[0];
-    const voteType = content.toLowerCase().includes('reject') ? 'REJECT' 
-                   : content.toLowerCase().includes('abstain') ? 'ABSTAIN' 
-                   : 'APPROVE';
-    
-    const role = runtime.character.name?.replace(' Agent', '').toUpperCase() ?? 'UNKNOWN';
+    const proposalId = proposalMatch[0]
+    const voteType = content.toLowerCase().includes('reject')
+      ? 'REJECT'
+      : content.toLowerCase().includes('abstain')
+        ? 'ABSTAIN'
+        : 'APPROVE'
+
+    const role =
+      runtime.character.name?.replace(' Agent', '').toUpperCase() ?? 'UNKNOWN'
 
     const result = await callA2A('submit-vote', {
       proposalId,
@@ -159,7 +213,7 @@ const castVoteAction: Action = {
       vote: voteType,
       reasoning: `${role} agent cast ${voteType} vote`,
       confidence: 75,
-    });
+    })
 
     if (callback) {
       await callback({
@@ -170,10 +224,10 @@ Vote: ${voteType}
 Role: ${role}
 Status: ${(result as { success?: boolean }).success ? 'Recorded' : 'Failed'}`,
         action: 'CAST_VOTE',
-      });
+      })
     }
   },
-};
+}
 
 /**
  * Action: Request Research
@@ -185,9 +239,12 @@ const requestResearchAction: Action = {
   similes: ['research proposal', 'investigate', 'analyze'],
   examples: [],
 
-  validate: async (_runtime: IAgentRuntime, message: Memory): Promise<boolean> => {
-    const content = message.content?.text?.toLowerCase() ?? '';
-    return content.includes('research') || content.includes('investigate');
+  validate: async (
+    _runtime: IAgentRuntime,
+    message: Memory,
+  ): Promise<boolean> => {
+    const content = message.content?.text?.toLowerCase() ?? ''
+    return content.includes('research') || content.includes('investigate')
   },
 
   handler: async (
@@ -195,10 +252,10 @@ const requestResearchAction: Action = {
     message: Memory,
     _state?: State,
     _options?: HandlerOptions,
-    callback?: HandlerCallback
+    callback?: HandlerCallback,
   ): Promise<void> => {
-    const content = message.content?.text ?? '';
-    const proposalMatch = content.match(/0x[a-fA-F0-9]{64}/);
+    const content = message.content?.text ?? ''
+    const proposalMatch = content.match(/0x[a-fA-F0-9]{64}/)
 
     if (callback) {
       await callback({
@@ -213,10 +270,10 @@ Research will include:
 • Risk assessment
 • Community sentiment`,
         action: 'REQUEST_RESEARCH',
-      });
+      })
     }
   },
-};
+}
 
 /**
  * Action: Query A2A Skill
@@ -228,9 +285,16 @@ const queryA2AAction: Action = {
   similes: ['call skill', 'query agent', 'ask council', 'ask ceo'],
   examples: [],
 
-  validate: async (_runtime: IAgentRuntime, message: Memory): Promise<boolean> => {
-    const content = message.content?.text?.toLowerCase() ?? '';
-    return content.includes('query') || content.includes('skill') || content.includes('ask');
+  validate: async (
+    _runtime: IAgentRuntime,
+    message: Memory,
+  ): Promise<boolean> => {
+    const content = message.content?.text?.toLowerCase() ?? ''
+    return (
+      content.includes('query') ||
+      content.includes('skill') ||
+      content.includes('ask')
+    )
   },
 
   handler: async (
@@ -238,15 +302,15 @@ const queryA2AAction: Action = {
     message: Memory,
     _state?: State,
     _options?: HandlerOptions,
-    callback?: HandlerCallback
+    callback?: HandlerCallback,
   ): Promise<void> => {
-    const content = message.content?.text ?? '';
-    
-    // Try to parse skill from message
-    const skillMatch = content.match(/skill[:\s]+(\S+)/i);
-    const skillId = skillMatch?.[1] ?? 'get-governance-stats';
+    const content = message.content?.text ?? ''
 
-    const result = await callA2A(skillId, {});
+    // Try to parse skill from message
+    const skillMatch = content.match(/skill[:\s]+(\S+)/i)
+    const skillId = skillMatch?.[1] ?? 'get-governance-stats'
+
+    const result = await callA2A(skillId, {})
 
     if (callback) {
       await callback({
@@ -256,10 +320,10 @@ Skill: ${skillId}
 Response:
 ${JSON.stringify(result, null, 2).slice(0, 500)}`,
         action: 'QUERY_A2A',
-      });
+      })
     }
   },
-};
+}
 
 /**
  * Action: Call MCP Tool
@@ -271,9 +335,12 @@ const callMCPToolAction: Action = {
   similes: ['use tool', 'call tool', 'mcp'],
   examples: [],
 
-  validate: async (_runtime: IAgentRuntime, message: Memory): Promise<boolean> => {
-    const content = message.content?.text?.toLowerCase() ?? '';
-    return content.includes('mcp') || content.includes('tool');
+  validate: async (
+    _runtime: IAgentRuntime,
+    message: Memory,
+  ): Promise<boolean> => {
+    const content = message.content?.text?.toLowerCase() ?? ''
+    return content.includes('mcp') || content.includes('tool')
   },
 
   handler: async (
@@ -281,23 +348,25 @@ const callMCPToolAction: Action = {
     message: Memory,
     _state?: State,
     _options?: HandlerOptions,
-    callback?: HandlerCallback
+    callback?: HandlerCallback,
   ): Promise<void> => {
-    const content = message.content?.text ?? '';
-    
-    // Try to parse tool name from message
-    const toolMatch = content.match(/tool[:\s]+(\S+)/i);
-    const toolName = toolMatch?.[1] ?? 'get_proposal_status';
+    const content = message.content?.text ?? ''
 
-    const mcpUrl = getMCPEndpoint();
-    
+    // Try to parse tool name from message
+    const toolMatch = content.match(/tool[:\s]+(\S+)/i)
+    const toolName = toolMatch?.[1] ?? 'get_proposal_status'
+
+    const mcpUrl = getMCPEndpoint()
+
     const response = await fetch(`${mcpUrl}/tools/call`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ params: { name: toolName, arguments: {} } }),
-    });
+    })
 
-    const result = await response.json() as { content?: Array<{ text?: string }> };
+    const result = (await response.json()) as {
+      content?: Array<{ text?: string }>
+    }
 
     if (callback) {
       await callback({
@@ -307,10 +376,10 @@ Tool: ${toolName}
 Response:
 ${result.content?.[0]?.text ?? JSON.stringify(result).slice(0, 500)}`,
         action: 'CALL_MCP_TOOL',
-      });
+      })
     }
   },
-};
+}
 
 // ============================================================================
 // Autocrat Plugin
@@ -322,10 +391,11 @@ ${result.content?.[0]?.text ?? JSON.stringify(result).slice(0, 500)}`,
  */
 export const autocratPlugin: Plugin = {
   name: 'autocrat-plugin',
-  description: 'Autocrat agent plugin with service discovery, A2A/MCP access, and governance actions',
-  
+  description:
+    'Autocrat agent plugin with service discovery, A2A/MCP access, and governance actions',
+
   providers: autocratProviders,
-  
+
   actions: [
     discoverServicesAction,
     castVoteAction,
@@ -333,6 +403,6 @@ export const autocratPlugin: Plugin = {
     queryA2AAction,
     callMCPToolAction,
   ],
-};
+}
 
-export default autocratPlugin;
+export default autocratPlugin

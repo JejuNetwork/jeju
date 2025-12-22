@@ -3,20 +3,41 @@
  * Multi-chain RPC provider service
  */
 
-import { Hono } from 'hono';
-import { validateBody, validateParams, validateQuery, validateHeaders, jejuAddressHeaderSchema, chainParamsSchema, rpcProviderRegistrationSchema, rpcProviderHeartbeatSchema, rpcProviderParamsSchema, rpcChainsQuerySchema, rpcRequestSchema, rpcBatchRequestSchema, z } from '../../shared';
-import { findBestProvider, getSessionFromApiKey, canMakeRequest, extractApiKey, type RPCProvider, type RPCSession } from '../../shared/utils/rpc';
+import { Hono } from 'hono'
+import {
+  chainParamsSchema,
+  jejuAddressHeaderSchema,
+  rpcBatchRequestSchema,
+  rpcChainsQuerySchema,
+  rpcProviderHeartbeatSchema,
+  rpcProviderParamsSchema,
+  rpcProviderRegistrationSchema,
+  rpcRequestSchema,
+  validateBody,
+  validateHeaders,
+  validateParams,
+  validateQuery,
+  z,
+} from '../../shared'
+import {
+  canMakeRequest,
+  extractApiKey,
+  findBestProvider,
+  getSessionFromApiKey,
+  type RPCProvider,
+  type RPCSession,
+} from '../../shared/utils/rpc'
 
 interface ChainConfig {
-  id: number;
-  name: string;
-  network: string;
-  symbol: string;
-  rpcUrls: string[];
-  wsUrls?: string[];
-  explorerUrl?: string;
-  isTestnet: boolean;
-  enabled: boolean;
+  id: number
+  name: string
+  network: string
+  symbol: string
+  rpcUrls: string[]
+  wsUrls?: string[]
+  explorerUrl?: string
+  isTestnet: boolean
+  enabled: boolean
 }
 
 // Supported chains
@@ -128,64 +149,48 @@ const CHAINS: Record<number, ChainConfig> = {
     isTestnet: true,
     enabled: true,
   },
-  // Jeju Network
-  420691: {
-    id: 420691,
-    name: 'Jeju Network',
-    network: 'jeju',
-    symbol: 'ETH',
-    rpcUrls: [],
-    explorerUrl: 'https://explorer.jejunetwork.org',
-    isTestnet: false,
-    enabled: true,
-  },
-  420690: {
-    id: 420690,
-    name: 'Jeju Testnet',
-    network: 'jeju-testnet',
-    symbol: 'ETH',
-    rpcUrls: [],
-    explorerUrl: 'https://testnet-explorer.jejunetwork.org',
-    isTestnet: true,
-    enabled: true,
-  },
-};
+}
 
-const providers = new Map<string, RPCProvider>();
-const sessions = new Map<string, RPCSession>();
-const apiKeyToSession = new Map<string, string>();
+const providers = new Map<string, RPCProvider>()
+const sessions = new Map<string, RPCSession>()
+const apiKeyToSession = new Map<string, string>()
 
 // Rate limits by tier
 const RATE_LIMITS = {
   free: { rps: 10, daily: 10000 },
   standard: { rps: 100, daily: 1000000 },
   premium: { rps: 1000, daily: 10000000 },
-};
+}
 
 export function createRPCRouter(): Hono {
-  const router = new Hono();
+  const router = new Hono()
 
   // ============================================================================
   // Health & Info
   // ============================================================================
 
   router.get('/health', (c) => {
-    const activeProviders = Array.from(providers.values())
-      .filter(p => p.status === 'active');
-    
+    const activeProviders = Array.from(providers.values()).filter(
+      (p) => p.status === 'active',
+    )
+
     const chainStatus = Object.values(CHAINS)
-      .filter(chain => chain.enabled)
-      .map(chain => {
-        const chainProviders = activeProviders.filter(p => p.chainId === chain.id);
+      .filter((chain) => chain.enabled)
+      .map((chain) => {
+        const chainProviders = activeProviders.filter(
+          (p) => p.chainId === chain.id,
+        )
         return {
           chainId: chain.id,
           name: chain.name,
           providers: chainProviders.length,
-          avgLatency: chainProviders.length > 0
-            ? chainProviders.reduce((sum, p) => sum + p.latency, 0) / chainProviders.length
-            : null,
-        };
-      });
+          avgLatency:
+            chainProviders.length > 0
+              ? chainProviders.reduce((sum, p) => sum + p.latency, 0) /
+                chainProviders.length
+              : null,
+        }
+      })
 
     return c.json({
       status: 'healthy',
@@ -193,19 +198,20 @@ export function createRPCRouter(): Hono {
       chains: chainStatus,
       totalProviders: providers.size,
       activeSessions: sessions.size,
-    });
-  });
+    })
+  })
 
   // List supported chains
   router.get('/chains', (c) => {
-    const { testnet: includeTestnets } = validateQuery(rpcChainsQuerySchema, c);
-    
+    const { testnet: includeTestnets } = validateQuery(rpcChainsQuerySchema, c)
+
     const chains = Object.values(CHAINS)
-      .filter(chain => chain.enabled && (includeTestnets || !chain.isTestnet))
-      .map(chain => {
-        const chainProviders = Array.from(providers.values())
-          .filter(p => p.chainId === chain.id && p.status === 'active');
-        
+      .filter((chain) => chain.enabled && (includeTestnets || !chain.isTestnet))
+      .map((chain) => {
+        const chainProviders = Array.from(providers.values()).filter(
+          (p) => p.chainId === chain.id && p.status === 'active',
+        )
+
         return {
           chainId: chain.id,
           name: chain.name,
@@ -214,30 +220,35 @@ export function createRPCRouter(): Hono {
           explorerUrl: chain.explorerUrl,
           isTestnet: chain.isTestnet,
           providers: chainProviders.length,
-          avgLatency: chainProviders.length > 0
-            ? Math.round(chainProviders.reduce((sum, p) => sum + p.latency, 0) / chainProviders.length)
-            : null,
-        };
-      });
+          avgLatency:
+            chainProviders.length > 0
+              ? Math.round(
+                  chainProviders.reduce((sum, p) => sum + p.latency, 0) /
+                    chainProviders.length,
+                )
+              : null,
+        }
+      })
 
-    return c.json({ chains });
-  });
+    return c.json({ chains })
+  })
 
   // Get chain info
   router.get('/chains/:chainId', (c) => {
-    const { chainId } = validateParams(chainParamsSchema, c);
-    const chain = CHAINS[chainId];
-    
+    const { chainId } = validateParams(chainParamsSchema, c)
+    const chain = CHAINS[chainId]
+
     if (!chain || !chain.enabled) {
-      throw new Error('Chain not supported');
+      throw new Error('Chain not supported')
     }
 
-    const chainProviders = Array.from(providers.values())
-      .filter(p => p.chainId === chainId);
+    const chainProviders = Array.from(providers.values()).filter(
+      (p) => p.chainId === chainId,
+    )
 
     return c.json({
       ...chain,
-      providers: chainProviders.map(p => ({
+      providers: chainProviders.map((p) => ({
         id: p.id,
         region: p.region,
         tier: p.tier,
@@ -245,8 +256,8 @@ export function createRPCRouter(): Hono {
         uptime: p.uptime,
         status: p.status,
       })),
-    });
-  });
+    })
+  })
 
   // ============================================================================
   // Provider Management
@@ -254,14 +265,17 @@ export function createRPCRouter(): Hono {
 
   // Register provider
   router.post('/providers', async (c) => {
-    const { 'x-jeju-address': operator } = validateHeaders(jejuAddressHeaderSchema, c);
-    const body = await validateBody(rpcProviderRegistrationSchema, c);
+    const { 'x-jeju-address': operator } = validateHeaders(
+      jejuAddressHeaderSchema,
+      c,
+    )
+    const body = await validateBody(rpcProviderRegistrationSchema, c)
 
     if (!CHAINS[body.chainId]) {
-      throw new Error('Chain not supported');
+      throw new Error('Chain not supported')
     }
 
-    const id = crypto.randomUUID();
+    const id = crypto.randomUUID()
     const provider: RPCProvider = {
       id,
       operator,
@@ -276,34 +290,37 @@ export function createRPCRouter(): Hono {
       uptime: 100,
       lastSeen: Date.now(),
       status: 'active',
-    };
+    }
 
-    providers.set(id, provider);
+    providers.set(id, provider)
 
-    return c.json({
-      providerId: id,
-      chainId: body.chainId,
-      status: 'registered',
-    }, 201);
-  });
+    return c.json(
+      {
+        providerId: id,
+        chainId: body.chainId,
+        status: 'registered',
+      },
+      201,
+    )
+  })
 
   // Provider heartbeat
   router.post('/providers/:id/heartbeat', async (c) => {
-    const { id } = validateParams(rpcProviderParamsSchema, c);
-    const provider = providers.get(id);
+    const { id } = validateParams(rpcProviderParamsSchema, c)
+    const provider = providers.get(id)
     if (!provider) {
-      throw new Error('Provider not found');
+      throw new Error('Provider not found')
     }
 
-    const body = await validateBody(rpcProviderHeartbeatSchema, c);
+    const body = await validateBody(rpcProviderHeartbeatSchema, c)
 
-    provider.lastSeen = Date.now();
-    if (body.latency !== undefined) provider.latency = body.latency;
-    if (body.currentRps !== undefined) provider.currentRps = body.currentRps;
-    if (body.status) provider.status = body.status;
+    provider.lastSeen = Date.now()
+    if (body.latency !== undefined) provider.latency = body.latency
+    if (body.currentRps !== undefined) provider.currentRps = body.currentRps
+    if (body.status) provider.status = body.status
 
-    return c.json({ success: true });
-  });
+    return c.json({ success: true })
+  })
 
   // ============================================================================
   // API Key Management
@@ -311,15 +328,21 @@ export function createRPCRouter(): Hono {
 
   // Create API key
   router.post('/keys', async (c) => {
-    const { 'x-jeju-address': user } = validateHeaders(jejuAddressHeaderSchema, c);
-    const body = await validateBody(z.object({
-      tier: z.enum(['free', 'standard', 'premium']).optional(),
-      chains: z.array(z.number().int().positive()).optional(),
-    }), c);
+    const { 'x-jeju-address': user } = validateHeaders(
+      jejuAddressHeaderSchema,
+      c,
+    )
+    const body = await validateBody(
+      z.object({
+        tier: z.enum(['free', 'standard', 'premium']).optional(),
+        chains: z.array(z.number().int().positive()).optional(),
+      }),
+      c,
+    )
 
-    const tier = body.tier ?? 'free';
-    const apiKey = `dws_${crypto.randomUUID().replace(/-/g, '')}`;
-    const sessionId = crypto.randomUUID();
+    const tier = body.tier ?? 'free'
+    const apiKey = `dws_${crypto.randomUUID().replace(/-/g, '')}`
+    const sessionId = crypto.randomUUID()
 
     const session: RPCSession = {
       id: sessionId,
@@ -331,37 +354,43 @@ export function createRPCRouter(): Hono {
       dailyLimit: RATE_LIMITS[tier].daily,
       createdAt: Date.now(),
       status: 'active',
-    };
+    }
 
-    sessions.set(sessionId, session);
-    apiKeyToSession.set(apiKey, sessionId);
+    sessions.set(sessionId, session)
+    apiKeyToSession.set(apiKey, sessionId)
 
-    return c.json({
-      apiKey,
-      tier,
-      limits: RATE_LIMITS[tier],
-      endpoints: Object.values(CHAINS)
-        .filter(chain => chain.enabled)
-        .map(chain => ({
-          chainId: chain.id,
-          name: chain.name,
-          http: `/rpc/${chain.id}`,
-          ws: `/rpc/${chain.id}/ws`,
-        })),
-    }, 201);
-  });
+    return c.json(
+      {
+        apiKey,
+        tier,
+        limits: RATE_LIMITS[tier],
+        endpoints: Object.values(CHAINS)
+          .filter((chain) => chain.enabled)
+          .map((chain) => ({
+            chainId: chain.id,
+            name: chain.name,
+            http: `/rpc/${chain.id}`,
+            ws: `/rpc/${chain.id}/ws`,
+          })),
+      },
+      201,
+    )
+  })
 
   // Get API key info
   router.get('/keys/:apiKey', (c) => {
-    const { apiKey } = validateParams(z.object({ apiKey: z.string().min(1) }), c);
-    const sessionId = apiKeyToSession.get(apiKey);
+    const { apiKey } = validateParams(
+      z.object({ apiKey: z.string().min(1) }),
+      c,
+    )
+    const sessionId = apiKeyToSession.get(apiKey)
     if (!sessionId) {
-      throw new Error('API key not found');
+      throw new Error('API key not found')
     }
 
-    const session = sessions.get(sessionId);
+    const session = sessions.get(sessionId)
     if (!session) {
-      throw new Error('Session not found');
+      throw new Error('Session not found')
     }
 
     return c.json({
@@ -371,29 +400,35 @@ export function createRPCRouter(): Hono {
       remainingToday: session.dailyLimit - session.requestCount,
       status: session.status,
       createdAt: session.createdAt,
-    });
-  });
+    })
+  })
 
   // Revoke API key
   router.delete('/keys/:apiKey', (c) => {
-    const user = validateHeaders(z.object({ 'x-jeju-address': z.string().optional() }), c)['x-jeju-address']?.toLowerCase();
-    const { apiKey } = validateParams(z.object({ apiKey: z.string().min(1) }), c);
-    const sessionId = apiKeyToSession.get(apiKey);
-    
+    const user = validateHeaders(
+      z.object({ 'x-jeju-address': z.string().optional() }),
+      c,
+    )['x-jeju-address']?.toLowerCase()
+    const { apiKey } = validateParams(
+      z.object({ apiKey: z.string().min(1) }),
+      c,
+    )
+    const sessionId = apiKeyToSession.get(apiKey)
+
     if (!sessionId) {
-      throw new Error('API key not found');
+      throw new Error('API key not found')
     }
 
-    const session = sessions.get(sessionId);
+    const session = sessions.get(sessionId)
     if (!session || !user || session.user.toLowerCase() !== user) {
-      throw new Error('Not authorized');
+      throw new Error('Not authorized')
     }
 
-    session.status = 'suspended';
-    apiKeyToSession.delete(apiKey);
+    session.status = 'suspended'
+    apiKeyToSession.delete(apiKey)
 
-    return c.json({ success: true });
-  });
+    return c.json({ success: true })
+  })
 
   // ============================================================================
   // RPC Proxy
@@ -401,41 +436,48 @@ export function createRPCRouter(): Hono {
 
   // JSON-RPC endpoint
   router.post('/:chainId', async (c) => {
-    const { chainId } = validateParams(chainParamsSchema, c);
-    const chain = CHAINS[chainId];
-    
+    const { chainId } = validateParams(chainParamsSchema, c)
+    const chain = CHAINS[chainId]
+
     if (!chain || !chain.enabled) {
-      throw new Error('Chain not supported');
+      throw new Error('Chain not supported')
     }
 
     // Get API key from header or query
-    const headers = validateHeaders(z.object({
-      'x-api-key': z.string().optional(),
-      'authorization': z.string().optional(),
-    }), c);
-    const query = validateQuery(z.object({ apiKey: z.string().optional() }), c);
-    const apiKey = extractApiKey(headers['x-api-key'], headers['authorization'], query.apiKey);
+    const headers = validateHeaders(
+      z.object({
+        'x-api-key': z.string().optional(),
+        authorization: z.string().optional(),
+      }),
+      c,
+    )
+    const query = validateQuery(z.object({ apiKey: z.string().optional() }), c)
+    const apiKey = extractApiKey(
+      headers['x-api-key'],
+      headers.authorization,
+      query.apiKey,
+    )
 
     // Validate API key and check rate limits
-    const session = getSessionFromApiKey(apiKey, apiKeyToSession, sessions);
-    const canRequest = canMakeRequest(session);
+    const session = getSessionFromApiKey(apiKey, apiKeyToSession, sessions)
+    const canRequest = canMakeRequest(session)
     if (!canRequest.allowed) {
-      throw new Error(canRequest.reason || 'Request not allowed');
+      throw new Error(canRequest.reason || 'Request not allowed')
     }
-    
+
     if (session) {
-      session.requestCount++;
+      session.requestCount++
     }
 
     // Find best provider
-    const provider = findBestProvider(providers, chainId);
+    const provider = findBestProvider(providers, chainId)
     if (!provider) {
-      throw new Error('No available providers');
+      throw new Error('No available providers')
     }
 
     // Forward request
-    const body = await validateBody(rpcRequestSchema, c);
-    
+    const body = await validateBody(rpcRequestSchema, c)
+
     try {
       const response = await fetch(provider.endpoint, {
         method: 'POST',
@@ -443,50 +485,50 @@ export function createRPCRouter(): Hono {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(body),
-      });
+      })
 
-      const result = await response.json();
-      
+      const result = await response.json()
+
       // Track provider usage
-      provider.currentRps++;
-      setTimeout(() => provider.currentRps--, 1000);
+      provider.currentRps++
+      setTimeout(() => provider.currentRps--, 1000)
 
-      return c.json(result);
+      return c.json(result)
     } catch (error) {
       // Mark provider as degraded on error
-      provider.status = 'degraded';
-      throw error;
+      provider.status = 'degraded'
+      throw error
     }
-  });
+  })
 
   // Batch RPC
   router.post('/:chainId/batch', async (c) => {
-    const { chainId } = validateParams(chainParamsSchema, c);
-    const chain = CHAINS[chainId];
-    
+    const { chainId } = validateParams(chainParamsSchema, c)
+    const chain = CHAINS[chainId]
+
     if (!chain || !chain.enabled) {
-      throw new Error('Chain not supported');
+      throw new Error('Chain not supported')
     }
 
-    const requests = await validateBody(rpcBatchRequestSchema, c);
+    const requests = await validateBody(rpcBatchRequestSchema, c)
 
     // Find provider
-    const provider = Array.from(providers.values())
-      .find(p => p.chainId === chainId && p.status === 'active');
+    const provider = Array.from(providers.values()).find(
+      (p) => p.chainId === chainId && p.status === 'active',
+    )
 
     if (!provider) {
-      throw new Error('No available providers');
+      throw new Error('No available providers')
     }
 
     const response = await fetch(provider.endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requests),
-    });
+    })
 
-    return c.json(await response.json());
-  });
+    return c.json(await response.json())
+  })
 
-  return router;
+  return router
 }
-

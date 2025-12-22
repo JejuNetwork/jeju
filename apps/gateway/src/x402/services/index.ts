@@ -1,38 +1,38 @@
 // Verifier
-export {
-  decodePaymentHeader,
-  verifyPayment,
-  verifySignatureOnly,
-  encodePaymentHeader,
-} from './verifier';
-
-// Settler
-export {
-  createClients,
-  getFacilitatorStats,
-  isTokenSupported,
-  getTokenBalance,
-  getTokenAllowance,
-  settlePayment,
-  calculateProtocolFee,
-  formatAmount,
-  getPendingSettlementsCount,
-  cleanupStalePendingSettlements,
-} from './settler';
 
 // Nonce Manager
 export {
+  cleanupOldNonces,
+  clearNonceCache,
+  generateNonce,
+  getNonceCacheStats,
+  isNonceUsed,
   isNonceUsedLocally,
   isNonceUsedOnChain,
-  isNonceUsed,
+  markNonceFailed,
   markNoncePending,
   markNonceUsed,
-  markNonceFailed,
   reserveNonce,
-  generateNonce,
-  cleanupOldNonces,
-  getNonceCacheStats,
-  clearNonceCache,
   startNonceCleanup,
   stopNonceCleanup,
-} from './nonce-manager';
+} from './nonce-manager'
+
+// Settler
+export {
+  calculateProtocolFee,
+  cleanupStalePendingSettlements,
+  createClients,
+  formatAmount,
+  getFacilitatorStats,
+  getPendingSettlementsCount,
+  getTokenAllowance,
+  getTokenBalance,
+  isTokenSupported,
+  settlePayment,
+} from './settler'
+export {
+  decodePaymentHeader,
+  encodePaymentHeader,
+  verifyPayment,
+  verifySignatureOnly,
+} from './verifier'

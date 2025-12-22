@@ -1,51 +1,62 @@
-import { Hono } from 'hono';
-import type { StatsResponse } from '../lib/types';
-import { ZERO_ADDRESS } from '../lib/chains';
-import { config, getConfigStatus } from '../config';
-import { createClients, getFacilitatorStats } from '../services/settler';
-import { getNonceCacheStats } from '../services/nonce-manager';
+import { Hono } from 'hono'
+import { config, getConfigStatus } from '../config'
+import { ZERO_ADDRESS } from '../lib/chains'
+import type { StatsResponse } from '../lib/types'
+import { getNonceCacheStats } from '../services/nonce-manager'
+import { createClients, getFacilitatorStats } from '../services/settler'
 
-const app = new Hono();
-const serviceStartTime = Date.now();
+const app = new Hono()
+const serviceStartTime = Date.now()
 
 app.get('/', async (c) => {
-  const cfg = config();
-  let status: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
+  const cfg = config()
+  let status: 'healthy' | 'degraded' | 'unhealthy' = 'healthy'
 
   try {
-    const { publicClient } = await createClients(cfg.network);
-    await publicClient.getBlockNumber();
+    const { publicClient } = await createClients(cfg.network)
+    await publicClient.getBlockNumber()
   } catch {
-    status = 'degraded';
+    status = 'degraded'
   }
 
-  if (cfg.facilitatorAddress === ZERO_ADDRESS && cfg.environment === 'production') {
-    status = 'unhealthy';
+  if (
+    cfg.facilitatorAddress === ZERO_ADDRESS &&
+    cfg.environment === 'production'
+  ) {
+    status = 'unhealthy'
   }
 
-  const configStatus = await getConfigStatus();
-  const nonceStats = await getNonceCacheStats();
+  const configStatus = await getConfigStatus()
+  const nonceStats = await getNonceCacheStats()
 
-  return c.json({
-    service: cfg.serviceName,
-    version: cfg.serviceVersion,
-    status,
-    mode: cfg.environment,
-    chainId: cfg.chainId,
-    network: cfg.network,
-    facilitatorAddress: cfg.facilitatorAddress,
-    endpoints: { verify: 'POST /verify', settle: 'POST /settle', supported: 'GET /supported', stats: 'GET /stats' },
-    kms: configStatus.kmsEnabled ? configStatus.keySource : 'disabled',
-    distributed: nonceStats.distributed,
-    timestamp: Date.now(),
-  }, status === 'unhealthy' ? 503 : 200);
-});
+  return c.json(
+    {
+      service: cfg.serviceName,
+      version: cfg.serviceVersion,
+      status,
+      mode: cfg.environment,
+      chainId: cfg.chainId,
+      network: cfg.network,
+      facilitatorAddress: cfg.facilitatorAddress,
+      endpoints: {
+        verify: 'POST /verify',
+        settle: 'POST /settle',
+        supported: 'GET /supported',
+        stats: 'GET /stats',
+      },
+      kms: configStatus.kmsEnabled ? configStatus.keySource : 'disabled',
+      distributed: nonceStats.distributed,
+      timestamp: Date.now(),
+    },
+    status === 'unhealthy' ? 503 : 200,
+  )
+})
 
 app.get('/stats', async (c) => {
-  const cfg = config();
+  const cfg = config()
   try {
-    const { publicClient } = await createClients(cfg.network);
-    const stats = await getFacilitatorStats(publicClient);
+    const { publicClient } = await createClients(cfg.network)
+    const stats = await getFacilitatorStats(publicClient)
 
     const response: StatsResponse = {
       totalSettlements: stats.totalSettlements.toString(),
@@ -55,29 +66,38 @@ app.get('/stats', async (c) => {
       supportedTokens: [cfg.usdcAddress],
       uptime: Math.floor((Date.now() - serviceStartTime) / 1000),
       timestamp: Date.now(),
-    };
-    return c.json(response);
+    }
+    return c.json(response)
   } catch (e) {
-    return c.json({ error: `Failed to fetch stats: ${e instanceof Error ? e.message : String(e)}` }, 500);
+    return c.json(
+      {
+        error: `Failed to fetch stats: ${e instanceof Error ? e.message : String(e)}`,
+      },
+      500,
+    )
   }
-});
+})
 
 app.get('/health', async (c) => {
   try {
-    const { publicClient } = await createClients(config().network);
-    await publicClient.getBlockNumber();
-    return c.json({ status: 'ok', timestamp: Date.now() });
+    const { publicClient } = await createClients(config().network)
+    await publicClient.getBlockNumber()
+    return c.json({ status: 'ok', timestamp: Date.now() })
   } catch {
-    return c.json({ status: 'error', timestamp: Date.now() }, 503);
+    return c.json({ status: 'error', timestamp: Date.now() }, 503)
   }
-});
+})
 
 app.get('/ready', async (c) => {
-  const cfg = config();
-  const configStatus = await getConfigStatus();
-  
-  const ready = configStatus.keySource !== 'none' && cfg.facilitatorAddress !== ZERO_ADDRESS;
-  return c.json({ status: ready ? 'ready' : 'not_ready', timestamp: Date.now() }, ready ? 200 : 503);
-});
+  const cfg = config()
+  const configStatus = await getConfigStatus()
 
-export default app;
+  const ready =
+    configStatus.keySource !== 'none' && cfg.facilitatorAddress !== ZERO_ADDRESS
+  return c.json(
+    { status: ready ? 'ready' : 'not_ready', timestamp: Date.now() },
+    ready ? 200 : 503,
+  )
+})
+
+export default app

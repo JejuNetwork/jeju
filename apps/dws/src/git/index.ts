@@ -3,30 +3,35 @@
  * Decentralized Git hosting with on-chain registry
  */
 
-// Types
-export * from './types';
-
+export { FederationManager, type FederationManagerConfig } from './federation'
+// Extended features
+export { IssuesManager, type IssuesManagerConfig } from './issues'
+// Leaderboard integration
+export * from './leaderboard-integration'
 // Core Git operations
-export { GitObjectStore } from './object-store';
-export { GitRepoManager, type RepoManagerConfig } from './repo-manager';
-export * from './oid-utils';
+export { GitObjectStore } from './object-store'
+export * from './oid-utils'
 export {
-  PackfileWriter,
-  PackfileReader,
+  createFlushPkt,
   createPackfile,
-  extractPackfile,
-  parsePktLines,
   createPktLine,
   createPktLines,
-  createFlushPkt,
-} from './pack';
-
-// Extended features
-export { IssuesManager, type IssuesManagerConfig } from './issues';
-export { PullRequestsManager, type PRManagerConfig } from './pull-requests';
-export { SocialManager, type SocialManagerConfig } from './social';
-export { SearchManager, type SearchManagerConfig, type SearchOptions, type RepoSearchOptions, type CodeSearchOptions, type IssueSearchOptions, type UserSearchOptions } from './search';
-export { FederationManager, type FederationManagerConfig } from './federation';
-
-// Leaderboard integration
-export * from './leaderboard-integration';
+  extractPackfile,
+  PackfileReader,
+  PackfileWriter,
+  parsePktLines,
+} from './pack'
+export { type PRManagerConfig, PullRequestsManager } from './pull-requests'
+export { GitRepoManager, type RepoManagerConfig } from './repo-manager'
+export {
+  type CodeSearchOptions,
+  type IssueSearchOptions,
+  type RepoSearchOptions,
+  SearchManager,
+  type SearchManagerConfig,
+  type SearchOptions,
+  type UserSearchOptions,
+} from './search'
+export { SocialManager, type SocialManagerConfig } from './social'
+// Types
+export * from './types'

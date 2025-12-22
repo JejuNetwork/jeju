@@ -36,13 +36,14 @@ use solana_program::keccak;
 mod verification_key;
 use verification_key as vk;
 
-/// CPI module for cross-program invocation
+/// CPI helpers module for cross-program invocation
+/// Note: Named `cpi_helpers` to avoid conflict with Anchor's generated `cpi` module
 #[cfg(feature = "cpi")]
-pub mod cpi;
+pub mod cpi_helpers;
 
 /// Re-export CPI types when cpi feature is enabled
 #[cfg(feature = "cpi")]
-pub use cpi::{accounts as cpi_accounts, LatestStateResult};
+pub use cpi_helpers::{LatestStateResult};
 
 declare_id!("5TMUr2vv5TAUhKo4q8ibfkkw9SeBRzumYaRNo1iWvwsX");
 
@@ -90,9 +91,39 @@ pub mod evm_light_client {
         state.next_sync_committee_root = [0u8; 32];
         state.update_count = 0;
         state.initialized = true;
+        state.permissioned_mode = true;  // Default to permissioned mode for security
+        state.authorized_relayer = ctx.accounts.admin.key();
 
         msg!("EVM Light Client initialized at slot {}", genesis_slot);
 
+        Ok(())
+    }
+
+    /// Set the authorized relayer (admin only)
+    pub fn set_authorized_relayer(
+        ctx: Context<AdminAction>,
+        new_relayer: Pubkey,
+    ) -> Result<()> {
+        require!(
+            ctx.accounts.admin.key() == ctx.accounts.state.admin,
+            ErrorCode::Unauthorized
+        );
+        ctx.accounts.state.authorized_relayer = new_relayer;
+        msg!("Authorized relayer set to {}", new_relayer);
+        Ok(())
+    }
+
+    /// Toggle permissioned mode (admin only)
+    pub fn set_permissioned_mode(
+        ctx: Context<AdminAction>,
+        permissioned: bool,
+    ) -> Result<()> {
+        require!(
+            ctx.accounts.admin.key() == ctx.accounts.state.admin,
+            ErrorCode::Unauthorized
+        );
+        ctx.accounts.state.permissioned_mode = permissioned;
+        msg!("Permissioned mode set to {}", permissioned);
         Ok(())
     }
 
@@ -246,6 +277,18 @@ pub struct UpdateState<'info> {
 }
 
 #[derive(Accounts)]
+pub struct AdminAction<'info> {
+    #[account(
+        mut,
+        seeds = [b"evm_light_client"],
+        bump
+    )]
+    pub state: Account<'info, LightClientState>,
+
+    pub admin: Signer<'info>,
+}
+
+#[derive(Accounts)]
 pub struct VerifyProof<'info> {
     #[account(
         seeds = [b"evm_light_client"],
@@ -290,6 +333,12 @@ pub struct LightClientState {
 
     /// Whether the light client is initialized
     pub initialized: bool,
+
+    /// Whether to restrict updates to authorized relayers only
+    pub permissioned_mode: bool,
+
+    /// Authorized relayer (if permissioned_mode is true)
+    pub authorized_relayer: Pubkey,
 }
 
 // RETURN TYPES
@@ -328,6 +377,12 @@ pub enum ErrorCode {
 
     #[msg("CRITICAL: Verification keys are placeholders - deploy real keys before mainnet")]
     PlaceholderVerificationKeys,
+
+    #[msg("Unauthorized - only admin can perform this action")]
+    Unauthorized,
+
+    #[msg("Unauthorized relayer - not in authorized relayer list")]
+    UnauthorizedRelayer,
 }
 
 // VERIFICATION HELPERS

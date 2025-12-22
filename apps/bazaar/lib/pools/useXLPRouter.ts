@@ -1,10 +1,10 @@
-import { useWriteContract, useAccount, useReadContracts } from 'wagmi'
 import { AddressSchema } from '@jejunetwork/types'
-import { expect, expectPositive, expectTrue } from '@/lib/validation'
-import { getXLPContracts } from '@/config/contracts'
-import { JEJU_CHAIN_ID } from '@/config/chains'
-import type { Address, Abi } from 'viem'
+import type { Abi, Address } from 'viem'
 import { encodePacked } from 'viem'
+import { useAccount, useReadContracts, useWriteContract } from 'wagmi'
+import { JEJU_CHAIN_ID } from '@/config/chains'
+import { getXLPContracts } from '@/config/contracts'
+import { expect, expectPositive, expectTrue } from '@/lib/validation'
 
 // XLP Router ABI (minimal)
 const ROUTER_ABI: Abi = [
@@ -130,17 +130,23 @@ export function useSwapV2() {
   const { address } = useAccount()
   const contracts = getXLPContracts(JEJU_CHAIN_ID)
 
-  const { writeContractAsync, isPending, isSuccess, error, data: txHash } = useWriteContract()
+  const {
+    writeContractAsync,
+    isPending,
+    isSuccess,
+    error,
+    data: txHash,
+  } = useWriteContract()
 
   const swapExactTokensForTokens = async (params: SwapV2Params) => {
-    const validatedAddress = expect(address, 'Wallet not connected');
-    AddressSchema.parse(validatedAddress);
-    const router = expect(contracts?.router, 'Router not deployed');
-    AddressSchema.parse(router);
-    
-    expectPositive(params.amountIn, 'AmountIn must be positive');
-    expectTrue(params.path.length >= 2, 'Path must have at least 2 tokens');
-    params.path.forEach(token => AddressSchema.parse(token));
+    const validatedAddress = expect(address, 'Wallet not connected')
+    AddressSchema.parse(validatedAddress)
+    const router = expect(contracts?.router, 'Router not deployed')
+    AddressSchema.parse(router)
+
+    expectPositive(params.amountIn, 'AmountIn must be positive')
+    expectTrue(params.path.length >= 2, 'Path must have at least 2 tokens')
+    params.path.forEach((token) => AddressSchema.parse(token))
 
     const hash = await writeContractAsync({
       address: router,
@@ -157,35 +163,42 @@ export function useSwapV2() {
     return expect(hash, 'Transaction hash not returned')
   }
 
-  const swapExactETHForTokens = async (params: Omit<SwapV2Params, 'amountIn'> & { value: bigint }) => {
-    const validatedAddress = expect(address, 'Wallet not connected');
-    AddressSchema.parse(validatedAddress);
-    const router = expect(contracts?.router, 'Router not deployed');
-    AddressSchema.parse(router);
-    
-    expectPositive(params.value, 'Value must be positive');
-    expectTrue(params.path.length >= 2, 'Path must have at least 2 tokens');
-    params.path.forEach(token => AddressSchema.parse(token));
+  const swapExactETHForTokens = async (
+    params: Omit<SwapV2Params, 'amountIn'> & { value: bigint },
+  ) => {
+    const validatedAddress = expect(address, 'Wallet not connected')
+    AddressSchema.parse(validatedAddress)
+    const router = expect(contracts?.router, 'Router not deployed')
+    AddressSchema.parse(router)
+
+    expectPositive(params.value, 'Value must be positive')
+    expectTrue(params.path.length >= 2, 'Path must have at least 2 tokens')
+    params.path.forEach((token) => AddressSchema.parse(token))
 
     const hash = await writeContractAsync({
       address: router,
       abi: ROUTER_ABI,
       functionName: 'swapExactETHForTokensV2',
-      args: [params.amountOutMin, params.path, validatedAddress, getDeadline(params.deadline)],
+      args: [
+        params.amountOutMin,
+        params.path,
+        validatedAddress,
+        getDeadline(params.deadline),
+      ],
       value: params.value,
     })
     return expect(hash, 'Transaction hash not returned')
   }
 
   const swapExactTokensForETH = async (params: SwapV2Params) => {
-    const validatedAddress = expect(address, 'Wallet not connected');
-    AddressSchema.parse(validatedAddress);
-    const router = expect(contracts?.router, 'Router not deployed');
-    AddressSchema.parse(router);
-    
-    expectPositive(params.amountIn, 'AmountIn must be positive');
-    expectTrue(params.path.length >= 2, 'Path must have at least 2 tokens');
-    params.path.forEach(token => AddressSchema.parse(token));
+    const validatedAddress = expect(address, 'Wallet not connected')
+    AddressSchema.parse(validatedAddress)
+    const router = expect(contracts?.router, 'Router not deployed')
+    AddressSchema.parse(router)
+
+    expectPositive(params.amountIn, 'AmountIn must be positive')
+    expectTrue(params.path.length >= 2, 'Path must have at least 2 tokens')
+    params.path.forEach((token) => AddressSchema.parse(token))
 
     const hash = await writeContractAsync({
       address: router,
@@ -218,19 +231,31 @@ export function useSwapV3() {
   const { address } = useAccount()
   const contracts = getXLPContracts(JEJU_CHAIN_ID)
 
-  const { writeContractAsync, isPending, isSuccess, error, data: txHash } = useWriteContract()
+  const {
+    writeContractAsync,
+    isPending,
+    isSuccess,
+    error,
+    data: txHash,
+  } = useWriteContract()
 
   const exactInputSingle = async (params: SwapV3Params) => {
-    const validatedAddress = expect(address, 'Wallet not connected');
-    AddressSchema.parse(validatedAddress);
-    const router = expect(contracts?.router, 'Router not deployed');
-    AddressSchema.parse(router);
-    
-    AddressSchema.parse(params.tokenIn);
-    AddressSchema.parse(params.tokenOut);
-    expectTrue(params.tokenIn !== params.tokenOut, 'TokenIn and TokenOut must be different');
-    expectPositive(params.amountIn, 'AmountIn must be positive');
-    expectTrue(params.fee >= 0 && params.fee <= 1000000, 'Fee must be between 0 and 1000000');
+    const validatedAddress = expect(address, 'Wallet not connected')
+    AddressSchema.parse(validatedAddress)
+    const router = expect(contracts?.router, 'Router not deployed')
+    AddressSchema.parse(router)
+
+    AddressSchema.parse(params.tokenIn)
+    AddressSchema.parse(params.tokenOut)
+    expectTrue(
+      params.tokenIn !== params.tokenOut,
+      'TokenIn and TokenOut must be different',
+    )
+    expectPositive(params.amountIn, 'AmountIn must be positive')
+    expectTrue(
+      params.fee >= 0 && params.fee <= 1000000,
+      'Fee must be between 0 and 1000000',
+    )
 
     const hash = await writeContractAsync({
       address: router,
@@ -254,19 +279,25 @@ export function useSwapV3() {
     params: Omit<SwapV3Params, 'amountIn' | 'amountOutMin'> & {
       amountOut: bigint
       amountInMax: bigint
-    }
+    },
   ) => {
-    const validatedAddress = expect(address, 'Wallet not connected');
-    AddressSchema.parse(validatedAddress);
-    const router = expect(contracts?.router, 'Router not deployed');
-    AddressSchema.parse(router);
-    
-    AddressSchema.parse(params.tokenIn);
-    AddressSchema.parse(params.tokenOut);
-    expectTrue(params.tokenIn !== params.tokenOut, 'TokenIn and TokenOut must be different');
-    expectPositive(params.amountOut, 'AmountOut must be positive');
-    expectPositive(params.amountInMax, 'AmountInMax must be positive');
-    expectTrue(params.fee >= 0 && params.fee <= 1000000, 'Fee must be between 0 and 1000000');
+    const validatedAddress = expect(address, 'Wallet not connected')
+    AddressSchema.parse(validatedAddress)
+    const router = expect(contracts?.router, 'Router not deployed')
+    AddressSchema.parse(router)
+
+    AddressSchema.parse(params.tokenIn)
+    AddressSchema.parse(params.tokenOut)
+    expectTrue(
+      params.tokenIn !== params.tokenOut,
+      'TokenIn and TokenOut must be different',
+    )
+    expectPositive(params.amountOut, 'AmountOut must be positive')
+    expectPositive(params.amountInMax, 'AmountInMax must be positive')
+    expectTrue(
+      params.fee >= 0 && params.fee <= 1000000,
+      'Fee must be between 0 and 1000000',
+    )
 
     const hash = await writeContractAsync({
       address: router,
@@ -328,11 +359,19 @@ export function useQuoteV2(amountIn: bigint | null, path: Address[]) {
 
 // Encode V3 path for multi-hop swaps
 export function encodeV3Path(tokens: Address[], fees: number[]): `0x${string}` {
-  expectTrue(tokens.length === fees.length + 1, 'Invalid path: tokens length must be fees length + 1');
-  expectTrue(tokens.length >= 2, 'Path must have at least 2 tokens');
-  
-  tokens.forEach(token => AddressSchema.parse(token));
-  fees.forEach(fee => expectTrue(fee >= 0 && fee <= 1000000, `Fee must be between 0 and 1000000, got ${fee}`));
+  expectTrue(
+    tokens.length === fees.length + 1,
+    'Invalid path: tokens length must be fees length + 1',
+  )
+  expectTrue(tokens.length >= 2, 'Path must have at least 2 tokens')
+
+  tokens.forEach((token) => AddressSchema.parse(token))
+  fees.forEach((fee) =>
+    expectTrue(
+      fee >= 0 && fee <= 1000000,
+      `Fee must be between 0 and 1000000, got ${fee}`,
+    ),
+  )
 
   const types: ('address' | 'uint24')[] = []
   const values: (Address | number)[] = []

@@ -1,73 +1,104 @@
-import { useState, useMemo } from 'react';
-import { parseEther } from 'viem';
-import TokenSelector from './TokenSelector';
-import { useProtocolTokens } from '../hooks/useProtocolTokens';
-import { useNodeStaking } from '../hooks/useNodeStaking';
-import { calculateUSDValue, formatUSD, parseTokenAmount } from '../lib/tokenUtils';
-import { Region, REGION_NAMES, calculateMonthlyRewardEstimate } from '../lib/nodeStaking';
-import type { TokenOption } from './TokenSelector';
+import { useMemo, useState } from 'react'
+import { parseEther } from 'viem'
+import { useNodeStaking } from '../hooks/useNodeStaking'
+import { useProtocolTokens } from '../hooks/useProtocolTokens'
+import {
+  calculateMonthlyRewardEstimate,
+  REGION_NAMES,
+  Region,
+} from '../lib/nodeStaking'
+import {
+  calculateUSDValue,
+  formatUSD,
+  parseTokenAmount,
+} from '../lib/tokenUtils'
+import type { TokenOption } from './TokenSelector'
+import TokenSelector from './TokenSelector'
 
 export default function RegisterNodeForm() {
-  const { tokens } = useProtocolTokens();
-  const { registerNode, isRegistering, isRegisterSuccess, operatorStats } = useNodeStaking();
+  const { tokens } = useProtocolTokens()
+  const { registerNode, isRegistering, isRegisterSuccess, operatorStats } =
+    useNodeStaking()
 
-  const [stakingToken, setStakingToken] = useState<TokenOption | null>(null);
-  const [stakeAmount, setStakeAmount] = useState('');
-  const [rewardToken, setRewardToken] = useState<TokenOption | null>(null);
-  const [rpcUrl, setRpcUrl] = useState('');
-  const [region, setRegion] = useState<Region>(Region.NorthAmerica);
+  const [stakingToken, setStakingToken] = useState<TokenOption | null>(null)
+  const [stakeAmount, setStakeAmount] = useState('')
+  const [rewardToken, setRewardToken] = useState<TokenOption | null>(null)
+  const [rpcUrl, setRpcUrl] = useState('')
+  const [region, setRegion] = useState<Region>(Region.NorthAmerica)
 
-  const tokenOptions = tokens.map(t => ({
+  const tokenOptions = tokens.map((t) => ({
     symbol: t.symbol,
     name: t.name,
     address: t.address,
     decimals: t.decimals,
     priceUSD: t.priceUSD,
     logoUrl: t.logoUrl,
-  }));
+  }))
 
   // Calculate USD value of stake
   const stakeValueUSD = useMemo(() => {
-    if (!stakingToken || !stakeAmount) return 0;
-    const amount = parseTokenAmount(stakeAmount, stakingToken.decimals);
-    return calculateUSDValue(amount, stakingToken.decimals, stakingToken.priceUSD);
-  }, [stakingToken, stakeAmount]);
+    if (!stakingToken || !stakeAmount) return 0
+    const amount = parseTokenAmount(stakeAmount, stakingToken.decimals)
+    return calculateUSDValue(
+      amount,
+      stakingToken.decimals,
+      stakingToken.priceUSD,
+    )
+  }, [stakingToken, stakeAmount])
 
   // Estimate monthly rewards
   const estimatedMonthlyUSD = useMemo(() => {
-    if (!rewardToken) return 0n;
-    const baseReward = parseEther('100'); // $100 base
-    return calculateMonthlyRewardEstimate(baseReward, 10000n, region, region === Region.Africa || region === Region.SouthAmerica);
-  }, [rewardToken, region]);
+    if (!rewardToken) return 0n
+    const baseReward = parseEther('100') // $100 base
+    return calculateMonthlyRewardEstimate(
+      baseReward,
+      10000n,
+      region,
+      region === Region.Africa || region === Region.SouthAmerica,
+    )
+  }, [rewardToken, region])
 
   // Validation
-  const minStakeUSD = 1000;
-  const isValid = stakeValueUSD >= minStakeUSD && rpcUrl.startsWith('http') && stakingToken && rewardToken;
-  
-  const currentNodes = Number(operatorStats?.totalNodesActive || 0n);
-  const maxNodes = 5;
-  const canAddMore = currentNodes < maxNodes;
+  const minStakeUSD = 1000
+  const isValid =
+    stakeValueUSD >= minStakeUSD &&
+    rpcUrl.startsWith('http') &&
+    stakingToken &&
+    rewardToken
+
+  const currentNodes = Number(operatorStats?.totalNodesActive || 0n)
+  const maxNodes = 5
+  const canAddMore = currentNodes < maxNodes
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!stakingToken || !rewardToken) return;
+    e.preventDefault()
+    if (!stakingToken || !rewardToken) return
 
-    const amount = parseTokenAmount(stakeAmount, stakingToken.decimals);
+    const amount = parseTokenAmount(stakeAmount, stakingToken.decimals)
     await registerNode(
       stakingToken.address as `0x${string}`,
       amount,
       rewardToken.address as `0x${string}`,
       rpcUrl,
-      region
-    );
-  };
+      region,
+    )
+  }
 
   return (
     <div className="card">
-      <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Register New Node</h2>
+      <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>
+        Register New Node
+      </h2>
 
       {!canAddMore && (
-        <div style={{ padding: '1rem', background: 'var(--error-soft)', borderRadius: '8px', marginBottom: '1rem' }}>
+        <div
+          style={{
+            padding: '1rem',
+            background: 'var(--error-soft)',
+            borderRadius: '8px',
+            marginBottom: '1rem',
+          }}
+        >
           <p style={{ color: 'var(--error)', margin: 0 }}>
             ⚠️ You've reached the maximum of {maxNodes} nodes per operator.
             Deregister a node before adding more.
@@ -91,7 +122,13 @@ export default function RegisterNodeForm() {
 
         {/* Amount */}
         <div style={{ marginBottom: '1.5rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
+          <label
+            style={{
+              display: 'block',
+              marginBottom: '0.5rem',
+              fontWeight: '600',
+            }}
+          >
             Amount to Stake
           </label>
           <input
@@ -107,11 +144,13 @@ export default function RegisterNodeForm() {
             <div style={{ marginTop: '0.5rem', fontSize: '0.875rem' }}>
               {stakeValueUSD >= minStakeUSD ? (
                 <span style={{ color: 'var(--success)' }}>
-                  ✅ {formatUSD(stakeValueUSD)} (meets ${minStakeUSD.toLocaleString()} minimum)
+                  ✅ {formatUSD(stakeValueUSD)} (meets $
+                  {minStakeUSD.toLocaleString()} minimum)
                 </span>
               ) : (
                 <span style={{ color: 'var(--error)' }}>
-                  ❌ {formatUSD(stakeValueUSD)} (need ${minStakeUSD.toLocaleString()} minimum)
+                  ❌ {formatUSD(stakeValueUSD)} (need $
+                  {minStakeUSD.toLocaleString()} minimum)
                 </span>
               )}
             </div>
@@ -130,16 +169,34 @@ export default function RegisterNodeForm() {
             disabled={isRegistering || !canAddMore}
           />
           {rewardToken && (
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
-              Estimated: ~{(Number(estimatedMonthlyUSD) / 1e18 / rewardToken.priceUSD).toFixed(2)} {rewardToken.symbol}/month
-              (≈ {formatUSD(Number(estimatedMonthlyUSD) / 1e18)}/month)
+            <p
+              style={{
+                fontSize: '0.75rem',
+                color: 'var(--text-secondary)',
+                marginTop: '0.5rem',
+              }}
+            >
+              Estimated: ~
+              {(
+                Number(estimatedMonthlyUSD) /
+                1e18 /
+                rewardToken.priceUSD
+              ).toFixed(2)}{' '}
+              {rewardToken.symbol}/month (≈{' '}
+              {formatUSD(Number(estimatedMonthlyUSD) / 1e18)}/month)
             </p>
           )}
         </div>
 
         {/* RPC URL */}
         <div style={{ marginBottom: '1.5rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
+          <label
+            style={{
+              display: 'block',
+              marginBottom: '0.5rem',
+              fontWeight: '600',
+            }}
+          >
             RPC URL
           </label>
           <input
@@ -150,14 +207,26 @@ export default function RegisterNodeForm() {
             onChange={(e) => setRpcUrl(e.target.value)}
             disabled={isRegistering || !canAddMore}
           />
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+          <p
+            style={{
+              fontSize: '0.75rem',
+              color: 'var(--text-secondary)',
+              marginTop: '0.25rem',
+            }}
+          >
             Your node's publicly accessible RPC endpoint
           </p>
         </div>
 
         {/* Region */}
         <div style={{ marginBottom: '1.5rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
+          <label
+            style={{
+              display: 'block',
+              marginBottom: '0.5rem',
+              fontWeight: '600',
+            }}
+          >
             Geographic Region
           </label>
           <select
@@ -169,30 +238,54 @@ export default function RegisterNodeForm() {
             {Object.entries(REGION_NAMES).map(([value, name]) => (
               <option key={value} value={value}>
                 {name}
-                {(value === String(Region.Africa) || value === String(Region.SouthAmerica)) && ' (+50% bonus)'}
+                {(value === String(Region.Africa) ||
+                  value === String(Region.SouthAmerica)) &&
+                  ' (+50% bonus)'}
               </option>
             ))}
           </select>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+          <p
+            style={{
+              fontSize: '0.75rem',
+              color: 'var(--text-secondary)',
+              marginTop: '0.25rem',
+            }}
+          >
             Underserved regions earn geographic bonuses
           </p>
         </div>
 
         {/* Info Box */}
-        <div style={{ padding: '1rem', background: 'var(--surface-hover)', borderRadius: '8px', marginBottom: '1rem' }}>
+        <div
+          style={{
+            padding: '1rem',
+            background: 'var(--surface-hover)',
+            borderRadius: '8px',
+            marginBottom: '1rem',
+          }}
+        >
           <p style={{ fontSize: '0.875rem', margin: '0.5rem 0' }}>
             <strong>⏱️ Minimum staking period:</strong> 7 days
           </p>
           <p style={{ fontSize: '0.875rem', margin: '0.5rem 0' }}>
-            <strong>🎯 Performance requirement:</strong> 99%+ uptime for full rewards
+            <strong>🎯 Performance requirement:</strong> 99%+ uptime for full
+            rewards
           </p>
           <p style={{ fontSize: '0.875rem', margin: '0.5rem 0' }}>
-            <strong>💰 Paymaster fees:</strong> 7% of rewards go to paymasters (in ETH)
+            <strong>💰 Paymaster fees:</strong> 7% of rewards go to paymasters
+            (in ETH)
           </p>
         </div>
 
         {isRegisterSuccess && (
-          <div style={{ padding: '1rem', background: 'var(--success-soft)', borderRadius: '8px', marginBottom: '1rem' }}>
+          <div
+            style={{
+              padding: '1rem',
+              background: 'var(--success-soft)',
+              borderRadius: '8px',
+              marginBottom: '1rem',
+            }}
+          >
             <p style={{ color: 'var(--success)', margin: 0 }}>
               ✅ Node registered successfully! Check "My Nodes" to see details.
             </p>
@@ -209,6 +302,5 @@ export default function RegisterNodeForm() {
         </button>
       </form>
     </div>
-  );
+  )
 }
-

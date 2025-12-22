@@ -5,17 +5,17 @@
 
 // Re-export all shared paymaster functionality
 export {
-  type PaymasterInfo,
-  type PaymasterConfig,
-  type PaymasterOption,
+  checkPaymasterApproval,
+  estimateTokenCost,
+  generatePaymasterData,
+  getApprovalTxData,
   getAvailablePaymasters,
   getPaymasterForToken,
   getPaymasterOptions,
-  estimateTokenCost,
-  checkPaymasterApproval,
   getTokenBalance,
-  preparePaymasterData,
-  generatePaymasterData,
-  getApprovalTxData,
   loadPaymasterConfig,
-} from '../../../scripts/shared/paymaster';
+  type PaymasterConfig,
+  type PaymasterInfo,
+  type PaymasterOption,
+  preparePaymasterData,
+} from '@jejunetwork/deployment/scripts/shared/paymaster'

@@ -1,22 +1,32 @@
-import { useReadContract, useWriteContract, useAccount, useReadContracts } from 'wagmi'
 import { AddressSchema } from '@jejunetwork/types'
-import { expect, expectPositive, expectTrue } from '@/lib/validation'
-import { getXLPContracts } from '@/config/contracts'
+import type { Abi, Address } from 'viem'
+import {
+  useAccount,
+  useReadContract,
+  useReadContracts,
+  useWriteContract,
+} from 'wagmi'
 import { JEJU_CHAIN_ID } from '@/config/chains'
-import type { Address, Abi } from 'viem'
-import { parseEther, formatEther } from 'viem'
+import { getXLPContracts } from '@/config/contracts'
+import { expect, expectTrue } from '@/lib/validation'
 
 // XLP V2 Factory ABI (minimal)
 const V2_FACTORY_ABI: Abi = [
   {
-    inputs: [{ name: 'tokenA', type: 'address' }, { name: 'tokenB', type: 'address' }],
+    inputs: [
+      { name: 'tokenA', type: 'address' },
+      { name: 'tokenB', type: 'address' },
+    ],
     name: 'getPair',
     outputs: [{ name: 'pair', type: 'address' }],
     stateMutability: 'view',
     type: 'function',
   },
   {
-    inputs: [{ name: 'tokenA', type: 'address' }, { name: 'tokenB', type: 'address' }],
+    inputs: [
+      { name: 'tokenA', type: 'address' },
+      { name: 'tokenB', type: 'address' },
+    ],
     name: 'createPair',
     outputs: [{ name: 'pair', type: 'address' }],
     stateMutability: 'nonpayable',
@@ -129,7 +139,12 @@ export interface V2SwapQuote {
 export function useV2Pair(token0: Address | null, token1: Address | null) {
   const contracts = getXLPContracts(JEJU_CHAIN_ID)
 
-  const { data: pairAddress, isLoading, error, refetch } = useReadContract({
+  const {
+    data: pairAddress,
+    isLoading,
+    error,
+    refetch,
+  } = useReadContract({
     address: contracts?.v2Factory,
     abi: V2_FACTORY_ABI,
     functionName: 'getPair',
@@ -152,11 +167,24 @@ export function useV2PairData(pairAddress: Address | null) {
   const { data, isLoading, error, refetch } = useReadContracts({
     contracts: pairAddress
       ? [
-          { address: pairAddress, abi: V2_PAIR_ABI, functionName: 'getReserves' },
+          {
+            address: pairAddress,
+            abi: V2_PAIR_ABI,
+            functionName: 'getReserves',
+          },
           { address: pairAddress, abi: V2_PAIR_ABI, functionName: 'token0' },
           { address: pairAddress, abi: V2_PAIR_ABI, functionName: 'token1' },
-          { address: pairAddress, abi: V2_PAIR_ABI, functionName: 'totalSupply' },
-          { address: pairAddress, abi: V2_PAIR_ABI, functionName: 'balanceOf', args: [userAddress] },
+          {
+            address: pairAddress,
+            abi: V2_PAIR_ABI,
+            functionName: 'totalSupply',
+          },
+          {
+            address: pairAddress,
+            abi: V2_PAIR_ABI,
+            functionName: 'balanceOf',
+            args: [userAddress],
+          },
         ]
       : [],
     query: { enabled: !!pairAddress },
@@ -165,8 +193,8 @@ export function useV2PairData(pairAddress: Address | null) {
   if (!data || !pairAddress) {
     return { pair: null, userLpBalance: 0n, isLoading, error, refetch }
   }
-  
-  const validatedPairAddress = expect(pairAddress, 'Pair address is required');
+
+  const validatedPairAddress = expect(pairAddress, 'Pair address is required')
 
   const reservesResult = data[0]
   const token0Result = data[1]
@@ -175,10 +203,14 @@ export function useV2PairData(pairAddress: Address | null) {
   const balanceResult = data[4]
 
   if (
-    !reservesResult || reservesResult.status !== 'success' ||
-    !token0Result || token0Result.status !== 'success' ||
-    !token1Result || token1Result.status !== 'success' ||
-    !supplyResult || supplyResult.status !== 'success'
+    !reservesResult ||
+    reservesResult.status !== 'success' ||
+    !token0Result ||
+    token0Result.status !== 'success' ||
+    !token1Result ||
+    token1Result.status !== 'success' ||
+    !supplyResult ||
+    supplyResult.status !== 'success'
   ) {
     return { pair: null, userLpBalance: 0n, isLoading, error, refetch }
   }
@@ -194,7 +226,8 @@ export function useV2PairData(pairAddress: Address | null) {
     totalSupply: supplyResult.result as bigint,
   }
 
-  const userLpBalance = balanceResult?.status === 'success' ? (balanceResult.result as bigint) : 0n
+  const userLpBalance =
+    balanceResult?.status === 'success' ? (balanceResult.result as bigint) : 0n
 
   return { pair, userLpBalance, isLoading, error, refetch }
 }
@@ -203,7 +236,7 @@ export function useV2PairData(pairAddress: Address | null) {
 export function calculateV2SwapOutput(
   amountIn: bigint,
   reserveIn: bigint,
-  reserveOut: bigint
+  reserveOut: bigint,
 ): V2SwapQuote {
   if (amountIn === 0n || reserveIn === 0n || reserveOut === 0n) {
     return { amountOut: 0n, priceImpact: 0, fee: 0n }
@@ -230,15 +263,24 @@ export function calculateV2SwapOutput(
 export function useCreateV2Pair() {
   const contracts = getXLPContracts(JEJU_CHAIN_ID)
 
-  const { writeContractAsync, isPending, isSuccess, error, data: txHash } = useWriteContract()
+  const {
+    writeContractAsync,
+    isPending,
+    isSuccess,
+    error,
+    data: txHash,
+  } = useWriteContract()
 
   const createPair = async (token0: Address, token1: Address) => {
-    const validatedToken0 = AddressSchema.parse(token0);
-    const validatedToken1 = AddressSchema.parse(token1);
-    expect(validatedToken0 !== validatedToken1, 'Token0 and Token1 must be different');
-    
-    const factory = expect(contracts?.v2Factory, 'V2 Factory not deployed');
-    AddressSchema.parse(factory);
+    const validatedToken0 = AddressSchema.parse(token0)
+    const validatedToken1 = AddressSchema.parse(token1)
+    expect(
+      validatedToken0 !== validatedToken1,
+      'Token0 and Token1 must be different',
+    )
+
+    const factory = expect(contracts?.v2Factory, 'V2 Factory not deployed')
+    AddressSchema.parse(factory)
 
     const hash = await writeContractAsync({
       address: factory,
@@ -255,12 +297,18 @@ export function useCreateV2Pair() {
 // Add liquidity to V2 pair
 export function useV2AddLiquidity() {
   const { address } = useAccount()
-  const { writeContractAsync, isPending, isSuccess, error, data: txHash } = useWriteContract()
+  const {
+    writeContractAsync,
+    isPending,
+    isSuccess,
+    error,
+    data: txHash,
+  } = useWriteContract()
 
   const addLiquidity = async (pairAddress: Address) => {
-    const validatedAddress = expect(address, 'Wallet not connected');
-    AddressSchema.parse(validatedAddress);
-    const validatedPairAddress = AddressSchema.parse(pairAddress);
+    const validatedAddress = expect(address, 'Wallet not connected')
+    AddressSchema.parse(validatedAddress)
+    const validatedPairAddress = AddressSchema.parse(pairAddress)
 
     // Tokens must be transferred to pair first, then call mint
     const hash = await writeContractAsync({
@@ -278,12 +326,18 @@ export function useV2AddLiquidity() {
 // Remove liquidity from V2 pair
 export function useV2RemoveLiquidity() {
   const { address } = useAccount()
-  const { writeContractAsync, isPending, isSuccess, error, data: txHash } = useWriteContract()
+  const {
+    writeContractAsync,
+    isPending,
+    isSuccess,
+    error,
+    data: txHash,
+  } = useWriteContract()
 
   const removeLiquidity = async (pairAddress: Address) => {
-    const validatedAddress = expect(address, 'Wallet not connected');
-    AddressSchema.parse(validatedAddress);
-    const validatedPairAddress = AddressSchema.parse(pairAddress);
+    const validatedAddress = expect(address, 'Wallet not connected')
+    AddressSchema.parse(validatedAddress)
+    const validatedPairAddress = AddressSchema.parse(pairAddress)
 
     // LP tokens must be transferred to pair first, then call burn
     const hash = await writeContractAsync({
@@ -301,21 +355,33 @@ export function useV2RemoveLiquidity() {
 // Execute V2 swap
 export function useV2Swap() {
   const { address } = useAccount()
-  const { writeContractAsync, isPending, isSuccess, error, data: txHash } = useWriteContract()
+  const {
+    writeContractAsync,
+    isPending,
+    isSuccess,
+    error,
+    data: txHash,
+  } = useWriteContract()
 
   const swap = async (
     pairAddress: Address,
     amount0Out: bigint,
     amount1Out: bigint,
-    to?: Address
+    to?: Address,
   ) => {
-    const validatedAddress = expect(address, 'Wallet not connected');
-    AddressSchema.parse(validatedAddress);
-    const validatedPairAddress = AddressSchema.parse(pairAddress);
-    const recipient = to ? AddressSchema.parse(to) : validatedAddress;
-    
-    expectTrue(amount0Out > 0n || amount1Out > 0n, 'At least one output amount must be positive');
-    expectTrue(amount0Out === 0n || amount1Out === 0n, 'Only one output amount can be non-zero');
+    const validatedAddress = expect(address, 'Wallet not connected')
+    AddressSchema.parse(validatedAddress)
+    const validatedPairAddress = AddressSchema.parse(pairAddress)
+    const recipient = to ? AddressSchema.parse(to) : validatedAddress
+
+    expectTrue(
+      amount0Out > 0n || amount1Out > 0n,
+      'At least one output amount must be positive',
+    )
+    expectTrue(
+      amount0Out === 0n || amount1Out === 0n,
+      'Only one output amount can be non-zero',
+    )
 
     const hash = await writeContractAsync({
       address: validatedPairAddress,
@@ -340,9 +406,16 @@ export function useAllV2Pairs() {
     query: { enabled: !!contracts?.v2Factory },
   })
 
-  const pairIndices = pairCount ? Array.from({ length: Number(pairCount) }, (_, i) => i) : []
+  const pairIndices = pairCount
+    ? Array.from({ length: Number(pairCount) }, (_, i) => i)
+    : []
 
-  const { data: pairAddresses, isLoading, error, refetch } = useReadContracts({
+  const {
+    data: pairAddresses,
+    isLoading,
+    error,
+    refetch,
+  } = useReadContracts({
     contracts: pairIndices.map((i) => ({
       address: contracts?.v2Factory,
       abi: V2_FACTORY_ABI,

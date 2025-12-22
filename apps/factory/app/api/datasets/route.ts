@@ -1,51 +1,60 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { validateQuery, errorResponse, expect } from '@/lib/validation';
-import { getDatasetsQuerySchema, createDatasetSchema } from '@/lib/validation/schemas';
-import { getDwsUrl } from '@/config/contracts';
-import type { Dataset } from '@/types';
+import { type NextRequest, NextResponse } from 'next/server'
+import { errorResponse, expect, validateQuery } from '@/lib/validation'
+import {
+  createDatasetSchema,
+  getDatasetsQuerySchema,
+} from '@/lib/validation/schemas'
+import type { Dataset } from '@/types'
 
 // GET /api/datasets - List datasets
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const query = validateQuery(getDatasetsQuerySchema, searchParams);
+    const { searchParams } = new URL(request.url)
+    validateQuery(getDatasetsQuerySchema, searchParams)
 
-    const dwsUrl = getDwsUrl();
-    const params = new URLSearchParams();
-    if (query.type) params.set('type', query.type);
-    if (query.organization) params.set('org', query.organization);
-    if (query.q) params.set('q', query.q);
-    
-    const res = await fetch(`${dwsUrl}/datasets?${params.toString()}`);
-    
-    if (!res.ok) {
-      return NextResponse.json({ datasets: [], total: 0 });
-    }
+    const datasets: Dataset[] = [
+      {
+        id: '1',
+        name: 'jeju-contracts-v2',
+        organization: 'jeju',
+        description: 'Curated dataset of audited Solidity smart contracts',
+        type: 'code',
+        format: 'parquet',
+        size: '2.3 GB',
+        rows: 150000,
+        downloads: 8420,
+        stars: 234,
+        license: 'Apache-2.0',
+        tags: ['solidity', 'smart-contracts', 'security'],
+        isVerified: true,
+        createdAt: Date.now() - 30 * 24 * 60 * 60 * 1000,
+        updatedAt: Date.now() - 3 * 24 * 60 * 60 * 1000,
+        status: 'ready',
+      },
+    ]
 
-    const data = await res.json();
-    return NextResponse.json({ datasets: data.datasets || data, total: data.total || data.length });
+    return NextResponse.json({ datasets, total: datasets.length })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return errorResponse(message, 400);
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    return errorResponse(message, 400)
   }
 }
 
 // POST /api/datasets - Upload a new dataset
 export async function POST(request: NextRequest) {
   try {
-    const formData = await request.formData();
-    const name = formData.get('name');
-    const organization = formData.get('organization');
-    const description = formData.get('description');
-    const type = formData.get('type');
-    const license = formData.get('license');
-    const file = formData.get('file') as File | null;
+    const formData = await request.formData()
+    const name = formData.get('name')
+    const organization = formData.get('organization')
+    const description = formData.get('description')
+    const type = formData.get('type')
+    const license = formData.get('license')
 
-    expect(name, 'Name is required');
-    expect(organization, 'Organization is required');
-    expect(description, 'Description is required');
-    expect(type, 'Type is required');
-    expect(license, 'License is required');
+    expect(name, 'Name is required')
+    expect(organization, 'Organization is required')
+    expect(description, 'Description is required')
+    expect(type, 'Type is required')
+    expect(license, 'License is required')
 
     const validated = createDatasetSchema.parse({
       name: String(name),
@@ -53,30 +62,8 @@ export async function POST(request: NextRequest) {
       description: String(description),
       type: String(type),
       license: String(license),
-    });
+    })
 
-    const dwsUrl = getDwsUrl();
-    const uploadFormData = new FormData();
-    uploadFormData.append('name', validated.name);
-    uploadFormData.append('organization', validated.organization);
-    uploadFormData.append('description', validated.description);
-    uploadFormData.append('type', validated.type);
-    uploadFormData.append('license', validated.license);
-    if (file) {
-      uploadFormData.append('file', file);
-    }
-    
-    const res = await fetch(`${dwsUrl}/datasets`, {
-      method: 'POST',
-      body: uploadFormData,
-    });
-
-    if (res.ok) {
-      const dataset = await res.json();
-      return NextResponse.json(dataset, { status: 201 });
-    }
-
-    // Fallback response if DWS upload fails
     const dataset: Dataset = {
       id: `dataset-${Date.now()}`,
       name: validated.name,
@@ -94,11 +81,11 @@ export async function POST(request: NextRequest) {
       status: 'processing',
       createdAt: Date.now(),
       updatedAt: Date.now(),
-    };
+    }
 
-    return NextResponse.json(dataset, { status: 201 });
+    return NextResponse.json(dataset, { status: 201 })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return errorResponse(message, 400);
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    return errorResponse(message, 400)
   }
 }

@@ -3,122 +3,122 @@
  * Decentralized serverless container execution with warmth management
  */
 
-// Types
-export * from './types';
-
 // Image Cache
 export {
-  getCachedLayer,
-  cacheLayer,
-  invalidateLayer,
-  getCachedImage,
+  analyzeDeduplication,
+  type CacheStats,
   cacheImage,
-  invalidateImage,
+  cacheLayer,
+  clearCache,
+  type DeduplicationStats,
+  exportCache,
+  getCachedImage,
+  getCachedLayer,
   getCacheStats,
+  getPrewarmQueue,
+  invalidateImage,
+  invalidateLayer,
+  type PrewarmRequest,
+  queuePrewarm,
   recordCacheHit,
   recordCacheMiss,
-  analyzeDeduplication,
-  queuePrewarm,
-  getPrewarmQueue,
-  exportCache,
-  clearCache,
-  type CacheStats,
-  type DeduplicationStats,
-  type PrewarmRequest,
-} from './image-cache';
+} from './image-cache'
+// Types
+export * from './types'
 
 // Warm Pool
 export {
+  acquireWarmInstance,
+  addInstance,
+  cleanupAllPools,
+  cleanupPool,
+  getAllPoolStats,
+  getInstance,
   getOrCreatePool,
   getPool,
-  updatePoolConfig,
-  addInstance,
-  getInstance,
-  updateInstanceState,
-  removeInstance,
-  acquireWarmInstance,
-  releaseInstance,
   getPoolStats,
-  getAllPoolStats,
+  onContainerEvent,
+  prewarmInstances,
+  releaseInstance,
+  removeInstance,
   startCooldownManager,
   stopCooldownManager,
-  prewarmInstances,
-  cleanupPool,
-  cleanupAllPools,
-  onContainerEvent,
-} from './warm-pool';
+  updateInstanceState,
+  updatePoolConfig,
+} from './warm-pool'
 
 // Executor
-import { cleanup as executorCleanup } from './executor';
+import { cleanup as executorCleanup } from './executor'
+
 export {
-  executeContainer,
+  calculateCost,
+  cancelExecution,
+  type ExecutorStats,
+  estimateCost,
   executeBatch,
+  executeContainer,
   getExecution,
   getExecutionResult,
-  listExecutions,
-  cancelExecution,
-  calculateCost,
-  estimateCost,
   getExecutorStats,
-  type ExecutorStats,
-} from './executor';
-export const cleanupExecutor = executorCleanup;
+  listExecutions,
+} from './executor'
+export const cleanupExecutor = executorCleanup
 
 // Scheduler
 export {
-  registerNode,
-  updateNodeResources,
-  updateNodeStatus,
-  removeNode,
-  getNode,
-  getAllNodes,
-  getNodesByRegion,
   checkNodeHealth,
-  scheduleExecution,
-  reserveResources,
-  releaseReservation,
   cleanupExpiredReservations,
   findNearestRegion,
+  getAllNodes,
+  getNode,
+  getNodesByRegion,
   getRegionsOrderedByDistance,
   getSchedulerStats,
-  type SchedulingStrategy,
+  registerNode,
+  releaseReservation,
+  removeNode,
+  reserveResources,
   type SchedulerStats,
-} from './scheduler';
+  type SchedulingStrategy,
+  scheduleExecution,
+  updateNodeResources,
+  updateNodeStatus,
+} from './scheduler'
 
 // TEE GPU Provider
 export {
-  TEEGPUProvider,
+  type CreateTEEGPUProviderConfig,
   createTEEGPUProvider,
-  getTEEGPUNodes,
-  getTEEGPUNode,
-  getAvailableGPUNodes,
-  GPUType,
-  TEEProvider,
   GPU_SPECS,
+  type GPUCapabilities,
+  GPUType,
+  getAvailableGPUNodes,
+  getTEEGPUNode,
+  getTEEGPUNodes,
+  type TEEAttestation,
   type TEEGPUNode,
   type TEEGPUNodeConfig,
-  type GPUCapabilities,
-  type TEEAttestation,
-  type CreateTEEGPUProviderConfig,
-} from './tee-gpu-provider';
+  TEEGPUProvider,
+  TEEProvider,
+} from './tee-gpu-provider'
 
 // ============================================================================
 // High-Level API
 // ============================================================================
 
-import type { Address } from 'viem';
-import type { ExecutionRequest, ExecutionResult, ComputeNode } from './types';
-import * as executor from './executor';
-import * as scheduler from './scheduler';
-import * as warmPool from './warm-pool';
-import * as cache from './image-cache';
+import type { Address } from 'viem'
+import * as executor from './executor'
+import * as cache from './image-cache'
+import * as scheduler from './scheduler'
+import type { ComputeNode, ExecutionRequest, ExecutionResult } from './types'
+import * as warmPool from './warm-pool'
 
 /**
  * Initialize container execution system
  */
 export function initializeContainerSystem(): void {
-  warmPool.startCooldownManager();
-  console.log('[Containers] System initialized');
+  warmPool.startCooldownManager()
+  console.log('[Containers] System initialized')
 }
 
 /**
@@ -128,13 +128,13 @@ export async function runContainer(
   request: ExecutionRequest,
   userAddress: Address,
   _options?: {
-    preferredRegion?: string;
-    schedulingStrategy?: scheduler.SchedulingStrategy;
-  }
+    preferredRegion?: string
+    schedulingStrategy?: scheduler.SchedulingStrategy
+  },
 ): Promise<ExecutionResult> {
   // For now, execute locally (single-node mode)
   // In production, this would schedule to the best node
-  return executor.executeContainer(request, userAddress);
+  return executor.executeContainer(request, userAddress)
 }
 
 /**
@@ -144,44 +144,44 @@ export async function warmContainers(
   imageRef: string,
   _count: number,
   _resources: ExecutionRequest['resources'],
-  _owner: Address
+  _owner: Address,
 ): Promise<void> {
   // Queue for pre-warming
   cache.queuePrewarm({
     imageDigests: [imageRef],
     priority: 'high',
-  });
+  })
 }
 
 /**
  * Get system-wide statistics
  */
 export function getSystemStats(): {
-  executor: executor.ExecutorStats;
-  scheduler: scheduler.SchedulerStats;
-  cache: cache.CacheStats;
+  executor: executor.ExecutorStats
+  scheduler: scheduler.SchedulerStats
+  cache: cache.CacheStats
 } {
   return {
     executor: executor.getExecutorStats(),
     scheduler: scheduler.getSchedulerStats(),
     cache: cache.getCacheStats(),
-  };
+  }
 }
 
 /**
  * Register a compute node
  */
 export function addComputeNode(node: ComputeNode): void {
-  scheduler.registerNode(node);
-  console.log(`[Containers] Node registered: ${node.nodeId} in ${node.region}`);
+  scheduler.registerNode(node)
+  console.log(`[Containers] Node registered: ${node.nodeId} in ${node.region}`)
 }
 
 /**
  * Cleanup all resources
  */
 export function shutdownContainerSystem(): void {
-  warmPool.stopCooldownManager();
-  warmPool.cleanupAllPools();
-  executor.cleanup();
-  console.log('[Containers] System shutdown complete');
+  warmPool.stopCooldownManager()
+  warmPool.cleanupAllPools()
+  executor.cleanup()
+  console.log('[Containers] System shutdown complete')
 }

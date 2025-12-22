@@ -3,11 +3,7 @@
  * Re-exports from @jejunetwork/shared with bazaar-specific config
  */
 
-import {
-  createIPFSClient,
-  cidToBytes32,
-  type IPFSClient,
-} from '@jejunetwork/shared'
+import { cidToBytes32, createIPFSClient } from '@jejunetwork/shared'
 import { IPFS_API_URL, IPFS_GATEWAY_URL } from '../config'
 
 // Create singleton client with bazaar config
@@ -20,7 +16,9 @@ export async function uploadToIPFS(file: File): Promise<string> {
   return ipfsClient.upload(file, { durationMonths: 1 })
 }
 
-export async function uploadJSONToIPFS(data: Record<string, unknown>): Promise<string> {
+export async function uploadJSONToIPFS(
+  data: Record<string, unknown>,
+): Promise<string> {
   return ipfsClient.uploadJSON(data, 'evidence.json')
 }
 

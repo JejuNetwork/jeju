@@ -3,16 +3,50 @@
  * Centralized constants for MCP server configuration
  */
 
-export const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, X-Payment',
-};
+// Allowed origins for CORS - restrict to known domains
+const ALLOWED_ORIGINS = [
+  'http://localhost:3000',
+  'http://localhost:4006',
+  'https://bazaar.jejunetwork.org',
+  'https://testnet.bazaar.jejunetwork.org',
+]
+
+/**
+ * Get CORS headers with strict origin validation
+ * Rejects unknown origins by not including them in CORS headers
+ */
+export function getCORSHeaders(
+  requestOrigin?: string | null,
+): Record<string, string> {
+  // Only allow explicitly whitelisted origins
+  const isAllowed = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+
+  if (!isAllowed) {
+    // Return restrictive headers for unknown origins
+    return {
+      'Access-Control-Allow-Origin': 'null',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, X-Payment',
+      'Access-Control-Allow-Credentials': 'false',
+    }
+  }
+
+  return {
+    'Access-Control-Allow-Origin': requestOrigin,
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Payment',
+    'Access-Control-Allow-Credentials': 'true',
+  }
+}
+
+// Default CORS headers for static responses (development-friendly but secure)
+export const CORS_HEADERS = getCORSHeaders()
 
 export const MCP_SERVER_INFO = {
   name: 'jeju-bazaar',
   version: '1.0.0',
-  description: 'Decentralized marketplace for token launches, ICOs, and NFT trading',
+  description:
+    'Decentralized marketplace for token launches, ICOs, and NFT trading',
   capabilities: {
     resources: true,
     tools: true,
@@ -22,25 +56,85 @@ export const MCP_SERVER_INFO = {
       erc8004Integration: true,
     },
   },
-};
+}
 
 export const MCP_RESOURCES = [
-  { uri: 'bazaar://launches', name: 'Token Launches', description: 'Active and upcoming token launches', mimeType: 'application/json' },
-  { uri: 'bazaar://launches/active', name: 'Active Launches', description: 'Currently active token launches', mimeType: 'application/json' },
-  { uri: 'bazaar://ico/tiers', name: 'ICO Tiers', description: 'Available ICO participation tiers', mimeType: 'application/json' },
-  { uri: 'bazaar://collections', name: 'NFT Collections', description: 'All NFT collections on marketplace', mimeType: 'application/json' },
-  { uri: 'bazaar://stats', name: 'Market Stats', description: 'Overall marketplace statistics', mimeType: 'application/json' },
-  { uri: 'bazaar://trending', name: 'Trending', description: 'Trending tokens and collections', mimeType: 'application/json' },
+  {
+    uri: 'bazaar://launches',
+    name: 'Token Launches',
+    description: 'Active and upcoming token launches',
+    mimeType: 'application/json',
+  },
+  {
+    uri: 'bazaar://launches/active',
+    name: 'Active Launches',
+    description: 'Currently active token launches',
+    mimeType: 'application/json',
+  },
+  {
+    uri: 'bazaar://ico/tiers',
+    name: 'ICO Tiers',
+    description: 'Available ICO participation tiers',
+    mimeType: 'application/json',
+  },
+  {
+    uri: 'bazaar://collections',
+    name: 'NFT Collections',
+    description: 'All NFT collections on marketplace',
+    mimeType: 'application/json',
+  },
+  {
+    uri: 'bazaar://stats',
+    name: 'Market Stats',
+    description: 'Overall marketplace statistics',
+    mimeType: 'application/json',
+  },
+  {
+    uri: 'bazaar://trending',
+    name: 'Trending',
+    description: 'Trending tokens and collections',
+    mimeType: 'application/json',
+  },
   // TFMM Resources
-  { uri: 'bazaar://tfmm/pools', name: 'Smart Pools', description: 'All TFMM auto-rebalancing pools', mimeType: 'application/json' },
-  { uri: 'bazaar://tfmm/strategies', name: 'TFMM Strategies', description: 'Available rebalancing strategies', mimeType: 'application/json' },
-  { uri: 'bazaar://tfmm/oracles', name: 'Oracle Status', description: 'Price oracle status (Pyth, Chainlink, TWAP)', mimeType: 'application/json' },
+  {
+    uri: 'bazaar://tfmm/pools',
+    name: 'Smart Pools',
+    description: 'All TFMM auto-rebalancing pools',
+    mimeType: 'application/json',
+  },
+  {
+    uri: 'bazaar://tfmm/strategies',
+    name: 'TFMM Strategies',
+    description: 'Available rebalancing strategies',
+    mimeType: 'application/json',
+  },
+  {
+    uri: 'bazaar://tfmm/oracles',
+    name: 'Oracle Status',
+    description: 'Price oracle status (Pyth, Chainlink, TWAP)',
+    mimeType: 'application/json',
+  },
   // Perps Resources
-  { uri: 'bazaar://perps/markets', name: 'Perp Markets', description: 'All perpetual futures markets', mimeType: 'application/json' },
-  { uri: 'bazaar://perps/funding', name: 'Funding Rates', description: 'Current funding rates', mimeType: 'application/json' },
+  {
+    uri: 'bazaar://perps/markets',
+    name: 'Perp Markets',
+    description: 'All perpetual futures markets',
+    mimeType: 'application/json',
+  },
+  {
+    uri: 'bazaar://perps/funding',
+    name: 'Funding Rates',
+    description: 'Current funding rates',
+    mimeType: 'application/json',
+  },
   // Charts Resources
-  { uri: 'bazaar://charts/top', name: 'Top Tokens', description: 'Top tokens by volume', mimeType: 'application/json' },
-];
+  {
+    uri: 'bazaar://charts/top',
+    name: 'Top Tokens',
+    description: 'Top tokens by volume',
+    mimeType: 'application/json',
+  },
+]
 
 export const MCP_TOOLS = [
   // ============ Token Tools ============
@@ -50,7 +144,11 @@ export const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        limit: { type: 'number', description: 'Max tokens to return', default: 50 },
+        limit: {
+          type: 'number',
+          description: 'Max tokens to return',
+          default: 50,
+        },
       },
     },
     tags: ['query', 'tokens', 'free'],
@@ -118,7 +216,8 @@ export const MCP_TOOLS = [
   // ============ Moderation Tools ============
   {
     name: 'check_ban_status',
-    description: 'Check if an address is banned or on notice in the moderation system',
+    description:
+      'Check if an address is banned or on notice in the moderation system',
     inputSchema: {
       type: 'object',
       properties: {
@@ -130,7 +229,8 @@ export const MCP_TOOLS = [
   },
   {
     name: 'get_moderator_stats',
-    description: 'Get moderation statistics for an address including reputation, P&L, and win rate',
+    description:
+      'Get moderation statistics for an address including reputation, P&L, and win rate',
     inputSchema: {
       type: 'object',
       properties: {
@@ -142,13 +242,26 @@ export const MCP_TOOLS = [
   },
   {
     name: 'get_moderation_cases',
-    description: 'Get list of moderation cases (ban proposals) from the marketplace',
+    description:
+      'Get list of moderation cases (ban proposals) from the marketplace',
     inputSchema: {
       type: 'object',
       properties: {
-        activeOnly: { type: 'boolean', description: 'Only show active/unresolved cases', default: false },
-        resolvedOnly: { type: 'boolean', description: 'Only show resolved cases', default: false },
-        limit: { type: 'number', description: 'Max cases to return', default: 20 },
+        activeOnly: {
+          type: 'boolean',
+          description: 'Only show active/unresolved cases',
+          default: false,
+        },
+        resolvedOnly: {
+          type: 'boolean',
+          description: 'Only show resolved cases',
+          default: false,
+        },
+        limit: {
+          type: 'number',
+          description: 'Max cases to return',
+          default: 20,
+        },
       },
     },
     tags: ['query', 'moderation', 'free'],
@@ -180,7 +293,10 @@ export const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        amount: { type: 'string', description: 'Amount of ETH to stake (e.g., "0.1")' },
+        amount: {
+          type: 'string',
+          description: 'Amount of ETH to stake (e.g., "0.1")',
+        },
       },
       required: ['amount'],
     },
@@ -194,7 +310,10 @@ export const MCP_TOOLS = [
       properties: {
         target: { type: 'string', description: 'Address of user to report' },
         reason: { type: 'string', description: 'Reason for the report' },
-        evidenceHash: { type: 'string', description: 'IPFS hash of evidence (bytes32)' },
+        evidenceHash: {
+          type: 'string',
+          description: 'IPFS hash of evidence (bytes32)',
+        },
       },
       required: ['target', 'reason', 'evidenceHash'],
     },
@@ -207,7 +326,10 @@ export const MCP_TOOLS = [
       type: 'object',
       properties: {
         caseId: { type: 'string', description: 'Case ID to vote on' },
-        voteYes: { type: 'boolean', description: 'true to vote BAN, false to vote CLEAR' },
+        voteYes: {
+          type: 'boolean',
+          description: 'true to vote BAN, false to vote CLEAR',
+        },
       },
       required: ['caseId', 'voteYes'],
     },
@@ -220,10 +342,13 @@ export const MCP_TOOLS = [
       type: 'object',
       properties: {
         caseId: { type: 'string', description: 'Case ID to challenge' },
-        stakeAmount: { type: 'string', description: 'ETH to stake for the challenge' },
+        stakeAmount: {
+          type: 'string',
+          description: 'ETH to stake for the challenge',
+        },
       },
       required: ['caseId', 'stakeAmount'],
     },
     tags: ['action', 'moderation', 'challenge'],
   },
-];
+]

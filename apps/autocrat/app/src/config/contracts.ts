@@ -1,4 +1,4 @@
-import { type Address } from 'viem'
+import type { Address } from 'viem'
 
 // Contract addresses from environment
 const NETWORK = process.env.NEXT_PUBLIC_NETWORK || 'testnet'
@@ -16,15 +16,25 @@ interface ContractAddresses {
 }
 
 const TESTNET_CONTRACTS: ContractAddresses = {
-  banManager: (process.env.NEXT_PUBLIC_BAN_MANAGER || '0x0000000000000000000000000000000000000000') as Address,
-  moderationMarketplace: (process.env.NEXT_PUBLIC_MODERATION_MARKETPLACE || '0x0000000000000000000000000000000000000000') as Address,
-  reputationLabelManager: (process.env.NEXT_PUBLIC_REPUTATION_LABEL_MANAGER || '0x0000000000000000000000000000000000000000') as Address,
-  reportingSystem: (process.env.NEXT_PUBLIC_REPORTING_SYSTEM || '0x0000000000000000000000000000000000000000') as Address,
-  predimarket: (process.env.NEXT_PUBLIC_PREDIMARKET || '0x0000000000000000000000000000000000000000') as Address,
-  registryGovernance: (process.env.NEXT_PUBLIC_REGISTRY_GOVERNANCE || '0x0000000000000000000000000000000000000000') as Address,
-  identityRegistry: (process.env.NEXT_PUBLIC_IDENTITY_REGISTRY || '0x0000000000000000000000000000000000000000') as Address,
-  evidenceRegistry: (process.env.NEXT_PUBLIC_EVIDENCE_REGISTRY || '0x0000000000000000000000000000000000000000') as Address,
-  reputationProviderRegistry: (process.env.NEXT_PUBLIC_REPUTATION_PROVIDER_REGISTRY || '0x0000000000000000000000000000000000000000') as Address,
+  banManager: (process.env.NEXT_PUBLIC_BAN_MANAGER ||
+    '0x0000000000000000000000000000000000000000') as Address,
+  moderationMarketplace: (process.env.NEXT_PUBLIC_MODERATION_MARKETPLACE ||
+    '0x0000000000000000000000000000000000000000') as Address,
+  reputationLabelManager: (process.env.NEXT_PUBLIC_REPUTATION_LABEL_MANAGER ||
+    '0x0000000000000000000000000000000000000000') as Address,
+  reportingSystem: (process.env.NEXT_PUBLIC_REPORTING_SYSTEM ||
+    '0x0000000000000000000000000000000000000000') as Address,
+  predimarket: (process.env.NEXT_PUBLIC_PREDIMARKET ||
+    '0x0000000000000000000000000000000000000000') as Address,
+  registryGovernance: (process.env.NEXT_PUBLIC_REGISTRY_GOVERNANCE ||
+    '0x0000000000000000000000000000000000000000') as Address,
+  identityRegistry: (process.env.NEXT_PUBLIC_IDENTITY_REGISTRY ||
+    '0x0000000000000000000000000000000000000000') as Address,
+  evidenceRegistry: (process.env.NEXT_PUBLIC_EVIDENCE_REGISTRY ||
+    '0x0000000000000000000000000000000000000000') as Address,
+  reputationProviderRegistry: (process.env
+    .NEXT_PUBLIC_REPUTATION_PROVIDER_REGISTRY ||
+    '0x0000000000000000000000000000000000000000') as Address,
 }
 
 const MAINNET_CONTRACTS: ContractAddresses = {
@@ -32,7 +42,8 @@ const MAINNET_CONTRACTS: ContractAddresses = {
   // Override with mainnet addresses when deployed
 }
 
-export const CONTRACTS = NETWORK === 'mainnet' ? MAINNET_CONTRACTS : TESTNET_CONTRACTS
+export const CONTRACTS =
+  NETWORK === 'mainnet' ? MAINNET_CONTRACTS : TESTNET_CONTRACTS
 
 export const MODERATION_CONTRACTS = {
   BanManager: CONTRACTS.banManager,
@@ -48,21 +59,21 @@ export const MODERATION_CONTRACTS = {
 
 export const MODERATION_CONFIG = {
   // Moderation Marketplace settings
-  minReporterStake: '0.01',        // ETH required to report
-  minChallengeStake: '0.01',       // ETH to challenge a ban
-  minEvidenceStake: '0.001',       // ETH to submit evidence
-  minStakeAge: 24 * 3600,          // 24 hours before voting power
-  defaultVotingPeriod: 3 * 24 * 3600,  // 3 days
-  appealVotingPeriod: 7 * 24 * 3600,   // 7 days for appeals
-  challengePeriod: 7 * 24 * 3600,      // 7 days for provider proposals
-  timelockPeriod: 2 * 24 * 3600,       // 2 days timelock
-  reReviewMultiplier: 10,          // 10x stake required for re-review
-  maxAppeals: 3,                   // Max re-reviews allowed
+  minReporterStake: '0.01', // ETH required to report
+  minChallengeStake: '0.01', // ETH to challenge a ban
+  minEvidenceStake: '0.001', // ETH to submit evidence
+  minStakeAge: 24 * 3600, // 24 hours before voting power
+  defaultVotingPeriod: 3 * 24 * 3600, // 3 days
+  appealVotingPeriod: 7 * 24 * 3600, // 7 days for appeals
+  challengePeriod: 7 * 24 * 3600, // 7 days for provider proposals
+  timelockPeriod: 2 * 24 * 3600, // 2 days timelock
+  reReviewMultiplier: 10, // 10x stake required for re-review
+  maxAppeals: 3, // Max re-reviews allowed
 
   // Reward distribution (basis points)
-  winnerShareBps: 9000,            // 90% to winner
-  treasuryShareBps: 500,           // 5% to treasury
-  marketMakerShareBps: 500,        // 5% to market makers
+  winnerShareBps: 9000, // 90% to winner
+  treasuryShareBps: 500, // 5% to treasury
+  marketMakerShareBps: 500, // 5% to market makers
 
   // Report bonds
   reportBonds: {
@@ -84,7 +95,7 @@ export enum BanType {
   NONE = 0,
   ON_NOTICE = 1,
   CHALLENGED = 2,
-  PERMANENT = 3
+  PERMANENT = 3,
 }
 
 export const BAN_TYPE_LABELS: Record<BanType, string> = {
@@ -104,7 +115,7 @@ export const BAN_TYPE_COLORS: Record<BanType, string> = {
 // Evidence position types
 export enum EvidencePosition {
   FOR_ACTION = 0,
-  AGAINST_ACTION = 1
+  AGAINST_ACTION = 1,
 }
 
 export const EVIDENCE_POSITION_LABELS: Record<EvidencePosition, string> = {
@@ -118,7 +129,7 @@ export enum ProviderProposalType {
   REMOVE_PROVIDER = 1,
   UPDATE_WEIGHT = 2,
   SUSPEND_PROVIDER = 3,
-  UNSUSPEND_PROVIDER = 4
+  UNSUSPEND_PROVIDER = 4,
 }
 
 export const PROPOSAL_TYPE_LABELS: Record<ProviderProposalType, string> = {
@@ -136,7 +147,7 @@ export enum ProposalStatus {
   APPROVED = 2,
   REJECTED = 3,
   EXECUTED = 4,
-  CANCELLED = 5
+  CANCELLED = 5,
 }
 
 export const PROPOSAL_STATUS_LABELS: Record<ProposalStatus, string> = {
@@ -156,4 +167,3 @@ export const PROPOSAL_STATUS_COLORS: Record<ProposalStatus, string> = {
   [ProposalStatus.EXECUTED]: 'text-gray-600 bg-gray-50',
   [ProposalStatus.CANCELLED]: 'text-gray-400 bg-gray-50',
 }
-

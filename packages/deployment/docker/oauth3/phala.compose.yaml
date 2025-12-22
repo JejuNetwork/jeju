@@ -15,7 +15,7 @@ services:
   # Testnet Deployment (Phala Testnet)
   # ============================================
   oauth3-phala-1:
-    image: ghcr.io/jeju-network/oauth3-agent:latest
+    image: ghcr.io/jeju-network/oauth3-agent:v1.0.0
     build:
       context: ..
       dockerfile: docker/Dockerfile
@@ -78,7 +78,7 @@ services:
       start_period: 10s
 
   oauth3-phala-2:
-    image: ghcr.io/jeju-network/oauth3-agent:latest
+    image: ghcr.io/jeju-network/oauth3-agent:v1.0.0
     build:
       context: ..
       dockerfile: docker/Dockerfile
@@ -133,7 +133,7 @@ services:
       start_period: 10s
 
   oauth3-phala-3:
-    image: ghcr.io/jeju-network/oauth3-agent:latest
+    image: ghcr.io/jeju-network/oauth3-agent:v1.0.0
     build:
       context: ..
       dockerfile: docker/Dockerfile
@@ -189,7 +189,7 @@ services:
 
   # Load balancer for Phala cluster
   oauth3-phala-lb:
-    image: nginx:alpine
+    image: nginx:1.27-alpine
     profiles: [testnet, mainnet]
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
@@ -206,7 +206,7 @@ services:
   # Mainnet/Production Deployment
   # ============================================
   oauth3-phala-prod-1:
-    image: ghcr.io/jeju-network/oauth3-agent:latest
+    image: ghcr.io/jeju-network/oauth3-agent:v1.0.0
     profiles: [mainnet]
     environment:
       - OAUTH3_NODE_ID=oauth3-mainnet-1
@@ -257,7 +257,7 @@ services:
       start_period: 30s
 
   oauth3-phala-prod-2:
-    image: ghcr.io/jeju-network/oauth3-agent:latest
+    image: ghcr.io/jeju-network/oauth3-agent:v1.0.0
     profiles: [mainnet]
     environment:
       - OAUTH3_NODE_ID=oauth3-mainnet-2
@@ -302,7 +302,7 @@ services:
           cpus: '1'
 
   oauth3-phala-prod-3:
-    image: ghcr.io/jeju-network/oauth3-agent:latest
+    image: ghcr.io/jeju-network/oauth3-agent:v1.0.0
     profiles: [mainnet]
     environment:
       - OAUTH3_NODE_ID=oauth3-mainnet-3

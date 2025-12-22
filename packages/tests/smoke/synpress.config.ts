@@ -1,6 +1,6 @@
-import { defineConfig, devices } from '@playwright/test';
-import { join } from 'path';
-import { findJejuWorkspaceRoot } from '../shared/utils';
+import { join } from 'node:path'
+import { defineConfig, devices } from '@playwright/test'
+import { findJejuWorkspaceRoot } from '../shared/utils'
 
 /**
  * Synpress config for wallet smoke tests
@@ -14,12 +14,12 @@ import { findJejuWorkspaceRoot } from '../shared/utils';
  *
  * CLI:
  *   jeju test synpress --smoke
- * 
+ *
  * Direct:
  *   bunx playwright test --config packages/tests/smoke/synpress.config.ts
  */
 
-const rootDir = findJejuWorkspaceRoot();
+const rootDir = findJejuWorkspaceRoot()
 
 export default defineConfig({
   testDir: '.',
@@ -36,7 +36,12 @@ export default defineConfig({
 
   reporter: [
     ['list'],
-    ['json', { outputFile: join(rootDir, 'test-results', 'wallet-smoke-results.json') }],
+    [
+      'json',
+      {
+        outputFile: join(rootDir, 'test-results', 'wallet-smoke-results.json'),
+      },
+    ],
   ],
 
   use: {
@@ -54,5 +59,4 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-});
-
+})

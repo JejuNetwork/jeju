@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { FileText, Plus } from 'lucide-react'
 import Link from 'next/link'
-import { Plus, FileText } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { ProposalCard } from '@/components/ProposalCard'
 import { fetchProposals, type Proposal } from '@/config/api'
 
@@ -15,7 +15,10 @@ export default function ProposalsPage() {
   useEffect(() => {
     async function loadData() {
       setLoading(true)
-      const data = await fetchProposals(filter === 'active').catch(() => ({ proposals: [], total: 0 }))
+      const data = await fetchProposals(filter === 'active').catch(() => ({
+        proposals: [],
+        total: 0,
+      }))
       setProposals(data.proposals)
       setLoading(false)
     }
@@ -36,7 +39,10 @@ export default function ProposalsPage() {
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-lg sm:text-xl font-semibold">Proposals</h1>
-        <Link href="/create" className="btn-primary flex items-center gap-1.5 text-xs sm:text-sm">
+        <Link
+          href="/create"
+          className="btn-primary flex items-center gap-1.5 text-xs sm:text-sm"
+        >
           <Plus size={16} />
           <span className="hidden xs:inline">Create</span>
         </Link>
@@ -84,10 +90,16 @@ export default function ProposalsPage() {
           ))}
         </div>
       ) : (
-        <div className="card-static p-6 sm:p-8 text-center" style={{ color: 'var(--text-tertiary)' }}>
+        <div
+          className="card-static p-6 sm:p-8 text-center"
+          style={{ color: 'var(--text-tertiary)' }}
+        >
           <FileText size={28} className="mx-auto mb-3 opacity-50" />
           <p className="mb-3 text-sm">No proposals found</p>
-          <Link href="/create" className="btn-primary inline-flex items-center gap-2 text-sm">
+          <Link
+            href="/create"
+            className="btn-primary inline-flex items-center gap-2 text-sm"
+          >
             <Plus size={16} />
             Create
           </Link>

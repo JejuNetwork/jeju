@@ -3,37 +3,34 @@
  * First-class agent management in DWS
  */
 
-// Types
-export * from './types';
-
-// Registry
-export {
-  initRegistry,
-  isInitialized,
-  getRegistryStats,
-  registerAgent,
-  getAgent,
-  getAgentsByOwner,
-  listAgents,
-  updateAgent,
-  updateAgentStatus,
-  terminateAgent,
-  addCronTrigger,
-  getCronTriggers,
-  getAllActiveCronTriggers,
-  updateCronTriggerRun,
-  recordInvocation,
-  getAgentStats,
-} from './registry';
-
 // Executor
 export {
   AgentExecutor,
-  initExecutor,
-  getExecutor,
   type ExecutorConfig,
-} from './executor';
+  getExecutor,
+  initExecutor,
+} from './executor'
 
+// Registry
+export {
+  addCronTrigger,
+  getAgent,
+  getAgentStats,
+  getAgentsByOwner,
+  getAllActiveCronTriggers,
+  getCronTriggers,
+  getRegistryStats,
+  initRegistry,
+  isInitialized,
+  listAgents,
+  recordInvocation,
+  registerAgent,
+  terminateAgent,
+  updateAgent,
+  updateAgentStatus,
+  updateCronTriggerRun,
+} from './registry'
 // Routes
-export { createAgentRouter } from './routes';
-
+export { createAgentRouter } from './routes'
+// Types
+export * from './types'

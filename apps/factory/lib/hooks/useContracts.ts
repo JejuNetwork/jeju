@@ -2,9 +2,13 @@
  * Contract interaction hooks for Factory
  */
 
-import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { type Address } from 'viem';
-import { getContractAddress, getContractAddressSafe } from '@/config/contracts';
+import type { Address } from 'viem'
+import {
+  useReadContract,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from 'wagmi'
+import { getContractAddress, getContractAddressSafe } from '@/config/contracts'
 
 // ============ ABI Fragments ============
 
@@ -13,16 +17,24 @@ const BOUNTY_REGISTRY_ABI = [
     name: 'createBounty',
     type: 'function',
     inputs: [
-      { name: 'params', type: 'tuple', components: [
-        { name: 'title', type: 'string' },
-        { name: 'description', type: 'string' },
-        { name: 'specUri', type: 'string' },
-        { name: 'deadline', type: 'uint256' },
-      ]},
-      { name: 'rewards', type: 'tuple[]', components: [
-        { name: 'token', type: 'address' },
-        { name: 'amount', type: 'uint256' },
-      ]},
+      {
+        name: 'params',
+        type: 'tuple',
+        components: [
+          { name: 'title', type: 'string' },
+          { name: 'description', type: 'string' },
+          { name: 'specUri', type: 'string' },
+          { name: 'deadline', type: 'uint256' },
+        ],
+      },
+      {
+        name: 'rewards',
+        type: 'tuple[]',
+        components: [
+          { name: 'token', type: 'address' },
+          { name: 'amount', type: 'uint256' },
+        ],
+      },
       { name: 'milestoneTitles', type: 'string[]' },
       { name: 'milestoneDescriptions', type: 'string[]' },
       { name: 'milestonePercentages', type: 'uint256[]' },
@@ -35,17 +47,19 @@ const BOUNTY_REGISTRY_ABI = [
     name: 'getBounty',
     type: 'function',
     inputs: [{ name: 'bountyId', type: 'bytes32' }],
-    outputs: [{
-      name: '',
-      type: 'tuple',
-      components: [
-        { name: 'bountyId', type: 'bytes32' },
-        { name: 'creator', type: 'address' },
-        { name: 'title', type: 'string' },
-        { name: 'description', type: 'string' },
-        { name: 'status', type: 'uint8' },
-      ],
-    }],
+    outputs: [
+      {
+        name: '',
+        type: 'tuple',
+        components: [
+          { name: 'bountyId', type: 'bytes32' },
+          { name: 'creator', type: 'address' },
+          { name: 'title', type: 'string' },
+          { name: 'description', type: 'string' },
+          { name: 'status', type: 'uint8' },
+        ],
+      },
+    ],
     stateMutability: 'view',
   },
   {
@@ -59,7 +73,7 @@ const BOUNTY_REGISTRY_ABI = [
     outputs: [],
     stateMutability: 'nonpayable',
   },
-] as const;
+] as const
 
 const MODEL_REGISTRY_ABI = [
   {
@@ -82,17 +96,19 @@ const MODEL_REGISTRY_ABI = [
     name: 'getModel',
     type: 'function',
     inputs: [{ name: 'modelId', type: 'bytes32' }],
-    outputs: [{
-      name: '',
-      type: 'tuple',
-      components: [
-        { name: 'modelId', type: 'bytes32' },
-        { name: 'name', type: 'string' },
-        { name: 'organization', type: 'string' },
-        { name: 'owner', type: 'address' },
-        { name: 'description', type: 'string' },
-      ],
-    }],
+    outputs: [
+      {
+        name: '',
+        type: 'tuple',
+        components: [
+          { name: 'modelId', type: 'bytes32' },
+          { name: 'name', type: 'string' },
+          { name: 'organization', type: 'string' },
+          { name: 'owner', type: 'address' },
+          { name: 'description', type: 'string' },
+        ],
+      },
+    ],
     stateMutability: 'view',
   },
   {
@@ -109,7 +125,7 @@ const MODEL_REGISTRY_ABI = [
     outputs: [],
     stateMutability: 'nonpayable',
   },
-] as const;
+] as const
 
 const GUARDIAN_REGISTRY_ABI = [
   {
@@ -126,17 +142,19 @@ const GUARDIAN_REGISTRY_ABI = [
     name: 'getGuardian',
     type: 'function',
     inputs: [{ name: 'agentId', type: 'uint256' }],
-    outputs: [{
-      name: '',
-      type: 'tuple',
-      components: [
-        { name: 'agentId', type: 'uint256' },
-        { name: 'owner', type: 'address' },
-        { name: 'tier', type: 'uint8' },
-        { name: 'stakedAmount', type: 'uint256' },
-        { name: 'isActive', type: 'bool' },
-      ],
-    }],
+    outputs: [
+      {
+        name: '',
+        type: 'tuple',
+        components: [
+          { name: 'agentId', type: 'uint256' },
+          { name: 'owner', type: 'address' },
+          { name: 'tier', type: 'uint8' },
+          { name: 'stakedAmount', type: 'uint256' },
+          { name: 'isActive', type: 'bool' },
+        ],
+      },
+    ],
     stateMutability: 'view',
   },
   {
@@ -152,13 +170,13 @@ const GUARDIAN_REGISTRY_ABI = [
     outputs: [{ name: 'reviewId', type: 'bytes32' }],
     stateMutability: 'nonpayable',
   },
-] as const;
+] as const
 
 // ============ Bounty Hooks ============
 
 export function useBounty(bountyId: `0x${string}` | undefined) {
-  const address = getContractAddressSafe('bountyRegistry');
-  
+  const address = getContractAddressSafe('bountyRegistry')
+
   return useReadContract({
     address: address || undefined,
     abi: BOUNTY_REGISTRY_ABI,
@@ -167,25 +185,27 @@ export function useBounty(bountyId: `0x${string}` | undefined) {
     query: {
       enabled: !!bountyId && !!address,
     },
-  });
+  })
 }
 
 export function useCreateBounty() {
-  const { writeContract, data: hash, isPending, error } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { writeContract, data: hash, isPending, error } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
   const createBounty = async (params: {
-    title: string;
-    description: string;
-    specUri: string;
-    rewards: { token: Address; amount: bigint }[];
-    milestones: { title: string; description: string; percentage: number }[];
-    deadline: number;
-    skills: string[];
-    stakeAmount: bigint;
+    title: string
+    description: string
+    specUri: string
+    rewards: { token: Address; amount: bigint }[]
+    milestones: { title: string; description: string; percentage: number }[]
+    deadline: number
+    skills: string[]
+    stakeAmount: bigint
   }) => {
-    const address = getContractAddress('bountyRegistry');
-    
+    const address = getContractAddress('bountyRegistry')
+
     writeContract({
       address,
       abi: BOUNTY_REGISTRY_ABI,
@@ -198,16 +218,22 @@ export function useCreateBounty() {
           deadline: BigInt(params.deadline),
         },
         params.rewards,
-        params.milestones.map(m => m.title),
-        params.milestones.map(m => m.description),
-        params.milestones.map(m => BigInt(m.percentage * 100)), // Convert to BPS
+        params.milestones.map((m) => m.title),
+        params.milestones.map((m) => m.description),
+        params.milestones.map((m) => BigInt(m.percentage * 100)), // Convert to BPS
         params.skills,
       ],
-      value: params.stakeAmount + params.rewards.reduce((sum, r) => 
-        r.token === '0x0000000000000000000000000000000000000000' ? sum + r.amount : sum, 0n
-      ),
-    });
-  };
+      value:
+        params.stakeAmount +
+        params.rewards.reduce(
+          (sum, r) =>
+            r.token === '0x0000000000000000000000000000000000000000'
+              ? sum + r.amount
+              : sum,
+          0n,
+        ),
+    })
+  }
 
   return {
     createBounty,
@@ -216,23 +242,29 @@ export function useCreateBounty() {
     isConfirming,
     isSuccess,
     error,
-  };
+  }
 }
 
 export function useApplyForBounty() {
-  const { writeContract, data: hash, isPending, error } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { writeContract, data: hash, isPending, error } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
-  const apply = async (bountyId: `0x${string}`, proposalUri: string, estimatedDuration: number) => {
-    const address = getContractAddress('bountyRegistry');
-    
+  const apply = async (
+    bountyId: `0x${string}`,
+    proposalUri: string,
+    estimatedDuration: number,
+  ) => {
+    const address = getContractAddress('bountyRegistry')
+
     writeContract({
       address,
       abi: BOUNTY_REGISTRY_ABI,
       functionName: 'applyForBounty',
       args: [bountyId, proposalUri, BigInt(estimatedDuration)],
-    });
-  };
+    })
+  }
 
   return {
     apply,
@@ -241,14 +273,14 @@ export function useApplyForBounty() {
     isConfirming,
     isSuccess,
     error,
-  };
+  }
 }
 
 // ============ Model Hooks ============
 
 export function useModelContract(modelId: `0x${string}` | undefined) {
-  const address = getContractAddressSafe('modelRegistry');
-  
+  const address = getContractAddressSafe('modelRegistry')
+
   return useReadContract({
     address: address || undefined,
     abi: MODEL_REGISTRY_ABI,
@@ -257,25 +289,27 @@ export function useModelContract(modelId: `0x${string}` | undefined) {
     query: {
       enabled: !!modelId && !!address,
     },
-  });
+  })
 }
 
 export function useCreateModel() {
-  const { writeContract, data: hash, isPending, error } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { writeContract, data: hash, isPending, error } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
   const createModel = async (params: {
-    name: string;
-    organization: string;
-    modelType: number;
-    license: number;
-    licenseUri: string;
-    accessLevel: number;
-    description: string;
-    tags: string[];
+    name: string
+    organization: string
+    modelType: number
+    license: number
+    licenseUri: string
+    accessLevel: number
+    description: string
+    tags: string[]
   }) => {
-    const address = getContractAddress('modelRegistry');
-    
+    const address = getContractAddress('modelRegistry')
+
     writeContract({
       address,
       abi: MODEL_REGISTRY_ABI,
@@ -290,8 +324,8 @@ export function useCreateModel() {
         params.description,
         params.tags,
       ],
-    });
-  };
+    })
+  }
 
   return {
     createModel,
@@ -300,23 +334,25 @@ export function useCreateModel() {
     isConfirming,
     isSuccess,
     error,
-  };
+  }
 }
 
 export function useStarModel() {
-  const { writeContract, data: hash, isPending, error } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { writeContract, data: hash, isPending, error } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
   const toggleStar = async (modelId: `0x${string}`) => {
-    const address = getContractAddress('modelRegistry');
-    
+    const address = getContractAddress('modelRegistry')
+
     writeContract({
       address,
       abi: MODEL_REGISTRY_ABI,
       functionName: 'toggleStar',
       args: [modelId],
-    });
-  };
+    })
+  }
 
   return {
     toggleStar,
@@ -325,14 +361,14 @@ export function useStarModel() {
     isConfirming,
     isSuccess,
     error,
-  };
+  }
 }
 
 // ============ Guardian Hooks ============
 
 export function useGuardian(agentId: bigint | undefined) {
-  const address = getContractAddressSafe('guardianRegistry');
-  
+  const address = getContractAddressSafe('guardianRegistry')
+
   return useReadContract({
     address: address || undefined,
     abi: GUARDIAN_REGISTRY_ABI,
@@ -341,24 +377,30 @@ export function useGuardian(agentId: bigint | undefined) {
     query: {
       enabled: agentId !== undefined && !!address,
     },
-  });
+  })
 }
 
 export function useRegisterGuardian() {
-  const { writeContract, data: hash, isPending, error } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { writeContract, data: hash, isPending, error } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
-  const register = async (agentId: bigint, specializations: string[], stakeAmount: bigint) => {
-    const address = getContractAddress('guardianRegistry');
-    
+  const register = async (
+    agentId: bigint,
+    specializations: string[],
+    stakeAmount: bigint,
+  ) => {
+    const address = getContractAddress('guardianRegistry')
+
     writeContract({
       address,
       abi: GUARDIAN_REGISTRY_ABI,
       functionName: 'registerGuardian',
       args: [agentId, specializations],
       value: stakeAmount,
-    });
-  };
+    })
+  }
 
   return {
     register,
@@ -367,22 +409,24 @@ export function useRegisterGuardian() {
     isConfirming,
     isSuccess,
     error,
-  };
+  }
 }
 
 export function useSubmitReview() {
-  const { writeContract, data: hash, isPending, error } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { writeContract, data: hash, isPending, error } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
   const submitReview = async (params: {
-    subjectId: `0x${string}`;
-    subjectType: string;
-    action: number;
-    commentUri: string;
-    suggestions: string[];
+    subjectId: `0x${string}`
+    subjectType: string
+    action: number
+    commentUri: string
+    suggestions: string[]
   }) => {
-    const address = getContractAddress('guardianRegistry');
-    
+    const address = getContractAddress('guardianRegistry')
+
     writeContract({
       address,
       abi: GUARDIAN_REGISTRY_ABI,
@@ -394,8 +438,8 @@ export function useSubmitReview() {
         params.commentUri,
         params.suggestions,
       ],
-    });
-  };
+    })
+  }
 
   return {
     submitReview,
@@ -404,7 +448,7 @@ export function useSubmitReview() {
     isConfirming,
     isSuccess,
     error,
-  };
+  }
 }
 
 // ============ Repository Hooks ============
@@ -426,19 +470,21 @@ const REPO_REGISTRY_ABI = [
     name: 'getRepository',
     type: 'function',
     inputs: [{ name: 'repoId', type: 'bytes32' }],
-    outputs: [{
-      name: '',
-      type: 'tuple',
-      components: [
-        { name: 'repoId', type: 'bytes32' },
-        { name: 'owner', type: 'address' },
-        { name: 'name', type: 'string' },
-        { name: 'description', type: 'string' },
-        { name: 'isPrivate', type: 'bool' },
-        { name: 'starCount', type: 'uint256' },
-        { name: 'forkCount', type: 'uint256' },
-      ],
-    }],
+    outputs: [
+      {
+        name: '',
+        type: 'tuple',
+        components: [
+          { name: 'repoId', type: 'bytes32' },
+          { name: 'owner', type: 'address' },
+          { name: 'name', type: 'string' },
+          { name: 'description', type: 'string' },
+          { name: 'isPrivate', type: 'bool' },
+          { name: 'starCount', type: 'uint256' },
+          { name: 'forkCount', type: 'uint256' },
+        ],
+      },
+    ],
     stateMutability: 'view',
   },
   {
@@ -470,11 +516,11 @@ const REPO_REGISTRY_ABI = [
     outputs: [{ name: 'forkedRepoId', type: 'bytes32' }],
     stateMutability: 'nonpayable',
   },
-] as const;
+] as const
 
 export function useRepository(repoId: `0x${string}` | undefined) {
-  const address = getContractAddressSafe('repoRegistry');
-  
+  const address = getContractAddressSafe('repoRegistry')
+
   return useReadContract({
     address: address || undefined,
     abi: REPO_REGISTRY_ABI,
@@ -483,27 +529,29 @@ export function useRepository(repoId: `0x${string}` | undefined) {
     query: {
       enabled: !!repoId && !!address,
     },
-  });
+  })
 }
 
 export function useCreateRepository() {
-  const { writeContract, data: hash, isPending, error } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { writeContract, data: hash, isPending, error } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
   const createRepo = async (params: {
-    name: string;
-    description: string;
-    isPrivate: boolean;
+    name: string
+    description: string
+    isPrivate: boolean
   }) => {
-    const address = getContractAddress('repoRegistry');
-    
+    const address = getContractAddress('repoRegistry')
+
     writeContract({
       address,
       abi: REPO_REGISTRY_ABI,
       functionName: 'createRepository',
       args: [params.name, params.description, params.isPrivate, ''],
-    });
-  };
+    })
+  }
 
   return {
     createRepo,
@@ -512,23 +560,25 @@ export function useCreateRepository() {
     isConfirming,
     isSuccess,
     error,
-  };
+  }
 }
 
 export function useStarRepository() {
-  const { writeContract, data: hash, isPending, error } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { writeContract, data: hash, isPending, error } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
   const starRepo = async (repoId: `0x${string}`) => {
-    const address = getContractAddress('repoRegistry');
-    
+    const address = getContractAddress('repoRegistry')
+
     writeContract({
       address,
       abi: REPO_REGISTRY_ABI,
       functionName: 'starRepository',
       args: [repoId],
-    });
-  };
+    })
+  }
 
   return {
     starRepo,
@@ -537,23 +587,25 @@ export function useStarRepository() {
     isConfirming,
     isSuccess,
     error,
-  };
+  }
 }
 
 export function useForkRepository() {
-  const { writeContract, data: hash, isPending, error } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { writeContract, data: hash, isPending, error } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
   const forkRepo = async (repoId: `0x${string}`, newName: string) => {
-    const address = getContractAddress('repoRegistry');
-    
+    const address = getContractAddress('repoRegistry')
+
     writeContract({
       address,
       abi: REPO_REGISTRY_ABI,
       functionName: 'forkRepository',
       args: [repoId, newName],
-    });
-  };
+    })
+  }
 
   return {
     forkRepo,
@@ -562,7 +614,7 @@ export function useForkRepository() {
     isConfirming,
     isSuccess,
     error,
-  };
+  }
 }
 
 // ============ Package Hooks ============
@@ -596,19 +648,21 @@ const PACKAGE_REGISTRY_ABI = [
     name: 'getPackage',
     type: 'function',
     inputs: [{ name: 'packageId', type: 'bytes32' }],
-    outputs: [{
-      name: '',
-      type: 'tuple',
-      components: [
-        { name: 'packageId', type: 'bytes32' },
-        { name: 'owner', type: 'address' },
-        { name: 'scope', type: 'string' },
-        { name: 'name', type: 'string' },
-        { name: 'description', type: 'string' },
-        { name: 'latestVersion', type: 'string' },
-        { name: 'downloadCount', type: 'uint256' },
-      ],
-    }],
+    outputs: [
+      {
+        name: '',
+        type: 'tuple',
+        components: [
+          { name: 'packageId', type: 'bytes32' },
+          { name: 'owner', type: 'address' },
+          { name: 'scope', type: 'string' },
+          { name: 'name', type: 'string' },
+          { name: 'description', type: 'string' },
+          { name: 'latestVersion', type: 'string' },
+          { name: 'downloadCount', type: 'uint256' },
+        ],
+      },
+    ],
     stateMutability: 'view',
   },
   {
@@ -618,24 +672,26 @@ const PACKAGE_REGISTRY_ABI = [
       { name: 'packageId', type: 'bytes32' },
       { name: 'version', type: 'string' },
     ],
-    outputs: [{
-      name: '',
-      type: 'tuple',
-      components: [
-        { name: 'version', type: 'string' },
-        { name: 'tarballCid', type: 'string' },
-        { name: 'integrityHash', type: 'bytes32' },
-        { name: 'publishedAt', type: 'uint256' },
-        { name: 'deprecated', type: 'bool' },
-      ],
-    }],
+    outputs: [
+      {
+        name: '',
+        type: 'tuple',
+        components: [
+          { name: 'version', type: 'string' },
+          { name: 'tarballCid', type: 'string' },
+          { name: 'integrityHash', type: 'bytes32' },
+          { name: 'publishedAt', type: 'uint256' },
+          { name: 'deprecated', type: 'bool' },
+        ],
+      },
+    ],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 export function usePackage(packageId: `0x${string}` | undefined) {
-  const address = getContractAddressSafe('packageRegistry');
-  
+  const address = getContractAddressSafe('packageRegistry')
+
   return useReadContract({
     address: address || undefined,
     abi: PACKAGE_REGISTRY_ABI,
@@ -644,27 +700,29 @@ export function usePackage(packageId: `0x${string}` | undefined) {
     query: {
       enabled: !!packageId && !!address,
     },
-  });
+  })
 }
 
 export function useCreatePackage() {
-  const { writeContract, data: hash, isPending, error } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { writeContract, data: hash, isPending, error } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
   const createPackage = async (params: {
-    scope: string;
-    name: string;
-    description: string;
+    scope: string
+    name: string
+    description: string
   }) => {
-    const address = getContractAddress('packageRegistry');
-    
+    const address = getContractAddress('packageRegistry')
+
     writeContract({
       address,
       abi: PACKAGE_REGISTRY_ABI,
       functionName: 'createPackage',
       args: [params.scope, params.name, params.description],
-    });
-  };
+    })
+  }
 
   return {
     createPackage,
@@ -673,22 +731,24 @@ export function useCreatePackage() {
     isConfirming,
     isSuccess,
     error,
-  };
+  }
 }
 
 export function usePublishVersion() {
-  const { writeContract, data: hash, isPending, error } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { writeContract, data: hash, isPending, error } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
   const publishVersion = async (params: {
-    packageId: `0x${string}`;
-    version: string;
-    tarballCid: string;
-    integrityHash: `0x${string}`;
-    readme: string;
+    packageId: `0x${string}`
+    version: string
+    tarballCid: string
+    integrityHash: `0x${string}`
+    readme: string
   }) => {
-    const address = getContractAddress('packageRegistry');
-    
+    const address = getContractAddress('packageRegistry')
+
     writeContract({
       address,
       abi: PACKAGE_REGISTRY_ABI,
@@ -700,8 +760,8 @@ export function usePublishVersion() {
         params.integrityHash,
         params.readme,
       ],
-    });
-  };
+    })
+  }
 
   return {
     publishVersion,
@@ -710,6 +770,5 @@ export function usePublishVersion() {
     isConfirming,
     isSuccess,
     error,
-  };
+  }
 }
-

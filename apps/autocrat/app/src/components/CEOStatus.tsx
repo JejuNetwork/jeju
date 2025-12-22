@@ -40,8 +40,13 @@ export function CEOStatus({ status, loading }: CEOStatusProps) {
       </div>
 
       <div className="mb-2 sm:mb-3">
-        <div className="font-medium text-sm">{status.currentModel.name || 'Eliza'}</div>
-        <div className="text-xs truncate" style={{ color: 'var(--text-tertiary)' }}>
+        <div className="font-medium text-sm">
+          {status.currentModel.name || 'Eliza'}
+        </div>
+        <div
+          className="text-xs truncate"
+          style={{ color: 'var(--text-tertiary)' }}
+        >
           {status.currentModel.modelId}
         </div>
       </div>
@@ -53,7 +58,10 @@ export function CEOStatus({ status, loading }: CEOStatusProps) {
         </div>
         <div>
           <div style={{ color: 'var(--text-tertiary)' }}>Approval</div>
-          <div className="font-medium" style={{ color: 'var(--color-success)' }}>
+          <div
+            className="font-medium"
+            style={{ color: 'var(--color-success)' }}
+          >
             {status.stats.approvalRate}
           </div>
         </div>

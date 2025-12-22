@@ -1,6 +1,6 @@
 /**
  * Protocol Implementations
- * 
+ *
  * A2A and MCP protocol servers and middleware:
  * - Unified Server (recommended)
  * - A2A Server (legacy)
@@ -9,55 +9,51 @@
  * - x402 Payment Middleware
  */
 
-// Unified Server (recommended)
-export {
-  createUnifiedServer,
-  startServer,
-  createServerlessHandler,
-  skillSuccess,
-  skillError,
-  skillRequiresPayment,
-  type UnifiedServerConfig,
-  type A2ASkill,
-  type MCPResource,
-  type MCPTool,
-  type MCPPrompt,
-  type SkillContext,
-  type SkillResult,
-  type PaymentRequirement,
-  type ServerInstance,
-} from './server';
-
 // Legacy A2A Server
 export {
-  createA2AServer,
   type A2AConfig,
   type A2AResult,
   type AgentCard,
-} from './a2a';
-
+  createA2AServer,
+} from './a2a'
 // Legacy MCP Server
 export {
   createMCPServer,
   type MCPConfig,
   type MCPPromptResult,
-} from './mcp';
-
+} from './mcp'
 // Protocol Middleware
 export {
-  configureERC8004,
-  configureX402,
-  configureProtocolMiddleware,
-  erc8004Middleware,
-  x402Middleware,
-  getAgentInfo,
-  createPaymentRequirement,
-  verifyX402Payment,
-  parseX402Header,
-  type ERC8004Config,
-  type X402Config,
-  type ProtocolMiddlewareConfig,
   type AgentInfo,
+  configureERC8004,
+  configureProtocolMiddleware,
+  configureX402,
+  createPaymentRequirement,
+  type ERC8004Config,
+  erc8004Middleware,
+  getAgentInfo,
+  type ProtocolMiddlewareConfig,
+  parseX402Header,
+  verifyX402Payment,
+  type X402Config,
   type X402PaymentPayload,
-} from './middleware';
-
+  x402Middleware,
+} from './middleware'
+// Unified Server (recommended)
+export {
+  type A2ASkill,
+  createServerlessHandler,
+  createUnifiedServer,
+  type MCPPrompt,
+  type MCPResource,
+  type MCPTool,
+  type PaymentRequirement,
+  type ServerInstance,
+  type SkillContext,
+  type SkillResult,
+  skillError,
+  skillRequiresPayment,
+  skillSuccess,
+  startServer,
+  type UnifiedServerConfig,
+} from './server'

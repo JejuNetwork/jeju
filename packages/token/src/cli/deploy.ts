@@ -8,10 +8,10 @@
  *   bun run src/cli/deploy.ts --network mainnet --dry-run
  */
 
-import { Command } from 'commander';
-import type { Address, Hex } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import { MAINNET_CHAINS, TESTNET_CHAINS } from '../config/chains';
+import { Command } from 'commander'
+import type { Address, Hex } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { MAINNET_CHAINS, TESTNET_CHAINS } from '../config/chains'
 import type {
   CCAConfig,
   ChainId,
@@ -20,13 +20,13 @@ import type {
   LiquidityConfig,
   PresaleConfig,
   TokenEconomics,
-} from '../types';
+} from '../types'
 
 // =============================================================================
 // CLI SETUP
 // =============================================================================
 
-const program = new Command();
+const program = new Command()
 
 program
   .name('deploy')
@@ -35,15 +35,15 @@ program
   .option(
     '-n, --network <network>',
     'Network to deploy on (mainnet, testnet, local)',
-    'testnet'
+    'testnet',
   )
   .option('-c, --config <path>', 'Path to token configuration JSON')
   .option('--dry-run', 'Simulate deployment without executing', false)
   .option('--skip-solana', 'Skip Solana deployment', false)
   .option('--only-chain <chainId>', 'Deploy only to specific chain')
-  .parse(process.argv);
+  .parse(process.argv)
 
-const options = program.opts();
+const options = program.opts()
 
 // =============================================================================
 // DEFAULT CONFIGURATION
@@ -105,15 +105,15 @@ function getDefaultTokenEconomics(): TokenEconomics {
     },
     maxWalletPercent: 2, // 2% max wallet
     maxTxPercent: 1, // 1% max transaction
-  };
+  }
 }
 
 function getDefaultPresaleConfig(
-  network: 'mainnet' | 'testnet'
+  network: 'mainnet' | 'testnet',
 ): PresaleConfig {
-  const now = Math.floor(Date.now() / 1000);
-  const oneDay = 24 * 60 * 60;
-  const oneWeek = 7 * oneDay;
+  const now = Math.floor(Date.now() / 1000)
+  const oneDay = 24 * 60 * 60
+  const oneWeek = 7 * oneDay
 
   return {
     enabled: true,
@@ -141,12 +141,12 @@ function getDefaultPresaleConfig(
       8453: ['0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as Address], // USDC on Base
     } as Record<ChainId, Address[]>,
     refundIfSoftCapMissed: true,
-  };
+  }
 }
 
 function getDefaultCCAConfig(network: 'mainnet' | 'testnet'): CCAConfig {
-  const now = Math.floor(Date.now() / 1000);
-  const oneWeek = 7 * 24 * 60 * 60;
+  const now = Math.floor(Date.now() / 1000)
+  const oneWeek = 7 * 24 * 60 * 60
 
   return {
     deploymentMode: 'self-deployed', // We control the fees
@@ -162,7 +162,7 @@ function getDefaultCCAConfig(network: 'mainnet' | 'testnet'): CCAConfig {
       platformFeeBps: 250, // 2.5% platform fee (goes to us)
       referralFeeBps: 50, // 0.5% referral fee
     },
-  };
+  }
 }
 
 function getDefaultLiquidityConfig(): LiquidityConfig {
@@ -199,12 +199,12 @@ function getDefaultLiquidityConfig(): LiquidityConfig {
         dex: 'raydium',
       },
     ],
-  };
+  }
 }
 
 function getDefaultHyperlaneConfig(
   owner: Address,
-  validators: string[]
+  validators: string[],
 ): HyperlaneConfig {
   return {
     routes: [
@@ -261,7 +261,7 @@ function getDefaultHyperlaneConfig(
       defaultGasLimit: 200_000n,
       gasOverhead: 50_000n,
     },
-  };
+  }
 }
 
 // =============================================================================
@@ -270,68 +270,68 @@ function getDefaultHyperlaneConfig(
 
 async function main() {
   console.log(
-    '╔══════════════════════════════════════════════════════════════╗'
-  );
+    '╔══════════════════════════════════════════════════════════════╗',
+  )
   console.log(
-    '║     Cross-Chain Token Deployment                             ║'
-  );
+    '║     Cross-Chain Token Deployment                             ║',
+  )
   console.log(
-    '║     Permissionless • Hyperlane Warp Routes • EVM + Solana    ║'
-  );
+    '║     Permissionless • Hyperlane Warp Routes • EVM + Solana    ║',
+  )
   console.log(
-    '╚══════════════════════════════════════════════════════════════╝'
-  );
-  console.log();
+    '╚══════════════════════════════════════════════════════════════╝',
+  )
+  console.log()
 
-  const network = options.network as 'mainnet' | 'testnet' | 'local';
-  const dryRun = options.dryRun as boolean;
-  const skipSolana = options.skipSolana as boolean;
+  const network = options.network as 'mainnet' | 'testnet' | 'local'
+  const dryRun = options.dryRun as boolean
+  const skipSolana = options.skipSolana as boolean
 
-  console.log(`Network: ${network}`);
-  console.log(`Dry Run: ${dryRun}`);
-  console.log(`Skip Solana: ${skipSolana}`);
-  console.log();
+  console.log(`Network: ${network}`)
+  console.log(`Dry Run: ${dryRun}`)
+  console.log(`Skip Solana: ${skipSolana}`)
+  console.log()
 
   // Get deployer private key from environment
-  const privateKey = process.env.DEPLOYER_PRIVATE_KEY;
+  const privateKey = process.env.DEPLOYER_PRIVATE_KEY
   if (!privateKey && !dryRun) {
-    console.error('❌ DEPLOYER_PRIVATE_KEY environment variable not set');
-    process.exit(1);
+    console.error('❌ DEPLOYER_PRIVATE_KEY environment variable not set')
+    process.exit(1)
   }
 
   // Get validator addresses from environment
-  const validatorAddressEnv = process.env.VALIDATOR_ADDRESSES;
+  const validatorAddressEnv = process.env.VALIDATOR_ADDRESSES
   if (!validatorAddressEnv && !dryRun) {
-    console.error('❌ VALIDATOR_ADDRESSES environment variable not set');
+    console.error('❌ VALIDATOR_ADDRESSES environment variable not set')
     console.error(
-      '   Format: comma-separated addresses, e.g., 0xabc...,0xdef...,0x123...'
-    );
-    process.exit(1);
+      '   Format: comma-separated addresses, e.g., 0xabc...,0xdef...,0x123...',
+    )
+    process.exit(1)
   }
-  const validatorAddresses = validatorAddressEnv?.split(',') ?? [];
+  const validatorAddresses = validatorAddressEnv?.split(',') ?? []
 
   // Create deployer account
   const account = privateKey
     ? privateKeyToAccount(privateKey as Hex)
     : privateKeyToAccount(
-        '0x0000000000000000000000000000000000000000000000000000000000000001' as Hex
-      );
+        '0x0000000000000000000000000000000000000000000000000000000000000001' as Hex,
+      )
 
-  console.log(`Deployer: ${account.address}`);
-  console.log(`Validators: ${validatorAddresses.length}`);
-  console.log();
+  console.log(`Deployer: ${account.address}`)
+  console.log(`Validators: ${validatorAddresses.length}`)
+  console.log()
 
   // Build deployment configuration
-  const chains = network === 'mainnet' ? MAINNET_CHAINS : TESTNET_CHAINS;
+  const chains = network === 'mainnet' ? MAINNET_CHAINS : TESTNET_CHAINS
   const filteredChains = skipSolana
     ? chains.filter((c) => c.chainType === 'evm')
-    : chains;
+    : chains
 
   const config: DeploymentConfig = {
     token: getDefaultTokenEconomics(),
     liquidity: getDefaultLiquidityConfig(),
     presale: getDefaultPresaleConfig(
-      network === 'mainnet' ? 'mainnet' : 'testnet'
+      network === 'mainnet' ? 'mainnet' : 'testnet',
     ),
     cca: getDefaultCCAConfig(network === 'mainnet' ? 'mainnet' : 'testnet'),
     hyperlane: getDefaultHyperlaneConfig(account.address, validatorAddresses),
@@ -340,83 +340,71 @@ async function main() {
     timelockDelay: network === 'mainnet' ? 48 * 60 * 60 : 60 * 60, // 48h mainnet, 1h testnet
     deploymentSalt:
       '0x0000000000000000000000000000000000000000000000000000000000000001' as Hex,
-  };
+  }
 
   // Print configuration summary
-  console.log(
-    '═══════════════════════════════════════════════════════════════'
-  );
-  console.log('TOKEN CONFIGURATION');
-  console.log(
-    '═══════════════════════════════════════════════════════════════'
-  );
-  console.log(`Name: ${config.token.name}`);
-  console.log(`Symbol: ${config.token.symbol}`);
-  console.log(`Total Supply: ${config.token.totalSupply.toLocaleString()}`);
-  console.log();
-  console.log('Allocation:');
-  console.log(`  Public Sale: ${config.token.allocation.publicSale}%`);
-  console.log(`  Presale: ${config.token.allocation.presale}%`);
-  console.log(`  Team: ${config.token.allocation.team}%`);
-  console.log(`  Advisors: ${config.token.allocation.advisors}%`);
-  console.log(`  Ecosystem: ${config.token.allocation.ecosystem}%`);
-  console.log(`  Liquidity: ${config.token.allocation.liquidity}%`);
-  console.log(`  Staking Rewards: ${config.token.allocation.stakingRewards}%`);
-  console.log();
-  console.log('Fee Distribution:');
-  console.log(`  Transfer Fee: ${config.token.fees.transferFeeBps / 100}%`);
-  console.log(`  → Holders: ${config.token.fees.distribution.holders}%`);
-  console.log(`  → Creators: ${config.token.fees.distribution.creators}%`);
-  console.log(`  → Treasury: ${config.token.fees.distribution.treasury}%`);
-  console.log(`  → LPs: ${config.token.fees.distribution.liquidityProviders}%`);
-  console.log(`  → Burn: ${config.token.fees.distribution.burn}%`);
-  console.log();
-  console.log(
-    '═══════════════════════════════════════════════════════════════'
-  );
-  console.log('DEPLOYMENT CHAINS');
-  console.log(
-    '═══════════════════════════════════════════════════════════════'
-  );
+  console.log('═══════════════════════════════════════════════════════════════')
+  console.log('TOKEN CONFIGURATION')
+  console.log('═══════════════════════════════════════════════════════════════')
+  console.log(`Name: ${config.token.name}`)
+  console.log(`Symbol: ${config.token.symbol}`)
+  console.log(`Total Supply: ${config.token.totalSupply.toLocaleString()}`)
+  console.log()
+  console.log('Allocation:')
+  console.log(`  Public Sale: ${config.token.allocation.publicSale}%`)
+  console.log(`  Presale: ${config.token.allocation.presale}%`)
+  console.log(`  Team: ${config.token.allocation.team}%`)
+  console.log(`  Advisors: ${config.token.allocation.advisors}%`)
+  console.log(`  Ecosystem: ${config.token.allocation.ecosystem}%`)
+  console.log(`  Liquidity: ${config.token.allocation.liquidity}%`)
+  console.log(`  Staking Rewards: ${config.token.allocation.stakingRewards}%`)
+  console.log()
+  console.log('Fee Distribution:')
+  console.log(`  Transfer Fee: ${config.token.fees.transferFeeBps / 100}%`)
+  console.log(`  → Holders: ${config.token.fees.distribution.holders}%`)
+  console.log(`  → Creators: ${config.token.fees.distribution.creators}%`)
+  console.log(`  → Treasury: ${config.token.fees.distribution.treasury}%`)
+  console.log(`  → LPs: ${config.token.fees.distribution.liquidityProviders}%`)
+  console.log(`  → Burn: ${config.token.fees.distribution.burn}%`)
+  console.log()
+  console.log('═══════════════════════════════════════════════════════════════')
+  console.log('DEPLOYMENT CHAINS')
+  console.log('═══════════════════════════════════════════════════════════════')
   for (const chain of config.chains) {
     console.log(
-      `  ${chain.isHomeChain ? '★' : '○'} ${chain.name} (${chain.chainId})`
-    );
+      `  ${chain.isHomeChain ? '★' : '○'} ${chain.name} (${chain.chainId})`,
+    )
   }
-  console.log();
-  console.log(
-    '═══════════════════════════════════════════════════════════════'
-  );
-  console.log('LIQUIDITY ALLOCATION');
-  console.log(
-    '═══════════════════════════════════════════════════════════════'
-  );
+  console.log()
+  console.log('═══════════════════════════════════════════════════════════════')
+  console.log('LIQUIDITY ALLOCATION')
+  console.log('═══════════════════════════════════════════════════════════════')
   for (const alloc of config.liquidity.allocations) {
-    console.log(`  ${alloc.chainId}: ${alloc.percentage}% on ${alloc.dex}`);
+    console.log(`  ${alloc.chainId}: ${alloc.percentage}% on ${alloc.dex}`)
   }
-  console.log();
+  console.log()
 
   if (dryRun) {
-    console.log('🔍 DRY RUN MODE - No transactions will be executed');
-    console.log();
-    console.log('Configuration looks valid. Ready for deployment.');
-    console.log();
-    console.log('To deploy, run without --dry-run flag.');
-    console.log();
-    console.log('Notes:');
+    console.log('🔍 DRY RUN MODE - No transactions will be executed')
+    console.log()
+    console.log('Configuration looks valid. Ready for deployment.')
+    console.log()
+    console.log('To deploy, run without --dry-run flag.')
+    console.log()
+    console.log('Notes:')
     console.log(
-      '  • Contracts will be deployed via CREATE2 for deterministic addresses'
-    );
-    console.log('  • Warp routes will be configured for cross-chain transfers');
+      '  • Contracts will be deployed via CREATE2 for deterministic addresses',
+    )
+    console.log('  • Warp routes will be configured for cross-chain transfers')
     console.log(
-      '  • Solana requires manual SPL token creation + Hyperlane CLI setup'
-    );
-    console.log('  • Liquidity deployment requires ETH in deployer wallet');
-    return;
+      '  • Solana requires manual SPL token creation + Hyperlane CLI setup',
+    )
+    console.log('  • Liquidity deployment requires ETH in deployer wallet')
+    return
   }
 
   // Import deployment dependencies
-  const { createWalletClient, http } = await import('viem');
+  const { createWalletClient, http } = await import('viem')
   const {
     arbitrum,
     arbitrumSepolia,
@@ -428,11 +416,11 @@ async function main() {
     optimism,
     polygon,
     sepolia,
-  } = await import('viem/chains');
+  } = await import('viem/chains')
   const { MultiChainLauncher } = await import(
     '../deployer/multi-chain-launcher'
-  );
-  const { preloadAllArtifacts } = await import('../deployer/contract-deployer');
+  )
+  const { preloadAllArtifacts } = await import('../deployer/contract-deployer')
 
   const VIEM_CHAINS = {
     1: mainnet,
@@ -445,89 +433,81 @@ async function main() {
     11155111: sepolia,
     84532: baseSepolia,
     421614: arbitrumSepolia,
-  } as const;
+  } as const
 
   function getViemChain(chainId: number) {
-    return VIEM_CHAINS[chainId as keyof typeof VIEM_CHAINS];
+    return VIEM_CHAINS[chainId as keyof typeof VIEM_CHAINS]
   }
 
   // Preload contract artifacts
-  console.log('Loading contract artifacts...');
-  await preloadAllArtifacts();
-  console.log('✓ Artifacts loaded');
-  console.log();
+  console.log('Loading contract artifacts...')
+  await preloadAllArtifacts()
+  console.log('✓ Artifacts loaded')
+  console.log()
 
   // Create wallet clients for each chain
-  const walletClients = new Map();
+  const walletClients = new Map()
 
   for (const chain of config.chains) {
-    if (chain.chainType !== 'evm') continue;
+    if (chain.chainType !== 'evm') continue
 
-    const viemChain = getViemChain(chain.chainId as number);
-    if (!viemChain) continue;
+    const viemChain = getViemChain(chain.chainId as number)
+    if (!viemChain) continue
 
     const client = createWalletClient({
       account,
       chain: viemChain,
       transport: http(chain.rpcUrl),
-    });
+    })
 
-    walletClients.set(chain.chainId, client);
+    walletClients.set(chain.chainId, client)
   }
 
   const launcher = new MultiChainLauncher(config, (progress) => {
     console.log(
-      `[${progress.completedSteps}/${progress.totalSteps}] ${progress.currentStep?.name}: ${progress.currentStep?.status}`
-    );
-  });
+      `[${progress.completedSteps}/${progress.totalSteps}] ${progress.currentStep?.name}: ${progress.currentStep?.status}`,
+    )
+  })
 
-  console.log(
-    '═══════════════════════════════════════════════════════════════'
-  );
-  console.log('STARTING DEPLOYMENT');
-  console.log(
-    '═══════════════════════════════════════════════════════════════'
-  );
-  console.log();
+  console.log('═══════════════════════════════════════════════════════════════')
+  console.log('STARTING DEPLOYMENT')
+  console.log('═══════════════════════════════════════════════════════════════')
+  console.log()
 
-  const result = await launcher.deploy(walletClients);
+  const result = await launcher.deploy(walletClients)
 
-  console.log();
-  console.log(
-    '═══════════════════════════════════════════════════════════════'
-  );
-  console.log('DEPLOYMENT COMPLETE');
-  console.log(
-    '═══════════════════════════════════════════════════════════════'
-  );
-  console.log();
-  console.log('Deployed Contracts:');
+  console.log()
+  console.log('═══════════════════════════════════════════════════════════════')
+  console.log('DEPLOYMENT COMPLETE')
+  console.log('═══════════════════════════════════════════════════════════════')
+  console.log()
+  console.log('Deployed Contracts:')
   for (const deployment of result.deployments) {
-    console.log(`  Chain ${deployment.chainId}:`);
-    console.log(`    Token: ${deployment.token}`);
-    console.log(`    Vesting: ${deployment.vesting}`);
-    console.log(`    Fee Distributor: ${deployment.feeDistributor}`);
-    console.log(`    Warp Route: ${deployment.warpRoute}`);
+    console.log(`  Chain ${deployment.chainId}:`)
+    console.log(`    Token: ${deployment.token}`)
+    console.log(`    Vesting: ${deployment.vesting}`)
+    console.log(`    Fee Distributor: ${deployment.feeDistributor}`)
+    console.log(`    Warp Route: ${deployment.warpRoute}`)
     if (deployment.presale) {
-      console.log(`    Presale: ${deployment.presale}`);
+      console.log(`    Presale: ${deployment.presale}`)
     }
     if (deployment.ccaAuction) {
-      console.log(`    CCA Auction: ${deployment.ccaAuction}`);
+      console.log(`    CCA Auction: ${deployment.ccaAuction}`)
     }
-    console.log();
+    console.log()
   }
 
   // Save deployment result
-  const outputPath = `./deployments/${network}-${Date.now()}.json`;
+  const outputPath = `./deployments/${network}-${Date.now()}.json`
   await Bun.write(
     outputPath,
     JSON.stringify(
       result,
       (_, v) => (typeof v === 'bigint' ? v.toString() : v),
-      2
-    )
-  );
-  console.log(`Deployment saved to: ${outputPath}`);
+      2,
+    ),
+  )
+  console.log(`Deployment saved to: ${outputPath}`)
 }
 
-main().catch(console.error);
+main().catch(console.error)

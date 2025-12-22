@@ -4,27 +4,38 @@
  * Fail-fast validation helpers used across frontend and server
  */
 
-import type { z } from 'zod';
+import type { z } from 'zod'
 
 /**
  * Expect a value to match schema, throw if invalid
  */
-export function expectValid<T>(schema: z.ZodSchema<T>, value: unknown, context?: string): T {
-  const result = schema.safeParse(value);
+export function expectValid<T>(
+  schema: z.ZodSchema<T>,
+  value: unknown,
+  context?: string,
+): T {
+  const result = schema.safeParse(value)
   if (!result.success) {
-    const errors = result.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
-    throw new Error(`Validation failed${context ? ` in ${context}` : ''}: ${errors}`);
+    const errors = result.error.issues
+      .map((e) => `${e.path.join('.')}: ${e.message}`)
+      .join(', ')
+    throw new Error(
+      `Validation failed${context ? ` in ${context}` : ''}: ${errors}`,
+    )
   }
-  return result.data;
+  return result.data
 }
 
 /**
  * Expect a value to exist, throw if null/undefined
  * Type guard that narrows type
  */
-export function expectExists<T>(value: T | null | undefined, message: string): asserts value is T {
+export function expectExists<T>(
+  value: T | null | undefined,
+  message: string,
+): asserts value is T {
   if (value === null || value === undefined) {
-    throw new Error(message);
+    throw new Error(message)
   }
 }
 
@@ -33,7 +44,7 @@ export function expectExists<T>(value: T | null | undefined, message: string): a
  */
 export function expect(condition: boolean, message: string): asserts condition {
   if (!condition) {
-    throw new Error(message);
+    throw new Error(message)
   }
 }
 
@@ -41,6 +52,6 @@ export function expect(condition: boolean, message: string): asserts condition {
  * Get a value after asserting it exists
  */
 export function getExists<T>(value: T | null | undefined, message: string): T {
-  expectExists(value, message);
-  return value;
+  expectExists(value, message)
+  return value
 }

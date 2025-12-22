@@ -1,14 +1,14 @@
-import { Hono } from 'hono';
-import { config } from '../config';
-import { getNonceCacheStats } from '../services/nonce-manager';
+import { Hono } from 'hono'
+import { config } from '../config'
+import { getNonceCacheStats } from '../services/nonce-manager'
 
-const app = new Hono();
-const serviceStartTime = Date.now();
+const app = new Hono()
+const serviceStartTime = Date.now()
 
 app.get('/metrics', async (c) => {
-  const cfg = config();
-  const nonceStats = await getNonceCacheStats();
-  const uptime = Math.floor((Date.now() - serviceStartTime) / 1000);
+  const cfg = config()
+  const nonceStats = await getNonceCacheStats()
+  const uptime = Math.floor((Date.now() - serviceStartTime) / 1000)
 
   const metrics = [
     `# HELP facilitator_uptime_seconds Uptime in seconds`,
@@ -38,9 +38,9 @@ app.get('/metrics', async (c) => {
     `# HELP facilitator_environment Environment (production/development)`,
     `# TYPE facilitator_environment gauge`,
     `facilitator_environment{network="${cfg.network}",env="${cfg.environment}"} 1`,
-  ].join('\n');
+  ].join('\n')
 
-  return c.text(metrics, 200, { 'Content-Type': 'text/plain; version=0.0.4' });
-});
+  return c.text(metrics, 200, { 'Content-Type': 'text/plain; version=0.0.4' })
+})
 
-export default app;
+export default app

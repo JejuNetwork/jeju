@@ -1,12 +1,12 @@
 /**
  * Leaderboard Configuration
- * 
+ *
  * Uses centralized network config - no env overrides needed for CQL.
  */
 
-import { CHAIN_ID, CONTRACTS, NETWORK } from '../config/index.js';
-import { CHAIN_IDS } from '../config/networks.js';
-import { getCQLUrl } from '@jejunetwork/config';
+import { getCQLUrl } from '@jejunetwork/config'
+import { CHAIN_ID, CONTRACTS, NETWORK } from '../config/index.js'
+import { CHAIN_IDS } from '../config/networks.js'
 
 // Database configuration - uses network-aware CQL endpoint
 export const LEADERBOARD_DB = {
@@ -18,7 +18,7 @@ export const LEADERBOARD_DB = {
   timeout: 30000,
   /** Enable debug logging */
   debug: process.env.NODE_ENV !== 'production',
-} as const;
+} as const
 
 // Chain configuration - use local Jeju chain
 export const LEADERBOARD_CHAIN = {
@@ -30,7 +30,7 @@ export const LEADERBOARD_CHAIN = {
   network: NETWORK,
   /** All supported chain IDs */
   supportedChains: Object.values(CHAIN_IDS),
-} as const;
+} as const
 
 // Contract addresses - use gateway contracts with defaults
 export const LEADERBOARD_CONTRACTS = {
@@ -38,20 +38,23 @@ export const LEADERBOARD_CONTRACTS = {
   githubReputationProvider: CONTRACTS.githubReputationProvider,
   /** Identity registry for ERC-8004 */
   identityRegistry: CONTRACTS.identityRegistry,
-} as const;
+} as const
 
 // Oracle configuration
 export const LEADERBOARD_ORACLE = {
   /** Oracle private key for signing attestations (required for on-chain) */
-  privateKey: process.env.ATTESTATION_ORACLE_PRIVATE_KEY as `0x${string}` | undefined,
+  privateKey: process.env.ATTESTATION_ORACLE_PRIVATE_KEY as
+    | `0x${string}`
+    | undefined,
   /** Whether on-chain attestations are enabled */
   get isEnabled(): boolean {
     return Boolean(
       this.privateKey &&
-      LEADERBOARD_CONTRACTS.githubReputationProvider !== '0x0000000000000000000000000000000000000000'
-    );
+        LEADERBOARD_CONTRACTS.githubReputationProvider !==
+          '0x0000000000000000000000000000000000000000',
+    )
   },
-} as const;
+} as const
 
 // Domain configuration
 export const LEADERBOARD_DOMAIN = {
@@ -61,13 +64,16 @@ export const LEADERBOARD_DOMAIN = {
   tokenIssuer: 'jeju:leaderboard',
   /** Audience for tokens */
   tokenAudience: 'gateway',
-} as const;
+} as const
 
 function getDomainDefault(): string {
   switch (NETWORK) {
-    case 'mainnet': return 'leaderboard.jejunetwork.org';
-    case 'testnet': return 'testnet-leaderboard.jejunetwork.org';
-    default: return 'localhost:4001';
+    case 'mainnet':
+      return 'leaderboard.jejunetwork.org'
+    case 'testnet':
+      return 'testnet-leaderboard.jejunetwork.org'
+    default:
+      return 'localhost:4001'
   }
 }
 
@@ -83,7 +89,7 @@ export const LEADERBOARD_RATE_LIMITS = {
   general: { requests: 100, windowMs: 60000 },
   /** A2A endpoints */
   a2a: { requests: 50, windowMs: 60000 },
-} as const;
+} as const
 
 // Token configuration
 export const LEADERBOARD_TOKENS = {
@@ -91,15 +97,17 @@ export const LEADERBOARD_TOKENS = {
   expirySeconds: 86400,
   /** Maximum message age for wallet verification (10 minutes) */
   maxMessageAgeMs: 10 * 60 * 1000,
-} as const;
+} as const
 
 // GitHub configuration
 export const LEADERBOARD_GITHUB = {
   /** GitHub token for API access (for pipelines) */
   token: process.env.GITHUB_TOKEN,
   /** Tracked repositories */
-  repositories: (process.env.LEADERBOARD_REPOSITORIES || 'jejunetwork/jeju').split(','),
-} as const;
+  repositories: (
+    process.env.LEADERBOARD_REPOSITORIES || 'jejunetwork/jeju'
+  ).split(','),
+} as const
 
 // Storage configuration (for pipeline exports)
 export const LEADERBOARD_STORAGE = {
@@ -107,7 +115,7 @@ export const LEADERBOARD_STORAGE = {
   dwsApiUrl: process.env.DWS_API_URL || 'http://localhost:4030',
   /** Local data directory for exports */
   dataDir: process.env.LEADERBOARD_DATA_DIR || './data/leaderboard',
-} as const;
+} as const
 
 // LLM configuration (for summaries)
 export const LEADERBOARD_LLM = {
@@ -115,7 +123,7 @@ export const LEADERBOARD_LLM = {
   openRouterApiKey: process.env.OPENROUTER_API_KEY,
   /** Model to use for summaries */
   model: process.env.LEADERBOARD_LLM_MODEL || 'anthropic/claude-3-haiku',
-} as const;
+} as const
 
 // Export all config as single object for convenience
 export const LEADERBOARD_CONFIG = {
@@ -129,7 +137,4 @@ export const LEADERBOARD_CONFIG = {
   github: LEADERBOARD_GITHUB,
   storage: LEADERBOARD_STORAGE,
   llm: LEADERBOARD_LLM,
-} as const;
-
-
-
+} as const

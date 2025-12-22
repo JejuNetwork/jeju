@@ -1,81 +1,124 @@
-import { Hono } from 'hono';
-import type { PaymentRequirements } from '../lib/types';
-import { config } from '../config';
-import { createClients } from '../services/settler';
-import { verifyPayment, decodePaymentHeader } from '../services/verifier';
-import { parseJsonBody, handleVerifyRequest } from '../lib/route-helpers';
-import { buildVerifyErrorResponse, buildVerifySuccessResponse } from '../lib/response-builders';
+import { Hono } from 'hono'
+import type { PublicClient } from 'viem'
+import { config } from '../config'
+import {
+  buildVerifyErrorResponse,
+  buildVerifySuccessResponse,
+} from '../lib/response-builders'
+import { handleVerifyRequest, parseJsonBody } from '../lib/route-helpers'
+import type { PaymentRequirements } from '../lib/types'
+import { createClients } from '../services/settler'
+import { decodePaymentHeader, verifyPayment } from '../services/verifier'
 
-const app = new Hono();
+const app = new Hono()
 
 app.post('/', async (c) => {
-  const cfg = config();
-  const parseResult = await parseJsonBody(c);
+  const cfg = config()
+  const parseResult = await parseJsonBody(c)
   if (parseResult.error) {
-    return c.json(buildVerifyErrorResponse('Invalid JSON request body'), 400);
+    return c.json(buildVerifyErrorResponse('Invalid JSON request body'), 400)
   }
 
-  const handleResult = handleVerifyRequest(c, parseResult.body, cfg.network);
+  const handleResult = handleVerifyRequest(c, parseResult.body, cfg.network)
   if (!handleResult.valid) {
-    return handleResult.response;
+    return handleResult.response
   }
 
-  let publicClient;
+  let publicClient: PublicClient
   try {
-    const clients = await createClients(handleResult.network);
-    publicClient = clients.publicClient;
+    const clients = await createClients(handleResult.network)
+    publicClient = clients.publicClient
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return c.json(buildVerifyErrorResponse(`Network error: ${message}`), 200);
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    return c.json(buildVerifyErrorResponse(`Network error: ${message}`), 200)
   }
-  
+
   const requirements = {
     ...handleResult.body.paymentRequirements,
     network: handleResult.network,
-  } as PaymentRequirements;
-  const result = await verifyPayment(handleResult.body.paymentHeader, requirements, publicClient);
+  } as PaymentRequirements
+  const result = await verifyPayment(
+    handleResult.body.paymentHeader,
+    requirements,
+    publicClient,
+  )
 
   if (!result.valid) {
-    return c.json(buildVerifyErrorResponse(result.error ?? 'Verification failed'), 200);
+    return c.json(
+      buildVerifyErrorResponse(result.error ?? 'Verification failed'),
+      200,
+    )
   }
 
   if (!result.signer || !result.decodedPayment) {
-    return c.json(buildVerifyErrorResponse('Verification succeeded but missing signer or payment data'), 500);
+    return c.json(
+      buildVerifyErrorResponse(
+        'Verification succeeded but missing signer or payment data',
+      ),
+      500,
+    )
   }
 
-  return c.json(buildVerifySuccessResponse(result.signer, result.decodedPayment.amount.toString()), 200);
-});
+  return c.json(
+    buildVerifySuccessResponse(
+      result.signer,
+      result.decodedPayment.amount.toString(),
+    ),
+    200,
+  )
+})
 
 app.post('/signature', async (c) => {
-  const parseResult = await parseJsonBody<{ paymentHeader: string; network?: string }>(c);
+  const parseResult = await parseJsonBody<{
+    paymentHeader: string
+    network?: string
+  }>(c)
   if (parseResult.error) {
-    return c.json({ valid: false, error: 'Invalid JSON request body' }, 400);
+    return c.json({ valid: false, error: 'Invalid JSON request body' }, 400)
   }
 
   if (!parseResult.body.paymentHeader) {
-    return c.json({ valid: false, error: 'Missing paymentHeader' }, 400);
+    return c.json({ valid: false, error: 'Missing paymentHeader' }, 400)
   }
 
-  const cfg = config();
-  function getNetworkFromRequest(requirementsNetwork: string | undefined, defaultNetwork: string): string {
-    return requirementsNetwork ?? defaultNetwork;
+  const cfg = config()
+  function getNetworkFromRequest(
+    requirementsNetwork: string | undefined,
+    defaultNetwork: string,
+  ): string {
+    return requirementsNetwork ?? defaultNetwork
   }
-  const network = getNetworkFromRequest(parseResult.body.network, cfg.network);
-  const payload = decodePaymentHeader(parseResult.body.paymentHeader);
-  
+  const network = getNetworkFromRequest(parseResult.body.network, cfg.network)
+  const payload = decodePaymentHeader(parseResult.body.paymentHeader)
+
   if (!payload) {
-    return c.json({ valid: false, error: 'Invalid payment header encoding' }, 400);
+    return c.json(
+      { valid: false, error: 'Invalid payment header encoding' },
+      400,
+    )
   }
 
-  const { verifySignatureOnly } = await import('../services/verifier');
-  const result = await verifySignatureOnly(parseResult.body.paymentHeader, network);
+  const { verifySignatureOnly } = await import('../services/verifier')
+  const result = await verifySignatureOnly(
+    parseResult.body.paymentHeader,
+    network,
+  )
 
   if (!result.valid) {
-    return c.json({ valid: false, error: result.error ?? 'Signature verification failed' }, 200);
+    return c.json(
+      { valid: false, error: result.error ?? 'Signature verification failed' },
+      200,
+    )
   }
 
   if (!result.signer) {
-    return c.json({ valid: false, error: 'Signature verification succeeded but signer not found' }, 500);
+    return c.json(
+      {
+        valid: false,
+        error: 'Signature verification succeeded but signer not found',
+      },
+      500,
+    )
   }
 
   return c.json({
@@ -88,7 +131,7 @@ app.post('/signature', async (c) => {
       resource: payload.resource,
       network: payload.network,
     },
-  });
-});
+  })
+})
 
-export default app;
+export default app

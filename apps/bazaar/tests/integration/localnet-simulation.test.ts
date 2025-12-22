@@ -1,30 +1,30 @@
 /**
  * LOCALNET SIMULATION TESTS
- * 
+ *
  * Comprehensive tests against real deployed contracts on Anvil localnet.
  * Tests liquidity pools, swaps, swap fees, NFT marketplace, prediction markets, etc.
- * 
+ *
  * Run with: bun test tests/integration/localnet-simulation.test.ts
- * 
+ *
  * Prerequisites:
  *   - Anvil running on port 6546
  *   - All contracts deployed via: bun run scripts/deploy-all-localnet-contracts.ts
  */
 
-import { describe, test, expect, beforeAll } from 'bun:test'
+import { beforeAll, describe, expect, test } from 'bun:test'
+import { rawDeployments } from '@jejunetwork/contracts'
 import {
+  type Address,
   createPublicClient,
   createWalletClient,
-  http,
-  parseEther,
   formatEther,
-  parseAbi,
-  type Address,
+  http,
   type PublicClient,
+  parseAbi,
+  parseEther,
   type WalletClient,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { rawDeployments } from '@jejunetwork/contracts'
 
 // =============================================================================
 // CONFIGURATION
@@ -32,11 +32,13 @@ import { rawDeployments } from '@jejunetwork/contracts'
 
 const RPC_URL = process.env.L2_RPC_URL || 'http://localhost:6546'
 const CHAIN_ID = 420691 // network localnet chain ID
-const DEPLOYER_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as `0x${string}`
+const DEPLOYER_KEY =
+  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as `0x${string}`
 const DEPLOYER_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address
 
 // Second test account
-const USER_KEY = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as `0x${string}`
+const USER_KEY =
+  '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as `0x${string}`
 const USER_ADDRESS = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as Address
 
 // Chain definition
@@ -51,41 +53,10 @@ const localnet = {
 // ABIS
 // =============================================================================
 
-const ERC20_ABI = parseAbi([
-  'function name() view returns (string)',
-  'function symbol() view returns (string)',
-  'function decimals() view returns (uint8)',
-  'function totalSupply() view returns (uint256)',
-  'function balanceOf(address account) view returns (uint256)',
-  'function allowance(address owner, address spender) view returns (uint256)',
-  'function approve(address spender, uint256 amount) returns (bool)',
-  'function transfer(address to, uint256 amount) returns (bool)',
-])
-
-const POOL_MANAGER_ABI = parseAbi([
-  'function protocolFees(address token) view returns (uint256)',
-])
-
-const SWAP_ROUTER_ABI = parseAbi([
-  'function exactInputSingle((address tokenIn, address tokenOut, uint24 fee, address recipient, uint256 amountIn, uint256 amountOutMinimum, uint160 sqrtPriceLimitX96)) payable returns (uint256 amountOut)',
-])
-
-const POSITION_MANAGER_ABI = parseAbi([
-  'function mint((address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint256 amount0Desired, uint256 amount1Desired, uint256 amount0Min, uint256 amount1Min, address recipient, uint256 deadline)) returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1)',
-])
-
 const NFT_MARKETPLACE_ABI = parseAbi([
   'function buyListing(uint256 listingId) payable',
   'function cancelListing(uint256 listingId)',
   'function version() view returns (string)',
-])
-
-const ERC721_ABI = parseAbi([
-  'function mint(address to) returns (uint256)',
-  'function ownerOf(uint256 tokenId) view returns (address)',
-  'function approve(address to, uint256 tokenId)',
-  'function getApproved(uint256 tokenId) view returns (address)',
-  'function balanceOf(address owner) view returns (uint256)',
 ])
 
 const TOKEN_FACTORY_ABI = parseAbi([
@@ -133,7 +104,8 @@ interface Deployments {
 function loadDeployments(): Deployments {
   return {
     v4: rawDeployments.uniswapV4_1337 as Deployments['v4'],
-    marketplace: rawDeployments.bazaarMarketplace1337 as Deployments['marketplace'],
+    marketplace:
+      rawDeployments.bazaarMarketplace1337 as Deployments['marketplace'],
     factory: rawDeployments.erc20Factory1337 as Deployments['factory'],
     tokens: rawDeployments.multiTokenSystem1337 as Deployments['tokens'],
   }
@@ -145,7 +117,7 @@ function loadDeployments(): Deployments {
 
 let publicClient: PublicClient
 let deployerWallet: WalletClient
-let userWallet: WalletClient
+let _userWallet: WalletClient
 let deployments: Deployments
 let skipTests = false
 
@@ -165,7 +137,7 @@ beforeAll(async () => {
     transport: http(RPC_URL),
   })
 
-  userWallet = createWalletClient({
+  _userWallet = createWalletClient({
     account: userAccount,
     chain: localnet,
     transport: http(RPC_URL),
@@ -183,13 +155,23 @@ beforeAll(async () => {
 
   // Load deployments
   deployments = loadDeployments()
-  
+
   console.log('\n📋 Loaded deployments:')
-  console.log(`   V4 PoolManager: ${deployments.v4.poolManager || 'NOT DEPLOYED'}`)
-  console.log(`   V4 SwapRouter: ${deployments.v4.swapRouter || 'NOT DEPLOYED'}`)
-  console.log(`   V4 PositionManager: ${deployments.v4.positionManager || 'NOT DEPLOYED'}`)
-  console.log(`   NFT Marketplace: ${deployments.marketplace.at || deployments.marketplace.marketplace || 'NOT DEPLOYED'}`)
-  console.log(`   Token Factory: ${deployments.factory.at || deployments.factory.factory || 'NOT DEPLOYED'}`)
+  console.log(
+    `   V4 PoolManager: ${deployments.v4.poolManager || 'NOT DEPLOYED'}`,
+  )
+  console.log(
+    `   V4 SwapRouter: ${deployments.v4.swapRouter || 'NOT DEPLOYED'}`,
+  )
+  console.log(
+    `   V4 PositionManager: ${deployments.v4.positionManager || 'NOT DEPLOYED'}`,
+  )
+  console.log(
+    `   NFT Marketplace: ${deployments.marketplace.at || deployments.marketplace.marketplace || 'NOT DEPLOYED'}`,
+  )
+  console.log(
+    `   Token Factory: ${deployments.factory.at || deployments.factory.factory || 'NOT DEPLOYED'}`,
+  )
   console.log('')
 })
 
@@ -200,21 +182,21 @@ beforeAll(async () => {
 describe('Blockchain Health', () => {
   test('should be connected to localnet', async () => {
     if (skipTests) return
-    
+
     const chainId = await publicClient.getChainId()
     expect(chainId).toBe(CHAIN_ID)
   })
 
   test('should have blocks being produced', async () => {
     if (skipTests) return
-    
+
     const blockNumber = await publicClient.getBlockNumber()
     expect(blockNumber).toBeGreaterThan(0n)
   })
 
   test('deployer should have ETH balance', async () => {
     if (skipTests) return
-    
+
     const balance = await publicClient.getBalance({ address: DEPLOYER_ADDRESS })
     expect(balance).toBeGreaterThan(parseEther('1'))
     console.log(`   Deployer balance: ${formatEther(balance)} ETH`)
@@ -222,7 +204,7 @@ describe('Blockchain Health', () => {
 
   test('user account should have ETH balance', async () => {
     if (skipTests) return
-    
+
     const balance = await publicClient.getBalance({ address: USER_ADDRESS })
     expect(balance).toBeGreaterThan(parseEther('1'))
     console.log(`   User balance: ${formatEther(balance)} ETH`)
@@ -240,8 +222,10 @@ describe('Contract Deployment Verification', () => {
       console.log('   ⚠️ PoolManager not deployed')
       return
     }
-    
-    const code = await publicClient.getCode({ address: deployments.v4.poolManager })
+
+    const code = await publicClient.getCode({
+      address: deployments.v4.poolManager,
+    })
     expect(code).not.toBe('0x')
     console.log(`   ✅ PoolManager at ${deployments.v4.poolManager}`)
   })
@@ -252,8 +236,10 @@ describe('Contract Deployment Verification', () => {
       console.log('   ⚠️ SwapRouter not deployed')
       return
     }
-    
-    const code = await publicClient.getCode({ address: deployments.v4.swapRouter })
+
+    const code = await publicClient.getCode({
+      address: deployments.v4.swapRouter,
+    })
     expect(code).not.toBe('0x')
     console.log(`   ✅ SwapRouter at ${deployments.v4.swapRouter}`)
   })
@@ -264,21 +250,26 @@ describe('Contract Deployment Verification', () => {
       console.log('   ⚠️ PositionManager not deployed')
       return
     }
-    
-    const code = await publicClient.getCode({ address: deployments.v4.positionManager })
+
+    const code = await publicClient.getCode({
+      address: deployments.v4.positionManager,
+    })
     expect(code).not.toBe('0x')
     console.log(`   ✅ PositionManager at ${deployments.v4.positionManager}`)
   })
 
   test('NFT Marketplace should be deployed', async () => {
     if (skipTests) return
-    const marketplaceAddress = deployments.marketplace.at || deployments.marketplace.marketplace
+    const marketplaceAddress =
+      deployments.marketplace.at || deployments.marketplace.marketplace
     if (!marketplaceAddress) {
       console.log('   ⚠️ Marketplace not deployed')
       return
     }
-    
-    const code = await publicClient.getCode({ address: marketplaceAddress as Address })
+
+    const code = await publicClient.getCode({
+      address: marketplaceAddress as Address,
+    })
     expect(code).not.toBe('0x')
     console.log(`   ✅ Marketplace at ${marketplaceAddress}`)
   })
@@ -290,8 +281,10 @@ describe('Contract Deployment Verification', () => {
       console.log('   ⚠️ Token Factory not deployed')
       return
     }
-    
-    const code = await publicClient.getCode({ address: factoryAddress as Address })
+
+    const code = await publicClient.getCode({
+      address: factoryAddress as Address,
+    })
     expect(code).not.toBe('0x')
     console.log(`   ✅ Token Factory at ${factoryAddress}`)
   })
@@ -304,7 +297,8 @@ describe('Contract Deployment Verification', () => {
 describe('Token Factory', () => {
   test('should create a new ERC20 token', async () => {
     if (skipTests) return
-    const factoryAddress = (deployments.factory.at || deployments.factory.factory) as Address
+    const factoryAddress = (deployments.factory.at ||
+      deployments.factory.factory) as Address
     if (!isDeployed(factoryAddress)) {
       console.log('   ⚠️ Skipping: Token Factory not deployed')
       return
@@ -339,7 +333,8 @@ describe('Token Factory', () => {
 
   test('should list created tokens', async () => {
     if (skipTests) return
-    const factoryAddress = (deployments.factory.at || deployments.factory.factory) as Address
+    const factoryAddress = (deployments.factory.at ||
+      deployments.factory.factory) as Address
     if (!isDeployed(factoryAddress)) {
       console.log('   ⚠️ Skipping: Token Factory not deployed')
       return
@@ -352,7 +347,7 @@ describe('Token Factory', () => {
       functionName: 'getCreatorTokens',
       args: [DEPLOYER_ADDRESS],
     })
-    
+
     console.log(`   Found ${tokens.length} tokens created by deployer`)
   })
 })
@@ -371,10 +366,12 @@ describe('Uniswap V4 Liquidity', () => {
 
     console.log('   📊 Liquidity provision test')
     console.log(`   PositionManager: ${deployments.v4.positionManager}`)
-    
+
     // This would require a token pair to be set up
     // For now, just verify the contract is callable
-    const code = await publicClient.getCode({ address: deployments.v4.positionManager })
+    const code = await publicClient.getCode({
+      address: deployments.v4.positionManager,
+    })
     expect(code).not.toBe('0x')
     console.log('   ✅ PositionManager contract verified')
   })
@@ -394,8 +391,10 @@ describe('Uniswap V4 Swaps', () => {
 
     console.log('   🔄 Swap test')
     console.log(`   SwapRouter: ${deployments.v4.swapRouter}`)
-    
-    const code = await publicClient.getCode({ address: deployments.v4.swapRouter })
+
+    const code = await publicClient.getCode({
+      address: deployments.v4.swapRouter,
+    })
     expect(code).not.toBe('0x')
     console.log('   ✅ SwapRouter contract verified')
   })
@@ -408,8 +407,10 @@ describe('Uniswap V4 Swaps', () => {
     }
 
     console.log(`   QuoterV4: ${deployments.v4.quoterV4}`)
-    
-    const code = await publicClient.getCode({ address: deployments.v4.quoterV4 })
+
+    const code = await publicClient.getCode({
+      address: deployments.v4.quoterV4,
+    })
     expect(code).not.toBe('0x')
     console.log('   ✅ QuoterV4 contract verified')
   })
@@ -422,7 +423,8 @@ describe('Uniswap V4 Swaps', () => {
 describe('NFT Marketplace', () => {
   test('should read marketplace version', async () => {
     if (skipTests) return
-    const marketplaceAddress = (deployments.marketplace.at || deployments.marketplace.marketplace) as Address
+    const marketplaceAddress = (deployments.marketplace.at ||
+      deployments.marketplace.marketplace) as Address
     if (!isDeployed(marketplaceAddress)) {
       console.log('   ⚠️ Skipping: Marketplace not deployed')
       return
@@ -436,25 +438,28 @@ describe('NFT Marketplace', () => {
       abi: NFT_MARKETPLACE_ABI,
       functionName: 'version',
     })
-    
+
     console.log(`   Marketplace version: ${version}`)
     expect(version).toBe('1.0.0')
   })
 
   test('should create and buy NFT listing', async () => {
     if (skipTests) return
-    const marketplaceAddress = (deployments.marketplace.at || deployments.marketplace.marketplace) as Address
+    const marketplaceAddress = (deployments.marketplace.at ||
+      deployments.marketplace.marketplace) as Address
     const nftAddress = deployments.marketplace.Token as Address
-    
+
     if (!isDeployed(marketplaceAddress) || !isDeployed(nftAddress)) {
       console.log('   ⚠️ Skipping: Marketplace or NFT not deployed')
       return
     }
 
     // Get initial balance
-    const initialBalance = await publicClient.getBalance({ address: DEPLOYER_ADDRESS })
+    const initialBalance = await publicClient.getBalance({
+      address: DEPLOYER_ADDRESS,
+    })
     console.log(`   Initial balance: ${formatEther(initialBalance)} ETH`)
-    
+
     console.log('   ✅ Marketplace ready for NFT trading')
   })
 })
@@ -473,13 +478,13 @@ describe('Swap Fee Verification', () => {
 
     console.log('   💰 Fee structure verification')
     console.log(`   PoolManager: ${deployments.v4.poolManager}`)
-    
+
     // Standard Uniswap V4 fee tiers:
     // 100 = 0.01% (stable pairs)
     // 500 = 0.05% (stable-like)
     // 3000 = 0.30% (standard)
     // 10000 = 1.00% (volatile)
-    
+
     console.log('   Standard fee tiers:')
     console.log('     - 100 bps (0.01%) for stable pairs')
     console.log('     - 500 bps (0.05%) for stable-like')
@@ -496,40 +501,42 @@ describe('Swap Fee Verification', () => {
 describe('End-to-End Flow', () => {
   test('complete user journey: create token -> add liquidity -> swap', async () => {
     if (skipTests) return
-    
+
     console.log('   🎯 End-to-end flow test')
     console.log('')
-    
+
     // Step 1: Check factory
-    const factoryAddress = (deployments.factory.at || deployments.factory.factory) as Address
+    const factoryAddress = (deployments.factory.at ||
+      deployments.factory.factory) as Address
     if (factoryAddress) {
       console.log('   Step 1: Token Factory ✅')
     } else {
       console.log('   Step 1: Token Factory ⚠️ Not deployed')
     }
-    
+
     // Step 2: Check V4
     if (deployments.v4.poolManager) {
       console.log('   Step 2: V4 PoolManager ✅')
     } else {
       console.log('   Step 2: V4 PoolManager ⚠️ Not deployed')
     }
-    
+
     // Step 3: Check SwapRouter
     if (deployments.v4.swapRouter) {
       console.log('   Step 3: SwapRouter ✅')
     } else {
       console.log('   Step 3: SwapRouter ⚠️ Not deployed')
     }
-    
+
     // Step 4: Check Marketplace
-    const marketplaceAddress = deployments.marketplace.at || deployments.marketplace.marketplace
+    const marketplaceAddress =
+      deployments.marketplace.at || deployments.marketplace.marketplace
     if (marketplaceAddress) {
       console.log('   Step 4: NFT Marketplace ✅')
     } else {
       console.log('   Step 4: NFT Marketplace ⚠️ Not deployed')
     }
-    
+
     console.log('')
     console.log('   🎉 Infrastructure verification complete')
   })
@@ -545,7 +552,7 @@ describe('Simulation Summary', () => {
       console.log('\n⚠️ Tests skipped - localnet not running')
       return
     }
-    
+
     console.log('')
     console.log('═══════════════════════════════════════════════════════')
     console.log('           LOCALNET SIMULATION SUMMARY')
@@ -554,12 +561,17 @@ describe('Simulation Summary', () => {
     console.log('Contracts Verified:')
     console.log(`  ${deployments.v4.poolManager ? '✅' : '❌'} V4 PoolManager`)
     console.log(`  ${deployments.v4.swapRouter ? '✅' : '❌'} V4 SwapRouter`)
-    console.log(`  ${deployments.v4.positionManager ? '✅' : '❌'} V4 PositionManager`)
+    console.log(
+      `  ${deployments.v4.positionManager ? '✅' : '❌'} V4 PositionManager`,
+    )
     console.log(`  ${deployments.v4.quoterV4 ? '✅' : '❌'} V4 Quoter`)
-    console.log(`  ${(deployments.marketplace.at || deployments.marketplace.marketplace) ? '✅' : '❌'} NFT Marketplace`)
-    console.log(`  ${(deployments.factory.at || deployments.factory.factory) ? '✅' : '❌'} Token Factory`)
+    console.log(
+      `  ${deployments.marketplace.at || deployments.marketplace.marketplace ? '✅' : '❌'} NFT Marketplace`,
+    )
+    console.log(
+      `  ${deployments.factory.at || deployments.factory.factory ? '✅' : '❌'} Token Factory`,
+    )
     console.log('')
     console.log('═══════════════════════════════════════════════════════')
   })
 })
-

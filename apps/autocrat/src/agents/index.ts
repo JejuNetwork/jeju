@@ -1,39 +1,36 @@
 /**
  * Autocrat Agents Module
- * 
+ *
  * ElizaOS-powered AI agents for DAO governance.
  */
 
-export * from './templates';
-export * from './runtime';
-
+export { autocratPlugin } from './autocrat-plugin'
+// Autocrat providers
+export {
+  a2aSkillsProvider,
+  activeProposalsProvider as autocratActiveProposalsProvider,
+  autocratProviders,
+  ceoStatusProvider,
+  governanceStatsProvider,
+  mcpToolsProvider,
+  otherAutocratVotesProvider,
+  proposalDetailProvider as autocratProposalDetailProvider,
+  researchReportsProvider,
+  serviceDiscoveryProvider,
+} from './autocrat-providers'
+// Plugins
+export { ceoPlugin } from './ceo-plugin'
 // CEO providers (prefixed exports to avoid conflicts)
-export { 
+export {
+  // Renamed exports to avoid conflicts
+  activeProposalsProvider as ceoActiveProposalsProvider,
+  autocratStatusProvider,
   ceoProviders,
   governanceDashboardProvider,
   historicalDecisionsProvider,
   mcpResourcesProvider,
-  autocratStatusProvider,
-  treasuryProvider,
-  // Renamed exports to avoid conflicts
-  activeProposalsProvider as ceoActiveProposalsProvider,
   proposalDetailProvider as ceoProposalDetailProvider,
-} from './ceo-providers';
-
-// Autocrat providers
-export {
-  autocratProviders,
-  serviceDiscoveryProvider,
-  otherAutocratVotesProvider,
-  ceoStatusProvider,
-  mcpToolsProvider,
-  a2aSkillsProvider,
-  governanceStatsProvider,
-  researchReportsProvider,
-  activeProposalsProvider as autocratActiveProposalsProvider,
-  proposalDetailProvider as autocratProposalDetailProvider,
-} from './autocrat-providers';
-
-// Plugins
-export { ceoPlugin } from './ceo-plugin';
-export { autocratPlugin } from './autocrat-plugin';
+  treasuryProvider,
+} from './ceo-providers'
+export * from './runtime'
+export * from './templates'

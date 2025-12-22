@@ -14,7 +14,7 @@
     "test:unit": "bun test src",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
-    "lint": "eslint src --ext .ts,.tsx",
+    "lint": "biome check .",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -40,7 +40,7 @@
     "@tauri-apps/api": "1.6.0",
     "@tauri-apps/cli": "1.6.0",
     "@types/bun": "latest",
-    "@types/react": "^19.0.0",
+    "@types/react": "19.2.3",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "4.3.4",
     "autoprefixer": "10.4.21",

@@ -1,6 +1,6 @@
-import { createPlaywrightConfig } from '@jejunetwork/tests/playwright-only';
+import { createPlaywrightConfig } from '@jejunetwork/tests/playwright-only'
 
-const BAZAAR_PORT = parseInt(process.env.BAZAAR_PORT || '4006');
+const BAZAAR_PORT = parseInt(process.env.BAZAAR_PORT || '4006', 10)
 
 export default createPlaywrightConfig({
   name: 'bazaar',
@@ -9,4 +9,4 @@ export default createPlaywrightConfig({
   webServer: {
     command: 'bun run dev',
   },
-});
+})

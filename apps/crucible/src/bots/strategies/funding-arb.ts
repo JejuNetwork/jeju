@@ -17,41 +17,52 @@
  * - Gains Network
  */
 
-import { EventEmitter } from 'events';
+import { EventEmitter } from 'node:events'
 import {
+  type Address,
+  type Chain,
   createPublicClient,
   createWalletClient,
-  http,
-  type Address,
-  type Hex,
-  type PublicClient,
-  type WalletClient,
-  type Chain,
-  type Transport,
-  parseUnits,
   encodeFunctionData,
+  type Hex,
+  http,
+  type PublicClient,
   parseAbi,
-} from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import { arbitrum, base } from 'viem/chains';
+  parseUnits,
+  type Transport,
+  type WalletClient,
+} from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { arbitrum, base } from 'viem/chains'
 
-const HYPERLIQUID_API = 'https://api.hyperliquid.xyz';
-const HYPERLIQUID_WS = 'wss://api.hyperliquid.xyz/ws';
+const HYPERLIQUID_API = 'https://api.hyperliquid.xyz'
 
 // Minimum funding rate to open position (annualized)
-const MIN_FUNDING_APR = 20; // 20% APR minimum
+const MIN_FUNDING_APR = 20 // 20% APR minimum
 
 // Maximum position size per asset
-const MAX_POSITION_USD = 50000;
+const MAX_POSITION_USD = 50000
 
 // Minimum time to hold position (avoid opening/closing too frequently)
-const MIN_HOLD_TIME_MS = 4 * 60 * 60 * 1000; // 4 hours
+const MIN_HOLD_TIME_MS = 4 * 60 * 60 * 1000 // 4 hours
 
 // Assets to monitor
-const MONITORED_ASSETS = ['ETH', 'BTC', 'SOL', 'ARB', 'OP', 'MATIC', 'AVAX', 'ATOM'];
+const MONITORED_ASSETS = [
+  'ETH',
+  'BTC',
+  'SOL',
+  'ARB',
+  'OP',
+  'MATIC',
+  'AVAX',
+  'ATOM',
+]
 
 // DEX spot venues for hedging - complete token addresses for all monitored assets
-const SPOT_VENUES: Record<string, { chain: number; router: Address; tokens: Record<string, Address> }> = {
+const SPOT_VENUES: Record<
+  string,
+  { chain: number; router: Address; tokens: Record<string, Address> }
+> = {
   arbitrum: {
     chain: 42161,
     router: '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45', // Uniswap V3
@@ -74,164 +85,171 @@ const SPOT_VENUES: Record<string, { chain: number; router: Address; tokens: Reco
       USDC: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
     },
   },
-};
+}
 
 interface FundingRate {
-  asset: string;
-  rate: number; // 8-hour rate
-  predictedRate: number;
-  annualizedApr: number;
-  timestamp: number;
+  asset: string
+  rate: number // 8-hour rate
+  predictedRate: number
+  annualizedApr: number
+  timestamp: number
 }
 
 interface FundingPosition {
-  id: string;
-  asset: string;
-  perpSide: 'long' | 'short';
-  spotSide: 'long' | 'short';
-  perpSize: number;
-  spotSize: number;
-  entryFundingRate: number;
-  currentFundingRate: number;
-  totalFundingEarned: number;
-  openedAt: number;
-  status: 'active' | 'closing' | 'closed';
+  id: string
+  asset: string
+  perpSide: 'long' | 'short'
+  spotSide: 'long' | 'short'
+  perpSize: number
+  spotSize: number
+  entryFundingRate: number
+  currentFundingRate: number
+  totalFundingEarned: number
+  openedAt: number
+  status: 'active' | 'closing' | 'closed'
 }
 
 interface HyperliquidMeta {
   universe: Array<{
-    name: string;
-    szDecimals: number;
-  }>;
+    name: string
+    szDecimals: number
+  }>
 }
 
 interface HyperliquidAssetCtx {
-  funding: string;
-  openInterest: string;
-  prevDayPx: string;
-  dayNtlVlm: string;
-  premium: string;
-  oraclePx: string;
-  markPx: string;
+  funding: string
+  openInterest: string
+  prevDayPx: string
+  dayNtlVlm: string
+  premium: string
+  oraclePx: string
+  markPx: string
 }
 
 interface HyperliquidState {
   assetPositions: Array<{
     position: {
-      coin: string;
-      szi: string;
-      entryPx: string;
-      positionValue: string;
-      unrealizedPnl: string;
-      leverage: { type: string; value: number };
-    };
-  }>;
+      coin: string
+      szi: string
+      entryPx: string
+      positionValue: string
+      unrealizedPnl: string
+      leverage: { type: string; value: number }
+    }
+  }>
   marginSummary: {
-    accountValue: string;
-    totalMarginUsed: string;
-    totalNtlPos: string;
-  };
+    accountValue: string
+    totalMarginUsed: string
+    totalNtlPos: string
+  }
 }
 
 // Client types for multi-chain support - use base types with Transport/Chain generics
-type ChainPublicClient = PublicClient<Transport, Chain>;
-type ChainWalletClient = WalletClient<Transport, Chain>;
+type ChainPublicClient = PublicClient<Transport, Chain>
+type ChainWalletClient = WalletClient<Transport, Chain>
 
 export class FundingArbStrategy extends EventEmitter {
-  private evmPrivateKey: Hex;
-  private positions: Map<string, FundingPosition> = new Map();
-  private fundingRates: Map<string, FundingRate> = new Map();
-  private running = false;
-  private pollInterval: ReturnType<typeof setInterval> | null = null;
-  private evmClients: Map<number, { public: ChainPublicClient; wallet: ChainWalletClient }> = new Map();
-  private assetMeta: Map<string, { szDecimals: number }> = new Map();
+  private evmPrivateKey: Hex
+  private positions: Map<string, FundingPosition> = new Map()
+  private fundingRates: Map<string, FundingRate> = new Map()
+  private running = false
+  private pollInterval: ReturnType<typeof setInterval> | null = null
+  private evmClients: Map<
+    number,
+    { public: ChainPublicClient; wallet: ChainWalletClient }
+  > = new Map()
+  private assetMeta: Map<string, { szDecimals: number }> = new Map()
 
   constructor(evmPrivateKey: Hex, evmRpcUrls: Record<number, string>) {
-    super();
-    this.evmPrivateKey = evmPrivateKey;
+    super()
+    this.evmPrivateKey = evmPrivateKey
 
     // Initialize EVM clients for spot hedging
-    const account = privateKeyToAccount(evmPrivateKey);
+    const account = privateKeyToAccount(evmPrivateKey)
 
-    for (const [venue, config] of Object.entries(SPOT_VENUES)) {
-      const rpcUrl = evmRpcUrls[config.chain];
-      if (!rpcUrl) continue;
+    for (const [_venue, config] of Object.entries(SPOT_VENUES)) {
+      const rpcUrl = evmRpcUrls[config.chain]
+      if (!rpcUrl) continue
 
-      const chain = config.chain === 42161 ? arbitrum : base;
+      const chain = config.chain === 42161 ? arbitrum : base
 
       // Type assertion needed because createPublicClient returns chain-specific types,
       // but we store clients for multiple chains in the same map
       const publicClient = createPublicClient({
         chain,
         transport: http(rpcUrl),
-      }) as ChainPublicClient;
+      }) as ChainPublicClient
 
       const walletClient = createWalletClient({
         account,
         chain,
         transport: http(rpcUrl),
-      }) as ChainWalletClient;
+      }) as ChainWalletClient
 
-      this.evmClients.set(config.chain, { public: publicClient, wallet: walletClient });
+      this.evmClients.set(config.chain, {
+        public: publicClient,
+        wallet: walletClient,
+      })
     }
   }
 
   async initialize(): Promise<void> {
-    console.log('💰 Initializing funding rate arbitrage strategy...');
+    console.log('💰 Initializing funding rate arbitrage strategy...')
 
     // Fetch Hyperliquid metadata
     const metaResponse = await fetch(`${HYPERLIQUID_API}/info`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: 'meta' }),
-    });
+    })
 
-    const meta = await metaResponse.json() as HyperliquidMeta;
+    const meta = (await metaResponse.json()) as HyperliquidMeta
 
     for (const asset of meta.universe) {
-      this.assetMeta.set(asset.name, { szDecimals: asset.szDecimals });
+      this.assetMeta.set(asset.name, { szDecimals: asset.szDecimals })
     }
 
-    console.log(`   Loaded ${this.assetMeta.size} asset configs`);
+    console.log(`   Loaded ${this.assetMeta.size} asset configs`)
 
     // Initial funding rate fetch
-    await this.fetchFundingRates();
+    await this.fetchFundingRates()
   }
 
   start(): void {
-    if (this.running) return;
-    this.running = true;
+    if (this.running) return
+    this.running = true
 
-    console.log('   Starting funding rate monitoring...');
+    console.log('   Starting funding rate monitoring...')
 
     // Poll funding rates every minute
-    this.pollInterval = setInterval(() => this.pollFundingRates(), 60000);
+    this.pollInterval = setInterval(() => this.pollFundingRates(), 60000)
 
     // Initial poll
-    this.pollFundingRates();
+    this.pollFundingRates()
   }
 
   stop(): void {
-    this.running = false;
+    this.running = false
     if (this.pollInterval) {
-      clearInterval(this.pollInterval);
-      this.pollInterval = null;
+      clearInterval(this.pollInterval)
+      this.pollInterval = null
     }
   }
 
   getPositions(): FundingPosition[] {
-    return Array.from(this.positions.values());
+    return Array.from(this.positions.values())
   }
 
   getFundingRates(): FundingRate[] {
-    return Array.from(this.fundingRates.values())
-      .sort((a, b) => Math.abs(b.annualizedApr) - Math.abs(a.annualizedApr));
+    return Array.from(this.fundingRates.values()).sort(
+      (a, b) => Math.abs(b.annualizedApr) - Math.abs(a.annualizedApr),
+    )
   }
 
   private async pollFundingRates(): Promise<void> {
-    await this.fetchFundingRates();
-    await this.evaluateOpportunities();
-    await this.managePositions();
+    await this.fetchFundingRates()
+    await this.evaluateOpportunities()
+    await this.managePositions()
   }
 
   private async fetchFundingRates(): Promise<void> {
@@ -239,19 +257,22 @@ export class FundingArbStrategy extends EventEmitter {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: 'metaAndAssetCtxs' }),
-    });
+    })
 
-    const data = await response.json() as [HyperliquidMeta, HyperliquidAssetCtx[]];
-    const [meta, assetCtxs] = data;
+    const data = (await response.json()) as [
+      HyperliquidMeta,
+      HyperliquidAssetCtx[],
+    ]
+    const [meta, assetCtxs] = data
 
     for (let i = 0; i < meta.universe.length; i++) {
-      const asset = meta.universe[i];
-      const ctx = assetCtxs[i];
+      const asset = meta.universe[i]
+      const ctx = assetCtxs[i]
 
-      if (!MONITORED_ASSETS.includes(asset.name)) continue;
+      if (!MONITORED_ASSETS.includes(asset.name)) continue
 
-      const fundingRate8h = parseFloat(ctx.funding);
-      const annualizedApr = fundingRate8h * 3 * 365 * 100; // 3 periods per day * 365 days
+      const fundingRate8h = parseFloat(ctx.funding)
+      const annualizedApr = fundingRate8h * 3 * 365 * 100 // 3 periods per day * 365 days
 
       this.fundingRates.set(asset.name, {
         asset: asset.name,
@@ -259,60 +280,75 @@ export class FundingArbStrategy extends EventEmitter {
         predictedRate: fundingRate8h, // Would use prediction model in production
         annualizedApr,
         timestamp: Date.now(),
-      });
+      })
     }
   }
 
   private async evaluateOpportunities(): Promise<void> {
     for (const [asset, funding] of this.fundingRates) {
       // Skip if already have position
-      if (this.positions.has(asset)) continue;
+      if (this.positions.has(asset)) continue
 
       // Check if funding rate is attractive enough
-      if (Math.abs(funding.annualizedApr) < MIN_FUNDING_APR) continue;
+      if (Math.abs(funding.annualizedApr) < MIN_FUNDING_APR) continue
 
       // Determine position direction
       // Positive funding = longs pay shorts, so we want to be short perp + long spot
       // Negative funding = shorts pay longs, so we want to be long perp + short spot
-      const perpSide: 'long' | 'short' = funding.rate > 0 ? 'short' : 'long';
-      const spotSide: 'long' | 'short' = funding.rate > 0 ? 'long' : 'short';
+      const perpSide: 'long' | 'short' = funding.rate > 0 ? 'short' : 'long'
+      const spotSide: 'long' | 'short' = funding.rate > 0 ? 'long' : 'short'
 
-      console.log(`💰 Funding opportunity: ${asset}`);
-      console.log(`   Rate: ${(funding.rate * 100).toFixed(4)}% (${funding.annualizedApr.toFixed(1)}% APR)`);
-      console.log(`   Strategy: ${perpSide.toUpperCase()} perp, ${spotSide.toUpperCase()} spot`);
+      console.log(`💰 Funding opportunity: ${asset}`)
+      console.log(
+        `   Rate: ${(funding.rate * 100).toFixed(4)}% (${funding.annualizedApr.toFixed(1)}% APR)`,
+      )
+      console.log(
+        `   Strategy: ${perpSide.toUpperCase()} perp, ${spotSide.toUpperCase()} spot`,
+      )
 
       // Open position
-      const result = await this.openFundingPosition(asset, perpSide, spotSide, funding.rate);
+      const result = await this.openFundingPosition(
+        asset,
+        perpSide,
+        spotSide,
+        funding.rate,
+      )
 
       if (result.success) {
-        console.log(`   ✓ Position opened`);
-        this.emit('positionOpened', result.position);
+        console.log(`   ✓ Position opened`)
+        this.emit('positionOpened', result.position)
       } else {
-        console.log(`   ✗ Failed: ${result.error}`);
+        console.log(`   ✗ Failed: ${result.error}`)
       }
     }
   }
 
   private async managePositions(): Promise<void> {
     for (const [asset, position] of this.positions) {
-      const currentFunding = this.fundingRates.get(asset);
-      if (!currentFunding) continue;
+      const currentFunding = this.fundingRates.get(asset)
+      if (!currentFunding) continue
 
       // Update position with current funding
-      position.currentFundingRate = currentFunding.rate;
+      position.currentFundingRate = currentFunding.rate
 
       // Check if we should close
-      const holdTime = Date.now() - position.openedAt;
-      const fundingFlipped = (position.entryFundingRate > 0) !== (currentFunding.rate > 0);
-      const fundingTooLow = Math.abs(currentFunding.annualizedApr) < MIN_FUNDING_APR / 2;
+      const holdTime = Date.now() - position.openedAt
+      const fundingFlipped =
+        position.entryFundingRate > 0 !== currentFunding.rate > 0
+      const fundingTooLow =
+        Math.abs(currentFunding.annualizedApr) < MIN_FUNDING_APR / 2
 
       if (holdTime > MIN_HOLD_TIME_MS && (fundingFlipped || fundingTooLow)) {
-        console.log(`💰 Closing ${asset} position (funding ${fundingFlipped ? 'flipped' : 'too low'})`);
+        console.log(
+          `💰 Closing ${asset} position (funding ${fundingFlipped ? 'flipped' : 'too low'})`,
+        )
 
-        const closeResult = await this.closeFundingPosition(asset);
+        const closeResult = await this.closeFundingPosition(asset)
         if (closeResult.success) {
-          console.log(`   ✓ Position closed, earned: $${closeResult.profit?.toFixed(2)}`);
-          this.emit('positionClosed', position, closeResult.profit);
+          console.log(
+            `   ✓ Position closed, earned: $${closeResult.profit?.toFixed(2)}`,
+          )
+          this.emit('positionClosed', position, closeResult.profit)
         }
       }
     }
@@ -322,23 +358,31 @@ export class FundingArbStrategy extends EventEmitter {
     asset: string,
     perpSide: 'long' | 'short',
     spotSide: 'long' | 'short',
-    fundingRate: number
+    fundingRate: number,
   ): Promise<{ success: boolean; position?: FundingPosition; error?: string }> {
     // Calculate position size based on available capital and risk limits
-    const positionSizeUsd = Math.min(MAX_POSITION_USD, 10000); // Start with $10k max
+    const positionSizeUsd = Math.min(MAX_POSITION_USD, 10000) // Start with $10k max
 
     // 1. Open perp position on Hyperliquid
-    const perpResult = await this.openHyperliquidPerp(asset, perpSide, positionSizeUsd);
+    const perpResult = await this.openHyperliquidPerp(
+      asset,
+      perpSide,
+      positionSizeUsd,
+    )
     if (!perpResult.success) {
-      return { success: false, error: `Perp open failed: ${perpResult.error}` };
+      return { success: false, error: `Perp open failed: ${perpResult.error}` }
     }
 
     // 2. Open spot hedge on EVM
-    const spotResult = await this.openSpotHedge(asset, spotSide, positionSizeUsd);
+    const spotResult = await this.openSpotHedge(
+      asset,
+      spotSide,
+      positionSizeUsd,
+    )
     if (!spotResult.success) {
       // Close perp position to unwind
-      await this.closeHyperliquidPerp(asset);
-      return { success: false, error: `Spot hedge failed: ${spotResult.error}` };
+      await this.closeHyperliquidPerp(asset)
+      return { success: false, error: `Spot hedge failed: ${spotResult.error}` }
     }
 
     // 3. Create position record
@@ -354,113 +398,122 @@ export class FundingArbStrategy extends EventEmitter {
       totalFundingEarned: 0,
       openedAt: Date.now(),
       status: 'active',
-    };
+    }
 
-    this.positions.set(asset, position);
+    this.positions.set(asset, position)
 
-    return { success: true, position };
+    return { success: true, position }
   }
 
   private async closeFundingPosition(
-    asset: string
+    asset: string,
   ): Promise<{ success: boolean; profit?: number; error?: string }> {
-    const position = this.positions.get(asset);
+    const position = this.positions.get(asset)
     if (!position) {
-      return { success: false, error: 'Position not found' };
+      return { success: false, error: 'Position not found' }
     }
 
-    position.status = 'closing';
+    position.status = 'closing'
 
     // 1. Close perp position
-    const perpResult = await this.closeHyperliquidPerp(asset);
+    const perpResult = await this.closeHyperliquidPerp(asset)
     if (!perpResult.success) {
-      return { success: false, error: `Perp close failed: ${perpResult.error}` };
+      return { success: false, error: `Perp close failed: ${perpResult.error}` }
     }
 
     // 2. Close spot hedge
-    const spotResult = await this.closeSpotHedge(asset, position.spotSide, position.spotSize);
+    const spotResult = await this.closeSpotHedge(
+      asset,
+      position.spotSide,
+      position.spotSize,
+    )
     if (!spotResult.success) {
-      return { success: false, error: `Spot close failed: ${spotResult.error}` };
+      return { success: false, error: `Spot close failed: ${spotResult.error}` }
     }
 
     // 3. Calculate profit (funding earned - trading costs)
-    const holdTimeHours = (Date.now() - position.openedAt) / (1000 * 60 * 60);
-    const fundingPeriods = holdTimeHours / 8;
-    const avgFundingRate = (position.entryFundingRate + position.currentFundingRate) / 2;
-    const fundingEarned = position.perpSize * avgFundingRate * fundingPeriods;
+    const holdTimeHours = (Date.now() - position.openedAt) / (1000 * 60 * 60)
+    const fundingPeriods = holdTimeHours / 8
+    const avgFundingRate =
+      (position.entryFundingRate + position.currentFundingRate) / 2
+    const fundingEarned = position.perpSize * avgFundingRate * fundingPeriods
 
     // Estimate trading costs (0.1% round trip)
-    const tradingCosts = position.perpSize * 0.001 * 2;
+    const tradingCosts = position.perpSize * 0.001 * 2
 
-    const netProfit = fundingEarned - tradingCosts;
+    const netProfit = fundingEarned - tradingCosts
 
     // 4. Update position
-    position.status = 'closed';
-    position.totalFundingEarned = netProfit;
-    this.positions.delete(asset);
+    position.status = 'closed'
+    position.totalFundingEarned = netProfit
+    this.positions.delete(asset)
 
-    return { success: true, profit: netProfit };
+    return { success: true, profit: netProfit }
   }
 
   private async openHyperliquidPerp(
     asset: string,
     side: 'long' | 'short',
-    sizeUsd: number
+    sizeUsd: number,
   ): Promise<{ success: boolean; orderId?: string; error?: string }> {
     // Get current price
     const pricesResponse = await fetch(`${HYPERLIQUID_API}/info`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: 'allMids' }),
-    });
+    })
 
-    const prices = await pricesResponse.json() as Record<string, string>;
-    const price = parseFloat(prices[asset]);
+    const prices = (await pricesResponse.json()) as Record<string, string>
+    const price = parseFloat(prices[asset])
 
     if (!price) {
-      return { success: false, error: `No price for ${asset}` };
+      return { success: false, error: `No price for ${asset}` }
     }
 
-    const assetConfig = this.assetMeta.get(asset);
-    const szDecimals = assetConfig?.szDecimals || 4;
-    const size = sizeUsd / price;
-    const sizeFormatted = size.toFixed(szDecimals);
+    const assetConfig = this.assetMeta.get(asset)
+    const szDecimals = assetConfig?.szDecimals || 4
+    const size = sizeUsd / price
+    const sizeFormatted = size.toFixed(szDecimals)
 
     // Get asset index
     const metaResponse = await fetch(`${HYPERLIQUID_API}/info`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: 'meta' }),
-    });
+    })
 
-    const meta = await metaResponse.json() as HyperliquidMeta;
-    const assetIndex = meta.universe.findIndex(a => a.name === asset);
+    const meta = (await metaResponse.json()) as HyperliquidMeta
+    const assetIndex = meta.universe.findIndex((a) => a.name === asset)
 
     if (assetIndex === -1) {
-      return { success: false, error: `Asset ${asset} not found` };
+      return { success: false, error: `Asset ${asset} not found` }
     }
 
-    const isBuy = side === 'long';
-    const slippagePrice = isBuy ? price * 1.002 : price * 0.998;
+    const isBuy = side === 'long'
+    const slippagePrice = isBuy ? price * 1.002 : price * 0.998
 
-    console.log(`   Placing HL ${side} order: ${sizeFormatted} ${asset} @ ${slippagePrice.toFixed(2)}`);
+    console.log(
+      `   Placing HL ${side} order: ${sizeFormatted} ${asset} @ ${slippagePrice.toFixed(2)}`,
+    )
 
     // Build and sign order for Hyperliquid
-    const timestamp = Date.now();
-    const nonce = timestamp;
+    const timestamp = Date.now()
+    const nonce = timestamp
 
     const orderAction = {
       type: 'order',
-      orders: [{
-        a: assetIndex,
-        b: isBuy,
-        p: slippagePrice.toFixed(5),
-        s: sizeFormatted,
-        r: false,
-        t: { limit: { tif: 'Ioc' } },
-      }],
+      orders: [
+        {
+          a: assetIndex,
+          b: isBuy,
+          p: slippagePrice.toFixed(5),
+          s: sizeFormatted,
+          r: false,
+          t: { limit: { tif: 'Ioc' } },
+        },
+      ],
       grouping: 'na',
-    };
+    }
 
     // Hyperliquid uses EIP-712 typed data signing with a specific domain
     // chainId 1337 is used for L1 action signing (not 998 which is HyperEVM)
@@ -469,7 +522,7 @@ export class FundingArbStrategy extends EventEmitter {
       version: '1',
       chainId: 1337,
       verifyingContract: '0x0000000000000000000000000000000000000000' as const,
-    };
+    }
 
     const types = {
       'HyperliquidTransaction:Approve': [
@@ -477,10 +530,10 @@ export class FundingArbStrategy extends EventEmitter {
         { name: 'signatureChainId', type: 'uint64' },
         { name: 'nonce', type: 'uint64' },
       ],
-    };
+    }
 
     // Sign the action using correct Hyperliquid L1 signing format
-    const account = privateKeyToAccount(this.evmPrivateKey);
+    const account = privateKeyToAccount(this.evmPrivateKey)
 
     const signature = await account.signTypedData({
       domain,
@@ -491,12 +544,12 @@ export class FundingArbStrategy extends EventEmitter {
         signatureChainId: BigInt(1337),
         nonce: BigInt(nonce),
       },
-    });
+    })
 
     // Parse signature into r, s, v components
-    const r = signature.slice(0, 66);
-    const s = `0x${signature.slice(66, 130)}`;
-    const v = parseInt(signature.slice(130, 132), 16);
+    const r = signature.slice(0, 66)
+    const s = `0x${signature.slice(66, 130)}`
+    const v = parseInt(signature.slice(130, 132), 16)
 
     // Submit order to Hyperliquid
     const orderResponse = await fetch(`${HYPERLIQUID_API}/exchange`, {
@@ -508,33 +561,38 @@ export class FundingArbStrategy extends EventEmitter {
         signature: { r, s, v },
         vaultAddress: null,
       }),
-    });
+    })
 
-    const orderResult = await orderResponse.json() as { 
-      status: string; 
-      response?: { data?: { statuses: Array<{ resting?: { oid: number } }> } };
-    };
-
-    if (orderResult.status !== 'ok') {
-      return { success: false, error: `Order failed: ${JSON.stringify(orderResult)}` };
+    const orderResult = (await orderResponse.json()) as {
+      status: string
+      response?: { data?: { statuses: Array<{ resting?: { oid: number } }> } }
     }
 
-    const orderId = orderResult.response?.data?.statuses?.[0]?.resting?.oid?.toString() || `hl-${timestamp}`;
+    if (orderResult.status !== 'ok') {
+      return {
+        success: false,
+        error: `Order failed: ${JSON.stringify(orderResult)}`,
+      }
+    }
 
-    console.log(`   ✓ HL order placed: ${orderId}`);
+    const orderId =
+      orderResult.response?.data?.statuses?.[0]?.resting?.oid?.toString() ||
+      `hl-${timestamp}`
+
+    console.log(`   ✓ HL order placed: ${orderId}`)
 
     return {
       success: true,
       orderId,
-    };
+    }
   }
 
   private async closeHyperliquidPerp(
-    asset: string
+    asset: string,
   ): Promise<{ success: boolean; error?: string }> {
     // Query current position
-    const account = privateKeyToAccount(this.evmPrivateKey);
-    
+    const account = privateKeyToAccount(this.evmPrivateKey)
+
     const stateResponse = await fetch(`${HYPERLIQUID_API}/info`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -542,126 +600,136 @@ export class FundingArbStrategy extends EventEmitter {
         type: 'clearinghouseState',
         user: account.address,
       }),
-    });
+    })
 
-    const state = await stateResponse.json() as HyperliquidState;
-    
-    const position = state.assetPositions.find(p => p.position.coin === asset);
+    const state = (await stateResponse.json()) as HyperliquidState
+
+    const position = state.assetPositions.find((p) => p.position.coin === asset)
     if (!position) {
-      console.log(`   No HL position for ${asset}`);
-      return { success: true };
+      console.log(`   No HL position for ${asset}`)
+      return { success: true }
     }
 
-    const size = parseFloat(position.position.szi);
+    const size = parseFloat(position.position.szi)
     if (Math.abs(size) < 0.0001) {
-      return { success: true };
+      return { success: true }
     }
 
     // Close by placing opposite order
-    const isLong = size > 0;
+    const isLong = size > 0
     const closeResult = await this.openHyperliquidPerp(
       asset,
       isLong ? 'short' : 'long',
-      Math.abs(size) * parseFloat(position.position.entryPx)
-    );
+      Math.abs(size) * parseFloat(position.position.entryPx),
+    )
 
     if (!closeResult.success) {
-      return { success: false, error: closeResult.error };
+      return { success: false, error: closeResult.error }
     }
 
-    console.log(`   ✓ HL position closed`);
-    return { success: true };
+    console.log(`   ✓ HL position closed`)
+    return { success: true }
   }
 
   private async openSpotHedge(
     asset: string,
     side: 'long' | 'short',
-    sizeUsd: number
+    sizeUsd: number,
   ): Promise<{ success: boolean; txHash?: string; error?: string }> {
-    const venue = SPOT_VENUES.arbitrum;
-    const clients = this.evmClients.get(venue.chain);
+    const venue = SPOT_VENUES.arbitrum
+    const clients = this.evmClients.get(venue.chain)
 
     if (!clients) {
-      return { success: false, error: 'Arbitrum client not configured' };
+      return { success: false, error: 'Arbitrum client not configured' }
     }
 
-    const tokenAddress = venue.tokens[asset] as Address | undefined;
-    const usdcAddress = venue.tokens.USDC as Address;
+    const tokenAddress = venue.tokens[asset] as Address | undefined
+    const usdcAddress = venue.tokens.USDC as Address
 
     if (!tokenAddress || !usdcAddress) {
-      return { success: false, error: `Token ${asset} not supported for spot` };
+      return { success: false, error: `Token ${asset} not supported for spot` }
     }
 
-    const account = privateKeyToAccount(this.evmPrivateKey);
+    const account = privateKeyToAccount(this.evmPrivateKey)
 
     // Uniswap V3 SwapRouter02 on Arbitrum
-    const swapRouterAddress = '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45' as Address;
+    const swapRouterAddress =
+      '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45' as Address
 
     const SWAP_ROUTER_ABI = parseAbi([
       'function exactInputSingle((address tokenIn, address tokenOut, uint24 fee, address recipient, uint256 amountIn, uint256 amountOutMinimum, uint160 sqrtPriceLimitX96)) external payable returns (uint256 amountOut)',
-    ]);
+    ])
 
     const ERC20_ABI = parseAbi([
       'function approve(address spender, uint256 amount) returns (bool)',
       'function balanceOf(address owner) view returns (uint256)',
-    ]);
+    ])
 
     if (side === 'long') {
       // Buy token with USDC
-      console.log(`   Buying $${sizeUsd} of ${asset} on Arbitrum`);
+      console.log(`   Buying $${sizeUsd} of ${asset} on Arbitrum`)
 
-      const amountIn = parseUnits(sizeUsd.toString(), 6); // USDC has 6 decimals
+      const amountIn = parseUnits(sizeUsd.toString(), 6) // USDC has 6 decimals
 
       // Approve USDC
       const approveData = encodeFunctionData({
         abi: ERC20_ABI,
         functionName: 'approve',
         args: [swapRouterAddress, amountIn],
-      });
+      })
 
       const approveHash = await clients.wallet.sendTransaction({
         to: usdcAddress,
         data: approveData,
         account,
         chain: null,
-      });
-      await clients.public.waitForTransactionReceipt({ hash: approveHash });
+      })
+      await clients.public.waitForTransactionReceipt({ hash: approveHash })
 
       // Get expected output from quoter for slippage calculation
-      const expectedOutput = await this.getExpectedSwapOutput(clients, usdcAddress, tokenAddress, amountIn);
+      const expectedOutput = await this.getExpectedSwapOutput(
+        clients,
+        usdcAddress,
+        tokenAddress,
+        amountIn,
+      )
       // Apply 1% slippage tolerance
-      const minOutput = expectedOutput * 99n / 100n;
+      const minOutput = (expectedOutput * 99n) / 100n
 
       // Swap USDC -> Token
       const swapData = encodeFunctionData({
         abi: SWAP_ROUTER_ABI,
         functionName: 'exactInputSingle',
-        args: [{
-          tokenIn: usdcAddress,
-          tokenOut: tokenAddress,
-          fee: 3000, // 0.3% pool
-          recipient: account.address,
-          amountIn,
-          amountOutMinimum: minOutput,
-          sqrtPriceLimitX96: 0n,
-        }],
-      });
+        args: [
+          {
+            tokenIn: usdcAddress,
+            tokenOut: tokenAddress,
+            fee: 3000, // 0.3% pool
+            recipient: account.address,
+            amountIn,
+            amountOutMinimum: minOutput,
+            sqrtPriceLimitX96: 0n,
+          },
+        ],
+      })
 
       const swapHash = await clients.wallet.sendTransaction({
         to: swapRouterAddress,
         data: swapData,
         account,
         chain: null,
-      });
+      })
 
-      await clients.public.waitForTransactionReceipt({ hash: swapHash });
-      console.log(`   ✓ Spot buy tx: ${swapHash}`);
+      await clients.public.waitForTransactionReceipt({ hash: swapHash })
+      console.log(`   ✓ Spot buy tx: ${swapHash}`)
 
-      return { success: true, txHash: swapHash };
+      return { success: true, txHash: swapHash }
     } else {
       // Short selling requires borrowing or margin - using GMX/Aave
       // For now, we can implement a simple spot sell if we hold the token
-      console.log(`   Selling $${sizeUsd} of ${asset} on Arbitrum (short hedge)`);
+      console.log(
+        `   Selling $${sizeUsd} of ${asset} on Arbitrum (short hedge)`,
+      )
 
       // Check token balance
       const balance = await clients.public.readContract({
@@ -669,10 +737,13 @@ export class FundingArbStrategy extends EventEmitter {
         abi: ERC20_ABI,
         functionName: 'balanceOf',
         args: [account.address],
-      });
+      })
 
       if (balance === 0n) {
-        return { success: false, error: `No ${asset} balance to sell for short hedge` };
+        return {
+          success: false,
+          error: `No ${asset} balance to sell for short hedge`,
+        }
       }
 
       // Approve token
@@ -680,58 +751,65 @@ export class FundingArbStrategy extends EventEmitter {
         abi: ERC20_ABI,
         functionName: 'approve',
         args: [swapRouterAddress, balance],
-      });
+      })
 
       const approveHash = await clients.wallet.sendTransaction({
         to: tokenAddress,
         data: approveData,
         account,
         chain: null,
-      });
-      await clients.public.waitForTransactionReceipt({ hash: approveHash });
+      })
+      await clients.public.waitForTransactionReceipt({ hash: approveHash })
 
       // Get expected output for slippage calculation
-      const expectedUsdcOutput = await this.getExpectedSwapOutput(clients, tokenAddress, usdcAddress, balance);
-      const minUsdcOutput = expectedUsdcOutput * 99n / 100n;
+      const expectedUsdcOutput = await this.getExpectedSwapOutput(
+        clients,
+        tokenAddress,
+        usdcAddress,
+        balance,
+      )
+      const minUsdcOutput = (expectedUsdcOutput * 99n) / 100n
 
       // Swap Token -> USDC
       const swapData = encodeFunctionData({
         abi: SWAP_ROUTER_ABI,
         functionName: 'exactInputSingle',
-        args: [{
-          tokenIn: tokenAddress,
-          tokenOut: usdcAddress,
-          fee: 3000,
-          recipient: account.address,
-          amountIn: balance,
-          amountOutMinimum: minUsdcOutput,
-          sqrtPriceLimitX96: 0n,
-        }],
-      });
+        args: [
+          {
+            tokenIn: tokenAddress,
+            tokenOut: usdcAddress,
+            fee: 3000,
+            recipient: account.address,
+            amountIn: balance,
+            amountOutMinimum: minUsdcOutput,
+            sqrtPriceLimitX96: 0n,
+          },
+        ],
+      })
 
       const swapHash = await clients.wallet.sendTransaction({
         to: swapRouterAddress,
         data: swapData,
         account,
         chain: null,
-      });
+      })
 
-      await clients.public.waitForTransactionReceipt({ hash: swapHash });
-      console.log(`   ✓ Spot sell tx: ${swapHash}`);
+      await clients.public.waitForTransactionReceipt({ hash: swapHash })
+      console.log(`   ✓ Spot sell tx: ${swapHash}`)
 
-      return { success: true, txHash: swapHash };
+      return { success: true, txHash: swapHash }
     }
   }
 
   private async closeSpotHedge(
     asset: string,
     side: 'long' | 'short',
-    sizeUsd: number
+    sizeUsd: number,
   ): Promise<{ success: boolean; txHash?: string; error?: string }> {
     // Close is the opposite of open
-    const closeSide = side === 'long' ? 'short' : 'long';
-    console.log(`   Closing ${side} spot position: $${sizeUsd} ${asset}`);
-    return this.openSpotHedge(asset, closeSide, sizeUsd);
+    const closeSide = side === 'long' ? 'short' : 'long'
+    console.log(`   Closing ${side} spot position: $${sizeUsd} ${asset}`)
+    return this.openSpotHedge(asset, closeSide, sizeUsd)
   }
 
   // Get expected swap output from Uniswap V3 quoter
@@ -739,48 +817,48 @@ export class FundingArbStrategy extends EventEmitter {
     clients: { public: ChainPublicClient; wallet: ChainWalletClient },
     tokenIn: Address,
     tokenOut: Address,
-    amountIn: bigint
+    amountIn: bigint,
   ): Promise<bigint> {
     // Uniswap V3 Quoter on Arbitrum
-    const quoterAddress = '0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6' as Address;
+    const quoterAddress =
+      '0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6' as Address
 
     const QUOTER_ABI = parseAbi([
       'function quoteExactInputSingle(address tokenIn, address tokenOut, uint24 fee, uint256 amountIn, uint160 sqrtPriceLimitX96) external returns (uint256 amountOut)',
-    ]);
+    ])
 
     const result = await clients.public.simulateContract({
       address: quoterAddress,
       abi: QUOTER_ABI,
       functionName: 'quoteExactInputSingle',
       args: [tokenIn, tokenOut, 3000, amountIn, 0n],
-    });
+    })
 
-    return result.result;
+    return result.result
   }
 
   getTotalEarnings(): number {
-    let total = 0;
+    let total = 0
     for (const position of this.positions.values()) {
-      total += position.totalFundingEarned;
+      total += position.totalFundingEarned
     }
-    return total;
+    return total
   }
 
   getActivePositionValue(): number {
-    let total = 0;
+    let total = 0
     for (const position of this.positions.values()) {
       if (position.status === 'active') {
-        total += position.perpSize;
+        total += position.perpSize
       }
     }
-    return total;
+    return total
   }
 }
 
 export function createFundingArbStrategy(
   evmPrivateKey: Hex,
-  evmRpcUrls: Record<number, string>
+  evmRpcUrls: Record<number, string>,
 ): FundingArbStrategy {
-  return new FundingArbStrategy(evmPrivateKey, evmRpcUrls);
+  return new FundingArbStrategy(evmPrivateKey, evmRpcUrls)
 }
-

@@ -2,14 +2,14 @@
  * Tests for Yield Farming Strategy
  */
 
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it } from 'bun:test'
 import {
+  type RiskLevel,
+  type YieldFarmingConfig,
   YieldFarmingStrategy,
   type YieldOpportunity,
-  type YieldFarmingConfig,
   type YieldSource,
-  type RiskLevel,
-} from './yield-farming';
+} from './yield-farming'
 
 describe('Yield Farming Strategy', () => {
   const defaultConfig: YieldFarmingConfig = {
@@ -30,22 +30,22 @@ describe('Yield Farming Strategy', () => {
     maxChainExposure: 50,
     minProfitBps: 50,
     maxSlippageBps: 100,
-  };
+  }
 
   describe('Configuration', () => {
     it('should create strategy with valid config', () => {
-      const strategy = new YieldFarmingStrategy(defaultConfig);
-      expect(strategy).toBeDefined();
-    });
+      const strategy = new YieldFarmingStrategy(defaultConfig)
+      expect(strategy).toBeDefined()
+    })
 
     it('should support multiple chains', () => {
-      const strategy = new YieldFarmingStrategy(defaultConfig);
-      expect(defaultConfig.chains).toContain(1);
-      expect(defaultConfig.chains).toContain(42161);
-      expect(defaultConfig.chains).toContain(10);
-      expect(defaultConfig.chains).toContain(8453);
-    });
-  });
+      new YieldFarmingStrategy(defaultConfig)
+      expect(defaultConfig.chains).toContain(1)
+      expect(defaultConfig.chains).toContain(42161)
+      expect(defaultConfig.chains).toContain(10)
+      expect(defaultConfig.chains).toContain(8453)
+    })
+  })
 
   describe('Opportunity Scoring', () => {
     it('should rank real yield higher than emissions when preferRealYield is true', () => {
@@ -73,7 +73,7 @@ describe('Yield Farming Strategy', () => {
         minDeposit: '0',
         lockPeriod: 0,
         lastUpdate: Date.now(),
-      };
+      }
 
       const emissionOpp: YieldOpportunity = {
         id: 'emission-1',
@@ -105,43 +105,43 @@ describe('Yield Farming Strategy', () => {
         minDeposit: '0',
         lockPeriod: 0,
         lastUpdate: Date.now(),
-      };
+      }
 
       // Calculate scores
-      const realYieldScore = realYieldOpp.realYieldApr * 2 + realYieldOpp.emissionApr * 0.5;
-      const emissionScore = emissionOpp.realYieldApr * 2 + emissionOpp.emissionApr * 0.5;
+      const realYieldScore =
+        realYieldOpp.realYieldApr * 2 + realYieldOpp.emissionApr * 0.5
+      const emissionScore =
+        emissionOpp.realYieldApr * 2 + emissionOpp.emissionApr * 0.5
 
       // Real yield should score higher per APR when adjusted
       // 5 * 2 + 0 * 0.5 = 10 for real yield
       // 2 * 2 + 98 * 0.5 = 53 for emission (before risk penalty)
-      expect(realYieldScore).toBe(10);
-      expect(emissionScore).toBe(53);
+      expect(realYieldScore).toBe(10)
+      expect(emissionScore).toBe(53)
 
       // But after risk penalty, real yield should win
-      const realYieldFinal = realYieldScore * (1 - realYieldOpp.riskScore / 100);
-      const emissionFinal = emissionScore * (1 - emissionOpp.riskScore / 100);
-      
-      // 10 * 0.85 = 8.5 vs 53 * 0.2 = 10.6
-      // Hmm, emission still wins slightly, but...
-      expect(realYieldFinal).toBeGreaterThan(8);
-      
+      const realYieldFinal = realYieldScore * (1 - realYieldOpp.riskScore / 100)
+
+      // 10 * 0.85 = 8.5
+      expect(realYieldFinal).toBeGreaterThan(8)
+
       // TVL bonus would further boost real yield
-      const realYieldWithTvl = realYieldFinal * (1 + Math.log10(realYieldOpp.tvlUsd) / 10);
-      const emissionWithTvl = emissionFinal * (1 + Math.log10(emissionOpp.tvlUsd) / 10);
-      
+      const realYieldWithTvl =
+        realYieldFinal * (1 + Math.log10(realYieldOpp.tvlUsd) / 10)
+
       // Now real yield should be competitive or better
-      expect(realYieldWithTvl).toBeGreaterThan(10);
-    });
+      expect(realYieldWithTvl).toBeGreaterThan(10)
+    })
 
     it('should penalize high risk scores', () => {
-      const lowRiskScore = 100 * (1 - 15 / 100);
-      const highRiskScore = 100 * (1 - 80 / 100);
+      const lowRiskScore = 100 * (1 - 15 / 100)
+      const highRiskScore = 100 * (1 - 80 / 100)
 
-      expect(lowRiskScore).toBeCloseTo(85, 1);
-      expect(highRiskScore).toBeCloseTo(20, 1);
-      expect(lowRiskScore).toBeGreaterThan(highRiskScore);
-    });
-  });
+      expect(lowRiskScore).toBeCloseTo(85, 1)
+      expect(highRiskScore).toBeCloseTo(20, 1)
+      expect(lowRiskScore).toBeGreaterThan(highRiskScore)
+    })
+  })
 
   describe('Risk Assessment', () => {
     it('should categorize risk levels correctly', () => {
@@ -154,29 +154,29 @@ describe('Yield Farming Strategy', () => {
         [60, 'HIGH'],
         [70, 'VERY_HIGH'],
         [90, 'VERY_HIGH'],
-      ];
+      ]
 
       for (const [score, expected] of levels) {
-        let level: RiskLevel;
-        if (score <= 20) level = 'LOW';
-        else if (score <= 40) level = 'MEDIUM';
-        else if (score <= 60) level = 'HIGH';
-        else level = 'VERY_HIGH';
-        
-        expect(level).toBe(expected);
+        let level: RiskLevel
+        if (score <= 20) level = 'LOW'
+        else if (score <= 40) level = 'MEDIUM'
+        else if (score <= 60) level = 'HIGH'
+        else level = 'VERY_HIGH'
+
+        expect(level).toBe(expected)
       }
-    });
+    })
 
     it('should identify common risk factors', () => {
-      const lendingRisks = ['Smart contract risk', 'Oracle dependency'];
-      const dexRisks = ['Smart contract risk', 'Impermanent loss'];
-      const stakingRisks = ['Smart contract risk', 'Validator slashing risk'];
+      const lendingRisks = ['Smart contract risk', 'Oracle dependency']
+      const dexRisks = ['Smart contract risk', 'Impermanent loss']
+      const stakingRisks = ['Smart contract risk', 'Validator slashing risk']
 
-      expect(lendingRisks).toContain('Oracle dependency');
-      expect(dexRisks).toContain('Impermanent loss');
-      expect(stakingRisks).toContain('Validator slashing risk');
-    });
-  });
+      expect(lendingRisks).toContain('Oracle dependency')
+      expect(dexRisks).toContain('Impermanent loss')
+      expect(stakingRisks).toContain('Validator slashing risk')
+    })
+  })
 
   describe('Yield Sources', () => {
     it('should categorize yield sources correctly', () => {
@@ -187,72 +187,81 @@ describe('Yield Farming Strategy', () => {
         'protocol_revenue',
         'staking_rewards',
         'mev_rewards',
-      ];
+      ]
 
       const emissionSources: YieldSource[] = [
         'liquidity_mining',
         'governance_tokens',
         'points',
-      ];
+      ]
 
       // Real yield sources are sustainable
       for (const source of realYieldSources) {
-        expect(['trading_fees', 'lending_interest', 'borrow_interest', 'protocol_revenue', 'staking_rewards', 'mev_rewards']).toContain(source);
+        expect([
+          'trading_fees',
+          'lending_interest',
+          'borrow_interest',
+          'protocol_revenue',
+          'staking_rewards',
+          'mev_rewards',
+        ]).toContain(source)
       }
 
       // Emission sources are less sustainable
       for (const source of emissionSources) {
-        expect(['liquidity_mining', 'governance_tokens', 'points']).toContain(source);
+        expect(['liquidity_mining', 'governance_tokens', 'points']).toContain(
+          source,
+        )
       }
-    });
+    })
 
     it('should correctly split APR into real yield and emissions', () => {
-      const totalApr = 15;
-      const tradingFees = 3;
-      const stakingRewards = 7;
-      const liquidityMining = 5;
+      const totalApr = 15
+      const tradingFees = 3
+      const stakingRewards = 7
+      const liquidityMining = 5
 
-      const realYieldApr = tradingFees + stakingRewards;
-      const emissionApr = liquidityMining;
+      const realYieldApr = tradingFees + stakingRewards
+      const emissionApr = liquidityMining
 
-      expect(realYieldApr + emissionApr).toBe(totalApr);
-      expect(realYieldApr).toBe(10);
-      expect(emissionApr).toBe(5);
-    });
-  });
+      expect(realYieldApr + emissionApr).toBe(totalApr)
+      expect(realYieldApr).toBe(10)
+      expect(emissionApr).toBe(5)
+    })
+  })
 
   describe('Protocol Coverage', () => {
     it('should support EVM lending protocols', () => {
-      const lendingProtocols = ['aave-v3', 'compound-v3'];
-      expect(lendingProtocols).toContain('aave-v3');
-      expect(lendingProtocols).toContain('compound-v3');
-    });
+      const lendingProtocols = ['aave-v3', 'compound-v3']
+      expect(lendingProtocols).toContain('aave-v3')
+      expect(lendingProtocols).toContain('compound-v3')
+    })
 
     it('should support EVM DEX protocols', () => {
-      const dexProtocols = ['curve', 'gmx-v2'];
-      expect(dexProtocols).toContain('curve');
-      expect(dexProtocols).toContain('gmx-v2');
-    });
+      const dexProtocols = ['curve', 'gmx-v2']
+      expect(dexProtocols).toContain('curve')
+      expect(dexProtocols).toContain('gmx-v2')
+    })
 
     it('should support Solana staking protocols', () => {
-      const stakingProtocols = ['marinade', 'jito'];
-      expect(stakingProtocols).toContain('marinade');
-      expect(stakingProtocols).toContain('jito');
-    });
+      const stakingProtocols = ['marinade', 'jito']
+      expect(stakingProtocols).toContain('marinade')
+      expect(stakingProtocols).toContain('jito')
+    })
 
     it('should support Solana DEX protocols', () => {
-      const solanaDex = ['raydium', 'orca', 'meteora'];
-      expect(solanaDex).toContain('raydium');
-      expect(solanaDex).toContain('orca');
-      expect(solanaDex).toContain('meteora');
-    });
+      const solanaDex = ['raydium', 'orca', 'meteora']
+      expect(solanaDex).toContain('raydium')
+      expect(solanaDex).toContain('orca')
+      expect(solanaDex).toContain('meteora')
+    })
 
     it('should support Solana lending protocols', () => {
-      const solanaLending = ['marginfi', 'kamino'];
-      expect(solanaLending).toContain('marginfi');
-      expect(solanaLending).toContain('kamino');
-    });
-  });
+      const solanaLending = ['marginfi', 'kamino']
+      expect(solanaLending).toContain('marginfi')
+      expect(solanaLending).toContain('kamino')
+    })
+  })
 
   describe('Verification', () => {
     it('should distinguish between on-chain and API verification', () => {
@@ -280,90 +289,90 @@ describe('Yield Farming Strategy', () => {
         minDeposit: '0',
         lockPeriod: 0,
         lastUpdate: Date.now(),
-      };
+      }
 
       const apiVerified: YieldOpportunity = {
         ...onChainVerified,
         id: 'test-2',
         verificationMethod: 'api',
-      };
+      }
 
       const estimated: YieldOpportunity = {
         ...onChainVerified,
         id: 'test-3',
         verified: false,
         verificationMethod: 'estimated',
-      };
+      }
 
-      expect(onChainVerified.verificationMethod).toBe('on_chain');
-      expect(apiVerified.verificationMethod).toBe('api');
-      expect(estimated.verificationMethod).toBe('estimated');
-      expect(estimated.verified).toBe(false);
-    });
+      expect(onChainVerified.verificationMethod).toBe('on_chain')
+      expect(apiVerified.verificationMethod).toBe('api')
+      expect(estimated.verificationMethod).toBe('estimated')
+      expect(estimated.verified).toBe(false)
+    })
 
     it('should flag opportunities with stale verification', () => {
-      const staleThreshold = 24 * 60 * 60 * 1000; // 24 hours
-      const now = Date.now();
-      
-      const fresh = now - (1 * 60 * 60 * 1000); // 1 hour ago
-      const stale = now - (48 * 60 * 60 * 1000); // 48 hours ago
+      const staleThreshold = 24 * 60 * 60 * 1000 // 24 hours
+      const now = Date.now()
 
-      expect(now - fresh).toBeLessThan(staleThreshold);
-      expect(now - stale).toBeGreaterThan(staleThreshold);
-    });
-  });
+      const fresh = now - 1 * 60 * 60 * 1000 // 1 hour ago
+      const stale = now - 48 * 60 * 60 * 1000 // 48 hours ago
+
+      expect(now - fresh).toBeLessThan(staleThreshold)
+      expect(now - stale).toBeGreaterThan(staleThreshold)
+    })
+  })
 
   describe('Rebalancing Logic', () => {
     it('should trigger exit on low APR', () => {
-      const minApr = 3;
-      const currentApr = 1.5;
+      const minApr = 3
+      const currentApr = 1.5
 
-      const shouldExit = currentApr < minApr;
-      expect(shouldExit).toBe(true);
-    });
+      const shouldExit = currentApr < minApr
+      expect(shouldExit).toBe(true)
+    })
 
     it('should trigger harvest on unclaimed rewards', () => {
-      const harvestThreshold = 50; // $50
-      const unclaimed = 75;
+      const harvestThreshold = 50 // $50
+      const unclaimed = 75
 
-      const shouldHarvest = unclaimed > harvestThreshold;
-      expect(shouldHarvest).toBe(true);
-    });
+      const shouldHarvest = unclaimed > harvestThreshold
+      expect(shouldHarvest).toBe(true)
+    })
 
     it('should trigger exit on high impermanent loss', () => {
-      const ilThreshold = 5; // 5%
-      const currentIL = 8;
+      const ilThreshold = 5 // 5%
+      const currentIL = 8
 
-      const shouldExit = currentIL > ilThreshold;
-      expect(shouldExit).toBe(true);
-    });
+      const shouldExit = currentIL > ilThreshold
+      expect(shouldExit).toBe(true)
+    })
 
     it('should trigger compound on sufficient rewards', () => {
-      const compoundThreshold = 100; // $100
-      const rewards = 150;
-      const autoCompound = true;
+      const compoundThreshold = 100 // $100
+      const rewards = 150
+      const autoCompound = true
 
-      const shouldCompound = rewards > compoundThreshold && autoCompound;
-      expect(shouldCompound).toBe(true);
-    });
-  });
+      const shouldCompound = rewards > compoundThreshold && autoCompound
+      expect(shouldCompound).toBe(true)
+    })
+  })
 
   describe('Diversification', () => {
     it('should enforce max protocol exposure', () => {
-      const maxExposure = 30; // 30%
-      const portfolioValue = 100000;
-      const maxPositionValue = portfolioValue * (maxExposure / 100);
+      const maxExposure = 30 // 30%
+      const portfolioValue = 100000
+      const maxPositionValue = portfolioValue * (maxExposure / 100)
 
-      expect(maxPositionValue).toBe(30000);
-    });
+      expect(maxPositionValue).toBe(30000)
+    })
 
     it('should enforce max chain exposure', () => {
-      const maxChainExposure = 50; // 50%
-      const portfolioValue = 100000;
-      const maxChainValue = portfolioValue * (maxChainExposure / 100);
+      const maxChainExposure = 50 // 50%
+      const portfolioValue = 100000
+      const maxChainValue = portfolioValue * (maxChainExposure / 100)
 
-      expect(maxChainValue).toBe(50000);
-    });
+      expect(maxChainValue).toBe(50000)
+    })
 
     it('should calculate portfolio allocation', () => {
       const positions = [
@@ -371,62 +380,64 @@ describe('Yield Farming Strategy', () => {
         { protocol: 'aave', chainId: 42161, valueUsd: 5000 },
         { protocol: 'compound', chainId: 1, valueUsd: 8000 },
         { protocol: 'marinade', chainId: 'solana', valueUsd: 7000 },
-      ];
+      ]
 
-      const total = positions.reduce((sum, p) => sum + p.valueUsd, 0);
-      
+      const total = positions.reduce((sum, p) => sum + p.valueUsd, 0)
+
       // By protocol
-      const aaveExposure = positions
-        .filter(p => p.protocol === 'aave')
-        .reduce((sum, p) => sum + p.valueUsd, 0) / total * 100;
-      
-      // By chain
-      const ethereumExposure = positions
-        .filter(p => p.chainId === 1)
-        .reduce((sum, p) => sum + p.valueUsd, 0) / total * 100;
+      const aaveExposure =
+        (positions
+          .filter((p) => p.protocol === 'aave')
+          .reduce((sum, p) => sum + p.valueUsd, 0) /
+          total) *
+        100
 
-      expect(aaveExposure).toBe(50); // 15000 / 30000 * 100
-      expect(ethereumExposure).toBe(60); // 18000 / 30000 * 100
-    });
-  });
-});
+      // By chain
+      const ethereumExposure =
+        (positions
+          .filter((p) => p.chainId === 1)
+          .reduce((sum, p) => sum + p.valueUsd, 0) /
+          total) *
+        100
+
+      expect(aaveExposure).toBe(50) // 15000 / 30000 * 100
+      expect(ethereumExposure).toBe(60) // 18000 / 30000 * 100
+    })
+  })
+})
 
 describe('APR Calculations', () => {
   it('should convert Aave ray rate to APR', () => {
     // Aave uses ray (27 decimals) for rates
-    const rayRate = 50000000000000000000000000n; // 5% in ray
-    const apr = Number(rayRate) / 1e27 * 100;
-    expect(apr).toBeCloseTo(5, 1);
-  });
+    const rayRate = 50000000000000000000000000n // 5% in ray
+    const apr = (Number(rayRate) / 1e27) * 100
+    expect(apr).toBeCloseTo(5, 1)
+  })
 
   it('should convert Compound per-second rate to APR', () => {
-    const secondsPerYear = 31536000;
-    const perSecondRate = 1585489599n; // Example rate
-    const apr = Number(perSecondRate) * secondsPerYear / 1e18 * 100;
-    expect(apr).toBeGreaterThan(0);
-  });
+    const secondsPerYear = 31536000
+    const perSecondRate = 1585489599n // Example rate
+    const apr = ((Number(perSecondRate) * secondsPerYear) / 1e18) * 100
+    expect(apr).toBeGreaterThan(0)
+  })
 
   it('should calculate trading fee APR from volume', () => {
-    const volume24h = 10000000; // $10M
-    const tvl = 50000000;       // $50M
-    const feeRate = 0.003;      // 0.3%
+    const volume24h = 10000000 // $10M
+    const tvl = 50000000 // $50M
+    const feeRate = 0.003 // 0.3%
 
-    const fees24h = volume24h * feeRate;
-    const apr = (fees24h / tvl) * 365 * 100;
+    const fees24h = volume24h * feeRate
+    const apr = (fees24h / tvl) * 365 * 100
 
-    expect(apr).toBeCloseTo(21.9, 1); // ~22% APR
-  });
+    expect(apr).toBeCloseTo(21.9, 1) // ~22% APR
+  })
 
   it('should calculate staking APR from rewards', () => {
-    const totalStaked = 10000; // 10000 SOL
-    const rewardsPerEpoch = 20; // 20 SOL
-    const epochsPerYear = 182; // ~2 day epochs
+    const totalStaked = 10000 // 10000 SOL
+    const rewardsPerEpoch = 20 // 20 SOL
+    const epochsPerYear = 182 // ~2 day epochs
 
-    const apr = (rewardsPerEpoch / totalStaked) * epochsPerYear * 100;
-    expect(apr).toBeCloseTo(36.4, 1);
-  });
-});
-
-
-
-
+    const apr = (rewardsPerEpoch / totalStaked) * epochsPerYear * 100
+    expect(apr).toBeCloseTo(36.4, 1)
+  })
+})

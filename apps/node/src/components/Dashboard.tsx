@@ -1,36 +1,33 @@
-import { 
-  TrendingUp, 
-  Server, 
-  Bot, 
-  Cpu, 
-  HardDrive, 
-  Zap,
+import { motion } from 'framer-motion'
+import {
+  Activity,
+  Bot,
   Clock,
+  Cpu,
   DollarSign,
-  Activity
-} from 'lucide-react';
-import { useAppStore } from '../store';
-import { formatEther, formatUsd, formatDuration } from '../utils';
-import { EarningsChart } from './EarningsChart';
-import { motion } from 'framer-motion';
+  HardDrive,
+  Server,
+  TrendingUp,
+  Zap,
+} from 'lucide-react'
+import { useAppStore } from '../store'
+import { formatDuration, formatEther, formatUsd } from '../utils'
+import { EarningsChart } from './EarningsChart'
 
 export function Dashboard() {
-  const { 
-    hardware, 
-    services, 
-    bots, 
-    earnings, 
-    projectedEarnings,
-    staking 
-  } = useAppStore();
+  const { hardware, services, bots, earnings, projectedEarnings, staking } =
+    useAppStore()
 
-  const runningServices = services.filter(s => s.status.running);
-  const runningBots = bots.filter(b => b.status.running);
-  const totalUptime = runningServices.reduce((acc, s) => acc + s.status.uptime_seconds, 0);
+  const runningServices = services.filter((s) => s.status.running)
+  const runningBots = bots.filter((b) => b.status.running)
+  const totalUptime = runningServices.reduce(
+    (acc, s) => acc + s.status.uptime_seconds,
+    0,
+  )
 
   const stats = [
     {
-      label: 'Today\'s Earnings',
+      label: "Today's Earnings",
       value: formatUsd(earnings?.earnings_today_usd || 0),
       change: '+12%',
       icon: <DollarSign size={20} />,
@@ -54,7 +51,7 @@ export function Dashboard() {
       icon: <TrendingUp size={20} />,
       color: 'text-emerald-400',
     },
-  ];
+  ]
 
   return (
     <div className="space-y-6">
@@ -84,7 +81,9 @@ export function Dashboard() {
                   <p className="text-sm text-jeju-400 mt-1">{stat.change}</p>
                 )}
               </div>
-              <div className={`p-2 rounded-lg bg-volcanic-800/50 ${stat.color}`}>
+              <div
+                className={`p-2 rounded-lg bg-volcanic-800/50 ${stat.color}`}
+              >
                 {stat.icon}
               </div>
             </div>
@@ -128,7 +127,9 @@ export function Dashboard() {
                   <HardDrive size={14} />
                   Memory
                 </span>
-                <span>{((hardware?.memory.total_mb || 0) / 1024).toFixed(0)} GB</span>
+                <span>
+                  {((hardware?.memory.total_mb || 0) / 1024).toFixed(0)} GB
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-volcanic-400 flex items-center gap-2">
@@ -247,6 +248,5 @@ export function Dashboard() {
         </div>
       )}
     </div>
-  );
+  )
 }
-

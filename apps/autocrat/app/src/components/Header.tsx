@@ -1,9 +1,9 @@
 'use client'
 
+import { Menu, Moon, Sun, X } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Menu, X, Sun, Moon } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { AuthButton } from './auth/AuthButton'
 
 export function Header() {
@@ -18,7 +18,7 @@ export function Header() {
   // Close menu on route change
   useEffect(() => {
     setMobileMenuOpen(false)
-  }, [pathname])
+  }, [])
 
   const toggleTheme = () => {
     const newTheme = !isDark
@@ -35,11 +35,11 @@ export function Header() {
   ]
 
   return (
-    <header 
+    <header
       className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl border-b"
-      style={{ 
+      style={{
         background: 'rgba(var(--bg-primary-rgb, 248, 250, 252), 0.95)',
-        borderColor: 'var(--border)' 
+        borderColor: 'var(--border)',
       }}
     >
       <div className="container mx-auto px-3 sm:px-4">
@@ -59,7 +59,12 @@ export function Header() {
                 className={`px-3 py-1.5 rounded text-sm transition-colors ${
                   pathname === link.href ? 'bg-gray-100 dark:bg-gray-800' : ''
                 }`}
-                style={{ color: pathname === link.href ? 'var(--color-primary)' : 'var(--text-secondary)' }}
+                style={{
+                  color:
+                    pathname === link.href
+                      ? 'var(--color-primary)'
+                      : 'var(--text-secondary)',
+                }}
               >
                 {link.label}
               </Link>
@@ -92,8 +97,8 @@ export function Header() {
 
         {/* Mobile Nav */}
         {mobileMenuOpen && (
-          <nav 
-            className="md:hidden py-2 border-t animate-in slide-in-from-top-2 duration-200" 
+          <nav
+            className="md:hidden py-2 border-t animate-in slide-in-from-top-2 duration-200"
             style={{ borderColor: 'var(--border)' }}
           >
             {navLinks.map((link) => (
@@ -103,7 +108,12 @@ export function Header() {
                 className={`block px-3 py-3 rounded-lg text-sm font-medium transition-colors ${
                   pathname === link.href ? 'bg-gray-100 dark:bg-gray-800' : ''
                 }`}
-                style={{ color: pathname === link.href ? 'var(--color-primary)' : 'var(--text-primary)' }}
+                style={{
+                  color:
+                    pathname === link.href
+                      ? 'var(--color-primary)'
+                      : 'var(--text-primary)',
+                }}
               >
                 {link.label}
               </Link>

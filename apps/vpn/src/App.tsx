@@ -1,50 +1,63 @@
-import { useState } from 'react';
-import { Shield, Globe, Activity, Settings, Users, HardDrive } from 'lucide-react';
-import { VPNToggle } from './components/VPNToggle';
-import { RegionSelector } from './components/RegionSelector';
-import { ConnectionStats } from './components/ConnectionStats';
-import { ContributionPanel } from './components/ContributionPanel';
-import { SettingsPanel } from './components/SettingsPanel';
-import { useVPNStatus, useVPNNodes, useVPNConnection } from './hooks';
+import {
+  Activity,
+  Globe,
+  HardDrive,
+  Settings,
+  Shield,
+  Users,
+} from 'lucide-react'
+import { useState } from 'react'
+import { ConnectionStats } from './components/ConnectionStats'
+import { ContributionPanel } from './components/ContributionPanel'
+import { RegionSelector } from './components/RegionSelector'
+import { SettingsPanel } from './components/SettingsPanel'
+import { VPNToggle } from './components/VPNToggle'
+import { useVPNConnection, useVPNNodes, useVPNStatus } from './hooks'
 
-type Tab = 'vpn' | 'contribution' | 'settings';
+type Tab = 'vpn' | 'contribution' | 'settings'
 
 function App() {
-  const [activeTab, setActiveTab] = useState<Tab>('vpn');
-  const { status: vpnStatus } = useVPNStatus();
-  const { nodes, selectedNode, selectNode: handleSelectNode } = useVPNNodes();
-  const { connect, disconnect, isLoading } = useVPNConnection();
+  const [activeTab, setActiveTab] = useState<Tab>('vpn')
+  const { status: vpnStatus } = useVPNStatus()
+  const { nodes, selectedNode, selectNode: handleSelectNode } = useVPNNodes()
+  const { connect, disconnect, isLoading } = useVPNConnection()
 
   const handleConnect = async () => {
     if (vpnStatus.status === 'Connected') {
-      await disconnect();
+      await disconnect()
     } else {
-      await connect(selectedNode);
+      await connect(selectedNode)
     }
-  };
+  }
 
-  const isConnected = vpnStatus.status === 'Connected';
+  const isConnected = vpnStatus.status === 'Connected'
 
   return (
     <div className="h-full flex flex-col bg-[#0a0a0f]">
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-4 border-b border-[#2a2a35]">
         <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-xl ${isConnected ? 'bg-[#00ff88]/10' : 'bg-[#2a2a35]'}`}>
-            <Shield className={`w-6 h-6 ${isConnected ? 'text-[#00ff88]' : 'text-[#606070]'}`} />
+          <div
+            className={`p-2 rounded-xl ${isConnected ? 'bg-[#00ff88]/10' : 'bg-[#2a2a35]'}`}
+          >
+            <Shield
+              className={`w-6 h-6 ${isConnected ? 'text-[#00ff88]' : 'text-[#606070]'}`}
+            />
           </div>
           <div>
             <h1 className="text-lg font-semibold">Jeju VPN</h1>
             <p className="text-xs text-[#606070]">Decentralized Privacy</p>
           </div>
         </div>
-        <div className={`px-3 py-1 rounded-full text-xs font-medium ${
-          isConnected 
-            ? 'bg-[#00ff88]/10 text-[#00ff88]' 
-            : vpnStatus.status === 'Connecting' 
-              ? 'bg-yellow-500/10 text-yellow-500'
-              : 'bg-[#2a2a35] text-[#606070]'
-        }`}>
+        <div
+          className={`px-3 py-1 rounded-full text-xs font-medium ${
+            isConnected
+              ? 'bg-[#00ff88]/10 text-[#00ff88]'
+              : vpnStatus.status === 'Connecting'
+                ? 'bg-yellow-500/10 text-yellow-500'
+                : 'bg-[#2a2a35] text-[#606070]'
+          }`}
+        >
           {vpnStatus.status}
         </div>
       </header>
@@ -54,7 +67,7 @@ function App() {
         {activeTab === 'vpn' && (
           <div className="p-6 space-y-6">
             {/* VPN Toggle */}
-            <VPNToggle 
+            <VPNToggle
               isConnected={isConnected}
               isLoading={isLoading}
               onToggle={handleConnect}
@@ -103,7 +116,9 @@ function App() {
         <button
           onClick={() => setActiveTab('vpn')}
           className={`flex flex-col items-center gap-1 px-6 py-2 rounded-xl transition-colors ${
-            activeTab === 'vpn' ? 'text-[#00ff88]' : 'text-[#606070] hover:text-white'
+            activeTab === 'vpn'
+              ? 'text-[#00ff88]'
+              : 'text-[#606070] hover:text-white'
           }`}
         >
           <Shield className="w-5 h-5" />
@@ -112,7 +127,9 @@ function App() {
         <button
           onClick={() => setActiveTab('contribution')}
           className={`flex flex-col items-center gap-1 px-6 py-2 rounded-xl transition-colors ${
-            activeTab === 'contribution' ? 'text-[#00ff88]' : 'text-[#606070] hover:text-white'
+            activeTab === 'contribution'
+              ? 'text-[#00ff88]'
+              : 'text-[#606070] hover:text-white'
           }`}
         >
           <Activity className="w-5 h-5" />
@@ -121,7 +138,9 @@ function App() {
         <button
           onClick={() => setActiveTab('settings')}
           className={`flex flex-col items-center gap-1 px-6 py-2 rounded-xl transition-colors ${
-            activeTab === 'settings' ? 'text-[#00ff88]' : 'text-[#606070] hover:text-white'
+            activeTab === 'settings'
+              ? 'text-[#00ff88]'
+              : 'text-[#606070] hover:text-white'
           }`}
         >
           <Settings className="w-5 h-5" />
@@ -129,8 +148,7 @@ function App() {
         </button>
       </nav>
     </div>
-  );
+  )
 }
 
-export default App;
-
+export default App

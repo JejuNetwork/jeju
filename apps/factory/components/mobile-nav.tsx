@@ -3,32 +3,32 @@
  * Responsive hamburger menu for mobile devices
  */
 
-'use client';
+'use client'
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { clsx } from 'clsx'
 import {
-  Menu,
-  X,
-  Home,
-  DollarSign,
-  Briefcase,
-  GitBranch,
-  Package,
   Box,
   Brain,
-  LayoutDashboard,
-  MessageSquare,
-  Shield,
-  Settings,
-  Users,
-  Sparkles,
-  Play,
-  Database,
+  Briefcase,
   ChevronRight,
-} from 'lucide-react';
-import { clsx } from 'clsx';
+  Database,
+  DollarSign,
+  GitBranch,
+  Home,
+  LayoutDashboard,
+  Menu,
+  MessageSquare,
+  Package,
+  Play,
+  Settings,
+  Shield,
+  Sparkles,
+  Users,
+  X,
+} from 'lucide-react'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { useEffect, useState } from 'react'
 
 const navSections = [
   {
@@ -70,33 +70,33 @@ const navSections = [
       { name: 'Agents', href: '/agents', icon: Users },
     ],
   },
-];
+]
 
 export function MobileNav() {
-  const [isOpen, setIsOpen] = useState(false);
-  const pathname = usePathname();
+  const [isOpen, setIsOpen] = useState(false)
+  const pathname = usePathname()
 
   // Close menu on route change
   useEffect(() => {
-    setIsOpen(false);
-  }, [pathname]);
+    setIsOpen(false)
+  }, [])
 
   // Prevent scroll when menu is open
   useEffect(() => {
     if (isOpen) {
-      document.body.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden'
     } else {
-      document.body.style.overflow = '';
+      document.body.style.overflow = ''
     }
     return () => {
-      document.body.style.overflow = '';
-    };
-  }, [isOpen]);
+      document.body.style.overflow = ''
+    }
+  }, [isOpen])
 
   const isActive = (href: string) => {
-    if (href === '/') return pathname === '/';
-    return pathname.startsWith(href);
-  };
+    if (href === '/') return pathname === '/'
+    return pathname.startsWith(href)
+  }
 
   return (
     <>
@@ -107,7 +107,7 @@ export function MobileNav() {
             <Sparkles className="w-6 h-6 text-accent-500" />
             <span className="font-bold text-lg text-factory-100">Factory</span>
           </Link>
-          
+
           <button
             onClick={() => setIsOpen(!isOpen)}
             className="p-2 -mr-2 text-factory-400 hover:text-factory-100"
@@ -122,11 +122,13 @@ export function MobileNav() {
       <div
         className={clsx(
           'lg:hidden fixed inset-0 z-40 transition-opacity duration-300',
-          isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+          isOpen
+            ? 'opacity-100 pointer-events-auto'
+            : 'opacity-0 pointer-events-none',
         )}
       >
         {/* Backdrop */}
-        <div 
+        <div
           className="absolute inset-0 bg-black/60 backdrop-blur-sm"
           onClick={() => setIsOpen(false)}
         />
@@ -135,7 +137,7 @@ export function MobileNav() {
         <nav
           className={clsx(
             'absolute top-14 left-0 bottom-0 w-72 bg-factory-900 border-r border-factory-800 overflow-y-auto transition-transform duration-300',
-            isOpen ? 'translate-x-0' : '-translate-x-full'
+            isOpen ? 'translate-x-0' : '-translate-x-full',
           )}
         >
           <div className="p-4 space-y-6">
@@ -153,7 +155,7 @@ export function MobileNav() {
                           'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
                           isActive(item.href)
                             ? 'bg-accent-500/10 text-accent-400'
-                            : 'text-factory-300 hover:text-factory-100 hover:bg-factory-800/50'
+                            : 'text-factory-300 hover:text-factory-100 hover:bg-factory-800/50',
                         )}
                       >
                         <item.icon className="w-5 h-5" />
@@ -183,6 +185,5 @@ export function MobileNav() {
       {/* Spacer for fixed header */}
       <div className="lg:hidden h-14" />
     </>
-  );
+  )
 }
-

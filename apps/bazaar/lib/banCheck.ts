@@ -3,17 +3,15 @@
  * Uses shared ModerationAPI with bazaar-specific extensions
  */
 
-import { type Address, createPublicClient, http, formatEther } from 'viem'
 import {
-  createModerationAPI,
   BanType,
+  createModerationAPI,
   type ModerationConfig,
-  type BanStatus as SharedBanStatus,
   getBanTypeLabel as sharedGetBanTypeLabel,
-  getBanTypeColor as sharedGetBanTypeColor,
 } from '@jejunetwork/shared'
+import { type Address, createPublicClient, http } from 'viem'
+import { CONTRACTS, RPC_URL } from '../config'
 import { jeju } from '../config/chains'
-import { RPC_URL, CONTRACTS } from '../config'
 
 // ============ Types ============
 
@@ -42,7 +40,7 @@ export enum ReputationTier {
   LOW = 1,
   MEDIUM = 2,
   HIGH = 3,
-  TRUSTED = 4
+  TRUSTED = 4,
 }
 
 export interface ModeratorReputation {
@@ -103,34 +101,81 @@ interface CacheEntry {
   cachedAt: number
 }
 
+// Security: Bounded cache size to prevent memory exhaustion
+const MAX_CACHE_SIZE = 10000
 const banCache = new Map<string, CacheEntry>()
 const CACHE_TTL = 10000 // 10 seconds
+
+// Race condition protection: Track in-flight requests
+const inFlightRequests = new Map<string, Promise<BanCheckResult>>()
 
 // ============ Ban Check Functions ============
 
 /**
  * Check if a user is banned
+ * Uses deduplication to prevent race conditions on concurrent requests
  */
-export async function checkUserBan(userAddress: Address): Promise<BanCheckResult> {
+export async function checkUserBan(
+  userAddress: Address,
+): Promise<BanCheckResult> {
   const cacheKey = userAddress.toLowerCase()
+
+  // Check cache first
   const cached = banCache.get(cacheKey)
   if (cached && Date.now() - cached.cachedAt < CACHE_TTL) {
     return cached.result
   }
 
-  const status = await moderationAPI.checkBanStatus(userAddress)
-  
-  const result: BanCheckResult = {
-    allowed: !status.isBanned,
-    reason: status.reason,
-    banType: status.banType,
-    networkBanned: status.networkBanned,
-    onNotice: status.banType === BanType.ON_NOTICE,
-    canAppeal: status.canAppeal,
+  // Check if request is already in-flight (prevents duplicate concurrent requests)
+  const inFlight = inFlightRequests.get(cacheKey)
+  if (inFlight) {
+    return inFlight
   }
 
-  banCache.set(cacheKey, { result, cachedAt: Date.now() })
-  return result
+  // Create and track the request
+  const requestPromise = (async (): Promise<BanCheckResult> => {
+    const status = await moderationAPI.checkBanStatus(userAddress)
+
+    // Map string banType to enum - handle both string keys and numeric strings
+    const banTypeMap: Record<string, BanType> = {
+      NONE: BanType.NONE,
+      ON_NOTICE: BanType.ON_NOTICE,
+      CHALLENGED: BanType.CHALLENGED,
+      PERMANENT: BanType.PERMANENT,
+      '0': BanType.NONE,
+      '1': BanType.ON_NOTICE,
+      '2': BanType.CHALLENGED,
+      '3': BanType.PERMANENT,
+    }
+    const banTypeValue = banTypeMap[status.banType.toUpperCase()]
+
+    const result: BanCheckResult = {
+      allowed: !status.isBanned,
+      reason: status.reason,
+      banType: banTypeValue,
+      onNotice: status.isOnNotice,
+      canAppeal: status.canAppeal,
+    }
+
+    // Evict oldest entry if at capacity
+    if (banCache.size >= MAX_CACHE_SIZE) {
+      const firstKey = banCache.keys().next().value
+      if (firstKey) banCache.delete(firstKey)
+    }
+
+    banCache.set(cacheKey, { result, cachedAt: Date.now() })
+    return result
+  })()
+
+  // Track the in-flight request
+  inFlightRequests.set(cacheKey, requestPromise)
+
+  try {
+    return await requestPromise
+  } finally {
+    // Clean up in-flight tracking
+    inFlightRequests.delete(cacheKey)
+  }
 }
 
 /**
@@ -160,8 +205,8 @@ export async function getUserStake(userAddress: Address): Promise<{
   const profile = await moderationAPI.getModeratorProfile(userAddress)
   if (!profile) return null
   return {
-    amount: profile.stakedAmount,
-    stakedAt: profile.stakedAt,
+    amount: BigInt(profile.stakeAmount),
+    stakedAt: BigInt(profile.stakedSince),
     isStaked: profile.isStaked,
   }
 }
@@ -169,49 +214,64 @@ export async function getUserStake(userAddress: Address): Promise<{
 /**
  * Get moderator reputation
  */
-export async function getModeratorReputation(userAddress: Address): Promise<ModeratorReputation | null> {
+export async function getModeratorReputation(
+  userAddress: Address,
+): Promise<ModeratorReputation | null> {
   const profile = await moderationAPI.getModeratorProfile(userAddress)
   if (!profile) return null
 
-  const wins = Number(profile.successfulReports)
-  const losses = Number(profile.failedReports)
-  const total = wins + losses
-  const winRate = total > 0 ? Math.round((wins / total) * 100) : 50
+  // Map tier string to enum
+  const tierMap: Record<string, ReputationTier> = {
+    UNTRUSTED: ReputationTier.UNTRUSTED,
+    LOW: ReputationTier.LOW,
+    MEDIUM: ReputationTier.MEDIUM,
+    HIGH: ReputationTier.HIGH,
+    TRUSTED: ReputationTier.TRUSTED,
+  }
+  const tier = tierMap[profile.tier.toUpperCase()] ?? ReputationTier.UNTRUSTED
 
   return {
-    successfulBans: profile.successfulReports,
-    unsuccessfulBans: profile.failedReports,
-    totalSlashedFrom: profile.totalSlashedFrom ?? 0n,
-    totalSlashedOthers: profile.totalSlashedOthers ?? 0n,
-    reputationScore: profile.reputationScore,
-    lastReportTimestamp: profile.lastReportTime,
-    reportCooldownUntil: profile.cooldownUntil ?? 0n,
-    tier: profile.reputationTier as ReputationTier,
-    netPnL: profile.netPnL ?? 0n,
-    winRate,
+    successfulBans: BigInt(profile.successfulBans),
+    unsuccessfulBans: BigInt(profile.unsuccessfulBans),
+    totalSlashedFrom: BigInt(profile.totalLost),
+    totalSlashedOthers: BigInt(profile.totalEarned),
+    reputationScore: BigInt(profile.reputationScore),
+    lastReportTimestamp: 0n, // Not available in shared type
+    reportCooldownUntil: 0n, // Not available in shared type
+    tier,
+    netPnL: BigInt(profile.netPnL),
+    winRate: profile.winRate,
   }
 }
 
 /**
  * Get required stake for a reporter
  */
-export async function getRequiredStakeForReporter(userAddress: Address): Promise<bigint | null> {
+export async function getRequiredStakeForReporter(
+  userAddress: Address,
+): Promise<bigint | null> {
   const profile = await moderationAPI.getModeratorProfile(userAddress)
-  return profile?.requiredStake ?? null
+  if (!profile) return null
+  return BigInt(profile.requiredStake)
 }
 
 /**
  * Get quorum required for a reporter
  */
-export async function getQuorumRequired(userAddress: Address): Promise<bigint | null> {
+export async function getQuorumRequired(
+  userAddress: Address,
+): Promise<bigint | null> {
   const profile = await moderationAPI.getModeratorProfile(userAddress)
-  return profile?.quorumRequired ?? null
+  if (!profile) return null
+  return BigInt(profile.quorumRequired)
 }
 
 /**
  * Check quorum status for a target
  */
-export async function checkQuorumStatus(targetAddress: Address): Promise<QuorumStatus | null> {
+export async function checkQuorumStatus(
+  _targetAddress: Address,
+): Promise<QuorumStatus | null> {
   // This would need the reporting system contract
   // Return null for now - implement if needed
   return null
@@ -219,28 +279,36 @@ export async function checkQuorumStatus(targetAddress: Address): Promise<QuorumS
 
 // ============ JEJU Token Functions ============
 
-export async function checkTransferAllowed(userAddress: Address): Promise<boolean> {
+export async function checkTransferAllowed(
+  userAddress: Address,
+): Promise<boolean> {
   if (!JEJU_TOKEN_ADDRESS) return true
 
-  const enforcementEnabled = await publicClient.readContract({
-    address: JEJU_TOKEN_ADDRESS,
-    abi: JEJU_TOKEN_ABI,
-    functionName: 'banEnforcementEnabled',
-  }).catch(() => false)
+  const enforcementEnabled = await publicClient
+    .readContract({
+      address: JEJU_TOKEN_ADDRESS,
+      abi: JEJU_TOKEN_ABI,
+      functionName: 'banEnforcementEnabled',
+    })
+    .catch(() => false)
 
   if (!enforcementEnabled) return true
 
-  const isBanned = await publicClient.readContract({
-    address: JEJU_TOKEN_ADDRESS,
-    abi: JEJU_TOKEN_ABI,
-    functionName: 'isBanned',
-    args: [userAddress],
-  }).catch(() => false)
+  const isBanned = await publicClient
+    .readContract({
+      address: JEJU_TOKEN_ADDRESS,
+      abi: JEJU_TOKEN_ABI,
+      functionName: 'isBanned',
+      args: [userAddress],
+    })
+    .catch(() => false)
 
   return !isBanned
 }
 
-export async function checkTradeAllowed(userAddress: Address): Promise<BanCheckResult> {
+export async function checkTradeAllowed(
+  userAddress: Address,
+): Promise<BanCheckResult> {
   const generalResult = await checkUserBan(userAddress)
   if (!generalResult.allowed) return generalResult
 

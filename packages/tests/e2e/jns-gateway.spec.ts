@@ -11,73 +11,73 @@
  *   bunx playwright test packages/tests/e2e/jns-gateway.spec.ts --config packages/tests/smoke/synpress.config.ts
  */
 
-import { testWithSynpress } from '@synthetixio/synpress';
-import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
-import { createPublicClient, http } from 'viem';
-import { createWalletSetup, PASSWORD } from '../shared/synpress.config.base';
+import { testWithSynpress } from '@synthetixio/synpress'
+import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright'
+import { createPublicClient, http } from 'viem'
+import { createWalletSetup, PASSWORD } from '../shared/synpress.config.base'
 
-const basicSetup = createWalletSetup();
-const test = testWithSynpress(metaMaskFixtures(basicSetup));
-const { expect } = test;
+const basicSetup = createWalletSetup()
+const test = testWithSynpress(metaMaskFixtures(basicSetup))
+const { expect } = test
 
-const RPC_URL = process.env.JEJU_RPC_URL || 'http://localhost:6546';
-const JNS_GATEWAY_PORT = parseInt(process.env.JNS_GATEWAY_PORT || '4005');
-const JNS_GATEWAY_URL = `http://localhost:${JNS_GATEWAY_PORT}`;
+const RPC_URL = process.env.JEJU_RPC_URL || 'http://localhost:9545'
+const JNS_GATEWAY_PORT = parseInt(process.env.JNS_GATEWAY_PORT || '4005', 10)
+const JNS_GATEWAY_URL = `http://localhost:${JNS_GATEWAY_PORT}`
 
 const chain = {
   id: 1337,
   name: 'Network Local',
   nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
   rpcUrls: { default: { http: [RPC_URL] } },
-};
+}
 
 const _publicClient = createPublicClient({
   chain,
   transport: http(RPC_URL),
-});
+})
 
 test.describe('JNS Gateway Tests', () => {
   test('should serve gateway health check', async ({ page }) => {
-    await page.goto(`${JNS_GATEWAY_URL}/health`);
-    await page.waitForLoadState('networkidle');
+    await page.goto(`${JNS_GATEWAY_URL}/health`)
+    await page.waitForLoadState('networkidle')
 
-    const response = await page.textContent('body');
-    expect(response).toContain('healthy');
-    expect(response).toContain('jns-gateway');
+    const response = await page.textContent('body')
+    expect(response).toContain('healthy')
+    expect(response).toContain('jns-gateway')
 
-    console.log('✅ JNS Gateway health check passed');
-  });
+    console.log('✅ JNS Gateway health check passed')
+  })
 
   test('should serve JNS resolution API', async ({ page }) => {
     // This test requires a registered JNS name
     // In integration environment, we'd have a test name registered
-    await page.goto(`${JNS_GATEWAY_URL}/api/resolve/test.jeju`);
-    await page.waitForLoadState('networkidle');
+    await page.goto(`${JNS_GATEWAY_URL}/api/resolve/test.jeju`)
+    await page.waitForLoadState('networkidle')
 
-    const response = await page.textContent('body');
+    const response = await page.textContent('body')
     // Either we get a valid response or a "not found" - both are acceptable
-    expect(response).toBeTruthy();
+    expect(response).toBeTruthy()
 
     if (response?.includes('error')) {
-      console.log('⚠️  Test name not registered - expected in clean environment');
+      console.log('⚠️  Test name not registered - expected in clean environment')
     } else {
-      expect(response).toContain('cid');
-      console.log('✅ JNS resolution API working');
+      expect(response).toContain('cid')
+      console.log('✅ JNS resolution API working')
     }
-  });
+  })
 
   test('should serve keepalive status API', async ({ page }) => {
-    await page.goto(`${JNS_GATEWAY_URL}/api/keepalive/status/test.jeju`);
-    await page.waitForLoadState('networkidle');
+    await page.goto(`${JNS_GATEWAY_URL}/api/keepalive/status/test.jeju`)
+    await page.waitForLoadState('networkidle')
 
-    const response = await page.textContent('body');
-    expect(response).toBeTruthy();
-    expect(response).toContain('name');
-    expect(response).toContain('funded');
+    const response = await page.textContent('body')
+    expect(response).toBeTruthy()
+    expect(response).toContain('name')
+    expect(response).toContain('funded')
 
-    console.log('✅ Keepalive status API working');
-  });
-});
+    console.log('✅ Keepalive status API working')
+  })
+})
 
 test.describe('Wake Page Tests', () => {
   test('should display wake page branding', async ({ page }) => {
@@ -86,109 +86,120 @@ test.describe('Wake Page Tests', () => {
     // For testing, we can check the wake page template directly
 
     // Create a mock wake page by visiting a test endpoint
-    await page.goto(`${JNS_GATEWAY_URL}/health`);
+    await page.goto(`${JNS_GATEWAY_URL}/health`)
 
     // Check page structure is valid
-    await expect(page).toHaveTitle(/Network|Gateway/i);
+    await expect(page).toHaveTitle(/Network|Gateway/i)
 
-    console.log('✅ Gateway page loads correctly');
-  });
+    console.log('✅ Gateway page loads correctly')
+  })
 
-  test('should allow funding via wallet when wake page is shown', async ({ context, page, metamaskPage, extensionId }) => {
+  test('should allow funding via wallet when wake page is shown', async ({
+    context,
+    page,
+    metamaskPage,
+    extensionId,
+  }) => {
     // This test requires:
     // 1. An unfunded app to show the wake page (set WAKE_PAGE_TEST_APP env var)
     // 2. A connected wallet with funds
     // 3. Actual contract interaction
-    // 
+    //
     // If wake page is not shown, test passes (app may be funded or not registered)
     // Set WAKE_PAGE_TEST_APP=unfunded-app.jeju to test with a specific app
 
-    const testApp = process.env.WAKE_PAGE_TEST_APP || 'unfunded-app.jeju';
-    const metamask = new MetaMask(context, metamaskPage, PASSWORD, extensionId);
+    const testApp = process.env.WAKE_PAGE_TEST_APP || 'unfunded-app.jeju'
+    const metamask = new MetaMask(context, metamaskPage, PASSWORD, extensionId)
 
-    await page.goto(`${JNS_GATEWAY_URL}/${testApp}/`);
-    await page.waitForLoadState('networkidle');
+    await page.goto(`${JNS_GATEWAY_URL}/${testApp}/`)
+    await page.waitForLoadState('networkidle')
 
-    const fundButton = page.locator('text=Fund & Wake Up');
-    const wakePageVisible = await fundButton.isVisible({ timeout: 5000 }).catch(() => false);
+    const fundButton = page.locator('text=Fund & Wake Up')
+    const wakePageVisible = await fundButton
+      .isVisible({ timeout: 5000 })
+      .catch(() => false)
 
     if (!wakePageVisible) {
-      console.log(`⚠️  Wake page not shown for ${testApp} - app may be funded or not registered. Set WAKE_PAGE_TEST_APP to test with a specific unfunded app.`);
-      return;
+      console.log(
+        `⚠️  Wake page not shown for ${testApp} - app may be funded or not registered. Set WAKE_PAGE_TEST_APP to test with a specific unfunded app.`,
+      )
+      return
     }
 
-    await metamask.connectToDapp();
-    await fundButton.click();
-    await metamask.confirmTransaction();
-    await page.waitForLoadState('networkidle', { timeout: 30000 });
-    await expect(fundButton).not.toBeVisible({ timeout: 10000 });
-    console.log('✅ Funding flow completed');
-  });
-});
+    await metamask.connectToDapp()
+    await fundButton.click()
+    await metamask.confirmTransaction()
+    await page.waitForLoadState('networkidle', { timeout: 30000 })
+    await expect(fundButton).not.toBeVisible({ timeout: 10000 })
+    console.log('✅ Funding flow completed')
+  })
+})
 
 test.describe('IPFS Content Serving', () => {
   test('should serve IPFS content via direct CID', async ({ page }) => {
     // Use a known test CID (the IPFS "Hello World" file)
-    const testCid = 'QmWATWQ7fVPP2EFGu71UkfnqhYXDYH566qy47CnJDgvs8u';
+    const testCid = 'QmWATWQ7fVPP2EFGu71UkfnqhYXDYH566qy47CnJDgvs8u'
 
-    await page.goto(`${JNS_GATEWAY_URL}/ipfs/${testCid}`);
-    await page.waitForLoadState('networkidle');
+    await page.goto(`${JNS_GATEWAY_URL}/ipfs/${testCid}`)
+    await page.waitForLoadState('networkidle')
 
-    const response = await page.textContent('body');
+    const response = await page.textContent('body')
     // May timeout or fail if no IPFS gateway - that's acceptable
     if (response) {
-      console.log('✅ IPFS content served');
+      console.log('✅ IPFS content served')
     } else {
-      console.log('⚠️  IPFS gateway may not be available');
+      console.log('⚠️  IPFS gateway may not be available')
     }
-  });
+  })
 
   // Requires TEST_JNS_SPA_NAME env var pointing to a registered JNS name with an SPA
   test('should serve SPA with fallback routing', async ({ page }) => {
-    const testSpaName = process.env.TEST_JNS_SPA_NAME;
+    const testSpaName = process.env.TEST_JNS_SPA_NAME
     if (!testSpaName) {
-      console.log('⏭️ Skipping SPA test - set TEST_JNS_SPA_NAME to a JNS name with an SPA');
-      test.skip();
-      return;
+      console.log(
+        '⏭️ Skipping SPA test - set TEST_JNS_SPA_NAME to a JNS name with an SPA',
+      )
+      test.skip()
+      return
     }
 
     // Navigate to a deep route that doesn't exist as a file
-    await page.goto(`${JNS_GATEWAY_URL}/${testSpaName}/dashboard/settings`);
-    await page.waitForLoadState('networkidle');
+    await page.goto(`${JNS_GATEWAY_URL}/${testSpaName}/dashboard/settings`)
+    await page.waitForLoadState('networkidle')
 
     // SPA should fall back to index.html
     // Check that we get HTML content, not a 404
-    const html = await page.content();
-    expect(html).toContain('<!DOCTYPE html>');
+    const html = await page.content()
+    expect(html).toContain('<!DOCTYPE html>')
 
-    console.log('✅ SPA fallback routing working');
-  });
-});
+    console.log('✅ SPA fallback routing working')
+  })
+})
 
 test.describe('Health Check Standard', () => {
   test('should respond to standard health endpoints', async ({ page }) => {
     // Test /health
-    await page.goto(`${JNS_GATEWAY_URL}/health`);
-    const response = JSON.parse(await page.textContent('body') || '{}');
-    expect(response.status).toBe('healthy');
-    expect(response.service).toBeTruthy();
+    await page.goto(`${JNS_GATEWAY_URL}/health`)
+    const response = JSON.parse((await page.textContent('body')) || '{}')
+    expect(response.status).toBe('healthy')
+    expect(response.service).toBeTruthy()
 
-    console.log('✅ Basic health check passed');
-  });
+    console.log('✅ Basic health check passed')
+  })
 
   test('should include required health fields', async ({ page }) => {
-    await page.goto(`${JNS_GATEWAY_URL}/health`);
-    const response = JSON.parse(await page.textContent('body') || '{}');
+    await page.goto(`${JNS_GATEWAY_URL}/health`)
+    const response = JSON.parse((await page.textContent('body')) || '{}')
 
     // Check required fields per network health standard
-    expect(response).toHaveProperty('status');
-    expect(response).toHaveProperty('service');
+    expect(response).toHaveProperty('status')
+    expect(response).toHaveProperty('service')
 
     // Timestamp is recommended
     if (response.timestamp) {
-      expect(new Date(response.timestamp).getTime()).toBeGreaterThan(0);
+      expect(new Date(response.timestamp).getTime()).toBeGreaterThan(0)
     }
 
-    console.log('✅ Health response format correct');
-  });
-});
+    console.log('✅ Health response format correct')
+  })
+})

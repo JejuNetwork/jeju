@@ -1,2 +1,1 @@
-export { LaunchpadView, default } from './LaunchpadView';
-
+export { default, LaunchpadView } from './LaunchpadView'

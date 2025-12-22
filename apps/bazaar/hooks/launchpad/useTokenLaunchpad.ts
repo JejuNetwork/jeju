@@ -1,44 +1,21 @@
-import { useAccount, useWriteContract, useReadContract, useWaitForTransactionReceipt } from 'wagmi'
-import { parseEther, type Address } from 'viem'
-import { AddressSchema } from '@jejunetwork/types'
-import { expect, expectTrue, expectPositive } from '@/lib/validation'
 import { TokenLaunchpadAbi } from '@jejunetwork/contracts'
-import { getLaunchpadContracts, hasLaunchpad } from '@/config/contracts'
+import { AddressSchema } from '@jejunetwork/types'
+import { type Address, parseEther } from 'viem'
+import {
+  useAccount,
+  useReadContract,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from 'wagmi'
 import { JEJU_CHAIN_ID } from '@/config/chains'
+import { getLaunchpadContracts, hasLaunchpad } from '@/config/contracts'
+import type { BondingCurveConfig, ICOConfig, LaunchInfo } from '@/lib/launchpad'
+import { expect, expectPositive, expectTrue } from '@/lib/validation'
 
-export interface BondingCurveConfig {
-  virtualEthReserves: string  // ETH amount (e.g., "30")
-  graduationTarget: string    // ETH amount (e.g., "10")
-  tokenSupply: string         // Token amount (e.g., "1000000000")
-}
-
-export interface ICOConfig {
-  presaleAllocationBps: number  // 1000 = 10%
-  presalePrice: string          // ETH per token (e.g., "0.0001")
-  lpFundingBps: number          // 8000 = 80%
-  lpLockDuration: number        // seconds
-  buyerLockDuration: number     // seconds
-  softCap: string               // ETH amount
-  hardCap: string               // ETH amount
-  presaleDuration: number       // seconds
-}
-
-export interface LaunchInfo {
-  id: bigint
-  creator: Address
-  token: Address
-  launchType: 'bonding' | 'ico'
-  creatorFeeBps: number
-  communityFeeBps: number
-  bondingCurve: Address | null
-  presale: Address | null
-  lpLocker: Address | null
-  createdAt: bigint
-  graduated: boolean
-}
+export type { BondingCurveConfig, ICOConfig, LaunchInfo }
 
 export function useTokenLaunchpad(chainId: number = JEJU_CHAIN_ID) {
-  const { address, isConnected } = useAccount()
+  const { isConnected } = useAccount()
   const contracts = getLaunchpadContracts(chainId)
   const launchpadAddress = contracts?.tokenLaunchpad as Address | undefined
   const isAvailable = hasLaunchpad(chainId)
@@ -80,19 +57,36 @@ export function useTokenLaunchpad(chainId: number = JEJU_CHAIN_ID) {
     symbol: string,
     creatorFeeBps: number,
     communityVault: Address | null,
-    config: BondingCurveConfig
+    config: BondingCurveConfig,
   ) => {
-    const validatedLaunchpadAddress = expect(launchpadAddress, 'Launchpad not available on this chain');
-    AddressSchema.parse(validatedLaunchpadAddress);
+    const validatedLaunchpadAddress = expect(
+      launchpadAddress,
+      'Launchpad not available on this chain',
+    )
+    AddressSchema.parse(validatedLaunchpadAddress)
 
-    expectTrue(name.length > 0, 'Name cannot be empty');
-    expectTrue(symbol.length > 0, 'Symbol cannot be empty');
-    expectTrue(creatorFeeBps >= 0 && creatorFeeBps <= 10000, 'CreatorFeeBps must be between 0 and 10000');
-    expectPositive(parseFloat(config.virtualEthReserves), 'VirtualEthReserves must be positive');
-    expectPositive(parseFloat(config.graduationTarget), 'GraduationTarget must be positive');
-    expectPositive(parseFloat(config.tokenSupply), 'TokenSupply must be positive');
-    
-    const validatedCommunityVault = communityVault ? AddressSchema.parse(communityVault) : '0x0000000000000000000000000000000000000000' as Address;
+    expectTrue(name.length > 0, 'Name cannot be empty')
+    expectTrue(symbol.length > 0, 'Symbol cannot be empty')
+    expectTrue(
+      creatorFeeBps >= 0 && creatorFeeBps <= 10000,
+      'CreatorFeeBps must be between 0 and 10000',
+    )
+    expectPositive(
+      parseFloat(config.virtualEthReserves),
+      'VirtualEthReserves must be positive',
+    )
+    expectPositive(
+      parseFloat(config.graduationTarget),
+      'GraduationTarget must be positive',
+    )
+    expectPositive(
+      parseFloat(config.tokenSupply),
+      'TokenSupply must be positive',
+    )
+
+    const validatedCommunityVault = communityVault
+      ? AddressSchema.parse(communityVault)
+      : ('0x0000000000000000000000000000000000000000' as Address)
 
     writeContract({
       address: validatedLaunchpadAddress,
@@ -121,24 +115,44 @@ export function useTokenLaunchpad(chainId: number = JEJU_CHAIN_ID) {
     totalSupply: string,
     creatorFeeBps: number,
     communityVault: Address | null,
-    config: ICOConfig
+    config: ICOConfig,
   ) => {
-    const validatedLaunchpadAddress = expect(launchpadAddress, 'Launchpad not available on this chain');
-    AddressSchema.parse(validatedLaunchpadAddress);
-    
-    expectTrue(name.length > 0, 'Name cannot be empty');
-    expectTrue(symbol.length > 0, 'Symbol cannot be empty');
-    expectPositive(parseFloat(totalSupply), 'TotalSupply must be positive');
-    expectTrue(creatorFeeBps >= 0 && creatorFeeBps <= 10000, 'CreatorFeeBps must be between 0 and 10000');
-    expectPositive(parseFloat(config.presalePrice), 'PresalePrice must be positive');
-    expectTrue(config.presaleAllocationBps >= 0 && config.presaleAllocationBps <= 10000, 'PresaleAllocationBps must be between 0 and 10000');
-    expectTrue(config.lpFundingBps >= 0 && config.lpFundingBps <= 10000, 'LpFundingBps must be between 0 and 10000');
-    expectPositive(parseFloat(config.softCap), 'SoftCap must be positive');
-    expectPositive(parseFloat(config.hardCap), 'HardCap must be positive');
-    expectTrue(parseFloat(config.hardCap) >= parseFloat(config.softCap), 'HardCap must be >= SoftCap');
-    expectPositive(config.presaleDuration, 'PresaleDuration must be positive');
-    
-    const validatedCommunityVault = communityVault ? AddressSchema.parse(communityVault) : '0x0000000000000000000000000000000000000000' as Address;
+    const validatedLaunchpadAddress = expect(
+      launchpadAddress,
+      'Launchpad not available on this chain',
+    )
+    AddressSchema.parse(validatedLaunchpadAddress)
+
+    expectTrue(name.length > 0, 'Name cannot be empty')
+    expectTrue(symbol.length > 0, 'Symbol cannot be empty')
+    expectPositive(parseFloat(totalSupply), 'TotalSupply must be positive')
+    expectTrue(
+      creatorFeeBps >= 0 && creatorFeeBps <= 10000,
+      'CreatorFeeBps must be between 0 and 10000',
+    )
+    expectPositive(
+      parseFloat(config.presalePrice),
+      'PresalePrice must be positive',
+    )
+    expectTrue(
+      config.presaleAllocationBps >= 0 && config.presaleAllocationBps <= 10000,
+      'PresaleAllocationBps must be between 0 and 10000',
+    )
+    expectTrue(
+      config.lpFundingBps >= 0 && config.lpFundingBps <= 10000,
+      'LpFundingBps must be between 0 and 10000',
+    )
+    expectPositive(parseFloat(config.softCap), 'SoftCap must be positive')
+    expectPositive(parseFloat(config.hardCap), 'HardCap must be positive')
+    expectTrue(
+      parseFloat(config.hardCap) >= parseFloat(config.softCap),
+      'HardCap must be >= SoftCap',
+    )
+    expectPositive(config.presaleDuration, 'PresaleDuration must be positive')
+
+    const validatedCommunityVault = communityVault
+      ? AddressSchema.parse(communityVault)
+      : ('0x0000000000000000000000000000000000000000' as Address)
 
     writeContract({
       address: validatedLaunchpadAddress,
@@ -171,13 +185,13 @@ export function useTokenLaunchpad(chainId: number = JEJU_CHAIN_ID) {
     launchpadAddress,
     launchCount: launchCount as bigint | undefined,
     defaultCommunityVault: defaultCommunityVault as Address | undefined,
-    
+
     // Transaction state
     txHash,
     isPending: isWritePending || isConfirming,
     isSuccess,
     error: writeError,
-    
+
     // Actions
     launchBondingCurve,
     launchICO,
@@ -187,7 +201,10 @@ export function useTokenLaunchpad(chainId: number = JEJU_CHAIN_ID) {
 /**
  * Hook to read a specific launch's details
  */
-export function useLaunchInfo(launchId: bigint | undefined, chainId: number = JEJU_CHAIN_ID) {
+export function useLaunchInfo(
+  launchId: bigint | undefined,
+  chainId: number = JEJU_CHAIN_ID,
+) {
   const contracts = getLaunchpadContracts(chainId)
   const launchpadAddress = contracts?.tokenLaunchpad as Address | undefined
 
@@ -199,32 +216,49 @@ export function useLaunchInfo(launchId: bigint | undefined, chainId: number = JE
     query: { enabled: !!launchpadAddress && launchId !== undefined },
   })
 
-  const launch = data as {
-    id: bigint
-    creator: Address
-    token: Address
-    launchType: number
-    feeConfig: { creatorFeeBps: number; communityFeeBps: number; communityVault: Address }
-    bondingCurve: Address
-    presale: Address
-    lpLocker: Address
-    createdAt: bigint
-    graduated: boolean
-  } | undefined
+  const launch = data as
+    | {
+        id: bigint
+        creator: Address
+        token: Address
+        launchType: number
+        feeConfig: {
+          creatorFeeBps: number
+          communityFeeBps: number
+          communityVault: Address
+        }
+        bondingCurve: Address
+        presale: Address
+        lpLocker: Address
+        createdAt: bigint
+        graduated: boolean
+      }
+    | undefined
 
-  const launchInfo: LaunchInfo | undefined = launch ? {
-    id: launch.id,
-    creator: launch.creator,
-    token: launch.token,
-    launchType: launch.launchType === 0 ? 'bonding' : 'ico',
-    creatorFeeBps: launch.feeConfig.creatorFeeBps,
-    communityFeeBps: launch.feeConfig.communityFeeBps,
-    bondingCurve: launch.bondingCurve !== '0x0000000000000000000000000000000000000000' ? launch.bondingCurve : null,
-    presale: launch.presale !== '0x0000000000000000000000000000000000000000' ? launch.presale : null,
-    lpLocker: launch.lpLocker !== '0x0000000000000000000000000000000000000000' ? launch.lpLocker : null,
-    createdAt: launch.createdAt,
-    graduated: launch.graduated,
-  } : undefined
+  const launchInfo: LaunchInfo | undefined = launch
+    ? {
+        id: launch.id,
+        creator: launch.creator,
+        token: launch.token,
+        launchType: launch.launchType === 0 ? 'bonding' : 'ico',
+        creatorFeeBps: launch.feeConfig.creatorFeeBps,
+        communityFeeBps: launch.feeConfig.communityFeeBps,
+        bondingCurve:
+          launch.bondingCurve !== '0x0000000000000000000000000000000000000000'
+            ? launch.bondingCurve
+            : null,
+        presale:
+          launch.presale !== '0x0000000000000000000000000000000000000000'
+            ? launch.presale
+            : null,
+        lpLocker:
+          launch.lpLocker !== '0x0000000000000000000000000000000000000000'
+            ? launch.lpLocker
+            : null,
+        createdAt: launch.createdAt,
+        graduated: launch.graduated,
+      }
+    : undefined
 
   return {
     launch: launchInfo,
@@ -237,7 +271,10 @@ export function useLaunchInfo(launchId: bigint | undefined, chainId: number = JE
 /**
  * Hook to get all launches by a creator
  */
-export function useCreatorLaunches(creator: Address | undefined, chainId: number = JEJU_CHAIN_ID) {
+export function useCreatorLaunches(
+  creator: Address | undefined,
+  chainId: number = JEJU_CHAIN_ID,
+) {
   const contracts = getLaunchpadContracts(chainId)
   const launchpadAddress = contracts?.tokenLaunchpad as Address | undefined
 
@@ -256,4 +293,3 @@ export function useCreatorLaunches(creator: Address | undefined, chainId: number
     refetch,
   }
 }
-

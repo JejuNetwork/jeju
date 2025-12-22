@@ -3,11 +3,13 @@
  * Consolidated from gateway and bazaar
  */
 
-import type { Address, Hex } from 'viem';
+import type { Address, Hex } from 'viem'
 
 // Canonical zero constants
-export const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
-export const ZERO_BYTES32 = '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex;
+export const ZERO_ADDRESS =
+  '0x0000000000000000000000000000000000000000' as Address
+export const ZERO_BYTES32 =
+  '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex
 
 export const TOKEN_REGISTRY_ABI = [
   {
@@ -17,17 +19,17 @@ export const TOKEN_REGISTRY_ABI = [
       { name: 'tokenAddress', type: 'address' },
       { name: 'oracleAddress', type: 'address' },
       { name: 'minFeeMargin', type: 'uint256' },
-      { name: 'maxFeeMargin', type: 'uint256' }
+      { name: 'maxFeeMargin', type: 'uint256' },
     ],
     outputs: [{ name: 'tokenId', type: 'uint256' }],
-    stateMutability: 'payable'
+    stateMutability: 'payable',
   },
   {
     type: 'function',
     name: 'getAllTokens',
     inputs: [],
     outputs: [{ name: 'addresses', type: 'address[]' }],
-    stateMutability: 'view'
+    stateMutability: 'view',
   },
   {
     type: 'function',
@@ -50,18 +52,18 @@ export const TOKEN_REGISTRY_ABI = [
           { name: 'registrationTime', type: 'uint256' },
           { name: 'totalVolume', type: 'uint256' },
           { name: 'totalTransactions', type: 'uint256' },
-          { name: 'metadataHash', type: 'bytes32' }
-        ]
-      }
+          { name: 'metadataHash', type: 'bytes32' },
+        ],
+      },
     ],
-    stateMutability: 'view'
+    stateMutability: 'view',
   },
   {
     type: 'function',
     name: 'registrationFee',
     inputs: [],
     outputs: [{ name: '', type: 'uint256' }],
-    stateMutability: 'view'
+    stateMutability: 'view',
   },
   {
     name: 'getTokenInfo',
@@ -74,7 +76,7 @@ export const TOKEN_REGISTRY_ABI = [
       { name: 'decimals', type: 'uint8' },
     ],
   },
-] as const;
+] as const
 
 export const PAYMASTER_FACTORY_ABI = [
   {
@@ -83,14 +85,14 @@ export const PAYMASTER_FACTORY_ABI = [
     inputs: [
       { name: 'token', type: 'address' },
       { name: 'feeMargin', type: 'uint256' },
-      { name: 'operator', type: 'address' }
+      { name: 'operator', type: 'address' },
     ],
     outputs: [
       { name: 'paymaster', type: 'address' },
       { name: 'vault', type: 'address' },
-      { name: 'distributor', type: 'address' }
+      { name: 'distributor', type: 'address' },
     ],
-    stateMutability: 'nonpayable'
+    stateMutability: 'nonpayable',
   },
   {
     type: 'function',
@@ -101,16 +103,16 @@ export const PAYMASTER_FACTORY_ABI = [
       { name: 'vault', type: 'address' },
       { name: 'oracle', type: 'address' },
     ],
-    stateMutability: 'view'
+    stateMutability: 'view',
   },
   {
     type: 'function',
     name: 'getAllDeployments',
     inputs: [],
     outputs: [{ name: 'tokens', type: 'address[]' }],
-    stateMutability: 'view'
-  }
-] as const;
+    stateMutability: 'view',
+  },
+] as const
 
 export const LIQUIDITY_VAULT_ABI = [
   {
@@ -118,21 +120,21 @@ export const LIQUIDITY_VAULT_ABI = [
     name: 'addETHLiquidity',
     inputs: [],
     outputs: [{ name: 'lpTokens', type: 'uint256' }],
-    stateMutability: 'payable'
+    stateMutability: 'payable',
   },
   {
     type: 'function',
     name: 'removeETHLiquidity',
     inputs: [{ name: 'lpTokens', type: 'uint256' }],
     outputs: [{ name: 'ethAmount', type: 'uint256' }],
-    stateMutability: 'nonpayable'
+    stateMutability: 'nonpayable',
   },
   {
     type: 'function',
     name: 'claimFees',
     inputs: [],
     outputs: [],
-    stateMutability: 'nonpayable'
+    stateMutability: 'nonpayable',
   },
   {
     type: 'function',
@@ -143,9 +145,9 @@ export const LIQUIDITY_VAULT_ABI = [
       { name: 'ethValue', type: 'uint256' },
       { name: 'tokenShareBalance', type: 'uint256' },
       { name: 'tokenValue', type: 'uint256' },
-      { name: 'pendingFeeAmount', type: 'uint256' }
+      { name: 'pendingFeeAmount', type: 'uint256' },
     ],
-    stateMutability: 'view'
+    stateMutability: 'view',
   },
   {
     name: 'balanceOf',
@@ -161,7 +163,7 @@ export const LIQUIDITY_VAULT_ABI = [
     inputs: [],
     outputs: [{ name: '', type: 'uint256' }],
   },
-] as const;
+] as const
 
 export const IERC20_ABI = [
   {
@@ -169,26 +171,26 @@ export const IERC20_ABI = [
     name: 'approve',
     inputs: [
       { name: 'spender', type: 'address' },
-      { name: 'amount', type: 'uint256' }
+      { name: 'amount', type: 'uint256' },
     ],
     outputs: [{ type: 'bool' }],
-    stateMutability: 'nonpayable'
+    stateMutability: 'nonpayable',
   },
   {
     type: 'function',
     name: 'balanceOf',
     inputs: [{ name: 'account', type: 'address' }],
     outputs: [{ type: 'uint256' }],
-    stateMutability: 'view'
+    stateMutability: 'view',
   },
   {
     type: 'function',
     name: 'transfer',
     inputs: [
       { name: 'to', type: 'address' },
-      { name: 'amount', type: 'uint256' }
+      { name: 'amount', type: 'uint256' },
     ],
     outputs: [{ type: 'bool' }],
-    stateMutability: 'nonpayable'
-  }
-] as const;
+    stateMutability: 'nonpayable',
+  },
+] as const

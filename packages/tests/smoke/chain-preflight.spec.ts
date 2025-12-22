@@ -9,23 +9,25 @@
  *   bunx playwright test packages/tests/smoke/chain-preflight.spec.ts
  */
 
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test'
 import {
+  type Address,
   createPublicClient,
   createWalletClient,
+  formatEther,
   http,
   parseEther,
-  formatEther,
-  type Address,
-} from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
+} from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { JEJU_CHAIN_ID, JEJU_RPC_URL, TEST_ACCOUNTS } from '../shared/utils'
 
-const RPC_URL = process.env.L2_RPC_URL || process.env.JEJU_RPC_URL || 'http://localhost:6546';
-const CHAIN_ID = parseInt(process.env.CHAIN_ID || '1337');
+const RPC_URL =
+  process.env.L2_RPC_URL || process.env.JEJU_RPC_URL || JEJU_RPC_URL
+const CHAIN_ID = parseInt(process.env.CHAIN_ID || String(JEJU_CHAIN_ID), 10)
 
-// Anvil test account #0
-const TEST_PRIVATE_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
-const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address;
+// Use shared test accounts (Anvil defaults)
+const TEST_PRIVATE_KEY = TEST_ACCOUNTS.deployer.privateKey
+const TEST_ADDRESS = TEST_ACCOUNTS.deployer.address as Address
 
 const chain = {
   id: CHAIN_ID,
@@ -34,145 +36,154 @@ const chain = {
   rpcUrls: {
     default: { http: [RPC_URL] },
   },
-};
+}
 
 const publicClient = createPublicClient({
   chain,
   transport: http(RPC_URL, { timeout: 10000 }),
-});
+})
 
 test.describe('Chain Infrastructure', () => {
   test('RPC responds to eth_blockNumber', async () => {
-    const blockNumber = await publicClient.getBlockNumber();
-    expect(blockNumber).toBeGreaterThanOrEqual(0n);
-    console.log(`Current block: ${blockNumber}`);
-  });
+    const blockNumber = await publicClient.getBlockNumber()
+    expect(blockNumber).toBeGreaterThanOrEqual(0n)
+    console.log(`Current block: ${blockNumber}`)
+  })
 
   test('Chain ID matches expected', async () => {
-    const actualChainId = await publicClient.getChainId();
-    expect(actualChainId).toBe(CHAIN_ID);
-    console.log(`Chain ID: ${actualChainId}`);
-  });
+    const actualChainId = await publicClient.getChainId()
+    expect(actualChainId).toBe(CHAIN_ID)
+    console.log(`Chain ID: ${actualChainId}`)
+  })
 
   test('Test account has sufficient ETH', async () => {
-    const balance = await publicClient.getBalance({ address: TEST_ADDRESS });
-    expect(balance).toBeGreaterThan(parseEther('1'));
-    console.log(`Balance: ${formatEther(balance)} ETH`);
-  });
+    const balance = await publicClient.getBalance({ address: TEST_ADDRESS })
+    expect(balance).toBeGreaterThan(parseEther('1'))
+    console.log(`Balance: ${formatEther(balance)} ETH`)
+  })
 
   test('Blocks are being produced', async () => {
-    const block1 = await publicClient.getBlockNumber();
-    await new Promise(r => setTimeout(r, 2000));
-    const block2 = await publicClient.getBlockNumber();
+    const block1 = await publicClient.getBlockNumber()
+    await new Promise((r) => setTimeout(r, 2000))
+    const block2 = await publicClient.getBlockNumber()
 
     // Blocks should at least not go backwards
-    expect(block2).toBeGreaterThanOrEqual(block1);
-    console.log(`Block progression: ${block1} -> ${block2}`);
-  });
-});
+    expect(block2).toBeGreaterThanOrEqual(block1)
+    console.log(`Block progression: ${block1} -> ${block2}`)
+  })
+})
 
 test.describe('Transaction Verification', () => {
   test('Can estimate gas for simple transfer', async () => {
-    const account = privateKeyToAccount(TEST_PRIVATE_KEY);
+    const account = privateKeyToAccount(TEST_PRIVATE_KEY)
 
     const gasEstimate = await publicClient.estimateGas({
       account: account.address,
       to: TEST_ADDRESS,
       value: parseEther('0.001'),
-    });
+    })
 
-    expect(gasEstimate).toBeGreaterThan(0n);
-    console.log(`Gas estimate: ${gasEstimate}`);
-  });
+    expect(gasEstimate).toBeGreaterThan(0n)
+    console.log(`Gas estimate: ${gasEstimate}`)
+  })
 
   test('Can send and confirm transaction', async () => {
-    const account = privateKeyToAccount(TEST_PRIVATE_KEY);
+    const account = privateKeyToAccount(TEST_PRIVATE_KEY)
 
     const walletClient = createWalletClient({
       chain,
       transport: http(RPC_URL, { timeout: 30000 }),
       account,
-    });
+    })
 
-    const balanceBefore = await publicClient.getBalance({ address: account.address });
+    const balanceBefore = await publicClient.getBalance({
+      address: account.address,
+    })
 
     // Send a tiny amount to self
     const txHash = await walletClient.sendTransaction({
       to: account.address,
       value: parseEther('0.0001'),
-    });
+    })
 
-    console.log(`Transaction hash: ${txHash}`);
+    console.log(`Transaction hash: ${txHash}`)
 
     // Wait for confirmation
     const receipt = await publicClient.waitForTransactionReceipt({
       hash: txHash,
       timeout: 30000,
-    });
+    })
 
-    expect(receipt.status).toBe('success');
-    expect(receipt.blockNumber).toBeGreaterThan(0n);
+    expect(receipt.status).toBe('success')
+    expect(receipt.blockNumber).toBeGreaterThan(0n)
 
-    const balanceAfter = await publicClient.getBalance({ address: account.address });
-    const gasUsed = receipt.gasUsed * receipt.effectiveGasPrice;
+    const balanceAfter = await publicClient.getBalance({
+      address: account.address,
+    })
+    const gasUsed = receipt.gasUsed * receipt.effectiveGasPrice
 
-    console.log(`Block: ${receipt.blockNumber}`);
-    console.log(`Gas used: ${formatEther(gasUsed)} ETH`);
-    console.log(`Balance change: ${formatEther(balanceBefore - balanceAfter)} ETH`);
+    console.log(`Block: ${receipt.blockNumber}`)
+    console.log(`Gas used: ${formatEther(gasUsed)} ETH`)
+    console.log(
+      `Balance change: ${formatEther(balanceBefore - balanceAfter)} ETH`,
+    )
 
     // Balance should have decreased by gas amount
-    expect(balanceAfter).toBeLessThan(balanceBefore);
-  });
-});
+    expect(balanceAfter).toBeLessThan(balanceBefore)
+  })
+})
 
 test.describe('Contract Deployment Check', () => {
   test('Can verify ERC20 Factory deployment', async () => {
-    const factoryAddress = process.env.NEXT_PUBLIC_ERC20_FACTORY_ADDRESS as Address | undefined;
+    const factoryAddress = process.env.NEXT_PUBLIC_ERC20_FACTORY_ADDRESS as
+      | Address
+      | undefined
 
     if (!factoryAddress || factoryAddress === '0x0') {
-      test.skip();
-      return;
+      test.skip()
+      return
     }
 
-    const code = await publicClient.getCode({ address: factoryAddress });
-    expect(code).not.toBe('0x');
-    console.log(`ERC20 Factory deployed at ${factoryAddress}`);
-  });
+    const code = await publicClient.getCode({ address: factoryAddress })
+    expect(code).not.toBe('0x')
+    console.log(`ERC20 Factory deployed at ${factoryAddress}`)
+  })
 
   test('Can verify NFT Marketplace deployment', async () => {
-    const marketplaceAddress = process.env.NEXT_PUBLIC_NFT_MARKETPLACE_ADDRESS as Address | undefined;
+    const marketplaceAddress = process.env
+      .NEXT_PUBLIC_NFT_MARKETPLACE_ADDRESS as Address | undefined
 
     if (!marketplaceAddress || marketplaceAddress === '0x0') {
-      test.skip();
-      return;
+      test.skip()
+      return
     }
 
-    const code = await publicClient.getCode({ address: marketplaceAddress });
-    expect(code).not.toBe('0x');
-    console.log(`NFT Marketplace deployed at ${marketplaceAddress}`);
-  });
-});
+    const code = await publicClient.getCode({ address: marketplaceAddress })
+    expect(code).not.toBe('0x')
+    console.log(`NFT Marketplace deployed at ${marketplaceAddress}`)
+  })
+})
 
 test.describe('RPC Health', () => {
   test('RPC responds within acceptable time', async () => {
-    const start = Date.now();
-    await publicClient.getBlockNumber();
-    const duration = Date.now() - start;
+    const start = Date.now()
+    await publicClient.getBlockNumber()
+    const duration = Date.now() - start
 
-    expect(duration).toBeLessThan(5000);
-    console.log(`RPC response time: ${duration}ms`);
-  });
+    expect(duration).toBeLessThan(5000)
+    console.log(`RPC response time: ${duration}ms`)
+  })
 
   test('Can fetch latest block details', async () => {
-    const block = await publicClient.getBlock({ blockTag: 'latest' });
+    const block = await publicClient.getBlock({ blockTag: 'latest' })
 
-    expect(block.hash).toMatch(/^0x[a-fA-F0-9]{64}$/);
-    expect(block.number).toBeGreaterThanOrEqual(0n);
-    expect(block.timestamp).toBeGreaterThan(0n);
+    expect(block.hash).toMatch(/^0x[a-fA-F0-9]{64}$/)
+    expect(block.number).toBeGreaterThanOrEqual(0n)
+    expect(block.timestamp).toBeGreaterThan(0n)
 
-    console.log(`Latest block: ${block.number}`);
-    console.log(`Timestamp: ${new Date(Number(block.timestamp) * 1000).toISOString()}`);
-  });
-});
-
-
+    console.log(`Latest block: ${block.number}`)
+    console.log(
+      `Timestamp: ${new Date(Number(block.timestamp) * 1000).toISOString()}`,
+    )
+  })
+})

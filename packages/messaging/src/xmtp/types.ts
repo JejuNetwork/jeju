@@ -1,239 +1,238 @@
 /**
  * XMTP/MLS Types for Jeju Messaging
- * 
+ *
  * Type definitions for XMTP integration with Jeju relay infrastructure.
  */
 
-import type { Hex, Address } from 'viem';
+import type { Address } from 'viem'
 
 // ============ Identity Types ============
 
 export interface XMTPIdentity {
   /** Ethereum address */
-  address: Address;
+  address: Address
   /** XMTP installation ID */
-  installationId: Uint8Array;
+  installationId: Uint8Array
   /** Public key bundle */
-  keyBundle: XMTPKeyBundle;
+  keyBundle: XMTPKeyBundle
   /** Creation timestamp */
-  createdAt: number;
+  createdAt: number
   /** Last activity timestamp */
-  lastActiveAt: number;
+  lastActiveAt: number
 }
 
 export interface XMTPKeyBundle {
   /** Identity key (Ed25519) */
-  identityKey: Uint8Array;
+  identityKey: Uint8Array
   /** Pre-key for establishing sessions */
-  preKey: Uint8Array;
+  preKey: Uint8Array
   /** Signature of the pre-key */
-  preKeySignature: Uint8Array;
+  preKeySignature: Uint8Array
 }
 
 // ============ Message Types ============
 
 export interface XMTPEnvelope {
   /** Version identifier */
-  version: number;
+  version: number
   /** Message ID */
-  id: string;
+  id: string
   /** Sender address */
-  sender: Address;
+  sender: Address
   /** Recipient addresses */
-  recipients: Address[];
+  recipients: Address[]
   /** MLS encrypted payload */
-  ciphertext: Uint8Array;
+  ciphertext: Uint8Array
   /** Content topic for routing */
-  contentTopic: string;
+  contentTopic: string
   /** Timestamp */
-  timestamp: number;
+  timestamp: number
   /** Signature of the envelope */
-  signature: Uint8Array;
+  signature: Uint8Array
 }
 
 export interface XMTPMessage {
   /** Unique message ID */
-  id: string;
+  id: string
   /** Conversation ID (topic) */
-  conversationId: string;
+  conversationId: string
   /** Sender address */
-  sender: Address;
+  sender: Address
   /** Content type */
-  contentType: ContentType;
+  contentType: ContentType
   /** Message content */
-  content: Uint8Array;
+  content: Uint8Array
   /** Sent timestamp */
-  sentAt: number;
+  sentAt: number
   /** Received timestamp */
-  receivedAt?: number;
+  receivedAt?: number
 }
 
 export interface ContentType {
   /** Authority (e.g., "xmtp.org") */
-  authorityId: string;
+  authorityId: string
   /** Type identifier */
-  typeId: string;
+  typeId: string
   /** Version */
-  versionMajor: number;
-  versionMinor: number;
+  versionMajor: number
+  versionMinor: number
 }
 
 // ============ Conversation Types ============
 
 export interface XMTPConversation {
   /** Unique conversation ID */
-  id: string;
+  id: string
   /** Conversation topic for routing */
-  topic: string;
+  topic: string
   /** Peer addresses */
-  peerAddresses: Address[];
+  peerAddresses: Address[]
   /** Creation timestamp */
-  createdAt: number;
+  createdAt: number
   /** Context metadata */
-  context?: ConversationContext;
+  context?: ConversationContext
   /** Whether this is a group conversation */
-  isGroup: boolean;
+  isGroup: boolean
 }
 
 export interface ConversationContext {
   /** Conversation ID from external system */
-  conversationId?: string;
+  conversationId?: string
   /** Metadata key-value pairs */
-  metadata: Record<string, string>;
+  metadata: Record<string, string>
 }
 
 // ============ Group Types ============
 
 export interface XMTPGroup {
   /** Group ID */
-  id: string;
+  id: string
   /** MLS group state */
-  mlsGroupId: Uint8Array;
+  mlsGroupId: Uint8Array
   /** Group name */
-  name: string;
+  name: string
   /** Member addresses */
-  members: Address[];
+  members: Address[]
   /** Admin addresses */
-  admins: Address[];
+  admins: Address[]
   /** Creation timestamp */
-  createdAt: number;
+  createdAt: number
   /** Last message timestamp */
-  lastMessageAt?: number;
+  lastMessageAt?: number
   /** Group metadata */
-  metadata?: Record<string, string>;
+  metadata?: Record<string, string>
 }
 
 export interface GroupMemberUpdate {
   /** Type of update */
-  type: 'add' | 'remove';
+  type: 'add' | 'remove'
   /** Affected member */
-  member: Address;
+  member: Address
   /** Updated by */
-  updatedBy: Address;
+  updatedBy: Address
   /** Timestamp */
-  timestamp: number;
+  timestamp: number
 }
 
 // ============ Consent Types ============
 
-export type ConsentState = 'allowed' | 'denied' | 'unknown';
+export type ConsentState = 'allowed' | 'denied' | 'unknown'
 
 export interface ConsentEntry {
   /** Entry type */
-  entryType: 'address' | 'groupId' | 'inboxId';
+  entryType: 'address' | 'groupId' | 'inboxId'
   /** Entry value */
-  value: string;
+  value: string
   /** Consent state */
-  state: ConsentState;
+  state: ConsentState
   /** Updated timestamp */
-  updatedAt: number;
+  updatedAt: number
 }
 
 // ============ Node Types ============
 
 export interface XMTPNodeConfig {
   /** Unique node ID */
-  nodeId: string;
+  nodeId: string
   /** Jeju relay server URL */
-  jejuRelayUrl: string;
+  jejuRelayUrl: string
   /** IPFS gateway URL for persistence */
-  ipfsUrl?: string;
+  ipfsUrl?: string
   /** Local persistence directory */
-  persistenceDir: string;
+  persistenceDir: string
   /** Network (mainnet | testnet) */
-  network: 'mainnet' | 'testnet';
+  network: 'mainnet' | 'testnet'
   /** Enable metrics */
-  metricsEnabled?: boolean;
+  metricsEnabled?: boolean
   /** Metrics port */
-  metricsPort?: number;
+  metricsPort?: number
 }
 
 export interface XMTPNodeStats {
   /** Node ID */
-  nodeId: string;
+  nodeId: string
   /** Uptime in seconds */
-  uptime: number;
+  uptime: number
   /** Messages processed */
-  messagesProcessed: number;
+  messagesProcessed: number
   /** Messages forwarded */
-  messagesForwarded: number;
+  messagesForwarded: number
   /** Active connections */
-  activeConnections: number;
+  activeConnections: number
   /** Connected peers */
-  connectedPeers: string[];
+  connectedPeers: string[]
   /** Storage used bytes */
-  storageUsedBytes: number;
+  storageUsedBytes: number
 }
 
 // ============ Router Types ============
 
 export interface RouteConfig {
   /** Enable multi-region routing */
-  multiRegion: boolean;
+  multiRegion: boolean
   /** Preferred regions in order */
-  preferredRegions?: string[];
+  preferredRegions?: string[]
   /** Max retry attempts */
-  maxRetries: number;
+  maxRetries: number
   /** Retry delay ms */
-  retryDelayMs: number;
+  retryDelayMs: number
   /** Request timeout ms */
-  timeoutMs: number;
+  timeoutMs: number
 }
 
 export interface RouteResult {
   /** Success flag */
-  success: boolean;
+  success: boolean
   /** Message ID */
-  messageId?: string;
+  messageId?: string
   /** Relay node used */
-  relayNode?: string;
+  relayNode?: string
   /** Error message */
-  error?: string;
+  error?: string
   /** Delivery time ms */
-  deliveryTimeMs?: number;
+  deliveryTimeMs?: number
 }
 
 // ============ Sync Types ============
 
 export interface SyncState {
   /** Last synced block */
-  lastSyncedBlock: number;
+  lastSyncedBlock: number
   /** Last synced timestamp */
-  lastSyncedAt: number;
+  lastSyncedAt: number
   /** Pending messages count */
-  pendingMessages: number;
+  pendingMessages: number
   /** Sync in progress */
-  isSyncing: boolean;
+  isSyncing: boolean
 }
 
 export interface SyncOptions {
   /** Full sync from genesis */
-  fullSync: boolean;
+  fullSync: boolean
   /** Start from block */
-  fromBlock?: number;
+  fromBlock?: number
   /** Sync specific topics only */
-  topics?: string[];
+  topics?: string[]
   /** Max messages per batch */
-  batchSize: number;
+  batchSize: number
 }
-

@@ -30,7 +30,7 @@ FROM base AS builder
 COPY package.json bun.lockb ./
 COPY apps/bazaar/package.json ./apps/bazaar/
 COPY packages/ ./packages/
-COPY scripts/shared/ ./scripts/shared/
+COPY packages/deployment/scripts/shared/ ./packages/deployment/scripts/shared/
 
 RUN bun install
 

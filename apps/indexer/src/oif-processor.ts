@@ -1,54 +1,107 @@
 /**
  * OIF (Open Intents Framework) Event Processor
- * 
+ *
  * Indexes cross-chain intent events from InputSettler, OutputSettler, and SolverRegistry
  */
 
-import { Store } from '@subsquid/typeorm-store'
-import { ProcessorContext } from './processor'
-import { 
-  OIFIntent, OIFSolver, OIFSettlement, OIFRoute, OIFStats,
-  OIFChainStats, OIFSlashEvent, OIFAttestation,
-  OIFIntentStatus, OIFSettlementStatus, OIFOracleType
+import type { Store } from '@subsquid/typeorm-store'
+import { decodeAbiParameters, keccak256, stringToHex } from 'viem'
+import { createAccountFactory } from './lib/entities'
+import {
+  OIFAttestation,
+  OIFChainStats,
+  OIFIntent,
+  OIFIntentStatus,
+  OIFOracleType,
+  OIFRoute,
+  OIFSettlement,
+  OIFSettlementStatus,
+  OIFSlashEvent,
+  OIFSolver,
+  OIFStats,
 } from './model'
-import { keccak256, stringToHex, decodeAbiParameters } from 'viem'
-import { createAccountFactory, BlockHeader, LogData } from './lib/entities'
+import type { ProcessorContext } from './processor'
 
 // Event signatures for InputSettler
-const ORDER_OPENED = keccak256(stringToHex('Open(bytes32,(address,uint256,uint32,uint32,bytes32,(bytes32,uint256,bytes32,uint256)[],(bytes32,uint256,bytes32,uint256)[],(uint64,bytes32,bytes)[]))'))
-const ORDER_CREATED = keccak256(stringToHex('OrderCreated(bytes32,address,address,uint256,uint256,address,uint32)'))
-const ORDER_CLAIMED = keccak256(stringToHex('OrderClaimed(bytes32,address,uint256)'))
-const ORDER_SETTLED = keccak256(stringToHex('OrderSettled(bytes32,address,uint256,uint256)'))
-const ORDER_REFUNDED = keccak256(stringToHex('OrderRefunded(bytes32,address,uint256)'))
+const ORDER_OPENED = keccak256(
+  stringToHex(
+    'Open(bytes32,(address,uint256,uint32,uint32,bytes32,(bytes32,uint256,bytes32,uint256)[],(bytes32,uint256,bytes32,uint256)[],(uint64,bytes32,bytes)[]))',
+  ),
+)
+const ORDER_CREATED = keccak256(
+  stringToHex(
+    'OrderCreated(bytes32,address,address,uint256,uint256,address,uint32)',
+  ),
+)
+const ORDER_CLAIMED = keccak256(
+  stringToHex('OrderClaimed(bytes32,address,uint256)'),
+)
+const ORDER_SETTLED = keccak256(
+  stringToHex('OrderSettled(bytes32,address,uint256,uint256)'),
+)
+const ORDER_REFUNDED = keccak256(
+  stringToHex('OrderRefunded(bytes32,address,uint256)'),
+)
 
 // Event signatures for OutputSettler
 const FILL_EVENT = keccak256(stringToHex('Fill(bytes32,bytes32,bytes)'))
-const ORDER_FILLED = keccak256(stringToHex('OrderFilled(bytes32,address,address,address,uint256)'))
-const LIQUIDITY_DEPOSITED = keccak256(stringToHex('LiquidityDeposited(address,address,uint256)'))
-const LIQUIDITY_WITHDRAWN = keccak256(stringToHex('LiquidityWithdrawn(address,address,uint256)'))
+const ORDER_FILLED = keccak256(
+  stringToHex('OrderFilled(bytes32,address,address,address,uint256)'),
+)
+const LIQUIDITY_DEPOSITED = keccak256(
+  stringToHex('LiquidityDeposited(address,address,uint256)'),
+)
+const LIQUIDITY_WITHDRAWN = keccak256(
+  stringToHex('LiquidityWithdrawn(address,address,uint256)'),
+)
 
 // Event signatures for SolverRegistry
-const SOLVER_REGISTERED = keccak256(stringToHex('SolverRegistered(address,uint256,uint256[])'))
-const SOLVER_STAKE_DEPOSITED = keccak256(stringToHex('SolverStakeDeposited(address,uint256,uint256)'))
-const SOLVER_SLASHED = keccak256(stringToHex('SolverSlashed(address,bytes32,uint256)'))
-const SOLVER_WITHDRAWN = keccak256(stringToHex('SolverWithdrawn(address,uint256)'))
-const FILL_RECORDED = keccak256(stringToHex('FillRecorded(address,bytes32,bool)'))
+const SOLVER_REGISTERED = keccak256(
+  stringToHex('SolverRegistered(address,uint256,uint256[])'),
+)
+const SOLVER_STAKE_DEPOSITED = keccak256(
+  stringToHex('SolverStakeDeposited(address,uint256,uint256)'),
+)
+const SOLVER_SLASHED = keccak256(
+  stringToHex('SolverSlashed(address,bytes32,uint256)'),
+)
+const SOLVER_WITHDRAWN = keccak256(
+  stringToHex('SolverWithdrawn(address,uint256)'),
+)
+const FILL_RECORDED = keccak256(
+  stringToHex('FillRecorded(address,bytes32,bool)'),
+)
 
 // Event signatures for Oracle
-const ATTESTATION_SUBMITTED = keccak256(stringToHex('AttestationSubmitted(bytes32,address,uint256)'))
+const ATTESTATION_SUBMITTED = keccak256(
+  stringToHex('AttestationSubmitted(bytes32,address,uint256)'),
+)
 
 const OIF_EVENT_SIGNATURES = new Set([
-  ORDER_OPENED, ORDER_CREATED, ORDER_CLAIMED, ORDER_SETTLED, ORDER_REFUNDED,
-  FILL_EVENT, ORDER_FILLED, LIQUIDITY_DEPOSITED, LIQUIDITY_WITHDRAWN,
-  SOLVER_REGISTERED, SOLVER_STAKE_DEPOSITED, SOLVER_SLASHED, SOLVER_WITHDRAWN, FILL_RECORDED,
-  ATTESTATION_SUBMITTED
+  ORDER_OPENED,
+  ORDER_CREATED,
+  ORDER_CLAIMED,
+  ORDER_SETTLED,
+  ORDER_REFUNDED,
+  FILL_EVENT,
+  ORDER_FILLED,
+  LIQUIDITY_DEPOSITED,
+  LIQUIDITY_WITHDRAWN,
+  SOLVER_REGISTERED,
+  SOLVER_STAKE_DEPOSITED,
+  SOLVER_SLASHED,
+  SOLVER_WITHDRAWN,
+  FILL_RECORDED,
+  ATTESTATION_SUBMITTED,
 ])
 
 export function isOIFEvent(topic0: string): boolean {
   return OIF_EVENT_SIGNATURES.has(topic0 as `0x${string}`)
 }
 
-export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<void> {
+export async function processOIFEvents(
+  ctx: ProcessorContext<Store>,
+): Promise<void> {
   const intents = new Map<string, OIFIntent>()
   const solvers = new Map<string, OIFSolver>()
   const settlements = new Map<string, OIFSettlement>()
@@ -58,7 +111,10 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
   const routes = new Map<string, OIFRoute>()
   const chainStats = new Map<number, OIFChainStats>()
 
-  async function getOrCreateSolver(address: string, timestamp: Date): Promise<OIFSolver> {
+  async function getOrCreateSolver(
+    address: string,
+    timestamp: Date,
+  ): Promise<OIFSolver> {
     const id = address.toLowerCase()
     let solver = solvers.get(id)
     if (!solver) {
@@ -83,14 +139,17 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
         averageFillTimeMs: 0,
         totalVolumeUsd: 0n,
         totalFeesEarned: 0n,
-        reputation: 50
+        reputation: 50,
       })
     }
     solvers.set(id, solver)
     return solver
   }
 
-  function getOrCreateRoute(sourceChainId: number, destChainId: number): OIFRoute {
+  function getOrCreateRoute(
+    sourceChainId: number,
+    destChainId: number,
+  ): OIFRoute {
     const id = `${sourceChainId}-${destChainId}`
     let route = routes.get(id)
     if (!route) {
@@ -114,7 +173,7 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
         activeSolvers: 0,
         totalLiquidity: 0n,
         createdAt: new Date(),
-        lastUpdated: new Date()
+        lastUpdated: new Date(),
       })
       routes.set(id, route)
     }
@@ -128,16 +187,17 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
   }
 
   for (const block of ctx.blocks) {
-    const header = block.header as unknown as BlockHeader
+    const header = block.header
     const blockTimestamp = new Date(header.timestamp)
 
-    for (const rawLog of block.logs) {
-      const log = rawLog as unknown as LogData
+    for (const log of block.logs) {
       const eventSig = log.topics[0]
 
-      if (!eventSig || !OIF_EVENT_SIGNATURES.has(eventSig as `0x${string}`)) continue
+      if (!eventSig || !OIF_EVENT_SIGNATURES.has(eventSig as `0x${string}`))
+        continue
 
-      const txHash = log.transaction?.hash || `${header.hash}-${log.transactionIndex}`
+      const txHash =
+        log.transaction?.hash || `${header.hash}-${log.transactionIndex}`
 
       // Process each event type
       if (eventSig === ORDER_CREATED) {
@@ -145,13 +205,23 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
         // topics[0] = sig, topics[1] = orderId (indexed), topics[2] = user (indexed)
         // data = (inputToken, inputAmount, destinationChainId, recipient, fillDeadline)
         const orderId = log.topics[1]
-        const userAddr = '0x' + log.topics[2].slice(26)
+        const userAddr = `0x${log.topics[2].slice(26)}`
         const decoded = decodeAbiParameters(
-          [{ type: 'address' }, { type: 'uint256' }, { type: 'uint256' }, { type: 'address' }, { type: 'uint32' }],
-          log.data as `0x${string}`
+          [
+            { type: 'address' },
+            { type: 'uint256' },
+            { type: 'uint256' },
+            { type: 'address' },
+            { type: 'uint32' },
+          ],
+          log.data as `0x${string}`,
         )
 
-        const user = accountFactory.getOrCreate(userAddr, header.height, blockTimestamp)
+        const user = accountFactory.getOrCreate(
+          userAddr,
+          header.height,
+          blockTimestamp,
+        )
         const sourceChainId = 420691 // Network mainnet
         const destChainId = Number(decoded[2])
 
@@ -166,14 +236,14 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
           inputToken: decoded[0], // inputToken
           inputAmount: BigInt(decoded[1].toString()), // inputAmount
           outputToken: decoded[0], // Same token for now
-          outputAmount: BigInt(decoded[1].toString()) * 995n / 1000n, // 0.5% fee estimate
+          outputAmount: (BigInt(decoded[1].toString()) * 995n) / 1000n, // 0.5% fee estimate
           outputChainId: destChainId,
           recipient: decoded[3], // recipient
           maxFee: 0n,
           status: OIFIntentStatus.OPEN,
           createdAt: blockTimestamp,
           inputSettlerTx: txHash,
-          createdBlock: BigInt(header.height)
+          createdBlock: BigInt(header.height),
         })
 
         intents.set(orderId, intent)
@@ -187,7 +257,8 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
 
       if (eventSig === ORDER_CLAIMED) {
         const orderId = log.topics[1]
-        let intent = intents.get(orderId) || await ctx.store.get(OIFIntent, orderId)
+        const intent =
+          intents.get(orderId) || (await ctx.store.get(OIFIntent, orderId))
         if (intent) {
           intent.status = OIFIntentStatus.CLAIMED
           intent.claimedAt = blockTimestamp
@@ -201,13 +272,14 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
         // topics[0] = sig, topics[1] = orderId, topics[2] = solver, topics[3] = recipient
         // data = (token, amount)
         const orderId = log.topics[1]
-        const solverAddr = '0x' + log.topics[2].slice(26)
-        const decoded = decodeAbiParameters(
+        const solverAddr = `0x${log.topics[2].slice(26)}`
+        decodeAbiParameters(
           [{ type: 'address' }, { type: 'uint256' }],
-          log.data as `0x${string}`
+          log.data as `0x${string}`,
         )
 
-        let intent = intents.get(orderId) || await ctx.store.get(OIFIntent, orderId)
+        const intent =
+          intents.get(orderId) || (await ctx.store.get(OIFIntent, orderId))
         if (intent) {
           intent.status = OIFIntentStatus.FILLED
           intent.filledAt = blockTimestamp
@@ -216,7 +288,7 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
           intents.set(orderId, intent)
 
           const solver = await getOrCreateSolver(solverAddr, blockTimestamp)
-          
+
           // Create settlement
           const settlementId = `${orderId}-${txHash}`
           const settlement = new OIFSettlement({
@@ -234,7 +306,7 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
             status: OIFSettlementStatus.PENDING,
             createdAt: blockTimestamp,
             inputSettlerTx: intent.inputSettlerTx,
-            outputSettlerTx: txHash
+            outputSettlerTx: txHash,
           })
           settlements.set(settlementId, settlement)
 
@@ -248,14 +320,15 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
 
       if (eventSig === ORDER_SETTLED) {
         const orderId = log.topics[1]
-        let intent = intents.get(orderId) || await ctx.store.get(OIFIntent, orderId)
+        const intent =
+          intents.get(orderId) || (await ctx.store.get(OIFIntent, orderId))
         if (intent) {
           intent.status = OIFIntentStatus.SETTLED
           intent.settledAt = blockTimestamp
           intents.set(orderId, intent)
 
           // Update settlements
-          for (const [id, settlement] of settlements) {
+          for (const [_id, settlement] of settlements) {
             if (settlement.intent.id === orderId) {
               settlement.status = OIFSettlementStatus.SETTLED
               settlement.settledAt = blockTimestamp
@@ -266,14 +339,20 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
                 settlement.solver.successfulFills++
                 settlement.solver.totalVolumeUsd += settlement.inputAmount
                 settlement.solver.totalFeesEarned += settlement.fee
-                settlement.solver.reputation = Math.min(100, settlement.solver.reputation + 1)
+                settlement.solver.reputation = Math.min(
+                  100,
+                  settlement.solver.reputation + 1,
+                )
                 solvers.set(settlement.solver.id, settlement.solver)
               }
             }
           }
 
           // Update route stats
-          const route = getOrCreateRoute(intent.sourceChainId, intent.outputChainId)
+          const route = getOrCreateRoute(
+            intent.sourceChainId,
+            intent.outputChainId,
+          )
           route.successfulIntents++
           route.totalVolume += intent.inputAmount
           route.lastUpdated = blockTimestamp
@@ -282,23 +361,27 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
 
       if (eventSig === ORDER_REFUNDED) {
         const orderId = log.topics[1]
-        let intent = intents.get(orderId) || await ctx.store.get(OIFIntent, orderId)
+        const intent =
+          intents.get(orderId) || (await ctx.store.get(OIFIntent, orderId))
         if (intent) {
           intent.status = OIFIntentStatus.CANCELLED
           intents.set(orderId, intent)
 
           // Update route stats
-          const route = getOrCreateRoute(intent.sourceChainId, intent.outputChainId)
+          const route = getOrCreateRoute(
+            intent.sourceChainId,
+            intent.outputChainId,
+          )
           route.failedIntents++
           route.lastUpdated = blockTimestamp
         }
       }
 
       if (eventSig === SOLVER_REGISTERED) {
-        const solverAddr = '0x' + log.topics[1].slice(26)
+        const solverAddr = `0x${log.topics[1].slice(26)}`
         const decoded = decodeAbiParameters(
           [{ type: 'uint256' }, { type: 'uint256[]' }],
-          log.data as `0x${string}`
+          log.data as `0x${string}`,
         )
 
         const solver = await getOrCreateSolver(solverAddr, blockTimestamp)
@@ -312,10 +395,10 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
       }
 
       if (eventSig === SOLVER_STAKE_DEPOSITED) {
-        const solverAddr = '0x' + log.topics[1].slice(26)
+        const solverAddr = `0x${log.topics[1].slice(26)}`
         const decoded = decodeAbiParameters(
           [{ type: 'uint256' }, { type: 'uint256' }],
-          log.data as `0x${string}`
+          log.data as `0x${string}`,
         )
 
         const solver = await getOrCreateSolver(solverAddr, blockTimestamp)
@@ -325,13 +408,14 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
       }
 
       if (eventSig === SOLVER_SLASHED) {
-        const solverAddr = '0x' + log.topics[1].slice(26)
+        const solverAddr = `0x${log.topics[1].slice(26)}`
         const intentId = log.topics[2]
         const amount = BigInt(log.data)
 
         const solver = await getOrCreateSolver(solverAddr, blockTimestamp)
         solver.slashedAmount += amount
-        solver.stakedAmount = solver.stakedAmount > amount ? solver.stakedAmount - amount : 0n
+        solver.stakedAmount =
+          solver.stakedAmount > amount ? solver.stakedAmount - amount : 0n
         solver.reputation = Math.max(0, solver.reputation - 10)
         solver.failedFills++
         solver.lastActiveAt = blockTimestamp
@@ -342,27 +426,30 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
 
         solvers.set(solver.id, solver)
 
-        slashEvents.push(new OIFSlashEvent({
-          id: `${txHash}-${log.logIndex}`,
-          solver,
-          intentId,
-          orderId: intentId,
-          chainId: 420691,
-          amount,
-          victim: '',
-          reason: 'Failed to fulfill intent',
-          timestamp: blockTimestamp,
-          disputed: false,
-          txHash
-        }))
+        slashEvents.push(
+          new OIFSlashEvent({
+            id: `${txHash}-${log.logIndex}`,
+            solver,
+            intentId,
+            orderId: intentId,
+            chainId: 420691,
+            amount,
+            victim: '',
+            reason: 'Failed to fulfill intent',
+            timestamp: blockTimestamp,
+            disputed: false,
+            txHash,
+          }),
+        )
       }
 
       if (eventSig === SOLVER_WITHDRAWN) {
-        const solverAddr = '0x' + log.topics[1].slice(26)
+        const solverAddr = `0x${log.topics[1].slice(26)}`
         const amount = BigInt(log.data)
 
         const solver = await getOrCreateSolver(solverAddr, blockTimestamp)
-        solver.stakedAmount = solver.stakedAmount > amount ? solver.stakedAmount - amount : 0n
+        solver.stakedAmount =
+          solver.stakedAmount > amount ? solver.stakedAmount - amount : 0n
         solver.isActive = solver.stakedAmount > 0n
         solver.lastActiveAt = blockTimestamp
         solvers.set(solver.id, solver)
@@ -372,8 +459,11 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
         // FillRecorded(address indexed solver, bytes32 indexed orderId, bool success)
         // topics[0] = sig, topics[1] = solver, topics[2] = orderId
         // data = (success)
-        const solverAddr = '0x' + log.topics[1].slice(26)
-        const decoded = decodeAbiParameters([{ type: 'bool' }], log.data as `0x${string}`)
+        const solverAddr = `0x${log.topics[1].slice(26)}`
+        const decoded = decodeAbiParameters(
+          [{ type: 'bool' }],
+          log.data as `0x${string}`,
+        )
 
         const success = decoded[0]
         const solver = await getOrCreateSolver(solverAddr, blockTimestamp)
@@ -388,7 +478,9 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
 
         // Update success rate
         if (solver.totalFills > 0) {
-          solver.successRate = Math.floor((solver.successfulFills / solver.totalFills) * 100)
+          solver.successRate = Math.floor(
+            (solver.successfulFills / solver.totalFills) * 100,
+          )
         }
 
         solver.lastActiveAt = blockTimestamp
@@ -400,11 +492,11 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
         // topics[0] = sig, topics[1] = orderId, topics[2] = attester
         // data = (timestamp)
         const orderId = log.topics[1]
-        const attesterAddr = '0x' + log.topics[2].slice(26)
-        const decoded = decodeAbiParameters([{ type: 'uint256' }], log.data as `0x${string}`)
+        decodeAbiParameters([{ type: 'uint256' }], log.data as `0x${string}`)
 
         const attestationId = `${orderId}-${txHash}`
-        const intent = intents.get(orderId) || await ctx.store.get(OIFIntent, orderId)
+        const intent =
+          intents.get(orderId) || (await ctx.store.get(OIFIntent, orderId))
 
         if (intent) {
           intent.attestationTx = txHash
@@ -423,12 +515,12 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
             proofTimestamp: blockTimestamp,
             verified: true,
             verifiedAt: blockTimestamp,
-            verificationTx: txHash
+            verificationTx: txHash,
           })
           attestations.set(attestationId, attestation)
 
           // Update settlements
-          for (const [id, settlement] of settlements) {
+          for (const [_id, settlement] of settlements) {
             if (settlement.intent.id === orderId) {
               settlement.status = OIFSettlementStatus.ATTESTED
               settlement.attestedAt = blockTimestamp
@@ -447,13 +539,15 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
   // Update route success rates
   for (const [, route] of routes) {
     if (route.totalIntents > 0) {
-      route.successRate = Math.floor((route.successfulIntents / route.totalIntents) * 100)
+      route.successRate = Math.floor(
+        (route.successfulIntents / route.totalIntents) * 100,
+      )
     }
   }
 
   // Persist all entities
   await ctx.store.upsert(accountFactory.getAll())
-  
+
   if (intents.size > 0) {
     await ctx.store.upsert([...intents.values()])
   }
@@ -479,13 +573,20 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
   // Update global stats
   await updateGlobalStats(ctx)
 
-  const totalEvents = intents.size + solvers.size + settlements.size + attestations.size
+  const totalEvents =
+    intents.size + solvers.size + settlements.size + attestations.size
   if (totalEvents > 0) {
-    ctx.log.info(`OIF: ${intents.size} intents, ${solvers.size} solvers, ${settlements.size} settlements, ${attestations.size} attestations`)
+    ctx.log.info(
+      `OIF: ${intents.size} intents, ${solvers.size} solvers, ${settlements.size} settlements, ${attestations.size} attestations`,
+    )
   }
 }
 
-function updateChainStats(contractAddress: string, blockNumber: number, chainStats: Map<number, OIFChainStats>): void {
+function updateChainStats(
+  contractAddress: string,
+  _blockNumber: number,
+  chainStats: Map<number, OIFChainStats>,
+): void {
   const chainId = 420691 // Default to the network mainnet
 
   let stats = chainStats.get(chainId)
@@ -505,7 +606,7 @@ function updateChainStats(contractAddress: string, blockNumber: number, chainSta
       outboundVolume: 0n,
       inboundIntents: 0,
       inboundVolume: 0n,
-      lastUpdated: new Date()
+      lastUpdated: new Date(),
     })
   }
 
@@ -540,21 +641,26 @@ async function updateGlobalStats(ctx: ProcessorContext<Store>): Promise<void> {
       last24hIntents: 0,
       last24hVolume: 0n,
       last24hFees: 0n,
-      lastUpdated: new Date()
+      lastUpdated: new Date(),
     })
   }
 
   // Update counts from database
   const intentCount = await ctx.store.count(OIFIntent)
   const solverCount = await ctx.store.count(OIFSolver)
-  const activeSolverCount = await ctx.store.count(OIFSolver, { where: { isActive: true } })
-  const settledCount = await ctx.store.count(OIFIntent, { where: { status: OIFIntentStatus.SETTLED } })
+  const activeSolverCount = await ctx.store.count(OIFSolver, {
+    where: { isActive: true },
+  })
+  const settledCount = await ctx.store.count(OIFIntent, {
+    where: { status: OIFIntentStatus.SETTLED },
+  })
 
   stats.totalIntents = BigInt(intentCount)
   stats.totalSolvers = solverCount
   stats.activeSolvers = activeSolverCount
   stats.filledIntents = settledCount
-  stats.successRate = intentCount > 0 ? Math.floor((settledCount / intentCount) * 100) : 100
+  stats.successRate =
+    intentCount > 0 ? Math.floor((settledCount / intentCount) * 100) : 100
   stats.lastUpdated = new Date()
 
   await ctx.store.upsert(stats)

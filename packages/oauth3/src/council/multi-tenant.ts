@@ -1,47 +1,47 @@
 /**
  * Multi-tenant Council Integration
- * 
+ *
  * Enables multiple independent councils (Jeju, Babylon, Eliza) to each have
  * their own OAuth3 apps, CEOs, and governance while sharing the same infrastructure.
  */
 
-import { keccak256, toBytes, type Address, type Hex } from 'viem';
+import { type Address, type Hex, keccak256, toBytes } from 'viem'
 import type {
+  AuthProvider,
   CouncilConfig,
   CouncilType,
   OAuth3App,
-  AuthProvider,
-} from '../types.js';
+} from '../types.js'
 
 export interface CouncilDeployment {
-  councilType: CouncilType;
-  config: CouncilConfig;
-  oauth3App: OAuth3App;
-  treasury: Address;
-  ceo: CEOConfig;
-  agents: CouncilAgentConfig[];
+  councilType: CouncilType
+  config: CouncilConfig
+  oauth3App: OAuth3App
+  treasury: Address
+  ceo: CEOConfig
+  agents: CouncilAgentConfig[]
 }
 
 export interface CEOConfig {
-  name: string;
-  address: Address;
-  privateKey?: Hex;
-  modelProvider: string;
-  modelId: string;
-  systemPrompt: string;
+  name: string
+  address: Address
+  privateKey?: Hex
+  modelProvider: string
+  modelId: string
+  systemPrompt: string
 }
 
 export interface CouncilAgentConfig {
-  role: string;
-  name: string;
-  address: Address;
-  specialization: string;
-  votingWeight: number;
+  role: string
+  name: string
+  address: Address
+  specialization: string
+  votingWeight: number
 }
 
 export interface CouncilRegistry {
-  councils: Map<CouncilType, CouncilDeployment>;
-  defaultCouncil: CouncilType;
+  councils: Map<CouncilType, CouncilDeployment>
+  defaultCouncil: CouncilType
 }
 
 const DEFAULT_COUNCILS: Record<CouncilType, Partial<CouncilDeployment>> = {
@@ -198,73 +198,80 @@ Prioritize safety, capability advancement, and developer experience.`,
       },
     ],
   },
-};
+}
 
 export class MultiTenantCouncilManager {
-  private registry: CouncilRegistry;
-  private identityRegistryAddress: Address;
-  private appRegistryAddress: Address;
-  private chainId: number;
+  private registry: CouncilRegistry
 
   constructor(
     identityRegistryAddress: Address,
     appRegistryAddress: Address,
-    chainId: number
+    chainId: number,
   ) {
-    this.identityRegistryAddress = identityRegistryAddress;
-    this.appRegistryAddress = appRegistryAddress;
-    this.chainId = chainId;
+    this.identityRegistryAddress = identityRegistryAddress
+    this.appRegistryAddress = appRegistryAddress
+    this.chainId = chainId
     this.registry = {
       councils: new Map(),
       defaultCouncil: 'jeju' as CouncilType,
-    };
+    }
   }
 
   async initializeDefaultCouncils(): Promise<void> {
     for (const [type, template] of Object.entries(DEFAULT_COUNCILS)) {
-      await this.registerCouncil(type as CouncilType, template);
+      await this.registerCouncil(type as CouncilType, template)
     }
   }
 
   async registerCouncil(
     councilType: CouncilType,
-    config: Partial<CouncilDeployment>
+    config: Partial<CouncilDeployment>,
   ): Promise<CouncilDeployment> {
-    const template = DEFAULT_COUNCILS[councilType];
-    
+    const template = DEFAULT_COUNCILS[councilType]
+
+    if (!template.config || !template.ceo || !template.agents) {
+      throw new Error(`Missing template data for council type: ${councilType}`)
+    }
+
     const deployment: CouncilDeployment = {
       councilType,
       config: {
-        ...template.config!,
+        ...template.config,
         ...config.config,
       },
-      oauth3App: config.oauth3App ?? await this.createCouncilOAuthApp(councilType, config),
-      treasury: config.treasury ?? template.config!.treasury,
+      oauth3App:
+        config.oauth3App ??
+        (await this.createCouncilOAuthApp(councilType, config)),
+      treasury: config.treasury ?? template.config.treasury,
       ceo: {
-        ...template.ceo!,
+        ...template.ceo,
         ...config.ceo,
       },
-      agents: config.agents ?? template.agents!,
-    };
+      agents: config.agents ?? template.agents,
+    }
 
-    this.registry.councils.set(councilType, deployment);
+    this.registry.councils.set(councilType, deployment)
 
-    return deployment;
+    return deployment
   }
 
   private async createCouncilOAuthApp(
     councilType: CouncilType,
-    config: Partial<CouncilDeployment>
+    config: Partial<CouncilDeployment>,
   ): Promise<OAuth3App> {
-    const now = Date.now();
-    const appId = keccak256(toBytes(`oauth3-app:${councilType}:${now}`));
+    const now = Date.now()
+    const appId = keccak256(toBytes(`oauth3-app:${councilType}:${now}`))
 
     const app: OAuth3App = {
       appId,
       name: `${councilType.charAt(0).toUpperCase() + councilType.slice(1)} Council OAuth3`,
       description: `Official OAuth3 app for the ${councilType} council`,
-      owner: config.treasury ?? '0x0000000000000000000000000000000000000000' as Address,
-      council: config.treasury ?? '0x0000000000000000000000000000000000000000' as Address,
+      owner:
+        config.treasury ??
+        ('0x0000000000000000000000000000000000000000' as Address),
+      council:
+        config.treasury ??
+        ('0x0000000000000000000000000000000000000000' as Address),
       redirectUris: [
         `https://${councilType}.jejunetwork.org/auth/callback`,
         `https://council.${councilType}.jejunetwork.org/auth/callback`,
@@ -288,130 +295,133 @@ export class MultiTenantCouncilManager {
         supportEmail: `support@${councilType}.jejunetwork.org`,
         webhookUrl: `https://api.${councilType}.jejunetwork.org/webhooks/oauth3`,
       },
-    };
+    }
 
-    return app;
+    return app
   }
 
   getCouncil(councilType: CouncilType): CouncilDeployment | undefined {
-    return this.registry.councils.get(councilType);
+    return this.registry.councils.get(councilType)
   }
 
   getAllCouncils(): CouncilDeployment[] {
-    return Array.from(this.registry.councils.values());
+    return Array.from(this.registry.councils.values())
   }
 
   getDefaultCouncil(): CouncilDeployment | undefined {
-    return this.registry.councils.get(this.registry.defaultCouncil);
+    return this.registry.councils.get(this.registry.defaultCouncil)
   }
 
   setDefaultCouncil(councilType: CouncilType): void {
     if (!this.registry.councils.has(councilType)) {
-      throw new Error(`Council ${councilType} not registered`);
+      throw new Error(`Council ${councilType} not registered`)
     }
-    this.registry.defaultCouncil = councilType;
+    this.registry.defaultCouncil = councilType
   }
 
   async updateCouncilCEO(
     councilType: CouncilType,
-    ceoConfig: Partial<CEOConfig>
+    ceoConfig: Partial<CEOConfig>,
   ): Promise<void> {
-    const council = this.registry.councils.get(councilType);
+    const council = this.registry.councils.get(councilType)
     if (!council) {
-      throw new Error(`Council ${councilType} not found`);
+      throw new Error(`Council ${councilType} not found`)
     }
 
-    council.ceo = { ...council.ceo, ...ceoConfig };
+    council.ceo = { ...council.ceo, ...ceoConfig }
   }
 
   async addCouncilAgent(
     councilType: CouncilType,
-    agent: CouncilAgentConfig
+    agent: CouncilAgentConfig,
   ): Promise<void> {
-    const council = this.registry.councils.get(councilType);
+    const council = this.registry.councils.get(councilType)
     if (!council) {
-      throw new Error(`Council ${councilType} not found`);
+      throw new Error(`Council ${councilType} not found`)
     }
 
-    const existingIndex = council.agents.findIndex(a => a.role === agent.role);
+    const existingIndex = council.agents.findIndex((a) => a.role === agent.role)
     if (existingIndex >= 0) {
-      council.agents[existingIndex] = agent;
+      council.agents[existingIndex] = agent
     } else {
-      council.agents.push(agent);
+      council.agents.push(agent)
     }
 
-    council.config.councilAgents = council.agents.map(a => a.address);
+    council.config.councilAgents = council.agents.map((a) => a.address)
   }
 
   async removeCouncilAgent(
     councilType: CouncilType,
-    role: string
+    role: string,
   ): Promise<void> {
-    const council = this.registry.councils.get(councilType);
+    const council = this.registry.councils.get(councilType)
     if (!council) {
-      throw new Error(`Council ${councilType} not found`);
+      throw new Error(`Council ${councilType} not found`)
     }
 
-    council.agents = council.agents.filter(a => a.role !== role);
-    council.config.councilAgents = council.agents.map(a => a.address);
+    council.agents = council.agents.filter((a) => a.role !== role)
+    council.config.councilAgents = council.agents.map((a) => a.address)
   }
 
   getCouncilOAuthApp(councilType: CouncilType): OAuth3App | undefined {
-    return this.registry.councils.get(councilType)?.oauth3App;
+    return this.registry.councils.get(councilType)?.oauth3App
   }
 
   async validateCouncilAccess(
     councilType: CouncilType,
-    address: Address
+    address: Address,
   ): Promise<{ hasAccess: boolean; roles: string[] }> {
-    const council = this.registry.councils.get(councilType);
+    const council = this.registry.councils.get(councilType)
     if (!council) {
-      return { hasAccess: false, roles: [] };
+      return { hasAccess: false, roles: [] }
     }
 
-    const roles: string[] = [];
+    const roles: string[] = []
 
     if (council.treasury.toLowerCase() === address.toLowerCase()) {
-      roles.push('treasury');
+      roles.push('treasury')
     }
 
     if (council.ceo.address.toLowerCase() === address.toLowerCase()) {
-      roles.push('ceo');
+      roles.push('ceo')
     }
 
     for (const agent of council.agents) {
       if (agent.address.toLowerCase() === address.toLowerCase()) {
-        roles.push(agent.role.toLowerCase());
+        roles.push(agent.role.toLowerCase())
       }
     }
 
     return {
       hasAccess: roles.length > 0,
       roles,
-    };
+    }
   }
 
   getCouncilStats(): {
-    totalCouncils: number;
-    totalAgents: number;
-    councilBreakdown: Record<CouncilType, { agents: number; oauth3AppId: Hex }>;
+    totalCouncils: number
+    totalAgents: number
+    councilBreakdown: Record<CouncilType, { agents: number; oauth3AppId: Hex }>
   } {
-    const councilBreakdown: Record<CouncilType, { agents: number; oauth3AppId: Hex }> = {} as Record<CouncilType, { agents: number; oauth3AppId: Hex }>;
-    let totalAgents = 0;
+    const councilBreakdown: Record<
+      CouncilType,
+      { agents: number; oauth3AppId: Hex }
+    > = {} as Record<CouncilType, { agents: number; oauth3AppId: Hex }>
+    let totalAgents = 0
 
     for (const [type, council] of this.registry.councils) {
       councilBreakdown[type] = {
         agents: council.agents.length,
         oauth3AppId: council.oauth3App.appId,
-      };
-      totalAgents += council.agents.length;
+      }
+      totalAgents += council.agents.length
     }
 
     return {
       totalCouncils: this.registry.councils.size,
       totalAgents,
       councilBreakdown,
-    };
+    }
   }
 
   toJSON(): string {
@@ -424,25 +434,25 @@ export class MultiTenantCouncilManager {
             ...council,
             ceo: { ...council.ceo, privateKey: undefined },
           },
-        ])
+        ]),
       ),
-    };
-    return JSON.stringify(data, null, 2);
+    }
+    return JSON.stringify(data, null, 2)
   }
 }
 
 export async function createMultiTenantCouncilManager(
   identityRegistryAddress: Address,
   appRegistryAddress: Address,
-  chainId: number
+  chainId: number,
 ): Promise<MultiTenantCouncilManager> {
   const manager = new MultiTenantCouncilManager(
     identityRegistryAddress,
     appRegistryAddress,
-    chainId
-  );
+    chainId,
+  )
 
-  await manager.initializeDefaultCouncils();
+  await manager.initializeDefaultCouncils()
 
-  return manager;
+  return manager
 }

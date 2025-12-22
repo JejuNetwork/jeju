@@ -1,14 +1,26 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { 
-  Shield, AlertTriangle, DollarSign, Clock, 
-  CheckCircle, XCircle, Eye, ArrowRight,
-  Bug, Zap, Lock, Server, Wallet, Code,
-  TrendingUp, Users, Award
+import {
+  AlertTriangle,
+  ArrowRight,
+  Award,
+  Bug,
+  CheckCircle,
+  Code,
+  DollarSign,
+  Eye,
+  Lock,
+  Server,
+  Shield,
+  TrendingUp,
+  Users,
+  Wallet,
+  XCircle,
+  Zap,
 } from 'lucide-react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import { formatEther } from 'viem'
 
 // Types
@@ -30,10 +42,30 @@ interface BountyStats {
 
 // Severity config
 const SEVERITY_CONFIG = [
-  { label: 'Low', color: 'bg-blue-500', textColor: 'text-blue-500', range: '$500 - $2,500' },
-  { label: 'Medium', color: 'bg-yellow-500', textColor: 'text-yellow-500', range: '$2,500 - $10,000' },
-  { label: 'High', color: 'bg-orange-500', textColor: 'text-orange-500', range: '$10,000 - $25,000' },
-  { label: 'Critical', color: 'bg-red-500', textColor: 'text-red-500', range: '$25,000 - $50,000' },
+  {
+    label: 'Low',
+    color: 'bg-blue-500',
+    textColor: 'text-blue-500',
+    range: '$500 - $2,500',
+  },
+  {
+    label: 'Medium',
+    color: 'bg-yellow-500',
+    textColor: 'text-yellow-500',
+    range: '$2,500 - $10,000',
+  },
+  {
+    label: 'High',
+    color: 'bg-orange-500',
+    textColor: 'text-orange-500',
+    range: '$10,000 - $25,000',
+  },
+  {
+    label: 'Critical',
+    color: 'bg-red-500',
+    textColor: 'text-red-500',
+    range: '$25,000 - $50,000',
+  },
 ]
 
 const STATUS_CONFIG = [
@@ -50,12 +82,32 @@ const STATUS_CONFIG = [
 ]
 
 const VULN_TYPES = [
-  { icon: Wallet, label: 'Funds at Risk', description: 'Direct loss of user funds' },
-  { icon: Lock, label: 'Wallet Drain', description: 'Unauthorized wallet access' },
-  { icon: Code, label: 'Remote Code Execution', description: 'RCE on infrastructure' },
+  {
+    icon: Wallet,
+    label: 'Funds at Risk',
+    description: 'Direct loss of user funds',
+  },
+  {
+    icon: Lock,
+    label: 'Wallet Drain',
+    description: 'Unauthorized wallet access',
+  },
+  {
+    icon: Code,
+    label: 'Remote Code Execution',
+    description: 'RCE on infrastructure',
+  },
   { icon: Shield, label: 'TEE Bypass', description: 'Enclave manipulation' },
-  { icon: Server, label: 'Consensus Attack', description: '51% or consensus issues' },
-  { icon: Lock, label: 'MPC Key Exposure', description: 'Key material leakage' },
+  {
+    icon: Server,
+    label: 'Consensus Attack',
+    description: '51% or consensus issues',
+  },
+  {
+    icon: Lock,
+    label: 'MPC Key Exposure',
+    description: 'Key material leakage',
+  },
 ]
 
 export default function BugBountyPage() {
@@ -63,7 +115,9 @@ export default function BugBountyPage() {
   const [stats, setStats] = useState<BountyStats | null>(null)
   const [submissions, setSubmissions] = useState<BountySubmission[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'overview' | 'submissions' | 'leaderboard'>('overview')
+  const [activeTab, setActiveTab] = useState<
+    'overview' | 'submissions' | 'leaderboard'
+  >('overview')
 
   useEffect(() => {
     async function fetchData() {
@@ -84,10 +138,14 @@ export default function BugBountyPage() {
 
         if (submissionsRes.ok) {
           const data = await submissionsRes.json()
-          setSubmissions(data.submissions?.map((s: BountySubmission & { rewardAmount: string }) => ({
-            ...s,
-            rewardAmount: BigInt(s.rewardAmount ?? '0'),
-          })) ?? [])
+          setSubmissions(
+            data.submissions?.map(
+              (s: BountySubmission & { rewardAmount: string }) => ({
+                ...s,
+                rewardAmount: BigInt(s.rewardAmount ?? '0'),
+              }),
+            ) ?? [],
+          )
         }
       } catch (err) {
         console.error('Failed to fetch bug bounty data:', err)
@@ -104,7 +162,7 @@ export default function BugBountyPage() {
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-red-500/10 via-orange-500/10 to-yellow-500/10" />
         <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-20" />
-        
+
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
           <div className="text-center">
             <div className="flex justify-center mb-6">
@@ -112,13 +170,14 @@ export default function BugBountyPage() {
                 <Bug className="w-12 h-12 text-red-400" />
               </div>
             </div>
-            
+
             <h1 className="text-4xl sm:text-5xl font-bold text-white mb-4">
               Security Bug Bounty
             </h1>
-            
+
             <p className="text-xl text-gray-300 max-w-2xl mx-auto mb-8">
-              Help secure Jeju Network. Report vulnerabilities and earn rewards up to $50,000.
+              Help secure Jeju Network. Report vulnerabilities and earn rewards
+              up to $50,000.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -130,7 +189,7 @@ export default function BugBountyPage() {
                 Report Vulnerability
                 <ArrowRight className="w-5 h-5" />
               </Link>
-              
+
               <a
                 href="#scope"
                 className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-xl transition-all"
@@ -197,14 +256,16 @@ export default function BugBountyPage() {
                 <DollarSign className="w-6 h-6 text-green-400" />
                 Reward Tiers
               </h2>
-              
+
               <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {SEVERITY_CONFIG.map((severity, i) => (
                   <div
                     key={severity.label}
                     className={`p-6 rounded-xl bg-gray-800/50 border border-gray-700 hover:border-gray-600 transition-colors`}
                   >
-                    <div className={`inline-block px-3 py-1 rounded-full text-sm font-medium text-white mb-4 ${severity.color}`}>
+                    <div
+                      className={`inline-block px-3 py-1 rounded-full text-sm font-medium text-white mb-4 ${severity.color}`}
+                    >
                       {severity.label}
                     </div>
                     <div className="text-2xl font-bold text-white mb-2">
@@ -227,7 +288,7 @@ export default function BugBountyPage() {
                 <Shield className="w-6 h-6 text-blue-400" />
                 In Scope
               </h2>
-              
+
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {VULN_TYPES.map((type) => (
                   <div
@@ -238,34 +299,78 @@ export default function BugBountyPage() {
                       <type.icon className="w-6 h-6 text-gray-300" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-white mb-1">{type.label}</h3>
-                      <p className="text-sm text-gray-400">{type.description}</p>
+                      <h3 className="font-semibold text-white mb-1">
+                        {type.label}
+                      </h3>
+                      <p className="text-sm text-gray-400">
+                        {type.description}
+                      </p>
                     </div>
                   </div>
                 ))}
               </div>
 
               <div className="mt-6 p-4 bg-gray-800/50 rounded-xl border border-gray-700">
-                <h3 className="font-semibold text-white mb-2">Also In Scope:</h3>
+                <h3 className="font-semibold text-white mb-2">
+                  Also In Scope:
+                </h3>
                 <ul className="grid sm:grid-cols-2 gap-2 text-sm text-gray-300">
-                  <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-400" /> Smart contracts (Solidity)</li>
-                  <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-400" /> Backend services (TypeScript)</li>
-                  <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-400" /> DWS compute infrastructure</li>
-                  <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-400" /> MPC key management</li>
-                  <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-400" /> TEE/enclave security</li>
-                  <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-400" /> Bridge protocols</li>
-                  <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-400" /> Oracle integrations</li>
-                  <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-400" /> Governance mechanisms</li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-400" /> Smart
+                    contracts (Solidity)
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-400" /> Backend
+                    services (TypeScript)
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-400" /> DWS
+                    compute infrastructure
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-400" /> MPC key
+                    management
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-400" />{' '}
+                    TEE/enclave security
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-400" /> Bridge
+                    protocols
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-400" /> Oracle
+                    integrations
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-400" />{' '}
+                    Governance mechanisms
+                  </li>
                 </ul>
               </div>
 
               <div className="mt-4 p-4 bg-red-900/20 rounded-xl border border-red-800/50">
-                <h3 className="font-semibold text-red-400 mb-2">Out of Scope:</h3>
+                <h3 className="font-semibold text-red-400 mb-2">
+                  Out of Scope:
+                </h3>
                 <ul className="grid sm:grid-cols-2 gap-2 text-sm text-gray-300">
-                  <li className="flex items-center gap-2"><XCircle className="w-4 h-4 text-red-400" /> Third-party dependencies</li>
-                  <li className="flex items-center gap-2"><XCircle className="w-4 h-4 text-red-400" /> Social engineering</li>
-                  <li className="flex items-center gap-2"><XCircle className="w-4 h-4 text-red-400" /> Physical security</li>
-                  <li className="flex items-center gap-2"><XCircle className="w-4 h-4 text-red-400" /> DoS via gas limits</li>
+                  <li className="flex items-center gap-2">
+                    <XCircle className="w-4 h-4 text-red-400" /> Third-party
+                    dependencies
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <XCircle className="w-4 h-4 text-red-400" /> Social
+                    engineering
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <XCircle className="w-4 h-4 text-red-400" /> Physical
+                    security
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <XCircle className="w-4 h-4 text-red-400" /> DoS via gas
+                    limits
+                  </li>
                 </ul>
               </div>
             </section>
@@ -276,19 +381,40 @@ export default function BugBountyPage() {
                 <Zap className="w-6 h-6 text-yellow-400" />
                 Submission Process
               </h2>
-              
+
               <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
-                  { step: 1, title: 'Submit', desc: 'File encrypted vulnerability report with PoC' },
-                  { step: 2, title: 'Validation', desc: 'AI agent runs PoC in secure sandbox' },
-                  { step: 3, title: 'Review', desc: 'Guardians vote on validity and reward' },
-                  { step: 4, title: 'Payout', desc: 'CEO approves, reward paid on-chain' },
+                  {
+                    step: 1,
+                    title: 'Submit',
+                    desc: 'File encrypted vulnerability report with PoC',
+                  },
+                  {
+                    step: 2,
+                    title: 'Validation',
+                    desc: 'AI agent runs PoC in secure sandbox',
+                  },
+                  {
+                    step: 3,
+                    title: 'Review',
+                    desc: 'Guardians vote on validity and reward',
+                  },
+                  {
+                    step: 4,
+                    title: 'Payout',
+                    desc: 'CEO approves, reward paid on-chain',
+                  },
                 ].map((item) => (
-                  <div key={item.step} className="relative p-6 rounded-xl bg-gray-800/50 border border-gray-700">
+                  <div
+                    key={item.step}
+                    className="relative p-6 rounded-xl bg-gray-800/50 border border-gray-700"
+                  >
                     <div className="absolute -top-3 left-4 px-3 py-1 bg-red-500 text-white text-sm font-bold rounded-full">
                       {item.step}
                     </div>
-                    <h3 className="font-semibold text-white mt-2 mb-2">{item.title}</h3>
+                    <h3 className="font-semibold text-white mt-2 mb-2">
+                      {item.title}
+                    </h3>
                     <p className="text-sm text-gray-400">{item.desc}</p>
                   </div>
                 ))}
@@ -301,27 +427,57 @@ export default function BugBountyPage() {
                 <AlertTriangle className="w-6 h-6 text-orange-400" />
                 Rules & Guidelines
               </h2>
-              
+
               <div className="p-6 rounded-xl bg-gray-800/50 border border-gray-700 space-y-4">
                 <div className="grid sm:grid-cols-2 gap-6">
                   <div>
                     <h3 className="font-semibold text-green-400 mb-3">DO:</h3>
                     <ul className="space-y-2 text-sm text-gray-300">
-                      <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-green-400 mt-0.5 shrink-0" /> Provide detailed reproduction steps</li>
-                      <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-green-400 mt-0.5 shrink-0" /> Include working proof of concept</li>
-                      <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-green-400 mt-0.5 shrink-0" /> Suggest a fix when possible</li>
-                      <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-green-400 mt-0.5 shrink-0" /> Wait for fix before disclosure</li>
-                      <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-green-400 mt-0.5 shrink-0" /> Stake to prioritize your submission</li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 shrink-0" />{' '}
+                        Provide detailed reproduction steps
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 shrink-0" />{' '}
+                        Include working proof of concept
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 shrink-0" />{' '}
+                        Suggest a fix when possible
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 shrink-0" />{' '}
+                        Wait for fix before disclosure
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 shrink-0" />{' '}
+                        Stake to prioritize your submission
+                      </li>
                     </ul>
                   </div>
                   <div>
                     <h3 className="font-semibold text-red-400 mb-3">DO NOT:</h3>
                     <ul className="space-y-2 text-sm text-gray-300">
-                      <li className="flex items-start gap-2"><XCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" /> Access user data or funds</li>
-                      <li className="flex items-start gap-2"><XCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" /> Execute exploits on mainnet</li>
-                      <li className="flex items-start gap-2"><XCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" /> Disclose before fix is deployed</li>
-                      <li className="flex items-start gap-2"><XCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" /> Submit duplicates knowingly</li>
-                      <li className="flex items-start gap-2"><XCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" /> Use automated scanners only</li>
+                      <li className="flex items-start gap-2">
+                        <XCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />{' '}
+                        Access user data or funds
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <XCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />{' '}
+                        Execute exploits on mainnet
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <XCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />{' '}
+                        Disclose before fix is deployed
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <XCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />{' '}
+                        Submit duplicates knowingly
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <XCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />{' '}
+                        Use automated scanners only
+                      </li>
                     </ul>
                   </div>
                 </div>
@@ -333,7 +489,9 @@ export default function BugBountyPage() {
         {activeTab === 'submissions' && (
           <div className="pb-16">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-white">Recent Submissions</h2>
+              <h2 className="text-2xl font-bold text-white">
+                Recent Submissions
+              </h2>
               <Link
                 href="/create?type=bug-bounty"
                 className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition-colors"
@@ -347,7 +505,9 @@ export default function BugBountyPage() {
             ) : submissions.length === 0 ? (
               <div className="text-center py-12">
                 <Bug className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-                <p className="text-gray-400">No submissions yet. Be the first to report a vulnerability.</p>
+                <p className="text-gray-400">
+                  No submissions yet. Be the first to report a vulnerability.
+                </p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -355,17 +515,23 @@ export default function BugBountyPage() {
                   <div
                     key={sub.submissionId}
                     className="p-4 rounded-xl bg-gray-800/50 border border-gray-700 hover:border-gray-600 transition-colors cursor-pointer"
-                    onClick={() => router.push(`/bug-bounty/${sub.submissionId}`)}
+                    onClick={() =>
+                      router.push(`/bug-bounty/${sub.submissionId}`)
+                    }
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
-                        <div className={`px-2 py-1 rounded text-xs font-medium text-white ${SEVERITY_CONFIG[sub.severity]?.color ?? 'bg-gray-500'}`}>
+                        <div
+                          className={`px-2 py-1 rounded text-xs font-medium text-white ${SEVERITY_CONFIG[sub.severity]?.color ?? 'bg-gray-500'}`}
+                        >
                           {SEVERITY_CONFIG[sub.severity]?.label ?? 'Unknown'}
                         </div>
                         <h3 className="font-medium text-white">{sub.title}</h3>
                       </div>
                       <div className="flex items-center gap-4">
-                        <div className={`px-2 py-1 rounded text-xs ${STATUS_CONFIG[sub.status]?.color ?? 'bg-gray-500'} text-white`}>
+                        <div
+                          className={`px-2 py-1 rounded text-xs ${STATUS_CONFIG[sub.status]?.color ?? 'bg-gray-500'} text-white`}
+                        >
                           {STATUS_CONFIG[sub.status]?.label ?? 'Unknown'}
                         </div>
                         {sub.rewardAmount > 0n && (
@@ -374,7 +540,9 @@ export default function BugBountyPage() {
                           </span>
                         )}
                         <span className="text-sm text-gray-400">
-                          {new Date(sub.submittedAt * 1000).toLocaleDateString()}
+                          {new Date(
+                            sub.submittedAt * 1000,
+                          ).toLocaleDateString()}
                         </span>
                       </div>
                     </div>
@@ -387,7 +555,9 @@ export default function BugBountyPage() {
 
         {activeTab === 'leaderboard' && (
           <div className="pb-16">
-            <h2 className="text-2xl font-bold text-white mb-6">Top Researchers</h2>
+            <h2 className="text-2xl font-bold text-white mb-6">
+              Top Researchers
+            </h2>
             <div className="p-12 text-center">
               <TrendingUp className="w-12 h-12 text-gray-600 mx-auto mb-4" />
               <p className="text-gray-400">Leaderboard coming soon...</p>
@@ -399,12 +569,12 @@ export default function BugBountyPage() {
   )
 }
 
-function StatCard({ 
-  icon: Icon, 
-  label, 
-  value, 
-  loading 
-}: { 
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  loading,
+}: {
   icon: React.ComponentType<{ className?: string }>
   label: string
   value: string
@@ -416,11 +586,11 @@ function StatCard({
         <Icon className="w-5 h-5 text-gray-400" />
         <span className="text-sm text-gray-400">{label}</span>
       </div>
-      <div className={`text-xl sm:text-2xl font-bold text-white ${loading ? 'animate-pulse' : ''}`}>
+      <div
+        className={`text-xl sm:text-2xl font-bold text-white ${loading ? 'animate-pulse' : ''}`}
+      >
         {value}
       </div>
     </div>
   )
 }
-
-

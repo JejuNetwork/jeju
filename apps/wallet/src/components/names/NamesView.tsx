@@ -2,60 +2,60 @@
  * Names View - JNS Name Service
  */
 
-import { useState, useCallback, useEffect } from 'react';
-import { Search, AtSign, CheckCircle, XCircle, Clock } from 'lucide-react';
-import { jnsService, type JNSPricing, type JNSName } from '../../services';
+import { AtSign, CheckCircle, Clock, Search, XCircle } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { type JNSName, type JNSPricing, jnsService } from '../../services'
 
 interface NamesViewProps {
-  address: string;
+  address: string
 }
 
-type TabType = 'search' | 'my-names';
+type TabType = 'search' | 'my-names'
 
 export function NamesView({ address }: NamesViewProps) {
-  const [tab, setTab] = useState<TabType>('search');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResult, setSearchResult] = useState<JNSPricing | null>(null);
-  const [resolvedName, setResolvedName] = useState<JNSName | null>(null);
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchError, setSearchError] = useState('');
-  const [years, setYears] = useState(1);
-  const [myPrimaryName, setMyPrimaryName] = useState<string | null>(null);
+  const [tab, setTab] = useState<TabType>('search')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResult, setSearchResult] = useState<JNSPricing | null>(null)
+  const [resolvedName, setResolvedName] = useState<JNSName | null>(null)
+  const [isSearching, setIsSearching] = useState(false)
+  const [searchError, setSearchError] = useState('')
+  const [years, setYears] = useState(1)
+  const [myPrimaryName, setMyPrimaryName] = useState<string | null>(null)
 
   // Fetch primary name on mount
   useEffect(() => {
-    jnsService.reverseLookup(address as `0x${string}`).then(setMyPrimaryName);
-  }, [address]);
+    jnsService.reverseLookup(address as `0x${string}`).then(setMyPrimaryName)
+  }, [address])
 
   const handleSearch = useCallback(async () => {
     if (!searchQuery || searchQuery.length < 3) {
-      setSearchError('Name must be at least 3 characters');
-      return;
+      setSearchError('Name must be at least 3 characters')
+      return
     }
-    
-    setIsSearching(true);
-    setSearchError('');
-    setSearchResult(null);
-    setResolvedName(null);
-    
-    const name = searchQuery.replace('.jeju', '');
-    
+
+    setIsSearching(true)
+    setSearchError('')
+    setSearchResult(null)
+    setResolvedName(null)
+
+    const name = searchQuery.replace('.jeju', '')
+
     // First check if it's already registered
-    const info = await jnsService.getNameInfo(name);
+    const info = await jnsService.getNameInfo(name)
     if (info) {
-      setResolvedName(info);
+      setResolvedName(info)
     } else {
       // Get pricing for registration
-      const pricing = await jnsService.getPrice(name, years);
-      setSearchResult(pricing);
+      const pricing = await jnsService.getPrice(name, years)
+      setSearchResult(pricing)
     }
-    
-    setIsSearching(false);
-  }, [searchQuery, years]);
+
+    setIsSearching(false)
+  }, [searchQuery, years])
 
   const formatPrice = (price: bigint) => {
-    return (Number(price) / 1e18).toFixed(4);
-  };
+    return (Number(price) / 1e18).toFixed(4)
+  }
 
   return (
     <div className="h-full overflow-auto p-6">
@@ -66,7 +66,9 @@ export function NamesView({ address }: NamesViewProps) {
             <AtSign className="w-8 h-8 text-white" />
           </div>
           <h2 className="text-2xl font-bold">Network Name Service</h2>
-          <p className="text-muted-foreground mt-1">Register .jeju names for your wallet</p>
+          <p className="text-muted-foreground mt-1">
+            Register .jeju names for your wallet
+          </p>
         </div>
 
         {/* Tabs */}
@@ -79,7 +81,9 @@ export function NamesView({ address }: NamesViewProps) {
               key={id}
               onClick={() => setTab(id)}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                tab === id ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary'
+                tab === id
+                  ? 'bg-primary text-primary-foreground'
+                  : 'hover:bg-secondary'
               }`}
             >
               <Icon className="w-4 h-4" />
@@ -98,12 +102,18 @@ export function NamesView({ address }: NamesViewProps) {
                   <input
                     type="text"
                     value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-                    onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                    onChange={(e) =>
+                      setSearchQuery(
+                        e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''),
+                      )
+                    }
+                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                     placeholder="Search for a name..."
                     className="w-full px-4 py-3 pr-16 bg-secondary rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-teal-500"
                   />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground">.jeju</span>
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground">
+                    .jeju
+                  </span>
                 </div>
                 <button
                   onClick={handleSearch}
@@ -113,7 +123,7 @@ export function NamesView({ address }: NamesViewProps) {
                   {isSearching ? 'Searching...' : 'Search'}
                 </button>
               </div>
-              
+
               {searchError && (
                 <p className="text-red-400 text-sm mt-2">{searchError}</p>
               )}
@@ -129,46 +139,69 @@ export function NamesView({ address }: NamesViewProps) {
                     <XCircle className="w-6 h-6 text-red-400" />
                   )}
                   <div>
-                    <h3 className="text-xl font-bold">{searchResult.name}.jeju</h3>
-                    <p className={searchResult.available ? 'text-emerald-400' : 'text-red-400'}>
-                      {searchResult.available ? 'Available' : 'Already registered'}
+                    <h3 className="text-xl font-bold">
+                      {searchResult.name}.jeju
+                    </h3>
+                    <p
+                      className={
+                        searchResult.available
+                          ? 'text-emerald-400'
+                          : 'text-red-400'
+                      }
+                    >
+                      {searchResult.available
+                        ? 'Available'
+                        : 'Already registered'}
                     </p>
                   </div>
                 </div>
-                
+
                 {searchResult.available && (
                   <>
                     <div className="bg-secondary/50 rounded-xl p-4 mb-4">
                       <div className="flex justify-between mb-2">
-                        <span className="text-muted-foreground">Registration Period</span>
+                        <span className="text-muted-foreground">
+                          Registration Period
+                        </span>
                         <div className="flex items-center gap-2">
-                          <button 
+                          <button
                             onClick={() => setYears(Math.max(1, years - 1))}
                             className="w-8 h-8 rounded bg-secondary hover:bg-secondary/80"
-                          >-</button>
-                          <span className="w-12 text-center font-medium">{years} yr{years > 1 ? 's' : ''}</span>
-                          <button 
+                          >
+                            -
+                          </button>
+                          <span className="w-12 text-center font-medium">
+                            {years} yr{years > 1 ? 's' : ''}
+                          </span>
+                          <button
                             onClick={() => setYears(Math.min(10, years + 1))}
                             className="w-8 h-8 rounded bg-secondary hover:bg-secondary/80"
-                          >+</button>
+                          >
+                            +
+                          </button>
                         </div>
                       </div>
                       <div className="flex justify-between text-lg">
                         <span className="text-muted-foreground">Price</span>
-                        <span className="font-bold">{formatPrice(searchResult.price)} ETH</span>
+                        <span className="font-bold">
+                          {formatPrice(searchResult.price)} ETH
+                        </span>
                       </div>
                       <div className="flex justify-between text-sm text-muted-foreground mt-1">
                         <span>Per year</span>
-                        <span>{formatPrice(searchResult.pricePerYear)} ETH/year</span>
+                        <span>
+                          {formatPrice(searchResult.pricePerYear)} ETH/year
+                        </span>
                       </div>
                     </div>
-                    
+
                     <button className="w-full px-6 py-3 bg-teal-500 hover:bg-teal-600 text-white rounded-xl font-medium">
                       Register {searchResult.name}.jeju
                     </button>
-                    
+
                     <p className="text-xs text-muted-foreground mt-4 text-center">
-                      Or use chat: "Register {searchResult.name}.jeju for {years} year{years > 1 ? 's' : ''}"
+                      Or use chat: "Register {searchResult.name}.jeju for{' '}
+                      {years} year{years > 1 ? 's' : ''}"
                     </p>
                   </>
                 )}
@@ -185,22 +218,30 @@ export function NamesView({ address }: NamesViewProps) {
                     <p className="text-blue-400">Already registered</p>
                   </div>
                 </div>
-                
+
                 <div className="space-y-3">
                   <div className="flex justify-between py-2 border-b border-border">
                     <span className="text-muted-foreground">Owner</span>
-                    <span className="font-mono text-sm">{resolvedName.owner.slice(0, 10)}...{resolvedName.owner.slice(-8)}</span>
+                    <span className="font-mono text-sm">
+                      {resolvedName.owner.slice(0, 10)}...
+                      {resolvedName.owner.slice(-8)}
+                    </span>
                   </div>
                   {resolvedName.address && (
                     <div className="flex justify-between py-2 border-b border-border">
                       <span className="text-muted-foreground">Points to</span>
-                      <span className="font-mono text-sm">{resolvedName.address.slice(0, 10)}...{resolvedName.address.slice(-8)}</span>
+                      <span className="font-mono text-sm">
+                        {resolvedName.address.slice(0, 10)}...
+                        {resolvedName.address.slice(-8)}
+                      </span>
                     </div>
                   )}
                   {resolvedName.description && (
                     <div className="flex justify-between py-2 border-b border-border">
                       <span className="text-muted-foreground">Description</span>
-                      <span className="text-sm">{resolvedName.description}</span>
+                      <span className="text-sm">
+                        {resolvedName.description}
+                      </span>
                     </div>
                   )}
                   {resolvedName.expiresAt && (
@@ -209,7 +250,9 @@ export function NamesView({ address }: NamesViewProps) {
                         <Clock className="w-4 h-4" />
                         Expires
                       </span>
-                      <span className="text-sm">{new Date(resolvedName.expiresAt).toLocaleDateString()}</span>
+                      <span className="text-sm">
+                        {new Date(resolvedName.expiresAt).toLocaleDateString()}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -221,16 +264,28 @@ export function NamesView({ address }: NamesViewProps) {
               <h3 className="font-semibold mb-4">Pricing</h3>
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div>
-                  <div className="text-2xl font-bold text-teal-400">0.1 ETH</div>
-                  <div className="text-xs text-muted-foreground">3 characters/year</div>
+                  <div className="text-2xl font-bold text-teal-400">
+                    0.1 ETH
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    3 characters/year
+                  </div>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-teal-400">0.01 ETH</div>
-                  <div className="text-xs text-muted-foreground">4 characters/year</div>
+                  <div className="text-2xl font-bold text-teal-400">
+                    0.01 ETH
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    4 characters/year
+                  </div>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-teal-400">0.001 ETH</div>
-                  <div className="text-xs text-muted-foreground">5+ characters/year</div>
+                  <div className="text-2xl font-bold text-teal-400">
+                    0.001 ETH
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    5+ characters/year
+                  </div>
                 </div>
               </div>
             </div>
@@ -238,8 +293,8 @@ export function NamesView({ address }: NamesViewProps) {
         )}
 
         {/* My Names Tab */}
-        {tab === 'my-names' && (
-          myPrimaryName ? (
+        {tab === 'my-names' &&
+          (myPrimaryName ? (
             <div className="bg-card border border-border rounded-2xl p-6">
               <h3 className="text-lg font-semibold mb-4">Your Primary Name</h3>
               <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-teal-500/10 to-emerald-500/10 rounded-xl border border-teal-500/20">
@@ -248,7 +303,9 @@ export function NamesView({ address }: NamesViewProps) {
                 </div>
                 <div>
                   <p className="text-xl font-bold">{myPrimaryName}</p>
-                  <p className="text-sm text-muted-foreground font-mono">{address.slice(0, 10)}...{address.slice(-8)}</p>
+                  <p className="text-sm text-muted-foreground font-mono">
+                    {address.slice(0, 10)}...{address.slice(-8)}
+                  </p>
                 </div>
               </div>
             </div>
@@ -266,12 +323,10 @@ export function NamesView({ address }: NamesViewProps) {
                 Search Names
               </button>
             </div>
-          )
-        )}
+          ))}
       </div>
     </div>
-  );
+  )
 }
 
-export default NamesView;
-
+export default NamesView

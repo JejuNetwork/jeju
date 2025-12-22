@@ -3,8 +3,8 @@
  * Serves the agent card at /.well-known/agent-card.json
  */
 
-import { NextResponse } from 'next/server';
-import agentCard from '@/public/agent-card.json';
+import { NextResponse } from 'next/server'
+import agentCard from '@/public/agent-card.json'
 
 export async function GET() {
   return NextResponse.json(agentCard, {
@@ -12,5 +12,5 @@ export async function GET() {
       'Access-Control-Allow-Origin': '*',
       'Cache-Control': 'public, max-age=3600',
     },
-  });
+  })
 }

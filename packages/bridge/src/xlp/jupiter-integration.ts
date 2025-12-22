@@ -3,18 +3,14 @@
  * Enables instant Solana swaps as part of cross-chain liquidity operations
  */
 
-import {
-  Connection,
-  Keypair,
-  VersionedTransaction,
-} from '@solana/web3.js';
-import { EventEmitter } from 'events';
-import { createLogger } from '../utils/logger.js';
+import { EventEmitter } from 'node:events'
+import { Connection, Keypair, VersionedTransaction } from '@solana/web3.js'
+import { createLogger } from '../utils/logger.js'
 
-const log = createLogger('jupiter');
+const log = createLogger('jupiter')
 
-const JUPITER_API_V6 = 'https://quote-api.jup.ag/v6';
-const JUPITER_PRICE_API = 'https://price.jup.ag/v6';
+const JUPITER_API_V6 = 'https://quote-api.jup.ag/v6'
+const JUPITER_PRICE_API = 'https://price.jup.ag/v6'
 
 // Common Solana token mints
 const SOLANA_TOKENS: Record<string, string> = {
@@ -26,76 +22,76 @@ const SOLANA_TOKENS: Record<string, string> = {
   JUP: 'JUPyiwrYJFskUPiHa7hkeepFNjGXvMPGM2TQ5sUtjHA',
   RAY: '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R',
   BONK: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
-};
+}
 
 export interface JupiterQuote {
-  inputMint: string;
-  outputMint: string;
-  inAmount: string;
-  outAmount: string;
-  otherAmountThreshold: string;
-  swapMode: 'ExactIn' | 'ExactOut';
-  slippageBps: number;
-  priceImpactPct: number;
-  routePlan: JupiterRoutePlan[];
-  contextSlot: number;
-  timeTaken: number;
+  inputMint: string
+  outputMint: string
+  inAmount: string
+  outAmount: string
+  otherAmountThreshold: string
+  swapMode: 'ExactIn' | 'ExactOut'
+  slippageBps: number
+  priceImpactPct: number
+  routePlan: JupiterRoutePlan[]
+  contextSlot: number
+  timeTaken: number
 }
 
 export interface JupiterRoutePlan {
   swapInfo: {
-    ammKey: string;
-    label: string;
-    inputMint: string;
-    outputMint: string;
-    inAmount: string;
-    outAmount: string;
-    feeAmount: string;
-    feeMint: string;
-  };
-  percent: number;
+    ammKey: string
+    label: string
+    inputMint: string
+    outputMint: string
+    inAmount: string
+    outAmount: string
+    feeAmount: string
+    feeMint: string
+  }
+  percent: number
 }
 
 export interface JupiterSwapResult {
-  signature: string;
-  inputAmount: bigint;
-  outputAmount: bigint;
-  priceImpact: number;
-  fee: bigint;
+  signature: string
+  inputAmount: bigint
+  outputAmount: bigint
+  priceImpact: number
+  fee: bigint
 }
 
 export interface JupiterPrice {
-  id: string;
-  mintSymbol: string;
-  vsToken: string;
-  vsTokenSymbol: string;
-  price: number;
+  id: string
+  mintSymbol: string
+  vsToken: string
+  vsTokenSymbol: string
+  price: number
 }
 
 export interface JupiterConfig {
-  rpcUrl: string;
-  keypair?: Uint8Array;
-  slippageBps?: number;
-  priorityFeeLamports?: number;
-  dynamicComputeUnitLimit?: boolean;
+  rpcUrl: string
+  keypair?: Uint8Array
+  slippageBps?: number
+  priorityFeeLamports?: number
+  dynamicComputeUnitLimit?: boolean
 }
 
 export class JupiterClient extends EventEmitter {
-  private connection: Connection;
-  private keypair: Keypair | null = null;
-  private defaultSlippageBps: number;
-  private priorityFeeLamports: number;
-  private dynamicComputeUnitLimit: boolean;
+  private connection: Connection
+  private keypair: Keypair | null = null
+  private defaultSlippageBps: number
+  private priorityFeeLamports: number
+  private dynamicComputeUnitLimit: boolean
 
   constructor(config: JupiterConfig) {
-    super();
-    this.connection = new Connection(config.rpcUrl, 'confirmed');
-    this.defaultSlippageBps = config.slippageBps || 50; // 0.5% default
-    this.priorityFeeLamports = config.priorityFeeLamports || 10000;
-    this.dynamicComputeUnitLimit = config.dynamicComputeUnitLimit ?? true;
+    super()
+    this.connection = new Connection(config.rpcUrl, 'confirmed')
+    this.defaultSlippageBps = config.slippageBps || 50 // 0.5% default
+    this.priorityFeeLamports = config.priorityFeeLamports || 10000
+    this.dynamicComputeUnitLimit = config.dynamicComputeUnitLimit ?? true
 
     if (config.keypair) {
-      this.keypair = Keypair.fromSecretKey(config.keypair);
+      this.keypair = Keypair.fromSecretKey(config.keypair)
     }
   }
 
@@ -103,14 +99,14 @@ export class JupiterClient extends EventEmitter {
    * Get quote for a swap
    */
   async getQuote(params: {
-    inputMint: string;
-    outputMint: string;
-    amount: string;
-    slippageBps?: number;
-    swapMode?: 'ExactIn' | 'ExactOut';
-    onlyDirectRoutes?: boolean;
-    asLegacyTransaction?: boolean;
-    maxAccounts?: number;
+    inputMint: string
+    outputMint: string
+    amount: string
+    slippageBps?: number
+    swapMode?: 'ExactIn' | 'ExactOut'
+    onlyDirectRoutes?: boolean
+    asLegacyTransaction?: boolean
+    maxAccounts?: number
   }): Promise<JupiterQuote> {
     const queryParams = new URLSearchParams({
       inputMint: params.inputMint,
@@ -120,29 +116,29 @@ export class JupiterClient extends EventEmitter {
       swapMode: params.swapMode || 'ExactIn',
       onlyDirectRoutes: (params.onlyDirectRoutes || false).toString(),
       asLegacyTransaction: (params.asLegacyTransaction || false).toString(),
-    });
+    })
 
     if (params.maxAccounts) {
-      queryParams.set('maxAccounts', params.maxAccounts.toString());
+      queryParams.set('maxAccounts', params.maxAccounts.toString())
     }
 
-    const response = await fetch(`${JUPITER_API_V6}/quote?${queryParams}`);
+    const response = await fetch(`${JUPITER_API_V6}/quote?${queryParams}`)
     if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Jupiter quote failed: ${error}`);
+      const error = await response.text()
+      throw new Error(`Jupiter quote failed: ${error}`)
     }
 
-    return response.json() as Promise<JupiterQuote>;
+    return response.json() as Promise<JupiterQuote>
   }
 
   /**
    * Get best quote across multiple routes
    */
   async getBestQuote(params: {
-    inputMint: string;
-    outputMint: string;
-    amount: string;
-    slippageBps?: number;
+    inputMint: string
+    outputMint: string
+    amount: string
+    slippageBps?: number
   }): Promise<JupiterQuote> {
     // Jupiter API automatically returns best route
     return this.getQuote({
@@ -151,16 +147,19 @@ export class JupiterClient extends EventEmitter {
       amount: params.amount,
       slippageBps: params.slippageBps,
       onlyDirectRoutes: false,
-    });
+    })
   }
 
   /**
    * Execute a swap
    */
-  async swap(quote: JupiterQuote, userPublicKey?: string): Promise<JupiterSwapResult> {
-    const pubkey = userPublicKey || this.keypair?.publicKey.toBase58();
+  async swap(
+    quote: JupiterQuote,
+    userPublicKey?: string,
+  ): Promise<JupiterSwapResult> {
+    const pubkey = userPublicKey || this.keypair?.publicKey.toBase58()
     if (!pubkey) {
-      throw new Error('No user public key provided and no keypair configured');
+      throw new Error('No user public key provided and no keypair configured')
     }
 
     // Get swap transaction
@@ -174,33 +173,33 @@ export class JupiterClient extends EventEmitter {
         dynamicComputeUnitLimit: this.dynamicComputeUnitLimit,
         prioritizationFeeLamports: this.priorityFeeLamports,
       }),
-    });
+    })
 
     if (!swapResponse.ok) {
-      const error = await swapResponse.text();
-      throw new Error(`Jupiter swap failed: ${error}`);
+      const error = await swapResponse.text()
+      throw new Error(`Jupiter swap failed: ${error}`)
     }
 
-    const swapData = await swapResponse.json() as { swapTransaction: string };
-    const swapTransaction = swapData.swapTransaction;
+    const swapData = (await swapResponse.json()) as { swapTransaction: string }
+    const swapTransaction = swapData.swapTransaction
 
     // Deserialize and sign
-    const transactionBuf = Buffer.from(swapTransaction, 'base64');
-    const transaction = VersionedTransaction.deserialize(transactionBuf);
+    const transactionBuf = Buffer.from(swapTransaction, 'base64')
+    const transaction = VersionedTransaction.deserialize(transactionBuf)
 
     if (!this.keypair) {
-      throw new Error('Cannot sign transaction: no keypair configured');
+      throw new Error('Cannot sign transaction: no keypair configured')
     }
 
-    transaction.sign([this.keypair]);
+    transaction.sign([this.keypair])
 
     // Send and confirm
     const signature = await this.connection.sendTransaction(transaction, {
       skipPreflight: false,
       maxRetries: 3,
-    });
+    })
 
-    await this.connection.confirmTransaction(signature, 'confirmed');
+    await this.connection.confirmTransaction(signature, 'confirmed')
 
     this.emit('swapCompleted', {
       signature,
@@ -208,7 +207,7 @@ export class JupiterClient extends EventEmitter {
       outputMint: quote.outputMint,
       inputAmount: quote.inAmount,
       outputAmount: quote.outAmount,
-    });
+    })
 
     return {
       signature,
@@ -216,7 +215,7 @@ export class JupiterClient extends EventEmitter {
       outputAmount: BigInt(quote.outAmount),
       priceImpact: quote.priceImpactPct,
       fee: this.calculateTotalFees(quote),
-    };
+    }
   }
 
   /**
@@ -224,8 +223,11 @@ export class JupiterClient extends EventEmitter {
    */
   async getSwapTransaction(
     quote: JupiterQuote,
-    userPublicKey: string
-  ): Promise<{ transaction: VersionedTransaction; lastValidBlockHeight: number }> {
+    userPublicKey: string,
+  ): Promise<{
+    transaction: VersionedTransaction
+    lastValidBlockHeight: number
+  }> {
     const swapResponse = await fetch(`${JUPITER_API_V6}/swap`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -236,79 +238,92 @@ export class JupiterClient extends EventEmitter {
         dynamicComputeUnitLimit: this.dynamicComputeUnitLimit,
         prioritizationFeeLamports: this.priorityFeeLamports,
       }),
-    });
+    })
 
     if (!swapResponse.ok) {
-      const error = await swapResponse.text();
-      throw new Error(`Jupiter swap transaction failed: ${error}`);
+      const error = await swapResponse.text()
+      throw new Error(`Jupiter swap transaction failed: ${error}`)
     }
 
-    const swapData = await swapResponse.json() as { swapTransaction: string; lastValidBlockHeight: number };
-    const transactionBuf = Buffer.from(swapData.swapTransaction, 'base64');
-    const transaction = VersionedTransaction.deserialize(transactionBuf);
+    const swapData = (await swapResponse.json()) as {
+      swapTransaction: string
+      lastValidBlockHeight: number
+    }
+    const transactionBuf = Buffer.from(swapData.swapTransaction, 'base64')
+    const transaction = VersionedTransaction.deserialize(transactionBuf)
 
     return {
       transaction,
       lastValidBlockHeight: swapData.lastValidBlockHeight,
-    };
+    }
   }
 
   /**
    * Get token price in USD
    */
   async getPrice(tokenMint: string): Promise<number> {
-    const response = await fetch(`${JUPITER_PRICE_API}/price?ids=${tokenMint}`);
+    const response = await fetch(`${JUPITER_PRICE_API}/price?ids=${tokenMint}`)
     if (!response.ok) {
-      throw new Error(`Jupiter price API failed: ${response.statusText}`);
+      throw new Error(`Jupiter price API failed: ${response.statusText}`)
     }
 
-    const data = await response.json() as { data: Record<string, { price: number }> };
-    const priceData = data.data[tokenMint];
+    const data = (await response.json()) as {
+      data: Record<string, { price: number }>
+    }
+    const priceData = data.data[tokenMint]
     if (!priceData) {
-      throw new Error(`Price not found for ${tokenMint}`);
+      throw new Error(`Price not found for ${tokenMint}`)
     }
 
-    return priceData.price;
+    return priceData.price
   }
 
   /**
    * Get multiple token prices
    */
   async getPrices(tokenMints: string[]): Promise<Record<string, number>> {
-    const response = await fetch(`${JUPITER_PRICE_API}/price?ids=${tokenMints.join(',')}`);
+    const response = await fetch(
+      `${JUPITER_PRICE_API}/price?ids=${tokenMints.join(',')}`,
+    )
     if (!response.ok) {
-      throw new Error(`Jupiter price API failed: ${response.statusText}`);
+      throw new Error(`Jupiter price API failed: ${response.statusText}`)
     }
 
-    const data = await response.json() as { data: Record<string, { price: number }> };
-    const prices: Record<string, number> = {};
+    const data = (await response.json()) as {
+      data: Record<string, { price: number }>
+    }
+    const prices: Record<string, number> = {}
 
     for (const mint of tokenMints) {
       if (data.data[mint]) {
-        prices[mint] = data.data[mint].price;
+        prices[mint] = data.data[mint].price
       }
     }
 
-    return prices;
+    return prices
   }
 
   /**
    * Get all tradeable tokens
    */
-  async getTokenList(): Promise<{ address: string; symbol: string; name: string; decimals: number }[]> {
-    const response = await fetch('https://token.jup.ag/all');
+  async getTokenList(): Promise<
+    { address: string; symbol: string; name: string; decimals: number }[]
+  > {
+    const response = await fetch('https://token.jup.ag/all')
     if (!response.ok) {
-      throw new Error(`Jupiter token list failed: ${response.statusText}`);
+      throw new Error(`Jupiter token list failed: ${response.statusText}`)
     }
 
-    return response.json() as Promise<{ address: string; symbol: string; name: string; decimals: number }[]>;
+    return response.json() as Promise<
+      { address: string; symbol: string; name: string; decimals: number }[]
+    >
   }
 
   /**
    * Get token mint by symbol
    */
   getTokenMint(symbol: string): string | undefined {
-    return SOLANA_TOKENS[symbol.toUpperCase()];
+    return SOLANA_TOKENS[symbol.toUpperCase()]
   }
 
   /**
@@ -320,29 +335,29 @@ export class JupiterClient extends EventEmitter {
       outputMint,
       amount: '1000000', // 1 USDC equivalent
       slippageBps: 1000, // 10% for route check
-    });
+    })
 
-    return quote.routePlan.length > 0;
+    return quote.routePlan.length > 0
   }
 
   /**
    * Calculate output amount after slippage
    */
   calculateMinOutput(quote: JupiterQuote): bigint {
-    const output = BigInt(quote.outAmount);
-    const slippageMultiplier = BigInt(10000 - quote.slippageBps);
-    return (output * slippageMultiplier) / 10000n;
+    const output = BigInt(quote.outAmount)
+    const slippageMultiplier = BigInt(10000 - quote.slippageBps)
+    return (output * slippageMultiplier) / 10000n
   }
 
   /**
    * Calculate total fees from route
    */
   private calculateTotalFees(quote: JupiterQuote): bigint {
-    let totalFees = 0n;
+    let totalFees = 0n
     for (const step of quote.routePlan) {
-      totalFees += BigInt(step.swapInfo.feeAmount);
+      totalFees += BigInt(step.swapInfo.feeAmount)
     }
-    return totalFees;
+    return totalFees
   }
 }
 
@@ -350,30 +365,30 @@ export class JupiterClient extends EventEmitter {
  * XLP Jupiter Filler - Uses Jupiter for instant Solana-side fills
  */
 export class XLPJupiterFiller extends EventEmitter {
-  private jupiter: JupiterClient;
-  private running = false;
-  private fillInterval: ReturnType<typeof setInterval> | null = null;
+  private jupiter: JupiterClient
+  private running = false
+  private fillInterval: ReturnType<typeof setInterval> | null = null
 
   constructor(config: JupiterConfig) {
-    super();
-    this.jupiter = new JupiterClient(config);
+    super()
+    this.jupiter = new JupiterClient(config)
   }
 
   /**
    * Fill a cross-chain order using Jupiter
    */
   async fillOrder(params: {
-    orderId: string;
-    inputMint: string;
-    outputMint: string;
-    inputAmount: string;
-    recipient: string;
-    maxSlippageBps?: number;
+    orderId: string
+    inputMint: string
+    outputMint: string
+    inputAmount: string
+    recipient: string
+    maxSlippageBps?: number
   }): Promise<{
-    success: boolean;
-    signature?: string;
-    outputAmount?: bigint;
-    error?: string;
+    success: boolean
+    signature?: string
+    outputAmount?: bigint
+    error?: string
   }> {
     // Get best quote
     const quote = await this.jupiter.getQuote({
@@ -381,19 +396,19 @@ export class XLPJupiterFiller extends EventEmitter {
       outputMint: params.outputMint,
       amount: params.inputAmount,
       slippageBps: params.maxSlippageBps || 100,
-    });
+    })
 
     // Check price impact
     if (quote.priceImpactPct > 5) {
-      log.warn('High price impact', { priceImpactPct: quote.priceImpactPct });
+      log.warn('High price impact', { priceImpactPct: quote.priceImpactPct })
       return {
         success: false,
         error: `Price impact too high: ${quote.priceImpactPct}%`,
-      };
+      }
     }
 
     // Execute swap
-    const result = await this.jupiter.swap(quote, params.recipient);
+    const result = await this.jupiter.swap(quote, params.recipient)
 
     this.emit('orderFilled', {
       orderId: params.orderId,
@@ -401,46 +416,48 @@ export class XLPJupiterFiller extends EventEmitter {
       inputAmount: params.inputAmount,
       outputAmount: result.outputAmount.toString(),
       priceImpact: result.priceImpact,
-    });
+    })
 
     return {
       success: true,
       signature: result.signature,
       outputAmount: result.outputAmount,
-    };
+    }
   }
 
   /**
    * Get quote for cross-chain swap via Solana
    */
   async getXLPQuote(params: {
-    sourceChainId: number;
-    destChainId: number;
-    inputToken: string; // Symbol
-    outputToken: string; // Symbol
-    amount: string;
+    sourceChainId: number
+    destChainId: number
+    inputToken: string // Symbol
+    outputToken: string // Symbol
+    amount: string
   }): Promise<{
-    inputAmount: string;
-    outputAmount: string;
-    priceImpact: number;
-    route: string;
-    estimatedTime: number;
+    inputAmount: string
+    outputAmount: string
+    priceImpact: number
+    route: string
+    estimatedTime: number
   }> {
-    const inputMint = this.jupiter.getTokenMint(params.inputToken);
-    const outputMint = this.jupiter.getTokenMint(params.outputToken);
+    const inputMint = this.jupiter.getTokenMint(params.inputToken)
+    const outputMint = this.jupiter.getTokenMint(params.outputToken)
 
     if (!inputMint || !outputMint) {
-      throw new Error(`Token not found: ${params.inputToken} or ${params.outputToken}`);
+      throw new Error(
+        `Token not found: ${params.inputToken} or ${params.outputToken}`,
+      )
     }
 
     const quote = await this.jupiter.getQuote({
       inputMint,
       outputMint,
       amount: params.amount,
-    });
+    })
 
     // Build route description
-    const routeLabels = quote.routePlan.map(r => r.swapInfo.label).join(' → ');
+    const routeLabels = quote.routePlan.map((r) => r.swapInfo.label).join(' → ')
 
     return {
       inputAmount: quote.inAmount,
@@ -448,33 +465,33 @@ export class XLPJupiterFiller extends EventEmitter {
       priceImpact: quote.priceImpactPct,
       route: routeLabels,
       estimatedTime: 1, // ~1 second on Solana
-    };
+    }
   }
 
   /**
    * Start automatic order filling
    */
   start(): void {
-    if (this.running) return;
-    this.running = true;
+    if (this.running) return
+    this.running = true
 
     this.fillInterval = setInterval(async () => {
-      await this.checkPendingOrders();
-    }, 2000);
+      await this.checkPendingOrders()
+    }, 2000)
 
-    log.info('Filler started');
+    log.info('Filler started')
   }
 
   /**
    * Stop automatic order filling
    */
   stop(): void {
-    this.running = false;
+    this.running = false
     if (this.fillInterval) {
-      clearInterval(this.fillInterval);
-      this.fillInterval = null;
+      clearInterval(this.fillInterval)
+      this.fillInterval = null
     }
-    log.info('Filler stopped');
+    log.info('Filler stopped')
   }
 
   /**
@@ -483,17 +500,18 @@ export class XLPJupiterFiller extends EventEmitter {
   private async checkPendingOrders(): Promise<void> {
     // This would query pending XLP orders from the bridge
     // and fill profitable ones using Jupiter
-    this.emit('checkingOrders', { timestamp: Date.now() });
+    this.emit('checkingOrders', { timestamp: Date.now() })
   }
 }
 
 export function createJupiterClient(config: JupiterConfig): JupiterClient {
-  return new JupiterClient(config);
+  return new JupiterClient(config)
 }
 
-export function createXLPJupiterFiller(config: JupiterConfig): XLPJupiterFiller {
-  return new XLPJupiterFiller(config);
+export function createXLPJupiterFiller(
+  config: JupiterConfig,
+): XLPJupiterFiller {
+  return new XLPJupiterFiller(config)
 }
 
-export { SOLANA_TOKENS };
-
+export { SOLANA_TOKENS }

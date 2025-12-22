@@ -3,6 +3,13 @@
   "version": "0.1.0",
   "description": "Infrastructure deployment for Jeju Network",
   "type": "module",
+  "exports": {
+    ".": "./scripts/shared/index.ts",
+    "./scripts/shared/*": "./scripts/shared/*.ts",
+    "./scripts/deploy/*": "./scripts/deploy/*.ts",
+    "./scripts/verify/*": "./scripts/verify/*.ts",
+    "./scripts/*": "./scripts/*.ts"
+  },
   "scripts": {
     "test": "bun test",
     "test:aa": "bun test tests/aa-integration.test.ts",

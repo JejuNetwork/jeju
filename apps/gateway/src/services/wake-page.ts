@@ -1,27 +1,26 @@
-import { type Address, namehash } from 'viem';
-
 // Re-export consolidated HealthStatus
-import type { HealthStatus } from '@jejunetwork/types';
-export type { HealthStatus };
+import type { HealthStatus } from '@jejunetwork/types'
+import { type Address, namehash } from 'viem'
+export type { HealthStatus }
 
 export interface WakePageData {
-  jnsName: string;
-  appName: string;
-  description: string;
-  owner: Address;
-  vaultAddress: Address;
-  currentBalance: bigint;
-  minRequired: bigint;
-  fundingNeeded: bigint;
-  lastHealthy: number;
-  agentId?: bigint;
+  jnsName: string
+  appName: string
+  description: string
+  owner: Address
+  vaultAddress: Address
+  currentBalance: bigint
+  minRequired: bigint
+  fundingNeeded: bigint
+  lastHealthy: number
+  agentId?: bigint
 }
 
 export function generateWakePage(data: WakePageData): string {
-  const fundingNeeded = data.minRequired - data.currentBalance;
-  const fundingNeededEth = formatWei(fundingNeeded > 0n ? fundingNeeded : 0n);
-  const currentBalanceEth = formatWei(data.currentBalance);
-  const minRequiredEth = formatWei(data.minRequired);
+  const fundingNeeded = data.minRequired - data.currentBalance
+  const fundingNeededEth = formatWei(fundingNeeded > 0n ? fundingNeeded : 0n)
+  const currentBalanceEth = formatWei(data.currentBalance)
+  const minRequiredEth = formatWei(data.minRequired)
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -280,11 +279,15 @@ export function generateWakePage(data: WakePageData): string {
         and become available at <strong>${escapeHtml(data.jnsName)}</strong>.
       </p>
       
-      ${data.lastHealthy > 0 ? `
+      ${
+        data.lastHealthy > 0
+          ? `
       <p class="last-healthy">
         Last healthy: ${formatTimeAgo(data.lastHealthy)}
       </p>
-      ` : ''}
+      `
+          : ''
+      }
     </div>
   </div>
   
@@ -316,7 +319,7 @@ export function generateWakePage(data: WakePageData): string {
     setTimeout(checkFunding, 5000);
   </script>
 </body>
-</html>`;
+</html>`
 }
 
 function escapeHtml(str: string): string {
@@ -325,35 +328,35 @@ function escapeHtml(str: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+    .replace(/'/g, '&#039;')
 }
 
 function formatWei(wei: bigint): string {
-  const eth = Number(wei) / 1e18;
-  if (eth < 0.0001) return '< 0.0001';
-  if (eth < 0.01) return eth.toFixed(4);
-  if (eth < 1) return eth.toFixed(3);
-  return eth.toFixed(2);
+  const eth = Number(wei) / 1e18
+  if (eth < 0.0001) return '< 0.0001'
+  if (eth < 0.01) return eth.toFixed(4)
+  if (eth < 1) return eth.toFixed(3)
+  return eth.toFixed(2)
 }
 
 function calculateProgress(current: bigint, required: bigint): number {
-  if (required === 0n) return 100;
-  const progress = Number((current * 100n) / required);
-  return Math.min(100, Math.max(0, progress));
+  if (required === 0n) return 100
+  const progress = Number((current * 100n) / required)
+  return Math.min(100, Math.max(0, progress))
 }
 
 function formatTimeAgo(timestamp: number): string {
-  const seconds = Math.floor((Date.now() - timestamp) / 1000);
-  
-  if (seconds < 60) return 'just now';
-  if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
-  return `${Math.floor(seconds / 86400)} days ago`;
+  const seconds = Math.floor((Date.now() - timestamp) / 1000)
+
+  if (seconds < 60) return 'just now'
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`
+  return `${Math.floor(seconds / 86400)} days ago`
 }
 
 export interface WakePageCheck {
-  shouldShowWakePage: boolean;
-  data?: WakePageData;
+  shouldShowWakePage: boolean
+  data?: WakePageData
 }
 
 const KEEPALIVE_ABI = [
@@ -404,64 +407,76 @@ const KEEPALIVE_ABI = [
       { name: 'totalResources', type: 'uint8' },
     ],
   },
-] as const;
+] as const
 
 type PublicClient = {
   readContract: (args: {
-    address: Address;
-    abi: readonly unknown[];
-    functionName: string;
-    args: readonly unknown[];
-  }) => Promise<unknown>;
-};
+    address: Address
+    abi: readonly unknown[]
+    functionName: string
+    args: readonly unknown[]
+  }) => Promise<unknown>
+}
 
 export async function checkWakePage(
   jnsName: string,
   keepaliveRegistryAddress: Address,
-  publicClient: PublicClient
+  publicClient: PublicClient,
 ): Promise<WakePageCheck> {
-  const jnsNode = namehash(jnsName);
+  const jnsNode = namehash(jnsName)
 
   // Fetch status by JNS
-  const statusResult = await publicClient.readContract({
+  const statusResult = (await publicClient.readContract({
     address: keepaliveRegistryAddress,
     abi: KEEPALIVE_ABI,
     functionName: 'getStatusByJNS',
     args: [jnsNode],
-  }) as [boolean, boolean, number, `0x${string}`];
+  })) as [boolean, boolean, number, `0x${string}`]
 
-  const [exists, funded, , keepaliveId] = statusResult;
+  const [exists, funded, , keepaliveId] = statusResult
 
   if (!exists || funded) {
-    return { shouldShowWakePage: false };
+    return { shouldShowWakePage: false }
   }
 
   // Fetch full keepalive config
-  const keepalive = await publicClient.readContract({
+  const keepalive = (await publicClient.readContract({
     address: keepaliveRegistryAddress,
     abi: KEEPALIVE_ABI,
     functionName: 'keepalives',
     args: [keepaliveId],
-  }) as [
-    `0x${string}`, Address, `0x${string}`, bigint, Address,
-    bigint, bigint, bigint, boolean, boolean, bigint, bigint, number
-  ];
+  })) as [
+    `0x${string}`,
+    Address,
+    `0x${string}`,
+    bigint,
+    Address,
+    bigint,
+    bigint,
+    bigint,
+    boolean,
+    boolean,
+    bigint,
+    bigint,
+    number,
+  ]
 
-  const owner = keepalive[1];
-  const vaultAddress = keepalive[4];
-  const minRequired = keepalive[5];
-  const lastCheckAt = keepalive[11];
+  const owner = keepalive[1]
+  const vaultAddress = keepalive[4]
+  const minRequired = keepalive[5]
+  const lastCheckAt = keepalive[11]
 
   // Fetch last health check for current balance
-  const healthCheck = await publicClient.readContract({
+  const healthCheck = (await publicClient.readContract({
     address: keepaliveRegistryAddress,
     abi: KEEPALIVE_ABI,
     functionName: 'lastHealthCheck',
     args: [keepaliveId],
-  }) as [`0x${string}`, number, bigint, bigint, number, number];
+  })) as [`0x${string}`, number, bigint, bigint, number, number]
 
-  const currentBalance = healthCheck[3];
-  const fundingNeeded = minRequired > currentBalance ? minRequired - currentBalance : 0n;
+  const currentBalance = healthCheck[3]
+  const fundingNeeded =
+    minRequired > currentBalance ? minRequired - currentBalance : 0n
 
   return {
     shouldShowWakePage: true,
@@ -477,5 +492,5 @@ export async function checkWakePage(
       lastHealthy: Number(lastCheckAt) * 1000,
       agentId: keepalive[3] > 0n ? keepalive[3] : undefined,
     },
-  };
+  }
 }

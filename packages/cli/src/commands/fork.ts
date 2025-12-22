@@ -1,6 +1,6 @@
 /**
  * fork command - Fork and deploy your own network
- * 
+ *
  * Creates a complete network deployment with:
  * - Custom branding (name, tagline, colors)
  * - Chain configuration
@@ -9,25 +9,36 @@
  * - Cross-chain trust
  */
 
-import { Command } from 'commander';
-import prompts from 'prompts';
-import { existsSync, writeFileSync, mkdirSync, readFileSync } from 'fs';
-import { join } from 'path';
-import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
-import { logger } from '../lib/logger';
-import { generateForkBranding, getNetworkName, type BrandingConfig } from '@jejunetwork/config';
+import type { Dirent } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs'
+import { join } from 'node:path'
+import {
+  type BrandingConfig,
+  generateForkBranding,
+  getNetworkName,
+} from '@jejunetwork/config'
+import { Command } from 'commander'
+import prompts from 'prompts'
+import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
+import { logger } from '../lib/logger'
 
 interface ForkConfig {
-  name: string;
-  displayName: string;
-  tagline: string;
-  chainId: number;
-  l1Chain: 'ethereum' | 'sepolia' | 'base';
-  domain: string;
-  tokenSymbol: string;
-  governanceTokenName: string;
-  governanceTokenSymbol: string;
-  stake: string;
+  name: string
+  displayName: string
+  tagline: string
+  chainId: number
+  l1Chain: 'ethereum' | 'sepolia' | 'base'
+  domain: string
+  tokenSymbol: string
+  governanceTokenName: string
+  governanceTokenSymbol: string
+  stake: string
 }
 
 const L1_CONFIGS = {
@@ -46,7 +57,7 @@ const L1_CONFIGS = {
     rpcUrl: 'https://mainnet.base.org',
     name: 'Base',
   },
-};
+}
 
 export const forkCommand = new Command('fork')
   .description('Fork and deploy your own network')
@@ -59,13 +70,15 @@ export const forkCommand = new Command('fork')
   .option('--minimal', 'Minimal prompts - use defaults where possible')
   .option('-y, --yes', 'Skip all confirmations')
   .action(async (options) => {
-    logger.header('FORK YOUR OWN NETWORK');
+    logger.header('FORK YOUR OWN NETWORK')
 
-    const parentNetwork = getNetworkName();
-    console.log(`\nYou're forking ${parentNetwork} to create your own L2 network.\n`);
-    console.log('This wizard will help you set up everything you need.\n');
+    const parentNetwork = getNetworkName()
+    console.log(
+      `\nYou're forking ${parentNetwork} to create your own L2 network.\n`,
+    )
+    console.log('This wizard will help you set up everything you need.\n')
 
-    let config: ForkConfig;
+    let config: ForkConfig
 
     if (options.yes && options.name && options.chainId) {
       // Non-interactive mode with all required options
@@ -73,19 +86,21 @@ export const forkCommand = new Command('fork')
         name: options.name,
         displayName: `${options.name} Network`,
         tagline: `The ${options.name} L2 network`,
-        chainId: parseInt(options.chainId),
+        chainId: parseInt(options.chainId, 10),
         l1Chain: options.l1 || 'sepolia',
-        domain: options.domain || `${options.name.toLowerCase().replace(/\s+/g, '')}.network`,
+        domain:
+          options.domain ||
+          `${options.name.toLowerCase().replace(/\s+/g, '')}.network`,
         tokenSymbol: options.tokenSymbol || 'ETH',
         governanceTokenName: `${options.name} Token`,
         governanceTokenSymbol: options.name.toUpperCase().slice(0, 4),
         stake: options.stake || '1',
-      };
+      }
     } else {
       // Interactive mode with friendly prompts
-      console.log('━'.repeat(50));
-      console.log('Step 1: Basic Info');
-      console.log('━'.repeat(50) + '\n');
+      console.log('━'.repeat(50))
+      console.log('Step 1: Basic Info')
+      console.log(`${'━'.repeat(50)}\n`)
 
       const basicInfo = await prompts([
         {
@@ -93,7 +108,8 @@ export const forkCommand = new Command('fork')
           name: 'name',
           message: 'What should your network be called?',
           initial: options.name || 'MyNetwork',
-          validate: (v: string) => v.length >= 2 || 'Name must be at least 2 characters',
+          validate: (v: string) =>
+            v.length >= 2 || 'Name must be at least 2 characters',
         },
         {
           type: 'text',
@@ -105,19 +121,22 @@ export const forkCommand = new Command('fork')
           type: 'number',
           name: 'chainId',
           message: 'Choose a chain ID (pick a unique number):',
-          initial: options.chainId ? parseInt(options.chainId) : Math.floor(Math.random() * 900000) + 100000,
-          validate: (v: number) => v > 0 && v < 2147483647 || 'Chain ID must be a positive integer',
+          initial: options.chainId
+            ? parseInt(options.chainId, 10)
+            : Math.floor(Math.random() * 900000) + 100000,
+          validate: (v: number) =>
+            (v > 0 && v < 2147483647) || 'Chain ID must be a positive integer',
         },
-      ]);
+      ])
 
       if (!basicInfo.name) {
-        logger.error('Fork cancelled');
-        return;
+        logger.error('Fork cancelled')
+        return
       }
 
-      console.log('\n' + '━'.repeat(50));
-      console.log('Step 2: Network Setup');
-      console.log('━'.repeat(50) + '\n');
+      console.log(`\n${'━'.repeat(50)}`)
+      console.log('Step 2: Network Setup')
+      console.log(`${'━'.repeat(50)}\n`)
 
       const networkSetup = await prompts([
         {
@@ -137,12 +156,12 @@ export const forkCommand = new Command('fork')
           message: 'Your domain (or press Enter to use default):',
           initial: `${basicInfo.name.toLowerCase().replace(/\s+/g, '')}.network`,
         },
-      ]);
+      ])
 
       if (!options.minimal) {
-        console.log('\n' + '━'.repeat(50));
-        console.log('Step 3: Tokens (Optional - press Enter to skip)');
-        console.log('━'.repeat(50) + '\n');
+        console.log(`\n${'━'.repeat(50)}`)
+        console.log('Step 3: Tokens (Optional - press Enter to skip)')
+        console.log(`${'━'.repeat(50)}\n`)
 
         const tokenSetup = await prompts([
           {
@@ -163,7 +182,7 @@ export const forkCommand = new Command('fork')
             message: 'Governance token symbol:',
             initial: basicInfo.name.toUpperCase().slice(0, 4),
           },
-        ]);
+        ])
 
         config = {
           name: basicInfo.name,
@@ -173,10 +192,13 @@ export const forkCommand = new Command('fork')
           l1Chain: networkSetup.l1Chain,
           domain: networkSetup.domain,
           tokenSymbol: tokenSetup.tokenSymbol || 'ETH',
-          governanceTokenName: tokenSetup.governanceTokenName || `${basicInfo.name} Token`,
-          governanceTokenSymbol: tokenSetup.governanceTokenSymbol || basicInfo.name.toUpperCase().slice(0, 4),
+          governanceTokenName:
+            tokenSetup.governanceTokenName || `${basicInfo.name} Token`,
+          governanceTokenSymbol:
+            tokenSetup.governanceTokenSymbol ||
+            basicInfo.name.toUpperCase().slice(0, 4),
           stake: options.stake || '1',
-        };
+        }
       } else {
         config = {
           name: basicInfo.name,
@@ -189,16 +211,20 @@ export const forkCommand = new Command('fork')
           governanceTokenName: `${basicInfo.name} Token`,
           governanceTokenSymbol: basicInfo.name.toUpperCase().slice(0, 4),
           stake: options.stake || '1',
-        };
+        }
       }
     }
 
-    const l1Config = L1_CONFIGS[config.l1Chain];
-    const outputDir = join(process.cwd(), '.fork', config.name.toLowerCase().replace(/\s+/g, '-'));
+    const l1Config = L1_CONFIGS[config.l1Chain]
+    const outputDir = join(
+      process.cwd(),
+      '.fork',
+      config.name.toLowerCase().replace(/\s+/g, '-'),
+    )
 
-    console.log('\n' + '━'.repeat(50));
-    console.log('Review Your Configuration');
-    console.log('━'.repeat(50));
+    console.log(`\n${'━'.repeat(50)}`)
+    console.log('Review Your Configuration')
+    console.log('━'.repeat(50))
 
     logger.box([
       `Network: ${config.displayName}`,
@@ -209,7 +235,7 @@ export const forkCommand = new Command('fork')
       `Gas Token: ${config.tokenSymbol}`,
       `Governance Token: ${config.governanceTokenName} (${config.governanceTokenSymbol})`,
       `Output: ${outputDir}`,
-    ]);
+    ])
 
     if (!options.yes) {
       const { proceed } = await prompts({
@@ -217,20 +243,20 @@ export const forkCommand = new Command('fork')
         name: 'proceed',
         message: 'Create your network with these settings?',
         initial: true,
-      });
+      })
       if (!proceed) {
-        logger.info('Fork cancelled');
-        return;
+        logger.info('Fork cancelled')
+        return
       }
     }
 
-    mkdirSync(outputDir, { recursive: true });
+    mkdirSync(outputDir, { recursive: true })
 
     // Step 1: Generate branding config
-    logger.subheader('Creating Your Network');
-    console.log('');
+    logger.subheader('Creating Your Network')
+    console.log('')
 
-    console.log('📝 Generating branding configuration...');
+    console.log('📝 Generating branding configuration...')
     const branding = generateForkBranding({
       name: config.name,
       displayName: config.displayName,
@@ -240,43 +266,55 @@ export const forkCommand = new Command('fork')
       tokenSymbol: config.tokenSymbol,
       governanceTokenName: config.governanceTokenName,
       governanceTokenSymbol: config.governanceTokenSymbol,
-    });
-    writeFileSync(join(outputDir, 'branding.json'), JSON.stringify(branding, null, 2));
+    })
+    writeFileSync(
+      join(outputDir, 'branding.json'),
+      JSON.stringify(branding, null, 2),
+    )
 
     // Step 2: Generate operator keys
-    console.log('🔑 Generating operator keys...');
-    const keys = await generateOperatorKeys(outputDir);
+    console.log('🔑 Generating operator keys...')
+    const keys = await generateOperatorKeys(outputDir)
 
     // Step 3: Generate genesis
-    console.log('⛓️  Generating genesis configuration...');
-    const genesis = generateGenesis(config, keys);
-    writeFileSync(join(outputDir, 'genesis.json'), JSON.stringify(genesis, null, 2));
+    console.log('⛓️  Generating genesis configuration...')
+    const genesis = generateGenesis(config, keys)
+    writeFileSync(
+      join(outputDir, 'genesis.json'),
+      JSON.stringify(genesis, null, 2),
+    )
 
     // Step 4: Generate chain config
-    console.log('⚙️  Generating chain configuration...');
-    const chainConfig = generateChainConfig(config, l1Config, branding);
-    writeFileSync(join(outputDir, 'chain.json'), JSON.stringify(chainConfig, null, 2));
+    console.log('⚙️  Generating chain configuration...')
+    const chainConfig = generateChainConfig(config, l1Config, branding)
+    writeFileSync(
+      join(outputDir, 'chain.json'),
+      JSON.stringify(chainConfig, null, 2),
+    )
 
     // Step 5: Generate federation config
-    console.log('🌐 Generating federation configuration...');
-    const federationConfig = generateFederationConfig(config, l1Config);
-    writeFileSync(join(outputDir, 'federation.json'), JSON.stringify(federationConfig, null, 2));
+    console.log('🌐 Generating federation configuration...')
+    const federationConfig = generateFederationConfig(config, l1Config)
+    writeFileSync(
+      join(outputDir, 'federation.json'),
+      JSON.stringify(federationConfig, null, 2),
+    )
 
     // Step 6: Generate deploy scripts
-    console.log('📜 Generating deployment scripts...');
-    await generateDeployScripts(outputDir, config, branding);
+    console.log('📜 Generating deployment scripts...')
+    await generateDeployScripts(outputDir, config, branding)
 
     // Step 7: Generate K8s manifests
-    console.log('☸️  Generating Kubernetes manifests...');
-    await generateK8sManifests(outputDir, config);
+    console.log('☸️  Generating Kubernetes manifests...')
+    await generateK8sManifests(outputDir, config)
 
     // Step 8: Create README
-    console.log('📖 Creating setup guide...');
-    generateReadme(outputDir, config, branding, keys);
+    console.log('📖 Creating setup guide...')
+    generateReadme(outputDir, config, branding, keys)
 
     // Summary
-    console.log('');
-    logger.header('YOUR NETWORK IS READY');
+    console.log('')
+    logger.header('YOUR NETWORK IS READY')
 
     console.log(`
 Congratulations! Your ${config.displayName} is ready to deploy.
@@ -310,29 +348,45 @@ ${chalk.bold('💡 Tips:')}
    • Join ${getNetworkName()} Discord for support
 
 ${chalk.dim('Happy building!')}
-`);
-  });
+`)
+  })
 
-async function generateOperatorKeys(outputDir: string): Promise<Record<string, { address: string; privateKey: string }>> {
-  const roles = ['deployer', 'sequencer', 'batcher', 'proposer', 'challenger', 'guardian', 'admin', 'oracle', 'governance'];
-  const keys: Record<string, { address: string; privateKey: string }> = {};
+async function generateOperatorKeys(
+  outputDir: string,
+): Promise<Record<string, { address: string; privateKey: string }>> {
+  const roles = [
+    'deployer',
+    'sequencer',
+    'batcher',
+    'proposer',
+    'challenger',
+    'guardian',
+    'admin',
+    'oracle',
+    'governance',
+  ]
+  const keys: Record<string, { address: string; privateKey: string }> = {}
 
   for (const role of roles) {
-    const account = privateKeyToAccount(generatePrivateKey());
-    keys[role] = { address: account.address, privateKey: account.privateKey };
+    const pk = generatePrivateKey()
+    const account = privateKeyToAccount(pk)
+    keys[role] = { address: account.address, privateKey: pk }
   }
 
-  writeFileSync(join(outputDir, 'keys.json'), JSON.stringify(keys, null, 2));
-  writeFileSync(join(outputDir, '.keys.secret'), JSON.stringify(keys, null, 2));
+  writeFileSync(join(outputDir, 'keys.json'), JSON.stringify(keys, null, 2))
+  writeFileSync(join(outputDir, '.keys.secret'), JSON.stringify(keys, null, 2))
 
-  return keys;
+  return keys
 }
 
-function generateGenesis(config: ForkConfig, keys: Record<string, { address: string; privateKey: string }>) {
-  const alloc: Record<string, { balance: string }> = {};
+function generateGenesis(
+  config: ForkConfig,
+  keys: Record<string, { address: string; privateKey: string }>,
+) {
+  const alloc: Record<string, { balance: string }> = {}
 
   for (const key of Object.values(keys)) {
-    alloc[key.address.toLowerCase()] = { balance: '0x21e19e0c9bab2400000' };
+    alloc[key.address.toLowerCase()] = { balance: '0x21e19e0c9bab2400000' }
   }
 
   return {
@@ -367,23 +421,31 @@ function generateGenesis(config: ForkConfig, keys: Record<string, { address: str
     extraData: '0x',
     gasLimit: '0x1c9c380',
     difficulty: '0x0',
-    mixHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
+    mixHash:
+      '0x0000000000000000000000000000000000000000000000000000000000000000',
     coinbase: '0x0000000000000000000000000000000000000000',
     alloc,
     number: '0x0',
     gasUsed: '0x0',
-    parentHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
+    parentHash:
+      '0x0000000000000000000000000000000000000000000000000000000000000000',
     baseFeePerGas: '0x3b9aca00',
-  };
+  }
 }
 
-function generateChainConfig(config: ForkConfig, l1Config: { chainId: number; rpcUrl: string; name: string }, branding: BrandingConfig) {
+function generateChainConfig(
+  config: ForkConfig,
+  l1Config: { chainId: number; rpcUrl: string; name: string },
+  branding: BrandingConfig,
+) {
   return {
     chainId: config.chainId,
     networkId: config.chainId,
     name: config.displayName,
     rpcUrl: branding.urls.rpc.testnet,
-    wsUrl: branding.urls.rpc.testnet.replace('https://', 'wss://').replace('rpc', 'ws'),
+    wsUrl: branding.urls.rpc.testnet
+      .replace('https://', 'wss://')
+      .replace('rpc', 'ws'),
     explorerUrl: branding.urls.explorer.testnet,
     l1ChainId: l1Config.chainId,
     l1RpcUrl: l1Config.rpcUrl,
@@ -408,17 +470,22 @@ function generateChainConfig(config: ForkConfig, l1Config: { chainId: number; rp
       },
       l1: {},
     },
-  };
+  }
 }
 
-function generateFederationConfig(config: ForkConfig, l1Config: { chainId: number; rpcUrl: string; name: string }) {
-  const isMainnet = config.l1Chain === 'ethereum';
+function generateFederationConfig(
+  config: ForkConfig,
+  l1Config: { chainId: number; rpcUrl: string; name: string },
+) {
+  const isMainnet = config.l1Chain === 'ethereum'
   return {
     version: '1.0.0',
     network: { name: config.name, chainId: config.chainId },
     hub: {
       chainId: isMainnet ? 1 : 11155111,
-      rpcUrl: isMainnet ? 'https://eth.llamarpc.com' : 'https://ethereum-sepolia-rpc.publicnode.com',
+      rpcUrl: isMainnet
+        ? 'https://eth.llamarpc.com'
+        : 'https://ethereum-sepolia-rpc.publicnode.com',
       registryAddress: '0x0000000000000000000000000000000000000000',
     },
     trustedNetworks: [isMainnet ? 420691 : 420690],
@@ -426,10 +493,14 @@ function generateFederationConfig(config: ForkConfig, l1Config: { chainId: numbe
       oracleType: 'superchain',
       supportedChains: [isMainnet ? 420691 : 420690, l1Config.chainId],
     },
-  };
+  }
 }
 
-async function generateDeployScripts(outputDir: string, config: ForkConfig, _branding: BrandingConfig): Promise<void> {
+async function generateDeployScripts(
+  outputDir: string,
+  config: ForkConfig,
+  _branding: BrandingConfig,
+): Promise<void> {
   const deployL1 = `#!/usr/bin/env bun
 /**
  * Deploy L1 contracts for ${config.displayName}
@@ -438,7 +509,7 @@ import { createPublicClient, createWalletClient, http, getBalance, type Address 
 import { privateKeyToAccount } from 'viem/accounts';
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { inferChainFromRpcUrl } from '../../../../scripts/shared/chain-utils';
+import { inferChainFromRpcUrl } from '../../../../packages/deployment/scripts/shared/chain-utils';
 
 const keys = JSON.parse(readFileSync(join(import.meta.dir, 'keys.json'), 'utf-8'));
 const chainConfig = JSON.parse(readFileSync(join(import.meta.dir, 'chain.json'), 'utf-8'));
@@ -462,7 +533,7 @@ async function main() {
 }
 
 main().catch(console.error);
-`;
+`
 
   const deployL2 = `#!/usr/bin/env bun
 /**
@@ -472,7 +543,7 @@ import { createPublicClient, createWalletClient, http, type Address } from 'viem
 import { privateKeyToAccount } from 'viem/accounts';
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { inferChainFromRpcUrl } from '../../../../scripts/shared/chain-utils';
+import { inferChainFromRpcUrl } from '../../../../packages/deployment/scripts/shared/chain-utils';
 
 const keys = JSON.parse(readFileSync(join(import.meta.dir, 'keys.json'), 'utf-8'));
 const chainConfig = JSON.parse(readFileSync(join(import.meta.dir, 'chain.json'), 'utf-8'));
@@ -499,7 +570,7 @@ async function main() {
 }
 
 main().catch(console.error);
-`;
+`
 
   const registerFederation = `#!/usr/bin/env bun
 /**
@@ -511,7 +582,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { parseAbi } from 'viem';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { inferChainFromRpcUrl } from '../../../../scripts/shared/chain-utils';
+import { inferChainFromRpcUrl } from '../../../../packages/deployment/scripts/shared/chain-utils';
 
 const keys = JSON.parse(readFileSync(join(import.meta.dir, 'keys.json'), 'utf-8'));
 const chainConfig = JSON.parse(readFileSync(join(import.meta.dir, 'chain.json'), 'utf-8'));
@@ -563,25 +634,33 @@ async function main() {
 }
 
 main().catch(console.error);
-`;
+`
 
-  writeFileSync(join(outputDir, 'deploy-l1.ts'), deployL1);
-  writeFileSync(join(outputDir, 'deploy-l2.ts'), deployL2);
-  writeFileSync(join(outputDir, 'register-federation.ts'), registerFederation);
+  writeFileSync(join(outputDir, 'deploy-l1.ts'), deployL1)
+  writeFileSync(join(outputDir, 'deploy-l2.ts'), deployL2)
+  writeFileSync(join(outputDir, 'register-federation.ts'), registerFederation)
 }
 
-async function generateK8sManifests(outputDir: string, config: ForkConfig): Promise<void> {
-  const k8sDir = join(outputDir, 'k8s');
-  mkdirSync(k8sDir, { recursive: true });
-  const namespace = config.name.toLowerCase().replace(/\s+/g, '-');
+async function generateK8sManifests(
+  outputDir: string,
+  config: ForkConfig,
+): Promise<void> {
+  const k8sDir = join(outputDir, 'k8s')
+  mkdirSync(k8sDir, { recursive: true })
+  const namespace = config.name.toLowerCase().replace(/\s+/g, '-')
 
-  writeFileSync(join(k8sDir, 'namespace.yaml'), `apiVersion: v1
+  writeFileSync(
+    join(k8sDir, 'namespace.yaml'),
+    `apiVersion: v1
 kind: Namespace
 metadata:
   name: ${namespace}
-`);
+`,
+  )
 
-  writeFileSync(join(k8sDir, 'sequencer.yaml'), `apiVersion: apps/v1
+  writeFileSync(
+    join(k8sDir, 'sequencer.yaml'),
+    `apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: sequencer
@@ -601,8 +680,8 @@ spec:
       - name: op-geth
         image: ghcr.io/paradigmxyz/op-reth:latest
         ports:
-        - containerPort: 6546
-        - containerPort: 6547
+        - containerPort: 8545
+        - containerPort: 8546
         env:
         - name: CHAIN_ID
           value: "${config.chainId}"
@@ -628,12 +707,15 @@ spec:
     app: sequencer
   ports:
   - name: rpc
-    port: 6546
+    port: 8545
   - name: ws
-    port: 6547
-`);
+    port: 8546
+`,
+  )
 
-  writeFileSync(join(k8sDir, 'op-node.yaml'), `apiVersion: apps/v1
+  writeFileSync(
+    join(k8sDir, 'op-node.yaml'),
+    `apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: op-node
@@ -652,18 +734,19 @@ spec:
       - name: op-node
         image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-node:v1.9.4
         ports:
-        - containerPort: 6547
+        - containerPort: 9545
         env:
         - name: OP_NODE_L2_ENGINE_RPC
           value: "http://sequencer:8551"
-`);
+`,
+  )
 }
 
 function generateReadme(
   outputDir: string,
   config: ForkConfig,
   branding: BrandingConfig,
-  keys: Record<string, { address: string; privateKey: string }>
+  keys: Record<string, { address: string; privateKey: string }>,
 ): void {
   const readme = `# ${config.displayName}
 
@@ -737,45 +820,49 @@ Edit \`branding.json\` to customize:
 ---
 
 Built with ❤️ using ${getNetworkName()}
-`;
+`
 
-  writeFileSync(join(outputDir, 'README.md'), readme);
+  writeFileSync(join(outputDir, 'README.md'), readme)
 }
 
 // Import chalk for the main action
-import chalk from 'chalk';
+import chalk from 'chalk'
 
 // Add list subcommand
 forkCommand
   .command('list')
   .description('List existing forks')
   .action(() => {
-    const forksDir = join(process.cwd(), '.fork');
+    const forksDir = join(process.cwd(), '.fork')
     if (!existsSync(forksDir)) {
-      logger.info('No forks found. Run `fork` to create one.');
-      return;
+      logger.info('No forks found. Run `fork` to create one.')
+      return
     }
 
     const forks = readdirSync(forksDir, { withFileTypes: true })
-      .filter((d) => d.isDirectory())
-      .map((d) => d.name);
+      .filter((d: Dirent) => d.isDirectory())
+      .map((d: Dirent) => d.name)
 
     if (forks.length === 0) {
-      logger.info('No forks found. Run `fork` to create one.');
-      return;
+      logger.info('No forks found. Run `fork` to create one.')
+      return
     }
 
-    logger.header('YOUR NETWORKS');
+    logger.header('YOUR NETWORKS')
     for (const fork of forks) {
-      const brandingPath = join(forksDir, fork, 'branding.json');
-      const chainPath = join(forksDir, fork, 'chain.json');
-      
+      const brandingPath = join(forksDir, fork, 'branding.json')
+      const chainPath = join(forksDir, fork, 'chain.json')
+
       if (existsSync(brandingPath)) {
-        const branding = JSON.parse(readFileSync(brandingPath, 'utf-8'));
-        const chain = existsSync(chainPath) ? JSON.parse(readFileSync(chainPath, 'utf-8')) : {};
-        console.log(`  ${chalk.cyan(branding.network.name)} (Chain ID: ${chain.chainId || '?'})`);
-        console.log(`    ${chalk.dim(branding.network.tagline)}`);
-        console.log('');
+        const branding = JSON.parse(readFileSync(brandingPath, 'utf-8'))
+        const chain = existsSync(chainPath)
+          ? JSON.parse(readFileSync(chainPath, 'utf-8'))
+          : {}
+        console.log(
+          `  ${chalk.cyan(branding.network.name)} (Chain ID: ${chain.chainId || '?'})`,
+        )
+        console.log(`    ${chalk.dim(branding.network.tagline)}`)
+        console.log('')
       }
     }
-  });
+  })

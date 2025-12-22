@@ -133,6 +133,8 @@ contract CommitRevealVoting is Ownable, ReentrancyGuard {
     error InsufficientStake();
     error CaseNotResolved();
     error AlreadyResolved();
+    error NoEarningsToClaim();
+    error BatchTooLarge();
 
     // ═══════════════════════════════════════════════════════════════════════
     //                              CONSTRUCTOR
@@ -237,9 +239,45 @@ contract CommitRevealVoting is Ownable, ReentrancyGuard {
     //                              RESOLUTION
     // ═══════════════════════════════════════════════════════════════════════
 
+    /// @notice Maximum voters to process in a single transaction to prevent DoS
+    uint256 public constant MAX_BATCH_SIZE = 100;
+    
+    /// @notice Track processed index for forfeit processing
+    mapping(bytes32 => uint256) public forfeitProcessedIndex;
+    
+    /**
+     * @notice Process forfeits for a batch of voters (call multiple times if needed)
+     * @param caseId The case to process forfeits for
+     * @param maxToProcess Maximum number of voters to process in this call
+     */
+    function processForfeits(bytes32 caseId, uint256 maxToProcess) external nonReentrant {
+        CaseVoting storage voting = caseVoting[caseId];
+        
+        if (voting.caseId == bytes32(0)) revert CaseNotFound();
+        if (block.timestamp <= voting.revealPhaseEnd) revert RevealPhaseNotStarted();
+        if (maxToProcess > MAX_BATCH_SIZE) revert BatchTooLarge();
+        
+        address[] storage voters = caseVoters[caseId];
+        uint256 startIdx = forfeitProcessedIndex[caseId];
+        uint256 endIdx = startIdx + maxToProcess;
+        if (endIdx > voters.length) endIdx = voters.length;
+        
+        for (uint256 i = startIdx; i < endIdx; i++) {
+            VoteCommit storage commit = commits[caseId][voters[i]];
+            if (!commit.revealed && !commit.forfeited) {
+                commit.forfeited = true;
+                voting.totalForfeited += commit.stakeAmount;
+                emit VoteForfeited(caseId, voters[i], commit.stakeAmount);
+            }
+        }
+        
+        forfeitProcessedIndex[caseId] = endIdx;
+    }
+    
     /**
      * @notice Resolve the case after reveal phase ends
      * @param caseId The case to resolve
+     * @dev If there are many voters, call processForfeits() first in batches
      */
     function resolveCase(bytes32 caseId) external nonReentrant {
         CaseVoting storage voting = caseVoting[caseId];
@@ -248,9 +286,13 @@ contract CommitRevealVoting is Ownable, ReentrancyGuard {
         if (block.timestamp <= voting.revealPhaseEnd) revert RevealPhaseNotStarted();
         if (voting.resolved) revert AlreadyResolved();
 
-        // Process forfeits for non-revealers
+        // Process remaining forfeits for non-revealers (limited batch)
         address[] storage voters = caseVoters[caseId];
-        for (uint256 i = 0; i < voters.length; i++) {
+        uint256 startIdx = forfeitProcessedIndex[caseId];
+        uint256 endIdx = startIdx + MAX_BATCH_SIZE;
+        if (endIdx > voters.length) endIdx = voters.length;
+        
+        for (uint256 i = startIdx; i < endIdx; i++) {
             VoteCommit storage commit = commits[caseId][voters[i]];
             if (!commit.revealed && !commit.forfeited) {
                 commit.forfeited = true;
@@ -258,6 +300,7 @@ contract CommitRevealVoting is Ownable, ReentrancyGuard {
                 emit VoteForfeited(caseId, voters[i], commit.stakeAmount);
             }
         }
+        forfeitProcessedIndex[caseId] = endIdx;
 
         // Determine outcome
         voting.resolved = true;
@@ -282,8 +325,14 @@ contract CommitRevealVoting is Ownable, ReentrancyGuard {
         _distributeRewards(caseId);
     }
 
+    // Track pending withdrawals for pull pattern
+    mapping(bytes32 => mapping(address => uint256)) public pendingWithdrawals;
+    
+    event WithdrawalPending(bytes32 indexed caseId, address indexed voter, uint256 amount);
+    
     /**
-     * @notice Distribute stakes to winners
+     * @notice Distribute stakes to winners using pull pattern to prevent DoS
+     * @dev Uses pull pattern instead of push to prevent DoS from reverting recipients
      */
     function _distributeRewards(bytes32 caseId) internal {
         CaseVoting storage voting = caseVoting[caseId];
@@ -305,18 +354,25 @@ contract CommitRevealVoting is Ownable, ReentrancyGuard {
         
         if (totalPrize == 0 || winnerPool == 0) return;
 
-        // Treasury cut
+        // Treasury cut - use pull pattern for treasury too
         uint256 treasuryCut = (totalPrize * TREASURY_SHARE_BPS) / 10000;
         if (treasuryCut > 0) {
+            // Try direct transfer to treasury, if fails, make it claimable
             (bool success, ) = treasury.call{value: treasuryCut}("");
-            if (!success) revert CaseNotResolved();
+            if (!success) {
+                pendingWithdrawals[caseId][treasury] += treasuryCut;
+                emit WithdrawalPending(caseId, treasury, treasuryCut);
+            }
         }
 
         uint256 winnerPrize = totalPrize - treasuryCut;
 
-        // Distribute proportionally to winners
+        // Use pull pattern: calculate rewards and store for withdrawal
+        // This prevents DoS from reverting recipients
         address[] storage voters = caseVoters[caseId];
-        for (uint256 i = 0; i < voters.length; i++) {
+        uint256 votersLen = voters.length;
+        
+        for (uint256 i = 0; i < votersLen; i++) {
             VoteCommit storage commit = commits[caseId][voters[i]];
             
             if (!commit.revealed || commit.forfeited) continue;
@@ -332,9 +388,36 @@ contract CommitRevealVoting is Ownable, ReentrancyGuard {
             uint256 share = commit.stakeAmount + 
                 ((commit.stakeAmount * winnerPrize) / winnerPool);
             
-            (bool sent, ) = voters[i].call{value: share}("");
-            require(sent, "Transfer failed");
+            // Store for pull withdrawal instead of pushing
+            pendingWithdrawals[caseId][voters[i]] = share;
+            emit WithdrawalPending(caseId, voters[i], share);
         }
+    }
+    
+    /**
+     * @notice Withdraw pending rewards from a resolved case (pull pattern)
+     * @param caseId The case ID
+     */
+    function withdrawReward(bytes32 caseId) external nonReentrant {
+        uint256 amount = pendingWithdrawals[caseId][msg.sender];
+        if (amount == 0) revert NoEarningsToClaim();
+        
+        // CEI: Clear before transfer
+        pendingWithdrawals[caseId][msg.sender] = 0;
+        
+        (bool success, ) = msg.sender.call{value: amount}("");
+        if (!success) {
+            // Re-credit on failure so user can try again
+            pendingWithdrawals[caseId][msg.sender] = amount;
+            revert CaseNotResolved();
+        }
+    }
+    
+    /**
+     * @notice Get pending withdrawal amount for a voter
+     */
+    function getPendingWithdrawal(bytes32 caseId, address voter) external view returns (uint256) {
+        return pendingWithdrawals[caseId][voter];
     }
 
     // ═══════════════════════════════════════════════════════════════════════

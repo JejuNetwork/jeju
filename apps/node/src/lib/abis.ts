@@ -30,7 +30,7 @@ export const IDENTITY_REGISTRY_ABI = [
     outputs: [{ name: 'agentId', type: 'uint256' }],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 export const NODE_STAKING_MANAGER_ABI = [
   {
@@ -75,7 +75,7 @@ export const NODE_STAKING_MANAGER_ABI = [
     outputs: [{ name: 'amount', type: 'uint256' }],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 export const COMPUTE_STAKING_ABI = [
   {
@@ -103,7 +103,7 @@ export const COMPUTE_STAKING_ABI = [
     outputs: [],
     stateMutability: 'nonpayable',
   },
-] as const;
+] as const
 
 export const INFERENCE_SERVING_ABI = [
   {
@@ -145,7 +145,7 @@ export const INFERENCE_SERVING_ABI = [
     outputs: [],
     stateMutability: 'nonpayable',
   },
-] as const;
+] as const
 
 export const TRIGGER_REGISTRY_ABI = [
   {
@@ -178,15 +178,13 @@ export const TRIGGER_REGISTRY_ABI = [
     outputs: [],
     stateMutability: 'nonpayable',
   },
-] as const;
+] as const
 
 export const ORACLE_STAKING_MANAGER_ABI = [
   {
     type: 'function',
     name: 'registerOracle',
-    inputs: [
-      { name: 'agentId', type: 'uint256' },
-    ],
+    inputs: [{ name: 'agentId', type: 'uint256' }],
     outputs: [],
     stateMutability: 'payable',
   },
@@ -212,7 +210,7 @@ export const ORACLE_STAKING_MANAGER_ABI = [
     ],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 export const STORAGE_MARKET_ABI = [
   {
@@ -239,7 +237,7 @@ export const STORAGE_MARKET_ABI = [
     ],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 export const SEQUENCER_REGISTRY_ABI = [
   {
@@ -272,7 +270,7 @@ export const SEQUENCER_REGISTRY_ABI = [
     outputs: [],
     stateMutability: 'nonpayable',
   },
-] as const;
+] as const
 
 export const BAN_MANAGER_ABI = [
   {
@@ -327,7 +325,7 @@ export const BAN_MANAGER_ABI = [
     ],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 export const CONTENT_REGISTRY_ABI = [
   {
@@ -479,7 +477,7 @@ export const CONTENT_REGISTRY_ABI = [
     outputs: [{ name: '', type: 'bool' }],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 export const CDN_REGISTRY_ABI = [
   {
@@ -571,7 +569,7 @@ export const CDN_REGISTRY_ABI = [
     outputs: [],
     stateMutability: 'nonpayable',
   },
-] as const;
+] as const
 
 export const PROXY_REGISTRY_ABI = [
   // Registration
@@ -722,7 +720,7 @@ export const PROXY_REGISTRY_ABI = [
       { name: 'successful', type: 'bool', indexed: false },
     ],
   },
-] as const;
+] as const
 
 export const VPN_REGISTRY_ABI = [
   // Registration
@@ -850,5 +848,4 @@ export const VPN_REGISTRY_ABI = [
       { name: 'successful', type: 'bool', indexed: false },
     ],
   },
-] as const;
-
+] as const

@@ -2,5 +2,11 @@
  * CQL ORM Adapters
  */
 
-export { drizzle, sql, type DrizzleCQL, type DrizzleCQLConfig, type SQL, type TableRef } from './drizzle.js';
-
+export {
+  type DrizzleCQL,
+  type DrizzleCQLConfig,
+  drizzle,
+  type SQL,
+  sql,
+  type TableRef,
+} from './drizzle.js'

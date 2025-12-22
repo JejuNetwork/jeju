@@ -3,158 +3,158 @@
  * Tests the A2A interface for Prometheus metrics
  */
 
-import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
-import { spawn, type ChildProcess } from 'child_process';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
-import {
-  AgentCardSchema,
-  A2AResponseSchema,
-  type AgentCard,
-  type A2AResponse,
-} from '../src/types';
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+import { type ChildProcess, spawn } from 'node:child_process'
+import { dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { A2AResponseSchema, AgentCardSchema } from '../src/types'
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
-const A2A_PORT = 9091;
-const A2A_URL = `http://localhost:${A2A_PORT}`;
+const A2A_PORT = 9091
+const A2A_URL = `http://localhost:${A2A_PORT}`
 
-let serverProcess: ChildProcess | null = null;
-let serverAvailable = false;
+let serverProcess: ChildProcess | null = null
+let serverAvailable = false
 
 async function checkServerAvailable(): Promise<boolean> {
   try {
     const response = await fetch(`${A2A_URL}/.well-known/agent-card.json`, {
-      signal: AbortSignal.timeout(2000)
-    });
+      signal: AbortSignal.timeout(2000),
+    })
     if (!response.ok) {
-      return false;
+      return false
     }
-    const text = await response.text();
+    const text = await response.text()
     if (!text || text.trim() === '') {
-      return false;
+      return false
     }
     // Verify it's a valid agent card
-    const parsed = AgentCardSchema.safeParse(JSON.parse(text));
-    return parsed.success;
+    const parsed = AgentCardSchema.safeParse(JSON.parse(text))
+    return parsed.success
   } catch {
-    return false;
+    return false
   }
 }
 
 beforeAll(async () => {
-  console.log('🚀 Starting A2A server...');
-  
+  console.log('🚀 Starting A2A server...')
+
   // Check if server is already running
-  serverAvailable = await checkServerAvailable();
+  serverAvailable = await checkServerAvailable()
   if (serverAvailable) {
-    console.log('✅ A2A server already running');
-    return;
+    console.log('✅ A2A server already running')
+    return
   }
-  
+
   // Start the server - use absolute path to avoid issues
-  const { join } = await import('path');
-  const { existsSync } = await import('fs');
-  const monitoringDir = join(__dirname, '..');
-  const serverPath = join(monitoringDir, 'server', 'a2a.ts');
-  
+  const { join } = await import('node:path')
+  const { existsSync } = await import('node:fs')
+  const monitoringDir = join(__dirname, '..')
+  const serverPath = join(monitoringDir, 'server', 'a2a.ts')
+
   if (!existsSync(serverPath)) {
-    console.log(`⚠️  A2A server file not found at ${serverPath}`);
-    return;
+    console.log(`⚠️  A2A server file not found at ${serverPath}`)
+    return
   }
-  
+
   try {
     serverProcess = spawn('bun', [serverPath], {
       cwd: monitoringDir,
       env: { ...process.env, PROMETHEUS_URL: 'http://localhost:9090' },
-      stdio: ['ignore', 'pipe', 'pipe']
-    });
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
 
     // Collect stderr for error reporting
-    let stderrBuffer = '';
+    let stderrBuffer = ''
     if (serverProcess.stderr) {
       serverProcess.stderr.on('data', (data: Buffer) => {
-        stderrBuffer += data.toString();
-      });
+        stderrBuffer += data.toString()
+      })
     }
 
     // Wait for server to be ready (with retries)
-    let retries = 5; // Quick check - don't wait too long
+    let retries = 5 // Quick check - don't wait too long
     while (retries > 0) {
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      serverAvailable = await checkServerAvailable();
+      await new Promise((resolve) => setTimeout(resolve, 200))
+      serverAvailable = await checkServerAvailable()
       if (serverAvailable) {
-        console.log('✅ A2A server started successfully');
-        return;
+        console.log('✅ A2A server started successfully')
+        return
       }
-      retries--;
+      retries--
     }
-    
+
     // Check for startup errors
     if (serverProcess && !serverProcess.killed) {
       if (stderrBuffer) {
-        console.error('❌ A2A server startup error:', stderrBuffer.substring(0, 500));
+        console.error(
+          '❌ A2A server startup error:',
+          stderrBuffer.substring(0, 500),
+        )
       }
       // Try to get exit code
-      const exitCode = serverProcess.exitCode;
+      const exitCode = serverProcess.exitCode
       if (exitCode !== null && exitCode !== 0) {
-        console.error(`❌ A2A server exited with code ${exitCode}`);
+        console.error(`❌ A2A server exited with code ${exitCode}`)
       }
     }
   } catch (error) {
-    console.error(`❌ Failed to start A2A server: ${error instanceof Error ? error.message : String(error)}`);
+    console.error(
+      `❌ Failed to start A2A server: ${error instanceof Error ? error.message : String(error)}`,
+    )
   }
-  
+
   if (!serverAvailable) {
-    console.log('⚠️ A2A server not available - tests will be skipped');
-    console.log('   Make sure Prometheus is running on http://localhost:9090');
+    console.log('⚠️ A2A server not available - tests will be skipped')
+    console.log('   Make sure Prometheus is running on http://localhost:9090')
   }
-});
+})
 
 afterAll(() => {
   if (serverProcess) {
-    console.log('🛑 Stopping A2A server...');
-    serverProcess.kill();
+    console.log('🛑 Stopping A2A server...')
+    serverProcess.kill()
   }
-});
+})
 
 describe('A2A Monitoring Server', () => {
   test('should serve agent card', async () => {
     if (!serverAvailable) {
-      console.log('⚠️ Skipping - server not available');
-      expect(true).toBe(true); // Mark as passed but skipped
-      return;
+      console.log('⚠️ Skipping - server not available')
+      expect(true).toBe(true) // Mark as passed but skipped
+      return
     }
-    
-    const response = await fetch(`${A2A_URL}/.well-known/agent-card.json`);
-    expect(response.ok).toBe(true);
 
-    const text = await response.text();
+    const response = await fetch(`${A2A_URL}/.well-known/agent-card.json`)
+    expect(response.ok).toBe(true)
+
+    const text = await response.text()
     if (!text || text.trim() === '') {
-      throw new Error('Empty response from agent card endpoint');
+      throw new Error('Empty response from agent card endpoint')
     }
-    const card = AgentCardSchema.parse(JSON.parse(text));
-    expect(card.protocolVersion).toBe('0.3.0');
-    expect(card.name).toBe('Jeju Monitoring');
-    expect(card.description).toContain('Prometheus');
-    expect(card.skills).toBeArray();
-    expect(card.skills.length).toBe(6);
+    const card = AgentCardSchema.parse(JSON.parse(text))
+    expect(card.protocolVersion).toBe('0.3.0')
+    expect(card.name).toBe('Jeju Monitoring')
+    expect(card.description).toContain('Prometheus')
+    expect(card.skills).toBeArray()
+    expect(card.skills.length).toBe(6)
 
-    const skillIds = card.skills.map((s) => s.id);
-    expect(skillIds).toContain('query-metrics');
-    expect(skillIds).toContain('get-alerts');
-    expect(skillIds).toContain('get-targets');
-    expect(skillIds).toContain('oif-stats');
-    expect(skillIds).toContain('oif-solver-health');
-    expect(skillIds).toContain('oif-route-stats');
-  });
+    const skillIds = card.skills.map((s) => s.id)
+    expect(skillIds).toContain('query-metrics')
+    expect(skillIds).toContain('get-alerts')
+    expect(skillIds).toContain('get-targets')
+    expect(skillIds).toContain('oif-stats')
+    expect(skillIds).toContain('oif-solver-health')
+    expect(skillIds).toContain('oif-route-stats')
+  })
 
   test('should handle query-metrics skill', async () => {
     if (!serverAvailable) {
-      console.log('⚠️ Skipping - server not available');
-      expect(true).toBe(true);
-      return;
+      console.log('⚠️ Skipping - server not available')
+      expect(true).toBe(true)
+      return
     }
 
     const payload = {
@@ -164,36 +164,38 @@ describe('A2A Monitoring Server', () => {
       params: {
         message: {
           messageId: 'test-1',
-          parts: [{ kind: 'data', data: { skillId: 'query-metrics', query: 'up' } }]
-        }
-      }
-    };
+          parts: [
+            { kind: 'data', data: { skillId: 'query-metrics', query: 'up' } },
+          ],
+        },
+      },
+    }
 
     const response = await fetch(`${A2A_URL}/api/a2a`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+      body: JSON.stringify(payload),
+    })
 
-    expect(response.ok).toBe(true);
+    expect(response.ok).toBe(true)
 
-    const text = await response.text();
+    const text = await response.text()
     if (!text || text.trim() === '') {
-      throw new Error('Empty response from A2A endpoint');
+      throw new Error('Empty response from A2A endpoint')
     }
-    const result = A2AResponseSchema.parse(JSON.parse(text));
-    expect(result.jsonrpc).toBe('2.0');
-    expect(result.id).toBe('1');
-    expect(result.result).toBeDefined();
-    expect(result.result?.role).toBe('agent');
-    expect(result.result?.parts).toBeArray();
-  });
+    const result = A2AResponseSchema.parse(JSON.parse(text))
+    expect(result.jsonrpc).toBe('2.0')
+    expect(result.id).toBe('1')
+    expect(result.result).toBeDefined()
+    expect(result.result?.role).toBe('agent')
+    expect(result.result?.parts).toBeArray()
+  })
 
   test('should handle get-alerts skill', async () => {
     if (!serverAvailable) {
-      console.log('⚠️ Skipping - server not available');
-      expect(true).toBe(true);
-      return;
+      console.log('⚠️ Skipping - server not available')
+      expect(true).toBe(true)
+      return
     }
 
     const payload = {
@@ -203,33 +205,33 @@ describe('A2A Monitoring Server', () => {
       params: {
         message: {
           messageId: 'test-2',
-          parts: [{ kind: 'data', data: { skillId: 'get-alerts' } }]
-        }
-      }
-    };
+          parts: [{ kind: 'data', data: { skillId: 'get-alerts' } }],
+        },
+      },
+    }
 
     const response = await fetch(`${A2A_URL}/api/a2a`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+      body: JSON.stringify(payload),
+    })
 
-    expect(response.ok).toBe(true);
+    expect(response.ok).toBe(true)
 
-    const text = await response.text();
+    const text = await response.text()
     if (!text || text.trim() === '') {
-      throw new Error('Empty response from A2A endpoint');
+      throw new Error('Empty response from A2A endpoint')
     }
-    const result = A2AResponseSchema.parse(JSON.parse(text));
-    expect(result.jsonrpc).toBe('2.0');
-    expect(result.result).toBeDefined();
-  });
+    const result = A2AResponseSchema.parse(JSON.parse(text))
+    expect(result.jsonrpc).toBe('2.0')
+    expect(result.result).toBeDefined()
+  })
 
   test('should handle get-targets skill', async () => {
     if (!serverAvailable) {
-      console.log('⚠️ Skipping - server not available');
-      expect(true).toBe(true);
-      return;
+      console.log('⚠️ Skipping - server not available')
+      expect(true).toBe(true)
+      return
     }
 
     const payload = {
@@ -239,28 +241,28 @@ describe('A2A Monitoring Server', () => {
       params: {
         message: {
           messageId: 'test-3',
-          parts: [{ kind: 'data', data: { skillId: 'get-targets' } }]
-        }
-      }
-    };
+          parts: [{ kind: 'data', data: { skillId: 'get-targets' } }],
+        },
+      },
+    }
 
     const response = await fetch(`${A2A_URL}/api/a2a`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+      body: JSON.stringify(payload),
+    })
 
-    expect(response.ok).toBe(true);
-    const result = A2AResponseSchema.parse(await response.json());
-    expect(result.jsonrpc).toBe('2.0');
-    expect(result.result).toBeDefined();
-  });
+    expect(response.ok).toBe(true)
+    const result = A2AResponseSchema.parse(await response.json())
+    expect(result.jsonrpc).toBe('2.0')
+    expect(result.result).toBeDefined()
+  })
 
   test('should handle missing query parameter', async () => {
     if (!serverAvailable) {
-      console.log('⚠️ Skipping - server not available');
-      expect(true).toBe(true);
-      return;
+      console.log('⚠️ Skipping - server not available')
+      expect(true).toBe(true)
+      return
     }
 
     const payload = {
@@ -270,33 +272,33 @@ describe('A2A Monitoring Server', () => {
       params: {
         message: {
           messageId: 'test-4',
-          parts: [{ kind: 'data', data: { skillId: 'query-metrics' } }]
-        }
-      }
-    };
+          parts: [{ kind: 'data', data: { skillId: 'query-metrics' } }],
+        },
+      },
+    }
 
     const response = await fetch(`${A2A_URL}/api/a2a`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+      body: JSON.stringify(payload),
+    })
 
-    expect(response.ok).toBe(true);
+    expect(response.ok).toBe(true)
 
-    const text = await response.text();
+    const text = await response.text()
     if (!text || text.trim() === '') {
-      throw new Error('Empty response from A2A endpoint');
+      throw new Error('Empty response from A2A endpoint')
     }
-    const result = A2AResponseSchema.parse(JSON.parse(text));
-    const textPart = result.result?.parts.find((p) => p.kind === 'text');
-    expect(textPart?.text).toBe('Missing PromQL query');
-  });
+    const result = A2AResponseSchema.parse(JSON.parse(text))
+    const textPart = result.result?.parts.find((p) => p.kind === 'text')
+    expect(textPart?.text).toBe('Missing PromQL query')
+  })
 
   test('should handle unknown skill', async () => {
     if (!serverAvailable) {
-      console.log('⚠️ Skipping - server not available');
-      expect(true).toBe(true);
-      return;
+      console.log('⚠️ Skipping - server not available')
+      expect(true).toBe(true)
+      return
     }
 
     const payload = {
@@ -306,98 +308,98 @@ describe('A2A Monitoring Server', () => {
       params: {
         message: {
           messageId: 'test-5',
-          parts: [{ kind: 'data', data: { skillId: 'unknown-skill' } }]
-        }
-      }
-    };
+          parts: [{ kind: 'data', data: { skillId: 'unknown-skill' } }],
+        },
+      },
+    }
 
     const response = await fetch(`${A2A_URL}/api/a2a`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+      body: JSON.stringify(payload),
+    })
 
-    expect(response.ok).toBe(true);
+    expect(response.ok).toBe(true)
 
-    const text = await response.text();
+    const text = await response.text()
     if (!text || text.trim() === '') {
-      throw new Error('Empty response from A2A endpoint');
+      throw new Error('Empty response from A2A endpoint')
     }
-    const result = A2AResponseSchema.parse(JSON.parse(text));
-    const textPart = result.result?.parts.find((p) => p.kind === 'text');
-    expect(textPart?.text).toBe('Unknown skill');
-  });
+    const result = A2AResponseSchema.parse(JSON.parse(text))
+    const textPart = result.result?.parts.find((p) => p.kind === 'text')
+    expect(textPart?.text).toBe('Unknown skill')
+  })
 
   test('should handle unknown method', async () => {
     if (!serverAvailable) {
-      console.log('⚠️ Skipping - server not available');
-      expect(true).toBe(true);
-      return;
+      console.log('⚠️ Skipping - server not available')
+      expect(true).toBe(true)
+      return
     }
 
     const payload = {
       jsonrpc: '2.0',
       method: 'unknown/method',
       id: '6',
-      params: {}
-    };
+      params: {},
+    }
 
     const response = await fetch(`${A2A_URL}/api/a2a`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+      body: JSON.stringify(payload),
+    })
 
-    expect(response.ok).toBe(true);
+    expect(response.ok).toBe(true)
 
-    const text = await response.text();
+    const text = await response.text()
     if (!text || text.trim() === '') {
-      throw new Error('Empty response from A2A endpoint');
+      throw new Error('Empty response from A2A endpoint')
     }
-    const result = A2AResponseSchema.parse(JSON.parse(text));
-    expect(result.error).toBeDefined();
-    expect(result.error?.code).toBe(-32601);
-    expect(result.error?.message).toBe('Method not found');
-  });
-});
+    const result = A2AResponseSchema.parse(JSON.parse(text))
+    expect(result.error).toBeDefined()
+    expect(result.error?.code).toBe(-32601)
+    expect(result.error?.message).toBe('Method not found')
+  })
+})
 
 describe('A2A Monitoring Server - Integration', () => {
   test('should provide useful examples in agent card', async () => {
     if (!serverAvailable) {
-      console.log('⚠️ Skipping - server not available');
-      expect(true).toBe(true);
-      return;
+      console.log('⚠️ Skipping - server not available')
+      expect(true).toBe(true)
+      return
     }
 
-    const response = await fetch(`${A2A_URL}/.well-known/agent-card.json`);
-    const text = await response.text();
+    const response = await fetch(`${A2A_URL}/.well-known/agent-card.json`)
+    const text = await response.text()
     if (!text || text.trim() === '') {
-      throw new Error('Empty response from agent card endpoint');
+      throw new Error('Empty response from agent card endpoint')
     }
-    const card = AgentCardSchema.parse(JSON.parse(text));
+    const card = AgentCardSchema.parse(JSON.parse(text))
 
-    const queryMetrics = card.skills.find((s) => s.id === 'query-metrics');
-    expect(queryMetrics?.examples).toBeArray();
-    expect(queryMetrics?.examples.length).toBeGreaterThan(0);
-  });
+    const queryMetrics = card.skills.find((s) => s.id === 'query-metrics')
+    expect(queryMetrics?.examples).toBeArray()
+    expect(queryMetrics?.examples.length).toBeGreaterThan(0)
+  })
 
   test('should have correct CORS headers', async () => {
     if (!serverAvailable) {
-      console.log('⚠️ Skipping - server not available');
-      expect(true).toBe(true);
-      return;
+      console.log('⚠️ Skipping - server not available')
+      expect(true).toBe(true)
+      return
     }
 
-    const response = await fetch(`${A2A_URL}/.well-known/agent-card.json`);
-    const corsHeader = response.headers.get('access-control-allow-origin');
-    expect(corsHeader).toBeDefined();
-  });
+    const response = await fetch(`${A2A_URL}/.well-known/agent-card.json`)
+    const corsHeader = response.headers.get('access-control-allow-origin')
+    expect(corsHeader).toBeDefined()
+  })
 
   test('should handle concurrent requests', async () => {
     if (!serverAvailable) {
-      console.log('⚠️ Skipping - server not available');
-      expect(true).toBe(true);
-      return;
+      console.log('⚠️ Skipping - server not available')
+      expect(true).toBe(true)
+      return
     }
 
     const requests = Array.from({ length: 5 }, (_, i) => ({
@@ -407,32 +409,32 @@ describe('A2A Monitoring Server - Integration', () => {
       params: {
         message: {
           messageId: `test-concurrent-${i}`,
-          parts: [{ kind: 'data', data: { skillId: 'get-alerts' } }]
-        }
-      }
-    }));
+          parts: [{ kind: 'data', data: { skillId: 'get-alerts' } }],
+        },
+      },
+    }))
 
     const responses = await Promise.all(
-      requests.map(payload =>
+      requests.map((payload) =>
         fetch(`${A2A_URL}/api/a2a`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        })
-      )
-    );
+          body: JSON.stringify(payload),
+        }),
+      ),
+    )
 
-    expect(responses.every(r => r.ok)).toBe(true);
+    expect(responses.every((r) => r.ok)).toBe(true)
 
     const results = await Promise.all(
       responses.map(async (r) => {
-        const text = await r.text();
+        const text = await r.text()
         if (!text || text.trim() === '') {
-          throw new Error('Empty response from A2A endpoint');
+          throw new Error('Empty response from A2A endpoint')
         }
-        return A2AResponseSchema.parse(JSON.parse(text));
-      })
-    );
-    expect(results.every(r => r.jsonrpc === '2.0')).toBe(true);
-  });
-});
+        return A2AResponseSchema.parse(JSON.parse(text))
+      }),
+    )
+    expect(results.every((r) => r.jsonrpc === '2.0')).toBe(true)
+  })
+})

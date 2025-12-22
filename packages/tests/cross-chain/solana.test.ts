@@ -1,43 +1,43 @@
 /**
  * Solana Cross-Chain Tests
- * 
+ *
  * Tests Solana integration for cross-chain operations.
  * Requires: docker compose --profile solana up
  */
 
-import { describe, test, expect, beforeAll } from 'bun:test';
+import { beforeAll, describe, expect, test } from 'bun:test'
 
 // Solana RPC Response Types
 interface SolanaVersionResponse {
   result: {
-    'solana-core': string;
-    'feature-set'?: number;
-  };
+    'solana-core': string
+    'feature-set'?: number
+  }
 }
 
 interface SolanaClusterNode {
-  pubkey: string;
-  gossip: string | null;
-  tpu: string | null;
-  rpc: string | null;
-  version: string | null;
-  featureSet: number | null;
-  shredVersion: number | null;
+  pubkey: string
+  gossip: string | null
+  tpu: string | null
+  rpc: string | null
+  version: string | null
+  featureSet: number | null
+  shredVersion: number | null
 }
 
 interface SolanaClusterNodesResponse {
-  result: SolanaClusterNode[];
+  result: SolanaClusterNode[]
 }
 
 interface SolanaGenesisHashResponse {
-  result: string;
+  result: string
 }
 
 interface SolanaSlotResponse {
-  result: number;
+  result: number
 }
 
-const SOLANA_RPC = process.env.SOLANA_RPC_URL || 'http://127.0.0.1:8899';
+const SOLANA_RPC = process.env.SOLANA_RPC_URL || 'http://127.0.0.1:8899'
 
 async function isSolanaRunning(): Promise<boolean> {
   try {
@@ -50,28 +50,30 @@ async function isSolanaRunning(): Promise<boolean> {
         id: 1,
       }),
       signal: AbortSignal.timeout(3000),
-    });
-    return response.ok;
+    })
+    return response.ok
   } catch {
-    return false;
+    return false
   }
 }
 
 describe('Solana Cross-Chain', () => {
-  let solanaAvailable = false;
+  let solanaAvailable = false
 
   beforeAll(async () => {
-    solanaAvailable = await isSolanaRunning();
+    solanaAvailable = await isSolanaRunning()
     if (!solanaAvailable) {
-      console.log('Solana not running. Start with: docker compose -f packages/tests/docker-compose.test.yml --profile solana up -d');
+      console.log(
+        'Solana not running. Start with: docker compose -f packages/tests/docker-compose.test.yml --profile solana up -d',
+      )
     }
-  });
+  })
 
   describe('Solana RPC', () => {
     test('should return version', async () => {
       if (!solanaAvailable) {
-        console.log('Solana not available, skipping');
-        return;
+        console.log('Solana not available, skipping')
+        return
       }
 
       const response = await fetch(SOLANA_RPC, {
@@ -82,15 +84,15 @@ describe('Solana Cross-Chain', () => {
           method: 'getVersion',
           id: 1,
         }),
-      });
+      })
 
-      expect(response.ok).toBe(true);
-      const data = await response.json() as SolanaVersionResponse;
-      expect(data.result['solana-core']).toBeDefined();
-    });
+      expect(response.ok).toBe(true)
+      const data = (await response.json()) as SolanaVersionResponse
+      expect(data.result['solana-core']).toBeDefined()
+    })
 
     test('should return cluster nodes', async () => {
-      if (!solanaAvailable) return;
+      if (!solanaAvailable) return
 
       const response = await fetch(SOLANA_RPC, {
         method: 'POST',
@@ -100,15 +102,15 @@ describe('Solana Cross-Chain', () => {
           method: 'getClusterNodes',
           id: 1,
         }),
-      });
+      })
 
-      expect(response.ok).toBe(true);
-      const data = await response.json() as SolanaClusterNodesResponse;
-      expect(Array.isArray(data.result)).toBe(true);
-    });
+      expect(response.ok).toBe(true)
+      const data = (await response.json()) as SolanaClusterNodesResponse
+      expect(Array.isArray(data.result)).toBe(true)
+    })
 
     test('should return genesis hash', async () => {
-      if (!solanaAvailable) return;
+      if (!solanaAvailable) return
 
       const response = await fetch(SOLANA_RPC, {
         method: 'POST',
@@ -118,16 +120,16 @@ describe('Solana Cross-Chain', () => {
           method: 'getGenesisHash',
           id: 1,
         }),
-      });
+      })
 
-      expect(response.ok).toBe(true);
-      const data = await response.json() as SolanaGenesisHashResponse;
-      expect(typeof data.result).toBe('string');
-      expect(data.result.length).toBeGreaterThan(40);
-    });
+      expect(response.ok).toBe(true)
+      const data = (await response.json()) as SolanaGenesisHashResponse
+      expect(typeof data.result).toBe('string')
+      expect(data.result.length).toBeGreaterThan(40)
+    })
 
     test('should return slot', async () => {
-      if (!solanaAvailable) return;
+      if (!solanaAvailable) return
 
       const response = await fetch(SOLANA_RPC, {
         method: 'POST',
@@ -137,13 +139,12 @@ describe('Solana Cross-Chain', () => {
           method: 'getSlot',
           id: 1,
         }),
-      });
+      })
 
-      expect(response.ok).toBe(true);
-      const data = await response.json() as SolanaSlotResponse;
-      expect(typeof data.result).toBe('number');
-      expect(data.result).toBeGreaterThanOrEqual(0);
-    });
-  });
-});
-
+      expect(response.ok).toBe(true)
+      const data = (await response.json()) as SolanaSlotResponse
+      expect(typeof data.result).toBe('number')
+      expect(data.result).toBeGreaterThanOrEqual(0)
+    })
+  })
+})

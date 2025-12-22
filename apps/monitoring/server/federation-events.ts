@@ -40,15 +40,21 @@
  *   PROMETHEUS_PORT - Port for Prometheus metrics (default: 9090)
  */
 
-import { createPublicClient, http, parseAbi, type Address, type Log } from 'viem';
+import {
+  type Address,
+  createPublicClient,
+  http,
+  type Log,
+  parseAbi,
+} from 'viem'
 
 // Configuration
-const RPC_URL = process.env.RPC_URL || 'http://localhost:6546';
-const REGISTRY_HUB = process.env.REGISTRY_HUB as Address;
-const NETWORK_REGISTRY = process.env.NETWORK_REGISTRY as Address;
-const CROSS_CHAIN_SYNC = process.env.CROSS_CHAIN_SYNC as Address;
-const ALERT_WEBHOOK = process.env.ALERT_WEBHOOK;
-const PROMETHEUS_PORT = parseInt(process.env.PROMETHEUS_PORT || '9090');
+const RPC_URL = process.env.RPC_URL || 'http://localhost:9545'
+const REGISTRY_HUB = process.env.REGISTRY_HUB as Address
+const NETWORK_REGISTRY = process.env.NETWORK_REGISTRY as Address
+const CROSS_CHAIN_SYNC = process.env.CROSS_CHAIN_SYNC as Address
+const ALERT_WEBHOOK = process.env.ALERT_WEBHOOK
+const PROMETHEUS_PORT = parseInt(process.env.PROMETHEUS_PORT || '9090', 10)
 
 // Alert severity levels
 enum AlertSeverity {
@@ -58,20 +64,20 @@ enum AlertSeverity {
   CRITICAL = 'critical',
 }
 
-// Metrics storage
+// Metrics storage with atomic update helpers to prevent race conditions
 interface Metrics {
-  chainsRegistered: number;
-  registriesAdded: number;
-  solanaRegistriesVerified: number;
-  agentsSynced: number;
-  bansPropagated: number;
-  slashesPropagated: number;
-  rateLimitsHit: number;
-  trustRelationsCreated: number;
-  trustRelationsBroken: number;
-  lastBlockProcessed: bigint;
-  alertsSent: number;
-  errors: number;
+  chainsRegistered: number
+  registriesAdded: number
+  solanaRegistriesVerified: number
+  agentsSynced: number
+  bansPropagated: number
+  slashesPropagated: number
+  rateLimitsHit: number
+  trustRelationsCreated: number
+  trustRelationsBroken: number
+  lastBlockProcessed: bigint
+  alertsSent: number
+  errors: number
 }
 
 const metrics: Metrics = {
@@ -87,7 +93,35 @@ const metrics: Metrics = {
   lastBlockProcessed: 0n,
   alertsSent: 0,
   errors: 0,
-};
+}
+
+// Mutex for serializing metric updates to prevent race conditions
+let metricsLock: Promise<void> = Promise.resolve()
+
+function withMetricsLock<T>(fn: () => T | Promise<T>): Promise<T> {
+  const currentLock = metricsLock
+  let releaseLock: () => void
+  metricsLock = new Promise((resolve) => {
+    releaseLock = resolve
+  })
+
+  return currentLock.then(async () => {
+    const result = await fn()
+    releaseLock()
+    return result
+  })
+}
+
+// Safe metric increment helper
+function incrementMetric(key: keyof Omit<Metrics, 'lastBlockProcessed'>): void {
+  metrics[key]++
+}
+
+function updateLastBlock(blockNumber: bigint): void {
+  if (blockNumber > metrics.lastBlockProcessed) {
+    metrics.lastBlockProcessed = blockNumber
+  }
+}
 
 // Event ABIs
 const REGISTRY_HUB_EVENTS = parseAbi([
@@ -98,7 +132,7 @@ const REGISTRY_HUB_EVENTS = parseAbi([
   'event StakeSlashed(uint256 indexed chainId, uint256 amount)',
   'event Paused(address account)',
   'event Unpaused(address account)',
-]);
+])
 
 const NETWORK_REGISTRY_EVENTS = parseAbi([
   'event NetworkRegistered(uint256 indexed chainId, string name, address indexed operator, uint256 stake)',
@@ -107,7 +141,7 @@ const NETWORK_REGISTRY_EVENTS = parseAbi([
   'event TrustEstablished(uint256 indexed sourceChainId, uint256 indexed targetChainId, address indexed attestedBy)',
   'event TrustRevoked(uint256 indexed sourceChainId, uint256 indexed targetChainId)',
   'event StakeWithdrawn(uint256 indexed chainId, address indexed operator, uint256 amount)',
-]);
+])
 
 const CROSS_CHAIN_SYNC_EVENTS = parseAbi([
   'event AgentSynced(bytes32 indexed crossChainKey, uint32 indexed originDomain, uint256 originAgentId, address owner)',
@@ -115,24 +149,26 @@ const CROSS_CHAIN_SYNC_EVENTS = parseAbi([
   'event AgentSlashSynced(bytes32 indexed crossChainKey, uint32 originDomain, uint256 slashAmount)',
   'event MessageDispatched(uint32 indexed destinationDomain, bytes32 indexed messageId, uint8 messageType)',
   'event MessageReceived(uint32 indexed originDomain, bytes32 indexed messageId, uint8 messageType)',
-]);
+])
 
 interface Alert {
-  severity: AlertSeverity;
-  title: string;
-  message: string;
-  contract: string;
-  event: string;
-  txHash: string;
-  blockNumber: bigint;
-  timestamp: Date;
+  severity: AlertSeverity
+  title: string
+  message: string
+  contract: string
+  event: string
+  txHash: string
+  blockNumber: bigint
+  timestamp: Date
 }
 
 async function sendAlert(alert: Alert): Promise<void> {
-  console.log(`[${alert.severity.toUpperCase()}] ${alert.title}: ${alert.message}`);
+  console.log(
+    `[${alert.severity.toUpperCase()}] ${alert.title}: ${alert.message}`,
+  )
 
   if (!ALERT_WEBHOOK) {
-    return;
+    return
   }
 
   const payload = {
@@ -144,20 +180,23 @@ async function sendAlert(alert: Alert): Promise<void> {
     txHash: alert.txHash,
     blockNumber: alert.blockNumber.toString(),
     timestamp: alert.timestamp.toISOString(),
-  };
+  }
 
   const response = await fetch(ALERT_WEBHOOK, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
-  });
+  })
 
-  if (!response.ok) {
-    console.error(`Failed to send alert: ${response.status}`);
-    metrics.errors++;
-  } else {
-    metrics.alertsSent++;
-  }
+  // Update metrics atomically
+  await withMetricsLock(() => {
+    if (!response.ok) {
+      console.error(`Failed to send alert: ${response.status}`)
+      incrementMetric('errors')
+    } else {
+      incrementMetric('alertsSent')
+    }
+  })
 }
 
 function createAlert(
@@ -166,7 +205,7 @@ function createAlert(
   message: string,
   contract: string,
   event: string,
-  log: Log
+  log: Log,
 ): Alert {
   return {
     severity,
@@ -177,13 +216,16 @@ function createAlert(
     txHash: log.transactionHash || '0x',
     blockNumber: log.blockNumber || 0n,
     timestamp: new Date(),
-  };
+  }
 }
 
-async function handleRegistryHubEvent(log: Log, eventName: string): Promise<void> {
+async function handleRegistryHubEvent(
+  log: Log,
+  eventName: string,
+): Promise<void> {
   switch (eventName) {
     case 'ChainRegistered':
-      metrics.chainsRegistered++;
+      metrics.chainsRegistered++
       await sendAlert(
         createAlert(
           AlertSeverity.INFO,
@@ -191,17 +233,17 @@ async function handleRegistryHubEvent(log: Log, eventName: string): Promise<void
           `Chain joined the federation`,
           'RegistryHub',
           eventName,
-          log
-        )
-      );
-      break;
+          log,
+        ),
+      )
+      break
 
     case 'RegistryRegistered':
-      metrics.registriesAdded++;
-      break;
+      metrics.registriesAdded++
+      break
 
     case 'SolanaRegistryVerified':
-      metrics.solanaRegistriesVerified++;
+      metrics.solanaRegistriesVerified++
       await sendAlert(
         createAlert(
           AlertSeverity.INFO,
@@ -209,10 +251,10 @@ async function handleRegistryHubEvent(log: Log, eventName: string): Promise<void
           `Solana registry verified via Wormhole`,
           'RegistryHub',
           eventName,
-          log
-        )
-      );
-      break;
+          log,
+        ),
+      )
+      break
 
     case 'ChainDeactivated':
       await sendAlert(
@@ -222,10 +264,10 @@ async function handleRegistryHubEvent(log: Log, eventName: string): Promise<void
           `A chain has been deactivated from the federation`,
           'RegistryHub',
           eventName,
-          log
-        )
-      );
-      break;
+          log,
+        ),
+      )
+      break
 
     case 'StakeSlashed':
       await sendAlert(
@@ -235,10 +277,10 @@ async function handleRegistryHubEvent(log: Log, eventName: string): Promise<void
           `Chain stake has been slashed`,
           'RegistryHub',
           eventName,
-          log
-        )
-      );
-      break;
+          log,
+        ),
+      )
+      break
 
     case 'Paused':
       await sendAlert(
@@ -248,95 +290,105 @@ async function handleRegistryHubEvent(log: Log, eventName: string): Promise<void
           `RegistryHub has been paused`,
           'RegistryHub',
           eventName,
-          log
-        )
-      );
-      break;
+          log,
+        ),
+      )
+      break
   }
 }
 
-async function handleNetworkRegistryEvent(log: Log, eventName: string): Promise<void> {
-  switch (eventName) {
-    case 'NetworkVerified':
-      await sendAlert(
-        createAlert(
-          AlertSeverity.INFO,
-          'Network Verified',
-          `A network has achieved verified status`,
-          'NetworkRegistry',
-          eventName,
-          log
+async function handleNetworkRegistryEvent(
+  log: Log,
+  eventName: string,
+): Promise<void> {
+  await withMetricsLock(async () => {
+    switch (eventName) {
+      case 'NetworkVerified':
+        await sendAlert(
+          createAlert(
+            AlertSeverity.INFO,
+            'Network Verified',
+            `A network has achieved verified status`,
+            'NetworkRegistry',
+            eventName,
+            log,
+          ),
         )
-      );
-      break;
+        break
 
-    case 'VerificationRevoked':
-      await sendAlert(
-        createAlert(
-          AlertSeverity.CRITICAL,
-          'Verification Revoked',
-          `Network verification has been revoked`,
-          'NetworkRegistry',
-          eventName,
-          log
+      case 'VerificationRevoked':
+        await sendAlert(
+          createAlert(
+            AlertSeverity.CRITICAL,
+            'Verification Revoked',
+            `Network verification has been revoked`,
+            'NetworkRegistry',
+            eventName,
+            log,
+          ),
         )
-      );
-      break;
+        break
 
-    case 'TrustEstablished':
-      metrics.trustRelationsCreated++;
-      break;
+      case 'TrustEstablished':
+        incrementMetric('trustRelationsCreated')
+        break
 
-    case 'TrustRevoked':
-      metrics.trustRelationsBroken++;
-      await sendAlert(
-        createAlert(
-          AlertSeverity.HIGH,
-          'Trust Revoked',
-          `Trust relationship between networks has been broken`,
-          'NetworkRegistry',
-          eventName,
-          log
+      case 'TrustRevoked':
+        incrementMetric('trustRelationsBroken')
+        await sendAlert(
+          createAlert(
+            AlertSeverity.HIGH,
+            'Trust Revoked',
+            `Trust relationship between networks has been broken`,
+            'NetworkRegistry',
+            eventName,
+            log,
+          ),
         )
-      );
-      break;
-  }
+        break
+    }
+  })
 }
 
-async function handleCrossChainSyncEvent(log: Log, eventName: string): Promise<void> {
-  switch (eventName) {
-    case 'AgentSynced':
-      metrics.agentsSynced++;
-      break;
+async function handleCrossChainSyncEvent(
+  log: Log,
+  eventName: string,
+): Promise<void> {
+  await withMetricsLock(async () => {
+    switch (eventName) {
+      case 'AgentSynced':
+        incrementMetric('agentsSynced')
+        break
 
-    case 'AgentBanSynced':
-      metrics.bansPropagated++;
-      await sendAlert(
-        createAlert(
-          AlertSeverity.HIGH,
-          'Agent Ban Synced',
-          `An agent ban has been propagated cross-chain`,
-          'CrossChainIdentitySync',
-          eventName,
-          log
+      case 'AgentBanSynced':
+        incrementMetric('bansPropagated')
+        await sendAlert(
+          createAlert(
+            AlertSeverity.HIGH,
+            'Agent Ban Synced',
+            `An agent ban has been propagated cross-chain`,
+            'CrossChainIdentitySync',
+            eventName,
+            log,
+          ),
         )
-      );
-      break;
+        break
 
-    case 'AgentSlashSynced':
-      metrics.slashesPropagated++;
-      await sendAlert(
-        createAlert(
-          AlertSeverity.HIGH,
-          'Agent Slash Synced',
-          `An agent slash has been propagated cross-chain`,
-          'CrossChainIdentitySync',
-          eventName,
-          log
+      case 'AgentSlashSynced':
+        incrementMetric('slashesPropagated')
+        await sendAlert(
+          createAlert(
+            AlertSeverity.HIGH,
+            'Agent Slash Synced',
+            `An agent slash has been propagated cross-chain`,
+            'CrossChainIdentitySync',
+            eventName,
+            log,
+          ),
         )
-      );
-      break;
-  }
+        break
+    }
+  })
 }
 
 function serveMetrics(): void {
@@ -387,45 +439,49 @@ federation_alerts_sent ${metrics.alertsSent}
 # HELP federation_errors Monitoring errors
 # TYPE federation_errors counter
 federation_errors ${metrics.errors}
-`;
+`
       return new Response(metricsText, {
         headers: { 'Content-Type': 'text/plain' },
-      });
+      })
     },
-  });
-  console.log(`📊 Prometheus metrics available at http://localhost:${PROMETHEUS_PORT}/metrics`);
+  })
+  console.log(
+    `📊 Prometheus metrics available at http://localhost:${PROMETHEUS_PORT}/metrics`,
+  )
 }
 
 async function main(): Promise<void> {
-  console.log('🔍 Federation Contract Monitor Starting...\n');
+  console.log('🔍 Federation Contract Monitor Starting...\n')
 
   if (!REGISTRY_HUB && !NETWORK_REGISTRY && !CROSS_CHAIN_SYNC) {
-    console.error('❌ At least one contract address must be provided');
-    console.error('   Set REGISTRY_HUB, NETWORK_REGISTRY, or CROSS_CHAIN_SYNC');
-    process.exit(1);
+    console.error('❌ At least one contract address must be provided')
+    console.error('   Set REGISTRY_HUB, NETWORK_REGISTRY, or CROSS_CHAIN_SYNC')
+    process.exit(1)
   }
 
   const client = createPublicClient({
     transport: http(RPC_URL),
-  });
+  })
 
-  const chainId = await client.getChainId();
-  console.log(`Connected to chain ${chainId} at ${RPC_URL}`);
+  const chainId = await client.getChainId()
+  console.log(`Connected to chain ${chainId} at ${RPC_URL}`)
 
-  if (REGISTRY_HUB) console.log(`Monitoring RegistryHub: ${REGISTRY_HUB}`);
-  if (NETWORK_REGISTRY) console.log(`Monitoring NetworkRegistry: ${NETWORK_REGISTRY}`);
-  if (CROSS_CHAIN_SYNC) console.log(`Monitoring CrossChainIdentitySync: ${CROSS_CHAIN_SYNC}`);
-  console.log('');
+  if (REGISTRY_HUB) console.log(`Monitoring RegistryHub: ${REGISTRY_HUB}`)
+  if (NETWORK_REGISTRY)
+    console.log(`Monitoring NetworkRegistry: ${NETWORK_REGISTRY}`)
+  if (CROSS_CHAIN_SYNC)
+    console.log(`Monitoring CrossChainIdentitySync: ${CROSS_CHAIN_SYNC}`)
+  console.log('')
 
   // Start metrics server
-  serveMetrics();
+  serveMetrics()
 
   // Watch for events
-  const startBlock = await client.getBlockNumber();
-  metrics.lastBlockProcessed = startBlock;
+  const startBlock = await client.getBlockNumber()
+  metrics.lastBlockProcessed = startBlock
 
-  console.log(`Starting from block ${startBlock}`);
-  console.log('Watching for events...\n');
+  console.log(`Starting from block ${startBlock}`)
+  console.log('Watching for events...\n')
 
   if (REGISTRY_HUB) {
     client.watchContractEvent({
@@ -433,12 +489,14 @@ async function main(): Promise<void> {
       abi: REGISTRY_HUB_EVENTS,
       onLogs: async (logs) => {
         for (const log of logs) {
-          metrics.lastBlockProcessed = log.blockNumber || metrics.lastBlockProcessed;
-          const eventName = (log as Log & { eventName?: string }).eventName || 'Unknown';
-          await handleRegistryHubEvent(log, eventName);
+          const blockNumber = log.blockNumber ?? 0n
+          await withMetricsLock(() => updateLastBlock(blockNumber))
+          const eventName =
+            (log as Log & { eventName?: string }).eventName || 'Unknown'
+          await handleRegistryHubEvent(log, eventName)
         }
       },
-    });
+    })
   }
 
   if (NETWORK_REGISTRY) {
@@ -447,12 +505,14 @@ async function main(): Promise<void> {
       abi: NETWORK_REGISTRY_EVENTS,
       onLogs: async (logs) => {
         for (const log of logs) {
-          metrics.lastBlockProcessed = log.blockNumber || metrics.lastBlockProcessed;
-          const eventName = (log as Log & { eventName?: string }).eventName || 'Unknown';
-          await handleNetworkRegistryEvent(log, eventName);
+          const blockNumber = log.blockNumber ?? 0n
+          await withMetricsLock(() => updateLastBlock(blockNumber))
+          const eventName =
+            (log as Log & { eventName?: string }).eventName || 'Unknown'
+          await handleNetworkRegistryEvent(log, eventName)
         }
       },
-    });
+    })
   }
 
   if (CROSS_CHAIN_SYNC) {
@@ -461,19 +521,23 @@ async function main(): Promise<void> {
       abi: CROSS_CHAIN_SYNC_EVENTS,
       onLogs: async (logs) => {
         for (const log of logs) {
-          metrics.lastBlockProcessed = log.blockNumber || metrics.lastBlockProcessed;
-          const eventName = (log as Log & { eventName?: string }).eventName || 'Unknown';
-          await handleCrossChainSyncEvent(log, eventName);
+          const blockNumber = log.blockNumber ?? 0n
+          await withMetricsLock(() => updateLastBlock(blockNumber))
+          const eventName =
+            (log as Log & { eventName?: string }).eventName || 'Unknown'
+          await handleCrossChainSyncEvent(log, eventName)
         }
       },
-    });
+    })
   }
 
-  // Keep process alive
-  await new Promise(() => {});
+  // Keep process alive - never resolves to keep the daemon running
+  await new Promise<never>(() => {
+    // Intentionally empty - this promise never resolves, keeping the process alive
+  })
 }
 
 main().catch((error) => {
-  console.error('Fatal error:', error);
-  process.exit(1);
-});
+  console.error('Fatal error:', error)
+  process.exit(1)
+})

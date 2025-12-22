@@ -3,5 +3,4 @@
  * Start DWS Proxy Node
  */
 
-import '../node';
-
+import '../node'

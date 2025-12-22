@@ -1,5 +1,5 @@
-import { z } from 'zod';
-import { AddressSchema } from './validation';
+import { z } from 'zod'
+import { AddressSchema } from './validation'
 
 // ============================================================================
 // Transaction Status Types
@@ -9,13 +9,13 @@ import { AddressSchema } from './validation';
  * Transaction execution status
  * Consolidates all transaction status definitions across the codebase
  */
-export type TransactionStatus = 
-  | 'pending'      // Transaction created but not yet submitted
-  | 'submitted'    // Transaction submitted to network
-  | 'confirming'   // Waiting for confirmations
-  | 'confirmed'    // Transaction confirmed on chain
-  | 'failed'       // Transaction failed
-  | 'cancelled';   // Transaction cancelled by user
+export type TransactionStatus =
+  | 'pending' // Transaction created but not yet submitted
+  | 'submitted' // Transaction submitted to network
+  | 'confirming' // Waiting for confirmations
+  | 'confirmed' // Transaction confirmed on chain
+  | 'failed' // Transaction failed
+  | 'cancelled' // Transaction cancelled by user
 
 export const L1ContractsSchema = z.object({
   OptimismPortal: AddressSchema,
@@ -27,8 +27,8 @@ export const L1ContractsSchema = z.object({
   AddressManager: AddressSchema,
   ProxyAdmin: AddressSchema,
   DisputeGameFactory: AddressSchema.optional(),
-});
-export type L1Contracts = z.infer<typeof L1ContractsSchema>;
+})
+export type L1Contracts = z.infer<typeof L1ContractsSchema>
 
 export const L2ContractsSchema = z.object({
   L2CrossDomainMessenger: AddressSchema,
@@ -38,8 +38,8 @@ export const L2ContractsSchema = z.object({
   GasPriceOracle: AddressSchema,
   L1Block: AddressSchema,
   WETH: AddressSchema,
-});
-export type L2Contracts = z.infer<typeof L2ContractsSchema>;
+})
+export type L2Contracts = z.infer<typeof L2ContractsSchema>
 
 export const HyperlaneContractsSchema = z.object({
   Mailbox: AddressSchema,
@@ -48,8 +48,8 @@ export const HyperlaneContractsSchema = z.object({
   MultisigIsm: AddressSchema,
   InterchainSecurityModule: AddressSchema,
   domainId: z.number(),
-});
-export type HyperlaneContracts = z.infer<typeof HyperlaneContractsSchema>;
+})
+export type HyperlaneContracts = z.infer<typeof HyperlaneContractsSchema>
 
 export const UniswapV4ContractsSchema = z.object({
   PoolManager: AddressSchema,
@@ -57,8 +57,8 @@ export const UniswapV4ContractsSchema = z.object({
   PositionManager: AddressSchema,
   QuoterV4: AddressSchema,
   StateView: AddressSchema,
-});
-export type UniswapV4Contracts = z.infer<typeof UniswapV4ContractsSchema>;
+})
+export type UniswapV4Contracts = z.infer<typeof UniswapV4ContractsSchema>
 
 export const SynthetixV3ContractsSchema = z.object({
   CoreProxy: AddressSchema,
@@ -67,41 +67,44 @@ export const SynthetixV3ContractsSchema = z.object({
   PerpsMarketProxy: AddressSchema,
   SpotMarketProxy: AddressSchema,
   OracleManager: AddressSchema,
-});
-export type SynthetixV3Contracts = z.infer<typeof SynthetixV3ContractsSchema>;
+})
+export type SynthetixV3Contracts = z.infer<typeof SynthetixV3ContractsSchema>
 
 export const CompoundV3ContractsSchema = z.object({
   Comet: AddressSchema,
   CometRewards: AddressSchema,
   Configurator: AddressSchema,
   ProxyAdmin: AddressSchema,
-});
-export type CompoundV3Contracts = z.infer<typeof CompoundV3ContractsSchema>;
+})
+export type CompoundV3Contracts = z.infer<typeof CompoundV3ContractsSchema>
 
 export const ChainlinkContractsSchema = z.object({
-  feeds: z.record(z.string(), z.object({
-    address: AddressSchema,
-    heartbeat: z.number(),
-    decimals: z.number(),
-  })),
-});
-export type ChainlinkContracts = z.infer<typeof ChainlinkContractsSchema>;
+  feeds: z.record(
+    z.string(),
+    z.object({
+      address: AddressSchema,
+      heartbeat: z.number(),
+      decimals: z.number(),
+    }),
+  ),
+})
+export type ChainlinkContracts = z.infer<typeof ChainlinkContractsSchema>
 
 export const ERC4337ContractsSchema = z.object({
   EntryPoint: AddressSchema,
   AccountFactory: AddressSchema,
   Paymaster: AddressSchema,
   PaymasterVerifier: AddressSchema.optional(),
-});
-export type ERC4337Contracts = z.infer<typeof ERC4337ContractsSchema>;
+})
+export type ERC4337Contracts = z.infer<typeof ERC4337ContractsSchema>
 
 export const GovernanceContractsSchema = z.object({
   Safe: AddressSchema,
   Governor: AddressSchema,
   TimelockController: AddressSchema,
   GovernanceToken: AddressSchema,
-});
-export type GovernanceContracts = z.infer<typeof GovernanceContractsSchema>;
+})
+export type GovernanceContracts = z.infer<typeof GovernanceContractsSchema>
 
 export const DeploymentSchema = z.object({
   network: z.string(),
@@ -116,7 +119,5 @@ export const DeploymentSchema = z.object({
   chainlink: ChainlinkContractsSchema.optional(),
   erc4337: ERC4337ContractsSchema.optional(),
   governance: GovernanceContractsSchema.optional(),
-});
-export type Deployment = z.infer<typeof DeploymentSchema>;
-
-
+})
+export type Deployment = z.infer<typeof DeploymentSchema>

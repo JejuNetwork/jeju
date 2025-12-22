@@ -2,20 +2,20 @@
  * Test orchestration utilities
  */
 
-import { execa } from 'execa';
-import { existsSync, readdirSync, readFileSync } from 'fs';
-import { join } from 'path';
-import { logger } from './logger';
-import { checkRpcHealth } from './chain';
-import type { TestPhase, TestResult, AppManifest } from '../types';
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { execa } from 'execa'
+import type { AppManifest, TestPhase, TestResult } from '../types'
+import { checkRpcHealth } from './chain'
+import { logger } from './logger'
 
 export interface TestOptions {
-  phase?: string;
-  app?: string;
-  ci?: boolean;
-  coverage?: boolean;
-  watch?: boolean;
-  verbose?: boolean;
+  phase?: string
+  app?: string
+  ci?: boolean
+  coverage?: boolean
+  watch?: boolean
+  verbose?: boolean
 }
 
 const TEST_PHASES: TestPhase[] = [
@@ -37,7 +37,7 @@ const TEST_PHASES: TestPhase[] = [
   {
     name: 'unit',
     description: 'TypeScript unit tests',
-    command: 'bun test scripts/shared/',
+    command: 'bun test packages/deployment/scripts/shared/',
     timeout: 60000,
     required: false,
   },
@@ -69,73 +69,76 @@ const TEST_PHASES: TestPhase[] = [
     timeout: 600000,
     required: false,
   },
-];
+]
 
 export function getTestPhases(options: TestOptions): TestPhase[] {
   if (options.phase) {
-    const phase = TEST_PHASES.find(p => p.name === options.phase);
+    const phase = TEST_PHASES.find((p) => p.name === options.phase)
     if (!phase) {
-      throw new Error(`Unknown test phase: ${options.phase}. Available: ${TEST_PHASES.map(p => p.name).join(', ')}`);
+      throw new Error(
+        `Unknown test phase: ${options.phase}. Available: ${TEST_PHASES.map((p) => p.name).join(', ')}`,
+      )
     }
-    return [phase];
+    return [phase]
   }
-  
+
   // By default, run preflight + contracts + unit
   // Skip wallet tests unless explicitly requested
-  return TEST_PHASES.filter(p => 
-    p.name !== 'wallet' && p.name !== 'e2e'
-  );
+  return TEST_PHASES.filter((p) => p.name !== 'wallet' && p.name !== 'e2e')
 }
 
-export async function runPreflightChecks(_rootDir: string, rpcUrl: string): Promise<TestResult> {
-  const startTime = Date.now();
-  
-  logger.step('Running preflight checks...');
-  
+export async function runPreflightChecks(
+  _rootDir: string,
+  rpcUrl: string,
+): Promise<TestResult> {
+  const startTime = Date.now()
+
+  logger.step('Running preflight checks...')
+
   // Check RPC connectivity
-  const rpcHealthy = await checkRpcHealth(rpcUrl, 5000);
+  const rpcHealthy = await checkRpcHealth(rpcUrl, 5000)
   if (!rpcHealthy) {
     return {
       name: 'preflight',
       passed: false,
       duration: Date.now() - startTime,
       output: `RPC not responding: ${rpcUrl}`,
-    };
+    }
   }
-  
-  logger.success('Chain is healthy');
-  
+
+  logger.success('Chain is healthy')
+
   return {
     name: 'preflight',
     passed: true,
     duration: Date.now() - startTime,
-  };
+  }
 }
 
 export async function runTestPhase(
   phase: TestPhase,
   rootDir: string,
-  options: TestOptions
+  options: TestOptions,
 ): Promise<TestResult> {
-  const startTime = Date.now();
-  const cwd = phase.cwd ? join(rootDir, phase.cwd) : rootDir;
-  
-  logger.step(`Running ${phase.name}: ${phase.description}`);
-  logger.debug(`Command: ${phase.command}`);
-  logger.debug(`Directory: ${cwd}`);
-  
+  const startTime = Date.now()
+  const cwd = phase.cwd ? join(rootDir, phase.cwd) : rootDir
+
+  logger.step(`Running ${phase.name}: ${phase.description}`)
+  logger.debug(`Command: ${phase.command}`)
+  logger.debug(`Directory: ${cwd}`)
+
   // Check if required files exist
   if (!existsSync(cwd)) {
-    logger.warn(`Directory not found: ${cwd}`);
+    logger.warn(`Directory not found: ${cwd}`)
     return {
       name: phase.name,
       passed: true,
       duration: Date.now() - startTime,
       skipped: true,
       output: 'Skipped (directory not found)',
-    };
+    }
   }
-  
+
   try {
     const result = await execa('sh', ['-c', phase.command], {
       cwd,
@@ -145,69 +148,69 @@ export async function runTestPhase(
         ...process.env,
         CI: options.ci ? 'true' : undefined,
       },
-    });
-    
-    const duration = Date.now() - startTime;
-    logger.success(`${phase.name} passed (${(duration / 1000).toFixed(2)}s)`);
-    
+    })
+
+    const duration = Date.now() - startTime
+    logger.success(`${phase.name} passed (${(duration / 1000).toFixed(2)}s)`)
+
     return {
       name: phase.name,
       passed: true,
       duration,
       output: result.stdout,
-    };
-  } catch (error) {
-    const duration = Date.now() - startTime;
-    const err = error as { stdout?: string; stderr?: string; message?: string };
-    
-    if (phase.required) {
-      logger.error(`${phase.name} failed (required)`);
-    } else {
-      logger.warn(`${phase.name} failed (optional)`);
     }
-    
+  } catch (error) {
+    const duration = Date.now() - startTime
+    const err = error as { stdout?: string; stderr?: string; message?: string }
+
+    if (phase.required) {
+      logger.error(`${phase.name} failed (required)`)
+    } else {
+      logger.warn(`${phase.name} failed (optional)`)
+    }
+
     return {
       name: phase.name,
       passed: false,
       duration,
       output: err.stderr || err.stdout || err.message || 'Unknown error',
-    };
+    }
   }
 }
 
 export async function runAppTests(
   appName: string,
   rootDir: string,
-  options: TestOptions
+  options: TestOptions,
 ): Promise<TestResult[]> {
-  const results: TestResult[] = [];
-  
+  const results: TestResult[] = []
+
   // Find app directory
   const appPaths = [
     join(rootDir, 'apps', appName),
     join(rootDir, 'vendor', appName),
-  ];
-  
-  let appDir: string | null = null;
+  ]
+
+  let appDir: string | null = null
   for (const path of appPaths) {
     if (existsSync(path)) {
-      appDir = path;
-      break;
+      appDir = path
+      break
     }
   }
-  
+
   if (!appDir) {
-    throw new Error(`App not found: ${appName}`);
+    throw new Error(`App not found: ${appName}`)
   }
-  
+
   // Check for package.json
-  const pkgPath = join(appDir, 'package.json');
+  const pkgPath = join(appDir, 'package.json')
   if (!existsSync(pkgPath)) {
-    throw new Error(`No package.json found in ${appDir}`);
+    throw new Error(`No package.json found in ${appDir}`)
   }
-  
-  const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
-  
+
+  const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'))
+
   // Run unit tests if available
   if (pkg.scripts?.test) {
     const phase: TestPhase = {
@@ -216,10 +219,10 @@ export async function runAppTests(
       command: 'bun run test',
       cwd: appDir,
       timeout: 120000,
-    };
-    results.push(await runTestPhase(phase, rootDir, options));
+    }
+    results.push(await runTestPhase(phase, rootDir, options))
   }
-  
+
   // Run playwright tests if available
   if (existsSync(join(appDir, 'playwright.config.ts'))) {
     const phase: TestPhase = {
@@ -228,10 +231,10 @@ export async function runAppTests(
       command: 'bunx playwright test',
       cwd: appDir,
       timeout: 300000,
-    };
-    results.push(await runTestPhase(phase, rootDir, options));
+    }
+    results.push(await runTestPhase(phase, rootDir, options))
   }
-  
+
   // Run synpress tests if available
   if (existsSync(join(appDir, 'synpress.config.ts'))) {
     const phase: TestPhase = {
@@ -240,65 +243,73 @@ export async function runAppTests(
       command: 'bunx playwright test --config synpress.config.ts',
       cwd: appDir,
       timeout: 600000,
-    };
-    results.push(await runTestPhase(phase, rootDir, options));
+    }
+    results.push(await runTestPhase(phase, rootDir, options))
   }
-  
-  return results;
+
+  return results
 }
 
-export function discoverApps(rootDir: string, includeVendor = false): AppManifest[] {
-  const apps: AppManifest[] = [];
-  
+export function discoverApps(
+  rootDir: string,
+  includeVendor = false,
+): AppManifest[] {
+  const apps: AppManifest[] = []
+
   // Only include 'apps' directory by default, vendor apps are optional
-  const directories = includeVendor ? ['apps', 'vendor'] : ['apps'];
-  
+  const directories = includeVendor ? ['apps', 'vendor'] : ['apps']
+
   for (const dir of directories) {
-    const baseDir = join(rootDir, dir);
-    if (!existsSync(baseDir)) continue;
-    
-    const entries = readdirSync(baseDir, { withFileTypes: true });
-    
+    const baseDir = join(rootDir, dir)
+    if (!existsSync(baseDir)) continue
+
+    const entries = readdirSync(baseDir, { withFileTypes: true })
+
     for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      if (entry.name.startsWith('.')) continue;
-      
-      const manifestPath = join(baseDir, entry.name, 'jeju-manifest.json');
-      if (!existsSync(manifestPath)) continue;
-      
-      const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8')) as AppManifest;
-      apps.push(manifest);
+      if (!entry.isDirectory()) continue
+      if (entry.name.startsWith('.')) continue
+
+      const manifestPath = join(baseDir, entry.name, 'jeju-manifest.json')
+      if (!existsSync(manifestPath)) continue
+
+      const manifest = JSON.parse(
+        readFileSync(manifestPath, 'utf-8'),
+      ) as AppManifest
+      apps.push(manifest)
     }
   }
-  
-  return apps;
+
+  return apps
 }
 
 export function printTestSummary(results: TestResult[]): void {
-  logger.newline();
-  logger.separator();
-  logger.subheader('Test Summary');
-  
-  const passed = results.filter(r => r.passed).length;
-  const failed = results.filter(r => !r.passed).length;
-  const totalDuration = results.reduce((sum, r) => sum + r.duration, 0);
-  
+  logger.newline()
+  logger.separator()
+  logger.subheader('Test Summary')
+
+  const passed = results.filter((r) => r.passed).length
+  const failed = results.filter((r) => !r.passed).length
+  const totalDuration = results.reduce((sum, r) => sum + r.duration, 0)
+
   for (const result of results) {
-    const icon = result.passed ? '✓' : '✗';
-    const status = result.passed ? 'PASS' : 'FAIL';
-    const time = `${(result.duration / 1000).toFixed(2)}s`;
-    logger.info(`  ${icon} ${result.name.padEnd(20)} ${status.padEnd(6)} ${time}`);
+    const icon = result.passed ? '✓' : '✗'
+    const status = result.passed ? 'PASS' : 'FAIL'
+    const time = `${(result.duration / 1000).toFixed(2)}s`
+    logger.info(
+      `  ${icon} ${result.name.padEnd(20)} ${status.padEnd(6)} ${time}`,
+    )
   }
-  
-  logger.separator();
-  logger.info(`  Total: ${results.length} | Passed: ${passed} | Failed: ${failed}`);
-  logger.info(`  Duration: ${(totalDuration / 1000).toFixed(2)}s`);
-  logger.separator();
-  
+
+  logger.separator()
+  logger.info(
+    `  Total: ${results.length} | Passed: ${passed} | Failed: ${failed}`,
+  )
+  logger.info(`  Duration: ${(totalDuration / 1000).toFixed(2)}s`)
+  logger.separator()
+
   if (failed > 0) {
-    logger.error(`${failed} test(s) failed`);
+    logger.error(`${failed} test(s) failed`)
   } else {
-    logger.success('All tests passed');
+    logger.success('All tests passed')
   }
 }
-

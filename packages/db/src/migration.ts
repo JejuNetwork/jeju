@@ -5,22 +5,32 @@
  * Supports versioned migrations with up/down capabilities.
  */
 
-import type { CQLClient } from './client.js';
-import type { Migration, MigrationResult } from './types.js';
+import type { CQLClient } from './client.js'
+import type { Migration, MigrationResult } from './types.js'
+import {
+  validateSQLDefault,
+  validateSQLIdentifier,
+  validateSQLIdentifiers,
+} from './utils.js'
 
 // ============================================================================
 // Migration Manager
 // ============================================================================
 
 export class MigrationManager {
-  private client: CQLClient;
-  private databaseId: string;
-  private tableName: string;
+  private client: CQLClient
+  private databaseId: string
+  private tableName: string
 
-  constructor(client: CQLClient, databaseId: string, tableName: string = '_migrations') {
-    this.client = client;
-    this.databaseId = databaseId;
-    this.tableName = tableName;
+  constructor(
+    client: CQLClient,
+    databaseId: string,
+    tableName: string = '_migrations',
+  ) {
+    this.client = client
+    this.databaseId = databaseId
+    // Validate table name to prevent SQL injection
+    this.tableName = validateSQLIdentifier(tableName, 'table')
   }
 
   /**
@@ -34,8 +44,8 @@ export class MigrationManager {
         applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )`,
       [],
-      this.databaseId
-    );
+      this.databaseId,
+    )
   }
 
   /**
@@ -45,24 +55,28 @@ export class MigrationManager {
     const result = await this.client.query<{ version: number | null }>(
       `SELECT MAX(version) as version FROM ${this.tableName}`,
       [],
-      this.databaseId
-    );
+      this.databaseId,
+    )
 
     // MAX() returns NULL if no rows exist, which is valid for empty migration table
-    const firstRow = result.rows[0];
-    if (!firstRow) return 0;
-    return firstRow.version ?? 0;
+    const firstRow = result.rows[0]
+    if (!firstRow) return 0
+    return firstRow.version ?? 0
   }
 
   /**
    * Get applied migrations
    */
   async getAppliedMigrations(): Promise<Migration[]> {
-    const result = await this.client.query<{ version: number; name: string; applied_at: string }>(
+    const result = await this.client.query<{
+      version: number
+      name: string
+      applied_at: string
+    }>(
       `SELECT version, name, applied_at FROM ${this.tableName} ORDER BY version`,
       [],
-      this.databaseId
-    );
+      this.databaseId,
+    )
 
     return result.rows.map((row) => ({
       version: row.version,
@@ -70,116 +84,141 @@ export class MigrationManager {
       up: '', // Not stored
       down: '', // Not stored
       appliedAt: new Date(row.applied_at).getTime(),
-    }));
+    }))
   }
 
   /**
    * Run pending migrations
+   * Uses pessimistic locking to prevent TOCTOU race conditions
    */
   async migrate(migrations: Migration[]): Promise<MigrationResult> {
-    await this.initialize();
+    await this.initialize()
 
-    const currentVersion = await this.getCurrentVersion();
-    const pending = migrations
-      .filter((m) => m.version > currentVersion)
-      .sort((a, b) => a.version - b.version);
+    // Sort migrations by version for sequential application
+    const sortedMigrations = [...migrations].sort(
+      (a, b) => a.version - b.version,
+    )
+    const applied: string[] = []
 
-    const applied: string[] = [];
-
-    for (const migration of pending) {
-      console.log(`[CQL] Applying migration: ${migration.version} - ${migration.name}`);
-
-      // Execute migration in transaction
-      const conn = await this.client.connect(this.databaseId);
-      const tx = await conn.beginTransaction();
+    for (const migration of sortedMigrations) {
+      // Execute migration in transaction with version check INSIDE the transaction
+      // This prevents TOCTOU race conditions where two processes check version simultaneously
+      const conn = await this.client.connect(this.databaseId)
+      const tx = await conn.beginTransaction()
 
       try {
-        await tx.exec(migration.up, []);
+        // Check version INSIDE transaction to prevent race conditions
+        const versionResult = await tx.query<{ version: number | null }>(
+          `SELECT MAX(version) as version FROM ${this.tableName}`,
+        )
+        const currentVersion = versionResult.rows[0]?.version ?? 0
+
+        // Skip if migration already applied
+        if (migration.version <= currentVersion) {
+          await tx.rollback()
+          continue
+        }
+
+        console.log(
+          `[CQL] Applying migration: ${migration.version} - ${migration.name}`,
+        )
+
+        await tx.exec(migration.up, [])
         await tx.exec(
           `INSERT INTO ${this.tableName} (version, name) VALUES (?, ?)`,
-          [migration.version, migration.name]
-        );
-        await tx.commit();
-        applied.push(`${migration.version}: ${migration.name}`);
+          [migration.version, migration.name],
+        )
+        await tx.commit()
+        applied.push(`${migration.version}: ${migration.name}`)
       } catch (error) {
-        await tx.rollback();
-        throw new Error(`Migration ${migration.version} failed: ${(error as Error).message}`);
+        await tx.rollback()
+        throw new Error(
+          `Migration ${migration.version} failed: ${(error as Error).message}`,
+        )
       } finally {
-        this.client.getPool(this.databaseId).release(conn);
+        this.client.getPool(this.databaseId).release(conn)
       }
     }
 
-    const newVersion = await this.getCurrentVersion();
-    const stillPending = migrations
+    const newVersion = await this.getCurrentVersion()
+    const stillPending = sortedMigrations
       .filter((m) => m.version > newVersion)
-      .map((m) => `${m.version}: ${m.name}`);
+      .map((m) => `${m.version}: ${m.name}`)
 
     return {
       applied,
       currentVersion: newVersion,
       pending: stillPending,
-    };
+    }
   }
 
   /**
    * Rollback last migration
    */
   async rollback(migrations: Migration[]): Promise<MigrationResult> {
-    await this.initialize();
+    await this.initialize()
 
-    const currentVersion = await this.getCurrentVersion();
+    const currentVersion = await this.getCurrentVersion()
     if (currentVersion === 0) {
       return {
         applied: [],
         currentVersion: 0,
         pending: migrations.map((m) => `${m.version}: ${m.name}`),
-      };
+      }
     }
 
-    const migration = migrations.find((m) => m.version === currentVersion);
+    const migration = migrations.find((m) => m.version === currentVersion)
     if (!migration) {
-      throw new Error(`Migration ${currentVersion} not found in provided migrations`);
+      throw new Error(
+        `Migration ${currentVersion} not found in provided migrations`,
+      )
     }
 
-    console.log(`[CQL] Rolling back migration: ${migration.version} - ${migration.name}`);
+    console.log(
+      `[CQL] Rolling back migration: ${migration.version} - ${migration.name}`,
+    )
 
-    const conn = await this.client.connect(this.databaseId);
-    const tx = await conn.beginTransaction();
+    const conn = await this.client.connect(this.databaseId)
+    const tx = await conn.beginTransaction()
 
     try {
-      await tx.exec(migration.down, []);
-      await tx.exec(`DELETE FROM ${this.tableName} WHERE version = ?`, [migration.version]);
-      await tx.commit();
+      await tx.exec(migration.down, [])
+      await tx.exec(`DELETE FROM ${this.tableName} WHERE version = ?`, [
+        migration.version,
+      ])
+      await tx.commit()
     } catch (error) {
-      await tx.rollback();
-      throw new Error(`Rollback ${migration.version} failed: ${(error as Error).message}`);
+      await tx.rollback()
+      throw new Error(
+        `Rollback ${migration.version} failed: ${(error as Error).message}`,
+      )
     } finally {
-      this.client.getPool(this.databaseId).release(conn);
+      this.client.getPool(this.databaseId).release(conn)
     }
 
-    const newVersion = await this.getCurrentVersion();
+    const newVersion = await this.getCurrentVersion()
     const pending = migrations
       .filter((m) => m.version > newVersion)
-      .map((m) => `${m.version}: ${m.name}`);
+      .map((m) => `${m.version}: ${m.name}`)
 
     return {
       applied: [],
       currentVersion: newVersion,
       pending,
-    };
+    }
   }
 
   /**
    * Rollback all migrations
    */
   async reset(migrations: Migration[]): Promise<MigrationResult> {
-    let result = await this.rollback(migrations);
+    let result = await this.rollback(migrations)
 
     while (result.currentVersion > 0) {
-      result = await this.rollback(migrations);
+      result = await this.rollback(migrations)
     }
 
-    return result;
+    return result
   }
 }
 
@@ -194,9 +233,9 @@ export function defineMigration(
   version: number,
   name: string,
   up: string,
-  down: string
+  down: string,
 ): Migration {
-  return { version, name, up, down };
+  return { version, name, up, down }
 }
 
 /**
@@ -205,33 +244,41 @@ export function defineMigration(
 export function createTable(
   tableName: string,
   columns: Array<{
-    name: string;
-    type: string;
-    primaryKey?: boolean;
-    autoIncrement?: boolean;
-    notNull?: boolean;
-    unique?: boolean;
-    default?: string;
-    references?: { table: string; column: string };
-  }>
+    name: string
+    type: string
+    primaryKey?: boolean
+    autoIncrement?: boolean
+    notNull?: boolean
+    unique?: boolean
+    default?: string
+    references?: { table: string; column: string }
+  }>,
 ): { up: string; down: string } {
+  // Validate table name to prevent SQL injection
+  const safeTableName = validateSQLIdentifier(tableName, 'table')
+
   const columnDefs = columns.map((col) => {
-    let def = `${col.name} ${col.type}`;
-    if (col.primaryKey) def += ' PRIMARY KEY';
-    if (col.autoIncrement) def += ' AUTOINCREMENT';
-    if (col.notNull) def += ' NOT NULL';
-    if (col.unique) def += ' UNIQUE';
-    if (col.default !== undefined) def += ` DEFAULT ${col.default}`;
+    // Validate column name
+    const safeColName = validateSQLIdentifier(col.name, 'column')
+    let def = `${safeColName} ${col.type}`
+    if (col.primaryKey) def += ' PRIMARY KEY'
+    if (col.autoIncrement) def += ' AUTOINCREMENT'
+    if (col.notNull) def += ' NOT NULL'
+    if (col.unique) def += ' UNIQUE'
+    if (col.default !== undefined) def += ` DEFAULT ${col.default}`
     if (col.references) {
-      def += ` REFERENCES ${col.references.table}(${col.references.column})`;
+      // Validate foreign key references
+      const safeRefTable = validateSQLIdentifier(col.references.table, 'table')
+      const safeRefCol = validateSQLIdentifier(col.references.column, 'column')
+      def += ` REFERENCES ${safeRefTable}(${safeRefCol})`
     }
-    return def;
-  });
+    return def
+  })
 
   return {
-    up: `CREATE TABLE ${tableName} (\n  ${columnDefs.join(',\n  ')}\n)`,
-    down: `DROP TABLE IF EXISTS ${tableName}`,
-  };
+    up: `CREATE TABLE ${safeTableName} (\n  ${columnDefs.join(',\n  ')}\n)`,
+    down: `DROP TABLE IF EXISTS ${safeTableName}`,
+  }
 }
 
 /**
@@ -241,16 +288,24 @@ export function addColumn(
   tableName: string,
   columnName: string,
   columnType: string,
-  options?: { notNull?: boolean; default?: string }
+  options?: { notNull?: boolean; default?: string },
 ): { up: string; down: string } {
-  let up = `ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnType}`;
-  if (options?.notNull) up += ' NOT NULL';
-  if (options?.default !== undefined) up += ` DEFAULT ${options.default}`;
+  // Validate identifiers to prevent SQL injection
+  const safeTableName = validateSQLIdentifier(tableName, 'table')
+  const safeColumnName = validateSQLIdentifier(columnName, 'column')
+
+  let up = `ALTER TABLE ${safeTableName} ADD COLUMN ${safeColumnName} ${columnType}`
+  if (options?.notNull) up += ' NOT NULL'
+  if (options?.default !== undefined) {
+    // Validate DEFAULT value to prevent SQL injection
+    const safeDefault = validateSQLDefault(options.default)
+    up += ` DEFAULT ${safeDefault}`
+  }
 
   return {
     up,
-    down: `ALTER TABLE ${tableName} DROP COLUMN ${columnName}`,
-  };
+    down: `ALTER TABLE ${safeTableName} DROP COLUMN ${safeColumnName}`,
+  }
 }
 
 /**
@@ -260,13 +315,18 @@ export function createIndex(
   indexName: string,
   tableName: string,
   columns: string[],
-  unique?: boolean
+  unique?: boolean,
 ): { up: string; down: string } {
-  const uniqueClause = unique ? 'UNIQUE ' : '';
+  // Validate all identifiers to prevent SQL injection
+  const safeIndexName = validateSQLIdentifier(indexName, 'index')
+  const safeTableName = validateSQLIdentifier(tableName, 'table')
+  const safeColumns = validateSQLIdentifiers(columns, 'column')
+
+  const uniqueClause = unique ? 'UNIQUE ' : ''
   return {
-    up: `CREATE ${uniqueClause}INDEX ${indexName} ON ${tableName} (${columns.join(', ')})`,
-    down: `DROP INDEX IF EXISTS ${indexName}`,
-  };
+    up: `CREATE ${uniqueClause}INDEX ${safeIndexName} ON ${safeTableName} (${safeColumns.join(', ')})`,
+    down: `DROP INDEX IF EXISTS ${safeIndexName}`,
+  }
 }
 
 // ============================================================================
@@ -276,8 +336,7 @@ export function createIndex(
 export function createMigrationManager(
   client: CQLClient,
   databaseId: string,
-  tableName?: string
+  tableName?: string,
 ): MigrationManager {
-  return new MigrationManager(client, databaseId, tableName);
+  return new MigrationManager(client, databaseId, tableName)
 }
-

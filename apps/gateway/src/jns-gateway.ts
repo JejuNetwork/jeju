@@ -14,12 +14,22 @@
  * example.jejunetwork.org → resolves example.jeju → contenthash → IPFS gateway
  */
 
-import { Hono } from 'hono';
-import type { Context } from 'hono';
-import { cors } from 'hono/cors';
-import { createPublicClient, http, type Address, type Hex, type PublicClient, type Chain, type Transport, keccak256 as viemKeccak256, toHex } from 'viem';
-import { base, baseSepolia } from 'viem/chains';
-import { normalize } from 'viem/ens';
+import type { Context } from 'hono'
+import { Hono } from 'hono'
+import { cors } from 'hono/cors'
+import {
+  type Address,
+  type Chain,
+  createPublicClient,
+  type Hex,
+  http,
+  type PublicClient,
+  type Transport,
+  toHex,
+  keccak256 as viemKeccak256,
+} from 'viem'
+import { base, baseSepolia } from 'viem/chains'
+import { normalize } from 'viem/ens'
 
 const JNS_RESOLVER_ABI = [
   {
@@ -60,7 +70,7 @@ const JNS_RESOLVER_ABI = [
       { name: 'contenthash_', type: 'bytes' },
     ],
   },
-] as const;
+] as const
 
 const JNS_REGISTRY_ABI = [
   {
@@ -70,19 +80,19 @@ const JNS_REGISTRY_ABI = [
     inputs: [{ name: 'node', type: 'bytes32' }],
     outputs: [{ name: '', type: 'address' }],
   },
-] as const;
+] as const
 
 interface JNSGatewayConfig {
-  port: number;
-  rpcUrl: string;
-  jnsRegistryAddress: Address;
-  ipfsGatewayUrl: string;
-  defaultResolver?: Address;
+  port: number
+  rpcUrl: string
+  jnsRegistryAddress: Address
+  ipfsGatewayUrl: string
+  defaultResolver?: Address
 }
 
 interface ResolvedContent {
-  cid: string;
-  codec: 'ipfs' | 'ipns' | 'swarm' | 'arweave';
+  cid: string
+  codec: 'ipfs' | 'ipns' | 'swarm' | 'arweave'
 }
 
 /**
@@ -91,53 +101,53 @@ interface ResolvedContent {
  */
 function decodeContenthash(contenthash: Hex): ResolvedContent | null {
   if (!contenthash || contenthash === '0x' || contenthash.length < 4) {
-    return null;
+    return null
   }
 
-  const bytes = Buffer.from(contenthash.slice(2), 'hex');
-  if (bytes.length < 2) return null;
+  const bytes = Buffer.from(contenthash.slice(2), 'hex')
+  if (bytes.length < 2) return null
 
-  const codec = bytes[0];
-  const hashFn = bytes[1];
+  const codec = bytes[0]
+  const hashFn = bytes[1]
 
   // IPFS: 0xe3 + 0x01 (cidv1) or 0x00 (cidv0)
   if (codec === 0xe3) {
     // CIDv1 with dag-pb (0x70) and sha2-256 (0x12)
     if (bytes[1] === 0x01 && bytes[2] === 0x70 && bytes[3] === 0x12) {
-      const cid = Buffer.from(bytes.slice(1)).toString('base64url');
-      return { cid: `b${cid}`, codec: 'ipfs' }; // Base32 CIDv1
+      const cid = Buffer.from(bytes.slice(1)).toString('base64url')
+      return { cid: `b${cid}`, codec: 'ipfs' } // Base32 CIDv1
     }
     // CIDv0 - raw multihash
     if (hashFn === 0x12) {
       // SHA2-256 - return as hex since base58 encoding needs external library
-      const multihash = bytes.slice(1);
-      const cid = `Qm${Buffer.from(multihash.slice(2)).toString('hex')}`;
-      return { cid, codec: 'ipfs' };
+      const multihash = bytes.slice(1)
+      const cid = `Qm${Buffer.from(multihash.slice(2)).toString('hex')}`
+      return { cid, codec: 'ipfs' }
     }
     // Fallback: assume raw CID bytes after codec
-    const cid = bytes.slice(1).toString('hex');
-    return { cid, codec: 'ipfs' };
+    const cid = bytes.slice(1).toString('hex')
+    return { cid, codec: 'ipfs' }
   }
 
   // IPNS: 0xe5
   if (codec === 0xe5) {
-    const cid = Buffer.from(bytes.slice(1)).toString('base64url');
-    return { cid: `k${cid}`, codec: 'ipns' };
+    const cid = Buffer.from(bytes.slice(1)).toString('base64url')
+    return { cid: `k${cid}`, codec: 'ipns' }
   }
 
   // Swarm: 0xe4
   if (codec === 0xe4) {
-    const hash = bytes.slice(1).toString('hex');
-    return { cid: hash, codec: 'swarm' };
+    const hash = bytes.slice(1).toString('hex')
+    return { cid: hash, codec: 'swarm' }
   }
 
   // Arweave: 0x90 (custom)
   if (codec === 0x90) {
-    const txId = Buffer.from(bytes.slice(1)).toString('base64url');
-    return { cid: txId, codec: 'arweave' };
+    const txId = Buffer.from(bytes.slice(1)).toString('base64url')
+    return { cid: txId, codec: 'arweave' }
   }
 
-  return null;
+  return null
 }
 
 /**
@@ -145,30 +155,36 @@ function decodeContenthash(contenthash: Hex): ResolvedContent | null {
  */
 function namehash(name: string): Hex {
   let node =
-    '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex;
+    '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex
 
-  if (name === '') return node;
+  if (name === '') return node
 
-  const labels = normalize(name).split('.');
+  const labels = normalize(name).split('.')
 
   for (let i = labels.length - 1; i >= 0; i--) {
-    const label = labels[i];
-    const labelHash = hashBytes(Buffer.from(label!, 'utf8'));
-    node = hashBytes(Buffer.concat([Buffer.from(node.slice(2), 'hex'), Buffer.from(labelHash.slice(2), 'hex')])) as Hex;
+    const label = labels[i]
+    if (!label) continue
+    const labelHash = hashBytes(Buffer.from(label, 'utf8'))
+    node = hashBytes(
+      Buffer.concat([
+        Buffer.from(node.slice(2), 'hex'),
+        Buffer.from(labelHash.slice(2), 'hex'),
+      ]),
+    ) as Hex
   }
 
-  return node;
+  return node
 }
 
 function hashBytes(data: Buffer): Hex {
-  return viemKeccak256(toHex(data));
+  return viemKeccak256(toHex(data))
 }
 
 /**
  * Get MIME type from path
  */
 function getMimeType(path: string): string {
-  const ext = path.split('.').pop()?.toLowerCase();
+  const ext = path.split('.').pop()?.toLowerCase()
   const mimeTypes: Record<string, string> = {
     html: 'text/html',
     htm: 'text/html',
@@ -190,59 +206,61 @@ function getMimeType(path: string): string {
     md: 'text/markdown',
     xml: 'application/xml',
     wasm: 'application/wasm',
-  };
-  return mimeTypes[ext ?? ''] ?? 'application/octet-stream';
+  }
+  return mimeTypes[ext ?? ''] ?? 'application/octet-stream'
 }
 
 export class JNSGateway {
-  private app: Hono;
-  private config: JNSGatewayConfig;
-  private client: PublicClient<Transport, Chain>;
-  private localCache: Map<string, { content: ResolvedContent; expiry: number }> =
-    new Map();
-  private readonly CACHE_TTL = 300_000; // 5 minutes
-  private decentralizedCache: import('@jejunetwork/shared').CacheClient | null = null;
+  private app: Hono
+  private config: JNSGatewayConfig
+  private client: PublicClient<Transport, Chain>
+  private localCache: Map<
+    string,
+    { content: ResolvedContent; expiry: number }
+  > = new Map()
+  private readonly CACHE_TTL = 300_000 // 5 minutes
+  private decentralizedCache: import('@jejunetwork/shared').CacheClient | null =
+    null
 
   constructor(config: JNSGatewayConfig) {
-    this.config = config;
-    this.app = new Hono();
+    this.config = config
+    this.app = new Hono()
 
     const chain =
-      config.rpcUrl.includes('sepolia') ||
-      config.rpcUrl.includes('testnet')
+      config.rpcUrl.includes('sepolia') || config.rpcUrl.includes('testnet')
         ? baseSepolia
-        : base;
+        : base
 
     this.client = createPublicClient({
       chain,
       transport: http(config.rpcUrl),
-    }) as PublicClient<Transport, Chain>;
+    }) as PublicClient<Transport, Chain>
 
-    this.setupRoutes();
+    this.setupRoutes()
   }
 
   private setupRoutes(): void {
-    this.app.use('*', cors());
+    this.app.use('*', cors())
 
     // Health check
     this.app.get('/health', (c) =>
-      c.json({ status: 'healthy', service: 'jns-gateway' })
-    );
+      c.json({ status: 'healthy', service: 'jns-gateway' }),
+    )
 
     // Direct CID access
     this.app.get('/ipfs/:cid{.+}', async (c) => {
-      const cid = c.req.param('cid');
-      const path = c.req.path.replace(`/ipfs/${cid}`, '') || '/';
-      return this.serveIpfsContent(c, cid, path);
-    });
+      const cid = c.req.param('cid')
+      const path = c.req.path.replace(`/ipfs/${cid}`, '') || '/'
+      return this.serveIpfsContent(c, cid, path)
+    })
 
     // JNS resolution API
     this.app.get('/api/resolve/:name', async (c) => {
-      const name = c.req.param('name');
-      const content = await this.resolveJNS(name);
+      const name = c.req.param('name')
+      const content = await this.resolveJNS(name)
 
       if (!content) {
-        return c.json({ error: 'Name not found or no contenthash' }, 404);
+        return c.json({ error: 'Name not found or no contenthash' }, 404)
       }
 
       return c.json({
@@ -250,44 +268,49 @@ export class JNSGateway {
         cid: content.cid,
         codec: content.codec,
         gatewayUrl: this.getGatewayUrl(content),
-      });
-    });
+      })
+    })
 
     // JNS name serving - catch all for name.jeju paths
     this.app.get('/:name{[a-z0-9-]+\\.jeju}/*', async (c) => {
-      const name = c.req.param('name');
-      const path = c.req.path.replace(`/${name}`, '') || '/index.html';
-      return this.serveJNSContent(c, name, path);
-    });
+      const name = c.req.param('name')
+      const path = c.req.path.replace(`/${name}`, '') || '/index.html'
+      return this.serveJNSContent(c, name, path)
+    })
 
     // Host-based JNS resolution
     this.app.get('*', async (c) => {
-      const host = c.req.header('host') ?? '';
+      const host = c.req.header('host') ?? ''
 
       // Check if this is a JNS subdomain (e.g., app.jejunetwork.org)
-      const jnsMatch = host.match(/^([a-z0-9-]+)\.jeju\.(network|io|local)/);
-      if (jnsMatch && jnsMatch[1]) {
-        const name = `${jnsMatch[1]}.jeju`;
-        const path = c.req.path === '/' ? '/index.html' : c.req.path;
-        return this.serveJNSContent(c, name, path);
+      const jnsMatch = host.match(/^([a-z0-9-]+)\.jeju\.(network|io|local)/)
+      if (jnsMatch?.[1]) {
+        const name = `${jnsMatch[1]}.jeju`
+        const path = c.req.path === '/' ? '/index.html' : c.req.path
+        return this.serveJNSContent(c, name, path)
       }
 
-      return c.text('JNS Gateway - Use *.jejunetwork.org for name resolution', 200);
-    });
+      return c.text(
+        'JNS Gateway - Use *.jejunetwork.org for name resolution',
+        200,
+      )
+    })
   }
 
   /**
    * Initialize decentralized cache
    */
   private async initDecentralizedCache(): Promise<void> {
-    if (this.decentralizedCache) return;
-    
+    if (this.decentralizedCache) return
+
     try {
-      const { getCacheClient } = await import('@jejunetwork/shared');
-      this.decentralizedCache = getCacheClient('jns-gateway');
-      console.log('[JNS Gateway] Decentralized cache initialized');
+      const { getCacheClient } = await import('@jejunetwork/shared')
+      this.decentralizedCache = getCacheClient('jns-gateway')
+      console.log('[JNS Gateway] Decentralized cache initialized')
     } catch {
-      console.log('[JNS Gateway] Decentralized cache not available, using local cache');
+      console.log(
+        '[JNS Gateway] Decentralized cache not available, using local cache',
+      )
     }
   }
 
@@ -297,41 +320,46 @@ export class JNSGateway {
   private async getFromCache(name: string): Promise<ResolvedContent | null> {
     // Try decentralized cache first
     if (this.decentralizedCache) {
-      const cached = await this.decentralizedCache.get(`jns:${name}`).catch(() => null);
+      const cached = await this.decentralizedCache
+        .get(`jns:${name}`)
+        .catch(() => null)
       if (cached) {
-        return JSON.parse(cached) as ResolvedContent;
+        return JSON.parse(cached) as ResolvedContent
       }
     }
-    
+
     // Fall back to local cache
-    const localCached = this.localCache.get(name);
+    const localCached = this.localCache.get(name)
     if (localCached && localCached.expiry > Date.now()) {
-      return localCached.content;
+      return localCached.content
     }
-    
-    return null;
+
+    return null
   }
 
   /**
    * Set to cache (both decentralized and local)
    */
-  private async setToCache(name: string, content: ResolvedContent): Promise<void> {
+  private async setToCache(
+    name: string,
+    content: ResolvedContent,
+  ): Promise<void> {
     // Set in decentralized cache
     if (this.decentralizedCache) {
       try {
         await this.decentralizedCache.set(
           `jns:${name}`,
           JSON.stringify(content),
-          Math.floor(this.CACHE_TTL / 1000)
-        );
+          Math.floor(this.CACHE_TTL / 1000),
+        )
       } catch (e) {
         // Cache write failure is non-critical, continue with local cache only
-        console.debug(`Failed to write to decentralized cache for ${name}:`, e);
+        console.debug(`Failed to write to decentralized cache for ${name}:`, e)
       }
     }
-    
+
     // Set in local cache
-    this.localCache.set(name, { content, expiry: Date.now() + this.CACHE_TTL });
+    this.localCache.set(name, { content, expiry: Date.now() + this.CACHE_TTL })
   }
 
   /**
@@ -339,28 +367,28 @@ export class JNSGateway {
    */
   async resolveJNS(name: string): Promise<ResolvedContent | null> {
     // Check cache
-    const cached = await this.getFromCache(name);
+    const cached = await this.getFromCache(name)
     if (cached) {
-      return cached;
+      return cached
     }
 
-    const node = namehash(name);
+    const node = namehash(name)
 
     // Get resolver address
-    let resolverAddr: Address;
+    let resolverAddr: Address
     if (this.config.defaultResolver) {
-      resolverAddr = this.config.defaultResolver;
+      resolverAddr = this.config.defaultResolver
     } else {
       resolverAddr = (await this.client.readContract({
         address: this.config.jnsRegistryAddress,
         abi: JNS_REGISTRY_ABI,
         functionName: 'resolver',
         args: [node],
-      })) as Address;
+      })) as Address
     }
 
     if (resolverAddr === '0x0000000000000000000000000000000000000000') {
-      return null;
+      return null
     }
 
     // Get contenthash
@@ -369,49 +397,58 @@ export class JNSGateway {
       abi: JNS_RESOLVER_ABI,
       functionName: 'contenthash',
       args: [node],
-    })) as Hex;
+    })) as Hex
 
-    const content = decodeContenthash(contenthash);
+    const content = decodeContenthash(contenthash)
 
     if (content) {
-      await this.setToCache(name, content);
+      await this.setToCache(name, content)
     }
 
-    return content;
+    return content
   }
 
   /**
    * Serve content from JNS-resolved CID
    */
-  private async serveJNSContent(c: Context, name: string, path: string): Promise<Response> {
-    const content = await this.resolveJNS(name);
+  private async serveJNSContent(
+    c: Context,
+    name: string,
+    path: string,
+  ): Promise<Response> {
+    const content = await this.resolveJNS(name)
 
     if (!content) {
-      return c.text(`JNS name "${name}" not found or has no contenthash`, 404);
+      return c.text(`JNS name "${name}" not found or has no contenthash`, 404)
     }
 
-    return this.serveIpfsContent(c, content.cid, path);
+    return this.serveIpfsContent(c, content.cid, path)
   }
 
   /**
    * Serve content from IPFS
-   * 
+   *
    * DECENTRALIZED: Uses only our configured IPFS gateway - no centralized fallbacks.
    */
-  private async serveIpfsContent(c: Context, cid: string, path: string): Promise<Response> {
-    const gateway = this.config.ipfsGatewayUrl;
-    const url = `${gateway}/ipfs/${cid}${path}`;
+  private async serveIpfsContent(
+    c: Context,
+    cid: string,
+    path: string,
+  ): Promise<Response> {
+    const gateway = this.config.ipfsGatewayUrl
+    const url = `${gateway}/ipfs/${cid}${path}`
 
     const response = await fetch(url, {
       headers: { Accept: '*/*' },
       signal: AbortSignal.timeout(30000), // 30s timeout for our own IPFS node
     }).catch((e: unknown) => {
-      console.error(`[JNS Gateway] IPFS fetch failed: ${e}`);
-      return null;
-    });
+      console.error(`[JNS Gateway] IPFS fetch failed: ${e}`)
+      return null
+    })
 
     if (response?.ok) {
-      const contentType = response.headers.get('content-type') ?? getMimeType(path);
+      const contentType =
+        response.headers.get('content-type') ?? getMimeType(path)
 
       return new Response(response.body, {
         status: 200,
@@ -421,15 +458,15 @@ export class JNSGateway {
           'X-Content-CID': cid,
           'X-Gateway': gateway,
         },
-      });
+      })
     }
 
     // Try index.html for directory paths (SPA support)
     if (response?.status === 404 && !path.includes('.')) {
-      const indexUrl = `${gateway}/ipfs/${cid}/index.html`;
+      const indexUrl = `${gateway}/ipfs/${cid}/index.html`
       const indexResponse = await fetch(indexUrl, {
         signal: AbortSignal.timeout(30000),
-      }).catch(() => null);
+      }).catch(() => null)
 
       if (indexResponse?.ok) {
         return new Response(indexResponse.body, {
@@ -441,20 +478,21 @@ export class JNSGateway {
             'X-Gateway': gateway,
             'X-SPA-Index': 'true',
           },
-        });
+        })
       }
     }
 
     return c.json(
-      { 
+      {
         error: 'Content not available',
         cid,
         gateway,
         status: response?.status ?? 'connection_failed',
-        message: 'IPFS content not found. Ensure content is pinned to the network.'
+        message:
+          'IPFS content not found. Ensure content is pinned to the network.',
       },
-      502
-    );
+      502,
+    )
   }
 
   /**
@@ -463,26 +501,26 @@ export class JNSGateway {
   private getGatewayUrl(content: ResolvedContent): string {
     switch (content.codec) {
       case 'ipfs':
-        return `${this.config.ipfsGatewayUrl}/ipfs/${content.cid}`;
+        return `${this.config.ipfsGatewayUrl}/ipfs/${content.cid}`
       case 'ipns':
-        return `${this.config.ipfsGatewayUrl}/ipns/${content.cid}`;
+        return `${this.config.ipfsGatewayUrl}/ipns/${content.cid}`
       case 'arweave':
-        return `https://arweave.net/${content.cid}`;
+        return `https://arweave.net/${content.cid}`
       case 'swarm':
-        return `https://gateway.ethswarm.org/bzz/${content.cid}`;
+        return `https://gateway.ethswarm.org/bzz/${content.cid}`
       default:
-        return `${this.config.ipfsGatewayUrl}/ipfs/${content.cid}`;
+        return `${this.config.ipfsGatewayUrl}/ipfs/${content.cid}`
     }
   }
 
   getApp(): Hono {
-    return this.app;
+    return this.app
   }
 
   async start(): Promise<void> {
     // Initialize decentralized cache
-    await this.initDecentralizedCache();
-    
+    await this.initDecentralizedCache()
+
     console.log(`
 ╔═══════════════════════════════════════════════════════════╗
 ║                      JNS Gateway                           ║
@@ -493,53 +531,62 @@ export class JNSGateway {
 ║  IPFS Gateway:  ${this.config.ipfsGatewayUrl.slice(0, 38).padEnd(38)}║
 ║  Port:          ${this.config.port.toString().padEnd(38)}║
 ╚═══════════════════════════════════════════════════════════╝
-`);
+`)
 
     Bun.serve({
       port: this.config.port,
       fetch: this.app.fetch,
-    });
+    })
 
-    console.log(`JNS Gateway listening on port ${this.config.port}`);
+    console.log(`JNS Gateway listening on port ${this.config.port}`)
   }
 }
 
 /**
  * Start JNS Gateway from environment
- * 
+ *
  * DECENTRALIZED: No fallback to centralized IPFS gateways.
  * Requires local IPFS node or configured IPFS_GATEWAY_URL.
  */
 export async function startJNSGateway(): Promise<JNSGateway> {
-  const ipfsGatewayUrl = process.env.IPFS_GATEWAY_URL;
-  
+  const ipfsGatewayUrl = process.env.IPFS_GATEWAY_URL
+
   if (!ipfsGatewayUrl) {
     throw new Error(
       'JNS Gateway requires IPFS_GATEWAY_URL environment variable. ' +
-      'Start local IPFS: docker compose up -d ipfs'
-    );
+        'Start local IPFS: docker compose up -d ipfs',
+    )
   }
 
-  const jnsRegistryAddress = process.env.JNS_REGISTRY_ADDRESS;
-  if (!jnsRegistryAddress || jnsRegistryAddress === '0x0000000000000000000000000000000000000000') {
-    console.warn('[JNS Gateway] JNS_REGISTRY_ADDRESS not set - name resolution will fail until contracts are deployed');
+  const jnsRegistryAddress = process.env.JNS_REGISTRY_ADDRESS
+  if (
+    !jnsRegistryAddress ||
+    jnsRegistryAddress === '0x0000000000000000000000000000000000000000'
+  ) {
+    console.warn(
+      '[JNS Gateway] JNS_REGISTRY_ADDRESS not set - name resolution will fail until contracts are deployed',
+    )
   }
 
   const config: JNSGatewayConfig = {
     port: parseInt(process.env.JNS_GATEWAY_PORT ?? '4005', 10),
-    rpcUrl: process.env.JEJU_RPC_URL ?? process.env.RPC_URL ?? 'http://localhost:6546',
-    jnsRegistryAddress: (jnsRegistryAddress ?? '0x0000000000000000000000000000000000000000') as Address,
+    rpcUrl:
+      process.env.JEJU_RPC_URL ??
+      process.env.RPC_URL ??
+      'http://localhost:9545',
+    jnsRegistryAddress: (jnsRegistryAddress ??
+      '0x0000000000000000000000000000000000000000') as Address,
     ipfsGatewayUrl,
     defaultResolver: process.env.JNS_RESOLVER_ADDRESS as Address | undefined,
     // No fallback gateways - we require our own IPFS infrastructure
-  };
+  }
 
-  const gateway = new JNSGateway(config);
-  await gateway.start();
-  return gateway;
+  const gateway = new JNSGateway(config)
+  await gateway.start()
+  return gateway
 }
 
 // CLI entry point
 if (import.meta.main) {
-  startJNSGateway();
+  startJNSGateway()
 }

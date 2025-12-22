@@ -55,7 +55,7 @@ export const FEED_REGISTRY_ABI = [
     outputs: [{ name: '', type: 'bool' }],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 export const REPORT_VERIFIER_ABI = [
   {
@@ -132,7 +132,7 @@ export const REPORT_VERIFIER_ABI = [
       { name: 'reason', type: 'string', indexed: false },
     ],
   },
-] as const;
+] as const
 
 export const COMMITTEE_MANAGER_ABI = [
   {
@@ -173,7 +173,7 @@ export const COMMITTEE_MANAGER_ABI = [
     outputs: [{ name: '', type: 'bytes32[]' }],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 export const NETWORK_CONNECTOR_ABI = [
   {
@@ -248,7 +248,7 @@ export const NETWORK_CONNECTOR_ABI = [
     outputs: [{ name: '', type: 'uint256' }],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 export const UNISWAP_V3_POOL_ABI = [
   {
@@ -287,7 +287,7 @@ export const UNISWAP_V3_POOL_ABI = [
     outputs: [{ name: '', type: 'uint128' }],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 export const CHAINLINK_AGGREGATOR_ABI = [
   {
@@ -310,4 +310,4 @@ export const CHAINLINK_AGGREGATOR_ABI = [
     outputs: [{ name: '', type: 'uint8' }],
     stateMutability: 'view',
   },
-] as const;
+] as const

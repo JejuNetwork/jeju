@@ -1,28 +1,25 @@
 /**
  * SWAP SIMULATION TESTS
- * 
+ *
  * Real swap execution and fee verification on localnet.
- * 
+ *
  * Run with: bun test tests/integration/swap-simulation.test.ts
  */
 
-import { describe, test, expect, beforeAll } from 'bun:test'
+import { beforeAll, describe, expect, test } from 'bun:test'
+import { rawDeployments } from '@jejunetwork/contracts'
 import {
+  type Address,
   createPublicClient,
   createWalletClient,
-  http,
-  parseEther,
   formatEther,
-  parseUnits,
-  formatUnits,
-  parseAbi,
-  encodeFunctionData,
-  type Address,
+  http,
   type PublicClient,
+  parseAbi,
+  parseEther,
   type WalletClient,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { rawDeployments, isValidAddress } from '@jejunetwork/contracts'
 
 // =============================================================================
 // CONFIGURATION
@@ -30,7 +27,8 @@ import { rawDeployments, isValidAddress } from '@jejunetwork/contracts'
 
 const RPC_URL = process.env.L2_RPC_URL || 'http://localhost:6546'
 const CHAIN_ID = 420691 // network localnet chain ID
-const DEPLOYER_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as `0x${string}`
+const DEPLOYER_KEY =
+  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as `0x${string}`
 const DEPLOYER_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address
 
 const WETH_ADDRESS = '0x4200000000000000000000000000000000000006' as Address
@@ -46,47 +44,12 @@ const localnet = {
 // ABIS
 // =============================================================================
 
-const ERC20_ABI = parseAbi([
-  'function name() view returns (string)',
-  'function symbol() view returns (string)',
-  'function decimals() view returns (uint8)',
-  'function totalSupply() view returns (uint256)',
-  'function balanceOf(address account) view returns (uint256)',
-  'function allowance(address owner, address spender) view returns (uint256)',
-  'function approve(address spender, uint256 amount) returns (bool)',
-  'function transfer(address to, uint256 amount) returns (bool)',
-  'function mint(address to, uint256 amount)',
-])
-
 const WETH_ABI = parseAbi([
   'function deposit() payable',
   'function withdraw(uint256 amount)',
   'function balanceOf(address account) view returns (uint256)',
   'function approve(address spender, uint256 amount) returns (bool)',
 ])
-
-// V4 Router ABI (simplified for exactInputSingle)
-const V4_SWAP_ROUTER_ABI = parseAbi([
-  'function swap((address,address,uint24,int24,address) key, (bool,int256,uint160) params, bytes hookData) payable returns (int256 delta0, int256 delta1)',
-])
-
-// =============================================================================
-// TYPES
-// =============================================================================
-
-interface PoolKey {
-  currency0: Address
-  currency1: Address
-  fee: number
-  tickSpacing: number
-  hooks: Address
-}
-
-interface SwapParams {
-  zeroForOne: boolean
-  amountSpecified: bigint
-  sqrtPriceLimitX96: bigint
-}
 
 // =============================================================================
 // SETUP
@@ -101,10 +64,18 @@ let skipTests = false
 function loadDeployment(filename: string): Record<string, string> {
   // Map filename to rawDeployments key
   const deploymentMap: Record<string, Record<string, string>> = {
-    'uniswap-v4-1337.json': rawDeployments.uniswapV4_1337 as Record<string, string>,
-    'bazaar-marketplace-1337.json': rawDeployments.bazaarMarketplace1337 as Record<string, string>,
-    'erc20-factory-1337.json': rawDeployments.erc20Factory1337 as Record<string, string>,
-    'multi-token-system-1337.json': rawDeployments.multiTokenSystem1337 as Record<string, string>,
+    'uniswap-v4-1337.json': rawDeployments.uniswapV4_1337 as Record<
+      string,
+      string
+    >,
+    'bazaar-marketplace-1337.json':
+      rawDeployments.bazaarMarketplace1337 as Record<string, string>,
+    'erc20-factory-1337.json': rawDeployments.erc20Factory1337 as Record<
+      string,
+      string
+    >,
+    'multi-token-system-1337.json':
+      rawDeployments.multiTokenSystem1337 as Record<string, string>,
   }
   return deploymentMap[filename] || {}
 }
@@ -148,13 +119,15 @@ describe('WETH Operations', () => {
 
     // Check if WETH contract is deployed
     const code = await publicClient.getCode({ address: WETH_ADDRESS })
-    
+
     if (code === '0x' || !code) {
       console.log(`   ⚠️ WETH not deployed at ${WETH_ADDRESS}`)
-      console.log(`   This is expected on fresh Anvil - WETH is OP Stack predeploy`)
+      console.log(
+        `   This is expected on fresh Anvil - WETH is OP Stack predeploy`,
+      )
       return
     }
-    
+
     console.log(`   ✅ WETH contract exists at ${WETH_ADDRESS}`)
   })
 
@@ -169,7 +142,7 @@ describe('WETH Operations', () => {
     }
 
     const depositAmount = parseEther('1')
-    
+
     // Get initial WETH balance
     const initialBalance = await publicClient.readContract({
       address: WETH_ADDRESS,
@@ -242,16 +215,16 @@ describe('Swap Execution', () => {
     // Input: 1 ETH
     // Fee: 0.3% = 0.003 ETH
     // Net input: 0.997 ETH
-    
+
     const inputAmount = parseEther('1')
     const feeRate = 0.003 // 0.3%
     const fee = (inputAmount * BigInt(Math.floor(feeRate * 1000))) / 1000n
     const netInput = inputAmount - fee
-    
+
     console.log(`   Input: ${formatEther(inputAmount)} ETH`)
     console.log(`   Fee (0.3%): ${formatEther(fee)} ETH`)
     console.log(`   Net input: ${formatEther(netInput)} ETH`)
-    
+
     expect(fee).toBe(parseEther('0.003'))
     console.log(`   ✅ Fee calculation verified`)
   })
@@ -265,10 +238,10 @@ describe('Fee Verification', () => {
   test('should verify 0.3% fee tier', async () => {
     const fee = 3000 // 0.3% in basis points
     const inputAmount = parseEther('100')
-    
+
     // Calculate fee
     const feeAmount = (inputAmount * BigInt(fee)) / 1000000n
-    
+
     expect(feeAmount).toBe(parseEther('0.3'))
     console.log(`   0.3% fee on 100 ETH = ${formatEther(feeAmount)} ETH ✅`)
   })
@@ -276,9 +249,9 @@ describe('Fee Verification', () => {
   test('should verify 0.05% fee tier', async () => {
     const fee = 500 // 0.05% in basis points
     const inputAmount = parseEther('100')
-    
+
     const feeAmount = (inputAmount * BigInt(fee)) / 1000000n
-    
+
     expect(feeAmount).toBe(parseEther('0.05'))
     console.log(`   0.05% fee on 100 ETH = ${formatEther(feeAmount)} ETH ✅`)
   })
@@ -286,9 +259,9 @@ describe('Fee Verification', () => {
   test('should verify 1% fee tier', async () => {
     const fee = 10000 // 1% in basis points
     const inputAmount = parseEther('100')
-    
+
     const feeAmount = (inputAmount * BigInt(fee)) / 1000000n
-    
+
     expect(feeAmount).toBe(parseEther('1'))
     console.log(`   1% fee on 100 ETH = ${formatEther(feeAmount)} ETH ✅`)
   })
@@ -297,18 +270,18 @@ describe('Fee Verification', () => {
     // In V4, fees can be split between LPs and protocol
     // Default: 100% to LPs, 0% to protocol
     // Can be configured with hooks
-    
+
     const totalFee = parseEther('0.3') // From a 100 ETH swap at 0.3%
     const protocolFeeRate = 0 // 0% protocol fee by default
     const lpFeeRate = 1 - protocolFeeRate
-    
+
     const lpFee = (totalFee * BigInt(Math.floor(lpFeeRate * 100))) / 100n
     const protocolFee = totalFee - lpFee
-    
+
     console.log(`   Total fee: ${formatEther(totalFee)} ETH`)
     console.log(`   LP fee (100%): ${formatEther(lpFee)} ETH`)
     console.log(`   Protocol fee (0%): ${formatEther(protocolFee)} ETH`)
-    
+
     expect(lpFee).toBe(totalFee)
     expect(protocolFee).toBe(0n)
     console.log(`   ✅ Fee distribution verified`)
@@ -323,13 +296,15 @@ describe('Slippage Protection', () => {
   test('should calculate minimum output with 0.5% slippage', async () => {
     const expectedOutput = parseEther('10')
     const slippageTolerance = 0.005 // 0.5%
-    
-    const minOutput = expectedOutput - (expectedOutput * BigInt(Math.floor(slippageTolerance * 10000))) / 10000n
-    
+
+    const minOutput =
+      expectedOutput -
+      (expectedOutput * BigInt(Math.floor(slippageTolerance * 10000))) / 10000n
+
     console.log(`   Expected output: ${formatEther(expectedOutput)} ETH`)
     console.log(`   Slippage tolerance: ${slippageTolerance * 100}%`)
     console.log(`   Minimum output: ${formatEther(minOutput)} ETH`)
-    
+
     expect(minOutput).toBe(parseEther('9.95'))
     console.log(`   ✅ Slippage calculation verified`)
   })
@@ -337,9 +312,11 @@ describe('Slippage Protection', () => {
   test('should calculate minimum output with 1% slippage', async () => {
     const expectedOutput = parseEther('10')
     const slippageTolerance = 0.01 // 1%
-    
-    const minOutput = expectedOutput - (expectedOutput * BigInt(Math.floor(slippageTolerance * 10000))) / 10000n
-    
+
+    const minOutput =
+      expectedOutput -
+      (expectedOutput * BigInt(Math.floor(slippageTolerance * 10000))) / 10000n
+
     expect(minOutput).toBe(parseEther('9.9'))
     console.log(`   ✅ 1% slippage: min output = ${formatEther(minOutput)} ETH`)
   })
@@ -354,15 +331,15 @@ describe('Price Impact', () => {
     // Small trade = low price impact
     const tradeSize = parseEther('1') // 1 ETH
     const poolLiquidity = parseEther('1000') // 1000 ETH in pool
-    
+
     // Simplified price impact estimation
     // Price impact ≈ trade size / (2 * liquidity)
     const priceImpact = (tradeSize * 10000n) / (poolLiquidity * 2n) // in basis points
-    
+
     console.log(`   Trade size: ${formatEther(tradeSize)} ETH`)
     console.log(`   Pool liquidity: ${formatEther(poolLiquidity)} ETH`)
     console.log(`   Estimated price impact: ${Number(priceImpact) / 100}%`)
-    
+
     expect(priceImpact).toBeLessThan(100n) // Less than 1%
     console.log(`   ✅ Small trade has low price impact`)
   })
@@ -370,13 +347,13 @@ describe('Price Impact', () => {
   test('should estimate price impact for large trade', async () => {
     const tradeSize = parseEther('100') // 100 ETH
     const poolLiquidity = parseEther('1000') // 1000 ETH in pool
-    
+
     const priceImpact = (tradeSize * 10000n) / (poolLiquidity * 2n)
-    
+
     console.log(`   Trade size: ${formatEther(tradeSize)} ETH`)
     console.log(`   Pool liquidity: ${formatEther(poolLiquidity)} ETH`)
     console.log(`   Estimated price impact: ${Number(priceImpact) / 100}%`)
-    
+
     expect(priceImpact).toBeGreaterThan(100n) // More than 1%
     console.log(`   ⚠️ Large trade has high price impact`)
   })
@@ -407,4 +384,3 @@ describe('Swap Simulation Summary', () => {
     console.log('═══════════════════════════════════════════════════════')
   })
 })
-

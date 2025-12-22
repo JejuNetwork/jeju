@@ -1,9 +1,9 @@
 'use client'
 
-import { WagmiProvider } from 'wagmi'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { wagmiConfig } from '@/config/wagmi'
 import { useState } from 'react'
+import { WagmiProvider } from 'wagmi'
+import { wagmiConfig } from '@/config/wagmi'
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -16,7 +16,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
             staleTime: 5000,
           },
         },
-      })
+      }),
   )
 
   return (

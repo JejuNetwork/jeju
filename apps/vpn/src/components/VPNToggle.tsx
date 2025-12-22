@@ -1,25 +1,31 @@
-import { Power, Loader2 } from 'lucide-react';
+import { Loader2, Power } from 'lucide-react'
 
 interface VPNToggleProps {
-  isConnected: boolean;
-  isLoading: boolean;
-  onToggle: () => void;
+  isConnected: boolean
+  isLoading: boolean
+  onToggle: () => void
 }
 
-export function VPNToggle({ isConnected, isLoading, onToggle }: VPNToggleProps) {
+export function VPNToggle({
+  isConnected,
+  isLoading,
+  onToggle,
+}: VPNToggleProps) {
   return (
     <div className="flex flex-col items-center py-8">
       {/* Outer ring */}
-      <div className={`relative p-2 rounded-full ${
-        isConnected 
-          ? 'bg-gradient-to-r from-[#00ff88]/20 to-[#00cc6a]/20' 
-          : 'bg-[#1a1a25]'
-      }`}>
+      <div
+        className={`relative p-2 rounded-full ${
+          isConnected
+            ? 'bg-gradient-to-r from-[#00ff88]/20 to-[#00cc6a]/20'
+            : 'bg-[#1a1a25]'
+        }`}
+      >
         {/* Animated ring when connected */}
         {isConnected && (
           <div className="absolute inset-0 rounded-full animate-pulse-glow" />
         )}
-        
+
         {/* Button */}
         <button
           onClick={onToggle}
@@ -31,27 +37,36 @@ export function VPNToggle({ isConnected, isLoading, onToggle }: VPNToggleProps) 
           } ${isLoading ? 'opacity-70' : ''}`}
         >
           {isLoading ? (
-            <Loader2 className={`w-12 h-12 animate-spin ${isConnected ? 'text-black' : 'text-[#606070]'}`} />
+            <Loader2
+              className={`w-12 h-12 animate-spin ${isConnected ? 'text-black' : 'text-[#606070]'}`}
+            />
           ) : (
-            <Power className={`w-12 h-12 ${isConnected ? 'text-black' : 'text-[#606070]'}`} />
+            <Power
+              className={`w-12 h-12 ${isConnected ? 'text-black' : 'text-[#606070]'}`}
+            />
           )}
         </button>
       </div>
-      
+
       {/* Status text */}
       <div className="mt-6 text-center">
-        <h2 className={`text-xl font-semibold ${isConnected ? 'text-[#00ff88] glow-text' : 'text-white'}`}>
-          {isLoading 
-            ? (isConnected ? 'Disconnecting...' : 'Connecting...') 
-            : (isConnected ? 'Protected' : 'Tap to Connect')}
+        <h2
+          className={`text-xl font-semibold ${isConnected ? 'text-[#00ff88] glow-text' : 'text-white'}`}
+        >
+          {isLoading
+            ? isConnected
+              ? 'Disconnecting...'
+              : 'Connecting...'
+            : isConnected
+              ? 'Protected'
+              : 'Tap to Connect'}
         </h2>
         <p className="text-sm text-[#606070] mt-1">
-          {isConnected 
-            ? 'Your traffic is encrypted and routed through Jeju' 
+          {isConnected
+            ? 'Your traffic is encrypted and routed through Jeju'
             : 'Connect to secure your internet connection'}
         </p>
       </div>
     </div>
-  );
+  )
 }
-

@@ -3,23 +3,30 @@
  * Comprehensive validation schemas for all types with fail-fast patterns
  */
 
-import { z } from 'zod';
 import {
   AddressSchema,
-  HexSchema,
   ChainIdSchema,
+  HexSchema,
   expectValid as sharedExpectValid,
-} from '@jejunetwork/types';
+} from '@jejunetwork/types'
+import { z } from 'zod'
 
 // Re-export shared validation helpers and base schemas
-export { sharedExpectValid as expectValid };
-export { AddressSchema, HexSchema, ChainIdSchema };
+export { sharedExpectValid as expectValid }
+export { AddressSchema, HexSchema, ChainIdSchema }
 
 // ============================================================================
 // Base Validators
 // ============================================================================
 
-export const PlatformSchema = z.enum(['discord', 'telegram', 'whatsapp', 'farcaster', 'twitter', 'web']);
+export const PlatformSchema = z.enum([
+  'discord',
+  'telegram',
+  'whatsapp',
+  'farcaster',
+  'twitter',
+  'web',
+])
 
 // ============================================================================
 // Platform Types
@@ -31,14 +38,14 @@ export const PlatformUserSchema = z.object({
   username: z.string().min(1),
   displayName: z.string().optional(),
   avatarUrl: z.string().url().optional(),
-});
+})
 
 export const MessageAttachmentSchema = z.object({
   type: z.enum(['image', 'file', 'link']),
   url: z.string().url(),
   name: z.string().optional(),
   size: z.number().int().nonnegative().optional(),
-});
+})
 
 export const PlatformMessageSchema = z.object({
   platform: PlatformSchema,
@@ -50,7 +57,7 @@ export const PlatformMessageSchema = z.object({
   isCommand: z.boolean(),
   replyToId: z.string().optional(),
   attachments: z.array(MessageAttachmentSchema).optional(),
-});
+})
 
 export const PlatformChannelSchema = z.object({
   platform: PlatformSchema,
@@ -59,7 +66,7 @@ export const PlatformChannelSchema = z.object({
   type: z.enum(['dm', 'group', 'guild']),
   guildId: z.string().optional(),
   guildName: z.string().optional(),
-});
+})
 
 // ============================================================================
 // User & Wallet Types
@@ -71,7 +78,7 @@ export const UserPlatformLinkSchema = z.object({
   username: z.string().min(1),
   linkedAt: z.number().int().nonnegative(),
   verified: z.boolean(),
-});
+})
 
 export const UserSettingsSchema = z.object({
   defaultSlippageBps: z.number().int().min(0).max(10000),
@@ -79,7 +86,7 @@ export const UserSettingsSchema = z.object({
   notifications: z.boolean(),
   maxTradeAmount: z.string().optional(),
   preferredTokens: z.array(AddressSchema).optional(),
-});
+})
 
 export const OttoUserSchema = z.object({
   id: z.string().min(1),
@@ -93,7 +100,7 @@ export const OttoUserSchema = z.object({
   settings: UserSettingsSchema,
   fid: z.number().int().positive().optional(),
   farcasterUsername: z.string().optional(),
-});
+})
 
 // ============================================================================
 // Trading Types
@@ -108,20 +115,20 @@ export const TokenInfoSchema = z.object({
   logoUrl: z.string().url().optional(),
   price: z.number().nonnegative().optional(),
   priceChange24h: z.number().optional(),
-});
+})
 
 export const BalanceSchema = z.object({
   token: TokenInfoSchema,
   balance: z.string().regex(/^\d+$/),
   balanceUsd: z.number().nonnegative().optional(),
-});
+})
 
 export const SwapRouteSchema = z.object({
   protocol: z.string().min(1),
   fromToken: AddressSchema,
   toToken: AddressSchema,
   portion: z.number().min(0).max(1),
-});
+})
 
 export const SwapQuoteSchema = z.object({
   quoteId: z.string().min(1),
@@ -135,7 +142,7 @@ export const SwapQuoteSchema = z.object({
   gasCostUsd: z.number().nonnegative().optional(),
   route: z.array(SwapRouteSchema),
   validUntil: z.number().int().positive(),
-});
+})
 
 export const SwapParamsSchema = z.object({
   userId: z.string().min(1),
@@ -144,7 +151,7 @@ export const SwapParamsSchema = z.object({
   amount: z.string().regex(/^\d+$/),
   slippageBps: z.number().int().min(0).max(10000).optional(),
   chainId: ChainIdSchema.optional(),
-});
+})
 
 export const SwapResultSchema = z.object({
   success: z.boolean(),
@@ -152,7 +159,7 @@ export const SwapResultSchema = z.object({
   fromAmount: z.string().regex(/^\d+$/),
   toAmount: z.string().regex(/^\d+$/),
   error: z.string().optional(),
-});
+})
 
 // ============================================================================
 // Bridge / Cross-Chain Types
@@ -172,7 +179,7 @@ export const BridgeQuoteSchema = z.object({
   estimatedTimeSeconds: z.number().int().positive(),
   solver: AddressSchema,
   validUntil: z.number().int().positive(),
-});
+})
 
 export const BridgeParamsSchema = z.object({
   userId: z.string().min(1),
@@ -183,7 +190,7 @@ export const BridgeParamsSchema = z.object({
   amount: z.string().regex(/^\d+$/),
   recipient: AddressSchema.optional(),
   maxSlippageBps: z.number().int().min(0).max(10000).optional(),
-});
+})
 
 export const BridgeResultSchema = z.object({
   success: z.boolean(),
@@ -192,7 +199,7 @@ export const BridgeResultSchema = z.object({
   destTxHash: HexSchema.optional(),
   status: z.enum(['pending', 'filled', 'expired', 'failed']),
   error: z.string().optional(),
-});
+})
 
 // ============================================================================
 // Token Launch Types
@@ -201,7 +208,11 @@ export const BridgeResultSchema = z.object({
 export const TokenLaunchParamsSchema = z.object({
   userId: z.string().min(1),
   name: z.string().min(1).max(100),
-  symbol: z.string().min(1).max(10).regex(/^[A-Z0-9]+$/),
+  symbol: z
+    .string()
+    .min(1)
+    .max(10)
+    .regex(/^[A-Z0-9]+$/),
   description: z.string().max(1000).optional(),
   imageUrl: z.string().url().optional(),
   initialSupply: z.string().regex(/^\d+$/),
@@ -210,7 +221,7 @@ export const TokenLaunchParamsSchema = z.object({
   taxBuyBps: z.number().int().min(0).max(10000).optional(),
   taxSellBps: z.number().int().min(0).max(10000).optional(),
   maxWalletBps: z.number().int().min(0).max(10000).optional(),
-});
+})
 
 export const TokenLaunchResultSchema = z.object({
   success: z.boolean(),
@@ -218,7 +229,7 @@ export const TokenLaunchResultSchema = z.object({
   poolAddress: AddressSchema.optional(),
   txHash: HexSchema.optional(),
   error: z.string().optional(),
-});
+})
 
 // ============================================================================
 // Limit Order Types
@@ -237,7 +248,7 @@ export const LimitOrderSchema = z.object({
   expiresAt: z.number().int().positive().optional(),
   filledAt: z.number().int().nonnegative().optional(),
   filledTxHash: HexSchema.optional(),
-});
+})
 
 export const CreateLimitOrderParamsSchema = z.object({
   userId: z.string().min(1),
@@ -247,7 +258,7 @@ export const CreateLimitOrderParamsSchema = z.object({
   targetPrice: z.string().regex(/^\d+(\.\d+)?$/),
   chainId: ChainIdSchema.optional(),
   expiresIn: z.number().int().positive().optional(),
-});
+})
 
 // ============================================================================
 // Command Types
@@ -268,7 +279,7 @@ export const CommandNameSchema = z.enum([
   'connect',
   'disconnect',
   'settings',
-]);
+])
 
 export const ParsedCommandSchema = z.object({
   command: CommandNameSchema,
@@ -277,13 +288,13 @@ export const ParsedCommandSchema = z.object({
   platform: PlatformSchema,
   userId: z.string().min(1),
   channelId: z.string().min(1),
-});
+})
 
 export const EmbedFieldSchema = z.object({
   name: z.string().min(1),
   value: z.string().min(1),
   inline: z.boolean().optional(),
-});
+})
 
 export const MessageEmbedSchema = z.object({
   title: z.string().optional(),
@@ -294,7 +305,7 @@ export const MessageEmbedSchema = z.object({
   timestamp: z.number().int().nonnegative().optional(),
   imageUrl: z.string().url().optional(),
   thumbnailUrl: z.string().url().optional(),
-});
+})
 
 export const MessageButtonSchema = z.object({
   label: z.string().min(1),
@@ -302,7 +313,7 @@ export const MessageButtonSchema = z.object({
   customId: z.string().optional(),
   url: z.string().url().optional(),
   disabled: z.boolean().optional(),
-});
+})
 
 export const CommandResultDataSchema = z.object({
   quoteId: z.string().optional(),
@@ -310,7 +321,7 @@ export const CommandResultDataSchema = z.object({
   txHash: HexSchema.optional(),
   tokenAddress: AddressSchema.optional(),
   orderId: z.string().optional(),
-});
+})
 
 export const CommandResultSchema = z.object({
   success: z.boolean(),
@@ -319,7 +330,7 @@ export const CommandResultSchema = z.object({
   buttons: z.array(MessageButtonSchema).optional(),
   error: z.string().optional(),
   data: CommandResultDataSchema.optional(),
-});
+})
 
 // ============================================================================
 // Webhook Types
@@ -328,66 +339,84 @@ export const CommandResultSchema = z.object({
 export const DiscordWebhookPayloadSchema = z.object({
   type: z.number().int(),
   token: z.string().min(1),
-  member: z.object({
-    user: z.object({
+  member: z
+    .object({
+      user: z.object({
+        id: z.string().min(1),
+        username: z.string().min(1),
+      }),
+    })
+    .optional(),
+  user: z
+    .object({
       id: z.string().min(1),
       username: z.string().min(1),
-    }),
-  }).optional(),
-  user: z.object({
-    id: z.string().min(1),
-    username: z.string().min(1),
-  }).optional(),
+    })
+    .optional(),
   channel_id: z.string().min(1),
   guild_id: z.string().optional(),
-  data: z.object({
-    name: z.string().min(1),
-    options: z.array(z.object({
+  data: z
+    .object({
       name: z.string().min(1),
-      value: z.union([z.string(), z.number()]),
-    })).optional(),
-  }).optional(),
-  message: z.object({
-    id: z.string().min(1),
-    content: z.string(),
-    author: z.object({
+      options: z
+        .array(
+          z.object({
+            name: z.string().min(1),
+            value: z.union([z.string(), z.number()]),
+          }),
+        )
+        .optional(),
+    })
+    .optional(),
+  message: z
+    .object({
       id: z.string().min(1),
-      username: z.string().min(1),
-    }),
-  }).optional(),
-});
+      content: z.string(),
+      author: z.object({
+        id: z.string().min(1),
+        username: z.string().min(1),
+      }),
+    })
+    .optional(),
+})
 
 export const TelegramWebhookPayloadSchema = z.object({
   update_id: z.number().int().nonnegative(),
-  message: z.object({
-    message_id: z.number().int().positive(),
-    from: z.object({
-      id: z.number().int(),
-      username: z.string().optional(),
-      first_name: z.string().min(1),
-    }),
-    chat: z.object({
-      id: z.number().int(),
-      type: z.string().min(1),
-      title: z.string().optional(),
-    }),
-    text: z.string().optional(),
-    date: z.number().int().nonnegative(),
-  }).optional(),
-  callback_query: z.object({
-    id: z.string().min(1),
-    from: z.object({
-      id: z.number().int(),
-      username: z.string().optional(),
-    }),
-    message: z.object({
+  message: z
+    .object({
+      message_id: z.number().int().positive(),
+      from: z.object({
+        id: z.number().int(),
+        username: z.string().optional(),
+        first_name: z.string().min(1),
+      }),
       chat: z.object({
         id: z.number().int(),
+        type: z.string().min(1),
+        title: z.string().optional(),
       }),
-    }).optional(),
-    data: z.string().optional(),
-  }).optional(),
-});
+      text: z.string().optional(),
+      date: z.number().int().nonnegative(),
+    })
+    .optional(),
+  callback_query: z
+    .object({
+      id: z.string().min(1),
+      from: z.object({
+        id: z.number().int(),
+        username: z.string().optional(),
+      }),
+      message: z
+        .object({
+          chat: z.object({
+            id: z.number().int(),
+          }),
+        })
+        .optional(),
+      data: z.string().optional(),
+    })
+    .optional(),
+})
 
 export const TwilioWebhookPayloadSchema = z.object({
   MessageSid: z.string().min(1),
@@ -396,7 +425,7 @@ export const TwilioWebhookPayloadSchema = z.object({
   Body: z.string(),
   NumMedia: z.string().optional(),
   MediaUrl0: z.string().url().optional(),
-});
+})
 
 export const FarcasterFramePayloadSchema = z.object({
   untrustedData: z.object({
@@ -407,39 +436,49 @@ export const FarcasterFramePayloadSchema = z.object({
     network: z.number().int(),
     buttonIndex: z.number().int().positive(),
     inputText: z.string().optional(),
-    castId: z.object({
-      fid: z.number().int().positive(),
-      hash: z.string().min(1),
-    }).optional(),
+    castId: z
+      .object({
+        fid: z.number().int().positive(),
+        hash: z.string().min(1),
+      })
+      .optional(),
     state: z.string().optional(),
   }),
   trustedData: z.object({
     messageBytes: z.string().min(1),
   }),
-});
+})
 
 export const TwitterWebhookPayloadSchema = z.object({
   for_user_id: z.string().min(1),
-  tweet_create_events: z.array(z.object({
-    id_str: z.string().min(1),
-    text: z.string(),
-    user: z.object({
-      id_str: z.string().min(1),
-      screen_name: z.string().min(1),
-    }),
-    in_reply_to_status_id_str: z.string().optional(),
-    created_at: z.string(),
-  })).optional(),
-  direct_message_events: z.array(z.object({
-    type: z.string().min(1),
-    message_create: z.object({
-      sender_id: z.string().min(1),
-      message_data: z.object({
+  tweet_create_events: z
+    .array(
+      z.object({
+        id_str: z.string().min(1),
         text: z.string(),
+        user: z.object({
+          id_str: z.string().min(1),
+          screen_name: z.string().min(1),
+        }),
+        in_reply_to_status_id_str: z.string().optional(),
+        created_at: z.string(),
       }),
-    }),
-  })).optional(),
-});
+    )
+    .optional(),
+  direct_message_events: z
+    .array(
+      z.object({
+        type: z.string().min(1),
+        message_create: z.object({
+          sender_id: z.string().min(1),
+          message_data: z.object({
+            text: z.string(),
+          }),
+        }),
+      }),
+    )
+    .optional(),
+})
 
 // Union of all platform-specific webhook payloads
 export const WebhookPayloadDataSchema = z.union([
@@ -448,7 +487,7 @@ export const WebhookPayloadDataSchema = z.union([
   TwilioWebhookPayloadSchema,
   FarcasterFramePayloadSchema,
   TwitterWebhookPayloadSchema,
-]);
+])
 
 export const WebhookPayloadSchema = z.object({
   platform: PlatformSchema,
@@ -456,7 +495,7 @@ export const WebhookPayloadSchema = z.object({
   data: WebhookPayloadDataSchema,
   timestamp: z.number().int().nonnegative(),
   signature: z.string().optional(),
-});
+})
 
 // ============================================================================
 // Config Types
@@ -509,7 +548,7 @@ export const OttoConfigSchema = z.object({
     modelEndpoint: z.string().url().optional(),
     modelApiKey: z.string().optional(),
   }),
-});
+})
 
 // ============================================================================
 // State Types
@@ -524,7 +563,7 @@ export const PendingSwapDataSchema = z.object({
     to: z.string(),
     chainId: z.number().int(),
   }),
-});
+})
 
 export const PendingBridgeDataSchema = z.object({
   quote: BridgeQuoteSchema.optional(),
@@ -536,14 +575,14 @@ export const PendingBridgeDataSchema = z.object({
     sourceChainId: z.number().int(),
     destChainId: z.number().int(),
   }),
-});
+})
 
 export const PendingSendDataSchema = z.object({
   recipient: AddressSchema,
   amount: z.string(),
   token: z.string(),
   chainId: z.number().int(),
-});
+})
 
 export const PendingLaunchDataSchema = z.object({
   name: z.string(),
@@ -551,7 +590,7 @@ export const PendingLaunchDataSchema = z.object({
   initialSupply: z.string(),
   initialLiquidity: z.string().optional(),
   chainId: z.number().int(),
-});
+})
 
 // Awaiting confirmation schema with discriminated union
 export const AwaitingConfirmationSchema = z.discriminatedUnion('type', [
@@ -575,16 +614,20 @@ export const AwaitingConfirmationSchema = z.discriminatedUnion('type', [
     data: PendingLaunchDataSchema,
     expiresAt: z.number().int().positive(),
   }),
-]);
+])
 
 export const SessionContextSchema = z.object({
   awaitingConfirmation: AwaitingConfirmationSchema.optional(),
   recentTokens: z.array(AddressSchema).optional(),
-  conversationHistory: z.array(z.object({
-    role: z.enum(['user', 'assistant']),
-    content: z.string(),
-  })).optional(),
-});
+  conversationHistory: z
+    .array(
+      z.object({
+        role: z.enum(['user', 'assistant']),
+        content: z.string(),
+      }),
+    )
+    .optional(),
+})
 
 export const UserSessionSchema = z.object({
   sessionId: z.string().min(1),
@@ -594,7 +637,7 @@ export const UserSessionSchema = z.object({
   context: SessionContextSchema,
   lastMessage: z.number().int().nonnegative(),
   expiresAt: z.number().int().positive(),
-});
+})
 
 // Pending transaction data schema
 export const PendingTransactionDataSchema = z.union([
@@ -603,7 +646,7 @@ export const PendingTransactionDataSchema = z.union([
   PendingSendDataSchema,
   PendingLaunchDataSchema,
   z.object({ orderId: z.string() }),
-]);
+])
 
 export const PendingTransactionSchema = z.object({
   txId: z.string().min(1),
@@ -614,7 +657,7 @@ export const PendingTransactionSchema = z.object({
   createdAt: z.number().int().nonnegative(),
   updatedAt: z.number().int().nonnegative(),
   data: PendingTransactionDataSchema,
-});
+})
 
 // ============================================================================
 // Chat API Types
@@ -627,7 +670,7 @@ export const ChatMessageSchema = z.object({
   timestamp: z.number().int().nonnegative(),
   embed: MessageEmbedSchema.optional(),
   buttons: z.array(MessageButtonSchema).optional(),
-});
+})
 
 export const ChatSessionSchema = z.object({
   sessionId: z.string().min(1),
@@ -635,21 +678,21 @@ export const ChatSessionSchema = z.object({
   messages: z.array(ChatMessageSchema),
   createdAt: z.number().int().nonnegative(),
   lastActiveAt: z.number().int().nonnegative(),
-});
+})
 
 export const ChatRequestSchema = z.object({
   sessionId: z.string().optional(),
   message: z.string().min(1),
   userId: z.string().optional(),
   walletAddress: AddressSchema.optional(),
-});
+})
 
 export const ChatResponseSchema = z.object({
   sessionId: z.string().min(1),
   message: ChatMessageSchema,
   requiresAuth: z.boolean(),
   authUrl: z.string().url().optional(),
-});
+})
 
 // ============================================================================
 // Auth Types
@@ -660,12 +703,12 @@ export const AuthVerifyRequestSchema = z.object({
   message: z.string().min(1),
   signature: HexSchema,
   sessionId: z.string().min(1),
-});
+})
 
 export const AuthMessageResponseSchema = z.object({
   message: z.string().min(1),
   nonce: z.string().min(1),
-});
+})
 
 // ============================================================================
 // Validation Helpers with Fail-Fast
@@ -675,29 +718,43 @@ export const AuthMessageResponseSchema = z.object({
  * Validates data and returns null if invalid (for optional validation)
  * Still logs errors for debugging
  */
-export function validateOrNull<T>(schema: z.ZodSchema<T>, data: unknown, context?: string): T | null {
-  const result = schema.safeParse(data);
-  
+export function validateOrNull<T>(
+  schema: z.ZodSchema<T>,
+  data: unknown,
+  context?: string,
+): T | null {
+  const result = schema.safeParse(data)
+
   if (!result.success) {
-    const errorDetails = result.error.issues.map(err => 
-      `${err.path.join('.')}: ${err.message}`
-    ).join(', ');
-    
-    const contextMsg = context ? `[${context}] ` : '';
-    console.warn(`${contextMsg}Validation failed (returning null): ${errorDetails}`);
-    return null;
+    const errorDetails = result.error.issues
+      .map((err) => `${err.path.join('.')}: ${err.message}`)
+      .join(', ')
+
+    const contextMsg = context ? `[${context}] ` : ''
+    console.warn(
+      `${contextMsg}Validation failed (returning null): ${errorDetails}`,
+    )
+    return null
   }
-  
-  return result.data;
+
+  return result.data
 }
 
 /**
  * Validates array of items, throws if any invalid
  */
-export function expectValidArray<T>(schema: z.ZodSchema<T>, items: unknown[], context?: string): T[] {
-  return items.map((item, index) => 
-    sharedExpectValid(schema, item, context ? `${context}[${index}]` : `[${index}]`)
-  );
+export function expectValidArray<T>(
+  schema: z.ZodSchema<T>,
+  items: unknown[],
+  context?: string,
+): T[] {
+  return items.map((item, index) =>
+    sharedExpectValid(
+      schema,
+      item,
+      context ? `${context}[${index}]` : `[${index}]`,
+    ),
+  )
 }
 
 // ============================================================================
@@ -705,55 +762,59 @@ export function expectValidArray<T>(schema: z.ZodSchema<T>, items: unknown[], co
 // ============================================================================
 
 export const ExternalTokenInfoResponseSchema = z.object({
-  data: z.object({
-    token: TokenInfoSchema.optional(),
-  }).optional(),
-});
+  data: z
+    .object({
+      token: TokenInfoSchema.optional(),
+    })
+    .optional(),
+})
 
 export const ExternalBalancesResponseSchema = z.object({
-  data: z.object({
-    balances: z.array(BalanceSchema).optional(),
-  }).optional(),
-});
+  data: z
+    .object({
+      balances: z.array(BalanceSchema).optional(),
+    })
+    .optional(),
+})
 
 export const ExternalSwapExecuteResponseSchema = z.object({
   txHash: HexSchema,
   toAmount: z.string().regex(/^\d+$/),
-});
+})
 
 export const ExternalBridgeExecuteResponseSchema = z.object({
   intentId: z.string().min(1),
   sourceTxHash: HexSchema,
-});
+})
 
 export const ExternalBridgeStatusResponseSchema = z.object({
   status: z.enum(['open', 'pending', 'filled', 'expired']),
   sourceTxHash: HexSchema.optional(),
   destinationTxHash: HexSchema.optional(),
-});
+})
 
 export const ExternalTokenLaunchResponseSchema = z.object({
   tokenAddress: AddressSchema,
   poolAddress: AddressSchema,
   txHash: HexSchema,
-});
+})
 
 export const ExternalTransferResponseSchema = z.object({
   txHash: HexSchema,
-});
+})
 
 export const ExternalSmartAccountResponseSchema = z.object({
   address: AddressSchema,
-});
+})
 
 export const ExternalSessionKeyResponseSchema = z.object({
   sessionKeyAddress: AddressSchema,
-});
+})
 
 export const ExternalResolveResponseSchema = z.object({
   address: AddressSchema.optional(),
-});
+})
 
 export const ExternalReverseResolveResponseSchema = z.object({
   name: z.string().optional(),
-});
+})

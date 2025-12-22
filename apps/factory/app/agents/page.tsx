@@ -1,25 +1,31 @@
-'use client';
+'use client'
 
-import { useState, useEffect } from 'react';
-import { 
-  Bot, 
-  Search, 
-  Star,
-  Briefcase,
-  Shield,
-  Code,
+import { clsx } from 'clsx'
+import {
+  Bot,
   Brain,
+  Briefcase,
   CheckCircle,
   Clock,
-  Users,
+  Code,
   MessageSquare,
-  Plus
-} from 'lucide-react';
-import Link from 'next/link';
-import { clsx } from 'clsx';
-import { crucibleService, type Agent } from '@/lib/services/crucible';
+  Plus,
+  Search,
+  Shield,
+  Star,
+  Users,
+} from 'lucide-react'
+import Link from 'next/link'
+import { useCallback, useEffect, useState } from 'react'
+import { type Agent, crucibleService } from '@/lib/services/crucible'
 
-type AgentCapability = 'all' | 'bounty_validation' | 'pr_review' | 'code_audit' | 'model_training' | 'general';
+type AgentCapability =
+  | 'all'
+  | 'bounty_validation'
+  | 'pr_review'
+  | 'code_audit'
+  | 'model_training'
+  | 'general'
 
 const capabilityLabels: Record<string, string> = {
   bounty_validation: 'Bounty Validation',
@@ -27,7 +33,7 @@ const capabilityLabels: Record<string, string> = {
   code_audit: 'Code Audit',
   model_training: 'Model Training',
   general: 'General',
-};
+}
 
 const capabilityColors: Record<string, string> = {
   bounty_validation: 'bg-green-500/20 text-green-400 border-green-500/30',
@@ -35,7 +41,7 @@ const capabilityColors: Record<string, string> = {
   code_audit: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
   model_training: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
   general: 'bg-factory-500/20 text-factory-400 border-factory-500/30',
-};
+}
 
 const capabilityIcons: Record<string, typeof Bot> = {
   bounty_validation: Shield,
@@ -43,42 +49,49 @@ const capabilityIcons: Record<string, typeof Bot> = {
   code_audit: Search,
   model_training: Brain,
   general: Bot,
-};
+}
 
 export default function AgentsPage() {
-  const [agents, setAgents] = useState<Agent[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<AgentCapability>('all');
-  const [search, setSearch] = useState('');
-  const [sortBy, setSortBy] = useState<'reputation' | 'jobs' | 'recent'>('reputation');
+  const [agents, setAgents] = useState<Agent[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [filter, setFilter] = useState<AgentCapability>('all')
+  const [search, setSearch] = useState('')
+  const [sortBy, setSortBy] = useState<'reputation' | 'jobs' | 'recent'>(
+    'reputation',
+  )
 
-  useEffect(() => {
-    loadAgents();
-  }, [filter]);
-
-  const loadAgents = async () => {
-    setLoading(true);
-    setError(null);
-    const capability = filter === 'all' ? undefined : filter;
-    crucibleService.getAgents({ capability, active: true })
+  const loadAgents = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    const capability = filter === 'all' ? undefined : filter
+    crucibleService
+      .getAgents({ capability, active: true })
       .then(setAgents)
       .catch((err: Error) => setError(err.message))
-      .finally(() => setLoading(false));
-  };
+      .finally(() => setLoading(false))
+  }, [filter])
 
-  const filteredAgents = agents.filter(agent => {
-    if (search) {
-      const searchLower = search.toLowerCase();
-      return agent.name.toLowerCase().includes(searchLower) ||
-             agent.capabilities.some(c => c.toLowerCase().includes(searchLower));
-    }
-    return true;
-  }).sort((a, b) => {
-    if (sortBy === 'reputation') return b.reputation - a.reputation;
-    if (sortBy === 'jobs') return b.executionCount - a.executionCount;
-    return b.lastExecutedAt - a.lastExecutedAt;
-  });
+  useEffect(() => {
+    loadAgents()
+  }, [loadAgents])
+
+  const filteredAgents = agents
+    .filter((agent) => {
+      if (search) {
+        const searchLower = search.toLowerCase()
+        return (
+          agent.name.toLowerCase().includes(searchLower) ||
+          agent.capabilities.some((c) => c.toLowerCase().includes(searchLower))
+        )
+      }
+      return true
+    })
+    .sort((a, b) => {
+      if (sortBy === 'reputation') return b.reputation - a.reputation
+      if (sortBy === 'jobs') return b.executionCount - a.executionCount
+      return b.lastExecutedAt - a.lastExecutedAt
+    })
 
   return (
     <div className="min-h-screen p-8">
@@ -89,7 +102,9 @@ export default function AgentsPage() {
             <Bot className="w-7 h-7 text-accent-400" />
             Agent Marketplace
           </h1>
-          <p className="text-factory-400 mt-1">Hire AI agents for bounties, reviews, audits, and more</p>
+          <p className="text-factory-400 mt-1">
+            Hire AI agents for bounties, reviews, audits, and more
+          </p>
         </div>
         <Link href="/agents/post-job" className="btn btn-primary">
           <Plus className="w-4 h-4" />
@@ -100,16 +115,38 @@ export default function AgentsPage() {
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4 mb-8">
         {[
-          { label: 'Active Agents', value: agents.length.toString(), icon: Bot, color: 'text-accent-400' },
-          { label: 'Total Jobs Completed', value: '2.4k', icon: CheckCircle, color: 'text-green-400' },
-          { label: 'Average Rating', value: '4.7', icon: Star, color: 'text-amber-400' },
-          { label: 'Online Now', value: Math.floor(agents.length * 0.7).toString(), icon: Users, color: 'text-blue-400' },
+          {
+            label: 'Active Agents',
+            value: agents.length.toString(),
+            icon: Bot,
+            color: 'text-accent-400',
+          },
+          {
+            label: 'Total Jobs Completed',
+            value: '2.4k',
+            icon: CheckCircle,
+            color: 'text-green-400',
+          },
+          {
+            label: 'Average Rating',
+            value: '4.7',
+            icon: Star,
+            color: 'text-amber-400',
+          },
+          {
+            label: 'Online Now',
+            value: Math.floor(agents.length * 0.7).toString(),
+            icon: Users,
+            color: 'text-blue-400',
+          },
         ].map((stat) => (
           <div key={stat.label} className="card p-4">
             <div className="flex items-center gap-3">
               <stat.icon className={clsx('w-8 h-8', stat.color)} />
               <div>
-                <p className="text-2xl font-bold text-factory-100">{stat.value}</p>
+                <p className="text-2xl font-bold text-factory-100">
+                  {stat.value}
+                </p>
                 <p className="text-factory-500 text-sm">{stat.label}</p>
               </div>
             </div>
@@ -132,7 +169,15 @@ export default function AgentsPage() {
           </div>
 
           <div className="flex gap-2 overflow-x-auto">
-            {(['all', 'bounty_validation', 'pr_review', 'code_audit', 'model_training'] as const).map((cap) => (
+            {(
+              [
+                'all',
+                'bounty_validation',
+                'pr_review',
+                'code_audit',
+                'model_training',
+              ] as const
+            ).map((cap) => (
               <button
                 key={cap}
                 onClick={() => setFilter(cap)}
@@ -140,7 +185,7 @@ export default function AgentsPage() {
                   'px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap',
                   filter === cap
                     ? 'bg-accent-600 text-white'
-                    : 'bg-factory-800 text-factory-400 hover:text-factory-100'
+                    : 'bg-factory-800 text-factory-400 hover:text-factory-100',
                 )}
               >
                 {cap === 'all' ? 'All Agents' : capabilityLabels[cap]}
@@ -192,9 +237,13 @@ export default function AgentsPage() {
       {error && (
         <div className="card p-12 text-center">
           <Bot className="w-12 h-12 mx-auto mb-4 text-red-400" />
-          <h3 className="text-lg font-medium text-red-300 mb-2">Failed to load agents</h3>
+          <h3 className="text-lg font-medium text-red-300 mb-2">
+            Failed to load agents
+          </h3>
           <p className="text-factory-500 mb-4">{error}</p>
-          <button onClick={loadAgents} className="btn btn-primary">Retry</button>
+          <button onClick={loadAgents} className="btn btn-primary">
+            Retry
+          </button>
         </div>
       )}
 
@@ -202,50 +251,62 @@ export default function AgentsPage() {
       {!loading && !error && filteredAgents.length === 0 && (
         <div className="card p-12 text-center">
           <Bot className="w-12 h-12 mx-auto mb-4 text-factory-600" />
-          <h3 className="text-lg font-medium text-factory-300 mb-2">No agents found</h3>
-          <p className="text-factory-500 mb-4">Try adjusting your filters or search</p>
+          <h3 className="text-lg font-medium text-factory-300 mb-2">
+            No agents found
+          </h3>
+          <p className="text-factory-500 mb-4">
+            Try adjusting your filters or search
+          </p>
         </div>
       )}
     </div>
-  );
+  )
 }
 
 function AgentCard({ agent }: { agent: Agent }) {
-  const primaryCapability = agent.capabilities[0] || 'general';
-  const CapIcon = capabilityIcons[primaryCapability] || Bot;
-  
+  const primaryCapability = agent.capabilities[0] || 'general'
+  const CapIcon = capabilityIcons[primaryCapability] || Bot
+
   return (
     <Link href={`/agents/${agent.agentId}`} className="card p-6 card-hover">
       <div className="flex items-start gap-4 mb-4">
-        <div className={clsx(
-          'w-12 h-12 rounded-full flex items-center justify-center',
-          capabilityColors[primaryCapability] || capabilityColors.general
-        )}>
+        <div
+          className={clsx(
+            'w-12 h-12 rounded-full flex items-center justify-center',
+            capabilityColors[primaryCapability] || capabilityColors.general,
+          )}
+        >
           <CapIcon className="w-6 h-6" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <h3 className="font-semibold text-factory-100 truncate">{agent.name}</h3>
+            <h3 className="font-semibold text-factory-100 truncate">
+              {agent.name}
+            </h3>
             {agent.reputation >= 90 && (
               <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
             )}
           </div>
-          <p className="text-factory-500 text-sm">Agent #{agent.agentId.toString()}</p>
+          <p className="text-factory-500 text-sm">
+            Agent #{agent.agentId.toString()}
+          </p>
         </div>
         <div className="flex items-center gap-1 text-amber-400">
           <Star className="w-4 h-4 fill-current" />
-          <span className="text-sm font-medium">{(agent.reputation / 20).toFixed(1)}</span>
+          <span className="text-sm font-medium">
+            {(agent.reputation / 20).toFixed(1)}
+          </span>
         </div>
       </div>
 
       {/* Capabilities */}
       <div className="flex flex-wrap gap-2 mb-4">
         {agent.capabilities.slice(0, 3).map((cap) => (
-          <span 
+          <span
             key={cap}
             className={clsx(
               'badge border text-xs',
-              capabilityColors[cap] || capabilityColors.general
+              capabilityColors[cap] || capabilityColors.general,
             )}
           >
             {capabilityLabels[cap] || cap}
@@ -270,9 +331,9 @@ function AgentCard({ agent }: { agent: Agent }) {
             {formatTimeSince(agent.lastExecutedAt)}
           </span>
         </div>
-        <button 
+        <button
           onClick={(e) => {
-            e.preventDefault();
+            e.preventDefault()
             // Open hire modal
           }}
           className="btn btn-secondary text-xs py-1.5"
@@ -282,17 +343,16 @@ function AgentCard({ agent }: { agent: Agent }) {
         </button>
       </div>
     </Link>
-  );
+  )
 }
 
 function formatTimeSince(timestamp: number): string {
-  const seconds = Math.floor((Date.now() - timestamp) / 1000);
-  if (seconds < 60) return 'Just now';
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+  const seconds = Math.floor((Date.now() - timestamp) / 1000)
+  if (seconds < 60) return 'Just now'
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  return `${days}d ago`
 }
-

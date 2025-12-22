@@ -44,7 +44,7 @@ COPY packages/types ./packages/types
 COPY packages/config ./packages/config  
 COPY packages/contracts ./packages/contracts
 COPY packages/shared ./packages/shared
-COPY scripts/shared ./scripts/shared
+COPY packages/deployment/scripts/shared ./packages/deployment/scripts/shared
 COPY apps/gateway ./apps/gateway
 
 # Build packages first

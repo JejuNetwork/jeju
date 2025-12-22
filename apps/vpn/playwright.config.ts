@@ -1,12 +1,15 @@
-import { createPlaywrightConfig } from '@jejunetwork/tests/playwright-only';
+/**
+ * Playwright E2E Configuration for VPN App
+ */
 
-const VPN_PORT = parseInt(process.env.VPN_PORT || '1421');
+import { createAppConfig } from '@jejunetwork/tests'
 
-export default createPlaywrightConfig({
+export default createAppConfig({
   name: 'vpn',
-  port: VPN_PORT,
+  port: 1421,
   testDir: './tests/e2e',
   webServer: {
     command: 'bun run dev:web',
+    timeout: 120000,
   },
-});
+})

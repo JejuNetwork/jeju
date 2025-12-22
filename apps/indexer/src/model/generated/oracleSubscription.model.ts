@@ -1,51 +1,61 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, BigIntColumn as BigIntColumn_, Index as Index_, ManyToOne as ManyToOne_, StringColumn as StringColumn_, DateTimeColumn as DateTimeColumn_, IntColumn as IntColumn_, BooleanColumn as BooleanColumn_} from "@subsquid/typeorm-store"
-import {Account} from "./account.model"
+import {
+  BigIntColumn as BigIntColumn_,
+  BooleanColumn as BooleanColumn_,
+  DateTimeColumn as DateTimeColumn_,
+  Entity as Entity_,
+  Index as Index_,
+  IntColumn as IntColumn_,
+  ManyToOne as ManyToOne_,
+  PrimaryColumn as PrimaryColumn_,
+  StringColumn as StringColumn_,
+} from '@subsquid/typeorm-store'
+import { Account } from './account.model'
 
 @Entity_()
 export class OracleSubscription {
-    constructor(props?: Partial<OracleSubscription>) {
-        Object.assign(this, props)
-    }
+  constructor(props?: Partial<OracleSubscription>) {
+    Object.assign(this, props)
+  }
 
-    @PrimaryColumn_()
-    id!: string
+  @PrimaryColumn_()
+  id!: string
 
-    @Index_({unique: true})
-    @BigIntColumn_({nullable: false})
-    subscriptionId!: bigint
+  @Index_({ unique: true })
+  @BigIntColumn_({ nullable: false })
+  subscriptionId!: bigint
 
-    @Index_()
-    @ManyToOne_(() => Account, {nullable: true})
-    subscriber!: Account
+  @Index_()
+  @ManyToOne_(() => Account, { nullable: true })
+  subscriber!: Account
 
-    @StringColumn_({array: true, nullable: false})
-    feedIds!: (string)[]
+  @StringColumn_({ array: true, nullable: false })
+  feedIds!: string[]
 
-    @Index_()
-    @DateTimeColumn_({nullable: false})
-    startTime!: Date
+  @Index_()
+  @DateTimeColumn_({ nullable: false })
+  startTime!: Date
 
-    @Index_()
-    @DateTimeColumn_({nullable: false})
-    endTime!: Date
+  @Index_()
+  @DateTimeColumn_({ nullable: false })
+  endTime!: Date
 
-    @IntColumn_({nullable: false})
-    monthsPaid!: number
+  @IntColumn_({ nullable: false })
+  monthsPaid!: number
 
-    @BigIntColumn_({nullable: false})
-    totalPaid!: bigint
+  @BigIntColumn_({ nullable: false })
+  totalPaid!: bigint
 
-    @Index_()
-    @BooleanColumn_({nullable: false})
-    isActive!: boolean
+  @Index_()
+  @BooleanColumn_({ nullable: false })
+  isActive!: boolean
 
-    @DateTimeColumn_({nullable: true})
-    cancelledAt!: Date | undefined | null
+  @DateTimeColumn_({ nullable: true })
+  cancelledAt!: Date | undefined | null
 
-    @Index_()
-    @DateTimeColumn_({nullable: false})
-    createdAt!: Date
+  @Index_()
+  @DateTimeColumn_({ nullable: false })
+  createdAt!: Date
 
-    @StringColumn_({nullable: false})
-    txHash!: string
+  @StringColumn_({ nullable: false })
+  txHash!: string
 }

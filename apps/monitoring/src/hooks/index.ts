@@ -1,8 +1,7 @@
-export { 
-  useMetricsQuery, 
-  useAlerts, 
-  useTargets, 
+export {
+  useAlerts,
+  useMetricsQuery,
   useOIFStats,
-  useSystemHealth 
+  useSystemHealth,
+  useTargets,
 } from './useMonitoring'
-

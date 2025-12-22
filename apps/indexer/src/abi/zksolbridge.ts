@@ -3,8 +3,8 @@
  * Auto-generated from contract ABI
  */
 
-import * as p from '@subsquid/evm-codec';
-import { event } from '@subsquid/evm-abi';
+import { event } from '@subsquid/evm-abi'
+import * as p from '@subsquid/evm-codec'
 
 // Bridge Events
 export const events = {
@@ -18,9 +18,9 @@ export const events = {
       recipient: p.bytes32,
       amount: p.uint256,
       destChainId: p.uint256,
-    }
+    },
   ),
-  
+
   TransferCompleted: event(
     '0xa1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2',
     'TransferCompleted(bytes32 indexed transferId, address indexed token, bytes32 sender, address indexed recipient, uint256 amount)',
@@ -30,16 +30,16 @@ export const events = {
       sender: p.bytes32,
       recipient: p.address,
       amount: p.uint256,
-    }
+    },
   ),
-  
+
   SlotVerified: event(
     '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
     'SlotVerified(uint64 indexed slot, bytes32 bankHash)',
     {
       slot: p.uint64,
       bankHash: p.bytes32,
-    }
+    },
   ),
 
   ProofSubmitted: event(
@@ -49,7 +49,7 @@ export const events = {
       transferId: p.bytes32,
       proofHash: p.bytes32,
       timestamp: p.uint256,
-    }
+    },
   ),
 
   LightClientUpdated: event(
@@ -59,9 +59,9 @@ export const events = {
       slot: p.uint64,
       stateRoot: p.bytes32,
       epoch: p.uint256,
-    }
+    },
   ),
-};
+}
 
 // Function selectors for reference
 export const functions = {
@@ -69,5 +69,4 @@ export const functions = {
   completeTransfer: '0x87654321',
   updateLightClient: '0xabcdef12',
   verifyProof: '0x21fedcba',
-};
-
+}

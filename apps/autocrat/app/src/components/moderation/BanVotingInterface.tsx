@@ -1,14 +1,18 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { parseEther, formatEther } from 'viem';
-import { TrendingUp, TrendingDown, Clock } from 'lucide-react';
-import { MODERATION_CONTRACTS } from '../../config/contracts';
+import { Clock, TrendingDown, TrendingUp } from 'lucide-react'
+import { useState } from 'react'
+import { formatEther, parseEther } from 'viem'
+import {
+  useReadContract,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from 'wagmi'
+import { MODERATION_CONTRACTS } from '../../config/contracts'
 
 interface BanVotingInterfaceProps {
-  reportId: bigint;
-  marketId: `0x${string}`;
+  reportId: bigint
+  marketId: `0x${string}`
 }
 
 const PREDIMARKET_ABI = [
@@ -57,7 +61,7 @@ const PREDIMARKET_ABI = [
     ],
     outputs: [{ name: 'shares', type: 'uint256' }],
   },
-] as const;
+] as const
 
 const REPORTING_SYSTEM_ABI = [
   {
@@ -87,11 +91,14 @@ const REPORTING_SYSTEM_ABI = [
       },
     ],
   },
-] as const;
+] as const
 
-export default function BanVotingInterface({ reportId, marketId }: BanVotingInterfaceProps) {
-  const [voteAmount, setVoteAmount] = useState('0.01');
-  const [votingFor, setVotingFor] = useState<boolean | null>(null); // true = YES, false = NO
+export default function BanVotingInterface({
+  reportId,
+  marketId,
+}: BanVotingInterfaceProps) {
+  const [voteAmount, setVoteAmount] = useState('0.01')
+  const [votingFor, setVotingFor] = useState<boolean | null>(null) // true = YES, false = NO
 
   // Query report details
   const { data: report } = useReadContract({
@@ -99,7 +106,7 @@ export default function BanVotingInterface({ reportId, marketId }: BanVotingInte
     abi: REPORTING_SYSTEM_ABI,
     functionName: 'getReport',
     args: [reportId],
-  });
+  })
 
   // Query market data
   const { data: market } = useReadContract({
@@ -107,7 +114,7 @@ export default function BanVotingInterface({ reportId, marketId }: BanVotingInte
     abi: PREDIMARKET_ABI,
     functionName: 'getMarket',
     args: [marketId],
-  });
+  })
 
   // Query current prices
   const { data: prices } = useReadContract({
@@ -115,50 +122,60 @@ export default function BanVotingInterface({ reportId, marketId }: BanVotingInte
     abi: PREDIMARKET_ABI,
     functionName: 'getMarketPrices',
     args: [marketId],
-  });
+  })
 
   // Buy shares
-  const { writeContract, data: hash, isPending } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { writeContract, data: hash, isPending } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
   const handleVote = (outcome: boolean) => {
-    setVotingFor(outcome);
-    
-    const deadline = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
-    
+    setVotingFor(outcome)
+
+    const deadline = Math.floor(Date.now() / 1000) + 3600 // 1 hour from now
+
     writeContract({
       address: MODERATION_CONTRACTS.Predimarket as `0x${string}`,
       abi: PREDIMARKET_ABI,
       functionName: 'buy',
       args: [marketId, outcome, parseEther(voteAmount), 0n, BigInt(deadline)],
       value: parseEther(voteAmount),
-    });
-  };
-
-  if (!report || !market || !prices) {
-    return <div className="animate-pulse">Loading...</div>;
+    })
   }
 
-  const yesPrice = Number(prices[0]) / 10000; // Convert from basis points to percentage
-  const noPrice = Number(prices[1]) / 10000;
-  const timeRemaining = Number(report.votingEnds) * 1000 - Date.now();
-  const isActive = timeRemaining > 0 && !market.resolved;
+  if (!report || !market || !prices) {
+    return <div className="animate-pulse">Loading...</div>
+  }
+
+  const yesPrice = Number(prices[0]) / 10000 // Convert from basis points to percentage
+  const noPrice = Number(prices[1]) / 10000
+  const timeRemaining = Number(report.votingEnds) * 1000 - Date.now()
+  const isActive = timeRemaining > 0 && !market.resolved
 
   return (
     <div className="space-y-6">
       {/* Market Prices */}
       <div className="grid grid-cols-2 gap-4">
-        <div className={`p-6 rounded-lg border-2 ${yesPrice > noPrice ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}>
+        <div
+          className={`p-6 rounded-lg border-2 ${yesPrice > noPrice ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}
+        >
           <div className="text-sm text-gray-600 mb-1">YES (Ban/Label)</div>
-          <div className="text-3xl font-bold text-green-600">{(yesPrice * 100).toFixed(1)}%</div>
+          <div className="text-3xl font-bold text-green-600">
+            {(yesPrice * 100).toFixed(1)}%
+          </div>
           <div className="text-sm text-gray-500 mt-2">
             {market.yesShares.toString()} shares
           </div>
         </div>
 
-        <div className={`p-6 rounded-lg border-2 ${noPrice > yesPrice ? 'border-red-500 bg-red-50' : 'border-gray-200'}`}>
+        <div
+          className={`p-6 rounded-lg border-2 ${noPrice > yesPrice ? 'border-red-500 bg-red-50' : 'border-gray-200'}`}
+        >
           <div className="text-sm text-gray-600 mb-1">NO (Reject)</div>
-          <div className="text-3xl font-bold text-red-600">{(noPrice * 100).toFixed(1)}%</div>
+          <div className="text-3xl font-bold text-red-600">
+            {(noPrice * 100).toFixed(1)}%
+          </div>
           <div className="text-sm text-gray-500 mt-2">
             {market.noShares.toString()} shares
           </div>
@@ -173,7 +190,9 @@ export default function BanVotingInterface({ reportId, marketId }: BanVotingInte
             <div>
               <div className="font-semibold text-blue-900">Voting Active</div>
               <div className="text-sm text-blue-700">
-                {Math.floor(timeRemaining / (1000 * 60 * 60))}h {Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60))}m remaining
+                {Math.floor(timeRemaining / (1000 * 60 * 60))}h{' '}
+                {Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60))}m
+                remaining
               </div>
             </div>
           </div>
@@ -184,7 +203,9 @@ export default function BanVotingInterface({ reportId, marketId }: BanVotingInte
       {isActive ? (
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-2">Vote Amount (ETH)</label>
+            <label className="block text-sm font-medium mb-2">
+              Vote Amount (ETH)
+            </label>
             <input
               type="number"
               value={voteAmount}
@@ -217,9 +238,12 @@ export default function BanVotingInterface({ reportId, marketId }: BanVotingInte
 
           {isSuccess && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-              <div className="text-green-900 font-semibold">Vote submitted!</div>
+              <div className="text-green-900 font-semibold">
+                Vote submitted!
+              </div>
               <div className="text-sm text-gray-600 mt-1">
-                You bought {votingFor ? 'YES' : 'NO'} shares worth {voteAmount} ETH
+                You bought {votingFor ? 'YES' : 'NO'} shares worth {voteAmount}{' '}
+                ETH
               </div>
             </div>
           )}
@@ -230,7 +254,8 @@ export default function BanVotingInterface({ reportId, marketId }: BanVotingInte
           <div className="font-semibold text-gray-700">Voting Closed</div>
           {market.resolved && (
             <div className="text-sm text-gray-600 mt-2">
-              Result: {market.outcome ? 'YES (Ban approved)' : 'NO (Ban rejected)'}
+              Result:{' '}
+              {market.outcome ? 'YES (Ban approved)' : 'NO (Ban rejected)'}
             </div>
           )}
         </div>
@@ -242,15 +267,18 @@ export default function BanVotingInterface({ reportId, marketId }: BanVotingInte
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
             <div className="text-gray-600">Total Volume</div>
-            <div className="font-semibold">{formatEther(market.totalVolume)} ETH</div>
+            <div className="font-semibold">
+              {formatEther(market.totalVolume)} ETH
+            </div>
           </div>
           <div>
             <div className="text-gray-600">Liquidity Parameter</div>
-            <div className="font-semibold">{formatEther(market.liquidityParameter)}</div>
+            <div className="font-semibold">
+              {formatEther(market.liquidityParameter)}
+            </div>
           </div>
         </div>
       </div>
     </div>
-  );
+  )
 }
-

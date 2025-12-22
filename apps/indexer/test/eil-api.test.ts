@@ -1,6 +1,6 @@
 /**
  * EIL Indexer API Tests
- * 
+ *
  * Tests the GraphQL API for EIL data:
  * - XLP queries
  * - Voucher request queries
@@ -8,9 +8,10 @@
  * - Stats queries
  */
 
-import { describe, it, expect, beforeAll } from 'bun:test'
+import { beforeAll, describe, expect, it } from 'bun:test'
 
-const GRAPHQL_ENDPOINT = process.env.INDEXER_GRAPHQL_URL || 'http://localhost:4350/graphql'
+const GRAPHQL_ENDPOINT =
+  process.env.INDEXER_GRAPHQL_URL || 'http://localhost:4350/graphql'
 
 interface GraphQLResponse<T> {
   data?: T
@@ -24,7 +25,7 @@ async function checkEndpointAvailability(): Promise<boolean> {
     const response = await fetch(GRAPHQL_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: '{ __typename }' })
+      body: JSON.stringify({ query: '{ __typename }' }),
     })
     if (!response.ok) {
       return false
@@ -36,7 +37,9 @@ async function checkEndpointAvailability(): Promise<boolean> {
     try {
       const result = JSON.parse(text)
       // Check if it's a valid GraphQL response (has data or errors)
-      return result && (result.data !== undefined || result.errors !== undefined)
+      return (
+        result && (result.data !== undefined || result.errors !== undefined)
+      )
     } catch {
       return false
     }
@@ -45,42 +48,53 @@ async function checkEndpointAvailability(): Promise<boolean> {
   }
 }
 
-async function query<T>(queryString: string, variables?: Record<string, unknown>): Promise<T> {
-  let response: Response;
+async function query<T>(
+  queryString: string,
+  variables?: Record<string, unknown>,
+): Promise<T> {
+  let response: Response
   try {
     response = await fetch(GRAPHQL_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: queryString, variables })
+      body: JSON.stringify({ query: queryString, variables }),
     })
   } catch (error) {
-    throw new Error(`Failed to connect to GraphQL endpoint: ${error instanceof Error ? error.message : String(error)}`)
+    throw new Error(
+      `Failed to connect to GraphQL endpoint: ${error instanceof Error ? error.message : String(error)}`,
+    )
   }
-  
+
   if (!response.ok) {
-    throw new Error(`GraphQL request failed with status ${response.status}: ${response.statusText}`)
+    throw new Error(
+      `GraphQL request failed with status ${response.status}: ${response.statusText}`,
+    )
   }
-  
+
   const text = await response.text()
   if (!text || text.trim() === '') {
-    throw new Error(`Empty response from GraphQL endpoint (status: ${response.status})`)
+    throw new Error(
+      `Empty response from GraphQL endpoint (status: ${response.status})`,
+    )
   }
-  
+
   let result: GraphQLResponse<T>
   try {
     result = JSON.parse(text) as GraphQLResponse<T>
   } catch (error) {
-    throw new Error(`Failed to parse JSON response: ${error instanceof Error ? error.message : String(error)}. Response: ${text.substring(0, 200)}`)
+    throw new Error(
+      `Failed to parse JSON response: ${error instanceof Error ? error.message : String(error)}. Response: ${text.substring(0, 200)}`,
+    )
   }
-  
+
   if (result.errors) {
     throw new Error(result.errors[0].message)
   }
-  
+
   if (!result.data) {
     throw new Error('No data in GraphQL response')
   }
-  
+
   return result.data
 }
 
@@ -88,7 +102,9 @@ describe('EIL GraphQL API', () => {
   beforeAll(async () => {
     endpointAvailable = await checkEndpointAvailability()
     if (!endpointAvailable) {
-      console.warn(`⚠️  GraphQL endpoint not available at ${GRAPHQL_ENDPOINT}. Skipping integration tests.`)
+      console.warn(
+        `⚠️  GraphQL endpoint not available at ${GRAPHQL_ENDPOINT}. Skipping integration tests.`,
+      )
     }
   })
 
@@ -113,7 +129,7 @@ describe('EIL GraphQL API', () => {
           }
         }
       `)
-      
+
       expect(result.xlps).toBeDefined()
       expect(Array.isArray(result.xlps)).toBe(true)
     })
@@ -123,7 +139,9 @@ describe('EIL GraphQL API', () => {
         console.log('⏭️  Skipping: GraphQL endpoint not available')
         return
       }
-      const result = await query<{ xlps: Array<{ id: string; isActive: boolean }> }>(`
+      const result = await query<{
+        xlps: Array<{ id: string; isActive: boolean }>
+      }>(`
         query {
           xlps(where: { isActive_eq: true }) {
             id
@@ -131,9 +149,9 @@ describe('EIL GraphQL API', () => {
           }
         }
       `)
-      
+
       expect(result.xlps).toBeDefined()
-      result.xlps.forEach(xlp => {
+      result.xlps.forEach((xlp) => {
         expect(xlp.isActive).toBe(true)
       })
     })
@@ -151,9 +169,12 @@ describe('EIL GraphQL API', () => {
           }
         }
       `)
-      
+
       if (xlps.xlps.length > 0) {
-        const result = await query<{ xlpById: { id: string, address: string, stakedAmount: string } | null }>(`
+        const result = await query<{
+          xlpById: { id: string; address: string; stakedAmount: string } | null
+        }>(
+          `
           query($id: String!) {
             xlpById(id: $id) {
               id
@@ -161,19 +182,24 @@ describe('EIL GraphQL API', () => {
               stakedAmount
             }
           }
-        `, { id: xlps.xlps[0].id })
-        
+        `,
+          { id: xlps.xlps[0].id },
+        )
+
         expect(result.xlpById).toBeDefined()
       } else {
         // No XLPs exist yet, just verify the query works
-        const result = await query<{ xlpById: { id: string } | null }>(`
+        const result = await query<{ xlpById: { id: string } | null }>(
+          `
           query($id: String!) {
             xlpById(id: $id) {
               id
             }
           }
-        `, { id: '0x0000000000000000000000000000000000000000' })
-        
+        `,
+          { id: '0x0000000000000000000000000000000000000000' },
+        )
+
         expect(result.xlpById).toBeNull()
       }
     })
@@ -183,7 +209,9 @@ describe('EIL GraphQL API', () => {
         console.log('⏭️  Skipping: GraphQL endpoint not available')
         return
       }
-      const result = await query<{ xlpLiquidityDeposits: Array<{ id: string }> }>(`
+      const result = await query<{
+        xlpLiquidityDeposits: Array<{ id: string }>
+      }>(`
         query {
           xlpLiquidityDeposits {
             id
@@ -197,7 +225,7 @@ describe('EIL GraphQL API', () => {
           }
         }
       `)
-      
+
       expect(result.xlpLiquidityDeposits).toBeDefined()
       expect(Array.isArray(result.xlpLiquidityDeposits)).toBe(true)
     })
@@ -209,7 +237,9 @@ describe('EIL GraphQL API', () => {
         console.log('⏭️  Skipping: GraphQL endpoint not available')
         return
       }
-      const result = await query<{ crossChainVoucherRequests: Array<{ id: string }> }>(`
+      const result = await query<{
+        crossChainVoucherRequests: Array<{ id: string }>
+      }>(`
         query {
           crossChainVoucherRequests(orderBy: createdAt_DESC, limit: 10) {
             id
@@ -225,7 +255,7 @@ describe('EIL GraphQL API', () => {
           }
         }
       `)
-      
+
       expect(result.crossChainVoucherRequests).toBeDefined()
       expect(Array.isArray(result.crossChainVoucherRequests)).toBe(true)
     })
@@ -235,7 +265,9 @@ describe('EIL GraphQL API', () => {
         console.log('⏭️  Skipping: GraphQL endpoint not available')
         return
       }
-      const result = await query<{ crossChainVoucherRequests: Array<{ status: string }> }>(`
+      const result = await query<{
+        crossChainVoucherRequests: Array<{ status: string }>
+      }>(`
         query {
           crossChainVoucherRequests(where: { status_eq: PENDING }) {
             id
@@ -243,9 +275,9 @@ describe('EIL GraphQL API', () => {
           }
         }
       `)
-      
+
       expect(result.crossChainVoucherRequests).toBeDefined()
-      result.crossChainVoucherRequests.forEach(req => {
+      result.crossChainVoucherRequests.forEach((req) => {
         expect(req.status).toBe('PENDING')
       })
     })
@@ -255,7 +287,9 @@ describe('EIL GraphQL API', () => {
         console.log('⏭️  Skipping: GraphQL endpoint not available')
         return
       }
-      const result = await query<{ crossChainVoucherRequests: Array<{ sourceChain: number }> }>(`
+      const result = await query<{
+        crossChainVoucherRequests: Array<{ sourceChain: number }>
+      }>(`
         query {
           crossChainVoucherRequests(where: { sourceChain_eq: 420691 }) {
             id
@@ -263,9 +297,9 @@ describe('EIL GraphQL API', () => {
           }
         }
       `)
-      
+
       expect(result.crossChainVoucherRequests).toBeDefined()
-      result.crossChainVoucherRequests.forEach(req => {
+      result.crossChainVoucherRequests.forEach((req) => {
         expect(req.sourceChain).toBe(420691)
       })
     })
@@ -277,7 +311,9 @@ describe('EIL GraphQL API', () => {
         console.log('⏭️  Skipping: GraphQL endpoint not available')
         return
       }
-      const result = await query<{ crossChainVouchers: Array<{ id: string }> }>(`
+      const result = await query<{
+        crossChainVouchers: Array<{ id: string }>
+      }>(`
         query {
           crossChainVouchers(orderBy: issuedAt_DESC, limit: 10) {
             id
@@ -294,7 +330,7 @@ describe('EIL GraphQL API', () => {
           }
         }
       `)
-      
+
       expect(result.crossChainVouchers).toBeDefined()
       expect(Array.isArray(result.crossChainVouchers)).toBe(true)
     })
@@ -304,7 +340,9 @@ describe('EIL GraphQL API', () => {
         console.log('⏭️  Skipping: GraphQL endpoint not available')
         return
       }
-      const result = await query<{ crossChainVouchers: Array<{ fulfilled: boolean }> }>(`
+      const result = await query<{
+        crossChainVouchers: Array<{ fulfilled: boolean }>
+      }>(`
         query {
           crossChainVouchers(where: { fulfilled_eq: true }) {
             id
@@ -312,9 +350,9 @@ describe('EIL GraphQL API', () => {
           }
         }
       `)
-      
+
       expect(result.crossChainVouchers).toBeDefined()
-      result.crossChainVouchers.forEach(v => {
+      result.crossChainVouchers.forEach((v) => {
         expect(v.fulfilled).toBe(true)
       })
     })
@@ -345,7 +383,7 @@ describe('EIL GraphQL API', () => {
           }
         }
       `)
-      
+
       expect(result.eilTransfers).toBeDefined()
       expect(Array.isArray(result.eilTransfers)).toBe(true)
     })
@@ -364,9 +402,9 @@ describe('EIL GraphQL API', () => {
           }
         }
       `)
-      
+
       expect(result.eilTransfers).toBeDefined()
-      result.eilTransfers.forEach(t => {
+      result.eilTransfers.forEach((t) => {
         expect(t.status).toBe('COMPLETED')
       })
     })
@@ -377,8 +415,9 @@ describe('EIL GraphQL API', () => {
         return
       }
       const testUser = '0x0000000000000000000000000000000000000001'
-      
-      const result = await query<{ eilTransfers: Array<{ id: string }> }>(`
+
+      const result = await query<{ eilTransfers: Array<{ id: string }> }>(
+        `
         query($userId: String!) {
           eilTransfers(where: { user: { id_eq: $userId } }) {
             id
@@ -387,8 +426,10 @@ describe('EIL GraphQL API', () => {
             }
           }
         }
-      `, { userId: testUser })
-      
+      `,
+        { userId: testUser },
+      )
+
       expect(result.eilTransfers).toBeDefined()
     })
   })
@@ -416,7 +457,7 @@ describe('EIL GraphQL API', () => {
           }
         }
       `)
-      
+
       // May or may not exist
       expect(result).toBeDefined()
     })
@@ -426,7 +467,9 @@ describe('EIL GraphQL API', () => {
         console.log('⏭️  Skipping: GraphQL endpoint not available')
         return
       }
-      const result = await query<{ eilChainStats: Array<{ chainId: number }> }>(`
+      const result = await query<{
+        eilChainStats: Array<{ chainId: number }>
+      }>(`
         query {
           eilChainStats {
             id
@@ -440,7 +483,7 @@ describe('EIL GraphQL API', () => {
           }
         }
       `)
-      
+
       expect(result.eilChainStats).toBeDefined()
       expect(Array.isArray(result.eilChainStats)).toBe(true)
     })
@@ -470,7 +513,7 @@ describe('EIL GraphQL API', () => {
           }
         }
       `)
-      
+
       expect(result.xlpSlashEvents).toBeDefined()
       expect(Array.isArray(result.xlpSlashEvents)).toBe(true)
     })
@@ -482,7 +525,7 @@ describe('EIL GraphQL API', () => {
         console.log('⏭️  Skipping: GraphQL endpoint not available')
         return
       }
-      const result = await query<{ 
+      const result = await query<{
         pending: { totalCount: number }
         completed: { totalCount: number }
         failed: { totalCount: number }
@@ -499,7 +542,7 @@ describe('EIL GraphQL API', () => {
           }
         }
       `)
-      
+
       expect(result.pending).toBeDefined()
       expect(typeof result.pending.totalCount).toBe('number')
     })
@@ -520,15 +563,14 @@ describe('EIL GraphQL API', () => {
           }
         }
       `)
-      
+
       expect(result.xlps).toBeDefined()
       // Verify sorted by fees
       for (let i = 1; i < result.xlps.length; i++) {
-        const prev = BigInt(result.xlps[i-1].totalFeesEarned || '0')
+        const prev = BigInt(result.xlps[i - 1].totalFeesEarned || '0')
         const curr = BigInt(result.xlps[i].totalFeesEarned || '0')
         expect(prev >= curr).toBe(true)
       }
     })
   })
 })
-

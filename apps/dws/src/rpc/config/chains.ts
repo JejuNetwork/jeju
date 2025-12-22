@@ -4,21 +4,21 @@
  */
 
 export interface ChainConfig {
-  chainId: number;
-  name: string;
-  shortName: string;
-  rpcUrl: string;
-  fallbackRpcs: string[];
-  explorerUrl: string;
-  isTestnet: boolean;
+  chainId: number
+  name: string
+  shortName: string
+  rpcUrl: string
+  fallbackRpcs: string[]
+  explorerUrl: string
+  isTestnet: boolean
   nativeCurrency: {
-    name: string;
-    symbol: string;
-    decimals: number;
-  };
+    name: string
+    symbol: string
+    decimals: number
+  }
 }
 
-const JEJU_RPC_BASE = process.env.JEJU_RPC_BASE || 'https://rpc.jejunetwork.org';
+const JEJU_RPC_BASE = process.env.JEJU_RPC_BASE || 'https://rpc.jejunetwork.org'
 
 export const CHAINS: Record<number, ChainConfig> = {
   // the networks
@@ -59,7 +59,10 @@ export const CHAINS: Record<number, ChainConfig> = {
     name: 'Sepolia',
     shortName: 'SEP',
     rpcUrl: process.env.SEPOLIA_RPC_URL || `${JEJU_RPC_BASE}/sepolia`,
-    fallbackRpcs: ['https://ethereum-sepolia-rpc.publicnode.com', 'https://rpc.sepolia.org'],
+    fallbackRpcs: [
+      'https://ethereum-sepolia-rpc.publicnode.com',
+      'https://rpc.sepolia.org',
+    ],
     explorerUrl: 'https://sepolia.etherscan.io',
     isTestnet: true,
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
@@ -93,7 +96,10 @@ export const CHAINS: Record<number, ChainConfig> = {
     name: 'Arbitrum One',
     shortName: 'ARB',
     rpcUrl: process.env.ARBITRUM_RPC_URL || `${JEJU_RPC_BASE}/arbitrum`,
-    fallbackRpcs: ['https://arb1.arbitrum.io/rpc', 'https://arbitrum.llamarpc.com'],
+    fallbackRpcs: [
+      'https://arb1.arbitrum.io/rpc',
+      'https://arbitrum.llamarpc.com',
+    ],
     explorerUrl: 'https://arbiscan.io',
     isTestnet: false,
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
@@ -102,7 +108,9 @@ export const CHAINS: Record<number, ChainConfig> = {
     chainId: 421614,
     name: 'Arbitrum Sepolia',
     shortName: 'ARB-SEP',
-    rpcUrl: process.env.ARBITRUM_SEPOLIA_RPC_URL || `${JEJU_RPC_BASE}/arbitrum-sepolia`,
+    rpcUrl:
+      process.env.ARBITRUM_SEPOLIA_RPC_URL ||
+      `${JEJU_RPC_BASE}/arbitrum-sepolia`,
     fallbackRpcs: ['https://sepolia-rollup.arbitrum.io/rpc'],
     explorerUrl: 'https://sepolia.arbiscan.io',
     isTestnet: true,
@@ -115,7 +123,10 @@ export const CHAINS: Record<number, ChainConfig> = {
     name: 'Optimism',
     shortName: 'OP',
     rpcUrl: process.env.OPTIMISM_RPC_URL || `${JEJU_RPC_BASE}/optimism`,
-    fallbackRpcs: ['https://mainnet.optimism.io', 'https://optimism.llamarpc.com'],
+    fallbackRpcs: [
+      'https://mainnet.optimism.io',
+      'https://optimism.llamarpc.com',
+    ],
     explorerUrl: 'https://optimistic.etherscan.io',
     isTestnet: false,
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
@@ -124,7 +135,9 @@ export const CHAINS: Record<number, ChainConfig> = {
     chainId: 11155420,
     name: 'Optimism Sepolia',
     shortName: 'OP-SEP',
-    rpcUrl: process.env.OPTIMISM_SEPOLIA_RPC_URL || `${JEJU_RPC_BASE}/optimism-sepolia`,
+    rpcUrl:
+      process.env.OPTIMISM_SEPOLIA_RPC_URL ||
+      `${JEJU_RPC_BASE}/optimism-sepolia`,
     fallbackRpcs: ['https://sepolia.optimism.io'],
     explorerUrl: 'https://sepolia-optimism.etherscan.io',
     isTestnet: true,
@@ -142,24 +155,24 @@ export const CHAINS: Record<number, ChainConfig> = {
     isTestnet: true,
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   },
-};
+}
 
-export const SUPPORTED_CHAIN_IDS = Object.keys(CHAINS).map(Number);
+export const SUPPORTED_CHAIN_IDS = Object.keys(CHAINS).map(Number)
 
 export function getChain(chainId: number): ChainConfig {
-  const chain = CHAINS[chainId];
-  if (!chain) throw new Error(`Unsupported chain: ${chainId}`);
-  return chain;
+  const chain = CHAINS[chainId]
+  if (!chain) throw new Error(`Unsupported chain: ${chainId}`)
+  return chain
 }
 
 export function isChainSupported(chainId: number): boolean {
-  return chainId in CHAINS;
+  return chainId in CHAINS
 }
 
 export function getMainnetChains(): ChainConfig[] {
-  return Object.values(CHAINS).filter(c => !c.isTestnet);
+  return Object.values(CHAINS).filter((c) => !c.isTestnet)
 }
 
 export function getTestnetChains(): ChainConfig[] {
-  return Object.values(CHAINS).filter(c => c.isTestnet);
+  return Object.values(CHAINS).filter((c) => c.isTestnet)
 }

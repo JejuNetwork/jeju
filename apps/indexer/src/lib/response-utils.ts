@@ -3,22 +3,31 @@
  * Shared utilities for mapping database entities to API responses
  */
 
-import { Account, Contract, TokenTransfer, OracleFeed, OracleOperator, OracleReport, OracleDispute, CrossServiceRequest } from '../model';
+import type {
+  Account,
+  Contract,
+  CrossServiceRequest,
+  OracleDispute,
+  OracleFeed,
+  OracleOperator,
+  OracleReport,
+  TokenTransfer,
+} from '../model'
 
 export interface AccountResponse {
-  address: string;
-  isContract: boolean;
-  transactionCount: number;
-  totalValueSent: string;
-  totalValueReceived: string;
-  firstSeenBlock: number;
-  lastSeenBlock: number;
-  labels: string[];
+  address: string
+  isContract: boolean
+  transactionCount: number
+  totalValueSent: string
+  totalValueReceived: string
+  firstSeenBlock: number
+  lastSeenBlock: number
+  labels: string[]
 }
 
 export function mapAccountResponse(account: Account): AccountResponse {
   if (!account) {
-    throw new Error('Account is required');
+    throw new Error('Account is required')
   }
   return {
     address: account.address,
@@ -29,22 +38,22 @@ export function mapAccountResponse(account: Account): AccountResponse {
     firstSeenBlock: account.firstSeenBlock,
     lastSeenBlock: account.lastSeenBlock,
     labels: account.labels,
-  };
+  }
 }
 
 export interface ContractResponse {
-  address: string;
-  contractType: string | null;
-  isERC20: boolean;
-  isERC721: boolean;
-  isERC1155: boolean;
-  creator: string | null;
-  firstSeenAt: string;
+  address: string
+  contractType: string | null
+  isERC20: boolean
+  isERC721: boolean
+  isERC1155: boolean
+  creator: string | null
+  firstSeenAt: string
 }
 
 export function mapContractResponse(contract: Contract): ContractResponse {
   if (!contract) {
-    throw new Error('Contract is required');
+    throw new Error('Contract is required')
   }
   return {
     address: contract.address,
@@ -54,23 +63,25 @@ export function mapContractResponse(contract: Contract): ContractResponse {
     isERC1155: contract.isERC1155,
     creator: contract.creator?.address || null,
     firstSeenAt: contract.firstSeenAt.toISOString(),
-  };
+  }
 }
 
 export interface TokenTransferResponse {
-  id: string;
-  token: string | null;
-  from: string | null;
-  to: string | null;
-  value: string | null;
-  tokenId: string | null;
-  tokenStandard: string;
-  timestamp: string;
+  id: string
+  token: string | null
+  from: string | null
+  to: string | null
+  value: string | null
+  tokenId: string | null
+  tokenStandard: string
+  timestamp: string
 }
 
-export function mapTokenTransferResponse(transfer: TokenTransfer): TokenTransferResponse {
+export function mapTokenTransferResponse(
+  transfer: TokenTransfer,
+): TokenTransferResponse {
   if (!transfer) {
-    throw new Error('TokenTransfer is required');
+    throw new Error('TokenTransfer is required')
   }
   return {
     id: transfer.id,
@@ -81,33 +92,33 @@ export function mapTokenTransferResponse(transfer: TokenTransfer): TokenTransfer
     tokenId: transfer.tokenId || null,
     tokenStandard: transfer.tokenStandard,
     timestamp: transfer.timestamp.toISOString(),
-  };
+  }
 }
 
 export interface OracleFeedResponse {
-  feedId: string;
-  symbol: string;
-  baseToken: string;
-  quoteToken: string;
-  decimals: number;
-  heartbeatSeconds: number;
-  category: string;
-  isActive: boolean;
-  minOracles: number;
-  quorumThreshold: number;
-  latestPrice: string | null;
-  latestConfidence: string | null;
-  latestTimestamp: string | null;
-  latestRound: string | null;
-  totalReports: number;
-  totalDisputes: number;
-  createdAt: string;
-  lastUpdated: string;
+  feedId: string
+  symbol: string
+  baseToken: string
+  quoteToken: string
+  decimals: number
+  heartbeatSeconds: number
+  category: string
+  isActive: boolean
+  minOracles: number
+  quorumThreshold: number
+  latestPrice: string | null
+  latestConfidence: string | null
+  latestTimestamp: string | null
+  latestRound: string | null
+  totalReports: number
+  totalDisputes: number
+  createdAt: string
+  lastUpdated: string
 }
 
 export function mapOracleFeedResponse(feed: OracleFeed): OracleFeedResponse {
   if (!feed) {
-    throw new Error('OracleFeed is required');
+    throw new Error('OracleFeed is required')
   }
   return {
     feedId: feed.feedId,
@@ -128,33 +139,35 @@ export function mapOracleFeedResponse(feed: OracleFeed): OracleFeedResponse {
     totalDisputes: feed.totalDisputes,
     createdAt: feed.createdAt.toISOString(),
     lastUpdated: feed.lastUpdated.toISOString(),
-  };
+  }
 }
 
 export interface OracleOperatorResponse {
-  address: string;
-  identityId: string | null;
-  isActive: boolean;
-  isJailed: boolean;
-  stakedAmount: string;
-  delegatedAmount: string;
-  totalSlashed: string;
-  reportsSubmitted: number;
-  reportsAccepted: number;
-  disputesAgainst: number;
-  disputesLost: number;
-  participationScore: number;
-  accuracyScore: number;
-  uptimeScore: number;
-  totalEarnings: string;
-  pendingRewards: string;
-  registeredAt: string;
-  lastActiveAt: string;
+  address: string
+  identityId: string | null
+  isActive: boolean
+  isJailed: boolean
+  stakedAmount: string
+  delegatedAmount: string
+  totalSlashed: string
+  reportsSubmitted: number
+  reportsAccepted: number
+  disputesAgainst: number
+  disputesLost: number
+  participationScore: number
+  accuracyScore: number
+  uptimeScore: number
+  totalEarnings: string
+  pendingRewards: string
+  registeredAt: string
+  lastActiveAt: string
 }
 
-export function mapOracleOperatorResponse(operator: OracleOperator): OracleOperatorResponse {
+export function mapOracleOperatorResponse(
+  operator: OracleOperator,
+): OracleOperatorResponse {
   if (!operator) {
-    throw new Error('OracleOperator is required');
+    throw new Error('OracleOperator is required')
   }
   return {
     address: operator.address,
@@ -175,28 +188,30 @@ export function mapOracleOperatorResponse(operator: OracleOperator): OracleOpera
     pendingRewards: operator.pendingRewards.toString(),
     registeredAt: operator.registeredAt.toISOString(),
     lastActiveAt: operator.lastActiveAt.toISOString(),
-  };
+  }
 }
 
 export interface OracleReportResponse {
-  reportId: string;
-  feedId: string | null;
-  symbol: string | null;
-  round: string;
-  price: string;
-  confidence: string;
-  timestamp: string;
-  isDisputed: boolean;
-  isValid: boolean;
-  submittedBy: string | null;
-  submittedAt: string;
-  txHash: string | null;
-  blockNumber: number | null;
+  reportId: string
+  feedId: string | null
+  symbol: string | null
+  round: string
+  price: string
+  confidence: string
+  timestamp: string
+  isDisputed: boolean
+  isValid: boolean
+  submittedBy: string | null
+  submittedAt: string
+  txHash: string | null
+  blockNumber: number | null
 }
 
-export function mapOracleReportResponse(report: OracleReport): OracleReportResponse {
+export function mapOracleReportResponse(
+  report: OracleReport,
+): OracleReportResponse {
   if (!report) {
-    throw new Error('OracleReport is required');
+    throw new Error('OracleReport is required')
   }
   return {
     reportId: report.reportId,
@@ -212,31 +227,33 @@ export function mapOracleReportResponse(report: OracleReport): OracleReportRespo
     submittedAt: report.submittedAt.toISOString(),
     txHash: report.txHash || null,
     blockNumber: report.blockNumber || null,
-  };
+  }
 }
 
 export interface OracleDisputeResponse {
-  disputeId: string;
-  reportId: string | null;
-  feedId: string | null;
-  disputer: string | null;
-  bond: string;
-  reason: string;
-  status: string;
-  challenger: string | null;
-  challengeBond: string | null;
-  outcome: string | null;
-  slashedAmount: string | null;
-  openedAt: string;
-  challengeDeadline: string;
-  resolvedAt: string | null;
-  txHash: string | null;
-  blockNumber: number | null;
+  disputeId: string
+  reportId: string | null
+  feedId: string | null
+  disputer: string | null
+  bond: string
+  reason: string
+  status: string
+  challenger: string | null
+  challengeBond: string | null
+  outcome: string | null
+  slashedAmount: string | null
+  openedAt: string
+  challengeDeadline: string
+  resolvedAt: string | null
+  txHash: string | null
+  blockNumber: number | null
 }
 
-export function mapOracleDisputeResponse(dispute: OracleDispute): OracleDisputeResponse {
+export function mapOracleDisputeResponse(
+  dispute: OracleDispute,
+): OracleDisputeResponse {
   if (!dispute) {
-    throw new Error('OracleDispute is required');
+    throw new Error('OracleDispute is required')
   }
   return {
     disputeId: dispute.disputeId,
@@ -255,30 +272,32 @@ export function mapOracleDisputeResponse(dispute: OracleDispute): OracleDisputeR
     resolvedAt: dispute.resolvedAt?.toISOString() || null,
     txHash: dispute.txHash || null,
     blockNumber: dispute.blockNumber || null,
-  };
+  }
 }
 
 export interface CrossServiceRequestResponse {
-  requestId: string;
-  requester: string | null;
-  type: string;
-  sourceCid: string;
-  sourceProvider: string | null;
-  destinationProvider: string | null;
-  status: string;
-  createdAt: string;
-  completedAt: string | null;
-  storageCost: string;
-  bandwidthCost: string;
-  totalCost: string;
-  error: string | null;
-  txHash: string | null;
-  blockNumber: number | null;
+  requestId: string
+  requester: string | null
+  type: string
+  sourceCid: string
+  sourceProvider: string | null
+  destinationProvider: string | null
+  status: string
+  createdAt: string
+  completedAt: string | null
+  storageCost: string
+  bandwidthCost: string
+  totalCost: string
+  error: string | null
+  txHash: string | null
+  blockNumber: number | null
 }
 
-export function mapCrossServiceRequestResponse(request: CrossServiceRequest): CrossServiceRequestResponse {
+export function mapCrossServiceRequestResponse(
+  request: CrossServiceRequest,
+): CrossServiceRequestResponse {
   if (!request) {
-    throw new Error('CrossServiceRequest is required');
+    throw new Error('CrossServiceRequest is required')
   }
   return {
     requestId: request.requestId,
@@ -296,5 +315,5 @@ export function mapCrossServiceRequestResponse(request: CrossServiceRequest): Cr
     error: request.error || null,
     txHash: request.txHash || null,
     blockNumber: request.blockNumber || null,
-  };
+  }
 }

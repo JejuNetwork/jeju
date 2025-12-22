@@ -1,25 +1,28 @@
 /**
  * Crucible Types
- * 
+ *
  * Core type definitions for the decentralized agent orchestration platform.
  */
 
-import type { Address } from 'viem';
-import type { ExecutionStatus } from '@jejunetwork/types';
-export type { ExecutionStatus };
+import type { ExecutionStatus } from '@jejunetwork/types'
+import type { Address } from 'viem'
+export type { ExecutionStatus }
 
 // =============================================================================
 // JSON Value Types (for truly polymorphic external data)
 // =============================================================================
 
 /** Primitive JSON values */
-export type JsonPrimitive = string | number | boolean | null;
+export type JsonPrimitive = string | number | boolean | null
 
 /** Recursive JSON value type for external/polymorphic data */
-export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
+export type JsonValue =
+  | JsonPrimitive
+  | JsonValue[]
+  | { [key: string]: JsonValue }
 
 /** JSON object type */
-export type JsonObject = { [key: string]: JsonValue };
+export type JsonObject = { [key: string]: JsonValue }
 
 // =============================================================================
 // Agent Context Types
@@ -27,17 +30,17 @@ export type JsonObject = { [key: string]: JsonValue };
 
 /** Last execution tracking stored in agent context */
 export interface LastExecutionInfo {
-  executionId: string;
-  timestamp: number;
-  triggerId?: string;
+  executionId: string
+  timestamp: number
+  triggerId?: string
 }
 
 /** Agent context stores execution history and user-defined data */
 export interface AgentContext {
   /** Last execution info, set by executor */
-  lastExecution?: LastExecutionInfo;
+  lastExecution?: LastExecutionInfo
   /** Additional context data - can be any JSON-serializable value */
-  [key: string]: JsonValue | LastExecutionInfo | undefined;
+  [key: string]: JsonValue | LastExecutionInfo | undefined
 }
 
 // =============================================================================
@@ -47,21 +50,21 @@ export interface AgentContext {
 /** Parameters passed to an agent action */
 export interface ActionParams {
   /** Target content for POST_TO_ROOM, etc */
-  content?: string;
+  content?: string
   /** Target address for transfers, etc */
-  target?: string;
+  target?: string
   /** Amount for financial operations */
-  amount?: string;
+  amount?: string
   /** Additional action-specific parameters */
-  [key: string]: JsonValue | undefined;
+  [key: string]: JsonValue | undefined
 }
 
 /** Result of an action execution - can be transaction hash or structured result */
-export type ActionResult = 
-  | string  // Transaction hash
-  | { txHash: string; success?: boolean }  // Transaction result
-  | { success: boolean; error?: string }  // Simple result
-  | JsonObject;  // Complex structured result
+export type ActionResult =
+  | string // Transaction hash
+  | { txHash: string; success?: boolean } // Transaction result
+  | { success: boolean; error?: string } // Simple result
+  | JsonObject // Complex structured result
 
 // =============================================================================
 // State Update Types
@@ -70,11 +73,11 @@ export type ActionResult =
 /** State updates from agent execution */
 export interface StateUpdates {
   /** Last inference response */
-  lastResponse?: string;
+  lastResponse?: string
   /** Results of executed actions */
-  lastActions?: AgentAction[];
+  lastActions?: AgentAction[]
   /** Success rate of actions (0-1) */
-  actionSuccessRate?: number;
+  actionSuccessRate?: number
 }
 
 // =============================================================================
@@ -84,111 +87,109 @@ export interface StateUpdates {
 /** Metadata for room state */
 export interface RoomStateMetadata {
   /** Topic or subject of the room */
-  topic?: string;
+  topic?: string
   /** Rules for the room */
-  rules?: string[];
+  rules?: string[]
   /** Custom metadata */
-  [key: string]: JsonValue | undefined;
+  [key: string]: JsonValue | undefined
 }
 
 /** Metadata for individual messages */
 export interface MessageMetadata {
   /** Source of the message (discord, api, etc) */
-  source?: string;
+  source?: string
   /** Reference to parent message */
-  replyTo?: string;
+  replyTo?: string
   /** Attachments */
-  attachments?: string[];
+  attachments?: string[]
   /** Custom metadata */
-  [key: string]: JsonValue | undefined;
+  [key: string]: JsonValue | undefined
 }
 
 // =============================================================================
 // Bot Types
 // =============================================================================
 
-export type BotType = 'ai_agent' | 'trading_bot' | 'org_tool';
+export type BotType = 'ai_agent' | 'trading_bot' | 'org_tool'
 
 // =============================================================================
 // Agent Types
 // =============================================================================
 
 export interface AgentDefinition {
-  agentId: bigint;
-  owner: Address;
-  name: string;
-  botType: BotType;
-  characterCid?: string;  // Optional for trading bots
-  stateCid: string;
-  vaultAddress: Address;
-  active: boolean;
-  registeredAt: number;
-  lastExecutedAt: number;
-  executionCount: number;
-  
+  agentId: bigint
+  owner: Address
+  name: string
+  botType: BotType
+  characterCid?: string // Optional for trading bots
+  stateCid: string
+  vaultAddress: Address
+  active: boolean
+  registeredAt: number
+  lastExecutedAt: number
+  executionCount: number
+
   // Trading bot specific fields
-  strategies?: TradingBotStrategy[];
-  chains?: TradingBotChain[];
-  treasuryAddress?: Address;
-  
+  strategies?: TradingBotStrategy[]
+  chains?: TradingBotChain[]
+  treasuryAddress?: Address
+
   // Org tool specific fields
-  orgId?: string;
-  capabilities?: string[];
+  orgId?: string
+  capabilities?: string[]
 }
 
 export interface AgentCharacter {
-  id: string;
-  name: string;
-  description: string;
-  system: string;
-  bio: string | string[];
-  messageExamples: MessageExample[][];
-  postExamples?: string[];
-  topics: string[];
-  adjectives: string[];
+  id: string
+  name: string
+  description: string
+  system: string
+  bio: string[]
+  messageExamples: MessageExample[][]
+  topics: string[]
+  adjectives: string[]
   style: {
-    all: string[];
-    chat: string[];
-    post: string[];
-  };
-  settings?: Record<string, string | boolean | number>;
+    all: string[]
+    chat: string[]
+    post: string[]
+  }
   modelPreferences?: {
-    small: string;
-    large: string;
-    embedding?: string;
-  };
-  mcpServers?: string[];
-  a2aCapabilities?: string[];
+    small: string
+    large: string
+    embedding?: string
+  }
+  mcpServers?: string[]
+  a2aCapabilities?: string[]
 }
 
 export interface MessageExample {
-  name: string;
-  content: { text: string };
+  name: string
+  content: { text: string }
 }
 
 export interface AgentState {
   /** Agent ID */
-  agentId: string;
+  agentId: string
   /** State version (incremented on each update) */
-  version: number;
+  version: number
   /** Memory entries */
-  memories: MemoryEntry[];
+  memories: MemoryEntry[]
   /** Active room memberships */
-  rooms: string[];
+  rooms: string[]
   /** Current context */
-  context: AgentContext;
+  context: AgentContext
   /** Last updated timestamp */
-  updatedAt: number;
+  updatedAt: number
 }
 
 export interface MemoryEntry {
-  id: string;
-  content: string;
-  embedding?: number[];
-  importance: number;
-  createdAt: number;
-  roomId?: string;
-  userId?: string;
+  id: string
+  content: string
+  embedding?: number[]
+  importance: number
+  createdAt: number
+  roomId?: string
+  userId?: string
 }
 
 // =============================================================================
@@ -196,156 +197,161 @@ export interface MemoryEntry {
 // =============================================================================
 
 export interface Room {
-  roomId: bigint;
-  name: string;
-  description: string;
-  owner: Address;
-  stateCid: string;
-  members: RoomMember[];
-  roomType: RoomType;
-  config: RoomConfig;
-  active: boolean;
-  createdAt: number;
+  roomId: bigint
+  name: string
+  description: string
+  owner: Address
+  stateCid: string
+  members: RoomMember[]
+  roomType: RoomType
+  config: RoomConfig
+  active: boolean
+  createdAt: number
 }
 
 export interface RoomMember {
-  agentId: bigint;
-  role: AgentRole;
-  joinedAt: number;
-  lastActiveAt: number;
-  score?: number;
+  agentId: bigint
+  role: AgentRole
+  joinedAt: number
+  lastActiveAt: number
+  score?: number
 }
 
-export type RoomType = 'collaboration' | 'adversarial' | 'debate' | 'council';
+export type RoomType = 'collaboration' | 'adversarial' | 'debate' | 'council'
 
-export type AgentRole = 'participant' | 'moderator' | 'red_team' | 'blue_team' | 'observer';
+export type AgentRole =
+  | 'participant'
+  | 'moderator'
+  | 'red_team'
+  | 'blue_team'
+  | 'observer'
 
 export interface RoomConfig {
-  maxMembers: number;
-  turnBased: boolean;
-  turnTimeout?: number;
-  scoringRules?: ScoringRules;
-  visibility: 'public' | 'private' | 'members_only';
+  maxMembers: number
+  turnBased: boolean
+  turnTimeout?: number
+  scoringRules?: ScoringRules
+  visibility: 'public' | 'private' | 'members_only'
 }
 
 export interface ScoringRules {
   /** Points per successful action */
-  actionPoints: number;
+  actionPoints: number
   /** Points for winning */
-  winBonus: number;
+  winBonus: number
   /** Points deducted for violations */
-  violationPenalty: number;
+  violationPenalty: number
   /** Custom rules */
-  custom?: Record<string, number>;
+  custom?: Record<string, number>
 }
 
 export interface RoomState {
-  roomId: string;
-  version: number;
-  messages: RoomMessage[];
-  scores: Record<string, number>;
-  currentTurn?: string;
-  phase: RoomPhase;
-  metadata: RoomStateMetadata;
-  updatedAt: number;
+  roomId: string
+  version: number
+  messages: RoomMessage[]
+  scores: Record<string, number>
+  currentTurn?: string
+  phase: RoomPhase
+  metadata: RoomStateMetadata
+  updatedAt: number
 }
 
 export interface RoomMessage {
-  id: string;
-  agentId: string;
-  content: string;
-  timestamp: number;
-  action?: string;
-  metadata?: MessageMetadata;
+  id: string
+  agentId: string
+  content: string
+  timestamp: number
+  action?: string
+  metadata?: MessageMetadata
 }
 
-export type RoomPhase = 'setup' | 'active' | 'paused' | 'completed' | 'archived';
+export type RoomPhase = 'setup' | 'active' | 'paused' | 'completed' | 'archived'
 
 // =============================================================================
 // Team Types
 // =============================================================================
 
 export interface Team {
-  teamId: bigint;
-  name: string;
-  objective: string;
-  members: bigint[];
-  vaultAddress: Address;
-  teamType: TeamType;
-  leaderId?: bigint;
-  active: boolean;
+  teamId: bigint
+  name: string
+  objective: string
+  members: bigint[]
+  vaultAddress: Address
+  teamType: TeamType
+  leaderId?: bigint
+  active: boolean
 }
 
-export type TeamType = 'red' | 'blue' | 'neutral' | 'mixed';
+export type TeamType = 'red' | 'blue' | 'neutral' | 'mixed'
 
 // =============================================================================
 // Execution Types
 // =============================================================================
 
 export interface ExecutionRequest {
-  agentId: bigint;
-  triggerId?: string;
-  input: ExecutionInput;
-  options?: ExecutionOptions;
+  agentId: bigint
+  triggerId?: string
+  input: ExecutionInput
+  options?: ExecutionOptions
 }
 
 export interface ExecutionInput {
-  message?: string;
-  roomId?: string;
-  userId?: string;
-  context?: JsonObject;
+  message?: string
+  roomId?: string
+  userId?: string
+  context?: JsonObject
 }
 
 export interface ExecutionOptions {
-  maxTokens?: number;
-  temperature?: number;
-  requireTee?: boolean;
-  maxCost?: bigint;
-  timeout?: number;
+  maxTokens?: number
+  temperature?: number
+  requireTee?: boolean
+  maxCost?: bigint
+  timeout?: number
 }
 
 export interface ExecutionResult {
-  executionId: string;
-  agentId: bigint;
-  status: ExecutionStatus;
-  output?: ExecutionOutput;
-  newStateCid?: string;
-  cost: ExecutionCost;
-  metadata: ExecutionMetadata;
+  executionId: string
+  agentId: bigint
+  status: ExecutionStatus
+  output?: ExecutionOutput
+  newStateCid?: string
+  cost: ExecutionCost
+  metadata: ExecutionMetadata
 }
 
 export interface ExecutionOutput {
-  response?: string;
-  actions?: AgentAction[];
-  stateUpdates?: StateUpdates;
-  roomMessages?: RoomMessage[];
+  response?: string
+  actions?: AgentAction[]
+  stateUpdates?: StateUpdates
+  roomMessages?: RoomMessage[]
 }
 
 export interface AgentAction {
-  type: string;
-  target?: string;
-  params?: ActionParams;
-  result?: ActionResult;
-  success: boolean;
+  type: string
+  target?: string
+  params?: ActionParams
+  result?: ActionResult
+  success: boolean
 }
 
 export interface ExecutionCost {
-  total: bigint;
-  inference: bigint;
-  storage: bigint;
-  executionFee: bigint;
-  currency: string;
-  txHash?: string;
+  total: bigint
+  inference: bigint
+  storage: bigint
+  executionFee: bigint
+  currency: string
+  txHash?: string
 }
 
 export interface ExecutionMetadata {
-  startedAt: number;
-  completedAt: number;
-  latencyMs: number;
-  model?: string;
-  tokensUsed?: { input: number; output: number };
-  executor: Address;
-  attestationHash?: string;
+  startedAt: number
+  completedAt: number
+  latencyMs: number
+  model?: string
+  tokensUsed?: { input: number; output: number }
+  executor: Address
+  attestationHash?: string
 }
 
 // ExecutionStatus is re-exported at the top of the file via the initial import
@@ -355,25 +361,25 @@ export interface ExecutionMetadata {
 // =============================================================================
 
 export interface AgentTrigger {
-  triggerId: string;
-  agentId: bigint;
-  type: TriggerType;
-  config: TriggerConfig;
-  active: boolean;
-  lastFiredAt?: number;
-  fireCount: number;
+  triggerId: string
+  agentId: bigint
+  type: TriggerType
+  config: TriggerConfig
+  active: boolean
+  lastFiredAt?: number
+  fireCount: number
 }
 
-export type TriggerType = 'cron' | 'webhook' | 'event' | 'room_message';
+export type TriggerType = 'cron' | 'webhook' | 'event' | 'room_message'
 
 export interface TriggerConfig {
-  cronExpression?: string;
-  webhookPath?: string;
-  eventTypes?: string[];
-  roomId?: string;
-  endpoint?: string;
-  paymentMode: 'x402' | 'prepaid' | 'vault';
-  pricePerExecution?: bigint;
+  cronExpression?: string
+  webhookPath?: string
+  eventTypes?: string[]
+  roomId?: string
+  endpoint?: string
+  paymentMode: 'x402' | 'prepaid' | 'vault'
+  pricePerExecution?: bigint
 }
 
 // =============================================================================
@@ -381,22 +387,22 @@ export interface TriggerConfig {
 // =============================================================================
 
 export interface AgentVault {
-  address: Address;
-  agentId: bigint;
-  balance: bigint;
-  spendLimit: bigint;
-  approvedSpenders: Address[];
-  totalSpent: bigint;
-  lastFundedAt: number;
+  address: Address
+  agentId: bigint
+  balance: bigint
+  spendLimit: bigint
+  approvedSpenders: Address[]
+  totalSpent: bigint
+  lastFundedAt: number
 }
 
 export interface VaultTransaction {
-  txHash: string;
-  type: 'deposit' | 'withdrawal' | 'spend';
-  amount: bigint;
-  spender?: Address;
-  description?: string;
-  timestamp: number;
+  txHash: string
+  type: 'deposit' | 'withdrawal' | 'spend'
+  amount: bigint
+  spender?: Address
+  description?: string
+  timestamp: number
 }
 
 // =============================================================================
@@ -405,33 +411,33 @@ export interface VaultTransaction {
 
 export interface AgentSearchFilter {
   /** Search by name */
-  name?: string;
+  name?: string
   /** Search by owner */
-  owner?: Address;
+  owner?: Address
   /** Filter by active status */
-  active?: boolean;
+  active?: boolean
   /** Filter by capabilities */
-  capabilities?: string[];
+  capabilities?: string[]
   /** Filter by room membership */
-  roomId?: bigint;
+  roomId?: bigint
   /** Limit results */
-  limit?: number;
+  limit?: number
   /** Offset for pagination */
-  offset?: number;
+  offset?: number
 }
 
 export interface ServiceSearchFilter {
-  type?: 'mcp' | 'a2a' | 'rest';
-  category?: string;
-  query?: string;
-  verifiedOnly?: boolean;
-  limit?: number;
+  type?: 'mcp' | 'a2a' | 'rest'
+  category?: string
+  query?: string
+  verifiedOnly?: boolean
+  limit?: number
 }
 
 export interface SearchResult<T> {
-  items: T[];
-  total: number;
-  hasMore: boolean;
+  items: T[]
+  total: number
+  hasMore: boolean
 }
 
 // =============================================================================
@@ -439,96 +445,105 @@ export interface SearchResult<T> {
 // =============================================================================
 
 export interface CrucibleConfig {
-  rpcUrl: string;
-  privateKey?: string;
+  rpcUrl: string
+  privateKey?: string
   contracts: {
-    agentVault: Address;
-    roomRegistry: Address;
-    triggerRegistry: Address;
-    identityRegistry: Address;
-    serviceRegistry: Address;
-    autocratTreasury?: Address;
-  };
+    agentVault: Address
+    roomRegistry: Address
+    triggerRegistry: Address
+    identityRegistry: Address
+    serviceRegistry: Address
+    autocratTreasury?: Address
+  }
   services: {
-    computeMarketplace: string;
-    storageApi: string;
-    ipfsGateway: string;
-    indexerGraphql: string;
-    cqlEndpoint?: string;
-    dexCacheUrl?: string;
-  };
-  network: 'localnet' | 'testnet' | 'mainnet';
+    computeMarketplace: string
+    storageApi: string
+    ipfsGateway: string
+    indexerGraphql: string
+    cqlEndpoint?: string
+    dexCacheUrl?: string
+  }
+  network: 'localnet' | 'testnet' | 'mainnet'
 }
 
 // =============================================================================
 // Trading Bot Types
 // =============================================================================
 
-export type TradingBotStrategyType = 'DEX_ARBITRAGE' | 'CROSS_CHAIN_ARBITRAGE' | 'SANDWICH' | 'LIQUIDATION' | 'SOLVER' | 'ORACLE_KEEPER';
+export type TradingBotStrategyType =
+  | 'DEX_ARBITRAGE'
+  | 'CROSS_CHAIN_ARBITRAGE'
+  | 'SANDWICH'
+  | 'LIQUIDATION'
+  | 'SOLVER'
+  | 'ORACLE_KEEPER'
 
 export interface TradingBotStrategy {
-  type: TradingBotStrategyType;
-  enabled: boolean;
-  minProfitBps: number;
-  maxGasGwei: number;
-  maxSlippageBps: number;
-  cooldownMs?: number;
+  type: TradingBotStrategyType
+  enabled: boolean
+  minProfitBps: number
+  maxGasGwei: number
+  maxSlippageBps: number
+  cooldownMs?: number
 }
 
 export interface TradingBotChain {
-  chainId: number;
-  name: string;
-  rpcUrl: string;
-  wsUrl?: string;
-  blockTime: number;
-  isL2: boolean;
-  nativeSymbol: string;
-  explorerUrl?: string;
+  chainId: number
+  name: string
+  rpcUrl: string
+  wsUrl?: string
+  blockTime: number
+  isL2: boolean
+  nativeSymbol: string
+  explorerUrl?: string
 }
 
 export interface TradingBotState {
-  botId: string;
-  botType: 'trading_bot';
-  lastExecution: number;
-  metrics: TradingBotMetrics;
-  opportunities: TradingBotOpportunity[];
-  config: TradingBotConfig;
-  version: number;
+  botId: string
+  botType: 'trading_bot'
+  lastExecution: number
+  metrics: TradingBotMetrics
+  opportunities: TradingBotOpportunity[]
+  config: TradingBotConfig
+  version: number
 }
 
 export interface TradingBotMetrics {
-  opportunitiesDetected: number;
-  opportunitiesExecuted: number;
-  opportunitiesFailed: number;
-  totalProfitWei: string;
-  totalProfitUsd: string;
-  totalGasSpent: string;
-  avgExecutionTimeMs: number;
-  uptime: number;
-  lastUpdate: number;
-  byStrategy: Record<string, {
-    detected: number;
-    executed: number;
-    failed: number;
-    profitWei: string;
-  }>;
+  opportunitiesDetected: number
+  opportunitiesExecuted: number
+  opportunitiesFailed: number
+  totalProfitWei: string
+  totalProfitUsd: string
+  totalGasSpent: string
+  avgExecutionTimeMs: number
+  uptime: number
+  lastUpdate: number
+  byStrategy: Record<
+    string,
+    {
+      detected: number
+      executed: number
+      failed: number
+      profitWei: string
+    }
+  >
 }
 
 export interface TradingBotOpportunity {
-  id: string;
-  type: TradingBotStrategyType;
-  chainId: number;
-  expectedProfit: string;
-  detectedAt: number;
-  status: 'DETECTED' | 'EXECUTING' | 'COMPLETED' | 'FAILED';
+  id: string
+  type: TradingBotStrategyType
+  chainId: number
+  expectedProfit: string
+  detectedAt: number
+  status: 'DETECTED' | 'EXECUTING' | 'COMPLETED' | 'FAILED'
 }
 
 export interface TradingBotConfig {
-  strategies: TradingBotStrategy[];
-  chains: TradingBotChain[];
-  treasuryAddress?: Address;
-  maxConcurrentExecutions: number;
-  useFlashbots: boolean;
+  strategies: TradingBotStrategy[]
+  chains: TradingBotChain[]
+  treasuryAddress?: Address
+  maxConcurrentExecutions: number
+  useFlashbots: boolean
 }
 
 // =============================================================================
@@ -536,62 +551,62 @@ export interface TradingBotConfig {
 // =============================================================================
 
 export interface OrgToolState {
-  orgId: string;
-  botId: string;
-  botType: 'org_tool';
-  todos: OrgTodo[];
-  checkinSchedules: OrgCheckinSchedule[];
-  checkinResponses: OrgCheckinResponse[];
-  teamMembers: OrgTeamMember[];
-  version: number;
-  updatedAt: number;
+  orgId: string
+  botId: string
+  botType: 'org_tool'
+  todos: OrgTodo[]
+  checkinSchedules: OrgCheckinSchedule[]
+  checkinResponses: OrgCheckinResponse[]
+  teamMembers: OrgTeamMember[]
+  version: number
+  updatedAt: number
 }
 
 export interface OrgTodo {
-  id: string;
-  orgId: string;
-  title: string;
-  description?: string;
-  priority: 'low' | 'medium' | 'high';
-  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
-  assigneeAgentId?: string;
-  createdBy: string;
-  dueDate?: number;
-  tags: string[];
-  createdAt: number;
-  updatedAt: number;
+  id: string
+  orgId: string
+  title: string
+  description?: string
+  priority: 'low' | 'medium' | 'high'
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled'
+  assigneeAgentId?: string
+  createdBy: string
+  dueDate?: number
+  tags: string[]
+  createdAt: number
+  updatedAt: number
 }
 
 export interface OrgCheckinSchedule {
-  id: string;
-  orgId: string;
-  roomId?: string;
-  name: string;
-  checkinType: 'standup' | 'retrospective' | 'checkin';
-  frequency: 'daily' | 'weekdays' | 'weekly' | 'monthly';
-  timeUtc: string;
-  questions: string[];
-  active: boolean;
-  createdAt: number;
+  id: string
+  orgId: string
+  roomId?: string
+  name: string
+  checkinType: 'standup' | 'retrospective' | 'checkin'
+  frequency: 'daily' | 'weekdays' | 'weekly' | 'monthly'
+  timeUtc: string
+  questions: string[]
+  active: boolean
+  createdAt: number
 }
 
 export interface OrgCheckinResponse {
-  id: string;
-  scheduleId: string;
-  responderAgentId: string;
-  answers: Record<string, string>;
-  submittedAt: number;
+  id: string
+  scheduleId: string
+  responderAgentId: string
+  answers: Record<string, string>
+  submittedAt: number
 }
 
 export interface OrgTeamMember {
-  agentId: string;
-  orgId: string;
-  role: string;
-  joinedAt: number;
-  lastActiveAt: number;
+  agentId: string
+  orgId: string
+  role: string
+  joinedAt: number
+  lastActiveAt: number
   stats: {
-    todosCompleted: number;
-    checkinsCompleted: number;
-    contributions: number;
-  };
+    todosCompleted: number
+    checkinsCompleted: number
+    contributions: number
+  }
 }

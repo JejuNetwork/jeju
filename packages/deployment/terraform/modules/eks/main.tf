@@ -50,6 +50,20 @@ variable "tags" {
   default     = {}
 }
 
+# SECURITY: EKS API endpoint access control
+variable "enable_public_access" {
+  description = "Enable public access to EKS API. Set to false for private-only clusters."
+  type        = bool
+  default     = true
+}
+
+variable "public_access_cidrs" {
+  description = "CIDR blocks allowed to access public EKS API endpoint. Restrict to your team's IPs/VPN."
+  type        = list(string)
+  # SECURITY: Default to no public access - must explicitly specify allowed CIDRs
+  default     = []
+}
+
 locals {
   cluster_name = "jeju-${var.environment}"
 }
@@ -114,7 +128,10 @@ resource "aws_eks_cluster" "main" {
   vpc_config {
     subnet_ids              = concat(var.private_subnet_ids, var.public_subnet_ids)
     endpoint_private_access = true
-    endpoint_public_access  = true
+    # SECURITY: Public access enabled but restricted to specific CIDRs
+    # In production, set public_access_cidrs to your team's IP ranges or VPN
+    endpoint_public_access  = var.enable_public_access
+    public_access_cidrs     = var.public_access_cidrs
     security_group_ids      = [aws_security_group.cluster.id]
   }
 

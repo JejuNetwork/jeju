@@ -1,17 +1,17 @@
 'use client'
 
 import { useParams } from 'next/navigation'
-import { useAccount } from 'wagmi'
 import { useState } from 'react'
+import { useAccount } from 'wagmi'
 
 export default function NFTDetailPage() {
   const params = useParams()
   const { address, isConnected } = useAccount()
-  const [showListModal, setShowListModal] = useState(false)
+  const [, setShowListModal] = useState(false)
   const [showTransferModal, setShowTransferModal] = useState(false)
 
   const rawId = params?.id
-  const id = Array.isArray(rawId) ? rawId[0] : rawId ?? ''
+  const id = Array.isArray(rawId) ? rawId[0] : (rawId ?? '')
   const [nftContract, tokenId] = id.split('-')
 
   const isOwner = true
@@ -26,7 +26,10 @@ export default function NFTDetailPage() {
 
         {/* NFT Info */}
         <div>
-          <h1 className="text-2xl md:text-4xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
+          <h1
+            className="text-2xl md:text-4xl font-bold mb-2"
+            style={{ color: 'var(--text-primary)' }}
+          >
             Item #{tokenId}
           </h1>
           <p className="mb-6" style={{ color: 'var(--text-secondary)' }}>
@@ -34,13 +37,19 @@ export default function NFTDetailPage() {
           </p>
 
           <div className="card p-5 md:p-6 mb-6">
-            <h2 className="text-lg md:text-xl font-bold mb-4" style={{ color: 'var(--text-primary)' }}>
+            <h2
+              className="text-lg md:text-xl font-bold mb-4"
+              style={{ color: 'var(--text-primary)' }}
+            >
               Details
             </h2>
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span style={{ color: 'var(--text-secondary)' }}>Owner</span>
-                <span className="font-mono text-sm" style={{ color: 'var(--text-primary)' }}>
+                <span
+                  className="font-mono text-sm"
+                  style={{ color: 'var(--text-primary)' }}
+                >
                   {address?.slice(0, 6)}...{address?.slice(-4)}
                 </span>
               </div>
@@ -50,7 +59,10 @@ export default function NFTDetailPage() {
               </div>
               <div className="flex justify-between">
                 <span style={{ color: 'var(--text-secondary)' }}>Contract</span>
-                <span className="font-mono text-xs" style={{ color: 'var(--text-primary)' }}>
+                <span
+                  className="font-mono text-xs"
+                  style={{ color: 'var(--text-primary)' }}
+                >
                   {nftContract?.slice(0, 6)}...{nftContract?.slice(-4)}
                 </span>
               </div>
@@ -81,11 +93,17 @@ export default function NFTDetailPage() {
 
       {/* Activity Feed */}
       <div className="mt-12">
-        <h2 className="text-xl md:text-2xl font-bold mb-6" style={{ color: 'var(--text-primary)' }}>
+        <h2
+          className="text-xl md:text-2xl font-bold mb-6"
+          style={{ color: 'var(--text-primary)' }}
+        >
           Activity
         </h2>
         <div className="card p-5 md:p-6">
-          <p className="text-center py-8" style={{ color: 'var(--text-tertiary)' }}>
+          <p
+            className="text-center py-8"
+            style={{ color: 'var(--text-tertiary)' }}
+          >
             Activity history will appear here (transfers, sales, bids)
           </p>
         </div>
@@ -93,20 +111,29 @@ export default function NFTDetailPage() {
 
       {/* Transfer Modal */}
       {showTransferModal && (
-        <div 
+        <div
           className="fixed inset-0 flex items-center justify-center z-50 p-4"
           style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}
         >
-          <div 
+          <div
             className="w-full max-w-md p-6 rounded-2xl border"
-            style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}
+            style={{
+              backgroundColor: 'var(--surface)',
+              borderColor: 'var(--border)',
+            }}
           >
-            <h2 className="text-xl md:text-2xl font-bold mb-6" style={{ color: 'var(--text-primary)' }}>
+            <h2
+              className="text-xl md:text-2xl font-bold mb-6"
+              style={{ color: 'var(--text-primary)' }}
+            >
               Transfer Item
             </h2>
             <div className="space-y-4 mb-6">
               <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+                <label
+                  className="block text-sm font-medium mb-2"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
                   Recipient Address
                 </label>
                 <input

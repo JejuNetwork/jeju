@@ -1,22 +1,22 @@
 /**
  * Test Utilities for Bot Tests
- * 
+ *
  * Provides properly typed mock factories to avoid `as unknown as Type` casts.
  */
 
-import { mock } from 'bun:test';
-import type { Address } from 'viem';
-import type { AgentSDK } from '../sdk/agent';
-import type { AgentCharacter } from '../types';
+import { mock } from 'bun:test'
+import type { Address } from 'viem'
+import type { AgentSDK } from '../sdk/agent'
+import type { AgentCharacter } from '../types'
 
 /**
  * Return type from AgentSDK.registerAgent
  */
 export interface AgentRegistrationResult {
-  agentId: bigint;
-  vaultAddress: Address;
-  characterCid: string;
-  stateCid: string;
+  agentId: bigint
+  vaultAddress: Address
+  characterCid: string
+  stateCid: string
 }
 
 /**
@@ -24,7 +24,7 @@ export interface AgentRegistrationResult {
  * Use this instead of mocking the full AgentSDK class.
  */
 export interface AgentSDKRegisterOnly {
-  registerAgent: AgentSDK['registerAgent'];
+  registerAgent: AgentSDK['registerAgent']
 }
 
 /**
@@ -33,32 +33,40 @@ export interface AgentSDKRegisterOnly {
  */
 export function createMockAgentSDK(
   overrides?: Partial<{
-    registerAgent: AgentSDK['registerAgent'];
-  }>
+    registerAgent: AgentSDK['registerAgent']
+  }>,
 ): AgentSDKRegisterOnly {
   const defaultRegisterAgent = mock(
-    (_character: AgentCharacter, _options?: { initialFunding?: bigint; botType?: 'ai_agent' | 'trading_bot' | 'org_tool' }) =>
+    (
+      _character: AgentCharacter,
+      _options?: {
+        initialFunding?: bigint
+        botType?: 'ai_agent' | 'trading_bot' | 'org_tool'
+      },
+    ) =>
       Promise.resolve<AgentRegistrationResult>({
         agentId: 1n,
         vaultAddress: '0x1111111111111111111111111111111111111111' as Address,
         characterCid: 'QmTestCharacter',
         stateCid: 'QmTestState',
-      })
-  );
+      }),
+  )
 
   return {
     registerAgent: overrides?.registerAgent ?? defaultRegisterAgent,
-  };
+  }
 }
 
 /**
  * Creates a mock AgentSDK that fails on registerAgent.
  * Useful for testing error handling.
  */
-export function createFailingMockAgentSDK(errorMessage = 'Registration failed'): AgentSDKRegisterOnly {
+export function createFailingMockAgentSDK(
+  errorMessage = 'Registration failed',
+): AgentSDKRegisterOnly {
   return {
     registerAgent: mock(() => Promise.reject(new Error(errorMessage))),
-  };
+  }
 }
 
 /**
@@ -66,19 +74,25 @@ export function createFailingMockAgentSDK(errorMessage = 'Registration failed'):
  * Each call to registerAgent returns an incrementing agentId.
  */
 export function createSequentialMockAgentSDK(): AgentSDKRegisterOnly {
-  let nextAgentId = 1n;
-  
+  let nextAgentId = 1n
+
   return {
     registerAgent: mock(
-      (_character: AgentCharacter, _options?: { initialFunding?: bigint; botType?: 'ai_agent' | 'trading_bot' | 'org_tool' }) =>
+      (
+        _character: AgentCharacter,
+        _options?: {
+          initialFunding?: bigint
+          botType?: 'ai_agent' | 'trading_bot' | 'org_tool'
+        },
+      ) =>
         Promise.resolve<AgentRegistrationResult>({
           agentId: nextAgentId++,
           vaultAddress: `0x${'1'.repeat(40)}` as Address,
           characterCid: 'QmTestCharacter',
           stateCid: 'QmTestState',
-        })
+        }),
     ),
-  };
+  }
 }
 
 /**
@@ -90,4 +104,4 @@ export const TEST_CHAIN_IDS = {
   UNCONFIGURED: 999999,
   /** Another unconfigured chain for variety */
   UNCONFIGURED_2: 888888,
-} as const;
+} as const

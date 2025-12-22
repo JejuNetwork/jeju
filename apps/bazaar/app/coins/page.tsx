@@ -1,12 +1,12 @@
 'use client'
 
-import { useState } from 'react'
-import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { fetchTokens, type Token } from '@/lib/data-client'
-import { JEJU_CHAIN_ID } from '@/config/chains'
-import { LoadingSpinner } from '@/components/LoadingSpinner'
+import Link from 'next/link'
+import { useState } from 'react'
 import { formatUnits } from 'viem'
+import { LoadingSpinner } from '@/components/LoadingSpinner'
+import { JEJU_CHAIN_ID } from '@/config/chains'
+import { fetchTokens, type Token } from '@/lib/data-client'
 
 function formatNumber(num: number | bigint): string {
   const n = typeof num === 'bigint' ? Number(num) : num
@@ -18,7 +18,9 @@ function formatNumber(num: number | bigint): string {
 
 function TokenCard({ token }: { token: Token }) {
   const initials = token.symbol.slice(0, 2).toUpperCase()
-  const supplyFormatted = formatNumber(Number(formatUnits(token.totalSupply, token.decimals)))
+  const supplyFormatted = formatNumber(
+    Number(formatUnits(token.totalSupply, token.decimals)),
+  )
 
   return (
     <Link
@@ -27,8 +29,8 @@ function TokenCard({ token }: { token: Token }) {
     >
       <div className="flex items-center gap-3 mb-4">
         {token.logoUrl ? (
-          <img 
-            src={token.logoUrl} 
+          <img
+            src={token.logoUrl}
             alt={token.symbol}
             className="w-12 h-12 rounded-2xl"
           />
@@ -39,14 +41,18 @@ function TokenCard({ token }: { token: Token }) {
         )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <h3 className="text-lg font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+            <h3
+              className="text-lg font-semibold truncate"
+              style={{ color: 'var(--text-primary)' }}
+            >
               {token.name}
             </h3>
-            {token.verified && (
-              <span className="text-blue-400 text-sm">✓</span>
-            )}
+            {token.verified && <span className="text-blue-400 text-sm">✓</span>}
           </div>
-          <p className="text-sm font-mono" style={{ color: 'var(--text-tertiary)' }}>
+          <p
+            className="text-sm font-mono"
+            style={{ color: 'var(--text-tertiary)' }}
+          >
             ${token.symbol}
           </p>
         </div>
@@ -68,23 +74,38 @@ function TokenCard({ token }: { token: Token }) {
         {token.volume24h !== undefined && (
           <div>
             <p style={{ color: 'var(--text-tertiary)' }}>24h Volume</p>
-            <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>
-              ${formatNumber(Number(formatUnits(token.volume24h, token.decimals)))}
+            <p
+              className="font-semibold"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              $
+              {formatNumber(
+                Number(formatUnits(token.volume24h, token.decimals)),
+              )}
             </p>
           </div>
         )}
         {token.priceChange24h !== undefined && (
           <div>
             <p style={{ color: 'var(--text-tertiary)' }}>24h Change</p>
-            <p className={`font-semibold ${token.priceChange24h >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-              {token.priceChange24h >= 0 ? '+' : ''}{token.priceChange24h.toFixed(2)}%
+            <p
+              className={`font-semibold ${token.priceChange24h >= 0 ? 'text-green-400' : 'text-red-400'}`}
+            >
+              {token.priceChange24h >= 0 ? '+' : ''}
+              {token.priceChange24h.toFixed(2)}%
             </p>
           </div>
         )}
       </div>
 
-      <div className="mt-4 pt-3 border-t flex items-center justify-between" style={{ borderColor: 'var(--border)' }}>
-        <p className="text-xs font-mono" style={{ color: 'var(--text-tertiary)' }}>
+      <div
+        className="mt-4 pt-3 border-t flex items-center justify-between"
+        style={{ borderColor: 'var(--border)' }}
+      >
+        <p
+          className="text-xs font-mono"
+          style={{ color: 'var(--text-tertiary)' }}
+        >
           {token.address.slice(0, 6)}...{token.address.slice(-4)}
         </p>
         <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
@@ -97,37 +118,57 @@ function TokenCard({ token }: { token: Token }) {
 
 export default function CoinsPage() {
   const [filter, setFilter] = useState<'all' | 'verified' | 'new'>('all')
-  const [orderBy, setOrderBy] = useState<'volume' | 'recent' | 'holders'>('recent')
+  const [orderBy, setOrderBy] = useState<'volume' | 'recent' | 'holders'>(
+    'recent',
+  )
 
-  const { data: tokens, isLoading, error, refetch } = useQuery({
+  const {
+    data: tokens,
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ['tokens', filter, orderBy],
-    queryFn: () => fetchTokens({
-      limit: 50,
-      verified: filter === 'verified' ? true : undefined,
-      orderBy,
-    }),
+    queryFn: () =>
+      fetchTokens({
+        limit: 50,
+        verified: filter === 'verified' ? true : undefined,
+        orderBy,
+      }),
     refetchInterval: 15000,
     staleTime: 10000,
   })
 
   // Filter by 'new' (last 7 days) on client side
-  const filteredTokens = filter === 'new' && tokens
-    ? tokens.filter(t => t.createdAt > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
-    : tokens
+  const filteredTokens =
+    filter === 'new' && tokens
+      ? tokens.filter(
+          (t) => t.createdAt > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+        )
+      : tokens
 
   return (
     <div>
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
+          <h1
+            className="text-2xl sm:text-3xl md:text-4xl font-bold mb-1"
+            style={{ color: 'var(--text-primary)' }}
+          >
             🪙 Coins
           </h1>
-          <p className="text-sm sm:text-base" style={{ color: 'var(--text-secondary)' }}>
+          <p
+            className="text-sm sm:text-base"
+            style={{ color: 'var(--text-secondary)' }}
+          >
             Browse and trade tokens on the network
           </p>
         </div>
-        <Link href="/coins/launch" className="btn-primary w-full md:w-auto text-center">
+        <Link
+          href="/coins/launch"
+          className="btn-primary w-full md:w-auto text-center"
+        >
           Create Token
         </Link>
       </div>
@@ -142,10 +183,14 @@ export default function CoinsPage() {
               className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${
                 filter === f ? 'bg-bazaar-primary text-white' : ''
               }`}
-              style={filter !== f ? { 
-                backgroundColor: 'var(--bg-secondary)',
-                color: 'var(--text-secondary)'
-              } : undefined}
+              style={
+                filter !== f
+                  ? {
+                      backgroundColor: 'var(--bg-secondary)',
+                      color: 'var(--text-secondary)',
+                    }
+                  : undefined
+              }
             >
               {f === 'all' ? 'All' : f === 'verified' ? '✓ Verified' : '🆕 New'}
             </button>
@@ -178,11 +223,19 @@ export default function CoinsPage() {
           <div className="flex items-start gap-3">
             <span className="text-2xl">⚠️</span>
             <div className="flex-1">
-              <p className="font-semibold mb-1 text-red-400">Unable to load tokens</p>
-              <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
+              <p className="font-semibold mb-1 text-red-400">
+                Unable to load tokens
+              </p>
+              <p
+                className="text-sm mb-3"
+                style={{ color: 'var(--text-secondary)' }}
+              >
                 {error instanceof Error ? error.message : 'Network error'}
               </p>
-              <button onClick={() => refetch()} className="btn-secondary text-sm">
+              <button
+                onClick={() => refetch()}
+                className="btn-secondary text-sm"
+              >
                 Retry
               </button>
             </div>
@@ -194,15 +247,25 @@ export default function CoinsPage() {
       {!isLoading && !error && filteredTokens?.length === 0 && (
         <div className="text-center py-16">
           <div className="text-5xl mb-4">🪙</div>
-          <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
-            {filter === 'new' ? 'No New Tokens' : filter === 'verified' ? 'No Verified Tokens' : 'No Tokens Yet'}
+          <h3
+            className="text-lg font-semibold mb-2"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            {filter === 'new'
+              ? 'No New Tokens'
+              : filter === 'verified'
+                ? 'No Verified Tokens'
+                : 'No Tokens Yet'}
           </h3>
-          <p className="mb-4 text-sm" style={{ color: 'var(--text-secondary)' }}>
-            {filter === 'all' 
+          <p
+            className="mb-4 text-sm"
+            style={{ color: 'var(--text-secondary)' }}
+          >
+            {filter === 'all'
               ? 'Be the first to create a token on the network'
               : filter === 'verified'
-              ? 'No tokens have been verified yet'
-              : 'No tokens created in the last 7 days'}
+                ? 'No tokens have been verified yet'
+                : 'No tokens created in the last 7 days'}
           </p>
           {filter === 'all' && (
             <Link href="/coins/launch" className="btn-primary">

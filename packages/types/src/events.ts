@@ -5,8 +5,8 @@
  * across the Jeju ecosystem. Includes Zod schemas for runtime validation.
  */
 
-import { z } from 'zod';
-import type { ErrorDetail } from './api';
+import { z } from 'zod'
+import type { ErrorDetail } from './api'
 
 // ============================================================================
 // Generic Event Handler Types
@@ -18,19 +18,19 @@ import type { ErrorDetail } from './api';
  *
  * @template TEvent - The event type that this handler processes
  */
-export type EventHandler<TEvent> = (event: TEvent) => void | Promise<void>;
+export type EventHandler<TEvent> = (event: TEvent) => void | Promise<void>
 
 /**
  * Event listener (alias for EventHandler)
  * Provides semantic clarity when registering listeners
  */
-export type EventListener<TEvent> = EventHandler<TEvent>;
+export type EventListener<TEvent> = EventHandler<TEvent>
 
 /**
  * Event callback function type
  * Alternative naming for event handlers
  */
-export type EventCallback<TEvent> = EventHandler<TEvent>;
+export type EventCallback<TEvent> = EventHandler<TEvent>
 
 // ============================================================================
 // Event Base Schemas
@@ -48,8 +48,8 @@ export const BaseEventSchema = z.object({
   id: z.string().optional(),
   /** Optional source/service that emitted the event */
   source: z.string().optional(),
-});
-export type BaseEvent = z.infer<typeof BaseEventSchema>;
+})
+export type BaseEvent = z.infer<typeof BaseEventSchema>
 
 /**
  * Error information schema for error events
@@ -58,14 +58,16 @@ export const EventErrorInfoSchema = z.object({
   message: z.string(),
   code: z.string().optional(),
   /** Structured error details (not unknown) */
-  details: z.union([
-    z.string(),
-    z.array(z.string()),
-    z.array(z.object({ field: z.string(), message: z.string() })),
-    z.array(z.object({ path: z.array(z.string()), message: z.string() })),
-  ]).optional(),
-});
-export type EventErrorInfo = z.infer<typeof EventErrorInfoSchema>;
+  details: z
+    .union([
+      z.string(),
+      z.array(z.string()),
+      z.array(z.object({ field: z.string(), message: z.string() })),
+      z.array(z.object({ path: z.array(z.string()), message: z.string() })),
+    ])
+    .optional(),
+})
+export type EventErrorInfo = z.infer<typeof EventErrorInfoSchema>
 
 /**
  * Error event schema
@@ -73,19 +75,19 @@ export type EventErrorInfo = z.infer<typeof EventErrorInfoSchema>;
 export const ErrorEventSchema = BaseEventSchema.extend({
   type: z.literal('error'),
   error: EventErrorInfoSchema,
-});
+})
 
 /**
  * Event with error information
  */
 export interface ErrorEvent extends BaseEvent {
-  type: 'error';
+  type: 'error'
   error: {
-    message: string;
-    code?: string;
+    message: string
+    code?: string
     /** Strongly typed error details */
-    details?: ErrorDetail;
-  };
+    details?: ErrorDetail
+  }
 }
 
 // ============================================================================
@@ -99,8 +101,8 @@ export const BlockchainEventDataSchema = z.object({
   blockNumber: z.number().int().nonnegative(),
   transactionHash: z.string(),
   logIndex: z.number().int().nonnegative().optional(),
-});
-export type BlockchainEventData = z.infer<typeof BlockchainEventDataSchema>;
+})
+export type BlockchainEventData = z.infer<typeof BlockchainEventDataSchema>
 
 /**
  * Transaction event schema
@@ -113,8 +115,8 @@ export const TransactionEventSchema = BaseEventSchema.extend({
     value: z.string(),
     status: z.enum(['pending', 'confirmed', 'failed']),
   }),
-});
-export type TransactionEvent = z.infer<typeof TransactionEventSchema>;
+})
+export type TransactionEvent = z.infer<typeof TransactionEventSchema>
 
 /**
  * State change event schema
@@ -126,8 +128,8 @@ export const StateChangeEventSchema = BaseEventSchema.extend({
     newState: z.string(),
     reason: z.string().optional(),
   }),
-});
-export type StateChangeEvent = z.infer<typeof StateChangeEventSchema>;
+})
+export type StateChangeEvent = z.infer<typeof StateChangeEventSchema>
 
 // ============================================================================
 // Event Emitter Interface
@@ -141,20 +143,20 @@ export interface EventEmitter<TEvent extends BaseEvent = BaseEvent> {
   /**
    * Register an event handler
    */
-  on(eventType: TEvent['type'], handler: EventHandler<TEvent>): void;
+  on(eventType: TEvent['type'], handler: EventHandler<TEvent>): void
 
   /**
    * Unregister an event handler
    */
-  off(eventType: TEvent['type'], handler: EventHandler<TEvent>): void;
+  off(eventType: TEvent['type'], handler: EventHandler<TEvent>): void
 
   /**
    * Emit an event
    */
-  emit(event: TEvent): void | Promise<void>;
+  emit(event: TEvent): void | Promise<void>
 
   /**
    * Register a one-time event handler
    */
-  once?(eventType: TEvent['type'], handler: EventHandler<TEvent>): void;
+  once?(eventType: TEvent['type'], handler: EventHandler<TEvent>): void
 }

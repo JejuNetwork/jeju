@@ -1,26 +1,27 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { FileText, Plus } from 'lucide-react'
 import Link from 'next/link'
-import { Plus, FileText } from 'lucide-react'
-import { ProposalCard } from '@/components/ProposalCard'
-import { CEOStatus } from '@/components/CEOStatus'
+import { useEffect, useState } from 'react'
 import { AutocratStatus } from '@/components/AutocratStatus'
-import { 
-  fetchProposals, 
-  fetchCEOStatus, 
-  fetchAutocratStatus, 
-  fetchGovernanceStats,
-  type Proposal,
-  type CEOStatus as CEOStatusType,
+import { CEOStatus } from '@/components/CEOStatus'
+import { ProposalCard } from '@/components/ProposalCard'
+import {
   type AutocratStatus as AutocratStatusType,
-  type GovernanceStats
+  type CEOStatus as CEOStatusType,
+  fetchAutocratStatus,
+  fetchCEOStatus,
+  fetchGovernanceStats,
+  fetchProposals,
+  type GovernanceStats,
+  type Proposal,
 } from '@/config/api'
 
 export default function DashboardPage() {
   const [proposals, setProposals] = useState<Proposal[]>([])
   const [ceoStatus, setCEOStatus] = useState<CEOStatusType | null>(null)
-  const [autocratStatus, setAutocratStatus] = useState<AutocratStatusType | null>(null)
+  const [autocratStatus, setAutocratStatus] =
+    useState<AutocratStatusType | null>(null)
   const [stats, setStats] = useState<GovernanceStats | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -33,7 +34,7 @@ export default function DashboardPage() {
         fetchAutocratStatus().catch(() => null),
         fetchGovernanceStats().catch(() => null),
       ])
-      
+
       setProposals(proposalsData.proposals)
       setCEOStatus(ceo)
       setAutocratStatus(autocrat)
@@ -61,7 +62,9 @@ export default function DashboardPage() {
         </div>
         <div className="stat-card">
           <span className="stat-label">Min Score</span>
-          <div className="stat-value">{stats?.parameters.minQualityScore ?? '90'}%</div>
+          <div className="stat-value">
+            {stats?.parameters.minQualityScore ?? '90'}%
+          </div>
         </div>
       </div>
 
@@ -70,16 +73,18 @@ export default function DashboardPage() {
         {/* Active Proposals - full width on mobile, 2/3 on desktop */}
         <div className="lg:col-span-2 order-2 lg:order-1">
           <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <h2 className="text-base sm:text-lg font-semibold">Active Proposals</h2>
-            <Link 
-              href="/proposals" 
+            <h2 className="text-base sm:text-lg font-semibold">
+              Active Proposals
+            </h2>
+            <Link
+              href="/proposals"
               className="text-xs sm:text-sm hover:underline"
               style={{ color: 'var(--color-primary)' }}
             >
               View all →
             </Link>
           </div>
-          
+
           {loading ? (
             <div className="space-y-3">
               {[1, 2, 3].map((i) => (
@@ -96,10 +101,16 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : (
-            <div className="card-static p-6 sm:p-8 text-center" style={{ color: 'var(--text-tertiary)' }}>
+            <div
+              className="card-static p-6 sm:p-8 text-center"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
               <FileText size={28} className="mx-auto mb-3 opacity-50" />
               <p className="mb-3 text-sm">No active proposals</p>
-              <Link href="/create" className="btn-primary inline-flex items-center gap-2 text-sm">
+              <Link
+                href="/create"
+                className="btn-primary inline-flex items-center gap-2 text-sm"
+              >
                 <Plus size={16} />
                 Create Proposal
               </Link>

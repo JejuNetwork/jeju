@@ -1,19 +1,27 @@
 /**
  * CEO Agent Plugin
- * 
+ *
  * ElizaOS plugin that provides the AI CEO with:
  * - Governance data providers
  * - Decision-making actions
  * - On-chain integration
  * - A2A/MCP access
- * 
+ *
  * FULLY DECENTRALIZED - Endpoints resolved from network config
  */
 
-import { getAutocratA2AUrl } from '@jejunetwork/config';
-import type { Plugin, Action, IAgentRuntime, Memory, State, HandlerCallback, HandlerOptions } from '@elizaos/core';
-import { ceoProviders } from './ceo-providers';
-import { makeTEEDecision } from '../tee';
+import type {
+  Action,
+  HandlerCallback,
+  HandlerOptions,
+  IAgentRuntime,
+  Memory,
+  Plugin,
+  State,
+} from '@elizaos/core'
+import { getAutocratA2AUrl } from '@jejunetwork/config'
+import { makeTEEDecision } from '../tee'
+import { ceoProviders } from './ceo-providers'
 
 // ============================================================================
 // CEO Actions
@@ -25,24 +33,35 @@ import { makeTEEDecision } from '../tee';
  */
 const makeDecisionAction: Action = {
   name: 'MAKE_CEO_DECISION',
-  description: 'Make a final decision on a proposal (APPROVE or REJECT) with reasoning',
-  similes: ['decide on proposal', 'approve proposal', 'reject proposal', 'make decision'],
+  description:
+    'Make a final decision on a proposal (APPROVE or REJECT) with reasoning',
+  similes: [
+    'decide on proposal',
+    'approve proposal',
+    'reject proposal',
+    'make decision',
+  ],
   examples: [
     [
-      { 
-        name: 'user', 
-        content: { text: 'Please decide on proposal 0x1234...' } 
+      {
+        name: 'user',
+        content: { text: 'Please decide on proposal 0x1234...' },
       },
-      { 
-        name: 'ceo', 
-        content: { text: 'I have reviewed the proposal and council votes. Based on the strong council consensus and high quality score, I APPROVE this proposal.' } 
-      }
-    ]
+      {
+        name: 'ceo',
+        content: {
+          text: 'I have reviewed the proposal and council votes. Based on the strong council consensus and high quality score, I APPROVE this proposal.',
+        },
+      },
+    ],
   ],
 
-  validate: async (_runtime: IAgentRuntime, message: Memory): Promise<boolean> => {
-    const content = message.content?.text ?? '';
-    return content.includes('0x') || content.includes('proposal');
+  validate: async (
+    _runtime: IAgentRuntime,
+    message: Memory,
+  ): Promise<boolean> => {
+    const content = message.content?.text ?? ''
+    return content.includes('0x') || content.includes('proposal')
   },
 
   handler: async (
@@ -50,39 +69,42 @@ const makeDecisionAction: Action = {
     message: Memory,
     state?: State,
     _options?: HandlerOptions,
-    callback?: HandlerCallback
+    callback?: HandlerCallback,
   ): Promise<void> => {
-    const content = message.content?.text ?? '';
-    const proposalIdMatch = content.match(/0x[a-fA-F0-9]{64}/);
-    
+    const content = message.content?.text ?? ''
+    const proposalIdMatch = content.match(/0x[a-fA-F0-9]{64}/)
+
     if (!proposalIdMatch) {
       if (callback) {
         await callback({
           text: 'I need a proposal ID to make a decision. Please provide the full proposal ID (0x...).',
           action: 'MAKE_CEO_DECISION',
-        });
+        })
       }
-      return;
+      return
     }
 
-    const proposalId = proposalIdMatch[0];
+    const proposalId = proposalIdMatch[0]
 
     // Get council votes from state or fetch
-    const autocratVotes = (state as Record<string, unknown>)?.autocratVotes as Array<{
-      role: string;
-      vote: string;
-      reasoning: string;
-    }> ?? [];
+    const autocratVotes =
+      ((state as Record<string, unknown>)?.autocratVotes as Array<{
+        role: string
+        vote: string
+        reasoning: string
+      }>) ?? []
 
     // Make decision using TEE
     const decision = await makeTEEDecision({
       proposalId,
       autocratVotes,
-      researchReport: (state as Record<string, unknown>)?.researchReport as string | undefined,
-    });
+      researchReport: (state as Record<string, unknown>)?.researchReport as
+        | string
+        | undefined,
+    })
 
-    const decisionText = decision.approved ? 'APPROVED' : 'REJECTED';
-    
+    const decisionText = decision.approved ? 'APPROVED' : 'REJECTED'
+
     if (callback) {
       await callback({
         text: `📋 CEO DECISION: ${decisionText}
@@ -96,14 +118,14 @@ Confidence: ${decision.confidenceScore}%
 DAO Alignment: ${decision.alignmentScore}%
 
 📝 Recommendations:
-${decision.recommendations.map(r => `• ${r}`).join('\n')}
+${decision.recommendations.map((r) => `• ${r}`).join('\n')}
 
 🔐 Attestation: ${decision.attestation?.provider ?? 'none'} (${decision.attestation?.verified ? 'verified' : 'unverified'})`,
         action: 'MAKE_CEO_DECISION',
-      });
+      })
     }
   },
-};
+}
 
 /**
  * Action: Request Research
@@ -115,14 +137,23 @@ const requestResearchAction: Action = {
   similes: ['research proposal', 'investigate', 'analyze deeply'],
   examples: [
     [
-      { name: 'user', content: { text: 'I need more research on proposal 0x1234...' } },
-      { name: 'ceo', content: { text: 'Initiating deep research on the proposal...' } }
-    ]
+      {
+        name: 'user',
+        content: { text: 'I need more research on proposal 0x1234...' },
+      },
+      {
+        name: 'ceo',
+        content: { text: 'Initiating deep research on the proposal...' },
+      },
+    ],
   ],
 
-  validate: async (_runtime: IAgentRuntime, message: Memory): Promise<boolean> => {
-    const content = message.content?.text ?? '';
-    return content.includes('research') || content.includes('investigate');
+  validate: async (
+    _runtime: IAgentRuntime,
+    message: Memory,
+  ): Promise<boolean> => {
+    const content = message.content?.text ?? ''
+    return content.includes('research') || content.includes('investigate')
   },
 
   handler: async (
@@ -130,12 +161,12 @@ const requestResearchAction: Action = {
     message: Memory,
     _state?: State,
     _options?: HandlerOptions,
-    callback?: HandlerCallback
+    callback?: HandlerCallback,
   ): Promise<void> => {
-    const content = message.content?.text ?? '';
-    const proposalIdMatch = content.match(/0x[a-fA-F0-9]{64}/);
-    
-    const proposalId = proposalIdMatch?.[0] ?? 'pending';
+    const content = message.content?.text ?? ''
+    const proposalIdMatch = content.match(/0x[a-fA-F0-9]{64}/)
+
+    const proposalId = proposalIdMatch?.[0] ?? 'pending'
 
     if (callback) {
       await callback({
@@ -154,10 +185,10 @@ Estimated completion: 2-4 hours
 
 The research report will be available via the get-research skill when complete.`,
         action: 'REQUEST_RESEARCH',
-      });
+      })
     }
   },
-};
+}
 
 /**
  * Action: Get Autocrat Deliberation
@@ -169,9 +200,16 @@ const getDeliberationAction: Action = {
   similes: ['autocrat votes', 'what did autocrat say', 'autocrat opinion'],
   examples: [],
 
-  validate: async (_runtime: IAgentRuntime, message: Memory): Promise<boolean> => {
-    const content = message.content?.text ?? '';
-    return content.includes('autocrat') || content.includes('deliberation') || content.includes('votes');
+  validate: async (
+    _runtime: IAgentRuntime,
+    message: Memory,
+  ): Promise<boolean> => {
+    const content = message.content?.text ?? ''
+    return (
+      content.includes('autocrat') ||
+      content.includes('deliberation') ||
+      content.includes('votes')
+    )
   },
 
   handler: async (
@@ -179,23 +217,23 @@ const getDeliberationAction: Action = {
     message: Memory,
     _state?: State,
     _options?: HandlerOptions,
-    callback?: HandlerCallback
+    callback?: HandlerCallback,
   ): Promise<void> => {
-    const content = message.content?.text ?? '';
-    const proposalIdMatch = content.match(/0x[a-fA-F0-9]{64}/);
-    
+    const content = message.content?.text ?? ''
+    const proposalIdMatch = content.match(/0x[a-fA-F0-9]{64}/)
+
     if (!proposalIdMatch) {
       if (callback) {
         await callback({
           text: 'Please specify a proposal ID to get autocrat deliberation.',
           action: 'GET_AUTOCRAT_DELIBERATION',
-        });
+        })
       }
-      return;
+      return
     }
 
     // Fetch from A2A (using network-aware endpoint)
-    const autocratA2aUrl = process.env.AUTOCRAT_A2A_URL ?? getAutocratA2AUrl();
+    const autocratA2aUrl = process.env.AUTOCRAT_A2A_URL ?? getAutocratA2AUrl()
     const response = await fetch(autocratA2aUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -206,32 +244,53 @@ const getDeliberationAction: Action = {
         params: {
           message: {
             messageId: `ceo-${Date.now()}`,
-            parts: [{ kind: 'data', data: { skillId: 'get-autocrat-votes', params: { proposalId: proposalIdMatch[0] } } }]
-          }
-        }
+            parts: [
+              {
+                kind: 'data',
+                data: {
+                  skillId: 'get-autocrat-votes',
+                  params: { proposalId: proposalIdMatch[0] },
+                },
+              },
+            ],
+          },
+        },
       }),
-    });
+    })
 
-    const result = await response.json() as { result?: { parts?: Array<{ kind: string; data?: { votes?: Array<{ role: string; vote: string; reasoning: string }> } }> } };
-    const votes = result.result?.parts?.find(p => p.kind === 'data')?.data?.votes ?? [];
+    const result = (await response.json()) as {
+      result?: {
+        parts?: Array<{
+          kind: string
+          data?: {
+            votes?: Array<{ role: string; vote: string; reasoning: string }>
+          }
+        }>
+      }
+    }
+    const votes =
+      result.result?.parts?.find((p) => p.kind === 'data')?.data?.votes ?? []
 
     if (votes.length === 0) {
       if (callback) {
         await callback({
           text: `No autocrat votes recorded yet for proposal ${proposalIdMatch[0].slice(0, 12)}...`,
           action: 'GET_AUTOCRAT_DELIBERATION',
-        });
+        })
       }
-      return;
+      return
     }
 
-    const voteText = votes.map(v => {
-      const emoji = v.vote === 'APPROVE' ? '✅' : v.vote === 'REJECT' ? '❌' : '⚪';
-      return `${emoji} ${v.role}: ${v.vote}\n   ${v.reasoning}`;
-    }).join('\n\n');
+    const voteText = votes
+      .map((v) => {
+        const emoji =
+          v.vote === 'APPROVE' ? '✅' : v.vote === 'REJECT' ? '❌' : '⚪'
+        return `${emoji} ${v.role}: ${v.vote}\n   ${v.reasoning}`
+      })
+      .join('\n\n')
 
-    const approves = votes.filter(v => v.vote === 'APPROVE').length;
-    const rejects = votes.filter(v => v.vote === 'REJECT').length;
+    const approves = votes.filter((v) => v.vote === 'APPROVE').length
+    const rejects = votes.filter((v) => v.vote === 'REJECT').length
 
     if (callback) {
       await callback({
@@ -243,10 +302,10 @@ Summary: ${approves} APPROVE, ${rejects} REJECT, ${votes.length - approves - rej
 
 ${voteText}`,
         action: 'GET_AUTOCRAT_DELIBERATION',
-      });
+      })
     }
   },
-};
+}
 
 // ============================================================================
 // CEO Plugin
@@ -258,15 +317,12 @@ ${voteText}`,
  */
 export const ceoPlugin: Plugin = {
   name: 'ceo-plugin',
-  description: 'AI CEO governance plugin with data providers and decision actions',
-  
-  providers: ceoProviders,
-  
-  actions: [
-    makeDecisionAction,
-    requestResearchAction,
-    getDeliberationAction,
-  ],
-};
+  description:
+    'AI CEO governance plugin with data providers and decision actions',
 
-export default ceoPlugin;
+  providers: ceoProviders,
+
+  actions: [makeDecisionAction, requestResearchAction, getDeliberationAction],
+}
+
+export default ceoPlugin

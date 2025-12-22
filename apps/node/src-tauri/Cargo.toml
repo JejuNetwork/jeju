@@ -43,6 +43,9 @@ sha2 = "0.10"
 hex = "0.4"
 base64 = "0.21"
 rand = "0.8"
+aes-gcm = "0.10"
+pbkdf2 = "0.12"
+hmac = "0.12"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 openssl = { version = "0.10", features = ["vendored"] }

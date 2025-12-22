@@ -2,17 +2,17 @@
  * Unified API Server - starts REST, A2A, and MCP alongside GraphQL
  */
 
-import { getDataSource, closeDataSource } from './lib/db';
-import { startRestServer } from './rest-server';
-import { startA2AServer } from './a2a-server';
-import { startMCPServer } from './mcp-server';
+import { startA2AServer } from './a2a-server'
+import { closeDataSource, getDataSource } from './lib/db'
+import { startMCPServer } from './mcp-server'
+import { startRestServer } from './rest-server'
 
 async function main() {
-  console.log('🚀 Starting Network Indexer API servers...');
-  
-  await getDataSource();
-  await Promise.all([startRestServer(), startA2AServer(), startMCPServer()]);
-  
+  console.log('🚀 Starting Network Indexer API servers...')
+
+  await getDataSource()
+  await Promise.all([startRestServer(), startA2AServer(), startMCPServer()])
+
   console.log(`
 ┌─────────────────────────────────────────┐
 │   Network Indexer API Servers Running   │
@@ -21,16 +21,19 @@ async function main() {
 │  REST:    http://localhost:4352         │
 │  A2A:     http://localhost:4351         │
 │  MCP:     http://localhost:4353         │
-└─────────────────────────────────────────┘`);
+└─────────────────────────────────────────┘`)
 }
 
 async function shutdown() {
-  console.log('\nShutting down...');
-  await closeDataSource();
-  process.exit(0);
+  console.log('\nShutting down...')
+  await closeDataSource()
+  process.exit(0)
 }
 
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown)
+process.on('SIGTERM', shutdown)
 
-main().catch(e => { console.error('Startup failed:', e); process.exit(1); });
+main().catch((e) => {
+  console.error('Startup failed:', e)
+  process.exit(1)
+})

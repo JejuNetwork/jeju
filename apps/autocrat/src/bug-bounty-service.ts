@@ -8,54 +8,75 @@
  * - dstack TEE for secure execution (simulator in local dev)
  */
 
-import { getCQL, type CQLClient, type QueryParam } from '@jejunetwork/db';
-import { getCacheClient, type CacheClient } from '@jejunetwork/shared';
-import { getDWSComputeUrl, getKMSUrl, getRpcUrl, getCurrentNetwork, getSecurityBountyRegistryAddress } from '@jejunetwork/config';
-import { createPublicClient, createWalletClient, http, keccak256, stringToHex, parseEther, formatEther, type Address, type Hex } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import { localhost, baseSepolia, base } from 'viem/chains';
 import {
-  BountySeverity,
-  VulnerabilityType,
-  BountySubmissionStatus,
-  ValidationResult,
-  type BountySubmission,
-  type BountySubmissionDraft,
+  getCurrentNetwork,
+  getDWSComputeUrl,
+  getKMSUrl,
+  getRpcUrl,
+  getSecurityBountyRegistryAddress,
+} from '@jejunetwork/config'
+import { type CQLClient, getCQL, type QueryParam } from '@jejunetwork/db'
+import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
+import {
+  type Address,
+  createPublicClient,
+  createWalletClient,
+  formatEther,
+  type Hex,
+  http,
+  keccak256,
+  parseEther,
+  stringToHex,
+} from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { base, baseSepolia, localhost } from 'viem/chains'
+import { expect, expectDefined } from './schemas'
+import {
   type BountyAssessment,
   type BountyGuardianVote,
-  type ResearcherStats,
   type BountyPoolStats,
+  BountySeverity,
+  type BountySubmission,
+  type BountySubmissionDraft,
+  BountySubmissionStatus,
+  type ResearcherStats,
   SEVERITY_REWARDS,
-} from './types';
-import { expect, expectDefined } from './schemas';
+  ValidationResult,
+  VulnerabilityType,
+} from './types'
 
 // ============ Configuration ============
 
-const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'autocrat';
-const OPERATOR_KEY = process.env.OPERATOR_PRIVATE_KEY;
+const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'autocrat'
+const OPERATOR_KEY = process.env.OPERATOR_PRIVATE_KEY
 
 function getDWSEndpoint(): string {
-  return process.env.DWS_URL ?? process.env.DWS_COMPUTE_URL ?? getDWSComputeUrl();
+  return (
+    process.env.DWS_URL ?? process.env.DWS_COMPUTE_URL ?? getDWSComputeUrl()
+  )
 }
 
 function getKMSEndpoint(): string {
-  return process.env.KMS_URL ?? getKMSUrl();
+  return process.env.KMS_URL ?? getKMSUrl()
 }
 
 function getChain() {
-  const network = getCurrentNetwork();
+  const network = getCurrentNetwork()
   switch (network) {
-    case 'mainnet': return base;
-    case 'testnet': return baseSepolia;
-    default: return localhost;
+    case 'mainnet':
+      return base
+    case 'testnet':
+      return baseSepolia
+    default:
+      return localhost
   }
 }
 
 // ============ CQL Client ============
 
-let cqlClient: CQLClient | null = null;
-let cacheClient: CacheClient | null = null;
-let initialized = false;
+let cqlClient: CQLClient | null = null
+let cacheClient: CacheClient | null = null
+let initialized = false
 
 async function getCQLClient(): Promise<CQLClient> {
   if (!cqlClient) {
@@ -63,32 +84,33 @@ async function getCQLClient(): Promise<CQLClient> {
       databaseId: CQL_DATABASE_ID,
       timeout: 30000,
       debug: process.env.NODE_ENV !== 'production',
-    });
-    
-    const healthy = await cqlClient.isHealthy();
+    })
+
+    const healthy = await cqlClient.isHealthy()
     if (!healthy) {
       throw new Error(
         `Bug Bounty requires CovenantSQL (network: ${getCurrentNetwork()}).\n` +
-        'Ensure CQL is running: docker compose up -d cql'
-      );
+          'Ensure CQL is running: docker compose up -d cql',
+      )
     }
-    
-    await ensureTablesExist();
+
+    await ensureTablesExist()
   }
-  return cqlClient;
+  return cqlClient
 }
 
 function getCache(): CacheClient {
   if (!cacheClient) {
-    cacheClient = getCacheClient('bug-bounty');
+    cacheClient = getCacheClient('bug-bounty')
   }
-  return cacheClient;
+  return cacheClient
 }
 
 async function ensureTablesExist(): Promise<void> {
-  if (!cqlClient) return;
-  
-  await cqlClient.exec(`
+  if (!cqlClient) return
+
+  await cqlClient.exec(
+    `
     CREATE TABLE IF NOT EXISTS bounty_submissions (
       submission_id TEXT PRIMARY KEY,
       researcher TEXT NOT NULL,
@@ -120,9 +142,13 @@ async function ensureTablesExist(): Promise<void> {
       resolved_at INTEGER,
       vuln_hash TEXT UNIQUE
     )
-  `, [], CQL_DATABASE_ID);
-  
-  await cqlClient.exec(`
+  `,
+    [],
+    CQL_DATABASE_ID,
+  )
+
+  await cqlClient.exec(
+    `
     CREATE TABLE IF NOT EXISTS bounty_guardian_votes (
       id TEXT PRIMARY KEY,
       submission_id TEXT NOT NULL,
@@ -134,9 +160,13 @@ async function ensureTablesExist(): Promise<void> {
       voted_at INTEGER NOT NULL,
       UNIQUE(submission_id, guardian)
     )
-  `, [], CQL_DATABASE_ID);
-  
-  await cqlClient.exec(`
+  `,
+    [],
+    CQL_DATABASE_ID,
+  )
+
+  await cqlClient.exec(
+    `
     CREATE TABLE IF NOT EXISTS bounty_researcher_stats (
       researcher TEXT PRIMARY KEY,
       total_submissions INTEGER DEFAULT 0,
@@ -146,23 +176,46 @@ async function ensureTablesExist(): Promise<void> {
       average_reward TEXT DEFAULT '0',
       success_rate REAL DEFAULT 0
     )
-  `, [], CQL_DATABASE_ID);
-  
-  await cqlClient.exec(`
+  `,
+    [],
+    CQL_DATABASE_ID,
+  )
+
+  await cqlClient.exec(
+    `
     CREATE TABLE IF NOT EXISTS bounty_rate_limits (
       researcher TEXT PRIMARY KEY,
       count INTEGER DEFAULT 0,
       window_start INTEGER NOT NULL
     )
-  `, [], CQL_DATABASE_ID);
-  
+  `,
+    [],
+    CQL_DATABASE_ID,
+  )
+
   // Indexes
-  await cqlClient.exec(`CREATE INDEX IF NOT EXISTS idx_submissions_status ON bounty_submissions(status)`, [], CQL_DATABASE_ID);
-  await cqlClient.exec(`CREATE INDEX IF NOT EXISTS idx_submissions_researcher ON bounty_submissions(researcher)`, [], CQL_DATABASE_ID);
-  await cqlClient.exec(`CREATE INDEX IF NOT EXISTS idx_submissions_severity ON bounty_submissions(severity)`, [], CQL_DATABASE_ID);
-  await cqlClient.exec(`CREATE INDEX IF NOT EXISTS idx_votes_submission ON bounty_guardian_votes(submission_id)`, [], CQL_DATABASE_ID);
-  
-  console.log('[BugBounty] CQL tables ensured');
+  await cqlClient.exec(
+    `CREATE INDEX IF NOT EXISTS idx_submissions_status ON bounty_submissions(status)`,
+    [],
+    CQL_DATABASE_ID,
+  )
+  await cqlClient.exec(
+    `CREATE INDEX IF NOT EXISTS idx_submissions_researcher ON bounty_submissions(researcher)`,
+    [],
+    CQL_DATABASE_ID,
+  )
+  await cqlClient.exec(
+    `CREATE INDEX IF NOT EXISTS idx_submissions_severity ON bounty_submissions(severity)`,
+    [],
+    CQL_DATABASE_ID,
+  )
+  await cqlClient.exec(
+    `CREATE INDEX IF NOT EXISTS idx_votes_submission ON bounty_guardian_votes(submission_id)`,
+    [],
+    CQL_DATABASE_ID,
+  )
+
+  console.log('[BugBounty] CQL tables ensured')
 }
 
 // ============ Smart Contract Client ============
@@ -179,78 +232,84 @@ const SECURITY_BOUNTY_REGISTRY_ABI = [
   'event VulnerabilitySubmitted(bytes32 indexed submissionId, address indexed researcher, uint8 severity)',
   'event ValidationCompleted(bytes32 indexed submissionId, uint8 result)',
   'event RewardPaid(bytes32 indexed submissionId, address indexed researcher, uint256 amount)',
-] as const;
+] as const
 
 function getPublicClient() {
   return createPublicClient({
     chain: getChain(),
     transport: http(getRpcUrl()),
-  });
+  })
 }
 
 function getWalletClient() {
   if (!OPERATOR_KEY) {
-    throw new Error('OPERATOR_PRIVATE_KEY required for contract operations');
+    throw new Error('OPERATOR_PRIVATE_KEY required for contract operations')
   }
-  const account = privateKeyToAccount(OPERATOR_KEY as Hex);
-  const chain = getChain();
+  const account = privateKeyToAccount(OPERATOR_KEY as Hex)
+  const chain = getChain()
   return createWalletClient({
     account,
     chain,
     transport: http(getRpcUrl()),
-  });
+  })
 }
 
-
 function getContractAddressOrThrow(): Address {
-  const envAddr = process.env.SECURITY_BOUNTY_REGISTRY_ADDRESS;
+  const envAddr = process.env.SECURITY_BOUNTY_REGISTRY_ADDRESS
   if (envAddr && envAddr !== '0x0000000000000000000000000000000000000000') {
-    return envAddr as Address;
+    return envAddr as Address
   }
-  
-  const addr = getSecurityBountyRegistryAddress();
+
+  const addr = getSecurityBountyRegistryAddress()
   if (!addr || addr === '0x0000000000000000000000000000000000000000') {
-    throw new Error(`SecurityBountyRegistry not deployed on ${getCurrentNetwork()}`);
+    throw new Error(
+      `SecurityBountyRegistry not deployed on ${getCurrentNetwork()}`,
+    )
   }
-  return addr as Address;
+  return addr as Address
 }
 
 // ============ Rate Limiting (CQL-backed) ============
 
-const RATE_LIMIT_WINDOW = 3600 * 1000; // 1 hour
-const MAX_SUBMISSIONS_PER_WINDOW = 5;
+const RATE_LIMIT_WINDOW = 3600 * 1000 // 1 hour
+const MAX_SUBMISSIONS_PER_WINDOW = 5
 
 async function checkRateLimit(researcher: Address): Promise<void> {
-  const client = await getCQLClient();
-  const now = Date.now();
-  const key = researcher.toLowerCase();
-  
+  const client = await getCQLClient()
+  const now = Date.now()
+  const key = researcher.toLowerCase()
+
   const result = await client.query<{ count: number; window_start: number }>(
     'SELECT count, window_start FROM bounty_rate_limits WHERE researcher = ?',
     [key],
-    CQL_DATABASE_ID
-  );
-  
-  if (result.rows.length === 0 || now - result.rows[0].window_start > RATE_LIMIT_WINDOW) {
+    CQL_DATABASE_ID,
+  )
+
+  if (
+    result.rows.length === 0 ||
+    now - result.rows[0].window_start > RATE_LIMIT_WINDOW
+  ) {
     await client.exec(
       `INSERT INTO bounty_rate_limits (researcher, count, window_start) VALUES (?, 1, ?)
        ON CONFLICT(researcher) DO UPDATE SET count = 1, window_start = ?`,
       [key, now, now],
-      CQL_DATABASE_ID
-    );
-    return;
+      CQL_DATABASE_ID,
+    )
+    return
   }
-  
-  const limit = result.rows[0];
+
+  const limit = result.rows[0]
   if (limit.count >= MAX_SUBMISSIONS_PER_WINDOW) {
-    throw new Error(`Rate limit exceeded: max ${MAX_SUBMISSIONS_PER_WINDOW} submissions per hour`);
+    throw new Error(
+      `Rate limit exceeded: max ${MAX_SUBMISSIONS_PER_WINDOW} submissions per hour`,
+    )
   }
-  
+
   await client.exec(
     'UPDATE bounty_rate_limits SET count = count + 1 WHERE researcher = ?',
     [key],
-    CQL_DATABASE_ID
-  );
+    CQL_DATABASE_ID,
+  )
 }
 
 // ============ Vulnerability Hash (Duplicate Detection) ============
@@ -259,33 +318,36 @@ function computeVulnerabilityHash(draft: BountySubmissionDraft): string {
   const content = [
     draft.title.toLowerCase().trim(),
     draft.description.toLowerCase().trim(),
-    draft.affectedComponents.map(c => c.toLowerCase().trim()).sort().join(','),
+    draft.affectedComponents
+      .map((c) => c.toLowerCase().trim())
+      .sort()
+      .join(','),
     draft.vulnType.toString(),
-  ].join('|');
-  return keccak256(stringToHex(content));
+  ].join('|')
+  return keccak256(stringToHex(content))
 }
 
 async function checkDuplicate(hash: string): Promise<string | null> {
-  const client = await getCQLClient();
+  const client = await getCQLClient()
   const result = await client.query<{ submission_id: string }>(
     'SELECT submission_id FROM bounty_submissions WHERE vuln_hash = ?',
     [hash],
-    CQL_DATABASE_ID
-  );
-  return result.rows[0]?.submission_id ?? null;
+    CQL_DATABASE_ID,
+  )
+  return result.rows[0]?.submission_id ?? null
 }
 
 // ============ Encrypted Report Storage ============
 
 interface EncryptedReport {
-  cid: string;
-  keyId: string;
-  encryptedData: string;
+  cid: string
+  keyId: string
+  encryptedData: string
 }
 
 async function encryptReport(report: string): Promise<EncryptedReport> {
-  const kmsEndpoint = getKMSEndpoint();
-  
+  const kmsEndpoint = getKMSEndpoint()
+
   const response = await fetch(`${kmsEndpoint}/encrypt`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -295,38 +357,45 @@ async function encryptReport(report: string): Promise<EncryptedReport> {
       threshold: 3,
       shares: 5,
     }),
-  });
-  
+  })
+
   if (!response.ok) {
-    throw new Error(`KMS encryption failed: ${response.statusText}`);
+    throw new Error(`KMS encryption failed: ${response.statusText}`)
   }
-  
-  const result = await response.json() as { cid: string; keyId: string; encrypted: string };
+
+  const result = (await response.json()) as {
+    cid: string
+    keyId: string
+    encrypted: string
+  }
   return {
     cid: result.cid,
     keyId: result.keyId,
     encryptedData: result.encrypted,
-  };
+  }
 }
 
 // ============ TEE/Sandbox Execution ============
 
 interface SandboxResult {
-  success: boolean;
-  exploitTriggered: boolean;
-  exploitDetails: string;
-  executionTimeMs: number;
-  stdout: string;
-  stderr: string;
+  success: boolean
+  exploitTriggered: boolean
+  exploitDetails: string
+  executionTimeMs: number
+  stdout: string
+  stderr: string
 }
 
-async function executePoCInSandbox(poc: string, vulnType: VulnerabilityType): Promise<SandboxResult> {
-  const dwsEndpoint = getDWSEndpoint();
-  const network = getCurrentNetwork();
-  
+async function executePoCInSandbox(
+  poc: string,
+  vulnType: VulnerabilityType,
+): Promise<SandboxResult> {
+  const dwsEndpoint = getDWSEndpoint()
+  const network = getCurrentNetwork()
+
   // Use dstack TEE in simulator mode for local dev
-  const teeMode = network === 'localnet' ? 'simulator' : 'hardware';
-  
+  const teeMode = network === 'localnet' ? 'simulator' : 'hardware'
+
   const response = await fetch(`${dwsEndpoint}/compute/container/run`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -356,71 +425,72 @@ async function executePoCInSandbox(poc: string, vulnType: VulnerabilityType): Pr
         },
       },
     }),
-  });
-  
+  })
+
   if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Sandbox execution failed: ${error}`);
+    const error = await response.text()
+    throw new Error(`Sandbox execution failed: ${error}`)
   }
-  
-  return await response.json() as SandboxResult;
+
+  return (await response.json()) as SandboxResult
 }
 
 function getSandboxImage(vulnType: VulnerabilityType): string {
   switch (vulnType) {
     case VulnerabilityType.FUNDS_AT_RISK:
     case VulnerabilityType.WALLET_DRAIN:
-      return 'ghcr.io/jejunetwork/sandbox-evm:latest';
+      return 'ghcr.io/jejunetwork/sandbox-evm:latest'
     case VulnerabilityType.REMOTE_CODE_EXECUTION:
-      return 'ghcr.io/jejunetwork/sandbox-rce:latest';
+      return 'ghcr.io/jejunetwork/sandbox-rce:latest'
     case VulnerabilityType.TEE_BYPASS:
-      return 'ghcr.io/jejunetwork/sandbox-tee:latest';
+      return 'ghcr.io/jejunetwork/sandbox-tee:latest'
     case VulnerabilityType.CONSENSUS_ATTACK:
-      return 'ghcr.io/jejunetwork/sandbox-consensus:latest';
+      return 'ghcr.io/jejunetwork/sandbox-consensus:latest'
     default:
-      return 'ghcr.io/jejunetwork/sandbox-general:latest';
+      return 'ghcr.io/jejunetwork/sandbox-general:latest'
   }
 }
 
 // ============ Core Service Functions ============
 
-export function assessSubmission(draft: BountySubmissionDraft): BountyAssessment {
-  const issues: string[] = [];
-  let qualityScore = 100;
-  
+export function assessSubmission(
+  draft: BountySubmissionDraft,
+): BountyAssessment {
+  const issues: string[] = []
+  let qualityScore = 100
+
   // Title check
   if (!draft.title || draft.title.length < 10) {
-    issues.push('Title too short (min 10 characters)');
-    qualityScore -= 20;
+    issues.push('Title too short (min 10 characters)')
+    qualityScore -= 20
   }
   if (draft.title && draft.title.length > 200) {
-    issues.push('Title too long (max 200 characters)');
-    qualityScore -= 10;
+    issues.push('Title too long (max 200 characters)')
+    qualityScore -= 10
   }
-  
+
   // Description check
   if (!draft.description || draft.description.length < 50) {
-    issues.push('Description too short (min 50 characters)');
-    qualityScore -= 25;
+    issues.push('Description too short (min 50 characters)')
+    qualityScore -= 25
   }
-  
+
   // Affected components
   if (!draft.affectedComponents || draft.affectedComponents.length === 0) {
-    issues.push('Must specify affected components');
-    qualityScore -= 15;
+    issues.push('Must specify affected components')
+    qualityScore -= 15
   }
-  
-  // Steps to reproduce (at least 2 steps with meaningful content)
-  const stepsContent = draft.stepsToReproduce?.join(' ') ?? '';
-  if (!draft.stepsToReproduce || draft.stepsToReproduce.length < 2 || stepsContent.length < 20) {
-    issues.push('Steps to reproduce too short (need at least 2 steps with 20+ chars total)');
-    qualityScore -= 20;
+
+  // Steps to reproduce
+  if (!draft.stepsToReproduce || draft.stepsToReproduce.length < 20) {
+    issues.push('Steps to reproduce too short')
+    qualityScore -= 20
   }
-  
+
   // Severity validation
-  const severity = draft.severity ?? BountySeverity.LOW;
-  const rewards = SEVERITY_REWARDS[severity];
-  
+  const severity = draft.severity ?? BountySeverity.LOW
+  const rewards = SEVERITY_REWARDS[severity]
+
   return {
     severity,
     estimatedReward: {
@@ -431,28 +501,28 @@ export function assessSubmission(draft: BountySubmissionDraft): BountyAssessment
     qualityScore: Math.max(0, qualityScore),
     issues,
     readyToSubmit: issues.length === 0 && qualityScore >= 60,
-  };
+  }
 }
 
 export async function submitBounty(
   draft: BountySubmissionDraft,
   researcher: Address,
   researcherAgentId: bigint,
-  stake: bigint = 0n
+  stake: bigint = 0n,
 ): Promise<BountySubmission> {
-  expectDefined(draft, 'Draft is required');
-  expectDefined(researcher, 'Researcher address is required');
-  
+  expectDefined(draft, 'Draft is required')
+  expectDefined(researcher, 'Researcher address is required')
+
   // Rate limit check
-  await checkRateLimit(researcher);
-  
+  await checkRateLimit(researcher)
+
   // Duplicate check
-  const vulnHash = computeVulnerabilityHash(draft);
-  const existingId = await checkDuplicate(vulnHash);
+  const vulnHash = computeVulnerabilityHash(draft)
+  const existingId = await checkDuplicate(vulnHash)
   if (existingId) {
-    throw new Error(`Duplicate submission. Existing: ${existingId}`);
+    throw new Error(`Duplicate submission. Existing: ${existingId}`)
   }
-  
+
   // Encrypt report
   const reportContent = JSON.stringify({
     title: draft.title,
@@ -460,20 +530,20 @@ export async function submitBounty(
     stepsToReproduce: draft.stepsToReproduce,
     proofOfConcept: draft.proofOfConcept,
     suggestedFix: draft.suggestedFix,
-  });
-  
-  const encrypted = await encryptReport(reportContent);
-  
+  })
+
+  const encrypted = await encryptReport(reportContent)
+
   // Generate submission ID
   const submissionId = keccak256(
-    stringToHex(`${researcher}-${Date.now()}-${Math.random()}`)
-  ).slice(0, 18);
-  
-  const now = Math.floor(Date.now() / 1000);
-  const pocHash = draft.proofOfConcept 
+    stringToHex(`${researcher}-${Date.now()}-${Math.random()}`),
+  ).slice(0, 18)
+
+  const now = Math.floor(Date.now() / 1000)
+  const pocHash = draft.proofOfConcept
     ? keccak256(stringToHex(draft.proofOfConcept))
-    : '0x0000000000000000000000000000000000000000000000000000000000000000';
-  
+    : '0x0000000000000000000000000000000000000000000000000000000000000000'
+
   const submission: BountySubmission = {
     submissionId,
     researcher,
@@ -497,10 +567,10 @@ export async function submitBounty(
     rewardAmount: 0n,
     guardianApprovals: 0,
     guardianRejections: 0,
-  };
-  
+  }
+
   // Store in CQL
-  const client = await getCQLClient();
+  const client = await getCQLClient()
   await client.exec(
     `INSERT INTO bounty_submissions (
       submission_id, researcher, researcher_agent_id, severity, vuln_type,
@@ -530,15 +600,15 @@ export async function submitBounty(
       submission.submittedAt,
       vulnHash,
     ],
-    CQL_DATABASE_ID
-  );
-  
+    CQL_DATABASE_ID,
+  )
+
   // Submit to smart contract if deployed
   try {
-    const contractAddr = getContractAddressOrThrow();
-    const walletClient = getWalletClient();
-    const publicClient = getPublicClient();
-    
+    const contractAddr = getContractAddressOrThrow()
+    const walletClient = getWalletClient()
+    const publicClient = getPublicClient()
+
     const hash = await walletClient.writeContract({
       address: contractAddr,
       abi: SECURITY_BOUNTY_REGISTRY_ABI,
@@ -551,177 +621,210 @@ export async function submitBounty(
         pocHash as Hex,
       ],
       value: stake,
-    });
-    
-    await publicClient.waitForTransactionReceipt({ hash });
-    console.log(`[BugBounty] On-chain submission: ${hash}`);
+    })
+
+    await publicClient.waitForTransactionReceipt({ hash })
+    console.log(`[BugBounty] On-chain submission: ${hash}`)
   } catch (err) {
     // Contract not deployed or failed - continue with off-chain only
-    console.log(`[BugBounty] On-chain submission skipped: ${err instanceof Error ? err.message : 'unknown'}`);
+    console.log(
+      `[BugBounty] On-chain submission skipped: ${err instanceof Error ? err.message : 'unknown'}`,
+    )
   }
-  
+
   // Update researcher stats
-  await updateResearcherStats(researcher, 'submitted');
-  
+  await updateResearcherStats(researcher, 'submitted')
+
   // Invalidate cache
-  await getCache().delete(`submission:${submissionId}`);
-  
-  console.log(`[BugBounty] Submission created: ${submissionId} (severity: ${BountySeverity[submission.severity]})`);
-  
-  return submission;
+  await getCache().delete(`submission:${submissionId}`)
+
+  console.log(
+    `[BugBounty] Submission created: ${submissionId} (severity: ${BountySeverity[submission.severity]})`,
+  )
+
+  return submission
 }
 
-export async function getSubmission(submissionId: string): Promise<BountySubmission | null> {
+export async function getSubmission(
+  submissionId: string,
+): Promise<BountySubmission | null> {
   // Check cache
-  const cache = getCache();
-  const cached = await cache.get(`submission:${submissionId}`).catch(() => null);
+  const cache = getCache()
+  const cached = await cache.get(`submission:${submissionId}`).catch(() => null)
   if (cached) {
-    return JSON.parse(cached) as BountySubmission;
+    return JSON.parse(cached) as BountySubmission
   }
-  
-  const client = await getCQLClient();
+
+  const client = await getCQLClient()
   const result = await client.query<Record<string, unknown>>(
     'SELECT * FROM bounty_submissions WHERE submission_id = ?',
     [submissionId],
-    CQL_DATABASE_ID
-  );
-  
-  if (result.rows.length === 0) return null;
-  
-  const row = result.rows[0];
-  const submission = rowToSubmission(row);
-  
+    CQL_DATABASE_ID,
+  )
+
+  if (result.rows.length === 0) return null
+
+  const row = result.rows[0]
+  const submission = rowToSubmission(row)
+
   // Cache for 5 minutes
-  await cache.set(`submission:${submissionId}`, JSON.stringify(submission), 300);
-  
-  return submission;
+  await cache.set(`submission:${submissionId}`, JSON.stringify(submission), 300)
+
+  return submission
 }
 
 export async function listSubmissions(
   status?: BountySubmissionStatus,
   researcher?: Address,
-  limit = 50
+  limit = 50,
 ): Promise<BountySubmission[]> {
-  const client = await getCQLClient();
-  
-  let query = 'SELECT * FROM bounty_submissions';
-  const params: QueryParam[] = [];
-  const conditions: string[] = [];
-  
+  const client = await getCQLClient()
+
+  let query = 'SELECT * FROM bounty_submissions'
+  const params: QueryParam[] = []
+  const conditions: string[] = []
+
   if (status !== undefined) {
-    conditions.push('status = ?');
-    params.push(status);
+    conditions.push('status = ?')
+    params.push(status)
   }
-  
+
   if (researcher) {
-    conditions.push('researcher = ?');
-    params.push(researcher.toLowerCase());
+    conditions.push('researcher = ?')
+    params.push(researcher.toLowerCase())
   }
-  
+
   if (conditions.length > 0) {
-    query += ' WHERE ' + conditions.join(' AND ');
+    query += ` WHERE ${conditions.join(' AND ')}`
   }
-  
-  query += ' ORDER BY submitted_at DESC LIMIT ?';
-  params.push(limit);
-  
-  const result = await client.query<Record<string, unknown>>(query, params, CQL_DATABASE_ID);
-  return result.rows.map(rowToSubmission);
+
+  query += ' ORDER BY submitted_at DESC LIMIT ?'
+  params.push(limit)
+
+  const result = await client.query<Record<string, unknown>>(
+    query,
+    params,
+    CQL_DATABASE_ID,
+  )
+  return result.rows.map(rowToSubmission)
 }
 
 export async function triggerValidation(submissionId: string): Promise<void> {
-  const submission = await getSubmission(submissionId);
-  expect(submission !== null, `Submission ${submissionId} not found`);
-  expect(submission.status === BountySubmissionStatus.PENDING, 'Submission not in PENDING status');
-  
+  const submission = await getSubmission(submissionId)
+  expect(submission !== null, `Submission ${submissionId} not found`)
+  expect(
+    submission.status === BountySubmissionStatus.PENDING,
+    'Submission not in PENDING status',
+  )
+
   // Update status
-  const client = await getCQLClient();
+  const client = await getCQLClient()
   await client.exec(
     'UPDATE bounty_submissions SET status = ? WHERE submission_id = ?',
     [BountySubmissionStatus.VALIDATING, submissionId],
-    CQL_DATABASE_ID
-  );
-  
+    CQL_DATABASE_ID,
+  )
+
   // Invalidate cache
-  await getCache().delete(`submission:${submissionId}`);
-  
+  await getCache().delete(`submission:${submissionId}`)
+
   // Execute PoC in sandbox if available
   if (submission.proofOfConcept) {
     try {
-      const result = await executePoCInSandbox(submission.proofOfConcept, submission.vulnType);
-      
+      const result = await executePoCInSandbox(
+        submission.proofOfConcept,
+        submission.vulnType,
+      )
+
       const validationResult = result.exploitTriggered
         ? ValidationResult.VERIFIED
-        : ValidationResult.NEEDS_MORE_INFO;
-      
-      await completeValidation(submissionId, validationResult, result.exploitDetails || 'Sandbox validation complete');
+        : ValidationResult.NEEDS_MORE_INFO
+
+      await completeValidation(
+        submissionId,
+        validationResult,
+        result.exploitDetails || 'Sandbox validation complete',
+      )
     } catch (err) {
-      console.log(`[BugBounty] Sandbox validation failed: ${err instanceof Error ? err.message : 'unknown'}`);
+      console.log(
+        `[BugBounty] Sandbox validation failed: ${err instanceof Error ? err.message : 'unknown'}`,
+      )
       // Move to guardian review for manual validation
       await client.exec(
         'UPDATE bounty_submissions SET status = ?, validation_notes = ? WHERE submission_id = ?',
-        [BountySubmissionStatus.GUARDIAN_REVIEW, 'Automated validation unavailable - manual review required', submissionId],
-        CQL_DATABASE_ID
-      );
+        [
+          BountySubmissionStatus.GUARDIAN_REVIEW,
+          'Automated validation unavailable - manual review required',
+          submissionId,
+        ],
+        CQL_DATABASE_ID,
+      )
     }
   } else {
     // No PoC - move directly to guardian review
     await client.exec(
       'UPDATE bounty_submissions SET status = ?, validation_notes = ? WHERE submission_id = ?',
-      [BountySubmissionStatus.GUARDIAN_REVIEW, 'No PoC provided - manual review required', submissionId],
-      CQL_DATABASE_ID
-    );
+      [
+        BountySubmissionStatus.GUARDIAN_REVIEW,
+        'No PoC provided - manual review required',
+        submissionId,
+      ],
+      CQL_DATABASE_ID,
+    )
   }
 }
 
 export async function completeValidation(
   submissionId: string,
   result: ValidationResult,
-  notes: string
+  notes: string,
 ): Promise<BountySubmission> {
-  const client = await getCQLClient();
-  const now = Math.floor(Date.now() / 1000);
-  
-  let newStatus: BountySubmissionStatus;
+  const client = await getCQLClient()
+  const now = Math.floor(Date.now() / 1000)
+
+  let newStatus: BountySubmissionStatus
   if (result === ValidationResult.INVALID) {
-    newStatus = BountySubmissionStatus.REJECTED;
-  } else if (result === ValidationResult.VERIFIED || result === ValidationResult.LIKELY_VALID) {
-    newStatus = BountySubmissionStatus.GUARDIAN_REVIEW;
+    newStatus = BountySubmissionStatus.REJECTED
+  } else if (
+    result === ValidationResult.VERIFIED ||
+    result === ValidationResult.LIKELY_VALID
+  ) {
+    newStatus = BountySubmissionStatus.GUARDIAN_REVIEW
   } else {
-    newStatus = BountySubmissionStatus.VALIDATING;
+    newStatus = BountySubmissionStatus.VALIDATING
   }
-  
+
   await client.exec(
     `UPDATE bounty_submissions 
      SET status = ?, validation_result = ?, validation_notes = ?, validated_at = ?
      WHERE submission_id = ?`,
     [newStatus, result, notes, now, submissionId],
-    CQL_DATABASE_ID
-  );
-  
+    CQL_DATABASE_ID,
+  )
+
   // Update on-chain if deployed
   try {
-    const contractAddr = getContractAddressOrThrow();
-    const walletClient = getWalletClient();
-    const publicClient = getPublicClient();
-    
+    const contractAddr = getContractAddressOrThrow()
+    const walletClient = getWalletClient()
+    const publicClient = getPublicClient()
+
     const hash = await walletClient.writeContract({
       address: contractAddr,
       abi: SECURITY_BOUNTY_REGISTRY_ABI,
       functionName: 'completeValidation',
       args: [submissionId as Hex, result, notes],
-    });
-    
-    await publicClient.waitForTransactionReceipt({ hash });
+    })
+
+    await publicClient.waitForTransactionReceipt({ hash })
   } catch {
     // Contract not deployed - continue
   }
-  
-  await getCache().delete(`submission:${submissionId}`);
-  
-  const submission = await getSubmission(submissionId);
-  expect(submission !== null, 'Failed to fetch updated submission');
-  return submission;
+
+  await getCache().delete(`submission:${submissionId}`)
+
+  const submission = await getSubmission(submissionId)
+  expect(submission !== null, 'Failed to fetch updated submission')
+  return submission
 }
 
 export async function submitGuardianVote(
@@ -730,12 +833,14 @@ export async function submitGuardianVote(
   guardianAgentId: bigint,
   approved: boolean,
   suggestedReward: bigint,
-  feedback: string
+  feedback: string,
 ): Promise<void> {
-  const client = await getCQLClient();
-  const now = Math.floor(Date.now() / 1000);
-  const voteId = keccak256(stringToHex(`${submissionId}-${guardian}-${now}`)).slice(0, 18);
-  
+  const client = await getCQLClient()
+  const now = Math.floor(Date.now() / 1000)
+  const voteId = keccak256(
+    stringToHex(`${submissionId}-${guardian}-${now}`),
+  ).slice(0, 18)
+
   await client.exec(
     `INSERT INTO bounty_guardian_votes (
       id, submission_id, guardian, guardian_agent_id, approved, suggested_reward, feedback, voted_at
@@ -743,74 +848,85 @@ export async function submitGuardianVote(
     ON CONFLICT(submission_id, guardian) DO UPDATE SET
       approved = ?, suggested_reward = ?, feedback = ?, voted_at = ?`,
     [
-      voteId, submissionId, guardian.toLowerCase(), guardianAgentId.toString(),
-      approved ? 1 : 0, suggestedReward.toString(), feedback, now,
-      approved ? 1 : 0, suggestedReward.toString(), feedback, now,
+      voteId,
+      submissionId,
+      guardian.toLowerCase(),
+      guardianAgentId.toString(),
+      approved ? 1 : 0,
+      suggestedReward.toString(),
+      feedback,
+      now,
+      approved ? 1 : 0,
+      suggestedReward.toString(),
+      feedback,
+      now,
     ],
-    CQL_DATABASE_ID
-  );
-  
+    CQL_DATABASE_ID,
+  )
+
   // Update submission counts
   if (approved) {
     await client.exec(
       'UPDATE bounty_submissions SET guardian_approvals = guardian_approvals + 1 WHERE submission_id = ?',
       [submissionId],
-      CQL_DATABASE_ID
-    );
+      CQL_DATABASE_ID,
+    )
   } else {
     await client.exec(
       'UPDATE bounty_submissions SET guardian_rejections = guardian_rejections + 1 WHERE submission_id = ?',
       [submissionId],
-      CQL_DATABASE_ID
-    );
+      CQL_DATABASE_ID,
+    )
   }
-  
+
   // Update on-chain if deployed
   try {
-    const contractAddr = getContractAddressOrThrow();
-    const walletClient = getWalletClient();
-    const publicClient = getPublicClient();
-    
+    const contractAddr = getContractAddressOrThrow()
+    const walletClient = getWalletClient()
+    const publicClient = getPublicClient()
+
     const hash = await walletClient.writeContract({
       address: contractAddr,
       abi: SECURITY_BOUNTY_REGISTRY_ABI,
       functionName: 'submitGuardianVote',
       args: [submissionId as Hex, approved, suggestedReward, feedback],
-    });
-    
-    await publicClient.waitForTransactionReceipt({ hash });
+    })
+
+    await publicClient.waitForTransactionReceipt({ hash })
   } catch {
     // Contract not deployed - continue
   }
-  
-  await getCache().delete(`submission:${submissionId}`);
-  
+
+  await getCache().delete(`submission:${submissionId}`)
+
   // Check if quorum reached and escalate to CEO
-  const submission = await getSubmission(submissionId);
+  const submission = await getSubmission(submissionId)
   if (submission) {
-    const severity = submission.severity;
-    const requiredApprovals = severity >= BountySeverity.HIGH ? 5 : 3;
-    
+    const severity = submission.severity
+    const requiredApprovals = severity >= BountySeverity.HIGH ? 5 : 3
+
     if (submission.guardianApprovals >= requiredApprovals) {
       await client.exec(
         'UPDATE bounty_submissions SET status = ? WHERE submission_id = ?',
         [BountySubmissionStatus.CEO_REVIEW, submissionId],
-        CQL_DATABASE_ID
-      );
-      await getCache().delete(`submission:${submissionId}`);
+        CQL_DATABASE_ID,
+      )
+      await getCache().delete(`submission:${submissionId}`)
     }
   }
 }
 
-export async function getGuardianVotes(submissionId: string): Promise<BountyGuardianVote[]> {
-  const client = await getCQLClient();
+export async function getGuardianVotes(
+  submissionId: string,
+): Promise<BountyGuardianVote[]> {
+  const client = await getCQLClient()
   const result = await client.query<Record<string, unknown>>(
     'SELECT * FROM bounty_guardian_votes WHERE submission_id = ? ORDER BY voted_at ASC',
     [submissionId],
-    CQL_DATABASE_ID
-  );
-  
-  return result.rows.map(row => ({
+    CQL_DATABASE_ID,
+  )
+
+  return result.rows.map((row) => ({
     submissionId: row.submission_id as string,
     guardian: row.guardian as Address,
     guardianAgentId: BigInt(row.guardian_agent_id as string),
@@ -818,137 +934,159 @@ export async function getGuardianVotes(submissionId: string): Promise<BountyGuar
     suggestedReward: BigInt(row.suggested_reward as string),
     feedback: row.feedback as string,
     votedAt: row.voted_at as number,
-  }));
+  }))
 }
 
 export async function ceoDecision(
   submissionId: string,
   approved: boolean,
   rewardAmount: bigint,
-  reasoning: string
+  reasoning: string,
 ): Promise<BountySubmission> {
-  const client = await getCQLClient();
-  const now = Math.floor(Date.now() / 1000);
-  
-  const newStatus = approved ? BountySubmissionStatus.APPROVED : BountySubmissionStatus.REJECTED;
-  
+  const client = await getCQLClient()
+  const now = Math.floor(Date.now() / 1000)
+
+  const newStatus = approved
+    ? BountySubmissionStatus.APPROVED
+    : BountySubmissionStatus.REJECTED
+
   await client.exec(
     `UPDATE bounty_submissions 
      SET status = ?, reward_amount = ?, validation_notes = COALESCE(validation_notes, '') || '\nCEO: ' || ?, resolved_at = ?
      WHERE submission_id = ?`,
     [newStatus, rewardAmount.toString(), reasoning, now, submissionId],
-    CQL_DATABASE_ID
-  );
-  
+    CQL_DATABASE_ID,
+  )
+
   // Update on-chain if deployed
   try {
-    const contractAddr = getContractAddressOrThrow();
-    const walletClient = getWalletClient();
-    const publicClient = getPublicClient();
-    
+    const contractAddr = getContractAddressOrThrow()
+    const walletClient = getWalletClient()
+    const publicClient = getPublicClient()
+
     const hash = await walletClient.writeContract({
       address: contractAddr,
       abi: SECURITY_BOUNTY_REGISTRY_ABI,
       functionName: 'ceoDecision',
       args: [submissionId as Hex, approved, rewardAmount, reasoning],
-    });
-    
-    await publicClient.waitForTransactionReceipt({ hash });
+    })
+
+    await publicClient.waitForTransactionReceipt({ hash })
   } catch {
     // Contract not deployed - continue
   }
-  
-  await getCache().delete(`submission:${submissionId}`);
-  
-  const submission = await getSubmission(submissionId);
-  expect(submission !== null, 'Failed to fetch updated submission');
-  
+
+  await getCache().delete(`submission:${submissionId}`)
+
+  const submission = await getSubmission(submissionId)
+  expect(submission !== null, 'Failed to fetch updated submission')
+
   // Update researcher stats
-  await updateResearcherStats(submission.researcher, approved ? 'approved' : 'rejected', rewardAmount);
-  
-  return submission;
+  await updateResearcherStats(
+    submission.researcher,
+    approved ? 'approved' : 'rejected',
+    rewardAmount,
+  )
+
+  return submission
 }
 
-export async function payReward(submissionId: string): Promise<{ txHash: string; amount: bigint }> {
-  const submission = await getSubmission(submissionId);
-  expect(submission !== null, `Submission ${submissionId} not found`);
-  expect(submission.status === BountySubmissionStatus.APPROVED, 'Submission not approved');
-  expect(submission.rewardAmount > 0n, 'Reward amount must be positive');
-  
-  const client = await getCQLClient();
-  
+export async function payReward(
+  submissionId: string,
+): Promise<{ txHash: string; amount: bigint }> {
+  const submission = await getSubmission(submissionId)
+  expect(submission !== null, `Submission ${submissionId} not found`)
+  expect(
+    submission.status === BountySubmissionStatus.APPROVED,
+    'Submission not approved',
+  )
+  expect(submission.rewardAmount > 0n, 'Reward amount must be positive')
+
+  const client = await getCQLClient()
+
   // Try on-chain payout
-  let txHash: string;
+  let txHash: string
   try {
-    const contractAddr = getContractAddressOrThrow();
-    const walletClient = getWalletClient();
-    const publicClient = getPublicClient();
-    
+    const contractAddr = getContractAddressOrThrow()
+    const walletClient = getWalletClient()
+    const publicClient = getPublicClient()
+
     const hash = await walletClient.writeContract({
       address: contractAddr,
       abi: SECURITY_BOUNTY_REGISTRY_ABI,
       functionName: 'payReward',
       args: [submissionId as Hex],
-    });
-    
-    await publicClient.waitForTransactionReceipt({ hash });
-    txHash = hash;
-  } catch (err) {
+    })
+
+    await publicClient.waitForTransactionReceipt({ hash })
+    txHash = hash
+  } catch (_err) {
     // Contract not available - mark as paid locally (for testing)
-    txHash = keccak256(stringToHex(`payout-${submissionId}-${Date.now()}`));
-    console.log(`[BugBounty] Off-chain payout recorded: ${txHash}`);
+    txHash = keccak256(stringToHex(`payout-${submissionId}-${Date.now()}`))
+    console.log(`[BugBounty] Off-chain payout recorded: ${txHash}`)
   }
-  
+
   await client.exec(
     'UPDATE bounty_submissions SET status = ? WHERE submission_id = ?',
     [BountySubmissionStatus.PAID, submissionId],
-    CQL_DATABASE_ID
-  );
-  
-  await getCache().delete(`submission:${submissionId}`);
-  
-  console.log(`[BugBounty] Reward paid: ${submissionId} - ${formatEther(submission.rewardAmount)} ETH (tx: ${txHash})`);
-  
-  return { txHash, amount: submission.rewardAmount };
+    CQL_DATABASE_ID,
+  )
+
+  await getCache().delete(`submission:${submissionId}`)
+
+  console.log(
+    `[BugBounty] Reward paid: ${submissionId} - ${formatEther(submission.rewardAmount)} ETH (tx: ${txHash})`,
+  )
+
+  return { txHash, amount: submission.rewardAmount }
 }
 
-export async function recordFix(submissionId: string, commitHash: string): Promise<BountySubmission> {
-  expect(/^[a-f0-9]{40}$/.test(commitHash), 'Invalid commit hash format');
-  
-  const client = await getCQLClient();
-  const disclosureDate = Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60; // 7 days grace
-  
+export async function recordFix(
+  submissionId: string,
+  commitHash: string,
+): Promise<BountySubmission> {
+  expect(/^[a-f0-9]{40}$/.test(commitHash), 'Invalid commit hash format')
+
+  const client = await getCQLClient()
+  const disclosureDate = Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60 // 7 days grace
+
   await client.exec(
     'UPDATE bounty_submissions SET fix_commit_hash = ?, disclosure_date = ? WHERE submission_id = ?',
     [commitHash, disclosureDate, submissionId],
-    CQL_DATABASE_ID
-  );
-  
-  await getCache().delete(`submission:${submissionId}`);
-  
-  const submission = await getSubmission(submissionId);
-  expect(submission !== null, 'Failed to fetch updated submission');
-  return submission;
+    CQL_DATABASE_ID,
+  )
+
+  await getCache().delete(`submission:${submissionId}`)
+
+  const submission = await getSubmission(submissionId)
+  expect(submission !== null, 'Failed to fetch updated submission')
+  return submission
 }
 
-export async function researcherDisclose(submissionId: string, researcher: Address): Promise<BountySubmission> {
-  const submission = await getSubmission(submissionId);
-  expect(submission !== null, `Submission ${submissionId} not found`);
-  expect(submission.researcher.toLowerCase() === researcher.toLowerCase(), 'Not the researcher');
-  
-  const client = await getCQLClient();
-  
+export async function researcherDisclose(
+  submissionId: string,
+  researcher: Address,
+): Promise<BountySubmission> {
+  const submission = await getSubmission(submissionId)
+  expect(submission !== null, `Submission ${submissionId} not found`)
+  expect(
+    submission.researcher.toLowerCase() === researcher.toLowerCase(),
+    'Not the researcher',
+  )
+
+  const client = await getCQLClient()
+
   await client.exec(
     'UPDATE bounty_submissions SET researcher_disclosed = 1 WHERE submission_id = ?',
     [submissionId],
-    CQL_DATABASE_ID
-  );
-  
-  await getCache().delete(`submission:${submissionId}`);
-  
-  const updated = await getSubmission(submissionId);
-  expect(updated !== null, 'Failed to fetch updated submission');
-  return updated;
+    CQL_DATABASE_ID,
+  )
+
+  await getCache().delete(`submission:${submissionId}`)
+
+  const updated = await getSubmission(submissionId)
+  expect(updated !== null, 'Failed to fetch updated submission')
+  return updated
 }
 
 // ============ Stats ============
@@ -956,32 +1094,32 @@ export async function researcherDisclose(submissionId: string, researcher: Addre
 async function updateResearcherStats(
   researcher: Address,
   action: 'submitted' | 'approved' | 'rejected',
-  reward?: bigint
+  reward?: bigint,
 ): Promise<void> {
-  const client = await getCQLClient();
-  const key = researcher.toLowerCase();
-  
+  const client = await getCQLClient()
+  const key = researcher.toLowerCase()
+
   const existing = await client.query<Record<string, unknown>>(
     'SELECT * FROM bounty_researcher_stats WHERE researcher = ?',
     [key],
-    CQL_DATABASE_ID
-  );
-  
+    CQL_DATABASE_ID,
+  )
+
   if (existing.rows.length === 0) {
     await client.exec(
       `INSERT INTO bounty_researcher_stats (researcher, total_submissions, approved_submissions, rejected_submissions, total_earned)
        VALUES (?, 1, 0, 0, '0')`,
       [key],
-      CQL_DATABASE_ID
-    );
+      CQL_DATABASE_ID,
+    )
   }
-  
+
   if (action === 'submitted') {
     await client.exec(
       'UPDATE bounty_researcher_stats SET total_submissions = total_submissions + 1 WHERE researcher = ?',
       [key],
-      CQL_DATABASE_ID
-    );
+      CQL_DATABASE_ID,
+    )
   } else if (action === 'approved') {
     await client.exec(
       `UPDATE bounty_researcher_stats 
@@ -989,25 +1127,27 @@ async function updateResearcherStats(
            total_earned = CAST((CAST(total_earned AS INTEGER) + ?) AS TEXT)
        WHERE researcher = ?`,
       [reward?.toString() ?? '0', key],
-      CQL_DATABASE_ID
-    );
+      CQL_DATABASE_ID,
+    )
   } else if (action === 'rejected') {
     await client.exec(
       'UPDATE bounty_researcher_stats SET rejected_submissions = rejected_submissions + 1 WHERE researcher = ?',
       [key],
-      CQL_DATABASE_ID
-    );
+      CQL_DATABASE_ID,
+    )
   }
 }
 
-export async function getResearcherStats(researcher: Address): Promise<ResearcherStats> {
-  const client = await getCQLClient();
+export async function getResearcherStats(
+  researcher: Address,
+): Promise<ResearcherStats> {
+  const client = await getCQLClient()
   const result = await client.query<Record<string, unknown>>(
     'SELECT * FROM bounty_researcher_stats WHERE researcher = ?',
     [researcher.toLowerCase()],
-    CQL_DATABASE_ID
-  );
-  
+    CQL_DATABASE_ID,
+  )
+
   if (result.rows.length === 0) {
     return {
       totalSubmissions: 0,
@@ -1016,14 +1156,14 @@ export async function getResearcherStats(researcher: Address): Promise<Researche
       totalEarned: 0n,
       averageReward: 0n,
       successRate: 0,
-    };
+    }
   }
-  
-  const row = result.rows[0];
-  const total = row.total_submissions as number;
-  const approved = row.approved_submissions as number;
-  const earned = BigInt(row.total_earned as string);
-  
+
+  const row = result.rows[0]
+  const total = row.total_submissions as number
+  const approved = row.approved_submissions as number
+  const earned = BigInt(row.total_earned as string)
+
   return {
     totalSubmissions: total,
     approvedSubmissions: approved,
@@ -1031,12 +1171,12 @@ export async function getResearcherStats(researcher: Address): Promise<Researche
     totalEarned: earned,
     averageReward: approved > 0 ? earned / BigInt(approved) : 0n,
     successRate: total > 0 ? (approved / total) * 100 : 0,
-  };
+  }
 }
 
 export async function getBountyPoolStats(): Promise<BountyPoolStats> {
-  const client = await getCQLClient();
-  
+  const client = await getCQLClient()
+
   // Query aggregates from CQL
   const submissions = await client.query<Record<string, unknown>>(
     `SELECT 
@@ -1051,41 +1191,43 @@ export async function getBountyPoolStats(): Promise<BountyPoolStats> {
       BountySubmissionStatus.REJECTED,
       BountySubmissionStatus.WITHDRAWN,
     ],
-    CQL_DATABASE_ID
-  );
-  
-  const row = submissions.rows[0] ?? {};
-  
+    CQL_DATABASE_ID,
+  )
+
+  const row = submissions.rows[0] ?? {}
+
   // Try to get pool stats from contract
-  let totalPool = parseEther('100'); // Default
-  let guardianCount = 10; // Default
-  
+  let totalPool = parseEther('100') // Default
+  let guardianCount = 10 // Default
+
   try {
-    const publicClient = getPublicClient();
-    const contractAddr = getContractAddressOrThrow();
-    
-    totalPool = await publicClient.readContract({
+    const publicClient = getPublicClient()
+    const contractAddr = getContractAddressOrThrow()
+
+    totalPool = (await publicClient.readContract({
       address: contractAddr,
       abi: SECURITY_BOUNTY_REGISTRY_ABI,
       functionName: 'getTotalPool',
-    }) as bigint;
-    
-    guardianCount = Number(await publicClient.readContract({
-      address: contractAddr,
-      abi: SECURITY_BOUNTY_REGISTRY_ABI,
-      functionName: 'getGuardianCount',
-    }) as bigint);
+    })) as bigint
+
+    guardianCount = Number(
+      (await publicClient.readContract({
+        address: contractAddr,
+        abi: SECURITY_BOUNTY_REGISTRY_ABI,
+        functionName: 'getGuardianCount',
+      })) as bigint,
+    )
   } catch {
     // Contract not available - use defaults
   }
-  
+
   return {
     totalPool,
-    totalPaidOut: BigInt(row.total_paid as number ?? 0),
-    pendingPayouts: BigInt(row.pending_payouts as number ?? 0),
-    activeSubmissions: row.active_submissions as number ?? 0,
+    totalPaidOut: BigInt((row.total_paid as number) ?? 0),
+    pendingPayouts: BigInt((row.pending_payouts as number) ?? 0),
+    activeSubmissions: (row.active_submissions as number) ?? 0,
     guardianCount,
-  };
+  }
 }
 
 // ============ Helpers ============
@@ -1094,74 +1236,67 @@ function rowToSubmission(row: Record<string, unknown>): BountySubmission {
   return {
     submissionId: row.submission_id as string,
     researcher: row.researcher as Address,
-    researcherAgentId: BigInt(row.researcher_agent_id as string ?? '0'),
+    researcherAgentId: BigInt((row.researcher_agent_id as string) ?? '0'),
     severity: row.severity as BountySeverity,
     vulnType: row.vuln_type as VulnerabilityType,
     title: row.title as string,
     summary: row.summary as string,
     description: row.description as string,
-    affectedComponents: JSON.parse(row.affected_components as string) as string[],
+    affectedComponents: JSON.parse(
+      row.affected_components as string,
+    ) as string[],
     stepsToReproduce: JSON.parse(row.steps_to_reproduce as string) as string[],
     proofOfConcept: row.proof_of_concept as string | undefined,
     suggestedFix: row.suggested_fix as string | undefined,
     encryptedReportCid: row.encrypted_report_cid as string,
     encryptionKeyId: row.encryption_key_id as string,
     proofOfConceptHash: row.poc_hash as string,
-    stake: BigInt(row.stake as string ?? '0'),
+    stake: BigInt((row.stake as string) ?? '0'),
     submittedAt: row.submitted_at as number,
     validatedAt: row.validated_at as number | undefined,
     resolvedAt: row.resolved_at as number | undefined,
     status: row.status as BountySubmissionStatus,
     validationResult: row.validation_result as ValidationResult,
     validationNotes: row.validation_notes as string | undefined,
-    rewardAmount: BigInt(row.reward_amount as string ?? '0'),
+    rewardAmount: BigInt((row.reward_amount as string) ?? '0'),
     guardianApprovals: row.guardian_approvals as number,
     guardianRejections: row.guardian_rejections as number,
     fixCommitHash: row.fix_commit_hash as string | undefined,
     disclosureDate: row.disclosure_date as number | undefined,
     researcherDisclosed: (row.researcher_disclosed as number) === 1,
-  };
+  }
 }
 
 // ============ Service Export ============
 
 export class BugBountyService {
-  assess = assessSubmission;
-  submit = submitBounty;
-  get = getSubmission;
-  list = listSubmissions;
-  triggerValidation = triggerValidation;
-  completeValidation = completeValidation;
-  guardianVote = submitGuardianVote;
-  getGuardianVotes = getGuardianVotes;
-  ceoDecision = ceoDecision;
-  payReward = payReward;
-  recordFix = recordFix;
-  researcherDisclose = researcherDisclose;
-  getResearcherStats = getResearcherStats;
-  getPoolStats = getBountyPoolStats;
+  assess = assessSubmission
+  submit = submitBounty
+  get = getSubmission
+  list = listSubmissions
+  triggerValidation = triggerValidation
+  completeValidation = completeValidation
+  guardianVote = submitGuardianVote
+  getGuardianVotes = getGuardianVotes
+  ceoDecision = ceoDecision
+  payReward = payReward
+  recordFix = recordFix
+  researcherDisclose = researcherDisclose
+  getResearcherStats = getResearcherStats
+  getPoolStats = getBountyPoolStats
 }
 
-let instance: BugBountyService | null = null;
+let instance: BugBountyService | null = null
 
 export function getBugBountyService(): BugBountyService {
-  return instance ??= new BugBountyService();
-}
-
-export function resetBugBountyService(): void {
-  instance = null;
-}
-
-export async function clearRateLimitsForTests(): Promise<void> {
-  const client = await getCQLClient();
-  await client.exec('DELETE FROM bounty_rate_limits', [], CQL_DATABASE_ID);
+  return (instance ??= new BugBountyService())
 }
 
 // ============ Initialization ============
 
 export async function initializeBugBounty(): Promise<void> {
-  if (initialized) return;
-  await getCQLClient();
-  initialized = true;
-  console.log(`[BugBounty] Initialized (network: ${getCurrentNetwork()})`);
+  if (initialized) return
+  await getCQLClient()
+  initialized = true
+  console.log(`[BugBounty] Initialized (network: ${getCurrentNetwork()})`)
 }

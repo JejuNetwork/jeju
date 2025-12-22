@@ -1,15 +1,23 @@
 /**
  * Zod schemas for validation in Network Messaging
- * 
+ *
  * This file is the source of truth for all validatable types.
  * Runtime types that extend these are in ./sdk/types.ts
  */
 
-import { z } from 'zod';
+import type { Hex } from 'viem'
+import { z } from 'zod'
 
 // ============ Common Schemas ============
 
-export const HexStringSchema = z.string().regex(/^[a-fA-F0-9]+$/, 'Invalid hex string');
+// Limit hex string length to prevent ReDoS and memory exhaustion
+// 1MB of hex = 2 million chars, which is more than sufficient for any message
+const MAX_HEX_LENGTH = 2 * 1024 * 1024
+
+export const HexStringSchema = z
+  .string()
+  .max(MAX_HEX_LENGTH, 'Hex string too long')
+  .regex(/^[a-fA-F0-9]+$/, 'Invalid hex string')
 
 // ============ Serialized Encrypted Message Schema ============
 
@@ -17,10 +25,12 @@ export const SerializedEncryptedMessageSchema = z.object({
   ciphertext: HexStringSchema,
   nonce: HexStringSchema,
   ephemeralPublicKey: HexStringSchema,
-});
+})
 
 /** Serialized encrypted message for wire transfer */
-export type SerializedEncryptedMessage = z.infer<typeof SerializedEncryptedMessageSchema>;
+export type SerializedEncryptedMessage = z.infer<
+  typeof SerializedEncryptedMessageSchema
+>
 
 // ============ Message Envelope Schema ============
 
@@ -32,10 +42,10 @@ export const MessageEnvelopeSchema = z.object({
   timestamp: z.number().int().positive(),
   signature: z.string().optional(),
   cid: z.string().optional(),
-});
+})
 
 /** Message envelope for wire transfer */
-export type MessageEnvelope = z.infer<typeof MessageEnvelopeSchema>;
+export type MessageEnvelope = z.infer<typeof MessageEnvelopeSchema>
 
 // ============ Node Config Schema ============
 
@@ -45,10 +55,10 @@ export const NodeConfigSchema = z.object({
   ipfsUrl: z.string().url().optional(),
   maxMessageSize: z.number().int().positive().optional(),
   messageRetentionDays: z.number().int().positive().optional(),
-});
+})
 
 /** Relay node configuration */
-export type NodeConfig = z.infer<typeof NodeConfigSchema>;
+export type NodeConfig = z.infer<typeof NodeConfigSchema>
 
 // ============ Client Config Schema (Validatable portion) ============
 
@@ -60,56 +70,64 @@ export const MessagingClientConfigBaseSchema = z.object({
   keyRegistryAddress: z.string().optional(),
   autoReconnect: z.boolean().optional(),
   preferredRegion: z.string().optional(),
-});
+})
 
 /** Base client config (validatable portion) */
-export type MessagingClientConfigBase = z.infer<typeof MessagingClientConfigBaseSchema>;
+export type MessagingClientConfigBase = z.infer<
+  typeof MessagingClientConfigBaseSchema
+>
 
 // ============ WebSocket Message Schemas ============
 
 export const WebSocketSubscribeSchema = z.object({
   type: z.literal('subscribe'),
   address: z.string().min(1, 'address is required'),
-});
+})
 
 /** WebSocket subscription message */
-export type WebSocketSubscribe = z.infer<typeof WebSocketSubscribeSchema>;
+export type WebSocketSubscribe = z.infer<typeof WebSocketSubscribeSchema>
 
 // ============ Receipt Data Schemas ============
 
 export const DeliveryReceiptDataSchema = z.object({
   messageId: z.string().uuid(),
-});
+})
 
 /** Delivery receipt data */
-export type DeliveryReceiptData = z.infer<typeof DeliveryReceiptDataSchema>;
+export type DeliveryReceiptData = z.infer<typeof DeliveryReceiptDataSchema>
 
 export const ReadReceiptDataSchema = z.object({
   messageId: z.string().uuid(),
   readAt: z.number().int().positive(),
-});
+})
 
 /** Read receipt data */
-export type ReadReceiptData = z.infer<typeof ReadReceiptDataSchema>;
+export type ReadReceiptData = z.infer<typeof ReadReceiptDataSchema>
 
 // ============ WebSocket Incoming Message Schemas (Client) ============
 
 export const WebSocketIncomingMessageSchema = z.object({
   type: z.enum(['message', 'delivery_receipt', 'read_receipt']),
-  data: z.union([MessageEnvelopeSchema, DeliveryReceiptDataSchema, ReadReceiptDataSchema]),
-});
+  data: z.union([
+    MessageEnvelopeSchema,
+    DeliveryReceiptDataSchema,
+    ReadReceiptDataSchema,
+  ]),
+})
 
 /** WebSocket incoming message from server */
-export type WebSocketIncomingMessage = z.infer<typeof WebSocketIncomingMessageSchema>;
+export type WebSocketIncomingMessage = z.infer<
+  typeof WebSocketIncomingMessageSchema
+>
 
 // ============ IPFS Response Schema ============
 
 export const IPFSAddResponseSchema = z.object({
   Hash: z.string().min(1, 'IPFS hash required'),
-});
+})
 
 /** IPFS add response */
-export type IPFSAddResponse = z.infer<typeof IPFSAddResponseSchema>;
+export type IPFSAddResponse = z.infer<typeof IPFSAddResponseSchema>
 
 // ============ Send Message Request Schema ============
 
@@ -118,8 +136,31 @@ export const SendMessageRequestSchema = z.object({
   content: z.string().min(1, 'content is required'),
   chatId: z.string().optional(),
   replyTo: z.string().optional(),
-});
+})
 
 /** Send message request */
-export type SendMessageRequest = z.infer<typeof SendMessageRequestSchema>;
+export type SendMessageRequest = z.infer<typeof SendMessageRequestSchema>
 
+// ============ Encrypted Backup Schema (TEE) ============
+
+/** Hex string schema that validates and transforms to Hex type */
+const HexSchema = z
+  .string()
+  .regex(/^0x[a-fA-F0-9]+$/, 'must be a 0x-prefixed hex string')
+  .transform((s): Hex => s as Hex)
+
+export const EncryptedBackupSchema = z.object({
+  ciphertext: HexSchema,
+  metadata: z.object({
+    keyId: z.string().min(1, 'keyId is required'),
+    algorithm: z.string().min(1, 'algorithm is required'),
+    kdfParams: z.object({
+      salt: HexSchema,
+      iterations: z.number().int().positive(),
+    }),
+  }),
+  createdAt: z.number().int().positive(),
+})
+
+/** Encrypted backup for TEE key export */
+export type EncryptedBackupValidated = z.infer<typeof EncryptedBackupSchema>

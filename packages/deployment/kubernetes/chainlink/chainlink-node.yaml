@@ -28,7 +28,9 @@ data:
   ETH_CHAIN_ID: "420691"  # Jeju mainnet
   CHAINLINK_TLS_PORT: "0"
   SECURE_COOKIES: "false"
-  ALLOW_ORIGINS: "*"
+  # SECURITY: Restrict CORS to specific origins in production
+  # Set via environment-specific configmap or external secrets
+  ALLOW_ORIGINS: "https://chainlink.internal.jejunetwork.org"
   
   # Gas settings
   ETH_GAS_BUMP_PERCENT: "20"
@@ -52,30 +54,43 @@ data:
   VRF_V2_ENABLED: "true"
 
 ---
-# Secret template (values should be provided via sealed-secrets or external-secrets)
+# Secret template - MUST be managed via External Secrets Operator, Sealed Secrets, or Vault
+# DO NOT commit real secrets to version control
+# This is a reference template only - deploy with external secret management
 apiVersion: v1
 kind: Secret
 metadata:
   name: chainlink-secrets
   namespace: chainlink
+  annotations:
+    # Use External Secrets Operator to sync from AWS Secrets Manager or HashiCorp Vault
+    # external-secrets.io/sync: "true"
+    # Alternatively use Sealed Secrets
+    # sealedsecrets.bitnami.com/managed: "true"
+    "helm.sh/hook": "pre-install"
+    "helm.sh/hook-weight": "-5"
 type: Opaque
 stringData:
-  # Database (use AWS RDS or Cloud SQL in production)
-  DATABASE_URL: "postgresql://chainlink:password@chainlink-db:5432/chainlink?sslmode=disable"
+  # All values below MUST be injected from external secret management
+  # DO NOT use these placeholder values in production
   
-  # Ethereum/Jeju RPC
-  ETH_URL: "wss://mainnet.jejunetwork.org/ws"
-  ETH_HTTP_URL: "https://mainnet.jejunetwork.org"
+  # Database - use AWS RDS/Aurora or Cloud SQL in production with IAM auth
+  # Format: postgresql://user:password@host:5432/dbname?sslmode=require
+  DATABASE_URL: ""  # REQUIRED: Set via external secrets
   
-  # Additional chains (for cross-chain operations)
-  ETH_SECONDARY_URLS: "wss://eth-mainnet.g.alchemy.com/v2/YOUR_KEY,wss://base-mainnet.g.alchemy.com/v2/YOUR_KEY"
+  # Ethereum/Jeju RPC endpoints
+  ETH_URL: ""  # REQUIRED: Set via external secrets
+  ETH_HTTP_URL: ""  # REQUIRED: Set via external secrets
   
-  # Node credentials (generate with: chainlink admin login)
-  CHAINLINK_ADMIN_EMAIL: "admin@jejunetwork.org"
-  CHAINLINK_ADMIN_PASSWORD: "CHANGE_ME_SECURE_PASSWORD"
+  # Additional chains (API keys must come from secret management)
+  ETH_SECONDARY_URLS: ""  # REQUIRED: Set via external secrets
+  
+  # Node admin credentials - generate secure password with: openssl rand -base64 32
+  CHAINLINK_ADMIN_EMAIL: ""  # REQUIRED: Set via external secrets
+  CHAINLINK_ADMIN_PASSWORD: ""  # REQUIRED: Set via external secrets (min 16 chars, mixed case, numbers, symbols)
   
   # VRF Key (generate with: chainlink keys vrf create)
-  VRF_KEY_V2: ""
+  VRF_KEY_V2: ""  # Set via external secrets after key generation
 
 ---
 # PostgreSQL Database (for development - use RDS in production)
@@ -95,9 +110,21 @@ spec:
       labels:
         app: chainlink-db
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70  # postgres user
+        fsGroup: 70
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: postgres
         image: postgres:15-alpine
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false  # Postgres needs to write to data dir
+          capabilities:
+            drop:
+              - ALL
         ports:
         - containerPort: 5432
         env:
@@ -110,9 +137,35 @@ spec:
               key: DATABASE_URL
         - name: POSTGRES_DB
           value: "chainlink"
+        - name: PGDATA
+          value: "/var/lib/postgresql/data/pgdata"  # Subdirectory for postgres
         volumeMounts:
         - name: postgres-data
           mountPath: /var/lib/postgresql/data
+        livenessProbe:
+          exec:
+            command:
+              - pg_isready
+              - -U
+              - chainlink
+              - -d
+              - chainlink
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+              - pg_isready
+              - -U
+              - chainlink
+              - -d
+              - chainlink
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
         resources:
           requests:
             cpu: "500m"

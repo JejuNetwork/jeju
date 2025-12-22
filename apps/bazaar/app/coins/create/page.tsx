@@ -1,11 +1,15 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
-import { JEJU_CHAIN_ID } from '@/config/chains'
-import { getTokenFactoryContracts, hasTokenFactory } from '@/config/contracts'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { parseEther } from 'viem'
+import {
+  useAccount,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from 'wagmi'
+import { JEJU_CHAIN_ID } from '@/config/chains'
+import { getTokenFactoryContracts, hasTokenFactory } from '@/config/contracts'
 import factoryAbi from '@/lib/abis/SimpleERC20Factory.json'
 
 export default function CreateTokenPage() {
@@ -33,7 +37,7 @@ export default function CreateTokenPage() {
         description: 'Your token will appear in the tokens list shortly',
         action: {
           label: 'View Tokens',
-          onClick: () => window.location.href = '/coins',
+          onClick: () => (window.location.href = '/coins'),
         },
       })
     }
@@ -70,14 +74,14 @@ export default function CreateTokenPage() {
 
     successToastShown.current = false
     const supply = parseEther(initialSupply || '0')
-    
+
     writeContract({
       address: factoryContracts.erc20Factory,
       abi: factoryAbi,
       functionName: 'createToken',
-      args: [name, symbol, parseInt(decimals), supply],
+      args: [name, symbol, parseInt(decimals, 10), supply],
     })
-    
+
     toast.success(`Creating token ${symbol}...`, {
       description: 'Please confirm the transaction in your wallet',
     })
@@ -88,22 +92,31 @@ export default function CreateTokenPage() {
   return (
     <div className="max-w-2xl mx-auto">
       <div className="text-center mb-8">
-        <h1 className="text-3xl md:text-4xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
+        <h1
+          className="text-3xl md:text-4xl font-bold mb-2"
+          style={{ color: 'var(--text-primary)' }}
+        >
           🪙 Create Token
         </h1>
-        <p style={{ color: 'var(--text-secondary)' }}>Launch your own ERC20 token on the network</p>
+        <p style={{ color: 'var(--text-secondary)' }}>
+          Launch your own ERC20 token on the network
+        </p>
       </div>
 
       {/* Alerts */}
       {!isConnected && (
         <div className="card p-4 mb-6 border-bazaar-warning/50 bg-bazaar-warning/10">
-          <p className="text-bazaar-warning">Please connect your wallet to create a token</p>
+          <p className="text-bazaar-warning">
+            Please connect your wallet to create a token
+          </p>
         </div>
       )}
 
       {isConnected && !isCorrectChain && (
         <div className="card p-4 mb-6 border-bazaar-error/50 bg-bazaar-error/10">
-          <p className="text-bazaar-error">Please switch to the network network (Chain ID: {JEJU_CHAIN_ID})</p>
+          <p className="text-bazaar-error">
+            Please switch to the network network (Chain ID: {JEJU_CHAIN_ID})
+          </p>
         </div>
       )}
 
@@ -111,7 +124,10 @@ export default function CreateTokenPage() {
       <div className="card p-5 md:p-6">
         <div className="space-y-5 md:space-y-6">
           <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+            <label
+              className="block text-sm font-medium mb-2"
+              style={{ color: 'var(--text-primary)' }}
+            >
               Token Name <span className="text-bazaar-error">*</span>
             </label>
             <input
@@ -124,7 +140,10 @@ export default function CreateTokenPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+            <label
+              className="block text-sm font-medium mb-2"
+              style={{ color: 'var(--text-primary)' }}
+            >
               Symbol <span className="text-bazaar-error">*</span>
             </label>
             <input
@@ -138,7 +157,10 @@ export default function CreateTokenPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+            <label
+              className="block text-sm font-medium mb-2"
+              style={{ color: 'var(--text-primary)' }}
+            >
               Description
             </label>
             <textarea
@@ -151,7 +173,10 @@ export default function CreateTokenPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+            <label
+              className="block text-sm font-medium mb-2"
+              style={{ color: 'var(--text-primary)' }}
+            >
               Initial Supply <span className="text-bazaar-error">*</span>
             </label>
             <input
@@ -161,13 +186,20 @@ export default function CreateTokenPage() {
               placeholder="1000000"
               className="input"
             />
-            <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
-              Number of tokens to mint (full tokens, will use {decimals} decimals)
+            <p
+              className="text-xs mt-1"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
+              Number of tokens to mint (full tokens, will use {decimals}{' '}
+              decimals)
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+            <label
+              className="block text-sm font-medium mb-2"
+              style={{ color: 'var(--text-primary)' }}
+            >
               Decimals
             </label>
             <select
@@ -179,15 +211,26 @@ export default function CreateTokenPage() {
               <option value="8">8 (like Bitcoin)</option>
               <option value="18">18 (standard)</option>
             </select>
-            <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+            <p
+              className="text-xs mt-1"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
               Standard is 18 decimals (like ETH)
             </p>
           </div>
 
           {/* Features Preview */}
           <div className="p-4 rounded-xl border border-bazaar-primary/30 bg-bazaar-primary/5">
-            <h3 className="font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>🚀 Features</h3>
-            <ul className="text-sm space-y-1" style={{ color: 'var(--text-secondary)' }}>
+            <h3
+              className="font-semibold mb-2"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              🚀 Features
+            </h3>
+            <ul
+              className="text-sm space-y-1"
+              style={{ color: 'var(--text-secondary)' }}
+            >
               <li>✅ Automatically indexed on Bazaar</li>
               <li>✅ Tradeable on Uniswap V4</li>
               <li>✅ Visible on the network Explorer</li>
@@ -197,31 +240,39 @@ export default function CreateTokenPage() {
 
           <button
             onClick={handleCreate}
-            disabled={!isConnected || !isCorrectChain || isCreating || !name || !symbol}
+            disabled={
+              !isConnected || !isCorrectChain || isCreating || !name || !symbol
+            }
             className="btn-primary w-full py-4 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isCreating
               ? 'Creating...'
               : !isConnected
-              ? 'Connect Wallet'
-              : !isCorrectChain
-              ? 'Switch to the network'
-              : 'Create Token'}
+                ? 'Connect Wallet'
+                : !isCorrectChain
+                  ? 'Switch to the network'
+                  : 'Create Token'}
           </button>
         </div>
       </div>
 
       {/* How It Works */}
       <div className="card p-5 md:p-6 mt-6">
-        <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+        <h3
+          className="text-lg font-semibold mb-4"
+          style={{ color: 'var(--text-primary)' }}
+        >
           How it works
         </h3>
-        <ol className="space-y-3 text-sm" style={{ color: 'var(--text-secondary)' }}>
+        <ol
+          className="space-y-3 text-sm"
+          style={{ color: 'var(--text-secondary)' }}
+        >
           {[
             'Connect your wallet and switch to the network network',
             'Fill in token details (name, symbol, supply)',
             'Deploy your ERC20 token contract',
-            'Your token appears on Bazaar automatically via the indexer'
+            'Your token appears on Bazaar automatically via the indexer',
           ].map((step, i) => (
             <li key={i} className="flex gap-3">
               <span className="flex-shrink-0 w-6 h-6 rounded-full bg-bazaar-primary text-white flex items-center justify-center text-xs font-bold">

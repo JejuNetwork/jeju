@@ -1,9 +1,13 @@
 'use client'
 
-import { useReadContract, useWriteContract, useAccount, useWaitForTransactionReceipt } from 'wagmi'
-import { parseUnits, formatUnits, type Address } from 'viem'
-import { useState, useCallback } from 'react'
-import { JEJU_CHAIN_ID } from '@/config/chains'
+import { useCallback, useState } from 'react'
+import { type Address, formatUnits } from 'viem'
+import {
+  useAccount,
+  useReadContract,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from 'wagmi'
 
 // TFMM Pool ABI (subset for UI)
 const TFMM_POOL_ABI = [
@@ -119,7 +123,7 @@ const DEFAULT_POOLS: Omit<TFMMPool, 'state' | 'userBalance'>[] = [
 ]
 
 export function useTFMMPools() {
-  const { address: userAddress } = useAccount()
+  useAccount()
   const [selectedPool, setSelectedPool] = useState<Address | null>(null)
 
   // In production, this would query a registry contract
@@ -185,7 +189,9 @@ export function useTFMMUserBalance(poolAddress: Address | null) {
 
 export function useTFMMAddLiquidity(poolAddress: Address | null) {
   const { writeContract, data: hash, isPending, error } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
   const addLiquidity = useCallback(
     async (amounts: bigint[], minLpOut: bigint) => {
@@ -198,7 +204,7 @@ export function useTFMMAddLiquidity(poolAddress: Address | null) {
         args: [amounts, minLpOut],
       })
     },
-    [poolAddress, writeContract]
+    [poolAddress, writeContract],
   )
 
   return {
@@ -212,7 +218,9 @@ export function useTFMMAddLiquidity(poolAddress: Address | null) {
 
 export function useTFMMRemoveLiquidity(poolAddress: Address | null) {
   const { writeContract, data: hash, isPending, error } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
   const removeLiquidity = useCallback(
     async (lpAmount: bigint, minAmountsOut: bigint[]) => {
@@ -225,7 +233,7 @@ export function useTFMMRemoveLiquidity(poolAddress: Address | null) {
         args: [lpAmount, minAmountsOut],
       })
     },
-    [poolAddress, writeContract]
+    [poolAddress, writeContract],
   )
 
   return {
@@ -249,4 +257,3 @@ export function formatTVL(balances: bigint[], prices: bigint[]): string {
   }
   return `$${Number(formatUnits(total, 18)).toLocaleString()}`
 }
-

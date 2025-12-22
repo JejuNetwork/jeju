@@ -1,96 +1,199 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { useParams } from 'next/navigation';
-import { useAccount } from 'wagmi';
+import { clsx } from 'clsx'
 import {
-  Package,
-  Copy,
-  Check,
-  Shield,
-  GitFork,
-  FileText,
-  Code,
-  Users,
-  ExternalLink,
   AlertTriangle,
+  Check,
+  Code,
+  Copy,
+  ExternalLink,
+  FileText,
+  GitFork,
+  Package,
+  Shield,
   Tag,
   Terminal,
-  Loader2,
-} from 'lucide-react';
-import { clsx } from 'clsx';
-import { usePackage, usePackageVersions, usePackageReadme } from '../../../../hooks/usePackages';
+  Users,
+} from 'lucide-react'
+import { useParams } from 'next/navigation'
+import { useState } from 'react'
+import { useAccount } from 'wagmi'
 
-type PackageTab = 'readme' | 'versions' | 'dependencies' | 'files';
+type PackageTab = 'readme' | 'versions' | 'dependencies' | 'files'
+
+interface PackageVersion {
+  version: string
+  publishedAt: number
+  tarballCid: string
+  size: number
+  deprecated: boolean
+}
+
+interface PackageInfo {
+  name: string
+  scope: string
+  version: string
+  description: string
+  author: string
+  license: string
+  homepage: string
+  repository: string
+  downloads: number
+  weeklyDownloads: number
+  publishedAt: number
+  versions: PackageVersion[]
+  dependencies: Record<string, string>
+  devDependencies: Record<string, string>
+  keywords: string[]
+  verified: boolean
+  hasTypes: boolean
+  deprecated: boolean
+  readme: string
+}
+
+// Mock data for demo
+const mockPackage: PackageInfo = {
+  name: '@jeju/sdk',
+  scope: '@jeju',
+  version: '1.5.2',
+  description:
+    'Official Jeju Network SDK - interact with contracts, bounties, guardians, and models.',
+  author: 'jeju',
+  license: 'MIT',
+  homepage: 'https://jejunetwork.org',
+  repository: 'https://git.jejunetwork.org/jeju/sdk',
+  downloads: 45230,
+  weeklyDownloads: 3240,
+  publishedAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
+  versions: [
+    {
+      version: '1.5.2',
+      publishedAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
+      tarballCid: 'bafybeiabc123',
+      size: 234567,
+      deprecated: false,
+    },
+    {
+      version: '1.5.1',
+      publishedAt: Date.now() - 7 * 24 * 60 * 60 * 1000,
+      tarballCid: 'bafybeiabc122',
+      size: 232456,
+      deprecated: false,
+    },
+    {
+      version: '1.5.0',
+      publishedAt: Date.now() - 14 * 24 * 60 * 60 * 1000,
+      tarballCid: 'bafybeiabc121',
+      size: 230123,
+      deprecated: false,
+    },
+    {
+      version: '1.4.0',
+      publishedAt: Date.now() - 30 * 24 * 60 * 60 * 1000,
+      tarballCid: 'bafybeiabc120',
+      size: 225678,
+      deprecated: true,
+    },
+  ],
+  dependencies: {
+    viem: '^2.30.0',
+    wagmi: '^2.15.0',
+    '@tanstack/react-query': '^5.0.0',
+  },
+  devDependencies: {
+    typescript: '^5.0.0',
+    '@types/node': '^20.0.0',
+  },
+  keywords: ['jeju', 'web3', 'sdk', 'ethereum', 'bounties'],
+  verified: true,
+  hasTypes: true,
+  deprecated: false,
+  readme: `# @jeju/sdk
+
+Official Jeju Network SDK for building dApps with bounties, guardians, and AI models.
+
+## Installation
+
+\`\`\`bash
+bun add @jeju/sdk
+# or
+npm install @jeju/sdk
+\`\`\`
+
+## Quick Start
+
+\`\`\`typescript
+import { JejuSDK } from '@jeju/sdk';
+
+const sdk = new JejuSDK({
+  rpcUrl: 'https://rpc.jejunetwork.org',
+  chainId: 8453,
+});
+
+// Create a bounty
+const bountyId = await sdk.bounties.create({
+  title: 'Build a feature',
+  reward: parseEther('1'),
+  deadline: BigInt(Date.now() + 7 * 24 * 60 * 60 * 1000),
+});
+\`\`\`
+
+## Features
+
+- **Bounties**: Create, fund, and manage bounties
+- **Guardians**: Interact with the guardian validator network
+- **Models**: Access the AI model hub
+- **Identity**: ERC-8004 agent registration
+
+## Documentation
+
+Full documentation at [docs.jejunetwork.org](https://docs.jejunetwork.org)
+`,
+}
 
 export default function PackageDetailPage() {
-  const params = useParams();
-  const rawScope = params.scope as string;
-  const name = params.name as string;
-  const { isConnected: _isConnected } = useAccount();
-  
+  const params = useParams()
+  const rawScope = params.scope as string
+  const name = params.name as string
+  const { isConnected: _isConnected } = useAccount()
+
   // Decode URL-encoded scope (e.g., %40jejunetwork -> @jejunetwork)
-  const scope = decodeURIComponent(rawScope);
-  
-  const [tab, setTab] = useState<PackageTab>('readme');
-  const [copied, setCopied] = useState<string | null>(null);
+  const scope = decodeURIComponent(rawScope)
 
-  // Fetch real data
-  const { package: pkg, isLoading, error } = usePackage(scope, name);
-  const { versions, isLoading: versionsLoading } = usePackageVersions(scope, name);
-  const { readme, isLoading: readmeLoading } = usePackageReadme(scope, name);
+  const [tab, setTab] = useState<PackageTab>('readme')
+  // const [selectedVersion, setSelectedVersion] = useState(mockPackage.version);
+  const [copied, setCopied] = useState<string | null>(null)
+  const [pkg] = useState<PackageInfo>(mockPackage)
+  // const [setPkg] = useState<PackageInfo>(mockPackage);
 
-  const fullName = scope.startsWith('@') ? `${scope}/${name}` : name;
+  const fullName = scope.startsWith('@') ? `${scope}/${name}` : name
 
   const copyToClipboard = (text: string, id: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(id);
-    setTimeout(() => setCopied(null), 2000);
-  };
+    navigator.clipboard.writeText(text)
+    setCopied(id)
+    setTimeout(() => setCopied(null), 2000)
+  }
 
   const formatNumber = (n: number) => {
-    if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
-    if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
-    return n.toString();
-  };
+    if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`
+    if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
+    return n.toString()
+  }
 
   const formatDate = (timestamp: number) => {
-    const days = Math.floor((Date.now() - timestamp) / (1000 * 60 * 60 * 24));
-    if (days === 0) return 'Today';
-    if (days === 1) return 'Yesterday';
-    if (days < 7) return `${days} days ago`;
-    if (days < 30) return `${Math.floor(days / 7)} weeks ago`;
-    return new Date(timestamp).toLocaleDateString();
-  };
+    const days = Math.floor((Date.now() - timestamp) / (1000 * 60 * 60 * 24))
+    if (days === 0) return 'Today'
+    if (days === 1) return 'Yesterday'
+    if (days < 7) return `${days} days ago`
+    if (days < 30) return `${Math.floor(days / 7)} weeks ago`
+    return new Date(timestamp).toLocaleDateString()
+  }
 
   const formatSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-accent-400" />
-      </div>
-    );
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
-
-  if (error || !pkg) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <Package className="w-16 h-16 mx-auto mb-4 text-factory-600" />
-          <h2 className="text-xl font-semibold text-factory-300 mb-2">Package not found</h2>
-          <p className="text-factory-500">{fullName} does not exist in the registry.</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Use fetched versions or package versions
-  const displayVersions = versions.length > 0 ? versions : pkg.versions;
 
   return (
     <div className="min-h-screen">
@@ -101,7 +204,9 @@ export default function PackageDetailPage() {
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-2">
                 <Package className="w-8 h-8 text-orange-400" />
-                <h1 className="text-2xl font-bold text-factory-100">{fullName}</h1>
+                <h1 className="text-2xl font-bold text-factory-100">
+                  {fullName}
+                </h1>
                 {pkg.verified && (
                   <span className="badge bg-green-500/20 text-green-400 border border-green-500/30">
                     <Shield className="w-3 h-3 mr-1" />
@@ -121,7 +226,7 @@ export default function PackageDetailPage() {
                 )}
               </div>
               <p className="text-factory-400 mb-4">{pkg.description}</p>
-              
+
               <div className="flex flex-wrap gap-2">
                 {pkg.keywords.map((keyword) => (
                   <span key={keyword} className="badge badge-info">
@@ -134,13 +239,17 @@ export default function PackageDetailPage() {
             {/* Install Command */}
             <div className="w-full lg:w-96">
               <div className="card p-4">
-                <label className="block text-sm text-factory-400 mb-2">Install</label>
+                <label className="block text-sm text-factory-400 mb-2">
+                  Install
+                </label>
                 <div className="flex items-center gap-2 bg-factory-900 rounded-lg p-3">
                   <code className="flex-1 text-sm text-factory-200 font-mono truncate">
                     bun add {fullName}
                   </code>
                   <button
-                    onClick={() => copyToClipboard(`bun add ${fullName}`, 'install')}
+                    onClick={() =>
+                      copyToClipboard(`bun add ${fullName}`, 'install')
+                    }
                     className="p-1.5 hover:bg-factory-800 rounded"
                   >
                     {copied === 'install' ? (
@@ -162,11 +271,15 @@ export default function PackageDetailPage() {
                   </div>
                   <div className="flex justify-between text-factory-400 mb-1">
                     <span>Downloads</span>
-                    <span className="text-factory-200">{formatNumber(pkg.downloads)}</span>
+                    <span className="text-factory-200">
+                      {formatNumber(pkg.downloads)}
+                    </span>
                   </div>
                   <div className="flex justify-between text-factory-400">
                     <span>Last publish</span>
-                    <span className="text-factory-200">{formatDate(pkg.publishedAt)}</span>
+                    <span className="text-factory-200">
+                      {formatDate(pkg.publishedAt)}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -175,12 +288,20 @@ export default function PackageDetailPage() {
 
           {/* Tabs */}
           <div className="flex gap-1 mt-6 overflow-x-auto -mb-px">
-            {([
+            {[
               { id: 'readme' as const, label: 'Readme', icon: FileText },
-              { id: 'versions' as const, label: `Versions (${displayVersions.length})`, icon: Tag },
-              { id: 'dependencies' as const, label: 'Dependencies', icon: GitFork },
+              {
+                id: 'versions' as const,
+                label: `Versions (${pkg.versions.length})`,
+                icon: Tag,
+              },
+              {
+                id: 'dependencies' as const,
+                label: 'Dependencies',
+                icon: GitFork,
+              },
               { id: 'files' as const, label: 'Files', icon: Code },
-            ]).map(({ id, label, icon: Icon }) => (
+            ].map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
                 onClick={() => setTab(id)}
@@ -188,7 +309,7 @@ export default function PackageDetailPage() {
                   'flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap',
                   tab === id
                     ? 'border-accent-500 text-accent-400'
-                    : 'border-transparent text-factory-400 hover:text-factory-100 hover:border-factory-600'
+                    : 'border-transparent text-factory-400 hover:text-factory-100 hover:border-factory-600',
                 )}
               >
                 <Icon className="w-4 h-4" />
@@ -206,87 +327,99 @@ export default function PackageDetailPage() {
           <div className="lg:col-span-3">
             {tab === 'readme' && (
               <div className="card p-6 prose prose-invert max-w-none">
-                {readmeLoading ? (
-                  <div className="flex justify-center py-8">
-                    <Loader2 className="w-6 h-6 animate-spin text-accent-400" />
-                  </div>
-                ) : readme ? (
-                  <div dangerouslySetInnerHTML={{ 
-                    __html: readme
-                      .replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+                <div
+                  // biome-ignore lint/security/noDangerouslySetInnerHtml: README content is from trusted package metadata
+                  dangerouslySetInnerHTML={{
+                    __html: pkg.readme
+                      .replace(
+                        /```(\w+)?\n([\s\S]*?)```/g,
+                        '<pre><code>$2</code></pre>',
+                      )
                       .replace(/`([^`]+)`/g, '<code>$1</code>')
-                      .replace(/\n/g, '<br/>') 
-                  }} />
-                ) : (
-                  <p className="text-factory-500">No README available</p>
-                )}
+                      .replace(/\n/g, '<br/>'),
+                  }}
+                />
               </div>
             )}
 
             {tab === 'versions' && (
               <div className="card divide-y divide-factory-800">
-                {versionsLoading ? (
-                  <div className="flex justify-center py-8">
-                    <Loader2 className="w-6 h-6 animate-spin text-accent-400" />
-                  </div>
-                ) : displayVersions.length > 0 ? (
-                  displayVersions.map((version) => (
-                    <div
-                      key={version.version}
-                      className={clsx(
-                        'p-4 flex items-center justify-between',
-                        version.deprecated && 'opacity-60'
-                      )}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Tag className="w-4 h-4 text-factory-400" />
-                        <span className={clsx(
+                {pkg.versions.map((version) => (
+                  <div
+                    key={version.version}
+                    className={clsx(
+                      'p-4 flex items-center justify-between',
+                      version.deprecated && 'opacity-60',
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Tag className="w-4 h-4 text-factory-400" />
+                      <span
+                        className={clsx(
                           'font-mono',
-                          version.version === pkg.version ? 'text-accent-400' : 'text-factory-200'
-                        )}>
-                          v{version.version}
+                          version.version === pkg.version
+                            ? 'text-accent-400'
+                            : 'text-factory-200',
+                        )}
+                      >
+                        v{version.version}
+                      </span>
+                      {version.version === pkg.version && (
+                        <span className="badge bg-accent-500/20 text-accent-400 border border-accent-500/30">
+                          latest
                         </span>
-                        {version.version === pkg.version && (
-                          <span className="badge bg-accent-500/20 text-accent-400 border border-accent-500/30">
-                            latest
-                          </span>
-                        )}
-                        {version.deprecated && (
-                          <span className="badge bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                            deprecated
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-4 text-sm text-factory-500">
-                        <span>{formatSize(version.size)}</span>
-                        <span>{formatDate(version.publishedAt)}</span>
-                        <button
-                          onClick={() => copyToClipboard(`bun add ${fullName}@${version.version}`, version.version)}
-                          className="btn btn-secondary text-xs py-1 px-2"
-                        >
-                          {copied === version.version ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                        </button>
-                      </div>
+                      )}
+                      {version.deprecated && (
+                        <span className="badge bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                          deprecated
+                        </span>
+                      )}
                     </div>
-                  ))
-                ) : (
-                  <p className="p-4 text-factory-500">No versions available</p>
-                )}
+                    <div className="flex items-center gap-4 text-sm text-factory-500">
+                      <span>{formatSize(version.size)}</span>
+                      <span>{formatDate(version.publishedAt)}</span>
+                      <button
+                        onClick={() =>
+                          copyToClipboard(
+                            `bun add ${fullName}@${version.version}`,
+                            version.version,
+                          )
+                        }
+                        className="btn btn-secondary text-xs py-1 px-2"
+                      >
+                        {copied === version.version ? (
+                          <Check className="w-3 h-3" />
+                        ) : (
+                          <Copy className="w-3 h-3" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 
             {tab === 'dependencies' && (
               <div className="space-y-6">
                 <div className="card p-6">
-                  <h3 className="font-semibold text-factory-100 mb-4">Dependencies ({Object.keys(pkg.dependencies).length})</h3>
+                  <h3 className="font-semibold text-factory-100 mb-4">
+                    Dependencies ({Object.keys(pkg.dependencies).length})
+                  </h3>
                   {Object.keys(pkg.dependencies).length > 0 ? (
                     <div className="space-y-2">
-                      {Object.entries(pkg.dependencies).map(([dep, version]) => (
-                        <div key={dep} className="flex items-center justify-between p-2 bg-factory-800/50 rounded">
-                          <span className="text-factory-200 font-mono">{dep}</span>
-                          <span className="text-factory-500">{version}</span>
-                        </div>
-                      ))}
+                      {Object.entries(pkg.dependencies).map(
+                        ([dep, version]) => (
+                          <div
+                            key={dep}
+                            className="flex items-center justify-between p-2 bg-factory-800/50 rounded"
+                          >
+                            <span className="text-factory-200 font-mono">
+                              {dep}
+                            </span>
+                            <span className="text-factory-500">{version}</span>
+                          </div>
+                        ),
+                      )}
                     </div>
                   ) : (
                     <p className="text-factory-500">No dependencies</p>
@@ -294,15 +427,24 @@ export default function PackageDetailPage() {
                 </div>
 
                 <div className="card p-6">
-                  <h3 className="font-semibold text-factory-100 mb-4">Dev Dependencies ({Object.keys(pkg.devDependencies).length})</h3>
+                  <h3 className="font-semibold text-factory-100 mb-4">
+                    Dev Dependencies ({Object.keys(pkg.devDependencies).length})
+                  </h3>
                   {Object.keys(pkg.devDependencies).length > 0 ? (
                     <div className="space-y-2">
-                      {Object.entries(pkg.devDependencies).map(([dep, version]) => (
-                        <div key={dep} className="flex items-center justify-between p-2 bg-factory-800/50 rounded">
-                          <span className="text-factory-200 font-mono">{dep}</span>
-                          <span className="text-factory-500">{version}</span>
-                        </div>
-                      ))}
+                      {Object.entries(pkg.devDependencies).map(
+                        ([dep, version]) => (
+                          <div
+                            key={dep}
+                            className="flex items-center justify-between p-2 bg-factory-800/50 rounded"
+                          >
+                            <span className="text-factory-200 font-mono">
+                              {dep}
+                            </span>
+                            <span className="text-factory-500">{version}</span>
+                          </div>
+                        ),
+                      )}
                     </div>
                   ) : (
                     <p className="text-factory-500">No dev dependencies</p>
@@ -313,11 +455,16 @@ export default function PackageDetailPage() {
 
             {tab === 'files' && (
               <div className="card p-6">
-                <p className="text-factory-400 mb-4">Package contents from tarball</p>
+                <p className="text-factory-400 mb-4">
+                  Package contents from tarball
+                </p>
                 <div className="bg-factory-900 rounded-lg p-4 font-mono text-sm text-factory-300">
                   <pre>{`├── dist/
 │   ├── index.js
-│   └── index.d.ts
+│   ├── index.d.ts
+│   ├── bounties/
+│   ├── guardians/
+│   └── models/
 ├── package.json
 ├── README.md
 └── LICENSE`}</pre>
@@ -338,14 +485,25 @@ export default function PackageDetailPage() {
                 Configure your package manager to use Jeju registry:
               </p>
               <div className="bg-factory-900 rounded-lg p-3 font-mono text-xs mb-4">
-                <pre className="text-factory-400"># .npmrc or .bunfig.toml
-@jeju:registry=https://pkg.jejunetwork.org</pre>
+                <pre className="text-factory-400">
+                  # .npmrc or .bunfig.toml
+                  @jeju:registry=https://pkg.jejunetwork.org
+                </pre>
               </div>
               <button
-                onClick={() => copyToClipboard('@jeju:registry=https://pkg.jejunetwork.org', 'registry')}
+                onClick={() =>
+                  copyToClipboard(
+                    '@jeju:registry=https://pkg.jejunetwork.org',
+                    'registry',
+                  )
+                }
                 className="btn btn-secondary text-sm w-full"
               >
-                {copied === 'registry' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                {copied === 'registry' ? (
+                  <Check className="w-4 h-4" />
+                ) : (
+                  <Copy className="w-4 h-4" />
+                )}
                 Copy Config
               </button>
             </div>
@@ -355,7 +513,7 @@ export default function PackageDetailPage() {
               <h3 className="font-semibold text-factory-100 mb-4">Links</h3>
               <div className="space-y-2">
                 {pkg.homepage && (
-                  <a 
+                  <a
                     href={pkg.homepage}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -366,7 +524,7 @@ export default function PackageDetailPage() {
                   </a>
                 )}
                 {pkg.repository && (
-                  <a 
+                  <a
                     href={pkg.repository}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -387,7 +545,7 @@ export default function PackageDetailPage() {
               </h3>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-factory-800 flex items-center justify-center">
-                  <span className="text-factory-400 font-medium">{pkg.author[0]?.toUpperCase()}</span>
+                  <span className="text-factory-400 font-medium">J</span>
                 </div>
                 <div>
                   <p className="text-factory-200">{pkg.author}</p>
@@ -399,5 +557,5 @@ export default function PackageDetailPage() {
         </div>
       </div>
     </div>
-  );
+  )
 }

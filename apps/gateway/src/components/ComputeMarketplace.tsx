@@ -1,25 +1,25 @@
-import { useState } from 'react';
-import { formatEther } from 'viem';
-import { useAccount } from 'wagmi';
+import { useState } from 'react'
+import { formatEther } from 'viem'
+import { useAccount } from 'wagmi'
 import {
-  useProviderResources,
-  useRentalCost,
-  useCreateRental,
-  useUserRentals,
-  useRental,
-  useCancelRental,
+  formatDuration,
+  formatHourlyRate,
   GPU_NAMES,
   RentalStatus,
   STATUS_LABELS,
-  formatDuration,
-  formatHourlyRate,
-} from '../hooks/useComputeRental';
+  useCancelRental,
+  useCreateRental,
+  useProviderResources,
+  useRental,
+  useRentalCost,
+  useUserRentals,
+} from '../hooks/useComputeRental'
 
 const DEMO_PROVIDERS: Array<{
-  address: `0x${string}`;
-  name: string;
-  location: string;
-  rating: number;
+  address: `0x${string}`
+  name: string
+  location: string
+  rating: number
 }> = [
   {
     address: '0x1234567890123456789012345678901234567890',
@@ -39,29 +39,29 @@ const DEMO_PROVIDERS: Array<{
     location: 'Asia Pacific',
     rating: 4.7,
   },
-];
+]
 
 interface ProviderCardProps {
-  provider: (typeof DEMO_PROVIDERS)[0];
-  onRent: (address: `0x${string}`) => void;
+  provider: (typeof DEMO_PROVIDERS)[0]
+  onRent: (address: `0x${string}`) => void
 }
 
 function ProviderCard({ provider, onRent }: ProviderCardProps) {
-  const { resources, isLoading } = useProviderResources(provider.address);
+  const { resources, isLoading } = useProviderResources(provider.address)
 
   if (isLoading) {
     return (
       <div className="card" style={{ padding: '1.5rem', opacity: 0.6 }}>
         <p>Loading...</p>
       </div>
-    );
+    )
   }
 
-  const gpuName = resources ? GPU_NAMES[resources.resources.gpuType] : 'Unknown';
-  const hourlyRate = resources?.pricing.pricePerHour || 0n;
+  const gpuName = resources ? GPU_NAMES[resources.resources.gpuType] : 'Unknown'
+  const hourlyRate = resources?.pricing.pricePerHour || 0n
   const available = resources
     ? resources.maxConcurrent - resources.activeRentals
-    : 0;
+    : 0
 
   return (
     <div
@@ -70,16 +70,29 @@ function ProviderCard({ provider, onRent }: ProviderCardProps) {
         padding: '1.5rem',
         border: '1px solid var(--border)',
         borderRadius: '12px',
-        background: 'linear-gradient(135deg, var(--surface-hover) 0%, var(--surface) 100%)',
+        background:
+          'linear-gradient(135deg, var(--surface-hover) 0%, var(--surface) 100%)',
       }}
     >
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          marginBottom: '1rem',
+        }}
+      >
         <div>
           <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '600' }}>
             {provider.name}
           </h3>
-          <p style={{ margin: '0.25rem 0 0', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+          <p
+            style={{
+              margin: '0.25rem 0 0',
+              fontSize: '0.875rem',
+              color: 'var(--text-secondary)',
+            }}
+          >
             📍 {provider.location}
           </p>
         </div>
@@ -113,28 +126,73 @@ function ProviderCard({ provider, onRent }: ProviderCardProps) {
           }}
         >
           <div>
-            <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>GPU</p>
+            <p
+              style={{
+                margin: 0,
+                fontSize: '0.75rem',
+                color: 'var(--text-secondary)',
+              }}
+            >
+              GPU
+            </p>
             <p style={{ margin: 0, fontWeight: '600' }}>
               {resources.resources.gpuCount}x {gpuName}
             </p>
           </div>
           <div>
-            <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>VRAM</p>
-            <p style={{ margin: 0, fontWeight: '600' }}>{resources.resources.gpuVram} GB</p>
+            <p
+              style={{
+                margin: 0,
+                fontSize: '0.75rem',
+                color: 'var(--text-secondary)',
+              }}
+            >
+              VRAM
+            </p>
+            <p style={{ margin: 0, fontWeight: '600' }}>
+              {resources.resources.gpuVram} GB
+            </p>
           </div>
           <div>
-            <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>CPU</p>
-            <p style={{ margin: 0, fontWeight: '600' }}>{resources.resources.cpuCores} cores</p>
+            <p
+              style={{
+                margin: 0,
+                fontSize: '0.75rem',
+                color: 'var(--text-secondary)',
+              }}
+            >
+              CPU
+            </p>
+            <p style={{ margin: 0, fontWeight: '600' }}>
+              {resources.resources.cpuCores} cores
+            </p>
           </div>
           <div>
-            <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>RAM</p>
-            <p style={{ margin: 0, fontWeight: '600' }}>{resources.resources.memory} GB</p>
+            <p
+              style={{
+                margin: 0,
+                fontSize: '0.75rem',
+                color: 'var(--text-secondary)',
+              }}
+            >
+              RAM
+            </p>
+            <p style={{ margin: 0, fontWeight: '600' }}>
+              {resources.resources.memory} GB
+            </p>
           </div>
         </div>
       )}
 
       {/* Features */}
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+      <div
+        style={{
+          display: 'flex',
+          gap: '0.5rem',
+          marginBottom: '1rem',
+          flexWrap: 'wrap',
+        }}
+      >
         {resources?.sshEnabled && (
           <span
             style={{
@@ -177,13 +235,35 @@ function ProviderCard({ provider, onRent }: ProviderCardProps) {
       </div>
 
       {/* Pricing & Action */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
         <div>
-          <p style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: 'var(--text-primary)' }}>
+          <p
+            style={{
+              margin: 0,
+              fontSize: '1.25rem',
+              fontWeight: '700',
+              color: 'var(--text-primary)',
+            }}
+          >
             {formatHourlyRate(hourlyRate)}
           </p>
-          {Boolean(resources?.pricing?.pricePerGpuHour && resources.pricing.pricePerGpuHour > 0n) && (
-            <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+          {Boolean(
+            resources?.pricing?.pricePerGpuHour &&
+              resources.pricing.pricePerGpuHour > 0n,
+          ) && (
+            <p
+              style={{
+                margin: 0,
+                fontSize: '0.75rem',
+                color: 'var(--text-secondary)',
+              }}
+            >
               +{formatHourlyRate(resources?.pricing?.pricePerGpuHour ?? 0n)}/GPU
             </p>
           )}
@@ -206,33 +286,44 @@ function ProviderCard({ provider, onRent }: ProviderCardProps) {
         </button>
       </div>
     </div>
-  );
+  )
 }
 
 interface RentalFormProps {
-  provider: `0x${string}`;
-  onClose: () => void;
+  provider: `0x${string}`
+  onClose: () => void
 }
 
 function RentalForm({ provider, onClose }: RentalFormProps) {
-  const [durationHours, setDurationHours] = useState(1);
-  const [sshKey, setSSHKey] = useState('');
-  const [containerImage, setContainerImage] = useState('');
-  const [startupScript, setStartupScript] = useState('');
+  const [durationHours, setDurationHours] = useState(1)
+  const [sshKey, setSSHKey] = useState('')
+  const [containerImage, setContainerImage] = useState('')
+  const [startupScript, setStartupScript] = useState('')
 
-  const { resources } = useProviderResources(provider);
-  const { cost, costFormatted, isLoading: costLoading } = useRentalCost(provider, durationHours);
-  const { createRental, isCreating, isSuccess } = useCreateRental();
+  const { resources } = useProviderResources(provider)
+  const {
+    cost,
+    costFormatted,
+    isLoading: costLoading,
+  } = useRentalCost(provider, durationHours)
+  const { createRental, isCreating, isSuccess } = useCreateRental()
 
-  const minHours = resources?.pricing.minimumRentalHours || 1;
-  const maxHours = resources?.pricing.maximumRentalHours || 720;
+  const minHours = resources?.pricing.minimumRentalHours || 1
+  const maxHours = resources?.pricing.maximumRentalHours || 720
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!cost || !sshKey) return;
+    e.preventDefault()
+    if (!cost || !sshKey) return
 
-    createRental(provider, durationHours, sshKey, containerImage, startupScript, cost);
-  };
+    createRental(
+      provider,
+      durationHours,
+      sshKey,
+      containerImage,
+      startupScript,
+      cost,
+    )
+  }
 
   if (isSuccess) {
     return (
@@ -257,13 +348,20 @@ function RentalForm({ provider, onClose }: RentalFormProps) {
           }}
         >
           <h2 style={{ color: 'var(--success)' }}>✅ Rental Created!</h2>
-          <p>Your compute rental has been created. Check "My Rentals" for SSH access details.</p>
-          <button className="button" onClick={onClose} style={{ marginTop: '1rem' }}>
+          <p>
+            Your compute rental has been created. Check "My Rentals" for SSH
+            access details.
+          </p>
+          <button
+            className="button"
+            onClick={onClose}
+            style={{ marginTop: '1rem' }}
+          >
             Close
           </button>
         </div>
       </div>
-    );
+    )
   }
 
   return (
@@ -295,7 +393,13 @@ function RentalForm({ provider, onClose }: RentalFormProps) {
         <form onSubmit={handleSubmit}>
           {/* Duration */}
           <div style={{ marginBottom: '1.5rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
+            <label
+              style={{
+                display: 'block',
+                marginBottom: '0.5rem',
+                fontWeight: '600',
+              }}
+            >
               Duration (hours)
             </label>
             <input
@@ -306,14 +410,27 @@ function RentalForm({ provider, onClose }: RentalFormProps) {
               value={durationHours}
               onChange={(e) => setDurationHours(Number(e.target.value))}
             />
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-              Min: {minHours}h, Max: {maxHours}h ({Math.floor(maxHours / 24)} days)
+            <p
+              style={{
+                fontSize: '0.75rem',
+                color: 'var(--text-secondary)',
+                marginTop: '0.25rem',
+              }}
+            >
+              Min: {minHours}h, Max: {maxHours}h ({Math.floor(maxHours / 24)}{' '}
+              days)
             </p>
           </div>
 
           {/* SSH Key */}
           <div style={{ marginBottom: '1.5rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
+            <label
+              style={{
+                display: 'block',
+                marginBottom: '0.5rem',
+                fontWeight: '600',
+              }}
+            >
               SSH Public Key *
             </label>
             <textarea
@@ -325,7 +442,13 @@ function RentalForm({ provider, onClose }: RentalFormProps) {
               required
               style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}
             />
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+            <p
+              style={{
+                fontSize: '0.75rem',
+                color: 'var(--text-secondary)',
+                marginTop: '0.25rem',
+              }}
+            >
               Paste your public key (e.g., from ~/.ssh/id_ed25519.pub)
             </p>
           </div>
@@ -333,7 +456,13 @@ function RentalForm({ provider, onClose }: RentalFormProps) {
           {/* Container Image (optional) */}
           {resources?.dockerEnabled && (
             <div style={{ marginBottom: '1.5rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
+              <label
+                style={{
+                  display: 'block',
+                  marginBottom: '0.5rem',
+                  fontWeight: '600',
+                }}
+              >
                 Docker Image (optional)
               </label>
               <input
@@ -348,7 +477,13 @@ function RentalForm({ provider, onClose }: RentalFormProps) {
 
           {/* Startup Script (optional) */}
           <div style={{ marginBottom: '1.5rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
+            <label
+              style={{
+                display: 'block',
+                marginBottom: '0.5rem',
+                fontWeight: '600',
+              }}
+            >
               Startup Script (optional)
             </label>
             <textarea
@@ -370,13 +505,27 @@ function RentalForm({ provider, onClose }: RentalFormProps) {
               marginBottom: '1.5rem',
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                marginBottom: '0.5rem',
+              }}
+            >
               <span>Duration:</span>
               <span>{formatDuration(durationHours * 3600)}</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700' }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                fontWeight: '700',
+              }}
+            >
               <span>Total Cost:</span>
-              <span>{costLoading ? 'Calculating...' : `${costFormatted} ETH`}</span>
+              <span>
+                {costLoading ? 'Calculating...' : `${costFormatted} ETH`}
+              </span>
             </div>
           </div>
 
@@ -416,12 +565,12 @@ function RentalForm({ provider, onClose }: RentalFormProps) {
         </form>
       </div>
     </div>
-  );
+  )
 }
 
 function MyRentals() {
-  const { rentalIds } = useUserRentals();
-  const { cancelRental, isCancelling } = useCancelRental();
+  const { rentalIds } = useUserRentals()
+  const { cancelRental, isCancelling } = useCancelRental()
 
   if (rentalIds.length === 0) {
     return (
@@ -433,9 +582,11 @@ function MyRentals() {
           borderRadius: '12px',
         }}
       >
-        <p style={{ color: 'var(--text-secondary)' }}>No active rentals. Browse providers to get started!</p>
+        <p style={{ color: 'var(--text-secondary)' }}>
+          No active rentals. Browse providers to get started!
+        </p>
       </div>
-    );
+    )
   }
 
   return (
@@ -449,47 +600,57 @@ function MyRentals() {
         />
       ))}
     </div>
-  );
+  )
 }
 
 interface RentalCardProps {
-  rentalId: `0x${string}`;
-  onCancel: () => void;
-  isCancelling: boolean;
+  rentalId: `0x${string}`
+  onCancel: () => void
+  isCancelling: boolean
 }
 
 function RentalCard({ rentalId, onCancel, isCancelling }: RentalCardProps) {
-  const { rental, isLoading } = useRental(rentalId);
+  const { rental, isLoading } = useRental(rentalId)
 
   if (isLoading || !rental) {
     return (
       <div className="card" style={{ padding: '1rem', opacity: 0.6 }}>
         Loading...
       </div>
-    );
+    )
   }
 
-  const isActive = rental.status === RentalStatus.ACTIVE;
-  const isPending = rental.status === RentalStatus.PENDING;
+  const isActive = rental.status === RentalStatus.ACTIVE
+  const isPending = rental.status === RentalStatus.PENDING
   const remainingSeconds = isActive
     ? Math.max(0, Number(rental.endTime) - Math.floor(Date.now() / 1000))
-    : 0;
+    : 0
 
   return (
     <div
       className="card"
       style={{
         padding: '1.5rem',
-        border: isActive ? '2px solid var(--success)' : '1px solid var(--border)',
+        border: isActive
+          ? '2px solid var(--success)'
+          : '1px solid var(--border)',
         borderRadius: '12px',
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          marginBottom: '1rem',
+        }}
+      >
         <div>
           <span
             style={{
               padding: '0.25rem 0.5rem',
-              background: isActive ? 'var(--success-soft)' : 'var(--surface-active)',
+              background: isActive
+                ? 'var(--success-soft)'
+                : 'var(--surface-active)',
               color: isActive ? 'var(--success)' : 'var(--text-secondary)',
               borderRadius: '4px',
               fontSize: '0.75rem',
@@ -514,7 +675,9 @@ function RentalCard({ rentalId, onCancel, isCancelling }: RentalCardProps) {
             marginBottom: '1rem',
           }}
         >
-          <p style={{ margin: '0 0 0.5rem', fontWeight: '600' }}>🔐 SSH Access</p>
+          <p style={{ margin: '0 0 0.5rem', fontWeight: '600' }}>
+            🔐 SSH Access
+          </p>
           <code
             style={{
               display: 'block',
@@ -534,7 +697,15 @@ function RentalCard({ rentalId, onCancel, isCancelling }: RentalCardProps) {
       {/* Time Remaining */}
       {isActive && (
         <div style={{ marginBottom: '1rem' }}>
-          <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Time Remaining:</p>
+          <p
+            style={{
+              margin: 0,
+              fontSize: '0.875rem',
+              color: 'var(--text-secondary)',
+            }}
+          >
+            Time Remaining:
+          </p>
           <p style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700' }}>
             {formatDuration(remainingSeconds)}
           </p>
@@ -543,7 +714,15 @@ function RentalCard({ rentalId, onCancel, isCancelling }: RentalCardProps) {
 
       {/* Cost */}
       <div style={{ marginBottom: '1rem' }}>
-        <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Total Cost:</p>
+        <p
+          style={{
+            margin: 0,
+            fontSize: '0.875rem',
+            color: 'var(--text-secondary)',
+          }}
+        >
+          Total Cost:
+        </p>
         <p style={{ margin: 0, fontSize: '1rem', fontWeight: '600' }}>
           {formatEther(rental.totalCost)} ETH
         </p>
@@ -568,30 +747,37 @@ function RentalCard({ rentalId, onCancel, isCancelling }: RentalCardProps) {
         </button>
       )}
     </div>
-  );
+  )
 }
 
 export default function ComputeMarketplace() {
-  const { isConnected } = useAccount();
-  const [selectedProvider, setSelectedProvider] = useState<`0x${string}` | null>(null);
-  const [activeTab, setActiveTab] = useState<'browse' | 'my-rentals'>('browse');
+  const { isConnected } = useAccount()
+  const [selectedProvider, setSelectedProvider] = useState<
+    `0x${string}` | null
+  >(null)
+  const [activeTab, setActiveTab] = useState<'browse' | 'my-rentals'>('browse')
 
   if (!isConnected) {
     return (
       <div className="card" style={{ padding: '2rem', textAlign: 'center' }}>
         <h2>Compute Marketplace</h2>
-        <p style={{ color: 'var(--text-secondary)' }}>Connect your wallet to browse and rent compute resources.</p>
+        <p style={{ color: 'var(--text-secondary)' }}>
+          Connect your wallet to browse and rent compute resources.
+        </p>
       </div>
-    );
+    )
   }
 
   return (
     <div>
       {/* Header */}
       <div style={{ marginBottom: '2rem' }}>
-        <h1 style={{ margin: '0 0 0.5rem', fontSize: '1.25rem' }}>Compute Marketplace</h1>
+        <h1 style={{ margin: '0 0 0.5rem', fontSize: '1.25rem' }}>
+          Compute Marketplace
+        </h1>
         <p style={{ margin: 0, color: 'var(--text-secondary)' }}>
-          Rent GPU compute with SSH access. Similar to vast.ai, but decentralized.
+          Rent GPU compute with SSH access. Similar to vast.ai, but
+          decentralized.
         </p>
       </div>
 
@@ -623,8 +809,10 @@ export default function ComputeMarketplace() {
           onClick={() => setActiveTab('my-rentals')}
           style={{
             padding: '0.5rem 1rem',
-            background: activeTab === 'my-rentals' ? 'var(--info)' : 'transparent',
-            color: activeTab === 'my-rentals' ? 'white' : 'var(--text-secondary)',
+            background:
+              activeTab === 'my-rentals' ? 'var(--info)' : 'transparent',
+            color:
+              activeTab === 'my-rentals' ? 'white' : 'var(--text-secondary)',
             border: 'none',
             borderRadius: '8px',
             cursor: 'pointer',
@@ -658,9 +846,11 @@ export default function ComputeMarketplace() {
 
       {/* Rental Form Modal */}
       {selectedProvider && (
-        <RentalForm provider={selectedProvider} onClose={() => setSelectedProvider(null)} />
+        <RentalForm
+          provider={selectedProvider}
+          onClose={() => setSelectedProvider(null)}
+        />
       )}
     </div>
-  );
+  )
 }
-

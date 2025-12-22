@@ -1,12 +1,12 @@
 /**
  * the network Standard Health Check Middleware
- * 
+ *
  * Drop-in middleware for Hono apps to implement the standard health check API.
  * This enables automatic monitoring and recovery via the KeepaliveRegistry.
- * 
+ *
  * Usage:
  *   import { healthMiddleware } from '@jejunetwork/shared';
- *   
+ *
  *   const app = new Hono();
  *   app.route('/health', healthMiddleware({
  *     service: 'my-app',
@@ -18,109 +18,118 @@
  *   }));
  */
 
-import { Hono, type Context } from 'hono';
-
 // Re-export consolidated HealthStatus
-import type { HealthStatus } from '@jejunetwork/types';
-export type { HealthStatus };
-type DependencyType = 'database' | 'cache' | 'api' | 'blockchain' | 'ipfs' | 'storage' | 'compute' | 'trigger';
+import type { HealthStatus } from '@jejunetwork/types'
+import { type Context, Hono } from 'hono'
+export type { HealthStatus }
+type DependencyType =
+  | 'database'
+  | 'cache'
+  | 'api'
+  | 'blockchain'
+  | 'ipfs'
+  | 'storage'
+  | 'compute'
+  | 'trigger'
 
 interface DependencyConfig {
-  name: string;
-  type: DependencyType;
-  check: () => Promise<boolean>;
-  required?: boolean;
+  name: string
+  type: DependencyType
+  check: () => Promise<boolean>
+  required?: boolean
 }
 
 interface ResourceConfig {
-  type: string;
-  identifier: string;
-  required?: boolean;
-  check?: () => Promise<boolean>;
+  type: string
+  identifier: string
+  required?: boolean
+  check?: () => Promise<boolean>
 }
 
 interface FundingConfig {
-  vaultAddress: string;
-  minRequired: bigint;
-  getCurrentBalance: () => Promise<bigint>;
-  autoFundEnabled?: boolean;
+  vaultAddress: string
+  minRequired: bigint
+  getCurrentBalance: () => Promise<bigint>
+  autoFundEnabled?: boolean
 }
 
 interface HealthMiddlewareConfig {
-  service: string;
-  version: string;
-  dependencies?: DependencyConfig[];
-  resources?: ResourceConfig[];
-  funding?: FundingConfig;
+  service: string
+  version: string
+  dependencies?: DependencyConfig[]
+  resources?: ResourceConfig[]
+  funding?: FundingConfig
 }
 
 // Re-export consolidated HealthResponse
-import type { HealthResponse } from '@jejunetwork/types';
-export type { HealthResponse };
+import type { HealthResponse } from '@jejunetwork/types'
+export type { HealthResponse }
 
 interface DependencyHealth {
-  name: string;
-  type: DependencyType;
-  status: HealthStatus;
-  latencyMs?: number;
-  error?: string;
+  name: string
+  type: DependencyType
+  status: HealthStatus
+  latencyMs?: number
+  error?: string
 }
 
 interface ReadinessResponse {
-  ready: boolean;
-  status: HealthStatus;
-  dependencies: DependencyHealth[];
+  ready: boolean
+  status: HealthStatus
+  dependencies: DependencyHealth[]
 }
 
 interface LivenessResponse {
-  alive: boolean;
-  pid: number;
+  alive: boolean
+  pid: number
   memoryUsage: {
-    heapUsed: number;
-    heapTotal: number;
-    rss: number;
-  };
+    heapUsed: number
+    heapTotal: number
+    rss: number
+  }
 }
 
 interface ResourceHealth {
-  type: string;
-  identifier: string;
-  status: HealthStatus;
-  required: boolean;
-  lastCheck: string;
-  latencyMs?: number;
-  error?: string;
+  type: string
+  identifier: string
+  status: HealthStatus
+  required: boolean
+  lastCheck: string
+  latencyMs?: number
+  error?: string
 }
 
 interface ResourceHealthResponse {
-  status: HealthStatus;
-  resources: ResourceHealth[];
+  status: HealthStatus
+  resources: ResourceHealth[]
   funding: {
-    funded: boolean;
-    balance: string;
-    minRequired: string;
-    vaultAddress: string;
-    autoFundEnabled: boolean;
-  };
+    funded: boolean
+    balance: string
+    minRequired: string
+    vaultAddress: string
+    autoFundEnabled: boolean
+  }
 }
 
-const startTime = Date.now();
+const startTime = Date.now()
 
 export function healthMiddleware(config: HealthMiddlewareConfig): Hono {
-  const app = new Hono();
+  const app = new Hono()
 
   // GET /health - Basic health check
   app.get('/', async (c: Context) => {
-    let status: HealthStatus = 'healthy';
+    let status: HealthStatus = 'healthy'
 
     // Quick check of critical dependencies
     if (config.dependencies) {
-      const criticalDeps = config.dependencies.filter(d => d.required !== false);
+      const criticalDeps = config.dependencies.filter(
+        (d) => d.required !== false,
+      )
       for (const dep of criticalDeps) {
-        const isHealthy = await dep.check().catch(() => false);
+        const isHealthy = await dep.check().catch(() => false)
         if (!isHealthy) {
-          status = 'unhealthy';
-          break;
+          status = 'unhealthy'
+          break
         }
       }
     }
@@ -131,35 +140,35 @@ export function healthMiddleware(config: HealthMiddlewareConfig): Hono {
       version: config.version,
       timestamp: new Date().toISOString(),
       uptime: Date.now() - startTime,
-    };
+    }
 
-    return c.json(response, status === 'healthy' ? 200 : 503);
-  });
+    return c.json(response, status === 'healthy' ? 200 : 503)
+  })
 
   // GET /health/ready - Readiness check with dependency details
   app.get('/ready', async (c: Context) => {
-    const dependencies: DependencyHealth[] = [];
-    let overallStatus: HealthStatus = 'healthy';
-    let ready = true;
+    const dependencies: DependencyHealth[] = []
+    let overallStatus: HealthStatus = 'healthy'
+    let ready = true
 
     if (config.dependencies) {
       for (const dep of config.dependencies) {
-        const start = Date.now();
-        let depStatus: HealthStatus = 'healthy';
-        let error: string | undefined;
+        const start = Date.now()
+        let depStatus: HealthStatus = 'healthy'
+        let error: string | undefined
 
         const isHealthy = await dep.check().catch((e) => {
-          error = e instanceof Error ? e.message : String(e);
-          return false;
-        });
+          error = e instanceof Error ? e.message : String(e)
+          return false
+        })
 
         if (!isHealthy) {
-          depStatus = 'unhealthy';
+          depStatus = 'unhealthy'
           if (dep.required !== false) {
-            overallStatus = 'unhealthy';
-            ready = false;
+            overallStatus = 'unhealthy'
+            ready = false
           } else if (overallStatus === 'healthy') {
-            overallStatus = 'degraded';
+            overallStatus = 'degraded'
           }
         }
 
@@ -169,7 +178,7 @@ export function healthMiddleware(config: HealthMiddlewareConfig): Hono {
           status: depStatus,
           latencyMs: Date.now() - start,
           error,
-        });
+        })
       }
     }
 
@@ -177,14 +186,14 @@ export function healthMiddleware(config: HealthMiddlewareConfig): Hono {
       ready,
       status: overallStatus,
       dependencies,
-    };
+    }
 
-    return c.json(response, ready ? 200 : 503);
-  });
+    return c.json(response, ready ? 200 : 503)
+  })
 
   // GET /health/live - Liveness check (is the process alive?)
   app.get('/live', (c: Context) => {
-    const mem = process.memoryUsage();
+    const mem = process.memoryUsage()
 
     const response: LivenessResponse = {
       alive: true,
@@ -194,35 +203,35 @@ export function healthMiddleware(config: HealthMiddlewareConfig): Hono {
         heapTotal: mem.heapTotal,
         rss: mem.rss,
       },
-    };
+    }
 
-    return c.json(response);
-  });
+    return c.json(response)
+  })
 
   // GET /health/resources - Resource-level health with funding status
   app.get('/resources', async (c: Context) => {
-    const resources: ResourceHealth[] = [];
-    let overallStatus: HealthStatus = 'healthy';
+    const resources: ResourceHealth[] = []
+    let overallStatus: HealthStatus = 'healthy'
 
     // Check resources
     if (config.resources) {
       for (const res of config.resources) {
-        const start = Date.now();
-        let resStatus: HealthStatus = 'healthy';
-        let error: string | undefined;
+        const start = Date.now()
+        let resStatus: HealthStatus = 'healthy'
+        let error: string | undefined
 
         if (res.check) {
           const isHealthy = await res.check().catch((e) => {
-            error = e instanceof Error ? e.message : String(e);
-            return false;
-          });
+            error = e instanceof Error ? e.message : String(e)
+            return false
+          })
 
           if (!isHealthy) {
-            resStatus = 'unhealthy';
+            resStatus = 'unhealthy'
             if (res.required !== false) {
-              overallStatus = 'unhealthy';
+              overallStatus = 'unhealthy'
             } else if (overallStatus === 'healthy') {
-              overallStatus = 'degraded';
+              overallStatus = 'degraded'
             }
           }
         }
@@ -235,20 +244,20 @@ export function healthMiddleware(config: HealthMiddlewareConfig): Hono {
           lastCheck: new Date().toISOString(),
           latencyMs: Date.now() - start,
           error,
-        });
+        })
       }
     }
 
     // Check funding
-    let balance = 0n;
-    let funded = true;
+    let balance = 0n
+    let funded = true
 
     if (config.funding) {
-      balance = await config.funding.getCurrentBalance().catch(() => 0n);
-      funded = balance >= config.funding.minRequired;
+      balance = await config.funding.getCurrentBalance().catch(() => 0n)
+      funded = balance >= config.funding.minRequired
 
       if (!funded) {
-        overallStatus = 'unfunded';
+        overallStatus = 'unfunded'
       }
     }
 
@@ -262,12 +271,12 @@ export function healthMiddleware(config: HealthMiddlewareConfig): Hono {
         vaultAddress: config.funding?.vaultAddress ?? '0x0',
         autoFundEnabled: config.funding?.autoFundEnabled ?? false,
       },
-    };
+    }
 
-    return c.json(response, overallStatus === 'healthy' ? 200 : 503);
-  });
+    return c.json(response, overallStatus === 'healthy' ? 200 : 503)
+  })
 
-  return app;
+  return app
 }
 
 /**
@@ -277,15 +286,17 @@ export const healthChecks = {
   /**
    * Check if a URL responds with 2xx
    */
-  http: (url: string, timeout = 5000) => async () => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
+  http:
+    (url: string, timeout = 5000) =>
+    async () => {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), timeout)
 
-    const response = await fetch(url, { signal: controller.signal });
-    clearTimeout(timeoutId);
+      const response = await fetch(url, { signal: controller.signal })
+      clearTimeout(timeoutId)
 
-    return response.ok;
-  },
+      return response.ok
+    },
 
   /**
    * Check if RPC responds to eth_blockNumber
@@ -300,12 +311,12 @@ export const healthChecks = {
         params: [],
         id: 1,
       }),
-    });
+    })
 
-    if (!response.ok) return false;
+    if (!response.ok) return false
 
-    const json = await response.json();
-    return !!json.result;
+    const json = await response.json()
+    return !!json.result
   },
 
   /**
@@ -314,10 +325,10 @@ export const healthChecks = {
   ipfs: (gatewayUrl: string) => async () => {
     const response = await fetch(`${gatewayUrl}/api/v0/id`, {
       method: 'POST',
-    }).catch(() => null);
+    }).catch(() => null)
 
-    return !!response?.ok;
+    return !!response?.ok
   },
-};
+}
 
-export default healthMiddleware;
+export default healthMiddleware

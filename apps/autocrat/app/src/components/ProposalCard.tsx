@@ -1,10 +1,13 @@
 'use client'
 
+import { AlertCircle, CheckCircle, Clock, Users, XCircle } from 'lucide-react'
 import Link from 'next/link'
-import { Clock, Users, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
 import type { Proposal } from '@/config/api'
 
-const STATUS_CONFIG: Record<string, { badge: string; icon: typeof CheckCircle }> = {
+const STATUS_CONFIG: Record<
+  string,
+  { badge: string; icon: typeof CheckCircle }
+> = {
   SUBMITTED: { badge: 'badge-primary', icon: Clock },
   AUTOCRAT_REVIEW: { badge: 'badge-accent', icon: Users },
   RESEARCH_PENDING: { badge: 'badge-warning', icon: Clock },
@@ -44,10 +47,12 @@ export function ProposalCard({ proposal }: ProposalCardProps) {
             <span className="text-sm sm:text-base shrink-0">{emoji}</span>
             <span className={`${statusConfig.badge} shrink-0`}>
               <StatusIcon size={10} className="sm:w-3 sm:h-3" />
-              <span className="hidden xs:inline">{proposal.status.replace(/_/g, ' ')}</span>
+              <span className="hidden xs:inline">
+                {proposal.status.replace(/_/g, ' ')}
+              </span>
             </span>
           </div>
-          <span 
+          <span
             className="text-xs font-mono shrink-0"
             style={{ color: 'var(--text-tertiary)' }}
           >

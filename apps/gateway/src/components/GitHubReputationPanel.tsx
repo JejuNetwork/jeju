@@ -1,23 +1,35 @@
-import { useState, useEffect, type ComponentType } from 'react';
-import { useAccount } from 'wagmi';
-import { Github, Shield, CheckCircle, AlertCircle, RefreshCw, ExternalLink, Award, type LucideProps } from 'lucide-react';
-import { useGitHubReputation, useAgentReputation } from '../hooks/useGitHubReputation';
+import {
+  AlertCircle,
+  Award,
+  CheckCircle,
+  ExternalLink,
+  Github,
+  type LucideProps,
+  RefreshCw,
+  Shield,
+} from 'lucide-react'
+import { type ComponentType, useEffect, useState } from 'react'
+import { useAccount } from 'wagmi'
+import {
+  useAgentReputation,
+  useGitHubReputation,
+} from '../hooks/useGitHubReputation'
 
 // Fix for Lucide React 19 type compatibility
-const GithubIcon = Github as ComponentType<LucideProps>;
-const ShieldIcon = Shield as ComponentType<LucideProps>;
-const CheckCircleIcon = CheckCircle as ComponentType<LucideProps>;
-const AlertCircleIcon = AlertCircle as ComponentType<LucideProps>;
-const RefreshCwIcon = RefreshCw as ComponentType<LucideProps>;
-const ExternalLinkIcon = ExternalLink as ComponentType<LucideProps>;
-const AwardIcon = Award as ComponentType<LucideProps>;
+const GithubIcon = Github as ComponentType<LucideProps>
+const ShieldIcon = Shield as ComponentType<LucideProps>
+const CheckCircleIcon = CheckCircle as ComponentType<LucideProps>
+const AlertCircleIcon = AlertCircle as ComponentType<LucideProps>
+const RefreshCwIcon = RefreshCw as ComponentType<LucideProps>
+const ExternalLinkIcon = ExternalLink as ComponentType<LucideProps>
+const AwardIcon = Award as ComponentType<LucideProps>
 
 interface GitHubReputationPanelProps {
-  agentId?: bigint;
-  registryAddress?: string;
-  onReputationUpdate?: () => void;
+  agentId?: bigint
+  registryAddress?: string
+  onReputationUpdate?: () => void
   /** GitHub OAuth token for authenticated API calls */
-  githubToken?: string;
+  githubToken?: string
 }
 
 export default function GitHubReputationPanel({
@@ -26,9 +38,9 @@ export default function GitHubReputationPanel({
   onReputationUpdate,
   githubToken,
 }: GitHubReputationPanelProps) {
-  const { address, isConnected } = useAccount();
-  const [username, setUsername] = useState('');
-  const [showLinkForm, setShowLinkForm] = useState(false);
+  const { address, isConnected } = useAccount()
+  const [username, setUsername] = useState('')
+  const [showLinkForm, setShowLinkForm] = useState(false)
 
   const {
     loading,
@@ -41,46 +53,53 @@ export default function GitHubReputationPanel({
     requestAttestation,
     submitAttestationOnChain,
     linkAgentToGitHub,
-  } = useGitHubReputation();
+  } = useGitHubReputation()
 
-  const { reputation: agentReputationData, isConfigured: isContractConfigured } = useAgentReputation(agentId);
+  const {
+    reputation: agentReputationData,
+    isConfigured: isContractConfigured,
+  } = useAgentReputation(agentId)
 
   // Fetch reputation on mount
   useEffect(() => {
     if (isConnected && address) {
-      fetchLeaderboardReputation();
+      fetchLeaderboardReputation()
     }
-  }, [isConnected, address, fetchLeaderboardReputation]);
+  }, [isConnected, address, fetchLeaderboardReputation])
 
   // Notify parent when tx completes
   useEffect(() => {
     if (txReceipt && onReputationUpdate) {
-      onReputationUpdate();
+      onReputationUpdate()
     }
-  }, [txReceipt, onReputationUpdate]);
+  }, [txReceipt, onReputationUpdate])
 
   const handleVerifyWallet = async () => {
-    if (!username.trim() || !githubToken) return;
-    const success = await verifyWallet(username, githubToken);
+    if (!username.trim() || !githubToken) return
+    const success = await verifyWallet(username, githubToken)
     if (success) {
-      await fetchLeaderboardReputation();
-      setShowLinkForm(false);
+      await fetchLeaderboardReputation()
+      setShowLinkForm(false)
     }
-  };
+  }
 
   const handleRequestAttestation = async () => {
-    if (!leaderboardData?.username || !githubToken) return;
-    await requestAttestation(leaderboardData.username, githubToken, agentId ? Number(agentId) : undefined);
-  };
+    if (!leaderboardData?.username || !githubToken) return
+    await requestAttestation(
+      leaderboardData.username,
+      githubToken,
+      agentId ? Number(agentId) : undefined,
+    )
+  }
 
   const handleSubmitOnChain = async () => {
-    if (!leaderboardData?.attestation || !agentId || !githubToken) return;
+    if (!leaderboardData?.attestation || !agentId || !githubToken) return
 
-    const rep = leaderboardData.reputation;
-    const attestation = leaderboardData.attestation;
+    const rep = leaderboardData.reputation
+    const attestation = leaderboardData.attestation
 
     if (!attestation.signature) {
-      return; // Button should be disabled anyway
+      return // Button should be disabled anyway
     }
 
     await submitAttestationOnChain(
@@ -92,22 +111,28 @@ export default function GitHubReputationPanel({
       Math.floor(new Date(attestation.calculatedAt).getTime() / 1000),
       attestation.signature,
       attestation.hash,
-      githubToken
-    );
-  };
+      githubToken,
+    )
+  }
 
   const handleLinkAgent = async () => {
-    if (!leaderboardData?.username || !agentId || !registryAddress || !githubToken) return;
+    if (
+      !leaderboardData?.username ||
+      !agentId ||
+      !registryAddress ||
+      !githubToken
+    )
+      return
     const success = await linkAgentToGitHub(
       leaderboardData.username,
       Number(agentId),
       registryAddress,
-      githubToken
-    );
+      githubToken,
+    )
     if (success) {
-      await fetchLeaderboardReputation();
+      await fetchLeaderboardReputation()
     }
-  };
+  }
 
   if (!isConnected) {
     return (
@@ -117,7 +142,7 @@ export default function GitHubReputationPanel({
           <span>Connect wallet to view GitHub reputation</span>
         </div>
       </div>
-    );
+    )
   }
 
   return (
@@ -217,7 +242,9 @@ export default function GitHubReputationPanel({
               )}
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold">{leaderboardData.username}</span>
+                  <span className="font-semibold">
+                    {leaderboardData.username}
+                  </span>
                   {leaderboardData.wallet?.isVerified && (
                     <CheckCircleIcon size={16} className="text-green-400" />
                   )}
@@ -266,7 +293,9 @@ export default function GitHubReputationPanel({
             {/* On-chain status */}
             {Boolean(isContractConfigured && onChainReputation) && (
               <div className="border-t pt-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">On-Chain Status</h4>
+                <h4 className="text-sm font-medium text-gray-700 mb-2">
+                  On-Chain Status
+                </h4>
                 <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                   <div className="flex items-center gap-2">
                     <AwardIcon size={18} className="text-green-600" />
@@ -289,14 +318,18 @@ export default function GitHubReputationPanel({
                 <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
                   <div className="flex items-center gap-2 text-yellow-700 text-sm">
                     <AlertCircleIcon size={16} />
-                    <span>On-chain reputation not available (contract not deployed)</span>
+                    <span>
+                      On-chain reputation not available (contract not deployed)
+                    </span>
                   </div>
                 </div>
               </div>
             )}
 
             {/* Agent-specific reputation */}
-            {Boolean(agentId && isContractConfigured && agentReputationData) && (
+            {Boolean(
+              agentId && isContractConfigured && agentReputationData,
+            ) && (
               <div className="border-t pt-4">
                 <h4 className="text-sm font-medium text-gray-700 mb-2">
                   Agent #{agentId?.toString() ?? '?'} Reputation
@@ -329,30 +362,39 @@ export default function GitHubReputationPanel({
                 </button>
               )}
 
-              {leaderboardData.attestation && !leaderboardData.attestation.txHash && agentId && isContractConfigured && (
-                <button
-                  onClick={handleSubmitOnChain}
-                  disabled={loading || !leaderboardData.attestation.signature || !githubToken}
-                  className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {loading ? (
-                    <RefreshCwIcon size={16} className="animate-spin" />
-                  ) : (
-                    <CheckCircleIcon size={16} />
-                  )}
-                  Submit On-Chain
-                </button>
-              )}
+              {leaderboardData.attestation &&
+                !leaderboardData.attestation.txHash &&
+                agentId &&
+                isContractConfigured && (
+                  <button
+                    onClick={handleSubmitOnChain}
+                    disabled={
+                      loading ||
+                      !leaderboardData.attestation.signature ||
+                      !githubToken
+                    }
+                    className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {loading ? (
+                      <RefreshCwIcon size={16} className="animate-spin" />
+                    ) : (
+                      <CheckCircleIcon size={16} />
+                    )}
+                    Submit On-Chain
+                  </button>
+                )}
 
-              {agentId && registryAddress && !leaderboardData.attestation?.agentId && (
-                <button
-                  onClick={handleLinkAgent}
-                  disabled={loading}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2"
-                >
-                  Link to Agent #{agentId.toString()}
-                </button>
-              )}
+              {agentId &&
+                registryAddress &&
+                !leaderboardData.attestation?.agentId && (
+                  <button
+                    onClick={handleLinkAgent}
+                    disabled={loading}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2"
+                  >
+                    Link to Agent #{agentId.toString()}
+                  </button>
+                )}
             </div>
 
             {/* Attestation details */}
@@ -367,7 +409,9 @@ export default function GitHubReputationPanel({
                 <div className="flex justify-between">
                   <span>Calculated:</span>
                   <span>
-                    {new Date(leaderboardData.attestation.calculatedAt).toLocaleDateString()}
+                    {new Date(
+                      leaderboardData.attestation.calculatedAt,
+                    ).toLocaleDateString()}
                   </span>
                 </div>
                 {leaderboardData.attestation.txHash && (
@@ -396,5 +440,5 @@ export default function GitHubReputationPanel({
         </div>
       )}
     </div>
-  );
+  )
 }

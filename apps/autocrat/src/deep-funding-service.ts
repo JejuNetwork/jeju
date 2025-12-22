@@ -13,103 +13,123 @@
 
 import {
   type Address,
+  type Chain,
+  createPublicClient,
+  createWalletClient,
   type Hash,
+  http,
   type PublicClient,
-  type WalletClient,
   parseAbi,
-} from 'viem';
-import { type DependencyWeight, getDependencyScanner } from './dependency-scanner';
-import { getContributorService, type ContributorProfile } from './contributor-service';
+  type Transport,
+  type WalletClient,
+} from 'viem'
+import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
+import { base, baseSepolia, localhost } from 'viem/chains'
+import {
+  type ContributorProfile,
+  getContributorService,
+} from './contributor-service'
+import { getDependencyScanner } from './dependency-scanner'
 
 // ============ Types ============
 
 export interface FeeDistributionConfig {
-  treasuryBps: number;
-  contributorPoolBps: number;
-  dependencyPoolBps: number;
-  jejuBps: number;
-  burnBps: number;
-  reserveBps: number;
+  treasuryBps: number
+  contributorPoolBps: number
+  dependencyPoolBps: number
+  jejuBps: number
+  burnBps: number
+  reserveBps: number
 }
 
 export interface DAOPool {
-  daoId: string;
-  token: Address;
-  totalAccumulated: bigint;
-  contributorPool: bigint;
-  dependencyPool: bigint;
-  reservePool: bigint;
-  lastDistributedEpoch: number;
-  epochStartTime: number;
+  daoId: string
+  token: Address
+  totalAccumulated: bigint
+  contributorPool: bigint
+  dependencyPool: bigint
+  reservePool: bigint
+  lastDistributedEpoch: number
+  epochStartTime: number
 }
 
 export interface ContributorShare {
-  contributorId: string;
-  weight: number;
-  pendingRewards: bigint;
-  claimedRewards: bigint;
-  lastClaimEpoch: number;
+  contributorId: string
+  weight: number
+  pendingRewards: bigint
+  claimedRewards: bigint
+  lastClaimEpoch: number
 }
 
 export interface DependencyShare {
-  depHash: string;
-  contributorId: string;
-  weight: number;
-  transitiveDepth: number;
-  usageCount: number;
-  pendingRewards: bigint;
-  claimedRewards: bigint;
-  isRegistered: boolean;
+  depHash: string
+  contributorId: string
+  weight: number
+  transitiveDepth: number
+  usageCount: number
+  pendingRewards: bigint
+  claimedRewards: bigint
+  isRegistered: boolean
 }
 
 export interface FundingEpoch {
-  epochId: number;
-  daoId: string;
-  startTime: number;
-  endTime: number;
-  totalContributorRewards: bigint;
-  totalDependencyRewards: bigint;
-  totalDistributed: bigint;
-  finalized: boolean;
+  epochId: number
+  daoId: string
+  startTime: number
+  endTime: number
+  totalContributorRewards: bigint
+  totalDependencyRewards: bigint
+  totalDistributed: bigint
+  finalized: boolean
 }
 
 export interface WeightVote {
-  voter: Address;
-  targetId: string;
-  weightAdjustment: number;
-  reason: string;
-  reputation: number;
-  votedAt: number;
+  voter: Address
+  targetId: string
+  weightAdjustment: number
+  reason: string
+  reputation: number
+  votedAt: number
 }
 
 export interface DeepFundingServiceConfig {
-  publicClient: PublicClient;
-  walletClient?: WalletClient;
-  distributorAddress: Address;
-  jejuDaoId: string;
+  rpcUrl: string
+  distributorAddress: Address
+  jejuDaoId: string
+  operatorKey?: string
+}
+
+function inferChainFromRpcUrl(rpcUrl: string): Chain {
+  if (rpcUrl.includes('base-sepolia') || rpcUrl.includes('84532')) {
+    return baseSepolia
+  }
+  if (rpcUrl.includes('base') && !rpcUrl.includes('localhost')) {
+    return base
+  }
+  return localhost
 }
 
 export interface FundingRecommendation {
-  contributorId: string;
-  contributorProfile: ContributorProfile | null;
-  suggestedWeight: number;
-  reason: string;
+  contributorId: string
+  contributorProfile: ContributorProfile | null
+  suggestedWeight: number
+  reason: string
   contributions: {
-    bounties: number;
-    paymentRequests: number;
-    repos: number;
-    deps: number;
-  };
+    bounties: number
+    paymentRequests: number
+    repos: number
+    deps: number
+  }
 }
 
 export interface DependencyFundingRecommendation {
-  packageName: string;
-  registryType: string;
-  suggestedWeight: number;
-  depth: number;
-  usageCount: number;
-  isRegistered: boolean;
-  maintainerContributorId: string | null;
+  packageName: string
+  registryType: string
+  suggestedWeight: number
+  depth: number
+  usageCount: number
+  isRegistered: boolean
+  maintainerContributorId: string | null
 }
 
 // ============ Contract ABI ============
@@ -154,60 +174,88 @@ const DEEP_FUNDING_DISTRIBUTOR_ABI = parseAbi([
   'event ContributorWeightSet(bytes32 indexed daoId, bytes32 indexed contributorId, uint256 weight)',
   'event DependencyRegistered(bytes32 indexed daoId, bytes32 indexed depHash, string packageName, uint256 weight)',
   'event RewardsClaimed(bytes32 indexed contributorId, bytes32 indexed daoId, uint256 amount)',
-]);
+])
 
 // ============ Constants ============
 
-const MAX_BPS = 10000;
-const DEPTH_DECAY_BPS = 2000; // 20% decay per level
+const MAX_BPS = 10000
+const DEPTH_DECAY_BPS = 2000 // 20% decay per level
 
 // ============ Service Class ============
 
 export class DeepFundingService {
-  private publicClient: PublicClient;
-  private walletClient: WalletClient | null;
-  private distributorAddress: Address;
-  private jejuDaoId: string;
+  private readonly publicClient: PublicClient<Transport, Chain>
+  private readonly walletClient: WalletClient<Transport, Chain>
+  private readonly account: PrivateKeyAccount | null
+  private readonly chain: Chain
+  private readonly distributorAddress: Address
 
   constructor(config: DeepFundingServiceConfig) {
-    this.publicClient = config.publicClient;
-    this.walletClient = config.walletClient || null;
-    this.distributorAddress = config.distributorAddress;
-    this.jejuDaoId = config.jejuDaoId;
+    const chain = inferChainFromRpcUrl(config.rpcUrl)
+    this.chain = chain
+    this.distributorAddress = config.distributorAddress
+
+    this.publicClient = createPublicClient({
+      chain,
+      transport: http(config.rpcUrl),
+    }) as PublicClient<Transport, Chain>
+
+    if (config.operatorKey) {
+      this.account = privateKeyToAccount(config.operatorKey as `0x${string}`)
+      this.walletClient = createWalletClient({
+        account: this.account,
+        chain,
+        transport: http(config.rpcUrl),
+      }) as WalletClient<Transport, Chain>
+    } else {
+      this.account = null
+      this.walletClient = createWalletClient({
+        chain,
+        transport: http(config.rpcUrl),
+      }) as WalletClient<Transport, Chain>
+    }
   }
 
   // ============ Fee Deposit ============
 
-  async depositFees(daoId: string, source: string, amount: bigint): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+  async depositFees(
+    daoId: string,
+    source: string,
+    amount: bigint,
+  ): Promise<Hash> {
+    if (!this.account) throw new Error('Operator key required')
 
     const hash = await this.walletClient.writeContract({
+      chain: this.chain,
       address: this.distributorAddress,
       abi: DEEP_FUNDING_DISTRIBUTOR_ABI,
       functionName: 'depositFees',
       args: [daoId as `0x${string}`, source],
       value: amount,
-    });
+      account: this.account,
+    })
 
-    return hash;
+    return hash
   }
 
   async depositTokenFees(
     daoId: string,
     token: Address,
     amount: bigint,
-    source: string
+    source: string,
   ): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    if (!this.account) throw new Error('Operator key required')
 
     const hash = await this.walletClient.writeContract({
+      chain: this.chain,
       address: this.distributorAddress,
       abi: DEEP_FUNDING_DISTRIBUTOR_ABI,
       functionName: 'depositTokenFees',
       args: [daoId as `0x${string}`, token, amount, source],
-    });
+      account: this.account,
+    })
 
-    return hash;
+    return hash
   }
 
   // ============ Weight Management ============
@@ -215,18 +263,24 @@ export class DeepFundingService {
   async setContributorWeight(
     daoId: string,
     contributorId: string,
-    weight: number
+    weight: number,
   ): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    if (!this.account) throw new Error('Operator key required')
 
     const hash = await this.walletClient.writeContract({
+      chain: this.chain,
       address: this.distributorAddress,
       abi: DEEP_FUNDING_DISTRIBUTOR_ABI,
       functionName: 'setContributorWeight',
-      args: [daoId as `0x${string}`, contributorId as `0x${string}`, BigInt(weight)],
-    });
+      args: [
+        daoId as `0x${string}`,
+        contributorId as `0x${string}`,
+        BigInt(weight),
+      ],
+      account: this.account,
+    })
 
-    return hash;
+    return hash
   }
 
   async registerDependency(
@@ -236,13 +290,14 @@ export class DeepFundingService {
     maintainerContributorId: string | null,
     weight: number,
     transitiveDepth: number,
-    usageCount: number
+    usageCount: number,
   ): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    if (!this.account) throw new Error('Operator key required')
 
-    const maintainerId = maintainerContributorId || ('0x' + '0'.repeat(64));
+    const maintainerId = maintainerContributorId || `0x${'0'.repeat(64)}`
 
     const hash = await this.walletClient.writeContract({
+      chain: this.chain,
       address: this.distributorAddress,
       abi: DEEP_FUNDING_DISTRIBUTOR_ABI,
       functionName: 'registerDependency',
@@ -255,9 +310,10 @@ export class DeepFundingService {
         BigInt(transitiveDepth),
         BigInt(usageCount),
       ],
-    });
+      account: this.account,
+    })
 
-    return hash;
+    return hash
   }
 
   async voteOnWeight(
@@ -265,11 +321,12 @@ export class DeepFundingService {
     targetId: string,
     adjustment: number,
     reason: string,
-    reputation: number
+    reputation: number,
   ): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    if (!this.account) throw new Error('Operator key required')
 
     const hash = await this.walletClient.writeContract({
+      chain: this.chain,
       address: this.distributorAddress,
       abi: DEEP_FUNDING_DISTRIBUTOR_ABI,
       functionName: 'voteOnWeight',
@@ -280,24 +337,27 @@ export class DeepFundingService {
         reason,
         BigInt(reputation),
       ],
-    });
+      account: this.account,
+    })
 
-    return hash;
+    return hash
   }
 
   // ============ Epoch Management ============
 
   async finalizeEpoch(daoId: string): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    if (!this.account) throw new Error('Operator key required')
 
     const hash = await this.walletClient.writeContract({
+      chain: this.chain,
       address: this.distributorAddress,
       abi: DEEP_FUNDING_DISTRIBUTOR_ABI,
       functionName: 'finalizeEpoch',
       args: [daoId as `0x${string}`],
-    });
+      account: this.account,
+    })
 
-    return hash;
+    return hash
   }
 
   // ============ Claiming ============
@@ -306,11 +366,12 @@ export class DeepFundingService {
     daoId: string,
     contributorId: string,
     epochs: number[],
-    recipient: Address
+    recipient: Address,
   ): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    if (!this.account) throw new Error('Operator key required')
 
     const hash = await this.walletClient.writeContract({
+      chain: this.chain,
       address: this.distributorAddress,
       abi: DEEP_FUNDING_DISTRIBUTOR_ABI,
       functionName: 'claimContributorRewards',
@@ -320,34 +381,41 @@ export class DeepFundingService {
         epochs.map(BigInt),
         recipient,
       ],
-    });
+      account: this.account,
+    })
 
-    return hash;
+    return hash
   }
 
   async claimDependencyRewards(
     daoId: string,
     depHash: string,
-    recipient: Address
+    recipient: Address,
   ): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    if (!this.account) throw new Error('Operator key required')
 
     const hash = await this.walletClient.writeContract({
+      chain: this.chain,
       address: this.distributorAddress,
       abi: DEEP_FUNDING_DISTRIBUTOR_ABI,
       functionName: 'claimDependencyRewards',
       args: [daoId as `0x${string}`, depHash as `0x${string}`, recipient],
-    });
+      account: this.account,
+    })
 
-    return hash;
+    return hash
   }
 
   // ============ Configuration ============
 
-  async setDAOConfig(daoId: string, config: FeeDistributionConfig): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+  async setDAOConfig(
+    daoId: string,
+    config: FeeDistributionConfig,
+  ): Promise<Hash> {
+    if (!this.account) throw new Error('Operator key required')
 
     const hash = await this.walletClient.writeContract({
+      chain: this.chain,
       address: this.distributorAddress,
       abi: DEEP_FUNDING_DISTRIBUTOR_ABI,
       functionName: 'setDAOConfig',
@@ -362,35 +430,41 @@ export class DeepFundingService {
           reserveBps: BigInt(config.reserveBps),
         },
       ],
-    });
+      account: this.account,
+    })
 
-    return hash;
+    return hash
   }
 
-  async authorizeDepositor(depositor: Address, authorized: boolean): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+  async authorizeDepositor(
+    depositor: Address,
+    authorized: boolean,
+  ): Promise<Hash> {
+    if (!this.account) throw new Error('Operator key required')
 
     const hash = await this.walletClient.writeContract({
+      chain: this.chain,
       address: this.distributorAddress,
       abi: DEEP_FUNDING_DISTRIBUTOR_ABI,
       functionName: 'authorizeDepositor',
       args: [depositor, authorized],
-    });
+      account: this.account,
+    })
 
-    return hash;
+    return hash
   }
 
   // ============ View Functions ============
 
   async getDAOPool(daoId: string): Promise<DAOPool | null> {
-    const result = await this.publicClient.readContract({
+    const result = (await this.publicClient.readContract({
       address: this.distributorAddress,
       abi: DEEP_FUNDING_DISTRIBUTOR_ABI,
       functionName: 'getDAOPool',
       args: [daoId as `0x${string}`],
-    }) as [string, Address, bigint, bigint, bigint, bigint, bigint, bigint];
+    })) as [string, Address, bigint, bigint, bigint, bigint, bigint, bigint]
 
-    if (!result || result[0] === '0x' + '0'.repeat(64)) return null;
+    if (!result || result[0] === `0x${'0'.repeat(64)}`) return null
 
     return {
       daoId: result[0],
@@ -401,18 +475,18 @@ export class DeepFundingService {
       reservePool: result[5],
       lastDistributedEpoch: Number(result[6]),
       epochStartTime: Number(result[7]),
-    };
+    }
   }
 
   async getCurrentEpoch(daoId: string): Promise<FundingEpoch | null> {
-    const result = await this.publicClient.readContract({
+    const result = (await this.publicClient.readContract({
       address: this.distributorAddress,
       abi: DEEP_FUNDING_DISTRIBUTOR_ABI,
       functionName: 'getCurrentEpoch',
       args: [daoId as `0x${string}`],
-    }) as [bigint, string, bigint, bigint, bigint, bigint, bigint, boolean];
+    })) as [bigint, string, bigint, bigint, bigint, bigint, bigint, boolean]
 
-    if (result[0] === 0n) return null;
+    if (result[0] === 0n) return null
 
     return {
       epochId: Number(result[0]),
@@ -423,22 +497,26 @@ export class DeepFundingService {
       totalDependencyRewards: result[5],
       totalDistributed: result[6],
       finalized: result[7],
-    };
+    }
   }
 
   async getContributorShare(
     daoId: string,
     epochId: number,
-    contributorId: string
+    contributorId: string,
   ): Promise<ContributorShare | null> {
-    const result = await this.publicClient.readContract({
+    const result = (await this.publicClient.readContract({
       address: this.distributorAddress,
       abi: DEEP_FUNDING_DISTRIBUTOR_ABI,
       functionName: 'getContributorShare',
-      args: [daoId as `0x${string}`, BigInt(epochId), contributorId as `0x${string}`],
-    }) as [string, bigint, bigint, bigint, bigint];
+      args: [
+        daoId as `0x${string}`,
+        BigInt(epochId),
+        contributorId as `0x${string}`,
+      ],
+    })) as [string, bigint, bigint, bigint, bigint]
 
-    if (!result || result[0] === '0x' + '0'.repeat(64)) return null;
+    if (!result || result[0] === `0x${'0'.repeat(64)}`) return null
 
     return {
       contributorId: result[0],
@@ -446,18 +524,21 @@ export class DeepFundingService {
       pendingRewards: result[2],
       claimedRewards: result[3],
       lastClaimEpoch: Number(result[4]),
-    };
+    }
   }
 
-  async getDependencyShare(daoId: string, depHash: string): Promise<DependencyShare | null> {
-    const result = await this.publicClient.readContract({
+  async getDependencyShare(
+    daoId: string,
+    depHash: string,
+  ): Promise<DependencyShare | null> {
+    const result = (await this.publicClient.readContract({
       address: this.distributorAddress,
       abi: DEEP_FUNDING_DISTRIBUTOR_ABI,
       functionName: 'getDependencyShare',
       args: [daoId as `0x${string}`, depHash as `0x${string}`],
-    }) as [string, string, bigint, bigint, bigint, bigint, bigint, boolean];
+    })) as [string, string, bigint, bigint, bigint, bigint, bigint, boolean]
 
-    if (!result || result[0] === '0x' + '0'.repeat(64)) return null;
+    if (!result || result[0] === `0x${'0'.repeat(64)}`) return null
 
     return {
       depHash: result[0],
@@ -468,16 +549,16 @@ export class DeepFundingService {
       pendingRewards: result[5],
       claimedRewards: result[6],
       isRegistered: result[7],
-    };
+    }
   }
 
   async getDAOConfig(daoId: string): Promise<FeeDistributionConfig> {
-    const result = await this.publicClient.readContract({
+    const result = (await this.publicClient.readContract({
       address: this.distributorAddress,
       abi: DEEP_FUNDING_DISTRIBUTOR_ABI,
       functionName: 'getDAOConfig',
       args: [daoId as `0x${string}`],
-    }) as [bigint, bigint, bigint, bigint, bigint, bigint];
+    })) as [bigint, bigint, bigint, bigint, bigint, bigint]
 
     return {
       treasuryBps: Number(result[0]),
@@ -486,15 +567,15 @@ export class DeepFundingService {
       jejuBps: Number(result[3]),
       burnBps: Number(result[4]),
       reserveBps: Number(result[5]),
-    };
+    }
   }
 
   async getDefaultConfig(): Promise<FeeDistributionConfig> {
-    const result = await this.publicClient.readContract({
+    const result = (await this.publicClient.readContract({
       address: this.distributorAddress,
       abi: DEEP_FUNDING_DISTRIBUTOR_ABI,
       functionName: 'defaultConfig',
-    }) as [bigint, bigint, bigint, bigint, bigint, bigint];
+    })) as [bigint, bigint, bigint, bigint, bigint, bigint]
 
     return {
       treasuryBps: Number(result[0]),
@@ -503,25 +584,28 @@ export class DeepFundingService {
       jejuBps: Number(result[3]),
       burnBps: Number(result[4]),
       reserveBps: Number(result[5]),
-    };
+    }
   }
 
-  async getPendingContributorRewards(daoId: string, contributorId: string): Promise<bigint> {
-    return await this.publicClient.readContract({
+  async getPendingContributorRewards(
+    daoId: string,
+    contributorId: string,
+  ): Promise<bigint> {
+    return (await this.publicClient.readContract({
       address: this.distributorAddress,
       abi: DEEP_FUNDING_DISTRIBUTOR_ABI,
       functionName: 'getPendingContributorRewards',
       args: [daoId as `0x${string}`, contributorId as `0x${string}`],
-    }) as bigint;
+    })) as bigint
   }
 
   async getEpochVotes(daoId: string, epochId: number): Promise<WeightVote[]> {
-    const result = await this.publicClient.readContract({
+    const result = (await this.publicClient.readContract({
       address: this.distributorAddress,
       abi: DEEP_FUNDING_DISTRIBUTOR_ABI,
       functionName: 'getEpochVotes',
       args: [daoId as `0x${string}`, BigInt(epochId)],
-    }) as Array<[Address, string, bigint, string, bigint, bigint]>;
+    })) as Array<[Address, string, bigint, string, bigint, bigint]>
 
     return result.map((v) => ({
       voter: v[0],
@@ -530,7 +614,7 @@ export class DeepFundingService {
       reason: v[3],
       reputation: Number(v[4]),
       votedAt: Number(v[5]),
-    }));
+    }))
   }
 
   // ============ Recommendation Engine ============
@@ -539,42 +623,51 @@ export class DeepFundingService {
    * Generate funding recommendations for contributors based on activity
    */
   async generateContributorRecommendations(
-    daoId: string
+    daoId: string,
   ): Promise<FundingRecommendation[]> {
-    const recommendations: FundingRecommendation[] = [];
-    const contributorService = getContributorService();
-    const allContributors = await contributorService.getAllContributors();
+    const recommendations: FundingRecommendation[] = []
+    const contributorService = getContributorService()
+    const allContributors = await contributorService.getAllContributors()
 
     for (const contributorId of allContributors) {
-      const profile = await contributorService.getContributor(contributorId);
-      const daoContrib = await contributorService.getDAOContribution(contributorId, daoId);
-      const repoClaims = await contributorService.getRepositoryClaims(contributorId);
-      const depClaims = await contributorService.getDependencyClaims(contributorId);
+      const profile = await contributorService.getContributor(contributorId)
+      const daoContrib = await contributorService.getDAOContribution(
+        contributorId,
+        daoId,
+      )
+      const repoClaims =
+        await contributorService.getRepositoryClaims(contributorId)
+      const depClaims =
+        await contributorService.getDependencyClaims(contributorId)
 
       // Calculate suggested weight based on contributions
-      let weight = 0;
-      let reason = '';
+      let weight = 0
+      let reason = ''
 
       if (daoContrib.bountyCount > 0) {
-        weight += daoContrib.bountyCount * 50;
-        reason += `${daoContrib.bountyCount} bounties completed. `;
+        weight += daoContrib.bountyCount * 50
+        reason += `${daoContrib.bountyCount} bounties completed. `
       }
 
       if (daoContrib.paymentRequestCount > 0) {
-        weight += daoContrib.paymentRequestCount * 30;
-        reason += `${daoContrib.paymentRequestCount} payment requests. `;
+        weight += daoContrib.paymentRequestCount * 30
+        reason += `${daoContrib.paymentRequestCount} payment requests. `
       }
 
-      const verifiedRepos = repoClaims.filter((c) => c.status === 'VERIFIED').length;
+      const verifiedRepos = repoClaims.filter(
+        (c) => c.status === 'VERIFIED',
+      ).length
       if (verifiedRepos > 0) {
-        weight += verifiedRepos * 100;
-        reason += `${verifiedRepos} verified repos. `;
+        weight += verifiedRepos * 100
+        reason += `${verifiedRepos} verified repos. `
       }
 
-      const verifiedDeps = depClaims.filter((c) => c.status === 'VERIFIED').length;
+      const verifiedDeps = depClaims.filter(
+        (c) => c.status === 'VERIFIED',
+      ).length
       if (verifiedDeps > 0) {
-        weight += verifiedDeps * 150;
-        reason += `${verifiedDeps} verified dependencies. `;
+        weight += verifiedDeps * 150
+        reason += `${verifiedDeps} verified dependencies. `
       }
 
       if (weight > 0) {
@@ -589,50 +682,56 @@ export class DeepFundingService {
             repos: verifiedRepos,
             deps: verifiedDeps,
           },
-        });
+        })
       }
     }
 
     // Normalize weights
-    const totalWeight = recommendations.reduce((sum, r) => sum + r.suggestedWeight, 0);
+    const totalWeight = recommendations.reduce(
+      (sum, r) => sum + r.suggestedWeight,
+      0,
+    )
     if (totalWeight > 0) {
       for (const r of recommendations) {
-        r.suggestedWeight = Math.floor((r.suggestedWeight * MAX_BPS) / totalWeight);
+        r.suggestedWeight = Math.floor(
+          (r.suggestedWeight * MAX_BPS) / totalWeight,
+        )
       }
     }
 
-    return recommendations.sort((a, b) => b.suggestedWeight - a.suggestedWeight);
+    return recommendations.sort((a, b) => b.suggestedWeight - a.suggestedWeight)
   }
 
   /**
    * Generate dependency funding recommendations from repo scan
    */
   async generateDependencyRecommendations(
-    daoId: string,
+    _daoId: string,
     repoOwner: string,
-    repoName: string
+    repoName: string,
   ): Promise<DependencyFundingRecommendation[]> {
-    const scanner = getDependencyScanner();
-    const contributorService = getContributorService();
+    const scanner = getDependencyScanner()
+    const contributorService = getContributorService()
 
     // Load registered contributors for lookup
-    const allContributors = await contributorService.getAllContributors();
-    const depLookup = new Map<string, string>();
+    const allContributors = await contributorService.getAllContributors()
+    const depLookup = new Map<string, string>()
 
     for (const contributorId of allContributors) {
-      const depClaims = await contributorService.getDependencyClaims(contributorId);
+      const depClaims =
+        await contributorService.getDependencyClaims(contributorId)
       for (const claim of depClaims) {
         if (claim.status === 'VERIFIED') {
-          const key = `${claim.registryType}:${claim.packageName}`;
-          depLookup.set(key, contributorId);
+          const key = `${claim.registryType}:${claim.packageName}`
+          depLookup.set(key, contributorId)
         }
       }
     }
 
-    scanner.setRegisteredContributors(depLookup);
+    scanner.setRegisteredContributors(depLookup)
 
     // Scan repository
-    const scanResult = await scanner.scanRepository(repoOwner, repoName);
+    const scanResult = await scanner.scanRepository(repoOwner, repoName)
 
     // Convert to recommendations
     return scanResult.dependencies.map((dep) => ({
@@ -643,21 +742,23 @@ export class DeepFundingService {
       usageCount: dep.usageCount,
       isRegistered: !!dep.registeredContributorId,
       maintainerContributorId: dep.registeredContributorId || null,
-    }));
+    }))
   }
 
   /**
    * Apply depth decay to weight (deps of deps get less)
    */
   applyDepthDecay(weight: number, depth: number): number {
-    if (depth === 0) return weight;
+    if (depth === 0) return weight
 
-    let decayFactor = MAX_BPS;
+    let decayFactor = MAX_BPS
     for (let i = 0; i < depth; i++) {
-      decayFactor = Math.floor((decayFactor * (MAX_BPS - DEPTH_DECAY_BPS)) / MAX_BPS);
+      decayFactor = Math.floor(
+        (decayFactor * (MAX_BPS - DEPTH_DECAY_BPS)) / MAX_BPS,
+      )
     }
 
-    return Math.floor((weight * decayFactor) / MAX_BPS);
+    return Math.floor((weight * decayFactor) / MAX_BPS)
   }
 
   /**
@@ -665,9 +766,9 @@ export class DeepFundingService {
    */
   async syncDependencies(
     daoId: string,
-    recommendations: DependencyFundingRecommendation[]
+    recommendations: DependencyFundingRecommendation[],
   ): Promise<Hash[]> {
-    const hashes: Hash[] = [];
+    const hashes: Hash[] = []
 
     for (const rec of recommendations) {
       const hash = await this.registerDependency(
@@ -677,30 +778,31 @@ export class DeepFundingService {
         rec.maintainerContributorId,
         rec.suggestedWeight,
         rec.depth,
-        rec.usageCount
-      );
-      hashes.push(hash);
+        rec.usageCount,
+      )
+      hashes.push(hash)
     }
 
-    return hashes;
+    return hashes
   }
 }
 
 // ============ Singleton Export ============
 
-let service: DeepFundingService | null = null;
+let service: DeepFundingService | null = null
 
-export function getDeepFundingService(config?: DeepFundingServiceConfig): DeepFundingService {
+export function getDeepFundingService(
+  config?: DeepFundingServiceConfig,
+): DeepFundingService {
   if (!service && config) {
-    service = new DeepFundingService(config);
+    service = new DeepFundingService(config)
   }
   if (!service) {
-    throw new Error('DeepFundingService not initialized');
+    throw new Error('DeepFundingService not initialized')
   }
-  return service;
+  return service
 }
 
 export function resetDeepFundingService(): void {
-  service = null;
+  service = null
 }
-

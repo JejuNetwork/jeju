@@ -1,10 +1,10 @@
-import type { CapacitorConfig } from '@capacitor/cli';
+import type { CapacitorConfig } from '@capacitor/cli'
 
 const config: CapacitorConfig = {
   appId: 'network.jeju.wallet',
   appName: 'Network Wallet',
   webDir: 'dist',
-  
+
   // Server configuration for live reload during development
   server: {
     androidScheme: 'https',
@@ -46,40 +46,40 @@ const config: CapacitorConfig = {
       iosSplashResourceName: 'Default',
       showSpinner: false,
     },
-    
+
     // Status bar configuration
     StatusBar: {
       style: 'Dark',
       backgroundColor: '#0a0a0a',
     },
-    
+
     // Keyboard configuration
     Keyboard: {
       resize: 'body',
       style: 'dark',
       resizeOnFullScreen: true,
     },
-    
+
     // Push notifications (for transaction alerts)
     PushNotifications: {
       presentationOptions: ['badge', 'sound', 'alert'],
     },
-    
+
     // App URL handlers for deep links
     App: {
       launchAutoHide: true,
     },
-    
+
     // Browser plugin for external purchases (IAP compliance)
     Browser: {
       presentationStyle: 'fullscreen',
     },
-    
+
     // Preferences for local storage
     Preferences: {
       group: 'JejuWallet',
     },
-    
+
     // Biometric authentication
     BiometricAuth: {
       allowDeviceCredential: true,
@@ -88,7 +88,6 @@ const config: CapacitorConfig = {
 
   // Cordova configuration (for plugins that still use Cordova)
   cordova: {},
-};
+}
 
-export default config;
-
+export default config

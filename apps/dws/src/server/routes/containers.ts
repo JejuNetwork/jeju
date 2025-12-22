@@ -3,46 +3,46 @@
  * REST API for serverless and dedicated container execution
  */
 
-import { Hono } from 'hono';
+import { Hono } from 'hono'
 
 import {
-  runContainer,
-  getExecution,
-  getExecutionResult,
-  listExecutions,
+  analyzeDeduplication,
+  type ComputeNode,
   cancelExecution,
+  type ExecutionRequest,
   estimateCost,
-  getSystemStats,
+  getAllNodes,
   getAllPoolStats,
   getCacheStats,
-  analyzeDeduplication,
-  getAllNodes,
+  getExecution,
+  getExecutionResult,
   getSchedulerStats,
+  getSystemStats,
+  listExecutions,
   registerNode,
+  runContainer,
   warmContainers,
-  type ExecutionRequest,
-  type ComputeNode,
-} from '../../containers';
-import { 
-  validateBody, 
-  validateHeaders, 
-  jejuAddressHeaderSchema, 
-  containerExecutionRequestSchema,
+} from '../../containers'
+import {
   containerCostEstimateSchema,
-  warmContainersRequestSchema,
-  nodeRegistrationSchema,
+  containerExecutionRequestSchema,
   type JSONValue,
-} from '../../shared';
+  jejuAddressHeaderSchema,
+  nodeRegistrationSchema,
+  validateBody,
+  validateHeaders,
+  warmContainersRequestSchema,
+} from '../../shared'
 
 export function createContainerRouter(): Hono {
-  const app = new Hono();
+  const app = new Hono()
 
   // ============================================================================
   // Health & Status
   // ============================================================================
 
   app.get('/health', (c) => {
-    const stats = getSystemStats();
+    const stats = getSystemStats()
     return c.json({
       status: 'healthy',
       service: 'container-execution',
@@ -50,20 +50,23 @@ export function createContainerRouter(): Hono {
       completedExecutions: stats.executor.completedExecutions,
       cacheUtilization: `${stats.cache.cacheUtilization}%`,
       coldStartRate: `${stats.executor.coldStartRate}%`,
-    });
-  });
+    })
+  })
 
   app.get('/stats', (c) => {
-    return c.json(getSystemStats());
-  });
+    return c.json(getSystemStats())
+  })
 
   // ============================================================================
   // Container Execution
   // ============================================================================
 
   app.post('/execute', async (c) => {
-    const { 'x-jeju-address': userAddress } = validateHeaders(jejuAddressHeaderSchema, c);
-    const body = await validateBody(containerExecutionRequestSchema, c);
+    const { 'x-jeju-address': userAddress } = validateHeaders(
+      jejuAddressHeaderSchema,
+      c,
+    )
+    const body = await validateBody(containerExecutionRequestSchema, c)
 
     const request: ExecutionRequest = {
       imageRef: body.image,
@@ -80,9 +83,9 @@ export function createContainerRouter(): Hono {
       timeout: body.timeout,
       input: body.input as JSONValue | undefined,
       webhook: body.webhook,
-    };
+    }
 
-    const result = await runContainer(request, userAddress);
+    const result = await runContainer(request, userAddress)
 
     return c.json({
       executionId: result.executionId,
@@ -94,12 +97,15 @@ export function createContainerRouter(): Hono {
         ...result.metrics,
         wasColdStart: result.metrics.wasColdStart,
       },
-    });
-  });
+    })
+  })
 
   app.get('/executions', (c) => {
-    const { 'x-jeju-address': userAddress } = validateHeaders(jejuAddressHeaderSchema, c);
-    const executions = listExecutions(userAddress);
+    const { 'x-jeju-address': userAddress } = validateHeaders(
+      jejuAddressHeaderSchema,
+      c,
+    )
+    const executions = listExecutions(userAddress)
 
     return c.json({
       executions: executions.map((e) => ({
@@ -110,14 +116,14 @@ export function createContainerRouter(): Hono {
         startedAt: e.startedAt,
       })),
       total: executions.length,
-    });
-  });
+    })
+  })
 
   app.get('/executions/:id', (c) => {
-    const executionId = c.req.param('id');
+    const executionId = c.req.param('id')
 
     // Check pending first
-    const pending = getExecution(executionId);
+    const pending = getExecution(executionId)
     if (pending) {
       return c.json({
         executionId: pending.executionId,
@@ -126,41 +132,41 @@ export function createContainerRouter(): Hono {
         submittedAt: pending.submittedAt,
         startedAt: pending.startedAt,
         instanceId: pending.instanceId,
-      });
+      })
     }
 
     // Check completed
-    const result = getExecutionResult(executionId);
+    const result = getExecutionResult(executionId)
     if (result) {
-      return c.json(result);
+      return c.json(result)
     }
 
-    throw new Error('Execution not found');
-  });
+    throw new Error('Execution not found')
+  })
 
   app.post('/executions/:id/cancel', (c) => {
-    const executionId = c.req.param('id');
-    const cancelled = cancelExecution(executionId);
+    const executionId = c.req.param('id')
+    const cancelled = cancelExecution(executionId)
 
     if (!cancelled) {
-      throw new Error('Execution not found or cannot be cancelled');
+      throw new Error('Execution not found or cannot be cancelled')
     }
 
-    return c.json({ executionId, status: 'cancelled' });
-  });
+    return c.json({ executionId, status: 'cancelled' })
+  })
 
   // ============================================================================
   // Cost Estimation
   // ============================================================================
 
   app.post('/estimate', async (c) => {
-    const body = await validateBody(containerCostEstimateSchema, c);
+    const body = await validateBody(containerCostEstimateSchema, c)
 
     const cost = estimateCost(
       body.resources,
       body.durationMs,
-      body.expectColdStart
-    );
+      body.expectColdStart,
+    )
 
     return c.json({
       estimatedCost: cost.toString(),
@@ -170,21 +176,24 @@ export function createContainerRouter(): Hono {
         resources: body.resources,
         coldStartPenalty: body.expectColdStart,
       },
-    });
-  });
+    })
+  })
 
   // ============================================================================
   // Warm Pool Management
   // ============================================================================
 
   app.get('/pools', (c) => {
-    const pools = getAllPoolStats();
-    return c.json({ pools, total: pools.length });
-  });
+    const pools = getAllPoolStats()
+    return c.json({ pools, total: pools.length })
+  })
 
   app.post('/warm', async (c) => {
-    const { 'x-jeju-address': userAddress } = validateHeaders(jejuAddressHeaderSchema, c);
-    const body = await validateBody(warmContainersRequestSchema, c);
+    const { 'x-jeju-address': userAddress } = validateHeaders(
+      jejuAddressHeaderSchema,
+      c,
+    )
+    const body = await validateBody(warmContainersRequestSchema, c)
 
     await warmContainers(
       body.image,
@@ -194,40 +203,40 @@ export function createContainerRouter(): Hono {
         memoryMb: body.resources?.memoryMb ?? 512,
         storageMb: body.resources?.storageMb ?? 1024,
       },
-      userAddress
-    );
+      userAddress,
+    )
 
     return c.json({
       message: 'Warming request queued',
       image: body.image,
       count: body.count,
-    });
-  });
+    })
+  })
 
   // ============================================================================
   // Cache Management
   // ============================================================================
 
   app.get('/cache', (c) => {
-    const stats = getCacheStats();
-    return c.json(stats);
-  });
+    const stats = getCacheStats()
+    return c.json(stats)
+  })
 
   app.get('/cache/deduplication', (c) => {
-    const analysis = analyzeDeduplication();
+    const analysis = analyzeDeduplication()
     return c.json({
       ...analysis,
       savedBytes: analysis.savedBytes,
       savedMb: Math.round(analysis.savedBytes / (1024 * 1024)),
-    });
-  });
+    })
+  })
 
   // ============================================================================
   // Node Management
   // ============================================================================
 
   app.get('/nodes', (c) => {
-    const nodes = getAllNodes();
+    const nodes = getAllNodes()
     return c.json({
       nodes: nodes.map((n) => ({
         nodeId: n.nodeId,
@@ -246,11 +255,11 @@ export function createContainerRouter(): Hono {
         reputation: n.reputation,
       })),
       total: nodes.length,
-    });
-  });
+    })
+  })
 
   app.post('/nodes', async (c) => {
-    const body = await validateBody(nodeRegistrationSchema, c);
+    const body = await validateBody(nodeRegistrationSchema, c)
 
     const node: ComputeNode = {
       nodeId: body.nodeId,
@@ -273,19 +282,16 @@ export function createContainerRouter(): Hono {
       lastHeartbeat: Date.now(),
       status: 'online',
       reputation: 100,
-    };
+    }
 
-    registerNode(node);
+    registerNode(node)
 
-    return c.json({ nodeId: node.nodeId, status: 'registered' }, 201);
-  });
+    return c.json({ nodeId: node.nodeId, status: 'registered' }, 201)
+  })
 
   app.get('/scheduler', (c) => {
-    return c.json(getSchedulerStats());
-  });
+    return c.json(getSchedulerStats())
+  })
 
-  return app;
+  return app
 }
-
-
-

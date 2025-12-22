@@ -2,18 +2,18 @@
  * DeFi Provider - Token prices and positions context
  */
 
-import {
-  type IAgentRuntime,
-  type Memory,
-  type Provider,
-  type ProviderResult,
-  type State,
-} from "@elizaos/core";
-import { formatEther } from "viem";
-import { getNetworkName } from "@jejunetwork/config";
-import { JEJU_SERVICE_NAME, type JejuService } from "../service";
+import type {
+  IAgentRuntime,
+  Memory,
+  Provider,
+  ProviderResult,
+  State,
+} from '@elizaos/core'
+import { getNetworkName } from '@jejunetwork/config'
+import { formatEther } from 'viem'
+import { JEJU_SERVICE_NAME, type JejuService } from '../service'
 
-const networkName = getNetworkName();
+const networkName = getNetworkName()
 
 export const jejuDefiProvider: Provider = {
   name: `${networkName}DefiProvider`,
@@ -25,20 +25,20 @@ export const jejuDefiProvider: Provider = {
   ): Promise<ProviderResult> {
     const service = runtime.getService(JEJU_SERVICE_NAME) as
       | JejuService
-      | undefined;
+      | undefined
 
     if (!service) {
       return {
         text: `${networkName} DeFi not available`,
         data: {},
         values: {},
-      };
+      }
     }
 
-    const client = service.getClient();
+    const client = service.getClient()
 
-    const pools = await client.defi.listPools();
-    const positions = await client.defi.listPositions();
+    const pools = await client.defi.listPools()
+    const positions = await client.defi.listPositions()
 
     const text = `Active Pools: ${pools.length}
 Your LP Positions: ${positions.length}
@@ -46,13 +46,13 @@ ${pools
   .slice(0, 3)
   .map(
     (p: {
-      token0: { symbol: string };
-      token1: { symbol: string };
-      liquidity: bigint;
+      token0: { symbol: string }
+      token1: { symbol: string }
+      liquidity: bigint
     }) =>
       `- ${p.token0.symbol}/${p.token1.symbol}: TVL ${formatEther(p.liquidity)}`,
   )
-  .join("\n")}`;
+  .join('\n')}`
 
     return {
       text,
@@ -64,6 +64,6 @@ ${pools
         poolCount: pools.length.toString(),
         positionCount: positions.length.toString(),
       },
-    };
+    }
   },
-};
+}

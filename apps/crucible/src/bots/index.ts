@@ -1,11 +1,11 @@
 /**
  * MEV Trading Bot Module
- * 
+ *
  * Complete infrastructure for MEV extraction and automated trading:
- * 
+ *
  * @example
  * ```typescript
- * import { 
+ * import {
  *   TradingBot,
  *   DexArbitrageStrategy,
  *   MevBundler,
@@ -13,198 +13,184 @@
  *   GasOracle,
  *   RiskManager,
  * } from '@jejunetwork/crucible/bots';
- * 
+ *
  * // Initialize components
  * const gasOracle = new GasOracle();
  * await gasOracle.initialize([{ chainId: 1, rpcUrl: 'https://...' }]);
- * 
+ *
  * const riskManager = new RiskManager({
  *   maxPositionSizeWei: BigInt(10e18),
  *   maxDailyLossWei: BigInt(1e18),
  * });
- * 
+ *
  * const bundler = new MevBundler(privateKey, 1);
- * 
+ *
  * // Create strategy
  * const arbStrategy = new DexArbitrageStrategy(1, { minProfitBps: 50 });
  * arbStrategy.initialize(pools);
- * 
+ *
  * // Execute opportunities
  * const opportunities = arbStrategy.getOpportunities();
  * ```
  */
 
-// ============ Core Trading Bot ============
-export { TradingBot, type TradingBotOptions } from './trading-bot';
-export { 
+export { main as startBot, startBotAPIServer } from './api-server'
+// ============ Types ============
+export type {
+  ArbitrageOpportunity,
+  AutocratConfig,
+  ChainConfig,
+  ChainId,
+  CrossChainArbOpportunity,
+  LiquidationOpportunity,
+  Opportunity,
+  OpportunityExecutionResult,
+  Pool,
+  PoolType,
+  SandwichOpportunity,
+  StrategyConfig,
+  StrategyType,
+  Token,
+} from './autocrat-types'
+export {
+  createTradingBotOptions,
   DEFAULT_BOTS,
   DEFAULT_CHAINS,
-  getDefaultBotsForNetwork,
-  createTradingBotOptions,
   type DefaultBotConfig,
-} from './default-bots';
-export { BotInitializer, type BotInitializerConfig } from './initializer';
-
-// ============ Strategies ============
-export {
-  DexArbitrageStrategy,
-  SandwichStrategy,
-  CrossChainArbStrategy,
-  LiquidationStrategy,
-  SolverStrategy,
-  OracleKeeperStrategy,
-  SolanaArbStrategy,
-  LiquidityManager,
-  type UnifiedPosition,
-  type RebalanceAction,
-  type PoolAnalysis,
-  YieldFarmingStrategy,
-  type YieldOpportunity,
-  type FarmPosition,
-  type YieldFarmingConfig,
-  type YieldSource,
-  type RiskLevel,
-} from './strategies';
-
-// ============ Solana DEX Adapters ============
-export {
-  SolanaDexAggregator,
-  JupiterAdapter,
-  RaydiumAdapter,
-  OrcaAdapter,
-  MeteoraAdapter,
-  type SwapQuote,
-  type LiquidityPool as SolanaPool,
-  type LiquidityPosition as SolanaPosition,
-  type DexSource,
-} from './solana';
-
-// ============ Unified Bot ============
-export { UnifiedBot, type UnifiedBotConfig, type BotStats, type TradeResult } from './unified-bot';
-export { startBotAPIServer, main as startBot } from './api-server';
-
+  getDefaultBotsForNetwork,
+} from './default-bots'
 // ============ Engine (Infrastructure) ============
 export {
-  // Mempool streaming
-  MempoolStreamer,
-  createMempoolStreamer,
-  type MempoolTransaction,
-  type MempoolConfig,
-  
-  // Bundle submission
-  MevBundler,
-  type BundleTransaction,
+  ARBITRAGE_EXECUTOR_SOLIDITY,
+  type BlockEvent,
   type BundleParams,
   type BundleResult,
-  type SimulationResult,
-  type MevShareHint,
-  
-  // Flash loans
-  FlashLoanExecutor,
-  ARBITRAGE_EXECUTOR_SOLIDITY,
-  type FlashLoanConfig,
-  type FlashLoanParams,
-  type FlashLoanResult,
-  
-  // Gas estimation
-  GasOracle,
-  GAS_ESTIMATES,
-  calculateSwapGas,
+  type BundleTransaction,
+  type ContractAddresses,
   calculateArbitrageGas,
-  
-  // Risk management
-  RiskManager,
+  calculateSwapGas,
+  createMempoolStreamer,
   DEFAULT_RISK_CONFIG,
-  type RiskConfig,
-  
   // Data collection
   EventCollector,
-  type SyncEvent,
-  type SwapEvent,
-  type BlockEvent,
+  type ExecutorConfig,
+  type FlashLoanConfig,
+  // Flash loans
+  FlashLoanExecutor,
+  type FlashLoanParams,
+  type FlashLoanResult,
+  GAS_ESTIMATES,
+  // Gas estimation
+  GasOracle,
+  type MempoolConfig,
+  // Mempool streaming
+  MempoolStreamer,
+  type MempoolTransaction,
+  // Bundle submission
+  MevBundler,
+  type MevShareHint,
   type PendingTransaction,
-  
+  type RiskConfig,
+  // Risk management
+  RiskManager,
+  type SimulationResult,
+  type SwapEvent,
+  type SyncEvent,
   // Transaction execution
   TransactionExecutor,
-  type ContractAddresses,
-  type ExecutorConfig,
-  
+  type TreasuryConfig,
   // Treasury
   TreasuryManager,
-  type TreasuryConfig,
-} from './engine';
-
+} from './engine'
+export { BotInitializer, type BotInitializerConfig } from './initializer'
 // ============ Math & Utilities ============
 export {
+  AUTOCRAT_TREASURY_ABI,
+  bigintAbsDiff,
+  bigintMax,
+  bigintMin,
+  bigintPow,
   // BigInt helpers
   bigintSqrt,
-  bigintPow,
-  bigintMin,
-  bigintMax,
-  bigintAbsDiff,
-  
-  // AMM math
-  getAmountOut,
-  getAmountIn,
-  getSpotPrice,
-  getEffectivePrice,
-  getPriceImpactBps,
-  
-  // Optimal sizing
-  calculateOptimalCrossPoolArbitrage,
-  calculateOptimalTriangularArbitrage,
-  calculateOptimalMultiHopArbitrage,
-  calculateOptimalSandwich,
-  
-  // Gas calculations
-  estimateGasCostWei,
+  CHAINLINK_AGGREGATOR_ABI,
   calculateMinProfitableTradeSize,
   calculateNetProfit,
-  
+  // Optimal sizing
+  calculateOptimalCrossPoolArbitrage,
+  calculateOptimalMultiHopArbitrage,
+  calculateOptimalSandwich,
+  calculateOptimalTriangularArbitrage,
+  calculateV2V3Arbitrage,
+  calculateV3SwapOutput,
+  type DecodedSwap,
+  // Transaction decoders
+  decodeSwapTransaction,
+  // Contract ABIs
+  ERC20_ABI,
+  // Gas calculations
+  estimateGasCostWei,
   // Uniswap V3
   FEE_TIERS,
   type FeeTier,
-  type V3PoolState,
-  tickToSqrtPriceX96,
-  sqrtPriceX96ToTick,
-  calculateV3SwapOutput,
-  calculateV2V3Arbitrage,
-  UNISWAP_V3_POOL_ABI,
-  UNISWAP_V3_FACTORY_ABI,
-  UNISWAP_V3_ROUTER_ABI,
-  
-  // Transaction decoders
-  decodeSwapTransaction,
-  isSwapSelector,
   getAllSwapSelectors,
-  type DecodedSwap,
-  
-  // Contract ABIs
-  ERC20_ABI,
-  XLP_V2_PAIR_ABI,
-  XLP_V2_FACTORY_ABI,
-  XLP_ROUTER_ABI,
+  getAmountIn,
+  // AMM math
+  getAmountOut,
+  getEffectivePrice,
+  getPriceImpactBps,
+  getSpotPrice,
+  isSwapSelector,
   PERPETUAL_MARKET_ABI,
-  AUTOCRAT_TREASURY_ABI,
   PRICE_ORACLE_ABI,
-  CHAINLINK_AGGREGATOR_ABI,
+  sqrtPriceX96ToTick,
+  tickToSqrtPriceX96,
+  UNISWAP_V3_FACTORY_ABI,
+  UNISWAP_V3_POOL_ABI,
+  UNISWAP_V3_ROUTER_ABI,
+  type V3PoolState,
+  XLP_ROUTER_ABI,
+  XLP_V2_FACTORY_ABI,
+  XLP_V2_PAIR_ABI,
   ZERO_ADDRESS,
-} from './lib';
-
-// ============ Types ============
-export type {
-  ChainId,
-  ChainConfig,
-  Token,
-  Pool,
-  PoolType,
-  StrategyType,
-  StrategyConfig,
-  Opportunity,
-  ArbitrageOpportunity,
-  CrossChainArbOpportunity,
-  SandwichOpportunity,
-  LiquidationOpportunity,
-  OpportunityExecutionResult,
-  AutocratConfig,
-} from './autocrat-types';
+} from './lib'
+// ============ Solana DEX Adapters ============
+export {
+  type DexSource,
+  JupiterAdapter,
+  type LiquidityPool as SolanaPool,
+  type LiquidityPosition as SolanaPosition,
+  MeteoraAdapter,
+  OrcaAdapter,
+  RaydiumAdapter,
+  SolanaDexAggregator,
+  type SwapQuote,
+} from './solana'
+// ============ Strategies ============
+export {
+  CrossChainArbStrategy,
+  DexArbitrageStrategy,
+  type FarmPosition,
+  LiquidationStrategy,
+  LiquidityManager,
+  OracleKeeperStrategy,
+  type PoolAnalysis,
+  type RebalanceAction,
+  type RiskLevel,
+  SandwichStrategy,
+  SolanaArbStrategy,
+  SolverStrategy,
+  type UnifiedPosition,
+  type YieldFarmingConfig,
+  YieldFarmingStrategy,
+  type YieldOpportunity,
+  type YieldSource,
+} from './strategies'
+// ============ Core Trading Bot ============
+export { TradingBot, type TradingBotOptions } from './trading-bot'
+// ============ Unified Bot ============
+export {
+  type BotStats,
+  type TradeResult,
+  UnifiedBot,
+  type UnifiedBotConfig,
+} from './unified-bot'

@@ -246,33 +246,90 @@ impl WalletManager {
     }
 
     fn encrypt_private_key(&self, wallet: &LocalWallet, password: &str) -> Result<String, String> {
-        // Simple encryption using password-derived key
-        // In production, use proper key derivation (scrypt/argon2) and AES-GCM
+        use sha2::Sha256;
+        use rand::RngCore;
+        
+        // Generate a random salt (16 bytes) and nonce (12 bytes for AES-GCM)
+        let mut salt = [0u8; 16];
+        let mut nonce = [0u8; 12];
+        rand::thread_rng().fill_bytes(&mut salt);
+        rand::thread_rng().fill_bytes(&mut nonce);
+        
+        // Derive key using PBKDF2-SHA256 with 100,000 iterations
+        // In production with time, use Argon2 via `argon2` crate
+        let mut derived_key = [0u8; 32];
+        pbkdf2::pbkdf2::<hmac::Hmac<Sha256>>(
+            password.as_bytes(),
+            &salt,
+            100_000, // 100k iterations for reasonable security
+            &mut derived_key,
+        ).map_err(|_| "Key derivation failed".to_string())?;
+        
+        // Get private key bytes
         let key_bytes = wallet.signer().to_bytes();
-        let password_hash = Sha256::digest(password.as_bytes());
         
-        let encrypted: Vec<u8> = key_bytes
-            .iter()
-            .zip(password_hash.iter().cycle())
-            .map(|(k, p)| k ^ p)
-            .collect();
+        // Encrypt using AES-256-GCM
+        use aes_gcm::{
+            aead::{Aead, KeyInit},
+            Aes256Gcm, Nonce,
+        };
         
-        Ok(base64::encode(&encrypted))
+        let cipher = Aes256Gcm::new_from_slice(&derived_key)
+            .map_err(|e| format!("Cipher init failed: {}", e))?;
+        let nonce_arr = Nonce::from_slice(&nonce);
+        
+        let ciphertext = cipher.encrypt(nonce_arr, key_bytes.as_ref())
+            .map_err(|e| format!("Encryption failed: {}", e))?;
+        
+        // Encode as: salt (16) || nonce (12) || ciphertext (32 + 16 auth tag)
+        let mut output = Vec::with_capacity(16 + 12 + ciphertext.len());
+        output.extend_from_slice(&salt);
+        output.extend_from_slice(&nonce);
+        output.extend_from_slice(&ciphertext);
+        
+        use base64::{Engine as _, engine::general_purpose};
+        Ok(general_purpose::STANDARD.encode(&output))
     }
 
     fn decrypt_private_key(&self, encrypted: &str, password: &str) -> Result<String, String> {
-        let encrypted_bytes = base64::decode(encrypted)
-            .map_err(|e| format!("Invalid encrypted key: {}", e))?;
+        use sha2::Sha256;
         
-        let password_hash = Sha256::digest(password.as_bytes());
+        use base64::{Engine as _, engine::general_purpose};
+        let data = general_purpose::STANDARD.decode(encrypted)
+            .map_err(|e| format!("Invalid encrypted key format: {}", e))?;
         
-        let decrypted: Vec<u8> = encrypted_bytes
-            .iter()
-            .zip(password_hash.iter().cycle())
-            .map(|(e, p)| e ^ p)
-            .collect();
+        // Minimum size: 16 (salt) + 12 (nonce) + 32 (key) + 16 (auth tag) = 76 bytes
+        if data.len() < 76 {
+            return Err("Encrypted data too short".to_string());
+        }
         
-        Ok(format!("0x{}", hex::encode(&decrypted)))
+        let salt = &data[0..16];
+        let nonce = &data[16..28];
+        let ciphertext = &data[28..];
+        
+        // Derive key using PBKDF2-SHA256 with same parameters
+        let mut derived_key = [0u8; 32];
+        pbkdf2::pbkdf2::<hmac::Hmac<Sha256>>(
+            password.as_bytes(),
+            salt,
+            100_000,
+            &mut derived_key,
+        ).map_err(|_| "Key derivation failed".to_string())?;
+        
+        // Decrypt using AES-256-GCM
+        use aes_gcm::{
+            aead::{Aead, KeyInit},
+            Aes256Gcm, Nonce,
+        };
+        
+        let cipher = Aes256Gcm::new_from_slice(&derived_key)
+            .map_err(|e| format!("Cipher init failed: {}", e))?;
+        let nonce_arr = Nonce::from_slice(nonce);
+        
+        let plaintext = cipher.decrypt(nonce_arr, ciphertext)
+            .map_err(|_| "Decryption failed - wrong password or corrupted data".to_string())?;
+        
+        Ok(format!("0x{}", hex::encode(&plaintext)))
     }
 }
 

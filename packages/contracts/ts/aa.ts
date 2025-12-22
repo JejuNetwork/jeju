@@ -3,7 +3,7 @@
  * @module @jejunetwork/contracts/aa
  *
  * This module provides helpers for gasless transactions using ERC-4337.
- * 
+ *
  * Paymasters Available:
  * - SponsoredPaymaster: Free transactions for games (platform pays)
  * - LiquidityPaymaster: Pay gas in elizaOS tokens
@@ -11,7 +11,7 @@
  *
  * @example
  * ```typescript
- * import { 
+ * import {
  *   getSponsoredPaymasterData,
  *   getLiquidityPaymasterData,
  *   ENTRYPOINT_V07_ADDRESS,
@@ -28,8 +28,8 @@
  * ```
  */
 
-import type { Address, Hex } from 'viem';
-import { encodePacked, pad, toHex } from 'viem';
+import type { Address, Hex } from 'viem'
+import { encodePacked, pad, toHex } from 'viem'
 
 // ============================================================================
 // Constants
@@ -38,7 +38,8 @@ import { encodePacked, pad, toHex } from 'viem';
 /**
  * ERC-4337 EntryPoint v0.7 address (same on all chains)
  */
-export const ENTRYPOINT_V07_ADDRESS = '0x0000000071727De22E5E9d8BAf0edAc6f37da032' as const;
+export const ENTRYPOINT_V07_ADDRESS =
+  '0x0000000071727De22E5E9d8BAf0edAc6f37da032' as const
 
 /**
  * Default gas limits for paymasters
@@ -46,7 +47,7 @@ export const ENTRYPOINT_V07_ADDRESS = '0x0000000071727De22E5E9d8BAf0edAc6f37da03
 export const DEFAULT_GAS_LIMITS = {
   verificationGasLimit: 100000n,
   postOpGasLimit: 50000n,
-} as const;
+} as const
 
 // ============================================================================
 // Types
@@ -54,48 +55,48 @@ export const DEFAULT_GAS_LIMITS = {
 
 export interface PaymasterData {
   /** Full paymasterAndData hex string */
-  paymasterAndData: Hex;
+  paymasterAndData: Hex
   /** Paymaster address */
-  paymaster: Address;
+  paymaster: Address
   /** Verification gas limit */
-  verificationGasLimit: bigint;
+  verificationGasLimit: bigint
   /** Post-operation gas limit */
-  postOpGasLimit: bigint;
+  postOpGasLimit: bigint
 }
 
 export interface SponsoredPaymasterConfig {
   /** Paymaster contract address */
-  paymaster: Address;
+  paymaster: Address
   /** Custom verification gas limit (default: 100000) */
-  verificationGasLimit?: bigint;
+  verificationGasLimit?: bigint
   /** Custom post-op gas limit (default: 50000) */
-  postOpGasLimit?: bigint;
+  postOpGasLimit?: bigint
 }
 
 export interface LiquidityPaymasterConfig {
   /** Paymaster contract address */
-  paymaster: Address;
+  paymaster: Address
   /** App address that receives fee revenue share */
-  appAddress: Address;
+  appAddress: Address
   /** Custom verification gas limit (default: 100000) */
-  verificationGasLimit?: bigint;
+  verificationGasLimit?: bigint
   /** Custom post-op gas limit (default: 50000) */
-  postOpGasLimit?: bigint;
+  postOpGasLimit?: bigint
 }
 
 export interface MultiTokenPaymasterConfig {
   /** Paymaster contract address */
-  paymaster: Address;
+  paymaster: Address
   /** Service name being called */
-  serviceName: string;
+  serviceName: string
   /** Payment token: 0=USDC, 1=elizaOS, 2=ETH */
-  paymentToken: 0 | 1 | 2;
+  paymentToken: 0 | 1 | 2
   /** Overpayment amount to credit (optional) */
-  overpayment?: bigint;
+  overpayment?: bigint
   /** Custom verification gas limit */
-  verificationGasLimit?: bigint;
+  verificationGasLimit?: bigint
   /** Custom post-op gas limit */
-  postOpGasLimit?: bigint;
+  postOpGasLimit?: bigint
 }
 
 // ============================================================================
@@ -104,85 +105,93 @@ export interface MultiTokenPaymasterConfig {
 
 /**
  * Build paymasterAndData for SponsoredPaymaster (free transactions)
- * 
+ *
  * @param config - Sponsored paymaster configuration
  * @returns PaymasterData for UserOperation
- * 
+ *
  * @example
  * ```typescript
  * const { paymasterAndData } = getSponsoredPaymasterData({
  *   paymaster: '0x...',
  * });
- * 
+ *
  * const userOp = {
  *   ...baseUserOp,
  *   paymasterAndData,
  * };
  * ```
  */
-export function getSponsoredPaymasterData(config: SponsoredPaymasterConfig): PaymasterData {
-  const verificationGasLimit = config.verificationGasLimit ?? DEFAULT_GAS_LIMITS.verificationGasLimit;
-  const postOpGasLimit = config.postOpGasLimit ?? DEFAULT_GAS_LIMITS.postOpGasLimit;
+export function getSponsoredPaymasterData(
+  config: SponsoredPaymasterConfig,
+): PaymasterData {
+  const verificationGasLimit =
+    config.verificationGasLimit ?? DEFAULT_GAS_LIMITS.verificationGasLimit
+  const postOpGasLimit =
+    config.postOpGasLimit ?? DEFAULT_GAS_LIMITS.postOpGasLimit
 
   // Format: paymaster (20) + verificationGasLimit (16) + postOpGasLimit (16)
   // Total: 52 bytes
   const paymasterAndData = encodePacked(
     ['address', 'uint128', 'uint128'],
-    [config.paymaster, verificationGasLimit, postOpGasLimit]
-  );
+    [config.paymaster, verificationGasLimit, postOpGasLimit],
+  )
 
   return {
     paymasterAndData,
     paymaster: config.paymaster,
     verificationGasLimit,
     postOpGasLimit,
-  };
+  }
 }
 
 /**
  * Build paymasterAndData for LiquidityPaymaster (pay gas in tokens)
- * 
+ *
  * @param config - Liquidity paymaster configuration
  * @returns PaymasterData for UserOperation
- * 
+ *
  * @example
  * ```typescript
  * const { paymasterAndData } = getLiquidityPaymasterData({
  *   paymaster: '0x...',
  *   appAddress: '0x...',  // App revenue address
  * });
- * 
+ *
  * const userOp = {
  *   ...baseUserOp,
  *   paymasterAndData,
  * };
  * ```
  */
-export function getLiquidityPaymasterData(config: LiquidityPaymasterConfig): PaymasterData {
-  const verificationGasLimit = config.verificationGasLimit ?? DEFAULT_GAS_LIMITS.verificationGasLimit;
-  const postOpGasLimit = config.postOpGasLimit ?? DEFAULT_GAS_LIMITS.postOpGasLimit;
+export function getLiquidityPaymasterData(
+  config: LiquidityPaymasterConfig,
+): PaymasterData {
+  const verificationGasLimit =
+    config.verificationGasLimit ?? DEFAULT_GAS_LIMITS.verificationGasLimit
+  const postOpGasLimit =
+    config.postOpGasLimit ?? DEFAULT_GAS_LIMITS.postOpGasLimit
 
   // Format: paymaster (20) + verificationGasLimit (16) + postOpGasLimit (16) + appAddress (20)
   // Total: 72 bytes
   const paymasterAndData = encodePacked(
     ['address', 'uint128', 'uint128', 'address'],
-    [config.paymaster, verificationGasLimit, postOpGasLimit, config.appAddress]
-  );
+    [config.paymaster, verificationGasLimit, postOpGasLimit, config.appAddress],
+  )
 
   return {
     paymasterAndData,
     paymaster: config.paymaster,
     verificationGasLimit,
     postOpGasLimit,
-  };
+  }
 }
 
 /**
  * Build paymasterAndData for MultiTokenPaymaster (credit system)
- * 
+ *
  * @param config - Multi-token paymaster configuration
  * @returns PaymasterData for UserOperation
- * 
+ *
  * @example
  * ```typescript
  * const { paymasterAndData } = getMultiTokenPaymasterData({
@@ -193,11 +202,15 @@ export function getLiquidityPaymasterData(config: LiquidityPaymasterConfig): Pay
  * });
  * ```
  */
-export function getMultiTokenPaymasterData(config: MultiTokenPaymasterConfig): PaymasterData {
-  const verificationGasLimit = config.verificationGasLimit ?? DEFAULT_GAS_LIMITS.verificationGasLimit;
-  const postOpGasLimit = config.postOpGasLimit ?? DEFAULT_GAS_LIMITS.postOpGasLimit;
+export function getMultiTokenPaymasterData(
+  config: MultiTokenPaymasterConfig,
+): PaymasterData {
+  const verificationGasLimit =
+    config.verificationGasLimit ?? DEFAULT_GAS_LIMITS.verificationGasLimit
+  const postOpGasLimit =
+    config.postOpGasLimit ?? DEFAULT_GAS_LIMITS.postOpGasLimit
 
-  const serviceNameBytes = new TextEncoder().encode(config.serviceName);
+  const serviceNameBytes = new TextEncoder().encode(config.serviceName)
 
   // Format: paymaster (20) + verificationGasLimit (16) + postOpGasLimit (16) +
   //         serviceNameLength (1) + serviceName (N) + paymentToken (1) + [overpayment (32)]
@@ -210,11 +223,11 @@ export function getMultiTokenPaymasterData(config: MultiTokenPaymasterConfig): P
       serviceNameBytes.length,
       toHex(serviceNameBytes),
       config.paymentToken,
-    ]
-  );
+    ],
+  )
 
   if (config.overpayment !== undefined && config.overpayment > 0n) {
-    data = (data + pad(toHex(config.overpayment), { size: 32 }).slice(2)) as Hex;
+    data = (data + pad(toHex(config.overpayment), { size: 32 }).slice(2)) as Hex
   }
 
   return {
@@ -222,7 +235,7 @@ export function getMultiTokenPaymasterData(config: MultiTokenPaymasterConfig): P
     paymaster: config.paymaster,
     verificationGasLimit,
     postOpGasLimit,
-  };
+  }
 }
 
 // ============================================================================
@@ -231,38 +244,41 @@ export function getMultiTokenPaymasterData(config: MultiTokenPaymasterConfig): P
 
 /**
  * Parse paymasterAndData to extract paymaster address
- * 
+ *
  * @param paymasterAndData - The paymasterAndData hex string
  * @returns Paymaster address or null if invalid
  */
 export function parsePaymasterAddress(paymasterAndData: Hex): Address | null {
   if (!paymasterAndData || paymasterAndData.length < 42) {
-    return null;
+    return null
   }
-  return paymasterAndData.slice(0, 42) as Address;
+  return paymasterAndData.slice(0, 42) as Address
 }
 
 /**
  * Check if paymasterAndData is for sponsored (free) transactions
- * 
+ *
  * @param paymasterAndData - The paymasterAndData hex string
  * @returns True if this is sponsored (52 bytes = no custom data)
  */
 export function isSponsoredPaymaster(paymasterAndData: Hex): boolean {
   // Sponsored paymaster has exactly 52 bytes (20 + 16 + 16)
   // Liquidity paymaster has 72 bytes (20 + 16 + 16 + 20)
-  return paymasterAndData.length === 106; // "0x" + 52 bytes * 2
+  return paymasterAndData.length === 106 // "0x" + 52 bytes * 2
 }
 
 /**
  * Calculate the minimum paymaster deposit needed for a UserOperation
- * 
+ *
  * @param maxGasCost - Maximum gas cost in wei
  * @param safetyMargin - Additional margin (default 1.2 = 20%)
  * @returns Required deposit in wei
  */
-export function calculateRequiredDeposit(maxGasCost: bigint, safetyMargin = 1.2): bigint {
-  return BigInt(Math.ceil(Number(maxGasCost) * safetyMargin));
+export function calculateRequiredDeposit(
+  maxGasCost: bigint,
+  safetyMargin = 1.2,
+): bigint {
+  return BigInt(Math.ceil(Number(maxGasCost) * safetyMargin))
 }
 
 // ============================================================================
@@ -317,7 +333,7 @@ export const SponsoredPaymasterAbi = [
     inputs: [],
     outputs: [],
   },
-] as const;
+] as const
 
 export const LiquidityPaymasterAbi = [
   {
@@ -356,7 +372,7 @@ export const LiquidityPaymasterAbi = [
     ],
     outputs: [{ name: '', type: 'uint256' }],
   },
-] as const;
+] as const
 
 export const EntryPointAbi = [
   {
@@ -383,4 +399,4 @@ export const EntryPointAbi = [
     ],
     outputs: [{ name: '', type: 'uint256' }],
   },
-] as const;
+] as const

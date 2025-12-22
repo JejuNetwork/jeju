@@ -1,4 +1,4 @@
-import { Address } from 'viem'
+import type { Address } from 'viem'
 
 export interface PoolKey {
   currency0: Address
@@ -74,6 +74,3 @@ export interface TokenInfo {
   decimals: number
   logoURI?: string
 }
-
-
-

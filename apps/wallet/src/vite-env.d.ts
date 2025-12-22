@@ -4,10 +4,9 @@
 declare global {
   namespace JSX {
     interface IntrinsicAttributes {
-      children?: React.ReactNode;
+      children?: React.ReactNode
     }
   }
 }
 
-export {};
-
+export {}

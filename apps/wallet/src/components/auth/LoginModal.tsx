@@ -1,6 +1,6 @@
 /**
  * LoginModal - OAuth3 Authentication UI
- * 
+ *
  * Multiple login options:
  * - Wallet connect (MetaMask, WalletConnect)
  * - Social logins (Google, Apple, Twitter, GitHub, Discord)
@@ -8,63 +8,101 @@
  * - Generate new wallet (no friction, just works)
  */
 
-import { useState } from 'react';
-import { X, Wallet, Chrome, Apple, Twitter, Github, MessageCircle, Sparkles, ChevronRight, Loader2 } from 'lucide-react';
-import { useAuth, type AuthProvider } from '../../hooks/useAuth';
+import {
+  Apple,
+  ChevronRight,
+  Chrome,
+  Github,
+  Loader2,
+  MessageCircle,
+  Sparkles,
+  Twitter,
+  Wallet,
+  X,
+} from 'lucide-react'
+import { useState } from 'react'
+import { type AuthProvider, useAuth } from '../../hooks/useAuth'
 
 interface LoginModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSuccess?: () => void;
+  isOpen: boolean
+  onClose: () => void
+  onSuccess?: () => void
 }
 
 const SOCIAL_PROVIDERS = [
-  { id: 'google' as AuthProvider, name: 'Google', icon: Chrome, color: 'hover:bg-red-500/10 hover:border-red-500/30' },
-  { id: 'apple' as AuthProvider, name: 'Apple', icon: Apple, color: 'hover:bg-gray-500/10 hover:border-gray-400/30' },
-  { id: 'twitter' as AuthProvider, name: 'Twitter', icon: Twitter, color: 'hover:bg-blue-500/10 hover:border-blue-500/30' },
-  { id: 'github' as AuthProvider, name: 'GitHub', icon: Github, color: 'hover:bg-purple-500/10 hover:border-purple-500/30' },
-  { id: 'discord' as AuthProvider, name: 'Discord', icon: MessageCircle, color: 'hover:bg-indigo-500/10 hover:border-indigo-500/30' },
-] as const;
+  {
+    id: 'google' as AuthProvider,
+    name: 'Google',
+    icon: Chrome,
+    color: 'hover:bg-red-500/10 hover:border-red-500/30',
+  },
+  {
+    id: 'apple' as AuthProvider,
+    name: 'Apple',
+    icon: Apple,
+    color: 'hover:bg-gray-500/10 hover:border-gray-400/30',
+  },
+  {
+    id: 'twitter' as AuthProvider,
+    name: 'Twitter',
+    icon: Twitter,
+    color: 'hover:bg-blue-500/10 hover:border-blue-500/30',
+  },
+  {
+    id: 'github' as AuthProvider,
+    name: 'GitHub',
+    icon: Github,
+    color: 'hover:bg-purple-500/10 hover:border-purple-500/30',
+  },
+  {
+    id: 'discord' as AuthProvider,
+    name: 'Discord',
+    icon: MessageCircle,
+    color: 'hover:bg-indigo-500/10 hover:border-indigo-500/30',
+  },
+] as const
 
 export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
-  const { login, generateWallet, isLoading, error } = useAuth();
-  const [activeProvider, setActiveProvider] = useState<AuthProvider | null>(null);
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const { login, generateWallet, isLoading, error } = useAuth()
+  const [activeProvider, setActiveProvider] = useState<AuthProvider | null>(
+    null,
+  )
+  const [showAdvanced, setShowAdvanced] = useState(false)
 
-  if (!isOpen) return null;
+  if (!isOpen) return null
 
   const handleLogin = async (provider: AuthProvider) => {
-    setActiveProvider(provider);
+    setActiveProvider(provider)
     try {
-      await login(provider);
-      onSuccess?.();
-      onClose();
+      await login(provider)
+      onSuccess?.()
+      onClose()
     } catch {
       // Error is set in useAuth
     } finally {
-      setActiveProvider(null);
+      setActiveProvider(null)
     }
-  };
+  }
 
   const handleGenerateWallet = async () => {
-    setActiveProvider('wallet');
+    setActiveProvider('wallet')
     try {
-      await generateWallet();
+      await generateWallet()
       // Auto login with the generated wallet
-      await login('wallet');
-      onSuccess?.();
-      onClose();
+      await login('wallet')
+      onSuccess?.()
+      onClose()
     } catch {
       // Error handling in useAuth
     } finally {
-      setActiveProvider(null);
+      setActiveProvider(null)
     }
-  };
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div 
+      <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       />
@@ -82,7 +120,7 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
               <p className="text-sm text-muted-foreground">to Jeju Wallet</p>
             </div>
           </div>
-          <button 
+          <button
             onClick={onClose}
             className="p-2 rounded-lg hover:bg-accent transition-colors"
           >
@@ -110,7 +148,9 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
             </div>
             <div className="flex-1 text-left">
               <p className="font-semibold text-emerald-400">Quick Start</p>
-              <p className="text-sm text-muted-foreground">Create wallet instantly, no setup needed</p>
+              <p className="text-sm text-muted-foreground">
+                Create wallet instantly, no setup needed
+              </p>
             </div>
             {activeProvider === 'wallet' ? (
               <Loader2 className="w-5 h-5 animate-spin text-emerald-400" />
@@ -122,7 +162,9 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
           {/* Divider */}
           <div className="flex items-center gap-4">
             <div className="flex-1 h-px bg-border" />
-            <span className="text-xs text-muted-foreground">or continue with</span>
+            <span className="text-xs text-muted-foreground">
+              or continue with
+            </span>
             <div className="flex-1 h-px bg-border" />
           </div>
 
@@ -137,7 +179,9 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
             </div>
             <div className="flex-1 text-left">
               <p className="font-medium">Connect Wallet</p>
-              <p className="text-xs text-muted-foreground">MetaMask, WalletConnect, etc.</p>
+              <p className="text-xs text-muted-foreground">
+                MetaMask, WalletConnect, etc.
+              </p>
             </div>
             {activeProvider === 'wallet' && (
               <Loader2 className="w-5 h-5 animate-spin" />
@@ -146,20 +190,22 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
 
           {/* Social Logins - 2 column grid */}
           <div className="grid grid-cols-2 gap-3">
-            {SOCIAL_PROVIDERS.slice(0, 4).map(({ id, name, icon: Icon, color }) => (
-              <button
-                key={id}
-                onClick={() => handleLogin(id)}
-                disabled={isLoading}
-                className={`flex items-center gap-3 p-3 rounded-xl bg-secondary/30 border border-border transition-all ${color}`}
-              >
-                <Icon className="w-5 h-5" />
-                <span className="text-sm font-medium">{name}</span>
-                {activeProvider === id && (
-                  <Loader2 className="w-4 h-4 animate-spin ml-auto" />
-                )}
-              </button>
-            ))}
+            {SOCIAL_PROVIDERS.slice(0, 4).map(
+              ({ id, name, icon: Icon, color }) => (
+                <button
+                  key={id}
+                  onClick={() => handleLogin(id)}
+                  disabled={isLoading}
+                  className={`flex items-center gap-3 p-3 rounded-xl bg-secondary/30 border border-border transition-all ${color}`}
+                >
+                  <Icon className="w-5 h-5" />
+                  <span className="text-sm font-medium">{name}</span>
+                  {activeProvider === id && (
+                    <Loader2 className="w-4 h-4 animate-spin ml-auto" />
+                  )}
+                </button>
+              ),
+            )}
           </div>
 
           {/* More Options */}
@@ -168,7 +214,9 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
             className="w-full flex items-center justify-center gap-2 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <span>{showAdvanced ? 'Hide' : 'More'} options</span>
-            <ChevronRight className={`w-4 h-4 transition-transform ${showAdvanced ? 'rotate-90' : ''}`} />
+            <ChevronRight
+              className={`w-4 h-4 transition-transform ${showAdvanced ? 'rotate-90' : ''}`}
+            />
           </button>
 
           {/* Advanced Options */}
@@ -209,15 +257,18 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
         <div className="px-6 pb-6">
           <p className="text-xs text-center text-muted-foreground">
             By continuing, you agree to Jeju's{' '}
-            <a href="/terms" className="text-emerald-400 hover:underline">Terms</a>
-            {' '}and{' '}
-            <a href="/privacy" className="text-emerald-400 hover:underline">Privacy Policy</a>
+            <a href="/terms" className="text-emerald-400 hover:underline">
+              Terms
+            </a>{' '}
+            and{' '}
+            <a href="/privacy" className="text-emerald-400 hover:underline">
+              Privacy Policy
+            </a>
           </p>
         </div>
       </div>
     </div>
-  );
+  )
 }
 
-export default LoginModal;
-
+export default LoginModal

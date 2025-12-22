@@ -2,7 +2,16 @@
  * Otto Services Index
  */
 
-export { TradingService, getTradingService } from './trading';
-export { WalletService, getWalletService, type SessionKeyPermissions } from './wallet';
-export { getStateManager, type PendingSwap, type PendingBridge, type PendingAction, type ConversationState } from './state';
-
+export {
+  type ConversationState,
+  getStateManager,
+  type PendingAction,
+  type PendingBridge,
+  type PendingSwap,
+} from './state'
+export { getTradingService, TradingService } from './trading'
+export {
+  getWalletService,
+  type SessionKeyPermissions,
+  WalletService,
+} from './wallet'

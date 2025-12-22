@@ -1,4 +1,4 @@
-import { defineConfig, devices } from '@playwright/test';
+import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: './e2e',
@@ -12,7 +12,7 @@ export default defineConfig({
     ['json', { outputFile: 'test-results.json' }],
   ],
   timeout: 60000,
-  
+
   use: {
     baseURL: 'http://localhost:4002',
     trace: 'retain-on-failure',
@@ -26,5 +26,4 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-});
-
+})

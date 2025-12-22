@@ -3,14 +3,14 @@
  * Decentralized package hosting with upstream caching
  */
 
-// Types
-export * from './types';
-
-// Core package registry operations
-export { PkgRegistryManager, type PkgRegistryManagerConfig } from './registry-manager';
-export * from './cid-utils';
-export { UpstreamProxy, type UpstreamProxyConfig } from './upstream';
-
+export * from './cid-utils'
 // Leaderboard integration
-export * from './leaderboard-integration';
-
+export * from './leaderboard-integration'
+// Core package registry operations
+export {
+  PkgRegistryManager,
+  type PkgRegistryManagerConfig,
+} from './registry-manager'
+// Types
+export * from './types'
+export { UpstreamProxy, type UpstreamProxyConfig } from './upstream'

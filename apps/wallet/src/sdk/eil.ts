@@ -10,10 +10,10 @@
  * XLPs (Cross-chain Liquidity Providers) fulfill transfers atomically.
  */
 
-import type { Address, Hex, PublicClient, WalletClient } from 'viem';
-import { parseEther } from 'viem';
-import type { VoucherRequest, TokenBalance } from './types';
-import { getChainContracts } from './chains';
+import type { Address, Hex, PublicClient, WalletClient } from 'viem'
+import { parseEther } from 'viem'
+import { getChainContracts } from './chains'
+import type { TokenBalance, VoucherRequest } from './types'
 
 // ============================================================================
 // ABI Fragments
@@ -164,73 +164,73 @@ const CROSS_CHAIN_PAYMASTER_ABI = [
     ],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 // ============================================================================
 // Constants
 // ============================================================================
 
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
-const DEFAULT_MAX_FEE = parseEther('0.01');
-const DEFAULT_FEE_INCREMENT = parseEther('0.0001');
-const DEFAULT_GAS_ON_DESTINATION = parseEther('0.001');
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address
+const DEFAULT_MAX_FEE = parseEther('0.01')
+const DEFAULT_FEE_INCREMENT = parseEther('0.0001')
+const DEFAULT_GAS_ON_DESTINATION = parseEther('0.001')
 
 // ============================================================================
 // EIL Client
 // ============================================================================
 
 export interface EILClientConfig {
-  chainId: number;
-  publicClient: PublicClient;
-  walletClient?: WalletClient;
-  paymasterAddress?: Address;
+  chainId: number
+  publicClient: PublicClient
+  walletClient?: WalletClient
+  paymasterAddress?: Address
 }
 
 export interface CrossChainTransferParams {
-  sourceToken: Address;
-  amount: bigint;
-  destinationToken: Address;
-  destinationChainId: number;
-  recipient?: Address;
-  maxFee?: bigint;
-  feeIncrement?: bigint;
-  gasOnDestination?: bigint;
+  sourceToken: Address
+  amount: bigint
+  destinationToken: Address
+  destinationChainId: number
+  recipient?: Address
+  maxFee?: bigint
+  feeIncrement?: bigint
+  gasOnDestination?: bigint
 }
 
 export interface SwapParams {
-  tokenIn: Address;
-  tokenOut: Address;
-  amountIn: bigint;
-  minAmountOut: bigint;
+  tokenIn: Address
+  tokenOut: Address
+  amountIn: bigint
+  minAmountOut: bigint
 }
 
 export class EILClient {
-  private config: EILClientConfig;
-  private paymasterAddress: Address;
-  private isConfigured: boolean;
+  private config: EILClientConfig
+  private paymasterAddress: Address
+  private isConfigured: boolean
 
   constructor(config: EILClientConfig) {
-    this.config = config;
-    const contracts = getChainContracts(config.chainId);
+    this.config = config
+    const contracts = getChainContracts(config.chainId)
     this.paymasterAddress =
-      config.paymasterAddress ?? contracts.crossChainPaymaster ?? ZERO_ADDRESS;
-    
+      config.paymasterAddress ?? contracts.crossChainPaymaster ?? ZERO_ADDRESS
+
     // Track if contracts are actually configured
-    this.isConfigured = this.paymasterAddress !== ZERO_ADDRESS;
-    
+    this.isConfigured = this.paymasterAddress !== ZERO_ADDRESS
+
     if (!this.isConfigured) {
       console.warn(
         `[EILClient] CrossChainPaymaster not configured for chain ${config.chainId}. ` +
-        `Cross-chain transfers will fail. Deploy contracts and update chainContracts.`
-      );
+          `Cross-chain transfers will fail. Deploy contracts and update chainContracts.`,
+      )
     }
   }
-  
+
   /**
    * Check if the client is properly configured
    */
   isReady(): boolean {
-    return this.isConfigured;
+    return this.isConfigured
   }
 
   /**
@@ -238,28 +238,29 @@ export class EILClient {
    * Locks tokens on source chain, XLP fulfills on destination
    */
   async createCrossChainTransfer(
-    params: CrossChainTransferParams
+    params: CrossChainTransferParams,
   ): Promise<{ requestId: Hex; txHash: Hex }> {
     if (!this.isConfigured) {
       throw new Error(
         `EIL not configured for chain ${this.config.chainId}. ` +
-        `CrossChainPaymaster contract address not set. Deploy contracts first.`
-      );
+          `CrossChainPaymaster contract address not set. Deploy contracts first.`,
+      )
     }
-    
-    const { walletClient, publicClient } = this.config;
+
+    const { walletClient, publicClient } = this.config
     if (!walletClient?.account) {
-      throw new Error('Wallet not connected');
+      throw new Error('Wallet not connected')
     }
 
-    const userAddress = walletClient.account.address;
-    const recipient = params.recipient ?? userAddress;
-    const maxFee = params.maxFee ?? DEFAULT_MAX_FEE;
-    const feeIncrement = params.feeIncrement ?? DEFAULT_FEE_INCREMENT;
-    const gasOnDestination = params.gasOnDestination ?? DEFAULT_GAS_ON_DESTINATION;
+    const userAddress = walletClient.account.address
+    const recipient = params.recipient ?? userAddress
+    const maxFee = params.maxFee ?? DEFAULT_MAX_FEE
+    const feeIncrement = params.feeIncrement ?? DEFAULT_FEE_INCREMENT
+    const gasOnDestination =
+      params.gasOnDestination ?? DEFAULT_GAS_ON_DESTINATION
 
-    const isNativeToken = params.sourceToken === ZERO_ADDRESS;
-    const value = isNativeToken ? params.amount + maxFee : maxFee;
+    const isNativeToken = params.sourceToken === ZERO_ADDRESS
+    const value = isNativeToken ? params.amount + maxFee : maxFee
 
     const hash = await walletClient.writeContract({
       chain: null,
@@ -278,14 +279,14 @@ export class EILClient {
         feeIncrement,
       ],
       value,
-    });
+    })
 
-    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    const receipt = await publicClient.waitForTransactionReceipt({ hash })
 
     // Parse requestId from logs
-    const requestId = (receipt.logs[0]?.topics[1] ?? '0x') as Hex;
+    const requestId = (receipt.logs[0]?.topics[1] ?? '0x') as Hex
 
-    return { requestId, txHash: hash };
+    return { requestId, txHash: hash }
   }
 
   /**
@@ -297,8 +298,8 @@ export class EILClient {
       abi: CROSS_CHAIN_PAYMASTER_ABI,
       functionName: 'getCurrentFee',
       args: [requestId],
-    });
-    return fee;
+    })
+    return fee
   }
 
   /**
@@ -310,14 +311,14 @@ export class EILClient {
       abi: CROSS_CHAIN_PAYMASTER_ABI,
       functionName: 'getRequest',
       args: [requestId],
-    });
+    })
 
-    if (result.requester === ZERO_ADDRESS) return null;
+    if (result.requester === ZERO_ADDRESS) return null
 
-    let status: VoucherRequest['status'] = 'pending';
-    if (result.claimed) status = 'claimed';
-    if (result.expired) status = 'expired';
-    if (result.refunded) status = 'expired';
+    let status: VoucherRequest['status'] = 'pending'
+    if (result.claimed) status = 'claimed'
+    if (result.expired) status = 'expired'
+    if (result.refunded) status = 'expired'
 
     return {
       id: requestId,
@@ -332,16 +333,16 @@ export class EILClient {
       feeIncrement: result.feeIncrement,
       deadline: Number(result.deadline),
       status,
-    };
+    }
   }
 
   /**
    * Refund an expired request
    */
   async refundExpiredRequest(requestId: Hex): Promise<Hex> {
-    const { walletClient } = this.config;
+    const { walletClient } = this.config
     if (!walletClient?.account) {
-      throw new Error('Wallet not connected');
+      throw new Error('Wallet not connected')
     }
 
     const hash = await walletClient.writeContract({
@@ -351,9 +352,9 @@ export class EILClient {
       abi: CROSS_CHAIN_PAYMASTER_ABI,
       functionName: 'refundExpiredRequest',
       args: [requestId],
-    });
+    })
 
-    return hash;
+    return hash
   }
 
   /**
@@ -362,16 +363,17 @@ export class EILClient {
   async canSponsor(
     gasCost: bigint,
     paymentToken: Address,
-    userAddress: Address
+    userAddress: Address,
   ): Promise<{ canSponsor: boolean; tokenCost: bigint; userBalance: bigint }> {
-    const [canSponsorTx, tokenCost, userBal] = await this.config.publicClient.readContract({
-      address: this.paymasterAddress,
-      abi: CROSS_CHAIN_PAYMASTER_ABI,
-      functionName: 'canSponsor',
-      args: [gasCost, paymentToken, userAddress],
-    });
+    const [canSponsorTx, tokenCost, userBal] =
+      await this.config.publicClient.readContract({
+        address: this.paymasterAddress,
+        abi: CROSS_CHAIN_PAYMASTER_ABI,
+        functionName: 'canSponsor',
+        args: [gasCost, paymentToken, userAddress],
+      })
 
-    return { canSponsor: canSponsorTx, tokenCost, userBalance: userBal };
+    return { canSponsor: canSponsorTx, tokenCost, userBalance: userBal }
   }
 
   /**
@@ -380,16 +382,16 @@ export class EILClient {
   async getBestGasToken(
     userAddress: Address,
     gasCostETH: bigint,
-    tokens: Address[]
+    tokens: Address[],
   ): Promise<{ bestToken: Address; tokenCost: bigint }> {
     const [bestToken, tokenCost] = await this.config.publicClient.readContract({
       address: this.paymasterAddress,
       abi: CROSS_CHAIN_PAYMASTER_ABI,
       functionName: 'getBestGasToken',
       args: [userAddress, gasCostETH, tokens],
-    });
+    })
 
-    return { bestToken, tokenCost };
+    return { bestToken, tokenCost }
   }
 
   /**
@@ -399,19 +401,20 @@ export class EILClient {
     appAddress: Address,
     userAddress: Address,
     gasCostETH: bigint,
-    tokenBalances: TokenBalance[]
+    tokenBalances: TokenBalance[],
   ): Promise<{ bestToken: Address; tokenCost: bigint; reason: string }> {
-    const tokens = tokenBalances.map((t) => t.token.address);
-    const balances = tokenBalances.map((t) => t.balance);
+    const tokens = tokenBalances.map((t) => t.token.address)
+    const balances = tokenBalances.map((t) => t.balance)
 
-    const [bestToken, tokenCost, reason] = await this.config.publicClient.readContract({
-      address: this.paymasterAddress,
-      abi: CROSS_CHAIN_PAYMASTER_ABI,
-      functionName: 'getBestPaymentTokenForApp',
-      args: [appAddress, userAddress, gasCostETH, tokens, balances],
-    });
+    const [bestToken, tokenCost, reason] =
+      await this.config.publicClient.readContract({
+        address: this.paymasterAddress,
+        abi: CROSS_CHAIN_PAYMASTER_ABI,
+        functionName: 'getBestPaymentTokenForApp',
+        args: [appAddress, userAddress, gasCostETH, tokens, balances],
+      })
 
-    return { bestToken, tokenCost, reason };
+    return { bestToken, tokenCost, reason }
   }
 
   /**
@@ -420,15 +423,15 @@ export class EILClient {
   async previewTokenCost(
     estimatedGas: bigint,
     gasPrice: bigint,
-    token: Address
+    token: Address,
   ): Promise<bigint> {
     const cost = await this.config.publicClient.readContract({
       address: this.paymasterAddress,
       abi: CROSS_CHAIN_PAYMASTER_ABI,
       functionName: 'previewTokenCost',
       args: [estimatedGas, gasPrice, token],
-    });
-    return cost;
+    })
+    return cost
   }
 
   /**
@@ -437,32 +440,33 @@ export class EILClient {
   async getSwapQuote(
     tokenIn: Address,
     tokenOut: Address,
-    amountIn: bigint
+    amountIn: bigint,
   ): Promise<{ amountOut: bigint; priceImpact: number }> {
-    const [amountOut, priceImpactBps] = await this.config.publicClient.readContract({
-      address: this.paymasterAddress,
-      abi: CROSS_CHAIN_PAYMASTER_ABI,
-      functionName: 'getSwapQuote',
-      args: [tokenIn, tokenOut, amountIn],
-    });
+    const [amountOut, priceImpactBps] =
+      await this.config.publicClient.readContract({
+        address: this.paymasterAddress,
+        abi: CROSS_CHAIN_PAYMASTER_ABI,
+        functionName: 'getSwapQuote',
+        args: [tokenIn, tokenOut, amountIn],
+      })
 
     return {
       amountOut,
       priceImpact: Number(priceImpactBps) / 10000,
-    };
+    }
   }
 
   /**
    * Execute swap via embedded AMM
    */
   async swap(params: SwapParams): Promise<Hex> {
-    const { walletClient } = this.config;
+    const { walletClient } = this.config
     if (!walletClient?.account) {
-      throw new Error('Wallet not connected');
+      throw new Error('Wallet not connected')
     }
 
-    const isNativeIn = params.tokenIn === ZERO_ADDRESS;
-    const value = isNativeIn ? params.amountIn : 0n;
+    const isNativeIn = params.tokenIn === ZERO_ADDRESS
+    const value = isNativeIn ? params.amountIn : 0n
 
     const hash = await walletClient.writeContract({
       chain: null,
@@ -470,11 +474,16 @@ export class EILClient {
       address: this.paymasterAddress,
       abi: CROSS_CHAIN_PAYMASTER_ABI,
       functionName: 'swap',
-      args: [params.tokenIn, params.tokenOut, params.amountIn, params.minAmountOut],
+      args: [
+        params.tokenIn,
+        params.tokenOut,
+        params.amountIn,
+        params.minAmountOut,
+      ],
       value,
-    });
+    })
 
-    return hash;
+    return hash
   }
 
   /**
@@ -485,17 +494,17 @@ export class EILClient {
   buildPaymasterData(
     mode: 0 | 1,
     paymentToken: Address,
-    appAddress: Address = ZERO_ADDRESS
+    appAddress: Address = ZERO_ADDRESS,
   ): Hex {
     if (mode === 0) {
       // Token payment: [mode(1)][token(20)][appAddress(20)]
-      const modeHex = '00';
-      const tokenHex = paymentToken.slice(2).toLowerCase();
-      const appHex = appAddress.slice(2).toLowerCase();
-      return `0x${modeHex}${tokenHex}${appHex}` as Hex;
+      const modeHex = '00'
+      const tokenHex = paymentToken.slice(2).toLowerCase()
+      const appHex = appAddress.slice(2).toLowerCase()
+      return `0x${modeHex}${tokenHex}${appHex}` as Hex
     }
 
-    throw new Error('Only mode 0 (token payment) is supported');
+    throw new Error('Only mode 0 (token payment) is supported')
   }
 }
 
@@ -504,6 +513,5 @@ export class EILClient {
 // ============================================================================
 
 export function createEILClient(config: EILClientConfig): EILClient {
-  return new EILClient(config);
+  return new EILClient(config)
 }
-

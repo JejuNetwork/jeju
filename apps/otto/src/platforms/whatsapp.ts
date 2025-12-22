@@ -2,96 +2,121 @@
  * WhatsApp Platform Adapter (via Twilio)
  */
 
-import type { PlatformAdapter, MessageHandler, SendMessageOptions, PlatformUserInfo, PlatformChannelInfo } from './types';
-import type { PlatformMessage, MessageEmbed, MessageButton, TwilioWebhookPayload } from '../types';
-import { expectValid, TwilioWebhookPayloadSchema, PlatformMessageSchema } from '../schemas';
+import {
+  expectValid,
+  PlatformMessageSchema,
+  TwilioWebhookPayloadSchema,
+} from '../schemas'
+import type {
+  MessageButton,
+  MessageEmbed,
+  PlatformMessage,
+  TwilioWebhookPayload,
+} from '../types'
+import type {
+  MessageHandler,
+  PlatformAdapter,
+  PlatformChannelInfo,
+  PlatformUserInfo,
+  SendMessageOptions,
+} from './types'
 
 /** Minimal interface for Twilio client - only the methods we use */
 interface TwilioClient {
   messages: {
     create: (params: {
-      from: string;
-      to: string;
-      body: string;
-    }) => Promise<{ sid: string }>;
-  };
+      from: string
+      to: string
+      body: string
+    }) => Promise<{ sid: string }>
+  }
 }
 
 /** Create a typed Twilio client from the SDK's return value */
-function createTwilioClient(sdkClient: { messages: TwilioClient['messages'] }): TwilioClient {
+function createTwilioClient(sdkClient: {
+  messages: TwilioClient['messages']
+}): TwilioClient {
   if (!sdkClient.messages?.create) {
-    throw new Error('Invalid Twilio client: missing messages.create method');
+    throw new Error('Invalid Twilio client: missing messages.create method')
   }
   return {
     messages: sdkClient.messages,
-  };
+  }
 }
 
 export class WhatsAppAdapter implements PlatformAdapter {
-  readonly platform = 'whatsapp' as const;
-  
-  private twilioClient: TwilioClient | null = null;
-  private accountSid: string;
-  private authToken: string;
-  private phoneNumber: string;
-  private messageHandler: MessageHandler | null = null;
-  private ready = false;
+  readonly platform = 'whatsapp' as const
+
+  private twilioClient: TwilioClient | null = null
+  private accountSid: string
+  private authToken: string
+  private phoneNumber: string
+  private messageHandler: MessageHandler | null = null
+  private ready = false
 
   constructor(accountSid: string, authToken: string, phoneNumber: string) {
-    this.accountSid = accountSid;
-    this.authToken = authToken;
-    this.phoneNumber = phoneNumber.startsWith('whatsapp:') ? phoneNumber : `whatsapp:${phoneNumber}`;
+    this.accountSid = accountSid
+    this.authToken = authToken
+    this.phoneNumber = phoneNumber.startsWith('whatsapp:')
+      ? phoneNumber
+      : `whatsapp:${phoneNumber}`
   }
 
   async initialize(): Promise<void> {
-    console.log('[WhatsApp] Initializing Twilio client...');
-    
+    console.log('[WhatsApp] Initializing Twilio client...')
+
     // Dynamic import to avoid requiring twilio when not used
-    const twilio = await import('twilio');
-    const sdkClient = twilio.default(this.accountSid, this.authToken);
-    this.twilioClient = createTwilioClient(sdkClient);
-    
-    this.ready = true;
-    console.log('[WhatsApp] Initialized');
+    const twilio = await import('twilio')
+    const sdkClient = twilio.default(this.accountSid, this.authToken)
+    this.twilioClient = createTwilioClient(sdkClient)
+
+    this.ready = true
+    console.log('[WhatsApp] Initialized')
   }
 
   async shutdown(): Promise<void> {
-    console.log('[WhatsApp] Shutting down...');
-    this.ready = false;
-    this.twilioClient = null;
+    console.log('[WhatsApp] Shutting down...')
+    this.ready = false
+    this.twilioClient = null
   }
 
   isReady(): boolean {
-    return this.ready && this.twilioClient !== null;
+    return this.ready && this.twilioClient !== null
   }
 
   onMessage(handler: MessageHandler): void {
-    this.messageHandler = handler;
+    this.messageHandler = handler
   }
 
   async handleWebhook(payload: TwilioWebhookPayload): Promise<void> {
-    const validatedPayload = expectValid(TwilioWebhookPayloadSchema, payload, 'WhatsApp webhook');
-    
+    const validatedPayload = expectValid(
+      TwilioWebhookPayloadSchema,
+      payload,
+      'WhatsApp webhook',
+    )
+
     if (!validatedPayload.Body) {
-      return;
+      return
     }
-    
+
     // Extract content - remove "otto" prefix if present
-    let content = validatedPayload.Body.trim();
-    const isCommand = content.toLowerCase().startsWith('otto ') || content.toLowerCase() === 'otto';
-    
+    let content = validatedPayload.Body.trim()
+    const isCommand =
+      content.toLowerCase().startsWith('otto ') ||
+      content.toLowerCase() === 'otto'
+
     if (isCommand) {
-      content = content.replace(/^otto\s*/i, '').trim() || 'help';
+      content = content.replace(/^otto\s*/i, '').trim() || 'help'
     } else {
       // Only respond to messages that start with "otto" or are in a conversation context
-      return;
+      return
     }
-    
-    const from = validatedPayload.From.replace('whatsapp:', '');
+
+    const from = validatedPayload.From.replace('whatsapp:', '')
     if (!from) {
-      throw new Error('Invalid WhatsApp From field');
+      throw new Error('Invalid WhatsApp From field')
     }
-    
+
     const message: PlatformMessage = {
       platform: 'whatsapp',
       messageId: validatedPayload.MessageSid,
@@ -100,60 +125,92 @@ export class WhatsAppAdapter implements PlatformAdapter {
       content,
       timestamp: Date.now(),
       isCommand: true,
-      attachments: validatedPayload.NumMedia && validatedPayload.MediaUrl0 ? [{
-        type: 'image',
-        url: validatedPayload.MediaUrl0,
-      }] : undefined,
-    };
-    
-    const validatedMessage = expectValid(PlatformMessageSchema, message, 'WhatsApp platform message');
-    
+      attachments:
+        validatedPayload.NumMedia && validatedPayload.MediaUrl0
+          ? [
+              {
+                type: 'image',
+                url: validatedPayload.MediaUrl0,
+              },
+            ]
+          : undefined,
+    }
+
+    const validatedMessage = expectValid(
+      PlatformMessageSchema,
+      message,
+      'WhatsApp platform message',
+    )
+
     if (this.messageHandler) {
-      await this.messageHandler(validatedMessage);
+      await this.messageHandler(validatedMessage)
     }
   }
 
-  async sendMessage(channelId: string, content: string, _options?: SendMessageOptions): Promise<string> {
+  async sendMessage(
+    channelId: string,
+    content: string,
+    _options?: SendMessageOptions,
+  ): Promise<string> {
     if (!this.twilioClient) {
-      throw new Error('Twilio client not initialized');
+      throw new Error('Twilio client not initialized')
     }
-    
-    const to = channelId.startsWith('whatsapp:') ? channelId : `whatsapp:${channelId}`;
-    
+
+    const to = channelId.startsWith('whatsapp:')
+      ? channelId
+      : `whatsapp:${channelId}`
+
     const result = await this.twilioClient.messages.create({
       from: this.phoneNumber,
       to,
       body: content,
-    });
-    
-    return result.sid;
+    })
+
+    return result.sid
   }
 
-  async sendEmbed(channelId: string, embed: MessageEmbed, _buttons?: MessageButton[]): Promise<string> {
+  async sendEmbed(
+    channelId: string,
+    embed: MessageEmbed,
+    _buttons?: MessageButton[],
+  ): Promise<string> {
     // WhatsApp doesn't support embeds, so we format as plain text
-    const content = this.formatEmbed(embed);
-    return this.sendMessage(channelId, content);
+    const content = this.formatEmbed(embed)
+    return this.sendMessage(channelId, content)
   }
 
-  async replyToMessage(channelId: string, _messageId: string, content: string, options?: SendMessageOptions): Promise<string> {
+  async replyToMessage(
+    channelId: string,
+    _messageId: string,
+    content: string,
+    options?: SendMessageOptions,
+  ): Promise<string> {
     // WhatsApp via Twilio doesn't support native replies in the same way
     // We'll just send a regular message
-    return this.sendMessage(channelId, content, options);
+    return this.sendMessage(channelId, content, options)
   }
 
-  async editMessage(_channelId: string, _messageId: string, _content: string): Promise<void> {
+  async editMessage(
+    _channelId: string,
+    _messageId: string,
+    _content: string,
+  ): Promise<void> {
     // WhatsApp doesn't support editing messages
-    console.log('[WhatsApp] Edit not supported');
+    console.log('[WhatsApp] Edit not supported')
   }
 
   async deleteMessage(_channelId: string, _messageId: string): Promise<void> {
     // WhatsApp doesn't support deleting messages via API
-    console.log('[WhatsApp] Delete not supported');
+    console.log('[WhatsApp] Delete not supported')
   }
 
-  async addReaction(_channelId: string, _messageId: string, _emoji: string): Promise<void> {
+  async addReaction(
+    _channelId: string,
+    _messageId: string,
+    _emoji: string,
+  ): Promise<void> {
     // WhatsApp reactions not supported via Twilio
-    console.log('[WhatsApp] Reactions not supported');
+    console.log('[WhatsApp] Reactions not supported')
   }
 
   async getUser(userId: string): Promise<PlatformUserInfo | null> {
@@ -162,7 +219,7 @@ export class WhatsAppAdapter implements PlatformAdapter {
       id: userId,
       username: userId,
       displayName: userId,
-    };
+    }
   }
 
   async getChannel(channelId: string): Promise<PlatformChannelInfo | null> {
@@ -171,33 +228,32 @@ export class WhatsAppAdapter implements PlatformAdapter {
       id: channelId,
       name: channelId,
       type: 'dm', // WhatsApp is always DM in this context
-    };
+    }
   }
 
   private formatEmbed(embed: MessageEmbed): string {
-    const lines: string[] = [];
-    
+    const lines: string[] = []
+
     if (embed.title) {
-      lines.push(`*${embed.title}*`);
+      lines.push(`*${embed.title}*`)
     }
-    
+
     if (embed.description) {
-      lines.push(embed.description);
+      lines.push(embed.description)
     }
-    
+
     if (embed.fields?.length) {
-      lines.push('');
+      lines.push('')
       for (const field of embed.fields) {
-        lines.push(`*${field.name}*: ${field.value}`);
+        lines.push(`*${field.name}*: ${field.value}`)
       }
     }
-    
+
     if (embed.footer) {
-      lines.push('');
-      lines.push(`_${embed.footer}_`);
+      lines.push('')
+      lines.push(`_${embed.footer}_`)
     }
-    
-    return lines.join('\n');
+
+    return lines.join('\n')
   }
 }
-

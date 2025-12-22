@@ -3,5 +3,4 @@
  * Start DWS Proxy Coordinator
  */
 
-import '../coordinator';
-
+import '../coordinator'

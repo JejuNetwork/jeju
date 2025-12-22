@@ -2,88 +2,108 @@
  * Platform Adapter Types
  */
 
-import type { 
-  Platform, 
-  PlatformMessage, 
-  MessageEmbed, 
+import type {
   MessageButton,
+  MessageEmbed,
+  Platform,
+  PlatformMessage,
   WebhookPayloadData,
-} from '../types';
+} from '../types'
 
 export interface PlatformAdapter {
-  platform: Platform;
-  
+  platform: Platform
+
   /** Initialize the adapter and connect to the platform */
-  initialize(): Promise<void>;
-  
+  initialize(): Promise<void>
+
   /** Gracefully shutdown the adapter */
-  shutdown(): Promise<void>;
-  
+  shutdown(): Promise<void>
+
   /** Check if the adapter is connected and ready */
-  isReady(): boolean;
-  
+  isReady(): boolean
+
   /** Send a message to a channel */
-  sendMessage(channelId: string, content: string, options?: SendMessageOptions): Promise<string>;
-  
+  sendMessage(
+    channelId: string,
+    content: string,
+    options?: SendMessageOptions,
+  ): Promise<string>
+
   /** Send an embed/rich message */
-  sendEmbed(channelId: string, embed: MessageEmbed, buttons?: MessageButton[]): Promise<string>;
-  
+  sendEmbed(
+    channelId: string,
+    embed: MessageEmbed,
+    buttons?: MessageButton[],
+  ): Promise<string>
+
   /** Reply to a specific message */
-  replyToMessage(channelId: string, messageId: string, content: string, options?: SendMessageOptions): Promise<string>;
-  
+  replyToMessage(
+    channelId: string,
+    messageId: string,
+    content: string,
+    options?: SendMessageOptions,
+  ): Promise<string>
+
   /** Edit an existing message */
-  editMessage(channelId: string, messageId: string, content: string): Promise<void>;
-  
+  editMessage(
+    channelId: string,
+    messageId: string,
+    content: string,
+  ): Promise<void>
+
   /** Delete a message */
-  deleteMessage(channelId: string, messageId: string): Promise<void>;
-  
+  deleteMessage(channelId: string, messageId: string): Promise<void>
+
   /** React to a message */
-  addReaction(channelId: string, messageId: string, emoji: string): Promise<void>;
-  
+  addReaction(
+    channelId: string,
+    messageId: string,
+    emoji: string,
+  ): Promise<void>
+
   /** Get user info */
-  getUser(userId: string): Promise<PlatformUserInfo | null>;
-  
+  getUser(userId: string): Promise<PlatformUserInfo | null>
+
   /** Get channel info */
-  getChannel(channelId: string): Promise<PlatformChannelInfo | null>;
-  
+  getChannel(channelId: string): Promise<PlatformChannelInfo | null>
+
   /** Register slash commands (Discord-specific but useful to have in interface) */
-  registerCommands?(): Promise<void>;
-  
+  registerCommands?(): Promise<void>
+
   /** Handle webhook payload (already validated by server.ts) */
-  handleWebhook?(payload: WebhookPayloadData): Promise<void>;
-  
+  handleWebhook?(payload: WebhookPayloadData): Promise<void>
+
   /** Set the message handler callback */
-  onMessage(handler: MessageHandler): void;
+  onMessage(handler: MessageHandler): void
 }
 
-export type MessageHandler = (message: PlatformMessage) => Promise<void>;
+export type MessageHandler = (message: PlatformMessage) => Promise<void>
 
 export interface SendMessageOptions {
-  embed?: MessageEmbed;
-  buttons?: MessageButton[];
-  ephemeral?: boolean;
-  replyToMessageId?: string;
+  embed?: MessageEmbed
+  buttons?: MessageButton[]
+  ephemeral?: boolean
+  replyToMessageId?: string
 }
 
 export interface PlatformUserInfo {
-  id: string;
-  username: string;
-  displayName?: string;
-  avatarUrl?: string;
-  isBot?: boolean;
+  id: string
+  username: string
+  displayName?: string
+  avatarUrl?: string
+  isBot?: boolean
 }
 
 export interface PlatformChannelInfo {
-  id: string;
-  name: string;
-  type: 'dm' | 'group' | 'guild';
-  guildId?: string;
-  guildName?: string;
+  id: string
+  name: string
+  type: 'dm' | 'group' | 'guild'
+  guildId?: string
+  guildName?: string
 }
 
 export interface WebhookConfig {
-  path: string;
-  secret?: string;
-  verifySignature?: (payload: string, signature: string) => boolean;
+  path: string
+  secret?: string
+  verifySignature?: (payload: string, signature: string) => boolean
 }
-

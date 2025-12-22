@@ -128,20 +128,35 @@ contract ForcedInclusion is ReentrancyGuard, Pausable, Ownable {
     /// @notice Force include a transaction after the inclusion window has expired
     /// @dev CRITICAL: This function is NOT affected by pause - users can ALWAYS force-include transactions
     /// This is intentional to ensure the anti-censorship mechanism cannot be disabled
+    /// CEI pattern: state updates happen before external calls
     function forceInclude(bytes32 txId) external nonReentrant {
         QueuedTx storage qtx = queuedTxs[txId];
         if (qtx.sender == address(0)) revert TxNotFound();
         if (qtx.included || qtx.expired) revert TxAlreadyIncluded();
         if (block.number <= qtx.queuedAtBlock + INCLUSION_WINDOW_BLOCKS) revert WindowNotExpired();
 
+        // CEI: Cache values before state changes
+        uint256 fee = qtx.fee;
+        address txSender = qtx.sender;
+        uint256 gasLimit = qtx.gasLimit;
+        bytes memory data = qtx.data;
+        
+        // CEI: Update state BEFORE external calls
         qtx.included = true;
-        totalPendingFees -= qtx.fee;
+        totalPendingFees -= fee;
 
-        (bool ok,) = batchInbox.call(abi.encodePacked(bytes1(0x7e), qtx.sender, qtx.gasLimit, qtx.data));
-        if (!ok) revert ForceFailed();
+        // External call to batch inbox
+        (bool ok,) = batchInbox.call(abi.encodePacked(bytes1(0x7e), txSender, gasLimit, data));
+        if (!ok) {
+            // Revert state changes on failure
+            qtx.included = false;
+            totalPendingFees += fee;
+            revert ForceFailed();
+        }
 
-        _transfer(msg.sender, qtx.fee);
-        emit TxForced(txId, msg.sender, qtx.fee);
+        // Transfer reward to forcer
+        _transfer(msg.sender, fee);
+        emit TxForced(txId, msg.sender, fee);
     }
 
     function refundExpired(bytes32 txId) external nonReentrant {

@@ -1,36 +1,46 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, ManyToOne as ManyToOne_, Index as Index_, BigIntColumn as BigIntColumn_, StringColumn as StringColumn_, BooleanColumn as BooleanColumn_, DateTimeColumn as DateTimeColumn_, IntColumn as IntColumn_} from "@subsquid/typeorm-store"
-import {Keepalive} from "./keepalive.model"
+import {
+  BigIntColumn as BigIntColumn_,
+  BooleanColumn as BooleanColumn_,
+  DateTimeColumn as DateTimeColumn_,
+  Entity as Entity_,
+  Index as Index_,
+  IntColumn as IntColumn_,
+  ManyToOne as ManyToOne_,
+  PrimaryColumn as PrimaryColumn_,
+  StringColumn as StringColumn_,
+} from '@subsquid/typeorm-store'
+import { Keepalive } from './keepalive.model'
 
 @Entity_()
 export class KeepaliveAutoFund {
-    constructor(props?: Partial<KeepaliveAutoFund>) {
-        Object.assign(this, props)
-    }
+  constructor(props?: Partial<KeepaliveAutoFund>) {
+    Object.assign(this, props)
+  }
 
-    @PrimaryColumn_()
-    id!: string
+  @PrimaryColumn_()
+  id!: string
 
-    @Index_()
-    @ManyToOne_(() => Keepalive, {nullable: true})
-    keepalive!: Keepalive
+  @Index_()
+  @ManyToOne_(() => Keepalive, { nullable: true })
+  keepalive!: Keepalive
 
-    @BigIntColumn_({nullable: false})
-    amount!: bigint
+  @BigIntColumn_({ nullable: false })
+  amount!: bigint
 
-    @StringColumn_({nullable: false})
-    vault!: string
+  @StringColumn_({ nullable: false })
+  vault!: string
 
-    @BooleanColumn_({nullable: false})
-    success!: boolean
+  @BooleanColumn_({ nullable: false })
+  success!: boolean
 
-    @DateTimeColumn_({nullable: false})
-    timestamp!: Date
+  @DateTimeColumn_({ nullable: false })
+  timestamp!: Date
 
-    @Index_()
-    @IntColumn_({nullable: false})
-    blockNumber!: number
+  @Index_()
+  @IntColumn_({ nullable: false })
+  blockNumber!: number
 
-    @Index_()
-    @StringColumn_({nullable: false})
-    txHash!: string
+  @Index_()
+  @StringColumn_({ nullable: false })
+  txHash!: string
 }

@@ -37,16 +37,22 @@ data:
   MEMPOOL_TTL_SECONDS: "300"
 
 ---
+# SECURITY WARNING: This is a template only
+# In production, use External Secrets Operator, Sealed Secrets, or Vault
+# DO NOT apply this file directly - secrets must be injected externally
 apiVersion: v1
 kind: Secret
 metadata:
   name: bundler-secrets
   namespace: jeju-bundler
+  annotations:
+    # Use External Secrets Operator to sync from AWS Secrets Manager
+    # external-secrets.io/sync: "true"
 type: Opaque
 stringData:
-  # IMPORTANT: Replace with actual values in production
-  RPC_URL: "http://jeju-rpc.jeju-network.svc.cluster.local:9545"
-  PRIVATE_KEY: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+  # REQUIRED: Set these via external secret management
+  RPC_URL: ""  # e.g., http://jeju-rpc.jeju-network.svc.cluster.local:9545
+  PRIVATE_KEY: ""  # NEVER commit real private keys
 
 ---
 apiVersion: apps/v1
@@ -70,7 +76,7 @@ spec:
     spec:
       containers:
         - name: alto
-          image: ghcr.io/pimlicolabs/alto:latest
+          image: ghcr.io/pimlicolabs/alto:v0.14.0
           ports:
             - containerPort: 4337
               name: rpc

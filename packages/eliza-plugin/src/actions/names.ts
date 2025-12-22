@@ -2,26 +2,26 @@
  * Names Actions - JNS registration and resolution
  */
 
-import {
-  type Action,
-  type HandlerCallback,
-  type IAgentRuntime,
-  type Memory,
-  type State,
-} from "@elizaos/core";
-import { formatEther } from "viem";
-import { JEJU_SERVICE_NAME, type JejuService } from "../service";
-import { getMessageText, validateServiceExists } from "../validation";
+import type {
+  Action,
+  HandlerCallback,
+  IAgentRuntime,
+  Memory,
+  State,
+} from '@elizaos/core'
+import { formatEther } from 'viem'
+import { JEJU_SERVICE_NAME, type JejuService } from '../service'
+import { getMessageText, validateServiceExists } from '../validation'
 
 export const registerNameAction: Action = {
-  name: "REGISTER_NAME",
-  description: "Register a .jeju name on the network Name Service (JNS)",
+  name: 'REGISTER_NAME',
+  description: 'Register a .jeju name on the network Name Service (JNS)',
   similes: [
-    "register name",
-    "buy name",
-    "get domain",
-    "register domain",
-    "claim name",
+    'register name',
+    'buy name',
+    'get domain',
+    'register domain',
+    'claim name',
   ],
 
   validate: async (runtime: IAgentRuntime): Promise<boolean> =>
@@ -34,46 +34,46 @@ export const registerNameAction: Action = {
     _options?: Record<string, unknown>,
     callback?: HandlerCallback,
   ): Promise<void> => {
-    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
-    const client = service.getClient();
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
+    const client = service.getClient()
 
-    const text = getMessageText(message);
+    const text = getMessageText(message)
 
     // Extract name
-    const nameMatch = text.match(/([a-z0-9-]+)(?:\.jeju)?/i);
+    const nameMatch = text.match(/([a-z0-9-]+)(?:\.jeju)?/i)
     if (!nameMatch) {
       callback?.({
         text: 'Please specify a name to register. Example: "Register myagent.jeju"',
-      });
-      return;
+      })
+      return
     }
 
-    const name = nameMatch[1].toLowerCase();
-    const fullName = `${name}.jeju`;
+    const name = nameMatch[1].toLowerCase()
+    const fullName = `${name}.jeju`
 
     // Check availability
-    const available = await client.names.isAvailable(fullName);
+    const available = await client.names.isAvailable(fullName)
     if (!available) {
       callback?.({
         text: `${fullName} is already registered. Try a different name.`,
-      });
-      return;
+      })
+      return
     }
 
     // Get price
-    const price = await client.names.getRegistrationPrice(fullName, 1);
+    const price = await client.names.getRegistrationPrice(fullName, 1)
 
     callback?.({
       text: `${fullName} is available.
 Registration cost: ${formatEther(price)} ETH for 1 year
 
 Registering...`,
-    });
+    })
 
     const txHash = await client.names.register({
       name: fullName,
       durationYears: 1,
-    });
+    })
 
     callback?.({
       text: `Name registered successfully.
@@ -83,34 +83,34 @@ Transaction: ${txHash}
 
 You can now set records with "Set address for ${fullName}"`,
       content: { txHash, name: fullName },
-    });
+    })
   },
 
   examples: [
     [
       {
-        name: "user",
-        content: { text: "Register myagent.jeju" },
+        name: 'user',
+        content: { text: 'Register myagent.jeju' },
       },
       {
-        name: "agent",
+        name: 'agent',
         content: {
-          text: "Name registered successfully. Name: myagent.jeju...",
+          text: 'Name registered successfully. Name: myagent.jeju...',
         },
       },
     ],
   ],
-};
+}
 
 export const resolveNameAction: Action = {
-  name: "RESOLVE_NAME",
-  description: "Resolve a .jeju name to an address",
+  name: 'RESOLVE_NAME',
+  description: 'Resolve a .jeju name to an address',
   similes: [
-    "resolve name",
-    "lookup name",
-    "find address",
-    "who is",
-    "what address",
+    'resolve name',
+    'lookup name',
+    'find address',
+    'who is',
+    'what address',
   ],
 
   validate: async (runtime: IAgentRuntime): Promise<boolean> =>
@@ -123,50 +123,50 @@ export const resolveNameAction: Action = {
     _options?: Record<string, unknown>,
     callback?: HandlerCallback,
   ): Promise<void> => {
-    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
-    const client = service.getClient();
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
+    const client = service.getClient()
 
-    const text = getMessageText(message);
+    const text = getMessageText(message)
 
     // Extract name
-    const nameMatch = text.match(/([a-z0-9-]+\.jeju)/i);
+    const nameMatch = text.match(/([a-z0-9-]+\.jeju)/i)
     if (!nameMatch) {
       callback?.({
         text: 'Please specify a .jeju name to resolve. Example: "Resolve gateway.jeju"',
-      });
-      return;
+      })
+      return
     }
 
-    const name = nameMatch[1].toLowerCase();
+    const name = nameMatch[1].toLowerCase()
 
-    const address = await client.names.resolve(name);
-    const records = await client.names.getRecords(name);
-    const info = await client.names.getNameInfo(name);
+    const address = await client.names.resolve(name)
+    const records = await client.names.getRecords(name)
+    const info = await client.names.getNameInfo(name)
 
     if (!address) {
-      callback?.({ text: `${name} is not registered or has no address set.` });
-      return;
+      callback?.({ text: `${name} is not registered or has no address set.` })
+      return
     }
 
     callback?.({
       text: `${name} resolves to:
 Address: ${address}
-${records.a2aEndpoint ? `A2A Endpoint: ${records.a2aEndpoint}` : ""}
-${info ? `Owner: ${info.owner}` : ""}`,
+${records.a2aEndpoint ? `A2A Endpoint: ${records.a2aEndpoint}` : ''}
+${info ? `Owner: ${info.owner}` : ''}`,
       content: { name, address, records, info },
-    });
+    })
   },
 
   examples: [
     [
       {
-        name: "user",
-        content: { text: "Resolve gateway.jeju" },
+        name: 'user',
+        content: { text: 'Resolve gateway.jeju' },
       },
       {
-        name: "agent",
-        content: { text: "gateway.jeju resolves to: 0x..." },
+        name: 'agent',
+        content: { text: 'gateway.jeju resolves to: 0x...' },
       },
     ],
   ],
-};
+}

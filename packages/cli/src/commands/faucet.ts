@@ -1,19 +1,31 @@
 /**
  * jeju faucet - Multi-chain testnet faucet
- * 
+ *
  * Supported chains:
  * - Jeju Testnet (Base Sepolia)
  * - Base Sepolia
  * - Ethereum Sepolia
  * - Solana Devnet (via web faucet)
+ *
+ * Security notes:
+ * - Addresses are validated before use
+ * - Amounts are validated and bounded
  */
 
-import { Command } from 'commander';
-import { createPublicClient, createWalletClient, http, parseEther, formatEther, isAddress } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import { baseSepolia, sepolia } from 'viem/chains';
-import { logger } from '../lib/logger';
-import { loadPrivateKey } from '../lib/keys';
+import { Command } from 'commander'
+import {
+  createPublicClient,
+  createWalletClient,
+  formatEther,
+  http,
+  isAddress,
+  parseEther,
+} from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { baseSepolia, sepolia } from 'viem/chains'
+import { loadPrivateKey } from '../lib/keys'
+import { logger } from '../lib/logger'
+import { validateAddress } from '../lib/security'
 
 // Chain configurations
 const CHAINS = {
@@ -49,14 +61,18 @@ const CHAINS = {
     explorer: 'https://explorer.solana.com/?cluster=devnet',
     native: 'SOL',
   },
-} as const;
+} as const
 
-type ChainName = keyof typeof CHAINS;
+type ChainName = keyof typeof CHAINS
 
 export const faucetCommand = new Command('faucet')
   .description('Request testnet funds from faucets')
   .argument('[address]', 'Address to fund (defaults to deployer)')
-  .option('-c, --chain <chain>', 'Chain to use (jeju, base, ethereum, solana)', 'jeju')
+  .option(
+    '-c, --chain <chain>',
+    'Chain to use (jeju, base, ethereum, solana)',
+    'jeju',
+  )
   .option('-a, --amount <eth>', 'Amount in ETH (for self-funding)', '0.1')
   .option('--list', 'List all available faucets')
   .option('--check', 'Check balance only')
@@ -64,173 +80,199 @@ export const faucetCommand = new Command('faucet')
   .action(async (address, options) => {
     // List faucets
     if (options.list) {
-      listFaucets();
-      return;
+      listFaucets()
+      return
     }
 
-    const chainName = options.chain.toLowerCase() as ChainName;
-    const chain = CHAINS[chainName];
-    
+    const chainName = options.chain.toLowerCase() as ChainName
+    const chain = CHAINS[chainName]
+
     if (!chain) {
-      logger.error(`Unknown chain: ${options.chain}`);
-      logger.info('Available chains: ' + Object.keys(CHAINS).join(', '));
-      return;
+      logger.error(`Unknown chain: ${options.chain}`)
+      logger.info(`Available chains: ${Object.keys(CHAINS).join(', ')}`)
+      return
     }
 
     // Get target address
-    let targetAddress = address;
+    let targetAddress = address
     if (!targetAddress) {
-      const key = loadPrivateKey('deployer');
+      const key = loadPrivateKey('deployer')
       if (key) {
-        const account = privateKeyToAccount(key as `0x${string}`);
-        targetAddress = account.address;
-        logger.info(`Using deployer address: ${targetAddress}`);
+        const account = privateKeyToAccount(key as `0x${string}`)
+        targetAddress = account.address
+        logger.info(`Using deployer address: ${targetAddress}`)
       } else {
-        logger.error('No address provided and no deployer key found');
-        logger.info('Run: jeju keys generate deployer');
-        return;
+        logger.error('No address provided and no deployer key found')
+        logger.info('Run: jeju keys generate deployer')
+        return
       }
     }
 
     if (!isAddress(targetAddress)) {
-      logger.error('Invalid address format');
-      return;
+      logger.error('Invalid address format')
+      return
     }
 
     // Check balance
     if (options.check || !options.selfFund) {
-      await checkBalance(chainName, targetAddress);
+      await checkBalance(chainName, targetAddress)
     }
 
     // Self-fund option
     if (options.selfFund) {
-      await selfFund(chainName, targetAddress, options.amount);
-      return;
+      await selfFund(chainName, targetAddress, options.amount)
+      return
     }
 
     // Show faucet link
-    logger.newline();
-    logger.header(`${chain.name.toUpperCase()} FAUCET`);
-    logger.info(`Get free ${chain.native} for testing:`);
-    logger.newline();
-    logger.info(`  ${chain.faucet}`);
-    logger.newline();
-    
+    logger.newline()
+    logger.header(`${chain.name.toUpperCase()} FAUCET`)
+    logger.info(`Get free ${chain.native} for testing:`)
+    logger.newline()
+    logger.info(`  ${chain.faucet}`)
+    logger.newline()
+
     if (chainName === 'solana') {
-      logger.info('For Solana, use the web faucet or run:');
-      logger.info(`  solana airdrop 2 ${targetAddress} --url devnet`);
+      logger.info('For Solana, use the web faucet or run:')
+      logger.info(`  solana airdrop 2 ${targetAddress} --url devnet`)
     } else {
-      logger.info('Paste your address in the faucet and request funds.');
-      logger.info(`Your address: ${targetAddress}`);
+      logger.info('Paste your address in the faucet and request funds.')
+      logger.info(`Your address: ${targetAddress}`)
     }
-    
-    logger.newline();
-    logger.info(`Explorer: ${chain.explorer}`);
-  });
+
+    logger.newline()
+    logger.info(`Explorer: ${chain.explorer}`)
+  })
 
 function listFaucets(): void {
-  logger.header('TESTNET FAUCETS');
-  logger.newline();
-  
+  logger.header('TESTNET FAUCETS')
+  logger.newline()
+
   for (const [key, chain] of Object.entries(CHAINS)) {
-    logger.table([{
-      label: `${chain.name} (${key})`,
-      value: chain.native,
-      status: 'ok',
-    }]);
-    logger.info(`  Faucet:   ${chain.faucet}`);
-    logger.info(`  Explorer: ${chain.explorer}`);
-    logger.newline();
+    logger.table([
+      {
+        label: `${chain.name} (${key})`,
+        value: chain.native,
+        status: 'ok',
+      },
+    ])
+    logger.info(`  Faucet:   ${chain.faucet}`)
+    logger.info(`  Explorer: ${chain.explorer}`)
+    logger.newline()
   }
-  
-  logger.info('Usage: jeju faucet [address] --chain <chain>');
+
+  logger.info('Usage: jeju faucet [address] --chain <chain>')
 }
 
-async function checkBalance(chainName: ChainName, address: string): Promise<void> {
-  const chain = CHAINS[chainName];
-  
+async function checkBalance(
+  chainName: ChainName,
+  address: string,
+): Promise<void> {
+  const chain = CHAINS[chainName]
+
   if (chainName === 'solana') {
-    logger.info('For Solana balance, run: solana balance --url devnet');
-    return;
+    logger.info('For Solana balance, run: solana balance --url devnet')
+    return
   }
 
-  const viemChain = chainName === 'ethereum' ? sepolia : baseSepolia;
-  
+  const viemChain = chainName === 'ethereum' ? sepolia : baseSepolia
+
   const client = createPublicClient({
     chain: viemChain,
     transport: http(chain.rpc),
-  });
+  })
 
-  const balance = await client.getBalance({ address: address as `0x${string}` });
-  const ethBalance = formatEther(balance);
-  
-  logger.table([{
-    label: `${chain.name} Balance`,
-    value: `${parseFloat(ethBalance).toFixed(4)} ${chain.native}`,
-    status: parseFloat(ethBalance) >= 0.01 ? 'ok' : 'warn',
-  }]);
-  
+  const balance = await client.getBalance({ address: address as `0x${string}` })
+  const ethBalance = formatEther(balance)
+
+  logger.table([
+    {
+      label: `${chain.name} Balance`,
+      value: `${parseFloat(ethBalance).toFixed(4)} ${chain.native}`,
+      status: parseFloat(ethBalance) >= 0.01 ? 'ok' : 'warn',
+    },
+  ])
+
   if (parseFloat(ethBalance) < 0.01) {
-    logger.warn('Low balance. Request funds from faucet.');
+    logger.warn('Low balance. Request funds from faucet.')
   }
 }
 
-async function selfFund(chainName: ChainName, targetAddress: string, amountEth: string): Promise<void> {
+async function selfFund(
+  chainName: ChainName,
+  targetAddress: string,
+  amountEth: string,
+): Promise<void> {
   if (chainName === 'solana') {
-    logger.error('Self-funding not supported for Solana. Use: solana transfer');
-    return;
+    logger.error('Self-funding not supported for Solana. Use: solana transfer')
+    return
   }
 
-  const key = loadPrivateKey('deployer');
+  // Validate target address
+  const validAddress = validateAddress(targetAddress)
+
+  // Validate amount
+  const amountNum = parseFloat(amountEth)
+  if (Number.isNaN(amountNum) || amountNum <= 0 || amountNum > 100) {
+    logger.error('Invalid amount: must be between 0 and 100 ETH')
+    return
+  }
+
+  const key = loadPrivateKey('deployer')
   if (!key) {
-    logger.error('No deployer key found');
-    logger.info('Run: jeju keys generate deployer');
-    return;
+    logger.error('No deployer key found')
+    logger.info('Run: jeju keys generate deployer')
+    return
   }
 
-  const chain = CHAINS[chainName];
-  const viemChain = chainName === 'ethereum' ? sepolia : baseSepolia;
+  const chain = CHAINS[chainName]
+  const viemChain = chainName === 'ethereum' ? sepolia : baseSepolia
 
-  const account = privateKeyToAccount(key as `0x${string}`);
-  
-  if (account.address.toLowerCase() === targetAddress.toLowerCase()) {
-    logger.error('Cannot self-fund to the same address');
-    return;
+  const account = privateKeyToAccount(key as `0x${string}`)
+
+  if (account.address.toLowerCase() === validAddress.toLowerCase()) {
+    logger.error('Cannot self-fund to the same address')
+    return
   }
 
   const client = createPublicClient({
     chain: viemChain,
     transport: http(chain.rpc),
-  });
+  })
 
   const walletClient = createWalletClient({
     chain: viemChain,
     transport: http(chain.rpc),
     account,
-  });
+  })
 
-  const senderBalance = await client.getBalance({ address: account.address });
-  const amount = parseEther(amountEth);
+  const senderBalance = await client.getBalance({ address: account.address })
+  const amount = parseEther(amountEth)
 
   if (senderBalance < amount) {
-    logger.error(`Insufficient balance: ${formatEther(senderBalance)} ${chain.native}`);
-    return;
+    logger.error(
+      `Insufficient balance: ${formatEther(senderBalance)} ${chain.native}`,
+    )
+    return
   }
 
-  logger.step(`Sending ${amountEth} ${chain.native} to ${targetAddress.slice(0, 10)}...`);
+  // Log truncated address to avoid exposing full address in logs
+  logger.step(
+    `Sending ${amountEth} ${chain.native} to ${validAddress.slice(0, 10)}...`,
+  )
 
   const hash = await walletClient.sendTransaction({
-    to: targetAddress as `0x${string}`,
+    to: validAddress,
     value: amount,
-  });
+  })
 
-  const receipt = await client.waitForTransactionReceipt({ hash });
+  const receipt = await client.waitForTransactionReceipt({ hash })
 
   if (receipt.status === 'success') {
-    logger.success(`Sent. TX: ${hash}`);
-    logger.info(`Explorer: ${chain.explorer}/tx/${hash}`);
+    logger.success(`Sent. TX: ${hash}`)
+    logger.info(`Explorer: ${chain.explorer}/tx/${hash}`)
   } else {
-    logger.error('Transaction failed');
+    logger.error('Transaction failed')
   }
 }
 
@@ -241,12 +283,13 @@ export const faucetDeployCommand = new Command('deploy')
   .option('--eth-amount <wei>', 'ETH drip amount in wei', '100000000000000000') // 0.1 ETH
   .option('--cooldown <seconds>', 'Cooldown in seconds', '86400') // 24 hours
   .action(async (_options) => {
-    logger.header('DEPLOY FAUCET');
-    logger.info('Use: bun run scripts/deploy/faucet.ts --network testnet');
-    logger.newline();
-    logger.info('Or deploy manually with Foundry:');
-    logger.info('  forge create src/tokens/Faucet.sol:Faucet --constructor-args $OWNER');
-  });
+    logger.header('DEPLOY FAUCET')
+    logger.info('Use: bun run scripts/deploy/faucet.ts --network testnet')
+    logger.newline()
+    logger.info('Or deploy manually with Foundry:')
+    logger.info(
+      '  forge create src/tokens/Faucet.sol:Faucet --constructor-args $OWNER',
+    )
+  })
 
-faucetCommand.addCommand(faucetDeployCommand);
-
+faucetCommand.addCommand(faucetDeployCommand)
