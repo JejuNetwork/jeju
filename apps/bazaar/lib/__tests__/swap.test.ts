@@ -2,28 +2,28 @@
  * Tests for swap business logic
  */
 
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import { parseEther } from 'viem'
 import {
-  SWAP_TOKENS,
-  PRICE_PAIRS,
-  DEFAULT_FEE_BPS,
   BASE_NETWORK_FEE,
   CROSS_CHAIN_PREMIUM,
-  XLP_FEE_BPS,
-  getTokenBySymbol,
-  getTokenByAddress,
-  getExchangeRate,
-  formatRate,
-  isCrossChain,
-  calculateSwapFees,
   calculateOutputAmount,
-  generateSwapQuote,
-  validateSwap,
-  parseSwapAmount,
+  calculateSwapFees,
+  DEFAULT_FEE_BPS,
+  formatRate,
   formatSwapAmount,
+  generateSwapQuote,
+  getExchangeRate,
   getSwapButtonText,
+  getTokenByAddress,
+  getTokenBySymbol,
+  isCrossChain,
   isSwapButtonDisabled,
+  PRICE_PAIRS,
+  parseSwapAmount,
+  SWAP_TOKENS,
+  validateSwap,
+  XLP_FEE_BPS,
 } from '../swap'
 
 describe('swap lib', () => {
@@ -36,7 +36,9 @@ describe('swap lib', () => {
     })
 
     it('has ETH/USDC price pair', () => {
-      const pair = PRICE_PAIRS.find(p => p.baseToken === 'ETH' && p.quoteToken === 'USDC')
+      const pair = PRICE_PAIRS.find(
+        (p) => p.baseToken === 'ETH' && p.quoteToken === 'USDC',
+      )
       expect(pair).toBeDefined()
       expect(pair?.rate).toBe(3000)
     })
@@ -65,17 +67,23 @@ describe('swap lib', () => {
 
   describe('getTokenByAddress', () => {
     it('finds token by address', () => {
-      const token = getTokenByAddress('0x0000000000000000000000000000000000000000')
+      const token = getTokenByAddress(
+        '0x0000000000000000000000000000000000000000',
+      )
       expect(token?.symbol).toBe('ETH')
     })
 
     it('handles case insensitive address', () => {
-      const token = getTokenByAddress('0x0000000000000000000000000000000000000001')
+      const token = getTokenByAddress(
+        '0x0000000000000000000000000000000000000001',
+      )
       expect(token?.symbol).toBe('USDC')
     })
 
     it('returns undefined for unknown address', () => {
-      const token = getTokenByAddress('0xdead000000000000000000000000000000000000')
+      const token = getTokenByAddress(
+        '0xdead000000000000000000000000000000000000',
+      )
       expect(token).toBeUndefined()
     })
   })
@@ -132,7 +140,7 @@ describe('swap lib', () => {
       const fees = calculateSwapFees(amount, 1, 1)
 
       expect(fees.networkFee).toBe(BASE_NETWORK_FEE)
-      expect(fees.xlpFee).toBe(amount * 5n / 10000n)
+      expect(fees.xlpFee).toBe((amount * 5n) / 10000n)
       expect(fees.totalFee).toBe(fees.networkFee + fees.xlpFee)
       expect(fees.estimatedTime).toBe(0)
     })
@@ -241,7 +249,16 @@ describe('swap lib', () => {
     })
 
     it('rejects cross-chain without EIL', () => {
-      const result = validateSwap(true, '1', 'ETH', 'USDC', 1, 42161, true, false)
+      const result = validateSwap(
+        true,
+        '1',
+        'ETH',
+        'USDC',
+        1,
+        42161,
+        true,
+        false,
+      )
       expect(result.valid).toBe(false)
       expect(result.error).toBe('Cross-chain swaps not available yet')
     })
@@ -259,7 +276,16 @@ describe('swap lib', () => {
     })
 
     it('accepts valid cross-chain swap', () => {
-      const result = validateSwap(true, '1', 'ETH', 'USDC', 1, 42161, true, true)
+      const result = validateSwap(
+        true,
+        '1',
+        'ETH',
+        'USDC',
+        1,
+        42161,
+        true,
+        true,
+      )
       expect(result.valid).toBe(true)
     })
   })
@@ -298,27 +324,39 @@ describe('swap lib', () => {
 
   describe('getSwapButtonText', () => {
     it('shows Connect Wallet when disconnected', () => {
-      expect(getSwapButtonText(false, false, true, true, false, 'Arbitrum')).toBe('Connect Wallet')
+      expect(
+        getSwapButtonText(false, false, true, true, false, 'Arbitrum'),
+      ).toBe('Connect Wallet')
     })
 
     it('shows Swapping when in progress', () => {
-      expect(getSwapButtonText(true, true, true, true, false, 'Arbitrum')).toBe('Swapping...')
+      expect(getSwapButtonText(true, true, true, true, false, 'Arbitrum')).toBe(
+        'Swapping...',
+      )
     })
 
     it('shows Enter Amount when no input', () => {
-      expect(getSwapButtonText(true, false, true, false, false, 'Arbitrum')).toBe('Enter Amount')
+      expect(
+        getSwapButtonText(true, false, true, false, false, 'Arbitrum'),
+      ).toBe('Enter Amount')
     })
 
     it('shows cross-chain destination', () => {
-      expect(getSwapButtonText(true, false, true, true, true, 'Arbitrum')).toBe('Swap to Arbitrum')
+      expect(getSwapButtonText(true, false, true, true, true, 'Arbitrum')).toBe(
+        'Swap to Arbitrum',
+      )
     })
 
     it('shows Switch Network when wrong chain', () => {
-      expect(getSwapButtonText(true, false, false, true, false, 'Arbitrum')).toBe('Switch Network')
+      expect(
+        getSwapButtonText(true, false, false, true, false, 'Arbitrum'),
+      ).toBe('Switch Network')
     })
 
     it('shows Swap for valid state', () => {
-      expect(getSwapButtonText(true, false, true, true, false, 'Arbitrum')).toBe('Swap')
+      expect(
+        getSwapButtonText(true, false, true, true, false, 'Arbitrum'),
+      ).toBe('Swap')
     })
   })
 

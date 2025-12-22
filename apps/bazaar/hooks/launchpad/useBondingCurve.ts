@@ -1,12 +1,14 @@
-import { useAccount, useWriteContract, useReadContract, useWaitForTransactionReceipt } from 'wagmi'
-import { parseEther, formatEther, type Address } from 'viem'
-import { AddressSchema } from '@jejunetwork/types'
-import { expect, expectPositive } from '@/lib/validation'
 import { BondingCurveAbi } from '@jejunetwork/contracts'
+import { AddressSchema } from '@jejunetwork/types'
+import { type Address, formatEther, parseEther } from 'viem'
 import {
-  parseBondingCurveStats,
-  type BondingCurveStats,
-} from '@/lib/launchpad'
+  useAccount,
+  useReadContract,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from 'wagmi'
+import { type BondingCurveStats, parseBondingCurveStats } from '@/lib/launchpad'
+import { expect, expectPositive } from '@/lib/validation'
 
 export type { BondingCurveStats }
 
@@ -33,7 +35,11 @@ export function useBondingCurve(bondingCurveAddress: Address | null) {
   } = useWriteContract()
 
   // Wait for transaction
-  const { isLoading: isConfirming, isSuccess, data: receipt } = useWaitForTransactionReceipt({
+  const {
+    isLoading: isConfirming,
+    isSuccess,
+    data: receipt,
+  } = useWaitForTransactionReceipt({
     hash: txHash,
   })
 
@@ -42,7 +48,7 @@ export function useBondingCurve(bondingCurveAddress: Address | null) {
     address: bondingCurveAddress ?? undefined,
     abi: BondingCurveAbi,
     functionName: 'getStats',
-    query: { 
+    query: {
       enabled,
       refetchInterval: 5000, // Refresh every 5 seconds
     },
@@ -81,17 +87,22 @@ export function useBondingCurve(bondingCurveAddress: Address | null) {
   })
 
   // Parse stats using typed parser
-  const parsedStats: BondingCurveStats | undefined = stats 
-    ? parseBondingCurveStats(stats as readonly [bigint, bigint, bigint, bigint, boolean])
+  const parsedStats: BondingCurveStats | undefined = stats
+    ? parseBondingCurveStats(
+        stats as readonly [bigint, bigint, bigint, bigint, boolean],
+      )
     : undefined
 
   /**
    * Buy tokens with ETH
    */
   const buy = (ethAmount: string, minTokensOut: string = '0') => {
-    const validatedAddress = expect(bondingCurveAddress, 'No bonding curve address');
-    AddressSchema.parse(validatedAddress);
-    expectPositive(parseFloat(ethAmount), 'ETH amount must be positive');
+    const validatedAddress = expect(
+      bondingCurveAddress,
+      'No bonding curve address',
+    )
+    AddressSchema.parse(validatedAddress)
+    expectPositive(parseFloat(ethAmount), 'ETH amount must be positive')
 
     reset()
     writeContract({
@@ -107,9 +118,12 @@ export function useBondingCurve(bondingCurveAddress: Address | null) {
    * Sell tokens for ETH
    */
   const sell = (tokenAmount: string, minEthOut: string = '0') => {
-    const validatedAddress = expect(bondingCurveAddress, 'No bonding curve address');
-    AddressSchema.parse(validatedAddress);
-    expectPositive(parseFloat(tokenAmount), 'Token amount must be positive');
+    const validatedAddress = expect(
+      bondingCurveAddress,
+      'No bonding curve address',
+    )
+    AddressSchema.parse(validatedAddress)
+    expectPositive(parseFloat(tokenAmount), 'Token amount must be positive')
 
     reset()
     writeContract({
@@ -129,14 +143,14 @@ export function useBondingCurve(bondingCurveAddress: Address | null) {
     lpPair: lpPair as Address | undefined,
     graduationTarget: graduationTarget as bigint | undefined,
     stats: parsedStats,
-    
+
     // Transaction state
     txHash,
     isPending: isWritePending || isConfirming,
     isSuccess,
     receipt,
     error: writeError,
-    
+
     // Actions
     buy,
     sell,
@@ -151,9 +165,10 @@ export function useBondingCurve(bondingCurveAddress: Address | null) {
 export function useBondingCurveQuote(
   bondingCurveAddress: Address | null,
   ethAmount: string,
-  direction: 'buy' | 'sell' = 'buy'
+  direction: 'buy' | 'sell' = 'buy',
 ) {
-  const enabled = !!bondingCurveAddress && !!ethAmount && parseFloat(ethAmount) > 0
+  const enabled =
+    !!bondingCurveAddress && !!ethAmount && parseFloat(ethAmount) > 0
 
   // Quote for buying
   const { data: tokensOut } = useReadContract({
@@ -183,7 +198,12 @@ export function useBondingCurveQuote(
 
   // Calculate price impact
   let priceImpact = 0
-  if (direction === 'buy' && tokensOut && currentPrice && parseFloat(ethAmount) > 0) {
+  if (
+    direction === 'buy' &&
+    tokensOut &&
+    currentPrice &&
+    parseFloat(ethAmount) > 0
+  ) {
     const tokens = Number(formatEther(tokensOut as bigint))
     const eth = parseFloat(ethAmount)
     const effectivePrice = eth / tokens
@@ -200,5 +220,7 @@ export function useBondingCurveQuote(
 }
 
 // Re-export formatting functions from lib/launchpad
-export { formatPrice as formatBondingCurvePrice, formatBasisPoints as formatProgress } from '@/lib/launchpad'
-
+export {
+  formatBasisPoints as formatProgress,
+  formatPrice as formatBondingCurvePrice,
+} from '@/lib/launchpad'

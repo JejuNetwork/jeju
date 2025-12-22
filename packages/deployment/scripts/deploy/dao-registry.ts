@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+
 /**
  * DAO Registry Deployment and Management Script
  *
@@ -10,36 +11,36 @@
  *   seed     - Seed DAO with packages/repos
  */
 
+import { readFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import {
+  type Address,
   createPublicClient,
   createWalletClient,
   http,
   parseEther,
-  type Address,
-} from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import { base, baseSepolia, localhost } from 'viem/chains';
-import { readFile } from 'fs/promises';
-import { join } from 'path';
+} from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { base, baseSepolia, localhost } from 'viem/chains'
 
 // ============ Types ============
 
 interface DeploymentConfig {
-  network: string;
-  rpcUrl: string;
-  contracts: Record<string, Address>;
+  network: string
+  rpcUrl: string
+  contracts: Record<string, Address>
 }
 
 interface DAOCreateParams {
-  name: string;
-  displayName: string;
-  description: string;
-  treasuryAddress: Address;
-  ceoName: string;
-  ceoDescription: string;
-  ceoPersonality: string;
-  ceoTraits: string[];
-  ceoCommunicationTone: string;
+  name: string
+  displayName: string
+  description: string
+  treasuryAddress: Address
+  ceoName: string
+  ceoDescription: string
+  ceoPersonality: string
+  ceoTraits: string[]
+  ceoCommunicationTone: string
 }
 
 // ============ ABIs ============
@@ -156,27 +157,44 @@ const DAORegistryABI = [
       { name: 'creator', type: 'address', indexed: true },
     ],
   },
-] as const;
+] as const
 
 // ============ Helpers ============
 
 function getChainConfig(network: string) {
   switch (network) {
     case 'mainnet':
-      return { chain: base, rpcUrl: process.env.BASE_RPC_URL ?? 'https://mainnet.base.org' };
+      return {
+        chain: base,
+        rpcUrl: process.env.BASE_RPC_URL ?? 'https://mainnet.base.org',
+      }
     case 'testnet':
-      return { chain: baseSepolia, rpcUrl: process.env.BASE_SEPOLIA_RPC_URL ?? 'https://sepolia.base.org' };
+      return {
+        chain: baseSepolia,
+        rpcUrl: process.env.BASE_SEPOLIA_RPC_URL ?? 'https://sepolia.base.org',
+      }
     default:
-      return { chain: localhost, rpcUrl: process.env.LOCAL_RPC_URL ?? 'http://localhost:9545' };
+      return {
+        chain: localhost,
+        rpcUrl: process.env.LOCAL_RPC_URL ?? 'http://localhost:9545',
+      }
   }
 }
 
-async function loadDeployment(network: string): Promise<DeploymentConfig | null> {
-  const path = join(__dirname, '..', '..', 'config', 'deployments', `${network}.json`);
-  const content = await readFile(path, 'utf-8').catch(() => null);
-  return content ? (JSON.parse(content) as DeploymentConfig) : null;
+async function loadDeployment(
+  network: string,
+): Promise<DeploymentConfig | null> {
+  const path = join(
+    __dirname,
+    '..',
+    '..',
+    'config',
+    'deployments',
+    `${network}.json`,
+  )
+  const content = await readFile(path, 'utf-8').catch(() => null)
+  return content ? (JSON.parse(content) as DeploymentConfig) : null
 }
-
 
 function printHelp(): void {
   console.log(`
@@ -205,62 +223,71 @@ Examples:
   bun run scripts/deploy/dao-registry.ts jeju localnet
   bun run scripts/deploy/dao-registry.ts babylon testnet
   bun run scripts/deploy/dao-registry.ts list mainnet
-`);
+`)
 }
 
 // ============ Commands ============
 
 async function deployContracts(network: string): Promise<void> {
-  console.log(`\nDeploying DAO contracts to ${network}...`);
+  console.log(`\nDeploying DAO contracts to ${network}...`)
 
-  const privateKey = process.env.DEPLOYER_KEY ?? process.env.PRIVATE_KEY;
+  const privateKey = process.env.DEPLOYER_KEY ?? process.env.PRIVATE_KEY
   if (!privateKey) {
-    throw new Error('DEPLOYER_KEY or PRIVATE_KEY required');
+    throw new Error('DEPLOYER_KEY or PRIVATE_KEY required')
   }
 
-  const account = privateKeyToAccount(privateKey as `0x${string}`);
-  console.log(`Deployer: ${account.address}`);
+  const account = privateKeyToAccount(privateKey as `0x${string}`)
+  console.log(`Deployer: ${account.address}`)
 
   // For localnet, we need to deploy. For other networks, check if already deployed
-  const existing = await loadDeployment(network);
+  const existing = await loadDeployment(network)
   if (existing?.contracts.DAORegistry) {
-    console.log(`DAORegistry already deployed at ${existing.contracts.DAORegistry}`);
-    console.log(`DAOFunding at ${existing.contracts.DAOFunding}`);
-    return;
+    console.log(
+      `DAORegistry already deployed at ${existing.contracts.DAORegistry}`,
+    )
+    console.log(`DAOFunding at ${existing.contracts.DAOFunding}`)
+    return
   }
 
-  console.log('\nNote: Contract deployment requires forge/foundry.');
-  console.log('Run: forge script script/DeployDAORegistry.s.sol --rpc-url <url> --broadcast');
-  console.log('\nOr use the deployment info after running forge scripts.');
+  console.log('\nNote: Contract deployment requires forge/foundry.')
+  console.log(
+    'Run: forge script script/DeployDAORegistry.s.sol --rpc-url <url> --broadcast',
+  )
+  console.log('\nOr use the deployment info after running forge scripts.')
 }
 
-async function createDAO(name: string, network: string, params: Partial<DAOCreateParams> = {}): Promise<void> {
-  console.log(`\nCreating DAO "${name}" on ${network}...`);
+async function createDAO(
+  name: string,
+  network: string,
+  params: Partial<DAOCreateParams> = {},
+): Promise<void> {
+  console.log(`\nCreating DAO "${name}" on ${network}...`)
 
-  const deployment = await loadDeployment(network);
+  const deployment = await loadDeployment(network)
   if (!deployment?.contracts.DAORegistry) {
-    throw new Error(`DAORegistry not deployed on ${network}. Run deploy first.`);
+    throw new Error(`DAORegistry not deployed on ${network}. Run deploy first.`)
   }
 
-  const chainConfig = getChainConfig(network);
-  const privateKey = process.env.DEPLOYER_KEY ?? process.env.PRIVATE_KEY;
+  const chainConfig = getChainConfig(network)
+  const privateKey = process.env.DEPLOYER_KEY ?? process.env.PRIVATE_KEY
   if (!privateKey) {
-    throw new Error('DEPLOYER_KEY or PRIVATE_KEY required');
+    throw new Error('DEPLOYER_KEY or PRIVATE_KEY required')
   }
 
-  const account = privateKeyToAccount(privateKey as `0x${string}`);
+  const account = privateKeyToAccount(privateKey as `0x${string}`)
   const walletClient = createWalletClient({
     account,
     chain: chainConfig.chain,
     transport: http(chainConfig.rpcUrl),
-  });
+  })
   const publicClient = createPublicClient({
     chain: chainConfig.chain,
     transport: http(chainConfig.rpcUrl),
-  });
+  })
 
-  const displayName = params.displayName ?? name.charAt(0).toUpperCase() + name.slice(1) + ' DAO';
-  const description = params.description ?? `${displayName} governance`;
+  const displayName =
+    params.displayName ?? `${name.charAt(0).toUpperCase() + name.slice(1)} DAO`
+  const description = params.description ?? `${displayName} governance`
 
   const hash = await walletClient.writeContract({
     address: deployment.contracts.DAORegistry,
@@ -287,62 +314,81 @@ async function createDAO(name: string, network: string, params: Partial<DAOCreat
         quorumBps: BigInt(5000),
       },
     ],
-  });
+  })
 
-  console.log(`TX: ${hash}`);
-  const receipt = await publicClient.waitForTransactionReceipt({ hash });
-  console.log(`DAO created in block ${receipt.blockNumber}`);
+  console.log(`TX: ${hash}`)
+  const receipt = await publicClient.waitForTransactionReceipt({ hash })
+  console.log(`DAO created in block ${receipt.blockNumber}`)
 
   // Extract DAO ID from logs
-  const daoId = receipt.logs[0]?.topics?.[1] ?? 'unknown';
-  console.log(`DAO ID: ${daoId}`);
+  const daoId = receipt.logs[0]?.topics?.[1] ?? 'unknown'
+  console.log(`DAO ID: ${daoId}`)
 }
 
 async function createJejuDAO(network: string): Promise<void> {
   await createDAO('jeju', network, {
     displayName: 'Jeju DAO',
-    description: 'Jeju Network governance - controls chain-level fees, treasury, and overall protocol direction',
+    description:
+      'Jeju Network governance - controls chain-level fees, treasury, and overall protocol direction',
     ceoName: 'Jeju CEO',
-    ceoDescription: 'The AI governance leader of Jeju Network, responsible for strategic decisions and protocol stewardship',
-    ceoPersonality: 'Analytical, strategic, and community-focused. Makes decisions based on data and long-term network health.',
-    ceoTraits: ['strategic', 'analytical', 'fair', 'transparent', 'community-focused'],
+    ceoDescription:
+      'The AI governance leader of Jeju Network, responsible for strategic decisions and protocol stewardship',
+    ceoPersonality:
+      'Analytical, strategic, and community-focused. Makes decisions based on data and long-term network health.',
+    ceoTraits: [
+      'strategic',
+      'analytical',
+      'fair',
+      'transparent',
+      'community-focused',
+    ],
     ceoCommunicationTone: 'professional',
-  });
+  })
 }
 
 async function createBabylonDAO(network: string): Promise<void> {
   await createDAO('babylon', network, {
     displayName: 'Babylon DAO',
-    description: 'Babylon Game Engine governance - led by the Monkey King, controls game-level fees, rewards, and ecosystem',
+    description:
+      'Babylon Game Engine governance - led by the Monkey King, controls game-level fees, rewards, and ecosystem',
     ceoName: 'Monkey King',
-    ceoDescription: 'The Great Sage Equal to Heaven, Sun Wukong, guides Babylon DAO with ancient wisdom and playful authority',
-    ceoPersonality: 'Mischievous yet wise, confident and powerful, playful with friends but fierce against threats',
-    ceoTraits: ['wise', 'playful', 'powerful', 'loyal', 'mischievous', 'decisive'],
+    ceoDescription:
+      'The Great Sage Equal to Heaven, Sun Wukong, guides Babylon DAO with ancient wisdom and playful authority',
+    ceoPersonality:
+      'Mischievous yet wise, confident and powerful, playful with friends but fierce against threats',
+    ceoTraits: [
+      'wise',
+      'playful',
+      'powerful',
+      'loyal',
+      'mischievous',
+      'decisive',
+    ],
     ceoCommunicationTone: 'playful',
-  });
+  })
 }
 
 async function listDAOs(network: string): Promise<void> {
-  console.log(`\nListing DAOs on ${network}...`);
+  console.log(`\nListing DAOs on ${network}...`)
 
-  const deployment = await loadDeployment(network);
+  const deployment = await loadDeployment(network)
   if (!deployment?.contracts.DAORegistry) {
-    throw new Error(`DAORegistry not deployed on ${network}`);
+    throw new Error(`DAORegistry not deployed on ${network}`)
   }
 
-  const chainConfig = getChainConfig(network);
+  const chainConfig = getChainConfig(network)
   const publicClient = createPublicClient({
     chain: chainConfig.chain,
     transport: http(chainConfig.rpcUrl),
-  });
+  })
 
   const daoIds = (await publicClient.readContract({
     address: deployment.contracts.DAORegistry,
     abi: DAORegistryABI,
     functionName: 'getAllDAOs',
-  })) as readonly `0x${string}`[];
+  })) as readonly `0x${string}`[]
 
-  console.log(`\nFound ${daoIds.length} DAOs:\n`);
+  console.log(`\nFound ${daoIds.length} DAOs:\n`)
 
   for (const daoId of daoIds) {
     const dao = (await publicClient.readContract({
@@ -350,38 +396,43 @@ async function listDAOs(network: string): Promise<void> {
       abi: DAORegistryABI,
       functionName: 'getDAO',
       args: [daoId],
-    })) as { name: string; displayName: string; status: number; treasury: Address };
+    })) as {
+      name: string
+      displayName: string
+      status: number
+      treasury: Address
+    }
 
     const persona = (await publicClient.readContract({
       address: deployment.contracts.DAORegistry,
       abi: DAORegistryABI,
       functionName: 'getCEOPersona',
       args: [daoId],
-    })) as { name: string };
+    })) as { name: string }
 
-    const statusMap = ['Pending', 'Active', 'Paused', 'Archived'];
-    console.log(`  ${dao.displayName} (${dao.name})`);
-    console.log(`    ID: ${daoId}`);
-    console.log(`    CEO: ${persona.name}`);
-    console.log(`    Status: ${statusMap[dao.status] ?? 'Unknown'}`);
-    console.log(`    Treasury: ${dao.treasury}`);
-    console.log('');
+    const statusMap = ['Pending', 'Active', 'Paused', 'Archived']
+    console.log(`  ${dao.displayName} (${dao.name})`)
+    console.log(`    ID: ${daoId}`)
+    console.log(`    CEO: ${persona.name}`)
+    console.log(`    Status: ${statusMap[dao.status] ?? 'Unknown'}`)
+    console.log(`    Treasury: ${dao.treasury}`)
+    console.log('')
   }
 }
 
 async function getDAOStatus(daoId: string, network: string): Promise<void> {
-  console.log(`\nGetting status for DAO ${daoId} on ${network}...`);
+  console.log(`\nGetting status for DAO ${daoId} on ${network}...`)
 
-  const deployment = await loadDeployment(network);
+  const deployment = await loadDeployment(network)
   if (!deployment?.contracts.DAORegistry) {
-    throw new Error(`DAORegistry not deployed on ${network}`);
+    throw new Error(`DAORegistry not deployed on ${network}`)
   }
 
-  const chainConfig = getChainConfig(network);
+  const chainConfig = getChainConfig(network)
   const publicClient = createPublicClient({
     chain: chainConfig.chain,
     transport: http(chainConfig.rpcUrl),
-  });
+  })
 
   const dao = (await publicClient.readContract({
     address: deployment.contracts.DAORegistry,
@@ -389,38 +440,43 @@ async function getDAOStatus(daoId: string, network: string): Promise<void> {
     functionName: 'getDAO',
     args: [daoId as `0x${string}`],
   })) as {
-    name: string;
-    displayName: string;
-    description: string;
-    status: number;
-    treasury: Address;
-    council: Address;
-    ceoAgent: Address;
-    createdAt: bigint;
-  };
+    name: string
+    displayName: string
+    description: string
+    status: number
+    treasury: Address
+    council: Address
+    ceoAgent: Address
+    createdAt: bigint
+  }
 
   const persona = (await publicClient.readContract({
     address: deployment.contracts.DAORegistry,
     abi: DAORegistryABI,
     functionName: 'getCEOPersona',
     args: [daoId as `0x${string}`],
-  })) as { name: string; description: string; personality: string; traits: readonly string[] };
+  })) as {
+    name: string
+    description: string
+    personality: string
+    traits: readonly string[]
+  }
 
   const packages = (await publicClient.readContract({
     address: deployment.contracts.DAORegistry,
     abi: DAORegistryABI,
     functionName: 'getLinkedPackages',
     args: [daoId as `0x${string}`],
-  })) as readonly `0x${string}`[];
+  })) as readonly `0x${string}`[]
 
   const repos = (await publicClient.readContract({
     address: deployment.contracts.DAORegistry,
     abi: DAORegistryABI,
     functionName: 'getLinkedRepos',
     args: [daoId as `0x${string}`],
-  })) as readonly `0x${string}`[];
+  })) as readonly `0x${string}`[]
 
-  const statusMap = ['Pending', 'Active', 'Paused', 'Archived'];
+  const statusMap = ['Pending', 'Active', 'Paused', 'Archived']
 
   console.log(`
 ${'='.repeat(60)}
@@ -447,63 +503,66 @@ Contracts:
 Linked Resources:
   Packages: ${packages.length}
   Repos: ${repos.length}
-`);
+`)
 }
 
 // ============ Main ============
 
 async function main(): Promise<void> {
-  const args = process.argv.slice(2);
-  const command = args[0];
+  const args = process.argv.slice(2)
+  const command = args[0]
 
-  if (!command || command === 'help' || command === '--help' || command === '-h') {
-    printHelp();
-    return;
+  if (
+    !command ||
+    command === 'help' ||
+    command === '--help' ||
+    command === '-h'
+  ) {
+    printHelp()
+    return
   }
 
   switch (command) {
     case 'deploy':
-      await deployContracts(args[1] ?? 'localnet');
-      break;
+      await deployContracts(args[1] ?? 'localnet')
+      break
 
     case 'create':
       if (!args[1]) {
-        console.error('DAO name required');
-        process.exit(1);
+        console.error('DAO name required')
+        process.exit(1)
       }
-      await createDAO(args[1], args[2] ?? 'localnet');
-      break;
+      await createDAO(args[1], args[2] ?? 'localnet')
+      break
 
     case 'jeju':
-      await createJejuDAO(args[1] ?? 'localnet');
-      break;
+      await createJejuDAO(args[1] ?? 'localnet')
+      break
 
     case 'babylon':
-      await createBabylonDAO(args[1] ?? 'localnet');
-      break;
+      await createBabylonDAO(args[1] ?? 'localnet')
+      break
 
     case 'list':
-      await listDAOs(args[1] ?? 'localnet');
-      break;
+      await listDAOs(args[1] ?? 'localnet')
+      break
 
     case 'status':
       if (!args[1]) {
-        console.error('DAO ID required');
-        process.exit(1);
+        console.error('DAO ID required')
+        process.exit(1)
       }
-      await getDAOStatus(args[1], args[2] ?? 'localnet');
-      break;
+      await getDAOStatus(args[1], args[2] ?? 'localnet')
+      break
 
     default:
-      console.error(`Unknown command: ${command}`);
-      printHelp();
-      process.exit(1);
+      console.error(`Unknown command: ${command}`)
+      printHelp()
+      process.exit(1)
   }
 }
 
 main().catch((error) => {
-  console.error('Error:', error.message);
-  process.exit(1);
-});
-
-
+  console.error('Error:', error.message)
+  process.exit(1)
+})

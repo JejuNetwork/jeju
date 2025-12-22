@@ -5,116 +5,128 @@
  */
 
 import {
+  type Address,
   createPublicClient,
   createWalletClient,
-  http,
-  type Address,
   type Hex,
-} from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import { foundry, baseSepolia, base } from 'viem/chains';
+  http,
+} from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { base, baseSepolia, foundry } from 'viem/chains'
 
 // Contract compilation - we'll use forge for this
-async function compileContract(): Promise<{ abi: readonly object[]; bytecode: Hex }> {
+async function compileContract(): Promise<{
+  abi: readonly object[]
+  bytecode: Hex
+}> {
   const proc = Bun.spawn(['forge', 'build', '--root', 'packages/contracts'], {
     stdout: 'pipe',
     stderr: 'pipe',
     cwd: process.cwd(),
-  });
+  })
 
-  await proc.exited;
+  await proc.exited
 
   // Read compiled artifact
-  const artifactPath = 'packages/contracts/out/PackageRegistry.sol/PackageRegistry.json';
-  const artifact = await Bun.file(artifactPath).json();
+  const artifactPath =
+    'packages/contracts/out/PackageRegistry.sol/PackageRegistry.json'
+  const artifact = await Bun.file(artifactPath).json()
 
   return {
     abi: artifact.abi,
     bytecode: artifact.bytecode.object as Hex,
-  };
+  }
 }
 
 interface DeployConfig {
-  network: 'localnet' | 'testnet' | 'mainnet';
-  rpcUrl: string;
-  privateKey: Hex;
-  identityRegistryAddress?: Address;
+  network: 'localnet' | 'testnet' | 'mainnet'
+  rpcUrl: string
+  privateKey: Hex
+  identityRegistryAddress?: Address
 }
 
 async function deployPackageRegistry(config: DeployConfig): Promise<Address> {
-  console.log(`[Deploy] Deploying PackageRegistry to ${config.network}...`);
+  console.log(`[Deploy] Deploying PackageRegistry to ${config.network}...`)
 
   const chain =
     config.network === 'localnet'
       ? { ...foundry, rpcUrls: { default: { http: [config.rpcUrl] } } }
       : config.network === 'testnet'
         ? baseSepolia
-        : base;
+        : base
 
-  const account = privateKeyToAccount(config.privateKey);
+  const account = privateKeyToAccount(config.privateKey)
 
   const publicClient = createPublicClient({
     chain,
     transport: http(config.rpcUrl),
-  });
+  })
 
   const walletClient = createWalletClient({
     account,
     chain,
     transport: http(config.rpcUrl),
-  });
+  })
 
-  console.log(`[Deploy] Deployer address: ${account.address}`);
+  console.log(`[Deploy] Deployer address: ${account.address}`)
 
   // Check balance
-  const balance = await publicClient.getBalance({ address: account.address });
-  console.log(`[Deploy] Deployer balance: ${balance / 10n ** 18n} ETH`);
+  const balance = await publicClient.getBalance({ address: account.address })
+  console.log(`[Deploy] Deployer balance: ${balance / 10n ** 18n} ETH`)
 
   if (balance < 10n ** 16n) {
-    throw new Error('Insufficient balance for deployment (need at least 0.01 ETH)');
+    throw new Error(
+      'Insufficient balance for deployment (need at least 0.01 ETH)',
+    )
   }
 
   // Compile contract
-  console.log('[Deploy] Compiling contracts...');
-  const { abi, bytecode } = await compileContract();
+  console.log('[Deploy] Compiling contracts...')
+  const { abi, bytecode } = await compileContract()
 
   // Deploy
-  console.log('[Deploy] Deploying PackageRegistry...');
+  console.log('[Deploy] Deploying PackageRegistry...')
 
-  const identityRegistry = config.identityRegistryAddress || '0x0000000000000000000000000000000000000000';
+  const identityRegistry =
+    config.identityRegistryAddress ||
+    '0x0000000000000000000000000000000000000000'
 
   const hash = await walletClient.deployContract({
     abi,
     bytecode,
     args: [account.address, identityRegistry],
-  });
+  })
 
-  console.log(`[Deploy] Transaction hash: ${hash}`);
+  console.log(`[Deploy] Transaction hash: ${hash}`)
 
-  const receipt = await publicClient.waitForTransactionReceipt({ hash });
+  const receipt = await publicClient.waitForTransactionReceipt({ hash })
 
   if (!receipt.contractAddress) {
-    throw new Error('Contract deployment failed - no contract address in receipt');
+    throw new Error(
+      'Contract deployment failed - no contract address in receipt',
+    )
   }
 
-  console.log(`[Deploy] PackageRegistry deployed at: ${receipt.contractAddress}`);
-  console.log(`[Deploy] Gas used: ${receipt.gasUsed}`);
+  console.log(
+    `[Deploy] PackageRegistry deployed at: ${receipt.contractAddress}`,
+  )
+  console.log(`[Deploy] Gas used: ${receipt.gasUsed}`)
 
   // Verify the deployment
-  const code = await publicClient.getCode({ address: receipt.contractAddress });
+  const code = await publicClient.getCode({ address: receipt.contractAddress })
   if (!code || code === '0x') {
-    throw new Error('Contract deployment failed - no code at address');
+    throw new Error('Contract deployment failed - no code at address')
   }
 
-  console.log('[Deploy] Contract verified.');
+  console.log('[Deploy] Contract verified.')
 
-  return receipt.contractAddress;
+  return receipt.contractAddress
 }
 
 async function main() {
-  const network = (process.argv[2] || 'localnet') as DeployConfig['network'];
+  const network = (process.argv[2] || 'localnet') as DeployConfig['network']
 
-  let config: DeployConfig;
+  let config: DeployConfig
 
   switch (network) {
     case 'localnet':
@@ -123,39 +135,42 @@ async function main() {
         rpcUrl: process.env.RPC_URL || 'http://localhost:9545',
         privateKey: (process.env.DEPLOYER_PRIVATE_KEY ||
           '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80') as Hex,
-        identityRegistryAddress: process.env.IDENTITY_REGISTRY_ADDRESS as Address,
-      };
-      break;
+        identityRegistryAddress: process.env
+          .IDENTITY_REGISTRY_ADDRESS as Address,
+      }
+      break
 
     case 'testnet':
       if (!process.env.DEPLOYER_PRIVATE_KEY) {
-        throw new Error('DEPLOYER_PRIVATE_KEY required for testnet deployment');
+        throw new Error('DEPLOYER_PRIVATE_KEY required for testnet deployment')
       }
       config = {
         network: 'testnet',
         rpcUrl: process.env.TESTNET_RPC_URL || 'https://sepolia.base.org',
         privateKey: process.env.DEPLOYER_PRIVATE_KEY as Hex,
-        identityRegistryAddress: process.env.IDENTITY_REGISTRY_ADDRESS as Address,
-      };
-      break;
+        identityRegistryAddress: process.env
+          .IDENTITY_REGISTRY_ADDRESS as Address,
+      }
+      break
 
     case 'mainnet':
       if (!process.env.DEPLOYER_PRIVATE_KEY) {
-        throw new Error('DEPLOYER_PRIVATE_KEY required for mainnet deployment');
+        throw new Error('DEPLOYER_PRIVATE_KEY required for mainnet deployment')
       }
       config = {
         network: 'mainnet',
         rpcUrl: process.env.MAINNET_RPC_URL || 'https://mainnet.base.org',
         privateKey: process.env.DEPLOYER_PRIVATE_KEY as Hex,
-        identityRegistryAddress: process.env.IDENTITY_REGISTRY_ADDRESS as Address,
-      };
-      break;
+        identityRegistryAddress: process.env
+          .IDENTITY_REGISTRY_ADDRESS as Address,
+      }
+      break
 
     default:
-      throw new Error(`Unknown network: ${network}`);
+      throw new Error(`Unknown network: ${network}`)
   }
 
-  const contractAddress = await deployPackageRegistry(config);
+  const contractAddress = await deployPackageRegistry(config)
 
   // Save deployment info
   const deployment = {
@@ -163,19 +178,18 @@ async function main() {
     contractAddress,
     deployedAt: new Date().toISOString(),
     deployer: privateKeyToAccount(config.privateKey).address,
-  };
+  }
 
-  const deploymentPath = `apps/dws/deployment-npm-${network}.json`;
-  await Bun.write(deploymentPath, JSON.stringify(deployment, null, 2));
-  console.log(`[Deploy] Deployment info saved to ${deploymentPath}`);
+  const deploymentPath = `apps/dws/deployment-npm-${network}.json`
+  await Bun.write(deploymentPath, JSON.stringify(deployment, null, 2))
+  console.log(`[Deploy] Deployment info saved to ${deploymentPath}`)
 
   // Update .env suggestion
-  console.log('\n[Deploy] To use this deployment, set:');
-  console.log(`PACKAGE_REGISTRY_ADDRESS=${contractAddress}`);
+  console.log('\n[Deploy] To use this deployment, set:')
+  console.log(`PACKAGE_REGISTRY_ADDRESS=${contractAddress}`)
 }
 
 main().catch((err) => {
-  console.error('[Deploy] Error:', err);
-  process.exit(1);
-});
-
+  console.error('[Deploy] Error:', err)
+  process.exit(1)
+})

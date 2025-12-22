@@ -3,169 +3,190 @@
  * @module gateway/tests/contracts/liquidity-vault
  */
 
-import { expect, test, describe, beforeAll } from 'bun:test';
-import { getPublicClient, getContractAddresses, TEST_WALLET } from '../fixtures/contracts';
+import { beforeAll, describe, expect, test } from 'bun:test'
+import {
+  getContractAddresses,
+  getPublicClient,
+  TEST_WALLET,
+} from '../fixtures/contracts'
 
 describe('LiquidityVault Contract', () => {
-  const publicClient = getPublicClient();
-  let addresses: Awaited<ReturnType<typeof getContractAddresses>>;
-  let hasPaymasterFactory = false;
+  const publicClient = getPublicClient()
+  let addresses: Awaited<ReturnType<typeof getContractAddresses>>
+  let hasPaymasterFactory = false
 
   beforeAll(async () => {
-    addresses = await getContractAddresses();
-    hasPaymasterFactory = !!addresses.paymasterFactory && addresses.paymasterFactory !== '0x';
-  });
-  
+    addresses = await getContractAddresses()
+    hasPaymasterFactory =
+      !!addresses.paymasterFactory && addresses.paymasterFactory !== '0x'
+  })
+
   test('should read LP position for any address', async () => {
     if (!hasPaymasterFactory) {
-      console.log('⚠️ PaymasterFactory not deployed, skipping test');
-      return;
+      console.log('⚠️ PaymasterFactory not deployed, skipping test')
+      return
     }
 
-    const deployments = await publicClient.readContract({
+    const deployments = (await publicClient.readContract({
       address: addresses.paymasterFactory,
-      abi: [{
-        type: 'function',
-        name: 'getAllDeployments',
-        inputs: [],
-        outputs: [{ name: 'tokens', type: 'address[]' }],
-        stateMutability: 'view',
-      }],
-      functionName: 'getAllDeployments',
-    }) as `0x${string}`[];
-    
-    if (deployments.length > 0) {
-      const deployment = await publicClient.readContract({
-        address: addresses.paymasterFactory,
-        abi: [{
+      abi: [
+        {
           type: 'function',
-          name: 'getDeployment',
-          inputs: [{ name: 'token', type: 'address' }],
-          outputs: [{
-            name: 'deployment',
-            type: 'tuple',
-            components: [
-              { name: 'vault', type: 'address' },
-            ]
-          }],
+          name: 'getAllDeployments',
+          inputs: [],
+          outputs: [{ name: 'tokens', type: 'address[]' }],
           stateMutability: 'view',
-        }],
+        },
+      ],
+      functionName: 'getAllDeployments',
+    })) as `0x${string}`[]
+
+    if (deployments.length > 0) {
+      const deployment = (await publicClient.readContract({
+        address: addresses.paymasterFactory,
+        abi: [
+          {
+            type: 'function',
+            name: 'getDeployment',
+            inputs: [{ name: 'token', type: 'address' }],
+            outputs: [
+              {
+                name: 'deployment',
+                type: 'tuple',
+                components: [{ name: 'vault', type: 'address' }],
+              },
+            ],
+            stateMutability: 'view',
+          },
+        ],
         functionName: 'getDeployment',
         args: [deployments[0]],
-      }) as { vault: `0x${string}` };
-      
+      })) as { vault: `0x${string}` }
+
       const position = await publicClient.readContract({
         address: deployment.vault,
-        abi: [{
-          type: 'function',
-          name: 'getLPPosition',
-          inputs: [{ name: 'account', type: 'address' }],
-          outputs: [
-            { name: 'ethShareBalance', type: 'uint256' },
-            { name: 'ethValue', type: 'uint256' },
-            { name: 'tokenShareBalance', type: 'uint256' },
-            { name: 'tokenValue', type: 'uint256' },
-            { name: 'pendingFeeAmount', type: 'uint256' }
-          ],
-          stateMutability: 'view',
-        }],
+        abi: [
+          {
+            type: 'function',
+            name: 'getLPPosition',
+            inputs: [{ name: 'account', type: 'address' }],
+            outputs: [
+              { name: 'ethShareBalance', type: 'uint256' },
+              { name: 'ethValue', type: 'uint256' },
+              { name: 'tokenShareBalance', type: 'uint256' },
+              { name: 'tokenValue', type: 'uint256' },
+              { name: 'pendingFeeAmount', type: 'uint256' },
+            ],
+            stateMutability: 'view',
+          },
+        ],
         functionName: 'getLPPosition',
         args: [TEST_WALLET.address as `0x${string}`],
-      });
-      
-      expect(position).toBeDefined();
-      expect(Array.isArray(position)).toBe(true);
-      expect(position.length).toBe(5);
+      })
+
+      expect(position).toBeDefined()
+      expect(Array.isArray(position)).toBe(true)
+      expect(position.length).toBe(5)
     }
-  });
+  })
 
   test('should validate vault has correct token', async () => {
     if (!hasPaymasterFactory) {
-      console.log('⚠️ PaymasterFactory not deployed, skipping test');
-      return;
+      console.log('⚠️ PaymasterFactory not deployed, skipping test')
+      return
     }
-    
-    const deployments = await publicClient.readContract({
+
+    const deployments = (await publicClient.readContract({
       address: addresses.paymasterFactory,
-      abi: [{
-        type: 'function',
-        name: 'getAllDeployments',
-        inputs: [],
-        outputs: [{ name: 'tokens', type: 'address[]' }],
-        stateMutability: 'view',
-      }],
-      functionName: 'getAllDeployments',
-    }) as `0x${string}`[];
-    
-    if (deployments.length > 0) {
-      const deployment = await publicClient.readContract({
-        address: addresses.paymasterFactory,
-        abi: [{
+      abi: [
+        {
           type: 'function',
-          name: 'getDeployment',
-          inputs: [{ name: 'token', type: 'address' }],
-          outputs: [{
-            name: 'deployment',
-            type: 'tuple',
-            components: [
-              { name: 'token', type: 'address' },
-              { name: 'vault', type: 'address' },
-            ]
-          }],
+          name: 'getAllDeployments',
+          inputs: [],
+          outputs: [{ name: 'tokens', type: 'address[]' }],
           stateMutability: 'view',
-        }],
+        },
+      ],
+      functionName: 'getAllDeployments',
+    })) as `0x${string}`[]
+
+    if (deployments.length > 0) {
+      const deployment = (await publicClient.readContract({
+        address: addresses.paymasterFactory,
+        abi: [
+          {
+            type: 'function',
+            name: 'getDeployment',
+            inputs: [{ name: 'token', type: 'address' }],
+            outputs: [
+              {
+                name: 'deployment',
+                type: 'tuple',
+                components: [
+                  { name: 'token', type: 'address' },
+                  { name: 'vault', type: 'address' },
+                ],
+              },
+            ],
+            stateMutability: 'view',
+          },
+        ],
         functionName: 'getDeployment',
         args: [deployments[0]],
-      }) as { token: `0x${string}`; vault: `0x${string}` };
-      
-      expect(deployment.token.toLowerCase()).toBe(deployments[0].toLowerCase());
+      })) as { token: `0x${string}`; vault: `0x${string}` }
+
+      expect(deployment.token.toLowerCase()).toBe(deployments[0].toLowerCase())
     }
-  });
+  })
 
   test('should track total ETH liquidity in vault', async () => {
     if (!hasPaymasterFactory) {
-      console.log('⚠️ PaymasterFactory not deployed, skipping test');
-      return;
+      console.log('⚠️ PaymasterFactory not deployed, skipping test')
+      return
     }
-    
-    const deployments = await publicClient.readContract({
+
+    const deployments = (await publicClient.readContract({
       address: addresses.paymasterFactory,
-      abi: [{
-        type: 'function',
-        name: 'getAllDeployments',
-        inputs: [],
-        outputs: [{ name: 'tokens', type: 'address[]' }],
-        stateMutability: 'view',
-      }],
-      functionName: 'getAllDeployments',
-    }) as `0x${string}`[];
-    
-    if (deployments.length > 0) {
-      const deployment = await publicClient.readContract({
-        address: addresses.paymasterFactory,
-        abi: [{
+      abi: [
+        {
           type: 'function',
-          name: 'getDeployment',
-          inputs: [{ name: 'token', type: 'address' }],
-          outputs: [{
-            name: 'deployment',
-            type: 'tuple',
-            components: [{ name: 'vault', type: 'address' }]
-          }],
+          name: 'getAllDeployments',
+          inputs: [],
+          outputs: [{ name: 'tokens', type: 'address[]' }],
           stateMutability: 'view',
-        }],
+        },
+      ],
+      functionName: 'getAllDeployments',
+    })) as `0x${string}`[]
+
+    if (deployments.length > 0) {
+      const deployment = (await publicClient.readContract({
+        address: addresses.paymasterFactory,
+        abi: [
+          {
+            type: 'function',
+            name: 'getDeployment',
+            inputs: [{ name: 'token', type: 'address' }],
+            outputs: [
+              {
+                name: 'deployment',
+                type: 'tuple',
+                components: [{ name: 'vault', type: 'address' }],
+              },
+            ],
+            stateMutability: 'view',
+          },
+        ],
         functionName: 'getDeployment',
         args: [deployments[0]],
-      }) as { vault: `0x${string}` };
-      
+      })) as { vault: `0x${string}` }
+
       // Check vault's ETH balance
       const balance = await publicClient.getBalance({
         address: deployment.vault,
-      });
-      
-      expect(balance).toBeGreaterThanOrEqual(0n);
+      })
+
+      expect(balance).toBeGreaterThanOrEqual(0n)
     }
-  });
-});
-
-
+  })
+})

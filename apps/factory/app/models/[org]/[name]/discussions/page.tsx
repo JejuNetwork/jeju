@@ -1,52 +1,56 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { useParams } from 'next/navigation';
-import { useAccount } from 'wagmi';
+import { clsx } from 'clsx'
+import { formatDistanceToNow } from 'date-fns'
 import {
-  MessageSquare,
   ArrowLeft,
+  CheckCircle,
+  Clock,
+  Filter,
+  Loader2,
+  Lock,
+  MessageCircle,
+  MessageSquare,
+  Pin,
   Plus,
   Search,
-  Filter,
-  ThumbsUp,
-  MessageCircle,
-  Clock,
-  CheckCircle,
-  Loader2,
   Send,
-  Pin,
-  Lock,
-} from 'lucide-react';
-import Link from 'next/link';
-import { clsx } from 'clsx';
-import { formatDistanceToNow } from 'date-fns';
-// Remove unused import if possible, but ReactMarkdown is often used in JSX. 
+  ThumbsUp,
+} from 'lucide-react'
+import Link from 'next/link'
+import { useParams } from 'next/navigation'
+import { useState } from 'react'
+import { useAccount } from 'wagmi'
+
+// Remove unused import if possible, but ReactMarkdown is often used in JSX.
 // If unused, remove it. Assuming it's unused based on logs.
 // Checking logs: 'ReactMarkdown' is declared but its value is never read.
 // So I will remove it.
 
 interface Discussion {
-  id: string;
-  title: string;
-  author: { name: string; avatar: string };
-  createdAt: number;
-  lastReplyAt: number;
-  replyCount: number;
-  upvotes: number;
-  category: 'question' | 'announcement' | 'general' | 'bug' | 'feature';
-  isPinned: boolean;
-  isLocked: boolean;
-  isResolved: boolean;
-  preview: string;
-  tags: string[];
+  id: string
+  title: string
+  author: { name: string; avatar: string }
+  createdAt: number
+  lastReplyAt: number
+  replyCount: number
+  upvotes: number
+  category: 'question' | 'announcement' | 'general' | 'bug' | 'feature'
+  isPinned: boolean
+  isLocked: boolean
+  isResolved: boolean
+  preview: string
+  tags: string[]
 }
 
 const mockDiscussions: Discussion[] = [
   {
     id: '1',
     title: 'How to fine-tune this model for code review tasks?',
-    author: { name: 'dev.eth', avatar: 'https://avatars.githubusercontent.com/u/5?v=4' },
+    author: {
+      name: 'dev.eth',
+      avatar: 'https://avatars.githubusercontent.com/u/5?v=4',
+    },
     createdAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
     lastReplyAt: Date.now() - 2 * 60 * 60 * 1000,
     replyCount: 8,
@@ -55,13 +59,17 @@ const mockDiscussions: Discussion[] = [
     isPinned: false,
     isLocked: false,
     isResolved: true,
-    preview: 'I want to fine-tune this model specifically for reviewing Solidity code. What dataset and parameters would you recommend?',
+    preview:
+      'I want to fine-tune this model specifically for reviewing Solidity code. What dataset and parameters would you recommend?',
     tags: ['fine-tuning', 'solidity'],
   },
   {
     id: '2',
     title: 'v1.2.0 Release - Improved code generation quality',
-    author: { name: 'jeju.eth', avatar: 'https://avatars.githubusercontent.com/u/1?v=4' },
+    author: {
+      name: 'jeju.eth',
+      avatar: 'https://avatars.githubusercontent.com/u/1?v=4',
+    },
     createdAt: Date.now() - 3 * 24 * 60 * 60 * 1000,
     lastReplyAt: Date.now() - 1 * 24 * 60 * 60 * 1000,
     replyCount: 12,
@@ -70,13 +78,17 @@ const mockDiscussions: Discussion[] = [
     isPinned: true,
     isLocked: false,
     isResolved: false,
-    preview: 'We are excited to release v1.2.0 with significant improvements to code generation quality, especially for complex smart contracts.',
+    preview:
+      'We are excited to release v1.2.0 with significant improvements to code generation quality, especially for complex smart contracts.',
     tags: ['release', 'update'],
   },
   {
     id: '3',
     title: 'Model outputs incorrect gas estimates',
-    author: { name: 'auditor.eth', avatar: 'https://avatars.githubusercontent.com/u/3?v=4' },
+    author: {
+      name: 'auditor.eth',
+      avatar: 'https://avatars.githubusercontent.com/u/3?v=4',
+    },
     createdAt: Date.now() - 5 * 24 * 60 * 60 * 1000,
     lastReplyAt: Date.now() - 4 * 24 * 60 * 60 * 1000,
     replyCount: 4,
@@ -85,13 +97,17 @@ const mockDiscussions: Discussion[] = [
     isPinned: false,
     isLocked: false,
     isResolved: false,
-    preview: 'When asking the model to estimate gas for complex transactions, it often underestimates by 20-30%. This could cause issues.',
+    preview:
+      'When asking the model to estimate gas for complex transactions, it often underestimates by 20-30%. This could cause issues.',
     tags: ['bug', 'gas-estimation'],
   },
   {
     id: '4',
     title: 'Feature request: Support for Vyper code generation',
-    author: { name: 'vyper-fan.eth', avatar: 'https://avatars.githubusercontent.com/u/4?v=4' },
+    author: {
+      name: 'vyper-fan.eth',
+      avatar: 'https://avatars.githubusercontent.com/u/4?v=4',
+    },
     createdAt: Date.now() - 7 * 24 * 60 * 60 * 1000,
     lastReplyAt: Date.now() - 6 * 24 * 60 * 60 * 1000,
     replyCount: 6,
@@ -100,53 +116,82 @@ const mockDiscussions: Discussion[] = [
     isPinned: false,
     isLocked: false,
     isResolved: false,
-    preview: 'Would love to see Vyper code generation support. The model currently only handles Solidity well.',
+    preview:
+      'Would love to see Vyper code generation support. The model currently only handles Solidity well.',
     tags: ['feature-request', 'vyper'],
   },
-];
+]
 
-const categoryColors: Record<string, { bg: string; text: string; border: string }> = {
-  question: { bg: 'bg-blue-500/20', text: 'text-blue-400', border: 'border-blue-500/30' },
-  announcement: { bg: 'bg-purple-500/20', text: 'text-purple-400', border: 'border-purple-500/30' },
-  general: { bg: 'bg-gray-500/20', text: 'text-gray-400', border: 'border-gray-500/30' },
-  bug: { bg: 'bg-red-500/20', text: 'text-red-400', border: 'border-red-500/30' },
-  feature: { bg: 'bg-green-500/20', text: 'text-green-400', border: 'border-green-500/30' },
-};
+const categoryColors: Record<
+  string,
+  { bg: string; text: string; border: string }
+> = {
+  question: {
+    bg: 'bg-blue-500/20',
+    text: 'text-blue-400',
+    border: 'border-blue-500/30',
+  },
+  announcement: {
+    bg: 'bg-purple-500/20',
+    text: 'text-purple-400',
+    border: 'border-purple-500/30',
+  },
+  general: {
+    bg: 'bg-gray-500/20',
+    text: 'text-gray-400',
+    border: 'border-gray-500/30',
+  },
+  bug: {
+    bg: 'bg-red-500/20',
+    text: 'text-red-400',
+    border: 'border-red-500/30',
+  },
+  feature: {
+    bg: 'bg-green-500/20',
+    text: 'text-green-400',
+    border: 'border-green-500/30',
+  },
+}
 
 export default function ModelDiscussionsPage() {
-  const params = useParams();
-  const { isConnected } = useAccount();
-  const org = params.org as string;
-  const name = params.name as string;
+  const params = useParams()
+  const { isConnected } = useAccount()
+  const org = params.org as string
+  const name = params.name as string
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [showNewDiscussion, setShowNewDiscussion] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [newBody, setNewBody] = useState('');
-  const [newCategory, setNewCategory] = useState<Discussion['category']>('general');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [showNewDiscussion, setShowNewDiscussion] = useState(false)
+  const [newTitle, setNewTitle] = useState('')
+  const [newBody, setNewBody] = useState('')
+  const [newCategory, setNewCategory] =
+    useState<Discussion['category']>('general')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const filteredDiscussions = mockDiscussions
-    .filter(d => !searchQuery || d.title.toLowerCase().includes(searchQuery.toLowerCase()))
-    .filter(d => !selectedCategory || d.category === selectedCategory)
+    .filter(
+      (d) =>
+        !searchQuery ||
+        d.title.toLowerCase().includes(searchQuery.toLowerCase()),
+    )
+    .filter((d) => !selectedCategory || d.category === selectedCategory)
     .sort((a, b) => {
-      if (a.isPinned && !b.isPinned) return -1;
-      if (!a.isPinned && b.isPinned) return 1;
-      return b.lastReplyAt - a.lastReplyAt;
-    });
+      if (a.isPinned && !b.isPinned) return -1
+      if (!a.isPinned && b.isPinned) return 1
+      return b.lastReplyAt - a.lastReplyAt
+    })
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newTitle.trim() || !newBody.trim()) return;
+    e.preventDefault()
+    if (!newTitle.trim() || !newBody.trim()) return
 
-    setIsSubmitting(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setIsSubmitting(false);
-    setShowNewDiscussion(false);
-    setNewTitle('');
-    setNewBody('');
-  };
+    setIsSubmitting(true)
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+    setIsSubmitting(false)
+    setShowNewDiscussion(false)
+    setNewTitle('')
+    setNewBody('')
+  }
 
   return (
     <div className="min-h-screen p-8">
@@ -178,31 +223,41 @@ export default function ModelDiscussionsPage() {
         {/* New Discussion Form */}
         {showNewDiscussion && (
           <div className="card p-6 mb-6">
-            <h2 className="text-lg font-semibold text-factory-100 mb-4">Start a Discussion</h2>
+            <h2 className="text-lg font-semibold text-factory-100 mb-4">
+              Start a Discussion
+            </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-factory-300 mb-2">Category</label>
+                <label className="block text-sm font-medium text-factory-300 mb-2">
+                  Category
+                </label>
                 <div className="flex gap-2">
-                  {(['question', 'general', 'bug', 'feature'] as const).map(cat => (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => setNewCategory(cat)}
-                      className={clsx(
-                        'px-3 py-1 rounded-full text-sm capitalize',
-                        newCategory === cat
-                          ? categoryColors[cat].bg + ' ' + categoryColors[cat].text
-                          : 'bg-factory-800 text-factory-400 hover:text-factory-200'
-                      )}
-                    >
-                      {cat}
-                    </button>
-                  ))}
+                  {(['question', 'general', 'bug', 'feature'] as const).map(
+                    (cat) => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setNewCategory(cat)}
+                        className={clsx(
+                          'px-3 py-1 rounded-full text-sm capitalize',
+                          newCategory === cat
+                            ? categoryColors[cat].bg +
+                                ' ' +
+                                categoryColors[cat].text
+                            : 'bg-factory-800 text-factory-400 hover:text-factory-200',
+                        )}
+                      >
+                        {cat}
+                      </button>
+                    ),
+                  )}
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-factory-300 mb-2">Title</label>
+                <label className="block text-sm font-medium text-factory-300 mb-2">
+                  Title
+                </label>
                 <input
                   type="text"
                   value={newTitle}
@@ -214,7 +269,9 @@ export default function ModelDiscussionsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-factory-300 mb-2">Details</label>
+                <label className="block text-sm font-medium text-factory-300 mb-2">
+                  Details
+                </label>
                 <textarea
                   value={newBody}
                   onChange={(e) => setNewBody(e.target.value)}
@@ -235,10 +292,19 @@ export default function ModelDiscussionsPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={!newTitle.trim() || !newBody.trim() || isSubmitting || !isConnected}
+                  disabled={
+                    !newTitle.trim() ||
+                    !newBody.trim() ||
+                    isSubmitting ||
+                    !isConnected
+                  }
                   className="btn btn-primary"
                 >
-                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  {isSubmitting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
                   Post Discussion
                 </button>
               </div>
@@ -279,7 +345,7 @@ export default function ModelDiscussionsPage() {
 
         {/* Discussion List */}
         <div className="space-y-3">
-          {filteredDiscussions.map(discussion => (
+          {filteredDiscussions.map((discussion) => (
             <Link
               key={discussion.id}
               href={`/models/${org}/${name}/discussions/${discussion.id}`}
@@ -290,7 +356,9 @@ export default function ModelDiscussionsPage() {
                   <button className="p-1 hover:bg-factory-800 rounded">
                     <ThumbsUp className="w-4 h-4 text-factory-400" />
                   </button>
-                  <span className="text-factory-200 font-medium">{discussion.upvotes}</span>
+                  <span className="text-factory-200 font-medium">
+                    {discussion.upvotes}
+                  </span>
                 </div>
 
                 <div className="flex-1 min-w-0">
@@ -301,12 +369,14 @@ export default function ModelDiscussionsPage() {
                     {discussion.isLocked && (
                       <Lock className="w-4 h-4 text-factory-500" />
                     )}
-                    <span className={clsx(
-                      'badge text-xs capitalize',
-                      categoryColors[discussion.category].bg,
-                      categoryColors[discussion.category].text,
-                      categoryColors[discussion.category].border
-                    )}>
+                    <span
+                      className={clsx(
+                        'badge text-xs capitalize',
+                        categoryColors[discussion.category].bg,
+                        categoryColors[discussion.category].text,
+                        categoryColors[discussion.category].border,
+                      )}
+                    >
                       {discussion.category}
                     </span>
                     {discussion.isResolved && (
@@ -327,19 +397,28 @@ export default function ModelDiscussionsPage() {
 
                   <div className="flex items-center gap-4 text-xs text-factory-500">
                     <span className="flex items-center gap-1">
-                      <img src={discussion.author.avatar} alt="" className="w-4 h-4 rounded-full" />
+                      <img
+                        src={discussion.author.avatar}
+                        alt=""
+                        className="w-4 h-4 rounded-full"
+                      />
                       {discussion.author.name}
                     </span>
                     <span className="flex items-center gap-1">
                       <Clock className="w-3 h-3" />
-                      {formatDistanceToNow(discussion.createdAt, { addSuffix: true })}
+                      {formatDistanceToNow(discussion.createdAt, {
+                        addSuffix: true,
+                      })}
                     </span>
                     <span className="flex items-center gap-1">
                       <MessageCircle className="w-3 h-3" />
                       {discussion.replyCount} replies
                     </span>
-                    {discussion.tags.map(tag => (
-                      <span key={tag} className="badge bg-factory-800 text-factory-400 text-xs">
+                    {discussion.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="badge bg-factory-800 text-factory-400 text-xs"
+                      >
                         {tag}
                       </span>
                     ))}
@@ -364,7 +443,5 @@ export default function ModelDiscussionsPage() {
         </div>
       </div>
     </div>
-  );
+  )
 }
-
-

@@ -1,11 +1,11 @@
 /**
  * Game Items Integration Tests
- * 
+ *
  * Tests for Items.sol (ERC-1155) integration in Bazaar
  * These tests work with any game that uses network's canonical Items.sol contract
  */
 
-import { describe, test, expect } from 'bun:test'
+import { describe, expect, test } from 'bun:test'
 import { getRarityInfo } from '@/lib/games'
 
 describe('Game Items', () => {
@@ -49,8 +49,10 @@ describe('Game Items', () => {
   describe('Items.sol ABI (from @jejunetwork/contracts)', () => {
     test('should have required functions', async () => {
       const { ItemsAbi } = await import('@jejunetwork/contracts')
-      
-      const functionNames = (ItemsAbi as readonly {type: string, name?: string}[])
+
+      const functionNames = (
+        ItemsAbi as readonly { type: string; name?: string }[]
+      )
         .filter((item) => item.type === 'function')
         .map((item) => item.name)
 
@@ -59,7 +61,7 @@ describe('Game Items', () => {
       expect(functionNames).toContain('balanceOfBatch')
       expect(functionNames).toContain('setApprovalForAll')
       expect(functionNames).toContain('safeTransferFrom')
-      
+
       // Items.sol specific functions
       expect(functionNames).toContain('getItemMetadata')
       expect(functionNames).toContain('getMintedMetadata')
@@ -72,8 +74,10 @@ describe('Game Items', () => {
 
     test('should have required events', async () => {
       const { ItemsAbi } = await import('@jejunetwork/contracts')
-      
-      const eventNames = (ItemsAbi as readonly {type: string, name?: string}[])
+
+      const eventNames = (
+        ItemsAbi as readonly { type: string; name?: string }[]
+      )
         .filter((item) => item.type === 'event')
         .map((item) => item.name)
 
@@ -86,14 +90,19 @@ describe('Game Items', () => {
 
     test('mintItem should have correct signature', async () => {
       const { ItemsAbi } = await import('@jejunetwork/contracts')
-      
-      const mintItem = (ItemsAbi as readonly {type: string, name?: string, inputs?: {name: string, type: string}[]}[])
-        .find((item) => item.name === 'mintItem')
-      
+
+      const mintItem = (
+        ItemsAbi as readonly {
+          type: string
+          name?: string
+          inputs?: { name: string; type: string }[]
+        }[]
+      ).find((item) => item.name === 'mintItem')
+
       expect(mintItem).toBeDefined()
       expect(mintItem!.inputs).toBeDefined()
-      
-      const inputNames = mintItem!.inputs!.map(i => i.name)
+
+      const inputNames = mintItem!.inputs!.map((i) => i.name)
       expect(inputNames).toContain('itemId')
       expect(inputNames).toContain('amount')
       expect(inputNames).toContain('instanceId')
@@ -102,15 +111,22 @@ describe('Game Items', () => {
 
     test('getItemMetadata should return proper struct', async () => {
       const { ItemsAbi } = await import('@jejunetwork/contracts')
-      
-      const getItemMetadata = (ItemsAbi as readonly {type: string, name?: string, outputs?: {type: string, components?: {name: string}[]}[]}[])
-        .find((item) => item.name === 'getItemMetadata')
-      
+
+      const getItemMetadata = (
+        ItemsAbi as readonly {
+          type: string
+          name?: string
+          outputs?: { type: string; components?: { name: string }[] }[]
+        }[]
+      ).find((item) => item.name === 'getItemMetadata')
+
       expect(getItemMetadata).toBeDefined()
       expect(getItemMetadata!.outputs).toBeDefined()
       expect(getItemMetadata!.outputs![0].type).toBe('tuple')
-      
-      const componentNames = getItemMetadata!.outputs![0].components!.map(c => c.name)
+
+      const componentNames = getItemMetadata!.outputs![0].components!.map(
+        (c) => c.name,
+      )
       expect(componentNames).toContain('itemId')
       expect(componentNames).toContain('name')
       expect(componentNames).toContain('stackable')
@@ -124,8 +140,10 @@ describe('Game Items', () => {
   describe('Gold.sol ABI (from @jejunetwork/contracts)', () => {
     test('should have required functions', async () => {
       const { GoldAbi } = await import('@jejunetwork/contracts')
-      
-      const functionNames = (GoldAbi as readonly {type: string, name?: string}[])
+
+      const functionNames = (
+        GoldAbi as readonly { type: string; name?: string }[]
+      )
         .filter((item) => item.type === 'function')
         .map((item) => item.name)
 
@@ -135,7 +153,7 @@ describe('Game Items', () => {
       expect(functionNames).toContain('approve')
       expect(functionNames).toContain('transferFrom')
       expect(functionNames).toContain('totalSupply')
-      
+
       // Gold.sol specific functions
       expect(functionNames).toContain('claimGold')
       expect(functionNames).toContain('burn')
@@ -146,8 +164,8 @@ describe('Game Items', () => {
 
     test('should have required events', async () => {
       const { GoldAbi } = await import('@jejunetwork/contracts')
-      
-      const eventNames = (GoldAbi as readonly {type: string, name?: string}[])
+
+      const eventNames = (GoldAbi as readonly { type: string; name?: string }[])
         .filter((item) => item.type === 'event')
         .map((item) => item.name)
 
@@ -159,14 +177,19 @@ describe('Game Items', () => {
 
     test('claimGold should have correct signature', async () => {
       const { GoldAbi } = await import('@jejunetwork/contracts')
-      
-      const claimGold = (GoldAbi as readonly {type: string, name?: string, inputs?: {name: string, type: string}[]}[])
-        .find((item) => item.name === 'claimGold')
-      
+
+      const claimGold = (
+        GoldAbi as readonly {
+          type: string
+          name?: string
+          inputs?: { name: string; type: string }[]
+        }[]
+      ).find((item) => item.name === 'claimGold')
+
       expect(claimGold).toBeDefined()
       expect(claimGold!.inputs).toBeDefined()
-      
-      const inputNames = claimGold!.inputs!.map(i => i.name)
+
+      const inputNames = claimGold!.inputs!.map((i) => i.name)
       expect(inputNames).toContain('amount')
       expect(inputNames).toContain('nonce')
       expect(inputNames).toContain('signature')
@@ -176,7 +199,7 @@ describe('Game Items', () => {
   describe('NFT Marketplace Integration', () => {
     test('NFTMarketplace ABI should have listing functions', async () => {
       const abi = await import('@/lib/abis/NFTMarketplace.json')
-      
+
       const functionNames = abi.default
         .filter((item: { type: string }) => item.type === 'function')
         .map((item: { name: string }) => item.name)
@@ -186,13 +209,13 @@ describe('Game Items', () => {
       expect(functionNames).toContain('cancelListing')
       expect(functionNames).toContain('buyListing')
       expect(functionNames).toContain('getListing')
-      
+
       // Auction functions
       expect(functionNames).toContain('createAuction')
       expect(functionNames).toContain('placeBid')
       expect(functionNames).toContain('settleAuction')
       expect(functionNames).toContain('getAuction')
-      
+
       // Offer functions
       expect(functionNames).toContain('makeOffer')
       expect(functionNames).toContain('acceptOffer')
@@ -202,7 +225,7 @@ describe('Game Items', () => {
   describe('ERC20 Factory Integration', () => {
     test('SimpleERC20Factory ABI should have token creation', async () => {
       const abi = await import('@/lib/abis/SimpleERC20Factory.json')
-      
+
       const functionNames = abi.default
         .filter((item: { type: string }) => item.type === 'function')
         .map((item: { name: string }) => item.name)
@@ -215,16 +238,16 @@ describe('Game Items', () => {
 
     test('createToken should have correct parameters', async () => {
       const abi = await import('@/lib/abis/SimpleERC20Factory.json')
-      
+
       const createToken = abi.default.find(
-        (item: { name?: string }) => item.name === 'createToken'
+        (item: { name?: string }) => item.name === 'createToken',
       ) as { name: string; inputs: { name: string }[] } | undefined
-      
+
       expect(createToken).toBeDefined()
       if (!createToken) throw new Error('createToken not found')
-      
+
       expect(createToken.inputs).toHaveLength(4)
-      
+
       const inputNames = createToken.inputs.map((i: { name: string }) => i.name)
       expect(inputNames).toContain('name')
       expect(inputNames).toContain('symbol')
@@ -233,4 +256,3 @@ describe('Game Items', () => {
     })
   })
 })
-

@@ -1,32 +1,32 @@
 /**
  * Type Definition Tests
- * 
+ *
  * Tests to ensure type definitions are correct and comprehensive.
  */
 
-import { describe, it, expect } from 'bun:test';
+import { describe, expect, it } from 'bun:test'
 import type {
   AgentDefinition,
-  AgentState,
-  MemoryEntry,
-  Room,
-  RoomMember,
-  RoomType,
   AgentRole,
-  RoomPhase,
-  Team,
-  TeamType,
+  AgentSearchFilter,
+  AgentState,
+  AgentTrigger,
+  AgentVault,
+  CrucibleConfig,
   ExecutionRequest,
   ExecutionResult,
   ExecutionStatus,
-  AgentTrigger,
-  TriggerType,
-  AgentVault,
-  VaultTransaction,
-  AgentSearchFilter,
+  MemoryEntry,
+  Room,
+  RoomMember,
+  RoomPhase,
+  RoomType,
   SearchResult,
-  CrucibleConfig,
-} from '../types';
+  Team,
+  TeamType,
+  TriggerType,
+  VaultTransaction,
+} from '../types'
 
 describe('Type Definitions', () => {
   describe('Agent Types', () => {
@@ -42,11 +42,11 @@ describe('Type Definitions', () => {
         registeredAt: Date.now(),
         lastExecutedAt: Date.now(),
         executionCount: 10,
-      };
+      }
 
-      expect(agent.agentId).toBe(1n);
-      expect(agent.active).toBe(true);
-    });
+      expect(agent.agentId).toBe(1n)
+      expect(agent.active).toBe(true)
+    })
 
     it('should create valid AgentState', () => {
       const state: AgentState = {
@@ -56,11 +56,11 @@ describe('Type Definitions', () => {
         rooms: ['room-1', 'room-2'],
         context: { lastTopic: 'testing' },
         updatedAt: Date.now(),
-      };
+      }
 
-      expect(state.version).toBe(5);
-      expect(state.rooms.length).toBe(2);
-    });
+      expect(state.version).toBe(5)
+      expect(state.rooms.length).toBe(2)
+    })
 
     it('should create valid MemoryEntry', () => {
       const memory: MemoryEntry = {
@@ -71,28 +71,45 @@ describe('Type Definitions', () => {
         createdAt: Date.now(),
         roomId: 'room-1',
         userId: 'user-123',
-      };
+      }
 
-      expect(memory.importance).toBe(0.8);
-      expect(memory.embedding?.length).toBe(3);
-    });
-  });
+      expect(memory.importance).toBe(0.8)
+      expect(memory.embedding?.length).toBe(3)
+    })
+  })
 
   describe('Room Types', () => {
     it('should support all room types', () => {
-      const roomTypes: RoomType[] = ['collaboration', 'adversarial', 'debate', 'council'];
-      expect(roomTypes.length).toBe(4);
-    });
+      const roomTypes: RoomType[] = [
+        'collaboration',
+        'adversarial',
+        'debate',
+        'council',
+      ]
+      expect(roomTypes.length).toBe(4)
+    })
 
     it('should support all agent roles', () => {
-      const roles: AgentRole[] = ['participant', 'moderator', 'red_team', 'blue_team', 'observer'];
-      expect(roles.length).toBe(5);
-    });
+      const roles: AgentRole[] = [
+        'participant',
+        'moderator',
+        'red_team',
+        'blue_team',
+        'observer',
+      ]
+      expect(roles.length).toBe(5)
+    })
 
     it('should support all room phases', () => {
-      const phases: RoomPhase[] = ['setup', 'active', 'paused', 'completed', 'archived'];
-      expect(phases.length).toBe(5);
-    });
+      const phases: RoomPhase[] = [
+        'setup',
+        'active',
+        'paused',
+        'completed',
+        'archived',
+      ]
+      expect(phases.length).toBe(5)
+    })
 
     it('should create valid Room', () => {
       const room: Room = {
@@ -111,11 +128,11 @@ describe('Type Definitions', () => {
         },
         active: true,
         createdAt: Date.now(),
-      };
+      }
 
-      expect(room.roomType).toBe('adversarial');
-      expect(room.config.turnBased).toBe(true);
-    });
+      expect(room.roomType).toBe('adversarial')
+      expect(room.config.turnBased).toBe(true)
+    })
 
     it('should create valid RoomMember', () => {
       const member: RoomMember = {
@@ -124,18 +141,18 @@ describe('Type Definitions', () => {
         joinedAt: Date.now(),
         lastActiveAt: Date.now(),
         score: 50,
-      };
+      }
 
-      expect(member.role).toBe('red_team');
-      expect(member.score).toBe(50);
-    });
-  });
+      expect(member.role).toBe('red_team')
+      expect(member.score).toBe(50)
+    })
+  })
 
   describe('Team Types', () => {
     it('should support all team types', () => {
-      const teamTypes: TeamType[] = ['red', 'blue', 'neutral', 'mixed'];
-      expect(teamTypes.length).toBe(4);
-    });
+      const teamTypes: TeamType[] = ['red', 'blue', 'neutral', 'mixed']
+      expect(teamTypes.length).toBe(4)
+    })
 
     it('should create valid Team', () => {
       const team: Team = {
@@ -147,18 +164,24 @@ describe('Type Definitions', () => {
         teamType: 'red',
         leaderId: 1n,
         active: true,
-      };
+      }
 
-      expect(team.members.length).toBe(3);
-      expect(team.teamType).toBe('red');
-    });
-  });
+      expect(team.members.length).toBe(3)
+      expect(team.teamType).toBe('red')
+    })
+  })
 
   describe('Execution Types', () => {
     it('should support all execution statuses', () => {
-      const statuses: ExecutionStatus[] = ['pending', 'running', 'completed', 'failed', 'timeout'];
-      expect(statuses.length).toBe(5);
-    });
+      const statuses: ExecutionStatus[] = [
+        'pending',
+        'running',
+        'completed',
+        'failed',
+        'timeout',
+      ]
+      expect(statuses.length).toBe(5)
+    })
 
     it('should create valid ExecutionRequest', () => {
       const request: ExecutionRequest = {
@@ -177,11 +200,11 @@ describe('Type Definitions', () => {
           maxCost: 1000000000000000n,
           timeout: 30,
         },
-      };
+      }
 
-      expect(request.input.message).toBe('Hello agent');
-      expect(request.options?.requireTee).toBe(true);
-    });
+      expect(request.input.message).toBe('Hello agent')
+      expect(request.options?.requireTee).toBe(true)
+    })
 
     it('should create valid ExecutionResult', () => {
       const result: ExecutionResult = {
@@ -212,18 +235,18 @@ describe('Type Definitions', () => {
           executor: '0x1234567890123456789012345678901234567890',
           attestationHash: '0xabcd',
         },
-      };
+      }
 
-      expect(result.status).toBe('completed');
-      expect(result.cost.currency).toBe('ETH');
-    });
-  });
+      expect(result.status).toBe('completed')
+      expect(result.cost.currency).toBe('ETH')
+    })
+  })
 
   describe('Trigger Types', () => {
     it('should support all trigger types', () => {
-      const types: TriggerType[] = ['cron', 'webhook', 'event', 'room_message'];
-      expect(types.length).toBe(4);
-    });
+      const types: TriggerType[] = ['cron', 'webhook', 'event', 'room_message']
+      expect(types.length).toBe(4)
+    })
 
     it('should create valid AgentTrigger', () => {
       const trigger: AgentTrigger = {
@@ -238,12 +261,12 @@ describe('Type Definitions', () => {
         active: true,
         lastFiredAt: Date.now(),
         fireCount: 42,
-      };
+      }
 
-      expect(trigger.type).toBe('cron');
-      expect(trigger.fireCount).toBe(42);
-    });
-  });
+      expect(trigger.type).toBe('cron')
+      expect(trigger.fireCount).toBe(42)
+    })
+  })
 
   describe('Vault Types', () => {
     it('should create valid AgentVault', () => {
@@ -255,10 +278,10 @@ describe('Type Definitions', () => {
         approvedSpenders: ['0xabcd'],
         totalSpent: 500000000000000000n,
         lastFundedAt: Date.now(),
-      };
+      }
 
-      expect(vault.balance).toBe(1000000000000000000n);
-    });
+      expect(vault.balance).toBe(1000000000000000000n)
+    })
 
     it('should create valid VaultTransaction', () => {
       const tx: VaultTransaction = {
@@ -268,11 +291,11 @@ describe('Type Definitions', () => {
         spender: '0xexecutor',
         description: 'Inference cost for execution exec-123',
         timestamp: Date.now(),
-      };
+      }
 
-      expect(tx.type).toBe('spend');
-    });
-  });
+      expect(tx.type).toBe('spend')
+    })
+  })
 
   describe('Search Types', () => {
     it('should create valid AgentSearchFilter', () => {
@@ -284,22 +307,22 @@ describe('Type Definitions', () => {
         roomId: 1n,
         limit: 20,
         offset: 0,
-      };
+      }
 
-      expect(filter.limit).toBe(20);
-    });
+      expect(filter.limit).toBe(20)
+    })
 
     it('should create valid SearchResult', () => {
       const result: SearchResult<{ id: string }> = {
         items: [{ id: '1' }, { id: '2' }],
         total: 100,
         hasMore: true,
-      };
+      }
 
-      expect(result.items.length).toBe(2);
-      expect(result.hasMore).toBe(true);
-    });
-  });
+      expect(result.items.length).toBe(2)
+      expect(result.hasMore).toBe(true)
+    })
+  })
 
   describe('Config Types', () => {
     it('should create valid CrucibleConfig', () => {
@@ -320,9 +343,9 @@ describe('Type Definitions', () => {
           indexerGraphql: 'http://localhost:4350/graphql',
         },
         network: 'localnet',
-      };
+      }
 
-      expect(config.network).toBe('localnet');
-    });
-  });
-});
+      expect(config.network).toBe('localnet')
+    })
+  })
+})

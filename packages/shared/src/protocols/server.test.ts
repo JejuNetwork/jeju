@@ -2,30 +2,31 @@
  * Tests for Unified Protocol Server
  */
 
-import { describe, expect, test, beforeAll } from 'bun:test';
+import { beforeAll, describe, expect, test } from 'bun:test'
 import {
+  configureX402,
   createUnifiedServer,
-  skillSuccess,
+  type SkillContext,
   skillError,
   skillRequiresPayment,
-  configureX402,
+  skillSuccess,
   type UnifiedServerConfig,
-  type SkillContext,
-} from './server';
+} from './server'
 
 beforeAll(() => {
   configureX402({
     network: 'testnet',
-    paymentRecipient: '0x0000000000000000000000000000000000000001' as `0x${string}`,
-  });
-});
+    paymentRecipient:
+      '0x0000000000000000000000000000000000000001' as `0x${string}`,
+  })
+})
 
 // Test configuration
 const testConfig: UnifiedServerConfig = {
   name: 'Test Service',
   description: 'A test service for unit testing',
   version: '1.0.0',
-  
+
   skills: [
     {
       id: 'test-skill',
@@ -46,11 +47,16 @@ const testConfig: UnifiedServerConfig = {
       tags: ['test', 'payment'],
     },
   ],
-  
+
   resources: [
-    { uri: 'test://resource', name: 'Test Resource', description: 'A test resource', mimeType: 'application/json' },
+    {
+      uri: 'test://resource',
+      name: 'Test Resource',
+      description: 'A test resource',
+      mimeType: 'application/json',
+    },
   ],
-  
+
   tools: [
     {
       name: 'test_tool',
@@ -64,82 +70,95 @@ const testConfig: UnifiedServerConfig = {
       },
     },
   ],
-  
-  executeSkill: async (skillId: string, params: Record<string, unknown>, _context: SkillContext) => {
+
+  executeSkill: async (
+    skillId: string,
+    params: Record<string, unknown>,
+    _context: SkillContext,
+  ) => {
     switch (skillId) {
       case 'test-skill':
-        return skillSuccess('Test successful', { input: params.input, output: 'success' });
+        return skillSuccess('Test successful', {
+          input: params.input,
+          output: 'success',
+        })
       case 'error-skill':
-        return skillError('Test error', { code: 'TEST_ERROR' });
+        return skillError('Test error', { code: 'TEST_ERROR' })
       case 'payment-skill':
-        return skillRequiresPayment('/a2a', '1000000000000000', 'Test payment');
+        return skillRequiresPayment('/a2a', '1000000000000000', 'Test payment')
       default:
-        return skillError('Unknown skill', { skillId });
+        return skillError('Unknown skill', { skillId })
     }
   },
-  
+
   readResource: async (uri: string, _context: SkillContext) => {
     if (uri === 'test://resource') {
-      return { data: 'test data' };
+      return { data: 'test data' }
     }
-    throw new Error('Resource not found');
+    throw new Error('Resource not found')
   },
-  
-  callTool: async (name: string, args: Record<string, unknown>, _context: SkillContext) => {
+
+  callTool: async (
+    name: string,
+    args: Record<string, unknown>,
+    _context: SkillContext,
+  ) => {
     if (name === 'test_tool') {
-      return { result: { input: args.input, processed: true }, isError: false };
+      return { result: { input: args.input, processed: true }, isError: false }
     }
-    return { result: { error: 'Unknown tool' }, isError: true };
+    return { result: { error: 'Unknown tool' }, isError: true }
   },
-};
+}
 
 describe('Unified Protocol Server', () => {
-  const app = createUnifiedServer(testConfig);
-  
+  const app = createUnifiedServer(testConfig)
+
   describe('Health and Info Endpoints', () => {
     test('GET /health returns ok status', async () => {
-      const req = new Request('http://localhost/health');
-      const res = await app.fetch(req);
-      
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.status).toBe('ok');
-      expect(body.service).toBe('Test Service');
-    });
-    
+      const req = new Request('http://localhost/health')
+      const res = await app.fetch(req)
+
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.status).toBe('ok')
+      expect(body.service).toBe('Test Service')
+    })
+
     test('GET / returns service info', async () => {
-      const req = new Request('http://localhost/');
-      const res = await app.fetch(req);
-      
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.description).toBe('A test service for unit testing');
-      expect(body.endpoints.a2a).toBe('/a2a');
-      expect(body.endpoints.mcp).toBe('/mcp');
-    });
-  });
-  
+      const req = new Request('http://localhost/')
+      const res = await app.fetch(req)
+
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.description).toBe('A test service for unit testing')
+      expect(body.endpoints.a2a).toBe('/a2a')
+      expect(body.endpoints.mcp).toBe('/mcp')
+    })
+  })
+
   describe('Agent Card', () => {
     test('GET /.well-known/agent-card.json returns agent card', async () => {
-      const req = new Request('http://localhost/.well-known/agent-card.json');
-      const res = await app.fetch(req);
-      
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.protocolVersion).toBe('0.3.0');
-      expect(body.skills).toHaveLength(3);
-    });
-    
+      const req = new Request('http://localhost/.well-known/agent-card.json')
+      const res = await app.fetch(req)
+
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.protocolVersion).toBe('0.3.0')
+      expect(body.skills).toHaveLength(3)
+    })
+
     test('GET /a2a/.well-known/agent-card.json returns same agent card', async () => {
-      const req = new Request('http://localhost/a2a/.well-known/agent-card.json');
-      const res = await app.fetch(req);
-      
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.protocolVersion).toBe('0.3.0');
-    });
-  });
-  
+      const req = new Request(
+        'http://localhost/a2a/.well-known/agent-card.json',
+      )
+      const res = await app.fetch(req)
+
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.protocolVersion).toBe('0.3.0')
+    })
+  })
+
   describe('A2A Protocol', () => {
     test('POST /a2a with valid skill returns success', async () => {
       const req = new Request('http://localhost/a2a', {
@@ -151,20 +170,25 @@ describe('Unified Protocol Server', () => {
           params: {
             message: {
               messageId: 'test-1',
-              parts: [{ kind: 'data', data: { skillId: 'test-skill', input: 'hello' } }],
+              parts: [
+                {
+                  kind: 'data',
+                  data: { skillId: 'test-skill', input: 'hello' },
+                },
+              ],
             },
           },
           id: 1,
         }),
-      });
-      const res = await app.fetch(req);
-      
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.result.parts[0].text).toBe('Test successful');
-      expect(body.result.parts[1].data.output).toBe('success');
-    });
-    
+      })
+      const res = await app.fetch(req)
+
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.result.parts[0].text).toBe('Test successful')
+      expect(body.result.parts[1].data.output).toBe('success')
+    })
+
     test('POST /a2a with error skill returns error data', async () => {
       const req = new Request('http://localhost/a2a', {
         method: 'POST',
@@ -180,15 +204,15 @@ describe('Unified Protocol Server', () => {
           },
           id: 2,
         }),
-      });
-      const res = await app.fetch(req);
-      
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.result.parts[0].text).toBe('Test error');
-      expect(body.result.parts[1].data.error).toBe('Test error');
-    });
-    
+      })
+      const res = await app.fetch(req)
+
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.result.parts[0].text).toBe('Test error')
+      expect(body.result.parts[1].data.error).toBe('Test error')
+    })
+
     test('POST /a2a with payment-required skill returns 402', async () => {
       const req = new Request('http://localhost/a2a', {
         method: 'POST',
@@ -204,15 +228,15 @@ describe('Unified Protocol Server', () => {
           },
           id: 3,
         }),
-      });
-      const res = await app.fetch(req);
-      
-      expect(res.status).toBe(402);
-      const body = await res.json();
-      expect(body.error.code).toBe(402);
-      expect(body.error.data.x402Version).toBe(1);
-    });
-    
+      })
+      const res = await app.fetch(req)
+
+      expect(res.status).toBe(402)
+      const body = await res.json()
+      expect(body.error.code).toBe(402)
+      expect(body.error.data.x402Version).toBe(1)
+    })
+
     test('POST /a2a with invalid method returns error', async () => {
       const req = new Request('http://localhost/a2a', {
         method: 'POST',
@@ -223,86 +247,85 @@ describe('Unified Protocol Server', () => {
           params: {},
           id: 4,
         }),
-      });
-      const res = await app.fetch(req);
-      
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.error.code).toBe(-32601);
-    });
-  });
-  
+      })
+      const res = await app.fetch(req)
+
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.error.code).toBe(-32601)
+    })
+  })
+
   describe('MCP Protocol', () => {
     test('POST /mcp/initialize returns server info', async () => {
       const req = new Request('http://localhost/mcp/initialize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
-      });
-      const res = await app.fetch(req);
-      
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.protocolVersion).toBe('2024-11-05');
-      expect(body.serverInfo.name).toBe('Test Service');
-      expect(body.capabilities.resources).toBe(true);
-      expect(body.capabilities.tools).toBe(true);
-    });
-    
+      })
+      const res = await app.fetch(req)
+
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.protocolVersion).toBe('2024-11-05')
+      expect(body.serverInfo.name).toBe('Test Service')
+      expect(body.capabilities.resources).toBe(true)
+      expect(body.capabilities.tools).toBe(true)
+    })
+
     test('POST /mcp/resources/list returns resources', async () => {
       const req = new Request('http://localhost/mcp/resources/list', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
-      });
-      const res = await app.fetch(req);
-      
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.resources).toHaveLength(1);
-      expect(body.resources[0].uri).toBe('test://resource');
-    });
-    
+      })
+      const res = await app.fetch(req)
+
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.resources).toHaveLength(1)
+      expect(body.resources[0].uri).toBe('test://resource')
+    })
+
     test('POST /mcp/tools/list returns tools', async () => {
       const req = new Request('http://localhost/mcp/tools/list', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
-      });
-      const res = await app.fetch(req);
-      
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.tools).toHaveLength(1);
-      expect(body.tools[0].name).toBe('test_tool');
-    });
-    
+      })
+      const res = await app.fetch(req)
+
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.tools).toHaveLength(1)
+      expect(body.tools[0].name).toBe('test_tool')
+    })
+
     test('GET /mcp returns server overview', async () => {
-      const req = new Request('http://localhost/mcp');
-      const res = await app.fetch(req);
-      
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.server).toBe('Test Service');
-      expect(body.resources).toHaveLength(1);
-      expect(body.tools).toHaveLength(1);
-    });
-  });
-});
+      const req = new Request('http://localhost/mcp')
+      const res = await app.fetch(req)
+
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.server).toBe('Test Service')
+      expect(body.resources).toHaveLength(1)
+      expect(body.tools).toHaveLength(1)
+    })
+  })
+})
 
 describe('Skill Helper Functions', () => {
   test('skillSuccess creates proper result', () => {
-    const result = skillSuccess('Operation successful', { count: 5 });
-    expect(result.message).toBe('Operation successful');
-    expect(result.data.count).toBe(5);
-    expect(result.requiresPayment).toBeUndefined();
-  });
-  
-  test('skillError creates proper error result', () => {
-    const result = skillError('Operation failed', { code: 'ERR_001' });
-    expect(result.message).toBe('Operation failed');
-    expect(result.data.error).toBe('Operation failed');
-    expect(result.data.code).toBe('ERR_001');
-  });
-});
+    const result = skillSuccess('Operation successful', { count: 5 })
+    expect(result.message).toBe('Operation successful')
+    expect(result.data.count).toBe(5)
+    expect(result.requiresPayment).toBeUndefined()
+  })
 
+  test('skillError creates proper error result', () => {
+    const result = skillError('Operation failed', { code: 'ERR_001' })
+    expect(result.message).toBe('Operation failed')
+    expect(result.data.error).toBe('Operation failed')
+    expect(result.data.code).toBe('ERR_001')
+  })
+})

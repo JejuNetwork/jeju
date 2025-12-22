@@ -1,189 +1,216 @@
-import { keccak256, encodePacked, signMessage, recoverAddress } from 'viem';
-import { type PrivateKeyAccount } from 'viem/accounts';
+import { encodePacked, keccak256, recoverAddress, signMessage } from 'viem'
+import type { PrivateKeyAccount } from 'viem/accounts'
 
 interface SignatureShare {
-  sequencer: string;
-  signature: string;
-  timestamp: number;
+  sequencer: string
+  signature: string
+  timestamp: number
 }
 
 interface BatchData {
-  batchNumber: number;
-  stateRoot: string;
-  parentHash: string;
-  timestamp: number;
+  batchNumber: number
+  stateRoot: string
+  parentHash: string
+  timestamp: number
 }
 
 interface AggregatedSignature {
-  batchNumber: number;
-  messageHash: string;
-  signers: string[];
-  signatures: string[];
+  batchNumber: number
+  messageHash: string
+  signers: string[]
+  signatures: string[]
 }
 
 export class ThresholdSigner {
-  private signatureShares = new Map<number, SignatureShare[]>();
-  private pendingBatches = new Map<number, BatchData>();
-  private validSigners = new Set<string>();
-  private threshold: number;
+  private signatureShares = new Map<number, SignatureShare[]>()
+  private pendingBatches = new Map<number, BatchData>()
+  private validSigners = new Set<string>()
+  private threshold: number
 
   constructor(threshold = 2) {
-    this.threshold = threshold;
+    this.threshold = threshold
   }
 
   setThreshold(threshold: number): void {
-    this.threshold = threshold;
+    this.threshold = threshold
   }
 
   addSigner(address: string): void {
-    this.validSigners.add(address.toLowerCase());
+    this.validSigners.add(address.toLowerCase())
   }
 
   removeSigner(address: string): void {
-    this.validSigners.delete(address.toLowerCase());
+    this.validSigners.delete(address.toLowerCase())
   }
 
   getSigners(): string[] {
-    return Array.from(this.validSigners);
+    return Array.from(this.validSigners)
   }
 
   getPendingBatches(): BatchData[] {
-    return Array.from(this.pendingBatches.values());
+    return Array.from(this.pendingBatches.values())
   }
 
   addBatch(batch: BatchData): void {
-    this.pendingBatches.set(batch.batchNumber, batch);
-    this.signatureShares.set(batch.batchNumber, []);
+    this.pendingBatches.set(batch.batchNumber, batch)
+    this.signatureShares.set(batch.batchNumber, [])
   }
 
   getBatchHash(batch: BatchData): `0x${string}` {
     return keccak256(
       encodePacked(
         ['uint256', 'bytes32', 'bytes32', 'uint256'],
-        [BigInt(batch.batchNumber), batch.stateRoot as `0x${string}`, batch.parentHash as `0x${string}`, BigInt(batch.timestamp)]
-      )
-    );
+        [
+          BigInt(batch.batchNumber),
+          batch.stateRoot as `0x${string}`,
+          batch.parentHash as `0x${string}`,
+          BigInt(batch.timestamp),
+        ],
+      ),
+    )
   }
 
-  async signBatch(batch: BatchData, account: PrivateKeyAccount): Promise<SignatureShare> {
-    const hash = this.getBatchHash(batch);
+  async signBatch(
+    batch: BatchData,
+    account: PrivateKeyAccount,
+  ): Promise<SignatureShare> {
+    const hash = this.getBatchHash(batch)
     const signature = await signMessage({
       account,
       message: { raw: hash },
-    });
+    })
     return {
       sequencer: account.address,
       signature,
-      timestamp: Date.now()
-    };
+      timestamp: Date.now(),
+    }
   }
 
   addSignatureShare(batchNumber: number, share: SignatureShare): boolean {
-    const shares = this.signatureShares.get(batchNumber);
-    if (!shares) return false;
-    
+    const shares = this.signatureShares.get(batchNumber)
+    if (!shares) return false
+
     // Check for duplicate
-    if (shares.some(s => s.sequencer.toLowerCase() === share.sequencer.toLowerCase())) {
-      return false;
+    if (
+      shares.some(
+        (s) => s.sequencer.toLowerCase() === share.sequencer.toLowerCase(),
+      )
+    ) {
+      return false
     }
-    
+
     // Validate signer if we have a whitelist
-    if (this.validSigners.size > 0 && !this.validSigners.has(share.sequencer.toLowerCase())) {
-      console.log(`Rejected signature from non-whitelisted signer: ${share.sequencer}`);
-      return false;
+    if (
+      this.validSigners.size > 0 &&
+      !this.validSigners.has(share.sequencer.toLowerCase())
+    ) {
+      console.log(
+        `Rejected signature from non-whitelisted signer: ${share.sequencer}`,
+      )
+      return false
     }
-    
-    shares.push(share);
-    return true;
+
+    shares.push(share)
+    return true
   }
 
   hasThreshold(batchNumber: number): boolean {
-    const shares = this.signatureShares.get(batchNumber);
-    return (shares?.length || 0) >= this.threshold;
+    const shares = this.signatureShares.get(batchNumber)
+    return (shares?.length || 0) >= this.threshold
   }
 
   getSignatureCount(batchNumber: number): number {
-    return this.signatureShares.get(batchNumber)?.length || 0;
+    return this.signatureShares.get(batchNumber)?.length || 0
   }
 
   combineSignatures(batchNumber: number): AggregatedSignature {
-    const shares = this.signatureShares.get(batchNumber);
-    const batch = this.pendingBatches.get(batchNumber);
-    
+    const shares = this.signatureShares.get(batchNumber)
+    const batch = this.pendingBatches.get(batchNumber)
+
     if (!shares || shares.length < this.threshold) {
-      throw new Error(`Need ${this.threshold} signatures, have ${shares?.length || 0}`);
+      throw new Error(
+        `Need ${this.threshold} signatures, have ${shares?.length || 0}`,
+      )
     }
-    if (!batch) throw new Error(`Batch ${batchNumber} not found`);
+    if (!batch) throw new Error(`Batch ${batchNumber} not found`)
 
     // Sort by address for deterministic ordering
-    const sorted = [...shares].sort((a, b) => 
-      a.sequencer.toLowerCase().localeCompare(b.sequencer.toLowerCase())
-    );
-    const selected = sorted.slice(0, this.threshold);
+    const sorted = [...shares].sort((a, b) =>
+      a.sequencer.toLowerCase().localeCompare(b.sequencer.toLowerCase()),
+    )
+    const selected = sorted.slice(0, this.threshold)
 
     return {
       batchNumber,
       messageHash: this.getBatchHash(batch),
-      signers: selected.map(s => s.sequencer),
-      signatures: selected.map(s => s.signature)
-    };
+      signers: selected.map((s) => s.sequencer),
+      signatures: selected.map((s) => s.signature),
+    }
   }
 
-  verifyAggregatedSignature(batch: BatchData, agg: AggregatedSignature): boolean {
-    if (agg.signers.length < this.threshold) return false;
+  verifyAggregatedSignature(
+    batch: BatchData,
+    agg: AggregatedSignature,
+  ): boolean {
+    if (agg.signers.length < this.threshold) return false
 
-    const hash = this.getBatchHash(batch);
-    const seenSigners = new Set<string>();
+    const hash = this.getBatchHash(batch)
+    const seenSigners = new Set<string>()
 
     for (let i = 0; i < agg.signers.length; i++) {
-      const signer = agg.signers[i].toLowerCase();
-      
+      const signer = agg.signers[i].toLowerCase()
+
       // Check for duplicates
       if (seenSigners.has(signer)) {
-        console.log(`Duplicate signer detected: ${signer}`);
-        return false;
+        console.log(`Duplicate signer detected: ${signer}`)
+        return false
       }
-      seenSigners.add(signer);
-      
+      seenSigners.add(signer)
+
       // Verify signature
       try {
         const recovered = recoverAddress({
           hash,
           signature: agg.signatures[i] as `0x${string}`,
-        }).toLowerCase();
+        }).toLowerCase()
         if (recovered !== signer) {
-          console.log(`Invalid signature from ${signer}, recovered ${recovered}`);
-          return false;
+          console.log(
+            `Invalid signature from ${signer}, recovered ${recovered}`,
+          )
+          return false
         }
       } catch {
-        console.log(`Signature verification failed for ${signer}`);
-        return false;
+        console.log(`Signature verification failed for ${signer}`)
+        return false
       }
-      
+
       // Optionally verify against whitelist
       if (this.validSigners.size > 0 && !this.validSigners.has(signer)) {
-        console.log(`Signer ${signer} not in whitelist`);
-        return false;
+        console.log(`Signer ${signer} not in whitelist`)
+        return false
       }
     }
-    
-    return true;
+
+    return true
   }
 
   clearBatch(batchNumber: number): void {
-    this.signatureShares.delete(batchNumber);
-    this.pendingBatches.delete(batchNumber);
+    this.signatureShares.delete(batchNumber)
+    this.pendingBatches.delete(batchNumber)
   }
 
   // Convenience method for testing: sign and combine in one step
-  async signAndCombine(batch: BatchData, accounts: PrivateKeyAccount[]): Promise<AggregatedSignature> {
-    this.addBatch(batch);
-    
+  async signAndCombine(
+    batch: BatchData,
+    accounts: PrivateKeyAccount[],
+  ): Promise<AggregatedSignature> {
+    this.addBatch(batch)
+
     for (const account of accounts) {
-      const share = await this.signBatch(batch, account);
-      this.addSignatureShare(batch.batchNumber, share);
+      const share = await this.signBatch(batch, account)
+      this.addSignatureShare(batch.batchNumber, share)
     }
-    
-    return this.combineSignatures(batch.batchNumber);
+
+    return this.combineSignatures(batch.batchNumber)
   }
 }

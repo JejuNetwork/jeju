@@ -2,7 +2,7 @@
  * @fileoverview Contract ABIs and helpers
  */
 
-export const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+export const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 // ============ ERC20 ABI ============
 
@@ -17,21 +17,30 @@ export const ERC20_ABI = [
   {
     type: 'function',
     name: 'allowance',
-    inputs: [{ name: 'owner', type: 'address' }, { name: 'spender', type: 'address' }],
+    inputs: [
+      { name: 'owner', type: 'address' },
+      { name: 'spender', type: 'address' },
+    ],
     outputs: [{ type: 'uint256' }],
     stateMutability: 'view',
   },
   {
     type: 'function',
     name: 'approve',
-    inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }],
+    inputs: [
+      { name: 'spender', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
     outputs: [{ type: 'bool' }],
     stateMutability: 'nonpayable',
   },
   {
     type: 'function',
     name: 'transfer',
-    inputs: [{ name: 'to', type: 'address' }, { name: 'amount', type: 'uint256' }],
+    inputs: [
+      { name: 'to', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
     outputs: [{ type: 'bool' }],
     stateMutability: 'nonpayable',
   },
@@ -49,7 +58,7 @@ export const ERC20_ABI = [
     outputs: [{ type: 'string' }],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 // ============ XLP V2 Pair ABI ============
 
@@ -111,7 +120,7 @@ export const XLP_V2_PAIR_ABI = [
       { name: 'reserve1', type: 'uint112', indexed: false },
     ],
   },
-] as const;
+] as const
 
 // ============ XLP V2 Factory ABI ============
 
@@ -119,7 +128,10 @@ export const XLP_V2_FACTORY_ABI = [
   {
     type: 'function',
     name: 'getPair',
-    inputs: [{ name: 'tokenA', type: 'address' }, { name: 'tokenB', type: 'address' }],
+    inputs: [
+      { name: 'tokenA', type: 'address' },
+      { name: 'tokenB', type: 'address' },
+    ],
     outputs: [{ type: 'address' }],
     stateMutability: 'view',
   },
@@ -147,7 +159,7 @@ export const XLP_V2_FACTORY_ABI = [
       { name: '', type: 'uint256', indexed: false },
     ],
   },
-] as const;
+] as const
 
 // ============ XLP Router ABI ============
 
@@ -210,7 +222,7 @@ export const XLP_ROUTER_ABI = [
     outputs: [{ name: 'amounts', type: 'uint256[]' }],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 // ============ Perpetual Market ABI ============
 
@@ -297,7 +309,7 @@ export const PERPETUAL_MARKET_ABI = [
       { name: 'liquidatorReward', type: 'uint256', indexed: false },
     ],
   },
-] as const;
+] as const
 
 // ============ Autocrat Treasury ABI ============
 
@@ -380,7 +392,7 @@ export const AUTOCRAT_TREASURY_ABI = [
       { name: 'txHash', type: 'bytes32', indexed: false },
     ],
   },
-] as const;
+] as const
 
 // ============ OIF Input Settler ABI ============
 
@@ -460,7 +472,7 @@ export const INPUT_SETTLER_ABI = [
     ],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 // ============ Output Settler ABI ============
 
@@ -477,7 +489,7 @@ export const OUTPUT_SETTLER_ABI = [
     outputs: [],
     stateMutability: 'payable',
   },
-] as const;
+] as const
 
 // ============ Price Oracle ABI ============
 
@@ -510,7 +522,7 @@ export const PRICE_ORACLE_ABI = [
     outputs: [{ type: 'bool' }],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 // ============ Chainlink Aggregator ABI ============
 
@@ -535,4 +547,4 @@ export const CHAINLINK_AGGREGATOR_ABI = [
     outputs: [{ type: 'uint8' }],
     stateMutability: 'view',
   },
-] as const;
+] as const

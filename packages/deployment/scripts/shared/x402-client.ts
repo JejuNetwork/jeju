@@ -1,26 +1,26 @@
 /**
  * x402 Payment Client SDK
- * 
+ *
  * Complete client library for x402 payments:
  * - Payment payload creation and signing
  * - Facilitator discovery via ERC-8004
  * - On-chain settlement
  * - Wallet integration (viem)
- * 
+ *
  * @example
  * ```typescript
  * import { X402Client, discoverFacilitator } from './x402-client';
- * 
+ *
  * // Discover facilitator from ERC-8004 registry
  * const facilitator = await discoverFacilitator(provider, 420691);
- * 
+ *
  * // Create client
  * const client = new X402Client({
  *   facilitatorAddress: facilitator.address,
  *   chainId: 420691,
  *   signer: wallet,
  * });
- * 
+ *
  * // Make a payment
  * const result = await client.pay({
  *   recipient: serviceAddress,
@@ -30,84 +30,84 @@
  * ```
  */
 
-import { 
-  Address, 
-  createPublicClient, 
-  createWalletClient, 
-  http, 
+import {
+  type Account,
+  type Address,
+  type Chain,
+  createPublicClient,
+  createWalletClient,
+  type Hex,
+  http,
   keccak256,
-  toHex,
+  type PublicClient,
   stringToBytes,
-  Hex,
-  Chain,
-  PublicClient,
-  WalletClient,
-  Account,
-} from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
+  toHex,
+  type WalletClient,
+} from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
 
 // ============ Types ============
 
 export interface X402ClientConfig {
-  facilitatorAddress: Address;
-  chainId: number;
-  rpcUrl?: string;
-  signer?: `0x${string}` | Account;
+  facilitatorAddress: Address
+  chainId: number
+  rpcUrl?: string
+  signer?: `0x${string}` | Account
 }
 
 export interface PaymentParams {
-  recipient: Address;
-  token?: Address;
-  amount: bigint;
-  resource: string;
+  recipient: Address
+  token?: Address
+  amount: bigint
+  resource: string
 }
 
 export interface PaymentResult {
-  success: boolean;
-  paymentId: Hex;
-  txHash: Hex;
-  payer: Address;
-  recipient: Address;
-  amount: bigint;
-  protocolFee: bigint;
-  timestamp: number;
+  success: boolean
+  paymentId: Hex
+  txHash: Hex
+  payer: Address
+  recipient: Address
+  amount: bigint
+  protocolFee: bigint
+  timestamp: number
 }
 
 export interface SignedPayment {
-  payer: Address;
-  recipient: Address;
-  token: Address;
-  amount: bigint;
-  resource: string;
-  nonce: string;
-  timestamp: number;
-  signature: Hex;
+  payer: Address
+  recipient: Address
+  token: Address
+  amount: bigint
+  resource: string
+  nonce: string
+  timestamp: number
+  signature: Hex
 }
 
 export interface GaslessPaymentParams extends PaymentParams {
   /** Validity period for EIP-3009 authorization in seconds (default: 300) */
-  validitySeconds?: number;
+  validitySeconds?: number
 }
 
 export interface EIP3009Authorization {
-  validAfter: number;
-  validBefore: number;
-  authNonce: Hex;
-  authSignature: Hex;
+  validAfter: number
+  validBefore: number
+  authNonce: Hex
+  authSignature: Hex
 }
 
 export interface SignedGaslessPayment extends SignedPayment {
-  authParams: EIP3009Authorization;
+  authParams: EIP3009Authorization
 }
 
 export interface FacilitatorInfo {
-  address: Address;
-  name: string;
-  chainId: number;
-  supportedTokens: Address[];
-  protocolFeeBps: number;
-  totalSettlements: bigint;
-  totalVolumeUSD: bigint;
+  address: Address
+  name: string
+  chainId: number
+  supportedTokens: Address[]
+  protocolFeeBps: number
+  totalSettlements: bigint
+  totalVolumeUSD: bigint
 }
 
 // ============ ABIs ============
@@ -193,7 +193,7 @@ const X402_FACILITATOR_ABI = [
       { name: 'timestamp', type: 'uint256', indexed: false },
     ],
   },
-] as const;
+] as const
 
 const ERC20_ABI = [
   {
@@ -237,7 +237,7 @@ const ERC20_ABI = [
     outputs: [{ type: 'uint8' }],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 const IDENTITY_REGISTRY_ABI = [
   {
@@ -257,11 +257,14 @@ const IDENTITY_REGISTRY_ABI = [
     outputs: [{ type: 'bool' }],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 // ============ Constants ============
 
-export const CHAIN_CONFIGS: Record<number, { name: string; rpcUrl: string; usdc: Address }> = {
+export const CHAIN_CONFIGS: Record<
+  number,
+  { name: string; rpcUrl: string; usdc: Address }
+> = {
   420691: {
     name: 'Network',
     rpcUrl: process.env.JEJU_RPC_URL || 'http://127.0.0.1:9545',
@@ -282,7 +285,7 @@ export const CHAIN_CONFIGS: Record<number, { name: string; rpcUrl: string; usdc:
     rpcUrl: 'https://eth.llamarpc.com',
     usdc: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' as Address,
   },
-};
+}
 
 // EIP-712 types for x402 payments
 const PAYMENT_TYPES = {
@@ -296,45 +299,46 @@ const PAYMENT_TYPES = {
     { name: 'nonce', type: 'string' },
     { name: 'timestamp', type: 'uint256' },
   ],
-} as const;
+} as const
 
 // ============ X402 Client ============
 
 export class X402Client {
-  private publicClient: PublicClient;
-  private walletClient: WalletClient | null = null;
-  private config: X402ClientConfig;
-  private account: Account | null = null;
+  private publicClient: PublicClient
+  private walletClient: WalletClient | null = null
+  private config: X402ClientConfig
+  private account: Account | null = null
 
   constructor(config: X402ClientConfig) {
-    this.config = config;
-    const chainConfig = CHAIN_CONFIGS[config.chainId];
-    const rpcUrl = config.rpcUrl || chainConfig?.rpcUrl || 'http://127.0.0.1:9545';
+    this.config = config
+    const chainConfig = CHAIN_CONFIGS[config.chainId]
+    const rpcUrl =
+      config.rpcUrl || chainConfig?.rpcUrl || 'http://127.0.0.1:9545'
 
     const chain: Chain = {
       id: config.chainId,
       name: chainConfig?.name || 'Unknown',
       nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
       rpcUrls: { default: { http: [rpcUrl] } },
-    };
+    }
 
     this.publicClient = createPublicClient({
       chain,
       transport: http(rpcUrl),
-    });
+    })
 
     if (config.signer) {
       if (typeof config.signer === 'string') {
-        this.account = privateKeyToAccount(config.signer);
+        this.account = privateKeyToAccount(config.signer)
       } else {
-        this.account = config.signer;
+        this.account = config.signer
       }
 
       this.walletClient = createWalletClient({
         account: this.account,
         chain,
         transport: http(rpcUrl),
-      });
+      })
     }
   }
 
@@ -346,19 +350,27 @@ export class X402Client {
       address: this.config.facilitatorAddress,
       abi: X402_FACILITATOR_ABI,
       functionName: 'getStats',
-    });
+    })
 
-    const [settlements, volumeUSD, feeBps] = stats as [bigint, bigint, bigint, Address];
+    const [settlements, volumeUSD, feeBps] = stats as [
+      bigint,
+      bigint,
+      bigint,
+      Address,
+    ]
 
     return {
       address: this.config.facilitatorAddress,
       name: 'x402 Facilitator',
       chainId: this.config.chainId,
-      supportedTokens: [CHAIN_CONFIGS[this.config.chainId]?.usdc || '0x0000000000000000000000000000000000000000' as Address],
+      supportedTokens: [
+        CHAIN_CONFIGS[this.config.chainId]?.usdc ||
+          ('0x0000000000000000000000000000000000000000' as Address),
+      ],
       protocolFeeBps: Number(feeBps),
       totalSettlements: settlements,
       totalVolumeUSD: volumeUSD,
-    };
+    }
   }
 
   /**
@@ -370,7 +382,7 @@ export class X402Client {
       abi: X402_FACILITATOR_ABI,
       functionName: 'supportedTokens',
       args: [token],
-    }) as Promise<boolean>;
+    }) as Promise<boolean>
   }
 
   /**
@@ -382,16 +394,16 @@ export class X402Client {
       abi: X402_FACILITATOR_ABI,
       functionName: 'isNonceUsed',
       args: [payer, nonce],
-    }) as Promise<boolean>;
+    }) as Promise<boolean>
   }
 
   /**
    * Generate a unique nonce
    */
   generateNonce(): string {
-    const array = new Uint8Array(16);
-    crypto.getRandomValues(array);
-    return Array.from(array, b => b.toString(16).padStart(2, '0')).join('');
+    const array = new Uint8Array(16)
+    crypto.getRandomValues(array)
+    return Array.from(array, (b) => b.toString(16).padStart(2, '0')).join('')
   }
 
   /**
@@ -399,22 +411,24 @@ export class X402Client {
    */
   async createSignedPayment(params: PaymentParams): Promise<SignedPayment> {
     if (!this.account || !this.walletClient) {
-      throw new Error('Wallet not connected');
+      throw new Error('Wallet not connected')
     }
 
-    const token = params.token || CHAIN_CONFIGS[this.config.chainId]?.usdc;
-    if (!token) throw new Error('No token specified and no default USDC for chain');
+    const token = params.token || CHAIN_CONFIGS[this.config.chainId]?.usdc
+    if (!token)
+      throw new Error('No token specified and no default USDC for chain')
 
-    const nonce = this.generateNonce();
-    const timestamp = Math.floor(Date.now() / 1000);
-    const payer = this.account.address;
+    const nonce = this.generateNonce()
+    const timestamp = Math.floor(Date.now() / 1000)
+    const payer = this.account.address
 
     const domain = {
       name: 'x402 Payment Protocol',
       version: '1',
       chainId: this.config.chainId,
-      verifyingContract: '0x0000000000000000000000000000000000000000' as Address,
-    };
+      verifyingContract:
+        '0x0000000000000000000000000000000000000000' as Address,
+    }
 
     const message = {
       scheme: 'exact',
@@ -425,7 +439,7 @@ export class X402Client {
       resource: params.resource,
       nonce,
       timestamp: BigInt(timestamp),
-    };
+    }
 
     const signature = await this.walletClient.signTypedData({
       account: this.account,
@@ -433,7 +447,7 @@ export class X402Client {
       types: PAYMENT_TYPES,
       primaryType: 'Payment',
       message,
-    });
+    })
 
     return {
       payer,
@@ -444,7 +458,7 @@ export class X402Client {
       nonce,
       timestamp,
       signature,
-    };
+    }
   }
 
   /**
@@ -452,18 +466,18 @@ export class X402Client {
    */
   async ensureApproval(token: Address, amount: bigint): Promise<Hex | null> {
     if (!this.account || !this.walletClient) {
-      throw new Error('Wallet not connected');
+      throw new Error('Wallet not connected')
     }
 
-    const currentAllowance = await this.publicClient.readContract({
+    const currentAllowance = (await this.publicClient.readContract({
       address: token,
       abi: ERC20_ABI,
       functionName: 'allowance',
       args: [this.account.address, this.config.facilitatorAddress],
-    }) as bigint;
+    })) as bigint
 
     if (currentAllowance >= amount) {
-      return null; // Already approved
+      return null // Already approved
     }
 
     const hash = await this.walletClient.writeContract({
@@ -473,10 +487,10 @@ export class X402Client {
       args: [this.config.facilitatorAddress, amount],
       account: this.account,
       chain: this.publicClient.chain,
-    });
+    })
 
-    await this.publicClient.waitForTransactionReceipt({ hash });
-    return hash;
+    await this.publicClient.waitForTransactionReceipt({ hash })
+    return hash
   }
 
   /**
@@ -484,17 +498,17 @@ export class X402Client {
    */
   async pay(params: PaymentParams): Promise<PaymentResult> {
     if (!this.account || !this.walletClient) {
-      throw new Error('Wallet not connected');
+      throw new Error('Wallet not connected')
     }
 
-    const token = params.token || CHAIN_CONFIGS[this.config.chainId]?.usdc;
-    if (!token) throw new Error('No token specified');
+    const token = params.token || CHAIN_CONFIGS[this.config.chainId]?.usdc
+    if (!token) throw new Error('No token specified')
 
     // Ensure approval
-    await this.ensureApproval(token, params.amount);
+    await this.ensureApproval(token, params.amount)
 
     // Create signed payment
-    const signedPayment = await this.createSignedPayment(params);
+    const signedPayment = await this.createSignedPayment(params)
 
     // Submit to facilitator
     const hash = await this.walletClient.writeContract({
@@ -513,18 +527,25 @@ export class X402Client {
       ],
       account: this.account,
       chain: this.publicClient.chain,
-    });
+    })
 
-    const receipt = await this.publicClient.waitForTransactionReceipt({ hash });
+    const receipt = await this.publicClient.waitForTransactionReceipt({ hash })
 
     // Parse PaymentSettled event
-    const settledLog = receipt.logs.find(log => {
-      const topic = log.topics[0];
-      return topic === keccak256(stringToBytes('PaymentSettled(bytes32,address,address,address,uint256,uint256,string,uint256)'));
-    });
+    const settledLog = receipt.logs.find((log) => {
+      const topic = log.topics[0]
+      return (
+        topic ===
+        keccak256(
+          stringToBytes(
+            'PaymentSettled(bytes32,address,address,address,uint256,uint256,string,uint256)',
+          ),
+        )
+      )
+    })
 
-    const info = await this.getFacilitatorInfo();
-    const protocolFee = (params.amount * BigInt(info.protocolFeeBps)) / 10000n;
+    const info = await this.getFacilitatorInfo()
+    const protocolFee = (params.amount * BigInt(info.protocolFeeBps)) / 10000n
 
     return {
       success: receipt.status === 'success',
@@ -535,14 +556,16 @@ export class X402Client {
       amount: signedPayment.amount,
       protocolFee,
       timestamp: signedPayment.timestamp,
-    };
+    }
   }
 
   /**
    * Get token balance
    */
-  async getBalance(token: Address): Promise<{ balance: bigint; symbol: string; decimals: number }> {
-    if (!this.account) throw new Error('Wallet not connected');
+  async getBalance(
+    token: Address,
+  ): Promise<{ balance: bigint; symbol: string; decimals: number }> {
+    if (!this.account) throw new Error('Wallet not connected')
 
     const [balance, symbol, decimals] = await Promise.all([
       this.publicClient.readContract({
@@ -561,56 +584,60 @@ export class X402Client {
         abi: ERC20_ABI,
         functionName: 'decimals',
       }) as Promise<number>,
-    ]);
+    ])
 
-    return { balance, symbol, decimals };
+    return { balance, symbol, decimals }
   }
 
   /**
    * Generate EIP-3009 authorization nonce
    */
   generateAuthNonce(): Hex {
-    const bytes = new Uint8Array(32);
-    crypto.getRandomValues(bytes);
-    return ('0x' + Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('')) as Hex;
+    const bytes = new Uint8Array(32)
+    crypto.getRandomValues(bytes)
+    return ('0x' +
+      Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')) as Hex
   }
 
   /**
    * Create and sign a gasless payment with EIP-3009 authorization
    * User signs once, facilitator pays for gas
    */
-  async createSignedGaslessPayment(params: GaslessPaymentParams): Promise<SignedGaslessPayment> {
+  async createSignedGaslessPayment(
+    params: GaslessPaymentParams,
+  ): Promise<SignedGaslessPayment> {
     if (!this.account || !this.walletClient) {
-      throw new Error('Wallet not connected');
+      throw new Error('Wallet not connected')
     }
 
-    const token = params.token || CHAIN_CONFIGS[this.config.chainId]?.usdc;
-    if (!token) throw new Error('No token specified and no default USDC for chain');
+    const token = params.token || CHAIN_CONFIGS[this.config.chainId]?.usdc
+    if (!token)
+      throw new Error('No token specified and no default USDC for chain')
 
     // First create the standard x402 payment signature
-    const signedPayment = await this.createSignedPayment(params);
+    const signedPayment = await this.createSignedPayment(params)
 
     // Now create EIP-3009 authorization signature
-    const validitySeconds = params.validitySeconds ?? 300;
-    const now = Math.floor(Date.now() / 1000);
-    const validAfter = now - 60; // Valid from 1 min ago (clock skew tolerance)
-    const validBefore = now + validitySeconds;
-    const authNonce = this.generateAuthNonce();
+    const validitySeconds = params.validitySeconds ?? 300
+    const now = Math.floor(Date.now() / 1000)
+    const validAfter = now - 60 // Valid from 1 min ago (clock skew tolerance)
+    const validBefore = now + validitySeconds
+    const authNonce = this.generateAuthNonce()
 
     // Get token name for EIP-712 domain
-    const tokenSymbol = await this.publicClient.readContract({
+    const tokenSymbol = (await this.publicClient.readContract({
       address: token,
       abi: ERC20_ABI,
       functionName: 'symbol',
-    }) as string;
-    const tokenName = tokenSymbol === 'USDC' ? 'USD Coin' : tokenSymbol;
+    })) as string
+    const tokenName = tokenSymbol === 'USDC' ? 'USD Coin' : tokenSymbol
 
     const authDomain = {
       name: tokenName,
       version: '1',
       chainId: this.config.chainId,
       verifyingContract: token,
-    };
+    }
 
     const authTypes = {
       TransferWithAuthorization: [
@@ -621,7 +648,7 @@ export class X402Client {
         { name: 'validBefore', type: 'uint256' },
         { name: 'nonce', type: 'bytes32' },
       ],
-    };
+    }
 
     const authMessage = {
       from: this.account.address,
@@ -630,7 +657,7 @@ export class X402Client {
       validAfter: BigInt(validAfter),
       validBefore: BigInt(validBefore),
       nonce: authNonce,
-    };
+    }
 
     const authSignature = await this.walletClient.signTypedData({
       account: this.account,
@@ -638,7 +665,7 @@ export class X402Client {
       types: authTypes,
       primaryType: 'TransferWithAuthorization',
       message: authMessage,
-    });
+    })
 
     return {
       ...signedPayment,
@@ -648,18 +675,19 @@ export class X402Client {
         authNonce,
         authSignature,
       },
-    };
+    }
   }
 
   /**
    * Execute a gasless payment (no approval needed, user doesn't pay gas)
    */
   async payGasless(params: GaslessPaymentParams): Promise<PaymentResult> {
-    const signedPayment = await this.createSignedGaslessPayment(params);
-    
+    const signedPayment = await this.createSignedGaslessPayment(params)
+
     // Submit to facilitator's gasless endpoint
-    const facilitatorUrl = process.env.JEJU_FACILITATOR_URL || 'http://localhost:3402';
-    
+    const facilitatorUrl =
+      process.env.JEJU_FACILITATOR_URL || 'http://localhost:3402'
+
     const response = await fetch(`${facilitatorUrl}/settle/gasless`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -676,14 +704,14 @@ export class X402Client {
         },
         authParams: signedPayment.authParams,
       }),
-    });
+    })
 
-    const result = await response.json() as {
-      success: boolean;
-      txHash: string | null;
-      paymentId?: string;
-      error: string | null;
-    };
+    const result = (await response.json()) as {
+      success: boolean
+      txHash: string | null
+      paymentId?: string
+      error: string | null
+    }
 
     return {
       success: result.success,
@@ -694,7 +722,7 @@ export class X402Client {
       amount: signedPayment.amount,
       protocolFee: 0n, // Would need to parse from response
       timestamp: signedPayment.timestamp,
-    };
+    }
   }
 }
 
@@ -706,20 +734,20 @@ export class X402Client {
 export async function discoverFacilitator(
   registryAddress: Address,
   agentId: bigint,
-  rpcUrl: string
+  rpcUrl: string,
 ): Promise<{ address: Address; endpoint: string } | null> {
   const client = createPublicClient({
     transport: http(rpcUrl),
-  });
+  })
 
-  const exists = await client.readContract({
+  const exists = (await client.readContract({
     address: registryAddress,
     abi: IDENTITY_REGISTRY_ABI,
     functionName: 'agentExists',
     args: [agentId],
-  }) as boolean;
+  })) as boolean
 
-  if (!exists) return null;
+  if (!exists) return null
 
   const [facilitatorData, endpointData] = await Promise.all([
     client.readContract({
@@ -734,15 +762,17 @@ export async function discoverFacilitator(
       functionName: 'getMetadata',
       args: [agentId, 'x402.endpoint'],
     }) as Promise<Hex>,
-  ]);
+  ])
 
-  if (!facilitatorData || facilitatorData === '0x') return null;
+  if (!facilitatorData || facilitatorData === '0x') return null
 
   // Decode address from bytes
-  const address = ('0x' + facilitatorData.slice(26)) as Address;
-  const endpoint = new TextDecoder().decode(Buffer.from(endpointData.slice(2), 'hex'));
+  const address = `0x${facilitatorData.slice(26)}` as Address
+  const endpoint = new TextDecoder().decode(
+    Buffer.from(endpointData.slice(2), 'hex'),
+  )
 
-  return { address, endpoint };
+  return { address, endpoint }
 }
 
 /**
@@ -753,7 +783,7 @@ export async function registerAsPaymentProvider(
   facilitatorAddress: Address,
   endpoint: string,
   walletClient: WalletClient,
-  account: Account
+  account: Account,
 ): Promise<Hex> {
   const REGISTRY_ABI = [
     {
@@ -767,7 +797,7 @@ export async function registerAsPaymentProvider(
       outputs: [],
       stateMutability: 'nonpayable',
     },
-  ] as const;
+  ] as const
 
   // Set facilitator address
   await walletClient.writeContract({
@@ -781,23 +811,19 @@ export async function registerAsPaymentProvider(
     ],
     account,
     chain: walletClient.chain,
-  });
+  })
 
   // Set endpoint
   const hash2 = await walletClient.writeContract({
     address: registryAddress,
     abi: REGISTRY_ABI,
     functionName: 'setMetadata',
-    args: [
-      1n,
-      'x402.endpoint',
-      toHex(new TextEncoder().encode(endpoint)),
-    ],
+    args: [1n, 'x402.endpoint', toHex(new TextEncoder().encode(endpoint))],
     account,
     chain: walletClient.chain,
-  });
+  })
 
-  return hash2;
+  return hash2
 }
 
 // ============ HTTP Facilitator Discovery ============
@@ -806,10 +832,10 @@ export async function registerAsPaymentProvider(
  * Configuration for HTTP-based facilitators
  */
 export interface HttpFacilitatorConfig {
-  url: string;
-  priority: number;
-  networks: string[];
-  name: string;
+  url: string
+  priority: number
+  networks: string[]
+  name: string
 }
 
 /**
@@ -841,25 +867,28 @@ export const HTTP_FACILITATOR_REGISTRY: HttpFacilitatorConfig[] = [
     networks: ['base-sepolia', 'base', 'ethereum-sepolia', 'ethereum'],
     name: 'ChaosChain Facilitator',
   },
-];
+]
 
 /**
  * Check if an HTTP facilitator is healthy
  */
-export async function checkFacilitatorHealth(url: string, timeoutMs: number = 5000): Promise<boolean> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+export async function checkFacilitatorHealth(
+  url: string,
+  timeoutMs: number = 5000,
+): Promise<boolean> {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
 
   try {
     const response = await fetch(`${url}/health`, {
       method: 'GET',
       signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-    return response.ok;
+    })
+    clearTimeout(timeoutId)
+    return response.ok
   } catch {
-    clearTimeout(timeoutId);
-    return false;
+    clearTimeout(timeoutId)
+    return false
   }
 }
 
@@ -869,43 +898,45 @@ export async function checkFacilitatorHealth(url: string, timeoutMs: number = 50
  */
 export async function discoverHttpFacilitator(
   network: string,
-  options?: { timeoutMs?: number; skipHealthCheck?: boolean }
+  options?: { timeoutMs?: number; skipHealthCheck?: boolean },
 ): Promise<HttpFacilitatorConfig | null> {
-  const { timeoutMs = 3000, skipHealthCheck = false } = options || {};
+  const { timeoutMs = 3000, skipHealthCheck = false } = options || {}
 
   // Filter facilitators that support the network
-  const candidates = HTTP_FACILITATOR_REGISTRY
-    .filter((f) => f.networks.includes(network))
-    .sort((a, b) => a.priority - b.priority);
+  const candidates = HTTP_FACILITATOR_REGISTRY.filter((f) =>
+    f.networks.includes(network),
+  ).sort((a, b) => a.priority - b.priority)
 
   if (candidates.length === 0) {
-    return null;
+    return null
   }
 
   if (skipHealthCheck) {
-    return candidates[0];
+    return candidates[0]
   }
 
   // Check health of each candidate in priority order
   for (const candidate of candidates) {
-    const healthy = await checkFacilitatorHealth(candidate.url, timeoutMs);
+    const healthy = await checkFacilitatorHealth(candidate.url, timeoutMs)
     if (healthy) {
-      return candidate;
+      return candidate
     }
   }
 
   // No healthy facilitator found, return first candidate anyway
   // (caller can handle the error)
-  return candidates[0];
+  return candidates[0]
 }
 
 /**
  * Get all facilitators for a network (sorted by priority)
  */
-export function getFacilitatorsForNetwork(network: string): HttpFacilitatorConfig[] {
-  return HTTP_FACILITATOR_REGISTRY
-    .filter((f) => f.networks.includes(network))
-    .sort((a, b) => a.priority - b.priority);
+export function getFacilitatorsForNetwork(
+  network: string,
+): HttpFacilitatorConfig[] {
+  return HTTP_FACILITATOR_REGISTRY.filter((f) =>
+    f.networks.includes(network),
+  ).sort((a, b) => a.priority - b.priority)
 }
 
 /**
@@ -915,14 +946,18 @@ export async function verifyPaymentViaHttp(
   facilitatorUrl: string,
   paymentHeader: string,
   paymentRequirements: {
-    scheme: string;
-    network: string;
-    maxAmountRequired: string;
-    payTo: Address;
-    asset: Address;
-    resource: string;
-  }
-): Promise<{ isValid: boolean; invalidReason: string | null; payer: Address | null }> {
+    scheme: string
+    network: string
+    maxAmountRequired: string
+    payTo: Address
+    asset: Address
+    resource: string
+  },
+): Promise<{
+  isValid: boolean
+  invalidReason: string | null
+  payer: Address | null
+}> {
   const response = await fetch(`${facilitatorUrl}/verify`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -931,15 +966,15 @@ export async function verifyPaymentViaHttp(
       paymentHeader,
       paymentRequirements,
     }),
-  });
+  })
 
-  const result = await response.json() as {
-    isValid: boolean;
-    invalidReason: string | null;
-    payer: Address | null;
-  };
+  const result = (await response.json()) as {
+    isValid: boolean
+    invalidReason: string | null
+    payer: Address | null
+  }
 
-  return result;
+  return result
 }
 
 /**
@@ -949,19 +984,19 @@ export async function settlePaymentViaHttp(
   facilitatorUrl: string,
   paymentHeader: string,
   paymentRequirements: {
-    scheme: string;
-    network: string;
-    maxAmountRequired: string;
-    payTo: Address;
-    asset: Address;
-    resource: string;
-  }
+    scheme: string
+    network: string
+    maxAmountRequired: string
+    payTo: Address
+    asset: Address
+    resource: string
+  },
 ): Promise<{
-  success: boolean;
-  txHash: string | null;
-  error: string | null;
-  fee?: { human: string; base: string; bps: number };
-  net?: { human: string; base: string };
+  success: boolean
+  txHash: string | null
+  error: string | null
+  fee?: { human: string; base: string; bps: number }
+  net?: { human: string; base: string }
 }> {
   const response = await fetch(`${facilitatorUrl}/settle`, {
     method: 'POST',
@@ -971,41 +1006,41 @@ export async function settlePaymentViaHttp(
       paymentHeader,
       paymentRequirements,
     }),
-  });
+  })
 
-  const result = await response.json() as {
-    success: boolean;
-    txHash: string | null;
-    error: string | null;
-    fee?: { human: string; base: string; bps: number };
-    net?: { human: string; base: string };
-  };
+  const result = (await response.json()) as {
+    success: boolean
+    txHash: string | null
+    error: string | null
+    fee?: { human: string; base: string; bps: number }
+    net?: { human: string; base: string }
+  }
 
-  return result;
+  return result
 }
 
 /**
  * Get supported schemes from HTTP facilitator
  */
 export async function getSupportedSchemes(facilitatorUrl: string): Promise<{
-  kinds: Array<{ scheme: string; network: string }>;
-  x402Version: number;
-  facilitator: { name: string; version: string; url: string };
+  kinds: Array<{ scheme: string; network: string }>
+  x402Version: number
+  facilitator: { name: string; version: string; url: string }
 } | null> {
   try {
     const response = await fetch(`${facilitatorUrl}/supported`, {
       method: 'GET',
-    });
+    })
 
-    if (!response.ok) return null;
+    if (!response.ok) return null
 
-    return await response.json() as {
-      kinds: Array<{ scheme: string; network: string }>;
-      x402Version: number;
-      facilitator: { name: string; version: string; url: string };
-    };
+    return (await response.json()) as {
+      kinds: Array<{ scheme: string; network: string }>
+      x402Version: number
+      facilitator: { name: string; version: string; url: string }
+    }
   } catch {
-    return null;
+    return null
   }
 }
 
@@ -1025,9 +1060,9 @@ export function encodePaymentHeader(payment: SignedPayment): string {
     nonce: payment.nonce,
     timestamp: payment.timestamp,
     signature: payment.signature,
-  };
-  
-  return Buffer.from(JSON.stringify(payload)).toString('base64');
+  }
+
+  return Buffer.from(JSON.stringify(payload)).toString('base64')
 }
 
 /**
@@ -1035,7 +1070,7 @@ export function encodePaymentHeader(payment: SignedPayment): string {
  */
 export function decodePaymentHeader(header: string): SignedPayment | null {
   try {
-    const decoded = JSON.parse(Buffer.from(header, 'base64').toString());
+    const decoded = JSON.parse(Buffer.from(header, 'base64').toString())
     return {
       payer: decoded.from || '0x0000000000000000000000000000000000000000',
       recipient: decoded.payTo,
@@ -1045,23 +1080,24 @@ export function decodePaymentHeader(header: string): SignedPayment | null {
       nonce: decoded.nonce,
       timestamp: decoded.timestamp,
       signature: decoded.signature,
-    };
+    }
   } catch {
-    return null;
+    return null
   }
 }
 
 // ============ Factory ============
 
-export function createX402Client(config: Partial<X402ClientConfig> & { chainId: number }): X402Client {
-  const facilitatorAddress = (process.env.X402_FACILITATOR_ADDRESS || 
-    '0x0000000000000000000000000000000000000000') as Address;
-  
+export function createX402Client(
+  config: Partial<X402ClientConfig> & { chainId: number },
+): X402Client {
+  const facilitatorAddress = (process.env.X402_FACILITATOR_ADDRESS ||
+    '0x0000000000000000000000000000000000000000') as Address
+
   return new X402Client({
     facilitatorAddress: config.facilitatorAddress || facilitatorAddress,
     chainId: config.chainId,
     rpcUrl: config.rpcUrl,
     signer: config.signer,
-  });
+  })
 }
-

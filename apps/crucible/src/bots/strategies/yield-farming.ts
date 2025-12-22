@@ -1,10 +1,10 @@
 /**
  * Cross-Chain Yield Farming & Optimization Strategy
- * 
+ *
  * Maximizes yield across all supported chains with verification:
  * - EVM: Uniswap V3, Curve, Aave, Compound, Convex, Pendle, GMX, Balancer
  * - Solana: Raydium, Orca, Meteora, Marinade, Kamino, Marginfi, Jito
- * 
+ *
  * Features:
  * - Real yield verification (fees/interest vs token emissions)
  * - On-chain APR calculation
@@ -13,126 +13,133 @@
  * - Impermanent loss monitoring
  */
 
-import { EventEmitter } from 'events';
-import { createPublicClient, http, type PublicClient, type Address, parseAbi, formatUnits } from 'viem';
-import { Connection } from '@solana/web3.js';
-import type { ChainId, StrategyConfig } from '../autocrat-types';
+import { EventEmitter } from 'node:events'
+import { Connection } from '@solana/web3.js'
+import {
+  type Address,
+  createPublicClient,
+  formatUnits,
+  http,
+  type PublicClient,
+  parseAbi,
+} from 'viem'
+import type { ChainId, StrategyConfig } from '../autocrat-types'
 
 // ============ Types ============
 
-export type YieldSource = 
+export type YieldSource =
   // Real yield (sustainable)
-  | 'trading_fees'      // DEX trading fees
-  | 'lending_interest'  // Lending protocol interest
-  | 'borrow_interest'   // Interest from borrowers
-  | 'protocol_revenue'  // Share of protocol revenue
-  | 'staking_rewards'   // Native staking rewards (ETH, SOL)
-  | 'mev_rewards'       // MEV/Jito tips
+  | 'trading_fees' // DEX trading fees
+  | 'lending_interest' // Lending protocol interest
+  | 'borrow_interest' // Interest from borrowers
+  | 'protocol_revenue' // Share of protocol revenue
+  | 'staking_rewards' // Native staking rewards (ETH, SOL)
+  | 'mev_rewards' // MEV/Jito tips
   // Token emissions (less sustainable)
-  | 'liquidity_mining'  // LP token rewards
+  | 'liquidity_mining' // LP token rewards
   | 'governance_tokens' // Gov token emissions
-  | 'points'            // Points programs (speculative)
-  | 'unknown';
+  | 'points' // Points programs (speculative)
+  | 'unknown'
 
-export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'VERY_HIGH';
+export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'VERY_HIGH'
 
 export interface YieldOpportunity {
-  id: string;
-  chain: 'evm' | 'solana';
-  chainId: ChainId | 'solana-mainnet' | 'solana-devnet';
-  protocol: string;
-  pool: string;
-  poolAddress: string;
-  
+  id: string
+  chain: 'evm' | 'solana'
+  chainId: ChainId | 'solana-mainnet' | 'solana-devnet'
+  protocol: string
+  pool: string
+  poolAddress: string
+
   // Tokens
   tokens: Array<{
-    symbol: string;
-    address: string;
-    decimals: number;
-  }>;
-  
+    symbol: string
+    address: string
+    decimals: number
+  }>
+
   // APR breakdown
-  totalApr: number;
-  realYieldApr: number;        // Sustainable yield only
-  emissionApr: number;         // Token emission yield
+  totalApr: number
+  realYieldApr: number // Sustainable yield only
+  emissionApr: number // Token emission yield
   aprSources: Array<{
-    source: YieldSource;
-    apr: number;
-    token?: string;
-  }>;
-  
+    source: YieldSource
+    apr: number
+    token?: string
+  }>
+
   // Pool stats
-  tvlUsd: number;
-  volume24hUsd: number;
-  feeRate: number;             // e.g., 0.003 = 0.3%
-  
+  tvlUsd: number
+  volume24hUsd: number
+  feeRate: number // e.g., 0.003 = 0.3%
+
   // Risk assessment
-  riskLevel: RiskLevel;
-  riskScore: number;           // 0-100, lower is safer
-  riskFactors: string[];
-  
+  riskLevel: RiskLevel
+  riskScore: number // 0-100, lower is safer
+  riskFactors: string[]
+
   // Verification
-  verified: boolean;
-  verificationMethod: 'on_chain' | 'api' | 'estimated';
-  lastVerified: number;
-  
+  verified: boolean
+  verificationMethod: 'on_chain' | 'api' | 'estimated'
+  lastVerified: number
+
   // Requirements
-  minDeposit: string;          // Serializable (was bigint)
-  lockPeriod: number;          // Seconds, 0 = no lock
-  
+  minDeposit: string // Serializable (was bigint)
+  lockPeriod: number // Seconds, 0 = no lock
+
   // Metadata
-  lastUpdate: number;
+  lastUpdate: number
 }
 
 export interface FarmPosition {
-  id: string;
-  opportunityId: string;
-  chain: 'evm' | 'solana';
-  protocol: string;
-  pool: string;
-  
+  id: string
+  opportunityId: string
+  chain: 'evm' | 'solana'
+  protocol: string
+  pool: string
+
   // Position value
-  depositedUsd: number;
-  currentValueUsd: number;
-  
+  depositedUsd: number
+  currentValueUsd: number
+
   // Earnings
-  earnedUsd: number;
+  earnedUsd: number
   earnedTokens: Array<{
-    token: string;
-    amount: bigint;
-    valueUsd: number;
-  }>;
-  
+    token: string
+    amount: bigint
+    valueUsd: number
+  }>
+
   // Performance
-  realizedApr: number;         // Actual APR based on earnings
-  impermanentLoss: number;     // Percentage IL
-  netProfitUsd: number;        // After IL
-  
+  realizedApr: number // Actual APR based on earnings
+  impermanentLoss: number // Percentage IL
+  netProfitUsd: number // After IL
+
   // Tracking
-  entryTime: number;
-  lastHarvest: number;
-  autoCompound: boolean;
+  entryTime: number
+  lastHarvest: number
+  autoCompound: boolean
 }
 
 export interface YieldFarmingConfig extends StrategyConfig {
-  chains: ChainId[];
-  solanaNetwork: 'mainnet-beta' | 'devnet' | 'localnet';
-  
+  chains: ChainId[]
+  solanaNetwork: 'mainnet-beta' | 'devnet' | 'localnet'
+
   // Strategy parameters
-  minApr: number;              // Minimum APR to consider
-  maxRiskScore: number;        // Maximum risk score (0-100)
-  preferRealYield: boolean;    // Prefer real yield over emissions
-  minTvl: number;              // Minimum TVL in USD
-  maxPositionPercent: number;  // Max % of portfolio per position
-  
+  minApr: number // Minimum APR to consider
+  maxRiskScore: number // Maximum risk score (0-100)
+  preferRealYield: boolean // Prefer real yield over emissions
+  minTvl: number // Minimum TVL in USD
+  maxPositionPercent: number // Max % of portfolio per position
+
   // Auto-management
-  autoCompound: boolean;
-  autoRebalance: boolean;
-  rebalanceThreshold: number;  // % difference to trigger rebalance
-  
+  autoCompound: boolean
+  autoRebalance: boolean
+  rebalanceThreshold: number // % difference to trigger rebalance
+
   // Diversification
-  maxProtocolExposure: number; // Max % exposure per protocol
-  maxChainExposure: number;    // Max % exposure per chain
+  maxProtocolExposure: number // Max % exposure per protocol
+  maxChainExposure: number // Max % exposure per chain
 }
 
 // ============ Protocol ABIs ============
@@ -140,7 +147,7 @@ export interface YieldFarmingConfig extends StrategyConfig {
 const AAVE_POOL_ABI = parseAbi([
   'function getReserveData(address asset) view returns (uint256 configuration, uint128 liquidityIndex, uint128 currentLiquidityRate, uint128 variableBorrowIndex, uint128 currentVariableBorrowRate, uint128 currentStableBorrowRate, uint40 lastUpdateTimestamp, uint16 id, address aTokenAddress, address stableDebtTokenAddress, address variableDebtTokenAddress, address interestRateStrategyAddress, uint128 accruedToTreasury, uint128 unbacked, uint128 isolationModeTotalDebt)',
   'function getUserAccountData(address user) view returns (uint256 totalCollateralBase, uint256 totalDebtBase, uint256 availableBorrowsBase, uint256 currentLiquidationThreshold, uint256 ltv, uint256 healthFactor)',
-]);
+])
 
 const COMPOUND_COMET_ABI = parseAbi([
   'function getSupplyRate(uint256 utilization) view returns (uint64)',
@@ -148,36 +155,36 @@ const COMPOUND_COMET_ABI = parseAbi([
   'function getUtilization() view returns (uint256)',
   'function totalSupply() view returns (uint256)',
   'function baseToken() view returns (address)',
-]);
+])
 
 const CURVE_POOL_ABI = parseAbi([
   'function get_virtual_price() view returns (uint256)',
   'function fee() view returns (uint256)',
   'function admin_fee() view returns (uint256)',
   'function balances(uint256 i) view returns (uint256)',
-]);
+])
 
 const _CONVEX_POOL_ABI = parseAbi([
   'function earned(address account) view returns (uint256)',
   'function rewardRate() view returns (uint256)',
   'function totalSupply() view returns (uint256)',
-]);
+])
 
 const _UNI_V3_POOL_ABI = parseAbi([
   'function slot0() view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, uint8 feeProtocol, bool unlocked)',
   'function liquidity() view returns (uint128)',
   'function feeGrowthGlobal0X128() view returns (uint256)',
   'function feeGrowthGlobal1X128() view returns (uint256)',
-]);
+])
 
 // ============ Protocol Configs ============
 
 interface ProtocolConfig {
-  name: string;
-  chains: ChainId[];
-  type: 'dex' | 'lending' | 'staking' | 'vault' | 'restaking';
-  contracts: Partial<Record<ChainId, Address>>;
-  riskBase: number;
+  name: string
+  chains: ChainId[]
+  type: 'dex' | 'lending' | 'staking' | 'vault' | 'restaking'
+  contracts: Partial<Record<ChainId, Address>>
+  riskBase: number
 }
 
 const EVM_PROTOCOLS: ProtocolConfig[] = [
@@ -251,14 +258,14 @@ const EVM_PROTOCOLS: ProtocolConfig[] = [
     },
     riskBase: 40,
   },
-];
+]
 
 interface SolanaProtocolConfig {
-  name: string;
-  type: 'dex' | 'lending' | 'staking' | 'vault';
-  programId: string;
-  apiEndpoint?: string;
-  riskBase: number;
+  name: string
+  type: 'dex' | 'lending' | 'staking' | 'vault'
+  programId: string
+  apiEndpoint?: string
+  riskBase: number
 }
 
 const SOLANA_PROTOCOLS: SolanaProtocolConfig[] = [
@@ -308,30 +315,33 @@ const SOLANA_PROTOCOLS: SolanaProtocolConfig[] = [
     programId: 'Jito4APyf642JPZPx3hGc6WWJ8zPKtRbRs4P815Awbb',
     riskBase: 20,
   },
-];
+]
 
 // ============ Yield Farming Strategy ============
 
 export class YieldFarmingStrategy extends EventEmitter {
-  private config: YieldFarmingConfig;
-  private evmClients: Map<ChainId, PublicClient> = new Map();
-  private solanaConnection: Connection | null = null;
-  
-  private opportunities: Map<string, YieldOpportunity> = new Map();
-  private positions: Map<string, FarmPosition> = new Map();
-  private curveVPSnapshots: Map<string, { vp: bigint; ts: number }> = new Map();
-  private running = false;
-  private pollInterval: ReturnType<typeof setInterval> | null = null;
+  private config: YieldFarmingConfig
+  private evmClients: Map<ChainId, PublicClient> = new Map()
+  private solanaConnection: Connection | null = null
+
+  private opportunities: Map<string, YieldOpportunity> = new Map()
+  private positions: Map<string, FarmPosition> = new Map()
+  private curveVPSnapshots: Map<string, { vp: bigint; ts: number }> = new Map()
+  private running = false
+  private pollInterval: ReturnType<typeof setInterval> | null = null
 
   constructor(config: YieldFarmingConfig) {
-    super();
-    this.config = config;
+    super()
+    this.config = config
 
     // Initialize EVM clients
     for (const chainId of config.chains) {
-      const rpcUrl = process.env[`RPC_URL_${chainId}`];
+      const rpcUrl = process.env[`RPC_URL_${chainId}`]
       if (rpcUrl) {
-        this.evmClients.set(chainId, createPublicClient({ transport: http(rpcUrl) }));
+        this.evmClients.set(
+          chainId,
+          createPublicClient({ transport: http(rpcUrl) }),
+        )
       }
     }
   }
@@ -340,46 +350,49 @@ export class YieldFarmingStrategy extends EventEmitter {
    * Initialize the strategy
    */
   async initialize(solanaRpcUrl?: string): Promise<void> {
-    console.log('🌾 Initializing Yield Farming Strategy...');
+    console.log('🌾 Initializing Yield Farming Strategy...')
 
     // Initialize Solana
     if (solanaRpcUrl) {
-      this.solanaConnection = new Connection(solanaRpcUrl, 'confirmed');
-      const slot = await this.solanaConnection.getSlot();
-      console.log(`   Connected to Solana at slot ${slot}`);
+      this.solanaConnection = new Connection(solanaRpcUrl, 'confirmed')
+      const slot = await this.solanaConnection.getSlot()
+      console.log(`   Connected to Solana at slot ${slot}`)
     }
 
     // Scan all protocols for opportunities
-    await this.scanAllOpportunities();
-    
-    console.log(`   Found ${this.opportunities.size} yield opportunities`);
-    console.log('   ✓ Yield farming initialized');
+    await this.scanAllOpportunities()
+
+    console.log(`   Found ${this.opportunities.size} yield opportunities`)
+    console.log('   ✓ Yield farming initialized')
   }
 
   /**
    * Start yield optimization
    */
   start(): void {
-    if (this.running) return;
-    this.running = true;
+    if (this.running) return
+    this.running = true
 
-    console.log('   Starting yield optimization...');
+    console.log('   Starting yield optimization...')
 
     // Poll every 5 minutes
-    this.pollInterval = setInterval(() => this.runOptimizationCycle(), 5 * 60 * 1000);
+    this.pollInterval = setInterval(
+      () => this.runOptimizationCycle(),
+      5 * 60 * 1000,
+    )
 
     // Run initial cycle
-    this.runOptimizationCycle();
+    this.runOptimizationCycle()
   }
 
   /**
    * Stop yield optimization
    */
   stop(): void {
-    this.running = false;
+    this.running = false
     if (this.pollInterval) {
-      clearInterval(this.pollInterval);
-      this.pollInterval = null;
+      clearInterval(this.pollInterval)
+      this.pollInterval = null
     }
   }
 
@@ -389,35 +402,41 @@ export class YieldFarmingStrategy extends EventEmitter {
    * Scan all protocols for opportunities
    */
   async scanAllOpportunities(): Promise<void> {
-    const opportunities: YieldOpportunity[] = [];
+    const opportunities: YieldOpportunity[] = []
 
     // Scan EVM protocols
     for (const protocol of EVM_PROTOCOLS) {
       for (const chainId of protocol.chains) {
-        if (!this.config.chains.includes(chainId)) continue;
-        
-        const client = this.evmClients.get(chainId);
-        if (!client) continue;
+        if (!this.config.chains.includes(chainId)) continue
 
-        const protocolOpps = await this.scanEVMProtocol(protocol, chainId, client);
-        opportunities.push(...protocolOpps);
+        const client = this.evmClients.get(chainId)
+        if (!client) continue
+
+        const protocolOpps = await this.scanEVMProtocol(
+          protocol,
+          chainId,
+          client,
+        )
+        opportunities.push(...protocolOpps)
       }
     }
 
     // Scan Solana protocols
     if (this.solanaConnection) {
       for (const protocol of SOLANA_PROTOCOLS) {
-        const protocolOpps = await this.scanSolanaProtocol(protocol);
-        opportunities.push(...protocolOpps);
+        const protocolOpps = await this.scanSolanaProtocol(protocol)
+        opportunities.push(...protocolOpps)
       }
     }
 
     // Filter and store
     for (const opp of opportunities) {
-      if (opp.totalApr >= this.config.minApr && 
-          opp.riskScore <= this.config.maxRiskScore &&
-          opp.tvlUsd >= this.config.minTvl) {
-        this.opportunities.set(opp.id, opp);
+      if (
+        opp.totalApr >= this.config.minApr &&
+        opp.riskScore <= this.config.maxRiskScore &&
+        opp.tvlUsd >= this.config.minTvl
+      ) {
+        this.opportunities.set(opp.id, opp)
       }
     }
   }
@@ -428,24 +447,26 @@ export class YieldFarmingStrategy extends EventEmitter {
   private async scanEVMProtocol(
     protocol: ProtocolConfig,
     chainId: ChainId,
-    client: PublicClient
+    client: PublicClient,
   ): Promise<YieldOpportunity[]> {
-    const opportunities: YieldOpportunity[] = [];
+    const opportunities: YieldOpportunity[] = []
 
     switch (protocol.name) {
       case 'aave-v3':
-        opportunities.push(...await this.scanAave(protocol, chainId, client));
-        break;
+        opportunities.push(...(await this.scanAave(protocol, chainId, client)))
+        break
       case 'compound-v3':
-        opportunities.push(...await this.scanCompound(protocol, chainId, client));
-        break;
+        opportunities.push(
+          ...(await this.scanCompound(protocol, chainId, client)),
+        )
+        break
       case 'curve':
-        opportunities.push(...await this.scanCurve(protocol, chainId, client));
-        break;
+        opportunities.push(...(await this.scanCurve(protocol, chainId, client)))
+        break
       // Add more protocols...
     }
 
-    return opportunities;
+    return opportunities
   }
 
   /**
@@ -454,11 +475,11 @@ export class YieldFarmingStrategy extends EventEmitter {
   private async scanAave(
     protocol: ProtocolConfig,
     chainId: ChainId,
-    client: PublicClient
+    client: PublicClient,
   ): Promise<YieldOpportunity[]> {
-    const opportunities: YieldOpportunity[] = [];
-    const poolAddress = protocol.contracts[chainId];
-    if (!poolAddress) return opportunities;
+    const opportunities: YieldOpportunity[] = []
+    const poolAddress = protocol.contracts[chainId]
+    if (!poolAddress) return opportunities
 
     // Common Aave markets
     const markets = [
@@ -466,7 +487,7 @@ export class YieldFarmingStrategy extends EventEmitter {
       { symbol: 'USDT', address: this.getTokenAddress(chainId, 'USDT') },
       { symbol: 'DAI', address: this.getTokenAddress(chainId, 'DAI') },
       { symbol: 'WETH', address: this.getTokenAddress(chainId, 'WETH') },
-    ].filter(m => m.address);
+    ].filter((m) => m.address)
 
     for (const market of markets) {
       try {
@@ -475,12 +496,13 @@ export class YieldFarmingStrategy extends EventEmitter {
           abi: AAVE_POOL_ABI,
           functionName: 'getReserveData',
           args: [market.address as Address],
-        });
+        })
         // Index 2 is currentLiquidityRate in ray (27 decimals)
-        const currentLiquidityRate = (reserveDataRaw as readonly bigint[])[2];
+        const currentLiquidityRate = (reserveDataRaw as readonly bigint[])[2]
 
         // Convert ray (27 decimals) to APR percentage
-        const supplyApr = parseFloat(formatUnits(currentLiquidityRate, 27)) * 100;
+        const supplyApr =
+          parseFloat(formatUnits(currentLiquidityRate, 27)) * 100
 
         if (supplyApr > 0) {
           opportunities.push({
@@ -490,18 +512,22 @@ export class YieldFarmingStrategy extends EventEmitter {
             protocol: 'aave-v3',
             pool: `${market.symbol} Supply`,
             poolAddress,
-            tokens: [{
-              symbol: market.symbol,
-              address: market.address ?? poolAddress,
-              decimals: market.symbol === 'WETH' ? 18 : 6,
-            }],
+            tokens: [
+              {
+                symbol: market.symbol,
+                address: market.address ?? poolAddress,
+                decimals: market.symbol === 'WETH' ? 18 : 6,
+              },
+            ],
             totalApr: supplyApr,
             realYieldApr: supplyApr, // Aave is 100% real yield
             emissionApr: 0,
-            aprSources: [{
-              source: 'lending_interest',
-              apr: supplyApr,
-            }],
+            aprSources: [
+              {
+                source: 'lending_interest',
+                apr: supplyApr,
+              },
+            ],
             tvlUsd: 0, // Would need to fetch
             volume24hUsd: 0,
             feeRate: 0,
@@ -514,14 +540,14 @@ export class YieldFarmingStrategy extends EventEmitter {
             minDeposit: '0',
             lockPeriod: 0,
             lastUpdate: Date.now(),
-          });
+          })
         }
       } catch {
         // Market not available on this chain
       }
     }
 
-    return opportunities;
+    return opportunities
   }
 
   /**
@@ -530,18 +556,18 @@ export class YieldFarmingStrategy extends EventEmitter {
   private async scanCompound(
     protocol: ProtocolConfig,
     chainId: ChainId,
-    client: PublicClient
+    client: PublicClient,
   ): Promise<YieldOpportunity[]> {
-    const opportunities: YieldOpportunity[] = [];
-    const cometAddress = protocol.contracts[chainId];
-    if (!cometAddress) return opportunities;
+    const opportunities: YieldOpportunity[] = []
+    const cometAddress = protocol.contracts[chainId]
+    if (!cometAddress) return opportunities
 
     try {
-      const utilization = await client.readContract({
+      const utilization = (await client.readContract({
         address: cometAddress,
         abi: COMPOUND_COMET_ABI,
         functionName: 'getUtilization',
-      }) as bigint;
+      })) as bigint
 
       const [supplyRate, baseToken] = await Promise.all([
         client.readContract({
@@ -555,11 +581,12 @@ export class YieldFarmingStrategy extends EventEmitter {
           abi: COMPOUND_COMET_ABI,
           functionName: 'baseToken',
         }) as Promise<Address>,
-      ]);
+      ])
 
       // Calculate APR from per-second rate
-      const secondsPerYear = 31_536_000;
-      const supplyApr = parseFloat(formatUnits(supplyRate, 18)) * secondsPerYear * 100;
+      const secondsPerYear = 31_536_000
+      const supplyApr =
+        parseFloat(formatUnits(supplyRate, 18)) * secondsPerYear * 100
 
       opportunities.push({
         id: `compound-v3-${chainId}-usdc`,
@@ -568,18 +595,22 @@ export class YieldFarmingStrategy extends EventEmitter {
         protocol: 'compound-v3',
         pool: 'USDC Supply',
         poolAddress: cometAddress,
-        tokens: [{
-          symbol: 'USDC',
-          address: baseToken,
-          decimals: 6,
-        }],
+        tokens: [
+          {
+            symbol: 'USDC',
+            address: baseToken,
+            decimals: 6,
+          },
+        ],
         totalApr: supplyApr,
         realYieldApr: supplyApr,
         emissionApr: 0,
-        aprSources: [{
-          source: 'lending_interest',
-          apr: supplyApr,
-        }],
+        aprSources: [
+          {
+            source: 'lending_interest',
+            apr: supplyApr,
+          },
+        ],
         tvlUsd: 0,
         volume24hUsd: 0,
         feeRate: 0,
@@ -592,12 +623,12 @@ export class YieldFarmingStrategy extends EventEmitter {
         minDeposit: '0',
         lockPeriod: 0,
         lastUpdate: Date.now(),
-      });
+      })
     } catch {
       // Skip on error
     }
 
-    return opportunities;
+    return opportunities
   }
 
   /**
@@ -606,14 +637,14 @@ export class YieldFarmingStrategy extends EventEmitter {
   private async scanCurve(
     protocol: ProtocolConfig,
     chainId: ChainId,
-    client: PublicClient
+    client: PublicClient,
   ): Promise<YieldOpportunity[]> {
-    const opportunities: YieldOpportunity[] = [];
-    
+    const opportunities: YieldOpportunity[] = []
+
     // Curve pools are complex, would need registry integration
     // Simplified example for 3pool
-    const poolAddress = protocol.contracts[chainId];
-    if (!poolAddress) return opportunities;
+    const poolAddress = protocol.contracts[chainId]
+    if (!poolAddress) return opportunities
 
     try {
       const [fee, virtualPrice] = await Promise.all([
@@ -627,14 +658,17 @@ export class YieldFarmingStrategy extends EventEmitter {
           abi: CURVE_POOL_ABI,
           functionName: 'get_virtual_price',
         }) as Promise<bigint>,
-      ]);
+      ])
 
       // Estimate APR from fees (simplified)
-      const feePercent = Number(fee) / 1e10;
-      const estimatedApr = feePercent * 365 * 10; // Rough estimate
+      const feePercent = Number(fee) / 1e10
+      const estimatedApr = feePercent * 365 * 10 // Rough estimate
 
       // Store virtual price snapshot so we can verify real yield later (permissionless)
-      this.curveVPSnapshots.set(`${chainId}:${poolAddress}`, { vp: virtualPrice, ts: Date.now() });
+      this.curveVPSnapshots.set(`${chainId}:${poolAddress}`, {
+        vp: virtualPrice,
+        ts: Date.now(),
+      })
 
       opportunities.push({
         id: `curve-${chainId}-3pool`,
@@ -644,185 +678,219 @@ export class YieldFarmingStrategy extends EventEmitter {
         pool: '3pool (DAI/USDC/USDT)',
         poolAddress,
         tokens: [
-          { symbol: 'DAI', address: this.getTokenAddress(chainId, 'DAI') ?? '', decimals: 18 },
-          { symbol: 'USDC', address: this.getTokenAddress(chainId, 'USDC') ?? '', decimals: 6 },
-          { symbol: 'USDT', address: this.getTokenAddress(chainId, 'USDT') ?? '', decimals: 6 },
+          {
+            symbol: 'DAI',
+            address: this.getTokenAddress(chainId, 'DAI') ?? '',
+            decimals: 18,
+          },
+          {
+            symbol: 'USDC',
+            address: this.getTokenAddress(chainId, 'USDC') ?? '',
+            decimals: 6,
+          },
+          {
+            symbol: 'USDT',
+            address: this.getTokenAddress(chainId, 'USDT') ?? '',
+            decimals: 6,
+          },
         ],
         totalApr: estimatedApr,
         realYieldApr: estimatedApr,
         emissionApr: 0,
-        aprSources: [{
-          source: 'trading_fees',
-          apr: estimatedApr,
-        }],
+        aprSources: [
+          {
+            source: 'trading_fees',
+            apr: estimatedApr,
+          },
+        ],
         tvlUsd: 0,
         volume24hUsd: 0,
         feeRate: feePercent,
         riskLevel: this.calculateRiskLevel(protocol.riskBase),
         riskScore: protocol.riskBase,
-        riskFactors: ['Smart contract risk', 'Stablecoin depeg risk', 'IL on imbalanced pools'],
+        riskFactors: [
+          'Smart contract risk',
+          'Stablecoin depeg risk',
+          'IL on imbalanced pools',
+        ],
         verified: false, // requires time-series verification via virtual_price delta
         verificationMethod: 'on_chain',
         lastVerified: Date.now(),
         minDeposit: '0',
         lockPeriod: 0,
         lastUpdate: Date.now(),
-      });
+      })
     } catch {
       // Skip on error
     }
 
-    return opportunities;
+    return opportunities
   }
 
   /**
    * Scan a Solana protocol for opportunities
    */
-  private async scanSolanaProtocol(protocol: SolanaProtocolConfig): Promise<YieldOpportunity[]> {
-    const opportunities: YieldOpportunity[] = [];
+  private async scanSolanaProtocol(
+    protocol: SolanaProtocolConfig,
+  ): Promise<YieldOpportunity[]> {
+    const opportunities: YieldOpportunity[] = []
 
     switch (protocol.name) {
       case 'marinade':
-        opportunities.push(...await this.scanMarinade(protocol));
-        break;
+        opportunities.push(...(await this.scanMarinade(protocol)))
+        break
       case 'jito':
-        opportunities.push(...await this.scanJito(protocol));
-        break;
+        opportunities.push(...(await this.scanJito(protocol)))
+        break
       case 'raydium':
       case 'orca':
       case 'meteora':
-        opportunities.push(...await this.scanSolanaDex(protocol));
-        break;
+        opportunities.push(...(await this.scanSolanaDex(protocol)))
+        break
       case 'marginfi':
       case 'kamino':
-        opportunities.push(...await this.scanSolanaLending(protocol));
-        break;
+        opportunities.push(...(await this.scanSolanaLending(protocol)))
+        break
     }
 
-    return opportunities;
+    return opportunities
   }
 
   /**
    * Scan Marinade liquid staking
    */
-  private async scanMarinade(protocol: SolanaProtocolConfig): Promise<YieldOpportunity[]> {
+  private async scanMarinade(
+    protocol: SolanaProtocolConfig,
+  ): Promise<YieldOpportunity[]> {
     try {
       // Marinade mSOL APY is typically 6-8%
-      const stakingApr = 7.2; // Would fetch from API
-      const mevApr = 0.8;     // MEV rewards
+      const stakingApr = 7.2 // Would fetch from API
+      const mevApr = 0.8 // MEV rewards
 
-      return [{
-        id: 'marinade-msol',
-        chain: 'solana',
-        chainId: 'solana-mainnet',
-        protocol: 'marinade',
-        pool: 'mSOL Staking',
-        poolAddress: protocol.programId,
-        tokens: [{
-          symbol: 'SOL',
-          address: 'So11111111111111111111111111111111111111112',
-          decimals: 9,
-        }],
-        totalApr: stakingApr + mevApr,
-        realYieldApr: stakingApr + mevApr, // 100% real yield
-        emissionApr: 0,
-        aprSources: [
-          { source: 'staking_rewards', apr: stakingApr },
-          { source: 'mev_rewards', apr: mevApr },
-        ],
-        tvlUsd: 1_500_000_000, // ~$1.5B TVL
-        volume24hUsd: 0,
-        feeRate: 0.0,
-        riskLevel: 'LOW',
-        riskScore: protocol.riskBase,
-        riskFactors: ['Smart contract risk', 'Validator slashing risk'],
-        verified: true,
-        verificationMethod: 'api',
-        lastVerified: Date.now(),
-        minDeposit: '0',
-        lockPeriod: 0, // Liquid staking
-        lastUpdate: Date.now(),
-      }];
+      return [
+        {
+          id: 'marinade-msol',
+          chain: 'solana',
+          chainId: 'solana-mainnet',
+          protocol: 'marinade',
+          pool: 'mSOL Staking',
+          poolAddress: protocol.programId,
+          tokens: [
+            {
+              symbol: 'SOL',
+              address: 'So11111111111111111111111111111111111111112',
+              decimals: 9,
+            },
+          ],
+          totalApr: stakingApr + mevApr,
+          realYieldApr: stakingApr + mevApr, // 100% real yield
+          emissionApr: 0,
+          aprSources: [
+            { source: 'staking_rewards', apr: stakingApr },
+            { source: 'mev_rewards', apr: mevApr },
+          ],
+          tvlUsd: 1_500_000_000, // ~$1.5B TVL
+          volume24hUsd: 0,
+          feeRate: 0.0,
+          riskLevel: 'LOW',
+          riskScore: protocol.riskBase,
+          riskFactors: ['Smart contract risk', 'Validator slashing risk'],
+          verified: true,
+          verificationMethod: 'api',
+          lastVerified: Date.now(),
+          minDeposit: '0',
+          lockPeriod: 0, // Liquid staking
+          lastUpdate: Date.now(),
+        },
+      ]
     } catch {
-      return [];
+      return []
     }
   }
 
   /**
    * Scan Jito MEV staking
    */
-  private async scanJito(protocol: SolanaProtocolConfig): Promise<YieldOpportunity[]> {
+  private async scanJito(
+    protocol: SolanaProtocolConfig,
+  ): Promise<YieldOpportunity[]> {
     try {
       // Jito JitoSOL APY includes MEV tips
-      const stakingApr = 7.0;
-      const mevApr = 1.5; // Higher MEV due to Jito's MEV infrastructure
+      const stakingApr = 7.0
+      const mevApr = 1.5 // Higher MEV due to Jito's MEV infrastructure
 
-      return [{
-        id: 'jito-jitosol',
-        chain: 'solana',
-        chainId: 'solana-mainnet',
-        protocol: 'jito',
-        pool: 'JitoSOL Staking',
-        poolAddress: protocol.programId,
-        tokens: [{
-          symbol: 'SOL',
-          address: 'So11111111111111111111111111111111111111112',
-          decimals: 9,
-        }],
-        totalApr: stakingApr + mevApr,
-        realYieldApr: stakingApr + mevApr,
-        emissionApr: 0,
-        aprSources: [
-          { source: 'staking_rewards', apr: stakingApr },
-          { source: 'mev_rewards', apr: mevApr },
-        ],
-        tvlUsd: 2_000_000_000,
-        volume24hUsd: 0,
-        feeRate: 0.04, // 4% fee on MEV
-        riskLevel: 'LOW',
-        riskScore: protocol.riskBase,
-        riskFactors: ['Smart contract risk', 'MEV centralization risk'],
-        verified: true,
-        verificationMethod: 'api',
-        lastVerified: Date.now(),
-        minDeposit: '0',
-        lockPeriod: 0,
-        lastUpdate: Date.now(),
-      }];
+      return [
+        {
+          id: 'jito-jitosol',
+          chain: 'solana',
+          chainId: 'solana-mainnet',
+          protocol: 'jito',
+          pool: 'JitoSOL Staking',
+          poolAddress: protocol.programId,
+          tokens: [
+            {
+              symbol: 'SOL',
+              address: 'So11111111111111111111111111111111111111112',
+              decimals: 9,
+            },
+          ],
+          totalApr: stakingApr + mevApr,
+          realYieldApr: stakingApr + mevApr,
+          emissionApr: 0,
+          aprSources: [
+            { source: 'staking_rewards', apr: stakingApr },
+            { source: 'mev_rewards', apr: mevApr },
+          ],
+          tvlUsd: 2_000_000_000,
+          volume24hUsd: 0,
+          feeRate: 0.04, // 4% fee on MEV
+          riskLevel: 'LOW',
+          riskScore: protocol.riskBase,
+          riskFactors: ['Smart contract risk', 'MEV centralization risk'],
+          verified: true,
+          verificationMethod: 'api',
+          lastVerified: Date.now(),
+          minDeposit: '0',
+          lockPeriod: 0,
+          lastUpdate: Date.now(),
+        },
+      ]
     } catch {
-      return [];
+      return []
     }
   }
 
   /**
    * Scan Solana DEX (Raydium, Orca, Meteora)
    */
-  private async scanSolanaDex(protocol: SolanaProtocolConfig): Promise<YieldOpportunity[]> {
-    const opportunities: YieldOpportunity[] = [];
+  private async scanSolanaDex(
+    protocol: SolanaProtocolConfig,
+  ): Promise<YieldOpportunity[]> {
+    const opportunities: YieldOpportunity[] = []
 
-    if (!protocol.apiEndpoint) return opportunities;
+    if (!protocol.apiEndpoint) return opportunities
 
     try {
       // Fetch top pools from API
-      const response = await fetch(`${protocol.apiEndpoint}/pools?limit=20`);
-      if (!response.ok) return opportunities;
+      const response = await fetch(`${protocol.apiEndpoint}/pools?limit=20`)
+      if (!response.ok) return opportunities
 
-      const data = await response.json() as {
+      const data = (await response.json()) as {
         data?: Array<{
-          id: string;
-          name: string;
-          tvl: number;
-          volume24h: number;
-          apr: { trading: number; rewards?: number };
-          tokenA: { symbol: string; mint: string; decimals: number };
-          tokenB: { symbol: string; mint: string; decimals: number };
-          fee: number;
-        }>;
-      };
+          id: string
+          name: string
+          tvl: number
+          volume24h: number
+          apr: { trading: number; rewards?: number }
+          tokenA: { symbol: string; mint: string; decimals: number }
+          tokenB: { symbol: string; mint: string; decimals: number }
+          fee: number
+        }>
+      }
 
       for (const pool of data.data ?? []) {
-        const tradingApr = pool.apr?.trading ?? 0;
-        const rewardsApr = pool.apr?.rewards ?? 0;
+        const tradingApr = pool.apr?.trading ?? 0
+        const rewardsApr = pool.apr?.rewards ?? 0
 
         opportunities.push({
           id: `${protocol.name}-${pool.id}`,
@@ -832,60 +900,84 @@ export class YieldFarmingStrategy extends EventEmitter {
           pool: pool.name,
           poolAddress: pool.id,
           tokens: [
-            { symbol: pool.tokenA.symbol, address: pool.tokenA.mint, decimals: pool.tokenA.decimals },
-            { symbol: pool.tokenB.symbol, address: pool.tokenB.mint, decimals: pool.tokenB.decimals },
+            {
+              symbol: pool.tokenA.symbol,
+              address: pool.tokenA.mint,
+              decimals: pool.tokenA.decimals,
+            },
+            {
+              symbol: pool.tokenB.symbol,
+              address: pool.tokenB.mint,
+              decimals: pool.tokenB.decimals,
+            },
           ],
           totalApr: tradingApr + rewardsApr,
           realYieldApr: tradingApr,
           emissionApr: rewardsApr,
           aprSources: [
             { source: 'trading_fees', apr: tradingApr },
-            ...(rewardsApr > 0 ? [{ source: 'liquidity_mining' as YieldSource, apr: rewardsApr, token: protocol.name.toUpperCase() }] : []),
+            ...(rewardsApr > 0
+              ? [
+                  {
+                    source: 'liquidity_mining' as YieldSource,
+                    apr: rewardsApr,
+                    token: protocol.name.toUpperCase(),
+                  },
+                ]
+              : []),
           ],
           tvlUsd: pool.tvl,
           volume24hUsd: pool.volume24h,
           feeRate: pool.fee / 10000,
-          riskLevel: this.calculateRiskLevel(protocol.riskBase + (rewardsApr > tradingApr ? 10 : 0)),
+          riskLevel: this.calculateRiskLevel(
+            protocol.riskBase + (rewardsApr > tradingApr ? 10 : 0),
+          ),
           riskScore: protocol.riskBase + (rewardsApr > tradingApr ? 10 : 0),
-          riskFactors: ['Smart contract risk', 'Impermanent loss', rewardsApr > 0 ? 'Token emission risk' : ''].filter(Boolean),
+          riskFactors: [
+            'Smart contract risk',
+            'Impermanent loss',
+            rewardsApr > 0 ? 'Token emission risk' : '',
+          ].filter(Boolean),
           verified: true,
           verificationMethod: 'api',
           lastVerified: Date.now(),
           minDeposit: '0',
           lockPeriod: 0,
           lastUpdate: Date.now(),
-        });
+        })
       }
     } catch {
       // Skip on error
     }
 
-    return opportunities;
+    return opportunities
   }
 
   /**
    * Scan Solana lending (Marginfi, Kamino)
    */
-  private async scanSolanaLending(protocol: SolanaProtocolConfig): Promise<YieldOpportunity[]> {
-    const opportunities: YieldOpportunity[] = [];
+  private async scanSolanaLending(
+    protocol: SolanaProtocolConfig,
+  ): Promise<YieldOpportunity[]> {
+    const opportunities: YieldOpportunity[] = []
 
-    if (!protocol.apiEndpoint) return opportunities;
+    if (!protocol.apiEndpoint) return opportunities
 
     try {
-      const response = await fetch(`${protocol.apiEndpoint}/markets`);
-      if (!response.ok) return opportunities;
+      const response = await fetch(`${protocol.apiEndpoint}/markets`)
+      if (!response.ok) return opportunities
 
-      const data = await response.json() as {
+      const data = (await response.json()) as {
         markets?: Array<{
-          mint: string;
-          symbol: string;
-          decimals: number;
-          supplyApr: number;
-          borrowApr: number;
-          tvl: number;
-          utilization: number;
-        }>;
-      };
+          mint: string
+          symbol: string
+          decimals: number
+          supplyApr: number
+          borrowApr: number
+          tvl: number
+          utilization: number
+        }>
+      }
 
       for (const market of data.markets ?? []) {
         opportunities.push({
@@ -895,37 +987,45 @@ export class YieldFarmingStrategy extends EventEmitter {
           protocol: protocol.name,
           pool: `${market.symbol} Supply`,
           poolAddress: market.mint,
-          tokens: [{
-            symbol: market.symbol,
-            address: market.mint,
-            decimals: market.decimals,
-          }],
+          tokens: [
+            {
+              symbol: market.symbol,
+              address: market.mint,
+              decimals: market.decimals,
+            },
+          ],
           totalApr: market.supplyApr,
           realYieldApr: market.supplyApr,
           emissionApr: 0,
-          aprSources: [{
-            source: 'lending_interest',
-            apr: market.supplyApr,
-          }],
+          aprSources: [
+            {
+              source: 'lending_interest',
+              apr: market.supplyApr,
+            },
+          ],
           tvlUsd: market.tvl,
           volume24hUsd: 0,
           feeRate: 0,
           riskLevel: this.calculateRiskLevel(protocol.riskBase),
           riskScore: protocol.riskBase,
-          riskFactors: ['Smart contract risk', 'Oracle risk', 'Utilization risk'],
+          riskFactors: [
+            'Smart contract risk',
+            'Oracle risk',
+            'Utilization risk',
+          ],
           verified: true,
           verificationMethod: 'api',
           lastVerified: Date.now(),
           minDeposit: '0',
           lockPeriod: 0,
           lastUpdate: Date.now(),
-        });
+        })
       }
     } catch {
       // Skip on error
     }
 
-    return opportunities;
+    return opportunities
   }
 
   // ============ Yield Optimization ============
@@ -934,21 +1034,21 @@ export class YieldFarmingStrategy extends EventEmitter {
    * Run optimization cycle
    */
   private async runOptimizationCycle(): Promise<void> {
-    console.log('🔄 Running yield optimization cycle...');
+    console.log('🔄 Running yield optimization cycle...')
 
     // Refresh opportunities
-    await this.scanAllOpportunities();
+    await this.scanAllOpportunities()
 
     // Get best opportunities
-    const bestOpps = this.getBestOpportunities();
+    const bestOpps = this.getBestOpportunities()
 
     // Emit opportunities for the bot to act on
-    this.emit('opportunities', bestOpps);
+    this.emit('opportunities', bestOpps)
 
     // Check positions for rebalancing
-    const rebalanceActions = this.getRebalanceActions();
+    const rebalanceActions = this.getRebalanceActions()
     if (rebalanceActions.length > 0) {
-      this.emit('rebalance', rebalanceActions);
+      this.emit('rebalance', rebalanceActions)
     }
   }
 
@@ -956,48 +1056,48 @@ export class YieldFarmingStrategy extends EventEmitter {
    * Get best opportunities sorted by risk-adjusted yield
    */
   getBestOpportunities(limit = 20): YieldOpportunity[] {
-    const opps = Array.from(this.opportunities.values());
+    const opps = Array.from(this.opportunities.values())
 
     // Calculate risk-adjusted score
-    const scored = opps.map(opp => {
+    const scored = opps.map((opp) => {
       // Prefer real yield over emissions
       const yieldScore = this.config.preferRealYield
         ? opp.realYieldApr * 2 + opp.emissionApr * 0.5
-        : opp.totalApr;
+        : opp.totalApr
 
       // Penalize high risk
-      const riskPenalty = opp.riskScore / 100;
+      const riskPenalty = opp.riskScore / 100
 
       // Boost for high TVL (more trustworthy)
-      const tvlBonus = Math.log10(Math.max(opp.tvlUsd, 1)) / 10;
+      const tvlBonus = Math.log10(Math.max(opp.tvlUsd, 1)) / 10
 
-      const score = yieldScore * (1 - riskPenalty) * (1 + tvlBonus);
+      const score = yieldScore * (1 - riskPenalty) * (1 + tvlBonus)
 
-      return { opp, score };
-    });
+      return { opp, score }
+    })
 
     return scored
       .sort((a, b) => b.score - a.score)
       .slice(0, limit)
-      .map(s => s.opp);
+      .map((s) => s.opp)
   }
 
   /**
    * Get rebalance actions for existing positions
    */
   getRebalanceActions(): Array<{
-    positionId: string;
-    action: 'harvest' | 'compound' | 'exit' | 'rebalance';
-    reason: string;
+    positionId: string
+    action: 'harvest' | 'compound' | 'exit' | 'rebalance'
+    reason: string
   }> {
     const actions: Array<{
-      positionId: string;
-      action: 'harvest' | 'compound' | 'exit' | 'rebalance';
-      reason: string;
-    }> = [];
+      positionId: string
+      action: 'harvest' | 'compound' | 'exit' | 'rebalance'
+      reason: string
+    }> = []
 
     for (const position of this.positions.values()) {
-      const opp = this.opportunities.get(position.opportunityId);
+      const opp = this.opportunities.get(position.opportunityId)
 
       // Check if opportunity still exists and is good
       if (!opp) {
@@ -1005,8 +1105,8 @@ export class YieldFarmingStrategy extends EventEmitter {
           positionId: position.id,
           action: 'exit',
           reason: 'Opportunity no longer available',
-        });
-        continue;
+        })
+        continue
       }
 
       // Check if APR dropped significantly
@@ -1015,8 +1115,8 @@ export class YieldFarmingStrategy extends EventEmitter {
           positionId: position.id,
           action: 'exit',
           reason: `APR dropped below minimum (${opp.totalApr.toFixed(2)}% < ${this.config.minApr}%)`,
-        });
-        continue;
+        })
+        continue
       }
 
       // Check for harvest opportunity
@@ -1025,7 +1125,7 @@ export class YieldFarmingStrategy extends EventEmitter {
           positionId: position.id,
           action: 'harvest',
           reason: `Unclaimed rewards: $${position.earnedUsd.toFixed(2)}`,
-        });
+        })
       }
 
       // Check for auto-compound
@@ -1034,7 +1134,7 @@ export class YieldFarmingStrategy extends EventEmitter {
           positionId: position.id,
           action: 'compound',
           reason: `Auto-compound: $${position.earnedUsd.toFixed(2)}`,
-        });
+        })
       }
 
       // Check for high IL
@@ -1043,11 +1143,11 @@ export class YieldFarmingStrategy extends EventEmitter {
           positionId: position.id,
           action: 'exit',
           reason: `High impermanent loss: ${position.impermanentLoss.toFixed(2)}%`,
-        });
+        })
       }
     }
 
-    return actions;
+    return actions
   }
 
   // ============ Verification ============
@@ -1056,102 +1156,109 @@ export class YieldFarmingStrategy extends EventEmitter {
    * Verify APR is real and on-chain
    */
   async verifyApr(opportunityId: string): Promise<{
-    verified: boolean;
-    onChainApr: number;
-    reportedApr: number;
-    discrepancy: number;
-    method: string;
+    verified: boolean
+    onChainApr: number
+    reportedApr: number
+    discrepancy: number
+    method: string
   }> {
-    const opp = this.opportunities.get(opportunityId);
-    if (!opp) throw new Error('Opportunity not found');
+    const opp = this.opportunities.get(opportunityId)
+    if (!opp) throw new Error('Opportunity not found')
 
-    let onChainApr = 0;
-    let method = 'unknown';
+    let onChainApr = 0
+    let method = 'unknown'
 
     if (opp.chain === 'evm') {
-      const client = this.evmClients.get(opp.chainId as ChainId);
-      if (!client) throw new Error('Chain not configured');
+      const client = this.evmClients.get(opp.chainId as ChainId)
+      if (!client) throw new Error('Chain not configured')
 
       // Verify based on protocol type
       if (opp.protocol === 'aave-v3') {
-        method = 'aave_reserve_data';
-        const poolAddress = EVM_PROTOCOLS.find(p => p.name === 'aave-v3')?.contracts[opp.chainId as ChainId];
-        const tokenAddress = opp.tokens[0]?.address;
-        if (!poolAddress || !tokenAddress) throw new Error('Missing Aave pool or token address');
+        method = 'aave_reserve_data'
+        const poolAddress = EVM_PROTOCOLS.find((p) => p.name === 'aave-v3')
+          ?.contracts[opp.chainId as ChainId]
+        const tokenAddress = opp.tokens[0]?.address
+        if (!poolAddress || !tokenAddress)
+          throw new Error('Missing Aave pool or token address')
 
         const reserveDataRaw = await client.readContract({
           address: poolAddress,
           abi: AAVE_POOL_ABI,
           functionName: 'getReserveData',
           args: [tokenAddress as Address],
-        });
+        })
         // Index 2 is currentLiquidityRate in Aave V3 getReserveData response
-        const currentLiquidityRateRay = (reserveDataRaw as readonly bigint[])[2];
-        onChainApr = parseFloat(formatUnits(currentLiquidityRateRay, 27)) * 100;
+        const currentLiquidityRateRay = (reserveDataRaw as readonly bigint[])[2]
+        onChainApr = parseFloat(formatUnits(currentLiquidityRateRay, 27)) * 100
       } else if (opp.protocol === 'compound-v3') {
-        method = 'compound_supply_rate';
-        const cometAddress = EVM_PROTOCOLS.find(p => p.name === 'compound-v3')?.contracts[opp.chainId as ChainId];
-        if (!cometAddress) throw new Error('Missing Compound comet address');
+        method = 'compound_supply_rate'
+        const cometAddress = EVM_PROTOCOLS.find((p) => p.name === 'compound-v3')
+          ?.contracts[opp.chainId as ChainId]
+        if (!cometAddress) throw new Error('Missing Compound comet address')
 
-        const utilization = await client.readContract({
+        const utilization = (await client.readContract({
           address: cometAddress,
           abi: COMPOUND_COMET_ABI,
           functionName: 'getUtilization',
-        }) as bigint;
+        })) as bigint
 
-        const supplyRate = await client.readContract({
+        const supplyRate = (await client.readContract({
           address: cometAddress,
           abi: COMPOUND_COMET_ABI,
           functionName: 'getSupplyRate',
           args: [utilization],
-        }) as bigint;
+        })) as bigint
 
-        const secondsPerYear = 31_536_000;
-        onChainApr = parseFloat(formatUnits(supplyRate, 18)) * secondsPerYear * 100;
+        const secondsPerYear = 31_536_000
+        onChainApr =
+          parseFloat(formatUnits(supplyRate, 18)) * secondsPerYear * 100
       } else if (opp.protocol.includes('uniswap') || opp.protocol === 'curve') {
         if (opp.protocol === 'curve') {
-          method = 'curve_virtual_price_delta';
-          const snapshotKey = `${opp.chainId as ChainId}:${opp.poolAddress}`;
-          const prev = this.curveVPSnapshots.get(snapshotKey);
-          const currentVp = await client.readContract({
+          method = 'curve_virtual_price_delta'
+          const snapshotKey = `${opp.chainId as ChainId}:${opp.poolAddress}`
+          const prev = this.curveVPSnapshots.get(snapshotKey)
+          const currentVp = (await client.readContract({
             address: opp.poolAddress as Address,
             abi: CURVE_POOL_ABI,
             functionName: 'get_virtual_price',
-          }) as bigint;
+          })) as bigint
 
-          const now = Date.now();
-          this.curveVPSnapshots.set(snapshotKey, { vp: currentVp, ts: now });
+          const now = Date.now()
+          this.curveVPSnapshots.set(snapshotKey, { vp: currentVp, ts: now })
 
           if (!prev) {
-            onChainApr = 0;
+            onChainApr = 0
           } else {
-            const prevVp = parseFloat(formatUnits(prev.vp, 18));
-            const currVp = parseFloat(formatUnits(currentVp, 18));
-            const dtMs = Math.max(1, now - prev.ts);
-            const growth = (currVp - prevVp) / prevVp;
-            const annualization = (365 * 24 * 60 * 60 * 1000) / dtMs;
-            onChainApr = growth * annualization * 100;
+            const prevVp = parseFloat(formatUnits(prev.vp, 18))
+            const currVp = parseFloat(formatUnits(currentVp, 18))
+            const dtMs = Math.max(1, now - prev.ts)
+            const growth = (currVp - prevVp) / prevVp
+            const annualization = (365 * 24 * 60 * 60 * 1000) / dtMs
+            onChainApr = growth * annualization * 100
           }
         } else {
-          method = 'unsupported_onchain_fee_verification';
-          onChainApr = 0;
+          method = 'unsupported_onchain_fee_verification'
+          onChainApr = 0
         }
       }
     } else {
-      if (!this.solanaConnection) throw new Error('Solana not configured');
+      if (!this.solanaConnection) throw new Error('Solana not configured')
       if (opp.protocol === 'marinade' || opp.protocol === 'jito') {
-        method = 'solana_inflation_rate';
-        const inflation = await this.solanaConnection.getInflationRate();
-        const raw = inflation.total;
-        const pct = raw < 1 ? raw * 100 : raw;
-        onChainApr = pct;
+        method = 'solana_inflation_rate'
+        const inflation = await this.solanaConnection.getInflationRate()
+        const raw = inflation.total
+        const pct = raw < 1 ? raw * 100 : raw
+        onChainApr = pct
       } else {
-        method = 'unsupported_onchain_verification';
-        onChainApr = 0;
+        method = 'unsupported_onchain_verification'
+        onChainApr = 0
       }
     }
 
-    const discrepancy = opp.totalApr > 0 ? (Math.abs(onChainApr - opp.totalApr) / opp.totalApr) * 100 : 0;
+    const discrepancy =
+      opp.totalApr > 0
+        ? (Math.abs(onChainApr - opp.totalApr) / opp.totalApr) * 100
+        : 0
 
     return {
       verified: onChainApr > 0 && discrepancy < 10,
@@ -1159,19 +1266,22 @@ export class YieldFarmingStrategy extends EventEmitter {
       reportedApr: opp.totalApr,
       discrepancy,
       method,
-    };
+    }
   }
 
   // ============ Helpers ============
 
   private calculateRiskLevel(score: number): RiskLevel {
-    if (score <= 20) return 'LOW';
-    if (score <= 40) return 'MEDIUM';
-    if (score <= 60) return 'HIGH';
-    return 'VERY_HIGH';
+    if (score <= 20) return 'LOW'
+    if (score <= 40) return 'MEDIUM'
+    if (score <= 60) return 'HIGH'
+    return 'VERY_HIGH'
   }
 
-  private getTokenAddress(chainId: ChainId, symbol: string): string | undefined {
+  private getTokenAddress(
+    chainId: ChainId,
+    symbol: string,
+  ): string | undefined {
     const tokens: Partial<Record<ChainId, Record<string, string>>> = {
       1: {
         USDC: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
@@ -1196,9 +1306,9 @@ export class YieldFarmingStrategy extends EventEmitter {
         DAI: '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb',
         WETH: '0x4200000000000000000000000000000000000006',
       },
-    };
+    }
 
-    return tokens[chainId]?.[symbol];
+    return tokens[chainId]?.[symbol]
   }
 
   // ============ Stats ============
@@ -1207,58 +1317,62 @@ export class YieldFarmingStrategy extends EventEmitter {
    * Get all opportunities
    */
   getAllOpportunities(): YieldOpportunity[] {
-    return Array.from(this.opportunities.values());
+    return Array.from(this.opportunities.values())
   }
 
   /**
    * Get opportunities by chain
    */
-  getOpportunitiesByChain(chain: 'evm' | 'solana', chainId?: ChainId | string): YieldOpportunity[] {
-    return this.getAllOpportunities().filter(o => {
-      if (o.chain !== chain) return false;
-      if (chainId && o.chainId !== chainId) return false;
-      return true;
-    });
+  getOpportunitiesByChain(
+    chain: 'evm' | 'solana',
+    chainId?: ChainId | string,
+  ): YieldOpportunity[] {
+    return this.getAllOpportunities().filter((o) => {
+      if (o.chain !== chain) return false
+      if (chainId && o.chainId !== chainId) return false
+      return true
+    })
   }
 
   /**
    * Get opportunities by protocol
    */
   getOpportunitiesByProtocol(protocol: string): YieldOpportunity[] {
-    return this.getAllOpportunities().filter(o => o.protocol === protocol);
+    return this.getAllOpportunities().filter((o) => o.protocol === protocol)
   }
 
   /**
    * Get stats summary
    */
   getStats(): {
-    totalOpportunities: number;
-    byChain: Record<string, number>;
-    byProtocol: Record<string, number>;
-    avgApr: number;
-    avgRealYieldApr: number;
-    bestOpportunity: YieldOpportunity | null;
-    totalTvl: number;
+    totalOpportunities: number
+    byChain: Record<string, number>
+    byProtocol: Record<string, number>
+    avgApr: number
+    avgRealYieldApr: number
+    bestOpportunity: YieldOpportunity | null
+    totalTvl: number
   } {
-    const opps = this.getAllOpportunities();
-    
-    const byChain: Record<string, number> = {};
-    const byProtocol: Record<string, number> = {};
-    let totalApr = 0;
-    let totalRealYieldApr = 0;
-    let totalTvl = 0;
-    let best: YieldOpportunity | null = null;
+    const opps = this.getAllOpportunities()
+
+    const byChain: Record<string, number> = {}
+    const byProtocol: Record<string, number> = {}
+    let totalApr = 0
+    let totalRealYieldApr = 0
+    let totalTvl = 0
+    let best: YieldOpportunity | null = null
 
     for (const opp of opps) {
-      const chainKey = opp.chain === 'evm' ? `evm-${opp.chainId}` : opp.chainId as string;
-      byChain[chainKey] = (byChain[chainKey] ?? 0) + 1;
-      byProtocol[opp.protocol] = (byProtocol[opp.protocol] ?? 0) + 1;
-      totalApr += opp.totalApr;
-      totalRealYieldApr += opp.realYieldApr;
-      totalTvl += opp.tvlUsd;
+      const chainKey =
+        opp.chain === 'evm' ? `evm-${opp.chainId}` : (opp.chainId as string)
+      byChain[chainKey] = (byChain[chainKey] ?? 0) + 1
+      byProtocol[opp.protocol] = (byProtocol[opp.protocol] ?? 0) + 1
+      totalApr += opp.totalApr
+      totalRealYieldApr += opp.realYieldApr
+      totalTvl += opp.tvlUsd
 
       if (!best || opp.realYieldApr > best.realYieldApr) {
-        best = opp;
+        best = opp
       }
     }
 
@@ -1270,10 +1384,6 @@ export class YieldFarmingStrategy extends EventEmitter {
       avgRealYieldApr: opps.length > 0 ? totalRealYieldApr / opps.length : 0,
       bestOpportunity: best,
       totalTvl,
-    };
+    }
   }
 }
-
-
-
-

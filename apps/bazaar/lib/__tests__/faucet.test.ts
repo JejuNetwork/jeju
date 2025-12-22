@@ -2,17 +2,17 @@
  * Tests for faucet service
  */
 
-import { describe, test, expect, beforeEach } from 'bun:test'
+import { beforeEach, describe, expect, test } from 'bun:test'
 import {
-  getFaucetStatus,
-  getFaucetInfo,
+  ClaimRequestSchema,
+  FaucetClaimResultSchema,
+  FaucetInfoSchema,
+  FaucetStatusSchema,
   faucetState,
   formatCooldownTime,
+  getFaucetInfo,
+  getFaucetStatus,
   isFaucetConfigured,
-  FaucetStatusSchema,
-  FaucetInfoSchema,
-  FaucetClaimResultSchema,
-  ClaimRequestSchema,
 } from '../faucet'
 
 const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as const

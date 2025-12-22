@@ -8,7 +8,7 @@
  * - User-provided parameters
  */
 
-import { z } from "zod";
+import { z } from 'zod'
 
 // =============================================================================
 // PRIMITIVE VALIDATORS
@@ -16,158 +16,158 @@ import { z } from "zod";
 
 /** Ethereum address validator */
 export const addressSchema = z
-	.string()
-	.regex(/^0x[a-fA-F0-9]{40}$/, "Invalid Ethereum address");
+  .string()
+  .regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid Ethereum address')
 
 /** Hex string validator */
 export const hexSchema = z
-	.string()
-	.regex(/^0x[a-fA-F0-9]+$/, "Invalid hex string");
+  .string()
+  .regex(/^0x[a-fA-F0-9]+$/, 'Invalid hex string')
 
 /** Hex bytes32 validator */
 export const bytes32Schema = z
-	.string()
-	.regex(/^0x[a-fA-F0-9]{64}$/, "Invalid bytes32");
+  .string()
+  .regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid bytes32')
 
 /** Solana public key validator (base58) */
 export const solanaPublicKeySchema = z
-	.string()
-	.regex(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/, "Invalid Solana public key");
+  .string()
+  .regex(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/, 'Invalid Solana public key')
 
 /** Positive bigint validator */
-export const positiveBigintSchema = z.bigint().positive();
+export const positiveBigintSchema = z.bigint().positive()
 
 /** Non-negative bigint validator */
-export const nonNegativeBigintSchema = z.bigint().nonnegative();
+export const nonNegativeBigintSchema = z.bigint().nonnegative()
 
 /** Percentage validator (0-100) */
-export const percentageSchema = z.number().min(0).max(100);
+export const percentageSchema = z.number().min(0).max(100)
 
 /** Basis points validator (0-10000) */
-export const bpsSchema = z.number().int().min(0).max(10000);
+export const bpsSchema = z.number().int().min(0).max(10000)
 
 /** EVM chain ID */
-export const evmChainIdSchema = z.number().int().positive();
+export const evmChainIdSchema = z.number().int().positive()
 
 /** Solana network */
-export const solanaNetworkSchema = z.enum(["solana-mainnet", "solana-devnet"]);
+export const solanaNetworkSchema = z.enum(['solana-mainnet', 'solana-devnet'])
 
 /** Chain ID (EVM or Solana) */
-export const chainIdSchema = z.union([evmChainIdSchema, solanaNetworkSchema]);
+export const chainIdSchema = z.union([evmChainIdSchema, solanaNetworkSchema])
 
 // =============================================================================
 // CHAIN CONFIG SCHEMAS
 // =============================================================================
 
 export const nativeCurrencySchema = z.object({
-	name: z.string().min(1),
-	symbol: z.string().min(1).max(10),
-	decimals: z.number().int().min(0).max(18),
-});
+  name: z.string().min(1),
+  symbol: z.string().min(1).max(10),
+  decimals: z.number().int().min(0).max(18),
+})
 
 export const chainConfigSchema = z
-	.object({
-		chainId: chainIdSchema,
-		chainType: z.enum(["evm", "solana"]),
-		name: z.string().min(1),
-		rpcUrl: z.string().min(1, "Missing RPC URL"),
-		blockExplorerUrl: z.string(),
-		nativeCurrency: nativeCurrencySchema,
-		hyperlaneMailbox: z.string().min(1, "Missing Hyperlane mailbox"),
-		hyperlaneIgp: z.string().min(1),
-		isHomeChain: z.boolean(),
-		avgBlockTime: z.number().positive(),
-		uniswapV4PoolManager: addressSchema.optional(),
-		dexRouter: z.string().optional(),
-	})
-	.superRefine((data, ctx) => {
-		// Validate EVM mailbox address format
-		if (
-			data.chainType === "evm" &&
-			data.hyperlaneMailbox &&
-			!data.hyperlaneMailbox.startsWith("0x")
-		) {
-			ctx.addIssue({
-				code: z.ZodIssueCode.custom,
-				message: "Invalid EVM mailbox address",
-				path: ["hyperlaneMailbox"],
-			});
-		}
-	});
+  .object({
+    chainId: chainIdSchema,
+    chainType: z.enum(['evm', 'solana']),
+    name: z.string().min(1),
+    rpcUrl: z.string().min(1, 'Missing RPC URL'),
+    blockExplorerUrl: z.string(),
+    nativeCurrency: nativeCurrencySchema,
+    hyperlaneMailbox: z.string().min(1, 'Missing Hyperlane mailbox'),
+    hyperlaneIgp: z.string().min(1),
+    isHomeChain: z.boolean(),
+    avgBlockTime: z.number().positive(),
+    uniswapV4PoolManager: addressSchema.optional(),
+    dexRouter: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    // Validate EVM mailbox address format
+    if (
+      data.chainType === 'evm' &&
+      data.hyperlaneMailbox &&
+      !data.hyperlaneMailbox.startsWith('0x')
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Invalid EVM mailbox address',
+        path: ['hyperlaneMailbox'],
+      })
+    }
+  })
 
 // =============================================================================
 // TOKEN ECONOMICS SCHEMAS
 // =============================================================================
 
 export const tokenAllocationSchema = z
-	.object({
-		publicSale: percentageSchema,
-		presale: percentageSchema,
-		team: percentageSchema,
-		advisors: percentageSchema,
-		ecosystem: percentageSchema,
-		liquidity: percentageSchema,
-		stakingRewards: percentageSchema,
-	})
-	.refine(
-		(data) => {
-			const total = Object.values(data).reduce((sum, val) => sum + val, 0);
-			return total === 100;
-		},
-		{ message: "Allocation percentages must sum to 100" },
-	);
+  .object({
+    publicSale: percentageSchema,
+    presale: percentageSchema,
+    team: percentageSchema,
+    advisors: percentageSchema,
+    ecosystem: percentageSchema,
+    liquidity: percentageSchema,
+    stakingRewards: percentageSchema,
+  })
+  .refine(
+    (data) => {
+      const total = Object.values(data).reduce((sum, val) => sum + val, 0)
+      return total === 100
+    },
+    { message: 'Allocation percentages must sum to 100' },
+  )
 
 export const vestingScheduleSchema = z.object({
-	cliffDuration: z.number().int().nonnegative(),
-	vestingDuration: z.number().int().nonnegative(),
-	tgeUnlockPercent: percentageSchema,
-	vestingType: z.enum(["linear", "discrete"]),
-	discretePeriods: z.number().int().positive().optional(),
-});
+  cliffDuration: z.number().int().nonnegative(),
+  vestingDuration: z.number().int().nonnegative(),
+  tgeUnlockPercent: percentageSchema,
+  vestingType: z.enum(['linear', 'discrete']),
+  discretePeriods: z.number().int().positive().optional(),
+})
 
 export const vestingConfigSchema = z.object({
-	team: vestingScheduleSchema,
-	advisors: vestingScheduleSchema,
-	presale: vestingScheduleSchema,
-	ecosystem: vestingScheduleSchema,
-	publicSale: vestingScheduleSchema.optional(),
-});
+  team: vestingScheduleSchema,
+  advisors: vestingScheduleSchema,
+  presale: vestingScheduleSchema,
+  ecosystem: vestingScheduleSchema,
+  publicSale: vestingScheduleSchema.optional(),
+})
 
 export const feeDistributionSchema = z
-	.object({
-		holders: percentageSchema,
-		creators: percentageSchema,
-		treasury: percentageSchema,
-		liquidityProviders: percentageSchema,
-		burn: percentageSchema,
-	})
-	.refine(
-		(data) => {
-			const total = Object.values(data).reduce((sum, val) => sum + val, 0);
-			return total === 100;
-		},
-		{ message: "Fee distribution percentages must sum to 100" },
-	);
+  .object({
+    holders: percentageSchema,
+    creators: percentageSchema,
+    treasury: percentageSchema,
+    liquidityProviders: percentageSchema,
+    burn: percentageSchema,
+  })
+  .refine(
+    (data) => {
+      const total = Object.values(data).reduce((sum, val) => sum + val, 0)
+      return total === 100
+    },
+    { message: 'Fee distribution percentages must sum to 100' },
+  )
 
 export const feeConfigSchema = z.object({
-	transferFeeBps: bpsSchema,
-	bridgeFeeBps: bpsSchema,
-	swapFeeBps: bpsSchema,
-	distribution: feeDistributionSchema,
-	feeExemptAddresses: z.array(addressSchema),
-});
+  transferFeeBps: bpsSchema,
+  bridgeFeeBps: bpsSchema,
+  swapFeeBps: bpsSchema,
+  distribution: feeDistributionSchema,
+  feeExemptAddresses: z.array(addressSchema),
+})
 
 export const tokenEconomicsSchema = z.object({
-	name: z.string().min(1).max(64),
-	symbol: z.string().min(1).max(10),
-	decimals: z.number().int().min(0).max(18),
-	totalSupply: positiveBigintSchema,
-	allocation: tokenAllocationSchema,
-	vesting: vestingConfigSchema,
-	fees: feeConfigSchema,
-	maxWalletPercent: percentageSchema,
-	maxTxPercent: percentageSchema,
-});
+  name: z.string().min(1).max(64),
+  symbol: z.string().min(1).max(10),
+  decimals: z.number().int().min(0).max(18),
+  totalSupply: positiveBigintSchema,
+  allocation: tokenAllocationSchema,
+  vesting: vestingConfigSchema,
+  fees: feeConfigSchema,
+  maxWalletPercent: percentageSchema,
+  maxTxPercent: percentageSchema,
+})
 
 // =============================================================================
 // LIQUIDITY SCHEMAS
@@ -180,227 +180,227 @@ export const tokenEconomicsSchema = z.object({
  * Type: LiquidityDex is exported from types.ts
  */
 export const liquidityDexSchema = z.enum([
-	"uniswap-v4",
-	"uniswap-v3",
-	"sushiswap",
-	"raydium",
-	"orca",
-	"jupiter",
-]);
+  'uniswap-v4',
+  'uniswap-v3',
+  'sushiswap',
+  'raydium',
+  'orca',
+  'jupiter',
+])
 
 export const liquidityAllocationSchema = z.object({
-	chainId: chainIdSchema,
-	percentage: percentageSchema,
-	initialPriceUsd: z.number().positive(),
-	pairedAsset: z.union([addressSchema, z.literal("SOL")]),
-	dex: liquidityDexSchema,
-});
+  chainId: chainIdSchema,
+  percentage: percentageSchema,
+  initialPriceUsd: z.number().positive(),
+  pairedAsset: z.union([addressSchema, z.literal('SOL')]),
+  dex: liquidityDexSchema,
+})
 
 export const liquidityConfigSchema = z
-	.object({
-		lockDuration: z.number().int().nonnegative(),
-		lpTokenRecipient: addressSchema,
-		allocations: z.array(liquidityAllocationSchema).min(1),
-	})
-	.refine(
-		(data) => {
-			const total = data.allocations.reduce((sum, a) => sum + a.percentage, 0);
-			return total === 100;
-		},
-		{ message: "Liquidity allocation percentages must sum to 100" },
-	);
+  .object({
+    lockDuration: z.number().int().nonnegative(),
+    lpTokenRecipient: addressSchema,
+    allocations: z.array(liquidityAllocationSchema).min(1),
+  })
+  .refine(
+    (data) => {
+      const total = data.allocations.reduce((sum, a) => sum + a.percentage, 0)
+      return total === 100
+    },
+    { message: 'Liquidity allocation percentages must sum to 100' },
+  )
 
 // =============================================================================
 // PRESALE SCHEMAS
 // =============================================================================
 
 export const presaleTierSchema = z.object({
-	name: z.string().min(1),
-	minContribution: z.number().nonnegative(),
-	maxContribution: z.number().positive(),
-	discountPercent: percentageSchema,
-	vestingOverride: vestingScheduleSchema.optional(),
-	whitelistMerkleRoot: hexSchema.optional(),
-});
+  name: z.string().min(1),
+  minContribution: z.number().nonnegative(),
+  maxContribution: z.number().positive(),
+  discountPercent: percentageSchema,
+  vestingOverride: vestingScheduleSchema.optional(),
+  whitelistMerkleRoot: hexSchema.optional(),
+})
 
 export const presaleConfigSchema = z.object({
-	enabled: z.boolean(),
-	startTime: z.number().int().positive(),
-	endTime: z.number().int().positive(),
-	softCapUsd: z.number().nonnegative(),
-	hardCapUsd: z.number().positive(),
-	priceUsd: z.number().positive(),
-	tiers: z.array(presaleTierSchema),
-	acceptedTokens: z.record(z.string(), z.array(addressSchema)),
-	refundIfSoftCapMissed: z.boolean(),
-});
+  enabled: z.boolean(),
+  startTime: z.number().int().positive(),
+  endTime: z.number().int().positive(),
+  softCapUsd: z.number().nonnegative(),
+  hardCapUsd: z.number().positive(),
+  priceUsd: z.number().positive(),
+  tiers: z.array(presaleTierSchema),
+  acceptedTokens: z.record(z.string(), z.array(addressSchema)),
+  refundIfSoftCapMissed: z.boolean(),
+})
 
 // =============================================================================
 // CCA (CONTINUOUS CLEARING AUCTION) SCHEMAS
 // =============================================================================
 
 export const ccaDeploymentModeSchema = z.enum([
-	"uniswap-platform",
-	"self-deployed",
-]);
+  'uniswap-platform',
+  'self-deployed',
+])
 
 export const ccaAuctionFeesSchema = z.object({
-	platformFeeBps: bpsSchema,
-	referralFeeBps: bpsSchema,
-});
+  platformFeeBps: bpsSchema,
+  referralFeeBps: bpsSchema,
+})
 
 export const ccaConfigSchema = z.object({
-	deploymentMode: ccaDeploymentModeSchema,
-	startTime: z.number().int().positive(),
-	duration: z.number().int().positive(),
-	startPriceUsd: z.number().positive(),
-	reservePriceUsd: z.number().positive(),
-	supplyReleaseCurve: z.enum(["linear", "exponential", "step"]),
-	maxBidPercent: percentageSchema,
-	minBidUsd: z.number().nonnegative(),
-	autoMigrateLiquidity: z.boolean(),
-	auctionFees: ccaAuctionFeesSchema.optional(),
-});
+  deploymentMode: ccaDeploymentModeSchema,
+  startTime: z.number().int().positive(),
+  duration: z.number().int().positive(),
+  startPriceUsd: z.number().positive(),
+  reservePriceUsd: z.number().positive(),
+  supplyReleaseCurve: z.enum(['linear', 'exponential', 'step']),
+  maxBidPercent: percentageSchema,
+  minBidUsd: z.number().nonnegative(),
+  autoMigrateLiquidity: z.boolean(),
+  auctionFees: ccaAuctionFeesSchema.optional(),
+})
 
 // =============================================================================
 // HYPERLANE SCHEMAS
 // =============================================================================
 
 export const ismTypeSchema = z.enum([
-	"multisig",
-	"optimistic",
-	"aggregation",
-	"routing",
-	"pausable",
-	"trusted-relayer",
-]);
+  'multisig',
+  'optimistic',
+  'aggregation',
+  'routing',
+  'pausable',
+  'trusted-relayer',
+])
 
 export const multisigISMConfigSchema = z.object({
-	type: z.literal("multisig"),
-	validators: z.array(z.string()).min(1),
-	threshold: z.number().int().positive(),
-});
+  type: z.literal('multisig'),
+  validators: z.array(z.string()).min(1),
+  threshold: z.number().int().positive(),
+})
 
 export const optimisticISMConfigSchema = z.object({
-	type: z.literal("optimistic"),
-	challengePeriod: z.number().int().positive(),
-	watchers: z.array(z.string()).min(1),
-});
+  type: z.literal('optimistic'),
+  challengePeriod: z.number().int().positive(),
+  watchers: z.array(z.string()).min(1),
+})
 
 export const ismConfigSchema = z.union([
-	multisigISMConfigSchema,
-	optimisticISMConfigSchema,
-]);
+  multisigISMConfigSchema,
+  optimisticISMConfigSchema,
+])
 
 export const warpRouteTokenTypeSchema = z.enum([
-	"native",
-	"synthetic",
-	"collateral",
-]);
+  'native',
+  'synthetic',
+  'collateral',
+])
 
 export const warpRouteConfigSchema = z.object({
-	chainId: chainIdSchema,
-	tokenType: warpRouteTokenTypeSchema,
-	collateralAddress: z.string().optional(),
-	ism: ismConfigSchema,
-	owner: z.string().min(1),
-	rateLimitPerDay: nonNegativeBigintSchema,
-});
+  chainId: chainIdSchema,
+  tokenType: warpRouteTokenTypeSchema,
+  collateralAddress: z.string().optional(),
+  ism: ismConfigSchema,
+  owner: z.string().min(1),
+  rateLimitPerDay: nonNegativeBigintSchema,
+})
 
 export const hyperlaneValidatorSchema = z.object({
-	address: z.string().min(1),
-	chains: z.array(chainIdSchema),
-});
+  address: z.string().min(1),
+  chains: z.array(chainIdSchema),
+})
 
 export const hyperlaneGasConfigSchema = z.object({
-	defaultGasLimit: nonNegativeBigintSchema,
-	gasOverhead: nonNegativeBigintSchema,
-});
+  defaultGasLimit: nonNegativeBigintSchema,
+  gasOverhead: nonNegativeBigintSchema,
+})
 
 export const hyperlaneConfigSchema = z.object({
-	routes: z.array(warpRouteConfigSchema).min(1),
-	validators: z.array(hyperlaneValidatorSchema),
-	gasConfig: hyperlaneGasConfigSchema,
-});
+  routes: z.array(warpRouteConfigSchema).min(1),
+  validators: z.array(hyperlaneValidatorSchema),
+  gasConfig: hyperlaneGasConfigSchema,
+})
 
 // =============================================================================
 // DEPLOYMENT CONFIG SCHEMAS
 // =============================================================================
 
 export const deploymentConfigSchema = z.object({
-	token: tokenEconomicsSchema,
-	liquidity: liquidityConfigSchema,
-	presale: presaleConfigSchema,
-	cca: ccaConfigSchema,
-	hyperlane: hyperlaneConfigSchema,
-	chains: z.array(chainConfigSchema).min(1),
-	owner: addressSchema,
-	timelockDelay: z.number().int().nonnegative(),
-	deploymentSalt: bytes32Schema,
-});
+  token: tokenEconomicsSchema,
+  liquidity: liquidityConfigSchema,
+  presale: presaleConfigSchema,
+  cca: ccaConfigSchema,
+  hyperlane: hyperlaneConfigSchema,
+  chains: z.array(chainConfigSchema).min(1),
+  owner: addressSchema,
+  timelockDelay: z.number().int().nonnegative(),
+  deploymentSalt: bytes32Schema,
+})
 
 // =============================================================================
 // BRIDGE REQUEST SCHEMAS
 // =============================================================================
 
 export const bridgeRequestSchema = z.object({
-	sourceChain: chainIdSchema,
-	destinationChain: chainIdSchema,
-	sender: z.string().min(1),
-	recipient: z.string().min(1),
-	amount: positiveBigintSchema,
-	callData: hexSchema.optional(),
-});
+  sourceChain: chainIdSchema,
+  destinationChain: chainIdSchema,
+  sender: z.string().min(1),
+  recipient: z.string().min(1),
+  amount: positiveBigintSchema,
+  callData: hexSchema.optional(),
+})
 
 export const bridgeStatusSchema = z.object({
-	requestId: hexSchema,
-	status: z.enum(["pending", "dispatched", "delivered", "failed"]),
-	sourceChain: chainIdSchema,
-	destinationChain: chainIdSchema,
-	amount: positiveBigintSchema,
-	sourceTxHash: hexSchema.optional(),
-	destTxHash: hexSchema.optional(),
-	error: z.string().optional(),
-});
+  requestId: hexSchema,
+  status: z.enum(['pending', 'dispatched', 'delivered', 'failed']),
+  sourceChain: chainIdSchema,
+  destinationChain: chainIdSchema,
+  amount: positiveBigintSchema,
+  sourceTxHash: hexSchema.optional(),
+  destTxHash: hexSchema.optional(),
+  error: z.string().optional(),
+})
 
 // =============================================================================
 // TOKEN DEPLOYMENT CONFIG SCHEMAS
 // =============================================================================
 
 export const tokenCategorySchema = z.enum([
-	"defi",
-	"gaming",
-	"social",
-	"utility",
-	"meme",
-]);
+  'defi',
+  'gaming',
+  'social',
+  'utility',
+  'meme',
+])
 
 export const tokenDeploymentConfigSchema = z.object({
-	name: z.string().min(1).max(64),
-	symbol: z.string().min(1).max(10),
-	decimals: z.number().int().min(0).max(18),
-	totalSupply: positiveBigintSchema,
-	category: tokenCategorySchema,
-	tags: z.array(z.string()),
-	description: z.string(),
-	website: z.string().url().optional(),
-	twitter: z.string().optional(),
-	discord: z.string().optional(),
-	homeChainId: chainIdSchema,
-	targetChainIds: z.array(chainIdSchema).min(1),
-	includeSolana: z.boolean().optional(),
-	oracleAddress: addressSchema.optional(),
-});
+  name: z.string().min(1).max(64),
+  symbol: z.string().min(1).max(10),
+  decimals: z.number().int().min(0).max(18),
+  totalSupply: positiveBigintSchema,
+  category: tokenCategorySchema,
+  tags: z.array(z.string()),
+  description: z.string(),
+  website: z.string().url().optional(),
+  twitter: z.string().optional(),
+  discord: z.string().optional(),
+  homeChainId: chainIdSchema,
+  targetChainIds: z.array(chainIdSchema).min(1),
+  includeSolana: z.boolean().optional(),
+  oracleAddress: addressSchema.optional(),
+})
 
 // =============================================================================
 // TYPE EXPORTS (inferred from schemas)
 // =============================================================================
 
-export type ValidatedAddress = z.infer<typeof addressSchema>;
-export type ValidatedChainConfig = z.infer<typeof chainConfigSchema>;
-export type ValidatedTokenEconomics = z.infer<typeof tokenEconomicsSchema>;
-export type ValidatedDeploymentConfig = z.infer<typeof deploymentConfigSchema>;
-export type ValidatedBridgeRequest = z.infer<typeof bridgeRequestSchema>;
+export type ValidatedAddress = z.infer<typeof addressSchema>
+export type ValidatedChainConfig = z.infer<typeof chainConfigSchema>
+export type ValidatedTokenEconomics = z.infer<typeof tokenEconomicsSchema>
+export type ValidatedDeploymentConfig = z.infer<typeof deploymentConfigSchema>
+export type ValidatedBridgeRequest = z.infer<typeof bridgeRequestSchema>
 export type ValidatedTokenDeploymentConfig = z.infer<
-	typeof tokenDeploymentConfigSchema
->;
+  typeof tokenDeploymentConfigSchema
+>

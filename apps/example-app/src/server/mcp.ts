@@ -1,29 +1,40 @@
 /**
  * MCP (Model Context Protocol) Server for tool integrations
- * 
+ *
  * All endpoints use zod validation with expect/throw patterns.
  */
 
-import { Hono } from 'hono';
-import { getTodoService } from '../services/todo';
-import { getCronService } from '../services/cron';
+import { getNetworkName } from '@jejunetwork/config'
+import { Hono } from 'hono'
 import {
-  mcpServerInfoSchema,
-  mcpResourceSchema,
-  mcpToolSchema,
-  mcpToolCallSchema,
-  mcpResourceReadSchema,
-  mcpPromptGetSchema,
-  createTodoInputSchema,
-  updateTodoInputSchema,
-  listTodosQuerySchema,
-  bulkCompleteSchema,
   addressSchema,
+  bulkCompleteSchema,
+  createTodoInputSchema,
+  listTodosQuerySchema,
+  mcpPromptGetSchema,
+  mcpResourceReadSchema,
+  mcpResourceSchema,
+  mcpServerInfoSchema,
+  mcpToolCallSchema,
+  mcpToolSchema,
   todoIdSchema,
-} from '../schemas';
-import { expectValid, ValidationError, sanitizeErrorMessage } from '../utils/validation';
-import { getNetworkName } from '@jejunetwork/config';
-import type { MCPServerInfo, MCPResource, MCPTool, MCPPrompt, Todo, TodoStats } from '../types';
+  updateTodoInputSchema,
+} from '../schemas'
+import { getCronService } from '../services/cron'
+import { getTodoService } from '../services/todo'
+import type {
+  MCPPrompt,
+  MCPResource,
+  MCPServerInfo,
+  MCPTool,
+  Todo,
+  TodoStats,
+} from '../types'
+import {
+  expectValid,
+  sanitizeErrorMessage,
+  ValidationError,
+} from '../utils/validation'
 
 const MCP_SERVER_INFO: MCPServerInfo = {
   name: 'jeju-todo-mcp',
@@ -34,15 +45,40 @@ const MCP_SERVER_INFO: MCPServerInfo = {
     tools: true,
     prompts: true,
   },
-};
+}
 
 const MCP_RESOURCES: MCPResource[] = [
-  { uri: 'todo://todos', name: 'All Todos', description: 'List of all user todos', mimeType: 'application/json' },
-  { uri: 'todo://pending', name: 'Pending Todos', description: 'List of incomplete todos', mimeType: 'application/json' },
-  { uri: 'todo://completed', name: 'Completed Todos', description: 'List of completed todos', mimeType: 'application/json' },
-  { uri: 'todo://stats', name: 'Statistics', description: 'Todo statistics', mimeType: 'application/json' },
-  { uri: 'todo://overdue', name: 'Overdue Todos', description: 'List of overdue todos', mimeType: 'application/json' },
-];
+  {
+    uri: 'todo://todos',
+    name: 'All Todos',
+    description: 'List of all user todos',
+    mimeType: 'application/json',
+  },
+  {
+    uri: 'todo://pending',
+    name: 'Pending Todos',
+    description: 'List of incomplete todos',
+    mimeType: 'application/json',
+  },
+  {
+    uri: 'todo://completed',
+    name: 'Completed Todos',
+    description: 'List of completed todos',
+    mimeType: 'application/json',
+  },
+  {
+    uri: 'todo://stats',
+    name: 'Statistics',
+    description: 'Todo statistics',
+    mimeType: 'application/json',
+  },
+  {
+    uri: 'todo://overdue',
+    name: 'Overdue Todos',
+    description: 'List of overdue todos',
+    mimeType: 'application/json',
+  },
+]
 
 const MCP_TOOLS: MCPTool[] = [
   {
@@ -51,9 +87,19 @@ const MCP_TOOLS: MCPTool[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        completed: { type: 'boolean', description: 'Filter by completion status' },
-        priority: { type: 'string', description: 'Filter by priority', enum: ['low', 'medium', 'high'] },
-        search: { type: 'string', description: 'Search in title and description' },
+        completed: {
+          type: 'boolean',
+          description: 'Filter by completion status',
+        },
+        priority: {
+          type: 'string',
+          description: 'Filter by priority',
+          enum: ['low', 'medium', 'high'],
+        },
+        search: {
+          type: 'string',
+          description: 'Search in title and description',
+        },
       },
     },
   },
@@ -65,7 +111,11 @@ const MCP_TOOLS: MCPTool[] = [
       properties: {
         title: { type: 'string', description: 'Todo title' },
         description: { type: 'string', description: 'Todo description' },
-        priority: { type: 'string', description: 'Priority level', enum: ['low', 'medium', 'high'] },
+        priority: {
+          type: 'string',
+          description: 'Priority level',
+          enum: ['low', 'medium', 'high'],
+        },
         dueDate: { type: 'number', description: 'Due date timestamp' },
       },
       required: ['title'],
@@ -81,7 +131,11 @@ const MCP_TOOLS: MCPTool[] = [
         title: { type: 'string', description: 'New title' },
         description: { type: 'string', description: 'New description' },
         completed: { type: 'boolean', description: 'Completion status' },
-        priority: { type: 'string', description: 'Priority level', enum: ['low', 'medium', 'high'] },
+        priority: {
+          type: 'string',
+          description: 'Priority level',
+          enum: ['low', 'medium', 'high'],
+        },
       },
       required: ['id'],
     },
@@ -128,179 +182,221 @@ const MCP_TOOLS: MCPTool[] = [
       required: ['ids'],
     },
   },
-];
+]
 
 const MCP_PROMPTS: MCPPrompt[] = [
   {
     name: 'daily_summary',
     description: 'Generate a daily summary of todos',
     arguments: [
-      { name: 'date', description: 'Date for summary (ISO string)', required: false },
+      {
+        name: 'date',
+        description: 'Date for summary (ISO string)',
+        required: false,
+      },
     ],
   },
   {
     name: 'prioritize_tasks',
     description: 'Get AI-suggested task prioritization',
     arguments: [
-      { name: 'count', description: 'Number of top tasks to return', required: false },
+      {
+        name: 'count',
+        description: 'Number of top tasks to return',
+        required: false,
+      },
     ],
   },
   {
     name: 'weekly_report',
     description: 'Generate a weekly productivity report',
     arguments: [
-      { name: 'weekStart', description: 'Start date of the week', required: false },
+      {
+        name: 'weekStart',
+        description: 'Start date of the week',
+        required: false,
+      },
     ],
   },
-];
+]
 
 export function createMCPServer(): Hono {
-  const app = new Hono();
-  const todoService = getTodoService();
-  const cronService = getCronService();
-  
+  const app = new Hono()
+  const todoService = getTodoService()
+  const cronService = getCronService()
+
   // Determine if we're in localnet for error message detail level
-  const networkName = getNetworkName();
-  const isLocalnet = networkName === 'localnet' || networkName === 'Jeju';
+  const networkName = getNetworkName()
+  const isLocalnet = networkName === 'localnet' || networkName === 'Jeju'
 
   // Error handler with sanitized messages
   app.onError((err, c) => {
     // Log full error for debugging (server-side only)
-    console.error('[MCP Error]', err);
-    
+    console.error('[MCP Error]', err)
+
     if (err instanceof ValidationError) {
       return c.json({
         content: [{ type: 'text', text: `Validation error: ${err.message}` }],
         isError: true,
-      });
+      })
     }
-    
+
     // Return sanitized message to client
-    const safeMessage = sanitizeErrorMessage(err, isLocalnet);
+    const safeMessage = sanitizeErrorMessage(err, isLocalnet)
     return c.json({
       content: [{ type: 'text', text: `Internal error: ${safeMessage}` }],
       isError: true,
-    });
-  });
+    })
+  })
 
   // Initialize with validation
   app.post('/initialize', (c) => {
-    const validatedInfo = expectValid(mcpServerInfoSchema, MCP_SERVER_INFO, 'MCP server info');
+    const validatedInfo = expectValid(
+      mcpServerInfoSchema,
+      MCP_SERVER_INFO,
+      'MCP server info',
+    )
     return c.json({
       protocolVersion: '2024-11-05',
       serverInfo: validatedInfo,
       capabilities: validatedInfo.capabilities,
-    });
-  });
+    })
+  })
 
   // List resources with validation
   app.post('/resources/list', (c) => {
-    const validatedResources = MCP_RESOURCES.map(r => 
-      expectValid(mcpResourceSchema, r, 'MCP resource')
-    );
-    return c.json({ resources: validatedResources });
-  });
+    const validatedResources = MCP_RESOURCES.map((r) =>
+      expectValid(mcpResourceSchema, r, 'MCP resource'),
+    )
+    return c.json({ resources: validatedResources })
+  })
 
   // Read resource with validated input
   app.post('/resources/read', async (c) => {
-    const body = await c.req.json();
-    const validatedInput = expectValid(mcpResourceReadSchema, body, 'Resource read input');
-    
-    const addressHeader = c.req.header('x-jeju-address');
+    const body = await c.req.json()
+    const validatedInput = expectValid(
+      mcpResourceReadSchema,
+      body,
+      'Resource read input',
+    )
+
+    const addressHeader = c.req.header('x-jeju-address')
     if (!addressHeader) {
-      return c.json({ error: 'Authentication required: x-jeju-address header missing' }, 401);
+      return c.json(
+        { error: 'Authentication required: x-jeju-address header missing' },
+        401,
+      )
     }
 
     const address = expectValid(
       addressSchema,
       addressHeader,
-      'x-jeju-address header'
-    );
+      'x-jeju-address header',
+    )
 
-    const uri = validatedInput.uri;
-    
+    const uri = validatedInput.uri
+
     // Type for resource contents - union of all possible resource response types
-    type ResourceContents = 
-      | { todos: Todo[]; count: number }
-      | TodoStats;
-    
-    let contents: ResourceContents;
+    type ResourceContents = { todos: Todo[]; count: number } | TodoStats
+
+    let contents: ResourceContents
 
     switch (uri) {
       case 'todo://todos': {
-        const todos = await todoService.listTodos(address);
-        contents = { todos, count: todos.length };
-        break;
+        const todos = await todoService.listTodos(address)
+        contents = { todos, count: todos.length }
+        break
       }
       case 'todo://pending': {
-        const todos = await todoService.listTodos(address, { completed: false });
-        contents = { todos, count: todos.length };
-        break;
+        const todos = await todoService.listTodos(address, { completed: false })
+        contents = { todos, count: todos.length }
+        break
       }
       case 'todo://completed': {
-        const todos = await todoService.listTodos(address, { completed: true });
-        contents = { todos, count: todos.length };
-        break;
+        const todos = await todoService.listTodos(address, { completed: true })
+        contents = { todos, count: todos.length }
+        break
       }
       case 'todo://stats': {
-        contents = await todoService.getStats(address);
-        break;
+        contents = await todoService.getStats(address)
+        break
       }
       case 'todo://overdue': {
-        const todos = await todoService.listTodos(address, { completed: false });
-        const now = Date.now();
-        const overdue = todos.filter(t => t.dueDate && t.dueDate < now);
-        contents = { todos: overdue, count: overdue.length };
-        break;
+        const todos = await todoService.listTodos(address, { completed: false })
+        const now = Date.now()
+        const overdue = todos.filter((t) => t.dueDate && t.dueDate < now)
+        contents = { todos: overdue, count: overdue.length }
+        break
       }
       default:
-        return c.json({ error: 'Resource not found' }, 404);
+        return c.json({ error: 'Resource not found' }, 404)
     }
 
     return c.json({
-      contents: [{ uri, mimeType: 'application/json', text: JSON.stringify(contents) }],
-    });
-  });
+      contents: [
+        { uri, mimeType: 'application/json', text: JSON.stringify(contents) },
+      ],
+    })
+  })
 
   // List tools with validation
   app.post('/tools/list', (c) => {
-    const validatedTools = MCP_TOOLS.map(t => 
-      expectValid(mcpToolSchema, t, 'MCP tool')
-    );
-    return c.json({ tools: validatedTools });
-  });
+    const validatedTools = MCP_TOOLS.map((t) =>
+      expectValid(mcpToolSchema, t, 'MCP tool'),
+    )
+    return c.json({ tools: validatedTools })
+  })
 
   // Call tool with validated input
   app.post('/tools/call', async (c) => {
-    const body = await c.req.json();
-    const validatedInput = expectValid(mcpToolCallSchema, body, 'Tool call input');
-    
-    const addressHeader = c.req.header('x-jeju-address');
+    const body = await c.req.json()
+    const validatedInput = expectValid(
+      mcpToolCallSchema,
+      body,
+      'Tool call input',
+    )
+
+    const addressHeader = c.req.header('x-jeju-address')
     if (!addressHeader) {
       return c.json({
-        content: [{ type: 'text', text: 'Authentication required: x-jeju-address header missing' }],
+        content: [
+          {
+            type: 'text',
+            text: 'Authentication required: x-jeju-address header missing',
+          },
+        ],
         isError: true,
-      });
+      })
     }
 
     const address = expectValid(
       addressSchema,
       addressHeader,
-      'x-jeju-address header'
-    );
+      'x-jeju-address header',
+    )
 
     // Type for tool call results - union of all possible result types
-    type ToolResult = 
+    type ToolResult =
       | { todos: Todo[]; count: number }
       | { todo: Todo; created: boolean }
       | { todo: Todo; updated: boolean }
       | { deleted: boolean; id: string }
       | TodoStats
-      | { reminder: { id: string; todoId: string; owner: string; reminderTime: number; sent: boolean; createdAt: number }; scheduled: boolean }
-      | { completed: number; todos: Todo[] };
-    
-    let result: ToolResult;
-    const isError = false;
+      | {
+          reminder: {
+            id: string
+            todoId: string
+            owner: string
+            reminderTime: number
+            sent: boolean
+            createdAt: number
+          }
+          scheduled: boolean
+        }
+      | { completed: number; todos: Todo[] }
+
+    let result: ToolResult
+    const isError = false
 
     switch (validatedInput.name) {
       case 'list_todos': {
@@ -308,187 +404,236 @@ export function createMCPServer(): Hono {
           completed: validatedInput.arguments.completed,
           priority: validatedInput.arguments.priority,
           search: validatedInput.arguments.search,
-        };
+        }
         const validatedQuery = expectValid(
           listTodosQuerySchema,
           queryParams,
-          'List todos query'
-        );
-        const todos = await todoService.listTodos(address, validatedQuery);
-        result = { todos, count: todos.length };
-        break;
+          'List todos query',
+        )
+        const todos = await todoService.listTodos(address, validatedQuery)
+        result = { todos, count: todos.length }
+        break
       }
 
       case 'create_todo': {
         const validatedCreateInput = expectValid(
           createTodoInputSchema,
           validatedInput.arguments,
-          'Create todo input'
-        );
-        const todo = await todoService.createTodo(address, validatedCreateInput);
-        result = { todo, created: true };
-        break;
+          'Create todo input',
+        )
+        const todo = await todoService.createTodo(address, validatedCreateInput)
+        result = { todo, created: true }
+        break
       }
 
       case 'update_todo': {
-        const id = expectValid(todoIdSchema, validatedInput.arguments.id, 'Todo ID');
-        
+        const id = expectValid(
+          todoIdSchema,
+          validatedInput.arguments.id,
+          'Todo ID',
+        )
+
         const validatedUpdateInput = expectValid(
           updateTodoInputSchema,
           validatedInput.arguments,
-          'Update todo input'
-        );
-        
-        const todo = await todoService.updateTodo(id, address, validatedUpdateInput);
+          'Update todo input',
+        )
+
+        const todo = await todoService.updateTodo(
+          id,
+          address,
+          validatedUpdateInput,
+        )
         if (!todo) {
-          throw new ValidationError(`Todo ${id} not found`);
+          throw new ValidationError(`Todo ${id} not found`)
         }
-        result = { todo, updated: true };
-        break;
+        result = { todo, updated: true }
+        break
       }
 
       case 'delete_todo': {
-        const id = expectValid(todoIdSchema, validatedInput.arguments.id, 'Todo ID');
-        
-        const deleted = await todoService.deleteTodo(id, address);
+        const id = expectValid(
+          todoIdSchema,
+          validatedInput.arguments.id,
+          'Todo ID',
+        )
+
+        const deleted = await todoService.deleteTodo(id, address)
         if (!deleted) {
-          throw new ValidationError(`Todo ${id} not found`);
+          throw new ValidationError(`Todo ${id} not found`)
         }
-        result = { deleted: true, id };
-        break;
+        result = { deleted: true, id }
+        break
       }
 
       case 'get_stats': {
-        result = await todoService.getStats(address);
-        break;
+        result = await todoService.getStats(address)
+        break
       }
 
       case 'schedule_reminder': {
-        const todoId = expectValid(todoIdSchema, validatedInput.arguments.todoId, 'Todo ID');
-        const reminderTime = validatedInput.arguments.reminderTime;
-        
+        const todoId = expectValid(
+          todoIdSchema,
+          validatedInput.arguments.todoId,
+          'Todo ID',
+        )
+        const reminderTime = validatedInput.arguments.reminderTime
+
         if (typeof reminderTime !== 'number' || reminderTime <= 0) {
-          throw new ValidationError('reminderTime must be a positive number');
+          throw new ValidationError('reminderTime must be a positive number')
         }
-        
-        const reminder = await cronService.scheduleReminder(todoId, address, reminderTime);
-        result = { reminder, scheduled: true };
-        break;
+
+        const reminder = await cronService.scheduleReminder(
+          todoId,
+          address,
+          reminderTime,
+        )
+        result = { reminder, scheduled: true }
+        break
       }
 
       case 'bulk_complete': {
         const validatedBulkInput = expectValid(
           bulkCompleteSchema,
           { ids: validatedInput.arguments.ids },
-          'Bulk complete input'
-        );
-        const completed = await todoService.bulkComplete(validatedBulkInput.ids, address);
-        result = { completed: completed.length, todos: completed };
-        break;
+          'Bulk complete input',
+        )
+        const completed = await todoService.bulkComplete(
+          validatedBulkInput.ids,
+          address,
+        )
+        result = { completed: completed.length, todos: completed }
+        break
       }
 
       default:
         throw new ValidationError(
-          `Unknown tool: ${validatedInput.name}. Available: ${MCP_TOOLS.map(t => t.name).join(', ')}`
-        );
+          `Unknown tool: ${validatedInput.name}. Available: ${MCP_TOOLS.map((t) => t.name).join(', ')}`,
+        )
     }
 
     return c.json({
       content: [{ type: 'text', text: JSON.stringify(result) }],
       isError,
-    });
-  });
+    })
+  })
 
   // List prompts
-  app.post('/prompts/list', (c) => c.json({ prompts: MCP_PROMPTS }));
+  app.post('/prompts/list', (c) => c.json({ prompts: MCP_PROMPTS }))
 
   // Get prompt with validated input
   app.post('/prompts/get', async (c) => {
-    const body = await c.req.json();
-    const validatedInput = expectValid(mcpPromptGetSchema, body, 'Prompt get input');
-    
-    const addressHeader = c.req.header('x-jeju-address');
+    const body = await c.req.json()
+    const validatedInput = expectValid(
+      mcpPromptGetSchema,
+      body,
+      'Prompt get input',
+    )
+
+    const addressHeader = c.req.header('x-jeju-address')
     if (!addressHeader) {
-      return c.json({ error: 'Authentication required: x-jeju-address header missing' }, 401);
+      return c.json(
+        { error: 'Authentication required: x-jeju-address header missing' },
+        401,
+      )
     }
 
     const address = expectValid(
       addressSchema,
       addressHeader,
-      'x-jeju-address header'
-    );
+      'x-jeju-address header',
+    )
 
-    let messages: Array<{ role: string; content: { type: string; text: string } }> = [];
+    let messages: Array<{
+      role: string
+      content: { type: string; text: string }
+    }> = []
 
     switch (validatedInput.name) {
       case 'daily_summary': {
-        const todos = await todoService.listTodos(address);
-        const stats = await todoService.getStats(address);
-        const date = validatedInput.arguments.date ?? new Date().toISOString().split('T')[0];
-        
-        messages = [{
-          role: 'user',
-          content: {
-            type: 'text',
-            text: `Generate a daily summary for ${date}. User has ${stats.total} total todos, ${stats.pending} pending, ${stats.completed} completed, ${stats.overdue} overdue. Pending todos: ${JSON.stringify(todos.filter(t => !t.completed).map(t => ({ title: t.title, priority: t.priority, dueDate: t.dueDate })))}`,
+        const todos = await todoService.listTodos(address)
+        const stats = await todoService.getStats(address)
+        const date =
+          validatedInput.arguments.date ??
+          new Date().toISOString().split('T')[0]
+
+        messages = [
+          {
+            role: 'user',
+            content: {
+              type: 'text',
+              text: `Generate a daily summary for ${date}. User has ${stats.total} total todos, ${stats.pending} pending, ${stats.completed} completed, ${stats.overdue} overdue. Pending todos: ${JSON.stringify(todos.filter((t) => !t.completed).map((t) => ({ title: t.title, priority: t.priority, dueDate: t.dueDate })))}`,
+            },
           },
-        }];
-        break;
+        ]
+        break
       }
 
       case 'prioritize_tasks': {
-        const todos = await todoService.listTodos(address, { completed: false });
-        const countArg = validatedInput.arguments.count;
-        const count = countArg !== undefined ? parseInt(countArg, 10) : 5;
-        
-        messages = [{
-          role: 'user',
-          content: {
-            type: 'text',
-            text: `Analyze and prioritize these tasks, returning the top ${count} items the user should focus on. Consider urgency (due dates) and importance (priority level). Tasks: ${JSON.stringify(todos.map(t => ({ id: t.id, title: t.title, priority: t.priority, dueDate: t.dueDate, description: t.description })))}`,
+        const todos = await todoService.listTodos(address, { completed: false })
+        const countArg = validatedInput.arguments.count
+        const count = countArg !== undefined ? parseInt(countArg, 10) : 5
+
+        messages = [
+          {
+            role: 'user',
+            content: {
+              type: 'text',
+              text: `Analyze and prioritize these tasks, returning the top ${count} items the user should focus on. Consider urgency (due dates) and importance (priority level). Tasks: ${JSON.stringify(todos.map((t) => ({ id: t.id, title: t.title, priority: t.priority, dueDate: t.dueDate, description: t.description })))}`,
+            },
           },
-        }];
-        break;
+        ]
+        break
       }
 
       case 'weekly_report': {
-        const stats = await todoService.getStats(address);
-        const weekStart = validatedInput.arguments.weekStart ?? new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-        
-        messages = [{
-          role: 'user',
-          content: {
-            type: 'text',
-            text: `Generate a weekly productivity report starting from ${weekStart}. Stats: ${JSON.stringify(stats)}. Provide insights on productivity patterns and suggestions for improvement.`,
+        const stats = await todoService.getStats(address)
+        const weekStart =
+          validatedInput.arguments.weekStart ??
+          new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+            .toISOString()
+            .split('T')[0]
+
+        messages = [
+          {
+            role: 'user',
+            content: {
+              type: 'text',
+              text: `Generate a weekly productivity report starting from ${weekStart}. Stats: ${JSON.stringify(stats)}. Provide insights on productivity patterns and suggestions for improvement.`,
+            },
           },
-        }];
-        break;
+        ]
+        break
       }
 
       default:
-        return c.json({ error: 'Prompt not found' }, 404);
+        return c.json({ error: 'Prompt not found' }, 404)
     }
 
-    return c.json({ messages });
-  });
+    return c.json({ messages })
+  })
 
   // Root info with validation
   app.get('/', (c) => {
-    const validatedInfo = expectValid(mcpServerInfoSchema, MCP_SERVER_INFO, 'MCP server info');
-    const validatedResources = MCP_RESOURCES.map(r => 
-      expectValid(mcpResourceSchema, r, 'MCP resource')
-    );
-    const validatedTools = MCP_TOOLS.map(t => 
-      expectValid(mcpToolSchema, t, 'MCP tool')
-    );
-    
+    const validatedInfo = expectValid(
+      mcpServerInfoSchema,
+      MCP_SERVER_INFO,
+      'MCP server info',
+    )
+    const validatedResources = MCP_RESOURCES.map((r) =>
+      expectValid(mcpResourceSchema, r, 'MCP resource'),
+    )
+    const validatedTools = MCP_TOOLS.map((t) =>
+      expectValid(mcpToolSchema, t, 'MCP tool'),
+    )
+
     return c.json({
       ...validatedInfo,
       resources: validatedResources,
       tools: validatedTools,
       prompts: MCP_PROMPTS,
-    });
-  });
+    })
+  })
 
-  return app;
+  return app
 }

@@ -1,35 +1,35 @@
 /**
  * @jejunetwork/messaging
- * 
+ *
  * Decentralized private messaging protocol for Network L2
- * 
+ *
  * Features:
  * - End-to-end encryption (X25519 + AES-256-GCM)
  * - Decentralized relay network with economic incentives
  * - On-chain key registry for public keys
  * - IPFS storage for message persistence
  * - x402 micropayments for message delivery
- * 
+ *
  * @example
  * ```typescript
  * import { createMessagingClient } from '@jejunetwork/messaging';
- * 
+ *
  * const client = createMessagingClient({
  *   rpcUrl: 'http://localhost:9545',
  *   address: '0x...',
  *   relayUrl: 'http://localhost:3200',
  * });
- * 
+ *
  * // Initialize with wallet signature
  * const signature = await wallet.signMessage(client.getKeyDerivationMessage());
  * await client.initialize(signature);
- * 
+ *
  * // Send encrypted message
  * await client.sendMessage({
  *   to: '0xRecipient...',
  *   content: 'Hello, private world!',
  * });
- * 
+ *
  * // Listen for incoming messages
  * client.onMessage((event) => {
  *   if (event.type === 'message:new') {
@@ -37,114 +37,106 @@
  *   }
  * });
  * ```
- * 
+ *
  * For relay node functionality, import from '@jejunetwork/messaging/node' (Node.js only)
  */
-
-// Re-export SDK (browser-compatible)
-export * from './sdk';
-
-// XMTP types (excluding RelayNode which conflicts with SDK)
-export type {
-  XMTPIdentity,
-  XMTPKeyBundle,
-  XMTPEnvelope,
-  XMTPMessage,
-  ContentType,
-  XMTPConversation,
-  ConversationContext,
-  XMTPGroup,
-  GroupMemberUpdate,
-  ConsentState,
-  ConsentEntry,
-  XMTPNodeConfig,
-  XMTPNodeStats,
-  RouteConfig,
-  RouteResult,
-  SyncState,
-  SyncOptions,
-} from './xmtp/types';
-
-// XMTP node and router (excluding RelayNode)
-export {
-  type NodeConnectionState,
-  type MessageHandler,
-  JejuXMTPNode,
-  createXMTPNode,
-} from './xmtp/node';
-
-export {
-  type RouterStats,
-  XMTPMessageRouter,
-  createRouter,
-} from './xmtp/router';
-
-export {
-  type SyncEvent,
-  type SyncPeer,
-  type SyncServiceConfig,
-  XMTPSyncService,
-  createSyncService,
-} from './xmtp/sync';
-
-// Re-export RelayNode from xmtp as XMTPRelayNode to avoid conflict
-export { type RelayNode as XMTPRelayNode } from './xmtp/router';
 
 // MLS (Message Layer Security) for group messaging
 // Exclude MessageEvent which conflicts with sdk/types
 export {
-  MLSMessageSchema,
-  type MLSMessage,
-  GroupInviteSchema,
-  type GroupInvite,
-  GroupMetadataSchema,
-  type GroupMetadata,
-  type MLSClientConfig,
-  type MLSClientState,
-  type GroupConfig,
-  type GroupMember,
-  type GroupState,
-  type SendOptions,
-  type FetchOptions,
-  type TextContent,
-  type ImageContent,
-  type FileContent,
-  type ReactionContent,
-  type ReplyContent,
-  type TransactionContent,
   type AgentActionContent,
-  type MessageContent,
-  type MLSEvent,
-  type MemberEvent,
+  agentAction,
+  ContentTypeIds,
+  createMLSClient,
+  deserializeContent,
+  type FetchOptions,
+  type FileContent,
+  file,
+  type GroupConfig,
   type GroupEvent,
-  type MLSEventData,
+  type GroupInvite,
+  GroupInviteSchema,
+  type GroupMember,
+  type GroupMetadata,
+  GroupMetadataSchema,
+  type GroupState,
+  getContentPreview,
+  getContentTypeId,
+  type ImageContent,
+  image,
+  isRichContent,
+  JejuGroup,
+  type JejuGroupConfig,
+  JejuMLSClient,
+  type MemberEvent,
+  type MessageContent,
   // Export MessageEvent from MLS as MLSMessageEvent
   type MessageEvent as MLSMessageEvent,
+  type MLSClientConfig,
   type MLSClientEvents,
-  JejuMLSClient,
-  createMLSClient,
-  type JejuGroupConfig,
-  JejuGroup,
-  ContentTypeIds,
-  text,
-  image,
-  file,
+  type MLSClientState,
+  type MLSEvent,
+  type MLSEventData,
+  type MLSMessage,
+  MLSMessageSchema,
+  type ReactionContent,
+  type ReplyContent,
   reaction,
   reply,
-  transaction,
-  agentAction,
+  type SendOptions,
   serializeContent,
-  deserializeContent,
-  getContentTypeId,
-  validateImage,
+  type TextContent,
+  type TransactionContent,
+  text,
+  transaction,
   validateFile,
+  validateImage,
   validateTransaction,
-  getContentPreview,
-  isRichContent,
-} from './mls';
-
+} from './mls'
+// Re-export SDK (browser-compatible)
+export * from './sdk'
 // TEE-backed key management
-export * from './tee';
+export * from './tee'
+// XMTP node and router (excluding RelayNode)
+export {
+  createXMTPNode,
+  JejuXMTPNode,
+  type MessageHandler,
+  type NodeConnectionState,
+} from './xmtp/node'
+// Re-export RelayNode from xmtp as XMTPRelayNode to avoid conflict
+export {
+  createRouter,
+  type RelayNode as XMTPRelayNode,
+  type RouterStats,
+  XMTPMessageRouter,
+} from './xmtp/router'
+export {
+  createSyncService,
+  type SyncEvent,
+  type SyncPeer,
+  type SyncServiceConfig,
+  XMTPSyncService,
+} from './xmtp/sync'
+// XMTP types (excluding RelayNode which conflicts with SDK)
+export type {
+  ConsentEntry,
+  ConsentState,
+  ContentType,
+  ConversationContext,
+  GroupMemberUpdate,
+  RouteConfig,
+  RouteResult,
+  SyncOptions,
+  SyncState,
+  XMTPConversation,
+  XMTPEnvelope,
+  XMTPGroup,
+  XMTPIdentity,
+  XMTPKeyBundle,
+  XMTPMessage,
+  XMTPNodeConfig,
+  XMTPNodeStats,
+} from './xmtp/types'
 
 // Node-only exports (relay server) available via '@jejunetwork/messaging/node'
-

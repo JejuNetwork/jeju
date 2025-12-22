@@ -2,13 +2,13 @@
  * Autocrat Agent Templates - ElizaOS character configs
  */
 
-import type { Character } from '@elizaos/core';
+import type { Character } from '@elizaos/core'
 
 export interface AutocratAgentTemplate {
-  id: string;
-  name: string;
-  role: string;
-  character: Character;
+  id: string
+  name: string
+  role: string
+  character: Character
 }
 
 export const treasuryAgent: AutocratAgentTemplate = {
@@ -25,9 +25,9 @@ Provide: financial assessment, concerns, vote (APPROVE/REJECT/ABSTAIN), reasonin
     bio: ['Treasury and financial specialist for network DAO'],
     messageExamples: [],
     plugins: [],
-    settings: {}
-  }
-};
+    settings: {},
+  },
+}
 
 export const codeAgent: AutocratAgentTemplate = {
   id: 'code',
@@ -43,9 +43,9 @@ Provide: technical assessment, security concerns, vote (APPROVE/REJECT/ABSTAIN),
     bio: ['Technical lead for network DAO'],
     messageExamples: [],
     plugins: [],
-    settings: {}
-  }
-};
+    settings: {},
+  },
+}
 
 export const communityAgent: AutocratAgentTemplate = {
   id: 'community',
@@ -61,9 +61,9 @@ Provide: community impact assessment, vote (APPROVE/REJECT/ABSTAIN), reasoning.`
     bio: ['Community advocate for network DAO'],
     messageExamples: [],
     plugins: [],
-    settings: {}
-  }
-};
+    settings: {},
+  },
+}
 
 export const securityAgent: AutocratAgentTemplate = {
   id: 'security',
@@ -79,9 +79,9 @@ Provide: security assessment, concerns, vote (APPROVE/REJECT/ABSTAIN), reasoning
     bio: ['Security specialist for network DAO'],
     messageExamples: [],
     plugins: [],
-    settings: {}
-  }
-};
+    settings: {},
+  },
+}
 
 export const legalAgent: AutocratAgentTemplate = {
   id: 'legal',
@@ -97,9 +97,9 @@ Provide: legal assessment, concerns, vote (APPROVE/REJECT/ABSTAIN), reasoning.`,
     bio: ['Legal advisor for network DAO'],
     messageExamples: [],
     plugins: [],
-    settings: {}
-  }
-};
+    settings: {},
+  },
+}
 
 export const ceoAgent: AutocratAgentTemplate = {
   id: 'ceo',
@@ -119,9 +119,9 @@ Output JSON: {"approved": bool, "reasoning": "...", "confidence": 0-100, "alignm
     bio: ['AI CEO of Network DAO'],
     messageExamples: [],
     plugins: [],
-    settings: {}
-  }
-};
+    settings: {},
+  },
+}
 
 export const securityBountyAgent: AutocratAgentTemplate = {
   id: 'security-bounty',
@@ -166,9 +166,9 @@ Vote format: APPROVE with reward amount, REJECT with reason, or REQUEST_CHANGES 
     bio: ['Security bounty validator for Jeju Network bug bounty program'],
     messageExamples: [],
     plugins: [],
-    settings: {}
-  }
-};
+    settings: {},
+  },
+}
 
 export const guardianAgent: AutocratAgentTemplate = {
   id: 'guardian',
@@ -197,23 +197,33 @@ Be thorough but timely. Security issues need quick resolution.`,
     bio: ['Guardian security reviewer for Jeju Network'],
     messageExamples: [],
     plugins: [],
-    settings: {}
-  }
-};
+    settings: {},
+  },
+}
 
 export const autocratAgentTemplates: AutocratAgentTemplate[] = [
-  treasuryAgent, 
-  codeAgent, 
-  communityAgent, 
-  securityAgent, 
+  treasuryAgent,
+  codeAgent,
+  communityAgent,
+  securityAgent,
   legalAgent,
   securityBountyAgent,
   guardianAgent,
-];
+]
 
-export function getAgentByRole(role: string): AutocratAgentTemplate | undefined {
-  return autocratAgentTemplates.find(a => a.role === role);
+export function getAgentByRole(
+  role: string,
+): AutocratAgentTemplate | undefined {
+  return autocratAgentTemplates.find((a) => a.role === role)
 }
 
-export const AUTOCRAT_ROLES = ['TREASURY', 'CODE', 'COMMUNITY', 'SECURITY', 'LEGAL', 'SECURITY_BOUNTY', 'GUARDIAN'] as const;
-export type AutocratRole = typeof AUTOCRAT_ROLES[number];
+export const AUTOCRAT_ROLES = [
+  'TREASURY',
+  'CODE',
+  'COMMUNITY',
+  'SECURITY',
+  'LEGAL',
+  'SECURITY_BOUNTY',
+  'GUARDIAN',
+] as const
+export type AutocratRole = (typeof AUTOCRAT_ROLES)[number]

@@ -1,10 +1,7 @@
-import type { Config } from 'tailwindcss';
+import type { Config } from 'tailwindcss'
 
 const config: Config = {
-  content: [
-    './index.html',
-    './src/**/*.{js,ts,jsx,tsx}',
-  ],
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
       colors: {
@@ -13,7 +10,7 @@ const config: Config = {
         'bg-tertiary': '#1a1a25',
         'accent-primary': '#00ff88',
         'accent-secondary': '#00cc6a',
-        'border': '#2a2a35',
+        border: '#2a2a35',
       },
       fontFamily: {
         sans: ['Space Grotesk', 'system-ui', 'sans-serif'],
@@ -21,6 +18,6 @@ const config: Config = {
     },
   },
   plugins: [],
-};
+}
 
-export default config;
+export default config

@@ -1,17 +1,47 @@
 export {
-  timeLockedPolicy, stakeGatedPolicy, roleGatedPolicy, agentOwnerPolicy, tokenGatedPolicy, combineAnd, combineOr,
-  encryptTimeLocked, encryptForStakers, encryptForRole, encryptForAgent, encryptWithPolicy,
-} from './encrypt.js';
+  canDecrypt,
+  createAuthSig,
+  createSIWEAuthSig,
+  decrypt,
+  decryptAndVerify,
+  decryptJSON,
+  decryptPublic,
+} from './decrypt.js'
+export {
+  agentOwnerPolicy,
+  combineAnd,
+  combineOr,
+  encryptForAgent,
+  encryptForRole,
+  encryptForStakers,
+  encryptTimeLocked,
+  encryptWithPolicy,
+  roleGatedPolicy,
+  stakeGatedPolicy,
+  timeLockedPolicy,
+  tokenGatedPolicy,
+} from './encrypt.js'
 
 export {
-  createAuthSig, createSIWEAuthSig, decrypt, decryptPublic, canDecrypt, decryptJSON, decryptAndVerify,
-} from './decrypt.js';
+  generateEncryptionKey,
+  generateSigningKey,
+  getKey,
+  personalSign,
+  revokeKey,
+  sign,
+  signTypedData,
+  thresholdSign,
+  thresholdSignTransaction,
+} from './sign.js'
 
 export {
-  generateSigningKey, generateEncryptionKey, sign, personalSign, signTypedData, thresholdSign, thresholdSignTransaction, getKey, revokeKey,
-} from './sign.js';
-
-export {
-  issueToken, issueTokenWithWallet, verifyToken, decodeToken, isTokenExpired, refreshToken,
-  type TokenClaims, type SignedToken, type TokenVerifyResult,
-} from './tokens.js';
+  decodeToken,
+  issueToken,
+  issueTokenWithWallet,
+  isTokenExpired,
+  refreshToken,
+  type SignedToken,
+  type TokenClaims,
+  type TokenVerifyResult,
+  verifyToken,
+} from './tokens.js'

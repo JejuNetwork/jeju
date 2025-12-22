@@ -2,43 +2,42 @@
  * NFT library unit tests
  */
 
-import { describe, test, expect } from 'bun:test'
-import { parseEther, formatEther } from 'viem'
+import { describe, expect, test } from 'bun:test'
+import { parseEther } from 'viem'
+import type { NormalizedNFT } from '@/schemas/nft'
 import {
+  // Types
+  type AuctionState,
+  // Auction
+  calculateMinimumBid,
+  // Duration
+  daysToSeconds,
+  // Filtering
+  filterNFTsByOwner,
+  formatAddress,
+  formatTimeRemaining,
+  getAuctionTimeRemaining,
+  // Grouping
+  groupNFTsByCollection,
+  isAuctionActive,
+  // Listing
+  isListingActive,
+  // Address
+  isNFTOwner,
+  type ListingState,
+  // Constants
+  MIN_LISTING_PRICE_ETH,
   // Normalization
   normalizeERC721Token,
   normalizeERC1155Balance,
   normalizeNFTQueryResult,
-  // Filtering
-  filterNFTsByOwner,
+  secondsToDays,
   // Sorting
   sortNFTs,
-  // Grouping
-  groupNFTsByCollection,
-  // Auction
-  calculateMinimumBid,
-  isAuctionActive,
-  getAuctionTimeRemaining,
-  formatTimeRemaining,
-  // Listing
-  isListingActive,
+  validateBidAmount,
   // Price validation
   validateListingPrice,
-  validateBidAmount,
-  // Duration
-  daysToSeconds,
-  secondsToDays,
-  // Address
-  isNFTOwner,
-  formatAddress,
-  // Constants
-  MIN_LISTING_PRICE_ETH,
-  MIN_BID_INCREMENT_BPS,
-  // Types
-  type AuctionState,
-  type ListingState,
 } from '../nft'
-import type { NormalizedNFT } from '@/schemas/nft'
 
 describe('NFT Normalization', () => {
   describe('normalizeERC721Token', () => {
@@ -47,16 +46,23 @@ describe('NFT Normalization', () => {
         id: '0x123-1',
         tokenId: '1',
         owner: { address: '0xabcdef1234567890abcdef1234567890abcdef12' },
-        contract: { address: '0x1234567890abcdef1234567890abcdef12345678', name: 'Test Collection' },
+        contract: {
+          address: '0x1234567890abcdef1234567890abcdef12345678',
+          name: 'Test Collection',
+        },
         metadata: '{"name":"Token #1"}',
       }
-      
+
       const normalized = normalizeERC721Token(token)
-      
+
       expect(normalized.id).toBe('0x123-1')
       expect(normalized.tokenId).toBe('1')
-      expect(normalized.owner).toBe('0xabcdef1234567890abcdef1234567890abcdef12')
-      expect(normalized.contract).toBe('0x1234567890abcdef1234567890abcdef12345678')
+      expect(normalized.owner).toBe(
+        '0xabcdef1234567890abcdef1234567890abcdef12',
+      )
+      expect(normalized.contract).toBe(
+        '0x1234567890abcdef1234567890abcdef12345678',
+      )
       expect(normalized.contractName).toBe('Test Collection')
       expect(normalized.type).toBe('ERC721')
       expect(normalized.metadata).toBe('{"name":"Token #1"}')
@@ -66,9 +72,12 @@ describe('NFT Normalization', () => {
       const token = {
         id: '0x123-1',
         tokenId: '1',
-        contract: { address: '0x1234567890abcdef1234567890abcdef12345678', name: 'Test Collection' },
+        contract: {
+          address: '0x1234567890abcdef1234567890abcdef12345678',
+          name: 'Test Collection',
+        },
       }
-      
+
       const normalized = normalizeERC721Token(token)
       expect(normalized.owner).toBeUndefined()
     })
@@ -77,9 +86,12 @@ describe('NFT Normalization', () => {
       const token = {
         id: '0x123-1',
         tokenId: '1',
-        contract: { address: '0x1234567890abcdef1234567890abcdef12345678', name: '' },
+        contract: {
+          address: '0x1234567890abcdef1234567890abcdef12345678',
+          name: '',
+        },
       }
-      
+
       const normalized = normalizeERC721Token(token)
       expect(normalized.contractName).toBe('')
     })
@@ -89,7 +101,7 @@ describe('NFT Normalization', () => {
         id: '0x123-1',
         tokenId: '1',
       }
-      
+
       const normalized = normalizeERC721Token(token)
       expect(normalized.contract).toBeUndefined()
       expect(normalized.contractName).toBe('Unknown')
@@ -102,15 +114,20 @@ describe('NFT Normalization', () => {
         id: '0x456-2',
         tokenId: '2',
         balance: '10',
-        contract: { address: '0x9876543210fedcba9876543210fedcba98765432', name: 'Items Collection' },
+        contract: {
+          address: '0x9876543210fedcba9876543210fedcba98765432',
+          name: 'Items Collection',
+        },
       }
-      
+
       const normalized = normalizeERC1155Balance(balance)
-      
+
       expect(normalized.id).toBe('0x456-2')
       expect(normalized.tokenId).toBe('2')
       expect(normalized.balance).toBe('10')
-      expect(normalized.contract).toBe('0x9876543210fedcba9876543210fedcba98765432')
+      expect(normalized.contract).toBe(
+        '0x9876543210fedcba9876543210fedcba98765432',
+      )
       expect(normalized.contractName).toBe('Items Collection')
       expect(normalized.type).toBe('ERC1155')
     })
@@ -121,7 +138,7 @@ describe('NFT Normalization', () => {
         tokenId: '2',
         balance: '5',
       }
-      
+
       const normalized = normalizeERC1155Balance(balance)
       expect(normalized.contract).toBeUndefined()
       expect(normalized.contractName).toBe('Unknown')
@@ -131,14 +148,29 @@ describe('NFT Normalization', () => {
   describe('normalizeNFTQueryResult', () => {
     test('combines ERC721 and ERC1155 results', () => {
       const erc721Tokens = [
-        { id: '1', tokenId: '1', contract: { address: '0x1234567890abcdef1234567890abcdef12345678', name: 'NFTs' } },
+        {
+          id: '1',
+          tokenId: '1',
+          contract: {
+            address: '0x1234567890abcdef1234567890abcdef12345678',
+            name: 'NFTs',
+          },
+        },
       ]
       const erc1155Balances = [
-        { id: '2', tokenId: '100', balance: '5', contract: { address: '0x9876543210fedcba9876543210fedcba98765432', name: 'Items' } },
+        {
+          id: '2',
+          tokenId: '100',
+          balance: '5',
+          contract: {
+            address: '0x9876543210fedcba9876543210fedcba98765432',
+            name: 'Items',
+          },
+        },
       ]
-      
+
       const result = normalizeNFTQueryResult(erc721Tokens, erc1155Balances)
-      
+
       expect(result.length).toBe(2)
       expect(result[0].type).toBe('ERC721')
       expect(result[1].type).toBe('ERC1155')
@@ -153,10 +185,34 @@ describe('NFT Normalization', () => {
 
 describe('NFT Filtering', () => {
   const testNFTs: NormalizedNFT[] = [
-    { id: '1', tokenId: '1', owner: '0xUser1', contractName: 'Collection A', type: 'ERC721' },
-    { id: '2', tokenId: '2', owner: '0xUser2', contractName: 'Collection A', type: 'ERC721' },
-    { id: '3', tokenId: '3', balance: '5', contractName: 'Collection B', type: 'ERC1155' },
-    { id: '4', tokenId: '4', balance: '0', contractName: 'Collection B', type: 'ERC1155' },
+    {
+      id: '1',
+      tokenId: '1',
+      owner: '0xUser1',
+      contractName: 'Collection A',
+      type: 'ERC721',
+    },
+    {
+      id: '2',
+      tokenId: '2',
+      owner: '0xUser2',
+      contractName: 'Collection A',
+      type: 'ERC721',
+    },
+    {
+      id: '3',
+      tokenId: '3',
+      balance: '5',
+      contractName: 'Collection B',
+      type: 'ERC1155',
+    },
+    {
+      id: '4',
+      tokenId: '4',
+      balance: '0',
+      contractName: 'Collection B',
+      type: 'ERC1155',
+    },
   ]
 
   describe('filterNFTsByOwner', () => {
@@ -168,27 +224,37 @@ describe('NFT Filtering', () => {
 
     test('is case-insensitive for addresses', () => {
       const filtered = filterNFTsByOwner(testNFTs, '0xUSER1')
-      expect(filtered.some(nft => nft.id === '1')).toBe(true)
+      expect(filtered.some((nft) => nft.id === '1')).toBe(true)
     })
 
     test('includes ERC1155 with positive balance', () => {
       const filtered = filterNFTsByOwner(testNFTs, '0xSomeoneElse')
       // Should include the ERC1155 with balance > 0
-      expect(filtered.some(nft => nft.id === '3')).toBe(true)
+      expect(filtered.some((nft) => nft.id === '3')).toBe(true)
     })
 
     test('excludes ERC1155 with zero balance', () => {
       const filtered = filterNFTsByOwner(testNFTs, '0xSomeoneElse')
-      expect(filtered.some(nft => nft.id === '4')).toBe(false)
+      expect(filtered.some((nft) => nft.id === '4')).toBe(false)
     })
   })
 })
 
 describe('NFT Sorting', () => {
   const testNFTs: NormalizedNFT[] = [
-    { id: '1', tokenId: '10', contractName: 'Zebra Collection', type: 'ERC721' },
+    {
+      id: '1',
+      tokenId: '10',
+      contractName: 'Zebra Collection',
+      type: 'ERC721',
+    },
     { id: '2', tokenId: '5', contractName: 'Apple Collection', type: 'ERC721' },
-    { id: '3', tokenId: '20', contractName: 'Mango Collection', type: 'ERC721' },
+    {
+      id: '3',
+      tokenId: '20',
+      contractName: 'Mango Collection',
+      type: 'ERC721',
+    },
   ]
 
   describe('sortNFTs', () => {
@@ -227,9 +293,9 @@ describe('NFT Grouping', () => {
         { id: '2', tokenId: '2', contractName: 'Collection B', type: 'ERC721' },
         { id: '3', tokenId: '3', contractName: 'Collection A', type: 'ERC721' },
       ]
-      
+
       const grouped = groupNFTsByCollection(nfts)
-      
+
       expect(Object.keys(grouped).length).toBe(2)
       expect(grouped['Collection A'].length).toBe(2)
       expect(grouped['Collection B'].length).toBe(1)
@@ -265,7 +331,7 @@ describe('Auction Calculations', () => {
         ...baseAuction,
         highestBid: parseEther('1'),
       }
-      
+
       const minBid = calculateMinimumBid(auctionWithBid)
       expect(minBid).toBe(parseEther('1.05'))
     })
@@ -275,7 +341,7 @@ describe('Auction Calculations', () => {
         ...baseAuction,
         highestBid: parseEther('100'),
       }
-      
+
       const minBid = calculateMinimumBid(auctionWithLargeBid)
       expect(minBid).toBe(parseEther('105'))
     })

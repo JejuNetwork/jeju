@@ -1,18 +1,18 @@
 /**
  * System utilities for checking dependencies
- * 
+ *
  * Security notes:
  * - All external command execution is validated
  * - Port numbers are sanitized
  * - Path construction uses safe patterns
  */
 
-import { execa } from 'execa';
-import which from 'which';
-import { existsSync } from 'fs';
-import { platform, arch, homedir } from 'os';
-import { join, resolve } from 'path';
-import type { HealthCheckResult } from '../types';
+import { existsSync } from 'node:fs'
+import { arch, homedir, platform } from 'node:os'
+import { join, resolve } from 'node:path'
+import { execa } from 'execa'
+import which from 'which'
+import type { HealthCheckResult } from '../types'
 
 /** Allowlist of commands that can have their version checked */
 const ALLOWED_VERSION_COMMANDS = new Set([
@@ -30,144 +30,147 @@ const ALLOWED_VERSION_COMMANDS = new Set([
   'kubectl',
   'helmfile',
   'terraform',
-]);
+])
 
 export async function checkCommand(cmd: string): Promise<boolean> {
   try {
-    await which(cmd);
-    return true;
+    await which(cmd)
+    return true
   } catch {
-    return false;
+    return false
   }
 }
 
-export async function getCommandVersion(cmd: string, versionFlag = '--version'): Promise<string | null> {
+export async function getCommandVersion(
+  cmd: string,
+  versionFlag = '--version',
+): Promise<string | null> {
   // Validate command against allowlist to prevent arbitrary command execution
   if (!ALLOWED_VERSION_COMMANDS.has(cmd)) {
-    return null;
+    return null
   }
-  
+
   // Validate version flag to prevent command injection
   if (!/^--?[a-zA-Z][a-zA-Z0-9-]*$/.test(versionFlag)) {
-    return null;
+    return null
   }
-  
+
   try {
-    const result = await execa(cmd, [versionFlag], { timeout: 5000 });
-    const output = result.stdout || result.stderr;
+    const result = await execa(cmd, [versionFlag], { timeout: 5000 })
+    const output = result.stdout || result.stderr
     // Extract version number from output
-    const match = output.match(/\d+\.\d+(\.\d+)?/);
-    return match ? match[0] : output.split('\n')[0].trim();
+    const match = output.match(/\d+\.\d+(\.\d+)?/)
+    return match ? match[0] : output.split('\n')[0].trim()
   } catch {
-    return null;
+    return null
   }
 }
 
 export async function checkDocker(): Promise<HealthCheckResult> {
-  const hasDocker = await checkCommand('docker');
+  const hasDocker = await checkCommand('docker')
   if (!hasDocker) {
     return {
       name: 'Docker',
       status: 'error',
       message: 'Docker not installed',
       details: { install: 'https://docs.docker.com/get-docker/' },
-    };
+    }
   }
 
   try {
-    await execa('docker', ['info'], { timeout: 10000 });
-    const version = await getCommandVersion('docker');
+    await execa('docker', ['info'], { timeout: 10000 })
+    const version = await getCommandVersion('docker')
     return {
       name: 'Docker',
       status: 'ok',
       message: version || 'running',
-    };
+    }
   } catch {
     return {
       name: 'Docker',
       status: 'error',
       message: 'Docker not running - start Docker Desktop',
-    };
+    }
   }
 }
 
 export async function checkKurtosis(): Promise<HealthCheckResult> {
-  const hasKurtosis = await checkCommand('kurtosis');
+  const hasKurtosis = await checkCommand('kurtosis')
   if (!hasKurtosis) {
     return {
       name: 'Kurtosis',
       status: 'warn',
       message: 'Not installed (will install automatically)',
-    };
+    }
   }
 
-  const version = await getCommandVersion('kurtosis', 'version');
+  const version = await getCommandVersion('kurtosis', 'version')
   return {
     name: 'Kurtosis',
     status: 'ok',
     message: version || 'installed',
-  };
+  }
 }
 
 export async function checkFoundry(): Promise<HealthCheckResult> {
-  const hasForge = await checkCommand('forge');
+  const hasForge = await checkCommand('forge')
   if (!hasForge) {
     return {
       name: 'Foundry',
       status: 'warn',
       message: 'Not installed (needed for contract tests)',
       details: { install: 'curl -L https://foundry.paradigm.xyz | bash' },
-    };
+    }
   }
 
-  const version = await getCommandVersion('forge');
+  const version = await getCommandVersion('forge')
   return {
     name: 'Foundry',
     status: 'ok',
     message: version || 'installed',
-  };
+  }
 }
 
 export async function checkBun(): Promise<HealthCheckResult> {
-  const hasBun = await checkCommand('bun');
+  const hasBun = await checkCommand('bun')
   if (!hasBun) {
     return {
       name: 'Bun',
       status: 'error',
       message: 'Not installed',
       details: { install: 'curl -fsSL https://bun.sh/install | bash' },
-    };
+    }
   }
 
-  const version = await getCommandVersion('bun');
+  const version = await getCommandVersion('bun')
   return {
     name: 'Bun',
     status: 'ok',
     message: version || 'installed',
-  };
+  }
 }
 
 export async function checkSocat(): Promise<HealthCheckResult> {
-  const hasSocat = await checkCommand('socat');
+  const hasSocat = await checkCommand('socat')
   if (!hasSocat) {
-    const os = platform();
-    let install = 'Install socat';
-    if (os === 'darwin') install = 'brew install socat';
-    else if (os === 'linux') install = 'apt-get install socat';
-    
+    const os = platform()
+    let install = 'Install socat'
+    if (os === 'darwin') install = 'brew install socat'
+    else if (os === 'linux') install = 'apt-get install socat'
+
     return {
       name: 'Socat',
       status: 'warn',
       message: 'Not installed (needed for port forwarding)',
       details: { install },
-    };
+    }
   }
 
   return {
     name: 'Socat',
     status: 'ok',
     message: 'installed',
-  };
+  }
 }
 
 export function getSystemInfo(): { os: string; arch: string; home: string } {
@@ -175,112 +178,129 @@ export function getSystemInfo(): { os: string; arch: string; home: string } {
     os: `${platform()} ${arch()}`,
     arch: arch(),
     home: homedir(),
-  };
+  }
 }
 
 export function getNetworkDir(): string {
-  return join(homedir(), '.jeju');
+  return join(homedir(), '.jeju')
 }
 
 export function getKeysDir(): string {
-  return join(getNetworkDir(), 'keys');
+  return join(getNetworkDir(), 'keys')
 }
 
 export function getConfigPath(): string {
-  return join(getNetworkDir(), 'config.json');
+  return join(getNetworkDir(), 'config.json')
 }
 
 export async function installKurtosis(): Promise<boolean> {
-  const os = platform();
-  
+  const os = platform()
+
   try {
     if (os === 'darwin') {
       // macOS - use Homebrew (safe package manager install)
-      const hasBrew = await checkCommand('brew');
+      const hasBrew = await checkCommand('brew')
       if (!hasBrew) {
-        return false;
+        return false
       }
-      await execa('brew', ['install', 'kurtosis-tech/tap/kurtosis'], { timeout: 120000 });
-      return true;
+      await execa('brew', ['install', 'kurtosis-tech/tap/kurtosis'], {
+        timeout: 120000,
+      })
+      return true
     } else if (os === 'linux') {
       // Linux - download binary directly (safer than piping to bash)
       // SECURITY: Never pipe web content to shell. Download binary directly.
-      const archStr = arch() === 'x64' ? 'amd64' : 'arm64';
-      const releaseUrl = 'https://api.github.com/repos/kurtosis-tech/kurtosis-cli-release-artifacts/releases/latest';
-      const releaseInfo = await fetch(releaseUrl, { signal: AbortSignal.timeout(10000) }).then(r => r.json()) as { tag_name: string };
-      const version = releaseInfo.tag_name;
-      
+      const archStr = arch() === 'x64' ? 'amd64' : 'arm64'
+      const releaseUrl =
+        'https://api.github.com/repos/kurtosis-tech/kurtosis-cli-release-artifacts/releases/latest'
+      const releaseInfo = (await fetch(releaseUrl, {
+        signal: AbortSignal.timeout(10000),
+      }).then((r) => r.json())) as { tag_name: string }
+      const version = releaseInfo.tag_name
+
       // Validate version format to prevent injection
       if (!/^[\d.]+$/.test(version.replace(/^v/, ''))) {
-        throw new Error('Invalid version format from GitHub API');
+        throw new Error('Invalid version format from GitHub API')
       }
-      
-      const tarball = `kurtosis-cli_${version}_linux_${archStr}.tar.gz`;
-      const url = `https://github.com/kurtosis-tech/kurtosis-cli-release-artifacts/releases/download/${version}/${tarball}`;
-      
+
+      const tarball = `kurtosis-cli_${version}_linux_${archStr}.tar.gz`
+      const url = `https://github.com/kurtosis-tech/kurtosis-cli-release-artifacts/releases/download/${version}/${tarball}`
+
       // Use cryptographically secure temp path to prevent race conditions
-      const { randomBytes } = await import('crypto');
-      const tmpPath = `/tmp/kurtosis-${randomBytes(16).toString('hex')}.tar.gz`;
-      await execa('curl', ['-fsSL', url, '-o', tmpPath], { timeout: 60000 });
-      
+      const { randomBytes } = await import('node:crypto')
+      const tmpPath = `/tmp/kurtosis-${randomBytes(16).toString('hex')}.tar.gz`
+      await execa('curl', ['-fsSL', url, '-o', tmpPath], { timeout: 60000 })
+
       // Extract only the kurtosis binary to prevent writing arbitrary files
-      await execa('tar', ['-xzf', tmpPath, '-C', '/usr/local/bin', '--no-wildcards', 'kurtosis'], { timeout: 30000 });
-      
+      await execa(
+        'tar',
+        ['-xzf', tmpPath, '-C', '/usr/local/bin', '--no-wildcards', 'kurtosis'],
+        { timeout: 30000 },
+      )
+
       // Clean up temp file
-      await execa('rm', ['-f', tmpPath], { timeout: 5000 });
-      
-      return true;
+      await execa('rm', ['-f', tmpPath], { timeout: 5000 })
+
+      return true
     }
-    return false;
+    return false
   } catch {
-    return false;
+    return false
   }
 }
 
 export async function isPortAvailable(port: number): Promise<boolean> {
   // Validate port number
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    throw new Error('Invalid port number');
+    throw new Error('Invalid port number')
   }
-  const result = await execa('lsof', ['-i', `:${port}`], { reject: false, timeout: 5000 });
-  return result.exitCode !== 0;
+  const result = await execa('lsof', ['-i', `:${port}`], {
+    reject: false,
+    timeout: 5000,
+  })
+  return result.exitCode !== 0
 }
 
 export async function killPort(port: number): Promise<void> {
   // Validate port number to prevent command injection
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    throw new Error('Invalid port number');
+    throw new Error('Invalid port number')
   }
-  
-  const result = await execa('lsof', ['-ti', `:${port}`], { reject: false, timeout: 5000 });
+
+  const result = await execa('lsof', ['-ti', `:${port}`], {
+    reject: false,
+    timeout: 5000,
+  })
   if (result.exitCode === 0 && result.stdout) {
-    const pids = result.stdout.trim().split('\n');
+    const pids = result.stdout.trim().split('\n')
     for (const pid of pids) {
       // Validate PID is numeric only
       if (/^\d+$/.test(pid)) {
-        await execa('kill', ['-9', pid], { reject: false, timeout: 5000 });
+        await execa('kill', ['-9', pid], { reject: false, timeout: 5000 })
       }
     }
   }
 }
 
 export function findMonorepoRoot(): string {
-  let dir = resolve(process.cwd());
-  const root = platform() === 'win32' ? dir.split(':')[0] + ':/' : '/';
-  
-  // Limit traversal to prevent infinite loops
-  let iterations = 0;
-  const maxIterations = 50;
-  
-  while (dir !== root && iterations < maxIterations) {
-    iterations++;
-    if (existsSync(join(dir, 'bun.lock')) && existsSync(join(dir, 'packages'))) {
-      return dir;
-    }
-    const parent = resolve(dir, '..');
-    if (parent === dir) break; // Reached filesystem root
-    dir = parent;
-  }
-  return resolve(process.cwd());
-}
+  let dir = resolve(process.cwd())
+  const root = platform() === 'win32' ? `${dir.split(':')[0]}:/` : '/'
 
+  // Limit traversal to prevent infinite loops
+  let iterations = 0
+  const maxIterations = 50
+
+  while (dir !== root && iterations < maxIterations) {
+    iterations++
+    if (
+      existsSync(join(dir, 'bun.lock')) &&
+      existsSync(join(dir, 'packages'))
+    ) {
+      return dir
+    }
+    const parent = resolve(dir, '..')
+    if (parent === dir) break // Reached filesystem root
+    dir = parent
+  }
+  return resolve(process.cwd())
+}

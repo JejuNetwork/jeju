@@ -1,10 +1,14 @@
-import { describe, test, expect } from 'bun:test';
-import { usePlayerEvents, type PlayerSkillEvent, type PlayerStats } from '../usePlayerEvents';
+import { describe, expect, test } from 'bun:test'
+import {
+  type PlayerSkillEvent,
+  type PlayerStats,
+  usePlayerEvents,
+} from '../usePlayerEvents'
 
 describe('usePlayerEvents Hook', () => {
   test('should export usePlayerEvents function', () => {
-    expect(typeof usePlayerEvents).toBe('function');
-  });
+    expect(typeof usePlayerEvents).toBe('function')
+  })
 
   test('should export PlayerSkillEvent interface', () => {
     // Type-only import, verify it exists by using it in a type assertion
@@ -17,9 +21,9 @@ describe('usePlayerEvents Hook', () => {
       timestamp: '',
       blockNumber: 0n,
       transactionHash: '',
-    };
-    expect(_testEvent).toBeDefined();
-  });
+    }
+    expect(_testEvent).toBeDefined()
+  })
 
   test('should export PlayerStats interface', () => {
     // Type-only import, verify it exists by using it in a type assertion
@@ -33,7 +37,7 @@ describe('usePlayerEvents Hook', () => {
       highestSkillLevel: 0,
       highestSkillName: null,
       lastActive: '',
-    };
-    expect(_testStats).toBeDefined();
-  });
-});
+    }
+    expect(_testStats).toBeDefined()
+  })
+})

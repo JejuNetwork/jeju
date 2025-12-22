@@ -1,29 +1,40 @@
 #!/usr/bin/env bun
+
 /**
  * @internal Used by CLI: `jeju keys setup-testnet`
- * 
+ *
  * Setup Testnet Deployer
- * 
+ *
  * Generates a deployer key and funds it on all testnets:
  * - Ethereum Sepolia (L1)
  * - Arbitrum Sepolia
  * - Optimism Sepolia
  * - Base Sepolia
  * - BSC Testnet
- * 
+ *
  * Usage:
  *   bun run scripts/setup-testnet-deployer.ts
  */
 
-import { createPublicClient, createWalletClient, http, parseEther, formatEther, getBalance, sendTransaction, waitForTransactionReceipt, type Address } from 'viem';
-import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
-import { parseAbi } from 'viem';
-import { writeFileSync, existsSync, mkdirSync, readFileSync } from 'fs';
-import { join } from 'path';
-import { inferChainFromRpcUrl } from '../shared/chain-utils';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import {
+  type Address,
+  createPublicClient,
+  createWalletClient,
+  formatEther,
+  getBalance,
+  http,
+  parseAbi,
+  parseEther,
+  sendTransaction,
+  waitForTransactionReceipt,
+} from 'viem'
+import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
+import { inferChainFromRpcUrl } from '../shared/chain-utils'
 
-const ROOT = join(import.meta.dir, '../../../..');
-const KEYS_DIR = join(ROOT, 'packages/deployment/.keys');
+const ROOT = join(import.meta.dir, '../../../..')
+const KEYS_DIR = join(ROOT, 'packages/deployment/.keys')
 
 // Testnet configurations
 const TESTNETS = {
@@ -43,9 +54,7 @@ const TESTNETS = {
     chainId: 421614,
     rpcUrl: 'https://sepolia-rollup.arbitrum.io/rpc',
     explorer: 'https://sepolia.arbiscan.io',
-    faucets: [
-      'https://www.alchemy.com/faucets/arbitrum-sepolia',
-    ],
+    faucets: ['https://www.alchemy.com/faucets/arbitrum-sepolia'],
     bridge: {
       from: 'sepolia',
       contract: '0x0000000000000000000000000000000000000064',
@@ -57,9 +66,7 @@ const TESTNETS = {
     chainId: 11155420,
     rpcUrl: 'https://sepolia.optimism.io',
     explorer: 'https://sepolia-optimism.etherscan.io',
-    faucets: [
-      'https://www.alchemy.com/faucets/optimism-sepolia',
-    ],
+    faucets: ['https://www.alchemy.com/faucets/optimism-sepolia'],
     bridge: {
       from: 'sepolia',
       contract: '0x16Fc5058F25648194471939df75CF27A2fdC48BC',
@@ -71,9 +78,7 @@ const TESTNETS = {
     chainId: 84532,
     rpcUrl: 'https://sepolia.base.org',
     explorer: 'https://sepolia.basescan.org',
-    faucets: [
-      'https://www.alchemy.com/faucets/base-sepolia',
-    ],
+    faucets: ['https://www.alchemy.com/faucets/base-sepolia'],
     bridge: {
       from: 'sepolia',
       contract: '0x49f53e41452C74589E85cA1677426Ba426459e85',
@@ -85,118 +90,133 @@ const TESTNETS = {
     chainId: 97,
     rpcUrl: 'https://data-seed-prebsc-1-s1.bnbchain.org:8545',
     explorer: 'https://testnet.bscscan.com',
-    faucets: [
-      'https://www.bnbchain.org/en/testnet-faucet',
-    ],
+    faucets: ['https://www.bnbchain.org/en/testnet-faucet'],
   },
-} as const;
+} as const
 
-type TestnetKey = keyof typeof TESTNETS;
+type TestnetKey = keyof typeof TESTNETS
 
 interface DeployerConfig {
-  address: string;
-  privateKey: string;
-  createdAt: string;
+  address: string
+  privateKey: string
+  createdAt: string
 }
 
 interface BalanceResult {
-  network: string;
-  balance: string;
-  balanceWei: string;
-  hasFunds: boolean;
+  network: string
+  balance: string
+  balanceWei: string
+  hasFunds: boolean
 }
 
 function generateDeployerKey(): DeployerConfig {
-  const privateKey = generatePrivateKey();
-  const account = privateKeyToAccount(privateKey);
+  const privateKey = generatePrivateKey()
+  const account = privateKeyToAccount(privateKey)
   return {
     address: account.address,
     privateKey,
     createdAt: new Date().toISOString(),
-  };
+  }
 }
 
 function loadExistingKey(): DeployerConfig | null {
-  const keyFile = join(KEYS_DIR, 'testnet-deployer.json');
+  const keyFile = join(KEYS_DIR, 'testnet-deployer.json')
   if (existsSync(keyFile)) {
-    const content = readFileSync(keyFile, 'utf-8');
-    return JSON.parse(content) as DeployerConfig;
+    const content = readFileSync(keyFile, 'utf-8')
+    return JSON.parse(content) as DeployerConfig
   }
-  return null;
+  return null
 }
 
 function saveDeployerKey(config: DeployerConfig): void {
   if (!existsSync(KEYS_DIR)) {
-    mkdirSync(KEYS_DIR, { recursive: true });
+    mkdirSync(KEYS_DIR, { recursive: true })
   }
-  const keyFile = join(KEYS_DIR, 'testnet-deployer.json');
-  writeFileSync(keyFile, JSON.stringify(config, null, 2), { mode: 0o600 });
-  console.log(`\n✅ Deployer key saved to: ${keyFile}`);
+  const keyFile = join(KEYS_DIR, 'testnet-deployer.json')
+  writeFileSync(keyFile, JSON.stringify(config, null, 2), { mode: 0o600 })
+  console.log(`\n✅ Deployer key saved to: ${keyFile}`)
 }
 
-async function checkBalance(network: TestnetKey, address: Address): Promise<BalanceResult> {
-  const config = TESTNETS[network];
-  const chain = inferChainFromRpcUrl(config.rpcUrl);
-  const publicClient = createPublicClient({ chain, transport: http(config.rpcUrl) });
-  
-  const balance = await getBalance(publicClient, { address });
-  const balanceEth = formatEther(balance);
-  
+async function checkBalance(
+  network: TestnetKey,
+  address: Address,
+): Promise<BalanceResult> {
+  const config = TESTNETS[network]
+  const chain = inferChainFromRpcUrl(config.rpcUrl)
+  const publicClient = createPublicClient({
+    chain,
+    transport: http(config.rpcUrl),
+  })
+
+  const balance = await getBalance(publicClient, { address })
+  const balanceEth = formatEther(balance)
+
   return {
     network: config.name,
     balance: `${parseFloat(balanceEth).toFixed(6)} ETH`,
     balanceWei: balance.toString(),
     hasFunds: balance > parseEther('0.001'),
-  };
+  }
 }
 
 async function checkAllBalances(address: Address): Promise<BalanceResult[]> {
-  const results: BalanceResult[] = [];
-  
-  console.log('\n📊 Checking balances on all testnets...\n');
-  
+  const results: BalanceResult[] = []
+
+  console.log('\n📊 Checking balances on all testnets...\n')
+
   for (const [key, config] of Object.entries(TESTNETS)) {
-    process.stdout.write(`  Checking ${config.name}... `);
-    const result = await checkBalance(key as TestnetKey, address);
-    results.push(result);
-    console.log(result.hasFunds ? `✅ ${result.balance}` : `⚠️  ${result.balance}`);
+    process.stdout.write(`  Checking ${config.name}... `)
+    const result = await checkBalance(key as TestnetKey, address)
+    results.push(result)
+    console.log(
+      result.hasFunds ? `✅ ${result.balance}` : `⚠️  ${result.balance}`,
+    )
   }
-  
-  return results;
+
+  return results
 }
 
 async function bridgeToL2(
   privateKey: `0x${string}`,
   targetNetwork: 'arbitrumSepolia' | 'optimismSepolia' | 'baseSepolia',
-  amount: string
+  amount: string,
 ): Promise<string | null> {
-  const config = TESTNETS[targetNetwork];
-  const bridge = config.bridge;
-  
-  if (!bridge) return null;
-  
-  const sourceConfig = TESTNETS[bridge.from as TestnetKey];
-  const chain = inferChainFromRpcUrl(sourceConfig.rpcUrl);
-  const account = privateKeyToAccount(privateKey);
-  const publicClient = createPublicClient({ chain, transport: http(sourceConfig.rpcUrl) });
-  const walletClient = createWalletClient({ chain, transport: http(sourceConfig.rpcUrl), account });
-  
-  const balance = await getBalance(publicClient, { address: account.address });
-  const amountWei = parseEther(amount);
-  
+  const config = TESTNETS[targetNetwork]
+  const bridge = config.bridge
+
+  if (!bridge) return null
+
+  const sourceConfig = TESTNETS[bridge.from as TestnetKey]
+  const chain = inferChainFromRpcUrl(sourceConfig.rpcUrl)
+  const account = privateKeyToAccount(privateKey)
+  const publicClient = createPublicClient({
+    chain,
+    transport: http(sourceConfig.rpcUrl),
+  })
+  const walletClient = createWalletClient({
+    chain,
+    transport: http(sourceConfig.rpcUrl),
+    account,
+  })
+
+  const balance = await getBalance(publicClient, { address: account.address })
+  const amountWei = parseEther(amount)
+
   if (balance < amountWei + parseEther('0.01')) {
-    console.log(`⚠️  Insufficient Sepolia balance for bridging to ${config.name}`);
-    return null;
+    console.log(
+      `⚠️  Insufficient Sepolia balance for bridging to ${config.name}`,
+    )
+    return null
   }
-  
-  console.log(`\n🌉 Bridging ${amount} ETH to ${config.name}...`);
-  
-  let hash: `0x${string}`;
+
+  console.log(`\n🌉 Bridging ${amount} ETH to ${config.name}...`)
+
+  let hash: `0x${string}`
   if (bridge.method === 'depositETH') {
     // OP Stack bridge - call depositTransaction with gas limit
     const bridgeAbi = parseAbi([
       'function depositTransaction(address _to, uint256 _value, uint64 _gasLimit, bool _isCreation, bytes _data) payable',
-    ]);
+    ])
     hash = await walletClient.writeContract({
       address: bridge.contract as Address,
       abi: bridgeAbi,
@@ -209,22 +229,24 @@ async function bridgeToL2(
         '0x' as `0x${string}`,
       ],
       value: amountWei,
-    });
+    })
   } else {
     // Arbitrum - direct value transfer to inbox
     hash = await sendTransaction(walletClient, {
       to: bridge.contract as Address,
       value: amountWei,
-    });
+    })
   }
-  
-  console.log(`  Transaction: ${sourceConfig.explorer}/tx/${hash}`);
-  console.log('  Waiting for confirmation...');
-  
-  await waitForTransactionReceipt(publicClient, { hash });
-  console.log(`✅ Bridge transaction confirmed. Funds will arrive on ${config.name} in ~10-15 minutes.`);
-  
-  return hash;
+
+  console.log(`  Transaction: ${sourceConfig.explorer}/tx/${hash}`)
+  console.log('  Waiting for confirmation...')
+
+  await waitForTransactionReceipt(publicClient, { hash })
+  console.log(
+    `✅ Bridge transaction confirmed. Funds will arrive on ${config.name} in ~10-15 minutes.`,
+  )
+
+  return hash
 }
 
 function printFaucetInstructions(address: string): void {
@@ -270,7 +292,7 @@ function printFaucetInstructions(address: string): void {
       https://www.bnbchain.org/en/testnet-faucet
 
 ═══════════════════════════════════════════════════════════════════════════════
-`);
+`)
 }
 
 function printEnvInstructions(config: DeployerConfig): void {
@@ -285,7 +307,7 @@ function printEnvInstructions(config: DeployerConfig): void {
    DEPLOYER_ADDRESS=${config.address}
 
 ═══════════════════════════════════════════════════════════════════════════════
-`);
+`)
 }
 
 async function main() {
@@ -294,84 +316,109 @@ async function main() {
 ║  the network - Testnet Deployer Setup                                       ║
 ║  Sets up deployer wallet across all testnets                                 ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
-`);
+`)
 
   // Check for existing key
-  let deployerConfig = loadExistingKey();
-  
+  let deployerConfig = loadExistingKey()
+
   if (deployerConfig) {
-    console.log('📂 Found existing deployer key');
-    console.log(`   Address: ${deployerConfig.address}`);
-    console.log(`   Created: ${deployerConfig.createdAt}`);
+    console.log('📂 Found existing deployer key')
+    console.log(`   Address: ${deployerConfig.address}`)
+    console.log(`   Created: ${deployerConfig.createdAt}`)
   } else {
-    console.log('🔑 Generating new deployer key...');
-    deployerConfig = generateDeployerKey();
-    saveDeployerKey(deployerConfig);
-    console.log(`   Address: ${deployerConfig.address}`);
+    console.log('🔑 Generating new deployer key...')
+    deployerConfig = generateDeployerKey()
+    saveDeployerKey(deployerConfig)
+    console.log(`   Address: ${deployerConfig.address}`)
   }
 
   // Check balances on all networks
-  const balances = await checkAllBalances(deployerConfig.address as Address);
-  
+  const balances = await checkAllBalances(deployerConfig.address as Address)
+
   // Summary
-  const funded = balances.filter(b => b.hasFunds);
-  const unfunded = balances.filter(b => !b.hasFunds);
-  
-  console.log('\n═══════════════════════════════════════════════════════════════════════════════');
-  console.log(` BALANCE SUMMARY`);
-  console.log('═══════════════════════════════════════════════════════════════════════════════');
-  
+  const funded = balances.filter((b) => b.hasFunds)
+  const unfunded = balances.filter((b) => !b.hasFunds)
+
+  console.log(
+    '\n═══════════════════════════════════════════════════════════════════════════════',
+  )
+  console.log(` BALANCE SUMMARY`)
+  console.log(
+    '═══════════════════════════════════════════════════════════════════════════════',
+  )
+
   if (funded.length > 0) {
-    console.log('\n ✅ Funded networks:');
-    funded.forEach(b => console.log(`    • ${b.network}: ${b.balance}`));
+    console.log('\n ✅ Funded networks:')
+    for (const b of funded) {
+      console.log(`    • ${b.network}: ${b.balance}`)
+    }
   }
-  
+
   if (unfunded.length > 0) {
-    console.log('\n ⚠️  Needs funding:');
-    unfunded.forEach(b => console.log(`    • ${b.network}: ${b.balance}`));
+    console.log('\n ⚠️  Needs funding:')
+    for (const b of unfunded) {
+      console.log(`    • ${b.network}: ${b.balance}`)
+    }
   }
 
   // Check if Sepolia has funds for bridging
-  const sepoliaBalance = balances.find(b => b.network === 'Ethereum Sepolia');
-  const sepoliaHasBridgingFunds = sepoliaBalance && BigInt(sepoliaBalance.balanceWei) > parseEther('0.1');
-  
+  const sepoliaBalance = balances.find((b) => b.network === 'Ethereum Sepolia')
+  const sepoliaHasBridgingFunds =
+    sepoliaBalance && BigInt(sepoliaBalance.balanceWei) > parseEther('0.1')
+
   if (sepoliaHasBridgingFunds) {
-    console.log('\n🌉 Sepolia has sufficient balance for bridging to L2s');
-    
+    console.log('\n🌉 Sepolia has sufficient balance for bridging to L2s')
+
     // Check which L2s need funding
-    const l2sNeedingFunds: Array<'arbitrumSepolia' | 'optimismSepolia' | 'baseSepolia'> = [];
-    
-    for (const network of ['arbitrumSepolia', 'optimismSepolia', 'baseSepolia'] as const) {
-      const balance = balances.find(b => b.network === TESTNETS[network].name);
+    const l2sNeedingFunds: Array<
+      'arbitrumSepolia' | 'optimismSepolia' | 'baseSepolia'
+    > = []
+
+    for (const network of [
+      'arbitrumSepolia',
+      'optimismSepolia',
+      'baseSepolia',
+    ] as const) {
+      const balance = balances.find((b) => b.network === TESTNETS[network].name)
       if (balance && !balance.hasFunds) {
-        l2sNeedingFunds.push(network);
+        l2sNeedingFunds.push(network)
       }
     }
-    
+
     if (l2sNeedingFunds.length > 0) {
-      console.log('\nWould you like to bridge to these L2s?');
-      l2sNeedingFunds.forEach(n => console.log(`  • ${TESTNETS[n].name}`));
-      console.log('\nRun with --bridge flag to automatically bridge:');
-      console.log('  bun run scripts/setup-testnet-deployer.ts --bridge');
+      console.log('\nWould you like to bridge to these L2s?')
+      for (const n of l2sNeedingFunds) {
+        console.log(`  • ${TESTNETS[n].name}`)
+      }
+      console.log('\nRun with --bridge flag to automatically bridge:')
+      console.log('  bun run scripts/setup-testnet-deployer.ts --bridge')
     }
-    
+
     // Auto-bridge if flag is set
     if (process.argv.includes('--bridge')) {
       for (const network of l2sNeedingFunds) {
-        await bridgeToL2(deployerConfig.privateKey as `0x${string}`, network, '0.02');
+        await bridgeToL2(
+          deployerConfig.privateKey as `0x${string}`,
+          network,
+          '0.02',
+        )
       }
     }
   } else {
     // Print faucet instructions
-    printFaucetInstructions(deployerConfig.address);
+    printFaucetInstructions(deployerConfig.address)
   }
-  
+
   // Print env setup instructions
-  printEnvInstructions(deployerConfig);
-  
-  console.log('═══════════════════════════════════════════════════════════════════════════════');
-  console.log(' NEXT STEPS');
-  console.log('═══════════════════════════════════════════════════════════════════════════════');
+  printEnvInstructions(deployerConfig)
+
+  console.log(
+    '═══════════════════════════════════════════════════════════════════════════════',
+  )
+  console.log(' NEXT STEPS')
+  console.log(
+    '═══════════════════════════════════════════════════════════════════════════════',
+  )
   console.log(`
  1. Fund your wallet using the faucets above
  2. Run this script again to check balances:
@@ -386,7 +433,7 @@ async function main() {
     
  5. Deploy contracts:
     bun run contracts:deploy:testnet
-`);
+`)
 }
 
-main();
+main()

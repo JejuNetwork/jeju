@@ -1,33 +1,42 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query';
-import Link from 'next/link';
-import { fetchRegisteredGames } from '@/lib/games';
-import type { RegisteredGame } from '@/schemas/games';
+import { useQuery } from '@tanstack/react-query'
+import Link from 'next/link'
+import { fetchRegisteredGames } from '@/lib/games'
+import type { RegisteredGame } from '@/schemas/games'
 
 export default function GamesPage() {
   const { data: games = [], isLoading } = useQuery({
     queryKey: ['registered-games'],
     queryFn: fetchRegisteredGames,
-  });
+  })
 
   return (
     <div>
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl md:text-4xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
+        <h1
+          className="text-3xl md:text-4xl font-bold mb-2"
+          style={{ color: 'var(--text-primary)' }}
+        >
           🎮 Games & Applications
         </h1>
         <p style={{ color: 'var(--text-secondary)' }}>
-          Decentralized games and applications registered on the network via ERC-8004
+          Decentralized games and applications registered on the network via
+          ERC-8004
         </p>
       </div>
 
       {/* Loading State */}
       {isLoading && (
         <div className="flex justify-center py-20">
-          <div className="w-10 h-10 border-4 rounded-full animate-spin"
-            style={{ borderColor: 'var(--border)', borderTopColor: 'var(--color-primary)' }} />
+          <div
+            className="w-10 h-10 border-4 rounded-full animate-spin"
+            style={{
+              borderColor: 'var(--border)',
+              borderTopColor: 'var(--color-primary)',
+            }}
+          />
         </div>
       )}
 
@@ -35,7 +44,10 @@ export default function GamesPage() {
       {!isLoading && games.length === 0 && (
         <div className="text-center py-20">
           <div className="text-6xl md:text-7xl mb-4">🎮</div>
-          <h3 className="text-xl md:text-2xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+          <h3
+            className="text-xl md:text-2xl font-semibold mb-2"
+            style={{ color: 'var(--text-primary)' }}
+          >
             No Games Yet
           </h3>
           <p style={{ color: 'var(--text-secondary)' }}>
@@ -51,11 +63,14 @@ export default function GamesPage() {
             <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br from-bazaar-accent to-emerald-600 flex items-center justify-center text-2xl md:text-3xl mb-4 group-hover:scale-110 transition-transform">
               🎮
             </div>
-            
-            <h3 className="text-xl md:text-2xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
+
+            <h3
+              className="text-xl md:text-2xl font-bold mb-2"
+              style={{ color: 'var(--text-primary)' }}
+            >
               {game.name}
             </h3>
-            
+
             {/* Tags */}
             {game.tags && game.tags.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-4">
@@ -68,14 +83,20 @@ export default function GamesPage() {
             )}
 
             {/* Stats */}
-            <div className="space-y-1 text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
+            <div
+              className="space-y-1 text-sm mb-4"
+              style={{ color: 'var(--text-secondary)' }}
+            >
               {game.totalPlayers !== undefined && (
                 <div>👥 {game.totalPlayers} players</div>
               )}
               {game.totalItems !== undefined && (
                 <div>🎁 {game.totalItems} items</div>
               )}
-              <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+              <div
+                className="text-xs"
+                style={{ color: 'var(--text-tertiary)' }}
+              >
                 Agent ID: {game.agentId}
               </div>
             </div>
@@ -91,5 +112,5 @@ export default function GamesPage() {
         ))}
       </div>
     </div>
-  );
+  )
 }

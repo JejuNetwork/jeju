@@ -1,49 +1,72 @@
 /**
  * External Protocol Integrations
- * 
+ *
  * Permissionless integrations with external intent/order protocols
  * to earn solver/filler fees by leveraging Jeju's liquidity.
- * 
+ *
  * All integrations are fully permissionless - no API keys required.
  */
 
-export { AcrossAdapter, type AcrossDeposit } from './across';
-export { UniswapXAdapter, type UniswapXOrder } from './uniswapx';
-export { CowProtocolSolver, COW_SETTLEMENT, COW_VAULT_RELAYER, type CowAuction, type CowOrder, type CowQuote, type CowOrderParams, type CowSolution } from './cow';
-export { CowSolverValidator, printSolverReport, printComparisonReport, type SolverMetrics, type CompetitionResult } from './cow-validator';
-export { CowSolverOptimizer, printOptimizationReport, type LiquidityPool, type PriceFeed, type OptimizedSolution } from './cow-optimizer';
-export { ExternalProtocolAggregator, type ExternalOpportunity, type ExternalOpportunityType, type AggregatorConfig } from './aggregator';
-
-// Price Oracle (Chainlink integration)
-export { 
-  PriceOracle, 
-  CHAINLINK_FEEDS, 
-  TOKEN_TO_FEED,
-  type PriceData,
-  type TokenPrice,
-} from './price-oracle';
-
+export { AcrossAdapter, type AcrossDeposit } from './across'
+export {
+  type AggregatorConfig,
+  type ExternalOpportunity,
+  type ExternalOpportunityType,
+  ExternalProtocolAggregator,
+} from './aggregator'
+export {
+  COW_SETTLEMENT,
+  COW_VAULT_RELAYER,
+  type CowAuction,
+  type CowOrder,
+  type CowOrderParams,
+  CowProtocolSolver,
+  type CowQuote,
+  type CowSolution,
+} from './cow'
+export {
+  CowSolverOptimizer,
+  type LiquidityPool,
+  type OptimizedSolution,
+  type PriceFeed,
+  printOptimizationReport,
+} from './cow-optimizer'
+export {
+  type CompetitionResult,
+  CowSolverValidator,
+  printComparisonReport,
+  printSolverReport,
+  type SolverMetrics,
+} from './cow-validator'
 // DEX Aggregator (Uniswap V2/V3, Balancer routing)
 export {
-  DexAggregator,
-  UNISWAP_V3_QUOTER,
-  UNISWAP_V2_ROUTER,
-  BALANCER_VAULT,
-  INTERMEDIATE_TOKENS,
-  type DexQuote,
   type AggregatedQuote,
-} from './dex-aggregator';
-
+  BALANCER_VAULT,
+  DexAggregator,
+  type DexQuote,
+  INTERMEDIATE_TOKENS,
+  UNISWAP_V2_ROUTER,
+  UNISWAP_V3_QUOTER,
+} from './dex-aggregator'
 // JIT Liquidity Provider
 export {
+  type JITConfig,
   JITLiquidityProvider,
+  type JITOpportunity,
+  type JITPosition,
   POSITION_MANAGER,
   priceToTick,
   tickToPrice,
-  type JITPosition,
-  type JITOpportunity,
-  type JITConfig,
-} from './jit-liquidity';
+} from './jit-liquidity'
+// Price Oracle (Chainlink integration)
+export {
+  CHAINLINK_FEEDS,
+  type PriceData,
+  PriceOracle,
+  TOKEN_TO_FEED,
+  type TokenPrice,
+} from './price-oracle'
+export { UniswapXAdapter, type UniswapXOrder } from './uniswapx'
 
 // Chain configurations for external protocols
 export const SUPPORTED_CHAINS = {
@@ -54,6 +77,6 @@ export const SUPPORTED_CHAINS = {
   polygon: 137,
   bsc: 56,
   jeju: 420691,
-} as const;
+} as const
 
-export type SupportedChain = keyof typeof SUPPORTED_CHAINS;
+export type SupportedChain = keyof typeof SUPPORTED_CHAINS

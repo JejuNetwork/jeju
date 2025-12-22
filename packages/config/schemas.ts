@@ -1,19 +1,19 @@
 /**
  * @fileoverview Zod schemas for config validation
  * @module config/schemas
- * 
+ *
  * Centralized validation schemas for all config files.
  * Ensures type safety when loading JSON configs.
  */
 
-import { z } from 'zod';
+import { z } from 'zod'
 
 // ============================================================================
 // Network Type
 // ============================================================================
 
-export const NetworkSchema = z.enum(['localnet', 'testnet', 'mainnet']);
-export type NetworkType = z.infer<typeof NetworkSchema>;
+export const NetworkSchema = z.enum(['localnet', 'testnet', 'mainnet'])
+export type NetworkType = z.infer<typeof NetworkSchema>
 
 // ============================================================================
 // Chain Configuration Schema
@@ -22,21 +22,24 @@ export type NetworkType = z.infer<typeof NetworkSchema>;
 /**
  * Address schema using regex validation (no viem dependency)
  */
-const AddressSchema = z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid Ethereum address');
+const AddressSchema = z
+  .string()
+  .regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid Ethereum address')
 
 /**
  * Optional address schema - allows empty strings for contracts that haven't been deployed yet
  */
-const OptionalAddressSchema = z.string().refine(
-  (val) => val === '' || /^0x[a-fA-F0-9]{40}$/.test(val),
-  { message: 'Must be empty or valid Ethereum address' }
-);
+const OptionalAddressSchema = z
+  .string()
+  .refine((val) => val === '' || /^0x[a-fA-F0-9]{40}$/.test(val), {
+    message: 'Must be empty or valid Ethereum address',
+  })
 
 const GasTokenSchema = z.object({
   name: z.string(),
   symbol: z.string(),
   decimals: z.number(),
-});
+})
 
 /** OP Stack L2 contract addresses for chain config */
 const ChainL2ContractsSchema = z.object({
@@ -47,7 +50,7 @@ const ChainL2ContractsSchema = z.object({
   GasPriceOracle: AddressSchema,
   L1Block: AddressSchema,
   WETH: AddressSchema,
-});
+})
 
 /** OP Stack L1 contract addresses for chain config - allows empty for undeployed contracts */
 const ChainL1ContractsSchema = z.object({
@@ -56,7 +59,7 @@ const ChainL1ContractsSchema = z.object({
   L1CrossDomainMessenger: OptionalAddressSchema,
   L1StandardBridge: OptionalAddressSchema,
   SystemConfig: OptionalAddressSchema,
-});
+})
 
 /**
  * OP Stack chain configuration schema
@@ -79,37 +82,39 @@ export const ChainConfigSchema = z.object({
     l2: ChainL2ContractsSchema,
     l1: ChainL1ContractsSchema,
   }),
-});
-export type ChainConfig = z.infer<typeof ChainConfigSchema>;
+})
+export type ChainConfig = z.infer<typeof ChainConfigSchema>
 
 // ============================================================================
 // Contract Schemas
 // ============================================================================
 
-const ContractCategorySchema = z.record(z.string(), z.string());
+const ContractCategorySchema = z.record(z.string(), z.string())
 
 /**
  * Contract category names - unified across all config modules
  * Used for type-safe access to contract categories in contracts.json
  */
-export type ContractCategory = 
-  | 'tokens' 
-  | 'registry' 
-  | 'moderation' 
-  | 'nodeStaking' 
+export type ContractCategory =
+  | 'tokens'
+  | 'registry'
+  | 'moderation'
+  | 'nodeStaking'
   | 'jns'
-  | 'payments' 
-  | 'defi' 
-  | 'compute' 
-  | 'governance' 
-  | 'oif' 
+  | 'payments'
+  | 'defi'
+  | 'compute'
+  | 'governance'
+  | 'oif'
   | 'eil'
   | 'security'
   | 'agents'
   | 'amm'
   | 'bridge'
   | 'cdn'
+  | 'commerce'
   | 'distributor'
+  | 'fees'
   | 'liquidity'
   | 'messaging'
   | 'oracle'
@@ -120,13 +125,13 @@ export type ContractCategory =
   | 'sequencer'
   | 'staking'
   | 'training'
-  | 'work';
+  | 'work'
 
 /**
- * Extended contract categories that may be used in deployments
- * Includes additional categories for update operations
+ * Extended contract categories - now same as ContractCategory
+ * Kept for backwards compatibility
  */
-export type ContractCategoryExtended = ContractCategory | 'commerce' | 'fees';
+export type ContractCategoryExtended = ContractCategory
 
 const NetworkContractsSchema = z.object({
   chainId: z.number(),
@@ -146,7 +151,9 @@ const NetworkContractsSchema = z.object({
   amm: ContractCategorySchema.optional(),
   bridge: ContractCategorySchema.optional(),
   cdn: ContractCategorySchema.optional(),
+  commerce: ContractCategorySchema.optional(),
   distributor: ContractCategorySchema.optional(),
+  fees: ContractCategorySchema.optional(),
   liquidity: ContractCategorySchema.optional(),
   messaging: ContractCategorySchema.optional(),
   oracle: ContractCategorySchema.optional(),
@@ -158,16 +165,31 @@ const NetworkContractsSchema = z.object({
   staking: ContractCategorySchema.optional(),
   training: ContractCategorySchema.optional(),
   work: ContractCategorySchema.optional(),
-});
+})
+export type NetworkContracts = z.infer<typeof NetworkContractsSchema>
+
+/** Type with index signature for dynamic category access */
+export type NetworkContractsDynamic = NetworkContracts & {
+  [category: string]: Record<string, string> | number | undefined
+}
 
 const ExternalChainContractsSchema = z.object({
   chainId: z.number(),
   rpcUrl: z.string(),
   oif: ContractCategorySchema.optional(),
   eil: ContractCategorySchema.optional(),
+  payments: ContractCategorySchema.optional(),
   tokens: ContractCategorySchema.optional(),
   poc: ContractCategorySchema.optional(),
-});
+})
+export type ExternalChainContracts = z.infer<
+  typeof ExternalChainContractsSchema
+>
+
+/** Type with index signature for dynamic category access on external chains */
+export type ExternalChainContractsDynamic = ExternalChainContracts & {
+  [category: string]: Record<string, string> | number | string | undefined
+}
 
 export const ContractsConfigSchema = z.object({
   version: z.string(),
@@ -182,8 +204,8 @@ export const ContractsConfigSchema = z.object({
   testnet: NetworkContractsSchema,
   mainnet: NetworkContractsSchema,
   external: z.record(z.string(), ExternalChainContractsSchema),
-});
-export type ContractsConfig = z.infer<typeof ContractsConfigSchema>;
+})
+export type ContractsConfig = z.infer<typeof ContractsConfigSchema>
 
 // ============================================================================
 // Services Schemas
@@ -254,15 +276,25 @@ export const ServicesNetworkConfigSchema = z.object({
     mcp: z.string(),
   }),
   externalRpcs: z.record(z.string(), z.string()).optional(),
-});
-export type ServicesNetworkConfig = z.infer<typeof ServicesNetworkConfigSchema>;
+})
+export type ServicesNetworkConfig = z.infer<typeof ServicesNetworkConfigSchema>
+
+/**
+ * Type for dynamic service category access during mutable operations.
+ * Used when dynamically updating service URLs by category name.
+ * Loses strict typing for known categories but allows dynamic writes.
+ */
+export type ServicesNetworkConfigDynamic = Record<
+  string,
+  string | Record<string, string> | undefined
+>
 
 export const ServicesConfigSchema = z.object({
   localnet: ServicesNetworkConfigSchema,
   testnet: ServicesNetworkConfigSchema,
   mainnet: ServicesNetworkConfigSchema,
-});
-export type ServicesConfig = z.infer<typeof ServicesConfigSchema>;
+})
+export type ServicesConfig = z.infer<typeof ServicesConfigSchema>
 
 // ============================================================================
 // EIL (Cross-Chain Liquidity) Schemas
@@ -278,8 +310,8 @@ export const EILChainConfigSchema = z.object({
   tokens: z.record(z.string(), z.string()),
   type: z.string().optional(),
   programs: z.record(z.string(), z.string()).optional(),
-});
-export type EILChainConfig = z.infer<typeof EILChainConfigSchema>;
+})
+export type EILChainConfig = z.infer<typeof EILChainConfigSchema>
 
 export const EILHubConfigSchema = z.object({
   chainId: z.number(),
@@ -288,13 +320,13 @@ export const EILHubConfigSchema = z.object({
   l1StakeManager: z.string(),
   crossChainPaymaster: z.string(),
   status: z.enum(['active', 'planned']),
-});
+})
 
 export const EILNetworkConfigSchema = z.object({
   hub: EILHubConfigSchema,
   chains: z.record(z.string(), EILChainConfigSchema),
-});
-export type EILNetworkConfig = z.infer<typeof EILNetworkConfigSchema>;
+})
+export type EILNetworkConfig = z.infer<typeof EILNetworkConfigSchema>
 
 export const EILConfigSchema = z.object({
   version: z.string(),
@@ -304,8 +336,8 @@ export const EILConfigSchema = z.object({
   localnet: EILNetworkConfigSchema,
   testnet: EILNetworkConfigSchema,
   mainnet: EILNetworkConfigSchema,
-});
-export type EILConfig = z.infer<typeof EILConfigSchema>;
+})
+export type EILConfig = z.infer<typeof EILConfigSchema>
 
 // ============================================================================
 // Federation Schemas
@@ -317,8 +349,8 @@ export const FederationHubConfigSchema = z.object({
   rpcUrl: z.string(),
   networkRegistryAddress: z.string(),
   status: z.enum(['active', 'pending', 'planned']),
-});
-export type FederationHubConfig = z.infer<typeof FederationHubConfigSchema>;
+})
+export type FederationHubConfig = z.infer<typeof FederationHubConfigSchema>
 
 export const FederationNetworkConfigSchema = z.object({
   chainId: z.number(),
@@ -340,8 +372,10 @@ export const FederationNetworkConfigSchema = z.object({
   }),
   isOrigin: z.boolean(),
   status: z.enum(['active', 'pending', 'planned']),
-});
-export type FederationNetworkConfig = z.infer<typeof FederationNetworkConfigSchema>;
+})
+export type FederationNetworkConfig = z.infer<
+  typeof FederationNetworkConfigSchema
+>
 
 export const FederationFullConfigSchema = z.object({
   version: z.string(),
@@ -374,8 +408,8 @@ export const FederationFullConfigSchema = z.object({
     slashingEnabled: z.boolean(),
     slashingPercentBps: z.number(),
   }),
-});
-export type FederationFullConfig = z.infer<typeof FederationFullConfigSchema>;
+})
+export type FederationFullConfig = z.infer<typeof FederationFullConfigSchema>
 
 // ============================================================================
 // Branding Schemas
@@ -386,21 +420,21 @@ export const ChainBrandingSchema = z.object({
   chainId: z.number(),
   symbol: z.string(),
   explorerName: z.string(),
-});
-export type ChainBranding = z.infer<typeof ChainBrandingSchema>;
+})
+export type ChainBranding = z.infer<typeof ChainBrandingSchema>
 
 export const TokenBrandingSchema = z.object({
   name: z.string(),
   symbol: z.string(),
   decimals: z.number(),
-});
-export type TokenBranding = z.infer<typeof TokenBrandingSchema>;
+})
+export type TokenBranding = z.infer<typeof TokenBrandingSchema>
 
 export const LogoBrandingSchema = z.object({
   light: z.string(),
   dark: z.string(),
   icon: z.string(),
-});
+})
 
 export const UrlsBrandingSchema = z.object({
   website: z.string(),
@@ -425,8 +459,8 @@ export const UrlsBrandingSchema = z.object({
   twitter: z.string(),
   discord: z.string(),
   telegram: z.string(),
-});
-export type UrlsBranding = z.infer<typeof UrlsBrandingSchema>;
+})
+export type UrlsBranding = z.infer<typeof UrlsBrandingSchema>
 
 export const VisualBrandingSchema = z.object({
   primaryColor: z.string(),
@@ -436,8 +470,8 @@ export const VisualBrandingSchema = z.object({
   textColor: z.string(),
   logo: LogoBrandingSchema,
   favicon: z.string(),
-});
-export type VisualBranding = z.infer<typeof VisualBrandingSchema>;
+})
+export type VisualBranding = z.infer<typeof VisualBrandingSchema>
 
 export const FeaturesBrandingSchema = z.object({
   flashblocks: z.boolean(),
@@ -448,29 +482,29 @@ export const FeaturesBrandingSchema = z.object({
   governance: z.boolean(),
   staking: z.boolean(),
   identityRegistry: z.boolean(),
-});
-export type FeaturesBranding = z.infer<typeof FeaturesBrandingSchema>;
+})
+export type FeaturesBranding = z.infer<typeof FeaturesBrandingSchema>
 
 export const LegalBrandingSchema = z.object({
   companyName: z.string(),
   termsUrl: z.string(),
   privacyUrl: z.string(),
   copyrightYear: z.number(),
-});
-export type LegalBranding = z.infer<typeof LegalBrandingSchema>;
+})
+export type LegalBranding = z.infer<typeof LegalBrandingSchema>
 
 export const SupportBrandingSchema = z.object({
   email: z.string(),
   discordChannel: z.string(),
-});
-export type SupportBranding = z.infer<typeof SupportBrandingSchema>;
+})
+export type SupportBranding = z.infer<typeof SupportBrandingSchema>
 
 export const CliBrandingSchema = z.object({
   name: z.string(),
   displayName: z.string(),
   banner: z.array(z.string()),
-});
-export type CliBranding = z.infer<typeof CliBrandingSchema>;
+})
+export type CliBranding = z.infer<typeof CliBrandingSchema>
 
 export const BrandingConfigSchema = z.object({
   version: z.string(),
@@ -496,8 +530,8 @@ export const BrandingConfigSchema = z.object({
   legal: LegalBrandingSchema,
   support: SupportBrandingSchema,
   cli: CliBrandingSchema,
-});
-export type BrandingConfig = z.infer<typeof BrandingConfigSchema>;
+})
+export type BrandingConfig = z.infer<typeof BrandingConfigSchema>
 
 // ============================================================================
 // Vendor Apps Schema
@@ -511,13 +545,13 @@ export const VendorAppConfigSchema = z.object({
   private: z.boolean(),
   optional: z.boolean(),
   branch: z.string(),
-});
-export type VendorAppConfig = z.infer<typeof VendorAppConfigSchema>;
+})
+export type VendorAppConfig = z.infer<typeof VendorAppConfigSchema>
 
 export const VendorAppsConfigSchema = z.object({
   apps: z.array(VendorAppConfigSchema),
-});
-export type VendorAppsConfig = z.infer<typeof VendorAppsConfigSchema>;
+})
+export type VendorAppsConfig = z.infer<typeof VendorAppsConfigSchema>
 
 // ============================================================================
 // Testnet Config Schema
@@ -561,12 +595,15 @@ export const TestnetConfigSchema = z.object({
     jeju: z.record(z.string(), z.string()),
     sepolia: z.record(z.string(), z.string()),
   }),
-  supportedChains: z.record(z.string(), z.object({
-    name: z.string(),
-    rpc: z.string(),
-    explorer: z.string(),
-    crossChainPaymaster: z.string(),
-  })),
+  supportedChains: z.record(
+    z.string(),
+    z.object({
+      name: z.string(),
+      rpc: z.string(),
+      explorer: z.string(),
+      crossChainPaymaster: z.string(),
+    }),
+  ),
   deployer: z.object({
     address: z.string(),
   }),
@@ -581,8 +618,8 @@ export const TestnetConfigSchema = z.object({
     dns: z.record(z.string(), z.string()),
     nameservers: z.array(z.string()),
   }),
-});
-export type TestnetConfig = z.infer<typeof TestnetConfigSchema>;
+})
+export type TestnetConfig = z.infer<typeof TestnetConfigSchema>
 
 // ============================================================================
 // Test Keys Schema
@@ -601,24 +638,24 @@ export const KeyRoleSchema = z.enum([
   'multisig1',
   'multisig2',
   'multisig3',
-]);
-export type KeyRole = z.infer<typeof KeyRoleSchema>;
+])
+export type KeyRole = z.infer<typeof KeyRoleSchema>
 
 export const KeyPairSchema = z.object({
   address: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
   privateKey: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
-});
-export type KeyPair = z.infer<typeof KeyPairSchema>;
+})
+export type KeyPair = z.infer<typeof KeyPairSchema>
 
 export const TestnetKeyFileSchema = z.object({
   mnemonic: z.string(),
   createdAt: z.string(),
   keys: z.record(KeyRoleSchema, KeyPairSchema),
-});
-export type TestnetKeyFile = z.infer<typeof TestnetKeyFileSchema>;
+})
+export type TestnetKeyFile = z.infer<typeof TestnetKeyFileSchema>
 
 export const SolanaKeyPairSchema = z.object({
   publicKey: z.string(),
   secretKey: z.string(),
-});
-export type SolanaKeyPair = z.infer<typeof SolanaKeyPairSchema>;
+})
+export type SolanaKeyPair = z.infer<typeof SolanaKeyPairSchema>

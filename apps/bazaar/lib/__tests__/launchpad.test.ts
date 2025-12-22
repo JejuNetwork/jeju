@@ -3,44 +3,44 @@
  * Tests bonding curve calculations, ICO logic, and validation
  */
 
-import { describe, test, expect } from 'bun:test'
+import { describe, expect, test } from 'bun:test'
+import { parseEther } from 'viem'
 import {
-  // Bonding curve calculations
-  calculateInitialPrice,
-  calculateInitialMarketCap,
-  calculateGraduationMarketCap,
-  calculateBuyPriceImpact,
-  calculateTokensOut,
-  calculateEthOut,
-  calculateGraduationProgress,
-  parseBondingCurveStats,
-  // ICO calculations
-  calculateTokenAllocation,
-  calculatePresaleTokens,
-  calculateLPAllocation,
-  canClaimTokens,
-  canClaimRefund,
-  parsePresaleStatus,
-  parseUserContribution,
-  // Formatting
-  formatPrice,
-  formatBasisPoints,
-  formatDuration,
-  formatEthAmount,
-  // Validation
-  validateBondingCurveLaunch,
-  validateICOLaunch,
   // Schemas
   BondingCurveConfigSchema,
-  ICOConfigSchema,
+  calculateBuyPriceImpact,
+  calculateEthOut,
+  calculateGraduationMarketCap,
+  calculateGraduationProgress,
+  calculateInitialMarketCap,
+  // Bonding curve calculations
+  calculateInitialPrice,
+  calculateLPAllocation,
+  calculatePresaleTokens,
+  // ICO calculations
+  calculateTokenAllocation,
+  calculateTokensOut,
+  canClaimRefund,
+  canClaimTokens,
   // Presets
   DEFAULT_BONDING_CONFIG,
   DEFAULT_ICO_CONFIG,
   DEGEN_ICO_CONFIG,
+  formatBasisPoints,
+  formatDuration,
+  formatEthAmount,
+  // Formatting
+  formatPrice,
+  ICOConfigSchema,
   type PresaleStatus,
+  parseBondingCurveStats,
+  parsePresaleStatus,
+  parseUserContribution,
   type UserContribution,
+  // Validation
+  validateBondingCurveLaunch,
+  validateICOLaunch,
 } from '../launchpad'
-import { parseEther } from 'viem'
 
 // =============================================================================
 // BONDING CURVE CALCULATION TESTS
@@ -53,7 +53,7 @@ describe('calculateInitialPrice', () => {
       graduationTarget: '10',
       tokenSupply: '1000000000',
     }
-    
+
     const price = calculateInitialPrice(config)
     expect(price).toBe(30 / 1000000000)
     expect(price).toBe(3e-8)
@@ -65,7 +65,7 @@ describe('calculateInitialPrice', () => {
       graduationTarget: '1',
       tokenSupply: '1000',
     }
-    
+
     const price = calculateInitialPrice(config)
     expect(price).toBe(0.001)
   })
@@ -76,7 +76,7 @@ describe('calculateInitialPrice', () => {
       graduationTarget: '50',
       tokenSupply: '1000000000',
     }
-    
+
     const price = calculateInitialPrice(config)
     expect(price).toBe(100 / 1000000000)
   })
@@ -89,7 +89,7 @@ describe('calculateInitialMarketCap', () => {
       graduationTarget: '10',
       tokenSupply: '1000000000',
     }
-    
+
     expect(calculateInitialMarketCap(config)).toBe(30)
   })
 
@@ -99,7 +99,7 @@ describe('calculateInitialMarketCap', () => {
       graduationTarget: '10',
       tokenSupply: '1000000000',
     }
-    
+
     expect(calculateInitialMarketCap(config)).toBe(15.5)
   })
 })
@@ -111,7 +111,7 @@ describe('calculateGraduationMarketCap', () => {
       graduationTarget: '10',
       tokenSupply: '1000000000',
     }
-    
+
     expect(calculateGraduationMarketCap(config)).toBe(40)
   })
 
@@ -121,7 +121,7 @@ describe('calculateGraduationMarketCap', () => {
       graduationTarget: '100',
       tokenSupply: '1000000000',
     }
-    
+
     expect(calculateGraduationMarketCap(config)).toBe(150)
   })
 })
@@ -129,7 +129,7 @@ describe('calculateGraduationMarketCap', () => {
 describe('calculateBuyPriceImpact', () => {
   test('calculates price impact for small buy', () => {
     const impact = calculateBuyPriceImpact(1, 30, 1000000000)
-    
+
     // Small buy should have small impact
     expect(impact).toBeGreaterThan(0)
     expect(impact).toBeLessThan(10)
@@ -138,7 +138,7 @@ describe('calculateBuyPriceImpact', () => {
   test('calculates price impact for large buy', () => {
     const smallBuy = calculateBuyPriceImpact(1, 30, 1000000000)
     const largeBuy = calculateBuyPriceImpact(10, 30, 1000000000)
-    
+
     // Larger buy should have larger impact
     expect(largeBuy).toBeGreaterThan(smallBuy)
   })
@@ -157,7 +157,7 @@ describe('calculateBuyPriceImpact', () => {
 describe('calculateTokensOut', () => {
   test('calculates tokens for buy order', () => {
     const tokens = calculateTokensOut(1, 30, 1000000000)
-    
+
     // Should get approximately 1/30 of the supply for 1 ETH
     expect(tokens).toBeGreaterThan(0)
     expect(tokens).toBeLessThan(1000000000)
@@ -166,7 +166,7 @@ describe('calculateTokensOut', () => {
   test('larger buy gets less tokens per ETH (slippage)', () => {
     const smallBuy = calculateTokensOut(1, 30, 1000000000)
     const largeBuy = calculateTokensOut(10, 30, 1000000000)
-    
+
     // Tokens per ETH should decrease with larger buys
     expect(smallBuy).toBeGreaterThan(0)
     expect(largeBuy / 10).toBeLessThan(smallBuy)
@@ -182,7 +182,7 @@ describe('calculateTokensOut', () => {
 describe('calculateEthOut', () => {
   test('calculates ETH for sell order', () => {
     const eth = calculateEthOut(10000000, 30, 1000000000)
-    
+
     expect(eth).toBeGreaterThan(0)
     expect(eth).toBeLessThan(30)
   })
@@ -190,7 +190,7 @@ describe('calculateEthOut', () => {
   test('larger sell gets less ETH per token (slippage)', () => {
     const smallSell = calculateEthOut(1000000, 30, 1000000000)
     const largeSell = calculateEthOut(100000000, 30, 1000000000)
-    
+
     // ETH per token should decrease with larger sells
     expect(smallSell).toBeGreaterThan(0)
     expect(largeSell / 100).toBeLessThan(smallSell)
@@ -233,9 +233,9 @@ describe('parseBondingCurveStats', () => {
       parseEther('500000000'),
       false,
     ]
-    
+
     const stats = parseBondingCurveStats(data)
-    
+
     expect(stats.price).toBe(parseEther('0.0001'))
     expect(stats.progress).toBe(5000)
     expect(stats.ethCollected).toBe(parseEther('5'))
@@ -252,7 +252,7 @@ describe('parseBondingCurveStats', () => {
       0n,
       true,
     ]
-    
+
     const stats = parseBondingCurveStats(data)
     expect(stats.graduated).toBe(true)
     expect(stats.progress).toBe(10000)
@@ -334,35 +334,35 @@ describe('canClaimTokens', () => {
   test('returns true when all conditions met', () => {
     const now = BigInt(Math.floor(Date.now() / 1000))
     const claimStart = now - 3600n
-    
+
     expect(canClaimTokens(finalized, contribution, claimStart, now)).toBe(true)
   })
 
   test('returns false when not finalized', () => {
     const status = { ...finalized, isFinalized: false }
     const now = BigInt(Math.floor(Date.now() / 1000))
-    
+
     expect(canClaimTokens(status, contribution, now - 3600n, now)).toBe(false)
   })
 
   test('returns false when presale failed', () => {
     const status = { ...finalized, isFailed: true }
     const now = BigInt(Math.floor(Date.now() / 1000))
-    
+
     expect(canClaimTokens(status, contribution, now - 3600n, now)).toBe(false)
   })
 
   test('returns false when nothing claimable', () => {
     const contrib = { ...contribution, claimable: 0n }
     const now = BigInt(Math.floor(Date.now() / 1000))
-    
+
     expect(canClaimTokens(finalized, contrib, now - 3600n, now)).toBe(false)
   })
 
   test('returns false before claim start', () => {
     const now = BigInt(Math.floor(Date.now() / 1000))
     const claimStart = now + 3600n // Future
-    
+
     expect(canClaimTokens(finalized, contribution, claimStart, now)).toBe(false)
   })
 })
@@ -408,18 +408,18 @@ describe('canClaimRefund', () => {
 
 describe('parsePresaleStatus', () => {
   test('parses contract response correctly', () => {
-    const data: readonly [bigint, bigint, bigint, bigint, boolean, boolean, boolean] = [
-      parseEther('10'),
-      100n,
-      5000n,
-      86400n,
-      true,
-      false,
-      false,
-    ]
-    
+    const data: readonly [
+      bigint,
+      bigint,
+      bigint,
+      bigint,
+      boolean,
+      boolean,
+      boolean,
+    ] = [parseEther('10'), 100n, 5000n, 86400n, true, false, false]
+
     const status = parsePresaleStatus(data)
-    
+
     expect(status.raised).toBe(parseEther('10'))
     expect(status.participants).toBe(100n)
     expect(status.progress).toBe(5000)
@@ -439,9 +439,9 @@ describe('parseUserContribution', () => {
       parseEther('10000'),
       false,
     ]
-    
+
     const contrib = parseUserContribution(data)
-    
+
     expect(contrib.ethAmount).toBe(parseEther('1'))
     expect(contrib.tokenAllocation).toBe(parseEther('10000'))
     expect(contrib.claimedTokens).toBe(0n)
@@ -527,7 +527,12 @@ describe('validateBondingCurveLaunch', () => {
   const validConfig = DEFAULT_BONDING_CONFIG
 
   test('validates correct params', () => {
-    const result = validateBondingCurveLaunch('Test Token', 'TEST', 8000, validConfig)
+    const result = validateBondingCurveLaunch(
+      'Test Token',
+      'TEST',
+      8000,
+      validConfig,
+    )
     expect(result.valid).toBe(true)
   })
 
@@ -540,23 +545,43 @@ describe('validateBondingCurveLaunch', () => {
   })
 
   test('rejects empty symbol', () => {
-    const result = validateBondingCurveLaunch('Test Token', '', 8000, validConfig)
+    const result = validateBondingCurveLaunch(
+      'Test Token',
+      '',
+      8000,
+      validConfig,
+    )
     expect(result.valid).toBe(false)
   })
 
   test('rejects long symbol', () => {
-    const result = validateBondingCurveLaunch('Test Token', 'VERYLONGSYMBOL', 8000, validConfig)
+    const result = validateBondingCurveLaunch(
+      'Test Token',
+      'VERYLONGSYMBOL',
+      8000,
+      validConfig,
+    )
     expect(result.valid).toBe(false)
   })
 
   test('rejects invalid fee', () => {
-    const result = validateBondingCurveLaunch('Test Token', 'TEST', 15000, validConfig)
+    const result = validateBondingCurveLaunch(
+      'Test Token',
+      'TEST',
+      15000,
+      validConfig,
+    )
     expect(result.valid).toBe(false)
   })
 
   test('rejects invalid config', () => {
     const badConfig = { ...validConfig, virtualEthReserves: '0' }
-    const result = validateBondingCurveLaunch('Test Token', 'TEST', 8000, badConfig)
+    const result = validateBondingCurveLaunch(
+      'Test Token',
+      'TEST',
+      8000,
+      badConfig,
+    )
     expect(result.valid).toBe(false)
   })
 })
@@ -565,18 +590,36 @@ describe('validateICOLaunch', () => {
   const validConfig = DEFAULT_ICO_CONFIG
 
   test('validates correct params', () => {
-    const result = validateICOLaunch('Test Token', 'TEST', '1000000000', 5000, validConfig)
+    const result = validateICOLaunch(
+      'Test Token',
+      'TEST',
+      '1000000000',
+      5000,
+      validConfig,
+    )
     expect(result.valid).toBe(true)
   })
 
   test('rejects zero supply', () => {
-    const result = validateICOLaunch('Test Token', 'TEST', '0', 5000, validConfig)
+    const result = validateICOLaunch(
+      'Test Token',
+      'TEST',
+      '0',
+      5000,
+      validConfig,
+    )
     expect(result.valid).toBe(false)
   })
 
   test('rejects hard cap < soft cap', () => {
     const badConfig = { ...validConfig, softCap: '100', hardCap: '50' }
-    const result = validateICOLaunch('Test Token', 'TEST', '1000000000', 5000, badConfig)
+    const result = validateICOLaunch(
+      'Test Token',
+      'TEST',
+      '1000000000',
+      5000,
+      badConfig,
+    )
     expect(result.valid).toBe(false)
   })
 })
@@ -660,10 +703,14 @@ describe('Preset configurations', () => {
   })
 
   test('DEGEN has shorter presale than DEFAULT', () => {
-    expect(DEGEN_ICO_CONFIG.presaleDuration).toBeLessThan(DEFAULT_ICO_CONFIG.presaleDuration)
+    expect(DEGEN_ICO_CONFIG.presaleDuration).toBeLessThan(
+      DEFAULT_ICO_CONFIG.presaleDuration,
+    )
   })
 
   test('DEGEN has smaller allocation than DEFAULT', () => {
-    expect(DEGEN_ICO_CONFIG.presaleAllocationBps).toBeLessThan(DEFAULT_ICO_CONFIG.presaleAllocationBps)
+    expect(DEGEN_ICO_CONFIG.presaleAllocationBps).toBeLessThan(
+      DEFAULT_ICO_CONFIG.presaleAllocationBps,
+    )
   })
 })

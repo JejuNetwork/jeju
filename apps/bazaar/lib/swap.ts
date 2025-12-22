@@ -3,14 +3,13 @@
  * Pure functions for swap calculations, validation, and quote generation
  */
 
-import { parseEther, formatEther, type Address } from 'viem'
-import type { 
-  SwapToken, 
-  SwapParams, 
-  SwapFeeEstimate, 
-  SwapQuote, 
+import { type Address, formatEther, parseEther } from 'viem'
+import type {
+  PricePair,
+  SwapFeeEstimate,
+  SwapQuote,
+  SwapToken,
   SwapValidationResult,
-  PricePair 
 } from '@/schemas/swap'
 
 // ============ Constants ============
@@ -19,9 +18,27 @@ import type {
  * Default tokens available for swap
  */
 export const SWAP_TOKENS: SwapToken[] = [
-  { symbol: 'ETH', name: 'Ethereum', icon: '⟠', address: '0x0000000000000000000000000000000000000000', decimals: 18 },
-  { symbol: 'USDC', name: 'USD Coin', icon: '💵', address: '0x0000000000000000000000000000000000000001', decimals: 6 },
-  { symbol: 'JEJU', name: 'Jeju Token', icon: '🏝️', address: '0x0000000000000000000000000000000000000002', decimals: 18 },
+  {
+    symbol: 'ETH',
+    name: 'Ethereum',
+    icon: '⟠',
+    address: '0x0000000000000000000000000000000000000000',
+    decimals: 18,
+  },
+  {
+    symbol: 'USDC',
+    name: 'USD Coin',
+    icon: '💵',
+    address: '0x0000000000000000000000000000000000000001',
+    decimals: 6,
+  },
+  {
+    symbol: 'JEJU',
+    name: 'Jeju Token',
+    icon: '🏝️',
+    address: '0x0000000000000000000000000000000000000002',
+    decimals: 18,
+  },
 ]
 
 /**
@@ -61,28 +78,42 @@ export const XLP_FEE_BPS = 5n
 /**
  * Find token by symbol
  */
-export function getTokenBySymbol(symbol: string, tokens: SwapToken[] = SWAP_TOKENS): SwapToken | undefined {
-  return tokens.find(t => t.symbol === symbol)
+export function getTokenBySymbol(
+  symbol: string,
+  tokens: SwapToken[] = SWAP_TOKENS,
+): SwapToken | undefined {
+  return tokens.find((t) => t.symbol === symbol)
 }
 
 /**
  * Find token by address
  */
-export function getTokenByAddress(address: Address, tokens: SwapToken[] = SWAP_TOKENS): SwapToken | undefined {
-  return tokens.find(t => t.address.toLowerCase() === address.toLowerCase())
+export function getTokenByAddress(
+  address: Address,
+  tokens: SwapToken[] = SWAP_TOKENS,
+): SwapToken | undefined {
+  return tokens.find((t) => t.address.toLowerCase() === address.toLowerCase())
 }
 
 /**
  * Get price rate between two tokens
  */
-export function getExchangeRate(fromSymbol: string, toSymbol: string, pairs: PricePair[] = PRICE_PAIRS): number {
+export function getExchangeRate(
+  fromSymbol: string,
+  toSymbol: string,
+  pairs: PricePair[] = PRICE_PAIRS,
+): number {
   if (fromSymbol === toSymbol) return 1
 
-  const pair = pairs.find(p => p.baseToken === fromSymbol && p.quoteToken === toSymbol)
+  const pair = pairs.find(
+    (p) => p.baseToken === fromSymbol && p.quoteToken === toSymbol,
+  )
   if (pair) return pair.rate
 
   // Try inverse
-  const inverse = pairs.find(p => p.baseToken === toSymbol && p.quoteToken === fromSymbol)
+  const inverse = pairs.find(
+    (p) => p.baseToken === toSymbol && p.quoteToken === fromSymbol,
+  )
   if (inverse) return 1 / inverse.rate
 
   return 1 // Default 1:1 if no pair found
@@ -91,7 +122,11 @@ export function getExchangeRate(fromSymbol: string, toSymbol: string, pairs: Pri
 /**
  * Format rate for display
  */
-export function formatRate(fromSymbol: string, toSymbol: string, rate: number): string {
+export function formatRate(
+  fromSymbol: string,
+  toSymbol: string,
+  rate: number,
+): string {
   if (rate >= 1) {
     return `1 ${fromSymbol} = ${rate.toLocaleString(undefined, { maximumFractionDigits: 4 })} ${toSymbol}`
   }
@@ -104,7 +139,10 @@ export function formatRate(fromSymbol: string, toSymbol: string, rate: number): 
 /**
  * Check if swap is cross-chain
  */
-export function isCrossChain(sourceChainId: number, destChainId: number): boolean {
+export function isCrossChain(
+  sourceChainId: number,
+  destChainId: number,
+): boolean {
   return sourceChainId !== destChainId
 }
 
@@ -114,13 +152,15 @@ export function isCrossChain(sourceChainId: number, destChainId: number): boolea
 export function calculateSwapFees(
   amount: bigint,
   sourceChainId: number,
-  destChainId: number
+  destChainId: number,
 ): SwapFeeEstimate {
   // XLP fee: 0.05% of amount
-  const xlpFee = amount * XLP_FEE_BPS / 10000n
+  const xlpFee = (amount * XLP_FEE_BPS) / 10000n
 
   // Network fee with cross-chain premium
-  const crossChainPremium = isCrossChain(sourceChainId, destChainId) ? CROSS_CHAIN_PREMIUM : 0n
+  const crossChainPremium = isCrossChain(sourceChainId, destChainId)
+    ? CROSS_CHAIN_PREMIUM
+    : 0n
   const networkFee = BASE_NETWORK_FEE + crossChainPremium
 
   // Estimated time in seconds
@@ -142,7 +182,7 @@ export function calculateOutputAmount(
   inputSymbol: string,
   outputSymbol: string,
   fees: SwapFeeEstimate,
-  feeBps: bigint = DEFAULT_FEE_BPS
+  feeBps: bigint = DEFAULT_FEE_BPS,
 ): bigint {
   if (inputAmount <= 0n) return 0n
 
@@ -151,7 +191,7 @@ export function calculateOutputAmount(
   if (afterFees <= 0n) return 0n
 
   // Apply swap fee (0.3%)
-  const afterSwapFee = afterFees - (afterFees * feeBps / 10000n)
+  const afterSwapFee = afterFees - (afterFees * feeBps) / 10000n
   if (afterSwapFee <= 0n) return 0n
 
   // Get exchange rate
@@ -159,7 +199,8 @@ export function calculateOutputAmount(
 
   // Convert to output token
   // For precision, we work in wei then convert
-  const outputValue = afterSwapFee * BigInt(Math.floor(rate * 1e18)) / parseEther('1')
+  const outputValue =
+    (afterSwapFee * BigInt(Math.floor(rate * 1e18))) / parseEther('1')
 
   return outputValue > 0n ? outputValue : 0n
 }
@@ -175,10 +216,16 @@ export function generateSwapQuote(
   outputSymbol: string,
   sourceChainId: number,
   destChainId: number,
-  feeBps: bigint = DEFAULT_FEE_BPS
+  feeBps: bigint = DEFAULT_FEE_BPS,
 ): SwapQuote {
   const fees = calculateSwapFees(inputAmountWei, sourceChainId, destChainId)
-  const outputAmount = calculateOutputAmount(inputAmountWei, inputSymbol, outputSymbol, fees, feeBps)
+  const outputAmount = calculateOutputAmount(
+    inputAmountWei,
+    inputSymbol,
+    outputSymbol,
+    fees,
+    feeBps,
+  )
   const rate = getExchangeRate(inputSymbol, outputSymbol)
   const rateDisplay = formatRate(inputSymbol, outputSymbol, rate)
 
@@ -206,7 +253,7 @@ export function validateSwap(
   sourceChainId: number,
   destChainId: number,
   isCorrectChain: boolean,
-  eilAvailable: boolean
+  eilAvailable: boolean,
 ): SwapValidationResult {
   if (!isConnected) {
     return { valid: false, error: 'Connect your wallet first' }
@@ -242,7 +289,7 @@ export function validateSwap(
 export function parseSwapAmount(input: string): bigint {
   if (!input || input.trim() === '') return 0n
   const parsed = parseFloat(input)
-  if (isNaN(parsed) || parsed <= 0) return 0n
+  if (Number.isNaN(parsed) || parsed <= 0) return 0n
   return parseEther(input)
 }
 
@@ -265,7 +312,7 @@ export function getSwapButtonText(
   isCorrectChain: boolean,
   hasInput: boolean,
   isCrossChainSwap: boolean,
-  destChainName: string
+  destChainName: string,
 ): string {
   if (!isConnected) return 'Connect Wallet'
   if (isSwapping) return 'Swapping...'
@@ -283,7 +330,7 @@ export function isSwapButtonDisabled(
   isSwapping: boolean,
   isCorrectChain: boolean,
   hasInput: boolean,
-  isCrossChainSwap: boolean
+  isCrossChainSwap: boolean,
 ): boolean {
   if (!isConnected) return true
   if (isSwapping) return true

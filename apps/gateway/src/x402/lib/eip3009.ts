@@ -1,47 +1,49 @@
 /**
  * EIP-3009 Utilities for Gasless Token Transfers
- * 
+ *
  * Implements signing and verification for transferWithAuthorization
  * Used by x402 gasless settlement flow
  */
 
-import { type Address, type Hex, encodePacked, keccak256, toHex } from 'viem';
-import type { WalletClient } from 'viem';
+import type { WalletClient } from 'viem'
+import { type Address, encodePacked, type Hex, keccak256, toHex } from 'viem'
 
 export const EIP3009_TYPEHASH = keccak256(
   encodePacked(
     ['string'],
-    ['TransferWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)']
-  )
-);
+    [
+      'TransferWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)',
+    ],
+  ),
+)
 
 export interface EIP3009Authorization {
-  from: Address;
-  to: Address;
-  value: bigint;
-  validAfter: number;
-  validBefore: number;
-  nonce: Hex;
+  from: Address
+  to: Address
+  value: bigint
+  validAfter: number
+  validBefore: number
+  nonce: Hex
 }
 
 export interface SignedEIP3009Authorization extends EIP3009Authorization {
-  signature: Hex;
+  signature: Hex
 }
 
 /**
  * Generate a random nonce for EIP-3009 authorization
  */
 export function generateAuthNonce(): Hex {
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  return toHex(bytes);
+  const bytes = new Uint8Array(32)
+  crypto.getRandomValues(bytes)
+  return toHex(bytes)
 }
 
 /**
  * Get current timestamp plus offset (in seconds)
  */
 export function getTimestamp(offsetSeconds = 0): number {
-  return Math.floor(Date.now() / 1000) + offsetSeconds;
+  return Math.floor(Date.now() / 1000) + offsetSeconds
 }
 
 /**
@@ -51,7 +53,7 @@ export function createAuthParams(
   from: Address,
   to: Address,
   value: bigint,
-  validitySeconds = 300 // 5 minutes default
+  validitySeconds = 300, // 5 minutes default
 ): EIP3009Authorization {
   return {
     from,
@@ -60,7 +62,7 @@ export function createAuthParams(
     validAfter: getTimestamp(-60), // Valid from 1 minute ago (allow for clock skew)
     validBefore: getTimestamp(validitySeconds),
     nonce: generateAuthNonce(),
-  };
+  }
 }
 
 /**
@@ -71,14 +73,14 @@ export async function signTransferAuthorization(
   tokenAddress: Address,
   tokenName: string,
   chainId: number,
-  auth: EIP3009Authorization
+  auth: EIP3009Authorization,
 ): Promise<SignedEIP3009Authorization> {
   const domain = {
     name: tokenName,
     version: '1',
     chainId,
     verifyingContract: tokenAddress,
-  };
+  }
 
   const types = {
     TransferWithAuthorization: [
@@ -89,7 +91,7 @@ export async function signTransferAuthorization(
       { name: 'validBefore', type: 'uint256' },
       { name: 'nonce', type: 'bytes32' },
     ],
-  };
+  }
 
   const message = {
     from: auth.from,
@@ -98,17 +100,21 @@ export async function signTransferAuthorization(
     validAfter: BigInt(auth.validAfter),
     validBefore: BigInt(auth.validBefore),
     nonce: auth.nonce,
-  };
+  }
+
+  if (!walletClient.account) {
+    throw new Error('WalletClient must have an account to sign')
+  }
 
   const signature = await walletClient.signTypedData({
-    account: walletClient.account!,
+    account: walletClient.account,
     domain,
     types,
     primaryType: 'TransferWithAuthorization',
     message,
-  });
+  })
 
-  return { ...auth, signature };
+  return { ...auth, signature }
 }
 
 /**
@@ -118,36 +124,36 @@ export async function signTransferAuthorization(
 export async function createGaslessPayment(
   walletClient: WalletClient,
   params: {
-    tokenAddress: Address;
-    tokenName: string;
-    chainId: number;
-    recipient: Address; // Final recipient (x402 facilitator intermediary)
-    amount: bigint;
-    facilitatorAddress: Address; // Token transfer goes to facilitator first
-    validitySeconds?: number;
-  }
+    tokenAddress: Address
+    tokenName: string
+    chainId: number
+    recipient: Address // Final recipient (x402 facilitator intermediary)
+    amount: bigint
+    facilitatorAddress: Address // Token transfer goes to facilitator first
+    validitySeconds?: number
+  },
 ): Promise<{
   authParams: {
-    validAfter: number;
-    validBefore: number;
-    authNonce: Hex;
-    authSignature: Hex;
-  };
+    validAfter: number
+    validBefore: number
+    authNonce: Hex
+    authSignature: Hex
+  }
 }> {
   const auth = createAuthParams(
-    walletClient.account!.address,
+    walletClient.account?.address,
     params.facilitatorAddress, // EIP-3009 transfer goes to facilitator
     params.amount,
-    params.validitySeconds ?? 300
-  );
+    params.validitySeconds ?? 300,
+  )
 
   const signed = await signTransferAuthorization(
     walletClient,
     params.tokenAddress,
     params.tokenName,
     params.chainId,
-    auth
-  );
+    auth,
+  )
 
   return {
     authParams: {
@@ -156,7 +162,7 @@ export async function createGaslessPayment(
       authNonce: signed.nonce,
       authSignature: signed.signature,
     },
-  };
+  }
 }
 
 /**
@@ -195,23 +201,29 @@ export const EIP3009_ABI = [
     inputs: [],
     outputs: [{ type: 'bytes32' }],
   },
-] as const;
+] as const
 
 /**
  * Check if a token supports EIP-3009
  */
 export async function supportsEIP3009(
-  publicClient: { readContract: (args: { address: Address; abi: typeof EIP3009_ABI; functionName: string }) => Promise<unknown> },
-  tokenAddress: Address
+  publicClient: {
+    readContract: (args: {
+      address: Address
+      abi: typeof EIP3009_ABI
+      functionName: string
+    }) => Promise<unknown>
+  },
+  tokenAddress: Address,
 ): Promise<boolean> {
   try {
     await publicClient.readContract({
       address: tokenAddress,
       abi: EIP3009_ABI,
       functionName: 'DOMAIN_SEPARATOR',
-    });
-    return true;
+    })
+    return true
   } catch {
-    return false;
+    return false
   }
 }

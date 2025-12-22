@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+
 /**
  * Generate L2 genesis files using op-node
  *
@@ -11,30 +12,39 @@
  *   - Deploy config updated with operator addresses
  */
 
-import { $ } from "bun";
-import { existsSync, readFileSync, mkdirSync, writeFileSync, copyFileSync } from "fs";
-import { join } from "path";
 import {
-  getRequiredNetwork,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs'
+import { join } from 'node:path'
+import { $ } from 'bun'
+import {
   DeployConfigSchema,
+  getRequiredNetwork,
   L1DeploymentSchema,
   type NetworkType,
-} from "./shared";
+} from './shared'
 
-const NETWORK: NetworkType = getRequiredNetwork();
-const PROJECT_ROOT = join(import.meta.dir, "../../..");
-const CONTRACTS_DIR = join(PROJECT_ROOT, "packages/contracts");
-const HELM_CONFIG_DIR = join(PROJECT_ROOT, "packages/deployment/kubernetes/helm");
+const NETWORK: NetworkType = getRequiredNetwork()
+const PROJECT_ROOT = join(import.meta.dir, '../../..')
+const CONTRACTS_DIR = join(PROJECT_ROOT, 'packages/contracts')
+const HELM_CONFIG_DIR = join(
+  PROJECT_ROOT,
+  'packages/deployment/kubernetes/helm',
+)
 
 async function checkOpNode(): Promise<boolean> {
-  const result = await $`which op-node`.quiet().nothrow();
-  return result.exitCode === 0;
+  const result = await $`which op-node`.quiet().nothrow()
+  return result.exitCode === 0
 }
 
 function generateJwtSecret(): string {
   // Use cryptographically secure random bytes for JWT secret
-  const bytes = crypto.getRandomValues(new Uint8Array(32));
-  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  const bytes = crypto.getRandomValues(new Uint8Array(32))
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
 }
 
 async function main(): Promise<void> {
@@ -43,93 +53,109 @@ async function main(): Promise<void> {
 ║  the network - L2 Genesis Generation                                ║
 ║  Network: ${NETWORK.padEnd(59)}║
 ╚══════════════════════════════════════════════════════════════════════╝
-`);
+`)
 
   if (!(await checkOpNode())) {
-    console.error("❌ op-node not found");
-    console.error("   Install: go install github.com/ethereum-optimism/optimism/op-node/cmd/...@latest");
-    console.error("   Or download from: https://github.com/ethereum-optimism/optimism/releases");
-    process.exit(1);
+    console.error('❌ op-node not found')
+    console.error(
+      '   Install: go install github.com/ethereum-optimism/optimism/op-node/cmd/...@latest',
+    )
+    console.error(
+      '   Or download from: https://github.com/ethereum-optimism/optimism/releases',
+    )
+    process.exit(1)
   }
-  console.log("✅ op-node found");
+  console.log('✅ op-node found')
 
-  const deploymentsDir = join(CONTRACTS_DIR, "deployments", NETWORK);
-  const l1DeploymentsPath = join(deploymentsDir, "l1-deployment.json");
-  const deployConfigPath = join(CONTRACTS_DIR, "deploy-config", `${NETWORK}.json`);
+  const deploymentsDir = join(CONTRACTS_DIR, 'deployments', NETWORK)
+  const l1DeploymentsPath = join(deploymentsDir, 'l1-deployment.json')
+  const deployConfigPath = join(
+    CONTRACTS_DIR,
+    'deploy-config',
+    `${NETWORK}.json`,
+  )
 
   if (!existsSync(l1DeploymentsPath)) {
-    console.error(`❌ L1 deployments not found: ${l1DeploymentsPath}`);
-    console.error("   Deploy L1 contracts first:");
-    console.error("   bun run scripts/deploy/deploy-l1-contracts.ts");
-    process.exit(1);
+    console.error(`❌ L1 deployments not found: ${l1DeploymentsPath}`)
+    console.error('   Deploy L1 contracts first:')
+    console.error('   bun run scripts/deploy/deploy-l1-contracts.ts')
+    process.exit(1)
   }
-  console.log("✅ L1 deployments found");
+  console.log('✅ L1 deployments found')
 
   if (!existsSync(deployConfigPath)) {
-    console.error(`❌ Deploy config not found: ${deployConfigPath}`);
-    process.exit(1);
+    console.error(`❌ Deploy config not found: ${deployConfigPath}`)
+    process.exit(1)
   }
 
-  const deployConfigRaw = JSON.parse(readFileSync(deployConfigPath, "utf-8"));
-  const deployConfig = DeployConfigSchema.parse(deployConfigRaw);
+  const deployConfigRaw = JSON.parse(readFileSync(deployConfigPath, 'utf-8'))
+  const deployConfig = DeployConfigSchema.parse(deployConfigRaw)
 
-  if (deployConfig.p2pSequencerAddress === "0x0000000000000000000000000000000000000000") {
-    console.error("❌ Deploy config not updated with operator addresses");
-    console.error("   Run: bun run scripts/deploy/update-deploy-config.ts");
-    process.exit(1);
+  if (
+    deployConfig.p2pSequencerAddress ===
+    '0x0000000000000000000000000000000000000000'
+  ) {
+    console.error('❌ Deploy config not updated with operator addresses')
+    console.error('   Run: bun run scripts/deploy/update-deploy-config.ts')
+    process.exit(1)
   }
-  console.log("✅ Deploy config has operator addresses");
+  console.log('✅ Deploy config has operator addresses')
 
-  const l1DeploymentRaw = JSON.parse(readFileSync(l1DeploymentsPath, "utf-8"));
-  const l1Deployment = L1DeploymentSchema.parse(l1DeploymentRaw);
+  const l1DeploymentRaw = JSON.parse(readFileSync(l1DeploymentsPath, 'utf-8'))
+  const l1Deployment = L1DeploymentSchema.parse(l1DeploymentRaw)
 
   if (!existsSync(deploymentsDir)) {
-    mkdirSync(deploymentsDir, { recursive: true });
+    mkdirSync(deploymentsDir, { recursive: true })
   }
 
-  const genesisPath = join(deploymentsDir, "genesis.json");
-  const rollupPath = join(deploymentsDir, "rollup.json");
+  const genesisPath = join(deploymentsDir, 'genesis.json')
+  const rollupPath = join(deploymentsDir, 'rollup.json')
 
-  const l1DeploymentsFormatted = join(deploymentsDir, "l1-deployments-formatted.json");
-  const contracts = l1Deployment.contracts ?? l1Deployment;
-  writeFileSync(l1DeploymentsFormatted, JSON.stringify(contracts, null, 2));
+  const l1DeploymentsFormatted = join(
+    deploymentsDir,
+    'l1-deployments-formatted.json',
+  )
+  const contracts = l1Deployment.contracts ?? l1Deployment
+  writeFileSync(l1DeploymentsFormatted, JSON.stringify(contracts, null, 2))
 
-  console.log("\n🔧 Generating L2 genesis...");
+  console.log('\n🔧 Generating L2 genesis...')
 
   const result = await $`op-node genesis l2 \
     --deploy-config ${deployConfigPath} \
     --l1-deployments ${l1DeploymentsFormatted} \
     --outfile.l2 ${genesisPath} \
-    --outfile.rollup ${rollupPath}`.nothrow();
+    --outfile.rollup ${rollupPath}`.nothrow()
 
   if (result.exitCode !== 0) {
-    console.error("❌ L2 genesis generation failed");
-    console.error("   Check that op-node version matches the L1 contract deployment");
-    process.exit(1);
+    console.error('❌ L2 genesis generation failed')
+    console.error(
+      '   Check that op-node version matches the L1 contract deployment',
+    )
+    process.exit(1)
   }
 
-  console.log("✅ L2 genesis generated");
-  console.log(`   genesis.json: ${genesisPath}`);
-  console.log(`   rollup.json: ${rollupPath}`);
+  console.log('✅ L2 genesis generated')
+  console.log(`   genesis.json: ${genesisPath}`)
+  console.log(`   rollup.json: ${rollupPath}`)
 
   const helmDirs = [
-    join(HELM_CONFIG_DIR, "op-node/files"),
-    join(HELM_CONFIG_DIR, "op-batcher/files"),
-    join(HELM_CONFIG_DIR, "op-proposer/files"),
-  ];
+    join(HELM_CONFIG_DIR, 'op-node/files'),
+    join(HELM_CONFIG_DIR, 'op-batcher/files'),
+    join(HELM_CONFIG_DIR, 'op-proposer/files'),
+  ]
 
   for (const dir of helmDirs) {
     if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true });
+      mkdirSync(dir, { recursive: true })
     }
-    copyFileSync(rollupPath, join(dir, "rollup.json"));
+    copyFileSync(rollupPath, join(dir, 'rollup.json'))
   }
-  console.log("✅ Copied rollup.json to Helm chart directories");
+  console.log('✅ Copied rollup.json to Helm chart directories')
 
-  const jwtSecret = generateJwtSecret();
-  const jwtSecretPath = join(deploymentsDir, "jwt-secret.txt");
-  writeFileSync(jwtSecretPath, jwtSecret);
-  console.log(`✅ Generated JWT secret: ${jwtSecretPath}`);
+  const jwtSecret = generateJwtSecret()
+  const jwtSecretPath = join(deploymentsDir, 'jwt-secret.txt')
+  writeFileSync(jwtSecretPath, jwtSecret)
+  console.log(`✅ Generated JWT secret: ${jwtSecretPath}`)
 
   console.log(`
 ═══════════════════════════════════════════════════════════════════════
@@ -147,7 +173,7 @@ Next steps:
      NETWORK=${NETWORK} bun run packages/deployment/scripts/helmfile.ts sync
 
 ═══════════════════════════════════════════════════════════════════════
-`);
+`)
 }
 
-main();
+main()

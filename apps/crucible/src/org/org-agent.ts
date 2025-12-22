@@ -1,55 +1,63 @@
 /**
  * Org Management Agent
- * 
+ *
  * Decentralized organization management using CQL database and DEX cache
  */
 
-import { CQLClient, type QueryParam } from '@jeju/db';
-import type { OrgTodo, OrgCheckinSchedule, OrgCheckinResponse, OrgTeamMember } from '../types';
-import { createLogger, type Logger } from '../sdk/logger';
-import { StringArraySchema, expect } from '../schemas';
+import type { CQLQueryable, QueryParam } from '@jeju/db'
+import { expect, StringArraySchema } from '../schemas'
+import { createLogger, type Logger } from '../sdk/logger'
+import type {
+  OrgCheckinResponse,
+  OrgCheckinSchedule,
+  OrgTeamMember,
+  OrgTodo,
+} from '../types'
 
 interface TodoRow {
-  id: string;
-  org_id: string;
-  title: string;
-  description: string | null;
-  priority: string;
-  status: string;
-  assignee_agent_id: string | null;
-  created_by: string;
-  due_date: number | null;
-  tags: string;
-  created_at: number;
-  updated_at: number;
+  id: string
+  org_id: string
+  title: string
+  description: string | null
+  priority: string
+  status: string
+  assignee_agent_id: string | null
+  created_by: string
+  due_date: number | null
+  tags: string
+  created_at: number
+  updated_at: number
 }
 
 export interface OrgAgentConfig {
-  agentId: bigint;
-  orgId: string;
-  cqlClient: CQLClient;
-  cqlDatabaseId: string;
-  dexCacheUrl?: string;
-  logger?: Logger;
+  agentId: bigint
+  orgId: string
+  cqlClient: CQLQueryable
+  cqlDatabaseId: string
+  dexCacheUrl?: string
+  logger?: Logger
 }
 
 export class OrgAgent {
-  private config: OrgAgentConfig;
-  private log: Logger;
-  private cqlClient: CQLClient;
+  private config: OrgAgentConfig
+  private log: Logger
+  private cqlClient: CQLQueryable
 
   constructor(config: OrgAgentConfig) {
-    this.config = config;
-    this.log = config.logger ?? createLogger(`OrgAgent:${config.orgId}`);
-    this.cqlClient = config.cqlClient;
+    this.config = config
+    this.log = config.logger ?? createLogger(`OrgAgent:${config.orgId}`)
+    this.cqlClient = config.cqlClient
   }
 
   async initialize(): Promise<void> {
-    this.log.info('Initializing org agent', { orgId: this.config.orgId, agentId: this.config.agentId.toString() });
-    
+    this.log.info('Initializing org agent', {
+      orgId: this.config.orgId,
+      agentId: this.config.agentId.toString(),
+    })
+
     // Ensure database schema exists
-    await this.ensureSchema();
-    this.log.info('Org agent initialized');
+    await this.ensureSchema()
+    this.log.info('Org agent initialized')
   }
 
   private async ensureSchema(): Promise<void> {
@@ -107,19 +115,19 @@ export class OrgAgent {
       CREATE INDEX IF NOT EXISTS idx_checkins_org_id ON org_checkin_schedules(org_id);
       CREATE INDEX IF NOT EXISTS idx_responses_schedule ON org_checkin_responses(schedule_id);
       CREATE INDEX IF NOT EXISTS idx_members_org_id ON org_team_members(org_id);
-    `;
+    `
 
-    await this.cqlClient.exec(schema, [], this.config.cqlDatabaseId);
+    await this.cqlClient.exec(schema, [], this.config.cqlDatabaseId)
   }
 
   async createTodo(params: {
-    title: string;
-    description?: string;
-    priority?: 'low' | 'medium' | 'high';
-    assigneeAgentId?: string;
-    dueDate?: number;
-    tags?: string[];
-    createdBy: string;
+    title: string
+    description?: string
+    priority?: 'low' | 'medium' | 'high'
+    assigneeAgentId?: string
+    dueDate?: number
+    tags?: string[]
+    createdBy: string
   }): Promise<OrgTodo> {
     const todo: OrgTodo = {
       id: crypto.randomUUID(),
@@ -134,7 +142,7 @@ export class OrgAgent {
       tags: params.tags ?? [],
       createdAt: Date.now(),
       updatedAt: Date.now(),
-    };
+    }
 
     await this.cqlClient.exec(
       `INSERT INTO org_todos (id, org_id, title, description, priority, status, assignee_agent_id, created_by, due_date, tags, created_at, updated_at)
@@ -153,75 +161,79 @@ export class OrgAgent {
         todo.createdAt,
         todo.updatedAt,
       ],
-      this.config.cqlDatabaseId
-    );
+      this.config.cqlDatabaseId,
+    )
 
-    this.log.info('Todo created', { todoId: todo.id, orgId: this.config.orgId });
-    return todo;
+    this.log.info('Todo created', { todoId: todo.id, orgId: this.config.orgId })
+    return todo
   }
 
-  async listTodos(params: {
-    status?: 'pending' | 'in_progress' | 'completed' | 'cancelled';
-    priority?: 'low' | 'medium' | 'high';
-    assigneeAgentId?: string;
-    limit?: number;
-  } = {}): Promise<{ todos: OrgTodo[]; total: number }> {
-    const conditions: string[] = ['org_id = ?'];
-    const queryParams: QueryParam[] = [this.config.orgId];
+  async listTodos(
+    params: {
+      status?: 'pending' | 'in_progress' | 'completed' | 'cancelled'
+      priority?: 'low' | 'medium' | 'high'
+      assigneeAgentId?: string
+      limit?: number
+    } = {},
+  ): Promise<{ todos: OrgTodo[]; total: number }> {
+    const conditions: string[] = ['org_id = ?']
+    const queryParams: QueryParam[] = [this.config.orgId]
 
     if (params.status) {
-      conditions.push('status = ?');
-      queryParams.push(params.status);
+      conditions.push('status = ?')
+      queryParams.push(params.status)
     }
     if (params.priority) {
-      conditions.push('priority = ?');
-      queryParams.push(params.priority);
+      conditions.push('priority = ?')
+      queryParams.push(params.priority)
     }
     if (params.assigneeAgentId) {
-      conditions.push('assignee_agent_id = ?');
-      queryParams.push(params.assigneeAgentId);
+      conditions.push('assignee_agent_id = ?')
+      queryParams.push(params.assigneeAgentId)
     }
 
-    const whereClause = conditions.join(' AND ');
-    const limitClause = params.limit ? ` LIMIT ${params.limit}` : '';
+    const whereClause = conditions.join(' AND ')
+    const limitClause = params.limit ? ` LIMIT ${params.limit}` : ''
 
     const [result, countResult] = await Promise.all([
       this.cqlClient.query<TodoRow>(
         `SELECT * FROM org_todos WHERE ${whereClause} ORDER BY created_at DESC${limitClause}`,
         queryParams,
-        this.config.cqlDatabaseId
+        this.config.cqlDatabaseId,
       ),
       this.cqlClient.query<{ count: number }>(
         `SELECT COUNT(*) as count FROM org_todos WHERE ${whereClause}`,
         queryParams,
-        this.config.cqlDatabaseId
+        this.config.cqlDatabaseId,
       ),
-    ]);
+    ])
 
-    const countRow = countResult.rows[0];
+    const countRow = countResult.rows[0]
     if (!countRow) {
-      throw new Error('Count query returned no results');
+      throw new Error('Count query returned no results')
     }
     return {
-      todos: result.rows.map(row => this.mapTodoRow(row)),
+      todos: result.rows.map((row) => this.mapTodoRow(row)),
       total: countRow.count,
-    };
+    }
   }
 
   private mapTodoRow(row: TodoRow): OrgTodo {
-    let tags: string[];
+    let tags: string[]
     if (!row.tags) {
-      tags = [];
+      tags = []
     } else {
       // External data may have invalid JSON - handle gracefully
-      const parseResult = StringArraySchema.safeParse((() => {
-        try {
-          return JSON.parse(row.tags);
-        } catch {
-          return null;
-        }
-      })());
-      tags = parseResult.success ? parseResult.data : [];
+      const parseResult = StringArraySchema.safeParse(
+        (() => {
+          try {
+            return JSON.parse(row.tags)
+          } catch {
+            return null
+          }
+        })(),
+      )
+      tags = parseResult.success ? parseResult.data : []
     }
 
     return {
@@ -229,26 +241,45 @@ export class OrgAgent {
       orgId: row.org_id,
       title: row.title,
       description: row.description ?? undefined,
-      priority: expect(['low', 'medium', 'high'].includes(row.priority) ? row.priority as 'low' | 'medium' | 'high' : null, `Invalid priority: ${row.priority}`),
-      status: expect(['pending', 'in_progress', 'completed', 'cancelled'].includes(row.status) ? row.status as 'pending' | 'in_progress' | 'completed' | 'cancelled' : null, `Invalid status: ${row.status}`),
+      priority: expect(
+        ['low', 'medium', 'high'].includes(row.priority)
+          ? (row.priority as 'low' | 'medium' | 'high')
+          : null,
+        `Invalid priority: ${row.priority}`,
+      ),
+      status: expect(
+        ['pending', 'in_progress', 'completed', 'cancelled'].includes(
+          row.status,
+        )
+          ? (row.status as
+              | 'pending'
+              | 'in_progress'
+              | 'completed'
+              | 'cancelled')
+          : null,
+        `Invalid status: ${row.status}`,
+      ),
       assigneeAgentId: row.assignee_agent_id ?? undefined,
       createdBy: row.created_by,
       dueDate: row.due_date ?? undefined,
       tags,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
-    };
+    }
   }
 
-  async updateTodo(todoId: string, updates: {
-    title?: string;
-    description?: string;
-    priority?: 'low' | 'medium' | 'high';
-    status?: 'pending' | 'in_progress' | 'completed' | 'cancelled';
-    assigneeAgentId?: string;
-    dueDate?: number | null;
-    tags?: string[];
-  }): Promise<OrgTodo> {
+  async updateTodo(
+    todoId: string,
+    updates: {
+      title?: string
+      description?: string
+      priority?: 'low' | 'medium' | 'high'
+      status?: 'pending' | 'in_progress' | 'completed' | 'cancelled'
+      assigneeAgentId?: string
+      dueDate?: number | null
+      tags?: string[]
+    },
+  ): Promise<OrgTodo> {
     const fields: Array<[string, QueryParam | undefined]> = [
       ['title', updates.title],
       ['description', updates.description],
@@ -256,53 +287,56 @@ export class OrgAgent {
       ['status', updates.status],
       ['assignee_agent_id', updates.assigneeAgentId],
       ['due_date', updates.dueDate],
-      ['tags', updates.tags !== undefined ? JSON.stringify(updates.tags) : undefined],
-    ];
+      [
+        'tags',
+        updates.tags !== undefined ? JSON.stringify(updates.tags) : undefined,
+      ],
+    ]
 
-    const setClauses: string[] = [];
-    const values: QueryParam[] = [];
+    const setClauses: string[] = []
+    const values: QueryParam[] = []
 
     for (const [field, value] of fields) {
       if (value !== undefined) {
-        setClauses.push(`${field} = ?`);
-        values.push(value);
+        setClauses.push(`${field} = ?`)
+        values.push(value)
       }
     }
 
     if (setClauses.length === 0) {
-      throw new Error('No updates provided');
+      throw new Error('No updates provided')
     }
 
-    setClauses.push('updated_at = ?');
-    values.push(Date.now(), todoId, this.config.orgId);
+    setClauses.push('updated_at = ?')
+    values.push(Date.now(), todoId, this.config.orgId)
 
     await this.cqlClient.exec(
       `UPDATE org_todos SET ${setClauses.join(', ')} WHERE id = ? AND org_id = ?`,
       values,
-      this.config.cqlDatabaseId
-    );
+      this.config.cqlDatabaseId,
+    )
 
     const result = await this.cqlClient.query<TodoRow>(
       'SELECT * FROM org_todos WHERE id = ? AND org_id = ?',
       [todoId, this.config.orgId],
-      this.config.cqlDatabaseId
-    );
+      this.config.cqlDatabaseId,
+    )
 
-    const row = result.rows[0];
+    const row = result.rows[0]
     if (!row) {
-      throw new Error(`Todo not found: ${todoId}`);
+      throw new Error(`Todo not found: ${todoId}`)
     }
 
-    return this.mapTodoRow(row);
+    return this.mapTodoRow(row)
   }
 
   async createCheckinSchedule(params: {
-    roomId?: string;
-    name: string;
-    checkinType: 'standup' | 'retrospective' | 'checkin';
-    frequency: 'daily' | 'weekdays' | 'weekly' | 'monthly';
-    timeUtc: string;
-    questions: string[];
+    roomId?: string
+    name: string
+    checkinType: 'standup' | 'retrospective' | 'checkin'
+    frequency: 'daily' | 'weekdays' | 'weekly' | 'monthly'
+    timeUtc: string
+    questions: string[]
   }): Promise<OrgCheckinSchedule> {
     const schedule: OrgCheckinSchedule = {
       id: crypto.randomUUID(),
@@ -315,7 +349,7 @@ export class OrgAgent {
       questions: params.questions,
       active: true,
       createdAt: Date.now(),
-    };
+    }
 
     await this.cqlClient.exec(
       `INSERT INTO org_checkin_schedules (id, org_id, room_id, name, checkin_type, frequency, time_utc, questions, active, created_at)
@@ -332,17 +366,17 @@ export class OrgAgent {
         schedule.active ? 1 : 0,
         schedule.createdAt,
       ],
-      this.config.cqlDatabaseId
-    );
+      this.config.cqlDatabaseId,
+    )
 
-    this.log.info('Checkin schedule created', { scheduleId: schedule.id });
-    return schedule;
+    this.log.info('Checkin schedule created', { scheduleId: schedule.id })
+    return schedule
   }
 
   async recordCheckinResponse(params: {
-    scheduleId: string;
-    responderAgentId: string;
-    answers: Record<string, string>;
+    scheduleId: string
+    responderAgentId: string
+    answers: Record<string, string>
   }): Promise<OrgCheckinResponse> {
     const response: OrgCheckinResponse = {
       id: crypto.randomUUID(),
@@ -350,7 +384,7 @@ export class OrgAgent {
       responderAgentId: params.responderAgentId,
       answers: params.answers,
       submittedAt: Date.now(),
-    };
+    }
 
     await this.cqlClient.exec(
       `INSERT INTO org_checkin_responses (id, schedule_id, responder_agent_id, answers, submitted_at)
@@ -362,8 +396,8 @@ export class OrgAgent {
         JSON.stringify(response.answers),
         response.submittedAt,
       ],
-      this.config.cqlDatabaseId
-    );
+      this.config.cqlDatabaseId,
+    )
 
     // Update team member stats
     await this.cqlClient.exec(
@@ -371,30 +405,30 @@ export class OrgAgent {
        SET checkins_completed = checkins_completed + 1, last_active_at = ?
        WHERE agent_id = ? AND org_id = ?`,
       [Date.now(), params.responderAgentId, this.config.orgId],
-      this.config.cqlDatabaseId
-    );
+      this.config.cqlDatabaseId,
+    )
 
-    this.log.info('Checkin response recorded', { responseId: response.id });
-    return response;
+    this.log.info('Checkin response recorded', { responseId: response.id })
+    return response
   }
 
   async getTeamMembers(): Promise<OrgTeamMember[]> {
     const result = await this.cqlClient.query<{
-      agent_id: string;
-      org_id: string;
-      role: string;
-      joined_at: number;
-      last_active_at: number;
-      todos_completed: number;
-      checkins_completed: number;
-      contributions: number;
+      agent_id: string
+      org_id: string
+      role: string
+      joined_at: number
+      last_active_at: number
+      todos_completed: number
+      checkins_completed: number
+      contributions: number
     }>(
       'SELECT * FROM org_team_members WHERE org_id = ? ORDER BY last_active_at DESC',
       [this.config.orgId],
-      this.config.cqlDatabaseId
-    );
+      this.config.cqlDatabaseId,
+    )
 
-    return result.rows.map(row => ({
+    return result.rows.map((row) => ({
       agentId: row.agent_id,
       orgId: row.org_id,
       role: row.role,
@@ -405,7 +439,7 @@ export class OrgAgent {
         checkinsCompleted: row.checkins_completed,
         contributions: row.contributions,
       },
-    }));
+    }))
   }
 
   async addTeamMember(agentId: string, role: string): Promise<void> {
@@ -413,10 +447,9 @@ export class OrgAgent {
       `INSERT OR REPLACE INTO org_team_members (agent_id, org_id, role, joined_at, last_active_at, todos_completed, checkins_completed, contributions)
        VALUES (?, ?, ?, ?, ?, 0, 0, 0)`,
       [agentId, this.config.orgId, role, Date.now(), Date.now()],
-      this.config.cqlDatabaseId
-    );
+      this.config.cqlDatabaseId,
+    )
 
-    this.log.info('Team member added', { agentId, orgId: this.config.orgId });
+    this.log.info('Team member added', { agentId, orgId: this.config.orgId })
   }
 }
-

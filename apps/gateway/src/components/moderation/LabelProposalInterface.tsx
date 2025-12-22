@@ -1,24 +1,32 @@
-'use client';
+'use client'
 
-import { useState, type ComponentType } from 'react';
-import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { parseEther } from 'viem';
-import { Tag, Upload, Award, AlertTriangle, Shield, Zap, type LucideProps } from 'lucide-react';
-import { MODERATION_CONTRACTS } from '../../config/moderation';
+import {
+  AlertTriangle,
+  Award,
+  type LucideProps,
+  Shield,
+  Tag,
+  Upload,
+  Zap,
+} from 'lucide-react'
+import { type ComponentType, useState } from 'react'
+import { parseEther } from 'viem'
+import { useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
+import { MODERATION_CONTRACTS } from '../../config/moderation'
 
-const TagIcon = Tag as ComponentType<LucideProps>;
-const UploadIcon = Upload as ComponentType<LucideProps>;
-const AwardIcon = Award as ComponentType<LucideProps>;
-const AlertTriangleIcon = AlertTriangle as ComponentType<LucideProps>;
-const ShieldIcon = Shield as ComponentType<LucideProps>;
-const ZapIcon = Zap as ComponentType<LucideProps>;
+const TagIcon = Tag as ComponentType<LucideProps>
+const UploadIcon = Upload as ComponentType<LucideProps>
+const AwardIcon = Award as ComponentType<LucideProps>
+const AlertTriangleIcon = AlertTriangle as ComponentType<LucideProps>
+const ShieldIcon = Shield as ComponentType<LucideProps>
+const ZapIcon = Zap as ComponentType<LucideProps>
 
 interface LabelProposalInterfaceProps {
-  targetAgentId?: bigint;
-  onSuccess?: () => void;
+  targetAgentId?: bigint
+  onSuccess?: () => void
 }
 
-type LabelType = 0 | 1 | 2 | 3 | 4; // NONE, HACKER, SCAMMER, SPAM_BOT, TRUSTED
+type LabelType = 0 | 1 | 2 | 3 | 4 // NONE, HACKER, SCAMMER, SPAM_BOT, TRUSTED
 
 const LABEL_TYPES = [
   {
@@ -57,22 +65,22 @@ const LABEL_TYPES = [
     color: 'green',
     severity: 'POSITIVE',
   },
-] as const;
+] as const
 
-import { uploadToIPFS } from '../../lib/ipfs';
+import { uploadToIPFS } from '../../lib/ipfs'
 
 const useIPFSUpload = () => {
-  const [uploading, setUploading] = useState(false);
+  const [uploading, setUploading] = useState(false)
 
   const upload = async (file: File): Promise<string> => {
-    setUploading(true);
-    const hash = await uploadToIPFS(file);
-    setUploading(false);
-    return hash;
-  };
+    setUploading(true)
+    const hash = await uploadToIPFS(file)
+    setUploading(false)
+    return hash
+  }
 
-  return { upload, uploading };
-};
+  return { upload, uploading }
+}
 
 const LABEL_MANAGER_ABI = [
   {
@@ -86,74 +94,92 @@ const LABEL_MANAGER_ABI = [
     ],
     outputs: [{ name: 'proposalId', type: 'bytes32' }],
   },
-] as const;
+] as const
 
-export default function LabelProposalInterface({ targetAgentId, onSuccess }: LabelProposalInterfaceProps) {
+export default function LabelProposalInterface({
+  targetAgentId,
+  onSuccess,
+}: LabelProposalInterfaceProps) {
   const [formData, setFormData] = useState({
     targetAgentId: targetAgentId?.toString() || '',
     selectedLabel: null as LabelType | null,
-  });
-  const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
-  const [evidenceHash, setEvidenceHash] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  })
+  const [evidenceFile, setEvidenceFile] = useState<File | null>(null)
+  const [evidenceHash, setEvidenceHash] = useState('')
+  const [error, setError] = useState<string | null>(null)
 
-  const { upload: uploadToIPFS, uploading } = useIPFSUpload();
-  const { writeContract, data: hash, isPending } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { upload: uploadToIPFS, uploading } = useIPFSUpload()
+  const { writeContract, data: hash, isPending } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const file = e.target.files?.[0]
+    if (!file) return
 
-    setEvidenceFile(file);
-    const hash = await uploadToIPFS(file);
-    setEvidenceHash(hash);
-  };
+    setEvidenceFile(file)
+    const hash = await uploadToIPFS(file)
+    setEvidenceHash(hash)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
+    e.preventDefault()
+    setError(null)
 
     if (!formData.targetAgentId || !formData.selectedLabel) {
-      setError('Please fill all fields');
-      return;
+      setError('Please fill all fields')
+      return
     }
 
     if (!evidenceHash) {
-      setError('Please upload evidence');
-      return;
+      setError('Please upload evidence')
+      return
     }
 
-    const selectedLabelInfo = LABEL_TYPES.find((l) => l.value === formData.selectedLabel);
-    if (!selectedLabelInfo) return;
+    const selectedLabelInfo = LABEL_TYPES.find(
+      (l) => l.value === formData.selectedLabel,
+    )
+    if (!selectedLabelInfo) return
 
     // Convert evidence hash to bytes32
-    const evidenceBytes32 = `0x${evidenceHash.padStart(64, '0')}` as `0x${string}`;
+    const evidenceBytes32 =
+      `0x${evidenceHash.padStart(64, '0')}` as `0x${string}`
 
     writeContract({
       address: MODERATION_CONTRACTS.ReputationLabelManager as `0x${string}`,
       abi: LABEL_MANAGER_ABI,
       functionName: 'proposeLabel',
-      args: [BigInt(formData.targetAgentId), formData.selectedLabel, evidenceBytes32],
+      args: [
+        BigInt(formData.targetAgentId),
+        formData.selectedLabel,
+        evidenceBytes32,
+      ],
       value: parseEther(selectedLabelInfo.stake),
-    });
-  };
-
-  if (isSuccess) {
-    setTimeout(() => onSuccess?.(), 2000);
+    })
   }
 
-  const selectedLabelInfo = LABEL_TYPES.find((l) => l.value === formData.selectedLabel);
+  if (isSuccess) {
+    setTimeout(() => onSuccess?.(), 2000)
+  }
+
+  const selectedLabelInfo = LABEL_TYPES.find(
+    (l) => l.value === formData.selectedLabel,
+  )
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Target Agent */}
       <div>
-        <label className="block text-sm font-medium mb-2">Target Agent ID *</label>
+        <label className="block text-sm font-medium mb-2">
+          Target Agent ID *
+        </label>
         <input
           type="number"
           value={formData.targetAgentId}
-          onChange={(e) => setFormData({ ...formData, targetAgentId: e.target.value })}
+          onChange={(e) =>
+            setFormData({ ...formData, targetAgentId: e.target.value })
+          }
           placeholder="Enter agent ID"
           className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
           required
@@ -162,17 +188,21 @@ export default function LabelProposalInterface({ targetAgentId, onSuccess }: Lab
 
       {/* Label Selection */}
       <div>
-        <label className="block text-sm font-medium mb-2">Reputation Label *</label>
+        <label className="block text-sm font-medium mb-2">
+          Reputation Label *
+        </label>
         <div className="grid gap-3">
           {LABEL_TYPES.map((label) => {
-            const Icon = label.icon;
-            const isSelected = formData.selectedLabel === label.value;
+            const Icon = label.icon
+            const isSelected = formData.selectedLabel === label.value
 
             return (
               <button
                 key={label.value}
                 type="button"
-                onClick={() => setFormData({ ...formData, selectedLabel: label.value })}
+                onClick={() =>
+                  setFormData({ ...formData, selectedLabel: label.value })
+                }
                 className={`p-4 border-2 rounded-lg text-left transition-all ${
                   isSelected
                     ? `border-${label.color}-500 bg-${label.color}-50`
@@ -184,21 +214,29 @@ export default function LabelProposalInterface({ targetAgentId, onSuccess }: Lab
                     <Icon size={20} className={`text-${label.color}-500`} />
                     <span className="font-semibold">{label.name}</span>
                   </div>
-                  <span className={`px-2 py-1 bg-${label.color}-100 text-${label.color}-700 rounded text-xs font-semibold`}>
+                  <span
+                    className={`px-2 py-1 bg-${label.color}-100 text-${label.color}-700 rounded text-xs font-semibold`}
+                  >
                     {label.severity}
                   </span>
                 </div>
-                <p className="text-sm text-gray-600 mb-2">{label.description}</p>
-                <div className="text-lg font-bold text-gray-900">Stake: {label.stake} ETH</div>
+                <p className="text-sm text-gray-600 mb-2">
+                  {label.description}
+                </p>
+                <div className="text-lg font-bold text-gray-900">
+                  Stake: {label.stake} ETH
+                </div>
               </button>
-            );
+            )
           })}
         </div>
       </div>
 
       {/* Evidence Upload */}
       <div>
-        <label className="block text-sm font-medium mb-2">Evidence * (IPFS Upload)</label>
+        <label className="block text-sm font-medium mb-2">
+          Evidence * (IPFS Upload)
+        </label>
         <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
           {!evidenceFile ? (
             <>
@@ -224,7 +262,9 @@ export default function LabelProposalInterface({ targetAgentId, onSuccess }: Lab
             <div className="text-center">
               <div className="font-medium">{evidenceFile.name}</div>
               <div className="text-sm text-gray-600">
-                {uploading ? 'Uploading...' : `Hash: ${evidenceHash.substring(0, 16)}...`}
+                {uploading
+                  ? 'Uploading...'
+                  : `Hash: ${evidenceHash.substring(0, 16)}...`}
               </div>
             </div>
           )}
@@ -233,17 +273,27 @@ export default function LabelProposalInterface({ targetAgentId, onSuccess }: Lab
 
       {/* Stake Info */}
       {selectedLabelInfo && (
-        <div className={`bg-${selectedLabelInfo.color}-50 border border-${selectedLabelInfo.color}-200 rounded-lg p-4`}>
+        <div
+          className={`bg-${selectedLabelInfo.color}-50 border border-${selectedLabelInfo.color}-200 rounded-lg p-4`}
+        >
           <div className="flex items-start gap-2">
-            <ShieldIcon className={`text-${selectedLabelInfo.color}-500 mt-0.5`} size={20} />
+            <ShieldIcon
+              className={`text-${selectedLabelInfo.color}-500 mt-0.5`}
+              size={20}
+            />
             <div className="flex-1">
-              <div className={`font-semibold text-${selectedLabelInfo.color}-900 mb-1`}>
+              <div
+                className={`font-semibold text-${selectedLabelInfo.color}-900 mb-1`}
+              >
                 Stake Required: {selectedLabelInfo.stake} ETH
               </div>
               <div className={`text-sm text-${selectedLabelInfo.color}-700`}>
-                {selectedLabelInfo.value === 1 && '⚠️ HACKER label auto-triggers network ban if approved'}
-                {selectedLabelInfo.value === 4 && '✓ TRUSTED label boosts reputation if approved'}
-                {(selectedLabelInfo.value === 2 || selectedLabelInfo.value === 3) &&
+                {selectedLabelInfo.value === 1 &&
+                  '⚠️ HACKER label auto-triggers network ban if approved'}
+                {selectedLabelInfo.value === 4 &&
+                  '✓ TRUSTED label boosts reputation if approved'}
+                {(selectedLabelInfo.value === 2 ||
+                  selectedLabelInfo.value === 3) &&
                   'If approved: get stake back + 10% bonus. If rejected: stake slashed.'}
               </div>
             </div>
@@ -260,29 +310,37 @@ export default function LabelProposalInterface({ targetAgentId, onSuccess }: Lab
       {/* Submit */}
       <button
         type="submit"
-        disabled={isPending || isConfirming || uploading || !evidenceHash || !formData.selectedLabel}
+        disabled={
+          isPending ||
+          isConfirming ||
+          uploading ||
+          !evidenceHash ||
+          !formData.selectedLabel
+        }
         className="w-full py-3 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
       >
         {uploading
           ? 'Uploading Evidence...'
           : isPending
-          ? 'Proposing Label...'
-          : isConfirming
-          ? 'Confirming...'
-          : isSuccess
-          ? '✓ Proposal Submitted!'
-          : 'Propose Label'}
+            ? 'Proposing Label...'
+            : isConfirming
+              ? 'Confirming...'
+              : isSuccess
+                ? '✓ Proposal Submitted!'
+                : 'Propose Label'}
       </button>
 
       {isSuccess && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-          <div className="text-green-900 font-semibold">Label proposal submitted!</div>
+          <div className="text-green-900 font-semibold">
+            Label proposal submitted!
+          </div>
           <div className="text-sm text-green-700 mt-1">
-            A futarchy market has been created. The community will vote on your proposal.
+            A futarchy market has been created. The community will vote on your
+            proposal.
           </div>
         </div>
       )}
     </form>
-  );
+  )
 }
-

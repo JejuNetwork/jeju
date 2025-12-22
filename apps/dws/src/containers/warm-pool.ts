@@ -3,34 +3,36 @@
  * Implements intelligent warming, scaling, and cooldown strategies
  */
 
+import type { Address } from 'viem'
 import type {
-  ContainerInstance,
-  ContainerState,
-  ContainerResources,
-  WarmthConfig,
-  WarmPoolStats,
   ContainerEvent,
   ContainerEventHandler,
-  DEFAULT_WARMTH_CONFIG as _DEFAULT_WARMTH_CONFIG,
-} from './types';
-import type { Address } from 'viem';
+  ContainerInstance,
+  ContainerResources,
+  ContainerState,
+  WarmPoolStats,
+  WarmthConfig,
+} from './types'
 
 // Pool state
-const warmPools = new Map<string, WarmPool>();
-const eventHandlers: ContainerEventHandler[] = [];
+const warmPools = new Map<string, WarmPool>()
+const eventHandlers: ContainerEventHandler[] = []
 
 interface WarmPool {
-  imageDigest: string;
-  config: WarmthConfig;
-  instances: Map<string, ContainerInstance>;
-  requestQueue: Array<{ resolve: (instance: ContainerInstance) => void; timestamp: number }>;
+  imageDigest: string
+  config: WarmthConfig
+  instances: Map<string, ContainerInstance>
+  requestQueue: Array<{
+    resolve: (instance: ContainerInstance | null) => void
+    timestamp: number
+  }>
   stats: {
-    totalRequests: number;
-    coldStarts: number;
-    warmHits: number;
-    avgColdStartMs: number;
-    avgWarmStartMs: number;
-  };
+    totalRequests: number
+    coldStarts: number
+    warmHits: number
+    avgColdStartMs: number
+    avgWarmStartMs: number
+  }
 }
 
 // ============================================================================
@@ -38,16 +40,16 @@ interface WarmPool {
 // ============================================================================
 
 export function onContainerEvent(handler: ContainerEventHandler): () => void {
-  eventHandlers.push(handler);
+  eventHandlers.push(handler)
   return () => {
-    const idx = eventHandlers.indexOf(handler);
-    if (idx >= 0) eventHandlers.splice(idx, 1);
-  };
+    const idx = eventHandlers.indexOf(handler)
+    if (idx >= 0) eventHandlers.splice(idx, 1)
+  }
 }
 
 function emitEvent(event: ContainerEvent): void {
   for (const handler of eventHandlers) {
-    handler(event);
+    handler(event)
   }
 }
 
@@ -55,8 +57,11 @@ function emitEvent(event: ContainerEvent): void {
 // Pool Management
 // ============================================================================
 
-export function getOrCreatePool(imageDigest: string, config?: Partial<WarmthConfig>): WarmPool {
-  let pool = warmPools.get(imageDigest);
+export function getOrCreatePool(
+  imageDigest: string,
+  config?: Partial<WarmthConfig>,
+): WarmPool {
+  let pool = warmPools.get(imageDigest)
   if (!pool) {
     const defaultConfig: WarmthConfig = {
       keepWarmMs: 60000,
@@ -64,7 +69,7 @@ export function getOrCreatePool(imageDigest: string, config?: Partial<WarmthConf
       maxWarmInstances: 10,
       scaleUpThreshold: 5,
       scaleDownThreshold: 300000,
-    };
+    }
     pool = {
       imageDigest,
       config: { ...defaultConfig, ...config },
@@ -77,20 +82,23 @@ export function getOrCreatePool(imageDigest: string, config?: Partial<WarmthConf
         avgColdStartMs: 0,
         avgWarmStartMs: 0,
       },
-    };
-    warmPools.set(imageDigest, pool);
+    }
+    warmPools.set(imageDigest, pool)
   }
-  return pool;
+  return pool
 }
 
 export function getPool(imageDigest: string): WarmPool | null {
-  return warmPools.get(imageDigest) ?? null;
+  return warmPools.get(imageDigest) ?? null
 }
 
-export function updatePoolConfig(imageDigest: string, config: Partial<WarmthConfig>): void {
-  const pool = warmPools.get(imageDigest);
+export function updatePoolConfig(
+  imageDigest: string,
+  config: Partial<WarmthConfig>,
+): void {
+  const pool = warmPools.get(imageDigest)
   if (pool) {
-    pool.config = { ...pool.config, ...config };
+    pool.config = { ...pool.config, ...config }
   }
 }
 
@@ -103,9 +111,9 @@ export function addInstance(
   instanceId: string,
   resources: ContainerResources,
   owner: Address,
-  nodeId: string
+  nodeId: string,
 ): ContainerInstance {
-  const pool = getOrCreatePool(imageDigest);
+  const pool = getOrCreatePool(imageDigest)
 
   const instance: ContainerInstance = {
     instanceId,
@@ -120,62 +128,82 @@ export function addInstance(
     requestsHandled: 0,
     owner,
     nodeId,
-  };
+  }
 
-  pool.instances.set(instanceId, instance);
-  emitEvent({ type: 'instance_created', instanceId, imageDigest });
+  pool.instances.set(instanceId, instance)
+  emitEvent({ type: 'instance_created', instanceId, imageDigest })
 
-  return instance;
+  return instance
 }
 
-export function getInstance(imageDigest: string, instanceId: string): ContainerInstance | null {
-  const pool = warmPools.get(imageDigest);
-  return pool?.instances.get(instanceId) ?? null;
+export function getInstance(
+  imageDigest: string,
+  instanceId: string,
+): ContainerInstance | null {
+  const pool = warmPools.get(imageDigest)
+  return pool?.instances.get(instanceId) ?? null
 }
 
 export function updateInstanceState(
   imageDigest: string,
   instanceId: string,
   state: ContainerState,
-  extraData?: { startedAt?: number; warmUntil?: number; endpoint?: string; port?: number }
+  extraData?: {
+    startedAt?: number
+    warmUntil?: number
+    endpoint?: string
+    port?: number
+  },
 ): ContainerInstance | null {
-  const pool = warmPools.get(imageDigest);
-  const instance = pool?.instances.get(instanceId);
-  if (!instance) return null;
+  const pool = warmPools.get(imageDigest)
+  const instance = pool?.instances.get(instanceId)
+  if (!instance) return null
 
-  const oldState = instance.state;
-  instance.state = state;
-  instance.lastActivityAt = Date.now();
+  const oldState = instance.state
+  instance.state = state
+  instance.lastActivityAt = Date.now()
 
   if (extraData) {
-    if (extraData.startedAt !== undefined) instance.startedAt = extraData.startedAt;
-    if (extraData.warmUntil !== undefined) instance.warmUntil = extraData.warmUntil;
-    if (extraData.endpoint !== undefined) instance.endpoint = extraData.endpoint;
-    if (extraData.port !== undefined) instance.port = extraData.port;
+    if (extraData.startedAt !== undefined)
+      instance.startedAt = extraData.startedAt
+    if (extraData.warmUntil !== undefined)
+      instance.warmUntil = extraData.warmUntil
+    if (extraData.endpoint !== undefined) instance.endpoint = extraData.endpoint
+    if (extraData.port !== undefined) instance.port = extraData.port
   }
 
   // Emit state change events
   if (state === 'running' && oldState !== 'running') {
-    const coldStartMs = instance.startedAt ? instance.startedAt - instance.createdAt : 0;
-    emitEvent({ type: 'instance_started', instanceId, coldStartMs });
+    const coldStartMs = instance.startedAt
+      ? instance.startedAt - instance.createdAt
+      : 0
+    emitEvent({ type: 'instance_started', instanceId, coldStartMs })
   } else if (state === 'warm') {
-    emitEvent({ type: 'instance_warmed', instanceId, warmUntil: instance.warmUntil ?? 0 });
+    emitEvent({
+      type: 'instance_warmed',
+      instanceId,
+      warmUntil: instance.warmUntil ?? 0,
+    })
   } else if (state === 'cooling') {
-    emitEvent({ type: 'instance_cooling', instanceId });
+    emitEvent({ type: 'instance_cooling', instanceId })
   }
 
-  return instance;
+  return instance
 }
 
-export function removeInstance(imageDigest: string, instanceId: string, reason: string): boolean {
-  const pool = warmPools.get(imageDigest);
-  if (!pool) return false;
+export function removeInstance(
+  imageDigest: string,
+  instanceId: string,
+  reason: string,
+): boolean {
+  const pool = warmPools.get(imageDigest)
+  if (!pool) return false
 
-  const removed = pool.instances.delete(instanceId);
+  const removed = pool.instances.delete(instanceId)
   if (removed) {
-    emitEvent({ type: 'instance_stopped', instanceId, reason });
+    emitEvent({ type: 'instance_stopped', instanceId, reason })
   }
-  return removed;
+  return removed
 }
 
 // ============================================================================
@@ -184,84 +212,89 @@ export function removeInstance(imageDigest: string, instanceId: string, reason: 
 
 export async function acquireWarmInstance(
   imageDigest: string,
-  timeoutMs: number = 5000
+  timeoutMs: number = 5000,
 ): Promise<ContainerInstance | null> {
-  const pool = getOrCreatePool(imageDigest);
-  pool.stats.totalRequests++;
+  const pool = getOrCreatePool(imageDigest)
+  pool.stats.totalRequests++
 
   // Try to find a warm instance
   for (const instance of pool.instances.values()) {
     if (instance.state === 'warm' || instance.state === 'running') {
-      instance.state = 'running';
-      instance.lastActivityAt = Date.now();
-      instance.requestsHandled++;
-      pool.stats.warmHits++;
+      instance.state = 'running'
+      instance.lastActivityAt = Date.now()
+      instance.requestsHandled++
+      pool.stats.warmHits++
 
       // Update average warm start time
-      const warmStartMs = 5; // Negligible for warm starts
+      const warmStartMs = 5 // Negligible for warm starts
       pool.stats.avgWarmStartMs =
-        (pool.stats.avgWarmStartMs * (pool.stats.warmHits - 1) + warmStartMs) / pool.stats.warmHits;
+        (pool.stats.avgWarmStartMs * (pool.stats.warmHits - 1) + warmStartMs) /
+        pool.stats.warmHits
 
-      return instance;
+      return instance
     }
   }
 
   // No warm instance available - check if we should scale up
-  const queueLength = pool.requestQueue.length;
+  const queueLength = pool.requestQueue.length
   if (queueLength >= pool.config.scaleUpThreshold) {
     emitEvent({
       type: 'scale_up',
       imageDigest,
       newCount: pool.instances.size + 1,
-    });
+    })
   }
 
   // Wait for an instance
   return new Promise((resolve) => {
-    const entry = { resolve, timestamp: Date.now() };
-    pool.requestQueue.push(entry);
+    const entry = { resolve, timestamp: Date.now() }
+    pool.requestQueue.push(entry)
 
     // Timeout
     setTimeout(() => {
-      const idx = pool.requestQueue.indexOf(entry);
+      const idx = pool.requestQueue.indexOf(entry)
       if (idx >= 0) {
-        pool.requestQueue.splice(idx, 1);
-        pool.stats.coldStarts++; // Will need a cold start
-        resolve(null);
+        pool.requestQueue.splice(idx, 1)
+        pool.stats.coldStarts++ // Will need a cold start
+        resolve(null)
       }
-    }, timeoutMs);
-  });
+    }, timeoutMs)
+  })
 }
 
 export function releaseInstance(
   imageDigest: string,
   instanceId: string,
-  keepWarm: boolean = true
+  keepWarm: boolean = true,
 ): void {
-  const pool = warmPools.get(imageDigest);
-  const instance = pool?.instances.get(instanceId);
-  if (!instance) return;
+  const pool = warmPools.get(imageDigest)
+  const instance = pool?.instances.get(instanceId)
+  if (!instance) return
 
-  instance.lastActivityAt = Date.now();
+  instance.lastActivityAt = Date.now()
 
   // Check if there are waiting requests
   if (pool && pool.requestQueue.length > 0) {
-    const waiting = pool.requestQueue.shift();
+    const waiting = pool.requestQueue.shift()
     if (waiting) {
-      instance.requestsHandled++;
-      waiting.resolve(instance);
-      return;
+      instance.requestsHandled++
+      waiting.resolve(instance)
+      return
     }
   }
 
   // Keep warm or start cooling
   if (keepWarm && pool) {
-    instance.state = 'warm';
-    instance.warmUntil = Date.now() + pool.config.keepWarmMs;
-    emitEvent({ type: 'instance_warmed', instanceId, warmUntil: instance.warmUntil });
+    instance.state = 'warm'
+    instance.warmUntil = Date.now() + pool.config.keepWarmMs
+    emitEvent({
+      type: 'instance_warmed',
+      instanceId,
+      warmUntil: instance.warmUntil,
+    })
   } else {
-    instance.state = 'cooling';
-    emitEvent({ type: 'instance_cooling', instanceId });
+    instance.state = 'cooling'
+    emitEvent({ type: 'instance_cooling', instanceId })
   }
 }
 
@@ -270,15 +303,17 @@ export function releaseInstance(
 // ============================================================================
 
 export function getPoolStats(imageDigest: string): WarmPoolStats | null {
-  const pool = warmPools.get(imageDigest);
-  if (!pool) return null;
+  const pool = warmPools.get(imageDigest)
+  if (!pool) return null
 
-  const instances = [...pool.instances.values()];
-  const warmCount = instances.filter((i) => i.state === 'warm' || i.state === 'running').length;
-  const coolingCount = instances.filter((i) => i.state === 'cooling').length;
+  const instances = [...pool.instances.values()]
+  const warmCount = instances.filter(
+    (i) => i.state === 'warm' || i.state === 'running',
+  ).length
+  const coolingCount = instances.filter((i) => i.state === 'cooling').length
 
-  const totalRequests = pool.stats.totalRequests;
-  const hitRate = totalRequests > 0 ? pool.stats.warmHits / totalRequests : 0;
+  const totalRequests = pool.stats.totalRequests
+  const hitRate = totalRequests > 0 ? pool.stats.warmHits / totalRequests : 0
 
   return {
     imageDigest,
@@ -288,60 +323,64 @@ export function getPoolStats(imageDigest: string): WarmPoolStats | null {
     avgColdStartMs: Math.round(pool.stats.avgColdStartMs),
     avgWarmStartMs: Math.round(pool.stats.avgWarmStartMs),
     hitRate: Math.round(hitRate * 10000) / 100,
-  };
+  }
 }
 
 export function getAllPoolStats(): WarmPoolStats[] {
   return [...warmPools.keys()]
     .map((digest) => getPoolStats(digest))
-    .filter((stats): stats is WarmPoolStats => stats !== null);
+    .filter((stats): stats is WarmPoolStats => stats !== null)
 }
 
 // ============================================================================
 // Cooldown Manager
 // ============================================================================
 
-let cooldownInterval: ReturnType<typeof setInterval> | null = null;
+let cooldownInterval: ReturnType<typeof setInterval> | null = null
 
 export function startCooldownManager(): void {
-  if (cooldownInterval) return;
+  if (cooldownInterval) return
 
   cooldownInterval = setInterval(() => {
-    const now = Date.now();
+    const now = Date.now()
 
     for (const [imageDigest, pool] of warmPools) {
-      const instancesToRemove: string[] = [];
+      const instancesToRemove: string[] = []
 
       for (const [instanceId, instance] of pool.instances) {
         // Check if warm period expired
-        if (instance.state === 'warm' && instance.warmUntil && now > instance.warmUntil) {
+        if (
+          instance.state === 'warm' &&
+          instance.warmUntil &&
+          now > instance.warmUntil
+        ) {
           // Check if we should keep minimum warm instances
           const warmCount = [...pool.instances.values()].filter(
-            (i) => i.state === 'warm' || i.state === 'running'
-          ).length;
+            (i) => i.state === 'warm' || i.state === 'running',
+          ).length
 
           if (warmCount > pool.config.minWarmInstances) {
-            instance.state = 'cooling';
-            emitEvent({ type: 'instance_cooling', instanceId });
+            instance.state = 'cooling'
+            emitEvent({ type: 'instance_cooling', instanceId })
           } else {
             // Extend warm period for minimum instances
-            instance.warmUntil = now + pool.config.keepWarmMs;
+            instance.warmUntil = now + pool.config.keepWarmMs
           }
         }
 
         // Check if cooling period expired
         if (instance.state === 'cooling') {
-          const coolingTime = now - instance.lastActivityAt;
+          const coolingTime = now - instance.lastActivityAt
           if (coolingTime > pool.config.scaleDownThreshold) {
-            instancesToRemove.push(instanceId);
+            instancesToRemove.push(instanceId)
           }
         }
       }
 
       // Remove cooled instances
       for (const instanceId of instancesToRemove) {
-        pool.instances.delete(instanceId);
-        emitEvent({ type: 'instance_stopped', instanceId, reason: 'cooldown' });
+        pool.instances.delete(instanceId)
+        emitEvent({ type: 'instance_stopped', instanceId, reason: 'cooldown' })
       }
 
       // Emit scale down event if instances were removed
@@ -350,16 +389,16 @@ export function startCooldownManager(): void {
           type: 'scale_down',
           imageDigest,
           newCount: pool.instances.size,
-        });
+        })
       }
     }
-  }, 10000); // Check every 10 seconds
+  }, 10000) // Check every 10 seconds
 }
 
 export function stopCooldownManager(): void {
   if (cooldownInterval) {
-    clearInterval(cooldownInterval);
-    cooldownInterval = null;
+    clearInterval(cooldownInterval)
+    cooldownInterval = null
   }
 }
 
@@ -373,34 +412,37 @@ export async function prewarmInstances(
   resources: ContainerResources,
   owner: Address,
   nodeId: string,
-  createFn: (instance: ContainerInstance) => Promise<void>
+  createFn: (instance: ContainerInstance) => Promise<void>,
 ): Promise<ContainerInstance[]> {
-  const pool = getOrCreatePool(imageDigest);
+  const pool = getOrCreatePool(imageDigest)
   const currentWarm = [...pool.instances.values()].filter(
-    (i) => i.state === 'warm' || i.state === 'running'
-  ).length;
+    (i) => i.state === 'warm' || i.state === 'running',
+  ).length
 
-  const toCreate = Math.min(
-    count,
-    pool.config.maxWarmInstances - currentWarm
-  );
+  const toCreate = Math.min(count, pool.config.maxWarmInstances - currentWarm)
 
-  const instances: ContainerInstance[] = [];
+  const instances: ContainerInstance[] = []
 
   for (let i = 0; i < toCreate; i++) {
-    const instanceId = crypto.randomUUID();
-    const instance = addInstance(imageDigest, instanceId, resources, owner, nodeId);
-    
-    await createFn(instance);
-    
-    instance.state = 'warm';
-    instance.startedAt = Date.now();
-    instance.warmUntil = Date.now() + pool.config.keepWarmMs;
-    
-    instances.push(instance);
+    const instanceId = crypto.randomUUID()
+    const instance = addInstance(
+      imageDigest,
+      instanceId,
+      resources,
+      owner,
+      nodeId,
+    )
+
+    await createFn(instance)
+
+    instance.state = 'warm'
+    instance.startedAt = Date.now()
+    instance.warmUntil = Date.now() + pool.config.keepWarmMs
+
+    instances.push(instance)
   }
 
-  return instances;
+  return instances
 }
 
 // ============================================================================
@@ -408,27 +450,24 @@ export async function prewarmInstances(
 // ============================================================================
 
 export function cleanupPool(imageDigest: string): void {
-  const pool = warmPools.get(imageDigest);
-  if (!pool) return;
+  const pool = warmPools.get(imageDigest)
+  if (!pool) return
 
   for (const [instanceId] of pool.instances) {
-    emitEvent({ type: 'instance_stopped', instanceId, reason: 'cleanup' });
+    emitEvent({ type: 'instance_stopped', instanceId, reason: 'cleanup' })
   }
 
-  pool.instances.clear();
-  pool.requestQueue.forEach((r) => r.resolve(null as unknown as ContainerInstance));
-  pool.requestQueue = [];
+  pool.instances.clear()
+  pool.requestQueue.forEach((r) => r.resolve(null))
+  pool.requestQueue = []
 }
 
 export function cleanupAllPools(): void {
   for (const imageDigest of warmPools.keys()) {
-    cleanupPool(imageDigest);
+    cleanupPool(imageDigest)
   }
-  warmPools.clear();
+  warmPools.clear()
 }
 
 // Auto-start cooldown manager
-startCooldownManager();
-
-
-
+startCooldownManager()

@@ -10,7 +10,7 @@
     "build": "bun build src/index.ts --outdir dist --target node",
     "test": "bun test tests/",
     "test:e2e": "npx playwright test --config synpress.config.ts",
-    "lint": "eslint src --ext .ts,.tsx",
+    "lint": "biome check .",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

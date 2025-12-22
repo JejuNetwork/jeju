@@ -3,7 +3,7 @@
  * Re-exports from @jejunetwork/contracts with wallet-specific utilities
  */
 
-import type { Address } from 'viem';
+import type { Address } from 'viem'
 
 // ============================================================================
 // Core ABIs (minimal fragments for wallet operations)
@@ -97,7 +97,7 @@ export const ERC20_ABI = [
       { name: 'value', type: 'uint256', indexed: false },
     ],
   },
-] as const;
+] as const
 
 export const ERC721_ABI = [
   {
@@ -167,7 +167,7 @@ export const ERC721_ABI = [
     outputs: [],
     stateMutability: 'nonpayable',
   },
-] as const;
+] as const
 
 export const ERC1155_ABI = [
   {
@@ -210,7 +210,7 @@ export const ERC1155_ABI = [
     outputs: [],
     stateMutability: 'nonpayable',
   },
-] as const;
+] as const
 
 // ============================================================================
 // Multicall ABI
@@ -250,7 +250,7 @@ export const MULTICALL3_ABI = [
     outputs: [{ name: 'balance', type: 'uint256' }],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 // ============================================================================
 // Uniswap V3 Router (for swaps)
@@ -301,13 +301,14 @@ export const UNISWAP_V3_ROUTER_ABI = [
     outputs: [{ name: 'amountIn', type: 'uint256' }],
     stateMutability: 'payable',
   },
-] as const;
+] as const
 
 // ============================================================================
 // Common Contract Addresses
 // ============================================================================
 
-export const MULTICALL3_ADDRESS = '0xcA11bde05977b3631167028862bE2a173976CA11' as Address;
+export const MULTICALL3_ADDRESS =
+  '0xcA11bde05977b3631167028862bE2a173976CA11' as Address
 
 export const WETH_ADDRESSES: Record<number, Address> = {
   1: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
@@ -316,7 +317,7 @@ export const WETH_ADDRESSES: Record<number, Address> = {
   10: '0x4200000000000000000000000000000000000006',
   137: '0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270', // WMATIC
   324: '0x5AEa5775959fBC2557Cc8789bC1bf90A239D9a91',
-};
+}
 
 export const USDC_ADDRESSES: Record<number, Address> = {
   1: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
@@ -324,7 +325,7 @@ export const USDC_ADDRESSES: Record<number, Address> = {
   42161: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
   10: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85',
   137: '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359',
-};
+}
 
 export const UNISWAP_V3_ROUTER_ADDRESSES: Record<number, Address> = {
   1: '0xE592427A0AEce92De3Edee1F18E0157C05861564',
@@ -332,31 +333,32 @@ export const UNISWAP_V3_ROUTER_ADDRESSES: Record<number, Address> = {
   42161: '0xE592427A0AEce92De3Edee1F18E0157C05861564',
   10: '0xE592427A0AEce92De3Edee1F18E0157C05861564',
   137: '0xE592427A0AEce92De3Edee1F18E0157C05861564',
-};
+}
 
 // ============================================================================
 // Utilities
 // ============================================================================
 
 export function getWethAddress(chainId: number): Address | undefined {
-  return WETH_ADDRESSES[chainId];
+  return WETH_ADDRESSES[chainId]
 }
 
 export function getUsdcAddress(chainId: number): Address | undefined {
-  return USDC_ADDRESSES[chainId];
+  return USDC_ADDRESSES[chainId]
 }
 
 export function getUniswapRouterAddress(chainId: number): Address | undefined {
-  return UNISWAP_V3_ROUTER_ADDRESSES[chainId];
+  return UNISWAP_V3_ROUTER_ADDRESSES[chainId]
 }
 
 export function isNativeToken(address: Address): boolean {
   return (
     address === '0x0000000000000000000000000000000000000000' ||
     address === '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
-  );
+  )
 }
 
-export const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
-export const NATIVE_TOKEN = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE' as Address;
-
+export const ZERO_ADDRESS =
+  '0x0000000000000000000000000000000000000000' as Address
+export const NATIVE_TOKEN =
+  '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE' as Address

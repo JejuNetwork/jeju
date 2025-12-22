@@ -3,148 +3,161 @@
  * @module scripts/shared/rpc.test
  */
 
-import { describe, it, expect } from 'bun:test';
-import { FailoverProvider, checkRPC, getNetworkInfo } from './rpc';
-import { createPublicClient, http, formatUnits } from 'viem';
-import { inferChainFromRpcUrl } from './chain-utils';
+import { describe, expect, it } from 'bun:test'
+import { createPublicClient, formatUnits, http } from 'viem'
+import { inferChainFromRpcUrl } from './chain-utils'
+import { checkRPC, FailoverProvider, getNetworkInfo } from './rpc'
 
 describe('RPC Utilities', () => {
-  const LOCALNET_RPC = process.env.RPC_ETH_HTTP || 'http://127.0.0.1:9545';
+  const LOCALNET_RPC = process.env.RPC_ETH_HTTP || 'http://127.0.0.1:9545'
 
   describe('FailoverProvider', () => {
     it('should create provider with single URL', () => {
-      const provider = new FailoverProvider(LOCALNET_RPC, 'Test');
-      expect(provider).toBeTruthy();
-    });
+      const provider = new FailoverProvider(LOCALNET_RPC, 'Test')
+      expect(provider).toBeTruthy()
+    })
 
     it('should create provider with multiple URLs', () => {
-      const provider = new FailoverProvider([
-        LOCALNET_RPC,
-        'http://backup-rpc.example.com',
-      ], 'Test');
-      expect(provider).toBeTruthy();
-    });
+      const provider = new FailoverProvider(
+        [LOCALNET_RPC, 'http://backup-rpc.example.com'],
+        'Test',
+      )
+      expect(provider).toBeTruthy()
+    })
 
     it('should get working provider', async () => {
-      const failover = new FailoverProvider(LOCALNET_RPC, 'Localnet');
-      
+      const failover = new FailoverProvider(LOCALNET_RPC, 'Localnet')
+
       try {
-        const provider = await failover.getProvider();
-        expect(provider).toBeTruthy();
-        
+        const provider = await failover.getProvider()
+        expect(provider).toBeTruthy()
+
         // Try to use it
-        const blockNumber = await provider.getBlockNumber();
-        expect(blockNumber).toBeGreaterThanOrEqual(0);
-        
-        console.log(`   ✅ Connected to RPC at block ${blockNumber}`);
+        const blockNumber = await provider.getBlockNumber()
+        expect(blockNumber).toBeGreaterThanOrEqual(0)
+
+        console.log(`   ✅ Connected to RPC at block ${blockNumber}`)
       } catch {
-        console.log('   ⚠️  RPC not available (localnet not running)');
+        console.log('   ⚠️  RPC not available (localnet not running)')
       }
-    }, 10000);
+    }, 10000)
 
     it('should failover to next endpoint on failure', async () => {
-      const failover = new FailoverProvider([
-        'http://invalid-rpc-1.example.com',
-        'http://invalid-rpc-2.example.com',
-        LOCALNET_RPC, // Working endpoint (if localnet is running)
-      ], 'Test');
+      const failover = new FailoverProvider(
+        [
+          'http://invalid-rpc-1.example.com',
+          'http://invalid-rpc-2.example.com',
+          LOCALNET_RPC, // Working endpoint (if localnet is running)
+        ],
+        'Test',
+      )
 
       try {
-        const provider = await failover.getProviderWithRetry(3, 100);
-        const blockNumber = await provider.getBlockNumber();
-        
-        console.log(`   ✅ Failover succeeded at block ${blockNumber}`);
+        const provider = await failover.getProviderWithRetry(3, 100)
+        const blockNumber = await provider.getBlockNumber()
+
+        console.log(`   ✅ Failover succeeded at block ${blockNumber}`)
       } catch {
-        console.log('   ℹ️  All endpoints failed (expected if localnet not running)');
+        console.log(
+          '   ℹ️  All endpoints failed (expected if localnet not running)',
+        )
       }
-    }, 15000);
-  });
+    }, 15000)
+  })
 
   describe('checkRPC', () => {
     it('should return true for healthy RPC', async () => {
       try {
-        const isHealthy = await checkRPC(LOCALNET_RPC, 5000);
+        const isHealthy = await checkRPC(LOCALNET_RPC, 5000)
         if (isHealthy) {
-          console.log('   ✅ RPC is healthy');
-          expect(isHealthy).toBe(true);
+          console.log('   ✅ RPC is healthy')
+          expect(isHealthy).toBe(true)
         }
       } catch {
-        console.log('   ⚠️  RPC not available');
+        console.log('   ⚠️  RPC not available')
       }
-    }, 10000);
+    }, 10000)
 
     it('should return false for invalid RPC', async () => {
-      const isHealthy = await checkRPC('http://invalid-rpc.example.com', 2000);
-      expect(isHealthy).toBe(false);
-    }, 5000);
+      const isHealthy = await checkRPC('http://invalid-rpc.example.com', 2000)
+      expect(isHealthy).toBe(false)
+    }, 5000)
 
     it('should timeout appropriately', async () => {
-      const start = Date.now();
-      await checkRPC('http://non-existent-endpoint.local', 1000);
-      const elapsed = Date.now() - start;
-      
+      const start = Date.now()
+      await checkRPC('http://non-existent-endpoint.local', 1000)
+      const elapsed = Date.now() - start
+
       // Should timeout around 1000ms
-      expect(elapsed).toBeLessThan(2000);
-    }, 5000);
-  });
+      expect(elapsed).toBeLessThan(2000)
+    }, 5000)
+  })
 
   describe('getNetworkInfo', () => {
     it('should get network information', async () => {
       try {
-        const chain = inferChainFromRpcUrl(LOCALNET_RPC);
-        const publicClient = createPublicClient({ chain, transport: http(LOCALNET_RPC) });
-        const info = await getNetworkInfo(publicClient);
-        
-        expect(info.chainId).toBeTruthy();
-        expect(info.blockNumber).toBeGreaterThanOrEqual(0);
-        expect(info.gasPrice).toBeGreaterThanOrEqual(0n);
-        
-        console.log(`   ✅ Network Info:`);
-        console.log(`      Chain ID: ${info.chainId}`);
-        console.log(`      Block: ${info.blockNumber}`);
-        console.log(`      Gas Price: ${formatUnits(info.gasPrice, 'gwei')} gwei`);
+        const chain = inferChainFromRpcUrl(LOCALNET_RPC)
+        const publicClient = createPublicClient({
+          chain,
+          transport: http(LOCALNET_RPC),
+        })
+        const info = await getNetworkInfo(publicClient)
+
+        expect(info.chainId).toBeTruthy()
+        expect(info.blockNumber).toBeGreaterThanOrEqual(0)
+        expect(info.gasPrice).toBeGreaterThanOrEqual(0n)
+
+        console.log(`   ✅ Network Info:`)
+        console.log(`      Chain ID: ${info.chainId}`)
+        console.log(`      Block: ${info.blockNumber}`)
+        console.log(
+          `      Gas Price: ${formatUnits(info.gasPrice, 'gwei')} gwei`,
+        )
       } catch {
-        console.log('   ⚠️  Cannot get network info (RPC not available)');
+        console.log('   ⚠️  Cannot get network info (RPC not available)')
       }
-    }, 10000);
-  });
+    }, 10000)
+  })
 
   describe('Integration Examples', () => {
     it('should demonstrate deployment script usage', async () => {
-      console.log('\n   Example: Deployment with failover\n');
-      
-      new FailoverProvider([
-        'https://rpc.jejunetwork.org',
-        'https://rpc-backup.jejunetwork.org',
-        LOCALNET_RPC,
-      ], 'Network');
+      console.log('\n   Example: Deployment with failover\n')
 
-      console.log('   1. Created failover provider with 3 endpoints');
-      console.log('   2. Provider automatically tries each endpoint');
-      console.log('   3. Falls back to next if current fails');
-      console.log('   4. Throws error only if all fail\n');
-    });
+      new FailoverProvider(
+        [
+          'https://rpc.jejunetwork.org',
+          'https://rpc-backup.jejunetwork.org',
+          LOCALNET_RPC,
+        ],
+        'Network',
+      )
+
+      console.log('   1. Created failover provider with 3 endpoints')
+      console.log('   2. Provider automatically tries each endpoint')
+      console.log('   3. Falls back to next if current fails')
+      console.log('   4. Throws error only if all fail\n')
+    })
 
     it('should demonstrate monitoring script usage', async () => {
-      console.log('\n   Example: Health monitoring\n');
-      
+      console.log('\n   Example: Health monitoring\n')
+
       const endpoints = [
         'https://rpc.jejunetwork.org',
         'https://testnet-rpc.jejunetwork.org',
         LOCALNET_RPC,
-      ];
+      ]
 
-      console.log('   Checking RPC health:');
-      
+      console.log('   Checking RPC health:')
+
       for (const endpoint of endpoints) {
-        const isHealthy = await checkRPC(endpoint, 3000);
-        const status = isHealthy ? '✅ Healthy' : '❌ Down';
-        const url = endpoint.length > 30 ? endpoint.slice(0, 30) + '...' : endpoint;
-        console.log(`      ${url.padEnd(35)} ${status}`);
+        const isHealthy = await checkRPC(endpoint, 3000)
+        const status = isHealthy ? '✅ Healthy' : '❌ Down'
+        const url =
+          endpoint.length > 30 ? `${endpoint.slice(0, 30)}...` : endpoint
+        console.log(`      ${url.padEnd(35)} ${status}`)
       }
-      
-      console.log('');
-    }, 15000);
-  });
-});
 
+      console.log('')
+    }, 15000)
+  })
+})

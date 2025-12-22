@@ -1,31 +1,70 @@
 'use client'
 
-import { useState, useCallback } from 'react'
-import { 
-  ArrowLeft, ArrowRight, Sparkles, Check, AlertCircle, 
-  Search, FileText, Send, Lightbulb, RefreshCw, AlertTriangle
+import {
+  AlertCircle,
+  AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  FileText,
+  Lightbulb,
+  RefreshCw,
+  Search,
+  Send,
+  Sparkles,
 } from 'lucide-react'
+import { useCallback, useState } from 'react'
 import {
   assessProposalFull,
   checkDuplicates,
-  improveProposal,
-  generateProposal,
-  quickScore,
-  type ProposalDraft,
   type FullQualityAssessment,
-  type SimilarProposal,
+  generateProposal,
+  improveProposal,
+  type ProposalDraft,
   type QuickScoreResult,
+  quickScore,
+  type SimilarProposal,
 } from '@/config/api'
 
 const PROPOSAL_TYPES = [
-  { value: 0, label: 'Parameter Change', icon: '⚙️', desc: 'Adjust DAO parameters' },
-  { value: 1, label: 'Treasury Allocation', icon: '💰', desc: 'Fund projects or expenses' },
-  { value: 2, label: 'Code Upgrade', icon: '🔧', desc: 'Smart contract changes' },
-  { value: 3, label: 'Hire Contractor', icon: '👤', desc: 'Bring on contributors' },
-  { value: 4, label: 'Fire Contractor', icon: '🚪', desc: 'End a contributor role' },
+  {
+    value: 0,
+    label: 'Parameter Change',
+    icon: '⚙️',
+    desc: 'Adjust DAO parameters',
+  },
+  {
+    value: 1,
+    label: 'Treasury Allocation',
+    icon: '💰',
+    desc: 'Fund projects or expenses',
+  },
+  {
+    value: 2,
+    label: 'Code Upgrade',
+    icon: '🔧',
+    desc: 'Smart contract changes',
+  },
+  {
+    value: 3,
+    label: 'Hire Contractor',
+    icon: '👤',
+    desc: 'Bring on contributors',
+  },
+  {
+    value: 4,
+    label: 'Fire Contractor',
+    icon: '🚪',
+    desc: 'End a contributor role',
+  },
   { value: 5, label: 'Bounty', icon: '🎯', desc: 'Reward for specific work' },
   { value: 6, label: 'Grant', icon: '🎁', desc: 'Fund external projects' },
-  { value: 7, label: 'Partnership', icon: '🤝', desc: 'Establish partnerships' },
+  {
+    value: 7,
+    label: 'Partnership',
+    icon: '🤝',
+    desc: 'Establish partnerships',
+  },
   { value: 8, label: 'Policy', icon: '📜', desc: 'Change governance rules' },
 ]
 
@@ -45,11 +84,14 @@ export function ProposalWizard({ onComplete, onCancel }: WizardProps) {
     proposalType: 0,
     tags: [],
   })
-  
-  const [quickScoreResult, setQuickScoreResult] = useState<QuickScoreResult | null>(null)
-  const [assessment, setAssessment] = useState<FullQualityAssessment | null>(null)
+
+  const [quickScoreResult, setQuickScoreResult] =
+    useState<QuickScoreResult | null>(null)
+  const [assessment, setAssessment] = useState<FullQualityAssessment | null>(
+    null,
+  )
   const [duplicates, setDuplicates] = useState<SimilarProposal[]>([])
-  
+
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [generating, setGenerating] = useState(false)
@@ -92,7 +134,7 @@ export function ProposalWizard({ onComplete, onCancel }: WizardProps) {
       const improved = await improveProposal(draft, criterion)
       setDraft({
         ...draft,
-        description: draft.description + '\n\n' + improved,
+        description: `${draft.description}\n\n${improved}`,
       })
     } catch {
       // Ignore improvement errors
@@ -138,9 +180,15 @@ export function ProposalWizard({ onComplete, onCancel }: WizardProps) {
   }
 
   const canProceed = {
-    draft: draft.title.length >= 10 && draft.summary.length >= 50 && draft.description.length >= 200,
-    quality: assessment && assessment.overallScore >= 90 && assessment.blockers.length === 0,
-    duplicates: duplicates.every(d => d.similarity < 80),
+    draft:
+      draft.title.length >= 10 &&
+      draft.summary.length >= 50 &&
+      draft.description.length >= 200,
+    quality:
+      assessment &&
+      assessment.overallScore >= 90 &&
+      assessment.blockers.length === 0,
+    duplicates: duplicates.every((d) => d.similarity < 80),
     submit: true,
   }
 
@@ -148,25 +196,37 @@ export function ProposalWizard({ onComplete, onCancel }: WizardProps) {
     <div className="max-w-4xl mx-auto">
       {/* Progress Steps */}
       <div className="flex items-center justify-between mb-6 sm:mb-8">
-        {(['draft', 'quality', 'duplicates', 'submit'] as WizardStep[]).map((s, i) => (
-          <div key={s} className="flex items-center">
-            <div 
-              className={`
+        {(['draft', 'quality', 'duplicates', 'submit'] as WizardStep[]).map(
+          (s, i) => (
+            <div key={s} className="flex items-center">
+              <div
+                className={`
                 w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-sm font-medium
-                ${step === s ? 'bg-accent text-white' : 
-                  canProceed[s] ? 'bg-green-500 text-white' : 
-                  'bg-gray-200 dark:bg-gray-700'}
+                ${
+                  step === s
+                    ? 'bg-accent text-white'
+                    : canProceed[s]
+                      ? 'bg-green-500 text-white'
+                      : 'bg-gray-200 dark:bg-gray-700'
+                }
               `}
-            >
-              {canProceed[s] && step !== s ? <Check size={16} /> : i + 1}
+              >
+                {canProceed[s] && step !== s ? <Check size={16} /> : i + 1}
+              </div>
+              {i < 3 && (
+                <div
+                  className={`hidden sm:block w-16 h-0.5 mx-2 ${
+                    canProceed[
+                      ['draft', 'quality', 'duplicates'][i] as WizardStep
+                    ]
+                      ? 'bg-green-500'
+                      : 'bg-gray-200 dark:bg-gray-700'
+                  }`}
+                />
+              )}
             </div>
-            {i < 3 && (
-              <div className={`hidden sm:block w-16 h-0.5 mx-2 ${
-                canProceed[['draft', 'quality', 'duplicates'][i] as WizardStep] ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-700'
-              }`} />
-            )}
-          </div>
-        ))}
+          ),
+        )}
       </div>
 
       {/* Step Labels */}
@@ -233,7 +293,12 @@ export function ProposalWizard({ onComplete, onCancel }: WizardProps) {
             if (step === 'draft') {
               onCancel?.()
             } else {
-              const steps: WizardStep[] = ['draft', 'quality', 'duplicates', 'submit']
+              const steps: WizardStep[] = [
+                'draft',
+                'quality',
+                'duplicates',
+                'submit',
+              ]
               const idx = steps.indexOf(step)
               setStep(steps[idx - 1])
             }
@@ -307,7 +372,9 @@ function DraftStep({
 
       {showGenerator && (
         <div className="bg-accent/10 rounded-lg p-4 space-y-3">
-          <p className="text-sm">Describe your idea and let AI draft a proposal:</p>
+          <p className="text-sm">
+            Describe your idea and let AI draft a proposal:
+          </p>
           <textarea
             value={idea}
             onChange={(e) => setIdea(e.target.value)}
@@ -360,7 +427,9 @@ function DraftStep({
           className="input"
           maxLength={100}
         />
-        <div className="text-xs text-gray-500 mt-1">{draft.title.length}/100</div>
+        <div className="text-xs text-gray-500 mt-1">
+          {draft.title.length}/100
+        </div>
       </div>
 
       {/* Summary */}
@@ -375,12 +444,16 @@ function DraftStep({
           rows={2}
           maxLength={500}
         />
-        <div className="text-xs text-gray-500 mt-1">{draft.summary.length}/500</div>
+        <div className="text-xs text-gray-500 mt-1">
+          {draft.summary.length}/500
+        </div>
       </div>
 
       {/* Description */}
       <div>
-        <label className="block text-sm font-medium mb-1">Full Description</label>
+        <label className="block text-sm font-medium mb-1">
+          Full Description
+        </label>
         <textarea
           value={draft.description}
           onChange={(e) => setDraft({ ...draft, description: e.target.value })}
@@ -396,20 +469,28 @@ function DraftStep({
           className="textarea"
           rows={12}
         />
-        <div className="text-xs text-gray-500 mt-1">{draft.description.length} characters (min 200)</div>
+        <div className="text-xs text-gray-500 mt-1">
+          {draft.description.length} characters (min 200)
+        </div>
       </div>
 
       {/* Quick Score Indicator */}
       {quickScore && (
         <div className="flex items-center gap-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-          <div className="text-2xl font-bold" style={{
-            color: quickScore.score >= 60 ? 'var(--color-success)' : 'var(--color-warning)'
-          }}>
+          <div
+            className="text-2xl font-bold"
+            style={{
+              color:
+                quickScore.score >= 60
+                  ? 'var(--color-success)'
+                  : 'var(--color-warning)',
+            }}
+          >
             {quickScore.score}%
           </div>
           <div className="text-sm text-gray-500">
-            {quickScore.readyForFullAssessment 
-              ? 'Ready for AI quality assessment' 
+            {quickScore.readyForFullAssessment
+              ? 'Ready for AI quality assessment'
               : 'Add more detail to continue'}
           </div>
         </div>
@@ -445,38 +526,47 @@ function QualityStep({
           className="btn-accent text-sm flex items-center gap-2"
         >
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          {loading ? 'Assessing...' : assessment ? 'Re-assess' : 'Run Assessment'}
+          {loading
+            ? 'Assessing...'
+            : assessment
+              ? 'Re-assess'
+              : 'Run Assessment'}
         </button>
       </div>
 
       {!assessment ? (
         <div className="text-center py-12">
           <Sparkles size={48} className="mx-auto mb-4 opacity-30" />
-          <p className="text-gray-500">Click &quot;Run Assessment&quot; to get AI feedback</p>
+          <p className="text-gray-500">
+            Click &quot;Run Assessment&quot; to get AI feedback
+          </p>
         </div>
       ) : (
         <div className="space-y-6">
           {/* Overall Score */}
           <div className="text-center p-6 bg-gray-50 dark:bg-gray-800 rounded-lg">
-            <div 
+            <div
               className="text-5xl font-bold"
-              style={{ 
-                color: assessment.overallScore >= 90 
-                  ? 'var(--color-success)' 
-                  : assessment.overallScore >= 70 
-                  ? 'var(--color-warning)' 
-                  : 'var(--color-error)'
+              style={{
+                color:
+                  assessment.overallScore >= 90
+                    ? 'var(--color-success)'
+                    : assessment.overallScore >= 70
+                      ? 'var(--color-warning)'
+                      : 'var(--color-error)',
               }}
             >
               {assessment.overallScore}%
             </div>
             <div className="text-sm text-gray-500 mt-1">
-              {assessment.readyToSubmit ? '✓ Ready for submission' : '90% required to submit'}
+              {assessment.readyToSubmit
+                ? '✓ Ready for submission'
+                : '90% required to submit'}
             </div>
             <div className="progress-bar mt-4 h-3">
-              <div 
-                className="progress-bar-fill" 
-                style={{ width: `${assessment.overallScore}%` }} 
+              <div
+                className="progress-bar-fill"
+                style={{ width: `${assessment.overallScore}%` }}
               />
             </div>
           </div>
@@ -487,16 +577,21 @@ function QualityStep({
             <div className="space-y-3">
               {Object.entries(assessment.criteria).map(([key, value]) => (
                 <div key={key} className="flex items-center gap-3">
-                  <div className="w-32 text-sm capitalize">{key.replace(/([A-Z])/g, ' $1')}</div>
+                  <div className="w-32 text-sm capitalize">
+                    {key.replace(/([A-Z])/g, ' $1')}
+                  </div>
                   <div className="flex-1 progress-bar h-2">
-                    <div 
-                      className="progress-bar-fill" 
-                      style={{ 
+                    <div
+                      className="progress-bar-fill"
+                      style={{
                         width: `${value}%`,
-                        backgroundColor: value >= 90 ? 'var(--color-success)' : 
-                                        value >= 70 ? 'var(--color-warning)' : 
-                                        'var(--color-error)'
-                      }} 
+                        backgroundColor:
+                          value >= 90
+                            ? 'var(--color-success)'
+                            : value >= 70
+                              ? 'var(--color-warning)'
+                              : 'var(--color-error)',
+                      }}
                     />
                   </div>
                   <div className="w-12 text-sm text-right">{value}%</div>
@@ -523,7 +618,12 @@ function QualityStep({
               </h3>
               <ul className="space-y-1">
                 {assessment.blockers.map((b, i) => (
-                  <li key={i} className="text-sm text-red-600 dark:text-red-400">• {b}</li>
+                  <li
+                    key={i}
+                    className="text-sm text-red-600 dark:text-red-400"
+                  >
+                    • {b}
+                  </li>
                 ))}
               </ul>
             </div>
@@ -537,7 +637,12 @@ function QualityStep({
               </h3>
               <ul className="space-y-1">
                 {assessment.suggestions.map((s, i) => (
-                  <li key={i} className="text-sm text-yellow-700 dark:text-yellow-400">• {s}</li>
+                  <li
+                    key={i}
+                    className="text-sm text-yellow-700 dark:text-yellow-400"
+                  >
+                    • {s}
+                  </li>
                 ))}
               </ul>
             </div>
@@ -569,7 +674,7 @@ function DuplicatesStep({
   loading: boolean
   onCheck: () => void
 }) {
-  const hasDuplicates = duplicates.some(d => d.similarity >= 80)
+  const hasDuplicates = duplicates.some((d) => d.similarity >= 80)
 
   return (
     <div className="space-y-6">
@@ -596,20 +701,28 @@ function DuplicatesStep({
       ) : duplicates.length === 0 ? (
         <div className="text-center py-12 bg-green-50 dark:bg-green-900/20 rounded-lg">
           <Check size={48} className="mx-auto mb-4 text-green-500" />
-          <p className="text-green-600 dark:text-green-400 font-medium">No duplicates found!</p>
-          <p className="text-sm text-gray-500 mt-1">Your proposal appears to be unique.</p>
+          <p className="text-green-600 dark:text-green-400 font-medium">
+            No duplicates found!
+          </p>
+          <p className="text-sm text-gray-500 mt-1">
+            Your proposal appears to be unique.
+          </p>
         </div>
       ) : (
         <div className="space-y-4">
           {hasDuplicates && (
             <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg flex items-start gap-3">
-              <AlertTriangle className="text-red-500 shrink-0 mt-0.5" size={20} />
+              <AlertTriangle
+                className="text-red-500 shrink-0 mt-0.5"
+                size={20}
+              />
               <div>
                 <p className="text-sm font-medium text-red-600 dark:text-red-400">
                   High similarity detected!
                 </p>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                  Your proposal is very similar to existing proposals. Consider modifying it or supporting the existing proposal instead.
+                  Your proposal is very similar to existing proposals. Consider
+                  modifying it or supporting the existing proposal instead.
                 </p>
               </div>
             </div>
@@ -617,27 +730,34 @@ function DuplicatesStep({
 
           <div className="space-y-3">
             {duplicates.map((dup) => (
-              <div 
+              <div
                 key={dup.proposalId}
                 className={`p-4 rounded-lg border ${
-                  dup.similarity >= 80 
-                    ? 'border-red-300 bg-red-50 dark:bg-red-900/20' 
+                  dup.similarity >= 80
+                    ? 'border-red-300 bg-red-50 dark:bg-red-900/20'
                     : 'border-gray-200 dark:border-gray-700'
                 }`}
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium">{dup.title}</span>
-                  <span className={`text-sm font-bold ${
-                    dup.similarity >= 80 ? 'text-red-500' : 
-                    dup.similarity >= 50 ? 'text-yellow-500' : 'text-gray-500'
-                  }`}>
+                  <span
+                    className={`text-sm font-bold ${
+                      dup.similarity >= 80
+                        ? 'text-red-500'
+                        : dup.similarity >= 50
+                          ? 'text-yellow-500'
+                          : 'text-gray-500'
+                    }`}
+                  >
                     {dup.similarity}% similar
                   </span>
                 </div>
                 <p className="text-xs text-gray-500">{dup.reason}</p>
                 <div className="mt-2 text-xs">
                   <span className="badge-neutral">{dup.status}</span>
-                  <span className="ml-2 text-gray-400">{dup.proposalId.slice(0, 10)}...</span>
+                  <span className="ml-2 text-gray-400">
+                    {dup.proposalId.slice(0, 10)}...
+                  </span>
                 </div>
               </div>
             ))}
@@ -658,7 +778,7 @@ function SubmitStep({
   duplicates: SimilarProposal[]
   onSubmit: () => void
 }) {
-  const hasDuplicates = duplicates.some(d => d.similarity >= 80)
+  const hasDuplicates = duplicates.some((d) => d.similarity >= 80)
 
   return (
     <div className="space-y-6">
@@ -672,7 +792,7 @@ function SubmitStep({
         <div>
           <div className="text-xs text-gray-500">Type</div>
           <div className="font-medium">
-            {PROPOSAL_TYPES.find(t => t.value === draft.proposalType)?.label}
+            {PROPOSAL_TYPES.find((t) => t.value === draft.proposalType)?.label}
           </div>
         </div>
         <div>
@@ -701,7 +821,9 @@ function SubmitStep({
           ) : (
             <AlertCircle className="text-red-500" size={18} />
           )}
-          <span>Duplicate Check: {hasDuplicates ? 'Similar found' : 'Unique'}</span>
+          <span>
+            Duplicate Check: {hasDuplicates ? 'Similar found' : 'Unique'}
+          </span>
         </div>
         <div className="flex items-center gap-3 text-sm">
           {assessment?.blockers.length === 0 ? (
@@ -715,7 +837,9 @@ function SubmitStep({
 
       {/* Important Notice */}
       <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm">
-        <p className="font-medium text-blue-700 dark:text-blue-400">Before Submitting</p>
+        <p className="font-medium text-blue-700 dark:text-blue-400">
+          Before Submitting
+        </p>
         <ul className="mt-2 space-y-1 text-gray-600 dark:text-gray-400">
           <li>• Submitting requires a bond (returned if not spam)</li>
           <li>• Your proposal will enter Autocrat review</li>

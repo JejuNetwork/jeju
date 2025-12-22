@@ -1,17 +1,23 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { ArrowLeft, Loader2 } from 'lucide-react'
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
-import { parseEther, keccak256, toHex } from 'viem'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useState } from 'react'
+import { keccak256, parseEther, toHex } from 'viem'
+import {
+  useAccount,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from 'wagmi'
 import { ProposalWizard } from '@/components/ProposalWizard'
-import type { ProposalDraft, FullQualityAssessment } from '@/config/api'
+import type { FullQualityAssessment, ProposalDraft } from '@/config/api'
 
-const AUTOCRAT_ADDRESS = (process.env.NEXT_PUBLIC_AUTOCRAT_ADDRESS || '0x0000000000000000000000000000000000000000') as `0x${string}`
+const AUTOCRAT_ADDRESS = (process.env.NEXT_PUBLIC_AUTOCRAT_ADDRESS ||
+  '0x0000000000000000000000000000000000000000') as `0x${string}`
 const PROPOSAL_BOND = parseEther('0.001')
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as `0x${string}`
+const ZERO_ADDRESS =
+  '0x0000000000000000000000000000000000000000' as `0x${string}`
 
 const AUTOCRAT_ABI = [
   {
@@ -37,21 +43,30 @@ export default function CreateProposalPage() {
   const [submitting, setSubmitting] = useState(false)
 
   const { writeContract, data: txHash, isPending } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash })
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash: txHash,
+  })
 
-  const handleComplete = async (draft: ProposalDraft, assessment: FullQualityAssessment) => {
+  const handleComplete = async (
+    draft: ProposalDraft,
+    assessment: FullQualityAssessment,
+  ) => {
     if (!isConnected) {
       setSubmitError('Please connect your wallet to submit a proposal')
       return
     }
 
     if (AUTOCRAT_ADDRESS === ZERO_ADDRESS) {
-      setSubmitError('Autocrat contract not configured. Set NEXT_PUBLIC_AUTOCRAT_ADDRESS.')
+      setSubmitError(
+        'Autocrat contract not configured. Set NEXT_PUBLIC_AUTOCRAT_ADDRESS.',
+      )
       return
     }
 
     if (assessment.overallScore < 90) {
-      setSubmitError(`Quality score ${assessment.overallScore} is below minimum (90)`)
+      setSubmitError(
+        `Quality score ${assessment.overallScore} is below minimum (90)`,
+      )
       return
     }
 
@@ -100,8 +115,8 @@ export default function CreateProposalPage() {
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex items-center gap-2 sm:gap-3">
-        <Link 
-          href="/" 
+        <Link
+          href="/"
           className="p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
         >
           <ArrowLeft size={18} className="sm:w-5 sm:h-5" />
@@ -127,10 +142,7 @@ export default function CreateProposalPage() {
       )}
 
       {/* Wizard */}
-      <ProposalWizard
-        onComplete={handleComplete}
-        onCancel={handleCancel}
-      />
+      <ProposalWizard onComplete={handleComplete} onCancel={handleCancel} />
     </div>
   )
 }

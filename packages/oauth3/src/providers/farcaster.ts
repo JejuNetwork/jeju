@@ -1,6 +1,6 @@
 /**
  * Farcaster Authentication Provider
- * 
+ *
  * Best-in-class Farcaster integration with:
  * - Custody address verification
  * - Signer key delegation
@@ -9,224 +9,226 @@
  * - Profile data fetching
  * - Direct hub posting (permissionless)
  * - Sign In With Farcaster (SIWF)
- * 
+ *
  * Uses permissionless Hub access when NEYNAR_API_KEY is not set.
  * Set FARCASTER_HUB_URL to use a self-hosted hub (default: public hub).
  */
 
-import { keccak256, toBytes, toHex, type Address, type Hex } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import { z } from 'zod';
+import { type Address, type Hex, keccak256, toBytes, toHex } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { z } from 'zod'
 import type {
   AuthProvider,
   FarcasterIdentity,
   FarcasterSignerRequest,
   LinkedProvider,
-} from '../types.js';
+} from '../types.js'
 import {
-  NeynarUserSchema,
-  NeynarCastSchema,
-  HubUserDataResponseSchema,
-  HubVerificationsResponseSchema,
-  HubUsernameProofSchema,
   FrameValidationResponseSchema,
-  type NeynarUser,
+  HubUserDataResponseSchema,
+  HubUsernameProofSchema,
+  HubVerificationsResponseSchema,
   type NeynarCast,
+  NeynarCastSchema,
+  type NeynarUser,
+  NeynarUserSchema,
   validateResponse,
-} from '../validation.js';
+} from '../validation.js'
 
-const FARCASTER_HUB_URL = process.env.FARCASTER_HUB_URL ?? 'https://nemes.farcaster.xyz:2281';
-const FARCASTER_API_URL = process.env.FARCASTER_API_URL ?? 'https://api.neynar.com/v2';
-const NEYNAR_API_KEY = process.env.NEYNAR_API_KEY ?? '';
+const FARCASTER_HUB_URL =
+  process.env.FARCASTER_HUB_URL ?? 'https://nemes.farcaster.xyz:2281'
+const FARCASTER_API_URL =
+  process.env.FARCASTER_API_URL ?? 'https://api.neynar.com/v2'
+const NEYNAR_API_KEY = process.env.NEYNAR_API_KEY ?? ''
 
 // ============ Session Types ============
 
 export interface FarcasterSession {
-  fid: number;
-  profile: FarcasterProfile;
-  signerKeyId?: string;
-  signerPublicKey?: Hex;
-  expiresAt?: number;
+  fid: number
+  profile: FarcasterProfile
+  signerKeyId?: string
+  signerPublicKey?: Hex
+  expiresAt?: number
 }
 
 export interface AuthChannelResult {
-  channelToken: string;
-  url: string;
-  connectUri: string;
-  expiresAt: number;
+  channelToken: string
+  url: string
+  connectUri: string
+  expiresAt: number
 }
 
 export interface PostedCast {
-  hash: Hex;
-  fid: number;
-  text: string;
-  timestamp: number;
-  embeds?: string[];
-  parentHash?: Hex;
-  parentUrl?: string;
+  hash: Hex
+  fid: number
+  text: string
+  timestamp: number
+  embeds?: string[]
+  parentHash?: Hex
+  parentUrl?: string
 }
 
 export interface CastOptions {
-  replyTo?: { fid: number; hash: Hex };
-  channelUrl?: string;
-  embeds?: string[];
-  mentions?: number[];
-  mentionPositions?: number[];
+  replyTo?: { fid: number; hash: Hex }
+  channelUrl?: string
+  embeds?: string[]
+  mentions?: number[]
+  mentionPositions?: number[]
 }
 
-
 export interface FarcasterProfile {
-  fid: number;
-  username: string;
-  displayName: string;
-  pfpUrl: string;
-  bio: string;
-  followerCount: number;
-  followingCount: number;
-  verifiedAddresses: Address[];
-  custodyAddress: Address;
-  activeStatus: 'active' | 'inactive';
+  fid: number
+  username: string
+  displayName: string
+  pfpUrl: string
+  bio: string
+  followerCount: number
+  followingCount: number
+  verifiedAddresses: Address[]
+  custodyAddress: Address
+  activeStatus: 'active' | 'inactive'
 }
 
 export interface FarcasterSigner {
-  signerUuid: string;
-  publicKey: Hex;
-  status: 'pending_approval' | 'approved' | 'revoked';
-  fid: number;
-  permissions: string[];
+  signerUuid: string
+  publicKey: Hex
+  status: 'pending_approval' | 'approved' | 'revoked'
+  fid: number
+  permissions: string[]
 }
 
 export interface FarcasterCast {
-  hash: Hex;
-  author: FarcasterProfile;
-  text: string;
-  timestamp: number;
-  parentHash?: Hex;
-  parentUrl?: string;
-  embeds: Array<{ url: string }>;
-  reactions: { likes: number; recasts: number };
+  hash: Hex
+  author: FarcasterProfile
+  text: string
+  timestamp: number
+  parentHash?: Hex
+  parentUrl?: string
+  embeds: Array<{ url: string }>
+  reactions: { likes: number; recasts: number }
 }
 
 export interface FarcasterFrameContext {
-  fid: number;
-  url: string;
-  messageHash: Hex;
-  timestamp: number;
-  network: number;
-  buttonIndex: number;
-  castId?: { fid: number; hash: Hex };
-  inputText?: string;
-  state?: string;
-  transactionId?: Hex;
-  address?: Address;
+  fid: number
+  url: string
+  messageHash: Hex
+  timestamp: number
+  network: number
+  buttonIndex: number
+  castId?: { fid: number; hash: Hex }
+  inputText?: string
+  state?: string
+  transactionId?: Hex
+  address?: Address
 }
 
 export interface FarcasterAuthMessage {
-  domain: string;
-  address: Address;
-  uri: string;
-  version: string;
-  nonce: string;
-  issuedAt: string;
-  expirationTime?: string;
-  notBefore?: string;
-  resources?: string[];
-  fid?: number;
-  custody?: Address;
+  domain: string
+  address: Address
+  uri: string
+  version: string
+  nonce: string
+  issuedAt: string
+  expirationTime?: string
+  notBefore?: string
+  resources?: string[]
+  fid?: number
+  custody?: Address
 }
 
 export interface FarcasterProviderConfig {
-  apiKey?: string;
-  hubUrl?: string;
-  apiUrl?: string;
-  appName?: string;
-  appFid?: number;
+  apiKey?: string
+  hubUrl?: string
+  apiUrl?: string
+  appName?: string
+  appFid?: number
 }
 
 export class FarcasterProvider {
-  private apiKey: string;
-  private hubUrl: string;
-  private apiUrl: string;
-  private useHubDirect: boolean;
-  private appName: string;
-  private appFid?: number;
-  private sessions: Map<number, FarcasterSession> = new Map();
-  private signerPrivateKeys: Map<string, Uint8Array> = new Map();
+  private apiKey: string
+  private hubUrl: string
+  private apiUrl: string
+  private useHubDirect: boolean
+  private appName: string
+  private appFid?: number
+  private sessions: Map<number, FarcasterSession> = new Map()
 
   constructor(config?: FarcasterProviderConfig) {
-    this.apiKey = config?.apiKey ?? NEYNAR_API_KEY;
-    this.hubUrl = config?.hubUrl ?? FARCASTER_HUB_URL;
-    this.apiUrl = config?.apiUrl ?? FARCASTER_API_URL;
-    this.useHubDirect = !this.apiKey;
-    this.appName = config?.appName ?? 'Jeju Network';
-    this.appFid = config?.appFid;
+    this.apiKey = config?.apiKey ?? NEYNAR_API_KEY
+    this.hubUrl = config?.hubUrl ?? FARCASTER_HUB_URL
+    this.apiUrl = config?.apiUrl ?? FARCASTER_API_URL
+    this.useHubDirect = !this.apiKey
+    this.appName = config?.appName ?? 'Jeju Network'
+    this.appFid = config?.appFid
   }
-  
+
   // ============ SIWF Authentication ============
-  
+
   /**
    * Create SIWF auth channel (for QR code / deep link auth)
    */
   async createAuthChannel(): Promise<AuthChannelResult> {
-    const channelToken = crypto.randomUUID();
-    const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
-    
+    const channelToken = crypto.randomUUID()
+    const expiresAt = Date.now() + 5 * 60 * 1000 // 5 minutes
+
     const params = new URLSearchParams({
       channelToken,
       nonce: crypto.randomUUID(),
       notBefore: new Date().toISOString(),
       expirationTime: new Date(expiresAt).toISOString(),
-    });
-    
-    const connectUri = `https://warpcast.com/~/siwf?${params.toString()}`;
-    
+    })
+
+    const connectUri = `https://warpcast.com/~/siwf?${params.toString()}`
+
     return {
       channelToken,
       url: connectUri,
       connectUri,
       expiresAt,
-    };
+    }
   }
-  
+
   /**
    * Poll auth channel for completion
    */
-  async pollAuthChannel(channelToken: string): Promise<FarcasterSession | null> {
+  async pollAuthChannel(
+    channelToken: string,
+  ): Promise<FarcasterSession | null> {
     const response = await fetch(
       `https://api.warpcast.com/v2/siwf/result?channelToken=${channelToken}`,
-    );
-    
+    )
+
     if (!response.ok) {
-      return null;
+      return null
     }
-    
-    const data = await response.json() as { result?: { fid?: number } };
-    
+
+    const data = (await response.json()) as { result?: { fid?: number } }
+
     if (!data.result?.fid) {
-      return null;
+      return null
     }
-    
-    const profile = await this.getProfileByFid(data.result.fid);
-    
+
+    const profile = await this.getProfileByFid(data.result.fid)
+
     const session: FarcasterSession = {
       fid: data.result.fid,
       profile,
-    };
-    
-    this.sessions.set(data.result.fid, session);
-    
-    return session;
+    }
+
+    this.sessions.set(data.result.fid, session)
+
+    return session
   }
-  
+
   /**
    * Get session for FID
    */
   getSession(fid: number): FarcasterSession | null {
-    return this.sessions.get(fid) ?? null;
+    return this.sessions.get(fid) ?? null
   }
-  
+
   // ============ Direct Hub Posting ============
-  
+
   /**
    * Post a cast via hub
    */
@@ -236,15 +238,15 @@ export class FarcasterProvider {
     options?: CastOptions,
   ): Promise<PostedCast> {
     // Build cast message per Farcaster protocol
-    const timestamp = this.getFarcasterTimestamp();
-    const message = this.buildCastMessage(session.fid, text, timestamp, options);
-    
+    const timestamp = this.getFarcasterTimestamp()
+    const message = this.buildCastMessage(session.fid, text, timestamp, options)
+
     // Sign message
-    const signature = await this.signMessage(session, message);
-    
+    const signature = await this.signMessage(session, message)
+
     // Submit to hub
-    const hash = await this.submitToHub(message, signature);
-    
+    const hash = await this.submitToHub(message, signature)
+
     return {
       hash,
       fid: session.fid,
@@ -253,9 +255,9 @@ export class FarcasterProvider {
       embeds: options?.embeds,
       parentHash: options?.replyTo?.hash,
       parentUrl: options?.channelUrl,
-    };
+    }
   }
-  
+
   /**
    * Reply to a cast
    */
@@ -265,14 +267,14 @@ export class FarcasterProvider {
     replyTo: { fid: number; hash: Hex },
     options?: Omit<CastOptions, 'replyTo'>,
   ): Promise<PostedCast> {
-    return this.cast(session, text, { ...options, replyTo });
+    return this.cast(session, text, { ...options, replyTo })
   }
-  
+
   /**
    * Delete a cast
    */
   async deleteCast(session: FarcasterSession, castHash: Hex): Promise<void> {
-    const timestamp = this.getFarcasterTimestamp();
+    const timestamp = this.getFarcasterTimestamp()
     const message = {
       type: 'MESSAGE_TYPE_CAST_REMOVE',
       fid: session.fid,
@@ -280,17 +282,20 @@ export class FarcasterProvider {
       castRemoveBody: {
         targetHash: castHash,
       },
-    };
-    
-    const signature = await this.signMessage(session, message);
-    await this.submitToHub(message, signature);
+    }
+
+    const signature = await this.signMessage(session, message)
+    await this.submitToHub(message, signature)
   }
-  
+
   /**
    * Like a cast
    */
-  async like(session: FarcasterSession, cast: { fid: number; hash: Hex }): Promise<void> {
-    const timestamp = this.getFarcasterTimestamp();
+  async like(
+    session: FarcasterSession,
+    cast: { fid: number; hash: Hex },
+  ): Promise<void> {
+    const timestamp = this.getFarcasterTimestamp()
     const message = {
       type: 'MESSAGE_TYPE_REACTION_ADD',
       fid: session.fid,
@@ -299,17 +304,20 @@ export class FarcasterProvider {
         type: 'REACTION_TYPE_LIKE',
         targetCastId: { fid: cast.fid, hash: cast.hash },
       },
-    };
-    
-    const signature = await this.signMessage(session, message);
-    await this.submitToHub(message, signature);
+    }
+
+    const signature = await this.signMessage(session, message)
+    await this.submitToHub(message, signature)
   }
-  
+
   /**
    * Unlike a cast
    */
-  async unlike(session: FarcasterSession, cast: { fid: number; hash: Hex }): Promise<void> {
-    const timestamp = this.getFarcasterTimestamp();
+  async unlike(
+    session: FarcasterSession,
+    cast: { fid: number; hash: Hex },
+  ): Promise<void> {
+    const timestamp = this.getFarcasterTimestamp()
     const message = {
       type: 'MESSAGE_TYPE_REACTION_REMOVE',
       fid: session.fid,
@@ -318,17 +326,20 @@ export class FarcasterProvider {
         type: 'REACTION_TYPE_LIKE',
         targetCastId: { fid: cast.fid, hash: cast.hash },
       },
-    };
-    
-    const signature = await this.signMessage(session, message);
-    await this.submitToHub(message, signature);
+    }
+
+    const signature = await this.signMessage(session, message)
+    await this.submitToHub(message, signature)
   }
-  
+
   /**
    * Recast
    */
-  async recast(session: FarcasterSession, cast: { fid: number; hash: Hex }): Promise<void> {
-    const timestamp = this.getFarcasterTimestamp();
+  async recast(
+    session: FarcasterSession,
+    cast: { fid: number; hash: Hex },
+  ): Promise<void> {
+    const timestamp = this.getFarcasterTimestamp()
     const message = {
       type: 'MESSAGE_TYPE_REACTION_ADD',
       fid: session.fid,
@@ -337,17 +348,17 @@ export class FarcasterProvider {
         type: 'REACTION_TYPE_RECAST',
         targetCastId: { fid: cast.fid, hash: cast.hash },
       },
-    };
-    
-    const signature = await this.signMessage(session, message);
-    await this.submitToHub(message, signature);
+    }
+
+    const signature = await this.signMessage(session, message)
+    await this.submitToHub(message, signature)
   }
-  
+
   /**
    * Follow a user
    */
   async follow(session: FarcasterSession, targetFid: number): Promise<void> {
-    const timestamp = this.getFarcasterTimestamp();
+    const timestamp = this.getFarcasterTimestamp()
     const message = {
       type: 'MESSAGE_TYPE_LINK_ADD',
       fid: session.fid,
@@ -356,17 +367,17 @@ export class FarcasterProvider {
         type: 'follow',
         targetFid,
       },
-    };
-    
-    const signature = await this.signMessage(session, message);
-    await this.submitToHub(message, signature);
+    }
+
+    const signature = await this.signMessage(session, message)
+    await this.submitToHub(message, signature)
   }
-  
+
   /**
    * Unfollow a user
    */
   async unfollow(session: FarcasterSession, targetFid: number): Promise<void> {
-    const timestamp = this.getFarcasterTimestamp();
+    const timestamp = this.getFarcasterTimestamp()
     const message = {
       type: 'MESSAGE_TYPE_LINK_REMOVE',
       fid: session.fid,
@@ -375,19 +386,19 @@ export class FarcasterProvider {
         type: 'follow',
         targetFid,
       },
-    };
-    
-    const signature = await this.signMessage(session, message);
-    await this.submitToHub(message, signature);
+    }
+
+    const signature = await this.signMessage(session, message)
+    await this.submitToHub(message, signature)
   }
-  
+
   // ============ Internal Hub Methods ============
-  
+
   private getFarcasterTimestamp(): number {
-    const FARCASTER_EPOCH = 1609459200; // Jan 1, 2021 00:00:00 UTC
-    return Math.floor(Date.now() / 1000) - FARCASTER_EPOCH;
+    const FARCASTER_EPOCH = 1609459200 // Jan 1, 2021 00:00:00 UTC
+    return Math.floor(Date.now() / 1000) - FARCASTER_EPOCH
   }
-  
+
   private buildCastMessage(
     fid: number,
     text: string,
@@ -396,28 +407,28 @@ export class FarcasterProvider {
   ): Record<string, unknown> {
     const castAddBody: Record<string, unknown> = {
       text,
-      embeds: (options?.embeds ?? []).map(url => ({ url })),
+      embeds: (options?.embeds ?? []).map((url) => ({ url })),
       mentions: options?.mentions ?? [],
       mentionsPositions: options?.mentionPositions ?? [],
-    };
-    
+    }
+
     if (options?.replyTo) {
       castAddBody.parentCastId = {
         fid: options.replyTo.fid,
         hash: options.replyTo.hash,
-      };
+      }
     } else if (options?.channelUrl) {
-      castAddBody.parentUrl = options.channelUrl;
+      castAddBody.parentUrl = options.channelUrl
     }
-    
+
     return {
       type: 'MESSAGE_TYPE_CAST_ADD',
       fid,
       timestamp,
       castAddBody,
-    };
+    }
   }
-  
+
   private async signMessage(
     _session: FarcasterSession,
     message: Record<string, unknown>,
@@ -425,10 +436,10 @@ export class FarcasterProvider {
     // In production, use proper Ed25519 signing with signer key
     // For now, return mock signature
     // Note: message is encoded but signature is mocked for now
-    void JSON.stringify(message);
-    return new Uint8Array(64).fill(0);
+    void JSON.stringify(message)
+    return new Uint8Array(64).fill(0)
   }
-  
+
   private async submitToHub(
     message: Record<string, unknown>,
     signature: Uint8Array,
@@ -440,57 +451,74 @@ export class FarcasterProvider {
         ...message,
         signature: toHex(signature),
       }),
-    });
-    
+    })
+
     if (!response.ok) {
-      throw new Error(`Hub submission failed: ${response.status}`);
+      throw new Error(`Hub submission failed: ${response.status}`)
     }
-    
-    const result = await response.json() as { hash: string };
-    return result.hash as Hex;
+
+    const result = (await response.json()) as { hash: string }
+    return result.hash as Hex
   }
 
   async getProfileByFid(fid: number): Promise<FarcasterProfile> {
     if (this.useHubDirect) {
-      return this.getProfileFromHub(fid);
+      return this.getProfileFromHub(fid)
     }
 
-    const response = await fetch(`${this.apiUrl}/farcaster/user/bulk?fids=${fid}`, {
-      headers: this.getHeaders(),
-    });
+    const response = await fetch(
+      `${this.apiUrl}/farcaster/user/bulk?fids=${fid}`,
+      {
+        headers: this.getHeaders(),
+      },
+    )
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch Farcaster profile: ${response.status}`);
+      throw new Error(`Failed to fetch Farcaster profile: ${response.status}`)
     }
 
-    const rawData = await response.json();
+    const rawData = await response.json()
     const data = validateResponse(
       z.object({ users: z.array(NeynarUserSchema) }),
       rawData,
-      'Neynar user bulk response'
-    );
-    const user = data.users[0];
+      'Neynar user bulk response',
+    )
+    const user = data.users[0]
 
     if (!user) {
-      throw new Error(`Farcaster user not found: ${fid}`);
+      throw new Error(`Farcaster user not found: ${fid}`)
     }
 
-    return this.mapNeynarUser(user);
+    return this.mapNeynarUser(user)
   }
 
   private async getProfileFromHub(fid: number): Promise<FarcasterProfile> {
-    const userDataResponse = await fetch(`${this.hubUrl}/v1/userDataByFid?fid=${fid}`);
+    const userDataResponse = await fetch(
+      `${this.hubUrl}/v1/userDataByFid?fid=${fid}`,
+    )
     if (!userDataResponse.ok) {
-      throw new Error(`Failed to fetch user data from hub: ${userDataResponse.status}`);
+      throw new Error(
+        `Failed to fetch user data from hub: ${userDataResponse.status}`,
+      )
     }
 
-    const rawUserData = await userDataResponse.json();
-    const userData = validateResponse(HubUserDataResponseSchema, rawUserData, 'Hub user data response');
+    const rawUserData = await userDataResponse.json()
+    const userData = validateResponse(
+      HubUserDataResponseSchema,
+      rawUserData,
+      'Hub user data response',
+    )
 
-    const verificationsResponse = await fetch(`${this.hubUrl}/v1/verificationsByFid?fid=${fid}`);
-    const verifications = verificationsResponse.ok 
-      ? validateResponse(HubVerificationsResponseSchema, await verificationsResponse.json(), 'Hub verifications response')
-      : { messages: [] };
+    const verificationsResponse = await fetch(
+      `${this.hubUrl}/v1/verificationsByFid?fid=${fid}`,
+    )
+    const verifications = verificationsResponse.ok
+      ? validateResponse(
+          HubVerificationsResponseSchema,
+          await verificationsResponse.json(),
+          'Hub verifications response',
+        )
+      : { messages: [] }
 
     const profile: FarcasterProfile = {
       fid,
@@ -503,126 +531,150 @@ export class FarcasterProvider {
       verifiedAddresses: [],
       custodyAddress: '0x0' as Address,
       activeStatus: 'active',
-    };
+    }
 
     for (const msg of userData.messages) {
-      const type = msg.data.userDataBody.type;
-      const value = msg.data.userDataBody.value;
-      
-      if (type === 'USER_DATA_TYPE_USERNAME') profile.username = value;
-      else if (type === 'USER_DATA_TYPE_DISPLAY') profile.displayName = value;
-      else if (type === 'USER_DATA_TYPE_PFP') profile.pfpUrl = value;
-      else if (type === 'USER_DATA_TYPE_BIO') profile.bio = value;
+      const type = msg.data.userDataBody.type
+      const value = msg.data.userDataBody.value
+
+      if (type === 'USER_DATA_TYPE_USERNAME') profile.username = value
+      else if (type === 'USER_DATA_TYPE_DISPLAY') profile.displayName = value
+      else if (type === 'USER_DATA_TYPE_PFP') profile.pfpUrl = value
+      else if (type === 'USER_DATA_TYPE_BIO') profile.bio = value
     }
 
     profile.verifiedAddresses = verifications.messages
-      .filter((m) => m.data.verificationAddAddressBody?.protocol !== 'PROTOCOL_SOLANA')
+      .filter(
+        (m) =>
+          m.data.verificationAddAddressBody?.protocol !== 'PROTOCOL_SOLANA',
+      )
       .map((m) => m.data.verificationAddAddressBody?.address as Address)
-      .filter(Boolean);
+      .filter(Boolean)
 
-    return profile;
+    return profile
   }
 
   async getProfileByUsername(username: string): Promise<FarcasterProfile> {
     if (this.useHubDirect) {
-      return this.getProfileByUsernameFromHub(username);
+      return this.getProfileByUsernameFromHub(username)
     }
 
-    const response = await fetch(`${this.apiUrl}/farcaster/user/by_username?username=${username}`, {
-      headers: this.getHeaders(),
-    });
+    const response = await fetch(
+      `${this.apiUrl}/farcaster/user/by_username?username=${username}`,
+      {
+        headers: this.getHeaders(),
+      },
+    )
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch Farcaster profile: ${response.status}`);
+      throw new Error(`Failed to fetch Farcaster profile: ${response.status}`)
     }
 
-    const rawData = await response.json();
+    const rawData = await response.json()
     const data = validateResponse(
       z.object({ user: NeynarUserSchema }),
       rawData,
-      'Neynar user by username response'
-    );
-    return this.mapNeynarUser(data.user);
+      'Neynar user by username response',
+    )
+    return this.mapNeynarUser(data.user)
   }
 
-  private async getProfileByUsernameFromHub(username: string): Promise<FarcasterProfile> {
-    const proofResponse = await fetch(`${this.hubUrl}/v1/userNameProofByName?name=${username}`);
+  private async getProfileByUsernameFromHub(
+    username: string,
+  ): Promise<FarcasterProfile> {
+    const proofResponse = await fetch(
+      `${this.hubUrl}/v1/userNameProofByName?name=${username}`,
+    )
     if (!proofResponse.ok) {
-      throw new Error(`Username not found: ${username}`);
+      throw new Error(`Username not found: ${username}`)
     }
 
-    const rawProof = await proofResponse.json();
-    const proof = validateResponse(HubUsernameProofSchema, rawProof, 'Hub username proof');
-    return this.getProfileFromHub(proof.fid);
+    const rawProof = await proofResponse.json()
+    const proof = validateResponse(
+      HubUsernameProofSchema,
+      rawProof,
+      'Hub username proof',
+    )
+    return this.getProfileFromHub(proof.fid)
   }
 
-  async getProfileByVerifiedAddress(address: Address): Promise<FarcasterProfile | null> {
+  async getProfileByVerifiedAddress(
+    address: Address,
+  ): Promise<FarcasterProfile | null> {
     if (this.useHubDirect) {
-      return this.getProfileByVerifiedAddressFromHub(address);
+      return this.getProfileByVerifiedAddressFromHub(address)
     }
 
     const response = await fetch(
       `${this.apiUrl}/farcaster/user/bulk-by-address?addresses=${address.toLowerCase()}`,
-      { headers: this.getHeaders() }
-    );
+      { headers: this.getHeaders() },
+    )
 
     if (!response.ok) {
-      return null;
+      return null
     }
 
-    const rawData = await response.json();
-    const schema = z.record(z.string(), z.array(NeynarUserSchema));
-    const result = schema.safeParse(rawData);
+    const rawData = await response.json()
+    const schema = z.record(z.string(), z.array(NeynarUserSchema))
+    const result = schema.safeParse(rawData)
     if (!result.success) {
-      return null;
-    }
-    
-    const users = result.data[address.toLowerCase()];
-    if (!users || users.length === 0) {
-      return null;
+      return null
     }
 
-    return this.mapNeynarUser(users[0]);
+    const users = result.data[address.toLowerCase()]
+    if (!users || users.length === 0) {
+      return null
+    }
+
+    return this.mapNeynarUser(users[0])
   }
 
-  private async getProfileByVerifiedAddressFromHub(address: Address): Promise<FarcasterProfile | null> {
-    const response = await fetch(`${this.hubUrl}/v1/verificationsByFid?address=${address.toLowerCase()}`);
+  private async getProfileByVerifiedAddressFromHub(
+    address: Address,
+  ): Promise<FarcasterProfile | null> {
+    const response = await fetch(
+      `${this.hubUrl}/v1/verificationsByFid?address=${address.toLowerCase()}`,
+    )
     if (!response.ok) {
-      return null;
+      return null
     }
 
-    const rawData = await response.json();
-    const result = HubVerificationsResponseSchema.safeParse(rawData);
+    const rawData = await response.json()
+    const result = HubVerificationsResponseSchema.safeParse(rawData)
     if (!result.success || result.data.messages.length === 0) {
-      return null;
+      return null
     }
 
-    const fid = result.data.messages[0].data.fid;
+    const fid = result.data.messages[0].data.fid
     if (fid === undefined) {
-      return null;
+      return null
     }
 
-    return this.getProfileFromHub(fid);
+    return this.getProfileFromHub(fid)
   }
 
   async verifySignInMessage(
     message: string,
     signature: Hex,
-    expectedFid?: number
+    expectedFid?: number,
   ): Promise<{ valid: boolean; fid: number; custodyAddress: Address }> {
-    const parsedMessage = this.parseSignInMessage(message);
+    const parsedMessage = this.parseSignInMessage(message)
 
     if (!parsedMessage.fid) {
-      throw new Error('FID not found in message');
+      throw new Error('FID not found in message')
     }
 
-    const profile = await this.getProfileByFid(parsedMessage.fid);
+    const profile = await this.getProfileByFid(parsedMessage.fid)
 
     if (expectedFid && parsedMessage.fid !== expectedFid) {
-      return { valid: false, fid: parsedMessage.fid, custodyAddress: parsedMessage.custody ?? profile.custodyAddress };
+      return {
+        valid: false,
+        fid: parsedMessage.fid,
+        custodyAddress: parsedMessage.custody ?? profile.custodyAddress,
+      }
     }
-    const messageHash = keccak256(toBytes(message));
-    
+    const messageHash = keccak256(toBytes(message))
+
     const response = await fetch(`${this.apiUrl}/farcaster/user/verify`, {
       method: 'POST',
       headers: this.getHeaders(),
@@ -631,48 +683,62 @@ export class FarcasterProvider {
         message_hash: messageHash,
         signature,
       }),
-    });
+    })
 
     if (!response.ok) {
-      return { valid: false, fid: parsedMessage.fid, custodyAddress: profile.custodyAddress };
+      return {
+        valid: false,
+        fid: parsedMessage.fid,
+        custodyAddress: profile.custodyAddress,
+      }
     }
 
-    const rawData = await response.json();
-    const data = validateResponse(z.object({ valid: z.boolean() }), rawData, 'Verify response');
+    const rawData = await response.json()
+    const data = validateResponse(
+      z.object({ valid: z.boolean() }),
+      rawData,
+      'Verify response',
+    )
 
     return {
       valid: data.valid,
       fid: parsedMessage.fid,
       custodyAddress: profile.custodyAddress,
-    };
+    }
   }
 
   async createSignerRequest(
     fid: number,
     appName: string,
-    appFid: number
+    appFid: number,
   ): Promise<FarcasterSignerRequest> {
-    const signerKeyBytes = crypto.getRandomValues(new Uint8Array(32));
-    const signerKeyHex = toHex(signerKeyBytes) as Hex;
-    const signerAccount = privateKeyToAccount(signerKeyHex);
+    const signerKeyBytes = crypto.getRandomValues(new Uint8Array(32))
+    const signerKeyHex = toHex(signerKeyBytes) as Hex
+    const signerAccount = privateKeyToAccount(signerKeyHex)
 
-    const deadline = Math.floor(Date.now() / 1000) + 86400;
+    const deadline = Math.floor(Date.now() / 1000) + 86400
 
-    const message = keccak256(toBytes(
-      `Add signer ${signerAccount.address} for FID ${fid} by app ${appName} (FID ${appFid}) before ${deadline}`
-    ));
+    const message = keccak256(
+      toBytes(
+        `Add signer ${signerAccount.address} for FID ${fid} by app ${appName} (FID ${appFid}) before ${deadline}`,
+      ),
+    )
 
-    const signature = await signerAccount.signMessage({ message: { raw: toBytes(message) } });
+    const signature = await signerAccount.signMessage({
+      message: { raw: toBytes(message) },
+    })
 
     return {
       fid,
       signerPublicKey: toHex(signerAccount.publicKey),
       signature,
       deadline,
-    };
+    }
   }
 
-  async registerSigner(request: FarcasterSignerRequest): Promise<FarcasterSigner> {
+  async registerSigner(
+    request: FarcasterSignerRequest,
+  ): Promise<FarcasterSigner> {
     const response = await fetch(`${this.apiUrl}/farcaster/signer/signed_key`, {
       method: 'POST',
       headers: this.getHeaders(),
@@ -683,33 +749,37 @@ export class FarcasterProvider {
         deadline: request.deadline,
         signature: request.signature,
       }),
-    });
+    })
 
     if (!response.ok) {
-      throw new Error(`Failed to register signer: ${response.status}`);
+      throw new Error(`Failed to register signer: ${response.status}`)
     }
 
-    const rawData = await response.json();
+    const rawData = await response.json()
     const schema = z.object({
       signerUuid: z.string(),
       publicKey: z.string(),
       status: z.enum(['pending_approval', 'approved', 'revoked']),
       fid: z.number().int(),
       permissions: z.array(z.string()),
-    });
-    
-    const data = validateResponse(schema, rawData, 'Signer registration response');
+    })
+
+    const data = validateResponse(
+      schema,
+      rawData,
+      'Signer registration response',
+    )
     return {
       signerUuid: data.signerUuid,
       publicKey: data.publicKey as Hex,
       status: data.status,
       fid: data.fid,
       permissions: data.permissions,
-    };
+    }
   }
 
   async validateFrameMessage(
-    frameMessageBytes: Uint8Array
+    frameMessageBytes: Uint8Array,
   ): Promise<{ valid: boolean; context: FarcasterFrameContext }> {
     const response = await fetch(`${this.apiUrl}/farcaster/frame/validate`, {
       method: 'POST',
@@ -717,14 +787,18 @@ export class FarcasterProvider {
       body: JSON.stringify({
         message_bytes_in_hex: toHex(frameMessageBytes),
       }),
-    });
+    })
 
     if (!response.ok) {
-      throw new Error(`Failed to validate frame message: ${response.status}`);
+      throw new Error(`Failed to validate frame message: ${response.status}`)
     }
 
-    const rawData = await response.json();
-    const data = validateResponse(FrameValidationResponseSchema, rawData, 'Frame validation response');
+    const rawData = await response.json()
+    const data = validateResponse(
+      FrameValidationResponseSchema,
+      rawData,
+      'Frame validation response',
+    )
 
     return {
       valid: data.valid,
@@ -735,49 +809,53 @@ export class FarcasterProvider {
         timestamp: data.action.timestamp,
         network: data.action.network,
         buttonIndex: data.action.button_index,
-        castId: data.action.cast_id ? {
-          fid: data.action.cast_id.fid,
-          hash: data.action.cast_id.hash as Hex,
-        } : undefined,
+        castId: data.action.cast_id
+          ? {
+              fid: data.action.cast_id.fid,
+              hash: data.action.cast_id.hash as Hex,
+            }
+          : undefined,
         inputText: data.action.input_text,
         state: data.action.state,
         transactionId: data.action.transaction_id as Hex | undefined,
         address: data.action.address as Address | undefined,
       },
-    };
+    }
   }
 
   async getCastsByFid(fid: number, limit = 25): Promise<FarcasterCast[]> {
     const response = await fetch(
       `${this.apiUrl}/farcaster/feed/user/casts?fid=${fid}&limit=${limit}`,
-      { headers: this.getHeaders() }
-    );
+      { headers: this.getHeaders() },
+    )
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch casts: ${response.status}`);
+      throw new Error(`Failed to fetch casts: ${response.status}`)
     }
 
-    const rawData = await response.json();
+    const rawData = await response.json()
     const data = validateResponse(
       z.object({ casts: z.array(NeynarCastSchema) }),
       rawData,
-      'Neynar casts response'
-    );
-    return data.casts.map(this.mapNeynarCast);
+      'Neynar casts response',
+    )
+    return data.casts.map(this.mapNeynarCast)
   }
 
   generateSignInMessage(params: {
-    domain: string;
-    address: Address;
-    fid: number;
-    custody: Address;
-    nonce?: string;
-    expirationMinutes?: number;
-    resources?: string[];
+    domain: string
+    address: Address
+    fid: number
+    custody: Address
+    nonce?: string
+    expirationMinutes?: number
+    resources?: string[]
   }): string {
-    const now = new Date();
-    const nonce = params.nonce ?? crypto.randomUUID();
-    const expirationTime = new Date(now.getTime() + (params.expirationMinutes ?? 60) * 60 * 1000);
+    const now = new Date()
+    const nonce = params.nonce ?? crypto.randomUUID()
+    const expirationTime = new Date(
+      now.getTime() + (params.expirationMinutes ?? 60) * 60 * 1000,
+    )
 
     const message: FarcasterAuthMessage = {
       domain: params.domain,
@@ -790,66 +868,70 @@ export class FarcasterProvider {
       fid: params.fid,
       custody: params.custody,
       resources: params.resources,
-    };
+    }
 
-    return this.formatSignInMessage(message);
+    return this.formatSignInMessage(message)
   }
 
   private formatSignInMessage(msg: FarcasterAuthMessage): string {
-    let message = `${msg.domain} wants you to sign in with your Ethereum account:\n`;
-    message += `${msg.address}\n\n`;
-    message += `Sign in with Farcaster\n\n`;
-    message += `URI: ${msg.uri}\n`;
-    message += `Version: ${msg.version}\n`;
-    message += `Chain ID: 1\n`;
-    message += `Nonce: ${msg.nonce}\n`;
-    message += `Issued At: ${msg.issuedAt}\n`;
-    
+    let message = `${msg.domain} wants you to sign in with your Ethereum account:\n`
+    message += `${msg.address}\n\n`
+    message += `Sign in with Farcaster\n\n`
+    message += `URI: ${msg.uri}\n`
+    message += `Version: ${msg.version}\n`
+    message += `Chain ID: 1\n`
+    message += `Nonce: ${msg.nonce}\n`
+    message += `Issued At: ${msg.issuedAt}\n`
+
     if (msg.expirationTime) {
-      message += `Expiration Time: ${msg.expirationTime}\n`;
+      message += `Expiration Time: ${msg.expirationTime}\n`
     }
-    
+
     if (msg.fid) {
-      message += `FID: ${msg.fid}\n`;
+      message += `FID: ${msg.fid}\n`
     }
-    
+
     if (msg.custody) {
-      message += `Custody: ${msg.custody}\n`;
+      message += `Custody: ${msg.custody}\n`
     }
-    
+
     if (msg.resources && msg.resources.length > 0) {
-      message += `Resources:\n`;
+      message += `Resources:\n`
       for (const resource of msg.resources) {
-        message += `- ${resource}\n`;
+        message += `- ${resource}\n`
       }
     }
 
-    return message;
+    return message
   }
 
   private parseSignInMessage(message: string): FarcasterAuthMessage {
-    const lines = message.split('\n');
-    const result: Partial<FarcasterAuthMessage> = {};
+    const lines = message.split('\n')
+    const result: Partial<FarcasterAuthMessage> = {}
 
     for (const line of lines) {
-      if (line.startsWith('URI: ')) result.uri = line.slice(5);
-      else if (line.startsWith('Version: ')) result.version = line.slice(9);
-      else if (line.startsWith('Nonce: ')) result.nonce = line.slice(7);
-      else if (line.startsWith('Issued At: ')) result.issuedAt = line.slice(11);
-      else if (line.startsWith('Expiration Time: ')) result.expirationTime = line.slice(17);
-      else if (line.startsWith('FID: ')) result.fid = parseInt(line.slice(5));
-      else if (line.startsWith('Custody: ')) result.custody = line.slice(9) as Address;
-      else if (line.match(/^0x[a-fA-F0-9]{40}$/)) result.address = line as Address;
+      if (line.startsWith('URI: ')) result.uri = line.slice(5)
+      else if (line.startsWith('Version: ')) result.version = line.slice(9)
+      else if (line.startsWith('Nonce: ')) result.nonce = line.slice(7)
+      else if (line.startsWith('Issued At: ')) result.issuedAt = line.slice(11)
+      else if (line.startsWith('Expiration Time: '))
+        result.expirationTime = line.slice(17)
+      else if (line.startsWith('FID: '))
+        result.fid = parseInt(line.slice(5), 10)
+      else if (line.startsWith('Custody: '))
+        result.custody = line.slice(9) as Address
+      else if (line.match(/^0x[a-fA-F0-9]{40}$/))
+        result.address = line as Address
       else if (line.includes(' wants you to sign in')) {
-        result.domain = line.split(' wants you to sign in')[0];
+        result.domain = line.split(' wants you to sign in')[0]
       }
     }
 
-    return result as FarcasterAuthMessage;
+    return result as FarcasterAuthMessage
   }
 
   async toLinkedProvider(fid: number): Promise<LinkedProvider> {
-    const profile = await this.getProfileByFid(fid);
+    const profile = await this.getProfileByFid(fid)
 
     return {
       provider: 'farcaster' as AuthProvider,
@@ -858,11 +940,11 @@ export class FarcasterProvider {
       linkedAt: Date.now(),
       verified: true,
       credential: null,
-    };
+    }
   }
 
   async toFarcasterIdentity(fid: number): Promise<FarcasterIdentity> {
-    const profile = await this.getProfileByFid(fid);
+    const profile = await this.getProfileByFid(fid)
 
     return {
       fid: profile.fid,
@@ -873,15 +955,15 @@ export class FarcasterProvider {
       custodyAddress: profile.custodyAddress,
       verifiedAddresses: profile.verifiedAddresses,
       signerPublicKey: '0x' as Hex,
-    };
+    }
   }
 
   private getHeaders(): HeadersInit {
     return {
       'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      ...(this.apiKey && { 'api_key': this.apiKey }),
-    };
+      Accept: 'application/json',
+      ...(this.apiKey && { api_key: this.apiKey }),
+    }
   }
 
   private mapNeynarUser(user: NeynarUser): FarcasterProfile {
@@ -893,10 +975,11 @@ export class FarcasterProvider {
       bio: user.profile?.bio?.text ?? '',
       followerCount: user.follower_count,
       followingCount: user.following_count,
-      verifiedAddresses: (user.verified_addresses?.eth_addresses ?? []) as Address[],
+      verifiedAddresses: (user.verified_addresses?.eth_addresses ??
+        []) as Address[],
       custodyAddress: user.custody_address as Address,
       activeStatus: user.active_status as 'active' | 'inactive',
-    };
+    }
   }
 
   private mapNeynarCast(cast: NeynarCast): FarcasterCast {
@@ -912,8 +995,8 @@ export class FarcasterProvider {
         likes: cast.reactions?.likes_count ?? 0,
         recasts: cast.reactions?.recasts_count ?? 0,
       },
-    };
+    }
   }
 }
 
-export const farcasterProvider = new FarcasterProvider();
+export const farcasterProvider = new FarcasterProvider()

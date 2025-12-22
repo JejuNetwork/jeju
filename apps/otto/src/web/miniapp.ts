@@ -3,11 +3,11 @@
  * Minimal chat interface for Telegram, Farcaster, and Web
  */
 
-import { Hono } from 'hono';
-import { getConfig } from '../config';
+import { Hono } from 'hono'
+import { getConfig } from '../config'
 
-export const miniappApi = new Hono();
-const config = getConfig();
+export const miniappApi = new Hono()
+const config = getConfig()
 
 const html = (platform: 'telegram' | 'farcaster' | 'web') => `<!DOCTYPE html>
 <html>
@@ -89,10 +89,10 @@ const html = (platform: 'telegram' | 'farcaster' | 'web') => `<!DOCTYPE html>
     init();
   </script>
 </body>
-</html>`;
+</html>`
 
-miniappApi.get('/', (c) => c.html(html('web')));
-miniappApi.get('/telegram', (c) => c.html(html('telegram')));
-miniappApi.get('/farcaster', (c) => c.html(html('farcaster')));
+miniappApi.get('/', (c) => c.html(html('web')))
+miniappApi.get('/telegram', (c) => c.html(html('telegram')))
+miniappApi.get('/farcaster', (c) => c.html(html('farcaster')))
 
-export default miniappApi;
+export default miniappApi

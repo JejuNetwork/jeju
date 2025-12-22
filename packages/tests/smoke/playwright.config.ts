@@ -1,4 +1,4 @@
-import { defineConfig } from '@playwright/test';
+import { defineConfig } from '@playwright/test'
 
 /**
  * Playwright config for smoke tests
@@ -14,14 +14,9 @@ export default defineConfig({
   retries: 0,
   timeout: 60000,
 
-  reporter: [
-    ['list'],
-    ['json', { outputFile: 'smoke-results.json' }],
-  ],
+  reporter: [['list'], ['json', { outputFile: 'smoke-results.json' }]],
 
   use: {
     trace: 'off',
   },
-});
-
-
+})

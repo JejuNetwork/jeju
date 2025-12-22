@@ -3,17 +3,17 @@
  * Indexes cross-chain bridge events for the Solana ↔ EVM bridge
  */
 
-import { assertNotNull } from '@subsquid/util-internal';
 import {
-  BlockHeader,
-  DataHandlerContext,
+  type Log as _Log,
+  type Transaction as _Transaction,
+  type BlockHeader,
+  type DataHandlerContext,
   EvmBatchProcessor,
-  EvmBatchProcessorFields,
-  Log as _Log,
-  Transaction as _Transaction,
-} from '@subsquid/evm-processor';
-import { Store } from '@subsquid/typeorm-store';
-import * as bridgeAbi from './abi/zksolbridge';
+  type EvmBatchProcessorFields,
+} from '@subsquid/evm-processor'
+import type { Store } from '@subsquid/typeorm-store'
+import { assertNotNull } from '@subsquid/util-internal'
+import * as bridgeAbi from './abi/zksolbridge'
 
 // Bridge contract addresses per chain
 const BRIDGE_CONTRACTS: Record<number, string> = {
@@ -22,7 +22,7 @@ const BRIDGE_CONTRACTS: Record<number, string> = {
   42161: process.env.BRIDGE_ADDRESS_ARBITRUM ?? '',
   10: process.env.BRIDGE_ADDRESS_OPTIMISM ?? '',
   84532: process.env.BRIDGE_ADDRESS_BASE_SEPOLIA ?? '',
-};
+}
 
 // Light client contract addresses per chain
 const LIGHT_CLIENT_CONTRACTS: Record<number, string> = {
@@ -31,16 +31,16 @@ const LIGHT_CLIENT_CONTRACTS: Record<number, string> = {
   42161: process.env.LIGHT_CLIENT_ADDRESS_ARBITRUM ?? '',
   10: process.env.LIGHT_CLIENT_ADDRESS_OPTIMISM ?? '',
   84532: process.env.LIGHT_CLIENT_ADDRESS_BASE_SEPOLIA ?? '',
-};
+}
 
 // Event signatures
-const TRANSFER_INITIATED_TOPIC = '0x' + bridgeAbi.events.TransferInitiated.topic.slice(2);
-const TRANSFER_COMPLETED_TOPIC = '0x' + bridgeAbi.events.TransferCompleted.topic.slice(2);
-const SLOT_VERIFIED_TOPIC = '0x' + bridgeAbi.events.SlotVerified.topic.slice(2);
+const TRANSFER_INITIATED_TOPIC = `0x${bridgeAbi.events.TransferInitiated.topic.slice(2)}`
+const TRANSFER_COMPLETED_TOPIC = `0x${bridgeAbi.events.TransferCompleted.topic.slice(2)}`
+const SLOT_VERIFIED_TOPIC = `0x${bridgeAbi.events.SlotVerified.topic.slice(2)}`
 
-const chainId = parseInt(process.env.CHAIN_ID ?? '8453', 10);
-const bridgeAddress = BRIDGE_CONTRACTS[chainId];
-const lightClientAddress = LIGHT_CLIENT_CONTRACTS[chainId];
+const chainId = parseInt(process.env.CHAIN_ID ?? '8453', 10)
+const bridgeAddress = BRIDGE_CONTRACTS[chainId]
+const lightClientAddress = LIGHT_CLIENT_CONTRACTS[chainId]
 
 export const bridgeProcessor = new EvmBatchProcessor()
   .setRpcEndpoint({
@@ -79,52 +79,54 @@ export const bridgeProcessor = new EvmBatchProcessor()
     address: [lightClientAddress],
     topic0: [SLOT_VERIFIED_TOPIC],
     transaction: true,
-  });
+  })
 
-export type Fields = EvmBatchProcessorFields<typeof bridgeProcessor>;
-export type Block = BlockHeader<Fields>;
-export type Log = _Log<Fields>;
-export type Transaction = _Transaction<Fields>;
-export type ProcessorContext<S> = DataHandlerContext<S, Fields>;
+export type Fields = EvmBatchProcessorFields<typeof bridgeProcessor>
+export type Block = BlockHeader<Fields>
+export type Log = _Log<Fields>
+export type Transaction = _Transaction<Fields>
+export type ProcessorContext<S> = DataHandlerContext<S, Fields>
 
 // Database entities (would be defined in model/)
 interface BridgeTransfer {
-  id: string;
-  transferId: string;
-  token: string;
-  sender: string;
-  recipient: string;
-  amount: bigint;
-  sourceChainId: number;
-  destChainId: number;
-  status: 'initiated' | 'completed' | 'failed';
-  initiatedAt: Date;
-  completedAt: Date | null;
-  initiatedTxHash: string;
-  completedTxHash: string | null;
-  slot: bigint | null;
-  blockNumber: number;
+  id: string
+  transferId: string
+  token: string
+  sender: string
+  recipient: string
+  amount: bigint
+  sourceChainId: number
+  destChainId: number
+  status: 'initiated' | 'completed' | 'failed'
+  initiatedAt: Date
+  completedAt: Date | null
+  initiatedTxHash: string
+  completedTxHash: string | null
+  slot: bigint | null
+  blockNumber: number
 }
 
 interface LightClientUpdate {
-  id: string;
-  slot: bigint;
-  bankHash: string;
-  verifiedAt: Date;
-  txHash: string;
-  blockNumber: number;
+  id: string
+  slot: bigint
+  bankHash: string
+  verifiedAt: Date
+  txHash: string
+  blockNumber: number
 }
 
 // Process bridge events
-export async function processBridgeEvents(ctx: ProcessorContext<Store>): Promise<void> {
-  const transfers: BridgeTransfer[] = [];
-  const lightClientUpdates: LightClientUpdate[] = [];
+export async function processBridgeEvents(
+  ctx: ProcessorContext<Store>,
+): Promise<void> {
+  const transfers: BridgeTransfer[] = []
+  const lightClientUpdates: LightClientUpdate[] = []
 
   for (const block of ctx.blocks) {
     for (const log of block.logs) {
       if (log.address.toLowerCase() === bridgeAddress.toLowerCase()) {
         if (log.topics[0] === TRANSFER_INITIATED_TOPIC) {
-          const event = bridgeAbi.events.TransferInitiated.decode(log);
+          const event = bridgeAbi.events.TransferInitiated.decode(log)
           transfers.push({
             id: `${log.transactionHash}-${log.logIndex}`,
             transferId: event.transferId,
@@ -141,22 +143,24 @@ export async function processBridgeEvents(ctx: ProcessorContext<Store>): Promise
             completedTxHash: null,
             slot: null,
             blockNumber: block.header.height,
-          });
+          })
         } else if (log.topics[0] === TRANSFER_COMPLETED_TOPIC) {
-          const event = bridgeAbi.events.TransferCompleted.decode(log);
+          const event = bridgeAbi.events.TransferCompleted.decode(log)
           // Update existing transfer or create completed entry
-          const transfer = transfers.find(t => t.transferId === event.transferId);
+          const transfer = transfers.find(
+            (t) => t.transferId === event.transferId,
+          )
           if (transfer) {
-            transfer.status = 'completed';
-            transfer.completedAt = new Date(block.header.timestamp);
-            transfer.completedTxHash = log.transactionHash;
+            transfer.status = 'completed'
+            transfer.completedAt = new Date(block.header.timestamp)
+            transfer.completedTxHash = log.transactionHash
           }
         }
       }
 
       if (log.address.toLowerCase() === lightClientAddress.toLowerCase()) {
         if (log.topics[0] === SLOT_VERIFIED_TOPIC) {
-          const event = bridgeAbi.events.SlotVerified.decode(log);
+          const event = bridgeAbi.events.SlotVerified.decode(log)
           lightClientUpdates.push({
             id: `${log.transactionHash}-${log.logIndex}`,
             slot: event.slot,
@@ -164,7 +168,7 @@ export async function processBridgeEvents(ctx: ProcessorContext<Store>): Promise
             verifiedAt: new Date(block.header.timestamp),
             txHash: log.transactionHash,
             blockNumber: block.header.height,
-          });
+          })
         }
       }
     }
@@ -173,9 +177,11 @@ export async function processBridgeEvents(ctx: ProcessorContext<Store>): Promise
   // Save to database
   // await ctx.store.upsert(transfers);
   // await ctx.store.upsert(lightClientUpdates);
-  
+
   if (transfers.length > 0 || lightClientUpdates.length > 0) {
-    ctx.log.info(`Processed ${transfers.length} transfers, ${lightClientUpdates.length} light client updates`);
+    ctx.log.info(
+      `Processed ${transfers.length} transfers, ${lightClientUpdates.length} light client updates`,
+    )
   }
 }
 
@@ -184,4 +190,3 @@ export async function processBridgeEvents(ctx: ProcessorContext<Store>): Promise
 // bridgeProcessor.run(new TypeormDatabase({ supportHotBlocks: true }), async (ctx) => {
 //   await processBridgeEvents(ctx);
 // });
-

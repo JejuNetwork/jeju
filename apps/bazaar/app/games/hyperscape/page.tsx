@@ -8,18 +8,18 @@
 
 import { useState } from 'react'
 import { useAccount } from 'wagmi'
-import { useGameItems } from '@/hooks/nft/useGameItems'
-import { getGameContracts } from '@/config/contracts'
-import { JEJU_CHAIN_ID } from '@/config/chains'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
-import { getRarityInfo, filterItemsByCategory } from '@/lib/games'
+import { JEJU_CHAIN_ID } from '@/config/chains'
+import { getGameContracts } from '@/config/contracts'
+import { useGameItems } from '@/hooks/nft/useGameItems'
+import { filterItemsByCategory, getRarityInfo } from '@/lib/games'
 import type { GameItem, ItemCategory } from '@/schemas/games'
 
 /**
  * Hyperscape Items Page
- * 
+ *
  * @deprecated Use vendor/hyperscape/app/page.tsx for new development
- * 
+ *
  * This is a game-specific page that uses the generic game hooks.
  * Hyperscape is just one game that uses network's canonical Items.sol contract.
  */
@@ -31,7 +31,10 @@ export default function HyperscapeItemsPage() {
 
   // Get Hyperscape's Items.sol contract address from config
   const gameContracts = getGameContracts(JEJU_CHAIN_ID)
-  const { items, isLoading, error, hasChain } = useGameItems(gameContracts.items, activeFilter)
+  const { items, isLoading, error, hasChain } = useGameItems(
+    gameContracts.items,
+    activeFilter,
+  )
 
   const filters: { id: ItemCategory; label: string }[] = [
     { id: 'all', label: 'All Items' },
@@ -42,17 +45,24 @@ export default function HyperscapeItemsPage() {
   ]
 
   // Filter items by category using centralized lib function
-  const filteredItems = filterItemsByCategory(items as GameItem[], categoryFilter)
+  const filteredItems = filterItemsByCategory(
+    items as GameItem[],
+    categoryFilter,
+  )
 
   return (
     <div>
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl md:text-4xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
+        <h1
+          className="text-3xl md:text-4xl font-bold mb-2"
+          style={{ color: 'var(--text-primary)' }}
+        >
           🎮 Hyperscape Items
         </h1>
         <p style={{ color: 'var(--text-secondary)' }}>
-          Discover minted items from the Hyperscape MMORPG. Each item shows its original minter for provenance tracking.
+          Discover minted items from the Hyperscape MMORPG. Each item shows its
+          original minter for provenance tracking.
         </p>
       </div>
 
@@ -60,7 +70,8 @@ export default function HyperscapeItemsPage() {
       {!hasChain && (
         <div className="card p-4 mb-6 border-bazaar-accent/50 bg-bazaar-accent/10">
           <p className="text-bazaar-accent">
-            Running in web2 mode. Items are stored locally until blockchain is configured.
+            Running in web2 mode. Items are stored locally until blockchain is
+            configured.
           </p>
         </div>
       )}
@@ -72,9 +83,10 @@ export default function HyperscapeItemsPage() {
           className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
             activeFilter === 'all' ? 'bg-bazaar-primary text-white' : ''
           }`}
-          style={{ 
-            backgroundColor: activeFilter === 'all' ? undefined : 'var(--bg-secondary)',
-            color: activeFilter === 'all' ? undefined : 'var(--text-secondary)'
+          style={{
+            backgroundColor:
+              activeFilter === 'all' ? undefined : 'var(--bg-secondary)',
+            color: activeFilter === 'all' ? undefined : 'var(--text-secondary)',
           }}
         >
           All Items
@@ -85,9 +97,11 @@ export default function HyperscapeItemsPage() {
           className={`px-4 py-2 rounded-xl text-sm font-medium transition-all disabled:opacity-50 ${
             activeFilter === 'my-items' ? 'bg-bazaar-primary text-white' : ''
           }`}
-          style={{ 
-            backgroundColor: activeFilter === 'my-items' ? undefined : 'var(--bg-secondary)',
-            color: activeFilter === 'my-items' ? undefined : 'var(--text-secondary)'
+          style={{
+            backgroundColor:
+              activeFilter === 'my-items' ? undefined : 'var(--bg-secondary)',
+            color:
+              activeFilter === 'my-items' ? undefined : 'var(--text-secondary)',
           }}
         >
           My Items {!isConnected && '(Connect Wallet)'}
@@ -103,9 +117,15 @@ export default function HyperscapeItemsPage() {
             className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${
               categoryFilter === filter.id ? 'bg-bazaar-accent text-white' : ''
             }`}
-            style={{ 
-              backgroundColor: categoryFilter === filter.id ? undefined : 'var(--bg-secondary)',
-              color: categoryFilter === filter.id ? undefined : 'var(--text-secondary)'
+            style={{
+              backgroundColor:
+                categoryFilter === filter.id
+                  ? undefined
+                  : 'var(--bg-secondary)',
+              color:
+                categoryFilter === filter.id
+                  ? undefined
+                  : 'var(--text-secondary)',
             }}
           >
             {filter.label}
@@ -123,7 +143,9 @@ export default function HyperscapeItemsPage() {
       {/* Error State */}
       {error && (
         <div className="card p-4 mb-6 border-bazaar-error/50 bg-bazaar-error/10">
-          <p className="text-bazaar-error">Failed to load items: {String(error)}</p>
+          <p className="text-bazaar-error">
+            Failed to load items: {String(error)}
+          </p>
         </div>
       )}
 
@@ -133,11 +155,16 @@ export default function HyperscapeItemsPage() {
           {filteredItems.length === 0 ? (
             <div className="col-span-full text-center py-20">
               <div className="text-6xl md:text-7xl mb-4">🎮</div>
-              <h3 className="text-xl md:text-2xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
-                {activeFilter === 'my-items' ? 'No items in your collection' : 'No Hyperscape items found'}
+              <h3
+                className="text-xl md:text-2xl font-semibold mb-2"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                {activeFilter === 'my-items'
+                  ? 'No items in your collection'
+                  : 'No Hyperscape items found'}
               </h3>
               <p style={{ color: 'var(--text-secondary)' }}>
-                {activeFilter === 'my-items' 
+                {activeFilter === 'my-items'
                   ? 'Mint items in-game to see them here'
                   : 'No items have been minted yet'}
               </p>
@@ -146,43 +173,76 @@ export default function HyperscapeItemsPage() {
             filteredItems.map((item) => {
               const rarityInfo = getRarityInfo(item.rarity)
               return (
-                <div 
-                  key={item.id} 
+                <div
+                  key={item.id}
                   className="card p-4 cursor-pointer hover:border-bazaar-primary transition-all"
                   onClick={() => setSelectedItem(item)}
                 >
                   <div className="flex justify-between items-start mb-3">
-                    <h3 className="font-bold" style={{ color: 'var(--text-primary)' }}>{item.name}</h3>
-                    <span className={`text-xs px-2 py-1 rounded-full ${rarityInfo.bgClass} ${rarityInfo.color}`}>
+                    <h3
+                      className="font-bold"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
+                      {item.name}
+                    </h3>
+                    <span
+                      className={`text-xs px-2 py-1 rounded-full ${rarityInfo.bgClass} ${rarityInfo.color}`}
+                    >
                       {rarityInfo.name}
                     </span>
                   </div>
 
-                  <div className="text-sm space-y-1 mb-3" style={{ color: 'var(--text-secondary)' }}>
+                  <div
+                    className="text-sm space-y-1 mb-3"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
                     {item.attack > 0 && <div>⚔️ Attack: +{item.attack}</div>}
-                    {item.strength > 0 && <div>💪 Strength: +{item.strength}</div>}
-                    {item.defense > 0 && <div>🛡️ Defense: +{item.defense}</div>}
-                    {item.attack === 0 && item.defense === 0 && item.strength === 0 && (
-                      <div className="text-xs italic" style={{ color: 'var(--text-tertiary)' }}>
-                        No combat stats
-                      </div>
+                    {item.strength > 0 && (
+                      <div>💪 Strength: +{item.strength}</div>
                     )}
+                    {item.defense > 0 && <div>🛡️ Defense: +{item.defense}</div>}
+                    {item.attack === 0 &&
+                      item.defense === 0 &&
+                      item.strength === 0 && (
+                        <div
+                          className="text-xs italic"
+                          style={{ color: 'var(--text-tertiary)' }}
+                        >
+                          No combat stats
+                        </div>
+                      )}
                   </div>
 
-                  <div className="text-xs pt-3 border-t space-y-1" style={{ borderColor: 'var(--border)', color: 'var(--text-tertiary)' }}>
+                  <div
+                    className="text-xs pt-3 border-t space-y-1"
+                    style={{
+                      borderColor: 'var(--border)',
+                      color: 'var(--text-tertiary)',
+                    }}
+                  >
                     <div className="flex justify-between">
                       <span>Owner</span>
-                      <span className="font-mono">{item.owner?.slice(0, 6)}...{item.owner?.slice(-4)}</span>
+                      <span className="font-mono">
+                        {item.owner?.slice(0, 6)}...{item.owner?.slice(-4)}
+                      </span>
                     </div>
                     {item.originalMinter && (
                       <div className="flex justify-between">
                         <span>Minted by</span>
-                        <span className="font-mono">{item.originalMinter.slice(0, 6)}...{item.originalMinter.slice(-4)}</span>
+                        <span className="font-mono">
+                          {item.originalMinter.slice(0, 6)}...
+                          {item.originalMinter.slice(-4)}
+                        </span>
                       </div>
                     )}
                     <div className="flex justify-between">
                       <span>Quantity</span>
-                      <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{item.balance}</span>
+                      <span
+                        className="font-semibold"
+                        style={{ color: 'var(--text-primary)' }}
+                      >
+                        {item.balance}
+                      </span>
                     </div>
                   </div>
 
@@ -198,21 +258,29 @@ export default function HyperscapeItemsPage() {
 
       {/* Item Detail Modal */}
       {selectedItem && (
-        <div 
+        <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}
           onClick={() => setSelectedItem(null)}
         >
-          <div 
+          <div
             className="w-full max-w-md rounded-2xl border p-6"
-            style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}
+            style={{
+              backgroundColor: 'var(--surface)',
+              borderColor: 'var(--border)',
+            }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-start mb-4">
-              <h2 className="text-xl md:text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+              <h2
+                className="text-xl md:text-2xl font-bold"
+                style={{ color: 'var(--text-primary)' }}
+              >
                 {selectedItem.name}
               </h2>
-              <span className={`text-xs px-2 py-1 rounded-full ${getRarityInfo(selectedItem.rarity).bgClass} ${getRarityInfo(selectedItem.rarity).color}`}>
+              <span
+                className={`text-xs px-2 py-1 rounded-full ${getRarityInfo(selectedItem.rarity).bgClass} ${getRarityInfo(selectedItem.rarity).color}`}
+              >
                 {getRarityInfo(selectedItem.rarity).name}
               </span>
             </div>
@@ -222,60 +290,119 @@ export default function HyperscapeItemsPage() {
             </div>
 
             <div className="grid grid-cols-3 gap-3 mb-4">
-              <div className="text-center p-3 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+              <div
+                className="text-center p-3 rounded-xl"
+                style={{ backgroundColor: 'var(--bg-secondary)' }}
+              >
                 <div className="text-lg">⚔️</div>
-                <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Attack</div>
-                <div className="font-bold" style={{ color: 'var(--text-primary)' }}>+{selectedItem.attack}</div>
+                <div
+                  className="text-xs"
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
+                  Attack
+                </div>
+                <div
+                  className="font-bold"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  +{selectedItem.attack}
+                </div>
               </div>
-              <div className="text-center p-3 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+              <div
+                className="text-center p-3 rounded-xl"
+                style={{ backgroundColor: 'var(--bg-secondary)' }}
+              >
                 <div className="text-lg">🛡️</div>
-                <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Defense</div>
-                <div className="font-bold" style={{ color: 'var(--text-primary)' }}>+{selectedItem.defense}</div>
+                <div
+                  className="text-xs"
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
+                  Defense
+                </div>
+                <div
+                  className="font-bold"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  +{selectedItem.defense}
+                </div>
               </div>
-              <div className="text-center p-3 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+              <div
+                className="text-center p-3 rounded-xl"
+                style={{ backgroundColor: 'var(--bg-secondary)' }}
+              >
                 <div className="text-lg">💪</div>
-                <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Strength</div>
-                <div className="font-bold" style={{ color: 'var(--text-primary)' }}>+{selectedItem.strength}</div>
+                <div
+                  className="text-xs"
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
+                  Strength
+                </div>
+                <div
+                  className="font-bold"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  +{selectedItem.strength}
+                </div>
               </div>
             </div>
 
             <div className="space-y-2 mb-6 text-sm">
               <div className="flex justify-between">
                 <span style={{ color: 'var(--text-tertiary)' }}>Token ID</span>
-                <span style={{ color: 'var(--text-primary)' }}>#{selectedItem.tokenId}</span>
+                <span style={{ color: 'var(--text-primary)' }}>
+                  #{selectedItem.tokenId}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span style={{ color: 'var(--text-tertiary)' }}>Owner</span>
-                <span className="font-mono" style={{ color: 'var(--text-secondary)' }}>
+                <span
+                  className="font-mono"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
                   {selectedItem.owner?.slice(0, 10)}...
                 </span>
               </div>
               {selectedItem.originalMinter && (
                 <div className="flex justify-between">
-                  <span style={{ color: 'var(--text-tertiary)' }}>Original Minter</span>
-                  <span className="font-mono" style={{ color: 'var(--text-secondary)' }}>
+                  <span style={{ color: 'var(--text-tertiary)' }}>
+                    Original Minter
+                  </span>
+                  <span
+                    className="font-mono"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
                     {selectedItem.originalMinter.slice(0, 10)}...
                   </span>
                 </div>
               )}
               <div className="flex justify-between">
                 <span style={{ color: 'var(--text-tertiary)' }}>Stackable</span>
-                <span style={{ color: 'var(--text-primary)' }}>{selectedItem.stackable ? 'Yes' : 'No'}</span>
+                <span style={{ color: 'var(--text-primary)' }}>
+                  {selectedItem.stackable ? 'Yes' : 'No'}
+                </span>
               </div>
               <div className="flex justify-between">
-                <span style={{ color: 'var(--text-tertiary)' }}>Quantity Owned</span>
-                <span className="font-bold" style={{ color: 'var(--text-primary)' }}>{selectedItem.balance}</span>
+                <span style={{ color: 'var(--text-tertiary)' }}>
+                  Quantity Owned
+                </span>
+                <span
+                  className="font-bold"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  {selectedItem.balance}
+                </span>
               </div>
             </div>
 
             <div className="flex gap-3">
-              <button onClick={() => setSelectedItem(null)} className="btn-secondary flex-1">
+              <button
+                onClick={() => setSelectedItem(null)}
+                className="btn-secondary flex-1"
+              >
                 Close
               </button>
               {selectedItem.owner?.toLowerCase() === address?.toLowerCase() && (
-                <button className="btn-primary flex-1">
-                  List for Sale
-                </button>
+                <button className="btn-primary flex-1">List for Sale</button>
               )}
             </div>
           </div>
@@ -284,9 +411,16 @@ export default function HyperscapeItemsPage() {
 
       {/* Info Section */}
       <div className="card p-5 md:p-6 mt-8">
-        <h2 className="font-bold mb-3" style={{ color: 'var(--text-primary)' }}>About Hyperscape Items</h2>
-        <ul className="text-sm space-y-2" style={{ color: 'var(--text-secondary)' }}>
-          <li>🎮 All items come from the Hyperscape MMORPG (Items.sol ERC-1155)</li>
+        <h2 className="font-bold mb-3" style={{ color: 'var(--text-primary)' }}>
+          About Hyperscape Items
+        </h2>
+        <ul
+          className="text-sm space-y-2"
+          style={{ color: 'var(--text-secondary)' }}
+        >
+          <li>
+            🎮 All items come from the Hyperscape MMORPG (Items.sol ERC-1155)
+          </li>
           <li>🔒 Minted items are permanent NFTs and never drop on death</li>
           <li>👤 Original minter is tracked forever on-chain (provenance)</li>
           <li>⭐ Items minted by famous players may be worth more</li>

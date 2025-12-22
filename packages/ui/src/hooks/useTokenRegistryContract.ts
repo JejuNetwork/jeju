@@ -3,67 +3,67 @@
  * Consolidated from gateway and bazaar
  */
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo } from 'react'
+import type { Address } from 'viem'
 import {
   useReadContract,
-  useWriteContract,
   useWaitForTransactionReceipt,
-} from "wagmi";
-import type { Address } from "viem";
-import { TOKEN_REGISTRY_ABI } from "../contracts";
+  useWriteContract,
+} from 'wagmi'
+import { TOKEN_REGISTRY_ABI } from '../contracts'
 
 export interface TokenInfo {
-  address: Address;
-  symbol: string;
-  name: string;
-  decimals: number;
+  address: Address
+  symbol: string
+  name: string
+  decimals: number
 }
 
 export interface TokenConfig {
-  tokenAddress: Address;
-  name: string;
-  symbol: string;
-  decimals: number;
-  oracleAddress: Address;
-  minFeeMargin: bigint;
-  maxFeeMargin: bigint;
-  isActive: boolean;
-  registrant: Address;
-  registrationTime: bigint;
-  totalVolume: bigint;
-  totalTransactions: bigint;
-  metadataHash: `0x${string}`;
+  tokenAddress: Address
+  name: string
+  symbol: string
+  decimals: number
+  oracleAddress: Address
+  minFeeMargin: bigint
+  maxFeeMargin: bigint
+  isActive: boolean
+  registrant: Address
+  registrationTime: bigint
+  totalVolume: bigint
+  totalTransactions: bigint
+  metadataHash: `0x${string}`
 }
 
 // Known tokens for fallback
 const KNOWN_TOKENS: Record<string, TokenInfo> = {
-  "0x0000000000000000000000000000000000000000": {
-    address: "0x0000000000000000000000000000000000000000",
-    symbol: "ETH",
-    name: "Ethereum",
+  '0x0000000000000000000000000000000000000000': {
+    address: '0x0000000000000000000000000000000000000000',
+    symbol: 'ETH',
+    name: 'Ethereum',
     decimals: 18,
   },
-};
+}
 
 export interface UseTokenRegistryResult {
-  allTokens: Address[];
-  registrationFee: bigint | undefined;
+  allTokens: Address[]
+  registrationFee: bigint | undefined
   registerToken: (
     tokenAddress: Address,
     oracleAddress: Address,
     minFee: number,
     maxFee: number,
-  ) => Promise<void>;
-  isPending: boolean;
-  isSuccess: boolean;
-  refetchTokens: () => void;
-  getTokenInfo: (address: string) => TokenInfo | undefined;
-  tokens: TokenInfo[];
+  ) => Promise<void>
+  isPending: boolean
+  isSuccess: boolean
+  refetchTokens: () => void
+  getTokenInfo: (address: string) => TokenInfo | undefined
+  tokens: TokenInfo[]
 }
 
 export interface UseTokenConfigResult {
-  config: TokenConfig | undefined;
-  refetch: () => void;
+  config: TokenConfig | undefined
+  refetch: () => void
 }
 
 export function useTokenRegistry(
@@ -73,21 +73,21 @@ export function useTokenRegistry(
   const { data: allTokens, refetch: refetchTokens } = useReadContract({
     address: registryAddress,
     abi: TOKEN_REGISTRY_ABI,
-    functionName: "getAllTokens",
-  });
+    functionName: 'getAllTokens',
+  })
 
   // Read registration fee
   const { data: registrationFee } = useReadContract({
     address: registryAddress,
     abi: TOKEN_REGISTRY_ABI,
-    functionName: "registrationFee",
-  });
+    functionName: 'registrationFee',
+  })
 
   // Write: Register token
-  const { writeContract, data: hash, isPending } = useWriteContract();
+  const { writeContract, data: hash, isPending } = useWriteContract()
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash,
-  });
+  })
 
   const registerToken = useCallback(
     async (
@@ -98,27 +98,27 @@ export function useTokenRegistry(
     ) => {
       if (!registryAddress || !registrationFee) {
         throw new Error(
-          "Registry not configured or registration fee not loaded",
-        );
+          'Registry not configured or registration fee not loaded',
+        )
       }
       writeContract({
         address: registryAddress,
         abi: TOKEN_REGISTRY_ABI,
-        functionName: "registerToken",
+        functionName: 'registerToken',
         args: [tokenAddress, oracleAddress, BigInt(minFee), BigInt(maxFee)],
         value: registrationFee,
-      });
+      })
     },
     [registryAddress, registrationFee, writeContract],
-  );
+  )
 
   // Local token lookup for known tokens
   const getTokenInfo = useCallback((address: string): TokenInfo | undefined => {
-    const normalizedAddress = address.toLowerCase();
-    return KNOWN_TOKENS[normalizedAddress];
-  }, []);
+    const normalizedAddress = address.toLowerCase()
+    return KNOWN_TOKENS[normalizedAddress]
+  }, [])
 
-  const tokens = useMemo(() => Object.values(KNOWN_TOKENS), []);
+  const tokens = useMemo(() => Object.values(KNOWN_TOKENS), [])
 
   return {
     allTokens: allTokens ? (allTokens as Address[]) : [],
@@ -129,7 +129,7 @@ export function useTokenRegistry(
     refetchTokens,
     getTokenInfo,
     tokens,
-  };
+  }
 }
 
 export function useTokenConfig(
@@ -139,12 +139,12 @@ export function useTokenConfig(
   const { data: config, refetch } = useReadContract({
     address: registryAddress,
     abi: TOKEN_REGISTRY_ABI,
-    functionName: "getTokenConfig",
+    functionName: 'getTokenConfig',
     args: tokenAddress ? [tokenAddress] : undefined,
-  });
+  })
 
   return {
     config: config as TokenConfig | undefined,
     refetch,
-  };
+  }
 }

@@ -2,193 +2,205 @@
  * Data Availability Layer Tests
  */
 
-import { describe, it, expect, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, it } from 'bun:test'
+import { type Address, type Hex, keccak256, toBytes } from 'viem'
+import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import {
-  createReedSolomonCodec,
-  createCommitment,
-  verifyProof,
   BlobManager,
-  Disperser,
-  DAOperator,
-  computeBlobId,
-  generateSampleIndices,
   calculateRequiredSamples,
-} from '../src/da';
-import type { DAOperatorInfo } from '../src/da/types';
-import { keccak256, toBytes, type Address, type Hex } from 'viem';
-import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
+  computeBlobId,
+  createCommitment,
+  createReedSolomonCodec,
+  DAOperator,
+  Disperser,
+  generateSampleIndices,
+  verifyProof,
+} from '../src/da'
+import type { DAOperatorInfo } from '../src/da/types'
 
 describe('Reed-Solomon Erasure Coding', () => {
   it('should encode and decode data correctly', () => {
-    const codec = createReedSolomonCodec({ dataShards: 4, parityShards: 4 });
-    const data = new TextEncoder().encode('Hello, World! This is a test of erasure coding.');
-    
-    const shards = codec.encode(data);
-    expect(shards.length).toBe(8); // 4 data + 4 parity
-    
+    const codec = createReedSolomonCodec({ dataShards: 4, parityShards: 4 })
+    const data = new TextEncoder().encode(
+      'Hello, World! This is a test of erasure coding.',
+    )
+
+    const shards = codec.encode(data)
+    expect(shards.length).toBe(8) // 4 data + 4 parity
+
     // Verify decoding with all shards
-    const decoded = codec.decode(shards, data.length);
-    expect(new TextDecoder().decode(decoded)).toBe('Hello, World! This is a test of erasure coding.');
-  });
+    const decoded = codec.decode(shards, data.length)
+    expect(new TextDecoder().decode(decoded)).toBe(
+      'Hello, World! This is a test of erasure coding.',
+    )
+  })
 
   it('should reconstruct data with missing shards', () => {
-    const codec = createReedSolomonCodec({ dataShards: 4, parityShards: 4 });
-    const data = new TextEncoder().encode('Test data for reconstruction');
-    
-    const shards = codec.encode(data);
-    
+    const codec = createReedSolomonCodec({ dataShards: 4, parityShards: 4 })
+    const data = new TextEncoder().encode('Test data for reconstruction')
+
+    const shards = codec.encode(data)
+
     // Remove 4 shards (half)
-    const partialShards: (Uint8Array | null)[] = shards.map((s, i) => 
-      i % 2 === 0 ? s : null
-    );
-    
-    const decoded = codec.decode(partialShards, data.length);
-    expect(new TextDecoder().decode(decoded)).toBe('Test data for reconstruction');
-  });
+    const partialShards: (Uint8Array | null)[] = shards.map((s, i) =>
+      i % 2 === 0 ? s : null,
+    )
+
+    const decoded = codec.decode(partialShards, data.length)
+    expect(new TextDecoder().decode(decoded)).toBe(
+      'Test data for reconstruction',
+    )
+  })
 
   it('should verify shard consistency', () => {
-    const codec = createReedSolomonCodec({ dataShards: 4, parityShards: 4 });
-    const data = new TextEncoder().encode('Verification test');
-    
-    const shards = codec.encode(data);
-    expect(codec.verify(shards)).toBe(true);
-    
+    const codec = createReedSolomonCodec({ dataShards: 4, parityShards: 4 })
+    const data = new TextEncoder().encode('Verification test')
+
+    const shards = codec.encode(data)
+    expect(codec.verify(shards)).toBe(true)
+
     // Corrupt a shard
-    const corrupted = [...shards];
-    corrupted[0] = new Uint8Array(corrupted[0].length).fill(0);
-    expect(codec.verify(corrupted)).toBe(false);
-  });
+    const corrupted = [...shards]
+    corrupted[0] = new Uint8Array(corrupted[0].length).fill(0)
+    expect(codec.verify(corrupted)).toBe(false)
+  })
 
   it('should create chunks with Merkle proofs', () => {
-    const codec = createReedSolomonCodec({ dataShards: 4, parityShards: 4 });
-    const data = new TextEncoder().encode('Chunk test data');
-    const blobId = computeBlobId(data);
-    
-    const chunks = codec.createChunks(data, blobId);
-    expect(chunks.length).toBe(8);
-    
+    const codec = createReedSolomonCodec({ dataShards: 4, parityShards: 4 })
+    const data = new TextEncoder().encode('Chunk test data')
+    const blobId = computeBlobId(data)
+
+    const chunks = codec.createChunks(data, blobId)
+    expect(chunks.length).toBe(8)
+
     for (const chunk of chunks) {
-      expect(chunk.proof.merkleProof.length).toBeGreaterThan(0);
-      expect(chunk.blobId).toBe(blobId);
+      expect(chunk.proof.merkleProof.length).toBeGreaterThan(0)
+      expect(chunk.blobId).toBe(blobId)
     }
-  });
-});
+  })
+})
 
 describe('Polynomial Commitments', () => {
   it('should create valid commitment from chunks', () => {
-    const codec = createReedSolomonCodec({ dataShards: 4, parityShards: 4 });
-    const data = new TextEncoder().encode('Commitment test data');
-    
-    const shards = codec.encode(data);
-    const chunkSize = shards[0].length;
-    
-    const commitment = createCommitment(shards, chunkSize, 4, 4);
-    
-    expect(commitment.commitment).toBeDefined();
-    expect(commitment.merkleRoot).toBeDefined();
-    expect(commitment.dataChunkCount).toBe(4);
-    expect(commitment.parityChunkCount).toBe(4);
-    expect(commitment.totalChunkCount).toBe(8);
-  });
+    const codec = createReedSolomonCodec({ dataShards: 4, parityShards: 4 })
+    const data = new TextEncoder().encode('Commitment test data')
+
+    const shards = codec.encode(data)
+    const chunkSize = shards[0].length
+
+    const commitment = createCommitment(shards, chunkSize, 4, 4)
+
+    expect(commitment.commitment).toBeDefined()
+    expect(commitment.merkleRoot).toBeDefined()
+    expect(commitment.dataChunkCount).toBe(4)
+    expect(commitment.parityChunkCount).toBe(4)
+    expect(commitment.totalChunkCount).toBe(8)
+  })
 
   it('should verify valid chunk proofs', () => {
-    const codec = createReedSolomonCodec({ dataShards: 4, parityShards: 4 });
-    const data = new TextEncoder().encode('Proof verification test');
-    const blobId = computeBlobId(data);
-    
-    const chunks = codec.createChunks(data, blobId);
-    const shards = chunks.map(c => c.data);
-    const commitment = createCommitment(shards, shards[0].length, 4, 4);
-    
+    const codec = createReedSolomonCodec({ dataShards: 4, parityShards: 4 })
+    const data = new TextEncoder().encode('Proof verification test')
+    const blobId = computeBlobId(data)
+
+    const chunks = codec.createChunks(data, blobId)
+    const shards = chunks.map((c) => c.data)
+    const commitment = createCommitment(shards, shards[0].length, 4, 4)
+
     // Verify each chunk
     for (const chunk of chunks) {
-      const result = verifyProof(chunk, commitment);
-      expect(result).toBe(true);
+      const result = verifyProof(chunk, commitment)
+      expect(result).toBe(true)
     }
-  });
-});
+  })
+})
 
 describe('Blob Manager', () => {
-  let blobManager: BlobManager;
-  const testAddress = '0x1234567890123456789012345678901234567890' as Address;
+  let blobManager: BlobManager
+  const testAddress = '0x1234567890123456789012345678901234567890' as Address
 
   beforeEach(() => {
-    blobManager = new BlobManager();
-  });
+    blobManager = new BlobManager()
+  })
 
   it('should submit and retrieve blob', () => {
-    const data = new TextEncoder().encode('Blob manager test');
-    
+    const data = new TextEncoder().encode('Blob manager test')
+
     const { blob, chunks, commitment, metadata } = blobManager.submit({
       data,
       submitter: testAddress,
-    });
-    
-    expect(blob.id).toBeDefined();
-    expect(chunks.length).toBe(32); // 16 data + 16 parity by default
-    expect(commitment.commitment).toBeDefined();
-    expect(metadata.status).toBe('pending');
-    
+    })
+
+    expect(blob.id).toBeDefined()
+    expect(chunks.length).toBe(32) // 16 data + 16 parity by default
+    expect(commitment.commitment).toBeDefined()
+    expect(metadata.status).toBe('pending')
+
     // Retrieve
     const retrieved = blobManager.retrieve({
       blobId: blob.id,
       commitment,
-    });
-    
-    expect(new TextDecoder().decode(retrieved.data)).toBe('Blob manager test');
-    expect(retrieved.verified).toBe(true);
-  });
+    })
+
+    expect(new TextDecoder().decode(retrieved.data)).toBe('Blob manager test')
+    expect(retrieved.verified).toBe(true)
+  })
 
   it('should track blob status', () => {
-    const data = new TextEncoder().encode('Status test');
-    
+    const data = new TextEncoder().encode('Status test')
+
     const { blob } = blobManager.submit({
       data,
       submitter: testAddress,
-    });
-    
-    expect(blobManager.getMetadata(blob.id)?.status).toBe('pending');
-    
-    blobManager.updateStatus(blob.id, 'available');
-    expect(blobManager.getMetadata(blob.id)?.status).toBe('available');
-  });
+    })
+
+    expect(blobManager.getMetadata(blob.id)?.status).toBe('pending')
+
+    blobManager.updateStatus(blob.id, 'available')
+    expect(blobManager.getMetadata(blob.id)?.status).toBe('available')
+  })
 
   it('should list blobs by status', () => {
-    const data1 = new TextEncoder().encode('Blob 1');
-    const data2 = new TextEncoder().encode('Blob 2');
-    
-    const { blob: blob1 } = blobManager.submit({ data: data1, submitter: testAddress });
-    const { blob: _blob2 } = blobManager.submit({ data: data2, submitter: testAddress });
-    
-    blobManager.updateStatus(blob1.id, 'available');
-    
-    const pending = blobManager.listByStatus('pending');
-    const available = blobManager.listByStatus('available');
-    
-    expect(pending.length).toBe(1);
-    expect(available.length).toBe(1);
-  });
-});
+    const data1 = new TextEncoder().encode('Blob 1')
+    const data2 = new TextEncoder().encode('Blob 2')
+
+    const { blob: blob1 } = blobManager.submit({
+      data: data1,
+      submitter: testAddress,
+    })
+    const { blob: _blob2 } = blobManager.submit({
+      data: data2,
+      submitter: testAddress,
+    })
+
+    blobManager.updateStatus(blob1.id, 'available')
+
+    const pending = blobManager.listByStatus('pending')
+    const available = blobManager.listByStatus('available')
+
+    expect(pending.length).toBe(1)
+    expect(available.length).toBe(1)
+  })
+})
 
 describe('Data Availability Sampling', () => {
   it('should generate random sample indices', () => {
-    const indices = generateSampleIndices(32, 8);
-    
-    expect(indices.length).toBe(8);
-    expect(new Set(indices).size).toBe(8); // All unique
-    expect(indices.every((i: number) => i >= 0 && i < 32)).toBe(true);
-  });
+    const indices = generateSampleIndices(32, 8)
+
+    expect(indices.length).toBe(8)
+    expect(new Set(indices).size).toBe(8) // All unique
+    expect(indices.every((i: number) => i >= 0 && i < 32)).toBe(true)
+  })
 
   it('should calculate required samples for confidence', () => {
     // 99.99% confidence with 50% availability threshold
-    const samples = calculateRequiredSamples(0.9999, 0.5);
-    expect(samples).toBeGreaterThanOrEqual(13); // ~13.3 samples needed
-  });
-});
+    const samples = calculateRequiredSamples(0.9999, 0.5)
+    expect(samples).toBeGreaterThanOrEqual(13) // ~13.3 samples needed
+  })
+})
 
 describe('DA Operator', () => {
-  let operator: DAOperator;
-  const privateKey = generatePrivateKey();
+  let operator: DAOperator
+  const privateKey = generatePrivateKey()
 
   beforeEach(() => {
     operator = new DAOperator({
@@ -196,30 +208,31 @@ describe('DA Operator', () => {
       endpoint: 'http://localhost:3000',
       capacityGB: 100,
       region: 'us-east-1',
-    });
-  });
+    })
+  })
 
   it('should start and stop correctly', async () => {
-    await operator.start();
-    expect(operator.getStatus()).toBe('active');
-    
-    operator.stop();
-    expect(operator.getStatus()).toBe('stopped');
-  });
+    await operator.start()
+    expect(operator.getStatus()).toBe('active')
+
+    operator.stop()
+    expect(operator.getStatus()).toBe('stopped')
+  })
 
   it('should store and retrieve chunks', async () => {
-    await operator.start();
-    
-    const codec = createReedSolomonCodec({ dataShards: 4, parityShards: 4 });
-    const data = new TextEncoder().encode('Operator chunk test');
-    const blobId = computeBlobId(data);
-    const chunks = codec.createChunks(data, blobId);
+    await operator.start()
+
+    const codec = createReedSolomonCodec({ dataShards: 4, parityShards: 4 })
+    const data = new TextEncoder().encode('Operator chunk test')
+    const blobId = computeBlobId(data)
+    const chunks = codec.createChunks(data, blobId)
     const commitment = createCommitment(
-      chunks.map(c => c.data),
+      chunks.map((c) => c.data),
       chunks[0].data.length,
-      4, 4
-    );
-    
+      4,
+      4,
+    )
+
     // Store chunks
     for (const chunk of chunks) {
       const stored = operator.storeChunk(
@@ -227,35 +240,42 @@ describe('DA Operator', () => {
         chunk.index,
         chunk.data,
         chunk.proof,
-        commitment
-      );
-      expect(stored).toBe(true);
+        commitment,
+      )
+      expect(stored).toBe(true)
     }
-    
-    expect(operator.hasBlob(blobId)).toBe(true);
-    expect(operator.getChunkCount(blobId)).toBe(8);
-    
-    operator.stop();
-  });
+
+    expect(operator.hasBlob(blobId)).toBe(true)
+    expect(operator.getChunkCount(blobId)).toBe(8)
+
+    operator.stop()
+  })
 
   it('should handle sample requests', async () => {
-    await operator.start();
-    
-    const codec = createReedSolomonCodec({ dataShards: 4, parityShards: 4 });
-    const data = new TextEncoder().encode('Sample request test');
-    const blobId = computeBlobId(data);
-    const chunks = codec.createChunks(data, blobId);
+    await operator.start()
+
+    const codec = createReedSolomonCodec({ dataShards: 4, parityShards: 4 })
+    const data = new TextEncoder().encode('Sample request test')
+    const blobId = computeBlobId(data)
+    const chunks = codec.createChunks(data, blobId)
     const commitment = createCommitment(
-      chunks.map(c => c.data),
+      chunks.map((c) => c.data),
       chunks[0].data.length,
-      4, 4
-    );
-    
+      4,
+      4,
+    )
+
     // Store chunks
     for (const chunk of chunks) {
-      operator.storeChunk(blobId, chunk.index, chunk.data, chunk.proof, commitment);
+      operator.storeChunk(
+        blobId,
+        chunk.index,
+        chunk.data,
+        chunk.proof,
+        commitment,
+      )
     }
-    
+
     // Create sample request
     const request = {
       blobId,
@@ -263,40 +283,40 @@ describe('DA Operator', () => {
       requester: privateKeyToAccount(privateKey).address,
       nonce: keccak256(toBytes('test-nonce')) as Hex,
       timestamp: Date.now(),
-    };
-    
-    const response = operator.handleSampleRequest(request);
-    
-    expect(response.chunks.length).toBe(3);
-    expect(response.chunks.map(c => c.index).sort()).toEqual([0, 2, 4]);
-    
-    operator.stop();
-  });
+    }
+
+    const response = operator.handleSampleRequest(request)
+
+    expect(response.chunks.length).toBe(3)
+    expect(response.chunks.map((c) => c.index).sort()).toEqual([0, 2, 4])
+
+    operator.stop()
+  })
 
   it('should track metrics', async () => {
-    await operator.start();
-    
-    const metrics = operator.getMetrics();
-    
-    expect(metrics.samplesResponded).toBe(0);
-    expect(metrics.samplesFailed).toBe(0);
-    expect(metrics.totalDataStored).toBe(0n);
-    
-    operator.stop();
-  });
-});
+    await operator.start()
+
+    const metrics = operator.getMetrics()
+
+    expect(metrics.samplesResponded).toBe(0)
+    expect(metrics.samplesFailed).toBe(0)
+    expect(metrics.totalDataStored).toBe(0n)
+
+    operator.stop()
+  })
+})
 
 describe('Disperser', () => {
   it('should create disperser with blob manager', () => {
-    const disperser = new Disperser();
-    
-    expect(disperser.getBlobManager()).toBeDefined();
-    expect(disperser.getSampler()).toBeDefined();
-  });
+    const disperser = new Disperser()
+
+    expect(disperser.getBlobManager()).toBeDefined()
+    expect(disperser.getSampler()).toBeDefined()
+  })
 
   it('should register and track operators', () => {
-    const disperser = new Disperser();
-    
+    const disperser = new Disperser()
+
     const operator: DAOperatorInfo = {
       address: '0x1234567890123456789012345678901234567890' as Address,
       agentId: 1n,
@@ -309,36 +329,35 @@ describe('Disperser', () => {
       status: 'active',
       registeredAt: Date.now(),
       lastHeartbeat: Date.now(),
-    };
-    
-    disperser.registerOperator(operator);
-    
-    const active = disperser.getActiveOperators();
-    expect(active.length).toBe(1);
-    expect(active[0].address).toBe(operator.address);
-  });
-});
+    }
+
+    disperser.registerOperator(operator)
+
+    const active = disperser.getActiveOperators()
+    expect(active.length).toBe(1)
+    expect(active[0].address).toBe(operator.address)
+  })
+})
 
 describe('Blob ID Computation', () => {
   it('should compute consistent blob IDs', () => {
-    const data = new TextEncoder().encode('Consistent ID test');
-    
-    const id1 = computeBlobId(data);
-    const id2 = computeBlobId(data);
-    
-    expect(id1).toBe(id2);
-    expect(id1.startsWith('0x')).toBe(true);
-    expect(id1.length).toBe(66); // 0x + 64 hex chars
-  });
+    const data = new TextEncoder().encode('Consistent ID test')
+
+    const id1 = computeBlobId(data)
+    const id2 = computeBlobId(data)
+
+    expect(id1).toBe(id2)
+    expect(id1.startsWith('0x')).toBe(true)
+    expect(id1.length).toBe(66) // 0x + 64 hex chars
+  })
 
   it('should produce different IDs for different data', () => {
-    const data1 = new TextEncoder().encode('Data 1');
-    const data2 = new TextEncoder().encode('Data 2');
-    
-    const id1 = computeBlobId(data1);
-    const id2 = computeBlobId(data2);
-    
-    expect(id1).not.toBe(id2);
-  });
-});
+    const data1 = new TextEncoder().encode('Data 1')
+    const data2 = new TextEncoder().encode('Data 2')
 
+    const id1 = computeBlobId(data1)
+    const id2 = computeBlobId(data2)
+
+    expect(id1).not.toBe(id2)
+  })
+})

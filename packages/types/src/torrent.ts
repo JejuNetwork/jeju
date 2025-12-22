@@ -3,8 +3,8 @@
  * Types for WebTorrent integration and decentralized content delivery
  */
 
-import { z } from 'zod';
-import { AddressSchema, HexSchema } from './validation';
+import { z } from 'zod'
+import { AddressSchema, HexSchema } from './validation'
 
 // ============ Content Types ============
 
@@ -15,7 +15,7 @@ export enum ContentStatus {
   BANNED = 3,
 }
 
-export const ContentStatusSchema = z.nativeEnum(ContentStatus);
+export const ContentStatusSchema = z.nativeEnum(ContentStatus)
 
 export enum ContentViolationType {
   NONE = 0,
@@ -25,7 +25,7 @@ export enum ContentViolationType {
   SPAM = 4,
 }
 
-export const ContentViolationTypeSchema = z.nativeEnum(ContentViolationType);
+export const ContentViolationTypeSchema = z.nativeEnum(ContentViolationType)
 
 export enum ContentTier {
   NETWORK_FREE = 0,
@@ -35,7 +35,7 @@ export enum ContentTier {
   PREMIUM_HOT = 4,
 }
 
-export const ContentTierSchema = z.nativeEnum(ContentTier);
+export const ContentTierSchema = z.nativeEnum(ContentTier)
 
 export const ContentRecordSchema = z.object({
   contentHash: HexSchema,
@@ -47,16 +47,16 @@ export const ContentRecordSchema = z.object({
   size: z.number().int().nonnegative(),
   seedCount: z.number().int().nonnegative(),
   rewardPool: z.bigint(),
-});
-export type ContentRecord = z.infer<typeof ContentRecordSchema>;
+})
+export type ContentRecord = z.infer<typeof ContentRecordSchema>
 
 export const SeederStatsSchema = z.object({
   totalBytesServed: z.bigint(),
   pendingRewards: z.bigint(),
   activeTorrents: z.number().int().nonnegative(),
   lastReportTime: z.number(),
-});
-export type SeederStats = z.infer<typeof SeederStatsSchema>;
+})
+export type SeederStats = z.infer<typeof SeederStatsSchema>
 
 // ============ Torrent Types ============
 
@@ -65,8 +65,8 @@ export const TorrentFileSchema = z.object({
   path: z.string(),
   size: z.number().int().nonnegative(),
   offset: z.number().int().nonnegative(),
-});
-export type TorrentFile = z.infer<typeof TorrentFileSchema>;
+})
+export type TorrentFile = z.infer<typeof TorrentFileSchema>
 
 export const TorrentInfoSchema = z.object({
   infohash: z.string(),
@@ -76,8 +76,8 @@ export const TorrentInfoSchema = z.object({
   files: z.array(TorrentFileSchema),
   createdAt: z.number(),
   contentHash: HexSchema.optional(),
-});
-export type TorrentInfo = z.infer<typeof TorrentInfoSchema>;
+})
+export type TorrentInfo = z.infer<typeof TorrentInfoSchema>
 
 export const TorrentStatsSchema = z.object({
   downloaded: z.number().nonnegative(),
@@ -88,8 +88,8 @@ export const TorrentStatsSchema = z.object({
   seeds: z.number().int().nonnegative(),
   progress: z.number().nonnegative(),
   timeRemaining: z.number().nonnegative(),
-});
-export type TorrentStats = z.infer<typeof TorrentStatsSchema>;
+})
+export type TorrentStats = z.infer<typeof TorrentStatsSchema>
 
 export const SeedingInfoSchema = z.object({
   infohash: z.string(),
@@ -98,8 +98,8 @@ export const SeedingInfoSchema = z.object({
   startedAt: z.number(),
   lastActivity: z.number(),
   estimatedRewards: z.bigint(),
-});
-export type SeedingInfo = z.infer<typeof SeedingInfoSchema>;
+})
+export type SeedingInfo = z.infer<typeof SeedingInfoSchema>
 
 // ============ Upload/Download Types ============
 
@@ -109,8 +109,8 @@ export const TorrentUploadOptionsSchema = z.object({
   trackers: z.array(z.string()).optional(),
   comment: z.string().optional(),
   private: z.boolean().optional(),
-});
-export type TorrentUploadOptions = z.infer<typeof TorrentUploadOptionsSchema>;
+})
+export type TorrentUploadOptions = z.infer<typeof TorrentUploadOptionsSchema>
 
 export const TorrentUploadResultSchema = z.object({
   infohash: z.string(),
@@ -119,15 +119,15 @@ export const TorrentUploadResultSchema = z.object({
   size: z.number().int().nonnegative(),
   tier: ContentTierSchema,
   rewardPoolRequired: z.bigint(),
-});
-export type TorrentUploadResult = z.infer<typeof TorrentUploadResultSchema>;
+})
+export type TorrentUploadResult = z.infer<typeof TorrentUploadResultSchema>
 
 // Note: TorrentDownloadOptions contains a callback function which cannot be validated with Zod
 export interface TorrentDownloadOptions {
-  preferTorrent?: boolean;
-  maxPeers?: number;
-  timeout?: number;
-  progressCallback?: (stats: TorrentStats) => void;
+  preferTorrent?: boolean
+  maxPeers?: number
+  timeout?: number
+  progressCallback?: (stats: TorrentStats) => void
 }
 
 // ============ Swarm Types ============
@@ -138,8 +138,8 @@ export const SwarmInfoSchema = z.object({
   leechers: z.number().int().nonnegative(),
   completed: z.number().int().nonnegative(),
   lastSeen: z.number(),
-});
-export type SwarmInfo = z.infer<typeof SwarmInfoSchema>;
+})
+export type SwarmInfo = z.infer<typeof SwarmInfoSchema>
 
 export const PeerInfoSchema = z.object({
   id: z.string(),
@@ -150,13 +150,13 @@ export const PeerInfoSchema = z.object({
   uploadSpeed: z.number().nonnegative(),
   downloaded: z.number().nonnegative(),
   uploaded: z.number().nonnegative(),
-});
-export type PeerInfo = z.infer<typeof PeerInfoSchema>;
+})
+export type PeerInfo = z.infer<typeof PeerInfoSchema>
 
 // ============ Content Routing Types ============
 
-export const DeliveryMethodSchema = z.enum(['torrent', 'ipfs', 'cdn', 'proxy']);
-export type DeliveryMethod = z.infer<typeof DeliveryMethodSchema>;
+export const DeliveryMethodSchema = z.enum(['torrent', 'ipfs', 'cdn', 'proxy'])
+export type DeliveryMethod = z.infer<typeof DeliveryMethodSchema>
 
 // DeliveryRoute is recursive, so we need to use z.lazy
 const BaseDeliveryRouteSchema = z.object({
@@ -164,22 +164,23 @@ const BaseDeliveryRouteSchema = z.object({
   endpoint: z.string(),
   latencyEstimate: z.number().nonnegative(),
   cost: z.bigint(),
-});
+})
 
-export const DeliveryRouteSchema: z.ZodType<DeliveryRoute> = BaseDeliveryRouteSchema.extend({
-  fallbacks: z.lazy(() => z.array(DeliveryRouteSchema)),
-});
+export const DeliveryRouteSchema: z.ZodType<DeliveryRoute> =
+  BaseDeliveryRouteSchema.extend({
+    fallbacks: z.lazy(() => z.array(DeliveryRouteSchema)),
+  })
 export type DeliveryRoute = z.infer<typeof BaseDeliveryRouteSchema> & {
-  fallbacks: DeliveryRoute[];
-};
+  fallbacks: DeliveryRoute[]
+}
 
 export const ContentIdentifierSchema = z.object({
   contentHash: HexSchema,
   cid: z.string().optional(),
   infohash: z.string().optional(),
   magnetUri: z.string().optional(),
-});
-export type ContentIdentifier = z.infer<typeof ContentIdentifierSchema>;
+})
+export type ContentIdentifier = z.infer<typeof ContentIdentifierSchema>
 
 // ============ Moderation Types ============
 
@@ -188,7 +189,7 @@ export const ContentScanDetailsSchema = z.object({
   nsfwScore: z.number().nonnegative(),
   malwareDetected: z.boolean(),
   sensitiveDataFound: z.boolean(),
-});
+})
 
 export const ContentScanResultSchema = z.object({
   safe: z.boolean(),
@@ -196,8 +197,8 @@ export const ContentScanResultSchema = z.object({
   confidence: z.number().nonnegative(),
   scanDuration: z.number().nonnegative(),
   details: ContentScanDetailsSchema,
-});
-export type ContentScanResult = z.infer<typeof ContentScanResultSchema>;
+})
+export type ContentScanResult = z.infer<typeof ContentScanResultSchema>
 
 export const ModerationReportSchema = z.object({
   contentHash: HexSchema,
@@ -206,8 +207,8 @@ export const ModerationReportSchema = z.object({
   evidenceHash: HexSchema,
   timestamp: z.number(),
   caseId: HexSchema.optional(),
-});
-export type ModerationReport = z.infer<typeof ModerationReportSchema>;
+})
+export type ModerationReport = z.infer<typeof ModerationReportSchema>
 
 // ============ Encrypted Storage Types ============
 
@@ -219,20 +220,20 @@ export const EncryptedContentSchema = z.object({
   accessControlHash: HexSchema,
   encryptedSize: z.number().int().nonnegative(),
   originalSize: z.number().int().nonnegative(),
-});
-export type EncryptedContent = z.infer<typeof EncryptedContentSchema>;
+})
+export type EncryptedContent = z.infer<typeof EncryptedContentSchema>
 
 export const AuthSignatureSchema = z.object({
   sig: HexSchema,
   message: z.string(),
   address: AddressSchema,
-});
+})
 
 export const DecryptionRequestSchema = z.object({
   identifier: z.string(),
   authSignature: AuthSignatureSchema,
-});
-export type DecryptionRequest = z.infer<typeof DecryptionRequestSchema>;
+})
+export type DecryptionRequest = z.infer<typeof DecryptionRequestSchema>
 
 // ============ Contract ABIs ============
 
@@ -381,4 +382,4 @@ export const CONTENT_REGISTRY_ABI = [
     inputs: [{ name: 'contentHash', type: 'bytes32' }],
     outputs: [],
   },
-] as const;
+] as const

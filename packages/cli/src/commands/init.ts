@@ -1,62 +1,72 @@
 /**
  * init command - Create a new dApp from template
- * 
+ *
  * Scaffolds a new decentralized application with:
  * - Full service integration (CQL, IPFS, KMS, Cron)
  * - REST API, A2A, and MCP protocols
  * - x402 payment support
  * - Synpress tests
- * 
+ *
  * Security notes:
  * - App names are validated against strict patterns
  * - Output directories are validated for path traversal
  */
 
-import { Command } from 'commander';
-import prompts from 'prompts';
-import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, lstatSync } from 'fs';
-import { join, relative, resolve, normalize } from 'path';
-import chalk from 'chalk';
-import { execa } from 'execa';
-import { logger } from '../lib/logger';
-import { findMonorepoRoot } from '../lib/system';
-import { validateAppName } from '../lib/security';
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs'
+import { join, normalize, relative, resolve } from 'node:path'
+import chalk from 'chalk'
+import { Command } from 'commander'
+import { execa } from 'execa'
+import prompts from 'prompts'
+import { logger } from '../lib/logger'
+import { validateAppName } from '../lib/security'
+import { findMonorepoRoot } from '../lib/system'
 
 interface InitConfig {
-  name: string;
-  displayName: string;
-  jnsName: string;
-  databaseId: string;
-  description: string;
-  x402Enabled: boolean;
-  oauth3Enabled: boolean;
-  oauth3AppId: string;
-  outputDir: string;
+  name: string
+  displayName: string
+  jnsName: string
+  databaseId: string
+  description: string
+  x402Enabled: boolean
+  oauth3Enabled: boolean
+  oauth3AppId: string
+  outputDir: string
 }
 
-const TEMPLATE_PATH = join(import.meta.dir, '../../../../apps/example-app');
+const TEMPLATE_PATH = join(import.meta.dir, '../../../../apps/example-app')
 
 // Vendor manifest subcommand
 const vendorSubcommand = new Command('vendor')
   .description('Create vendor app manifest')
   .argument('<app-name>', 'Vendor app name')
   .action(async (appName) => {
-    await createVendorManifest(appName);
-  });
+    await createVendorManifest(appName)
+  })
 
 async function createVendorManifest(appName: string): Promise<void> {
-  const rootDir = findMonorepoRoot();
-  const scriptPath = join(rootDir, 'packages/deployment/scripts/infrastructure/create-vendor-manifest.ts');
-  
+  const rootDir = findMonorepoRoot()
+  const scriptPath = join(
+    rootDir,
+    'packages/deployment/scripts/infrastructure/create-vendor-manifest.ts',
+  )
+
   if (!existsSync(scriptPath)) {
-    logger.error('Vendor manifest script not found');
-    return;
+    logger.error('Vendor manifest script not found')
+    return
   }
 
   await execa('bun', ['run', scriptPath, appName], {
     cwd: rootDir,
     stdio: 'inherit',
-  });
+  })
 }
 
 export const initCommand = new Command('init')
@@ -66,245 +76,273 @@ export const initCommand = new Command('init')
   .option('-d, --dir <directory>', 'Output directory')
   .option('-y, --yes', 'Skip prompts and use defaults')
   .option('--no-x402', 'Disable x402 payment support')
-  .addHelpText('after', `
+  .addHelpText(
+    'after',
+    `
 Examples:
   ${chalk.cyan('jeju init my-app')}                Create new dApp named "my-app"
   ${chalk.cyan('jeju init my-app -d ./projects')}  Create in specific directory
   ${chalk.cyan('jeju init -y')}                    Quick create with defaults
   ${chalk.cyan('jeju init --no-x402')}             Create without x402 payments
   ${chalk.cyan('jeju init vendor my-app')}          Create vendor app manifest
-`)
-  .action(async (nameArg: string | undefined, options: { dir?: string; yes?: boolean; x402?: boolean }) => {
-    logger.header('CREATE NEW DAPP');
+`,
+  )
+  .action(
+    async (
+      nameArg: string | undefined,
+      options: { dir?: string; yes?: boolean; x402?: boolean },
+    ) => {
+      logger.header('CREATE NEW DAPP')
 
-    // Validate template exists
-    if (!existsSync(TEMPLATE_PATH)) {
-      logger.error(`Template not found at ${TEMPLATE_PATH}`);
-      logger.info('Make sure example-app exists in apps/');
-      process.exit(1);
-    }
-
-    let config: InitConfig;
-
-    if (options.yes && nameArg) {
-      // Quick mode with defaults - validate app name
-      const validName = validateAppName(nameArg);
-      
-      // Validate and resolve output directory
-      const outputDir = resolve(normalize(options.dir || join(process.cwd(), validName)));
-      
-      // Ensure output is under cwd for safety
-      const cwd = resolve(process.cwd());
-      if (!outputDir.startsWith(cwd) && !options.dir) {
-        throw new Error('Output directory must be within current working directory');
+      // Validate template exists
+      if (!existsSync(TEMPLATE_PATH)) {
+        logger.error(`Template not found at ${TEMPLATE_PATH}`)
+        logger.info('Make sure example-app exists in apps/')
+        process.exit(1)
       }
-      
-      config = {
-        name: validName,
-        displayName: formatDisplayName(validName),
-        jnsName: `${validName}.jeju`,
-        databaseId: `${validName}-db`,
-        description: `A decentralized ${validName} application`,
-        x402Enabled: options.x402 !== false,
-        oauth3Enabled: true,
-        oauth3AppId: `${validName}.oauth3.jeju`,
-        outputDir,
-      };
-    } else {
-      // Interactive prompts
-      const answers = await prompts([
-        {
-          type: 'text',
-          name: 'name',
-          message: 'App name (lowercase, hyphens allowed):',
-          initial: nameArg || 'my-dapp',
-          validate: (value: string) => {
-            try {
-              validateAppName(value);
-              return true;
-            } catch (err) {
-              return (err as Error).message;
-            }
+
+      let config: InitConfig
+
+      if (options.yes && nameArg) {
+        // Quick mode with defaults - validate app name
+        const validName = validateAppName(nameArg)
+
+        // Validate and resolve output directory
+        const outputDir = resolve(
+          normalize(options.dir || join(process.cwd(), validName)),
+        )
+
+        // Ensure output is under cwd for safety
+        const cwd = resolve(process.cwd())
+        if (!outputDir.startsWith(cwd) && !options.dir) {
+          throw new Error(
+            'Output directory must be within current working directory',
+          )
+        }
+
+        config = {
+          name: validName,
+          displayName: formatDisplayName(validName),
+          jnsName: `${validName}.jeju`,
+          databaseId: `${validName}-db`,
+          description: `A decentralized ${validName} application`,
+          x402Enabled: options.x402 !== false,
+          oauth3Enabled: true,
+          oauth3AppId: `${validName}.oauth3.jeju`,
+          outputDir,
+        }
+      } else {
+        // Interactive prompts
+        const answers = await prompts([
+          {
+            type: 'text',
+            name: 'name',
+            message: 'App name (lowercase, hyphens allowed):',
+            initial: nameArg || 'my-dapp',
+            validate: (value: string) => {
+              try {
+                validateAppName(value)
+                return true
+              } catch (err) {
+                return (err as Error).message
+              }
+            },
           },
-        },
-        {
-          type: 'text',
-          name: 'displayName',
-          message: 'Display name:',
-          initial: (prev: string) => formatDisplayName(prev),
-        },
-        {
-          type: 'text',
-          name: 'description',
-          message: 'Description:',
-          initial: (_prev: string, values: { name: string }) => `A decentralized ${values.name} application`,
-        },
-        {
-          type: 'text',
-          name: 'jnsName',
-          message: 'JNS domain name:',
-          initial: (_prev: string, values: { name: string }) => `${values.name}.jeju`,
-        },
-        {
-          type: 'text',
-          name: 'databaseId',
-          message: 'Database ID:',
-          initial: (_prev: string, values: { name: string }) => `${values.name}-db`,
-        },
-        {
-          type: 'confirm',
-          name: 'x402Enabled',
-          message: 'Enable x402 payments?',
-          initial: true,
-        },
-        {
-          type: 'confirm',
-          name: 'oauth3Enabled',
-          message: 'Enable OAuth3 authentication?',
-          initial: true,
-        },
-        {
-          type: (_prev: boolean) => _prev ? 'text' : null,
-          name: 'oauth3AppId',
-          message: 'OAuth3 App ID:',
-          initial: (_prev: string, values: { name: string }) => `${values.name}.oauth3.jeju`,
-        },
-        {
-          type: 'text',
-          name: 'outputDir',
-          message: 'Output directory:',
-          initial: (_prev: string, values: { name: string }) => 
-            options.dir || join(process.cwd(), values.name),
-        },
-      ]);
+          {
+            type: 'text',
+            name: 'displayName',
+            message: 'Display name:',
+            initial: (prev: string) => formatDisplayName(prev),
+          },
+          {
+            type: 'text',
+            name: 'description',
+            message: 'Description:',
+            initial: (_prev: string, values: { name: string }) =>
+              `A decentralized ${values.name} application`,
+          },
+          {
+            type: 'text',
+            name: 'jnsName',
+            message: 'JNS domain name:',
+            initial: (_prev: string, values: { name: string }) =>
+              `${values.name}.jeju`,
+          },
+          {
+            type: 'text',
+            name: 'databaseId',
+            message: 'Database ID:',
+            initial: (_prev: string, values: { name: string }) =>
+              `${values.name}-db`,
+          },
+          {
+            type: 'confirm',
+            name: 'x402Enabled',
+            message: 'Enable x402 payments?',
+            initial: true,
+          },
+          {
+            type: 'confirm',
+            name: 'oauth3Enabled',
+            message: 'Enable OAuth3 authentication?',
+            initial: true,
+          },
+          {
+            type: (_prev: boolean) => (_prev ? 'text' : null),
+            name: 'oauth3AppId',
+            message: 'OAuth3 App ID:',
+            initial: (_prev: string, values: { name: string }) =>
+              `${values.name}.oauth3.jeju`,
+          },
+          {
+            type: 'text',
+            name: 'outputDir',
+            message: 'Output directory:',
+            initial: (_prev: string, values: { name: string }) =>
+              options.dir || join(process.cwd(), values.name),
+          },
+        ])
 
-      if (!answers.name) {
-        logger.error('Setup cancelled');
-        process.exit(1);
+        if (!answers.name) {
+          logger.error('Setup cancelled')
+          process.exit(1)
+        }
+
+        // Default oauth3AppId if OAuth3 disabled
+        if (!answers.oauth3Enabled) {
+          answers.oauth3AppId = ''
+        }
+
+        // Validate and resolve output directory
+        answers.outputDir = resolve(normalize(answers.outputDir))
+
+        config = answers as InitConfig
       }
 
-      // Default oauth3AppId if OAuth3 disabled
-      if (!answers.oauth3Enabled) {
-        answers.oauth3AppId = '';
-      }
+      // Check if directory exists
+      if (existsSync(config.outputDir)) {
+        const files = readdirSync(config.outputDir)
+        if (files.length > 0) {
+          const { overwrite } = await prompts({
+            type: 'confirm',
+            name: 'overwrite',
+            message: `Directory ${config.outputDir} is not empty. Overwrite?`,
+            initial: false,
+          })
 
-      // Validate and resolve output directory
-      answers.outputDir = resolve(normalize(answers.outputDir));
-      
-      config = answers as InitConfig;
-    }
-
-    // Check if directory exists
-    if (existsSync(config.outputDir)) {
-      const files = readdirSync(config.outputDir);
-      if (files.length > 0) {
-        const { overwrite } = await prompts({
-          type: 'confirm',
-          name: 'overwrite',
-          message: `Directory ${config.outputDir} is not empty. Overwrite?`,
-          initial: false,
-        });
-
-        if (!overwrite) {
-          logger.info('Cancelled');
-          process.exit(0);
+          if (!overwrite) {
+            logger.info('Cancelled')
+            process.exit(0)
+          }
         }
       }
-    }
 
-    logger.step(`Creating ${config.displayName}...`);
+      logger.step(`Creating ${config.displayName}...`)
 
-    // Create output directory
-    mkdirSync(config.outputDir, { recursive: true });
+      // Create output directory
+      mkdirSync(config.outputDir, { recursive: true })
 
-    // Copy template files
-    await copyTemplate(TEMPLATE_PATH, config.outputDir, config);
+      // Copy template files
+      await copyTemplate(TEMPLATE_PATH, config.outputDir, config)
 
-    // Generate customized files
-    await generateCustomFiles(config);
+      // Generate customized files
+      await generateCustomFiles(config)
 
-    logger.success(`\nCreated ${config.displayName} at ${config.outputDir}`);
+      logger.success(`\nCreated ${config.displayName} at ${config.outputDir}`)
 
-    // Print next steps
-    console.log(chalk.bold('\nNext steps:\n'));
-    console.log(`  ${chalk.cyan('cd')} ${relative(process.cwd(), config.outputDir)}`);
-    console.log(`  ${chalk.cyan('bun install')}`);
-    console.log(`  ${chalk.cyan('bun run migrate')}  # Set up database`);
-    console.log(`  ${chalk.cyan('bun run seed')}     # Seed OAuth3 registry (dev)`);
-    console.log(`  ${chalk.cyan('bun run dev')}      # Start development server`);
+      // Print next steps
+      console.log(chalk.bold('\nNext steps:\n'))
+      console.log(
+        `  ${chalk.cyan('cd')} ${relative(process.cwd(), config.outputDir)}`,
+      )
+      console.log(`  ${chalk.cyan('bun install')}`)
+      console.log(`  ${chalk.cyan('bun run migrate')}  # Set up database`)
+      console.log(
+        `  ${chalk.cyan('bun run seed')}     # Seed OAuth3 registry (dev)`,
+      )
+      console.log(
+        `  ${chalk.cyan('bun run dev')}      # Start development server`,
+      )
 
-    console.log(chalk.bold('\nTo deploy:\n'));
-    console.log(`  ${chalk.cyan('bun run deploy')}   # Deploy to network`);
+      console.log(chalk.bold('\nTo deploy:\n'))
+      console.log(`  ${chalk.cyan('bun run deploy')}   # Deploy to network`)
 
-    console.log(chalk.bold('\nEndpoints:\n'));
-    console.log(`  REST API:   http://localhost:4500/api/v1`);
-    console.log(`  A2A:        http://localhost:4500/a2a`);
-    console.log(`  MCP:        http://localhost:4500/mcp`);
-    console.log(`  x402:       http://localhost:4500/x402`);
-    console.log(`  Auth:       http://localhost:4500/auth`);
-    console.log(`  Health:     http://localhost:4500/health`);
+      console.log(chalk.bold('\nEndpoints:\n'))
+      console.log(`  REST API:   http://localhost:4500/api/v1`)
+      console.log(`  A2A:        http://localhost:4500/a2a`)
+      console.log(`  MCP:        http://localhost:4500/mcp`)
+      console.log(`  x402:       http://localhost:4500/x402`)
+      console.log(`  Auth:       http://localhost:4500/auth`)
+      console.log(`  Health:     http://localhost:4500/health`)
 
-    console.log(chalk.dim(`\nDocumentation: https://docs.jejunetwork.org/templates\n`));
-  });
+      console.log(
+        chalk.dim(`\nDocumentation: https://docs.jejunetwork.org/templates\n`),
+      )
+    },
+  )
 
 function formatDisplayName(name: string): string {
   return name
     .split('-')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
 }
 
-async function copyTemplate(templateDir: string, outputDir: string, config: InitConfig): Promise<void> {
-  const skipFiles = ['node_modules', '.git', 'dist', 'bun.lockb', '.turbo'];
-  
+async function copyTemplate(
+  templateDir: string,
+  outputDir: string,
+  config: InitConfig,
+): Promise<void> {
+  const skipFiles = ['node_modules', '.git', 'dist', 'bun.lockb', '.turbo']
+
   // Resolve paths to prevent traversal
-  const resolvedTemplateDir = resolve(templateDir);
-  const resolvedOutputDir = resolve(outputDir);
-  
+  const resolvedTemplateDir = resolve(templateDir)
+  const resolvedOutputDir = resolve(outputDir)
+
   function copyRecursive(src: string, dest: string) {
     // Ensure src is within template directory
-    const resolvedSrc = resolve(src);
+    const resolvedSrc = resolve(src)
     if (!resolvedSrc.startsWith(resolvedTemplateDir)) {
-      throw new Error('Path traversal detected in template');
+      throw new Error('Path traversal detected in template')
     }
-    
+
     // Ensure dest is within output directory
-    const resolvedDest = resolve(dest);
+    const resolvedDest = resolve(dest)
     if (!resolvedDest.startsWith(resolvedOutputDir)) {
-      throw new Error('Path traversal detected in output');
+      throw new Error('Path traversal detected in output')
     }
-    
+
     // SECURITY: Check for symlinks to prevent symlink attacks
     // Use lstatSync (doesn't follow symlinks) instead of statSync
-    const lstat = lstatSync(resolvedSrc);
-    
+    const lstat = lstatSync(resolvedSrc)
+
     // Reject symlinks entirely to prevent attacks that could read/write outside directories
     if (lstat.isSymbolicLink()) {
-      throw new Error(`Symlink not allowed in template: ${resolvedSrc}`);
+      throw new Error(`Symlink not allowed in template: ${resolvedSrc}`)
     }
-    
+
     if (lstat.isDirectory()) {
-      const baseName = resolvedSrc.split('/').pop() || '';
-      if (skipFiles.includes(baseName)) return;
-      
-      mkdirSync(resolvedDest, { recursive: true });
-      const files = readdirSync(resolvedSrc);
-      
+      const baseName = resolvedSrc.split('/').pop() || ''
+      if (skipFiles.includes(baseName)) return
+
+      mkdirSync(resolvedDest, { recursive: true })
+      const files = readdirSync(resolvedSrc)
+
       for (const file of files) {
         // Skip files with suspicious names
-        if (file.includes('..') || file.includes('\0')) continue;
-        copyRecursive(join(resolvedSrc, file), join(resolvedDest, file));
+        if (file.includes('..') || file.includes('\0')) continue
+        copyRecursive(join(resolvedSrc, file), join(resolvedDest, file))
       }
     } else if (lstat.isFile()) {
       // Only process regular files, not special files (devices, sockets, etc.)
-      let content = readFileSync(resolvedSrc, 'utf-8');
-      content = transformContent(content, config);
-      writeFileSync(resolvedDest, content);
+      let content = readFileSync(resolvedSrc, 'utf-8')
+      content = transformContent(content, config)
+      writeFileSync(resolvedDest, content)
     }
     // Skip any other file types (devices, sockets, etc.) silently
   }
 
-  copyRecursive(resolvedTemplateDir, resolvedOutputDir);
+  copyRecursive(resolvedTemplateDir, resolvedOutputDir)
 }
 
 function transformContent(content: string, config: InitConfig): string {
@@ -315,36 +353,39 @@ function transformContent(content: string, config: InitConfig): string {
     .replace(/template\.jeju/g, config.jnsName)
     .replace(/example-app-db/g, config.databaseId)
     .replace(/@jejunetwork\/example-app/g, `@jejunetwork/${config.name}`)
-    .replace(/A production-ready template for building fully decentralized applications/g, config.description);
+    .replace(
+      /A production-ready template for building fully decentralized applications/g,
+      config.description,
+    )
 }
 
 async function generateCustomFiles(config: InitConfig): Promise<void> {
   // Generate customized package.json
-  const packageJsonPath = join(config.outputDir, 'package.json');
-  const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
-  
-  packageJson.name = `@jejunetwork/${config.name}`;
-  packageJson.description = config.description;
-  
-  writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+  const packageJsonPath = join(config.outputDir, 'package.json')
+  const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'))
+
+  packageJson.name = `@jejunetwork/${config.name}`
+  packageJson.description = config.description
+
+  writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2))
 
   // Generate customized manifest
-  const manifestPath = join(config.outputDir, 'jeju-manifest.json');
-  const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'));
-  
-  manifest.name = config.name;
-  manifest.displayName = config.displayName;
-  manifest.description = config.description;
-  manifest.jns.name = config.jnsName;
-  manifest.jns.description = config.displayName;
-  manifest.services.database.databaseId = config.databaseId;
-  manifest.agent.jnsName = config.jnsName;
-  manifest.agent.x402Support = config.x402Enabled;
-  
+  const manifestPath = join(config.outputDir, 'jeju-manifest.json')
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'))
+
+  manifest.name = config.name
+  manifest.displayName = config.displayName
+  manifest.description = config.description
+  manifest.jns.name = config.jnsName
+  manifest.jns.description = config.displayName
+  manifest.services.database.databaseId = config.databaseId
+  manifest.agent.jnsName = config.jnsName
+  manifest.agent.x402Support = config.x402Enabled
+
   // Remove template-specific fields
-  delete manifest.template;
-  
-  writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+  delete manifest.template
+
+  writeFileSync(manifestPath, JSON.stringify(manifest, null, 2))
 
   // Generate .env.example
   const envContent = `# ${config.displayName} Configuration
@@ -376,16 +417,16 @@ X402_PAYMENT_ADDRESS=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 
 # OAuth3 Authentication
 OAUTH3_ENABLED=${config.oauth3Enabled}
-OAUTH3_APP_ID=${config.oauth3AppId || config.name + '.oauth3.jeju'}
+OAUTH3_APP_ID=${config.oauth3AppId || `${config.name}.oauth3.jeju`}
 OAUTH3_TEE_AGENT_URL=http://localhost:8004
 OAUTH3_REDIRECT_URI=http://localhost:4501/auth/callback
 
 # Deployment
 DEPLOYER_PRIVATE_KEY=
 JNS_NAME=${config.jnsName}
-`;
+`
 
-  writeFileSync(join(config.outputDir, '.env.example'), envContent);
+  writeFileSync(join(config.outputDir, '.env.example'), envContent)
 
   // Generate README
   const readmeContent = `# ${config.displayName}
@@ -472,8 +513,7 @@ NETWORK=mainnet DEPLOYER_PRIVATE_KEY=0x... bun run deploy
 ## License
 
 MIT
-`;
+`
 
-  writeFileSync(join(config.outputDir, 'README.md'), readmeContent);
+  writeFileSync(join(config.outputDir, 'README.md'), readmeContent)
 }
-

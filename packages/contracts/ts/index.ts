@@ -1,25 +1,25 @@
 /**
  * @fileoverview Main exports for @jejunetwork/contracts package
  * @module @jejunetwork/contracts
- * 
+ *
  * This package provides:
  * - Contract ABIs for network smart contracts
  * - Typed deployment addresses
  * - Helper functions for getting addresses by chain/network
- * 
+ *
  * @example
  * ```typescript
- * import { 
- *   getContractAddresses, 
+ * import {
+ *   getContractAddresses,
  *   ERC20Abi,
  *   IdentityRegistryAbi,
- *   CHAIN_IDS 
+ *   CHAIN_IDS
  * } from '@jejunetwork/contracts';
- * 
+ *
  * // Get all addresses for localnet
  * const addresses = getContractAddresses(1337);
  * console.log(addresses.identityRegistry);
- * 
+ *
  * // Use ABIs with viem
  * import { createPublicClient, http } from 'viem';
  * const client = createPublicClient({ transport: http() });
@@ -36,248 +36,247 @@
 // Types & Schemas
 // ============================================================================
 
-export * from './types';
-export * from './schemas';
+export * from './schemas'
+export * from './types'
 
 // ============================================================================
 // ABIs
 // ============================================================================
 
 export {
-  // Core ABIs
-  ERC20Abi,
-  ERC20FactoryAbi,
-  BazaarAbi,
-  // ERC-8004 Registry ABIs
-  IdentityRegistryAbi,
-  ReputationRegistryAbi,
-  ValidationRegistryAbi,
-  ERC20ReadAbi,
-  ERC20WriteAbi,
-  // Native token ABI
-  NetworkTokenAbi,
-  NetworkTokenAbiJson,
+  AppTokenPreferenceAbi,
+  AppTokenPreferenceAbiJson,
+  AutomationRegistryAbi,
+  AutomationRegistryAbiJson,
   // Moderation ABIs
   BanManagerAbi,
   BanManagerAbiJson,
-  ModerationMarketplaceAbi,
-  ModerationMarketplaceAbiJson,
+  BazaarAbi,
+  BazaarAbiJson,
+  BondingCurveAbi,
+  BondingCurveAbiJson,
+  ChainlinkGovernanceAbi,
+  ChainlinkGovernanceAbiJson,
   // Service ABIs (with JEJU support)
   CreditManagerAbi,
   CreditManagerAbiJson,
-  MultiTokenPaymasterAbi,
-  MultiTokenPaymasterAbiJson,
-  // Paymaster System ABIs
-  TokenRegistryAbi,
-  TokenRegistryAbiJson,
-  PaymasterFactoryAbi,
-  PaymasterFactoryAbiJson,
-  LiquidityVaultAbi,
-  LiquidityVaultAbiJson,
-  AppTokenPreferenceAbi,
-  AppTokenPreferenceAbiJson,
-  // OIF (Open Intents Framework) ABIs
-  InputSettlerAbi,
-  OutputSettlerAbi,
-  SolverRegistryAbi,
-  SimpleOracleAbi,
-  HyperlaneOracleAbi,
-  SuperchainOracleAbi,
+  // Core ABIs
+  ERC20Abi,
+  // Full JSON exports
+  ERC20AbiJson,
+  ERC20FactoryAbi,
+  ERC20FactoryAbiJson,
+  ERC20ReadAbi,
+  ERC20WriteAbi,
+  GameIntegrationAbi,
+  GameIntegrationAbiJson,
   // Game ABIs (Hyperscape / forkable game infrastructure)
   // Note: Games use standard network BanManager for moderation
   GoldAbi,
+  GoldAbiJson,
+  HyperlaneOracleAbi,
+  HyperlaneOracleAbiJson,
+  ICOPresaleAbi,
+  ICOPresaleAbiJson,
+  // ERC-8004 Registry ABIs
+  IdentityRegistryAbi,
+  IdentityRegistryAbiJson,
+  // OIF (Open Intents Framework) ABIs
+  InputSettlerAbi,
+  InputSettlerAbiJson,
   ItemsAbi,
-  GameIntegrationAbi,
+  ItemsAbiJson,
+  LaunchpadTokenAbi,
+  LaunchpadTokenAbiJson,
+  LiquidityVaultAbi,
+  LiquidityVaultAbiJson,
+  LPLockerAbi,
+  LPLockerAbiJson,
+  ModerationMarketplaceAbi,
+  ModerationMarketplaceAbiJson,
+  MultiTokenPaymasterAbi,
+  MultiTokenPaymasterAbiJson,
+  // Native token ABI
+  NetworkTokenAbi,
+  NetworkTokenAbiJson,
+  OracleRouterAbi,
+  OracleRouterAbiJson,
+  OutputSettlerAbi,
+  OutputSettlerAbiJson,
+  PaymasterFactoryAbi,
+  PaymasterFactoryAbiJson,
   PlayerTradeEscrowAbi,
+  PlayerTradeEscrowAbiJson,
+  ReputationRegistryAbi,
+  ReputationRegistryAbiJson,
+  SimpleOracleAbi,
+  SimpleOracleAbiJson,
+  SolverRegistryAbi,
+  SolverRegistryAbiJson,
   // Paymaster ABIs (ERC-4337 Account Abstraction)
   SponsoredPaymasterAbi,
+  SponsoredPaymasterAbiJson,
+  SuperchainOracleAbi,
+  SuperchainOracleAbiJson,
   // Launchpad ABIs
   TokenLaunchpadAbi,
-  BondingCurveAbi,
-  ICOPresaleAbi,
-  LPLockerAbi,
-  LaunchpadTokenAbi,
+  TokenLaunchpadAbiJson,
+  // Paymaster System ABIs
+  TokenRegistryAbi,
+  TokenRegistryAbiJson,
+  ValidationRegistryAbi,
+  ValidationRegistryAbiJson,
   // Chainlink ABIs (VRF, Automation, Oracle)
   VRFCoordinatorV2_5Abi,
-  AutomationRegistryAbi,
-  OracleRouterAbi,
-  ChainlinkGovernanceAbi,
-  // Full JSON exports
-  ERC20AbiJson,
-  ERC20FactoryAbiJson,
-  BazaarAbiJson,
-  IdentityRegistryAbiJson,
-  ReputationRegistryAbiJson,
-  ValidationRegistryAbiJson,
-  InputSettlerAbiJson,
-  OutputSettlerAbiJson,
-  SolverRegistryAbiJson,
-  SimpleOracleAbiJson,
-  HyperlaneOracleAbiJson,
-  SuperchainOracleAbiJson,
-  GoldAbiJson,
-  ItemsAbiJson,
-  GameIntegrationAbiJson,
-  PlayerTradeEscrowAbiJson,
-  SponsoredPaymasterAbiJson,
-  TokenLaunchpadAbiJson,
-  BondingCurveAbiJson,
-  ICOPresaleAbiJson,
-  LPLockerAbiJson,
-  LaunchpadTokenAbiJson,
   VRFCoordinatorV2_5AbiJson,
-  AutomationRegistryAbiJson,
-  OracleRouterAbiJson,
-  ChainlinkGovernanceAbiJson,
-} from './abis';
+} from './abis'
 
 // ============================================================================
 // Deployments
 // ============================================================================
 
 export {
-  // Typed deployment records
-  uniswapV4Deployments,
   bazaarMarketplaceDeployments,
   erc20FactoryDeployments,
-  identitySystemDeployments,
-  paymasterDeployments,
-  xlpDeployments,
+  // Types
+  type GameSystemDeployment,
   gameSystemDeployments,
-  launchpadDeployments,
-  // Helper functions
-  getUniswapV4,
   getBazaarMarketplace,
-  getERC20Factory,
-  getIdentityRegistry,
-  getXLPDeployment,
   getContractAddresses,
   getContractAddressesByNetwork,
+  getERC20Factory,
+  getGameGold,
+  getGameIntegration,
+  getGameItems,
   // Game system helpers
   getGameSystem,
-  getGameGold,
-  getGameItems,
-  getGameIntegration,
+  getIdentityRegistry,
+  // Launchpad helpers
+  getLaunchpadDeployment,
   // Paymaster / AA helpers
   getPaymasterSystem,
   getSponsoredPaymaster,
-  // Launchpad helpers
-  getLaunchpadDeployment,
   getTokenLaunchpad,
+  // Helper functions
+  getUniswapV4,
+  getXLPDeployment,
+  identitySystemDeployments,
+  launchpadDeployments,
+  paymasterDeployments,
   // Raw deployments
   rawDeployments,
-  // Types
-  type GameSystemDeployment,
-} from './deployments';
+  // Typed deployment records
+  uniswapV4Deployments,
+  xlpDeployments,
+} from './deployments'
 
 // ============================================================================
 // Constants
 // ============================================================================
 
-export { CHAIN_IDS, NETWORK_BY_CHAIN_ID, ZERO_ADDRESS } from './types';
+export { CHAIN_IDS, NETWORK_BY_CHAIN_ID, ZERO_ADDRESS } from './types'
 
 // ============================================================================
 // Utilities
 // ============================================================================
 
-export { isValidAddress } from './types';
+export { isValidAddress } from './types'
 
 // ============================================================================
 // Account Abstraction (ERC-4337)
 // ============================================================================
 
 export {
+  calculateRequiredDeposit,
+  DEFAULT_GAS_LIMITS,
   // Constants
   ENTRYPOINT_V07_ADDRESS,
-  DEFAULT_GAS_LIMITS,
-  // Types
-  type PaymasterData,
-  type SponsoredPaymasterConfig,
-  type LiquidityPaymasterConfig,
-  type MultiTokenPaymasterConfig,
-  // Paymaster data builders
-  getSponsoredPaymasterData,
+  EntryPointAbi as EntryPointMinimalAbi,
   getLiquidityPaymasterData,
   getMultiTokenPaymasterData,
+  // Paymaster data builders
+  getSponsoredPaymasterData,
+  isSponsoredPaymaster,
+  LiquidityPaymasterAbi as LiquidityPaymasterMinimalAbi,
+  type LiquidityPaymasterConfig,
+  type MultiTokenPaymasterConfig,
+  // Types
+  type PaymasterData,
   // Helpers
   parsePaymasterAddress,
-  isSponsoredPaymaster,
-  calculateRequiredDeposit,
   // Minimal ABIs (full ABIs are in ./abis)
   SponsoredPaymasterAbi as SponsoredPaymasterMinimalAbi,
-  LiquidityPaymasterAbi as LiquidityPaymasterMinimalAbi,
-  EntryPointAbi as EntryPointMinimalAbi,
-} from './aa';
+  type SponsoredPaymasterConfig,
+} from './aa'
 
 // ============================================================================
 // CAIP (Chain Agnostic Improvement Proposals)
 // ============================================================================
 
 export {
-  // Chain identification (CAIP-2)
-  parseChainId,
-  formatChainId,
-  getChainInfo,
-  evmChainIdToCAIP2,
-  caip2ToEvmChainId,
-  isEvmChain,
-  isSolanaChain,
-  getSolanaCluster,
-  solanaClusterToCAIP2,
-  getAllChains,
-  getMainnetChains,
-  getTestnetChains,
-  CHAINS,
-  SOLANA_MAINNET_GENESIS,
-  SOLANA_DEVNET_GENESIS,
-  SOLANA_TESTNET_GENESIS,
-  type ChainNamespace,
-  type ChainId as CAIPChainId,
-  type ChainInfo,
-  // Account identification (CAIP-10)
-  parseAccountId,
-  formatAccountId,
-  createUniversalAddress,
-  isValidAccountId,
-  isValidSolanaAddress,
-  isValidEvmAddress,
-  evmAddressToCAIP10,
-  solanaAddressToCAIP10,
-  caip10ToEvmAddress,
-  caip10ToSolanaPublicKey,
-  createMultiChainAddress,
-  bytes32ToAddress,
-  areAddressesEqual,
-  shortenAddress,
   type AccountId,
-  type UniversalAddress,
-  type MultiChainAddress,
-  // Asset identification (CAIP-19)
-  parseAssetType,
-  formatAssetType,
-  getAssetInfo,
-  isValidAssetType,
-  nativeCurrencyToCAIP19,
-  erc20ToCAIP19,
-  splTokenToCAIP19,
-  erc721ToCAIP19,
-  caip19ToErc20Address,
-  caip19ToSplMint,
-  findEquivalentAsset,
-  getAssetChainMap,
-  SLIP44,
-  KNOWN_ASSETS,
-  CROSS_CHAIN_ASSETS,
+  type AssetInfo,
   type AssetNamespace,
   type AssetType,
-  type AssetInfo,
+  areAddressesEqual,
+  bytes32ToAddress,
+  CAIPBuilder,
+  CHAINS,
+  type ChainId as CAIPChainId,
+  type ChainInfo,
+  type ChainNamespace,
+  CROSS_CHAIN_ASSETS,
   type CrossChainAsset,
+  caip,
+  caip2ToEvmChainId,
+  caip10ToEvmAddress,
+  caip10ToSolanaPublicKey,
+  caip19ToErc20Address,
+  caip19ToSplMint,
+  createMultiChainAddress,
+  createUniversalAddress,
+  erc20ToCAIP19,
+  erc721ToCAIP19,
+  evmAddressToCAIP10,
+  evmChainIdToCAIP2,
+  findEquivalentAsset,
+  formatAccountId,
+  formatAssetType,
+  formatChainId,
+  getAllChains,
+  getAssetChainMap,
+  getAssetInfo,
+  getCAIPType,
+  getChainInfo,
+  getMainnetChains,
+  getSolanaCluster,
+  getTestnetChains,
+  isEvmChain,
+  isSolanaChain,
+  isValidAccountId,
+  isValidAssetType,
+  isValidCAIP,
+  isValidEvmAddress,
+  isValidSolanaAddress,
+  KNOWN_ASSETS,
+  type MultiChainAddress,
+  nativeCurrencyToCAIP19,
+  // Account identification (CAIP-10)
+  parseAccountId,
+  // Asset identification (CAIP-19)
+  parseAssetType,
+  // Chain identification (CAIP-2)
+  parseChainId,
   // Unified utilities
   parseUniversalId,
-  isValidCAIP,
-  getCAIPType,
-  caip,
-  CAIPBuilder,
+  SLIP44,
+  SOLANA_DEVNET_GENESIS,
+  SOLANA_MAINNET_GENESIS,
+  SOLANA_TESTNET_GENESIS,
+  shortenAddress,
+  solanaAddressToCAIP10,
+  solanaClusterToCAIP2,
+  splTokenToCAIP19,
+  type UniversalAddress,
   type UniversalId,
-} from './caip';
-
+} from './caip'

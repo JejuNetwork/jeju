@@ -2,5 +2,4 @@
  * Network Messaging Relay Node
  */
 
-export { createRelayServer, startRelayServer, handleWebSocket } from './server';
-
+export { createRelayServer, handleWebSocket, startRelayServer } from './server'

@@ -8,13 +8,13 @@
  * - Treasury management
  */
 
-import { z } from 'zod';
-import { ChainIdSchema } from '@jejunetwork/types';
+import { ChainIdSchema } from '@jejunetwork/types'
+import { z } from 'zod'
 
 // ============ Chain Configuration ============
 
-export { ChainIdSchema };
-export type ChainId = z.infer<typeof ChainIdSchema>;
+export { ChainIdSchema }
+export type ChainId = z.infer<typeof ChainIdSchema>
 
 export const ChainConfigSchema = z.object({
   chainId: ChainIdSchema,
@@ -25,8 +25,8 @@ export const ChainConfigSchema = z.object({
   isL2: z.boolean(),
   nativeSymbol: z.string(),
   explorerUrl: z.string().optional(),
-});
-export type ChainConfig = z.infer<typeof ChainConfigSchema>;
+})
+export type ChainConfig = z.infer<typeof ChainConfigSchema>
 
 // ============ Token & Pool Types ============
 
@@ -35,11 +35,17 @@ export const TokenSchema = z.object({
   symbol: z.string(),
   decimals: z.number(),
   chainId: ChainIdSchema,
-});
-export type Token = z.infer<typeof TokenSchema>;
+})
+export type Token = z.infer<typeof TokenSchema>
 
-export const PoolTypeSchema = z.enum(['XLP_V2', 'XLP_V3', 'UNISWAP_V2', 'UNISWAP_V3', 'CURVE']);
-export type PoolType = z.infer<typeof PoolTypeSchema>;
+export const PoolTypeSchema = z.enum([
+  'XLP_V2',
+  'XLP_V3',
+  'UNISWAP_V2',
+  'UNISWAP_V3',
+  'CURVE',
+])
+export type PoolType = z.infer<typeof PoolTypeSchema>
 
 export const PoolSchema = z.object({
   address: z.string(),
@@ -47,15 +53,15 @@ export const PoolSchema = z.object({
   token0: TokenSchema,
   token1: TokenSchema,
   chainId: ChainIdSchema,
-  fee: z.number().optional(),        // Fee in basis points (V3)
+  fee: z.number().optional(), // Fee in basis points (V3)
   tickSpacing: z.number().optional(), // V3 tick spacing
   reserve0: z.string().optional(),
   reserve1: z.string().optional(),
   sqrtPriceX96: z.string().optional(), // V3 price
   liquidity: z.string().optional(),
   lastUpdate: z.number().optional(),
-});
-export type Pool = z.infer<typeof PoolSchema>;
+})
+export type Pool = z.infer<typeof PoolSchema>
 
 // ============ Strategy Types ============
 
@@ -69,18 +75,18 @@ export const StrategyTypeSchema = z.enum([
   'YIELD_FARMING',
   'LIQUIDITY',
   'OTHER',
-]);
-export type StrategyType = z.infer<typeof StrategyTypeSchema>;
+])
+export type StrategyType = z.infer<typeof StrategyTypeSchema>
 
 export const StrategyConfigSchema = z.object({
   type: StrategyTypeSchema,
   enabled: z.boolean(),
-  minProfitBps: z.number(),        // Minimum profit in basis points
-  maxGasGwei: z.number(),          // Max gas price
-  maxSlippageBps: z.number(),      // Max slippage tolerance
+  minProfitBps: z.number(), // Minimum profit in basis points
+  maxGasGwei: z.number(), // Max gas price
+  maxSlippageBps: z.number(), // Max slippage tolerance
   cooldownMs: z.number().optional(), // Cooldown between executions
-});
-export type StrategyConfig = z.infer<typeof StrategyConfigSchema>;
+})
+export type StrategyConfig = z.infer<typeof StrategyConfigSchema>
 
 // ============ Opportunity Types ============
 
@@ -91,8 +97,8 @@ export const OpportunityStatusSchema = z.enum([
   'COMPLETED',
   'FAILED',
   'EXPIRED',
-]);
-export type OpportunityStatus = z.infer<typeof OpportunityStatusSchema>;
+])
+export type OpportunityStatus = z.infer<typeof OpportunityStatusSchema>
 
 export const ArbitrageOpportunitySchema = z.object({
   id: z.string(),
@@ -111,8 +117,8 @@ export const ArbitrageOpportunitySchema = z.object({
   detectedAt: z.number(),
   expiresAt: z.number(),
   status: OpportunityStatusSchema,
-});
-export type ArbitrageOpportunity = z.infer<typeof ArbitrageOpportunitySchema>;
+})
+export type ArbitrageOpportunity = z.infer<typeof ArbitrageOpportunitySchema>
 
 export const CrossChainArbOpportunitySchema = z.object({
   id: z.string(),
@@ -131,8 +137,10 @@ export const CrossChainArbOpportunitySchema = z.object({
   detectedAt: z.number(),
   expiresAt: z.number(),
   status: OpportunityStatusSchema,
-});
-export type CrossChainArbOpportunity = z.infer<typeof CrossChainArbOpportunitySchema>;
+})
+export type CrossChainArbOpportunity = z.infer<
+  typeof CrossChainArbOpportunitySchema
+>
 
 export const SandwichOpportunitySchema = z.object({
   id: z.string(),
@@ -161,8 +169,8 @@ export const SandwichOpportunitySchema = z.object({
   victimImpactBps: z.number(),
   detectedAt: z.number(),
   status: OpportunityStatusSchema,
-});
-export type SandwichOpportunity = z.infer<typeof SandwichOpportunitySchema>;
+})
+export type SandwichOpportunity = z.infer<typeof SandwichOpportunitySchema>
 
 export const LiquidationOpportunitySchema = z.object({
   id: z.string(),
@@ -182,14 +190,16 @@ export const LiquidationOpportunitySchema = z.object({
   netProfitWei: z.string(),
   detectedAt: z.number(),
   status: OpportunityStatusSchema,
-});
-export type LiquidationOpportunity = z.infer<typeof LiquidationOpportunitySchema>;
+})
+export type LiquidationOpportunity = z.infer<
+  typeof LiquidationOpportunitySchema
+>
 
-export type Opportunity = 
-  | ArbitrageOpportunity 
-  | CrossChainArbOpportunity 
-  | SandwichOpportunity 
-  | LiquidationOpportunity;
+export type Opportunity =
+  | ArbitrageOpportunity
+  | CrossChainArbOpportunity
+  | SandwichOpportunity
+  | LiquidationOpportunity
 
 // ============ Execution Types ============
 
@@ -203,8 +213,10 @@ export const OpportunityExecutionResultSchema = z.object({
   error: z.string().optional(),
   executedAt: z.number(),
   durationMs: z.number(),
-});
-export type OpportunityExecutionResult = z.infer<typeof OpportunityExecutionResultSchema>;
+})
+export type OpportunityExecutionResult = z.infer<
+  typeof OpportunityExecutionResultSchema
+>
 
 // ============ Treasury Types ============
 
@@ -217,8 +229,8 @@ export const ProfitSourceSchema = z.enum([
   'SOLVER',
   'ORACLE_KEEPER',
   'OTHER',
-]);
-export type ProfitSource = z.infer<typeof ProfitSourceSchema>;
+])
+export type ProfitSource = z.infer<typeof ProfitSourceSchema>
 
 export const ProfitDepositSchema = z.object({
   token: z.string(),
@@ -227,8 +239,8 @@ export const ProfitDepositSchema = z.object({
   txHash: z.string(),
   timestamp: z.number(),
   operator: z.string(),
-});
-export type ProfitDeposit = z.infer<typeof ProfitDepositSchema>;
+})
+export type ProfitDeposit = z.infer<typeof ProfitDepositSchema>
 
 export const TreasuryStatsSchema = z.object({
   totalProfitsByToken: z.record(z.string(), z.string()),
@@ -241,16 +253,28 @@ export const TreasuryStatsSchema = z.object({
     insuranceBps: z.number(),
     operatorBps: z.number(),
   }),
-});
-export type TreasuryStats = z.infer<typeof TreasuryStatsSchema>;
+})
+export type TreasuryStats = z.infer<typeof TreasuryStatsSchema>
 
 // ============ Block Builder Types ============
 
-export const AccessTierSchema = z.enum(['NONE', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM']);
-export type AccessTier = z.infer<typeof AccessTierSchema>;
+export const AccessTierSchema = z.enum([
+  'NONE',
+  'BRONZE',
+  'SILVER',
+  'GOLD',
+  'PLATINUM',
+])
+export type AccessTier = z.infer<typeof AccessTierSchema>
 
-export const BundleStatusSchema = z.enum(['PENDING', 'INCLUDED', 'FAILED', 'EXPIRED', 'REFUNDED']);
-export type BundleStatus = z.infer<typeof BundleStatusSchema>;
+export const BundleStatusSchema = z.enum([
+  'PENDING',
+  'INCLUDED',
+  'FAILED',
+  'EXPIRED',
+  'REFUNDED',
+])
+export type BundleStatus = z.infer<typeof BundleStatusSchema>
 
 export const BundleSubmissionSchema = z.object({
   bundleId: z.string(),
@@ -259,16 +283,18 @@ export const BundleSubmissionSchema = z.object({
   bidAmount: z.string(),
   bundleHash: z.string(),
   maxGasPrice: z.string(),
-  transactions: z.array(z.object({
-    to: z.string(),
-    data: z.string(),
-    value: z.string(),
-    gasLimit: z.string(),
-  })),
+  transactions: z.array(
+    z.object({
+      to: z.string(),
+      data: z.string(),
+      value: z.string(),
+      gasLimit: z.string(),
+    }),
+  ),
   status: BundleStatusSchema,
   submittedAt: z.number(),
-});
-export type BundleSubmission = z.infer<typeof BundleSubmissionSchema>;
+})
+export type BundleSubmission = z.infer<typeof BundleSubmissionSchema>
 
 // ============ Autocrat Configuration ============
 
@@ -276,28 +302,28 @@ export const AutocratConfigSchema = z.object({
   // Chain configuration
   chains: z.array(ChainConfigSchema),
   primaryChainId: ChainIdSchema,
-  
+
   // Wallet
   privateKey: z.string(),
   treasuryAddress: z.string(),
-  
+
   // Strategy configs
   strategies: z.array(StrategyConfigSchema),
-  
+
   // Global settings
   minProfitUsd: z.number(),
   maxConcurrentExecutions: z.number(),
   simulationTimeout: z.number(),
-  
+
   // Gas settings
   maxGasGwei: z.number(),
   gasPriceMultiplier: z.number(),
-  
+
   // Monitoring
   metricsPort: z.number(),
   logLevel: z.enum(['debug', 'info', 'warn', 'error']),
-});
-export type AutocratConfig = z.infer<typeof AutocratConfigSchema>;
+})
+export type AutocratConfig = z.infer<typeof AutocratConfigSchema>
 
 // ============ Metrics Types ============
 
@@ -311,11 +337,14 @@ export const MetricsSchema = z.object({
   avgExecutionTimeMs: z.number(),
   uptime: z.number(),
   lastUpdate: z.number(),
-  byStrategy: z.record(StrategyTypeSchema, z.object({
-    detected: z.number(),
-    executed: z.number(),
-    failed: z.number(),
-    profitWei: z.string(),
-  })),
-});
-export type Metrics = z.infer<typeof MetricsSchema>;
+  byStrategy: z.record(
+    StrategyTypeSchema,
+    z.object({
+      detected: z.number(),
+      executed: z.number(),
+      failed: z.number(),
+      profitWei: z.string(),
+    }),
+  ),
+})
+export type Metrics = z.infer<typeof MetricsSchema>

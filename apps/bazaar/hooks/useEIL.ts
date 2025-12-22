@@ -5,47 +5,52 @@
  * Re-exports shared implementation with Bazaar-specific config
  */
 
-import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi'
-import { useState, useCallback, useEffect } from 'react'
-import { parseEther, type Address } from 'viem'
 import { AddressSchema } from '@jejunetwork/types'
+import { useCallback, useEffect, useState } from 'react'
+import { type Address, parseEther } from 'viem'
+import {
+  useAccount,
+  useReadContract,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from 'wagmi'
 import { expect, expectPositive } from '@/lib/validation'
 
 // Re-export shared types and utilities
 export {
-  type ChainInfo,
-  type CrossChainSwapParams,
-  type XLPPosition,
-  type EILStats,
-  type SwapStatus,
-  type AppPreference,
-  type GasPaymentOption,
-  SUPPORTED_CHAINS,
-  CROSS_CHAIN_PAYMASTER_ABI,
-  L1_STAKE_MANAGER_ABI,
   APP_TOKEN_PREFERENCE_ABI,
+  type AppPreference,
+  buildAppAwarePaymentData,
+  buildTokenPaymentData,
+  type ChainInfo,
+  CROSS_CHAIN_PAYMASTER_ABI,
+  type CrossChainSwapParams,
   calculateSwapFee,
+  type EILStats,
   estimateSwapTime,
+  formatGasPaymentOption,
   formatSwapRoute,
   formatXLPPosition,
+  type GasPaymentOption,
+  getBestGasTokenForApp,
   getChainById,
   isCrossChainSwap,
-  validateSwapParams,
-  buildTokenPaymentData,
-  buildAppAwarePaymentData,
-  getBestGasTokenForApp,
+  L1_STAKE_MANAGER_ABI,
+  SUPPORTED_CHAINS,
+  type SwapStatus,
   selectBestGasToken,
-  formatGasPaymentOption,
+  validateSwapParams,
+  type XLPPosition,
 } from '@jejunetwork/deployment/scripts/shared/eil-hooks'
 
 // Import for use
 import {
-  SUPPORTED_CHAINS,
-  CROSS_CHAIN_PAYMASTER_ABI,
   APP_TOKEN_PREFERENCE_ABI,
-  type CrossChainSwapParams,
-  type SwapStatus,
   type AppPreference,
+  CROSS_CHAIN_PAYMASTER_ABI,
+  type CrossChainSwapParams,
+  SUPPORTED_CHAINS,
+  type SwapStatus,
 } from '@jejunetwork/deployment/scripts/shared/eil-hooks'
 
 // EIL config - hardcoded for client-side use
@@ -56,15 +61,30 @@ const eilConfig = {
   l2Messenger: '0x4200000000000000000000000000000000000007',
   supportedTokens: ['ETH', 'WETH', 'USDC', 'JEJU'],
   testnet: {
-    hub: { chainId: 420690, name: 'Jeju Testnet', l1StakeManager: '', status: 'active' },
+    hub: {
+      chainId: 420690,
+      name: 'Jeju Testnet',
+      l1StakeManager: '',
+      status: 'active',
+    },
     chains: {} as Record<string, EILChainConfig>,
   },
   mainnet: {
-    hub: { chainId: 420691, name: 'Jeju Mainnet', l1StakeManager: '', status: 'planned' },
+    hub: {
+      chainId: 420691,
+      name: 'Jeju Mainnet',
+      l1StakeManager: '',
+      status: 'planned',
+    },
     chains: {} as Record<string, EILChainConfig>,
   },
   localnet: {
-    hub: { chainId: 1337, name: 'Jeju Localnet', l1StakeManager: '', status: 'active' },
+    hub: {
+      chainId: 1337,
+      name: 'Jeju Localnet',
+      l1StakeManager: '',
+      status: 'active',
+    },
     chains: {} as Record<string, EILChainConfig>,
   },
 } as EILConfig
@@ -72,67 +92,79 @@ const eilConfig = {
 // ============ EIL Config Hook ============
 
 type EILChainConfig = {
-  name: string;
-  crossChainPaymaster: string;
-  status: string;
-  oif?: Record<string, string>;
-  tokens?: Record<string, string>;
-};
+  name: string
+  crossChainPaymaster: string
+  status: string
+  oif?: Record<string, string>
+  tokens?: Record<string, string>
+}
 
 type EILNetworkConfig = {
-  hub: { chainId: number; name: string; l1StakeManager: string; status: string };
-  chains: Record<string, EILChainConfig>;
-};
+  hub: { chainId: number; name: string; l1StakeManager: string; status: string }
+  chains: Record<string, EILChainConfig>
+}
 
 type EILConfig = {
-  version: string;
-  lastUpdated: string;
-  entryPoint: string;
-  l2Messenger: string;
-  supportedTokens: string[];
-  testnet: EILNetworkConfig;
-  mainnet: EILNetworkConfig;
-  localnet: EILNetworkConfig;
-};
+  version: string
+  lastUpdated: string
+  entryPoint: string
+  l2Messenger: string
+  supportedTokens: string[]
+  testnet: EILNetworkConfig
+  mainnet: EILNetworkConfig
+  localnet: EILNetworkConfig
+}
 
-import { NETWORK } from '@/config';
+import { NETWORK } from '@/config'
 
 // Helper to get chain config based on current network
 function getNetworkConfig(): EILNetworkConfig {
-  const config = eilConfig as EILConfig;
-  if (NETWORK === 'testnet') return config.testnet;
-  if (NETWORK === 'mainnet') return config.mainnet;
-  return config.localnet;
+  const config = eilConfig as EILConfig
+  if (NETWORK === 'testnet') return config.testnet
+  if (NETWORK === 'mainnet') return config.mainnet
+  return config.localnet
 }
 
 export function useEILConfig() {
   const { chain } = useAccount()
   const chainId = chain?.id?.toString() || '420691'
-  
-  const networkConfig = getNetworkConfig();
-  const chainConfig = networkConfig.chains[chainId];
-  const paymasterAddress = chainConfig?.crossChainPaymaster;
-  const crossChainPaymaster = (paymasterAddress && paymasterAddress.length > 0 ? paymasterAddress : undefined) as Address | undefined;
-  const isAvailable = crossChainPaymaster && crossChainPaymaster !== '0x0000000000000000000000000000000000000000';
-  
-  const configuredChains = SUPPORTED_CHAINS.map(supportedChain => {
-    const config = networkConfig.chains[supportedChain.id.toString()];
-    const addr = config?.crossChainPaymaster;
+
+  const networkConfig = getNetworkConfig()
+  const chainConfig = networkConfig.chains[chainId]
+  const paymasterAddress = chainConfig?.crossChainPaymaster
+  const crossChainPaymaster = (
+    paymasterAddress && paymasterAddress.length > 0
+      ? paymasterAddress
+      : undefined
+  ) as Address | undefined
+  const isAvailable =
+    crossChainPaymaster &&
+    crossChainPaymaster !== '0x0000000000000000000000000000000000000000'
+
+  const configuredChains = SUPPORTED_CHAINS.map((supportedChain) => {
+    const config = networkConfig.chains[supportedChain.id.toString()]
+    const addr = config?.crossChainPaymaster
     return {
       ...supportedChain,
-      paymasterAddress: (addr && addr.length > 0 ? addr : undefined) as Address | undefined
-    };
-  });
+      paymasterAddress: (addr && addr.length > 0 ? addr : undefined) as
+        | Address
+        | undefined,
+    }
+  })
 
   // Get appTokenPreference address from chain config if available
-  const appTokenPreferenceAddr = chainConfig?.tokens?.['appTokenPreference'] as Address | undefined;
+  const appTokenPreferenceAddr = chainConfig?.tokens?.appTokenPreference as
+    | Address
+    | undefined
 
   return {
     isAvailable: Boolean(isAvailable),
     crossChainPaymaster: isAvailable ? crossChainPaymaster : undefined,
     appTokenPreference: appTokenPreferenceAddr || undefined,
     supportedChains: configuredChains,
-    l1StakeManager: (networkConfig.hub.l1StakeManager || undefined) as Address | undefined,
+    l1StakeManager: (networkConfig.hub.l1StakeManager || undefined) as
+      | Address
+      | undefined,
     supportedTokens: (eilConfig as EILConfig).supportedTokens as Address[],
   }
 }
@@ -145,7 +177,9 @@ export function useCrossChainSwap(paymasterAddress: Address | undefined) {
   const [error, setError] = useState<string | null>(null)
 
   const { writeContract, data: hash, isPending } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
   useEffect(() => {
     if (isPending) setSwapStatus('creating')
@@ -153,43 +187,50 @@ export function useCrossChainSwap(paymasterAddress: Address | undefined) {
     else if (isSuccess) setSwapStatus('complete')
   }, [isPending, isConfirming, isSuccess])
 
-  const executeCrossChainSwap = useCallback(async (params: CrossChainSwapParams) => {
-    const validatedPaymasterAddress = expect(paymasterAddress, 'EIL paymaster not configured');
-    const validatedUserAddress = expect(userAddress, 'Wallet not connected');
-    AddressSchema.parse(validatedPaymasterAddress);
-    AddressSchema.parse(validatedUserAddress);
+  const executeCrossChainSwap = useCallback(
+    async (params: CrossChainSwapParams) => {
+      const validatedPaymasterAddress = expect(
+        paymasterAddress,
+        'EIL paymaster not configured',
+      )
+      const validatedUserAddress = expect(userAddress, 'Wallet not connected')
+      AddressSchema.parse(validatedPaymasterAddress)
+      AddressSchema.parse(validatedUserAddress)
 
-    setSwapStatus('creating')
-    setError(null)
+      setSwapStatus('creating')
+      setError(null)
 
-    const maxFee = parseEther('0.01')
-    const feeIncrement = parseEther('0.0001')
-    const gasOnDestination = parseEther('0.001')
+      const maxFee = parseEther('0.01')
+      const feeIncrement = parseEther('0.0001')
+      const gasOnDestination = parseEther('0.001')
 
-    const isETH = params.sourceToken === '0x0000000000000000000000000000000000000000'
-    const txValue = isETH ? params.amount + maxFee : maxFee
+      const isETH =
+        params.sourceToken === '0x0000000000000000000000000000000000000000'
+      const txValue = isETH ? params.amount + maxFee : maxFee
 
-    AddressSchema.parse(params.sourceToken);
-    AddressSchema.parse(params.destinationToken);
-    expectPositive(params.amount, 'Amount must be positive');
-    
-    writeContract({
-      address: validatedPaymasterAddress,
-      abi: CROSS_CHAIN_PAYMASTER_ABI,
-      functionName: 'createVoucherRequest',
-      args: [
-        params.sourceToken,
-        params.amount,
-        params.destinationToken,
-        BigInt(params.destinationChainId),
-        params.recipient || validatedUserAddress,
-        gasOnDestination,
-        maxFee,
-        feeIncrement
-      ],
-      value: txValue
-    })
-  }, [paymasterAddress, userAddress, writeContract])
+      AddressSchema.parse(params.sourceToken)
+      AddressSchema.parse(params.destinationToken)
+      expectPositive(params.amount, 'Amount must be positive')
+
+      writeContract({
+        address: validatedPaymasterAddress,
+        abi: CROSS_CHAIN_PAYMASTER_ABI,
+        functionName: 'createVoucherRequest',
+        args: [
+          params.sourceToken,
+          params.amount,
+          params.destinationToken,
+          BigInt(params.destinationChainId),
+          params.recipient || validatedUserAddress,
+          gasOnDestination,
+          maxFee,
+          feeIncrement,
+        ],
+        value: txValue,
+      })
+    },
+    [paymasterAddress, userAddress, writeContract],
+  )
 
   const reset = useCallback(() => {
     setSwapStatus('idle')
@@ -203,7 +244,7 @@ export function useCrossChainSwap(paymasterAddress: Address | undefined) {
     isLoading: isPending || isConfirming,
     isSuccess,
     hash,
-    reset
+    reset,
   }
 }
 
@@ -212,27 +253,28 @@ export function useCrossChainSwap(paymasterAddress: Address | undefined) {
 export function useSwapFeeEstimate(
   sourceChainId: number,
   destinationChainId: number,
-  amount: bigint
+  amount: bigint,
 ) {
   const [estimate, setEstimate] = useState({
     networkFee: parseEther('0.001'),
     xlpFee: parseEther('0.0005'),
     totalFee: parseEther('0.0015'),
     estimatedTime: 10,
-    isLoading: false
+    isLoading: false,
   })
 
   useEffect(() => {
-    const xlpFee = amount * 5n / 10000n
+    const xlpFee = (amount * 5n) / 10000n
     const networkFee = parseEther('0.001')
-    const crossChainPremium = sourceChainId !== destinationChainId ? parseEther('0.0005') : 0n
-    
+    const crossChainPremium =
+      sourceChainId !== destinationChainId ? parseEther('0.0005') : 0n
+
     setEstimate({
       networkFee: networkFee + crossChainPremium,
       xlpFee,
       totalFee: networkFee + crossChainPremium + xlpFee,
       estimatedTime: sourceChainId === destinationChainId ? 0 : 10,
-      isLoading: false
+      isLoading: false,
     })
   }, [sourceChainId, destinationChainId, amount])
 
@@ -244,7 +286,10 @@ export function useSwapFeeEstimate(
 /**
  * Hook for reading app token preferences
  */
-export function useAppPreference(preferenceAddress: Address | undefined, appAddress: Address | undefined) {
+export function useAppPreference(
+  preferenceAddress: Address | undefined,
+  appAddress: Address | undefined,
+) {
   const { data: preferenceData } = useReadContract({
     address: preferenceAddress,
     abi: APP_TOKEN_PREFERENCE_ABI,
@@ -259,17 +304,19 @@ export function useAppPreference(preferenceAddress: Address | undefined, appAddr
     args: appAddress ? [appAddress] : undefined,
   })
 
-  const preference: AppPreference | null = preferenceData ? {
-    appAddress: preferenceData[0] as Address,
-    preferredToken: preferenceData[1] as Address,
-    tokenSymbol: preferenceData[2] as string,
-    tokenDecimals: preferenceData[3] as number,
-    allowFallback: preferenceData[4] as boolean,
-    minBalance: preferenceData[5] as bigint,
-    isActive: preferenceData[6] as boolean,
-    registrant: preferenceData[7] as Address,
-    registrationTime: preferenceData[8] as bigint,
-  } : null
+  const preference: AppPreference | null = preferenceData
+    ? {
+        appAddress: preferenceData[0] as Address,
+        preferredToken: preferenceData[1] as Address,
+        tokenSymbol: preferenceData[2] as string,
+        tokenDecimals: preferenceData[3] as number,
+        allowFallback: preferenceData[4] as boolean,
+        minBalance: preferenceData[5] as bigint,
+        isActive: preferenceData[6] as boolean,
+        registrant: preferenceData[7] as Address,
+        registrationTime: preferenceData[8] as bigint,
+      }
+    : null
 
   return {
     preference,
@@ -286,13 +333,16 @@ export function useBestGasToken(
   user: Address | undefined,
   gasCostETH: bigint,
   userTokens: Address[],
-  userBalances: bigint[]
+  userBalances: bigint[],
 ) {
   const { data: result } = useReadContract({
     address: paymasterAddress,
     abi: CROSS_CHAIN_PAYMASTER_ABI,
     functionName: 'getBestPaymentTokenForApp',
-    args: appAddress && user ? [appAddress, user, gasCostETH, userTokens, userBalances] : undefined,
+    args:
+      appAddress && user
+        ? [appAddress, user, gasCostETH, userTokens, userBalances]
+        : undefined,
   })
 
   return {
@@ -304,7 +354,10 @@ export function useBestGasToken(
 
 // ============ Token Support Hook ============
 
-export function useTokenSupport(paymasterAddress: Address | undefined, tokenAddress: Address | undefined) {
+export function useTokenSupport(
+  paymasterAddress: Address | undefined,
+  tokenAddress: Address | undefined,
+) {
   const { data: isSupported } = useReadContract({
     address: paymasterAddress,
     abi: CROSS_CHAIN_PAYMASTER_ABI,

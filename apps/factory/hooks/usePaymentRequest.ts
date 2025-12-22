@@ -1,23 +1,27 @@
-'use client';
+'use client'
 
-import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { parseAbi } from 'viem';
-import type { Address } from 'viem';
-import type { 
-  PaymentRequest, 
-  PaymentCategory, 
-  VoteType,
-  CouncilVote,
+import type { Address } from 'viem'
+import { parseAbi } from 'viem'
+import {
+  useReadContract,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from 'wagmi'
+import type {
   CEODecision,
+  CouncilVote,
   DAOPaymentConfig,
-} from '../types/funding';
-import { 
-  parsePaymentCategory, 
-  parsePaymentStatus, 
+  PaymentCategory,
+  PaymentRequest,
+  VoteType,
+} from '../types/funding'
+import {
   getPaymentCategoryIndex,
   getVoteTypeIndex,
+  parsePaymentCategory,
+  parsePaymentStatus,
   parseVoteType,
-} from '../types/funding';
+} from '../types/funding'
 
 // ============ Contract ABI ============
 
@@ -37,23 +41,40 @@ const PAYMENT_REQUEST_REGISTRY_ABI = parseAbi([
   'function getRequesterRequests(address requester) external view returns (bytes32[])',
   'function getPendingRequests(bytes32 daoId) external view returns (tuple(bytes32 requestId, bytes32 daoId, address requester, bytes32 contributorId, uint8 category, string title, string description, string evidenceUri, address paymentToken, uint256 requestedAmount, uint256 approvedAmount, uint8 status, bool isRetroactive, uint256 workStartDate, uint256 workEndDate, uint256 submittedAt, uint256 reviewedAt, uint256 paidAt, string rejectionReason, bytes32 disputeCaseId)[])',
   'function getDAOConfig(bytes32 daoId) external view returns (tuple(bool requiresCouncilApproval, uint256 minCouncilVotes, uint256 councilSupermajorityBps, bool ceoCanOverride, uint256 maxAutoApproveAmount, uint256 reviewPeriod, uint256 disputePeriod, address treasuryToken, bool allowRetroactive, uint256 retroactiveMaxAge))',
-]);
+])
 
 // ============ Config ============
 
-import { addresses } from '../config/contracts';
+import { addresses } from '../config/contracts'
 
 function getAddress(): Address {
-  return addresses.paymentRequestRegistry;
+  return addresses.paymentRequestRegistry
 }
 
 // ============ Parse Helpers ============
 
 type RawPaymentRequest = [
-  string, string, Address, string, number, string, string, string,
-  Address, bigint, bigint, number, boolean, bigint, bigint,
-  bigint, bigint, bigint, string, string
-];
+  string,
+  string,
+  Address,
+  string,
+  number,
+  string,
+  string,
+  string,
+  Address,
+  bigint,
+  bigint,
+  number,
+  boolean,
+  bigint,
+  bigint,
+  bigint,
+  bigint,
+  bigint,
+  string,
+  string,
+]
 
 function parseRequest(raw: RawPaymentRequest): PaymentRequest {
   return {
@@ -77,7 +98,7 @@ function parseRequest(raw: RawPaymentRequest): PaymentRequest {
     paidAt: Number(raw[17]),
     rejectionReason: raw[18],
     disputeCaseId: raw[19],
-  };
+  }
 }
 
 // ============ Read Hooks ============
@@ -89,13 +110,14 @@ export function usePaymentRequest(requestId: string | undefined) {
     functionName: 'getRequest',
     args: requestId ? [requestId as `0x${string}`] : undefined,
     query: { enabled: !!requestId },
-  });
+  })
 
-  const request = data && (data as RawPaymentRequest)[15] !== 0n 
-    ? parseRequest(data as RawPaymentRequest) 
-    : null;
+  const request =
+    data && (data as RawPaymentRequest)[15] !== 0n
+      ? parseRequest(data as RawPaymentRequest)
+      : null
 
-  return { request, isLoading, error, refetch };
+  return { request, isLoading, error, refetch }
 }
 
 export function usePendingRequests(daoId: string | undefined) {
@@ -105,13 +127,13 @@ export function usePendingRequests(daoId: string | undefined) {
     functionName: 'getPendingRequests',
     args: daoId ? [daoId as `0x${string}`] : undefined,
     query: { enabled: !!daoId },
-  });
+  })
 
-  const requests: PaymentRequest[] = data 
+  const requests: PaymentRequest[] = data
     ? (data as RawPaymentRequest[]).map(parseRequest)
-    : [];
+    : []
 
-  return { requests, isLoading, error, refetch };
+  return { requests, isLoading, error, refetch }
 }
 
 export function useDAORequests(daoId: string | undefined) {
@@ -121,9 +143,9 @@ export function useDAORequests(daoId: string | undefined) {
     functionName: 'getDAORequests',
     args: daoId ? [daoId as `0x${string}`] : undefined,
     query: { enabled: !!daoId },
-  });
+  })
 
-  return { requestIds: data as string[] || [], isLoading, error, refetch };
+  return { requestIds: (data as string[]) || [], isLoading, error, refetch }
 }
 
 export function useRequesterRequests(requester: Address | undefined) {
@@ -133,9 +155,9 @@ export function useRequesterRequests(requester: Address | undefined) {
     functionName: 'getRequesterRequests',
     args: requester ? [requester] : undefined,
     query: { enabled: !!requester },
-  });
+  })
 
-  return { requestIds: data as string[] || [], isLoading, error, refetch };
+  return { requestIds: (data as string[]) || [], isLoading, error, refetch }
 }
 
 export function useCouncilVotes(requestId: string | undefined) {
@@ -145,18 +167,18 @@ export function useCouncilVotes(requestId: string | undefined) {
     functionName: 'getCouncilVotes',
     args: requestId ? [requestId as `0x${string}`] : undefined,
     query: { enabled: !!requestId },
-  });
+  })
 
-  const votes: CouncilVote[] = data 
-    ? (data as Array<[Address, number, string, bigint]>).map(v => ({
+  const votes: CouncilVote[] = data
+    ? (data as Array<[Address, number, string, bigint]>).map((v) => ({
         voter: v[0],
         vote: parseVoteType(v[1]),
         reason: v[2],
         votedAt: Number(v[3]),
       }))
-    : [];
+    : []
 
-  return { votes, isLoading, error, refetch };
+  return { votes, isLoading, error, refetch }
 }
 
 export function useCEODecision(requestId: string | undefined) {
@@ -166,18 +188,19 @@ export function useCEODecision(requestId: string | undefined) {
     functionName: 'getCEODecision',
     args: requestId ? [requestId as `0x${string}`] : undefined,
     query: { enabled: !!requestId },
-  });
+  })
 
-  const decision: CEODecision | null = data && (data as [boolean, bigint, string, bigint])[3] !== 0n
-    ? {
-        approved: (data as [boolean])[0],
-        modifiedAmount: (data as [boolean, bigint])[1],
-        reason: (data as [boolean, bigint, string])[2],
-        decidedAt: Number((data as [boolean, bigint, string, bigint])[3]),
-      }
-    : null;
+  const decision: CEODecision | null =
+    data && (data as [boolean, bigint, string, bigint])[3] !== 0n
+      ? {
+          approved: (data as [boolean])[0],
+          modifiedAmount: (data as [boolean, bigint])[1],
+          reason: (data as [boolean, bigint, string])[2],
+          decidedAt: Number((data as [boolean, bigint, string, bigint])[3]),
+        }
+      : null
 
-  return { decision, isLoading, error, refetch };
+  return { decision, isLoading, error, refetch }
 }
 
 export function useDAOPaymentConfig(daoId: string | undefined) {
@@ -187,41 +210,91 @@ export function useDAOPaymentConfig(daoId: string | undefined) {
     functionName: 'getDAOConfig',
     args: daoId ? [daoId as `0x${string}`] : undefined,
     query: { enabled: !!daoId },
-  });
+  })
 
-  const config: DAOPaymentConfig | null = data ? {
-    requiresCouncilApproval: (data as [boolean])[0],
-    minCouncilVotes: Number((data as [boolean, bigint])[1]),
-    councilSupermajorityBps: Number((data as [boolean, bigint, bigint])[2]),
-    ceoCanOverride: (data as [boolean, bigint, bigint, boolean])[3],
-    maxAutoApproveAmount: (data as [boolean, bigint, bigint, boolean, bigint])[4],
-    reviewPeriod: Number((data as [boolean, bigint, bigint, boolean, bigint, bigint])[5]),
-    disputePeriod: Number((data as [boolean, bigint, bigint, boolean, bigint, bigint, bigint])[6]),
-    treasuryToken: (data as [boolean, bigint, bigint, boolean, bigint, bigint, bigint, Address])[7],
-    allowRetroactive: (data as [boolean, bigint, bigint, boolean, bigint, bigint, bigint, Address, boolean])[8],
-    retroactiveMaxAge: Number((data as [boolean, bigint, bigint, boolean, bigint, bigint, bigint, Address, boolean, bigint])[9]),
-  } : null;
+  const config: DAOPaymentConfig | null = data
+    ? {
+        requiresCouncilApproval: (data as [boolean])[0],
+        minCouncilVotes: Number((data as [boolean, bigint])[1]),
+        councilSupermajorityBps: Number((data as [boolean, bigint, bigint])[2]),
+        ceoCanOverride: (data as [boolean, bigint, bigint, boolean])[3],
+        maxAutoApproveAmount: (
+          data as [boolean, bigint, bigint, boolean, bigint]
+        )[4],
+        reviewPeriod: Number(
+          (data as [boolean, bigint, bigint, boolean, bigint, bigint])[5],
+        ),
+        disputePeriod: Number(
+          (
+            data as [boolean, bigint, bigint, boolean, bigint, bigint, bigint]
+          )[6],
+        ),
+        treasuryToken: (
+          data as [
+            boolean,
+            bigint,
+            bigint,
+            boolean,
+            bigint,
+            bigint,
+            bigint,
+            Address,
+          ]
+        )[7],
+        allowRetroactive: (
+          data as [
+            boolean,
+            bigint,
+            bigint,
+            boolean,
+            bigint,
+            bigint,
+            bigint,
+            Address,
+            boolean,
+          ]
+        )[8],
+        retroactiveMaxAge: Number(
+          (
+            data as [
+              boolean,
+              bigint,
+              bigint,
+              boolean,
+              bigint,
+              bigint,
+              bigint,
+              Address,
+              boolean,
+              bigint,
+            ]
+          )[9],
+        ),
+      }
+    : null
 
-  return { config, isLoading, error };
+  return { config, isLoading, error }
 }
 
 // ============ Write Hooks ============
 
 export function useSubmitPaymentRequest() {
-  const { writeContract, data: hash, isPending, error } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { writeContract, data: hash, isPending, error } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
   const submit = (params: {
-    daoId: string;
-    contributorId: string;
-    category: PaymentCategory;
-    title: string;
-    description: string;
-    evidenceUri: string;
-    requestedAmount: bigint;
-    isRetroactive?: boolean;
-    workStartDate?: number;
-    workEndDate?: number;
+    daoId: string
+    contributorId: string
+    category: PaymentCategory
+    title: string
+    description: string
+    evidenceUri: string
+    requestedAmount: bigint
+    isRetroactive?: boolean
+    workStartDate?: number
+    workEndDate?: number
   }) => {
     writeContract({
       address: getAddress(),
@@ -239,15 +312,17 @@ export function useSubmitPaymentRequest() {
         BigInt(params.workStartDate || 0),
         BigInt(params.workEndDate || 0),
       ],
-    });
-  };
+    })
+  }
 
-  return { submit, hash, isPending, isConfirming, isSuccess, error };
+  return { submit, hash, isPending, isConfirming, isSuccess, error }
 }
 
 export function useCouncilVote() {
-  const { writeContract, data: hash, isPending, error } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { writeContract, data: hash, isPending, error } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
   const vote = (requestId: string, voteType: VoteType, reason: string) => {
     writeContract({
@@ -255,31 +330,40 @@ export function useCouncilVote() {
       abi: PAYMENT_REQUEST_REGISTRY_ABI,
       functionName: 'councilVote',
       args: [requestId as `0x${string}`, getVoteTypeIndex(voteType), reason],
-    });
-  };
+    })
+  }
 
-  return { vote, hash, isPending, isConfirming, isSuccess, error };
+  return { vote, hash, isPending, isConfirming, isSuccess, error }
 }
 
 export function useCEODecisionAction() {
-  const { writeContract, data: hash, isPending, error } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { writeContract, data: hash, isPending, error } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
-  const decide = (requestId: string, approved: boolean, modifiedAmount: bigint, reason: string) => {
+  const decide = (
+    requestId: string,
+    approved: boolean,
+    modifiedAmount: bigint,
+    reason: string,
+  ) => {
     writeContract({
       address: getAddress(),
       abi: PAYMENT_REQUEST_REGISTRY_ABI,
       functionName: 'ceoDecision',
       args: [requestId as `0x${string}`, approved, modifiedAmount, reason],
-    });
-  };
+    })
+  }
 
-  return { decide, hash, isPending, isConfirming, isSuccess, error };
+  return { decide, hash, isPending, isConfirming, isSuccess, error }
 }
 
 export function useEscalateToCEO() {
-  const { writeContract, data: hash, isPending, error } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { writeContract, data: hash, isPending, error } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
   const escalate = (requestId: string) => {
     writeContract({
@@ -287,15 +371,17 @@ export function useEscalateToCEO() {
       abi: PAYMENT_REQUEST_REGISTRY_ABI,
       functionName: 'escalateToCEO',
       args: [requestId as `0x${string}`],
-    });
-  };
+    })
+  }
 
-  return { escalate, hash, isPending, isConfirming, isSuccess, error };
+  return { escalate, hash, isPending, isConfirming, isSuccess, error }
 }
 
 export function useFileDispute() {
-  const { writeContract, data: hash, isPending, error } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { writeContract, data: hash, isPending, error } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
   const fileDispute = (requestId: string, evidenceUri: string) => {
     writeContract({
@@ -303,15 +389,17 @@ export function useFileDispute() {
       abi: PAYMENT_REQUEST_REGISTRY_ABI,
       functionName: 'fileDispute',
       args: [requestId as `0x${string}`, evidenceUri],
-    });
-  };
+    })
+  }
 
-  return { fileDispute, hash, isPending, isConfirming, isSuccess, error };
+  return { fileDispute, hash, isPending, isConfirming, isSuccess, error }
 }
 
 export function useExecutePayment() {
-  const { writeContract, data: hash, isPending, error } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { writeContract, data: hash, isPending, error } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
   const execute = (requestId: string) => {
     writeContract({
@@ -319,15 +407,17 @@ export function useExecutePayment() {
       abi: PAYMENT_REQUEST_REGISTRY_ABI,
       functionName: 'executePayment',
       args: [requestId as `0x${string}`],
-    });
-  };
+    })
+  }
 
-  return { execute, hash, isPending, isConfirming, isSuccess, error };
+  return { execute, hash, isPending, isConfirming, isSuccess, error }
 }
 
 export function useCancelRequest() {
-  const { writeContract, data: hash, isPending, error } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { writeContract, data: hash, isPending, error } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
   const cancel = (requestId: string) => {
     writeContract({
@@ -335,9 +425,8 @@ export function useCancelRequest() {
       abi: PAYMENT_REQUEST_REGISTRY_ABI,
       functionName: 'cancelRequest',
       args: [requestId as `0x${string}`],
-    });
-  };
+    })
+  }
 
-  return { cancel, hash, isPending, isConfirming, isSuccess, error };
+  return { cancel, hash, isPending, isConfirming, isSuccess, error }
 }
-

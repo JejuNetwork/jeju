@@ -27,8 +27,7 @@
         "hooks/**",
         "config/**",
         "types/**",
-        "eslint.config.js",
-        ".eslintrc*",
+        "biome.json",
         "tsconfig.json"
       ],
       "outputs": []
@@ -65,7 +64,7 @@
   },
   "globalDependencies": [
     "tsconfig.base.json",
-    "eslint.config.js",
+    "biome.json",
     "packages/contracts/deployments/testnet.json",
     "packages/contracts/deployments/mainnet.json"
   ],

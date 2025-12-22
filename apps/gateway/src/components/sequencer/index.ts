@@ -1,6 +1,4 @@
 /**
  * Sequencer components - rotation and selection UI
  */
-export { SequencerDashboard } from './SequencerDashboard'
-export { default } from './SequencerDashboard'
-
+export { default, SequencerDashboard } from './SequencerDashboard'

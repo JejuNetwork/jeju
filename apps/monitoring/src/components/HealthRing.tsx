@@ -7,13 +7,13 @@ interface HealthRingProps {
   status?: 'success' | 'warning' | 'error'
 }
 
-export function HealthRing({ 
-  percentage, 
-  size = 120, 
+export function HealthRing({
+  percentage,
+  size = 120,
   strokeWidth = 10,
   label,
   value,
-  status
+  status,
 }: HealthRingProps) {
   const radius = (size - strokeWidth) / 2
   const circumference = radius * 2 * Math.PI
@@ -55,14 +55,14 @@ export function HealthRing({
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span 
+        <span
           className="text-2xl md:text-3xl font-bold"
           style={{ color: 'var(--text-primary)' }}
         >
           {value || `${Math.round(percentage)}%`}
         </span>
         {label && (
-          <span 
+          <span
             className="text-xs font-medium mt-0.5"
             style={{ color: 'var(--text-tertiary)' }}
           >
@@ -73,4 +73,3 @@ export function HealthRing({
     </div>
   )
 }
-

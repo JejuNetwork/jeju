@@ -278,7 +278,7 @@ export const KEY_REGISTRY_ABI = [
       { name: 'timestamp', type: 'uint256', indexed: false },
     ],
   },
-] as const;
+] as const
 
 export const MESSAGE_NODE_REGISTRY_ABI = [
   // Node Registration
@@ -596,7 +596,7 @@ export const MESSAGE_NODE_REGISTRY_ABI = [
       { name: 'amount', type: 'uint256', indexed: false },
     ],
   },
-] as const;
+] as const
 
 // ERC20 ABI for staking token
 export const ERC20_ABI = [
@@ -637,4 +637,4 @@ export const ERC20_ABI = [
     ],
     outputs: [{ name: '', type: 'uint256' }],
   },
-] as const;
+] as const

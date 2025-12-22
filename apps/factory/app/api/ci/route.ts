@@ -1,13 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { validateQuery, validateBody, errorResponse } from '@/lib/validation';
-import { getCIQuerySchema, createCIRunSchema } from '@/lib/validation/schemas';
-import type { CIRun } from '@/types';
+import { type NextRequest, NextResponse } from 'next/server'
+import { errorResponse, validateBody, validateQuery } from '@/lib/validation'
+import { createCIRunSchema, getCIQuerySchema } from '@/lib/validation/schemas'
+import type { CIRun } from '@/types'
 
 // GET /api/ci - List CI/CD workflow runs
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const query = validateQuery(getCIQuerySchema, searchParams);
+    const { searchParams } = new URL(request.url)
+    const query = validateQuery(getCIQuerySchema, searchParams)
 
     const runs: CIRun[] = [
       {
@@ -47,19 +47,19 @@ export async function GET(request: NextRequest) {
         createdAt: Date.now() - 5 * 60 * 1000,
         updatedAt: Date.now() - 5 * 60 * 1000,
       },
-    ];
+    ]
 
-    return NextResponse.json({ runs, total: runs.length, page: query.page });
+    return NextResponse.json({ runs, total: runs.length, page: query.page })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return errorResponse(message, 400);
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    return errorResponse(message, 400)
   }
 }
 
 // POST /api/ci - Trigger a new workflow run
 export async function POST(request: NextRequest) {
   try {
-    const body = await validateBody(createCIRunSchema, request.json());
+    const body = await validateBody(createCIRunSchema, request.json())
 
     const run: CIRun = {
       id: `run-${Date.now()}`,
@@ -73,12 +73,11 @@ export async function POST(request: NextRequest) {
       jobs: [],
       createdAt: Date.now(),
       updatedAt: Date.now(),
-    };
+    }
 
-    return NextResponse.json(run, { status: 201 });
+    return NextResponse.json(run, { status: 201 })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return errorResponse(message, 400);
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    return errorResponse(message, 400)
   }
 }
-

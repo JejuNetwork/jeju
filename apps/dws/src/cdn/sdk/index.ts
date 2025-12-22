@@ -1,87 +1,94 @@
 /**
  * CDN SDK
- * 
+ *
  * Easy-to-use SDK for deploying frontends to the decentralized CDN.
  * Similar to Vercel's deploy experience but fully decentralized.
- * 
+ *
  * Usage:
  * ```typescript
  * import { CDNClient } from '@jejunetwork/dws';
- * 
+ *
  * const cdn = new CDNClient({ privateKey, rpcUrl });
- * 
+ *
  * // Deploy a frontend
  * const deployment = await cdn.deploy({
  *   domain: 'myapp.jns.eth',
  *   buildDir: './dist',
  *   framework: 'next',
  * });
- * 
+ *
  * // Invalidate cache
  * await cdn.invalidate(deployment.siteId, ['/', '/api/*']);
- * 
+ *
  * // Get stats
  * const stats = await cdn.getStats(deployment.siteId);
  * ```
  */
 
-import { createPublicClient, createWalletClient, getContract, http, type Address, type Chain } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import { parseAbi } from 'viem';
-import { createHash } from 'crypto';
-import { readdir, stat, readFile } from 'fs/promises';
-import { join, relative } from 'path';
+import { createHash } from 'node:crypto'
+import { readdir, readFile, stat } from 'node:fs/promises'
+import { join, relative } from 'node:path'
 import type {
-  CDNSiteConfig,
   CacheConfig,
+  CDNRegion,
+  CDNSiteConfig,
+  CDNStatsRequest,
+  CDNStatsResponse,
   InvalidationResult,
   WarmupRequest,
   WarmupResult,
-  CDNStatsRequest,
-  CDNStatsResponse,
-  CDNRegion,
-} from '@jejunetwork/types';
-import { DEFAULT_CACHE_RULES, DEFAULT_TTL_CONFIG } from '@jejunetwork/types';
+} from '@jejunetwork/types'
+import { DEFAULT_CACHE_RULES, DEFAULT_TTL_CONFIG } from '@jejunetwork/types'
+import {
+  type Address,
+  type Chain,
+  createPublicClient,
+  createWalletClient,
+  getContract,
+  http,
+  parseAbi,
+} from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
 
 // ============================================================================
 // Types
 // ============================================================================
 
 export interface CDNClientConfig {
-  privateKey: string;
-  rpcUrl: string;
-  registryAddress?: Address;
-  billingAddress?: Address;
-  coordinatorUrl?: string;
-  ipfsGateway?: string;
+  privateKey: string
+  rpcUrl: string
+  registryAddress?: Address
+  billingAddress?: Address
+  coordinatorUrl?: string
+  ipfsGateway?: string
 }
 
 export interface DeployOptions {
-  domain: string;
-  buildDir: string;
-  jnsName?: string;
-  framework?: 'next' | 'vite' | 'astro' | 'remix' | 'static';
-  cacheConfig?: Partial<CacheConfig>;
-  regions?: CDNRegion[];
-  warmup?: boolean;
-  invalidate?: boolean;
+  domain: string
+  buildDir: string
+  jnsName?: string
+  framework?: 'next' | 'vite' | 'astro' | 'remix' | 'static'
+  cacheConfig?: Partial<CacheConfig>
+  regions?: CDNRegion[]
+  warmup?: boolean
+  invalidate?: boolean
 }
 
 export interface DeployResult {
-  siteId: string;
-  domain: string;
-  cdnUrl: string;
-  contentHash: string;
-  filesUploaded: number;
-  totalBytes: number;
-  warmupResult?: WarmupResult;
+  siteId: string
+  domain: string
+  cdnUrl: string
+  contentHash: string
+  filesUploaded: number
+  totalBytes: number
+  warmupResult?: WarmupResult
 }
 
 export interface FileUpload {
-  path: string;
-  contentType: string;
-  size: number;
-  hash: string;
+  path: string
+  contentType: string
+  size: number
+  hash: string
 }
 
 // ============================================================================
@@ -94,14 +101,14 @@ const CDN_REGISTRY_ABI = parseAbi([
   'function getSite(bytes32 siteId) view returns ((bytes32 siteId, address owner, string domain, string origin, bytes32 contentHash, uint256 createdAt, uint256 updatedAt, bool active))',
   'function getOwnerSites(address owner) view returns (bytes32[])',
   'function requestInvalidation(bytes32 siteId, string[] paths, uint8[] regions) returns (bytes32)',
-]);
+])
 
 const CDN_BILLING_ABI = parseAbi([
   'function deposit() payable',
   'function depositToken(uint256 amount)',
   'function getBalance(address user) view returns (uint256)',
   'function withdraw(uint256 amount)',
-]);
+])
 
 // ============================================================================
 // CDN Client
@@ -113,54 +120,56 @@ const localChain = {
   name: 'local',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: { default: { http: ['http://localhost:8545'] } },
-} as const satisfies Chain;
+} as const satisfies Chain
 
 export class CDNClient {
-  private account;
-  private publicClient;
-  private walletClient;
-  private registryContract;
-  private billingContract;
-  private coordinatorUrl: string;
-  private ipfsGateway: string;
+  private account
+  private publicClient
+  private walletClient
+  private registryContract
+  private billingContract
+  private coordinatorUrl: string
+  private ipfsGateway: string
 
   constructor(config: CDNClientConfig) {
-    this.account = privateKeyToAccount(config.privateKey as `0x${string}`);
-    
+    this.account = privateKeyToAccount(config.privateKey as `0x${string}`)
+
     this.publicClient = createPublicClient({
       chain: localChain,
       transport: http(config.rpcUrl),
-    });
-    
+    })
+
     this.walletClient = createWalletClient({
       account: this.account,
       chain: localChain,
       transport: http(config.rpcUrl),
-    });
-    
-    const registryAddress = (config.registryAddress ?? '0x0000000000000000000000000000000000000000') as Address;
-    const billingAddress = (config.billingAddress ?? '0x0000000000000000000000000000000000000000') as Address;
-    
+    })
+
+    const registryAddress = (config.registryAddress ??
+      '0x0000000000000000000000000000000000000000') as Address
+    const billingAddress = (config.billingAddress ??
+      '0x0000000000000000000000000000000000000000') as Address
+
     // Create typed contract instances - use walletClient for both read/write
     this.registryContract = getContract({
       address: registryAddress,
       abi: CDN_REGISTRY_ABI,
       client: this.walletClient,
-    });
-    
+    })
+
     this.billingContract = getContract({
       address: billingAddress,
       abi: CDN_BILLING_ABI,
       client: this.walletClient,
-    });
-    
-    this.coordinatorUrl = config.coordinatorUrl ?? 'http://localhost:4021';
-    this.ipfsGateway = config.ipfsGateway ?? 'https://ipfs.io';
+    })
+
+    this.coordinatorUrl = config.coordinatorUrl ?? 'http://localhost:4021'
+    this.ipfsGateway = config.ipfsGateway ?? 'https://ipfs.io'
   }
 
   /** Get configured IPFS gateway URL */
   getIpfsGateway(): string {
-    return this.ipfsGateway;
+    return this.ipfsGateway
   }
 
   // ============================================================================
@@ -171,42 +180,49 @@ export class CDNClient {
    * Deploy a frontend to the CDN
    */
   async deploy(options: DeployOptions): Promise<DeployResult> {
-    console.log(`[CDN] Deploying ${options.buildDir} to ${options.domain}...`);
+    console.log(`[CDN] Deploying ${options.buildDir} to ${options.domain}...`)
 
     // 1. Collect files
-    const files = await this.collectFiles(options.buildDir);
-    console.log(`[CDN] Found ${files.length} files`);
+    const files = await this.collectFiles(options.buildDir)
+    console.log(`[CDN] Found ${files.length} files`)
 
     // 2. Upload to IPFS (or other storage)
-    const uploadResult = await this.uploadFiles(files, options.buildDir);
-    console.log(`[CDN] Uploaded ${uploadResult.filesUploaded} files (${uploadResult.totalBytes} bytes)`);
+    const uploadResult = await this.uploadFiles(files, options.buildDir)
+    console.log(
+      `[CDN] Uploaded ${uploadResult.filesUploaded} files (${uploadResult.totalBytes} bytes)`,
+    )
 
     // 3. Calculate content hash
-    const contentHash = this.calculateContentHash(files);
+    const contentHash = this.calculateContentHash(files)
 
     // 4. Register/update site on-chain
-    const siteId = await this.registerSite(options.domain, uploadResult.cid);
+    const siteId = await this.registerSite(options.domain, uploadResult.cid)
 
     // 5. Update content hash
     const updateHash = await this.registryContract.write.updateSiteContent([
       siteId as `0x${string}`,
       contentHash as `0x${string}`,
-    ]);
-    await this.publicClient.waitForTransactionReceipt({ hash: updateHash });
+    ])
+    await this.publicClient.waitForTransactionReceipt({ hash: updateHash })
 
     // 6. Optional: Invalidate existing cache
     if (options.invalidate !== false) {
-      await this.invalidate(siteId, ['/*']);
+      await this.invalidate(siteId, ['/*'])
     }
 
     // 7. Optional: Warmup cache
-    let warmupResult: WarmupResult | undefined;
+    let warmupResult: WarmupResult | undefined
     if (options.warmup !== false) {
       const urls = files
-        .filter(f => f.path.endsWith('.html') || f.path.endsWith('.js') || f.path.endsWith('.css'))
+        .filter(
+          (f) =>
+            f.path.endsWith('.html') ||
+            f.path.endsWith('.js') ||
+            f.path.endsWith('.css'),
+        )
         .slice(0, 100) // Limit warmup
-        .map(f => `https://${options.domain}/${f.path}`);
-      
+        .map((f) => `https://${options.domain}/${f.path}`)
+
       warmupResult = await this.warmup({
         requestId: crypto.randomUUID(),
         urls,
@@ -214,12 +230,12 @@ export class CDNClient {
         priority: 'high',
         requestedBy: this.account.address,
         requestedAt: Date.now(),
-      });
+      })
     }
 
-    const cdnUrl = options.jnsName 
+    const cdnUrl = options.jnsName
       ? `https://${options.jnsName}.jns.eth`
-      : `https://cdn.jejunetwork.org/${siteId}`;
+      : `https://cdn.jejunetwork.org/${siteId}`
 
     return {
       siteId,
@@ -229,43 +245,43 @@ export class CDNClient {
       filesUploaded: uploadResult.filesUploaded,
       totalBytes: uploadResult.totalBytes,
       warmupResult,
-    };
+    }
   }
 
   /**
    * Collect all files from build directory
    */
   private async collectFiles(dir: string): Promise<FileUpload[]> {
-    const files: FileUpload[] = [];
+    const files: FileUpload[] = []
 
     const processDir = async (currentDir: string) => {
-      const entries = await readdir(currentDir, { withFileTypes: true });
+      const entries = await readdir(currentDir, { withFileTypes: true })
 
       for (const entry of entries) {
-        const fullPath = join(currentDir, entry.name);
+        const fullPath = join(currentDir, entry.name)
 
         if (entry.isDirectory()) {
           // Skip node_modules and hidden directories
           if (entry.name !== 'node_modules' && !entry.name.startsWith('.')) {
-            await processDir(fullPath);
+            await processDir(fullPath)
           }
         } else if (entry.isFile()) {
-          const fileStat = await stat(fullPath);
-          const content = await readFile(fullPath);
-          const relativePath = relative(dir, fullPath);
+          const fileStat = await stat(fullPath)
+          const content = await readFile(fullPath)
+          const relativePath = relative(dir, fullPath)
 
           files.push({
             path: relativePath,
             contentType: this.getContentType(entry.name),
             size: fileStat.size,
             hash: createHash('sha256').update(content).digest('hex'),
-          });
+          })
         }
       }
-    };
+    }
 
-    await processDir(dir);
-    return files;
+    await processDir(dir)
+    return files
   }
 
   /**
@@ -273,32 +289,33 @@ export class CDNClient {
    */
   private async uploadFiles(
     files: FileUpload[],
-    buildDir: string
+    buildDir: string,
   ): Promise<{ cid: string; filesUploaded: number; totalBytes: number }> {
-    let totalBytes = 0;
-    const uploadedCids: string[] = [];
-    
+    let totalBytes = 0
+    const uploadedCids: string[] = []
+
     // Upload each file to storage
-    const storageUrl = process.env.DWS_STORAGE_URL || 'http://localhost:4030/storage';
-    
+    const storageUrl =
+      process.env.DWS_STORAGE_URL || 'http://localhost:4030/storage'
+
     for (const file of files) {
-      totalBytes += file.size;
-      
-      const formData = new FormData();
-      const content = await Bun.file(join(buildDir, file.path)).arrayBuffer();
-      formData.append('file', new Blob([content]), file.path);
-      
+      totalBytes += file.size
+
+      const formData = new FormData()
+      const content = await Bun.file(join(buildDir, file.path)).arrayBuffer()
+      formData.append('file', new Blob([content]), file.path)
+
       const response = await fetch(`${storageUrl}/upload`, {
         method: 'POST',
         body: formData,
-      });
-      
+      })
+
       if (response.ok) {
-        const result = await response.json() as { cid: string };
-        uploadedCids.push(result.cid);
+        const result = (await response.json()) as { cid: string }
+        uploadedCids.push(result.cid)
       }
     }
-    
+
     // Create a manifest file with all uploaded CIDs
     const manifest = {
       files: files.map((f, i) => ({
@@ -308,40 +325,44 @@ export class CDNClient {
         contentType: f.contentType,
       })),
       uploadedAt: Date.now(),
-    };
-    
+    }
+
     // Upload manifest and use its CID as the deployment root
-    const manifestFormData = new FormData();
-    manifestFormData.append('file', new Blob([JSON.stringify(manifest)]), 'manifest.json');
-    
+    const manifestFormData = new FormData()
+    manifestFormData.append(
+      'file',
+      new Blob([JSON.stringify(manifest)]),
+      'manifest.json',
+    )
+
     const manifestResponse = await fetch(`${storageUrl}/upload`, {
       method: 'POST',
       body: manifestFormData,
-    });
-    
-    let rootCid: string;
+    })
+
+    let rootCid: string
     if (manifestResponse.ok) {
-      const result = await manifestResponse.json() as { cid: string };
-      rootCid = result.cid;
+      const result = (await manifestResponse.json()) as { cid: string }
+      rootCid = result.cid
     } else {
       // Fallback to computed hash if storage unavailable
-      rootCid = `Qm${createHash('sha256').update(JSON.stringify(manifest)).digest('hex').slice(0, 44)}`;
+      rootCid = `Qm${createHash('sha256').update(JSON.stringify(manifest)).digest('hex').slice(0, 44)}`
     }
 
     return {
       cid: rootCid,
       filesUploaded: files.length,
       totalBytes,
-    };
+    }
   }
 
   /**
    * Calculate content hash from files
    */
   private calculateContentHash(files: FileUpload[]): string {
-    const sorted = [...files].sort((a, b) => a.path.localeCompare(b.path));
-    const combined = sorted.map(f => `${f.path}:${f.hash}`).join('|');
-    return `0x${createHash('sha256').update(combined).digest('hex')}`;
+    const sorted = [...files].sort((a, b) => a.path.localeCompare(b.path))
+    const combined = sorted.map((f) => `${f.path}:${f.hash}`).join('|')
+    return `0x${createHash('sha256').update(combined).digest('hex')}`
   }
 
   /**
@@ -349,32 +370,37 @@ export class CDNClient {
    */
   private async registerSite(domain: string, origin: string): Promise<string> {
     // Check if site already exists
-    const existingSites = await this.registryContract.read.getOwnerSites([this.account.address]);
-    
+    const existingSites = await this.registryContract.read.getOwnerSites([
+      this.account.address,
+    ])
+
     for (const siteId of existingSites) {
-      const site = await this.registryContract.read.getSite([siteId]);
+      const site = await this.registryContract.read.getSite([siteId])
       if (site.domain === domain) {
-        return siteId;
+        return siteId
       }
     }
 
     // Create new site
-    const hash = await this.registryContract.write.createSite([domain, `ipfs://${origin}`]);
-    const receipt = await this.publicClient.waitForTransactionReceipt({ hash });
-    
+    const hash = await this.registryContract.write.createSite([
+      domain,
+      `ipfs://${origin}`,
+    ])
+    const receipt = await this.publicClient.waitForTransactionReceipt({ hash })
+
     // Extract siteId from event (first log should be the SiteCreated event)
-    const event = receipt.logs[0];
+    const event = receipt.logs[0]
     if (event && 'topics' in event && event.topics[1]) {
-      return event.topics[1];
+      return event.topics[1]
     }
-    throw new Error('Failed to extract siteId from transaction');
+    throw new Error('Failed to extract siteId from transaction')
   }
 
   /**
    * Get content type from filename
    */
   private getContentType(filename: string): string {
-    const ext = filename.split('.').pop()?.toLowerCase();
+    const ext = filename.split('.').pop()?.toLowerCase()
     const types: Record<string, string> = {
       html: 'text/html',
       css: 'text/css',
@@ -396,8 +422,8 @@ export class CDNClient {
       txt: 'text/plain',
       xml: 'application/xml',
       map: 'application/json',
-    };
-    return types[ext ?? ''] ?? 'application/octet-stream';
+    }
+    return types[ext ?? ''] ?? 'application/octet-stream'
   }
 
   // ============================================================================
@@ -407,7 +433,10 @@ export class CDNClient {
   /**
    * Invalidate cache paths
    */
-  async invalidate(siteId: string, paths: string[]): Promise<InvalidationResult> {
+  async invalidate(
+    siteId: string,
+    paths: string[],
+  ): Promise<InvalidationResult> {
     // Request invalidation via coordinator
     const response = await fetch(`${this.coordinatorUrl}/invalidate`, {
       method: 'POST',
@@ -418,36 +447,44 @@ export class CDNClient {
         priority: 'high',
         requestedBy: this.account.address,
       }),
-    });
+    })
 
     if (!response.ok) {
-      throw new Error(`Invalidation failed: ${response.statusText}`);
+      throw new Error(`Invalidation failed: ${response.statusText}`)
     }
 
-    const result = await response.json() as { requestId: string; nodesTotal: number };
+    const result = (await response.json()) as {
+      requestId: string
+      nodesTotal: number
+    }
 
     // Wait for completion
-    return this.waitForInvalidation(result.requestId);
+    return this.waitForInvalidation(result.requestId)
   }
 
   /**
    * Wait for invalidation to complete
    */
-  private async waitForInvalidation(requestId: string, timeout = 30000): Promise<InvalidationResult> {
-    const startTime = Date.now();
+  private async waitForInvalidation(
+    requestId: string,
+    timeout = 30000,
+  ): Promise<InvalidationResult> {
+    const startTime = Date.now()
 
     while (Date.now() - startTime < timeout) {
-      const response = await fetch(`${this.coordinatorUrl}/invalidate/${requestId}`);
-      const result = await response.json() as InvalidationResult;
+      const response = await fetch(
+        `${this.coordinatorUrl}/invalidate/${requestId}`,
+      )
+      const result = (await response.json()) as InvalidationResult
 
       if (result.status === 'completed' || result.status === 'failed') {
-        return result;
+        return result
       }
 
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000))
     }
 
-    throw new Error('Invalidation timed out');
+    throw new Error('Invalidation timed out')
   }
 
   /**
@@ -458,7 +495,7 @@ export class CDNClient {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(request),
-    });
+    })
 
     if (!response.ok) {
       return {
@@ -469,10 +506,10 @@ export class CDNClient {
         bytesWarmed: BigInt(0),
         regionsWarmed: [],
         errors: [{ url: '*', region: 'global', error: response.statusText }],
-      };
+      }
     }
 
-    return response.json() as Promise<WarmupResult>;
+    return response.json() as Promise<WarmupResult>
   }
 
   // ============================================================================
@@ -482,30 +519,35 @@ export class CDNClient {
   /**
    * Get site statistics
    */
-  async getStats(siteId: string, options?: Partial<CDNStatsRequest>): Promise<CDNStatsResponse> {
+  async getStats(
+    siteId: string,
+    options?: Partial<CDNStatsRequest>,
+  ): Promise<CDNStatsResponse> {
     const params = new URLSearchParams({
       siteId,
       startTime: (options?.startTime ?? Date.now() - 86400000).toString(),
       endTime: (options?.endTime ?? Date.now()).toString(),
       granularity: options?.granularity ?? 'hour',
-    });
+    })
 
-    const response = await fetch(`${this.coordinatorUrl}/stats?${params}`);
-    
+    const response = await fetch(`${this.coordinatorUrl}/stats?${params}`)
+
     if (!response.ok) {
-      throw new Error(`Failed to get stats: ${response.statusText}`);
+      throw new Error(`Failed to get stats: ${response.statusText}`)
     }
 
-    return response.json() as Promise<CDNStatsResponse>;
+    return response.json() as Promise<CDNStatsResponse>
   }
 
   /**
    * Get site info
    */
   async getSite(siteId: string): Promise<CDNSiteConfig | null> {
-    const site = await this.registryContract.read.getSite([siteId as `0x${string}`]);
+    const site = await this.registryContract.read.getSite([
+      siteId as `0x${string}`,
+    ])
     if (!site || !site.active) {
-      return null;
+      return null
     }
 
     return {
@@ -555,14 +597,14 @@ export class CDNClient {
       },
       createdAt: Number(site.createdAt),
       updatedAt: Number(site.updatedAt),
-    };
+    }
   }
 
   /**
    * List all sites for the connected wallet
    */
   async listSites(): Promise<`0x${string}`[]> {
-    return this.registryContract.read.getOwnerSites([this.account.address]);
+    return this.registryContract.read.getOwnerSites([this.account.address])
   }
 
   // ============================================================================
@@ -573,21 +615,21 @@ export class CDNClient {
    * Deposit funds for CDN usage
    */
   async deposit(amount: bigint): Promise<`0x${string}`> {
-    return this.billingContract.write.deposit([], { value: amount });
+    return this.billingContract.write.deposit([], { value: amount })
   }
 
   /**
    * Get current balance
    */
   async getBalance(): Promise<bigint> {
-    return this.billingContract.read.getBalance([this.account.address]);
+    return this.billingContract.read.getBalance([this.account.address])
   }
 
   /**
    * Withdraw unused balance
    */
   async withdraw(amount: bigint): Promise<`0x${string}`> {
-    return this.billingContract.write.withdraw([amount]);
+    return this.billingContract.write.withdraw([amount])
   }
 }
 
@@ -596,16 +638,16 @@ export class CDNClient {
 // ============================================================================
 
 export function createCDNClient(config: CDNClientConfig): CDNClient {
-  return new CDNClient(config);
+  return new CDNClient(config)
 }
 
 /**
  * Create CDN client from environment variables
  */
 export function createCDNClientFromEnv(): CDNClient {
-  const privateKey = process.env.PRIVATE_KEY;
+  const privateKey = process.env.PRIVATE_KEY
   if (!privateKey) {
-    throw new Error('PRIVATE_KEY environment variable required');
+    throw new Error('PRIVATE_KEY environment variable required')
   }
 
   return new CDNClient({
@@ -615,6 +657,5 @@ export function createCDNClientFromEnv(): CDNClient {
     billingAddress: process.env.CDN_BILLING_ADDRESS as Address | undefined,
     coordinatorUrl: process.env.CDN_COORDINATOR_URL,
     ipfsGateway: process.env.IPFS_GATEWAY_URL,
-  });
+  })
 }
-

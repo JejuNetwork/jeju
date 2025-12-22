@@ -5,4 +5,4 @@
  * Re-exports from @jejunetwork/ui
  */
 
-export { useLiquidityVault, type LPPosition } from '@jejunetwork/ui'
+export { type LPPosition, useLiquidityVault } from '@jejunetwork/ui'

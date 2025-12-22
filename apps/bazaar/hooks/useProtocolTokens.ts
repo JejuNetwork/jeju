@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useMemo } from 'react'
-import { type Address } from 'viem'
+import type { Address } from 'viem'
 
 export interface TokenInfo {
   address: Address
@@ -38,7 +38,7 @@ export function useProtocolTokens() {
   }, [])
 
   const tokens = useMemo(() => Object.values(PROTOCOL_TOKENS), [])
-  
+
   // Bridgeable tokens are the same as protocol tokens for now
   const bridgeableTokens = useMemo(() => Object.values(PROTOCOL_TOKENS), [])
 

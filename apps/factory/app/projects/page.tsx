@@ -1,46 +1,46 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { useAccount } from 'wagmi';
-import { 
-  Kanban, 
-  Search, 
-  Plus,
-  Users,
+import { clsx } from 'clsx'
+import {
+  AlertCircle,
+  Calendar,
   CheckCircle2,
   Circle,
-  AlertCircle,
-  Timer,
-  MoreVertical,
   Filter,
-  Calendar
-} from 'lucide-react';
-import Link from 'next/link';
-import { clsx } from 'clsx';
+  Kanban,
+  MoreVertical,
+  Plus,
+  Search,
+  Timer,
+  Users,
+} from 'lucide-react'
+import Link from 'next/link'
+import { useState } from 'react'
+import { useAccount } from 'wagmi'
 
-type TaskStatus = 'backlog' | 'todo' | 'in_progress' | 'review' | 'done';
-type TaskPriority = 'urgent' | 'high' | 'medium' | 'low';
+type TaskStatus = 'backlog' | 'todo' | 'in_progress' | 'review' | 'done'
+type TaskPriority = 'urgent' | 'high' | 'medium' | 'low'
 
 interface Task {
-  id: string;
-  title: string;
-  description: string;
-  status: TaskStatus;
-  priority: TaskPriority;
-  assignee?: string;
-  labels: string[];
-  dueDate?: number;
-  bountyId?: string;
+  id: string
+  title: string
+  description: string
+  status: TaskStatus
+  priority: TaskPriority
+  assignee?: string
+  labels: string[]
+  dueDate?: number
+  bountyId?: string
 }
 
 interface Project {
-  id: string;
-  name: string;
-  description: string;
-  owner: string;
-  members: string[];
-  tasks: Task[];
-  createdAt: number;
+  id: string
+  name: string
+  description: string
+  owner: string
+  members: string[]
+  tasks: Task[]
+  createdAt: number
 }
 
 const mockProject: Project = {
@@ -64,7 +64,8 @@ const mockProject: Project = {
     {
       id: '2',
       title: 'Model Hub inference integration',
-      description: 'Connect model hub to compute marketplace for try-it-now feature',
+      description:
+        'Connect model hub to compute marketplace for try-it-now feature',
       status: 'todo',
       priority: 'urgent',
       assignee: 'bob.eth',
@@ -74,7 +75,8 @@ const mockProject: Project = {
     {
       id: '3',
       title: 'Bounty milestone validation flow',
-      description: 'Build the end-to-end flow for milestone submission and guardian validation',
+      description:
+        'Build the end-to-end flow for milestone submission and guardian validation',
       status: 'review',
       priority: 'high',
       assignee: 'carol.eth',
@@ -116,46 +118,68 @@ const mockProject: Project = {
     },
   ],
   createdAt: Date.now() - 30 * 24 * 60 * 60 * 1000,
-};
+}
 
-const statusConfig: Record<TaskStatus, { label: string; color: string; icon: typeof Circle }> = {
+const statusConfig: Record<
+  TaskStatus,
+  { label: string; color: string; icon: typeof Circle }
+> = {
   backlog: { label: 'Backlog', color: 'text-factory-500', icon: Circle },
   todo: { label: 'To Do', color: 'text-blue-400', icon: Circle },
   in_progress: { label: 'In Progress', color: 'text-amber-400', icon: Timer },
   review: { label: 'Review', color: 'text-purple-400', icon: AlertCircle },
   done: { label: 'Done', color: 'text-green-400', icon: CheckCircle2 },
-};
+}
 
 const priorityConfig: Record<TaskPriority, { label: string; color: string }> = {
-  urgent: { label: 'Urgent', color: 'bg-red-500/20 text-red-400 border-red-500/30' },
-  high: { label: 'High', color: 'bg-orange-500/20 text-orange-400 border-orange-500/30' },
-  medium: { label: 'Medium', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
-  low: { label: 'Low', color: 'bg-factory-700 text-factory-400 border-factory-600' },
-};
+  urgent: {
+    label: 'Urgent',
+    color: 'bg-red-500/20 text-red-400 border-red-500/30',
+  },
+  high: {
+    label: 'High',
+    color: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+  },
+  medium: {
+    label: 'Medium',
+    color: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+  },
+  low: {
+    label: 'Low',
+    color: 'bg-factory-700 text-factory-400 border-factory-600',
+  },
+}
 
 export default function ProjectsPage() {
-  useAccount();
-  const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
-  const [search, setSearch] = useState('');
+  useAccount()
+  const [viewMode, setViewMode] = useState<'board' | 'list'>('board')
+  const [search, setSearch] = useState('')
 
-  const columns: TaskStatus[] = ['backlog', 'todo', 'in_progress', 'review', 'done'];
+  const columns: TaskStatus[] = [
+    'backlog',
+    'todo',
+    'in_progress',
+    'review',
+    'done',
+  ]
 
-  const filteredTasks = mockProject.tasks.filter(task =>
-    task.title.toLowerCase().includes(search.toLowerCase()) ||
-    task.description.toLowerCase().includes(search.toLowerCase()) ||
-    task.labels.some(l => l.toLowerCase().includes(search.toLowerCase()))
-  );
+  const filteredTasks = mockProject.tasks.filter(
+    (task) =>
+      task.title.toLowerCase().includes(search.toLowerCase()) ||
+      task.description.toLowerCase().includes(search.toLowerCase()) ||
+      task.labels.some((l) => l.toLowerCase().includes(search.toLowerCase())),
+  )
 
-  const getTasksByStatus = (status: TaskStatus) => 
-    filteredTasks.filter(task => task.status === status);
+  const getTasksByStatus = (status: TaskStatus) =>
+    filteredTasks.filter((task) => task.status === status)
 
   const formatDate = (timestamp: number) => {
-    const days = Math.ceil((timestamp - Date.now()) / (1000 * 60 * 60 * 24));
-    if (days < 0) return 'Overdue';
-    if (days === 0) return 'Today';
-    if (days === 1) return 'Tomorrow';
-    return `${days}d`;
-  };
+    const days = Math.ceil((timestamp - Date.now()) / (1000 * 60 * 60 * 24))
+    if (days < 0) return 'Overdue'
+    if (days === 0) return 'Today'
+    if (days === 1) return 'Tomorrow'
+    return `${days}d`
+  }
 
   return (
     <div className="min-h-screen p-8">
@@ -215,7 +239,9 @@ export default function ProjectsPage() {
                 onClick={() => setViewMode('board')}
                 className={clsx(
                   'px-3 py-1.5 rounded text-sm font-medium transition-colors',
-                  viewMode === 'board' ? 'bg-factory-700 text-factory-100' : 'text-factory-400'
+                  viewMode === 'board'
+                    ? 'bg-factory-700 text-factory-100'
+                    : 'text-factory-400',
                 )}
               >
                 Board
@@ -224,7 +250,9 @@ export default function ProjectsPage() {
                 onClick={() => setViewMode('list')}
                 className={clsx(
                   'px-3 py-1.5 rounded text-sm font-medium transition-colors',
-                  viewMode === 'list' ? 'bg-factory-700 text-factory-100' : 'text-factory-400'
+                  viewMode === 'list'
+                    ? 'bg-factory-700 text-factory-100'
+                    : 'text-factory-400',
                 )}
               >
                 List
@@ -238,8 +266,8 @@ export default function ProjectsPage() {
       {viewMode === 'board' && (
         <div className="grid grid-cols-5 gap-4">
           {columns.map((status) => {
-            const config = statusConfig[status];
-            const tasks = getTasksByStatus(status);
+            const config = statusConfig[status]
+            const tasks = getTasksByStatus(status)
 
             return (
               <div key={status} className="space-y-3">
@@ -247,8 +275,12 @@ export default function ProjectsPage() {
                 <div className="flex items-center justify-between px-2">
                   <div className="flex items-center gap-2">
                     <config.icon className={clsx('w-4 h-4', config.color)} />
-                    <span className="font-medium text-factory-300">{config.label}</span>
-                    <span className="text-factory-500 text-sm">({tasks.length})</span>
+                    <span className="font-medium text-factory-300">
+                      {config.label}
+                    </span>
+                    <span className="text-factory-500 text-sm">
+                      ({tasks.length})
+                    </span>
                   </div>
                   <button className="p-1 hover:bg-factory-800 rounded">
                     <Plus className="w-4 h-4 text-factory-500" />
@@ -264,7 +296,12 @@ export default function ProjectsPage() {
                     >
                       {/* Priority & Labels */}
                       <div className="flex items-center gap-1.5 mb-2 flex-wrap">
-                        <span className={clsx('badge text-xs border', priorityConfig[task.priority].color)}>
+                        <span
+                          className={clsx(
+                            'badge text-xs border',
+                            priorityConfig[task.priority].color,
+                          )}
+                        >
                           {priorityConfig[task.priority].label}
                         </span>
                         {task.bountyId && (
@@ -282,7 +319,10 @@ export default function ProjectsPage() {
                       {/* Labels */}
                       <div className="flex flex-wrap gap-1 mb-3">
                         {task.labels.slice(0, 2).map((label) => (
-                          <span key={label} className="badge badge-info text-xs">
+                          <span
+                            key={label}
+                            className="badge badge-info text-xs"
+                          >
                             {label}
                           </span>
                         ))}
@@ -301,10 +341,12 @@ export default function ProjectsPage() {
                           <span>Unassigned</span>
                         )}
                         {task.dueDate && (
-                          <span className={clsx(
-                            'flex items-center gap-1',
-                            task.dueDate < Date.now() && 'text-red-400'
-                          )}>
+                          <span
+                            className={clsx(
+                              'flex items-center gap-1',
+                              task.dueDate < Date.now() && 'text-red-400',
+                            )}
+                          >
                             <Calendar className="w-3 h-3" />
                             {formatDate(task.dueDate)}
                           </span>
@@ -314,7 +356,7 @@ export default function ProjectsPage() {
                   ))}
                 </div>
               </div>
-            );
+            )
           })}
         </div>
       )}
@@ -325,27 +367,47 @@ export default function ProjectsPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-factory-700">
-                <th className="text-left p-4 text-factory-400 font-medium">Task</th>
-                <th className="text-left p-4 text-factory-400 font-medium">Status</th>
-                <th className="text-left p-4 text-factory-400 font-medium">Priority</th>
-                <th className="text-left p-4 text-factory-400 font-medium">Assignee</th>
-                <th className="text-left p-4 text-factory-400 font-medium">Due</th>
+                <th className="text-left p-4 text-factory-400 font-medium">
+                  Task
+                </th>
+                <th className="text-left p-4 text-factory-400 font-medium">
+                  Status
+                </th>
+                <th className="text-left p-4 text-factory-400 font-medium">
+                  Priority
+                </th>
+                <th className="text-left p-4 text-factory-400 font-medium">
+                  Assignee
+                </th>
+                <th className="text-left p-4 text-factory-400 font-medium">
+                  Due
+                </th>
                 <th className="w-10"></th>
               </tr>
             </thead>
             <tbody>
               {filteredTasks.map((task) => {
-                const statusCfg = statusConfig[task.status];
+                const statusCfg = statusConfig[task.status]
                 return (
-                  <tr key={task.id} className="border-b border-factory-800 hover:bg-factory-800/50">
+                  <tr
+                    key={task.id}
+                    className="border-b border-factory-800 hover:bg-factory-800/50"
+                  >
                     <td className="p-4">
                       <div className="flex items-center gap-3">
-                        <statusCfg.icon className={clsx('w-4 h-4', statusCfg.color)} />
+                        <statusCfg.icon
+                          className={clsx('w-4 h-4', statusCfg.color)}
+                        />
                         <div>
-                          <p className="font-medium text-factory-200">{task.title}</p>
+                          <p className="font-medium text-factory-200">
+                            {task.title}
+                          </p>
                           <div className="flex gap-1 mt-1">
                             {task.labels.slice(0, 3).map((label) => (
-                              <span key={label} className="badge badge-info text-xs">
+                              <span
+                                key={label}
+                                className="badge badge-info text-xs"
+                              >
                                 {label}
                               </span>
                             ))}
@@ -359,7 +421,12 @@ export default function ProjectsPage() {
                       </span>
                     </td>
                     <td className="p-4">
-                      <span className={clsx('badge text-xs border', priorityConfig[task.priority].color)}>
+                      <span
+                        className={clsx(
+                          'badge text-xs border',
+                          priorityConfig[task.priority].color,
+                        )}
+                      >
                         {priorityConfig[task.priority].label}
                       </span>
                     </td>
@@ -369,7 +436,9 @@ export default function ProjectsPage() {
                           <div className="w-6 h-6 rounded-full bg-gradient-to-br from-accent-500 to-purple-600 flex items-center justify-center text-xs font-bold">
                             {task.assignee[0].toUpperCase()}
                           </div>
-                          <span className="text-sm text-factory-300">{task.assignee}</span>
+                          <span className="text-sm text-factory-300">
+                            {task.assignee}
+                          </span>
                         </div>
                       ) : (
                         <span className="text-factory-500 text-sm">-</span>
@@ -377,10 +446,14 @@ export default function ProjectsPage() {
                     </td>
                     <td className="p-4">
                       {task.dueDate ? (
-                        <span className={clsx(
-                          'text-sm',
-                          task.dueDate < Date.now() ? 'text-red-400' : 'text-factory-400'
-                        )}>
+                        <span
+                          className={clsx(
+                            'text-sm',
+                            task.dueDate < Date.now()
+                              ? 'text-red-400'
+                              : 'text-factory-400',
+                          )}
+                        >
                           {formatDate(task.dueDate)}
                         </span>
                       ) : (
@@ -393,13 +466,12 @@ export default function ProjectsPage() {
                       </button>
                     </td>
                   </tr>
-                );
+                )
               })}
             </tbody>
           </table>
         </div>
       )}
     </div>
-  );
+  )
 }
-

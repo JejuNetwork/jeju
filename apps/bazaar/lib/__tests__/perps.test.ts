@@ -2,53 +2,53 @@
  * Tests for perpetual trading business logic
  */
 
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import {
-  // Constants
-  MARKET_IDS,
-  PRICE_DECIMALS,
-  PRICE_SCALE,
-  SIZE_DECIMALS,
-  SIZE_SCALE,
-  PNL_DECIMALS,
-  PNL_SCALE,
+  calculateCurrentLeverage,
+  calculateFee,
+  calculateLiquidationPrice,
+  calculateNotional,
+  // Calculation functions
+  calculateRequiredMargin,
+  calculateUnrealizedPnL,
+  DEFAULT_TAKER_FEE_BPS,
   FUNDING_RATE_DECIMALS,
   FUNDING_RATE_SCALE,
-  LEVERAGE_DECIMALS,
-  LEVERAGE_SCALE,
-  MAX_LEVERAGE,
-  DEFAULT_TAKER_FEE_BPS,
-  MAINTENANCE_MARGIN_FACTOR,
-  // Enum
-  PositionSide,
+  formatFundingRate,
+  formatLeverage,
+  formatPnL,
   // Formatting functions
   formatPrice,
   formatSize,
-  formatPnL,
-  formatFundingRate,
-  formatLeverage,
-  // Calculation functions
-  calculateRequiredMargin,
-  calculateLiquidationPrice,
-  calculateFee,
-  calculateUnrealizedPnL,
-  calculateNotional,
-  calculateCurrentLeverage,
+  getBaseAsset,
+  // UI helper functions
+  getTradeButtonText,
   isAtLiquidationRisk,
+  isTradeButtonDisabled,
+  LEVERAGE_DECIMALS,
+  LEVERAGE_SCALE,
+  leverageToBigInt,
+  leverageToNumber,
+  MAINTENANCE_MARGIN_FACTOR,
+  // Constants
+  MARKET_IDS,
+  MAX_LEVERAGE,
+  PNL_DECIMALS,
+  PNL_SCALE,
+  // Enum
+  PositionSide,
+  PRICE_DECIMALS,
+  PRICE_SCALE,
   // Conversion functions
   priceToBigInt,
   priceToNumber,
+  SIZE_DECIMALS,
+  SIZE_SCALE,
   sizeToBigInt,
   sizeToNumber,
-  leverageToBigInt,
-  leverageToNumber,
+  validateMargin,
   // Validation functions
   validatePositionParams,
-  validateMargin,
-  // UI helper functions
-  getTradeButtonText,
-  isTradeButtonDisabled,
-  getBaseAsset,
 } from '../perps'
 
 // =============================================================================
@@ -275,7 +275,12 @@ describe('calculateLiquidationPrice', () => {
   })
 
   it('accepts custom maintenance margin factor', () => {
-    const liqPrice = calculateLiquidationPrice(50000, 10, PositionSide.Long, 0.9)
+    const liqPrice = calculateLiquidationPrice(
+      50000,
+      10,
+      PositionSide.Long,
+      0.9,
+    )
     expect(liqPrice).toBeCloseTo(45500, 0)
   })
 })
@@ -478,23 +483,33 @@ describe('validateMargin', () => {
 
 describe('getTradeButtonText', () => {
   it('shows Connect Wallet when disconnected', () => {
-    expect(getTradeButtonText(false, false, true, PositionSide.Long, 'BTC')).toBe('Connect Wallet')
+    expect(
+      getTradeButtonText(false, false, true, PositionSide.Long, 'BTC'),
+    ).toBe('Connect Wallet')
   })
 
   it('shows Opening Position when loading', () => {
-    expect(getTradeButtonText(true, true, true, PositionSide.Long, 'BTC')).toBe('Opening Position...')
+    expect(getTradeButtonText(true, true, true, PositionSide.Long, 'BTC')).toBe(
+      'Opening Position...',
+    )
   })
 
   it('shows Enter Size when no valid size', () => {
-    expect(getTradeButtonText(true, false, false, PositionSide.Long, 'BTC')).toBe('Enter Size')
+    expect(
+      getTradeButtonText(true, false, false, PositionSide.Long, 'BTC'),
+    ).toBe('Enter Size')
   })
 
   it('shows Long {symbol} for long positions', () => {
-    expect(getTradeButtonText(true, false, true, PositionSide.Long, 'BTC')).toBe('Long BTC')
+    expect(
+      getTradeButtonText(true, false, true, PositionSide.Long, 'BTC'),
+    ).toBe('Long BTC')
   })
 
   it('shows Short {symbol} for short positions', () => {
-    expect(getTradeButtonText(true, false, true, PositionSide.Short, 'ETH')).toBe('Short ETH')
+    expect(
+      getTradeButtonText(true, false, true, PositionSide.Short, 'ETH'),
+    ).toBe('Short ETH')
   })
 })
 

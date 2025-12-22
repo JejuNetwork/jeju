@@ -2,8 +2,8 @@
  * Prediction market-related Zod schemas
  */
 
-import { z } from 'zod'
 import { AddressSchema } from '@jejunetwork/types'
+import { z } from 'zod'
 import {
   BigIntSchema,
   DateSchema,
@@ -14,7 +14,10 @@ import {
 export const MarketSchema = z.object({
   id: NonEmptyStringSchema,
   sessionId: NonEmptyStringSchema,
-  question: NonEmptyStringSchema.min(3, 'Question must be at least 3 characters'),
+  question: NonEmptyStringSchema.min(
+    3,
+    'Question must be at least 3 characters',
+  ),
   yesPrice: BigIntSchema,
   noPrice: BigIntSchema,
   yesShares: BigIntSchema,
@@ -54,9 +57,11 @@ export const TradeSchema = z.object({
   outcome: z.boolean(),
   yesPrice: z.string(),
   noPrice: z.string(),
-  market: z.object({
-    question: NonEmptyStringSchema,
-  }).optional(),
+  market: z
+    .object({
+      question: NonEmptyStringSchema,
+    })
+    .optional(),
 })
 
 export type Trade = z.infer<typeof TradeSchema>

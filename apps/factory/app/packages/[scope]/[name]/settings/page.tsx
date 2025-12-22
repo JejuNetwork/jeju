@@ -1,81 +1,131 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { useAccount } from 'wagmi';
+import { clsx } from 'clsx'
 import {
-  Settings,
-  ArrowLeft,
-  Package,
-  Users,
-  Key,
   AlertTriangle,
-  Trash2,
-  Loader2,
-  Save,
-  Plus,
-  X,
-  Shield,
-  Clock,
-  Tag,
   Archive,
-} from 'lucide-react';
-import Link from 'next/link';
-import { clsx } from 'clsx';
+  ArrowLeft,
+  Clock,
+  Key,
+  Loader2,
+  Package,
+  Plus,
+  Save,
+  Settings,
+  Shield,
+  Tag,
+  Trash2,
+  Users,
+  X,
+} from 'lucide-react'
+import Link from 'next/link'
+import { useParams, useRouter } from 'next/navigation'
+import { useState } from 'react'
+import { useAccount } from 'wagmi'
 
-type SettingsTab = 'general' | 'maintainers' | 'tokens' | 'versions' | 'danger';
+type SettingsTab = 'general' | 'maintainers' | 'tokens' | 'versions' | 'danger'
 
 const mockMaintainers = [
-  { id: '1', name: 'alice.eth', avatar: 'https://avatars.githubusercontent.com/u/1?v=4', role: 'owner', addedAt: Date.now() - 30 * 24 * 60 * 60 * 1000 },
-  { id: '2', name: 'bob.eth', avatar: 'https://avatars.githubusercontent.com/u/2?v=4', role: 'maintainer', addedAt: Date.now() - 7 * 24 * 60 * 60 * 1000 },
-];
+  {
+    id: '1',
+    name: 'alice.eth',
+    avatar: 'https://avatars.githubusercontent.com/u/1?v=4',
+    role: 'owner',
+    addedAt: Date.now() - 30 * 24 * 60 * 60 * 1000,
+  },
+  {
+    id: '2',
+    name: 'bob.eth',
+    avatar: 'https://avatars.githubusercontent.com/u/2?v=4',
+    role: 'maintainer',
+    addedAt: Date.now() - 7 * 24 * 60 * 60 * 1000,
+  },
+]
 
 const mockVersions = [
-  { version: '1.5.2', publishedAt: Date.now() - 2 * 24 * 60 * 60 * 1000, deprecated: false, downloads: 3240 },
-  { version: '1.5.1', publishedAt: Date.now() - 7 * 24 * 60 * 60 * 1000, deprecated: false, downloads: 8450 },
-  { version: '1.5.0', publishedAt: Date.now() - 14 * 24 * 60 * 60 * 1000, deprecated: false, downloads: 12300 },
-  { version: '1.4.0', publishedAt: Date.now() - 30 * 24 * 60 * 60 * 1000, deprecated: true, downloads: 21500 },
-];
+  {
+    version: '1.5.2',
+    publishedAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
+    deprecated: false,
+    downloads: 3240,
+  },
+  {
+    version: '1.5.1',
+    publishedAt: Date.now() - 7 * 24 * 60 * 60 * 1000,
+    deprecated: false,
+    downloads: 8450,
+  },
+  {
+    version: '1.5.0',
+    publishedAt: Date.now() - 14 * 24 * 60 * 60 * 1000,
+    deprecated: false,
+    downloads: 12300,
+  },
+  {
+    version: '1.4.0',
+    publishedAt: Date.now() - 30 * 24 * 60 * 60 * 1000,
+    deprecated: true,
+    downloads: 21500,
+  },
+]
 
 const mockTokens = [
-  { id: '1', name: 'CI/CD Token', lastUsed: Date.now() - 2 * 60 * 60 * 1000, permissions: ['publish'] },
-  { id: '2', name: 'Development', lastUsed: Date.now() - 24 * 60 * 60 * 1000, permissions: ['publish', 'deprecate'] },
-];
+  {
+    id: '1',
+    name: 'CI/CD Token',
+    lastUsed: Date.now() - 2 * 60 * 60 * 1000,
+    permissions: ['publish'],
+  },
+  {
+    id: '2',
+    name: 'Development',
+    lastUsed: Date.now() - 24 * 60 * 60 * 1000,
+    permissions: ['publish', 'deprecate'],
+  },
+]
 
 export default function PackageSettingsPage() {
-  const params = useParams();
-  const router = useRouter();
-  void router; // Suppress unused
-  const { isConnected: _isConnected } = useAccount();
-  const rawScope = params.scope as string;
-  const name = params.name as string;
-  const scope = decodeURIComponent(rawScope);
-  const fullName = scope.startsWith('@') ? `${scope}/${name}` : name;
+  const params = useParams()
+  const router = useRouter()
+  void router // Suppress unused
+  const { isConnected: _isConnected } = useAccount()
+  const rawScope = params.scope as string
+  const name = params.name as string
+  const scope = decodeURIComponent(rawScope)
+  const fullName = scope.startsWith('@') ? `${scope}/${name}` : name
 
-  const [tab, setTab] = useState<SettingsTab>('general');
-  const [description, setDescription] = useState('Official Jeju Network SDK for building dApps with bounties, guardians, and AI models.');
-  const [keywords, setKeywords] = useState(['jeju', 'web3', 'sdk', 'ethereum', 'bounties']);
-  const [newKeyword, setNewKeyword] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState('');
-  const [newMaintainer, setNewMaintainer] = useState('');
+  const [tab, setTab] = useState<SettingsTab>('general')
+  const [description, setDescription] = useState(
+    'Official Jeju Network SDK for building dApps with bounties, guardians, and AI models.',
+  )
+  const [keywords, setKeywords] = useState([
+    'jeju',
+    'web3',
+    'sdk',
+    'ethereum',
+    'bounties',
+  ])
+  const [newKeyword, setNewKeyword] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState('')
+  const [newMaintainer, setNewMaintainer] = useState('')
 
   const handleSave = async () => {
-    setIsSaving(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setIsSaving(false);
-  };
+    setIsSaving(true)
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+    setIsSaving(false)
+  }
 
   const addKeyword = () => {
     if (newKeyword.trim() && !keywords.includes(newKeyword.trim())) {
-      setKeywords([...keywords, newKeyword.trim()]);
-      setNewKeyword('');
+      setKeywords([...keywords, newKeyword.trim()])
+      setNewKeyword('')
     }
-  };
+  }
 
   const removeKeyword = (kw: string) => {
-    setKeywords(keywords.filter(k => k !== kw));
-  };
+    setKeywords(keywords.filter((k) => k !== kw))
+  }
 
   const tabs = [
     { id: 'general' as const, label: 'General', icon: Settings },
@@ -83,7 +133,7 @@ export default function PackageSettingsPage() {
     { id: 'tokens' as const, label: 'Access Tokens', icon: Key },
     { id: 'versions' as const, label: 'Versions', icon: Tag },
     { id: 'danger' as const, label: 'Danger Zone', icon: AlertTriangle },
-  ];
+  ]
 
   return (
     <div className="min-h-screen p-8">
@@ -117,7 +167,7 @@ export default function PackageSettingsPage() {
                     ? 'bg-accent-600 text-white'
                     : id === 'danger'
                       ? 'text-red-400 hover:bg-red-500/10'
-                      : 'text-factory-400 hover:bg-factory-800 hover:text-factory-100'
+                      : 'text-factory-400 hover:bg-factory-800 hover:text-factory-100',
                 )}
               >
                 <Icon className="w-4 h-4" />
@@ -130,10 +180,14 @@ export default function PackageSettingsPage() {
           <div className="flex-1">
             {tab === 'general' && (
               <div className="card p-6 space-y-6">
-                <h2 className="text-lg font-semibold text-factory-100">Package Information</h2>
+                <h2 className="text-lg font-semibold text-factory-100">
+                  Package Information
+                </h2>
 
                 <div>
-                  <label className="block text-sm font-medium text-factory-300 mb-2">Description</label>
+                  <label className="block text-sm font-medium text-factory-300 mb-2">
+                    Description
+                  </label>
                   <textarea
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
@@ -143,12 +197,20 @@ export default function PackageSettingsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-factory-300 mb-2">Keywords</label>
+                  <label className="block text-sm font-medium text-factory-300 mb-2">
+                    Keywords
+                  </label>
                   <div className="flex flex-wrap gap-2 mb-2">
-                    {keywords.map(kw => (
-                      <span key={kw} className="badge badge-info flex items-center gap-1">
+                    {keywords.map((kw) => (
+                      <span
+                        key={kw}
+                        className="badge badge-info flex items-center gap-1"
+                      >
                         {kw}
-                        <button onClick={() => removeKeyword(kw)} className="hover:text-white">
+                        <button
+                          onClick={() => removeKeyword(kw)}
+                          className="hover:text-white"
+                        >
                           <X className="w-3 h-3" />
                         </button>
                       </span>
@@ -159,18 +221,29 @@ export default function PackageSettingsPage() {
                       type="text"
                       value={newKeyword}
                       onChange={(e) => setNewKeyword(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addKeyword())}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          addKeyword()
+                        }
+                      }}
                       placeholder="Add keyword..."
                       className="input flex-1"
                     />
-                    <button type="button" onClick={addKeyword} className="btn btn-secondary">
+                    <button
+                      type="button"
+                      onClick={addKeyword}
+                      className="btn btn-secondary"
+                    >
                       Add
                     </button>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-factory-300 mb-2">Homepage URL</label>
+                  <label className="block text-sm font-medium text-factory-300 mb-2">
+                    Homepage URL
+                  </label>
                   <input
                     type="url"
                     defaultValue="https://jejunetwork.org"
@@ -179,7 +252,9 @@ export default function PackageSettingsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-factory-300 mb-2">Repository URL</label>
+                  <label className="block text-sm font-medium text-factory-300 mb-2">
+                    Repository URL
+                  </label>
                   <input
                     type="url"
                     defaultValue="https://git.jejunetwork.org/jeju/sdk"
@@ -188,8 +263,16 @@ export default function PackageSettingsPage() {
                 </div>
 
                 <div className="pt-4 border-t border-factory-800">
-                  <button onClick={handleSave} disabled={isSaving} className="btn btn-primary">
-                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  <button
+                    onClick={handleSave}
+                    disabled={isSaving}
+                    className="btn btn-primary"
+                  >
+                    {isSaving ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4" />
+                    )}
                     Save changes
                   </button>
                 </div>
@@ -198,7 +281,9 @@ export default function PackageSettingsPage() {
 
             {tab === 'maintainers' && (
               <div className="card p-6 space-y-6">
-                <h2 className="text-lg font-semibold text-factory-100">Package Maintainers</h2>
+                <h2 className="text-lg font-semibold text-factory-100">
+                  Package Maintainers
+                </h2>
 
                 <div className="flex gap-2">
                   <input
@@ -215,19 +300,32 @@ export default function PackageSettingsPage() {
                 </div>
 
                 <div className="space-y-3">
-                  {mockMaintainers.map(m => (
-                    <div key={m.id} className="flex items-center justify-between p-4 bg-factory-800/50 rounded-lg">
+                  {mockMaintainers.map((m) => (
+                    <div
+                      key={m.id}
+                      className="flex items-center justify-between p-4 bg-factory-800/50 rounded-lg"
+                    >
                       <div className="flex items-center gap-3">
-                        <img src={m.avatar} alt="" className="w-8 h-8 rounded-full" />
+                        <img
+                          src={m.avatar}
+                          alt=""
+                          className="w-8 h-8 rounded-full"
+                        />
                         <div>
                           <span className="text-factory-200">{m.name}</span>
                           {m.role === 'owner' && (
-                            <span className="ml-2 badge bg-purple-500/20 text-purple-400 text-xs">Owner</span>
+                            <span className="ml-2 badge bg-purple-500/20 text-purple-400 text-xs">
+                              Owner
+                            </span>
                           )}
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <select defaultValue={m.role} className="input text-sm py-1" disabled={m.role === 'owner'}>
+                        <select
+                          defaultValue={m.role}
+                          className="input text-sm py-1"
+                          disabled={m.role === 'owner'}
+                        >
                           <option value="maintainer">Maintainer</option>
                           <option value="owner">Owner</option>
                         </select>
@@ -246,7 +344,9 @@ export default function PackageSettingsPage() {
             {tab === 'tokens' && (
               <div className="card p-6 space-y-6">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-factory-100">Access Tokens</h2>
+                  <h2 className="text-lg font-semibold text-factory-100">
+                    Access Tokens
+                  </h2>
                   <button className="btn btn-primary text-sm">
                     <Plus className="w-4 h-4" />
                     Create token
@@ -254,23 +354,32 @@ export default function PackageSettingsPage() {
                 </div>
 
                 <p className="text-factory-400 text-sm">
-                  Tokens allow CI/CD systems and tools to publish on your behalf.
+                  Tokens allow CI/CD systems and tools to publish on your
+                  behalf.
                 </p>
 
                 <div className="space-y-3">
-                  {mockTokens.map(token => (
-                    <div key={token.id} className="p-4 bg-factory-800/50 rounded-lg">
+                  {mockTokens.map((token) => (
+                    <div
+                      key={token.id}
+                      className="p-4 bg-factory-800/50 rounded-lg"
+                    >
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <Key className="w-4 h-4 text-factory-400" />
-                          <span className="text-factory-200 font-medium">{token.name}</span>
+                          <span className="text-factory-200 font-medium">
+                            {token.name}
+                          </span>
                         </div>
-                        <button className="text-red-400 hover:text-red-300 text-sm">Revoke</button>
+                        <button className="text-red-400 hover:text-red-300 text-sm">
+                          Revoke
+                        </button>
                       </div>
                       <div className="flex items-center gap-4 text-sm text-factory-500">
                         <span className="flex items-center gap-1">
                           <Clock className="w-3 h-3" />
-                          Last used: {new Date(token.lastUsed).toLocaleDateString()}
+                          Last used:{' '}
+                          {new Date(token.lastUsed).toLocaleDateString()}
                         </span>
                         <span className="flex items-center gap-1">
                           <Shield className="w-3 h-3" />
@@ -285,29 +394,44 @@ export default function PackageSettingsPage() {
 
             {tab === 'versions' && (
               <div className="card p-6 space-y-6">
-                <h2 className="text-lg font-semibold text-factory-100">Version Management</h2>
+                <h2 className="text-lg font-semibold text-factory-100">
+                  Version Management
+                </h2>
 
                 <div className="space-y-3">
-                  {mockVersions.map(v => (
-                    <div key={v.version} className="flex items-center justify-between p-4 bg-factory-800/50 rounded-lg">
+                  {mockVersions.map((v) => (
+                    <div
+                      key={v.version}
+                      className="flex items-center justify-between p-4 bg-factory-800/50 rounded-lg"
+                    >
                       <div className="flex items-center gap-3">
                         <Tag className="w-4 h-4 text-factory-400" />
-                        <span className="font-mono text-factory-200">{v.version}</span>
+                        <span className="font-mono text-factory-200">
+                          {v.version}
+                        </span>
                         {v.deprecated && (
-                          <span className="badge bg-yellow-500/20 text-yellow-400 text-xs">Deprecated</span>
+                          <span className="badge bg-yellow-500/20 text-yellow-400 text-xs">
+                            Deprecated
+                          </span>
                         )}
                         {v === mockVersions[0] && (
-                          <span className="badge bg-green-500/20 text-green-400 text-xs">Latest</span>
+                          <span className="badge bg-green-500/20 text-green-400 text-xs">
+                            Latest
+                          </span>
                         )}
                       </div>
                       <div className="flex items-center gap-4">
-                        <span className="text-factory-500 text-sm">{v.downloads.toLocaleString()} downloads</span>
-                        <button className={clsx(
-                          'text-sm px-2 py-1 rounded',
-                          v.deprecated
-                            ? 'text-green-400 hover:bg-green-500/10'
-                            : 'text-yellow-400 hover:bg-yellow-500/10'
-                        )}>
+                        <span className="text-factory-500 text-sm">
+                          {v.downloads.toLocaleString()} downloads
+                        </span>
+                        <button
+                          className={clsx(
+                            'text-sm px-2 py-1 rounded',
+                            v.deprecated
+                              ? 'text-green-400 hover:bg-green-500/10'
+                              : 'text-yellow-400 hover:bg-yellow-500/10',
+                          )}
+                        >
                           {v.deprecated ? 'Undeprecate' : 'Deprecate'}
                         </button>
                       </div>
@@ -325,7 +449,8 @@ export default function PackageSettingsPage() {
                     Deprecate Package
                   </h3>
                   <p className="text-factory-400 text-sm mb-4">
-                    Mark this package as deprecated. Users will see a warning when installing.
+                    Mark this package as deprecated. Users will see a warning
+                    when installing.
                   </p>
                   <button className="btn bg-yellow-500/20 text-yellow-400 border-yellow-500/30 hover:bg-yellow-500/30">
                     Deprecate all versions
@@ -338,7 +463,8 @@ export default function PackageSettingsPage() {
                     Unpublish Package
                   </h3>
                   <p className="text-factory-400 text-sm mb-4">
-                    Remove this package from the registry. This action cannot be undone.
+                    Remove this package from the registry. This action cannot be
+                    undone.
                   </p>
                   <div className="space-y-3">
                     <input
@@ -363,7 +489,5 @@ export default function PackageSettingsPage() {
         </div>
       </div>
     </div>
-  );
+  )
 }
-
-

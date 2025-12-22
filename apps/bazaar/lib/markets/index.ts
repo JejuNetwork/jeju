@@ -4,21 +4,21 @@
  */
 
 export {
-  calculateYesPrice,
-  calculateNoPrice,
-  calculateExpectedShares,
   calculateCost,
+  calculateExpectedShares,
+  calculateNoPrice,
+  calculateYesPrice,
   formatPrice,
-} from './lmsrPricing';
+} from './lmsrPricing'
 
 export {
+  calculateMinShares,
   calculatePositionValue,
   calculatePotentialPayout,
   calculateRealizedPnL,
   calculateUnrealizedPnL,
-  isWinningPosition,
   formatShareAmount,
-  validateTradeAmount,
+  isWinningPosition,
   validateSlippage,
-  calculateMinShares,
-} from './positionUtils';
+  validateTradeAmount,
+} from './positionUtils'

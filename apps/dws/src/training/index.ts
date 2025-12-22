@@ -1,6 +1,6 @@
 /**
  * Jeju DWS Distributed Training Module
- * 
+ *
  * Complete distributed training infrastructure with:
  * - Atropos API server for rollout coordination
  * - Psyche SDK integration for Solana-based distributed training
@@ -9,48 +9,43 @@
  * - Environment implementations for various training tasks
  */
 
-// Core components
-export * from './atropos-server';
-export * from './psyche-client';
-export * from './cross-chain-bridge';
-export * from './grpo-trainer';
-
-// Environments
-export * from './environments/fundamental-prediction';
-
 // Types
 export type {
-  ScoredData,
-  Message,
-  Registration,
-  RegisterEnv,
-  EnvConfig,
   AtroposState,
-} from './atropos-server';
-
-export type {
-  PsycheConfig,
-  RunMetadata,
-  CoordinatorConfig,
-  Model,
-  CoordinatorProgress,
-  CoordinatorState,
-  ClientInfo,
-  WitnessProof,
-  TrainingMetrics,
-} from './psyche-client';
-
+  EnvConfig,
+  Message,
+  RegisterEnv,
+  Registration,
+  ScoredData,
+} from './atropos-server'
+// Core components
+export * from './atropos-server'
 export type {
   BridgeConfig,
   BridgedRunState,
+  CheckpointData,
   ClientRegistration,
   RewardDistribution,
-  CheckpointData,
-} from './cross-chain-bridge';
+} from './cross-chain-bridge'
+export * from './cross-chain-bridge'
 
+// Environments
+export * from './environments/fundamental-prediction'
 export type {
-  TrainingConfig,
   BatchData,
+  TrainingConfig,
   TrainingMetrics as GRPOMetrics,
-} from './grpo-trainer';
-
+} from './grpo-trainer'
+export * from './grpo-trainer'
+export type {
+  ClientInfo,
+  CoordinatorConfig,
+  CoordinatorProgress,
+  CoordinatorState,
+  Model,
+  PsycheConfig,
+  RunMetadata,
+  TrainingMetrics,
+  WitnessProof,
+} from './psyche-client'
+export * from './psyche-client'

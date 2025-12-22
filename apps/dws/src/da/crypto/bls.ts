@@ -1,6 +1,6 @@
 /**
  * BLS12-381 Signature Implementation
- * 
+ *
  * Production-ready BLS signatures using @noble/curves:
  * - Full pairing-based verification: e(G1, σ) = e(pk, H(m))
  * - Proper hash-to-curve (RFC 9380)
@@ -8,45 +8,45 @@
  * - Compatible with Ethereum consensus layer
  */
 
-import { bls12_381 as bls } from '@noble/curves/bls12-381';
-import { sha256 } from '@noble/hashes/sha2.js';
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js';
-import type { Hex } from 'viem';
-import { keccak256, toBytes } from 'viem';
+import { bls12_381 as bls } from '@noble/curves/bls12-381'
+import { sha256 } from '@noble/hashes/sha2.js'
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
+import type { Hex } from 'viem'
+import { keccak256, toBytes } from 'viem'
 
 // ============================================================================
 // Types
 // ============================================================================
 
 /** BLS public key (48 bytes compressed G1 point) */
-export type BLSPublicKey = Hex;
+export type BLSPublicKey = Hex
 
 /** BLS signature (96 bytes G2 point) */
-export type BLSSignature = Hex;
+export type BLSSignature = Hex
 
 /** BLS secret key (32 bytes scalar) */
-export type BLSSecretKey = Hex;
+export type BLSSecretKey = Hex
 
 /** Key pair */
 export interface BLSKeyPair {
-  secretKey: BLSSecretKey;
-  publicKey: BLSPublicKey;
+  secretKey: BLSSecretKey
+  publicKey: BLSPublicKey
 }
 
 /** Aggregated signature with public keys */
 export interface AggregatedSignature {
-  signature: BLSSignature;
-  publicKeys: BLSPublicKey[];
-  signerIndices: number[];
-  message: Hex;
+  signature: BLSSignature
+  publicKeys: BLSPublicKey[]
+  signerIndices: number[]
+  message: Hex
 }
 
 // ============================================================================
 // Domain Separation Tags (DST) - RFC 9380 compliant
 // ============================================================================
 
-const DST_SIGN = 'BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_NUL_';
-const DST_POP = 'BLS_POP_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_';
+const DST_SIGN = 'BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_NUL_'
+const DST_POP = 'BLS_POP_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_'
 
 // ============================================================================
 // Key Generation
@@ -56,22 +56,22 @@ const DST_POP = 'BLS_POP_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_';
  * Generate a new BLS key pair
  */
 export function generateKeyPair(): BLSKeyPair {
-  const secretKey = bls.utils.randomPrivateKey();
-  const publicKey = bls.getPublicKey(secretKey);
-  
+  const secretKey = bls.utils.randomPrivateKey()
+  const publicKey = bls.getPublicKey(secretKey)
+
   return {
     secretKey: `0x${bytesToHex(secretKey)}` as BLSSecretKey,
     publicKey: `0x${bytesToHex(publicKey)}` as BLSPublicKey,
-  };
+  }
 }
 
 /**
  * Derive public key from secret key
  */
 export function derivePublicKey(secretKey: BLSSecretKey): BLSPublicKey {
-  const sk = hexToBytes(secretKey.slice(2));
-  const pk = bls.getPublicKey(sk);
-  return `0x${bytesToHex(pk)}` as BLSPublicKey;
+  const sk = hexToBytes(secretKey.slice(2))
+  const pk = bls.getPublicKey(sk)
+  return `0x${bytesToHex(pk)}` as BLSPublicKey
 }
 
 /**
@@ -79,12 +79,12 @@ export function derivePublicKey(secretKey: BLSSecretKey): BLSPublicKey {
  */
 export function validateSecretKey(secretKey: BLSSecretKey): boolean {
   try {
-    const sk = hexToBytes(secretKey.slice(2));
+    const sk = hexToBytes(secretKey.slice(2))
     // Verify it's a valid scalar (non-zero and less than curve order)
-    const scalar = BigInt(`0x${bytesToHex(sk)}`);
-    return scalar > 0n && scalar < bls.params.r;
+    const scalar = BigInt(`0x${bytesToHex(sk)}`)
+    return scalar > 0n && scalar < bls.params.r
   } catch {
-    return false;
+    return false
   }
 }
 
@@ -93,12 +93,12 @@ export function validateSecretKey(secretKey: BLSSecretKey): boolean {
  */
 export function validatePublicKey(publicKey: BLSPublicKey): boolean {
   try {
-    const pk = hexToBytes(publicKey.slice(2));
+    const pk = hexToBytes(publicKey.slice(2))
     // This will throw if point is not on curve
-    bls.G1.ProjectivePoint.fromHex(pk);
-    return true;
+    bls.G1.ProjectivePoint.fromHex(pk)
+    return true
   } catch {
-    return false;
+    return false
   }
 }
 
@@ -110,26 +110,29 @@ export function validatePublicKey(publicKey: BLSPublicKey): boolean {
  * Sign a message with BLS
  * Uses hash-to-curve per RFC 9380 (SSWU method)
  */
-export function sign(secretKey: BLSSecretKey, message: Uint8Array): BLSSignature {
-  const sk = hexToBytes(secretKey.slice(2));
-  const signature = bls.sign(message, sk);
-  return `0x${bytesToHex(signature)}` as BLSSignature;
+export function sign(
+  secretKey: BLSSecretKey,
+  message: Uint8Array,
+): BLSSignature {
+  const sk = hexToBytes(secretKey.slice(2))
+  const signature = bls.sign(message, sk)
+  return `0x${bytesToHex(signature)}` as BLSSignature
 }
 
 /**
  * Sign a message with domain separation
  */
 export function signWithDomain(
-  secretKey: BLSSecretKey, 
+  secretKey: BLSSecretKey,
   message: Uint8Array,
-  domain: Uint8Array
+  domain: Uint8Array,
 ): BLSSignature {
   // Combine domain and message
-  const combined = new Uint8Array(domain.length + message.length);
-  combined.set(domain);
-  combined.set(message, domain.length);
-  
-  return sign(secretKey, combined);
+  const combined = new Uint8Array(domain.length + message.length)
+  combined.set(domain)
+  combined.set(message, domain.length)
+
+  return sign(secretKey, combined)
 }
 
 // ============================================================================
@@ -143,16 +146,16 @@ export function signWithDomain(
 export function verify(
   publicKey: BLSPublicKey,
   message: Uint8Array,
-  signature: BLSSignature
+  signature: BLSSignature,
 ): boolean {
   try {
-    const pk = hexToBytes(publicKey.slice(2));
-    const sig = hexToBytes(signature.slice(2));
-    
+    const pk = hexToBytes(publicKey.slice(2))
+    const sig = hexToBytes(signature.slice(2))
+
     // This performs the full pairing verification
-    return bls.verify(sig, message, pk);
+    return bls.verify(sig, message, pk)
   } catch {
-    return false;
+    return false
   }
 }
 
@@ -163,13 +166,13 @@ export function verifyWithDomain(
   publicKey: BLSPublicKey,
   message: Uint8Array,
   signature: BLSSignature,
-  domain: Uint8Array
+  domain: Uint8Array,
 ): boolean {
-  const combined = new Uint8Array(domain.length + message.length);
-  combined.set(domain);
-  combined.set(message, domain.length);
-  
-  return verify(publicKey, combined, signature);
+  const combined = new Uint8Array(domain.length + message.length)
+  combined.set(domain)
+  combined.set(message, domain.length)
+
+  return verify(publicKey, combined, signature)
 }
 
 // ============================================================================
@@ -182,17 +185,17 @@ export function verifyWithDomain(
  */
 export function aggregateSignatures(signatures: BLSSignature[]): BLSSignature {
   if (signatures.length === 0) {
-    throw new Error('No signatures to aggregate');
+    throw new Error('No signatures to aggregate')
   }
-  
+
   if (signatures.length === 1) {
-    return signatures[0];
+    return signatures[0]
   }
-  
-  const sigs = signatures.map(s => hexToBytes(s.slice(2)));
-  const aggregated = bls.aggregateSignatures(sigs);
-  
-  return `0x${bytesToHex(aggregated)}` as BLSSignature;
+
+  const sigs = signatures.map((s) => hexToBytes(s.slice(2)))
+  const aggregated = bls.aggregateSignatures(sigs)
+
+  return `0x${bytesToHex(aggregated)}` as BLSSignature
 }
 
 /**
@@ -200,17 +203,17 @@ export function aggregateSignatures(signatures: BLSSignature[]): BLSSignature {
  */
 export function aggregatePublicKeys(publicKeys: BLSPublicKey[]): BLSPublicKey {
   if (publicKeys.length === 0) {
-    throw new Error('No public keys to aggregate');
+    throw new Error('No public keys to aggregate')
   }
-  
+
   if (publicKeys.length === 1) {
-    return publicKeys[0];
+    return publicKeys[0]
   }
-  
-  const pks = publicKeys.map(pk => hexToBytes(pk.slice(2)));
-  const aggregated = bls.aggregatePublicKeys(pks);
-  
-  return `0x${bytesToHex(aggregated)}` as BLSPublicKey;
+
+  const pks = publicKeys.map((pk) => hexToBytes(pk.slice(2)))
+  const aggregated = bls.aggregatePublicKeys(pks)
+
+  return `0x${bytesToHex(aggregated)}` as BLSPublicKey
 }
 
 /**
@@ -219,13 +222,13 @@ export function aggregatePublicKeys(publicKeys: BLSPublicKey[]): BLSPublicKey {
 export function verifyAggregate(
   publicKeys: BLSPublicKey[],
   message: Uint8Array,
-  signature: BLSSignature
+  signature: BLSSignature,
 ): boolean {
   try {
-    const aggregatedPk = aggregatePublicKeys(publicKeys);
-    return verify(aggregatedPk, message, signature);
+    const aggregatedPk = aggregatePublicKeys(publicKeys)
+    return verify(aggregatedPk, message, signature)
   } catch {
-    return false;
+    return false
   }
 }
 
@@ -236,30 +239,33 @@ export function verifyAggregate(
 export function verifyBatch(
   publicKeys: BLSPublicKey[],
   messages: Uint8Array[],
-  signatures: BLSSignature[]
+  signatures: BLSSignature[],
 ): boolean {
-  if (publicKeys.length !== messages.length || messages.length !== signatures.length) {
-    throw new Error('Arrays must have equal length');
+  if (
+    publicKeys.length !== messages.length ||
+    messages.length !== signatures.length
+  ) {
+    throw new Error('Arrays must have equal length')
   }
-  
+
   try {
     // @noble/curves verifyBatch expects arrays of { msg, pk, sig }
     const items = publicKeys.map((pk, i) => ({
       message: messages[i],
       publicKey: hexToBytes(pk.slice(2)),
       signature: hexToBytes(signatures[i].slice(2)),
-    }));
-    
+    }))
+
     // Use individual verification for compatibility
     // The batch method has specific format requirements
     for (const item of items) {
       if (!bls.verify(item.signature, item.message, item.publicKey)) {
-        return false;
+        return false
       }
     }
-    return true;
+    return true
   } catch {
-    return false;
+    return false
   }
 }
 
@@ -271,19 +277,25 @@ export function verifyBatch(
  * Hash arbitrary data to a G2 curve point (for signing)
  * Uses the standardized SSWU method per RFC 9380
  */
-export function hashToG2(message: Uint8Array, dst: string = DST_SIGN): Uint8Array {
+export function hashToG2(
+  message: Uint8Array,
+  dst: string = DST_SIGN,
+): Uint8Array {
   // @noble/curves handles this internally with proper hash-to-curve
   // This is exposed for advanced use cases
-  const point = bls.G2.hashToCurve(message, { DST: dst });
-  return point.toRawBytes(true);
+  const point = bls.G2.hashToCurve(message, { DST: dst })
+  return point.toRawBytes(true)
 }
 
 /**
  * Hash arbitrary data to a G1 curve point
  */
-export function hashToG1(message: Uint8Array, dst: string = DST_SIGN): Uint8Array {
-  const point = bls.G1.hashToCurve(message, { DST: dst });
-  return point.toRawBytes(true);
+export function hashToG1(
+  message: Uint8Array,
+  dst: string = DST_SIGN,
+): Uint8Array {
+  const point = bls.G1.hashToCurve(message, { DST: dst })
+  return point.toRawBytes(true)
 }
 
 // ============================================================================
@@ -297,10 +309,10 @@ export function createAttestationMessage(
   blobId: Hex,
   commitment: Hex,
   chunkIndices: number[],
-  timestamp: number
+  timestamp: number,
 ): Uint8Array {
-  const message = `DA_ATTEST:${blobId}:${commitment}:${chunkIndices.join(',')}:${timestamp}`;
-  return sha256(new TextEncoder().encode(message));
+  const message = `DA_ATTEST:${blobId}:${commitment}:${chunkIndices.join(',')}:${timestamp}`
+  return sha256(new TextEncoder().encode(message))
 }
 
 /**
@@ -311,10 +323,15 @@ export function signAttestation(
   blobId: Hex,
   commitment: Hex,
   chunkIndices: number[],
-  timestamp: number
+  timestamp: number,
 ): BLSSignature {
-  const message = createAttestationMessage(blobId, commitment, chunkIndices, timestamp);
-  return sign(secretKey, message);
+  const message = createAttestationMessage(
+    blobId,
+    commitment,
+    chunkIndices,
+    timestamp,
+  )
+  return sign(secretKey, message)
 }
 
 /**
@@ -326,10 +343,15 @@ export function verifyAttestation(
   blobId: Hex,
   commitment: Hex,
   chunkIndices: number[],
-  timestamp: number
+  timestamp: number,
 ): boolean {
-  const message = createAttestationMessage(blobId, commitment, chunkIndices, timestamp);
-  return verify(publicKey, message, signature);
+  const message = createAttestationMessage(
+    blobId,
+    commitment,
+    chunkIndices,
+    timestamp,
+  )
+  return verify(publicKey, message, signature)
 }
 
 /**
@@ -338,18 +360,22 @@ export function verifyAttestation(
 export function createAggregatedAttestation(
   blobId: Hex,
   commitment: Hex,
-  signatures: Array<{ publicKey: BLSPublicKey; signature: BLSSignature; signerIndex: number }>
+  signatures: Array<{
+    publicKey: BLSPublicKey
+    signature: BLSSignature
+    signerIndex: number
+  }>,
 ): AggregatedSignature {
-  const sigs = signatures.map(s => s.signature);
-  const pks = signatures.map(s => s.publicKey);
-  const indices = signatures.map(s => s.signerIndex);
-  
+  const sigs = signatures.map((s) => s.signature)
+  const pks = signatures.map((s) => s.publicKey)
+  const indices = signatures.map((s) => s.signerIndex)
+
   return {
     signature: aggregateSignatures(sigs),
     publicKeys: pks,
     signerIndices: indices,
     message: keccak256(toBytes(`${blobId}:${commitment}`)),
-  };
+  }
 }
 
 /**
@@ -360,25 +386,25 @@ export function verifyAggregatedAttestation(
   registeredPublicKeys: BLSPublicKey[],
   blobId: Hex,
   commitment: Hex,
-  timestamp: number
+  timestamp: number,
 ): boolean {
   // Verify all signers are registered
   for (let i = 0; i < attestation.signerIndices.length; i++) {
-    const signerIndex = attestation.signerIndices[i];
+    const signerIndex = attestation.signerIndices[i]
     if (signerIndex >= registeredPublicKeys.length) {
-      return false;
+      return false
     }
     if (attestation.publicKeys[i] !== registeredPublicKeys[signerIndex]) {
-      return false;
+      return false
     }
   }
-  
+
   // Create the message that was signed
   // Note: All signers must have signed the same message with same timestamp
-  const message = createAttestationMessage(blobId, commitment, [], timestamp);
-  
+  const message = createAttestationMessage(blobId, commitment, [], timestamp)
+
   // Verify aggregated signature
-  return verifyAggregate(attestation.publicKeys, message, attestation.signature);
+  return verifyAggregate(attestation.publicKeys, message, attestation.signature)
 }
 
 // ============================================================================
@@ -390,15 +416,15 @@ export function verifyAggregatedAttestation(
  * Used to prevent rogue key attacks
  */
 export function createProofOfPossession(secretKey: BLSSecretKey): BLSSignature {
-  const pk = derivePublicKey(secretKey);
-  const pkBytes = hexToBytes(pk.slice(2));
-  
+  const pk = derivePublicKey(secretKey)
+  const pkBytes = hexToBytes(pk.slice(2))
+
   // Sign the public key itself with a different domain
-  const sk = hexToBytes(secretKey.slice(2));
-  const point = bls.G2.hashToCurve(pkBytes, { DST: DST_POP });
-  const signature = point.multiply(BigInt(`0x${bytesToHex(sk)}`));
-  
-  return `0x${bytesToHex(signature.toRawBytes(true))}` as BLSSignature;
+  const sk = hexToBytes(secretKey.slice(2))
+  const point = bls.G2.hashToCurve(pkBytes, { DST: DST_POP })
+  const signature = point.multiply(BigInt(`0x${bytesToHex(sk)}`))
+
+  return `0x${bytesToHex(signature.toRawBytes(true))}` as BLSSignature
 }
 
 /**
@@ -406,24 +432,24 @@ export function createProofOfPossession(secretKey: BLSSecretKey): BLSSignature {
  */
 export function verifyProofOfPossession(
   publicKey: BLSPublicKey,
-  proof: BLSSignature
+  proof: BLSSignature,
 ): boolean {
   try {
-    const pk = hexToBytes(publicKey.slice(2));
-    const sig = hexToBytes(proof.slice(2));
-    
+    const pk = hexToBytes(publicKey.slice(2))
+    const sig = hexToBytes(proof.slice(2))
+
     // Verify the PoP with the special domain
-    const G1Point = bls.G1.ProjectivePoint.fromHex(pk);
-    const G2Point = bls.G2.ProjectivePoint.fromHex(sig);
-    const messagePoint = bls.G2.hashToCurve(pk, { DST: DST_POP });
-    
+    const G1Point = bls.G1.ProjectivePoint.fromHex(pk)
+    const G2Point = bls.G2.ProjectivePoint.fromHex(sig)
+    const messagePoint = bls.G2.hashToCurve(pk, { DST: DST_POP })
+
     // Pairing check: e(pk, H(pk)) = e(G1, sig)
-    const pairing1 = bls.pairing(G1Point, messagePoint);
-    const pairing2 = bls.pairing(bls.G1.ProjectivePoint.BASE, G2Point);
-    
-    return bls.fields.Fp12.eql(pairing1, pairing2);
+    const pairing1 = bls.pairing(G1Point, messagePoint)
+    const pairing2 = bls.pairing(bls.G1.ProjectivePoint.BASE, G2Point)
+
+    return bls.fields.Fp12.eql(pairing1, pairing2)
   } catch {
-    return false;
+    return false
   }
 }
 
@@ -437,34 +463,33 @@ export const BLS = {
   derivePublicKey,
   validateSecretKey,
   validatePublicKey,
-  
+
   // Signing
   sign,
   signWithDomain,
-  
+
   // Verification
   verify,
   verifyWithDomain,
-  
+
   // Aggregation
   aggregateSignatures,
   aggregatePublicKeys,
   verifyAggregate,
   verifyBatch,
-  
+
   // Hash-to-curve
   hashToG2,
   hashToG1,
-  
+
   // DA attestations
   createAttestationMessage,
   signAttestation,
   verifyAttestation,
   createAggregatedAttestation,
   verifyAggregatedAttestation,
-  
+
   // Proof of possession
   createProofOfPossession,
   verifyProofOfPossession,
-};
-
+}

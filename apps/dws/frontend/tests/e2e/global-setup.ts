@@ -1,6 +1,6 @@
 /**
  * Playwright Global Setup for E2E Tests
- * 
+ *
  * Sets up:
  * 1. Localnet (anvil)
  * 2. Contract deployment
@@ -8,49 +8,52 @@
  * 4. Frontend dev server
  */
 
-import { spawn, ChildProcess } from 'child_process';
-import { existsSync, writeFileSync } from 'fs';
-import { join, dirname } from 'path';
+import { type ChildProcess, spawn } from 'node:child_process'
+import { existsSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 
-const LOCALNET_PORT = 9545;
-const DWS_PORT = 4030;
-const FRONTEND_PORT = 4031;
+const LOCALNET_PORT = 9545
+const DWS_PORT = 4030
+const FRONTEND_PORT = 4031
 
-const STATE_FILE = join(dirname(__dirname), '.e2e-state.json');
+const STATE_FILE = join(dirname(__dirname), '.e2e-state.json')
 
 interface E2EState {
-  pids: number[];
+  pids: number[]
   ports: {
-    localnet: number;
-    dws: number;
-    frontend: number;
-  };
+    localnet: number
+    dws: number
+    frontend: number
+  }
 }
 
 function findMonorepoRoot(): string {
-  let dir = dirname(dirname(dirname(dirname(__dirname))));
+  let dir = dirname(dirname(dirname(dirname(__dirname))))
   for (let i = 0; i < 10; i++) {
-    if (existsSync(join(dir, 'bun.lock')) && existsSync(join(dir, 'packages'))) {
-      return dir;
+    if (
+      existsSync(join(dir, 'bun.lock')) &&
+      existsSync(join(dir, 'packages'))
+    ) {
+      return dir
     }
-    const parent = join(dir, '..');
-    if (parent === dir) break;
-    dir = parent;
+    const parent = join(dir, '..')
+    if (parent === dir) break
+    dir = parent
   }
-  return dir;
+  return dir
 }
 
 async function waitForService(url: string, maxAttempts = 60): Promise<boolean> {
   for (let i = 0; i < maxAttempts; i++) {
     try {
-      const response = await fetch(url, { signal: AbortSignal.timeout(2000) });
-      if (response.ok) return true;
+      const response = await fetch(url, { signal: AbortSignal.timeout(2000) })
+      if (response.ok) return true
     } catch {
       // Keep trying
     }
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise((r) => setTimeout(r, 1000))
   }
-  return false;
+  return false
 }
 
 async function checkRpc(): Promise<boolean> {
@@ -58,76 +61,87 @@ async function checkRpc(): Promise<boolean> {
     const response = await fetch(`http://127.0.0.1:${LOCALNET_PORT}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_chainId', params: [], id: 1 }),
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_chainId',
+        params: [],
+        id: 1,
+      }),
       signal: AbortSignal.timeout(2000),
-    });
-    return response.ok;
+    })
+    return response.ok
   } catch {
-    return false;
+    return false
   }
 }
 
 async function startLocalnet(): Promise<ChildProcess | null> {
   if (await checkRpc()) {
-    console.log('[E2E] Localnet already running');
-    return null;
+    console.log('[E2E] Localnet already running')
+    return null
   }
 
-  console.log('[E2E] Starting localnet (anvil)...');
-  const anvil = spawn('anvil', ['--port', String(LOCALNET_PORT), '--chain-id', '1337'], {
-    stdio: 'pipe',
-    detached: true,
-  });
+  console.log('[E2E] Starting localnet (anvil)...')
+  const anvil = spawn(
+    'anvil',
+    ['--port', String(LOCALNET_PORT), '--chain-id', '1337'],
+    {
+      stdio: 'pipe',
+      detached: true,
+    },
+  )
 
   for (let i = 0; i < 30; i++) {
     if (await checkRpc()) {
-      console.log('[E2E] Localnet ready');
-      return anvil;
+      console.log('[E2E] Localnet ready')
+      return anvil
     }
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise((r) => setTimeout(r, 500))
   }
-  
-  anvil.kill();
-  throw new Error('Failed to start localnet');
+
+  anvil.kill()
+  throw new Error('Failed to start localnet')
 }
 
 async function bootstrapContracts(rootDir: string): Promise<void> {
-  const bootstrapScript = join(rootDir, 'scripts', 'bootstrap-localnet.ts');
+  const bootstrapScript = join(rootDir, 'scripts', 'bootstrap-localnet.ts')
   if (!existsSync(bootstrapScript)) {
-    console.log('[E2E] No bootstrap script found, skipping');
-    return;
+    console.log('[E2E] No bootstrap script found, skipping')
+    return
   }
 
-  console.log('[E2E] Bootstrapping contracts...');
+  console.log('[E2E] Bootstrapping contracts...')
   await new Promise<void>((resolve, reject) => {
     const proc = spawn('bun', ['run', bootstrapScript], {
       cwd: rootDir,
       stdio: 'inherit',
       env: { ...process.env, L2_RPC_URL: `http://127.0.0.1:${LOCALNET_PORT}` },
-    });
+    })
 
     proc.on('exit', (code) => {
-      if (code === 0) resolve();
-      else reject(new Error(`Bootstrap failed with code ${code}`));
-    });
-  });
+      if (code === 0) resolve()
+      else reject(new Error(`Bootstrap failed with code ${code}`))
+    })
+  })
 }
 
-async function startDwsBackend(rootDir: string): Promise<ChildProcess> {
-  const dwsDir = join(rootDir, 'apps', 'dws');
-  
+async function startDwsBackend(rootDir: string): Promise<ChildProcess | null> {
+  const dwsDir = join(rootDir, 'apps', 'dws')
+
   // Check if already running
   try {
-    const res = await fetch(`http://127.0.0.1:${DWS_PORT}/health`, { signal: AbortSignal.timeout(1000) });
+    const res = await fetch(`http://127.0.0.1:${DWS_PORT}/health`, {
+      signal: AbortSignal.timeout(1000),
+    })
     if (res.ok) {
-      console.log('[E2E] DWS backend already running');
-      return null as unknown as ChildProcess;
+      console.log('[E2E] DWS backend already running')
+      return null
     }
   } catch {
     // Not running, start it
   }
-  
-  console.log('[E2E] Starting DWS backend...');
+
+  console.log('[E2E] Starting DWS backend...')
   const dws = spawn('bun', ['run', 'src/server/index.ts'], {
     cwd: dwsDir,
     stdio: 'pipe',
@@ -139,30 +153,34 @@ async function startDwsBackend(rootDir: string): Promise<ChildProcess> {
       JEJU_RPC_URL: `http://127.0.0.1:${LOCALNET_PORT}`,
       JEJU_NETWORK: 'localnet',
     },
-  });
+  })
 
   if (await waitForService(`http://127.0.0.1:${DWS_PORT}/health`, 30)) {
-    console.log('[E2E] DWS backend ready');
-    return dws;
+    console.log('[E2E] DWS backend ready')
+    return dws
   }
-  
-  dws.kill();
-  throw new Error('Failed to start DWS backend');
+
+  dws.kill()
+  throw new Error('Failed to start DWS backend')
 }
 
-async function startFrontend(frontendDir: string): Promise<ChildProcess> {
+async function startFrontend(
+  frontendDir: string,
+): Promise<ChildProcess | null> {
   // Check if already running
   try {
-    const res = await fetch(`http://127.0.0.1:${FRONTEND_PORT}`, { signal: AbortSignal.timeout(1000) });
+    const res = await fetch(`http://127.0.0.1:${FRONTEND_PORT}`, {
+      signal: AbortSignal.timeout(1000),
+    })
     if (res.ok) {
-      console.log('[E2E] Frontend already running');
-      return null as unknown as ChildProcess;
+      console.log('[E2E] Frontend already running')
+      return null
     }
   } catch {
     // Not running, start it
   }
 
-  console.log('[E2E] Starting frontend...');
+  console.log('[E2E] Starting frontend...')
   const frontend = spawn('bun', ['run', 'dev'], {
     cwd: frontendDir,
     stdio: 'pipe',
@@ -172,44 +190,44 @@ async function startFrontend(frontendDir: string): Promise<ChildProcess> {
       VITE_DWS_API_URL: `http://127.0.0.1:${DWS_PORT}`,
       VITE_RPC_URL: `http://127.0.0.1:${LOCALNET_PORT}`,
     },
-  });
+  })
 
   if (await waitForService(`http://127.0.0.1:${FRONTEND_PORT}`, 30)) {
-    console.log('[E2E] Frontend ready');
-    return frontend;
+    console.log('[E2E] Frontend ready')
+    return frontend
   }
-  
-  frontend.kill();
-  throw new Error('Failed to start frontend');
+
+  frontend.kill()
+  throw new Error('Failed to start frontend')
 }
 
 export default async function globalSetup() {
-  const rootDir = findMonorepoRoot();
-  const frontendDir = join(rootDir, 'apps', 'dws', 'frontend');
+  const rootDir = findMonorepoRoot()
+  const frontendDir = join(rootDir, 'apps', 'dws', 'frontend')
 
-  console.log('\n=== DWS E2E Test Setup ===\n');
-  console.log(`Root: ${rootDir}`);
+  console.log('\n=== DWS E2E Test Setup ===\n')
+  console.log(`Root: ${rootDir}`)
 
-  const pids: number[] = [];
+  const pids: number[] = []
 
   // 1. Start localnet
-  const anvilProc = await startLocalnet();
-  if (anvilProc?.pid) pids.push(anvilProc.pid);
+  const anvilProc = await startLocalnet()
+  if (anvilProc?.pid) pids.push(anvilProc.pid)
 
   // 2. Bootstrap contracts (non-fatal)
   try {
-    await bootstrapContracts(rootDir);
+    await bootstrapContracts(rootDir)
   } catch (e) {
-    console.warn('[E2E] Contract bootstrap failed:', e);
+    console.warn('[E2E] Contract bootstrap failed:', e)
   }
 
   // 3. Start DWS backend
-  const dwsProc = await startDwsBackend(rootDir);
-  if (dwsProc?.pid) pids.push(dwsProc.pid);
+  const dwsProc = await startDwsBackend(rootDir)
+  if (dwsProc?.pid) pids.push(dwsProc.pid)
 
   // 4. Start frontend
-  const frontendProc = await startFrontend(frontendDir);
-  if (frontendProc?.pid) pids.push(frontendProc.pid);
+  const frontendProc = await startFrontend(frontendDir)
+  if (frontendProc?.pid) pids.push(frontendProc.pid)
 
   // Save state for teardown
   const state: E2EState = {
@@ -219,13 +237,12 @@ export default async function globalSetup() {
       dws: DWS_PORT,
       frontend: FRONTEND_PORT,
     },
-  };
-  writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+  }
+  writeFileSync(STATE_FILE, JSON.stringify(state, null, 2))
 
-  console.log('\n[E2E] All services ready\n');
-  console.log(`  Localnet: http://127.0.0.1:${LOCALNET_PORT}`);
-  console.log(`  DWS API:  http://127.0.0.1:${DWS_PORT}`);
-  console.log(`  Frontend: http://127.0.0.1:${FRONTEND_PORT}`);
-  console.log('\n');
+  console.log('\n[E2E] All services ready\n')
+  console.log(`  Localnet: http://127.0.0.1:${LOCALNET_PORT}`)
+  console.log(`  DWS API:  http://127.0.0.1:${DWS_PORT}`)
+  console.log(`  Frontend: http://127.0.0.1:${FRONTEND_PORT}`)
+  console.log('\n')
 }
-

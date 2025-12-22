@@ -1,6 +1,6 @@
 /**
  * Edge Cache
- * 
+ *
  * High-performance LRU cache for CDN edge nodes.
  * Features:
  * - Content-addressed storage for immutable assets
@@ -10,31 +10,31 @@
  * - Stale-while-revalidate support
  */
 
-import { createHash } from 'crypto';
-import { LRUCache } from 'lru-cache';
+import { createHash } from 'node:crypto'
+import type { CacheRule, CacheStatus, CacheTTLConfig } from '@jejunetwork/types'
+import { DEFAULT_CACHE_RULES, DEFAULT_TTL_CONFIG } from '@jejunetwork/types'
+import { LRUCache } from 'lru-cache'
 import type {
   CacheEntry,
   CacheEntryMetadata,
-  CacheStats,
   CacheKey,
-} from '../types';
-import type { CacheRule, CacheStatus, CacheTTLConfig } from '@jejunetwork/types';
-import { DEFAULT_TTL_CONFIG, DEFAULT_CACHE_RULES } from '@jejunetwork/types';
+  CacheStats,
+} from '../types'
 
 // ============================================================================
 // Cache Configuration
 // ============================================================================
 
 export interface EdgeCacheConfig {
-  maxSizeBytes: number;
-  maxEntries: number;
-  defaultTTL: number;
-  ttlConfig: CacheTTLConfig;
-  rules: CacheRule[];
-  enableCompression: boolean;
-  compressionThreshold: number; // Min size to compress
-  staleWhileRevalidate: number;
-  staleIfError: number;
+  maxSizeBytes: number
+  maxEntries: number
+  defaultTTL: number
+  ttlConfig: CacheTTLConfig
+  rules: CacheRule[]
+  enableCompression: boolean
+  compressionThreshold: number // Min size to compress
+  staleWhileRevalidate: number
+  staleIfError: number
 }
 
 const DEFAULT_CONFIG: EdgeCacheConfig = {
@@ -47,27 +47,27 @@ const DEFAULT_CONFIG: EdgeCacheConfig = {
   compressionThreshold: 1024, // 1KB
   staleWhileRevalidate: 60,
   staleIfError: 300,
-};
+}
 
 // ============================================================================
 // Edge Cache Implementation
 // ============================================================================
 
 export class EdgeCache {
-  private cache: LRUCache<string, CacheEntry>;
-  private config: EdgeCacheConfig;
+  private cache: LRUCache<string, CacheEntry>
+  private config: EdgeCacheConfig
   private stats: {
-    hits: number;
-    misses: number;
-    staleHits: number;
-    evictions: number;
-    bytesServed: number;
-  };
-  private revalidating: Set<string> = new Set();
+    hits: number
+    misses: number
+    staleHits: number
+    evictions: number
+    bytesServed: number
+  }
+  private revalidating: Set<string> = new Set()
 
   constructor(config: Partial<EdgeCacheConfig> = {}) {
-    this.config = { ...DEFAULT_CONFIG, ...config };
-    
+    this.config = { ...DEFAULT_CONFIG, ...config }
+
     this.cache = new LRUCache<string, CacheEntry>({
       max: this.config.maxEntries,
       maxSize: this.config.maxSizeBytes,
@@ -75,9 +75,9 @@ export class EdgeCache {
       ttl: this.config.defaultTTL * 1000,
       updateAgeOnGet: true,
       dispose: () => {
-        this.stats.evictions++;
+        this.stats.evictions++
       },
-    });
+    })
 
     this.stats = {
       hits: 0,
@@ -85,7 +85,7 @@ export class EdgeCache {
       staleHits: 0,
       evictions: 0,
       bytesServed: 0,
-    };
+    }
   }
 
   // ============================================================================
@@ -96,40 +96,42 @@ export class EdgeCache {
    * Get entry from cache
    */
   get(key: string): { entry: CacheEntry | null; status: CacheStatus } {
-    const entry = this.cache.get(key);
+    const entry = this.cache.get(key)
 
     if (!entry) {
-      this.stats.misses++;
-      return { entry: null, status: 'MISS' };
+      this.stats.misses++
+      return { entry: null, status: 'MISS' }
     }
 
-    const now = Date.now();
+    const now = Date.now()
 
     // Check if expired
     if (entry.expiresAt > 0 && now > entry.expiresAt) {
       // Check stale-while-revalidate
-      const swr = entry.metadata.cacheControl?.includes('stale-while-revalidate')
+      const swr = entry.metadata.cacheControl?.includes(
+        'stale-while-revalidate',
+      )
         ? this.config.staleWhileRevalidate * 1000
-        : 0;
+        : 0
 
       if (swr > 0 && now < entry.expiresAt + swr) {
-        this.stats.staleHits++;
-        entry.accessCount++;
-        entry.lastAccessed = now;
-        return { entry, status: 'STALE' };
+        this.stats.staleHits++
+        entry.accessCount++
+        entry.lastAccessed = now
+        return { entry, status: 'STALE' }
       }
 
-      this.stats.misses++;
-      return { entry: null, status: 'EXPIRED' };
+      this.stats.misses++
+      return { entry: null, status: 'EXPIRED' }
     }
 
     // Valid hit
-    this.stats.hits++;
-    this.stats.bytesServed += entry.data.length;
-    entry.accessCount++;
-    entry.lastAccessed = now;
+    this.stats.hits++
+    this.stats.bytesServed += entry.data.length
+    entry.accessCount++
+    entry.lastAccessed = now
 
-    return { entry, status: 'HIT' };
+    return { entry, status: 'HIT' }
   }
 
   /**
@@ -138,38 +140,38 @@ export class EdgeCache {
   getConditional(
     key: string,
     ifNoneMatch?: string,
-    ifModifiedSince?: number
+    ifModifiedSince?: number,
   ): { entry: CacheEntry | null; status: CacheStatus; notModified: boolean } {
-    const { entry, status } = this.get(key);
+    const { entry, status } = this.get(key)
 
     if (!entry || status === 'MISS' || status === 'EXPIRED') {
-      return { entry, status, notModified: false };
+      return { entry, status, notModified: false }
     }
 
     // Check ETag
     if (ifNoneMatch && entry.metadata.etag === ifNoneMatch) {
-      this.stats.hits++;
-      return { entry, status: 'REVALIDATED', notModified: true };
+      this.stats.hits++
+      return { entry, status: 'REVALIDATED', notModified: true }
     }
 
     // Check Last-Modified
     if (ifModifiedSince && entry.metadata.lastModified) {
       if (entry.metadata.lastModified <= ifModifiedSince) {
-        this.stats.hits++;
-        return { entry, status: 'REVALIDATED', notModified: true };
+        this.stats.hits++
+        return { entry, status: 'REVALIDATED', notModified: true }
       }
     }
 
-    return { entry, status, notModified: false };
+    return { entry, status, notModified: false }
   }
 
   /**
    * Set entry in cache
    */
   set(key: string, data: Buffer, metadata: Partial<CacheEntryMetadata>): void {
-    const now = Date.now();
-    const ttl = this.calculateTTL(key, metadata);
-    
+    const now = Date.now()
+    const ttl = this.calculateTTL(key, metadata)
+
     const fullMetadata: CacheEntryMetadata = {
       contentType: metadata.contentType ?? 'application/octet-stream',
       contentLength: data.length,
@@ -181,7 +183,7 @@ export class EdgeCache {
       headers: metadata.headers ?? {},
       origin: metadata.origin ?? 'unknown',
       immutable: metadata.immutable ?? false,
-    };
+    }
 
     const entry: CacheEntry = {
       key,
@@ -191,48 +193,48 @@ export class EdgeCache {
       createdAt: now,
       accessCount: 0,
       lastAccessed: now,
-    };
+    }
 
-    this.cache.set(key, entry, { ttl: ttl > 0 ? ttl * 1000 : undefined });
+    this.cache.set(key, entry, { ttl: ttl > 0 ? ttl * 1000 : undefined })
   }
 
   /**
    * Delete entry from cache
    */
   delete(key: string): boolean {
-    return this.cache.delete(key);
+    return this.cache.delete(key)
   }
 
   /**
    * Check if key exists (without updating access time)
    */
   has(key: string): boolean {
-    return this.cache.has(key);
+    return this.cache.has(key)
   }
 
   /**
    * Purge entries matching pattern
    */
   purge(pattern: string): number {
-    const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
-    let purged = 0;
+    const regex = new RegExp(`^${pattern.replace(/\*/g, '.*')}$`)
+    let purged = 0
 
     for (const key of this.cache.keys()) {
       if (regex.test(key)) {
-        this.cache.delete(key);
-        purged++;
+        this.cache.delete(key)
+        purged++
       }
     }
 
-    return purged;
+    return purged
   }
 
   /**
    * Clear all entries
    */
   clear(): void {
-    this.cache.clear();
-    this.stats.evictions += this.cache.size;
+    this.cache.clear()
+    this.stats.evictions += this.cache.size
   }
 
   // ============================================================================
@@ -243,11 +245,11 @@ export class EdgeCache {
    * Generate cache key from request
    */
   generateKey(request: CacheKey): string {
-    let key = request.path;
+    let key = request.path
 
     // Include query string if present
     if (request.query) {
-      key += `?${request.query}`;
+      key += `?${request.query}`
     }
 
     // Include vary headers
@@ -255,18 +257,18 @@ export class EdgeCache {
       const varyParts = Object.entries(request.varyHeaders)
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([k, v]) => `${k}:${v}`)
-        .join('|');
-      key += `#${this.hashContent(Buffer.from(varyParts)).slice(0, 8)}`;
+        .join('|')
+      key += `#${this.hashContent(Buffer.from(varyParts)).slice(0, 8)}`
     }
 
-    return key;
+    return key
   }
 
   /**
    * Generate content-addressed key (for immutable content)
    */
   generateContentKey(data: Buffer): string {
-    return `content:${this.hashContent(data)}`;
+    return `content:${this.hashContent(data)}`
   }
 
   // ============================================================================
@@ -279,51 +281,54 @@ export class EdgeCache {
   calculateTTL(path: string, metadata: Partial<CacheEntryMetadata>): number {
     // Respect origin cache-control header
     if (metadata.cacheControl) {
-      const maxAge = this.parseCacheControl(metadata.cacheControl);
+      const maxAge = this.parseCacheControl(metadata.cacheControl)
       if (maxAge !== null) {
-        return maxAge;
+        return maxAge
       }
     }
 
     // Immutable content gets long TTL
     if (metadata.immutable) {
-      return this.config.ttlConfig.immutableAssets;
+      return this.config.ttlConfig.immutableAssets
     }
 
     // Check rules in order
     for (const rule of this.config.rules) {
       if (this.matchPattern(path, rule.pattern)) {
-        return rule.ttl;
+        return rule.ttl
       }
     }
 
     // Content type based defaults
-    const contentType = metadata.contentType ?? '';
-    
+    const contentType = metadata.contentType ?? ''
+
     if (contentType.includes('text/html')) {
-      return this.config.ttlConfig.html;
+      return this.config.ttlConfig.html
     }
-    if (contentType.includes('application/javascript') || contentType.includes('text/css')) {
+    if (
+      contentType.includes('application/javascript') ||
+      contentType.includes('text/css')
+    ) {
       // Check if path has content hash
       if (this.hasContentHash(path)) {
-        return this.config.ttlConfig.immutableAssets;
+        return this.config.ttlConfig.immutableAssets
       }
-      return this.config.defaultTTL;
+      return this.config.defaultTTL
     }
     if (contentType.includes('font/')) {
-      return this.config.ttlConfig.fonts;
+      return this.config.ttlConfig.fonts
     }
     if (contentType.includes('image/')) {
       if (this.hasContentHash(path)) {
-        return this.config.ttlConfig.immutableAssets;
+        return this.config.ttlConfig.immutableAssets
       }
-      return this.config.ttlConfig.images;
+      return this.config.ttlConfig.images
     }
     if (contentType.includes('application/json')) {
-      return this.config.ttlConfig.data;
+      return this.config.ttlConfig.data
     }
 
-    return this.config.defaultTTL;
+    return this.config.defaultTTL
   }
 
   /**
@@ -331,7 +336,7 @@ export class EdgeCache {
    */
   private hasContentHash(path: string): boolean {
     // Match patterns like: .a1b2c3d4. or -a1b2c3d4.
-    return /[.-][a-f0-9]{8,}\.[a-z]+$/i.test(path);
+    return /[.-][a-f0-9]{8,}\.[a-z]+$/i.test(path)
   }
 
   /**
@@ -340,21 +345,21 @@ export class EdgeCache {
   private parseCacheControl(header: string): number | null {
     // Check for no-store or no-cache
     if (header.includes('no-store') || header.includes('no-cache')) {
-      return 0;
+      return 0
     }
 
     // Extract max-age
-    const match = header.match(/max-age=(\d+)/);
-    if (match && match[1]) {
-      return parseInt(match[1], 10);
+    const match = header.match(/max-age=(\d+)/)
+    if (match?.[1]) {
+      return parseInt(match[1], 10)
     }
 
     // Check for immutable
     if (header.includes('immutable')) {
-      return this.config.ttlConfig.immutableAssets;
+      return this.config.ttlConfig.immutableAssets
     }
 
-    return null;
+    return null
   }
 
   /**
@@ -369,9 +374,9 @@ export class EdgeCache {
           .replace(/\*\*/g, '.*')
           .replace(/\*/g, '[^/]*')
           .replace(/\{([^}]+)\}/g, '($1)') +
-        '$'
-    );
-    return regex.test(path);
+        '$',
+    )
+    return regex.test(path)
   }
 
   // ============================================================================
@@ -382,21 +387,21 @@ export class EdgeCache {
    * Check if key is being revalidated
    */
   isRevalidating(key: string): boolean {
-    return this.revalidating.has(key);
+    return this.revalidating.has(key)
   }
 
   /**
    * Mark key as being revalidated
    */
   startRevalidation(key: string): void {
-    this.revalidating.add(key);
+    this.revalidating.add(key)
   }
 
   /**
    * Complete revalidation
    */
   completeRevalidation(key: string): void {
-    this.revalidating.delete(key);
+    this.revalidating.delete(key)
   }
 
   // ============================================================================
@@ -407,15 +412,15 @@ export class EdgeCache {
    * Get cache statistics
    */
   getStats(): CacheStats {
-    const total = this.stats.hits + this.stats.misses;
-    let totalSize = 0;
-    let oldestEntry = Date.now();
-    let newestEntry = 0;
+    const total = this.stats.hits + this.stats.misses
+    let totalSize = 0
+    let oldestEntry = Date.now()
+    let newestEntry = 0
 
     for (const entry of this.cache.values()) {
-      totalSize += entry.data.length;
-      if (entry.createdAt < oldestEntry) oldestEntry = entry.createdAt;
-      if (entry.createdAt > newestEntry) newestEntry = entry.createdAt;
+      totalSize += entry.data.length
+      if (entry.createdAt < oldestEntry) oldestEntry = entry.createdAt
+      if (entry.createdAt > newestEntry) newestEntry = entry.createdAt
     }
 
     return {
@@ -429,26 +434,27 @@ export class EdgeCache {
       avgEntrySize: this.cache.size > 0 ? totalSize / this.cache.size : 0,
       oldestEntry,
       newestEntry,
-    };
+    }
   }
 
   /**
    * Get most popular content by access count
    */
-  getPopularContent(limit = 100): Array<{ key: string; accessCount: number; size: number }> {
-    const entries: Array<{ key: string; accessCount: number; size: number }> = [];
-    
+  getPopularContent(
+    limit = 100,
+  ): Array<{ key: string; accessCount: number; size: number }> {
+    const entries: Array<{ key: string; accessCount: number; size: number }> =
+      []
+
     for (const entry of this.cache.values()) {
       entries.push({
         key: entry.key,
         accessCount: entry.accessCount,
         size: entry.data.length,
-      });
+      })
     }
 
-    return entries
-      .sort((a, b) => b.accessCount - a.accessCount)
-      .slice(0, limit);
+    return entries.sort((a, b) => b.accessCount - a.accessCount).slice(0, limit)
   }
 
   /**
@@ -457,10 +463,11 @@ export class EdgeCache {
    */
   getContentForRegionalPrefetch(
     minAccessCount = 10,
-    maxAge = 3600000 // 1 hour
+    maxAge = 3600000, // 1 hour
   ): Array<{ key: string; data: Buffer; accessCount: number }> {
-    const now = Date.now();
-    const results: Array<{ key: string; data: Buffer; accessCount: number }> = [];
+    const now = Date.now()
+    const results: Array<{ key: string; data: Buffer; accessCount: number }> =
+      []
 
     for (const entry of this.cache.values()) {
       // Only consider content that:
@@ -476,28 +483,34 @@ export class EdgeCache {
           key: entry.key,
           data: entry.data,
           accessCount: entry.accessCount,
-        });
+        })
       }
     }
 
-    return results.sort((a, b) => b.accessCount - a.accessCount);
+    return results.sort((a, b) => b.accessCount - a.accessCount)
   }
 
   /**
    * Warm cache with content from another region
    */
-  warmFromRegion(entries: Array<{ key: string; data: Buffer; metadata: Partial<CacheEntryMetadata> }>): number {
-    let warmed = 0;
-    
+  warmFromRegion(
+    entries: Array<{
+      key: string
+      data: Buffer
+      metadata: Partial<CacheEntryMetadata>
+    }>,
+  ): number {
+    let warmed = 0
+
     for (const entry of entries) {
       // Don't overwrite existing entries
       if (!this.has(entry.key)) {
-        this.set(entry.key, entry.data, entry.metadata);
-        warmed++;
+        this.set(entry.key, entry.data, entry.metadata)
+        warmed++
       }
     }
 
-    return warmed;
+    return warmed
   }
 
   /**
@@ -510,7 +523,7 @@ export class EdgeCache {
       staleHits: 0,
       evictions: 0,
       bytesServed: 0,
-    };
+    }
   }
 
   // ============================================================================
@@ -521,29 +534,29 @@ export class EdgeCache {
    * Hash content for content-addressing
    */
   private hashContent(data: Buffer): string {
-    return createHash('sha256').update(data).digest('hex');
+    return createHash('sha256').update(data).digest('hex')
   }
 
   /**
    * Get all keys (for debugging/admin)
    */
   keys(): string[] {
-    return [...this.cache.keys()];
+    return [...this.cache.keys()]
   }
 
   /**
    * Get cache size info
    */
   getSizeInfo(): { entries: number; sizeBytes: number; maxBytes: number } {
-    let size = 0;
+    let size = 0
     for (const entry of this.cache.values()) {
-      size += entry.data.length;
+      size += entry.data.length
     }
     return {
       entries: this.cache.size,
       sizeBytes: size,
       maxBytes: this.config.maxSizeBytes,
-    };
+    }
   }
 }
 
@@ -551,21 +564,21 @@ export class EdgeCache {
 // Factory
 // ============================================================================
 
-let globalCache: EdgeCache | null = null;
+let globalCache: EdgeCache | null = null
 
 export function getEdgeCache(config?: Partial<EdgeCacheConfig>): EdgeCache {
   if (!globalCache) {
     globalCache = new EdgeCache({
-      maxSizeBytes: parseInt(process.env.CDN_CACHE_SIZE_MB ?? '512', 10) * 1024 * 1024,
+      maxSizeBytes:
+        parseInt(process.env.CDN_CACHE_SIZE_MB ?? '512', 10) * 1024 * 1024,
       maxEntries: parseInt(process.env.CDN_CACHE_MAX_ENTRIES ?? '100000', 10),
       defaultTTL: parseInt(process.env.CDN_CACHE_DEFAULT_TTL ?? '3600', 10),
       ...config,
-    });
+    })
   }
-  return globalCache;
+  return globalCache
 }
 
 export function resetEdgeCache(): void {
-  globalCache = null;
+  globalCache = null
 }
-

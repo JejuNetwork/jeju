@@ -1,5 +1,5 @@
-import { Page } from '@playwright/test';
-import path from 'path';
+import path from 'node:path'
+import type { Page } from '@playwright/test'
 
 /**
  * Screenshot helper utilities for network E2E tests
@@ -10,17 +10,17 @@ import path from 'path';
 
 export interface ScreenshotOptions {
   /** App name (e.g., 'bazaar', 'gateway') */
-  appName: string;
+  appName: string
   /** Feature being tested (e.g., 'swap', 'betting') */
-  feature: string;
+  feature: string
   /** Step number or name (e.g., '01-initial', '02-filled-form') */
-  step: string;
+  step: string
   /** Whether to capture full page (default: true) */
-  fullPage?: boolean;
+  fullPage?: boolean
   /** Additional screenshot options */
   options?: {
-    animations?: 'disabled' | 'allow';
-  };
+    animations?: 'disabled' | 'allow'
+  }
 }
 
 /**
@@ -37,26 +37,26 @@ export interface ScreenshotOptions {
  */
 export async function captureScreenshot(
   page: Page,
-  options: ScreenshotOptions
+  options: ScreenshotOptions,
 ): Promise<string> {
   const {
     appName,
     feature,
     step,
     fullPage = true,
-    options: screenshotOpts = {}
-  } = options;
+    options: screenshotOpts = {},
+  } = options
 
-  const screenshotPath = getScreenshotPath(appName, feature, step);
+  const screenshotPath = getScreenshotPath(appName, feature, step)
 
   await page.screenshot({
     path: screenshotPath,
     fullPage,
     ...screenshotOpts,
-  });
+  })
 
-  console.log(`📸 Screenshot saved: ${screenshotPath}`);
-  return screenshotPath;
+  console.log(`📸 Screenshot saved: ${screenshotPath}`)
+  return screenshotPath
 }
 
 /**
@@ -80,19 +80,19 @@ export async function captureScreenshots(
   appName: string,
   feature: string,
   steps: Array<{
-    step: string;
-    action?: () => Promise<void>;
-    fullPage?: boolean;
-  }>
+    step: string
+    action?: () => Promise<void>
+    fullPage?: boolean
+  }>,
 ): Promise<string[]> {
-  const screenshots: string[] = [];
+  const screenshots: string[] = []
 
   for (const { step, action, fullPage = true } of steps) {
     // Execute action if provided
     if (action) {
-      await action();
+      await action()
       // Wait for any animations/transitions
-      await page.waitForTimeout(500);
+      await page.waitForTimeout(500)
     }
 
     // Capture screenshot
@@ -101,12 +101,12 @@ export async function captureScreenshots(
       feature,
       step,
       fullPage,
-    });
+    })
 
-    screenshots.push(screenshotPath);
+    screenshots.push(screenshotPath)
   }
 
-  return screenshots;
+  return screenshots
 }
 
 /**
@@ -131,49 +131,51 @@ export async function captureScreenshots(
 export async function captureUserFlow(
   page: Page,
   options: {
-    appName: string;
-    feature: string;
+    appName: string
+    feature: string
     steps: Array<{
-      name: string;
-      action: () => Promise<void>;
-      waitFor?: string | number;
-    }>;
-  }
+      name: string
+      action: () => Promise<void>
+      waitFor?: string | number
+    }>
+  },
 ): Promise<string[]> {
-  const { appName, feature, steps } = options;
-  const screenshots: string[] = [];
-  let stepNumber = 1;
+  const { appName, feature, steps } = options
+  const screenshots: string[] = []
+  let stepNumber = 1
 
   for (const { name, action, waitFor } of steps) {
     // Execute action
-    await action();
+    await action()
 
     // Wait if specified
     if (waitFor) {
       if (typeof waitFor === 'string') {
-        await page.waitForSelector(waitFor);
+        await page.waitForSelector(waitFor)
       } else {
-        await page.waitForTimeout(waitFor);
+        await page.waitForTimeout(waitFor)
       }
     }
 
     // Small delay for UI to settle
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(300)
 
     // Capture screenshot
-    const step = `${String(stepNumber).padStart(2, '0')}-${name}`;
+    const step = `${String(stepNumber).padStart(2, '0')}-${name}`
     const screenshotPath = await captureScreenshot(page, {
       appName,
       feature,
       step,
-    });
+    })
 
-    screenshots.push(screenshotPath);
-    stepNumber++;
+    screenshots.push(screenshotPath)
+    stepNumber++
   }
 
-  console.log(`✅ Captured ${screenshots.length} screenshots for ${feature} flow`);
-  return screenshots;
+  console.log(
+    `✅ Captured ${screenshots.length} screenshots for ${feature} flow`,
+  )
+  return screenshots
 }
 
 /**
@@ -182,13 +184,13 @@ export async function captureUserFlow(
 export function getScreenshotPath(
   appName: string,
   feature: string,
-  step: string
+  step: string,
 ): string {
   return path.join(
     'test-results',
     'screenshots',
     appName,
     feature,
-    `${step}.png`
-  );
+    `${step}.png`,
+  )
 }

@@ -1,5 +1,4 @@
-export * from './types';
-export * from './client';
-export * from './abis';
-export * from './discovery';
-
+export * from './abis'
+export * from './client'
+export * from './discovery'
+export * from './types'

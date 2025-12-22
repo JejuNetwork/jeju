@@ -1,12 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { validateQuery, errorResponse, expect } from '@/lib/validation';
-import { getModelsQuerySchema, createModelSchema } from '@/lib/validation/schemas';
-import type { Model } from '@/types';
+import { type NextRequest, NextResponse } from 'next/server'
+import { errorResponse, expect, validateQuery } from '@/lib/validation'
+import {
+  createModelSchema,
+  getModelsQuerySchema,
+} from '@/lib/validation/schemas'
+import type { Model } from '@/types'
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    validateQuery(getModelsQuerySchema, searchParams);
+    const { searchParams } = new URL(request.url)
+    validateQuery(getModelsQuerySchema, searchParams)
 
     // Mock data - in production this would query the ModelRegistry contract
     const models: Model[] = [
@@ -42,34 +45,34 @@ export async function GET(request: NextRequest) {
         updatedAt: Date.now() - 14 * 24 * 60 * 60 * 1000,
         status: 'ready',
       },
-    ];
+    ]
 
-    return NextResponse.json({ models, total: models.length });
+    return NextResponse.json({ models, total: models.length })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return errorResponse(message, 400);
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    return errorResponse(message, 400)
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const formData = await request.formData();
-    const name = formData.get('name');
-    const organization = formData.get('organization');
-    const description = formData.get('description');
-    const type = formData.get('type');
+    const formData = await request.formData()
+    const name = formData.get('name')
+    const organization = formData.get('organization')
+    const description = formData.get('description')
+    const type = formData.get('type')
 
-    expect(name, 'Name is required');
-    expect(organization, 'Organization is required');
-    expect(description, 'Description is required');
-    expect(type, 'Type is required');
+    expect(name, 'Name is required')
+    expect(organization, 'Organization is required')
+    expect(description, 'Description is required')
+    expect(type, 'Type is required')
 
     const validated = createModelSchema.parse({
       name: String(name),
       organization: String(organization),
       description: String(description),
       type: String(type),
-    });
+    })
 
     const model: Model = {
       id: `${validated.organization}/${validated.name}`,
@@ -84,14 +87,11 @@ export async function POST(request: NextRequest) {
       status: 'processing',
       createdAt: Date.now(),
       updatedAt: Date.now(),
-    };
+    }
 
-    return NextResponse.json(model, { status: 201 });
+    return NextResponse.json(model, { status: 201 })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return errorResponse(message, 400);
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    return errorResponse(message, 400)
   }
 }
-
-
-

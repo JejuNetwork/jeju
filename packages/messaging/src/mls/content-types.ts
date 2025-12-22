@@ -1,20 +1,20 @@
 /**
  * Custom Content Types for Jeju Messaging
- * 
+ *
  * Defines rich content types beyond plain text.
  */
 
-import type { Address, Hex } from 'viem';
+import type { Address, Hex } from 'viem'
 import type {
-  TextContent,
-  ImageContent,
+  AgentActionContent,
   FileContent,
+  ImageContent,
+  MessageContent,
   ReactionContent,
   ReplyContent,
+  TextContent,
   TransactionContent,
-  AgentActionContent,
-  MessageContent,
-} from './types';
+} from './types'
 
 // ============ Content Type IDs ============
 
@@ -26,7 +26,7 @@ export const ContentTypeIds = {
   REPLY: 'jeju.org/reply:1.0',
   TRANSACTION: 'jeju.org/transaction:1.0',
   AGENT_ACTION: 'jeju.org/agent_action:1.0',
-} as const;
+} as const
 
 // ============ Content Builders ============
 
@@ -37,82 +37,82 @@ export function text(content: string): TextContent {
   return {
     type: 'text',
     text: content,
-  };
+  }
 }
 
 /**
  * Create image content
  */
 export function image(params: {
-  url: string;
-  width: number;
-  height: number;
-  mimeType: string;
-  blurhash?: string;
-  alt?: string;
+  url: string
+  width: number
+  height: number
+  mimeType: string
+  blurhash?: string
+  alt?: string
 }): ImageContent {
   return {
     type: 'image',
     ...params,
-  };
+  }
 }
 
 /**
  * Create file content
  */
 export function file(params: {
-  url: string;
-  name: string;
-  size: number;
-  mimeType: string;
+  url: string
+  name: string
+  size: number
+  mimeType: string
 }): FileContent {
   return {
     type: 'file',
     ...params,
-  };
+  }
 }
 
 /**
  * Create reaction content
  */
 export function reaction(params: {
-  emoji: string;
-  messageId: string;
-  action?: 'add' | 'remove';
+  emoji: string
+  messageId: string
+  action?: 'add' | 'remove'
 }): ReactionContent {
   return {
     type: 'reaction',
     emoji: params.emoji,
     messageId: params.messageId,
     action: params.action ?? 'add',
-  };
+  }
 }
 
 /**
  * Create reply content
  */
 export function reply(params: {
-  text: string;
-  replyToId: string;
-  replyToContent?: string;
-  replyToSender?: Address;
+  text: string
+  replyToId: string
+  replyToContent?: string
+  replyToSender?: Address
 }): ReplyContent {
   return {
     type: 'reply',
     ...params,
-  };
+  }
 }
 
 /**
  * Create transaction content
  */
 export function transaction(params: {
-  chainId: number;
-  txHash: Hex;
-  status?: 'pending' | 'confirmed' | 'failed';
-  description?: string;
-  amount?: string;
-  token?: string;
+  chainId: number
+  txHash: Hex
+  status?: 'pending' | 'confirmed' | 'failed'
+  description?: string
+  amount?: string
+  token?: string
 }): TransactionContent {
   return {
     type: 'transaction',
@@ -122,18 +122,18 @@ export function transaction(params: {
     description: params.description,
     amount: params.amount,
     token: params.token,
-  };
+  }
 }
 
 /**
  * Create agent action content
  */
 export function agentAction(params: {
-  agentId: number;
-  action: string;
-  params: Record<string, string | number | boolean>;
-  status?: 'pending' | 'completed' | 'failed';
-  result?: string;
+  agentId: number
+  action: string
+  params: Record<string, string | number | boolean>
+  status?: 'pending' | 'completed' | 'failed'
+  result?: string
 }): AgentActionContent {
   return {
     type: 'agent_action',
@@ -142,7 +142,7 @@ export function agentAction(params: {
     params: params.params,
     status: params.status ?? 'pending',
     result: params.result,
-  };
+  }
 }
 
 // ============ Content Serialization ============
@@ -151,15 +151,15 @@ export function agentAction(params: {
  * Serialize content to string
  */
 export function serializeContent(content: MessageContent): string {
-  return JSON.stringify(content);
+  return JSON.stringify(content)
 }
 
 /**
  * Deserialize content from string
  */
 export function deserializeContent(json: string): MessageContent {
-  const parsed = JSON.parse(json);
-  
+  const parsed = JSON.parse(json)
+
   switch (parsed.type) {
     case 'text':
     case 'image':
@@ -168,9 +168,9 @@ export function deserializeContent(json: string): MessageContent {
     case 'reply':
     case 'transaction':
     case 'agent_action':
-      return parsed as MessageContent;
+      return parsed as MessageContent
     default:
-      throw new Error(`Unknown content type: ${parsed.type}`);
+      throw new Error(`Unknown content type: ${parsed.type}`)
   }
 }
 
@@ -180,69 +180,83 @@ export function deserializeContent(json: string): MessageContent {
 export function getContentTypeId(content: MessageContent): string {
   switch (content.type) {
     case 'text':
-      return ContentTypeIds.TEXT;
+      return ContentTypeIds.TEXT
     case 'image':
-      return ContentTypeIds.IMAGE;
+      return ContentTypeIds.IMAGE
     case 'file':
-      return ContentTypeIds.FILE;
+      return ContentTypeIds.FILE
     case 'reaction':
-      return ContentTypeIds.REACTION;
+      return ContentTypeIds.REACTION
     case 'reply':
-      return ContentTypeIds.REPLY;
+      return ContentTypeIds.REPLY
     case 'transaction':
-      return ContentTypeIds.TRANSACTION;
+      return ContentTypeIds.TRANSACTION
     case 'agent_action':
-      return ContentTypeIds.AGENT_ACTION;
+      return ContentTypeIds.AGENT_ACTION
   }
 }
 
 // ============ Content Validation ============
 
 /**
- * Validate image content
+ * Validate image content - accepts unknown for runtime validation
  */
-export function validateImage(content: ImageContent): boolean {
+export function validateImage(
+  content: Partial<ImageContent> | { [key: string]: unknown },
+): content is ImageContent {
+  const c = content as Record<string, unknown>
   return (
-    typeof content.url === 'string' &&
-    content.url.startsWith('https://') &&  // Require HTTPS for security
-    content.url.length <= 2048 &&  // Reasonable URL length limit
-    content.width > 0 &&
-    content.width <= 10000 &&  // Reasonable dimension limits
-    content.height > 0 &&
-    content.height <= 10000 &&
-    ['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(content.mimeType)
-  );
+    typeof c.url === 'string' &&
+    c.url.startsWith('https://') && // Require HTTPS for security
+    c.url.length <= 2048 && // Reasonable URL length limit
+    typeof c.width === 'number' &&
+    c.width > 0 &&
+    c.width <= 10000 && // Reasonable dimension limits
+    typeof c.height === 'number' &&
+    c.height > 0 &&
+    c.height <= 10000 &&
+    typeof c.mimeType === 'string' &&
+    ['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(c.mimeType)
+  )
 }
 
 /**
- * Validate file content
+ * Validate file content - accepts unknown for runtime validation
  */
-export function validateFile(content: FileContent): boolean {
+export function validateFile(
+  content: Partial<FileContent> | { [key: string]: unknown },
+): content is FileContent {
+  const c = content as Record<string, unknown>
   return (
-    typeof content.url === 'string' &&
-    content.url.startsWith('https://') &&  // Require HTTPS
-    content.url.length <= 2048 &&
-    typeof content.name === 'string' &&
-    content.name.length > 0 &&
-    content.name.length <= 255 &&  // Reasonable filename length
+    typeof c.url === 'string' &&
+    c.url.startsWith('https://') && // Require HTTPS
+    c.url.length <= 2048 &&
+    typeof c.name === 'string' &&
+    c.name.length > 0 &&
+    c.name.length <= 255 && // Reasonable filename length
     // Prevent path traversal in filename
-    !/[/\\]/.test(content.name) &&
-    content.size > 0 &&
-    content.size < 100 * 1024 * 1024 // Max 100MB
-  );
+    !/[/\\]/.test(c.name) &&
+    typeof c.size === 'number' &&
+    c.size > 0 &&
+    c.size < 100 * 1024 * 1024 // Max 100MB
+  )
 }
 
 /**
- * Validate transaction content
+ * Validate transaction content - accepts unknown for runtime validation
  */
-export function validateTransaction(content: TransactionContent): boolean {
+export function validateTransaction(
+  content: Partial<TransactionContent> | { [key: string]: unknown },
+): content is TransactionContent {
+  const c = content as Record<string, unknown>
   return (
-    typeof content.chainId === 'number' &&
-    content.chainId > 0 &&
-    typeof content.txHash === 'string' &&
-    /^0x[a-fA-F0-9]{64}$/.test(content.txHash) &&
-    ['pending', 'confirmed', 'failed'].includes(content.status)
-  );
+    typeof c.chainId === 'number' &&
+    c.chainId > 0 &&
+    typeof c.txHash === 'string' &&
+    /^0x[a-fA-F0-9]{64}$/.test(c.txHash) &&
+    typeof c.status === 'string' &&
+    ['pending', 'confirmed', 'failed'].includes(c.status)
+  )
 }
 
 // ============ Content Display Helpers ============
@@ -253,19 +267,19 @@ export function validateTransaction(content: TransactionContent): boolean {
 export function getContentPreview(content: MessageContent): string {
   switch (content.type) {
     case 'text':
-      return content.text.slice(0, 100);
+      return content.text.slice(0, 100)
     case 'image':
-      return content.alt ?? '📷 Image';
+      return content.alt ?? '📷 Image'
     case 'file':
-      return `📎 ${content.name}`;
+      return `📎 ${content.name}`
     case 'reaction':
-      return `${content.emoji} reaction`;
+      return `${content.emoji} reaction`
     case 'reply':
-      return content.text.slice(0, 100);
+      return content.text.slice(0, 100)
     case 'transaction':
-      return `💸 Transaction: ${content.description ?? content.txHash.slice(0, 10)}...`;
+      return `💸 Transaction: ${content.description ?? content.txHash.slice(0, 10)}...`
     case 'agent_action':
-      return `🤖 Agent: ${content.action}`;
+      return `🤖 Agent: ${content.action}`
   }
 }
 
@@ -273,6 +287,5 @@ export function getContentPreview(content: MessageContent): string {
  * Check if content requires special rendering
  */
 export function isRichContent(content: MessageContent): boolean {
-  return content.type !== 'text';
+  return content.type !== 'text'
 }
-

@@ -1,57 +1,60 @@
 /**
  * OAuth3 Demo Server
- * 
+ *
  * A complete demo server showing OAuth3 authentication in action.
  * Demonstrates wallet login, Farcaster login, and credential issuance.
  */
 
-import { Hono } from 'hono';
-import { cors } from 'hono/cors';
-import { html } from 'hono/html';
-import { generateCallbackHtml } from './callback-handler.js';
-import { FROSTCoordinator } from '../mpc/frost-signing.js';
-import { VerifiableCredentialIssuer } from '../credentials/verifiable-credentials.js';
-import { createMultiTenantCouncilManager } from '../council/multi-tenant.js';
-import { keccak256, toBytes, type Address } from 'viem';
-import { generatePrivateKey } from 'viem/accounts';
-import { AuthProvider } from '../types.js';
+import { Hono } from 'hono'
+import { cors } from 'hono/cors'
+import { html } from 'hono/html'
+import { type Address, keccak256, toBytes } from 'viem'
+import { generatePrivateKey } from 'viem/accounts'
+import { createMultiTenantCouncilManager } from '../council/multi-tenant.js'
+import { VerifiableCredentialIssuer } from '../credentials/verifiable-credentials.js'
+import { FROSTCoordinator } from '../mpc/frost-signing.js'
+import { AuthProvider } from '../types.js'
+import { generateCallbackHtml } from './callback-handler.js'
 
-const app = new Hono();
+const app = new Hono()
 
 // SECURITY: Demo server only allows local development origins
-app.use('*', cors({
-  origin: (origin) => {
-    if (!origin) return null;
-    // Only allow localhost for demo
-    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
-      return origin;
-    }
-    return null;
-  },
-  credentials: true,
-}));
+app.use(
+  '*',
+  cors({
+    origin: (origin) => {
+      if (!origin) return null
+      // Only allow localhost for demo
+      if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+        return origin
+      }
+      return null
+    },
+    credentials: true,
+  }),
+)
 
-const CHAIN_ID = 420691;
+const CHAIN_ID = 420691
 
-const issuerPrivateKey = generatePrivateKey();
+const issuerPrivateKey = generatePrivateKey()
 const credentialIssuer = new VerifiableCredentialIssuer(
   issuerPrivateKey,
   'OAuth3 Demo Issuer',
-  CHAIN_ID
-);
+  CHAIN_ID,
+)
 
-let councilManager: Awaited<ReturnType<typeof createMultiTenantCouncilManager>>;
-let frostCoordinator: FROSTCoordinator;
+let councilManager: Awaited<ReturnType<typeof createMultiTenantCouncilManager>>
+let frostCoordinator: FROSTCoordinator
 
 async function initDemo() {
   councilManager = await createMultiTenantCouncilManager(
     '0x0000000000000000000000000000000000000001' as Address,
     '0x0000000000000000000000000000000000000002' as Address,
-    CHAIN_ID
-  );
+    CHAIN_ID,
+  )
 
-  frostCoordinator = new FROSTCoordinator('demo-cluster', 2, 3);
-  await frostCoordinator.initializeCluster();
+  frostCoordinator = new FROSTCoordinator('demo-cluster', 2, 3)
+  await frostCoordinator.initializeCluster()
 }
 
 app.get('/', (c) => {
@@ -304,8 +307,8 @@ app.get('/', (c) => {
       </script>
     </body>
     </html>
-  `);
-});
+  `)
+})
 
 // SECURITY: Define allowed callback origins for demo server
 const DEMO_ALLOWED_ORIGINS = [
@@ -313,26 +316,29 @@ const DEMO_ALLOWED_ORIGINS = [
   'http://127.0.0.1:4300',
   'http://localhost:3000',
   'http://127.0.0.1:3000',
-];
+]
 
 app.get('/callback', (c) => {
-  const requestedOrigin = c.req.query('origin');
+  const requestedOrigin = c.req.query('origin')
   // SECURITY: Validate origin against allowlist
-  const origin = requestedOrigin && DEMO_ALLOWED_ORIGINS.includes(requestedOrigin)
-    ? requestedOrigin
-    : DEMO_ALLOWED_ORIGINS[0];
-  return c.html(generateCallbackHtml(origin));
-});
+  const origin =
+    requestedOrigin && DEMO_ALLOWED_ORIGINS.includes(requestedOrigin)
+      ? requestedOrigin
+      : DEMO_ALLOWED_ORIGINS[0]
+  return c.html(generateCallbackHtml(origin))
+})
 
 app.post('/api/auth/wallet', async (c) => {
-  const { address } = await c.req.json() as {
-    address: string;
-    signature: string;
-    message: string;
-  };
+  const { address } = (await c.req.json()) as {
+    address: string
+    signature: string
+    message: string
+  }
 
-  const sessionId = keccak256(toBytes(`session:${address}:${Date.now()}`));
-  const identityId = keccak256(toBytes(`identity:wallet:${address.toLowerCase()}`));
+  const sessionId = keccak256(toBytes(`session:${address}:${Date.now()}`))
+  const identityId = keccak256(
+    toBytes(`identity:wallet:${address.toLowerCase()}`),
+  )
 
   return c.json({
     success: true,
@@ -347,36 +353,39 @@ app.post('/api/auth/wallet', async (c) => {
       verified: false,
       timestamp: Date.now(),
     },
-  });
-});
+  })
+})
 
 app.post('/api/credential/issue', async (c) => {
-  const { provider, providerId, providerHandle, walletAddress } = await c.req.json() as {
-    provider: string;
-    providerId: string;
-    providerHandle: string;
-    walletAddress: string;
-  };
+  const { provider, providerId, providerHandle, walletAddress } =
+    (await c.req.json()) as {
+      provider: string
+      providerId: string
+      providerHandle: string
+      walletAddress: string
+    }
 
-  const authProvider = AuthProvider[provider.toUpperCase() as keyof typeof AuthProvider] || AuthProvider.WALLET;
+  const authProvider =
+    AuthProvider[provider.toUpperCase() as keyof typeof AuthProvider] ||
+    AuthProvider.WALLET
   const credential = await credentialIssuer.issueProviderCredential(
     authProvider,
     providerId,
     providerHandle,
-    walletAddress as Address
-  );
+    walletAddress as Address,
+  )
 
   return c.json({
     success: true,
     credential,
-  });
-});
+  })
+})
 
 app.post('/api/mpc/sign', async (c) => {
-  const { message } = await c.req.json() as { message: string };
+  const { message } = (await c.req.json()) as { message: string }
 
-  const messageHash = keccak256(toBytes(message));
-  const signature = await frostCoordinator.sign(messageHash, [1, 2]);
+  const messageHash = keccak256(toBytes(message))
+  const signature = await frostCoordinator.sign(messageHash, [1, 2])
 
   return c.json({
     success: true,
@@ -392,21 +401,21 @@ app.post('/api/mpc/sign', async (c) => {
       threshold: 2,
       parties: 3,
     },
-  });
-});
+  })
+})
 
 app.get('/api/councils', async (c) => {
-  const councils = councilManager.getAllCouncils();
+  const councils = councilManager.getAllCouncils()
   return c.json({
-    councils: councils.map(c => ({
+    councils: councils.map((c) => ({
       type: c.councilType,
       name: c.config.name,
       ceo: c.ceo.name,
       agents: c.agents.length,
       appId: c.oauth3App.appId,
     })),
-  });
-});
+  })
+})
 
 app.get('/health', (c) => {
   return c.json({
@@ -414,10 +423,10 @@ app.get('/health', (c) => {
     version: '0.1.0',
     issuer: credentialIssuer.getIssuerDid(),
     mpcCluster: frostCoordinator.getAddress(),
-  });
-});
+  })
+})
 
-const PORT = parseInt(process.env.DEMO_PORT || '4300');
+const PORT = parseInt(process.env.DEMO_PORT || '4300', 10)
 
 initDemo().then(() => {
   console.log(`
@@ -428,12 +437,12 @@ initDemo().then(() => {
 ║  Issuer DID:    ${credentialIssuer.getIssuerDid().slice(0, 38).padEnd(38)}║
 ║  MPC Address:   ${frostCoordinator.getAddress().padEnd(38)}║
 ╚════════════════════════════════════════════════════════════╝
-`);
+`)
 
   Bun.serve({
     port: PORT,
     fetch: app.fetch,
-  });
-});
+  })
+})
 
-export { app };
+export { app }

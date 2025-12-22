@@ -2,54 +2,69 @@
  * Secure Storage Adapter
  */
 
-import type { SecureStorageAdapter, SecureStorageOptions } from './types';
-import { getPlatformInfo } from './detection';
+import { z } from 'zod'
+import { getPlatformInfo } from './detection'
+import type { SecureStorageAdapter, SecureStorageOptions } from './types'
+
+/** Schema for encrypted storage entries */
+const EncryptedStorageSchema = z.object({
+  iv: z.string(),
+  data: z.string(),
+})
 
 class WebSecureStorage implements SecureStorageAdapter {
-  private encryptionKey: CryptoKey | null = null;
-  private prefix = 'jeju_secure_';
-  private static readonly INSTALLATION_KEY = 'jeju_installation_key';
-  private static readonly INSTALLATION_SALT = 'jeju_installation_salt';
+  private encryptionKey: CryptoKey | null = null
+  private prefix = 'jeju_secure_'
+  private static readonly INSTALLATION_KEY = 'jeju_installation_key'
+  private static readonly INSTALLATION_SALT = 'jeju_installation_salt'
 
   // Get or generate a per-installation random key material
   private getInstallationKeyData(): { keyData: Uint8Array; salt: Uint8Array } {
-    let keyDataB64 = localStorage.getItem(WebSecureStorage.INSTALLATION_KEY);
-    let saltB64 = localStorage.getItem(WebSecureStorage.INSTALLATION_SALT);
-    
+    let keyDataB64 = localStorage.getItem(WebSecureStorage.INSTALLATION_KEY)
+    let saltB64 = localStorage.getItem(WebSecureStorage.INSTALLATION_SALT)
+
     if (!keyDataB64 || !saltB64) {
       // Generate new random key material (32 bytes) and salt (16 bytes) for this installation
-      const keyData = crypto.getRandomValues(new Uint8Array(32));
-      const salt = crypto.getRandomValues(new Uint8Array(16));
-      
-      keyDataB64 = btoa(String.fromCharCode(...keyData));
-      saltB64 = btoa(String.fromCharCode(...salt));
-      
-      localStorage.setItem(WebSecureStorage.INSTALLATION_KEY, keyDataB64);
-      localStorage.setItem(WebSecureStorage.INSTALLATION_SALT, saltB64);
+      const keyData = crypto.getRandomValues(new Uint8Array(32))
+      const salt = crypto.getRandomValues(new Uint8Array(16))
+
+      keyDataB64 = btoa(String.fromCharCode(...keyData))
+      saltB64 = btoa(String.fromCharCode(...salt))
+
+      localStorage.setItem(WebSecureStorage.INSTALLATION_KEY, keyDataB64)
+      localStorage.setItem(WebSecureStorage.INSTALLATION_SALT, saltB64)
     }
-    
+
     return {
-      keyData: new Uint8Array(atob(keyDataB64).split('').map(c => c.charCodeAt(0))),
-      salt: new Uint8Array(atob(saltB64).split('').map(c => c.charCodeAt(0))),
-    };
+      keyData: new Uint8Array(
+        atob(keyDataB64)
+          .split('')
+          .map((c) => c.charCodeAt(0)),
+      ),
+      salt: new Uint8Array(
+        atob(saltB64)
+          .split('')
+          .map((c) => c.charCodeAt(0)),
+      ),
+    }
   }
 
   private async getKey(): Promise<CryptoKey> {
-    if (this.encryptionKey) return this.encryptionKey;
+    if (this.encryptionKey) return this.encryptionKey
 
-    const { keyData, salt } = this.getInstallationKeyData();
-    
+    const { keyData, salt } = this.getInstallationKeyData()
+
     // Create ArrayBuffer copies for TypeScript compatibility with crypto.subtle
-    const keyDataBuffer = new Uint8Array(keyData).buffer as ArrayBuffer;
-    const saltBuffer = new Uint8Array(salt).buffer as ArrayBuffer;
-    
+    const keyDataBuffer = new Uint8Array(keyData).buffer as ArrayBuffer
+    const saltBuffer = new Uint8Array(salt).buffer as ArrayBuffer
+
     const keyMaterial = await crypto.subtle.importKey(
       'raw',
       new Uint8Array(keyDataBuffer),
       'PBKDF2',
       false,
-      ['deriveKey']
-    );
+      ['deriveKey'],
+    )
 
     this.encryptionKey = await crypto.subtle.deriveKey(
       {
@@ -61,254 +76,283 @@ class WebSecureStorage implements SecureStorageAdapter {
       keyMaterial,
       { name: 'AES-GCM', length: 256 },
       false,
-      ['encrypt', 'decrypt']
-    );
+      ['encrypt', 'decrypt'],
+    )
 
-    return this.encryptionKey;
+    return this.encryptionKey
   }
 
   async get(key: string): Promise<string | null> {
-    const stored = localStorage.getItem(this.prefix + key);
-    if (!stored) return null;
+    const stored = localStorage.getItem(this.prefix + key)
+    if (!stored) return null
 
     // Validate JSON structure before using
-    let parsed: z.infer<typeof EncryptedStorageSchema>;
+    let parsed: z.infer<typeof EncryptedStorageSchema>
     try {
-      const rawParsed: unknown = JSON.parse(stored);
-      const result = EncryptedStorageSchema.safeParse(rawParsed);
+      const rawParsed: unknown = JSON.parse(stored)
+      const result = EncryptedStorageSchema.safeParse(rawParsed)
       if (!result.success) {
-        throw new Error(`Invalid secure storage format for key: ${key}`);
+        throw new Error(`Invalid secure storage format for key: ${key}`)
       }
-      parsed = result.data;
+      parsed = result.data
     } catch {
-      throw new Error(`Corrupted secure storage for key: ${key}`);
+      throw new Error(`Corrupted secure storage for key: ${key}`)
     }
-    
-    const cryptoKey = await this.getKey();
-    
+
+    const cryptoKey = await this.getKey()
+
     // Validate base64 encoding before decoding
-    let ivBytes: Uint8Array;
-    let dataBytes: Uint8Array;
+    let ivBytes: Uint8Array
+    let dataBytes: Uint8Array
     try {
-      ivBytes = Uint8Array.from(atob(parsed.iv), c => c.charCodeAt(0));
-      dataBytes = Uint8Array.from(atob(parsed.data), c => c.charCodeAt(0));
+      ivBytes = Uint8Array.from(atob(parsed.iv), (c) => c.charCodeAt(0))
+      dataBytes = Uint8Array.from(atob(parsed.data), (c) => c.charCodeAt(0))
     } catch {
-      throw new Error(`Invalid base64 encoding in secure storage for key: ${key}`);
+      throw new Error(
+        `Invalid base64 encoding in secure storage for key: ${key}`,
+      )
     }
-    
+
     const decrypted = await crypto.subtle.decrypt(
       { name: 'AES-GCM', iv: ivBytes },
       cryptoKey,
-      dataBytes
-    );
+      dataBytes,
+    )
 
-    return new TextDecoder().decode(decrypted);
+    return new TextDecoder().decode(decrypted)
   }
 
   async set(key: string, value: string): Promise<void> {
-    const cryptoKey = await this.getKey();
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const encoder = new TextEncoder();
+    const cryptoKey = await this.getKey()
+    const iv = crypto.getRandomValues(new Uint8Array(12))
+    const encoder = new TextEncoder()
 
     const encrypted = await crypto.subtle.encrypt(
       { name: 'AES-GCM', iv },
       cryptoKey,
-      encoder.encode(value)
-    );
+      encoder.encode(value),
+    )
 
     const stored = {
       iv: btoa(String.fromCharCode(...iv)),
       data: btoa(String.fromCharCode(...new Uint8Array(encrypted))),
-    };
+    }
 
-    localStorage.setItem(this.prefix + key, JSON.stringify(stored));
+    localStorage.setItem(this.prefix + key, JSON.stringify(stored))
   }
 
   async remove(key: string): Promise<void> {
-    localStorage.removeItem(this.prefix + key);
+    localStorage.removeItem(this.prefix + key)
   }
 
   async hasKey(key: string): Promise<boolean> {
-    return localStorage.getItem(this.prefix + key) !== null;
+    return localStorage.getItem(this.prefix + key) !== null
   }
 }
 
 class ExtensionSecureStorage implements SecureStorageAdapter {
   private getStorage() {
-    return typeof chrome !== 'undefined' ? chrome.storage?.local : null;
+    return typeof chrome !== 'undefined' ? chrome.storage?.local : null
   }
 
   async get(key: string): Promise<string | null> {
-    const storage = this.getStorage();
-    if (!storage) return null;
+    const storage = this.getStorage()
+    if (!storage) return null
     return new Promise((resolve) => {
-      storage.get(`secure_${key}`, (result: Record<string, unknown>) => {
-        resolve((result[`secure_${key}`] as string) ?? null);
-      });
-    });
+      storage.get(
+        `secure_${key}`,
+        (result: Record<string, string | undefined>) => {
+          resolve(result[`secure_${key}`] ?? null)
+        },
+      )
+    })
   }
 
   async set(key: string, value: string): Promise<void> {
-    const storage = this.getStorage();
-    if (!storage) return;
+    const storage = this.getStorage()
+    if (!storage) return
     return new Promise((resolve) => {
-      storage.set({ [`secure_${key}`]: value }, resolve);
-    });
+      storage.set({ [`secure_${key}`]: value }, resolve)
+    })
   }
 
   async remove(key: string): Promise<void> {
-    const storage = this.getStorage();
-    if (!storage) return;
+    const storage = this.getStorage()
+    if (!storage) return
     return new Promise((resolve) => {
-      storage.remove(`secure_${key}`, resolve);
-    });
+      storage.remove(`secure_${key}`, resolve)
+    })
   }
 
   async hasKey(key: string): Promise<boolean> {
-    const value = await this.get(key);
-    return value !== null;
+    const value = await this.get(key)
+    return value !== null
   }
 }
 
 class TauriSecureStorage implements SecureStorageAdapter {
-  private webFallback = new WebSecureStorage();
-  
+  private webFallback = new WebSecureStorage()
+
   private isTauri(): boolean {
-    return typeof window !== 'undefined' && '__TAURI__' in window;
+    return typeof window !== 'undefined' && '__TAURI__' in window
   }
 
-  async get(key: string, _options?: SecureStorageOptions): Promise<string | null> {
+  async get(
+    key: string,
+    _options?: SecureStorageOptions,
+  ): Promise<string | null> {
     if (this.isTauri()) {
       try {
-        const { invoke } = await import('@tauri-apps/api/core');
-        return invoke('keyring_get', { key });
+        const { invoke } = await import('@tauri-apps/api/core')
+        return invoke('keyring_get', { key })
       } catch (tauriError) {
         // Log and fall back to web secure storage - Tauri keyring may not be available
-        console.warn('Tauri keyring unavailable, using web fallback:', tauriError);
+        console.warn(
+          'Tauri keyring unavailable, using web fallback:',
+          tauriError,
+        )
       }
     }
-    return this.webFallback.get(key);
+    return this.webFallback.get(key)
   }
 
-  async set(key: string, value: string, _options?: SecureStorageOptions): Promise<void> {
+  async set(
+    key: string,
+    value: string,
+    _options?: SecureStorageOptions,
+  ): Promise<void> {
     if (this.isTauri()) {
       try {
-        const { invoke } = await import('@tauri-apps/api/core');
-        await invoke('keyring_set', { key, value });
-        return;
+        const { invoke } = await import('@tauri-apps/api/core')
+        await invoke('keyring_set', { key, value })
+        return
       } catch (tauriError) {
         // Log and fall back to web secure storage - Tauri keyring may not be available
-        console.warn('Tauri keyring unavailable, using web fallback:', tauriError);
+        console.warn(
+          'Tauri keyring unavailable, using web fallback:',
+          tauriError,
+        )
       }
     }
-    await this.webFallback.set(key, value);
+    await this.webFallback.set(key, value)
   }
 
   async remove(key: string): Promise<void> {
     if (this.isTauri()) {
       try {
-        const { invoke } = await import('@tauri-apps/api/core');
-        await invoke('keyring_delete', { key });
-        return;
+        const { invoke } = await import('@tauri-apps/api/core')
+        await invoke('keyring_delete', { key })
+        return
       } catch (tauriError) {
         // Log and fall back to web secure storage - Tauri keyring may not be available
-        console.warn('Tauri keyring unavailable, using web fallback:', tauriError);
+        console.warn(
+          'Tauri keyring unavailable, using web fallback:',
+          tauriError,
+        )
       }
     }
-    await this.webFallback.remove(key);
+    await this.webFallback.remove(key)
   }
 
   async hasKey(key: string): Promise<boolean> {
-    const value = await this.get(key);
-    return value !== null;
+    const value = await this.get(key)
+    return value !== null
   }
 }
 
 class CapacitorSecureStorage implements SecureStorageAdapter {
-  async get(key: string, _options?: SecureStorageOptions): Promise<string | null> {
-    const { Preferences } = await import('@capacitor/preferences');
-    const result = await Preferences.get({ key: `secure_${key}` });
-    return result.value;
+  async get(
+    key: string,
+    _options?: SecureStorageOptions,
+  ): Promise<string | null> {
+    const { Preferences } = await import('@capacitor/preferences')
+    const result = await Preferences.get({ key: `secure_${key}` })
+    return result.value
   }
 
-  async set(key: string, value: string, _options?: SecureStorageOptions): Promise<void> {
-    const { Preferences } = await import('@capacitor/preferences');
-    await Preferences.set({ key: `secure_${key}`, value });
+  async set(
+    key: string,
+    value: string,
+    _options?: SecureStorageOptions,
+  ): Promise<void> {
+    const { Preferences } = await import('@capacitor/preferences')
+    await Preferences.set({ key: `secure_${key}`, value })
   }
 
   async remove(key: string): Promise<void> {
-    const { Preferences } = await import('@capacitor/preferences');
-    await Preferences.remove({ key: `secure_${key}` });
+    const { Preferences } = await import('@capacitor/preferences')
+    await Preferences.remove({ key: `secure_${key}` })
   }
 
   async hasKey(key: string): Promise<boolean> {
-    const value = await this.get(key);
-    return value !== null;
+    const value = await this.get(key)
+    return value !== null
   }
 }
 
-let secureStorageInstance: SecureStorageAdapter | null = null;
+let secureStorageInstance: SecureStorageAdapter | null = null
 
 export function getSecureStorage(): SecureStorageAdapter {
-  if (secureStorageInstance) return secureStorageInstance;
+  if (secureStorageInstance) return secureStorageInstance
 
-  const platform = getPlatformInfo();
+  const platform = getPlatformInfo()
 
   switch (platform.category) {
     case 'extension':
-      secureStorageInstance = new ExtensionSecureStorage();
-      break;
+      secureStorageInstance = new ExtensionSecureStorage()
+      break
     case 'desktop':
-      secureStorageInstance = new TauriSecureStorage();
-      break;
+      secureStorageInstance = new TauriSecureStorage()
+      break
     case 'mobile':
-      secureStorageInstance = new CapacitorSecureStorage();
-      break;
+      secureStorageInstance = new CapacitorSecureStorage()
+      break
     default:
-      secureStorageInstance = new WebSecureStorage();
+      secureStorageInstance = new WebSecureStorage()
   }
 
-  return secureStorageInstance;
+  return secureStorageInstance
 }
 
 export const secureStorage = {
-  get: (key: string, options?: SecureStorageOptions) => getSecureStorage().get(key, options),
-  set: (key: string, value: string, options?: SecureStorageOptions) => 
+  get: (key: string, options?: SecureStorageOptions) =>
+    getSecureStorage().get(key, options),
+  set: (key: string, value: string, options?: SecureStorageOptions) =>
     getSecureStorage().set(key, value, options),
   remove: (key: string) => getSecureStorage().remove(key),
   hasKey: (key: string) => getSecureStorage().hasKey(key),
-};
+}
 
 export const keyStorage = {
   async savePrivateKey(address: string, encryptedKey: string): Promise<void> {
     await secureStorage.set(`pk_${address}`, encryptedKey, {
       authenticateWithBiometrics: true,
-    });
+    })
   },
 
   async getPrivateKey(address: string): Promise<string | null> {
     return secureStorage.get(`pk_${address}`, {
       authenticateWithBiometrics: true,
-    });
+    })
   },
 
   async removePrivateKey(address: string): Promise<void> {
-    await secureStorage.remove(`pk_${address}`);
+    await secureStorage.remove(`pk_${address}`)
   },
 
   async saveMnemonic(id: string, encryptedMnemonic: string): Promise<void> {
     await secureStorage.set(`mnemonic_${id}`, encryptedMnemonic, {
       authenticateWithBiometrics: true,
-    });
+    })
   },
 
   async getMnemonic(id: string): Promise<string | null> {
     return secureStorage.get(`mnemonic_${id}`, {
       authenticateWithBiometrics: true,
-    });
+    })
   },
 
   async removeMnemonic(id: string): Promise<void> {
-    await secureStorage.remove(`mnemonic_${id}`);
+    await secureStorage.remove(`mnemonic_${id}`)
   },
-};
+}

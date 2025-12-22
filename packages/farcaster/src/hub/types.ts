@@ -1,107 +1,106 @@
-import type { Address, Hex } from 'viem';
+import type { Address, Hex } from 'viem'
 
 export interface HubConfig {
-  hubUrl: string;
-  httpUrl?: string;
-  timeoutMs?: number;
+  hubUrl: string
+  httpUrl?: string
+  timeoutMs?: number
 }
 
 export interface FarcasterProfile {
-  fid: number;
-  username: string;
-  displayName: string;
-  bio: string;
-  pfpUrl: string;
-  custodyAddress: Address;
-  verifiedAddresses: Address[];
-  followerCount: number;
-  followingCount: number;
-  registeredAt: number;
+  fid: number
+  username: string
+  displayName: string
+  bio: string
+  pfpUrl: string
+  custodyAddress: Address
+  verifiedAddresses: Address[]
+  followerCount: number
+  followingCount: number
+  registeredAt: number
 }
 
 export interface FarcasterCast {
-  hash: Hex;
-  fid: number;
-  text: string;
-  timestamp: number;
-  parentHash?: Hex;
-  parentFid?: number;
-  parentUrl?: string;
-  embeds: CastEmbed[];
-  mentions: number[];
-  mentionsPositions: number[];
+  hash: Hex
+  fid: number
+  text: string
+  timestamp: number
+  parentHash?: Hex
+  parentFid?: number
+  parentUrl?: string
+  embeds: CastEmbed[]
+  mentions: number[]
+  mentionsPositions: number[]
 }
 
 export interface CastEmbed {
-  url?: string;
+  url?: string
   castId?: {
-    fid: number;
-    hash: Hex;
-  };
+    fid: number
+    hash: Hex
+  }
 }
 
 export interface FarcasterReaction {
-  fid: number;
-  targetFid: number;
-  targetHash: Hex;
-  type: 'like' | 'recast';
-  timestamp: number;
+  fid: number
+  targetFid: number
+  targetHash: Hex
+  type: 'like' | 'recast'
+  timestamp: number
 }
 
 export interface FarcasterLink {
-  fid: number;
-  targetFid: number;
-  type: 'follow';
-  timestamp: number;
+  fid: number
+  targetFid: number
+  type: 'follow'
+  timestamp: number
 }
 
 export interface FarcasterVerification {
-  fid: number;
-  address: Address;
-  protocol: 'ethereum' | 'solana';
-  timestamp: number;
-  chainId: number;
+  fid: number
+  address: Address
+  protocol: 'ethereum' | 'solana'
+  timestamp: number
+  chainId: number
 }
 
 export interface UserData {
-  fid: number;
-  type: UserDataTypeName;
-  value: string;
-  timestamp: number;
+  fid: number
+  type: UserDataTypeName
+  value: string
+  timestamp: number
 }
 
-export type UserDataTypeName = 
+export type UserDataTypeName =
   | 'pfp'
   | 'display'
   | 'bio'
   | 'url'
   | 'username'
-  | 'location';
+  | 'location'
 
 export interface HubInfoResponse {
-  version: string;
-  isSyncing: boolean;
-  nickname: string;
-  rootHash: string;
+  version: string
+  isSyncing: boolean
+  nickname: string
+  rootHash: string
   dbStats: {
-    numMessages: number;
-    numFidEvents: number;
-    numFnameEvents: number;
-  };
-  peerId: string;
-  hubOperatorFid: number;
+    numMessages: number
+    numFidEvents: number
+    numFnameEvents: number
+  }
+  peerId: string
+  hubOperatorFid: number
 }
 
 export interface CastFilter {
-  fid?: number;
-  parentUrl?: string;
-  pageSize?: number;
-  pageToken?: string;
-  reverse?: boolean;
+  fid?: number
+  parentUrl?: string
+  pageSize?: number
+  pageToken?: string
+  reverse?: boolean
 }
 
 export interface PaginatedResponse<T> {
-  messages: T[];
-  nextPageToken?: string;
+  messages: T[]
+  nextPageToken?: string
 }
-

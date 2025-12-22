@@ -1,172 +1,177 @@
 /**
  * Hub Message Submitter
- * 
+ *
  * Submits signed messages to Farcaster hubs via HTTP API.
  */
 
-import type { Message } from './message-builder';
-import { serializeMessage, messageBytesToHex } from './message-builder';
-import type { Hex } from 'viem';
+import type { Hex } from 'viem'
+import type { Message } from './message-builder'
+import { messageBytesToHex, serializeMessage } from './message-builder'
 
 // ============ Types ============
 
 export interface HubSubmitterConfig {
   /** Hub HTTP API URL */
-  hubUrl: string;
+  hubUrl: string
   /** Request timeout in ms */
-  timeoutMs?: number;
+  timeoutMs?: number
   /** Retry configuration */
-  retries?: number;
+  retries?: number
   /** Delay between retries in ms */
-  retryDelayMs?: number;
+  retryDelayMs?: number
 }
 
 export interface SubmitResult {
-  success: boolean;
-  hash?: Hex;
-  error?: string;
-  details?: string;
-  retries?: number;
+  success: boolean
+  hash?: Hex
+  error?: string
+  details?: string
+  retries?: number
 }
 
 export interface HubInfo {
-  version: string;
-  isSyncing: boolean;
-  nickname: string;
-  rootHash: string;
+  version: string
+  isSyncing: boolean
+  nickname: string
+  rootHash: string
   dbStats: {
-    numMessages: number;
-    numFids: number;
-  };
-  peerId: string;
+    numMessages: number
+    numFids: number
+  }
+  peerId: string
 }
 
 // ============ Hub Submitter Class ============
 
 export class HubSubmitter {
-  private readonly hubUrl: string;
-  private readonly timeout: number;
-  private readonly maxRetries: number;
-  private readonly retryDelay: number;
-  
+  private readonly hubUrl: string
+  private readonly timeout: number
+  private readonly maxRetries: number
+  private readonly retryDelay: number
+
   constructor(config: HubSubmitterConfig) {
-    this.hubUrl = config.hubUrl.replace(/\/$/, '');
-    this.timeout = config.timeoutMs ?? 10000;
-    this.maxRetries = config.retries ?? 3;
-    this.retryDelay = config.retryDelayMs ?? 1000;
+    this.hubUrl = config.hubUrl.replace(/\/$/, '')
+    this.timeout = config.timeoutMs ?? 10000
+    this.maxRetries = config.retries ?? 3
+    this.retryDelay = config.retryDelayMs ?? 1000
   }
-  
+
   /**
    * Get hub info to verify connectivity
    */
   async getHubInfo(): Promise<HubInfo> {
-    const response = await this.fetchWithTimeout(`${this.hubUrl}/v1/info`);
-    
+    const response = await this.fetchWithTimeout(`${this.hubUrl}/v1/info`)
+
     if (!response.ok) {
-      throw new Error(`Failed to get hub info: ${response.status} ${response.statusText}`);
+      throw new Error(
+        `Failed to get hub info: ${response.status} ${response.statusText}`,
+      )
     }
-    
-    return response.json() as Promise<HubInfo>;
+
+    return response.json() as Promise<HubInfo>
   }
-  
+
   /**
    * Check if hub is available and synced
    */
   async isReady(): Promise<boolean> {
-    const info = await this.getHubInfo();
-    return !info.isSyncing;
+    const info = await this.getHubInfo()
+    return !info.isSyncing
   }
-  
+
   /**
    * Submit a message to the hub
    */
   async submit(message: Message): Promise<SubmitResult> {
-    let lastError: Error | undefined;
-    let retries = 0;
-    
+    let lastError: Error | undefined
+    let retries = 0
+
     while (retries <= this.maxRetries) {
-      const result = await this.submitOnce(message);
-      
+      const result = await this.submitOnce(message)
+
       if (result.success) {
-        return { ...result, retries };
+        return { ...result, retries }
       }
-      
+
       // Check if error is retryable
       if (!this.isRetryableError(result.error ?? '')) {
-        return { ...result, retries };
+        return { ...result, retries }
       }
-      
-      lastError = new Error(result.error);
-      retries++;
-      
+
+      lastError = new Error(result.error)
+      retries++
+
       if (retries <= this.maxRetries) {
-        await this.delay(this.retryDelay * retries);
+        await this.delay(this.retryDelay * retries)
       }
     }
-    
+
     return {
       success: false,
       error: lastError?.message ?? 'Max retries exceeded',
       retries,
-    };
+    }
   }
-  
+
   /**
    * Submit a message once (no retries)
    */
   private async submitOnce(message: Message): Promise<SubmitResult> {
-    const encoded = serializeMessage(message);
-    
-    let response: Response;
+    const encoded = serializeMessage(message)
+
+    let response: Response
     try {
-      response = await this.fetchWithTimeout(`${this.hubUrl}/v1/submitMessage`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/octet-stream',
+      response = await this.fetchWithTimeout(
+        `${this.hubUrl}/v1/submitMessage`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/octet-stream',
+          },
+          body: Buffer.from(encoded),
         },
-        body: encoded.slice() as unknown as BodyInit,
-      });
+      )
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Network error';
+      const errorMessage = err instanceof Error ? err.message : 'Network error'
       return {
         success: false,
         error: `Network error: ${errorMessage}`,
-      };
-    }
-    
-    if (!response.ok) {
-      let errorDetails: string;
-      try {
-        const errorBody = await response.json();
-        errorDetails = JSON.stringify(errorBody);
-      } catch {
-        errorDetails = await response.text().catch(() => 'Unknown error');
       }
-      
+    }
+
+    if (!response.ok) {
+      let errorDetails: string
+      try {
+        const errorBody = await response.json()
+        errorDetails = JSON.stringify(errorBody)
+      } catch {
+        errorDetails = await response.text().catch(() => 'Unknown error')
+      }
+
       return {
         success: false,
         error: `Hub rejected message: ${response.status}`,
         details: errorDetails,
-      };
+      }
     }
-    
+
     // Success - return hash
     return {
       success: true,
       hash: messageBytesToHex(message.hash),
-    };
+    }
   }
-  
+
   /**
    * Submit multiple messages in sequence
    */
   async submitBatch(messages: Message[]): Promise<SubmitResult[]> {
-    const results: SubmitResult[] = [];
-    
+    const results: SubmitResult[] = []
+
     for (const message of messages) {
-      const result = await this.submit(message);
-      results.push(result);
-      
+      const result = await this.submit(message)
+      results.push(result)
+
       // Stop on first failure if we want atomic behavior
       if (!result.success) {
         // Mark remaining as not attempted
@@ -174,61 +179,69 @@ export class HubSubmitter {
           results.push({
             success: false,
             error: 'Not attempted due to previous failure',
-          });
+          })
         }
-        break;
+        break
       }
     }
-    
-    return results;
+
+    return results
   }
-  
+
   /**
    * Submit multiple messages in parallel
    */
   async submitParallel(messages: Message[]): Promise<SubmitResult[]> {
-    return Promise.all(messages.map(msg => this.submit(msg)));
+    return Promise.all(messages.map((msg) => this.submit(msg)))
   }
-  
+
   /**
    * Validate a message without submitting
    */
-  async validate(message: Message): Promise<{ valid: boolean; error?: string }> {
-    const encoded = serializeMessage(message);
-    
-    const response = await this.fetchWithTimeout(`${this.hubUrl}/v1/validateMessage`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/octet-stream',
+  async validate(
+    message: Message,
+  ): Promise<{ valid: boolean; error?: string }> {
+    const encoded = serializeMessage(message)
+
+    const response = await this.fetchWithTimeout(
+      `${this.hubUrl}/v1/validateMessage`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/octet-stream',
+        },
+        body: Buffer.from(encoded),
       },
-      body: encoded.slice() as unknown as BodyInit,
-    });
-    
+    )
+
     if (!response.ok) {
-      const error = await response.text().catch(() => 'Validation failed');
-      return { valid: false, error };
+      const error = await response.text().catch(() => 'Validation failed')
+      return { valid: false, error }
     }
-    
-    const result = await response.json() as { valid: boolean };
-    return { valid: result.valid };
+
+    const result = (await response.json()) as { valid: boolean }
+    return { valid: result.valid }
   }
-  
+
   // ============ Private Helpers ============
-  
-  private async fetchWithTimeout(url: string, options?: RequestInit): Promise<Response> {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.timeout);
-    
+
+  private async fetchWithTimeout(
+    url: string,
+    options?: RequestInit,
+  ): Promise<Response> {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), this.timeout)
+
     try {
       return await fetch(url, {
         ...options,
         signal: controller.signal,
-      });
+      })
     } finally {
-      clearTimeout(timeoutId);
+      clearTimeout(timeoutId)
     }
   }
-  
+
   private isRetryableError(error: string): boolean {
     const retryablePatterns = [
       'timeout',
@@ -240,23 +253,25 @@ export class HubSubmitter {
       '503',
       '504',
       'rate limit',
-    ];
-    
-    const lowerError = error.toLowerCase();
-    return retryablePatterns.some(pattern => lowerError.includes(pattern.toLowerCase()));
+    ]
+
+    const lowerError = error.toLowerCase()
+    return retryablePatterns.some((pattern) =>
+      lowerError.includes(pattern.toLowerCase()),
+    )
   }
-  
+
   private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms))
   }
 }
 
 // ============ Hub Selection ============
 
 export interface HubEndpoint {
-  url: string;
-  priority: number;
-  region?: string;
+  url: string
+  priority: number
+  region?: string
 }
 
 /**
@@ -267,83 +282,87 @@ export async function selectBestHub(
   timeoutMs: number = 5000,
 ): Promise<HubEndpoint | null> {
   // Sort by priority
-  const sorted = [...hubs].sort((a, b) => a.priority - b.priority);
-  
+  const sorted = [...hubs].sort((a, b) => a.priority - b.priority)
+
   for (const hub of sorted) {
-    const submitter = new HubSubmitter({ hubUrl: hub.url, timeoutMs });
-    
+    const submitter = new HubSubmitter({ hubUrl: hub.url, timeoutMs })
+
     try {
-      const ready = await submitter.isReady();
+      const ready = await submitter.isReady()
       if (ready) {
-        return hub;
+        return hub
       }
-    } catch {
-      // Hub not available, try next
-      continue;
-    }
+    } catch {}
   }
-  
-  return null;
+
+  return null
 }
 
 /**
  * Create a submitter with automatic failover
  */
 export class FailoverHubSubmitter {
-  private hubs: HubEndpoint[];
-  private currentHub: HubSubmitter | null = null;
-  private currentIndex: number = 0;
-  private readonly timeout: number;
-  
+  private hubs: HubEndpoint[]
+  private currentHub: HubSubmitter | null = null
+  private currentIndex: number = 0
+  private readonly timeout: number
+
   constructor(hubs: HubEndpoint[], timeoutMs: number = 10000) {
-    this.hubs = [...hubs].sort((a, b) => a.priority - b.priority);
-    this.timeout = timeoutMs;
+    this.hubs = [...hubs].sort((a, b) => a.priority - b.priority)
+    this.timeout = timeoutMs
   }
-  
+
   private async ensureHub(): Promise<HubSubmitter> {
     if (this.currentHub) {
-      return this.currentHub;
+      return this.currentHub
     }
-    
+
     for (let i = this.currentIndex; i < this.hubs.length; i++) {
-      const hub = this.hubs[i];
-      const submitter = new HubSubmitter({ hubUrl: hub.url, timeoutMs: this.timeout });
-      
+      const hub = this.hubs[i]
+      const submitter = new HubSubmitter({
+        hubUrl: hub.url,
+        timeoutMs: this.timeout,
+      })
+
       try {
-        await submitter.getHubInfo();
-        this.currentHub = submitter;
-        this.currentIndex = i;
-        return submitter;
-      } catch {
-        continue;
-      }
+        await submitter.getHubInfo()
+        this.currentHub = submitter
+        this.currentIndex = i
+        return submitter
+      } catch {}
     }
-    
-    throw new Error('No available hubs');
+
+    throw new Error('No available hubs')
   }
-  
+
   async submit(message: Message): Promise<SubmitResult> {
-    const submitter = await this.ensureHub();
-    const result = await submitter.submit(message);
-    
+    const submitter = await this.ensureHub()
+    const result = await submitter.submit(message)
+
     // If failed due to hub issue, try failover
     if (!result.success && this.isHubError(result.error ?? '')) {
-      this.currentHub = null;
-      this.currentIndex++;
-      
+      this.currentHub = null
+      this.currentIndex++
+
       if (this.currentIndex < this.hubs.length) {
-        const fallback = await this.ensureHub();
-        return fallback.submit(message);
+        const fallback = await this.ensureHub()
+        return fallback.submit(message)
       }
     }
-    
-    return result;
+
+    return result
   }
-  
+
   private isHubError(error: string): boolean {
-    const hubErrorPatterns = ['network', 'timeout', 'connection', '502', '503', '504'];
-    const lowerError = error.toLowerCase();
-    return hubErrorPatterns.some(pattern => lowerError.includes(pattern));
+    const hubErrorPatterns = [
+      'network',
+      'timeout',
+      'connection',
+      '502',
+      '503',
+      '504',
+    ]
+    const lowerError = error.toLowerCase()
+    return hubErrorPatterns.some((pattern) => lowerError.includes(pattern))
   }
 }
-

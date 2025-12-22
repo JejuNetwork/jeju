@@ -2,13 +2,28 @@
  * Room SDK - Manages multi-agent coordination rooms.
  */
 
-import { type Address, type PublicClient, type WalletClient, parseAbi, encodeAbiParameters, parseAbiParameters } from 'viem';
+import {
+  type Address,
+  encodeAbiParameters,
+  type PublicClient,
+  parseAbi,
+  parseAbiParameters,
+  type WalletClient,
+} from 'viem'
+import { expect } from '../schemas'
 import type {
-  Room, RoomMember, RoomState, RoomMessage, RoomType, RoomConfig, AgentRole, RoomPhase, CrucibleConfig,
-} from '../types';
-import { CrucibleStorage } from './storage';
-import { createLogger, type Logger } from './logger';
-import { expect } from '../schemas';
+  AgentRole,
+  CrucibleConfig,
+  Room,
+  RoomConfig,
+  RoomMember,
+  RoomMessage,
+  RoomPhase,
+  RoomState,
+  RoomType,
+} from '../types'
+import { createLogger, type Logger } from './logger'
+import type { CrucibleStorage } from './storage'
 
 // Full ABI to access all contract data
 const ROOM_REGISTRY_ABI = parseAbi([
@@ -24,104 +39,158 @@ const ROOM_REGISTRY_ABI = parseAbi([
   'event RoomCreated(uint256 indexed roomId, address owner, string name)',
   'event MemberJoined(uint256 indexed roomId, uint256 indexed agentId, uint8 role)',
   'event StateUpdated(uint256 indexed roomId, string stateCid)',
-]);
+])
 
 export interface RoomSDKConfig {
-  crucibleConfig: CrucibleConfig;
-  storage: CrucibleStorage;
-  publicClient: PublicClient;
-  walletClient?: WalletClient;
-  logger?: Logger;
+  crucibleConfig: CrucibleConfig
+  storage: CrucibleStorage
+  publicClient: PublicClient
+  walletClient?: WalletClient
+  logger?: Logger
 }
 
 export class RoomSDK {
-  private config: CrucibleConfig;
-  private storage: CrucibleStorage;
-  private publicClient: PublicClient;
-  private walletClient?: WalletClient;
-  private log: Logger;
+  private config: CrucibleConfig
+  private storage: CrucibleStorage
+  private publicClient: PublicClient
+  private walletClient?: WalletClient
+  private log: Logger
 
   constructor(sdkConfig: RoomSDKConfig) {
-    this.config = sdkConfig.crucibleConfig;
-    this.storage = sdkConfig.storage;
-    this.publicClient = sdkConfig.publicClient;
-    this.walletClient = sdkConfig.walletClient;
-    this.log = sdkConfig.logger ?? createLogger('RoomSDK');
+    this.config = sdkConfig.crucibleConfig
+    this.storage = sdkConfig.storage
+    this.publicClient = sdkConfig.publicClient
+    this.walletClient = sdkConfig.walletClient
+    this.log = sdkConfig.logger ?? createLogger('RoomSDK')
   }
 
   async createRoom(
     name: string,
     description: string,
     roomType: RoomType,
-    roomConfig: RoomConfig
+    roomConfig: RoomConfig,
   ): Promise<{ roomId: bigint; stateCid: string }> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    if (!this.walletClient) throw new Error('Wallet client required')
 
-    this.log.info('Creating room', { name, roomType });
+    this.log.info('Creating room', { name, roomType })
 
-    const initialState = this.storage.createInitialRoomState(crypto.randomUUID());
-    const stateCid = await this.storage.storeRoomState(initialState);
+    const initialState = this.storage.createInitialRoomState(
+      crypto.randomUUID(),
+    )
+    const stateCid = await this.storage.storeRoomState(initialState)
 
     // Encode config as ABI parameters
     const configBytes = encodeAbiParameters(
-      parseAbiParameters('uint256 maxMembers, bool turnBased, uint256 turnTimeout'),
-      [BigInt(roomConfig.maxMembers), roomConfig.turnBased, BigInt(roomConfig.turnTimeout ?? 300)]
-    );
+      parseAbiParameters(
+        'uint256 maxMembers, bool turnBased, uint256 turnTimeout',
+      ),
+      [
+        BigInt(roomConfig.maxMembers),
+        roomConfig.turnBased,
+        BigInt(roomConfig.turnTimeout ?? 300),
+      ],
+    )
 
     const { request } = await this.publicClient.simulateContract({
       address: this.config.contracts.roomRegistry,
       abi: ROOM_REGISTRY_ABI,
       functionName: 'createRoom',
       args: [name, description, this.roomTypeToNumber(roomType), configBytes],
-      account: expect(this.walletClient.account, 'Wallet client account is required'),
-    });
+      account: expect(
+        this.walletClient.account,
+        'Wallet client account is required',
+      ),
+    })
 
-    const txHash = await this.walletClient.writeContract(request);
-    const receipt = await this.publicClient.waitForTransactionReceipt({ hash: txHash });
-    const roomId = receipt.logs[0]?.topics[1] ? BigInt(receipt.logs[0].topics[1]) : 0n;
+    const txHash = await this.walletClient.writeContract(request)
+    const receipt = await this.publicClient.waitForTransactionReceipt({
+      hash: txHash,
+    })
+    const roomId = receipt.logs[0]?.topics[1]
+      ? BigInt(receipt.logs[0].topics[1])
+      : 0n
 
-    this.log.info('Room created', { roomId: roomId.toString(), stateCid });
-    return { roomId, stateCid };
+    this.log.info('Room created', { roomId: roomId.toString(), stateCid })
+    return { roomId, stateCid }
   }
 
   async getRoom(roomId: bigint): Promise<Room | null> {
-    expect(roomId > 0n, 'Room ID must be greater than 0');
-    this.log.debug('Getting room', { roomId: roomId.toString() });
+    expect(roomId > 0n, 'Room ID must be greater than 0')
+    this.log.debug('Getting room', { roomId: roomId.toString() })
 
     // Fetch full room data from storage mapping
-    const roomData = await this.publicClient.readContract({
+    const roomData = (await this.publicClient.readContract({
       address: this.config.contracts.roomRegistry,
       abi: ROOM_REGISTRY_ABI,
       functionName: 'rooms',
       args: [roomId],
-    }) as [bigint, Address, string, string, string, number, number, bigint, boolean, bigint, bigint, bigint, boolean];
+    })) as [
+      bigint,
+      Address,
+      string,
+      string,
+      string,
+      number,
+      number,
+      bigint,
+      boolean,
+      bigint,
+      bigint,
+      bigint,
+      boolean,
+    ]
 
-    const [, owner, name, description, stateCid, roomTypeNum, , maxMembers, turnBased, turnTimeout, createdAt, , active] = roomData;
+    const [
+      ,
+      owner,
+      name,
+      description,
+      stateCid,
+      roomTypeNum,
+      ,
+      maxMembers,
+      turnBased,
+      turnTimeout,
+      createdAt,
+      ,
+      active,
+    ] = roomData
 
-    if (!owner || owner === '0x0000000000000000000000000000000000000000') return null;
+    if (!owner || owner === '0x0000000000000000000000000000000000000000')
+      return null
 
-    const [agentIds] = await this.publicClient.readContract({
+    const [agentIds] = (await this.publicClient.readContract({
       address: this.config.contracts.roomRegistry,
       abi: ROOM_REGISTRY_ABI,
       functionName: 'getMembers',
       args: [roomId],
-    }) as [bigint[], number[]];
+    })) as [bigint[], number[]]
 
-    const members: RoomMember[] = await Promise.all(agentIds.map(async (agentId) => {
-      const memberData = await this.publicClient.readContract({
-        address: this.config.contracts.roomRegistry,
-        abi: ROOM_REGISTRY_ABI,
-        functionName: 'getMember',
-        args: [roomId, agentId],
-      }) as { agentId: bigint; role: number; score: bigint; joinedAt: bigint; lastActiveAt: bigint; messageCount: bigint; active: boolean };
+    const members: RoomMember[] = await Promise.all(
+      agentIds.map(async (agentId) => {
+        const memberData = (await this.publicClient.readContract({
+          address: this.config.contracts.roomRegistry,
+          abi: ROOM_REGISTRY_ABI,
+          functionName: 'getMember',
+          args: [roomId, agentId],
+        })) as {
+          agentId: bigint
+          role: number
+          score: bigint
+          joinedAt: bigint
+          lastActiveAt: bigint
+          messageCount: bigint
+          active: boolean
+        }
 
-      return {
-        agentId,
-        role: this.numberToAgentRole(memberData.role),
-        joinedAt: Number(memberData.joinedAt) * 1000,
-        lastActiveAt: Number(memberData.lastActiveAt) * 1000,
-      };
-    }));
+        return {
+          agentId,
+          role: this.numberToAgentRole(memberData.role),
+          joinedAt: Number(memberData.joinedAt) * 1000,
+          lastActiveAt: Number(memberData.lastActiveAt) * 1000,
+        }
+      }),
+    )
 
     return {
       roomId,
@@ -139,201 +208,261 @@ export class RoomSDK {
       },
       active,
       createdAt: Number(createdAt) * 1000,
-    };
+    }
   }
 
-  async joinRoom(roomId: bigint, agentId: bigint, role: AgentRole): Promise<void> {
-    expect(this.walletClient, 'Wallet client required');
-    expect(roomId > 0n, 'Room ID must be greater than 0');
-    expect(agentId > 0n, 'Agent ID must be greater than 0');
-    expect(role, 'Role is required');
+  async joinRoom(
+    roomId: bigint,
+    agentId: bigint,
+    role: AgentRole,
+  ): Promise<void> {
+    expect(this.walletClient, 'Wallet client required')
+    expect(roomId > 0n, 'Room ID must be greater than 0')
+    expect(agentId > 0n, 'Agent ID must be greater than 0')
+    expect(role, 'Role is required')
 
-    this.log.info('Agent joining room', { roomId: roomId.toString(), agentId: agentId.toString(), role });
+    this.log.info('Agent joining room', {
+      roomId: roomId.toString(),
+      agentId: agentId.toString(),
+      role,
+    })
 
-    const wallet = expect(this.walletClient, 'Wallet client is required');
-    const account = expect(wallet.account, 'Wallet client account is required');
+    const wallet = expect(this.walletClient, 'Wallet client is required')
+    const account = expect(wallet.account, 'Wallet client account is required')
     const { request } = await this.publicClient.simulateContract({
       address: this.config.contracts.roomRegistry,
       abi: ROOM_REGISTRY_ABI,
       functionName: 'joinRoom',
       args: [roomId, agentId, this.agentRoleToNumber(role)],
       account,
-    });
+    })
 
-    await wallet.writeContract(request);
+    await wallet.writeContract(request)
   }
 
   async leaveRoom(roomId: bigint, agentId: bigint): Promise<void> {
-    expect(this.walletClient, 'Wallet client required');
-    expect(roomId > 0n, 'Room ID must be greater than 0');
-    expect(agentId > 0n, 'Agent ID must be greater than 0');
+    expect(this.walletClient, 'Wallet client required')
+    expect(roomId > 0n, 'Room ID must be greater than 0')
+    expect(agentId > 0n, 'Agent ID must be greater than 0')
 
-    this.log.info('Agent leaving room', { roomId: roomId.toString(), agentId: agentId.toString() });
+    this.log.info('Agent leaving room', {
+      roomId: roomId.toString(),
+      agentId: agentId.toString(),
+    })
 
-    const wallet = expect(this.walletClient, 'Wallet client is required');
-    const account = expect(wallet.account, 'Wallet client account is required');
+    const wallet = expect(this.walletClient, 'Wallet client is required')
+    const account = expect(wallet.account, 'Wallet client account is required')
     const { request } = await this.publicClient.simulateContract({
       address: this.config.contracts.roomRegistry,
       abi: ROOM_REGISTRY_ABI,
       functionName: 'leaveRoom',
       args: [roomId, agentId],
       account,
-    });
+    })
 
-    await wallet.writeContract(request);
+    await wallet.writeContract(request)
   }
 
   async loadState(roomId: bigint): Promise<RoomState> {
-    const room = await this.getRoom(roomId);
-    if (!room) throw new Error(`Room not found: ${roomId}`);
-    return this.storage.loadRoomState(room.stateCid);
+    const room = await this.getRoom(roomId)
+    if (!room) throw new Error(`Room not found: ${roomId}`)
+    return this.storage.loadRoomState(room.stateCid)
   }
 
-  async postMessage(roomId: bigint, agentId: bigint, content: string, action?: string): Promise<RoomMessage> {
-    expect(this.walletClient, 'Wallet client required');
-    expect(roomId > 0n, 'Room ID must be greater than 0');
-    expect(agentId > 0n, 'Agent ID must be greater than 0');
-    expect(content, 'Message content is required');
-    expect(content.length > 0 && content.length <= 10000, 'Message content must be between 1 and 10000 characters');
+  async postMessage(
+    roomId: bigint,
+    agentId: bigint,
+    content: string,
+    action?: string,
+  ): Promise<RoomMessage> {
+    expect(this.walletClient, 'Wallet client required')
+    expect(roomId > 0n, 'Room ID must be greater than 0')
+    expect(agentId > 0n, 'Agent ID must be greater than 0')
+    expect(content, 'Message content is required')
+    expect(
+      content.length > 0 && content.length <= 10000,
+      'Message content must be between 1 and 10000 characters',
+    )
 
-    this.log.debug('Posting message', { roomId: roomId.toString(), agentId: agentId.toString() });
+    this.log.debug('Posting message', {
+      roomId: roomId.toString(),
+      agentId: agentId.toString(),
+    })
 
-    const state = await this.loadState(roomId);
+    const state = await this.loadState(roomId)
     const message: RoomMessage = {
       id: crypto.randomUUID(),
       agentId: agentId.toString(),
       content,
       timestamp: Date.now(),
       action,
-    };
+    }
 
     const newState: RoomState = {
       ...state,
       version: state.version + 1,
       messages: [...state.messages, message],
       updatedAt: Date.now(),
-    };
+    }
 
-    const stateCid = await this.storage.storeRoomState(newState);
+    const stateCid = await this.storage.storeRoomState(newState)
 
-    const wallet = expect(this.walletClient, 'Wallet client is required');
-    const account = expect(wallet.account, 'Wallet client account is required');
+    const wallet = expect(this.walletClient, 'Wallet client is required')
+    const account = expect(wallet.account, 'Wallet client account is required')
     const { request } = await this.publicClient.simulateContract({
       address: this.config.contracts.roomRegistry,
       abi: ROOM_REGISTRY_ABI,
       functionName: 'updateRoomState',
       args: [roomId, stateCid],
       account,
-    });
+    })
 
-    await wallet.writeContract(request);
-    return message;
+    await wallet.writeContract(request)
+    return message
   }
 
   async getMessages(roomId: bigint, limit?: number): Promise<RoomMessage[]> {
-    expect(roomId > 0n, 'Room ID must be greater than 0');
+    expect(roomId > 0n, 'Room ID must be greater than 0')
     if (limit !== undefined) {
-      expect(limit > 0 && limit <= 1000, 'Limit must be between 1 and 1000');
+      expect(limit > 0 && limit <= 1000, 'Limit must be between 1 and 1000')
     }
-    const state = await this.loadState(roomId);
-    return state.messages.slice(-(limit ?? 50));
+    const state = await this.loadState(roomId)
+    return state.messages.slice(-(limit ?? 50))
   }
 
   async setPhase(roomId: bigint, phase: RoomPhase): Promise<void> {
-    expect(this.walletClient, 'Wallet client required');
-    expect(roomId > 0n, 'Room ID must be greater than 0');
-    expect(phase, 'Phase is required');
+    expect(this.walletClient, 'Wallet client required')
+    expect(roomId > 0n, 'Room ID must be greater than 0')
+    expect(phase, 'Phase is required')
 
-    this.log.info('Setting room phase', { roomId: roomId.toString(), phase });
+    this.log.info('Setting room phase', { roomId: roomId.toString(), phase })
 
-    const wallet = expect(this.walletClient, 'Wallet client is required');
-    const account = expect(wallet.account, 'Wallet client account is required');
+    const wallet = expect(this.walletClient, 'Wallet client is required')
+    const account = expect(wallet.account, 'Wallet client account is required')
     const { request } = await this.publicClient.simulateContract({
       address: this.config.contracts.roomRegistry,
       abi: ROOM_REGISTRY_ABI,
       functionName: 'setPhase',
       args: [roomId, this.phaseToNumber(phase)],
       account,
-    });
+    })
 
-    await wallet.writeContract(request);
+    await wallet.writeContract(request)
 
-    const state = await this.loadState(roomId);
+    const state = await this.loadState(roomId)
     const stateCid = await this.storage.storeRoomState({
-      ...state, version: state.version + 1, phase, updatedAt: Date.now(),
-    });
+      ...state,
+      version: state.version + 1,
+      phase,
+      updatedAt: Date.now(),
+    })
 
-    const { request: updateRequest } = await this.publicClient.simulateContract({
-      address: this.config.contracts.roomRegistry,
-      abi: ROOM_REGISTRY_ABI,
-      functionName: 'updateRoomState',
-      args: [roomId, stateCid],
-      account,
-    });
+    const { request: updateRequest } = await this.publicClient.simulateContract(
+      {
+        address: this.config.contracts.roomRegistry,
+        abi: ROOM_REGISTRY_ABI,
+        functionName: 'updateRoomState',
+        args: [roomId, stateCid],
+        account,
+      },
+    )
 
-    await wallet.writeContract(updateRequest);
+    await wallet.writeContract(updateRequest)
   }
 
-  async updateScore(roomId: bigint, agentId: bigint, delta: number): Promise<void> {
-    expect(this.walletClient, 'Wallet client required');
-    expect(roomId > 0n, 'Room ID must be greater than 0');
-    expect(agentId > 0n, 'Agent ID must be greater than 0');
-    expect(typeof delta === 'number' && !isNaN(delta), 'Delta must be a valid number');
+  async updateScore(
+    roomId: bigint,
+    agentId: bigint,
+    delta: number,
+  ): Promise<void> {
+    expect(this.walletClient, 'Wallet client required')
+    expect(roomId > 0n, 'Room ID must be greater than 0')
+    expect(agentId > 0n, 'Agent ID must be greater than 0')
+    expect(
+      typeof delta === 'number' && !Number.isNaN(delta),
+      'Delta must be a valid number',
+    )
 
-    this.log.debug('Updating score', { roomId: roomId.toString(), agentId: agentId.toString(), delta });
+    this.log.debug('Updating score', {
+      roomId: roomId.toString(),
+      agentId: agentId.toString(),
+      delta,
+    })
 
-    const state = await this.loadState(roomId);
-    const agentIdStr = agentId.toString();
+    const state = await this.loadState(roomId)
+    const agentIdStr = agentId.toString()
 
     const stateCid = await this.storage.storeRoomState({
       ...state,
       version: state.version + 1,
-      scores: { ...state.scores, [agentIdStr]: (state.scores[agentIdStr] !== undefined ? state.scores[agentIdStr] : 0) + delta },
+      scores: {
+        ...state.scores,
+        [agentIdStr]:
+          (state.scores[agentIdStr] !== undefined
+            ? state.scores[agentIdStr]
+            : 0) + delta,
+      },
       updatedAt: Date.now(),
-    });
+    })
 
-    const wallet = expect(this.walletClient, 'Wallet client is required');
-    const account = expect(wallet.account, 'Wallet client account is required');
+    const wallet = expect(this.walletClient, 'Wallet client is required')
+    const account = expect(wallet.account, 'Wallet client account is required')
     const { request } = await this.publicClient.simulateContract({
       address: this.config.contracts.roomRegistry,
       abi: ROOM_REGISTRY_ABI,
       functionName: 'updateRoomState',
       args: [roomId, stateCid],
       account,
-    });
+    })
 
-    await wallet.writeContract(request);
+    await wallet.writeContract(request)
   }
 
   private roomTypeToNumber(type: RoomType): number {
-    return { collaboration: 0, adversarial: 1, debate: 2, council: 3 }[type];
+    return { collaboration: 0, adversarial: 1, debate: 2, council: 3 }[type]
   }
 
   private numberToRoomType(num: number): RoomType {
-    const types = ['collaboration', 'adversarial', 'debate', 'council'] as const;
+    const types = ['collaboration', 'adversarial', 'debate', 'council'] as const
     if (num < 0 || num >= types.length) {
-      throw new Error(`Invalid room type number: ${num}. Must be 0-${types.length - 1}`);
+      throw new Error(
+        `Invalid room type number: ${num}. Must be 0-${types.length - 1}`,
+      )
     }
-    return types[num];
+    return types[num]
   }
 
   private agentRoleToNumber(role: AgentRole): number {
-    return { participant: 0, moderator: 1, red_team: 2, blue_team: 3, observer: 4 }[role];
+    return {
+      participant: 0,
+      moderator: 1,
+      red_team: 2,
+      blue_team: 3,
+      observer: 4,
+    }[role]
   }
 
   private numberToAgentRole(num: number): AgentRole {
-    const roles = ['participant', 'moderator', 'red_team', 'blue_team', 'observer'] as const;
+    const roles = [
+      'participant',
+      'moderator',
+      'red_team',
+      'blue_team',
+      'observer',
+    ] as const
     if (num < 0 || num >= roles.length) {
-      throw new Error(`Invalid agent role number: ${num}. Must be 0-${roles.length - 1}`);
+      throw new Error(
+        `Invalid agent role number: ${num}. Must be 0-${roles.length - 1}`,
+      )
     }
-    return roles[num];
+    return roles[num]
   }
 
   private phaseToNumber(phase: RoomPhase): number {
-    return { setup: 0, active: 1, paused: 2, completed: 3, archived: 4 }[phase];
+    return { setup: 0, active: 1, paused: 2, completed: 3, archived: 4 }[phase]
   }
 }
 
 export function createRoomSDK(config: RoomSDKConfig): RoomSDK {
-  return new RoomSDK(config);
+  return new RoomSDK(config)
 }

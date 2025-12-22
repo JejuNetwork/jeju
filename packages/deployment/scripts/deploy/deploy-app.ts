@@ -1,15 +1,22 @@
 #!/usr/bin/env bun
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { join } from 'node:path'
 /**
  * @internal Used by CLI: `jeju deploy app <name>`
- * 
+ *
  * App Deployment Script
  */
-import { parseArgs } from 'util';
-import { existsSync, readFileSync, readdirSync, statSync } from 'fs';
-import { join } from 'path';
-import { createPublicClient, createWalletClient, http, type Address, type Hex, namehash } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import { base, baseSepolia } from 'viem/chains';
+import { parseArgs } from 'node:util'
+import {
+  type Address,
+  createPublicClient,
+  createWalletClient,
+  type Hex,
+  http,
+  namehash,
+} from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { base, baseSepolia } from 'viem/chains'
 
 const KEEPALIVE_REGISTRY_ABI = [
   {
@@ -41,7 +48,7 @@ const KEEPALIVE_REGISTRY_ABI = [
     ],
     outputs: [],
   },
-] as const;
+] as const
 
 const JNS_REGISTRAR_ABI = [
   {
@@ -72,7 +79,7 @@ const JNS_REGISTRAR_ABI = [
     inputs: [{ name: 'name', type: 'string' }],
     outputs: [{ name: '', type: 'bool' }],
   },
-] as const;
+] as const
 
 const JNS_RESOLVER_ABI = [
   {
@@ -85,17 +92,17 @@ const JNS_RESOLVER_ABI = [
     ],
     outputs: [],
   },
-] as const;
+] as const
 
 interface DeployConfig {
-  name: string;
-  dir: string;
-  jnsName: string;
-  minBalance: bigint;
-  checkInterval: number;
-  autoFund: boolean;
-  autoFundAmount: bigint;
-  healthEndpoint?: string;
+  name: string
+  dir: string
+  jnsName: string
+  minBalance: bigint
+  checkInterval: number
+  autoFund: boolean
+  autoFundAmount: bigint
+  healthEndpoint?: string
 }
 
 async function parseCliArgs(): Promise<DeployConfig> {
@@ -112,7 +119,7 @@ async function parseCliArgs(): Promise<DeployConfig> {
       help: { type: 'boolean', short: 'h' },
     },
     allowPositionals: true,
-  });
+  })
 
   if (values.help) {
     console.log(`
@@ -139,136 +146,152 @@ Environment:
   JNS_REGISTRAR       JNS Registrar address
   JNS_RESOLVER        JNS Resolver address
   KEEPALIVE_REGISTRY  KeepaliveRegistry address
-`);
-    process.exit(0);
+`)
+    process.exit(0)
   }
 
   if (!values.name || !values.dir || !values.jns) {
-    console.error('Error: --name, --dir, and --jns are required');
-    process.exit(1);
+    console.error('Error: --name, --dir, and --jns are required')
+    process.exit(1)
   }
 
   if (!existsSync(values.dir)) {
-    console.error(`Error: Directory ${values.dir} does not exist`);
-    process.exit(1);
+    console.error(`Error: Directory ${values.dir} does not exist`)
+    process.exit(1)
   }
 
   return {
     name: values.name,
     dir: values.dir,
     jnsName: values.jns,
-    minBalance: BigInt(Math.floor(parseFloat(values['min-balance'] ?? '0.1') * 1e18)),
+    minBalance: BigInt(
+      Math.floor(parseFloat(values['min-balance'] ?? '0.1') * 1e18),
+    ),
     checkInterval: parseInt(values['check-interval'] ?? '3600', 10),
     autoFund: values['auto-fund'] !== false,
-    autoFundAmount: BigInt(Math.floor(parseFloat(values['auto-fund-amount'] ?? '0.05') * 1e18)),
+    autoFundAmount: BigInt(
+      Math.floor(parseFloat(values['auto-fund-amount'] ?? '0.05') * 1e18),
+    ),
     healthEndpoint: values['health-endpoint'],
-  };
+  }
 }
 
 async function uploadToIPFS(dir: string, ipfsApiUrl: string): Promise<string> {
-  console.log(`📦 Uploading ${dir} to IPFS...`);
+  console.log(`📦 Uploading ${dir} to IPFS...`)
 
-  const files: Array<{ path: string; content: Buffer }> = [];
+  const files: Array<{ path: string; content: Buffer }> = []
 
   function collectFiles(currentDir: string, basePath: string = '') {
-    const entries = readdirSync(currentDir);
+    const entries = readdirSync(currentDir)
     for (const entry of entries) {
-      const fullPath = join(currentDir, entry);
-      const relativePath = join(basePath, entry);
-      const stat = statSync(fullPath);
+      const fullPath = join(currentDir, entry)
+      const relativePath = join(basePath, entry)
+      const stat = statSync(fullPath)
 
       if (stat.isDirectory()) {
-        collectFiles(fullPath, relativePath);
+        collectFiles(fullPath, relativePath)
       } else {
         files.push({
           path: relativePath,
           content: readFileSync(fullPath),
-        });
+        })
       }
     }
   }
 
-  collectFiles(dir);
+  collectFiles(dir)
 
-  const formData = new FormData();
+  const formData = new FormData()
   for (const file of files) {
-    formData.append('file', new Blob([file.content]), file.path);
+    formData.append('file', new Blob([file.content]), file.path)
   }
 
-  const response = await fetch(`${ipfsApiUrl}/api/v0/add?wrap-with-directory=true&recursive=true`, {
-    method: 'POST',
-    body: formData,
-  });
+  const response = await fetch(
+    `${ipfsApiUrl}/api/v0/add?wrap-with-directory=true&recursive=true`,
+    {
+      method: 'POST',
+      body: formData,
+    },
+  )
 
   if (!response.ok) {
-    throw new Error(`IPFS upload failed: ${response.statusText}`);
+    throw new Error(`IPFS upload failed: ${response.statusText}`)
   }
 
-  const text = await response.text();
-  const lines = text.trim().split('\n');
-  const lastLine = JSON.parse(lines[lines.length - 1]);
+  const text = await response.text()
+  const lines = text.trim().split('\n')
+  const lastLine = JSON.parse(lines[lines.length - 1])
 
-  console.log(`✅ Uploaded to IPFS: ${lastLine.Hash}`);
-  return lastLine.Hash;
+  console.log(`✅ Uploaded to IPFS: ${lastLine.Hash}`)
+  return lastLine.Hash
 }
 
 // EIP-1577 contenthash: 0xe3 (IPFS) + 0x01 + 0x70 + multihash
 function encodeIPFSContenthash(cid: string): Hex {
-  const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  const BASE58_ALPHABET =
+    '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 
   function base58Decode(str: string): Uint8Array {
-    const bytes: number[] = [0];
+    const bytes: number[] = [0]
     for (const char of str) {
-      const value = BASE58_ALPHABET.indexOf(char);
+      const value = BASE58_ALPHABET.indexOf(char)
       if (value === -1) {
-        throw new Error(`Invalid base58 character: ${char}`);
+        throw new Error(`Invalid base58 character: ${char}`)
       }
 
-      let carry = value;
+      let carry = value
       for (let i = bytes.length - 1; i >= 0; i--) {
-        const n = bytes[i] * 58 + carry;
-        bytes[i] = n % 256;
-        carry = Math.floor(n / 256);
+        const n = bytes[i] * 58 + carry
+        bytes[i] = n % 256
+        carry = Math.floor(n / 256)
       }
 
       while (carry > 0) {
-        bytes.unshift(carry % 256);
-        carry = Math.floor(carry / 256);
+        bytes.unshift(carry % 256)
+        carry = Math.floor(carry / 256)
       }
     }
 
-    let leadingZeros = 0;
+    let leadingZeros = 0
     for (const char of str) {
-      if (char === '1') leadingZeros++;
-      else break;
+      if (char === '1') leadingZeros++
+      else break
     }
 
-    const result = new Uint8Array(leadingZeros + bytes.length);
-    result.set(new Uint8Array(bytes), leadingZeros);
-    return result;
+    const result = new Uint8Array(leadingZeros + bytes.length)
+    result.set(new Uint8Array(bytes), leadingZeros)
+    return result
   }
 
   if (!cid.startsWith('Qm') && !cid.startsWith('bafy')) {
-    throw new Error(`Unsupported CID format: ${cid}. Expected CIDv0 (Qm...) or CIDv1 (bafy...)`);
+    throw new Error(
+      `Unsupported CID format: ${cid}. Expected CIDv0 (Qm...) or CIDv1 (bafy...)`,
+    )
   }
 
   if (cid.startsWith('Qm')) {
-    const multihash = base58Decode(cid);
+    const multihash = base58Decode(cid)
 
-    if (multihash[0] !== 0x12 || multihash[1] !== 0x20 || multihash.length !== 34) {
-      throw new Error('Invalid CIDv0 multihash format');
+    if (
+      multihash[0] !== 0x12 ||
+      multihash[1] !== 0x20 ||
+      multihash.length !== 34
+    ) {
+      throw new Error('Invalid CIDv0 multihash format')
     }
 
-    const contenthash = new Uint8Array(3 + multihash.length);
-    contenthash[0] = 0xe3;
-    contenthash[1] = 0x01;
-    contenthash[2] = 0x70;
-    contenthash.set(multihash, 3);
+    const contenthash = new Uint8Array(3 + multihash.length)
+    contenthash[0] = 0xe3
+    contenthash[1] = 0x01
+    contenthash[2] = 0x70
+    contenthash.set(multihash, 3)
 
-    return `0x${Array.from(contenthash).map(b => b.toString(16).padStart(2, '0')).join('')}` as Hex;
+    return `0x${Array.from(contenthash)
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('')}` as Hex
   }
 
-  throw new Error('CIDv1 (bafy...) not supported. Use CIDv0 (Qm...)');
+  throw new Error('CIDv1 (bafy...) not supported. Use CIDv0 (Qm...)')
 }
 
 async function registerJNS(
@@ -278,32 +301,32 @@ async function registerJNS(
   publicClient: ReturnType<typeof createPublicClient>,
   walletClient: ReturnType<typeof createWalletClient>,
   jnsRegistrar: Address,
-  jnsResolver: Address
+  jnsResolver: Address,
 ): Promise<Hex> {
-  const label = name.replace('.jeju', '');
-  console.log(`📝 Registering JNS name: ${name}`);
+  const label = name.replace('.jeju', '')
+  console.log(`📝 Registering JNS name: ${name}`)
 
   const available = await publicClient.readContract({
     address: jnsRegistrar,
     abi: JNS_REGISTRAR_ABI,
     functionName: 'available',
     args: [label],
-  });
+  })
 
   if (!available) {
-    console.log(`   Name already registered`);
-    return namehash(name) as Hex;
+    console.log(`   Name already registered`)
+    return namehash(name) as Hex
   }
 
-  const duration = 365n * 24n * 60n * 60n;
+  const duration = 365n * 24n * 60n * 60n
   const price = await publicClient.readContract({
     address: jnsRegistrar,
     abi: JNS_REGISTRAR_ABI,
     functionName: 'rentPrice',
     args: [label, duration],
-  });
+  })
 
-  console.log(`   Price: ${Number(price) / 1e18} ETH`);
+  console.log(`   Price: ${Number(price) / 1e18} ETH`)
 
   const { request: registerRequest } = await publicClient.simulateContract({
     address: jnsRegistrar,
@@ -312,28 +335,28 @@ async function registerJNS(
     args: [label, owner, duration],
     value: price,
     account: walletClient.account,
-  });
+  })
 
-  const registerHash = await walletClient.writeContract(registerRequest);
-  await publicClient.waitForTransactionReceipt({ hash: registerHash });
+  const registerHash = await walletClient.writeContract(registerRequest)
+  await publicClient.waitForTransactionReceipt({ hash: registerHash })
 
-  const node = namehash(name) as Hex;
-  console.log(`✅ Registered: ${name}`);
+  const node = namehash(name) as Hex
+  console.log(`✅ Registered: ${name}`)
 
-  console.log(`📝 Setting contenthash...`);
+  console.log(`📝 Setting contenthash...`)
   const { request: contenthashRequest } = await publicClient.simulateContract({
     address: jnsResolver,
     abi: JNS_RESOLVER_ABI,
     functionName: 'setContenthash',
     args: [node, contenthash],
     account: walletClient.account,
-  });
+  })
 
-  const contenthashHash = await walletClient.writeContract(contenthashRequest);
-  await publicClient.waitForTransactionReceipt({ hash: contenthashHash });
-  console.log(`✅ Contenthash set`);
+  const contenthashHash = await walletClient.writeContract(contenthashRequest)
+  await publicClient.waitForTransactionReceipt({ hash: contenthashHash })
+  console.log(`✅ Contenthash set`)
 
-  return node;
+  return node
 }
 
 async function setupKeepalive(
@@ -343,9 +366,9 @@ async function setupKeepalive(
   publicClient: ReturnType<typeof createPublicClient>,
   walletClient: ReturnType<typeof createWalletClient>,
   keepaliveRegistry: Address,
-  owner: Address
+  owner: Address,
 ): Promise<Hex> {
-  console.log(`🔄 Setting up keepalive...`);
+  console.log(`🔄 Setting up keepalive...`)
 
   const { request: registerRequest } = await publicClient.simulateContract({
     address: keepaliveRegistry,
@@ -361,13 +384,15 @@ async function setupKeepalive(
       config.autoFund,
     ],
     account: walletClient.account,
-  });
+  })
 
-  const registerHash = await walletClient.writeContract(registerRequest);
-  const receipt = await publicClient.waitForTransactionReceipt({ hash: registerHash });
+  const registerHash = await walletClient.writeContract(registerRequest)
+  const receipt = await publicClient.waitForTransactionReceipt({
+    hash: registerHash,
+  })
 
-  const keepaliveId = receipt.logs[0]?.topics[1] ?? ('0x' as Hex);
-  console.log(`✅ Keepalive: ${keepaliveId.slice(0, 10)}...`);
+  const keepaliveId = receipt.logs[0]?.topics[1] ?? ('0x' as Hex)
+  console.log(`✅ Keepalive: ${keepaliveId.slice(0, 10)}...`)
 
   const { request: addResourceRequest } = await publicClient.simulateContract({
     address: keepaliveRegistry,
@@ -382,9 +407,9 @@ async function setupKeepalive(
       true, // Required
     ],
     account: walletClient.account,
-  });
+  })
 
-  await walletClient.writeContract(addResourceRequest);
+  await walletClient.writeContract(addResourceRequest)
 
   if (config.healthEndpoint) {
     const { request: healthRequest } = await publicClient.simulateContract({
@@ -400,13 +425,13 @@ async function setupKeepalive(
         true,
       ],
       account: walletClient.account,
-    });
+    })
 
-    await walletClient.writeContract(healthRequest);
-    console.log(`✅ Health endpoint added: ${config.healthEndpoint}`);
+    await walletClient.writeContract(healthRequest)
+    console.log(`✅ Health endpoint added: ${config.healthEndpoint}`)
   }
 
-  return keepaliveId;
+  return keepaliveId
 }
 
 async function main() {
@@ -414,50 +439,50 @@ async function main() {
 ╔══════════════════════════════════════════════════════════════╗
 ║              🍊 JEJU NETWORK APP DEPLOYMENT                  ║
 ╚══════════════════════════════════════════════════════════════╝
-`);
+`)
 
-  const config = await parseCliArgs();
+  const config = await parseCliArgs()
 
   // Validate environment
-  const privateKey = process.env.PRIVATE_KEY;
+  const privateKey = process.env.PRIVATE_KEY
   if (!privateKey) {
-    console.error('Error: PRIVATE_KEY environment variable not set');
-    process.exit(1);
+    console.error('Error: PRIVATE_KEY environment variable not set')
+    process.exit(1)
   }
 
-  const rpcUrl = process.env.RPC_URL ?? 'http://localhost:9545';
-  const ipfsApiUrl = process.env.IPFS_API_URL ?? 'http://localhost:5001';
-  const jnsRegistrar = (process.env.JNS_REGISTRAR ?? '0x0') as Address;
-  const jnsResolver = (process.env.JNS_RESOLVER ?? '0x0') as Address;
-  const keepaliveRegistry = (process.env.KEEPALIVE_REGISTRY ?? '0x0') as Address;
+  const rpcUrl = process.env.RPC_URL ?? 'http://localhost:9545'
+  const ipfsApiUrl = process.env.IPFS_API_URL ?? 'http://localhost:5001'
+  const jnsRegistrar = (process.env.JNS_REGISTRAR ?? '0x0') as Address
+  const jnsResolver = (process.env.JNS_RESOLVER ?? '0x0') as Address
+  const keepaliveRegistry = (process.env.KEEPALIVE_REGISTRY ?? '0x0') as Address
 
   // Setup clients
-  const account = privateKeyToAccount(privateKey as Hex);
-  const chain = rpcUrl.includes('sepolia') ? baseSepolia : base;
+  const account = privateKeyToAccount(privateKey as Hex)
+  const chain = rpcUrl.includes('sepolia') ? baseSepolia : base
 
   const publicClient = createPublicClient({
     chain,
     transport: http(rpcUrl),
-  });
+  })
 
   const walletClient = createWalletClient({
     account,
     chain,
     transport: http(rpcUrl),
-  });
+  })
 
-  console.log(`📋 Configuration:`);
-  console.log(`   App Name: ${config.name}`);
-  console.log(`   JNS Name: ${config.jnsName}`);
-  console.log(`   Source Dir: ${config.dir}`);
-  console.log(`   Min Balance: ${Number(config.minBalance) / 1e18} ETH`);
-  console.log(`   Check Interval: ${config.checkInterval}s`);
-  console.log(`   Auto-Fund: ${config.autoFund ? 'enabled' : 'disabled'}`);
-  console.log(`   Deployer: ${account.address}`);
-  console.log('');
+  console.log(`📋 Configuration:`)
+  console.log(`   App Name: ${config.name}`)
+  console.log(`   JNS Name: ${config.jnsName}`)
+  console.log(`   Source Dir: ${config.dir}`)
+  console.log(`   Min Balance: ${Number(config.minBalance) / 1e18} ETH`)
+  console.log(`   Check Interval: ${config.checkInterval}s`)
+  console.log(`   Auto-Fund: ${config.autoFund ? 'enabled' : 'disabled'}`)
+  console.log(`   Deployer: ${account.address}`)
+  console.log('')
 
-  const ipfsCid = await uploadToIPFS(config.dir, ipfsApiUrl);
-  const contenthash = encodeIPFSContenthash(ipfsCid);
+  const ipfsCid = await uploadToIPFS(config.dir, ipfsApiUrl)
+  const contenthash = encodeIPFSContenthash(ipfsCid)
 
   const jnsNode = await registerJNS(
     config.jnsName,
@@ -466,8 +491,8 @@ async function main() {
     publicClient,
     walletClient,
     jnsRegistrar,
-    jnsResolver
-  );
+    jnsResolver,
+  )
 
   const keepaliveId = await setupKeepalive(
     config,
@@ -476,10 +501,10 @@ async function main() {
     publicClient,
     walletClient,
     keepaliveRegistry,
-    account.address
-  );
+    account.address,
+  )
 
-  const gatewayUrl = `https://${config.jnsName.replace('.jeju', '')}.jejunetwork.org`;
+  const gatewayUrl = `https://${config.jnsName.replace('.jeju', '')}.jejunetwork.org`
 
   console.log(`
 ╔══════════════════════════════════════════════════════════════╗
@@ -496,10 +521,10 @@ automatically stay online and recover from any issues.
 
 To fund the keepalive:
   Send ETH to your vault address: ${account.address}
-`);
+`)
 }
 
 main().catch((error) => {
-  console.error('Deployment failed:', error);
-  process.exit(1);
-});
+  console.error('Deployment failed:', error)
+  process.exit(1)
+})

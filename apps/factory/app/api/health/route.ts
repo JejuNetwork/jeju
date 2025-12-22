@@ -1,33 +1,36 @@
-import { NextResponse } from 'next/server';
-import { expect } from '@/lib/validation';
+import { NextResponse } from 'next/server'
+import { expect } from '@/lib/validation'
 
-const DWS_API_URL = process.env.NEXT_PUBLIC_DWS_URL || 'http://localhost:3456';
-const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || 'http://localhost:9545';
+const DWS_API_URL = process.env.NEXT_PUBLIC_DWS_URL || 'http://localhost:3456'
+const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || 'http://localhost:9545'
 
 export async function GET() {
   const services: Record<string, boolean> = {
     factory: true,
     dws: false,
     rpc: false,
-  };
+  }
 
   // Check DWS health
   try {
-    expect(DWS_API_URL, 'DWS_API_URL must be configured');
+    expect(DWS_API_URL, 'DWS_API_URL must be configured')
     const response = await fetch(`${DWS_API_URL}/health`, {
       signal: AbortSignal.timeout(5000),
-    });
-    services.dws = response.ok;
+    })
+    services.dws = response.ok
   } catch (error) {
-    if (error instanceof Error && error.message.includes('must be configured')) {
-      throw error;
+    if (
+      error instanceof Error &&
+      error.message.includes('must be configured')
+    ) {
+      throw error
     }
-    services.dws = false;
+    services.dws = false
   }
 
   // Check RPC connectivity
   try {
-    expect(RPC_URL, 'RPC_URL must be configured');
+    expect(RPC_URL, 'RPC_URL must be configured')
     const response = await fetch(RPC_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -38,24 +41,29 @@ export async function GET() {
         id: 1,
       }),
       signal: AbortSignal.timeout(5000),
-    });
-    services.rpc = response.ok;
+    })
+    services.rpc = response.ok
   } catch (error) {
-    if (error instanceof Error && error.message.includes('must be configured')) {
-      throw error;
+    if (
+      error instanceof Error &&
+      error.message.includes('must be configured')
+    ) {
+      throw error
     }
-    services.rpc = false;
+    services.rpc = false
   }
 
-  const allHealthy = Object.values(services).every(Boolean);
+  const allHealthy = Object.values(services).every(Boolean)
 
-  return NextResponse.json({
-    status: allHealthy ? 'healthy' : 'degraded',
-    services,
-    timestamp: Date.now(),
-    version: '1.0.0',
-  }, {
-    status: allHealthy ? 200 : 503,
-  });
+  return NextResponse.json(
+    {
+      status: allHealthy ? 'healthy' : 'degraded',
+      services,
+      timestamp: Date.now(),
+      version: '1.0.0',
+    },
+    {
+      status: allHealthy ? 200 : 503,
+    },
+  )
 }
-

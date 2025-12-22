@@ -1,8 +1,8 @@
-'use client';
+'use client'
 
 /**
  * AuthButton - Universal Authentication for Autocrat
- * 
+ *
  * Supports:
  * - Wallet (MetaMask, WalletConnect) with SIWE
  * - Farcaster (SIWF)
@@ -10,58 +10,60 @@
  * - Social OAuth (Google, GitHub, Twitter, Discord)
  */
 
-import { useState, useEffect } from 'react';
-import { useAccount, useConnect, useDisconnect, useSignMessage } from 'wagmi';
-import { injected, walletConnect } from 'wagmi/connectors';
-import { X, Wallet, Fingerprint, Chrome, Github, Loader2 } from 'lucide-react';
+import { Chrome, Fingerprint, Github, Loader2, Wallet, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useAccount, useConnect, useDisconnect, useSignMessage } from 'wagmi'
+import { injected, walletConnect } from 'wagmi/connectors'
 
 interface AuthSession {
-  address: string;
-  method: 'siwe' | 'siwf' | 'passkey' | 'social';
-  expiresAt: number;
+  address: string
+  method: 'siwe' | 'siwf' | 'passkey' | 'social'
+  expiresAt: number
 }
 
 interface AuthButtonProps {
-  onSuccess?: (session: AuthSession) => void;
-  className?: string;
+  onSuccess?: (session: AuthSession) => void
+  className?: string
 }
 
-const CHAIN_ID = parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || '420691', 10);
-const WALLETCONNECT_PROJECT_ID = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '';
+const CHAIN_ID = parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || '420691', 10)
+const WALLETCONNECT_PROJECT_ID =
+  process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || ''
 
 export function AuthButton({ onSuccess, className = '' }: AuthButtonProps) {
-  const [showModal, setShowModal] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [hasPasskeys, setHasPasskeys] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [hasPasskeys, setHasPasskeys] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const { address, isConnected } = useAccount();
-  const { connectAsync } = useConnect();
-  const { disconnectAsync } = useDisconnect();
-  const { signMessageAsync } = useSignMessage();
+  const { address, isConnected } = useAccount()
+  const { connectAsync } = useConnect()
+  const { disconnectAsync } = useDisconnect()
+  const { signMessageAsync } = useSignMessage()
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.PublicKeyCredential) {
       PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
         .then(setHasPasskeys)
-        .catch(() => setHasPasskeys(false));
+        .catch(() => setHasPasskeys(false))
     }
-  }, []);
+  }, [])
 
   const handleWalletConnect = async (type: 'injected' | 'walletConnect') => {
-    setIsLoading(true);
-    setError(null);
+    setIsLoading(true)
+    setError(null)
 
     try {
-      const connector = type === 'injected' 
-        ? injected()
-        : walletConnect({ projectId: WALLETCONNECT_PROJECT_ID });
+      const connector =
+        type === 'injected'
+          ? injected()
+          : walletConnect({ projectId: WALLETCONNECT_PROJECT_ID })
 
-      const result = await connectAsync({ connector });
-      const walletAddress = result.accounts[0];
+      const result = await connectAsync({ connector })
+      const walletAddress = result.accounts[0]
 
       // SIWE message
-      const now = new Date();
+      const now = new Date()
       const message = [
         `${window.location.host} wants you to sign in with your Ethereum account:`,
         walletAddress,
@@ -73,33 +75,34 @@ export function AuthButton({ onSuccess, className = '' }: AuthButtonProps) {
         `Chain ID: ${CHAIN_ID}`,
         `Nonce: ${Math.random().toString(36).slice(2)}`,
         `Issued At: ${now.toISOString()}`,
-      ].join('\n');
+      ].join('\n')
 
-      await signMessageAsync({ message });
+      await signMessageAsync({ message })
 
       const session: AuthSession = {
         address: walletAddress,
         method: 'siwe',
         expiresAt: Date.now() + 24 * 60 * 60 * 1000,
-      };
+      }
 
-      localStorage.setItem('autocrat_session', JSON.stringify(session));
-      onSuccess?.(session);
-      setShowModal(false);
+      localStorage.setItem('autocrat_session', JSON.stringify(session))
+      onSuccess?.(session)
+      setShowModal(false)
     } catch (err) {
-      setError((err as Error).message);
+      setError((err as Error).message)
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   const handleFarcaster = async () => {
-    setIsLoading(true);
-    setError(null);
+    setIsLoading(true)
+    setError(null)
 
     try {
-      const oauth3Url = process.env.NEXT_PUBLIC_OAUTH3_AGENT_URL || 'http://localhost:4200';
-      const redirectUri = `${window.location.origin}/auth/callback`;
+      const oauth3Url =
+        process.env.NEXT_PUBLIC_OAUTH3_AGENT_URL || 'http://localhost:4200'
+      const redirectUri = `${window.location.origin}/auth/callback`
 
       const response = await fetch(`${oauth3Url}/auth/init`, {
         method: 'POST',
@@ -109,26 +112,27 @@ export function AuthButton({ onSuccess, className = '' }: AuthButtonProps) {
           appId: 'autocrat.apps.jeju',
           redirectUri,
         }),
-      });
+      })
 
-      if (!response.ok) throw new Error('Failed to initialize Farcaster auth');
+      if (!response.ok) throw new Error('Failed to initialize Farcaster auth')
 
-      const { authUrl, state } = await response.json();
-      sessionStorage.setItem('oauth3_state', state);
-      window.location.href = authUrl;
+      const { authUrl, state } = await response.json()
+      sessionStorage.setItem('oauth3_state', state)
+      window.location.href = authUrl
     } catch (err) {
-      setError((err as Error).message);
-      setIsLoading(false);
+      setError((err as Error).message)
+      setIsLoading(false)
     }
-  };
+  }
 
   const handleSocial = async (provider: 'google' | 'github') => {
-    setIsLoading(true);
-    setError(null);
+    setIsLoading(true)
+    setError(null)
 
     try {
-      const oauth3Url = process.env.NEXT_PUBLIC_OAUTH3_AGENT_URL || 'http://localhost:4200';
-      const redirectUri = `${window.location.origin}/auth/callback`;
+      const oauth3Url =
+        process.env.NEXT_PUBLIC_OAUTH3_AGENT_URL || 'http://localhost:4200'
+      const redirectUri = `${window.location.origin}/auth/callback`
 
       const response = await fetch(`${oauth3Url}/auth/init`, {
         method: 'POST',
@@ -138,22 +142,22 @@ export function AuthButton({ onSuccess, className = '' }: AuthButtonProps) {
           appId: 'autocrat.apps.jeju',
           redirectUri,
         }),
-      });
+      })
 
-      if (!response.ok) throw new Error(`Failed to initialize ${provider} auth`);
+      if (!response.ok) throw new Error(`Failed to initialize ${provider} auth`)
 
-      const { authUrl, state } = await response.json();
-      sessionStorage.setItem('oauth3_state', state);
-      window.location.href = authUrl;
+      const { authUrl, state } = await response.json()
+      sessionStorage.setItem('oauth3_state', state)
+      window.location.href = authUrl
     } catch (err) {
-      setError((err as Error).message);
-      setIsLoading(false);
+      setError((err as Error).message)
+      setIsLoading(false)
     }
-  };
+  }
 
   const handlePasskey = async () => {
-    setIsLoading(true);
-    setError(null);
+    setIsLoading(true)
+    setError(null)
 
     try {
       const credential = await navigator.credentials.get({
@@ -163,25 +167,25 @@ export function AuthButton({ onSuccess, className = '' }: AuthButtonProps) {
           userVerification: 'preferred',
           timeout: 60000,
         },
-      });
+      })
 
-      if (!credential) throw new Error('Passkey authentication cancelled');
+      if (!credential) throw new Error('Passkey authentication cancelled')
 
       const session: AuthSession = {
         address: `passkey:${credential.id.slice(0, 20)}`,
         method: 'passkey',
         expiresAt: Date.now() + 24 * 60 * 60 * 1000,
-      };
+      }
 
-      localStorage.setItem('autocrat_session', JSON.stringify(session));
-      onSuccess?.(session);
-      setShowModal(false);
+      localStorage.setItem('autocrat_session', JSON.stringify(session))
+      onSuccess?.(session)
+      setShowModal(false)
     } catch (err) {
-      setError((err as Error).message);
+      setError((err as Error).message)
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   // Already connected
   if (isConnected && address) {
@@ -193,7 +197,7 @@ export function AuthButton({ onSuccess, className = '' }: AuthButtonProps) {
         <span className="hidden sm:inline">{address.slice(0, 6)}...</span>
         <span className="sm:hidden">{address.slice(0, 4)}...</span>
       </button>
-    );
+    )
   }
 
   return (
@@ -208,19 +212,31 @@ export function AuthButton({ onSuccess, className = '' }: AuthButtonProps) {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowModal(false)} />
-          
-          <div 
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowModal(false)}
+          />
+
+          <div
             className="relative w-full max-w-sm rounded-xl border shadow-2xl"
-            style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border)' }}
+            style={{
+              backgroundColor: 'var(--bg-primary)',
+              borderColor: 'var(--border)',
+            }}
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: 'var(--border)' }}>
+            <div
+              className="flex items-center justify-between p-4 border-b"
+              style={{ borderColor: 'var(--border)' }}
+            >
               <div className="flex items-center gap-2">
                 <span className="text-xl">🏛️</span>
                 <span className="font-semibold">Sign In</span>
               </div>
-              <button onClick={() => setShowModal(false)} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800">
+              <button
+                onClick={() => setShowModal(false)}
+                className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
                 <X size={18} />
               </button>
             </div>
@@ -304,7 +320,7 @@ export function AuthButton({ onSuccess, className = '' }: AuthButtonProps) {
         </div>
       )}
     </>
-  );
+  )
 }
 
-export default AuthButton;
+export default AuthButton

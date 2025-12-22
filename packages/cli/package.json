@@ -46,7 +46,9 @@
     "prepublishOnly": "bun run build"
   },
   "dependencies": {
+    "@jejunetwork/config": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
+    "@jejunetwork/types": "workspace:*",
     "chalk": "5.4.1",
     "commander": "12.1.0",
     "execa": "9.5.3",

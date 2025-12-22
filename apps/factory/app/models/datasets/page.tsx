@@ -1,41 +1,41 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
+import { clsx } from 'clsx'
+import { formatDistanceToNow } from 'date-fns'
 import {
-  Database,
-  Search,
-  Filter,
-  Download,
-  Star,
-  Clock,
-  FileText,
-  Upload,
-  Eye,
-  Users,
-  HardDrive,
   BarChart3,
+  Clock,
+  Database,
+  Download,
+  Eye,
+  FileText,
+  Filter,
+  HardDrive,
+  Search,
   Shield,
-} from 'lucide-react';
-import Link from 'next/link';
-import { clsx } from 'clsx';
-import { formatDistanceToNow } from 'date-fns';
+  Star,
+  Upload,
+  Users,
+} from 'lucide-react'
+import Link from 'next/link'
+import { useState } from 'react'
 
 interface Dataset {
-  id: string;
-  name: string;
-  organization: string;
-  description: string;
-  type: 'text' | 'code' | 'image' | 'audio' | 'multimodal' | 'tabular';
-  format: string;
-  size: string;
-  rows: number;
-  downloads: number;
-  stars: number;
-  lastUpdated: number;
-  license: string;
-  tags: string[];
-  isVerified: boolean;
-  preview: { columns: string[]; sample: string[][] };
+  id: string
+  name: string
+  organization: string
+  description: string
+  type: 'text' | 'code' | 'image' | 'audio' | 'multimodal' | 'tabular'
+  format: string
+  size: string
+  rows: number
+  downloads: number
+  stars: number
+  lastUpdated: number
+  license: string
+  tags: string[]
+  isVerified: boolean
+  preview: { columns: string[]; sample: string[][] }
 }
 
 const mockDatasets: Dataset[] = [
@@ -43,7 +43,8 @@ const mockDatasets: Dataset[] = [
     id: '1',
     name: 'jeju-contracts-v2',
     organization: 'jeju',
-    description: 'Curated dataset of audited Solidity smart contracts with security annotations.',
+    description:
+      'Curated dataset of audited Solidity smart contracts with security annotations.',
     type: 'code',
     format: 'parquet',
     size: '2.3 GB',
@@ -55,7 +56,12 @@ const mockDatasets: Dataset[] = [
     tags: ['solidity', 'smart-contracts', 'security', 'audited'],
     isVerified: true,
     preview: {
-      columns: ['contract_name', 'source_code', 'vulnerabilities', 'audit_score'],
+      columns: [
+        'contract_name',
+        'source_code',
+        'vulnerabilities',
+        'audit_score',
+      ],
       sample: [
         ['ERC20Token', 'pragma solidity ^0.8...', '[]', '95'],
         ['Vault', 'contract Vault is...', '[reentrancy]', '78'],
@@ -66,7 +72,8 @@ const mockDatasets: Dataset[] = [
     id: '2',
     name: 'defi-protocols',
     organization: 'defi-research',
-    description: 'Comprehensive dataset of DeFi protocol implementations and documentation.',
+    description:
+      'Comprehensive dataset of DeFi protocol implementations and documentation.',
     type: 'text',
     format: 'jsonl',
     size: '850 MB',
@@ -89,7 +96,8 @@ const mockDatasets: Dataset[] = [
     id: '3',
     name: 'web3-qa-pairs',
     organization: 'community',
-    description: 'Question-answer pairs from Web3 developer forums and documentation.',
+    description:
+      'Question-answer pairs from Web3 developer forums and documentation.',
     type: 'text',
     format: 'csv',
     size: '420 MB',
@@ -103,7 +111,12 @@ const mockDatasets: Dataset[] = [
     preview: {
       columns: ['question', 'answer', 'source', 'votes'],
       sample: [
-        ['How do I deploy to Base?', 'You can deploy using...', 'Discord', '45'],
+        [
+          'How do I deploy to Base?',
+          'You can deploy using...',
+          'Discord',
+          '45',
+        ],
         ['What is EIP-4844?', 'EIP-4844 introduces...', 'Forum', '128'],
       ],
     },
@@ -131,7 +144,7 @@ const mockDatasets: Dataset[] = [
       ],
     },
   },
-];
+]
 
 const typeIcons: Record<string, React.ReactNode> = {
   text: <FileText className="w-4 h-4" />,
@@ -140,10 +153,10 @@ const typeIcons: Record<string, React.ReactNode> = {
   audio: <BarChart3 className="w-4 h-4" />,
   multimodal: <Database className="w-4 h-4" />,
   tabular: <BarChart3 className="w-4 h-4" />,
-};
+}
 
 // Remove unused typeIcons
-void typeIcons;
+void typeIcons
 
 const typeColors: Record<string, string> = {
   text: 'bg-blue-500/20 text-blue-400',
@@ -152,25 +165,29 @@ const typeColors: Record<string, string> = {
   audio: 'bg-yellow-500/20 text-yellow-400',
   multimodal: 'bg-pink-500/20 text-pink-400',
   tabular: 'bg-cyan-500/20 text-cyan-400',
-};
+}
 
 export default function DatasetsPage() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedType, setSelectedType] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<'downloads' | 'stars' | 'updated'>('downloads');
-  const [previewDataset, setPreviewDataset] = useState<Dataset | null>(null);
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedType, setSelectedType] = useState<string | null>(null)
+  const [sortBy, setSortBy] = useState<'downloads' | 'stars' | 'updated'>(
+    'downloads',
+  )
+  const [previewDataset, setPreviewDataset] = useState<Dataset | null>(null)
 
   const filteredDatasets = mockDatasets
-    .filter(d => !searchQuery || 
-      d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      d.description.toLowerCase().includes(searchQuery.toLowerCase())
+    .filter(
+      (d) =>
+        !searchQuery ||
+        d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        d.description.toLowerCase().includes(searchQuery.toLowerCase()),
     )
-    .filter(d => !selectedType || d.type === selectedType)
+    .filter((d) => !selectedType || d.type === selectedType)
     .sort((a, b) => {
-      if (sortBy === 'downloads') return b.downloads - a.downloads;
-      if (sortBy === 'stars') return b.stars - a.stars;
-      return b.lastUpdated - a.lastUpdated;
-    });
+      if (sortBy === 'downloads') return b.downloads - a.downloads
+      if (sortBy === 'stars') return b.stars - a.stars
+      return b.lastUpdated - a.lastUpdated
+    })
 
   return (
     <div className="min-h-screen p-8">
@@ -204,7 +221,9 @@ export default function DatasetsPage() {
               <div className="flex items-center gap-3">
                 <stat.icon className="w-8 h-8 text-factory-500" />
                 <div>
-                  <p className="text-2xl font-bold text-factory-100">{stat.value}</p>
+                  <p className="text-2xl font-bold text-factory-100">
+                    {stat.value}
+                  </p>
                   <p className="text-factory-500 text-sm">{stat.label}</p>
                 </div>
               </div>
@@ -258,7 +277,10 @@ export default function DatasetsPage() {
         {/* Dataset List */}
         <div className="space-y-4">
           {filteredDatasets.map((dataset) => (
-            <div key={dataset.id} className="card p-6 hover:border-factory-600 transition-colors">
+            <div
+              key={dataset.id}
+              className="card p-6 hover:border-factory-600 transition-colors"
+            >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
@@ -273,7 +295,12 @@ export default function DatasetsPage() {
                         <Shield className="w-4 h-4 text-green-400" />
                       </div>
                     )}
-                    <span className={clsx('badge text-xs', typeColors[dataset.type])}>
+                    <span
+                      className={clsx(
+                        'badge text-xs',
+                        typeColors[dataset.type],
+                      )}
+                    >
                       {dataset.type}
                     </span>
                   </div>
@@ -299,29 +326,44 @@ export default function DatasetsPage() {
                     </span>
                     <span className="flex items-center gap-1">
                       <Clock className="w-4 h-4" />
-                      {formatDistanceToNow(dataset.lastUpdated, { addSuffix: true })}
+                      {formatDistanceToNow(dataset.lastUpdated, {
+                        addSuffix: true,
+                      })}
                     </span>
                   </div>
 
                   <div className="flex items-center gap-2">
                     {dataset.tags.slice(0, 4).map((tag) => (
-                      <span key={tag} className="badge bg-factory-800 text-factory-400 text-xs">
+                      <span
+                        key={tag}
+                        className="badge bg-factory-800 text-factory-400 text-xs"
+                      >
                         {tag}
                       </span>
                     ))}
                     {dataset.tags.length > 4 && (
-                      <span className="text-factory-500 text-xs">+{dataset.tags.length - 4} more</span>
+                      <span className="text-factory-500 text-xs">
+                        +{dataset.tags.length - 4} more
+                      </span>
                     )}
                     <span className="text-factory-600">·</span>
-                    <span className="text-factory-500 text-xs">{dataset.license}</span>
+                    <span className="text-factory-500 text-xs">
+                      {dataset.license}
+                    </span>
                     <span className="text-factory-600">·</span>
-                    <span className="text-factory-500 text-xs font-mono">{dataset.format}</span>
+                    <span className="text-factory-500 text-xs font-mono">
+                      {dataset.format}
+                    </span>
                   </div>
                 </div>
 
                 <div className="flex flex-col gap-2">
                   <button
-                    onClick={() => setPreviewDataset(previewDataset?.id === dataset.id ? null : dataset)}
+                    onClick={() =>
+                      setPreviewDataset(
+                        previewDataset?.id === dataset.id ? null : dataset,
+                      )
+                    }
                     className="btn btn-secondary text-sm"
                   >
                     <Eye className="w-4 h-4" />
@@ -340,13 +382,18 @@ export default function DatasetsPage() {
               {/* Preview Panel */}
               {previewDataset?.id === dataset.id && (
                 <div className="mt-4 pt-4 border-t border-factory-800">
-                  <h4 className="text-sm font-medium text-factory-300 mb-2">Data Preview</h4>
+                  <h4 className="text-sm font-medium text-factory-300 mb-2">
+                    Data Preview
+                  </h4>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="bg-factory-800">
                           {dataset.preview.columns.map((col) => (
-                            <th key={col} className="px-3 py-2 text-left text-factory-400 font-medium">
+                            <th
+                              key={col}
+                              className="px-3 py-2 text-left text-factory-400 font-medium"
+                            >
                               {col}
                             </th>
                           ))}
@@ -356,7 +403,10 @@ export default function DatasetsPage() {
                         {dataset.preview.sample.map((row, i) => (
                           <tr key={i} className="border-t border-factory-800">
                             {row.map((cell, j) => (
-                              <td key={j} className="px-3 py-2 text-factory-300 font-mono truncate max-w-[200px]">
+                              <td
+                                key={j}
+                                className="px-3 py-2 text-factory-300 font-mono truncate max-w-[200px]"
+                              >
                                 {cell}
                               </td>
                             ))}
@@ -379,7 +429,5 @@ export default function DatasetsPage() {
         </div>
       </div>
     </div>
-  );
+  )
 }
-
-

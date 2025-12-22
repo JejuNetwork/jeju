@@ -1,23 +1,36 @@
 /**
  * CovenantSQL Client with circuit breaker pattern
- * 
+ *
  * Automatically uses network-aware configuration from @jejunetwork/config.
  * No env vars required - just set JEJU_NETWORK=localnet|testnet|mainnet.
  */
 
-import { toHex } from 'viem';
-import type { Address, Hex } from 'viem';
-import { z } from 'zod';
-import { getCQLUrl, getCQLMinerUrl } from '@jejunetwork/config';
-import { parseTimeout } from './utils.js';
-import CircuitBreakerLib from 'opossum';
-import { createPool, type Pool } from 'generic-pool';
-import pino from 'pino';
+import { getCQLMinerUrl, getCQLUrl } from '@jejunetwork/config'
+import { createPool, type Pool } from 'generic-pool'
+import CircuitBreakerLib from 'opossum'
+import pino from 'pino'
+import type { Address, Hex } from 'viem'
+import { toHex } from 'viem'
+import { z } from 'zod'
 import type {
-  CQLConfig, CQLConnection, CQLConnectionPool, CQLTransaction,
-  DatabaseConfig, DatabaseInfo, ExecResult, QueryParam, QueryResult,
-  RentalInfo, RentalPlan, CreateRentalRequest, ACLRule, GrantRequest, RevokeRequest, BlockProducerInfo,
-} from './types.js';
+  ACLRule,
+  BlockProducerInfo,
+  CQLConfig,
+  CQLConnection,
+  CQLConnectionPool,
+  CQLTransaction,
+  CreateRentalRequest,
+  DatabaseConfig,
+  DatabaseInfo,
+  ExecResult,
+  GrantRequest,
+  QueryParam,
+  QueryResult,
+  RentalInfo,
+  RentalPlan,
+  RevokeRequest,
+} from './types.js'
+import { parseTimeout } from './utils.js'
 
 // Zod schemas for API response validation
 const QueryResponseSchema = z.object({
@@ -25,7 +38,7 @@ const QueryResponseSchema = z.object({
   rowCount: z.number(),
   columns: z.array(z.string()),
   blockHeight: z.number(),
-});
+})
 
 const ExecResponseSchema = z.object({
   rowsAffected: z.number(),
@@ -33,10 +46,10 @@ const ExecResponseSchema = z.object({
   txHash: z.string(),
   blockHeight: z.number(),
   gasUsed: z.string(),
-});
+})
 
 // Zod schema for CQL config validation
-const HexSchema = z.string().regex(/^0x[a-fA-F0-9]+$/, 'Invalid hex string');
+const HexSchema = z.string().regex(/^0x[a-fA-F0-9]+$/, 'Invalid hex string')
 const CQLConfigSchema = z.object({
   blockProducerEndpoint: z.string().url(),
   minerEndpoint: z.string().url().optional(),
@@ -44,14 +57,17 @@ const CQLConfigSchema = z.object({
   databaseId: z.string().min(1).optional(),
   timeout: z.number().int().positive().optional(),
   debug: z.boolean().optional(),
-});
+})
 
 // Structured logger using pino
 const log = pino({
   name: 'cql',
   level: process.env.LOG_LEVEL ?? 'info',
-  transport: process.env.NODE_ENV !== 'production' ? { target: 'pino-pretty', options: { colorize: true } } : undefined,
-});
+  transport:
+    process.env.NODE_ENV !== 'production'
+      ? { target: 'pino-pretty', options: { colorize: true } }
+      : undefined,
+})
 
 // Circuit breaker using opossum
 const circuitBreakerOptions = {
@@ -59,228 +75,283 @@ const circuitBreakerOptions = {
   errorThresholdPercentage: 50,
   resetTimeout: 30000,
   volumeThreshold: 5,
-};
+}
 
 // Typed circuit breaker that wraps async functions
-type CircuitBreakerAction<T> = () => Promise<T>;
-const circuitBreaker = new CircuitBreakerLib<[CircuitBreakerAction<Response>], Response>(
-  async (fn: CircuitBreakerAction<Response>) => fn(),
-  circuitBreakerOptions
-);
+type CircuitBreakerAction<T> = () => Promise<T>
+const circuitBreaker = new CircuitBreakerLib<
+  [CircuitBreakerAction<Response>],
+  Response
+>(async (fn: CircuitBreakerAction<Response>) => fn(), circuitBreakerOptions)
 
-circuitBreaker.on('open', () => log.warn('Circuit breaker opened'));
-circuitBreaker.on('halfOpen', () => log.info('Circuit breaker half-open, attempting recovery'));
-circuitBreaker.on('close', () => log.info('Circuit breaker closed, service recovered'));
+circuitBreaker.on('open', () => log.warn('Circuit breaker opened'))
+circuitBreaker.on('halfOpen', () =>
+  log.info('Circuit breaker half-open, attempting recovery'),
+)
+circuitBreaker.on('close', () =>
+  log.info('Circuit breaker closed, service recovered'),
+)
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await circuitBreaker.fire(async () => {
-    const res = await fetch(url, options);
-    if (!res.ok) throw new Error(`Request failed: ${res.status}`);
-    return res;
-  });
-  return response.json() as Promise<T>;
+    const res = await fetch(url, options)
+    if (!res.ok) throw new Error(`Request failed: ${res.status}`)
+    return res
+  })
+  return response.json() as Promise<T>
 }
 
 async function requestVoid(url: string, options?: RequestInit): Promise<void> {
   await circuitBreaker.fire(async () => {
-    const response = await fetch(url, options);
-    if (!response.ok) throw new Error(`Request failed: ${response.status}`);
-    return response;
-  });
+    const response = await fetch(url, options)
+    if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+    return response
+  })
 }
 
 class CQLConnectionImpl implements CQLConnection {
-  id: string;
-  databaseId: string;
-  active = true;
-  private endpoint: string;
-  private timeout: number;
-  private debug: boolean;
+  id: string
+  databaseId: string
+  active = true
+  private endpoint: string
+  private timeout: number
+  private debug: boolean
 
   constructor(id: string, databaseId: string, config: CQLConfig) {
-    this.id = id;
-    this.databaseId = databaseId;
-    this.endpoint = config.minerEndpoint ?? config.blockProducerEndpoint;
-    this.timeout = config.timeout ?? 30000;
-    this.debug = config.debug ?? false;
+    this.id = id
+    this.databaseId = databaseId
+    this.endpoint = config.minerEndpoint ?? config.blockProducerEndpoint
+    this.timeout = config.timeout ?? 30000
+    this.debug = config.debug ?? false
   }
 
   async query<T>(sql: string, params?: QueryParam[]): Promise<QueryResult<T>> {
-    return this.execute('query', sql, params) as Promise<QueryResult<T>>;
+    return this.execute('query', sql, params) as Promise<QueryResult<T>>
   }
 
   async exec(sql: string, params?: QueryParam[]): Promise<ExecResult> {
-    return this.execute('exec', sql, params) as Promise<ExecResult>;
+    return this.execute('exec', sql, params) as Promise<ExecResult>
   }
 
   async beginTransaction(): Promise<CQLTransaction> {
-    const txId = `tx-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    await this.exec('BEGIN TRANSACTION');
-    return new CQLTransactionImpl(txId, this);
+    const txId = `tx-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    await this.exec('BEGIN TRANSACTION')
+    return new CQLTransactionImpl(txId, this)
   }
 
   async close(): Promise<void> {
-    this.active = false;
+    this.active = false
   }
 
-  private async execute(type: 'query' | 'exec', sql: string, params?: QueryParam[]): Promise<QueryResult<unknown> | ExecResult> {
-    const startTime = Date.now();
+  private async execute(
+    type: 'query' | 'exec',
+    sql: string,
+    params?: QueryParam[],
+  ): Promise<QueryResult<unknown> | ExecResult> {
+    const startTime = Date.now()
     const payload = {
       database: this.databaseId,
       type,
       sql,
-      params: params?.map(p => p === null || p === undefined ? null : typeof p === 'bigint' ? p.toString() : p instanceof Uint8Array ? toHex(p) : p),
+      params: params?.map((p) =>
+        p === null || p === undefined
+          ? null
+          : typeof p === 'bigint'
+            ? p.toString()
+            : p instanceof Uint8Array
+              ? toHex(p)
+              : p,
+      ),
       timestamp: Date.now(),
-    };
+    }
 
     const response = await fetch(`${this.endpoint}/api/v1/query`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(this.timeout),
-    });
+    })
 
     if (!response.ok) {
       // Log full error for debugging, but don't expose to callers to prevent info leak
-      const errorText = await response.text();
-      if (this.debug) console.error(`[CQL] ${type} error: ${response.status} - ${errorText}`);
-      throw new Error(`CQL ${type} failed: ${response.status}`);
+      const errorText = await response.text()
+      if (this.debug)
+        console.error(`[CQL] ${type} error: ${response.status} - ${errorText}`)
+      throw new Error(`CQL ${type} failed: ${response.status}`)
     }
 
-    const rawResult = await response.json();
-    const executionTime = Date.now() - startTime;
+    const rawResult = await response.json()
+    const executionTime = Date.now() - startTime
     // Log query type and timing without exposing potentially sensitive SQL content
-    if (this.debug) console.log(`[CQL] ${type}: query executed (${executionTime}ms, params: ${params?.length ?? 0})`);
+    if (this.debug)
+      console.log(
+        `[CQL] ${type}: query executed (${executionTime}ms, params: ${params?.length ?? 0})`,
+      )
 
     if (type === 'query') {
-      const result = QueryResponseSchema.parse(rawResult);
+      const result = QueryResponseSchema.parse(rawResult)
       return {
         rows: result.rows,
         rowCount: result.rowCount,
-        columns: result.columns.map(name => ({ name, type: 'TEXT' as const, nullable: true, primaryKey: false, autoIncrement: false })),
+        columns: result.columns.map((name) => ({
+          name,
+          type: 'TEXT' as const,
+          nullable: true,
+          primaryKey: false,
+          autoIncrement: false,
+        })),
         executionTime,
         blockHeight: result.blockHeight,
-      };
+      }
     } else {
-      const result = ExecResponseSchema.parse(rawResult);
-      return { rowsAffected: result.rowsAffected, lastInsertId: result.lastInsertId ? BigInt(result.lastInsertId) : undefined, txHash: result.txHash as Hex, blockHeight: result.blockHeight, gasUsed: BigInt(result.gasUsed) };
+      const result = ExecResponseSchema.parse(rawResult)
+      return {
+        rowsAffected: result.rowsAffected,
+        lastInsertId: result.lastInsertId
+          ? BigInt(result.lastInsertId)
+          : undefined,
+        txHash: result.txHash as Hex,
+        blockHeight: result.blockHeight,
+        gasUsed: BigInt(result.gasUsed),
+      }
     }
   }
 }
 
 class CQLTransactionImpl implements CQLTransaction {
-  id: string;
-  private conn: CQLConnectionImpl;
-  private done = false;
+  id: string
+  private conn: CQLConnectionImpl
+  private done = false
 
   constructor(id: string, conn: CQLConnectionImpl) {
-    this.id = id;
-    this.conn = conn;
+    this.id = id
+    this.conn = conn
   }
 
   async query<T>(sql: string, params?: QueryParam[]): Promise<QueryResult<T>> {
-    if (this.done) throw new Error('Transaction completed');
-    return this.conn.query<T>(sql, params);
+    if (this.done) throw new Error('Transaction completed')
+    return this.conn.query<T>(sql, params)
   }
 
   async exec(sql: string, params?: QueryParam[]): Promise<ExecResult> {
-    if (this.done) throw new Error('Transaction completed');
-    return this.conn.exec(sql, params);
+    if (this.done) throw new Error('Transaction completed')
+    return this.conn.exec(sql, params)
   }
 
   async commit(): Promise<void> {
-    if (this.done) throw new Error('Transaction completed');
-    await this.conn.exec('COMMIT');
-    this.done = true;
+    if (this.done) throw new Error('Transaction completed')
+    await this.conn.exec('COMMIT')
+    this.done = true
   }
 
   async rollback(): Promise<void> {
-    if (this.done) return;
-    await this.conn.exec('ROLLBACK');
-    this.done = true;
+    if (this.done) return
+    await this.conn.exec('ROLLBACK')
+    this.done = true
   }
 }
 
 class CQLConnectionPoolImpl implements CQLConnectionPool {
-  private pool: Pool<CQLConnectionImpl>;
-  private dbId: string;
+  private pool: Pool<CQLConnectionImpl>
 
   constructor(config: CQLConfig, dbId: string, maxSize = 10) {
-    this.dbId = dbId;
-    this.pool = createPool<CQLConnectionImpl>({
-      create: async () => {
-        const id = `conn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        return new CQLConnectionImpl(id, dbId, config);
+    this.dbId = dbId
+    this.pool = createPool<CQLConnectionImpl>(
+      {
+        create: async () => {
+          const id = `conn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+          return new CQLConnectionImpl(id, dbId, config)
+        },
+        destroy: async (conn) => {
+          await conn.close()
+        },
+        validate: async (conn) => conn.active,
       },
-      destroy: async (conn) => {
-        await conn.close();
+      {
+        max: maxSize,
+        min: 2,
+        acquireTimeoutMillis: 10000,
+        idleTimeoutMillis: 30000,
       },
-      validate: async (conn) => conn.active,
-    }, {
-      max: maxSize,
-      min: 2,
-      acquireTimeoutMillis: 10000,
-      idleTimeoutMillis: 30000,
-    });
+    )
   }
 
   async acquire(): Promise<CQLConnection> {
-    const conn = await this.pool.acquire();
-    conn.active = true;
-    return conn;
+    const conn = await this.pool.acquire()
+    conn.active = true
+    return conn
   }
 
   release(conn: CQLConnection): void {
-    const impl = conn as CQLConnectionImpl;
-    impl.active = false;
-    this.pool.release(impl);
+    const impl = conn as CQLConnectionImpl
+    impl.active = false
+    this.pool.release(impl)
   }
 
   async close(): Promise<void> {
-    await this.pool.drain();
-    await this.pool.clear();
+    await this.pool.drain()
+    await this.pool.clear()
   }
 
   stats() {
-    return { 
-      active: this.pool.borrowed, 
-      idle: this.pool.available, 
-      total: this.pool.size 
-    };
+    return {
+      active: this.pool.borrowed,
+      idle: this.pool.available,
+      total: this.pool.size,
+    }
   }
 }
 
 export class CQLClient {
-  private config: CQLConfig;
-  private pools = new Map<string, CQLConnectionPool>();
-  private get endpoint() { return this.config.blockProducerEndpoint; }
+  private config: CQLConfig
+  private pools = new Map<string, CQLConnectionPool>()
+  private get endpoint() {
+    return this.config.blockProducerEndpoint
+  }
 
   constructor(config: CQLConfig) {
-    this.config = config;
+    this.config = config
   }
 
   getPool(dbId: string): CQLConnectionPool {
-    let pool = this.pools.get(dbId);
-    if (!pool) { pool = new CQLConnectionPoolImpl(this.config, dbId); this.pools.set(dbId, pool); }
-    return pool;
+    let pool = this.pools.get(dbId)
+    if (!pool) {
+      pool = new CQLConnectionPoolImpl(this.config, dbId)
+      this.pools.set(dbId, pool)
+    }
+    return pool
   }
 
   async connect(dbId?: string): Promise<CQLConnection> {
-    const id = dbId ?? this.config.databaseId;
-    if (!id) throw new Error('Database ID required');
-    return this.getPool(id).acquire();
+    const id = dbId ?? this.config.databaseId
+    if (!id) throw new Error('Database ID required')
+    return this.getPool(id).acquire()
   }
 
-  async query<T>(sql: string, params?: QueryParam[], dbId?: string): Promise<QueryResult<T>> {
-    const conn = await this.connect(dbId);
-    try { return await conn.query<T>(sql, params); }
-    finally { this.getPool(conn.databaseId).release(conn); }
+  async query<T>(
+    sql: string,
+    params?: QueryParam[],
+    dbId?: string,
+  ): Promise<QueryResult<T>> {
+    const conn = await this.connect(dbId)
+    try {
+      return await conn.query<T>(sql, params)
+    } finally {
+      this.getPool(conn.databaseId).release(conn)
+    }
   }
 
-  async exec(sql: string, params?: QueryParam[], dbId?: string): Promise<ExecResult> {
-    const conn = await this.connect(dbId);
-    try { return await conn.exec(sql, params); }
-    finally { this.getPool(conn.databaseId).release(conn); }
+  async exec(
+    sql: string,
+    params?: QueryParam[],
+    dbId?: string,
+  ): Promise<ExecResult> {
+    const conn = await this.connect(dbId)
+    try {
+      return await conn.exec(sql, params)
+    } finally {
+      this.getPool(conn.databaseId).release(conn)
+    }
   }
 
   // Database Management
@@ -288,85 +359,130 @@ export class CQLClient {
     return request<DatabaseInfo>(`${this.endpoint}/api/v1/databases`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nodeCount: config.nodeCount, useEventualConsistency: config.useEventualConsistency ?? false, regions: config.regions, schema: config.schema, owner: config.owner, paymentToken: config.paymentToken }),
-    });
+      body: JSON.stringify({
+        nodeCount: config.nodeCount,
+        useEventualConsistency: config.useEventualConsistency ?? false,
+        regions: config.regions,
+        schema: config.schema,
+        owner: config.owner,
+        paymentToken: config.paymentToken,
+      }),
+    })
   }
 
   async getDatabase(id: string): Promise<DatabaseInfo> {
-    return request<DatabaseInfo>(`${this.endpoint}/api/v1/databases/${id}`);
+    return request<DatabaseInfo>(`${this.endpoint}/api/v1/databases/${id}`)
   }
 
   async listDatabases(owner: Address): Promise<DatabaseInfo[]> {
-    return (await request<{ databases: DatabaseInfo[] }>(`${this.endpoint}/api/v1/databases?owner=${owner}`)).databases;
+    return (
+      await request<{ databases: DatabaseInfo[] }>(
+        `${this.endpoint}/api/v1/databases?owner=${owner}`,
+      )
+    ).databases
   }
 
   async deleteDatabase(id: string): Promise<void> {
-    return requestVoid(`${this.endpoint}/api/v1/databases/${id}`, { method: 'DELETE' });
+    return requestVoid(`${this.endpoint}/api/v1/databases/${id}`, {
+      method: 'DELETE',
+    })
   }
 
   // Access Control
   async grant(dbId: string, req: GrantRequest): Promise<void> {
-    return requestVoid(`${this.endpoint}/api/v1/databases/${dbId}/acl/grant`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req) });
+    return requestVoid(`${this.endpoint}/api/v1/databases/${dbId}/acl/grant`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    })
   }
 
   async revoke(dbId: string, req: RevokeRequest): Promise<void> {
-    return requestVoid(`${this.endpoint}/api/v1/databases/${dbId}/acl/revoke`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req) });
+    return requestVoid(`${this.endpoint}/api/v1/databases/${dbId}/acl/revoke`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    })
   }
 
   async listACL(dbId: string): Promise<ACLRule[]> {
-    return (await request<{ rules: ACLRule[] }>(`${this.endpoint}/api/v1/databases/${dbId}/acl`)).rules;
+    return (
+      await request<{ rules: ACLRule[] }>(
+        `${this.endpoint}/api/v1/databases/${dbId}/acl`,
+      )
+    ).rules
   }
 
   // Rental Management
   async listPlans(): Promise<RentalPlan[]> {
-    return (await request<{ plans: RentalPlan[] }>(`${this.endpoint}/api/v1/plans`)).plans;
+    return (
+      await request<{ plans: RentalPlan[] }>(`${this.endpoint}/api/v1/plans`)
+    ).plans
   }
 
   async createRental(req: CreateRentalRequest): Promise<RentalInfo> {
-    return request<RentalInfo>(`${this.endpoint}/api/v1/rentals`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req) });
+    return request<RentalInfo>(`${this.endpoint}/api/v1/rentals`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    })
   }
 
   async getRental(id: string): Promise<RentalInfo> {
-    return request<RentalInfo>(`${this.endpoint}/api/v1/rentals/${id}`);
+    return request<RentalInfo>(`${this.endpoint}/api/v1/rentals/${id}`)
   }
 
   async extendRental(id: string, months: number): Promise<RentalInfo> {
-    return request<RentalInfo>(`${this.endpoint}/api/v1/rentals/${id}/extend`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ months }) });
+    return request<RentalInfo>(`${this.endpoint}/api/v1/rentals/${id}/extend`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ months }),
+    })
   }
 
   async cancelRental(id: string): Promise<void> {
-    return requestVoid(`${this.endpoint}/api/v1/rentals/${id}`, { method: 'DELETE' });
+    return requestVoid(`${this.endpoint}/api/v1/rentals/${id}`, {
+      method: 'DELETE',
+    })
   }
 
   // Status
   async getBlockProducerInfo(): Promise<BlockProducerInfo> {
-    return request<BlockProducerInfo>(`${this.endpoint}/api/v1/status`);
+    return request<BlockProducerInfo>(`${this.endpoint}/api/v1/status`)
   }
 
   async isHealthy(): Promise<boolean> {
-    const response = await circuitBreaker.fire(async () => {
-      const res = await fetch(`${this.endpoint}/health`, { signal: AbortSignal.timeout(5000) });
-      return res;
-    }).catch(() => null);
-    return response?.ok ?? false;
+    const response = await circuitBreaker
+      .fire(async () => {
+        const res = await fetch(`${this.endpoint}/health`, {
+          signal: AbortSignal.timeout(5000),
+        })
+        return res
+      })
+      .catch(() => null)
+    return response?.ok ?? false
   }
 
-  getCircuitState() { 
-    return { 
-      state: circuitBreaker.opened ? 'open' : circuitBreaker.halfOpen ? 'half-open' : 'closed',
-      failures: circuitBreaker.stats.failures 
-    }; 
+  getCircuitState() {
+    return {
+      state: circuitBreaker.opened
+        ? 'open'
+        : circuitBreaker.halfOpen
+          ? 'half-open'
+          : 'closed',
+      failures: circuitBreaker.stats.failures,
+    }
   }
 
   async close(): Promise<void> {
-    await Promise.all(Array.from(this.pools.values()).map(p => p.close()));
-    this.pools.clear();
+    await Promise.all(Array.from(this.pools.values()).map((p) => p.close()))
+    this.pools.clear()
   }
 }
 
-let cqlClient: CQLClient | null = null;
+let cqlClient: CQLClient | null = null
 
-const DEFAULT_TIMEOUT = 30000;
+const DEFAULT_TIMEOUT = 30000
 
 /**
  * Get a CQL client with automatic network-aware configuration.
@@ -377,35 +493,40 @@ const DEFAULT_TIMEOUT = 30000;
  */
 export function getCQL(config?: Partial<CQLConfig>): CQLClient {
   if (!cqlClient) {
-    const blockProducerEndpoint = config?.blockProducerEndpoint ?? getCQLUrl();
-    const minerEndpoint = config?.minerEndpoint ?? getCQLMinerUrl();
-    
+    const blockProducerEndpoint = config?.blockProducerEndpoint ?? getCQLUrl()
+    const minerEndpoint = config?.minerEndpoint ?? getCQLMinerUrl()
+
     if (!blockProducerEndpoint) {
-      throw new Error('CQL blockProducerEndpoint is required. Set via config, CQL_BLOCK_PRODUCER_ENDPOINT env var, or JEJU_NETWORK.');
+      throw new Error(
+        'CQL blockProducerEndpoint is required. Set via config, CQL_BLOCK_PRODUCER_ENDPOINT env var, or JEJU_NETWORK.',
+      )
     }
-    
+
     const resolvedConfig = {
       blockProducerEndpoint,
       minerEndpoint,
-      privateKey: config?.privateKey ?? (process.env.CQL_PRIVATE_KEY as Hex | undefined),
+      privateKey:
+        config?.privateKey ?? (process.env.CQL_PRIVATE_KEY as Hex | undefined),
       databaseId: config?.databaseId ?? process.env.CQL_DATABASE_ID,
-      timeout: config?.timeout ?? parseTimeout(process.env.CQL_TIMEOUT, DEFAULT_TIMEOUT),
+      timeout:
+        config?.timeout ??
+        parseTimeout(process.env.CQL_TIMEOUT, DEFAULT_TIMEOUT),
       debug: config?.debug ?? process.env.CQL_DEBUG === 'true',
-    };
-    
+    }
+
     // Validate the resolved config
-    const validated = CQLConfigSchema.parse(resolvedConfig);
-    
-    cqlClient = new CQLClient(validated as CQLConfig);
+    const validated = CQLConfigSchema.parse(resolvedConfig)
+
+    cqlClient = new CQLClient(validated as CQLConfig)
   }
-  return cqlClient;
+  return cqlClient
 }
 
 export async function resetCQL(): Promise<void> {
   if (cqlClient) {
-    await cqlClient.close();
-    cqlClient = null;
+    await cqlClient.close()
+    cqlClient = null
   }
 }
 
-export { CQLClient as CovenantSQLClient };
+export { CQLClient as CovenantSQLClient }

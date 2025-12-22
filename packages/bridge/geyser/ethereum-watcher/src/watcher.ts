@@ -10,8 +10,8 @@
  * submission to the Solana EVM light client.
  */
 
-import { createPublicClient, http, type PublicClient, type Hex } from 'viem';
-import { mainnet } from 'viem/chains';
+import { createPublicClient, type Hex, http, type PublicClient } from 'viem'
+import { mainnet } from 'viem/chains'
 
 // =============================================================================
 // TYPES
@@ -19,50 +19,50 @@ import { mainnet } from 'viem/chains';
 
 export interface BeaconConfig {
   /** Beacon node RPC URL */
-  beaconRpcUrl: string;
+  beaconRpcUrl: string
   /** Execution layer RPC URL */
-  executionRpcUrl: string;
+  executionRpcUrl: string
   /** Relayer endpoint to post updates */
-  relayerEndpoint: string;
+  relayerEndpoint: string
   /** Polling interval in milliseconds */
-  pollingIntervalMs: number;
+  pollingIntervalMs: number
   /** Number of confirmations before considering finalized */
-  finalityConfirmations: number;
+  finalityConfirmations: number
 }
 
 export interface BeaconBlockHeader {
-  slot: bigint;
-  proposerIndex: bigint;
-  parentRoot: Hex;
-  stateRoot: Hex;
-  bodyRoot: Hex;
+  slot: bigint
+  proposerIndex: bigint
+  parentRoot: Hex
+  stateRoot: Hex
+  bodyRoot: Hex
 }
 
 export interface SyncCommittee {
-  pubkeys: Hex[];
-  aggregatePubkey: Hex;
+  pubkeys: Hex[]
+  aggregatePubkey: Hex
 }
 
 export interface SyncAggregate {
-  syncCommitteeBits: Hex;
-  syncCommitteeSignature: Hex;
+  syncCommitteeBits: Hex
+  syncCommitteeSignature: Hex
 }
 
 export interface LightClientUpdate {
-  attestedHeader: BeaconBlockHeader;
-  finalizedHeader: BeaconBlockHeader;
-  finalityBranch: Hex[];
-  syncAggregate: SyncAggregate;
-  signatureSlot: bigint;
+  attestedHeader: BeaconBlockHeader
+  finalizedHeader: BeaconBlockHeader
+  finalityBranch: Hex[]
+  syncAggregate: SyncAggregate
+  signatureSlot: bigint
 }
 
 export interface FinalityUpdate {
-  slot: bigint;
-  blockRoot: Hex;
-  stateRoot: Hex;
-  executionStateRoot: Hex;
-  executionBlockNumber: bigint;
-  executionBlockHash: Hex;
+  slot: bigint
+  blockRoot: Hex
+  stateRoot: Hex
+  executionStateRoot: Hex
+  executionBlockNumber: bigint
+  executionBlockHash: Hex
 }
 
 // =============================================================================
@@ -70,49 +70,48 @@ export interface FinalityUpdate {
 // =============================================================================
 
 export class BeaconChainWatcher {
-  private config: BeaconConfig;
-  private executionClient: PublicClient;
-  private running = false;
-  private lastProcessedSlot = BigInt(0);
-  private currentSyncCommitteeRoot: Hex = '0x';
+  private config: BeaconConfig
+  private executionClient: PublicClient
+  private running = false
+  private lastProcessedSlot = BigInt(0)
 
   constructor(config: BeaconConfig) {
-    this.config = config;
+    this.config = config
     this.executionClient = createPublicClient({
       chain: mainnet,
       transport: http(config.executionRpcUrl),
-    });
+    })
   }
 
   /**
    * Start watching the beacon chain
    */
   async start(): Promise<void> {
-    console.log('[BeaconWatcher] Starting...');
-    this.running = true;
+    console.log('[BeaconWatcher] Starting...')
+    this.running = true
 
     // Initialize with current finalized state
-    await this.initializeState();
+    await this.initializeState()
 
     // Start polling loop
-    this.pollLoop();
+    this.pollLoop()
   }
 
   /**
    * Stop watching
    */
   stop(): void {
-    console.log('[BeaconWatcher] Stopping...');
-    this.running = false;
+    console.log('[BeaconWatcher] Stopping...')
+    this.running = false
   }
 
   /**
    * Initialize with current finalized state
    */
   private async initializeState(): Promise<void> {
-    const finalized = await this.getFinalizedCheckpoint();
-    this.lastProcessedSlot = finalized.slot;
-    console.log(`[BeaconWatcher] Initialized at slot ${finalized.slot}`);
+    const finalized = await this.getFinalizedCheckpoint()
+    this.lastProcessedSlot = finalized.slot
+    console.log(`[BeaconWatcher] Initialized at slot ${finalized.slot}`)
   }
 
   /**
@@ -120,8 +119,8 @@ export class BeaconChainWatcher {
    */
   private async pollLoop(): Promise<void> {
     while (this.running) {
-      await this.checkForUpdates();
-      await this.sleep(this.config.pollingIntervalMs);
+      await this.checkForUpdates()
+      await this.sleep(this.config.pollingIntervalMs)
     }
   }
 
@@ -130,37 +129,37 @@ export class BeaconChainWatcher {
    */
   private async checkForUpdates(): Promise<void> {
     // Get current finalized checkpoint
-    const finalized = await this.getFinalizedCheckpoint();
+    const finalized = await this.getFinalizedCheckpoint()
 
     if (finalized.slot <= this.lastProcessedSlot) {
-      return; // No new finalized blocks
+      return // No new finalized blocks
     }
 
     console.log(
-      `[BeaconWatcher] New finalized slot: ${finalized.slot} (was ${this.lastProcessedSlot})`
-    );
+      `[BeaconWatcher] New finalized slot: ${finalized.slot} (was ${this.lastProcessedSlot})`,
+    )
 
     // Get light client update
-    const update = await this.getLightClientUpdate(finalized.slot);
+    const update = await this.getLightClientUpdate(finalized.slot)
 
     if (update) {
       // Post to relayer
-      await this.postToRelayer('/ethereum/update', update);
+      await this.postToRelayer('/ethereum/update', update)
 
       // Check for sync committee rotation
       if (this.isSyncCommitteeRotation(finalized.slot)) {
-        const newCommittee = await this.getNextSyncCommittee();
+        const newCommittee = await this.getNextSyncCommittee()
         if (newCommittee) {
-          await this.postToRelayer('/ethereum/sync-committee', newCommittee);
+          await this.postToRelayer('/ethereum/sync-committee', newCommittee)
         }
       }
     }
 
     // Get finality update for Solana light client
-    const finalityUpdate = await this.buildFinalityUpdate(finalized);
-    await this.postToRelayer('/ethereum/finality', finalityUpdate);
+    const finalityUpdate = await this.buildFinalityUpdate(finalized)
+    await this.postToRelayer('/ethereum/finality', finalityUpdate)
 
-    this.lastProcessedSlot = finalized.slot;
+    this.lastProcessedSlot = finalized.slot
   }
 
   /**
@@ -168,59 +167,62 @@ export class BeaconChainWatcher {
    */
   private async getFinalizedCheckpoint(): Promise<{ slot: bigint; root: Hex }> {
     const response = await fetch(
-      `${this.config.beaconRpcUrl}/eth/v1/beacon/states/finalized/finality_checkpoints`
-    );
+      `${this.config.beaconRpcUrl}/eth/v1/beacon/states/finalized/finality_checkpoints`,
+    )
 
     if (!response.ok) {
-      throw new Error(`Failed to get finalized checkpoint: ${response.status}`);
+      throw new Error(`Failed to get finalized checkpoint: ${response.status}`)
     }
 
     const data = (await response.json()) as {
       data: {
-        finalized: { epoch: string; root: string };
-      };
-    };
+        finalized: { epoch: string; root: string }
+      }
+    }
 
-    const epoch = BigInt(data.data.finalized.epoch);
-    const slot = epoch * BigInt(32); // 32 slots per epoch
+    const epoch = BigInt(data.data.finalized.epoch)
+    const slot = epoch * BigInt(32) // 32 slots per epoch
 
     return {
       slot,
       root: data.data.finalized.root as Hex,
-    };
+    }
   }
 
   /**
    * Get light client update for a slot
    */
   private async getLightClientUpdate(
-    slot: bigint
+    slot: bigint,
   ): Promise<LightClientUpdate | null> {
     try {
-      const period = slot / BigInt(8192); // Sync committee period
+      const period = slot / BigInt(8192) // Sync committee period
       const response = await fetch(
-        `${this.config.beaconRpcUrl}/eth/v1/beacon/light_client/updates?start_period=${period}&count=1`
-      );
+        `${this.config.beaconRpcUrl}/eth/v1/beacon/light_client/updates?start_period=${period}&count=1`,
+      )
 
       if (!response.ok) {
-        return null;
+        return null
       }
 
       const data = (await response.json()) as {
         data: Array<{
-          attested_header: { beacon: BeaconBlockHeader };
-          finalized_header: { beacon: BeaconBlockHeader };
-          finality_branch: string[];
-          sync_aggregate: { sync_committee_bits: string; sync_committee_signature: string };
-          signature_slot: string;
-        }>;
-      };
-
-      if (data.data.length === 0) {
-        return null;
+          attested_header: { beacon: BeaconBlockHeader }
+          finalized_header: { beacon: BeaconBlockHeader }
+          finality_branch: string[]
+          sync_aggregate: {
+            sync_committee_bits: string
+            sync_committee_signature: string
+          }
+          signature_slot: string
+        }>
       }
 
-      const update = data.data[0];
+      if (data.data.length === 0) {
+        return null
+      }
+
+      const update = data.data[0]
       return {
         attestedHeader: update.attested_header.beacon,
         finalizedHeader: update.finalized_header.beacon,
@@ -231,10 +233,10 @@ export class BeaconChainWatcher {
             .sync_committee_signature as Hex,
         },
         signatureSlot: BigInt(update.signature_slot),
-      };
+      }
     } catch (error) {
-      console.error('[BeaconWatcher] Failed to get light client update:', error);
-      return null;
+      console.error('[BeaconWatcher] Failed to get light client update:', error)
+      return null
     }
   }
 
@@ -244,27 +246,27 @@ export class BeaconChainWatcher {
   private async getNextSyncCommittee(): Promise<SyncCommittee | null> {
     try {
       const response = await fetch(
-        `${this.config.beaconRpcUrl}/eth/v1/beacon/states/finalized/sync_committees`
-      );
+        `${this.config.beaconRpcUrl}/eth/v1/beacon/states/finalized/sync_committees`,
+      )
 
       if (!response.ok) {
-        return null;
+        return null
       }
 
       const data = (await response.json()) as {
         data: {
-          validators: string[];
-        };
-      };
+          validators: string[]
+        }
+      }
 
       // In production, would aggregate pubkeys properly
       return {
         pubkeys: data.data.validators.slice(0, 512) as Hex[],
         aggregatePubkey: '0x' as Hex, // Would compute aggregate
-      };
+      }
     } catch (error) {
-      console.error('[BeaconWatcher] Failed to get sync committee:', error);
-      return null;
+      console.error('[BeaconWatcher] Failed to get sync committee:', error)
+      return null
     }
   }
 
@@ -272,16 +274,16 @@ export class BeaconChainWatcher {
    * Build finality update for Solana light client
    */
   private async buildFinalityUpdate(finalized: {
-    slot: bigint;
-    root: Hex;
+    slot: bigint
+    root: Hex
   }): Promise<FinalityUpdate> {
     // Get execution payload for the finalized block
     const block = await this.executionClient.getBlock({
       blockTag: 'finalized',
-    });
+    })
 
     // Get state root from beacon state
-    const stateRoot = await this.getStateRoot(finalized.slot);
+    const stateRoot = await this.getStateRoot(finalized.slot)
 
     return {
       slot: finalized.slot,
@@ -290,7 +292,7 @@ export class BeaconChainWatcher {
       executionStateRoot: block.stateRoot,
       executionBlockNumber: block.number,
       executionBlockHash: block.hash,
-    };
+    }
   }
 
   /**
@@ -298,18 +300,20 @@ export class BeaconChainWatcher {
    */
   private async getStateRoot(slot: bigint): Promise<Hex> {
     const response = await fetch(
-      `${this.config.beaconRpcUrl}/eth/v1/beacon/headers/${slot}`
-    );
+      `${this.config.beaconRpcUrl}/eth/v1/beacon/headers/${slot}`,
+    )
 
     if (!response.ok) {
-      throw new Error(`Failed to get state root for slot ${slot}: ${response.status} ${response.statusText}`);
+      throw new Error(
+        `Failed to get state root for slot ${slot}: ${response.status} ${response.statusText}`,
+      )
     }
 
     const data = (await response.json()) as {
-      data: { header: { message: { state_root: string } } };
-    };
+      data: { header: { message: { state_root: string } } }
+    }
 
-    return data.data.header.message.state_root as Hex;
+    return data.data.header.message.state_root as Hex
   }
 
   /**
@@ -317,7 +321,7 @@ export class BeaconChainWatcher {
    */
   private isSyncCommitteeRotation(slot: bigint): boolean {
     // Sync committees rotate every 256 epochs (8192 slots)
-    return slot % BigInt(8192) === BigInt(0);
+    return slot % BigInt(8192) === BigInt(0)
   }
 
   /**
@@ -325,26 +329,26 @@ export class BeaconChainWatcher {
    */
   private async postToRelayer(
     path: string,
-    data: LightClientUpdate | SyncCommittee | FinalityUpdate
+    data: LightClientUpdate | SyncCommittee | FinalityUpdate,
   ): Promise<void> {
     try {
       const response = await fetch(`${this.config.relayerEndpoint}${path}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data, (_, v) =>
-          typeof v === 'bigint' ? v.toString() : v
+          typeof v === 'bigint' ? v.toString() : v,
         ),
-      });
+      })
 
       if (!response.ok) {
         console.error(
-          `[BeaconWatcher] Failed to post to ${path}: ${response.status}`
-        );
+          `[BeaconWatcher] Failed to post to ${path}: ${response.status}`,
+        )
       } else {
-        console.log(`[BeaconWatcher] Posted update to ${path}`);
+        console.log(`[BeaconWatcher] Posted update to ${path}`)
       }
     } catch (error) {
-      console.error(`[BeaconWatcher] Error posting to ${path}:`, error);
+      console.error(`[BeaconWatcher] Error posting to ${path}:`, error)
     }
   }
 
@@ -352,7 +356,7 @@ export class BeaconChainWatcher {
    * Sleep utility
    */
   private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms))
   }
 }
 
@@ -361,7 +365,7 @@ export class BeaconChainWatcher {
 // =============================================================================
 
 export function createBeaconWatcher(config: BeaconConfig): BeaconChainWatcher {
-  return new BeaconChainWatcher(config);
+  return new BeaconChainWatcher(config)
 }
 
 // =============================================================================
@@ -370,21 +374,19 @@ export function createBeaconWatcher(config: BeaconConfig): BeaconChainWatcher {
 
 if (import.meta.main) {
   const config: BeaconConfig = {
-    beaconRpcUrl:
-      process.env.BEACON_RPC_URL ?? 'http://localhost:5052',
-    executionRpcUrl:
-      process.env.EXECUTION_RPC_URL ?? 'http://localhost:8545',
+    beaconRpcUrl: process.env.BEACON_RPC_URL ?? 'http://localhost:5052',
+    executionRpcUrl: process.env.EXECUTION_RPC_URL ?? 'http://localhost:8545',
     relayerEndpoint: process.env.RELAYER_ENDPOINT ?? 'http://localhost:8081',
     pollingIntervalMs: 12000, // 12 seconds (slot time)
     finalityConfirmations: 2,
-  };
+  }
 
-  const watcher = createBeaconWatcher(config);
+  const watcher = createBeaconWatcher(config)
 
   process.on('SIGINT', () => {
-    watcher.stop();
-    process.exit(0);
-  });
+    watcher.stop()
+    process.exit(0)
+  })
 
-  watcher.start().catch(console.error);
+  watcher.start().catch(console.error)
 }

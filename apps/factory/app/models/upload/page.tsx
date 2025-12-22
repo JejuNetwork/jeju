@@ -1,35 +1,61 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { useAccount } from 'wagmi';
-import { useRouter } from 'next/navigation';
-import { 
-  Brain, 
-  Upload,
+import { clsx } from 'clsx'
+import {
+  Brain,
+  CheckCircle,
   FileUp,
   Globe,
-  Lock,
   Info,
-  CheckCircle,
-  Loader2,
   Link as LinkIcon,
-  Shield
-} from 'lucide-react';
-import Link from 'next/link';
-import { clsx } from 'clsx';
+  Loader2,
+  Lock,
+  Shield,
+  Upload,
+} from 'lucide-react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useState } from 'react'
+import { useAccount } from 'wagmi'
 
-type ModelType = 'LLM' | 'VISION' | 'AUDIO' | 'EMBEDDING' | 'MULTIMODAL' | 'OTHER';
-type License = 'MIT' | 'APACHE2' | 'GPL3' | 'LLAMA2' | 'CC_BY_NC' | 'CUSTOM';
-type AccessLevel = 'PUBLIC' | 'RESTRICTED' | 'PRIVATE';
+type ModelType =
+  | 'LLM'
+  | 'VISION'
+  | 'AUDIO'
+  | 'EMBEDDING'
+  | 'MULTIMODAL'
+  | 'OTHER'
+type License = 'MIT' | 'APACHE2' | 'GPL3' | 'LLAMA2' | 'CC_BY_NC' | 'CUSTOM'
+type AccessLevel = 'PUBLIC' | 'RESTRICTED' | 'PRIVATE'
 
 const modelTypes: { value: ModelType; label: string; description: string }[] = [
-  { value: 'LLM', label: 'Large Language Model', description: 'Text generation, chat, code' },
-  { value: 'VISION', label: 'Vision', description: 'Image classification, detection, segmentation' },
-  { value: 'AUDIO', label: 'Audio', description: 'Speech recognition, synthesis, music' },
-  { value: 'EMBEDDING', label: 'Embedding', description: 'Text/image embeddings for search' },
-  { value: 'MULTIMODAL', label: 'Multimodal', description: 'Multiple input/output types' },
+  {
+    value: 'LLM',
+    label: 'Large Language Model',
+    description: 'Text generation, chat, code',
+  },
+  {
+    value: 'VISION',
+    label: 'Vision',
+    description: 'Image classification, detection, segmentation',
+  },
+  {
+    value: 'AUDIO',
+    label: 'Audio',
+    description: 'Speech recognition, synthesis, music',
+  },
+  {
+    value: 'EMBEDDING',
+    label: 'Embedding',
+    description: 'Text/image embeddings for search',
+  },
+  {
+    value: 'MULTIMODAL',
+    label: 'Multimodal',
+    description: 'Multiple input/output types',
+  },
   { value: 'OTHER', label: 'Other', description: 'Custom model types' },
-];
+]
 
 const licenses: { value: License; label: string; commercial: boolean }[] = [
   { value: 'MIT', label: 'MIT License', commercial: true },
@@ -38,86 +64,97 @@ const licenses: { value: License; label: string; commercial: boolean }[] = [
   { value: 'LLAMA2', label: 'LLaMA 2 Community', commercial: true },
   { value: 'CC_BY_NC', label: 'CC BY-NC 4.0', commercial: false },
   { value: 'CUSTOM', label: 'Custom License', commercial: false },
-];
+]
 
 export default function UploadModelPage() {
-  const { isConnected: _isConnected, address: _address } = useAccount();
-  const router = useRouter();
-  
-  const [step, setStep] = useState(1);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
+  const { isConnected: _isConnected, address: _address } = useAccount()
+  const router = useRouter()
+
+  const [step, setStep] = useState(1)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
   // Form state
-  const [name, setName] = useState('');
-  const [organization, setOrganization] = useState('');
-  const [description, setDescription] = useState('');
-  const [modelType, setModelType] = useState<ModelType>('LLM');
-  const [license, setLicense] = useState<License>('MIT');
-  const [customLicenseUri, setCustomLicenseUri] = useState('');
-  const [accessLevel, setAccessLevel] = useState<AccessLevel>('PUBLIC');
-  const [tags, setTags] = useState<string[]>([]);
-  const [tagInput, setTagInput] = useState('');
-  
+  const [name, setName] = useState('')
+  const [organization, setOrganization] = useState('')
+  const [description, setDescription] = useState('')
+  const [modelType, setModelType] = useState<ModelType>('LLM')
+  const [license, setLicense] = useState<License>('MIT')
+  const [customLicenseUri, setCustomLicenseUri] = useState('')
+  const [accessLevel, setAccessLevel] = useState<AccessLevel>('PUBLIC')
+  const [tags, setTags] = useState<string[]>([])
+  const [tagInput, setTagInput] = useState('')
+
   // Files
-  const [modelFile, setModelFile] = useState<File | null>(null);
+  const [modelFile, setModelFile] = useState<File | null>(null)
   // const [configFile, setConfigFile] = useState<File | null>(null);
-  
+
   // Training provenance
-  const [trainingDataUri, setTrainingDataUri] = useState('');
-  const [baseModel, setBaseModel] = useState('');
-  const [trainingJobId, setTrainingJobId] = useState('');
+  const [trainingDataUri, setTrainingDataUri] = useState('')
+  const [baseModel, setBaseModel] = useState('')
+  const [trainingJobId, setTrainingJobId] = useState('')
 
   const addTag = () => {
     if (tagInput.trim() && !tags.includes(tagInput.trim())) {
-      setTags([...tags, tagInput.trim()]);
-      setTagInput('');
+      setTags([...tags, tagInput.trim()])
+      setTagInput('')
     }
-  };
+  }
 
   const removeTag = (tag: string) => {
-    setTags(tags.filter(t => t !== tag));
-  };
+    setTags(tags.filter((t) => t !== tag))
+  }
 
   const handleSubmit = async () => {
-    setIsSubmitting(true);
-    
+    setIsSubmitting(true)
+
     // Simulate upload
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    setIsSubmitting(false);
-    router.push('/models');
-  };
+    await new Promise((resolve) => setTimeout(resolve, 2000))
+
+    setIsSubmitting(false)
+    router.push('/models')
+  }
 
   return (
     <div className="min-h-screen p-8">
       <div className="max-w-3xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <Link href="/models" className="text-factory-400 hover:text-factory-300 text-sm mb-4 inline-block">
+          <Link
+            href="/models"
+            className="text-factory-400 hover:text-factory-300 text-sm mb-4 inline-block"
+          >
             ← Back to Model Hub
           </Link>
           <h1 className="text-2xl font-bold text-factory-100 flex items-center gap-3">
             <Brain className="w-7 h-7 text-amber-400" />
             Upload Model
           </h1>
-          <p className="text-factory-400 mt-1">Share your model with the Jeju community</p>
+          <p className="text-factory-400 mt-1">
+            Share your model with the Jeju community
+          </p>
         </div>
 
         {/* Progress */}
         <div className="flex items-center gap-4 mb-8">
           {[1, 2, 3].map((s) => (
             <div key={s} className="flex items-center flex-1">
-              <div className={clsx(
-                'w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium',
-                step >= s ? 'bg-accent-600 text-white' : 'bg-factory-800 text-factory-500'
-              )}>
+              <div
+                className={clsx(
+                  'w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium',
+                  step >= s
+                    ? 'bg-accent-600 text-white'
+                    : 'bg-factory-800 text-factory-500',
+                )}
+              >
                 {step > s ? <CheckCircle className="w-5 h-5" /> : s}
               </div>
               {s < 3 && (
-                <div className={clsx(
-                  'flex-1 h-1 mx-2',
-                  step > s ? 'bg-accent-600' : 'bg-factory-800'
-                )} />
+                <div
+                  className={clsx(
+                    'flex-1 h-1 mx-2',
+                    step > s ? 'bg-accent-600' : 'bg-factory-800',
+                  )}
+                />
               )}
             </div>
           ))}
@@ -126,8 +163,10 @@ export default function UploadModelPage() {
         {/* Step 1: Basic Info */}
         {step === 1 && (
           <div className="card p-6">
-            <h2 className="text-lg font-semibold text-factory-100 mb-6">Basic Information</h2>
-            
+            <h2 className="text-lg font-semibold text-factory-100 mb-6">
+              Basic Information
+            </h2>
+
             <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -182,11 +221,15 @@ export default function UploadModelPage() {
                         'p-3 rounded-lg border text-left transition-colors',
                         modelType === type.value
                           ? 'border-accent-500 bg-accent-500/10'
-                          : 'border-factory-700 hover:border-factory-600'
+                          : 'border-factory-700 hover:border-factory-600',
                       )}
                     >
-                      <p className="font-medium text-factory-200">{type.label}</p>
-                      <p className="text-xs text-factory-500">{type.description}</p>
+                      <p className="font-medium text-factory-200">
+                        {type.label}
+                      </p>
+                      <p className="text-xs text-factory-500">
+                        {type.description}
+                      </p>
                     </button>
                   ))}
                 </div>
@@ -198,9 +241,17 @@ export default function UploadModelPage() {
                 </label>
                 <div className="flex gap-2 mb-2 flex-wrap">
                   {tags.map((tag) => (
-                    <span key={tag} className="badge badge-info flex items-center gap-1">
+                    <span
+                      key={tag}
+                      className="badge badge-info flex items-center gap-1"
+                    >
                       {tag}
-                      <button onClick={() => removeTag(tag)} className="hover:text-white">×</button>
+                      <button
+                        onClick={() => removeTag(tag)}
+                        className="hover:text-white"
+                      >
+                        ×
+                      </button>
                     </span>
                   ))}
                 </div>
@@ -221,7 +272,7 @@ export default function UploadModelPage() {
             </div>
 
             <div className="flex justify-end mt-6">
-              <button 
+              <button
                 onClick={() => setStep(2)}
                 disabled={!name || !organization}
                 className="btn btn-primary"
@@ -235,8 +286,10 @@ export default function UploadModelPage() {
         {/* Step 2: License & Access */}
         {step === 2 && (
           <div className="card p-6">
-            <h2 className="text-lg font-semibold text-factory-100 mb-6">License & Access</h2>
-            
+            <h2 className="text-lg font-semibold text-factory-100 mb-6">
+              License & Access
+            </h2>
+
             <div className="space-y-6">
               <div>
                 <label className="block text-sm font-medium text-factory-300 mb-2">
@@ -251,12 +304,21 @@ export default function UploadModelPage() {
                         'p-3 rounded-lg border text-left transition-colors',
                         license === lic.value
                           ? 'border-accent-500 bg-accent-500/10'
-                          : 'border-factory-700 hover:border-factory-600'
+                          : 'border-factory-700 hover:border-factory-600',
                       )}
                     >
-                      <p className="font-medium text-factory-200">{lic.label}</p>
-                      <p className={clsx('text-xs', lic.commercial ? 'text-green-400' : 'text-amber-400')}>
-                        {lic.commercial ? 'Commercial use allowed' : 'Non-commercial only'}
+                      <p className="font-medium text-factory-200">
+                        {lic.label}
+                      </p>
+                      <p
+                        className={clsx(
+                          'text-xs',
+                          lic.commercial ? 'text-green-400' : 'text-amber-400',
+                        )}
+                      >
+                        {lic.commercial
+                          ? 'Commercial use allowed'
+                          : 'Non-commercial only'}
                       </p>
                     </button>
                   ))}
@@ -280,9 +342,24 @@ export default function UploadModelPage() {
                 </label>
                 <div className="grid grid-cols-3 gap-3">
                   {[
-                    { value: 'PUBLIC' as const, label: 'Public', icon: Globe, desc: 'Anyone can download' },
-                    { value: 'RESTRICTED' as const, label: 'Restricted', icon: Shield, desc: 'Approval required' },
-                    { value: 'PRIVATE' as const, label: 'Private', icon: Lock, desc: 'Only you' },
+                    {
+                      value: 'PUBLIC' as const,
+                      label: 'Public',
+                      icon: Globe,
+                      desc: 'Anyone can download',
+                    },
+                    {
+                      value: 'RESTRICTED' as const,
+                      label: 'Restricted',
+                      icon: Shield,
+                      desc: 'Approval required',
+                    },
+                    {
+                      value: 'PRIVATE' as const,
+                      label: 'Private',
+                      icon: Lock,
+                      desc: 'Only you',
+                    },
                   ].map((access) => (
                     <button
                       key={access.value}
@@ -291,11 +368,13 @@ export default function UploadModelPage() {
                         'p-3 rounded-lg border text-left transition-colors',
                         accessLevel === access.value
                           ? 'border-accent-500 bg-accent-500/10'
-                          : 'border-factory-700 hover:border-factory-600'
+                          : 'border-factory-700 hover:border-factory-600',
                       )}
                     >
                       <access.icon className="w-5 h-5 mb-2 text-factory-400" />
-                      <p className="font-medium text-factory-200">{access.label}</p>
+                      <p className="font-medium text-factory-200">
+                        {access.label}
+                      </p>
                       <p className="text-xs text-factory-500">{access.desc}</p>
                     </button>
                   ))}
@@ -306,10 +385,13 @@ export default function UploadModelPage() {
                 <div className="flex items-start gap-3">
                   <Info className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-sm text-factory-300 font-medium">On-chain Provenance</p>
+                    <p className="text-sm text-factory-300 font-medium">
+                      On-chain Provenance
+                    </p>
                     <p className="text-xs text-factory-500 mt-1">
-                      Your model metadata, license, and access controls will be recorded on-chain 
-                      for transparent provenance tracking. Model files are stored on IPFS.
+                      Your model metadata, license, and access controls will be
+                      recorded on-chain for transparent provenance tracking.
+                      Model files are stored on IPFS.
                     </p>
                   </div>
                 </div>
@@ -330,8 +412,10 @@ export default function UploadModelPage() {
         {/* Step 3: Upload & Training Provenance */}
         {step === 3 && (
           <div className="card p-6">
-            <h2 className="text-lg font-semibold text-factory-100 mb-6">Upload & Provenance</h2>
-            
+            <h2 className="text-lg font-semibold text-factory-100 mb-6">
+              Upload & Provenance
+            </h2>
+
             <div className="space-y-6">
               {/* File Upload */}
               <div>
@@ -353,7 +437,10 @@ export default function UploadModelPage() {
                     id="model-upload"
                     accept=".safetensors,.gguf,.onnx,.pt,.bin"
                   />
-                  <label htmlFor="model-upload" className="btn btn-secondary cursor-pointer">
+                  <label
+                    htmlFor="model-upload"
+                    className="btn btn-secondary cursor-pointer"
+                  >
                     Select Files
                   </label>
                   {modelFile && (
@@ -370,7 +457,7 @@ export default function UploadModelPage() {
                   <LinkIcon className="w-4 h-4" />
                   Training Provenance (Optional)
                 </h3>
-                
+
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm text-factory-400 mb-2">
@@ -384,7 +471,7 @@ export default function UploadModelPage() {
                       className="input"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm text-factory-400 mb-2">
                       Training Data URI (IPFS)
@@ -397,7 +484,7 @@ export default function UploadModelPage() {
                       className="input"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm text-factory-400 mb-2">
                       Psyche Training Job ID (if trained via Jeju)
@@ -415,11 +502,15 @@ export default function UploadModelPage() {
 
               {/* Summary */}
               <div className="p-4 bg-factory-800/50 rounded-lg">
-                <h4 className="text-sm font-medium text-factory-300 mb-3">Summary</h4>
+                <h4 className="text-sm font-medium text-factory-300 mb-3">
+                  Summary
+                </h4>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-factory-500">Model:</span>{' '}
-                    <span className="text-factory-200">{organization}/{name}</span>
+                    <span className="text-factory-200">
+                      {organization}/{name}
+                    </span>
                   </div>
                   <div>
                     <span className="text-factory-500">Type:</span>{' '}
@@ -441,7 +532,7 @@ export default function UploadModelPage() {
               <button onClick={() => setStep(2)} className="btn btn-secondary">
                 Back
               </button>
-              <button 
+              <button
                 onClick={handleSubmit}
                 disabled={isSubmitting || !modelFile}
                 className="btn btn-primary"
@@ -463,6 +554,5 @@ export default function UploadModelPage() {
         )}
       </div>
     </div>
-  );
+  )
 }
-

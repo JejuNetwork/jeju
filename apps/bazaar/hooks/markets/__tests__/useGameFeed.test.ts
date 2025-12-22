@@ -1,10 +1,14 @@
-import { describe, test, expect } from 'bun:test';
-import { useGameFeed, type GameFeedPost, type GameMarketUpdate } from '../useGameFeed';
+import { describe, expect, test } from 'bun:test'
+import {
+  type GameFeedPost,
+  type GameMarketUpdate,
+  useGameFeed,
+} from '../useGameFeed'
 
 describe('useGameFeed Hook', () => {
   test('should export useGameFeed function', () => {
-    expect(typeof useGameFeed).toBe('function');
-  });
+    expect(typeof useGameFeed).toBe('function')
+  })
 
   test('should export GameFeedPost interface type', () => {
     // Type-only import, verify it exists by using it in a type assertion
@@ -19,9 +23,9 @@ describe('useGameFeed Hook', () => {
       isSystemMessage: false,
       blockNumber: 0n,
       transactionHash: '',
-    };
-    expect(_testPost).toBeDefined();
-  });
+    }
+    expect(_testPost).toBeDefined()
+  })
 
   test('should export GameMarketUpdate interface type', () => {
     // Type-only import, verify it exists by using it in a type assertion
@@ -35,14 +39,14 @@ describe('useGameFeed Hook', () => {
       timestamp: '',
       blockNumber: 0n,
       transactionHash: '',
-    };
-    expect(_testUpdate).toBeDefined();
-  });
+    }
+    expect(_testUpdate).toBeDefined()
+  })
 
   test('should accept sessionId parameter', () => {
-    const testSessionId = '0x1234567890123456789012345678901234567890123456789012345678901234';
-    expect(testSessionId.length).toBe(66);
-    expect(typeof useGameFeed).toBe('function');
-  });
-});
-
+    const testSessionId =
+      '0x1234567890123456789012345678901234567890123456789012345678901234'
+    expect(testSessionId.length).toBe(66)
+    expect(typeof useGameFeed).toBe('function')
+  })
+})

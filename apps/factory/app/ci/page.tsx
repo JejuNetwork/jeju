@@ -3,109 +3,159 @@
  * Vercel-like build overview with real-time updates
  */
 
-'use client';
+'use client'
 
-import { useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
-import { clsx } from 'clsx';
+import { clsx } from 'clsx'
+import { formatDistanceToNow } from 'date-fns'
 import {
   CheckCircle,
-  XCircle,
+  ChevronRight,
   Clock,
-  Loader2,
   GitBranch,
   GitCommit,
-  ChevronRight,
+  Loader2,
   Package,
-  Zap,
   Search,
   Settings,
   StopCircle,
-} from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+  XCircle,
+  Zap,
+} from 'lucide-react'
+import Link from 'next/link'
+import { useCallback, useEffect, useState } from 'react'
 
-const DWS_API_URL = process.env.NEXT_PUBLIC_DWS_URL || 'http://localhost:4030';
+const DWS_API_URL = process.env.NEXT_PUBLIC_DWS_URL || 'http://localhost:4030'
 
 interface Build {
-  runId: string;
-  runNumber: number;
-  workflowId: string;
-  workflowName?: string;
-  repoId: string;
-  repoName?: string;
-  status: 'queued' | 'in_progress' | 'completed' | 'failed' | 'cancelled';
-  conclusion?: 'success' | 'failure' | 'cancelled' | 'skipped';
-  triggerType: string;
-  branch: string;
-  commitSha: string;
-  commitMessage?: string;
-  triggeredBy: string;
-  startedAt: number;
-  completedAt?: number;
-  duration?: number;
-  environment?: string;
-  jobCount: number;
-  successCount: number;
-  failedCount: number;
+  runId: string
+  runNumber: number
+  workflowId: string
+  workflowName?: string
+  repoId: string
+  repoName?: string
+  status: 'queued' | 'in_progress' | 'completed' | 'failed' | 'cancelled'
+  conclusion?: 'success' | 'failure' | 'cancelled' | 'skipped'
+  triggerType: string
+  branch: string
+  commitSha: string
+  commitMessage?: string
+  triggeredBy: string
+  startedAt: number
+  completedAt?: number
+  duration?: number
+  environment?: string
+  jobCount: number
+  successCount: number
+  failedCount: number
 }
 
 const statusConfig = {
-  queued: { icon: Clock, color: 'text-gray-400', bg: 'bg-gray-500/20', label: 'Queued', animate: false },
-  in_progress: { icon: Loader2, color: 'text-blue-400', bg: 'bg-blue-500/20', label: 'Building', animate: true },
-  completed: { icon: CheckCircle, color: 'text-green-400', bg: 'bg-green-500/20', label: 'Success', animate: false },
-  failed: { icon: XCircle, color: 'text-red-400', bg: 'bg-red-500/20', label: 'Failed', animate: false },
-  cancelled: { icon: StopCircle, color: 'text-yellow-400', bg: 'bg-yellow-500/20', label: 'Cancelled', animate: false },
-};
+  queued: {
+    icon: Clock,
+    color: 'text-gray-400',
+    bg: 'bg-gray-500/20',
+    label: 'Queued',
+    animate: false,
+  },
+  in_progress: {
+    icon: Loader2,
+    color: 'text-blue-400',
+    bg: 'bg-blue-500/20',
+    label: 'Building',
+    animate: true,
+  },
+  completed: {
+    icon: CheckCircle,
+    color: 'text-green-400',
+    bg: 'bg-green-500/20',
+    label: 'Success',
+    animate: false,
+  },
+  failed: {
+    icon: XCircle,
+    color: 'text-red-400',
+    bg: 'bg-red-500/20',
+    label: 'Failed',
+    animate: false,
+  },
+  cancelled: {
+    icon: StopCircle,
+    color: 'text-yellow-400',
+    bg: 'bg-yellow-500/20',
+    label: 'Cancelled',
+    animate: false,
+  },
+}
 
 export default function CIDashboard() {
-  const [builds, setBuilds] = useState<Build[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'running' | 'success' | 'failed'>('all');
-  const [search, setSearch] = useState('');
-  const [selectedRepo, setSelectedRepo] = useState<string | null>(null);
+  const [builds, setBuilds] = useState<Build[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [filter, setFilter] = useState<
+    'all' | 'running' | 'success' | 'failed'
+  >('all')
+  const [search, setSearch] = useState('')
+  const [selectedRepo, setSelectedRepo] = useState<string | null>(null)
 
   const fetchBuilds = useCallback(async () => {
-    const response = await fetch(`${DWS_API_URL}/ci/repos/0x0000000000000000000000000000000000000000000000000000000000000001/runs?limit=50`);
+    const response = await fetch(
+      `${DWS_API_URL}/ci/repos/0x0000000000000000000000000000000000000000000000000000000000000001/runs?limit=50`,
+    )
     if (response.ok) {
-      const data = await response.json();
-      setBuilds(data.runs || []);
+      const data = await response.json()
+      setBuilds(data.runs || [])
     }
-    setIsLoading(false);
-  }, []);
+    setIsLoading(false)
+  }, [])
 
   useEffect(() => {
-    fetchBuilds();
-    const interval = setInterval(fetchBuilds, 5000);
-    return () => clearInterval(interval);
-  }, [fetchBuilds]);
+    fetchBuilds()
+    const interval = setInterval(fetchBuilds, 5000)
+    return () => clearInterval(interval)
+  }, [fetchBuilds])
 
   const filteredBuilds = builds.filter((build) => {
-    if (filter === 'running' && build.status !== 'in_progress' && build.status !== 'queued') return false;
-    if (filter === 'success' && build.conclusion !== 'success') return false;
-    if (filter === 'failed' && build.conclusion !== 'failure') return false;
-    if (selectedRepo && build.repoName !== selectedRepo) return false;
-    if (search && !build.repoName?.toLowerCase().includes(search.toLowerCase()) && !build.commitMessage?.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
+    if (
+      filter === 'running' &&
+      build.status !== 'in_progress' &&
+      build.status !== 'queued'
+    )
+      return false
+    if (filter === 'success' && build.conclusion !== 'success') return false
+    if (filter === 'failed' && build.conclusion !== 'failure') return false
+    if (selectedRepo && build.repoName !== selectedRepo) return false
+    if (
+      search &&
+      !build.repoName?.toLowerCase().includes(search.toLowerCase()) &&
+      !build.commitMessage?.toLowerCase().includes(search.toLowerCase())
+    )
+      return false
+    return true
+  })
 
-  const repos = [...new Set(builds.map((b) => b.repoName).filter((r): r is string => !!r))];
-  const runningCount = builds.filter((b) => b.status === 'in_progress' || b.status === 'queued').length;
+  const repos = [
+    ...new Set(builds.map((b) => b.repoName).filter((r): r is string => !!r)),
+  ]
+  const runningCount = builds.filter(
+    (b) => b.status === 'in_progress' || b.status === 'queued',
+  ).length
 
   const formatDuration = (ms: number) => {
-    const seconds = Math.floor(ms / 1000);
-    if (seconds < 60) return `${seconds}s`;
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}m ${remainingSeconds}s`;
-  };
+    const seconds = Math.floor(ms / 1000)
+    if (seconds < 60) return `${seconds}s`
+    const minutes = Math.floor(seconds / 60)
+    const remainingSeconds = seconds % 60
+    return `${minutes}m ${remainingSeconds}s`
+  }
 
   const getStatus = (build: Build) => {
     if (build.status === 'completed') {
-      return build.conclusion === 'success' ? statusConfig.completed : statusConfig.failed;
+      return build.conclusion === 'success'
+        ? statusConfig.completed
+        : statusConfig.failed
     }
-    const status = statusConfig[build.status as keyof typeof statusConfig];
-    return status || statusConfig.queued;
-  };
+    const status = statusConfig[build.status as keyof typeof statusConfig]
+    return status || statusConfig.queued
+  }
 
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
@@ -125,7 +175,10 @@ export default function CIDashboard() {
               )}
             </div>
             <div className="flex items-center gap-3">
-              <Link href="/ci/settings" className="p-2 hover:bg-neutral-800 rounded-lg transition-colors">
+              <Link
+                href="/ci/settings"
+                className="p-2 hover:bg-neutral-800 rounded-lg transition-colors"
+              >
                 <Settings className="w-5 h-5 text-neutral-400" />
               </Link>
             </div>
@@ -152,7 +205,9 @@ export default function CIDashboard() {
                 onClick={() => setFilter('all')}
                 className={clsx(
                   'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors',
-                  filter === 'all' ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+                  filter === 'all'
+                    ? 'bg-neutral-800 text-white'
+                    : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50',
                 )}
               >
                 <span>All Builds</span>
@@ -162,7 +217,9 @@ export default function CIDashboard() {
                 onClick={() => setFilter('running')}
                 className={clsx(
                   'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors',
-                  filter === 'running' ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+                  filter === 'running'
+                    ? 'bg-neutral-800 text-white'
+                    : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50',
                 )}
               >
                 <span className="flex items-center gap-2">
@@ -175,38 +232,50 @@ export default function CIDashboard() {
                 onClick={() => setFilter('success')}
                 className={clsx(
                   'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors',
-                  filter === 'success' ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+                  filter === 'success'
+                    ? 'bg-neutral-800 text-white'
+                    : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50',
                 )}
               >
                 <span className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-green-400" />
                   Success
                 </span>
-                <span className="text-neutral-500">{builds.filter((b) => b.conclusion === 'success').length}</span>
+                <span className="text-neutral-500">
+                  {builds.filter((b) => b.conclusion === 'success').length}
+                </span>
               </button>
               <button
                 onClick={() => setFilter('failed')}
                 className={clsx(
                   'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors',
-                  filter === 'failed' ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+                  filter === 'failed'
+                    ? 'bg-neutral-800 text-white'
+                    : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50',
                 )}
               >
                 <span className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-red-400" />
                   Failed
                 </span>
-                <span className="text-neutral-500">{builds.filter((b) => b.conclusion === 'failure').length}</span>
+                <span className="text-neutral-500">
+                  {builds.filter((b) => b.conclusion === 'failure').length}
+                </span>
               </button>
             </div>
 
             <div className="pt-4 border-t border-neutral-800">
-              <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-2">Repositories</h3>
+              <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-2">
+                Repositories
+              </h3>
               <div className="space-y-1">
                 <button
                   onClick={() => setSelectedRepo(null)}
                   className={clsx(
                     'w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors',
-                    !selectedRepo ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+                    !selectedRepo
+                      ? 'bg-neutral-800 text-white'
+                      : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50',
                   )}
                 >
                   <Package className="w-4 h-4" />
@@ -218,7 +287,9 @@ export default function CIDashboard() {
                     onClick={() => setSelectedRepo(repo)}
                     className={clsx(
                       'w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors truncate',
-                      selectedRepo === repo ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+                      selectedRepo === repo
+                        ? 'bg-neutral-800 text-white'
+                        : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50',
                     )}
                   >
                     <Package className="w-4 h-4 flex-shrink-0" />
@@ -242,8 +313,8 @@ export default function CIDashboard() {
               </div>
             ) : (
               filteredBuilds.map((build) => {
-                const status = getStatus(build);
-                const StatusIcon = status.icon;
+                const status = getStatus(build)
+                const StatusIcon = status.icon
 
                 return (
                   <Link
@@ -253,7 +324,13 @@ export default function CIDashboard() {
                   >
                     <div className="flex items-start gap-4">
                       <div className={clsx('p-2 rounded-lg', status.bg)}>
-                        <StatusIcon className={clsx('w-5 h-5', status.color, status.animate && 'animate-spin')} />
+                        <StatusIcon
+                          className={clsx(
+                            'w-5 h-5',
+                            status.color,
+                            status.animate && 'animate-spin',
+                          )}
+                        />
                       </div>
 
                       <div className="flex-1 min-w-0">
@@ -261,7 +338,9 @@ export default function CIDashboard() {
                           <span className="font-medium text-white group-hover:text-amber-400 transition-colors">
                             {build.workflowName}
                           </span>
-                          <span className="text-neutral-500">#{build.runNumber}</span>
+                          <span className="text-neutral-500">
+                            #{build.runNumber}
+                          </span>
                           {build.environment && (
                             <span className="px-2 py-0.5 text-xs bg-purple-500/20 text-purple-400 rounded">
                               {build.environment}
@@ -285,23 +364,32 @@ export default function CIDashboard() {
                         </div>
 
                         {build.commitMessage && (
-                          <p className="text-sm text-neutral-500 truncate">{build.commitMessage}</p>
+                          <p className="text-sm text-neutral-500 truncate">
+                            {build.commitMessage}
+                          </p>
                         )}
                       </div>
 
                       <div className="text-right text-sm">
                         <div className="text-neutral-400">
-                          {build.status === 'in_progress' || build.status === 'queued' ? (
+                          {build.status === 'in_progress' ||
+                          build.status === 'queued' ? (
                             <span className="flex items-center gap-1">
                               <Clock className="w-3.5 h-3.5" />
-                              {formatDistanceToNow(build.startedAt, { addSuffix: false })}
+                              {formatDistanceToNow(build.startedAt, {
+                                addSuffix: false,
+                              })}
                             </span>
                           ) : (
-                            formatDistanceToNow(build.startedAt, { addSuffix: true })
+                            formatDistanceToNow(build.startedAt, {
+                              addSuffix: true,
+                            })
                           )}
                         </div>
                         {build.duration && (
-                          <div className="text-neutral-500 mt-1">{formatDuration(build.duration)}</div>
+                          <div className="text-neutral-500 mt-1">
+                            {formatDuration(build.duration)}
+                          </div>
                         )}
                         <div className="mt-2 flex items-center justify-end gap-1">
                           {build.successCount > 0 && (
@@ -320,12 +408,12 @@ export default function CIDashboard() {
                       <ChevronRight className="w-5 h-5 text-neutral-600 group-hover:text-neutral-400 transition-colors flex-shrink-0" />
                     </div>
                   </Link>
-                );
+                )
               })
             )}
           </div>
         </div>
       </div>
     </div>
-  );
+  )
 }

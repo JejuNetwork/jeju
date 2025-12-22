@@ -2,21 +2,21 @@
  * Oracle service - Real contract integration
  */
 
-import { z } from 'zod';
-import { type Address, keccak256, toBytes } from 'viem';
-import { type NodeClient, getChain } from '../contracts';
-import { ORACLE_STAKING_MANAGER_ABI } from '../abis';
+import { type Address, keccak256, toBytes } from 'viem'
+import { z } from 'zod'
+import { ORACLE_STAKING_MANAGER_ABI } from '../abis'
+import { getChain, type NodeClient } from '../contracts'
 
 const OracleServiceConfigSchema = z.object({
   agentId: z.bigint(),
   stakeAmount: z.bigint(),
   markets: z.array(z.string().min(1)).min(1),
-});
+})
 
 export interface OracleServiceConfig {
-  agentId: bigint;
-  stakeAmount: bigint;
-  markets: string[]; // Market identifiers to provide prices for
+  agentId: bigint
+  stakeAmount: bigint
+  markets: string[] // Market identifiers to provide prices for
 }
 
 const OracleServiceStateSchema = z.object({
@@ -25,59 +25,61 @@ const OracleServiceStateSchema = z.object({
   reputation: z.bigint(),
   accuracy: z.bigint(),
   submissionsCount: z.bigint(),
-});
+})
 
 export interface OracleServiceState {
-  isRegistered: boolean;
-  stake: bigint;
-  reputation: bigint;
-  accuracy: bigint;
-  submissionsCount: bigint;
+  isRegistered: boolean
+  stake: bigint
+  reputation: bigint
+  accuracy: bigint
+  submissionsCount: bigint
 }
 
 const PriceSubmissionSchema = z.object({
   market: z.string().min(1),
   price: z.bigint(),
   timestamp: z.number().int().positive(),
-});
+})
 
 export interface PriceSubmission {
-  market: string;
-  price: bigint;
-  timestamp: number;
+  market: string
+  price: bigint
+  timestamp: number
 }
 
-export function validateOracleServiceConfig(data: unknown): OracleServiceConfig {
-  return OracleServiceConfigSchema.parse(data);
+export function validateOracleServiceConfig(
+  data: unknown,
+): OracleServiceConfig {
+  return OracleServiceConfigSchema.parse(data)
 }
 
 export function validateOracleServiceState(data: unknown): OracleServiceState {
-  return OracleServiceStateSchema.parse(data);
+  return OracleServiceStateSchema.parse(data)
 }
 
 export function validatePriceSubmission(data: unknown): PriceSubmission {
-  return PriceSubmissionSchema.parse(data);
+  return PriceSubmissionSchema.parse(data)
 }
 
 export class OracleService {
-  private client: NodeClient;
-  private submissionHistory: PriceSubmission[] = [];
+  private client: NodeClient
+  private submissionHistory: PriceSubmission[] = []
 
   constructor(client: NodeClient) {
-    this.client = client;
+    this.client = client
   }
 
   async getState(address: Address): Promise<OracleServiceState> {
     if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
-      throw new Error(`Invalid address: ${address}`);
+      throw new Error(`Invalid address: ${address}`)
     }
-    
+
     const info = await this.client.publicClient.readContract({
       address: this.client.addresses.oracleStakingManager,
       abi: ORACLE_STAKING_MANAGER_ABI,
       functionName: 'getOracleInfo',
       args: [address],
-    });
+    })
 
     const rawState = {
       isRegistered: info[0] > 0n,
@@ -85,16 +87,16 @@ export class OracleService {
       reputation: info[1],
       accuracy: info[2],
       submissionsCount: info[3],
-    };
-    
-    return validateOracleServiceState(rawState);
+    }
+
+    return validateOracleServiceState(rawState)
   }
 
   async register(config: OracleServiceConfig): Promise<string> {
-    const validatedConfig = validateOracleServiceConfig(config);
-    
+    const validatedConfig = validateOracleServiceConfig(config)
+
     if (!this.client.walletClient?.account) {
-      throw new Error('Wallet not connected');
+      throw new Error('Wallet not connected')
     }
 
     const hash = await this.client.walletClient.writeContract({
@@ -105,17 +107,17 @@ export class OracleService {
       functionName: 'registerOracle',
       args: [validatedConfig.agentId],
       value: validatedConfig.stakeAmount,
-    });
+    })
 
-    return hash;
+    return hash
   }
 
   async submitPrice(market: string, price: bigint): Promise<string> {
     if (!this.client.walletClient?.account) {
-      throw new Error('Wallet not connected');
+      throw new Error('Wallet not connected')
     }
 
-    const marketHash = keccak256(toBytes(market));
+    const marketHash = keccak256(toBytes(market))
 
     const hash = await this.client.walletClient.writeContract({
       chain: getChain(this.client.chainId),
@@ -124,23 +126,22 @@ export class OracleService {
       abi: ORACLE_STAKING_MANAGER_ABI,
       functionName: 'submitPrice',
       args: [marketHash, price],
-    });
+    })
 
     this.submissionHistory.push({
       market,
       price,
       timestamp: Date.now(),
-    });
+    })
 
-    return hash;
+    return hash
   }
 
   getSubmissionHistory(): PriceSubmission[] {
-    return [...this.submissionHistory];
+    return [...this.submissionHistory]
   }
 }
 
 export function createOracleService(client: NodeClient): OracleService {
-  return new OracleService(client);
+  return new OracleService(client)
 }
-

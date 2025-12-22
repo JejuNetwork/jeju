@@ -1,64 +1,80 @@
 /**
  * Mock Tauri API for web development without Rust backend
- * 
+ *
  * Uses shared types from schemas for consistency
  */
 
-import { z } from 'zod';
-import type {
-  VPNNode,
-  VPNConnection,
-  VPNStatus,
-} from './schemas';
+import { z } from 'zod'
+import type { VPNConnection, VPNNode, VPNStatus } from './schemas'
 
 // Input validation schemas for mock handlers
-const GetNodesInputSchema = z.object({
-  countryCode: z.string().length(2).nullable().optional(),
-}).strict();
+const GetNodesInputSchema = z
+  .object({
+    countryCode: z.string().length(2).nullable().optional(),
+  })
+  .strict()
 
-const SelectNodeInputSchema = z.object({
-  nodeId: z.string().min(1, 'Node ID required'),
-}).strict();
+const SelectNodeInputSchema = z
+  .object({
+    nodeId: z.string().min(1, 'Node ID required'),
+  })
+  .strict()
 
-const ConnectInputSchema = z.object({
-  nodeId: z.string().min(1).nullable().optional(),
-}).strict();
+const ConnectInputSchema = z
+  .object({
+    nodeId: z.string().min(1).nullable().optional(),
+  })
+  .strict()
 
-const SetContributionSettingsInputSchema = z.object({
-  settings: z.object({
-    enabled: z.boolean().optional(),
-    earning_mode: z.boolean().optional(),
-    max_bandwidth_percent: z.number().min(0).max(100).optional(),
-    share_cdn: z.boolean().optional(),
-    share_vpn_relay: z.boolean().optional(),
-    schedule_enabled: z.boolean().optional(),
-    schedule_start: z.string().optional(),
-    schedule_end: z.string().optional(),
-    earning_bandwidth_percent: z.number().min(0).max(100).optional(),
-  }).strict(),
-}).strict();
+const SetContributionSettingsInputSchema = z
+  .object({
+    settings: z
+      .object({
+        enabled: z.boolean().optional(),
+        earning_mode: z.boolean().optional(),
+        max_bandwidth_percent: z.number().min(0).max(100).optional(),
+        share_cdn: z.boolean().optional(),
+        share_vpn_relay: z.boolean().optional(),
+        schedule_enabled: z.boolean().optional(),
+        schedule_start: z.string().optional(),
+        schedule_end: z.string().optional(),
+        earning_bandwidth_percent: z.number().min(0).max(100).optional(),
+      })
+      .strict(),
+  })
+  .strict()
 
-const UpdateSettingsInputSchema = z.object({
-  key: z.string().min(1, 'Setting key required'),
-  value: z.boolean(),
-}).strict();
+const UpdateSettingsInputSchema = z
+  .object({
+    key: z.string().min(1, 'Setting key required'),
+    value: z.boolean(),
+  })
+  .strict()
 
-const SetAdaptiveModeInputSchema = z.object({
-  enabled: z.boolean(),
-}).strict();
+const SetAdaptiveModeInputSchema = z
+  .object({
+    enabled: z.boolean(),
+  })
+  .strict()
 
-const SetDwsEnabledInputSchema = z.object({
-  enabled: z.boolean(),
-}).strict();
+const SetDwsEnabledInputSchema = z
+  .object({
+    enabled: z.boolean(),
+  })
+  .strict()
 
-const LoginInputSchema = z.object({
-  address: z.string().min(1, 'Address required'),
-  signature: z.string().min(1, 'Signature required'),
-}).strict();
+const LoginInputSchema = z
+  .object({
+    address: z.string().min(1, 'Address required'),
+    signature: z.string().min(1, 'Signature required'),
+  })
+  .strict()
 
-const SetAutostartInputSchema = z.object({
-  enabled: z.boolean(),
-}).strict();
+const SetAutostartInputSchema = z
+  .object({
+    enabled: z.boolean(),
+  })
+  .strict()
 
 // Mock state
 const mockState = {
@@ -74,7 +90,7 @@ const mockState = {
   adaptiveMode: true,
   dwsEnabled: true,
   autoStart: false,
-};
+}
 
 // Mock nodes
 const mockNodes: VPNNode[] = [
@@ -150,76 +166,80 @@ const mockNodes: VPNNode[] = [
       is_vpn_exit: true,
     },
   },
-];
+]
 
 // Simulate traffic when connected
-let trafficInterval: ReturnType<typeof setInterval> | null = null;
+let trafficInterval: ReturnType<typeof setInterval> | null = null
 
 function startTrafficSimulation() {
-  if (trafficInterval) return;
+  if (trafficInterval) return
   trafficInterval = setInterval(() => {
     if (mockState.vpnStatus === 'Connected') {
-      mockState.bytesUp += Math.floor(Math.random() * 50000) + 10000;
-      mockState.bytesDown += Math.floor(Math.random() * 200000) + 50000;
+      mockState.bytesUp += Math.floor(Math.random() * 50000) + 10000
+      mockState.bytesDown += Math.floor(Math.random() * 200000) + 50000
     }
-  }, 1000);
+  }, 1000)
 }
 
 function stopTrafficSimulation() {
   if (trafficInterval) {
-    clearInterval(trafficInterval);
-    trafficInterval = null;
+    clearInterval(trafficInterval)
+    trafficInterval = null
   }
 }
 
 // Mock command handlers with Zod validation
-const handlers: Record<string, (args: Record<string, unknown>) => Promise<unknown>> = {
+const handlers: Record<
+  string,
+  (args: Record<string, unknown>) => Promise<unknown>
+> = {
   get_status: async (): Promise<VPNStatus> => {
     return {
       status: mockState.vpnStatus,
       connection: mockState.connection,
-    };
+    }
   },
 
   get_nodes: async (args: Record<string, unknown>): Promise<VPNNode[]> => {
-    const validated = GetNodesInputSchema.parse(args);
+    const validated = GetNodesInputSchema.parse(args)
     if (validated.countryCode) {
-      return mockNodes.filter(n => n.country_code === validated.countryCode);
+      return mockNodes.filter((n) => n.country_code === validated.countryCode)
     }
-    return mockNodes;
+    return mockNodes
   },
 
   select_node: async (args: Record<string, unknown>): Promise<null> => {
-    const validated = SelectNodeInputSchema.parse(args);
-    mockState.selectedNodeId = validated.nodeId;
-    return null;
+    const validated = SelectNodeInputSchema.parse(args)
+    mockState.selectedNodeId = validated.nodeId
+    return null
   },
 
   connect: async (args: Record<string, unknown>): Promise<VPNConnection> => {
-    const validated = ConnectInputSchema.parse(args);
-    mockState.vpnStatus = 'Connecting';
-    
-    await new Promise(r => setTimeout(r, 1500));
-    
-    const requestedNodeId = validated.nodeId ?? null;
-    const targetNodeId = requestedNodeId ?? mockState.selectedNodeId ?? mockNodes[0]?.node_id;
-    
+    const validated = ConnectInputSchema.parse(args)
+    mockState.vpnStatus = 'Connecting'
+
+    await new Promise((r) => setTimeout(r, 1500))
+
+    const requestedNodeId = validated.nodeId ?? null
+    const targetNodeId =
+      requestedNodeId ?? mockState.selectedNodeId ?? mockNodes[0]?.node_id
+
     if (!targetNodeId) {
-      throw new Error('No nodes available');
+      throw new Error('No nodes available')
     }
-    
-    const node = mockNodes.find(n => n.node_id === targetNodeId);
+
+    const node = mockNodes.find((n) => n.node_id === targetNodeId)
     if (!node) {
       if (requestedNodeId) {
-        throw new Error(`Node not found: ${requestedNodeId}`);
+        throw new Error(`Node not found: ${requestedNodeId}`)
       }
-      throw new Error('No nodes available');
+      throw new Error('No nodes available')
     }
-    
-    mockState.vpnStatus = 'Connected';
-    mockState.connectedAt = Date.now();
-    mockState.bytesUp = 0;
-    mockState.bytesDown = 0;
+
+    mockState.vpnStatus = 'Connected'
+    mockState.connectedAt = Date.now()
+    mockState.bytesUp = 0
+    mockState.bytesDown = 0
     mockState.connection = {
       connection_id: crypto.randomUUID(),
       status: 'Connected',
@@ -230,37 +250,38 @@ const handlers: Record<string, (args: Record<string, unknown>) => Promise<unknow
       bytes_up: 0,
       bytes_down: 0,
       latency_ms: node.latency_ms,
-    };
-    
-    startTrafficSimulation();
-    return mockState.connection;
+    }
+
+    startTrafficSimulation()
+    return mockState.connection
   },
 
   disconnect: async (): Promise<null> => {
-    mockState.vpnStatus = 'Disconnected';
-    mockState.connection = null;
-    mockState.connectedAt = null;
-    stopTrafficSimulation();
-    return null;
+    mockState.vpnStatus = 'Disconnected'
+    mockState.connection = null
+    mockState.connectedAt = null
+    stopTrafficSimulation()
+    return null
   },
 
   get_connection_stats: async () => {
-    if (!mockState.connection) return null;
-    
+    if (!mockState.connection) return null
+
     return {
       bytes_up: mockState.bytesUp,
       bytes_down: mockState.bytesDown,
       packets_up: Math.floor(mockState.bytesUp / 1500),
       packets_down: Math.floor(mockState.bytesDown / 1500),
-      connected_seconds: mockState.connectedAt 
+      connected_seconds: mockState.connectedAt
         ? Math.floor((Date.now() - mockState.connectedAt) / 1000)
         : 0,
-      latency_ms: mockState.connection.latency_ms + Math.floor(Math.random() * 10) - 5,
-    };
+      latency_ms:
+        mockState.connection.latency_ms + Math.floor(Math.random() * 10) - 5,
+    }
   },
 
   get_contribution_status: async () => {
-    const now = Date.now();
+    const now = Date.now()
     return {
       vpn_bytes_used: 1024 * 1024 * 1024 * 5,
       bytes_contributed: 1024 * 1024 * 1024 * 10,
@@ -272,7 +293,7 @@ const handlers: Record<string, (args: Record<string, unknown>) => Promise<unknow
       relay_bytes_served: 1024 * 1024 * 1024 * 2,
       period_start: now - 7 * 24 * 60 * 60 * 1000,
       period_end: now + 23 * 24 * 60 * 60 * 1000,
-    };
+    }
   },
 
   get_contribution_settings: async () => {
@@ -286,19 +307,21 @@ const handlers: Record<string, (args: Record<string, unknown>) => Promise<unknow
       schedule_enabled: false,
       schedule_start: '00:00',
       schedule_end: '23:59',
-    };
+    }
   },
 
-  set_contribution_settings: async (args: Record<string, unknown>): Promise<null> => {
-    const validated = SetContributionSettingsInputSchema.parse(args);
-    
+  set_contribution_settings: async (
+    args: Record<string, unknown>,
+  ): Promise<null> => {
+    const validated = SetContributionSettingsInputSchema.parse(args)
+
     if (validated.settings.enabled !== undefined) {
-      mockState.contributionEnabled = validated.settings.enabled;
+      mockState.contributionEnabled = validated.settings.enabled
     }
     if (validated.settings.earning_mode !== undefined) {
-      mockState.earningMode = validated.settings.earning_mode;
+      mockState.earningMode = validated.settings.earning_mode
     }
-    return null;
+    return null
   },
 
   get_contribution_stats: async () => {
@@ -311,16 +334,16 @@ const handlers: Record<string, (args: Record<string, unknown>) => Promise<unknow
       users_helped: 1234,
       cdn_requests_served: 45123,
       uptime_seconds: 168 * 60 * 60,
-    };
+    }
   },
 
   get_settings: async () => {
-    return {};
+    return {}
   },
 
   update_settings: async (args: Record<string, unknown>): Promise<null> => {
-    UpdateSettingsInputSchema.parse(args);
-    return null;
+    UpdateSettingsInputSchema.parse(args)
+    return null
   },
 
   get_bandwidth_state: async () => {
@@ -333,13 +356,13 @@ const handlers: Record<string, (args: Record<string, unknown>) => Promise<unknow
       is_user_idle: !mockState.adaptiveMode,
       idle_seconds: mockState.adaptiveMode ? 300 : 0,
       adaptive_enabled: mockState.adaptiveMode,
-    };
+    }
   },
 
   set_adaptive_mode: async (args: Record<string, unknown>): Promise<null> => {
-    const validated = SetAdaptiveModeInputSchema.parse(args);
-    mockState.adaptiveMode = validated.enabled;
-    return null;
+    const validated = SetAdaptiveModeInputSchema.parse(args)
+    mockState.adaptiveMode = validated.enabled
+    return null
   },
 
   get_dws_state: async () => {
@@ -350,66 +373,71 @@ const handlers: Record<string, (args: Record<string, unknown>) => Promise<unknow
       requests_served: 45123,
       cached_cids: 1523,
       earnings_wei: Number(BigInt('12345678900000000000')),
-    };
+    }
   },
 
   set_dws_enabled: async (args: Record<string, unknown>): Promise<null> => {
-    const validated = SetDwsEnabledInputSchema.parse(args);
-    mockState.dwsEnabled = validated.enabled;
-    return null;
+    const validated = SetDwsEnabledInputSchema.parse(args)
+    mockState.dwsEnabled = validated.enabled
+    return null
   },
 
   login_with_wallet: async (args: Record<string, unknown>) => {
-    const validated = LoginInputSchema.parse(args);
+    const validated = LoginInputSchema.parse(args)
     return {
       address: validated.address,
       session_id: crypto.randomUUID(),
       expires_at: Date.now() + 86400000,
-    };
+    }
   },
 
   logout: async (): Promise<null> => {
-    return null;
+    return null
   },
 
   get_session: async (): Promise<null> => {
-    return null;
+    return null
   },
 
   get_autostart_enabled: async (): Promise<boolean> => {
-    return mockState.autoStart;
+    return mockState.autoStart
   },
 
-  set_autostart_enabled: async (args: Record<string, unknown>): Promise<null> => {
-    const validated = SetAutostartInputSchema.parse(args);
-    mockState.autoStart = validated.enabled;
-    return null;
+  set_autostart_enabled: async (
+    args: Record<string, unknown>,
+  ): Promise<null> => {
+    const validated = SetAutostartInputSchema.parse(args)
+    mockState.autoStart = validated.enabled
+    return null
   },
 
   toggle_autostart: async (): Promise<boolean> => {
-    mockState.autoStart = !mockState.autoStart;
-    return mockState.autoStart;
+    mockState.autoStart = !mockState.autoStart
+    return mockState.autoStart
   },
-};
+}
 
 /**
  * Mock invoke function for web development
  */
-export async function mockInvoke<T>(cmd: string, args: Record<string, unknown> = {}): Promise<T> {
-  const handler = handlers[cmd];
+export async function mockInvoke<T>(
+  cmd: string,
+  args: Record<string, unknown> = {},
+): Promise<T> {
+  const handler = handlers[cmd]
   if (!handler) {
-    throw new Error(`Unknown command: ${cmd}`);
+    throw new Error(`Unknown command: ${cmd}`)
   }
-  
+
   // Simulate network delay
-  await new Promise(r => setTimeout(r, 50 + Math.random() * 100));
-  
-  return handler(args) as Promise<T>;
+  await new Promise((r) => setTimeout(r, 50 + Math.random() * 100))
+
+  return handler(args) as Promise<T>
 }
 
 /**
  * Check if running in Tauri
  */
 export function isTauri(): boolean {
-  return typeof window !== 'undefined' && '__TAURI__' in window;
+  return typeof window !== 'undefined' && '__TAURI__' in window
 }

@@ -3,20 +3,26 @@
  * Provides JEJU tokens for local development and testing
  */
 
-import { z } from 'zod'
+import { AddressSchema } from '@jejunetwork/types'
 import {
+  type Address,
   createPublicClient,
   createWalletClient,
-  http,
-  type Address,
-  parseEther,
-  formatEther,
   erc20Abi,
+  formatEther,
+  http,
+  parseEther,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { AddressSchema } from '@jejunetwork/types'
+import { z } from 'zod'
+import {
+  CHAIN_ID,
+  CONTRACTS,
+  EXPLORER_URL,
+  NETWORK_NAME,
+  RPC_URL,
+} from '@/config'
 import { expectAddress } from '@/lib/validation'
-import { CHAIN_ID, RPC_URL, CONTRACTS, NETWORK_NAME, NETWORK, EXPLORER_URL } from '@/config'
 
 // =============================================================================
 // Configuration
@@ -81,6 +87,28 @@ export type FaucetClaimResult = z.infer<typeof FaucetClaimResultSchema>
 export type FaucetInfo = z.infer<typeof FaucetInfoSchema>
 
 // =============================================================================
+// Typed JSON Parsing Utilities
+// =============================================================================
+
+type ParseResult<T> =
+  | { success: true; data: T }
+  | { success: false; error: z.ZodError }
+
+/**
+ * Parse JSON response with Zod schema validation.
+ * Encapsulates unknown handling for external API responses.
+ */
+export async function parseJsonResponse<T>(
+  response: Response,
+  schema: z.ZodSchema<T>,
+): Promise<ParseResult<T>> {
+  const result = schema.safeParse(await response.json())
+  return result.success
+    ? { success: true, data: result.data }
+    : { success: false, error: result.error }
+}
+
+// =============================================================================
 // State Management (In-memory for local development)
 // =============================================================================
 
@@ -90,7 +118,7 @@ interface FaucetClaim {
 }
 
 // Maximum entries to prevent unbounded growth
-const MAX_CLAIM_ENTRIES = 100000;
+const MAX_CLAIM_ENTRIES = 100000
 
 const claimState = new Map<string, FaucetClaim>()
 // Track in-flight claims to prevent race conditions
@@ -109,7 +137,7 @@ export const faucetState = {
   startClaim(address: string): boolean {
     const addr = address.toLowerCase()
     if (inFlightClaims.has(addr)) {
-      return false; // Claim already in progress
+      return false // Claim already in progress
     }
     inFlightClaims.add(addr)
     return true
@@ -118,14 +146,14 @@ export const faucetState = {
   finishClaim(address: string, success: boolean): void {
     const addr = address.toLowerCase()
     inFlightClaims.delete(addr)
-    
+
     if (success) {
       // Evict oldest entry if at capacity
       if (claimState.size >= MAX_CLAIM_ENTRIES) {
-        const firstKey = claimState.keys().next().value;
+        const firstKey = claimState.keys().next().value
         if (firstKey) claimState.delete(firstKey)
       }
-      
+
       const existing = claimState.get(addr)
       claimState.set(addr, {
         lastClaim: Date.now(),
@@ -138,7 +166,7 @@ export const faucetState = {
     const addr = address.toLowerCase()
     // Evict oldest entry if at capacity
     if (claimState.size >= MAX_CLAIM_ENTRIES) {
-      const firstKey = claimState.keys().next().value;
+      const firstKey = claimState.keys().next().value
       if (firstKey) claimState.delete(firstKey)
     }
     const existing = claimState.get(addr)
@@ -195,7 +223,10 @@ const IDENTITY_REGISTRY_ABI = [
 
 async function isRegisteredAgent(address: Address): Promise<boolean> {
   // Skip registry check in test mode or if explicitly skipped
-  if (process.env.NODE_ENV === 'test' || process.env.FAUCET_SKIP_REGISTRY === 'true') {
+  if (
+    process.env.NODE_ENV === 'test' ||
+    process.env.FAUCET_SKIP_REGISTRY === 'true'
+  ) {
     return true
   }
 
@@ -239,7 +270,9 @@ async function getFaucetBalance(): Promise<bigint> {
     return 0n
   }
 
-  const account = privateKeyToAccount(FAUCET_CONFIG.faucetPrivateKey as `0x${string}`)
+  const account = privateKeyToAccount(
+    FAUCET_CONFIG.faucetPrivateKey as `0x${string}`,
+  )
 
   return publicClient.readContract({
     address: FAUCET_CONFIG.jejuTokenAddress,
@@ -258,7 +291,8 @@ async function getFaucetBalance(): Promise<bigint> {
  */
 export function isFaucetConfigured(): boolean {
   return Boolean(
-    FAUCET_CONFIG.faucetPrivateKey && FAUCET_CONFIG.jejuTokenAddress !== ZERO_ADDRESS
+    FAUCET_CONFIG.faucetPrivateKey &&
+      FAUCET_CONFIG.jejuTokenAddress !== ZERO_ADDRESS,
   )
 }
 
@@ -295,7 +329,9 @@ export async function getFaucetStatus(address: Address): Promise<FaucetStatus> {
 /**
  * Claim tokens from the faucet
  */
-export async function claimFromFaucet(address: Address): Promise<FaucetClaimResult> {
+export async function claimFromFaucet(
+  address: Address,
+): Promise<FaucetClaimResult> {
   const validated = expectAddress(address, 'claimFromFaucet address')
 
   // Check faucet is configured
@@ -311,13 +347,17 @@ export async function claimFromFaucet(address: Address): Promise<FaucetClaimResu
   // Check registration
   const isRegistered = await isRegisteredAgent(validated)
   if (!isRegistered) {
-    throw new Error('Address must be registered in the ERC-8004 Identity Registry')
+    throw new Error(
+      'Address must be registered in the ERC-8004 Identity Registry',
+    )
   }
 
   // Check cooldown
   const cooldownRemaining = getCooldownRemaining(validated)
   if (cooldownRemaining > 0) {
-    throw new Error(`Faucet cooldown active: ${Math.ceil(cooldownRemaining / 3600000)}h remaining`)
+    throw new Error(
+      `Faucet cooldown active: ${Math.ceil(cooldownRemaining / 3600000)}h remaining`,
+    )
   }
 
   // Check balance
@@ -367,7 +407,8 @@ export async function claimFromFaucet(address: Address): Promise<FaucetClaimResu
 export function getFaucetInfo(): FaucetInfo {
   return {
     name: `${NETWORK_NAME} Faucet`,
-    description: 'Get JEJU tokens for testing. Requires ERC-8004 registry registration.',
+    description:
+      'Get JEJU tokens for testing. Requires ERC-8004 registry registration.',
     tokenSymbol: 'JEJU',
     amountPerClaim: formatEther(FAUCET_CONFIG.amountPerClaim),
     cooldownHours: FAUCET_CONFIG.cooldownMs / (60 * 60 * 1000),

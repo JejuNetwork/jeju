@@ -1,25 +1,37 @@
-import { useState, type ComponentType } from 'react';
-import { Users, Shield, Activity, TrendingUp, Clock, AlertCircle, CheckCircle, type LucideProps } from 'lucide-react';
-import { useAccount } from 'wagmi';
-import { useOperatorCommittees, useFeedRegistry } from '../../hooks/useOracleNetwork';
+import {
+  Activity,
+  AlertCircle,
+  CheckCircle,
+  Clock,
+  type LucideProps,
+  Shield,
+  TrendingUp,
+  Users,
+} from 'lucide-react'
+import { type ComponentType, useState } from 'react'
+import { useAccount } from 'wagmi'
+import {
+  useFeedRegistry,
+  useOperatorCommittees,
+} from '../../hooks/useOracleNetwork'
 
-const UsersIcon = Users as ComponentType<LucideProps>;
-const ShieldIcon = Shield as ComponentType<LucideProps>;
-const ActivityIcon = Activity as ComponentType<LucideProps>;
-const TrendingUpIcon = TrendingUp as ComponentType<LucideProps>;
-const ClockIcon = Clock as ComponentType<LucideProps>;
-const AlertCircleIcon = AlertCircle as ComponentType<LucideProps>;
-const CheckCircleIcon = CheckCircle as ComponentType<LucideProps>;
+const UsersIcon = Users as ComponentType<LucideProps>
+const ShieldIcon = Shield as ComponentType<LucideProps>
+const ActivityIcon = Activity as ComponentType<LucideProps>
+const TrendingUpIcon = TrendingUp as ComponentType<LucideProps>
+const ClockIcon = Clock as ComponentType<LucideProps>
+const AlertCircleIcon = AlertCircle as ComponentType<LucideProps>
+const CheckCircleIcon = CheckCircle as ComponentType<LucideProps>
 
 interface OperatorsViewProps {
-  onRegister?: () => void;
+  onRegister?: () => void
 }
 
 export function OperatorsView({ onRegister }: OperatorsViewProps) {
-  const { isConnected, address } = useAccount();
-  const { assignedFeeds, refetch } = useOperatorCommittees(address);
-  const { activeFeedIds } = useFeedRegistry();
-  const [showRegistration, setShowRegistration] = useState(false);
+  const { isConnected, address } = useAccount()
+  const { assignedFeeds, refetch } = useOperatorCommittees(address)
+  const { activeFeedIds } = useFeedRegistry()
+  const [showRegistration, setShowRegistration] = useState(false)
 
   if (!isConnected) {
     return (
@@ -27,10 +39,11 @@ export function OperatorsView({ onRegister }: OperatorsViewProps) {
         <UsersIcon size={48} className="mx-auto text-gray-400 mb-4" />
         <h3 className="text-lg font-semibold mb-2">Connect Wallet</h3>
         <p className="text-gray-500">
-          Connect your wallet to register as an oracle operator or view your assignments.
+          Connect your wallet to register as an oracle operator or view your
+          assignments.
         </p>
       </div>
-    );
+    )
   }
 
   return (
@@ -63,7 +76,9 @@ export function OperatorsView({ onRegister }: OperatorsViewProps) {
                 <div className="text-2xl font-bold">{assignedFeeds.length}</div>
               </div>
               <div>
-                <div className="text-xs text-gray-500 mb-1">Available Feeds</div>
+                <div className="text-xs text-gray-500 mb-1">
+                  Available Feeds
+                </div>
                 <div className="text-2xl font-bold">{activeFeedIds.length}</div>
               </div>
               <div>
@@ -78,7 +93,9 @@ export function OperatorsView({ onRegister }: OperatorsViewProps) {
 
             {/* Assigned Feeds List */}
             <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-              <div className="text-sm font-medium mb-2">Your Committee Assignments</div>
+              <div className="text-sm font-medium mb-2">
+                Your Committee Assignments
+              </div>
               <div className="grid gap-2">
                 {assignedFeeds.map((feedId) => (
                   <div
@@ -100,8 +117,8 @@ export function OperatorsView({ onRegister }: OperatorsViewProps) {
         ) : (
           <div className="text-center py-6">
             <p className="text-gray-500 mb-4">
-              You are not registered as an oracle operator. Register to start providing price data
-              and earn rewards.
+              You are not registered as an oracle operator. Register to start
+              providing price data and earn rewards.
             </p>
             <button
               className="button"
@@ -118,9 +135,9 @@ export function OperatorsView({ onRegister }: OperatorsViewProps) {
         <OperatorRegistrationForm
           onClose={() => setShowRegistration(false)}
           onSuccess={() => {
-            setShowRegistration(false);
-            refetch();
-            onRegister?.();
+            setShowRegistration(false)
+            refetch()
+            onRegister?.()
           }}
         />
       )}
@@ -131,39 +148,41 @@ export function OperatorsView({ onRegister }: OperatorsViewProps) {
       {/* Requirements Card */}
       <OperatorRequirements />
     </div>
-  );
+  )
 }
 
 function OperatorRegistrationForm({
   onClose,
   onSuccess,
 }: {
-  onClose: () => void;
-  onSuccess: () => void;
+  onClose: () => void
+  onSuccess: () => void
 }) {
-  const { address } = useAccount();
-  const [workerKey, setWorkerKey] = useState('');
-  const [stakingOracleId, setStakingOracleId] = useState('');
-  const [agentId, setAgentId] = useState('');
-  const [isRegistering, setIsRegistering] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { address } = useAccount()
+  const [workerKey, setWorkerKey] = useState('')
+  const [stakingOracleId, setStakingOracleId] = useState('')
+  const [agentId, setAgentId] = useState('')
+  const [isRegistering, setIsRegistering] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleRegister = async () => {
     if (!workerKey || !address) {
-      setError('Worker key is required');
-      return;
+      setError('Worker key is required')
+      return
     }
 
-    setIsRegistering(true);
-    setError(null);
+    setIsRegistering(true)
+    setError(null)
 
     try {
       // Import wagmi hooks dynamically to avoid SSR issues
-      const { writeContract, waitForTransactionReceipt } = await import('wagmi/actions');
-      const { getConfig } = await import('../../lib/wagmi-config');
-      
-      const config = getConfig();
-      
+      const { writeContract, waitForTransactionReceipt } = await import(
+        'wagmi/actions'
+      )
+      const { getConfig } = await import('../../lib/wagmi-config')
+
+      const config = getConfig()
+
       // OracleNetworkConnector ABI for registration
       const ORACLE_NETWORK_ABI = [
         {
@@ -177,12 +196,12 @@ function OperatorRegistrationForm({
           ],
           outputs: [],
         },
-      ] as const;
+      ] as const
 
       // Get contract address from environment
-      const contractAddress = process.env.NEXT_PUBLIC_ORACLE_NETWORK_CONNECTOR;
+      const contractAddress = process.env.NEXT_PUBLIC_ORACLE_NETWORK_CONNECTOR
       if (!contractAddress) {
-        throw new Error('NEXT_PUBLIC_ORACLE_NETWORK_CONNECTOR not configured');
+        throw new Error('NEXT_PUBLIC_ORACLE_NETWORK_CONNECTOR not configured')
       }
 
       const hash = await writeContract(config, {
@@ -191,31 +210,29 @@ function OperatorRegistrationForm({
         functionName: 'registerOperator',
         args: [
           workerKey as `0x${string}`,
-          (stakingOracleId || '0x0000000000000000000000000000000000000000000000000000000000000000') as `0x${string}`,
+          (stakingOracleId ||
+            '0x0000000000000000000000000000000000000000000000000000000000000000') as `0x${string}`,
           BigInt(agentId || '0'),
         ],
-      });
+      })
 
       // Wait for confirmation
-      await waitForTransactionReceipt(config, { hash });
-      
-      onSuccess();
+      await waitForTransactionReceipt(config, { hash })
+
+      onSuccess()
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Registration failed';
-      setError(message);
+      const message = err instanceof Error ? err.message : 'Registration failed'
+      setError(message)
     } finally {
-      setIsRegistering(false);
+      setIsRegistering(false)
     }
-  };
+  }
 
   return (
     <div className="card p-6">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-bold">Register as Oracle Operator</h3>
-        <button
-          className="text-gray-500 hover:text-gray-700"
-          onClick={onClose}
-        >
+        <button className="text-gray-500 hover:text-gray-700" onClick={onClose}>
           ×
         </button>
       </div>
@@ -223,7 +240,9 @@ function OperatorRegistrationForm({
       <div className="space-y-4">
         {/* Worker Key */}
         <div>
-          <label className="block text-sm font-medium mb-1">Worker Key Address</label>
+          <label className="block text-sm font-medium mb-1">
+            Worker Key Address
+          </label>
           <input
             type="text"
             className="input w-full"
@@ -232,7 +251,8 @@ function OperatorRegistrationForm({
             onChange={(e) => setWorkerKey(e.target.value)}
           />
           <p className="text-xs text-gray-500 mt-1">
-            Address that will sign price reports. Can be different from your wallet.
+            Address that will sign price reports. Can be different from your
+            wallet.
           </p>
         </div>
 
@@ -290,7 +310,11 @@ function OperatorRegistrationForm({
 
         {/* Actions */}
         <div className="flex gap-2 justify-end pt-4">
-          <button className="button button-secondary" onClick={onClose} disabled={isRegistering}>
+          <button
+            className="button button-secondary"
+            onClick={onClose}
+            disabled={isRegistering}
+          >
             Cancel
           </button>
           <button
@@ -303,11 +327,11 @@ function OperatorRegistrationForm({
         </div>
       </div>
     </div>
-  );
+  )
 }
 
 function PerformanceMetrics() {
-  const { address } = useAccount();
+  const { address } = useAccount()
   const [metrics, setMetrics] = useState({
     reportsSubmitted: 0,
     reportsAccepted: 0,
@@ -315,24 +339,24 @@ function PerformanceMetrics() {
     uptime: 0,
     disputes: 0,
     epoch: 0,
-  });
-  const [loading, setLoading] = useState(true);
+  })
+  const [loading, setLoading] = useState(true)
 
   // Fetch operator metrics from contract
   useState(() => {
-    if (!address) return;
+    if (!address) return
 
     const fetchMetrics = async () => {
       try {
-        const { readContract } = await import('wagmi/actions');
-        const { getConfig } = await import('../../lib/wagmi-config');
-        
-        const config = getConfig();
-        const contractAddress = process.env.NEXT_PUBLIC_ORACLE_NETWORK_CONNECTOR;
-        
+        const { readContract } = await import('wagmi/actions')
+        const { getConfig } = await import('../../lib/wagmi-config')
+
+        const config = getConfig()
+        const contractAddress = process.env.NEXT_PUBLIC_ORACLE_NETWORK_CONNECTOR
+
         if (!contractAddress) {
-          setLoading(false);
-          return;
+          setLoading(false)
+          return
         }
 
         const METRICS_ABI = [
@@ -355,7 +379,7 @@ function PerformanceMetrics() {
             inputs: [],
             outputs: [{ name: '', type: 'uint256' }],
           },
-        ] as const;
+        ] as const
 
         const [operatorMetrics, currentEpoch] = await Promise.all([
           readContract(config, {
@@ -369,16 +393,16 @@ function PerformanceMetrics() {
             abi: METRICS_ABI,
             functionName: 'currentEpoch',
           }),
-        ]);
+        ])
 
-        const submitted = Number(operatorMetrics[0]);
-        const accepted = Number(operatorMetrics[1]);
-        const disputes = Number(operatorMetrics[2]);
-        const lastEpoch = Number(operatorMetrics[3]);
-        const epoch = Number(currentEpoch);
+        const submitted = Number(operatorMetrics[0])
+        const accepted = Number(operatorMetrics[1])
+        const disputes = Number(operatorMetrics[2])
+        const lastEpoch = Number(operatorMetrics[3])
+        const epoch = Number(currentEpoch)
 
         // Calculate uptime based on epoch participation
-        const uptime = epoch > 0 ? Math.min((lastEpoch / epoch) * 100, 100) : 0;
+        const uptime = epoch > 0 ? Math.min((lastEpoch / epoch) * 100, 100) : 0
 
         setMetrics({
           reportsSubmitted: submitted,
@@ -387,16 +411,16 @@ function PerformanceMetrics() {
           uptime: Math.round(uptime * 100) / 100,
           disputes,
           epoch,
-        });
+        })
       } catch (err) {
-        console.error('Failed to fetch operator metrics:', err);
+        console.error('Failed to fetch operator metrics:', err)
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
-    };
+    }
 
-    fetchMetrics();
-  });
+    fetchMetrics()
+  })
 
   if (loading) {
     return (
@@ -404,13 +428,16 @@ function PerformanceMetrics() {
         <div className="animate-pulse">
           <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-4" />
           <div className="grid grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className="h-16 bg-gray-200 dark:bg-gray-700 rounded" />
+            {[1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="h-16 bg-gray-200 dark:bg-gray-700 rounded"
+              />
             ))}
           </div>
         </div>
       </div>
-    );
+    )
   }
 
   return (
@@ -423,15 +450,21 @@ function PerformanceMetrics() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div>
           <div className="text-xs text-gray-500 mb-1">Reports Submitted</div>
-          <div className="text-xl font-bold">{metrics.reportsSubmitted.toLocaleString()}</div>
+          <div className="text-xl font-bold">
+            {metrics.reportsSubmitted.toLocaleString()}
+          </div>
         </div>
         <div>
           <div className="text-xs text-gray-500 mb-1">Acceptance Rate</div>
-          <div className="text-xl font-bold text-green-500">{metrics.accuracy.toFixed(2)}%</div>
+          <div className="text-xl font-bold text-green-500">
+            {metrics.accuracy.toFixed(2)}%
+          </div>
         </div>
         <div>
           <div className="text-xs text-gray-500 mb-1">Uptime</div>
-          <div className="text-xl font-bold text-green-500">{metrics.uptime}%</div>
+          <div className="text-xl font-bold text-green-500">
+            {metrics.uptime}%
+          </div>
         </div>
         <div>
           <div className="text-xs text-gray-500 mb-1">Disputes Lost</div>
@@ -449,7 +482,7 @@ function PerformanceMetrics() {
         </div>
       </div>
     </div>
-  );
+  )
 }
 
 function OperatorRequirements() {
@@ -491,7 +524,7 @@ function OperatorRequirements() {
         </a>
       </div>
     </div>
-  );
+  )
 }
 
 function RequirementItem({
@@ -499,21 +532,25 @@ function RequirementItem({
   description,
   met,
 }: {
-  title: string;
-  description: string;
-  met: boolean;
+  title: string
+  description: string
+  met: boolean
 }) {
   return (
     <div className="flex items-start gap-3">
       <div className={`mt-0.5 ${met ? 'text-green-500' : 'text-gray-300'}`}>
-        {met ? <CheckCircleIcon size={18} /> : <div className="w-4 h-4 rounded-full border-2 border-current" />}
+        {met ? (
+          <CheckCircleIcon size={18} />
+        ) : (
+          <div className="w-4 h-4 rounded-full border-2 border-current" />
+        )}
       </div>
       <div>
         <div className="font-medium text-sm">{title}</div>
         <div className="text-xs text-gray-500">{description}</div>
       </div>
     </div>
-  );
+  )
 }
 
-export default OperatorsView;
+export default OperatorsView

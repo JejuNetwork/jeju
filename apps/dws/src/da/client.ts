@@ -1,6 +1,6 @@
 /**
  * DA Client SDK
- * 
+ *
  * Client library for rollups and applications:
  * - Submit blobs
  * - Verify availability
@@ -8,16 +8,16 @@
  * - On-chain verification
  */
 
-import type { Address, Hex, PublicClient } from 'viem';
-import { createPublicClient, http, toBytes, toHex } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
+import type { Address, Hex, PublicClient } from 'viem'
+import { createPublicClient, http, toBytes, toHex } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { computeBlobId } from './commitment'
 import type {
+  AvailabilityAttestation,
   BlobCommitment,
   BlobSubmissionResult,
   SampleVerificationResult,
-  AvailabilityAttestation,
-} from './types';
-import { computeBlobId } from './commitment';
+} from './types'
 
 // ============================================================================
 // Client Configuration
@@ -25,15 +25,15 @@ import { computeBlobId } from './commitment';
 
 export interface DAClientConfig {
   /** DA gateway endpoint */
-  gatewayEndpoint: string;
+  gatewayEndpoint: string
   /** RPC URL for on-chain verification */
-  rpcUrl?: string;
+  rpcUrl?: string
   /** Private key for signing (optional) */
-  signerKey?: Hex;
+  signerKey?: Hex
   /** Request timeout (ms) */
-  timeoutMs?: number;
+  timeoutMs?: number
   /** Retry attempts */
-  retries?: number;
+  retries?: number
 }
 
 // ============================================================================
@@ -41,28 +41,28 @@ export interface DAClientConfig {
 // ============================================================================
 
 export class DAClient {
-  private readonly config: DAClientConfig;
-  private readonly signerAddress: Address | null;
-  private publicClient: PublicClient | null = null;
+  private readonly config: DAClientConfig
+  private readonly signerAddress: Address | null
+  private publicClient: PublicClient | null = null
 
   constructor(config: DAClientConfig) {
     this.config = {
       timeoutMs: 30000,
       retries: 3,
       ...config,
-    };
-    
-    if (config.signerKey) {
-      const account = privateKeyToAccount(config.signerKey);
-      this.signerAddress = account.address;
-    } else {
-      this.signerAddress = null;
     }
-    
+
+    if (config.signerKey) {
+      const account = privateKeyToAccount(config.signerKey)
+      this.signerAddress = account.address
+    } else {
+      this.signerAddress = null
+    }
+
     if (config.rpcUrl) {
       this.publicClient = createPublicClient({
         transport: http(config.rpcUrl),
-      });
+      })
     }
   }
 
@@ -72,17 +72,17 @@ export class DAClient {
   async submitBlob(
     data: Uint8Array,
     options?: {
-      namespace?: Hex;
-      quorumPercent?: number;
-      retentionPeriod?: number;
-      submitter?: Address;
-    }
+      namespace?: Hex
+      quorumPercent?: number
+      retentionPeriod?: number
+      submitter?: Address
+    },
   ): Promise<BlobSubmissionResult> {
-    const submitter = options?.submitter ?? this.signerAddress;
+    const submitter = options?.submitter ?? this.signerAddress
     if (!submitter) {
-      throw new Error('Submitter address required');
+      throw new Error('Submitter address required')
     }
-    
+
     const response = await this.fetch('/da/blob', {
       method: 'POST',
       body: JSON.stringify({
@@ -92,14 +92,14 @@ export class DAClient {
         quorumPercent: options?.quorumPercent,
         retentionPeriod: options?.retentionPeriod,
       }),
-    });
-    
+    })
+
     if (!response.ok) {
-      const error = await response.json() as { error: string };
-      throw new Error(`Blob submission failed: ${error.error}`);
+      const error = (await response.json()) as { error: string }
+      throw new Error(`Blob submission failed: ${error.error}`)
     }
-    
-    return response.json() as Promise<BlobSubmissionResult>;
+
+    return response.json() as Promise<BlobSubmissionResult>
   }
 
   /**
@@ -108,14 +108,14 @@ export class DAClient {
   async submitString(
     content: string,
     options?: {
-      namespace?: Hex;
-      quorumPercent?: number;
-      retentionPeriod?: number;
-      submitter?: Address;
-    }
+      namespace?: Hex
+      quorumPercent?: number
+      retentionPeriod?: number
+      submitter?: Address
+    },
   ): Promise<BlobSubmissionResult> {
-    const data = new TextEncoder().encode(content);
-    return this.submitBlob(data, options);
+    const data = new TextEncoder().encode(content)
+    return this.submitBlob(data, options)
   }
 
   /**
@@ -124,80 +124,80 @@ export class DAClient {
   async submitJSON(
     obj: Record<string, unknown>,
     options?: {
-      namespace?: Hex;
-      quorumPercent?: number;
-      retentionPeriod?: number;
-      submitter?: Address;
-    }
+      namespace?: Hex
+      quorumPercent?: number
+      retentionPeriod?: number
+      submitter?: Address
+    },
   ): Promise<BlobSubmissionResult> {
-    const json = JSON.stringify(obj);
-    return this.submitString(json, options);
+    const json = JSON.stringify(obj)
+    return this.submitString(json, options)
   }
 
   /**
    * Get blob status
    */
   async getBlobStatus(blobId: Hex): Promise<{
-    id: Hex;
-    status: string;
-    size: number;
-    commitment: BlobCommitment;
-    submitter: Address;
-    submittedAt: number;
-    confirmedAt?: number;
-    expiresAt: number;
+    id: Hex
+    status: string
+    size: number
+    commitment: BlobCommitment
+    submitter: Address
+    submittedAt: number
+    confirmedAt?: number
+    expiresAt: number
   }> {
-    const response = await this.fetch(`/da/blob/${blobId}`);
-    
+    const response = await this.fetch(`/da/blob/${blobId}`)
+
     if (!response.ok) {
       if (response.status === 404) {
-        throw new Error(`Blob not found: ${blobId}`);
+        throw new Error(`Blob not found: ${blobId}`)
       }
-      throw new Error('Failed to get blob status');
+      throw new Error('Failed to get blob status')
     }
-    
-    return response.json();
+
+    return response.json()
   }
 
   /**
    * Retrieve blob data
    */
   async retrieveBlob(blobId: Hex): Promise<Uint8Array> {
-    const response = await this.fetch(`/da/blob/${blobId}/data`);
-    
+    const response = await this.fetch(`/da/blob/${blobId}/data`)
+
     if (!response.ok) {
       if (response.status === 404) {
-        throw new Error(`Blob not found: ${blobId}`);
+        throw new Error(`Blob not found: ${blobId}`)
       }
-      throw new Error('Failed to retrieve blob');
+      throw new Error('Failed to retrieve blob')
     }
-    
-    const result = await response.json() as {
-      data: Hex;
-      verified: boolean;
-    };
-    
+
+    const result = (await response.json()) as {
+      data: Hex
+      verified: boolean
+    }
+
     if (!result.verified) {
-      throw new Error('Blob verification failed');
+      throw new Error('Blob verification failed')
     }
-    
-    return toBytes(result.data);
+
+    return toBytes(result.data)
   }
 
   /**
    * Retrieve blob as string
    */
   async retrieveString(blobId: Hex): Promise<string> {
-    const data = await this.retrieveBlob(blobId);
-    return new TextDecoder().decode(data);
+    const data = await this.retrieveBlob(blobId)
+    return new TextDecoder().decode(data)
   }
 
   /**
    * Retrieve blob as JSON
    */
   async retrieveJSON<T = Record<string, unknown>>(blobId: Hex): Promise<T> {
-    const str = await this.retrieveString(blobId);
-    return JSON.parse(str) as T;
+    const str = await this.retrieveString(blobId)
+    return JSON.parse(str) as T
   }
 
   /**
@@ -205,39 +205,39 @@ export class DAClient {
    */
   async verifyAvailability(
     blobId: Hex,
-    requester?: Address
+    requester?: Address,
   ): Promise<SampleVerificationResult> {
-    const address = requester ?? this.signerAddress;
+    const address = requester ?? this.signerAddress
     if (!address) {
-      throw new Error('Requester address required');
+      throw new Error('Requester address required')
     }
-    
+
     const response = await this.fetch('/da/sample', {
       method: 'POST',
       body: JSON.stringify({
         blobId,
         requester: address,
       }),
-    });
-    
+    })
+
     if (!response.ok) {
-      throw new Error('Sampling request failed');
+      throw new Error('Sampling request failed')
     }
-    
-    return response.json() as Promise<SampleVerificationResult>;
+
+    return response.json() as Promise<SampleVerificationResult>
   }
 
   /**
    * Check if blob is available
    */
   async isAvailable(blobId: Hex): Promise<boolean> {
-    const status = await this.getBlobStatus(blobId).catch(() => null);
-    
-    if (!status) return false;
-    if (status.status !== 'available') return false;
-    if (status.expiresAt < Date.now()) return false;
-    
-    return true;
+    const status = await this.getBlobStatus(blobId).catch(() => null)
+
+    if (!status) return false
+    if (status.status !== 'available') return false
+    if (status.expiresAt < Date.now()) return false
+
+    return true
   }
 
   /**
@@ -246,18 +246,18 @@ export class DAClient {
   async waitForAvailability(
     blobId: Hex,
     timeoutMs = 60000,
-    pollIntervalMs = 1000
+    pollIntervalMs = 1000,
   ): Promise<boolean> {
-    const startTime = Date.now();
-    
+    const startTime = Date.now()
+
     while (Date.now() - startTime < timeoutMs) {
-      const available = await this.isAvailable(blobId);
-      if (available) return true;
-      
-      await new Promise(r => setTimeout(r, pollIntervalMs));
+      const available = await this.isAvailable(blobId)
+      if (available) return true
+
+      await new Promise((r) => setTimeout(r, pollIntervalMs))
     }
-    
-    return false;
+
+    return false
   }
 
   /**
@@ -265,76 +265,80 @@ export class DAClient {
    */
   async getStats(): Promise<{
     blobs: {
-      totalBlobs: number;
-      totalChunks: number;
-      byStatus: Record<string, number>;
-      totalSize: number;
-    };
-    operators: {
-      active: number;
-      totalCapacityGB: number;
-      usedCapacityGB: number;
-    };
-  }> {
-    const response = await this.fetch('/da/stats');
-    
-    if (!response.ok) {
-      throw new Error('Failed to get stats');
+      totalBlobs: number
+      totalChunks: number
+      byStatus: Record<string, number>
+      totalSize: number
     }
-    
-    return response.json();
+    operators: {
+      active: number
+      totalCapacityGB: number
+      usedCapacityGB: number
+    }
+  }> {
+    const response = await this.fetch('/da/stats')
+
+    if (!response.ok) {
+      throw new Error('Failed to get stats')
+    }
+
+    return response.json()
   }
 
   /**
    * Get active operators
    */
-  async getOperators(): Promise<Array<{
-    address: Address;
-    endpoint: string;
-    region: string;
-    status: string;
-    capacityGB: number;
-    usedGB: number;
-  }>> {
-    const response = await this.fetch('/da/operators');
-    
+  async getOperators(): Promise<
+    Array<{
+      address: Address
+      endpoint: string
+      region: string
+      status: string
+      capacityGB: number
+      usedGB: number
+    }>
+  > {
+    const response = await this.fetch('/da/operators')
+
     if (!response.ok) {
-      throw new Error('Failed to get operators');
+      throw new Error('Failed to get operators')
     }
-    
-    const result = await response.json() as { operators: Array<{
-      address: Address;
-      endpoint: string;
-      region: string;
-      status: string;
-      capacityGB: number;
-      usedGB: number;
-    }> };
-    return result.operators;
+
+    const result = (await response.json()) as {
+      operators: Array<{
+        address: Address
+        endpoint: string
+        region: string
+        status: string
+        capacityGB: number
+        usedGB: number
+      }>
+    }
+    return result.operators
   }
 
   /**
    * Health check
    */
   async healthCheck(): Promise<{
-    status: string;
-    operators: number;
-    timestamp: number;
+    status: string
+    operators: number
+    timestamp: number
   }> {
-    const response = await this.fetch('/da/health');
-    
+    const response = await this.fetch('/da/health')
+
     if (!response.ok) {
-      throw new Error('Health check failed');
+      throw new Error('Health check failed')
     }
-    
-    return response.json();
+
+    return response.json()
   }
 
   /**
    * Compute blob ID locally
    */
   computeBlobId(data: Uint8Array): Hex {
-    return computeBlobId(data);
+    return computeBlobId(data)
   }
 
   // ============================================================================
@@ -348,52 +352,66 @@ export class DAClient {
   async verifyCommitmentOnChain(
     blobId: Hex,
     commitment: BlobCommitment,
-    contractAddress: Address
+    contractAddress: Address,
   ): Promise<boolean> {
     if (!this.publicClient) {
-      throw new Error('RPC URL required for on-chain verification');
+      throw new Error('RPC URL required for on-chain verification')
     }
-    
+
     // Read from on-chain blob registry
-    const result = await this.publicClient.readContract({
-      address: contractAddress,
-      abi: [{
-        type: 'function',
-        name: 'getBlob',
-        inputs: [{ name: 'blobId', type: 'bytes32' }],
-        outputs: [
-          { name: 'commitment', type: 'bytes32' },
-          { name: 'merkleRoot', type: 'bytes32' },
-          { name: 'totalChunks', type: 'uint256' },
-          { name: 'timestamp', type: 'uint256' },
-          { name: 'submitter', type: 'address' },
+    const result = await this.publicClient
+      .readContract({
+        address: contractAddress,
+        abi: [
+          {
+            type: 'function',
+            name: 'getBlob',
+            inputs: [{ name: 'blobId', type: 'bytes32' }],
+            outputs: [
+              { name: 'commitment', type: 'bytes32' },
+              { name: 'merkleRoot', type: 'bytes32' },
+              { name: 'totalChunks', type: 'uint256' },
+              { name: 'timestamp', type: 'uint256' },
+              { name: 'submitter', type: 'address' },
+            ],
+            stateMutability: 'view',
+          },
         ],
-        stateMutability: 'view',
-      }],
-      functionName: 'getBlob',
-      args: [blobId],
-    }).catch(() => null);
-    
-    if (!result) return false;
-    
-    const [storedCommitment, storedMerkleRoot, storedTotalChunks] = result as [Hex, Hex, bigint, bigint, Address];
-    
+        functionName: 'getBlob',
+        args: [blobId],
+      })
+      .catch(() => null)
+
+    if (!result) return false
+
+    const [storedCommitment, storedMerkleRoot, storedTotalChunks] = result as [
+      Hex,
+      Hex,
+      bigint,
+      bigint,
+      Address,
+    ]
+
     // Verify commitment matches
-    if (storedCommitment.toLowerCase() !== commitment.commitment.toLowerCase()) {
-      return false;
+    if (
+      storedCommitment.toLowerCase() !== commitment.commitment.toLowerCase()
+    ) {
+      return false
     }
-    
+
     // Verify merkle root matches
-    if (storedMerkleRoot.toLowerCase() !== commitment.merkleRoot.toLowerCase()) {
-      return false;
+    if (
+      storedMerkleRoot.toLowerCase() !== commitment.merkleRoot.toLowerCase()
+    ) {
+      return false
     }
-    
+
     // Verify chunk count matches
     if (Number(storedTotalChunks) !== commitment.totalChunkCount) {
-      return false;
+      return false
     }
-    
-    return true;
+
+    return true
   }
 
   /**
@@ -402,74 +420,78 @@ export class DAClient {
    */
   async verifyAttestationOnChain(
     attestation: AvailabilityAttestation,
-    contractAddress: Address
+    contractAddress: Address,
   ): Promise<boolean> {
     if (!this.publicClient) {
-      throw new Error('RPC URL required for on-chain verification');
+      throw new Error('RPC URL required for on-chain verification')
     }
-    
+
     // First check if quorum was reached
     if (!attestation.quorumReached) {
-      return false;
+      return false
     }
-    
+
     // Verify attestation exists on-chain
-    const result = await this.publicClient.readContract({
-      address: contractAddress,
-      abi: [{
-        type: 'function',
-        name: 'getAttestation',
-        inputs: [{ name: 'blobId', type: 'bytes32' }],
-        outputs: [
-          { name: 'commitment', type: 'bytes32' },
-          { name: 'quorumReached', type: 'bool' },
-          { name: 'signerCount', type: 'uint256' },
-          { name: 'timestamp', type: 'uint256' },
+    const result = await this.publicClient
+      .readContract({
+        address: contractAddress,
+        abi: [
+          {
+            type: 'function',
+            name: 'getAttestation',
+            inputs: [{ name: 'blobId', type: 'bytes32' }],
+            outputs: [
+              { name: 'commitment', type: 'bytes32' },
+              { name: 'quorumReached', type: 'bool' },
+              { name: 'signerCount', type: 'uint256' },
+              { name: 'timestamp', type: 'uint256' },
+            ],
+            stateMutability: 'view',
+          },
         ],
-        stateMutability: 'view',
-      }],
-      functionName: 'getAttestation',
-      args: [attestation.blobId],
-    }).catch(() => null);
-    
-    if (!result) return false;
-    
-    const [storedCommitment, storedQuorumReached, storedSignerCount] = result as [Hex, boolean, bigint, bigint];
-    
+        functionName: 'getAttestation',
+        args: [attestation.blobId],
+      })
+      .catch(() => null)
+
+    if (!result) return false
+
+    const [storedCommitment, storedQuorumReached, storedSignerCount] =
+      result as [Hex, boolean, bigint, bigint]
+
     // Verify commitment matches
-    if (storedCommitment.toLowerCase() !== attestation.commitment.toLowerCase()) {
-      return false;
+    if (
+      storedCommitment.toLowerCase() !== attestation.commitment.toLowerCase()
+    ) {
+      return false
     }
-    
+
     // Verify quorum status
     if (!storedQuorumReached) {
-      return false;
+      return false
     }
-    
+
     // Verify signer count matches
     if (Number(storedSignerCount) !== attestation.signatures.length) {
-      return false;
+      return false
     }
-    
-    return true;
+
+    return true
   }
 
   // ============================================================================
   // Private Methods
   // ============================================================================
 
-  private async fetch(
-    path: string,
-    options?: RequestInit
-  ): Promise<Response> {
-    const url = `${this.config.gatewayEndpoint}${path}`;
-    const timeout = this.config.timeoutMs ?? 30000;
-    const retries = this.config.retries ?? 3;
-    
+  private async fetch(path: string, options?: RequestInit): Promise<Response> {
+    const url = `${this.config.gatewayEndpoint}${path}`
+    const timeout = this.config.timeoutMs ?? 30000
+    const retries = this.config.retries ?? 3
+
     for (let attempt = 0; attempt < retries; attempt++) {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeout);
-      
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), timeout)
+
       const response = await fetch(url, {
         ...options,
         headers: {
@@ -478,24 +500,24 @@ export class DAClient {
         },
         signal: controller.signal,
       }).catch((err: Error) => {
-        clearTimeout(timeoutId);
+        clearTimeout(timeoutId)
         if (attempt === retries - 1) {
-          throw err;
+          throw err
         }
-        return null;
-      });
-      
-      clearTimeout(timeoutId);
-      
+        return null
+      })
+
+      clearTimeout(timeoutId)
+
       if (response) {
-        return response;
+        return response
       }
-      
+
       // Wait before retry
-      await new Promise(r => setTimeout(r, 100 * (attempt + 1)));
+      await new Promise((r) => setTimeout(r, 100 * (attempt + 1)))
     }
-    
-    throw new Error(`Request failed after ${retries} attempts`);
+
+    throw new Error(`Request failed after ${retries} attempts`)
   }
 }
 
@@ -504,7 +526,7 @@ export class DAClient {
 // ============================================================================
 
 export function createDAClient(config: DAClientConfig): DAClient {
-  return new DAClient(config);
+  return new DAClient(config)
 }
 
 /**
@@ -515,6 +537,5 @@ export function createDefaultDAClient(gatewayEndpoint: string): DAClient {
     gatewayEndpoint,
     timeoutMs: 30000,
     retries: 3,
-  });
+  })
 }
-

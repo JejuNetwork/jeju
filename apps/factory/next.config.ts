@@ -1,5 +1,5 @@
-import type { NextConfig } from 'next';
-import path from 'path';
+import path from 'node:path'
+import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
   turbopack: {
     resolveAlias: {
       'porto/internal': './lib/stubs/porto-stub.js',
-      'porto': './lib/stubs/porto-stub.js',
+      porto: './lib/stubs/porto-stub.js',
     },
   },
   typescript: {
@@ -44,25 +44,25 @@ const nextConfig: NextConfig = {
         tls: false,
         dns: false,
         child_process: false,
-      };
+      }
     }
 
-    const portoStub = path.resolve(__dirname, './lib/stubs/porto-stub.js');
+    const portoStub = path.resolve(__dirname, './lib/stubs/porto-stub.js')
     config.resolve.alias = {
       ...config.resolve.alias,
       'porto/internal': portoStub,
-      'porto': portoStub,
+      porto: portoStub,
       'zod/mini': require.resolve('zod'),
-    };
+    }
 
     config.module = {
       ...config.module,
       exprContextCritical: false,
       unknownContextCritical: false,
-    };
+    }
 
-    return config;
+    return config
   },
-};
+}
 
-export default nextConfig;
+export default nextConfig

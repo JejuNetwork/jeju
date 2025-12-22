@@ -1,76 +1,89 @@
-import { createPublicClient, createWalletClient, http, type PublicClient, type WalletClient, type Address, type Chain, keccak256, stringToBytes } from 'viem';
-import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
-import { readContract, waitForTransactionReceipt } from 'viem/actions';
-import { parseAbi } from 'viem';
-import { readFileSync, existsSync } from 'fs';
-import { resolve } from 'path';
-import { Logger } from './logger';
+import { existsSync, readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import {
+  type Address,
+  type Chain,
+  createPublicClient,
+  createWalletClient,
+  http,
+  keccak256,
+  type PublicClient,
+  parseAbi,
+  stringToBytes,
+  type WalletClient,
+} from 'viem'
+import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
+import { readContract, waitForTransactionReceipt } from 'viem/actions'
+import { Logger } from './logger'
 
-const logger = new Logger({ prefix: 'agent0' });
+const logger = new Logger({ prefix: 'agent0' })
 
 export interface AppManifest {
-  name: string;
-  description: string;
-  version?: string;
-  port?: number;
+  name: string
+  description: string
+  version?: string
+  port?: number
   ports?: {
-    main?: number;
-    [key: string]: number | undefined;
-  };
+    main?: number
+    [key: string]: number | undefined
+  }
   commands?: {
-    dev?: string;
-    start?: string;
-    build?: string;
-    test?: string;
-  };
-  dependencies?: string[];
-  tags?: string[];
-  healthcheck?: string;
+    dev?: string
+    start?: string
+    build?: string
+    test?: string
+  }
+  dependencies?: string[]
+  tags?: string[]
+  healthcheck?: string
   agent?: {
-    enabled?: boolean;
-    a2aEndpoint?: string;
-    mcpEndpoint?: string;
-    tags?: string[];
-    metadata?: Record<string, string>;
-    trustModels?: ('open' | 'delegated' | 'verified' | 'staked')[];
-    x402Support?: boolean;
-  };
+    enabled?: boolean
+    a2aEndpoint?: string
+    mcpEndpoint?: string
+    tags?: string[]
+    metadata?: Record<string, string>
+    trustModels?: ('open' | 'delegated' | 'verified' | 'staked')[]
+    x402Support?: boolean
+  }
 }
 
 export interface Agent0Config {
-  network: 'localnet' | 'testnet' | 'mainnet';
-  privateKey: string;
-  ipfsGateway?: string;
-  pinataJwt?: string;
+  network: 'localnet' | 'testnet' | 'mainnet'
+  privateKey: string
+  ipfsGateway?: string
+  pinataJwt?: string
 }
 
 export interface RegistrationResult {
-  agentId: string;
-  tokenURI: string;
-  txHash: string;
-  chainId: number;
+  agentId: string
+  tokenURI: string
+  txHash: string
+  chainId: number
 }
 
 export interface AgentInfo {
-  agentId: string;
-  name: string;
-  description: string;
-  a2aEndpoint?: string;
-  mcpEndpoint?: string;
-  tags: string[];
-  active: boolean;
-  chainId: number;
+  agentId: string
+  name: string
+  description: string
+  a2aEndpoint?: string
+  mcpEndpoint?: string
+  tags: string[]
+  active: boolean
+  chainId: number
 }
 
-const NETWORK_CONFIG: Record<string, {
-  chainId: number;
-  rpcUrl: string;
-  registries: {
-    IDENTITY: string;
-    REPUTATION: string;
-    VALIDATION: string;
-  };
-}> = {
+const NETWORK_CONFIG: Record<
+  string,
+  {
+    chainId: number
+    rpcUrl: string
+    registries: {
+      IDENTITY: string
+      REPUTATION: string
+      VALIDATION: string
+    }
+  }
+> = {
   localnet: {
     chainId: 1337,
     rpcUrl: 'http://localhost:9545',
@@ -100,7 +113,7 @@ const NETWORK_CONFIG: Record<string, {
       VALIDATION: '',
     },
   },
-};
+}
 
 // ============ Core Functions ============
 
@@ -108,36 +121,47 @@ const NETWORK_CONFIG: Record<string, {
  * Load deployment addresses for localnet from deployment files
  */
 function loadLocalnetAddresses(): void {
-  const deploymentsDir = resolve(__dirname, '../../packages/contracts/deployments');
-  
+  const deploymentsDir = resolve(
+    __dirname,
+    '../../packages/contracts/deployments',
+  )
+
   // Try to load from identity-system-1337.json
-  const identityPath = resolve(deploymentsDir, 'identity-system-1337.json');
+  const identityPath = resolve(deploymentsDir, 'identity-system-1337.json')
   if (existsSync(identityPath)) {
-    const deployments = JSON.parse(readFileSync(identityPath, 'utf-8')) as Record<string, string>;
+    const deployments = JSON.parse(
+      readFileSync(identityPath, 'utf-8'),
+    ) as Record<string, string>
     if (deployments.IdentityRegistry) {
-      NETWORK_CONFIG.localnet.registries.IDENTITY = deployments.IdentityRegistry;
+      NETWORK_CONFIG.localnet.registries.IDENTITY = deployments.IdentityRegistry
     }
     if (deployments.ReputationRegistry) {
-      NETWORK_CONFIG.localnet.registries.REPUTATION = deployments.ReputationRegistry;
+      NETWORK_CONFIG.localnet.registries.REPUTATION =
+        deployments.ReputationRegistry
     }
     if (deployments.ValidationRegistry) {
-      NETWORK_CONFIG.localnet.registries.VALIDATION = deployments.ValidationRegistry;
+      NETWORK_CONFIG.localnet.registries.VALIDATION =
+        deployments.ValidationRegistry
     }
-    logger.info('Loaded localnet addresses from identity-system-1337.json');
+    logger.info('Loaded localnet addresses from identity-system-1337.json')
   }
-  
+
   // Also check localnet-addresses.json for additional addresses
-  const localnetPath = resolve(deploymentsDir, 'localnet-addresses.json');
+  const localnetPath = resolve(deploymentsDir, 'localnet-addresses.json')
   if (existsSync(localnetPath)) {
-    const deployments = JSON.parse(readFileSync(localnetPath, 'utf-8')) as Record<string, string>;
+    const deployments = JSON.parse(
+      readFileSync(localnetPath, 'utf-8'),
+    ) as Record<string, string>
     if (deployments.identityRegistry) {
-      NETWORK_CONFIG.localnet.registries.IDENTITY = deployments.identityRegistry;
+      NETWORK_CONFIG.localnet.registries.IDENTITY = deployments.identityRegistry
     }
     if (deployments.reputationRegistry) {
-      NETWORK_CONFIG.localnet.registries.REPUTATION = deployments.reputationRegistry;
+      NETWORK_CONFIG.localnet.registries.REPUTATION =
+        deployments.reputationRegistry
     }
     if (deployments.validationRegistry) {
-      NETWORK_CONFIG.localnet.registries.VALIDATION = deployments.validationRegistry;
+      NETWORK_CONFIG.localnet.registries.VALIDATION =
+        deployments.validationRegistry
     }
   }
 }
@@ -145,46 +169,52 @@ function loadLocalnetAddresses(): void {
 /**
  * Get network configuration with registry addresses
  */
-export function getNetworkConfig(network: 'localnet' | 'testnet' | 'mainnet'): typeof NETWORK_CONFIG['localnet'] {
+export function getNetworkConfig(
+  network: 'localnet' | 'testnet' | 'mainnet',
+): (typeof NETWORK_CONFIG)['localnet'] {
   if (network === 'localnet') {
-    loadLocalnetAddresses();
+    loadLocalnetAddresses()
   }
-  return NETWORK_CONFIG[network];
+  return NETWORK_CONFIG[network]
 }
 
 /**
  * Load jeju-manifest.json from an app directory
  */
 export function loadAppManifest(appDir: string): AppManifest {
-  const manifestPath = resolve(appDir, 'jeju-manifest.json');
-  
+  const manifestPath = resolve(appDir, 'jeju-manifest.json')
+
   if (!existsSync(manifestPath)) {
-    throw new Error(`jeju-manifest.json not found in ${appDir}`);
+    throw new Error(`jeju-manifest.json not found in ${appDir}`)
   }
-  
-  return JSON.parse(readFileSync(manifestPath, 'utf-8'));
+
+  return JSON.parse(readFileSync(manifestPath, 'utf-8'))
 }
 
 /**
  * Create viem client and account for a network
  */
-export function createSigner(config: Agent0Config): { client: PublicClient; walletClient: WalletClient; account: PrivateKeyAccount } {
-  const networkConfig = getNetworkConfig(config.network);
-  const account = privateKeyToAccount(config.privateKey as `0x${string}`);
-  const chain = { id: networkConfig.chainId, name: config.network } as Chain;
-  
+export function createSigner(config: Agent0Config): {
+  client: PublicClient
+  walletClient: WalletClient
+  account: PrivateKeyAccount
+} {
+  const networkConfig = getNetworkConfig(config.network)
+  const account = privateKeyToAccount(config.privateKey as `0x${string}`)
+  const chain = { id: networkConfig.chainId, name: config.network } as Chain
+
   const client = createPublicClient({
     chain,
     transport: http(networkConfig.rpcUrl),
-  });
-  
+  })
+
   const walletClient = createWalletClient({
     account,
     chain,
     transport: http(networkConfig.rpcUrl),
-  });
-  
-  return { client, walletClient, account };
+  })
+
+  return { client, walletClient, account }
 }
 
 // ============ Minimal ABI for IdentityRegistry ============
@@ -204,7 +234,7 @@ const IDENTITY_REGISTRY_ABI = parseAbi([
   'function getAgentsByTag(string tag) external view returns (uint256[])',
   'event Registered(uint256 indexed agentId, address indexed owner, uint8 tier, uint256 stakedAmount, string tokenURI)',
   'event AgentUriUpdated(uint256 indexed agentId, string newTokenURI)',
-]);
+])
 
 // ============ Registration Functions ============
 
@@ -212,9 +242,9 @@ const IDENTITY_REGISTRY_ABI = parseAbi([
  * Build a registration file from jeju-manifest.json
  */
 export function buildRegistrationFile(
-  manifest: AppManifest, 
+  manifest: AppManifest,
   appUrl: string,
-  ownerAddress: string
+  ownerAddress: string,
 ): Record<string, unknown> {
   const registrationFile: Record<string, unknown> = {
     name: manifest.name,
@@ -230,31 +260,43 @@ export function buildRegistrationFile(
       ...(manifest.agent?.metadata || {}),
     },
     updatedAt: Math.floor(Date.now() / 1000),
-  };
-  
+  }
+
   // Add A2A endpoint if configured
   if (manifest.agent?.a2aEndpoint) {
-    (registrationFile.endpoints as Array<{ type: string; value: string; meta?: Record<string, string> }>).push({
+    ;(
+      registrationFile.endpoints as Array<{
+        type: string
+        value: string
+        meta?: Record<string, string>
+      }>
+    ).push({
       type: 'a2a',
-      value: manifest.agent.a2aEndpoint.startsWith('http') 
-        ? manifest.agent.a2aEndpoint 
+      value: manifest.agent.a2aEndpoint.startsWith('http')
+        ? manifest.agent.a2aEndpoint
         : `${appUrl}${manifest.agent.a2aEndpoint}`,
       meta: { version: '0.30' },
-    });
+    })
   }
-  
+
   // Add MCP endpoint if configured
   if (manifest.agent?.mcpEndpoint) {
-    (registrationFile.endpoints as Array<{ type: string; value: string; meta?: Record<string, string> }>).push({
+    ;(
+      registrationFile.endpoints as Array<{
+        type: string
+        value: string
+        meta?: Record<string, string>
+      }>
+    ).push({
       type: 'mcp',
       value: manifest.agent.mcpEndpoint.startsWith('http')
         ? manifest.agent.mcpEndpoint
         : `${appUrl}${manifest.agent.mcpEndpoint}`,
       meta: { version: '2025-06-18' },
-    });
+    })
   }
-  
-  return registrationFile;
+
+  return registrationFile
 }
 
 /**
@@ -262,7 +304,7 @@ export function buildRegistrationFile(
  */
 export async function uploadToIPFS(
   registrationFile: Record<string, unknown>,
-  ipfsUrl: string = 'http://localhost:5001'
+  ipfsUrl: string = 'http://localhost:5001',
 ): Promise<string> {
   const response = await fetch(`${ipfsUrl}/api/v0/add`, {
     method: 'POST',
@@ -272,14 +314,14 @@ export async function uploadToIPFS(
     body: JSON.stringify({
       content: JSON.stringify(registrationFile, null, 2),
     }),
-  });
-  
+  })
+
   if (!response.ok) {
-    throw new Error(`Failed to upload to IPFS: ${response.statusText}`);
+    throw new Error(`Failed to upload to IPFS: ${response.statusText}`)
   }
-  
-  const result = await response.json() as { Hash: string };
-  return `ipfs://${result.Hash}`;
+
+  const result = (await response.json()) as { Hash: string }
+  return `ipfs://${result.Hash}`
 }
 
 /**
@@ -289,25 +331,27 @@ export async function registerApp(
   config: Agent0Config,
   manifest: AppManifest,
   _appUrl: string,
-  tokenURI?: string
+  tokenURI?: string,
 ): Promise<RegistrationResult> {
-  const networkConfig = getNetworkConfig(config.network);
-  const { client, walletClient, account } = createSigner(config);
-  
+  const networkConfig = getNetworkConfig(config.network)
+  const { client, walletClient, account } = createSigner(config)
+
   if (!networkConfig.registries.IDENTITY) {
-    throw new Error(`IdentityRegistry not deployed on ${config.network}`);
+    throw new Error(`IdentityRegistry not deployed on ${config.network}`)
   }
-  
+
   // Get owner address for logging
-  const ownerAddress = account.address;
-  
+  const ownerAddress = account.address
+
   // Use provided tokenURI or empty string (can be set later)
-  const finalTokenURI = tokenURI || '';
-  
-  logger.info(`Registering agent: ${manifest.name}`);
-  logger.info(`  Network: ${config.network} (chainId: ${networkConfig.chainId})`);
-  logger.info(`  Owner: ${ownerAddress}`);
-  
+  const finalTokenURI = tokenURI || ''
+
+  logger.info(`Registering agent: ${manifest.name}`)
+  logger.info(
+    `  Network: ${config.network} (chainId: ${networkConfig.chainId})`,
+  )
+  logger.info(`  Owner: ${ownerAddress}`)
+
   // Call register
   const hash = await walletClient.writeContract({
     address: networkConfig.registries.IDENTITY as Address,
@@ -315,53 +359,57 @@ export async function registerApp(
     functionName: 'register',
     args: [finalTokenURI],
     account,
-  });
-  
-  const receipt = await waitForTransactionReceipt(client, { hash });
-  
+  })
+
+  const receipt = await waitForTransactionReceipt(client, { hash })
+
   // Extract agentId from logs
   const registeredEvent = receipt.logs.find(
-    (log) => log.topics[0] === keccak256(stringToBytes('Registered(uint256,address,uint8,uint256,string)'))
-  );
-  
-  let agentId: string;
-  if (registeredEvent && registeredEvent.topics[1]) {
-    agentId = BigInt(registeredEvent.topics[1]).toString();
+    (log) =>
+      log.topics[0] ===
+      keccak256(
+        stringToBytes('Registered(uint256,address,uint8,uint256,string)'),
+      ),
+  )
+
+  let agentId: string
+  if (registeredEvent?.topics[1]) {
+    agentId = BigInt(registeredEvent.topics[1]).toString()
   } else {
     // Fallback: get totalAgents and assume it's the latest
     const total = await readContract(client, {
       address: networkConfig.registries.IDENTITY as Address,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'totalAgents',
-    });
-    agentId = total.toString();
+    })
+    agentId = total.toString()
   }
-  
-  const formattedAgentId = `${networkConfig.chainId}:${agentId}`;
-  
-  logger.success(`Agent registered successfully!`);
-  logger.info(`  Agent ID: ${formattedAgentId}`);
-  logger.info(`  TX Hash: ${hash}`);
-  
+
+  const formattedAgentId = `${networkConfig.chainId}:${agentId}`
+
+  logger.success(`Agent registered successfully!`)
+  logger.info(`  Agent ID: ${formattedAgentId}`)
+  logger.info(`  TX Hash: ${hash}`)
+
   // Set tags if configured
   if (manifest.agent?.tags && manifest.agent.tags.length > 0) {
-    logger.info(`Setting tags: ${manifest.agent.tags.join(', ')}`);
+    logger.info(`Setting tags: ${manifest.agent.tags.join(', ')}`)
     const tagHash = await walletClient.writeContract({
       address: networkConfig.registries.IDENTITY as Address,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'updateTags',
       args: [BigInt(agentId), manifest.agent.tags],
       account,
-    });
-    await waitForTransactionReceipt(client, { hash: tagHash });
+    })
+    await waitForTransactionReceipt(client, { hash: tagHash })
   }
-  
+
   return {
     agentId: formattedAgentId,
     tokenURI: finalTokenURI,
     txHash: hash,
     chainId: networkConfig.chainId,
-  };
+  }
 }
 
 /**
@@ -370,29 +418,29 @@ export async function registerApp(
 export async function updateAgentUri(
   config: Agent0Config,
   agentId: string,
-  newTokenURI: string
+  newTokenURI: string,
 ): Promise<string> {
-  const networkConfig = getNetworkConfig(config.network);
-  const { client, walletClient, account } = createSigner(config);
-  
+  const networkConfig = getNetworkConfig(config.network)
+  const { client, walletClient, account } = createSigner(config)
+
   // Parse agentId (format: chainId:tokenId)
-  const tokenId = agentId.includes(':') ? agentId.split(':')[1] : agentId;
-  
-  logger.info(`Updating agent ${agentId} URI to: ${newTokenURI}`);
-  
+  const tokenId = agentId.includes(':') ? agentId.split(':')[1] : agentId
+
+  logger.info(`Updating agent ${agentId} URI to: ${newTokenURI}`)
+
   const hash = await walletClient.writeContract({
     address: networkConfig.registries.IDENTITY as Address,
     abi: IDENTITY_REGISTRY_ABI,
     functionName: 'setAgentUri',
     args: [BigInt(tokenId), newTokenURI],
     account,
-  });
-  
-  await waitForTransactionReceipt(client, { hash });
-  
-  logger.success(`Agent URI updated! TX: ${hash}`);
-  
-  return hash;
+  })
+
+  await waitForTransactionReceipt(client, { hash })
+
+  logger.success(`Agent URI updated! TX: ${hash}`)
+
+  return hash
 }
 
 /**
@@ -402,24 +450,24 @@ export async function updateAgentMetadata(
   config: Agent0Config,
   agentId: string,
   key: string,
-  value: string
+  value: string,
 ): Promise<string> {
-  const networkConfig = getNetworkConfig(config.network);
-  const { client, walletClient, account } = createSigner(config);
-  
-  const tokenId = agentId.includes(':') ? agentId.split(':')[1] : agentId;
-  
+  const networkConfig = getNetworkConfig(config.network)
+  const { client, walletClient, account } = createSigner(config)
+
+  const tokenId = agentId.includes(':') ? agentId.split(':')[1] : agentId
+
   const hash = await walletClient.writeContract({
     address: networkConfig.registries.IDENTITY as Address,
     abi: IDENTITY_REGISTRY_ABI,
     functionName: 'setMetadata',
     args: [BigInt(tokenId), key, stringToBytes(value)],
     account,
-  });
-  
-  await waitForTransactionReceipt(client, { hash });
-  
-  return hash;
+  })
+
+  await waitForTransactionReceipt(client, { hash })
+
+  return hash
 }
 
 // ============ Discovery Functions ============
@@ -429,72 +477,75 @@ export async function updateAgentMetadata(
  */
 export async function getAgentInfo(
   config: Agent0Config,
-  agentId: string
+  agentId: string,
 ): Promise<AgentInfo | null> {
-  const networkConfig = getNetworkConfig(config.network);
-  const chain = { id: networkConfig.chainId, name: config.network } as Chain;
+  const networkConfig = getNetworkConfig(config.network)
+  const chain = { id: networkConfig.chainId, name: config.network } as Chain
   const client = createPublicClient({
     chain,
     transport: http(networkConfig.rpcUrl),
-  });
-  
-  const tokenId = agentId.includes(':') ? agentId.split(':')[1] : agentId;
-  
+  })
+
+  const tokenId = agentId.includes(':') ? agentId.split(':')[1] : agentId
+
   // Check if agent exists
   const exists = await readContract(client, {
     address: networkConfig.registries.IDENTITY as Address,
     abi: IDENTITY_REGISTRY_ABI,
     functionName: 'agentExists',
     args: [BigInt(tokenId)],
-  });
+  })
   if (!exists) {
-    return null;
+    return null
   }
-  
+
   // Get token URI
   const tokenURI = await readContract(client, {
     address: networkConfig.registries.IDENTITY as Address,
     abi: IDENTITY_REGISTRY_ABI,
     functionName: 'tokenURI',
     args: [BigInt(tokenId)],
-  });
-  
+  })
+
   // Get tags
   const tags = await readContract(client, {
     address: networkConfig.registries.IDENTITY as Address,
     abi: IDENTITY_REGISTRY_ABI,
     functionName: 'getAgentTags',
     args: [BigInt(tokenId)],
-  });
-  
+  })
+
   // If tokenURI is an IPFS or HTTP URL, fetch the registration file
-  let registrationFile: Record<string, unknown> = {};
+  let registrationFile: Record<string, unknown> = {}
   if (tokenURI) {
     const fetchUrl = tokenURI.startsWith('ipfs://')
       ? `https://ipfs.io/ipfs/${tokenURI.slice(7)}`
-      : tokenURI;
-    
-    const response = await fetch(fetchUrl);
+      : tokenURI
+
+    const response = await fetch(fetchUrl)
     if (response.ok) {
-      registrationFile = await response.json() as Record<string, unknown>;
+      registrationFile = (await response.json()) as Record<string, unknown>
     }
   }
-  
+
   // Extract endpoints
-  const endpoints = (registrationFile.endpoints || []) as Array<{ type: string; value: string }>;
-  const a2aEndpoint = endpoints.find(e => e.type === 'a2a')?.value;
-  const mcpEndpoint = endpoints.find(e => e.type === 'mcp')?.value;
-  
+  const endpoints = (registrationFile.endpoints || []) as Array<{
+    type: string
+    value: string
+  }>
+  const a2aEndpoint = endpoints.find((e) => e.type === 'a2a')?.value
+  const mcpEndpoint = endpoints.find((e) => e.type === 'mcp')?.value
+
   return {
     agentId: `${networkConfig.chainId}:${tokenId}`,
-    name: registrationFile.name as string || '',
-    description: registrationFile.description as string || '',
+    name: (registrationFile.name as string) || '',
+    description: (registrationFile.description as string) || '',
     a2aEndpoint,
     mcpEndpoint,
     tags: tags as string[],
-    active: registrationFile.active as boolean || false,
+    active: (registrationFile.active as boolean) || false,
     chainId: networkConfig.chainId,
-  };
+  }
 }
 
 /**
@@ -502,30 +553,34 @@ export async function getAgentInfo(
  */
 export async function findAgentsByTag(
   config: Agent0Config,
-  tag: string
+  tag: string,
 ): Promise<string[]> {
-  const networkConfig = getNetworkConfig(config.network);
-  const chain = { id: networkConfig.chainId, name: config.network } as Chain;
+  const networkConfig = getNetworkConfig(config.network)
+  const chain = { id: networkConfig.chainId, name: config.network } as Chain
   const client = createPublicClient({
     chain,
     transport: http(networkConfig.rpcUrl),
-  });
-  
+  })
+
   const agentIds = await readContract(client, {
     address: networkConfig.registries.IDENTITY as Address,
     abi: IDENTITY_REGISTRY_ABI,
     functionName: 'getAgentsByTag',
     args: [tag],
-  });
-  return (agentIds as bigint[]).map((id) => `${networkConfig.chainId}:${id.toString()}`);
+  })
+  return (agentIds as bigint[]).map(
+    (id) => `${networkConfig.chainId}:${id.toString()}`,
+  )
 }
 
 /**
  * Get all registered network app agents
  */
-export async function getNetworkAppAgents(config: Agent0Config): Promise<string[]> {
+export async function getNetworkAppAgents(
+  config: Agent0Config,
+): Promise<string[]> {
   // Network apps should use the "jeju-app" tag
-  return findAgentsByTag(config, 'jeju-app');
+  return findAgentsByTag(config, 'jeju-app')
 }
 
 // ============ Utility Functions ============
@@ -534,30 +589,33 @@ export async function getNetworkAppAgents(config: Agent0Config): Promise<string[
  * Detect current network from environment
  */
 export function detectNetwork(): 'localnet' | 'testnet' | 'mainnet' {
-  const env = process.env.JEJU_NETWORK || process.env.NODE_ENV;
-  
+  const env = process.env.JEJU_NETWORK || process.env.NODE_ENV
+
   if (env === 'production' || env === 'mainnet') {
-    return 'mainnet';
+    return 'mainnet'
   }
   if (env === 'testnet' || env === 'staging') {
-    return 'testnet';
+    return 'testnet'
   }
-  return 'localnet';
+  return 'localnet'
 }
 
 /**
  * Get signer private key from environment
  */
 export function getSignerFromEnv(): string {
-  const privateKey = process.env.PRIVATE_KEY 
-    || process.env.DEPLOYER_PRIVATE_KEY
-    || process.env.AGENT_PRIVATE_KEY;
-  
+  const privateKey =
+    process.env.PRIVATE_KEY ||
+    process.env.DEPLOYER_PRIVATE_KEY ||
+    process.env.AGENT_PRIVATE_KEY
+
   if (!privateKey) {
-    throw new Error('No private key found in environment. Set PRIVATE_KEY, DEPLOYER_PRIVATE_KEY, or AGENT_PRIVATE_KEY');
+    throw new Error(
+      'No private key found in environment. Set PRIVATE_KEY, DEPLOYER_PRIVATE_KEY, or AGENT_PRIVATE_KEY',
+    )
   }
-  
-  return privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`;
+
+  return privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`
 }
 
 /**
@@ -569,6 +627,5 @@ export function createConfigFromEnv(): Agent0Config {
     privateKey: getSignerFromEnv(),
     ipfsGateway: process.env.IPFS_GATEWAY,
     pinataJwt: process.env.PINATA_JWT,
-  };
+  }
 }
-

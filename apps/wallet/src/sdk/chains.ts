@@ -3,11 +3,11 @@
  * Supports Ethereum L1, major L2s, and prepares for Solana
  */
 
-import type { Address } from 'viem';
-import type { ChainConfig, SolanaConfig } from './types';
-import { getNetworkName, getBrandingRpcUrl } from '../config/branding';
+import type { Address } from 'viem'
+import { getBrandingRpcUrl, getNetworkName } from '../config/branding'
+import type { ChainConfig, SolanaConfig } from './types'
 
-const networkName = getNetworkName();
+const networkName = getNetworkName()
 
 // ============================================================================
 // EVM Chain Configurations
@@ -76,7 +76,10 @@ export const chains: Record<number, ChainConfig> = {
       jeju: { http: ['https://rpc.jejunetwork.org/optimism'] },
     },
     blockExplorers: {
-      default: { name: 'Optimism Explorer', url: 'https://optimistic.etherscan.io' },
+      default: {
+        name: 'Optimism Explorer',
+        url: 'https://optimistic.etherscan.io',
+      },
     },
     eilSupported: true,
     oifSupported: true,
@@ -144,7 +147,10 @@ export const chains: Record<number, ChainConfig> = {
       jeju: { http: ['https://rpc.jejunetwork.org/base-sepolia'] },
     },
     blockExplorers: {
-      default: { name: 'BaseScan Sepolia', url: 'https://sepolia.basescan.org' },
+      default: {
+        name: 'BaseScan Sepolia',
+        url: 'https://sepolia.basescan.org',
+      },
     },
     testnet: true,
     eilSupported: true,
@@ -180,12 +186,15 @@ export const chains: Record<number, ChainConfig> = {
       jeju: { http: ['https://l2.jejunetwork.org/rpc'] },
     },
     blockExplorers: {
-      default: { name: 'Network Explorer', url: 'https://explorer.jejunetwork.org' },
+      default: {
+        name: 'Network Explorer',
+        url: 'https://explorer.jejunetwork.org',
+      },
     },
     eilSupported: true,
     oifSupported: true,
   },
-};
+}
 
 // ============================================================================
 // Solana Configurations
@@ -210,43 +219,43 @@ export const solanaConfigs: Record<string, SolanaConfig> = {
     rpcUrl: 'https://api.testnet.solana.com',
     wsUrl: 'wss://api.testnet.solana.com',
   },
-};
+}
 
 // ============================================================================
 // Chain Utilities
 // ============================================================================
 
 export function getChain(chainId: number): ChainConfig | undefined {
-  return chains[chainId];
+  return chains[chainId]
 }
 
 export function isEILSupported(chainId: number): boolean {
-  const chain = chains[chainId];
+  const chain = chains[chainId]
   if (!chain) {
-    throw new Error(`Chain ${chainId} not supported`);
+    throw new Error(`Chain ${chainId} not supported`)
   }
-  return chain.eilSupported;
+  return chain.eilSupported
 }
 
 export function isOIFSupported(chainId: number): boolean {
-  const chain = chains[chainId];
+  const chain = chains[chainId]
   if (!chain) {
-    throw new Error(`Chain ${chainId} not supported`);
+    throw new Error(`Chain ${chainId} not supported`)
   }
-  return chain.oifSupported;
+  return chain.oifSupported
 }
 
 export function getMainnetChains(): ChainConfig[] {
-  return Object.values(chains).filter((c) => !c.testnet);
+  return Object.values(chains).filter((c) => !c.testnet)
 }
 
 export function getTestnetChains(): ChainConfig[] {
-  return Object.values(chains).filter((c) => c.testnet);
+  return Object.values(chains).filter((c) => c.testnet)
 }
 
 export function getNetworkRpcUrl(chainId: number): string | undefined {
-  const chain = chains[chainId];
-  return chain?.rpcUrls.jeju?.http[0] ?? chain?.rpcUrls.default.http[0];
+  const chain = chains[chainId]
+  return chain?.rpcUrls.jeju?.http[0] ?? chain?.rpcUrls.default.http[0]
 }
 
 // ============================================================================
@@ -255,42 +264,42 @@ export function getNetworkRpcUrl(chainId: number): string | undefined {
 
 export interface ChainContracts {
   // Core ERC-4337
-  entryPoint?: Address;
+  entryPoint?: Address
   // Cross-chain (EIL + OIF)
-  crossChainPaymaster?: Address;
-  inputSettler?: Address;
-  outputSettler?: Address;
-  solverRegistry?: Address;
-  simpleOracle?: Address;
+  crossChainPaymaster?: Address
+  inputSettler?: Address
+  outputSettler?: Address
+  solverRegistry?: Address
+  simpleOracle?: Address
   // Infrastructure
-  priceOracle?: Address;
-  tokenRegistry?: Address;
-  identityRegistry?: Address;
+  priceOracle?: Address
+  tokenRegistry?: Address
+  identityRegistry?: Address
   // DeFi
-  xlpV2Factory?: Address;
-  xlpV3Factory?: Address;
-  swapRouter?: Address;
-  positionManager?: Address;
-  liquidityAggregator?: Address;
+  xlpV2Factory?: Address
+  xlpV3Factory?: Address
+  swapRouter?: Address
+  positionManager?: Address
+  liquidityAggregator?: Address
   // Perps
-  perpetualMarket?: Address;
-  marginManager?: Address;
-  insuranceFund?: Address;
-  liquidationEngine?: Address;
+  perpetualMarket?: Address
+  marginManager?: Address
+  insuranceFund?: Address
+  liquidationEngine?: Address
   // Launchpad
-  tokenLaunchpad?: Address;
-  bondingCurve?: Address;
+  tokenLaunchpad?: Address
+  bondingCurve?: Address
   // Marketplace
-  bazaar?: Address;
+  bazaar?: Address
   // Names
-  jnsRegistry?: Address;
-  jnsRegistrar?: Address;
-  jnsResolver?: Address;
-  jnsReverseRegistrar?: Address;
+  jnsRegistry?: Address
+  jnsRegistrar?: Address
+  jnsResolver?: Address
+  jnsReverseRegistrar?: Address
   // Tokens
-  usdc?: Address;
-  weth?: Address;
-  jeju?: Address;
+  usdc?: Address
+  weth?: Address
+  jeju?: Address
 }
 
 /**
@@ -349,22 +358,22 @@ export const chainContracts: Record<number, ChainContracts> = {
     weth: '0x4200000000000000000000000000000000000006' as Address,
     usdc: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85' as Address,
   },
-};
+}
 
 export function getChainContracts(chainId: number): ChainContracts {
-  const contracts = chainContracts[chainId];
+  const contracts = chainContracts[chainId]
   if (!contracts) {
-    return {}; // Empty contracts is valid - not all chains have deployed contracts
+    return {} // Empty contracts is valid - not all chains have deployed contracts
   }
-  return contracts;
+  return contracts
 }
 
 // ============================================================================
 // Default Configuration
 // ============================================================================
 
-export const DEFAULT_CHAINS = [1, 8453, 42161, 10, 137] as const;
-export const DEFAULT_TESTNETS = [84532, 1337] as const;
+export const DEFAULT_CHAINS = [1, 8453, 42161, 10, 137] as const
+export const DEFAULT_TESTNETS = [84532, 1337] as const
 
 export const POPULAR_TOKENS: Record<number, Address[]> = {
   1: [
@@ -382,5 +391,4 @@ export const POPULAR_TOKENS: Record<number, Address[]> = {
     '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9' as Address, // USDT
     '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1' as Address, // WETH
   ],
-};
-
+}

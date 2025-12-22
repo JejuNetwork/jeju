@@ -1,13 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { validateQuery, validateBody, errorResponse } from '@/lib/validation';
-import { getJobsQuerySchema, createJobSchema } from '@/lib/validation/schemas';
-import type { Job } from '@/types';
+import { type NextRequest, NextResponse } from 'next/server'
+import { errorResponse, validateBody, validateQuery } from '@/lib/validation'
+import { createJobSchema, getJobsQuerySchema } from '@/lib/validation/schemas'
+import type { Job } from '@/types'
 
 // GET /api/jobs - List all jobs
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const query = validateQuery(getJobsQuerySchema, searchParams);
+    const { searchParams } = new URL(request.url)
+    const query = validateQuery(getJobsQuerySchema, searchParams)
 
     const jobs: Job[] = [
       {
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
         updatedAt: Date.now() - 7 * 24 * 60 * 60 * 1000,
         applications: 28,
       },
-    ];
+    ]
 
     return NextResponse.json({
       jobs,
@@ -48,17 +48,17 @@ export async function GET(request: NextRequest) {
       page: query.page,
       limit: query.limit,
       hasMore: false,
-    });
+    })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return errorResponse(message, 400);
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    return errorResponse(message, 400)
   }
 }
 
 // POST /api/jobs - Create a new job posting
 export async function POST(request: NextRequest) {
   try {
-    const body = await validateBody(createJobSchema, request.json());
+    const body = await validateBody(createJobSchema, request.json())
 
     const job: Job = {
       id: `job-${Date.now()}`,
@@ -73,12 +73,11 @@ export async function POST(request: NextRequest) {
       createdAt: Date.now(),
       updatedAt: Date.now(),
       applications: 0,
-    };
+    }
 
-    return NextResponse.json(job, { status: 201 });
+    return NextResponse.json(job, { status: 201 })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return errorResponse(message, 400);
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    return errorResponse(message, 400)
   }
 }
-

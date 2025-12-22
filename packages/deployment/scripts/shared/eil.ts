@@ -2,68 +2,85 @@
  * EIL (Ethereum Interop Layer) SDK - cross-chain transfers via XLP liquidity providers.
  */
 
-import { createPublicClient, createWalletClient, http, type PublicClient, type WalletClient, type Address, keccak256 as viemKeccak256, stringToBytes, parseEther, formatEther, zeroAddress, encodePacked, type Chain, type TransactionReceipt } from 'viem';
-import { type PrivateKeyAccount } from 'viem/accounts';
-import { readContract, waitForTransactionReceipt, watchEvent } from 'viem/actions';
-import { parseAbi } from 'viem';
-import { MerkleTree } from 'merkletreejs';
+import { MerkleTree } from 'merkletreejs'
+import {
+  type Address,
+  type Chain,
+  createPublicClient,
+  createWalletClient,
+  encodePacked,
+  formatEther,
+  http,
+  type PublicClient,
+  parseAbi,
+  parseEther,
+  stringToBytes,
+  type TransactionReceipt,
+  keccak256 as viemKeccak256,
+  type WalletClient,
+  zeroAddress,
+} from 'viem'
+import type { PrivateKeyAccount } from 'viem/accounts'
+import {
+  readContract,
+  waitForTransactionReceipt,
+  watchEvent,
+} from 'viem/actions'
 
 // Use viem keccak256 that works with buffers
 const keccak256 = (data: Buffer | Uint8Array | string): Buffer => {
-  const bytes = typeof data === 'string' 
-    ? stringToBytes(data) 
-    : data;
-  const hash = viemKeccak256(bytes);
-  return Buffer.from(hash.slice(2), 'hex');
-};
+  const bytes = typeof data === 'string' ? stringToBytes(data) : data
+  const hash = viemKeccak256(bytes)
+  return Buffer.from(hash.slice(2), 'hex')
+}
 
 // ============ Types ============
 
 export interface EILConfig {
-  l1RpcUrl: string;
-  l2RpcUrl: string;
-  l1StakeManager: string;
-  crossChainPaymaster: string;
-  entryPoint?: string;
-  l1ChainId: number;
-  l2ChainId: number;
+  l1RpcUrl: string
+  l2RpcUrl: string
+  l1StakeManager: string
+  crossChainPaymaster: string
+  entryPoint?: string
+  l1ChainId: number
+  l2ChainId: number
 }
 
 export interface TransferRequest {
-  requestId: string;
-  sourceChain: number;
-  destinationChain: number;
-  sourceToken: string;
-  destinationToken: string;
-  amount: bigint;
-  maxFee: bigint;
-  recipient: string;
-  deadline: number;
+  requestId: string
+  sourceChain: number
+  destinationChain: number
+  sourceToken: string
+  destinationToken: string
+  amount: bigint
+  maxFee: bigint
+  recipient: string
+  deadline: number
 }
 
 export interface Voucher {
-  voucherId: string;
-  requestId: string;
-  xlp: string;
-  fee: bigint;
-  signature: string;
+  voucherId: string
+  requestId: string
+  xlp: string
+  fee: bigint
+  signature: string
 }
 
 export interface XLPInfo {
-  address: string;
-  stakedAmount: bigint;
-  isActive: boolean;
-  supportedChains: number[];
-  liquidity: Map<string, bigint>; // token -> amount
-  ethBalance: bigint;
+  address: string
+  stakedAmount: bigint
+  isActive: boolean
+  supportedChains: number[]
+  liquidity: Map<string, bigint> // token -> amount
+  ethBalance: bigint
 }
 
 export interface MultiChainUserOp {
-  chainId: number;
-  target: string;
-  calldata: string;
-  value: bigint;
-  gasLimit: bigint;
+  chainId: number
+  target: string
+  calldata: string
+  value: bigint
+  gasLimit: bigint
 }
 
 // ============ ABIs ============
@@ -85,7 +102,7 @@ const CROSS_CHAIN_PAYMASTER_ABI = parseAbi([
   'event VoucherRequested(bytes32 indexed requestId, address indexed requester, address token, uint256 amount, uint256 destinationChainId, address recipient, uint256 maxFee, uint256 deadline)',
   'event VoucherIssued(bytes32 indexed voucherId, bytes32 indexed requestId, address indexed xlp, uint256 fee)',
   'event VoucherFulfilled(bytes32 indexed voucherId, address indexed recipient, uint256 amount)',
-]);
+])
 
 const L1_STAKE_MANAGER_ABI = [
   {
@@ -121,18 +138,20 @@ const L1_STAKE_MANAGER_ABI = [
     type: 'function',
     stateMutability: 'view',
     inputs: [{ name: 'xlp', type: 'address' }],
-    outputs: [{
-      name: '',
-      type: 'tuple',
-      components: [
-        { name: 'stakedAmount', type: 'uint256' },
-        { name: 'unbondingAmount', type: 'uint256' },
-        { name: 'unbondingStartTime', type: 'uint256' },
-        { name: 'slashedAmount', type: 'uint256' },
-        { name: 'isActive', type: 'bool' },
-        { name: 'registeredAt', type: 'uint256' },
-      ],
-    }],
+    outputs: [
+      {
+        name: '',
+        type: 'tuple',
+        components: [
+          { name: 'stakedAmount', type: 'uint256' },
+          { name: 'unbondingAmount', type: 'uint256' },
+          { name: 'unbondingStartTime', type: 'uint256' },
+          { name: 'slashedAmount', type: 'uint256' },
+          { name: 'isActive', type: 'bool' },
+          { name: 'registeredAt', type: 'uint256' },
+        ],
+      },
+    ],
   },
   {
     name: 'getXLPChains',
@@ -165,46 +184,56 @@ const L1_STAKE_MANAGER_ABI = [
     ],
     outputs: [{ name: '', type: 'bool' }],
   },
-] as const;
+] as const
 
 // ============ EIL Client ============
 
 export class EILClient {
-  private l1Client: PublicClient;
-  private l2Client: PublicClient;
-  private l1WalletClient: WalletClient;
-  private l2WalletClient: WalletClient;
-  private account: PrivateKeyAccount;
-  private config: EILConfig;
+  private l1Client: PublicClient
+  private l2Client: PublicClient
+  private l1WalletClient: WalletClient
+  private l2WalletClient: WalletClient
+  private account: PrivateKeyAccount
+  private config: EILConfig
 
   constructor(config: EILConfig, account: PrivateKeyAccount) {
-    this.config = config;
-    this.account = account;
-    
-    const l1Chain: Chain = { id: config.l1ChainId, name: 'L1', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: [config.l1RpcUrl] } } };
-    const l2Chain: Chain = { id: config.l2ChainId, name: 'L2', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: [config.l2RpcUrl] } } };
-    
+    this.config = config
+    this.account = account
+
+    const l1Chain: Chain = {
+      id: config.l1ChainId,
+      name: 'L1',
+      nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+      rpcUrls: { default: { http: [config.l1RpcUrl] } },
+    }
+    const l2Chain: Chain = {
+      id: config.l2ChainId,
+      name: 'L2',
+      nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+      rpcUrls: { default: { http: [config.l2RpcUrl] } },
+    }
+
     this.l1Client = createPublicClient({
       chain: l1Chain,
       transport: http(config.l1RpcUrl),
-    });
-    
+    })
+
     this.l2Client = createPublicClient({
       chain: l2Chain,
       transport: http(config.l2RpcUrl),
-    });
-    
+    })
+
     this.l1WalletClient = createWalletClient({
       account,
       chain: l1Chain,
       transport: http(config.l1RpcUrl),
-    });
-    
+    })
+
     this.l2WalletClient = createWalletClient({
       account,
       chain: l2Chain,
       transport: http(config.l2RpcUrl),
-    });
+    })
   }
 
   // ============ Transfer Operations ============
@@ -213,24 +242,24 @@ export class EILClient {
    * Create a cross-chain transfer request
    */
   async createTransfer(params: {
-    sourceToken: string;
-    destinationToken: string;
-    amount: bigint;
-    destinationChainId: number;
-    recipient?: string;
-    gasOnDestination?: bigint;
-    maxFee?: bigint;
-    feeIncrement?: bigint;
+    sourceToken: string
+    destinationToken: string
+    amount: bigint
+    destinationChainId: number
+    recipient?: string
+    gasOnDestination?: bigint
+    maxFee?: bigint
+    feeIncrement?: bigint
   }): Promise<TransferRequest> {
-    const recipient = params.recipient || this.account.address;
-    const gasOnDestination = params.gasOnDestination || parseEther('0.001');
-    const maxFee = params.maxFee || parseEther('0.01');
-    const feeIncrement = params.feeIncrement || parseEther('0.0001');
+    const recipient = params.recipient || this.account.address
+    const gasOnDestination = params.gasOnDestination || parseEther('0.001')
+    const maxFee = params.maxFee || parseEther('0.01')
+    const feeIncrement = params.feeIncrement || parseEther('0.0001')
 
     // For ETH transfers, send value with the transaction
-    const isETH = params.sourceToken === zeroAddress;
-    const txValue = isETH ? params.amount + maxFee : 0n;
-    
+    const isETH = params.sourceToken === zeroAddress
+    const txValue = isETH ? params.amount + maxFee : 0n
+
     const hash = await this.l2WalletClient.writeContract({
       address: this.config.crossChainPaymaster as Address,
       abi: CROSS_CHAIN_PAYMASTER_ABI,
@@ -247,23 +276,25 @@ export class EILClient {
       ],
       value: txValue,
       account: this.account,
-    });
+    })
 
-    const receipt = await waitForTransactionReceipt(this.l2Client, { hash });
-    
+    const receipt = await waitForTransactionReceipt(this.l2Client, { hash })
+
     // Parse VoucherRequested event - keccak256 local function handles string encoding
-    const eventSignature = keccak256('VoucherRequested(bytes32,address,address,uint256,uint256,address,uint256,uint256)');
-    const eventSignatureHex = `0x${eventSignature.toString('hex')}`;
+    const eventSignature = keccak256(
+      'VoucherRequested(bytes32,address,address,uint256,uint256,address,uint256,uint256)',
+    )
+    const eventSignatureHex = `0x${eventSignature.toString('hex')}`
     const event = receipt.logs.find((log) => {
-      return log.topics[0] === eventSignatureHex;
-    });
+      return log.topics[0] === eventSignatureHex
+    })
 
     if (!event || !event.topics[1]) {
-      throw new Error('VoucherRequested event not found');
+      throw new Error('VoucherRequested event not found')
     }
 
     // Decode event data - simplified, would need proper ABI decoding in production
-    const requestId = event.topics[1];
+    const requestId = event.topics[1]
 
     return {
       requestId,
@@ -275,7 +306,7 @@ export class EILClient {
       maxFee,
       recipient,
       deadline: Math.floor(Date.now() / 1000) + 3600, // Default 1 hour
-    };
+    }
   }
 
   /**
@@ -287,7 +318,7 @@ export class EILClient {
       abi: CROSS_CHAIN_PAYMASTER_ABI,
       functionName: 'getCurrentFee',
       args: [requestId],
-    });
+    })
   }
 
   /**
@@ -299,30 +330,35 @@ export class EILClient {
       abi: CROSS_CHAIN_PAYMASTER_ABI,
       functionName: 'canFulfillRequest',
       args: [requestId],
-    });
+    })
   }
 
   /**
    * Refund an expired request
    */
-  async refundExpiredRequest(requestId: `0x${string}`): Promise<TransactionReceipt> {
+  async refundExpiredRequest(
+    requestId: `0x${string}`,
+  ): Promise<TransactionReceipt> {
     const hash = await this.l2WalletClient.writeContract({
       address: this.config.crossChainPaymaster as Address,
       abi: CROSS_CHAIN_PAYMASTER_ABI,
       functionName: 'refundExpiredRequest',
       args: [requestId],
       account: this.account,
-    });
-    return waitForTransactionReceipt(this.l2Client, { hash });
+    })
+    return waitForTransactionReceipt(this.l2Client, { hash })
   }
 
   /**
    * Wait for a voucher to be issued for a request
    */
-  async waitForVoucher(requestId: `0x${string}`, timeoutMs: number = 60000): Promise<Voucher> {
+  async waitForVoucher(
+    requestId: `0x${string}`,
+    timeoutMs: number = 60000,
+  ): Promise<Voucher> {
     return new Promise((resolve, reject) => {
-      let resolved = false;
-      
+      let resolved = false
+
       const unwatch = watchEvent(this.l2Client, {
         address: this.config.crossChainPaymaster as Address,
         event: {
@@ -339,11 +375,11 @@ export class EILClient {
           requestId,
         },
         onLogs: (logs) => {
-          if (resolved || logs.length === 0) return;
-          resolved = true;
-          clearTimeout(timeout);
-          unwatch();
-          const log = logs[0];
+          if (resolved || logs.length === 0) return
+          resolved = true
+          clearTimeout(timeout)
+          unwatch()
+          const log = logs[0]
           // Note: Signature is not emitted in VoucherIssued event
           // It must be fetched separately or obtained from the XLP off-chain
           // For now, we return empty string and the caller should fetch it if needed
@@ -353,25 +389,28 @@ export class EILClient {
             xlp: log.args.xlp || zeroAddress,
             fee: log.args.fee || 0n,
             signature: '', // Signature not available from event - fetch separately if needed
-          });
+          })
         },
-      });
+      })
 
       const timeout = setTimeout(() => {
-        if (resolved) return;
-        resolved = true;
-        unwatch();
-        reject(new Error('Timeout waiting for voucher'));
-      }, timeoutMs);
-    });
+        if (resolved) return
+        resolved = true
+        unwatch()
+        reject(new Error('Timeout waiting for voucher'))
+      }, timeoutMs)
+    })
   }
 
   /**
    * Wait for transfer fulfillment on destination chain
    */
-  async waitForFulfillment(voucherId: `0x${string}`, timeoutMs: number = 120000): Promise<boolean> {
+  async waitForFulfillment(
+    voucherId: `0x${string}`,
+    timeoutMs: number = 120000,
+  ): Promise<boolean> {
     return new Promise((resolve, reject) => {
-      let resolved = false;
+      let resolved = false
 
       const unwatch = watchEvent(this.l2Client, {
         address: this.config.crossChainPaymaster as Address,
@@ -388,21 +427,21 @@ export class EILClient {
           voucherId,
         },
         onLogs: () => {
-          if (resolved) return;
-          resolved = true;
-          clearTimeout(timeout);
-          unwatch();
-          resolve(true);
+          if (resolved) return
+          resolved = true
+          clearTimeout(timeout)
+          unwatch()
+          resolve(true)
         },
-      });
+      })
 
       const timeout = setTimeout(() => {
-        if (resolved) return;
-        resolved = true;
-        unwatch();
-        reject(new Error('Timeout waiting for fulfillment'));
-      }, timeoutMs);
-    });
+        if (resolved) return
+        resolved = true
+        unwatch()
+        reject(new Error('Timeout waiting for fulfillment'))
+      }, timeoutMs)
+    })
   }
 
   // ============ XLP Operations ============
@@ -410,7 +449,10 @@ export class EILClient {
   /**
    * Get XLP information with liquidity for specified tokens
    */
-  async getXLPInfo(xlpAddress: Address, tokenAddresses: Address[] = []): Promise<XLPInfo> {
+  async getXLPInfo(
+    xlpAddress: Address,
+    tokenAddresses: Address[] = [],
+  ): Promise<XLPInfo> {
     const [stake, chains, ethBalance] = await Promise.all([
       readContract(this.l1Client, {
         address: this.config.l1StakeManager as Address,
@@ -430,19 +472,19 @@ export class EILClient {
         functionName: 'getXLPETH',
         args: [xlpAddress],
       }),
-    ]);
+    ])
 
     // Query liquidity for each token
-    const liquidity = new Map<string, bigint>();
+    const liquidity = new Map<string, bigint>()
     for (const token of tokenAddresses) {
       const tokenLiquidity = await readContract(this.l2Client, {
         address: this.config.crossChainPaymaster as Address,
         abi: CROSS_CHAIN_PAYMASTER_ABI,
         functionName: 'getXLPLiquidity',
         args: [xlpAddress, token],
-      }).catch(() => 0n);
+      }).catch(() => 0n)
       if (tokenLiquidity > 0n) {
-        liquidity.set(token, tokenLiquidity);
+        liquidity.set(token, tokenLiquidity)
       }
     }
 
@@ -453,23 +495,28 @@ export class EILClient {
       supportedChains: (chains as bigint[]).map((c) => Number(c)),
       liquidity,
       ethBalance,
-    };
+    }
   }
 
   /**
    * Deposit token liquidity as XLP
    */
-  async depositLiquidity(token: Address, amount: bigint): Promise<TransactionReceipt> {
+  async depositLiquidity(
+    token: Address,
+    amount: bigint,
+  ): Promise<TransactionReceipt> {
     // First approve
-    const ERC20_ABI = parseAbi(['function approve(address spender, uint256 amount) external returns (bool)']);
+    const ERC20_ABI = parseAbi([
+      'function approve(address spender, uint256 amount) external returns (bool)',
+    ])
     const approveHash = await this.l2WalletClient.writeContract({
       address: token,
       abi: ERC20_ABI,
       functionName: 'approve',
       args: [this.config.crossChainPaymaster as Address, amount],
       account: this.account,
-    });
-    await waitForTransactionReceipt(this.l2Client, { hash: approveHash });
+    })
+    await waitForTransactionReceipt(this.l2Client, { hash: approveHash })
 
     // Then deposit
     const hash = await this.l2WalletClient.writeContract({
@@ -478,8 +525,8 @@ export class EILClient {
       functionName: 'depositLiquidity',
       args: [token, amount],
       account: this.account,
-    });
-    return waitForTransactionReceipt(this.l2Client, { hash });
+    })
+    return waitForTransactionReceipt(this.l2Client, { hash })
   }
 
   /**
@@ -492,22 +539,25 @@ export class EILClient {
       functionName: 'depositETH',
       value: amount,
       account: this.account,
-    });
-    return waitForTransactionReceipt(this.l2Client, { hash });
+    })
+    return waitForTransactionReceipt(this.l2Client, { hash })
   }
 
   /**
    * Withdraw token liquidity as XLP
    */
-  async withdrawLiquidity(token: Address, amount: bigint): Promise<TransactionReceipt> {
+  async withdrawLiquidity(
+    token: Address,
+    amount: bigint,
+  ): Promise<TransactionReceipt> {
     const hash = await this.l2WalletClient.writeContract({
       address: this.config.crossChainPaymaster as Address,
       abi: CROSS_CHAIN_PAYMASTER_ABI,
       functionName: 'withdrawLiquidity',
       args: [token, amount],
       account: this.account,
-    });
-    return waitForTransactionReceipt(this.l2Client, { hash });
+    })
+    return waitForTransactionReceipt(this.l2Client, { hash })
   }
 
   /**
@@ -520,14 +570,17 @@ export class EILClient {
       functionName: 'withdrawETH',
       args: [amount],
       account: this.account,
-    });
-    return waitForTransactionReceipt(this.l2Client, { hash });
+    })
+    return waitForTransactionReceipt(this.l2Client, { hash })
   }
 
   /**
    * Register as XLP on L1
    */
-  async registerAsXLP(chains: number[], stakeAmount: bigint): Promise<TransactionReceipt> {
+  async registerAsXLP(
+    chains: number[],
+    stakeAmount: bigint,
+  ): Promise<TransactionReceipt> {
     const hash = await this.l1WalletClient.writeContract({
       address: this.config.l1StakeManager as Address,
       abi: L1_STAKE_MANAGER_ABI,
@@ -535,8 +588,8 @@ export class EILClient {
       args: [chains.map((c) => BigInt(c))],
       value: stakeAmount,
       account: this.account,
-    });
-    return waitForTransactionReceipt(this.l1Client, { hash });
+    })
+    return waitForTransactionReceipt(this.l1Client, { hash })
   }
 
   /**
@@ -549,8 +602,8 @@ export class EILClient {
       functionName: 'addStake',
       value: amount,
       account: this.account,
-    });
-    return waitForTransactionReceipt(this.l1Client, { hash });
+    })
+    return waitForTransactionReceipt(this.l1Client, { hash })
   }
 
   /**
@@ -563,8 +616,8 @@ export class EILClient {
       functionName: 'startUnbonding',
       args: [amount],
       account: this.account,
-    });
-    return waitForTransactionReceipt(this.l1Client, { hash });
+    })
+    return waitForTransactionReceipt(this.l1Client, { hash })
   }
 
   // ============ Multi-Chain UserOp Batch ============
@@ -573,32 +626,38 @@ export class EILClient {
    * Build a multi-chain UserOp batch with single signature
    */
   async buildMultiChainBatch(operations: MultiChainUserOp[]): Promise<{
-    merkleRoot: string;
-    leaves: string[];
-    proofs: string[][];
+    merkleRoot: string
+    leaves: string[]
+    proofs: string[][]
   }> {
     // Create leaves from operations
     const leaves = operations.map((op) =>
       keccak256(
         encodePacked(
           ['uint256', 'address', 'bytes', 'uint256', 'uint256'],
-          [BigInt(op.chainId), op.target as Address, op.calldata as `0x${string}`, op.value, op.gasLimit]
-        )
-      )
-    );
+          [
+            BigInt(op.chainId),
+            op.target as Address,
+            op.calldata as `0x${string}`,
+            op.value,
+            op.gasLimit,
+          ],
+        ),
+      ),
+    )
 
     // Build Merkle tree
-    const tree = new MerkleTree(leaves, keccak256, { sortPairs: true });
-    const merkleRoot = tree.getHexRoot();
+    const tree = new MerkleTree(leaves, keccak256, { sortPairs: true })
+    const merkleRoot = tree.getHexRoot()
 
     // Get proofs for each leaf
-    const proofs = leaves.map((leaf) => tree.getHexProof(leaf));
+    const proofs = leaves.map((leaf) => tree.getHexProof(leaf))
 
     return {
       merkleRoot,
-      leaves: leaves.map((l) => '0x' + l.toString('hex')),
+      leaves: leaves.map((l) => `0x${l.toString('hex')}`),
       proofs,
-    };
+    }
   }
 
   /**
@@ -607,11 +666,11 @@ export class EILClient {
   async signMultiChainBatch(merkleRoot: `0x${string}`): Promise<`0x${string}`> {
     const packed = encodePacked(
       ['bytes32', 'address', 'uint256'],
-      [merkleRoot, this.account.address, BigInt(this.config.l2ChainId)]
-    );
-    const messageHash = viemKeccak256(packed);
+      [merkleRoot, this.account.address, BigInt(this.config.l2ChainId)],
+    )
+    const messageHash = viemKeccak256(packed)
 
-    return this.account.signMessage({ message: { raw: messageHash } });
+    return this.account.signMessage({ message: { raw: messageHash } })
   }
 
   /**
@@ -620,17 +679,27 @@ export class EILClient {
   verifyOperation(
     operation: MultiChainUserOp,
     merkleRoot: `0x${string}`,
-    proof: string[]
+    proof: string[],
   ): boolean {
     const leaf = keccak256(
       encodePacked(
         ['uint256', 'address', 'bytes', 'uint256', 'uint256'],
-        [BigInt(operation.chainId), operation.target as Address, operation.calldata as `0x${string}`, operation.value, operation.gasLimit]
-      )
-    );
+        [
+          BigInt(operation.chainId),
+          operation.target as Address,
+          operation.calldata as `0x${string}`,
+          operation.value,
+          operation.gasLimit,
+        ],
+      ),
+    )
 
-    const tree = new MerkleTree([], keccak256, { sortPairs: true });
-    return tree.verify(proof.map((p) => Buffer.from(p.slice(2), 'hex')), leaf, merkleRoot);
+    const tree = new MerkleTree([], keccak256, { sortPairs: true })
+    return tree.verify(
+      proof.map((p) => Buffer.from(p.slice(2), 'hex')),
+      leaf,
+      merkleRoot,
+    )
   }
 }
 
@@ -642,21 +711,21 @@ export class EILClient {
 export function estimateCrossChainFee(
   _amount: bigint,
   sourceChainGasPrice: bigint,
-  destinationChainGasPrice: bigint
+  destinationChainGasPrice: bigint,
 ): bigint {
   // Base fee + gas costs on both chains
-  const baseFee = parseEther('0.0005');
-  const sourceGas = 150000n * sourceChainGasPrice;
-  const destinationGas = 100000n * destinationChainGasPrice;
-  
-  return baseFee + sourceGas + destinationGas;
+  const baseFee = parseEther('0.0005')
+  const sourceGas = 150000n * sourceChainGasPrice
+  const destinationGas = 100000n * destinationChainGasPrice
+
+  return baseFee + sourceGas + destinationGas
 }
 
 /**
  * Format transfer for display
  */
 export function formatTransfer(request: TransferRequest): string {
-  return `Transfer ${formatEther(request.amount)} from chain ${request.sourceChain} to chain ${request.destinationChain}`;
+  return `Transfer ${formatEther(request.amount)} from chain ${request.sourceChain} to chain ${request.destinationChain}`
 }
 
 /**
@@ -664,11 +733,10 @@ export function formatTransfer(request: TransferRequest): string {
  */
 export function calculateOptimalFee(
   baseFee: bigint,
-  urgencyMultiplier: number = 1
+  urgencyMultiplier: number = 1,
 ): { maxFee: bigint; feeIncrement: bigint } {
-  const maxFee = (baseFee * BigInt(Math.ceil(urgencyMultiplier * 100))) / 100n;
-  const feeIncrement = maxFee / 50n; // Will reach max in ~50 blocks
-  
-  return { maxFee, feeIncrement };
-}
+  const maxFee = (baseFee * BigInt(Math.ceil(urgencyMultiplier * 100))) / 100n
+  const feeIncrement = maxFee / 50n // Will reach max in ~50 blocks
 
+  return { maxFee, feeIncrement }
+}

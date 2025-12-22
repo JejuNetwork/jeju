@@ -1,25 +1,29 @@
 /**
  * Game Contracts On-Chain Validation Tests
- * 
+ *
  * These tests validate that deployed game contracts (Items.sol, Gold.sol)
  * are functioning correctly on-chain.
- * 
+ *
  * Requires: Localnet running with deployed contracts
  */
 
-import { describe, test, expect, beforeAll } from 'bun:test'
-import { createPublicClient, http, type Address } from 'viem'
-import { localhost } from 'viem/chains'
-import { 
-  ItemsAbi, 
-  GoldAbi, 
-  getGameItems, 
+import { beforeAll, describe, expect, test } from 'bun:test'
+import {
+  GameIntegrationAbi,
+  GoldAbi,
   getGameGold,
   getGameIntegration,
-  GameIntegrationAbi,
+  getGameItems,
+  ItemsAbi,
 } from '@jejunetwork/contracts'
-import { useGameItems, useMintItem, useBurnItem } from '@/hooks/nft/useGameItems'
+import { type Address, createPublicClient, http } from 'viem'
+import { localhost } from 'viem/chains'
 import { getGameContracts } from '@/config/contracts'
+import {
+  useBurnItem,
+  useGameItems,
+  useMintItem,
+} from '@/hooks/nft/useGameItems'
 
 const LOCALNET_RPC = process.env.LOCALNET_RPC || 'http://localhost:9545'
 const CHAIN_ID = 1337
@@ -30,7 +34,12 @@ const hasLocalnet = async () => {
     const response = await fetch(LOCALNET_RPC, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_chainId', params: [], id: 1 }),
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_chainId',
+        params: [],
+        id: 1,
+      }),
     })
     return response.ok
   } catch {
@@ -47,7 +56,7 @@ describe('Game Contracts On-Chain Validation', () => {
 
   beforeAll(async () => {
     localnetAvailable = await hasLocalnet()
-    
+
     if (!localnetAvailable) {
       console.log('⚠️ Localnet not available, skipping on-chain tests')
       return
@@ -219,7 +228,9 @@ describe('Game Contracts On-Chain Validation', () => {
         return
       }
 
-      const bytecode = await client.getBytecode({ address: gameIntegrationAddress })
+      const bytecode = await client.getBytecode({
+        address: gameIntegrationAddress,
+      })
       expect(bytecode).toBeDefined()
       expect(bytecode!.length).toBeGreaterThan(2)
     })
@@ -235,7 +246,7 @@ describe('Game Contracts On-Chain Validation', () => {
       })
 
       expect(itemsContract).toBeDefined()
-      
+
       // Check if Gold contract is connected
       const goldContract = await client.readContract({
         address: gameIntegrationAddress,
@@ -296,6 +307,8 @@ describe('Web2 Fallback Validation', () => {
 
   test('config should throw for missing contracts', () => {
     // Should throw for unknown chain (fail-fast pattern)
-    expect(() => getGameContracts(999999)).toThrow('Game contracts not configured for chain 999999')
+    expect(() => getGameContracts(999999)).toThrow(
+      'Game contracts not configured for chain 999999',
+    )
   })
 })

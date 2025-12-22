@@ -1,16 +1,21 @@
-import { useAccount, useWriteContract, useReadContract, useWaitForTransactionReceipt } from 'wagmi'
-import { parseEther, type Address } from 'viem'
-import { AddressSchema } from '@jejunetwork/types'
-import { expect } from '@/lib/validation'
 import { ICOPresaleAbi } from '@jejunetwork/contracts'
+import { AddressSchema } from '@jejunetwork/types'
+import { type Address, parseEther } from 'viem'
 import {
+  useAccount,
+  useReadContract,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from 'wagmi'
+import {
+  canClaimRefund,
+  canClaimTokens,
+  type PresaleStatus,
   parsePresaleStatus,
   parseUserContribution,
-  canClaimTokens,
-  canClaimRefund,
-  type PresaleStatus,
   type UserContribution,
 } from '@/lib/launchpad'
+import { expect } from '@/lib/validation'
 
 export type { PresaleStatus, UserContribution }
 
@@ -31,7 +36,11 @@ export function useICOPresale(presaleAddress: Address | null) {
   } = useWriteContract()
 
   // Wait for transaction
-  const { isLoading: isConfirming, isSuccess, data: receipt } = useWaitForTransactionReceipt({
+  const {
+    isLoading: isConfirming,
+    isSuccess,
+    data: receipt,
+  } = useWaitForTransactionReceipt({
     hash: txHash,
   })
 
@@ -40,7 +49,7 @@ export function useICOPresale(presaleAddress: Address | null) {
     address: presaleAddress ?? undefined,
     abi: ICOPresaleAbi,
     functionName: 'getStatus',
-    query: { 
+    query: {
       enabled,
       refetchInterval: 10000, // Refresh every 10 seconds
     },
@@ -111,21 +120,33 @@ export function useICOPresale(presaleAddress: Address | null) {
   })
 
   // Parse status using typed parser
-  const parsedStatus: PresaleStatus | undefined = status 
-    ? parsePresaleStatus(status as readonly [bigint, bigint, bigint, bigint, boolean, boolean, boolean])
+  const parsedStatus: PresaleStatus | undefined = status
+    ? parsePresaleStatus(
+        status as readonly [
+          bigint,
+          bigint,
+          bigint,
+          bigint,
+          boolean,
+          boolean,
+          boolean,
+        ],
+      )
     : undefined
 
   // Parse user contribution using typed parser
-  const parsedContribution: UserContribution | undefined = contribution 
-    ? parseUserContribution(contribution as readonly [bigint, bigint, bigint, bigint, boolean])
+  const parsedContribution: UserContribution | undefined = contribution
+    ? parseUserContribution(
+        contribution as readonly [bigint, bigint, bigint, bigint, boolean],
+      )
     : undefined
 
   /**
    * Start the presale (creator only)
    */
   const startPresale = () => {
-    const validatedAddress = expect(presaleAddress, 'No presale address');
-    AddressSchema.parse(validatedAddress);
+    const validatedAddress = expect(presaleAddress, 'No presale address')
+    AddressSchema.parse(validatedAddress)
 
     reset()
     writeContract({
@@ -140,10 +161,10 @@ export function useICOPresale(presaleAddress: Address | null) {
    * Contribute ETH to the presale
    */
   const contribute = (ethAmount: string) => {
-    const validatedAddress = expect(presaleAddress, 'No presale address');
-    AddressSchema.parse(validatedAddress);
-    expect(ethAmount, 'ETH amount is required');
-    expect(parseFloat(ethAmount) > 0, 'ETH amount must be positive');
+    const validatedAddress = expect(presaleAddress, 'No presale address')
+    AddressSchema.parse(validatedAddress)
+    expect(ethAmount, 'ETH amount is required')
+    expect(parseFloat(ethAmount) > 0, 'ETH amount must be positive')
 
     reset()
     writeContract({
@@ -159,8 +180,8 @@ export function useICOPresale(presaleAddress: Address | null) {
    * Finalize the presale (anyone can call after end time)
    */
   const finalize = () => {
-    const validatedAddress = expect(presaleAddress, 'No presale address');
-    AddressSchema.parse(validatedAddress);
+    const validatedAddress = expect(presaleAddress, 'No presale address')
+    AddressSchema.parse(validatedAddress)
 
     reset()
     writeContract({
@@ -175,8 +196,8 @@ export function useICOPresale(presaleAddress: Address | null) {
    * Claim tokens (after successful presale + lock period)
    */
   const claim = () => {
-    const validatedAddress = expect(presaleAddress, 'No presale address');
-    AddressSchema.parse(validatedAddress);
+    const validatedAddress = expect(presaleAddress, 'No presale address')
+    AddressSchema.parse(validatedAddress)
 
     reset()
     writeContract({
@@ -191,8 +212,8 @@ export function useICOPresale(presaleAddress: Address | null) {
    * Get refund (after failed presale)
    */
   const refund = () => {
-    const validatedAddress = expect(presaleAddress, 'No presale address');
-    AddressSchema.parse(validatedAddress);
+    const validatedAddress = expect(presaleAddress, 'No presale address')
+    AddressSchema.parse(validatedAddress)
 
     reset()
     writeContract({
@@ -204,19 +225,21 @@ export function useICOPresale(presaleAddress: Address | null) {
   }
 
   // Check if user can claim using lib function
-  const canClaim: boolean = parsedStatus && parsedContribution && buyerClaimStart
-    ? canClaimTokens(
-        parsedStatus,
-        parsedContribution,
-        buyerClaimStart as bigint,
-        BigInt(Math.floor(Date.now() / 1000))
-      )
-    : false
+  const canClaim: boolean =
+    parsedStatus && parsedContribution && buyerClaimStart
+      ? canClaimTokens(
+          parsedStatus,
+          parsedContribution,
+          buyerClaimStart as bigint,
+          BigInt(Math.floor(Date.now() / 1000)),
+        )
+      : false
 
   // Check if user can refund using lib function
-  const canRefundTokens: boolean = parsedStatus && parsedContribution
-    ? canClaimRefund(parsedStatus, parsedContribution)
-    : false
+  const canRefundTokens: boolean =
+    parsedStatus && parsedContribution
+      ? canClaimRefund(parsedStatus, parsedContribution)
+      : false
 
   return {
     // State
@@ -226,30 +249,32 @@ export function useICOPresale(presaleAddress: Address | null) {
     creator: creator ? (creator as Address) : undefined,
     status: parsedStatus,
     contribution: parsedContribution as UserContribution | undefined,
-    config: config as {
-      presaleAllocationBps: bigint
-      presalePrice: bigint
-      lpFundingBps: bigint
-      lpLockDuration: bigint
-      buyerLockDuration: bigint
-      softCap: bigint
-      hardCap: bigint
-      presaleDuration: bigint
-    } | undefined,
+    config: config as
+      | {
+          presaleAllocationBps: bigint
+          presalePrice: bigint
+          lpFundingBps: bigint
+          lpLockDuration: bigint
+          buyerLockDuration: bigint
+          softCap: bigint
+          hardCap: bigint
+          presaleDuration: bigint
+        }
+      | undefined,
     presaleStart: presaleStart as bigint | undefined,
     presaleEnd: presaleEnd as bigint | undefined,
     buyerClaimStart: buyerClaimStart as bigint | undefined,
     lpPair: lpPair as Address | undefined,
     canClaim,
     canRefund: canRefundTokens,
-    
+
     // Transaction state
     txHash,
     isPending: isWritePending || isConfirming,
     isSuccess,
     receipt,
     error: writeError,
-    
+
     // Actions
     startPresale,
     contribute,
@@ -263,5 +288,7 @@ export function useICOPresale(presaleAddress: Address | null) {
 }
 
 // Re-export formatting functions from lib/launchpad
-export { formatBasisPoints as formatPresaleProgress, formatDuration as formatTimeRemaining } from '@/lib/launchpad'
-
+export {
+  formatBasisPoints as formatPresaleProgress,
+  formatDuration as formatTimeRemaining,
+} from '@/lib/launchpad'

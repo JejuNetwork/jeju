@@ -1,11 +1,20 @@
-'use client';
+'use client'
 
-import { useEffect, useState } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { request, gql } from 'graphql-request';
-import { formatDistanceToNow } from 'date-fns';
-import type { PricePoint } from '@/types/markets';
-import { INDEXER_URL } from '@/config';
+import { formatDistanceToNow } from 'date-fns'
+import { gql, request } from 'graphql-request'
+import { useEffect, useState } from 'react'
+import {
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
+import { INDEXER_URL } from '@/config'
+import type { PricePoint } from '@/types/markets'
 
 const PRICE_HISTORY_QUERY = gql`
   query GetPriceHistory($marketId: String!) {
@@ -18,50 +27,54 @@ const PRICE_HISTORY_QUERY = gql`
       amount
     }
   }
-`;
+`
 
 export function MarketChart({ marketId }: { marketId: string }) {
-  const [priceData, setPriceData] = useState<PricePoint[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [priceData, setPriceData] = useState<PricePoint[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function fetchPriceHistory() {
-      const endpoint = INDEXER_URL;
-      const data = await request(endpoint, PRICE_HISTORY_QUERY, { marketId }) as {
+      const endpoint = INDEXER_URL
+      const data = (await request(endpoint, PRICE_HISTORY_QUERY, {
+        marketId,
+      })) as {
         marketTrades: Array<{
-          id: string;
-          timestamp: string;
-          yesPrice: string;
-          noPrice: string;
-          trader: string;
-          amount: string;
+          id: string
+          timestamp: string
+          yesPrice: string
+          noPrice: string
+          trader: string
+          amount: string
         }>
-      };
-      
+      }
+
       if (data.marketTrades.length > 0) {
         const formattedData: PricePoint[] = data.marketTrades.map((trade) => ({
-          timestamp: formatDistanceToNow(new Date(trade.timestamp), { addSuffix: false }),
+          timestamp: formatDistanceToNow(new Date(trade.timestamp), {
+            addSuffix: false,
+          }),
           yesPrice: Number(trade.yesPrice) / 1e16,
           noPrice: Number(trade.noPrice) / 1e16,
-        }));
-        setPriceData(formattedData);
+        }))
+        setPriceData(formattedData)
       } else {
-        setPriceData([{ timestamp: 'Start', yesPrice: 50, noPrice: 50 }]);
+        setPriceData([{ timestamp: 'Start', yesPrice: 50, noPrice: 50 }])
       }
-      setLoading(false);
+      setLoading(false)
     }
 
-    fetchPriceHistory();
-    const interval = setInterval(fetchPriceHistory, 10000);
-    return () => clearInterval(interval);
-  }, [marketId]);
+    fetchPriceHistory()
+    const interval = setInterval(fetchPriceHistory, 10000)
+    return () => clearInterval(interval)
+  }, [marketId])
 
   if (loading) {
     return (
       <div className="h-[300px] flex items-center justify-center text-slate-400">
         Loading chart...
       </div>
-    );
+    )
   }
 
   return (
@@ -96,8 +109,5 @@ export function MarketChart({ marketId }: { marketId: string }) {
         />
       </LineChart>
     </ResponsiveContainer>
-  );
+  )
 }
-
-
-

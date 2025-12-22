@@ -1,59 +1,57 @@
 /**
  * dstack TEE Auth Agent
- * 
+ *
  * Runs inside dstack CVM to handle OAuth3 authentication flows securely.
- * All sensitive operations (key generation, signing, token exchange) 
+ * All sensitive operations (key generation, signing, token exchange)
  * happen inside the TEE with attestation.
- * 
+ *
  * Now with fully decentralized infrastructure:
  * - JNS for app resolution
  * - IPFS/decentralized storage for sessions and credentials
  * - Compute marketplace integration
- * 
+ *
  * @see https://github.com/Dstack-TEE/dstack
  */
 
-import { Hono } from 'hono';
-import { cors } from 'hono/cors';
-import { z } from 'zod';
-import { keccak256, toBytes, toHex, type Address, type Hex } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
+import { Hono } from 'hono'
+import { cors } from 'hono/cors'
+import { type Address, type Hex, keccak256, toBytes, toHex } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { z } from 'zod'
+import {
+  createOAuth3JNSService,
+  type OAuth3JNSService,
+} from '../infrastructure/jns-integration.js'
+import {
+  createOAuth3StorageService,
+  type OAuth3StorageService,
+} from '../infrastructure/storage-integration.js'
+import { FROSTCoordinator } from '../mpc/frost-signing.js'
 import type {
   AuthProvider,
-  OAuth3Session,
   OAuth3InternalSession,
+  OAuth3Session,
   TEEAttestation,
   TEEProvider,
   VerifiableCredential,
-} from '../types.js';
+} from '../types.js'
 import {
-  OAuth3StorageService,
-  createOAuth3StorageService,
-} from '../infrastructure/storage-integration.js';
-import {
-  OAuth3JNSService,
-  createOAuth3JNSService,
-} from '../infrastructure/jns-integration.js';
-import {
-  FROSTCoordinator,
-} from '../mpc/frost-signing.js';
-import {
-  HexSchema,
   AddressSchema,
-  validateResponse,
+  HexSchema,
   VerifiableCredentialSchema,
-} from '../validation.js';
+  validateResponse,
+} from '../validation.js'
 
 const AuthInitSchema = z.object({
   provider: z.string(),
   appId: HexSchema,
   redirectUri: z.string().url(),
-});
+})
 
 const AuthCallbackSchema = z.object({
   state: z.string().min(1),
   code: z.string().min(1),
-});
+})
 
 const FarcasterAuthSchema = z.object({
   fid: z.number().int().positive(),
@@ -61,19 +59,19 @@ const FarcasterAuthSchema = z.object({
   signature: HexSchema,
   message: z.string().min(1),
   appId: HexSchema,
-});
+})
 
 const WalletAuthSchema = z.object({
   address: AddressSchema,
   signature: HexSchema,
   message: z.string().min(1),
   appId: HexSchema,
-});
+})
 
 const SignRequestSchema = z.object({
   sessionId: HexSchema,
   message: HexSchema,
-});
+})
 
 const CredentialIssueSchema = z.object({
   sessionId: HexSchema,
@@ -81,104 +79,103 @@ const CredentialIssueSchema = z.object({
   providerId: z.string().min(1),
   providerHandle: z.string(),
   walletAddress: AddressSchema,
-});
+})
 
-const DSTACK_SOCKET = process.env.DSTACK_SOCKET ?? '/var/run/dstack.sock';
-const TEE_MODE = process.env.TEE_MODE ?? 'simulated';
+const DSTACK_SOCKET = process.env.DSTACK_SOCKET ?? '/var/run/dstack.sock'
+const TEE_MODE = process.env.TEE_MODE ?? 'simulated'
 
 interface DstackQuoteResponse {
-  quote: string;
-  eventLog: string;
+  quote: string
+  eventLog: string
 }
 
 interface PhalaQuoteResponse {
-  quote: string;
-  signature: string;
-  timestamp: number;
+  quote: string
+  signature: string
+  timestamp: number
 }
 
 interface AuthAgentConfig {
-  nodeId: string;
-  clusterId: string;
-  privateKey: Hex;
-  mpcEndpoint: string;
-  identityRegistryAddress: Address;
-  appRegistryAddress: Address;
-  chainRpcUrl: string;
-  chainId: number;
+  nodeId: string
+  clusterId: string
+  privateKey: Hex
+  mpcEndpoint: string
+  identityRegistryAddress: Address
+  appRegistryAddress: Address
+  chainRpcUrl: string
+  chainId: number
   // Infrastructure
-  jnsGateway?: string;
-  storageEndpoint?: string;
+  jnsGateway?: string
+  storageEndpoint?: string
   // MPC settings
-  mpcEnabled?: boolean;
-  mpcThreshold?: number;
-  mpcTotalParties?: number;
+  mpcEnabled?: boolean
+  mpcThreshold?: number
+  mpcTotalParties?: number
 }
 
 interface OAuthTokenResponse {
-  access_token: string;
-  token_type: string;
-  expires_in: number;
-  refresh_token?: string;
-  scope?: string;
-  id_token?: string;
+  access_token: string
+  token_type: string
+  expires_in: number
+  refresh_token?: string
+  scope?: string
+  id_token?: string
 }
 
 interface GoogleUserInfo {
-  sub: string;
-  email: string;
-  email_verified: boolean;
-  name: string;
-  picture: string;
+  sub: string
+  email: string
+  email_verified: boolean
+  name: string
+  picture: string
 }
 
 interface SessionStore {
   /** Internal sessions with signing keys - NEVER expose to clients */
-  sessions: Map<string, OAuth3InternalSession>;
-  pendingAuths: Map<string, PendingAuth>;
-  credentials: Map<string, VerifiableCredential>;
+  sessions: Map<string, OAuth3InternalSession>
+  pendingAuths: Map<string, PendingAuth>
+  credentials: Map<string, VerifiableCredential>
 }
 
-const MAX_PENDING_AUTHS = 10000; // Maximum pending auth flows
-const MAX_SESSIONS = 100000; // Maximum concurrent sessions
-const CLEANUP_INTERVAL = 60000; // Run cleanup every minute
+const _MAX_PENDING_AUTHS = 10000 // Maximum pending auth flows
+const _MAX_SESSIONS = 100000 // Maximum concurrent sessions
+const _CLEANUP_INTERVAL = 60000 // Run cleanup every minute
 
 interface DecentralizedSessionStore {
-  storage: OAuth3StorageService;
-  jns: OAuth3JNSService;
-  pendingAuths: Map<string, PendingAuth>; // Still in-memory for short-lived auth flows
+  storage: OAuth3StorageService
+  jns: OAuth3JNSService
+  pendingAuths: Map<string, PendingAuth> // Still in-memory for short-lived auth flows
 }
 
 interface PendingAuth {
-  sessionId: Hex;
-  provider: AuthProvider;
-  appId: Hex;
-  redirectUri: string;
-  state: string;
-  codeVerifier: string;
-  createdAt: number;
-  expiresAt: number;
+  sessionId: Hex
+  provider: AuthProvider
+  appId: Hex
+  redirectUri: string
+  state: string
+  codeVerifier: string
+  createdAt: number
+  expiresAt: number
 }
 
 export class DstackAuthAgent {
-  private app: Hono;
-  private config: AuthAgentConfig;
-  private store: SessionStore;
-  private decentralizedStore: DecentralizedSessionStore | null = null;
-  private nodePrivateKey: Uint8Array;
-  private nodeAccount: ReturnType<typeof privateKeyToAccount>;
-  private mpcCoordinator: FROSTCoordinator | null = null;
-  private mpcInitialized = false;
-  private cleanupInterval: ReturnType<typeof setInterval> | null = null;
+  private app: Hono
+  private config: AuthAgentConfig
+  private store: SessionStore
+  private decentralizedStore: DecentralizedSessionStore | null = null
+  private nodeAccount: ReturnType<typeof privateKeyToAccount>
+  private mpcCoordinator: FROSTCoordinator | null = null
+  private mpcInitialized = false
+  private cleanupInterval: ReturnType<typeof setInterval> | null = null
 
   constructor(config: AuthAgentConfig) {
-    this.config = config;
-    this.app = new Hono();
+    this.config = config
+    this.app = new Hono()
     this.store = {
       sessions: new Map(),
       pendingAuths: new Map(),
       credentials: new Map(),
-    };
+    }
 
     // Initialize storage
     this.decentralizedStore = {
@@ -190,82 +187,32 @@ export class DstackAuthAgent {
         rpcUrl: config.chainRpcUrl,
       }),
       pendingAuths: new Map(),
-    };
+    }
 
-    this.nodePrivateKey = toBytes(config.privateKey);
-    this.nodeAccount = privateKeyToAccount(config.privateKey);
+    this.nodePrivateKey = toBytes(config.privateKey)
+    this.nodeAccount = privateKeyToAccount(config.privateKey)
 
     // Initialize MPC coordinator if enabled
     if (config.mpcEnabled) {
-      const threshold = config.mpcThreshold ?? 2;
-      const totalParties = config.mpcTotalParties ?? 3;
-      this.mpcCoordinator = new FROSTCoordinator(config.clusterId, threshold, totalParties);
+      const threshold = config.mpcThreshold ?? 2
+      const totalParties = config.mpcTotalParties ?? 3
+      this.mpcCoordinator = new FROSTCoordinator(
+        config.clusterId,
+        threshold,
+        totalParties,
+      )
     }
 
-    this.setupRoutes();
+    this.setupRoutes()
   }
 
   /**
    * Initialize MPC cluster for threshold signing
    */
   async initializeMPC(): Promise<void> {
-    if (!this.mpcCoordinator || this.mpcInitialized) return;
-    await this.mpcCoordinator.initializeCluster();
-    this.mpcInitialized = true;
-  }
-
-  /**
-   * Start periodic cleanup of expired sessions and pending auths
-   * SECURITY: Prevents unbounded memory growth from abandoned auth flows
-   */
-  private startCleanup(): void {
-    if (this.cleanupInterval) return;
-    
-    this.cleanupInterval = setInterval(() => {
-      this.cleanupExpiredData();
-    }, CLEANUP_INTERVAL);
-  }
-
-  /**
-   * Clean up expired data and enforce size limits
-   * SECURITY: Prevents DoS via memory exhaustion
-   */
-  private cleanupExpiredData(): void {
-    const now = Date.now();
-    
-    // Clean expired pending auths
-    for (const [state, auth] of this.store.pendingAuths.entries()) {
-      if (now > auth.expiresAt) {
-        this.store.pendingAuths.delete(state);
-      }
-    }
-    
-    // Clean expired sessions
-    for (const [sessionId, session] of this.store.sessions.entries()) {
-      if (now > session.expiresAt) {
-        this.store.sessions.delete(sessionId);
-      }
-    }
-    
-    // Enforce pending auth size limit
-    if (this.store.pendingAuths.size > MAX_PENDING_AUTHS) {
-      const entries = Array.from(this.store.pendingAuths.entries())
-        .sort((a, b) => a[1].createdAt - b[1].createdAt);
-      const toRemove = entries.slice(0, entries.length - MAX_PENDING_AUTHS);
-      for (const [state] of toRemove) {
-        this.store.pendingAuths.delete(state);
-      }
-    }
-    
-    // Enforce session size limit
-    if (this.store.sessions.size > MAX_SESSIONS) {
-      const entries = Array.from(this.store.sessions.entries())
-        .sort((a, b) => a[1].expiresAt - b[1].expiresAt);
-      const toRemove = entries.slice(0, entries.length - MAX_SESSIONS);
-      for (const [sessionId] of toRemove) {
-        this.store.sessions.delete(sessionId);
-      }
-    }
+    if (!this.mpcCoordinator || this.mpcInitialized) return
+    await this.mpcCoordinator.initializeCluster()
+    this.mpcInitialized = true
   }
 
   /**
@@ -273,175 +220,217 @@ export class DstackAuthAgent {
    */
   destroy(): void {
     if (this.cleanupInterval) {
-      clearInterval(this.cleanupInterval);
-      this.cleanupInterval = null;
+      clearInterval(this.cleanupInterval)
+      this.cleanupInterval = null
     }
   }
 
   private setupRoutes(): void {
     // SECURITY: Configure CORS with allowed origins
     // In production, origins should come from registered OAuth apps
-    const allowedOrigins = this.getAllowedOrigins();
-    
-    this.app.use('*', cors({
-      origin: (origin) => {
-        // Allow requests with no origin (same-origin, mobile apps, etc.)
-        if (!origin) return null;
-        
-        // In development, allow localhost
-        if (this.isDevelopment() && (origin.includes('localhost') || origin.includes('127.0.0.1'))) {
-          return origin;
-        }
-        
-        // Check against allowed origins
-        if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
-          return origin;
-        }
-        
-        // Reject unknown origins in production
-        return null;
-      },
-      credentials: true,
-      allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-      allowHeaders: ['Content-Type', 'Authorization'],
-      maxAge: 86400,
-    }));
+    const allowedOrigins = this.getAllowedOrigins()
 
-    this.app.get('/health', (c) => c.json({
-      status: 'healthy',
-      nodeId: this.config.nodeId,
-      clusterId: this.config.clusterId,
-      address: this.nodeAccount.address,
-    }));
+    this.app.use(
+      '*',
+      cors({
+        origin: (origin) => {
+          // Allow requests with no origin (same-origin, mobile apps, etc.)
+          if (!origin) return null
+
+          // In development, allow localhost
+          if (
+            this.isDevelopment() &&
+            (origin.includes('localhost') || origin.includes('127.0.0.1'))
+          ) {
+            return origin
+          }
+
+          // Check against allowed origins
+          if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+            return origin
+          }
+
+          // Reject unknown origins in production
+          return null
+        },
+        credentials: true,
+        allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        allowHeaders: ['Content-Type', 'Authorization'],
+        maxAge: 86400,
+      }),
+    )
+
+    this.app.get('/health', (c) =>
+      c.json({
+        status: 'healthy',
+        nodeId: this.config.nodeId,
+        clusterId: this.config.clusterId,
+        address: this.nodeAccount.address,
+      }),
+    )
 
     this.app.get('/attestation', async (c) => {
-      const attestation = await this.getAttestation();
-      return c.json(attestation);
-    });
+      const attestation = await this.getAttestation()
+      return c.json(attestation)
+    })
 
     this.app.post('/auth/init', async (c) => {
-      const rawBody = await c.req.json();
-      const body = validateResponse(AuthInitSchema, rawBody, 'auth init request');
-      const result = await this.initAuth(body.provider as AuthProvider, body.appId, body.redirectUri);
-      return c.json(result);
-    });
+      const rawBody = await c.req.json()
+      const body = validateResponse(
+        AuthInitSchema,
+        rawBody,
+        'auth init request',
+      )
+      const result = await this.initAuth(
+        body.provider as AuthProvider,
+        body.appId,
+        body.redirectUri,
+      )
+      return c.json(result)
+    })
 
     this.app.post('/auth/callback', async (c) => {
-      const rawBody = await c.req.json();
-      const body = validateResponse(AuthCallbackSchema, rawBody, 'auth callback request');
-      const result = await this.handleCallback(body.state, body.code);
-      return c.json(result);
-    });
+      const rawBody = await c.req.json()
+      const body = validateResponse(
+        AuthCallbackSchema,
+        rawBody,
+        'auth callback request',
+      )
+      const result = await this.handleCallback(body.state, body.code)
+      return c.json(result)
+    })
 
     this.app.post('/auth/farcaster', async (c) => {
-      const rawBody = await c.req.json();
-      const body = validateResponse(FarcasterAuthSchema, rawBody, 'farcaster auth request');
-      const result = await this.authFarcaster(body);
-      return c.json(result);
-    });
+      const rawBody = await c.req.json()
+      const body = validateResponse(
+        FarcasterAuthSchema,
+        rawBody,
+        'farcaster auth request',
+      )
+      const result = await this.authFarcaster(body)
+      return c.json(result)
+    })
 
     this.app.post('/auth/wallet', async (c) => {
-      const rawBody = await c.req.json();
-      const body = validateResponse(WalletAuthSchema, rawBody, 'wallet auth request');
-      const result = await this.authWallet(body);
-      return c.json(result);
-    });
+      const rawBody = await c.req.json()
+      const body = validateResponse(
+        WalletAuthSchema,
+        rawBody,
+        'wallet auth request',
+      )
+      const result = await this.authWallet(body)
+      return c.json(result)
+    })
 
     this.app.get('/session/:sessionId', async (c) => {
-      const sessionId = c.req.param('sessionId') as Hex;
-      
+      const sessionId = c.req.param('sessionId') as Hex
+
       // SECURITY: Get internal session but return only public data
-      const internalSession = this.store.sessions.get(sessionId);
-      
+      const internalSession = this.store.sessions.get(sessionId)
+
       if (!internalSession) {
         // Try decentralized storage for public session data
         if (this.decentralizedStore) {
-          const publicSession = await this.decentralizedStore.storage.retrieveSession(sessionId);
+          const publicSession =
+            await this.decentralizedStore.storage.retrieveSession(sessionId)
           if (publicSession) {
-            return c.json(publicSession);
+            return c.json(publicSession)
           }
         }
-        return c.json({ error: 'Session not found' }, 404);
+        return c.json({ error: 'Session not found' }, 404)
       }
 
       if (internalSession.expiresAt < Date.now()) {
-        await this.deleteSession(sessionId);
-        return c.json({ error: 'Session expired' }, 401);
+        await this.deleteSession(sessionId)
+        return c.json({ error: 'Session expired' }, 401)
       }
 
       // SECURITY: Return public session only (no signing key)
-      return c.json(this.toPublicSession(internalSession));
-    });
+      return c.json(this.toPublicSession(internalSession))
+    })
 
     this.app.post('/session/:sessionId/refresh', async (c) => {
-      const sessionId = c.req.param('sessionId') as Hex;
-      
+      const sessionId = c.req.param('sessionId') as Hex
+
       // SECURITY: Only use internal sessions from local store (with signing keys)
-      const internalSession = this.store.sessions.get(sessionId);
+      const internalSession = this.store.sessions.get(sessionId)
 
       if (!internalSession) {
-        return c.json({ error: 'Session not found' }, 404);
+        return c.json({ error: 'Session not found' }, 404)
       }
 
       if (internalSession.expiresAt < Date.now()) {
-        await this.deleteSession(sessionId);
-        return c.json({ error: 'Session expired' }, 401);
+        await this.deleteSession(sessionId)
+        return c.json({ error: 'Session expired' }, 401)
       }
 
-      const newSession = await this.refreshSession(internalSession);
-      return c.json(newSession);
-    });
+      const newSession = await this.refreshSession(internalSession)
+      return c.json(newSession)
+    })
 
     this.app.delete('/session/:sessionId', async (c) => {
-      const sessionId = c.req.param('sessionId') as Hex;
-      await this.deleteSession(sessionId);
-      return c.json({ success: true });
-    });
+      const sessionId = c.req.param('sessionId') as Hex
+      await this.deleteSession(sessionId)
+      return c.json({ success: true })
+    })
 
     // Health endpoint with infrastructure status
     this.app.get('/infrastructure/health', async (c) => {
       const health = {
         tee: true,
-        storage: this.decentralizedStore ? await this.decentralizedStore.storage.isHealthy() : false,
-        jns: this.decentralizedStore ? await this.decentralizedStore.jns.isAvailable('health.jeju').catch(() => false) !== false : false,
-      };
-      return c.json(health);
-    });
+        storage: this.decentralizedStore
+          ? await this.decentralizedStore.storage.isHealthy()
+          : false,
+        jns: this.decentralizedStore
+          ? (await this.decentralizedStore.jns
+              .isAvailable('health.jeju')
+              .catch(() => false)) !== false
+          : false,
+      }
+      return c.json(health)
+    })
 
     this.app.post('/sign', async (c) => {
-      const rawBody = await c.req.json();
-      const body = validateResponse(SignRequestSchema, rawBody, 'sign request');
-      const result = await this.sign(body.sessionId, body.message);
-      return c.json(result);
-    });
+      const rawBody = await c.req.json()
+      const body = validateResponse(SignRequestSchema, rawBody, 'sign request')
+      const result = await this.sign(body.sessionId, body.message)
+      return c.json(result)
+    })
 
     this.app.post('/credential/issue', async (c) => {
-      const rawBody = await c.req.json();
-      const body = validateResponse(CredentialIssueSchema, rawBody, 'credential issue request');
+      const rawBody = await c.req.json()
+      const body = validateResponse(
+        CredentialIssueSchema,
+        rawBody,
+        'credential issue request',
+      )
       const credential = await this.issueCredential({
         ...body,
         provider: body.provider as AuthProvider,
-      });
-      return c.json(credential);
-    });
+      })
+      return c.json(credential)
+    })
 
     this.app.post('/credential/verify', async (c) => {
-      const rawBody = await c.req.json();
-      const body = z.object({ credential: VerifiableCredentialSchema }).parse(rawBody);
-      const valid = await this.verifyCredential(body.credential);
-      return c.json({ valid });
-    });
+      const rawBody = await c.req.json()
+      const body = z
+        .object({ credential: VerifiableCredentialSchema })
+        .parse(rawBody)
+      const valid = await this.verifyCredential(body.credential)
+      return c.json({ valid })
+    })
   }
 
   async getAttestation(reportData?: Hex): Promise<TEEAttestation> {
-    const data = reportData ?? toHex(toBytes(keccak256(toBytes(this.nodeAccount.address))));
-    const teeMode = TEE_MODE.toLowerCase();
+    const data =
+      reportData ?? toHex(toBytes(keccak256(toBytes(this.nodeAccount.address))))
+    const teeMode = TEE_MODE.toLowerCase()
 
     // Phala CVM attestation
     if (teeMode === 'phala') {
-      const isInPhala = await this.isInPhalaTEE();
+      const isInPhala = await this.isInPhalaTEE()
       if (isInPhala) {
-        const quote = await this.getPhalaQuote(data);
+        const quote = await this.getPhalaQuote(data)
         return {
           quote: quote.quote as Hex,
           measurement: this.extractMeasurement(quote.quote),
@@ -449,15 +438,15 @@ export class DstackAuthAgent {
           timestamp: quote.timestamp,
           provider: 'phala' as TEEProvider,
           verified: true,
-        };
+        }
       }
     }
 
     // dstack (Intel TDX) attestation
     if (teeMode === 'dstack') {
-      const isInDstack = await this.isInDstackTEE();
+      const isInDstack = await this.isInDstackTEE()
       if (isInDstack) {
-        const quote = await this.getDstackQuote(data);
+        const quote = await this.getDstackQuote(data)
         return {
           quote: quote.quote as Hex,
           measurement: this.extractMeasurement(quote.quote),
@@ -465,15 +454,15 @@ export class DstackAuthAgent {
           timestamp: Date.now(),
           provider: 'dstack' as TEEProvider,
           verified: true,
-        };
+        }
       }
     }
 
     // Auto-detect TEE environment
     if (teeMode === 'auto' || !teeMode) {
-      const isInDstack = await this.isInDstackTEE();
+      const isInDstack = await this.isInDstackTEE()
       if (isInDstack) {
-        const quote = await this.getDstackQuote(data);
+        const quote = await this.getDstackQuote(data)
         return {
           quote: quote.quote as Hex,
           measurement: this.extractMeasurement(quote.quote),
@@ -481,12 +470,12 @@ export class DstackAuthAgent {
           timestamp: Date.now(),
           provider: 'dstack' as TEEProvider,
           verified: true,
-        };
+        }
       }
 
-      const isInPhala = await this.isInPhalaTEE();
+      const isInPhala = await this.isInPhalaTEE()
       if (isInPhala) {
-        const quote = await this.getPhalaQuote(data);
+        const quote = await this.getPhalaQuote(data)
         return {
           quote: quote.quote as Hex,
           measurement: this.extractMeasurement(quote.quote),
@@ -494,7 +483,7 @@ export class DstackAuthAgent {
           timestamp: quote.timestamp,
           provider: 'phala' as TEEProvider,
           verified: true,
-        };
+        }
       }
     }
 
@@ -506,59 +495,59 @@ export class DstackAuthAgent {
       timestamp: Date.now(),
       provider: 'simulated' as TEEProvider,
       verified: false,
-    };
+    }
   }
 
   private async isInDstackTEE(): Promise<boolean> {
-    const fs = await import('fs');
-    return fs.existsSync(DSTACK_SOCKET);
+    const fs = await import('node:fs')
+    return fs.existsSync(DSTACK_SOCKET)
   }
 
   private async isInPhalaTEE(): Promise<boolean> {
-    const phalaPubkey = process.env.PHALA_WORKER_PUBKEY;
-    const phalaCluster = process.env.PHALA_CLUSTER_ID;
-    return !!phalaPubkey && !!phalaCluster;
+    const phalaPubkey = process.env.PHALA_WORKER_PUBKEY
+    const phalaCluster = process.env.PHALA_CLUSTER_ID
+    return !!phalaPubkey && !!phalaCluster
   }
 
   private async getDstackQuote(reportData: Hex): Promise<DstackQuoteResponse> {
     const response = await fetch(
       `http://localhost/GetQuote?report_data=${reportData}`,
-      { unix: DSTACK_SOCKET } as RequestInit
-    );
+      { unix: DSTACK_SOCKET } as RequestInit,
+    )
 
     if (!response.ok) {
-      throw new Error(`Failed to get dstack quote: ${response.status}`);
+      throw new Error(`Failed to get dstack quote: ${response.status}`)
     }
 
-    return response.json() as Promise<DstackQuoteResponse>;
+    return response.json() as Promise<DstackQuoteResponse>
   }
 
   private async getPhalaQuote(reportData: Hex): Promise<PhalaQuoteResponse> {
-    const clusterId = process.env.PHALA_CLUSTER_ID;
-    const workerPubkey = process.env.PHALA_WORKER_PUBKEY;
+    const clusterId = process.env.PHALA_CLUSTER_ID
+    const workerPubkey = process.env.PHALA_WORKER_PUBKEY
 
     if (!clusterId || !workerPubkey) {
-      throw new Error('PHALA_CLUSTER_ID and PHALA_WORKER_PUBKEY must be set');
+      throw new Error('PHALA_CLUSTER_ID and PHALA_WORKER_PUBKEY must be set')
     }
 
     // Generate attestation using Phala's Pink runtime
     // The worker signs the report data with its private key
-    const timestamp = Date.now();
-    const payload = `${clusterId}:${workerPubkey}:${reportData}:${timestamp}`;
-    const quote = keccak256(toBytes(payload));
+    const timestamp = Date.now()
+    const payload = `${clusterId}:${workerPubkey}:${reportData}:${timestamp}`
+    const quote = keccak256(toBytes(payload))
 
     return {
       quote,
       signature: quote, // In production, this would be the actual Phala signature
       timestamp,
-    };
+    }
   }
 
   private extractMeasurement(quote: string): Hex {
     if (quote.length >= 66) {
-      return quote.slice(0, 66) as Hex;
+      return quote.slice(0, 66) as Hex
     }
-    return keccak256(toBytes(quote));
+    return keccak256(toBytes(quote))
   }
 
   /**
@@ -567,36 +556,37 @@ export class DstackAuthAgent {
    */
   private validateRedirectUri(redirectUri: string): void {
     // Parse the URI
-    let url: URL;
+    let url: URL
     try {
-      url = new URL(redirectUri);
+      url = new URL(redirectUri)
     } catch {
-      throw new Error('Invalid redirect URI format');
+      throw new Error('Invalid redirect URI format')
     }
 
     // SECURITY: Must use HTTPS in production (allow localhost for dev)
     if (url.protocol !== 'https:') {
-      const isLocalhost = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+      const isLocalhost =
+        url.hostname === 'localhost' || url.hostname === '127.0.0.1'
       if (!isLocalhost || !this.isDevelopment()) {
-        throw new Error('Redirect URI must use HTTPS in production');
+        throw new Error('Redirect URI must use HTTPS in production')
       }
     }
 
     // SECURITY: Prevent fragments in redirect URI (potential XSS vector)
     if (url.hash) {
-      throw new Error('Redirect URI cannot contain fragments');
+      throw new Error('Redirect URI cannot contain fragments')
     }
 
     // SECURITY: Block common open redirect patterns
     const blockedPatterns = [
-      /^\/\//,           // Protocol-relative
-      /@/,               // Credential injection
-      /[\r\n]/,          // Header injection
-    ];
-    
+      /^\/\//, // Protocol-relative
+      /@/, // Credential injection
+      /[\r\n]/, // Header injection
+    ]
+
     for (const pattern of blockedPatterns) {
       if (pattern.test(redirectUri)) {
-        throw new Error('Invalid redirect URI: suspicious pattern detected');
+        throw new Error('Invalid redirect URI: suspicious pattern detected')
       }
     }
   }
@@ -604,14 +594,16 @@ export class DstackAuthAgent {
   async initAuth(
     provider: AuthProvider,
     appId: Hex,
-    redirectUri: string
+    redirectUri: string,
   ): Promise<{ authUrl: string; state: string; sessionId: Hex }> {
     // SECURITY: Validate redirect URI before using
-    this.validateRedirectUri(redirectUri);
+    this.validateRedirectUri(redirectUri)
 
-    const sessionId = keccak256(toBytes(`${appId}:${provider}:${Date.now()}:${Math.random()}`));
-    const state = toHex(crypto.getRandomValues(new Uint8Array(32)));
-    const codeVerifier = this.generateCodeVerifier();
+    const sessionId = keccak256(
+      toBytes(`${appId}:${provider}:${Date.now()}:${Math.random()}`),
+    )
+    const state = toHex(crypto.getRandomValues(new Uint8Array(32)))
+    const codeVerifier = this.generateCodeVerifier()
 
     const pending: PendingAuth = {
       sessionId,
@@ -622,26 +614,31 @@ export class DstackAuthAgent {
       codeVerifier,
       createdAt: Date.now(),
       expiresAt: Date.now() + 10 * 60 * 1000,
-    };
+    }
 
-    this.store.pendingAuths.set(state, pending);
+    this.store.pendingAuths.set(state, pending)
 
-    const authUrl = await this.buildAuthUrl(provider, state, codeVerifier, redirectUri);
+    const authUrl = await this.buildAuthUrl(
+      provider,
+      state,
+      codeVerifier,
+      redirectUri,
+    )
 
-    return { authUrl, state, sessionId };
+    return { authUrl, state, sessionId }
   }
 
   private async buildAuthUrl(
     provider: AuthProvider,
     state: string,
     codeVerifier: string,
-    redirectUri: string
+    redirectUri: string,
   ): Promise<string> {
-    const codeChallenge = await this.generateCodeChallenge(codeVerifier);
+    const codeChallenge = await this.generateCodeChallenge(codeVerifier)
 
     switch (provider) {
       case 'google' as AuthProvider: {
-        const clientId = await this.getAppClientId('google');
+        const clientId = await this.getAppClientId('google')
         const params = new URLSearchParams({
           client_id: clientId,
           redirect_uri: redirectUri,
@@ -652,23 +649,23 @@ export class DstackAuthAgent {
           code_challenge_method: 'S256',
           access_type: 'offline',
           prompt: 'consent',
-        });
-        return `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+        })
+        return `https://accounts.google.com/o/oauth2/v2/auth?${params}`
       }
 
       case 'github' as AuthProvider: {
-        const clientId = await this.getAppClientId('github');
+        const clientId = await this.getAppClientId('github')
         const params = new URLSearchParams({
           client_id: clientId,
           redirect_uri: redirectUri,
           scope: 'read:user user:email',
           state,
-        });
-        return `https://github.com/login/oauth/authorize?${params}`;
+        })
+        return `https://github.com/login/oauth/authorize?${params}`
       }
 
       case 'twitter' as AuthProvider: {
-        const clientId = await this.getAppClientId('twitter');
+        const clientId = await this.getAppClientId('twitter')
         const params = new URLSearchParams({
           client_id: clientId,
           redirect_uri: redirectUri,
@@ -677,24 +674,24 @@ export class DstackAuthAgent {
           state,
           code_challenge: codeChallenge,
           code_challenge_method: 'S256',
-        });
-        return `https://twitter.com/i/oauth2/authorize?${params}`;
+        })
+        return `https://twitter.com/i/oauth2/authorize?${params}`
       }
 
       case 'discord' as AuthProvider: {
-        const clientId = await this.getAppClientId('discord');
+        const clientId = await this.getAppClientId('discord')
         const params = new URLSearchParams({
           client_id: clientId,
           redirect_uri: redirectUri,
           response_type: 'code',
           scope: 'identify email',
           state,
-        });
-        return `https://discord.com/api/oauth2/authorize?${params}`;
+        })
+        return `https://discord.com/api/oauth2/authorize?${params}`
       }
 
       case 'apple' as AuthProvider: {
-        const clientId = await this.getAppClientId('apple');
+        const clientId = await this.getAppClientId('apple')
         const params = new URLSearchParams({
           client_id: clientId,
           redirect_uri: redirectUri,
@@ -702,59 +699,59 @@ export class DstackAuthAgent {
           scope: 'name email',
           state,
           response_mode: 'query',
-        });
-        return `https://appleid.apple.com/auth/authorize?${params}`;
+        })
+        return `https://appleid.apple.com/auth/authorize?${params}`
       }
 
       default:
-        throw new Error(`Unsupported provider: ${provider}`);
+        throw new Error(`Unsupported provider: ${provider}`)
     }
   }
 
-  async handleCallback(
-    state: string,
-    code: string
-  ): Promise<OAuth3Session> {
-    const pending = this.store.pendingAuths.get(state);
-    
+  async handleCallback(state: string, code: string): Promise<OAuth3Session> {
+    const pending = this.store.pendingAuths.get(state)
+
     if (!pending) {
-      throw new Error('Invalid or expired state');
+      throw new Error('Invalid or expired state')
     }
 
     if (Date.now() > pending.expiresAt) {
-      this.store.pendingAuths.delete(state);
-      throw new Error('Auth request expired');
+      this.store.pendingAuths.delete(state)
+      throw new Error('Auth request expired')
     }
 
-    this.store.pendingAuths.delete(state);
+    this.store.pendingAuths.delete(state)
 
     const tokens = await this.exchangeCode(
       pending.provider,
       code,
       pending.codeVerifier,
-      pending.redirectUri
-    );
+      pending.redirectUri,
+    )
 
-    const userInfo = await this.fetchUserInfo(pending.provider, tokens.access_token);
+    const userInfo = await this.fetchUserInfo(
+      pending.provider,
+      tokens.access_token,
+    )
 
     const session = await this.createSession(
       pending.sessionId,
       pending.provider,
       userInfo.id,
       userInfo.handle,
-      pending.appId
-    );
+      pending.appId,
+    )
 
-    return session;
+    return session
   }
 
   private async exchangeCode(
     provider: AuthProvider,
     code: string,
     codeVerifier: string,
-    redirectUri: string
+    redirectUri: string,
   ): Promise<OAuthTokenResponse> {
-    const clientId = await this.getAppClientId(provider as string);
+    const clientId = await this.getAppClientId(provider as string)
 
     switch (provider) {
       case 'google' as AuthProvider: {
@@ -768,26 +765,29 @@ export class DstackAuthAgent {
             grant_type: 'authorization_code',
             redirect_uri: redirectUri,
           }),
-        });
-        return response.json() as Promise<OAuthTokenResponse>;
+        })
+        return response.json() as Promise<OAuthTokenResponse>
       }
 
       case 'github' as AuthProvider: {
-        const clientSecret = await this.getAppClientSecret('github');
-        const response = await fetch('https://github.com/login/oauth/access_token', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
+        const clientSecret = await this.getAppClientSecret('github')
+        const response = await fetch(
+          'https://github.com/login/oauth/access_token',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json',
+            },
+            body: JSON.stringify({
+              client_id: clientId,
+              client_secret: clientSecret,
+              code,
+              redirect_uri: redirectUri,
+            }),
           },
-          body: JSON.stringify({
-            client_id: clientId,
-            client_secret: clientSecret,
-            code,
-            redirect_uri: redirectUri,
-          }),
-        });
-        return response.json() as Promise<OAuthTokenResponse>;
+        )
+        return response.json() as Promise<OAuthTokenResponse>
       }
 
       case 'twitter' as AuthProvider: {
@@ -801,12 +801,12 @@ export class DstackAuthAgent {
             grant_type: 'authorization_code',
             redirect_uri: redirectUri,
           }),
-        });
-        return response.json() as Promise<OAuthTokenResponse>;
+        })
+        return response.json() as Promise<OAuthTokenResponse>
       }
 
       case 'discord' as AuthProvider: {
-        const clientSecret = await this.getAppClientSecret('discord');
+        const clientSecret = await this.getAppClientSecret('discord')
         const response = await fetch('https://discord.com/api/oauth2/token', {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -817,128 +817,154 @@ export class DstackAuthAgent {
             grant_type: 'authorization_code',
             redirect_uri: redirectUri,
           }),
-        });
-        return response.json() as Promise<OAuthTokenResponse>;
+        })
+        return response.json() as Promise<OAuthTokenResponse>
       }
 
       default:
-        throw new Error(`Unsupported provider for token exchange: ${provider}`);
+        throw new Error(`Unsupported provider for token exchange: ${provider}`)
     }
   }
 
   private async fetchUserInfo(
     provider: AuthProvider,
-    accessToken: string
+    accessToken: string,
   ): Promise<{ id: string; handle: string; name: string; avatar: string }> {
     switch (provider) {
       case 'google' as AuthProvider: {
-        const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        const data = await response.json() as GoogleUserInfo;
+        const response = await fetch(
+          'https://www.googleapis.com/oauth2/v3/userinfo',
+          {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          },
+        )
+        const data = (await response.json()) as GoogleUserInfo
         return {
           id: data.sub,
           handle: data.email,
           name: data.name,
           avatar: data.picture,
-        };
+        }
       }
 
       case 'github' as AuthProvider: {
         const response = await fetch('https://api.github.com/user', {
           headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        const data = await response.json() as { id: number; login: string; name: string; avatar_url: string };
+        })
+        const data = (await response.json()) as {
+          id: number
+          login: string
+          name: string
+          avatar_url: string
+        }
         return {
           id: String(data.id),
           handle: data.login,
           name: data.name,
           avatar: data.avatar_url,
-        };
+        }
       }
 
       case 'twitter' as AuthProvider: {
         const response = await fetch('https://api.twitter.com/2/users/me', {
           headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        const data = await response.json() as { data: { id: string; username: string; name: string; profile_image_url: string } };
+        })
+        const data = (await response.json()) as {
+          data: {
+            id: string
+            username: string
+            name: string
+            profile_image_url: string
+          }
+        }
         return {
           id: data.data.id,
           handle: data.data.username,
           name: data.data.name,
           avatar: data.data.profile_image_url,
-        };
+        }
       }
 
       case 'discord' as AuthProvider: {
         const response = await fetch('https://discord.com/api/users/@me', {
           headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        const data = await response.json() as { id: string; username: string; global_name: string; avatar: string };
+        })
+        const data = (await response.json()) as {
+          id: string
+          username: string
+          global_name: string
+          avatar: string
+        }
         return {
           id: data.id,
           handle: data.username,
           name: data.global_name || data.username,
-          avatar: data.avatar 
+          avatar: data.avatar
             ? `https://cdn.discordapp.com/avatars/${data.id}/${data.avatar}.png`
             : '',
-        };
+        }
       }
 
       default:
-        throw new Error(`Unsupported provider for user info: ${provider}`);
+        throw new Error(`Unsupported provider for user info: ${provider}`)
     }
   }
 
   async authFarcaster(params: {
-    fid: number;
-    custodyAddress: Address;
-    signature: Hex;
-    message: string;
-    appId: Hex;
+    fid: number
+    custodyAddress: Address
+    signature: Hex
+    message: string
+    appId: Hex
   }): Promise<OAuth3Session> {
-    const expectedMessage = `Sign in with Farcaster\n\nFID: ${params.fid}\nApp: ${params.appId}\nTimestamp: `;
-    
+    const expectedMessage = `Sign in with Farcaster\n\nFID: ${params.fid}\nApp: ${params.appId}\nTimestamp: `
+
     if (!params.message.startsWith(expectedMessage)) {
-      throw new Error('Invalid Farcaster sign-in message');
+      throw new Error('Invalid Farcaster sign-in message')
     }
 
-    const sessionId = keccak256(toBytes(`farcaster:${params.fid}:${Date.now()}`));
-    
+    const sessionId = keccak256(
+      toBytes(`farcaster:${params.fid}:${Date.now()}`),
+    )
+
     // Note: providerHandle and appId are validated above but createSession uses different params
     return this.createSession(
       sessionId,
       'farcaster' as AuthProvider,
       String(params.fid),
       `fid:${params.fid}`,
-      params.appId
-    );
+      params.appId,
+    )
   }
 
   async authWallet(params: {
-    address: Address;
-    signature: Hex;
-    message: string;
-    appId: Hex;
+    address: Address
+    signature: Hex
+    message: string
+    appId: Hex
   }): Promise<OAuth3Session> {
-    const sessionId = keccak256(toBytes(`wallet:${params.address}:${Date.now()}`));
-    
+    const sessionId = keccak256(
+      toBytes(`wallet:${params.address}:${Date.now()}`),
+    )
+
     return this.createSession(
       sessionId,
       'wallet' as AuthProvider,
       params.address.toLowerCase(),
       params.address,
-      params.appId
-    );
+      params.appId,
+    )
   }
 
   /**
    * Convert internal session to public session (strips signing key)
    * SECURITY: This ensures the signing key never leaves the TEE
    */
-  private toPublicSession(internalSession: OAuth3InternalSession): OAuth3Session {
-    const { signingKey: _signingKey, ...publicSession } = internalSession;
-    return publicSession;
+  private toPublicSession(
+    internalSession: OAuth3InternalSession,
+  ): OAuth3Session {
+    const { signingKey: _signingKey, ...publicSession } = internalSession
+    return publicSession
   }
 
   private async createSession(
@@ -946,17 +972,17 @@ export class DstackAuthAgent {
     provider: AuthProvider,
     providerId: string,
     _providerHandle: string,
-    _appId: Hex
+    _appId: Hex,
   ): Promise<OAuth3Session> {
-    const signingKeyBytes = crypto.getRandomValues(new Uint8Array(32));
-    const signingKey = toHex(signingKeyBytes);
-    const signingAccount = privateKeyToAccount(signingKey as Hex);
+    const signingKeyBytes = crypto.getRandomValues(new Uint8Array(32))
+    const signingKey = toHex(signingKeyBytes)
+    const signingAccount = privateKeyToAccount(signingKey as Hex)
 
     const attestation = await this.getAttestation(
-      keccak256(toBytes(`session:${sessionId}:${signingAccount.address}`))
-    );
+      keccak256(toBytes(`session:${sessionId}:${signingAccount.address}`)),
+    )
 
-    const identityId = keccak256(toBytes(`identity:${provider}:${providerId}`));
+    const identityId = keccak256(toBytes(`identity:${provider}:${providerId}`))
 
     // SECURITY: Create internal session with signing key (stays in TEE only)
     const internalSession: OAuth3InternalSession = {
@@ -964,38 +990,45 @@ export class DstackAuthAgent {
       identityId,
       smartAccount: '0x0000000000000000000000000000000000000000' as Address,
       expiresAt: Date.now() + 24 * 60 * 60 * 1000,
-      capabilities: ['sign_message', 'sign_transaction'] as OAuth3Session['capabilities'],
+      capabilities: [
+        'sign_message',
+        'sign_transaction',
+      ] as OAuth3Session['capabilities'],
       signingKey,
       signingPublicKey: toHex(signingAccount.publicKey),
       attestation,
-    };
+    }
 
     // Store internal session in local cache only (signing key stays in TEE)
-    this.store.sessions.set(sessionId, internalSession);
+    this.store.sessions.set(sessionId, internalSession)
 
     // Store public session (without signing key) in decentralized storage
     if (this.decentralizedStore) {
-      await this.decentralizedStore.storage.storeSession(this.toPublicSession(internalSession));
+      await this.decentralizedStore.storage.storeSession(
+        this.toPublicSession(internalSession),
+      )
     }
 
     // Return public session (without signing key) to client
-    return this.toPublicSession(internalSession);
+    return this.toPublicSession(internalSession)
   }
 
   private async deleteSession(sessionId: Hex): Promise<void> {
     // Delete from decentralized storage
     if (this.decentralizedStore) {
-      await this.decentralizedStore.storage.deleteSession(sessionId);
+      await this.decentralizedStore.storage.deleteSession(sessionId)
     }
-    
+
     // Delete from local cache
-    this.store.sessions.delete(sessionId);
+    this.store.sessions.delete(sessionId)
   }
 
-  private async refreshSession(internalSession: OAuth3InternalSession): Promise<OAuth3Session> {
-    const newSigningKeyBytes = crypto.getRandomValues(new Uint8Array(32));
-    const newSigningKey = toHex(newSigningKeyBytes);
-    const newSigningAccount = privateKeyToAccount(newSigningKey as Hex);
+  private async refreshSession(
+    internalSession: OAuth3InternalSession,
+  ): Promise<OAuth3Session> {
+    const newSigningKeyBytes = crypto.getRandomValues(new Uint8Array(32))
+    const newSigningKey = toHex(newSigningKeyBytes)
+    const newSigningAccount = privateKeyToAccount(newSigningKey as Hex)
 
     // SECURITY: Create new internal session with new signing key
     const newInternalSession: OAuth3InternalSession = {
@@ -1004,66 +1037,76 @@ export class DstackAuthAgent {
       signingKey: newSigningKey,
       signingPublicKey: toHex(newSigningAccount.publicKey),
       attestation: await this.getAttestation(),
-    };
+    }
 
     // Update internal session in local cache
-    this.store.sessions.set(internalSession.sessionId, newInternalSession);
+    this.store.sessions.set(internalSession.sessionId, newInternalSession)
 
     // Update public session in decentralized storage
     if (this.decentralizedStore) {
-      await this.decentralizedStore.storage.storeSession(this.toPublicSession(newInternalSession));
+      await this.decentralizedStore.storage.storeSession(
+        this.toPublicSession(newInternalSession),
+      )
     }
-    
+
     // Return public session (without signing key)
-    return this.toPublicSession(newInternalSession);
+    return this.toPublicSession(newInternalSession)
   }
 
-  async sign(sessionId: Hex, message: Hex): Promise<{ signature: Hex; attestation: TEEAttestation }> {
-    const session = this.store.sessions.get(sessionId);
-    
+  async sign(
+    sessionId: Hex,
+    message: Hex,
+  ): Promise<{ signature: Hex; attestation: TEEAttestation }> {
+    const session = this.store.sessions.get(sessionId)
+
     if (!session) {
-      throw new Error('Session not found');
+      throw new Error('Session not found')
     }
 
     if (session.expiresAt < Date.now()) {
-      throw new Error('Session expired');
+      throw new Error('Session expired')
     }
 
-    let signature: Hex;
+    let signature: Hex
 
     // Use MPC signing if coordinator is initialized
     if (this.mpcCoordinator && this.mpcInitialized) {
-      const frostSig = await this.mpcCoordinator.sign(message);
+      const frostSig = await this.mpcCoordinator.sign(message)
       // Combine r, s, v into a standard Ethereum signature
-      signature = `${frostSig.r}${frostSig.s.slice(2)}${frostSig.v.toString(16).padStart(2, '0')}` as Hex;
+      signature =
+        `${frostSig.r}${frostSig.s.slice(2)}${frostSig.v.toString(16).padStart(2, '0')}` as Hex
     } else {
       // Fallback to local signing for backward compatibility
-      const account = privateKeyToAccount(session.signingKey as Hex);
-      signature = await account.signMessage({ message: { raw: toBytes(message) } });
+      const account = privateKeyToAccount(session.signingKey as Hex)
+      signature = await account.signMessage({
+        message: { raw: toBytes(message) },
+      })
     }
 
-    const attestation = await this.getAttestation(keccak256(toBytes(`sign:${message}`)));
+    const attestation = await this.getAttestation(
+      keccak256(toBytes(`sign:${message}`)),
+    )
 
-    return { signature, attestation };
+    return { signature, attestation }
   }
 
   async issueCredential(params: {
-    sessionId: Hex;
-    provider: AuthProvider;
-    providerId: string;
-    providerHandle: string;
-    walletAddress: Address;
+    sessionId: Hex
+    provider: AuthProvider
+    providerId: string
+    providerHandle: string
+    walletAddress: Address
   }): Promise<VerifiableCredential> {
-    const session = this.store.sessions.get(params.sessionId);
-    
+    const session = this.store.sessions.get(params.sessionId)
+
     if (!session) {
-      throw new Error('Session not found');
+      throw new Error('Session not found')
     }
 
-    const now = new Date();
-    const expirationDate = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+    const now = new Date()
+    const expirationDate = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000)
 
-    const credentialId = `urn:uuid:${crypto.randomUUID()}`;
+    const credentialId = `urn:uuid:${crypto.randomUUID()}`
 
     const credential: VerifiableCredential = {
       '@context': [
@@ -1093,59 +1136,67 @@ export class DstackAuthAgent {
         proofPurpose: 'assertionMethod',
         proofValue: '0x' as Hex,
       },
-    };
+    }
 
-    const credentialHash = keccak256(toBytes(JSON.stringify({
-      ...credential,
-      proof: { ...credential.proof, proofValue: undefined },
-    })));
+    const credentialHash = keccak256(
+      toBytes(
+        JSON.stringify({
+          ...credential,
+          proof: { ...credential.proof, proofValue: undefined },
+        }),
+      ),
+    )
 
-    const signature = await this.nodeAccount.signMessage({ message: { raw: toBytes(credentialHash) } });
-    credential.proof.proofValue = signature;
+    const signature = await this.nodeAccount.signMessage({
+      message: { raw: toBytes(credentialHash) },
+    })
+    credential.proof.proofValue = signature
 
     // Store in decentralized storage
     if (this.decentralizedStore) {
-      await this.decentralizedStore.storage.storeCredential(credential);
+      await this.decentralizedStore.storage.storeCredential(credential)
     }
-    
-    // Also keep in local cache
-    this.store.credentials.set(credentialId, credential);
 
-    return credential;
+    // Also keep in local cache
+    this.store.credentials.set(credentialId, credential)
+
+    return credential
   }
 
   async verifyCredential(credential: VerifiableCredential): Promise<boolean> {
     if (new Date(credential.expirationDate) < new Date()) {
-      return false;
+      return false
     }
 
     const credentialWithoutProof = {
       ...credential,
       proof: { ...credential.proof, proofValue: undefined },
-    };
+    }
 
-    const _credentialHash = keccak256(toBytes(JSON.stringify(credentialWithoutProof)));
+    const _credentialHash = keccak256(
+      toBytes(JSON.stringify(credentialWithoutProof)),
+    )
 
-    return true;
+    return true
   }
 
   private generateCodeVerifier(): string {
-    const array = crypto.getRandomValues(new Uint8Array(32));
-    return this.base64UrlEncode(array);
+    const array = crypto.getRandomValues(new Uint8Array(32))
+    return this.base64UrlEncode(array)
   }
 
   private async generateCodeChallenge(verifier: string): Promise<string> {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(verifier);
-    const hash = await crypto.subtle.digest('SHA-256', data);
-    return this.base64UrlEncode(new Uint8Array(hash));
+    const encoder = new TextEncoder()
+    const data = encoder.encode(verifier)
+    const hash = await crypto.subtle.digest('SHA-256', data)
+    return this.base64UrlEncode(new Uint8Array(hash))
   }
 
   private base64UrlEncode(array: Uint8Array): string {
     return btoa(String.fromCharCode(...array))
       .replace(/\+/g, '-')
       .replace(/\//g, '_')
-      .replace(/=+$/, '');
+      .replace(/=+$/, '')
   }
 
   /**
@@ -1153,17 +1204,17 @@ export class DstackAuthAgent {
    * SECURITY: Fails fast if not configured - don't return empty strings
    */
   private async getAppClientId(provider: string): Promise<string> {
-    const envKey = `OAUTH_${provider.toUpperCase()}_CLIENT_ID`;
-    const clientId = process.env[envKey];
-    
+    const envKey = `OAUTH_${provider.toUpperCase()}_CLIENT_ID`
+    const clientId = process.env[envKey]
+
     if (!clientId) {
       throw new Error(
         `OAuth client ID not configured for ${provider}. ` +
-        `Set the ${envKey} environment variable.`
-      );
+          `Set the ${envKey} environment variable.`,
+      )
     }
-    
-    return clientId;
+
+    return clientId
   }
 
   /**
@@ -1171,25 +1222,25 @@ export class DstackAuthAgent {
    * SECURITY: Fails fast if not configured - don't return empty strings
    */
   private async getAppClientSecret(provider: string): Promise<string> {
-    const envKey = `OAUTH_${provider.toUpperCase()}_CLIENT_SECRET`;
-    const clientSecret = process.env[envKey];
-    
+    const envKey = `OAUTH_${provider.toUpperCase()}_CLIENT_SECRET`
+    const clientSecret = process.env[envKey]
+
     if (!clientSecret) {
       throw new Error(
         `OAuth client secret not configured for ${provider}. ` +
-        `Set the ${envKey} environment variable.`
-      );
+          `Set the ${envKey} environment variable.`,
+      )
     }
-    
-    return clientSecret;
+
+    return clientSecret
   }
 
   /**
    * Check if running in development mode
    */
   private isDevelopment(): boolean {
-    const chainId = this.config.chainId;
-    return chainId === 420691 || chainId === 1337;
+    const chainId = this.config.chainId
+    return chainId === 420691 || chainId === 1337
   }
 
   /**
@@ -1198,85 +1249,93 @@ export class DstackAuthAgent {
    */
   private getAllowedOrigins(): string[] {
     // Check for explicit allowed origins in env
-    const envOrigins = process.env.OAUTH3_ALLOWED_ORIGINS;
+    const envOrigins = process.env.OAUTH3_ALLOWED_ORIGINS
     if (envOrigins) {
-      return envOrigins.split(',').map(o => o.trim());
+      return envOrigins.split(',').map((o) => o.trim())
     }
 
     // Development mode: allow all
     if (this.isDevelopment()) {
-      return ['*'];
+      return ['*']
     }
 
     // Production: no wildcard, origins must be registered
     // Apps should register their origins in the app registry
-    return [];
+    return []
   }
 
   getApp(): Hono {
-    return this.app;
+    return this.app
   }
 
   async start(port: number): Promise<void> {
     Bun.serve({
       port,
       fetch: this.app.fetch,
-    });
+    })
   }
 }
 
 export async function startAuthAgent(): Promise<DstackAuthAgent> {
-  const mpcEnabled = process.env.MPC_ENABLED === 'true';
-  const chainId = parseInt(process.env.CHAIN_ID ?? '420691');
-  const isProduction = chainId === 420692; // Mainnet
-  const isTestnet = chainId === 420690;
-  const isDevelopment = !isProduction && !isTestnet;
+  const mpcEnabled = process.env.MPC_ENABLED === 'true'
+  const chainId = parseInt(process.env.CHAIN_ID ?? '420691', 10)
+  const isProduction = chainId === 420692 // Mainnet
+  const isTestnet = chainId === 420690
+  const isDevelopment = !isProduction && !isTestnet
 
   // SECURITY: Private key MUST be explicitly set in production/testnet
   // Only allow auto-generated keys in local development (chain 420691/1337)
-  let privateKey: Hex;
+  let privateKey: Hex
   if (process.env.OAUTH3_NODE_PRIVATE_KEY) {
-    privateKey = process.env.OAUTH3_NODE_PRIVATE_KEY as Hex;
+    privateKey = process.env.OAUTH3_NODE_PRIVATE_KEY as Hex
   } else if (isDevelopment) {
     // Only auto-generate in development mode
-    console.warn('[SECURITY WARNING] Auto-generating node private key. This is only acceptable in development.');
-    privateKey = `0x${Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('hex')}` as Hex;
+    console.warn(
+      '[SECURITY WARNING] Auto-generating node private key. This is only acceptable in development.',
+    )
+    privateKey =
+      `0x${Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('hex')}` as Hex
   } else {
     throw new Error(
       'OAUTH3_NODE_PRIVATE_KEY environment variable is required in production and testnet. ' +
-      'For development, use chain ID 420691 (localnet) to enable auto-generated keys.'
-    );
+        'For development, use chain ID 420691 (localnet) to enable auto-generated keys.',
+    )
   }
-  
+
   const config: AuthAgentConfig = {
-    nodeId: process.env.OAUTH3_NODE_ID ?? `node-${crypto.randomUUID().slice(0, 8)}`,
+    nodeId:
+      process.env.OAUTH3_NODE_ID ?? `node-${crypto.randomUUID().slice(0, 8)}`,
     clusterId: process.env.OAUTH3_CLUSTER_ID ?? 'oauth3-cluster',
     privateKey,
     mpcEndpoint: process.env.MPC_ENDPOINT ?? 'http://localhost:4100',
-    identityRegistryAddress: (process.env.IDENTITY_REGISTRY_ADDRESS ?? 
+    identityRegistryAddress: (process.env.IDENTITY_REGISTRY_ADDRESS ??
       '0x0000000000000000000000000000000000000000') as Address,
-    appRegistryAddress: (process.env.APP_REGISTRY_ADDRESS ?? 
+    appRegistryAddress: (process.env.APP_REGISTRY_ADDRESS ??
       '0x0000000000000000000000000000000000000000') as Address,
     chainRpcUrl: process.env.JEJU_RPC_URL ?? 'http://localhost:9545',
     chainId,
-    jnsGateway: process.env.JNS_GATEWAY ?? process.env.GATEWAY_API ?? 'http://localhost:4020',
-    storageEndpoint: process.env.STORAGE_API_ENDPOINT ?? 'http://localhost:4010',
+    jnsGateway:
+      process.env.JNS_GATEWAY ??
+      process.env.GATEWAY_API ??
+      'http://localhost:4020',
+    storageEndpoint:
+      process.env.STORAGE_API_ENDPOINT ?? 'http://localhost:4010',
     mpcEnabled,
-    mpcThreshold: parseInt(process.env.MPC_THRESHOLD ?? '2'),
-    mpcTotalParties: parseInt(process.env.MPC_TOTAL_PARTIES ?? '3'),
-  };
-
-  const agent = new DstackAuthAgent(config);
-  
-  if (mpcEnabled) {
-    await agent.initializeMPC();
+    mpcThreshold: parseInt(process.env.MPC_THRESHOLD ?? '2', 10),
+    mpcTotalParties: parseInt(process.env.MPC_TOTAL_PARTIES ?? '3', 10),
   }
-  
-  await agent.start(parseInt(process.env.OAUTH3_PORT ?? '4200'));
-  
-  return agent;
+
+  const agent = new DstackAuthAgent(config)
+
+  if (mpcEnabled) {
+    await agent.initializeMPC()
+  }
+
+  await agent.start(parseInt(process.env.OAUTH3_PORT ?? '4200', 10))
+
+  return agent
 }
 
 if (import.meta.main) {
-  startAuthAgent();
+  startAuthAgent()
 }

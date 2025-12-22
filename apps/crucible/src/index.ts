@@ -1,70 +1,64 @@
 /**
  * Crucible - Decentralized Agent Orchestration Platform
- * 
+ *
  * Main entry point for the Crucible package.
- * 
+ *
  * Uses ElizaOS AgentRuntime with @jejunetwork/eliza-plugin for full
  * network access: compute, storage, DeFi, governance, cross-chain, A2A.
  */
 
-// Types
-export * from './types';
+// Characters
+export {
+  blueTeamCharacter,
+  characters,
+  communityManagerCharacter,
+  devRelCharacter,
+  getCharacter,
+  liaisonCharacter,
+  listCharacters,
+  projectManagerCharacter,
+  redTeamCharacter,
+  socialMediaManagerCharacter,
+} from './characters'
 
 // SDK
 export {
   AgentSDK,
-  createAgentSDK,
   type AgentSDKConfig,
-} from './sdk/agent';
-
+  createAgentSDK,
+} from './sdk/agent'
 export {
-  CrucibleStorage,
-  createStorage,
-  type StorageConfig,
-} from './sdk/storage';
-
-export {
+  type ComputeConfig,
   CrucibleCompute,
   createCompute,
-  type ComputeConfig,
   type InferenceRequest,
   type InferenceResponse,
   type ModelInfo,
-} from './sdk/compute';
-
-export {
-  RoomSDK,
-  createRoomSDK,
-  type RoomSDKConfig,
-} from './sdk/room';
-
-export {
-  ExecutorSDK,
-  createExecutorSDK,
-  type ExecutorConfig,
-} from './sdk/executor';
-
+} from './sdk/compute'
 // Agent Runtime - ElizaOS + @jejunetwork/eliza-plugin
 export {
   CrucibleAgentRuntime,
   CrucibleRuntimeManager,
   createCrucibleRuntime,
-  runtimeManager,
   type RuntimeConfig,
   type RuntimeMessage,
   type RuntimeResponse,
-} from './sdk/eliza-runtime';
-
-// Characters
+  runtimeManager,
+} from './sdk/eliza-runtime'
 export {
-  characters,
-  getCharacter,
-  listCharacters,
-  projectManagerCharacter,
-  communityManagerCharacter,
-  devRelCharacter,
-  liaisonCharacter,
-  socialMediaManagerCharacter,
-  redTeamCharacter,
-  blueTeamCharacter,
-} from './characters';
+  createExecutorSDK,
+  type ExecutorConfig,
+  ExecutorSDK,
+} from './sdk/executor'
+export {
+  createRoomSDK,
+  RoomSDK,
+  type RoomSDKConfig,
+} from './sdk/room'
+export {
+  CrucibleStorage,
+  createStorage,
+  type StorageConfig,
+} from './sdk/storage'
+// Types
+export * from './types'

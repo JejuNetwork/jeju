@@ -1,57 +1,84 @@
-import { useState } from 'react';
-import { useAccount } from 'wagmi';
-import { LayoutList, Plus, RefreshCw, Activity, DollarSign, Star, Pause, Play, Trash2, Settings } from 'lucide-react';
-import { useAPIProviders, useAPIListings, useCreateListing } from '../../hooks';
-import type { ViewMode } from '../../types';
+import {
+  Activity,
+  DollarSign,
+  LayoutList,
+  Pause,
+  Play,
+  Plus,
+  RefreshCw,
+  Settings,
+  Star,
+  Trash2,
+} from 'lucide-react'
+import { useState } from 'react'
+import { useAccount } from 'wagmi'
+import { useAPIListings, useAPIProviders, useCreateListing } from '../../hooks'
+import type { ViewMode } from '../../types'
 
 interface ListingsPageProps {
-  viewMode: ViewMode;
+  viewMode: ViewMode
 }
 
 export default function ListingsPage({ viewMode }: ListingsPageProps) {
-  const { isConnected, address } = useAccount();
-  const { data: providersData } = useAPIProviders();
-  const { data: listingsData, isLoading, refetch } = useAPIListings();
-  const createListing = useCreateListing();
-  
-  const [showModal, setShowModal] = useState(false);
+  const { isConnected, address } = useAccount()
+  const { data: providersData } = useAPIProviders()
+  const { data: listingsData, isLoading, refetch } = useAPIListings()
+  const createListing = useCreateListing()
+
+  const [showModal, setShowModal] = useState(false)
   const [formData, setFormData] = useState({
     providerId: '',
     apiKey: '',
     pricePerRequest: '',
-  });
+  })
 
   const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
+    e.preventDefault()
     await createListing.mutateAsync({
       providerId: formData.providerId,
       apiKey: formData.apiKey,
       pricePerRequest: formData.pricePerRequest || undefined,
-    });
-    setShowModal(false);
-    setFormData({ providerId: '', apiKey: '', pricePerRequest: '' });
-  };
+    })
+    setShowModal(false)
+    setFormData({ providerId: '', apiKey: '', pricePerRequest: '' })
+  }
 
-  const providers = providersData?.providers ?? [];
-  const listings = listingsData?.listings ?? [];
-  const myListings = listings.filter(l => l.seller.toLowerCase() === address?.toLowerCase());
-  
-  const totalRevenue = myListings.reduce((sum, l) => sum + parseFloat(l.totalRevenue), 0);
-  const totalRequests = myListings.reduce((sum, l) => sum + parseInt(l.totalRequests), 0);
-  const activeListings = myListings.filter(l => l.active).length;
+  const providers = providersData?.providers ?? []
+  const listings = listingsData?.listings ?? []
+  const myListings = listings.filter(
+    (l) => l.seller.toLowerCase() === address?.toLowerCase(),
+  )
+
+  const totalRevenue = myListings.reduce(
+    (sum, l) => sum + parseFloat(l.totalRevenue),
+    0,
+  )
+  const totalRequests = myListings.reduce(
+    (sum, l) => sum + parseInt(l.totalRequests, 10),
+    0,
+  )
+  const activeListings = myListings.filter((l) => l.active).length
 
   return (
     <div>
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+      <div
+        className="page-header"
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          flexWrap: 'wrap',
+          gap: '1rem',
+        }}
+      >
         <div>
           <h1 className="page-title">
             {viewMode === 'provider' ? 'My API Listings' : 'My Subscriptions'}
           </h1>
           <p className="page-subtitle">
-            {viewMode === 'provider' 
+            {viewMode === 'provider'
               ? 'Manage your API listings and earnings'
-              : 'View your subscribed API services'
-            }
+              : 'View your subscribed API services'}
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -59,7 +86,11 @@ export default function ListingsPage({ viewMode }: ListingsPageProps) {
             <RefreshCw size={16} /> Refresh
           </button>
           {viewMode === 'provider' && (
-            <button className="btn btn-primary" onClick={() => setShowModal(true)} disabled={!isConnected}>
+            <button
+              className="btn btn-primary"
+              onClick={() => setShowModal(true)}
+              disabled={!isConnected}
+            >
               <Plus size={16} /> New Listing
             </button>
           )}
@@ -69,35 +100,47 @@ export default function ListingsPage({ viewMode }: ListingsPageProps) {
       {viewMode === 'provider' && (
         <div className="stats-grid" style={{ marginBottom: '1.5rem' }}>
           <div className="stat-card">
-            <div className="stat-icon compute"><LayoutList size={24} /></div>
+            <div className="stat-icon compute">
+              <LayoutList size={24} />
+            </div>
             <div className="stat-content">
               <div className="stat-label">Active Listings</div>
               <div className="stat-value">{activeListings}</div>
             </div>
           </div>
           <div className="stat-card">
-            <div className="stat-icon storage"><DollarSign size={24} /></div>
+            <div className="stat-icon storage">
+              <DollarSign size={24} />
+            </div>
             <div className="stat-content">
               <div className="stat-label">Total Revenue</div>
-              <div className="stat-value">{(totalRevenue / 1e18).toFixed(4)} ETH</div>
+              <div className="stat-value">
+                {(totalRevenue / 1e18).toFixed(4)} ETH
+              </div>
             </div>
           </div>
           <div className="stat-card">
-            <div className="stat-icon network"><Activity size={24} /></div>
+            <div className="stat-icon network">
+              <Activity size={24} />
+            </div>
             <div className="stat-content">
               <div className="stat-label">Total Requests</div>
               <div className="stat-value">{totalRequests.toLocaleString()}</div>
             </div>
           </div>
           <div className="stat-card">
-            <div className="stat-icon ai"><Star size={24} /></div>
+            <div className="stat-icon ai">
+              <Star size={24} />
+            </div>
             <div className="stat-content">
               <div className="stat-label">Avg Rating</div>
               <div className="stat-value">
-                {myListings.length > 0 
-                  ? (myListings.reduce((sum, l) => sum + l.rating, 0) / myListings.length).toFixed(1)
-                  : '—'
-                }
+                {myListings.length > 0
+                  ? (
+                      myListings.reduce((sum, l) => sum + l.rating, 0) /
+                      myListings.length
+                    ).toFixed(1)
+                  : '—'}
               </div>
             </div>
           </div>
@@ -107,13 +150,19 @@ export default function ListingsPage({ viewMode }: ListingsPageProps) {
       <div className="card">
         <div className="card-header">
           <h3 className="card-title">
-            <LayoutList size={18} /> 
+            <LayoutList size={18} />
             {viewMode === 'provider' ? 'Your Listings' : 'Subscriptions'}
           </h3>
         </div>
-        
+
         {isLoading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              padding: '3rem',
+            }}
+          >
             <div className="spinner" />
           </div>
         ) : myListings.length === 0 ? (
@@ -123,13 +172,16 @@ export default function ListingsPage({ viewMode }: ListingsPageProps) {
               {viewMode === 'provider' ? 'No listings yet' : 'No subscriptions'}
             </h3>
             <p>
-              {viewMode === 'provider' 
+              {viewMode === 'provider'
                 ? 'Create your first API listing to start earning'
-                : 'Browse the marketplace to find APIs'
-              }
+                : 'Browse the marketplace to find APIs'}
             </p>
             {viewMode === 'provider' && (
-              <button className="btn btn-primary" onClick={() => setShowModal(true)} disabled={!isConnected}>
+              <button
+                className="btn btn-primary"
+                onClick={() => setShowModal(true)}
+                disabled={!isConnected}
+              >
                 <Plus size={16} /> New Listing
               </button>
             )}
@@ -150,38 +202,69 @@ export default function ListingsPage({ viewMode }: ListingsPageProps) {
               </thead>
               <tbody>
                 {myListings.map((listing) => {
-                  const provider = providers.find(p => p.id === listing.providerId);
+                  const provider = providers.find(
+                    (p) => p.id === listing.providerId,
+                  )
                   return (
                     <tr key={listing.id}>
-                      <td style={{ fontWeight: 500 }}>{provider?.name ?? listing.providerId}</td>
+                      <td style={{ fontWeight: 500 }}>
+                        {provider?.name ?? listing.providerId}
+                      </td>
                       <td>
-                        <span className={`badge ${listing.active ? 'badge-success' : 'badge-neutral'}`}>
+                        <span
+                          className={`badge ${listing.active ? 'badge-success' : 'badge-neutral'}`}
+                        >
                           {listing.active ? 'Active' : 'Paused'}
                         </span>
                       </td>
-                      <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem' }}>
+                      <td
+                        style={{
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: '0.85rem',
+                        }}
+                      >
                         {listing.pricePerRequest} wei
                       </td>
                       <td style={{ fontFamily: 'var(--font-mono)' }}>
-                        {parseInt(listing.totalRequests).toLocaleString()}
+                        {parseInt(listing.totalRequests, 10).toLocaleString()}
                       </td>
                       <td style={{ fontFamily: 'var(--font-mono)' }}>
-                        {(parseFloat(listing.totalRevenue) / 1e18).toFixed(6)} ETH
+                        {(parseFloat(listing.totalRevenue) / 1e18).toFixed(6)}{' '}
+                        ETH
                       </td>
                       <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                          <Star size={14} style={{ color: 'var(--warning)', fill: 'var(--warning)' }} />
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.25rem',
+                          }}
+                        >
+                          <Star
+                            size={14}
+                            style={{
+                              color: 'var(--warning)',
+                              fill: 'var(--warning)',
+                            }}
+                          />
                           <span>{listing.rating.toFixed(1)}</span>
                         </div>
                       </td>
                       <td style={{ display: 'flex', gap: '0.25rem' }}>
-                        <button 
-                          className="btn btn-ghost btn-sm" 
+                        <button
+                          className="btn btn-ghost btn-sm"
                           title={listing.active ? 'Pause' : 'Resume'}
                         >
-                          {listing.active ? <Pause size={14} /> : <Play size={14} />}
+                          {listing.active ? (
+                            <Pause size={14} />
+                          ) : (
+                            <Play size={14} />
+                          )}
                         </button>
-                        <button className="btn btn-ghost btn-sm" title="Settings">
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          title="Settings"
+                        >
                           <Settings size={14} />
                         </button>
                         <button className="btn btn-ghost btn-sm" title="Delete">
@@ -189,7 +272,7 @@ export default function ListingsPage({ viewMode }: ListingsPageProps) {
                         </button>
                       </td>
                     </tr>
-                  );
+                  )
                 })}
               </tbody>
             </table>
@@ -199,10 +282,15 @@ export default function ListingsPage({ viewMode }: ListingsPageProps) {
 
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3 className="modal-title">New API Listing</h3>
-              <button className="btn btn-ghost btn-icon" onClick={() => setShowModal(false)}>×</button>
+              <button
+                className="btn btn-ghost btn-icon"
+                onClick={() => setShowModal(false)}
+              >
+                ×
+              </button>
             </div>
             <form onSubmit={handleCreate}>
               <div className="modal-body">
@@ -211,12 +299,16 @@ export default function ListingsPage({ viewMode }: ListingsPageProps) {
                   <select
                     className="input"
                     value={formData.providerId}
-                    onChange={e => setFormData({ ...formData, providerId: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, providerId: e.target.value })
+                    }
                     required
                   >
                     <option value="">Select a provider</option>
-                    {providers.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
+                    {providers.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -227,10 +319,14 @@ export default function ListingsPage({ viewMode }: ListingsPageProps) {
                     type="password"
                     placeholder="Enter your provider API key"
                     value={formData.apiKey}
-                    onChange={e => setFormData({ ...formData, apiKey: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, apiKey: e.target.value })
+                    }
                     required
                   />
-                  <div className="form-hint">Your key is encrypted and stored securely in TEE</div>
+                  <div className="form-hint">
+                    Your key is encrypted and stored securely in TEE
+                  </div>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Price per Request (wei)</label>
@@ -239,14 +335,35 @@ export default function ListingsPage({ viewMode }: ListingsPageProps) {
                     type="number"
                     placeholder="Leave empty for default pricing"
                     value={formData.pricePerRequest}
-                    onChange={e => setFormData({ ...formData, pricePerRequest: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        pricePerRequest: e.target.value,
+                      })
+                    }
                   />
                 </div>
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={createListing.isPending}>
-                  {createListing.isPending ? 'Creating...' : <><Plus size={16} /> Create Listing</>}
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={createListing.isPending}
+                >
+                  {createListing.isPending ? (
+                    'Creating...'
+                  ) : (
+                    <>
+                      <Plus size={16} /> Create Listing
+                    </>
+                  )}
                 </button>
               </div>
             </form>
@@ -254,7 +371,5 @@ export default function ListingsPage({ viewMode }: ListingsPageProps) {
         </div>
       )}
     </div>
-  );
+  )
 }
-
-

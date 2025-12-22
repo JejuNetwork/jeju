@@ -11,13 +11,19 @@
  * - GET /health/resources - Resource-level health details
  */
 
-import { z } from 'zod';
-import { AddressSchema } from './validation';
+import { z } from 'zod'
+import { AddressSchema } from './validation'
 
 // ============ Health Status ============
 
-export const HealthStatusSchema = z.enum(['healthy', 'degraded', 'unhealthy', 'unfunded', 'unknown']);
-export type HealthStatus = z.infer<typeof HealthStatusSchema>;
+export const HealthStatusSchema = z.enum([
+  'healthy',
+  'degraded',
+  'unhealthy',
+  'unfunded',
+  'unknown',
+])
+export type HealthStatus = z.infer<typeof HealthStatusSchema>
 
 // ============ Basic Health Response ============
 
@@ -30,15 +36,22 @@ export const HealthResponseSchema = z.object({
   version: z.string(),
   timestamp: z.string(),
   uptime: z.number(),
-});
-export type HealthResponse = z.infer<typeof HealthResponseSchema>;
+})
+export type HealthResponse = z.infer<typeof HealthResponseSchema>
 
 // ============ Readiness Check ============
 
 export const DependencyTypeSchema = z.enum([
-  'database', 'cache', 'api', 'blockchain', 'ipfs', 'storage', 'compute', 'trigger',
-]);
-export type DependencyType = z.infer<typeof DependencyTypeSchema>;
+  'database',
+  'cache',
+  'api',
+  'blockchain',
+  'ipfs',
+  'storage',
+  'compute',
+  'trigger',
+])
+export type DependencyType = z.infer<typeof DependencyTypeSchema>
 
 export const DependencyHealthSchema = z.object({
   name: z.string(),
@@ -46,8 +59,8 @@ export const DependencyHealthSchema = z.object({
   status: HealthStatusSchema,
   latencyMs: z.number().optional(),
   error: z.string().optional(),
-});
-export type DependencyHealth = z.infer<typeof DependencyHealthSchema>;
+})
+export type DependencyHealth = z.infer<typeof DependencyHealthSchema>
 
 /**
  * Response from GET /health/ready
@@ -56,8 +69,8 @@ export const ReadinessResponseSchema = z.object({
   ready: z.boolean(),
   status: HealthStatusSchema,
   dependencies: z.array(DependencyHealthSchema),
-});
-export type ReadinessResponse = z.infer<typeof ReadinessResponseSchema>;
+})
+export type ReadinessResponse = z.infer<typeof ReadinessResponseSchema>
 
 // ============ Liveness Check ============
 
@@ -65,8 +78,8 @@ export const MemoryUsageSchema = z.object({
   heapUsed: z.number(),
   heapTotal: z.number(),
   rss: z.number(),
-});
-export type MemoryUsage = z.infer<typeof MemoryUsageSchema>;
+})
+export type MemoryUsage = z.infer<typeof MemoryUsageSchema>
 
 /**
  * Response from GET /health/live
@@ -75,8 +88,8 @@ export const LivenessResponseSchema = z.object({
   alive: z.boolean(),
   pid: z.number().optional(),
   memoryUsage: MemoryUsageSchema.optional(),
-});
-export type LivenessResponse = z.infer<typeof LivenessResponseSchema>;
+})
+export type LivenessResponse = z.infer<typeof LivenessResponseSchema>
 
 // ============ Resource Health ============
 
@@ -87,8 +100,8 @@ export const HealthResourceTypeSchema = z.enum([
   'storage',
   'agent',
   'custom',
-]);
-export type HealthResourceType = z.infer<typeof HealthResourceTypeSchema>;
+])
+export type HealthResourceType = z.infer<typeof HealthResourceTypeSchema>
 
 /**
  * Strongly typed resource health details
@@ -107,8 +120,8 @@ export const ResourceHealthDetailsSchema = z.object({
   failureCount: z.number().optional(),
   /** Custom metrics as key-value pairs (string values only) */
   metrics: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
-});
-export type ResourceHealthDetails = z.infer<typeof ResourceHealthDetailsSchema>;
+})
+export type ResourceHealthDetails = z.infer<typeof ResourceHealthDetailsSchema>
 
 export const ResourceHealthSchema = z.object({
   type: HealthResourceTypeSchema,
@@ -120,8 +133,8 @@ export const ResourceHealthSchema = z.object({
   error: z.string().optional(),
   /** Strongly typed resource details */
   details: ResourceHealthDetailsSchema.optional(),
-});
-export type ResourceHealth = z.infer<typeof ResourceHealthSchema>;
+})
+export type ResourceHealth = z.infer<typeof ResourceHealthSchema>
 
 /**
  * Response from GET /health/resources
@@ -133,15 +146,17 @@ export const FundingStatusSchema = z.object({
   vaultAddress: AddressSchema,
   autoFundEnabled: z.boolean(),
   estimatedRuntime: z.number().optional(),
-});
-export type FundingStatus = z.infer<typeof FundingStatusSchema>;
+})
+export type FundingStatus = z.infer<typeof FundingStatusSchema>
 
 export const ResourceHealthResponseSchema = z.object({
   status: HealthStatusSchema,
   resources: z.array(ResourceHealthSchema),
   funding: FundingStatusSchema,
-});
-export type ResourceHealthResponse = z.infer<typeof ResourceHealthResponseSchema>;
+})
+export type ResourceHealthResponse = z.infer<
+  typeof ResourceHealthResponseSchema
+>
 
 // ============ Keepalive Types ============
 
@@ -151,8 +166,8 @@ export const KeepaliveResourceSchema = z.object({
   healthEndpoint: z.string().url(),
   minBalance: z.bigint(),
   required: z.boolean(),
-});
-export type KeepaliveResource = z.infer<typeof KeepaliveResourceSchema>;
+})
+export type KeepaliveResource = z.infer<typeof KeepaliveResourceSchema>
 
 export const KeepaliveConfigSchema = z.object({
   keepaliveId: z.string(),
@@ -165,8 +180,8 @@ export const KeepaliveConfigSchema = z.object({
   autoFundEnabled: z.boolean(),
   resources: z.array(KeepaliveResourceSchema),
   dependencies: z.array(z.string()),
-});
-export type KeepaliveConfig = z.infer<typeof KeepaliveConfigSchema>;
+})
+export type KeepaliveConfig = z.infer<typeof KeepaliveConfigSchema>
 
 export const KeepaliveStatusSchema = z.object({
   keepaliveId: z.string(),
@@ -177,8 +192,8 @@ export const KeepaliveStatusSchema = z.object({
   healthyResources: z.number().int().nonnegative(),
   totalResources: z.number().int().nonnegative(),
   failedResources: z.array(z.string()),
-});
-export type KeepaliveStatus = z.infer<typeof KeepaliveStatusSchema>;
+})
+export type KeepaliveStatus = z.infer<typeof KeepaliveStatusSchema>
 
 // ============ Health Check Executor ============
 
@@ -186,8 +201,10 @@ export const KeepaliveHealthCheckRequestSchema = z.object({
   keepaliveId: z.string(),
   resources: z.array(KeepaliveResourceSchema),
   timeout: z.number().int().positive(),
-});
-export type KeepaliveHealthCheckRequest = z.infer<typeof KeepaliveHealthCheckRequestSchema>;
+})
+export type KeepaliveHealthCheckRequest = z.infer<
+  typeof KeepaliveHealthCheckRequestSchema
+>
 
 export const ResourceCheckResultSchema = z.object({
   type: HealthResourceTypeSchema,
@@ -195,9 +212,11 @@ export const ResourceCheckResultSchema = z.object({
   status: HealthStatusSchema,
   latencyMs: z.number(),
   error: z.string().optional(),
-  response: z.union([HealthResponseSchema, ResourceHealthResponseSchema]).optional(),
-});
-export type ResourceCheckResult = z.infer<typeof ResourceCheckResultSchema>;
+  response: z
+    .union([HealthResponseSchema, ResourceHealthResponseSchema])
+    .optional(),
+})
+export type ResourceCheckResult = z.infer<typeof ResourceCheckResultSchema>
 
 export const KeepaliveHealthCheckResultSchema = z.object({
   keepaliveId: z.string(),
@@ -208,8 +227,10 @@ export const KeepaliveHealthCheckResultSchema = z.object({
   totalResources: z.number().int().nonnegative(),
   failedResources: z.array(z.string()),
   resourceResults: z.array(ResourceCheckResultSchema),
-});
-export type KeepaliveHealthCheckResult = z.infer<typeof KeepaliveHealthCheckResultSchema>;
+})
+export type KeepaliveHealthCheckResult = z.infer<
+  typeof KeepaliveHealthCheckResultSchema
+>
 
 // ============ Wake Page Data ============
 
@@ -225,8 +246,8 @@ export const WakePageDataSchema = z.object({
   lastHealthy: z.number(),
   agentId: z.bigint().optional(),
   avatar: z.string().optional(),
-});
-export type WakePageData = z.infer<typeof WakePageDataSchema>;
+})
+export type WakePageData = z.infer<typeof WakePageDataSchema>
 
 // ============ ENS Mirror Types ============
 
@@ -235,8 +256,8 @@ export const ENSMirrorConfigSchema = z.object({
   jnsName: z.string(),
   syncInterval: z.number().int().positive(),
   enabled: z.boolean(),
-});
-export type ENSMirrorConfig = z.infer<typeof ENSMirrorConfigSchema>;
+})
+export type ENSMirrorConfig = z.infer<typeof ENSMirrorConfigSchema>
 
 export const ENSMirrorStatusSchema = z.object({
   ensName: z.string(),
@@ -246,51 +267,54 @@ export const ENSMirrorStatusSchema = z.object({
   ensContenthash: z.string().optional(),
   jnsContenthash: z.string().optional(),
   error: z.string().optional(),
-});
-export type ENSMirrorStatus = z.infer<typeof ENSMirrorStatusSchema>;
+})
+export type ENSMirrorStatus = z.infer<typeof ENSMirrorStatusSchema>
 
 // ============ Helper Functions ============
 
 /**
  * Check if health response indicates healthy status
  */
-export function isHealthy(response: HealthResponse | ResourceHealthResponse): boolean {
-  return response.status === 'healthy';
+export function isHealthy(
+  response: HealthResponse | ResourceHealthResponse,
+): boolean {
+  return response.status === 'healthy'
 }
 
 /**
  * Check if health response indicates funded status
  */
 export function isFunded(status: HealthStatus): boolean {
-  return status !== 'unfunded';
+  return status !== 'unfunded'
 }
 
 /**
  * Calculate overall status from resource statuses
  */
 export function aggregateStatus(resources: ResourceHealth[]): HealthStatus {
-  if (resources.length === 0) return 'unknown';
+  if (resources.length === 0) return 'unknown'
 
-  const required = resources.filter(r => r.required);
-  const requiredUnhealthy = required.filter(r => r.status === 'unhealthy' || r.status === 'unfunded');
+  const required = resources.filter((r) => r.required)
+  const requiredUnhealthy = required.filter(
+    (r) => r.status === 'unhealthy' || r.status === 'unfunded',
+  )
 
-  if (requiredUnhealthy.some(r => r.status === 'unfunded')) return 'unfunded';
-  if (requiredUnhealthy.length > 0) return 'unhealthy';
+  if (requiredUnhealthy.some((r) => r.status === 'unfunded')) return 'unfunded'
+  if (requiredUnhealthy.length > 0) return 'unhealthy'
 
-  const anyDegraded = resources.some(r => r.status === 'degraded');
-  if (anyDegraded) return 'degraded';
+  const anyDegraded = resources.some((r) => r.status === 'degraded')
+  if (anyDegraded) return 'degraded'
 
-  return 'healthy';
+  return 'healthy'
 }
 
 /**
  * Format balance for display
  */
 export function formatBalance(wei: bigint, decimals: number = 18): string {
-  const divisor = BigInt(10 ** decimals);
-  const whole = wei / divisor;
-  const remainder = wei % divisor;
-  const fraction = remainder.toString().padStart(decimals, '0').slice(0, 4);
-  return `${whole}.${fraction}`;
+  const divisor = BigInt(10 ** decimals)
+  const whole = wei / divisor
+  const remainder = wei % divisor
+  const fraction = remainder.toString().padStart(decimals, '0').slice(0, 4)
+  return `${whole}.${fraction}`
 }
-

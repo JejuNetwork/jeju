@@ -1,7 +1,7 @@
 'use client'
 
+import { type Address, formatUnits } from 'viem'
 import { useReadContract } from 'wagmi'
-import { formatUnits, type Address } from 'viem'
 
 // Oracle Registry ABI
 const ORACLE_REGISTRY_ABI = [
@@ -118,7 +118,13 @@ export function useTFMMOracles(_oracleRegistryAddress: Address | null) {
   // Mock data for development
   const oracles: OracleConfig[] = MOCK_ORACLES.map((oracle) => ({
     ...oracle,
-    price: BigInt(oracle.symbol === 'WETH' ? 3000_00000000 : oracle.symbol === 'WBTC' ? 60000_00000000 : 1_00000000),
+    price: BigInt(
+      oracle.symbol === 'WETH'
+        ? 3000_00000000
+        : oracle.symbol === 'WBTC'
+          ? 60000_00000000
+          : 1_00000000,
+    ),
     isStale: false,
     lastUpdate: Date.now() - 60000,
   }))
@@ -129,8 +135,15 @@ export function useTFMMOracles(_oracleRegistryAddress: Address | null) {
   }
 }
 
-export function useOraclePrice(oracleRegistryAddress: Address | null, tokenAddress: Address | null) {
-  const { data: price, isLoading, refetch } = useReadContract({
+export function useOraclePrice(
+  oracleRegistryAddress: Address | null,
+  tokenAddress: Address | null,
+) {
+  const {
+    data: price,
+    isLoading,
+    refetch,
+  } = useReadContract({
     address: oracleRegistryAddress ?? undefined,
     abi: ORACLE_REGISTRY_ABI,
     functionName: 'getPrice',
@@ -147,8 +160,15 @@ export function useOraclePrice(oracleRegistryAddress: Address | null, tokenAddre
   }
 }
 
-export function useOraclePrices(oracleRegistryAddress: Address | null, tokenAddresses: Address[]) {
-  const { data: prices, isLoading, refetch } = useReadContract({
+export function useOraclePrices(
+  oracleRegistryAddress: Address | null,
+  tokenAddresses: Address[],
+) {
+  const {
+    data: prices,
+    isLoading,
+    refetch,
+  } = useReadContract({
     address: oracleRegistryAddress ?? undefined,
     abi: ORACLE_REGISTRY_ABI,
     functionName: 'getPrices',
@@ -165,7 +185,10 @@ export function useOraclePrices(oracleRegistryAddress: Address | null, tokenAddr
   }
 }
 
-export function useOracleStatus(oracleRegistryAddress: Address | null, tokenAddress: Address | null) {
+export function useOracleStatus(
+  oracleRegistryAddress: Address | null,
+  tokenAddress: Address | null,
+) {
   const { data, isLoading } = useReadContract({
     address: oracleRegistryAddress ?? undefined,
     abi: ORACLE_REGISTRY_ABI,
@@ -249,4 +272,3 @@ export function getOracleTypeColor(type: OracleType): string {
       return 'text-gray-400'
   }
 }
-

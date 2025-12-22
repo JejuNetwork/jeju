@@ -37,57 +37,62 @@
  * 3. Audit the circuit before deployment
  */
 
-import { execSync } from 'child_process';
-import * as crypto from 'crypto';
-import * as fs from 'fs';
-import * as path from 'path';
+import { execSync } from 'node:child_process'
+import * as crypto from 'node:crypto'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 
-const CIRCUIT_PATH = 'packages/bridge/circuits/ethereum';
-const OUTPUT_PATH = 'packages/solana/programs/evm-light-client/src/verification_key.rs';
+const CIRCUIT_PATH = 'packages/bridge/circuits/ethereum'
+const OUTPUT_PATH =
+  'packages/solana/programs/evm-light-client/src/verification_key.rs'
 
 interface VerificationKey {
-  alpha_g1: Uint8Array;
-  beta_g2: Uint8Array;
-  gamma_g2: Uint8Array;
-  delta_g2: Uint8Array;
-  ic: Uint8Array[];
+  alpha_g1: Uint8Array
+  beta_g2: Uint8Array
+  gamma_g2: Uint8Array
+  delta_g2: Uint8Array
+  ic: Uint8Array[]
 }
 
-function formatBytesAsRust(bytes: Uint8Array, name: string, size: number): string {
+function formatBytesAsRust(
+  bytes: Uint8Array,
+  name: string,
+  size: number,
+): string {
   if (bytes.length !== size) {
-    throw new Error(`Expected ${size} bytes for ${name}, got ${bytes.length}`);
+    throw new Error(`Expected ${size} bytes for ${name}, got ${bytes.length}`)
   }
 
-  const lines: string[] = [];
-  lines.push(`pub const ${name}: [u8; ${size}] = [`);
+  const lines: string[] = []
+  lines.push(`pub const ${name}: [u8; ${size}] = [`)
 
   for (let i = 0; i < bytes.length; i += 8) {
-    const chunk = Array.from(bytes.slice(i, Math.min(i + 8, bytes.length)));
-    const hexValues = chunk.map((b) => `0x${b.toString(16).padStart(2, '0')}`);
-    lines.push(`    ${hexValues.join(', ')},`);
+    const chunk = Array.from(bytes.slice(i, Math.min(i + 8, bytes.length)))
+    const hexValues = chunk.map((b) => `0x${b.toString(16).padStart(2, '0')}`)
+    lines.push(`    ${hexValues.join(', ')},`)
   }
 
-  lines.push('];');
-  return lines.join('\n');
+  lines.push('];')
+  return lines.join('\n')
 }
 
 function formatIcArrayAsRust(ic: Uint8Array[]): string {
-  const lines: string[] = [];
-  lines.push(`pub const IC_LENGTH: usize = ${ic.length};`);
-  lines.push(`pub const IC: [[u8; 64]; IC_LENGTH] = [`);
+  const lines: string[] = []
+  lines.push(`pub const IC_LENGTH: usize = ${ic.length};`)
+  lines.push(`pub const IC: [[u8; 64]; IC_LENGTH] = [`)
 
   for (const point of ic) {
-    lines.push('    [');
+    lines.push('    [')
     for (let i = 0; i < point.length; i += 8) {
-      const chunk = Array.from(point.slice(i, Math.min(i + 8, point.length)));
-      const hexValues = chunk.map((b) => `0x${b.toString(16).padStart(2, '0')}`);
-      lines.push(`        ${hexValues.join(', ')},`);
+      const chunk = Array.from(point.slice(i, Math.min(i + 8, point.length)))
+      const hexValues = chunk.map((b) => `0x${b.toString(16).padStart(2, '0')}`)
+      lines.push(`        ${hexValues.join(', ')},`)
     }
-    lines.push('    ],');
+    lines.push('    ],')
   }
 
-  lines.push('];');
-  return lines.join('\n');
+  lines.push('];')
+  return lines.join('\n')
 }
 
 function generateVerificationKeyRust(vk: VerificationKey): string {
@@ -139,39 +144,39 @@ mod tests {
         );
     }
 }
-`;
+`
 }
 
 async function main() {
-  console.log('🔑 SP1 Verification Key Generator');
-  console.log('================================\n');
+  console.log('🔑 SP1 Verification Key Generator')
+  console.log('================================\n')
 
   // Check if SP1 is installed
-  let sp1Installed = false;
+  let sp1Installed = false
   try {
-    execSync('which cargo-prove', { stdio: 'ignore' });
-    sp1Installed = true;
+    execSync('which cargo-prove', { stdio: 'ignore' })
+    sp1Installed = true
   } catch {
-    console.log('⚠️  SP1 toolchain not found. Install with:');
-    console.log('   curl -L https://sp1.succinct.xyz | bash');
-    console.log('   sp1up\n');
+    console.log('⚠️  SP1 toolchain not found. Install with:')
+    console.log('   curl -L https://sp1.succinct.xyz | bash')
+    console.log('   sp1up\n')
   }
 
   // Check if circuit exists
-  const circuitDir = path.resolve(CIRCUIT_PATH);
+  const circuitDir = path.resolve(CIRCUIT_PATH)
   if (!fs.existsSync(circuitDir)) {
-    console.error(`❌ Circuit directory not found: ${circuitDir}`);
-    process.exit(1);
+    console.error(`❌ Circuit directory not found: ${circuitDir}`)
+    process.exit(1)
   }
 
   if (sp1Installed) {
-    console.log('📦 Building circuit...');
+    console.log('📦 Building circuit...')
     try {
       execSync('cargo prove build', {
         cwd: circuitDir,
         stdio: 'inherit',
-      });
-      console.log('✅ Circuit built successfully\n');
+      })
+      console.log('✅ Circuit built successfully\n')
 
       // In a real implementation, we would:
       // 1. Run `cargo prove vk` to export the verification key
@@ -179,52 +184,55 @@ async function main() {
       // 3. Convert to Rust format
       //
       // For now, generate example keys to show the format
-      console.log('📝 Exporting verification key...');
+      console.log('📝 Exporting verification key...')
 
       // This would be the actual export command:
       // const vkJson = execSync('cargo prove vk --output json', { cwd: circuitDir });
       // const vk = JSON.parse(vkJson.toString());
-
     } catch {
-      console.error('❌ Failed to build circuit');
-      console.log('   Generating placeholder keys for development...\n');
+      console.error('❌ Failed to build circuit')
+      console.log('   Generating placeholder keys for development...\n')
     }
   }
 
   // Generate development placeholder keys
   // In production, these would come from SP1's actual key export
-  console.log('📝 Generating verification key file...');
+  console.log('📝 Generating verification key file...')
 
   // Example: Generate deterministic test keys (NOT FOR PRODUCTION)
   // These use a fixed seed so tests are reproducible
-  const testSeed = Buffer.from('jeju-evm-light-client-test-seed-v1');
+  const testSeed = Buffer.from('jeju-evm-light-client-test-seed-v1')
 
-  function generateTestPoint(seed: Buffer, index: number, size: number): Uint8Array {
+  function generateTestPoint(
+    seed: Buffer,
+    index: number,
+    size: number,
+  ): Uint8Array {
     // Create initial seed hash
-    const seedHash = crypto.createHash('sha256');
-    seedHash.update(seed);
-    seedHash.update(Buffer.from([index]));
-    let currentSeed = seedHash.digest();
+    const seedHash = crypto.createHash('sha256')
+    seedHash.update(seed)
+    seedHash.update(Buffer.from([index]))
+    let currentSeed = seedHash.digest()
 
-    const result = new Uint8Array(size);
-    let offset = 0;
+    const result = new Uint8Array(size)
+    let offset = 0
 
     while (offset < size) {
       // Generate next chunk
-      const iterHash = crypto.createHash('sha256');
-      iterHash.update(currentSeed);
-      iterHash.update(Buffer.from([offset]));
-      const chunk = iterHash.digest();
-      
-      const copySize = Math.min(size - offset, chunk.length);
-      result.set(chunk.subarray(0, copySize), offset);
-      offset += copySize;
-      
+      const iterHash = crypto.createHash('sha256')
+      iterHash.update(currentSeed)
+      iterHash.update(Buffer.from([offset]))
+      const chunk = iterHash.digest()
+
+      const copySize = Math.min(size - offset, chunk.length)
+      result.set(chunk.subarray(0, copySize), offset)
+      offset += copySize
+
       // Update seed for next iteration
-      currentSeed = chunk;
+      currentSeed = chunk
     }
 
-    return result;
+    return result
   }
 
   // Generate test verification key
@@ -244,37 +252,37 @@ async function main() {
       generateTestPoint(testSeed, 16, 64), // IC[6] - total_stake
       generateTestPoint(testSeed, 17, 64), // IC[7] - voting_stake
     ],
-  };
-
-  const rustCode = generateVerificationKeyRust(vk);
-  const outputPath = path.resolve(OUTPUT_PATH);
-
-  fs.writeFileSync(outputPath, rustCode);
-  console.log(`✅ Verification key written to: ${outputPath}\n`);
-
-  console.log('⚠️  IMPORTANT: These are TEST keys for development only!');
-  console.log('   For production deployment:');
-  console.log('   1. Install SP1 toolchain');
-  console.log('   2. Build the circuit with: cargo prove build');
-  console.log('   3. Export real keys with: cargo prove vk');
-  console.log('   4. Re-run this script to generate production keys\n');
-
-  // Verify the output compiles
-  console.log('🔍 Verifying generated code...');
-  try {
-    // We can't compile Rust here, but we can verify the file was written
-    const written = fs.readFileSync(outputPath, 'utf8');
-    if (written.includes('ALPHA_G1') && written.includes('is_placeholder')) {
-      console.log('✅ Verification key file looks valid\n');
-    } else {
-      throw new Error('Generated file missing expected content');
-    }
-  } catch (error) {
-    console.error('❌ Verification failed:', error);
-    process.exit(1);
   }
 
-  console.log('Done! 🎉');
+  const rustCode = generateVerificationKeyRust(vk)
+  const outputPath = path.resolve(OUTPUT_PATH)
+
+  fs.writeFileSync(outputPath, rustCode)
+  console.log(`✅ Verification key written to: ${outputPath}\n`)
+
+  console.log('⚠️  IMPORTANT: These are TEST keys for development only!')
+  console.log('   For production deployment:')
+  console.log('   1. Install SP1 toolchain')
+  console.log('   2. Build the circuit with: cargo prove build')
+  console.log('   3. Export real keys with: cargo prove vk')
+  console.log('   4. Re-run this script to generate production keys\n')
+
+  // Verify the output compiles
+  console.log('🔍 Verifying generated code...')
+  try {
+    // We can't compile Rust here, but we can verify the file was written
+    const written = fs.readFileSync(outputPath, 'utf8')
+    if (written.includes('ALPHA_G1') && written.includes('is_placeholder')) {
+      console.log('✅ Verification key file looks valid\n')
+    } else {
+      throw new Error('Generated file missing expected content')
+    }
+  } catch (error) {
+    console.error('❌ Verification failed:', error)
+    process.exit(1)
+  }
+
+  console.log('Done! 🎉')
 }
 
-main().catch(console.error);
+main().catch(console.error)

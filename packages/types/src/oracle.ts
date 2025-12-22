@@ -1,24 +1,31 @@
 /**
  * Oracle Network (JON) Types
- * 
+ *
  * Type definitions for the decentralized oracle network
  * providing price feeds, FX rates, stablecoin pegs, and market status
  */
 
-import { z } from 'zod';
-import { AddressSchema, HexSchema, MAX_SMALL_ARRAY_LENGTH, MAX_ARRAY_LENGTH, MAX_SHORT_STRING_LENGTH, MAX_RECORD_KEYS } from './validation';
-import type { Address, Hex } from 'viem';
+import type { Address, Hex } from 'viem'
+import { z } from 'zod'
+import {
+  AddressSchema,
+  HexSchema,
+  MAX_ARRAY_LENGTH,
+  MAX_RECORD_KEYS,
+  MAX_SHORT_STRING_LENGTH,
+  MAX_SMALL_ARRAY_LENGTH,
+} from './validation'
 
 // ============ Core Types ============
 
 /** Feed identifier (keccak256 of baseAsset + quoteAsset) */
-export type FeedId = Hex;
+export type FeedId = Hex
 
 /** Report hash for dispute tracking */
-export type ReportHash = Hex;
+export type ReportHash = Hex
 
 /** Committee assignment round */
-export type CommitteeRound = bigint;
+export type CommitteeRound = bigint
 
 // ============ Feed Configuration ============
 
@@ -31,8 +38,8 @@ export const FeedCategorySchema = z.enum([
   'GAS_PRICE',
   'SEQUENCER_STATUS',
   'MARKET_STATUS',
-]);
-export type FeedCategory = z.infer<typeof FeedCategorySchema>;
+])
+export type FeedCategory = z.infer<typeof FeedCategorySchema>
 
 export const FeedSpecSchema = z.object({
   feedId: HexSchema,
@@ -49,8 +56,8 @@ export const FeedSpecSchema = z.object({
   isActive: z.boolean(),
   requiresConfidence: z.boolean(),
   category: FeedCategorySchema,
-});
-export type FeedSpec = z.infer<typeof FeedSpecSchema>;
+})
+export type FeedSpec = z.infer<typeof FeedSpecSchema>
 
 export const FeedCreateParamsSchema = z.object({
   symbol: z.string(),
@@ -65,8 +72,8 @@ export const FeedCreateParamsSchema = z.object({
   quorumThreshold: z.number().int().positive().optional(),
   requiresConfidence: z.boolean().optional(),
   category: FeedCategorySchema.optional(),
-});
-export type FeedCreateParams = z.infer<typeof FeedCreateParamsSchema>;
+})
+export type FeedCreateParams = z.infer<typeof FeedCreateParamsSchema>
 
 // ============ Price Data ============
 
@@ -76,16 +83,16 @@ export const VenueSourceSchema = z.object({
   price: z.bigint(),
   liquidity: z.bigint(),
   timestamp: z.bigint(),
-});
-export type VenueSource = z.infer<typeof VenueSourceSchema>;
+})
+export type VenueSource = z.infer<typeof VenueSourceSchema>
 
 export const OracleSignatureSchema = z.object({
   signer: AddressSchema,
   v: z.number().int(),
   r: HexSchema,
   s: HexSchema,
-});
-export type OracleSignature = z.infer<typeof OracleSignatureSchema>;
+})
+export type OracleSignature = z.infer<typeof OracleSignatureSchema>
 
 export const PriceReportSchema = z.object({
   feedId: HexSchema,
@@ -95,8 +102,8 @@ export const PriceReportSchema = z.object({
   round: z.bigint(),
   sources: z.array(VenueSourceSchema).max(MAX_SMALL_ARRAY_LENGTH),
   signatures: z.array(OracleSignatureSchema).max(MAX_SMALL_ARRAY_LENGTH),
-});
-export type PriceReport = z.infer<typeof PriceReportSchema>;
+})
+export type PriceReport = z.infer<typeof PriceReportSchema>
 
 export const ConsensusPriceSchema = z.object({
   price: z.bigint(),
@@ -105,8 +112,8 @@ export const ConsensusPriceSchema = z.object({
   round: z.bigint(),
   oracleCount: z.number().int().positive(),
   reportHash: HexSchema,
-});
-export type ConsensusPrice = z.infer<typeof ConsensusPriceSchema>;
+})
+export type ConsensusPrice = z.infer<typeof ConsensusPriceSchema>
 
 export const PriceFeedDataSchema = z.object({
   feedId: HexSchema,
@@ -114,8 +121,8 @@ export const PriceFeedDataSchema = z.object({
   latestPrice: ConsensusPriceSchema.nullable(),
   isStale: z.boolean(),
   lastUpdateBlock: z.bigint(),
-});
-export type PriceFeedData = z.infer<typeof PriceFeedDataSchema>;
+})
+export type PriceFeedData = z.infer<typeof PriceFeedDataSchema>
 
 // ============ Oracle Operator ============
 
@@ -125,8 +132,8 @@ export const OperatorStatusSchema = z.enum([
   'INACTIVE',
   'SLASHED',
   'JAILED',
-]);
-export type OperatorStatus = z.infer<typeof OperatorStatusSchema>;
+])
+export type OperatorStatus = z.infer<typeof OperatorStatusSchema>
 
 export const OracleOperatorSchema = z.object({
   operatorId: HexSchema,
@@ -145,8 +152,8 @@ export const OracleOperatorSchema = z.object({
   status: OperatorStatusSchema,
   workerKeys: z.array(AddressSchema).max(MAX_SMALL_ARRAY_LENGTH),
   supportedFeeds: z.array(HexSchema).max(MAX_ARRAY_LENGTH),
-});
-export type OracleOperator = z.infer<typeof OracleOperatorSchema>;
+})
+export type OracleOperator = z.infer<typeof OracleOperatorSchema>
 
 export const OperatorRegistrationParamsSchema = z.object({
   stakingToken: AddressSchema,
@@ -154,8 +161,10 @@ export const OperatorRegistrationParamsSchema = z.object({
   agentId: z.bigint(),
   workerKeys: z.array(AddressSchema).max(MAX_SMALL_ARRAY_LENGTH).optional(),
   supportedFeeds: z.array(HexSchema).max(MAX_ARRAY_LENGTH).optional(),
-});
-export type OperatorRegistrationParams = z.infer<typeof OperatorRegistrationParamsSchema>;
+})
+export type OperatorRegistrationParams = z.infer<
+  typeof OperatorRegistrationParamsSchema
+>
 
 export const OperatorPerformanceSchema = z.object({
   operatorId: HexSchema,
@@ -167,8 +176,8 @@ export const OperatorPerformanceSchema = z.object({
   reportsAccepted: z.number().int().nonnegative(),
   disputesReceived: z.number().int().nonnegative(),
   slashesIncurred: z.number().int().nonnegative(),
-});
-export type OperatorPerformance = z.infer<typeof OperatorPerformanceSchema>;
+})
+export type OperatorPerformance = z.infer<typeof OperatorPerformanceSchema>
 
 // ============ Committee Management ============
 
@@ -179,8 +188,8 @@ export const CommitteeSchema = z.object({
   threshold: z.number().int().positive(),
   activeUntil: z.bigint(),
   leader: AddressSchema,
-});
-export type Committee = z.infer<typeof CommitteeSchema>;
+})
+export type Committee = z.infer<typeof CommitteeSchema>
 
 export const CommitteeAssignmentSchema = z.object({
   operatorId: HexSchema,
@@ -188,8 +197,8 @@ export const CommitteeAssignmentSchema = z.object({
   round: z.bigint(),
   isLeader: z.boolean(),
   assignedAt: z.bigint(),
-});
-export type CommitteeAssignment = z.infer<typeof CommitteeAssignmentSchema>;
+})
+export type CommitteeAssignment = z.infer<typeof CommitteeAssignmentSchema>
 
 // ============ Delegation ============
 
@@ -202,8 +211,8 @@ export const DelegationPoolSchema = z.object({
   minDelegation: z.bigint(),
   maxCapacity: z.bigint(),
   isAcceptingDelegations: z.boolean(),
-});
-export type DelegationPool = z.infer<typeof DelegationPoolSchema>;
+})
+export type DelegationPool = z.infer<typeof DelegationPoolSchema>
 
 export const OracleDelegationSchema = z.object({
   delegator: AddressSchema,
@@ -213,15 +222,15 @@ export const OracleDelegationSchema = z.object({
   delegatedAt: z.bigint(),
   lastClaimTime: z.bigint(),
   pendingRewards: z.bigint(),
-});
-export type OracleDelegation = z.infer<typeof OracleDelegationSchema>;
+})
+export type OracleDelegation = z.infer<typeof OracleDelegationSchema>
 
 export const DelegationParamsSchema = z.object({
   operatorId: HexSchema,
   amount: z.bigint(),
   stakingToken: AddressSchema,
-});
-export type DelegationParams = z.infer<typeof DelegationParamsSchema>;
+})
+export type DelegationParams = z.infer<typeof DelegationParamsSchema>
 
 // ============ Disputes ============
 
@@ -233,8 +242,8 @@ export const DisputeReasonSchema = z.enum([
   'INVALID_SIGNATURE',
   'MANIPULATION',
   'OTHER',
-]);
-export type DisputeReason = z.infer<typeof DisputeReasonSchema>;
+])
+export type DisputeReason = z.infer<typeof DisputeReasonSchema>
 
 export const DisputeStatusSchema = z.enum([
   'OPEN',
@@ -243,21 +252,21 @@ export const DisputeStatusSchema = z.enum([
   'RESOLVED_INVALID',
   'ESCALATED_TO_FUTARCHY',
   'EXPIRED',
-]);
-export type DisputeStatus = z.infer<typeof DisputeStatusSchema>;
+])
+export type DisputeStatus = z.infer<typeof DisputeStatusSchema>
 
 export const DisputeResolutionOutcomeSchema = z.enum([
   'REPORT_VALID',
   'REPORT_INVALID',
   'INCONCLUSIVE',
-]);
+])
 
 export const DisputeResolvedBySchema = z.union([
   AddressSchema,
   z.literal('AUTOMATIC'),
   z.literal('FUTARCHY'),
-]);
-export type DisputeResolvedBy = z.infer<typeof DisputeResolvedBySchema>;
+])
+export type DisputeResolvedBy = z.infer<typeof DisputeResolvedBySchema>
 
 export const DisputeResolutionSchema = z.object({
   outcome: DisputeResolutionOutcomeSchema,
@@ -265,8 +274,8 @@ export const DisputeResolutionSchema = z.object({
   resolvedBy: DisputeResolvedBySchema,
   slashAmount: z.bigint(),
   disputerReward: z.bigint(),
-});
-export type DisputeResolution = z.infer<typeof DisputeResolutionSchema>;
+})
+export type DisputeResolution = z.infer<typeof DisputeResolutionSchema>
 
 export const DisputeSchema = z.object({
   disputeId: HexSchema,
@@ -281,16 +290,16 @@ export const DisputeSchema = z.object({
   deadline: z.bigint(),
   resolution: DisputeResolutionSchema.nullable(),
   affectedSigners: z.array(AddressSchema).max(MAX_SMALL_ARRAY_LENGTH),
-});
-export type Dispute = z.infer<typeof DisputeSchema>;
+})
+export type Dispute = z.infer<typeof DisputeSchema>
 
 export const DisputeCreateParamsSchema = z.object({
   reportHash: HexSchema,
   reason: DisputeReasonSchema,
   evidence: HexSchema,
   bond: z.bigint(),
-});
-export type DisputeCreateParams = z.infer<typeof DisputeCreateParamsSchema>;
+})
+export type DisputeCreateParams = z.infer<typeof DisputeCreateParamsSchema>
 
 // ============ Fees & Revenue ============
 
@@ -301,8 +310,8 @@ export const FeeConfigSchema = z.object({
   operatorShareBps: z.number().int().nonnegative(),
   delegatorShareBps: z.number().int().nonnegative(),
   disputerRewardBps: z.number().int().nonnegative(),
-});
-export type FeeConfig = z.infer<typeof FeeConfigSchema>;
+})
+export type FeeConfig = z.infer<typeof FeeConfigSchema>
 
 export const SubscriptionSchema = z.object({
   subscriber: AddressSchema,
@@ -311,8 +320,8 @@ export const SubscriptionSchema = z.object({
   endTime: z.bigint(),
   amountPaid: z.bigint(),
   isActive: z.boolean(),
-});
-export type Subscription = z.infer<typeof SubscriptionSchema>;
+})
+export type Subscription = z.infer<typeof SubscriptionSchema>
 
 export const OperatorEarningsSchema = z.object({
   operatorId: HexSchema,
@@ -320,12 +329,13 @@ export const OperatorEarningsSchema = z.object({
   totalClaimed: z.bigint(),
   pendingRewards: z.bigint(),
   lastClaimTime: z.bigint(),
-  earningsByFeed: z.record(z.string().max(MAX_SHORT_STRING_LENGTH), z.bigint()).refine(
-    (obj) => Object.keys(obj).length <= MAX_RECORD_KEYS,
-    { message: `Cannot have more than ${MAX_RECORD_KEYS} feed earnings entries` }
-  ),
-});
-export type OperatorEarnings = z.infer<typeof OperatorEarningsSchema>;
+  earningsByFeed: z
+    .record(z.string().max(MAX_SHORT_STRING_LENGTH), z.bigint())
+    .refine((obj) => Object.keys(obj).length <= MAX_RECORD_KEYS, {
+      message: `Cannot have more than ${MAX_RECORD_KEYS} feed earnings entries`,
+    }),
+})
+export type OperatorEarnings = z.infer<typeof OperatorEarningsSchema>
 
 // ============ Network Stats ============
 
@@ -340,8 +350,8 @@ export const OracleNetworkStatsSchema = z.object({
   totalDisputes: z.bigint(),
   avgAccuracy: z.number().nonnegative(),
   avgUptime: z.number().nonnegative(),
-});
-export type OracleNetworkStats = z.infer<typeof OracleNetworkStatsSchema>;
+})
+export type OracleNetworkStats = z.infer<typeof OracleNetworkStatsSchema>
 
 export const FeedStatsSchema = z.object({
   feedId: HexSchema,
@@ -352,8 +362,8 @@ export const FeedStatsSchema = z.object({
   lastUpdateTime: z.bigint(),
   subscriberCount: z.number().int().nonnegative(),
   totalRevenue: z.bigint(),
-});
-export type FeedStats = z.infer<typeof FeedStatsSchema>;
+})
+export type FeedStats = z.infer<typeof FeedStatsSchema>
 
 // ============ ERC-8004 Integration ============
 
@@ -367,10 +377,17 @@ export const OraclePerformanceAttestationSchema = z.object({
   disputesReceived: z.number().int().nonnegative(),
   slashesIncurred: z.number().int().nonnegative(),
   attestationHash: HexSchema,
-});
-export type OraclePerformanceAttestation = z.infer<typeof OraclePerformanceAttestationSchema>;
+})
+export type OraclePerformanceAttestation = z.infer<
+  typeof OraclePerformanceAttestationSchema
+>
 
-export const OracleModerationActionTypeSchema = z.enum(['JAIL', 'UNJAIL', 'BAN', 'SLASH']);
+export const OracleModerationActionTypeSchema = z.enum([
+  'JAIL',
+  'UNJAIL',
+  'BAN',
+  'SLASH',
+])
 
 export const OracleModerationActionSchema = z.object({
   operatorId: HexSchema,
@@ -380,22 +397,49 @@ export const OracleModerationActionSchema = z.object({
   evidenceHash: HexSchema,
   duration: z.bigint(),
   timestamp: z.bigint(),
-  initiatedBy: z.union([AddressSchema, z.literal('AUTOMATIC'), z.literal('FUTARCHY')]),
-});
-export type OracleModerationAction = z.infer<typeof OracleModerationActionSchema>;
+  initiatedBy: z.union([
+    AddressSchema,
+    z.literal('AUTOMATIC'),
+    z.literal('FUTARCHY'),
+  ]),
+})
+export type OracleModerationAction = z.infer<
+  typeof OracleModerationActionSchema
+>
 
 // ============ Report Verification ============
 
 export const ReportErrorSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('INVALID_SIGNATURE'), signer: AddressSchema }),
   z.object({ type: z.literal('NOT_COMMITTEE_MEMBER'), signer: AddressSchema }),
-  z.object({ type: z.literal('PRICE_OUT_OF_BOUNDS'), price: z.bigint(), bounds: z.object({ min: z.bigint(), max: z.bigint() }) }),
-  z.object({ type: z.literal('STALE_TIMESTAMP'), timestamp: z.bigint(), maxAge: z.bigint() }),
-  z.object({ type: z.literal('INSUFFICIENT_QUORUM'), have: z.number().int(), need: z.number().int() }),
-  z.object({ type: z.literal('INVALID_ROUND'), expected: z.bigint(), got: z.bigint() }),
-  z.object({ type: z.literal('LOW_LIQUIDITY'), venue: AddressSchema, liquidity: z.bigint(), required: z.bigint() }),
-]);
-export type ReportError = z.infer<typeof ReportErrorSchema>;
+  z.object({
+    type: z.literal('PRICE_OUT_OF_BOUNDS'),
+    price: z.bigint(),
+    bounds: z.object({ min: z.bigint(), max: z.bigint() }),
+  }),
+  z.object({
+    type: z.literal('STALE_TIMESTAMP'),
+    timestamp: z.bigint(),
+    maxAge: z.bigint(),
+  }),
+  z.object({
+    type: z.literal('INSUFFICIENT_QUORUM'),
+    have: z.number().int(),
+    need: z.number().int(),
+  }),
+  z.object({
+    type: z.literal('INVALID_ROUND'),
+    expected: z.bigint(),
+    got: z.bigint(),
+  }),
+  z.object({
+    type: z.literal('LOW_LIQUIDITY'),
+    venue: AddressSchema,
+    liquidity: z.bigint(),
+    required: z.bigint(),
+  }),
+])
+export type ReportError = z.infer<typeof ReportErrorSchema>
 
 export const ReportVerificationResultSchema = z.object({
   isValid: z.boolean(),
@@ -403,8 +447,10 @@ export const ReportVerificationResultSchema = z.object({
   errors: z.array(ReportErrorSchema).max(MAX_SMALL_ARRAY_LENGTH),
   validSignerCount: z.number().int().nonnegative(),
   quorumMet: z.boolean(),
-});
-export type ReportVerificationResult = z.infer<typeof ReportVerificationResultSchema>;
+})
+export type ReportVerificationResult = z.infer<
+  typeof ReportVerificationResultSchema
+>
 
 // ============ TWAP Sources ============
 
@@ -419,8 +465,8 @@ export const TWAPSourceSchema = z.object({
   fee: z.number().int().nonnegative(),
   liquidity: z.bigint(),
   isActive: z.boolean(),
-});
-export type TWAPSource = z.infer<typeof TWAPSourceSchema>;
+})
+export type TWAPSource = z.infer<typeof TWAPSourceSchema>
 
 export const TWAPConfigSchema = z.object({
   feedId: HexSchema,
@@ -428,8 +474,8 @@ export const TWAPConfigSchema = z.object({
   windowSeconds: z.number().int().positive(),
   minSources: z.number().int().positive(),
   outlierThresholdBps: z.number().int().nonnegative(),
-});
-export type TWAPConfig = z.infer<typeof TWAPConfigSchema>;
+})
+export type TWAPConfig = z.infer<typeof TWAPConfigSchema>
 
 // ============ Contract Addresses ============
 
@@ -442,8 +488,10 @@ export const OracleContractAddressesSchema = z.object({
   disputeGame: AddressSchema,
   feeRouter: AddressSchema,
   twapOracle: AddressSchema,
-});
-export type OracleContractAddresses = z.infer<typeof OracleContractAddressesSchema>;
+})
+export type OracleContractAddresses = z.infer<
+  typeof OracleContractAddressesSchema
+>
 
 // ============ Events ============
 
@@ -453,8 +501,8 @@ export const FeedCreatedEventSchema = z.object({
   creator: AddressSchema,
   transactionHash: HexSchema,
   blockNumber: z.bigint(),
-});
-export type FeedCreatedEvent = z.infer<typeof FeedCreatedEventSchema>;
+})
+export type FeedCreatedEvent = z.infer<typeof FeedCreatedEventSchema>
 
 export const ReportSubmittedEventSchema = z.object({
   feedId: HexSchema,
@@ -464,8 +512,8 @@ export const ReportSubmittedEventSchema = z.object({
   signerCount: z.number().int().positive(),
   transactionHash: HexSchema,
   blockNumber: z.bigint(),
-});
-export type ReportSubmittedEvent = z.infer<typeof ReportSubmittedEventSchema>;
+})
+export type ReportSubmittedEvent = z.infer<typeof ReportSubmittedEventSchema>
 
 export const OperatorRegisteredEventSchema = z.object({
   operatorId: HexSchema,
@@ -474,8 +522,10 @@ export const OperatorRegisteredEventSchema = z.object({
   stakedAmount: z.bigint(),
   transactionHash: HexSchema,
   blockNumber: z.bigint(),
-});
-export type OperatorRegisteredEvent = z.infer<typeof OperatorRegisteredEventSchema>;
+})
+export type OperatorRegisteredEvent = z.infer<
+  typeof OperatorRegisteredEventSchema
+>
 
 export const DisputeOpenedEventSchema = z.object({
   disputeId: HexSchema,
@@ -485,8 +535,8 @@ export const DisputeOpenedEventSchema = z.object({
   reason: DisputeReasonSchema,
   transactionHash: HexSchema,
   blockNumber: z.bigint(),
-});
-export type DisputeOpenedEvent = z.infer<typeof DisputeOpenedEventSchema>;
+})
+export type DisputeOpenedEvent = z.infer<typeof DisputeOpenedEventSchema>
 
 export const DisputeResolvedEventSchema = z.object({
   disputeId: HexSchema,
@@ -495,8 +545,8 @@ export const DisputeResolvedEventSchema = z.object({
   disputerReward: z.bigint(),
   transactionHash: HexSchema,
   blockNumber: z.bigint(),
-});
-export type DisputeResolvedEvent = z.infer<typeof DisputeResolvedEventSchema>;
+})
+export type DisputeResolvedEvent = z.infer<typeof DisputeResolvedEventSchema>
 
 export const OperatorSlashedEventSchema = z.object({
   operatorId: HexSchema,
@@ -504,14 +554,14 @@ export const OperatorSlashedEventSchema = z.object({
   reason: z.string().max(MAX_SHORT_STRING_LENGTH),
   transactionHash: HexSchema,
   blockNumber: z.bigint(),
-});
-export type OperatorSlashedEvent = z.infer<typeof OperatorSlashedEventSchema>;
+})
+export type OperatorSlashedEvent = z.infer<typeof OperatorSlashedEventSchema>
 
 // ============ Default Values ============
 
 // Helper to avoid BigInt exponentiation transpilation issues
-const E18 = 1000000000000000000n; // 10^18
-const E15 = 1000000000000000n; // 10^15
+const E18 = 1000000000000000000n // 10^18
+const E15 = 1000000000000000n // 10^15
 
 export const DEFAULT_FEED_CONFIG = {
   decimals: 8,
@@ -523,7 +573,7 @@ export const DEFAULT_FEED_CONFIG = {
   quorumThreshold: 2,
   requiresConfidence: true,
   category: 'SPOT_PRICE' as FeedCategory,
-} as const;
+} as const
 
 export const DEFAULT_FEE_CONFIG: FeeConfig = {
   subscriptionFeePerMonth: 100n * E18,
@@ -532,7 +582,7 @@ export const DEFAULT_FEE_CONFIG: FeeConfig = {
   operatorShareBps: 7000,
   delegatorShareBps: 1500,
   disputerRewardBps: 500,
-};
+}
 
 export const DISPUTE_CONSTANTS = {
   MIN_BOND_USD: 100n * E18,
@@ -540,7 +590,7 @@ export const DISPUTE_CONSTANTS = {
   RESOLUTION_WINDOW_SECONDS: 259200,
   SLASH_DEVIATION_BPS: 100,
   MAX_SLASH_BPS: 5000,
-} as const;
+} as const
 
 // ============ Feed Presets ============
 
@@ -582,47 +632,53 @@ export const STANDARD_FEEDS = {
     twapWindowSeconds: 1800,
     category: 'SPOT_PRICE' as FeedCategory,
   },
-} as const;
+} as const
 
 // ============ Utility Functions ============
 
 /**
  * Compute feed ID from base and quote tokens
  * @param _baseToken - The base token address
- * @param _quoteToken - The quote token address  
+ * @param _quoteToken - The quote token address
  * @returns The feed ID (use viem keccak256 implementation)
  */
-export function computeFeedId(_baseToken: Address, _quoteToken: Address): FeedId {
+export function computeFeedId(
+  _baseToken: Address,
+  _quoteToken: Address,
+): FeedId {
   // Placeholder - actual implementation uses keccak256
-  throw new Error('Use viem keccak256 implementation');
+  throw new Error('Use viem keccak256 implementation')
 }
 
 /**
  * Validate a price report
  */
-export function validatePriceReport(report: PriceReport, spec: FeedSpec): ReportVerificationResult {
-  const errors: ReportError[] = [];
-  
+export function validatePriceReport(
+  report: PriceReport,
+  spec: FeedSpec,
+): ReportVerificationResult {
+  const errors: ReportError[] = []
+
   // Check signature count
   if (report.signatures.length < spec.quorumThreshold) {
     errors.push({
       type: 'INSUFFICIENT_QUORUM',
       have: report.signatures.length,
       need: spec.quorumThreshold,
-    });
+    })
   }
-  
+
   // Check timestamp
-  const now = BigInt(Math.floor(Date.now() / 1000));
-  const maxAge = BigInt(spec.heartbeatSeconds);
+  const now = BigInt(Math.floor(Date.now() / 1000))
+  const maxAge = BigInt(spec.heartbeatSeconds)
   if (now - report.timestamp > maxAge) {
     errors.push({
       type: 'STALE_TIMESTAMP',
       timestamp: report.timestamp,
       maxAge,
-    });
+    })
   }
-  
+
   // Check sources liquidity
   for (const source of report.sources) {
     if (source.liquidity < spec.minLiquidityUSD) {
@@ -631,25 +687,28 @@ export function validatePriceReport(report: PriceReport, spec: FeedSpec): Report
         venue: source.venue,
         liquidity: source.liquidity,
         required: spec.minLiquidityUSD,
-      });
+      })
     }
   }
-  
+
   return {
     isValid: errors.length === 0,
-    reportHash: '0x' + '0'.repeat(64) as ReportHash,
+    reportHash: `0x${'0'.repeat(64)}` as ReportHash,
     errors,
     validSignerCount: report.signatures.length,
     quorumMet: report.signatures.length >= spec.quorumThreshold,
-  };
+  }
 }
 
 /**
  * Check if a feed price is stale
  */
-export function isPriceStale(price: ConsensusPrice, heartbeatSeconds: number): boolean {
-  const now = BigInt(Math.floor(Date.now() / 1000));
-  return now - price.timestamp > BigInt(heartbeatSeconds);
+export function isPriceStale(
+  price: ConsensusPrice,
+  heartbeatSeconds: number,
+): boolean {
+  const now = BigInt(Math.floor(Date.now() / 1000))
+  return now - price.timestamp > BigInt(heartbeatSeconds)
 }
 
 /**
@@ -657,38 +716,38 @@ export function isPriceStale(price: ConsensusPrice, heartbeatSeconds: number): b
  */
 export function calculateWeightedMedian(
   prices: bigint[],
-  weights: bigint[]
+  weights: bigint[],
 ): bigint {
   if (prices.length !== weights.length || prices.length === 0) {
-    throw new Error('Invalid input arrays');
+    throw new Error('Invalid input arrays')
   }
-  
+
   // Create pairs and sort by price
-  const pairs = prices.map((price, i) => ({ price, weight: weights[i] }));
-  pairs.sort((a, b) => (a.price < b.price ? -1 : a.price > b.price ? 1 : 0));
-  
+  const pairs = prices.map((price, i) => ({ price, weight: weights[i] }))
+  pairs.sort((a, b) => (a.price < b.price ? -1 : a.price > b.price ? 1 : 0))
+
   // Calculate total weight and find median
-  const totalWeight = weights.reduce((a, b) => a + b, 0n);
-  const halfWeight = totalWeight / 2n;
-  
-  let cumWeight = 0n;
+  const totalWeight = weights.reduce((a, b) => a + b, 0n)
+  const halfWeight = totalWeight / 2n
+
+  let cumWeight = 0n
   for (const { price, weight } of pairs) {
-    cumWeight += weight;
+    cumWeight += weight
     if (cumWeight >= halfWeight) {
-      return price;
+      return price
     }
   }
-  
-  return pairs[pairs.length - 1].price;
+
+  return pairs[pairs.length - 1].price
 }
 
 /**
  * Format price with decimals
  */
 export function formatPrice(price: bigint, decimals: number): string {
-  const divisor = 10n ** BigInt(decimals);
-  const wholePart = price / divisor;
-  const fracPart = price % divisor;
-  const fracStr = fracPart.toString().padStart(decimals, '0');
-  return `${wholePart}.${fracStr}`;
+  const divisor = 10n ** BigInt(decimals)
+  const wholePart = price / divisor
+  const fracPart = price % divisor
+  const fracStr = fracPart.toString().padStart(decimals, '0')
+  return `${wholePart}.${fracStr}`
 }

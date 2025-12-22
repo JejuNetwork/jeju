@@ -1,6 +1,6 @@
 /**
  * Decentralized Infrastructure E2E Tests
- * 
+ *
  * Tests the fully decentralized compute infrastructure:
  * - Node registration and discovery
  * - Worker deployment across nodes
@@ -9,18 +9,19 @@
  * - Payment integration
  */
 
-import { describe, test, expect, afterAll, setDefaultTimeout } from 'bun:test';
-import { app } from '../src/server';
-import type { Address, Hex } from 'viem';
+import { afterAll, describe, expect, setDefaultTimeout, test } from 'bun:test'
+import type { Address, Hex } from 'viem'
+import { app } from '../src/server'
 
-setDefaultTimeout(60000); // Infrastructure tests may take longer
+setDefaultTimeout(60000) // Infrastructure tests may take longer
 
-const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address;
-const _TEST_PRIVATE_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as Hex;
+const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address
+const _TEST_PRIVATE_KEY =
+  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as Hex
 
 // Check environment
-const isLocalnet = process.env.NETWORK === 'localnet' || !process.env.NETWORK;
-const hasAnvil = process.env.RPC_URL?.includes('localhost:8545') || isLocalnet;
+const isLocalnet = process.env.NETWORK === 'localnet' || !process.env.NETWORK
+const hasAnvil = process.env.RPC_URL?.includes('localhost:8545') || isLocalnet
 
 describe('Decentralized Infrastructure', () => {
   // ============================================================================
@@ -29,22 +30,22 @@ describe('Decentralized Infrastructure', () => {
 
   describe('Infrastructure Health', () => {
     test('DWS server is running', async () => {
-      const res = await app.request('/health');
-      expect(res.status).toBe(200);
-      const body = await res.json() as { status: string };
-      expect(body.status).toBe('healthy');
-    });
+      const res = await app.request('/health')
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as { status: string }
+      expect(body.status).toBe('healthy')
+    })
 
     test('Workerd service is available', async () => {
-      const res = await app.request('/workerd/health');
-      expect(res.status).toBe(200);
-    });
+      const res = await app.request('/workerd/health')
+      expect(res.status).toBe(200)
+    })
 
     test('Storage backends are configured', async () => {
-      const res = await app.request('/storage/health');
-      expect(res.status).toBe(200);
-    });
-  });
+      const res = await app.request('/storage/health')
+      expect(res.status).toBe(200)
+    })
+  })
 
   // ============================================================================
   // Node Registry Tests
@@ -52,11 +53,11 @@ describe('Decentralized Infrastructure', () => {
 
   describe('Node Registry', () => {
     test('can list nodes (may be empty)', async () => {
-      const res = await app.request('/edge/nodes');
-      expect(res.status).toBe(200);
-      const body = await res.json() as { nodes: unknown[] };
-      expect(body.nodes).toBeInstanceOf(Array);
-    });
+      const res = await app.request('/edge/nodes')
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as { nodes: object[] }
+      expect(body.nodes).toBeInstanceOf(Array)
+    })
 
     test.skipIf(!hasAnvil)('can register as a node on localnet', async () => {
       // This test requires a local anvil instance running
@@ -77,16 +78,16 @@ describe('Decentralized Infrastructure', () => {
           },
           pricing: {
             pricePerHour: '1000000000000000', // 0.001 ETH
-            pricePerGb: '100000000000000',    // 0.0001 ETH
+            pricePerGb: '100000000000000', // 0.0001 ETH
             pricePerRequest: '1000000000000', // 0.000001 ETH
           },
         }),
-      });
+      })
 
       // May fail if contracts not deployed or route doesn't exist
-      expect([200, 201, 400, 404, 503]).toContain(res.status);
-    });
-  });
+      expect([200, 201, 400, 404, 503]).toContain(res.status)
+    })
+  })
 
   // ============================================================================
   // Worker Deployment Tests
@@ -96,11 +97,11 @@ describe('Decentralized Infrastructure', () => {
     test('can list workers', async () => {
       const res = await app.request('/workerd', {
         headers: { 'x-jeju-address': TEST_ADDRESS },
-      });
-      expect(res.status).toBe(200);
-      const body = await res.json() as { workers: unknown[] };
-      expect(body.workers).toBeInstanceOf(Array);
-    });
+      })
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as { workers: object[] }
+      expect(body.workers).toBeInstanceOf(Array)
+    })
 
     test('worker deployment requires code CID', async () => {
       const res = await app.request('/workerd', {
@@ -113,10 +114,10 @@ describe('Decentralized Infrastructure', () => {
           name: 'test-worker',
           // Missing codeCid
         }),
-      });
+      })
 
-      expect(res.status).toBe(400);
-    });
+      expect(res.status).toBe(400)
+    })
 
     test('can deploy a simple worker', async () => {
       // First upload code to storage
@@ -126,7 +127,7 @@ describe('Decentralized Infrastructure', () => {
             return new Response('Hello from decentralized worker');
           }
         }
-      `;
+      `
 
       const uploadRes = await app.request('/storage/upload/raw', {
         method: 'POST',
@@ -136,11 +137,11 @@ describe('Decentralized Infrastructure', () => {
           'x-filename': 'worker.js',
         },
         body: workerCode,
-      });
+      })
 
-      expect(uploadRes.status).toBe(200);
-      const { cid } = await uploadRes.json() as { cid: string };
-      expect(cid).toBeDefined();
+      expect(uploadRes.status).toBe(200)
+      const { cid } = (await uploadRes.json()) as { cid: string }
+      expect(cid).toBeDefined()
 
       // Now deploy worker
       const deployRes = await app.request('/workerd', {
@@ -165,23 +166,23 @@ describe('Decentralized Infrastructure', () => {
             scaleToZero: true,
           },
         }),
-      });
+      })
 
       // May succeed or fail depending on workerd binary availability
-      expect([200, 201, 500, 503]).toContain(deployRes.status);
+      expect([200, 201, 500, 503]).toContain(deployRes.status)
 
       if (deployRes.status === 200 || deployRes.status === 201) {
-        const body = await deployRes.json() as { workerId: string };
-        expect(body.workerId).toBeDefined();
+        const body = (await deployRes.json()) as { workerId: string }
+        expect(body.workerId).toBeDefined()
 
         // Cleanup
         await app.request(`/workerd/${body.workerId}`, {
           method: 'DELETE',
           headers: { 'x-jeju-address': TEST_ADDRESS },
-        });
+        })
       }
-    });
-  });
+    })
+  })
 
   // ============================================================================
   // Request Routing Tests
@@ -199,21 +200,21 @@ describe('Decentralized Infrastructure', () => {
           capabilities: ['compute'],
           strategy: 'latency',
         }),
-      });
+      })
 
       // May not find nodes in test environment
-      expect([200, 404, 503]).toContain(res.status);
-    });
+      expect([200, 404, 503]).toContain(res.status)
+    })
 
     test('RPC proxy routes requests correctly', async () => {
-      const res = await app.request('/rpc/chains');
-      expect(res.status).toBe(200);
-      
-      const body = await res.json() as { chains: Array<{ chainId: number }> };
-      expect(body.chains).toBeInstanceOf(Array);
-      expect(body.chains.length).toBeGreaterThan(0);
-    });
-  });
+      const res = await app.request('/rpc/chains')
+      expect(res.status).toBe(200)
+
+      const body = (await res.json()) as { chains: Array<{ chainId: number }> }
+      expect(body.chains).toBeInstanceOf(Array)
+      expect(body.chains.length).toBeGreaterThan(0)
+    })
+  })
 
   // ============================================================================
   // Storage Integration Tests
@@ -221,8 +222,8 @@ describe('Decentralized Infrastructure', () => {
 
   describe('Decentralized Storage', () => {
     test('upload and download file via IPFS', async () => {
-      const testData = `Decentralized storage test ${Date.now()}`;
-      
+      const testData = `Decentralized storage test ${Date.now()}`
+
       const uploadRes = await app.request('/storage/upload/raw', {
         method: 'POST',
         headers: {
@@ -231,31 +232,31 @@ describe('Decentralized Infrastructure', () => {
           'x-filename': 'test.txt',
         },
         body: testData,
-      });
+      })
 
-      expect(uploadRes.status).toBe(200);
-      const { cid } = await uploadRes.json() as { cid: string };
-      expect(cid).toBeDefined();
+      expect(uploadRes.status).toBe(200)
+      const { cid } = (await uploadRes.json()) as { cid: string }
+      expect(cid).toBeDefined()
 
       // Download and verify
-      const downloadRes = await app.request(`/storage/download/${cid}`);
-      expect(downloadRes.status).toBe(200);
-      
-      const downloaded = await downloadRes.text();
-      expect(downloaded).toBe(testData);
-    });
+      const downloadRes = await app.request(`/storage/download/${cid}`)
+      expect(downloadRes.status).toBe(200)
+
+      const downloaded = await downloadRes.text()
+      expect(downloaded).toBe(testData)
+    })
 
     test('S3-compatible API works', async () => {
-      const bucket = `infra-test-${Date.now()}`;
-      const key = 'test-object.txt';
-      const content = 'S3 compatible storage test';
+      const bucket = `infra-test-${Date.now()}`
+      const key = 'test-object.txt'
+      const content = 'S3 compatible storage test'
 
       // Create bucket
       const createRes = await app.request(`/s3/${bucket}`, {
         method: 'PUT',
         headers: { 'x-jeju-address': TEST_ADDRESS },
-      });
-      expect(createRes.status).toBe(200);
+      })
+      expect(createRes.status).toBe(200)
 
       // Put object
       const putRes = await app.request(`/s3/${bucket}/${key}`, {
@@ -265,19 +266,19 @@ describe('Decentralized Infrastructure', () => {
           'x-jeju-address': TEST_ADDRESS,
         },
         body: content,
-      });
-      expect(putRes.status).toBe(200);
+      })
+      expect(putRes.status).toBe(200)
 
       // Get object
-      const getRes = await app.request(`/s3/${bucket}/${key}`);
-      expect(getRes.status).toBe(200);
-      expect(await getRes.text()).toBe(content);
+      const getRes = await app.request(`/s3/${bucket}/${key}`)
+      expect(getRes.status).toBe(200)
+      expect(await getRes.text()).toBe(content)
 
       // Cleanup
-      await app.request(`/s3/${bucket}/${key}`, { method: 'DELETE' });
-      await app.request(`/s3/${bucket}`, { method: 'DELETE' });
-    });
-  });
+      await app.request(`/s3/${bucket}/${key}`, { method: 'DELETE' })
+      await app.request(`/s3/${bucket}`, { method: 'DELETE' })
+    })
+  })
 
   // ============================================================================
   // Payment Integration Tests
@@ -286,9 +287,9 @@ describe('Decentralized Infrastructure', () => {
   describe('Payment Integration', () => {
     test('x402 endpoint exists', async () => {
       // Check if x402 facilitator is configured
-      const res = await app.request('/compute/x402/status');
-      expect([200, 404]).toContain(res.status);
-    });
+      const res = await app.request('/compute/x402/status')
+      expect([200, 404]).toContain(res.status)
+    })
 
     test('compute requests can include x402 header', async () => {
       const res = await app.request('/compute/jobs', {
@@ -301,11 +302,11 @@ describe('Decentralized Infrastructure', () => {
         body: JSON.stringify({
           command: 'echo "paid compute"',
         }),
-      });
+      })
 
-      expect([201, 402]).toContain(res.status);
-    });
-  });
+      expect([201, 402]).toContain(res.status)
+    })
+  })
 
   // ============================================================================
   // TEE/Proof of Cloud Tests
@@ -313,27 +314,27 @@ describe('Decentralized Infrastructure', () => {
 
   describe('TEE and Proof of Cloud', () => {
     test('PoC status endpoint exists', async () => {
-      const res = await app.request('/compute/poc/status');
-      expect([200, 404, 503]).toContain(res.status);
-    });
+      const res = await app.request('/compute/poc/status')
+      expect([200, 404, 503]).toContain(res.status)
+    })
 
     test('can query nodes with TEE capability', async () => {
-      const res = await app.request('/edge/nodes?capability=tee');
-      expect([200, 404]).toContain(res.status);
-      
+      const res = await app.request('/edge/nodes?capability=tee')
+      expect([200, 404]).toContain(res.status)
+
       if (res.status === 200) {
-        const body = await res.json() as { nodes?: unknown[] };
+        const body = (await res.json()) as { nodes?: object[] }
         // If nodes are returned, verify the response structure is valid
         // The filter by capability may return empty or matching nodes
-        expect(body).toBeDefined();
+        expect(body).toBeDefined()
         if (body.nodes && Array.isArray(body.nodes)) {
           // If any nodes match the TEE filter, they should have TEE capability
           // But empty array is also valid (no TEE nodes registered)
-          expect(Array.isArray(body.nodes)).toBe(true);
+          expect(Array.isArray(body.nodes)).toBe(true)
         }
       }
-    });
-  });
+    })
+  })
 
   // ============================================================================
   // P2P Coordination Tests
@@ -341,38 +342,38 @@ describe('Decentralized Infrastructure', () => {
 
   describe('P2P Coordination', () => {
     test('can get peer count', async () => {
-      const res = await app.request('/edge/peers');
-      expect([200, 404]).toContain(res.status);
-      
+      const res = await app.request('/edge/peers')
+      expect([200, 404]).toContain(res.status)
+
       if (res.status === 200) {
-        const body = await res.json() as { peers: unknown[]; count: number };
-        expect(typeof body.count).toBe('number');
+        const body = (await res.json()) as { peers: object[]; count: number }
+        expect(typeof body.count).toBe('number')
       }
-    });
+    })
 
     test('distributed rate limiting works', async () => {
       // Make several requests quickly
       const requests = Array.from({ length: 5 }, () =>
         app.request('/health', {
           headers: { 'x-jeju-address': TEST_ADDRESS },
-        })
-      );
+        }),
+      )
 
-      const responses = await Promise.all(requests);
-      
+      const responses = await Promise.all(requests)
+
       // All should succeed (rate limit is high)
       for (const res of responses) {
-        expect(res.status).toBe(200);
+        expect(res.status).toBe(200)
       }
 
       // Check rate limit headers if present
-      const lastRes = responses[responses.length - 1];
-      const remaining = lastRes.headers.get('x-ratelimit-remaining');
+      const lastRes = responses[responses.length - 1]
+      const remaining = lastRes.headers.get('x-ratelimit-remaining')
       if (remaining) {
-        expect(parseInt(remaining, 10)).toBeGreaterThanOrEqual(0);
+        expect(parseInt(remaining, 10)).toBeGreaterThanOrEqual(0)
       }
-    });
-  });
+    })
+  })
 
   // ============================================================================
   // Auto-Scaling Tests
@@ -380,15 +381,15 @@ describe('Decentralized Infrastructure', () => {
 
   describe('Auto-Scaling', () => {
     test('load balancer stats endpoint exists', async () => {
-      const res = await app.request('/compute/lb/stats');
-      expect([200, 404]).toContain(res.status);
-    });
+      const res = await app.request('/compute/lb/stats')
+      expect([200, 404]).toContain(res.status)
+    })
 
     test('can get container system stats', async () => {
-      const res = await app.request('/containers/stats');
-      expect([200, 404]).toContain(res.status);
-    });
-  });
+      const res = await app.request('/containers/stats')
+      expect([200, 404]).toContain(res.status)
+    })
+  })
 
   // ============================================================================
   // Multi-Network Tests
@@ -396,17 +397,21 @@ describe('Decentralized Infrastructure', () => {
 
   describe('Multi-Network Support', () => {
     test('supports multiple chain configurations', async () => {
-      const res = await app.request('/rpc/chains');
-      expect(res.status).toBe(200);
-      
-      const body = await res.json() as { chains: Array<{ chainId: number; name: string }> };
-      expect(body.chains.length).toBeGreaterThan(0);
-      
+      const res = await app.request('/rpc/chains')
+      expect(res.status).toBe(200)
+
+      const body = (await res.json()) as {
+        chains: Array<{ chainId: number; name: string }>
+      }
+      expect(body.chains.length).toBeGreaterThan(0)
+
       // Should support at least Base
-      const hasBase = body.chains.some(c => c.chainId === 8453 || c.chainId === 84532);
-      expect(hasBase).toBe(true);
-    });
-  });
+      const hasBase = body.chains.some(
+        (c) => c.chainId === 8453 || c.chainId === 84532,
+      )
+      expect(hasBase).toBe(true)
+    })
+  })
 
   // ============================================================================
   // Cleanup
@@ -414,8 +419,8 @@ describe('Decentralized Infrastructure', () => {
 
   afterAll(async () => {
     // Any cleanup needed
-  });
-});
+  })
+})
 
 // ============================================================================
 // Stress Tests (optional, run with STRESS_TEST=true)
@@ -435,36 +440,37 @@ describe.skipIf(!process.env.STRESS_TEST)('Infrastructure Stress Tests', () => {
           codeCid: 'QmTest...',
           runtime: 'workerd',
         }),
-      })
-    );
+      }),
+    )
 
-    const results = await Promise.allSettled(deployments);
-    const successful = results.filter(r => r.status === 'fulfilled');
-    
+    const results = await Promise.allSettled(deployments)
+    const successful = results.filter((r) => r.status === 'fulfilled')
+
     // At least half should succeed or fail gracefully (not 500)
-    expect(successful.length).toBeGreaterThan(5);
-  });
+    expect(successful.length).toBeGreaterThan(5)
+  })
 
   test('handles high request throughput', async () => {
-    const startTime = Date.now();
-    const requestCount = 100;
-    
-    const requests = Array.from({ length: requestCount }, () =>
-      app.request('/health')
-    );
+    const startTime = Date.now()
+    const requestCount = 100
 
-    const results = await Promise.all(requests);
-    const duration = Date.now() - startTime;
-    
+    const requests = Array.from({ length: requestCount }, () =>
+      app.request('/health'),
+    )
+
+    const results = await Promise.all(requests)
+    const duration = Date.now() - startTime
+
     // All should succeed
     for (const res of results) {
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(200)
     }
 
     // Should complete in reasonable time (100 requests in < 5 seconds)
-    expect(duration).toBeLessThan(5000);
-    
-    console.log(`[Stress] ${requestCount} requests in ${duration}ms (${(requestCount / duration * 1000).toFixed(0)} req/s)`);
-  });
-});
+    expect(duration).toBeLessThan(5000)
 
+    console.log(
+      `[Stress] ${requestCount} requests in ${duration}ms (${((requestCount / duration) * 1000).toFixed(0)} req/s)`,
+    )
+  })
+})

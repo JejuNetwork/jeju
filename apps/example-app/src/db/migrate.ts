@@ -1,12 +1,12 @@
 /**
  * Database Migration Script
- * 
+ *
  * Creates the schema for the Todo application in CQL
  */
 
-import { getCQL } from '@jejunetwork/db';
+import { getCQL } from '@jejunetwork/db'
 
-const DATABASE_ID = process.env.CQL_DATABASE_ID || 'todo-experimental';
+const DATABASE_ID = process.env.CQL_DATABASE_ID || 'todo-experimental'
 
 const SCHEMA = `
 -- Todos table
@@ -56,50 +56,52 @@ CREATE TABLE IF NOT EXISTS activity_log (
 
 CREATE INDEX IF NOT EXISTS idx_activity_owner ON activity_log(owner);
 CREATE INDEX IF NOT EXISTS idx_activity_created ON activity_log(created_at);
-`;
+`
 
 async function migrate() {
-  console.log('Starting database migration...');
-  console.log(`Database ID: ${DATABASE_ID}`);
+  console.log('Starting database migration...')
+  console.log(`Database ID: ${DATABASE_ID}`)
 
   const db = getCQL({
-    blockProducerEndpoint: process.env.CQL_BLOCK_PRODUCER_ENDPOINT || 'http://localhost:4300',
+    blockProducerEndpoint:
+      process.env.CQL_BLOCK_PRODUCER_ENDPOINT || 'http://localhost:4300',
     databaseId: DATABASE_ID,
     timeout: 30000,
     debug: true,
-  });
+  })
 
   // Check connectivity
-  const healthy = await db.isHealthy();
+  const healthy = await db.isHealthy()
   if (!healthy) {
-    console.warn('CQL endpoint not available, migration will be retried on first connection');
-    console.log('To run CQL locally: docker run -p 4300:4300 covenantsql/cql');
-    return;
+    console.warn(
+      'CQL endpoint not available, migration will be retried on first connection',
+    )
+    console.log('To run CQL locally: docker run -p 4300:4300 covenantsql/cql')
+    return
   }
 
-  console.log('Connected to CQL');
+  console.log('Connected to CQL')
 
   // Execute schema
-  const statements = SCHEMA
-    .split(';')
-    .map(s => s.trim())
-    .filter(s => s.length > 0 && !s.startsWith('--'));
+  const statements = SCHEMA.split(';')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0 && !s.startsWith('--'))
 
   for (const statement of statements) {
-    console.log(`Executing: ${statement.slice(0, 50)}...`);
-    await db.exec(statement);
+    console.log(`Executing: ${statement.slice(0, 50)}...`)
+    await db.exec(statement)
   }
 
-  console.log('Migration complete');
+  console.log('Migration complete')
 
   // Verify tables
   const result = await db.query<{ name: string }>(`
     SELECT name FROM sqlite_master WHERE type='table' ORDER BY name
-  `);
-  
-  console.log('Tables created:', result.rows.map(r => r.name).join(', '));
+  `)
 
-  await db.close();
+  console.log('Tables created:', result.rows.map((r) => r.name).join(', '))
+
+  await db.close()
 }
 
-migrate().catch(console.error);
+migrate().catch(console.error)

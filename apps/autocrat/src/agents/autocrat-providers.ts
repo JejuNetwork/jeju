@@ -1,50 +1,71 @@
 /**
  * Autocrat Agent Data Providers
- * 
+ *
  * ElizaOS providers that give autocrat agents access to:
  * - A2A service discovery
  * - MCP tools and resources
  * - On-chain governance data
  * - Other autocrat agent votes
  * - CEO status and decisions
- * 
+ *
  * FULLY DECENTRALIZED - Endpoints resolved from network config
  */
 
-import { getAutocratA2AUrl, getAutocratUrl } from '@jejunetwork/config';
-import type { Provider, IAgentRuntime, Memory, State, ProviderResult } from '@elizaos/core';
+import type {
+  IAgentRuntime,
+  Memory,
+  Provider,
+  ProviderResult,
+  State,
+} from '@elizaos/core'
+import { getAutocratA2AUrl, getAutocratUrl } from '@jejunetwork/config'
 
 // ============================================================================
 // Configuration (Network-Aware)
 // ============================================================================
 
 function getAutocratA2A(): string {
-  return process.env.AUTOCRAT_A2A_URL ?? getAutocratA2AUrl();
+  return process.env.AUTOCRAT_A2A_URL ?? getAutocratA2AUrl()
 }
 
 function getAutocratMCP(): string {
-  return process.env.AUTOCRAT_MCP_URL ?? `${getAutocratUrl()}/mcp`;
+  return process.env.AUTOCRAT_MCP_URL ?? `${getAutocratUrl()}/mcp`
 }
 
 function getCEOA2A(): string {
-  const baseUrl = getAutocratUrl();
+  const baseUrl = getAutocratUrl()
   // CEO server runs on port 4004 in localnet, separate service elsewhere
-  return process.env.CEO_A2A_URL ?? baseUrl.replace(':4040', ':4004').replace('-autocrat', '-ceo') + '/a2a';
+  return (
+    process.env.CEO_A2A_URL ??
+    `${baseUrl.replace(':4040', ':4004').replace('-autocrat', '-ceo')}/a2a`
+  )
 }
 
 function getCEOMCP(): string {
-  const baseUrl = getAutocratUrl();
-  return process.env.CEO_MCP_URL ?? baseUrl.replace(':4040', ':4004').replace('-autocrat', '-ceo') + '/mcp';
+  const baseUrl = getAutocratUrl()
+  return (
+    process.env.CEO_MCP_URL ??
+    `${baseUrl.replace(':4040', ':4004').replace('-autocrat', '-ceo')}/mcp`
+  )
 }
 
 // Service registry for A2A discovery - resolved dynamically
-function getServiceRegistry(): Record<string, { url: string; description: string }> {
+function getServiceRegistry(): Record<
+  string,
+  { url: string; description: string }
+> {
   return {
-    'autocrat': { url: getAutocratA2A(), description: 'Autocrat governance A2A server' },
-    'ceo': { url: getCEOA2A(), description: 'AI CEO decision-making agent' },
-    'autocrat-mcp': { url: getAutocratMCP(), description: 'Autocrat MCP tools and resources' },
+    autocrat: {
+      url: getAutocratA2A(),
+      description: 'Autocrat governance A2A server',
+    },
+    ceo: { url: getCEOA2A(), description: 'AI CEO decision-making agent' },
+    'autocrat-mcp': {
+      url: getAutocratMCP(),
+      description: 'Autocrat MCP tools and resources',
+    },
     'ceo-mcp': { url: getCEOMCP(), description: 'CEO MCP tools and resources' },
-  };
+  }
 }
 
 // ============================================================================
@@ -54,7 +75,7 @@ function getServiceRegistry(): Record<string, { url: string; description: string
 async function callA2A(
   url: string,
   skillId: string,
-  params: Record<string, unknown> = {}
+  params: Record<string, unknown> = {},
 ): Promise<Record<string, unknown>> {
   const response = await fetch(url, {
     method: 'POST',
@@ -66,21 +87,25 @@ async function callA2A(
       params: {
         message: {
           messageId: `autocrat-${Date.now()}`,
-          parts: [{ kind: 'data', data: { skillId, params } }]
-        }
-      }
+          parts: [{ kind: 'data', data: { skillId, params } }],
+        },
+      },
     }),
-  });
+  })
 
-  const result = await response.json() as { result?: { parts?: Array<{ kind: string; data?: Record<string, unknown> }> } };
-  return result.result?.parts?.find((p) => p.kind === 'data')?.data ?? {};
+  const result = (await response.json()) as {
+    result?: { parts?: Array<{ kind: string; data?: Record<string, unknown> }> }
+  }
+  return result.result?.parts?.find((p) => p.kind === 'data')?.data ?? {}
 }
 
-async function fetchAgentCard(baseUrl: string): Promise<Record<string, unknown> | null> {
-  const cardUrl = baseUrl.replace('/a2a', '') + '/.well-known/agent-card.json';
-  const response = await fetch(cardUrl);
-  if (!response.ok) return null;
-  return await response.json() as Record<string, unknown>;
+async function fetchAgentCard(
+  baseUrl: string,
+): Promise<Record<string, unknown> | null> {
+  const cardUrl = `${baseUrl.replace('/a2a', '')}/.well-known/agent-card.json`
+  const response = await fetch(cardUrl)
+  if (!response.ok) return null
+  return (await response.json()) as Record<string, unknown>
 }
 
 // ============================================================================
@@ -98,47 +123,53 @@ export const serviceDiscoveryProvider: Provider = {
   get: async (
     _runtime: IAgentRuntime,
     _message: Memory,
-    _state: State
+    _state: State,
   ): Promise<ProviderResult> => {
-    const services: Array<{ name: string; url: string; status: string; skills?: string[] }> = [];
+    const services: Array<{
+      name: string
+      url: string
+      status: string
+      skills?: string[]
+    }> = []
 
     // Check each registered service (resolved dynamically)
     for (const [name, service] of Object.entries(getServiceRegistry())) {
-      const isA2A = !name.includes('mcp');
-      
+      const isA2A = !name.includes('mcp')
+
       if (isA2A) {
-        const card = await fetchAgentCard(service.url);
+        const card = await fetchAgentCard(service.url)
         if (card) {
-          const skills = (card.skills as Array<{ id: string }>)?.map(s => s.id) ?? [];
-          services.push({ name, url: service.url, status: 'online', skills });
+          const skills =
+            (card.skills as Array<{ id: string }>)?.map((s) => s.id) ?? []
+          services.push({ name, url: service.url, status: 'online', skills })
         } else {
-          services.push({ name, url: service.url, status: 'offline' });
+          services.push({ name, url: service.url, status: 'offline' })
         }
       } else {
         // Check MCP health
-        const healthUrl = service.url.replace('/mcp', '/health');
-        const response = await fetch(healthUrl);
+        const healthUrl = service.url.replace('/mcp', '/health')
+        const response = await fetch(healthUrl)
         services.push({
           name,
           url: service.url,
           status: response.ok ? 'online' : 'offline',
-        });
+        })
       }
     }
 
-    const onlineCount = services.filter(s => s.status === 'online').length;
+    const onlineCount = services.filter((s) => s.status === 'online').length
 
     let result = `🔍 SERVICE DISCOVERY
 
 📡 Available Services (${onlineCount}/${services.length} online):
 
-`;
+`
 
     for (const service of services) {
-      const emoji = service.status === 'online' ? '✅' : '❌';
-      result += `${emoji} ${service.name}: ${service.url}\n`;
+      const emoji = service.status === 'online' ? '✅' : '❌'
+      result += `${emoji} ${service.name}: ${service.url}\n`
       if (service.skills && service.skills.length > 0) {
-        result += `   Skills: ${service.skills.join(', ')}\n`;
+        result += `   Skills: ${service.skills.join(', ')}\n`
       }
     }
 
@@ -146,11 +177,11 @@ export const serviceDiscoveryProvider: Provider = {
 💡 Use these services to:
 - Query governance data via autocrat A2A
 - Make decisions via CEO A2A
-- Access tools via MCP endpoints`;
+- Access tools via MCP endpoints`
 
-    return { text: result };
+    return { text: result }
   },
-};
+}
 
 // ============================================================================
 // Other Autocrat Votes Provider
@@ -167,43 +198,60 @@ export const otherAutocratVotesProvider: Provider = {
   get: async (
     runtime: IAgentRuntime,
     message: Memory,
-    _state: State
+    _state: State,
   ): Promise<ProviderResult> => {
     // Extract proposal ID from message if present
-    const content = message.content?.text ?? '';
-    const proposalMatch = content.match(/0x[a-fA-F0-9]{64}/);
-    
+    const content = message.content?.text ?? ''
+    const proposalMatch = content.match(/0x[a-fA-F0-9]{64}/)
+
     if (!proposalMatch) {
-      return { text: 'Specify a proposal ID (0x...) to see other autocrat votes.' };
+      return {
+        text: 'Specify a proposal ID (0x...) to see other autocrat votes.',
+      }
     }
 
-    const proposalId = proposalMatch[0];
-    const data = await callA2A(getAutocratA2A(), 'get-autocrat-votes', { proposalId });
-    const votes = (data as { votes?: Array<{ role: string; vote: string; reasoning: string; confidence: number }> }).votes ?? [];
+    const proposalId = proposalMatch[0]
+    const data = await callA2A(getAutocratA2A(), 'get-autocrat-votes', {
+      proposalId,
+    })
+    const votes =
+      (
+        data as {
+          votes?: Array<{
+            role: string
+            vote: string
+            reasoning: string
+            confidence: number
+          }>
+        }
+      ).votes ?? []
 
     // Filter out own votes based on runtime's character name
-    const myRole = runtime.character.name?.replace(' Agent', '').toUpperCase();
-    const otherVotes = votes.filter(v => v.role !== myRole);
+    const myRole = runtime.character.name?.replace(' Agent', '').toUpperCase()
+    const otherVotes = votes.filter((v) => v.role !== myRole)
 
     if (otherVotes.length === 0) {
-      return { text: `No votes from other autocrat members yet for proposal ${proposalId.slice(0, 12)}...` };
+      return {
+        text: `No votes from other autocrat members yet for proposal ${proposalId.slice(0, 12)}...`,
+      }
     }
 
-    let result = `🗳️ OTHER AUTOCRAT VOTES for ${proposalId.slice(0, 12)}...\n\n`;
-    
+    let result = `🗳️ OTHER AUTOCRAT VOTES for ${proposalId.slice(0, 12)}...\n\n`
+
     for (const vote of otherVotes) {
-      const emoji = vote.vote === 'APPROVE' ? '✅' : vote.vote === 'REJECT' ? '❌' : '⚪';
-      result += `${emoji} ${vote.role}: ${vote.vote} (${vote.confidence}% confidence)\n`;
-      result += `   ${vote.reasoning.slice(0, 100)}${vote.reasoning.length > 100 ? '...' : ''}\n\n`;
+      const emoji =
+        vote.vote === 'APPROVE' ? '✅' : vote.vote === 'REJECT' ? '❌' : '⚪'
+      result += `${emoji} ${vote.role}: ${vote.vote} (${vote.confidence}% confidence)\n`
+      result += `   ${vote.reasoning.slice(0, 100)}${vote.reasoning.length > 100 ? '...' : ''}\n\n`
     }
 
-    const approves = otherVotes.filter(v => v.vote === 'APPROVE').length;
-    const rejects = otherVotes.filter(v => v.vote === 'REJECT').length;
-    result += `\nConsensus: ${approves} approve, ${rejects} reject, ${otherVotes.length - approves - rejects} abstain`;
+    const approves = otherVotes.filter((v) => v.vote === 'APPROVE').length
+    const rejects = otherVotes.filter((v) => v.vote === 'REJECT').length
+    result += `\nConsensus: ${approves} approve, ${rejects} reject, ${otherVotes.length - approves - rejects} abstain`
 
-    return { text: result };
+    return { text: result }
   },
-};
+}
 
 // ============================================================================
 // Active Proposals Provider
@@ -220,27 +268,44 @@ export const activeProposalsProvider: Provider = {
   get: async (
     _runtime: IAgentRuntime,
     _message: Memory,
-    _state: State
+    _state: State,
   ): Promise<ProviderResult> => {
-    const data = await callA2A(getAutocratA2A(), 'list-proposals', { activeOnly: true });
-    const proposals = (data as { proposals?: Array<{ id: string; status: string; qualityScore: number; proposalType: number }> }).proposals ?? [];
-    const total = (data as { total?: number }).total ?? 0;
+    const data = await callA2A(getAutocratA2A(), 'list-proposals', {
+      activeOnly: true,
+    })
+    const proposals =
+      (
+        data as {
+          proposals?: Array<{
+            id: string
+            status: string
+            qualityScore: number
+            proposalType: number
+          }>
+        }
+      ).proposals ?? []
+    const total = (data as { total?: number }).total ?? 0
 
     if (proposals.length === 0) {
-      return { text: '📋 No active proposals requiring autocrat deliberation.' };
+      return { text: '📋 No active proposals requiring autocrat deliberation.' }
     }
 
-    let result = `📋 ACTIVE PROPOSALS (${total} total)\n\n`;
+    let result = `📋 ACTIVE PROPOSALS (${total} total)\n\n`
 
     for (const p of proposals.slice(0, 10)) {
-      const statusEmoji = p.status === 'AUTOCRAT_REVIEW' ? '🗳️' : p.status === 'CEO_QUEUE' ? '👤' : '📝';
-      result += `${statusEmoji} [${p.id.slice(0, 10)}...]\n`;
-      result += `   Status: ${p.status}, Quality: ${p.qualityScore}/100, Type: ${p.proposalType}\n\n`;
+      const statusEmoji =
+        p.status === 'AUTOCRAT_REVIEW'
+          ? '🗳️'
+          : p.status === 'CEO_QUEUE'
+            ? '👤'
+            : '📝'
+      result += `${statusEmoji} [${p.id.slice(0, 10)}...]\n`
+      result += `   Status: ${p.status}, Quality: ${p.qualityScore}/100, Type: ${p.proposalType}\n\n`
     }
 
-    return { text: result };
+    return { text: result }
   },
-};
+}
 
 // ============================================================================
 // Proposal Detail Provider
@@ -257,29 +322,29 @@ export const proposalDetailProvider: Provider = {
   get: async (
     _runtime: IAgentRuntime,
     message: Memory,
-    _state: State
+    _state: State,
   ): Promise<ProviderResult> => {
-    const content = message.content?.text ?? '';
-    const proposalMatch = content.match(/0x[a-fA-F0-9]{64}/);
-    
+    const content = message.content?.text ?? ''
+    const proposalMatch = content.match(/0x[a-fA-F0-9]{64}/)
+
     if (!proposalMatch) {
-      return { text: 'Specify a proposal ID (0x...) to get details.' };
+      return { text: 'Specify a proposal ID (0x...) to get details.' }
     }
 
-    const proposalId = proposalMatch[0];
-    const data = await callA2A(getAutocratA2A(), 'get-proposal', { proposalId });
+    const proposalId = proposalMatch[0]
+    const data = await callA2A(getAutocratA2A(), 'get-proposal', { proposalId })
     const proposal = data as {
-      id?: string;
-      status?: string;
-      proposer?: string;
-      proposalType?: number;
-      qualityScore?: number;
-      contentHash?: string;
-      hasResearch?: boolean;
-    };
+      id?: string
+      status?: string
+      proposer?: string
+      proposalType?: number
+      qualityScore?: number
+      contentHash?: string
+      hasResearch?: boolean
+    }
 
     if (!proposal.id) {
-      return { text: `Proposal ${proposalId.slice(0, 12)}... not found.` };
+      return { text: `Proposal ${proposalId.slice(0, 12)}... not found.` }
     }
 
     return {
@@ -293,10 +358,10 @@ Quality Score: ${proposal.qualityScore}/100
 Content Hash: ${proposal.contentHash?.slice(0, 20)}...
 Research Available: ${proposal.hasResearch ? 'Yes' : 'No'}
 
-Use this information to inform your deliberation vote.`
-    };
+Use this information to inform your deliberation vote.`,
+    }
   },
-};
+}
 
 // ============================================================================
 // CEO Status Provider
@@ -313,15 +378,15 @@ export const ceoStatusProvider: Provider = {
   get: async (
     _runtime: IAgentRuntime,
     _message: Memory,
-    _state: State
+    _state: State,
   ): Promise<ProviderResult> => {
-    const data = await callA2A(getAutocratA2A(), 'get-ceo-status');
+    const data = await callA2A(getAutocratA2A(), 'get-ceo-status')
     const ceo = data as {
-      currentModel?: { name: string };
-      decisionsThisPeriod?: number;
-      approvalRate?: number;
-      lastDecision?: { proposalId: string; approved: boolean };
-    };
+      currentModel?: { name: string }
+      decisionsThisPeriod?: number
+      approvalRate?: number
+      lastDecision?: { proposalId: string; approved: boolean }
+    }
 
     return {
       text: `👤 CEO STATUS
@@ -332,10 +397,10 @@ Approval Rate: ${ceo.approvalRate ?? 0}%
 
 ${ceo.lastDecision ? `Last Decision: ${ceo.lastDecision.proposalId.slice(0, 12)}... - ${ceo.lastDecision.approved ? 'APPROVED' : 'REJECTED'}` : 'No recent decisions'}
 
-💡 The CEO weighs autocrat votes heavily - your assessment matters.`
-    };
+💡 The CEO weighs autocrat votes heavily - your assessment matters.`,
+    }
   },
-};
+}
 
 // ============================================================================
 // MCP Tools Provider
@@ -352,56 +417,61 @@ export const mcpToolsProvider: Provider = {
   get: async (
     _runtime: IAgentRuntime,
     _message: Memory,
-    _state: State
+    _state: State,
   ): Promise<ProviderResult> => {
     // Fetch tools from both council and CEO MCP servers
-    const tools: Array<{ source: string; name: string; description: string }> = [];
+    const tools: Array<{ source: string; name: string; description: string }> =
+      []
 
     // Autocrat MCP tools
-    const autocratResponse = await fetch(`${getAutocratMCP()}/tools`);
+    const autocratResponse = await fetch(`${getAutocratMCP()}/tools`)
     if (autocratResponse.ok) {
-      const autocratData = await autocratResponse.json() as { tools?: Array<{ name: string; description: string }> };
+      const autocratData = (await autocratResponse.json()) as {
+        tools?: Array<{ name: string; description: string }>
+      }
       for (const tool of autocratData.tools ?? []) {
-        tools.push({ source: 'autocrat', ...tool });
+        tools.push({ source: 'autocrat', ...tool })
       }
     }
 
     // CEO MCP tools
-    const ceoResponse = await fetch(`${getCEOMCP()}/tools`);
+    const ceoResponse = await fetch(`${getCEOMCP()}/tools`)
     if (ceoResponse.ok) {
-      const ceoData = await ceoResponse.json() as { tools?: Array<{ name: string; description: string }> };
+      const ceoData = (await ceoResponse.json()) as {
+        tools?: Array<{ name: string; description: string }>
+      }
       for (const tool of ceoData.tools ?? []) {
-        tools.push({ source: 'ceo', ...tool });
+        tools.push({ source: 'ceo', ...tool })
       }
     }
 
     if (tools.length === 0) {
-      return { text: 'No MCP tools available. Check service connectivity.' };
+      return { text: 'No MCP tools available. Check service connectivity.' }
     }
 
-    let result = `🔧 AVAILABLE MCP TOOLS\n\n`;
+    let result = `🔧 AVAILABLE MCP TOOLS\n\n`
 
-    const autocratTools = tools.filter(t => t.source === 'autocrat');
-    const ceoTools = tools.filter(t => t.source === 'ceo');
+    const autocratTools = tools.filter((t) => t.source === 'autocrat')
+    const ceoTools = tools.filter((t) => t.source === 'ceo')
 
     if (autocratTools.length > 0) {
-      result += `📋 Autocrat Tools (${getAutocratMCP()}):\n`;
+      result += `📋 Autocrat Tools (${getAutocratMCP()}):\n`
       for (const tool of autocratTools) {
-        result += `  • ${tool.name}: ${tool.description}\n`;
+        result += `  • ${tool.name}: ${tool.description}\n`
       }
-      result += '\n';
+      result += '\n'
     }
 
     if (ceoTools.length > 0) {
-      result += `👤 CEO Tools (${getCEOMCP()}):\n`;
+      result += `👤 CEO Tools (${getCEOMCP()}):\n`
       for (const tool of ceoTools) {
-        result += `  • ${tool.name}: ${tool.description}\n`;
+        result += `  • ${tool.name}: ${tool.description}\n`
       }
     }
 
-    return { text: result };
+    return { text: result }
   },
-};
+}
 
 // ============================================================================
 // A2A Skills Provider
@@ -418,53 +488,66 @@ export const a2aSkillsProvider: Provider = {
   get: async (
     _runtime: IAgentRuntime,
     _message: Memory,
-    _state: State
+    _state: State,
   ): Promise<ProviderResult> => {
-    const skills: Array<{ agent: string; id: string; name: string; description: string }> = [];
+    const skills: Array<{
+      agent: string
+      id: string
+      name: string
+      description: string
+    }> = []
 
     // Fetch from autocrat
-    const autocratCard = await fetchAgentCard(getAutocratA2A());
+    const autocratCard = await fetchAgentCard(getAutocratA2A())
     if (autocratCard) {
-      for (const skill of (autocratCard.skills as Array<{ id: string; name: string; description: string }>) ?? []) {
-        skills.push({ agent: 'autocrat', ...skill });
+      for (const skill of (autocratCard.skills as Array<{
+        id: string
+        name: string
+        description: string
+      }>) ?? []) {
+        skills.push({ agent: 'autocrat', ...skill })
       }
     }
 
     // Fetch from CEO
-    const ceoCard = await fetchAgentCard(getCEOA2A());
+    const ceoCard = await fetchAgentCard(getCEOA2A())
     if (ceoCard) {
-      for (const skill of (ceoCard.skills as Array<{ id: string; name: string; description: string }>) ?? []) {
-        skills.push({ agent: 'ceo', ...skill });
+      for (const skill of (ceoCard.skills as Array<{
+        id: string
+        name: string
+        description: string
+      }>) ?? []) {
+        skills.push({ agent: 'ceo', ...skill })
       }
     }
 
     if (skills.length === 0) {
-      return { text: 'No A2A skills discovered. Agents may be offline.' };
+      return { text: 'No A2A skills discovered. Agents may be offline.' }
     }
 
-    let result = `📡 AVAILABLE A2A SKILLS\n\n`;
+    let result = `📡 AVAILABLE A2A SKILLS\n\n`
 
-    const autocratSkills = skills.filter(s => s.agent === 'autocrat');
-    const ceoSkills = skills.filter(s => s.agent === 'ceo');
+    const autocratSkills = skills.filter((s) => s.agent === 'autocrat')
+    const ceoSkills = skills.filter((s) => s.agent === 'ceo')
 
     if (autocratSkills.length > 0) {
-      result += `📋 Autocrat Skills:\n`;
+      result += `📋 Autocrat Skills:\n`
       for (const skill of autocratSkills) {
-        result += `  • ${skill.id}: ${skill.description}\n`;
+        result += `  • ${skill.id}: ${skill.description}\n`
       }
-      result += '\n';
+      result += '\n'
     }
 
     if (ceoSkills.length > 0) {
-      result += `👤 CEO Skills:\n`;
+      result += `👤 CEO Skills:\n`
       for (const skill of ceoSkills) {
-        result += `  • ${skill.id}: ${skill.description}\n`;
+        result += `  • ${skill.id}: ${skill.description}\n`
       }
     }
 
-    return { text: result };
+    return { text: result }
   },
-};
+}
 
 // ============================================================================
 // Governance Stats Provider
@@ -481,21 +564,21 @@ export const governanceStatsProvider: Provider = {
   get: async (
     _runtime: IAgentRuntime,
     _message: Memory,
-    _state: State
+    _state: State,
   ): Promise<ProviderResult> => {
-    const data = await callA2A(getAutocratA2A(), 'get-governance-stats');
+    const data = await callA2A(getAutocratA2A(), 'get-governance-stats')
     const stats = data as {
-      totalProposals?: number;
-      approvedCount?: number;
-      rejectedCount?: number;
-      pendingCount?: number;
-      avgQualityScore?: number;
-    };
+      totalProposals?: number
+      approvedCount?: number
+      rejectedCount?: number
+      pendingCount?: number
+      avgQualityScore?: number
+    }
 
-    const total = stats.totalProposals ?? 0;
-    const approved = stats.approvedCount ?? 0;
-    const rejected = stats.rejectedCount ?? 0;
-    const approvalRate = total > 0 ? Math.round((approved / total) * 100) : 0;
+    const total = stats.totalProposals ?? 0
+    const approved = stats.approvedCount ?? 0
+    const rejected = stats.rejectedCount ?? 0
+    const approvalRate = total > 0 ? Math.round((approved / total) * 100) : 0
 
     return {
       text: `📊 GOVERNANCE STATISTICS
@@ -507,10 +590,10 @@ Pending: ${stats.pendingCount ?? 0}
 Avg Quality Score: ${stats.avgQualityScore ?? 0}/100
 
 Use these stats to understand the DAO's governance patterns
-and calibrate your voting recommendations.`
-    };
+and calibrate your voting recommendations.`,
+    }
   },
-};
+}
 
 // ============================================================================
 // Research Reports Provider
@@ -527,18 +610,20 @@ export const researchReportsProvider: Provider = {
   get: async (
     _runtime: IAgentRuntime,
     message: Memory,
-    _state: State
+    _state: State,
   ): Promise<ProviderResult> => {
-    const content = message.content?.text ?? '';
-    const proposalMatch = content.match(/0x[a-fA-F0-9]{64}/);
-    
+    const content = message.content?.text ?? ''
+    const proposalMatch = content.match(/0x[a-fA-F0-9]{64}/)
+
     if (!proposalMatch) {
-      return { text: 'Specify a proposal ID (0x...) to get its research report.' };
+      return {
+        text: 'Specify a proposal ID (0x...) to get its research report.',
+      }
     }
 
-    const proposalId = proposalMatch[0];
-    const data = await callA2A(getAutocratA2A(), 'get-research', { proposalId });
-    const research = data as { report?: string; status?: string };
+    const proposalId = proposalMatch[0]
+    const data = await callA2A(getAutocratA2A(), 'get-research', { proposalId })
+    const research = data as { report?: string; status?: string }
 
     if (!research.report) {
       return {
@@ -546,17 +631,17 @@ export const researchReportsProvider: Provider = {
 
 Status: ${research.status ?? 'Not requested'}
 
-Request research via the request-research skill.`
-      };
+Request research via the request-research skill.`,
+      }
     }
 
     return {
       text: `📚 RESEARCH REPORT for ${proposalId.slice(0, 12)}...
 
-${research.report.slice(0, 2000)}${research.report.length > 2000 ? '...\n\n[Report truncated - full report available via MCP]' : ''}`
-    };
+${research.report.slice(0, 2000)}${research.report.length > 2000 ? '...\n\n[Report truncated - full report available via MCP]' : ''}`,
+    }
   },
-};
+}
 
 // ============================================================================
 // Export All Providers
@@ -572,4 +657,4 @@ export const autocratProviders: Provider[] = [
   a2aSkillsProvider,
   governanceStatsProvider,
   researchReportsProvider,
-];
+]

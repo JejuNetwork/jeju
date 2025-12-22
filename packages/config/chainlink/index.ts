@@ -1,18 +1,18 @@
 /**
  * @fileoverview Chainlink Configuration
  * @module config/chainlink
- * 
+ *
  * Provides validated access to Chainlink data feeds, VRF, and automation configs.
  */
 
-import { z } from 'zod';
-import feeds from './feeds.json';
-import staking from './staking.json';
-import vrf from './vrf.json';
-import automation from './automation.json';
-import nodes from './nodes.json';
+import { z } from 'zod'
+import automation from './automation.json'
+import feeds from './feeds.json'
+import nodes from './nodes.json'
+import staking from './staking.json'
+import vrf from './vrf.json'
 
-export { feeds, staking, vrf, automation, nodes };
+export { feeds, staking, vrf, automation, nodes }
 
 // ============================================================================
 // Zod Schemas
@@ -22,7 +22,7 @@ const FeedEntrySchema = z.object({
   address: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
   decimals: z.number().int().positive(),
   heartbeatSeconds: z.number().int().positive(),
-});
+})
 
 const FeedsConfigSchema = z.object({
   linkToken: z.record(z.string(), z.string()),
@@ -33,7 +33,7 @@ const FeedsConfigSchema = z.object({
     maxStalenessSeconds: z.number().int().positive(),
     priorityChains: z.array(z.number()),
   }),
-});
+})
 
 const VRFChainConfigSchema = z.object({
   coordinator: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
@@ -45,7 +45,7 @@ const VRFChainConfigSchema = z.object({
   requestConfirmations: z.number().int().positive(),
   numWords: z.number().int().positive(),
   status: z.enum(['pending_deployment', 'reference', 'active']),
-});
+})
 
 const VRFConfigSchema = z.object({
   chains: z.record(z.string(), VRFChainConfigSchema),
@@ -69,7 +69,7 @@ const VRFConfigSchema = z.object({
       maxFeeIncreaseBps: z.number(),
     }),
   }),
-});
+})
 
 const AutomationChainConfigSchema = z.object({
   registry: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
@@ -80,7 +80,7 @@ const AutomationChainConfigSchema = z.object({
   keeperRewardBps: z.number().int().nonnegative(),
   protocolFeeBps: z.number().int().nonnegative(),
   status: z.enum(['pending_deployment', 'active']),
-});
+})
 
 const AutomationConfigSchema = z.object({
   chains: z.record(z.string(), AutomationChainConfigSchema),
@@ -111,72 +111,76 @@ const AutomationConfigSchema = z.object({
       parameterUpdateDelay: z.number(),
     }),
   }),
-  officialChainlinkAutomation: z.object({
-    description: z.string(),
-  }).catchall(z.object({
-    registry: z.string(),
-    registrar: z.string(),
-  })),
-});
+  officialChainlinkAutomation: z
+    .object({
+      description: z.string(),
+    })
+    .catchall(
+      z.object({
+        registry: z.string(),
+        registrar: z.string(),
+      }),
+    ),
+})
 
 // ============================================================================
 // Types
 // ============================================================================
 
 export interface ChainlinkFeed {
-  pair: string;
-  address: string;
-  decimals: number;
-  heartbeatSeconds: number;
+  pair: string
+  address: string
+  decimals: number
+  heartbeatSeconds: number
 }
 
 export interface VRFConfig {
-  coordinator: string;
-  wrapper: string;
-  linkToken: string;
-  linkEthFeed: string;
-  keyHash: string;
-  callbackGasLimit: number;
-  requestConfirmations: number;
-  numWords: number;
-  status: 'pending_deployment' | 'reference' | 'active';
+  coordinator: string
+  wrapper: string
+  linkToken: string
+  linkEthFeed: string
+  keyHash: string
+  callbackGasLimit: number
+  requestConfirmations: number
+  numWords: number
+  status: 'pending_deployment' | 'reference' | 'active'
 }
 
 export interface AutomationConfig {
-  registry: string;
-  registrar: string;
-  minBalance: string;
-  defaultGasLimit: number;
-  maxGasLimit: number;
-  keeperRewardBps: number;
-  protocolFeeBps: number;
-  status: 'pending_deployment' | 'active';
+  registry: string
+  registrar: string
+  minBalance: string
+  defaultGasLimit: number
+  maxGasLimit: number
+  keeperRewardBps: number
+  protocolFeeBps: number
+  status: 'pending_deployment' | 'active'
 }
 
 // ============================================================================
 // Config Accessors (validated on first access)
 // ============================================================================
 
-let feedsValidated = false;
-let vrfValidated = false;
-let automationValidated = false;
+let feedsValidated = false
+let vrfValidated = false
+let automationValidated = false
 
 function validateFeeds(): void {
-  if (feedsValidated) return;
-  FeedsConfigSchema.parse(feeds);
-  feedsValidated = true;
+  if (feedsValidated) return
+  FeedsConfigSchema.parse(feeds)
+  feedsValidated = true
 }
 
 function validateVRF(): void {
-  if (vrfValidated) return;
-  VRFConfigSchema.parse(vrf);
-  vrfValidated = true;
+  if (vrfValidated) return
+  VRFConfigSchema.parse(vrf)
+  vrfValidated = true
 }
 
 function validateAutomation(): void {
-  if (automationValidated) return;
-  AutomationConfigSchema.parse(automation);
-  automationValidated = true;
+  if (automationValidated) return
+  AutomationConfigSchema.parse(automation)
+  automationValidated = true
 }
 
 // ============================================================================
@@ -184,69 +188,75 @@ function validateAutomation(): void {
 // ============================================================================
 
 export function getChainlinkFeeds(chainId: number): ChainlinkFeed[] {
-  validateFeeds();
-  const chainFeeds = feeds.chains[chainId.toString() as keyof typeof feeds.chains];
+  validateFeeds()
+  const chainFeeds =
+    feeds.chains[chainId.toString() as keyof typeof feeds.chains]
   if (!chainFeeds) {
-    throw new Error(`Chainlink feeds not configured for chain ${chainId}`);
+    throw new Error(`Chainlink feeds not configured for chain ${chainId}`)
   }
   return Object.entries(chainFeeds).map(([pair, config]) => ({
     pair,
     address: config.address,
     decimals: config.decimals,
     heartbeatSeconds: config.heartbeatSeconds,
-  }));
+  }))
 }
 
 export function getChainlinkFeed(chainId: number, pair: string): ChainlinkFeed {
-  validateFeeds();
-  const chainFeeds = feeds.chains[chainId.toString() as keyof typeof feeds.chains];
+  validateFeeds()
+  const chainFeeds =
+    feeds.chains[chainId.toString() as keyof typeof feeds.chains]
   if (!chainFeeds) {
-    throw new Error(`Chainlink feeds not configured for chain ${chainId}`);
+    throw new Error(`Chainlink feeds not configured for chain ${chainId}`)
   }
-  const feedConfig = chainFeeds[pair as keyof typeof chainFeeds];
+  const feedConfig = chainFeeds[pair as keyof typeof chainFeeds]
   if (!feedConfig) {
-    throw new Error(`Chainlink feed ${pair} not configured for chain ${chainId}`);
+    throw new Error(
+      `Chainlink feed ${pair} not configured for chain ${chainId}`,
+    )
   }
   return {
     pair,
     address: feedConfig.address,
     decimals: feedConfig.decimals,
     heartbeatSeconds: feedConfig.heartbeatSeconds,
-  };
+  }
 }
 
 export function getVRFConfig(chainId: number): VRFConfig {
-  validateVRF();
-  const config = vrf.chains[chainId.toString() as keyof typeof vrf.chains];
+  validateVRF()
+  const config = vrf.chains[chainId.toString() as keyof typeof vrf.chains]
   if (!config) {
-    throw new Error(`Chainlink VRF not configured for chain ${chainId}`);
+    throw new Error(`Chainlink VRF not configured for chain ${chainId}`)
   }
-  return config;
+  return config
 }
 
 export function getAutomationConfig(chainId: number): AutomationConfig {
-  validateAutomation();
-  const config = automation.chains[chainId.toString() as keyof typeof automation.chains];
+  validateAutomation()
+  const config =
+    automation.chains[chainId.toString() as keyof typeof automation.chains]
   if (!config) {
-    throw new Error(`Chainlink Automation not configured for chain ${chainId}`);
+    throw new Error(`Chainlink Automation not configured for chain ${chainId}`)
   }
-  return config;
+  return config
 }
 
 export function getLinkTokenAddress(chainId: number): string {
-  validateFeeds();
-  const address = feeds.linkToken[chainId.toString() as keyof typeof feeds.linkToken];
+  validateFeeds()
+  const address =
+    feeds.linkToken[chainId.toString() as keyof typeof feeds.linkToken]
   if (!address) {
-    throw new Error(`LINK token address not configured for chain ${chainId}`);
+    throw new Error(`LINK token address not configured for chain ${chainId}`)
   }
-  return address;
+  return address
 }
 
 export function getSupportedChainIds(): number[] {
-  validateFeeds();
-  return Object.keys(feeds.chains).map(Number);
+  validateFeeds()
+  return Object.keys(feeds.chains).map(Number)
 }
 
 export function hasChainlinkSupport(chainId: number): boolean {
-  return chainId.toString() in feeds.chains;
+  return chainId.toString() in feeds.chains
 }

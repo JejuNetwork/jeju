@@ -13,33 +13,35 @@
  *   http://127.0.0.1:PORT (e.g., http://127.0.0.1:57874)
  */
 
-import { execSync } from 'child_process';
+import { execSync } from 'node:child_process'
 
 export function getLocalnetRpcUrl(): string {
-	try {
-		// Get the RPC port from Kurtosis
-		const output = execSync('kurtosis port print jeju-localnet op-geth rpc', {
-			encoding: 'utf-8',
-			stdio: ['pipe', 'pipe', 'pipe'],
-		});
+  try {
+    // Get the RPC port from Kurtosis
+    const output = execSync('kurtosis port print jeju-localnet op-geth rpc', {
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
 
-		const address = output.trim(); // e.g., "127.0.0.1:57874"
+    const address = output.trim() // e.g., "127.0.0.1:57874"
 
-		if (!address || !address.includes(':')) {
-			throw new Error('Invalid Kurtosis port output');
-		}
+    if (!address || !address.includes(':')) {
+      throw new Error('Invalid Kurtosis port output')
+    }
 
-		return `http://${address}`;
-	} catch {
-		// Fallback to default port if Kurtosis is not running
-		console.warn('⚠️  Warning: Could not get RPC URL from Kurtosis, using default port 9545');
-		console.warn('Make sure localnet is running: bun run localnet:start');
-		return 'http://127.0.0.1:9545';
-	}
+    return `http://${address}`
+  } catch {
+    // Fallback to default port if Kurtosis is not running
+    console.warn(
+      '⚠️  Warning: Could not get RPC URL from Kurtosis, using default port 9545',
+    )
+    console.warn('Make sure localnet is running: bun run localnet:start')
+    return 'http://127.0.0.1:9545'
+  }
 }
 
 // If run directly, print the RPC URL
 if (import.meta.main) {
-	const rpcUrl = getLocalnetRpcUrl();
-	console.log(rpcUrl);
+  const rpcUrl = getLocalnetRpcUrl()
+  console.log(rpcUrl)
 }

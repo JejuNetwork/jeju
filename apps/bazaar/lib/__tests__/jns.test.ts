@@ -3,58 +3,58 @@
  * Tests name validation, price calculation, expiry, and normalization
  */
 
-import { describe, test, expect } from 'bun:test'
+import { describe, expect, test } from 'bun:test'
+import { parseEther } from 'viem'
 import {
-  // Constants
-  MIN_NAME_LENGTH,
-  MAX_NAME_LENGTH,
   BASE_REGISTRATION_PRICE_ETH,
-  SHORT_NAME_MULTIPLIERS,
-  JNS_SUFFIX,
-  SECONDS_PER_DAY,
-  SECONDS_PER_YEAR,
-  // Schemas
-  JNSNameSchema,
-  RegistrationDurationSchema,
-  ListingPriceSchema,
-  ListingDurationSchema,
-  ListingStatusSchema,
   CurrencyTypeSchema,
-  NameRegistrationInputSchema,
-  NameListingInputSchema,
-  // Name validation
-  validateName,
-  isValidNameFormat,
-  getNameLengthCategory,
-  // Name normalization
-  normalizeName,
-  formatFullName,
-  // Labelhash
-  computeLabelhash,
-  labelhashToTokenId,
-  computeNameIdentifiers,
+  calculateExpiryDate,
+  // Expiry calculations
+  calculateExpiryTimestamp,
   // Price calculations
   calculateRegistrationPrice,
   calculateRegistrationPriceWei,
-  getAnnualPrice,
-  formatRegistrationPrice,
-  // Expiry calculations
-  calculateExpiryTimestamp,
-  calculateExpiryDate,
-  isExpired,
-  getRemainingSeconds,
-  formatTimeRemaining,
+  // Labelhash
+  computeLabelhash,
+  computeNameIdentifiers,
   formatExpiryDate,
+  formatFullName,
   // Listing utilities
   formatListingPrice,
-  parseEthToWei,
+  formatRegistrationPrice,
+  formatTimeRemaining,
+  getAnnualPrice,
+  getNameLengthCategory,
+  getRemainingSeconds,
+  isExpired,
+  isValidNameFormat,
+  JNS_SUFFIX,
+  // Schemas
+  JNSNameSchema,
+  ListingDurationSchema,
+  ListingPriceSchema,
+  ListingStatusSchema,
+  labelhashToTokenId,
   listingDurationToSeconds,
+  MAX_NAME_LENGTH,
+  // Constants
+  MIN_NAME_LENGTH,
+  NameListingInputSchema,
+  NameRegistrationInputSchema,
+  // Name normalization
+  normalizeName,
+  parseEthToWei,
+  RegistrationDurationSchema,
+  SECONDS_PER_DAY,
+  SECONDS_PER_YEAR,
+  SHORT_NAME_MULTIPLIERS,
   validateListingDuration,
+  validateListingInput,
+  // Name validation
+  validateName,
   // Validation helpers
   validateRegistrationInput,
-  validateListingInput,
 } from '../jns'
-import { parseEther } from 'viem'
 
 // =============================================================================
 // CONSTANTS TESTS
@@ -536,7 +536,7 @@ describe('calculateExpiryTimestamp', () => {
   test('adds days to current time', () => {
     const now = Math.floor(Date.now() / 1000)
     const expiry = calculateExpiryTimestamp(30)
-    const expected = now + (30 * SECONDS_PER_DAY)
+    const expected = now + 30 * SECONDS_PER_DAY
     // Allow 1 second tolerance for test execution time
     expect(Math.abs(expiry - expected)).toBeLessThan(2)
   })
@@ -544,7 +544,7 @@ describe('calculateExpiryTimestamp', () => {
   test('uses custom start timestamp', () => {
     const start = 1000000000
     const expiry = calculateExpiryTimestamp(365, start)
-    expect(expiry).toBe(start + (365 * SECONDS_PER_DAY))
+    expect(expiry).toBe(start + 365 * SECONDS_PER_DAY)
   })
 })
 
@@ -557,7 +557,7 @@ describe('calculateExpiryDate', () => {
   test('calculates correct date', () => {
     const start = new Date('2024-01-01')
     const expiry = calculateExpiryDate(30, start)
-    expect(expiry.getTime()).toBe(start.getTime() + (30 * SECONDS_PER_DAY * 1000))
+    expect(expiry.getTime()).toBe(start.getTime() + 30 * SECONDS_PER_DAY * 1000)
   })
 })
 
@@ -611,13 +611,13 @@ describe('formatTimeRemaining', () => {
   })
 
   test('formats days', () => {
-    const future = Math.floor(Date.now() / 1000) + (7 * SECONDS_PER_DAY)
+    const future = Math.floor(Date.now() / 1000) + 7 * SECONDS_PER_DAY
     const result = formatTimeRemaining(future)
     expect(result).toMatch(/\d+ day/)
   })
 
   test('formats months for > 30 days', () => {
-    const future = Math.floor(Date.now() / 1000) + (60 * SECONDS_PER_DAY)
+    const future = Math.floor(Date.now() / 1000) + 60 * SECONDS_PER_DAY
     const result = formatTimeRemaining(future)
     expect(result).toMatch(/\d+ month/)
   })
@@ -628,7 +628,7 @@ describe('formatTimeRemaining', () => {
   })
 
   test('uses plural for > 1 unit', () => {
-    const future = Math.floor(Date.now() / 1000) + (2 * SECONDS_PER_DAY)
+    const future = Math.floor(Date.now() / 1000) + 2 * SECONDS_PER_DAY
     expect(formatTimeRemaining(future)).toBe('2 days')
   })
 })
@@ -697,7 +697,10 @@ describe('validateListingDuration', () => {
 
 describe('validateRegistrationInput', () => {
   test('validates correct input', () => {
-    const result = validateRegistrationInput({ name: 'alice', durationDays: 365 })
+    const result = validateRegistrationInput({
+      name: 'alice',
+      durationDays: 365,
+    })
     expect(result.valid).toBe(true)
     if (result.valid) {
       expect(result.data.name).toBe('alice')
@@ -706,7 +709,10 @@ describe('validateRegistrationInput', () => {
   })
 
   test('normalizes name in validation', () => {
-    const result = validateRegistrationInput({ name: 'ALICE.JEJU', durationDays: 365 })
+    const result = validateRegistrationInput({
+      name: 'ALICE.JEJU',
+      durationDays: 365,
+    })
     expect(result.valid).toBe(true)
     if (result.valid) {
       expect(result.data.name).toBe('alice')
@@ -726,7 +732,11 @@ describe('validateRegistrationInput', () => {
 
 describe('validateListingInput', () => {
   test('validates correct input', () => {
-    const result = validateListingInput({ name: 'alice', priceEth: '0.1', durationDays: 30 })
+    const result = validateListingInput({
+      name: 'alice',
+      priceEth: '0.1',
+      durationDays: 30,
+    })
     expect(result.valid).toBe(true)
     if (result.valid) {
       expect(result.data.name).toBe('alice')
@@ -736,12 +746,20 @@ describe('validateListingInput', () => {
   })
 
   test('rejects invalid price', () => {
-    const result = validateListingInput({ name: 'alice', priceEth: '0', durationDays: 30 })
+    const result = validateListingInput({
+      name: 'alice',
+      priceEth: '0',
+      durationDays: 30,
+    })
     expect(result.valid).toBe(false)
   })
 
   test('rejects invalid listing duration', () => {
-    const result = validateListingInput({ name: 'alice', priceEth: '0.1', durationDays: 500 })
+    const result = validateListingInput({
+      name: 'alice',
+      priceEth: '0.1',
+      durationDays: 500,
+    })
     expect(result.valid).toBe(false)
   })
 })

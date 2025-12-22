@@ -7,55 +7,55 @@
  *   bun scripts/deploy-otc-jeju.ts --network mainnet
  */
 
-import { execSync } from "child_process";
-import { existsSync, mkdirSync, writeFileSync } from "fs";
-import { join } from "path";
+import { execSync } from 'node:child_process'
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 
 const JEJU_NETWORKS = {
   devnet: {
-    rpc: "https://devnet-rpc.jejunetwork.org",
+    rpc: 'https://devnet-rpc.jejunetwork.org',
     chainId: 420689,
-    explorer: "https://devnet-explorer.jejunetwork.org",
+    explorer: 'https://devnet-explorer.jejunetwork.org',
   },
   testnet: {
-    rpc: "https://testnet-rpc.jejunetwork.org",
+    rpc: 'https://testnet-rpc.jejunetwork.org',
     chainId: 420690,
-    explorer: "https://testnet-explorer.jejunetwork.org",
+    explorer: 'https://testnet-explorer.jejunetwork.org',
   },
   mainnet: {
-    rpc: "https://rpc.jejunetwork.org",
+    rpc: 'https://rpc.jejunetwork.org',
     chainId: 420691,
-    explorer: "https://explorer.jejunetwork.org",
+    explorer: 'https://explorer.jejunetwork.org',
   },
-};
+}
 
 function main() {
-  const args = process.argv.slice(2);
-  const networkIdx = args.indexOf("--network");
-  const network = networkIdx >= 0 ? args[networkIdx + 1] : "testnet";
+  const args = process.argv.slice(2)
+  const networkIdx = args.indexOf('--network')
+  const network = networkIdx >= 0 ? args[networkIdx + 1] : 'testnet'
 
-  if (!["devnet", "testnet", "mainnet"].includes(network)) {
-    console.error("Invalid network. Use: devnet, testnet, or mainnet");
-    process.exit(1);
+  if (!['devnet', 'testnet', 'mainnet'].includes(network)) {
+    console.error('Invalid network. Use: devnet, testnet, or mainnet')
+    process.exit(1)
   }
 
-  const config = JEJU_NETWORKS[network as keyof typeof JEJU_NETWORKS];
-  const privateKey = process.env.DEPLOYER_PRIVATE_KEY;
+  const config = JEJU_NETWORKS[network as keyof typeof JEJU_NETWORKS]
+  const privateKey = process.env.DEPLOYER_PRIVATE_KEY
 
   if (!privateKey) {
-    console.error("DEPLOYER_PRIVATE_KEY environment variable is required");
-    process.exit(1);
+    console.error('DEPLOYER_PRIVATE_KEY environment variable is required')
+    process.exit(1)
   }
 
-  console.log(`\nDeploying OTC contracts to the network ${network}...`);
-  console.log(`RPC: ${config.rpc}`);
-  console.log(`Chain ID: ${config.chainId}`);
+  console.log(`\nDeploying OTC contracts to the network ${network}...`)
+  console.log(`RPC: ${config.rpc}`)
+  console.log(`Chain ID: ${config.chainId}`)
 
-  const contractsDir = join(process.cwd(), "packages/contracts");
-  const deploymentsDir = join(contractsDir, "deployments");
+  const contractsDir = join(process.cwd(), 'packages/contracts')
+  const deploymentsDir = join(contractsDir, 'deployments')
 
   if (!existsSync(deploymentsDir)) {
-    mkdirSync(deploymentsDir, { recursive: true });
+    mkdirSync(deploymentsDir, { recursive: true })
   }
 
   try {
@@ -66,12 +66,12 @@ function main() {
         --broadcast \
         --verify \
         -vvv`,
-      { encoding: "utf-8", stdio: "pipe" },
-    );
+      { encoding: 'utf-8', stdio: 'pipe' },
+    )
 
-    console.log(output);
+    console.log(output)
 
-    const deploymentFile = join(deploymentsDir, `otc-jeju-${network}.json`);
+    const deploymentFile = join(deploymentsDir, `otc-jeju-${network}.json`)
     const deploymentData = {
       network: `jeju-${network}`,
       chainId: config.chainId,
@@ -80,25 +80,32 @@ function main() {
       deployedAt: new Date().toISOString(),
       contracts: {
         // These will be populated by the forge script output
-        otc: "",
-        token: "",
-        usdc: "",
-        tokenUsdFeed: "",
-        ethUsdFeed: "",
+        otc: '',
+        token: '',
+        usdc: '',
+        tokenUsdFeed: '',
+        ethUsdFeed: '',
       },
-    };
+    }
 
-    writeFileSync(deploymentFile, JSON.stringify(deploymentData, null, 2));
-    console.log(`\nDeployment info written to: ${deploymentFile}`);
+    writeFileSync(deploymentFile, JSON.stringify(deploymentData, null, 2))
+    console.log(`\nDeployment info written to: ${deploymentFile}`)
 
     // Update OTC agent config
     const otcAgentDeploymentFile = join(
       process.cwd(),
       `vendor/otc-agent/src/config/deployments/jeju-${network}.json`,
-    );
+    )
 
-    if (!existsSync(join(process.cwd(), "vendor/otc-agent/src/config/deployments"))) {
-      mkdirSync(join(process.cwd(), "vendor/otc-agent/src/config/deployments"), { recursive: true });
+    if (
+      !existsSync(
+        join(process.cwd(), 'vendor/otc-agent/src/config/deployments'),
+      )
+    ) {
+      mkdirSync(
+        join(process.cwd(), 'vendor/otc-agent/src/config/deployments'),
+        { recursive: true },
+      )
     }
 
     writeFileSync(
@@ -113,16 +120,14 @@ function main() {
         null,
         2,
       ),
-    );
+    )
 
-    console.log(`OTC Agent config written to: ${otcAgentDeploymentFile}`);
-    console.log("\nDeployment successful.");
+    console.log(`OTC Agent config written to: ${otcAgentDeploymentFile}`)
+    console.log('\nDeployment successful.')
   } catch (error) {
-    console.error("Deployment failed:", error);
-    process.exit(1);
+    console.error('Deployment failed:', error)
+    process.exit(1)
   }
 }
 
-main();
-
-
+main()

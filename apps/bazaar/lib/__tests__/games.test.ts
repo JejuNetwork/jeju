@@ -2,23 +2,23 @@
  * Game utilities unit tests
  */
 
-import { describe, test, expect } from 'bun:test'
+import { describe, expect, test } from 'bun:test'
+import type { GameItem } from '@/schemas/games'
 import {
-  getRarityInfo,
-  getRarityName,
-  isValidRarity,
-  getItemCategory,
+  calculateKDRatio,
   filterItemsByCategory,
-  formatItemStats,
-  hasCombatStats,
   formatAddress,
   formatGameTimestamp,
-  calculateKDRatio,
+  formatItemStats,
   formatXP,
-  sortByRarity,
+  getItemCategory,
+  getRarityInfo,
+  getRarityName,
+  hasCombatStats,
+  isValidRarity,
   sortByBalance,
+  sortByRarity,
 } from '../games'
-import type { GameItem } from '@/schemas/games'
 
 const createMockItem = (overrides: Partial<GameItem> = {}): GameItem => ({
   id: 'test-1',
@@ -118,13 +118,13 @@ describe('getItemCategory', () => {
   test('categorizes by name keywords', () => {
     const sword = createMockItem({ name: 'Iron Sword' })
     expect(getItemCategory(sword)).toBe('weapons')
-    
+
     const helmet = createMockItem({ name: 'Steel Helmet' })
     expect(getItemCategory(helmet)).toBe('armor')
-    
+
     const pickaxe = createMockItem({ name: 'Bronze Pickaxe' })
     expect(getItemCategory(pickaxe)).toBe('tools')
-    
+
     const logs = createMockItem({ name: 'Oak Logs' })
     expect(getItemCategory(logs)).toBe('resources')
   })

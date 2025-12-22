@@ -28,63 +28,74 @@
  */
 
 // Client
-export { CQLClient, CQLClient as CovenantSQLClient, getCQL, resetCQL } from './client.js';
-
-// Server (for local development)
-export { CQLServer, createCQLServer } from './server.js';
-
+export {
+  CQLClient,
+  CQLClient as CovenantSQLClient,
+  getCQL,
+  resetCQL,
+} from './client.js'
 // Migration
 export {
-  MigrationManager,
-  createMigrationManager,
-  defineMigration,
-  createTable,
   addColumn,
   createIndex,
-} from './migration.js';
-
-// Utilities
-export { parsePort, parseTimeout, parseBoolean, validateSQLIdentifier, validateSQLIdentifiers, validateSQLDefault, sanitizeObject, sanitizeRows } from './utils.js';
-
+  createMigrationManager,
+  createTable,
+  defineMigration,
+  MigrationManager,
+} from './migration.js'
+// Server (for local development)
+export { CQLServer, createCQLServer } from './server.js'
 // Types
 export type {
+  ACLEventDetails,
+  ACLPermission,
+  // ACL
+  ACLRule,
+  // Network
+  BlockProducerInfo,
+  ColumnMeta,
   // Config
   CQLConfig,
   // Connection
   CQLConnection,
   CQLConnectionPool,
-  CQLTransaction,
-  // Query
-  QueryParam,
-  QueryResult,
-  ExecResult,
-  ColumnMeta,
   CQLDataType,
+  // Events
+  CQLEvent,
+  CQLEventDetails,
+  CQLQueryable,
+  CQLTransaction,
+  CreateRentalRequest,
   // Database
   DatabaseConfig,
   DatabaseInfo,
   DatabaseStatus,
-  // ACL
-  ACLRule,
-  ACLPermission,
+  ExecEventDetails,
+  ExecResult,
   GrantRequest,
-  RevokeRequest,
-  // Rental
-  RentalPlan,
-  RentalInfo,
-  CreateRentalRequest,
   // Migration
   Migration,
-  MigrationResult,
-  // Network
-  BlockProducerInfo,
-  MinerInfo,
-  // Events
-  CQLEvent,
-  CQLEventDetails,
-  QueryEventDetails,
-  ExecEventDetails,
   MigrationEventDetails,
-  ACLEventDetails,
+  MigrationResult,
+  MinerInfo,
+  QueryEventDetails,
+  // Query
+  QueryParam,
+  QueryResult,
   RentalEventDetails,
-} from './types.js';
+  RentalInfo,
+  // Rental
+  RentalPlan,
+  RevokeRequest,
+} from './types.js'
+// Utilities
+export {
+  parseBoolean,
+  parsePort,
+  parseTimeout,
+  sanitizeObject,
+  sanitizeRows,
+  validateSQLDefault,
+  validateSQLIdentifier,
+  validateSQLIdentifiers,
+} from './utils.js'

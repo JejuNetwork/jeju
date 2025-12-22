@@ -1,6 +1,6 @@
 /**
  * Decentralized Infrastructure Types
- * 
+ *
  * DWS is a fully decentralized compute network where:
  * - Anyone can run a node and register on-chain
  * - Users pay with crypto (x402, staking) to deploy workers
@@ -8,77 +8,77 @@
  * - No centralized cloud provider is required
  */
 
-import type { Address, Hex } from 'viem';
+import type { Address, Hex } from 'viem'
 
 // ============================================================================
 // Node Types - What capabilities a DWS node can provide
 // ============================================================================
 
-export type NodeCapability = 
-  | 'compute'       // Can run workers/containers
-  | 'storage'       // Can store data (IPFS pin)
-  | 'cdn'           // Can serve cached content
-  | 'gpu'           // Has GPU for ML/training
-  | 'tee'           // Has TEE (Intel SGX/TDX, AMD SEV)
-  | 'high-memory'   // Has >64GB RAM
-  | 'high-cpu'      // Has >16 cores
-  | 'ssd'           // Has fast SSD storage
-  | 'bandwidth';    // Has high bandwidth (>1Gbps)
+export type NodeCapability =
+  | 'compute' // Can run workers/containers
+  | 'storage' // Can store data (IPFS pin)
+  | 'cdn' // Can serve cached content
+  | 'gpu' // Has GPU for ML/training
+  | 'tee' // Has TEE (Intel SGX/TDX, AMD SEV)
+  | 'high-memory' // Has >64GB RAM
+  | 'high-cpu' // Has >16 cores
+  | 'ssd' // Has fast SSD storage
+  | 'bandwidth' // Has high bandwidth (>1Gbps)
 
-export type TEEPlatform = 'intel_sgx' | 'intel_tdx' | 'amd_sev' | 'none';
+export type TEEPlatform = 'intel_sgx' | 'intel_tdx' | 'amd_sev' | 'none'
 
 export interface NodeSpecs {
-  cpuCores: number;
-  memoryMb: number;
-  storageMb: number;
-  gpuType?: string;
-  gpuCount?: number;
-  gpuVramMb?: number;
-  bandwidthMbps: number;
-  teePlatform: TEEPlatform;
+  cpuCores: number
+  memoryMb: number
+  storageMb: number
+  gpuType?: string
+  gpuCount?: number
+  gpuVramMb?: number
+  bandwidthMbps: number
+  teePlatform: TEEPlatform
 }
 
 export interface NodeConfig {
   // Identity
-  agentId: bigint;
-  owner: Address;
-  endpoint: string;
-  
+  agentId: bigint
+  owner: Address
+  endpoint: string
+
   // Registration
-  registeredAt: number;
-  lastHeartbeat: number;
-  version: string;
-  
+  registeredAt: number
+  lastHeartbeat: number
+  version: string
+
   // Capabilities
-  capabilities: NodeCapability[];
-  specs: NodeSpecs;
-  
+  capabilities: NodeCapability[]
+  specs: NodeSpecs
+
   // Economics
-  stakedAmount: bigint;
-  stakedToken: Address;
-  pricePerHour: bigint;  // In wei, for compute
-  pricePerGb: bigint;    // In wei, for storage
-  pricePerRequest: bigint; // In wei, for x402
-  
+  stakedAmount: bigint
+  stakedToken: Address
+  pricePerHour: bigint // In wei, for compute
+  pricePerGb: bigint // In wei, for storage
+  pricePerRequest: bigint // In wei, for x402
+
   // Status
-  status: 'online' | 'busy' | 'draining' | 'offline';
-  reputation: number;  // 0-100
-  isBanned: boolean;
-  isSlashed: boolean;
-  
+  status: 'online' | 'busy' | 'draining' | 'offline'
+  reputation: number // 0-100
+  isBanned: boolean
+  isSlashed: boolean
+
   // TEE Attestation
   attestation?: {
-    quote: Hex;
-    measurement: Hex;
-    verifiedAt: number;
-    expiresAt: number;
-  };
-  
+    quote: Hex
+    measurement: Hex
+    verifiedAt: number
+    expiresAt: number
+  }
+
   // Current load
-  activeWorkers: number;
-  activeJobs: number;
-  cpuUsage: number;
-  memoryUsage: number;
+  activeWorkers: number
+  activeJobs: number
+  cpuUsage: number
+  memoryUsage: number
 }
 
 // ============================================================================
@@ -86,96 +86,103 @@ export interface NodeConfig {
 // ============================================================================
 
 export interface WorkerConfig {
-  id: string;
-  name: string;
-  owner: Address;
-  
+  id: string
+  name: string
+  owner: Address
+
   // Code
   code: {
-    cid: string;         // IPFS CID
-    hash: Hex;           // Keccak256 of code
-    entrypoint: string;  // Main file
-    runtime: 'workerd' | 'bun' | 'docker';
-  };
-  
+    cid: string // IPFS CID
+    hash: Hex // Keccak256 of code
+    entrypoint: string // Main file
+    runtime: 'workerd' | 'bun' | 'docker'
+  }
+
   // Resources
   resources: {
-    memoryMb: number;
-    cpuMillis: number;
-    timeoutMs: number;
-    maxConcurrency: number;
-  };
-  
+    memoryMb: number
+    cpuMillis: number
+    timeoutMs: number
+    maxConcurrency: number
+  }
+
   // Scaling
   scaling: {
-    minInstances: number;
-    maxInstances: number;
-    targetConcurrency: number;
-    scaleToZero: boolean;
-    cooldownMs: number;
-  };
-  
+    minInstances: number
+    maxInstances: number
+    targetConcurrency: number
+    scaleToZero: boolean
+    cooldownMs: number
+  }
+
   // Requirements
   requirements: {
-    teeRequired: boolean;
-    teePlatform?: TEEPlatform;
-    gpuRequired: boolean;
-    gpuType?: string;
-    regions?: string[];
-    minNodeReputation?: number;
-    minNodeStake?: bigint;
-  };
-  
+    teeRequired: boolean
+    teePlatform?: TEEPlatform
+    gpuRequired: boolean
+    gpuType?: string
+    regions?: string[]
+    minNodeReputation?: number
+    minNodeStake?: bigint
+  }
+
   // Economics
   payment: {
-    type: 'x402' | 'prepaid' | 'staked';
-    budgetWei?: bigint;
-    maxPricePerRequest?: bigint;
-  };
-  
+    type: 'x402' | 'prepaid' | 'staked'
+    budgetWei?: bigint
+    maxPricePerRequest?: bigint
+  }
+
   // Environment
-  env: Record<string, string>;
-  secrets: string[];  // KMS secret IDs
+  env: Record<string, string>
+  secrets: string[] // KMS secret IDs
 }
 
 export interface DeployedWorker extends WorkerConfig {
   // Deployment state
-  status: 'pending' | 'deploying' | 'active' | 'scaling' | 'draining' | 'stopped' | 'failed';
-  deployedAt: number;
-  updatedAt: number;
-  
+  status:
+    | 'pending'
+    | 'deploying'
+    | 'active'
+    | 'scaling'
+    | 'draining'
+    | 'stopped'
+    | 'failed'
+  deployedAt: number
+  updatedAt: number
+
   // Active instances
-  instances: WorkerInstance[];
-  
+  instances: WorkerInstance[]
+
   // Metrics
   metrics: {
-    totalInvocations: number;
-    totalErrors: number;
-    avgLatencyMs: number;
-    p95LatencyMs: number;
-    coldStarts: number;
-    totalCostWei: bigint;
-  };
-  
+    totalInvocations: number
+    totalErrors: number
+    avgLatencyMs: number
+    p95LatencyMs: number
+    coldStarts: number
+    totalCostWei: bigint
+  }
+
   // On-chain registration
   onChain?: {
-    workerId: bigint;
-    txHash: Hex;
-    registeredAt: number;
-  };
+    workerId: bigint
+    txHash: Hex
+    registeredAt: number
+  }
 }
 
 export interface WorkerInstance {
-  id: string;
-  workerId: string;
-  nodeAgentId: bigint;
-  nodeEndpoint: string;
-  status: 'starting' | 'warm' | 'busy' | 'draining' | 'stopped';
-  startedAt: number;
-  lastRequestAt: number;
-  activeRequests: number;
-  totalRequests: number;
-  errors: number;
+  id: string
+  workerId: string
+  nodeAgentId: bigint
+  nodeEndpoint: string
+  status: 'starting' | 'warm' | 'busy' | 'draining' | 'stopped'
+  startedAt: number
+  lastRequestAt: number
+  activeRequests: number
+  totalRequests: number
+  errors: number
 }
 
 // ============================================================================
@@ -183,73 +190,79 @@ export interface WorkerInstance {
 // ============================================================================
 
 export interface JobConfig {
-  id: string;
-  owner: Address;
-  
+  id: string
+  owner: Address
+
   // What to run
-  image: string;  // Container image or IPFS CID
-  command: string[];
-  args: string[];
-  env: Record<string, string>;
-  
+  image: string // Container image or IPFS CID
+  command: string[]
+  args: string[]
+  env: Record<string, string>
+
   // Input/Output
-  inputCid?: string;
-  outputPath?: string;
-  
+  inputCid?: string
+  outputPath?: string
+
   // Resources
   resources: {
-    cpuCores: number;
-    memoryMb: number;
-    gpuType?: string;
-    gpuCount?: number;
-    timeoutMs: number;
-  };
-  
+    cpuCores: number
+    memoryMb: number
+    gpuType?: string
+    gpuCount?: number
+    timeoutMs: number
+  }
+
   // Requirements
   requirements: {
-    teeRequired: boolean;
-    teePlatform?: TEEPlatform;
-    minNodeReputation?: number;
-    minNodeStake?: bigint;
-  };
-  
+    teeRequired: boolean
+    teePlatform?: TEEPlatform
+    minNodeReputation?: number
+    minNodeStake?: bigint
+  }
+
   // Payment
   payment: {
-    maxBudgetWei: bigint;
-    token: Address;
-  };
+    maxBudgetWei: bigint
+    token: Address
+  }
 }
 
 export interface JobResult {
-  id: string;
-  status: 'pending' | 'assigned' | 'running' | 'completed' | 'failed' | 'timeout';
-  
+  id: string
+  status:
+    | 'pending'
+    | 'assigned'
+    | 'running'
+    | 'completed'
+    | 'failed'
+    | 'timeout'
+
   // Assignment
-  nodeAgentId?: bigint;
-  nodeEndpoint?: string;
-  
+  nodeAgentId?: bigint
+  nodeEndpoint?: string
+
   // Timing
-  submittedAt: number;
-  startedAt?: number;
-  completedAt?: number;
-  
+  submittedAt: number
+  startedAt?: number
+  completedAt?: number
+
   // Results
-  exitCode?: number;
-  outputCid?: string;
-  logs?: string;
-  error?: string;
-  
+  exitCode?: number
+  outputCid?: string
+  logs?: string
+  error?: string
+
   // TEE attestation
   attestation?: {
-    quote: Hex;
-    measurement: Hex;
-    outputHash: Hex;
-    signature: Hex;
-  };
-  
+    quote: Hex
+    measurement: Hex
+    outputHash: Hex
+    signature: Hex
+  }
+
   // Cost
-  costWei?: bigint;
-  txHash?: Hex;
+  costWei?: bigint
+  txHash?: Hex
 }
 
 // ============================================================================
@@ -258,33 +271,33 @@ export interface JobResult {
 
 export interface RoutingConfig {
   // How to select nodes
-  strategy: 'latency' | 'round-robin' | 'stake-weighted' | 'reputation' | 'cost';
-  
+  strategy: 'latency' | 'round-robin' | 'stake-weighted' | 'reputation' | 'cost'
+
   // Filters
-  requiredCapabilities: NodeCapability[];
-  minReputation: number;
-  minStake: bigint;
-  preferredRegions: string[];
-  excludeNodes: bigint[];
-  
+  requiredCapabilities: NodeCapability[]
+  minReputation: number
+  minStake: bigint
+  preferredRegions: string[]
+  excludeNodes: bigint[]
+
   // TEE requirements
-  teeRequired: boolean;
-  teePlatform?: TEEPlatform;
-  verifyAttestation: boolean;
-  
+  teeRequired: boolean
+  teePlatform?: TEEPlatform
+  verifyAttestation: boolean
+
   // Failover
-  retryCount: number;
-  retryDelayMs: number;
-  failoverToAnyNode: boolean;
+  retryCount: number
+  retryDelayMs: number
+  failoverToAnyNode: boolean
 }
 
 export interface RouteResult {
-  nodeAgentId: bigint;
-  nodeEndpoint: string;
-  latencyMs: number;
-  reputation: number;
-  stake: bigint;
-  attestationValid: boolean;
+  nodeAgentId: bigint
+  nodeEndpoint: string
+  latencyMs: number
+  reputation: number
+  stake: bigint
+  attestationValid: boolean
 }
 
 // ============================================================================
@@ -294,81 +307,81 @@ export interface RouteResult {
 export interface PaymentConfig {
   // For x402
   x402: {
-    enabled: boolean;
-    endpoint: string;
-    facilitatorAddress: Address;
-    defaultToken: Address;
-  };
-  
+    enabled: boolean
+    endpoint: string
+    facilitatorAddress: Address
+    defaultToken: Address
+  }
+
   // For staking
   staking: {
-    enabled: boolean;
-    minStake: bigint;
-    slashingEnabled: boolean;
-    slashingPercentage: number;
-  };
-  
+    enabled: boolean
+    minStake: bigint
+    slashingEnabled: boolean
+    slashingPercentage: number
+  }
+
   // For prepaid
   prepaid: {
-    enabled: boolean;
-    vaultAddress: Address;
-  };
+    enabled: boolean
+    vaultAddress: Address
+  }
 }
 
 export interface InvokePayment {
-  type: 'x402' | 'prepaid' | 'free';
-  
+  type: 'x402' | 'prepaid' | 'free'
+
   // x402
-  x402Header?: string;
-  
+  x402Header?: string
+
   // Prepaid
-  prepaidVaultId?: string;
-  
+  prepaidVaultId?: string
+
   // Cost tracking
-  estimatedCostWei: bigint;
-  actualCostWei?: bigint;
+  estimatedCostWei: bigint
+  actualCostWei?: bigint
 }
 
 // ============================================================================
 // Network Configuration
 // ============================================================================
 
-export type NetworkEnvironment = 'localnet' | 'testnet' | 'mainnet';
+export type NetworkEnvironment = 'localnet' | 'testnet' | 'mainnet'
 
 export interface NetworkConfig {
-  environment: NetworkEnvironment;
-  
+  environment: NetworkEnvironment
+
   // Chain
-  chainId: number;
-  rpcUrl: string;
-  
+  chainId: number
+  rpcUrl: string
+
   // Contracts
   contracts: {
-    identityRegistry: Address;
-    workerRegistry: Address;
-    paymentVault: Address;
-    x402Facilitator: Address;
-    stakingManager: Address;
-  };
-  
+    identityRegistry: Address
+    workerRegistry: Address
+    paymentVault: Address
+    x402Facilitator: Address
+    stakingManager: Address
+  }
+
   // Storage
   ipfs: {
-    gateway: string;
-    apiUrl?: string;
-    pinningService?: string;
-  };
-  
+    gateway: string
+    apiUrl?: string
+    pinningService?: string
+  }
+
   // P2P
   p2p: {
-    bootstrapNodes: string[];
-    announceAddress?: string;
-  };
-  
+    bootstrapNodes: string[]
+    announceAddress?: string
+  }
+
   // TEE
   tee: {
-    collateralServiceUrl?: string;
-    allowedPlatforms: TEEPlatform[];
-  };
+    collateralServiceUrl?: string
+    allowedPlatforms: TEEPlatform[]
+  }
 }
 
 export const NETWORK_CONFIGS: Record<NetworkEnvironment, NetworkConfig> = {
@@ -394,7 +407,7 @@ export const NETWORK_CONFIGS: Record<NetworkEnvironment, NetworkConfig> = {
       allowedPlatforms: ['none'], // Allow non-TEE in localnet
     },
   },
-  
+
   testnet: {
     environment: 'testnet',
     chainId: 84532, // Base Sepolia
@@ -411,14 +424,16 @@ export const NETWORK_CONFIGS: Record<NetworkEnvironment, NetworkConfig> = {
       pinningService: 'https://api.pinata.cloud',
     },
     p2p: {
-      bootstrapNodes: ['/dns4/boot.testnet.jejunetwork.org/tcp/4001/p2p/12D3KooW...'],
+      bootstrapNodes: [
+        '/dns4/boot.testnet.jejunetwork.org/tcp/4001/p2p/12D3KooW...',
+      ],
     },
     tee: {
       collateralServiceUrl: 'https://tee.testnet.jejunetwork.org',
       allowedPlatforms: ['intel_tdx', 'amd_sev', 'none'],
     },
   },
-  
+
   mainnet: {
     environment: 'mainnet',
     chainId: 8453, // Base
@@ -442,23 +457,49 @@ export const NETWORK_CONFIGS: Record<NetworkEnvironment, NetworkConfig> = {
       allowedPlatforms: ['intel_tdx', 'amd_sev'], // No 'none' in mainnet
     },
   },
-};
+}
 
 // ============================================================================
 // Events - For P2P gossip and on-chain events
 // ============================================================================
 
-export type InfraEvent = 
-  | { type: 'node:registered'; nodeAgentId: bigint; endpoint: string; capabilities: NodeCapability[] }
+export type InfraEvent =
+  | {
+      type: 'node:registered'
+      nodeAgentId: bigint
+      endpoint: string
+      capabilities: NodeCapability[]
+    }
   | { type: 'node:offline'; nodeAgentId: bigint }
-  | { type: 'node:slashed'; nodeAgentId: bigint; reason: string; amount: bigint }
-  | { type: 'worker:deployed'; workerId: string; owner: Address; codeCid: string }
+  | {
+      type: 'node:slashed'
+      nodeAgentId: bigint
+      reason: string
+      amount: bigint
+    }
+  | {
+      type: 'worker:deployed'
+      workerId: string
+      owner: Address
+      codeCid: string
+    }
   | { type: 'worker:scaled'; workerId: string; newInstances: number }
   | { type: 'worker:stopped'; workerId: string }
   | { type: 'job:submitted'; jobId: string; owner: Address }
   | { type: 'job:assigned'; jobId: string; nodeAgentId: bigint }
-  | { type: 'job:completed'; jobId: string; outputCid?: string; attestation?: Hex }
+  | {
+      type: 'job:completed'
+      jobId: string
+      outputCid?: string
+      attestation?: Hex
+    }
   | { type: 'job:failed'; jobId: string; error: string }
-  | { type: 'payment:received'; from: Address; to: bigint; amount: bigint; token: Address };
+  | {
+      type: 'payment:received'
+      from: Address
+      to: bigint
+      amount: bigint
+      token: Address
+    }
 
-export type InfraEventHandler = (event: InfraEvent) => void | Promise<void>;
+export type InfraEventHandler = (event: InfraEvent) => void | Promise<void>

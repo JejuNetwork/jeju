@@ -1,4 +1,4 @@
-import type { Config } from 'tailwindcss';
+import type { Config } from 'tailwindcss'
 
 const config: Config = {
   content: [
@@ -10,7 +10,7 @@ const config: Config = {
   theme: {
     extend: {
       screens: {
-        'xs': '400px',
+        xs: '400px',
       },
       colors: {
         council: {
@@ -26,7 +26,7 @@ const config: Config = {
         mono: ['var(--font-mono)', 'monospace'],
       },
       animation: {
-        'in': 'in 0.2s ease-out',
+        in: 'in 0.2s ease-out',
       },
       keyframes: {
         in: {
@@ -37,6 +37,6 @@ const config: Config = {
     },
   },
   plugins: [],
-};
+}
 
-export default config;
+export default config

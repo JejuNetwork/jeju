@@ -2,206 +2,212 @@
  * Identity Module - ERC-8004, reputation, moderation
  */
 
-import { type Address, type Hex, encodeFunctionData } from "viem";
-import type { NetworkType } from "@jejunetwork/types";
-import type { JejuWallet } from "../wallet";
-import { requireContract, getServicesConfig } from "../config";
+import type { NetworkType } from '@jejunetwork/types'
+import { type Address, encodeFunctionData, type Hex } from 'viem'
+import { z } from 'zod'
+import { getServicesConfig, requireContract } from '../config'
+import {
+  AgentInfoSchema,
+  BanInfoSchema,
+  ReputationScoreSchema,
+} from '../shared/schemas'
+import type { JejuWallet } from '../wallet'
 
 export interface AgentInfo {
-  agentId: bigint;
-  owner: Address;
-  name: string;
-  tags: string[];
-  a2aEndpoint: string;
-  mcpEndpoint: string;
-  registeredAt: number;
-  lastActivityAt: number;
-  isBanned: boolean;
+  agentId: bigint
+  owner: Address
+  name: string
+  tags: string[]
+  a2aEndpoint: string
+  mcpEndpoint: string
+  registeredAt: number
+  lastActivityAt: number
+  isBanned: boolean
 }
 
 export interface ReputationScore {
-  agentId: bigint;
-  feedbackCount: number;
-  averageScore: number;
-  violationCount: number;
-  compositeScore: number;
-  tier: "bronze" | "silver" | "gold" | "platinum";
+  agentId: bigint
+  feedbackCount: number
+  averageScore: number
+  violationCount: number
+  compositeScore: number
+  tier: 'bronze' | 'silver' | 'gold' | 'platinum'
 }
 
 export interface BanInfo {
-  agentId: bigint;
-  isBanned: boolean;
-  bannedAt: number;
-  reason: string;
-  banType: "network" | "app" | "category";
+  agentId: bigint
+  isBanned: boolean
+  bannedAt: number
+  reason: string
+  banType: 'network' | 'app' | 'category'
 }
 
 export interface ReportParams {
-  agentId: bigint;
-  type: "spam" | "scam" | "abuse" | "illegal" | "other";
-  description: string;
-  evidence?: string;
+  agentId: bigint
+  type: 'spam' | 'scam' | 'abuse' | 'illegal' | 'other'
+  description: string
+  evidence?: string
 }
 
 export interface RegisterAgentParams {
-  name: string;
-  tags: string[];
-  a2aEndpoint?: string;
-  mcpEndpoint?: string;
+  name: string
+  tags: string[]
+  a2aEndpoint?: string
+  mcpEndpoint?: string
 }
 
 export interface IdentityModule {
   // Agent management
   register(
     params: RegisterAgentParams,
-  ): Promise<{ agentId: bigint; txHash: Hex }>;
-  update(params: Partial<RegisterAgentParams>): Promise<Hex>;
-  getAgent(agentIdOrAddress: bigint | Address): Promise<AgentInfo | null>;
-  getMyAgent(): Promise<AgentInfo | null>;
-  listAgents(tags?: string[]): Promise<AgentInfo[]>;
+  ): Promise<{ agentId: bigint; txHash: Hex }>
+  update(params: Partial<RegisterAgentParams>): Promise<Hex>
+  getAgent(agentIdOrAddress: bigint | Address): Promise<AgentInfo | null>
+  getMyAgent(): Promise<AgentInfo | null>
+  listAgents(tags?: string[]): Promise<AgentInfo[]>
 
   // Reputation
-  getReputation(agentId: bigint): Promise<ReputationScore>;
-  getMyReputation(): Promise<ReputationScore | null>;
-  leaveFeedback(agentId: bigint, score: number, comment?: string): Promise<Hex>;
+  getReputation(agentId: bigint): Promise<ReputationScore>
+  getMyReputation(): Promise<ReputationScore | null>
+  leaveFeedback(agentId: bigint, score: number, comment?: string): Promise<Hex>
 
   // Moderation
-  report(params: ReportParams): Promise<Hex>;
-  getBanStatus(agentId: bigint): Promise<BanInfo>;
-  amIBanned(): Promise<boolean>;
+  report(params: ReportParams): Promise<Hex>
+  getBanStatus(agentId: bigint): Promise<BanInfo>
+  amIBanned(): Promise<boolean>
 }
 
 const IDENTITY_REGISTRY_ABI = [
   {
-    name: "register",
-    type: "function",
-    stateMutability: "nonpayable",
+    name: 'register',
+    type: 'function',
+    stateMutability: 'nonpayable',
     inputs: [
-      { name: "name", type: "string" },
-      { name: "tags", type: "string[]" },
-      { name: "a2aEndpoint", type: "string" },
-      { name: "mcpEndpoint", type: "string" },
+      { name: 'name', type: 'string' },
+      { name: 'tags', type: 'string[]' },
+      { name: 'a2aEndpoint', type: 'string' },
+      { name: 'mcpEndpoint', type: 'string' },
     ],
-    outputs: [{ type: "uint256" }],
+    outputs: [{ type: 'uint256' }],
   },
   {
-    name: "updateAgent",
-    type: "function",
-    stateMutability: "nonpayable",
+    name: 'updateAgent',
+    type: 'function',
+    stateMutability: 'nonpayable',
     inputs: [
-      { name: "name", type: "string" },
-      { name: "tags", type: "string[]" },
-      { name: "a2aEndpoint", type: "string" },
-      { name: "mcpEndpoint", type: "string" },
+      { name: 'name', type: 'string' },
+      { name: 'tags', type: 'string[]' },
+      { name: 'a2aEndpoint', type: 'string' },
+      { name: 'mcpEndpoint', type: 'string' },
     ],
     outputs: [],
   },
   {
-    name: "getAgent",
-    type: "function",
-    stateMutability: "view",
-    inputs: [{ name: "agentId", type: "uint256" }],
+    name: 'getAgent',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'agentId', type: 'uint256' }],
     outputs: [
       {
-        type: "tuple",
+        type: 'tuple',
         components: [
-          { name: "owner", type: "address" },
-          { name: "name", type: "string" },
-          { name: "tags", type: "string[]" },
-          { name: "a2aEndpoint", type: "string" },
-          { name: "mcpEndpoint", type: "string" },
-          { name: "registeredAt", type: "uint256" },
-          { name: "lastActivityAt", type: "uint256" },
-          { name: "isBanned", type: "bool" },
+          { name: 'owner', type: 'address' },
+          { name: 'name', type: 'string' },
+          { name: 'tags', type: 'string[]' },
+          { name: 'a2aEndpoint', type: 'string' },
+          { name: 'mcpEndpoint', type: 'string' },
+          { name: 'registeredAt', type: 'uint256' },
+          { name: 'lastActivityAt', type: 'uint256' },
+          { name: 'isBanned', type: 'bool' },
         ],
       },
     ],
   },
   {
-    name: "getAgentIdByOwner",
-    type: "function",
-    stateMutability: "view",
-    inputs: [{ name: "owner", type: "address" }],
-    outputs: [{ type: "uint256" }],
+    name: 'getAgentIdByOwner',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'owner', type: 'address' }],
+    outputs: [{ type: 'uint256' }],
   },
-] as const;
+] as const
 
 const REPORTING_ABI = [
   {
-    name: "submitReport",
-    type: "function",
-    stateMutability: "payable",
+    name: 'submitReport',
+    type: 'function',
+    stateMutability: 'payable',
     inputs: [
-      { name: "agentId", type: "uint256" },
-      { name: "reportType", type: "uint8" },
-      { name: "descriptionHash", type: "bytes32" },
-      { name: "evidenceHash", type: "bytes32" },
+      { name: 'agentId', type: 'uint256' },
+      { name: 'reportType', type: 'uint8' },
+      { name: 'descriptionHash', type: 'bytes32' },
+      { name: 'evidenceHash', type: 'bytes32' },
     ],
-    outputs: [{ type: "bytes32" }],
+    outputs: [{ type: 'bytes32' }],
   },
   {
-    name: "leaveFeedback",
-    type: "function",
-    stateMutability: "nonpayable",
+    name: 'leaveFeedback',
+    type: 'function',
+    stateMutability: 'nonpayable',
     inputs: [
-      { name: "agentId", type: "uint256" },
-      { name: "score", type: "uint8" },
-      { name: "commentHash", type: "bytes32" },
+      { name: 'agentId', type: 'uint256' },
+      { name: 'score', type: 'uint8' },
+      { name: 'commentHash', type: 'bytes32' },
     ],
     outputs: [],
   },
-] as const;
+] as const
 
 export function createIdentityModule(
   wallet: JejuWallet,
   network: NetworkType,
 ): IdentityModule {
-  const identityAddress = requireContract("registry", "identity", network);
+  const identityAddress = requireContract('registry', 'identity', network)
   const reportingAddress = requireContract(
-    "moderation",
-    "reportingSystem",
+    'moderation',
+    'reportingSystem',
     network,
-  );
-  const services = getServicesConfig(network);
+  )
+  const services = getServicesConfig(network)
 
   async function register(
     params: RegisterAgentParams,
   ): Promise<{ agentId: bigint; txHash: Hex }> {
     const data = encodeFunctionData({
       abi: IDENTITY_REGISTRY_ABI,
-      functionName: "register",
+      functionName: 'register',
       args: [
         params.name,
         params.tags,
-        params.a2aEndpoint ?? "",
-        params.mcpEndpoint ?? "",
+        params.a2aEndpoint ?? '',
+        params.mcpEndpoint ?? '',
       ],
-    });
+    })
 
-    const txHash = await wallet.sendTransaction({ to: identityAddress, data });
+    const txHash = await wallet.sendTransaction({ to: identityAddress, data })
 
     // Get the agent ID from the transaction receipt (simplified - would parse from logs)
-    const agentId = 1n;
+    const agentId = 1n
 
-    return { agentId, txHash };
+    return { agentId, txHash }
   }
 
   async function update(params: Partial<RegisterAgentParams>): Promise<Hex> {
-    const current = await getMyAgent();
-    if (!current) throw new Error("No agent registered");
+    const current = await getMyAgent()
+    if (!current) throw new Error('No agent registered')
 
     const data = encodeFunctionData({
       abi: IDENTITY_REGISTRY_ABI,
-      functionName: "updateAgent",
+      functionName: 'updateAgent',
       args: [
         params.name ?? current.name,
         params.tags ?? current.tags,
         params.a2aEndpoint ?? current.a2aEndpoint,
         params.mcpEndpoint ?? current.mcpEndpoint,
       ],
-    });
+    })
 
-    return wallet.sendTransaction({ to: identityAddress, data });
+    return wallet.sendTransaction({ to: identityAddress, data })
   }
 
   async function getAgent(
@@ -209,57 +215,49 @@ export function createIdentityModule(
   ): Promise<AgentInfo | null> {
     const response = await fetch(
       `${services.gateway.api}/identity/agent/${agentIdOrAddress}`,
-    );
-    if (!response.ok) return null;
+    )
+    if (!response.ok) return null
 
-    const rawData: unknown = await response.json();
-
-    // Validate response structure
-    if (
-      typeof rawData !== "object" ||
-      rawData === null ||
-      !("agentId" in rawData) ||
-      !("owner" in rawData)
-    ) {
-      throw new Error("Invalid agent info response format");
-    }
-
-    return rawData as AgentInfo;
+    const data = AgentInfoSchema.parse(await response.json())
+    return data
   }
 
   async function getMyAgent(): Promise<AgentInfo | null> {
-    return getAgent(wallet.address);
+    return getAgent(wallet.address)
   }
 
   async function listAgents(tags?: string[]): Promise<AgentInfo[]> {
     const url = tags
-      ? `${services.gateway.api}/identity/agents?tags=${tags.join(",")}`
-      : `${services.gateway.api}/identity/agents`;
+      ? `${services.gateway.api}/identity/agents?tags=${tags.join(',')}`
+      : `${services.gateway.api}/identity/agents`
 
-    const response = await fetch(url);
+    const response = await fetch(url)
     if (!response.ok) {
-      throw new Error(`Failed to list agents: ${response.statusText}`);
+      throw new Error(`Failed to list agents: ${response.statusText}`)
     }
 
-    const data = (await response.json()) as { agents: AgentInfo[] };
-    return data.agents;
+    const AgentsListResponseSchema = z.object({
+      agents: z.array(AgentInfoSchema),
+    })
+    const data = AgentsListResponseSchema.parse(await response.json())
+    return data.agents
   }
 
   async function getReputation(agentId: bigint): Promise<ReputationScore> {
     const response = await fetch(
       `${services.gateway.api}/identity/reputation/${agentId}`,
-    );
+    )
     if (!response.ok) {
-      throw new Error(`Failed to get reputation: ${response.statusText}`);
+      throw new Error(`Failed to get reputation: ${response.statusText}`)
     }
 
-    return (await response.json()) as ReputationScore;
+    return ReputationScoreSchema.parse(await response.json())
   }
 
   async function getMyReputation(): Promise<ReputationScore | null> {
-    const agent = await getMyAgent();
-    if (!agent) return null;
-    return getReputation(agent.agentId);
+    const agent = await getMyAgent()
+    if (!agent) return null
+    return getReputation(agent.agentId)
   }
 
   async function leaveFeedback(
@@ -267,57 +265,56 @@ export function createIdentityModule(
     score: number,
     comment?: string,
   ): Promise<Hex> {
-    if (score < 1 || score > 5)
-      throw new Error("Score must be between 1 and 5");
+    if (score < 1 || score > 5) throw new Error('Score must be between 1 and 5')
 
     const commentHash = comment
-      ? (`0x${Buffer.from(comment).toString("hex").slice(0, 64).padEnd(64, "0")}` as Hex)
-      : ("0x0000000000000000000000000000000000000000000000000000000000000000" as Hex);
+      ? (`0x${Buffer.from(comment).toString('hex').slice(0, 64).padEnd(64, '0')}` as Hex)
+      : ('0x0000000000000000000000000000000000000000000000000000000000000000' as Hex)
 
     const data = encodeFunctionData({
       abi: REPORTING_ABI,
-      functionName: "leaveFeedback",
+      functionName: 'leaveFeedback',
       args: [agentId, score, commentHash],
-    });
+    })
 
-    return wallet.sendTransaction({ to: reportingAddress, data });
+    return wallet.sendTransaction({ to: reportingAddress, data })
   }
 
   async function report(params: ReportParams): Promise<Hex> {
-    const typeMap = { spam: 0, scam: 1, abuse: 2, illegal: 3, other: 4 };
+    const typeMap = { spam: 0, scam: 1, abuse: 2, illegal: 3, other: 4 }
 
     const descHash =
-      `0x${Buffer.from(params.description).toString("hex").slice(0, 64).padEnd(64, "0")}` as Hex;
+      `0x${Buffer.from(params.description).toString('hex').slice(0, 64).padEnd(64, '0')}` as Hex
     const evidenceHash = params.evidence
-      ? (`0x${Buffer.from(params.evidence).toString("hex").slice(0, 64).padEnd(64, "0")}` as Hex)
-      : ("0x0000000000000000000000000000000000000000000000000000000000000000" as Hex);
+      ? (`0x${Buffer.from(params.evidence).toString('hex').slice(0, 64).padEnd(64, '0')}` as Hex)
+      : ('0x0000000000000000000000000000000000000000000000000000000000000000' as Hex)
 
     const data = encodeFunctionData({
       abi: REPORTING_ABI,
-      functionName: "submitReport",
+      functionName: 'submitReport',
       args: [params.agentId, typeMap[params.type], descHash, evidenceHash],
-    });
+    })
 
-    return wallet.sendTransaction({ to: reportingAddress, data });
+    return wallet.sendTransaction({ to: reportingAddress, data })
   }
 
   async function getBanStatus(agentId: bigint): Promise<BanInfo> {
     const response = await fetch(
       `${services.gateway.api}/moderation/ban/${agentId}`,
-    );
+    )
     if (!response.ok) {
-      throw new Error(`Failed to get ban status: ${response.statusText}`);
+      throw new Error(`Failed to get ban status: ${response.statusText}`)
     }
 
-    return (await response.json()) as BanInfo;
+    return BanInfoSchema.parse(await response.json())
   }
 
   async function amIBanned(): Promise<boolean> {
-    const agent = await getMyAgent();
-    if (!agent) return false;
+    const agent = await getMyAgent()
+    if (!agent) return false
 
-    const status = await getBanStatus(agent.agentId);
-    return status.isBanned;
+    const status = await getBanStatus(agent.agentId)
+    return status.isBanned
   }
 
   return {
@@ -332,5 +329,5 @@ export function createIdentityModule(
     report,
     getBanStatus,
     amIBanned,
-  };
+  }
 }

@@ -1,39 +1,39 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { useParams } from 'next/navigation';
-import { useAccount } from 'wagmi';
+import { clsx } from 'clsx'
+import { formatDistanceToNow } from 'date-fns'
 import {
   AlertCircle,
-  CheckCircle,
   ArrowLeft,
-  Tag,
-  Users,
+  CheckCircle,
   Clock,
-  MessageSquare,
   Edit3,
-  MoreHorizontal,
-  ThumbsUp,
-  ThumbsDown,
-  Laugh,
-  Heart,
-  Loader2,
-  Send,
-  Lock,
   GitBranch,
-} from 'lucide-react';
-import Link from 'next/link';
-import { clsx } from 'clsx';
-import ReactMarkdown from 'react-markdown';
-import { formatDistanceToNow } from 'date-fns';
+  Heart,
+  Laugh,
+  Loader2,
+  Lock,
+  MessageSquare,
+  MoreHorizontal,
+  Send,
+  Tag,
+  ThumbsDown,
+  ThumbsUp,
+  Users,
+} from 'lucide-react'
+import Link from 'next/link'
+import { useParams } from 'next/navigation'
+import { useState } from 'react'
+import ReactMarkdown from 'react-markdown'
+import { useAccount } from 'wagmi'
 
 interface Comment {
-  id: string;
-  author: { name: string; avatar: string };
-  body: string;
-  createdAt: number;
-  reactions: { emoji: string; count: number }[];
-  isAuthor: boolean;
+  id: string
+  author: { name: string; avatar: string }
+  body: string
+  createdAt: number
+  reactions: { emoji: string; count: number }[]
+  isAuthor: boolean
 }
 
 const mockIssue = {
@@ -65,22 +65,32 @@ Error: Contract verification failed: Invalid constructor arguments
 - Jeju CLI: v1.2.0
 - Node: v20.10.0
 - OS: Ubuntu 22.04`,
-  author: { name: 'alice.eth', avatar: 'https://avatars.githubusercontent.com/u/1?v=4' },
+  author: {
+    name: 'alice.eth',
+    avatar: 'https://avatars.githubusercontent.com/u/1?v=4',
+  },
   status: 'open' as const,
   labels: ['bug', 'help wanted'],
   assignees: [
-    { id: '1', name: 'bob.eth', avatar: 'https://avatars.githubusercontent.com/u/2?v=4' },
+    {
+      id: '1',
+      name: 'bob.eth',
+      avatar: 'https://avatars.githubusercontent.com/u/2?v=4',
+    },
   ],
   createdAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
   updatedAt: Date.now() - 1 * 60 * 60 * 1000,
   milestone: 'v1.1 Release',
   linkedPr: { number: 45, title: 'Fix contract verification' },
-};
+}
 
 const mockComments: Comment[] = [
   {
     id: '1',
-    author: { name: 'bob.eth', avatar: 'https://avatars.githubusercontent.com/u/2?v=4' },
+    author: {
+      name: 'bob.eth',
+      avatar: 'https://avatars.githubusercontent.com/u/2?v=4',
+    },
     body: `Thanks for the detailed report! I can reproduce this issue.
 
 Looking at the logs, it seems the constructor arguments are being encoded differently between deploy and verify.
@@ -95,13 +105,16 @@ I'll investigate and push a fix soon.`,
   },
   {
     id: '2',
-    author: { name: 'alice.eth', avatar: 'https://avatars.githubusercontent.com/u/1?v=4' },
+    author: {
+      name: 'alice.eth',
+      avatar: 'https://avatars.githubusercontent.com/u/1?v=4',
+    },
     body: `Great, thanks for looking into this @bob.eth! Let me know if you need any additional information.`,
     createdAt: Date.now() - 12 * 60 * 60 * 1000,
     reactions: [],
     isAuthor: true,
   },
-];
+]
 
 const labelColors: Record<string, string> = {
   bug: 'bg-red-500',
@@ -110,39 +123,42 @@ const labelColors: Record<string, string> = {
   'good first issue': 'bg-green-500',
   'help wanted': 'bg-yellow-500',
   question: 'bg-pink-500',
-};
+}
 
 export default function IssueDetailPage() {
-  const params = useParams();
-  const { isConnected } = useAccount();
-  const owner = params.owner as string;
-  const repo = params.repo as string;
+  const params = useParams()
+  const { isConnected } = useAccount()
+  const owner = params.owner as string
+  const repo = params.repo as string
 
-  const [newComment, setNewComment] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [comments, setComments] = useState(mockComments);
+  const [newComment, setNewComment] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [comments, setComments] = useState(mockComments)
 
   const handleSubmitComment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newComment.trim()) return;
+    e.preventDefault()
+    if (!newComment.trim()) return
 
-    setIsSubmitting(true);
-    await new Promise(resolve => setTimeout(resolve, 500));
+    setIsSubmitting(true)
+    await new Promise((resolve) => setTimeout(resolve, 500))
 
     setComments([
       ...comments,
       {
         id: String(comments.length + 1),
-        author: { name: 'you.eth', avatar: 'https://avatars.githubusercontent.com/u/0?v=4' },
+        author: {
+          name: 'you.eth',
+          avatar: 'https://avatars.githubusercontent.com/u/0?v=4',
+        },
         body: newComment,
         createdAt: Date.now(),
         reactions: [],
         isAuthor: false,
       },
-    ]);
-    setNewComment('');
-    setIsSubmitting(false);
-  };
+    ])
+    setNewComment('')
+    setIsSubmitting(false)
+  }
 
   return (
     <div className="min-h-screen p-8">
@@ -161,13 +177,19 @@ export default function IssueDetailPage() {
             <div className="flex-1">
               <h1 className="text-2xl font-bold text-factory-100">
                 {mockIssue.title}
-                <span className="text-factory-500 font-normal ml-2">#{mockIssue.number}</span>
+                <span className="text-factory-500 font-normal ml-2">
+                  #{mockIssue.number}
+                </span>
               </h1>
               <div className="flex items-center gap-3 mt-2">
-                <span className={clsx(
-                  'badge flex items-center gap-1',
-                  mockIssue.status === 'open' ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-purple-500/20 text-purple-400 border-purple-500/30'
-                )}>
+                <span
+                  className={clsx(
+                    'badge flex items-center gap-1',
+                    mockIssue.status === 'open'
+                      ? 'bg-green-500/20 text-green-400 border-green-500/30'
+                      : 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+                  )}
+                >
                   {mockIssue.status === 'open' ? (
                     <AlertCircle className="w-3.5 h-3.5" />
                   ) : (
@@ -176,8 +198,13 @@ export default function IssueDetailPage() {
                   {mockIssue.status === 'open' ? 'Open' : 'Closed'}
                 </span>
                 <span className="text-factory-500 text-sm">
-                  <strong className="text-factory-300">{mockIssue.author.name}</strong> opened this issue{' '}
-                  {formatDistanceToNow(mockIssue.createdAt, { addSuffix: true })}
+                  <strong className="text-factory-300">
+                    {mockIssue.author.name}
+                  </strong>{' '}
+                  opened this issue{' '}
+                  {formatDistanceToNow(mockIssue.createdAt, {
+                    addSuffix: true,
+                  })}
                 </span>
                 <span className="text-factory-600">·</span>
                 <span className="text-factory-500 text-sm flex items-center gap-1">
@@ -214,11 +241,20 @@ export default function IssueDetailPage() {
             {/* Issue Body */}
             <div className="card">
               <div className="flex items-center gap-3 p-4 border-b border-factory-800">
-                <img src={mockIssue.author.avatar} alt="" className="w-10 h-10 rounded-full" />
+                <img
+                  src={mockIssue.author.avatar}
+                  alt=""
+                  className="w-10 h-10 rounded-full"
+                />
                 <div>
-                  <span className="font-medium text-factory-200">{mockIssue.author.name}</span>
+                  <span className="font-medium text-factory-200">
+                    {mockIssue.author.name}
+                  </span>
                   <span className="text-factory-500 text-sm ml-2">
-                    commented {formatDistanceToNow(mockIssue.createdAt, { addSuffix: true })}
+                    commented{' '}
+                    {formatDistanceToNow(mockIssue.createdAt, {
+                      addSuffix: true,
+                    })}
                   </span>
                 </div>
                 <div className="flex-1" />
@@ -250,15 +286,26 @@ export default function IssueDetailPage() {
             {comments.map((comment) => (
               <div key={comment.id} className="card">
                 <div className="flex items-center gap-3 p-4 border-b border-factory-800">
-                  <img src={comment.author.avatar} alt="" className="w-10 h-10 rounded-full" />
+                  <img
+                    src={comment.author.avatar}
+                    alt=""
+                    className="w-10 h-10 rounded-full"
+                  />
                   <div>
-                    <span className="font-medium text-factory-200">{comment.author.name}</span>
+                    <span className="font-medium text-factory-200">
+                      {comment.author.name}
+                    </span>
                     <span className="text-factory-500 text-sm ml-2">
-                      commented {formatDistanceToNow(comment.createdAt, { addSuffix: true })}
+                      commented{' '}
+                      {formatDistanceToNow(comment.createdAt, {
+                        addSuffix: true,
+                      })}
                     </span>
                   </div>
                   <div className="flex-1" />
-                  {comment.isAuthor && <span className="badge badge-info text-xs">Author</span>}
+                  {comment.isAuthor && (
+                    <span className="badge badge-info text-xs">Author</span>
+                  )}
                   <button className="p-1 hover:bg-factory-800 rounded">
                     <MoreHorizontal className="w-4 h-4 text-factory-400" />
                   </button>
@@ -268,7 +315,10 @@ export default function IssueDetailPage() {
                 </div>
                 <div className="flex items-center gap-2 px-4 py-3 border-t border-factory-800">
                   {comment.reactions.map((reaction) => (
-                    <button key={reaction.emoji} className="px-2 py-1 bg-factory-800 rounded-full text-sm flex items-center gap-1 hover:bg-factory-700">
+                    <button
+                      key={reaction.emoji}
+                      className="px-2 py-1 bg-factory-800 rounded-full text-sm flex items-center gap-1 hover:bg-factory-700"
+                    >
                       <span>{reaction.emoji}</span>
                       <span className="text-factory-400">{reaction.count}</span>
                     </button>
@@ -300,7 +350,9 @@ export default function IssueDetailPage() {
                     </p>
                     <button
                       type="submit"
-                      disabled={!newComment.trim() || isSubmitting || !isConnected}
+                      disabled={
+                        !newComment.trim() || isSubmitting || !isConnected
+                      }
                       className="btn btn-primary"
                     >
                       {isSubmitting ? (
@@ -321,7 +373,9 @@ export default function IssueDetailPage() {
             {/* Assignees */}
             <div className="card p-4">
               <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium text-factory-300">Assignees</span>
+                <span className="text-sm font-medium text-factory-300">
+                  Assignees
+                </span>
                 <button className="text-factory-500 hover:text-factory-300">
                   <Edit3 className="w-4 h-4" />
                 </button>
@@ -330,8 +384,14 @@ export default function IssueDetailPage() {
                 <div className="space-y-2">
                   {mockIssue.assignees.map((user) => (
                     <div key={user.id} className="flex items-center gap-2">
-                      <img src={user.avatar} alt="" className="w-6 h-6 rounded-full" />
-                      <span className="text-sm text-factory-200">{user.name}</span>
+                      <img
+                        src={user.avatar}
+                        alt=""
+                        className="w-6 h-6 rounded-full"
+                      />
+                      <span className="text-sm text-factory-200">
+                        {user.name}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -343,7 +403,9 @@ export default function IssueDetailPage() {
             {/* Labels */}
             <div className="card p-4">
               <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium text-factory-300">Labels</span>
+                <span className="text-sm font-medium text-factory-300">
+                  Labels
+                </span>
                 <button className="text-factory-500 hover:text-factory-300">
                   <Edit3 className="w-4 h-4" />
                 </button>
@@ -351,7 +413,13 @@ export default function IssueDetailPage() {
               {mockIssue.labels.length > 0 ? (
                 <div className="flex flex-wrap gap-1">
                   {mockIssue.labels.map((label) => (
-                    <span key={label} className={clsx('badge text-xs text-white', labelColors[label] || 'bg-gray-500')}>
+                    <span
+                      key={label}
+                      className={clsx(
+                        'badge text-xs text-white',
+                        labelColors[label] || 'bg-gray-500',
+                      )}
+                    >
                       {label}
                     </span>
                   ))}
@@ -364,7 +432,9 @@ export default function IssueDetailPage() {
             {/* Milestone */}
             <div className="card p-4">
               <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium text-factory-300">Milestone</span>
+                <span className="text-sm font-medium text-factory-300">
+                  Milestone
+                </span>
                 <button className="text-factory-500 hover:text-factory-300">
                   <Edit3 className="w-4 h-4" />
                 </button>
@@ -384,9 +454,11 @@ export default function IssueDetailPage() {
               <div className="card p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <GitBranch className="w-4 h-4 text-factory-400" />
-                  <span className="text-sm font-medium text-factory-300">Linked Pull Request</span>
+                  <span className="text-sm font-medium text-factory-300">
+                    Linked Pull Request
+                  </span>
                 </div>
-                <Link 
+                <Link
                   href={`/git/${owner}/${repo}/pulls/${mockIssue.linkedPr.number}`}
                   className="flex items-center gap-2 text-sm text-accent-400 hover:text-accent-300"
                 >
@@ -410,7 +482,5 @@ export default function IssueDetailPage() {
         </div>
       </div>
     </div>
-  );
+  )
 }
-
-

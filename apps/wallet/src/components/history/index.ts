@@ -1,3 +1,2 @@
-export { TransactionHistory } from './TransactionHistory';
-export type { Transaction } from './TransactionHistory';
-
+export type { Transaction } from './TransactionHistory'
+export { TransactionHistory } from './TransactionHistory'

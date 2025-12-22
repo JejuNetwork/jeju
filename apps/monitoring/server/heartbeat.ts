@@ -1,13 +1,14 @@
 #!/usr/bin/env bun
+
 /**
  * @title Heartbeat Service
  * @notice Sends regular heartbeats to node explorer
  */
 
-import { createPublicClient, http } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import { inferChainFromRpcUrl } from '@jejunetwork/deployment/scripts/shared/chain-utils';
-import { z } from 'zod';
+import { inferChainFromRpcUrl } from '@jejunetwork/deployment/scripts/shared/chain-utils'
+import { createPublicClient, http } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { z } from 'zod'
 
 // Schema for eth_syncing JSON-RPC response
 const EthSyncingResponseSchema = z.object({
@@ -21,29 +22,30 @@ const EthSyncingResponseSchema = z.object({
       highestBlock: z.string().optional(),
     }),
   ]),
-});
+})
 
-type EthSyncingResult = z.infer<typeof EthSyncingResponseSchema>['result'];
+type EthSyncingResult = z.infer<typeof EthSyncingResponseSchema>['result']
 
 // Validate and parse environment config
-const NODE_ID = process.env.NODE_ID;
-const OPERATOR_PRIVATE_KEY = process.env.OPERATOR_PRIVATE_KEY;
+const NODE_ID = process.env.NODE_ID
+const OPERATOR_PRIVATE_KEY = process.env.OPERATOR_PRIVATE_KEY
 
 if (!NODE_ID) {
-  throw new Error('NODE_ID environment variable is required');
+  throw new Error('NODE_ID environment variable is required')
 }
 if (!OPERATOR_PRIVATE_KEY) {
-  throw new Error('OPERATOR_PRIVATE_KEY environment variable is required');
+  throw new Error('OPERATOR_PRIVATE_KEY environment variable is required')
 }
 
 // Optional config with explicit defaults
-const NODE_EXPLORER_API = process.env.NODE_EXPLORER_API ?? 'https://nodes.jejunetwork.org/api';
-const RPC_URL = process.env.RPC_URL ?? 'http://localhost:9545';
-const HEARTBEAT_INTERVAL = process.env.HEARTBEAT_INTERVAL;
-const INTERVAL = HEARTBEAT_INTERVAL ? parseInt(HEARTBEAT_INTERVAL, 10) : 300000;
+const NODE_EXPLORER_API =
+  process.env.NODE_EXPLORER_API ?? 'https://nodes.jejunetwork.org/api'
+const RPC_URL = process.env.RPC_URL ?? 'http://localhost:9545'
+const HEARTBEAT_INTERVAL = process.env.HEARTBEAT_INTERVAL
+const INTERVAL = HEARTBEAT_INTERVAL ? parseInt(HEARTBEAT_INTERVAL, 10) : 300000
 
-if (isNaN(INTERVAL) || INTERVAL <= 0) {
-  throw new Error('HEARTBEAT_INTERVAL must be a positive number');
+if (Number.isNaN(INTERVAL) || INTERVAL <= 0) {
+  throw new Error('HEARTBEAT_INTERVAL must be a positive number')
 }
 
 const CONFIG = {
@@ -52,51 +54,66 @@ const CONFIG = {
   NODE_EXPLORER_API,
   RPC_URL,
   INTERVAL,
-};
+}
 
 // Zod schema for heartbeat API response
 const HeartbeatResponseSchema = z.object({
   uptime_score: z.number(),
-});
+})
 
 async function sendHeartbeat(): Promise<void> {
-  const chain = inferChainFromRpcUrl(CONFIG.RPC_URL);
-  const publicClient = createPublicClient({ chain, transport: http(CONFIG.RPC_URL) });
-  const account = privateKeyToAccount(CONFIG.OPERATOR_PRIVATE_KEY as `0x${string}`);
-  
+  const chain = inferChainFromRpcUrl(CONFIG.RPC_URL)
+  const publicClient = createPublicClient({
+    chain,
+    transport: http(CONFIG.RPC_URL),
+  })
+  const account = privateKeyToAccount(
+    CONFIG.OPERATOR_PRIVATE_KEY as `0x${string}`,
+  )
+
   // Get chain ID for replay protection
-  const chainId = await publicClient.getChainId();
-  
+  const chainId = await publicClient.getChainId()
+
   // Get node stats
-  const blockNumber = await publicClient.getBlockNumber();
-  const peerCount = await publicClient.request({ method: 'net_peerCount' }) as string;
-  
+  const blockNumber = await publicClient.getBlockNumber()
+  const peerCount = (await publicClient.request({
+    method: 'net_peerCount',
+  })) as string
+
   // eth_syncing is valid JSON-RPC but viem types are incomplete - validate with schema
   const syncingResult = await fetch(CONFIG.RPC_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_syncing', params: [], id: 1 }),
-  });
-  const syncingRawData: unknown = await syncingResult.json();
-  const syncingParsed = EthSyncingResponseSchema.safeParse(syncingRawData);
-  
-  let isSyncing: EthSyncingResult = false;
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      method: 'eth_syncing',
+      params: [],
+      id: 1,
+    }),
+  })
+  const syncingParsed = EthSyncingResponseSchema.safeParse(
+    await syncingResult.json(),
+  )
+
+  let isSyncing: EthSyncingResult = false
   if (syncingParsed.success) {
-    isSyncing = syncingParsed.data.result;
+    isSyncing = syncingParsed.data.result
   } else {
-    console.warn(`Warning: Invalid eth_syncing response, assuming not syncing: ${syncingParsed.error.message}`);
+    console.warn(
+      `Warning: Invalid eth_syncing response, assuming not syncing: ${syncingParsed.error.message}`,
+    )
   }
-  
-  const startTime = Date.now();
-  await publicClient.getBlockNumber(); // Test response time
-  const responseTime = Date.now() - startTime;
-  const timestamp = Date.now();
-  
+
+  const startTime = Date.now()
+  await publicClient.getBlockNumber() // Test response time
+  const responseTime = Date.now() - startTime
+  const timestamp = Date.now()
+
   // Sign heartbeat with chain ID included for replay protection across chains
   // Format: "Heartbeat:v1:{chainId}:{nodeId}:{timestamp}:{blockNumber}"
-  const message = `Heartbeat:v1:${chainId}:${CONFIG.NODE_ID}:${timestamp}:${blockNumber}`;
-  const signature = await account.signMessage({ message });
-  
+  const message = `Heartbeat:v1:${chainId}:${CONFIG.NODE_ID}:${timestamp}:${blockNumber}`
+  const signature = await account.signMessage({ message })
+
   // Send to explorer
   const response = await fetch(`${CONFIG.NODE_EXPLORER_API}/nodes/heartbeat`, {
     method: 'POST',
@@ -112,47 +129,52 @@ async function sendHeartbeat(): Promise<void> {
       signature,
       message, // Include message for signature verification
     }),
-  });
-  
+  })
+
   if (!response.ok) {
-    throw new Error(`Heartbeat failed: ${response.status} ${response.statusText}`);
+    throw new Error(
+      `Heartbeat failed: ${response.status} ${response.statusText}`,
+    )
   }
-  
-  const rawData: unknown = await response.json();
-  const parsed = HeartbeatResponseSchema.safeParse(rawData);
+
+  const parsed = HeartbeatResponseSchema.safeParse(await response.json())
   if (!parsed.success) {
-    throw new Error(`Invalid heartbeat response: ${parsed.error.message}`);
+    throw new Error(`Invalid heartbeat response: ${parsed.error.message}`)
   }
-  
-  console.log(`💓 Heartbeat sent (uptime: ${(parsed.data.uptime_score * 100).toFixed(2)}%)`);
+
+  console.log(
+    `💓 Heartbeat sent (uptime: ${(parsed.data.uptime_score * 100).toFixed(2)}%)`,
+  )
 }
 
 async function main(): Promise<void> {
-  console.log('💓 Heartbeat service starting...');
-  console.log(`   Node ID: ${CONFIG.NODE_ID}`);
-  console.log(`   Interval: ${CONFIG.INTERVAL / 1000}s`);
-  
+  console.log('💓 Heartbeat service starting...')
+  console.log(`   Node ID: ${CONFIG.NODE_ID}`)
+  console.log(`   Interval: ${CONFIG.INTERVAL / 1000}s`)
+
   // Initial heartbeat - fail fast if configuration is wrong
-  await sendHeartbeat();
-  
+  await sendHeartbeat()
+
   // Regular heartbeats - log errors but keep running
   setInterval(async () => {
     try {
-      await sendHeartbeat();
+      await sendHeartbeat()
     } catch (error) {
-      console.error('❌ Heartbeat error:', error instanceof Error ? error.message : String(error));
+      console.error(
+        '❌ Heartbeat error:',
+        error instanceof Error ? error.message : String(error),
+      )
     }
-  }, CONFIG.INTERVAL);
-  
-  console.log('✅ Heartbeat service running\n');
+  }, CONFIG.INTERVAL)
+
+  console.log('✅ Heartbeat service running\n')
 }
 
 if (import.meta.main) {
-  main().catch(error => {
-    console.error('💥 Fatal error:', error);
-    process.exit(1);
-  });
+  main().catch((error) => {
+    console.error('💥 Fatal error:', error)
+    process.exit(1)
+  })
 }
 
-export { sendHeartbeat };
-
+export { sendHeartbeat }

@@ -1,86 +1,98 @@
 #!/usr/bin/env bun
+
 /**
  * Start vendor apps only (requires chain running separately)
  * @internal Used by CLI: `jeju dev --vendor-only`
  */
 
-import { existsSync, readdirSync } from 'fs';
-import { join } from 'path';
-import { $ } from 'bun';
+import { existsSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
+import { $ } from 'bun'
 
-const ROOT = join(import.meta.dir, '../../..');
-const VENDOR_DIR = join(ROOT, 'vendor');
+const ROOT = join(import.meta.dir, '../../..')
+const VENDOR_DIR = join(ROOT, 'vendor')
 
 interface VendorApp {
-  name: string;
-  path: string;
-  devCommand?: string;
-  port?: number;
+  name: string
+  path: string
+  devCommand?: string
+  port?: number
 }
 
-function discoverVendorApps(): VendorApp[] {
+interface JejuManifest {
+  devCommand?: string
+  ports?: {
+    main?: number
+  }
+}
+
+async function discoverVendorApps(): Promise<VendorApp[]> {
   if (!existsSync(VENDOR_DIR)) {
-    return [];
+    return []
   }
 
-  const apps: VendorApp[] = [];
-  const entries = readdirSync(VENDOR_DIR, { withFileTypes: true });
+  const apps: VendorApp[] = []
+  const entries = readdirSync(VENDOR_DIR, { withFileTypes: true })
 
   for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
+    if (!entry.isDirectory()) continue
 
-    const appPath = join(VENDOR_DIR, entry.name);
-    const manifestPath = join(appPath, 'jeju-manifest.json');
+    const appPath = join(VENDOR_DIR, entry.name)
+    const manifestPath = join(appPath, 'jeju-manifest.json')
 
     if (existsSync(manifestPath)) {
-      const manifest = JSON.parse(Bun.file(manifestPath).text() as unknown as string);
+      const manifest = (await Bun.file(manifestPath).json()) as JejuManifest
       apps.push({
         name: entry.name,
         path: appPath,
-        devCommand: manifest.devCommand || 'bun run dev',
+        devCommand: manifest.devCommand ?? 'bun run dev',
         port: manifest.ports?.main,
-      });
+      })
     }
   }
 
-  return apps;
+  return apps
 }
 
 async function main() {
-  console.log('Starting vendor apps...\n');
+  console.log('Starting vendor apps...\n')
 
-  const apps = discoverVendorApps();
+  const apps = await discoverVendorApps()
 
   if (apps.length === 0) {
-    console.log('No vendor apps found in vendor/ directory');
-    console.log('Add vendor apps with: jeju vendor add <repo-url>');
-    process.exit(0);
+    console.log('No vendor apps found in vendor/ directory')
+    console.log('Add vendor apps with: jeju vendor add <repo-url>')
+    process.exit(0)
   }
 
-  console.log(`Found ${apps.length} vendor apps:`);
+  console.log(`Found ${apps.length} vendor apps:`)
   for (const app of apps) {
-    console.log(`  - ${app.name} (port ${app.port || 'auto'})`);
+    console.log(`  - ${app.name} (port ${app.port || 'auto'})`)
   }
-  console.log('');
+  console.log('')
 
   // Start all vendor apps
-  const processes: Promise<void>[] = [];
+  const processes: Promise<void>[] = []
 
   for (const app of apps) {
-    const cmd = app.devCommand || 'bun run dev';
-    console.log(`Starting ${app.name}: ${cmd}`);
+    const cmd = app.devCommand || 'bun run dev'
+    console.log(`Starting ${app.name}: ${cmd}`)
 
-    const proc = $`cd ${app.path} && ${cmd}`.quiet();
-    processes.push(proc.then(() => { /* process completed */ }));
+    const proc = $`cd ${app.path} && ${cmd}`.quiet()
+    processes.push(
+      proc.then(() => {
+        /* process completed */
+      }),
+    )
   }
 
   // Wait for Ctrl+C
   process.on('SIGINT', () => {
-    console.log('\nStopping vendor apps...');
-    process.exit(0);
-  });
+    console.log('\nStopping vendor apps...')
+    process.exit(0)
+  })
 
-  await Promise.all(processes);
+  await Promise.all(processes)
 }
 
-main();
+main()

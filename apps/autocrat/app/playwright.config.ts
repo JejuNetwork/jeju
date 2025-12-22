@@ -25,7 +25,7 @@ export default defineConfig({
     },
     {
       name: 'ipad-landscape',
-      use: { 
+      use: {
         ...devices['iPad Pro 11 landscape'],
       },
     },
@@ -36,7 +36,7 @@ export default defineConfig({
     },
     {
       name: 'mobile-landscape',
-      use: { 
+      use: {
         ...devices['iPhone 14 landscape'],
       },
     },

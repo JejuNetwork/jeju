@@ -1,15 +1,15 @@
 /**
  * Formatting Utilities
- * 
+ *
  * Consolidated formatting functions using battle-tested npm libraries.
  * Import from @jejunetwork/shared for consistent formatting across all apps.
  */
 
-import prettyBytes from 'pretty-bytes';
-import prettyMs from 'pretty-ms';
-import { format as timeagoFormat } from 'timeago.js';
-import { nanoid } from 'nanoid';
-import { clsx, type ClassValue } from 'clsx';
+import { type ClassValue, clsx } from 'clsx'
+import { nanoid } from 'nanoid'
+import prettyBytes from 'pretty-bytes'
+import prettyMs from 'pretty-ms'
+import { format as timeagoFormat } from 'timeago.js'
 
 // ============================================================================
 // Byte Formatting (pretty-bytes)
@@ -21,7 +21,7 @@ import { clsx, type ClassValue } from 'clsx';
  * @example formatBytes(1234567) // "1.23 MB"
  */
 export function formatBytes(bytes: number): string {
-  return prettyBytes(bytes);
+  return prettyBytes(bytes)
 }
 
 /**
@@ -29,7 +29,7 @@ export function formatBytes(bytes: number): string {
  * @example formatBytesBinary(1024) // "1 KiB"
  */
 export function formatBytesBinary(bytes: number): string {
-  return prettyBytes(bytes, { binary: true });
+  return prettyBytes(bytes, { binary: true })
 }
 
 // ============================================================================
@@ -42,7 +42,7 @@ export function formatBytesBinary(bytes: number): string {
  * @example formatMs(3600000) // "1h"
  */
 export function formatMs(ms: number): string {
-  return prettyMs(ms, { compact: true });
+  return prettyMs(ms, { compact: true })
 }
 
 /**
@@ -51,7 +51,7 @@ export function formatMs(ms: number): string {
  * @example formatDuration(3600) // "1h"
  */
 export function formatDuration(seconds: number): string {
-  return prettyMs(seconds * 1000, { compact: true });
+  return prettyMs(seconds * 1000, { compact: true })
 }
 
 /**
@@ -59,7 +59,7 @@ export function formatDuration(seconds: number): string {
  * @example formatDurationVerbose(90) // "1 minute 30 seconds"
  */
 export function formatDurationVerbose(seconds: number): string {
-  return prettyMs(seconds * 1000, { verbose: true });
+  return prettyMs(seconds * 1000, { verbose: true })
 }
 
 // ============================================================================
@@ -72,7 +72,7 @@ export function formatDurationVerbose(seconds: number): string {
  * @example formatTimeAgo(Date.now() - 3600000) // "1 hour ago"
  */
 export function formatTimeAgo(timestamp: number | Date): string {
-  return timeagoFormat(timestamp);
+  return timeagoFormat(timestamp)
 }
 
 /**
@@ -81,7 +81,7 @@ export function formatTimeAgo(timestamp: number | Date): string {
  * @example formatTimestamp(Date.now() / 1000 - 3600) // "1 hour ago"
  */
 export function formatTimestamp(unixTimestamp: number): string {
-  return timeagoFormat(unixTimestamp * 1000);
+  return timeagoFormat(unixTimestamp * 1000)
 }
 
 // ============================================================================
@@ -91,27 +91,27 @@ export function formatTimestamp(unixTimestamp: number): string {
 const compactFormatter = new Intl.NumberFormat('en-US', {
   notation: 'compact',
   maximumFractionDigits: 1,
-});
+})
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
-});
+})
 
 const percentFormatter = new Intl.NumberFormat('en-US', {
   style: 'percent',
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
-});
+})
 
 /**
  * Format number with compact notation (K, M, B)
  * @example formatNumber(1234567) // "1.2M"
  */
 export function formatNumber(num: number): string {
-  return compactFormatter.format(num);
+  return compactFormatter.format(num)
 }
 
 /**
@@ -119,7 +119,7 @@ export function formatNumber(num: number): string {
  * @example formatUsd(1234.56) // "$1,234.56"
  */
 export function formatUsd(amount: number): string {
-  return currencyFormatter.format(amount);
+  return currencyFormatter.format(amount)
 }
 
 /**
@@ -127,7 +127,7 @@ export function formatUsd(amount: number): string {
  * @example formatPercent(0.1234) // "12.34%"
  */
 export function formatPercent(value: number): string {
-  return percentFormatter.format(value);
+  return percentFormatter.format(value)
 }
 
 // ============================================================================
@@ -139,14 +139,14 @@ export function formatPercent(value: number): string {
  * @example formatAddress("0x1234...abcd", 4) // "0x1234...abcd"
  */
 export function formatAddress(address: string, chars = 4): string {
-  if (!address || address.length < chars * 2 + 2) return address;
-  return `${address.slice(0, chars + 2)}...${address.slice(-chars)}`;
+  if (!address || address.length < chars * 2 + 2) return address
+  return `${address.slice(0, chars + 2)}...${address.slice(-chars)}`
 }
 
 /**
  * Alias for formatAddress
  */
-export const shortenAddress = formatAddress;
+export const shortenAddress = formatAddress
 
 // ============================================================================
 // ETH/Wei Formatting (Domain-specific)
@@ -157,9 +157,9 @@ export const shortenAddress = formatAddress;
  * @example formatEth(1000000000000000000n) // "1.0000 ETH"
  */
 export function formatEth(wei: bigint | string, decimals = 4): string {
-  const weiValue = typeof wei === 'string' ? BigInt(wei) : wei;
-  const eth = Number(weiValue) / 1e18;
-  return `${eth.toFixed(decimals)} ETH`;
+  const weiValue = typeof wei === 'string' ? BigInt(wei) : wei
+  const eth = Number(weiValue) / 1e18
+  return `${eth.toFixed(decimals)} ETH`
 }
 
 /**
@@ -167,7 +167,7 @@ export function formatEth(wei: bigint | string, decimals = 4): string {
  * @example formatGas(21000) // "21K gas"
  */
 export function formatGas(gas: number): string {
-  return `${formatNumber(gas)} gas`;
+  return `${formatNumber(gas)} gas`
 }
 
 /**
@@ -175,7 +175,7 @@ export function formatGas(gas: number): string {
  * @example formatGasPrice(25.5) // "25.50 gwei"
  */
 export function formatGasPrice(gwei: number): string {
-  return `${gwei.toFixed(2)} gwei`;
+  return `${gwei.toFixed(2)} gwei`
 }
 
 // ============================================================================
@@ -188,7 +188,7 @@ export function formatGasPrice(gwei: number): string {
  * @example generateId() // "V1StGXR8_Z5jdHi6B-myT"
  */
 export function generateId(size?: number): string {
-  return nanoid(size);
+  return nanoid(size)
 }
 
 /**
@@ -196,7 +196,7 @@ export function generateId(size?: number): string {
  * @example generatePrefixedId("user") // "user_V1StGXR8_Z5jdHi6B"
  */
 export function generatePrefixedId(prefix: string, size = 16): string {
-  return `${prefix}_${nanoid(size)}`;
+  return `${prefix}_${nanoid(size)}`
 }
 
 // ============================================================================
@@ -208,13 +208,13 @@ export function generatePrefixedId(prefix: string, size = 16): string {
  * @example classNames("btn", isActive && "btn-active", "btn-lg")
  */
 export function classNames(...inputs: ClassValue[]): string {
-  return clsx(inputs);
+  return clsx(inputs)
 }
 
 /**
  * Alias for classNames
  */
-export const cn = classNames;
+export const cn = classNames
 
 // ============================================================================
 // Utility Functions
@@ -225,7 +225,7 @@ export const cn = classNames;
  * @example await delay(1000) // waits 1 second
  */
 export function delay(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 /**
@@ -233,9 +233,9 @@ export function delay(ms: number): Promise<void> {
  * @example chunk([1,2,3,4,5], 2) // [[1,2], [3,4], [5]]
  */
 export function chunk<T>(array: T[], size: number): T[][] {
-  const chunks: T[][] = [];
+  const chunks: T[][] = []
   for (let i = 0; i < array.length; i += size) {
-    chunks.push(array.slice(i, i + size));
+    chunks.push(array.slice(i, i + size))
   }
-  return chunks;
+  return chunks
 }

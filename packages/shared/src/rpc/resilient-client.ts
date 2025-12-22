@@ -1,11 +1,11 @@
 /**
  * Resilient RPC Client with multi-endpoint fallback
- * 
+ *
  * Handles DNS failures by falling back to direct IPs, ENS, or on-chain registry
  */
 
-import { z } from 'zod';
-import type { RpcParam } from '../types';
+import { z } from 'zod'
+import type { RpcParam } from '../types'
 
 export interface RPCEndpoint {
   url: string
@@ -18,20 +18,32 @@ const RPCResponseSchema = z.object({
   jsonrpc: z.string(),
   id: z.union([z.number(), z.string()]),
   result: z.unknown().optional(),
-  error: z.object({
-    code: z.number(),
-    message: z.string(),
-    data: z.unknown().optional(),
-  }).optional(),
-});
+  error: z
+    .object({
+      code: z.number(),
+      message: z.string(),
+      data: z.unknown().optional(),
+    })
+    .optional(),
+})
 
 const ENSResolveSchema = z.object({
   address: z.string().optional(),
-});
+})
 
 const DEFAULT_ENDPOINTS: RPCEndpoint[] = [
-  { url: 'https://rpc.jejunetwork.org', priority: 1, type: 'dns', region: 'global' },
-  { url: 'https://testnet-rpc.jejunetwork.org', priority: 1, type: 'dns', region: 'global' },
+  {
+    url: 'https://rpc.jejunetwork.org',
+    priority: 1,
+    type: 'dns',
+    region: 'global',
+  },
+  {
+    url: 'https://testnet-rpc.jejunetwork.org',
+    priority: 1,
+    type: 'dns',
+    region: 'global',
+  },
   { url: 'jeju.eth', priority: 3, type: 'ens', region: 'global' },
 ]
 
@@ -69,7 +81,7 @@ export class ResilientRPCClient {
   private startHealthChecks(): void {
     // Initial check
     this.checkAllEndpoints()
-    
+
     // Periodic checks
     this.healthCheckInterval = setInterval(() => {
       this.checkAllEndpoints()
@@ -78,7 +90,7 @@ export class ResilientRPCClient {
 
   private async checkAllEndpoints(): Promise<void> {
     await Promise.all(
-      this.endpoints.map(endpoint => this.checkEndpointHealth(endpoint))
+      this.endpoints.map((endpoint) => this.checkEndpointHealth(endpoint)),
     )
   }
 
@@ -136,7 +148,7 @@ export class ResilientRPCClient {
   private async resolveENS(ensName: string): Promise<string> {
     const response = await fetch(
       `https://api.ensdomains.io/resolve/${ensName}`,
-      { signal: AbortSignal.timeout(5000) }
+      { signal: AbortSignal.timeout(5000) },
     )
     if (!response.ok) {
       throw new Error(`ENS resolution failed: ${response.status}`)
@@ -151,7 +163,7 @@ export class ResilientRPCClient {
 
   private getHealthyEndpoints(): RPCEndpoint[] {
     return this.endpoints
-      .filter(e => {
+      .filter((e) => {
         const status = this.healthStatus.get(e.url)
         return status?.healthy !== false
       })
@@ -168,7 +180,7 @@ export class ResilientRPCClient {
 
   async call<T>(method: string, params: RpcParam[]): Promise<T> {
     const healthyEndpoints = this.getHealthyEndpoints()
-    
+
     if (healthyEndpoints.length === 0) {
       healthyEndpoints.push(...this.endpoints)
     }
@@ -196,7 +208,7 @@ export class ResilientRPCClient {
 
         const json = await response.json()
         const data = RPCResponseSchema.parse(json)
-        
+
         if (data.error) {
           throw new Error(data.error.message)
         }
@@ -211,11 +223,13 @@ export class ResilientRPCClient {
       }
     }
 
-    throw new Error(`All RPC endpoints failed. Last error: ${lastError?.message}`)
+    throw new Error(
+      `All RPC endpoints failed. Last error: ${lastError?.message}`,
+    )
   }
 
   getStatus(): { endpoint: string; healthy: boolean; latency: number }[] {
-    return this.endpoints.map(e => {
+    return this.endpoints.map((e) => {
       const status = this.healthStatus.get(e.url)
       return {
         endpoint: e.url,
@@ -254,8 +268,8 @@ export function destroyResilientRPCClient(): void {
   }
 }
 
-export function createResilientRPCClient(endpoints: RPCEndpoint[]): ResilientRPCClient {
+export function createResilientRPCClient(
+  endpoints: RPCEndpoint[],
+): ResilientRPCClient {
   return new ResilientRPCClient(endpoints)
 }
-
-

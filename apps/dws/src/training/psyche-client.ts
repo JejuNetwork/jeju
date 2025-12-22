@@ -1,23 +1,29 @@
 /**
  * Psyche Client for Jeju DWS
- * 
+ *
  * TypeScript client for Nous Research's Psyche distributed training network.
  * Handles coordination between Solana-based Psyche network and Jeju's EVM chain.
  */
 
 import {
   Connection,
-  PublicKey,
   Keypair,
+  PublicKey,
+  SystemProgram,
+  sendAndConfirmTransaction,
   Transaction,
   TransactionInstruction,
-  sendAndConfirmTransaction,
-  SystemProgram,
-} from '@solana/web3.js';
-import { createPublicClient, createWalletClient, http, type Address, type Hex } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import { foundry } from 'viem/chains';
-import * as borsh from 'borsh';
+} from '@solana/web3.js'
+import * as borsh from 'borsh'
+import {
+  type Address,
+  createPublicClient,
+  createWalletClient,
+  type Hex,
+  http,
+} from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { foundry } from 'viem/chains'
 
 // ============================================================================
 // Constants
@@ -25,54 +31,54 @@ import * as borsh from 'borsh';
 
 // Psyche program IDs from vendor_examples/psyche
 const PSYCHE_COORDINATOR_PROGRAM_ID = new PublicKey(
-  '4SHugWqSXwKE5fqDchkJcPEqnoZE22VYKtSTVm7axbT7'
-);
+  '4SHugWqSXwKE5fqDchkJcPEqnoZE22VYKtSTVm7axbT7',
+)
 
 // These are placeholders - use real deployed addresses in production
 // Using the coordinator program ID as a fallback for now
 const _PSYCHE_TREASURER_PROGRAM_ID = new PublicKey(
-  'PsyAUmhpmiUouWsnJdNGFSX8vZ6rWjXjgDPHsgqPGyw' // From psyche docker test
-);
+  'PsyAUmhpmiUouWsnJdNGFSX8vZ6rWjXjgDPHsgqPGyw', // From psyche docker test
+)
 
 const PSYCHE_MINING_POOL_PROGRAM_ID = new PublicKey(
-  '4SHugWqSXwKE5fqDchkJcPEqnoZE22VYKtSTVm7axbT7' // Placeholder
-);
+  '4SHugWqSXwKE5fqDchkJcPEqnoZE22VYKtSTVm7axbT7', // Placeholder
+)
 
 // ============================================================================
 // Types
 // ============================================================================
 
 export interface PsycheConfig {
-  solanaRpcUrl: string;
-  solanaWsUrl?: string;
-  evmRpcUrl?: string;
-  evmPrivateKey?: Hex;
-  solanaKeypair?: Keypair;
+  solanaRpcUrl: string
+  solanaWsUrl?: string
+  evmRpcUrl?: string
+  evmPrivateKey?: Hex
+  solanaKeypair?: Keypair
 }
 
 export interface RunMetadata {
-  name: string;
-  description: string;
-  modelHubRepo: string;
-  datasetHubRepo: string;
+  name: string
+  description: string
+  modelHubRepo: string
+  datasetHubRepo: string
 }
 
 export interface CoordinatorConfig {
-  maxClients: number;
-  minClients: number;
-  epochLengthMs: number;
-  warmupEpochs: number;
-  checkpointIntervalEpochs: number;
-  learningRate: number;
-  batchSize: number;
-  gradientAccumulationSteps: number;
-  maxSeqLength: number;
+  maxClients: number
+  minClients: number
+  epochLengthMs: number
+  warmupEpochs: number
+  checkpointIntervalEpochs: number
+  learningRate: number
+  batchSize: number
+  gradientAccumulationSteps: number
+  maxSeqLength: number
 }
 
 export interface Model {
-  hubRepo: string;
-  revision: string;
-  sha256: string;
+  hubRepo: string
+  revision: string
+  sha256: string
 }
 
 export type CoordinatorProgress =
@@ -81,45 +87,45 @@ export type CoordinatorProgress =
   | { type: 'Training'; epoch: number; step: number }
   | { type: 'Checkpointing'; epoch: number }
   | { type: 'Paused'; lastEpoch: number }
-  | { type: 'Finished' };
+  | { type: 'Finished' }
 
 export interface CoordinatorState {
-  runId: string;
-  metadata: RunMetadata;
-  config: CoordinatorConfig;
-  model: Model;
-  progress: CoordinatorProgress;
-  clients: ClientInfo[];
-  currentEpoch: number;
-  totalSteps: number;
-  paused: boolean;
+  runId: string
+  metadata: RunMetadata
+  config: CoordinatorConfig
+  model: Model
+  progress: CoordinatorProgress
+  clients: ClientInfo[]
+  currentEpoch: number
+  totalSteps: number
+  paused: boolean
 }
 
 export interface ClientInfo {
-  id: number;
-  pubkey: PublicKey;
-  gpuType: string;
-  gpuCount: number;
-  memoryGb: number;
-  joinedAt: number;
-  lastHealthCheck: number;
-  stepsContributed: number;
-  healthy: boolean;
+  id: number
+  pubkey: PublicKey
+  gpuType: string
+  gpuCount: number
+  memoryGb: number
+  joinedAt: number
+  lastHealthCheck: number
+  stepsContributed: number
+  healthy: boolean
 }
 
 export interface WitnessProof {
-  signature: Uint8Array;
-  timestamp: number;
-  participantCount: number;
+  signature: Uint8Array
+  timestamp: number
+  participantCount: number
 }
 
 export interface TrainingMetrics {
-  loss: number;
-  learningRate: number;
-  gradNorm: number;
-  epochProgress: number;
-  samplesProcessed: number;
-  tokensProcessed: number;
+  loss: number
+  learningRate: number
+  gradNorm: number
+  epochProgress: number
+  samplesProcessed: number
+  tokensProcessed: number
 }
 
 // ============================================================================
@@ -127,101 +133,106 @@ export interface TrainingMetrics {
 // ============================================================================
 
 class InitCoordinatorInstruction {
-  instruction = 0;
-  runId: string;
+  instruction = 0
+  runId: string
   metadata: {
-    name: string;
-    description: string;
-    modelHubRepo: string;
-    datasetHubRepo: string;
-  };
+    name: string
+    description: string
+    modelHubRepo: string
+    datasetHubRepo: string
+  }
   config: {
-    maxClients: number;
-    minClients: number;
-    epochLengthMs: bigint;
-    warmupEpochs: number;
-    checkpointIntervalEpochs: number;
-    learningRate: number;
-    batchSize: number;
-    gradientAccumulationSteps: number;
-    maxSeqLength: number;
-  };
+    maxClients: number
+    minClients: number
+    epochLengthMs: bigint
+    warmupEpochs: number
+    checkpointIntervalEpochs: number
+    learningRate: number
+    batchSize: number
+    gradientAccumulationSteps: number
+    maxSeqLength: number
+  }
   model: {
-    hubRepo: string;
-    revision: string;
-    sha256: string;
-  };
+    hubRepo: string
+    revision: string
+    sha256: string
+  }
 
   constructor(
     runId: string,
     metadata: RunMetadata,
     config: CoordinatorConfig,
-    model: Model
+    model: Model,
   ) {
-    this.runId = runId;
-    this.metadata = metadata;
+    this.runId = runId
+    this.metadata = metadata
     this.config = {
       ...config,
       epochLengthMs: BigInt(config.epochLengthMs),
-    };
-    this.model = model;
+    }
+    this.model = model
   }
 }
 
 class JoinRunInstruction {
-  instruction = 1;
-  clientId: number;
-  gpuType: string;
-  gpuCount: number;
-  memoryGb: number;
+  instruction = 1
+  clientId: number
+  gpuType: string
+  gpuCount: number
+  memoryGb: number
 
-  constructor(clientId: number, gpuType: string, gpuCount: number, memoryGb: number) {
-    this.clientId = clientId;
-    this.gpuType = gpuType;
-    this.gpuCount = gpuCount;
-    this.memoryGb = memoryGb;
+  constructor(
+    clientId: number,
+    gpuType: string,
+    gpuCount: number,
+    memoryGb: number,
+  ) {
+    this.clientId = clientId
+    this.gpuType = gpuType
+    this.gpuCount = gpuCount
+    this.memoryGb = memoryGb
   }
 }
 
 class TickInstruction {
-  instruction = 2;
+  instruction = 2
 }
 
 class WitnessInstruction {
-  instruction = 3;
-  proof: Uint8Array;
-  participantBloom: Uint8Array;
-  broadcastBloom: Uint8Array;
-  broadcastMerkle: Uint8Array;
+  instruction = 3
+  proof: Uint8Array
+  participantBloom: Uint8Array
+  broadcastBloom: Uint8Array
+  broadcastMerkle: Uint8Array
 
   constructor(
     proof: Uint8Array,
     participantBloom: Uint8Array,
     broadcastBloom: Uint8Array,
-    broadcastMerkle: Uint8Array
+    broadcastMerkle: Uint8Array,
   ) {
-    this.proof = proof;
-    this.participantBloom = participantBloom;
-    this.broadcastBloom = broadcastBloom;
-    this.broadcastMerkle = broadcastMerkle;
+    this.proof = proof
+    this.participantBloom = participantBloom
+    this.broadcastBloom = broadcastBloom
+    this.broadcastMerkle = broadcastMerkle
   }
 }
 
 class HealthCheckInstruction {
-  instruction = 4;
-  clientId: number;
+  instruction = 4
+  clientId: number
 
   constructor(clientId: number) {
-    this.clientId = clientId;
+    this.clientId = clientId
   }
 }
 
 class CheckpointInstruction {
-  instruction = 5;
-  hubRepo: string;
+  instruction = 5
+  hubRepo: string
 
   constructor(hubRepo: string) {
-    this.hubRepo = hubRepo;
+    this.hubRepo = hubRepo
   }
 }
 
@@ -230,34 +241,32 @@ class CheckpointInstruction {
 // ============================================================================
 
 export class PsycheClient {
-  private connection: Connection;
-  private evmPublicClient;
-  private evmWalletClient;
-  private evmAccount;
-  private solanaKeypair: Keypair | null = null;
-  private config: PsycheConfig;
+  private connection: Connection
+  private evmWalletClient
+  private evmAccount
+  private solanaKeypair: Keypair | null = null
 
   constructor(config: PsycheConfig) {
-    this.config = config;
-    this.connection = new Connection(config.solanaRpcUrl, 'confirmed');
+    this.config = config
+    this.connection = new Connection(config.solanaRpcUrl, 'confirmed')
 
     if (config.solanaKeypair) {
-      this.solanaKeypair = config.solanaKeypair;
+      this.solanaKeypair = config.solanaKeypair
     }
 
     if (config.evmRpcUrl) {
       this.evmPublicClient = createPublicClient({
         chain: foundry,
         transport: http(config.evmRpcUrl),
-      });
+      })
 
       if (config.evmPrivateKey) {
-        this.evmAccount = privateKeyToAccount(config.evmPrivateKey);
+        this.evmAccount = privateKeyToAccount(config.evmPrivateKey)
         this.evmWalletClient = createWalletClient({
           account: this.evmAccount,
           chain: foundry,
           transport: http(config.evmRpcUrl),
-        });
+        })
       }
     }
   }
@@ -270,20 +279,25 @@ export class PsycheClient {
     runId: string,
     metadata: RunMetadata,
     config: CoordinatorConfig,
-    model: Model
+    model: Model,
   ): Promise<string> {
     if (!this.solanaKeypair) {
-      throw new Error('Solana keypair required to create runs');
+      throw new Error('Solana keypair required to create runs')
     }
 
     const [coordinatorInstance] = PublicKey.findProgramAddressSync(
       [Buffer.from('coordinator'), Buffer.from(runId.slice(0, 32))],
-      PSYCHE_COORDINATOR_PROGRAM_ID
-    );
+      PSYCHE_COORDINATOR_PROGRAM_ID,
+    )
 
-    const coordinatorAccount = Keypair.generate();
+    const coordinatorAccount = Keypair.generate()
 
-    const instruction = new InitCoordinatorInstruction(runId, metadata, config, model);
+    const instruction = new InitCoordinatorInstruction(
+      runId,
+      metadata,
+      config,
+      model,
+    )
     const data = borsh.serialize(
       {
         struct: {
@@ -319,48 +333,61 @@ export class PsycheClient {
           },
         },
       },
-      instruction
-    );
+      instruction,
+    )
 
     const tx = new Transaction().add(
       new TransactionInstruction({
         programId: PSYCHE_COORDINATOR_PROGRAM_ID,
         keys: [
-          { pubkey: this.solanaKeypair.publicKey, isSigner: true, isWritable: true },
+          {
+            pubkey: this.solanaKeypair.publicKey,
+            isSigner: true,
+            isWritable: true,
+          },
           { pubkey: coordinatorInstance, isSigner: false, isWritable: true },
-          { pubkey: coordinatorAccount.publicKey, isSigner: true, isWritable: true },
-          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+          {
+            pubkey: coordinatorAccount.publicKey,
+            isSigner: true,
+            isWritable: true,
+          },
+          {
+            pubkey: SystemProgram.programId,
+            isSigner: false,
+            isWritable: false,
+          },
         ],
         data: Buffer.from(data),
-      })
-    );
+      }),
+    )
 
     const signature = await sendAndConfirmTransaction(this.connection, tx, [
       this.solanaKeypair,
       coordinatorAccount,
-    ]);
+    ])
 
-    console.log(`[Psyche] Created run ${runId}: ${signature}`);
-    return signature;
+    console.log(`[Psyche] Created run ${runId}: ${signature}`)
+    return signature
   }
 
   async getRunState(runId: string): Promise<CoordinatorState | null> {
     const [coordinatorInstance] = PublicKey.findProgramAddressSync(
       [Buffer.from('coordinator'), Buffer.from(runId.slice(0, 32))],
-      PSYCHE_COORDINATOR_PROGRAM_ID
-    );
+      PSYCHE_COORDINATOR_PROGRAM_ID,
+    )
 
-    const accountInfo = await this.connection.getAccountInfo(coordinatorInstance);
+    const accountInfo =
+      await this.connection.getAccountInfo(coordinatorInstance)
     if (!accountInfo) {
-      return null;
+      return null
     }
 
     // Parse the account data (simplified - real implementation would decode properly)
-    const data = accountInfo.data;
-    
+    const data = accountInfo.data
+
     // Skip discriminator (8 bytes) and version (8 bytes)
-    const stateOffset = 16;
-    
+    const stateOffset = 16
+
     return {
       runId,
       metadata: {
@@ -390,7 +417,7 @@ export class PsycheClient {
       currentEpoch: 0,
       totalSteps: 0,
       paused: false,
-    };
+    }
   }
 
   async joinRun(
@@ -398,18 +425,23 @@ export class PsycheClient {
     clientId: number,
     gpuType: string,
     gpuCount: number,
-    memoryGb: number
+    memoryGb: number,
   ): Promise<string> {
     if (!this.solanaKeypair) {
-      throw new Error('Solana keypair required to join runs');
+      throw new Error('Solana keypair required to join runs')
     }
 
     const [coordinatorInstance] = PublicKey.findProgramAddressSync(
       [Buffer.from('coordinator'), Buffer.from(runId.slice(0, 32))],
-      PSYCHE_COORDINATOR_PROGRAM_ID
-    );
+      PSYCHE_COORDINATOR_PROGRAM_ID,
+    )
 
-    const instruction = new JoinRunInstruction(clientId, gpuType, gpuCount, memoryGb);
+    const instruction = new JoinRunInstruction(
+      clientId,
+      gpuType,
+      gpuCount,
+      memoryGb,
+    )
     const data = borsh.serialize(
       {
         struct: {
@@ -420,53 +452,63 @@ export class PsycheClient {
           memoryGb: 'u32',
         },
       },
-      instruction
-    );
+      instruction,
+    )
 
     const tx = new Transaction().add(
       new TransactionInstruction({
         programId: PSYCHE_COORDINATOR_PROGRAM_ID,
         keys: [
-          { pubkey: this.solanaKeypair.publicKey, isSigner: true, isWritable: false },
+          {
+            pubkey: this.solanaKeypair.publicKey,
+            isSigner: true,
+            isWritable: false,
+          },
           { pubkey: coordinatorInstance, isSigner: false, isWritable: true },
         ],
         data: Buffer.from(data),
-      })
-    );
+      }),
+    )
 
     const signature = await sendAndConfirmTransaction(this.connection, tx, [
       this.solanaKeypair,
-    ]);
+    ])
 
-    console.log(`[Psyche] Joined run ${runId} as client ${clientId}: ${signature}`);
-    return signature;
+    console.log(
+      `[Psyche] Joined run ${runId} as client ${clientId}: ${signature}`,
+    )
+    return signature
   }
 
   async tick(runId: string): Promise<string> {
     if (!this.solanaKeypair) {
-      throw new Error('Solana keypair required');
+      throw new Error('Solana keypair required')
     }
 
     const [coordinatorInstance] = PublicKey.findProgramAddressSync(
       [Buffer.from('coordinator'), Buffer.from(runId.slice(0, 32))],
-      PSYCHE_COORDINATOR_PROGRAM_ID
-    );
+      PSYCHE_COORDINATOR_PROGRAM_ID,
+    )
 
-    const instruction = new TickInstruction();
-    const data = borsh.serialize({ struct: { instruction: 'u8' } }, instruction);
+    const instruction = new TickInstruction()
+    const data = borsh.serialize({ struct: { instruction: 'u8' } }, instruction)
 
     const tx = new Transaction().add(
       new TransactionInstruction({
         programId: PSYCHE_COORDINATOR_PROGRAM_ID,
         keys: [
-          { pubkey: this.solanaKeypair.publicKey, isSigner: true, isWritable: false },
+          {
+            pubkey: this.solanaKeypair.publicKey,
+            isSigner: true,
+            isWritable: false,
+          },
           { pubkey: coordinatorInstance, isSigner: false, isWritable: true },
         ],
         data: Buffer.from(data),
-      })
-    );
+      }),
+    )
 
-    return sendAndConfirmTransaction(this.connection, tx, [this.solanaKeypair]);
+    return sendAndConfirmTransaction(this.connection, tx, [this.solanaKeypair])
   }
 
   async submitWitness(
@@ -474,23 +516,23 @@ export class PsycheClient {
     proof: WitnessProof,
     participantBloom: Uint8Array,
     broadcastBloom: Uint8Array,
-    broadcastMerkle: Uint8Array
+    broadcastMerkle: Uint8Array,
   ): Promise<string> {
     if (!this.solanaKeypair) {
-      throw new Error('Solana keypair required');
+      throw new Error('Solana keypair required')
     }
 
     const [coordinatorInstance] = PublicKey.findProgramAddressSync(
       [Buffer.from('coordinator'), Buffer.from(runId.slice(0, 32))],
-      PSYCHE_COORDINATOR_PROGRAM_ID
-    );
+      PSYCHE_COORDINATOR_PROGRAM_ID,
+    )
 
     const instruction = new WitnessInstruction(
       proof.signature,
       participantBloom,
       broadcastBloom,
-      broadcastMerkle
-    );
+      broadcastMerkle,
+    )
 
     const data = borsh.serialize(
       {
@@ -502,34 +544,38 @@ export class PsycheClient {
           broadcastMerkle: { array: { type: 'u8' } },
         },
       },
-      instruction
-    );
+      instruction,
+    )
 
     const tx = new Transaction().add(
       new TransactionInstruction({
         programId: PSYCHE_COORDINATOR_PROGRAM_ID,
         keys: [
-          { pubkey: this.solanaKeypair.publicKey, isSigner: true, isWritable: false },
+          {
+            pubkey: this.solanaKeypair.publicKey,
+            isSigner: true,
+            isWritable: false,
+          },
           { pubkey: coordinatorInstance, isSigner: false, isWritable: true },
         ],
         data: Buffer.from(data),
-      })
-    );
+      }),
+    )
 
-    return sendAndConfirmTransaction(this.connection, tx, [this.solanaKeypair]);
+    return sendAndConfirmTransaction(this.connection, tx, [this.solanaKeypair])
   }
 
   async healthCheck(runId: string, clientId: number): Promise<string> {
     if (!this.solanaKeypair) {
-      throw new Error('Solana keypair required');
+      throw new Error('Solana keypair required')
     }
 
     const [coordinatorInstance] = PublicKey.findProgramAddressSync(
       [Buffer.from('coordinator'), Buffer.from(runId.slice(0, 32))],
-      PSYCHE_COORDINATOR_PROGRAM_ID
-    );
+      PSYCHE_COORDINATOR_PROGRAM_ID,
+    )
 
-    const instruction = new HealthCheckInstruction(clientId);
+    const instruction = new HealthCheckInstruction(clientId)
     const data = borsh.serialize(
       {
         struct: {
@@ -537,34 +583,38 @@ export class PsycheClient {
           clientId: 'u32',
         },
       },
-      instruction
-    );
+      instruction,
+    )
 
     const tx = new Transaction().add(
       new TransactionInstruction({
         programId: PSYCHE_COORDINATOR_PROGRAM_ID,
         keys: [
-          { pubkey: this.solanaKeypair.publicKey, isSigner: true, isWritable: false },
+          {
+            pubkey: this.solanaKeypair.publicKey,
+            isSigner: true,
+            isWritable: false,
+          },
           { pubkey: coordinatorInstance, isSigner: false, isWritable: true },
         ],
         data: Buffer.from(data),
-      })
-    );
+      }),
+    )
 
-    return sendAndConfirmTransaction(this.connection, tx, [this.solanaKeypair]);
+    return sendAndConfirmTransaction(this.connection, tx, [this.solanaKeypair])
   }
 
   async checkpoint(runId: string, hubRepo: string): Promise<string> {
     if (!this.solanaKeypair) {
-      throw new Error('Solana keypair required');
+      throw new Error('Solana keypair required')
     }
 
     const [coordinatorInstance] = PublicKey.findProgramAddressSync(
       [Buffer.from('coordinator'), Buffer.from(runId.slice(0, 32))],
-      PSYCHE_COORDINATOR_PROGRAM_ID
-    );
+      PSYCHE_COORDINATOR_PROGRAM_ID,
+    )
 
-    const instruction = new CheckpointInstruction(hubRepo);
+    const instruction = new CheckpointInstruction(hubRepo)
     const data = borsh.serialize(
       {
         struct: {
@@ -572,21 +622,25 @@ export class PsycheClient {
           hubRepo: 'string',
         },
       },
-      instruction
-    );
+      instruction,
+    )
 
     const tx = new Transaction().add(
       new TransactionInstruction({
         programId: PSYCHE_COORDINATOR_PROGRAM_ID,
         keys: [
-          { pubkey: this.solanaKeypair.publicKey, isSigner: true, isWritable: false },
+          {
+            pubkey: this.solanaKeypair.publicKey,
+            isSigner: true,
+            isWritable: false,
+          },
           { pubkey: coordinatorInstance, isSigner: false, isWritable: true },
         ],
         data: Buffer.from(data),
-      })
-    );
+      }),
+    )
 
-    return sendAndConfirmTransaction(this.connection, tx, [this.solanaKeypair]);
+    return sendAndConfirmTransaction(this.connection, tx, [this.solanaKeypair])
   }
 
   // ============================================================================
@@ -596,48 +650,56 @@ export class PsycheClient {
   async createMiningPool(
     poolId: string,
     rewardMint: PublicKey,
-    epochDurationMs: number
+    epochDurationMs: number,
   ): Promise<string> {
     if (!this.solanaKeypair) {
-      throw new Error('Solana keypair required');
+      throw new Error('Solana keypair required')
     }
 
     const [poolPda] = PublicKey.findProgramAddressSync(
       [Buffer.from('pool'), Buffer.from(poolId.slice(0, 32))],
-      PSYCHE_MINING_POOL_PROGRAM_ID
-    );
+      PSYCHE_MINING_POOL_PROGRAM_ID,
+    )
 
     // Pool creation instruction
-    const data = Buffer.alloc(1 + 32 + 8);
-    data.writeUInt8(0, 0); // Instruction: create_pool
-    Buffer.from(poolId.slice(0, 32)).copy(data, 1);
-    data.writeBigUInt64LE(BigInt(epochDurationMs), 33);
+    const data = Buffer.alloc(1 + 32 + 8)
+    data.writeUInt8(0, 0) // Instruction: create_pool
+    Buffer.from(poolId.slice(0, 32)).copy(data, 1)
+    data.writeBigUInt64LE(BigInt(epochDurationMs), 33)
 
     const tx = new Transaction().add(
       new TransactionInstruction({
         programId: PSYCHE_MINING_POOL_PROGRAM_ID,
         keys: [
-          { pubkey: this.solanaKeypair.publicKey, isSigner: true, isWritable: true },
+          {
+            pubkey: this.solanaKeypair.publicKey,
+            isSigner: true,
+            isWritable: true,
+          },
           { pubkey: poolPda, isSigner: false, isWritable: true },
           { pubkey: rewardMint, isSigner: false, isWritable: false },
-          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+          {
+            pubkey: SystemProgram.programId,
+            isSigner: false,
+            isWritable: false,
+          },
         ],
         data,
-      })
-    );
+      }),
+    )
 
-    return sendAndConfirmTransaction(this.connection, tx, [this.solanaKeypair]);
+    return sendAndConfirmTransaction(this.connection, tx, [this.solanaKeypair])
   }
 
   async depositToPool(poolId: string, amount: bigint): Promise<string> {
     if (!this.solanaKeypair) {
-      throw new Error('Solana keypair required');
+      throw new Error('Solana keypair required')
     }
 
     const [poolPda] = PublicKey.findProgramAddressSync(
       [Buffer.from('pool'), Buffer.from(poolId.slice(0, 32))],
-      PSYCHE_MINING_POOL_PROGRAM_ID
-    );
+      PSYCHE_MINING_POOL_PROGRAM_ID,
+    )
 
     const [lenderPda] = PublicKey.findProgramAddressSync(
       [
@@ -645,37 +707,41 @@ export class PsycheClient {
         Buffer.from(poolId.slice(0, 32)),
         this.solanaKeypair.publicKey.toBuffer(),
       ],
-      PSYCHE_MINING_POOL_PROGRAM_ID
-    );
+      PSYCHE_MINING_POOL_PROGRAM_ID,
+    )
 
-    const data = Buffer.alloc(1 + 8);
-    data.writeUInt8(1, 0); // Instruction: deposit
-    data.writeBigUInt64LE(amount, 1);
+    const data = Buffer.alloc(1 + 8)
+    data.writeUInt8(1, 0) // Instruction: deposit
+    data.writeBigUInt64LE(amount, 1)
 
     const tx = new Transaction().add(
       new TransactionInstruction({
         programId: PSYCHE_MINING_POOL_PROGRAM_ID,
         keys: [
-          { pubkey: this.solanaKeypair.publicKey, isSigner: true, isWritable: true },
+          {
+            pubkey: this.solanaKeypair.publicKey,
+            isSigner: true,
+            isWritable: true,
+          },
           { pubkey: poolPda, isSigner: false, isWritable: true },
           { pubkey: lenderPda, isSigner: false, isWritable: true },
         ],
         data,
-      })
-    );
+      }),
+    )
 
-    return sendAndConfirmTransaction(this.connection, tx, [this.solanaKeypair]);
+    return sendAndConfirmTransaction(this.connection, tx, [this.solanaKeypair])
   }
 
   async claimRewards(poolId: string): Promise<string> {
     if (!this.solanaKeypair) {
-      throw new Error('Solana keypair required');
+      throw new Error('Solana keypair required')
     }
 
     const [poolPda] = PublicKey.findProgramAddressSync(
       [Buffer.from('pool'), Buffer.from(poolId.slice(0, 32))],
-      PSYCHE_MINING_POOL_PROGRAM_ID
-    );
+      PSYCHE_MINING_POOL_PROGRAM_ID,
+    )
 
     const [lenderPda] = PublicKey.findProgramAddressSync(
       [
@@ -683,25 +749,29 @@ export class PsycheClient {
         Buffer.from(poolId.slice(0, 32)),
         this.solanaKeypair.publicKey.toBuffer(),
       ],
-      PSYCHE_MINING_POOL_PROGRAM_ID
-    );
+      PSYCHE_MINING_POOL_PROGRAM_ID,
+    )
 
-    const data = Buffer.alloc(1);
-    data.writeUInt8(2, 0); // Instruction: claim
+    const data = Buffer.alloc(1)
+    data.writeUInt8(2, 0) // Instruction: claim
 
     const tx = new Transaction().add(
       new TransactionInstruction({
         programId: PSYCHE_MINING_POOL_PROGRAM_ID,
         keys: [
-          { pubkey: this.solanaKeypair.publicKey, isSigner: true, isWritable: true },
+          {
+            pubkey: this.solanaKeypair.publicKey,
+            isSigner: true,
+            isWritable: true,
+          },
           { pubkey: poolPda, isSigner: false, isWritable: true },
           { pubkey: lenderPda, isSigner: false, isWritable: true },
         ],
         data,
-      })
-    );
+      }),
+    )
 
-    return sendAndConfirmTransaction(this.connection, tx, [this.solanaKeypair]);
+    return sendAndConfirmTransaction(this.connection, tx, [this.solanaKeypair])
   }
 
   // ============================================================================
@@ -711,10 +781,10 @@ export class PsycheClient {
   async bridgeProgressToEVM(
     runId: string,
     state: CoordinatorState,
-    bridgeAddress: Address
+    bridgeAddress: Address,
   ): Promise<Hex> {
     if (!this.evmWalletClient || !this.evmAccount) {
-      throw new Error('EVM wallet required for bridging');
+      throw new Error('EVM wallet required for bridging')
     }
 
     const abi = [
@@ -731,10 +801,12 @@ export class PsycheClient {
         stateMutability: 'nonpayable',
         type: 'function',
       },
-    ] as const;
+    ] as const
 
-    const runIdBytes = `0x${Buffer.from(runId).toString('hex').padEnd(64, '0')}` as Hex;
-    const modelHash = `0x${Buffer.from(state.model.sha256).toString('hex').padEnd(64, '0')}` as Hex;
+    const runIdBytes =
+      `0x${Buffer.from(runId).toString('hex').padEnd(64, '0')}` as Hex
+    const modelHash =
+      `0x${Buffer.from(state.model.sha256).toString('hex').padEnd(64, '0')}` as Hex
 
     const hash = await this.evmWalletClient.writeContract({
       address: bridgeAddress,
@@ -747,10 +819,10 @@ export class PsycheClient {
         state.clients.length,
         modelHash,
       ],
-    });
+    })
 
-    console.log(`[Psyche] Bridged progress to EVM: ${hash}`);
-    return hash;
+    console.log(`[Psyche] Bridged progress to EVM: ${hash}`)
+    return hash
   }
 
   // ============================================================================
@@ -759,17 +831,17 @@ export class PsycheClient {
 
   async getBalance(): Promise<number> {
     if (!this.solanaKeypair) {
-      throw new Error('Solana keypair required');
+      throw new Error('Solana keypair required')
     }
-    return this.connection.getBalance(this.solanaKeypair.publicKey);
+    return this.connection.getBalance(this.solanaKeypair.publicKey)
   }
 
   getPublicKey(): PublicKey | null {
-    return this.solanaKeypair?.publicKey ?? null;
+    return this.solanaKeypair?.publicKey ?? null
   }
 
   getEvmAddress(): Address | null {
-    return this.evmAccount?.address ?? null;
+    return this.evmAccount?.address ?? null
   }
 }
 
@@ -778,6 +850,5 @@ export class PsycheClient {
 // ============================================================================
 
 export function createPsycheClient(config: PsycheConfig): PsycheClient {
-  return new PsycheClient(config);
+  return new PsycheClient(config)
 }
-

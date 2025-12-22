@@ -1,6 +1,10 @@
-import { createSynpressConfig, createWalletSetup, PASSWORD } from '@jejunetwork/tests';
+import {
+  createSynpressConfig,
+  createWalletSetup,
+  PASSWORD,
+} from '@jejunetwork/tests'
 
-const BAZAAR_PORT = parseInt(process.env.BAZAAR_PORT || '4006');
+const BAZAAR_PORT = parseInt(process.env.BAZAAR_PORT || '4006', 10)
 
 // Export Playwright config - assumes server already running
 export default createSynpressConfig({
@@ -11,10 +15,10 @@ export default createSynpressConfig({
     timeout: 180000, // 3 minutes for trading and market operations
     webServer: undefined, // Server must be started manually
   },
-});
+})
 
 // Export wallet setup for Synpress
-export const basicSetup = createWalletSetup();
+export const basicSetup = createWalletSetup()
 
 // Re-export password for tests that need it
-export { PASSWORD };
+export { PASSWORD }

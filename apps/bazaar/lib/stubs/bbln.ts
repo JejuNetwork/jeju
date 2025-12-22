@@ -1,5 +1,5 @@
 // Stub for @babylon/shared/contracts/bbln until babylon integration is ready
-import type { Address, Abi } from 'viem'
+import type { Abi, Address } from 'viem'
 
 export const BBLN_TOKEN = {
   address: '0x0000000000000000000000000000000000000000' as Address,

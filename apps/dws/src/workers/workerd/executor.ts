@@ -1,47 +1,47 @@
 /**
  * Workerd Executor
  * Manages workerd processes and worker execution with V8 isolate-level isolation
- * 
+ *
  * Requires workerd binary - auto-installed via postinstall script
  */
 
-import { mkdir } from 'fs/promises';
-import { existsSync } from 'fs';
-import { join } from 'path';
+import { existsSync } from 'node:fs'
+import { mkdir } from 'node:fs/promises'
+import { join } from 'node:path'
+import type { BackendManager } from '../../storage/backends'
+import { generateWorkerConfig, wrapHandlerAsWorker } from './config-generator'
 import type {
   WorkerdConfig,
-  WorkerdWorkerDefinition,
-  WorkerdProcess,
-  WorkerdInstance,
-  WorkerdInvocation,
-  WorkerdRequest,
-  WorkerdResponse,
-  WorkerdMetrics,
-  WorkerdPoolMetrics,
   WorkerdEvent,
   WorkerdEventHandler,
-} from './types';
-import { DEFAULT_WORKERD_CONFIG } from './types';
-import { generateWorkerConfig, wrapHandlerAsWorker } from './config-generator';
-import type { BackendManager } from '../../storage/backends';
+  WorkerdInstance,
+  WorkerdInvocation,
+  WorkerdMetrics,
+  WorkerdPoolMetrics,
+  WorkerdProcess,
+  WorkerdRequest,
+  WorkerdResponse,
+  WorkerdWorkerDefinition,
+} from './types'
+import { DEFAULT_WORKERD_CONFIG } from './types'
 
 export class WorkerdExecutor {
-  private config: WorkerdConfig;
-  private backend: BackendManager;
-  private processes = new Map<string, WorkerdProcess>();
-  private workers = new Map<string, WorkerdWorkerDefinition>();
-  private instances = new Map<string, WorkerdInstance>();
-  private workerToProcess = new Map<string, string>();
-  private invocations = new Map<string, WorkerdInvocation>();
-  private metrics = new Map<string, number[]>();
-  private eventHandlers: WorkerdEventHandler[] = [];
-  private usedPorts = new Set<number>();
-  private initialized = false;
-  private workerdPath: string | null = null;
+  private config: WorkerdConfig
+  private backend: BackendManager
+  private processes = new Map<string, WorkerdProcess>()
+  private workers = new Map<string, WorkerdWorkerDefinition>()
+  private instances = new Map<string, WorkerdInstance>()
+  private workerToProcess = new Map<string, string>()
+  private invocations = new Map<string, WorkerdInvocation>()
+  private metrics = new Map<string, number[]>()
+  private eventHandlers: WorkerdEventHandler[] = []
+  private usedPorts = new Set<number>()
+  private initialized = false
+  private workerdPath: string | null = null
 
   constructor(backend: BackendManager, config: Partial<WorkerdConfig> = {}) {
-    this.backend = backend;
-    this.config = { ...DEFAULT_WORKERD_CONFIG, ...config };
+    this.backend = backend
+    this.config = { ...DEFAULT_WORKERD_CONFIG, ...config }
   }
 
   /**
@@ -51,68 +51,76 @@ export class WorkerdExecutor {
   private async findWorkerdBinary(): Promise<string> {
     // 1. Check env var
     if (this.config.binaryPath && existsSync(this.config.binaryPath)) {
-      return this.config.binaryPath;
+      return this.config.binaryPath
     }
 
     // 2. Check path file from install script
-    const pathFile = join(process.cwd(), 'node_modules', '.workerd-path');
+    const pathFile = join(process.cwd(), 'node_modules', '.workerd-path')
     if (existsSync(pathFile)) {
-      const savedPath = await Bun.file(pathFile).text();
+      const savedPath = await Bun.file(pathFile).text()
       if (savedPath.trim() && existsSync(savedPath.trim())) {
-        return savedPath.trim();
+        return savedPath.trim()
       }
     }
 
     // 3. Check node_modules/.bin
-    const isWindows = process.platform === 'win32';
-    const binaryName = isWindows ? 'workerd.exe' : 'workerd';
-    const localBin = join(process.cwd(), 'node_modules', '.bin', binaryName);
+    const isWindows = process.platform === 'win32'
+    const binaryName = isWindows ? 'workerd.exe' : 'workerd'
+    const localBin = join(process.cwd(), 'node_modules', '.bin', binaryName)
     if (existsSync(localBin)) {
-      return localBin;
+      return localBin
     }
 
     // 4. Check system paths
-    const systemPaths = isWindows 
+    const systemPaths = isWindows
       ? ['C:\\Program Files\\workerd\\workerd.exe']
-      : ['/usr/local/bin/workerd', '/usr/bin/workerd', join(process.env.HOME || '', '.local', 'bin', 'workerd')];
-    
+      : [
+          '/usr/local/bin/workerd',
+          '/usr/bin/workerd',
+          join(process.env.HOME || '', '.local', 'bin', 'workerd'),
+        ]
+
     for (const p of systemPaths) {
       if (existsSync(p)) {
-        return p;
+        return p
       }
     }
 
     throw new Error(
       'workerd binary not found. Run "bun install" to auto-install or set WORKERD_PATH environment variable. ' +
-      'Manual install: https://github.com/cloudflare/workerd/releases'
-    );
+        'Manual install: https://github.com/cloudflare/workerd/releases',
+    )
   }
 
   async initialize(): Promise<void> {
-    if (this.initialized) return;
+    if (this.initialized) return
 
     // Create work directory
-    await mkdir(this.config.workDir, { recursive: true });
+    await mkdir(this.config.workDir, { recursive: true })
 
     // Find and verify workerd binary
-    this.workerdPath = await this.findWorkerdBinary();
-    
+    this.workerdPath = await this.findWorkerdBinary()
+
     // Verify binary works
     const proc = Bun.spawn([this.workerdPath, '--version'], {
       stdout: 'pipe',
       stderr: 'pipe',
-    });
-    const exitCode = await proc.exited;
-    
+    })
+    const exitCode = await proc.exited
+
     if (exitCode !== 0) {
-      throw new Error(`workerd binary at ${this.workerdPath} is not working. Exit code: ${exitCode}`);
+      throw new Error(
+        `workerd binary at ${this.workerdPath} is not working. Exit code: ${exitCode}`,
+      )
     }
 
-    this.initialized = true;
-    console.log(`[WorkerdExecutor] Initialized with workerd at ${this.workerdPath}`);
+    this.initialized = true
+    console.log(
+      `[WorkerdExecutor] Initialized with workerd at ${this.workerdPath}`,
+    )
 
     // Cleanup interval
-    setInterval(() => this.cleanup(), 30000);
+    setInterval(() => this.cleanup(), 30000)
   }
 
   // ============================================================================
@@ -120,81 +128,87 @@ export class WorkerdExecutor {
   // ============================================================================
 
   async deployWorker(worker: WorkerdWorkerDefinition): Promise<void> {
-    await this.initialize();
+    await this.initialize()
 
-    worker.status = 'deploying';
-    this.workers.set(worker.id, worker);
+    worker.status = 'deploying'
+    this.workers.set(worker.id, worker)
 
     // Download code from IPFS
-    const codeDir = `${this.config.workDir}/${worker.id}`;
-    await mkdir(codeDir, { recursive: true });
+    const codeDir = `${this.config.workDir}/${worker.id}`
+    await mkdir(codeDir, { recursive: true })
 
     // Fetch and extract worker code
-    const result = await this.backend.download(worker.codeCid);
-    
+    const result = await this.backend.download(worker.codeCid)
+
     // Handle different code formats
     if (this.isGzip(result.content)) {
-      await this.extractTarball(result.content, codeDir);
+      await this.extractTarball(result.content, codeDir)
     } else {
       // Single file, write as main module
-      const mainFile = worker.mainModule || 'worker.js';
-      let code = Buffer.from(result.content).toString('utf-8');
-      
+      const mainFile = worker.mainModule || 'worker.js'
+      let code = Buffer.from(result.content).toString('utf-8')
+
       // Wrap if needed
-      code = wrapHandlerAsWorker(code, 'handler');
-      
-      await Bun.write(`${codeDir}/${mainFile}`, code);
-      
+      code = wrapHandlerAsWorker(code, 'handler')
+
+      await Bun.write(`${codeDir}/${mainFile}`, code)
+
       // Update modules list
-      worker.modules = [{
-        name: mainFile,
-        type: 'esModule',
-        content: code,
-      }];
+      worker.modules = [
+        {
+          name: mainFile,
+          type: 'esModule',
+          content: code,
+        },
+      ]
     }
 
     // Deploy with workerd
-    await this.deployWithWorkerd(worker, codeDir);
+    await this.deployWithWorkerd(worker, codeDir)
 
-    worker.status = 'active';
-    worker.updatedAt = Date.now();
-    
-    this.emit({ type: 'worker:deployed', workerId: worker.id, version: worker.version });
-    console.log(`[WorkerdExecutor] Deployed worker ${worker.name} (${worker.id})`);
+    worker.status = 'active'
+    worker.updatedAt = Date.now()
+
+    this.emit({
+      type: 'worker:deployed',
+      workerId: worker.id,
+      version: worker.version,
+    })
+    console.log(
+      `[WorkerdExecutor] Deployed worker ${worker.name} (${worker.id})`,
+    )
   }
 
   private async deployWithWorkerd(
     worker: WorkerdWorkerDefinition,
-    codeDir: string
+    codeDir: string,
   ): Promise<void> {
-    const port = this.allocatePort();
-    const configPath = `${codeDir}/config.capnp`;
+    const port = this.allocatePort()
+    const configPath = `${codeDir}/config.capnp`
 
     // Generate workerd config
-    const configContent = generateWorkerConfig(worker, port, this.config);
-    await Bun.write(configPath, configContent);
+    const configContent = generateWorkerConfig(worker, port, this.config)
+    await Bun.write(configPath, configContent)
 
     // Start workerd process
     if (!this.workerdPath) {
-      throw new Error('Workerd not initialized. Call initialize() first.');
+      throw new Error('Workerd not initialized. Call initialize() first.')
     }
-    
-    const proc = Bun.spawn([
-      this.workerdPath,
-      'serve',
-      configPath,
-      '--verbose',
-    ], {
-      cwd: codeDir,
-      stdout: 'pipe',
-      stderr: 'pipe',
-      env: {
-        ...process.env,
-        WORKERD_LOG_LEVEL: 'info',
-      },
-    });
 
-    const processId = crypto.randomUUID();
+    const proc = Bun.spawn(
+      [this.workerdPath, 'serve', configPath, '--verbose'],
+      {
+        cwd: codeDir,
+        stdout: 'pipe',
+        stderr: 'pipe',
+        env: {
+          ...process.env,
+          WORKERD_LOG_LEVEL: 'info',
+        },
+      },
+    )
+
+    const processId = crypto.randomUUID()
     const workerdProcess: WorkerdProcess = {
       id: processId,
       pid: proc.pid,
@@ -206,10 +220,10 @@ export class WorkerdExecutor {
       requestCount: 0,
       errorCount: 0,
       process: proc,
-    };
+    }
 
-    this.processes.set(processId, workerdProcess);
-    this.workerToProcess.set(worker.id, processId);
+    this.processes.set(processId, workerdProcess)
+    this.workerToProcess.set(worker.id, processId)
 
     // Create instance
     const instance: WorkerdInstance = {
@@ -223,69 +237,74 @@ export class WorkerdExecutor {
       lastUsedAt: Date.now(),
       memoryUsedMb: 0,
       cpuTimeMs: 0,
-    };
-    this.instances.set(worker.id, instance);
+    }
+    this.instances.set(worker.id, instance)
 
     // Wait for ready
-    const ready = await this.waitForReady(port);
+    const ready = await this.waitForReady(port)
     if (ready) {
-      workerdProcess.status = 'ready';
-      instance.status = 'ready';
-      this.emit({ type: 'process:started', processId, port });
+      workerdProcess.status = 'ready'
+      instance.status = 'ready'
+      this.emit({ type: 'process:started', processId, port })
     } else {
-      workerdProcess.status = 'error';
-      instance.status = 'error';
-      worker.status = 'error';
-      worker.error = 'Failed to start workerd process';
-      throw new Error('Workerd process failed to start');
+      workerdProcess.status = 'error'
+      instance.status = 'error'
+      worker.status = 'error'
+      worker.error = 'Failed to start workerd process'
+      throw new Error('Workerd process failed to start')
     }
 
     // Handle process exit
     proc.exited.then((exitCode) => {
-      console.log(`[WorkerdExecutor] Process ${processId} exited with code ${exitCode}`);
-      this.handleProcessExit(processId, exitCode);
-    });
+      console.log(
+        `[WorkerdExecutor] Process ${processId} exited with code ${exitCode}`,
+      )
+      this.handleProcessExit(processId, exitCode)
+    })
   }
 
   async undeployWorker(workerId: string): Promise<void> {
-    const worker = this.workers.get(workerId);
-    if (!worker) return;
+    const worker = this.workers.get(workerId)
+    if (!worker) return
 
-    const processId = this.workerToProcess.get(workerId);
+    const processId = this.workerToProcess.get(workerId)
     if (processId) {
-      const proc = this.processes.get(processId);
+      const proc = this.processes.get(processId)
       if (proc) {
-        proc.process.kill();
-        this.releasePort(proc.port);
-        this.processes.delete(processId);
+        proc.process.kill()
+        this.releasePort(proc.port)
+        this.processes.delete(processId)
       }
-      this.workerToProcess.delete(workerId);
+      this.workerToProcess.delete(workerId)
     }
 
-    this.instances.delete(workerId);
-    this.workers.delete(workerId);
-    this.metrics.delete(workerId);
+    this.instances.delete(workerId)
+    this.workers.delete(workerId)
+    this.metrics.delete(workerId)
 
-    this.emit({ type: 'worker:undeployed', workerId });
-    console.log(`[WorkerdExecutor] Undeployed worker ${workerId}`);
+    this.emit({ type: 'worker:undeployed', workerId })
+    console.log(`[WorkerdExecutor] Undeployed worker ${workerId}`)
   }
 
   // ============================================================================
   // Worker Invocation
   // ============================================================================
 
-  async invoke(workerId: string, request: WorkerdRequest): Promise<WorkerdResponse> {
-    const worker = this.workers.get(workerId);
+  async invoke(
+    workerId: string,
+    request: WorkerdRequest,
+  ): Promise<WorkerdResponse> {
+    const worker = this.workers.get(workerId)
     if (!worker) {
-      throw new Error(`Worker ${workerId} not found`);
+      throw new Error(`Worker ${workerId} not found`)
     }
 
-    const instance = this.instances.get(workerId);
+    const instance = this.instances.get(workerId)
     if (!instance || instance.status !== 'ready') {
-      throw new Error(`Worker ${workerId} is not ready`);
+      throw new Error(`Worker ${workerId} is not ready`)
     }
 
-    const invocationId = crypto.randomUUID();
+    const invocationId = crypto.randomUUID()
     const invocation: WorkerdInvocation = {
       id: invocationId,
       workerId,
@@ -293,71 +312,80 @@ export class WorkerdExecutor {
       startedAt: Date.now(),
       status: 'running',
       logs: [],
-    };
+    }
 
-    this.invocations.set(invocationId, invocation);
-    this.emit({ type: 'invocation:started', invocationId, workerId });
+    this.invocations.set(invocationId, invocation)
+    this.emit({ type: 'invocation:started', invocationId, workerId })
 
-    instance.activeRequests++;
-    instance.status = 'busy';
+    instance.activeRequests++
+    instance.status = 'busy'
 
-    const timeout = worker.timeoutMs || this.config.requestTimeoutMs;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    const timeout = worker.timeoutMs || this.config.requestTimeoutMs
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), timeout)
 
     try {
-      const url = `http://localhost:${instance.port}${request.url}`;
-      
-      const bodyToSend = request.body 
-        ? (typeof request.body === 'string' ? request.body : request.body.toString('utf-8'))
-        : undefined;
-      
+      const url = `http://localhost:${instance.port}${request.url}`
+
+      const bodyToSend = request.body
+        ? typeof request.body === 'string'
+          ? request.body
+          : request.body.toString('utf-8')
+        : undefined
+
       const response = await fetch(url, {
         method: request.method,
         headers: request.headers,
         body: bodyToSend,
         signal: controller.signal,
-      });
+      })
 
-      const body = await response.text();
-      
+      const body = await response.text()
+
       invocation.response = {
         status: response.status,
         headers: Object.fromEntries(response.headers.entries()),
         body,
-      };
-      invocation.status = 'success';
-      invocation.completedAt = Date.now();
-      invocation.durationMs = invocation.completedAt - invocation.startedAt;
+      }
+      invocation.status = 'success'
+      invocation.completedAt = Date.now()
+      invocation.durationMs = invocation.completedAt - invocation.startedAt
 
-      this.recordMetric(workerId, invocation.durationMs);
-      this.emit({ type: 'invocation:completed', invocationId, durationMs: invocation.durationMs });
+      this.recordMetric(workerId, invocation.durationMs)
+      this.emit({
+        type: 'invocation:completed',
+        invocationId,
+        durationMs: invocation.durationMs,
+      })
 
-      return invocation.response;
-
+      return invocation.response
     } catch (error) {
-      invocation.status = error instanceof DOMException && error.name === 'AbortError' 
-        ? 'timeout' 
-        : 'error';
-      invocation.error = error instanceof Error ? error.message : String(error);
-      invocation.completedAt = Date.now();
-      invocation.durationMs = invocation.completedAt - invocation.startedAt;
+      invocation.status =
+        error instanceof DOMException && error.name === 'AbortError'
+          ? 'timeout'
+          : 'error'
+      invocation.error = error instanceof Error ? error.message : String(error)
+      invocation.completedAt = Date.now()
+      invocation.durationMs = invocation.completedAt - invocation.startedAt
 
-      this.emit({ type: 'invocation:error', invocationId, error: invocation.error });
-      
-      throw error;
+      this.emit({
+        type: 'invocation:error',
+        invocationId,
+        error: invocation.error,
+      })
 
+      throw error
     } finally {
-      clearTimeout(timeoutId);
-      instance.activeRequests--;
-      instance.totalRequests++;
-      instance.lastUsedAt = Date.now();
-      instance.status = instance.activeRequests > 0 ? 'busy' : 'ready';
+      clearTimeout(timeoutId)
+      instance.activeRequests--
+      instance.totalRequests++
+      instance.lastUsedAt = Date.now()
+      instance.status = instance.activeRequests > 0 ? 'busy' : 'ready'
 
-      const proc = this.processes.get(instance.processId);
+      const proc = this.processes.get(instance.processId)
       if (proc) {
-        proc.requestCount++;
-        proc.lastRequestAt = Date.now();
+        proc.requestCount++
+        proc.lastRequestAt = Date.now()
       }
     }
   }
@@ -367,14 +395,14 @@ export class WorkerdExecutor {
     method: string,
     path: string,
     headers: Record<string, string>,
-    body?: string
+    body?: string,
   ): Promise<WorkerdResponse> {
     return this.invoke(workerId, {
       method,
       url: path,
       headers,
       body,
-    });
+    })
   }
 
   // ============================================================================
@@ -382,75 +410,78 @@ export class WorkerdExecutor {
   // ============================================================================
 
   private allocatePort(): number {
-    const { min, max } = this.config.portRange;
-    
+    const { min, max } = this.config.portRange
+
     for (let attempt = 0; attempt < 100; attempt++) {
-      const port = min + Math.floor(Math.random() * (max - min));
+      const port = min + Math.floor(Math.random() * (max - min))
       if (!this.usedPorts.has(port)) {
-        this.usedPorts.add(port);
-        return port;
+        this.usedPorts.add(port)
+        return port
       }
     }
-    
-    throw new Error('No available ports in configured range');
+
+    throw new Error('No available ports in configured range')
   }
 
   private releasePort(port: number): void {
-    this.usedPorts.delete(port);
+    this.usedPorts.delete(port)
   }
 
   // ============================================================================
   // Health & Lifecycle
   // ============================================================================
 
-  private async waitForReady(port: number, timeoutMs = 30000): Promise<boolean> {
-    const deadline = Date.now() + timeoutMs;
-    
+  private async waitForReady(
+    port: number,
+    timeoutMs = 30000,
+  ): Promise<boolean> {
+    const deadline = Date.now() + timeoutMs
+
     while (Date.now() < deadline) {
       const healthy = await fetch(`http://localhost:${port}/health`)
-        .then(r => r.ok || r.status === 404) // 404 is ok, means server is up
-        .catch(() => false);
-      
-      if (healthy) return true;
-      await new Promise(r => setTimeout(r, 200));
+        .then((r) => r.ok || r.status === 404) // 404 is ok, means server is up
+        .catch(() => false)
+
+      if (healthy) return true
+      await new Promise((r) => setTimeout(r, 200))
     }
-    
-    return false;
+
+    return false
   }
 
   private handleProcessExit(processId: string, exitCode: number): void {
-    const proc = this.processes.get(processId);
-    if (!proc) return;
+    const proc = this.processes.get(processId)
+    if (!proc) return
 
-    proc.status = 'stopped';
-    this.releasePort(proc.port);
+    proc.status = 'stopped'
+    this.releasePort(proc.port)
 
     // Mark all workers in this process as error
     for (const workerId of proc.workers) {
-      const worker = this.workers.get(workerId);
+      const worker = this.workers.get(workerId)
       if (worker) {
-        worker.status = 'error';
-        worker.error = `Process exited with code ${exitCode}`;
-      }
-      
-      const instance = this.instances.get(workerId);
-      if (instance) {
-        instance.status = 'error';
+        worker.status = 'error'
+        worker.error = `Process exited with code ${exitCode}`
       }
 
-      this.workerToProcess.delete(workerId);
+      const instance = this.instances.get(workerId)
+      if (instance) {
+        instance.status = 'error'
+      }
+
+      this.workerToProcess.delete(workerId)
     }
 
-    this.processes.delete(processId);
-    this.emit({ type: 'process:stopped', processId, exitCode });
+    this.processes.delete(processId)
+    this.emit({ type: 'process:stopped', processId, exitCode })
   }
 
   private async cleanup(): Promise<void> {
-    const now = Date.now();
+    const now = Date.now()
 
     for (const [workerId, instance] of this.instances) {
-      const worker = this.workers.get(workerId);
-      if (!worker) continue;
+      const worker = this.workers.get(workerId)
+      if (!worker) continue
 
       // Check for idle timeout
       if (
@@ -458,16 +489,16 @@ export class WorkerdExecutor {
         instance.activeRequests === 0 &&
         now - instance.lastUsedAt > this.config.idleTimeoutMs
       ) {
-        console.log(`[WorkerdExecutor] Stopping idle worker ${workerId}`);
-        await this.undeployWorker(workerId);
+        console.log(`[WorkerdExecutor] Stopping idle worker ${workerId}`)
+        await this.undeployWorker(workerId)
       }
     }
 
     // Clean up old invocations
-    const invocationCutoff = now - 3600000; // 1 hour
+    const invocationCutoff = now - 3600000 // 1 hour
     for (const [id, inv] of this.invocations) {
       if (inv.completedAt && inv.completedAt < invocationCutoff) {
-        this.invocations.delete(id);
+        this.invocations.delete(id)
       }
     }
   }
@@ -477,26 +508,26 @@ export class WorkerdExecutor {
   // ============================================================================
 
   private isGzip(data: Buffer): boolean {
-    return data.length >= 2 && data[0] === 0x1f && data[1] === 0x8b;
+    return data.length >= 2 && data[0] === 0x1f && data[1] === 0x8b
   }
 
   private async extractTarball(data: Buffer, destDir: string): Promise<void> {
-    const tarPath = `${destDir}/code.tar.gz`;
-    await Bun.write(tarPath, data);
-    
+    const tarPath = `${destDir}/code.tar.gz`
+    await Bun.write(tarPath, data)
+
     const proc = Bun.spawn(['tar', '-xzf', tarPath, '-C', destDir], {
       cwd: destDir,
-    });
-    await proc.exited;
+    })
+    await proc.exited
   }
 
   private recordMetric(workerId: string, durationMs: number): void {
-    const durations = this.metrics.get(workerId) || [];
-    durations.push(durationMs);
+    const durations = this.metrics.get(workerId) || []
+    durations.push(durationMs)
     if (durations.length > 1000) {
-      durations.shift();
+      durations.shift()
     }
-    this.metrics.set(workerId, durations);
+    this.metrics.set(workerId, durations)
   }
 
   // ============================================================================
@@ -504,19 +535,19 @@ export class WorkerdExecutor {
   // ============================================================================
 
   on(handler: WorkerdEventHandler): void {
-    this.eventHandlers.push(handler);
+    this.eventHandlers.push(handler)
   }
 
   off(handler: WorkerdEventHandler): void {
-    const idx = this.eventHandlers.indexOf(handler);
+    const idx = this.eventHandlers.indexOf(handler)
     if (idx >= 0) {
-      this.eventHandlers.splice(idx, 1);
+      this.eventHandlers.splice(idx, 1)
     }
   }
 
   private emit(event: WorkerdEvent): void {
     for (const handler of this.eventHandlers) {
-      handler(event);
+      handler(event)
     }
   }
 
@@ -525,33 +556,34 @@ export class WorkerdExecutor {
   // ============================================================================
 
   getWorker(workerId: string): WorkerdWorkerDefinition | null {
-    return this.workers.get(workerId) || null;
+    return this.workers.get(workerId) || null
   }
 
   listWorkers(): WorkerdWorkerDefinition[] {
-    return Array.from(this.workers.values());
+    return Array.from(this.workers.values())
   }
 
   getInstance(workerId: string): WorkerdInstance | null {
-    return this.instances.get(workerId) || null;
+    return this.instances.get(workerId) || null
   }
 
   getInvocation(invocationId: string): WorkerdInvocation | null {
-    return this.invocations.get(invocationId) || null;
+    return this.invocations.get(invocationId) || null
   }
 
   getMetrics(workerId: string): WorkerdMetrics {
-    const durations = this.metrics.get(workerId) || [];
-    const sorted = [...durations].sort((a, b) => a - b);
-    const instance = this.instances.get(workerId);
+    const durations = this.metrics.get(workerId) || []
+    const sorted = [...durations].sort((a, b) => a - b)
+    const instance = this.instances.get(workerId)
 
     return {
       workerId,
       invocations: durations.length,
       errors: 0, // TODO: track
-      avgDurationMs: durations.length > 0 
-        ? durations.reduce((a, b) => a + b, 0) / durations.length 
-        : 0,
+      avgDurationMs:
+        durations.length > 0
+          ? durations.reduce((a, b) => a + b, 0) / durations.length
+          : 0,
       p50DurationMs: sorted[Math.floor(sorted.length * 0.5)] || 0,
       p95DurationMs: sorted[Math.floor(sorted.length * 0.95)] || 0,
       p99DurationMs: sorted[Math.floor(sorted.length * 0.99)] || 0,
@@ -561,27 +593,27 @@ export class WorkerdExecutor {
       wallTimeMs: instance ? Date.now() - instance.startedAt : 0,
       cpuTimeMs: instance?.cpuTimeMs || 0,
       memoryUsedMb: instance?.memoryUsedMb || 0,
-    };
+    }
   }
 
   getPoolMetrics(): WorkerdPoolMetrics {
-    let activeProcesses = 0;
-    let activeWorkers = 0;
-    let pendingRequests = 0;
-    let _totalRequests = 0;
+    let activeProcesses = 0
+    let activeWorkers = 0
+    let pendingRequests = 0
+    let _totalRequests = 0
 
     for (const proc of this.processes.values()) {
       if (proc.status === 'ready' || proc.status === 'busy') {
-        activeProcesses++;
+        activeProcesses++
       }
-      _totalRequests += proc.requestCount;
+      _totalRequests += proc.requestCount
     }
 
     for (const instance of this.instances.values()) {
       if (instance.status === 'ready' || instance.status === 'busy') {
-        activeWorkers++;
+        activeWorkers++
       }
-      pendingRequests += instance.activeRequests;
+      pendingRequests += instance.activeRequests
     }
 
     return {
@@ -593,20 +625,23 @@ export class WorkerdExecutor {
       requestsPerSecond: 0, // TODO: calculate
       avgLatencyMs: 0,
       errorRate: 0,
-    };
+    }
   }
 
   getStats() {
     return {
       totalWorkers: this.workers.size,
-      activeWorkers: Array.from(this.instances.values())
-        .filter(i => i.status === 'ready' || i.status === 'busy').length,
+      activeWorkers: Array.from(this.instances.values()).filter(
+        (i) => i.status === 'ready' || i.status === 'busy',
+      ).length,
       totalProcesses: this.processes.size,
-      activeProcesses: Array.from(this.processes.values())
-        .filter(p => p.status === 'ready' || p.status === 'busy').length,
-      pendingInvocations: Array.from(this.instances.values())
-        .reduce((sum, i) => sum + i.activeRequests, 0),
-    };
+      activeProcesses: Array.from(this.processes.values()).filter(
+        (p) => p.status === 'ready' || p.status === 'busy',
+      ).length,
+      pendingInvocations: Array.from(this.instances.values()).reduce(
+        (sum, i) => sum + i.activeRequests,
+        0,
+      ),
+    }
   }
 }
-

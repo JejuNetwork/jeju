@@ -1,64 +1,68 @@
 /**
  * Agent E2E Tests
- * 
+ *
  * Tests the agent system against a running DWS server.
  * These tests require DWS to be running.
  */
 
-import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 
-const DWS_URL = process.env.DWS_URL ?? 'http://127.0.0.1:4030';
+const DWS_URL = process.env.DWS_URL ?? 'http://127.0.0.1:4030'
 
 // Check if DWS is available
 async function checkDWS(): Promise<boolean> {
   try {
-    const res = await fetch(`${DWS_URL}/health`, { signal: AbortSignal.timeout(2000) });
-    return res.ok;
+    const res = await fetch(`${DWS_URL}/health`, {
+      signal: AbortSignal.timeout(2000),
+    })
+    return res.ok
   } catch {
-    return false;
+    return false
   }
 }
 
 describe('Agent E2E (requires DWS)', () => {
-  let dwsAvailable = false;
-  let createdAgentId: string | null = null;
+  let dwsAvailable = false
+  let createdAgentId: string | null = null
 
   beforeAll(async () => {
-    dwsAvailable = await checkDWS();
+    dwsAvailable = await checkDWS()
     if (!dwsAvailable) {
-      console.log('[E2E] Skipping E2E tests - DWS not available at', DWS_URL);
+      console.log('[E2E] Skipping E2E tests - DWS not available at', DWS_URL)
     }
-  });
+  })
 
   afterAll(async () => {
     // Cleanup: delete the created agent
     if (dwsAvailable && createdAgentId) {
       await fetch(`${DWS_URL}/agents/${createdAgentId}`, {
         method: 'DELETE',
-        headers: { 'x-jeju-address': '0x1234567890abcdef1234567890abcdef12345678' },
+        headers: {
+          'x-jeju-address': '0x1234567890abcdef1234567890abcdef12345678',
+        },
       }).catch(() => {
         // Ignore cleanup errors
-      });
+      })
     }
-  });
+  })
 
   test('health check', async () => {
     if (!dwsAvailable) {
-      console.log('[E2E] Skipped - DWS not available');
-      return;
+      console.log('[E2E] Skipped - DWS not available')
+      return
     }
 
-    const res = await fetch(`${DWS_URL}/agents/health`);
-    expect(res.status).toBe(200);
-    
-    const data = await res.json();
-    expect(data.status).toBe('healthy');
-  });
+    const res = await fetch(`${DWS_URL}/agents/health`)
+    expect(res.status).toBe(200)
+
+    const data = await res.json()
+    expect(data.status).toBe('healthy')
+  })
 
   test('register agent', async () => {
     if (!dwsAvailable) {
-      console.log('[E2E] Skipped - DWS not available');
-      return;
+      console.log('[E2E] Skipped - DWS not available')
+      return
     }
 
     const res = await fetch(`${DWS_URL}/agents`, {
@@ -80,35 +84,38 @@ describe('Agent E2E (requires DWS)', () => {
           plugins: [],
         },
       }),
-    });
+    })
 
-    expect(res.status).toBe(201);
-    
-    const data = await res.json() as { id: string; name: string };
-    expect(data.id).toBeDefined();
-    expect(data.name).toBe('E2ETestBot');
-    
-    createdAgentId = data.id;
-  });
+    expect(res.status).toBe(201)
+
+    const data = (await res.json()) as { id: string; name: string }
+    expect(data.id).toBeDefined()
+    expect(data.name).toBe('E2ETestBot')
+
+    createdAgentId = data.id
+  })
 
   test('get agent details', async () => {
     if (!dwsAvailable || !createdAgentId) {
-      console.log('[E2E] Skipped - DWS not available or agent not created');
-      return;
+      console.log('[E2E] Skipped - DWS not available or agent not created')
+      return
     }
 
-    const res = await fetch(`${DWS_URL}/agents/${createdAgentId}`);
-    expect(res.status).toBe(200);
-    
-    const data = await res.json() as { id: string; character: { name: string } };
-    expect(data.id).toBe(createdAgentId);
-    expect(data.character.name).toBe('E2ETestBot');
-  });
+    const res = await fetch(`${DWS_URL}/agents/${createdAgentId}`)
+    expect(res.status).toBe(200)
+
+    const data = (await res.json()) as {
+      id: string
+      character: { name: string }
+    }
+    expect(data.id).toBe(createdAgentId)
+    expect(data.character.name).toBe('E2ETestBot')
+  })
 
   test('chat with agent', async () => {
     if (!dwsAvailable || !createdAgentId) {
-      console.log('[E2E] Skipped - DWS not available or agent not created');
-      return;
+      console.log('[E2E] Skipped - DWS not available or agent not created')
+      return
     }
 
     // Note: This will fail if workerd isn't actually running
@@ -121,81 +128,93 @@ describe('Agent E2E (requires DWS)', () => {
         userId: 'e2e-test-user',
         roomId: 'e2e-test-room',
       }),
-    });
+    })
 
     // Either succeeds (200) or fails because workerd isn't running (500)
-    expect([200, 500]).toContain(res.status);
-    
+    expect([200, 500]).toContain(res.status)
+
     if (res.status === 200) {
-      const data = await res.json() as { text: string };
-      expect(data.text).toBeDefined();
+      const data = (await res.json()) as { text: string }
+      expect(data.text).toBeDefined()
     }
-  });
+  })
 
   test('list agents', async () => {
     if (!dwsAvailable) {
-      console.log('[E2E] Skipped - DWS not available');
-      return;
+      console.log('[E2E] Skipped - DWS not available')
+      return
     }
 
-    const res = await fetch(`${DWS_URL}/agents`);
-    expect(res.status).toBe(200);
-    
-    const data = await res.json() as { agents: Array<{ id: string; name: string }> };
-    expect(Array.isArray(data.agents)).toBe(true);
-    
+    const res = await fetch(`${DWS_URL}/agents`)
+    expect(res.status).toBe(200)
+
+    const data = (await res.json()) as {
+      agents: Array<{ id: string; name: string }>
+    }
+    expect(Array.isArray(data.agents)).toBe(true)
+
     // Should include our created agent
     if (createdAgentId) {
-      const ourAgent = data.agents.find(a => a.id === createdAgentId);
-      expect(ourAgent).toBeDefined();
+      const ourAgent = data.agents.find((a) => a.id === createdAgentId)
+      expect(ourAgent).toBeDefined()
     }
-  });
+  })
 
   test('get agent stats', async () => {
     if (!dwsAvailable || !createdAgentId) {
-      console.log('[E2E] Skipped - DWS not available or agent not created');
-      return;
+      console.log('[E2E] Skipped - DWS not available or agent not created')
+      return
     }
 
-    const res = await fetch(`${DWS_URL}/agents/${createdAgentId}/stats`);
-    expect(res.status).toBe(200);
-    
-    const data = await res.json() as { agentId: string; totalInvocations: number };
-    expect(data.agentId).toBe(createdAgentId);
-    expect(typeof data.totalInvocations).toBe('number');
-  });
+    const res = await fetch(`${DWS_URL}/agents/${createdAgentId}/stats`)
+    expect(res.status).toBe(200)
+
+    const data = (await res.json()) as {
+      agentId: string
+      totalInvocations: number
+    }
+    expect(data.agentId).toBe(createdAgentId)
+    expect(typeof data.totalInvocations).toBe('number')
+  })
 
   test('pause and resume agent', async () => {
     if (!dwsAvailable || !createdAgentId) {
-      console.log('[E2E] Skipped - DWS not available or agent not created');
-      return;
+      console.log('[E2E] Skipped - DWS not available or agent not created')
+      return
     }
 
     // Pause
     const pauseRes = await fetch(`${DWS_URL}/agents/${createdAgentId}/pause`, {
       method: 'POST',
-      headers: { 'x-jeju-address': '0x1234567890abcdef1234567890abcdef12345678' },
-    });
-    expect(pauseRes.status).toBe(200);
-    
-    const pauseData = await pauseRes.json() as { status: string };
-    expect(pauseData.status).toBe('paused');
+      headers: {
+        'x-jeju-address': '0x1234567890abcdef1234567890abcdef12345678',
+      },
+    })
+    expect(pauseRes.status).toBe(200)
+
+    const pauseData = (await pauseRes.json()) as { status: string }
+    expect(pauseData.status).toBe('paused')
 
     // Resume
-    const resumeRes = await fetch(`${DWS_URL}/agents/${createdAgentId}/resume`, {
-      method: 'POST',
-      headers: { 'x-jeju-address': '0x1234567890abcdef1234567890abcdef12345678' },
-    });
-    expect(resumeRes.status).toBe(200);
-    
-    const resumeData = await resumeRes.json() as { status: string };
-    expect(resumeData.status).toBe('active');
-  });
+    const resumeRes = await fetch(
+      `${DWS_URL}/agents/${createdAgentId}/resume`,
+      {
+        method: 'POST',
+        headers: {
+          'x-jeju-address': '0x1234567890abcdef1234567890abcdef12345678',
+        },
+      },
+    )
+    expect(resumeRes.status).toBe(200)
+
+    const resumeData = (await resumeRes.json()) as { status: string }
+    expect(resumeData.status).toBe('active')
+  })
 
   test('add cron trigger', async () => {
     if (!dwsAvailable || !createdAgentId) {
-      console.log('[E2E] Skipped - DWS not available or agent not created');
-      return;
+      console.log('[E2E] Skipped - DWS not available or agent not created')
+      return
     }
 
     const res = await fetch(`${DWS_URL}/agents/${createdAgentId}/cron`, {
@@ -208,35 +227,36 @@ describe('Agent E2E (requires DWS)', () => {
         schedule: '0 * * * *',
         action: 'think',
       }),
-    });
-    expect(res.status).toBe(201);
-    
-    const data = await res.json() as { id: string; schedule: string };
-    expect(data.id).toBeDefined();
-    expect(data.schedule).toBe('0 * * * *');
-  });
+    })
+    expect(res.status).toBe(201)
+
+    const data = (await res.json()) as { id: string; schedule: string }
+    expect(data.id).toBeDefined()
+    expect(data.schedule).toBe('0 * * * *')
+  })
 
   test('terminate agent', async () => {
     if (!dwsAvailable || !createdAgentId) {
-      console.log('[E2E] Skipped - DWS not available or agent not created');
-      return;
+      console.log('[E2E] Skipped - DWS not available or agent not created')
+      return
     }
 
     const res = await fetch(`${DWS_URL}/agents/${createdAgentId}`, {
       method: 'DELETE',
-      headers: { 'x-jeju-address': '0x1234567890abcdef1234567890abcdef12345678' },
-    });
-    expect(res.status).toBe(200);
-    
-    const data = await res.json() as { success: boolean };
-    expect(data.success).toBe(true);
-    
+      headers: {
+        'x-jeju-address': '0x1234567890abcdef1234567890abcdef12345678',
+      },
+    })
+    expect(res.status).toBe(200)
+
+    const data = (await res.json()) as { success: boolean }
+    expect(data.success).toBe(true)
+
     // Clear so cleanup doesn't try to delete again
-    createdAgentId = null;
+    createdAgentId = null
 
     // Verify it's gone
-    const getRes = await fetch(`${DWS_URL}/agents/${createdAgentId}`);
-    expect(getRes.status).toBe(404);
-  });
-});
-
+    const getRes = await fetch(`${DWS_URL}/agents/${createdAgentId}`)
+    expect(getRes.status).toBe(404)
+  })
+})

@@ -5,8 +5,8 @@
  * to prevent credential leakage.
  */
 
-import type { SanitizationConfig } from './types';
-import type { JSONValue, JSONObject } from '../shared/validation';
+import type { JSONObject, JSONValue } from '../shared/validation'
+import type { SanitizationConfig } from './types'
 
 // ============================================================================
 // Default Patterns
@@ -48,7 +48,7 @@ export const DEFAULT_KEY_PATTERNS: RegExp[] = [
   /access[_-]?token[=:]["']?[a-zA-Z0-9._-]{20,}["']?/gi,
   /refresh[_-]?token[=:]["']?[a-zA-Z0-9._-]{20,}["']?/gi,
   /session[_-]?token[=:]["']?[a-zA-Z0-9._-]{20,}["']?/gi,
-];
+]
 
 /**
  * Headers to strip from proxied responses
@@ -66,7 +66,7 @@ export const STRIP_HEADERS: string[] = [
   'x-ratelimit-remaining', // Hide rate limit info
   'x-ratelimit-limit',
   'x-ratelimit-reset',
-];
+]
 
 /**
  * JSON paths that commonly contain sensitive data
@@ -86,7 +86,7 @@ export const REDACT_PATHS: string[] = [
   'credentials',
   'authorization',
   'bearer',
-];
+]
 
 // ============================================================================
 // Sanitization Functions
@@ -97,14 +97,14 @@ export const REDACT_PATHS: string[] = [
  */
 export function createSanitizationConfig(
   knownKeys: string[] = [],
-  additionalPatterns: RegExp[] = []
+  additionalPatterns: RegExp[] = [],
 ): SanitizationConfig {
   return {
     patterns: [...DEFAULT_KEY_PATTERNS, ...additionalPatterns],
     knownKeys,
     stripHeaders: STRIP_HEADERS,
     redactPaths: REDACT_PATHS,
-  };
+  }
 }
 
 /**
@@ -112,27 +112,27 @@ export function createSanitizationConfig(
  */
 export function sanitizeString(
   input: string,
-  config: SanitizationConfig
+  config: SanitizationConfig,
 ): string {
-  let result = input;
+  let result = input
 
   // Replace known keys first (exact match)
   for (const key of config.knownKeys) {
     if (key.length > 8) {
       // Only redact if key is long enough to be meaningful
-      const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      result = result.replace(new RegExp(escaped, 'g'), '[REDACTED]');
+      const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      result = result.replace(new RegExp(escaped, 'g'), '[REDACTED]')
     }
   }
 
   // Replace pattern matches
   for (const pattern of config.patterns) {
     // Reset regex lastIndex to ensure fresh match
-    pattern.lastIndex = 0;
-    result = result.replace(pattern, '[REDACTED]');
+    pattern.lastIndex = 0
+    result = result.replace(pattern, '[REDACTED]')
   }
 
-  return result;
+  return result
 }
 
 /**
@@ -141,42 +141,44 @@ export function sanitizeString(
  */
 export function sanitizeObject(
   obj: JSONValue | string | null | undefined,
-  config: SanitizationConfig
+  config: SanitizationConfig,
 ): JSONValue | null | undefined {
   if (obj === undefined) {
-    return undefined;
+    return undefined
   }
   if (obj === null) {
-    return null;
+    return null
   }
 
   if (typeof obj === 'string') {
-    return sanitizeString(obj, config);
+    return sanitizeString(obj, config)
   }
 
   if (typeof obj === 'number' || typeof obj === 'boolean') {
-    return obj;
+    return obj
   }
 
   if (Array.isArray(obj)) {
-    return obj.map((item) => sanitizeObject(item, config)) as JSONValue[];
+    return obj.map((item) => sanitizeObject(item, config)) as JSONValue[]
   }
 
   if (typeof obj === 'object') {
-    const result: JSONObject = {};
+    const result: JSONObject = {}
     for (const [key, value] of Object.entries(obj)) {
       // Check if this key should be fully redacted
-      const lowerKey = key.toLowerCase();
-      if (config.redactPaths.some((path) => lowerKey.includes(path.toLowerCase()))) {
-        result[key] = '[REDACTED]';
+      const lowerKey = key.toLowerCase()
+      if (
+        config.redactPaths.some((path) => lowerKey.includes(path.toLowerCase()))
+      ) {
+        result[key] = '[REDACTED]'
       } else {
-        result[key] = sanitizeObject(value as JSONValue, config) as JSONValue;
+        result[key] = sanitizeObject(value as JSONValue, config) as JSONValue
       }
     }
-    return result;
+    return result
   }
 
-  return null;
+  return null
 }
 
 /**
@@ -184,23 +186,23 @@ export function sanitizeObject(
  */
 export function sanitizeHeaders(
   headers: Record<string, string>,
-  config: SanitizationConfig
+  config: SanitizationConfig,
 ): Record<string, string> {
-  const result: Record<string, string> = {};
+  const result: Record<string, string> = {}
 
   for (const [key, value] of Object.entries(headers)) {
-    const lowerKey = key.toLowerCase();
+    const lowerKey = key.toLowerCase()
 
     // Skip headers that should be stripped
     if (config.stripHeaders.some((h) => lowerKey === h.toLowerCase())) {
-      continue;
+      continue
     }
 
     // Sanitize header value
-    result[key] = sanitizeString(value, config);
+    result[key] = sanitizeString(value, config)
   }
 
-  return result;
+  return result
 }
 
 /**
@@ -209,12 +211,12 @@ export function sanitizeHeaders(
 export function sanitizeResponse(
   body: JSONValue | string,
   headers: Record<string, string>,
-  config: SanitizationConfig
+  config: SanitizationConfig,
 ): { body: JSONValue | null; headers: Record<string, string> } {
   return {
     body: sanitizeObject(body, config),
     headers: sanitizeHeaders(headers, config),
-  };
+  }
 }
 
 // ============================================================================
@@ -226,30 +228,30 @@ export function sanitizeResponse(
  */
 export function mightContainKey(input: string): boolean {
   for (const pattern of DEFAULT_KEY_PATTERNS) {
-    pattern.lastIndex = 0;
+    pattern.lastIndex = 0
     if (pattern.test(input)) {
-      return true;
+      return true
     }
   }
-  return false;
+  return false
 }
 
 /**
  * Extract potential keys from a string (for logging/alerting)
  */
 export function extractPotentialKeys(input: string): string[] {
-  const keys: string[] = [];
+  const keys: string[] = []
 
   for (const pattern of DEFAULT_KEY_PATTERNS) {
-    pattern.lastIndex = 0;
-    const matches = input.match(pattern);
+    pattern.lastIndex = 0
+    const matches = input.match(pattern)
     if (matches) {
-      keys.push(...matches);
+      keys.push(...matches)
     }
   }
 
   // Dedupe and limit
-  return [...new Set(keys)].slice(0, 10);
+  return [...new Set(keys)].slice(0, 10)
 }
 
 /**
@@ -257,27 +259,28 @@ export function extractPotentialKeys(input: string): string[] {
  */
 export function checkForLeaks(
   response: JSONValue | string,
-  knownKeys: string[]
+  knownKeys: string[],
 ): { leaked: boolean; details: string[] } {
-  const details: string[] = [];
+  const details: string[] = []
 
-  const responseStr = typeof response === 'string' ? response : JSON.stringify(response);
+  const responseStr =
+    typeof response === 'string' ? response : JSON.stringify(response)
 
   // Check for known keys
   for (const key of knownKeys) {
     if (key.length > 8 && responseStr.includes(key)) {
-      details.push(`Known key detected (${key.substring(0, 8)}...)`);
+      details.push(`Known key detected (${key.substring(0, 8)}...)`)
     }
   }
 
   // Check for pattern matches
-  const potentialKeys = extractPotentialKeys(responseStr);
+  const potentialKeys = extractPotentialKeys(responseStr)
   if (potentialKeys.length > 0) {
-    details.push(`Potential key patterns: ${potentialKeys.length} found`);
+    details.push(`Potential key patterns: ${potentialKeys.length} found`)
   }
 
   return {
     leaked: details.length > 0,
     details,
-  };
+  }
 }

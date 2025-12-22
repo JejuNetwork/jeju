@@ -6,40 +6,47 @@
  * Includes Zod schemas for runtime validation.
  */
 
-import { z } from 'zod';
-import { AddressSchema, HashSchema } from './validation';
+import { z } from 'zod'
+import { AddressSchema, HashSchema } from './validation'
 
 // ============ Core Type Schemas ============
 
 /** JNS name without the .jeju suffix */
-export type JNSLabel = string;
+export type JNSLabel = string
 
 /** Full JNS name with .jeju suffix */
-export type JNSName = `${string}.jeju`;
+export type JNSName = `${string}.jeju`
 
 /** Node hash (keccak256) for name resolution */
-export type NodeHash = `0x${string}`;
+export type NodeHash = `0x${string}`
 
 /** Label hash (keccak256 of the label) */
-export type LabelHash = `0x${string}`;
+export type LabelHash = `0x${string}`
 
 /** Schema for JNS label validation */
-export const JNSLabelSchema = z.string().min(3).regex(
-  /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/,
-  'Label can only contain lowercase letters, numbers, and non-consecutive hyphens'
-).refine(
-  (val) => !val.includes('--'),
-  'Label cannot contain consecutive hyphens'
-);
+export const JNSLabelSchema = z
+  .string()
+  .min(3)
+  .regex(
+    /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/,
+    'Label can only contain lowercase letters, numbers, and non-consecutive hyphens',
+  )
+  .refine(
+    (val) => !val.includes('--'),
+    'Label cannot contain consecutive hyphens',
+  )
 
 /** Schema for full JNS name */
-export const JNSNameSchema = z.string().endsWith('.jeju').transform((val) => val as JNSName);
+export const JNSNameSchema = z
+  .string()
+  .endsWith('.jeju')
+  .transform((val) => val as JNSName)
 
 /** Schema for node hash */
-export const NodeHashSchema = HashSchema;
+export const NodeHashSchema = HashSchema
 
 /** Schema for label hash */
-export const LabelHashSchema = HashSchema;
+export const LabelHashSchema = HashSchema
 
 // ============ Registration Schemas ============
 
@@ -62,8 +69,8 @@ export const JNSRegistrationSchema = z.object({
   expiresAt: z.number(),
   /** Whether in grace period */
   inGracePeriod: z.boolean(),
-});
-export type JNSRegistration = z.infer<typeof JNSRegistrationSchema>;
+})
+export type JNSRegistration = z.infer<typeof JNSRegistrationSchema>
 
 export const JNSRegistrationParamsSchema = z.object({
   /** Name to register (without .jeju) */
@@ -76,16 +83,16 @@ export const JNSRegistrationParamsSchema = z.object({
   resolver: AddressSchema.optional(),
   /** Initial resolver data to set */
   resolverData: z.lazy(() => JNSResolverDataSchema).optional(),
-});
-export type JNSRegistrationParams = z.infer<typeof JNSRegistrationParamsSchema>;
+})
+export type JNSRegistrationParams = z.infer<typeof JNSRegistrationParamsSchema>
 
 export const JNSRenewalParamsSchema = z.object({
   /** Name to renew */
   name: JNSLabelSchema,
   /** Additional duration in seconds */
   duration: z.number().int().positive(),
-});
-export type JNSRenewalParams = z.infer<typeof JNSRenewalParamsSchema>;
+})
+export type JNSRenewalParams = z.infer<typeof JNSRenewalParamsSchema>
 
 // ============ Resolver Schemas ============
 
@@ -102,8 +109,8 @@ export const JNSAppConfigSchema = z.object({
   a2aEndpoint: z.string().url().optional(),
   /** MCP endpoint */
   mcpEndpoint: z.string().url().optional(),
-});
-export type JNSAppConfig = z.infer<typeof JNSAppConfigSchema>;
+})
+export type JNSAppConfig = z.infer<typeof JNSAppConfigSchema>
 
 export const JNSResolverDataSchema = z.object({
   /** Ethereum address the name resolves to */
@@ -114,8 +121,8 @@ export const JNSResolverDataSchema = z.object({
   text: z.record(z.string(), z.string()).optional(),
   /** App configuration */
   app: JNSAppConfigSchema.optional(),
-});
-export type JNSResolverData = z.infer<typeof JNSResolverDataSchema>;
+})
+export type JNSResolverData = z.infer<typeof JNSResolverDataSchema>
 
 /** Standard text record keys */
 export const JNS_TEXT_KEYS = {
@@ -132,9 +139,11 @@ export const JNS_TEXT_KEYS = {
   APP_MCP: 'app.mcp',
   APP_VERSION: 'app.version',
   APP_CATEGORY: 'app.category',
-} as const;
+} as const
 
-export type JNSTextKey = typeof JNS_TEXT_KEYS[keyof typeof JNS_TEXT_KEYS] | string;
+export type JNSTextKey =
+  | (typeof JNS_TEXT_KEYS)[keyof typeof JNS_TEXT_KEYS]
+  | string
 
 // ============ Reverse Resolution Schemas ============
 
@@ -145,8 +154,8 @@ export const JNSReverseRecordSchema = z.object({
   node: NodeHashSchema,
   /** Primary name for this address */
   name: JNSNameSchema,
-});
-export type JNSReverseRecord = z.infer<typeof JNSReverseRecordSchema>;
+})
+export type JNSReverseRecord = z.infer<typeof JNSReverseRecordSchema>
 
 // ============ Pricing Schemas ============
 
@@ -159,8 +168,8 @@ export const JNSPricingSchema = z.object({
   premium4Char: z.number(),
   /** Agent discount in basis points */
   agentDiscountBps: z.number().int().min(0).max(10000),
-});
-export type JNSPricing = z.infer<typeof JNSPricingSchema>;
+})
+export type JNSPricing = z.infer<typeof JNSPricingSchema>
 
 export const JNSPriceQuoteSchema = z.object({
   /** Name being priced */
@@ -175,8 +184,8 @@ export const JNSPriceQuoteSchema = z.object({
   finalPrice: z.bigint(),
   /** Whether agent discount applied */
   hasAgentDiscount: z.boolean(),
-});
-export type JNSPriceQuote = z.infer<typeof JNSPriceQuoteSchema>;
+})
+export type JNSPriceQuote = z.infer<typeof JNSPriceQuoteSchema>
 
 // ============ App Registry Integration ============
 
@@ -191,9 +200,10 @@ export const JEJU_APP_NAMES = {
   INTENTS: 'intents.jeju',
   DOCUMENTATION: 'docs.jeju',
   MONITORING: 'monitoring.jeju',
-} as const;
+} as const
 
-export type NetworkAppName = typeof JEJU_APP_NAMES[keyof typeof JEJU_APP_NAMES];
+export type NetworkAppName =
+  (typeof JEJU_APP_NAMES)[keyof typeof JEJU_APP_NAMES]
 
 export const JNSAppRegistryEntrySchema = z.object({
   jnsName: JNSNameSchema,
@@ -201,11 +211,11 @@ export const JNSAppRegistryEntrySchema = z.object({
   agentId: z.bigint().optional(),
   endpoint: z.string().url().optional(),
   a2aEndpoint: z.string().url().optional(),
-});
-export type JNSAppRegistryEntry = z.infer<typeof JNSAppRegistryEntrySchema>;
+})
+export type JNSAppRegistryEntry = z.infer<typeof JNSAppRegistryEntrySchema>
 
 /** Mapping of app names to their JNS configurations */
-export type JNSAppRegistry = Record<string, JNSAppRegistryEntry>;
+export type JNSAppRegistry = Record<string, JNSAppRegistryEntry>
 
 // ============ Event Schemas ============
 
@@ -217,8 +227,10 @@ export const JNSNameRegisteredEventSchema = z.object({
   cost: z.bigint(),
   transactionHash: HashSchema,
   blockNumber: z.bigint(),
-});
-export type JNSNameRegisteredEvent = z.infer<typeof JNSNameRegisteredEventSchema>;
+})
+export type JNSNameRegisteredEvent = z.infer<
+  typeof JNSNameRegisteredEventSchema
+>
 
 export const JNSNameRenewedEventSchema = z.object({
   node: NodeHashSchema,
@@ -227,8 +239,8 @@ export const JNSNameRenewedEventSchema = z.object({
   cost: z.bigint(),
   transactionHash: HashSchema,
   blockNumber: z.bigint(),
-});
-export type JNSNameRenewedEvent = z.infer<typeof JNSNameRenewedEventSchema>;
+})
+export type JNSNameRenewedEvent = z.infer<typeof JNSNameRenewedEventSchema>
 
 export const JNSNameTransferredEventSchema = z.object({
   node: NodeHashSchema,
@@ -236,16 +248,20 @@ export const JNSNameTransferredEventSchema = z.object({
   to: AddressSchema,
   transactionHash: HashSchema,
   blockNumber: z.bigint(),
-});
-export type JNSNameTransferredEvent = z.infer<typeof JNSNameTransferredEventSchema>;
+})
+export type JNSNameTransferredEvent = z.infer<
+  typeof JNSNameTransferredEventSchema
+>
 
 export const JNSResolverChangedEventSchema = z.object({
   node: NodeHashSchema,
   resolver: AddressSchema,
   transactionHash: HashSchema,
   blockNumber: z.bigint(),
-});
-export type JNSResolverChangedEvent = z.infer<typeof JNSResolverChangedEventSchema>;
+})
+export type JNSResolverChangedEvent = z.infer<
+  typeof JNSResolverChangedEventSchema
+>
 
 // ============ Query Schemas ============
 
@@ -258,8 +274,8 @@ export const JNSLookupResultSchema = z.object({
   resolverData: JNSResolverDataSchema.optional(),
   /** Reverse name if address has one */
   reverseName: JNSNameSchema.optional(),
-});
-export type JNSLookupResult = z.infer<typeof JNSLookupResultSchema>;
+})
+export type JNSLookupResult = z.infer<typeof JNSLookupResultSchema>
 
 export const JNSSearchParamsSchema = z.object({
   /** Search query (partial name match) */
@@ -276,15 +292,15 @@ export const JNSSearchParamsSchema = z.object({
   offset: z.number().int().nonnegative().optional(),
   /** Pagination limit */
   limit: z.number().int().positive().max(100).optional(),
-});
-export type JNSSearchParams = z.infer<typeof JNSSearchParamsSchema>;
+})
+export type JNSSearchParams = z.infer<typeof JNSSearchParamsSchema>
 
 export const JNSSearchResultSchema = z.object({
   names: z.array(JNSRegistrationSchema),
   total: z.number().int().nonnegative(),
   hasMore: z.boolean(),
-});
-export type JNSSearchResult = z.infer<typeof JNSSearchResultSchema>;
+})
+export type JNSSearchResult = z.infer<typeof JNSSearchResultSchema>
 
 // ============ Contract Addresses ============
 
@@ -293,8 +309,8 @@ export const JNSContractAddressesSchema = z.object({
   resolver: AddressSchema,
   registrar: AddressSchema,
   reverseRegistrar: AddressSchema,
-});
-export type JNSContractAddresses = z.infer<typeof JNSContractAddressesSchema>;
+})
+export type JNSContractAddresses = z.infer<typeof JNSContractAddressesSchema>
 
 // ============ Utils ============
 
@@ -305,7 +321,7 @@ export type JNSContractAddresses = z.infer<typeof JNSContractAddressesSchema>;
  */
 export function computeNamehash(_name: string): NodeHash {
   // Implementation would use viem's namehash utility
-  throw new Error('Use viem namehash implementation');
+  throw new Error('Use viem namehash implementation')
 }
 
 /**
@@ -315,7 +331,7 @@ export function computeNamehash(_name: string): NodeHash {
  */
 export function computeLabelhash(_label: string): LabelHash {
   // Implementation would use keccak256
-  throw new Error('Use viem keccak256 implementation');
+  throw new Error('Use viem keccak256 implementation')
 }
 
 /**
@@ -323,12 +339,18 @@ export function computeLabelhash(_label: string): LabelHash {
  * @param name Name to validate
  * @returns Validation result
  */
-export function validateJNSName(name: string): { valid: boolean; error?: string } {
-  const result = JNSLabelSchema.safeParse(name);
+export function validateJNSName(name: string): {
+  valid: boolean
+  error?: string
+} {
+  const result = JNSLabelSchema.safeParse(name)
   if (!result.success) {
-    return { valid: false, error: result.error.issues[0]?.message ?? 'Invalid name' };
+    return {
+      valid: false,
+      error: result.error.issues[0]?.message ?? 'Invalid name',
+    }
   }
-  return { valid: true };
+  return { valid: true }
 }
 
 /**
@@ -337,7 +359,7 @@ export function validateJNSName(name: string): { valid: boolean; error?: string 
  * @returns Full JNS name
  */
 export function formatJNSName(label: JNSLabel): JNSName {
-  return `${label}.jeju` as JNSName;
+  return `${label}.jeju` as JNSName
 }
 
 /**
@@ -346,5 +368,5 @@ export function formatJNSName(label: JNSLabel): JNSName {
  * @returns The label without suffix
  */
 export function parseJNSName(name: JNSName): JNSLabel {
-  return name.replace('.jeju', '');
+  return name.replace('.jeju', '')
 }

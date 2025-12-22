@@ -5,9 +5,9 @@
  */
 
 export {
-	createSP1Client,
-	type ProofRequest,
-	type ProofResult,
-	SP1Client,
-	type SP1Config,
-} from "./sp1-client.js";
+  createSP1Client,
+  type ProofRequest,
+  type ProofResult,
+  SP1Client,
+  type SP1Config,
+} from './sp1-client.js'

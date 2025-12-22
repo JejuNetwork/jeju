@@ -1,4 +1,4 @@
-import type { Config } from 'tailwindcss';
+import type { Config } from 'tailwindcss'
 
 const config: Config = {
   darkMode: 'class',
@@ -63,7 +63,8 @@ const config: Config = {
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
         'gradient-bazaar': 'linear-gradient(135deg, var(--tw-gradient-stops))',
-        'gradient-sunset': 'linear-gradient(135deg, #FF6B35 0%, #7C3AED 50%, #00D9C0 100%)',
+        'gradient-sunset':
+          'linear-gradient(135deg, #FF6B35 0%, #7C3AED 50%, #00D9C0 100%)',
         'gradient-warm': 'linear-gradient(135deg, #FF6B35 0%, #E85A2A 100%)',
         'gradient-cool': 'linear-gradient(135deg, #7C3AED 0%, #00D9C0 100%)',
         'mesh-light': `
@@ -95,9 +96,9 @@ const config: Config = {
         '3xl': '1.5rem',
       },
       animation: {
-        'float': 'float 6s ease-in-out infinite',
+        float: 'float 6s ease-in-out infinite',
         'pulse-glow': 'pulse-glow 2s ease-in-out infinite',
-        'shimmer': 'shimmer 2s linear infinite',
+        shimmer: 'shimmer 2s linear infinite',
         'bounce-subtle': 'bounce-subtle 2s ease-in-out infinite',
       },
       keyframes: {
@@ -121,6 +122,6 @@ const config: Config = {
     },
   },
   plugins: [],
-};
+}
 
-export default config;
+export default config

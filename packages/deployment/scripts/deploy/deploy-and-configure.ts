@@ -1,12 +1,12 @@
 #!/usr/bin/env bun
 /**
  * Oracle Network Deployment and Configuration
- * 
+ *
  * Deploys oracle contracts and configures the oracle node for the specified network.
- * 
+ *
  * Usage:
  *   bun run scripts/oracle/deploy-and-configure.ts --network=<network> [options]
- * 
+ *
  * Options:
  *   --network=<network>   Network: localnet, testnet, mainnet
  *   --deploy              Deploy contracts (default: false)
@@ -14,141 +14,177 @@
  *   --verify              Verify contracts on block explorer
  */
 
-import { execSync } from 'child_process';
-import { existsSync, readFileSync, writeFileSync } from 'fs';
-import path from 'path';
+import { execSync } from 'node:child_process'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import path from 'node:path'
 
-type NetworkType = 'localnet' | 'testnet' | 'mainnet';
+type NetworkType = 'localnet' | 'testnet' | 'mainnet'
 
 interface DeployedAddresses {
-  feedRegistry: string;
-  reportVerifier: string;
-  committeeManager: string;
-  feeRouter: string;
-  networkConnector: string;
-  disputeGame: string;
+  feedRegistry: string
+  reportVerifier: string
+  committeeManager: string
+  feeRouter: string
+  networkConnector: string
+  disputeGame: string
 }
 
-const NETWORK_CONFIG: Record<NetworkType, { chainId: number; rpcEnvVar: string; verifyApi?: string }> = {
+const NETWORK_CONFIG: Record<
+  NetworkType,
+  { chainId: number; rpcEnvVar: string; verifyApi?: string }
+> = {
   localnet: { chainId: 1337, rpcEnvVar: 'RPC_URL' },
-  testnet: { chainId: 84532, rpcEnvVar: 'BASE_SEPOLIA_RPC_URL', verifyApi: 'basescan' },
-  mainnet: { chainId: 8453, rpcEnvVar: 'BASE_MAINNET_RPC_URL', verifyApi: 'basescan' },
-};
+  testnet: {
+    chainId: 84532,
+    rpcEnvVar: 'BASE_SEPOLIA_RPC_URL',
+    verifyApi: 'basescan',
+  },
+  mainnet: {
+    chainId: 8453,
+    rpcEnvVar: 'BASE_MAINNET_RPC_URL',
+    verifyApi: 'basescan',
+  },
+}
 
-function parseArgs(): { network: NetworkType; deploy: boolean; configure: boolean; verify: boolean } {
-  const args = process.argv.slice(2);
-  let network: NetworkType = 'localnet';
-  let deploy = false;
-  let configure = true;
-  let verify = false;
+function parseArgs(): {
+  network: NetworkType
+  deploy: boolean
+  configure: boolean
+  verify: boolean
+} {
+  const args = process.argv.slice(2)
+  let network: NetworkType = 'localnet'
+  let deploy = false
+  let configure = true
+  let verify = false
 
   for (const arg of args) {
     if (arg.startsWith('--network=')) {
-      network = arg.split('=')[1] as NetworkType;
+      network = arg.split('=')[1] as NetworkType
     } else if (arg === '--deploy') {
-      deploy = true;
+      deploy = true
     } else if (arg === '--configure') {
-      configure = true;
+      configure = true
     } else if (arg === '--no-configure') {
-      configure = false;
+      configure = false
     } else if (arg === '--verify') {
-      verify = true;
+      verify = true
     }
   }
 
-  return { network, deploy, configure, verify };
+  return { network, deploy, configure, verify }
 }
 
 function getRpcUrl(network: NetworkType): string {
-  const config = NETWORK_CONFIG[network];
-  const rpcUrl = process.env[config.rpcEnvVar] || (network === 'localnet' ? 'http://localhost:9545' : undefined);
-  
+  const config = NETWORK_CONFIG[network]
+  const rpcUrl =
+    process.env[config.rpcEnvVar] ||
+    (network === 'localnet' ? 'http://localhost:9545' : undefined)
+
   if (!rpcUrl) {
-    throw new Error(`${config.rpcEnvVar} environment variable not set`);
+    throw new Error(`${config.rpcEnvVar} environment variable not set`)
   }
-  
-  return rpcUrl;
+
+  return rpcUrl
 }
 
-async function deployContracts(network: NetworkType, rpcUrl: string, verify: boolean): Promise<DeployedAddresses> {
-  console.log(`\n[Deploy] Deploying oracle contracts to ${network}...`);
-  
-  const contractsDir = path.join(process.cwd(), 'packages/contracts');
-  
+async function deployContracts(
+  network: NetworkType,
+  rpcUrl: string,
+  verify: boolean,
+): Promise<DeployedAddresses> {
+  console.log(`\n[Deploy] Deploying oracle contracts to ${network}...`)
+
+  const contractsDir = path.join(process.cwd(), 'packages/contracts')
+
   // Build command
-  let forgeCmd = `forge script script/DeployOracleNetwork.s.sol:DeployOracleNetwork --rpc-url ${rpcUrl} --broadcast`;
-  
+  let forgeCmd = `forge script script/DeployOracleNetwork.s.sol:DeployOracleNetwork --rpc-url ${rpcUrl} --broadcast`
+
   if (verify && NETWORK_CONFIG[network].verifyApi) {
-    forgeCmd += ` --verify --etherscan-api-key ${process.env.ETHERSCAN_API_KEY}`;
+    forgeCmd += ` --verify --etherscan-api-key ${process.env.ETHERSCAN_API_KEY}`
   }
-  
-  console.log(`[Deploy] Running: ${forgeCmd}`);
-  
+
+  console.log(`[Deploy] Running: ${forgeCmd}`)
+
   // Execute deployment
   const result = execSync(forgeCmd, {
     cwd: contractsDir,
     encoding: 'utf-8',
     env: { ...process.env, PRIVATE_KEY: process.env.OPERATOR_PRIVATE_KEY },
     stdio: ['pipe', 'pipe', 'pipe'],
-  });
-  
-  console.log(result);
-  
+  })
+
+  console.log(result)
+
   // Parse deployed addresses from broadcast output
-  const broadcastDir = path.join(contractsDir, 'broadcast/DeployOracleNetwork.s.sol', String(NETWORK_CONFIG[network].chainId), 'run-latest.json');
-  
+  const broadcastDir = path.join(
+    contractsDir,
+    'broadcast/DeployOracleNetwork.s.sol',
+    String(NETWORK_CONFIG[network].chainId),
+    'run-latest.json',
+  )
+
   if (!existsSync(broadcastDir)) {
-    throw new Error(`Broadcast output not found: ${broadcastDir}`);
+    throw new Error(`Broadcast output not found: ${broadcastDir}`)
   }
-  
-  const broadcast = JSON.parse(readFileSync(broadcastDir, 'utf-8'));
-  const addresses: Partial<DeployedAddresses> = {};
-  
+
+  const broadcast = JSON.parse(readFileSync(broadcastDir, 'utf-8'))
+  const addresses: Partial<DeployedAddresses> = {}
+
   for (const tx of broadcast.transactions) {
     if (tx.transactionType === 'CREATE') {
-      const name = tx.contractName;
-      const addr = tx.contractAddress;
-      
-      if (name === 'FeedRegistry') addresses.feedRegistry = addr;
-      if (name === 'ReportVerifier') addresses.reportVerifier = addr;
-      if (name === 'CommitteeManager') addresses.committeeManager = addr;
-      if (name === 'OracleFeeRouter') addresses.feeRouter = addr;
-      if (name === 'OracleNetworkConnector') addresses.networkConnector = addr;
-      if (name === 'DisputeGame') addresses.disputeGame = addr;
+      const name = tx.contractName
+      const addr = tx.contractAddress
+
+      if (name === 'FeedRegistry') addresses.feedRegistry = addr
+      if (name === 'ReportVerifier') addresses.reportVerifier = addr
+      if (name === 'CommitteeManager') addresses.committeeManager = addr
+      if (name === 'OracleFeeRouter') addresses.feeRouter = addr
+      if (name === 'OracleNetworkConnector') addresses.networkConnector = addr
+      if (name === 'DisputeGame') addresses.disputeGame = addr
     }
   }
-  
-  console.log('\n[Deploy] Deployed addresses:');
+
+  console.log('\n[Deploy] Deployed addresses:')
   for (const [name, addr] of Object.entries(addresses)) {
-    console.log(`  ${name}: ${addr}`);
+    console.log(`  ${name}: ${addr}`)
   }
-  
-  return addresses as DeployedAddresses;
+
+  return addresses as DeployedAddresses
 }
 
-function updateNetworkConfig(network: NetworkType, addresses: DeployedAddresses): void {
-  console.log(`\n[Config] Updating network configuration...`);
-  
-  const configPath = path.join(process.cwd(), 'packages/config/oracle/networks.json');
-  const config = JSON.parse(readFileSync(configPath, 'utf-8'));
-  
+function updateNetworkConfig(
+  network: NetworkType,
+  addresses: DeployedAddresses,
+): void {
+  console.log(`\n[Config] Updating network configuration...`)
+
+  const configPath = path.join(
+    process.cwd(),
+    'packages/config/oracle/networks.json',
+  )
+  const config = JSON.parse(readFileSync(configPath, 'utf-8'))
+
   config[network].contracts = {
     feedRegistry: addresses.feedRegistry,
     reportVerifier: addresses.reportVerifier,
     committeeManager: addresses.committeeManager,
     feeRouter: addresses.feeRouter,
     networkConnector: addresses.networkConnector,
-  };
-  
-  writeFileSync(configPath, JSON.stringify(config, null, 2));
-  console.log(`[Config] Updated ${configPath}`);
+  }
+
+  writeFileSync(configPath, JSON.stringify(config, null, 2))
+  console.log(`[Config] Updated ${configPath}`)
 }
 
-function createEnvFile(network: NetworkType, addresses: DeployedAddresses): void {
-  console.log(`\n[Config] Creating oracle .env file...`);
-  
-  const envPath = path.join(process.cwd(), 'apps/gateway/.env.oracle');
-  
+function createEnvFile(
+  network: NetworkType,
+  addresses: DeployedAddresses,
+): void {
+  console.log(`\n[Config] Creating oracle .env file...`)
+
+  const envPath = path.join(process.cwd(), 'apps/gateway/.env.oracle')
+
   const envContent = `# Oracle Node Configuration for ${network}
 # Generated by deploy-and-configure.ts
 
@@ -164,17 +200,23 @@ NETWORK_CONNECTOR_ADDRESS=${addresses.networkConnector}
 # Copy your keys from root .env
 # OPERATOR_PRIVATE_KEY=
 # WORKER_PRIVATE_KEY=
-`;
+`
 
-  writeFileSync(envPath, envContent);
-  console.log(`[Config] Created ${envPath}`);
+  writeFileSync(envPath, envContent)
+  console.log(`[Config] Created ${envPath}`)
 }
 
-function updateGatewayConfig(network: NetworkType, addresses: DeployedAddresses): void {
-  console.log(`\n[Config] Updating gateway oracle configuration...`);
-  
-  const gatewayConfigPath = path.join(process.cwd(), 'apps/gateway/src/lib/oracleNetwork.ts');
-  
+function updateGatewayConfig(
+  network: NetworkType,
+  addresses: DeployedAddresses,
+): void {
+  console.log(`\n[Config] Updating gateway oracle configuration...`)
+
+  const gatewayConfigPath = path.join(
+    process.cwd(),
+    'apps/gateway/src/lib/oracleNetwork.ts',
+  )
+
   const content = `// Auto-generated by deploy-and-configure.ts
 // Network: ${network}
 
@@ -218,17 +260,23 @@ export const ORACLE_REPORT_VERIFIER_ABI = [
   ], stateMutability: 'view' },
   { type: 'function', name: 'getCurrentRound', inputs: [{ name: 'feedId', type: 'bytes32' }], outputs: [{ type: 'uint256' }], stateMutability: 'view' },
 ] as const;
-`;
+`
 
-  writeFileSync(gatewayConfigPath, content);
-  console.log(`[Config] Updated ${gatewayConfigPath}`);
+  writeFileSync(gatewayConfigPath, content)
+  console.log(`[Config] Updated ${gatewayConfigPath}`)
 }
 
-function updateIndexerConfig(network: NetworkType, addresses: DeployedAddresses): void {
-  console.log(`\n[Config] Updating indexer oracle configuration...`);
-  
-  const indexerConfigPath = path.join(process.cwd(), 'apps/indexer/src/oracle-addresses.ts');
-  
+function updateIndexerConfig(
+  network: NetworkType,
+  addresses: DeployedAddresses,
+): void {
+  console.log(`\n[Config] Updating indexer oracle configuration...`)
+
+  const indexerConfigPath = path.join(
+    process.cwd(),
+    'apps/indexer/src/oracle-addresses.ts',
+  )
+
   const content = `// Auto-generated by deploy-and-configure.ts
 // Network: ${network}
 
@@ -241,54 +289,59 @@ export const ORACLE_ADDRESSES = {
 } as const;
 
 export const ORACLE_START_BLOCK = 0; // Update this after deployment
-`;
+`
 
-  writeFileSync(indexerConfigPath, content);
-  console.log(`[Config] Updated ${indexerConfigPath}`);
+  writeFileSync(indexerConfigPath, content)
+  console.log(`[Config] Updated ${indexerConfigPath}`)
 }
 
 async function main(): Promise<void> {
-  const { network, deploy, configure, verify } = parseArgs();
-  
-  console.log('='.repeat(60));
-  console.log('  Oracle Network Deployment & Configuration');
-  console.log('='.repeat(60));
-  console.log(`  Network: ${network}`);
-  console.log(`  Deploy:  ${deploy}`);
-  console.log(`  Configure: ${configure}`);
-  console.log(`  Verify:  ${verify}`);
-  console.log('='.repeat(60));
-  
-  const rpcUrl = getRpcUrl(network);
-  let addresses: DeployedAddresses;
-  
+  const { network, deploy, configure, verify } = parseArgs()
+
+  console.log('='.repeat(60))
+  console.log('  Oracle Network Deployment & Configuration')
+  console.log('='.repeat(60))
+  console.log(`  Network: ${network}`)
+  console.log(`  Deploy:  ${deploy}`)
+  console.log(`  Configure: ${configure}`)
+  console.log(`  Verify:  ${verify}`)
+  console.log('='.repeat(60))
+
+  const rpcUrl = getRpcUrl(network)
+  let addresses: DeployedAddresses
+
   if (deploy) {
-    addresses = await deployContracts(network, rpcUrl, verify);
+    addresses = await deployContracts(network, rpcUrl, verify)
   } else {
     // Load existing addresses from config
-    const configPath = path.join(process.cwd(), 'packages/config/oracle/networks.json');
-    const config = JSON.parse(readFileSync(configPath, 'utf-8'));
-    
+    const configPath = path.join(
+      process.cwd(),
+      'packages/config/oracle/networks.json',
+    )
+    const config = JSON.parse(readFileSync(configPath, 'utf-8'))
+
     if (!config[network].contracts.feedRegistry) {
-      throw new Error(`No deployed contracts found for ${network}. Run with --deploy first.`);
+      throw new Error(
+        `No deployed contracts found for ${network}. Run with --deploy first.`,
+      )
     }
-    
-    addresses = config[network].contracts as DeployedAddresses;
-    console.log(`\n[Config] Using existing addresses from config`);
+
+    addresses = config[network].contracts as DeployedAddresses
+    console.log(`\n[Config] Using existing addresses from config`)
   }
-  
+
   if (configure) {
     if (deploy) {
-      updateNetworkConfig(network, addresses);
+      updateNetworkConfig(network, addresses)
     }
-    createEnvFile(network, addresses);
-    updateGatewayConfig(network, addresses);
-    updateIndexerConfig(network, addresses);
+    createEnvFile(network, addresses)
+    updateGatewayConfig(network, addresses)
+    updateIndexerConfig(network, addresses)
   }
-  
-  console.log('\n' + '='.repeat(60));
-  console.log('  Deployment Complete!');
-  console.log('='.repeat(60));
+
+  console.log(`\n${'='.repeat(60)}`)
+  console.log('  Deployment Complete!')
+  console.log('='.repeat(60))
   console.log(`
 Next steps:
   1. Copy OPERATOR_PRIVATE_KEY and WORKER_PRIVATE_KEY to apps/gateway/.env.oracle
@@ -297,10 +350,10 @@ Next steps:
   3. Start the indexer:
      cd apps/indexer && bun run dev
   4. Monitor metrics at http://localhost:9090/metrics
-`);
+`)
 }
 
 main().catch((err) => {
-  console.error('[FATAL]', err);
-  process.exit(1);
-});
+  console.error('[FATAL]', err)
+  process.exit(1)
+})

@@ -1,167 +1,166 @@
 /**
  * Direct Cast Message Types
- * 
+ *
  * Type definitions for encrypted direct messages between Farcaster users.
  */
 
-import type { Hex } from 'viem';
+import type { Hex } from 'viem'
 
 // ============ Message Types ============
 
 export interface DirectCast {
   /** Unique message ID */
-  id: string;
+  id: string
   /** Conversation ID */
-  conversationId: string;
+  conversationId: string
   /** Sender FID */
-  senderFid: number;
+  senderFid: number
   /** Recipient FID */
-  recipientFid: number;
+  recipientFid: number
   /** Message text */
-  text: string;
+  text: string
   /** Embedded content */
-  embeds?: DirectCastEmbed[];
+  embeds?: DirectCastEmbed[]
   /** Reply to message ID */
-  replyTo?: string;
+  replyTo?: string
   /** Timestamp (ms) */
-  timestamp: number;
+  timestamp: number
   /** Message signature */
-  signature: Hex;
+  signature: Hex
   /** Read status */
-  isRead?: boolean;
+  isRead?: boolean
 }
 
 export interface DirectCastEmbed {
   /** Embed type */
-  type: 'url' | 'cast' | 'image';
+  type: 'url' | 'cast' | 'image'
   /** URL for url/image types */
-  url?: string;
+  url?: string
   /** Cast reference */
-  castId?: { fid: number; hash: Hex };
+  castId?: { fid: number; hash: Hex }
   /** Alt text for images */
-  alt?: string;
+  alt?: string
 }
 
 export interface EncryptedDirectCast {
   /** Encrypted ciphertext */
-  ciphertext: Hex;
+  ciphertext: Hex
   /** Encryption nonce */
-  nonce: Hex;
+  nonce: Hex
   /** Ephemeral public key */
-  ephemeralPublicKey: Hex;
+  ephemeralPublicKey: Hex
   /** Sender FID (unencrypted for routing) */
-  senderFid: number;
+  senderFid: number
   /** Recipient FID (unencrypted for routing) */
-  recipientFid: number;
+  recipientFid: number
   /** Timestamp */
-  timestamp: number;
+  timestamp: number
   /** Signature over encrypted content */
-  signature: Hex;
+  signature: Hex
 }
 
 // ============ Conversation Types ============
 
 export interface DirectCastConversation {
   /** Unique conversation ID */
-  id: string;
+  id: string
   /** Participant FIDs (sorted) */
-  participants: number[];
+  participants: number[]
   /** Last message in conversation */
-  lastMessage?: DirectCast;
+  lastMessage?: DirectCast
   /** Unread message count */
-  unreadCount: number;
+  unreadCount: number
   /** Creation timestamp */
-  createdAt: number;
+  createdAt: number
   /** Last update timestamp */
-  updatedAt: number;
+  updatedAt: number
   /** Is muted */
-  isMuted?: boolean;
+  isMuted?: boolean
   /** Is archived */
-  isArchived?: boolean;
+  isArchived?: boolean
 }
 
 // ============ Notification Types ============
 
-export type DCNotificationType = 
-  | 'new_message' 
-  | 'read_receipt' 
+export type DCNotificationType =
+  | 'new_message'
+  | 'read_receipt'
   | 'typing'
-  | 'delivered';
+  | 'delivered'
 
 export interface DirectCastNotification {
   /** Notification type */
-  type: DCNotificationType;
+  type: DCNotificationType
   /** Conversation ID */
-  conversationId: string;
+  conversationId: string
   /** Sender FID */
-  senderFid: number;
+  senderFid: number
   /** Timestamp */
-  timestamp: number;
+  timestamp: number
   /** Message ID (for new_message, delivered) */
-  messageId?: string;
+  messageId?: string
 }
 
 // ============ Client Types ============
 
 export interface DCClientConfig {
   /** User's FID */
-  fid: number;
+  fid: number
   /** Ed25519 signer private key */
-  signerPrivateKey: Uint8Array;
+  signerPrivateKey: Uint8Array
   /** Hub URL for key lookups */
-  hubUrl: string;
+  hubUrl: string
   /** Relay URL for message transport */
-  relayUrl?: string;
+  relayUrl?: string
   /** Enable persistence */
-  persistenceEnabled?: boolean;
+  persistenceEnabled?: boolean
   /** Persistence path */
-  persistencePath?: string;
+  persistencePath?: string
 }
 
 export interface DCClientState {
   /** Client FID */
-  fid: number;
+  fid: number
   /** Is initialized */
-  isInitialized: boolean;
+  isInitialized: boolean
   /** Is connected to relay */
-  isConnected: boolean;
+  isConnected: boolean
   /** Conversation count */
-  conversationCount: number;
+  conversationCount: number
   /** Unread message count */
-  unreadCount: number;
+  unreadCount: number
 }
 
 // ============ API Types ============
 
 export interface SendDCParams {
   /** Recipient FID */
-  recipientFid: number;
+  recipientFid: number
   /** Message text */
-  text: string;
+  text: string
   /** Embeds */
-  embeds?: DirectCastEmbed[];
+  embeds?: DirectCastEmbed[]
   /** Reply to message ID */
-  replyTo?: string;
+  replyTo?: string
 }
 
 export interface GetMessagesParams {
   /** Limit */
-  limit?: number;
+  limit?: number
   /** Get messages before this ID */
-  before?: string;
+  before?: string
   /** Get messages after this ID */
-  after?: string;
+  after?: string
 }
 
 // ============ WebSocket Types ============
 
 export interface DCWebSocketMessage {
-  type: 'auth' | 'send' | 'typing' | 'read' | 'subscribe';
-  payload: Record<string, unknown>;
+  type: 'auth' | 'send' | 'typing' | 'read' | 'subscribe'
+  payload: Record<string, unknown>
 }
 
 export interface DCWebSocketResponse {
-  type: 'auth_success' | 'auth_failed' | 'message' | 'notification' | 'error';
-  payload: Record<string, unknown>;
+  type: 'auth_success' | 'auth_failed' | 'message' | 'notification' | 'error'
+  payload: Record<string, unknown>
 }
-

@@ -7,37 +7,49 @@
  * - Data access (trajectories, rewards, models)
  */
 
-import { Hono } from 'hono';
-import { createRLAIFCoordinator } from '../../rlaif/coordinator';
-import { createTrajectoryStore } from '../../rlaif/trajectory-store';
-import { createRulerScorer } from '../../rlaif/ruler-scorer';
-import { type RLAIFRunConfig, RLAlgorithm } from '../../rlaif/types';
-import { validateBody, validateParams, validateQuery, rlaifRunCreationSchema, rlaifRunStartSchema, rlaifRunParamsSchema, rlaifRolloutsSchema, rlaifJudgeSchema, rlaifCidParamsSchema, rlaifManifestTrajectoriesQuerySchema } from '../../shared';
+import { Hono } from 'hono'
+import { createRLAIFCoordinator } from '../../rlaif/coordinator'
+import { createRulerScorer } from '../../rlaif/ruler-scorer'
+import { createTrajectoryStore } from '../../rlaif/trajectory-store'
+import { type RLAIFRunConfig, RLAlgorithm } from '../../rlaif/types'
+import {
+  rlaifCidParamsSchema,
+  rlaifJudgeSchema,
+  rlaifManifestTrajectoriesQuerySchema,
+  rlaifRolloutsSchema,
+  rlaifRunCreationSchema,
+  rlaifRunParamsSchema,
+  rlaifRunStartSchema,
+  validateBody,
+  validateParams,
+  validateQuery,
+} from '../../shared'
 
-const app = new Hono();
+const app = new Hono()
 
 // Initialize services with Phala TEE support
 const coordinator = createRLAIFCoordinator({
   rpcUrl: process.env.RPC_URL ?? 'http://localhost:9545',
-  coordinatorAddress: (process.env.RLAIF_COORDINATOR_ADDRESS ?? '0x0') as `0x${string}`,
+  coordinatorAddress: (process.env.RLAIF_COORDINATOR_ADDRESS ??
+    '0x0') as `0x${string}`,
   computeApiUrl: process.env.COMPUTE_API_URL ?? 'http://localhost:4010',
   storageApiUrl: process.env.STORAGE_API_URL ?? 'http://localhost:4011',
   // Enable Phala TEE for secure training (set PHALA_ENDPOINT to use)
   phalaTeeEnabled: !!process.env.PHALA_ENDPOINT,
   phalaEndpoint: process.env.PHALA_ENDPOINT,
   phalaApiKey: process.env.PHALA_API_KEY,
-});
+})
 
 const trajectoryStore = createTrajectoryStore({
   storageApiUrl: process.env.STORAGE_API_URL ?? 'http://localhost:4011',
-});
+})
 
 const rulerScorer = createRulerScorer({
   computeApiUrl: process.env.COMPUTE_API_URL ?? 'http://localhost:4010',
-});
+})
 
 app.post('/runs', async (c) => {
-  const body = await validateBody(rlaifRunCreationSchema, c);
+  const body = await validateBody(rlaifRunCreationSchema, c)
 
   const runConfig: RLAIFRunConfig = {
     runId: body.runId ?? `run-${Date.now()}`,
@@ -51,7 +63,12 @@ app.post('/runs', async (c) => {
       dtype: 'bfloat16',
     },
     rl: {
-      algorithm: (body.rl?.algorithm === 'ppo' ? RLAlgorithm.PPO : body.rl?.algorithm === 'dpo' ? RLAlgorithm.DPO : RLAlgorithm.GRPO),
+      algorithm:
+        body.rl?.algorithm === 'ppo'
+          ? RLAlgorithm.PPO
+          : body.rl?.algorithm === 'dpo'
+            ? RLAlgorithm.DPO
+            : RLAlgorithm.GRPO,
       learningRate: body.rl?.learningRate ?? 1e-5,
       batchSize: body.rl?.batchSize ?? 4,
       gradientAccumulationSteps: 8,
@@ -78,72 +95,74 @@ app.post('/runs', async (c) => {
     targetIterations: body.targetIterations ?? 10,
     minTrajectoriesPerIteration: body.minTrajectoriesPerIteration ?? 20,
     rewardToken: body.rewardToken as `0x${string}` | undefined,
-    rewardPerIteration: body.rewardPerIteration ? BigInt(body.rewardPerIteration) : undefined,
-  };
-
-  const runId = await coordinator.createRun(runConfig);
-
-  return c.json({ runId, status: 'created' });
-});
-
-app.get('/runs/:runId', (c) => {
-  const { runId } = validateParams(rlaifRunParamsSchema, c);
-  const run = coordinator.getRun(runId);
-
-  if (!run) {
-    throw new Error('Run not found');
+    rewardPerIteration: body.rewardPerIteration
+      ? BigInt(body.rewardPerIteration)
+      : undefined,
   }
 
-  return c.json(run);
-});
+  const runId = await coordinator.createRun(runConfig)
+
+  return c.json({ runId, status: 'created' })
+})
+
+app.get('/runs/:runId', (c) => {
+  const { runId } = validateParams(rlaifRunParamsSchema, c)
+  const run = coordinator.getRun(runId)
+
+  if (!run) {
+    throw new Error('Run not found')
+  }
+
+  return c.json(run)
+})
 
 app.post('/runs/:runId/start', async (c) => {
-  const { runId } = validateParams(rlaifRunParamsSchema, c);
-  const body = await validateBody(rlaifRunStartSchema, c);
+  const { runId } = validateParams(rlaifRunParamsSchema, c)
+  const body = await validateBody(rlaifRunStartSchema, c)
 
   // Start in background
   coordinator.runContinuousTraining(runId, body).catch((err) => {
-    console.error(`[RLAIF] Training failed for ${runId}:`, err);
-  });
+    console.error(`[RLAIF] Training failed for ${runId}:`, err)
+  })
 
-  return c.json({ runId, status: 'started' });
-});
+  return c.json({ runId, status: 'started' })
+})
 
 app.post('/runs/:runId/iteration', async (c) => {
-  const { runId } = validateParams(rlaifRunParamsSchema, c);
+  const { runId } = validateParams(rlaifRunParamsSchema, c)
 
-  const iteration = await coordinator.runIteration(runId);
+  const iteration = await coordinator.runIteration(runId)
 
-  return c.json(iteration);
-});
+  return c.json(iteration)
+})
 
 app.post('/runs/:runId/pause', async (c) => {
-  const { runId } = validateParams(rlaifRunParamsSchema, c);
+  const { runId } = validateParams(rlaifRunParamsSchema, c)
   // On-chain pause requires contract interaction
-  return c.json({ 
-    runId, 
+  return c.json({
+    runId,
     status: 'paused',
     note: 'Local status updated. On-chain pause requires blockchain connection.',
-  });
-});
+  })
+})
 
 app.post('/runs/:runId/resume', async (c) => {
-  const { runId } = validateParams(rlaifRunParamsSchema, c);
+  const { runId } = validateParams(rlaifRunParamsSchema, c)
   // On-chain resume requires contract interaction
-  return c.json({ 
-    runId, 
+  return c.json({
+    runId,
     status: 'resumed',
     note: 'Local status updated. On-chain resume requires blockchain connection.',
-  });
-});
+  })
+})
 
 app.post('/runs/:runId/rollouts', async (c) => {
-  const { runId } = validateParams(rlaifRunParamsSchema, c);
-  const body = await validateBody(rlaifRolloutsSchema, c);
+  const { runId } = validateParams(rlaifRunParamsSchema, c)
+  const body = await validateBody(rlaifRolloutsSchema, c)
 
-  const run = coordinator.getRun(runId);
+  const run = coordinator.getRun(runId)
   if (!run) {
-    throw new Error('Run not found');
+    throw new Error('Run not found')
   }
 
   const trajectories = body.trajectories.map((t) => ({
@@ -159,19 +178,19 @@ app.post('/runs/:runId/rollouts', async (c) => {
       episodeLength: t.steps.length,
       ...t.metadata,
     },
-  }));
+  }))
 
-  const manifest = await trajectoryStore.storeTrajectories(trajectories);
+  const manifest = await trajectoryStore.storeTrajectories(trajectories)
 
   return c.json({
     manifestCID: manifest.cid,
     trajectoryCount: manifest.totalCount,
     merkleRoot: manifest.merkleRoot,
-  });
-});
+  })
+})
 
 app.post('/judge', async (c) => {
-  const body = await validateBody(rlaifJudgeSchema, c);
+  const body = await validateBody(rlaifJudgeSchema, c)
 
   const rubric = body.rubric ?? {
     id: 'default',
@@ -179,62 +198,65 @@ app.post('/judge', async (c) => {
     description: '',
     criteria: '',
     priorityMetrics: [],
-  };
+  }
 
   const scores = await rulerScorer.scoreManifest(
     body.manifestCID,
     rubric,
-    body.groupSize ?? 4
-  );
+    body.groupSize ?? 4,
+  )
 
-  const rewardsCID = await trajectoryStore.storeRewards(scores);
+  const rewardsCID = await trajectoryStore.storeRewards(scores)
 
   return c.json({
     rewardsCID,
     scoreCount: scores.length,
     averageScore: scores.reduce((sum, s) => sum + s.score, 0) / scores.length,
-  });
-});
+  })
+})
 
 app.get('/trajectories/:cid', async (c) => {
-  const { cid } = validateParams(rlaifCidParamsSchema, c);
+  const { cid } = validateParams(rlaifCidParamsSchema, c)
 
-  const trajectory = await trajectoryStore.loadTrajectory(cid);
-  return c.json(trajectory);
-});
+  const trajectory = await trajectoryStore.loadTrajectory(cid)
+  return c.json(trajectory)
+})
 
 app.get('/manifests/:cid', async (c) => {
-  const { cid } = validateParams(rlaifCidParamsSchema, c);
+  const { cid } = validateParams(rlaifCidParamsSchema, c)
 
-  const manifest = await trajectoryStore.loadManifest(cid);
-  return c.json(manifest);
-});
+  const manifest = await trajectoryStore.loadManifest(cid)
+  return c.json(manifest)
+})
 
 app.get('/manifests/:cid/trajectories', async (c) => {
-  const { cid } = validateParams(rlaifCidParamsSchema, c);
-  const { limit, offset } = validateQuery(rlaifManifestTrajectoriesQuerySchema, c);
+  const { cid } = validateParams(rlaifCidParamsSchema, c)
+  const { limit, offset } = validateQuery(
+    rlaifManifestTrajectoriesQuerySchema,
+    c,
+  )
 
-  const manifest = await trajectoryStore.loadManifest(cid);
-  const slicedCIDs = manifest.trajectoryCIDs.slice(offset, offset + limit);
+  const manifest = await trajectoryStore.loadManifest(cid)
+  const slicedCIDs = manifest.trajectoryCIDs.slice(offset, offset + limit)
 
   const trajectories = await Promise.all(
-    slicedCIDs.map((trajCid) => trajectoryStore.loadTrajectory(trajCid))
-  );
+    slicedCIDs.map((trajCid) => trajectoryStore.loadTrajectory(trajCid)),
+  )
 
   return c.json({
     trajectories,
     total: manifest.totalCount,
     offset,
     limit,
-  });
-});
+  })
+})
 
 app.get('/rewards/:cid', async (c) => {
-  const { cid } = validateParams(rlaifCidParamsSchema, c);
+  const { cid } = validateParams(rlaifCidParamsSchema, c)
 
-  const rewards = await trajectoryStore.loadRewards(cid);
-  return c.json({ scores: rewards });
-});
+  const rewards = await trajectoryStore.loadRewards(cid)
+  return c.json({ scores: rewards })
+})
 
 // Health check
 app.get('/health', (c) => {
@@ -242,8 +264,7 @@ app.get('/health', (c) => {
     status: 'healthy',
     service: 'rlaif',
     version: '1.0.0',
-  });
-});
+  })
+})
 
-export default app;
-
+export default app

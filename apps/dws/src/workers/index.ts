@@ -3,6 +3,5 @@
  * Serverless function runtime
  */
 
-export * from './types';
-export { WorkerRuntime, DEFAULT_POOL_CONFIG } from './runtime';
-
+export { DEFAULT_POOL_CONFIG, WorkerRuntime } from './runtime'
+export * from './types'

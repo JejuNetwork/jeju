@@ -3,35 +3,49 @@
  * Handles bonding curve calculations, ICO logic, and related pure functions
  */
 
-import { z } from 'zod'
-import { parseEther, formatEther } from 'viem'
 import { AddressSchema } from '@jejunetwork/types'
+import { formatEther } from 'viem'
+import { z } from 'zod'
 
 // =============================================================================
 // SCHEMAS
 // =============================================================================
 
 export const BondingCurveConfigSchema = z.object({
-  virtualEthReserves: z.string().refine(val => parseFloat(val) > 0, 'Must be positive'),
-  graduationTarget: z.string().refine(val => parseFloat(val) > 0, 'Must be positive'),
-  tokenSupply: z.string().refine(val => parseFloat(val) > 0, 'Must be positive'),
+  virtualEthReserves: z
+    .string()
+    .refine((val) => parseFloat(val) > 0, 'Must be positive'),
+  graduationTarget: z
+    .string()
+    .refine((val) => parseFloat(val) > 0, 'Must be positive'),
+  tokenSupply: z
+    .string()
+    .refine((val) => parseFloat(val) > 0, 'Must be positive'),
 })
 
 export type BondingCurveConfig = z.infer<typeof BondingCurveConfigSchema>
 
-export const ICOConfigSchema = z.object({
-  presaleAllocationBps: z.number().int().min(0).max(10000),
-  presalePrice: z.string().refine(val => parseFloat(val) > 0, 'Must be positive'),
-  lpFundingBps: z.number().int().min(0).max(10000),
-  lpLockDuration: z.number().int().min(0),
-  buyerLockDuration: z.number().int().min(0),
-  softCap: z.string().refine(val => parseFloat(val) > 0, 'Must be positive'),
-  hardCap: z.string().refine(val => parseFloat(val) > 0, 'Must be positive'),
-  presaleDuration: z.number().int().min(0),
-}).refine(
-  data => parseFloat(data.hardCap) >= parseFloat(data.softCap),
-  { message: 'Hard cap must be >= soft cap', path: ['hardCap'] }
-)
+export const ICOConfigSchema = z
+  .object({
+    presaleAllocationBps: z.number().int().min(0).max(10000),
+    presalePrice: z
+      .string()
+      .refine((val) => parseFloat(val) > 0, 'Must be positive'),
+    lpFundingBps: z.number().int().min(0).max(10000),
+    lpLockDuration: z.number().int().min(0),
+    buyerLockDuration: z.number().int().min(0),
+    softCap: z
+      .string()
+      .refine((val) => parseFloat(val) > 0, 'Must be positive'),
+    hardCap: z
+      .string()
+      .refine((val) => parseFloat(val) > 0, 'Must be positive'),
+    presaleDuration: z.number().int().min(0),
+  })
+  .refine((data) => parseFloat(data.hardCap) >= parseFloat(data.softCap), {
+    message: 'Hard cap must be >= soft cap',
+    path: ['hardCap'],
+  })
 
 export type ICOConfig = z.infer<typeof ICOConfigSchema>
 
@@ -115,7 +129,9 @@ export function calculateInitialMarketCap(config: BondingCurveConfig): number {
  * Calculate graduation market cap
  * Market cap at graduation = virtualEthReserves + graduationTarget
  */
-export function calculateGraduationMarketCap(config: BondingCurveConfig): number {
+export function calculateGraduationMarketCap(
+  config: BondingCurveConfig,
+): number {
   const validated = BondingCurveConfigSchema.parse(config)
   const virtualEth = parseFloat(validated.virtualEthReserves)
   const target = parseFloat(validated.graduationTarget)
@@ -130,22 +146,22 @@ export function calculateGraduationMarketCap(config: BondingCurveConfig): number
 export function calculateBuyPriceImpact(
   ethAmount: number,
   virtualEthReserves: number,
-  tokenSupply: number
+  tokenSupply: number,
 ): number {
   if (ethAmount <= 0 || virtualEthReserves <= 0 || tokenSupply <= 0) return 0
-  
+
   // Current price
   const currentPrice = virtualEthReserves / tokenSupply
-  
+
   // Tokens received (constant product)
   const newEthReserves = virtualEthReserves + ethAmount
   const k = virtualEthReserves * tokenSupply
   const newTokenSupply = k / newEthReserves
   const tokensOut = tokenSupply - newTokenSupply
-  
+
   // Effective price
   const effectivePrice = ethAmount / tokensOut
-  
+
   // Price impact
   return ((effectivePrice - currentPrice) / currentPrice) * 100
 }
@@ -156,10 +172,10 @@ export function calculateBuyPriceImpact(
 export function calculateTokensOut(
   ethAmount: number,
   virtualEthReserves: number,
-  tokenSupply: number
+  tokenSupply: number,
 ): number {
   if (ethAmount <= 0 || virtualEthReserves <= 0 || tokenSupply <= 0) return 0
-  
+
   const k = virtualEthReserves * tokenSupply
   const newEthReserves = virtualEthReserves + ethAmount
   const newTokenSupply = k / newEthReserves
@@ -172,10 +188,10 @@ export function calculateTokensOut(
 export function calculateEthOut(
   tokenAmount: number,
   virtualEthReserves: number,
-  tokenSupply: number
+  tokenSupply: number,
 ): number {
   if (tokenAmount <= 0 || virtualEthReserves <= 0 || tokenSupply <= 0) return 0
-  
+
   const k = virtualEthReserves * tokenSupply
   const newTokenSupply = tokenSupply + tokenAmount
   const newEthReserves = k / newTokenSupply
@@ -188,7 +204,7 @@ export function calculateEthOut(
  */
 export function calculateGraduationProgress(
   ethCollected: number,
-  graduationTarget: number
+  graduationTarget: number,
 ): number {
   if (graduationTarget <= 0) return 0
   const progress = (ethCollected / graduationTarget) * 100
@@ -199,7 +215,7 @@ export function calculateGraduationProgress(
  * Parse bonding curve stats from contract response
  */
 export function parseBondingCurveStats(
-  data: readonly [bigint, bigint, bigint, bigint, boolean]
+  data: readonly [bigint, bigint, bigint, bigint, boolean],
 ): BondingCurveStats {
   return {
     price: data[0],
@@ -220,7 +236,7 @@ export function parseBondingCurveStats(
  */
 export function calculateTokenAllocation(
   ethContribution: number,
-  presalePrice: number
+  presalePrice: number,
 ): number {
   if (ethContribution <= 0 || presalePrice <= 0) return 0
   return ethContribution / presalePrice
@@ -231,7 +247,7 @@ export function calculateTokenAllocation(
  */
 export function calculatePresaleTokens(
   totalSupply: number,
-  presaleAllocationBps: number
+  presaleAllocationBps: number,
 ): number {
   return (totalSupply * presaleAllocationBps) / 10000
 }
@@ -241,7 +257,7 @@ export function calculatePresaleTokens(
  */
 export function calculateLPAllocation(
   raisedEth: number,
-  lpFundingBps: number
+  lpFundingBps: number,
 ): number {
   return (raisedEth * lpFundingBps) / 10000
 }
@@ -253,7 +269,7 @@ export function canClaimTokens(
   status: PresaleStatus,
   contribution: UserContribution,
   buyerClaimStart: bigint,
-  currentTimestamp: bigint
+  currentTimestamp: bigint,
 ): boolean {
   return (
     status.isFinalized &&
@@ -268,7 +284,7 @@ export function canClaimTokens(
  */
 export function canClaimRefund(
   status: PresaleStatus,
-  contribution: UserContribution
+  contribution: UserContribution,
 ): boolean {
   return (
     status.isFinalized &&
@@ -282,7 +298,7 @@ export function canClaimRefund(
  * Parse presale status from contract response
  */
 export function parsePresaleStatus(
-  data: readonly [bigint, bigint, bigint, bigint, boolean, boolean, boolean]
+  data: readonly [bigint, bigint, bigint, bigint, boolean, boolean, boolean],
 ): PresaleStatus {
   return {
     raised: data[0],
@@ -299,7 +315,7 @@ export function parsePresaleStatus(
  * Parse user contribution from contract response
  */
 export function parseUserContribution(
-  data: readonly [bigint, bigint, bigint, bigint, boolean]
+  data: readonly [bigint, bigint, bigint, bigint, boolean],
 ): UserContribution {
   return {
     ethAmount: data[0],
@@ -329,7 +345,7 @@ export function formatPrice(priceWei: bigint): string {
  * Format basis points as percentage
  */
 export function formatBasisPoints(bps: number): string {
-  return (bps / 100).toFixed(2) + '%'
+  return `${(bps / 100).toFixed(2)}%`
 }
 
 /**
@@ -338,11 +354,11 @@ export function formatBasisPoints(bps: number): string {
 export function formatDuration(seconds: bigint): string {
   const secs = Number(seconds)
   if (secs <= 0) return 'Ended'
-  
+
   const days = Math.floor(secs / 86400)
   const hours = Math.floor((secs % 86400) / 3600)
   const mins = Math.floor((secs % 3600) / 60)
-  
+
   if (days > 0) return `${days}d ${hours}h`
   if (hours > 0) return `${hours}h ${mins}m`
   return `${mins}m`
@@ -351,10 +367,13 @@ export function formatDuration(seconds: bigint): string {
 /**
  * Format ETH amount for display
  */
-export function formatEthAmount(weiAmount: bigint, decimals: number = 4): string {
+export function formatEthAmount(
+  weiAmount: bigint,
+  decimals: number = 4,
+): string {
   const eth = Number(formatEther(weiAmount))
   if (eth >= 1000) {
-    return (eth / 1000).toFixed(1) + 'K'
+    return `${(eth / 1000).toFixed(1)}K`
   }
   return eth.toFixed(decimals)
 }
@@ -370,7 +389,7 @@ export function validateBondingCurveLaunch(
   name: string,
   symbol: string,
   creatorFeeBps: number,
-  config: BondingCurveConfig
+  config: BondingCurveConfig,
 ): { valid: true } | { valid: false; error: string } {
   if (!name.trim()) {
     return { valid: false, error: 'Token name is required' }
@@ -384,12 +403,12 @@ export function validateBondingCurveLaunch(
   if (creatorFeeBps < 0 || creatorFeeBps > 10000) {
     return { valid: false, error: 'Creator fee must be between 0% and 100%' }
   }
-  
+
   const result = BondingCurveConfigSchema.safeParse(config)
   if (!result.success) {
     return { valid: false, error: result.error.issues[0].message }
   }
-  
+
   return { valid: true }
 }
 
@@ -401,7 +420,7 @@ export function validateICOLaunch(
   symbol: string,
   totalSupply: string,
   creatorFeeBps: number,
-  config: ICOConfig
+  config: ICOConfig,
 ): { valid: true } | { valid: false; error: string } {
   if (!name.trim()) {
     return { valid: false, error: 'Token name is required' }
@@ -418,12 +437,12 @@ export function validateICOLaunch(
   if (creatorFeeBps < 0 || creatorFeeBps > 10000) {
     return { valid: false, error: 'Creator fee must be between 0% and 100%' }
   }
-  
+
   const result = ICOConfigSchema.safeParse(config)
   if (!result.success) {
     return { valid: false, error: result.error.issues[0].message }
   }
-  
+
   return { valid: true }
 }
 

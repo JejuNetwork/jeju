@@ -1,16 +1,16 @@
 /**
  * Terraform Provider for DWS
- * 
+ *
  * Allows provisioning infrastructure on the DWS decentralized network
  * using standard Terraform workflows.
- * 
+ *
  * Resources supported:
  * - dws_worker: Deploy serverless workers
  * - dws_container: Run containers
  * - dws_storage: Provision storage volumes
  * - dws_domain: Register JNS domains
  * - dws_node: Register as a node operator
- * 
+ *
  * Usage:
  * ```hcl
  * provider "dws" {
@@ -18,64 +18,64 @@
  *   private_key = var.dws_private_key
  *   network     = "mainnet"
  * }
- * 
+ *
  * resource "dws_worker" "api" {
  *   name        = "my-api"
  *   code_cid    = "Qm..."
  *   memory_mb   = 256
  *   min_instances = 1
  *   max_instances = 10
- *   
+ *
  *   tee_required = true
  * }
  * ```
  */
 
-import { Hono } from 'hono';
-import { z } from 'zod';
-import type { Address } from 'viem';
-import { validateBody, validateParams } from '../server/routes/shared';
+import { Hono } from 'hono'
+import type { Address } from 'viem'
+import { z } from 'zod'
+import { validateBody, validateParams } from '../server/routes/shared'
 
 // ============================================================================
 // Terraform Provider Protocol Types
 // ============================================================================
 
 interface TerraformSchema {
-  version: number;
-  provider?: ProviderSchema;
-  resource_schemas?: Record<string, ResourceSchema>;
-  data_source_schemas?: Record<string, ResourceSchema>;
+  version: number
+  provider?: ProviderSchema
+  resource_schemas?: Record<string, ResourceSchema>
+  data_source_schemas?: Record<string, ResourceSchema>
 }
 
 interface ProviderSchema {
-  version: number;
-  block: BlockSchema;
+  version: number
+  block: BlockSchema
 }
 
 interface ResourceSchema {
-  version: number;
-  block: BlockSchema;
+  version: number
+  block: BlockSchema
 }
 
 interface BlockSchema {
-  attributes?: Record<string, AttributeSchema>;
-  block_types?: Record<string, BlockTypeSchema>;
+  attributes?: Record<string, AttributeSchema>
+  block_types?: Record<string, BlockTypeSchema>
 }
 
 interface AttributeSchema {
-  type: string | [string, string];
-  description?: string;
-  required?: boolean;
-  optional?: boolean;
-  computed?: boolean;
-  sensitive?: boolean;
+  type: string | [string, string]
+  description?: string
+  required?: boolean
+  optional?: boolean
+  computed?: boolean
+  sensitive?: boolean
 }
 
 interface BlockTypeSchema {
-  nesting_mode: 'single' | 'list' | 'set' | 'map';
-  block: BlockSchema;
-  min_items?: number;
-  max_items?: number;
+  nesting_mode: 'single' | 'list' | 'set' | 'map'
+  block: BlockSchema
+  min_items?: number
+  max_items?: number
 }
 
 // ============================================================================
@@ -104,7 +104,7 @@ const DWS_PROVIDER_SCHEMA: ProviderSchema = {
       },
     },
   },
-};
+}
 
 const DWS_WORKER_SCHEMA: ResourceSchema = {
   version: 1,
@@ -128,7 +128,7 @@ const DWS_WORKER_SCHEMA: ResourceSchema = {
       env: { type: ['map', 'string'], optional: true },
     },
   },
-};
+}
 
 const DWS_CONTAINER_SCHEMA: ResourceSchema = {
   version: 1,
@@ -150,7 +150,7 @@ const DWS_CONTAINER_SCHEMA: ResourceSchema = {
       endpoint: { type: 'string', computed: true },
     },
   },
-};
+}
 
 const DWS_STORAGE_SCHEMA: ResourceSchema = {
   version: 1,
@@ -165,7 +165,7 @@ const DWS_STORAGE_SCHEMA: ResourceSchema = {
       endpoint: { type: 'string', computed: true },
     },
   },
-};
+}
 
 const DWS_DOMAIN_SCHEMA: ResourceSchema = {
   version: 1,
@@ -179,7 +179,7 @@ const DWS_DOMAIN_SCHEMA: ResourceSchema = {
       resolver: { type: 'string', computed: true },
     },
   },
-};
+}
 
 const DWS_NODE_SCHEMA: ResourceSchema = {
   version: 1,
@@ -203,7 +203,7 @@ const DWS_NODE_SCHEMA: ResourceSchema = {
       status: { type: 'string', computed: true },
     },
   },
-};
+}
 
 // ============================================================================
 // Request Validation Schemas
@@ -213,7 +213,7 @@ const providerConfigSchema = z.object({
   endpoint: z.string().optional(),
   private_key: z.string(),
   network: z.enum(['localnet', 'testnet', 'mainnet']).optional(),
-});
+})
 
 const workerResourceSchema = z.object({
   name: z.string().min(1),
@@ -229,7 +229,7 @@ const workerResourceSchema = z.object({
   tee_required: z.boolean().optional(),
   tee_platform: z.string().optional(),
   env: z.record(z.string()).optional(),
-});
+})
 
 const containerResourceSchema = z.object({
   name: z.string().min(1),
@@ -243,21 +243,21 @@ const containerResourceSchema = z.object({
   env: z.record(z.string()).optional(),
   ports: z.array(z.number()).optional(),
   tee_required: z.boolean().optional(),
-});
+})
 
 const storageResourceSchema = z.object({
   name: z.string().min(1),
   size_gb: z.number().min(1),
   type: z.enum(['ipfs', 'arweave', 's3']).optional(),
   replication: z.number().optional(),
-});
+})
 
 const domainResourceSchema = z.object({
   name: z.string().min(1),
   content_hash: z.string().optional(),
   content_cid: z.string().optional(),
   ttl: z.number().optional(),
-});
+})
 
 const nodeResourceSchema = z.object({
   endpoint: z.string().url(),
@@ -273,14 +273,14 @@ const nodeResourceSchema = z.object({
   price_per_request_wei: z.string().optional(),
   stake_wei: z.string().optional(),
   region: z.string().optional(),
-});
+})
 
 // ============================================================================
 // Terraform Provider Router
 // ============================================================================
 
 export function createTerraformProviderRouter(): Hono {
-  const router = new Hono();
+  const router = new Hono()
 
   // Provider schema endpoint (for terraform init)
   router.get('/terraform/v1/schema', (c) => {
@@ -298,34 +298,34 @@ export function createTerraformProviderRouter(): Hono {
         dws_worker: DWS_WORKER_SCHEMA,
         dws_nodes: DWS_NODE_SCHEMA,
       },
-    };
-    return c.json(schema);
-  });
+    }
+    return c.json(schema)
+  })
 
   // Configure provider
   router.post('/terraform/v1/configure', async (c) => {
-    const config = await validateBody(providerConfigSchema, c);
-    
+    const config = await validateBody(providerConfigSchema, c)
+
     // Store config in context for subsequent requests
     // In production, this would validate the private key and set up the client
     return c.json({
       success: true,
       network: config.network ?? 'mainnet',
       endpoint: config.endpoint ?? 'https://dws.jejunetwork.org',
-    });
-  });
+    })
+  })
 
   // ============================================================================
   // Worker Resources
   // ============================================================================
 
   router.post('/terraform/v1/resources/dws_worker', async (c) => {
-    const body = await validateBody(workerResourceSchema, c);
-    const _owner = c.req.header('x-jeju-address') as Address;
+    const body = await validateBody(workerResourceSchema, c)
+    const _owner = c.req.header('x-jeju-address') as Address
 
     // Create worker via DWS API
-    const workerId = `tf-worker-${Date.now()}`;
-    
+    const workerId = `tf-worker-${Date.now()}`
+
     return c.json({
       id: workerId,
       name: body.name,
@@ -343,114 +343,114 @@ export function createTerraformProviderRouter(): Hono {
       status: 'deploying',
       endpoints: [],
       env: body.env ?? {},
-    });
-  });
+    })
+  })
 
   router.get('/terraform/v1/resources/dws_worker/:id', async (c) => {
-    const { id } = validateParams(z.object({ id: z.string() }), c);
-    
+    const { id } = validateParams(z.object({ id: z.string() }), c)
+
     // Look up worker
     // In production, this would query the actual state
     return c.json({
       id,
       status: 'active',
       endpoints: [`https://${id}.workers.dws.jejunetwork.org`],
-    });
-  });
+    })
+  })
 
   router.put('/terraform/v1/resources/dws_worker/:id', async (c) => {
-    const { id } = validateParams(z.object({ id: z.string() }), c);
-    const body = await validateBody(workerResourceSchema, c);
-    
+    const { id } = validateParams(z.object({ id: z.string() }), c)
+    const body = await validateBody(workerResourceSchema, c)
+
     // Update worker
     return c.json({
       id,
       ...body,
       status: 'updating',
-    });
-  });
+    })
+  })
 
   router.delete('/terraform/v1/resources/dws_worker/:id', async (c) => {
-    const { id } = validateParams(z.object({ id: z.string() }), c);
-    
+    const { id } = validateParams(z.object({ id: z.string() }), c)
+
     // Delete worker
-    return c.json({ success: true, id });
-  });
+    return c.json({ success: true, id })
+  })
 
   // ============================================================================
   // Container Resources
   // ============================================================================
 
   router.post('/terraform/v1/resources/dws_container', async (c) => {
-    const body = await validateBody(containerResourceSchema, c);
-    
-    const containerId = `tf-container-${Date.now()}`;
-    
+    const body = await validateBody(containerResourceSchema, c)
+
+    const containerId = `tf-container-${Date.now()}`
+
     return c.json({
       id: containerId,
       ...body,
       status: 'starting',
       endpoint: '',
-    });
-  });
+    })
+  })
 
   router.get('/terraform/v1/resources/dws_container/:id', async (c) => {
-    const { id } = validateParams(z.object({ id: z.string() }), c);
-    
+    const { id } = validateParams(z.object({ id: z.string() }), c)
+
     return c.json({
       id,
       status: 'running',
       endpoint: `https://${id}.containers.dws.jejunetwork.org`,
-    });
-  });
+    })
+  })
 
   router.delete('/terraform/v1/resources/dws_container/:id', async (c) => {
-    const { id } = validateParams(z.object({ id: z.string() }), c);
-    return c.json({ success: true, id });
-  });
+    const { id } = validateParams(z.object({ id: z.string() }), c)
+    return c.json({ success: true, id })
+  })
 
   // ============================================================================
   // Storage Resources
   // ============================================================================
 
   router.post('/terraform/v1/resources/dws_storage', async (c) => {
-    const body = await validateBody(storageResourceSchema, c);
-    
-    const storageId = `tf-storage-${Date.now()}`;
-    
+    const body = await validateBody(storageResourceSchema, c)
+
+    const storageId = `tf-storage-${Date.now()}`
+
     return c.json({
       id: storageId,
       ...body,
       cid: '', // Will be assigned when content is uploaded
       endpoint: `https://storage.dws.jejunetwork.org/v1/${storageId}`,
-    });
-  });
+    })
+  })
 
   router.get('/terraform/v1/resources/dws_storage/:id', async (c) => {
-    const { id } = validateParams(z.object({ id: z.string() }), c);
-    
+    const { id } = validateParams(z.object({ id: z.string() }), c)
+
     return c.json({
       id,
       cid: `Qm${id.slice(0, 44)}`,
       endpoint: `https://storage.dws.jejunetwork.org/v1/${id}`,
-    });
-  });
+    })
+  })
 
   router.delete('/terraform/v1/resources/dws_storage/:id', async (c) => {
-    const { id } = validateParams(z.object({ id: z.string() }), c);
-    return c.json({ success: true, id });
-  });
+    const { id } = validateParams(z.object({ id: z.string() }), c)
+    return c.json({ success: true, id })
+  })
 
   // ============================================================================
   // Domain Resources
   // ============================================================================
 
   router.post('/terraform/v1/resources/dws_domain', async (c) => {
-    const body = await validateBody(domainResourceSchema, c);
-    
-    const domainId = `tf-domain-${Date.now()}`;
-    const fullName = body.name.endsWith('.jns') ? body.name : `${body.name}.jns`;
-    
+    const body = await validateBody(domainResourceSchema, c)
+
+    const domainId = `tf-domain-${Date.now()}`
+    const fullName = body.name.endsWith('.jns') ? body.name : `${body.name}.jns`
+
     return c.json({
       id: domainId,
       name: fullName,
@@ -458,54 +458,54 @@ export function createTerraformProviderRouter(): Hono {
       content_cid: body.content_cid ?? '',
       ttl: body.ttl ?? 300,
       resolver: '0x0000000000000000000000000000000000000000',
-    });
-  });
+    })
+  })
 
   router.get('/terraform/v1/resources/dws_domain/:id', async (c) => {
-    const { id } = validateParams(z.object({ id: z.string() }), c);
-    
+    const { id } = validateParams(z.object({ id: z.string() }), c)
+
     return c.json({
       id,
       resolver: '0x0000000000000000000000000000000000000000',
-    });
-  });
+    })
+  })
 
   router.delete('/terraform/v1/resources/dws_domain/:id', async (c) => {
-    const { id } = validateParams(z.object({ id: z.string() }), c);
-    return c.json({ success: true, id });
-  });
+    const { id } = validateParams(z.object({ id: z.string() }), c)
+    return c.json({ success: true, id })
+  })
 
   // ============================================================================
   // Node Resources
   // ============================================================================
 
   router.post('/terraform/v1/resources/dws_node', async (c) => {
-    const body = await validateBody(nodeResourceSchema, c);
-    
-    const nodeId = `tf-node-${Date.now()}`;
-    
+    const body = await validateBody(nodeResourceSchema, c)
+
+    const nodeId = `tf-node-${Date.now()}`
+
     return c.json({
       id: nodeId,
       agent_id: '0', // Will be assigned by on-chain registration
       ...body,
       status: 'registering',
-    });
-  });
+    })
+  })
 
   router.get('/terraform/v1/resources/dws_node/:id', async (c) => {
-    const { id } = validateParams(z.object({ id: z.string() }), c);
-    
+    const { id } = validateParams(z.object({ id: z.string() }), c)
+
     return c.json({
       id,
       agent_id: '12345',
       status: 'online',
-    });
-  });
+    })
+  })
 
   router.delete('/terraform/v1/resources/dws_node/:id', async (c) => {
-    const { id } = validateParams(z.object({ id: z.string() }), c);
-    return c.json({ success: true, id });
-  });
+    const { id } = validateParams(z.object({ id: z.string() }), c)
+    return c.json({ success: true, id })
+  })
 
   // ============================================================================
   // Data Sources
@@ -523,9 +523,8 @@ export function createTerraformProviderRouter(): Hono {
           status: 'online',
         },
       ],
-    });
-  });
+    })
+  })
 
-  return router;
+  return router
 }
-

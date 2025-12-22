@@ -14,40 +14,40 @@ import {
   type Address,
   type Chain,
   type Hash,
-  type PublicClient,
-  type WalletClient,
-  parseAbi,
   keccak256,
+  type PublicClient,
+  parseAbi,
   toBytes,
-} from 'viem';
+  type WalletClient,
+} from 'viem'
 
 // ============ GitHub OAuth Types (local implementation) ============
 
 interface GitHubOAuthConfig {
-  clientId: string;
-  clientSecret: string;
-  redirectUri: string;
-  scopes: string[];
+  clientId: string
+  clientSecret: string
+  redirectUri: string
+  scopes: string[]
 }
 
 interface GitHubOAuthToken {
-  accessToken: string;
-  tokenType: string;
-  scope: string;
+  accessToken: string
+  tokenType: string
+  scope: string
 }
 
 interface GitHubUserProfile {
-  id: number;
-  login: string;
-  name: string | null;
-  email: string | null;
-  avatar_url: string;
+  id: number
+  login: string
+  name: string | null
+  email: string | null
+  avatar_url: string
 }
 
 class GitHubOAuthProvider {
-  private static AUTH_URL = 'https://github.com/login/oauth/authorize';
-  private static TOKEN_URL = 'https://github.com/login/oauth/access_token';
-  private static PROFILE_URL = 'https://api.github.com/user';
+  private static AUTH_URL = 'https://github.com/login/oauth/authorize'
+  private static TOKEN_URL = 'https://github.com/login/oauth/access_token'
+  private static PROFILE_URL = 'https://api.github.com/user'
 
   constructor(private config: GitHubOAuthConfig) {}
 
@@ -57,8 +57,8 @@ class GitHubOAuthProvider {
       redirect_uri: this.config.redirectUri,
       scope: this.config.scopes.join(' '),
       state,
-    });
-    return `${GitHubOAuthProvider.AUTH_URL}?${params}`;
+    })
+    return `${GitHubOAuthProvider.AUTH_URL}?${params}`
   }
 
   async exchangeCode(code: string): Promise<GitHubOAuthToken> {
@@ -74,19 +74,23 @@ class GitHubOAuthProvider {
         code,
         redirect_uri: this.config.redirectUri,
       }),
-    });
+    })
 
     if (!response.ok) {
-      throw new Error(`GitHub token exchange failed: ${response.status}`);
+      throw new Error(`GitHub token exchange failed: ${response.status}`)
     }
 
-    const data = await response.json() as { access_token: string; token_type: string; scope: string };
+    const data = (await response.json()) as {
+      access_token: string
+      token_type: string
+      scope: string
+    }
 
     return {
       accessToken: data.access_token,
       tokenType: data.token_type,
       scope: data.scope,
-    };
+    }
   }
 
   async getProfile(token: GitHubOAuthToken): Promise<GitHubUserProfile> {
@@ -95,85 +99,89 @@ class GitHubOAuthProvider {
         Authorization: `Bearer ${token.accessToken}`,
         Accept: 'application/vnd.github+json',
       },
-    });
+    })
 
     if (!response.ok) {
-      throw new Error(`GitHub profile fetch failed: ${response.status}`);
+      throw new Error(`GitHub profile fetch failed: ${response.status}`)
     }
 
-    return response.json() as Promise<GitHubUserProfile>;
+    return response.json() as Promise<GitHubUserProfile>
   }
 }
 
 // ============ Types ============
 
-export type ContributorType = 'INDIVIDUAL' | 'ORGANIZATION' | 'PROJECT';
-export type VerificationStatus = 'UNVERIFIED' | 'PENDING' | 'VERIFIED' | 'REVOKED';
-export type SocialPlatform = 'github' | 'discord' | 'twitter' | 'farcaster';
+export type ContributorType = 'INDIVIDUAL' | 'ORGANIZATION' | 'PROJECT'
+export type VerificationStatus =
+  | 'UNVERIFIED'
+  | 'PENDING'
+  | 'VERIFIED'
+  | 'REVOKED'
+export type SocialPlatform = 'github' | 'discord' | 'twitter' | 'farcaster'
 
 export interface ContributorProfile {
-  contributorId: string;
-  wallet: Address;
-  agentId: bigint;
-  contributorType: ContributorType;
-  profileUri: string;
-  totalEarned: bigint;
-  registeredAt: number;
-  lastActiveAt: number;
-  active: boolean;
+  contributorId: string
+  wallet: Address
+  agentId: bigint
+  contributorType: ContributorType
+  profileUri: string
+  totalEarned: bigint
+  registeredAt: number
+  lastActiveAt: number
+  active: boolean
 }
 
 export interface SocialLink {
-  platform: SocialPlatform;
-  handle: string;
-  proofHash: string;
-  status: VerificationStatus;
-  verifiedAt: number;
-  expiresAt: number;
+  platform: SocialPlatform
+  handle: string
+  proofHash: string
+  status: VerificationStatus
+  verifiedAt: number
+  expiresAt: number
 }
 
 export interface RepositoryClaim {
-  claimId: string;
-  contributorId: string;
-  owner: string;
-  repo: string;
-  proofHash: string;
-  status: VerificationStatus;
-  claimedAt: number;
-  verifiedAt: number;
+  claimId: string
+  contributorId: string
+  owner: string
+  repo: string
+  proofHash: string
+  status: VerificationStatus
+  claimedAt: number
+  verifiedAt: number
 }
 
 export interface DependencyClaim {
-  claimId: string;
-  contributorId: string;
-  packageName: string;
-  registryType: string;
-  proofHash: string;
-  status: VerificationStatus;
-  claimedAt: number;
-  verifiedAt: number;
+  claimId: string
+  contributorId: string
+  packageName: string
+  registryType: string
+  proofHash: string
+  status: VerificationStatus
+  claimedAt: number
+  verifiedAt: number
 }
 
 export interface DAOContribution {
-  daoId: string;
-  totalEarned: bigint;
-  bountyCount: number;
-  paymentRequestCount: number;
-  lastContributionAt: number;
+  daoId: string
+  totalEarned: bigint
+  bountyCount: number
+  paymentRequestCount: number
+  lastContributionAt: number
 }
 
 export interface ContributorServiceConfig {
-  publicClient: PublicClient;
-  walletClient?: WalletClient;
-  chain: Chain;
-  registryAddress: Address;
+  publicClient: PublicClient
+  walletClient?: WalletClient
+  chain: Chain
+  registryAddress: Address
   oauth3Config: {
     github: {
-      clientId: string;
-      clientSecret: string;
-      redirectUri: string;
-    };
-  };
+      clientId: string
+      clientSecret: string
+      redirectUri: string
+    }
+  }
 }
 
 // ============ Contract ABI ============
@@ -219,7 +227,7 @@ const CONTRIBUTOR_REGISTRY_ABI = parseAbi([
   'event SocialLinkVerified(bytes32 indexed contributorId, bytes32 indexed platform)',
   'event RepositoryVerified(bytes32 indexed claimId)',
   'event DependencyVerified(bytes32 indexed claimId)',
-]);
+])
 
 // ============ Platform Hashes ============
 
@@ -228,61 +236,68 @@ const PLATFORM_HASHES: Record<SocialPlatform, `0x${string}`> = {
   discord: keccak256(toBytes('discord')),
   twitter: keccak256(toBytes('twitter')),
   farcaster: keccak256(toBytes('farcaster')),
-};
+}
 
 // ============ Type Converters ============
 
 function parseContributorType(value: number): ContributorType {
-  const types: ContributorType[] = ['INDIVIDUAL', 'ORGANIZATION', 'PROJECT'];
-  return types[value] || 'INDIVIDUAL';
+  const types: ContributorType[] = ['INDIVIDUAL', 'ORGANIZATION', 'PROJECT']
+  return types[value] || 'INDIVIDUAL'
 }
 
 function parseVerificationStatus(value: number): VerificationStatus {
-  const statuses: VerificationStatus[] = ['UNVERIFIED', 'PENDING', 'VERIFIED', 'REVOKED'];
-  return statuses[value] || 'UNVERIFIED';
+  const statuses: VerificationStatus[] = [
+    'UNVERIFIED',
+    'PENDING',
+    'VERIFIED',
+    'REVOKED',
+  ]
+  return statuses[value] || 'UNVERIFIED'
 }
 
 function parsePlatformFromHash(hash: string): SocialPlatform {
   for (const [platform, platformHash] of Object.entries(PLATFORM_HASHES)) {
     if (platformHash === hash) {
-      return platform as SocialPlatform;
+      return platform as SocialPlatform
     }
   }
-  return 'github';
+  return 'github'
 }
 
 // ============ Service Class ============
 
 export class ContributorService {
-  private publicClient: PublicClient;
-  private walletClient: WalletClient | null;
-  private chain: Chain;
-  private registryAddress: Address;
-  private githubProvider: GitHubOAuthProvider;
+  private publicClient: PublicClient
+  private walletClient: WalletClient | null
+  private chain: Chain
+  private registryAddress: Address
+  private githubProvider: GitHubOAuthProvider
 
   constructor(config: ContributorServiceConfig) {
-    this.publicClient = config.publicClient;
-    this.walletClient = config.walletClient || null;
-    this.chain = config.chain;
-    this.registryAddress = config.registryAddress;
+    this.publicClient = config.publicClient
+    this.walletClient = config.walletClient || null
+    this.chain = config.chain
+    this.registryAddress = config.registryAddress
 
     this.githubProvider = new GitHubOAuthProvider({
       clientId: config.oauth3Config.github.clientId,
       clientSecret: config.oauth3Config.github.clientSecret,
       redirectUri: config.oauth3Config.github.redirectUri,
       scopes: ['read:user', 'repo'],
-    });
+    })
   }
 
   // ============ Registration ============
 
   async register(
     contributorType: ContributorType,
-    profileUri: string
+    profileUri: string,
   ): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    if (!this.walletClient) throw new Error('Wallet client required')
 
-    const typeIndex = ['INDIVIDUAL', 'ORGANIZATION', 'PROJECT'].indexOf(contributorType);
+    const typeIndex = ['INDIVIDUAL', 'ORGANIZATION', 'PROJECT'].indexOf(
+      contributorType,
+    )
 
     const hash = await this.walletClient.writeContract({
       chain: this.chain,
@@ -291,13 +306,13 @@ export class ContributorService {
       abi: CONTRIBUTOR_REGISTRY_ABI,
       functionName: 'register',
       args: [typeIndex, profileUri],
-    });
+    })
 
-    return hash;
+    return hash
   }
 
   async linkAgent(contributorId: string, agentId: bigint): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    if (!this.walletClient) throw new Error('Wallet client required')
 
     const hash = await this.walletClient.writeContract({
       chain: this.chain,
@@ -306,13 +321,16 @@ export class ContributorService {
       abi: CONTRIBUTOR_REGISTRY_ABI,
       functionName: 'linkAgent',
       args: [contributorId as `0x${string}`, agentId],
-    });
+    })
 
-    return hash;
+    return hash
   }
 
-  async updateProfile(contributorId: string, profileUri: string): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+  async updateProfile(
+    contributorId: string,
+    profileUri: string,
+  ): Promise<Hash> {
+    if (!this.walletClient) throw new Error('Wallet client required')
 
     const hash = await this.walletClient.writeContract({
       chain: this.chain,
@@ -321,47 +339,47 @@ export class ContributorService {
       abi: CONTRIBUTOR_REGISTRY_ABI,
       functionName: 'updateProfile',
       args: [contributorId as `0x${string}`, profileUri],
-    });
+    })
 
-    return hash;
+    return hash
   }
 
   // ============ Social Link Verification ============
 
   getGitHubAuthUrl(state: string): string {
-    return this.githubProvider.getAuthorizationUrl(state);
+    return this.githubProvider.getAuthorizationUrl(state)
   }
 
   async verifyGitHubCallback(
     _contributorId: string,
-    code: string
+    code: string,
   ): Promise<{ handle: string; proofHash: string }> {
-    const token = await this.githubProvider.exchangeCode(code);
-    const profile = await this.githubProvider.getProfile(token);
+    const token = await this.githubProvider.exchangeCode(code)
+    const profile = await this.githubProvider.getProfile(token)
 
     const proofData = JSON.stringify({
       platform: 'github',
       userId: profile.id,
       username: profile.login,
       verifiedAt: Date.now(),
-    });
+    })
 
-    const proofHash = await this.hashProof(proofData);
+    const proofHash = await this.hashProof(proofData)
 
     return {
       handle: profile.login,
       proofHash,
-    };
+    }
   }
 
   async addSocialLink(
     contributorId: string,
     platform: SocialPlatform,
-    handle: string
+    handle: string,
   ): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    if (!this.walletClient) throw new Error('Wallet client required')
 
-    const platformHash = PLATFORM_HASHES[platform];
+    const platformHash = PLATFORM_HASHES[platform]
 
     const hash = await this.walletClient.writeContract({
       chain: this.chain,
@@ -369,10 +387,14 @@ export class ContributorService {
       address: this.registryAddress,
       abi: CONTRIBUTOR_REGISTRY_ABI,
       functionName: 'addSocialLink',
-      args: [contributorId as `0x${string}`, platformHash as `0x${string}`, handle],
-    });
+      args: [
+        contributorId as `0x${string}`,
+        platformHash as `0x${string}`,
+        handle,
+      ],
+    })
 
-    return hash;
+    return hash
   }
 
   // ============ Repository Claims ============
@@ -380,9 +402,9 @@ export class ContributorService {
   async claimRepository(
     contributorId: string,
     owner: string,
-    repo: string
+    repo: string,
   ): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    if (!this.walletClient) throw new Error('Wallet client required')
 
     const hash = await this.walletClient.writeContract({
       chain: this.chain,
@@ -391,35 +413,42 @@ export class ContributorService {
       abi: CONTRIBUTOR_REGISTRY_ABI,
       functionName: 'claimRepository',
       args: [contributorId as `0x${string}`, owner, repo],
-    });
+    })
 
-    return hash;
+    return hash
   }
 
   async verifyRepositoryOwnership(
     contributorId: string,
     owner: string,
     repo: string,
-    githubToken: string
+    githubToken: string,
   ): Promise<{ verified: boolean; proofHash: string }> {
-    const response = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
-      headers: {
-        Authorization: `Bearer ${githubToken}`,
-        Accept: 'application/vnd.github.v3+json',
+    const response = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}`,
+      {
+        headers: {
+          Authorization: `Bearer ${githubToken}`,
+          Accept: 'application/vnd.github.v3+json',
+        },
       },
-    });
+    )
 
     if (!response.ok) {
-      return { verified: false, proofHash: '' };
+      return { verified: false, proofHash: '' }
     }
 
-    const data = await response.json() as { permissions?: { admin?: boolean; push?: boolean; maintain?: boolean } };
+    const data = (await response.json()) as {
+      permissions?: { admin?: boolean; push?: boolean; maintain?: boolean }
+    }
 
     const hasPermission =
-      data.permissions?.admin || data.permissions?.push || data.permissions?.maintain;
+      data.permissions?.admin ||
+      data.permissions?.push ||
+      data.permissions?.maintain
 
     if (!hasPermission) {
-      return { verified: false, proofHash: '' };
+      return { verified: false, proofHash: '' }
     }
 
     const proofData = JSON.stringify({
@@ -427,11 +456,11 @@ export class ContributorService {
       contributorId,
       permissions: data.permissions,
       verifiedAt: Date.now(),
-    });
+    })
 
-    const proofHash = await this.hashProof(proofData);
+    const proofHash = await this.hashProof(proofData)
 
-    return { verified: true, proofHash };
+    return { verified: true, proofHash }
   }
 
   // ============ Dependency Claims ============
@@ -439,9 +468,9 @@ export class ContributorService {
   async claimDependency(
     contributorId: string,
     packageName: string,
-    registryType: string
+    registryType: string,
   ): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    if (!this.walletClient) throw new Error('Wallet client required')
 
     const hash = await this.walletClient.writeContract({
       chain: this.chain,
@@ -450,66 +479,82 @@ export class ContributorService {
       abi: CONTRIBUTOR_REGISTRY_ABI,
       functionName: 'claimDependency',
       args: [contributorId as `0x${string}`, packageName, registryType],
-    });
+    })
 
-    return hash;
+    return hash
   }
 
   async verifyDependencyOwnership(
     packageName: string,
     registryType: string,
-    githubToken: string
+    githubToken: string,
   ): Promise<{ verified: boolean; proofHash: string; repo?: string }> {
     if (registryType === 'npm') {
-      const npmResponse = await fetch(`https://registry.npmjs.org/${packageName}`);
+      const npmResponse = await fetch(
+        `https://registry.npmjs.org/${packageName}`,
+      )
       if (!npmResponse.ok) {
-        return { verified: false, proofHash: '' };
+        return { verified: false, proofHash: '' }
       }
 
-      const npmData = await npmResponse.json() as { repository?: { url?: string } };
-      const repoUrl = npmData.repository?.url;
+      const npmData = (await npmResponse.json()) as {
+        repository?: { url?: string }
+      }
+      const repoUrl = npmData.repository?.url
 
       if (!repoUrl) {
-        return { verified: false, proofHash: '' };
+        return { verified: false, proofHash: '' }
       }
 
-      const match = repoUrl.match(/github\.com[/:]([\w-]+)\/([\w-]+)/);
+      const match = repoUrl.match(/github\.com[/:]([\w-]+)\/([\w-]+)/)
       if (!match) {
-        return { verified: false, proofHash: '' };
+        return { verified: false, proofHash: '' }
       }
 
-      const [, owner, repo] = match;
+      const [, owner, repo] = match
 
       const result = await this.verifyRepositoryOwnership(
         '',
         owner,
         repo.replace('.git', ''),
-        githubToken
-      );
+        githubToken,
+      )
 
       if (result.verified) {
         return {
           verified: true,
           proofHash: result.proofHash,
           repo: `${owner}/${repo.replace('.git', '')}`,
-        };
+        }
       }
     }
 
-    return { verified: false, proofHash: '' };
+    return { verified: false, proofHash: '' }
   }
 
   // ============ View Functions ============
 
-  async getContributor(contributorId: string): Promise<ContributorProfile | null> {
-    const result = await this.publicClient.readContract({
+  async getContributor(
+    contributorId: string,
+  ): Promise<ContributorProfile | null> {
+    const result = (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: CONTRIBUTOR_REGISTRY_ABI,
       functionName: 'getContributor',
       args: [contributorId as `0x${string}`],
-    }) as [string, Address, bigint, number, string, bigint, bigint, bigint, boolean];
+    })) as [
+      string,
+      Address,
+      bigint,
+      number,
+      string,
+      bigint,
+      bigint,
+      bigint,
+      boolean,
+    ]
 
-    if (!result || result[6] === 0n) return null;
+    if (!result || result[6] === 0n) return null
 
     return {
       contributorId: result[0],
@@ -521,18 +566,30 @@ export class ContributorService {
       registeredAt: Number(result[6]),
       lastActiveAt: Number(result[7]),
       active: result[8],
-    };
+    }
   }
 
-  async getContributorByWallet(wallet: Address): Promise<ContributorProfile | null> {
-    const result = await this.publicClient.readContract({
+  async getContributorByWallet(
+    wallet: Address,
+  ): Promise<ContributorProfile | null> {
+    const result = (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: CONTRIBUTOR_REGISTRY_ABI,
       functionName: 'getContributorByWallet',
       args: [wallet],
-    }) as [string, Address, bigint, number, string, bigint, bigint, bigint, boolean];
+    })) as [
+      string,
+      Address,
+      bigint,
+      number,
+      string,
+      bigint,
+      bigint,
+      bigint,
+      boolean,
+    ]
 
-    if (!result || result[6] === 0n) return null;
+    if (!result || result[6] === 0n) return null
 
     return {
       contributorId: result[0],
@@ -544,16 +601,16 @@ export class ContributorService {
       registeredAt: Number(result[6]),
       lastActiveAt: Number(result[7]),
       active: result[8],
-    };
+    }
   }
 
   async getSocialLinks(contributorId: string): Promise<SocialLink[]> {
-    const result = await this.publicClient.readContract({
+    const result = (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: CONTRIBUTOR_REGISTRY_ABI,
       functionName: 'getSocialLinks',
       args: [contributorId as `0x${string}`],
-    }) as Array<[string, string, string, number, bigint, bigint]>;
+    })) as Array<[string, string, string, number, bigint, bigint]>
 
     return result.map((link) => ({
       platform: parsePlatformFromHash(link[0]),
@@ -562,16 +619,18 @@ export class ContributorService {
       status: parseVerificationStatus(link[3]),
       verifiedAt: Number(link[4]),
       expiresAt: Number(link[5]),
-    }));
+    }))
   }
 
   async getRepositoryClaims(contributorId: string): Promise<RepositoryClaim[]> {
-    const result = await this.publicClient.readContract({
+    const result = (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: CONTRIBUTOR_REGISTRY_ABI,
       functionName: 'getRepositoryClaims',
       args: [contributorId as `0x${string}`],
-    }) as Array<[string, string, string, string, string, number, bigint, bigint]>;
+    })) as Array<
+      [string, string, string, string, string, number, bigint, bigint]
+    >
 
     return result.map((claim) => ({
       claimId: claim[0],
@@ -582,16 +641,18 @@ export class ContributorService {
       status: parseVerificationStatus(claim[5]),
       claimedAt: Number(claim[6]),
       verifiedAt: Number(claim[7]),
-    }));
+    }))
   }
 
   async getDependencyClaims(contributorId: string): Promise<DependencyClaim[]> {
-    const result = await this.publicClient.readContract({
+    const result = (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: CONTRIBUTOR_REGISTRY_ABI,
       functionName: 'getDependencyClaims',
       args: [contributorId as `0x${string}`],
-    }) as Array<[string, string, string, string, string, number, bigint, bigint]>;
+    })) as Array<
+      [string, string, string, string, string, number, bigint, bigint]
+    >
 
     return result.map((claim) => ({
       claimId: claim[0],
@@ -602,19 +663,19 @@ export class ContributorService {
       status: parseVerificationStatus(claim[5]),
       claimedAt: Number(claim[6]),
       verifiedAt: Number(claim[7]),
-    }));
+    }))
   }
 
   async getDAOContribution(
     contributorId: string,
-    daoId: string
+    daoId: string,
   ): Promise<DAOContribution> {
-    const result = await this.publicClient.readContract({
+    const result = (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: CONTRIBUTOR_REGISTRY_ABI,
       functionName: 'getDAOContribution',
       args: [contributorId as `0x${string}`, daoId as `0x${string}`],
-    }) as [string, bigint, bigint, bigint, bigint];
+    })) as [string, bigint, bigint, bigint, bigint]
 
     return {
       daoId: result[0],
@@ -622,88 +683,93 @@ export class ContributorService {
       bountyCount: Number(result[2]),
       paymentRequestCount: Number(result[3]),
       lastContributionAt: Number(result[4]),
-    };
+    }
   }
 
   async isVerifiedGitHub(contributorId: string): Promise<boolean> {
-    return await this.publicClient.readContract({
+    return (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: CONTRIBUTOR_REGISTRY_ABI,
       functionName: 'isVerifiedGitHub',
       args: [contributorId as `0x${string}`],
-    }) as boolean;
+    })) as boolean
   }
 
-  async getContributorForRepo(owner: string, repo: string): Promise<string | null> {
-    const result = await this.publicClient.readContract({
+  async getContributorForRepo(
+    owner: string,
+    repo: string,
+  ): Promise<string | null> {
+    const result = (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: CONTRIBUTOR_REGISTRY_ABI,
       functionName: 'getContributorForRepo',
       args: [owner, repo],
-    }) as string;
+    })) as string
 
-    if (result === '0x' + '0'.repeat(64)) return null;
-    return result;
+    if (result === `0x${'0'.repeat(64)}`) return null
+    return result
   }
 
   async getContributorForDependency(
     packageName: string,
-    registryType: string
+    registryType: string,
   ): Promise<string | null> {
-    const result = await this.publicClient.readContract({
+    const result = (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: CONTRIBUTOR_REGISTRY_ABI,
       functionName: 'getContributorForDependency',
       args: [packageName, registryType],
-    }) as string;
+    })) as string
 
-    if (result === '0x' + '0'.repeat(64)) return null;
-    return result;
+    if (result === `0x${'0'.repeat(64)}`) return null
+    return result
   }
 
   async getAllContributors(): Promise<string[]> {
-    return await this.publicClient.readContract({
+    return (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: CONTRIBUTOR_REGISTRY_ABI,
       functionName: 'getAllContributors',
-    }) as string[];
+    })) as string[]
   }
 
   async getContributorCount(): Promise<number> {
-    const result = await this.publicClient.readContract({
+    const result = (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: CONTRIBUTOR_REGISTRY_ABI,
       functionName: 'getContributorCount',
-    }) as bigint;
+    })) as bigint
 
-    return Number(result);
+    return Number(result)
   }
 
   // ============ Helpers ============
 
   private async hashProof(data: string): Promise<string> {
-    const encoder = new TextEncoder();
-    const dataBuffer = encoder.encode(data);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return '0x' + hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+    const encoder = new TextEncoder()
+    const dataBuffer = encoder.encode(data)
+    const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    return `0x${hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')}`
   }
 }
 
 // ============ Singleton Export ============
 
-let service: ContributorService | null = null;
+let service: ContributorService | null = null
 
-export function getContributorService(config?: ContributorServiceConfig): ContributorService {
+export function getContributorService(
+  config?: ContributorServiceConfig,
+): ContributorService {
   if (!service && config) {
-    service = new ContributorService(config);
+    service = new ContributorService(config)
   }
   if (!service) {
-    throw new Error('ContributorService not initialized');
+    throw new Error('ContributorService not initialized')
   }
-  return service;
+  return service
 }
 
 export function resetContributorService(): void {
-  service = null;
+  service = null
 }

@@ -2,66 +2,66 @@
  * Network Service - Manages SDK lifecycle
  */
 
-import { type IAgentRuntime, Service, logger } from "@elizaos/core";
+import { type IAgentRuntime, logger, Service } from '@elizaos/core'
+import { getNetworkName } from '@jejunetwork/config'
 import {
   createJejuClient,
   type JejuClient,
   type JejuClientConfig,
-} from "@jejunetwork/sdk";
-import type { NetworkType } from "@jejunetwork/types";
-import type { Hex } from "viem";
-import { getNetworkName } from "@jejunetwork/config";
+} from '@jejunetwork/sdk'
+import type { NetworkType } from '@jejunetwork/types'
+import type { Hex } from 'viem'
 
-const networkName = getNetworkName();
-const networkNameLower = networkName.toLowerCase();
+const networkName = getNetworkName()
+const networkNameLower = networkName.toLowerCase()
 
-export const JEJU_SERVICE_NAME = networkNameLower;
-export const JEJU_CACHE_KEY = `${networkNameLower}/wallet`;
+export const JEJU_SERVICE_NAME = networkNameLower
+export const JEJU_CACHE_KEY = `${networkNameLower}/wallet`
 
 export interface JejuWalletData {
-  address: string;
-  network: string;
-  chainId: number;
-  isSmartAccount: boolean;
-  balance: string;
-  timestamp: number;
+  address: string
+  network: string
+  chainId: number
+  isSmartAccount: boolean
+  balance: string
+  timestamp: number
 }
 
 export class JejuService extends Service {
-  static serviceType: string = JEJU_SERVICE_NAME;
-  capabilityDescription = `${networkName} access - compute, storage, DeFi, governance, cross-chain`;
+  static serviceType: string = JEJU_SERVICE_NAME
+  capabilityDescription = `${networkName} access - compute, storage, DeFi, governance, cross-chain`
 
-  private client: JejuClient | null = null;
-  private refreshInterval: ReturnType<typeof setInterval> | null = null;
+  private client: JejuClient | null = null
+  private refreshInterval: ReturnType<typeof setInterval> | null = null
 
   constructor(protected runtime: IAgentRuntime) {
-    super();
+    super()
   }
 
   static async start(runtime: IAgentRuntime): Promise<JejuService> {
-    logger.log(`Initializing ${networkName}Service`);
+    logger.log(`Initializing ${networkName}Service`)
 
-    const service = new JejuService(runtime);
+    const service = new JejuService(runtime)
 
     // Get configuration - support both JEJU_ and NETWORK_ prefixes
-    const privateKey = (runtime.getSetting("NETWORK_PRIVATE_KEY") ||
-      runtime.getSetting("JEJU_PRIVATE_KEY")) as Hex | undefined;
-    const mnemonic = (runtime.getSetting("NETWORK_MNEMONIC") ||
-      runtime.getSetting("JEJU_MNEMONIC")) as string | undefined;
+    const privateKey = (runtime.getSetting('NETWORK_PRIVATE_KEY') ||
+      runtime.getSetting('JEJU_PRIVATE_KEY')) as Hex | undefined
+    const mnemonic = (runtime.getSetting('NETWORK_MNEMONIC') ||
+      runtime.getSetting('JEJU_MNEMONIC')) as string | undefined
     const networkSetting =
-      runtime.getSetting("NETWORK_TYPE") || runtime.getSetting("JEJU_NETWORK");
+      runtime.getSetting('NETWORK_TYPE') || runtime.getSetting('JEJU_NETWORK')
     const network: NetworkType =
-      networkSetting === "localnet" ||
-      networkSetting === "testnet" ||
-      networkSetting === "mainnet"
+      networkSetting === 'localnet' ||
+      networkSetting === 'testnet' ||
+      networkSetting === 'mainnet'
         ? networkSetting
-        : "testnet";
+        : 'testnet'
     const smartAccount =
-      (runtime.getSetting("NETWORK_SMART_ACCOUNT") ||
-        runtime.getSetting("JEJU_SMART_ACCOUNT")) !== "false";
+      (runtime.getSetting('NETWORK_SMART_ACCOUNT') ||
+        runtime.getSetting('JEJU_SMART_ACCOUNT')) !== 'false'
 
     if (!privateKey && !mnemonic) {
-      throw new Error("NETWORK_PRIVATE_KEY or NETWORK_MNEMONIC required");
+      throw new Error('NETWORK_PRIVATE_KEY or NETWORK_MNEMONIC required')
     }
 
     const config: JejuClientConfig = {
@@ -69,33 +69,33 @@ export class JejuService extends Service {
       privateKey,
       mnemonic,
       smartAccount,
-    };
+    }
 
     // Use try-finally to ensure cleanup on initialization failure
-    let initSucceeded = false;
+    let initSucceeded = false
     try {
-      service.client = await createJejuClient(config);
+      service.client = await createJejuClient(config)
 
       // Cache initial wallet data
-      await service.refreshWalletData();
+      await service.refreshWalletData()
 
       // Set up refresh interval (every 60 seconds)
       service.refreshInterval = setInterval(
         () => service.refreshWalletData(),
         60000,
-      );
+      )
 
-      logger.log(`${networkName} service initialized on ${network}`);
-      logger.log(`Address: ${service.client.address}`);
-      logger.log(`Smart Account: ${service.client.isSmartAccount}`);
+      logger.log(`${networkName} service initialized on ${network}`)
+      logger.log(`Address: ${service.client.address}`)
+      logger.log(`Smart Account: ${service.client.isSmartAccount}`)
 
-      initSucceeded = true;
-      return service;
+      initSucceeded = true
+      return service
     } finally {
       // Clean up interval if initialization failed after interval was set
       if (!initSucceeded && service.refreshInterval) {
-        clearInterval(service.refreshInterval);
-        service.refreshInterval = null;
+        clearInterval(service.refreshInterval)
+        service.refreshInterval = null
       }
     }
   }
@@ -103,31 +103,31 @@ export class JejuService extends Service {
   static async stop(runtime: IAgentRuntime): Promise<void> {
     const service = runtime.getService(JEJU_SERVICE_NAME) as
       | JejuService
-      | undefined;
+      | undefined
     if (service) {
-      await service.stop();
+      await service.stop()
     }
   }
 
   async stop(): Promise<void> {
     if (this.refreshInterval) {
-      clearInterval(this.refreshInterval);
-      this.refreshInterval = null;
+      clearInterval(this.refreshInterval)
+      this.refreshInterval = null
     }
-    logger.log(`${networkName} service stopped`);
+    logger.log(`${networkName} service stopped`)
   }
 
   getClient(): JejuClient {
     if (!this.client) {
-      throw new Error(`${networkName} client not initialized`);
+      throw new Error(`${networkName} client not initialized`)
     }
-    return this.client;
+    return this.client
   }
 
   async refreshWalletData(): Promise<void> {
-    if (!this.client) return;
+    if (!this.client) return
 
-    const balance = await this.client.getBalance();
+    const balance = await this.client.getBalance()
 
     const walletData: JejuWalletData = {
       address: this.client.address,
@@ -136,22 +136,22 @@ export class JejuService extends Service {
       isSmartAccount: this.client.isSmartAccount,
       balance: balance.toString(),
       timestamp: Date.now(),
-    };
+    }
 
-    await this.runtime.setCache(JEJU_CACHE_KEY, walletData);
-    logger.log(`${networkName} wallet data refreshed`);
+    await this.runtime.setCache(JEJU_CACHE_KEY, walletData)
+    logger.log(`${networkName} wallet data refreshed`)
   }
 
   async getCachedData(): Promise<JejuWalletData | undefined> {
-    const cached = await this.runtime.getCache<JejuWalletData>(JEJU_CACHE_KEY);
+    const cached = await this.runtime.getCache<JejuWalletData>(JEJU_CACHE_KEY)
 
     // Refresh if stale (> 60 seconds)
     if (!cached || Date.now() - cached.timestamp > 60000) {
-      await this.refreshWalletData();
-      return this.runtime.getCache<JejuWalletData>(JEJU_CACHE_KEY);
+      await this.refreshWalletData()
+      return this.runtime.getCache<JejuWalletData>(JEJU_CACHE_KEY)
     }
 
-    return cached;
+    return cached
   }
 }
 
@@ -159,27 +159,27 @@ export class JejuService extends Service {
 // Standalone service for testing (without Eliza runtime)
 // ============================================================
 
-let standaloneService: StandaloneJejuService | null = null;
+let standaloneService: StandaloneJejuService | null = null
 
 export interface StandaloneConfig {
-  privateKey: Hex;
-  mnemonic?: string;
-  network: NetworkType;
-  rpcUrl?: string;
-  smartAccount?: boolean;
+  privateKey: Hex
+  mnemonic?: string
+  network: NetworkType
+  rpcUrl?: string
+  smartAccount?: boolean
 }
 
 export class StandaloneJejuService {
-  public readonly sdk: JejuClient;
-  public readonly config: StandaloneConfig;
+  public readonly sdk: JejuClient
+  public readonly config: StandaloneConfig
 
   constructor(sdk: JejuClient, config: StandaloneConfig) {
-    this.sdk = sdk;
-    this.config = config;
+    this.sdk = sdk
+    this.config = config
   }
 
   async refreshWalletData(): Promise<void> {
-    await this.sdk.getBalance();
+    await this.sdk.getBalance()
   }
 }
 
@@ -196,10 +196,10 @@ export async function initJejuService(
     mnemonic: config.mnemonic,
     rpcUrl: config.rpcUrl,
     smartAccount: config.smartAccount ?? true,
-  });
+  })
 
-  standaloneService = new StandaloneJejuService(sdk, config);
-  return standaloneService;
+  standaloneService = new StandaloneJejuService(sdk, config)
+  return standaloneService
 }
 
 /**
@@ -208,8 +208,8 @@ export async function initJejuService(
 export function getJejuService(): StandaloneJejuService {
   if (!standaloneService) {
     throw new Error(
-      "Jeju service not initialized. Call initJejuService() first.",
-    );
+      'Jeju service not initialized. Call initJejuService() first.',
+    )
   }
-  return standaloneService;
+  return standaloneService
 }

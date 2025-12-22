@@ -1,12 +1,17 @@
-import { useWriteContract, useReadContracts, useAccount } from 'wagmi'
 import { AddressSchema } from '@jejunetwork/types'
-import { expect, expectPositive, expectTrue } from '@/lib/validation'
-import { getV4Contracts } from '@/config/contracts'
-import { JEJU_CHAIN_ID } from '@/config/chains'
-import PositionManagerABI from '../abis/PositionManager.json'
-import { Position, AddLiquidityParams, RemoveLiquidityParams, PoolKey } from './types'
-import { computePoolId } from './utils'
 import type { Abi } from 'viem'
+import { useAccount, useReadContracts, useWriteContract } from 'wagmi'
+import { JEJU_CHAIN_ID } from '@/config/chains'
+import { getV4Contracts } from '@/config/contracts'
+import { expect, expectPositive, expectTrue } from '@/lib/validation'
+import PositionManagerABI from '../abis/PositionManager.json'
+import type {
+  AddLiquidityParams,
+  PoolKey,
+  Position,
+  RemoveLiquidityParams,
+} from './types'
+import { computePoolId } from './utils'
 
 const POSITION_MANAGER_ABI = PositionManagerABI as Abi
 
@@ -22,14 +27,20 @@ export function useAddLiquidity() {
   } = useWriteContract()
 
   const addLiquidity = async (params: AddLiquidityParams) => {
-    const positionManager = expect(contracts.positionManager, 'Position manager contract not deployed');
-    AddressSchema.parse(positionManager);
-    
-    expectPositive(params.liquidity, 'Liquidity must be positive');
-    expectPositive(params.amount0Max, 'Amount0Max must be positive');
-    expectPositive(params.amount1Max, 'Amount1Max must be positive');
-    AddressSchema.parse(params.recipient);
-    expectTrue(params.deadline > BigInt(Math.floor(Date.now() / 1000)), 'Deadline must be in the future');
+    const positionManager = expect(
+      contracts.positionManager,
+      'Position manager contract not deployed',
+    )
+    AddressSchema.parse(positionManager)
+
+    expectPositive(params.liquidity, 'Liquidity must be positive')
+    expectPositive(params.amount0Max, 'Amount0Max must be positive')
+    expectPositive(params.amount1Max, 'Amount1Max must be positive')
+    AddressSchema.parse(params.recipient)
+    expectTrue(
+      params.deadline > BigInt(Math.floor(Date.now() / 1000)),
+      'Deadline must be in the future',
+    )
 
     const hash = await mintPosition({
       address: positionManager,
@@ -71,12 +82,18 @@ export function useRemoveLiquidity() {
   } = useWriteContract()
 
   const removeLiquidity = async (params: RemoveLiquidityParams) => {
-    const positionManager = expect(contracts.positionManager, 'Position manager contract not deployed');
-    AddressSchema.parse(positionManager);
-    
-    expectPositive(params.tokenId, 'Token ID must be positive');
-    expectPositive(params.liquidity, 'Liquidity must be positive');
-    expectTrue(params.deadline > BigInt(Math.floor(Date.now() / 1000)), 'Deadline must be in the future');
+    const positionManager = expect(
+      contracts.positionManager,
+      'Position manager contract not deployed',
+    )
+    AddressSchema.parse(positionManager)
+
+    expectPositive(params.tokenId, 'Token ID must be positive')
+    expectPositive(params.liquidity, 'Liquidity must be positive')
+    expectTrue(
+      params.deadline > BigInt(Math.floor(Date.now() / 1000)),
+      'Deadline must be in the future',
+    )
 
     const hash = await burnPosition({
       address: positionManager,
@@ -128,7 +145,13 @@ export function usePosition(tokenId: bigint | null, poolKey: PoolKey | null) {
               address: contracts.positionManager,
               abi: POSITION_MANAGER_ABI,
               functionName: 'getPosition',
-              args: [poolId, address, 0, 0, '0x0000000000000000000000000000000000000000000000000000000000000000'],
+              args: [
+                poolId,
+                address,
+                0,
+                0,
+                '0x0000000000000000000000000000000000000000000000000000000000000000',
+              ],
             },
           ]
         : [],
@@ -138,22 +161,24 @@ export function usePosition(tokenId: bigint | null, poolKey: PoolKey | null) {
   if (!data || data.length === 0 || !poolKey || !tokenId) {
     return { position: null, isLoading, error, refetch }
   }
-  
-  const validatedPoolKey = expect(poolKey, 'Pool key is required');
-  const validatedTokenId = expect(tokenId, 'Token ID is required');
+
+  const validatedPoolKey = expect(poolKey, 'Pool key is required')
+  const validatedTokenId = expect(tokenId, 'Token ID is required')
 
   const positionData = data[0]
   if (positionData.status !== 'success') {
-    return { position: null, isLoading, error: error || new Error('Failed to fetch position'), refetch }
+    return {
+      position: null,
+      isLoading,
+      error: error || new Error('Failed to fetch position'),
+      refetch,
+    }
   }
 
-  const [liquidity, feeGrowthInside0LastX128, feeGrowthInside1LastX128] = positionData.result as [
-    bigint,
-    bigint,
-    bigint
-  ]
+  const [liquidity, _feeGrowthInside0LastX128, _feeGrowthInside1LastX128] =
+    positionData.result as [bigint, bigint, bigint]
 
-  const validatedAddress = expect(address, 'Address is required');
+  const validatedAddress = expect(address, 'Address is required')
   const position: Position = {
     tokenId: validatedTokenId,
     poolId: computePoolId(validatedPoolKey),
@@ -170,7 +195,7 @@ export function useCalculateAmounts(
   _poolKey: PoolKey | null,
   _liquidity: bigint,
   _tickLower: number,
-  _tickUpper: number
+  _tickUpper: number,
 ) {
   return { amount0: 0n, amount1: 0n, isLoading: false, error: null }
 }
@@ -187,16 +212,25 @@ export function useCollectFees(tokenId: bigint | null) {
   } = useWriteContract()
 
   const collectFees = async () => {
-    const validatedTokenId = expect(tokenId, 'No token ID provided');
-    expectPositive(validatedTokenId, 'Token ID must be positive');
-    const positionManager = expect(contracts.positionManager, 'Position manager contract not deployed');
-    AddressSchema.parse(positionManager);
-    
+    const validatedTokenId = expect(tokenId, 'No token ID provided')
+    expectPositive(validatedTokenId, 'Token ID must be positive')
+    const positionManager = expect(
+      contracts.positionManager,
+      'Position manager contract not deployed',
+    )
+    AddressSchema.parse(positionManager)
+
     const hash = await collect({
       address: positionManager,
       abi: POSITION_MANAGER_ABI,
       functionName: 'burn',
-      args: [validatedTokenId, 0n, 0n, 0n, BigInt(Math.floor(Date.now() / 1000) + 1800)],
+      args: [
+        validatedTokenId,
+        0n,
+        0n,
+        0n,
+        BigInt(Math.floor(Date.now() / 1000) + 1800),
+      ],
     })
     return expect(hash, 'Transaction hash not returned')
   }
@@ -209,4 +243,3 @@ export function useCollectFees(tokenId: bigint | null) {
     txHash,
   }
 }
-

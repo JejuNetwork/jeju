@@ -1,82 +1,80 @@
 /**
  * Container Execution Tests
  * Tests for serverless container execution with warmth management
- * 
+ *
  * Executor tests require:
  * - Docker daemon running
  * - CONTAINER_REGISTRY_ADDRESS set (or deployed contracts)
- * 
+ *
  * Run integration tests with: SKIP_INTEGRATION=false bun test tests/containers.test.ts
  */
 
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
-import type { Address } from 'viem';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import type { Address } from 'viem'
 
 // Check if Docker is available
 async function _isDockerAvailable(): Promise<boolean> {
-  const dockerHost = process.env.DOCKER_HOST || 'unix:///var/run/docker.sock';
-  const url = dockerHost.startsWith('unix://') ? 'http://localhost' : dockerHost;
-  
+  const dockerHost = process.env.DOCKER_HOST || 'unix:///var/run/docker.sock'
+  const url = dockerHost.startsWith('unix://') ? 'http://localhost' : dockerHost
+
   const response = await fetch(`${url}/v1.44/version`, {
-    unix: dockerHost.startsWith('unix://') ? dockerHost.replace('unix://', '') : undefined,
-  } as RequestInit).catch(() => null);
-  
-  return response?.ok ?? false;
+    unix: dockerHost.startsWith('unix://')
+      ? dockerHost.replace('unix://', '')
+      : undefined,
+  } as RequestInit).catch(() => null)
+
+  return response?.ok ?? false
 }
 
-const SKIP_DOCKER_TESTS = !process.env.CONTAINER_REGISTRY_ADDRESS;
+const SKIP_DOCKER_TESTS = !process.env.CONTAINER_REGISTRY_ADDRESS
 
 import {
+  acquireWarmInstance,
+  addInstance,
+  analyzeDeduplication,
+  type ComputeNode,
   // Types
   type ContainerResources,
-  type ExecutionRequest,
-  type ComputeNode,
-  
-  // Image Cache
-  getCachedLayer,
   cacheLayer,
-  invalidateLayer,
-  getCacheStats,
-  recordCacheHit,
-  recordCacheMiss,
-  analyzeDeduplication,
-  clearCache,
-  
-  // Warm Pool
-  getOrCreatePool,
-  addInstance,
-  getInstance,
-  updateInstanceState,
-  acquireWarmInstance,
-  releaseInstance,
-  getPoolStats,
-  cleanupPool,
+  calculateCost,
   cleanupAllPools,
-  onContainerEvent,
-  
+  cleanupExecutor,
+  cleanupPool,
+  clearCache,
+  type ExecutionRequest,
+  estimateCost,
+  executeBatch,
   // Executor
   executeContainer,
-  executeBatch,
-  calculateCost,
-  estimateCost,
+  findNearestRegion,
+  // Image Cache
+  getCachedLayer,
+  getCacheStats,
   getExecutorStats,
-  cleanupExecutor,
-  
-  // Scheduler
-  registerNode,
-  updateNodeResources,
-  removeNode,
+  getInstance,
   getNode,
   getNodesByRegion,
-  scheduleExecution,
-  reserveResources,
-  releaseReservation,
-  findNearestRegion,
+  // Warm Pool
+  getOrCreatePool,
+  getPoolStats,
   getSchedulerStats,
-} from '../src/containers';
+  invalidateLayer,
+  onContainerEvent,
+  recordCacheHit,
+  recordCacheMiss,
+  // Scheduler
+  registerNode,
+  releaseInstance,
+  releaseReservation,
+  removeNode,
+  reserveResources,
+  scheduleExecution,
+  updateInstanceState,
+  updateNodeResources,
+} from '../src/containers'
 
-const TEST_USER: Address = '0x1234567890123456789012345678901234567890';
-const TEST_IMAGE_DIGEST = 'sha256:abc123def456789';
+const TEST_USER: Address = '0x1234567890123456789012345678901234567890'
+const TEST_IMAGE_DIGEST = 'sha256:abc123def456789'
 
 // ============================================================================
 // Image Cache Tests
@@ -84,170 +82,200 @@ const TEST_IMAGE_DIGEST = 'sha256:abc123def456789';
 
 describe('Image Cache', () => {
   beforeEach(() => {
-    clearCache();
-  });
+    clearCache()
+  })
 
   test('should cache and retrieve layers', () => {
-    const digest = 'sha256:layer1';
-    const cid = 'QmTestCid123';
-    const size = 50 * 1024 * 1024; // 50MB
-    const path = '/var/cache/layers/layer1';
+    const digest = 'sha256:layer1'
+    const cid = 'QmTestCid123'
+    const size = 50 * 1024 * 1024 // 50MB
+    const path = '/var/cache/layers/layer1'
 
-    const cached = cacheLayer(digest, cid, size, path);
+    const cached = cacheLayer(digest, cid, size, path)
 
-    expect(cached.digest).toBe(digest);
-    expect(cached.cid).toBe(cid);
-    expect(cached.size).toBe(size);
-    expect(cached.hitCount).toBe(0);
+    expect(cached.digest).toBe(digest)
+    expect(cached.cid).toBe(cid)
+    expect(cached.size).toBe(size)
+    expect(cached.hitCount).toBe(0)
 
     // Retrieve
-    const retrieved = getCachedLayer(digest);
-    expect(retrieved).toBeDefined();
-    expect(retrieved?.hitCount).toBe(1);
-  });
+    const retrieved = getCachedLayer(digest)
+    expect(retrieved).toBeDefined()
+    expect(retrieved?.hitCount).toBe(1)
+  })
 
   test('should track cache hits and misses', () => {
-    recordCacheHit();
-    recordCacheHit();
-    recordCacheMiss();
+    recordCacheHit()
+    recordCacheHit()
+    recordCacheMiss()
 
-    const stats = getCacheStats();
-    expect(stats.totalHits).toBe(2);
-    expect(stats.totalMisses).toBe(1);
-    expect(stats.hitRate).toBe(66.67);
-  });
+    const stats = getCacheStats()
+    expect(stats.totalHits).toBe(2)
+    expect(stats.totalMisses).toBe(1)
+    expect(stats.hitRate).toBe(66.67)
+  })
 
   test('should invalidate layers', () => {
-    const digest = 'sha256:todelete';
-    cacheLayer(digest, 'QmTest', 1024, '/path');
+    const digest = 'sha256:todelete'
+    cacheLayer(digest, 'QmTest', 1024, '/path')
 
-    expect(getCachedLayer(digest)).toBeDefined();
+    expect(getCachedLayer(digest)).toBeDefined()
 
-    const removed = invalidateLayer(digest);
-    expect(removed).toBe(true);
-    expect(getCachedLayer(digest)).toBeNull();
-  });
+    const removed = invalidateLayer(digest)
+    expect(removed).toBe(true)
+    expect(getCachedLayer(digest)).toBeNull()
+  })
 
   test('should analyze deduplication', () => {
     // Cache some layers
-    cacheLayer('sha256:base', 'QmBase', 100 * 1024 * 1024, '/base');
-    cacheLayer('sha256:app', 'QmApp', 50 * 1024 * 1024, '/app');
+    cacheLayer('sha256:base', 'QmBase', 100 * 1024 * 1024, '/base')
+    cacheLayer('sha256:app', 'QmApp', 50 * 1024 * 1024, '/app')
 
-    const analysis = analyzeDeduplication();
-    expect(analysis).toBeDefined();
-    expect(analysis.deduplicationRatio).toBeGreaterThanOrEqual(0);
-  });
-});
+    const analysis = analyzeDeduplication()
+    expect(analysis).toBeDefined()
+    expect(analysis.deduplicationRatio).toBeGreaterThanOrEqual(0)
+  })
+})
 
 // ============================================================================
 // Warm Pool Tests
 // ============================================================================
 
 describe('Warm Pool', () => {
-  const testDigest = `sha256:pool-test-${Date.now()}`;
+  const testDigest = `sha256:pool-test-${Date.now()}`
 
   afterEach(() => {
-    cleanupPool(testDigest);
-  });
+    cleanupPool(testDigest)
+  })
 
   test('should create pool with default config', () => {
-    const pool = getOrCreatePool(testDigest);
+    const pool = getOrCreatePool(testDigest)
 
-    expect(pool.imageDigest).toBe(testDigest);
-    expect(pool.config.keepWarmMs).toBe(60000);
-    expect(pool.config.minWarmInstances).toBe(0);
-    expect(pool.config.maxWarmInstances).toBe(10);
-    expect(pool.instances.size).toBe(0);
-  });
+    expect(pool.imageDigest).toBe(testDigest)
+    expect(pool.config.keepWarmMs).toBe(60000)
+    expect(pool.config.minWarmInstances).toBe(0)
+    expect(pool.config.maxWarmInstances).toBe(10)
+    expect(pool.instances.size).toBe(0)
+  })
 
   test('should add and retrieve instances', () => {
     const resources: ContainerResources = {
       cpuCores: 2,
       memoryMb: 1024,
       storageMb: 2048,
-    };
+    }
 
-    const instance = addInstance(testDigest, 'inst-1', resources, TEST_USER, 'node-1');
+    const instance = addInstance(
+      testDigest,
+      'inst-1',
+      resources,
+      TEST_USER,
+      'node-1',
+    )
 
-    expect(instance.instanceId).toBe('inst-1');
-    expect(instance.state).toBe('creating');
-    expect(instance.resources.cpuCores).toBe(2);
+    expect(instance.instanceId).toBe('inst-1')
+    expect(instance.state).toBe('creating')
+    expect(instance.resources.cpuCores).toBe(2)
 
-    const retrieved = getInstance(testDigest, 'inst-1');
-    expect(retrieved).toBeDefined();
-    expect(retrieved?.instanceId).toBe('inst-1');
-  });
+    const retrieved = getInstance(testDigest, 'inst-1')
+    expect(retrieved).toBeDefined()
+    expect(retrieved?.instanceId).toBe('inst-1')
+  })
 
   test('should update instance state', () => {
-    const resources: ContainerResources = { cpuCores: 1, memoryMb: 512, storageMb: 1024 };
-    addInstance(testDigest, 'inst-state', resources, TEST_USER, 'node-1');
+    const resources: ContainerResources = {
+      cpuCores: 1,
+      memoryMb: 512,
+      storageMb: 1024,
+    }
+    addInstance(testDigest, 'inst-state', resources, TEST_USER, 'node-1')
 
     const updated = updateInstanceState(testDigest, 'inst-state', 'running', {
       startedAt: Date.now(),
       endpoint: 'http://localhost:8080',
       port: 8080,
-    });
+    })
 
-    expect(updated?.state).toBe('running');
-    expect(updated?.endpoint).toBe('http://localhost:8080');
-  });
+    expect(updated?.state).toBe('running')
+    expect(updated?.endpoint).toBe('http://localhost:8080')
+  })
 
   test('should acquire and release warm instances', async () => {
-    const resources: ContainerResources = { cpuCores: 1, memoryMb: 512, storageMb: 1024 };
-    const _instance = addInstance(testDigest, 'inst-warm', resources, TEST_USER, 'node-1');
+    const resources: ContainerResources = {
+      cpuCores: 1,
+      memoryMb: 512,
+      storageMb: 1024,
+    }
+    const _instance = addInstance(
+      testDigest,
+      'inst-warm',
+      resources,
+      TEST_USER,
+      'node-1',
+    )
 
     // Make it warm
     updateInstanceState(testDigest, 'inst-warm', 'warm', {
       warmUntil: Date.now() + 60000,
-    });
+    })
 
     // Acquire
-    const acquired = await acquireWarmInstance(testDigest, 1000);
-    expect(acquired).toBeDefined();
-    expect(acquired?.instanceId).toBe('inst-warm');
-    expect(acquired?.state).toBe('running');
+    const acquired = await acquireWarmInstance(testDigest, 1000)
+    expect(acquired).toBeDefined()
+    expect(acquired?.instanceId).toBe('inst-warm')
+    expect(acquired?.state).toBe('running')
 
     // Release
-    releaseInstance(testDigest, 'inst-warm', true);
-    const released = getInstance(testDigest, 'inst-warm');
-    expect(released?.state).toBe('warm');
-  });
+    releaseInstance(testDigest, 'inst-warm', true)
+    const released = getInstance(testDigest, 'inst-warm')
+    expect(released?.state).toBe('warm')
+  })
 
   test('should return null when no warm instance available', async () => {
-    const emptyDigest = `sha256:empty-${Date.now()}`;
-    const result = await acquireWarmInstance(emptyDigest, 100);
-    expect(result).toBeNull();
-    cleanupPool(emptyDigest);
-  });
+    const emptyDigest = `sha256:empty-${Date.now()}`
+    const result = await acquireWarmInstance(emptyDigest, 100)
+    expect(result).toBeNull()
+    cleanupPool(emptyDigest)
+  })
 
   test('should track pool statistics', () => {
-    const resources: ContainerResources = { cpuCores: 1, memoryMb: 512, storageMb: 1024 };
-    addInstance(testDigest, 'inst-stats-1', resources, TEST_USER, 'node-1');
-    addInstance(testDigest, 'inst-stats-2', resources, TEST_USER, 'node-1');
+    const resources: ContainerResources = {
+      cpuCores: 1,
+      memoryMb: 512,
+      storageMb: 1024,
+    }
+    addInstance(testDigest, 'inst-stats-1', resources, TEST_USER, 'node-1')
+    addInstance(testDigest, 'inst-stats-2', resources, TEST_USER, 'node-1')
 
-    updateInstanceState(testDigest, 'inst-stats-1', 'warm', { warmUntil: Date.now() + 60000 });
-    updateInstanceState(testDigest, 'inst-stats-2', 'cooling');
+    updateInstanceState(testDigest, 'inst-stats-1', 'warm', {
+      warmUntil: Date.now() + 60000,
+    })
+    updateInstanceState(testDigest, 'inst-stats-2', 'cooling')
 
-    const stats = getPoolStats(testDigest);
-    expect(stats).toBeDefined();
-    expect(stats?.warmCount).toBe(1);
-    expect(stats?.coolingCount).toBe(1);
-  });
+    const stats = getPoolStats(testDigest)
+    expect(stats).toBeDefined()
+    expect(stats?.warmCount).toBe(1)
+    expect(stats?.coolingCount).toBe(1)
+  })
 
   test('should emit events', () => {
-    const events: string[] = [];
+    const events: string[] = []
     const unsubscribe = onContainerEvent((event) => {
-      events.push(event.type);
-    });
+      events.push(event.type)
+    })
 
-    const resources: ContainerResources = { cpuCores: 1, memoryMb: 512, storageMb: 1024 };
-    addInstance(testDigest, 'inst-events', resources, TEST_USER, 'node-1');
+    const resources: ContainerResources = {
+      cpuCores: 1,
+      memoryMb: 512,
+      storageMb: 1024,
+    }
+    addInstance(testDigest, 'inst-events', resources, TEST_USER, 'node-1')
 
-    expect(events).toContain('instance_created');
+    expect(events).toContain('instance_created')
 
-    unsubscribe();
-  });
-});
+    unsubscribe()
+  })
+})
 
 // ============================================================================
 // Executor Tests
@@ -255,8 +283,8 @@ describe('Warm Pool', () => {
 
 describe('Executor', () => {
   afterEach(() => {
-    cleanupExecutor();
-  });
+    cleanupExecutor()
+  })
 
   test.skipIf(SKIP_DOCKER_TESTS)('should execute container', async () => {
     const request: ExecutionRequest = {
@@ -267,16 +295,16 @@ describe('Executor', () => {
       mode: 'serverless',
       timeout: 30000,
       input: { data: 'test' },
-    };
+    }
 
-    const result = await executeContainer(request, TEST_USER);
+    const result = await executeContainer(request, TEST_USER)
 
-    expect(result.executionId).toBeDefined();
-    expect(result.status).toBe('success');
-    expect(result.exitCode).toBe(0);
-    expect(result.metrics).toBeDefined();
-    expect(result.metrics.totalTimeMs).toBeGreaterThan(0);
-  });
+    expect(result.executionId).toBeDefined()
+    expect(result.status).toBe('success')
+    expect(result.exitCode).toBe(0)
+    expect(result.metrics).toBeDefined()
+    expect(result.metrics.totalTimeMs).toBeGreaterThan(0)
+  })
 
   test.skipIf(SKIP_DOCKER_TESTS)('should track cold starts', async () => {
     const request: ExecutionRequest = {
@@ -284,13 +312,13 @@ describe('Executor', () => {
       resources: { cpuCores: 1, memoryMb: 256, storageMb: 512 },
       mode: 'serverless',
       timeout: 30000,
-    };
+    }
 
-    const result = await executeContainer(request, TEST_USER);
+    const result = await executeContainer(request, TEST_USER)
 
     // First execution should be cold start
-    expect(result.metrics.wasColdStart).toBe(true);
-  });
+    expect(result.metrics.wasColdStart).toBe(true)
+  })
 
   test.skipIf(SKIP_DOCKER_TESTS)('should execute batch', async () => {
     const requests: ExecutionRequest[] = Array(3)
@@ -300,20 +328,20 @@ describe('Executor', () => {
         resources: { cpuCores: 1, memoryMb: 256, storageMb: 512 },
         mode: 'serverless' as const,
         timeout: 30000,
-      }));
+      }))
 
-    const results = await executeBatch(requests, TEST_USER, 2);
+    const results = await executeBatch(requests, TEST_USER, 2)
 
-    expect(results).toHaveLength(3);
-    expect(results.every((r) => r.status === 'success')).toBe(true);
-  });
+    expect(results).toHaveLength(3)
+    expect(results.every((r) => r.status === 'success')).toBe(true)
+  })
 
   test('should calculate cost', () => {
     const resources: ContainerResources = {
       cpuCores: 2,
       memoryMb: 1024,
       storageMb: 2048,
-    };
+    }
 
     const metrics = {
       queueTimeMs: 100,
@@ -326,34 +354,34 @@ describe('Executor', () => {
       networkInBytes: 1024 * 1024,
       networkOutBytes: 1024 * 1024,
       wasColdStart: true,
-    };
+    }
 
-    const cost = calculateCost(resources, metrics);
-    expect(cost).toBeGreaterThan(0n);
-  });
+    const cost = calculateCost(resources, metrics)
+    expect(cost).toBeGreaterThan(0n)
+  })
 
   test('should estimate cost', () => {
     const resources: ContainerResources = {
       cpuCores: 1,
       memoryMb: 512,
       storageMb: 1024,
-    };
+    }
 
-    const costWithCold = estimateCost(resources, 10000, true);
-    const costWarm = estimateCost(resources, 10000, false);
+    const costWithCold = estimateCost(resources, 10000, true)
+    const costWarm = estimateCost(resources, 10000, false)
 
-    expect(costWithCold).toBeGreaterThan(costWarm);
-  });
+    expect(costWithCold).toBeGreaterThan(costWarm)
+  })
 
   test('should get executor stats', () => {
-    const stats = getExecutorStats();
+    const stats = getExecutorStats()
 
-    expect(stats).toBeDefined();
-    expect(stats.pendingExecutions).toBeGreaterThanOrEqual(0);
-    expect(stats.cacheStats).toBeDefined();
-    expect(stats.poolStats).toBeDefined();
-  });
-});
+    expect(stats).toBeDefined()
+    expect(stats.pendingExecutions).toBeGreaterThanOrEqual(0)
+    expect(stats.cacheStats).toBeDefined()
+    expect(stats.poolStats).toBeDefined()
+  })
+})
 
 // ============================================================================
 // Scheduler Tests
@@ -381,7 +409,7 @@ describe('Scheduler', () => {
     lastHeartbeat: Date.now(),
     status: 'online',
     reputation: 95,
-  };
+  }
 
   const testNode2: ComputeNode = {
     nodeId: 'test-node-2',
@@ -404,43 +432,43 @@ describe('Scheduler', () => {
     lastHeartbeat: Date.now(),
     status: 'online',
     reputation: 90,
-  };
+  }
 
   beforeEach(() => {
-    registerNode(testNode1);
-    registerNode(testNode2);
-  });
+    registerNode(testNode1)
+    registerNode(testNode2)
+  })
 
   afterEach(() => {
-    removeNode('test-node-1');
-    removeNode('test-node-2');
-  });
+    removeNode('test-node-1')
+    removeNode('test-node-2')
+  })
 
   test('should register and retrieve nodes', () => {
-    const node = getNode('test-node-1');
-    expect(node).toBeDefined();
-    expect(node?.region).toBe('us-east-1');
-  });
+    const node = getNode('test-node-1')
+    expect(node).toBeDefined()
+    expect(node?.region).toBe('us-east-1')
+  })
 
   test('should get nodes by region', () => {
-    const usNodes = getNodesByRegion('us-east-1');
-    const euNodes = getNodesByRegion('eu-west-1');
+    const usNodes = getNodesByRegion('us-east-1')
+    const euNodes = getNodesByRegion('eu-west-1')
 
-    expect(usNodes).toHaveLength(1);
-    expect(euNodes).toHaveLength(1);
-    expect(usNodes[0]?.nodeId).toBe('test-node-1');
-  });
+    expect(usNodes).toHaveLength(1)
+    expect(euNodes).toHaveLength(1)
+    expect(usNodes[0]?.nodeId).toBe('test-node-1')
+  })
 
   test('should update node resources', () => {
     updateNodeResources('test-node-1', {
       cpu: 4,
       memoryMb: 8192,
       storageMb: 40960,
-    });
+    })
 
-    const node = getNode('test-node-1');
-    expect(node?.resources.availableCpu).toBe(4);
-  });
+    const node = getNode('test-node-1')
+    expect(node?.resources.availableCpu).toBe(4)
+  })
 
   test('should schedule with best-fit strategy', async () => {
     const request: ExecutionRequest = {
@@ -448,7 +476,7 @@ describe('Scheduler', () => {
       resources: { cpuCores: 2, memoryMb: 2048, storageMb: 4096 },
       mode: 'serverless',
       timeout: 30000,
-    };
+    }
 
     const result = await scheduleExecution(
       {
@@ -467,62 +495,67 @@ describe('Scheduler', () => {
         },
         userAddress: TEST_USER,
       },
-      'best-fit'
-    );
+      'best-fit',
+    )
 
-    expect(result).toBeDefined();
-    expect(result?.nodeId).toBe('test-node-1'); // Should prefer node with cached image
-  });
+    expect(result).toBeDefined()
+    expect(result?.nodeId).toBe('test-node-1') // Should prefer node with cached image
+  })
 
   test('should reserve and release resources', () => {
     // Get current available resources first
-    const nodeBefore = getNode('test-node-1');
-    const initialCpu = nodeBefore?.resources.availableCpu ?? 0;
-    
+    const nodeBefore = getNode('test-node-1')
+    const initialCpu = nodeBefore?.resources.availableCpu ?? 0
+
     const resources: ContainerResources = {
       cpuCores: 2,
       memoryMb: 2048,
       storageMb: 4096,
-    };
+    }
 
-    const reservation = reserveResources('test-node-1', resources, TEST_USER, 60000);
-    expect(reservation).toBeDefined();
-    expect(reservation?.nodeId).toBe('test-node-1');
+    const reservation = reserveResources(
+      'test-node-1',
+      resources,
+      TEST_USER,
+      60000,
+    )
+    expect(reservation).toBeDefined()
+    expect(reservation?.nodeId).toBe('test-node-1')
 
     // Check resources were deducted
-    const node = getNode('test-node-1');
-    expect(node?.resources.availableCpu).toBe(initialCpu - 2);
+    const node = getNode('test-node-1')
+    expect(node?.resources.availableCpu).toBe(initialCpu - 2)
 
     // Release
-    const released = releaseReservation(reservation!.reservationId);
-    expect(released).toBe(true);
+    const released = releaseReservation(reservation!.reservationId)
+    expect(released).toBe(true)
 
     // Check resources restored
-    const nodeAfter = getNode('test-node-1');
-    expect(nodeAfter?.resources.availableCpu).toBe(initialCpu);
-  });
+    const nodeAfter = getNode('test-node-1')
+    expect(nodeAfter?.resources.availableCpu).toBe(initialCpu)
+  })
 
   test('should find nearest region', () => {
     // New York coordinates
-    const nyLocation = { latitude: 40.7128, longitude: -74.006 };
-    const nearest = findNearestRegion(nyLocation);
-    expect(nearest).toBe('us-east-1');
+    const nyLocation = { latitude: 40.7128, longitude: -74.006 }
+    const nearest = findNearestRegion(nyLocation)
+    expect(nearest).toBe('us-east-1')
 
     // London coordinates
-    const londonLocation = { latitude: 51.5074, longitude: -0.1278 };
-    const nearestLondon = findNearestRegion(londonLocation);
-    expect(nearestLondon).toBe('eu-west-1');
-  });
+    const londonLocation = { latitude: 51.5074, longitude: -0.1278 }
+    const nearestLondon = findNearestRegion(londonLocation)
+    expect(nearestLondon).toBe('eu-west-1')
+  })
 
   test('should get scheduler stats', () => {
-    const stats = getSchedulerStats();
+    const stats = getSchedulerStats()
 
-    expect(stats.totalNodes).toBeGreaterThanOrEqual(2);
-    expect(stats.onlineNodes).toBeGreaterThanOrEqual(2);
-    expect(stats.totalCpu).toBeGreaterThan(0);
-    expect(stats.nodesByRegion['us-east-1']).toBe(1);
-  });
-});
+    expect(stats.totalNodes).toBeGreaterThanOrEqual(2)
+    expect(stats.onlineNodes).toBeGreaterThanOrEqual(2)
+    expect(stats.totalCpu).toBeGreaterThan(0)
+    expect(stats.nodesByRegion['us-east-1']).toBe(1)
+  })
+})
 
 // ============================================================================
 // Integration Tests
@@ -530,33 +563,33 @@ describe('Scheduler', () => {
 
 describe.skipIf(SKIP_DOCKER_TESTS)('Integration', () => {
   afterEach(() => {
-    cleanupExecutor();
-    cleanupAllPools();
-    clearCache();
-  });
+    cleanupExecutor()
+    cleanupAllPools()
+    clearCache()
+  })
 
   test('should execute multiple containers with warmth reuse', async () => {
-    const imageRef = `jeju/warmth-test-${Date.now()}:latest`;
+    const imageRef = `jeju/warmth-test-${Date.now()}:latest`
     const request: ExecutionRequest = {
       imageRef,
       resources: { cpuCores: 1, memoryMb: 256, storageMb: 512 },
       mode: 'serverless',
       timeout: 30000,
-    };
+    }
 
     // First execution (cold)
-    const result1 = await executeContainer(request, TEST_USER);
-    expect(result1.metrics.wasColdStart).toBe(true);
+    const result1 = await executeContainer(request, TEST_USER)
+    expect(result1.metrics.wasColdStart).toBe(true)
 
     // Second execution (should reuse warm instance or cache)
-    const result2 = await executeContainer(request, TEST_USER);
+    const result2 = await executeContainer(request, TEST_USER)
     // May or may not be warm depending on timing
-    expect(result2.status).toBe('success');
+    expect(result2.status).toBe('success')
 
     // Stats should show executions
-    const stats = getExecutorStats();
-    expect(stats.completedExecutions).toBeGreaterThanOrEqual(2);
-  });
+    const stats = getExecutorStats()
+    expect(stats.completedExecutions).toBeGreaterThanOrEqual(2)
+  })
 
   test('should handle concurrent executions', async () => {
     const requests = Array(5)
@@ -566,19 +599,19 @@ describe.skipIf(SKIP_DOCKER_TESTS)('Integration', () => {
         resources: { cpuCores: 1, memoryMb: 256, storageMb: 512 },
         mode: 'serverless' as const,
         timeout: 30000,
-      }));
+      }))
 
     const results = await Promise.all(
-      requests.map((req) => executeContainer(req, TEST_USER))
-    );
+      requests.map((req) => executeContainer(req, TEST_USER)),
+    )
 
-    expect(results).toHaveLength(5);
-    expect(results.every((r) => r.status === 'success')).toBe(true);
-  });
+    expect(results).toHaveLength(5)
+    expect(results.every((r) => r.status === 'success')).toBe(true)
+  })
 
   test('full e2e flow with scheduling and execution', async () => {
     // Register a node
-    const nodeId = `e2e-node-${Date.now()}`;
+    const nodeId = `e2e-node-${Date.now()}`
     registerNode({
       nodeId,
       address: TEST_USER,
@@ -600,7 +633,7 @@ describe.skipIf(SKIP_DOCKER_TESTS)('Integration', () => {
       lastHeartbeat: Date.now(),
       status: 'online',
       reputation: 100,
-    });
+    })
 
     // Execute container
     const request: ExecutionRequest = {
@@ -611,22 +644,19 @@ describe.skipIf(SKIP_DOCKER_TESTS)('Integration', () => {
       mode: 'serverless',
       timeout: 60000,
       input: { payload: 'test-data' },
-    };
+    }
 
-    const result = await executeContainer(request, TEST_USER);
+    const result = await executeContainer(request, TEST_USER)
 
-    expect(result.status).toBe('success');
-    expect(result.output).toBeDefined();
-    expect(result.metrics.executionTimeMs).toBeGreaterThan(0);
+    expect(result.status).toBe('success')
+    expect(result.output).toBeDefined()
+    expect(result.metrics.executionTimeMs).toBeGreaterThan(0)
 
     // Check cost was calculated
-    const cost = calculateCost(request.resources, result.metrics);
-    expect(cost).toBeGreaterThan(0n);
+    const cost = calculateCost(request.resources, result.metrics)
+    expect(cost).toBeGreaterThan(0n)
 
     // Cleanup
-    removeNode(nodeId);
-  });
-});
-
-
-
+    removeNode(nodeId)
+  })
+})

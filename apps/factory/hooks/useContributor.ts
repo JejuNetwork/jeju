@@ -1,22 +1,25 @@
-'use client';
+'use client'
 
-import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { parseAbi } from 'viem';
-import type { Address } from 'viem';
-import type { 
-  ContributorProfile, 
-  ContributorType, 
-  SocialLink, 
-  RepositoryClaim, 
+import type { Address } from 'viem'
+import { keccak256, parseAbi, toBytes } from 'viem'
+import {
+  useReadContract,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from 'wagmi'
+import type {
+  ContributorProfile,
+  ContributorType,
   DependencyClaim,
+  RepositoryClaim,
+  SocialLink,
   SocialPlatform,
-} from '../types/funding';
-import { 
-  parseContributorType, 
-  parseVerificationStatus, 
+} from '../types/funding'
+import {
   getContributorTypeIndex,
-} from '../types/funding';
-import { keccak256, toBytes } from 'viem';
+  parseContributorType,
+  parseVerificationStatus,
+} from '../types/funding'
 
 // ============ Contract ABI ============
 
@@ -38,7 +41,7 @@ const CONTRIBUTOR_REGISTRY_ABI = parseAbi([
   'function isVerifiedGitHub(bytes32 contributorId) external view returns (bool)',
   'function getAllContributors() external view returns (bytes32[])',
   'function getContributorCount() external view returns (uint256)',
-]);
+])
 
 // ============ Platform Hash Helpers ============
 
@@ -47,23 +50,23 @@ const PLATFORM_HASHES: Record<SocialPlatform, `0x${string}`> = {
   discord: keccak256(toBytes('discord')),
   twitter: keccak256(toBytes('twitter')),
   farcaster: keccak256(toBytes('farcaster')),
-};
+}
 
 function parsePlatformFromHash(hash: string): SocialPlatform {
   for (const [platform, platformHash] of Object.entries(PLATFORM_HASHES)) {
     if (platformHash === hash) {
-      return platform as SocialPlatform;
+      return platform as SocialPlatform
     }
   }
-  return 'github';
+  return 'github'
 }
 
 // ============ Config ============
 
-import { addresses } from '../config/contracts';
+import { addresses } from '../config/contracts'
 
 function getAddress(): Address {
-  return addresses.contributorRegistry;
+  return addresses.contributorRegistry
 }
 
 // ============ Read Hooks ============
@@ -75,21 +78,56 @@ export function useContributor(contributorId: string | undefined) {
     functionName: 'getContributor',
     args: contributorId ? [contributorId as `0x${string}`] : undefined,
     query: { enabled: !!contributorId },
-  });
+  })
 
-  const profile: ContributorProfile | null = data ? {
-    contributorId: (data as [string])[0],
-    wallet: (data as [string, Address])[1],
-    agentId: (data as [string, Address, bigint])[2],
-    contributorType: parseContributorType((data as [string, Address, bigint, number])[3]),
-    profileUri: (data as [string, Address, bigint, number, string])[4],
-    totalEarned: (data as [string, Address, bigint, number, string, bigint])[5],
-    registeredAt: Number((data as [string, Address, bigint, number, string, bigint, bigint])[6]),
-    lastActiveAt: Number((data as [string, Address, bigint, number, string, bigint, bigint, bigint])[7]),
-    active: (data as [string, Address, bigint, number, string, bigint, bigint, bigint, boolean])[8],
-  } : null;
+  const profile: ContributorProfile | null = data
+    ? {
+        contributorId: (data as [string])[0],
+        wallet: (data as [string, Address])[1],
+        agentId: (data as [string, Address, bigint])[2],
+        contributorType: parseContributorType(
+          (data as [string, Address, bigint, number])[3],
+        ),
+        profileUri: (data as [string, Address, bigint, number, string])[4],
+        totalEarned: (
+          data as [string, Address, bigint, number, string, bigint]
+        )[5],
+        registeredAt: Number(
+          (
+            data as [string, Address, bigint, number, string, bigint, bigint]
+          )[6],
+        ),
+        lastActiveAt: Number(
+          (
+            data as [
+              string,
+              Address,
+              bigint,
+              number,
+              string,
+              bigint,
+              bigint,
+              bigint,
+            ]
+          )[7],
+        ),
+        active: (
+          data as [
+            string,
+            Address,
+            bigint,
+            number,
+            string,
+            bigint,
+            bigint,
+            bigint,
+            boolean,
+          ]
+        )[8],
+      }
+    : null
 
-  return { profile, isLoading, error, refetch };
+  return { profile, isLoading, error, refetch }
 }
 
 export function useContributorByWallet(wallet: Address | undefined) {
@@ -99,21 +137,59 @@ export function useContributorByWallet(wallet: Address | undefined) {
     functionName: 'getContributorByWallet',
     args: wallet ? [wallet] : undefined,
     query: { enabled: !!wallet },
-  });
+  })
 
-  const profile: ContributorProfile | null = data && (data as [string, Address, bigint, number, string, bigint, bigint])[6] !== 0n ? {
-    contributorId: (data as [string])[0],
-    wallet: (data as [string, Address])[1],
-    agentId: (data as [string, Address, bigint])[2],
-    contributorType: parseContributorType((data as [string, Address, bigint, number])[3]),
-    profileUri: (data as [string, Address, bigint, number, string])[4],
-    totalEarned: (data as [string, Address, bigint, number, string, bigint])[5],
-    registeredAt: Number((data as [string, Address, bigint, number, string, bigint, bigint])[6]),
-    lastActiveAt: Number((data as [string, Address, bigint, number, string, bigint, bigint, bigint])[7]),
-    active: (data as [string, Address, bigint, number, string, bigint, bigint, bigint, boolean])[8],
-  } : null;
+  const profile: ContributorProfile | null =
+    data &&
+    (data as [string, Address, bigint, number, string, bigint, bigint])[6] !==
+      0n
+      ? {
+          contributorId: (data as [string])[0],
+          wallet: (data as [string, Address])[1],
+          agentId: (data as [string, Address, bigint])[2],
+          contributorType: parseContributorType(
+            (data as [string, Address, bigint, number])[3],
+          ),
+          profileUri: (data as [string, Address, bigint, number, string])[4],
+          totalEarned: (
+            data as [string, Address, bigint, number, string, bigint]
+          )[5],
+          registeredAt: Number(
+            (
+              data as [string, Address, bigint, number, string, bigint, bigint]
+            )[6],
+          ),
+          lastActiveAt: Number(
+            (
+              data as [
+                string,
+                Address,
+                bigint,
+                number,
+                string,
+                bigint,
+                bigint,
+                bigint,
+              ]
+            )[7],
+          ),
+          active: (
+            data as [
+              string,
+              Address,
+              bigint,
+              number,
+              string,
+              bigint,
+              bigint,
+              bigint,
+              boolean,
+            ]
+          )[8],
+        }
+      : null
 
-  return { profile, isLoading, error, refetch };
+  return { profile, isLoading, error, refetch }
 }
 
 export function useSocialLinks(contributorId: string | undefined) {
@@ -123,18 +199,22 @@ export function useSocialLinks(contributorId: string | undefined) {
     functionName: 'getSocialLinks',
     args: contributorId ? [contributorId as `0x${string}`] : undefined,
     query: { enabled: !!contributorId },
-  });
+  })
 
-  const links: SocialLink[] = data ? (data as Array<[string, string, string, number, bigint, bigint]>).map(link => ({
-    platform: parsePlatformFromHash(link[0]),
-    handle: link[1],
-    proofHash: link[2],
-    status: parseVerificationStatus(link[3]),
-    verifiedAt: Number(link[4]),
-    expiresAt: Number(link[5]),
-  })) : [];
+  const links: SocialLink[] = data
+    ? (data as Array<[string, string, string, number, bigint, bigint]>).map(
+        (link) => ({
+          platform: parsePlatformFromHash(link[0]),
+          handle: link[1],
+          proofHash: link[2],
+          status: parseVerificationStatus(link[3]),
+          verifiedAt: Number(link[4]),
+          expiresAt: Number(link[5]),
+        }),
+      )
+    : []
 
-  return { links, isLoading, error, refetch };
+  return { links, isLoading, error, refetch }
 }
 
 export function useRepositoryClaims(contributorId: string | undefined) {
@@ -144,20 +224,26 @@ export function useRepositoryClaims(contributorId: string | undefined) {
     functionName: 'getRepositoryClaims',
     args: contributorId ? [contributorId as `0x${string}`] : undefined,
     query: { enabled: !!contributorId },
-  });
+  })
 
-  const claims: RepositoryClaim[] = data ? (data as Array<[string, string, string, string, string, number, bigint, bigint]>).map(claim => ({
-    claimId: claim[0],
-    contributorId: claim[1],
-    owner: claim[2],
-    repo: claim[3],
-    proofHash: claim[4],
-    status: parseVerificationStatus(claim[5]),
-    claimedAt: Number(claim[6]),
-    verifiedAt: Number(claim[7]),
-  })) : [];
+  const claims: RepositoryClaim[] = data
+    ? (
+        data as Array<
+          [string, string, string, string, string, number, bigint, bigint]
+        >
+      ).map((claim) => ({
+        claimId: claim[0],
+        contributorId: claim[1],
+        owner: claim[2],
+        repo: claim[3],
+        proofHash: claim[4],
+        status: parseVerificationStatus(claim[5]),
+        claimedAt: Number(claim[6]),
+        verifiedAt: Number(claim[7]),
+      }))
+    : []
 
-  return { claims, isLoading, error, refetch };
+  return { claims, isLoading, error, refetch }
 }
 
 export function useDependencyClaims(contributorId: string | undefined) {
@@ -167,20 +253,26 @@ export function useDependencyClaims(contributorId: string | undefined) {
     functionName: 'getDependencyClaims',
     args: contributorId ? [contributorId as `0x${string}`] : undefined,
     query: { enabled: !!contributorId },
-  });
+  })
 
-  const claims: DependencyClaim[] = data ? (data as Array<[string, string, string, string, string, number, bigint, bigint]>).map(claim => ({
-    claimId: claim[0],
-    contributorId: claim[1],
-    packageName: claim[2],
-    registryType: claim[3] as DependencyClaim['registryType'],
-    proofHash: claim[4],
-    status: parseVerificationStatus(claim[5]),
-    claimedAt: Number(claim[6]),
-    verifiedAt: Number(claim[7]),
-  })) : [];
+  const claims: DependencyClaim[] = data
+    ? (
+        data as Array<
+          [string, string, string, string, string, number, bigint, bigint]
+        >
+      ).map((claim) => ({
+        claimId: claim[0],
+        contributorId: claim[1],
+        packageName: claim[2],
+        registryType: claim[3] as DependencyClaim['registryType'],
+        proofHash: claim[4],
+        status: parseVerificationStatus(claim[5]),
+        claimedAt: Number(claim[6]),
+        verifiedAt: Number(claim[7]),
+      }))
+    : []
 
-  return { claims, isLoading, error, refetch };
+  return { claims, isLoading, error, refetch }
 }
 
 export function useContributorCount() {
@@ -188,9 +280,9 @@ export function useContributorCount() {
     address: getAddress(),
     abi: CONTRIBUTOR_REGISTRY_ABI,
     functionName: 'getContributorCount',
-  });
+  })
 
-  return { count: data ? Number(data) : 0, isLoading, error };
+  return { count: data ? Number(data) : 0, isLoading, error }
 }
 
 export function useIsVerifiedGitHub(contributorId: string | undefined) {
@@ -200,16 +292,18 @@ export function useIsVerifiedGitHub(contributorId: string | undefined) {
     functionName: 'isVerifiedGitHub',
     args: contributorId ? [contributorId as `0x${string}`] : undefined,
     query: { enabled: !!contributorId },
-  });
+  })
 
-  return { isVerified: !!data, isLoading, error };
+  return { isVerified: !!data, isLoading, error }
 }
 
 // ============ Write Hooks ============
 
 export function useRegisterContributor() {
-  const { writeContract, data: hash, isPending, error } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { writeContract, data: hash, isPending, error } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
   const register = (contributorType: ContributorType, profileUri: string) => {
     writeContract({
@@ -217,63 +311,83 @@ export function useRegisterContributor() {
       abi: CONTRIBUTOR_REGISTRY_ABI,
       functionName: 'register',
       args: [getContributorTypeIndex(contributorType), profileUri],
-    });
-  };
+    })
+  }
 
-  return { register, hash, isPending, isConfirming, isSuccess, error };
+  return { register, hash, isPending, isConfirming, isSuccess, error }
 }
 
 export function useAddSocialLink() {
-  const { writeContract, data: hash, isPending, error } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { writeContract, data: hash, isPending, error } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
-  const addSocialLink = (contributorId: string, platform: SocialPlatform, handle: string) => {
+  const addSocialLink = (
+    contributorId: string,
+    platform: SocialPlatform,
+    handle: string,
+  ) => {
     writeContract({
       address: getAddress(),
       abi: CONTRIBUTOR_REGISTRY_ABI,
       functionName: 'addSocialLink',
       args: [contributorId as `0x${string}`, PLATFORM_HASHES[platform], handle],
-    });
-  };
+    })
+  }
 
-  return { addSocialLink, hash, isPending, isConfirming, isSuccess, error };
+  return { addSocialLink, hash, isPending, isConfirming, isSuccess, error }
 }
 
 export function useClaimRepository() {
-  const { writeContract, data: hash, isPending, error } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { writeContract, data: hash, isPending, error } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
-  const claimRepository = (contributorId: string, owner: string, repo: string) => {
+  const claimRepository = (
+    contributorId: string,
+    owner: string,
+    repo: string,
+  ) => {
     writeContract({
       address: getAddress(),
       abi: CONTRIBUTOR_REGISTRY_ABI,
       functionName: 'claimRepository',
       args: [contributorId as `0x${string}`, owner, repo],
-    });
-  };
+    })
+  }
 
-  return { claimRepository, hash, isPending, isConfirming, isSuccess, error };
+  return { claimRepository, hash, isPending, isConfirming, isSuccess, error }
 }
 
 export function useClaimDependency() {
-  const { writeContract, data: hash, isPending, error } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { writeContract, data: hash, isPending, error } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
-  const claimDependency = (contributorId: string, packageName: string, registryType: string) => {
+  const claimDependency = (
+    contributorId: string,
+    packageName: string,
+    registryType: string,
+  ) => {
     writeContract({
       address: getAddress(),
       abi: CONTRIBUTOR_REGISTRY_ABI,
       functionName: 'claimDependency',
       args: [contributorId as `0x${string}`, packageName, registryType],
-    });
-  };
+    })
+  }
 
-  return { claimDependency, hash, isPending, isConfirming, isSuccess, error };
+  return { claimDependency, hash, isPending, isConfirming, isSuccess, error }
 }
 
 export function useLinkAgent() {
-  const { writeContract, data: hash, isPending, error } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { writeContract, data: hash, isPending, error } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
   const linkAgent = (contributorId: string, agentId: bigint) => {
     writeContract({
@@ -281,15 +395,17 @@ export function useLinkAgent() {
       abi: CONTRIBUTOR_REGISTRY_ABI,
       functionName: 'linkAgent',
       args: [contributorId as `0x${string}`, agentId],
-    });
-  };
+    })
+  }
 
-  return { linkAgent, hash, isPending, isConfirming, isSuccess, error };
+  return { linkAgent, hash, isPending, isConfirming, isSuccess, error }
 }
 
 export function useUpdateProfile() {
-  const { writeContract, data: hash, isPending, error } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { writeContract, data: hash, isPending, error } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
   const updateProfile = (contributorId: string, profileUri: string) => {
     writeContract({
@@ -297,9 +413,8 @@ export function useUpdateProfile() {
       abi: CONTRIBUTOR_REGISTRY_ABI,
       functionName: 'updateProfile',
       args: [contributorId as `0x${string}`, profileUri],
-    });
-  };
+    })
+  }
 
-  return { updateProfile, hash, isPending, isConfirming, isSuccess, error };
+  return { updateProfile, hash, isPending, isConfirming, isSuccess, error }
 }
-

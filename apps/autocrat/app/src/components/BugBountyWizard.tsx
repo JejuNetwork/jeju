@@ -1,11 +1,22 @@
 'use client'
 
-import { useState, useCallback } from 'react'
-import { 
-  ArrowLeft, ArrowRight, Shield, Check, AlertCircle, 
-  AlertTriangle, Bug, Zap, Lock, Send, Code, Eye,
-  DollarSign, Clock
+import {
+  AlertCircle,
+  AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
+  Bug,
+  Check,
+  Clock,
+  Code,
+  DollarSign,
+  Eye,
+  Lock,
+  Send,
+  Shield,
+  Zap,
 } from 'lucide-react'
+import { useCallback, useState } from 'react'
 import { parseEther } from 'viem'
 
 // ============ Types ============
@@ -39,22 +50,86 @@ type WizardStep = 'type' | 'details' | 'poc' | 'review' | 'submit'
 // ============ Config ============
 
 const SEVERITY_OPTIONS = [
-  { value: 0, label: 'Low', color: 'bg-blue-500', range: '$500 - $2,500', desc: 'Minor bugs, theoretical issues' },
-  { value: 1, label: 'Medium', color: 'bg-yellow-500', range: '$2,500 - $10,000', desc: 'DoS, information disclosure' },
-  { value: 2, label: 'High', color: 'bg-orange-500', range: '$10,000 - $25,000', desc: '51% attack, MPC exposure, privilege escalation' },
-  { value: 3, label: 'Critical', color: 'bg-red-500', range: '$25,000 - $50,000', desc: 'Immediate fund loss, RCE, wallet drain, TEE bypass' },
+  {
+    value: 0,
+    label: 'Low',
+    color: 'bg-blue-500',
+    range: '$500 - $2,500',
+    desc: 'Minor bugs, theoretical issues',
+  },
+  {
+    value: 1,
+    label: 'Medium',
+    color: 'bg-yellow-500',
+    range: '$2,500 - $10,000',
+    desc: 'DoS, information disclosure',
+  },
+  {
+    value: 2,
+    label: 'High',
+    color: 'bg-orange-500',
+    range: '$10,000 - $25,000',
+    desc: '51% attack, MPC exposure, privilege escalation',
+  },
+  {
+    value: 3,
+    label: 'Critical',
+    color: 'bg-red-500',
+    range: '$25,000 - $50,000',
+    desc: 'Immediate fund loss, RCE, wallet drain, TEE bypass',
+  },
 ]
 
 const VULN_TYPE_OPTIONS = [
-  { value: 0, label: 'Funds at Risk', icon: DollarSign, desc: 'Direct loss of user funds' },
-  { value: 1, label: 'Wallet Drain', icon: Lock, desc: 'Unauthorized wallet access' },
-  { value: 2, label: 'Remote Code Execution', icon: Code, desc: 'RCE on infrastructure' },
+  {
+    value: 0,
+    label: 'Funds at Risk',
+    icon: DollarSign,
+    desc: 'Direct loss of user funds',
+  },
+  {
+    value: 1,
+    label: 'Wallet Drain',
+    icon: Lock,
+    desc: 'Unauthorized wallet access',
+  },
+  {
+    value: 2,
+    label: 'Remote Code Execution',
+    icon: Code,
+    desc: 'RCE on infrastructure',
+  },
   { value: 3, label: 'TEE Bypass', icon: Shield, desc: 'Enclave manipulation' },
-  { value: 4, label: 'Consensus Attack', icon: Zap, desc: '51% or consensus issues' },
-  { value: 5, label: 'MPC Key Exposure', icon: Lock, desc: 'Key material leakage' },
-  { value: 6, label: 'Privilege Escalation', icon: AlertTriangle, desc: 'Unauthorized access elevation' },
-  { value: 7, label: 'Denial of Service', icon: AlertCircle, desc: 'Service disruption' },
-  { value: 8, label: 'Information Disclosure', icon: Eye, desc: 'Sensitive data exposure' },
+  {
+    value: 4,
+    label: 'Consensus Attack',
+    icon: Zap,
+    desc: '51% or consensus issues',
+  },
+  {
+    value: 5,
+    label: 'MPC Key Exposure',
+    icon: Lock,
+    desc: 'Key material leakage',
+  },
+  {
+    value: 6,
+    label: 'Privilege Escalation',
+    icon: AlertTriangle,
+    desc: 'Unauthorized access elevation',
+  },
+  {
+    value: 7,
+    label: 'Denial of Service',
+    icon: AlertCircle,
+    desc: 'Service disruption',
+  },
+  {
+    value: 8,
+    label: 'Information Disclosure',
+    icon: Eye,
+    desc: 'Sensitive data exposure',
+  },
   { value: 9, label: 'Other', icon: Bug, desc: 'Other security issues' },
 ]
 
@@ -80,7 +155,10 @@ interface BugBountyWizardProps {
 
 // ============ Component ============
 
-export function BugBountyWizard({ onComplete, onCancel }: BugBountyWizardProps) {
+export function BugBountyWizard({
+  onComplete,
+  onCancel,
+}: BugBountyWizardProps) {
   const [step, setStep] = useState<WizardStep>('type')
   const [draft, setDraft] = useState<BountyDraft>({
     severity: 1,
@@ -94,7 +172,7 @@ export function BugBountyWizard({ onComplete, onCancel }: BugBountyWizardProps) 
     suggestedFix: '',
     stake: '0.01',
   })
-  
+
   const [assessment, setAssessment] = useState<BountyAssessment | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -103,8 +181,12 @@ export function BugBountyWizard({ onComplete, onCancel }: BugBountyWizardProps) 
   // Step validation
   const canProceed = {
     type: draft.vulnType !== undefined && draft.severity !== undefined,
-    details: draft.title.length >= 10 && draft.summary.length >= 50 && draft.description.length >= 200 && draft.affectedComponents.length > 0,
-    poc: draft.stepsToReproduce.filter(s => s.trim()).length >= 2,
+    details:
+      draft.title.length >= 10 &&
+      draft.summary.length >= 50 &&
+      draft.description.length >= 200 &&
+      draft.affectedComponents.length > 0,
+    poc: draft.stepsToReproduce.filter((s) => s.trim()).length >= 2,
     review: assessment?.readyToSubmit ?? false,
     submit: true,
   }
@@ -113,7 +195,7 @@ export function BugBountyWizard({ onComplete, onCancel }: BugBountyWizardProps) 
   const handleAssess = useCallback(async () => {
     setLoading(true)
     setError('')
-    
+
     try {
       const response = await fetch('/api/bug-bounty/assess', {
         method: 'POST',
@@ -122,7 +204,7 @@ export function BugBountyWizard({ onComplete, onCancel }: BugBountyWizardProps) 
       })
 
       if (!response.ok) throw new Error('Assessment failed')
-      
+
       const result = await response.json()
       setAssessment(result)
     } catch (e) {
@@ -132,14 +214,14 @@ export function BugBountyWizard({ onComplete, onCancel }: BugBountyWizardProps) 
         severityScore: 50,
         impactScore: 50,
         exploitabilityScore: draft.proofOfConcept ? 70 : 30,
-        isImmediateThreat: draft.severity === 3 && (draft.vulnType <= 2),
+        isImmediateThreat: draft.severity === 3 && draft.vulnType <= 2,
         estimatedReward: SEVERITY_OPTIONS[draft.severity].range.split(' - ')[0],
         validationPriority: draft.severity >= 2 ? 'high' : 'medium',
         feedback: ['Assessment service unavailable - manual review required'],
         readyToSubmit: canProceed.details && canProceed.poc,
       })
     }
-    
+
     setLoading(false)
   }, [draft, canProceed.details, canProceed.poc])
 
@@ -192,7 +274,7 @@ export function BugBountyWizard({ onComplete, onCancel }: BugBountyWizardProps) 
   // Toggle component
   const toggleComponent = (component: string) => {
     const components = draft.affectedComponents.includes(component)
-      ? draft.affectedComponents.filter(c => c !== component)
+      ? draft.affectedComponents.filter((c) => c !== component)
       : [...draft.affectedComponents, component]
     setDraft({ ...draft, affectedComponents: components })
   }
@@ -201,25 +283,37 @@ export function BugBountyWizard({ onComplete, onCancel }: BugBountyWizardProps) 
     <div className="max-w-4xl mx-auto">
       {/* Progress */}
       <div className="flex items-center justify-between mb-8">
-        {(['type', 'details', 'poc', 'review', 'submit'] as WizardStep[]).map((s, i) => (
-          <div key={s} className="flex items-center">
-            <div 
-              className={`
+        {(['type', 'details', 'poc', 'review', 'submit'] as WizardStep[]).map(
+          (s, i) => (
+            <div key={s} className="flex items-center">
+              <div
+                className={`
                 w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium
-                ${step === s ? 'bg-red-500 text-white' : 
-                  canProceed[s] ? 'bg-green-500 text-white' : 
-                  'bg-gray-700 text-gray-400'}
+                ${
+                  step === s
+                    ? 'bg-red-500 text-white'
+                    : canProceed[s]
+                      ? 'bg-green-500 text-white'
+                      : 'bg-gray-700 text-gray-400'
+                }
               `}
-            >
-              {canProceed[s] && step !== s ? <Check size={16} /> : i + 1}
+              >
+                {canProceed[s] && step !== s ? <Check size={16} /> : i + 1}
+              </div>
+              {i < 4 && (
+                <div
+                  className={`hidden sm:block w-16 h-0.5 mx-2 ${
+                    canProceed[
+                      (['type', 'details', 'poc', 'review'] as WizardStep[])[i]
+                    ]
+                      ? 'bg-green-500'
+                      : 'bg-gray-700'
+                  }`}
+                />
+              )}
             </div>
-            {i < 4 && (
-              <div className={`hidden sm:block w-16 h-0.5 mx-2 ${
-                canProceed[(['type', 'details', 'poc', 'review'] as WizardStep[])[i]] ? 'bg-green-500' : 'bg-gray-700'
-              }`} />
-            )}
-          </div>
-        ))}
+          ),
+        )}
       </div>
 
       {/* Step Labels */}
@@ -258,10 +352,14 @@ export function BugBountyWizard({ onComplete, onCancel }: BugBountyWizardProps) 
                     }`}
                   >
                     <div className="flex items-center gap-2 mb-2">
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium text-white ${opt.color}`}>
+                      <span
+                        className={`px-2 py-0.5 rounded text-xs font-medium text-white ${opt.color}`}
+                      >
                         {opt.label}
                       </span>
-                      <span className="text-sm text-green-400">{opt.range}</span>
+                      <span className="text-sm text-green-400">
+                        {opt.range}
+                      </span>
                     </div>
                     <p className="text-sm text-gray-400">{opt.desc}</p>
                   </button>
@@ -287,7 +385,9 @@ export function BugBountyWizard({ onComplete, onCancel }: BugBountyWizardProps) 
                   >
                     <div className="flex items-center gap-2">
                       <opt.icon className="w-4 h-4 text-gray-400" />
-                      <span className="text-sm font-medium text-white">{opt.label}</span>
+                      <span className="text-sm font-medium text-white">
+                        {opt.label}
+                      </span>
                     </div>
                   </button>
                 ))}
@@ -299,8 +399,9 @@ export function BugBountyWizard({ onComplete, onCancel }: BugBountyWizardProps) 
               <div className="p-4 bg-red-900/30 border border-red-700 rounded-lg flex items-start gap-3">
                 <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
                 <div className="text-sm text-red-200">
-                  <strong>Critical Severity:</strong> This will trigger fast-track review. 
-                  Please ensure you have solid evidence. False critical reports may affect your reputation.
+                  <strong>Critical Severity:</strong> This will trigger
+                  fast-track review. Please ensure you have solid evidence.
+                  False critical reports may affect your reputation.
                 </div>
               </div>
             )}
@@ -317,7 +418,9 @@ export function BugBountyWizard({ onComplete, onCancel }: BugBountyWizardProps) 
 
             {/* Title */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Title</label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Title
+              </label>
               <input
                 type="text"
                 value={draft.title}
@@ -326,29 +429,41 @@ export function BugBountyWizard({ onComplete, onCancel }: BugBountyWizardProps) 
                 className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-red-500"
                 maxLength={100}
               />
-              <div className="text-xs text-gray-500 mt-1">{draft.title.length}/100</div>
+              <div className="text-xs text-gray-500 mt-1">
+                {draft.title.length}/100
+              </div>
             </div>
 
             {/* Summary */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Summary</label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Summary
+              </label>
               <textarea
                 value={draft.summary}
-                onChange={(e) => setDraft({ ...draft, summary: e.target.value })}
+                onChange={(e) =>
+                  setDraft({ ...draft, summary: e.target.value })
+                }
                 placeholder="1-2 sentence summary of the vulnerability (50-500 chars)"
                 className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-red-500"
                 rows={2}
                 maxLength={500}
               />
-              <div className="text-xs text-gray-500 mt-1">{draft.summary.length}/500</div>
+              <div className="text-xs text-gray-500 mt-1">
+                {draft.summary.length}/500
+              </div>
             </div>
 
             {/* Description */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Full Description</label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Full Description
+              </label>
               <textarea
                 value={draft.description}
-                onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+                onChange={(e) =>
+                  setDraft({ ...draft, description: e.target.value })
+                }
                 placeholder={`Detailed vulnerability description including:
 • Root cause analysis
 • Attack vector
@@ -357,12 +472,16 @@ export function BugBountyWizard({ onComplete, onCancel }: BugBountyWizardProps) 
                 className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-red-500"
                 rows={8}
               />
-              <div className="text-xs text-gray-500 mt-1">{draft.description.length} chars (min 200)</div>
+              <div className="text-xs text-gray-500 mt-1">
+                {draft.description.length} chars (min 200)
+              </div>
             </div>
 
             {/* Affected Components */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Affected Components</label>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Affected Components
+              </label>
               <div className="flex flex-wrap gap-2">
                 {COMPONENT_OPTIONS.map((comp) => (
                   <button
@@ -431,11 +550,15 @@ export function BugBountyWizard({ onComplete, onCancel }: BugBountyWizardProps) 
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1">
                 Proof of Concept Code
-                <span className="text-gray-500 font-normal ml-2">(Recommended)</span>
+                <span className="text-gray-500 font-normal ml-2">
+                  (Recommended)
+                </span>
               </label>
               <textarea
                 value={draft.proofOfConcept}
-                onChange={(e) => setDraft({ ...draft, proofOfConcept: e.target.value })}
+                onChange={(e) =>
+                  setDraft({ ...draft, proofOfConcept: e.target.value })
+                }
                 placeholder={`// Paste your PoC code here
 // This will be executed in a secure sandbox
 // Include all necessary setup and exploit steps
@@ -447,7 +570,8 @@ async function exploit() {
                 rows={12}
               />
               <p className="text-xs text-gray-500 mt-1">
-                PoC will be encrypted and only accessible to guardians. Executed in isolated sandbox.
+                PoC will be encrypted and only accessible to guardians. Executed
+                in isolated sandbox.
               </p>
             </div>
 
@@ -455,11 +579,15 @@ async function exploit() {
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1">
                 Suggested Fix
-                <span className="text-gray-500 font-normal ml-2">(Optional, increases reward)</span>
+                <span className="text-gray-500 font-normal ml-2">
+                  (Optional, increases reward)
+                </span>
               </label>
               <textarea
                 value={draft.suggestedFix}
-                onChange={(e) => setDraft({ ...draft, suggestedFix: e.target.value })}
+                onChange={(e) =>
+                  setDraft({ ...draft, suggestedFix: e.target.value })
+                }
                 placeholder="Describe how to fix this vulnerability..."
                 className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-red-500"
                 rows={4}
@@ -481,29 +609,41 @@ async function exploit() {
                 disabled={loading}
                 className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
               >
-                {loading ? 'Assessing...' : assessment ? 'Re-assess' : 'Run Assessment'}
+                {loading
+                  ? 'Assessing...'
+                  : assessment
+                    ? 'Re-assess'
+                    : 'Run Assessment'}
               </button>
             </div>
 
             {!assessment ? (
               <div className="text-center py-12">
                 <Shield className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-                <p className="text-gray-400">Click "Run Assessment" to analyze your submission</p>
+                <p className="text-gray-400">
+                  Click "Run Assessment" to analyze your submission
+                </p>
               </div>
             ) : (
               <div className="space-y-6">
                 {/* Scores */}
                 <div className="grid grid-cols-3 gap-4">
                   <div className="p-4 bg-gray-700/50 rounded-lg text-center">
-                    <div className="text-2xl font-bold text-white">{assessment.severityScore}%</div>
+                    <div className="text-2xl font-bold text-white">
+                      {assessment.severityScore}%
+                    </div>
                     <div className="text-sm text-gray-400">Severity</div>
                   </div>
                   <div className="p-4 bg-gray-700/50 rounded-lg text-center">
-                    <div className="text-2xl font-bold text-white">{assessment.impactScore}%</div>
+                    <div className="text-2xl font-bold text-white">
+                      {assessment.impactScore}%
+                    </div>
                     <div className="text-sm text-gray-400">Impact</div>
                   </div>
                   <div className="p-4 bg-gray-700/50 rounded-lg text-center">
-                    <div className="text-2xl font-bold text-white">{assessment.exploitabilityScore}%</div>
+                    <div className="text-2xl font-bold text-white">
+                      {assessment.exploitabilityScore}%
+                    </div>
                     <div className="text-sm text-gray-400">Exploitability</div>
                   </div>
                 </div>
@@ -513,8 +653,12 @@ async function exploit() {
                   <div className="p-4 bg-red-900/30 border border-red-700 rounded-lg flex items-center gap-3">
                     <AlertTriangle className="w-6 h-6 text-red-400" />
                     <div>
-                      <div className="font-semibold text-red-300">IMMEDIATE THREAT DETECTED</div>
-                      <div className="text-sm text-red-200">This submission will receive fast-track review</div>
+                      <div className="font-semibold text-red-300">
+                        IMMEDIATE THREAT DETECTED
+                      </div>
+                      <div className="text-sm text-red-200">
+                        This submission will receive fast-track review
+                      </div>
                     </div>
                   </div>
                 )}
@@ -524,16 +668,25 @@ async function exploit() {
                   <div className="flex items-center gap-3">
                     <DollarSign className="w-6 h-6 text-green-400" />
                     <div>
-                      <div className="text-sm text-gray-400">Estimated Reward</div>
-                      <div className="text-xl font-bold text-green-400">{assessment.estimatedReward}</div>
+                      <div className="text-sm text-gray-400">
+                        Estimated Reward
+                      </div>
+                      <div className="text-xl font-bold text-green-400">
+                        {assessment.estimatedReward}
+                      </div>
                     </div>
                   </div>
-                  <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    assessment.validationPriority === 'critical' ? 'bg-red-500' :
-                    assessment.validationPriority === 'high' ? 'bg-orange-500' :
-                    assessment.validationPriority === 'medium' ? 'bg-yellow-500' :
-                    'bg-blue-500'
-                  } text-white`}>
+                  <div
+                    className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      assessment.validationPriority === 'critical'
+                        ? 'bg-red-500'
+                        : assessment.validationPriority === 'high'
+                          ? 'bg-orange-500'
+                          : assessment.validationPriority === 'medium'
+                            ? 'bg-yellow-500'
+                            : 'bg-blue-500'
+                    } text-white`}
+                  >
                     {assessment.validationPriority.toUpperCase()} Priority
                   </div>
                 </div>
@@ -544,7 +697,10 @@ async function exploit() {
                     <h3 className="font-medium text-white mb-2">Feedback</h3>
                     <ul className="space-y-1">
                       {assessment.feedback.map((f, i) => (
-                        <li key={i} className="text-sm text-gray-300 flex items-start gap-2">
+                        <li
+                          key={i}
+                          className="text-sm text-gray-300 flex items-start gap-2"
+                        >
                           <span className="text-gray-500">•</span>
                           {f}
                         </li>
@@ -559,27 +715,39 @@ async function exploit() {
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <span className="text-gray-400">Severity:</span>{' '}
-                      <span className="text-white">{SEVERITY_OPTIONS[draft.severity].label}</span>
+                      <span className="text-white">
+                        {SEVERITY_OPTIONS[draft.severity].label}
+                      </span>
                     </div>
                     <div>
                       <span className="text-gray-400">Type:</span>{' '}
-                      <span className="text-white">{VULN_TYPE_OPTIONS[draft.vulnType].label}</span>
+                      <span className="text-white">
+                        {VULN_TYPE_OPTIONS[draft.vulnType].label}
+                      </span>
                     </div>
                     <div>
                       <span className="text-gray-400">Components:</span>{' '}
-                      <span className="text-white">{draft.affectedComponents.join(', ')}</span>
+                      <span className="text-white">
+                        {draft.affectedComponents.join(', ')}
+                      </span>
                     </div>
                     <div>
                       <span className="text-gray-400">PoC:</span>{' '}
-                      <span className="text-white">{draft.proofOfConcept ? 'Provided' : 'Not provided'}</span>
+                      <span className="text-white">
+                        {draft.proofOfConcept ? 'Provided' : 'Not provided'}
+                      </span>
                     </div>
                   </div>
                 </div>
 
                 {/* Ready Status */}
-                <div className={`p-4 rounded-lg flex items-center gap-3 ${
-                  assessment.readyToSubmit ? 'bg-green-900/20 border border-green-700/50' : 'bg-yellow-900/20 border border-yellow-700/50'
-                }`}>
+                <div
+                  className={`p-4 rounded-lg flex items-center gap-3 ${
+                    assessment.readyToSubmit
+                      ? 'bg-green-900/20 border border-green-700/50'
+                      : 'bg-yellow-900/20 border border-yellow-700/50'
+                  }`}
+                >
                   {assessment.readyToSubmit ? (
                     <>
                       <Check className="w-6 h-6 text-green-400" />
@@ -588,7 +756,9 @@ async function exploit() {
                   ) : (
                     <>
                       <Clock className="w-6 h-6 text-yellow-400" />
-                      <span className="text-yellow-300">Address feedback before submitting</span>
+                      <span className="text-yellow-300">
+                        Address feedback before submitting
+                      </span>
                     </>
                   )}
                 </div>
@@ -609,7 +779,9 @@ async function exploit() {
             <div className="p-4 bg-gray-700/50 rounded-lg">
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Stake Amount
-                <span className="text-gray-500 font-normal ml-2">(Higher stake = faster review)</span>
+                <span className="text-gray-500 font-normal ml-2">
+                  (Higher stake = faster review)
+                </span>
               </label>
               <div className="flex gap-2">
                 {['0.01', '0.05', '0.1', '0.5'].map((amount) => (
@@ -627,7 +799,8 @@ async function exploit() {
                 ))}
               </div>
               <p className="text-xs text-gray-500 mt-2">
-                Stake is returned if submission is valid (accepted or rejected as out-of-scope).
+                Stake is returned if submission is valid (accepted or rejected
+                as out-of-scope).
               </p>
             </div>
 
@@ -641,13 +814,17 @@ async function exploit() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Severity</span>
-                  <span className={`px-2 py-0.5 rounded text-xs font-medium text-white ${SEVERITY_OPTIONS[draft.severity].color}`}>
+                  <span
+                    className={`px-2 py-0.5 rounded text-xs font-medium text-white ${SEVERITY_OPTIONS[draft.severity].color}`}
+                  >
                     {SEVERITY_OPTIONS[draft.severity].label}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Type</span>
-                  <span className="text-white">{VULN_TYPE_OPTIONS[draft.vulnType].label}</span>
+                  <span className="text-white">
+                    {VULN_TYPE_OPTIONS[draft.vulnType].label}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Stake</span>
@@ -655,7 +832,9 @@ async function exploit() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Est. Reward</span>
-                  <span className="text-green-400">{SEVERITY_OPTIONS[draft.severity].range}</span>
+                  <span className="text-green-400">
+                    {SEVERITY_OPTIONS[draft.severity].range}
+                  </span>
                 </div>
               </div>
             </div>
@@ -689,7 +868,13 @@ async function exploit() {
             if (step === 'type') {
               onCancel?.()
             } else {
-              const steps: WizardStep[] = ['type', 'details', 'poc', 'review', 'submit']
+              const steps: WizardStep[] = [
+                'type',
+                'details',
+                'poc',
+                'review',
+                'submit',
+              ]
               const idx = steps.indexOf(step)
               setStep(steps[idx - 1])
             }
@@ -707,15 +892,22 @@ async function exploit() {
             else if (step === 'poc' && canProceed.poc) {
               setStep('review')
               handleAssess()
-            }
-            else if (step === 'review' && canProceed.review) setStep('submit')
+            } else if (step === 'review' && canProceed.review) setStep('submit')
             else if (step === 'submit') handleSubmit()
           }}
           disabled={!canProceed[step] || submitting}
           className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {step === 'submit' ? (submitting ? 'Submitting...' : 'Submit Report') : 'Continue'}
-          {step === 'submit' ? <Send className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
+          {step === 'submit'
+            ? submitting
+              ? 'Submitting...'
+              : 'Submit Report'
+            : 'Continue'}
+          {step === 'submit' ? (
+            <Send className="w-4 h-4" />
+          ) : (
+            <ArrowRight className="w-4 h-4" />
+          )}
         </button>
       </div>
     </div>
@@ -723,5 +915,3 @@ async function exploit() {
 }
 
 export default BugBountyWizard
-
-

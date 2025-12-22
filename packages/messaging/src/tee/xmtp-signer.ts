@@ -1,13 +1,19 @@
 /**
  * XMTP Signer that uses TEE for all crypto operations
- * 
+ *
  * Implements the XMTP Signer interface with TEE-backed key operations.
  * Private keys never leave the secure enclave.
  */
 
-import type { Address, Hex } from 'viem';
-import { TEEXMTPKeyManager } from './key-manager';
-import type { TEEIdentityKey, TEEPreKey, EncryptedBackup } from './types';
+import type { Address, Hex } from 'viem'
+import { EncryptedBackupSchema } from '../schemas'
+import type { TEEXMTPKeyManager } from './key-manager'
+import type {
+  EncryptedBackup,
+  TEEAttestation,
+  TEEIdentityKey,
+  TEEPreKey,
+} from './types'
 
 // ============ Types ============
 
@@ -17,24 +23,24 @@ import type { TEEIdentityKey, TEEPreKey, EncryptedBackup } from './types';
 export interface SignedPublicKeyBundle {
   identityKey: {
     /** Public key bytes */
-    publicKey: Uint8Array;
+    publicKey: Uint8Array
     /** Signature over the public key */
-    signature: Uint8Array;
-  };
+    signature: Uint8Array
+  }
   preKey: {
     /** Pre-key public key bytes */
-    publicKey: Uint8Array;
+    publicKey: Uint8Array
     /** Signature from identity key */
-    signature: Uint8Array;
-  };
+    signature: Uint8Array
+  }
 }
 
 /**
  * XMTP Signer interface
  */
 export interface XMTPSigner {
-  getAddress(): Promise<string>;
-  signMessage(message: string | Uint8Array): Promise<Uint8Array>;
+  getAddress(): Promise<string>
+  signMessage(message: string | Uint8Array): Promise<Uint8Array>
 }
 
 // ============ TEE XMTP Signer Class ============
@@ -43,58 +49,54 @@ export interface XMTPSigner {
  * XMTP Signer implementation backed by TEE
  */
 export class TEEXMTPSigner implements XMTPSigner {
-  private keyManager: TEEXMTPKeyManager;
-  private identityKey: TEEIdentityKey;
-  
-  constructor(
-    keyManager: TEEXMTPKeyManager,
-    identityKey: TEEIdentityKey,
-  ) {
-    this.keyManager = keyManager;
-    this.identityKey = identityKey;
+  private keyManager: TEEXMTPKeyManager
+  private identityKey: TEEIdentityKey
+
+  constructor(keyManager: TEEXMTPKeyManager, identityKey: TEEIdentityKey) {
+    this.keyManager = keyManager
+    this.identityKey = identityKey
   }
-  
+
   /**
    * Get the address associated with this signer
    */
   async getAddress(): Promise<string> {
-    return this.identityKey.address;
+    return this.identityKey.address
   }
-  
+
   /**
    * Get the identity key
    */
   getIdentityKey(): TEEIdentityKey {
-    return this.identityKey;
+    return this.identityKey
   }
-  
+
   /**
    * Sign a message using the TEE-backed key
    */
   async signMessage(message: string | Uint8Array): Promise<Uint8Array> {
-    const messageBytes = typeof message === 'string'
-      ? new TextEncoder().encode(message)
-      : message;
-    
+    const messageBytes =
+      typeof message === 'string' ? new TextEncoder().encode(message) : message
+
     const signature = await this.keyManager.sign(
       this.identityKey.keyId,
       messageBytes,
-    );
-    
-    return hexToBytes(signature);
+    )
+
+    return hexToBytes(signature)
   }
-  
+
   /**
    * Create signed public key bundle for XMTP registration
    */
   async createSignedPublicKeyBundle(): Promise<SignedPublicKeyBundle> {
     // Generate pre-key
-    const preKey = await this.keyManager.generatePreKey(this.identityKey.keyId);
-    
+    const preKey = await this.keyManager.generatePreKey(this.identityKey.keyId)
+
     // Sign identity public key
-    const identityPubBytes = hexToBytes(this.identityKey.publicKey);
-    const identitySignature = await this.signMessage(identityPubBytes);
-    
+    const identityPubBytes = hexToBytes(this.identityKey.publicKey)
+    const identitySignature = await this.signMessage(identityPubBytes)
+
     return {
       identityKey: {
         publicKey: identityPubBytes,
@@ -104,30 +106,33 @@ export class TEEXMTPSigner implements XMTPSigner {
         publicKey: hexToBytes(preKey.publicKey),
         signature: hexToBytes(preKey.signature),
       },
-    };
+    }
   }
-  
+
   /**
    * Rotate pre-key (generates new pre-key, old one expires)
    */
   async rotatePreKey(): Promise<TEEPreKey> {
-    return this.keyManager.generatePreKey(this.identityKey.keyId);
+    return this.keyManager.generatePreKey(this.identityKey.keyId)
   }
-  
+
   /**
    * Perform ECDH with another party's public key
    */
-  async sharedSecret(_theirPreKeyId: string, theirPublicKey: Hex): Promise<Uint8Array> {
+  async sharedSecret(
+    _theirPreKeyId: string,
+    theirPublicKey: Hex,
+  ): Promise<Uint8Array> {
     // Get our pre-key for this exchange
-    const preKeys = await this.keyManager.getPreKeys(this.identityKey.keyId);
-    const ourPreKey = preKeys[preKeys.length - 1];
+    const preKeys = await this.keyManager.getPreKeys(this.identityKey.keyId)
+    const ourPreKey = preKeys[preKeys.length - 1]
     if (!ourPreKey) {
-      throw new Error('No pre-keys available');
+      throw new Error('No pre-keys available')
     }
-    
-    return this.keyManager.sharedSecret(ourPreKey.keyId, theirPublicKey);
+
+    return this.keyManager.sharedSecret(ourPreKey.keyId, theirPublicKey)
   }
-  
+
   /**
    * Export encrypted backup
    */
@@ -135,21 +140,26 @@ export class TEEXMTPSigner implements XMTPSigner {
     const backup = await this.keyManager.exportEncrypted(
       this.identityKey.keyId,
       password,
-    );
-    return JSON.stringify(backup);
+    )
+    return JSON.stringify(backup)
   }
-  
+
   /**
    * Get TEE attestation for this signer
    */
-  async getAttestation(): Promise<{ valid: boolean; attestation: Record<string, unknown> }> {
-    const attestation = await this.keyManager.getAttestation(this.identityKey.keyId);
-    const verification = await this.keyManager.verifyAttestation(attestation);
-    
+  async getAttestation(): Promise<{
+    valid: boolean
+    attestation: TEEAttestation
+  }> {
+    const attestation = await this.keyManager.getAttestation(
+      this.identityKey.keyId,
+    )
+    const verification = await this.keyManager.verifyAttestation(attestation)
+
     return {
       valid: verification.valid,
-      attestation: attestation as unknown as Record<string, unknown>,
-    };
+      attestation,
+    }
   }
 }
 
@@ -163,13 +173,13 @@ export async function createTEEXMTPSigner(
   address: Address,
 ): Promise<TEEXMTPSigner> {
   // Get or create identity key
-  let identityKey = await keyManager.getIdentityKey(address);
-  
+  let identityKey = await keyManager.getIdentityKey(address)
+
   if (!identityKey) {
-    identityKey = await keyManager.generateIdentityKey(address);
+    identityKey = await keyManager.generateIdentityKey(address)
   }
-  
-  return new TEEXMTPSigner(keyManager, identityKey);
+
+  return new TEEXMTPSigner(keyManager, identityKey)
 }
 
 /**
@@ -183,43 +193,28 @@ export async function importTEEXMTPSigner(
 ): Promise<TEEXMTPSigner> {
   // Validate backup string length to prevent DoS
   if (encryptedBackup.length > 1024 * 1024) {
-    throw new Error('Backup data too large');
+    throw new Error('Backup data too large')
   }
-  
-  let backup: unknown;
-  try {
-    backup = JSON.parse(encryptedBackup);
-  } catch {
-    throw new Error('Invalid backup format: not valid JSON');
+
+  // Parse and validate with Zod schema
+  const parseResult = EncryptedBackupSchema.safeParse(
+    JSON.parse(encryptedBackup),
+  )
+  if (!parseResult.success) {
+    throw new Error(`Invalid backup format: ${parseResult.error.message}`)
   }
-  
-  // Validate backup structure
-  if (!backup || typeof backup !== 'object') {
-    throw new Error('Invalid backup format: expected object');
-  }
-  
-  // Type assertion after validation
-  const backupData = backup as Record<string, unknown>;
-  if (
-    typeof backupData.ciphertext !== 'string' ||
-    typeof backupData.createdAt !== 'number' ||
-    !backupData.metadata ||
-    typeof backupData.metadata !== 'object'
-  ) {
-    throw new Error('Invalid backup format: missing or invalid required fields');
-  }
-  
-  const validatedBackup: EncryptedBackup = {
-    ciphertext: backupData.ciphertext as Hex,
-    metadata: backupData.metadata as EncryptedBackup['metadata'],
-    createdAt: backupData.createdAt as number,
-  };
-  
-  const keyId = newKeyId ?? `imported-${Date.now()}`;
-  
-  const identityKey = await keyManager.importFromBackup(validatedBackup, password, keyId);
-  
-  return new TEEXMTPSigner(keyManager, identityKey);
+
+  const validatedBackup: EncryptedBackup = parseResult.data
+
+  const keyId = newKeyId ?? `imported-${Date.now()}`
+
+  const identityKey = await keyManager.importFromBackup(
+    validatedBackup,
+    password,
+    keyId,
+  )
+
+  return new TEEXMTPSigner(keyManager, identityKey)
 }
 
 // ============ Utility Functions ============
@@ -228,19 +223,17 @@ export async function importTEEXMTPSigner(
  * Convert hex string to bytes
  */
 function hexToBytes(hex: Hex): Uint8Array {
-  return Buffer.from(hex.slice(2), 'hex');
+  return Buffer.from(hex.slice(2), 'hex')
 }
 
 /**
  * Derive address from public key (simplified)
  */
 export function deriveAddressFromPublicKey(publicKey: Hex): Address {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { keccak256 } = require('viem') as { keccak256: (input: Hex) => Hex };
-  
+  const { keccak256 } = require('viem') as { keccak256: (input: Hex) => Hex }
+
   // For Ed25519, we use a simplified derivation
   // In production, would handle this properly per XMTP spec
-  const hash = keccak256(publicKey);
-  return `0x${hash.slice(-40)}` as Address;
+  const hash = keccak256(publicKey)
+  return `0x${hash.slice(-40)}` as Address
 }
-

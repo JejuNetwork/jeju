@@ -3,8 +3,12 @@
  * Validation for game data from indexer and contracts
  */
 
+import {
+  AddressSchema,
+  BigIntSchema,
+  NonEmptyStringSchema,
+} from '@jejunetwork/types'
 import { z } from 'zod'
-import { AddressSchema, NonEmptyStringSchema, BigIntSchema } from '@jejunetwork/types'
 
 // Rarity enum (matches Items.sol)
 export const RaritySchema = z.union([
@@ -131,7 +135,9 @@ export const PlayerAchievementEventSchema = z.object({
   blockNumber: BigIntSchema,
   transactionHash: NonEmptyStringSchema,
 })
-export type PlayerAchievementEvent = z.infer<typeof PlayerAchievementEventSchema>
+export type PlayerAchievementEvent = z.infer<
+  typeof PlayerAchievementEventSchema
+>
 
 // Aggregated Player Stats
 export const PlayerStatsSchema = z.object({

@@ -1,4 +1,4 @@
 export enum PerpPositionSide {
-    LONG = "LONG",
-    SHORT = "SHORT",
+  LONG = 'LONG',
+  SHORT = 'SHORT',
 }

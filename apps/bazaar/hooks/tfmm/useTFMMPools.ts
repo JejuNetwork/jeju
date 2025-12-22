@@ -1,8 +1,13 @@
 'use client'
 
-import { useReadContract, useWriteContract, useAccount, useWaitForTransactionReceipt } from 'wagmi'
-import { formatUnits, type Address } from 'viem'
-import { useState, useCallback } from 'react'
+import { useCallback, useState } from 'react'
+import { type Address, formatUnits } from 'viem'
+import {
+  useAccount,
+  useReadContract,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from 'wagmi'
 
 // TFMM Pool ABI (subset for UI)
 const TFMM_POOL_ABI = [
@@ -184,7 +189,9 @@ export function useTFMMUserBalance(poolAddress: Address | null) {
 
 export function useTFMMAddLiquidity(poolAddress: Address | null) {
   const { writeContract, data: hash, isPending, error } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
   const addLiquidity = useCallback(
     async (amounts: bigint[], minLpOut: bigint) => {
@@ -197,7 +204,7 @@ export function useTFMMAddLiquidity(poolAddress: Address | null) {
         args: [amounts, minLpOut],
       })
     },
-    [poolAddress, writeContract]
+    [poolAddress, writeContract],
   )
 
   return {
@@ -211,7 +218,9 @@ export function useTFMMAddLiquidity(poolAddress: Address | null) {
 
 export function useTFMMRemoveLiquidity(poolAddress: Address | null) {
   const { writeContract, data: hash, isPending, error } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
   const removeLiquidity = useCallback(
     async (lpAmount: bigint, minAmountsOut: bigint[]) => {
@@ -224,7 +233,7 @@ export function useTFMMRemoveLiquidity(poolAddress: Address | null) {
         args: [lpAmount, minAmountsOut],
       })
     },
-    [poolAddress, writeContract]
+    [poolAddress, writeContract],
   )
 
   return {
@@ -248,4 +257,3 @@ export function formatTVL(balances: bigint[], prices: bigint[]): string {
   }
   return `$${Number(formatUnits(total, 18)).toLocaleString()}`
 }
-

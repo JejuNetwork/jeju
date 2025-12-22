@@ -5,11 +5,11 @@
  * across the Jeju ecosystem. Includes Zod schemas for runtime validation.
  */
 
-import { z } from 'zod';
-import { PaginationSchema } from './validation';
+import { z } from 'zod'
+import { PaginationSchema } from './validation'
 
 // Re-export PaginationSchema for convenience
-export { PaginationSchema };
+export { PaginationSchema }
 
 // ============================================================================
 // Error Detail Types - Strongly typed alternatives to unknown
@@ -24,7 +24,7 @@ export type ErrorDetail =
   | string
   | string[]
   | { field: string; message: string }[]
-  | { path: string[]; message: string }[];
+  | { path: string[]; message: string }[]
 
 /**
  * Zod schema for error details
@@ -34,7 +34,7 @@ export const ErrorDetailSchema = z.union([
   z.array(z.string()),
   z.array(z.object({ field: z.string(), message: z.string() })),
   z.array(z.object({ path: z.array(z.string()), message: z.string() })),
-]);
+])
 
 // ============================================================================
 // Pagination Schemas
@@ -48,8 +48,8 @@ export const PaginationInfoSchema = z.object({
   pageSize: z.number().int().positive(),
   total: z.number().int().nonnegative(),
   totalPages: z.number().int().nonnegative(),
-});
-export type PaginationInfo = z.infer<typeof PaginationInfoSchema>;
+})
+export type PaginationInfo = z.infer<typeof PaginationInfoSchema>
 
 /**
  * API response metadata schema
@@ -59,8 +59,8 @@ export const ApiMetaSchema = z.object({
   requestId: z.string().optional(),
   version: z.string().optional(),
   pagination: PaginationInfoSchema.optional(),
-});
-export type ApiMeta = z.infer<typeof ApiMetaSchema>;
+})
+export type ApiMeta = z.infer<typeof ApiMetaSchema>
 
 /**
  * API error schema
@@ -71,8 +71,8 @@ export const ApiErrorSchema = z.object({
   details: ErrorDetailSchema.optional(),
   requestId: z.string().optional(),
   timestamp: z.number().optional(),
-});
-export type ApiError = z.infer<typeof ApiErrorSchema>;
+})
+export type ApiError = z.infer<typeof ApiErrorSchema>
 
 // ============================================================================
 // Generic API Response Types
@@ -86,15 +86,15 @@ export type ApiError = z.infer<typeof ApiErrorSchema>;
  */
 export interface ApiResponse<T> {
   /** Response data */
-  data: T;
+  data: T
   /** Optional metadata */
-  meta?: ApiMeta;
+  meta?: ApiMeta
   /** Optional error information (if request failed) */
   error?: {
-    code: string;
-    message: string;
-    details?: ErrorDetail;
-  };
+    code: string
+    message: string
+    details?: ErrorDetail
+  }
 }
 
 /**
@@ -104,12 +104,14 @@ export function createApiResponseSchema<T extends z.ZodTypeAny>(dataSchema: T) {
   return z.object({
     data: dataSchema,
     meta: ApiMetaSchema.optional(),
-    error: z.object({
-      code: z.string(),
-      message: z.string(),
-      details: ErrorDetailSchema.optional(),
-    }).optional(),
-  });
+    error: z
+      .object({
+        code: z.string(),
+        message: z.string(),
+        details: ErrorDetailSchema.optional(),
+      })
+      .optional(),
+  })
 }
 
 /**
@@ -118,17 +120,19 @@ export function createApiResponseSchema<T extends z.ZodTypeAny>(dataSchema: T) {
  */
 export interface PaginatedResponse<T> extends ApiResponse<T[]> {
   meta: {
-    timestamp: number;
-    pagination: PaginationInfo;
-    requestId?: string;
-    version?: string;
-  };
+    timestamp: number
+    pagination: PaginationInfo
+    requestId?: string
+    version?: string
+  }
 }
 
 /**
  * Create a Zod schema for PaginatedResponse with a specific item type
  */
-export function createPaginatedResponseSchema<T extends z.ZodTypeAny>(itemSchema: T) {
+export function createPaginatedResponseSchema<T extends z.ZodTypeAny>(
+  itemSchema: T,
+) {
   return z.object({
     data: z.array(itemSchema),
     meta: z.object({
@@ -137,12 +141,14 @@ export function createPaginatedResponseSchema<T extends z.ZodTypeAny>(itemSchema
       requestId: z.string().optional(),
       version: z.string().optional(),
     }),
-    error: z.object({
-      code: z.string(),
-      message: z.string(),
-      details: ErrorDetailSchema.optional(),
-    }).optional(),
-  });
+    error: z
+      .object({
+        code: z.string(),
+        message: z.string(),
+        details: ErrorDetailSchema.optional(),
+      })
+      .optional(),
+  })
 }
 
 // ============================================================================
@@ -155,9 +161,9 @@ export function createPaginatedResponseSchema<T extends z.ZodTypeAny>(itemSchema
  */
 export interface A2AResponse<T> extends ApiResponse<T> {
   /** A2A protocol version */
-  protocol: 'a2a';
+  protocol: 'a2a'
   /** Agent that generated the response */
-  agentId?: string;
+  agentId?: string
 }
 
 /**
@@ -167,7 +173,7 @@ export function createA2AResponseSchema<T extends z.ZodTypeAny>(dataSchema: T) {
   return createApiResponseSchema(dataSchema).extend({
     protocol: z.literal('a2a'),
     agentId: z.string().optional(),
-  });
+  })
 }
 
 // ============================================================================
@@ -181,10 +187,10 @@ export const ApiRequestSchema = z.object({
   requestId: z.string().optional(),
   version: z.string().optional(),
   timeout: z.number().int().positive().optional(),
-});
-export type ApiRequest = z.infer<typeof ApiRequestSchema>;
+})
+export type ApiRequest = z.infer<typeof ApiRequestSchema>
 
 /**
  * Paginated request parameters type (uses PaginationSchema from validation)
  */
-export type PaginationParams = z.infer<typeof PaginationSchema>;
+export type PaginationParams = z.infer<typeof PaginationSchema>

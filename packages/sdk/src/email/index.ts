@@ -8,6 +8,6 @@
  * - IMAP client configuration
  */
 
-export * from "./client";
-export * from "./types";
-export * from "./encryption";
+export * from './client'
+export * from './encryption'
+export * from './types'

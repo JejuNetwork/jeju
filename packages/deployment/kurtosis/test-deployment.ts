@@ -1,104 +1,122 @@
 /**
  * @fileoverview Test Kurtosis localnet deployment
  * @module kurtosis/test-deployment
- * 
+ *
  * Automated tests for Kurtosis localnet deployment and configuration.
  * Verifies that the deployment script works correctly and all services are accessible.
- * 
+ *
  * @example Run tests
  * ```bash
  * # Start localnet first
  * bun run localnet:start
- * 
+ *
  * # Run deployment tests
  * bun run kurtosis/test-deployment.ts
  * ```
  */
 
-import { createPublicClient, createWalletClient, http, parseEther, formatEther, formatUnits, waitForTransactionReceipt, type Address } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import { inferChainFromRpcUrl } from '../../../packages/deployment/packages/deployment/scripts/shared/chain-utils';
-import { TEST_ACCOUNTS } from '../tests/setup';
+import {
+  createPublicClient,
+  createWalletClient,
+  formatEther,
+  formatUnits,
+  http,
+  parseEther,
+  waitForTransactionReceipt,
+} from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { inferChainFromRpcUrl } from '../../../packages/deployment/packages/deployment/scripts/shared/chain-utils'
+import { TEST_ACCOUNTS } from '../tests/setup'
 
 interface TestResultDetails {
-  blockNumber?: number;
-  chainId?: number;
-  gasPrice?: string;
-  blocksProduced?: number;
-  blockTime?: number;
-  hash?: string;
-  gasUsed?: string;
+  blockNumber?: number
+  chainId?: number
+  gasPrice?: string
+  blocksProduced?: number
+  blockTime?: number
+  hash?: string
+  gasUsed?: string
 }
 
 interface TestResult {
-  name: string;
-  passed: boolean;
-  message?: string;
-  details?: TestResultDetails;
+  name: string
+  passed: boolean
+  message?: string
+  details?: TestResultDetails
 }
 
-const results: TestResult[] = [];
+const results: TestResult[] = []
 
 /**
  * Main test runner
  */
 async function main(): Promise<void> {
-  console.log('╔═══════════════════════════════════════════════════════════════╗');
-  console.log('║                                                               ║');
-  console.log('║   🧪 KURTOSIS LOCALNET DEPLOYMENT TEST                        ║');
-  console.log('║                                                               ║');
-  console.log('╚═══════════════════════════════════════════════════════════════╝\n');
+  console.log(
+    '╔═══════════════════════════════════════════════════════════════╗',
+  )
+  console.log(
+    '║                                                               ║',
+  )
+  console.log(
+    '║   🧪 KURTOSIS LOCALNET DEPLOYMENT TEST                        ║',
+  )
+  console.log(
+    '║                                                               ║',
+  )
+  console.log(
+    '╚═══════════════════════════════════════════════════════════════╝\n',
+  )
 
   // Test 1: Verify enclave is running
-  await testEnclaveRunning();
+  await testEnclaveRunning()
 
   // Test 2: Verify L1 RPC
-  await testL1RPC();
+  await testL1RPC()
 
   // Test 3: Verify L2 RPC
-  await testL2RPC();
+  await testL2RPC()
 
   // Test 4: Verify pre-funded accounts
-  await testPreFundedAccounts();
+  await testPreFundedAccounts()
 
   // Test 5: Verify block production
-  await testBlockProduction();
+  await testBlockProduction()
 
   // Test 6: Verify transaction execution
-  await testTransactionExecution();
+  await testTransactionExecution()
 
   // Print summary
-  printSummary();
+  printSummary()
 }
 
 /**
  * Test: Enclave is running
  */
 async function testEnclaveRunning(): Promise<void> {
-  console.log('1️⃣  Checking enclave status...');
-  
+  console.log('1️⃣  Checking enclave status...')
+
   try {
-    const { stdout } = await execAsync('kurtosis enclave inspect jeju-localnet');
-    
+    const { stdout } = await execAsync('kurtosis enclave inspect jeju-localnet')
+
     if (stdout.includes('jeju-localnet')) {
       results.push({
         name: 'Enclave Running',
         passed: true,
         message: 'Enclave jeju-localnet is active',
-      });
-      console.log('   ✅ Enclave is running\n');
+      })
+      console.log('   ✅ Enclave is running\n')
     } else {
-      throw new Error('Enclave not found');
+      throw new Error('Enclave not found')
     }
-  } catch (error) {
+  } catch (_error) {
     results.push({
       name: 'Enclave Running',
       passed: false,
       message: 'Enclave jeju-localnet not found',
-    });
-    console.log('   ❌ Enclave not running\n');
-    console.log('   Start with: bun run localnet:start\n');
-    process.exit(1);
+    })
+    console.log('   ❌ Enclave not running\n')
+    console.log('   Start with: bun run localnet:start\n')
+    process.exit(1)
   }
 }
 
@@ -106,15 +124,15 @@ async function testEnclaveRunning(): Promise<void> {
  * Test: L1 RPC connectivity
  */
 async function testL1RPC(): Promise<void> {
-  console.log('2️⃣  Testing L1 RPC...');
-  
+  console.log('2️⃣  Testing L1 RPC...')
+
   try {
-    const rpcUrl = 'http://127.0.0.1:8545';
-    const chain = inferChainFromRpcUrl(rpcUrl);
-    const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
-    const blockNumber = await publicClient.getBlockNumber();
-    const chainId = await publicClient.getChainId();
-    
+    const rpcUrl = 'http://127.0.0.1:8545'
+    const chain = inferChainFromRpcUrl(rpcUrl)
+    const publicClient = createPublicClient({ chain, transport: http(rpcUrl) })
+    const blockNumber = await publicClient.getBlockNumber()
+    const chainId = await publicClient.getChainId()
+
     results.push({
       name: 'L1 RPC',
       passed: true,
@@ -122,18 +140,18 @@ async function testL1RPC(): Promise<void> {
         blockNumber: Number(blockNumber),
         chainId: Number(chainId),
       },
-    });
-    
-    console.log(`   ✅ L1 RPC responding`);
-    console.log(`   📊 Block: ${blockNumber}`);
-    console.log(`   🔗 Chain ID: ${chainId}\n`);
+    })
+
+    console.log(`   ✅ L1 RPC responding`)
+    console.log(`   📊 Block: ${blockNumber}`)
+    console.log(`   🔗 Chain ID: ${chainId}\n`)
   } catch (error) {
     results.push({
       name: 'L1 RPC',
       passed: false,
       message: error instanceof Error ? error.message : 'Unknown error',
-    });
-    console.log('   ❌ L1 RPC not responding\n');
+    })
+    console.log('   ❌ L1 RPC not responding\n')
   }
 }
 
@@ -141,16 +159,16 @@ async function testL1RPC(): Promise<void> {
  * Test: L2 RPC connectivity
  */
 async function testL2RPC(): Promise<void> {
-  console.log('3️⃣  Testing L2 RPC...');
-  
+  console.log('3️⃣  Testing L2 RPC...')
+
   try {
-    const rpcUrl = 'http://127.0.0.1:9545';
-    const chain = inferChainFromRpcUrl(rpcUrl);
-    const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
-    const blockNumber = await publicClient.getBlockNumber();
-    const chainId = await publicClient.getChainId();
-    const feeData = await publicClient.estimateGasPrice();
-    
+    const rpcUrl = 'http://127.0.0.1:9545'
+    const chain = inferChainFromRpcUrl(rpcUrl)
+    const publicClient = createPublicClient({ chain, transport: http(rpcUrl) })
+    const blockNumber = await publicClient.getBlockNumber()
+    const chainId = await publicClient.getChainId()
+    const feeData = await publicClient.estimateGasPrice()
+
     results.push({
       name: 'L2 RPC',
       passed: true,
@@ -159,19 +177,19 @@ async function testL2RPC(): Promise<void> {
         chainId: Number(chainId),
         gasPrice: feeData.toString(),
       },
-    });
-    
-    console.log(`   ✅ L2 RPC responding`);
-    console.log(`   📊 Block: ${blockNumber}`);
-    console.log(`   🔗 Chain ID: ${chainId}`);
-    console.log(`   ⛽ Gas Price: ${formatUnits(feeData, 'gwei')} gwei\n`);
+    })
+
+    console.log(`   ✅ L2 RPC responding`)
+    console.log(`   📊 Block: ${blockNumber}`)
+    console.log(`   🔗 Chain ID: ${chainId}`)
+    console.log(`   ⛽ Gas Price: ${formatUnits(feeData, 'gwei')} gwei\n`)
   } catch (error) {
     results.push({
       name: 'L2 RPC',
       passed: false,
       message: error instanceof Error ? error.message : 'Unknown error',
-    });
-    console.log('   ❌ L2 RPC not responding\n');
+    })
+    console.log('   ❌ L2 RPC not responding\n')
   }
 }
 
@@ -179,36 +197,42 @@ async function testL2RPC(): Promise<void> {
  * Test: Pre-funded accounts
  */
 async function testPreFundedAccounts(): Promise<void> {
-  console.log('4️⃣  Verifying pre-funded accounts...');
-  
+  console.log('4️⃣  Verifying pre-funded accounts...')
+
   try {
-    const rpcUrl = 'http://127.0.0.1:9545';
-    const chain = inferChainFromRpcUrl(rpcUrl);
-    const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
-    
+    const rpcUrl = 'http://127.0.0.1:9545'
+    const chain = inferChainFromRpcUrl(rpcUrl)
+    const publicClient = createPublicClient({ chain, transport: http(rpcUrl) })
+
     for (const account of [TEST_ACCOUNTS.deployer, TEST_ACCOUNTS.user1]) {
-      const balance = await publicClient.getBalance({ address: account.address });
-      
+      const balance = await publicClient.getBalance({
+        address: account.address,
+      })
+
       if (balance >= parseEther('1000')) {
-        console.log(`   ✅ ${account.address.slice(0, 10)}... has ${formatEther(balance)} ETH`);
+        console.log(
+          `   ✅ ${account.address.slice(0, 10)}... has ${formatEther(balance)} ETH`,
+        )
       } else {
-        console.log(`   ⚠️  ${account.address.slice(0, 10)}... balance low: ${formatEther(balance)} ETH`);
+        console.log(
+          `   ⚠️  ${account.address.slice(0, 10)}... balance low: ${formatEther(balance)} ETH`,
+        )
       }
     }
-    
+
     results.push({
       name: 'Pre-funded Accounts',
       passed: true,
       message: 'All test accounts funded',
-    });
-    console.log('');
+    })
+    console.log('')
   } catch (error) {
     results.push({
       name: 'Pre-funded Accounts',
       passed: false,
       message: error instanceof Error ? error.message : 'Unknown error',
-    });
-    console.log('   ❌ Failed to check account balances\n');
+    })
+    console.log('   ❌ Failed to check account balances\n')
   }
 }
 
@@ -216,42 +240,44 @@ async function testPreFundedAccounts(): Promise<void> {
  * Test: Block production
  */
 async function testBlockProduction(): Promise<void> {
-  console.log('5️⃣  Testing block production...');
-  
+  console.log('5️⃣  Testing block production...')
+
   try {
-    const rpcUrl = 'http://127.0.0.1:9545';
-    const chain = inferChainFromRpcUrl(rpcUrl);
-    const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
-    
-    const block1 = await publicClient.getBlockNumber();
-    console.log(`   📊 Current block: ${block1}`);
-    
+    const rpcUrl = 'http://127.0.0.1:9545'
+    const chain = inferChainFromRpcUrl(rpcUrl)
+    const publicClient = createPublicClient({ chain, transport: http(rpcUrl) })
+
+    const block1 = await publicClient.getBlockNumber()
+    console.log(`   📊 Current block: ${block1}`)
+
     // Wait for 2 blocks (~4 seconds)
-    console.log(`   ⏳ Waiting 5 seconds for new blocks...`);
-    await new Promise(resolve => setTimeout(resolve, 5000));
-    
-    const block2 = await publicClient.getBlockNumber();
-    const blocksProduced = Number(block2 - block1);
-    
+    console.log(`   ⏳ Waiting 5 seconds for new blocks...`)
+    await new Promise((resolve) => setTimeout(resolve, 5000))
+
+    const block2 = await publicClient.getBlockNumber()
+    const blocksProduced = Number(block2 - block1)
+
     if (blocksProduced >= 1) {
-      console.log(`   ✅ Produced ${blocksProduced} blocks in 5 seconds`);
-      console.log(`   ⏱️  Average block time: ${(5000 / blocksProduced).toFixed(2)}ms\n`);
-      
+      console.log(`   ✅ Produced ${blocksProduced} blocks in 5 seconds`)
+      console.log(
+        `   ⏱️  Average block time: ${(5000 / blocksProduced).toFixed(2)}ms\n`,
+      )
+
       results.push({
         name: 'Block Production',
         passed: true,
         details: { blocksProduced, blockTime: 5000 / blocksProduced },
-      });
+      })
     } else {
-      throw new Error('No blocks produced');
+      throw new Error('No blocks produced')
     }
   } catch (error) {
     results.push({
       name: 'Block Production',
       passed: false,
       message: error instanceof Error ? error.message : 'Unknown error',
-    });
-    console.log('   ❌ Block production not working\n');
+    })
+    console.log('   ❌ Block production not working\n')
   }
 }
 
@@ -259,29 +285,33 @@ async function testBlockProduction(): Promise<void> {
  * Test: Transaction execution
  */
 async function testTransactionExecution(): Promise<void> {
-  console.log('6️⃣  Testing transaction execution...');
-  
+  console.log('6️⃣  Testing transaction execution...')
+
   try {
-    const rpcUrl = 'http://127.0.0.1:9545';
-    const chain = inferChainFromRpcUrl(rpcUrl);
-    const account = privateKeyToAccount(TEST_ACCOUNTS.deployer.privateKey);
-    const walletClient = createWalletClient({ chain, transport: http(rpcUrl), account });
-    const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
-    
-    console.log('   📤 Sending test transaction...');
+    const rpcUrl = 'http://127.0.0.1:9545'
+    const chain = inferChainFromRpcUrl(rpcUrl)
+    const account = privateKeyToAccount(TEST_ACCOUNTS.deployer.privateKey)
+    const walletClient = createWalletClient({
+      chain,
+      transport: http(rpcUrl),
+      account,
+    })
+    const publicClient = createPublicClient({ chain, transport: http(rpcUrl) })
+
+    console.log('   📤 Sending test transaction...')
     const hash = await walletClient.sendTransaction({
       to: TEST_ACCOUNTS.user1.address,
       value: parseEther('0.1'),
-    });
-    
-    console.log(`   📝 TX Hash: ${hash}`);
-    
-    const receipt = await waitForTransactionReceipt(publicClient, { hash });
-    
+    })
+
+    console.log(`   📝 TX Hash: ${hash}`)
+
+    const receipt = await waitForTransactionReceipt(publicClient, { hash })
+
     if (receipt.status === 'success') {
-      console.log(`   ✅ Transaction confirmed in block ${receipt.blockNumber}`);
-      console.log(`   ⛽ Gas used: ${receipt.gasUsed.toString()}\n`);
-      
+      console.log(`   ✅ Transaction confirmed in block ${receipt.blockNumber}`)
+      console.log(`   ⛽ Gas used: ${receipt.gasUsed.toString()}\n`)
+
       results.push({
         name: 'Transaction Execution',
         passed: true,
@@ -290,17 +320,17 @@ async function testTransactionExecution(): Promise<void> {
           blockNumber: Number(receipt.blockNumber),
           gasUsed: receipt.gasUsed.toString(),
         },
-      });
+      })
     } else {
-      throw new Error('Transaction failed');
+      throw new Error('Transaction failed')
     }
   } catch (error) {
     results.push({
       name: 'Transaction Execution',
       passed: false,
       message: error instanceof Error ? error.message : 'Unknown error',
-    });
-    console.log('   ❌ Transaction execution failed\n');
+    })
+    console.log('   ❌ Transaction execution failed\n')
   }
 }
 
@@ -308,56 +338,55 @@ async function testTransactionExecution(): Promise<void> {
  * Print test summary
  */
 function printSummary(): void {
-  const passed = results.filter(r => r.passed).length;
-  const failed = results.filter(r => !r.passed).length;
-  const total = results.length;
-  
-  console.log('═'.repeat(65));
-  console.log(' '.repeat(20) + 'TEST SUMMARY');
-  console.log('═'.repeat(65) + '\n');
-  
+  const passed = results.filter((r) => r.passed).length
+  const failed = results.filter((r) => !r.passed).length
+  const total = results.length
+
+  console.log('═'.repeat(65))
+  console.log(`${' '.repeat(20)}TEST SUMMARY`)
+  console.log(`${'═'.repeat(65)}\n`)
+
   for (const result of results) {
-    const icon = result.passed ? '✅' : '❌';
-    console.log(`${icon} ${result.name}`);
+    const icon = result.passed ? '✅' : '❌'
+    console.log(`${icon} ${result.name}`)
     if (result.message) {
-      console.log(`   ${result.message}`);
+      console.log(`   ${result.message}`)
     }
   }
-  
-  console.log('\n' + '─'.repeat(65));
-  console.log(`Total: ${total} | Passed: ${passed} | Failed: ${failed}`);
-  console.log('─'.repeat(65) + '\n');
-  
+
+  console.log(`\n${'─'.repeat(65)}`)
+  console.log(`Total: ${total} | Passed: ${passed} | Failed: ${failed}`)
+  console.log(`${'─'.repeat(65)}\n`)
+
   if (failed > 0) {
-    console.log('❌ Some tests failed. Check localnet status:\n');
-    console.log('   kurtosis enclave inspect jeju-localnet');
-    console.log('   kurtosis service logs jeju-localnet op-geth\n');
-    process.exit(1);
+    console.log('❌ Some tests failed. Check localnet status:\n')
+    console.log('   kurtosis enclave inspect jeju-localnet')
+    console.log('   kurtosis service logs jeju-localnet op-geth\n')
+    process.exit(1)
   } else {
-    console.log('✅ ALL TESTS PASSED!\n');
-    console.log('🎉 Localnet is fully operational and ready for development.\n');
-    process.exit(0);
+    console.log('✅ ALL TESTS PASSED!\n')
+    console.log('🎉 Localnet is fully operational and ready for development.\n')
+    process.exit(0)
   }
 }
 
 interface ExecResult {
-  stdout: string;
-  stderr: string;
+  stdout: string
+  stderr: string
 }
 
 /**
  * Execute shell command
  */
 async function execAsync(command: string): Promise<ExecResult> {
-  const { exec } = await import('child_process');
-  const { promisify } = await import('util');
-  const execPromise = promisify(exec);
-  return execPromise(command);
+  const { exec } = await import('node:child_process')
+  const { promisify } = await import('node:util')
+  const execPromise = promisify(exec)
+  return execPromise(command)
 }
 
 // Run tests
 main().catch((error) => {
-  console.error('❌ Test runner failed:', error);
-  process.exit(1);
-});
-
+  console.error('❌ Test runner failed:', error)
+  process.exit(1)
+})

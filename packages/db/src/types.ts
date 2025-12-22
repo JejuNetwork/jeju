@@ -9,106 +9,122 @@
  * - SQL interface compatible with standard ORMs
  */
 
-import type { Address, Hex } from 'viem';
+import type { Address, Hex } from 'viem'
 
 // ============================================================================
 // Connection Types
 // ============================================================================
 
+/**
+ * Minimal interface for code that only needs query and exec methods.
+ * Use this instead of CQLClient when you don't need the full client API.
+ * CQLClient, CQLConnection, and CQLTransaction all implement this interface.
+ */
+export interface CQLQueryable {
+  /** Execute a read query */
+  query<T>(
+    sql: string,
+    params?: QueryParam[],
+    dbId?: string,
+  ): Promise<QueryResult<T>>
+  /** Execute a write query */
+  exec(sql: string, params?: QueryParam[], dbId?: string): Promise<ExecResult>
+}
+
 export interface CQLConfig {
   /** Block producer endpoint */
-  blockProducerEndpoint: string;
+  blockProducerEndpoint: string
   /** Miner node endpoint (for direct queries) */
-  minerEndpoint?: string;
+  minerEndpoint?: string
   /** Private key for signing (hex) */
-  privateKey?: Hex;
+  privateKey?: Hex
   /** Database ID (hex hash) */
-  databaseId?: string;
+  databaseId?: string
   /** Connection timeout in ms */
-  timeout?: number;
+  timeout?: number
   /** Enable query logging */
-  debug?: boolean;
+  debug?: boolean
 }
 
 export interface CQLConnectionPool {
   /** Get a connection from the pool */
-  acquire(): Promise<CQLConnection>;
+  acquire(): Promise<CQLConnection>
   /** Release a connection back to the pool */
-  release(connection: CQLConnection): void;
+  release(connection: CQLConnection): void
   /** Close all connections */
-  close(): Promise<void>;
+  close(): Promise<void>
   /** Pool statistics */
-  stats(): { active: number; idle: number; total: number };
+  stats(): { active: number; idle: number; total: number }
 }
 
 export interface CQLConnection {
   /** Connection ID */
-  id: string;
+  id: string
   /** Database ID */
-  databaseId: string;
+  databaseId: string
   /** Whether connection is active */
-  active: boolean;
+  active: boolean
   /** Execute a query */
-  query<T>(sql: string, params?: QueryParam[]): Promise<QueryResult<T>>;
+  query<T>(sql: string, params?: QueryParam[]): Promise<QueryResult<T>>
   /** Execute a write query */
-  exec(sql: string, params?: QueryParam[]): Promise<ExecResult>;
+  exec(sql: string, params?: QueryParam[]): Promise<ExecResult>
   /** Start a transaction */
-  beginTransaction(): Promise<CQLTransaction>;
+  beginTransaction(): Promise<CQLTransaction>
   /** Close the connection */
-  close(): Promise<void>;
+  close(): Promise<void>
 }
 
 export interface CQLTransaction {
   /** Transaction ID */
-  id: string;
+  id: string
   /** Execute query within transaction */
-  query<T>(sql: string, params?: QueryParam[]): Promise<QueryResult<T>>;
+  query<T>(sql: string, params?: QueryParam[]): Promise<QueryResult<T>>
   /** Execute write within transaction */
-  exec(sql: string, params?: QueryParam[]): Promise<ExecResult>;
+  exec(sql: string, params?: QueryParam[]): Promise<ExecResult>
   /** Commit transaction */
-  commit(): Promise<void>;
+  commit(): Promise<void>
   /** Rollback transaction */
-  rollback(): Promise<void>;
+  rollback(): Promise<void>
 }
 
 // ============================================================================
 // Query Types
 // ============================================================================
 
-export type QueryParam = string | number | boolean | null | Uint8Array | bigint;
+export type QueryParam = string | number | boolean | null | Uint8Array | bigint
 
 export interface QueryResult<T> {
   /** Result rows */
-  rows: T[];
+  rows: T[]
   /** Number of rows returned */
-  rowCount: number;
+  rowCount: number
   /** Column metadata */
-  columns: ColumnMeta[];
+  columns: ColumnMeta[]
   /** Query execution time in ms */
-  executionTime: number;
+  executionTime: number
   /** Block height at query time */
-  blockHeight: number;
+  blockHeight: number
 }
 
 export interface ExecResult {
   /** Number of rows affected */
-  rowsAffected: number;
+  rowsAffected: number
   /** Last insert ID (if applicable) */
-  lastInsertId?: bigint;
+  lastInsertId?: bigint
   /** Transaction hash on CQL chain */
-  txHash: Hex;
+  txHash: Hex
   /** Block height of transaction */
-  blockHeight: number;
+  blockHeight: number
   /** Gas used */
-  gasUsed: bigint;
+  gasUsed: bigint
 }
 
 export interface ColumnMeta {
-  name: string;
-  type: CQLDataType;
-  nullable: boolean;
-  primaryKey: boolean;
-  autoIncrement: boolean;
+  name: string
+  type: CQLDataType
+  nullable: boolean
+  primaryKey: boolean
+  autoIncrement: boolean
 }
 
 export type CQLDataType =
@@ -119,7 +135,7 @@ export type CQLDataType =
   | 'BLOB'
   | 'BOOLEAN'
   | 'TIMESTAMP'
-  | 'JSON';
+  | 'JSON'
 
 // ============================================================================
 // Database Management
@@ -127,38 +143,38 @@ export type CQLDataType =
 
 export interface DatabaseConfig {
   /** Number of miner nodes (minimum 1, default 3) */
-  nodeCount: number;
+  nodeCount: number
   /** Use eventual consistency (faster) or strong consistency (slower, default) */
-  useEventualConsistency?: boolean;
+  useEventualConsistency?: boolean
   /** Geographic regions for miners */
-  regions?: string[];
+  regions?: string[]
   /** Initial schema SQL */
-  schema?: string;
+  schema?: string
   /** Owner address */
-  owner: Address;
+  owner: Address
   /** Token to pay with */
-  paymentToken?: Address;
+  paymentToken?: Address
 }
 
 export interface DatabaseInfo {
   /** Database ID (hex hash) */
-  id: string;
+  id: string
   /** Creation timestamp */
-  createdAt: number;
+  createdAt: number
   /** Owner address */
-  owner: Address;
+  owner: Address
   /** Number of miner nodes */
-  nodeCount: number;
+  nodeCount: number
   /** Consistency mode */
-  consistencyMode: 'eventual' | 'strong';
+  consistencyMode: 'eventual' | 'strong'
   /** Status */
-  status: DatabaseStatus;
+  status: DatabaseStatus
   /** Current block height */
-  blockHeight: number;
+  blockHeight: number
   /** Total size in bytes */
-  sizeBytes: number;
+  sizeBytes: number
   /** Monthly cost in payment token */
-  monthlyCost: bigint;
+  monthlyCost: bigint
 }
 
 export type DatabaseStatus =
@@ -166,7 +182,7 @@ export type DatabaseStatus =
   | 'running'
   | 'stopped'
   | 'migrating'
-  | 'error';
+  | 'error'
 
 // ============================================================================
 // Access Control
@@ -174,41 +190,41 @@ export type DatabaseStatus =
 
 export interface ACLRule {
   /** Grantee address or wildcard */
-  grantee: Address | '*';
+  grantee: Address | '*'
   /** Table name or wildcard */
-  table: string | '*';
+  table: string | '*'
   /** Column names or wildcard */
-  columns: string[] | '*';
+  columns: string[] | '*'
   /** Permissions */
-  permissions: ACLPermission[];
+  permissions: ACLPermission[]
   /** Condition SQL (WHERE clause) */
-  condition?: string;
+  condition?: string
 }
 
-export type ACLPermission = 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE' | 'ALL';
+export type ACLPermission = 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE' | 'ALL'
 
 export interface GrantRequest {
   /** Address to grant permissions to */
-  grantee: Address;
+  grantee: Address
   /** Table to grant permissions on */
-  table: string;
+  table: string
   /** Specific columns (or all) */
-  columns?: string[];
+  columns?: string[]
   /** Permissions to grant */
-  permissions: ACLPermission[];
+  permissions: ACLPermission[]
   /** Row-level condition */
-  condition?: string;
+  condition?: string
 }
 
 export interface RevokeRequest {
   /** Address to revoke permissions from */
-  grantee: Address;
+  grantee: Address
   /** Table to revoke permissions on */
-  table: string;
+  table: string
   /** Specific columns (or all) */
-  columns?: string[];
+  columns?: string[]
   /** Permissions to revoke */
-  permissions: ACLPermission[];
+  permissions: ACLPermission[]
 }
 
 // ============================================================================
@@ -217,51 +233,51 @@ export interface RevokeRequest {
 
 export interface RentalPlan {
   /** Plan ID */
-  id: string;
+  id: string
   /** Plan name */
-  name: string;
+  name: string
   /** Number of nodes included */
-  nodeCount: number;
+  nodeCount: number
   /** Storage quota in bytes */
-  storageBytes: bigint;
+  storageBytes: bigint
   /** Queries per month */
-  queriesPerMonth: bigint;
+  queriesPerMonth: bigint
   /** Monthly price in payment token */
-  pricePerMonth: bigint;
+  pricePerMonth: bigint
   /** Payment token address */
-  paymentToken: Address;
+  paymentToken: Address
 }
 
 export interface RentalInfo {
   /** Rental ID */
-  id: string;
+  id: string
   /** Database ID */
-  databaseId: string;
+  databaseId: string
   /** Renter address */
-  renter: Address;
+  renter: Address
   /** Plan ID */
-  planId: string;
+  planId: string
   /** Start timestamp */
-  startedAt: number;
+  startedAt: number
   /** Expiration timestamp */
-  expiresAt: number;
+  expiresAt: number
   /** Auto-renew enabled */
-  autoRenew: boolean;
+  autoRenew: boolean
   /** Payment status */
-  paymentStatus: 'current' | 'overdue' | 'cancelled';
+  paymentStatus: 'current' | 'overdue' | 'cancelled'
 }
 
 export interface CreateRentalRequest {
   /** Plan to subscribe to */
-  planId: string;
+  planId: string
   /** Initial schema SQL */
-  schema?: string;
+  schema?: string
   /** Enable auto-renewal */
-  autoRenew?: boolean;
+  autoRenew?: boolean
   /** Payment token */
-  paymentToken?: Address;
+  paymentToken?: Address
   /** Prepay months */
-  months?: number;
+  months?: number
 }
 
 // ============================================================================
@@ -270,24 +286,24 @@ export interface CreateRentalRequest {
 
 export interface Migration {
   /** Migration version */
-  version: number;
+  version: number
   /** Migration name */
-  name: string;
+  name: string
   /** Up migration SQL */
-  up: string;
+  up: string
   /** Down migration SQL */
-  down: string;
+  down: string
   /** Migration timestamp */
-  appliedAt?: number;
+  appliedAt?: number
 }
 
 export interface MigrationResult {
   /** Applied migrations */
-  applied: string[];
+  applied: string[]
   /** Current version */
-  currentVersion: number;
+  currentVersion: number
   /** Pending migrations */
-  pending: string[];
+  pending: string[]
 }
 
 // ============================================================================
@@ -295,37 +311,37 @@ export interface MigrationResult {
 // ============================================================================
 
 export interface QueryEventDetails {
-  sql: string;
-  params?: QueryParam[];
-  rowCount?: number;
-  executionTime?: number;
+  sql: string
+  params?: QueryParam[]
+  rowCount?: number
+  executionTime?: number
 }
 
 export interface ExecEventDetails {
-  sql: string;
-  params?: QueryParam[];
-  rowsAffected?: number;
-  gasUsed?: bigint;
+  sql: string
+  params?: QueryParam[]
+  rowsAffected?: number
+  gasUsed?: bigint
 }
 
 export interface MigrationEventDetails {
-  version: number;
-  name: string;
-  direction: 'up' | 'down';
+  version: number
+  name: string
+  direction: 'up' | 'down'
 }
 
 export interface ACLEventDetails {
-  grantee: Address;
-  table: string;
-  permissions: ACLPermission[];
-  action: 'grant' | 'revoke';
+  grantee: Address
+  table: string
+  permissions: ACLPermission[]
+  action: 'grant' | 'revoke'
 }
 
 export interface RentalEventDetails {
-  planId: string;
-  rentalId: string;
-  action: 'create' | 'extend' | 'cancel';
-  months?: number;
+  planId: string
+  rentalId: string
+  action: 'create' | 'extend' | 'cancel'
+  months?: number
 }
 
 export type CQLEventDetails =
@@ -333,15 +349,15 @@ export type CQLEventDetails =
   | { type: 'exec'; data: ExecEventDetails }
   | { type: 'migration'; data: MigrationEventDetails }
   | { type: 'acl'; data: ACLEventDetails }
-  | { type: 'rental'; data: RentalEventDetails };
+  | { type: 'rental'; data: RentalEventDetails }
 
 export interface CQLEvent {
-  type: 'query' | 'exec' | 'migration' | 'acl' | 'rental';
-  databaseId: string;
-  timestamp: number;
-  actor?: Address;
-  details: CQLEventDetails;
-  txHash?: Hex;
+  type: 'query' | 'exec' | 'migration' | 'acl' | 'rental'
+  databaseId: string
+  timestamp: number
+  actor?: Address
+  details: CQLEventDetails
+  txHash?: Hex
 }
 
 // ============================================================================
@@ -350,31 +366,30 @@ export interface CQLEvent {
 
 export interface BlockProducerInfo {
   /** Block producer address */
-  address: Address;
+  address: Address
   /** Endpoint URL */
-  endpoint: string;
+  endpoint: string
   /** Current block height */
-  blockHeight: number;
+  blockHeight: number
   /** Active databases */
-  databases: number;
+  databases: number
   /** Total stake */
-  stake: bigint;
+  stake: bigint
   /** Status */
-  status: 'active' | 'syncing' | 'offline';
+  status: 'active' | 'syncing' | 'offline'
 }
 
 export interface MinerInfo {
   /** Miner address */
-  address: Address;
+  address: Address
   /** Database ID */
-  databaseId: string;
+  databaseId: string
   /** Role (leader or follower) */
-  role: 'leader' | 'follower';
+  role: 'leader' | 'follower'
   /** Endpoint URL */
-  endpoint: string;
+  endpoint: string
   /** Block height */
-  blockHeight: number;
+  blockHeight: number
   /** Status */
-  status: 'active' | 'syncing' | 'offline';
+  status: 'active' | 'syncing' | 'offline'
 }
-

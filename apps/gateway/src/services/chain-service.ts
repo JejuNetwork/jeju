@@ -1,12 +1,18 @@
-import { createPublicClient, http, type PublicClient, type Address, type Abi } from 'viem';
-import { getChain } from '../lib/chains.js';
-import { getRpcUrl } from '../config/networks.js';
-import { 
-  INPUT_SETTLER_ADDRESS, 
-  OUTPUT_SETTLER_ADDRESS, 
-  SOLVER_REGISTRY_ADDRESS 
-} from '../config/contracts.js';
-import { ZERO_ADDRESS } from '../lib/contracts.js';
+import {
+  type Abi,
+  type Address,
+  createPublicClient,
+  http,
+  type PublicClient,
+} from 'viem'
+import {
+  INPUT_SETTLER_ADDRESS,
+  OUTPUT_SETTLER_ADDRESS,
+  SOLVER_REGISTRY_ADDRESS,
+} from '../config/contracts.js'
+import { getRpcUrl } from '../config/networks.js'
+import { getChain } from '../lib/chains.js'
+import { ZERO_ADDRESS } from '../lib/contracts.js'
 
 // ABIs for reading contract state and watching events
 const INPUT_SETTLER_ABI = [
@@ -15,25 +21,27 @@ const INPUT_SETTLER_ABI = [
     name: 'getOrder',
     stateMutability: 'view',
     inputs: [{ name: 'orderId', type: 'bytes32' }],
-    outputs: [{
-      type: 'tuple',
-      components: [
-        { name: 'user', type: 'address' },
-        { name: 'inputToken', type: 'address' },
-        { name: 'inputAmount', type: 'uint256' },
-        { name: 'outputToken', type: 'address' },
-        { name: 'outputAmount', type: 'uint256' },
-        { name: 'destinationChainId', type: 'uint256' },
-        { name: 'recipient', type: 'address' },
-        { name: 'maxFee', type: 'uint256' },
-        { name: 'openDeadline', type: 'uint32' },
-        { name: 'fillDeadline', type: 'uint32' },
-        { name: 'solver', type: 'address' },
-        { name: 'filled', type: 'bool' },
-        { name: 'refunded', type: 'bool' },
-        { name: 'createdBlock', type: 'uint256' },
-      ],
-    }],
+    outputs: [
+      {
+        type: 'tuple',
+        components: [
+          { name: 'user', type: 'address' },
+          { name: 'inputToken', type: 'address' },
+          { name: 'inputAmount', type: 'uint256' },
+          { name: 'outputToken', type: 'address' },
+          { name: 'outputAmount', type: 'uint256' },
+          { name: 'destinationChainId', type: 'uint256' },
+          { name: 'recipient', type: 'address' },
+          { name: 'maxFee', type: 'uint256' },
+          { name: 'openDeadline', type: 'uint32' },
+          { name: 'fillDeadline', type: 'uint32' },
+          { name: 'solver', type: 'address' },
+          { name: 'filled', type: 'bool' },
+          { name: 'refunded', type: 'bool' },
+          { name: 'createdBlock', type: 'uint256' },
+        ],
+      },
+    ],
   },
   {
     type: 'function',
@@ -51,7 +59,7 @@ const INPUT_SETTLER_ABI = [
       { name: 'inputAmount', type: 'uint256', indexed: false },
     ],
   },
-] as const;
+] as const
 
 const OUTPUT_SETTLER_ABI = [
   {
@@ -70,7 +78,7 @@ const OUTPUT_SETTLER_ABI = [
       { name: 'amount', type: 'uint256', indexed: false },
     ],
   },
-] as const;
+] as const
 
 const SOLVER_REGISTRY_ABI = [
   {
@@ -78,19 +86,21 @@ const SOLVER_REGISTRY_ABI = [
     name: 'getSolver',
     stateMutability: 'view',
     inputs: [{ name: 'solver', type: 'address' }],
-    outputs: [{
-      type: 'tuple',
-      components: [
-        { name: 'solver', type: 'address' },
-        { name: 'stakedAmount', type: 'uint256' },
-        { name: 'slashedAmount', type: 'uint256' },
-        { name: 'totalFills', type: 'uint256' },
-        { name: 'successfulFills', type: 'uint256' },
-        { name: 'supportedChains', type: 'uint256[]' },
-        { name: 'isActive', type: 'bool' },
-        { name: 'registeredAt', type: 'uint256' },
-      ],
-    }],
+    outputs: [
+      {
+        type: 'tuple',
+        components: [
+          { name: 'solver', type: 'address' },
+          { name: 'stakedAmount', type: 'uint256' },
+          { name: 'slashedAmount', type: 'uint256' },
+          { name: 'totalFills', type: 'uint256' },
+          { name: 'successfulFills', type: 'uint256' },
+          { name: 'supportedChains', type: 'uint256[]' },
+          { name: 'isActive', type: 'bool' },
+          { name: 'registeredAt', type: 'uint256' },
+        ],
+      },
+    ],
   },
   {
     type: 'function',
@@ -110,189 +120,226 @@ const SOLVER_REGISTRY_ABI = [
     inputs: [{ name: 'solver', type: 'address' }],
     outputs: [{ type: 'bool' }],
   },
-] as const satisfies Abi;
+] as const satisfies Abi
 
-const clients = new Map<number, PublicClient>();
+const clients = new Map<number, PublicClient>()
 
 function getClient(chainId: number): PublicClient {
-  let client = clients.get(chainId);
+  let client = clients.get(chainId)
   if (!client) {
-    const chain = getChain(chainId);
-    const rpcUrl = getRpcUrl(chainId);
-    client = createPublicClient({ chain, transport: http(rpcUrl) }) as PublicClient;
-    clients.set(chainId, client);
+    const chain = getChain(chainId)
+    const rpcUrl = getRpcUrl(chainId)
+    client = createPublicClient({
+      chain,
+      transport: http(rpcUrl),
+    }) as PublicClient
+    clients.set(chainId, client)
   }
-  return client;
+  return client
 }
 
 function getInputSettler(_chainId: number): Address {
   // Using centralized contract addresses from config
-  return INPUT_SETTLER_ADDRESS;
+  return INPUT_SETTLER_ADDRESS
 }
 
 function getOutputSettler(_chainId: number): Address {
-  return OUTPUT_SETTLER_ADDRESS;
+  return OUTPUT_SETTLER_ADDRESS
 }
 
 function getSolverRegistry(): Address {
-  return SOLVER_REGISTRY_ADDRESS;
+  return SOLVER_REGISTRY_ADDRESS
 }
 
 interface OrderResult {
-  user: Address;
-  inputToken: Address;
-  inputAmount: bigint;
-  outputToken: Address;
-  outputAmount: bigint;
-  destinationChainId: bigint;
-  recipient: Address;
-  maxFee: bigint;
-  openDeadline: number;
-  fillDeadline: number;
-  solver: Address;
-  filled: boolean;
-  refunded: boolean;
-  createdBlock: bigint;
+  user: Address
+  inputToken: Address
+  inputAmount: bigint
+  outputToken: Address
+  outputAmount: bigint
+  destinationChainId: bigint
+  recipient: Address
+  maxFee: bigint
+  openDeadline: number
+  fillDeadline: number
+  solver: Address
+  filled: boolean
+  refunded: boolean
+  createdBlock: bigint
 }
 
-export async function fetchOrder(chainId: number, orderId: `0x${string}`): Promise<OrderResult | null> {
-  const settler = getInputSettler(chainId);
+export async function fetchOrder(
+  chainId: number,
+  orderId: `0x${string}`,
+): Promise<OrderResult | null> {
+  const settler = getInputSettler(chainId)
   if (settler === ZERO_ADDRESS) {
-    return null;
+    return null
   }
 
-  const client = getClient(chainId);
-  
-  const order = await client.readContract({
+  const client = getClient(chainId)
+
+  const order = (await client.readContract({
     address: settler,
     abi: INPUT_SETTLER_ABI,
     functionName: 'getOrder',
     args: [orderId],
-  }) as OrderResult;
+  })) as OrderResult
 
-  return order;
+  return order
 }
 
-export async function fetchFillStatus(chainId: number, orderId: `0x${string}`): Promise<boolean> {
-  const settler = getOutputSettler(chainId);
+export async function fetchFillStatus(
+  chainId: number,
+  orderId: `0x${string}`,
+): Promise<boolean> {
+  const settler = getOutputSettler(chainId)
   if (settler === ZERO_ADDRESS) {
-    return false;
+    return false
   }
 
-  const client = getClient(chainId);
-  
-  return await client.readContract({
+  const client = getClient(chainId)
+
+  return (await client.readContract({
     address: settler,
     abi: OUTPUT_SETTLER_ABI,
     functionName: 'isFilled',
     args: [orderId],
-  }) as boolean;
+  })) as boolean
 }
 
 interface SolverInfo {
-  solver: Address;
-  stakedAmount: bigint;
-  slashedAmount: bigint;
-  totalFills: bigint;
-  successfulFills: bigint;
-  supportedChains: readonly bigint[];
-  isActive: boolean;
-  registeredAt: bigint;
+  solver: Address
+  stakedAmount: bigint
+  slashedAmount: bigint
+  totalFills: bigint
+  successfulFills: bigint
+  supportedChains: readonly bigint[]
+  isActive: boolean
+  registeredAt: bigint
 }
 
-export async function fetchSolverInfo(solverAddress: Address): Promise<SolverInfo | null> {
-  const registry = getSolverRegistry();
+export async function fetchSolverInfo(
+  solverAddress: Address,
+): Promise<SolverInfo | null> {
+  const registry = getSolverRegistry()
   if (registry === ZERO_ADDRESS) {
-    return null;
+    return null
   }
 
   // Registry lives on the network testnet (420690) or mainnet (420691)
-  const { JEJU_CHAIN_ID } = await import('../config/networks.js');
-  const client = getClient(JEJU_CHAIN_ID);
-  
-  const info = await client.readContract({
-    address: registry,
-    abi: SOLVER_REGISTRY_ABI,
-    functionName: 'getSolver',
-    args: [solverAddress],
-  }).catch(() => null);
+  const { JEJU_CHAIN_ID } = await import('../config/networks.js')
+  const client = getClient(JEJU_CHAIN_ID)
 
-  return info as SolverInfo | null;
+  const info = await client
+    .readContract({
+      address: registry,
+      abi: SOLVER_REGISTRY_ABI,
+      functionName: 'getSolver',
+      args: [solverAddress],
+    })
+    .catch(() => null)
+
+  return info as SolverInfo | null
 }
 
 export async function fetchRegistryStats(): Promise<{
-  totalStaked: bigint;
-  totalSlashed: bigint;
-  activeSolvers: bigint;
+  totalStaked: bigint
+  totalSlashed: bigint
+  activeSolvers: bigint
 } | null> {
-  const registry = getSolverRegistry();
+  const registry = getSolverRegistry()
   if (registry === ZERO_ADDRESS) {
-    return null;
+    return null
   }
 
   // Registry lives on the network testnet (420690) or mainnet (420691)
-  const { JEJU_CHAIN_ID } = await import('../config/networks.js');
-  const client = getClient(JEJU_CHAIN_ID);
-  
-  // Return null if contract isn't deployed or call fails
-  const result = await client.readContract({
-    address: registry,
-    abi: SOLVER_REGISTRY_ABI,
-    functionName: 'getStats',
-  }).catch(() => null);
-  
-  if (!result) return null;
-  const [totalStaked, totalSlashed, activeSolvers] = result as readonly [bigint, bigint, bigint];
+  const { JEJU_CHAIN_ID } = await import('../config/networks.js')
+  const client = getClient(JEJU_CHAIN_ID)
 
-  return { totalStaked, totalSlashed, activeSolvers };
+  // Return null if contract isn't deployed or call fails
+  const result = await client
+    .readContract({
+      address: registry,
+      abi: SOLVER_REGISTRY_ABI,
+      functionName: 'getStats',
+    })
+    .catch(() => null)
+
+  if (!result) return null
+  const [totalStaked, totalSlashed, activeSolvers] = result as readonly [
+    bigint,
+    bigint,
+    bigint,
+  ]
+
+  return { totalStaked, totalSlashed, activeSolvers }
 }
 
-export function watchOrders(chainId: number, callback: (log: { orderId: `0x${string}`; user: Address; inputAmount: bigint }) => void): () => void {
-  const settler = getInputSettler(chainId);
+export function watchOrders(
+  chainId: number,
+  callback: (log: {
+    orderId: `0x${string}`
+    user: Address
+    inputAmount: bigint
+  }) => void,
+): () => void {
+  const settler = getInputSettler(chainId)
   if (settler === ZERO_ADDRESS) {
-    return () => { /* no settler configured for this chain */ };
+    return () => {
+      /* no settler configured for this chain */
+    }
   }
 
-  const client = getClient(chainId);
-  
+  const client = getClient(chainId)
+
   const unwatch = client.watchContractEvent({
     address: settler,
     abi: INPUT_SETTLER_ABI,
     eventName: 'OrderCreated',
     onLogs: (logs) => {
       for (const log of logs) {
-        const { orderId, user, inputAmount } = log.args;
+        const { orderId, user, inputAmount } = log.args
         if (orderId && user && inputAmount !== undefined) {
-          callback({ orderId, user, inputAmount });
+          callback({ orderId, user, inputAmount })
         }
       }
     },
-  });
+  })
 
-  return unwatch;
+  return unwatch
 }
 
-export function watchFills(chainId: number, callback: (log: { orderId: `0x${string}`; solver: Address; amount: bigint }) => void): () => void {
-  const settler = getOutputSettler(chainId);
+export function watchFills(
+  chainId: number,
+  callback: (log: {
+    orderId: `0x${string}`
+    solver: Address
+    amount: bigint
+  }) => void,
+): () => void {
+  const settler = getOutputSettler(chainId)
   if (settler === ZERO_ADDRESS) {
-    return () => { /* no settler configured for this chain */ };
+    return () => {
+      /* no settler configured for this chain */
+    }
   }
 
-  const client = getClient(chainId);
-  
+  const client = getClient(chainId)
+
   const unwatch = client.watchContractEvent({
     address: settler,
     abi: OUTPUT_SETTLER_ABI,
     eventName: 'OrderFilled',
     onLogs: (logs) => {
       for (const log of logs) {
-        const { orderId, solver, amount } = log.args;
+        const { orderId, solver, amount } = log.args
         if (orderId && solver && amount !== undefined) {
-          callback({ orderId, solver, amount });
+          callback({ orderId, solver, amount })
         }
       }
     },
-  });
+  })
 
-  return unwatch;
+  return unwatch
 }

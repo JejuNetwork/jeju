@@ -3,60 +3,65 @@
  * Dework-like profile with contributions, bounties, repos
  */
 
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { useParams } from 'next/navigation';
-import { useAccount } from 'wagmi';
+import { clsx } from 'clsx'
 import {
-  User,
   Building2,
-  GitBranch,
-  DollarSign,
-  Star,
-  Trophy,
   Calendar,
-  MapPin,
-  Link as LinkIcon,
-  Twitter,
-  MessageSquare,
-  Shield,
   CheckCircle,
   Clock,
-  Users,
+  DollarSign,
   Edit2,
-} from 'lucide-react';
-import Link from 'next/link';
-import { clsx } from 'clsx';
+  GitBranch,
+  Link as LinkIcon,
+  MapPin,
+  MessageSquare,
+  Shield,
+  Star,
+  Trophy,
+  Twitter,
+  User,
+  Users,
+} from 'lucide-react'
+import Link from 'next/link'
+import { useParams } from 'next/navigation'
+import { useState } from 'react'
+import { useAccount } from 'wagmi'
 
-type ProfileTab = 'overview' | 'bounties' | 'repositories' | 'contributions' | 'teams';
+type ProfileTab =
+  | 'overview'
+  | 'bounties'
+  | 'repositories'
+  | 'contributions'
+  | 'teams'
 
 interface ProfileData {
-  address: string;
-  name: string;
-  type: 'user' | 'org';
-  avatar: string;
-  bio: string;
-  location?: string;
-  website?: string;
-  twitter?: string;
-  farcaster?: string;
-  joinedAt: number;
+  address: string
+  name: string
+  type: 'user' | 'org'
+  avatar: string
+  bio: string
+  location?: string
+  website?: string
+  twitter?: string
+  farcaster?: string
+  joinedAt: number
   stats: {
-    repositories: number;
-    bounties: number;
-    contributions: number;
-    stars: number;
-    followers: number;
-    following: number;
-  };
+    repositories: number
+    bounties: number
+    contributions: number
+    stars: number
+    followers: number
+    following: number
+  }
   reputation: {
-    score: number;
-    tier: 'bronze' | 'silver' | 'gold' | 'diamond';
-    badges: string[];
-  };
-  skills: string[];
-  isGuardian: boolean;
+    score: number
+    tier: 'bronze' | 'silver' | 'gold' | 'diamond'
+    badges: string[]
+  }
+  skills: string[]
+  isGuardian: boolean
 }
 
 const mockProfile: ProfileData = {
@@ -83,9 +88,16 @@ const mockProfile: ProfileData = {
     tier: 'gold',
     badges: ['Early Adopter', 'Bug Hunter', 'Top Contributor', 'Guardian'],
   },
-  skills: ['Solidity', 'TypeScript', 'React', 'Node.js', 'Rust', 'Smart Contracts'],
+  skills: [
+    'Solidity',
+    'TypeScript',
+    'React',
+    'Node.js',
+    'Rust',
+    'Smart Contracts',
+  ],
   isGuardian: true,
-};
+}
 
 const mockBounties = [
   {
@@ -108,7 +120,7 @@ const mockBounties = [
     reward: '1.5 ETH',
     completedAt: Date.now() - 14 * 24 * 60 * 60 * 1000,
   },
-];
+]
 
 const mockRepos = [
   {
@@ -129,14 +141,14 @@ const mockRepos = [
     forks: 34,
     updatedAt: Date.now() - 5 * 24 * 60 * 60 * 1000,
   },
-];
+]
 
 const tierColors = {
   bronze: 'text-amber-600 bg-amber-600/20',
   silver: 'text-gray-400 bg-gray-400/20',
   gold: 'text-amber-400 bg-amber-400/20',
   diamond: 'text-cyan-400 bg-cyan-400/20',
-};
+}
 
 const languageColors: Record<string, string> = {
   Solidity: 'bg-purple-400',
@@ -144,25 +156,29 @@ const languageColors: Record<string, string> = {
   Python: 'bg-yellow-400',
   JavaScript: 'bg-yellow-300',
   Rust: 'bg-orange-400',
-};
+}
 
 export default function ProfilePage() {
-  const params = useParams();
-  const address = params.address as string;
-  const { address: connectedAddress, isConnected } = useAccount();
-  const [tab, setTab] = useState<ProfileTab>('overview');
-  
-  const profile = mockProfile;
-  const isOwnProfile = isConnected && connectedAddress?.toLowerCase() === address.toLowerCase();
+  const params = useParams()
+  const address = params.address as string
+  const { address: connectedAddress, isConnected } = useAccount()
+  const [tab, setTab] = useState<ProfileTab>('overview')
+
+  const profile = mockProfile
+  const isOwnProfile =
+    isConnected && connectedAddress?.toLowerCase() === address.toLowerCase()
 
   const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-  };
+    return new Date(timestamp).toLocaleDateString('en-US', {
+      month: 'short',
+      year: 'numeric',
+    })
+  }
 
   const formatNumber = (num: number) => {
-    if (num >= 1000) return `${(num / 1000).toFixed(1)}k`;
-    return num.toString();
-  };
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}k`
+    return num.toString()
+  }
 
   return (
     <div className="min-h-screen">
@@ -184,7 +200,9 @@ export default function ProfilePage() {
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-3">
-                    <h1 className="text-2xl font-bold text-factory-100">{profile.name}</h1>
+                    <h1 className="text-2xl font-bold text-factory-100">
+                      {profile.name}
+                    </h1>
                     {profile.isGuardian && (
                       <span className="badge bg-purple-500/20 text-purple-400 border border-purple-500/30">
                         <Shield className="w-3 h-3 mr-1" />
@@ -192,11 +210,16 @@ export default function ProfilePage() {
                       </span>
                     )}
                   </div>
-                  <p className="text-factory-500 font-mono text-sm mt-1">{profile.address}</p>
+                  <p className="text-factory-500 font-mono text-sm mt-1">
+                    {profile.address}
+                  </p>
                 </div>
-                
+
                 {isOwnProfile ? (
-                  <Link href="/settings/profile" className="btn btn-secondary text-sm">
+                  <Link
+                    href="/settings/profile"
+                    className="btn btn-secondary text-sm"
+                  >
                     <Edit2 className="w-4 h-4" />
                     Edit Profile
                   </Link>
@@ -221,15 +244,24 @@ export default function ProfilePage() {
                   </span>
                 )}
                 {profile.website && (
-                  <a href={profile.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-accent-400">
+                  <a
+                    href={profile.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 hover:text-accent-400"
+                  >
                     <LinkIcon className="w-4 h-4" />
                     {profile.website.replace('https://', '')}
                   </a>
                 )}
                 {profile.twitter && (
-                  <a href={`https://twitter.com/${profile.twitter}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-accent-400">
-                    <Twitter className="w-4 h-4" />
-                    @{profile.twitter}
+                  <a
+                    href={`https://twitter.com/${profile.twitter}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 hover:text-accent-400"
+                  >
+                    <Twitter className="w-4 h-4" />@{profile.twitter}
                   </a>
                 )}
                 <span className="flex items-center gap-1">
@@ -258,13 +290,38 @@ export default function ProfilePage() {
 
           {/* Tabs */}
           <div className="flex gap-1 mt-6 overflow-x-auto -mb-px">
-            {([
-              { id: 'overview' as const, label: 'Overview', icon: User, count: undefined },
-              { id: 'bounties' as const, label: 'Bounties', icon: DollarSign, count: profile.stats.bounties },
-              { id: 'repositories' as const, label: 'Repositories', icon: GitBranch, count: profile.stats.repositories },
-              { id: 'contributions' as const, label: 'Contributions', icon: Trophy, count: undefined },
-              { id: 'teams' as const, label: 'Teams', icon: Users, count: undefined },
-            ]).map(({ id, label, icon: Icon, count }) => (
+            {[
+              {
+                id: 'overview' as const,
+                label: 'Overview',
+                icon: User,
+                count: undefined,
+              },
+              {
+                id: 'bounties' as const,
+                label: 'Bounties',
+                icon: DollarSign,
+                count: profile.stats.bounties,
+              },
+              {
+                id: 'repositories' as const,
+                label: 'Repositories',
+                icon: GitBranch,
+                count: profile.stats.repositories,
+              },
+              {
+                id: 'contributions' as const,
+                label: 'Contributions',
+                icon: Trophy,
+                count: undefined,
+              },
+              {
+                id: 'teams' as const,
+                label: 'Teams',
+                icon: Users,
+                count: undefined,
+              },
+            ].map(({ id, label, icon: Icon, count }) => (
               <button
                 key={id}
                 onClick={() => setTab(id)}
@@ -272,13 +329,15 @@ export default function ProfilePage() {
                   'flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap',
                   tab === id
                     ? 'border-accent-500 text-accent-400'
-                    : 'border-transparent text-factory-400 hover:text-factory-100 hover:border-factory-600'
+                    : 'border-transparent text-factory-400 hover:text-factory-100 hover:border-factory-600',
                 )}
               >
                 <Icon className="w-4 h-4" />
                 {label}
                 {count !== undefined && (
-                  <span className="px-1.5 py-0.5 text-xs rounded-full bg-factory-800">{count}</span>
+                  <span className="px-1.5 py-0.5 text-xs rounded-full bg-factory-800">
+                    {count}
+                  </span>
                 )}
               </button>
             ))}
@@ -298,10 +357,12 @@ export default function ProfilePage() {
                 Reputation
               </h3>
               <div className="flex items-center gap-3 mb-4">
-                <div className={clsx(
-                  'px-3 py-1 rounded-full font-semibold capitalize',
-                  tierColors[profile.reputation.tier]
-                )}>
+                <div
+                  className={clsx(
+                    'px-3 py-1 rounded-full font-semibold capitalize',
+                    tierColors[profile.reputation.tier],
+                  )}
+                >
                   {profile.reputation.tier}
                 </div>
                 <span className="text-2xl font-bold text-factory-100">
@@ -322,7 +383,10 @@ export default function ProfilePage() {
               <h3 className="font-semibold text-factory-100 mb-4">Skills</h3>
               <div className="flex flex-wrap gap-2">
                 {profile.skills.map((skill) => (
-                  <span key={skill} className="badge bg-factory-800 text-factory-300 border border-factory-700">
+                  <span
+                    key={skill}
+                    className="badge bg-factory-800 text-factory-300 border border-factory-700"
+                  >
                     {skill}
                   </span>
                 ))}
@@ -336,18 +400,20 @@ export default function ProfilePage() {
                 Organizations
               </h3>
               <div className="flex flex-wrap gap-2">
-                {['Jeju Network', 'DeFi Alliance', 'Security DAO'].map((org) => (
-                  <Link
-                    key={org}
-                    href={`/org/${org.toLowerCase().replace(' ', '-')}`}
-                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-factory-800 transition-colors"
-                  >
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent-500 to-purple-500 flex items-center justify-center text-white font-bold">
-                      {org[0]}
-                    </div>
-                    <span className="text-sm text-factory-300">{org}</span>
-                  </Link>
-                ))}
+                {['Jeju Network', 'DeFi Alliance', 'Security DAO'].map(
+                  (org) => (
+                    <Link
+                      key={org}
+                      href={`/org/${org.toLowerCase().replace(' ', '-')}`}
+                      className="flex items-center gap-2 p-2 rounded-lg hover:bg-factory-800 transition-colors"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent-500 to-purple-500 flex items-center justify-center text-white font-bold">
+                        {org[0]}
+                      </div>
+                      <span className="text-sm text-factory-300">{org}</span>
+                    </Link>
+                  ),
+                )}
               </div>
             </div>
           </div>
@@ -358,7 +424,9 @@ export default function ProfilePage() {
               <>
                 {/* Pinned Repos */}
                 <div>
-                  <h3 className="font-semibold text-factory-100 mb-4">Pinned Repositories</h3>
+                  <h3 className="font-semibold text-factory-100 mb-4">
+                    Pinned Repositories
+                  </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {mockRepos.map((repo) => (
                       <Link
@@ -368,12 +436,21 @@ export default function ProfilePage() {
                       >
                         <div className="flex items-start gap-2 mb-2">
                           <GitBranch className="w-4 h-4 text-factory-400 mt-0.5" />
-                          <span className="font-medium text-accent-400 hover:underline">{repo.name}</span>
+                          <span className="font-medium text-accent-400 hover:underline">
+                            {repo.name}
+                          </span>
                         </div>
-                        <p className="text-factory-400 text-sm mb-3 line-clamp-2">{repo.description}</p>
+                        <p className="text-factory-400 text-sm mb-3 line-clamp-2">
+                          {repo.description}
+                        </p>
                         <div className="flex items-center gap-3 text-xs text-factory-500">
                           <span className="flex items-center gap-1">
-                            <span className={clsx('w-3 h-3 rounded-full', languageColors[repo.language] || 'bg-gray-400')} />
+                            <span
+                              className={clsx(
+                                'w-3 h-3 rounded-full',
+                                languageColors[repo.language] || 'bg-gray-400',
+                              )}
+                            />
                             {repo.language}
                           </span>
                           <span className="flex items-center gap-1">
@@ -388,7 +465,9 @@ export default function ProfilePage() {
 
                 {/* Recent Activity */}
                 <div>
-                  <h3 className="font-semibold text-factory-100 mb-4">Recent Bounties</h3>
+                  <h3 className="font-semibold text-factory-100 mb-4">
+                    Recent Bounties
+                  </h3>
                   <div className="card divide-y divide-factory-800">
                     {mockBounties.map((bounty) => (
                       <Link
@@ -402,14 +481,20 @@ export default function ProfilePage() {
                           <Clock className="w-5 h-5 text-amber-400" />
                         )}
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-factory-100 truncate">{bounty.title}</p>
-                          <p className="text-factory-500 text-sm">{bounty.reward}</p>
+                          <p className="font-medium text-factory-100 truncate">
+                            {bounty.title}
+                          </p>
+                          <p className="text-factory-500 text-sm">
+                            {bounty.reward}
+                          </p>
                         </div>
-                        <span className={clsx(
-                          'badge',
-                          bounty.status === 'completed' && 'badge-success',
-                          bounty.status === 'in_progress' && 'badge-warning'
-                        )}>
+                        <span
+                          className={clsx(
+                            'badge',
+                            bounty.status === 'completed' && 'badge-success',
+                            bounty.status === 'in_progress' && 'badge-warning',
+                          )}
+                        >
                           {bounty.status.replace('_', ' ')}
                         </span>
                       </Link>
@@ -433,14 +518,20 @@ export default function ProfilePage() {
                       <Clock className="w-5 h-5 text-amber-400" />
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-factory-100 truncate">{bounty.title}</p>
-                      <p className="text-factory-500 text-sm">{bounty.reward}</p>
+                      <p className="font-medium text-factory-100 truncate">
+                        {bounty.title}
+                      </p>
+                      <p className="text-factory-500 text-sm">
+                        {bounty.reward}
+                      </p>
                     </div>
-                    <span className={clsx(
-                      'badge',
-                      bounty.status === 'completed' && 'badge-success',
-                      bounty.status === 'in_progress' && 'badge-warning'
-                    )}>
+                    <span
+                      className={clsx(
+                        'badge',
+                        bounty.status === 'completed' && 'badge-success',
+                        bounty.status === 'in_progress' && 'badge-warning',
+                      )}
+                    >
                       {bounty.status.replace('_', ' ')}
                     </span>
                   </Link>
@@ -459,13 +550,22 @@ export default function ProfilePage() {
                     <div className="flex items-start gap-3 mb-2">
                       <GitBranch className="w-5 h-5 text-factory-400 mt-0.5" />
                       <div className="flex-1">
-                        <span className="font-semibold text-accent-400 hover:underline">{repo.name}</span>
-                        <p className="text-factory-400 text-sm mt-1">{repo.description}</p>
+                        <span className="font-semibold text-accent-400 hover:underline">
+                          {repo.name}
+                        </span>
+                        <p className="text-factory-400 text-sm mt-1">
+                          {repo.description}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-4 mt-3 text-sm text-factory-500">
                       <span className="flex items-center gap-1">
-                        <span className={clsx('w-3 h-3 rounded-full', languageColors[repo.language] || 'bg-gray-400')} />
+                        <span
+                          className={clsx(
+                            'w-3 h-3 rounded-full',
+                            languageColors[repo.language] || 'bg-gray-400',
+                          )}
+                        />
                         {repo.language}
                       </span>
                       <span className="flex items-center gap-1">
@@ -480,16 +580,22 @@ export default function ProfilePage() {
 
             {tab === 'contributions' && (
               <div className="card p-6">
-                <h3 className="font-semibold text-factory-100 mb-4">Contribution Graph</h3>
+                <h3 className="font-semibold text-factory-100 mb-4">
+                  Contribution Graph
+                </h3>
                 <div className="grid grid-cols-52 gap-1">
                   {Array.from({ length: 365 }).map((_, i) => (
                     <div
                       key={i}
                       className={clsx(
                         'w-3 h-3 rounded-sm',
-                        Math.random() > 0.7 ? 'bg-green-500' :
-                        Math.random() > 0.5 ? 'bg-green-700' :
-                        Math.random() > 0.3 ? 'bg-green-900' : 'bg-factory-800'
+                        Math.random() > 0.7
+                          ? 'bg-green-500'
+                          : Math.random() > 0.5
+                            ? 'bg-green-700'
+                            : Math.random() > 0.3
+                              ? 'bg-green-900'
+                              : 'bg-factory-800',
                       )}
                     />
                   ))}
@@ -502,7 +608,12 @@ export default function ProfilePage() {
 
             {tab === 'teams' && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {['Jeju Core', 'Security Team', 'Frontend', 'Smart Contracts'].map((team) => (
+                {[
+                  'Jeju Core',
+                  'Security Team',
+                  'Frontend',
+                  'Smart Contracts',
+                ].map((team) => (
                   <div key={team} className="card p-4">
                     <div className="flex items-center gap-3 mb-2">
                       <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-accent-500 to-purple-500 flex items-center justify-center text-white font-bold">
@@ -521,6 +632,5 @@ export default function ProfilePage() {
         </div>
       </div>
     </div>
-  );
+  )
 }
-

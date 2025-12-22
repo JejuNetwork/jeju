@@ -160,7 +160,7 @@ export const NETWORK_REGISTRY_ABI = [
     outputs: [{ name: '', type: 'bool' }],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 export const FEDERATED_IDENTITY_ABI = [
   {
@@ -239,7 +239,7 @@ export const FEDERATED_IDENTITY_ABI = [
     ],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 export const FEDERATED_SOLVER_ABI = [
   {
@@ -302,7 +302,7 @@ export const FEDERATED_SOLVER_ABI = [
     outputs: [{ name: '', type: 'bytes32[]' }],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 export const FEDERATED_LIQUIDITY_ABI = [
   {
@@ -390,5 +390,4 @@ export const FEDERATED_LIQUIDITY_ABI = [
     outputs: [{ name: '', type: 'address[]' }],
     stateMutability: 'view',
   },
-] as const;
-
+] as const

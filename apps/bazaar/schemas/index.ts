@@ -3,11 +3,11 @@
  * All validation schemas exported from here
  */
 
-export * from './token'
-export * from './markets'
-export * from './nft'
 export * from './api'
 export * from './common'
-export * from './swap'
-export * from './perps'
 export * from './games'
+export * from './markets'
+export * from './nft'
+export * from './perps'
+export * from './swap'
+export * from './token'

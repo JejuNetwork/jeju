@@ -1,23 +1,25 @@
-import { Zap } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { getNetworkName } from '@jejunetwork/config';
+import { getNetworkName } from '@jejunetwork/config'
+import { motion } from 'framer-motion'
+import { Zap } from 'lucide-react'
 
-const networkName = getNetworkName();
+const networkName = getNetworkName()
 
 interface LoadingScreenProps {
-  message?: string;
+  message?: string
 }
 
-export function LoadingScreen({ message = 'Initializing...' }: LoadingScreenProps) {
+export function LoadingScreen({
+  message = 'Initializing...',
+}: LoadingScreenProps) {
   return (
     <div className="fixed inset-0 bg-volcanic-950 flex items-center justify-center">
       <div className="text-center">
         <motion.div
-          animate={{ 
+          animate={{
             scale: [1, 1.1, 1],
             rotate: [0, 5, -5, 0],
           }}
-          transition={{ 
+          transition={{
             duration: 2,
             repeat: Infinity,
             ease: 'easeInOut',
@@ -26,9 +28,11 @@ export function LoadingScreen({ message = 'Initializing...' }: LoadingScreenProp
         >
           <Zap size={40} className="text-white" />
         </motion.div>
-        
-        <h1 className="text-2xl font-bold gradient-text mb-2">{networkName} Node</h1>
-        
+
+        <h1 className="text-2xl font-bold gradient-text mb-2">
+          {networkName} Node
+        </h1>
+
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -42,7 +46,7 @@ export function LoadingScreen({ message = 'Initializing...' }: LoadingScreenProp
             {message}
           </motion.span>
         </motion.div>
-        
+
         <motion.div
           initial={{ width: 0 }}
           animate={{ width: '100%' }}
@@ -51,6 +55,5 @@ export function LoadingScreen({ message = 'Initializing...' }: LoadingScreenProp
         />
       </div>
     </div>
-  );
+  )
 }
-

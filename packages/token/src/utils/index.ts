@@ -6,8 +6,8 @@
 
 // Address utilities
 export {
-	addressToBytes32,
-	bytes32ToAddress,
-	isValidBytes32,
-	isValidEvmAddress,
-} from "./address";
+  addressToBytes32,
+  bytes32ToAddress,
+  isValidBytes32,
+  isValidEvmAddress,
+} from './address'

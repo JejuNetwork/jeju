@@ -1,12 +1,17 @@
 /**
  * Dstack TEE Client for network
- * 
+ *
  * Provides a unified interface for interacting with Dstack TEE
  * Works with both simulator (development) and production TDX hardware
  */
 
-import type { AttestationQuote, DerivedKey, TLSCertificate, TEEInfo } from './types'
-import { existsSync } from 'fs'
+import { existsSync } from 'node:fs'
+import type {
+  AttestationQuote,
+  DerivedKey,
+  TEEInfo,
+  TLSCertificate,
+} from './types'
 
 interface TappdQuoteResponse {
   quote: string
@@ -45,17 +50,17 @@ export interface DstackClientConfig {
 
 /**
  * Dstack TEE Client
- * 
+ *
  * Usage:
  * ```typescript
  * const client = new DstackClient()
- * 
+ *
  * // Get attestation quote
  * const quote = await client.getAttestation('0x1234')
- * 
+ *
  * // Derive a key for signing
  * const key = await client.deriveKey('signing')
- * 
+ *
  * // Get TLS certificate
  * const cert = await client.getTLSCertificate('my-domain.com')
  * ```
@@ -73,16 +78,19 @@ export class DstackClient {
       if (existsSync('/var/run/dstack.sock')) {
         this.endpoint = 'unix:/var/run/dstack.sock'
       } else {
-        throw new Error('DSTACK_ENDPOINT must be configured or running in a TEE environment')
+        throw new Error(
+          'DSTACK_ENDPOINT must be configured or running in a TEE environment',
+        )
       }
     } else {
       this.endpoint = endpoint
     }
-    
-    this.isSimulator = config.forceSimulator === true
-      || process.env.DSTACK_SIMULATOR === 'true'
-      || this.endpoint.includes('simulator')
-    
+
+    this.isSimulator =
+      config.forceSimulator === true ||
+      process.env.DSTACK_SIMULATOR === 'true' ||
+      this.endpoint.includes('simulator')
+
     this.timeout = config.timeout ?? 30000
   }
 
@@ -103,98 +111,100 @@ export class DstackClient {
       appId: response.app_id,
       instanceId: response.instance_id,
       osImageHash: response.os_image_hash,
-      composeHash: response.compose_hash
+      composeHash: response.compose_hash,
     }
   }
 
   /**
    * Get an attestation quote with custom report data
-   * 
+   *
    * @param reportData - Hex-encoded data to include in the quote (max 64 bytes)
    * @returns Attestation quote that can be verified
    */
   async getAttestation(reportData: string): Promise<AttestationQuote> {
-    const cleanData = reportData.startsWith('0x') ? reportData : `0x${reportData}`
-    
+    const cleanData = reportData.startsWith('0x')
+      ? reportData
+      : `0x${reportData}`
+
     const response = await this.request<TappdQuoteResponse>(
-      `/GetQuote?report_data=${cleanData}`
+      `/GetQuote?report_data=${cleanData}`,
     )
 
     return {
       quote: response.quote,
       eventLog: response.event_log,
       isSimulated: this.isSimulator,
-      reportData: cleanData
+      reportData: cleanData,
     }
   }
 
   /**
    * Derive a key for a specific purpose
-   * 
+   *
    * @param purpose - Purpose of the key (e.g., 'signing', 'encryption')
    * @param path - Optional derivation path (defaults to /jeju/{purpose})
    * @returns Derived key with signature chain
    */
   async deriveKey(purpose: string, path?: string): Promise<DerivedKey> {
     const derivationPath = path ?? `/jeju/${purpose}`
-    
-    const response = await this.request<TappdDeriveKeyResponse>(
-      '/DeriveKey',
-      {
-        method: 'POST',
-        body: JSON.stringify({ path: derivationPath, purpose })
-      }
-    )
+
+    const response = await this.request<TappdDeriveKeyResponse>('/DeriveKey', {
+      method: 'POST',
+      body: JSON.stringify({ path: derivationPath, purpose }),
+    })
 
     const keyData = response.toJSON()
     const keyBytes = response.asBytes()
-    
+
     // Derive public key from private key
     // In production, this would use proper elliptic curve operations
     const privateKeyHex = Buffer.from(keyBytes).toString('hex')
-    
+
     return {
       privateKey: privateKeyHex,
       publicKey: keyData.key, // The response includes the public key
       path: derivationPath,
-      signature: keyData.signature
+      signature: keyData.signature,
     }
   }
 
   /**
    * Get a TLS certificate signed by the TEE
-   * 
+   *
    * @param domain - Domain name for the certificate
    * @param altNames - Optional alternative names
    * @returns TLS certificate and private key
    */
-  async getTLSCertificate(domain: string, altNames?: string[]): Promise<TLSCertificate> {
-    const response = await this.request<TappdKeyResponse>(
-      '/GetTlsKey',
-      {
-        method: 'POST',
-        body: JSON.stringify({ 
-          domain,
-          alt_names: altNames ?? [],
-          // Request RA-TLS certificate if in production mode
-          ra_tls: !this.isSimulator
-        })
-      }
-    )
+  async getTLSCertificate(
+    domain: string,
+    altNames?: string[],
+  ): Promise<TLSCertificate> {
+    const response = await this.request<TappdKeyResponse>('/GetTlsKey', {
+      method: 'POST',
+      body: JSON.stringify({
+        domain,
+        alt_names: altNames ?? [],
+        // Request RA-TLS certificate if in production mode
+        ra_tls: !this.isSimulator,
+      }),
+    })
 
     return {
       certificate: response.certificate_chain[0],
       privateKey: response.key,
-      chain: response.certificate_chain.slice(1)
+      chain: response.certificate_chain.slice(1),
     }
   }
 
   /**
    * Make a request to the Dstack endpoint
    */
-  private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  private async request<T>(
+    path: string,
+    options: RequestInit = {},
+  ): Promise<T> {
     const url = this.buildUrl(path)
-    
+
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), this.timeout)
 
@@ -204,8 +214,8 @@ export class DstackClient {
         signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
-          ...options.headers
-        }
+          ...options.headers,
+        },
       })
 
       if (!response.ok) {
@@ -228,11 +238,13 @@ export class DstackClient {
       // For now, assume there's an HTTP bridge
       const httpEndpoint = process.env.DSTACK_HTTP_ENDPOINT
       if (!httpEndpoint) {
-        throw new Error('DSTACK_HTTP_ENDPOINT must be set when using Unix socket')
+        throw new Error(
+          'DSTACK_HTTP_ENDPOINT must be set when using Unix socket',
+        )
       }
       return `${httpEndpoint}${path}`
     }
-    
+
     return `${this.endpoint}${path}`
   }
 }
@@ -251,4 +263,3 @@ export function isInTEE(): boolean {
   if (process.env.DSTACK_ENDPOINT) return true
   return existsSync('/var/run/dstack.sock') || existsSync('/dev/tdx_guest')
 }
-

@@ -1,15 +1,15 @@
 /**
  * Jeju Data Availability Layer
- * 
+ *
  * High-performance, TEE-secured data availability service:
  * - Erasure coding (Reed-Solomon) for data redundancy
  * - Polynomial commitments for efficient verification
  * - Data availability sampling for lightweight verification
  * - Native integration with DWS infrastructure
  * - Restaking-based operator incentives
- * 
+ *
  * Architecture:
- * 
+ *
  * ┌─────────────────────────────────────────────────────────────────┐
  * │                     Rollup / L2 Client                         │
  * │  - Submit blob data with commitment                            │
@@ -43,229 +43,215 @@
  * │  - TEE attestation for data integrity                          │
  * │  - P2P chunk distribution                                      │
  * └─────────────────────────────────────────────────────────────────┘
- * 
+ *
  * Key Features:
- * 
+ *
  * 1. ERASURE CODING
  *    - Reed-Solomon encoding for 2x redundancy
  *    - Data reconstructable from 50% of chunks
  *    - Configurable coding ratio
- * 
+ *
  * 2. POLYNOMIAL COMMITMENTS
  *    - Efficient verification without full data
  *    - Opening proofs for individual chunks
  *    - Batch verification support
- * 
+ *
  * 3. DATA AVAILABILITY SAMPLING
  *    - Lightweight verification via random sampling
  *    - Statistical guarantee of availability
  *    - Network-level sampling coordination
- * 
+ *
  * 4. TEE SECURITY
  *    - Operators run in TEE enclaves
  *    - Proof-of-Cloud attestation
  *    - Hardware-backed integrity guarantees
- * 
+ *
  * 5. ECONOMIC SECURITY
  *    - Operators stake tokens to participate
  *    - Slashing for unavailability
  *    - Rewards for reliable service
  */
 
-// Core types
-export * from './types';
-
-// Erasure coding
-export { ReedSolomonCodec, createReedSolomonCodec } from './erasure';
-
-// Polynomial commitments
-export { 
-  createCommitment, 
-  verifyProof,
-  computeBlobId,
-  type PolynomialCommitment,
-} from './commitment';
-
-// Data availability sampling
-export { 
-  DASampler, 
-  SampleVerifier, 
-  generateSampleIndices,
-  calculateRequiredSamples,
-  type SamplingConfig,
-} from './sampling';
-
 // Blob management
-export { 
-  BlobManager, 
-  BlobSubmission, 
+export {
+  BlobManager,
   type BlobStatus,
-} from './blob';
-
-// DA operator node
-export { 
-  DAOperator, 
-  createDAOperator,
-  type OperatorConfig, 
-  type OperatorStatus,
-} from './operator';
-
-// Disperser service
-export { 
-  Disperser, 
-  createDisperser,
-  type DispersalResult, 
-  type DispersalConfig,
-} from './disperser';
-
-// Integration with DWS
-export { DAGateway, createDAGateway, createDARouter } from './gateway';
-
+  BlobSubmission,
+} from './blob'
 // Client SDK
-export { 
-  DAClient, 
+export {
   createDAClient,
   createDefaultDAClient,
+  DAClient,
   type DAClientConfig,
-} from './client';
+} from './client'
 
+// Polynomial commitments
+export {
+  computeBlobId,
+  createCommitment,
+  type PolynomialCommitment,
+  verifyProof,
+} from './commitment'
 // Production Cryptographic Primitives
 export {
+  type AggregatedSignature,
+  addG1Points,
+  addG2Points,
+  aggregatePublicKeys,
+  aggregateSignatures,
+  BLOB_SIZE,
   // BLS Signatures with proper pairing verification
   BLS,
-  generateKeyPair,
-  derivePublicKey,
-  validateSecretKey,
-  validatePublicKey,
-  sign,
-  signWithDomain,
-  verify,
-  verifyWithDomain,
-  aggregateSignatures,
-  aggregatePublicKeys,
-  verifyAggregate,
-  verifyBatch,
-  signAttestation,
-  verifyAttestation,
-  createAggregatedAttestation,
-  verifyAggregatedAttestation,
-  createProofOfPossession,
-  verifyProofOfPossession,
-  type BLSPublicKey,
-  type BLSSignature,
-  type BLSSecretKey,
+  BLS_MODULUS,
   type BLSKeyPair,
-  type AggregatedSignature,
-
-  // KZG Polynomial Commitments
-  KZG,
-  initializeKZG,
-  isKZGInitialized,
-  createBlob,
-  validateBlob,
-  computeCommitment,
+  type BLSPublicKey,
+  type BLSSecretKey,
+  type BLSSignature,
+  type Blob,
+  type BlobWithCommitment,
+  type CellCoord,
+  COMMITMENT_SIZE,
+  type CommitmentWithProof,
+  canReconstruct,
   commitToBlob,
-  computeCommitments,
-  computeProof,
+  compressG1,
+  compressG2,
   computeBlobProof,
   computeCellProofs,
-  verifyKZGProof,
+  computeCommitment,
+  computeCommitments,
+  computeProof,
+  computeVersionedHash,
+  createAggregatedAttestation,
+  createBlob,
+  createMatrix,
+  createProofOfPossession,
+  type DST,
+  DST_BLS_POP,
+  DST_BLS_SIG,
+  DST_DA_ATTEST,
+  DST_DA_SAMPLE,
+  decompressG1,
+  decompressG2,
+  derivePublicKey,
+  type ExtendedMatrix2D,
+  encodeToG1,
+  encodeToG2,
+  expandMessageXMD,
+  extend2D,
+  extractColumn,
+  extractRow,
+  flattenMatrix,
+  G1Generator,
+  type G1Point,
+  G2Generator,
+  type G2Point,
+  generateKeyPair,
+  gfAdd,
+  gfDiv,
+  gfInv,
+  gfMul,
+  gfPow,
+  // Hash-to-Curve (RFC 9380)
+  HashToCurve,
+  hashToField,
+  hashToG1,
+  hashToG2,
+  initializeKZG,
+  isKZGInitialized,
+  // KZG Polynomial Commitments
+  KZG,
+  type KZGCommitment,
+  type KZGProof,
+  type Matrix2D,
+  mulG1,
+  mulG2,
+  PROOF_SIZE,
+  // 2D Reed-Solomon for PeerDAS
+  ReedSolomon2D,
+  reconstruct2D,
+  sign,
+  signAttestation,
+  signWithDomain,
+  validateBlob,
+  validatePublicKey,
+  validateSecretKey,
+  verify,
+  verifyAggregate,
+  verifyAggregatedAttestation,
+  verifyAttestation,
+  verifyBatch,
   verifyBlobProof,
   verifyBlobProofBatch,
   verifyCommitmentForData,
-  computeVersionedHash,
-  BLOB_SIZE,
-  COMMITMENT_SIZE,
-  PROOF_SIZE,
-  BLS_MODULUS,
-  type KZGCommitment,
-  type KZGProof,
-  type Blob,
-  type BlobWithCommitment,
-  type CommitmentWithProof,
-
-  // 2D Reed-Solomon for PeerDAS
-  ReedSolomon2D,
-  gfMul,
-  gfDiv,
-  gfPow,
-  gfInv,
-  gfAdd,
-  createMatrix,
-  flattenMatrix,
-  extend2D,
-  reconstruct2D,
-  canReconstruct,
   verifyExtended,
-  extractColumn,
-  extractRow,
-  type Matrix2D,
-  type ExtendedMatrix2D,
-  type CellCoord,
-
-  // Hash-to-Curve (RFC 9380)
-  HashToCurve,
-  hashToG1,
-  hashToG2,
-  encodeToG1,
-  encodeToG2,
-  hashToField,
-  expandMessageXMD,
   verifyG1Point,
   verifyG2Point,
-  addG1Points,
-  addG2Points,
-  mulG1,
-  mulG2,
-  G1Generator,
-  G2Generator,
-  compressG1,
-  decompressG1,
-  compressG2,
-  decompressG2,
-  DST_BLS_SIG,
-  DST_BLS_POP,
-  DST_DA_ATTEST,
-  DST_DA_SAMPLE,
-  type G1Point,
-  type G2Point,
-  type DST,
-} from './crypto';
-
+  verifyKZGProof,
+  verifyProofOfPossession,
+  verifyWithDomain,
+} from './crypto'
+// Disperser service
+export {
+  createDisperser,
+  type DispersalConfig,
+  type DispersalResult,
+  Disperser,
+} from './disperser'
+// Erasure coding
+export { createReedSolomonCodec, ReedSolomonCodec } from './erasure'
+// Integration with DWS
+export { createDAGateway, createDARouter, DAGateway } from './gateway'
 // Rollup Integrations
 export {
-  RollupDAAdapter,
-  createRollupDAAdapter,
-  OPStackDAAdapter,
-  createOPStackDAAdapter,
+  type ArbitrumOrbitConfig,
   ArbitrumOrbitDAAdapter,
-  createArbitrumOrbitDAAdapter,
-  type RollupConfig,
   type BatchData,
+  createArbitrumOrbitDAAdapter,
+  createOPStackDAAdapter,
+  createRollupDAAdapter,
   type DAReference,
   type OPStackConfig,
-  type ArbitrumOrbitConfig,
-} from './integrations';
-
+  OPStackDAAdapter,
+  type RollupConfig,
+  RollupDAAdapter,
+} from './integrations'
+// DA operator node
+export {
+  createDAOperator,
+  DAOperator,
+  type OperatorConfig,
+  type OperatorStatus,
+} from './operator'
 // PeerDAS Integration (EIP-7594 compatible)
 export {
-  PeerDAS,
-  PeerDASBlobManager,
+  // Types
+  type ColumnIndex,
+  CUSTODY_COLUMNS_PER_NODE,
+  type CustodyAssignment,
   createPeerDASBlobManager,
   // Constants
   DATA_COLUMN_COUNT,
+  type DataColumn,
   EXTENDED_COLUMN_COUNT,
   FIELD_ELEMENTS_PER_BLOB,
   MAX_BLOB_SIZE,
-  CUSTODY_COLUMNS_PER_NODE,
-  SAMPLES_PER_SLOT,
-  // Types
-  type ColumnIndex,
-  type SubnetId,
+  PeerDAS,
   type PeerDASBlob,
-  type DataColumn,
-  type CustodyAssignment,
+  PeerDASBlobManager,
   type PeerDASSampleRequest,
   type PeerDASSampleResponse,
-} from './peerdas';
-
+  SAMPLES_PER_SLOT,
+  type SubnetId,
+} from './peerdas'
+// Data availability sampling
+export {
+  calculateRequiredSamples,
+  DASampler,
+  generateSampleIndices,
+  SampleVerifier,
+  type SamplingConfig,
+} from './sampling'
+// Core types
+export * from './types'

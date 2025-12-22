@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { useAccount, useWriteContract } from 'wagmi'
 import { toast } from 'sonner'
+import { useAccount, useWriteContract } from 'wagmi'
 
 export default function MintNFTPage() {
   const { isConnected } = useAccount()
@@ -25,7 +25,10 @@ export default function MintNFTPage() {
   return (
     <div className="max-w-2xl mx-auto">
       <div className="text-center mb-8">
-        <h1 className="text-3xl md:text-4xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
+        <h1
+          className="text-3xl md:text-4xl font-bold mb-2"
+          style={{ color: 'var(--text-primary)' }}
+        >
           🖼️ Mint New Item
         </h1>
         <p style={{ color: 'var(--text-secondary)' }}>
@@ -35,7 +38,10 @@ export default function MintNFTPage() {
 
       <div className="card p-5 md:p-6 space-y-5 md:space-y-6">
         <div>
-          <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+          <label
+            className="block text-sm font-medium mb-2"
+            style={{ color: 'var(--text-primary)' }}
+          >
             Item Name
           </label>
           <input
@@ -49,7 +55,10 @@ export default function MintNFTPage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+          <label
+            className="block text-sm font-medium mb-2"
+            style={{ color: 'var(--text-primary)' }}
+          >
             Description
           </label>
           <textarea
@@ -62,7 +71,10 @@ export default function MintNFTPage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+          <label
+            className="block text-sm font-medium mb-2"
+            style={{ color: 'var(--text-primary)' }}
+          >
             Image URL
           </label>
           <input
@@ -81,13 +93,22 @@ export default function MintNFTPage() {
           className="btn-primary w-full py-4 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
           data-testid="mint-nft-button"
         >
-          {!isConnected ? 'Connect Wallet' : isPending ? 'Minting...' : 'Mint Item'}
+          {!isConnected
+            ? 'Connect Wallet'
+            : isPending
+              ? 'Minting...'
+              : 'Mint Item'}
         </button>
       </div>
 
       <div className="card p-5 md:p-6 mt-6">
-        <h2 className="font-bold mb-3" style={{ color: 'var(--text-primary)' }}>About Minting</h2>
-        <ul className="text-sm space-y-2" style={{ color: 'var(--text-secondary)' }}>
+        <h2 className="font-bold mb-3" style={{ color: 'var(--text-primary)' }}>
+          About Minting
+        </h2>
+        <ul
+          className="text-sm space-y-2"
+          style={{ color: 'var(--text-secondary)' }}
+        >
           <li>✅ Mints as ERC-721 NFT</li>
           <li>✅ Stored on IPFS (decentralized)</li>
           <li>✅ Fully on-chain ownership</li>

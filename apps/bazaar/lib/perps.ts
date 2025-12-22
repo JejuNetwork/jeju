@@ -11,8 +11,10 @@ import type { Hash } from 'viem'
  * Standard market IDs for perpetual markets
  */
 export const MARKET_IDS = {
-  BTC_PERP: '0xa3fa5377b11d5955c4ed83f7ace1c7822b5361de56c000486ef1e91146897315' as Hash,
-  ETH_PERP: '0x4554482d504552500000000000000000000000000000000000000000000000000' as Hash,
+  BTC_PERP:
+    '0xa3fa5377b11d5955c4ed83f7ace1c7822b5361de56c000486ef1e91146897315' as Hash,
+  ETH_PERP:
+    '0x4554482d504552500000000000000000000000000000000000000000000000000' as Hash,
 } as const
 
 /**
@@ -103,10 +105,13 @@ export function formatPnL(pnl: bigint): { value: string; isProfit: boolean } {
   const pnlNumber = Number(pnl) / Number(PNL_SCALE)
   const isProfit = pnl >= 0n
   return {
-    value: `${isProfit ? '+' : ''}$${Math.abs(pnlNumber).toLocaleString('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`,
+    value: `${isProfit ? '+' : ''}$${Math.abs(pnlNumber).toLocaleString(
+      'en-US',
+      {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      },
+    )}`,
     isProfit,
   }
 }
@@ -140,7 +145,7 @@ export function formatLeverage(leverage: bigint): string {
 export function calculateRequiredMargin(
   size: number,
   price: number,
-  leverage: number
+  leverage: number,
 ): number {
   if (leverage <= 0) return 0
   const notional = size * price
@@ -158,7 +163,7 @@ export function calculateLiquidationPrice(
   entryPrice: number,
   leverage: number,
   side: PositionSide,
-  maintenanceMarginFactor = MAINTENANCE_MARGIN_FACTOR
+  maintenanceMarginFactor = MAINTENANCE_MARGIN_FACTOR,
 ): number {
   if (leverage <= 0) return 0
   const priceMovement = (1 / leverage) * maintenanceMarginFactor
@@ -179,7 +184,7 @@ export function calculateLiquidationPrice(
 export function calculateFee(
   size: number,
   price: number,
-  feeBps: number = Number(DEFAULT_TAKER_FEE_BPS)
+  feeBps: number = Number(DEFAULT_TAKER_FEE_BPS),
 ): number {
   const notional = size * price
   return (notional * feeBps) / 10000
@@ -196,7 +201,7 @@ export function calculateUnrealizedPnL(
   size: number,
   entryPrice: number,
   currentPrice: number,
-  side: PositionSide
+  side: PositionSide,
 ): number {
   const priceDiff = currentPrice - entryPrice
   const pnl = size * priceDiff
@@ -217,7 +222,10 @@ export function calculateNotional(size: number, price: number): number {
  * @param notional Position notional value
  * @param margin Current margin
  */
-export function calculateCurrentLeverage(notional: number, margin: number): number {
+export function calculateCurrentLeverage(
+  notional: number,
+  margin: number,
+): number {
   if (margin <= 0) return 0
   return notional / margin
 }
@@ -229,7 +237,7 @@ export function calculateCurrentLeverage(notional: number, margin: number): numb
  */
 export function isAtLiquidationRisk(
   healthFactor: bigint,
-  threshold: bigint = 10n ** 18n
+  threshold: bigint = 10n ** 18n,
 ): boolean {
   return healthFactor < threshold
 }
@@ -295,7 +303,7 @@ export function leverageToNumber(leverage: bigint): number {
 export function validatePositionParams(
   size: number,
   leverage: number,
-  maxLeverage: number = MAX_LEVERAGE
+  maxLeverage: number = MAX_LEVERAGE,
 ): { valid: boolean; error?: string } {
   if (size <= 0) {
     return { valid: false, error: 'Position size must be positive' }
@@ -316,13 +324,16 @@ export function validatePositionParams(
  */
 export function validateMargin(
   margin: bigint,
-  minMargin: bigint = 0n
+  minMargin: bigint = 0n,
 ): { valid: boolean; error?: string } {
   if (margin <= 0n) {
     return { valid: false, error: 'Margin must be positive' }
   }
   if (margin < minMargin) {
-    return { valid: false, error: `Margin below minimum required: ${formatPrice(minMargin)}` }
+    return {
+      valid: false,
+      error: `Margin below minimum required: ${formatPrice(minMargin)}`,
+    }
   }
   return { valid: true }
 }
@@ -337,7 +348,7 @@ export function getTradeButtonText(
   isLoading: boolean,
   hasValidSize: boolean,
   side: PositionSide,
-  symbol: string
+  symbol: string,
 ): string {
   if (!isConnected) return 'Connect Wallet'
   if (isLoading) return 'Opening Position...'
@@ -351,7 +362,7 @@ export function getTradeButtonText(
 export function isTradeButtonDisabled(
   isConnected: boolean,
   isLoading: boolean,
-  hasValidSize: boolean
+  hasValidSize: boolean,
 ): boolean {
   return !isConnected || isLoading || !hasValidSize
 }

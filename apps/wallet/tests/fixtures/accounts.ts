@@ -1,32 +1,36 @@
 /**
  * Test Accounts and Keys
- * 
+ *
  * Standard test accounts derived from the common test mnemonic.
  * NEVER use these in production.
  */
 
 // Standard test mnemonic (DO NOT use in production)
-export const TEST_MNEMONIC = 'test test test test test test test test test test test junk';
-export const TEST_PASSWORD = 'TestPassword123_';
+export const TEST_MNEMONIC =
+  'test test test test test test test test test test test junk'
+export const TEST_PASSWORD = 'TestPassword123_'
 
 // Derived accounts from standard test mnemonic
 export const TEST_ACCOUNTS = {
   // Account 0 (default) - same as dev wallet
   primary: {
     address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as const,
-    privateKey: '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as const,
+    privateKey:
+      '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as const,
   },
   // Account 1
   secondary: {
     address: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as const,
-    privateKey: '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as const,
+    privateKey:
+      '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as const,
   },
   // Account 2
   third: {
     address: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC' as const,
-    privateKey: '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a' as const,
+    privateKey:
+      '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a' as const,
   },
-} as const;
+} as const
 
 // Network configurations for testing
 export const TEST_NETWORKS = {
@@ -51,7 +55,7 @@ export const TEST_NETWORKS = {
     symbol: 'ETH',
     blockExplorer: 'https://basescan.org',
   },
-} as const;
+} as const
 
 // Test tokens on Base
 export const TEST_TOKENS = {
@@ -65,7 +69,7 @@ export const TEST_TOKENS = {
     symbol: 'WETH',
     decimals: 18,
   },
-} as const;
+} as const
 
-export type TestAccount = typeof TEST_ACCOUNTS.primary;
-export type TestNetwork = typeof TEST_NETWORKS.jeju;
+export type TestAccount = typeof TEST_ACCOUNTS.primary
+export type TestNetwork = typeof TEST_NETWORKS.jeju

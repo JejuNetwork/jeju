@@ -1,6 +1,6 @@
 /**
  * Multi-Factor Authentication (MFA) Module
- * 
+ *
  * Provides:
  * - WebAuthn/Passkeys
  * - TOTP (Authenticator Apps)
@@ -8,9 +8,14 @@
  * - Backup codes
  */
 
-export { PasskeyManager, type PasskeyCredential, type PasskeyChallenge, type PasskeyAuthResult } from './passkeys.js';
-export { TOTPManager, type TOTPSecret, type TOTPVerifyResult } from './totp.js';
-export { BackupCodesManager, type BackupCode } from './backup-codes.js';
+export { type BackupCode, BackupCodesManager } from './backup-codes.js'
+export {
+  type PasskeyAuthResult,
+  type PasskeyChallenge,
+  type PasskeyCredential,
+  PasskeyManager,
+} from './passkeys.js'
+export { TOTPManager, type TOTPSecret, type TOTPVerifyResult } from './totp.js'
 
 export enum MFAMethod {
   PASSKEY = 'passkey',
@@ -20,30 +25,30 @@ export enum MFAMethod {
 }
 
 export interface MFAStatus {
-  enabled: boolean;
-  methods: MFAMethod[];
-  preferredMethod: MFAMethod | null;
-  passkeyCount: number;
-  totpEnabled: boolean;
-  backupCodesRemaining: number;
+  enabled: boolean
+  methods: MFAMethod[]
+  preferredMethod: MFAMethod | null
+  passkeyCount: number
+  totpEnabled: boolean
+  backupCodesRemaining: number
 }
 
 export interface MFAChallengeMetadata {
   /** Phone number for SMS challenges */
-  phone?: string;
+  phone?: string
   /** Email address for email challenges */
-  email?: string;
+  email?: string
   /** Device name for passkey challenges */
-  deviceName?: string;
+  deviceName?: string
   /** Credential ID for passkey challenges */
-  credentialId?: string;
+  credentialId?: string
   /** Whether backup codes were used */
-  backupCodeUsed?: boolean;
+  backupCodeUsed?: boolean
 }
 
 export interface MFAChallenge {
-  challengeId: string;
-  method: MFAMethod;
-  expiresAt: number;
-  metadata?: MFAChallengeMetadata;
+  challengeId: string
+  method: MFAMethod
+  expiresAt: number
+  metadata?: MFAChallengeMetadata
 }

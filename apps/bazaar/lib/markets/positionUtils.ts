@@ -3,11 +3,11 @@
  * Handles value calculations, P&L, and validation
  */
 
-import { parseEther } from 'viem';
+import { parseEther } from 'viem'
 
-const ONE_SHARE = parseEther('1');
-const MIN_TRADE_AMOUNT = parseEther('0.001');
-const MAX_SLIPPAGE_BPS = 5000n; // 50%
+const _ONE_SHARE = parseEther('1')
+const MIN_TRADE_AMOUNT = parseEther('0.001')
+const MAX_SLIPPAGE_BPS = 5000n // 50%
 
 /**
  * Calculate the current value of a position based on shares and current price
@@ -15,10 +15,13 @@ const MAX_SLIPPAGE_BPS = 5000n; // 50%
  * @param currentPrice - Current price as percentage with 16 decimals (50% = 50 * 1e16)
  * @returns Position value in wei
  */
-export function calculatePositionValue(shares: bigint, currentPrice: bigint): bigint {
-  if (shares === 0n || currentPrice === 0n) return 0n;
+export function calculatePositionValue(
+  shares: bigint,
+  currentPrice: bigint,
+): bigint {
+  if (shares === 0n || currentPrice === 0n) return 0n
   // Value = shares * (price / 100), where price is in percentage with 16 decimals
-  return (shares * currentPrice) / (100n * BigInt(1e16));
+  return (shares * currentPrice) / (100n * BigInt(1e16))
 }
 
 /**
@@ -28,7 +31,7 @@ export function calculatePositionValue(shares: bigint, currentPrice: bigint): bi
  * @returns Potential payout in wei
  */
 export function calculatePotentialPayout(shares: bigint): bigint {
-  return shares;
+  return shares
 }
 
 /**
@@ -37,8 +40,11 @@ export function calculatePotentialPayout(shares: bigint): bigint {
  * @param totalSpent - Total amount spent on purchases
  * @returns Realized P&L (positive = profit, negative = loss)
  */
-export function calculateRealizedPnL(totalReceived: bigint, totalSpent: bigint): bigint {
-  return totalReceived - totalSpent;
+export function calculateRealizedPnL(
+  totalReceived: bigint,
+  totalSpent: bigint,
+): bigint {
+  return totalReceived - totalSpent
 }
 
 /**
@@ -47,8 +53,11 @@ export function calculateRealizedPnL(totalReceived: bigint, totalSpent: bigint):
  * @param totalSpent - Total amount spent on purchases
  * @returns Unrealized P&L (positive = profit, negative = loss)
  */
-export function calculateUnrealizedPnL(currentValue: bigint, totalSpent: bigint): bigint {
-  return currentValue - totalSpent;
+export function calculateUnrealizedPnL(
+  currentValue: bigint,
+  totalSpent: bigint,
+): bigint {
+  return currentValue - totalSpent
 }
 
 /**
@@ -61,12 +70,12 @@ export function calculateUnrealizedPnL(currentValue: bigint, totalSpent: bigint)
 export function isWinningPosition(
   hasYesShares: boolean,
   hasNoShares: boolean,
-  marketOutcome: boolean
+  marketOutcome: boolean,
 ): boolean {
   if (marketOutcome) {
-    return hasYesShares;
+    return hasYesShares
   }
-  return hasNoShares;
+  return hasNoShares
 }
 
 /**
@@ -75,12 +84,15 @@ export function isWinningPosition(
  * @param decimals - Number of decimal places to show
  * @returns Formatted string
  */
-export function formatShareAmount(shares: bigint, decimals: number = 2): string {
-  const shareNumber = Number(shares) / 1e18;
+export function formatShareAmount(
+  shares: bigint,
+  decimals: number = 2,
+): string {
+  const shareNumber = Number(shares) / 1e18
   return shareNumber.toLocaleString(undefined, {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
-  });
+  })
 }
 
 /**
@@ -91,12 +103,14 @@ export function formatShareAmount(shares: bigint, decimals: number = 2): string 
  */
 export function validateTradeAmount(amount: bigint): boolean {
   if (amount <= 0n) {
-    throw new Error('Trade amount must be positive');
+    throw new Error('Trade amount must be positive')
   }
   if (amount < MIN_TRADE_AMOUNT) {
-    throw new Error(`Minimum trade amount is ${Number(MIN_TRADE_AMOUNT) / 1e18}`);
+    throw new Error(
+      `Minimum trade amount is ${Number(MIN_TRADE_AMOUNT) / 1e18}`,
+    )
   }
-  return true;
+  return true
 }
 
 /**
@@ -107,12 +121,12 @@ export function validateTradeAmount(amount: bigint): boolean {
  */
 export function validateSlippage(slippageBps: bigint): boolean {
   if (slippageBps < 0n) {
-    throw new Error('Slippage cannot be negative');
+    throw new Error('Slippage cannot be negative')
   }
   if (slippageBps > MAX_SLIPPAGE_BPS) {
-    throw new Error('Slippage cannot exceed 50%');
+    throw new Error('Slippage cannot exceed 50%')
   }
-  return true;
+  return true
 }
 
 /**
@@ -121,7 +135,10 @@ export function validateSlippage(slippageBps: bigint): boolean {
  * @param slippageBps - Slippage tolerance in basis points
  * @returns Minimum acceptable shares
  */
-export function calculateMinShares(expectedShares: bigint, slippageBps: bigint): bigint {
-  validateSlippage(slippageBps);
-  return (expectedShares * (10000n - slippageBps)) / 10000n;
+export function calculateMinShares(
+  expectedShares: bigint,
+  slippageBps: bigint,
+): bigint {
+  validateSlippage(slippageBps)
+  return (expectedShares * (10000n - slippageBps)) / 10000n
 }

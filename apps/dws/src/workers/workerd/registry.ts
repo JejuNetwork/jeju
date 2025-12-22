@@ -4,19 +4,19 @@
  */
 
 import {
+  type Address,
+  type Chain,
   createPublicClient,
   createWalletClient,
+  decodeEventLog,
+  type Hex,
   http,
-  type Address,
+  type Log,
   type PublicClient,
   type WalletClient,
-  type Chain,
-  type Hex,
-  type Log,
-  decodeEventLog,
-} from 'viem';
-import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
-import type { WorkerdWorkerDefinition } from './types';
+} from 'viem'
+import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
+import type { WorkerdWorkerDefinition } from './types'
 
 // ============================================================================
 // Types
@@ -24,39 +24,39 @@ import type { WorkerdWorkerDefinition } from './types';
 
 // Extended log type with topics for event decoding
 interface EventLog extends Log {
-  topics: [Hex, ...Hex[]];
+  topics: [Hex, ...Hex[]]
 }
 
 export interface WorkerRegistration {
-  workerId: string;
-  agentId: bigint;
-  owner: Address;
-  codeCid: string;
-  version: number;
-  memoryMb: number;
-  timeoutMs: number;
-  endpoint: string;
-  registeredAt: number;
-  isActive: boolean;
+  workerId: string
+  agentId: bigint
+  owner: Address
+  codeCid: string
+  version: number
+  memoryMb: number
+  timeoutMs: number
+  endpoint: string
+  registeredAt: number
+  isActive: boolean
 }
 
 export interface WorkerNode {
-  agentId: bigint;
-  owner: Address;
-  endpoint: string;
-  region: string;
-  capabilities: string[];
-  stake: bigint;
-  isActive: boolean;
-  lastSeen: number;
+  agentId: bigint
+  owner: Address
+  endpoint: string
+  region: string
+  capabilities: string[]
+  stake: bigint
+  isActive: boolean
+  lastSeen: number
 }
 
 export interface RegistryConfig {
-  rpcUrl: string;
-  chain: Chain;
-  identityRegistryAddress: Address;
-  workerRegistryAddress?: Address;
-  privateKey?: `0x${string}`;
+  rpcUrl: string
+  chain: Chain
+  identityRegistryAddress: Address
+  workerRegistryAddress?: Address
+  privateKey?: `0x${string}`
 }
 
 // ============================================================================
@@ -173,47 +173,50 @@ const IDENTITY_REGISTRY_ABI = [
     outputs: [{ name: 'owner', type: 'address' }],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 // Tags for worker discovery
-const WORKER_TAG = 'dws-worker';
-const WORKER_NODE_TAG = 'dws-worker-node';
+const WORKER_TAG = 'dws-worker'
+const WORKER_NODE_TAG = 'dws-worker-node'
 
 // Metadata keys
-const WORKER_CODE_CID_KEY = 'workerCodeCid';
-const WORKER_VERSION_KEY = 'workerVersion';
-const WORKER_MEMORY_KEY = 'workerMemoryMb';
-const WORKER_TIMEOUT_KEY = 'workerTimeoutMs';
-const WORKER_REGION_KEY = 'workerRegion';
-const WORKER_CAPABILITIES_KEY = 'workerCapabilities';
+const WORKER_CODE_CID_KEY = 'workerCodeCid'
+const WORKER_VERSION_KEY = 'workerVersion'
+const WORKER_MEMORY_KEY = 'workerMemoryMb'
+const WORKER_TIMEOUT_KEY = 'workerTimeoutMs'
+const WORKER_REGION_KEY = 'workerRegion'
+const WORKER_CAPABILITIES_KEY = 'workerCapabilities'
 
 // ============================================================================
 // Decentralized Worker Registry
 // ============================================================================
 
 export class DecentralizedWorkerRegistry {
-  private publicClient: PublicClient;
-  private walletClient: WalletClient | null = null;
-  private account: PrivateKeyAccount | null = null;
-  private registryAddress: Address;
-  private cache = new Map<string, { data: WorkerRegistration | WorkerNode; expiresAt: number }>();
-  private cacheExpiry = 60000; // 1 minute
+  private publicClient: PublicClient
+  private walletClient: WalletClient | null = null
+  private account: PrivateKeyAccount | null = null
+  private registryAddress: Address
+  private cache = new Map<
+    string,
+    { data: WorkerRegistration | WorkerNode; expiresAt: number }
+  >()
+  private cacheExpiry = 60000 // 1 minute
 
   constructor(config: RegistryConfig) {
     this.publicClient = createPublicClient({
       chain: config.chain,
       transport: http(config.rpcUrl),
-    }) as PublicClient;
+    }) as PublicClient
 
-    this.registryAddress = config.identityRegistryAddress;
+    this.registryAddress = config.identityRegistryAddress
 
     if (config.privateKey) {
-      this.account = privateKeyToAccount(config.privateKey);
+      this.account = privateKeyToAccount(config.privateKey)
       this.walletClient = createWalletClient({
         account: this.account,
         chain: config.chain,
         transport: http(config.rpcUrl),
-      });
+      })
     }
   }
 
@@ -226,55 +229,58 @@ export class DecentralizedWorkerRegistry {
    */
   async registerWorker(
     worker: WorkerdWorkerDefinition,
-    endpoint: string
+    endpoint: string,
   ): Promise<{ agentId: bigint; txHash: `0x${string}` }> {
     if (!this.walletClient || !this.account) {
-      throw new Error('Wallet not configured for write operations');
+      throw new Error('Wallet not configured for write operations')
     }
 
     // Create token URI with worker metadata
-    const tokenURI = `data:application/json,${encodeURIComponent(JSON.stringify({
-      name: worker.name,
-      description: `DWS Worker: ${worker.name}`,
-      image: '',
-      properties: {
-        type: 'dws-worker',
-        codeCid: worker.codeCid,
-        version: worker.version,
-        memoryMb: worker.memoryMb,
-        timeoutMs: worker.timeoutMs,
-      },
-    }))}`;
+    const tokenURI = `data:application/json,${encodeURIComponent(
+      JSON.stringify({
+        name: worker.name,
+        description: `DWS Worker: ${worker.name}`,
+        image: '',
+        properties: {
+          type: 'dws-worker',
+          codeCid: worker.codeCid,
+          version: worker.version,
+          memoryMb: worker.memoryMb,
+          timeoutMs: worker.timeoutMs,
+        },
+      }),
+    )}`
 
     // Simulate and execute registration
-    const { request: registerRequest } = await this.publicClient.simulateContract({
-      address: this.registryAddress,
-      abi: IDENTITY_REGISTRY_ABI,
-      functionName: 'register',
-      args: [tokenURI],
-      account: this.account,
-    });
+    const { request: registerRequest } =
+      await this.publicClient.simulateContract({
+        address: this.registryAddress,
+        abi: IDENTITY_REGISTRY_ABI,
+        functionName: 'register',
+        args: [tokenURI],
+        account: this.account,
+      })
 
-    const registerTx = await this.walletClient.writeContract(registerRequest);
+    const registerTx = await this.walletClient.writeContract(registerRequest)
 
     // Wait for receipt and extract agentId from Transfer event
     const receipt = await this.publicClient.waitForTransactionReceipt({
       hash: registerTx,
-    });
+    })
 
     // Parse agentId from Transfer event (ERC-721 mint emits Transfer with tokenId)
-    const agentId = this.extractAgentIdFromReceipt(receipt.logs as EventLog[]);
+    const agentId = this.extractAgentIdFromReceipt(receipt.logs as EventLog[])
 
     // Set metadata
-    await this.setWorkerMetadata(agentId, worker);
+    await this.setWorkerMetadata(agentId, worker)
 
     // Set endpoint
-    await this.setEndpoint(agentId, endpoint);
+    await this.setEndpoint(agentId, endpoint)
 
     // Add tag
-    await this.addTag(agentId, WORKER_TAG);
+    await this.addTag(agentId, WORKER_TAG)
 
-    return { agentId, txHash: registerTx };
+    return { agentId, txHash: registerTx }
   }
 
   /**
@@ -282,23 +288,23 @@ export class DecentralizedWorkerRegistry {
    */
   async updateWorker(
     agentId: bigint,
-    worker: WorkerdWorkerDefinition
+    worker: WorkerdWorkerDefinition,
   ): Promise<`0x${string}`> {
-    await this.setWorkerMetadata(agentId, worker);
-    
+    await this.setWorkerMetadata(agentId, worker)
+
     // Invalidate cache
-    this.cache.delete(`worker:${agentId}`);
-    
+    this.cache.delete(`worker:${agentId}`)
+
     // Return last tx hash
-    return '0x' as `0x${string}`;
+    return '0x' as `0x${string}`
   }
 
   private async setWorkerMetadata(
     agentId: bigint,
-    worker: WorkerdWorkerDefinition
+    worker: WorkerdWorkerDefinition,
   ): Promise<void> {
     if (!this.walletClient || !this.account) {
-      throw new Error('Wallet not configured');
+      throw new Error('Wallet not configured')
     }
 
     const metadataEntries: [string, string][] = [
@@ -306,23 +312,27 @@ export class DecentralizedWorkerRegistry {
       [WORKER_VERSION_KEY, String(worker.version)],
       [WORKER_MEMORY_KEY, String(worker.memoryMb)],
       [WORKER_TIMEOUT_KEY, String(worker.timeoutMs)],
-    ];
+    ]
 
     for (const [key, value] of metadataEntries) {
       const { request } = await this.publicClient.simulateContract({
         address: this.registryAddress,
         abi: IDENTITY_REGISTRY_ABI,
         functionName: 'setMetadata',
-        args: [agentId, key, `0x${Buffer.from(value).toString('hex')}` as `0x${string}`],
+        args: [
+          agentId,
+          key,
+          `0x${Buffer.from(value).toString('hex')}` as `0x${string}`,
+        ],
         account: this.account,
-      });
+      })
 
-      await this.walletClient.writeContract(request);
+      await this.walletClient.writeContract(request)
     }
   }
 
   private async setEndpoint(agentId: bigint, endpoint: string): Promise<void> {
-    if (!this.walletClient || !this.account) return;
+    if (!this.walletClient || !this.account) return
 
     const { request } = await this.publicClient.simulateContract({
       address: this.registryAddress,
@@ -330,13 +340,13 @@ export class DecentralizedWorkerRegistry {
       functionName: 'setA2AEndpoint',
       args: [agentId, endpoint],
       account: this.account,
-    });
+    })
 
-    await this.walletClient.writeContract(request);
+    await this.walletClient.writeContract(request)
   }
 
   private async addTag(agentId: bigint, tag: string): Promise<void> {
-    if (!this.walletClient || !this.account) return;
+    if (!this.walletClient || !this.account) return
 
     const { request } = await this.publicClient.simulateContract({
       address: this.registryAddress,
@@ -344,9 +354,9 @@ export class DecentralizedWorkerRegistry {
       functionName: 'addTag',
       args: [agentId, tag],
       account: this.account,
-    });
+    })
 
-    await this.walletClient.writeContract(request);
+    await this.walletClient.writeContract(request)
   }
 
   /**
@@ -355,9 +365,9 @@ export class DecentralizedWorkerRegistry {
   private extractAgentIdFromReceipt(logs: EventLog[]): bigint {
     // Type for decoded Transfer event
     type DecodedTransferEvent = {
-      eventName: 'Transfer';
-      args: { from: Address; to: Address; tokenId: bigint };
-    };
+      eventName: 'Transfer'
+      args: { from: Address; to: Address; tokenId: bigint }
+    }
 
     const transferLog = logs.find((log) => {
       try {
@@ -365,24 +375,24 @@ export class DecentralizedWorkerRegistry {
           abi: IDENTITY_REGISTRY_ABI,
           data: log.data,
           topics: log.topics,
-        }) as DecodedTransferEvent;
-        return decoded.eventName === 'Transfer';
+        }) as DecodedTransferEvent
+        return decoded.eventName === 'Transfer'
       } catch {
-        return false;
+        return false
       }
-    });
+    })
 
     if (!transferLog) {
-      throw new Error('Transfer event not found in registration transaction');
+      throw new Error('Transfer event not found in registration transaction')
     }
 
     const decoded = decodeEventLog({
       abi: IDENTITY_REGISTRY_ABI,
       data: transferLog.data,
       topics: transferLog.topics,
-    }) as DecodedTransferEvent;
+    }) as DecodedTransferEvent
 
-    return decoded.args.tokenId;
+    return decoded.args.tokenId
   }
 
   // ============================================================================
@@ -393,56 +403,68 @@ export class DecentralizedWorkerRegistry {
    * Get all registered workers
    */
   async getWorkers(): Promise<WorkerRegistration[]> {
-    const agentIds = await this.publicClient.readContract({
+    const agentIds = (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'getAgentsByTag',
       args: [WORKER_TAG],
-    }) as bigint[];
+    })) as bigint[]
 
-    const workers: WorkerRegistration[] = [];
+    const workers: WorkerRegistration[] = []
     for (const agentId of agentIds) {
-      const worker = await this.getWorker(agentId);
+      const worker = await this.getWorker(agentId)
       if (worker) {
-        workers.push(worker);
+        workers.push(worker)
       }
     }
 
-    return workers;
+    return workers
   }
 
   /**
    * Get a specific worker by agent ID
    */
   async getWorker(agentId: bigint): Promise<WorkerRegistration | null> {
-    const cacheKey = `worker:${agentId}`;
-    const cached = this.cache.get(cacheKey);
+    const cacheKey = `worker:${agentId}`
+    const cached = this.cache.get(cacheKey)
     if (cached && cached.expiresAt > Date.now()) {
-      return cached.data as WorkerRegistration;
+      return cached.data as WorkerRegistration
     }
 
-    const agent = await this.publicClient.readContract({
+    const agent = (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'getAgent',
       args: [agentId],
-    }) as { owner: Address; registeredAt: bigint; isBanned: boolean };
+    })) as { owner: Address; registeredAt: bigint; isBanned: boolean }
 
-    if (!agent.owner || agent.owner === '0x0000000000000000000000000000000000000000') {
-      return null;
+    if (
+      !agent.owner ||
+      agent.owner === '0x0000000000000000000000000000000000000000'
+    ) {
+      return null
     }
 
-    const endpoint = await this.publicClient.readContract({
+    const endpoint = (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'getA2AEndpoint',
       args: [agentId],
-    }) as string;
+    })) as string
 
-    const codeCid = await this.getMetadataString(agentId, WORKER_CODE_CID_KEY);
-    const version = parseInt(await this.getMetadataString(agentId, WORKER_VERSION_KEY) || '1');
-    const memoryMb = parseInt(await this.getMetadataString(agentId, WORKER_MEMORY_KEY) || '128');
-    const timeoutMs = parseInt(await this.getMetadataString(agentId, WORKER_TIMEOUT_KEY) || '30000');
+    const codeCid = await this.getMetadataString(agentId, WORKER_CODE_CID_KEY)
+    const version = parseInt(
+      (await this.getMetadataString(agentId, WORKER_VERSION_KEY)) || '1',
+      10,
+    )
+    const memoryMb = parseInt(
+      (await this.getMetadataString(agentId, WORKER_MEMORY_KEY)) || '128',
+      10,
+    )
+    const timeoutMs = parseInt(
+      (await this.getMetadataString(agentId, WORKER_TIMEOUT_KEY)) || '30000',
+      10,
+    )
 
     const worker: WorkerRegistration = {
       workerId: agentId.toString(),
@@ -455,22 +477,28 @@ export class DecentralizedWorkerRegistry {
       endpoint,
       registeredAt: Number(agent.registeredAt),
       isActive: !agent.isBanned,
-    };
+    }
 
-    this.cache.set(cacheKey, { data: worker, expiresAt: Date.now() + this.cacheExpiry });
-    return worker;
+    this.cache.set(cacheKey, {
+      data: worker,
+      expiresAt: Date.now() + this.cacheExpiry,
+    })
+    return worker
   }
 
-  private async getMetadataString(agentId: bigint, key: string): Promise<string> {
-    const value = await this.publicClient.readContract({
+  private async getMetadataString(
+    agentId: bigint,
+    key: string,
+  ): Promise<string> {
+    const value = (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'getMetadata',
       args: [agentId, key],
-    }) as `0x${string}`;
+    })) as `0x${string}`
 
-    if (!value || value === '0x') return '';
-    return Buffer.from(value.slice(2), 'hex').toString('utf-8');
+    if (!value || value === '0x') return ''
+    return Buffer.from(value.slice(2), 'hex').toString('utf-8')
   }
 
   // ============================================================================
@@ -483,69 +511,76 @@ export class DecentralizedWorkerRegistry {
   async registerNode(
     endpoint: string,
     region: string,
-    capabilities: string[]
+    capabilities: string[],
   ): Promise<{ agentId: bigint; txHash: `0x${string}` }> {
     if (!this.walletClient || !this.account) {
-      throw new Error('Wallet not configured');
+      throw new Error('Wallet not configured')
     }
 
-    const tokenURI = `data:application/json,${encodeURIComponent(JSON.stringify({
-      name: `DWS Worker Node - ${region}`,
-      description: 'DWS Worker Execution Node',
-      properties: {
-        type: 'dws-worker-node',
-        region,
-        capabilities,
-      },
-    }))}`;
+    const tokenURI = `data:application/json,${encodeURIComponent(
+      JSON.stringify({
+        name: `DWS Worker Node - ${region}`,
+        description: 'DWS Worker Execution Node',
+        properties: {
+          type: 'dws-worker-node',
+          region,
+          capabilities,
+        },
+      }),
+    )}`
 
-    const { request: registerRequest } = await this.publicClient.simulateContract({
-      address: this.registryAddress,
-      abi: IDENTITY_REGISTRY_ABI,
-      functionName: 'register',
-      args: [tokenURI],
-      account: this.account,
-    });
+    const { request: registerRequest } =
+      await this.publicClient.simulateContract({
+        address: this.registryAddress,
+        abi: IDENTITY_REGISTRY_ABI,
+        functionName: 'register',
+        args: [tokenURI],
+        account: this.account,
+      })
 
-    const registerTx = await this.walletClient.writeContract(registerRequest);
+    const registerTx = await this.walletClient.writeContract(registerRequest)
 
     const receipt = await this.publicClient.waitForTransactionReceipt({
       hash: registerTx,
-    });
+    })
 
     // Parse agentId from Transfer event (ERC-721 mint emits Transfer with tokenId)
-    const agentId = this.extractAgentIdFromReceipt(receipt.logs as EventLog[]);
+    const agentId = this.extractAgentIdFromReceipt(receipt.logs as EventLog[])
 
     // Set endpoint and metadata
-    await this.setEndpoint(agentId, endpoint);
-    await this.setNodeMetadata(agentId, region, capabilities);
-    await this.addTag(agentId, WORKER_NODE_TAG);
+    await this.setEndpoint(agentId, endpoint)
+    await this.setNodeMetadata(agentId, region, capabilities)
+    await this.addTag(agentId, WORKER_NODE_TAG)
 
-    return { agentId, txHash: registerTx };
+    return { agentId, txHash: registerTx }
   }
 
   private async setNodeMetadata(
     agentId: bigint,
     region: string,
-    capabilities: string[]
+    capabilities: string[],
   ): Promise<void> {
-    if (!this.walletClient || !this.account) return;
+    if (!this.walletClient || !this.account) return
 
     const entries: [string, string][] = [
       [WORKER_REGION_KEY, region],
       [WORKER_CAPABILITIES_KEY, capabilities.join(',')],
-    ];
+    ]
 
     for (const [key, value] of entries) {
       const { request } = await this.publicClient.simulateContract({
         address: this.registryAddress,
         abi: IDENTITY_REGISTRY_ABI,
         functionName: 'setMetadata',
-        args: [agentId, key, `0x${Buffer.from(value).toString('hex')}` as `0x${string}`],
+        args: [
+          agentId,
+          key,
+          `0x${Buffer.from(value).toString('hex')}` as `0x${string}`,
+        ],
         account: this.account,
-      });
+      })
 
-      await this.walletClient.writeContract(request);
+      await this.walletClient.writeContract(request)
     }
   }
 
@@ -553,55 +588,67 @@ export class DecentralizedWorkerRegistry {
    * Get all worker execution nodes
    */
   async getNodes(): Promise<WorkerNode[]> {
-    const agentIds = await this.publicClient.readContract({
+    const agentIds = (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'getAgentsByTag',
       args: [WORKER_NODE_TAG],
-    }) as bigint[];
+    })) as bigint[]
 
-    const nodes: WorkerNode[] = [];
+    const nodes: WorkerNode[] = []
     for (const agentId of agentIds) {
-      const node = await this.getNode(agentId);
-      if (node && node.isActive) {
-        nodes.push(node);
+      const node = await this.getNode(agentId)
+      if (node?.isActive) {
+        nodes.push(node)
       }
     }
 
-    return nodes;
+    return nodes
   }
 
   /**
    * Get a specific node
    */
   async getNode(agentId: bigint): Promise<WorkerNode | null> {
-    const cacheKey = `node:${agentId}`;
-    const cached = this.cache.get(cacheKey);
+    const cacheKey = `node:${agentId}`
+    const cached = this.cache.get(cacheKey)
     if (cached && cached.expiresAt > Date.now()) {
-      return cached.data as WorkerNode;
+      return cached.data as WorkerNode
     }
 
-    const agent = await this.publicClient.readContract({
+    const agent = (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'getAgent',
       args: [agentId],
-    }) as { owner: Address; stakedAmount: bigint; isBanned: boolean; lastActivityAt: bigint };
-
-    if (!agent.owner || agent.owner === '0x0000000000000000000000000000000000000000') {
-      return null;
+    })) as {
+      owner: Address
+      stakedAmount: bigint
+      isBanned: boolean
+      lastActivityAt: bigint
     }
 
-    const endpoint = await this.publicClient.readContract({
+    if (
+      !agent.owner ||
+      agent.owner === '0x0000000000000000000000000000000000000000'
+    ) {
+      return null
+    }
+
+    const endpoint = (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'getA2AEndpoint',
       args: [agentId],
-    }) as string;
+    })) as string
 
-    const region = await this.getMetadataString(agentId, WORKER_REGION_KEY) || 'global';
-    const capabilitiesStr = await this.getMetadataString(agentId, WORKER_CAPABILITIES_KEY);
-    const capabilities = capabilitiesStr ? capabilitiesStr.split(',') : [];
+    const region =
+      (await this.getMetadataString(agentId, WORKER_REGION_KEY)) || 'global'
+    const capabilitiesStr = await this.getMetadataString(
+      agentId,
+      WORKER_CAPABILITIES_KEY,
+    )
+    const capabilities = capabilitiesStr ? capabilitiesStr.split(',') : []
 
     const node: WorkerNode = {
       agentId,
@@ -612,49 +659,53 @@ export class DecentralizedWorkerRegistry {
       stake: agent.stakedAmount,
       isActive: !agent.isBanned,
       lastSeen: Number(agent.lastActivityAt) * 1000,
-    };
+    }
 
-    this.cache.set(cacheKey, { data: node, expiresAt: Date.now() + this.cacheExpiry });
-    return node;
+    this.cache.set(cacheKey, {
+      data: node,
+      expiresAt: Date.now() + this.cacheExpiry,
+    })
+    return node
   }
 
   /**
    * Find best node for executing a worker
    */
   async findBestNode(preferredRegion?: string): Promise<WorkerNode | null> {
-    const nodes = await this.getNodes();
-    if (nodes.length === 0) return null;
+    const nodes = await this.getNodes()
+    if (nodes.length === 0) return null
 
     // Sort by region preference, then by stake (higher stake = more trustworthy)
     const sorted = nodes.sort((a, b) => {
       if (preferredRegion) {
-        if (a.region === preferredRegion && b.region !== preferredRegion) return -1;
-        if (b.region === preferredRegion && a.region !== preferredRegion) return 1;
+        if (a.region === preferredRegion && b.region !== preferredRegion)
+          return -1
+        if (b.region === preferredRegion && a.region !== preferredRegion)
+          return 1
       }
-      return Number(b.stake - a.stake);
-    });
+      return Number(b.stake - a.stake)
+    })
 
     // Verify node is healthy
     for (const node of sorted) {
-      const healthy = await this.pingNode(node.endpoint);
-      if (healthy) return node;
+      const healthy = await this.pingNode(node.endpoint)
+      if (healthy) return node
     }
 
-    return null;
+    return null
   }
 
   private async pingNode(endpoint: string): Promise<boolean> {
     const response = await fetch(`${endpoint}/health`, {
       signal: AbortSignal.timeout(5000),
-    }).catch(() => null);
-    return response?.ok ?? false;
+    }).catch(() => null)
+    return response?.ok ?? false
   }
 
   /**
    * Clear cache
    */
   clearCache(): void {
-    this.cache.clear();
+    this.cache.clear()
   }
 }
-

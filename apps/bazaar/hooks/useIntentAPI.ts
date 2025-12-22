@@ -5,10 +5,10 @@
  * For managing cross-chain intents via OIF
  */
 
-import { useState, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useCallback, useState } from 'react'
+import type { Address } from 'viem'
 import { useAccount } from 'wagmi'
-import { type Address } from 'viem'
 import { OIF_AGGREGATOR_URL } from '@/config'
 import { OIF_SUPPORTED_CHAINS } from '@/config/chains'
 
@@ -91,11 +91,15 @@ export function useIntentQuote(params: {
         amount: params.amount,
       })
 
-      const response = await fetch(`${OIF_AGGREGATOR_URL}/quote?${searchParams}`)
+      const response = await fetch(
+        `${OIF_AGGREGATOR_URL}/quote?${searchParams}`,
+      )
       if (!response.ok) {
-        throw new Error(`Failed to fetch quotes: ${response.status} ${response.statusText}`)
+        throw new Error(
+          `Failed to fetch quotes: ${response.status} ${response.statusText}`,
+        )
       }
-      const data = await response.json() as { quotes?: IntentQuote[] }
+      const data = (await response.json()) as { quotes?: IntentQuote[] }
       if (!data.quotes) {
         throw new Error('Invalid response: quotes not found')
       }
@@ -112,7 +116,9 @@ export function useOIFStats() {
     queryFn: async (): Promise<OIFStats> => {
       const response = await fetch(`${OIF_AGGREGATOR_URL}/stats`)
       if (!response.ok) {
-        throw new Error(`Failed to fetch OIF stats: ${response.status} ${response.statusText}`)
+        throw new Error(
+          `Failed to fetch OIF stats: ${response.status} ${response.statusText}`,
+        )
       }
       return response.json() as Promise<OIFStats>
     },
@@ -125,82 +131,95 @@ export function useIntentAPI() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const createIntent = useCallback(async (params: CreateIntentParams): Promise<Intent | null> => {
-    if (!address) {
-      setError('Wallet not connected')
-      return null
-    }
-
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      const response = await fetch(`${OIF_AGGREGATOR_URL}/intents`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...params,
-          creator: address,
-          recipient: params.recipient || address,
-          amount: params.amount.toString(),
-          minReceived: params.minReceived.toString(),
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to create intent')
+  const createIntent = useCallback(
+    async (params: CreateIntentParams): Promise<Intent | null> => {
+      if (!address) {
+        setError('Wallet not connected')
+        return null
       }
 
-      const data = await response.json()
-      return data.intent as Intent
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error')
-      return null
-    } finally {
-      setIsLoading(false)
-    }
-  }, [address])
+      setIsLoading(true)
+      setError(null)
+
+      try {
+        const response = await fetch(`${OIF_AGGREGATOR_URL}/intents`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...params,
+            creator: address,
+            recipient: params.recipient || address,
+            amount: params.amount.toString(),
+            minReceived: params.minReceived.toString(),
+          }),
+        })
+
+        if (!response.ok) {
+          throw new Error('Failed to create intent')
+        }
+
+        const data = await response.json()
+        return data.intent as Intent
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unknown error')
+        return null
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    [address],
+  )
 
   const getIntents = useCallback(async (): Promise<Intent[]> => {
     if (!address) {
       throw new Error('Wallet not connected')
     }
 
-    const response = await fetch(`${OIF_AGGREGATOR_URL}/intents?creator=${address}`)
+    const response = await fetch(
+      `${OIF_AGGREGATOR_URL}/intents?creator=${address}`,
+    )
     if (!response.ok) {
-      throw new Error(`Failed to fetch intents: ${response.status} ${response.statusText}`)
+      throw new Error(
+        `Failed to fetch intents: ${response.status} ${response.statusText}`,
+      )
     }
-    const data = await response.json() as { intents?: Intent[] }
+    const data = (await response.json()) as { intents?: Intent[] }
     if (!data.intents) {
       throw new Error('Invalid response: intents not found')
     }
     return data.intents
   }, [address])
 
-  const cancelIntent = useCallback(async (intentId: string): Promise<boolean> => {
-    if (!address) {
-      setError('Wallet not connected')
-      return false
-    }
+  const cancelIntent = useCallback(
+    async (intentId: string): Promise<boolean> => {
+      if (!address) {
+        setError('Wallet not connected')
+        return false
+      }
 
-    setIsLoading(true)
-    setError(null)
+      setIsLoading(true)
+      setError(null)
 
-    try {
-      const response = await fetch(`${OIF_AGGREGATOR_URL}/intents/${intentId}/cancel`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ creator: address }),
-      })
+      try {
+        const response = await fetch(
+          `${OIF_AGGREGATOR_URL}/intents/${intentId}/cancel`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ creator: address }),
+          },
+        )
 
-      return response.ok
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error')
-      return false
-    } finally {
-      setIsLoading(false)
-    }
-  }, [address])
+        return response.ok
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unknown error')
+        return false
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    [address],
+  )
 
   return {
     createIntent,
@@ -253,11 +272,15 @@ export function useAllIntents(params: AllIntentsParams = {}) {
       if (params.status) searchParams.set('status', params.status)
       if (params.limit) searchParams.set('limit', params.limit.toString())
 
-      const response = await fetch(`${OIF_AGGREGATOR_URL}/intents?${searchParams}`)
+      const response = await fetch(
+        `${OIF_AGGREGATOR_URL}/intents?${searchParams}`,
+      )
       if (!response.ok) {
-        throw new Error(`Failed to fetch intents: ${response.status} ${response.statusText}`)
+        throw new Error(
+          `Failed to fetch intents: ${response.status} ${response.statusText}`,
+        )
       }
-      const data = await response.json() as { intents?: AllIntentsIntent[] }
+      const data = (await response.json()) as { intents?: AllIntentsIntent[] }
       if (!data.intents) {
         throw new Error('Invalid response: intents not found')
       }
@@ -284,9 +307,11 @@ export function useRoutes() {
     queryFn: async (): Promise<Route[]> => {
       const response = await fetch(`${OIF_AGGREGATOR_URL}/routes`)
       if (!response.ok) {
-        throw new Error(`Failed to fetch routes: ${response.status} ${response.statusText}`)
+        throw new Error(
+          `Failed to fetch routes: ${response.status} ${response.statusText}`,
+        )
       }
-      const data = await response.json() as { routes?: Route[] }
+      const data = (await response.json()) as { routes?: Route[] }
       if (!data.routes) {
         throw new Error('Invalid response: routes not found')
       }
@@ -313,9 +338,11 @@ export function useSolvers() {
     queryFn: async (): Promise<Solver[]> => {
       const response = await fetch(`${OIF_AGGREGATOR_URL}/solvers`)
       if (!response.ok) {
-        throw new Error(`Failed to fetch solvers: ${response.status} ${response.statusText}`)
+        throw new Error(
+          `Failed to fetch solvers: ${response.status} ${response.statusText}`,
+        )
       }
-      const data = await response.json() as { solvers?: Solver[] }
+      const data = (await response.json()) as { solvers?: Solver[] }
       if (!data.solvers) {
         throw new Error('Invalid response: solvers not found')
       }
@@ -340,9 +367,13 @@ export function useSolverLeaderboard() {
     queryFn: async (): Promise<LeaderboardEntry[]> => {
       const response = await fetch(`${OIF_AGGREGATOR_URL}/leaderboard`)
       if (!response.ok) {
-        throw new Error(`Failed to fetch leaderboard: ${response.status} ${response.statusText}`)
+        throw new Error(
+          `Failed to fetch leaderboard: ${response.status} ${response.statusText}`,
+        )
       }
-      const data = await response.json() as { leaderboard?: LeaderboardEntry[] }
+      const data = (await response.json()) as {
+        leaderboard?: LeaderboardEntry[]
+      }
       if (!data.leaderboard) {
         throw new Error('Invalid response: leaderboard not found')
       }

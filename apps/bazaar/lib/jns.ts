@@ -1,6 +1,6 @@
 /**
  * JNS (Jeju Name Service) Business Logic
- * 
+ *
  * Provides:
  * - Name validation and normalization
  * - Price calculations for registration
@@ -9,8 +9,8 @@
  * - Formatting utilities
  */
 
-import { z } from 'zod'
 import { formatEther, keccak256, toBytes } from 'viem'
+import { z } from 'zod'
 
 // =============================================================================
 // CONSTANTS
@@ -57,18 +57,20 @@ export const SECONDS_PER_YEAR = 365 * SECONDS_PER_DAY
  * - Lowercase alphanumeric and hyphens only
  * - Cannot start or end with hyphen
  */
-export const JNSNameSchema = z.string()
+export const JNSNameSchema = z
+  .string()
   .min(MIN_NAME_LENGTH, `Name must be at least ${MIN_NAME_LENGTH} characters`)
   .max(MAX_NAME_LENGTH, `Name must be at most ${MAX_NAME_LENGTH} characters`)
   .refine(
     (name) => NAME_PATTERN.test(name),
-    'Name must contain only lowercase letters, numbers, and hyphens (cannot start or end with hyphen)'
+    'Name must contain only lowercase letters, numbers, and hyphens (cannot start or end with hyphen)',
   )
 
 /**
  * Schema for registration duration in days
  */
-export const RegistrationDurationSchema = z.number()
+export const RegistrationDurationSchema = z
+  .number()
   .int('Duration must be a whole number')
   .min(1, 'Duration must be at least 1 day')
   .max(3650, 'Duration cannot exceed 10 years')
@@ -76,19 +78,16 @@ export const RegistrationDurationSchema = z.number()
 /**
  * Schema for listing price in ETH (as string for precision)
  */
-export const ListingPriceSchema = z.string()
-  .refine(
-    (val) => {
-      const num = parseFloat(val)
-      return !isNaN(num) && num > 0
-    },
-    'Price must be a positive number'
-  )
+export const ListingPriceSchema = z.string().refine((val) => {
+  const num = parseFloat(val)
+  return !Number.isNaN(num) && num > 0
+}, 'Price must be a positive number')
 
 /**
  * Schema for listing duration in days
  */
-export const ListingDurationSchema = z.number()
+export const ListingDurationSchema = z
+  .number()
   .int('Duration must be a whole number')
   .min(1, 'Duration must be at least 1 day')
   .max(365, 'Listing duration cannot exceed 1 year')
@@ -133,14 +132,16 @@ export type NameListingInput = z.infer<typeof NameListingInputSchema>
  * @param name - Name to validate (without .jeju suffix)
  * @returns Validation result with success/error
  */
-export function validateName(name: string): { valid: true; normalizedName: string } | { valid: false; error: string } {
+export function validateName(
+  name: string,
+): { valid: true; normalizedName: string } | { valid: false; error: string } {
   const normalized = normalizeName(name)
   const result = JNSNameSchema.safeParse(normalized)
-  
+
   if (result.success) {
     return { valid: true, normalizedName: normalized }
   }
-  
+
   return { valid: false, error: result.error.issues[0].message }
 }
 
@@ -159,7 +160,9 @@ export function isValidNameFormat(name: string): boolean {
  * @param name - Normalized name
  * @returns Length category
  */
-export function getNameLengthCategory(name: string): 'premium' | 'semi-premium' | 'standard' {
+export function getNameLengthCategory(
+  name: string,
+): 'premium' | 'semi-premium' | 'standard' {
   const length = name.length
   if (length === 3) return 'premium'
   if (length === 4) return 'semi-premium'
@@ -175,18 +178,18 @@ export function getNameLengthCategory(name: string): 'premium' | 'semi-premium' 
  * - Converting to lowercase
  * - Trimming whitespace
  * - Removing .jeju suffix if present
- * 
+ *
  * @param name - Raw name input
  * @returns Normalized name
  */
 export function normalizeName(name: string): string {
   let normalized = name.toLowerCase().trim()
-  
+
   // Remove .jeju suffix if present
   if (normalized.endsWith(JNS_SUFFIX)) {
     normalized = normalized.slice(0, -JNS_SUFFIX.length)
   }
-  
+
   return normalized
 }
 
@@ -207,7 +210,7 @@ export function formatFullName(name: string): string {
 /**
  * Computes the labelhash (keccak256) of a name
  * This is used as the tokenId in the JNS Registrar ERC-721
- * 
+ *
  * @param name - Normalized name (without .jeju)
  * @returns Labelhash as hex string
  */
@@ -230,7 +233,10 @@ export function labelhashToTokenId(labelhash: `0x${string}`): bigint {
  * @param name - Name to process
  * @returns Object with labelhash and tokenId
  */
-export function computeNameIdentifiers(name: string): { labelhash: `0x${string}`; tokenId: bigint } {
+export function computeNameIdentifiers(name: string): {
+  labelhash: `0x${string}`
+  tokenId: bigint
+} {
   const labelhash = computeLabelhash(name)
   return {
     labelhash,
@@ -249,18 +255,21 @@ export function computeNameIdentifiers(name: string): { labelhash: `0x${string}`
  * - 4-char names: 10x multiplier (0.1 ETH/year)
  * - 5-char names: 2x multiplier (0.02 ETH/year)
  * - 6+ char names: base price (0.01 ETH/year)
- * 
+ *
  * @param name - Normalized name
  * @param durationDays - Registration duration in days
  * @returns Price in ETH (as number for calculations)
  */
-export function calculateRegistrationPrice(name: string, durationDays: number): number {
+export function calculateRegistrationPrice(
+  name: string,
+  durationDays: number,
+): number {
   const normalized = normalizeName(name)
   const length = normalized.length
-  
+
   const multiplier = SHORT_NAME_MULTIPLIERS[length] ?? 1
   const years = durationDays / 365
-  
+
   return BASE_REGISTRATION_PRICE_ETH * multiplier * years
 }
 
@@ -270,7 +279,10 @@ export function calculateRegistrationPrice(name: string, durationDays: number): 
  * @param durationDays - Registration duration in days
  * @returns Price in wei as BigInt
  */
-export function calculateRegistrationPriceWei(name: string, durationDays: number): bigint {
+export function calculateRegistrationPriceWei(
+  name: string,
+  durationDays: number,
+): bigint {
   const priceEth = calculateRegistrationPrice(name, durationDays)
   // Convert to wei with proper precision
   return BigInt(Math.floor(priceEth * 1e18))
@@ -307,9 +319,12 @@ export function formatRegistrationPrice(priceWei: bigint): string {
  * @param fromTimestamp - Start timestamp (defaults to now)
  * @returns Expiry timestamp in seconds
  */
-export function calculateExpiryTimestamp(durationDays: number, fromTimestamp?: number): number {
+export function calculateExpiryTimestamp(
+  durationDays: number,
+  fromTimestamp?: number,
+): number {
   const start = fromTimestamp ?? Math.floor(Date.now() / 1000)
-  return start + (durationDays * SECONDS_PER_DAY)
+  return start + durationDays * SECONDS_PER_DAY
 }
 
 /**
@@ -318,9 +333,12 @@ export function calculateExpiryTimestamp(durationDays: number, fromTimestamp?: n
  * @param fromDate - Start date (defaults to now)
  * @returns Expiry date
  */
-export function calculateExpiryDate(durationDays: number, fromDate?: Date): Date {
+export function calculateExpiryDate(
+  durationDays: number,
+  fromDate?: Date,
+): Date {
   const start = fromDate ?? new Date()
-  const expiryMs = start.getTime() + (durationDays * SECONDS_PER_DAY * 1000)
+  const expiryMs = start.getTime() + durationDays * SECONDS_PER_DAY * 1000
   return new Date(expiryMs)
 }
 
@@ -425,7 +443,9 @@ export function listingDurationToSeconds(durationDays: number): bigint {
  * @param durationDays - Duration to validate
  * @returns Validation result
  */
-export function validateListingDuration(durationDays: number): { valid: true } | { valid: false; error: string } {
+export function validateListingDuration(
+  durationDays: number,
+): { valid: true } | { valid: false; error: string } {
   const result = ListingDurationSchema.safeParse(durationDays)
   if (result.success) {
     return { valid: true }
@@ -442,16 +462,22 @@ export function validateListingDuration(durationDays: number): { valid: true } |
  * @param input - Registration input to validate
  * @returns Validation result
  */
-export function validateRegistrationInput(input: { name: string; durationDays: number }): 
-  { valid: true; data: NameRegistrationInput } | { valid: false; error: string } {
-  
-  const normalized = { name: normalizeName(input.name), durationDays: input.durationDays }
+export function validateRegistrationInput(input: {
+  name: string
+  durationDays: number
+}):
+  | { valid: true; data: NameRegistrationInput }
+  | { valid: false; error: string } {
+  const normalized = {
+    name: normalizeName(input.name),
+    durationDays: input.durationDays,
+  }
   const result = NameRegistrationInputSchema.safeParse(normalized)
-  
+
   if (result.success) {
     return { valid: true, data: result.data }
   }
-  
+
   return { valid: false, error: result.error.issues[0].message }
 }
 
@@ -460,15 +486,21 @@ export function validateRegistrationInput(input: { name: string; durationDays: n
  * @param input - Listing input to validate
  * @returns Validation result
  */
-export function validateListingInput(input: { name: string; priceEth: string; durationDays: number }): 
-  { valid: true; data: NameListingInput } | { valid: false; error: string } {
-  
-  const normalized = { name: normalizeName(input.name), priceEth: input.priceEth, durationDays: input.durationDays }
+export function validateListingInput(input: {
+  name: string
+  priceEth: string
+  durationDays: number
+}): { valid: true; data: NameListingInput } | { valid: false; error: string } {
+  const normalized = {
+    name: normalizeName(input.name),
+    priceEth: input.priceEth,
+    durationDays: input.durationDays,
+  }
   const result = NameListingInputSchema.safeParse(normalized)
-  
+
   if (result.success) {
     return { valid: true, data: result.data }
   }
-  
+
   return { valid: false, error: result.error.issues[0].message }
 }

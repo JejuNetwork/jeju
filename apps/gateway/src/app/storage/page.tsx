@@ -1,20 +1,29 @@
-'use client';
+'use client'
 
-import { useState, type ComponentType } from 'react';
-import { useAccount, useReadContract } from 'wagmi';
-import { Upload, Folder, DollarSign, Clock, HardDrive, type LucideProps } from 'lucide-react';
-import { IPFS_API_URL, CONTRACTS } from '../../config';
+import {
+  Clock,
+  DollarSign,
+  Folder,
+  HardDrive,
+  type LucideProps,
+  Upload,
+} from 'lucide-react'
+import { type ComponentType, useState } from 'react'
+import { useAccount, useReadContract } from 'wagmi'
+import { CONTRACTS, IPFS_API_URL } from '../../config'
 
 // Fix for Lucide React 19 type compatibility
-const UploadIcon = Upload as ComponentType<LucideProps>;
-const FolderIcon = Folder as ComponentType<LucideProps>;
-const DollarSignIcon = DollarSign as ComponentType<LucideProps>;
-const ClockIcon = Clock as ComponentType<LucideProps>;
-const HardDriveIcon = HardDrive as ComponentType<LucideProps>;
+const UploadIcon = Upload as ComponentType<LucideProps>
+const FolderIcon = Folder as ComponentType<LucideProps>
+const DollarSignIcon = DollarSign as ComponentType<LucideProps>
+const ClockIcon = Clock as ComponentType<LucideProps>
+const HardDriveIcon = HardDrive as ComponentType<LucideProps>
 
 // Client-side config from centralized config
-const FILE_STORAGE_MANAGER_ADDRESS = CONTRACTS.fileStorageManager || '0x0B306BF915C4d645ff596e518fAf3F9669b97016' as const;
-const JEJU_IPFS_API = IPFS_API_URL;
+const FILE_STORAGE_MANAGER_ADDRESS =
+  CONTRACTS.fileStorageManager ||
+  ('0x0B306BF915C4d645ff596e518fAf3F9669b97016' as const)
+const JEJU_IPFS_API = IPFS_API_URL
 
 const FILE_STORAGE_ABI = [
   {
@@ -57,11 +66,13 @@ const FILE_STORAGE_ABI = [
     ],
     outputs: [],
   },
-] as const;
+] as const
 
 export default function StorageManagerPage() {
-  const [activeTab, setActiveTab] = useState<'upload' | 'files' | 'funding'>('upload');
-  const { address } = useAccount();
+  const [activeTab, setActiveTab] = useState<'upload' | 'files' | 'funding'>(
+    'upload',
+  )
+  const { address } = useAccount()
 
   // Query user's files
   const { data: fileCIDs } = useReadContract({
@@ -70,7 +81,7 @@ export default function StorageManagerPage() {
     functionName: 'getOwnerFiles',
     args: address ? [address] : undefined,
     query: { enabled: !!address },
-  });
+  })
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -82,7 +93,8 @@ export default function StorageManagerPage() {
             <h1 className="text-4xl font-bold">File Storage Manager</h1>
           </div>
           <p className="text-lg opacity-90">
-            Decentralized file storage on the network IPFS • Pay with any token • Zero external dependencies
+            Decentralized file storage on the network IPFS • Pay with any token
+            • Zero external dependencies
           </p>
         </div>
       </div>
@@ -93,14 +105,25 @@ export default function StorageManagerPage() {
           <div className="flex gap-6">
             {[
               { id: 'upload', label: 'Upload Files', icon: UploadIcon },
-              { id: 'files', label: 'My Files', icon: FolderIcon, count: fileCIDs?.length },
-              { id: 'funding', label: 'Funding & Payments', icon: DollarSignIcon },
+              {
+                id: 'files',
+                label: 'My Files',
+                icon: FolderIcon,
+                count: fileCIDs?.length,
+              },
+              {
+                id: 'funding',
+                label: 'Funding & Payments',
+                icon: DollarSignIcon,
+              },
             ].map((tab) => {
-              const Icon = tab.icon;
+              const Icon = tab.icon
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id as 'upload' | 'files' | 'funding')}
+                  onClick={() =>
+                    setActiveTab(tab.id as 'upload' | 'files' | 'funding')
+                  }
                   className={`py-4 px-2 border-b-2 transition-colors ${
                     activeTab === tab.id
                       ? 'border-blue-500 text-blue-600'
@@ -117,7 +140,7 @@ export default function StorageManagerPage() {
                     )}
                   </div>
                 </button>
-              );
+              )
             })}
           </div>
         </div>
@@ -130,22 +153,22 @@ export default function StorageManagerPage() {
         {activeTab === 'funding' && <FundingSection />}
       </div>
     </div>
-  );
+  )
 }
 
 function UploadSection() {
-  const [file, setFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [cid, setCID] = useState<string>('');
-  const [duration, setDuration] = useState(1);
+  const [file, setFile] = useState<File | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [cid, setCID] = useState<string>('')
+  const [duration, setDuration] = useState(1)
 
   const handleUpload = async () => {
-    if (!file) return;
+    if (!file) return
 
-    setUploading(true);
-    
-    const formData = new FormData();
-    formData.append('file', file);
+    setUploading(true)
+
+    const formData = new FormData()
+    formData.append('file', file)
 
     const response = await fetch(`${JEJU_IPFS_API}/upload`, {
       method: 'POST',
@@ -153,17 +176,17 @@ function UploadSection() {
         'X-Duration-Months': duration.toString(),
       },
       body: formData,
-    });
+    })
 
     if (!response.ok) {
-      setUploading(false);
-      throw new Error(`Upload failed: ${response.statusText}`);
+      setUploading(false)
+      throw new Error(`Upload failed: ${response.statusText}`)
     }
 
-    const result = await response.json();
-    setCID(result.cid);
-    setUploading(false);
-  };
+    const result = await response.json()
+    setCID(result.cid)
+    setUploading(false)
+  }
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -195,7 +218,7 @@ function UploadSection() {
             <div>
               <div className="font-medium text-lg">{file.name}</div>
               <div className="text-sm text-gray-600">
-                {(file.size / (1024 ** 2)).toFixed(2)} MB
+                {(file.size / 1024 ** 2).toFixed(2)} MB
               </div>
               <button
                 onClick={() => setFile(null)}
@@ -210,7 +233,9 @@ function UploadSection() {
         {/* Duration Selection */}
         {file && (
           <div className="mb-6">
-            <label className="block text-sm font-medium mb-2">Storage Duration</label>
+            <label className="block text-sm font-medium mb-2">
+              Storage Duration
+            </label>
             <div className="grid grid-cols-3 gap-3">
               {[
                 { months: 1, label: '1 Month' },
@@ -228,7 +253,8 @@ function UploadSection() {
                 >
                   <div className="font-semibold">{option.label}</div>
                   <div className="text-sm text-gray-600">
-                    ${(file.size / (1024 ** 3) * 0.10 * option.months).toFixed(4)}
+                    $
+                    {((file.size / 1024 ** 3) * 0.1 * option.months).toFixed(4)}
                   </div>
                 </button>
               ))}
@@ -250,7 +276,9 @@ function UploadSection() {
         {/* Success */}
         {cid && (
           <div className="mt-6 bg-green-50 border border-green-200 rounded-lg p-4">
-            <div className="font-semibold text-green-900 mb-2">✓ Uploaded Successfully!</div>
+            <div className="font-semibold text-green-900 mb-2">
+              ✓ Uploaded Successfully!
+            </div>
             <div className="text-sm text-green-700 mb-2">CID: {cid}</div>
             <a
               href={`${JEJU_IPFS_API}/ipfs/${cid}`}
@@ -264,7 +292,7 @@ function UploadSection() {
         )}
       </div>
     </div>
-  );
+  )
 }
 
 function FilesSection({ fileCIDs }: { fileCIDs: readonly `0x${string}`[] }) {
@@ -274,7 +302,7 @@ function FilesSection({ fileCIDs }: { fileCIDs: readonly `0x${string}`[] }) {
         <FolderIcon className="mx-auto text-gray-300 mb-4" size={48} />
         <p className="text-gray-600">No files uploaded yet</p>
       </div>
-    );
+    )
   }
 
   return (
@@ -283,7 +311,7 @@ function FilesSection({ fileCIDs }: { fileCIDs: readonly `0x${string}`[] }) {
         <FileCard key={cidBytes} cidBytes={cidBytes} />
       ))}
     </div>
-  );
+  )
 }
 
 function FileCard({ cidBytes }: { cidBytes: `0x${string}` }) {
@@ -292,21 +320,23 @@ function FileCard({ cidBytes }: { cidBytes: `0x${string}` }) {
     abi: FILE_STORAGE_ABI,
     functionName: 'files',
     args: [cidBytes],
-  });
+  })
 
-  if (!fileData) return null;
+  if (!fileData) return null
 
-  const cid = cidBytes; // Convert bytes32 to string for display
-  const expiresIn = Number(fileData.expiresAt) * 1000 - Date.now();
-  const daysLeft = Math.floor(expiresIn / (1000 * 60 * 60 * 24));
+  const cid = cidBytes // Convert bytes32 to string for display
+  const expiresIn = Number(fileData.expiresAt) * 1000 - Date.now()
+  const daysLeft = Math.floor(expiresIn / (1000 * 60 * 60 * 24))
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-6">
       <div className="flex items-start justify-between">
         <div className="flex-1">
-          <div className="font-mono text-sm text-gray-600 mb-2">{cid.substring(0, 20)}...</div>
+          <div className="font-mono text-sm text-gray-600 mb-2">
+            {cid.substring(0, 20)}...
+          </div>
           <div className="text-sm text-gray-600">
-            {(Number(fileData.sizeBytes) / (1024 ** 2)).toFixed(2)} MB
+            {(Number(fileData.sizeBytes) / 1024 ** 2).toFixed(2)} MB
           </div>
         </div>
         <div className="text-right">
@@ -331,7 +361,7 @@ function FileCard({ cidBytes }: { cidBytes: `0x${string}` }) {
         </button>
       </div>
     </div>
-  );
+  )
 }
 
 function FundingSection() {
@@ -339,7 +369,7 @@ function FundingSection() {
     <div className="max-w-2xl mx-auto space-y-6">
       <div className="bg-white rounded-lg shadow-sm p-8">
         <h2 className="text-2xl font-bold mb-6">Storage Funding</h2>
-        
+
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
           <div className="text-sm text-blue-700 mb-2">Current Balance</div>
           <div className="text-3xl font-bold text-blue-900">0.00 USDC</div>
@@ -374,6 +404,5 @@ function FundingSection() {
         </div>
       </div>
     </div>
-  );
+  )
 }
-

@@ -1,11 +1,11 @@
-import type { NextConfig } from 'next';
+import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   turbopack: {},
   transpilePackages: ['lucide-react'],
   async rewrites() {
-    const apiUrl = process.env.COUNCIL_API_URL || 'http://localhost:8010';
+    const apiUrl = process.env.COUNCIL_API_URL || 'http://localhost:8010'
     return [
       {
         source: '/api/:path*',
@@ -19,8 +19,8 @@ const nextConfig: NextConfig = {
         source: '/mcp/:path*',
         destination: `${apiUrl}/mcp/:path*`,
       },
-    ];
+    ]
   },
-};
+}
 
-export default nextConfig;
+export default nextConfig

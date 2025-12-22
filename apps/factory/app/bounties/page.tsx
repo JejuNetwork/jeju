@@ -1,24 +1,18 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { 
-  DollarSign, 
-  Search, 
-  Clock, 
-  Users, 
-  Tag,
-  Plus
-} from 'lucide-react';
-import Link from 'next/link';
-import { clsx } from 'clsx';
+import { clsx } from 'clsx'
+import { Clock, DollarSign, Plus, Search, Tag, Users } from 'lucide-react'
+import Link from 'next/link'
+import { useState } from 'react'
 
-type BountyStatus = 'open' | 'in_progress' | 'review' | 'completed' | 'all';
+type BountyStatus = 'open' | 'in_progress' | 'review' | 'completed' | 'all'
 
 const mockBounties = [
   {
     id: '0x1234',
     title: 'Implement ZK proof verification for cross-chain bridges',
-    description: 'Build a zero-knowledge proof verification system that can validate cross-chain transactions without revealing sensitive data.',
+    description:
+      'Build a zero-knowledge proof verification system that can validate cross-chain transactions without revealing sensitive data.',
     creator: '0xabc...def',
     rewards: [{ token: 'ETH', amount: '2.5' }],
     skills: ['Solidity', 'ZK-SNARKs', 'Cryptography'],
@@ -30,9 +24,13 @@ const mockBounties = [
   {
     id: '0x5678',
     title: 'Build CLI tool for automated model deployment',
-    description: 'Create a command-line interface that simplifies deploying ML models to the compute marketplace.',
+    description:
+      'Create a command-line interface that simplifies deploying ML models to the compute marketplace.',
     creator: '0xdef...123',
-    rewards: [{ token: 'ETH', amount: '1.0' }, { token: 'JEJU', amount: '5000' }],
+    rewards: [
+      { token: 'ETH', amount: '1.0' },
+      { token: 'JEJU', amount: '5000' },
+    ],
     skills: ['TypeScript', 'CLI', 'Docker', 'ML'],
     deadline: Date.now() + 14 * 24 * 60 * 60 * 1000,
     applicants: 8,
@@ -42,7 +40,8 @@ const mockBounties = [
   {
     id: '0x9abc',
     title: 'Create real-time validator metrics dashboard',
-    description: 'Design and implement a dashboard showing validator performance, uptime, and earnings in real-time.',
+    description:
+      'Design and implement a dashboard showing validator performance, uptime, and earnings in real-time.',
     creator: '0x789...abc',
     rewards: [{ token: 'ETH', amount: '0.8' }],
     skills: ['React', 'GraphQL', 'Data Visualization'],
@@ -54,7 +53,8 @@ const mockBounties = [
   {
     id: '0xdef0',
     title: 'Audit smart contracts for security vulnerabilities',
-    description: 'Comprehensive security audit of the core protocol contracts including bounty, guardian, and model registries.',
+    description:
+      'Comprehensive security audit of the core protocol contracts including bounty, guardian, and model registries.',
     creator: '0x456...789',
     rewards: [{ token: 'ETH', amount: '5.0' }],
     skills: ['Solidity', 'Security', 'Auditing'],
@@ -63,47 +63,52 @@ const mockBounties = [
     status: 'open',
     milestones: 1,
   },
-];
+]
 
 const statusColors = {
   open: 'badge-success',
   in_progress: 'badge-warning',
   review: 'badge-info',
   completed: 'bg-factory-700/50 text-factory-300',
-};
+}
 
 const statusLabels = {
   open: 'Open',
   in_progress: 'In Progress',
   review: 'In Review',
   completed: 'Completed',
-};
+}
 
 export default function BountiesPage() {
-  const [filter, setFilter] = useState<BountyStatus>('all');
-  const [search, setSearch] = useState('');
-  const [sortBy, setSortBy] = useState<'reward' | 'deadline' | 'applicants'>('reward');
+  const [filter, setFilter] = useState<BountyStatus>('all')
+  const [search, setSearch] = useState('')
+  const [sortBy, setSortBy] = useState<'reward' | 'deadline' | 'applicants'>(
+    'reward',
+  )
 
-  const filteredBounties = mockBounties.filter(bounty => {
-    if (filter !== 'all' && bounty.status !== filter) return false;
-    if (search && !bounty.title.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  }).sort((a, b) => {
-    if (sortBy === 'reward') {
-      return parseFloat(b.rewards[0].amount) - parseFloat(a.rewards[0].amount);
-    }
-    if (sortBy === 'deadline') {
-      return a.deadline - b.deadline;
-    }
-    return b.applicants - a.applicants;
-  });
+  const filteredBounties = mockBounties
+    .filter((bounty) => {
+      if (filter !== 'all' && bounty.status !== filter) return false
+      if (search && !bounty.title.toLowerCase().includes(search.toLowerCase()))
+        return false
+      return true
+    })
+    .sort((a, b) => {
+      if (sortBy === 'reward') {
+        return parseFloat(b.rewards[0].amount) - parseFloat(a.rewards[0].amount)
+      }
+      if (sortBy === 'deadline') {
+        return a.deadline - b.deadline
+      }
+      return b.applicants - a.applicants
+    })
 
   const formatDeadline = (timestamp: number) => {
-    const days = Math.ceil((timestamp - Date.now()) / (1000 * 60 * 60 * 24));
-    if (days === 1) return '1 day left';
-    if (days <= 0) return 'Expired';
-    return `${days} days left`;
-  };
+    const days = Math.ceil((timestamp - Date.now()) / (1000 * 60 * 60 * 24))
+    if (days === 1) return '1 day left'
+    if (days <= 0) return 'Expired'
+    return `${days} days left`
+  }
 
   return (
     <div className="min-h-screen p-8">
@@ -114,7 +119,9 @@ export default function BountiesPage() {
             <DollarSign className="w-7 h-7 text-green-400" />
             Bounties
           </h1>
-          <p className="text-factory-400 mt-1">Find work, earn rewards, build the network</p>
+          <p className="text-factory-400 mt-1">
+            Find work, earn rewards, build the network
+          </p>
         </div>
         <Link href="/bounties/create" className="btn btn-primary">
           <Plus className="w-4 h-4" />
@@ -139,7 +146,9 @@ export default function BountiesPage() {
 
           {/* Status Filter */}
           <div className="flex gap-2">
-            {(['all', 'open', 'in_progress', 'review', 'completed'] as const).map((status) => (
+            {(
+              ['all', 'open', 'in_progress', 'review', 'completed'] as const
+            ).map((status) => (
               <button
                 key={status}
                 onClick={() => setFilter(status)}
@@ -147,7 +156,7 @@ export default function BountiesPage() {
                   'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
                   filter === status
                     ? 'bg-accent-600 text-white'
-                    : 'bg-factory-800 text-factory-400 hover:text-factory-100'
+                    : 'bg-factory-800 text-factory-400 hover:text-factory-100',
                 )}
               >
                 {status === 'all' ? 'All' : statusLabels[status]}
@@ -177,7 +186,9 @@ export default function BountiesPage() {
           { label: 'Avg. Payout', value: '1.2 ETH', color: 'text-purple-400' },
         ].map((stat) => (
           <div key={stat.label} className="card p-4 text-center">
-            <p className={clsx('text-2xl font-bold', stat.color)}>{stat.value}</p>
+            <p className={clsx('text-2xl font-bold', stat.color)}>
+              {stat.value}
+            </p>
             <p className="text-factory-500 text-sm">{stat.label}</p>
           </div>
         ))}
@@ -186,7 +197,7 @@ export default function BountiesPage() {
       {/* Bounty List */}
       <div className="space-y-4">
         {filteredBounties.map((bounty) => (
-          <Link 
+          <Link
             key={bounty.id}
             href={`/bounties/${bounty.id}`}
             className="card p-6 card-hover block"
@@ -195,13 +206,22 @@ export default function BountiesPage() {
               {/* Main Content */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-3 mb-2">
-                  <h3 className="font-semibold text-factory-100 truncate">{bounty.title}</h3>
-                  <span className={clsx('badge', statusColors[bounty.status as keyof typeof statusColors])}>
+                  <h3 className="font-semibold text-factory-100 truncate">
+                    {bounty.title}
+                  </h3>
+                  <span
+                    className={clsx(
+                      'badge',
+                      statusColors[bounty.status as keyof typeof statusColors],
+                    )}
+                  >
                     {statusLabels[bounty.status as keyof typeof statusLabels]}
                   </span>
                 </div>
-                
-                <p className="text-factory-400 text-sm mb-4 line-clamp-2">{bounty.description}</p>
+
+                <p className="text-factory-400 text-sm mb-4 line-clamp-2">
+                  {bounty.description}
+                </p>
 
                 <div className="flex flex-wrap items-center gap-4 text-sm">
                   {/* Skills */}
@@ -212,13 +232,13 @@ export default function BountiesPage() {
                       </span>
                     ))}
                   </div>
-                  
+
                   {/* Meta */}
                   <span className="flex items-center gap-1 text-factory-500">
                     <Clock className="w-4 h-4" />
                     {formatDeadline(bounty.deadline)}
                   </span>
-                  
+
                   <span className="flex items-center gap-1 text-factory-500">
                     <Users className="w-4 h-4" />
                     {bounty.applicants} applicants
@@ -235,10 +255,15 @@ export default function BountiesPage() {
               <div className="text-right flex-shrink-0">
                 <div className="space-y-1">
                   {bounty.rewards.map((reward, i) => (
-                    <p key={i} className={clsx(
-                      'font-bold',
-                      i === 0 ? 'text-xl text-green-400' : 'text-sm text-factory-400'
-                    )}>
+                    <p
+                      key={i}
+                      className={clsx(
+                        'font-bold',
+                        i === 0
+                          ? 'text-xl text-green-400'
+                          : 'text-sm text-factory-400',
+                      )}
+                    >
                       {reward.amount} {reward.token}
                     </p>
                   ))}
@@ -254,14 +279,17 @@ export default function BountiesPage() {
       {filteredBounties.length === 0 && (
         <div className="card p-12 text-center">
           <DollarSign className="w-12 h-12 mx-auto mb-4 text-factory-600" />
-          <h3 className="text-lg font-medium text-factory-300 mb-2">No bounties found</h3>
-          <p className="text-factory-500 mb-4">Try adjusting your filters or search terms</p>
+          <h3 className="text-lg font-medium text-factory-300 mb-2">
+            No bounties found
+          </h3>
+          <p className="text-factory-500 mb-4">
+            Try adjusting your filters or search terms
+          </p>
           <Link href="/bounties/create" className="btn btn-primary">
             Create a Bounty
           </Link>
         </div>
       )}
     </div>
-  );
+  )
 }
-

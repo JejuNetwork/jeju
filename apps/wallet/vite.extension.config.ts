@@ -1,13 +1,20 @@
-import { defineConfig, Plugin } from 'vite';
-import react from '@vitejs/plugin-react';
-import { resolve } from 'path';
-import { copyFileSync, mkdirSync, existsSync, writeFileSync } from 'fs';
+import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import react from '@vitejs/plugin-react'
+import { defineConfig, type Plugin } from 'vite'
 
-type ExtensionTarget = 'chrome' | 'firefox' | 'safari' | 'edge' | 'brave';
+type ExtensionTarget = 'chrome' | 'firefox' | 'safari' | 'edge' | 'brave'
 
-const targetEnv = process.env.EXT_TARGET as ExtensionTarget | undefined;
-const validTargets: ExtensionTarget[] = ['chrome', 'firefox', 'safari', 'edge', 'brave'];
-const target: ExtensionTarget = targetEnv && validTargets.includes(targetEnv) ? targetEnv : 'chrome';
+const targetEnv = process.env.EXT_TARGET as ExtensionTarget | undefined
+const validTargets: ExtensionTarget[] = [
+  'chrome',
+  'firefox',
+  'safari',
+  'edge',
+  'brave',
+]
+const target: ExtensionTarget =
+  targetEnv && validTargets.includes(targetEnv) ? targetEnv : 'chrome'
 
 // Map targets to manifest files
 const manifestMap: Record<ExtensionTarget, string> = {
@@ -16,7 +23,7 @@ const manifestMap: Record<ExtensionTarget, string> = {
   safari: 'src/extension/manifest.safari.json',
   edge: 'src/extension/manifest.edge.json',
   brave: 'src/extension/manifest.chrome.json', // Brave uses Chrome MV3
-};
+}
 
 // Plugin to stub platform-specific modules and problematic dependencies
 function stubModulesPlugin(): Plugin {
@@ -26,18 +33,18 @@ function stubModulesPlugin(): Plugin {
     '@tauri-apps/api',
     'webtorrent',
     'porto', // Porto requires zod v4, stub it since we use native extension provider
-  ];
+  ]
 
   return {
     name: 'stub-extension-modules',
     resolveId(id) {
       // Check for exact match or subpath imports
       for (const mod of stubbedModules) {
-        if (id === mod || id.startsWith(mod + '/')) {
-          return `\0stub:${id}`;
+        if (id === mod || id.startsWith(`${mod}/`)) {
+          return `\0stub:${id}`
         }
       }
-      return null;
+      return null
     },
     load(id) {
       if (id.startsWith('\0stub:')) {
@@ -46,11 +53,11 @@ function stubModulesPlugin(): Plugin {
           export default {};
           export const createClient = () => ({});
           export const Porto = {};
-        `;
+        `
       }
-      return null;
+      return null
     },
-  };
+  }
 }
 
 export default defineConfig({
@@ -60,37 +67,37 @@ export default defineConfig({
     {
       name: 'extension-build',
       writeBundle() {
-        const distDir = `dist-ext-${target}`;
-        
+        const distDir = `dist-ext-${target}`
+
         // Ensure directories exist
         if (!existsSync(`${distDir}/icons`)) {
-          mkdirSync(`${distDir}/icons`, { recursive: true });
+          mkdirSync(`${distDir}/icons`, { recursive: true })
         }
         if (!existsSync(`${distDir}/_locales/en`)) {
-          mkdirSync(`${distDir}/_locales/en`, { recursive: true });
+          mkdirSync(`${distDir}/_locales/en`, { recursive: true })
         }
 
         // Copy manifest
-        const manifestSrc = manifestMap[target];
-        copyFileSync(manifestSrc, `${distDir}/manifest.json`);
+        const manifestSrc = manifestMap[target]
+        copyFileSync(manifestSrc, `${distDir}/manifest.json`)
 
         // Copy locales
         copyFileSync(
           'src/extension/_locales/en/messages.json',
-          `${distDir}/_locales/en/messages.json`
-        );
+          `${distDir}/_locales/en/messages.json`,
+        )
 
         // Generate placeholder icons (in production, use real icons)
-        const iconSizes = [16, 32, 48, 128];
+        const iconSizes = [16, 32, 48, 128]
         for (const size of iconSizes) {
           const svg = `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
             <rect width="${size}" height="${size}" rx="${size * 0.1875}" fill="#10B981"/>
             <text x="${size / 2}" y="${size * 0.625}" font-size="${size / 2}" text-anchor="middle" fill="white" font-family="system-ui" font-weight="bold">J</text>
-          </svg>`;
-          writeFileSync(`${distDir}/icons/icon-${size}.png`, svg);
+          </svg>`
+          writeFileSync(`${distDir}/icons/icon-${size}.png`, svg)
         }
 
-        console.log(`Extension built for ${target}`);
+        console.log(`Extension built for ${target}`)
       },
     },
   ],
@@ -129,14 +136,31 @@ export default defineConfig({
       // Externalize node-only modules
       external: (id) => {
         // Node-only modules
-        if (['fs', 'path', 'crypto', 'os', 'child_process', 'net', 'http', 'https', 'stream', 'buffer', 'util', 'events', 'zlib', 'url'].includes(id)) return true;
+        if (
+          [
+            'fs',
+            'path',
+            'crypto',
+            'os',
+            'child_process',
+            'net',
+            'http',
+            'https',
+            'stream',
+            'buffer',
+            'util',
+            'events',
+            'zlib',
+            'url',
+          ].includes(id)
+        )
+          return true
         // Hardware wallet modules (use web versions in extension)
-        if (id.includes('@ledgerhq/hw-transport-node')) return true;
-        if (id.includes('@trezor/connect')) return true;
-        return false;
+        if (id.includes('@ledgerhq/hw-transport-node')) return true
+        if (id.includes('@trezor/connect')) return true
+        return false
       },
     },
     minify: process.env.NODE_ENV === 'production',
   },
-});
-
+})

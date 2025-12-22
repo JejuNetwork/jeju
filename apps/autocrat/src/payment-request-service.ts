@@ -17,9 +17,9 @@ import {
   type Chain,
   type Hash,
   type PublicClient,
-  type WalletClient,
   parseAbi,
-} from 'viem';
+  type WalletClient,
+} from 'viem'
 
 // ============ Types ============
 
@@ -34,7 +34,7 @@ export type PaymentCategory =
   | 'PARTNERSHIP'
   | 'EVENTS'
   | 'INFRASTRUCTURE'
-  | 'OTHER';
+  | 'OTHER'
 
 export type PaymentRequestStatus =
   | 'SUBMITTED'
@@ -44,79 +44,79 @@ export type PaymentRequestStatus =
   | 'REJECTED'
   | 'PAID'
   | 'DISPUTED'
-  | 'CANCELLED';
+  | 'CANCELLED'
 
-export type VoteType = 'APPROVE' | 'REJECT' | 'ABSTAIN';
+export type VoteType = 'APPROVE' | 'REJECT' | 'ABSTAIN'
 
 export interface PaymentRequest {
-  requestId: string;
-  daoId: string;
-  requester: Address;
-  contributorId: string;
-  category: PaymentCategory;
-  title: string;
-  description: string;
-  evidenceUri: string;
-  paymentToken: Address;
-  requestedAmount: bigint;
-  approvedAmount: bigint;
-  status: PaymentRequestStatus;
-  isRetroactive: boolean;
-  workStartDate: number;
-  workEndDate: number;
-  submittedAt: number;
-  reviewedAt: number;
-  paidAt: number;
-  rejectionReason: string;
-  disputeCaseId: string;
+  requestId: string
+  daoId: string
+  requester: Address
+  contributorId: string
+  category: PaymentCategory
+  title: string
+  description: string
+  evidenceUri: string
+  paymentToken: Address
+  requestedAmount: bigint
+  approvedAmount: bigint
+  status: PaymentRequestStatus
+  isRetroactive: boolean
+  workStartDate: number
+  workEndDate: number
+  submittedAt: number
+  reviewedAt: number
+  paidAt: number
+  rejectionReason: string
+  disputeCaseId: string
 }
 
 export interface CouncilVote {
-  voter: Address;
-  vote: VoteType;
-  reason: string;
-  votedAt: number;
+  voter: Address
+  vote: VoteType
+  reason: string
+  votedAt: number
 }
 
 export interface CEODecision {
-  approved: boolean;
-  modifiedAmount: bigint;
-  reason: string;
-  decidedAt: number;
+  approved: boolean
+  modifiedAmount: bigint
+  reason: string
+  decidedAt: number
 }
 
 export interface DAOPaymentConfig {
-  requiresCouncilApproval: boolean;
-  minCouncilVotes: number;
-  councilSupermajorityBps: number;
-  ceoCanOverride: boolean;
-  maxAutoApproveAmount: bigint;
-  reviewPeriod: number;
-  disputePeriod: number;
-  treasuryToken: Address;
-  allowRetroactive: boolean;
-  retroactiveMaxAge: number;
+  requiresCouncilApproval: boolean
+  minCouncilVotes: number
+  councilSupermajorityBps: number
+  ceoCanOverride: boolean
+  maxAutoApproveAmount: bigint
+  reviewPeriod: number
+  disputePeriod: number
+  treasuryToken: Address
+  allowRetroactive: boolean
+  retroactiveMaxAge: number
 }
 
 export interface PaymentRequestServiceConfig {
-  publicClient: PublicClient;
-  walletClient?: WalletClient;
-  registryAddress: Address;
-  chain: Chain;
-  account?: Account | Address;
+  publicClient: PublicClient
+  walletClient?: WalletClient
+  registryAddress: Address
+  chain: Chain
+  account?: Account | Address
 }
 
 export interface SubmitPaymentRequestParams {
-  daoId: string;
-  contributorId: string;
-  category: PaymentCategory;
-  title: string;
-  description: string;
-  evidenceUri: string;
-  requestedAmount: bigint;
-  isRetroactive?: boolean;
-  workStartDate?: number;
-  workEndDate?: number;
+  daoId: string
+  contributorId: string
+  category: PaymentCategory
+  title: string
+  description: string
+  evidenceUri: string
+  requestedAmount: bigint
+  isRetroactive?: boolean
+  workStartDate?: number
+  workEndDate?: number
 }
 
 // ============ Contract ABI ============
@@ -162,7 +162,7 @@ const PAYMENT_REQUEST_REGISTRY_ABI = parseAbi([
   'event PaymentRequestRejected(bytes32 indexed requestId, string reason)',
   'event PaymentRequestPaid(bytes32 indexed requestId, uint256 amount, address token)',
   'event PaymentRequestDisputed(bytes32 indexed requestId, bytes32 indexed caseId)',
-]);
+])
 
 // ============ Category Mapping ============
 
@@ -178,7 +178,7 @@ const CATEGORY_NAMES: PaymentCategory[] = [
   'EVENTS',
   'INFRASTRUCTURE',
   'OTHER',
-];
+]
 
 const STATUS_NAMES: PaymentRequestStatus[] = [
   'SUBMITTED',
@@ -189,39 +189,39 @@ const STATUS_NAMES: PaymentRequestStatus[] = [
   'PAID',
   'DISPUTED',
   'CANCELLED',
-];
+]
 
-const VOTE_NAMES: VoteType[] = ['APPROVE', 'REJECT', 'ABSTAIN'];
+const VOTE_NAMES: VoteType[] = ['APPROVE', 'REJECT', 'ABSTAIN']
 
 function getCategoryIndex(category: PaymentCategory): number {
-  return CATEGORY_NAMES.indexOf(category);
+  return CATEGORY_NAMES.indexOf(category)
 }
 
 function getVoteIndex(vote: VoteType): number {
-  return VOTE_NAMES.indexOf(vote);
+  return VOTE_NAMES.indexOf(vote)
 }
 
 // ============ Service Class ============
 
 export class PaymentRequestService {
-  private publicClient: PublicClient;
-  private walletClient: WalletClient | null;
-  private registryAddress: Address;
-  private chain: Chain;
-  private account: Account | Address | null;
+  private publicClient: PublicClient
+  private walletClient: WalletClient | null
+  private registryAddress: Address
+  private chain: Chain
+  private account: Account | Address | null
 
   constructor(config: PaymentRequestServiceConfig) {
-    this.publicClient = config.publicClient;
-    this.walletClient = config.walletClient || null;
-    this.registryAddress = config.registryAddress;
-    this.chain = config.chain;
-    this.account = config.account || null;
+    this.publicClient = config.publicClient
+    this.walletClient = config.walletClient || null
+    this.registryAddress = config.registryAddress
+    this.chain = config.chain
+    this.account = config.account || null
   }
 
   // ============ Submission ============
 
   async submitRequest(params: SubmitPaymentRequestParams): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    if (!this.walletClient) throw new Error('Wallet client required')
 
     const hash = await this.walletClient.writeContract({
       address: this.registryAddress,
@@ -241,13 +241,13 @@ export class PaymentRequestService {
         BigInt(params.workStartDate || 0),
         BigInt(params.workEndDate || 0),
       ],
-    });
+    })
 
-    return hash;
+    return hash
   }
 
   async updateEvidence(requestId: string, evidenceUri: string): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    if (!this.walletClient) throw new Error('Wallet client required')
 
     const hash = await this.walletClient.writeContract({
       address: this.registryAddress,
@@ -256,13 +256,13 @@ export class PaymentRequestService {
       chain: this.chain,
       account: this.account,
       args: [requestId as `0x${string}`, evidenceUri],
-    });
+    })
 
-    return hash;
+    return hash
   }
 
   async cancelRequest(requestId: string): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    if (!this.walletClient) throw new Error('Wallet client required')
 
     const hash = await this.walletClient.writeContract({
       address: this.registryAddress,
@@ -271,15 +271,19 @@ export class PaymentRequestService {
       chain: this.chain,
       account: this.account,
       args: [requestId as `0x${string}`],
-    });
+    })
 
-    return hash;
+    return hash
   }
 
   // ============ Council Review ============
 
-  async councilVote(requestId: string, vote: VoteType, reason: string): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+  async councilVote(
+    requestId: string,
+    vote: VoteType,
+    reason: string,
+  ): Promise<Hash> {
+    if (!this.walletClient) throw new Error('Wallet client required')
 
     const hash = await this.walletClient.writeContract({
       address: this.registryAddress,
@@ -288,13 +292,13 @@ export class PaymentRequestService {
       chain: this.chain,
       account: this.account,
       args: [requestId as `0x${string}`, getVoteIndex(vote), reason],
-    });
+    })
 
-    return hash;
+    return hash
   }
 
   async escalateToCEO(requestId: string): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    if (!this.walletClient) throw new Error('Wallet client required')
 
     const hash = await this.walletClient.writeContract({
       address: this.registryAddress,
@@ -303,9 +307,9 @@ export class PaymentRequestService {
       chain: this.chain,
       account: this.account,
       args: [requestId as `0x${string}`],
-    });
+    })
 
-    return hash;
+    return hash
   }
 
   // ============ CEO Review ============
@@ -314,9 +318,9 @@ export class PaymentRequestService {
     requestId: string,
     approved: boolean,
     modifiedAmount: bigint,
-    reason: string
+    reason: string,
   ): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    if (!this.walletClient) throw new Error('Wallet client required')
 
     const hash = await this.walletClient.writeContract({
       address: this.registryAddress,
@@ -325,15 +329,15 @@ export class PaymentRequestService {
       chain: this.chain,
       account: this.account,
       args: [requestId as `0x${string}`, approved, modifiedAmount, reason],
-    });
+    })
 
-    return hash;
+    return hash
   }
 
   // ============ Dispute ============
 
   async fileDispute(requestId: string, evidenceUri: string): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    if (!this.walletClient) throw new Error('Wallet client required')
 
     const hash = await this.walletClient.writeContract({
       address: this.registryAddress,
@@ -342,15 +346,15 @@ export class PaymentRequestService {
       chain: this.chain,
       account: this.account,
       args: [requestId as `0x${string}`, evidenceUri],
-    });
+    })
 
-    return hash;
+    return hash
   }
 
   // ============ Payment ============
 
   async executePayment(requestId: string): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    if (!this.walletClient) throw new Error('Wallet client required')
 
     const hash = await this.walletClient.writeContract({
       address: this.registryAddress,
@@ -359,15 +363,15 @@ export class PaymentRequestService {
       chain: this.chain,
       account: this.account,
       args: [requestId as `0x${string}`],
-    });
+    })
 
-    return hash;
+    return hash
   }
 
   // ============ Configuration ============
 
   async setDAOConfig(daoId: string, config: DAOPaymentConfig): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    if (!this.walletClient) throw new Error('Wallet client required')
 
     const hash = await this.walletClient.writeContract({
       address: this.registryAddress,
@@ -390,26 +394,43 @@ export class PaymentRequestService {
           retroactiveMaxAge: BigInt(config.retroactiveMaxAge),
         },
       ],
-    });
+    })
 
-    return hash;
+    return hash
   }
 
   // ============ View Functions ============
 
   async getRequest(requestId: string): Promise<PaymentRequest | null> {
-    const result = await this.publicClient.readContract({
+    const result = (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: PAYMENT_REQUEST_REGISTRY_ABI,
       functionName: 'getRequest',
       args: [requestId as `0x${string}`],
-    }) as [
-      string, string, Address, string, number, string, string, string,
-      Address, bigint, bigint, number, boolean, bigint, bigint,
-      bigint, bigint, bigint, string, string
-    ];
+    })) as [
+      string,
+      string,
+      Address,
+      string,
+      number,
+      string,
+      string,
+      string,
+      Address,
+      bigint,
+      bigint,
+      number,
+      boolean,
+      bigint,
+      bigint,
+      bigint,
+      bigint,
+      bigint,
+      string,
+      string,
+    ]
 
-    if (!result || result[15] === 0n) return null;
+    if (!result || result[15] === 0n) return null
 
     return {
       requestId: result[0],
@@ -432,83 +453,94 @@ export class PaymentRequestService {
       paidAt: Number(result[17]),
       rejectionReason: result[18],
       disputeCaseId: result[19],
-    };
+    }
   }
 
   async getCouncilVotes(requestId: string): Promise<CouncilVote[]> {
-    const result = await this.publicClient.readContract({
+    const result = (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: PAYMENT_REQUEST_REGISTRY_ABI,
       functionName: 'getCouncilVotes',
       args: [requestId as `0x${string}`],
-    }) as Array<[Address, number, string, bigint]>;
+    })) as Array<[Address, number, string, bigint]>
 
     return result.map((v) => ({
       voter: v[0],
       vote: VOTE_NAMES[v[1]] || 'ABSTAIN',
       reason: v[2],
       votedAt: Number(v[3]),
-    }));
+    }))
   }
 
   async getCEODecision(requestId: string): Promise<CEODecision | null> {
-    const result = await this.publicClient.readContract({
+    const result = (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: PAYMENT_REQUEST_REGISTRY_ABI,
       functionName: 'getCEODecision',
       args: [requestId as `0x${string}`],
-    }) as [boolean, bigint, string, bigint];
+    })) as [boolean, bigint, string, bigint]
 
-    if (result[3] === 0n) return null;
+    if (result[3] === 0n) return null
 
     return {
       approved: result[0],
       modifiedAmount: result[1],
       reason: result[2],
       decidedAt: Number(result[3]),
-    };
+    }
   }
 
   async getDAORequests(daoId: string): Promise<string[]> {
-    const result = await this.publicClient.readContract({
+    const result = (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: PAYMENT_REQUEST_REGISTRY_ABI,
       functionName: 'getDAORequests',
       args: [daoId as `0x${string}`],
-    }) as string[];
+    })) as string[]
 
-    return result;
+    return result
   }
 
   async getRequesterRequests(requester: Address): Promise<string[]> {
-    const result = await this.publicClient.readContract({
+    const result = (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: PAYMENT_REQUEST_REGISTRY_ABI,
       functionName: 'getRequesterRequests',
       args: [requester],
-    }) as string[];
+    })) as string[]
 
-    return result;
+    return result
   }
 
   async getContributorRequests(contributorId: string): Promise<string[]> {
-    const result = await this.publicClient.readContract({
+    const result = (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: PAYMENT_REQUEST_REGISTRY_ABI,
       functionName: 'getContributorRequests',
       args: [contributorId as `0x${string}`],
-    }) as string[];
+    })) as string[]
 
-    return result;
+    return result
   }
 
   async getDAOConfig(daoId: string): Promise<DAOPaymentConfig> {
-    const result = await this.publicClient.readContract({
+    const result = (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: PAYMENT_REQUEST_REGISTRY_ABI,
       functionName: 'getDAOConfig',
       args: [daoId as `0x${string}`],
-    }) as [boolean, bigint, bigint, boolean, bigint, bigint, bigint, Address, boolean, bigint];
+    })) as [
+      boolean,
+      bigint,
+      bigint,
+      boolean,
+      bigint,
+      bigint,
+      bigint,
+      Address,
+      boolean,
+      bigint,
+    ]
 
     return {
       requiresCouncilApproval: result[0],
@@ -521,20 +553,39 @@ export class PaymentRequestService {
       treasuryToken: result[7],
       allowRetroactive: result[8],
       retroactiveMaxAge: Number(result[9]),
-    };
+    }
   }
 
   async getPendingRequests(daoId: string): Promise<PaymentRequest[]> {
-    const result = await this.publicClient.readContract({
+    const result = (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: PAYMENT_REQUEST_REGISTRY_ABI,
       functionName: 'getPendingRequests',
       args: [daoId as `0x${string}`],
-    }) as Array<[
-      string, string, Address, string, number, string, string, string,
-      Address, bigint, bigint, number, boolean, bigint, bigint,
-      bigint, bigint, bigint, string, string
-    ]>;
+    })) as Array<
+      [
+        string,
+        string,
+        Address,
+        string,
+        number,
+        string,
+        string,
+        string,
+        Address,
+        bigint,
+        bigint,
+        number,
+        boolean,
+        bigint,
+        bigint,
+        bigint,
+        bigint,
+        bigint,
+        string,
+        string,
+      ]
+    >
 
     return result.map((r) => ({
       requestId: r[0],
@@ -557,7 +608,7 @@ export class PaymentRequestService {
       paidAt: Number(r[17]),
       rejectionReason: r[18],
       disputeCaseId: r[19],
-    }));
+    }))
   }
 
   // ============ Helpers ============
@@ -575,8 +626,8 @@ export class PaymentRequestService {
       EVENTS: 'Events',
       INFRASTRUCTURE: 'Infrastructure',
       OTHER: 'Other',
-    };
-    return names[category];
+    }
+    return names[category]
   }
 
   getStatusDisplayName(status: PaymentRequestStatus): string {
@@ -589,28 +640,27 @@ export class PaymentRequestService {
       PAID: 'Paid',
       DISPUTED: 'Disputed',
       CANCELLED: 'Cancelled',
-    };
-    return names[status];
+    }
+    return names[status]
   }
 }
 
 // ============ Singleton Export ============
 
-let service: PaymentRequestService | null = null;
+let service: PaymentRequestService | null = null
 
 export function getPaymentRequestService(
-  config?: PaymentRequestServiceConfig
+  config?: PaymentRequestServiceConfig,
 ): PaymentRequestService {
   if (!service && config) {
-    service = new PaymentRequestService(config);
+    service = new PaymentRequestService(config)
   }
   if (!service) {
-    throw new Error('PaymentRequestService not initialized');
+    throw new Error('PaymentRequestService not initialized')
   }
-  return service;
+  return service
 }
 
 export function resetPaymentRequestService(): void {
-  service = null;
+  service = null
 }
-

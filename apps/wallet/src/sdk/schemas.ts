@@ -1,26 +1,31 @@
 /**
  * Zod Schemas for SDK Types
- * 
+ *
  * Comprehensive validation schemas for all wallet SDK types.
  * These schemas enforce type safety and fail-fast validation.
  */
 
-import { z } from 'zod';
+import { z } from 'zod'
 import {
   AddressSchema,
-  HexSchema,
-  ChainIdSchema,
   BigIntSchema,
+  ChainIdSchema,
+  HexSchema,
   TimestampSchema,
-} from '../lib/validation';
+} from '../lib/validation'
 
 // ============================================================================
 // Base Schemas
 // ============================================================================
 
-const AccountTypeSchema = z.enum(['eoa', 'smart-account', 'multi-sig']);
+const AccountTypeSchema = z.enum(['eoa', 'smart-account', 'multi-sig'])
 
-const SmartAccountImplementationSchema = z.enum(['safe', 'kernel', 'light', 'jeju']);
+const SmartAccountImplementationSchema = z.enum([
+  'safe',
+  'kernel',
+  'light',
+  'jeju',
+])
 
 const SitePermissionSchema = z.enum([
   'eth_accounts',
@@ -30,13 +35,31 @@ const SitePermissionSchema = z.enum([
   'wallet_addEthereumChain',
   'personal_sign',
   'eth_signTypedData_v4',
-]);
+])
 
 // TransactionStatus, IntentStatus, VoucherStatus come from @jejunetwork/types
 // We'll validate them as strings matching expected values
-const TransactionStatusSchema = z.enum(['pending', 'submitted', 'confirmed', 'failed']);
-const IntentStatusSchema = z.enum(['pending', 'open', 'filled', 'settled', 'cancelled', 'expired']);
-const VoucherStatusSchema = z.enum(['pending', 'issued', 'fulfilled', 'expired', 'cancelled']);
+const TransactionStatusSchema = z.enum([
+  'pending',
+  'submitted',
+  'confirmed',
+  'failed',
+])
+const IntentStatusSchema = z.enum([
+  'pending',
+  'open',
+  'filled',
+  'settled',
+  'cancelled',
+  'expired',
+])
+const VoucherStatusSchema = z.enum([
+  'pending',
+  'issued',
+  'fulfilled',
+  'expired',
+  'cancelled',
+])
 
 // ============================================================================
 // Chain Config Schemas
@@ -46,25 +69,27 @@ export const NativeCurrencySchema = z.object({
   name: z.string().min(1),
   symbol: z.string().min(1),
   decimals: z.number().int().min(0).max(255),
-});
+})
 
 export const RpcUrlsSchema = z.object({
   default: z.object({
     http: z.array(z.string().url()).min(1),
     webSocket: z.array(z.string().url()).optional(),
   }),
-  jeju: z.object({
-    http: z.array(z.string().url()).min(1),
-    webSocket: z.array(z.string().url()).optional(),
-  }).optional(),
-});
+  jeju: z
+    .object({
+      http: z.array(z.string().url()).min(1),
+      webSocket: z.array(z.string().url()).optional(),
+    })
+    .optional(),
+})
 
 export const BlockExplorerSchema = z.object({
   default: z.object({
     name: z.string().min(1),
     url: z.string().url(),
   }),
-});
+})
 
 export const ChainConfigSchema = z.object({
   id: ChainIdSchema,
@@ -80,14 +105,14 @@ export const ChainConfigSchema = z.object({
   inputSettlerAddress: AddressSchema.optional(),
   outputSettlerAddress: AddressSchema.optional(),
   crossChainPaymasterAddress: AddressSchema.optional(),
-});
+})
 
 export const SolanaConfigSchema = z.object({
   name: z.string().min(1),
   cluster: z.enum(['mainnet-beta', 'testnet', 'devnet']),
   rpcUrl: z.string().url(),
   wsUrl: z.string().url().optional(),
-});
+})
 
 // ============================================================================
 // Account Schemas
@@ -99,7 +124,7 @@ export const AccountSchema = z.object({
   chainId: ChainIdSchema,
   label: z.string().optional(),
   isDefault: z.boolean().optional(),
-});
+})
 
 export const SmartAccountSchema = AccountSchema.extend({
   type: z.literal('smart-account'),
@@ -107,13 +132,13 @@ export const SmartAccountSchema = AccountSchema.extend({
   factoryAddress: AddressSchema,
   initCode: HexSchema.optional(),
   isDeployed: z.boolean(),
-});
+})
 
 export const SolanaAccountSchema = z.object({
   publicKey: z.string().min(1),
   label: z.string().optional(),
   isDefault: z.boolean().optional(),
-});
+})
 
 export const UnifiedAccountSchema = z.object({
   id: z.string().min(1),
@@ -121,7 +146,7 @@ export const UnifiedAccountSchema = z.object({
   evmAccounts: z.array(AccountSchema),
   solanaAccounts: z.array(SolanaAccountSchema),
   smartAccounts: z.array(SmartAccountSchema),
-});
+})
 
 // ============================================================================
 // Token Schemas
@@ -135,29 +160,30 @@ export const TokenSchema = z.object({
   decimals: z.number().int().min(0).max(255),
   logoUri: z.string().url().optional(),
   isNative: z.boolean().optional(),
-  bridgeInfo: z.record(
-    ChainIdSchema,
-    z.object({ tokenAddress: AddressSchema })
-  ).optional(),
-});
+  bridgeInfo: z
+    .record(ChainIdSchema, z.object({ tokenAddress: AddressSchema }))
+    .optional(),
+})
 
 export const TokenBalanceSchema = z.object({
   token: TokenSchema,
   balance: BigIntSchema,
   usdValue: z.number().nonnegative().optional(),
-});
+})
 
 export const AggregatedBalanceSchema = z.object({
   symbol: z.string().min(1),
   totalBalance: BigIntSchema,
   totalUsdValue: z.number().nonnegative(),
-  chains: z.array(z.object({
-    chainId: ChainIdSchema,
-    balance: BigIntSchema,
-    usdValue: z.number().nonnegative(),
-    token: TokenSchema,
-  })),
-});
+  chains: z.array(
+    z.object({
+      chainId: ChainIdSchema,
+      balance: BigIntSchema,
+      usdValue: z.number().nonnegative(),
+      token: TokenSchema,
+    }),
+  ),
+})
 
 // ============================================================================
 // Transaction Schemas
@@ -180,7 +206,7 @@ export const TransactionSchema = z.object({
   destinationChainId: ChainIdSchema.optional(),
   intentId: HexSchema.optional(),
   voucherId: HexSchema.optional(),
-});
+})
 
 // ============================================================================
 // Intent Schemas (OIF)
@@ -194,7 +220,7 @@ export const IntentRouteSchema = z.object({
   outputToken: AddressSchema,
   inputAmount: BigIntSchema,
   outputAmount: BigIntSchema,
-});
+})
 
 export const IntentSchema = z.object({
   id: HexSchema,
@@ -214,7 +240,7 @@ export const IntentSchema = z.object({
   txHash: HexSchema.optional(),
   fillTxHash: HexSchema.optional(),
   createdAt: TimestampSchema,
-});
+})
 
 export const IntentParamsSchema = z.object({
   inputToken: AddressSchema,
@@ -225,7 +251,7 @@ export const IntentParamsSchema = z.object({
   recipient: AddressSchema.optional(),
   maxFee: BigIntSchema.optional(),
   deadline: TimestampSchema.optional(),
-});
+})
 
 export const IntentQuoteSchema = z.object({
   inputToken: AddressSchema,
@@ -236,7 +262,7 @@ export const IntentQuoteSchema = z.object({
   route: z.array(IntentRouteSchema),
   estimatedTime: z.number().int().nonnegative(),
   priceImpact: z.number().min(-100).max(100),
-});
+})
 
 // ============================================================================
 // Voucher Schemas (EIL)
@@ -255,7 +281,7 @@ export const VoucherRequestSchema = z.object({
   feeIncrement: BigIntSchema,
   deadline: TimestampSchema,
   status: VoucherStatusSchema,
-});
+})
 
 export const VoucherSchema = z.object({
   id: HexSchema,
@@ -271,7 +297,7 @@ export const VoucherSchema = z.object({
   issuedBlock: z.number().int().nonnegative(),
   expiresBlock: z.number().int().nonnegative(),
   status: VoucherStatusSchema,
-});
+})
 
 // ============================================================================
 // Gas Schemas
@@ -284,7 +310,7 @@ export const GasOptionSchema = z.object({
   usdValue: z.number().nonnegative(),
   isPreferred: z.boolean().optional(),
   reason: z.string().optional(),
-});
+})
 
 export const GasEstimateSchema = z.object({
   gasLimit: BigIntSchema,
@@ -292,7 +318,7 @@ export const GasEstimateSchema = z.object({
   maxPriorityFeePerGas: BigIntSchema,
   totalCostEth: BigIntSchema,
   tokenOptions: z.array(GasOptionSchema),
-});
+})
 
 export const UserOperationSchema = z.object({
   sender: AddressSchema,
@@ -306,7 +332,7 @@ export const UserOperationSchema = z.object({
   maxPriorityFeePerGas: BigIntSchema,
   paymasterAndData: HexSchema,
   signature: HexSchema,
-});
+})
 
 // ============================================================================
 // Wallet State Schemas
@@ -318,7 +344,7 @@ export const ConnectedSiteSchema = z.object({
   icon: z.string().url().optional(),
   permissions: z.array(SitePermissionSchema),
   connectedAt: TimestampSchema,
-});
+})
 
 export const WalletStateSchema = z.object({
   isUnlocked: z.boolean(),
@@ -326,7 +352,7 @@ export const WalletStateSchema = z.object({
   activeAccountId: z.string().optional(),
   activeChainId: ChainIdSchema.optional(),
   connectedSites: z.array(ConnectedSiteSchema),
-});
+})
 
 // ============================================================================
 // Wallet Event Schemas
@@ -346,7 +372,7 @@ const WalletMessagePayloadSchema = z.discriminatedUnion('type', [
     code: z.number().int(),
     message: z.string(),
   }),
-]);
+])
 
 export const WalletEventSchema = z.discriminatedUnion('type', [
   z.object({
@@ -384,4 +410,4 @@ export const WalletEventSchema = z.discriminatedUnion('type', [
     type: z.literal('crossChainComplete'),
     transaction: TransactionSchema,
   }),
-]);
+])

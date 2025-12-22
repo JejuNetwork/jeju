@@ -1,11 +1,11 @@
 /**
  * MLS Types for Jeju Messaging
- * 
+ *
  * Type definitions for MLS-based group messaging.
  */
 
-import { z } from 'zod';
-import type { Address, Hex } from 'viem';
+import type { Address, Hex } from 'viem'
+import { z } from 'zod'
 
 // ============ Zod Schemas ============
 
@@ -15,13 +15,21 @@ export const MLSMessageSchema = z.object({
   senderId: z.string(),
   senderAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
   content: z.string(),
-  contentType: z.enum(['text', 'image', 'file', 'reaction', 'reply', 'transaction', 'agent_action']),
+  contentType: z.enum([
+    'text',
+    'image',
+    'file',
+    'reaction',
+    'reply',
+    'transaction',
+    'agent_action',
+  ]),
   timestamp: z.number(),
   replyTo: z.string().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
-});
+})
 
-export type MLSMessage = z.infer<typeof MLSMessageSchema>;
+export type MLSMessage = z.infer<typeof MLSMessageSchema>
 
 export const GroupInviteSchema = z.object({
   groupId: z.string(),
@@ -31,9 +39,9 @@ export const GroupInviteSchema = z.object({
   memberCount: z.number(),
   expiresAt: z.number(),
   code: z.string(),
-});
+})
 
-export type GroupInvite = z.infer<typeof GroupInviteSchema>;
+export type GroupInvite = z.infer<typeof GroupInviteSchema>
 
 export const GroupMetadataSchema = z.object({
   id: z.string(),
@@ -43,166 +51,166 @@ export const GroupMetadataSchema = z.object({
   createdBy: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
   createdAt: z.number(),
   memberCount: z.number(),
-});
+})
 
-export type GroupMetadata = z.infer<typeof GroupMetadataSchema>;
+export type GroupMetadata = z.infer<typeof GroupMetadataSchema>
 
 // ============ Client Types ============
 
 export interface MLSClientConfig {
   /** Wallet address */
-  address: Address;
+  address: Address
   /** Key registry contract address */
-  keyRegistryAddress: Address;
+  keyRegistryAddress: Address
   /** Relay URL for message transport */
-  relayUrl: string;
+  relayUrl: string
   /** RPC URL for chain interaction */
-  rpcUrl: string;
+  rpcUrl: string
   /** Network (mainnet | testnet) */
-  network: 'mainnet' | 'testnet';
+  network: 'mainnet' | 'testnet'
   /** Enable persistence */
-  persistenceEnabled?: boolean;
+  persistenceEnabled?: boolean
   /** Persistence directory */
-  persistenceDir?: string;
+  persistenceDir?: string
 }
 
 export interface MLSClientState {
   /** Client address */
-  address: Address;
+  address: Address
   /** Is initialized */
-  isInitialized: boolean;
+  isInitialized: boolean
   /** Number of groups */
-  groupCount: number;
+  groupCount: number
   /** Last sync time */
-  lastSyncAt: number;
+  lastSyncAt: number
 }
 
 // ============ Group Types ============
 
 export interface GroupConfig {
   /** Group name */
-  name: string;
+  name: string
   /** Group description */
-  description?: string;
+  description?: string
   /** Group image URL */
-  imageUrl?: string;
+  imageUrl?: string
   /** Initial members (addresses) */
-  members: Address[];
+  members: Address[]
   /** Group admins */
-  admins?: Address[];
+  admins?: Address[]
 }
 
 export interface GroupMember {
   /** Member address */
-  address: Address;
+  address: Address
   /** Is admin */
-  isAdmin: boolean;
+  isAdmin: boolean
   /** Join time */
-  joinedAt: number;
+  joinedAt: number
   /** Added by */
-  addedBy: Address;
+  addedBy: Address
   /** Installation IDs */
-  installationIds: Uint8Array[];
+  installationIds: Uint8Array[]
 }
 
 export interface GroupState {
   /** Group ID */
-  id: string;
+  id: string
   /** MLS group ID (bytes) */
-  mlsGroupId: Uint8Array;
+  mlsGroupId: Uint8Array
   /** Metadata */
-  metadata: GroupMetadata;
+  metadata: GroupMetadata
   /** Members */
-  members: GroupMember[];
+  members: GroupMember[]
   /** Is active */
-  isActive: boolean;
+  isActive: boolean
   /** Last message time */
-  lastMessageAt?: number;
+  lastMessageAt?: number
   /** Unread count */
-  unreadCount: number;
+  unreadCount: number
 }
 
 // ============ Message Types ============
 
 export interface SendOptions {
   /** Content type */
-  contentType?: string;
+  contentType?: string
   /** Reply to message ID */
-  replyTo?: string;
+  replyTo?: string
   /** Additional metadata */
-  metadata?: Record<string, string>;
+  metadata?: Record<string, string>
   /** Priority (for ordering) */
-  priority?: 'normal' | 'high';
+  priority?: 'normal' | 'high'
 }
 
 export interface FetchOptions {
   /** Limit number of messages */
-  limit?: number;
+  limit?: number
   /** Start from message ID */
-  after?: string;
+  after?: string
   /** End at message ID */
-  before?: string;
+  before?: string
   /** Direction */
-  direction?: 'asc' | 'desc';
+  direction?: 'asc' | 'desc'
 }
 
 // ============ Content Types ============
 
 export interface TextContent {
-  type: 'text';
-  text: string;
+  type: 'text'
+  text: string
 }
 
 export interface ImageContent {
-  type: 'image';
-  url: string;
-  width: number;
-  height: number;
-  mimeType: string;
-  blurhash?: string;
-  alt?: string;
+  type: 'image'
+  url: string
+  width: number
+  height: number
+  mimeType: string
+  blurhash?: string
+  alt?: string
 }
 
 export interface FileContent {
-  type: 'file';
-  url: string;
-  name: string;
-  size: number;
-  mimeType: string;
+  type: 'file'
+  url: string
+  name: string
+  size: number
+  mimeType: string
 }
 
 export interface ReactionContent {
-  type: 'reaction';
-  emoji: string;
-  messageId: string;
-  action: 'add' | 'remove';
+  type: 'reaction'
+  emoji: string
+  messageId: string
+  action: 'add' | 'remove'
 }
 
 export interface ReplyContent {
-  type: 'reply';
-  text: string;
-  replyToId: string;
-  replyToContent?: string;
-  replyToSender?: Address;
+  type: 'reply'
+  text: string
+  replyToId: string
+  replyToContent?: string
+  replyToSender?: Address
 }
 
 export interface TransactionContent {
-  type: 'transaction';
-  chainId: number;
-  txHash: Hex;
-  status: 'pending' | 'confirmed' | 'failed';
-  description?: string;
-  amount?: string;
-  token?: string;
+  type: 'transaction'
+  chainId: number
+  txHash: Hex
+  status: 'pending' | 'confirmed' | 'failed'
+  description?: string
+  amount?: string
+  token?: string
 }
 
 export interface AgentActionContent {
-  type: 'agent_action';
-  agentId: number;
-  action: string;
-  params: Record<string, string | number | boolean>;
-  status: 'pending' | 'completed' | 'failed';
-  result?: string;
+  type: 'agent_action'
+  agentId: number
+  action: string
+  params: Record<string, string | number | boolean>
+  status: 'pending' | 'completed' | 'failed'
+  result?: string
 }
 
 export type MessageContent =
@@ -212,55 +220,59 @@ export type MessageContent =
   | ReactionContent
   | ReplyContent
   | TransactionContent
-  | AgentActionContent;
+  | AgentActionContent
 
 // ============ Event Types ============
 
 export interface MLSEvent {
-  type: 'message' | 'member_added' | 'member_removed' | 'group_created' | 'group_updated';
-  groupId: string;
-  timestamp: number;
+  type:
+    | 'message'
+    | 'member_added'
+    | 'member_removed'
+    | 'group_created'
+    | 'group_updated'
+  groupId: string
+  timestamp: number
 }
 
 export interface MessageEvent extends MLSEvent {
-  type: 'message';
-  message: MLSMessage;
+  type: 'message'
+  message: MLSMessage
 }
 
 export interface MemberEvent extends MLSEvent {
-  type: 'member_added' | 'member_removed';
-  member: Address;
-  actor: Address;
+  type: 'member_added' | 'member_removed'
+  member: Address
+  actor: Address
 }
 
 export interface GroupEvent extends MLSEvent {
-  type: 'group_created' | 'group_updated';
-  metadata: GroupMetadata;
+  type: 'group_created' | 'group_updated'
+  metadata: GroupMetadata
 }
 
-export type MLSEventData = MessageEvent | MemberEvent | GroupEvent;
+export type MLSEventData = MessageEvent | MemberEvent | GroupEvent
 
 // ============ Sync Types ============
 
 export interface SyncResult {
   /** Number of new messages */
-  newMessages: number;
+  newMessages: number
   /** Number of groups synced */
-  groupsSynced: number;
+  groupsSynced: number
   /** Errors encountered */
-  errors: string[];
+  errors: string[]
   /** Sync duration ms */
-  durationMs: number;
+  durationMs: number
 }
 
 export interface DeviceInfo {
   /** Installation ID */
-  installationId: Uint8Array;
+  installationId: Uint8Array
   /** Device type */
-  deviceType: 'desktop' | 'mobile' | 'web';
+  deviceType: 'desktop' | 'mobile' | 'web'
   /** Last active */
-  lastActiveAt: number;
+  lastActiveAt: number
   /** Device name */
-  name?: string;
+  name?: string
 }
-

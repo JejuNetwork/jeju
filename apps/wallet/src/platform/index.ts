@@ -3,11 +3,11 @@
  */
 
 // Global type declarations
-import './globals.d.ts';
+import './globals.d.ts'
 
-export * from './types';
-export * from './detection';
-export * from './storage';
-export * from './secure-storage';
-export * from './iap';
-export * from './deep-links';
+export * from './deep-links'
+export * from './detection'
+export * from './iap'
+export * from './secure-storage'
+export * from './storage'
+export * from './types'

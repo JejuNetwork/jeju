@@ -1,32 +1,40 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { validateQuery, validateBody, requireAuth } from '@/lib/validation';
-import { getAgentsQuerySchema, createAgentSchema } from '@/lib/validation/schemas';
-import { crucibleService } from '@/lib/services/crucible';
-import type { Agent } from '@/types';
+import { type NextRequest, NextResponse } from 'next/server'
+import { crucibleService } from '@/lib/services/crucible'
+import { requireAuth, validateBody, validateQuery } from '@/lib/validation'
+import {
+  createAgentSchema,
+  getAgentsQuerySchema,
+} from '@/lib/validation/schemas'
+import type { Agent } from '@/types'
 
 // GET /api/agents - List all agents
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const query = validateQuery(getAgentsQuerySchema, searchParams);
+  const { searchParams } = new URL(request.url)
+  const query = validateQuery(getAgentsQuerySchema, searchParams)
 
   const agents = await crucibleService.getAgents({
     capability: query.q,
-    active: query.status === 'active' ? true : query.status === 'inactive' ? false : undefined,
-  });
+    active:
+      query.status === 'active'
+        ? true
+        : query.status === 'inactive'
+          ? false
+          : undefined,
+  })
 
-  return NextResponse.json(agents);
+  return NextResponse.json(agents)
 }
 
 // POST /api/agents - Deploy a new agent
 // Requires authentication - only authenticated users can deploy agents
 export async function POST(request: NextRequest) {
   // Verify authentication for state-changing operation
-  const authResult = await requireAuth(request);
+  const authResult = await requireAuth(request)
   if ('error' in authResult) {
-    return authResult.error;
+    return authResult.error
   }
-  
-  const body = await validateBody(createAgentSchema, request.json());
+
+  const body = await validateBody(createAgentSchema, request.json())
 
   // Note: crucibleService doesn't have deployAgent method
   // In production, this would call the actual agent deployment method
@@ -47,8 +55,7 @@ export async function POST(request: NextRequest) {
     capabilities: [],
     specializations: [],
     reputation: 0,
-  };
+  }
 
-  return NextResponse.json(mockAgent, { status: 201 });
+  return NextResponse.json(mockAgent, { status: 201 })
 }
-

@@ -3,34 +3,42 @@
  * Uses @jejunetwork/shared for ban checking
  */
 
-import type { Context, Next } from 'hono';
-import type { Address } from 'viem';
 import {
-  BanChecker,
   type BanCheckConfig,
+  BanChecker,
   type BanCheckResult,
-} from '@jejunetwork/shared';
-import { z } from 'zod';
+} from '@jejunetwork/shared'
+import type { Context, Next } from 'hono'
+import type { Address } from 'viem'
+import { z } from 'zod'
 
 // Schema for address extraction from request body
-const AddressBodySchema = z.object({
-  address: z.string().optional(),
-  from: z.string().optional(),
-  sender: z.string().optional(),
-  agentOwner: z.string().optional(),
-}).passthrough(); // Allow other fields but only validate address-related ones
+const AddressBodySchema = z
+  .object({
+    address: z.string().optional(),
+    from: z.string().optional(),
+    sender: z.string().optional(),
+    agentOwner: z.string().optional(),
+  })
+  .passthrough() // Allow other fields but only validate address-related ones
 
 // Get config from environment
-const BAN_MANAGER_ADDRESS = process.env.BAN_MANAGER_ADDRESS as Address | undefined;
-const MODERATION_MARKETPLACE_ADDRESS = process.env.MODERATION_MARKETPLACE_ADDRESS as Address | undefined;
-const RPC_URL = process.env.RPC_URL || 'http://localhost:8545';
-const NETWORK = (process.env.NETWORK || 'localnet') as 'mainnet' | 'testnet' | 'localnet';
+const BAN_MANAGER_ADDRESS = process.env.BAN_MANAGER_ADDRESS as
+  | Address
+  | undefined
+const MODERATION_MARKETPLACE_ADDRESS = process.env
+  .MODERATION_MARKETPLACE_ADDRESS as Address | undefined
+const RPC_URL = process.env.RPC_URL || 'http://localhost:8545'
+const NETWORK = (process.env.NETWORK || 'localnet') as
+  | 'mainnet'
+  | 'testnet'
+  | 'localnet'
 
 // Skip paths that don't need ban checking
-const SKIP_PATHS = ['/health', '/info', '/metrics', '/.well-known'];
+const SKIP_PATHS = ['/health', '/info', '/metrics', '/.well-known']
 
 // Create checker only if ban manager is configured
-let checker: BanChecker | null = null;
+let checker: BanChecker | null = null
 
 if (BAN_MANAGER_ADDRESS) {
   const config: BanCheckConfig = {
@@ -40,8 +48,8 @@ if (BAN_MANAGER_ADDRESS) {
     network: NETWORK,
     cacheTtlMs: 30000,
     failClosed: true,
-  };
-  checker = new BanChecker(config);
+  }
+  checker = new BanChecker(config)
 }
 
 /**
@@ -51,26 +59,30 @@ export function banCheckMiddleware() {
   return async (c: Context, next: Next) => {
     // Skip if no ban manager configured (local dev)
     if (!checker) {
-      return next();
+      return next()
     }
 
     // Skip certain paths
-    if (SKIP_PATHS.some(path => c.req.path.startsWith(path))) {
-      return next();
+    if (SKIP_PATHS.some((path) => c.req.path.startsWith(path))) {
+      return next()
     }
 
     // Extract address from various sources
-    let address = c.req.header('x-wallet-address') || c.req.query('address');
-    
+    let address = c.req.header('x-wallet-address') || c.req.query('address')
+
     if (!address) {
       // Try to get from JSON body with schema validation
-      const contentType = c.req.header('content-type') || '';
+      const contentType = c.req.header('content-type') || ''
       if (contentType.includes('application/json')) {
-        const rawBody = await c.req.json().catch(() => null);
+        const rawBody = await c.req.json().catch(() => null)
         if (rawBody !== null) {
-          const parsed = AddressBodySchema.safeParse(rawBody);
+          const parsed = AddressBodySchema.safeParse(rawBody)
           if (parsed.success) {
-            address = parsed.data.address || parsed.data.from || parsed.data.sender || parsed.data.agentOwner;
+            address =
+              parsed.data.address ||
+              parsed.data.from ||
+              parsed.data.sender ||
+              parsed.data.agentOwner
           }
         }
       }
@@ -78,41 +90,47 @@ export function banCheckMiddleware() {
 
     // No address to check - allow through
     if (!address) {
-      return next();
+      return next()
     }
 
     // Validate address format
     if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
-      return next();
+      return next()
     }
 
-    const result = await checker.checkBan(address as Address);
+    const result = await checker.checkBan(address as Address)
 
     if (!result.allowed) {
-      return c.json({
-        error: 'BANNED',
-        message: result.status?.reason || 'User is banned from Crucible services',
-        banType: result.status?.banType,
-        caseId: result.status?.caseId,
-        canAppeal: result.status?.canAppeal,
-      }, 403);
+      return c.json(
+        {
+          error: 'BANNED',
+          message:
+            result.status?.reason || 'User is banned from Crucible services',
+          banType: result.status?.banType,
+          caseId: result.status?.caseId,
+          canAppeal: result.status?.canAppeal,
+        },
+        403,
+      )
     }
 
-    return next();
-  };
+    return next()
+  }
 }
 
 /**
  * Check ban status directly
  */
-export async function checkBan(address: Address): Promise<BanCheckResult | null> {
-  if (!checker) return null;
-  return checker.checkBan(address);
+export async function checkBan(
+  address: Address,
+): Promise<BanCheckResult | null> {
+  if (!checker) return null
+  return checker.checkBan(address)
 }
 
 /**
  * Clear ban cache
  */
 export function clearBanCache(address?: Address): void {
-  checker?.clearCache(address);
+  checker?.clearCache(address)
 }

@@ -1,32 +1,32 @@
 /**
  * Zod Schemas for Autocrat App
- * 
+ *
  * Comprehensive validation schemas for all types, routes, and endpoints.
  * Uses shared base schemas from @jejunetwork/types/validation.
  */
 
-import { z } from 'zod';
-import { AddressSchema } from '@jejunetwork/types';
 import {
+  AddressSchema,
   BigIntSchema,
-  HexSchema,
   HashSchema,
-} from '@jejunetwork/types';
+  HexSchema,
+} from '@jejunetwork/types'
+import { z } from 'zod'
 
 // Re-export shared schemas and helpers for convenience
 export {
   BigIntSchema,
-  expectValid,
-  expectValid as validateOrThrow,
   expectDefined,
   expectTrue as expect,
-} from '@jejunetwork/types';
+  expectValid,
+  expectValid as validateOrThrow,
+} from '@jejunetwork/types'
 
 // ============ Base Schemas ============
 
-export const HexStringSchema = HexSchema;
-export const ProposalIdSchema = HashSchema; // 0x + 64 hex chars (32-byte hash)
-export const Bytes32Schema = HashSchema;
+export const HexStringSchema = HexSchema
+export const ProposalIdSchema = HashSchema // 0x + 64 hex chars (32-byte hash)
+export const Bytes32Schema = HashSchema
 
 // ============ Enum Schemas ============
 
@@ -35,7 +35,7 @@ export const DAOStatusSchema = z.nativeEnum({
   ACTIVE: 1,
   PAUSED: 2,
   ARCHIVED: 3,
-});
+})
 
 export const ProposalStatusSchema = z.nativeEnum({
   DRAFT: 0,
@@ -52,7 +52,7 @@ export const ProposalStatusSchema = z.nativeEnum({
   VETOED: 11,
   DUPLICATE: 12,
   SPAM: 13,
-});
+})
 
 export const ProposalTypeSchema = z.nativeEnum({
   PARAMETER_CHANGE: 0,
@@ -65,7 +65,7 @@ export const ProposalTypeSchema = z.nativeEnum({
   PARTNERSHIP: 7,
   POLICY: 8,
   EMERGENCY: 9,
-});
+})
 
 export const CasualProposalCategorySchema = z.enum([
   'opinion',
@@ -76,7 +76,7 @@ export const CasualProposalCategorySchema = z.enum([
   'repo_funding',
   'parameter_change',
   'ceo_model_change',
-]);
+])
 
 export const FundingStatusSchema = z.nativeEnum({
   PROPOSED: 0,
@@ -85,21 +85,21 @@ export const FundingStatusSchema = z.nativeEnum({
   PAUSED: 3,
   COMPLETED: 4,
   REJECTED: 5,
-});
+})
 
 export const CouncilRoleSchema = z.nativeEnum({
   TREASURY: 0,
   CODE: 1,
   COMMUNITY: 2,
   SECURITY: 3,
-});
+})
 
 export const VoteTypeSchema = z.nativeEnum({
   APPROVE: 0,
   REJECT: 1,
   ABSTAIN: 2,
   REQUEST_CHANGES: 3,
-});
+})
 
 export const VetoCategorySchema = z.nativeEnum({
   ALREADY_DONE: 0,
@@ -109,7 +109,7 @@ export const VetoCategorySchema = z.nativeEnum({
   MISALIGNED: 4,
   INSUFFICIENT_INFO: 5,
   OTHER: 6,
-});
+})
 
 export const CommunicationToneSchema = z.enum([
   'formal',
@@ -117,27 +117,18 @@ export const CommunicationToneSchema = z.enum([
   'professional',
   'playful',
   'authoritative',
-]);
+])
 
 export const SentimentSchema = z.enum([
   'positive',
   'negative',
   'neutral',
   'concern',
-]);
+])
 
-export const RiskLevelSchema = z.enum([
-  'low',
-  'medium',
-  'high',
-  'critical',
-]);
+export const RiskLevelSchema = z.enum(['low', 'medium', 'high', 'critical'])
 
-export const RecommendationSchema = z.enum([
-  'proceed',
-  'reject',
-  'modify',
-]);
+export const RecommendationSchema = z.enum(['proceed', 'reject', 'modify'])
 
 export const CasualStatusSchema = z.enum([
   'pending',
@@ -145,27 +136,23 @@ export const CasualStatusSchema = z.enum([
   'accepted',
   'rejected',
   'needs_revision',
-]);
+])
 
-export const ModelStatusSchema = z.enum([
-  'candidate',
-  'active',
-  'deprecated',
-]);
+export const ModelStatusSchema = z.enum(['candidate', 'active', 'deprecated'])
 
 export const DeliberationOutcomeSchema = z.enum([
   'approve',
   'reject',
   'request_changes',
   'pending',
-]);
+])
 
 export const ExecutionStepStatusSchema = z.enum([
   'pending',
   'executing',
   'completed',
   'failed',
-]);
+])
 
 // ============ Bug Bounty Schemas ============
 
@@ -174,7 +161,7 @@ export const BountySeveritySchema = z.nativeEnum({
   MEDIUM: 1,
   HIGH: 2,
   CRITICAL: 3,
-});
+})
 
 export const VulnerabilityTypeSchema = z.nativeEnum({
   FUNDS_AT_RISK: 0,
@@ -187,7 +174,7 @@ export const VulnerabilityTypeSchema = z.nativeEnum({
   DENIAL_OF_SERVICE: 7,
   INFORMATION_DISCLOSURE: 8,
   OTHER: 9,
-});
+})
 
 export const BountySubmissionStatusSchema = z.nativeEnum({
   PENDING: 0,
@@ -198,13 +185,13 @@ export const BountySubmissionStatusSchema = z.nativeEnum({
   REJECTED: 5,
   PAID: 6,
   WITHDRAWN: 7,
-});
+})
 
 export const ValidationResultSchema = z.nativeEnum({
   VALID: 0,
   INVALID: 1,
   NEEDS_REVIEW: 2,
-});
+})
 
 // ============ Core Type Schemas ============
 
@@ -217,7 +204,7 @@ export const CEOPersonaSchema = z.object({
   voiceStyle: z.string().min(5).max(100),
   communicationTone: CommunicationToneSchema,
   specialties: z.array(z.string().min(1)).min(1).max(10),
-});
+})
 
 export const CouncilMemberConfigSchema = z.object({
   member: AddressSchema,
@@ -226,7 +213,7 @@ export const CouncilMemberConfigSchema = z.object({
   weight: z.number().int().min(0).max(10000),
   addedAt: z.number().int().positive(),
   isActive: z.boolean(),
-});
+})
 
 export const GovernanceParamsSchema = z.object({
   minQualityScore: z.number().int().min(0).max(100),
@@ -238,7 +225,7 @@ export const GovernanceParamsSchema = z.object({
   minStakeForVeto: BigIntSchema.optional(),
   vetoThreshold: z.number().int().min(0).max(10000).optional(),
   quorumBps: z.number().int().min(0).max(10000),
-});
+})
 
 export const FundingConfigSchema = z.object({
   minStake: BigIntSchema,
@@ -248,7 +235,7 @@ export const FundingConfigSchema = z.object({
   matchingMultiplier: z.number().int().min(0).max(100000),
   quadraticEnabled: z.boolean(),
   ceoWeightCap: z.number().int().min(0).max(10000),
-});
+})
 
 export const DAOContractsSchema = z.object({
   council: AddressSchema,
@@ -262,7 +249,7 @@ export const DAOContractsSchema = z.object({
   packageRegistry: AddressSchema,
   repoRegistry: AddressSchema,
   modelRegistry: AddressSchema,
-});
+})
 
 export const AgentConfigSchema = z.object({
   id: z.string().min(1).max(100),
@@ -271,7 +258,7 @@ export const AgentConfigSchema = z.object({
   endpoint: z.string().url(),
   systemPrompt: z.string().min(10).max(5000),
   persona: CEOPersonaSchema.optional(),
-});
+})
 
 export const DAOAgentsSchema = z.object({
   ceo: AgentConfigSchema,
@@ -279,7 +266,7 @@ export const DAOAgentsSchema = z.object({
   proposalAgent: AgentConfigSchema,
   researchAgent: AgentConfigSchema,
   fundingAgent: AgentConfigSchema,
-});
+})
 
 export const DAOSchema = z.object({
   daoId: z.string().min(1).max(100),
@@ -296,7 +283,7 @@ export const DAOSchema = z.object({
   createdAt: z.number().int().positive(),
   updatedAt: z.number().int().positive(),
   creator: AddressSchema,
-});
+})
 
 export const DAOFullSchema = z.object({
   dao: DAOSchema,
@@ -305,7 +292,7 @@ export const DAOFullSchema = z.object({
   councilMembers: z.array(CouncilMemberConfigSchema),
   linkedPackages: z.array(z.string().min(1)),
   linkedRepos: z.array(z.string().min(1)),
-});
+})
 
 // ============ Proposal Schemas ============
 
@@ -318,11 +305,14 @@ export const ProposalDraftSchema = z.object({
   casualCategory: CasualProposalCategorySchema.optional(),
   targetContract: AddressSchema.optional(),
   calldata: HexStringSchema.optional(),
-  value: z.union([BigIntSchema, z.string()]).optional().transform((val) => typeof val === 'bigint' ? val.toString() : val),
+  value: z
+    .union([BigIntSchema, z.string()])
+    .optional()
+    .transform((val) => (typeof val === 'bigint' ? val.toString() : val)),
   tags: z.array(z.string().min(1).max(50)).max(20).optional(),
   linkedPackageId: z.string().min(1).optional(),
   linkedRepoId: z.string().min(1).optional(),
-});
+})
 
 export const QualityCriteriaSchema = z.object({
   clarity: z.number().int().min(0).max(100),
@@ -332,7 +322,7 @@ export const QualityCriteriaSchema = z.object({
   impact: z.number().int().min(0).max(100),
   riskAssessment: z.number().int().min(0).max(100),
   costBenefit: z.number().int().min(0).max(100),
-});
+})
 
 export const QualityAssessmentSchema = z.object({
   overallScore: z.number().int().min(0).max(100),
@@ -341,7 +331,7 @@ export const QualityAssessmentSchema = z.object({
   suggestions: z.array(z.string().min(1)),
   blockers: z.array(z.string().min(1)),
   readyToSubmit: z.boolean(),
-});
+})
 
 export const CouncilVoteSchema = z.object({
   proposalId: ProposalIdSchema,
@@ -354,14 +344,14 @@ export const CouncilVoteSchema = z.object({
   requirements: z.array(z.string().min(1)),
   votedAt: z.number().int().positive(),
   weight: z.number().int().min(0).max(10000),
-});
+})
 
 export const ResearchSectionSchema = z.object({
   title: z.string().min(1).max(200),
   content: z.string().min(50).max(5000),
   sources: z.array(z.string().url()),
   confidence: z.number().int().min(0).max(100),
-});
+})
 
 export const ResearchReportSchema = z.object({
   proposalId: ProposalIdSchema,
@@ -385,7 +375,7 @@ export const ResearchReportSchema = z.object({
   concerns: z.array(z.string().min(1)),
   alternatives: z.array(z.string().min(1)),
   ipfsHash: z.string().min(1),
-});
+})
 
 export const CEODecisionSchema = z.object({
   proposalId: ProposalIdSchema,
@@ -400,7 +390,7 @@ export const CEODecisionSchema = z.object({
   confidence: z.number().int().min(0).max(100),
   alignmentScore: z.number().int().min(0).max(100),
   personaResponse: z.string().min(10).max(2000),
-});
+})
 
 export const VetoVoteSchema = z.object({
   proposalId: ProposalIdSchema,
@@ -412,7 +402,7 @@ export const VetoVoteSchema = z.object({
   stakedAmount: BigIntSchema,
   reputationWeight: z.number().int().min(0).max(10000),
   votedAt: z.number().int().positive(),
-});
+})
 
 export const ProposalCommentSchema = z.object({
   proposalId: ProposalIdSchema,
@@ -427,14 +417,14 @@ export const ProposalCommentSchema = z.object({
   parentCommentId: ProposalIdSchema.nullable(),
   upvotes: z.number().int().nonnegative(),
   downvotes: z.number().int().nonnegative(),
-});
+})
 
 export const CasualSubmissionSchema = z.object({
   daoId: z.string().min(1).max(100),
   category: CasualProposalCategorySchema,
   title: z.string().min(10).max(200),
   content: z.string().min(200).max(10000),
-});
+})
 
 export const AIAssessmentSchema = z.object({
   isAligned: z.boolean(),
@@ -448,7 +438,7 @@ export const AIAssessmentSchema = z.object({
   recommendedCategory: CasualProposalCategorySchema,
   shouldAccept: z.boolean(),
   overallFeedback: z.string().min(10).max(2000),
-});
+})
 
 // ============ Bug Bounty Type Schemas ============
 
@@ -463,7 +453,7 @@ export const BountySubmissionDraftSchema = z.object({
   proofOfConcept: z.string().min(0).max(50000).optional(),
   suggestedFix: z.string().min(0).max(5000).optional(),
   impact: z.string().min(0).max(2000).optional(),
-});
+})
 
 export const BountyGuardianVoteSchema = z.object({
   submissionId: z.string().min(1),
@@ -473,101 +463,116 @@ export const BountyGuardianVoteSchema = z.object({
   suggestedReward: BigIntSchema,
   feedback: z.string().min(10).max(2000),
   votedAt: z.number().int().positive(),
-});
+})
 
 // ============ API Request Schemas ============
 
-export const AssessProposalRequestSchema = ProposalDraftSchema;
+export const AssessProposalRequestSchema = ProposalDraftSchema
 
 export const ImproveProposalRequestSchema = z.object({
   draft: ProposalDraftSchema,
-  criterion: z.enum(['clarity', 'completeness', 'feasibility', 'alignment', 'impact', 'riskAssessment', 'costBenefit']),
-});
+  criterion: z.enum([
+    'clarity',
+    'completeness',
+    'feasibility',
+    'alignment',
+    'impact',
+    'riskAssessment',
+    'costBenefit',
+  ]),
+})
 
 export const GenerateProposalRequestSchema = z.object({
   idea: z.string().min(20).max(2000),
   proposalType: ProposalTypeSchema.optional(),
-});
+})
 
 export const ResearchRequestSchema = z.object({
   proposalId: ProposalIdSchema,
   title: z.string().min(10).max(200),
   description: z.string().min(200).max(10000),
-});
+})
 
 export const FactCheckRequestSchema = z.object({
   claim: z.string().min(10).max(2000),
   context: z.string().min(0).max(5000).optional(),
-});
+})
 
 export const AgentRegisterRequestSchema = z.object({
   name: z.string().min(1).max(100),
   role: z.string().min(1).max(100),
   a2aEndpoint: z.string().url().optional(),
   mcpEndpoint: z.string().url().optional(),
-});
+})
 
 export const AgentFeedbackRequestSchema = z.object({
   score: z.number().int().min(0).max(100),
   tag: z.string().min(1).max(50),
   details: z.string().min(0).max(2000).optional(),
-});
+})
 
 export const FutarchyEscalateRequestSchema = z.object({
   proposalId: ProposalIdSchema,
-});
+})
 
 export const FutarchyResolveRequestSchema = z.object({
   proposalId: ProposalIdSchema,
-});
+})
 
 export const FutarchyExecuteRequestSchema = z.object({
   proposalId: ProposalIdSchema,
-});
+})
 
 export const ModerationFlagRequestSchema = z.object({
   proposalId: ProposalIdSchema,
   flagger: AddressSchema,
-  flagType: z.enum(['spam', 'duplicate', 'harmful', 'misaligned', 'insufficient_info', 'other']),
+  flagType: z.enum([
+    'spam',
+    'duplicate',
+    'harmful',
+    'misaligned',
+    'insufficient_info',
+    'other',
+  ]),
   reason: z.string().min(10).max(2000),
   stake: z.number().int().min(0).max(1000000),
   evidence: z.string().url().optional(),
-});
+})
 
 export const ModerationVoteRequestSchema = z.object({
   flagId: z.string().min(1),
   voter: AddressSchema,
   upvote: z.boolean(),
-});
+})
 
 export const ModerationResolveRequestSchema = z.object({
   flagId: z.string().min(1),
   upheld: z.boolean(),
-});
+})
 
 export const CasualAssessRequestSchema = z.object({
   category: CasualProposalCategorySchema,
   title: z.string().min(10).max(200),
   content: z.string().min(200).max(10000),
-});
+})
 
 export const CasualHelpRequestSchema = z.object({
   category: CasualProposalCategorySchema,
   content: z.string().min(0).max(10000).optional(),
-});
+})
 
 export const OrchestratorActiveRequestSchema = z.object({
   active: z.boolean(),
-});
+})
 
 export const RegistryProfilesRequestSchema = z.object({
   agentIds: z.array(z.string().min(1)).min(1).max(100),
-});
+})
 
 export const BugBountySubmitRequestSchema = BountySubmissionDraftSchema.extend({
   researcher: AddressSchema.optional(),
   researcherAgentId: z.string().min(1).optional(),
-});
+})
 
 export const BugBountyVoteRequestSchema = z.object({
   guardian: AddressSchema,
@@ -575,26 +580,26 @@ export const BugBountyVoteRequestSchema = z.object({
   approved: z.boolean(),
   suggestedReward: z.string().min(1),
   feedback: z.string().min(10).max(2000),
-});
+})
 
 export const BugBountyCEODecisionRequestSchema = z.object({
   approved: z.boolean(),
   rewardAmount: z.string().min(1),
   notes: z.string().min(10).max(2000),
-});
+})
 
 export const BugBountyFixRequestSchema = z.object({
   commitHash: z.string().regex(/^[a-f0-9]{40}$/),
-});
+})
 
 export const BugBountyDiscloseRequestSchema = z.object({
   researcher: AddressSchema,
-});
+})
 
 export const BugBountyCompleteValidationRequestSchema = z.object({
   result: ValidationResultSchema,
   notes: z.string().min(1).max(5000),
-});
+})
 
 // ============ A2A Request Schemas ============
 
@@ -605,33 +610,39 @@ export const A2AMessageSchema = z.object({
   params: z.object({
     message: z.object({
       messageId: z.string().min(1),
-      parts: z.array(z.union([
-        z.object({
-          kind: z.literal('text'),
-          text: z.string().min(1),
-        }),
-        z.object({
-          kind: z.literal('data'),
-          data: z.object({
-            skillId: z.string().min(1),
-            params: z.record(z.string(), z.unknown()).optional(),
-          }),
-        }),
-      ])).min(1),
+      parts: z
+        .array(
+          z.union([
+            z.object({
+              kind: z.literal('text'),
+              text: z.string().min(1),
+            }),
+            z.object({
+              kind: z.literal('data'),
+              data: z.object({
+                skillId: z.string().min(1),
+                params: z.record(z.string(), z.unknown()).optional(),
+              }),
+            }),
+          ]),
+        )
+        .min(1),
     }),
   }),
-});
+})
 
 export const A2AChatParamsSchema = z.object({
   message: z.string().min(1).max(5000),
-  agent: z.enum(['ceo', 'treasury', 'code', 'community', 'security']).optional(),
-});
+  agent: z
+    .enum(['ceo', 'treasury', 'code', 'community', 'security'])
+    .optional(),
+})
 
 export const A2AAssessProposalParamsSchema = z.object({
   title: z.string().min(10).max(200),
   summary: z.string().min(50).max(500),
   description: z.string().min(200).max(10000),
-});
+})
 
 export const A2ASubmitProposalParamsSchema = z.object({
   proposalType: z.string().min(1),
@@ -640,13 +651,13 @@ export const A2ASubmitProposalParamsSchema = z.object({
   targetContract: AddressSchema.optional(),
   callData: HexStringSchema.optional(),
   value: z.string().optional(),
-});
+})
 
 export const A2ABackProposalParamsSchema = z.object({
   proposalId: ProposalIdSchema,
   stakeAmount: z.string().optional(),
   reputationWeight: z.number().int().min(0).max(10000).optional(),
-});
+})
 
 export const A2ASubmitVoteParamsSchema = z.object({
   proposalId: ProposalIdSchema,
@@ -654,7 +665,7 @@ export const A2ASubmitVoteParamsSchema = z.object({
   vote: z.enum(['APPROVE', 'REJECT', 'ABSTAIN']),
   reasoning: z.string().min(10).max(2000).optional(),
   confidence: z.number().int().min(0).max(100).optional(),
-});
+})
 
 export const A2ADeliberateParamsSchema = z.object({
   proposalId: ProposalIdSchema,
@@ -662,64 +673,86 @@ export const A2ADeliberateParamsSchema = z.object({
   description: z.string().min(200).max(10000).optional(),
   proposalType: z.string().optional(),
   submitter: z.string().optional(),
-});
+})
 
 export const A2ARequestResearchParamsSchema = z.object({
   proposalId: ProposalIdSchema,
   description: z.string().min(200).max(10000).optional(),
-});
+})
 
 export const A2ACastVetoParamsSchema = z.object({
   proposalId: ProposalIdSchema,
   category: z.string().min(1),
   reason: HexStringSchema,
-});
+})
 
 export const A2AAddCommentaryParamsSchema = z.object({
   proposalId: ProposalIdSchema,
   content: z.string().min(10).max(2000),
   sentiment: SentimentSchema.optional(),
-});
+})
 
 // ============ MCP Request Schemas ============
 
 export const MCPResourceReadRequestSchema = z.object({
   uri: z.string().min(1),
-});
+})
 
 export const MCPToolCallRequestSchema = z.object({
   name: z.string().min(1),
   arguments: z.record(z.string(), z.string()).optional(),
-});
+})
 
 // ============ Query Parameter Schemas ============
 
 export const PaginationQuerySchema = z.object({
-  limit: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(1000)).optional(),
-  offset: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(0)).optional(),
-});
+  limit: z
+    .string()
+    .regex(/^\d+$/)
+    .transform(Number)
+    .pipe(z.number().int().min(1).max(1000))
+    .optional(),
+  offset: z
+    .string()
+    .regex(/^\d+$/)
+    .transform(Number)
+    .pipe(z.number().int().min(0))
+    .optional(),
+})
 
 export const ProposalListQuerySchema = PaginationQuerySchema.extend({
   active: z.enum(['true', 'false']).optional(),
   status: z.string().optional(),
   type: z.string().optional(),
-});
+})
 
 export const RegistrySearchQuerySchema = PaginationQuerySchema.extend({
-  minScore: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(0).max(100)).optional(),
+  minScore: z
+    .string()
+    .regex(/^\d+$/)
+    .transform(Number)
+    .pipe(z.number().int().min(0).max(100))
+    .optional(),
   tag: z.string().min(1).max(50).optional(),
-  count: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(100)).optional(),
-});
+  count: z
+    .string()
+    .regex(/^\d+$/)
+    .transform(Number)
+    .pipe(z.number().int().min(1).max(100))
+    .optional(),
+})
 
 export const BugBountyListQuerySchema = PaginationQuerySchema.extend({
   status: z.string().regex(/^\d+$/).optional(),
   severity: z.string().regex(/^\d+$/).optional(),
-  researcher: z.string().regex(/^0x[a-fA-F0-9]{40}$/).optional(),
+  researcher: z
+    .string()
+    .regex(/^0x[a-fA-F0-9]{40}$/)
+    .optional(),
 }) as z.ZodType<{
-  status?: string;
-  severity?: string;
-  researcher?: `0x${string}`;
-  limit?: number;
-  offset?: number;
-}>;
-
+  status?: string
+  severity?: string
+  researcher?: `0x${string}`
+  limit?: number
+  offset?: number
+}>

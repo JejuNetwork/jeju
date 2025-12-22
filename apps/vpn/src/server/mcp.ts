@@ -5,166 +5,181 @@
  * - Connect to VPN
  * - Make proxied requests
  * - Query VPN status
- * 
+ *
  * Uses fail-fast validation patterns
  */
 
-import { Hono } from 'hono';
-import type { Context } from 'hono';
-import type { Address } from 'viem';
-import type { VPNServiceContext } from './types';
-import { verifyAuth } from './auth';
-import { verifyX402Payment } from './x402';
+import type { Context } from 'hono'
+import { Hono } from 'hono'
+import type { Address } from 'viem'
+import { verifyAuth } from './auth'
 import {
+  expect,
+  expectValid,
+  MCPPromptGetSchema,
   MCPResourceReadSchema,
   MCPToolCallSchema,
-  MCPPromptGetSchema,
   ProxyRequestSchema,
-  expectValid,
-  expect,
-} from './schemas';
+} from './schemas'
+import type { VPNServiceContext } from './types'
 import {
-  findBestNode,
-  filterNodesByCountry,
-  getNodesByCountry,
-  calculateNodeLoad,
-} from './utils/nodes';
-import {
-  createSession,
-  getSession,
-  verifySessionOwnership,
-  deleteSession,
-  getSessionDuration,
-  getSessionBytesTransferred,
-  getSessionsForAddress,
-} from './utils/sessions';
-import {
+  calculateContributionRatio,
   getOrCreateContribution,
   getQuotaRemaining,
-  calculateContributionRatio,
-} from './utils/contributions';
+} from './utils/contributions'
+import {
+  calculateNodeLoad,
+  filterNodesByCountry,
+  findBestNode,
+  getNodesByCountry,
+} from './utils/nodes'
+import {
+  createSession,
+  deleteSession,
+  getSession,
+  getSessionBytesTransferred,
+  getSessionDuration,
+  getSessionsForAddress,
+  verifySessionOwnership,
+} from './utils/sessions'
+import { verifyX402Payment } from './x402'
 
 // ============================================================================
 // Types
 // ============================================================================
 
 interface MCPServerInfo {
-  name: string;
-  version: string;
-  description: string;
+  name: string
+  version: string
+  description: string
   capabilities: {
-    resources: boolean;
-    tools: boolean;
-    prompts: boolean;
-  };
+    resources: boolean
+    tools: boolean
+    prompts: boolean
+  }
 }
 
 interface MCPResource {
-  uri: string;
-  name: string;
-  description: string;
-  mimeType: string;
+  uri: string
+  name: string
+  description: string
+  mimeType: string
 }
 
 interface MCPTool {
-  name: string;
-  description: string;
+  name: string
+  description: string
   inputSchema: {
-    type: 'object';
-    properties: Record<string, { type: string; description: string; enum?: string[] }>;
-    required?: string[];
-  };
+    type: 'object'
+    properties: Record<
+      string,
+      { type: string; description: string; enum?: string[] }
+    >
+    required?: string[]
+  }
 }
 
 interface MCPPrompt {
-  name: string;
-  description: string;
-  arguments?: Array<{ name: string; description: string; required?: boolean }>;
+  name: string
+  description: string
+  arguments?: Array<{ name: string; description: string; required?: boolean }>
 }
 
 // Resource response types
 interface NodeInfo {
-  nodeId: string;
-  countryCode: string;
-  status: string;
-  load: number;
+  nodeId: string
+  countryCode: string
+  status: string
+  load: number
 }
 
 interface NodesResource {
-  nodes: NodeInfo[];
+  nodes: NodeInfo[]
 }
 
 interface CountriesResource {
-  countries: Array<{ code: string; nodeCount: number }>;
+  countries: Array<{ code: string; nodeCount: number }>
 }
 
 interface VPNStatusResource {
-  connected: boolean;
-  message?: string;
+  connected: boolean
+  message?: string
   sessions?: Array<{
-    sessionId: string;
-    nodeId: string;
-    protocol: string;
-    duration: number;
-  }>;
+    sessionId: string
+    nodeId: string
+    protocol: string
+    duration: number
+  }>
 }
 
 interface ContributionResource {
-  error?: string;
-  bytesUsed?: string;
-  bytesContributed?: string;
-  cap?: string;
-  quotaRemaining?: string;
-  contributionRatio?: number;
+  error?: string
+  bytesUsed?: string
+  bytesContributed?: string
+  cap?: string
+  quotaRemaining?: string
+  contributionRatio?: number
 }
 
 interface PricingResource {
-  pricePerGB: string;
-  pricePerHour: string;
-  pricePerRequest: string;
-  supportedTokens: string[];
+  pricePerGB: string
+  pricePerHour: string
+  pricePerRequest: string
+  supportedTokens: string[]
 }
 
 interface ErrorResource {
-  error: string;
+  error: string
 }
 
-type MCPResourceResult = NodesResource | CountriesResource | VPNStatusResource | ContributionResource | PricingResource | ErrorResource;
+type MCPResourceResult =
+  | NodesResource
+  | CountriesResource
+  | VPNStatusResource
+  | ContributionResource
+  | PricingResource
+  | ErrorResource
 
 // Tool result types
 interface VPNConnectResult {
-  connectionId: string;
-  endpoint: string;
-  publicKey: string;
-  countryCode: string;
+  connectionId: string
+  endpoint: string
+  publicKey: string
+  countryCode: string
 }
 
 interface VPNDisconnectResult {
-  success: boolean;
-  bytesTransferred: string;
+  success: boolean
+  bytesTransferred: string
 }
 
 interface GetNodesResult {
-  nodes: NodeInfo[];
+  nodes: NodeInfo[]
 }
 
 interface ProxyRequestResult {
-  status: number;
-  body: string;
+  status: number
+  body: string
 }
 
 interface ContributionStatusResult {
-  bytesUsed: string;
-  bytesContributed: string;
-  quotaRemaining: string;
-  contributionRatio: number;
+  bytesUsed: string
+  bytesContributed: string
+  quotaRemaining: string
+  contributionRatio: number
 }
 
 interface ToolErrorResult {
-  error: string;
+  error: string
 }
 
-type MCPToolResult = VPNConnectResult | VPNDisconnectResult | GetNodesResult | ProxyRequestResult | ContributionStatusResult | ToolErrorResult;
+type MCPToolResult =
+  | VPNConnectResult
+  | VPNDisconnectResult
+  | GetNodesResult
+  | ProxyRequestResult
+  | ContributionStatusResult
+  | ToolErrorResult
 
 // ============================================================================
 // Server Info
@@ -179,7 +194,7 @@ const MCP_SERVER_INFO: MCPServerInfo = {
     tools: true,
     prompts: true,
   },
-};
+}
 
 const MCP_RESOURCES: MCPResource[] = [
   {
@@ -212,12 +227,13 @@ const MCP_RESOURCES: MCPResource[] = [
     description: 'VPN pricing for premium tier',
     mimeType: 'application/json',
   },
-];
+]
 
 const MCP_TOOLS: MCPTool[] = [
   {
     name: 'vpn_connect',
-    description: 'Connect to a VPN exit node. Returns connection details including WireGuard config.',
+    description:
+      'Connect to a VPN exit node. Returns connection details including WireGuard config.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -262,7 +278,8 @@ const MCP_TOOLS: MCPTool[] = [
   },
   {
     name: 'proxy_request',
-    description: 'Make an HTTP request through the VPN network. Requires x402 payment.',
+    description:
+      'Make an HTTP request through the VPN network. Requires x402 payment.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -299,14 +316,18 @@ const MCP_TOOLS: MCPTool[] = [
       properties: {},
     },
   },
-];
+]
 
 const MCP_PROMPTS: MCPPrompt[] = [
   {
     name: 'setup_vpn',
     description: 'Walk through VPN setup and connection',
     arguments: [
-      { name: 'countryCode', description: 'Preferred exit country', required: false },
+      {
+        name: 'countryCode',
+        description: 'Preferred exit country',
+        required: false,
+      },
     ],
   },
   {
@@ -314,23 +335,27 @@ const MCP_PROMPTS: MCPPrompt[] = [
     description: 'Scrape content from a webpage through VPN',
     arguments: [
       { name: 'url', description: 'URL to scrape', required: true },
-      { name: 'countryCode', description: 'Exit country for geo-specific content', required: false },
+      {
+        name: 'countryCode',
+        description: 'Exit country for geo-specific content',
+        required: false,
+      },
     ],
   },
-];
+]
 
 // ============================================================================
 // Router
 // ============================================================================
 
 export function createMCPRouter(ctx: VPNServiceContext): Hono {
-  const router = new Hono();
+  const router = new Hono()
 
   // Error handling middleware
   router.onError((err, c) => {
-    console.error('MCP API error:', err);
-    return c.json({ error: err.message || 'Internal server error' }, 500);
-  });
+    console.error('MCP API error:', err)
+    return c.json({ error: err.message || 'Internal server error' }, 500)
+  })
 
   /**
    * POST /initialize - Initialize MCP session
@@ -340,92 +365,106 @@ export function createMCPRouter(ctx: VPNServiceContext): Hono {
       protocolVersion: '2024-11-05',
       serverInfo: MCP_SERVER_INFO,
       capabilities: MCP_SERVER_INFO.capabilities,
-    });
-  });
+    })
+  })
 
   /**
    * POST /resources/list - List available resources
    */
   router.post('/resources/list', (c) => {
-    return c.json({ resources: MCP_RESOURCES });
-  });
+    return c.json({ resources: MCP_RESOURCES })
+  })
 
   /**
    * POST /resources/read - Read a resource
    */
   router.post('/resources/read', async (c) => {
-    const auth = await verifyAuth(c);
-    const address = auth.valid ? auth.address : null;
+    const auth = await verifyAuth(c)
+    const address = auth.valid ? auth.address : null
 
-    const rawBody = await c.req.json();
-    const body = expectValid(MCPResourceReadSchema, rawBody, 'resource read request');
+    const rawBody = await c.req.json()
+    const body = expectValid(
+      MCPResourceReadSchema,
+      rawBody,
+      'resource read request',
+    )
 
-    const content = await readResource(ctx, body.uri, address as Address | null);
-    const resource = MCP_RESOURCES.find(r => r.uri === body.uri);
+    const content = await readResource(ctx, body.uri, address as Address | null)
+    const resource = MCP_RESOURCES.find((r) => r.uri === body.uri)
     if (!resource) {
-      throw new Error(`Resource not found: ${body.uri}`);
+      throw new Error(`Resource not found: ${body.uri}`)
     }
 
     return c.json({
-      contents: [{
-        uri: body.uri,
-        mimeType: resource.mimeType,
-        text: JSON.stringify(content, null, 2),
-      }],
-    });
-  });
+      contents: [
+        {
+          uri: body.uri,
+          mimeType: resource.mimeType,
+          text: JSON.stringify(content, null, 2),
+        },
+      ],
+    })
+  })
 
   /**
    * POST /tools/list - List available tools
    */
   router.post('/tools/list', (c) => {
-    return c.json({ tools: MCP_TOOLS });
-  });
+    return c.json({ tools: MCP_TOOLS })
+  })
 
   /**
    * POST /tools/call - Call a tool
    */
   router.post('/tools/call', async (c) => {
-    const auth = await verifyAuth(c);
-    const address = auth.valid ? auth.address : null;
+    const auth = await verifyAuth(c)
+    const address = auth.valid ? auth.address : null
 
-    const rawBody = await c.req.json();
-    const body = expectValid(MCPToolCallSchema, rawBody, 'tool call request');
+    const rawBody = await c.req.json()
+    const body = expectValid(MCPToolCallSchema, rawBody, 'tool call request')
 
-    const result = await callTool(ctx, c, body.name, body.arguments, address as Address | null);
+    const result = await callTool(
+      ctx,
+      c,
+      body.name,
+      body.arguments,
+      address as Address | null,
+    )
 
     return c.json({
-      content: [{
-        type: 'text',
-        text: JSON.stringify(result.result, null, 2),
-      }],
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(result.result, null, 2),
+        },
+      ],
       isError: result.isError,
-    });
-  });
+    })
+  })
 
   /**
    * POST /prompts/list - List available prompts
    */
   router.post('/prompts/list', (c) => {
-    return c.json({ prompts: MCP_PROMPTS });
-  });
+    return c.json({ prompts: MCP_PROMPTS })
+  })
 
   /**
    * POST /prompts/get - Get a prompt
    */
   router.post('/prompts/get', async (c) => {
-    const rawBody = await c.req.json();
-    const body = expectValid(MCPPromptGetSchema, rawBody, 'prompt get request');
+    const rawBody = await c.req.json()
+    const body = expectValid(MCPPromptGetSchema, rawBody, 'prompt get request')
 
-    const prompt = await getPrompt(ctx, body.name, body.arguments ?? {});
+    const prompt = await getPrompt(ctx, body.name, body.arguments ?? {})
 
     return c.json({
       description: prompt.description,
       messages: prompt.messages,
-    });
-  });
+    })
+  })
 
-  return router;
+  return router
 }
 
 // ============================================================================
@@ -440,51 +479,51 @@ async function readResource(
   switch (uri) {
     case 'vpn://nodes': {
       return {
-        nodes: Array.from(ctx.nodes.values()).map(n => ({
+        nodes: Array.from(ctx.nodes.values()).map((n) => ({
           nodeId: n.nodeId,
           countryCode: n.countryCode,
           status: n.status,
           load: calculateNodeLoad(n),
         })),
-      };
+      }
     }
 
     case 'vpn://countries': {
-      const countries = getNodesByCountry(ctx);
+      const countries = getNodesByCountry(ctx)
       return {
         countries: Array.from(countries.entries()).map(([code, count]) => ({
           code,
           nodeCount: count,
         })),
-      };
+      }
     }
 
     case 'vpn://status': {
-      if (!address) return { connected: false, message: 'Not authenticated' };
-      const sessions = getSessionsForAddress(ctx, address);
+      if (!address) return { connected: false, message: 'Not authenticated' }
+      const sessions = getSessionsForAddress(ctx, address)
       return {
         connected: sessions.length > 0,
-        sessions: sessions.map(s => ({
+        sessions: sessions.map((s) => ({
           sessionId: s.sessionId,
           nodeId: s.nodeId,
           protocol: s.protocol,
           duration: getSessionDuration(s),
         })),
-      };
+      }
     }
 
     case 'vpn://contribution': {
-      if (!address) return { error: 'Authentication required' };
-      const contribution = getOrCreateContribution(ctx, address);
-      const quotaRemaining = getQuotaRemaining(contribution);
-      const contributionRatio = calculateContributionRatio(contribution);
+      if (!address) return { error: 'Authentication required' }
+      const contribution = getOrCreateContribution(ctx, address)
+      const quotaRemaining = getQuotaRemaining(contribution)
+      const contributionRatio = calculateContributionRatio(contribution)
       return {
         bytesUsed: contribution.bytesUsed.toString(),
         bytesContributed: contribution.bytesContributed.toString(),
         cap: contribution.cap.toString(),
         quotaRemaining: quotaRemaining.toString(),
         contributionRatio,
-      };
+      }
     }
 
     case 'vpn://pricing': {
@@ -493,11 +532,11 @@ async function readResource(
         pricePerHour: ctx.config.pricing.pricePerHour.toString(),
         pricePerRequest: ctx.config.pricing.pricePerRequest.toString(),
         supportedTokens: ctx.config.pricing.supportedTokens,
-      };
+      }
     }
 
     default:
-      return { error: 'Resource not found' };
+      return { error: 'Resource not found' }
   }
 }
 
@@ -515,25 +554,30 @@ async function callTool(
   switch (name) {
     case 'vpn_connect': {
       if (!address) {
-        throw new Error('Authentication required for VPN connection');
+        throw new Error('Authentication required for VPN connection')
       }
 
-      const countryCode = typeof args.countryCode === 'string' ? args.countryCode : undefined;
-      const protocol = typeof args.protocol === 'string' ? args.protocol : 'wireguard';
-      
-      expect(['wireguard', 'socks5', 'http'].includes(protocol), `Invalid protocol: ${protocol}`);
+      const countryCode =
+        typeof args.countryCode === 'string' ? args.countryCode : undefined
+      const protocol =
+        typeof args.protocol === 'string' ? args.protocol : 'wireguard'
 
-      const node = findBestNode(ctx, countryCode);
+      expect(
+        ['wireguard', 'socks5', 'http'].includes(protocol),
+        `Invalid protocol: ${protocol}`,
+      )
+
+      const node = findBestNode(ctx, countryCode)
       if (!node) {
-        throw new Error('No available nodes matching criteria');
+        throw new Error('No available nodes matching criteria')
       }
 
       const session = createSession(
         ctx,
         address,
         node.nodeId,
-        protocol as 'wireguard' | 'socks5' | 'http'
-      );
+        protocol as 'wireguard' | 'socks5' | 'http',
+      )
 
       return {
         result: {
@@ -543,43 +587,45 @@ async function callTool(
           countryCode: node.countryCode,
         },
         isError: false,
-      };
+      }
     }
 
     case 'vpn_disconnect': {
       if (!address) {
-        throw new Error('Authentication required for disconnect');
+        throw new Error('Authentication required for disconnect')
       }
-      
-      const connectionId = typeof args.connectionId === 'string' ? args.connectionId : null;
-      if (!connectionId || connectionId.length === 0) {
-        throw new Error('connectionId must be a non-empty string');
-      }
-      
-      const session = getSession(ctx, connectionId);
-      verifySessionOwnership(session, address);
 
-      deleteSession(ctx, connectionId);
+      const connectionId =
+        typeof args.connectionId === 'string' ? args.connectionId : null
+      if (!connectionId || connectionId.length === 0) {
+        throw new Error('connectionId must be a non-empty string')
+      }
+
+      const session = getSession(ctx, connectionId)
+      verifySessionOwnership(session, address)
+
+      deleteSession(ctx, connectionId)
       return {
         result: {
           success: true,
           bytesTransferred: getSessionBytesTransferred(session).toString(),
         },
         isError: false,
-      };
+      }
     }
 
     case 'get_vpn_nodes': {
-      const countryCode = typeof args.countryCode === 'string' ? args.countryCode : undefined;
-      
-      let nodes = Array.from(ctx.nodes.values());
+      const countryCode =
+        typeof args.countryCode === 'string' ? args.countryCode : undefined
+
+      let nodes = Array.from(ctx.nodes.values())
       if (countryCode) {
-        nodes = filterNodesByCountry(nodes, countryCode);
+        nodes = filterNodesByCountry(nodes, countryCode)
       }
 
       return {
         result: {
-          nodes: nodes.map(n => ({
+          nodes: nodes.map((n) => ({
             nodeId: n.nodeId,
             countryCode: n.countryCode,
             status: n.status,
@@ -587,69 +633,78 @@ async function callTool(
           })),
         },
         isError: false,
-      };
+      }
     }
 
     case 'proxy_request': {
-      const paymentHeader = c.req.header('x-payment');
+      const paymentHeader = c.req.header('x-payment')
       const paymentResult = await verifyX402Payment(
         paymentHeader || '',
         BigInt(ctx.config.pricing.pricePerRequest),
         'vpn:proxy',
         ctx.config,
-      );
+      )
 
       expect(
         paymentResult.valid,
-        paymentResult.error || 'Payment required. Include x-payment header with valid x402 payment.'
-      );
+        paymentResult.error ||
+          'Payment required. Include x-payment header with valid x402 payment.',
+      )
 
-      const proxyRequest = expectValid(ProxyRequestSchema, args, 'proxy request params');
+      const proxyRequest = expectValid(
+        ProxyRequestSchema,
+        args,
+        'proxy request params',
+      )
 
       // SECURITY: Validate URL with DNS resolution to prevent SSRF and DNS rebinding attacks
-      const { validateProxyUrlWithDNS } = await import('./utils/proxy-validation');
-      await validateProxyUrlWithDNS(proxyRequest.url);
+      const { validateProxyUrlWithDNS } = await import(
+        './utils/proxy-validation'
+      )
+      await validateProxyUrlWithDNS(proxyRequest.url)
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000)
 
       const response = await fetch(proxyRequest.url, {
         method: proxyRequest.method,
         headers: proxyRequest.headers,
         body: proxyRequest.body,
         signal: controller.signal,
-      }).finally(() => clearTimeout(timeoutId));
+      }).finally(() => clearTimeout(timeoutId))
 
       // SECURITY: Read response with size limit
-      const MCP_MAX_RESPONSE_SIZE = 10 * 1024 * 1024;
-      const reader = response.body?.getReader();
+      const MCP_MAX_RESPONSE_SIZE = 10 * 1024 * 1024
+      const reader = response.body?.getReader()
       if (!reader) {
-        throw new Error('No response body');
+        throw new Error('No response body')
       }
-      
-      const chunks: Uint8Array[] = [];
-      let totalSize = 0;
-      
+
+      const chunks: Uint8Array[] = []
+      let totalSize = 0
+
       while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        
-        totalSize += value.length;
+        const { done, value } = await reader.read()
+        if (done) break
+
+        totalSize += value.length
         if (totalSize > MCP_MAX_RESPONSE_SIZE) {
-          reader.cancel();
-          throw new Error(`Response too large. Max size: ${MCP_MAX_RESPONSE_SIZE} bytes`);
+          reader.cancel()
+          throw new Error(
+            `Response too large. Max size: ${MCP_MAX_RESPONSE_SIZE} bytes`,
+          )
         }
-        chunks.push(value);
+        chunks.push(value)
       }
-      
+
       const responseBody = new TextDecoder().decode(
         chunks.reduce((acc, chunk) => {
-          const result = new Uint8Array(acc.length + chunk.length);
-          result.set(acc);
-          result.set(chunk, acc.length);
-          return result;
-        }, new Uint8Array(0))
-      );
+          const result = new Uint8Array(acc.length + chunk.length)
+          result.set(acc)
+          result.set(chunk, acc.length)
+          return result
+        }, new Uint8Array(0)),
+      )
 
       return {
         result: {
@@ -657,17 +712,17 @@ async function callTool(
           body: responseBody.slice(0, 10000),
         },
         isError: false,
-      };
+      }
     }
 
     case 'get_contribution_status': {
       if (!address) {
-        throw new Error('Authentication required for contribution status');
+        throw new Error('Authentication required for contribution status')
       }
 
-      const contribution = getOrCreateContribution(ctx, address);
-      const quotaRemaining = getQuotaRemaining(contribution);
-      const contributionRatio = calculateContributionRatio(contribution);
+      const contribution = getOrCreateContribution(ctx, address)
+      const quotaRemaining = getQuotaRemaining(contribution)
+      const contributionRatio = calculateContributionRatio(contribution)
 
       return {
         result: {
@@ -677,11 +732,11 @@ async function callTool(
           contributionRatio,
         },
         isError: false,
-      };
+      }
     }
 
     default:
-      return { result: { error: 'Unknown tool' }, isError: true };
+      return { result: { error: 'Unknown tool' }, isError: true }
   }
 }
 
@@ -690,10 +745,13 @@ async function callTool(
 // ============================================================================
 
 async function getPrompt(
-  ctx: VPNServiceContext,
+  _ctx: VPNServiceContext,
   name: string,
   args: Record<string, string>,
-): Promise<{ description: string; messages: Array<{ role: string; content: string }> }> {
+): Promise<{
+  description: string
+  messages: Array<{ role: string; content: string }>
+}> {
   switch (name) {
     case 'setup_vpn':
       return {
@@ -712,7 +770,7 @@ Use the \`get_vpn_nodes\` tool to see available exit nodes, then use \`vpn_conne
 The free tier includes unlimited VPN usage with fair contribution - you contribute up to 3x what you use in bandwidth sharing.`,
           },
         ],
-      };
+      }
 
     case 'scrape_webpage':
       return {
@@ -734,13 +792,12 @@ ${args.countryCode ? `- countryCode: ${args.countryCode}` : ''}
 The request will be routed through a VPN exit node, and you'll receive the page content.`,
           },
         ],
-      };
+      }
 
     default:
       return {
         description: 'Unknown prompt',
         messages: [],
-      };
+      }
   }
 }
-

@@ -1,73 +1,78 @@
 /**
  * Autocrat Agent Runtime Manager - Multi-tenant DAO governance
- * 
+ *
  * Uses character-based agents with DWS for decentralized AI inference.
  * ElizaOS characters define agent personalities, DWS provides compute.
  */
 
-import { z } from 'zod';
-import { getDWSComputeUrl, getCurrentNetwork } from '@jejunetwork/config';
-import { autocratAgentTemplates, ceoAgent, type AutocratAgentTemplate } from './templates';
-import { autocratPlugin } from './autocrat-plugin';
-import { ceoPlugin } from './ceo-plugin';
-import type { CEOPersona, GovernanceParams } from '../types';
-import type { Character, Plugin, IAgentRuntime, UUID } from '@elizaos/core';
+import type { Character, IAgentRuntime, Plugin, UUID } from '@elizaos/core'
+import { getCurrentNetwork, getDWSComputeUrl } from '@jejunetwork/config'
+import { z } from 'zod'
+import type { CEOPersona, GovernanceParams } from '../types'
+import { autocratPlugin } from './autocrat-plugin'
+import { ceoPlugin } from './ceo-plugin'
+import {
+  type AutocratAgentTemplate,
+  autocratAgentTemplates,
+  ceoAgent,
+} from './templates'
 
 // ElizaOS runtime interface - subset used by autocrat
-interface AutocratAgentRuntime extends Pick<IAgentRuntime, 'character' | 'agentId' | 'registerPlugin'> {
-  character: Character;
-  agentId: UUID;
-  registerPlugin: (plugin: Plugin) => Promise<void>;
+interface AutocratAgentRuntime
+  extends Pick<IAgentRuntime, 'character' | 'agentId' | 'registerPlugin'> {
+  character: Character
+  agentId: UUID
+  registerPlugin: (plugin: Plugin) => Promise<void>
 }
 
 // ElizaOS AgentRuntime constructor type - loaded dynamically
 type AgentRuntimeConstructor = new (opts: {
-  character: Character;
-  agentId?: UUID;
-  plugins?: Plugin[];
-}) => AutocratAgentRuntime;
+  character: Character
+  agentId?: UUID
+  plugins?: Plugin[]
+}) => AutocratAgentRuntime
 
 // Dynamically loaded AgentRuntime class
-let AgentRuntimeClass: AgentRuntimeConstructor | null = null;
+let AgentRuntimeClass: AgentRuntimeConstructor | null = null
 
 // ============ Types ============
 
 export interface AgentVote {
-  role: string;
-  agentId: string;
-  vote: 'APPROVE' | 'REJECT' | 'ABSTAIN';
-  reasoning: string;
-  confidence: number;
-  timestamp: number;
+  role: string
+  agentId: string
+  vote: 'APPROVE' | 'REJECT' | 'ABSTAIN'
+  reasoning: string
+  confidence: number
+  timestamp: number
 }
 
 export interface DeliberationRequest {
-  proposalId: string;
-  title: string;
-  summary: string;
-  description: string;
-  proposalType: string;
-  submitter: string;
-  daoId?: string;
-  daoName?: string;
-  governanceParams?: GovernanceParams;
+  proposalId: string
+  title: string
+  summary: string
+  description: string
+  proposalType: string
+  submitter: string
+  daoId?: string
+  daoName?: string
+  governanceParams?: GovernanceParams
 }
 
 export interface CEODecisionRequest {
-  proposalId: string;
-  daoId?: string;
-  persona?: CEOPersona;
-  autocratVotes: AgentVote[];
-  researchReport?: string;
+  proposalId: string
+  daoId?: string
+  persona?: CEOPersona
+  autocratVotes: AgentVote[]
+  researchReport?: string
 }
 
 export interface CEODecision {
-  approved: boolean;
-  reasoning: string;
-  personaResponse: string;
-  confidence: number;
-  alignment: number;
-  recommendations: string[];
+  approved: boolean
+  reasoning: string
+  personaResponse: string
+  confidence: number
+  alignment: number
+  recommendations: string[]
 }
 
 // Schema for parsing CEO decision JSON from LLM response
@@ -77,29 +82,35 @@ const CEODecisionResponseSchema = z.object({
   confidence: z.number().min(0).max(100).optional(),
   alignment: z.number().min(0).max(100).optional(),
   recommendations: z.array(z.string()).optional(),
-});
+})
 
 interface CEOPersonaConfig {
-  persona: CEOPersona;
-  systemPrompt: string;
-  decisionStyle: string;
+  persona: CEOPersona
+  systemPrompt: string
+  decisionStyle: string
 }
 
 // ============ DWS Compute - Network aware ============
 
 // DWS URL is automatically resolved from network config, but env var overrides
 function getDWSEndpoint(): string {
-  return process.env.DWS_URL ?? getDWSComputeUrl();
+  return process.env.DWS_URL ?? getDWSComputeUrl()
 }
 
 export async function checkDWSCompute(): Promise<boolean> {
-  const endpoint = getDWSEndpoint();
-  const r = await fetch(`${endpoint}/health`, { signal: AbortSignal.timeout(2000) }).catch(() => null);
-  return r?.ok ?? false;
+  const endpoint = getDWSEndpoint()
+  const r = await fetch(`${endpoint}/health`, {
+    signal: AbortSignal.timeout(2000),
+  }).catch(() => null)
+  return r?.ok ?? false
 }
 
-export async function dwsGenerate(prompt: string, system: string, maxTokens = 500): Promise<string> {
-  const endpoint = getDWSEndpoint();
+export async function dwsGenerate(
+  prompt: string,
+  system: string,
+  maxTokens = 500,
+): Promise<string> {
+  const endpoint = getDWSEndpoint()
   // Use OpenAI-compatible endpoint via DWS compute router
   const r = await fetch(`${endpoint}/compute/chat/completions`, {
     method: 'POST',
@@ -113,14 +124,19 @@ export async function dwsGenerate(prompt: string, system: string, maxTokens = 50
       temperature: 0.7,
       max_tokens: maxTokens,
     }),
-  });
+  })
   if (!r.ok) {
-    const network = getCurrentNetwork();
-    const errorText = await r.text();
-    throw new Error(`DWS compute error (network: ${network}): ${r.status} - ${errorText}`);
+    const network = getCurrentNetwork()
+    const errorText = await r.text()
+    throw new Error(
+      `DWS compute error (network: ${network}): ${r.status} - ${errorText}`,
+    )
   }
-  const data = (await r.json()) as { choices?: Array<{ message?: { content: string } }>; content?: string };
-  return data.choices?.[0]?.message?.content ?? data.content ?? '';
+  const data = (await r.json()) as {
+    choices?: Array<{ message?: { content: string } }>
+    content?: string
+  }
+  return data.choices?.[0]?.message?.content ?? data.content ?? ''
 }
 
 // ============ CEO Persona System Prompts ============
@@ -151,14 +167,17 @@ When making decisions, always:
 2. Evaluate alignment with DAO objectives
 3. Assess risk vs. reward
 4. Provide clear, actionable recommendations
-5. Communicate in your characteristic style`;
+5. Communicate in your characteristic style`
 
-  return basePrompt;
+  return basePrompt
 }
 
-function buildPersonaDecisionPrompt(persona: CEOPersona, approved: boolean): string {
-  const tone = persona.communicationTone;
-  const name = persona.name;
+function buildPersonaDecisionPrompt(
+  persona: CEOPersona,
+  approved: boolean,
+): string {
+  const tone = persona.communicationTone
+  const name = persona.name
 
   // Monkey King specific prompts
   if (name.toLowerCase().includes('monkey king')) {
@@ -168,14 +187,14 @@ function buildPersonaDecisionPrompt(persona: CEOPersona, approved: boolean): str
 - Maintains the playful yet wise nature of Sun Wukong
 - Shows confidence and authority while being encouraging
 - May reference the golden cudgel, 72 transformations, or the journey west
-- Speaks as a legendary being who has seen much and decides with ancient wisdom`;
+- Speaks as a legendary being who has seen much and decides with ancient wisdom`
     } else {
       return `As the Great Sage Equal to Heaven, craft a rejection response that:
 - Shows wisdom in decline while leaving room for future attempts
 - References lessons from your journey when appropriate
 - Maintains dignity while being constructive
 - May reference trials, the Jade Emperor, or lessons learned
-- Speaks as one who has faced rejection and grown stronger`;
+- Speaks as one who has faced rejection and grown stronger`
     }
   }
 
@@ -184,89 +203,92 @@ function buildPersonaDecisionPrompt(persona: CEOPersona, approved: boolean): str
     case 'playful':
       return approved
         ? 'Craft an enthusiastic, upbeat approval that shows genuine excitement while maintaining professionalism.'
-        : 'Deliver the rejection with understanding and encouragement, keeping the tone light but constructive.';
+        : 'Deliver the rejection with understanding and encouragement, keeping the tone light but constructive.'
 
     case 'authoritative':
       return approved
         ? 'Issue a decisive approval that conveys strong leadership and clear direction.'
-        : 'Deliver a firm but fair rejection that maintains authority while providing clear guidance.';
+        : 'Deliver a firm but fair rejection that maintains authority while providing clear guidance.'
 
     case 'friendly':
       return approved
         ? 'Share the good news warmly, as if celebrating with a trusted colleague.'
-        : 'Deliver the rejection with empathy and genuine care, focusing on improvement opportunities.';
+        : 'Deliver the rejection with empathy and genuine care, focusing on improvement opportunities.'
 
     case 'formal':
       return approved
         ? 'Provide a proper, official approval with clear documentation of the decision.'
-        : 'Deliver a formal rejection with proper procedure and clear next steps.';
+        : 'Deliver a formal rejection with proper procedure and clear next steps.'
 
     default:
       return approved
         ? 'Provide a clear, professional approval with confidence and clarity.'
-        : 'Deliver a professional rejection with constructive feedback and guidance.';
+        : 'Deliver a professional rejection with constructive feedback and guidance.'
   }
 }
 
 // ============ Runtime Manager ============
 
 export class AutocratAgentRuntimeManager {
-  private static instance: AutocratAgentRuntimeManager;
-  private runtimes = new Map<string, AutocratAgentRuntime>();
-  private daoRuntimes = new Map<string, Map<string, AutocratAgentRuntime>>();
-  private ceoPersonas = new Map<string, CEOPersonaConfig>();
-  private initialized = false;
-  private dwsAvailable: boolean | null = null;
+  private static instance: AutocratAgentRuntimeManager
+  private runtimes = new Map<string, AutocratAgentRuntime>()
+  private daoRuntimes = new Map<string, Map<string, AutocratAgentRuntime>>()
+  private ceoPersonas = new Map<string, CEOPersonaConfig>()
+  private initialized = false
+  private dwsAvailable: boolean | null = null
 
   private constructor() {
     // Singleton pattern - private constructor prevents external instantiation
   }
 
   static getInstance(): AutocratAgentRuntimeManager {
-    return (AutocratAgentRuntimeManager.instance ??= new AutocratAgentRuntimeManager());
+    return (AutocratAgentRuntimeManager.instance ??=
+      new AutocratAgentRuntimeManager())
   }
 
   async initialize(): Promise<void> {
-    if (this.initialized) return;
+    if (this.initialized) return
 
-    console.log('[AgentRuntime] Initializing governance agents...');
-    this.dwsAvailable = await checkDWSCompute();
-    console.log(`[AgentRuntime] DWS Compute: ${this.dwsAvailable ? 'available' : 'NOT AVAILABLE'}`);
+    console.log('[AgentRuntime] Initializing governance agents...')
+    this.dwsAvailable = await checkDWSCompute()
+    console.log(
+      `[AgentRuntime] DWS Compute: ${this.dwsAvailable ? 'available' : 'NOT AVAILABLE'}`,
+    )
     if (!this.dwsAvailable) {
       throw new Error(
         'DWS compute is required for Autocrat agents. ' +
-        'Ensure DWS is running: cd apps/dws && bun run dev'
-      );
+          'Ensure DWS is running: cd apps/dws && bun run dev',
+      )
     }
 
     // Initialize default council agents with character definitions
     for (const template of autocratAgentTemplates) {
-      const runtime = await this.createRuntime(template);
-      this.runtimes.set(template.id, runtime);
+      const runtime = await this.createRuntime(template)
+      this.runtimes.set(template.id, runtime)
     }
 
     // Initialize default CEO
-    const ceoRuntime = await this.createRuntime(ceoAgent);
-    this.runtimes.set('ceo', ceoRuntime);
-    console.log(`[AgentRuntime] ${this.runtimes.size} agents ready`);
+    const ceoRuntime = await this.createRuntime(ceoAgent)
+    this.runtimes.set('ceo', ceoRuntime)
+    console.log(`[AgentRuntime] ${this.runtimes.size} agents ready`)
 
-    this.initialized = true;
+    this.initialized = true
   }
 
   // ============ DAO-specific Agent Management ============
 
   async registerDAOAgents(daoId: string, persona: CEOPersona): Promise<void> {
     // Create DAO-specific CEO persona config
-    const systemPrompt = buildCEOSystemPrompt(persona);
+    const systemPrompt = buildCEOSystemPrompt(persona)
     this.ceoPersonas.set(daoId, {
       persona,
       systemPrompt,
       decisionStyle: persona.communicationTone,
-    });
+    })
 
     // Create DAO-specific runtimes if needed
     if (!this.daoRuntimes.has(daoId)) {
-      const daoAgents = new Map<string, AutocratAgentRuntime>();
+      const daoAgents = new Map<string, AutocratAgentRuntime>()
 
       // Create council agents for this DAO
       for (const template of autocratAgentTemplates) {
@@ -280,9 +302,9 @@ export class AutocratAgentRuntimeManager {
               (template.character.system ?? '') +
               `\n\nYou serve on the council of ${persona.name}, the CEO of this DAO.`,
           },
-        };
-        const runtime = await this.createRuntime(daoTemplate);
-        daoAgents.set(template.id, runtime);
+        }
+        const runtime = await this.createRuntime(daoTemplate)
+        daoAgents.set(template.id, runtime)
       }
 
       // Create CEO agent for this DAO
@@ -294,84 +316,95 @@ export class AutocratAgentRuntimeManager {
           name: persona.name,
           system: systemPrompt,
         },
-      };
-      const ceoRuntime = await this.createRuntime(ceoTemplate);
-      daoAgents.set('ceo', ceoRuntime);
+      }
+      const ceoRuntime = await this.createRuntime(ceoTemplate)
+      daoAgents.set('ceo', ceoRuntime)
 
-      this.daoRuntimes.set(daoId, daoAgents);
-      console.log(`[AgentRuntime] Registered agents for DAO ${daoId} (CEO: ${persona.name})`);
+      this.daoRuntimes.set(daoId, daoAgents)
+      console.log(
+        `[AgentRuntime] Registered agents for DAO ${daoId} (CEO: ${persona.name})`,
+      )
     }
   }
 
-  getDAORuntime(daoId: string, agentId: string): AutocratAgentRuntime | undefined {
-    const daoAgents = this.daoRuntimes.get(daoId);
+  getDAORuntime(
+    daoId: string,
+    agentId: string,
+  ): AutocratAgentRuntime | undefined {
+    const daoAgents = this.daoRuntimes.get(daoId)
     if (daoAgents) {
-      return daoAgents.get(agentId);
+      return daoAgents.get(agentId)
     }
-    return this.runtimes.get(agentId);
+    return this.runtimes.get(agentId)
   }
 
   getCEOPersona(daoId: string): CEOPersonaConfig | undefined {
-    return this.ceoPersonas.get(daoId);
+    return this.ceoPersonas.get(daoId)
   }
 
-  private async createRuntime(template: AutocratAgentTemplate): Promise<AutocratAgentRuntime> {
+  private async createRuntime(
+    template: AutocratAgentTemplate,
+  ): Promise<AutocratAgentRuntime> {
     // Dynamically import ElizaOS to avoid load-time errors
     if (!AgentRuntimeClass) {
-      const elizaos = await import('@elizaos/core');
-      AgentRuntimeClass = elizaos.AgentRuntime;
+      const elizaos = await import('@elizaos/core')
+      AgentRuntimeClass = elizaos.AgentRuntime
     }
     if (!AgentRuntimeClass) {
-      throw new Error('ElizaOS AgentRuntime not available');
+      throw new Error('ElizaOS AgentRuntime not available')
     }
     // Template character is already typed as Character from @elizaos/core (see templates.ts)
-    const character: Character = { ...template.character };
-    
+    const character: Character = { ...template.character }
+
     // Plugins are properly typed - autocratPlugin and ceoPlugin export Plugin types
-    const plugins: Plugin[] = template.role === 'CEO' ? [ceoPlugin] : [autocratPlugin];
-    
+    const plugins: Plugin[] =
+      template.role === 'CEO' ? [ceoPlugin] : [autocratPlugin]
+
     // Create runtime - ElizaOS generates agentId from character.name via stringToUuid
     // This ensures the agentId is always a valid UUID format
     const runtime = new AgentRuntimeClass({
       character,
       plugins,
-    });
-    
+    })
+
     // Register plugins
     for (const plugin of plugins) {
-      await runtime.registerPlugin(plugin);
+      await runtime.registerPlugin(plugin)
     }
-    
-    return runtime;
+
+    return runtime
   }
 
   getRuntime(id: string): AutocratAgentRuntime | undefined {
-    return this.runtimes.get(id);
+    return this.runtimes.get(id)
   }
 
   // ============ Deliberation ============
 
-  async deliberate(agentId: string, request: DeliberationRequest): Promise<AgentVote> {
-    const template = autocratAgentTemplates.find((t) => t.id === agentId);
-    if (!template) throw new Error(`Agent ${agentId} not found`);
+  async deliberate(
+    agentId: string,
+    request: DeliberationRequest,
+  ): Promise<AgentVote> {
+    const template = autocratAgentTemplates.find((t) => t.id === agentId)
+    if (!template) throw new Error(`Agent ${agentId} not found`)
 
     if (this.dwsAvailable === null) {
-      this.dwsAvailable = await checkDWSCompute();
+      this.dwsAvailable = await checkDWSCompute()
     }
 
     if (!this.dwsAvailable) {
-      const network = getCurrentNetwork();
+      const network = getCurrentNetwork()
       throw new Error(
         `DWS compute is required for agent deliberation (network: ${network}).\n` +
-        'Ensure DWS is running: docker compose up -d dws'
-      );
+          'Ensure DWS is running: docker compose up -d dws',
+      )
     }
 
     // Build context-aware prompt
     const daoContext = request.daoName
       ? `\nDAO: ${request.daoName}
 Governance Parameters: ${request.governanceParams ? JSON.stringify(request.governanceParams) : 'Standard'}`
-      : '';
+      : ''
 
     const prompt = `PROPOSAL FOR REVIEW:
 ${daoContext}
@@ -395,45 +428,50 @@ As the ${template.role} agent, evaluate this proposal thoroughly. Consider:
 
 State your vote clearly: APPROVE, REJECT, or ABSTAIN.
 Provide specific reasoning based on your expertise as ${template.role}.
-Include a confidence score (0-100) for your assessment.`;
+Include a confidence score (0-100) for your assessment.`
 
-    const systemPrompt = template.character.system ?? 'You are a DAO governance agent.';
-    const response = await dwsGenerate(prompt, systemPrompt);
-    return this.parseResponse(template, response, request.proposalId);
+    const systemPrompt =
+      template.character.system ?? 'You are a DAO governance agent.'
+    const response = await dwsGenerate(prompt, systemPrompt)
+    return this.parseResponse(template, response, request.proposalId)
   }
 
   async deliberateAll(request: DeliberationRequest): Promise<AgentVote[]> {
-    const votes: AgentVote[] = [];
+    const votes: AgentVote[] = []
     for (const template of autocratAgentTemplates) {
-      const vote = await this.deliberate(template.id, request);
-      votes.push(vote);
+      const vote = await this.deliberate(template.id, request)
+      votes.push(vote)
     }
-    return votes;
+    return votes
   }
 
   // ============ CEO Decision ============
 
   async ceoDecision(request: CEODecisionRequest): Promise<CEODecision> {
     if (this.dwsAvailable === null) {
-      this.dwsAvailable = await checkDWSCompute();
+      this.dwsAvailable = await checkDWSCompute()
     }
 
     if (!this.dwsAvailable) {
-      const network = getCurrentNetwork();
+      const network = getCurrentNetwork()
       throw new Error(
         `DWS compute is required for CEO decision (network: ${network}).\n` +
-        'Ensure DWS is running: docker compose up -d dws'
-      );
+          'Ensure DWS is running: docker compose up -d dws',
+      )
     }
 
     // Get persona-specific config
-    const personaConfig = request.daoId ? this.ceoPersonas.get(request.daoId) : null;
-    const persona = request.persona ?? personaConfig?.persona ?? this.getDefaultPersona();
-    const systemPrompt = personaConfig?.systemPrompt ?? buildCEOSystemPrompt(persona);
+    const personaConfig = request.daoId
+      ? this.ceoPersonas.get(request.daoId)
+      : null
+    const persona =
+      request.persona ?? personaConfig?.persona ?? this.getDefaultPersona()
+    const systemPrompt =
+      personaConfig?.systemPrompt ?? buildCEOSystemPrompt(persona)
 
     const voteSummary = request.autocratVotes
       .map((v) => `- ${v.role}: ${v.vote} (${v.confidence}%)\n  ${v.reasoning}`)
-      .join('\n\n');
+      .join('\n\n')
 
     // Initial decision prompt
     const decisionPrompt = `COUNCIL DELIBERATION COMPLETE
@@ -461,25 +499,35 @@ Respond with a JSON object:
   "confidence": 0-100,
   "alignment": 0-100,
   "recommendations": ["actionable items"]
-}`;
+}`
 
-    const decisionResponse = await dwsGenerate(decisionPrompt, systemPrompt, 800);
+    const decisionResponse = await dwsGenerate(
+      decisionPrompt,
+      systemPrompt,
+      800,
+    )
 
     // Parse decision - handle LLM sometimes returning invalid JSON
-    let decision: CEODecision;
-    const jsonMatch = decisionResponse.match(/\{[\s\S]*\}/);
-    let parsed: { approved?: boolean; reasoning?: string; confidence?: number; alignment?: number; recommendations?: string[] } | null = null;
-    
+    let decision: CEODecision
+    const jsonMatch = decisionResponse.match(/\{[\s\S]*\}/)
+    let parsed: {
+      approved?: boolean
+      reasoning?: string
+      confidence?: number
+      alignment?: number
+      recommendations?: string[]
+    } | null = null
+
     if (jsonMatch) {
       try {
-        const rawParsed = JSON.parse(jsonMatch[0]);
-        parsed = CEODecisionResponseSchema.parse(rawParsed);
+        const rawParsed = JSON.parse(jsonMatch[0])
+        parsed = CEODecisionResponseSchema.parse(rawParsed)
       } catch {
         // JSON parsing failed - fall through to text-based parsing
-        parsed = null;
+        parsed = null
       }
     }
-    
+
     if (parsed) {
       decision = {
         approved: parsed.approved ?? false,
@@ -488,11 +536,11 @@ Respond with a JSON object:
         confidence: parsed.confidence ?? 70,
         alignment: parsed.alignment ?? 70,
         recommendations: parsed.recommendations ?? [],
-      };
+      }
     } else {
       const approved =
         decisionResponse.toLowerCase().includes('approved') &&
-        !decisionResponse.toLowerCase().startsWith('not approved');
+        !decisionResponse.toLowerCase().startsWith('not approved')
       decision = {
         approved,
         reasoning: decisionResponse.slice(0, 500),
@@ -500,11 +548,11 @@ Respond with a JSON object:
         confidence: 70,
         alignment: 70,
         recommendations: approved ? ['Proceed'] : ['Address concerns'],
-      };
+      }
     }
 
     // Generate persona response
-    const personaPrompt = buildPersonaDecisionPrompt(persona, decision.approved);
+    const personaPrompt = buildPersonaDecisionPrompt(persona, decision.approved)
     const responsePrompt = `Based on your decision:
 Decision: ${decision.approved ? 'APPROVED' : 'REJECTED'}
 Reasoning: ${decision.reasoning}
@@ -512,12 +560,12 @@ Reasoning: ${decision.reasoning}
 ${personaPrompt}
 
 Craft your response as ${persona.name} in your characteristic style.
-Keep it concise (2-4 sentences) but impactful.`;
+Keep it concise (2-4 sentences) but impactful.`
 
-    const personaResponse = await dwsGenerate(responsePrompt, systemPrompt, 300);
-    decision.personaResponse = personaResponse.trim();
+    const personaResponse = await dwsGenerate(responsePrompt, systemPrompt, 300)
+    decision.personaResponse = personaResponse.trim()
 
-    return decision;
+    return decision
   }
 
   // ============ Helpers ============
@@ -532,61 +580,66 @@ Keep it concise (2-4 sentences) but impactful.`;
       voiceStyle: 'Clear and professional',
       communicationTone: 'professional',
       specialties: ['governance', 'strategy', 'risk management'],
-    };
+    }
   }
 
-  private parseResponse(template: AutocratAgentTemplate, response: string, _proposalId: string): AgentVote {
-    const lower = response.toLowerCase();
-    let vote: 'APPROVE' | 'REJECT' | 'ABSTAIN' = 'ABSTAIN';
+  private parseResponse(
+    template: AutocratAgentTemplate,
+    response: string,
+    _proposalId: string,
+  ): AgentVote {
+    const lower = response.toLowerCase()
+    let vote: 'APPROVE' | 'REJECT' | 'ABSTAIN' = 'ABSTAIN'
 
-    if (lower.includes('approve') || lower.includes('in favor') || lower.includes('support')) {
-      vote = 'APPROVE';
+    if (
+      lower.includes('approve') ||
+      lower.includes('in favor') ||
+      lower.includes('support')
+    ) {
+      vote = 'APPROVE'
     } else if (
       lower.includes('reject') ||
       lower.includes('against') ||
       lower.includes('oppose') ||
       lower.includes('concern')
     ) {
-      vote = 'REJECT';
+      vote = 'REJECT'
     }
 
-    let confidence = 70;
-    const confMatch = response.match(/confidence[:\s]+(\d+)/i);
-    if (confMatch) confidence = Math.min(100, parseInt(confMatch[1], 10));
+    let confidence = 70
+    const confMatch = response.match(/confidence[:\s]+(\d+)/i)
+    if (confMatch) confidence = Math.min(100, parseInt(confMatch[1], 10))
 
     return {
       role: template.role,
       agentId: template.id,
       vote,
-      reasoning: response
-        .slice(0, 500)
-        .replace(/\n+/g, ' ')
-        .trim(),
+      reasoning: response.slice(0, 500).replace(/\n+/g, ' ').trim(),
       confidence,
       timestamp: Date.now(),
-    };
+    }
   }
 
   // ============ Lifecycle ============
 
   async shutdown(): Promise<void> {
-    this.runtimes.clear();
-    this.daoRuntimes.clear();
-    this.ceoPersonas.clear();
-    this.initialized = false;
+    this.runtimes.clear()
+    this.daoRuntimes.clear()
+    this.ceoPersonas.clear()
+    this.initialized = false
   }
 
   isInitialized(): boolean {
-    return this.initialized;
+    return this.initialized
   }
 
   isDWSAvailable(): boolean {
-    return this.dwsAvailable ?? false;
+    return this.dwsAvailable ?? false
   }
 
   getRegisteredDAOs(): string[] {
-    return Array.from(this.daoRuntimes.keys());
+    return Array.from(this.daoRuntimes.keys())
   }
 }
 
-export const autocratAgentRuntime = AutocratAgentRuntimeManager.getInstance();
+export const autocratAgentRuntime = AutocratAgentRuntimeManager.getInstance()

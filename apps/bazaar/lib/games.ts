@@ -3,13 +3,13 @@
  * Extracted from pages/hooks for testability
  */
 
-import { expect } from '@/lib/validation'
 import { INDEXER_URL } from '@/config'
+import { expect } from '@/lib/validation'
 import {
-  RegisteredGamesResponseSchema,
-  type RegisteredGame,
   type GameItem,
   type ItemCategory,
+  type RegisteredGame,
+  RegisteredGamesResponseSchema,
 } from '@/schemas/games'
 
 // GraphQL query for registered games
@@ -32,17 +32,19 @@ const REGISTERED_GAMES_QUERY = `
  */
 export async function fetchRegisteredGames(): Promise<RegisteredGame[]> {
   const endpoint = expect(INDEXER_URL, 'INDEXER_URL not configured')
-  
+
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query: REGISTERED_GAMES_QUERY }),
     next: { revalidate: 10 },
   })
-  
-  const result = await response.json() as { data?: { registeredGames?: RegisteredGame[] } }
+
+  const result = (await response.json()) as {
+    data?: { registeredGames?: RegisteredGame[] }
+  }
   const validated = RegisteredGamesResponseSchema.safeParse(result.data)
-  
+
   return validated.success ? validated.data.registeredGames : []
 }
 
@@ -55,7 +57,11 @@ const RARITY_INFO = [
   { name: 'Legendary', color: 'text-yellow-400', bgClass: 'bg-yellow-500/20' },
 ] as const
 
-const UNKNOWN_RARITY = { name: 'Unknown', color: 'text-gray-400', bgClass: 'bg-gray-500/20' } as const
+const UNKNOWN_RARITY = {
+  name: 'Unknown',
+  color: 'text-gray-400',
+  bgClass: 'bg-gray-500/20',
+} as const
 
 export interface RarityInfo {
   name: string
@@ -101,41 +107,45 @@ const CATEGORY_KEYWORDS: Record<ItemCategory, string[]> = {
  */
 export function getItemCategory(item: GameItem): ItemCategory {
   const name = item.name.toLowerCase()
-  
+
   // Check tools keywords first (pickaxe, hatchet, fishing rod are tools, not weapons)
-  if (CATEGORY_KEYWORDS.tools.some(keyword => name.includes(keyword))) {
+  if (CATEGORY_KEYWORDS.tools.some((keyword) => name.includes(keyword))) {
     return 'tools'
   }
-  
+
   // Check by stats
   if (item.attack > 0 && item.defense === 0) return 'weapons'
   if (item.defense > 0 && item.attack === 0) return 'armor'
-  if (item.stackable && item.attack === 0 && item.defense === 0) return 'resources'
-  
+  if (item.stackable && item.attack === 0 && item.defense === 0)
+    return 'resources'
+
   // Check by name keywords for remaining categories
   for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
     if (category === 'all' || category === 'tools') continue
-    if (keywords.some(keyword => name.includes(keyword))) {
+    if (keywords.some((keyword) => name.includes(keyword))) {
       return category as ItemCategory
     }
   }
-  
+
   return 'all'
 }
 
 /**
  * Filter items by category
  */
-export function filterItemsByCategory(items: GameItem[], category: ItemCategory): GameItem[] {
+export function filterItemsByCategory(
+  items: GameItem[],
+  category: ItemCategory,
+): GameItem[] {
   if (category === 'all') return items
-  
-  return items.filter(item => {
+
+  return items.filter((item) => {
     const name = item.name.toLowerCase()
     const keywords = CATEGORY_KEYWORDS[category]
-    
+
     // Check keywords
-    if (keywords.some(keyword => name.includes(keyword))) return true
-    
+    if (keywords.some((keyword) => name.includes(keyword))) return true
+
     // Check stats
     switch (category) {
       case 'weapons':
@@ -145,7 +155,7 @@ export function filterItemsByCategory(items: GameItem[], category: ItemCategory)
       case 'resources':
         return item.stackable && item.attack === 0 && item.defense === 0
       case 'tools':
-        return keywords.some(keyword => name.includes(keyword))
+        return keywords.some((keyword) => name.includes(keyword))
       default:
         return false
     }
@@ -176,7 +186,11 @@ export function hasCombatStats(item: GameItem): boolean {
  * @param startChars - Characters to show at start (default 6)
  * @param endChars - Characters to show at end (default 4)
  */
-export function formatAddress(address: string, startChars = 6, endChars = 4): string {
+export function formatAddress(
+  address: string,
+  startChars = 6,
+  endChars = 4,
+): string {
   if (address.length <= startChars + endChars) return address
   return `${address.slice(0, startChars)}...${address.slice(-endChars)}`
 }
@@ -214,5 +228,7 @@ export function sortByRarity(items: GameItem[]): GameItem[] {
  * Sort items by balance (highest first)
  */
 export function sortByBalance(items: GameItem[]): GameItem[] {
-  return [...items].sort((a, b) => BigInt(b.balance) > BigInt(a.balance) ? 1 : -1)
+  return [...items].sort((a, b) =>
+    BigInt(b.balance) > BigInt(a.balance) ? 1 : -1,
+  )
 }

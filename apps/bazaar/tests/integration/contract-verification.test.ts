@@ -1,24 +1,24 @@
 /**
  * CONTRACT VERIFICATION TESTS
- * 
+ *
  * Verifies that deployed contracts on localnet are callable and return expected values.
  * These tests interact with REAL deployed contracts.
  */
 
-import { describe, test, expect, beforeAll } from 'bun:test'
+import { beforeAll, describe, expect, test } from 'bun:test'
+import { rawDeployments } from '@jejunetwork/contracts'
 import {
+  type Address,
   createPublicClient,
   createWalletClient,
-  http,
-  parseEther,
   formatEther,
-  parseAbi,
-  type Address,
+  http,
   type PublicClient,
+  parseAbi,
+  parseEther,
   type WalletClient,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { rawDeployments } from '@jejunetwork/contracts'
 
 // =============================================================================
 // CONFIGURATION
@@ -26,7 +26,8 @@ import { rawDeployments } from '@jejunetwork/contracts'
 
 const RPC_URL = process.env.L2_RPC_URL || 'http://localhost:9545'
 const CHAIN_ID = 420691 // network localnet chain ID
-const DEPLOYER_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as `0x${string}`
+const DEPLOYER_KEY =
+  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as `0x${string}`
 const DEPLOYER_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
@@ -114,10 +115,18 @@ let skipTests = false
 
 function loadDeployment(filename: string): Record<string, string> {
   const deploymentMap: Record<string, Record<string, string>> = {
-    'uniswap-v4-1337.json': rawDeployments.uniswapV4_1337 as Record<string, string>,
-    'bazaar-marketplace-1337.json': rawDeployments.bazaarMarketplace1337 as Record<string, string>,
-    'erc20-factory-1337.json': rawDeployments.erc20Factory1337 as Record<string, string>,
-    'multi-token-system-1337.json': rawDeployments.multiTokenSystem1337 as Record<string, string>,
+    'uniswap-v4-1337.json': rawDeployments.uniswapV4_1337 as Record<
+      string,
+      string
+    >,
+    'bazaar-marketplace-1337.json':
+      rawDeployments.bazaarMarketplace1337 as Record<string, string>,
+    'erc20-factory-1337.json': rawDeployments.erc20Factory1337 as Record<
+      string,
+      string
+    >,
+    'multi-token-system-1337.json':
+      rawDeployments.multiTokenSystem1337 as Record<string, string>,
   }
   return deploymentMap[filename] || {}
 }
@@ -167,14 +176,14 @@ describe('V4 Periphery Contracts', () => {
     // Verify contract exists
     const code = await publicClient.getCode({ address: swapRouter })
     expect(code).not.toBe('0x')
-    
+
     // Call poolManager() to verify contract works
     const poolManager = await publicClient.readContract({
       address: swapRouter,
       abi: MOCK_SWAP_ROUTER_ABI,
       functionName: 'poolManager',
     })
-    
+
     expect(poolManager).toMatch(/^0x[a-fA-F0-9]{40}$/)
     console.log(`   SwapRouter: ${swapRouter}`)
     console.log(`   PoolManager: ${poolManager}`)
@@ -191,13 +200,13 @@ describe('V4 Periphery Contracts', () => {
 
     const code = await publicClient.getCode({ address: positionManager })
     expect(code).not.toBe('0x')
-    
+
     const poolManager = await publicClient.readContract({
       address: positionManager,
       abi: MOCK_POSITION_MANAGER_ABI,
       functionName: 'poolManager',
     })
-    
+
     expect(poolManager).toMatch(/^0x[a-fA-F0-9]{40}$/)
     console.log(`   PositionManager: ${positionManager}`)
     console.log(`   ✅ PositionManager is callable`)
@@ -213,13 +222,13 @@ describe('V4 Periphery Contracts', () => {
 
     const code = await publicClient.getCode({ address: quoter })
     expect(code).not.toBe('0x')
-    
+
     const poolManager = await publicClient.readContract({
       address: quoter,
       abi: MOCK_QUOTER_ABI,
       functionName: 'poolManager',
     })
-    
+
     expect(poolManager).toMatch(/^0x[a-fA-F0-9]{40}$/)
     console.log(`   Quoter: ${quoter}`)
     console.log(`   ✅ Quoter is callable`)
@@ -235,13 +244,13 @@ describe('V4 Periphery Contracts', () => {
 
     const code = await publicClient.getCode({ address: stateView })
     expect(code).not.toBe('0x')
-    
+
     const poolManager = await publicClient.readContract({
       address: stateView,
       abi: MOCK_STATE_VIEW_ABI,
       functionName: 'poolManager',
     })
-    
+
     expect(poolManager).toMatch(/^0x[a-fA-F0-9]{40}$/)
     console.log(`   StateView: ${stateView}`)
     console.log(`   ✅ StateView is callable`)
@@ -255,7 +264,8 @@ describe('V4 Periphery Contracts', () => {
 describe('Bazaar Marketplace Contract', () => {
   test('should read marketplace version', async () => {
     if (skipTests) return
-    const marketplace = (deployments.marketplace.at || deployments.marketplace.marketplace) as Address
+    const marketplace = (deployments.marketplace.at ||
+      deployments.marketplace.marketplace) as Address
     if (!isDeployed(marketplace)) {
       console.log('   ⚠️ Marketplace not deployed')
       return
@@ -266,7 +276,7 @@ describe('Bazaar Marketplace Contract', () => {
       abi: BAZAAR_MARKETPLACE_ABI,
       functionName: 'version',
     })
-    
+
     expect(version).toBe('1.0.0')
     console.log(`   Marketplace: ${marketplace}`)
     console.log(`   Version: ${version}`)
@@ -275,7 +285,8 @@ describe('Bazaar Marketplace Contract', () => {
 
   test('should read platform fee', async () => {
     if (skipTests) return
-    const marketplace = (deployments.marketplace.at || deployments.marketplace.marketplace) as Address
+    const marketplace = (deployments.marketplace.at ||
+      deployments.marketplace.marketplace) as Address
     if (!isDeployed(marketplace)) {
       console.log('   ⚠️ Marketplace not deployed')
       return
@@ -286,18 +297,19 @@ describe('Bazaar Marketplace Contract', () => {
       abi: BAZAAR_MARKETPLACE_ABI,
       functionName: 'platformFeeBps',
     })
-    
+
     // Fee should be between 0 and 1000 (0% to 10%)
     expect(Number(feeBps)).toBeGreaterThanOrEqual(0)
     expect(Number(feeBps)).toBeLessThanOrEqual(1000)
-    
+
     console.log(`   Platform fee: ${Number(feeBps) / 100}%`)
     console.log(`   ✅ Platform fee is valid`)
   })
 
   test('should read fee recipient', async () => {
     if (skipTests) return
-    const marketplace = (deployments.marketplace.at || deployments.marketplace.marketplace) as Address
+    const marketplace = (deployments.marketplace.at ||
+      deployments.marketplace.marketplace) as Address
     if (!isDeployed(marketplace)) {
       console.log('   ⚠️ Marketplace not deployed')
       return
@@ -308,7 +320,7 @@ describe('Bazaar Marketplace Contract', () => {
       abi: BAZAAR_MARKETPLACE_ABI,
       functionName: 'feeRecipient',
     })
-    
+
     expect(feeRecipient).toMatch(/^0x[a-fA-F0-9]{40}$/)
     console.log(`   Fee recipient: ${feeRecipient}`)
     console.log(`   ✅ Fee recipient is set`)
@@ -333,7 +345,7 @@ describe('Token Factory Contract', () => {
       abi: TOKEN_FACTORY_ABI,
       functionName: 'tokenCount',
     })
-    
+
     console.log(`   Factory: ${factory}`)
     console.log(`   Token count: ${count}`)
     console.log(`   ✅ Token count readable`)
@@ -357,7 +369,7 @@ describe('Token Factory Contract', () => {
     // Create a new token
     const tokenName = `TestToken${Date.now()}`
     const tokenSymbol = `TT${Date.now().toString().slice(-4)}`
-    
+
     const hash = await walletClient.writeContract({
       address: factory,
       abi: TOKEN_FACTORY_ABI,
@@ -398,7 +410,7 @@ describe('Token Factory Contract', () => {
 
     console.log(`   Creator: ${DEPLOYER_ADDRESS}`)
     console.log(`   Tokens created: ${tokens.length}`)
-    
+
     // Verify each token is a valid ERC20
     for (const token of tokens.slice(0, 3)) {
       const name = await publicClient.readContract({
@@ -408,11 +420,11 @@ describe('Token Factory Contract', () => {
       })
       console.log(`     - ${name}: ${token}`)
     }
-    
+
     if (tokens.length > 3) {
       console.log(`     ... and ${tokens.length - 3} more`)
     }
-    
+
     console.log(`   ✅ Creator tokens listed`)
   })
 })
@@ -482,11 +494,11 @@ describe('Created Token Verification', () => {
     console.log(`   Decimals: ${decimals}`)
     console.log(`   Total supply: ${formatEther(totalSupply)}`)
     console.log(`   Creator balance: ${formatEther(balance)}`)
-    
+
     expect(decimals).toBe(18)
     expect(totalSupply).toBeGreaterThan(0n)
     expect(balance).toBe(totalSupply) // Creator gets all initial supply
-    
+
     console.log(`   ✅ Token is valid ERC20`)
   })
 })
@@ -501,23 +513,35 @@ describe('Contract Verification Summary', () => {
       console.log('   ⚠️ Skipped: Localnet not running')
       return
     }
-    
+
     console.log('')
     console.log('═══════════════════════════════════════════════════════')
     console.log('       CONTRACT VERIFICATION SUMMARY')
     console.log('═══════════════════════════════════════════════════════')
     console.log('')
     console.log('V4 Periphery:')
-    console.log(`  ${isDeployed(deployments.v4?.swapRouter) ? '✅' : '❌'} SwapRouter`)
-    console.log(`  ${isDeployed(deployments.v4?.positionManager) ? '✅' : '❌'} PositionManager`)
-    console.log(`  ${isDeployed(deployments.v4?.quoterV4) ? '✅' : '❌'} Quoter`)
-    console.log(`  ${isDeployed(deployments.v4?.stateView) ? '✅' : '❌'} StateView`)
+    console.log(
+      `  ${isDeployed(deployments.v4?.swapRouter) ? '✅' : '❌'} SwapRouter`,
+    )
+    console.log(
+      `  ${isDeployed(deployments.v4?.positionManager) ? '✅' : '❌'} PositionManager`,
+    )
+    console.log(
+      `  ${isDeployed(deployments.v4?.quoterV4) ? '✅' : '❌'} Quoter`,
+    )
+    console.log(
+      `  ${isDeployed(deployments.v4?.stateView) ? '✅' : '❌'} StateView`,
+    )
     console.log('')
     console.log('Marketplace:')
-    console.log(`  ${isDeployed(deployments.marketplace?.at || deployments.marketplace?.marketplace) ? '✅' : '❌'} Bazaar Marketplace`)
+    console.log(
+      `  ${isDeployed(deployments.marketplace?.at || deployments.marketplace?.marketplace) ? '✅' : '❌'} Bazaar Marketplace`,
+    )
     console.log('')
     console.log('Token Factory:')
-    console.log(`  ${isDeployed(deployments.factory?.at) ? '✅' : '❌'} ERC20 Factory`)
+    console.log(
+      `  ${isDeployed(deployments.factory?.at) ? '✅' : '❌'} ERC20 Factory`,
+    )
     console.log('')
     console.log('═══════════════════════════════════════════════════════')
     console.log('')
@@ -527,4 +551,3 @@ describe('Contract Verification Summary', () => {
     console.log('═══════════════════════════════════════════════════════')
   })
 })
-

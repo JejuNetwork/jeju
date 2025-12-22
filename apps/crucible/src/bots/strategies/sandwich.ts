@@ -1,22 +1,27 @@
-import { decodeAbiParameters, parseAbiParameters, type Hex } from 'viem';
-import type { ChainId, Pool, SandwichOpportunity, StrategyConfig } from '../autocrat-types';
-import type { PendingTransaction } from '../engine/collector';
+import { decodeAbiParameters, type Hex, parseAbiParameters } from 'viem'
+import type {
+  ChainId,
+  Pool,
+  SandwichOpportunity,
+  StrategyConfig,
+} from '../autocrat-types'
+import type { PendingTransaction } from '../engine/collector'
 
 interface DecodedSwap {
-  amountIn: bigint;
-  amountOutMin: bigint;
-  path: string[];
-  to: string;
-  deadline: bigint;
+  amountIn: bigint
+  amountOutMin: bigint
+  path: string[]
+  to: string
+  deadline: bigint
 }
 
 interface SandwichParams {
-  frontrunAmountIn: bigint;
-  frontrunAmountOutMin: bigint;
-  backrunAmountIn: bigint;
-  backrunAmountOutMin: bigint;
-  expectedProfit: bigint;
-  victimImpact: bigint;
+  frontrunAmountIn: bigint
+  frontrunAmountOutMin: bigint
+  backrunAmountIn: bigint
+  backrunAmountOutMin: bigint
+  expectedProfit: bigint
+  victimImpact: bigint
 }
 
 const SWAP_SELECTORS = {
@@ -26,29 +31,33 @@ const SWAP_SELECTORS = {
   swapTokensForExactETH: '0x4a25d94a',
   swapExactTokensForETH: '0x18cbafe5',
   swapETHForExactTokens: '0xfb3bdb41',
-};
+}
 
 // Profitability analysis shows sandwich needs >25 ETH victim to be profitable at 30 gwei
 // See arbitrage-simulation.test.ts for detailed calculations
-const MIN_VICTIM_AMOUNT = BigInt(25e18); // 25 ETH minimum (~$75k at $3000/ETH)
-const MAX_VICTIM_IMPACT_BPS = 100; // Cap victim impact at 1%
-const OPPORTUNITY_TTL_MS = 1000;
+const MIN_VICTIM_AMOUNT = BigInt(25e18) // 25 ETH minimum (~$75k at $3000/ETH)
+const MAX_VICTIM_IMPACT_BPS = 100 // Cap victim impact at 1%
+const OPPORTUNITY_TTL_MS = 1000
 
 export class SandwichStrategy {
-  private pools: Map<string, Pool> = new Map();
-  private poolByPair: Map<string, Pool> = new Map(); // "token0-token1" -> Pool
-  private opportunities: Map<string, SandwichOpportunity> = new Map();
-  private processedTxs: Set<string> = new Set();
-  private config: StrategyConfig;
-  private chainId: ChainId;
-  private routerAddresses: Set<string> = new Set();
+  private pools: Map<string, Pool> = new Map()
+  private poolByPair: Map<string, Pool> = new Map() // "token0-token1" -> Pool
+  private opportunities: Map<string, SandwichOpportunity> = new Map()
+  private processedTxs: Set<string> = new Set()
+  private config: StrategyConfig
+  private chainId: ChainId
+  private routerAddresses: Set<string> = new Set()
 
-  constructor(chainId: ChainId, config: StrategyConfig, routerAddresses: string[] = []) {
-    this.chainId = chainId;
-    this.config = config;
+  constructor(
+    chainId: ChainId,
+    config: StrategyConfig,
+    routerAddresses: string[] = [],
+  ) {
+    this.chainId = chainId
+    this.config = config
 
     for (const addr of routerAddresses) {
-      this.routerAddresses.add(addr.toLowerCase());
+      this.routerAddresses.add(addr.toLowerCase())
     }
   }
 
@@ -56,26 +65,26 @@ export class SandwichStrategy {
    * Initialize with pools
    */
   initialize(pools: Pool[]): void {
-    console.log(`🥪 Initializing sandwich strategy with ${pools.length} pools`);
+    console.log(`🥪 Initializing sandwich strategy with ${pools.length} pools`)
 
     for (const pool of pools) {
-      if (pool.chainId !== this.chainId) continue;
+      if (pool.chainId !== this.chainId) continue
 
-      this.pools.set(pool.address.toLowerCase(), pool);
+      this.pools.set(pool.address.toLowerCase(), pool)
 
       // Index by token pair
-      const pairKey = this.getPairKey(pool.token0.address, pool.token1.address);
-      this.poolByPair.set(pairKey, pool);
+      const pairKey = this.getPairKey(pool.token0.address, pool.token1.address)
+      this.poolByPair.set(pairKey, pool)
     }
 
-    console.log(`   Indexed ${this.pools.size} pools for sandwich detection`);
+    console.log(`   Indexed ${this.pools.size} pools for sandwich detection`)
   }
 
   /**
    * Add a router address to monitor
    */
   addRouter(address: string): void {
-    this.routerAddresses.add(address.toLowerCase());
+    this.routerAddresses.add(address.toLowerCase())
   }
 
   /**
@@ -83,46 +92,53 @@ export class SandwichStrategy {
    */
   onPendingTx(tx: PendingTransaction): void {
     // Skip if already processed
-    if (this.processedTxs.has(tx.hash)) return;
-    this.processedTxs.add(tx.hash);
+    if (this.processedTxs.has(tx.hash)) return
+    this.processedTxs.add(tx.hash)
 
     // Clean old processed TXs (keep last 10000)
     if (this.processedTxs.size > 10000) {
-      const toDelete = Array.from(this.processedTxs).slice(0, 5000);
+      const toDelete = Array.from(this.processedTxs).slice(0, 5000)
       for (const hash of toDelete) {
-        this.processedTxs.delete(hash);
+        this.processedTxs.delete(hash)
       }
     }
 
     // Check if it's a router transaction
-    if (!this.routerAddresses.has(tx.to.toLowerCase())) return;
+    if (!this.routerAddresses.has(tx.to.toLowerCase())) return
 
     // Try to decode the swap
-    const decoded = this.decodeSwap(tx.input);
-    if (!decoded) return;
+    const decoded = this.decodeSwap(tx.input)
+    if (!decoded) return
 
     // Check if it's a significant swap
-    if (decoded.amountIn < MIN_VICTIM_AMOUNT) return;
+    if (decoded.amountIn < MIN_VICTIM_AMOUNT) return
 
     // Get the pool
-    const pairKey = this.getPairKey(decoded.path[0], decoded.path[decoded.path.length - 1]);
-    const pool = this.poolByPair.get(pairKey);
-    if (!pool) return;
+    const pairKey = this.getPairKey(
+      decoded.path[0],
+      decoded.path[decoded.path.length - 1],
+    )
+    const pool = this.poolByPair.get(pairKey)
+    if (!pool) return
 
     // Calculate sandwich parameters
-    const params = this.calculateSandwichParams(decoded, pool, tx.gasPrice);
-    if (!params) return;
+    const params = this.calculateSandwichParams(decoded, pool, tx.gasPrice)
+    if (!params) return
 
     // Check profitability
-    const profitBps = Number((params.expectedProfit * 10000n) / decoded.amountIn);
-    if (profitBps < this.config.minProfitBps) return;
+    const profitBps = Number(
+      (params.expectedProfit * 10000n) / decoded.amountIn,
+    )
+    if (profitBps < this.config.minProfitBps) return
 
     // Check victim impact is within ethical bounds
-    const victimImpactBps = Number((params.victimImpact * 10000n) / decoded.amountIn);
-    if (victimImpactBps > MAX_VICTIM_IMPACT_BPS) return;
+    const victimImpactBps = Number(
+      (params.victimImpact * 10000n) / decoded.amountIn,
+    )
+    if (victimImpactBps > MAX_VICTIM_IMPACT_BPS) return
 
     // Record opportunity
-    this.recordOpportunity(tx, decoded, pool, params, victimImpactBps);
+    this.recordOpportunity(tx, decoded, pool, params, victimImpactBps)
   }
 
   /**
@@ -130,25 +146,27 @@ export class SandwichStrategy {
    */
   getOpportunities(): SandwichOpportunity[] {
     // Clean expired opportunities
-    const now = Date.now();
+    const now = Date.now()
     for (const [id, opp] of this.opportunities) {
       if (opp.detectedAt + OPPORTUNITY_TTL_MS < now) {
-        this.opportunities.delete(id);
+        this.opportunities.delete(id)
       }
     }
 
     return Array.from(this.opportunities.values())
-      .filter(o => o.status === 'DETECTED')
-      .sort((a, b) => Number(BigInt(b.expectedProfit) - BigInt(a.expectedProfit)));
+      .filter((o) => o.status === 'DETECTED')
+      .sort((a, b) =>
+        Number(BigInt(b.expectedProfit) - BigInt(a.expectedProfit)),
+      )
   }
 
   /**
    * Mark opportunity as executing
    */
   markExecuting(opportunityId: string): void {
-    const opp = this.opportunities.get(opportunityId);
+    const opp = this.opportunities.get(opportunityId)
     if (opp) {
-      opp.status = 'EXECUTING';
+      opp.status = 'EXECUTING'
     }
   }
 
@@ -156,44 +174,46 @@ export class SandwichStrategy {
    * Mark opportunity as completed/failed
    */
   markCompleted(opportunityId: string, success: boolean): void {
-    const opp = this.opportunities.get(opportunityId);
+    const opp = this.opportunities.get(opportunityId)
     if (opp) {
-      opp.status = success ? 'COMPLETED' : 'FAILED';
+      opp.status = success ? 'COMPLETED' : 'FAILED'
     }
   }
 
   // ============ Private Methods ============
 
   private getPairKey(token0: string, token1: string): string {
-    const [a, b] = [token0.toLowerCase(), token1.toLowerCase()].sort();
-    return `${a}-${b}`;
+    const [a, b] = [token0.toLowerCase(), token1.toLowerCase()].sort()
+    return `${a}-${b}`
   }
 
   private decodeSwap(input: string): DecodedSwap | null {
-    if (!input || input.length < 10) return null;
+    if (!input || input.length < 10) return null
 
-    const selector = input.slice(0, 10);
+    const selector = input.slice(0, 10)
 
     try {
       // swapExactTokensForTokens(uint amountIn, uint amountOutMin, address[] path, address to, uint deadline)
       if (selector === SWAP_SELECTORS.swapExactTokensForTokens) {
         const decoded = decodeAbiParameters(
-          parseAbiParameters('uint256 amountIn, uint256 amountOutMin, address[] path, address to, uint256 deadline'),
-          `0x${input.slice(10)}` as Hex
-        );
+          parseAbiParameters(
+            'uint256 amountIn, uint256 amountOutMin, address[] path, address to, uint256 deadline',
+          ),
+          `0x${input.slice(10)}` as Hex,
+        )
         return {
           amountIn: decoded[0],
           amountOutMin: decoded[1],
           path: decoded[2] as string[],
           to: decoded[3] as string,
           deadline: decoded[4],
-        };
+        }
       }
 
       // swapExactETHForTokens(uint amountOutMin, address[] path, address to, uint deadline)
       // amountIn would be msg.value - not available in this context
       if (selector === SWAP_SELECTORS.swapExactETHForTokens) {
-        return null;
+        return null
       }
 
       // Add more decoders as needed...
@@ -201,76 +221,88 @@ export class SandwichStrategy {
       // Failed to decode - not a swap we can handle
     }
 
-    return null;
+    return null
   }
 
   private calculateSandwichParams(
     decoded: DecodedSwap,
     pool: Pool,
-    _victimGasPrice: bigint
+    _victimGasPrice: bigint,
   ): SandwichParams | null {
-    const reserve0 = BigInt(pool.reserve0 ?? '0');
-    const reserve1 = BigInt(pool.reserve1 ?? '0');
+    const reserve0 = BigInt(pool.reserve0 ?? '0')
+    const reserve1 = BigInt(pool.reserve1 ?? '0')
 
-    if (reserve0 === 0n || reserve1 === 0n) return null;
+    if (reserve0 === 0n || reserve1 === 0n) return null
 
     // Determine swap direction
-    const isZeroForOne = decoded.path[0].toLowerCase() === pool.token0.address.toLowerCase();
+    const isZeroForOne =
+      decoded.path[0].toLowerCase() === pool.token0.address.toLowerCase()
     const [reserveIn, reserveOut] = isZeroForOne
       ? [reserve0, reserve1]
-      : [reserve1, reserve0];
+      : [reserve1, reserve0]
 
     // Calculate victim's expected output without our interference
-    const victimOutputClean = this.getAmountOut(decoded.amountIn, reserveIn, reserveOut);
+    const victimOutputClean = this.getAmountOut(
+      decoded.amountIn,
+      reserveIn,
+      reserveOut,
+    )
 
     // Calculate optimal frontrun amount
     // We want to move the price just enough to profit but not too much
     // Simple heuristic: frontrun with 10% of victim's trade
-    const frontrunAmountIn = decoded.amountIn / 10n;
+    const frontrunAmountIn = decoded.amountIn / 10n
 
     // Calculate new reserves after our frontrun
-    const frontrunOutput = this.getAmountOut(frontrunAmountIn, reserveIn, reserveOut);
-    const reserveInAfterFrontrun = reserveIn + frontrunAmountIn;
-    const reserveOutAfterFrontrun = reserveOut - frontrunOutput;
+    const frontrunOutput = this.getAmountOut(
+      frontrunAmountIn,
+      reserveIn,
+      reserveOut,
+    )
+    const reserveInAfterFrontrun = reserveIn + frontrunAmountIn
+    const reserveOutAfterFrontrun = reserveOut - frontrunOutput
 
     // Calculate victim's output after our frontrun (worse price)
     const victimOutputAfterFrontrun = this.getAmountOut(
       decoded.amountIn,
       reserveInAfterFrontrun,
-      reserveOutAfterFrontrun
-    );
+      reserveOutAfterFrontrun,
+    )
 
     // Check if victim would still get enough output
     if (victimOutputAfterFrontrun < decoded.amountOutMin) {
       // Victim would revert - reduce frontrun amount
-      return null;
+      return null
     }
 
     // Calculate victim impact
-    const victimImpact = victimOutputClean - victimOutputAfterFrontrun;
+    const victimImpact = victimOutputClean - victimOutputAfterFrontrun
 
     // Calculate reserves after victim trades
-    const reserveInAfterVictim = reserveInAfterFrontrun + decoded.amountIn;
-    const reserveOutAfterVictim = reserveOutAfterFrontrun - victimOutputAfterFrontrun;
+    const reserveInAfterVictim = reserveInAfterFrontrun + decoded.amountIn
+    const reserveOutAfterVictim =
+      reserveOutAfterFrontrun - victimOutputAfterFrontrun
 
     // Calculate our backrun (sell what we bought)
     // We sell in the opposite direction
-    const backrunAmountIn = frontrunOutput;
+    const backrunAmountIn = frontrunOutput
     const backrunOutput = this.getAmountOut(
       backrunAmountIn,
       reserveOutAfterVictim, // Our backrun input is what we bought (the output token)
-      reserveInAfterVictim // Our backrun output is the original input token
-    );
+      reserveInAfterVictim, // Our backrun output is the original input token
+    )
 
     // Calculate profit
-    const profit = backrunOutput - frontrunAmountIn;
+    const profit = backrunOutput - frontrunAmountIn
 
-    if (profit <= 0n) return null;
+    if (profit <= 0n) return null
 
     // Calculate minimum outputs with slippage
-    const slippageBps = BigInt(this.config.maxSlippageBps);
-    const frontrunAmountOutMin = (frontrunOutput * (10000n - slippageBps)) / 10000n;
-    const backrunAmountOutMin = (backrunOutput * (10000n - slippageBps)) / 10000n;
+    const slippageBps = BigInt(this.config.maxSlippageBps)
+    const frontrunAmountOutMin =
+      (frontrunOutput * (10000n - slippageBps)) / 10000n
+    const backrunAmountOutMin =
+      (backrunOutput * (10000n - slippageBps)) / 10000n
 
     return {
       frontrunAmountIn,
@@ -279,17 +311,21 @@ export class SandwichStrategy {
       backrunAmountOutMin,
       expectedProfit: profit,
       victimImpact,
-    };
+    }
   }
 
-  private getAmountOut(amountIn: bigint, reserveIn: bigint, reserveOut: bigint): bigint {
-    if (amountIn === 0n || reserveIn === 0n || reserveOut === 0n) return 0n;
+  private getAmountOut(
+    amountIn: bigint,
+    reserveIn: bigint,
+    reserveOut: bigint,
+  ): bigint {
+    if (amountIn === 0n || reserveIn === 0n || reserveOut === 0n) return 0n
 
-    const amountInWithFee = amountIn * 997n;
-    const numerator = amountInWithFee * reserveOut;
-    const denominator = reserveIn * 1000n + amountInWithFee;
+    const amountInWithFee = amountIn * 997n
+    const numerator = amountInWithFee * reserveOut
+    const denominator = reserveIn * 1000n + amountInWithFee
 
-    return numerator / denominator;
+    return numerator / denominator
   }
 
   private recordOpportunity(
@@ -297,9 +333,9 @@ export class SandwichStrategy {
     decoded: DecodedSwap,
     pool: Pool,
     params: SandwichParams,
-    victimImpactBps: number
+    victimImpactBps: number,
   ): void {
-    const id = `sandwich-${this.chainId}-${tx.hash}`;
+    const id = `sandwich-${this.chainId}-${tx.hash}`
 
     const opportunity: SandwichOpportunity = {
       id,
@@ -328,12 +364,12 @@ export class SandwichStrategy {
       victimImpactBps,
       detectedAt: Date.now(),
       status: 'DETECTED',
-    };
+    }
 
-    this.opportunities.set(id, opportunity);
+    this.opportunities.set(id, opportunity)
 
     console.log(
-      `🥪 Sandwich detected: ${params.expectedProfit} profit, ${victimImpactBps} bps victim impact`
-    );
+      `🥪 Sandwich detected: ${params.expectedProfit} profit, ${victimImpactBps} bps victim impact`,
+    )
   }
 }

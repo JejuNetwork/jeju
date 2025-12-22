@@ -1,23 +1,23 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
-import { useAccount } from 'wagmi'
 import { useQuery } from '@tanstack/react-query'
+import { gql, request } from 'graphql-request'
 import { useSearchParams } from 'next/navigation'
-import { hasNFTMarketplace } from '@/config/contracts'
-import { JEJU_CHAIN_ID } from '@/config/chains'
-import { request, gql } from 'graphql-request'
+import { Suspense, useEffect, useState } from 'react'
+import { useAccount } from 'wagmi'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
 import { INDEXER_URL } from '@/config'
+import { JEJU_CHAIN_ID } from '@/config/chains'
+import { hasNFTMarketplace } from '@/config/contracts'
 import {
-  normalizeNFTQueryResult,
+  type ERC721TokenInput,
+  type ERC1155BalanceInput,
   filterNFTsByOwner,
-  sortNFTs,
   groupNFTsByCollection,
   isNFTOwner,
   type NFTSortOption,
-  type ERC721TokenInput,
-  type ERC1155BalanceInput,
+  normalizeNFTQueryResult,
+  sortNFTs,
 } from '@/lib/nft'
 import type { NormalizedNFT } from '@/schemas/nft'
 
@@ -59,7 +59,7 @@ function NFTsPageContent() {
   const searchParams = useSearchParams()
   const [filter, setFilter] = useState<'all' | 'my-nfts'>('all')
   const [sortBy, setSortBy] = useState<NFTSortOption>('recent')
-  
+
   // Single modal with mode switching
   const [selectedNFT, setSelectedNFT] = useState<NormalizedNFT | null>(null)
   const [modalMode, setModalMode] = useState<ModalMode>('view')
@@ -68,7 +68,8 @@ function NFTsPageContent() {
   const [buyoutPrice, setBuyoutPrice] = useState('')
 
   const hasMarketplace = hasNFTMarketplace(JEJU_CHAIN_ID)
-  const isOwner = selectedNFT && address ? isNFTOwner(selectedNFT, address) : false
+  const isOwner =
+    selectedNFT && address ? isNFTOwner(selectedNFT, address) : false
 
   useEffect(() => {
     const urlFilter = searchParams?.get('filter')
@@ -81,7 +82,7 @@ function NFTsPageContent() {
     queryKey: ['nfts', filter === 'my-nfts' ? address : null],
     queryFn: async () => {
       const data = await request<NFTQueryResult>(INDEXER_URL, NFT_QUERY, {
-        owner: filter === 'my-nfts' ? address?.toLowerCase() : undefined
+        owner: filter === 'my-nfts' ? address?.toLowerCase() : undefined,
       })
       return data
     },
@@ -92,12 +93,13 @@ function NFTsPageContent() {
   // Use lib functions for normalization, filtering, sorting, and grouping
   const allNFTs = normalizeNFTQueryResult(
     nftData?.erc721Tokens ?? [],
-    nftData?.erc1155Balances ?? []
+    nftData?.erc1155Balances ?? [],
   )
 
-  const filteredNFTs = filter === 'my-nfts' && address
-    ? filterNFTsByOwner(allNFTs, address)
-    : allNFTs
+  const filteredNFTs =
+    filter === 'my-nfts' && address
+      ? filterNFTsByOwner(allNFTs, address)
+      : allNFTs
 
   const sortedNFTs = sortNFTs(filteredNFTs, sortBy)
   const collections = groupNFTsByCollection(sortedNFTs)
@@ -125,10 +127,16 @@ function NFTsPageContent() {
     <div>
       {/* Header */}
       <div className="mb-6 md:mb-8">
-        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
+        <h1
+          className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2"
+          style={{ color: 'var(--text-primary)' }}
+        >
           🖼️ NFTs
         </h1>
-        <p className="text-sm sm:text-base mb-4" style={{ color: 'var(--text-secondary)' }}>
+        <p
+          className="text-sm sm:text-base mb-4"
+          style={{ color: 'var(--text-secondary)' }}
+        >
           Browse, collect, and trade digital items
         </p>
 
@@ -146,9 +154,10 @@ function NFTsPageContent() {
               className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${
                 filter === 'all' ? 'bg-bazaar-primary text-white' : ''
               }`}
-              style={{ 
-                backgroundColor: filter === 'all' ? undefined : 'var(--bg-secondary)',
-                color: filter === 'all' ? undefined : 'var(--text-secondary)'
+              style={{
+                backgroundColor:
+                  filter === 'all' ? undefined : 'var(--bg-secondary)',
+                color: filter === 'all' ? undefined : 'var(--text-secondary)',
               }}
             >
               All NFTs
@@ -159,9 +168,11 @@ function NFTsPageContent() {
               className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all disabled:opacity-50 ${
                 filter === 'my-nfts' ? 'bg-bazaar-primary text-white' : ''
               }`}
-              style={{ 
-                backgroundColor: filter === 'my-nfts' ? undefined : 'var(--bg-secondary)',
-                color: filter === 'my-nfts' ? undefined : 'var(--text-secondary)'
+              style={{
+                backgroundColor:
+                  filter === 'my-nfts' ? undefined : 'var(--bg-secondary)',
+                color:
+                  filter === 'my-nfts' ? undefined : 'var(--text-secondary)',
               }}
             >
               My Collection
@@ -190,11 +201,14 @@ function NFTsPageContent() {
       {!isLoading && sortedNFTs.length === 0 && (
         <div className="text-center py-16">
           <div className="text-5xl md:text-6xl mb-4">🖼️</div>
-          <h3 className="text-lg md:text-xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+          <h3
+            className="text-lg md:text-xl font-semibold mb-2"
+            style={{ color: 'var(--text-primary)' }}
+          >
             {filter === 'my-nfts' ? 'No NFTs Yet' : 'No NFTs Found'}
           </h3>
           <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-            {filter === 'my-nfts' 
+            {filter === 'my-nfts'
               ? "You don't own any NFTs yet"
               : 'No NFTs have been minted'}
           </p>
@@ -206,7 +220,10 @@ function NFTsPageContent() {
         <div className="space-y-6 md:space-y-8">
           {Object.entries(collections).map(([collectionName, nfts]) => (
             <div key={collectionName}>
-              <h2 className="text-lg md:text-xl font-bold mb-3 md:mb-4" style={{ color: 'var(--text-primary)' }}>
+              <h2
+                className="text-lg md:text-xl font-bold mb-3 md:mb-4"
+                style={{ color: 'var(--text-primary)' }}
+              >
                 {collectionName}
               </h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
@@ -220,10 +237,16 @@ function NFTsPageContent() {
                       🖼️
                     </div>
                     <div className="p-2.5 md:p-3">
-                      <h3 className="font-semibold text-sm mb-0.5" style={{ color: 'var(--text-primary)' }}>
+                      <h3
+                        className="font-semibold text-sm mb-0.5"
+                        style={{ color: 'var(--text-primary)' }}
+                      >
                         #{nft.tokenId}
                       </h3>
-                      <p className="text-xs truncate" style={{ color: 'var(--text-tertiary)' }}>
+                      <p
+                        className="text-xs truncate"
+                        style={{ color: 'var(--text-tertiary)' }}
+                      >
                         {nft.contractName}
                       </p>
                     </div>
@@ -237,29 +260,38 @@ function NFTsPageContent() {
 
       {/* Unified NFT Modal */}
       {selectedNFT && (
-        <div 
+        <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}
           onClick={closeModal}
         >
-          <div 
+          <div
             className="w-full max-w-md rounded-2xl border overflow-hidden"
-            style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}
+            style={{
+              backgroundColor: 'var(--surface)',
+              borderColor: 'var(--border)',
+            }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* NFT Image */}
             <div className="aspect-[4/3] bg-gradient-to-br from-bazaar-primary to-bazaar-purple flex items-center justify-center text-6xl">
               🖼️
             </div>
-            
+
             <div className="p-5">
               {/* Header */}
               <div className="flex items-start justify-between mb-4">
                 <div>
-                  <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                  <h2
+                    className="text-xl font-bold"
+                    style={{ color: 'var(--text-primary)' }}
+                  >
                     #{selectedNFT.tokenId}
                   </h2>
-                  <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  <p
+                    className="text-sm"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
                     {selectedNFT.contractName}
                   </p>
                 </div>
@@ -277,21 +309,35 @@ function NFTsPageContent() {
                   {/* Details */}
                   <div className="space-y-2 mb-5 text-sm">
                     <div className="flex justify-between">
-                      <span style={{ color: 'var(--text-tertiary)' }}>Type</span>
-                      <span style={{ color: 'var(--text-primary)' }}>{selectedNFT.type}</span>
+                      <span style={{ color: 'var(--text-tertiary)' }}>
+                        Type
+                      </span>
+                      <span style={{ color: 'var(--text-primary)' }}>
+                        {selectedNFT.type}
+                      </span>
                     </div>
                     {selectedNFT.owner && (
                       <div className="flex justify-between">
-                        <span style={{ color: 'var(--text-tertiary)' }}>Owner</span>
-                        <span className="font-mono" style={{ color: 'var(--text-secondary)' }}>
-                          {selectedNFT.owner.slice(0, 8)}...{selectedNFT.owner.slice(-6)}
+                        <span style={{ color: 'var(--text-tertiary)' }}>
+                          Owner
+                        </span>
+                        <span
+                          className="font-mono"
+                          style={{ color: 'var(--text-secondary)' }}
+                        >
+                          {selectedNFT.owner.slice(0, 8)}...
+                          {selectedNFT.owner.slice(-6)}
                         </span>
                       </div>
                     )}
                     {selectedNFT.balance && (
                       <div className="flex justify-between">
-                        <span style={{ color: 'var(--text-tertiary)' }}>Quantity</span>
-                        <span style={{ color: 'var(--text-primary)' }}>{selectedNFT.balance}</span>
+                        <span style={{ color: 'var(--text-tertiary)' }}>
+                          Quantity
+                        </span>
+                        <span style={{ color: 'var(--text-primary)' }}>
+                          {selectedNFT.balance}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -305,7 +351,10 @@ function NFTsPageContent() {
                       List for Sale
                     </button>
                   ) : (
-                    <button onClick={closeModal} className="btn-secondary w-full py-3">
+                    <button
+                      onClick={closeModal}
+                      className="btn-secondary w-full py-3"
+                    >
                       Close
                     </button>
                   )}
@@ -315,7 +364,10 @@ function NFTsPageContent() {
                   {/* Sell Form */}
                   <div className="space-y-4 mb-5">
                     <div>
-                      <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>
+                      <label
+                        className="text-xs mb-1.5 block"
+                        style={{ color: 'var(--text-tertiary)' }}
+                      >
                         Price (ETH)
                       </label>
                       <input
@@ -329,10 +381,13 @@ function NFTsPageContent() {
                     </div>
 
                     <div>
-                      <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>
+                      <label
+                        className="text-xs mb-1.5 block"
+                        style={{ color: 'var(--text-tertiary)' }}
+                      >
                         Duration
                       </label>
-                      <select 
+                      <select
                         value={duration}
                         onChange={(e) => setDuration(e.target.value)}
                         className="input"
@@ -345,7 +400,10 @@ function NFTsPageContent() {
                     </div>
 
                     <div>
-                      <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>
+                      <label
+                        className="text-xs mb-1.5 block"
+                        style={{ color: 'var(--text-tertiary)' }}
+                      >
                         Buy Now Price (optional)
                       </label>
                       <input
@@ -386,7 +444,13 @@ function NFTsPageContent() {
 
 export default function NFTsPage() {
   return (
-    <Suspense fallback={<div className="flex justify-center py-20"><LoadingSpinner size="lg" /></div>}>
+    <Suspense
+      fallback={
+        <div className="flex justify-center py-20">
+          <LoadingSpinner size="lg" />
+        </div>
+      }
+    >
       <NFTsPageContent />
     </Suspense>
   )

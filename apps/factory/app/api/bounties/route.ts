@@ -1,13 +1,22 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { validateQuery, validateBody, errorResponse, expect, requireAuth } from '@/lib/validation';
-import { getBountiesQuerySchema, createBountySchema } from '@/lib/validation/schemas';
-import type { Bounty } from '@/types';
+import { type NextRequest, NextResponse } from 'next/server'
+import {
+  errorResponse,
+  expect,
+  requireAuth,
+  validateBody,
+  validateQuery,
+} from '@/lib/validation'
+import {
+  createBountySchema,
+  getBountiesQuerySchema,
+} from '@/lib/validation/schemas'
+import type { Bounty } from '@/types'
 
 // GET /api/bounties - List all bounties
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const query = validateQuery(getBountiesQuerySchema, searchParams);
+    const { searchParams } = new URL(request.url)
+    const query = validateQuery(getBountiesQuerySchema, searchParams)
 
     // Mock data - in production this would query the BountyRegistry contract
     const bounties: Bounty[] = [
@@ -19,7 +28,10 @@ export async function GET(request: NextRequest) {
         currency: 'USDC',
         status: 'open',
         skills: ['Solidity', 'ERC-4337', 'Smart Contracts'],
-        creator: expect('0x1234567890123456789012345678901234567890' as const, 'Creator address required'),
+        creator: expect(
+          '0x1234567890123456789012345678901234567890' as const,
+          'Creator address required',
+        ),
         deadline: Date.now() + 7 * 24 * 60 * 60 * 1000,
         submissions: 3,
         createdAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
@@ -33,13 +45,16 @@ export async function GET(request: NextRequest) {
         currency: 'USDC',
         status: 'in_progress',
         skills: ['React', 'TypeScript', 'D3.js'],
-        creator: expect('0xabcdefabcdefabcdefabcdefabcdefabcdefabcd' as const, 'Creator address required'),
+        creator: expect(
+          '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd' as const,
+          'Creator address required',
+        ),
         deadline: Date.now() + 14 * 24 * 60 * 60 * 1000,
         submissions: 1,
         createdAt: Date.now() - 5 * 24 * 60 * 60 * 1000,
         updatedAt: Date.now() - 5 * 24 * 60 * 60 * 1000,
       },
-    ];
+    ]
 
     return NextResponse.json({
       bounties,
@@ -47,10 +62,10 @@ export async function GET(request: NextRequest) {
       page: query.page,
       limit: query.limit,
       hasMore: false,
-    });
+    })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return errorResponse(message, 400);
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    return errorResponse(message, 400)
   }
 }
 
@@ -58,12 +73,12 @@ export async function GET(request: NextRequest) {
 // Requires authentication - only authenticated users can create bounties
 export async function POST(request: NextRequest) {
   // Verify authentication for state-changing operation
-  const authResult = await requireAuth(request);
+  const authResult = await requireAuth(request)
   if ('error' in authResult) {
-    return authResult.error;
+    return authResult.error
   }
 
-  const body = await validateBody(createBountySchema, request.json());
+  const body = await validateBody(createBountySchema, request.json())
 
   // In production: call BountyRegistry.createBounty()
   // Use the authenticated address as the creator
@@ -81,8 +96,7 @@ export async function POST(request: NextRequest) {
     submissions: 0,
     createdAt: Date.now(),
     updatedAt: Date.now(),
-  };
+  }
 
-  return NextResponse.json(bounty, { status: 201 });
+  return NextResponse.json(bounty, { status: 201 })
 }
-

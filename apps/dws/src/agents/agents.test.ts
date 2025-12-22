@@ -1,24 +1,24 @@
 /**
  * Agent System Tests
- * 
+ *
  * Tests the full agent lifecycle: registration, deployment, invocation, and termination.
  */
 
-import { describe, test, expect } from 'bun:test';
-import type { Address } from 'viem';
+import { describe, expect, test } from 'bun:test'
+import type { Address } from 'viem'
+import * as registry from './registry'
 import type {
   AgentCharacter,
-  RegisterAgentRequest,
   AgentMessage,
   AgentResponse,
-} from './types';
-import * as registry from './registry';
+  RegisterAgentRequest,
+} from './types'
 
 // ============================================================================
 // Test Configuration
 // ============================================================================
 
-const TEST_OWNER = '0x1234567890abcdef1234567890abcdef12345678' as Address;
+const TEST_OWNER = '0x1234567890abcdef1234567890abcdef12345678' as Address
 
 const TEST_CHARACTER: AgentCharacter = {
   name: 'TestBot',
@@ -30,7 +30,7 @@ const TEST_CHARACTER: AgentCharacter = {
     all: ['Be brief', 'Be accurate'],
     chat: ['Be friendly'],
   },
-};
+}
 
 // ============================================================================
 // Registry Tests (No CQL - In-Memory Only)
@@ -38,7 +38,7 @@ const TEST_CHARACTER: AgentCharacter = {
 
 describe('Agent Registry (In-Memory)', () => {
   // Note: These tests run without CQL, so they test the in-memory functionality
-  
+
   test('should register agent', async () => {
     const request: RegisterAgentRequest = {
       character: TEST_CHARACTER,
@@ -48,141 +48,147 @@ describe('Agent Registry (In-Memory)', () => {
         timeoutMs: 30000,
         plugins: [],
       },
-    };
+    }
 
     // Since CQL isn't running, this will store in memory only
     // We need to mock the CQL calls
-    const agent = await registry.registerAgent(TEST_OWNER, request);
+    const agent = await registry.registerAgent(TEST_OWNER, request)
 
-    expect(agent).toBeDefined();
-    expect(agent.id).toBeDefined();
-    expect(agent.owner).toBe(TEST_OWNER);
-    expect(agent.character.name).toBe('TestBot');
-    expect(agent.status).toBe('pending');
-  });
+    expect(agent).toBeDefined()
+    expect(agent.id).toBeDefined()
+    expect(agent.owner).toBe(TEST_OWNER)
+    expect(agent.character.name).toBe('TestBot')
+    expect(agent.status).toBe('pending')
+  })
 
   test('should get agent by id', async () => {
     const request: RegisterAgentRequest = {
       character: { ...TEST_CHARACTER, name: 'GetTest' },
-    };
+    }
 
-    const created = await registry.registerAgent(TEST_OWNER, request);
-    const retrieved = registry.getAgent(created.id);
+    const created = await registry.registerAgent(TEST_OWNER, request)
+    const retrieved = registry.getAgent(created.id)
 
-    expect(retrieved).toBeDefined();
-    expect(retrieved?.id).toBe(created.id);
-    expect(retrieved?.character.name).toBe('GetTest');
-  });
+    expect(retrieved).toBeDefined()
+    expect(retrieved?.id).toBe(created.id)
+    expect(retrieved?.character.name).toBe('GetTest')
+  })
 
   test('should list agents by owner', async () => {
     const request1: RegisterAgentRequest = {
       character: { ...TEST_CHARACTER, name: 'ListTest1' },
-    };
+    }
     const request2: RegisterAgentRequest = {
       character: { ...TEST_CHARACTER, name: 'ListTest2' },
-    };
+    }
 
-    await registry.registerAgent(TEST_OWNER, request1);
-    await registry.registerAgent(TEST_OWNER, request2);
+    await registry.registerAgent(TEST_OWNER, request1)
+    await registry.registerAgent(TEST_OWNER, request2)
 
-    const agents = registry.getAgentsByOwner(TEST_OWNER);
-    const names = agents.map(a => a.character.name);
+    const agents = registry.getAgentsByOwner(TEST_OWNER)
+    const names = agents.map((a) => a.character.name)
 
-    expect(names).toContain('ListTest1');
-    expect(names).toContain('ListTest2');
-  });
+    expect(names).toContain('ListTest1')
+    expect(names).toContain('ListTest2')
+  })
 
   test('should update agent status', async () => {
     const request: RegisterAgentRequest = {
       character: { ...TEST_CHARACTER, name: 'StatusTest' },
-    };
+    }
 
-    const agent = await registry.registerAgent(TEST_OWNER, request);
-    expect(agent.status).toBe('pending');
+    const agent = await registry.registerAgent(TEST_OWNER, request)
+    expect(agent.status).toBe('pending')
 
-    await registry.updateAgentStatus(agent.id, 'active');
-    const updated = registry.getAgent(agent.id);
-    expect(updated?.status).toBe('active');
-  });
+    await registry.updateAgentStatus(agent.id, 'active')
+    const updated = registry.getAgent(agent.id)
+    expect(updated?.status).toBe('active')
+  })
 
   test('should update agent config', async () => {
     const request: RegisterAgentRequest = {
       character: { ...TEST_CHARACTER, name: 'UpdateTest' },
-    };
+    }
 
-    const agent = await registry.registerAgent(TEST_OWNER, request);
-    
+    const agent = await registry.registerAgent(TEST_OWNER, request)
+
     const updated = await registry.updateAgent(agent.id, TEST_OWNER, {
       character: { name: 'UpdatedName' },
       metadata: { version: '2' },
-    });
+    })
 
-    expect(updated?.character.name).toBe('UpdatedName');
-    expect(updated?.metadata?.version).toBe('2');
-  });
+    expect(updated?.character.name).toBe('UpdatedName')
+    expect(updated?.metadata?.version).toBe('2')
+  })
 
   test('should reject update from wrong owner', async () => {
     const request: RegisterAgentRequest = {
       character: { ...TEST_CHARACTER, name: 'OwnerTest' },
-    };
+    }
 
-    const agent = await registry.registerAgent(TEST_OWNER, request);
-    const wrongOwner = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Address;
+    const agent = await registry.registerAgent(TEST_OWNER, request)
+    const wrongOwner = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Address
 
     await expect(
-      registry.updateAgent(agent.id, wrongOwner, { character: { name: 'Hacked' } })
-    ).rejects.toThrow('Not authorized');
-  });
+      registry.updateAgent(agent.id, wrongOwner, {
+        character: { name: 'Hacked' },
+      }),
+    ).rejects.toThrow('Not authorized')
+  })
 
   test('should add cron trigger', async () => {
     const request: RegisterAgentRequest = {
       character: { ...TEST_CHARACTER, name: 'CronTest' },
-    };
+    }
 
-    const agent = await registry.registerAgent(TEST_OWNER, request);
-    
-    const trigger = await registry.addCronTrigger(agent.id, '*/5 * * * *', 'think');
-    
-    expect(trigger.id).toBeDefined();
-    expect(trigger.agentId).toBe(agent.id);
-    expect(trigger.schedule).toBe('*/5 * * * *');
-    expect(trigger.action).toBe('think');
-    expect(trigger.enabled).toBe(true);
-  });
+    const agent = await registry.registerAgent(TEST_OWNER, request)
+
+    const trigger = await registry.addCronTrigger(
+      agent.id,
+      '*/5 * * * *',
+      'think',
+    )
+
+    expect(trigger.id).toBeDefined()
+    expect(trigger.agentId).toBe(agent.id)
+    expect(trigger.schedule).toBe('*/5 * * * *')
+    expect(trigger.action).toBe('think')
+    expect(trigger.enabled).toBe(true)
+  })
 
   test('should get cron triggers for agent', async () => {
     const request: RegisterAgentRequest = {
       character: { ...TEST_CHARACTER, name: 'CronListTest' },
-    };
+    }
 
-    const agent = await registry.registerAgent(TEST_OWNER, request);
-    await registry.addCronTrigger(agent.id, '0 * * * *', 'think');
-    await registry.addCronTrigger(agent.id, '0 0 * * *', 'post');
+    const agent = await registry.registerAgent(TEST_OWNER, request)
+    await registry.addCronTrigger(agent.id, '0 * * * *', 'think')
+    await registry.addCronTrigger(agent.id, '0 0 * * *', 'post')
 
-    const triggers = registry.getCronTriggers(agent.id);
-    expect(triggers.length).toBe(2);
-  });
+    const triggers = registry.getCronTriggers(agent.id)
+    expect(triggers.length).toBe(2)
+  })
 
   test('should record invocation metrics', () => {
-    const agentId = 'test-metrics-agent';
-    
-    registry.recordInvocation(agentId, 100);
-    registry.recordInvocation(agentId, 200);
-    registry.recordInvocation(agentId, 150);
+    const agentId = 'test-metrics-agent'
+
+    registry.recordInvocation(agentId, 100)
+    registry.recordInvocation(agentId, 200)
+    registry.recordInvocation(agentId, 150)
 
     // Stats would be available if agent exists
     // For now just verify no errors
-  });
+  })
 
   test('should get registry stats', () => {
-    const stats = registry.getRegistryStats();
-    
-    expect(stats.totalAgents).toBeGreaterThanOrEqual(0);
-    expect(typeof stats.activeAgents).toBe('number');
-    expect(typeof stats.pendingAgents).toBe('number');
-    expect(typeof stats.totalCronTriggers).toBe('number');
-  });
-});
+    const stats = registry.getRegistryStats()
+
+    expect(stats.totalAgents).toBeGreaterThanOrEqual(0)
+    expect(typeof stats.activeAgents).toBe('number')
+    expect(typeof stats.pendingAgents).toBe('number')
+    expect(typeof stats.totalCronTriggers).toBe('number')
+  })
+})
 
 // ============================================================================
 // Types Tests
@@ -194,12 +200,12 @@ describe('Agent Types', () => {
       name: 'Test',
       system: 'You are a test.',
       bio: ['Test bio'],
-    };
+    }
 
-    expect(char.name).toBe('Test');
-    expect(char.system).toBe('You are a test.');
-    expect(char.bio).toHaveLength(1);
-  });
+    expect(char.name).toBe('Test')
+    expect(char.system).toBe('You are a test.')
+    expect(char.bio).toHaveLength(1)
+  })
 
   test('AgentMessage should have required fields', () => {
     const msg: AgentMessage = {
@@ -208,22 +214,22 @@ describe('Agent Types', () => {
       roomId: 'room-1',
       content: { text: 'Hello', source: 'test' },
       createdAt: Date.now(),
-    };
+    }
 
-    expect(msg.id).toBe('msg-1');
-    expect(msg.content.text).toBe('Hello');
-  });
+    expect(msg.id).toBe('msg-1')
+    expect(msg.content.text).toBe('Hello')
+  })
 
   test('AgentResponse should have required fields', () => {
     const res: AgentResponse = {
       id: 'res-1',
       agentId: 'agent-1',
       text: 'Hello back!',
-    };
+    }
 
-    expect(res.id).toBe('res-1');
-    expect(res.text).toBe('Hello back!');
-  });
+    expect(res.id).toBe('res-1')
+    expect(res.text).toBe('Hello back!')
+  })
 
   test('AgentResponse can have actions', () => {
     const res: AgentResponse = {
@@ -233,13 +239,13 @@ describe('Agent Types', () => {
       actions: [
         { name: 'CREATE_TODO', params: { title: 'Test', priority: 'high' } },
       ],
-    };
+    }
 
-    expect(res.actions).toHaveLength(1);
-    expect(res.actions![0].name).toBe('CREATE_TODO');
-    expect(res.actions![0].params.title).toBe('Test');
-  });
-});
+    expect(res.actions).toHaveLength(1)
+    expect(res.actions![0].name).toBe('CREATE_TODO')
+    expect(res.actions![0].params.title).toBe('Test')
+  })
+})
 
 // ============================================================================
 // Warm Pool Logic Tests
@@ -255,11 +261,11 @@ describe('Warm Pool Logic', () => {
         timeoutMs: 30000,
         plugins: [],
       },
-    };
+    }
 
-    const agent = await registry.registerAgent(TEST_OWNER, request);
-    expect(agent.runtime.keepWarm).toBe(true);
-  });
+    const agent = await registry.registerAgent(TEST_OWNER, request)
+    expect(agent.runtime.keepWarm).toBe(true)
+  })
 
   test('should have cron trigger for autonomous agents', async () => {
     const request: RegisterAgentRequest = {
@@ -271,16 +277,16 @@ describe('Warm Pool Logic', () => {
         timeoutMs: 30000,
         plugins: [],
       },
-    };
+    }
 
-    const agent = await registry.registerAgent(TEST_OWNER, request);
-    expect(agent.runtime.cronSchedule).toBe('*/10 * * * *');
-    
+    const agent = await registry.registerAgent(TEST_OWNER, request)
+    expect(agent.runtime.cronSchedule).toBe('*/10 * * * *')
+
     // Cron trigger should be created automatically
-    const triggers = registry.getCronTriggers(agent.id);
-    expect(triggers.length).toBeGreaterThanOrEqual(1);
-  });
-});
+    const triggers = registry.getCronTriggers(agent.id)
+    expect(triggers.length).toBeGreaterThanOrEqual(1)
+  })
+})
 
 // ============================================================================
 // ElizaOS Worker Tests
@@ -294,61 +300,61 @@ describe('ElizaOS Worker', () => {
       bio: ['Bio line 1', 'Bio line 2'],
       topics: ['topic1', 'topic2'],
       style: { all: ['Be brief'] },
-    };
+    }
 
     // Simulate buildSystemPrompt logic
-    const parts = [char.system];
+    const parts = [char.system]
     if (char.bio?.length) {
-      parts.push('\n\nBackground:', char.bio.join('\n'));
+      parts.push('\n\nBackground:', char.bio.join('\n'))
     }
     if (char.style?.all?.length) {
-      parts.push('\n\nStyle guidelines:', char.style.all.join('\n'));
+      parts.push('\n\nStyle guidelines:', char.style.all.join('\n'))
     }
     if (char.topics?.length) {
-      parts.push('\n\nTopics of expertise:', char.topics.join(', '));
+      parts.push('\n\nTopics of expertise:', char.topics.join(', '))
     }
 
-    const systemPrompt = parts.join('\n');
-    
-    expect(systemPrompt).toContain('You are a test assistant.');
-    expect(systemPrompt).toContain('Bio line 1');
-    expect(systemPrompt).toContain('Be brief');
-    expect(systemPrompt).toContain('topic1, topic2');
-  });
+    const systemPrompt = parts.join('\n')
+
+    expect(systemPrompt).toContain('You are a test assistant.')
+    expect(systemPrompt).toContain('Bio line 1')
+    expect(systemPrompt).toContain('Be brief')
+    expect(systemPrompt).toContain('topic1, topic2')
+  })
 
   test('should extract actions from response', () => {
     const text = `I'll create that task for you. [ACTION: CREATE_TODO | title=Review code, priority=high, dueDate=2024-01-15]
 
-Also scheduling a meeting. [ACTION: SCHEDULE_MEETING | time=9:00, attendees=team]`;
+Also scheduling a meeting. [ACTION: SCHEDULE_MEETING | time=9:00, attendees=team]`
 
-    const actions: Array<{ name: string; params: Record<string, string> }> = [];
-    const actionRegex = /\[ACTION:\s*(\w+)\s*\|([^\]]+)\]/g;
+    const actions: Array<{ name: string; params: Record<string, string> }> = []
+    const actionRegex = /\[ACTION:\s*(\w+)\s*\|([^\]]+)\]/g
 
-    let match;
+    let match: RegExpExecArray | null
     while ((match = actionRegex.exec(text)) !== null) {
-      const name = match[1];
-      const paramsStr = match[2];
-      const params: Record<string, string> = {};
+      const name = match[1]
+      const paramsStr = match[2]
+      const params: Record<string, string> = {}
 
-      const paramPairs = paramsStr.split(',').map(p => p.trim());
+      const paramPairs = paramsStr.split(',').map((p) => p.trim())
       for (const pair of paramPairs) {
-        const [key, ...valueParts] = pair.split('=');
+        const [key, ...valueParts] = pair.split('=')
         if (key && valueParts.length) {
-          params[key.trim()] = valueParts.join('=').trim();
+          params[key.trim()] = valueParts.join('=').trim()
         }
       }
 
-      actions.push({ name, params });
+      actions.push({ name, params })
     }
 
-    expect(actions).toHaveLength(2);
-    expect(actions[0].name).toBe('CREATE_TODO');
-    expect(actions[0].params.title).toBe('Review code');
-    expect(actions[0].params.priority).toBe('high');
-    expect(actions[1].name).toBe('SCHEDULE_MEETING');
-    expect(actions[1].params.time).toBe('9:00');
-  });
-});
+    expect(actions).toHaveLength(2)
+    expect(actions[0].name).toBe('CREATE_TODO')
+    expect(actions[0].params.title).toBe('Review code')
+    expect(actions[0].params.priority).toBe('high')
+    expect(actions[1].name).toBe('SCHEDULE_MEETING')
+    expect(actions[1].params.time).toBe('9:00')
+  })
+})
 
 // ============================================================================
 // API Routes Tests (Mock)
@@ -362,29 +368,28 @@ describe('Agent API (Unit)', () => {
         system: 'Valid system prompt',
         bio: [],
       },
-    };
+    }
 
-    expect(validRequest.character.name).toBeDefined();
-    expect(validRequest.character.system).toBeDefined();
-  });
+    expect(validRequest.character.name).toBeDefined()
+    expect(validRequest.character.system).toBeDefined()
+  })
 
   test('should reject invalid register request', () => {
     const invalidRequest = {
       character: {
         // Missing name and system
       },
-    };
+    }
 
-    expect(invalidRequest.character).toBeDefined();
-    expect((invalidRequest.character as AgentCharacter).name).toBeUndefined();
-  });
+    expect(invalidRequest.character).toBeDefined()
+    expect((invalidRequest.character as AgentCharacter).name).toBeUndefined()
+  })
 
   test('ChatRequest should have text', () => {
-    const validChat = { text: 'Hello' };
-    const invalidChat = { userId: 'user-1' };
+    const validChat = { text: 'Hello' }
+    const invalidChat = { userId: 'user-1' }
 
-    expect(validChat.text).toBeDefined();
-    expect((invalidChat as { text?: string }).text).toBeUndefined();
-  });
-});
-
+    expect(validChat.text).toBeDefined()
+    expect((invalidChat as { text?: string }).text).toBeUndefined()
+  })
+})

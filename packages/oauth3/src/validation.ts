@@ -1,19 +1,25 @@
 /**
  * OAuth3 Validation Utilities
- * 
+ *
  * Provides validation schemas and helper functions for fail-fast validation.
  * Use these at entry points instead of defensive fallbacks.
  */
 
-import { z } from 'zod';
-import type { Address, Hex } from 'viem';
-import { AuthProvider, SessionCapability, TEEProvider } from './types.js';
+import type { Address, Hex } from 'viem'
+import { z } from 'zod'
+import { AuthProvider, SessionCapability, TEEProvider } from './types.js'
 
 // ============ Hex and Address Validators ============
 
-export const HexSchema = z.string().regex(/^0x[a-fA-F0-9]+$/, 'Invalid hex string') as z.ZodType<Hex>;
-export const AddressSchema = z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid address') as z.ZodType<Address>;
-export const Bytes32Schema = z.string().regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid bytes32') as z.ZodType<Hex>;
+export const HexSchema = z
+  .string()
+  .regex(/^0x[a-fA-F0-9]+$/, 'Invalid hex string') as z.ZodType<Hex>
+export const AddressSchema = z
+  .string()
+  .regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid address') as z.ZodType<Address>
+export const Bytes32Schema = z
+  .string()
+  .regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid bytes32') as z.ZodType<Hex>
 
 // ============ OAuth3 Config Validation ============
 
@@ -29,9 +35,9 @@ export const OAuth3ConfigSchema = z.object({
   jnsGateway: z.string().url().optional(),
   storageEndpoint: z.string().url().optional(),
   decentralized: z.boolean().optional(),
-});
+})
 
-export type ValidatedOAuth3Config = z.infer<typeof OAuth3ConfigSchema>;
+export type ValidatedOAuth3Config = z.infer<typeof OAuth3ConfigSchema>
 
 // ============ Core Type Schemas ============
 
@@ -42,7 +48,7 @@ export const TEEAttestationSchema = z.object({
   timestamp: z.number().int().positive(),
   provider: z.nativeEnum(TEEProvider),
   verified: z.boolean(),
-});
+})
 
 export const OAuth3SessionSchema = z.object({
   sessionId: HexSchema,
@@ -53,7 +59,7 @@ export const OAuth3SessionSchema = z.object({
   /** Public key for verifying signatures - the signing key stays in the TEE */
   signingPublicKey: HexSchema,
   attestation: TEEAttestationSchema,
-});
+})
 
 export const CredentialSubjectSchema = z.object({
   id: z.string().min(1),
@@ -62,7 +68,7 @@ export const CredentialSubjectSchema = z.object({
   providerHandle: z.string(),
   walletAddress: AddressSchema,
   verifiedAt: z.string(),
-});
+})
 
 export const CredentialProofSchema = z.object({
   type: z.string().min(1),
@@ -71,7 +77,7 @@ export const CredentialProofSchema = z.object({
   proofPurpose: z.string().min(1),
   proofValue: HexSchema,
   jws: z.string().optional(),
-});
+})
 
 export const VerifiableCredentialSchema = z.object({
   '@context': z.array(z.string()),
@@ -85,7 +91,7 @@ export const VerifiableCredentialSchema = z.object({
   expirationDate: z.string(),
   credentialSubject: CredentialSubjectSchema,
   proof: CredentialProofSchema,
-});
+})
 
 // ============ API Response Validators ============
 
@@ -93,49 +99,49 @@ export const ErrorResponseSchema = z.object({
   error: z.string().optional(),
   message: z.string().optional(),
   code: z.string().optional(),
-});
+})
 
 export const TOTPSetupResponseSchema = z.object({
   secret: z.string().min(1, 'secret is required'),
   uri: z.string().min(1, 'uri is required'),
   qrCode: z.string().min(1, 'qrCode is required'),
-});
+})
 
 export const MFAStatusSchema = z.object({
   totpEnabled: z.boolean(),
   passkeyCount: z.number().int().nonnegative(),
   backupCodesRemaining: z.number().int().nonnegative(),
-});
+})
 
 export const PasskeyListItemSchema = z.object({
   id: z.string().min(1),
   deviceName: z.string(),
   createdAt: z.number().int(),
-});
+})
 
 // OAuth Init Response
 export const OAuthInitResponseSchema = z.object({
   authUrl: z.string().url(),
   state: z.string().min(1),
   sessionId: HexSchema,
-});
+})
 
 // Sign Response
 export const SignResponseSchema = z.object({
   signature: HexSchema,
-});
+})
 
 // Credential Verify Response
 export const CredentialVerifyResponseSchema = z.object({
   valid: z.boolean(),
-});
+})
 
 // Auth Callback Data
 export const AuthCallbackDataSchema = z.object({
   code: z.string().optional(),
   state: z.string().optional(),
   error: z.string().optional(),
-});
+})
 
 // ============ External API Response Validators ============
 
@@ -144,21 +150,27 @@ export const NeynarUserSchema = z.object({
   username: z.string(),
   display_name: z.string(),
   pfp_url: z.string(),
-  profile: z.object({
-    bio: z.object({
-      text: z.string().optional(),
-    }).optional(),
-  }).optional(),
+  profile: z
+    .object({
+      bio: z
+        .object({
+          text: z.string().optional(),
+        })
+        .optional(),
+    })
+    .optional(),
   follower_count: z.number().int().nonnegative(),
   following_count: z.number().int().nonnegative(),
-  verified_addresses: z.object({
-    eth_addresses: z.array(z.string()).optional(),
-  }).optional(),
+  verified_addresses: z
+    .object({
+      eth_addresses: z.array(z.string()).optional(),
+    })
+    .optional(),
   custody_address: z.string(),
   active_status: z.string(),
-});
+})
 
-export type NeynarUser = z.infer<typeof NeynarUserSchema>;
+export type NeynarUser = z.infer<typeof NeynarUserSchema>
 
 export const NeynarCastSchema = z.object({
   hash: z.string(),
@@ -168,39 +180,47 @@ export const NeynarCastSchema = z.object({
   parent_hash: z.string().optional(),
   parent_url: z.string().optional(),
   embeds: z.array(z.object({ url: z.string() })).optional(),
-  reactions: z.object({
-    likes_count: z.number().int().nonnegative().optional(),
-    recasts_count: z.number().int().nonnegative().optional(),
-  }).optional(),
-});
+  reactions: z
+    .object({
+      likes_count: z.number().int().nonnegative().optional(),
+      recasts_count: z.number().int().nonnegative().optional(),
+    })
+    .optional(),
+})
 
-export type NeynarCast = z.infer<typeof NeynarCastSchema>;
+export type NeynarCast = z.infer<typeof NeynarCastSchema>
 
 // Hub API Response Schemas
 export const HubUserDataResponseSchema = z.object({
-  messages: z.array(z.object({
-    data: z.object({
-      fid: z.number().int(),
-      userDataBody: z.object({ type: z.string(), value: z.string() }),
+  messages: z.array(
+    z.object({
+      data: z.object({
+        fid: z.number().int(),
+        userDataBody: z.object({ type: z.string(), value: z.string() }),
+      }),
     }),
-  })),
-});
+  ),
+})
 
 export const HubVerificationsResponseSchema = z.object({
-  messages: z.array(z.object({
-    data: z.object({
-      fid: z.number().int().optional(),
-      verificationAddAddressBody: z.object({ 
-        address: z.string(), 
-        protocol: z.string() 
-      }).optional(),
+  messages: z.array(
+    z.object({
+      data: z.object({
+        fid: z.number().int().optional(),
+        verificationAddAddressBody: z
+          .object({
+            address: z.string(),
+            protocol: z.string(),
+          })
+          .optional(),
+      }),
     }),
-  })),
-});
+  ),
+})
 
 export const HubUsernameProofSchema = z.object({
   fid: z.number().int(),
-});
+})
 
 // OAuth Token Response Schema
 export const OAuthTokenResponseSchema = z.object({
@@ -210,9 +230,9 @@ export const OAuthTokenResponseSchema = z.object({
   refresh_token: z.string().optional(),
   scope: z.string().optional(),
   id_token: z.string().optional(),
-});
+})
 
-export type OAuthTokenResponse = z.infer<typeof OAuthTokenResponseSchema>;
+export type OAuthTokenResponse = z.infer<typeof OAuthTokenResponseSchema>
 
 // OAuth Provider Profile Schemas
 export const GoogleUserInfoSchema = z.object({
@@ -223,7 +243,7 @@ export const GoogleUserInfoSchema = z.object({
   verified_email: z.boolean().optional(),
   name: z.string(),
   picture: z.string(),
-});
+})
 
 export const GitHubUserSchema = z.object({
   id: z.number().int(),
@@ -231,7 +251,7 @@ export const GitHubUserSchema = z.object({
   name: z.string().nullable(),
   email: z.string().nullable(),
   avatar_url: z.string(),
-});
+})
 
 export const TwitterUserSchema = z.object({
   data: z.object({
@@ -241,7 +261,7 @@ export const TwitterUserSchema = z.object({
     profile_image_url: z.string().optional(),
     verified: z.boolean().optional(),
   }),
-});
+})
 
 export const DiscordUserSchema = z.object({
   id: z.string(),
@@ -250,7 +270,7 @@ export const DiscordUserSchema = z.object({
   email: z.string().optional(),
   avatar: z.string().nullable(),
   verified: z.boolean().optional(),
-});
+})
 
 // Frame Validation Response
 export const FrameValidationResponseSchema = z.object({
@@ -268,20 +288,20 @@ export const FrameValidationResponseSchema = z.object({
     transaction_id: z.string().optional(),
     address: z.string().optional(),
   }),
-});
+})
 
 // Node Resources Schema
 export const NodeResourcesSchema = z.object({
   cpuCores: z.number().int().nonnegative().optional(),
   memoryGb: z.number().nonnegative().optional(),
   storageGb: z.number().nonnegative().optional(),
-});
+})
 
 // IPFS Response Schema
 export const IPFSAddResponseSchema = z.object({
   Hash: z.string().min(1),
   Size: z.string(),
-});
+})
 
 // ============ Helper Functions ============
 
@@ -291,91 +311,102 @@ export const IPFSAddResponseSchema = z.object({
  */
 export function expect<T>(value: T | null | undefined, message: string): T {
   if (value === null || value === undefined) {
-    throw new Error(message);
+    throw new Error(message)
   }
-  return value;
+  return value
 }
 
 /**
  * Validates that a node endpoint is available.
  * Use this in React hooks instead of ?? 'http://localhost:4200'
  */
-export function expectEndpoint(node: { endpoint: string } | null | undefined): string {
+export function expectEndpoint(
+  node: { endpoint: string } | null | undefined,
+): string {
   if (!node) {
     throw new Error(
-      'TEE node not initialized. Call client.initialize() first or wait for initialization to complete.'
-    );
+      'TEE node not initialized. Call client.initialize() first or wait for initialization to complete.',
+    )
   }
   if (!node.endpoint) {
-    throw new Error('TEE node has no endpoint configured.');
+    throw new Error('TEE node has no endpoint configured.')
   }
-  return node.endpoint;
+  return node.endpoint
 }
 
 /**
  * Gets endpoint with localhost fallback only in development.
  * Use this for hooks where localhost fallback is acceptable in dev.
  */
-export function getEndpointWithDevFallback(node: { endpoint: string } | null | undefined): string {
+export function getEndpointWithDevFallback(
+  node: { endpoint: string } | null | undefined,
+): string {
   if (node?.endpoint) {
-    return node.endpoint;
+    return node.endpoint
   }
-  
-  const isDev = typeof process !== 'undefined' && 
-    (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test');
-  
+
+  const isDev =
+    typeof process !== 'undefined' &&
+    (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test')
+
   if (isDev) {
-    return 'http://localhost:4200';
+    return 'http://localhost:4200'
   }
-  
+
   throw new Error(
-    'TEE node not initialized. In production, call client.initialize() first.'
-  );
+    'TEE node not initialized. In production, call client.initialize() first.',
+  )
 }
 
 /**
  * Extracts error message from API response with proper typing.
  */
 export function extractError(response: unknown): string {
-  const parsed = ErrorResponseSchema.safeParse(response);
+  const parsed = ErrorResponseSchema.safeParse(response)
   if (parsed.success) {
-    return parsed.data.error ?? parsed.data.message ?? 'Unknown error';
+    return parsed.data.error ?? parsed.data.message ?? 'Unknown error'
   }
-  return 'Unknown error';
+  return 'Unknown error'
 }
 
 /**
  * Validates OAuth3 config at initialization time.
  */
 export function validateConfig(config: unknown): ValidatedOAuth3Config {
-  return OAuth3ConfigSchema.parse(config);
+  return OAuth3ConfigSchema.parse(config)
 }
 
 /**
  * Type guard for checking if value is a valid hex string
  */
 export function isHex(value: unknown): value is Hex {
-  return typeof value === 'string' && /^0x[a-fA-F0-9]+$/.test(value);
+  return typeof value === 'string' && /^0x[a-fA-F0-9]+$/.test(value)
 }
 
 /**
  * Type guard for checking if value is a valid address
  */
 export function isAddress(value: unknown): value is Address {
-  return typeof value === 'string' && /^0x[a-fA-F0-9]{40}$/.test(value);
+  return typeof value === 'string' && /^0x[a-fA-F0-9]{40}$/.test(value)
 }
 
 /**
  * Validates an API response with a Zod schema.
  * Throws an error with context if validation fails.
  */
-export function validateResponse<T>(schema: z.ZodType<T>, data: unknown, context: string): T {
-  const result = schema.safeParse(data);
+export function validateResponse<T>(
+  schema: z.ZodType<T>,
+  data: unknown,
+  context: string,
+): T {
+  const result = schema.safeParse(data)
   if (!result.success) {
-    const errors = result.error.issues.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
-    throw new Error(`Invalid ${context}: ${errors}`);
+    const errors = result.error.issues
+      .map((e) => `${e.path.join('.')}: ${e.message}`)
+      .join(', ')
+    throw new Error(`Invalid ${context}: ${errors}`)
   }
-  return result.data;
+  return result.data
 }
 
 /**
@@ -384,11 +415,11 @@ export function validateResponse<T>(schema: z.ZodType<T>, data: unknown, context
  */
 export function safeParseJson<T>(schema: z.ZodType<T>, json: string): T | null {
   try {
-    const data = JSON.parse(json);
-    const result = schema.safeParse(data);
-    return result.success ? result.data : null;
+    const data = JSON.parse(json)
+    const result = schema.safeParse(data)
+    return result.success ? result.data : null
   } catch {
-    return null;
+    return null
   }
 }
 
@@ -399,13 +430,13 @@ export function safeParseJson<T>(schema: z.ZodType<T>, json: string): T | null {
  * @returns A string of random digits
  */
 export function generateOTP(length: number): string {
-  const digits = '0123456789';
-  let otp = '';
-  const randomValues = crypto.getRandomValues(new Uint8Array(length));
+  const digits = '0123456789'
+  let otp = ''
+  const randomValues = crypto.getRandomValues(new Uint8Array(length))
   for (let i = 0; i < length; i++) {
-    otp += digits[randomValues[i] % 10];
+    otp += digits[randomValues[i] % 10]
   }
-  return otp;
+  return otp
 }
 
 /**
@@ -415,12 +446,12 @@ export async function fetchAndValidate<T>(
   schema: z.ZodType<T>,
   url: string,
   options?: RequestInit,
-  context = 'API response'
+  context = 'API response',
 ): Promise<T> {
-  const response = await fetch(url, options);
+  const response = await fetch(url, options)
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`)
   }
-  const data = await response.json();
-  return validateResponse(schema, data, context);
+  const data = await response.json()
+  return validateResponse(schema, data, context)
 }

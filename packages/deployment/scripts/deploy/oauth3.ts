@@ -1,41 +1,41 @@
 /**
  * OAuth3 Contract Deployment Script
- * 
+ *
  * Deploys the complete OAuth3 infrastructure:
  * - OAuth3TEEVerifier
  * - OAuth3IdentityRegistry
  * - OAuth3AppRegistry
  * - AccountFactory
- * 
+ *
  * Also registers default OAuth3 apps for Jeju, Babylon, and Eliza councils.
  */
 
 import {
+  type Address,
   createPublicClient,
   createWalletClient,
-  http,
-  type Address,
   type Hex,
-} from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
+  http,
+} from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
 
-const ENTRYPOINT_V07 = '0x0000000071727De22E5E9d8BAf0edAc6f37da032' as Address;
+const ENTRYPOINT_V07 = '0x0000000071727De22E5E9d8BAf0edAc6f37da032' as Address
 
 interface OAuth3Deployment {
-  teeVerifier: Address;
-  identityRegistry: Address;
-  appRegistry: Address;
-  accountFactory: Address;
-  chainId: number;
-  deployer: Address;
-  timestamp: number;
+  teeVerifier: Address
+  identityRegistry: Address
+  appRegistry: Address
+  accountFactory: Address
+  chainId: number
+  deployer: Address
+  timestamp: number
 }
 
 interface CouncilAppConfig {
-  name: string;
-  description: string;
-  council: Address;
-  redirectUris: string[];
+  name: string
+  description: string
+  council: Address
+  redirectUris: string[]
 }
 
 const DEFAULT_COUNCILS: Record<string, CouncilAppConfig> = {
@@ -69,29 +69,29 @@ const DEFAULT_COUNCILS: Record<string, CouncilAppConfig> = {
       'http://localhost:3002/auth/callback',
     ],
   },
-};
+}
 
 async function deployOAuth3(): Promise<OAuth3Deployment> {
-  const rpcUrl = process.env.RPC_URL ?? 'http://localhost:9545';
-  const privateKey = process.env.DEPLOYER_PRIVATE_KEY;
-  
+  const rpcUrl = process.env.RPC_URL ?? 'http://localhost:9545'
+  const privateKey = process.env.DEPLOYER_PRIVATE_KEY
+
   if (!privateKey) {
-    throw new Error('DEPLOYER_PRIVATE_KEY environment variable required');
+    throw new Error('DEPLOYER_PRIVATE_KEY environment variable required')
   }
 
-  const account = privateKeyToAccount(privateKey as Hex);
-  
+  const account = privateKeyToAccount(privateKey as Hex)
+
   const publicClient = createPublicClient({
     transport: http(rpcUrl),
-  });
+  })
 
   const walletClient = createWalletClient({
     account,
     transport: http(rpcUrl),
-  });
+  })
 
-  const chainId = await publicClient.getChainId();
-  
+  const chainId = await publicClient.getChainId()
+
   console.log(`
 ╔════════════════════════════════════════════════════════════╗
 ║                OAuth3 Infrastructure Deployment             ║
@@ -100,23 +100,24 @@ async function deployOAuth3(): Promise<OAuth3Deployment> {
 ║  RPC URL:     ${rpcUrl.slice(0, 42).padEnd(42)}║
 ║  Deployer:    ${account.address.padEnd(42)}║
 ╚════════════════════════════════════════════════════════════╝
-`);
+`)
 
-  console.log('Deploying OAuth3TEEVerifier...');
+  console.log('Deploying OAuth3TEEVerifier...')
   const teeVerifierTx = await walletClient.deployContract({
     abi: OAuth3TEEVerifierABI,
     bytecode: OAuth3TEEVerifierBytecode,
     args: ['0x0000000000000000000000000000000000000000'],
-  });
-  
+  })
+
   const teeVerifierReceipt = await publicClient.waitForTransactionReceipt({
     hash: teeVerifierTx,
-  });
-  const teeVerifier = teeVerifierReceipt.contractAddress;
-  if (!teeVerifier) throw new Error('Failed to get TEE verifier contract address');
-  console.log(`  ✓ OAuth3TEEVerifier deployed at: ${teeVerifier}`);
+  })
+  const teeVerifier = teeVerifierReceipt.contractAddress
+  if (!teeVerifier)
+    throw new Error('Failed to get TEE verifier contract address')
+  console.log(`  ✓ OAuth3TEEVerifier deployed at: ${teeVerifier}`)
 
-  console.log('Deploying AccountFactory...');
+  console.log('Deploying AccountFactory...')
   const accountFactoryTx = await walletClient.deployContract({
     abi: AccountFactoryABI,
     bytecode: AccountFactoryBytecode,
@@ -125,53 +126,56 @@ async function deployOAuth3(): Promise<OAuth3Deployment> {
       '0x0000000000000000000000000000000000000000',
       '0x0000000000000000000000000000000000000000',
     ],
-  });
-  
+  })
+
   const accountFactoryReceipt = await publicClient.waitForTransactionReceipt({
     hash: accountFactoryTx,
-  });
-  const accountFactory = accountFactoryReceipt.contractAddress;
-  if (!accountFactory) throw new Error('Failed to get account factory contract address');
-  console.log(`  ✓ AccountFactory deployed at: ${accountFactory}`);
+  })
+  const accountFactory = accountFactoryReceipt.contractAddress
+  if (!accountFactory)
+    throw new Error('Failed to get account factory contract address')
+  console.log(`  ✓ AccountFactory deployed at: ${accountFactory}`)
 
-  console.log('Deploying OAuth3IdentityRegistry...');
+  console.log('Deploying OAuth3IdentityRegistry...')
   const identityRegistryTx = await walletClient.deployContract({
     abi: OAuth3IdentityRegistryABI,
     bytecode: OAuth3IdentityRegistryBytecode,
     args: [teeVerifier, accountFactory],
-  });
-  
+  })
+
   const identityRegistryReceipt = await publicClient.waitForTransactionReceipt({
     hash: identityRegistryTx,
-  });
-  const identityRegistry = identityRegistryReceipt.contractAddress;
-  if (!identityRegistry) throw new Error('Failed to get identity registry contract address');
-  console.log(`  ✓ OAuth3IdentityRegistry deployed at: ${identityRegistry}`);
+  })
+  const identityRegistry = identityRegistryReceipt.contractAddress
+  if (!identityRegistry)
+    throw new Error('Failed to get identity registry contract address')
+  console.log(`  ✓ OAuth3IdentityRegistry deployed at: ${identityRegistry}`)
 
-  console.log('Deploying OAuth3AppRegistry...');
+  console.log('Deploying OAuth3AppRegistry...')
   const appRegistryTx = await walletClient.deployContract({
     abi: OAuth3AppRegistryABI,
     bytecode: OAuth3AppRegistryBytecode,
     args: [identityRegistry, teeVerifier],
-  });
-  
+  })
+
   const appRegistryReceipt = await publicClient.waitForTransactionReceipt({
     hash: appRegistryTx,
-  });
-  const appRegistry = appRegistryReceipt.contractAddress;
-  if (!appRegistry) throw new Error('Failed to get app registry contract address');
-  console.log(`  ✓ OAuth3AppRegistry deployed at: ${appRegistry}`);
+  })
+  const appRegistry = appRegistryReceipt.contractAddress
+  if (!appRegistry)
+    throw new Error('Failed to get app registry contract address')
+  console.log(`  ✓ OAuth3AppRegistry deployed at: ${appRegistry}`)
 
-  console.log('\nUpdating TEE Verifier identity registry...');
+  console.log('\nUpdating TEE Verifier identity registry...')
   await walletClient.writeContract({
     address: teeVerifier,
     abi: OAuth3TEEVerifierABI,
     functionName: 'setIdentityRegistry',
     args: [identityRegistry],
-  });
-  console.log('  ✓ TEE Verifier updated');
+  })
+  console.log('  ✓ TEE Verifier updated')
 
-  console.log('\nRegistering default council OAuth3 apps...');
+  console.log('\nRegistering default council OAuth3 apps...')
   for (const [councilName, config] of Object.entries(DEFAULT_COUNCILS)) {
     const tx = await walletClient.writeContract({
       address: appRegistry,
@@ -189,10 +193,10 @@ async function deployOAuth3(): Promise<OAuth3Deployment> {
           maxSessionsPerUser: 10,
         },
       ],
-    });
-    
-    await publicClient.waitForTransactionReceipt({ hash: tx });
-    console.log(`  ✓ ${councilName} app registered`);
+    })
+
+    await publicClient.waitForTransactionReceipt({ hash: tx })
+    console.log(`  ✓ ${councilName} app registered`)
   }
 
   const deployment: OAuth3Deployment = {
@@ -203,7 +207,7 @@ async function deployOAuth3(): Promise<OAuth3Deployment> {
     chainId,
     deployer: account.address,
     timestamp: Date.now(),
-  };
+  }
 
   console.log(`
 ╔════════════════════════════════════════════════════════════╗
@@ -214,13 +218,13 @@ async function deployOAuth3(): Promise<OAuth3Deployment> {
 ║  App Registry:      ${appRegistry.padEnd(38)}║
 ║  Account Factory:   ${accountFactory.padEnd(38)}║
 ╚════════════════════════════════════════════════════════════╝
-`);
+`)
 
-  const deploymentPath = `./deployments/oauth3-${chainId}-${Date.now()}.json`;
-  await Bun.write(deploymentPath, JSON.stringify(deployment, null, 2));
-  console.log(`Deployment saved to: ${deploymentPath}`);
+  const deploymentPath = `./deployments/oauth3-${chainId}-${Date.now()}.json`
+  await Bun.write(deploymentPath, JSON.stringify(deployment, null, 2))
+  console.log(`Deployment saved to: ${deploymentPath}`)
 
-  return deployment;
+  return deployment
 }
 
 const OAuth3TEEVerifierABI = [
@@ -235,7 +239,7 @@ const OAuth3TEEVerifierABI = [
     outputs: [],
     stateMutability: 'nonpayable',
   },
-] as const;
+] as const
 
 const OAuth3IdentityRegistryABI = [
   {
@@ -245,7 +249,7 @@ const OAuth3IdentityRegistryABI = [
       { name: '_accountFactory', type: 'address' },
     ],
   },
-] as const;
+] as const
 
 const OAuth3AppRegistryABI = [
   {
@@ -277,7 +281,7 @@ const OAuth3AppRegistryABI = [
     outputs: [{ name: 'appId', type: 'bytes32' }],
     stateMutability: 'nonpayable',
   },
-] as const;
+] as const
 
 const AccountFactoryABI = [
   {
@@ -288,15 +292,15 @@ const AccountFactoryABI = [
       { name: '_defaultValidator', type: 'address' },
     ],
   },
-] as const;
+] as const
 
-const OAuth3TEEVerifierBytecode = '0x' as Hex;
-const OAuth3IdentityRegistryBytecode = '0x' as Hex;
-const OAuth3AppRegistryBytecode = '0x' as Hex;
-const AccountFactoryBytecode = '0x' as Hex;
+const OAuth3TEEVerifierBytecode = '0x' as Hex
+const OAuth3IdentityRegistryBytecode = '0x' as Hex
+const OAuth3AppRegistryBytecode = '0x' as Hex
+const AccountFactoryBytecode = '0x' as Hex
 
 if (import.meta.main) {
-  deployOAuth3().catch(console.error);
+  deployOAuth3().catch(console.error)
 }
 
-export { deployOAuth3, type OAuth3Deployment };
+export { deployOAuth3, type OAuth3Deployment }

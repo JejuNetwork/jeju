@@ -1,2 +1,1 @@
-export { PerpsView, default } from './PerpsView';
-
+export { default, PerpsView } from './PerpsView'

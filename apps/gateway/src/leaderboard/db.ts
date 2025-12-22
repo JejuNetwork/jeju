@@ -1,16 +1,20 @@
 /**
  * Leaderboard Database Layer
- * 
+ *
  * Uses @jejunetwork/db (CQL) for decentralized storage.
  * Schema matches the original leaderboard data model.
  */
 
-import { createDatabaseService, type DatabaseService, type QueryParam } from '@jejunetwork/shared';
-import { LEADERBOARD_CONFIG } from './config.js';
+import {
+  createDatabaseService,
+  type DatabaseService,
+  type QueryParam,
+} from '@jejunetwork/shared'
+import { LEADERBOARD_CONFIG } from './config.js'
 
 // Database instance
-let db: DatabaseService | null = null;
-let initialized = false;
+let db: DatabaseService | null = null
+let initialized = false
 
 /**
  * Get or create the database service
@@ -22,33 +26,33 @@ export function getLeaderboardDB(): DatabaseService {
       endpoint: LEADERBOARD_CONFIG.db.endpoint,
       timeout: LEADERBOARD_CONFIG.db.timeout,
       debug: LEADERBOARD_CONFIG.db.debug,
-    });
+    })
   }
-  return db;
+  return db
 }
 
 /**
  * Initialize database with schema
  */
 export async function initLeaderboardDB(): Promise<void> {
-  if (initialized) return;
+  if (initialized) return
 
-  const database = getLeaderboardDB();
-  
+  const database = getLeaderboardDB()
+
   // Check health
-  const healthy = await database.isHealthy();
+  const healthy = await database.isHealthy()
   if (!healthy) {
     throw new Error(
       'CQL database not available. Ensure CQL block producer is running:\n' +
-      `  Endpoint: ${LEADERBOARD_CONFIG.db.endpoint}\n` +
-      '  Run: docker compose up -d'
-    );
+        `  Endpoint: ${LEADERBOARD_CONFIG.db.endpoint}\n` +
+        '  Run: docker compose up -d',
+    )
   }
 
   // Create tables
-  await createSchema(database);
-  initialized = true;
-  console.log('[Leaderboard DB] Initialized');
+  await createSchema(database)
+  initialized = true
+  console.log('[Leaderboard DB] Initialized')
 }
 
 /**
@@ -296,7 +300,7 @@ async function createSchema(database: DatabaseService): Promise<void> {
       download_count INTEGER NOT NULL DEFAULT 0,
       last_updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )`,
-  ];
+  ]
 
   const indexes = [
     'CREATE INDEX IF NOT EXISTS idx_wallet_addresses_user_id ON wallet_addresses(user_id)',
@@ -318,35 +322,43 @@ async function createSchema(database: DatabaseService): Promise<void> {
     'CREATE INDEX IF NOT EXISTS idx_agent_links_agent_id ON agent_identity_links(agent_id)',
     'CREATE INDEX IF NOT EXISTS idx_wallet_mappings_username ON wallet_mappings(username)',
     'CREATE INDEX IF NOT EXISTS idx_package_stats_name ON package_stats(package_name)',
-  ];
+  ]
 
   // Execute DDL
   for (const ddl of tables) {
-    await database.exec(ddl);
+    await database.exec(ddl)
   }
 
   for (const idx of indexes) {
-    await database.exec(idx).catch(() => { /* index may exist */ });
+    await database.exec(idx).catch(() => {
+      /* index may exist */
+    })
   }
 
-  console.log('[Leaderboard DB] Schema created');
+  console.log('[Leaderboard DB] Schema created')
 }
 
 /**
  * Query helper with typed results
  */
-export async function query<T>(sql: string, params: QueryParam[] = []): Promise<T[]> {
-  const database = getLeaderboardDB();
-  const result = await database.query<T>(sql, params);
-  return result.rows;
+export async function query<T>(
+  sql: string,
+  params: QueryParam[] = [],
+): Promise<T[]> {
+  const database = getLeaderboardDB()
+  const result = await database.query<T>(sql, params)
+  return result.rows
 }
 
 /**
  * Execute statement (INSERT, UPDATE, DELETE)
  */
-export async function exec(sql: string, params: QueryParam[] = []): Promise<{ rowsAffected: number }> {
-  const database = getLeaderboardDB();
-  return database.exec(sql, params);
+export async function exec(
+  sql: string,
+  params: QueryParam[] = [],
+): Promise<{ rowsAffected: number }> {
+  const database = getLeaderboardDB()
+  return database.exec(sql, params)
 }
 
 /**
@@ -354,16 +366,13 @@ export async function exec(sql: string, params: QueryParam[] = []): Promise<{ ro
  */
 export async function closeLeaderboardDB(): Promise<void> {
   if (db) {
-    await db.close();
-    db = null;
-    initialized = false;
+    await db.close()
+    db = null
+    initialized = false
   }
 }
 
 // Cleanup on process exit
 process.on('exit', () => {
-  closeLeaderboardDB().catch(console.error);
-});
-
-
-
+  closeLeaderboardDB().catch(console.error)
+})

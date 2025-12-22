@@ -31,7 +31,10 @@ export default function Home() {
               <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">
                 {feature.icon}
               </div>
-              <div className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+              <div
+                className="font-semibold"
+                style={{ color: 'var(--text-primary)' }}
+              >
                 {feature.title}
               </div>
             </div>

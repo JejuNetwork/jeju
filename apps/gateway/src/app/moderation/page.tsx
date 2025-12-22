@@ -1,27 +1,40 @@
-'use client';
+'use client'
 
-import { useState, type ComponentType } from 'react';
-import { useReadContract, useAccount } from 'wagmi';
-import { Shield, Flag, Clock, CheckCircle, Scale, Users, TrendingUp, AlertTriangle, Gavel, Eye, type LucideProps } from 'lucide-react';
-import ReportSubmissionForm from '../../components/moderation/ReportSubmissionForm';
+import {
+  AlertTriangle,
+  CheckCircle,
+  Clock,
+  Eye,
+  Flag,
+  Gavel,
+  type LucideProps,
+  Scale,
+  Shield,
+  TrendingUp,
+  Users,
+} from 'lucide-react'
+import { type ComponentType, useState } from 'react'
+import { useAccount, useReadContract } from 'wagmi'
+import ReportSubmissionForm from '../../components/moderation/ReportSubmissionForm'
 
-const ShieldIcon = Shield as ComponentType<LucideProps>;
-const FlagIcon = Flag as ComponentType<LucideProps>;
-const ClockIcon = Clock as ComponentType<LucideProps>;
-const CheckCircleIcon = CheckCircle as ComponentType<LucideProps>;
-const ScaleIcon = Scale as ComponentType<LucideProps>;
-const UsersIcon = Users as ComponentType<LucideProps>;
-const TrendingUpIcon = TrendingUp as ComponentType<LucideProps>;
-const AlertTriangleIcon = AlertTriangle as ComponentType<LucideProps>;
-const GavelIcon = Gavel as ComponentType<LucideProps>;
-const EyeIcon = Eye as ComponentType<LucideProps>;
-import BanVotingInterface from '../../components/moderation/BanVotingInterface';
-import { MODERATION_CONTRACTS } from '../../config/moderation';
-import { IPFS_GATEWAY_URL } from '../../config';
-import { formatEther } from 'viem';
-import { ZERO_BYTES32 } from '../../lib/contracts';
+const ShieldIcon = Shield as ComponentType<LucideProps>
+const FlagIcon = Flag as ComponentType<LucideProps>
+const ClockIcon = Clock as ComponentType<LucideProps>
+const CheckCircleIcon = CheckCircle as ComponentType<LucideProps>
+const ScaleIcon = Scale as ComponentType<LucideProps>
+const UsersIcon = Users as ComponentType<LucideProps>
+const TrendingUpIcon = TrendingUp as ComponentType<LucideProps>
+const AlertTriangleIcon = AlertTriangle as ComponentType<LucideProps>
+const GavelIcon = Gavel as ComponentType<LucideProps>
+const EyeIcon = Eye as ComponentType<LucideProps>
 
-type TabType = 'overview' | 'active' | 'resolved' | 'submit' | 'labels' | 'bans';
+import { formatEther } from 'viem'
+import BanVotingInterface from '../../components/moderation/BanVotingInterface'
+import { IPFS_GATEWAY_URL } from '../../config'
+import { MODERATION_CONTRACTS } from '../../config/moderation'
+import { ZERO_BYTES32 } from '../../lib/contracts'
+
+type TabType = 'overview' | 'active' | 'resolved' | 'submit' | 'labels' | 'bans'
 
 const REPORTING_SYSTEM_ABI = [
   {
@@ -58,7 +71,7 @@ const REPORTING_SYSTEM_ABI = [
       },
     ],
   },
-] as const;
+] as const
 
 const MODERATION_MARKETPLACE_ABI = [
   {
@@ -102,35 +115,35 @@ const MODERATION_MARKETPLACE_ABI = [
     inputs: [{ name: 'user', type: 'address' }],
     outputs: [{ name: '', type: 'bool' }],
   },
-] as const;
+] as const
 
-const REPORT_TYPES = ['Network Ban', 'App Ban', 'Hacker Label', 'Scammer Label'];
-const SEVERITIES = ['Low', 'Medium', 'High', 'Critical'];
-const STATUS_NAMES = ['Pending', 'Resolved (YES)', 'Resolved (NO)', 'Executed'];
+const REPORT_TYPES = ['Network Ban', 'App Ban', 'Hacker Label', 'Scammer Label']
+const SEVERITIES = ['Low', 'Medium', 'High', 'Critical']
+const STATUS_NAMES = ['Pending', 'Resolved (YES)', 'Resolved (NO)', 'Executed']
 
 export default function ModerationDashboard() {
-  const [activeTab, setActiveTab] = useState<TabType>('overview');
-  const { address, isConnected } = useAccount();
+  const [activeTab, setActiveTab] = useState<TabType>('overview')
+  const { address, isConnected } = useAccount()
 
   // Query all reports
   const { data: reportIds, isLoading } = useReadContract({
     address: MODERATION_CONTRACTS.ReportingSystem as `0x${string}`,
     abi: REPORTING_SYSTEM_ABI,
     functionName: 'getAllReports',
-  });
+  })
 
   // Query marketplace data
   const { data: caseIds } = useReadContract({
     address: MODERATION_CONTRACTS.ModerationMarketplace as `0x${string}`,
     abi: MODERATION_MARKETPLACE_ABI,
     functionName: 'getAllCaseIds',
-  });
+  })
 
   const { data: totalStaked } = useReadContract({
     address: MODERATION_CONTRACTS.ModerationMarketplace as `0x${string}`,
     abi: MODERATION_MARKETPLACE_ABI,
     functionName: 'totalStaked',
-  });
+  })
 
   const { data: userRep } = useReadContract({
     address: MODERATION_CONTRACTS.ModerationMarketplace as `0x${string}`,
@@ -138,7 +151,7 @@ export default function ModerationDashboard() {
     functionName: 'getModeratorReputation',
     args: address ? [address] : undefined,
     query: { enabled: !!address },
-  });
+  })
 
   const { data: canReport } = useReadContract({
     address: MODERATION_CONTRACTS.ModerationMarketplace as `0x${string}`,
@@ -146,7 +159,7 @@ export default function ModerationDashboard() {
     functionName: 'canReport',
     args: address ? [address] : undefined,
     query: { enabled: !!address },
-  });
+  })
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -155,21 +168,29 @@ export default function ModerationDashboard() {
         <div className="max-w-7xl mx-auto px-8 py-8">
           <div className="flex items-center gap-3 mb-4">
             <ShieldIcon className="text-white" size={36} />
-            <h1 className="text-3xl font-bold text-white">Moderation Governance</h1>
+            <h1 className="text-3xl font-bold text-white">
+              Moderation Governance
+            </h1>
           </div>
           <p className="text-blue-100 max-w-2xl">
-            Decentralized moderation powered by futarchy governance. Review reports, vote on cases, and help maintain network safety through transparent decision-making.
+            Decentralized moderation powered by futarchy governance. Review
+            reports, vote on cases, and help maintain network safety through
+            transparent decision-making.
           </p>
-          
+
           {/* Quick Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
             <div className="bg-white/10 backdrop-blur rounded-lg p-4">
               <div className="text-blue-100 text-sm">Total Reports</div>
-              <div className="text-2xl font-bold text-white">{reportIds?.length || 0}</div>
+              <div className="text-2xl font-bold text-white">
+                {reportIds?.length || 0}
+              </div>
             </div>
             <div className="bg-white/10 backdrop-blur rounded-lg p-4">
               <div className="text-blue-100 text-sm">Active Cases</div>
-              <div className="text-2xl font-bold text-white">{caseIds?.length || 0}</div>
+              <div className="text-2xl font-bold text-white">
+                {caseIds?.length || 0}
+              </div>
             </div>
             <div className="bg-white/10 backdrop-blur rounded-lg p-4">
               <div className="text-blue-100 text-sm">Total Staked</div>
@@ -198,7 +219,7 @@ export default function ModerationDashboard() {
               { id: 'labels', label: 'Labels', icon: ScaleIcon },
               { id: 'bans', label: 'Bans', icon: AlertTriangleIcon },
               { id: 'submit', label: 'Submit Report', icon: FlagIcon },
-            ].map(tab => (
+            ].map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as TabType)}
@@ -232,19 +253,25 @@ export default function ModerationDashboard() {
                 </h2>
                 <div className="grid md:grid-cols-4 gap-4">
                   <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="text-sm text-gray-500">Reputation Score</div>
+                    <div className="text-sm text-gray-500">
+                      Reputation Score
+                    </div>
                     <div className="text-2xl font-bold text-gray-900">
                       {userRep?.reputationScore?.toString() || '7000'}
                     </div>
                     <div className="mt-2 h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div 
+                      <div
                         className="h-full bg-gradient-to-r from-blue-500 to-indigo-500"
-                        style={{ width: `${(Number(userRep?.reputationScore || 7000) / 10000) * 100}%` }}
+                        style={{
+                          width: `${(Number(userRep?.reputationScore || 7000) / 10000) * 100}%`,
+                        }}
                       />
                     </div>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="text-sm text-gray-500">Successful Reports</div>
+                    <div className="text-sm text-gray-500">
+                      Successful Reports
+                    </div>
                     <div className="text-2xl font-bold text-green-600">
                       {userRep?.successfulBans?.toString() || '0'}
                     </div>
@@ -257,7 +284,9 @@ export default function ModerationDashboard() {
                   </div>
                   <div className="bg-gray-50 rounded-lg p-4">
                     <div className="text-sm text-gray-500">Can Report</div>
-                    <div className={`text-2xl font-bold ${canReport ? 'text-green-600' : 'text-red-600'}`}>
+                    <div
+                      className={`text-2xl font-bold ${canReport ? 'text-green-600' : 'text-red-600'}`}
+                    >
                       {canReport ? 'Yes ✓' : 'No ✗'}
                     </div>
                   </div>
@@ -273,21 +302,30 @@ export default function ModerationDashboard() {
               </h2>
               <div className="grid md:grid-cols-3 gap-6">
                 <div className="p-4 bg-blue-50 rounded-lg">
-                  <div className="text-blue-600 font-semibold mb-2">1. Stake & Report</div>
+                  <div className="text-blue-600 font-semibold mb-2">
+                    1. Stake & Report
+                  </div>
                   <p className="text-sm text-blue-700">
-                    Stake ETH to become a moderator. Higher reputation = lower stake requirements. Report bad actors with evidence.
+                    Stake ETH to become a moderator. Higher reputation = lower
+                    stake requirements. Report bad actors with evidence.
                   </p>
                 </div>
                 <div className="p-4 bg-indigo-50 rounded-lg">
-                  <div className="text-indigo-600 font-semibold mb-2">2. Community Votes</div>
+                  <div className="text-indigo-600 font-semibold mb-2">
+                    2. Community Votes
+                  </div>
                   <p className="text-sm text-indigo-700">
-                    All stakers vote on reports. Quadratic voting ensures fair representation. Early votes get bonus weight.
+                    All stakers vote on reports. Quadratic voting ensures fair
+                    representation. Early votes get bonus weight.
                   </p>
                 </div>
                 <div className="p-4 bg-purple-50 rounded-lg">
-                  <div className="text-purple-600 font-semibold mb-2">3. Rewards & Penalties</div>
+                  <div className="text-purple-600 font-semibold mb-2">
+                    3. Rewards & Penalties
+                  </div>
                   <p className="text-sm text-purple-700">
-                    Correct voters earn 90% of loser stake. Failed reporters lose 2x stake. Build reputation over time.
+                    Correct voters earn 90% of loser stake. Failed reporters
+                    lose 2x stake. Build reputation over time.
                   </p>
                 </div>
               </div>
@@ -312,7 +350,9 @@ export default function ModerationDashboard() {
                   </button>
                 </div>
               ) : (
-                <p className="text-gray-500 text-center py-8">No recent activity</p>
+                <p className="text-gray-500 text-center py-8">
+                  No recent activity
+                </p>
               )}
             </div>
           </div>
@@ -323,7 +363,7 @@ export default function ModerationDashboard() {
             <h2 className="text-2xl font-bold mb-6">Submit New Report</h2>
             <ReportSubmissionForm
               onSuccess={() => {
-                setActiveTab('active');
+                setActiveTab('active')
               }}
             />
           </div>
@@ -334,7 +374,9 @@ export default function ModerationDashboard() {
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold">Active Reports</h2>
               <div className="text-sm text-gray-600">
-                {isLoading ? 'Loading...' : `${reportIds?.length || 0} total reports`}
+                {isLoading
+                  ? 'Loading...'
+                  : `${reportIds?.length || 0} total reports`}
               </div>
             </div>
 
@@ -370,17 +412,25 @@ export default function ModerationDashboard() {
             {isLoading ? (
               <div className="text-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-                <p className="mt-4 text-gray-600">Loading resolved reports...</p>
+                <p className="mt-4 text-gray-600">
+                  Loading resolved reports...
+                </p>
               </div>
             ) : reportIds && reportIds.length > 0 ? (
               <div className="grid gap-4">
                 {reportIds.slice(0, 20).map((reportId) => (
-                  <ResolvedReportCard key={reportId.toString()} reportId={reportId} />
+                  <ResolvedReportCard
+                    key={reportId.toString()}
+                    reportId={reportId}
+                  />
                 ))}
               </div>
             ) : (
               <div className="text-center py-12 bg-white rounded-lg">
-                <CheckCircleIcon className="mx-auto text-gray-300 mb-4" size={48} />
+                <CheckCircleIcon
+                  className="mx-auto text-gray-300 mb-4"
+                  size={48}
+                />
                 <p className="text-gray-600">No resolved reports yet</p>
               </div>
             )}
@@ -391,7 +441,8 @@ export default function ModerationDashboard() {
           <div className="space-y-6">
             <h2 className="text-2xl font-bold">Reputation Labels</h2>
             <p className="text-gray-600">
-              Labels are applied through futarchy governance. Each label proposal requires staking and community voting.
+              Labels are applied through futarchy governance. Each label
+              proposal requires staking and community voting.
             </p>
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-white rounded-xl shadow-sm p-6">
@@ -400,9 +451,12 @@ export default function ModerationDashboard() {
                 </div>
                 <h3 className="font-semibold text-red-600 mb-2">HACKER</h3>
                 <p className="text-sm text-gray-600">
-                  Applied to agents who exploit vulnerabilities or engage in malicious activities. Auto-triggers network ban.
+                  Applied to agents who exploit vulnerabilities or engage in
+                  malicious activities. Auto-triggers network ban.
                 </p>
-                <div className="mt-3 text-xs text-gray-500">Stake Required: 0.1 ETH</div>
+                <div className="mt-3 text-xs text-gray-500">
+                  Stake Required: 0.1 ETH
+                </div>
               </div>
               <div className="bg-white rounded-xl shadow-sm p-6">
                 <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mb-4">
@@ -410,9 +464,12 @@ export default function ModerationDashboard() {
                 </div>
                 <h3 className="font-semibold text-orange-600 mb-2">SCAMMER</h3>
                 <p className="text-sm text-gray-600">
-                  Warning label for agents involved in fraudulent activities. Does not auto-ban but serves as warning.
+                  Warning label for agents involved in fraudulent activities.
+                  Does not auto-ban but serves as warning.
                 </p>
-                <div className="mt-3 text-xs text-gray-500">Stake Required: 0.05 ETH</div>
+                <div className="mt-3 text-xs text-gray-500">
+                  Stake Required: 0.05 ETH
+                </div>
               </div>
               <div className="bg-white rounded-xl shadow-sm p-6">
                 <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mb-4">
@@ -420,9 +477,12 @@ export default function ModerationDashboard() {
                 </div>
                 <h3 className="font-semibold text-yellow-600 mb-2">SPAM_BOT</h3>
                 <p className="text-sm text-gray-600">
-                  Applied to automated accounts engaged in spamming. Rate limits and restrictions apply.
+                  Applied to automated accounts engaged in spamming. Rate limits
+                  and restrictions apply.
                 </p>
-                <div className="mt-3 text-xs text-gray-500">Stake Required: 0.02 ETH</div>
+                <div className="mt-3 text-xs text-gray-500">
+                  Stake Required: 0.02 ETH
+                </div>
               </div>
               <div className="bg-white rounded-xl shadow-sm p-6">
                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-4">
@@ -430,9 +490,12 @@ export default function ModerationDashboard() {
                 </div>
                 <h3 className="font-semibold text-green-600 mb-2">TRUSTED</h3>
                 <p className="text-sm text-gray-600">
-                  Positive label for agents with excellent track record. Provides benefits like lower fees and priority access.
+                  Positive label for agents with excellent track record.
+                  Provides benefits like lower fees and priority access.
                 </p>
-                <div className="mt-3 text-xs text-gray-500">Stake Required: 0.05 ETH</div>
+                <div className="mt-3 text-xs text-gray-500">
+                  Stake Required: 0.05 ETH
+                </div>
               </div>
             </div>
           </div>
@@ -442,9 +505,10 @@ export default function ModerationDashboard() {
           <div className="space-y-6">
             <h2 className="text-2xl font-bold">Network & App Bans</h2>
             <p className="text-gray-600">
-              Bans restrict access to the network and individual applications. All bans go through governance process.
+              Bans restrict access to the network and individual applications.
+              All bans go through governance process.
             </p>
-            
+
             <div className="grid md:grid-cols-2 gap-6">
               <div className="bg-white rounded-xl shadow-sm p-6">
                 <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
@@ -452,7 +516,8 @@ export default function ModerationDashboard() {
                   Network Bans
                 </h3>
                 <p className="text-sm text-gray-600 mb-4">
-                  Complete removal from the network network. Applies to all apps and services. Requires high severity evidence.
+                  Complete removal from the network network. Applies to all apps
+                  and services. Requires high severity evidence.
                 </p>
                 <ul className="space-y-2 text-sm">
                   <li className="flex items-center gap-2 text-gray-700">
@@ -469,14 +534,15 @@ export default function ModerationDashboard() {
                   </li>
                 </ul>
               </div>
-              
+
               <div className="bg-white rounded-xl shadow-sm p-6">
                 <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
                   <FlagIcon size={20} className="text-orange-500" />
                   App-Specific Bans
                 </h3>
                 <p className="text-sm text-gray-600 mb-4">
-                  Restricted from specific application only. User can still access other network apps and services.
+                  Restricted from specific application only. User can still
+                  access other network apps and services.
                 </p>
                 <ul className="space-y-2 text-sm">
                   <li className="flex items-center gap-2 text-gray-700">
@@ -498,51 +564,55 @@ export default function ModerationDashboard() {
         )}
       </div>
     </div>
-  );
+  )
 }
 
 function ReportCard({ reportId }: { reportId: bigint }) {
-  const [showVoting, setShowVoting] = useState(false);
+  const [showVoting, setShowVoting] = useState(false)
   const { data: report } = useReadContract({
     address: MODERATION_CONTRACTS.ReportingSystem as `0x${string}`,
     abi: REPORTING_SYSTEM_ABI,
     functionName: 'getReport',
     args: [reportId],
-  });
+  })
 
-  if (!report) return null;
+  if (!report) return null
 
-  const status = Number(report.status);
-  const reportType = Number(report.reportType);
-  const severity = Number(report.severity);
-  const timeRemaining = Number(report.votingEnds) * 1000 - Date.now();
-  const isPending = status === 0;
+  const status = Number(report.status)
+  const reportType = Number(report.reportType)
+  const severity = Number(report.severity)
+  const timeRemaining = Number(report.votingEnds) * 1000 - Date.now()
+  const isPending = status === 0
 
   const severityColors = [
     'bg-blue-100 text-blue-700',
     'bg-yellow-100 text-yellow-700',
     'bg-orange-100 text-orange-700',
     'bg-red-100 text-red-700',
-  ];
+  ]
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-2">
-            <span className="text-sm font-mono text-gray-500">#{reportId.toString()}</span>
-            <span className={`px-2 py-1 rounded text-xs font-semibold ${severityColors[severity]}`}>
+            <span className="text-sm font-mono text-gray-500">
+              #{reportId.toString()}
+            </span>
+            <span
+              className={`px-2 py-1 rounded text-xs font-semibold ${severityColors[severity]}`}
+            >
               {SEVERITIES[severity]}
             </span>
             <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">
               {REPORT_TYPES[reportType]}
             </span>
           </div>
-          
+
           <h3 className="text-lg font-semibold text-gray-900 mb-1">
             Agent #{report.targetAgentId.toString()}
           </h3>
-          
+
           <p className="text-sm text-gray-600 line-clamp-2">{report.details}</p>
         </div>
 
@@ -557,7 +627,9 @@ function ReportCard({ reportId }: { reportId: bigint }) {
           ) : (
             <div className="text-sm">
               <div className="text-gray-500">Status</div>
-              <div className="font-semibold text-gray-900">{STATUS_NAMES[status]}</div>
+              <div className="font-semibold text-gray-900">
+                {STATUS_NAMES[status]}
+              </div>
             </div>
           )}
         </div>
@@ -572,16 +644,23 @@ function ReportCard({ reportId }: { reportId: bigint }) {
         <div className="flex gap-2">
           <button
             onClick={() => {
-              const hash = report.evidenceHash;
+              const hash = report.evidenceHash
               if (hash && hash !== ZERO_BYTES32) {
                 // Decode bytes32 hex back to CID string (reverse of cidToBytes32)
-                const hexStr = hash.slice(2).replace(/^0+/, ''); // Remove 0x and leading zeros
-                const cid = hexStr ? Buffer.from(hexStr, 'hex').toString('utf8').replace(/\0/g, '') : '';
-                if (cid && cid.startsWith('Qm')) {
-                  window.open(`https://ipfs.io/ipfs/${cid}`, '_blank');
+                const hexStr = hash.slice(2).replace(/^0+/, '') // Remove 0x and leading zeros
+                const cid = hexStr
+                  ? Buffer.from(hexStr, 'hex')
+                      .toString('utf8')
+                      .replace(/\0/g, '')
+                  : ''
+                if (cid?.startsWith('Qm')) {
+                  window.open(`https://ipfs.io/ipfs/${cid}`, '_blank')
                 } else {
                   // Fallback: try using the network IPFS gateway with raw hash
-                  window.open(`${IPFS_GATEWAY_URL}/ipfs/${cid || hash}`, '_blank');
+                  window.open(
+                    `${IPFS_GATEWAY_URL}/ipfs/${cid || hash}`,
+                    '_blank',
+                  )
                 }
               }
             }}
@@ -604,7 +683,7 @@ function ReportCard({ reportId }: { reportId: bigint }) {
         </div>
       )}
     </div>
-  );
+  )
 }
 
 function ResolvedReportCard({ reportId }: { reportId: bigint }) {
@@ -613,49 +692,57 @@ function ResolvedReportCard({ reportId }: { reportId: bigint }) {
     abi: REPORTING_SYSTEM_ABI,
     functionName: 'getReport',
     args: [reportId],
-  });
+  })
 
-  if (!report) return null;
+  if (!report) return null
 
-  const status = Number(report.status);
-  
+  const status = Number(report.status)
+
   // Only show resolved reports (status 1, 2, or 3)
-  if (status === 0) return null;
+  if (status === 0) return null
 
-  const reportType = Number(report.reportType);
-  const severity = Number(report.severity);
-  const isApproved = status === 1 || status === 3;
+  const reportType = Number(report.reportType)
+  const severity = Number(report.severity)
+  const isApproved = status === 1 || status === 3
 
   const severityColors = [
     'bg-blue-100 text-blue-700',
     'bg-yellow-100 text-yellow-700',
     'bg-orange-100 text-orange-700',
     'bg-red-100 text-red-700',
-  ];
+  ]
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-2">
-            <span className="text-sm font-mono text-gray-500">#{reportId.toString()}</span>
-            <span className={`px-2 py-1 rounded text-xs font-semibold ${severityColors[severity]}`}>
+            <span className="text-sm font-mono text-gray-500">
+              #{reportId.toString()}
+            </span>
+            <span
+              className={`px-2 py-1 rounded text-xs font-semibold ${severityColors[severity]}`}
+            >
               {SEVERITIES[severity]}
             </span>
             <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">
               {REPORT_TYPES[reportType]}
             </span>
-            <span className={`px-2 py-1 rounded text-xs font-semibold ${
-              isApproved ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-            }`}>
+            <span
+              className={`px-2 py-1 rounded text-xs font-semibold ${
+                isApproved
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-red-100 text-red-700'
+              }`}
+            >
               {STATUS_NAMES[status]}
             </span>
           </div>
-          
+
           <h3 className="text-lg font-semibold text-gray-900 mb-1">
             Agent #{report.targetAgentId.toString()}
           </h3>
-          
+
           <p className="text-sm text-gray-600 line-clamp-2">{report.details}</p>
         </div>
       </div>
@@ -668,14 +755,16 @@ function ResolvedReportCard({ reportId }: { reportId: bigint }) {
 
         <button
           onClick={() => {
-            const hash = report.evidenceHash;
+            const hash = report.evidenceHash
             if (hash && hash !== ZERO_BYTES32) {
-              const hexStr = hash.slice(2).replace(/^0+/, '');
-              const cid = hexStr ? Buffer.from(hexStr, 'hex').toString('utf8').replace(/\0/g, '') : '';
-              if (cid && cid.startsWith('Qm')) {
-                window.open(`https://ipfs.io/ipfs/${cid}`, '_blank');
+              const hexStr = hash.slice(2).replace(/^0+/, '')
+              const cid = hexStr
+                ? Buffer.from(hexStr, 'hex').toString('utf8').replace(/\0/g, '')
+                : ''
+              if (cid?.startsWith('Qm')) {
+                window.open(`https://ipfs.io/ipfs/${cid}`, '_blank')
               } else {
-                window.open(`${IPFS_GATEWAY_URL}/ipfs/${cid || hash}`, '_blank');
+                window.open(`${IPFS_GATEWAY_URL}/ipfs/${cid || hash}`, '_blank')
               }
             }
           }}
@@ -685,6 +774,5 @@ function ResolvedReportCard({ reportId }: { reportId: bigint }) {
         </button>
       </div>
     </div>
-  );
+  )
 }
-

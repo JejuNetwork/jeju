@@ -2,8 +2,8 @@
  * Zod schemas for perpetual trading types
  */
 
-import { z } from 'zod'
 import { AddressSchema, HashSchema } from '@jejunetwork/types'
+import { z } from 'zod'
 import { BigIntSchema } from './common'
 
 // ============ Enums ============
@@ -114,7 +114,9 @@ export const PositionValidationResultSchema = z.object({
   valid: z.boolean(),
   error: z.string().optional(),
 })
-export type PositionValidationResult = z.infer<typeof PositionValidationResultSchema>
+export type PositionValidationResult = z.infer<
+  typeof PositionValidationResultSchema
+>
 
 // ============ Trade Validation Schema ============
 

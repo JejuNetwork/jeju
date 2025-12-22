@@ -2,7 +2,7 @@
  * Playwright E2E Configuration for VPN App
  */
 
-import { createAppConfig } from '@jejunetwork/tests';
+import { createAppConfig } from '@jejunetwork/tests'
 
 export default createAppConfig({
   name: 'vpn',
@@ -12,4 +12,4 @@ export default createAppConfig({
     command: 'bun run dev:web',
     timeout: 120000,
   },
-});
+})

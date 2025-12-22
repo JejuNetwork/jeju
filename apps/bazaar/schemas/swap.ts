@@ -2,8 +2,8 @@
  * Swap-related Zod schemas
  */
 
-import { z } from 'zod'
 import { AddressSchema } from '@jejunetwork/types'
+import { z } from 'zod'
 import { BigIntSchema, EvmChainIdSchema, NonEmptyStringSchema } from './common'
 
 /**

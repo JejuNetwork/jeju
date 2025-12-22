@@ -1,5 +1,5 @@
-import { useAccount, useReadContract } from 'wagmi';
-import { CONTRACTS } from '../config';
+import { useAccount, useReadContract } from 'wagmi'
+import { CONTRACTS } from '../config'
 
 const IDENTITY_REGISTRY_ABI = [
   {
@@ -43,10 +43,10 @@ const IDENTITY_REGISTRY_ABI = [
     ],
     outputs: [{ name: '', type: 'bytes' }],
   },
-] as const;
+] as const
 
 export function useAgentId() {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected } = useAccount()
 
   const { data: balance } = useReadContract({
     address: CONTRACTS.identityRegistry,
@@ -54,11 +54,15 @@ export function useAgentId() {
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
     query: {
-      enabled: isConnected && !!address && CONTRACTS.identityRegistry !== '0x0000000000000000000000000000000000000000',
+      enabled:
+        isConnected &&
+        !!address &&
+        CONTRACTS.identityRegistry !==
+          '0x0000000000000000000000000000000000000000',
     },
-  });
+  })
 
-  const hasAgent = balance !== undefined && balance > 0n;
+  const hasAgent = balance !== undefined && balance > 0n
 
   const { data: agentId, isLoading } = useReadContract({
     address: CONTRACTS.identityRegistry,
@@ -68,7 +72,7 @@ export function useAgentId() {
     query: {
       enabled: hasAgent,
     },
-  });
+  })
 
   const { data: tokenURI } = useReadContract({
     address: CONTRACTS.identityRegistry,
@@ -78,14 +82,12 @@ export function useAgentId() {
     query: {
       enabled: agentId !== undefined,
     },
-  });
+  })
 
   return {
     hasAgent,
     agentId: agentId !== undefined ? Number(agentId) : null,
     tokenURI: tokenURI as string | undefined,
     isLoading,
-  };
+  }
 }
-
-

@@ -3,9 +3,9 @@
  * Create and manage Safe wallets, propose and execute transactions
  */
 
-import type { Address, Hex } from 'viem';
-import { rpcService, type SupportedChainId } from '../rpc';
-import { encodeFunctionData } from 'viem';
+import type { Address, Hex } from 'viem'
+import { encodeFunctionData } from 'viem'
+import { rpcService, type SupportedChainId } from '../rpc'
 
 // Safe Transaction Service API base URLs
 const SAFE_API_URLS: Record<number, string> = {
@@ -13,136 +13,187 @@ const SAFE_API_URLS: Record<number, string> = {
   10: 'https://safe-transaction-optimism.safe.global',
   8453: 'https://safe-transaction-base.safe.global',
   42161: 'https://safe-transaction-arbitrum.safe.global',
-};
+}
 
 export interface SafeInfo {
-  address: Address;
-  chainId: number;
-  owners: Address[];
-  threshold: number;
-  nonce: number;
-  version: string;
-  modules: Address[];
-  guard?: Address;
+  address: Address
+  chainId: number
+  owners: Address[]
+  threshold: number
+  nonce: number
+  version: string
+  modules: Address[]
+  guard?: Address
 }
 
 export interface SafeTransaction {
-  to: Address;
-  value: bigint;
-  data: Hex;
-  operation: 0 | 1; // 0 = Call, 1 = DelegateCall
-  safeTxGas: bigint;
-  baseGas: bigint;
-  gasPrice: bigint;
-  gasToken: Address;
-  refundReceiver: Address;
-  nonce: number;
+  to: Address
+  value: bigint
+  data: Hex
+  operation: 0 | 1 // 0 = Call, 1 = DelegateCall
+  safeTxGas: bigint
+  baseGas: bigint
+  gasPrice: bigint
+  gasToken: Address
+  refundReceiver: Address
+  nonce: number
 }
 
 export interface SafeTransactionData extends SafeTransaction {
-  safe: Address;
-  confirmations: SafeConfirmation[];
-  confirmationsRequired: number;
-  isExecuted: boolean;
-  safeTxHash: Hex;
-  proposer: Address;
-  submissionDate: string;
+  safe: Address
+  confirmations: SafeConfirmation[]
+  confirmationsRequired: number
+  isExecuted: boolean
+  safeTxHash: Hex
+  proposer: Address
+  submissionDate: string
 }
 
 export interface SafeConfirmation {
-  owner: Address;
-  signature: Hex;
-  submissionDate: string;
+  owner: Address
+  signature: Hex
+  submissionDate: string
 }
 
 const SAFE_ABI = [
   // Read functions
-  { name: 'getOwners', type: 'function', inputs: [], outputs: [{ type: 'address[]' }] },
-  { name: 'getThreshold', type: 'function', inputs: [], outputs: [{ type: 'uint256' }] },
-  { name: 'nonce', type: 'function', inputs: [], outputs: [{ type: 'uint256' }] },
-  { name: 'VERSION', type: 'function', inputs: [], outputs: [{ type: 'string' }] },
-  { name: 'getModulesPaginated', type: 'function', inputs: [{ type: 'address' }, { type: 'uint256' }], outputs: [{ type: 'address[]' }, { type: 'address' }] },
-  { name: 'getGuard', type: 'function', inputs: [], outputs: [{ type: 'address' }] },
-  
+  {
+    name: 'getOwners',
+    type: 'function',
+    inputs: [],
+    outputs: [{ type: 'address[]' }],
+  },
+  {
+    name: 'getThreshold',
+    type: 'function',
+    inputs: [],
+    outputs: [{ type: 'uint256' }],
+  },
+  {
+    name: 'nonce',
+    type: 'function',
+    inputs: [],
+    outputs: [{ type: 'uint256' }],
+  },
+  {
+    name: 'VERSION',
+    type: 'function',
+    inputs: [],
+    outputs: [{ type: 'string' }],
+  },
+  {
+    name: 'getModulesPaginated',
+    type: 'function',
+    inputs: [{ type: 'address' }, { type: 'uint256' }],
+    outputs: [{ type: 'address[]' }, { type: 'address' }],
+  },
+  {
+    name: 'getGuard',
+    type: 'function',
+    inputs: [],
+    outputs: [{ type: 'address' }],
+  },
+
   // Write functions
-  { name: 'execTransaction', type: 'function', inputs: [
-    { name: 'to', type: 'address' },
-    { name: 'value', type: 'uint256' },
-    { name: 'data', type: 'bytes' },
-    { name: 'operation', type: 'uint8' },
-    { name: 'safeTxGas', type: 'uint256' },
-    { name: 'baseGas', type: 'uint256' },
-    { name: 'gasPrice', type: 'uint256' },
-    { name: 'gasToken', type: 'address' },
-    { name: 'refundReceiver', type: 'address' },
-    { name: 'signatures', type: 'bytes' },
-  ], outputs: [{ type: 'bool' }] },
-  
+  {
+    name: 'execTransaction',
+    type: 'function',
+    inputs: [
+      { name: 'to', type: 'address' },
+      { name: 'value', type: 'uint256' },
+      { name: 'data', type: 'bytes' },
+      { name: 'operation', type: 'uint8' },
+      { name: 'safeTxGas', type: 'uint256' },
+      { name: 'baseGas', type: 'uint256' },
+      { name: 'gasPrice', type: 'uint256' },
+      { name: 'gasToken', type: 'address' },
+      { name: 'refundReceiver', type: 'address' },
+      { name: 'signatures', type: 'bytes' },
+    ],
+    outputs: [{ type: 'bool' }],
+  },
+
   // Hash functions
-  { name: 'getTransactionHash', type: 'function', inputs: [
-    { name: 'to', type: 'address' },
-    { name: 'value', type: 'uint256' },
-    { name: 'data', type: 'bytes' },
-    { name: 'operation', type: 'uint8' },
-    { name: 'safeTxGas', type: 'uint256' },
-    { name: 'baseGas', type: 'uint256' },
-    { name: 'gasPrice', type: 'uint256' },
-    { name: 'gasToken', type: 'address' },
-    { name: 'refundReceiver', type: 'address' },
-    { name: 'nonce', type: 'uint256' },
-  ], outputs: [{ type: 'bytes32' }] },
-] as const;
+  {
+    name: 'getTransactionHash',
+    type: 'function',
+    inputs: [
+      { name: 'to', type: 'address' },
+      { name: 'value', type: 'uint256' },
+      { name: 'data', type: 'bytes' },
+      { name: 'operation', type: 'uint8' },
+      { name: 'safeTxGas', type: 'uint256' },
+      { name: 'baseGas', type: 'uint256' },
+      { name: 'gasPrice', type: 'uint256' },
+      { name: 'gasToken', type: 'address' },
+      { name: 'refundReceiver', type: 'address' },
+      { name: 'nonce', type: 'uint256' },
+    ],
+    outputs: [{ type: 'bytes32' }],
+  },
+] as const
 
 class SafeService {
   /**
    * Get Safe info from chain
    */
-  async getSafeInfo(chainId: SupportedChainId, safeAddress: Address): Promise<SafeInfo> {
-    const client = rpcService.getClient(chainId);
-    
-    const [owners, threshold, nonce, version, modulesResult] = await Promise.all([
-      client.readContract({
-        address: safeAddress,
-        abi: SAFE_ABI,
-        functionName: 'getOwners',
-      }),
-      client.readContract({
-        address: safeAddress,
-        abi: SAFE_ABI,
-        functionName: 'getThreshold',
-      }),
-      client.readContract({
-        address: safeAddress,
-        abi: SAFE_ABI,
-        functionName: 'nonce',
-      }),
-      client.readContract({
-        address: safeAddress,
-        abi: SAFE_ABI,
-        functionName: 'VERSION',
-      }).catch(() => 'unknown'),
-      client.readContract({
-        address: safeAddress,
-        abi: SAFE_ABI,
-        functionName: 'getModulesPaginated',
-        args: ['0x0000000000000000000000000000000000000001' as Address, 10n],
-      }).catch(() => [[], '0x0000000000000000000000000000000000000001']),
-    ]);
-    
-    let guard: Address | undefined;
+  async getSafeInfo(
+    chainId: SupportedChainId,
+    safeAddress: Address,
+  ): Promise<SafeInfo> {
+    const client = rpcService.getClient(chainId)
+
+    const [owners, threshold, nonce, version, modulesResult] =
+      await Promise.all([
+        client.readContract({
+          address: safeAddress,
+          abi: SAFE_ABI,
+          functionName: 'getOwners',
+        }),
+        client.readContract({
+          address: safeAddress,
+          abi: SAFE_ABI,
+          functionName: 'getThreshold',
+        }),
+        client.readContract({
+          address: safeAddress,
+          abi: SAFE_ABI,
+          functionName: 'nonce',
+        }),
+        client
+          .readContract({
+            address: safeAddress,
+            abi: SAFE_ABI,
+            functionName: 'VERSION',
+          })
+          .catch(() => 'unknown'),
+        client
+          .readContract({
+            address: safeAddress,
+            abi: SAFE_ABI,
+            functionName: 'getModulesPaginated',
+            args: [
+              '0x0000000000000000000000000000000000000001' as Address,
+              10n,
+            ],
+          })
+          .catch(() => [[], '0x0000000000000000000000000000000000000001']),
+      ])
+
+    let guard: Address | undefined
     try {
-      guard = await client.readContract({
+      guard = (await client.readContract({
         address: safeAddress,
         abi: SAFE_ABI,
         functionName: 'getGuard',
-      }) as Address;
+      })) as Address
       if (guard === '0x0000000000000000000000000000000000000000') {
-        guard = undefined;
+        guard = undefined
       }
     } catch {
       // Guard not supported in older versions
     }
-    
+
     return {
       address: safeAddress,
       chainId,
@@ -152,63 +203,73 @@ class SafeService {
       version: version as string,
       modules: (modulesResult as [Address[], Address])[0],
       guard,
-    };
+    }
   }
-  
+
   /**
    * Check if an address is a Safe
    */
   async isSafe(chainId: SupportedChainId, address: Address): Promise<boolean> {
     try {
-      await this.getSafeInfo(chainId, address);
-      return true;
+      await this.getSafeInfo(chainId, address)
+      return true
     } catch {
-      return false;
+      return false
     }
   }
-  
+
   /**
    * Get pending transactions from Safe Transaction Service
    */
-  async getPendingTransactions(chainId: number, safeAddress: Address): Promise<SafeTransactionData[]> {
-    const apiUrl = SAFE_API_URLS[chainId];
+  async getPendingTransactions(
+    chainId: number,
+    safeAddress: Address,
+  ): Promise<SafeTransactionData[]> {
+    const apiUrl = SAFE_API_URLS[chainId]
     if (!apiUrl) {
-      throw new Error(`Safe Transaction Service not available for chain ${chainId}`);
+      throw new Error(
+        `Safe Transaction Service not available for chain ${chainId}`,
+      )
     }
-    
+
     const response = await fetch(
-      `${apiUrl}/api/v1/safes/${safeAddress}/multisig-transactions/?executed=false&ordering=-nonce`
-    );
-    
+      `${apiUrl}/api/v1/safes/${safeAddress}/multisig-transactions/?executed=false&ordering=-nonce`,
+    )
+
     if (!response.ok) {
-      throw new Error('Failed to fetch pending transactions');
+      throw new Error('Failed to fetch pending transactions')
     }
-    
-    const data = await response.json();
-    return data.results;
+
+    const data = await response.json()
+    return data.results
   }
-  
+
   /**
    * Get transaction history from Safe Transaction Service
    */
-  async getTransactionHistory(chainId: number, safeAddress: Address): Promise<SafeTransactionData[]> {
-    const apiUrl = SAFE_API_URLS[chainId];
+  async getTransactionHistory(
+    chainId: number,
+    safeAddress: Address,
+  ): Promise<SafeTransactionData[]> {
+    const apiUrl = SAFE_API_URLS[chainId]
     if (!apiUrl) {
-      throw new Error(`Safe Transaction Service not available for chain ${chainId}`);
+      throw new Error(
+        `Safe Transaction Service not available for chain ${chainId}`,
+      )
     }
-    
+
     const response = await fetch(
-      `${apiUrl}/api/v1/safes/${safeAddress}/multisig-transactions/?executed=true&ordering=-executionDate`
-    );
-    
+      `${apiUrl}/api/v1/safes/${safeAddress}/multisig-transactions/?executed=true&ordering=-executionDate`,
+    )
+
     if (!response.ok) {
-      throw new Error('Failed to fetch transaction history');
+      throw new Error('Failed to fetch transaction history')
     }
-    
-    const data = await response.json();
-    return data.results;
+
+    const data = await response.json()
+    return data.results
   }
-  
+
   /**
    * Propose a new transaction
    */
@@ -216,13 +277,16 @@ class SafeService {
     chainId: SupportedChainId,
     safeAddress: Address,
     tx: Omit<SafeTransaction, 'nonce'>,
-    signer: { signMessage: (message: string) => Promise<Hex>; address: Address }
+    signer: {
+      signMessage: (message: string) => Promise<Hex>
+      address: Address
+    },
   ): Promise<Hex> {
-    const safeInfo = await this.getSafeInfo(chainId, safeAddress);
-    const client = rpcService.getClient(chainId);
-    
+    const safeInfo = await this.getSafeInfo(chainId, safeAddress)
+    const client = rpcService.getClient(chainId)
+
     // Get transaction hash
-    const safeTxHash = await client.readContract({
+    const safeTxHash = (await client.readContract({
       address: safeAddress,
       abi: SAFE_ABI,
       functionName: 'getTransactionHash',
@@ -238,23 +302,30 @@ class SafeService {
         tx.refundReceiver,
         BigInt(safeInfo.nonce),
       ],
-    }) as Hex;
-    
+    })) as Hex
+
     // Sign the hash
-    const signature = await signer.signMessage(safeTxHash);
-    
+    const signature = await signer.signMessage(safeTxHash)
+
     // Submit to Safe Transaction Service
-    const apiUrl = SAFE_API_URLS[chainId];
+    const apiUrl = SAFE_API_URLS[chainId]
     if (apiUrl) {
-      await this.submitToService(apiUrl, safeAddress, {
-        ...tx,
-        nonce: safeInfo.nonce,
-      }, safeTxHash, signer.address, signature);
+      await this.submitToService(
+        apiUrl,
+        safeAddress,
+        {
+          ...tx,
+          nonce: safeInfo.nonce,
+        },
+        safeTxHash,
+        signer.address,
+        signature,
+      )
     }
-    
-    return safeTxHash;
+
+    return safeTxHash
   }
-  
+
   /**
    * Add confirmation to a pending transaction
    */
@@ -262,29 +333,34 @@ class SafeService {
     chainId: number,
     _safeAddress: Address,
     safeTxHash: Hex,
-    signer: { signMessage: (message: string) => Promise<Hex>; address: Address }
+    signer: {
+      signMessage: (message: string) => Promise<Hex>
+      address: Address
+    },
   ): Promise<void> {
-    const apiUrl = SAFE_API_URLS[chainId];
+    const apiUrl = SAFE_API_URLS[chainId]
     if (!apiUrl) {
-      throw new Error(`Safe Transaction Service not available for chain ${chainId}`);
+      throw new Error(
+        `Safe Transaction Service not available for chain ${chainId}`,
+      )
     }
-    
-    const signature = await signer.signMessage(safeTxHash);
-    
+
+    const signature = await signer.signMessage(safeTxHash)
+
     const response = await fetch(
       `${apiUrl}/api/v1/multisig-transactions/${safeTxHash}/confirmations/`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ signature }),
-      }
-    );
-    
+      },
+    )
+
     if (!response.ok) {
-      throw new Error('Failed to confirm transaction');
+      throw new Error('Failed to confirm transaction')
     }
   }
-  
+
   /**
    * Execute a fully signed transaction
    */
@@ -292,7 +368,7 @@ class SafeService {
     _chainId: SupportedChainId,
     safeAddress: Address,
     tx: SafeTransaction,
-    signatures: Hex
+    signatures: Hex,
   ): Promise<{ to: Address; data: Hex; value: bigint }> {
     const data = encodeFunctionData({
       abi: SAFE_ABI,
@@ -309,38 +385,41 @@ class SafeService {
         tx.refundReceiver,
         signatures,
       ],
-    });
-    
+    })
+
     return {
       to: safeAddress,
       data,
       value: 0n,
-    };
+    }
   }
-  
+
   /**
    * Build packed signatures from confirmations
    */
   buildSignatures(confirmations: SafeConfirmation[]): Hex {
     // Sort by owner address
-    const sorted = [...confirmations].sort((a, b) => 
-      a.owner.toLowerCase().localeCompare(b.owner.toLowerCase())
-    );
-    
+    const sorted = [...confirmations].sort((a, b) =>
+      a.owner.toLowerCase().localeCompare(b.owner.toLowerCase()),
+    )
+
     // Pack signatures
-    let packed = '0x';
+    let packed = '0x'
     for (const conf of sorted) {
       // Remove 0x and append
-      packed += conf.signature.slice(2);
+      packed += conf.signature.slice(2)
     }
-    
-    return packed as Hex;
+
+    return packed as Hex
   }
-  
+
   /**
    * Create a simple ETH transfer transaction
    */
-  createEthTransfer(to: Address, value: bigint): Omit<SafeTransaction, 'nonce'> {
+  createEthTransfer(
+    to: Address,
+    value: bigint,
+  ): Omit<SafeTransaction, 'nonce'> {
     return {
       to,
       value,
@@ -351,19 +430,30 @@ class SafeService {
       gasPrice: 0n,
       gasToken: '0x0000000000000000000000000000000000000000' as Address,
       refundReceiver: '0x0000000000000000000000000000000000000000' as Address,
-    };
+    }
   }
-  
+
   /**
    * Create a token transfer transaction
    */
-  createTokenTransfer(token: Address, to: Address, amount: bigint): Omit<SafeTransaction, 'nonce'> {
+  createTokenTransfer(
+    token: Address,
+    to: Address,
+    amount: bigint,
+  ): Omit<SafeTransaction, 'nonce'> {
     const data = encodeFunctionData({
-      abi: [{ name: 'transfer', type: 'function', inputs: [{ type: 'address' }, { type: 'uint256' }], outputs: [{ type: 'bool' }] }],
+      abi: [
+        {
+          name: 'transfer',
+          type: 'function',
+          inputs: [{ type: 'address' }, { type: 'uint256' }],
+          outputs: [{ type: 'bool' }],
+        },
+      ],
       functionName: 'transfer',
       args: [to, amount],
-    });
-    
+    })
+
     return {
       to: token,
       value: 0n,
@@ -374,16 +464,16 @@ class SafeService {
       gasPrice: 0n,
       gasToken: '0x0000000000000000000000000000000000000000' as Address,
       refundReceiver: '0x0000000000000000000000000000000000000000' as Address,
-    };
+    }
   }
-  
+
   private async submitToService(
     apiUrl: string,
     safeAddress: Address,
     tx: SafeTransaction,
     safeTxHash: Hex,
     sender: Address,
-    signature: Hex
+    signature: Hex,
   ): Promise<void> {
     const response = await fetch(
       `${apiUrl}/api/v1/safes/${safeAddress}/multisig-transactions/`,
@@ -405,16 +495,15 @@ class SafeService {
           sender,
           signature,
         }),
-      }
-    );
-    
+      },
+    )
+
     if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Failed to submit transaction: ${error}`);
+      const error = await response.text()
+      throw new Error(`Failed to submit transaction: ${error}`)
     }
   }
 }
 
-export const safeService = new SafeService();
-export { SafeService };
-
+export const safeService = new SafeService()
+export { SafeService }

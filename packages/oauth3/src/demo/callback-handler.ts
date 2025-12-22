@@ -1,6 +1,6 @@
 /**
  * OAuth3 Callback Handler
- * 
+ *
  * Minimal HTML page that handles OAuth callbacks and sends
  * the authorization code back to the opener window.
  */
@@ -113,39 +113,42 @@ export function generateCallbackHtml(origin: string): string {
     })();
   </script>
 </body>
-</html>`;
+</html>`
 }
 
 /**
  * Validates an origin against the allowlist
  * SECURITY: Prevents open redirect attacks via origin parameter
  */
-function validateOrigin(origin: string, allowedOrigins: string[]): string | null {
+function validateOrigin(
+  origin: string,
+  allowedOrigins: string[],
+): string | null {
   // Never allow wildcard in production
   if (origin === '*') {
-    return null;
+    return null
   }
 
   // Check if origin is in allowlist
   if (allowedOrigins.includes(origin)) {
-    return origin;
+    return origin
   }
 
   // Check for localhost in development (if allowed)
-  if (allowedOrigins.some(o => o.includes('localhost'))) {
+  if (allowedOrigins.some((o) => o.includes('localhost'))) {
     if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
       try {
-        const url = new URL(origin);
+        const url = new URL(origin)
         if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
-          return origin;
+          return origin
         }
       } catch {
-        return null;
+        return null
       }
     }
   }
 
-  return null;
+  return null
 }
 
 /**
@@ -154,21 +157,21 @@ function validateOrigin(origin: string, allowedOrigins: string[]): string | null
  */
 export function createCallbackRoute(allowedOrigins: string[]) {
   if (allowedOrigins.length === 0) {
-    throw new Error('At least one allowed origin must be configured');
+    throw new Error('At least one allowed origin must be configured')
   }
 
   return (c: { req: { url: string }; html: (content: string) => Response }) => {
-    const url = new URL(c.req.url);
-    const requestedOrigin = url.searchParams.get('origin');
-    
+    const url = new URL(c.req.url)
+    const requestedOrigin = url.searchParams.get('origin')
+
     // SECURITY: Validate the requested origin against allowlist
     // If not in allowlist, use the first allowed origin as default
-    const validatedOrigin = requestedOrigin 
+    const validatedOrigin = requestedOrigin
       ? validateOrigin(requestedOrigin, allowedOrigins)
-      : allowedOrigins[0];
-    
-    const origin = validatedOrigin ?? allowedOrigins[0];
-    
-    return c.html(generateCallbackHtml(origin));
-  };
+      : allowedOrigins[0]
+
+    const origin = validatedOrigin ?? allowedOrigins[0]
+
+    return c.html(generateCallbackHtml(origin))
+  }
 }

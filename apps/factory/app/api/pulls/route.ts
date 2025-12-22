@@ -1,13 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { validateQuery, validateBody, errorResponse } from '@/lib/validation';
-import { getPullsQuerySchema, createPullRequestSchema } from '@/lib/validation/schemas';
-import type { PullRequest } from '@/types';
+import { type NextRequest, NextResponse } from 'next/server'
+import { errorResponse, validateBody, validateQuery } from '@/lib/validation'
+import {
+  createPullRequestSchema,
+  getPullsQuerySchema,
+} from '@/lib/validation/schemas'
+import type { PullRequest } from '@/types'
 
 // GET /api/pulls - List pull requests
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const query = validateQuery(getPullsQuerySchema, searchParams);
+    const { searchParams } = new URL(request.url)
+    const query = validateQuery(getPullsQuerySchema, searchParams)
 
     const pulls: PullRequest[] = [
       {
@@ -18,7 +21,10 @@ export async function GET(request: NextRequest) {
         body: 'This PR fixes the contract verification issue...',
         status: 'open',
         isDraft: false,
-        author: { name: 'bob.eth', avatar: 'https://avatars.githubusercontent.com/u/2?v=4' },
+        author: {
+          name: 'bob.eth',
+          avatar: 'https://avatars.githubusercontent.com/u/2?v=4',
+        },
         sourceBranch: 'fix/verification',
         targetBranch: 'main',
         labels: ['bug fix', 'contracts'],
@@ -34,19 +40,19 @@ export async function GET(request: NextRequest) {
         createdAt: Date.now() - 1 * 24 * 60 * 60 * 1000,
         updatedAt: Date.now() - 2 * 60 * 60 * 1000,
       },
-    ];
+    ]
 
-    return NextResponse.json({ pulls, total: pulls.length, page: query.page });
+    return NextResponse.json({ pulls, total: pulls.length, page: query.page })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return errorResponse(message, 400);
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    return errorResponse(message, 400)
   }
 }
 
 // POST /api/pulls - Create a new pull request
 export async function POST(request: NextRequest) {
   try {
-    const body = await validateBody(createPullRequestSchema, request.json());
+    const body = await validateBody(createPullRequestSchema, request.json())
 
     const pr: PullRequest = {
       id: `pr-${Date.now()}`,
@@ -68,12 +74,11 @@ export async function POST(request: NextRequest) {
       checks: { passed: 0, failed: 0, pending: 0 },
       createdAt: Date.now(),
       updatedAt: Date.now(),
-    };
+    }
 
-    return NextResponse.json(pr, { status: 201 });
+    return NextResponse.json(pr, { status: 201 })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return errorResponse(message, 400);
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    return errorResponse(message, 400)
   }
 }
-

@@ -1,20 +1,26 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { TFMMGetQuerySchema, TFMMPostRequestSchema, type TFMMCreatePoolParams, type TFMMUpdateStrategyParams, type TFMMTriggerRebalanceParams } from '@/schemas/api'
-import { expectValid, expectExists } from '@/lib/validation'
+import { type NextRequest, NextResponse } from 'next/server'
 import {
-  getAllTFMMPools,
-  getTFMMPool,
-  getTFMMStrategies,
-  getOracleStatus,
   createTFMMPool,
-  updatePoolStrategy,
-  triggerPoolRebalance,
+  getAllTFMMPools,
+  getOracleStatus,
+  getTFMMPool,
   getTFMMStats,
+  getTFMMStrategies,
+  triggerPoolRebalance,
+  updatePoolStrategy,
 } from '@/lib/tfmm/utils'
+import { expectExists, expectValid } from '@/lib/validation'
+import {
+  type TFMMCreatePoolParams,
+  TFMMGetQuerySchema,
+  TFMMPostRequestSchema,
+  type TFMMTriggerRebalanceParams,
+  type TFMMUpdateStrategyParams,
+} from '@/schemas/api'
 
 /**
  * TFMM REST API
- * 
+ *
  * Endpoints:
  * GET /api/tfmm - Get all TFMM pools
  * GET /api/tfmm?pool=<address> - Get specific pool details
@@ -24,11 +30,15 @@ import {
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
-  
-  const query = expectValid(TFMMGetQuerySchema, {
-    pool: searchParams.get('pool') || undefined,
-    action: searchParams.get('action') || undefined,
-  }, 'TFMM query parameters')
+
+  const query = expectValid(
+    TFMMGetQuerySchema,
+    {
+      pool: searchParams.get('pool') || undefined,
+      action: searchParams.get('action') || undefined,
+    },
+    'TFMM query parameters',
+  )
 
   const { pool, action } = query
 
@@ -51,7 +61,7 @@ export async function GET(request: NextRequest) {
 
   // Default: return all pools
   const stats = getTFMMStats()
-  return NextResponse.json({ 
+  return NextResponse.json({
     pools: getAllTFMMPools(),
     ...stats,
   })
@@ -59,7 +69,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const body = await request.json()
-  const { action, params } = expectValid(TFMMPostRequestSchema, body, 'TFMM POST request')
+  const { action, params } = expectValid(
+    TFMMPostRequestSchema,
+    body,
+    'TFMM POST request',
+  )
 
   switch (action) {
     case 'create_pool': {
@@ -71,7 +85,9 @@ export async function POST(request: NextRequest) {
     }
 
     case 'update_strategy': {
-      const result = await updatePoolStrategy(params as TFMMUpdateStrategyParams)
+      const result = await updatePoolStrategy(
+        params as TFMMUpdateStrategyParams,
+      )
       return NextResponse.json({
         success: true,
         ...result,
@@ -79,7 +95,9 @@ export async function POST(request: NextRequest) {
     }
 
     case 'trigger_rebalance': {
-      const result = await triggerPoolRebalance(params as TFMMTriggerRebalanceParams)
+      const result = await triggerPoolRebalance(
+        params as TFMMTriggerRebalanceParams,
+      )
       return NextResponse.json({
         success: true,
         ...result,
@@ -91,4 +109,3 @@ export async function POST(request: NextRequest) {
     }
   }
 }
-

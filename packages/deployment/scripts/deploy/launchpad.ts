@@ -1,21 +1,21 @@
 #!/usr/bin/env bun
 /**
  * Deploy Network ICO Launchpad for localnet/testnet
- * 
+ *
  * Deploys:
  * 1. NetworkPresale contract with official tokenomics
  * 2. Example NFT collection for testing
  * 3. JEJU/ETH AMM liquidity pool
- * 
+ *
  * Usage:
  *   bun run scripts/deploy-jeju-launchpad.ts --network localnet
  *   bun run scripts/deploy-jeju-launchpad.ts --network testnet
  */
 
-import { execSync } from 'child_process'
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs'
-import { join } from 'path'
-import { parseArgs } from 'util'
+import { execSync } from 'node:child_process'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { parseArgs } from 'node:util'
 
 const { values: args } = parseArgs({
   options: {
@@ -47,7 +47,8 @@ const NETWORKS = {
   localnet: {
     rpcUrl: 'http://127.0.0.1:9545',
     chainId: 1337,
-    privateKey: '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
+    privateKey:
+      '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
   },
   testnet: {
     rpcUrl: process.env.TESTNET_RPC_URL || 'https://sepolia.base.org',
@@ -64,12 +65,12 @@ const JEJU_ICO_CONFIG = {
   minContribution: 1n * 10n ** 16n, // 0.01 ETH
   maxContribution: 10n * 10n ** 18n, // 10 ETH for testing
   tokenPrice: 3n * 10n ** 12n, // 0.000003 ETH per JEJU
-  
+
   // Timing (relative to now)
   whitelistDuration: 60, // 1 min for testing (7 days in prod)
   publicDuration: 60 * 5, // 5 min for testing (7 days in prod)
   tgeDelay: 60, // 1 min after presale ends (immediate in prod)
-  
+
   // Vesting
   tgePercent: 2000, // 20% at TGE
   cliffDuration: 0, // No cliff
@@ -135,7 +136,9 @@ class LaunchpadDeployer {
     // Step 2: Deploy NetworkPresale
     console.log('🎟️  STEP 2: Deploying NetworkPresale')
     console.log('-'.repeat(60))
-    result.contracts.jejuPresale = await this.deployNetworkPresale(result.contracts.jejuToken)
+    result.contracts.jejuPresale = await this.deployNetworkPresale(
+      result.contracts.jejuToken,
+    )
     console.log('')
 
     // Step 3: Configure Presale
@@ -147,7 +150,10 @@ class LaunchpadDeployer {
     // Step 4: Fund Presale with Tokens
     console.log('💰 STEP 4: Funding Presale with JEJU tokens')
     console.log('-'.repeat(60))
-    await this.fundPresale(result.contracts.jejuToken, result.contracts.jejuPresale)
+    await this.fundPresale(
+      result.contracts.jejuToken,
+      result.contracts.jejuPresale,
+    )
     console.log('')
 
     // Step 5: Deploy Example NFT
@@ -176,13 +182,19 @@ class LaunchpadDeployer {
 
   private async checkPrerequisites(): Promise<void> {
     console.log('Checking prerequisites...')
-    
+
     if (network === 'localnet') {
-      const blockNumber = execSync(`cast block-number --rpc-url ${this.rpcUrl}`, { encoding: 'utf-8' }).trim()
+      const blockNumber = execSync(
+        `cast block-number --rpc-url ${this.rpcUrl}`,
+        { encoding: 'utf-8' },
+      ).trim()
       console.log(`✅ Localnet running (block ${blockNumber})`)
     }
 
-    const balance = execSync(`cast balance ${this.deployerAddress} --rpc-url ${this.rpcUrl}`, { encoding: 'utf-8' }).trim()
+    const balance = execSync(
+      `cast balance ${this.deployerAddress} --rpc-url ${this.rpcUrl}`,
+      { encoding: 'utf-8' },
+    ).trim()
     const balanceEth = Number(BigInt(balance) / 10n ** 18n)
     console.log(`✅ Deployer balance: ${balanceEth} ETH`)
 
@@ -198,9 +210,15 @@ class LaunchpadDeployer {
     xlpV2Router?: string
   }> {
     // Try to load from existing deployment files
-    const localnetPath = join(CONTRACTS_DIR, 'deployments/localnet-complete.json')
-    const addressesPath = join(CONTRACTS_DIR, 'deployments/localnet-addresses.json')
-    
+    const localnetPath = join(
+      CONTRACTS_DIR,
+      'deployments/localnet-complete.json',
+    )
+    const addressesPath = join(
+      CONTRACTS_DIR,
+      'deployments/localnet-addresses.json',
+    )
+
     let jejuToken = ''
     let xlpV2Factory = ''
     let xlpV2Router = ''
@@ -224,7 +242,7 @@ class LaunchpadDeployer {
       jejuToken = this.deployContract(
         'src/tokens/NetworkToken.sol:NetworkToken',
         [this.deployerAddress, this.deployerAddress, 'true'], // owner, banManager, enableFaucet
-        'NetworkToken'
+        'NetworkToken',
       )
     }
 
@@ -233,7 +251,7 @@ class LaunchpadDeployer {
       xlpV2Factory = this.deployContract(
         'src/amm/v2/XLPV2Factory.sol:XLPV2Factory',
         [this.deployerAddress], // feeToSetter
-        'XLPV2Factory'
+        'XLPV2Factory',
       )
     }
 
@@ -244,7 +262,7 @@ class LaunchpadDeployer {
     return this.deployContract(
       'src/tokens/NetworkPresale.sol:NetworkPresale',
       [jejuToken, this.deployerAddress, this.deployerAddress], // token, treasury, owner
-      'NetworkPresale'
+      'NetworkPresale',
     )
   }
 
@@ -259,31 +277,42 @@ class LaunchpadDeployer {
     this.sendTx(
       presaleAddress,
       `configure(uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256) ${JEJU_ICO_CONFIG.softCap} ${JEJU_ICO_CONFIG.hardCap} ${JEJU_ICO_CONFIG.minContribution} ${JEJU_ICO_CONFIG.maxContribution} ${JEJU_ICO_CONFIG.tokenPrice} ${whitelistStart} ${publicStart} ${presaleEnd} ${tgeTimestamp}`,
-      'configure'
+      'configure',
     )
 
     // Set vesting
     this.sendTx(
       presaleAddress,
       `setVesting(uint256,uint256,uint256) ${JEJU_ICO_CONFIG.tgePercent} ${JEJU_ICO_CONFIG.cliffDuration} ${JEJU_ICO_CONFIG.vestingDuration}`,
-      'setVesting'
+      'setVesting',
     )
 
     console.log(`  ✅ Presale configured:`)
-    console.log(`     Whitelist starts: ${new Date(whitelistStart * 1000).toLocaleTimeString()}`)
-    console.log(`     Public starts: ${new Date(publicStart * 1000).toLocaleTimeString()}`)
-    console.log(`     Presale ends: ${new Date(presaleEnd * 1000).toLocaleTimeString()}`)
-    console.log(`     TGE: ${new Date(tgeTimestamp * 1000).toLocaleTimeString()}`)
+    console.log(
+      `     Whitelist starts: ${new Date(whitelistStart * 1000).toLocaleTimeString()}`,
+    )
+    console.log(
+      `     Public starts: ${new Date(publicStart * 1000).toLocaleTimeString()}`,
+    )
+    console.log(
+      `     Presale ends: ${new Date(presaleEnd * 1000).toLocaleTimeString()}`,
+    )
+    console.log(
+      `     TGE: ${new Date(tgeTimestamp * 1000).toLocaleTimeString()}`,
+    )
   }
 
-  private async fundPresale(jejuToken: string, presaleAddress: string): Promise<void> {
+  private async fundPresale(
+    jejuToken: string,
+    presaleAddress: string,
+  ): Promise<void> {
     // Transfer 100M JEJU for presale (10% of initial supply)
     const presaleAmount = 100_000_000n * 10n ** 18n
 
     this.sendTx(
       jejuToken,
       `transfer(address,uint256) ${presaleAddress} ${presaleAmount}`,
-      'Fund presale with 100M JEJU'
+      'Fund presale with 100M JEJU',
     )
 
     console.log(`  ✅ Transferred 100,000,000 JEJU to presale contract`)
@@ -293,34 +322,37 @@ class LaunchpadDeployer {
     return this.deployContract(
       'src/marketplace/MockERC721.sol:MockERC721',
       ['"Network Test NFT"', '"JNFT"'], // name, symbol
-      'Example NFT (MockERC721)'
+      'Example NFT (MockERC721)',
     )
   }
 
-  private async createEthPool(jejuToken: string, xlpV2Factory: string): Promise<string> {
+  private async createEthPool(
+    jejuToken: string,
+    xlpV2Factory: string,
+  ): Promise<string> {
     // Get WETH address (OP Stack standard)
     const weth = '0x4200000000000000000000000000000000000006'
-    
+
     // Check if pair exists
     const pairCheck = execSync(
       `cast call ${xlpV2Factory} "getPair(address,address)(address)" ${jejuToken} ${weth} --rpc-url ${this.rpcUrl}`,
-      { encoding: 'utf-8' }
+      { encoding: 'utf-8' },
     ).trim()
 
     let pairAddress = pairCheck
-    
+
     if (pairAddress === '0x0000000000000000000000000000000000000000') {
       // Create pair
       this.sendTx(
         xlpV2Factory,
         `createPair(address,address) ${jejuToken} ${weth}`,
-        'Create JEJU/WETH pair'
+        'Create JEJU/WETH pair',
       )
 
       // Get pair address
       pairAddress = execSync(
         `cast call ${xlpV2Factory} "getPair(address,address)(address)" ${jejuToken} ${weth} --rpc-url ${this.rpcUrl}`,
-        { encoding: 'utf-8' }
+        { encoding: 'utf-8' },
       ).trim()
     }
 
@@ -331,20 +363,36 @@ class LaunchpadDeployer {
     const ethAmount = 10n * 10n ** 18n
 
     // Approve tokens to pair
-    this.sendTx(jejuToken, `approve(address,uint256) ${pairAddress} ${jejuAmount}`, 'Approve JEJU')
+    this.sendTx(
+      jejuToken,
+      `approve(address,uint256) ${pairAddress} ${jejuAmount}`,
+      'Approve JEJU',
+    )
 
     // Transfer tokens directly to pair
-    this.sendTx(jejuToken, `transfer(address,uint256) ${pairAddress} ${jejuAmount}`, 'Transfer JEJU to pair')
+    this.sendTx(
+      jejuToken,
+      `transfer(address,uint256) ${pairAddress} ${jejuAmount}`,
+      'Transfer JEJU to pair',
+    )
 
     // Wrap ETH and transfer to pair
     execSync(
       `cast send ${weth} "deposit()" --value ${ethAmount} --rpc-url ${this.rpcUrl} --private-key ${this.privateKey}`,
-      { stdio: 'pipe' }
+      { stdio: 'pipe' },
     )
-    this.sendTx(weth, `transfer(address,uint256) ${pairAddress} ${ethAmount}`, 'Transfer WETH to pair')
+    this.sendTx(
+      weth,
+      `transfer(address,uint256) ${pairAddress} ${ethAmount}`,
+      'Transfer WETH to pair',
+    )
 
     // Mint LP tokens
-    this.sendTx(pairAddress, `mint(address) ${this.deployerAddress}`, 'Mint initial LP')
+    this.sendTx(
+      pairAddress,
+      `mint(address) ${this.deployerAddress}`,
+      'Mint initial LP',
+    )
 
     console.log(`  ✅ Added initial liquidity: 10M JEJU + 10 ETH`)
 
@@ -359,9 +407,12 @@ class LaunchpadDeployer {
       ${args.length > 0 ? `--constructor-args ${argsStr}` : ''} \
       --json`
 
-    const output = execSync(cmd, { encoding: 'utf-8', maxBuffer: 50 * 1024 * 1024 })
+    const output = execSync(cmd, {
+      encoding: 'utf-8',
+      maxBuffer: 50 * 1024 * 1024,
+    })
     const result = JSON.parse(output)
-    
+
     console.log(`  ✅ ${name}: ${result.deployedTo}`)
     return result.deployedTo
   }
@@ -373,7 +424,9 @@ class LaunchpadDeployer {
   }
 
   private getAddress(privateKey: string): string {
-    return execSync(`cast wallet address ${privateKey}`, { encoding: 'utf-8' }).trim()
+    return execSync(`cast wallet address ${privateKey}`, {
+      encoding: 'utf-8',
+    }).trim()
   }
 
   private saveDeployment(result: DeploymentResult): void {
@@ -387,21 +440,24 @@ class LaunchpadDeployer {
     console.log(`💾 Saved: ${path}`)
 
     // Update Bazaar config
-    const bazaarConfigPath = join(ROOT_DIR, 'apps/bazaar/config/jeju-tokenomics.ts')
+    const bazaarConfigPath = join(
+      ROOT_DIR,
+      'apps/bazaar/config/jeju-tokenomics.ts',
+    )
     if (existsSync(bazaarConfigPath)) {
       let content = readFileSync(bazaarConfigPath, 'utf-8')
-      
+
       // Update contract addresses
       const addressRegex = new RegExp(`${network}: \\{[^}]+\\}`, 'g')
       const newAddresses = `${network}: {
     token: '${result.contracts.jejuToken}' as const,
     presale: '${result.contracts.jejuPresale}' as const,
   }`
-      
+
       if (content.includes(`${network}: {`)) {
         content = content.replace(addressRegex, newAddresses)
       }
-      
+
       writeFileSync(bazaarConfigPath, content)
       console.log(`💾 Updated: ${bazaarConfigPath}`)
     }
@@ -427,13 +483,19 @@ class LaunchpadDeployer {
     console.log('')
     console.log('💧 Test Commands:')
     console.log(`   # Claim JEJU from faucet:`)
-    console.log(`   cast send ${result.contracts.jejuToken} "faucet()" --rpc-url ${this.rpcUrl}`)
+    console.log(
+      `   cast send ${result.contracts.jejuToken} "faucet()" --rpc-url ${this.rpcUrl}`,
+    )
     console.log('')
     console.log(`   # Contribute to presale:`)
-    console.log(`   cast send ${result.contracts.jejuPresale} "contribute()" --value 0.1ether --rpc-url ${this.rpcUrl}`)
+    console.log(
+      `   cast send ${result.contracts.jejuPresale} "contribute()" --value 0.1ether --rpc-url ${this.rpcUrl}`,
+    )
     console.log('')
     console.log(`   # Check presale stats:`)
-    console.log(`   cast call ${result.contracts.jejuPresale} "getPresaleStats()" --rpc-url ${this.rpcUrl}`)
+    console.log(
+      `   cast call ${result.contracts.jejuPresale} "getPresaleStats()" --rpc-url ${this.rpcUrl}`,
+    )
     console.log('')
   }
 }

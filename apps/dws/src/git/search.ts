@@ -1,153 +1,162 @@
 /**
  * Git Search
  * Repository, code, issue, and user search
- * 
+ *
  * Supports two modes:
  * 1. In-memory search (default, suitable for small deployments)
  * 2. Meilisearch (configure MEILISEARCH_URL for large-scale deployments)
  */
 
-import type { Address, Hex } from 'viem';
+import type { Address, Hex } from 'viem'
+import type { BackendManager } from '../storage/backends'
+import type { IssuesManager } from './issues'
+import type { GitRepoManager } from './repo-manager'
+import type { SocialManager } from './social'
 import type {
-  Repository,
-  RepoSearchResult,
-  CodeSearchResult,
   CodeSearchHit,
-  UserSearchResult,
+  CodeSearchResult,
   IssueSearchResult,
-} from './types';
-import type { GitRepoManager } from './repo-manager';
-import type { IssuesManager } from './issues';
-import type { SocialManager } from './social';
-import type { BackendManager } from '../storage/backends';
+  RepoSearchResult,
+  Repository,
+  UserSearchResult,
+} from './types'
 
 // Optional Meilisearch client interface (mirrors the meilisearch package API)
 interface MeilisearchClient {
-  index(indexName: string): MeilisearchIndex;
+  index(indexName: string): MeilisearchIndex
 }
 
 interface MeilisearchIndex {
-  search(query: string, options?: MeilisearchSearchOptions): Promise<MeilisearchSearchResult>;
-  addDocuments(documents: Record<string, unknown>[]): Promise<void>;
-  updateDocuments(documents: Record<string, unknown>[]): Promise<void>;
-  deleteDocument(id: string): Promise<void>;
+  search(
+    query: string,
+    options?: MeilisearchSearchOptions,
+  ): Promise<MeilisearchSearchResult>
+  addDocuments(documents: Record<string, unknown>[]): Promise<void>
+  updateDocuments(documents: Record<string, unknown>[]): Promise<void>
+  deleteDocument(id: string): Promise<void>
 }
 
 interface MeilisearchSearchOptions {
-  limit?: number;
-  offset?: number;
-  filter?: string | string[];
-  sort?: string[];
-  attributesToRetrieve?: string[];
-  attributesToHighlight?: string[];
+  limit?: number
+  offset?: number
+  filter?: string | string[]
+  sort?: string[]
+  attributesToRetrieve?: string[]
+  attributesToHighlight?: string[]
 }
 
 interface MeilisearchSearchResult {
-  hits: Record<string, unknown>[];
-  estimatedTotalHits: number;
-  processingTimeMs: number;
+  hits: Record<string, unknown>[]
+  estimatedTotalHits: number
+  processingTimeMs: number
 }
 
 // Type for the MeiliSearch constructor from the optional meilisearch package
 interface MeilisearchConfig {
-  host: string;
-  apiKey?: string;
+  host: string
+  apiKey?: string
 }
 
 interface MeilisearchModule {
-  MeiliSearch: new (config: MeilisearchConfig) => MeilisearchClient;
+  MeiliSearch: new (config: MeilisearchConfig) => MeilisearchClient
 }
 
 export interface SearchManagerConfig {
-  repoManager: GitRepoManager;
-  issuesManager: IssuesManager;
-  socialManager: SocialManager;
-  backend: BackendManager;
+  repoManager: GitRepoManager
+  issuesManager: IssuesManager
+  socialManager: SocialManager
+  backend: BackendManager
 }
 
 export interface SearchOptions {
-  page?: number;
-  perPage?: number;
-  sort?: string;
-  order?: 'asc' | 'desc';
+  page?: number
+  perPage?: number
+  sort?: string
+  order?: 'asc' | 'desc'
 }
 
 export interface RepoSearchOptions extends SearchOptions {
-  sort?: 'stars' | 'forks' | 'updated' | 'created' | 'best-match';
-  owner?: Address;
-  visibility?: 'public' | 'private' | 'all';
-  topics?: string[];
-  language?: string;
-  archived?: boolean;
+  sort?: 'stars' | 'forks' | 'updated' | 'created' | 'best-match'
+  owner?: Address
+  visibility?: 'public' | 'private' | 'all'
+  topics?: string[]
+  language?: string
+  archived?: boolean
 }
 
 export interface CodeSearchOptions extends SearchOptions {
-  repoId?: Hex;
-  path?: string;
-  extension?: string;
+  repoId?: Hex
+  path?: string
+  extension?: string
 }
 
 export interface IssueSearchOptions extends SearchOptions {
-  sort?: 'created' | 'updated' | 'comments' | 'best-match';
-  state?: 'open' | 'closed' | 'all';
-  type?: 'issue' | 'pr' | 'all';
-  author?: Address;
-  assignee?: Address;
-  repoId?: Hex;
-  labels?: string[];
+  sort?: 'created' | 'updated' | 'comments' | 'best-match'
+  state?: 'open' | 'closed' | 'all'
+  type?: 'issue' | 'pr' | 'all'
+  author?: Address
+  assignee?: Address
+  repoId?: Hex
+  labels?: string[]
 }
 
 export interface UserSearchOptions extends SearchOptions {
-  sort?: 'repositories' | 'joined' | 'best-match';
-  type?: 'user' | 'org' | 'all';
+  sort?: 'repositories' | 'joined' | 'best-match'
+  type?: 'user' | 'org' | 'all'
 }
 
 export class SearchManager {
-  private repoManager: GitRepoManager;
-  private issuesManager: IssuesManager;
-  // Reserved for future social search
-  private _socialManager: SocialManager;
-  // Reserved for future storage search
-  private _backend: BackendManager;
+  private repoManager: GitRepoManager
+  private issuesManager: IssuesManager
 
   // In-memory index for search (suitable for small deployments)
   // For large-scale deployments, configure MEILISEARCH_URL environment variable
-  private repoIndex: Map<Hex, { repo: Repository; text: string }> = new Map();
-  private codeIndex: Map<string, { repoId: Hex; path: string; oid: string; content: string }> = new Map();
-  private meilisearchClient: MeilisearchClient | null = null;
+  private repoIndex: Map<Hex, { repo: Repository; text: string }> = new Map()
+  private codeIndex: Map<
+    string,
+    { repoId: Hex; path: string; oid: string; content: string }
+  > = new Map()
+  private meilisearchClient: MeilisearchClient | null = null
 
   constructor(config: SearchManagerConfig) {
-    this.repoManager = config.repoManager;
-    this.issuesManager = config.issuesManager;
-    this._socialManager = config.socialManager;
-    this._backend = config.backend;
-    
+    this.repoManager = config.repoManager
+    this.issuesManager = config.issuesManager
+    this._socialManager = config.socialManager
+    this._backend = config.backend
+
     // Initialize Meilisearch if configured
-    this.initMeilisearch();
+    this.initMeilisearch()
   }
 
   private async initMeilisearch(): Promise<void> {
-    const meilisearchUrl = process.env.MEILISEARCH_URL;
-    const meilisearchKey = process.env.MEILISEARCH_KEY;
-    
+    const meilisearchUrl = process.env.MEILISEARCH_URL
+    const meilisearchKey = process.env.MEILISEARCH_KEY
+
     if (!meilisearchUrl) {
-      console.log('[Search] Using in-memory search (set MEILISEARCH_URL for production)');
-      return;
+      console.log(
+        '[Search] Using in-memory search (set MEILISEARCH_URL for production)',
+      )
+      return
     }
 
     try {
       // Dynamic import to avoid bundling meilisearch if not used
       // Cast the module to our local interface that mirrors the meilisearch API
-      const meilisearchModule = await import('meilisearch') as MeilisearchModule;
+      const meilisearchModule = (await import(
+        'meilisearch'
+      )) as MeilisearchModule
       this.meilisearchClient = new meilisearchModule.MeiliSearch({
         host: meilisearchUrl,
         apiKey: meilisearchKey,
-      });
-      
-      console.log(`[Search] Connected to Meilisearch at ${meilisearchUrl}`);
+      })
+
+      console.log(`[Search] Connected to Meilisearch at ${meilisearchUrl}`)
     } catch (error) {
-      console.warn('[Search] Failed to initialize Meilisearch, falling back to in-memory:', error);
-      this.meilisearchClient = null;
+      console.warn(
+        '[Search] Failed to initialize Meilisearch, falling back to in-memory:',
+        error,
+      )
+      this.meilisearchClient = null
     }
   }
 
@@ -155,7 +164,7 @@ export class SearchManager {
    * Check if using Meilisearch backend
    */
   get usingMeilisearch(): boolean {
-    return this.meilisearchClient !== null;
+    return this.meilisearchClient !== null
   }
 
   /**
@@ -163,54 +172,68 @@ export class SearchManager {
    */
   async searchRepositories(
     query: string,
-    options: RepoSearchOptions = {}
+    options: RepoSearchOptions = {},
   ): Promise<RepoSearchResult> {
-    const page = options.page || 1;
-    const perPage = Math.min(options.perPage || 30, 100);
-    const sort = options.sort || 'best-match';
-    const order = options.order || 'desc';
+    const page = options.page || 1
+    const perPage = Math.min(options.perPage || 30, 100)
+    const sort = options.sort || 'best-match'
+    const order = options.order || 'desc'
 
     // Get all repositories (would be from database in production)
-    const allRepos = await this.repoManager.getAllRepositories(0, 1000);
+    const allRepos = await this.repoManager.getAllRepositories(0, 1000)
 
     // Parse query for qualifiers
-    const qualifiers = this.parseQueryQualifiers(query);
-    const searchTerms = qualifiers.text.toLowerCase();
+    const qualifiers = this.parseQueryQualifiers(query)
+    const searchTerms = qualifiers.text.toLowerCase()
 
     // Filter repositories
-    let filtered = allRepos.filter(repo => {
+    let filtered = allRepos.filter((repo) => {
       // Visibility filter
-      if (options.visibility === 'public' && repo.visibility !== 0) return false;
-      if (options.visibility === 'private' && repo.visibility !== 1) return false;
+      if (options.visibility === 'public' && repo.visibility !== 0) return false
+      if (options.visibility === 'private' && repo.visibility !== 1)
+        return false
 
       // Owner filter
-      if (options.owner && repo.owner.toLowerCase() !== options.owner.toLowerCase()) return false;
+      if (
+        options.owner &&
+        repo.owner.toLowerCase() !== options.owner.toLowerCase()
+      )
+        return false
 
       // Archived filter
-      if (options.archived !== undefined && repo.archived !== options.archived) return false;
+      if (options.archived !== undefined && repo.archived !== options.archived)
+        return false
 
       // Text search
       if (searchTerms) {
-        const searchText = `${repo.name} ${repo.description}`.toLowerCase();
-        if (!searchText.includes(searchTerms)) return false;
+        const searchText = `${repo.name} ${repo.description}`.toLowerCase()
+        if (!searchText.includes(searchTerms)) return false
       }
 
       // Query qualifiers
-      if (qualifiers.user && repo.owner.toLowerCase() !== qualifiers.user.toLowerCase()) return false;
-      if (qualifiers.org && repo.owner.toLowerCase() !== qualifiers.org.toLowerCase()) return false;
+      if (
+        qualifiers.user &&
+        repo.owner.toLowerCase() !== qualifiers.user.toLowerCase()
+      )
+        return false
+      if (
+        qualifiers.org &&
+        repo.owner.toLowerCase() !== qualifiers.org.toLowerCase()
+      )
+        return false
 
-      return true;
-    });
+      return true
+    })
 
     // Score and sort
-    filtered = this.scoreAndSortRepos(filtered, searchTerms, sort, order);
+    filtered = this.scoreAndSortRepos(filtered, searchTerms, sort, order)
 
     // Paginate
-    const total = filtered.length;
-    const start = (page - 1) * perPage;
-    const items = filtered.slice(start, start + perPage);
+    const total = filtered.length
+    const start = (page - 1) * perPage
+    const items = filtered.slice(start, start + perPage)
 
-    return { totalCount: total, items };
+    return { totalCount: total, items }
   }
 
   /**
@@ -218,44 +241,49 @@ export class SearchManager {
    */
   async searchCode(
     query: string,
-    options: CodeSearchOptions = {}
+    options: CodeSearchOptions = {},
   ): Promise<CodeSearchResult> {
-    const page = options.page || 1;
-    const perPage = Math.min(options.perPage || 30, 100);
+    const page = options.page || 1
+    const perPage = Math.min(options.perPage || 30, 100)
 
-    const qualifiers = this.parseQueryQualifiers(query);
-    const searchTerms = qualifiers.text.toLowerCase();
+    const qualifiers = this.parseQueryQualifiers(query)
+    const searchTerms = qualifiers.text.toLowerCase()
 
     if (!searchTerms) {
-      return { totalCount: 0, items: [] };
+      return { totalCount: 0, items: [] }
     }
 
-    const results: CodeSearchHit[] = [];
+    const results: CodeSearchHit[] = []
 
     // Search through indexed code
     for (const [, entry] of this.codeIndex) {
       // Filter by repo
-      if (options.repoId && entry.repoId !== options.repoId) continue;
+      if (options.repoId && entry.repoId !== options.repoId) continue
 
       // Filter by path
-      if (options.path && !entry.path.startsWith(options.path)) continue;
+      if (options.path && !entry.path.startsWith(options.path)) continue
 
       // Filter by extension
-      if (options.extension && !entry.path.endsWith(`.${options.extension}`)) continue;
+      if (options.extension && !entry.path.endsWith(`.${options.extension}`))
+        continue
 
       // Search content
-      const lines = entry.content.split('\n');
-      const matches: Array<{ line: number; content: string; highlight: [number, number][] }> = [];
+      const lines = entry.content.split('\n')
+      const matches: Array<{
+        line: number
+        content: string
+        highlight: [number, number][]
+      }> = []
 
       for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const lowerLine = line.toLowerCase();
-        let idx = 0;
-        const highlights: [number, number][] = [];
+        const line = lines[i]
+        const lowerLine = line.toLowerCase()
+        let idx = 0
+        const highlights: [number, number][] = []
 
         while ((idx = lowerLine.indexOf(searchTerms, idx)) !== -1) {
-          highlights.push([idx, idx + searchTerms.length]);
-          idx += searchTerms.length;
+          highlights.push([idx, idx + searchTerms.length])
+          idx += searchTerms.length
         }
 
         if (highlights.length > 0) {
@@ -263,7 +291,7 @@ export class SearchManager {
             line: i + 1,
             content: line,
             highlight: highlights,
-          });
+          })
         }
       }
 
@@ -273,16 +301,16 @@ export class SearchManager {
           path: entry.path,
           oid: entry.oid,
           matches: matches.slice(0, 5), // Limit matches per file
-        });
+        })
       }
     }
 
     // Paginate
-    const total = results.length;
-    const start = (page - 1) * perPage;
-    const items = results.slice(start, start + perPage);
+    const total = results.length
+    const start = (page - 1) * perPage
+    const items = results.slice(start, start + perPage)
 
-    return { totalCount: total, items };
+    return { totalCount: total, items }
   }
 
   /**
@@ -290,20 +318,20 @@ export class SearchManager {
    */
   async searchIssues(
     query: string,
-    options: IssueSearchOptions = {}
+    options: IssueSearchOptions = {},
   ): Promise<IssueSearchResult> {
-    const page = options.page || 1;
-    const perPage = Math.min(options.perPage || 30, 100);
-    const sort = options.sort || 'best-match';
-    const order = options.order || 'desc';
+    const page = options.page || 1
+    const perPage = Math.min(options.perPage || 30, 100)
+    const sort = options.sort || 'best-match'
+    const order = options.order || 'desc'
 
-    const qualifiers = this.parseQueryQualifiers(query);
-    const searchTerms = qualifiers.text.toLowerCase();
+    const qualifiers = this.parseQueryQualifiers(query)
+    const searchTerms = qualifiers.text.toLowerCase()
 
     // This would search across all repositories' issues
     // For now, return empty if no repo specified
     if (!options.repoId) {
-      return { totalCount: 0, items: [] };
+      return { totalCount: 0, items: [] }
     }
 
     const { issues } = await this.issuesManager.listIssues(options.repoId, {
@@ -311,48 +339,52 @@ export class SearchManager {
       author: options.author,
       assignee: options.assignee,
       labels: options.labels,
-    });
+    })
 
     // Filter by search terms
-    let filtered = issues.filter(issue => {
-      if (!searchTerms) return true;
-      const searchText = `${issue.title} ${issue.body}`.toLowerCase();
-      return searchText.includes(searchTerms);
-    });
+    let filtered = issues.filter((issue) => {
+      if (!searchTerms) return true
+      const searchText = `${issue.title} ${issue.body}`.toLowerCase()
+      return searchText.includes(searchTerms)
+    })
 
     // Apply qualifiers
     if (qualifiers.author) {
-      filtered = filtered.filter(i => i.author.toLowerCase() === qualifiers.author?.toLowerCase());
+      filtered = filtered.filter(
+        (i) => i.author.toLowerCase() === qualifiers.author?.toLowerCase(),
+      )
     }
     if (qualifiers.is === 'open') {
-      filtered = filtered.filter(i => i.state === 'open');
+      filtered = filtered.filter((i) => i.state === 'open')
     }
     if (qualifiers.is === 'closed') {
-      filtered = filtered.filter(i => i.state === 'closed');
+      filtered = filtered.filter((i) => i.state === 'closed')
     }
     if (qualifiers.label) {
-      filtered = filtered.filter(i => i.labels.includes(qualifiers.label as string));
+      filtered = filtered.filter((i) =>
+        i.labels.includes(qualifiers.label as string),
+      )
     }
 
     // Sort
     filtered.sort((a, b) => {
-      let comparison = 0;
+      let comparison = 0
       if (sort === 'created') {
-        comparison = a.createdAt - b.createdAt;
+        comparison = a.createdAt - b.createdAt
       } else if (sort === 'updated') {
-        comparison = a.updatedAt - b.updatedAt;
+        comparison = a.updatedAt - b.updatedAt
       } else if (sort === 'comments') {
-        comparison = a.comments.length - b.comments.length;
+        comparison = a.comments.length - b.comments.length
       }
-      return order === 'desc' ? -comparison : comparison;
-    });
+      return order === 'desc' ? -comparison : comparison
+    })
 
     // Paginate
-    const total = filtered.length;
-    const start = (page - 1) * perPage;
-    const items = filtered.slice(start, start + perPage);
+    const total = filtered.length
+    const start = (page - 1) * perPage
+    const items = filtered.slice(start, start + perPage)
 
-    return { totalCount: total, items };
+    return { totalCount: total, items }
   }
 
   /**
@@ -360,19 +392,19 @@ export class SearchManager {
    */
   async searchUsers(
     _query: string,
-    _options: UserSearchOptions = {}
+    _options: UserSearchOptions = {},
   ): Promise<UserSearchResult> {
     // TODO: Implement user search when proper indexing is available
     // For now, return empty results as user search requires proper indexing
-    return { totalCount: 0, items: [] };
+    return { totalCount: 0, items: [] }
   }
 
   /**
    * Index a repository for search
    */
   async indexRepository(repo: Repository): Promise<void> {
-    const text = `${repo.name} ${repo.description || ''}`.toLowerCase();
-    this.repoIndex.set(repo.repoId, { repo, text });
+    const text = `${repo.name} ${repo.description || ''}`.toLowerCase()
+    this.repoIndex.set(repo.repoId, { repo, text })
   }
 
   /**
@@ -382,26 +414,26 @@ export class SearchManager {
     repoId: Hex,
     path: string,
     oid: string,
-    content: string
+    content: string,
   ): Promise<void> {
     // Only index text files under a certain size
-    if (content.length > 100000) return; // Skip files > 100KB
-    if (this.isBinaryContent(content)) return;
+    if (content.length > 100000) return // Skip files > 100KB
+    if (this.isBinaryContent(content)) return
 
-    const key = `${repoId}:${path}`;
-    this.codeIndex.set(key, { repoId, path, oid, content });
+    const key = `${repoId}:${path}`
+    this.codeIndex.set(key, { repoId, path, oid, content })
   }
 
   /**
    * Remove repository from index
    */
   removeRepository(repoId: Hex): void {
-    this.repoIndex.delete(repoId);
-    
+    this.repoIndex.delete(repoId)
+
     // Remove code entries for this repo
     for (const key of this.codeIndex.keys()) {
       if (key.startsWith(repoId)) {
-        this.codeIndex.delete(key);
+        this.codeIndex.delete(key)
       }
     }
   }
@@ -409,25 +441,25 @@ export class SearchManager {
   // ============ Private Helpers ============
 
   private parseQueryQualifiers(query: string): {
-    text: string;
-    user?: string;
-    org?: string;
-    repo?: string;
-    is?: string;
-    author?: string;
-    label?: string;
-    language?: string;
+    text: string
+    user?: string
+    org?: string
+    repo?: string
+    is?: string
+    author?: string
+    label?: string
+    language?: string
   } {
-    const qualifiers: Record<string, string> = {};
-    let text = query;
+    const qualifiers: Record<string, string> = {}
+    let text = query
 
     // Parse qualifiers like "user:foo", "is:open", etc.
-    const qualifierRegex = /(\w+):(\S+)/g;
-    let match;
-    
+    const qualifierRegex = /(\w+):(\S+)/g
+    let match: RegExpExecArray | null
+
     while ((match = qualifierRegex.exec(query)) !== null) {
-      qualifiers[match[1]] = match[2];
-      text = text.replace(match[0], '').trim();
+      qualifiers[match[1]] = match[2]
+      text = text.replace(match[0], '').trim()
     }
 
     return {
@@ -439,67 +471,65 @@ export class SearchManager {
       author: qualifiers.author,
       label: qualifiers.label,
       language: qualifiers.language,
-    };
+    }
   }
 
   private scoreAndSortRepos(
     repos: Repository[],
     query: string,
     sort: string,
-    order: 'asc' | 'desc'
+    order: 'asc' | 'desc',
   ): Repository[] {
     // Calculate relevance score for each repo
-    const scored = repos.map(repo => {
-      let score = 0;
+    const scored = repos.map((repo) => {
+      let score = 0
 
       if (query) {
         // Exact name match gets highest score
-        if (repo.name.toLowerCase() === query) score += 100;
+        if (repo.name.toLowerCase() === query) score += 100
         // Name contains query
-        else if (repo.name.toLowerCase().includes(query)) score += 50;
+        else if (repo.name.toLowerCase().includes(query)) score += 50
         // Description contains query
-        if (repo.description?.toLowerCase().includes(query)) score += 25;
+        if (repo.description?.toLowerCase().includes(query)) score += 25
       }
 
       // Factor in popularity
-      score += Number(repo.starCount) * 0.1;
-      score += Number(repo.forkCount) * 0.05;
+      score += Number(repo.starCount) * 0.1
+      score += Number(repo.forkCount) * 0.05
 
-      return { repo, score };
-    });
+      return { repo, score }
+    })
 
     // Sort
     scored.sort((a, b) => {
-      let comparison = 0;
+      let comparison = 0
 
       switch (sort) {
         case 'stars':
-          comparison = Number(a.repo.starCount) - Number(b.repo.starCount);
-          break;
+          comparison = Number(a.repo.starCount) - Number(b.repo.starCount)
+          break
         case 'forks':
-          comparison = Number(a.repo.forkCount) - Number(b.repo.forkCount);
-          break;
+          comparison = Number(a.repo.forkCount) - Number(b.repo.forkCount)
+          break
         case 'updated':
-          comparison = Number(a.repo.updatedAt) - Number(b.repo.updatedAt);
-          break;
+          comparison = Number(a.repo.updatedAt) - Number(b.repo.updatedAt)
+          break
         case 'created':
-          comparison = Number(a.repo.createdAt) - Number(b.repo.createdAt);
-          break;
-        case 'best-match':
+          comparison = Number(a.repo.createdAt) - Number(b.repo.createdAt)
+          break
         default:
-          comparison = a.score - b.score;
-          break;
+          comparison = a.score - b.score
+          break
       }
 
-      return order === 'desc' ? -comparison : comparison;
-    });
+      return order === 'desc' ? -comparison : comparison
+    })
 
-    return scored.map(s => s.repo);
+    return scored.map((s) => s.repo)
   }
 
   private isBinaryContent(content: string): boolean {
     // Simple heuristic: check for null bytes
-    return content.includes('\0');
+    return content.includes('\0')
   }
 }
-

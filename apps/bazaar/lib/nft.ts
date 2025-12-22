@@ -1,14 +1,14 @@
 /**
  * NFT business logic utilities
- * 
+ *
  * Extracted from hooks and pages for testability and reuse.
  */
 
-import { parseEther, formatEther, type Address } from 'viem'
-import { z } from 'zod'
 import { AddressSchema } from '@jejunetwork/types'
-import { NonEmptyStringSchema, BigIntSchema } from '@/schemas/common'
-import { NFTTokenSchema, NFTBalanceSchema, NormalizedNFTSchema, type NormalizedNFT } from '@/schemas/nft'
+import { formatEther, parseEther } from 'viem'
+import { z } from 'zod'
+import { BigIntSchema, NonEmptyStringSchema } from '@/schemas/common'
+import type { NormalizedNFT } from '@/schemas/nft'
 
 // ============================================================================
 // Schemas
@@ -101,7 +101,9 @@ export function normalizeERC721Token(token: ERC721TokenInput): NormalizedNFT {
 /**
  * Normalize an ERC1155 balance into a common NFT format
  */
-export function normalizeERC1155Balance(balance: ERC1155BalanceInput): NormalizedNFT {
+export function normalizeERC1155Balance(
+  balance: ERC1155BalanceInput,
+): NormalizedNFT {
   return {
     id: balance.id,
     tokenId: balance.tokenId,
@@ -117,7 +119,7 @@ export function normalizeERC1155Balance(balance: ERC1155BalanceInput): Normalize
  */
 export function normalizeNFTQueryResult(
   erc721Tokens: ERC721TokenInput[],
-  erc1155Balances: ERC1155BalanceInput[]
+  erc1155Balances: ERC1155BalanceInput[],
 ): NormalizedNFT[] {
   const erc721Normalized = erc721Tokens.map(normalizeERC721Token)
   const erc1155Normalized = erc1155Balances.map(normalizeERC1155Balance)
@@ -131,9 +133,12 @@ export function normalizeNFTQueryResult(
 /**
  * Filter NFTs by owner address
  */
-export function filterNFTsByOwner(nfts: NormalizedNFT[], ownerAddress: string): NormalizedNFT[] {
+export function filterNFTsByOwner(
+  nfts: NormalizedNFT[],
+  ownerAddress: string,
+): NormalizedNFT[] {
   const normalizedOwner = ownerAddress.toLowerCase()
-  return nfts.filter(nft => {
+  return nfts.filter((nft) => {
     const ownsERC721 = nft.owner?.toLowerCase() === normalizedOwner
     const ownsERC1155 = Number(nft.balance) > 0
     return ownsERC721 || ownsERC1155
@@ -149,14 +154,20 @@ export type NFTSortOption = 'recent' | 'collection' | 'price'
 /**
  * Sort NFTs by the specified option
  */
-export function sortNFTs(nfts: NormalizedNFT[], sortBy: NFTSortOption): NormalizedNFT[] {
+export function sortNFTs(
+  nfts: NormalizedNFT[],
+  sortBy: NFTSortOption,
+): NormalizedNFT[] {
   const sorted = [...nfts]
-  
+
   switch (sortBy) {
     case 'collection':
       return sorted.sort((a, b) => a.contractName.localeCompare(b.contractName))
     case 'recent':
-      return sorted.sort((a, b) => parseInt(b.tokenId ?? '0') - parseInt(a.tokenId ?? '0'))
+      return sorted.sort(
+        (a, b) =>
+          parseInt(b.tokenId ?? '0', 10) - parseInt(a.tokenId ?? '0', 10),
+      )
     case 'price':
       // Price sorting would need price data - return as-is for now
       return sorted
@@ -174,7 +185,9 @@ export type NFTCollectionGroup = Record<string, NormalizedNFT[]>
 /**
  * Group NFTs by collection name
  */
-export function groupNFTsByCollection(nfts: NormalizedNFT[]): NFTCollectionGroup {
+export function groupNFTsByCollection(
+  nfts: NormalizedNFT[],
+): NFTCollectionGroup {
   return nfts.reduce((acc, nft) => {
     const collection = nft.contractName
     if (!acc[collection]) acc[collection] = []
@@ -205,7 +218,10 @@ export interface AuctionState {
 export function calculateMinimumBid(auction: AuctionState): bigint {
   if (auction.highestBid > 0n) {
     // 5% increment on highest bid
-    return auction.highestBid + (auction.highestBid * BigInt(MIN_BID_INCREMENT_BPS) / 10000n)
+    return (
+      auction.highestBid +
+      (auction.highestBid * BigInt(MIN_BID_INCREMENT_BPS)) / 10000n
+    )
   }
   return auction.reservePrice
 }
@@ -231,11 +247,11 @@ export function getAuctionTimeRemaining(auction: AuctionState): number {
  */
 export function formatTimeRemaining(seconds: number): string {
   if (seconds <= 0) return 'Ended'
-  
+
   const days = Math.floor(seconds / 86400)
   const hours = Math.floor((seconds % 86400) / 3600)
   const minutes = Math.floor((seconds % 3600) / 60)
-  
+
   if (days > 0) return `${days}d ${hours}h`
   if (hours > 0) return `${hours}h ${minutes}m`
   return `${minutes}m`
@@ -272,17 +288,23 @@ export function isListingActive(listing: ListingState): boolean {
 /**
  * Validate a listing price in ETH
  */
-export function validateListingPrice(priceETH: string): { valid: boolean; error?: string } {
+export function validateListingPrice(priceETH: string): {
+  valid: boolean
+  error?: string
+} {
   const price = parseFloat(priceETH)
-  
-  if (isNaN(price)) {
+
+  if (Number.isNaN(price)) {
     return { valid: false, error: 'Invalid price format' }
   }
-  
+
   if (price < MIN_LISTING_PRICE_ETH) {
-    return { valid: false, error: `Minimum listing price is ${MIN_LISTING_PRICE_ETH} ETH` }
+    return {
+      valid: false,
+      error: `Minimum listing price is ${MIN_LISTING_PRICE_ETH} ETH`,
+    }
   }
-  
+
   return { valid: true }
 }
 
@@ -292,26 +314,26 @@ export function validateListingPrice(priceETH: string): { valid: boolean; error?
 export function validateBidAmount(
   bidAmountETH: string,
   auction: AuctionState,
-  bidderAddress: string
+  bidderAddress: string,
 ): { valid: boolean; error?: string } {
   // Check auction is active
   if (!isAuctionActive(auction)) {
     return { valid: false, error: 'Auction is not active' }
   }
-  
+
   // Check bidder is not already highest bidder
   if (auction.highestBidder.toLowerCase() === bidderAddress.toLowerCase()) {
     return { valid: false, error: 'You already have the highest bid' }
   }
-  
+
   // Validate bid amount
   const bidAmount = parseEther(bidAmountETH)
   const minBid = calculateMinimumBid(auction)
-  
+
   if (bidAmount < minBid) {
     return { valid: false, error: `Minimum bid: ${formatEther(minBid)} ETH` }
   }
-  
+
   return { valid: true }
 }
 
@@ -343,11 +365,11 @@ export function secondsToDays(seconds: bigint): number {
 export function isNFTOwner(nft: NormalizedNFT, address: string): boolean {
   if (!address) return false
   const normalizedAddress = address.toLowerCase()
-  
+
   if (nft.type === 'ERC721') {
     return nft.owner?.toLowerCase() === normalizedAddress
   }
-  
+
   // ERC1155 - check balance
   return Number(nft.balance) > 0
 }
@@ -355,7 +377,11 @@ export function isNFTOwner(nft: NormalizedNFT, address: string): boolean {
 /**
  * Format an address for display (truncated)
  */
-export function formatAddress(address: string, startChars: number = 6, endChars: number = 4): string {
+export function formatAddress(
+  address: string,
+  startChars: number = 6,
+  endChars: number = 4,
+): string {
   if (address.length <= startChars + endChars + 2) return address
   return `${address.slice(0, startChars)}...${address.slice(-endChars)}`
 }

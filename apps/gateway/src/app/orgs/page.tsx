@@ -1,154 +1,175 @@
-'use client';
+'use client'
 
-import { useState, useEffect, type ComponentType } from 'react';
-import { Search, Users, GitBranch, Package, Building2, Plus, Settings, ExternalLink, type LucideProps } from 'lucide-react';
+import {
+  Building2,
+  ExternalLink,
+  GitBranch,
+  type LucideProps,
+  Package,
+  Plus,
+  Search,
+  Settings,
+  Users,
+} from 'lucide-react'
+import { type ComponentType, useCallback, useEffect, useState } from 'react'
 
 // Fix for Lucide React 19 type compatibility
-const SearchIcon = Search as ComponentType<LucideProps>;
-const UsersIcon = Users as ComponentType<LucideProps>;
-const GitBranchIcon = GitBranch as ComponentType<LucideProps>;
-const PackageIcon = Package as ComponentType<LucideProps>;
-const Building2Icon = Building2 as ComponentType<LucideProps>;
-const PlusIcon = Plus as ComponentType<LucideProps>;
-const SettingsIcon = Settings as ComponentType<LucideProps>;
-const ExternalLinkIcon = ExternalLink as ComponentType<LucideProps>;
+const SearchIcon = Search as ComponentType<LucideProps>
+const UsersIcon = Users as ComponentType<LucideProps>
+const GitBranchIcon = GitBranch as ComponentType<LucideProps>
+const PackageIcon = Package as ComponentType<LucideProps>
+const Building2Icon = Building2 as ComponentType<LucideProps>
+const PlusIcon = Plus as ComponentType<LucideProps>
+const SettingsIcon = Settings as ComponentType<LucideProps>
+const ExternalLinkIcon = ExternalLink as ComponentType<LucideProps>
 
 interface Organization {
-  id: string;
-  name: string;
-  displayName: string;
-  description?: string;
-  avatarUrl?: string;
-  website?: string;
-  members: number;
-  repositories: number;
-  packages: number;
-  createdAt: string;
-  verified: boolean;
-  reputationScore: number;
+  id: string
+  name: string
+  displayName: string
+  description?: string
+  avatarUrl?: string
+  website?: string
+  members: number
+  repositories: number
+  packages: number
+  createdAt: string
+  verified: boolean
+  reputationScore: number
 }
 
 interface OrganizationMember {
-  username: string;
-  role: 'owner' | 'admin' | 'member';
-  joinedAt: string;
+  username: string
+  role: 'owner' | 'admin' | 'member'
+  joinedAt: string
 }
 
 export default function OrganizationsPage() {
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
-  const [members, setMembers] = useState<OrganizationMember[]>([]);
+  const [organizations, setOrganizations] = useState<Organization[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null)
+  const [members, setMembers] = useState<OrganizationMember[]>([])
 
-  useEffect(() => {
-    fetchOrganizations();
-  }, []);
+  const fetchOrganizations = useCallback(async () => {
+    setLoading(true)
 
-  async function fetchOrganizations() {
-    setLoading(true);
-    
     try {
       // Fetch from DWS git server API
-      const gitServerUrl = process.env.NEXT_PUBLIC_GIT_SERVER_URL || 'http://localhost:4600';
-      const npmRegistryUrl = process.env.NEXT_PUBLIC_NPM_REGISTRY_URL || 'http://localhost:4700';
-      
+      const gitServerUrl =
+        process.env.NEXT_PUBLIC_GIT_SERVER_URL || 'http://localhost:4600'
+      const npmRegistryUrl =
+        process.env.NEXT_PUBLIC_NPM_REGISTRY_URL || 'http://localhost:4700'
+
       // Get organizations from git server
       const gitResponse = await fetch(`${gitServerUrl}/api/organizations`, {
-        headers: { 'Accept': 'application/json' },
-      });
-      
-      let orgs: Organization[] = [];
-      
+        headers: { Accept: 'application/json' },
+      })
+
+      let orgs: Organization[] = []
+
       if (gitResponse.ok) {
-        const gitOrgs = await gitResponse.json() as Array<{
-          name: string;
-          displayName?: string;
-          description?: string;
-          avatarUrl?: string;
-          website?: string;
-          memberCount: number;
-          repoCount: number;
-          createdAt: string;
-          verified?: boolean;
-        }>;
-        
+        const gitOrgs = (await gitResponse.json()) as Array<{
+          name: string
+          displayName?: string
+          description?: string
+          avatarUrl?: string
+          website?: string
+          memberCount: number
+          repoCount: number
+          createdAt: string
+          verified?: boolean
+        }>
+
         // Enrich with package counts from pkg registry
-        orgs = await Promise.all(gitOrgs.map(async (org) => {
-          let packageCount = 0;
-          try {
-            const pkgResponse = await fetch(`${npmRegistryUrl}/-/org/${org.name}/package`);
-            if (pkgResponse.ok) {
-              const packages = await pkgResponse.json() as string[];
-              packageCount = packages.length;
+        orgs = await Promise.all(
+          gitOrgs.map(async (org) => {
+            let packageCount = 0
+            try {
+              const pkgResponse = await fetch(
+                `${npmRegistryUrl}/-/org/${org.name}/package`,
+              )
+              if (pkgResponse.ok) {
+                const packages = (await pkgResponse.json()) as string[]
+                packageCount = packages.length
+              }
+            } catch {
+              // Continue without package count
             }
-          } catch {
-            // Continue without package count
-          }
-          
-          return {
-            id: org.name,
-            name: org.name,
-            displayName: org.displayName || org.name,
-            description: org.description,
-            avatarUrl: org.avatarUrl,
-            website: org.website,
-            members: org.memberCount,
-            repositories: org.repoCount,
-            packages: packageCount,
-            createdAt: org.createdAt,
-            verified: org.verified || false,
-            reputationScore: org.verified ? 90 : 50, // Default scores based on verification
-          };
-        }));
+
+            return {
+              id: org.name,
+              name: org.name,
+              displayName: org.displayName || org.name,
+              description: org.description,
+              avatarUrl: org.avatarUrl,
+              website: org.website,
+              members: org.memberCount,
+              repositories: org.repoCount,
+              packages: packageCount,
+              createdAt: org.createdAt,
+              verified: org.verified || false,
+              reputationScore: org.verified ? 90 : 50, // Default scores based on verification
+            }
+          }),
+        )
       }
-      
-      setOrganizations(orgs);
+
+      setOrganizations(orgs)
     } catch (error) {
-      console.error('Failed to fetch organizations:', error);
-      setOrganizations([]);
+      console.error('Failed to fetch organizations:', error)
+      setOrganizations([])
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    fetchOrganizations()
+  }, [fetchOrganizations])
 
   async function fetchOrgMembers(orgName: string) {
     try {
-      const gitServerUrl = process.env.NEXT_PUBLIC_GIT_SERVER_URL || 'http://localhost:4600';
-      const response = await fetch(`${gitServerUrl}/api/organizations/${orgName}/members`, {
-        headers: { 'Accept': 'application/json' },
-      });
-      
+      const gitServerUrl =
+        process.env.NEXT_PUBLIC_GIT_SERVER_URL || 'http://localhost:4600'
+      const response = await fetch(
+        `${gitServerUrl}/api/organizations/${orgName}/members`,
+        {
+          headers: { Accept: 'application/json' },
+        },
+      )
+
       if (response.ok) {
-        const memberData = await response.json() as Array<{
-          username: string;
-          role: 'owner' | 'admin' | 'member';
-          joinedAt: string;
-        }>;
-        setMembers(memberData);
+        const memberData = (await response.json()) as Array<{
+          username: string
+          role: 'owner' | 'admin' | 'member'
+          joinedAt: string
+        }>
+        setMembers(memberData)
       } else {
-        setMembers([]);
+        setMembers([])
       }
     } catch (error) {
-      console.error('Failed to fetch organization members:', error);
-      setMembers([]);
+      console.error('Failed to fetch organization members:', error)
+      setMembers([])
     }
   }
 
   function selectOrg(org: Organization) {
-    setSelectedOrg(org);
-    fetchOrgMembers(org.name);
+    setSelectedOrg(org)
+    fetchOrgMembers(org.name)
   }
 
-  const filteredOrgs = organizations.filter(org =>
-    org.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    org.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    org.description?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredOrgs = organizations.filter(
+    (org) =>
+      org.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      org.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      org.description?.toLowerCase().includes(searchQuery.toLowerCase()),
+  )
 
   function formatDate(dateString: string): string {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+    const date = new Date(dateString)
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' })
   }
 
   return (
@@ -212,7 +233,9 @@ export default function OrganizationsPage() {
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold text-lg">{org.displayName}</span>
+                          <span className="font-semibold text-lg">
+                            {org.displayName}
+                          </span>
                           <span className="text-gray-500">@{org.name}</span>
                           {org.verified && (
                             <span className="px-2 py-0.5 text-xs bg-blue-900/50 text-blue-400 rounded-full">
@@ -221,7 +244,9 @@ export default function OrganizationsPage() {
                           )}
                         </div>
                         {org.description && (
-                          <p className="text-gray-400 mt-1">{org.description}</p>
+                          <p className="text-gray-400 mt-1">
+                            {org.description}
+                          </p>
                         )}
                         <div className="flex items-center gap-6 mt-4 text-sm text-gray-400">
                           <span className="flex items-center gap-1">
@@ -254,7 +279,9 @@ export default function OrganizationsPage() {
               <div className="sticky top-4 space-y-4">
                 <div className="p-6 bg-gray-800 rounded-lg border border-gray-700">
                   <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-bold">{selectedOrg.displayName}</h2>
+                    <h2 className="text-xl font-bold">
+                      {selectedOrg.displayName}
+                    </h2>
                     <button className="p-2 hover:bg-gray-700 rounded-lg transition-colors">
                       <SettingsIcon className="w-5 h-5 text-gray-400" />
                     </button>
@@ -267,7 +294,7 @@ export default function OrganizationsPage() {
                         {selectedOrg.reputationScore}/100
                       </span>
                     </div>
-                    
+
                     {selectedOrg.website && (
                       <a
                         href={selectedOrg.website}
@@ -299,13 +326,15 @@ export default function OrganizationsPage() {
                           </div>
                           <span>{member.username}</span>
                         </div>
-                        <span className={`text-xs px-2 py-1 rounded ${
-                          member.role === 'owner'
-                            ? 'bg-yellow-900/50 text-yellow-400'
-                            : member.role === 'admin'
-                            ? 'bg-blue-900/50 text-blue-400'
-                            : 'bg-gray-700 text-gray-400'
-                        }`}>
+                        <span
+                          className={`text-xs px-2 py-1 rounded ${
+                            member.role === 'owner'
+                              ? 'bg-yellow-900/50 text-yellow-400'
+                              : member.role === 'admin'
+                                ? 'bg-blue-900/50 text-blue-400'
+                                : 'bg-gray-700 text-gray-400'
+                          }`}
+                        >
                           {member.role}
                         </span>
                       </div>
@@ -322,7 +351,9 @@ export default function OrganizationsPage() {
                     className="p-4 bg-gray-800 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors text-center"
                   >
                     <GitBranchIcon className="w-6 h-6 mx-auto mb-2 text-blue-400" />
-                    <div className="text-xl font-bold">{selectedOrg.repositories}</div>
+                    <div className="text-xl font-bold">
+                      {selectedOrg.repositories}
+                    </div>
                     <div className="text-sm text-gray-400">Repositories</div>
                   </a>
                   <a
@@ -330,7 +361,9 @@ export default function OrganizationsPage() {
                     className="p-4 bg-gray-800 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors text-center"
                   >
                     <PackageIcon className="w-6 h-6 mx-auto mb-2 text-red-400" />
-                    <div className="text-xl font-bold">{selectedOrg.packages}</div>
+                    <div className="text-xl font-bold">
+                      {selectedOrg.packages}
+                    </div>
                     <div className="text-sm text-gray-400">Packages</div>
                   </a>
                 </div>
@@ -338,15 +371,14 @@ export default function OrganizationsPage() {
             ) : (
               <div className="p-6 bg-gray-800 rounded-lg border border-gray-700 text-center">
                 <Building2Icon className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-                <p className="text-gray-400">Select an organization to view details</p>
+                <p className="text-gray-400">
+                  Select an organization to view details
+                </p>
               </div>
             )}
           </div>
         </div>
       </div>
     </div>
-  );
+  )
 }
-
-
-

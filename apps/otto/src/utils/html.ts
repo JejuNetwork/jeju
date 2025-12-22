@@ -13,15 +13,15 @@ function escapeHtml(text: string): string {
     '>': '&gt;',
     '"': '&quot;',
     "'": '&#39;',
-  };
-  return text.replace(/[&<>"']/g, char => htmlChars[char] ?? char);
+  }
+  return text.replace(/[&<>"']/g, (char) => htmlChars[char] ?? char)
 }
 
 /**
  * Escape string for use in JavaScript (JSON-safe encoding)
  */
 function escapeJs(text: string): string {
-  return JSON.stringify(text).slice(1, -1);
+  return JSON.stringify(text).slice(1, -1)
 }
 
 /**
@@ -35,21 +35,24 @@ export function createErrorHtml(title: string, message: string): string {
         <p>${escapeHtml(message)}</p>
       </body>
     </html>
-  `;
+  `
 }
 
 /**
  * Generate success HTML page for wallet connection
  */
-export function createWalletConnectedHtml(address: string, platform: string): string {
+export function createWalletConnectedHtml(
+  address: string,
+  platform: string,
+): string {
   // Validate address format (0x followed by 40 hex chars)
   if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
-    throw new Error('Invalid address format');
+    throw new Error('Invalid address format')
   }
-  
-  const safePlatform = escapeHtml(platform);
-  const jsAddress = escapeJs(address);
-  
+
+  const safePlatform = escapeHtml(platform)
+  const jsAddress = escapeJs(address)
+
   return `
     <html>
       <body style="font-family: system-ui; padding: 2rem; text-align: center; background: #1a1a2e; color: #fff;">
@@ -66,5 +69,5 @@ export function createWalletConnectedHtml(address: string, platform: string): st
         </script>
       </body>
     </html>
-  `;
+  `
 }

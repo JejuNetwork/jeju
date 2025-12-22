@@ -1,16 +1,29 @@
 /**
  * @deprecated This file is deprecated. Import from '@jeju-vendor/cloud' or 'vendor/cloud/src' instead.
- * 
+ *
  * This file re-exports from vendor/cloud for backwards compatibility.
  * New code should import directly from the vendor package.
  */
 
-import { createPublicClient, createWalletClient, http, type PublicClient, type WalletClient, type Address, type Chain, parseEther, zeroHash, encodeBytes32String, keccak256, stringToBytes } from 'viem';
-import { type PrivateKeyAccount } from 'viem/accounts';
-import { readContract, waitForTransactionReceipt } from 'viem/actions';
-import { parseAbi } from 'viem';
-import type { Logger } from './logger';
-import { createSignedFeedbackAuth } from './cloud-signing';
+import {
+  type Address,
+  type Chain,
+  createPublicClient,
+  createWalletClient,
+  encodeBytes32String,
+  http,
+  keccak256,
+  type PublicClient,
+  parseAbi,
+  parseEther,
+  stringToBytes,
+  type WalletClient,
+  zeroHash,
+} from 'viem'
+import type { PrivateKeyAccount } from 'viem/accounts'
+import { readContract, waitForTransactionReceipt } from 'viem/actions'
+import { createSignedFeedbackAuth } from './cloud-signing'
+import type { Logger } from './logger'
 
 // Re-export types for backwards compatibility
 // NOTE: New code should import from '@jeju-vendor/cloud' or 'vendor/cloud/src'
@@ -27,34 +40,34 @@ import { createSignedFeedbackAuth } from './cloud-signing';
  */
 
 export interface CloudConfig {
-  identityRegistryAddress: Address;
-  reputationRegistryAddress: Address;
-  cloudReputationProviderAddress: Address;
-  serviceRegistryAddress: Address;
-  creditManagerAddress: Address;
-  rpcUrl: string;
-  chain?: Chain;
-  logger: Logger;
-  cloudAgentAccount?: PrivateKeyAccount; // Cloud agent's account for feedback authorization
-  chainId?: bigint;
+  identityRegistryAddress: Address
+  reputationRegistryAddress: Address
+  cloudReputationProviderAddress: Address
+  serviceRegistryAddress: Address
+  creditManagerAddress: Address
+  rpcUrl: string
+  chain?: Chain
+  logger: Logger
+  cloudAgentAccount?: PrivateKeyAccount // Cloud agent's account for feedback authorization
+  chainId?: bigint
 }
 
 export interface AgentMetadata {
-  name: string;
-  description: string;
-  endpoint: string; // A2A endpoint
-  version: string;
-  capabilities: string[];
+  name: string
+  description: string
+  endpoint: string // A2A endpoint
+  version: string
+  capabilities: string[]
 }
 
 export interface CloudService {
-  name: string;
-  category: string; // "ai", "compute", "storage", etc.
-  basePrice: bigint; // In elizaOS tokens (18 decimals)
-  minPrice: bigint;
-  maxPrice: bigint;
-  x402Enabled: boolean;
-  a2aEndpoint?: string;
+  name: string
+  category: string // "ai", "compute", "storage", etc.
+  basePrice: bigint // In elizaOS tokens (18 decimals)
+  minPrice: bigint
+  maxPrice: bigint
+  x402Enabled: boolean
+  a2aEndpoint?: string
 }
 
 export enum ViolationType {
@@ -68,13 +81,13 @@ export enum ViolationType {
   ILLEGAL_CONTENT = 7,
   HARASSMENT = 8,
   SPAM = 9,
-  TOS_VIOLATION = 10
+  TOS_VIOLATION = 10,
 }
 
 const REPUTATION_REGISTRY_ABI = parseAbi([
   'function giveFeedback(uint256 agentId, uint8 score, bytes32 tag1, bytes32 tag2, string calldata fileuri, bytes32 filehash, bytes memory feedbackAuth) external',
-  'function getSummary(uint256 agentId, address[] calldata clientAddresses, bytes32 tag1, bytes32 tag2) external view returns (uint64 count, uint8 averageScore)'
-]);
+  'function getSummary(uint256 agentId, address[] calldata clientAddresses, bytes32 tag1, bytes32 tag2) external view returns (uint64 count, uint8 averageScore)',
+])
 
 const CLOUD_REPUTATION_PROVIDER_ABI = parseAbi([
   'function registerCloudAgent(string calldata tokenURI, tuple(string key, bytes value)[] calldata metadata) external returns (uint256 agentId)',
@@ -87,99 +100,104 @@ const CLOUD_REPUTATION_PROVIDER_ABI = parseAbi([
   'function cloudAgentId() external view returns (uint256)',
   'event CloudAgentRegistered(uint256 indexed agentId)',
   'event BanProposalCreated(bytes32 indexed proposalId, uint256 indexed agentId, uint8 reason, address indexed proposer)',
-]);
+])
 
 const SERVICE_REGISTRY_ABI = parseAbi([
   'function registerService(string calldata serviceName, string calldata category, uint256 basePrice, uint256 minPrice, uint256 maxPrice, address provider) external',
   'function getServiceCost(string calldata serviceName, address user) external view returns (uint256 cost)',
-  'function isServiceAvailable(string calldata serviceName) external view returns (bool available)'
-]);
+  'function isServiceAvailable(string calldata serviceName) external view returns (bool available)',
+])
 
 const CREDIT_MANAGER_ABI = parseAbi([
   'function getBalance(address user, address token) external view returns (uint256 balance)',
   'function getAllBalances(address user) external view returns (uint256 usdcBalance, uint256 elizaBalance, uint256 ethBalance)',
-  'function hasSufficientCredit(address user, address token, uint256 amount) external view returns (bool sufficient, uint256 available)'
-]);
+  'function hasSufficientCredit(address user, address token, uint256 amount) external view returns (bool sufficient, uint256 available)',
+])
 
 export class CloudIntegration {
-  private config: CloudConfig;
-  private client: PublicClient;
-  private walletClient: WalletClient;
-  
+  private config: CloudConfig
+  private client: PublicClient
+  private walletClient: WalletClient
+
   constructor(config: CloudConfig) {
-    this.config = config;
-    const chain = config.chain || { id: Number(config.chainId || 31337n), name: 'local' } as Chain;
-    
+    this.config = config
+    const chain =
+      config.chain ||
+      ({ id: Number(config.chainId || 31337n), name: 'local' } as Chain)
+
     this.client = createPublicClient({
       chain,
       transport: http(config.rpcUrl),
-    });
-    
+    })
+
     // Wallet client will be created per-operation with account
     this.walletClient = createWalletClient({
       chain,
       transport: http(config.rpcUrl),
-    });
+    })
   }
-  
+
   /**
    * Register cloud service as an agent in the registry
    */
   async registerCloudAgent(
     account: PrivateKeyAccount,
     metadata: AgentMetadata,
-    tokenURI: string
+    tokenURI: string,
   ): Promise<bigint> {
-    this.config.logger.info('Registering cloud service as agent...');
-    
+    this.config.logger.info('Registering cloud service as agent...')
+
     // Convert metadata to contract format
     const metadataEntries = [
       { key: 'name', value: stringToBytes(metadata.name) },
       { key: 'description', value: stringToBytes(metadata.description) },
       { key: 'endpoint', value: stringToBytes(metadata.endpoint) },
       { key: 'version', value: stringToBytes(metadata.version) },
-      { key: 'capabilities', value: stringToBytes(JSON.stringify(metadata.capabilities)) },
-      { key: 'type', value: stringToBytes('cloud-service') }
-    ];
-    
+      {
+        key: 'capabilities',
+        value: stringToBytes(JSON.stringify(metadata.capabilities)),
+      },
+      { key: 'type', value: stringToBytes('cloud-service') },
+    ]
+
     const hash = await this.walletClient.writeContract({
       address: this.config.cloudReputationProviderAddress,
       abi: CLOUD_REPUTATION_PROVIDER_ABI,
       functionName: 'registerCloudAgent',
       args: [tokenURI, metadataEntries],
       account,
-    });
-    
-    const receipt = await waitForTransactionReceipt(this.client, { hash });
-    
+    })
+
+    const receipt = await waitForTransactionReceipt(this.client, { hash })
+
     // Extract agentId from event
-    const eventSignature = keccak256(stringToBytes('CloudAgentRegistered(uint256)'));
-    const event = receipt.logs.find((log) => 
-      log.topics[0] === eventSignature
-    );
-    
+    const eventSignature = keccak256(
+      stringToBytes('CloudAgentRegistered(uint256)'),
+    )
+    const event = receipt.logs.find((log) => log.topics[0] === eventSignature)
+
     if (!event || !event.topics[1]) {
-      throw new Error('CloudAgentRegistered event not found');
+      throw new Error('CloudAgentRegistered event not found')
     }
-    
-    const agentId = BigInt(event.topics[1]);
-    this.config.logger.info(`Cloud agent registered with ID: ${agentId}`);
-    
-    return agentId;
+
+    const agentId = BigInt(event.topics[1])
+    this.config.logger.info(`Cloud agent registered with ID: ${agentId}`)
+
+    return agentId
   }
-  
+
   /**
    * Register cloud services in ServiceRegistry
    */
   async registerServices(
     account: PrivateKeyAccount,
-    services: CloudService[]
+    services: CloudService[],
   ): Promise<void> {
-    this.config.logger.info(`Registering ${services.length} cloud services...`);
-    
+    this.config.logger.info(`Registering ${services.length} cloud services...`)
+
     for (const service of services) {
-      this.config.logger.info(`Registering service: ${service.name}`);
-      
+      this.config.logger.info(`Registering service: ${service.name}`)
+
       const hash = await this.walletClient.writeContract({
         address: this.config.serviceRegistryAddress,
         abi: SERVICE_REGISTRY_ABI,
@@ -193,15 +211,15 @@ export class CloudIntegration {
           account.address,
         ],
         account,
-      });
-      
-      await waitForTransactionReceipt(this.client, { hash });
-      this.config.logger.info(`✓ ${service.name} registered`);
+      })
+
+      await waitForTransactionReceipt(this.client, { hash })
+      this.config.logger.info(`✓ ${service.name} registered`)
     }
-    
-    this.config.logger.info('All services registered successfully');
+
+    this.config.logger.info('All services registered successfully')
   }
-  
+
   /**
    * Set reputation for an agent/user based on their behavior
    */
@@ -211,30 +229,32 @@ export class CloudIntegration {
     score: number,
     category: 'quality' | 'reliability' | 'api-usage' | 'payment' | 'security',
     subcategory: string,
-    reason: string
+    reason: string,
   ): Promise<void> {
     if (score < 0 || score > 100) {
-      throw new Error('Score must be between 0 and 100');
+      throw new Error('Score must be between 0 and 100')
     }
-    
-    const tag1 = encodeBytes32String(category);
-    const tag2 = encodeBytes32String(subcategory);
-    
-    this.config.logger.info(`Setting reputation for agent ${agentId}: ${score}/100`);
-    
+
+    const tag1 = encodeBytes32String(category)
+    const tag2 = encodeBytes32String(subcategory)
+
+    this.config.logger.info(
+      `Setting reputation for agent ${agentId}: ${score}/100`,
+    )
+
     // Create signed feedback authorization
     if (!this.config.cloudAgentAccount) {
-      throw new Error('Cloud agent account not configured in CloudConfig');
+      throw new Error('Cloud agent account not configured in CloudConfig')
     }
-    
+
     const signedAuth = await createSignedFeedbackAuth(
       this.config.cloudAgentAccount,
       agentId,
       account.address, // Client is the operator calling setReputation
       this.config.reputationRegistryAddress,
-      this.config.chainId || 31337n
-    );
-    
+      this.config.chainId || 31337n,
+    )
+
     const hash = await this.walletClient.writeContract({
       address: this.config.cloudReputationProviderAddress,
       abi: CLOUD_REPUTATION_PROVIDER_ABI,
@@ -248,12 +268,12 @@ export class CloudIntegration {
         signedAuth,
       ],
       account,
-    });
-    
-    await waitForTransactionReceipt(this.client, { hash });
-    this.config.logger.info('Reputation set successfully');
+    })
+
+    await waitForTransactionReceipt(this.client, { hash })
+    this.config.logger.info('Reputation set successfully')
   }
-  
+
   /**
    * Record a violation without immediate ban
    */
@@ -262,16 +282,16 @@ export class CloudIntegration {
     agentId: bigint,
     violationType: ViolationType,
     severityScore: number,
-    evidence: string
+    evidence: string,
   ): Promise<void> {
     if (severityScore < 0 || severityScore > 100) {
-      throw new Error('Severity score must be between 0 and 100');
+      throw new Error('Severity score must be between 0 and 100')
     }
-    
+
     this.config.logger.warn(
-      `Recording violation for agent ${agentId}: ${ViolationType[violationType]} (severity: ${severityScore})`
-    );
-    
+      `Recording violation for agent ${agentId}: ${ViolationType[violationType]} (severity: ${severityScore})`,
+    )
+
     const hash = await this.walletClient.writeContract({
       address: this.config.cloudReputationProviderAddress,
       abi: CLOUD_REPUTATION_PROVIDER_ABI,
@@ -283,12 +303,12 @@ export class CloudIntegration {
         evidence, // IPFS hash
       ],
       account,
-    });
-    
-    await waitForTransactionReceipt(this.client, { hash });
-    this.config.logger.info('Violation recorded');
+    })
+
+    await waitForTransactionReceipt(this.client, { hash })
+    this.config.logger.info('Violation recorded')
   }
-  
+
   /**
    * Propose banning an agent for serious violations
    */
@@ -296,40 +316,38 @@ export class CloudIntegration {
     account: PrivateKeyAccount,
     agentId: bigint,
     violationType: ViolationType,
-    evidence: string
+    evidence: string,
   ): Promise<`0x${string}`> {
     this.config.logger.warn(
-      `Proposing ban for agent ${agentId}: ${ViolationType[violationType]}`
-    );
-    
+      `Proposing ban for agent ${agentId}: ${ViolationType[violationType]}`,
+    )
+
     const hash = await this.walletClient.writeContract({
       address: this.config.cloudReputationProviderAddress,
       abi: CLOUD_REPUTATION_PROVIDER_ABI,
       functionName: 'proposeBan',
-      args: [
-        agentId,
-        violationType,
-        evidence,
-      ],
+      args: [agentId, violationType, evidence],
       account,
-    });
-    
-    const receipt = await waitForTransactionReceipt(this.client, { hash });
-    
+    })
+
+    const receipt = await waitForTransactionReceipt(this.client, { hash })
+
     // Extract proposalId from event
-    const banEventSignature = keccak256(stringToBytes('BanProposalCreated(bytes32,uint256,uint8,address)'));
-    const event = receipt.logs.find((log) => 
-      log.topics[0] === banEventSignature
-    );
-    
+    const banEventSignature = keccak256(
+      stringToBytes('BanProposalCreated(bytes32,uint256,uint8,address)'),
+    )
+    const event = receipt.logs.find(
+      (log) => log.topics[0] === banEventSignature,
+    )
+
     if (!event || !event.topics[1]) {
-      throw new Error('BanProposalCreated event not found');
+      throw new Error('BanProposalCreated event not found')
     }
-    
-    const proposalId = event.topics[1] as `0x${string}`;
-    this.config.logger.info(`Ban proposal created: ${proposalId}`);
-    
-    return proposalId;
+
+    const proposalId = event.topics[1] as `0x${string}`
+    this.config.logger.info(`Ban proposal created: ${proposalId}`)
+
+    return proposalId
   }
 
   /**
@@ -337,29 +355,29 @@ export class CloudIntegration {
    */
   async approveBan(
     account: PrivateKeyAccount,
-    proposalId: `0x${string}`
+    proposalId: `0x${string}`,
   ): Promise<void> {
-    this.config.logger.info(`Approving ban proposal: ${proposalId}`);
-    
+    this.config.logger.info(`Approving ban proposal: ${proposalId}`)
+
     const hash = await this.walletClient.writeContract({
       address: this.config.cloudReputationProviderAddress,
       abi: CLOUD_REPUTATION_PROVIDER_ABI,
       functionName: 'approveBan',
       args: [proposalId],
       account,
-    });
-    await waitForTransactionReceipt(this.client, { hash });
-    
-    this.config.logger.info('Ban proposal approved');
+    })
+    await waitForTransactionReceipt(this.client, { hash })
+
+    this.config.logger.info('Ban proposal approved')
   }
-  
+
   /**
    * Check if user has sufficient credit for service
    */
   async checkUserCredit(
     userAddress: Address,
     serviceName: string,
-    tokenAddress: Address
+    tokenAddress: Address,
   ): Promise<{ sufficient: boolean; available: bigint; required: bigint }> {
     // Get service cost
     const required = await readContract(this.client, {
@@ -367,23 +385,23 @@ export class CloudIntegration {
       abi: SERVICE_REGISTRY_ABI,
       functionName: 'getServiceCost',
       args: [serviceName, userAddress],
-    });
-    
+    })
+
     // Check user balance
     const result = await readContract(this.client, {
       address: this.config.creditManagerAddress,
       abi: CREDIT_MANAGER_ABI,
       functionName: 'hasSufficientCredit',
       args: [userAddress, tokenAddress, required],
-    });
-    
-    const [sufficient, available] = result as [boolean, bigint];
-    
+    })
+
+    const [sufficient, available] = result as [boolean, bigint]
+
     return {
       sufficient,
       available,
       required,
-    };
+    }
   }
 
   /**
@@ -391,10 +409,10 @@ export class CloudIntegration {
    */
   async getAgentReputation(
     agentId: bigint,
-    category?: string
+    category?: string,
   ): Promise<{ count: bigint; averageScore: number }> {
-    const tag1 = category ? encodeBytes32String(category) : zeroHash;
-    
+    const tag1 = category ? encodeBytes32String(category) : zeroHash
+
     const result = await readContract(this.client, {
       address: this.config.reputationRegistryAddress,
       abi: REPUTATION_REGISTRY_ABI,
@@ -405,11 +423,11 @@ export class CloudIntegration {
         tag1,
         zeroHash,
       ],
-    });
-    
-    const [count, averageScore] = result as [bigint, number];
-    
-    return { count, averageScore };
+    })
+
+    const [count, averageScore] = result as [bigint, number]
+
+    return { count, averageScore }
   }
 
   /**
@@ -418,14 +436,14 @@ export class CloudIntegration {
   async getAgentViolations(
     agentId: bigint,
     offset: number = 0,
-    limit: number = 100
+    limit: number = 100,
   ) {
     return readContract(this.client, {
       address: this.config.cloudReputationProviderAddress,
       abi: CLOUD_REPUTATION_PROVIDER_ABI,
       functionName: 'getAgentViolations',
       args: [agentId, BigInt(offset), BigInt(limit)],
-    });
+    })
   }
 
   /**
@@ -437,7 +455,7 @@ export class CloudIntegration {
       abi: CLOUD_REPUTATION_PROVIDER_ABI,
       functionName: 'getAgentViolationCount',
       args: [agentId],
-    });
+    })
   }
 
   /**
@@ -448,7 +466,7 @@ export class CloudIntegration {
       address: this.config.cloudReputationProviderAddress,
       abi: CLOUD_REPUTATION_PROVIDER_ABI,
       functionName: 'cloudAgentId',
-    });
+    })
   }
 }
 
@@ -463,7 +481,7 @@ export const defaultCloudServices: CloudService[] = [
     minPrice: parseEther('0.0001'),
     maxPrice: parseEther('0.01'),
     x402Enabled: true,
-    a2aEndpoint: '/a2a/chat'
+    a2aEndpoint: '/a2a/chat',
   },
   {
     name: 'image-generation',
@@ -472,7 +490,7 @@ export const defaultCloudServices: CloudService[] = [
     minPrice: parseEther('0.001'),
     maxPrice: parseEther('0.1'),
     x402Enabled: true,
-    a2aEndpoint: '/a2a/image'
+    a2aEndpoint: '/a2a/image',
   },
   {
     name: 'embeddings',
@@ -481,7 +499,7 @@ export const defaultCloudServices: CloudService[] = [
     minPrice: parseEther('0.00001'),
     maxPrice: parseEther('0.001'),
     x402Enabled: true,
-    a2aEndpoint: '/a2a/embed'
+    a2aEndpoint: '/a2a/embed',
   },
   {
     name: 'storage',
@@ -490,7 +508,7 @@ export const defaultCloudServices: CloudService[] = [
     minPrice: parseEther('0.00001'),
     maxPrice: parseEther('0.001'),
     x402Enabled: true,
-    a2aEndpoint: '/a2a/storage'
+    a2aEndpoint: '/a2a/storage',
   },
   {
     name: 'compute',
@@ -499,7 +517,6 @@ export const defaultCloudServices: CloudService[] = [
     minPrice: parseEther('0.0001'),
     maxPrice: parseEther('0.01'),
     x402Enabled: true,
-    a2aEndpoint: '/a2a/compute'
-  }
-];
-
+    a2aEndpoint: '/a2a/compute',
+  },
+]

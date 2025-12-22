@@ -8,108 +8,111 @@
  * - Epoch management and distribution calculation
  */
 
-import { type Address, formatEther, parseEther } from 'viem';
-import { DAOService, getDAOService } from './dao-service';
-import { checkDWSCompute, dwsGenerate } from './agents/runtime';
-import { parseJson } from './shared';
+import { type Address, formatEther, parseEther } from 'viem'
+import { checkDWSCompute, dwsGenerate } from './agents/runtime'
+import { type DAOService, getDAOService } from './dao-service'
+import { parseJson } from './shared'
 import type {
-  FundingProject,
-  FundingEpoch,
-  FundingAllocation,
   CEOPersona,
   DAOFull,
-} from './types';
+  FundingAllocation,
+  FundingEpoch,
+  FundingProject,
+} from './types'
 
 // ============ Types ============
 
 export interface FundingAnalysis {
-  projectId: string;
-  projectName: string;
-  recommendedWeight: number;
-  reasoning: string;
-  alignmentScore: number;
-  impactScore: number;
-  riskScore: number;
-  confidence: number;
+  projectId: string
+  projectName: string
+  recommendedWeight: number
+  reasoning: string
+  alignmentScore: number
+  impactScore: number
+  riskScore: number
+  confidence: number
 }
 
 export interface EpochSummary {
-  epochId: number;
-  daoId: string;
-  daoName: string;
-  startTime: number;
-  endTime: number;
-  totalBudget: bigint;
-  matchingPool: bigint;
-  projectCount: number;
-  totalStaked: bigint;
-  uniqueStakers: number;
-  allocations: FundingAllocation[];
-  status: 'active' | 'pending_finalization' | 'finalized';
+  epochId: number
+  daoId: string
+  daoName: string
+  startTime: number
+  endTime: number
+  totalBudget: bigint
+  matchingPool: bigint
+  projectCount: number
+  totalStaked: bigint
+  uniqueStakers: number
+  allocations: FundingAllocation[]
+  status: 'active' | 'pending_finalization' | 'finalized'
 }
 
 export interface CEOFundingRecommendation {
-  daoId: string;
-  epochId: number;
-  recommendations: FundingAnalysis[];
-  totalWeightAllocated: number;
-  overallStrategy: string;
-  priorityAreas: string[];
+  daoId: string
+  epochId: number
+  recommendations: FundingAnalysis[]
+  totalWeightAllocated: number
+  overallStrategy: string
+  priorityAreas: string[]
 }
 
 export interface ModelDelegationStats {
-  modelId: string;
-  totalDelegations: number;
-  totalStake: bigint;
-  delegatorCount: number;
-  averageStake: bigint;
+  modelId: string
+  totalDelegations: number
+  totalStake: bigint
+  delegatorCount: number
+  averageStake: bigint
 }
 
 export interface FundingKnobs {
-  minQualityForFunding: number;
-  maxCEOWeight: number;
-  quadraticMultiplier: number;
-  matchingCapPerProject: number;
-  stakeCooldown: number;
-  epochDuration: number;
-  autoApproveThreshold: number;
+  minQualityForFunding: number
+  maxCEOWeight: number
+  quadraticMultiplier: number
+  matchingCapPerProject: number
+  stakeCooldown: number
+  epochDuration: number
+  autoApproveThreshold: number
 }
 
 // ============ Funding Oracle Class ============
 
 export class FundingOracle {
-  private daoService: DAOService;
-  private knobsCache: Map<string, FundingKnobs> = new Map();
+  private daoService: DAOService
+  private knobsCache: Map<string, FundingKnobs> = new Map()
 
   constructor() {
-    this.daoService = getDAOService();
+    this.daoService = getDAOService()
   }
 
   // ============ Epoch Analysis ============
 
   async getEpochSummary(daoId: string): Promise<EpochSummary> {
-    const daoFull = await this.daoService.getDAOFull(daoId);
-    const epoch = await this.daoService.getCurrentEpoch(daoId);
-    const projects = await this.daoService.getActiveProjects(daoId);
-    const allocations = await this.daoService.getFundingAllocations(daoId);
+    const daoFull = await this.daoService.getDAOFull(daoId)
+    const epoch = await this.daoService.getCurrentEpoch(daoId)
+    const projects = await this.daoService.getActiveProjects(daoId)
+    const allocations = await this.daoService.getFundingAllocations(daoId)
 
-    let totalStaked = BigInt(0);
-    let uniqueStakers = 0;
+    let totalStaked = BigInt(0)
+    let uniqueStakers = 0
 
     for (const project of projects) {
-      totalStaked += project.communityStake;
-      const stakeInfo = await this.daoService.getProjectEpochStake(project.projectId, epoch.epochId);
-      uniqueStakers += stakeInfo.numStakers;
+      totalStaked += project.communityStake
+      const stakeInfo = await this.daoService.getProjectEpochStake(
+        project.projectId,
+        epoch.epochId,
+      )
+      uniqueStakers += stakeInfo.numStakers
     }
 
-    const now = Date.now() / 1000;
-    let status: 'active' | 'pending_finalization' | 'finalized';
+    const now = Date.now() / 1000
+    let status: 'active' | 'pending_finalization' | 'finalized'
     if (epoch.finalized) {
-      status = 'finalized';
+      status = 'finalized'
     } else if (now > epoch.endTime) {
-      status = 'pending_finalization';
+      status = 'pending_finalization'
     } else {
-      status = 'active';
+      status = 'active'
     }
 
     return {
@@ -125,55 +128,66 @@ export class FundingOracle {
       uniqueStakers,
       allocations,
       status,
-    };
+    }
   }
 
   // ============ CEO Weight Recommendations ============
 
-  async generateCEORecommendations(daoId: string): Promise<CEOFundingRecommendation> {
-    const daoFull = await this.daoService.getDAOFull(daoId);
-    const projects = await this.daoService.getActiveProjects(daoId);
-    const epoch = await this.daoService.getCurrentEpoch(daoId);
-    const knobs = await this.getKnobs(daoId);
+  async generateCEORecommendations(
+    daoId: string,
+  ): Promise<CEOFundingRecommendation> {
+    const daoFull = await this.daoService.getDAOFull(daoId)
+    const projects = await this.daoService.getActiveProjects(daoId)
+    const epoch = await this.daoService.getCurrentEpoch(daoId)
+    const knobs = await this.getKnobs(daoId)
 
-    const recommendations: FundingAnalysis[] = [];
+    const recommendations: FundingAnalysis[] = []
 
     for (const project of projects) {
-      const analysis = await this.analyzeProject(project, daoFull, knobs);
-      recommendations.push(analysis);
+      const analysis = await this.analyzeProject(project, daoFull, knobs)
+      recommendations.push(analysis)
     }
 
     // Sort by recommended weight
-    recommendations.sort((a, b) => b.recommendedWeight - a.recommendedWeight);
+    recommendations.sort((a, b) => b.recommendedWeight - a.recommendedWeight)
 
     // Generate overall strategy
-    const strategy = await this.generateFundingStrategy(daoFull, recommendations, epoch);
+    const strategy = await this.generateFundingStrategy(
+      daoFull,
+      recommendations,
+      epoch,
+    )
 
     return {
       daoId,
       epochId: epoch.epochId,
       recommendations,
-      totalWeightAllocated: recommendations.reduce((sum, r) => sum + r.recommendedWeight, 0),
+      totalWeightAllocated: recommendations.reduce(
+        (sum, r) => sum + r.recommendedWeight,
+        0,
+      ),
       overallStrategy: strategy.strategy,
       priorityAreas: strategy.priorities,
-    };
+    }
   }
 
   private async analyzeProject(
     project: FundingProject,
     daoFull: DAOFull,
-    knobs: FundingKnobs
+    knobs: FundingKnobs,
   ): Promise<FundingAnalysis> {
-    const dwsUp = await checkDWSCompute();
+    const dwsUp = await checkDWSCompute()
     if (!dwsUp) {
-      return this.getHeuristicAnalysis(project, daoFull, knobs);
+      return this.getHeuristicAnalysis(project, daoFull, knobs)
     }
 
-    const persona = daoFull.ceoPersona;
-    const linkedPackages = daoFull.linkedPackages;
-    const linkedRepos = daoFull.linkedRepos;
+    const persona = daoFull.ceoPersona
+    const linkedPackages = daoFull.linkedPackages
+    const linkedRepos = daoFull.linkedRepos
 
-    const isLinked = linkedPackages.includes(project.registryId) || linkedRepos.includes(project.registryId);
+    const isLinked =
+      linkedPackages.includes(project.registryId) ||
+      linkedRepos.includes(project.registryId)
 
     const prompt = `As ${persona.name}, analyze this funding project and recommend a CEO weight (0-${knobs.maxCEOWeight / 100}%).
 
@@ -202,47 +216,51 @@ Return JSON:
   "impactScore": 0-100,
   "riskScore": 0-100,
   "confidence": 0-100
-}`;
+}`
 
-    const systemPrompt = this.buildPersonaSystemPrompt(persona);
-    const response = await dwsGenerate(prompt, systemPrompt, 600);
-    const parsed = parseJson<Partial<FundingAnalysis>>(response);
+    const systemPrompt = this.buildPersonaSystemPrompt(persona)
+    const response = await dwsGenerate(prompt, systemPrompt, 600)
+    const parsed = parseJson<Partial<FundingAnalysis>>(response)
 
     return {
       projectId: project.projectId,
       projectName: project.name,
-      recommendedWeight: Math.min(parsed?.recommendedWeight ?? 1000, knobs.maxCEOWeight),
+      recommendedWeight: Math.min(
+        parsed?.recommendedWeight ?? 1000,
+        knobs.maxCEOWeight,
+      ),
       reasoning: parsed?.reasoning ?? 'AI analysis',
       alignmentScore: parsed?.alignmentScore ?? 50,
       impactScore: parsed?.impactScore ?? 50,
       riskScore: parsed?.riskScore ?? 50,
       confidence: parsed?.confidence ?? 70,
-    };
+    }
   }
 
   private getHeuristicAnalysis(
     project: FundingProject,
     daoFull: DAOFull,
-    knobs: FundingKnobs
+    knobs: FundingKnobs,
   ): FundingAnalysis {
-    const isLinked = daoFull.linkedPackages.includes(project.registryId) ||
-                     daoFull.linkedRepos.includes(project.registryId);
+    const isLinked =
+      daoFull.linkedPackages.includes(project.registryId) ||
+      daoFull.linkedRepos.includes(project.registryId)
 
     // Base weight from community stake
-    const stakeEth = Number(formatEther(project.communityStake));
-    let weight = Math.min(stakeEth * 100, 2000);
+    const stakeEth = Number(formatEther(project.communityStake))
+    let weight = Math.min(stakeEth * 100, 2000)
 
     // Bonus for linked projects
     if (isLinked) {
-      weight += 1000;
+      weight += 1000
     }
 
     // Bonus for established projects
     if (project.totalFunded > BigInt(0)) {
-      weight += 500;
+      weight += 500
     }
 
-    weight = Math.min(weight, knobs.maxCEOWeight);
+    weight = Math.min(weight, knobs.maxCEOWeight)
 
     return {
       projectId: project.projectId,
@@ -253,23 +271,24 @@ Return JSON:
       impactScore: 60,
       riskScore: 40,
       confidence: 60,
-    };
+    }
   }
 
   private async generateFundingStrategy(
     daoFull: DAOFull,
     recommendations: FundingAnalysis[],
-    epoch: FundingEpoch
+    epoch: FundingEpoch,
   ): Promise<{ strategy: string; priorities: string[] }> {
-    const dwsUp = await checkDWSCompute();
+    const dwsUp = await checkDWSCompute()
     if (!dwsUp) {
       return {
-        strategy: 'Balanced funding across all active projects based on community support and alignment.',
+        strategy:
+          'Balanced funding across all active projects based on community support and alignment.',
         priorities: ['Core infrastructure', 'Community tools', 'Security'],
-      };
+      }
     }
 
-    const topProjects = recommendations.slice(0, 5);
+    const topProjects = recommendations.slice(0, 5)
     const prompt = `As ${daoFull.ceoPersona.name}, summarize the funding strategy for epoch ${epoch.epochId}.
 
 Top Projects:
@@ -282,15 +301,21 @@ Return JSON:
 {
   "strategy": "overall funding strategy description",
   "priorities": ["priority area 1", "priority area 2", "priority area 3"]
-}`;
+}`
 
-    const response = await dwsGenerate(prompt, this.buildPersonaSystemPrompt(daoFull.ceoPersona), 400);
-    const parsed = parseJson<{ strategy: string; priorities: string[] }>(response);
+    const response = await dwsGenerate(
+      prompt,
+      this.buildPersonaSystemPrompt(daoFull.ceoPersona),
+      400,
+    )
+    const parsed = parseJson<{ strategy: string; priorities: string[] }>(
+      response,
+    )
 
     return {
       strategy: parsed?.strategy ?? 'Balanced funding approach.',
       priorities: parsed?.priorities ?? ['Core development', 'Community'],
-    };
+    }
   }
 
   // ============ Quadratic Funding Calculations ============
@@ -298,59 +323,59 @@ Return JSON:
   calculateQuadraticAllocation(
     stakes: Array<{ staker: Address; amount: bigint }>,
     matchingPool: bigint,
-    totalProjects: number
+    totalProjects: number,
   ): bigint {
     // Guard against invalid inputs
-    if (stakes.length === 0) return BigInt(0);
-    if (matchingPool <= 0n) return BigInt(0);
-    if (totalProjects <= 0) return BigInt(0);
+    if (stakes.length === 0) return BigInt(0)
+    if (matchingPool <= 0n) return BigInt(0)
+    if (totalProjects <= 0) return BigInt(0)
 
     // Sum of square roots
-    let sumSqrt = BigInt(0);
+    let sumSqrt = BigInt(0)
     for (const stake of stakes) {
       // Guard against negative stakes (shouldn't happen but fail-safe)
       if (stake.amount > 0n) {
-        sumSqrt += this.bigintSqrt(stake.amount);
+        sumSqrt += this.bigintSqrt(stake.amount)
       }
     }
 
     // Guard: if no valid stakes, return 0
-    if (sumSqrt === 0n) return BigInt(0);
+    if (sumSqrt === 0n) return BigInt(0)
 
     // Square the sum
-    const quadraticScore = sumSqrt * sumSqrt;
+    const quadraticScore = sumSqrt * sumSqrt
 
     // Calculate share of matching pool
     // Guard: divisor is guaranteed positive (quadraticScore > 0, totalProjects > 0, +1)
-    const divisor = quadraticScore * BigInt(totalProjects) + BigInt(1);
-    const matchingShare = (matchingPool * quadraticScore) / divisor;
+    const divisor = quadraticScore * BigInt(totalProjects) + BigInt(1)
+    const matchingShare = (matchingPool * quadraticScore) / divisor
 
-    return matchingShare;
+    return matchingShare
   }
 
   private bigintSqrt(value: bigint): bigint {
-    if (value < BigInt(0)) return BigInt(0);
-    if (value < BigInt(2)) return value;
+    if (value < BigInt(0)) return BigInt(0)
+    if (value < BigInt(2)) return value
 
-    let x = value;
-    let y = (x + BigInt(1)) / BigInt(2);
+    let x = value
+    let y = (x + BigInt(1)) / BigInt(2)
 
     while (y < x) {
-      x = y;
-      y = (x + value / x) / BigInt(2);
+      x = y
+      y = (x + value / x) / BigInt(2)
     }
 
-    return x;
+    return x
   }
 
   // ============ Knobs Management ============
 
   async getKnobs(daoId: string): Promise<FundingKnobs> {
-    const cached = this.knobsCache.get(daoId);
-    if (cached) return cached;
+    const cached = this.knobsCache.get(daoId)
+    if (cached) return cached
 
-    const config = await this.daoService.getFundingConfig(daoId);
-    const params = await this.daoService.getGovernanceParams(daoId);
+    const config = await this.daoService.getFundingConfig(daoId)
+    const params = await this.daoService.getGovernanceParams(daoId)
 
     const knobs: FundingKnobs = {
       minQualityForFunding: params.minQualityScore,
@@ -360,16 +385,19 @@ Return JSON:
       stakeCooldown: config.cooldownPeriod,
       epochDuration: config.epochDuration,
       autoApproveThreshold: 80,
-    };
+    }
 
-    this.knobsCache.set(daoId, knobs);
-    return knobs;
+    this.knobsCache.set(daoId, knobs)
+    return knobs
   }
 
-  async updateKnobs(daoId: string, knobs: Partial<FundingKnobs>): Promise<void> {
-    const current = await this.getKnobs(daoId);
-    const updated = { ...current, ...knobs };
-    this.knobsCache.set(daoId, updated);
+  async updateKnobs(
+    daoId: string,
+    knobs: Partial<FundingKnobs>,
+  ): Promise<void> {
+    const current = await this.getKnobs(daoId)
+    const updated = { ...current, ...knobs }
+    this.knobsCache.set(daoId, updated)
 
     // Update on-chain config
     await this.daoService.setFundingConfig(daoId, {
@@ -380,74 +408,89 @@ Return JSON:
       matchingMultiplier: updated.quadraticMultiplier,
       quadraticEnabled: true,
       ceoWeightCap: updated.maxCEOWeight,
-    });
+    })
   }
 
   // ============ Auto-approval Logic ============
 
-  async shouldAutoApprove(project: FundingProject, daoId: string): Promise<{ approved: boolean; reason: string }> {
+  async shouldAutoApprove(
+    project: FundingProject,
+    daoId: string,
+  ): Promise<{ approved: boolean; reason: string }> {
     // Knobs are available for future auto-approval threshold checks
-    void this.getKnobs(daoId);
-    const daoFull = await this.daoService.getDAOFull(daoId);
+    void this.getKnobs(daoId)
+    const daoFull = await this.daoService.getDAOFull(daoId)
 
     // Check if linked to DAO
     const isLinked =
-      daoFull.linkedPackages.includes(project.registryId) || daoFull.linkedRepos.includes(project.registryId);
+      daoFull.linkedPackages.includes(project.registryId) ||
+      daoFull.linkedRepos.includes(project.registryId)
 
     if (isLinked) {
-      return { approved: true, reason: 'Project is linked to DAO' };
+      return { approved: true, reason: 'Project is linked to DAO' }
     }
 
     // Check stake threshold
-    const stakeEth = Number(formatEther(project.communityStake));
+    const stakeEth = Number(formatEther(project.communityStake))
     if (stakeEth >= 1) {
-      return { approved: true, reason: 'Sufficient community stake' };
+      return { approved: true, reason: 'Sufficient community stake' }
     }
 
     // Check if proposer is council member
-    const councilMembers = await this.daoService.getCouncilMembers(daoId);
-    const isCouncilProposal = councilMembers.some((m) => m.member === project.proposer);
+    const councilMembers = await this.daoService.getCouncilMembers(daoId)
+    const isCouncilProposal = councilMembers.some(
+      (m) => m.member === project.proposer,
+    )
     if (isCouncilProposal) {
-      return { approved: true, reason: 'Proposed by council member' };
+      return { approved: true, reason: 'Proposed by council member' }
     }
 
-    return { approved: false, reason: 'Requires council/CEO review' };
+    return { approved: false, reason: 'Requires council/CEO review' }
   }
 
   // ============ Epoch Lifecycle ============
 
-  async canFinalizeEpoch(daoId: string): Promise<{ canFinalize: boolean; reason: string }> {
-    const epoch = await this.daoService.getCurrentEpoch(daoId);
+  async canFinalizeEpoch(
+    daoId: string,
+  ): Promise<{ canFinalize: boolean; reason: string }> {
+    const epoch = await this.daoService.getCurrentEpoch(daoId)
 
     if (epoch.finalized) {
-      return { canFinalize: false, reason: 'Epoch already finalized' };
+      return { canFinalize: false, reason: 'Epoch already finalized' }
     }
 
     if (Date.now() / 1000 < epoch.endTime) {
-      const remaining = epoch.endTime - Date.now() / 1000;
-      return { canFinalize: false, reason: `Epoch ends in ${Math.ceil(remaining / 3600)} hours` };
+      const remaining = epoch.endTime - Date.now() / 1000
+      return {
+        canFinalize: false,
+        reason: `Epoch ends in ${Math.ceil(remaining / 3600)} hours`,
+      }
     }
 
-    return { canFinalize: true, reason: 'Epoch ready for finalization' };
+    return { canFinalize: true, reason: 'Epoch ready for finalization' }
   }
 
   async getDistributionPreview(daoId: string): Promise<FundingAllocation[]> {
-    const allocations = await this.daoService.getFundingAllocations(daoId);
-    const epoch = await this.daoService.getCurrentEpoch(daoId);
+    const allocations = await this.daoService.getFundingAllocations(daoId)
+    const epoch = await this.daoService.getCurrentEpoch(daoId)
 
     // Add projected amounts
     return allocations.map((a) => ({
       ...a,
-      allocation: (epoch.totalBudget * BigInt(Math.floor(a.allocationPercentage * 100))) / BigInt(10000),
-    }));
+      allocation:
+        (epoch.totalBudget * BigInt(Math.floor(a.allocationPercentage * 100))) /
+        BigInt(10000),
+    }))
   }
 
   // ============ Model Delegation ============
 
-  async getModelDelegationStats(_daoId: string): Promise<ModelDelegationStats[]> {
+  async getModelDelegationStats(
+    _daoId: string,
+  ): Promise<ModelDelegationStats[]> {
     // This would integrate with ModelRegistry to get delegation data
     // For now, return empty array - to be implemented with model marketplace
-    return [];
+    return []
   }
 
   // ============ Helpers ============
@@ -465,24 +508,22 @@ When analyzing funding decisions:
 1. Prioritize projects aligned with DAO values
 2. Balance risk and reward
 3. Consider community sentiment
-4. Think strategically about ecosystem growth`;
+4. Think strategically about ecosystem growth`
   }
 
   clearCache(daoId?: string): void {
     if (daoId) {
-      this.knobsCache.delete(daoId);
+      this.knobsCache.delete(daoId)
     } else {
-      this.knobsCache.clear();
+      this.knobsCache.clear()
     }
   }
 }
 
 // ============ Singleton ============
 
-let instance: FundingOracle | null = null;
+let instance: FundingOracle | null = null
 
 export function getFundingOracle(): FundingOracle {
-  return (instance ??= new FundingOracle());
+  return (instance ??= new FundingOracle())
 }
-
-

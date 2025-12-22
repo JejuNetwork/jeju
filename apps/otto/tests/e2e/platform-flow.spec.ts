@@ -3,9 +3,9 @@
  * Tests webhook endpoints and platform-specific flows
  */
 
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test'
 
-const BASE_URL = process.env.OTTO_BASE_URL ?? 'http://localhost:4040';
+const BASE_URL = process.env.OTTO_BASE_URL ?? 'http://localhost:4040'
 
 test.describe('Discord Webhook E2E', () => {
   test('discord webhook accepts valid interaction', async ({ request }) => {
@@ -14,12 +14,12 @@ test.describe('Discord Webhook E2E', () => {
         type: 1, // PING
         token: 'test-token',
       },
-    });
-    
-    expect(response.ok()).toBeTruthy();
-    const data = await response.json();
-    expect(data.type).toBe(1); // PONG
-  });
+    })
+
+    expect(response.ok()).toBeTruthy()
+    const data = await response.json()
+    expect(data.type).toBe(1) // PONG
+  })
 
   test('discord slash command interaction', async ({ request }) => {
     const response = await request.post(`${BASE_URL}/webhooks/discord`, {
@@ -35,11 +35,11 @@ test.describe('Discord Webhook E2E', () => {
           options: [{ name: 'help', type: 1 }],
         },
       },
-    });
-    
-    expect(response.ok()).toBeTruthy();
-  });
-});
+    })
+
+    expect(response.ok()).toBeTruthy()
+  })
+})
 
 test.describe('Telegram Webhook E2E', () => {
   test('telegram webhook accepts message update', async ({ request }) => {
@@ -54,10 +54,10 @@ test.describe('Telegram Webhook E2E', () => {
           date: Math.floor(Date.now() / 1000),
         },
       },
-    });
-    
-    expect(response.ok()).toBeTruthy();
-  });
+    })
+
+    expect(response.ok()).toBeTruthy()
+  })
 
   test('telegram callback query', async ({ request }) => {
     const response = await request.post(`${BASE_URL}/webhooks/telegram`, {
@@ -70,11 +70,11 @@ test.describe('Telegram Webhook E2E', () => {
           data: 'swap_confirm',
         },
       },
-    });
-    
-    expect(response.ok()).toBeTruthy();
-  });
-});
+    })
+
+    expect(response.ok()).toBeTruthy()
+  })
+})
 
 test.describe('Farcaster Webhook E2E', () => {
   test('farcaster frame interaction', async ({ request }) => {
@@ -93,23 +93,23 @@ test.describe('Farcaster Webhook E2E', () => {
           messageBytes: '',
         },
       },
-    });
-    
-    expect(response.ok()).toBeTruthy();
-  });
-});
+    })
+
+    expect(response.ok()).toBeTruthy()
+  })
+})
 
 test.describe('Twitter Webhook E2E', () => {
   test('twitter CRC challenge', async ({ request }) => {
     const response = await request.get(
-      `${BASE_URL}/webhooks/twitter?crc_token=test_token_123`
-    );
-    
-    expect(response.ok()).toBeTruthy();
-    const data = await response.json();
-    expect(data.response_token).toBeDefined();
-    expect(data.response_token).toMatch(/^sha256=/);
-  });
+      `${BASE_URL}/webhooks/twitter?crc_token=test_token_123`,
+    )
+
+    expect(response.ok()).toBeTruthy()
+    const data = await response.json()
+    expect(data.response_token).toBeDefined()
+    expect(data.response_token).toMatch(/^sha256=/)
+  })
 
   test('twitter webhook accepts tweet event', async ({ request }) => {
     const response = await request.post(`${BASE_URL}/webhooks/twitter`, {
@@ -124,12 +124,12 @@ test.describe('Twitter Webhook E2E', () => {
           },
         ],
       },
-    });
-    
-    expect(response.ok()).toBeTruthy();
-    const data = await response.json();
-    expect(data.ok).toBe(true);
-  });
+    })
+
+    expect(response.ok()).toBeTruthy()
+    const data = await response.json()
+    expect(data.ok).toBe(true)
+  })
 
   test('twitter webhook accepts DM event', async ({ request }) => {
     const response = await request.post(`${BASE_URL}/webhooks/twitter`, {
@@ -145,13 +145,13 @@ test.describe('Twitter Webhook E2E', () => {
           },
         ],
       },
-    });
-    
-    expect(response.ok()).toBeTruthy();
-    const data = await response.json();
-    expect(data.ok).toBe(true);
-  });
-});
+    })
+
+    expect(response.ok()).toBeTruthy()
+    const data = await response.json()
+    expect(data.ok).toBe(true)
+  })
+})
 
 test.describe('WhatsApp Webhook E2E', () => {
   test('whatsapp webhook accepts message', async ({ request }) => {
@@ -162,42 +162,44 @@ test.describe('WhatsApp Webhook E2E', () => {
         To: 'whatsapp:+0987654321',
         Body: 'otto help',
       },
-    });
-    
-    expect(response.ok()).toBeTruthy();
-  });
-});
+    })
+
+    expect(response.ok()).toBeTruthy()
+  })
+})
 
 test.describe('Cross-Platform Integration', () => {
   test('same user can interact across platforms', async ({ request }) => {
     // Create session for web
     const webSession = await request.post(`${BASE_URL}/api/chat/session`, {
       data: {},
-    });
-    const webData = await webSession.json();
-    
+    })
+    const webData = await webSession.json()
+
     // Send message on web
     const webMsg = await request.post(`${BASE_URL}/api/chat/chat`, {
       headers: { 'X-Session-Id': webData.sessionId },
       data: { message: 'connect' },
-    });
-    const webMsgData = await webMsg.json();
-    expect(webMsgData.message.content).toContain('connect');
-    
+    })
+    const webMsgData = await webMsg.json()
+    expect(webMsgData.message.content).toContain('connect')
+
     // Simulate Telegram webhook with same intent
-    const telegramWebhook = await request.post(`${BASE_URL}/webhooks/telegram`, {
-      data: {
-        update_id: 999999,
-        message: {
-          message_id: 1,
-          from: { id: 99999, username: 'sameuser', first_name: 'Same' },
-          chat: { id: 99999, type: 'private' },
-          text: '/otto connect',
-          date: Math.floor(Date.now() / 1000),
+    const telegramWebhook = await request.post(
+      `${BASE_URL}/webhooks/telegram`,
+      {
+        data: {
+          update_id: 999999,
+          message: {
+            message_id: 1,
+            from: { id: 99999, username: 'sameuser', first_name: 'Same' },
+            chat: { id: 99999, type: 'private' },
+            text: '/otto connect',
+            date: Math.floor(Date.now() / 1000),
+          },
         },
       },
-    });
-    expect(telegramWebhook.ok()).toBeTruthy();
-  });
-});
-
+    )
+    expect(telegramWebhook.ok()).toBeTruthy()
+  })
+})

@@ -1,44 +1,44 @@
 declare module 'opossum' {
   export interface CircuitBreakerOptions {
     /** Time in milliseconds that action should be allowed to execute before timing out */
-    timeout?: number;
+    timeout?: number
     /** Error percentage at which to open the circuit */
-    errorThresholdPercentage?: number;
+    errorThresholdPercentage?: number
     /** Time in milliseconds to wait before setting breaker to half-open state */
-    resetTimeout?: number;
+    resetTimeout?: number
     /** Minimum number of requests within the rolling window before the circuit opens */
-    volumeThreshold?: number;
+    volumeThreshold?: number
     /** Rolling statistics window size in milliseconds */
-    rollingCountTimeout?: number;
+    rollingCountTimeout?: number
     /** Number of buckets the rolling statistical window is divided into */
-    rollingCountBuckets?: number;
+    rollingCountBuckets?: number
     /** Name for the circuit breaker */
-    name?: string;
+    name?: string
     /** Whether this breaker is in the semaphore-locked state */
-    group?: string;
+    group?: string
     /** Percentile window duration */
-    rollingPercentilesEnabled?: boolean;
+    rollingPercentilesEnabled?: boolean
     /** Capacity - max concurrent requests when circuit is half-open */
-    capacity?: number;
+    capacity?: number
     /** Whether to fire on reject when half-open */
-    allowWarmUp?: boolean;
+    allowWarmUp?: boolean
     /** Enable request volume threshold */
-    enabled?: boolean;
+    enabled?: boolean
   }
 
   export interface CircuitBreakerStats {
-    failures: number;
-    fallbacks: number;
-    successes: number;
-    rejects: number;
-    fires: number;
-    timeouts: number;
-    cacheHits: number;
-    cacheMisses: number;
-    semaphoreRejections: number;
-    percentiles: Record<number, number>;
-    latencyTimes: number[];
-    latencyMean: number;
+    failures: number
+    fallbacks: number
+    successes: number
+    rejects: number
+    fires: number
+    timeouts: number
+    cacheHits: number
+    cacheMisses: number
+    semaphoreRejections: number
+    percentiles: Record<number, number>
+    latencyTimes: number[]
+    latencyMean: number
   }
 
   export type CircuitBreakerEvent =
@@ -51,72 +51,99 @@ declare module 'opossum' {
     | 'fallback'
     | 'failure'
     | 'semaphoreLocked'
-    | 'healthCheckFailed';
+    | 'healthCheckFailed'
 
-  class CircuitBreaker<TArgs extends unknown[] = unknown[], TReturn = unknown> {
-    readonly name: string;
-    readonly group: string;
-    readonly enabled: boolean;
-    readonly pendingClose: boolean;
-    readonly closed: boolean;
-    readonly opened: boolean;
-    readonly halfOpen: boolean;
-    readonly isShutdown: boolean;
-    readonly status: { stats: CircuitBreakerStats };
-    readonly stats: CircuitBreakerStats;
-    readonly warmUp: boolean;
-    readonly volumeThreshold: number;
+  class CircuitBreaker<
+    TArgs extends readonly unknown[] = readonly [],
+    TReturn = void,
+  > {
+    readonly name: string
+    readonly group: string
+    readonly enabled: boolean
+    readonly pendingClose: boolean
+    readonly closed: boolean
+    readonly opened: boolean
+    readonly halfOpen: boolean
+    readonly isShutdown: boolean
+    readonly status: { stats: CircuitBreakerStats }
+    readonly stats: CircuitBreakerStats
+    readonly warmUp: boolean
+    readonly volumeThreshold: number
 
     constructor(
       action: (...args: TArgs) => Promise<TReturn>,
-      options?: CircuitBreakerOptions
-    );
+      options?: CircuitBreakerOptions,
+    )
 
     /** Returns the current state of the circuit breaker */
     toJSON(): {
-      state: 'OPEN' | 'HALF_OPEN' | 'CLOSED';
-      stats: CircuitBreakerStats;
-    };
+      state: 'OPEN' | 'HALF_OPEN' | 'CLOSED'
+      stats: CircuitBreakerStats
+    }
 
     /** Fire the circuit breaker action */
-    fire(...args: TArgs): Promise<TReturn>;
+    fire(...args: TArgs): Promise<TReturn>
 
     /** Clears the cache */
-    clearCache(): void;
+    clearCache(): void
 
     /** Opens the circuit breaker */
-    open(): void;
+    open(): void
 
     /** Closes the circuit breaker */
-    close(): void;
+    close(): void
 
     /** Disables the circuit breaker */
-    disable(): void;
+    disable(): void
 
     /** Enables the circuit breaker */
-    enable(): void;
+    enable(): void
 
     /** Shuts down the circuit breaker */
-    shutdown(): void;
+    shutdown(): void
 
     /** Registers an event listener */
-    on(event: CircuitBreakerEvent, listener: (...args: unknown[]) => void): this;
+    on(event: 'success', listener: (result: TReturn) => void): this
+    on(
+      event: 'failure' | 'timeout' | 'healthCheckFailed',
+      listener: (error: Error) => void,
+    ): this
+    on(
+      event: 'fallback',
+      listener: (result: TReturn, error?: Error) => void,
+    ): this
+    on(
+      event: 'open' | 'halfOpen' | 'close' | 'semaphoreLocked' | 'reject',
+      listener: () => void,
+    ): this
 
     /** Registers a one-time event listener */
-    once(event: CircuitBreakerEvent, listener: (...args: unknown[]) => void): this;
+    once(event: 'success', listener: (result: TReturn) => void): this
+    once(
+      event: 'failure' | 'timeout' | 'healthCheckFailed',
+      listener: (error: Error) => void,
+    ): this
+    once(
+      event: 'fallback',
+      listener: (result: TReturn, error?: Error) => void,
+    ): this
+    once(
+      event: 'open' | 'halfOpen' | 'close' | 'semaphoreLocked' | 'reject',
+      listener: () => void,
+    ): this
 
     /** Removes an event listener */
-    off(event: CircuitBreakerEvent, listener: (...args: unknown[]) => void): this;
+    off(event: CircuitBreakerEvent, listener: () => void): this
 
     /** Removes an event listener */
-    removeListener(event: CircuitBreakerEvent, listener: (...args: unknown[]) => void): this;
+    removeListener(event: CircuitBreakerEvent, listener: () => void): this
 
     /** Sets a fallback function to execute when the circuit is open */
-    fallback(fn: (...args: TArgs) => TReturn | Promise<TReturn>): this;
+    fallback(fn: (...args: TArgs) => TReturn | Promise<TReturn>): this
 
     /** Health check function */
-    healthCheck(fn: () => Promise<void>, interval?: number): void;
+    healthCheck(fn: () => Promise<void>, interval?: number): void
   }
 
-  export default CircuitBreaker;
+  export default CircuitBreaker
 }

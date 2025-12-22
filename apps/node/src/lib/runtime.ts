@@ -3,128 +3,128 @@
  * Works in both Tauri and browser environments
  */
 
-import { z } from 'zod';
-import { detectHardware, convertHardwareToSnakeCase } from './hardware';
-import { createNodeClient } from './contracts';
-import type { HardwareInfo } from '../types';
+import { z } from 'zod'
+import type { HardwareInfo } from '../types'
 import {
-  validateRuntimeConfig,
-  validateWalletConnection,
-  validateBalanceResult,
-  validateChainStatus,
-  validateServiceInfo,
-  validateServiceStartConfig,
-  validateRuntimeServiceState,
-  validateBotInfo,
-  validateBotState,
-  ServiceInfoSchema,
   BotInfoSchema,
   type BotState,
-} from '../validation';
+  ServiceInfoSchema,
+  validateBalanceResult,
+  validateBotInfo,
+  validateBotState,
+  validateChainStatus,
+  validateRuntimeConfig,
+  validateRuntimeServiceState,
+  validateServiceInfo,
+  validateServiceStartConfig,
+  validateWalletConnection,
+} from '../validation'
+import { createNodeClient } from './contracts'
+import { convertHardwareToSnakeCase, detectHardware } from './hardware'
 
-export type RuntimeEnv = 'tauri' | 'browser' | 'node';
+export type RuntimeEnv = 'tauri' | 'browser' | 'node'
 
 export function detectRuntime(): RuntimeEnv {
   if (typeof window !== 'undefined' && window.__TAURI_INTERNALS__) {
-    return 'tauri';
+    return 'tauri'
   }
   if (typeof window !== 'undefined') {
-    return 'browser';
+    return 'browser'
   }
-  return 'node';
+  return 'node'
 }
 
-export const runtime = detectRuntime();
-export const isTauri = runtime === 'tauri';
-export const isBrowser = runtime === 'browser';
-export const isNode = runtime === 'node';
+export const runtime = detectRuntime()
+export const isTauri = runtime === 'tauri'
+export const isBrowser = runtime === 'browser'
+export const isNode = runtime === 'node'
 
 /**
  * Runtime API - works in all environments
  */
 export interface RuntimeAPI {
-  detectHardware(): Promise<HardwareInfo>;
-  getConfig(): Promise<RuntimeConfig>;
-  saveConfig(config: RuntimeConfig): Promise<void>;
-  connectWallet(): Promise<WalletConnection | null>;
-  getBalance(address: string): Promise<BalanceResult>;
-  getChainStatus(): Promise<ChainStatus>;
+  detectHardware(): Promise<HardwareInfo>
+  getConfig(): Promise<RuntimeConfig>
+  saveConfig(config: RuntimeConfig): Promise<void>
+  connectWallet(): Promise<WalletConnection | null>
+  getBalance(address: string): Promise<BalanceResult>
+  getChainStatus(): Promise<ChainStatus>
   // Services
-  getServices(): Promise<ServiceInfo[]>;
-  startService(serviceId: string, config: ServiceStartConfig): Promise<void>;
-  stopService(serviceId: string): Promise<void>;
-  getServiceState(serviceId: string): Promise<ServiceState>;
+  getServices(): Promise<ServiceInfo[]>
+  startService(serviceId: string, config: ServiceStartConfig): Promise<void>
+  stopService(serviceId: string): Promise<void>
+  getServiceState(serviceId: string): Promise<ServiceState>
   // Bots
-  getBots(): Promise<BotInfo[]>;
-  startBot(botId: string, capital: bigint): Promise<void>;
-  stopBot(botId: string): Promise<void>;
-  getBotState(botId: string): Promise<BotState>;
+  getBots(): Promise<BotInfo[]>
+  startBot(botId: string, capital: bigint): Promise<void>
+  stopBot(botId: string): Promise<void>
+  getBotState(botId: string): Promise<BotState>
 }
 
 export interface RuntimeConfig {
-  network: 'mainnet' | 'testnet' | 'localnet';
-  rpcUrl: string;
-  chainId: number;
-  privateKey?: string;
-  autoClaim: boolean;
-  autoStake: boolean;
-  startMinimized: boolean;
-  startOnBoot: boolean;
-  notifications: boolean;
+  network: 'mainnet' | 'testnet' | 'localnet'
+  rpcUrl: string
+  chainId: number
+  privateKey?: string
+  autoClaim: boolean
+  autoStake: boolean
+  startMinimized: boolean
+  startOnBoot: boolean
+  notifications: boolean
 }
 
 export interface WalletConnection {
-  address: string;
-  chainId: number;
-  isConnected: boolean;
+  address: string
+  chainId: number
+  isConnected: boolean
 }
 
 export interface BalanceResult {
-  eth: bigint;
-  jeju: bigint;
-  staked: bigint;
-  pendingRewards: bigint;
+  eth: bigint
+  jeju: bigint
+  staked: bigint
+  pendingRewards: bigint
 }
 
 export interface ChainStatus {
-  connected: boolean;
-  chainId: number;
-  blockNumber: bigint;
-  syncing: boolean;
+  connected: boolean
+  chainId: number
+  blockNumber: bigint
+  syncing: boolean
 }
 
 export interface ServiceInfo {
-  id: string;
-  name: string;
-  description: string;
-  minStakeEth: number;
-  estimatedEarningsPerHourUsd: number;
-  isRunning: boolean;
-  meetsRequirements: boolean;
-  requirementIssues: string[];
+  id: string
+  name: string
+  description: string
+  minStakeEth: number
+  estimatedEarningsPerHourUsd: number
+  isRunning: boolean
+  meetsRequirements: boolean
+  requirementIssues: string[]
 }
 
 export interface ServiceStartConfig {
-  autoStake: boolean;
-  stakeAmount?: string;
+  autoStake: boolean
+  stakeAmount?: string
 }
 
 export interface ServiceState {
-  running: boolean;
-  uptimeSeconds: number;
-  requestsServed: number;
-  earningsWei: bigint;
-  health: 'healthy' | 'degraded' | 'unhealthy' | 'stopped';
+  running: boolean
+  uptimeSeconds: number
+  requestsServed: number
+  earningsWei: bigint
+  health: 'healthy' | 'degraded' | 'unhealthy' | 'stopped'
 }
 
 export interface BotInfo {
-  id: string;
-  name: string;
-  description: string;
-  minCapitalEth: number;
-  treasurySplitPercent: number;
-  riskLevel: 'low' | 'medium' | 'high';
-  isRunning: boolean;
+  id: string
+  name: string
+  description: string
+  minCapitalEth: number
+  treasurySplitPercent: number
+  riskLevel: 'low' | 'medium' | 'high'
+  isRunning: boolean
 }
 
 // BotState is imported from validation.ts
@@ -138,32 +138,34 @@ const DEFAULT_CONFIG: RuntimeConfig = {
   startMinimized: false,
   startOnBoot: false,
   notifications: true,
-};
+}
 
-const CONFIG_KEY = 'jeju-node-config';
+const CONFIG_KEY = 'jeju-node-config'
 
 /**
  * Browser implementation of RuntimeAPI
  */
+/** Type for objects that can be indexed by string keys */
+type Indexable<T> = T & Record<string, unknown>
+
 function createBrowserAPI(): RuntimeAPI {
   // In-memory state for browser mode
-  let config: RuntimeConfig = { ...DEFAULT_CONFIG };
-  const runningServices = new Map<string, ServiceState>();
-  const runningBots = new Map<string, BotState>();
+  let config: Indexable<RuntimeConfig> = { ...DEFAULT_CONFIG }
+  const runningServices = new Map<string, ServiceState>()
+  const runningBots = new Map<string, BotState>()
 
   // Load config from localStorage with prototype pollution protection
   if (typeof localStorage !== 'undefined') {
-    const stored = localStorage.getItem(CONFIG_KEY);
+    const stored = localStorage.getItem(CONFIG_KEY)
     if (stored) {
-      const parsed = JSON.parse(stored) as Record<string, unknown>;
+      const parsed = JSON.parse(stored) as Record<string, unknown>
       // Prevent prototype pollution - only merge allowed keys from DEFAULT_CONFIG
       // This ensures we only copy known properties, not __proto__ or constructor
-      const safeKeys = Object.keys(DEFAULT_CONFIG);
-      const dangerousKeys = new Set(['__proto__', 'constructor', 'prototype']);
-      const configRecord = config as unknown as Record<string, unknown>;
+      const safeKeys = Object.keys(DEFAULT_CONFIG)
+      const dangerousKeys = new Set(['__proto__', 'constructor', 'prototype'])
       for (const key of safeKeys) {
         if (key in parsed && !dangerousKeys.has(key)) {
-          configRecord[key] = parsed[key];
+          config[key] = parsed[key]
         }
       }
     }
@@ -210,43 +212,47 @@ function createBrowserAPI(): RuntimeAPI {
           gpu_support: false,
           images: [],
         },
-      };
+      }
     },
 
     async getConfig(): Promise<RuntimeConfig> {
-      return validateRuntimeConfig(config);
+      return validateRuntimeConfig(config)
     },
 
     async saveConfig(newConfig: RuntimeConfig): Promise<void> {
-      const validated = validateRuntimeConfig(newConfig);
-      config = validated;
+      const validated = validateRuntimeConfig(newConfig)
+      config = validated
       if (typeof localStorage !== 'undefined') {
-        localStorage.setItem(CONFIG_KEY, JSON.stringify(validated));
+        localStorage.setItem(CONFIG_KEY, JSON.stringify(validated))
       }
     },
 
     async connectWallet(): Promise<WalletConnection | null> {
       // Use injected wallet if available
-      const ethereum = window.ethereum;
+      const ethereum = window.ethereum
       if (ethereum) {
-        const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
-        const chainId = await ethereum.request({ method: 'eth_chainId' });
+        const accounts = await ethereum.request({
+          method: 'eth_requestAccounts',
+        })
+        const chainId = await ethereum.request({ method: 'eth_chainId' })
         if (accounts[0]) {
           const raw = {
             address: accounts[0],
             chainId: parseInt(chainId, 16),
             isConnected: true,
-          };
-          return validateWalletConnection(raw);
+          }
+          return validateWalletConnection(raw)
         }
       }
-      return null;
+      return null
     },
 
     async getBalance(address: string): Promise<BalanceResult> {
-      const client = createNodeClient(config.rpcUrl, config.chainId);
-      const ethBalance = await client.publicClient.getBalance({ address: address as `0x${string}` });
-      
+      const client = createNodeClient(config.rpcUrl, config.chainId)
+      const ethBalance = await client.publicClient.getBalance({
+        address: address as `0x${string}`,
+      })
+
       // ERC-20 balanceOf ABI
       const ERC20_ABI = [
         {
@@ -256,15 +262,15 @@ function createBrowserAPI(): RuntimeAPI {
           inputs: [{ name: 'account', type: 'address' }],
           outputs: [{ name: '', type: 'uint256' }],
         },
-      ] as const;
+      ] as const
 
       // Read Jeju token balance from environment or deployment
-      const jejuTokenAddress = process.env.JEJU_TOKEN_ADDRESS;
-      const stakingManagerAddress = process.env.NODE_STAKING_MANAGER;
-      
-      let jejuBalance = 0n;
-      let stakedBalance = 0n;
-      let pendingRewards = 0n;
+      const jejuTokenAddress = process.env.JEJU_TOKEN_ADDRESS
+      const stakingManagerAddress = process.env.NODE_STAKING_MANAGER
+
+      let jejuBalance = 0n
+      let stakedBalance = 0n
+      let pendingRewards = 0n
 
       if (jejuTokenAddress) {
         jejuBalance = await client.publicClient.readContract({
@@ -272,7 +278,7 @@ function createBrowserAPI(): RuntimeAPI {
           abi: ERC20_ABI,
           functionName: 'balanceOf',
           args: [address as `0x${string}`],
-        });
+        })
       }
 
       if (stakingManagerAddress) {
@@ -292,9 +298,9 @@ function createBrowserAPI(): RuntimeAPI {
             inputs: [{ name: 'staker', type: 'address' }],
             outputs: [{ name: '', type: 'uint256' }],
           },
-        ] as const;
+        ] as const
 
-        [stakedBalance, pendingRewards] = await Promise.all([
+        ;[stakedBalance, pendingRewards] = await Promise.all([
           client.publicClient.readContract({
             address: stakingManagerAddress as `0x${string}`,
             abi: STAKING_ABI,
@@ -307,30 +313,30 @@ function createBrowserAPI(): RuntimeAPI {
             functionName: 'pendingRewards',
             args: [address as `0x${string}`],
           }),
-        ]);
+        ])
       }
-      
+
       const raw = {
         eth: ethBalance,
         jeju: jejuBalance,
         staked: stakedBalance,
         pendingRewards,
-      };
-      return validateBalanceResult(raw);
+      }
+      return validateBalanceResult(raw)
     },
 
     async getChainStatus(): Promise<ChainStatus> {
-      const client = createNodeClient(config.rpcUrl, config.chainId);
-      const blockNumber = await client.publicClient.getBlockNumber();
-      const chainId = await client.publicClient.getChainId();
-      
+      const client = createNodeClient(config.rpcUrl, config.chainId)
+      const blockNumber = await client.publicClient.getBlockNumber()
+      const chainId = await client.publicClient.getChainId()
+
       const raw = {
         connected: true,
         chainId,
         blockNumber,
         syncing: false,
-      };
-      return validateChainStatus(raw);
+      }
+      return validateChainStatus(raw)
     },
 
     async getServices(): Promise<ServiceInfo[]> {
@@ -340,7 +346,7 @@ function createBrowserAPI(): RuntimeAPI {
           name: 'Compute Provider',
           description: 'Provide GPU compute for AI inference',
           minStakeEth: 0.1,
-          estimatedEarningsPerHourUsd: 2.50,
+          estimatedEarningsPerHourUsd: 2.5,
           isRunning: runningServices.has('compute'),
           meetsRequirements: false, // Browser can't run compute
           requirementIssues: ['GPU required - not available in browser'],
@@ -350,7 +356,7 @@ function createBrowserAPI(): RuntimeAPI {
           name: 'Oracle Provider',
           description: 'Submit price data to the network',
           minStakeEth: 1.0,
-          estimatedEarningsPerHourUsd: 0.50,
+          estimatedEarningsPerHourUsd: 0.5,
           isRunning: runningServices.has('oracle'),
           meetsRequirements: true,
           requirementIssues: [],
@@ -370,7 +376,7 @@ function createBrowserAPI(): RuntimeAPI {
           name: 'Cron Executor',
           description: 'Execute scheduled tasks for others',
           minStakeEth: 0,
-          estimatedEarningsPerHourUsd: 0.10,
+          estimatedEarningsPerHourUsd: 0.1,
           isRunning: runningServices.has('cron'),
           meetsRequirements: true,
           requirementIssues: [],
@@ -385,36 +391,51 @@ function createBrowserAPI(): RuntimeAPI {
           meetsRequirements: false,
           requirementIssues: ['Proxy service requires dedicated IP'],
         },
-      ];
-      return raw.map(validateServiceInfo);
+      ]
+      return raw.map(validateServiceInfo)
     },
 
-    async startService(serviceId: string, config: ServiceStartConfig): Promise<void> {
-      if (!serviceId || typeof serviceId !== 'string' || serviceId.length === 0) {
-        throw new Error('Invalid serviceId: must be a non-empty string');
+    async startService(
+      serviceId: string,
+      config: ServiceStartConfig,
+    ): Promise<void> {
+      if (
+        !serviceId ||
+        typeof serviceId !== 'string' ||
+        serviceId.length === 0
+      ) {
+        throw new Error('Invalid serviceId: must be a non-empty string')
       }
-      validateServiceStartConfig(config);
+      validateServiceStartConfig(config)
       const rawState = {
         running: true,
         uptimeSeconds: 0,
         requestsServed: 0,
         earningsWei: 0n,
         health: 'healthy' as const,
-      };
-      const validatedState = validateRuntimeServiceState(rawState);
-      runningServices.set(serviceId, validatedState);
+      }
+      const validatedState = validateRuntimeServiceState(rawState)
+      runningServices.set(serviceId, validatedState)
     },
 
     async stopService(serviceId: string): Promise<void> {
-      if (!serviceId || typeof serviceId !== 'string' || serviceId.length === 0) {
-        throw new Error('Invalid serviceId: must be a non-empty string');
+      if (
+        !serviceId ||
+        typeof serviceId !== 'string' ||
+        serviceId.length === 0
+      ) {
+        throw new Error('Invalid serviceId: must be a non-empty string')
       }
-      runningServices.delete(serviceId);
+      runningServices.delete(serviceId)
     },
 
     async getServiceState(serviceId: string): Promise<ServiceState> {
-      if (!serviceId || typeof serviceId !== 'string' || serviceId.length === 0) {
-        throw new Error('Invalid serviceId: must be a non-empty string');
+      if (
+        !serviceId ||
+        typeof serviceId !== 'string' ||
+        serviceId.length === 0
+      ) {
+        throw new Error('Invalid serviceId: must be a non-empty string')
       }
       const raw = runningServices.get(serviceId) || {
         running: false,
@@ -422,8 +443,8 @@ function createBrowserAPI(): RuntimeAPI {
         requestsServed: 0,
         earningsWei: 0n,
         health: 'stopped' as const,
-      };
-      return validateRuntimeServiceState(raw);
+      }
+      return validateRuntimeServiceState(raw)
     },
 
     async getBots(): Promise<BotInfo[]> {
@@ -473,19 +494,19 @@ function createBrowserAPI(): RuntimeAPI {
           riskLevel: 'medium',
           isRunning: runningBots.has('solver'),
         },
-      ];
+      ]
     },
 
     async startBot(botId: string, capital: bigint): Promise<void> {
       if (!botId || typeof botId !== 'string' || botId.length === 0) {
-        throw new Error('Invalid botId: must be a non-empty string');
+        throw new Error('Invalid botId: must be a non-empty string')
       }
       if (capital <= 0n) {
-        throw new Error('Invalid capital: must be positive');
+        throw new Error('Invalid capital: must be positive')
       }
-      const state = runningBots.get(botId);
+      const state = runningBots.get(botId)
       if (state?.running) {
-        throw new Error(`Bot ${botId} is already running`);
+        throw new Error(`Bot ${botId} is already running`)
       }
       const rawState = {
         running: true,
@@ -497,13 +518,13 @@ function createBrowserAPI(): RuntimeAPI {
         treasuryShareWei: 0n,
         netProfitWei: 0n,
         health: 'healthy' as const,
-      };
-      const validatedState = validateBotState(rawState);
-      runningBots.set(botId, validatedState);
+      }
+      const validatedState = validateBotState(rawState)
+      runningBots.set(botId, validatedState)
     },
 
     async stopBot(botId: string): Promise<void> {
-      runningBots.delete(botId);
+      runningBots.delete(botId)
     },
 
     async getBotState(botId: string): Promise<BotState> {
@@ -517,207 +538,238 @@ function createBrowserAPI(): RuntimeAPI {
         treasuryShareWei: 0n,
         netProfitWei: 0n,
         health: 'stopped' as const,
-      };
-      return validateBotState(raw);
+      }
+      return validateBotState(raw)
     },
-  };
+  }
 }
 
 /**
  * Tauri implementation of RuntimeAPI (wraps Tauri invoke)
  */
 async function createTauriAPI(): Promise<RuntimeAPI> {
-  const { invoke } = await import('@tauri-apps/api/core');
+  const { invoke } = await import('@tauri-apps/api/core')
 
   return {
     async detectHardware(): Promise<HardwareInfo> {
-      const raw = await invoke('detect_hardware');
+      const raw = await invoke('detect_hardware')
       // Tauri returns snake_case format matching types.ts
-      return raw as HardwareInfo;
+      return raw as HardwareInfo
     },
 
     async getConfig(): Promise<RuntimeConfig> {
-      const raw = await invoke('get_config');
-      return validateRuntimeConfig(raw);
+      const raw = await invoke('get_config')
+      return validateRuntimeConfig(raw)
     },
 
     async saveConfig(config: RuntimeConfig): Promise<void> {
-      const validated = validateRuntimeConfig(config);
-      await invoke('save_config', { config: validated });
+      const validated = validateRuntimeConfig(config)
+      await invoke('save_config', { config: validated })
     },
 
     async connectWallet(): Promise<WalletConnection | null> {
-      const raw = await invoke('connect_wallet');
-      if (raw === null) return null;
-      return validateWalletConnection(raw);
+      const raw = await invoke('connect_wallet')
+      if (raw === null) return null
+      return validateWalletConnection(raw)
     },
 
     async getBalance(address: string): Promise<BalanceResult> {
       if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
-        throw new Error(`Invalid address: ${address}`);
+        throw new Error(`Invalid address: ${address}`)
       }
-      const result = await invoke<{eth: string, jeju: string, staked: string, pendingRewards: string}>('get_balance', { address });
+      const result = await invoke<{
+        eth: string
+        jeju: string
+        staked: string
+        pendingRewards: string
+      }>('get_balance', { address })
       const raw = {
         eth: BigInt(result.eth),
         jeju: BigInt(result.jeju),
         staked: BigInt(result.staked),
         pendingRewards: BigInt(result.pendingRewards),
-      };
-      return validateBalanceResult(raw);
+      }
+      return validateBalanceResult(raw)
     },
 
     async getChainStatus(): Promise<ChainStatus> {
-      const result = await invoke<{connected: boolean, chainId: number, blockNumber: string, syncing: boolean}>('get_chain_status');
+      const result = await invoke<{
+        connected: boolean
+        chainId: number
+        blockNumber: string
+        syncing: boolean
+      }>('get_chain_status')
       const raw = {
         connected: result.connected,
         chainId: result.chainId,
         blockNumber: BigInt(result.blockNumber),
         syncing: result.syncing,
-      };
-      return validateChainStatus(raw);
+      }
+      return validateChainStatus(raw)
     },
 
     async getServices(): Promise<ServiceInfo[]> {
-      const raw = await invoke('get_available_services');
-      return z.array(ServiceInfoSchema).parse(raw).map(validateServiceInfo);
+      const raw = await invoke('get_available_services')
+      return z.array(ServiceInfoSchema).parse(raw).map(validateServiceInfo)
     },
 
-    async startService(serviceId: string, config: ServiceStartConfig): Promise<void> {
-      if (!serviceId || typeof serviceId !== 'string' || serviceId.length === 0) {
-        throw new Error('Invalid serviceId: must be a non-empty string');
+    async startService(
+      serviceId: string,
+      config: ServiceStartConfig,
+    ): Promise<void> {
+      if (
+        !serviceId ||
+        typeof serviceId !== 'string' ||
+        serviceId.length === 0
+      ) {
+        throw new Error('Invalid serviceId: must be a non-empty string')
       }
-      const validatedConfig = validateServiceStartConfig(config);
-      await invoke('start_service', { serviceId, config: validatedConfig });
+      const validatedConfig = validateServiceStartConfig(config)
+      await invoke('start_service', { serviceId, config: validatedConfig })
     },
 
     async stopService(serviceId: string): Promise<void> {
-      if (!serviceId || typeof serviceId !== 'string' || serviceId.length === 0) {
-        throw new Error('Invalid serviceId: must be a non-empty string');
+      if (
+        !serviceId ||
+        typeof serviceId !== 'string' ||
+        serviceId.length === 0
+      ) {
+        throw new Error('Invalid serviceId: must be a non-empty string')
       }
-      await invoke('stop_service', { serviceId });
+      await invoke('stop_service', { serviceId })
     },
 
     async getServiceState(serviceId: string): Promise<ServiceState> {
-      if (!serviceId || typeof serviceId !== 'string' || serviceId.length === 0) {
-        throw new Error('Invalid serviceId: must be a non-empty string');
+      if (
+        !serviceId ||
+        typeof serviceId !== 'string' ||
+        serviceId.length === 0
+      ) {
+        throw new Error('Invalid serviceId: must be a non-empty string')
       }
-      const raw = await invoke('get_service_state', { serviceId });
-      return validateRuntimeServiceState(raw);
+      const raw = await invoke('get_service_state', { serviceId })
+      return validateRuntimeServiceState(raw)
     },
 
     async getBots(): Promise<BotInfo[]> {
-      const raw = await invoke('get_available_bots');
-      return z.array(BotInfoSchema).parse(raw).map(validateBotInfo);
+      const raw = await invoke('get_available_bots')
+      return z.array(BotInfoSchema).parse(raw).map(validateBotInfo)
     },
 
     async startBot(botId: string, capital: bigint): Promise<void> {
       if (!botId || typeof botId !== 'string' || botId.length === 0) {
-        throw new Error('Invalid botId: must be a non-empty string');
+        throw new Error('Invalid botId: must be a non-empty string')
       }
       if (capital <= 0n) {
-        throw new Error('Invalid capital: must be positive');
+        throw new Error('Invalid capital: must be positive')
       }
-      await invoke('start_bot', { botId, capital: capital.toString() });
+      await invoke('start_bot', { botId, capital: capital.toString() })
     },
 
     async stopBot(botId: string): Promise<void> {
       if (!botId || typeof botId !== 'string' || botId.length === 0) {
-        throw new Error('Invalid botId: must be a non-empty string');
+        throw new Error('Invalid botId: must be a non-empty string')
       }
-      await invoke('stop_bot', { botId });
+      await invoke('stop_bot', { botId })
     },
 
     async getBotState(botId: string): Promise<BotState> {
       if (!botId || typeof botId !== 'string' || botId.length === 0) {
-        throw new Error('Invalid botId: must be a non-empty string');
+        throw new Error('Invalid botId: must be a non-empty string')
       }
-      const raw = await invoke('get_bot_state', { botId });
-      return validateBotState(raw);
+      const raw = await invoke('get_bot_state', { botId })
+      return validateBotState(raw)
     },
-  };
+  }
 }
 
 /**
  * Node.js implementation (for daemon)
  */
 function createNodeAPI(): RuntimeAPI {
-  let config: RuntimeConfig = { ...DEFAULT_CONFIG };
-  const runningServices = new Map<string, ServiceState>();
-  const runningBots = new Map<string, BotState>();
+  let config: RuntimeConfig = { ...DEFAULT_CONFIG }
+  const runningServices = new Map<string, ServiceState>()
+  const runningBots = new Map<string, BotState>()
 
   return {
     async detectHardware(): Promise<HardwareInfo> {
-      const hw = detectHardware();
-      return convertHardwareToSnakeCase(hw);
+      const hw = detectHardware()
+      return convertHardwareToSnakeCase(hw)
     },
 
     async getConfig(): Promise<RuntimeConfig> {
-      return validateRuntimeConfig(config);
+      return validateRuntimeConfig(config)
     },
 
     async saveConfig(newConfig: RuntimeConfig): Promise<void> {
-      const validated = validateRuntimeConfig(newConfig);
-      config = validated;
+      const validated = validateRuntimeConfig(newConfig)
+      config = validated
     },
 
     async connectWallet(): Promise<WalletConnection | null> {
       // For daemon, wallet is configured via private key
       if (config.privateKey) {
         if (!/^0x[a-fA-F0-9]{64}$/.test(config.privateKey)) {
-          throw new Error('Invalid private key in config');
+          throw new Error('Invalid private key in config')
         }
-        const client = createNodeClient(config.rpcUrl, config.chainId, config.privateKey);
-        const address = client.walletClient?.account?.address;
+        const client = createNodeClient(
+          config.rpcUrl,
+          config.chainId,
+          config.privateKey,
+        )
+        const address = client.walletClient?.account?.address
         if (address) {
           const raw = {
             address,
             chainId: config.chainId,
             isConnected: true,
-          };
-          return validateWalletConnection(raw);
+          }
+          return validateWalletConnection(raw)
         }
       }
-      return null;
+      return null
     },
 
     async getBalance(address: string): Promise<BalanceResult> {
       if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
-        throw new Error(`Invalid address: ${address}`);
+        throw new Error(`Invalid address: ${address}`)
       }
-      const client = createNodeClient(config.rpcUrl, config.chainId);
-      const balance = await client.publicClient.getBalance({ address: address as `0x${string}` });
+      const client = createNodeClient(config.rpcUrl, config.chainId)
+      const balance = await client.publicClient.getBalance({
+        address: address as `0x${string}`,
+      })
       const raw = {
         eth: balance,
         jeju: 0n,
         staked: 0n,
         pendingRewards: 0n,
-      };
-      return validateBalanceResult(raw);
+      }
+      return validateBalanceResult(raw)
     },
 
     async getChainStatus(): Promise<ChainStatus> {
-      const client = createNodeClient(config.rpcUrl, config.chainId);
-      const blockNumber = await client.publicClient.getBlockNumber();
-      const chainId = await client.publicClient.getChainId();
+      const client = createNodeClient(config.rpcUrl, config.chainId)
+      const blockNumber = await client.publicClient.getBlockNumber()
+      const chainId = await client.publicClient.getChainId()
       const raw = {
         connected: true,
         chainId,
         blockNumber,
         syncing: false,
-      };
-      return validateChainStatus(raw);
+      }
+      return validateChainStatus(raw)
     },
 
     async getServices(): Promise<ServiceInfo[]> {
-      const hardwareRaw = detectHardware();
-      const hardware = convertHardwareToSnakeCase(hardwareRaw);
+      const hardwareRaw = detectHardware()
+      const hardware = convertHardwareToSnakeCase(hardwareRaw)
       const raw = [
         {
           id: 'compute',
           name: 'Compute Provider',
           description: 'Provide GPU compute for AI inference',
           minStakeEth: 0.1,
-          estimatedEarningsPerHourUsd: 2.50,
+          estimatedEarningsPerHourUsd: 2.5,
           isRunning: runningServices.has('compute'),
           meetsRequirements: hardware.gpus.length > 0,
           requirementIssues: hardware.gpus.length === 0 ? ['GPU required'] : [],
@@ -727,7 +779,7 @@ function createNodeAPI(): RuntimeAPI {
           name: 'Oracle Provider',
           description: 'Submit price data to the network',
           minStakeEth: 1.0,
-          estimatedEarningsPerHourUsd: 0.50,
+          estimatedEarningsPerHourUsd: 0.5,
           isRunning: runningServices.has('oracle'),
           meetsRequirements: true,
           requirementIssues: [],
@@ -747,7 +799,7 @@ function createNodeAPI(): RuntimeAPI {
           name: 'Cron Executor',
           description: 'Execute scheduled tasks for others',
           minStakeEth: 0,
-          estimatedEarningsPerHourUsd: 0.10,
+          estimatedEarningsPerHourUsd: 0.1,
           isRunning: runningServices.has('cron'),
           meetsRequirements: true,
           requirementIssues: [],
@@ -762,36 +814,51 @@ function createNodeAPI(): RuntimeAPI {
           meetsRequirements: true,
           requirementIssues: [],
         },
-      ];
-      return raw.map(validateServiceInfo);
+      ]
+      return raw.map(validateServiceInfo)
     },
 
-    async startService(serviceId: string, config: ServiceStartConfig): Promise<void> {
-      if (!serviceId || typeof serviceId !== 'string' || serviceId.length === 0) {
-        throw new Error('Invalid serviceId: must be a non-empty string');
+    async startService(
+      serviceId: string,
+      config: ServiceStartConfig,
+    ): Promise<void> {
+      if (
+        !serviceId ||
+        typeof serviceId !== 'string' ||
+        serviceId.length === 0
+      ) {
+        throw new Error('Invalid serviceId: must be a non-empty string')
       }
-      validateServiceStartConfig(config);
+      validateServiceStartConfig(config)
       const rawState = {
         running: true,
         uptimeSeconds: 0,
         requestsServed: 0,
         earningsWei: 0n,
         health: 'healthy' as const,
-      };
-      const validatedState = validateRuntimeServiceState(rawState);
-      runningServices.set(serviceId, validatedState);
+      }
+      const validatedState = validateRuntimeServiceState(rawState)
+      runningServices.set(serviceId, validatedState)
     },
 
     async stopService(serviceId: string): Promise<void> {
-      if (!serviceId || typeof serviceId !== 'string' || serviceId.length === 0) {
-        throw new Error('Invalid serviceId: must be a non-empty string');
+      if (
+        !serviceId ||
+        typeof serviceId !== 'string' ||
+        serviceId.length === 0
+      ) {
+        throw new Error('Invalid serviceId: must be a non-empty string')
       }
-      runningServices.delete(serviceId);
+      runningServices.delete(serviceId)
     },
 
     async getServiceState(serviceId: string): Promise<ServiceState> {
-      if (!serviceId || typeof serviceId !== 'string' || serviceId.length === 0) {
-        throw new Error('Invalid serviceId: must be a non-empty string');
+      if (
+        !serviceId ||
+        typeof serviceId !== 'string' ||
+        serviceId.length === 0
+      ) {
+        throw new Error('Invalid serviceId: must be a non-empty string')
       }
       const raw = runningServices.get(serviceId) || {
         running: false,
@@ -799,8 +866,8 @@ function createNodeAPI(): RuntimeAPI {
         requestsServed: 0,
         earningsWei: 0n,
         health: 'stopped' as const,
-      };
-      return validateRuntimeServiceState(raw);
+      }
+      return validateRuntimeServiceState(raw)
     },
 
     async getBots(): Promise<BotInfo[]> {
@@ -850,19 +917,19 @@ function createNodeAPI(): RuntimeAPI {
           riskLevel: 'medium',
           isRunning: runningBots.has('solver'),
         },
-      ];
+      ]
     },
 
     async startBot(botId: string, capital: bigint): Promise<void> {
       if (!botId || typeof botId !== 'string' || botId.length === 0) {
-        throw new Error('Invalid botId: must be a non-empty string');
+        throw new Error('Invalid botId: must be a non-empty string')
       }
       if (capital <= 0n) {
-        throw new Error('Invalid capital: must be positive');
+        throw new Error('Invalid capital: must be positive')
       }
-      const state = runningBots.get(botId);
+      const state = runningBots.get(botId)
       if (state?.running) {
-        throw new Error(`Bot ${botId} is already running`);
+        throw new Error(`Bot ${botId} is already running`)
       }
       const rawState = {
         running: true,
@@ -874,59 +941,58 @@ function createNodeAPI(): RuntimeAPI {
         treasuryShareWei: 0n,
         netProfitWei: 0n,
         health: 'healthy' as const,
-      };
-      const validatedState = validateBotState(rawState);
-      runningBots.set(botId, validatedState);
+      }
+      const validatedState = validateBotState(rawState)
+      runningBots.set(botId, validatedState)
     },
 
     async stopBot(botId: string): Promise<void> {
       if (!botId || typeof botId !== 'string' || botId.length === 0) {
-        throw new Error('Invalid botId: must be a non-empty string');
+        throw new Error('Invalid botId: must be a non-empty string')
       }
-      const state = runningBots.get(botId);
+      const state = runningBots.get(botId)
       if (!state?.running) {
-        throw new Error(`Bot ${botId} is not running`);
+        throw new Error(`Bot ${botId} is not running`)
       }
       const rawState = {
         ...state,
         running: false,
         health: 'stopped' as const,
-      };
-      const validatedState = validateBotState(rawState);
-      runningBots.set(botId, validatedState);
+      }
+      const validatedState = validateBotState(rawState)
+      runningBots.set(botId, validatedState)
     },
 
     async getBotState(botId: string): Promise<BotState> {
       if (!botId || typeof botId !== 'string' || botId.length === 0) {
-        throw new Error('Invalid botId: must be a non-empty string');
+        throw new Error('Invalid botId: must be a non-empty string')
       }
-      const state = runningBots.get(botId);
+      const state = runningBots.get(botId)
       if (!state) {
-        throw new Error(`Bot ${botId} not found`);
+        throw new Error(`Bot ${botId} not found`)
       }
-      return validateBotState(state);
+      return validateBotState(state)
     },
-  };
+  }
 }
 
 /**
  * Get the appropriate API for the current runtime
  */
-let cachedAPI: RuntimeAPI | null = null;
+let cachedAPI: RuntimeAPI | null = null
 
 export async function getAPI(): Promise<RuntimeAPI> {
   if (cachedAPI) {
-    return cachedAPI;
+    return cachedAPI
   }
 
   if (isTauri) {
-    cachedAPI = await createTauriAPI();
+    cachedAPI = await createTauriAPI()
   } else if (isBrowser) {
-    cachedAPI = createBrowserAPI();
+    cachedAPI = createBrowserAPI()
   } else {
-    cachedAPI = createNodeAPI();
+    cachedAPI = createNodeAPI()
   }
 
-  return cachedAPI;
+  return cachedAPI
 }
-

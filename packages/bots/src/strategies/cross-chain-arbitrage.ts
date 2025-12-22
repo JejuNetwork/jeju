@@ -1,10 +1,10 @@
 /**
  * Cross-Chain Arbitrage Strategy
- * 
+ *
  * Identifies and executes arbitrage opportunities across:
  * - Base, BSC, Arbitrum, Optimism, Mainnet (EVM)
  * - Solana
- * 
+ *
  * Features:
  * - Multi-DEX price monitoring
  * - Bridge cost calculation
@@ -12,53 +12,53 @@
  * - MEV protection
  */
 
-import { 
-  createPublicClient, 
-  http, 
-  type PublicClient, 
+import { EventEmitter } from 'node:events'
+import { type Commitment, Connection, type PublicKey } from '@solana/web3.js'
+import {
   type Address,
-  parseAbi,
+  createPublicClient,
   formatUnits,
+  http,
+  type PublicClient,
+  parseAbi,
   parseUnits,
-} from 'viem';
-import { Connection, PublicKey, type Commitment } from '@solana/web3.js';
-import { EventEmitter } from 'events';
-import type { 
-  EVMChainId, 
-  SolanaNetwork, 
+} from 'viem'
+import { OracleAggregator, TOKEN_SYMBOLS } from '../oracles'
+import { JupiterQuoteResponseSchema } from '../schemas'
+import type {
   CrossChainArbOpportunity,
-} from '../types';
-import { OracleAggregator, TOKEN_SYMBOLS } from '../oracles';
-import { JupiterQuoteResponseSchema } from '../schemas';
+  EVMChainId,
+  SolanaNetwork,
+} from '../types'
 
 // ============ Chain Configuration ============
 
 interface ChainConfig {
-  chainId: EVMChainId | SolanaNetwork;
-  name: string;
-  rpcUrl: string;
-  type: 'evm' | 'solana';
-  blockTimeMs: number;
-  nativeSymbol: string;
-  dexes: DexConfig[];
-  bridges: BridgeConfig[];
+  chainId: EVMChainId | SolanaNetwork
+  name: string
+  rpcUrl: string
+  type: 'evm' | 'solana'
+  blockTimeMs: number
+  nativeSymbol: string
+  dexes: DexConfig[]
+  bridges: BridgeConfig[]
 }
 
 interface DexConfig {
-  name: string;
-  type: 'uniswap-v2' | 'uniswap-v3' | 'curve' | 'balancer' | 'raydium' | 'orca';
-  router?: Address;
-  factory?: Address;
-  quoter?: Address;
+  name: string
+  type: 'uniswap-v2' | 'uniswap-v3' | 'curve' | 'balancer' | 'raydium' | 'orca'
+  router?: Address
+  factory?: Address
+  quoter?: Address
 }
 
 interface BridgeConfig {
-  name: string;
-  type: 'stargate' | 'across' | 'wormhole' | 'layerzero' | 'hop';
-  contract: Address | string;
-  supportedChains: (EVMChainId | SolanaNetwork)[];
-  estimatedTimeSeconds: number;
-  baseFeeUsd: number;
+  name: string
+  type: 'stargate' | 'across' | 'wormhole' | 'layerzero' | 'hop'
+  contract: Address | string
+  supportedChains: (EVMChainId | SolanaNetwork)[]
+  estimatedTimeSeconds: number
+  baseFeeUsd: number
 }
 
 // ============ ABIs ============
@@ -66,39 +66,45 @@ interface BridgeConfig {
 const UNISWAP_V2_ROUTER_ABI = parseAbi([
   'function getAmountsOut(uint256 amountIn, address[] calldata path) external view returns (uint256[] memory amounts)',
   'function factory() external view returns (address)',
-]);
+])
 
 const UNISWAP_V2_FACTORY_ABI = parseAbi([
   'function getPair(address tokenA, address tokenB) external view returns (address pair)',
-]);
+])
 
 const UNISWAP_V2_PAIR_ABI = parseAbi([
   'function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast)',
   'function token0() external view returns (address)',
-]);
+])
 
 const UNISWAP_V3_QUOTER_ABI = parseAbi([
   'function quoteExactInputSingle(address tokenIn, address tokenOut, uint24 fee, uint256 amountIn, uint160 sqrtPriceLimitX96) external returns (uint256 amountOut)',
-]);
+])
 
 // ============ Default Configurations ============
 
 function getRequiredEnv(key: string): string {
-  const value = process.env[key];
+  const value = process.env[key]
   if (!value) {
-    throw new Error(`Missing required environment variable: ${key}`);
+    throw new Error(`Missing required environment variable: ${key}`)
   }
-  return value;
+  return value
 }
 
 function getChainRpcUrl(chainId: number): string {
   switch (chainId) {
-    case 1: return getRequiredEnv('ETH_RPC_URL');
-    case 8453: return getRequiredEnv('BASE_RPC_URL');
-    case 42161: return getRequiredEnv('ARB_RPC_URL');
-    case 10: return getRequiredEnv('OP_RPC_URL');
-    case 56: return getRequiredEnv('BSC_RPC_URL');
-    default: throw new Error(`No RPC URL configured for chain ${chainId}`);
+    case 1:
+      return getRequiredEnv('ETH_RPC_URL')
+    case 8453:
+      return getRequiredEnv('BASE_RPC_URL')
+    case 42161:
+      return getRequiredEnv('ARB_RPC_URL')
+    case 10:
+      return getRequiredEnv('OP_RPC_URL')
+    case 56:
+      return getRequiredEnv('BSC_RPC_URL')
+    default:
+      throw new Error(`No RPC URL configured for chain ${chainId}`)
   }
 }
 
@@ -113,13 +119,41 @@ function buildDefaultChains(): ChainConfig[] {
       blockTimeMs: 12000,
       nativeSymbol: 'ETH',
       dexes: [
-        { name: 'Uniswap V3', type: 'uniswap-v3', router: '0xE592427A0AEce92De3Edee1F18E0157C05861564', quoter: '0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6' },
-        { name: 'Uniswap V2', type: 'uniswap-v2', router: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D', factory: '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f' },
-        { name: 'Curve', type: 'curve', router: '0x99a58482BD75cbab83b27EC03CA68fF489b5788f' },
+        {
+          name: 'Uniswap V3',
+          type: 'uniswap-v3',
+          router: '0xE592427A0AEce92De3Edee1F18E0157C05861564',
+          quoter: '0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6',
+        },
+        {
+          name: 'Uniswap V2',
+          type: 'uniswap-v2',
+          router: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D',
+          factory: '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f',
+        },
+        {
+          name: 'Curve',
+          type: 'curve',
+          router: '0x99a58482BD75cbab83b27EC03CA68fF489b5788f',
+        },
       ],
       bridges: [
-        { name: 'Stargate', type: 'stargate', contract: '0x8731d54E9D02c286767d56ac03e8037C07e01e98', supportedChains: [8453, 42161, 10, 56], estimatedTimeSeconds: 60, baseFeeUsd: 0.5 },
-        { name: 'Across', type: 'across', contract: '0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5', supportedChains: [8453, 42161, 10], estimatedTimeSeconds: 120, baseFeeUsd: 0.3 },
+        {
+          name: 'Stargate',
+          type: 'stargate',
+          contract: '0x8731d54E9D02c286767d56ac03e8037C07e01e98',
+          supportedChains: [8453, 42161, 10, 56],
+          estimatedTimeSeconds: 60,
+          baseFeeUsd: 0.5,
+        },
+        {
+          name: 'Across',
+          type: 'across',
+          contract: '0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5',
+          supportedChains: [8453, 42161, 10],
+          estimatedTimeSeconds: 120,
+          baseFeeUsd: 0.3,
+        },
       ],
     },
     {
@@ -130,11 +164,28 @@ function buildDefaultChains(): ChainConfig[] {
       blockTimeMs: 2000,
       nativeSymbol: 'ETH',
       dexes: [
-        { name: 'Aerodrome', type: 'uniswap-v2', router: '0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43', factory: '0x420DD381b31aEf6683db6B902084cB0FFECe40Da' },
-        { name: 'Uniswap V3', type: 'uniswap-v3', router: '0x2626664c2603336E57B271c5C0b26F421741e481', quoter: '0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a' },
+        {
+          name: 'Aerodrome',
+          type: 'uniswap-v2',
+          router: '0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43',
+          factory: '0x420DD381b31aEf6683db6B902084cB0FFECe40Da',
+        },
+        {
+          name: 'Uniswap V3',
+          type: 'uniswap-v3',
+          router: '0x2626664c2603336E57B271c5C0b26F421741e481',
+          quoter: '0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a',
+        },
       ],
       bridges: [
-        { name: 'Stargate', type: 'stargate', contract: '0x45f1A95A4D3f3836523F5c83673c797f4d4d263B', supportedChains: [1, 42161, 10, 56], estimatedTimeSeconds: 60, baseFeeUsd: 0.5 },
+        {
+          name: 'Stargate',
+          type: 'stargate',
+          contract: '0x45f1A95A4D3f3836523F5c83673c797f4d4d263B',
+          supportedChains: [1, 42161, 10, 56],
+          estimatedTimeSeconds: 60,
+          baseFeeUsd: 0.5,
+        },
       ],
     },
     {
@@ -145,11 +196,28 @@ function buildDefaultChains(): ChainConfig[] {
       blockTimeMs: 250,
       nativeSymbol: 'ETH',
       dexes: [
-        { name: 'Uniswap V3', type: 'uniswap-v3', router: '0xE592427A0AEce92De3Edee1F18E0157C05861564', quoter: '0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6' },
-        { name: 'Camelot', type: 'uniswap-v2', router: '0xc873fEcbd354f5A56E00E710B90EF4201db2448d', factory: '0x6EcCab422D763aC031210895C81787E87B43A652' },
+        {
+          name: 'Uniswap V3',
+          type: 'uniswap-v3',
+          router: '0xE592427A0AEce92De3Edee1F18E0157C05861564',
+          quoter: '0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6',
+        },
+        {
+          name: 'Camelot',
+          type: 'uniswap-v2',
+          router: '0xc873fEcbd354f5A56E00E710B90EF4201db2448d',
+          factory: '0x6EcCab422D763aC031210895C81787E87B43A652',
+        },
       ],
       bridges: [
-        { name: 'Stargate', type: 'stargate', contract: '0x53Bf833A5d6c4ddA888F69c22C88C9f356a41614', supportedChains: [1, 8453, 10, 56], estimatedTimeSeconds: 60, baseFeeUsd: 0.5 },
+        {
+          name: 'Stargate',
+          type: 'stargate',
+          contract: '0x53Bf833A5d6c4ddA888F69c22C88C9f356a41614',
+          supportedChains: [1, 8453, 10, 56],
+          estimatedTimeSeconds: 60,
+          baseFeeUsd: 0.5,
+        },
       ],
     },
     {
@@ -160,11 +228,28 @@ function buildDefaultChains(): ChainConfig[] {
       blockTimeMs: 2000,
       nativeSymbol: 'ETH',
       dexes: [
-        { name: 'Velodrome', type: 'uniswap-v2', router: '0xa062aE8A9c5e11aaA026fc2670B0D65ccc8B2858', factory: '0x25CbdDb98b35ab1FF77413456B31EC81A6B6B746' },
-        { name: 'Uniswap V3', type: 'uniswap-v3', router: '0xE592427A0AEce92De3Edee1F18E0157C05861564', quoter: '0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6' },
+        {
+          name: 'Velodrome',
+          type: 'uniswap-v2',
+          router: '0xa062aE8A9c5e11aaA026fc2670B0D65ccc8B2858',
+          factory: '0x25CbdDb98b35ab1FF77413456B31EC81A6B6B746',
+        },
+        {
+          name: 'Uniswap V3',
+          type: 'uniswap-v3',
+          router: '0xE592427A0AEce92De3Edee1F18E0157C05861564',
+          quoter: '0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6',
+        },
       ],
       bridges: [
-        { name: 'Stargate', type: 'stargate', contract: '0xB0D502E938ed5f4df2E681fE6E419ff29631d62b', supportedChains: [1, 8453, 42161, 56], estimatedTimeSeconds: 60, baseFeeUsd: 0.5 },
+        {
+          name: 'Stargate',
+          type: 'stargate',
+          contract: '0xB0D502E938ed5f4df2E681fE6E419ff29631d62b',
+          supportedChains: [1, 8453, 42161, 56],
+          estimatedTimeSeconds: 60,
+          baseFeeUsd: 0.5,
+        },
       ],
     },
     {
@@ -175,14 +260,31 @@ function buildDefaultChains(): ChainConfig[] {
       blockTimeMs: 3000,
       nativeSymbol: 'BNB',
       dexes: [
-        { name: 'PancakeSwap V3', type: 'uniswap-v3', router: '0x13f4EA83D0bd40E75C8222255bc855a974568Dd4', quoter: '0xB048Bbc1Ee6b733FFfCFb9e9CeF7375518e25997' },
-        { name: 'PancakeSwap V2', type: 'uniswap-v2', router: '0x10ED43C718714eb63d5aA57B78B54704E256024E', factory: '0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73' },
+        {
+          name: 'PancakeSwap V3',
+          type: 'uniswap-v3',
+          router: '0x13f4EA83D0bd40E75C8222255bc855a974568Dd4',
+          quoter: '0xB048Bbc1Ee6b733FFfCFb9e9CeF7375518e25997',
+        },
+        {
+          name: 'PancakeSwap V2',
+          type: 'uniswap-v2',
+          router: '0x10ED43C718714eb63d5aA57B78B54704E256024E',
+          factory: '0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73',
+        },
       ],
       bridges: [
-        { name: 'Stargate', type: 'stargate', contract: '0x4a364f8c717cAAD9A442737Eb7b8A55cc6cf18D8', supportedChains: [1, 8453, 42161, 10], estimatedTimeSeconds: 60, baseFeeUsd: 0.5 },
+        {
+          name: 'Stargate',
+          type: 'stargate',
+          contract: '0x4a364f8c717cAAD9A442737Eb7b8A55cc6cf18D8',
+          supportedChains: [1, 8453, 42161, 10],
+          estimatedTimeSeconds: 60,
+          baseFeeUsd: 0.5,
+        },
       ],
     },
-  ];
+  ]
 }
 
 // ============ Token Pairs to Monitor ============
@@ -194,83 +296,83 @@ const MONITORED_PAIRS = [
   { base: 'WBTC', quote: 'USDC' },
   { base: 'ARB', quote: 'WETH' },
   { base: 'OP', quote: 'WETH' },
-];
+]
 
 // ============ Price Data ============
 
 interface ChainPrice {
-  chainId: EVMChainId | SolanaNetwork;
-  dex: string;
-  pair: string;
-  price: bigint;
-  liquidity: bigint;
-  timestamp: number;
-  blockNumber?: bigint;
+  chainId: EVMChainId | SolanaNetwork
+  dex: string
+  pair: string
+  price: bigint
+  liquidity: bigint
+  timestamp: number
+  blockNumber?: bigint
 }
 
 // ============ Arbitrage Engine ============
 
 export interface CrossChainArbConfig {
-  chains: ChainConfig[];
-  minProfitBps: number;
-  minProfitUsd: number;
-  maxSlippageBps: number;
-  maxPositionUsd: number;
-  bridgeTimeoutSeconds: number;
-  gasBuffer: number;
-  enableExecution: boolean;
+  chains: ChainConfig[]
+  minProfitBps: number
+  minProfitUsd: number
+  maxSlippageBps: number
+  maxPositionUsd: number
+  bridgeTimeoutSeconds: number
+  gasBuffer: number
+  enableExecution: boolean
 }
 
-const DEFAULT_CONFIG: Omit<CrossChainArbConfig, 'chains'> & { chains?: ChainConfig[] } = {
-  minProfitBps: 50,         // 0.5% minimum profit
-  minProfitUsd: 10,         // $10 minimum profit
-  maxSlippageBps: 100,      // 1% max slippage
-  maxPositionUsd: 50000,    // $50k max position
+const DEFAULT_CONFIG: Omit<CrossChainArbConfig, 'chains'> & {
+  chains?: ChainConfig[]
+} = {
+  minProfitBps: 50, // 0.5% minimum profit
+  minProfitUsd: 10, // $10 minimum profit
+  maxSlippageBps: 100, // 1% max slippage
+  maxPositionUsd: 50000, // $50k max position
   bridgeTimeoutSeconds: 300, // 5 minute timeout
-  gasBuffer: 1.5,           // 50% gas buffer
-  enableExecution: false,   // Start in monitoring mode
-};
+  gasBuffer: 1.5, // 50% gas buffer
+  enableExecution: false, // Start in monitoring mode
+}
 
 export class CrossChainArbitrage extends EventEmitter {
-  private config: CrossChainArbConfig;
-  private evmClients: Map<EVMChainId, PublicClient> = new Map();
-  private solanaConnection: Connection | null = null;
-  private oracle: OracleAggregator;
-  private prices: Map<string, ChainPrice[]> = new Map();
-  private opportunities: CrossChainArbOpportunity[] = [];
-  private running = false;
-  private monitorLoop: ReturnType<typeof setInterval> | null = null;
+  private config: CrossChainArbConfig
+  private evmClients: Map<EVMChainId, PublicClient> = new Map()
+  private prices: Map<string, ChainPrice[]> = new Map()
+  private opportunities: CrossChainArbOpportunity[] = []
+  private running = false
+  private monitorLoop: ReturnType<typeof setInterval> | null = null
   private stats = {
     opportunitiesFound: 0,
     totalProfitUsd: 0,
     tradesExecuted: 0,
     lastScan: 0,
-  };
+  }
 
   constructor(config: Partial<CrossChainArbConfig> = {}) {
-    super();
+    super()
     // Build chains lazily - will throw if env vars not set
-    const chains = config.chains ?? buildDefaultChains();
-    this.config = { ...DEFAULT_CONFIG, chains, ...config };
+    const chains = config.chains ?? buildDefaultChains()
+    this.config = { ...DEFAULT_CONFIG, chains, ...config }
 
     // Initialize oracle
-    const rpcUrls: Partial<Record<EVMChainId, string>> = {};
+    const rpcUrls: Partial<Record<EVMChainId, string>> = {}
     for (const chain of this.config.chains) {
       if (chain.type === 'evm') {
-        rpcUrls[chain.chainId as EVMChainId] = chain.rpcUrl;
+        rpcUrls[chain.chainId as EVMChainId] = chain.rpcUrl
       }
     }
-    this.oracle = new OracleAggregator(rpcUrls);
+    this.oracle = new OracleAggregator(rpcUrls)
 
     // Initialize EVM clients
     for (const chain of this.config.chains) {
       if (chain.type === 'evm') {
         this.evmClients.set(
           chain.chainId as EVMChainId,
-          createPublicClient({ transport: http(chain.rpcUrl) })
-        );
+          createPublicClient({ transport: http(chain.rpcUrl) }),
+        )
       } else if (chain.type === 'solana') {
-        this.solanaConnection = new Connection(chain.rpcUrl, 'confirmed');
+        this.solanaConnection = new Connection(chain.rpcUrl, 'confirmed')
       }
     }
   }
@@ -279,86 +381,91 @@ export class CrossChainArbitrage extends EventEmitter {
    * Start monitoring for opportunities
    */
   start(): void {
-    if (this.running) return;
-    this.running = true;
+    if (this.running) return
+    this.running = true
 
-    console.log('Starting Cross-Chain Arbitrage Monitor...');
-    console.log(`  Monitoring ${this.config.chains.length} chains`);
-    console.log(`  Min profit: ${this.config.minProfitBps} bps / $${this.config.minProfitUsd}`);
+    console.log('Starting Cross-Chain Arbitrage Monitor...')
+    console.log(`  Monitoring ${this.config.chains.length} chains`)
+    console.log(
+      `  Min profit: ${this.config.minProfitBps} bps / $${this.config.minProfitUsd}`,
+    )
 
     // Start monitoring loop
-    this.monitorLoop = setInterval(() => this.scan(), 5000); // 5 second intervals
+    this.monitorLoop = setInterval(() => this.scan(), 5000) // 5 second intervals
 
     // Initial scan
-    this.scan();
+    this.scan()
 
-    this.emit('started');
+    this.emit('started')
   }
 
   /**
    * Stop monitoring
    */
   stop(): void {
-    if (!this.running) return;
-    this.running = false;
+    if (!this.running) return
+    this.running = false
 
     if (this.monitorLoop) {
-      clearInterval(this.monitorLoop);
-      this.monitorLoop = null;
+      clearInterval(this.monitorLoop)
+      this.monitorLoop = null
     }
 
-    console.log('Cross-Chain Arbitrage Monitor stopped');
-    this.emit('stopped');
+    console.log('Cross-Chain Arbitrage Monitor stopped')
+    this.emit('stopped')
   }
 
   /**
    * Scan all chains for arbitrage opportunities
    */
   private async scan(): Promise<void> {
-    this.stats.lastScan = Date.now();
+    this.stats.lastScan = Date.now()
 
     // Fetch prices from all chains
-    await this.fetchAllPrices();
+    await this.fetchAllPrices()
 
     // Find opportunities
-    const opportunities = this.findOpportunities();
+    const opportunities = this.findOpportunities()
 
     for (const opp of opportunities) {
-      this.stats.opportunitiesFound++;
-      this.opportunities.push(opp);
-      this.emit('opportunity', opp);
+      this.stats.opportunitiesFound++
+      this.opportunities.push(opp)
+      this.emit('opportunity', opp)
 
       // Execute if enabled
-      if (this.config.enableExecution && opp.netProfitUsd > this.config.minProfitUsd.toString()) {
-        this.executeOpportunity(opp);
+      if (
+        this.config.enableExecution &&
+        opp.netProfitUsd > this.config.minProfitUsd.toString()
+      ) {
+        this.executeOpportunity(opp)
       }
     }
 
     // Clean up old opportunities
     this.opportunities = this.opportunities.filter(
-      o => Date.now() - o.detectedAt < 60000
-    );
+      (o) => Date.now() - o.detectedAt < 60000,
+    )
   }
 
   /**
    * Fetch prices from all DEXes on all chains
    */
   private async fetchAllPrices(): Promise<void> {
-    const pricePromises: Promise<void>[] = [];
+    const pricePromises: Promise<void>[] = []
 
     for (const chain of this.config.chains) {
       if (chain.type === 'evm') {
         for (const dex of chain.dexes) {
           for (const pair of MONITORED_PAIRS) {
             pricePromises.push(
-              this.fetchDexPrice(chain, dex, pair.base, pair.quote)
-            );
+              this.fetchDexPrice(chain, dex, pair.base, pair.quote),
+            )
           }
         }
       }
     }
 
-    await Promise.allSettled(pricePromises);
+    await Promise.allSettled(pricePromises)
   }
 
   /**
@@ -368,80 +475,87 @@ export class CrossChainArbitrage extends EventEmitter {
     chain: ChainConfig,
     dex: DexConfig,
     baseSymbol: string,
-    quoteSymbol: string
+    quoteSymbol: string,
   ): Promise<void> {
-    const client = this.evmClients.get(chain.chainId as EVMChainId);
+    const client = this.evmClients.get(chain.chainId as EVMChainId)
     if (!client) {
       // Chain not initialized, skip silently (chain may not be configured)
-      return;
+      return
     }
 
-    const pairKey = `${baseSymbol}/${quoteSymbol}`;
-    const baseToken = this.getTokenAddress(baseSymbol, chain.chainId as EVMChainId);
-    const quoteToken = this.getTokenAddress(quoteSymbol, chain.chainId as EVMChainId);
+    const pairKey = `${baseSymbol}/${quoteSymbol}`
+    const baseToken = this.getTokenAddress(
+      baseSymbol,
+      chain.chainId as EVMChainId,
+    )
+    const quoteToken = this.getTokenAddress(
+      quoteSymbol,
+      chain.chainId as EVMChainId,
+    )
 
     // Token not available on this chain, skip
-    if (!baseToken || !quoteToken) return;
+    if (!baseToken || !quoteToken) return
 
-    const amountIn = parseUnits('1', 18); // 1 token
+    const amountIn = parseUnits('1', 18) // 1 token
 
-    let price: bigint;
-    let liquidity = 0n;
+    let price: bigint
+    let liquidity = 0n
 
     if (dex.type === 'uniswap-v2' && dex.router) {
-      const routerAddress = dex.router;
-      const amounts = await client.readContract({
+      const routerAddress = dex.router
+      const amounts = (await client.readContract({
         address: routerAddress,
         abi: UNISWAP_V2_ROUTER_ABI,
         functionName: 'getAmountsOut',
         args: [amountIn, [baseToken, quoteToken]],
-      }) as bigint[];
+      })) as bigint[]
 
-      price = amounts[1];
+      price = amounts[1]
 
       // Fetch liquidity from pair contract (errors caught by Promise.allSettled in caller)
-      const factory = await client.readContract({
+      const factory = (await client.readContract({
         address: routerAddress,
         abi: UNISWAP_V2_ROUTER_ABI,
         functionName: 'factory',
-      }) as `0x${string}`;
+      })) as `0x${string}`
 
-      const pairAddress = await client.readContract({
+      const pairAddress = (await client.readContract({
         address: factory,
         abi: UNISWAP_V2_FACTORY_ABI,
         functionName: 'getPair',
         args: [baseToken, quoteToken],
-      }) as `0x${string}`;
+      })) as `0x${string}`
 
       if (pairAddress !== '0x0000000000000000000000000000000000000000') {
-        const [reserve0, reserve1] = await client.readContract({
+        const [reserve0, reserve1] = (await client.readContract({
           address: pairAddress,
           abi: UNISWAP_V2_PAIR_ABI,
           functionName: 'getReserves',
-        }) as [bigint, bigint, number];
+        })) as [bigint, bigint, number]
 
-        const token0 = await client.readContract({
+        const token0 = (await client.readContract({
           address: pairAddress,
           abi: UNISWAP_V2_PAIR_ABI,
           functionName: 'token0',
-        }) as `0x${string}`;
+        })) as `0x${string}`
 
         // Liquidity in quote token terms
-        liquidity = token0.toLowerCase() === baseToken.toLowerCase() ? reserve1 : reserve0;
+        liquidity =
+          token0.toLowerCase() === baseToken.toLowerCase() ? reserve1 : reserve0
       }
     } else if (dex.type === 'uniswap-v3' && dex.quoter) {
       // V3 quote
-      price = await client.readContract({
+      price = (await client.readContract({
         address: dex.quoter,
         abi: UNISWAP_V3_QUOTER_ABI,
         functionName: 'quoteExactInputSingle',
         args: [baseToken, quoteToken, 3000, amountIn, 0n],
-      }) as bigint;
+      })) as bigint
 
       // V3 liquidity is more complex - use quote amount as proxy
-      liquidity = price * 1000n; // Rough estimate based on 0.1% depth
+      liquidity = price * 1000n // Rough estimate based on 0.1% depth
     } else {
-      return;
+      return
     }
 
     const chainPrice: ChainPrice = {
@@ -451,80 +565,89 @@ export class CrossChainArbitrage extends EventEmitter {
       price,
       liquidity,
       timestamp: Date.now(),
-    };
+    }
 
-    const existing = this.prices.get(pairKey) ?? []; // Empty array is valid initial state
+    const existing = this.prices.get(pairKey) ?? [] // Empty array is valid initial state
     const filteredExisting = existing.filter(
-      p => !(p.chainId === chain.chainId && p.dex === dex.name)
-    );
-    filteredExisting.push(chainPrice);
-    this.prices.set(pairKey, filteredExisting);
+      (p) => !(p.chainId === chain.chainId && p.dex === dex.name),
+    )
+    filteredExisting.push(chainPrice)
+    this.prices.set(pairKey, filteredExisting)
   }
 
   /**
    * Find arbitrage opportunities across chains
    */
   private findOpportunities(): CrossChainArbOpportunity[] {
-    const opportunities: CrossChainArbOpportunity[] = [];
+    const opportunities: CrossChainArbOpportunity[] = []
 
     for (const [pair, prices] of this.prices) {
-      if (prices.length < 2) continue;
+      if (prices.length < 2) continue
 
       // Sort by price
-      const sorted = [...prices].sort((a, b) => 
-        a.price > b.price ? 1 : a.price < b.price ? -1 : 0
-      );
+      const sorted = [...prices].sort((a, b) =>
+        a.price > b.price ? 1 : a.price < b.price ? -1 : 0,
+      )
 
-      const lowest = sorted[0];
-      const highest = sorted[sorted.length - 1];
+      const lowest = sorted[0]
+      const highest = sorted[sorted.length - 1]
 
       // Calculate price difference with overflow protection
-      if (lowest.price === 0n) continue; // Prevent division by zero
-      
-      const priceDiff = highest.price - lowest.price;
-      // Cap to prevent overflow in BPS calculation
-      const maxBpsValue = BigInt(Number.MAX_SAFE_INTEGER);
-      const scaledDiff = priceDiff * 10000n;
-      
-      // Use safe division that won't overflow
-      const priceDiffBps = scaledDiff > maxBpsValue 
-        ? Number(scaledDiff / lowest.price)
-        : Number(scaledDiff) / Number(lowest.price);
+      if (lowest.price === 0n) continue // Prevent division by zero
 
-      if (priceDiffBps < this.config.minProfitBps) continue;
+      const priceDiff = highest.price - lowest.price
+      // Cap to prevent overflow in BPS calculation
+      const maxBpsValue = BigInt(Number.MAX_SAFE_INTEGER)
+      const scaledDiff = priceDiff * 10000n
+
+      // Use safe division that won't overflow
+      const priceDiffBps =
+        scaledDiff > maxBpsValue
+          ? Number(scaledDiff / lowest.price)
+          : Number(scaledDiff) / Number(lowest.price)
+
+      if (priceDiffBps < this.config.minProfitBps) continue
 
       // Find bridge between chains
       const bridge = this.findBridge(
         lowest.chainId as EVMChainId,
-        highest.chainId as EVMChainId
-      );
+        highest.chainId as EVMChainId,
+      )
 
-      if (!bridge) continue;
+      if (!bridge) continue
 
       // Calculate net profit after bridge fees
-      const [baseSymbol, quoteSymbol] = pair.split('/');
-      const tradeSize = parseUnits('1000', 6); // $1000 trade
-      const grossProfit = (tradeSize * BigInt(Math.floor(priceDiffBps))) / 10000n;
-      const bridgeFee = parseUnits(bridge.baseFeeUsd.toString(), 6);
-      const gasEstimate = parseUnits('5', 6); // ~$5 gas estimate
+      const [baseSymbol, quoteSymbol] = pair.split('/')
+      const tradeSize = parseUnits('1000', 6) // $1000 trade
+      const grossProfit =
+        (tradeSize * BigInt(Math.floor(priceDiffBps))) / 10000n
+      const bridgeFee = parseUnits(bridge.baseFeeUsd.toString(), 6)
+      const gasEstimate = parseUnits('5', 6) // ~$5 gas estimate
 
       // Price movement buffer during bridge time
       // Assume worst case price movement based on bridge time and volatility
       // 0.1% per minute average volatility for crypto
-      const bridgeMinutes = bridge.estimatedTimeSeconds / 60;
-      const volatilityBufferBps = Math.ceil(bridgeMinutes * 10); // 10 bps per minute
-      const volatilityBuffer = (tradeSize * BigInt(volatilityBufferBps)) / 10000n;
+      const bridgeMinutes = bridge.estimatedTimeSeconds / 60
+      const volatilityBufferBps = Math.ceil(bridgeMinutes * 10) // 10 bps per minute
+      const volatilityBuffer =
+        (tradeSize * BigInt(volatilityBufferBps)) / 10000n
 
-      const netProfit = grossProfit - bridgeFee - gasEstimate - volatilityBuffer;
+      const netProfit = grossProfit - bridgeFee - gasEstimate - volatilityBuffer
 
-      if (netProfit <= 0n) continue;
+      if (netProfit <= 0n) continue
 
-      const netProfitUsd = Number(formatUnits(netProfit, 6));
-      if (netProfitUsd < this.config.minProfitUsd) continue;
+      const netProfitUsd = Number(formatUnits(netProfit, 6))
+      if (netProfitUsd < this.config.minProfitUsd) continue
 
-      const inputTokenAddress = this.getTokenAddress(baseSymbol, lowest.chainId as EVMChainId);
-      const outputTokenAddress = this.getTokenAddress(quoteSymbol, highest.chainId as EVMChainId);
-      if (!inputTokenAddress || !outputTokenAddress) continue;
+      const inputTokenAddress = this.getTokenAddress(
+        baseSymbol,
+        lowest.chainId as EVMChainId,
+      )
+      const outputTokenAddress = this.getTokenAddress(
+        quoteSymbol,
+        highest.chainId as EVMChainId,
+      )
+      if (!inputTokenAddress || !outputTokenAddress) continue
 
       const opportunity: CrossChainArbOpportunity = {
         id: `${pair}-${lowest.chainId}-${highest.chainId}-${Date.now()}`,
@@ -558,44 +681,48 @@ export class CrossChainArbitrage extends EventEmitter {
         detectedAt: Date.now(),
         expiresAt: Date.now() + 30000, // 30 second validity
         status: 'DETECTED',
-      };
+      }
 
-      opportunities.push(opportunity);
+      opportunities.push(opportunity)
     }
 
-    return opportunities;
+    return opportunities
   }
 
   /**
    * Execute an arbitrage opportunity
-   * 
+   *
    * MEV PROTECTION:
    * - Use private mempools (Flashbots on mainnet, similar services on L2s)
    * - Short transaction deadlines (2 minutes max)
    * - Monitor for sandwich attacks in bridge transactions
    * - Validate received amounts match expectations within tolerance
    */
-  private async executeOpportunity(opp: CrossChainArbOpportunity): Promise<void> {
+  private async executeOpportunity(
+    opp: CrossChainArbOpportunity,
+  ): Promise<void> {
     // Validate opportunity hasn't expired
-    const now = Date.now();
+    const now = Date.now()
     if (now > opp.expiresAt) {
-      opp.status = 'EXPIRED';
-      this.emit('expired', opp);
-      console.log(`Opportunity ${opp.id} expired before execution`);
-      return;
+      opp.status = 'EXPIRED'
+      this.emit('expired', opp)
+      console.log(`Opportunity ${opp.id} expired before execution`)
+      return
     }
 
     // Short deadline to minimize MEV exposure
-    const DEADLINE_SECONDS = 120; // 2 minutes - short to prevent sandwich attacks
-    const deadline = BigInt(Math.floor(now / 1000) + DEADLINE_SECONDS);
+    const DEADLINE_SECONDS = 120 // 2 minutes - short to prevent sandwich attacks
+    const deadline = BigInt(Math.floor(now / 1000) + DEADLINE_SECONDS)
 
-    opp.status = 'EXECUTING';
-    this.emit('executing', opp);
+    opp.status = 'EXECUTING'
+    this.emit('executing', opp)
 
-    console.log(`Executing arbitrage: ${opp.id}`);
-    console.log(`  Buy on ${opp.sourceChainId}, sell on ${opp.destChainId}`);
-    console.log(`  Expected profit: $${opp.netProfitUsd}`);
-    console.log(`  Deadline: ${new Date(Number(deadline) * 1000).toISOString()}`);
+    console.log(`Executing arbitrage: ${opp.id}`)
+    console.log(`  Buy on ${opp.sourceChainId}, sell on ${opp.destChainId}`)
+    console.log(`  Expected profit: $${opp.netProfitUsd}`)
+    console.log(
+      `  Deadline: ${new Date(Number(deadline) * 1000).toISOString()}`,
+    )
 
     // Implementation would:
     // 1. Execute buy on source chain via Flashbots/private mempool
@@ -605,11 +732,11 @@ export class CrossChainArbitrage extends EventEmitter {
     // 5. Bridge profits back
 
     // For now, mark as completed (simulation)
-    opp.status = 'COMPLETED';
-    this.stats.tradesExecuted++;
-    this.stats.totalProfitUsd += Number(opp.netProfitUsd);
+    opp.status = 'COMPLETED'
+    this.stats.tradesExecuted++
+    this.stats.totalProfitUsd += Number(opp.netProfitUsd)
 
-    this.emit('completed', opp);
+    this.emit('completed', opp)
   }
 
   /**
@@ -617,66 +744,68 @@ export class CrossChainArbitrage extends EventEmitter {
    */
   private findBridge(
     sourceChain: EVMChainId,
-    destChain: EVMChainId
+    destChain: EVMChainId,
   ): BridgeConfig | null {
-    const sourceConfig = this.config.chains.find(c => c.chainId === sourceChain);
-    if (!sourceConfig) return null;
+    const sourceConfig = this.config.chains.find(
+      (c) => c.chainId === sourceChain,
+    )
+    if (!sourceConfig) return null
 
     for (const bridge of sourceConfig.bridges) {
       if (bridge.supportedChains.includes(destChain)) {
-        return bridge;
+        return bridge
       }
     }
 
-    return null;
+    return null
   }
 
   /**
    * Get token address for a symbol on a chain
    */
   private getTokenAddress(symbol: string, chainId: EVMChainId): Address | null {
-    const chainTokens = TOKEN_SYMBOLS[chainId];
-    if (!chainTokens) return null;
+    const chainTokens = TOKEN_SYMBOLS[chainId]
+    if (!chainTokens) return null
 
     for (const [address, tokenSymbol] of Object.entries(chainTokens)) {
-      if (tokenSymbol === symbol) return address as Address;
+      if (tokenSymbol === symbol) return address as Address
     }
 
-    return null;
+    return null
   }
 
   /**
    * Get current opportunities
    */
   getOpportunities(): CrossChainArbOpportunity[] {
-    return this.opportunities;
+    return this.opportunities
   }
 
   /**
    * Get stats
    */
   getStats(): typeof this.stats {
-    return this.stats;
+    return this.stats
   }
 
   /**
    * Update configuration
    */
   updateConfig(config: Partial<CrossChainArbConfig>): void {
-    this.config = { ...this.config, ...config };
+    this.config = { ...this.config, ...config }
   }
 
   /**
    * Add a custom chain
    */
   addChain(chain: ChainConfig): void {
-    this.config.chains.push(chain);
+    this.config.chains.push(chain)
 
     if (chain.type === 'evm') {
       this.evmClients.set(
         chain.chainId as EVMChainId,
-        createPublicClient({ transport: http(chain.rpcUrl) })
-      );
+        createPublicClient({ transport: http(chain.rpcUrl) }),
+      )
     }
   }
 }
@@ -684,21 +813,18 @@ export class CrossChainArbitrage extends EventEmitter {
 // ============ Solana Arbitrage Support ============
 
 export interface SolanaArbConfig {
-  rpcUrl: string;
-  commitment: Commitment;
+  rpcUrl: string
+  commitment: Commitment
   dexes: {
-    name: string;
-    programId: string;
-  }[];
+    name: string
+    programId: string
+  }[]
 }
 
 export class SolanaArbitrage {
-  private connection: Connection;
-  private config: SolanaArbConfig;
-
   constructor(config: SolanaArbConfig) {
-    this.config = config;
-    this.connection = new Connection(config.rpcUrl, config.commitment);
+    this.config = config
+    this.connection = new Connection(config.rpcUrl, config.commitment)
   }
 
   /**
@@ -707,9 +833,9 @@ export class SolanaArbitrage {
   async getRaydiumQuote(
     inputMint: PublicKey,
     outputMint: PublicKey,
-    amount: bigint
+    amount: bigint,
   ): Promise<bigint> {
-    return this.getJupiterQuote(inputMint, outputMint, amount, 'Raydium');
+    return this.getJupiterQuote(inputMint, outputMint, amount, 'Raydium')
   }
 
   /**
@@ -718,9 +844,9 @@ export class SolanaArbitrage {
   async getOrcaQuote(
     inputMint: PublicKey,
     outputMint: PublicKey,
-    amount: bigint
+    amount: bigint,
   ): Promise<bigint> {
-    return this.getJupiterQuote(inputMint, outputMint, amount, 'Orca');
+    return this.getJupiterQuote(inputMint, outputMint, amount, 'Orca')
   }
 
   /**
@@ -730,25 +856,25 @@ export class SolanaArbitrage {
     inputMint: PublicKey,
     outputMint: PublicKey,
     amount: bigint,
-    dexFilter?: string
+    dexFilter?: string,
   ): Promise<bigint> {
-    const JUPITER_API = 'https://quote-api.jup.ag/v6';
-    
-    let url = `${JUPITER_API}/quote?inputMint=${inputMint.toBase58()}&outputMint=${outputMint.toBase58()}&amount=${amount.toString()}&slippageBps=50`;
-    
+    const JUPITER_API = 'https://quote-api.jup.ag/v6'
+
+    let url = `${JUPITER_API}/quote?inputMint=${inputMint.toBase58()}&outputMint=${outputMint.toBase58()}&amount=${amount.toString()}&slippageBps=50`
+
     // Filter to specific DEX if requested
     if (dexFilter) {
-      url += `&onlyDirectRoutes=true&dexes=${dexFilter}`;
+      url += `&onlyDirectRoutes=true&dexes=${dexFilter}`
     }
 
-    const response = await fetch(url);
+    const response = await fetch(url)
     if (!response.ok) {
-      throw new Error(`Jupiter API error: ${response.statusText}`);
+      throw new Error(`Jupiter API error: ${response.statusText}`)
     }
 
-    const rawData: unknown = await response.json();
-    const data = JupiterQuoteResponseSchema.parse(rawData);
-    return BigInt(data.outAmount);
+    const rawData: unknown = await response.json()
+    const data = JupiterQuoteResponseSchema.parse(rawData)
+    return BigInt(data.outAmount)
   }
 
   /**
@@ -756,7 +882,6 @@ export class SolanaArbitrage {
    */
   async findOpportunities(): Promise<CrossChainArbOpportunity[]> {
     // Implementation would compare prices across Raydium, Orca, Jupiter, etc.
-    return [];
+    return []
   }
 }
-

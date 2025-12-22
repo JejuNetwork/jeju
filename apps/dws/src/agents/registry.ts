@@ -3,63 +3,70 @@
  * CQL-backed storage for agent configurations
  */
 
-import type { Address } from 'viem';
+import type { Address } from 'viem'
 import type {
   AgentConfig,
-  AgentStatus,
-  AgentRuntimeConfig,
   AgentCronTrigger,
+  AgentRuntimeConfig,
   AgentStats,
+  AgentStatus,
   RegisterAgentRequest,
   UpdateAgentRequest,
-} from './types';
+} from './types'
+
+// SQL query parameter type (matches @jejunetwork/db QueryParam)
+type SqlParam = string | number | boolean | null
 
 // ============================================================================
 // Registry Configuration
 // ============================================================================
 
 export interface RegistryConfig {
-  cqlUrl: string;
-  databaseId: string;
+  cqlUrl: string
+  databaseId: string
 }
 
 // ============================================================================
 // In-Memory Cache + CQL Persistence
 // ============================================================================
 
-const agents = new Map<string, AgentConfig>();
-const cronTriggers = new Map<string, AgentCronTrigger[]>();
-const invocationCounts = new Map<string, number>();
-const latencyMetrics = new Map<string, number[]>();
+const agents = new Map<string, AgentConfig>()
+const cronTriggers = new Map<string, AgentCronTrigger[]>()
+const invocationCounts = new Map<string, number>()
+const latencyMetrics = new Map<string, number[]>()
 
-let registryConfig: RegistryConfig | null = null;
-let initialized = false;
+let registryConfig: RegistryConfig | null = null
+let initialized = false
 
 // ============================================================================
 // Initialization
 // ============================================================================
 
 export async function initRegistry(config: RegistryConfig): Promise<void> {
-  if (initialized) return;
-  
-  registryConfig = config;
-  
+  if (initialized) return
+
+  registryConfig = config
+
   // Try to create tables and load from CQL
   // If CQL is not available, continue with in-memory only mode
   try {
-    await createTables();
-    await loadAgentsFromCQL();
-    console.log(`[AgentRegistry] Initialized with ${agents.size} agents (CQL mode)`);
+    await createTables()
+    await loadAgentsFromCQL()
+    console.log(
+      `[AgentRegistry] Initialized with ${agents.size} agents (CQL mode)`,
+    )
   } catch (e) {
-    console.warn(`[AgentRegistry] CQL not available, using in-memory mode: ${e instanceof Error ? e.message : String(e)}`);
+    console.warn(
+      `[AgentRegistry] CQL not available, using in-memory mode: ${e instanceof Error ? e.message : String(e)}`,
+    )
   }
-  
-  initialized = true;
+
+  initialized = true
 }
 
 async function createTables(): Promise<void> {
-  if (!registryConfig) return;
-  
+  if (!registryConfig) return
+
   const tables = [
     `CREATE TABLE IF NOT EXISTS agents (
       id TEXT PRIMARY KEY,
@@ -102,30 +109,30 @@ async function createTables(): Promise<void> {
     `CREATE INDEX IF NOT EXISTS idx_memories_agent ON agent_memories(agent_id)`,
     `CREATE INDEX IF NOT EXISTS idx_memories_room ON agent_memories(agent_id, room_id)`,
     `CREATE INDEX IF NOT EXISTS idx_cron_agent ON agent_cron_triggers(agent_id)`,
-  ];
-  
+  ]
+
   for (const sql of tables) {
-    await cqlExec(sql);
+    await cqlExec(sql)
   }
 }
 
 async function loadAgentsFromCQL(): Promise<void> {
-  if (!registryConfig) return;
-  
+  if (!registryConfig) return
+
   const result = await cqlQuery<{
-    id: string;
-    owner: string;
-    character: string;
-    models: string | null;
-    runtime: string;
-    secrets_key_id: string | null;
-    memories_db_id: string | null;
-    status: string;
-    created_at: number;
-    updated_at: number;
-    metadata: string | null;
-  }>('SELECT * FROM agents WHERE status != ?', ['terminated']);
-  
+    id: string
+    owner: string
+    character: string
+    models: string | null
+    runtime: string
+    secrets_key_id: string | null
+    memories_db_id: string | null
+    status: string
+    created_at: number
+    updated_at: number
+    metadata: string | null
+  }>('SELECT * FROM agents WHERE status != ?', ['terminated'])
+
   for (const row of result) {
     const agent: AgentConfig = {
       id: row.id,
@@ -139,23 +146,23 @@ async function loadAgentsFromCQL(): Promise<void> {
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
-    };
-    agents.set(agent.id, agent);
+    }
+    agents.set(agent.id, agent)
   }
-  
+
   // Load cron triggers
   const triggers = await cqlQuery<{
-    id: string;
-    agent_id: string;
-    schedule: string;
-    action: string;
-    payload: string | null;
-    enabled: number;
-    last_run_at: number | null;
-    next_run_at: number | null;
-    run_count: number;
-  }>('SELECT * FROM agent_cron_triggers WHERE enabled = 1', []);
-  
+    id: string
+    agent_id: string
+    schedule: string
+    action: string
+    payload: string | null
+    enabled: number
+    last_run_at: number | null
+    next_run_at: number | null
+    run_count: number
+  }>('SELECT * FROM agent_cron_triggers WHERE enabled = 1', [])
+
   for (const row of triggers) {
     const trigger: AgentCronTrigger = {
       id: row.id,
@@ -167,11 +174,11 @@ async function loadAgentsFromCQL(): Promise<void> {
       lastRunAt: row.last_run_at ?? undefined,
       nextRunAt: row.next_run_at ?? undefined,
       runCount: row.run_count,
-    };
-    
-    const existing = cronTriggers.get(row.agent_id) ?? [];
-    existing.push(trigger);
-    cronTriggers.set(row.agent_id, existing);
+    }
+
+    const existing = cronTriggers.get(row.agent_id) ?? []
+    existing.push(trigger)
+    cronTriggers.set(row.agent_id, existing)
   }
 }
 
@@ -181,11 +188,11 @@ async function loadAgentsFromCQL(): Promise<void> {
 
 export async function registerAgent(
   owner: Address,
-  request: RegisterAgentRequest
+  request: RegisterAgentRequest,
 ): Promise<AgentConfig> {
-  const id = crypto.randomUUID();
-  const now = Date.now();
-  
+  const id = crypto.randomUUID()
+  const now = Date.now()
+
   const runtime: AgentRuntimeConfig = {
     keepWarm: request.runtime?.keepWarm ?? false,
     cronSchedule: request.runtime?.cronSchedule,
@@ -194,8 +201,8 @@ export async function registerAgent(
     plugins: request.runtime?.plugins ?? [],
     mcpServers: request.runtime?.mcpServers,
     a2aCapabilities: request.runtime?.a2aCapabilities,
-  };
-  
+  }
+
   const agent: AgentConfig = {
     id,
     owner,
@@ -206,8 +213,8 @@ export async function registerAgent(
     createdAt: now,
     updatedAt: now,
     metadata: request.metadata,
-  };
-  
+  }
+
   // Store in CQL
   await cqlExec(
     `INSERT INTO agents (id, owner, character, models, runtime, status, created_at, updated_at, metadata)
@@ -222,72 +229,77 @@ export async function registerAgent(
       agent.createdAt,
       agent.updatedAt,
       agent.metadata ? JSON.stringify(agent.metadata) : null,
-    ]
-  );
-  
+    ],
+  )
+
   // Add to cache
-  agents.set(id, agent);
-  
+  agents.set(id, agent)
+
   // Create cron trigger if specified
   if (runtime.cronSchedule) {
-    await addCronTrigger(id, runtime.cronSchedule, 'think');
+    await addCronTrigger(id, runtime.cronSchedule, 'think')
   }
-  
-  console.log(`[AgentRegistry] Registered agent: ${agent.character.name} (${id})`);
-  return agent;
+
+  console.log(
+    `[AgentRegistry] Registered agent: ${agent.character.name} (${id})`,
+  )
+  return agent
 }
 
 export function getAgent(id: string): AgentConfig | null {
-  return agents.get(id) ?? null;
+  return agents.get(id) ?? null
 }
 
 export function getAgentsByOwner(owner: Address): AgentConfig[] {
   return Array.from(agents.values()).filter(
-    a => a.owner.toLowerCase() === owner.toLowerCase()
-  );
+    (a) => a.owner.toLowerCase() === owner.toLowerCase(),
+  )
 }
 
-export function listAgents(filter?: { status?: AgentStatus; owner?: Address }): AgentConfig[] {
-  let result = Array.from(agents.values());
-  
+export function listAgents(filter?: {
+  status?: AgentStatus
+  owner?: Address
+}): AgentConfig[] {
+  let result = Array.from(agents.values())
+
   if (filter?.status) {
-    result = result.filter(a => a.status === filter.status);
+    result = result.filter((a) => a.status === filter.status)
   }
   if (filter?.owner) {
-    const ownerLower = filter.owner.toLowerCase();
-    result = result.filter(a => a.owner.toLowerCase() === ownerLower);
+    const ownerLower = filter.owner.toLowerCase()
+    result = result.filter((a) => a.owner.toLowerCase() === ownerLower)
   }
-  
-  return result;
+
+  return result
 }
 
 export async function updateAgent(
   id: string,
   owner: Address,
-  update: UpdateAgentRequest
+  update: UpdateAgentRequest,
 ): Promise<AgentConfig | null> {
-  const agent = agents.get(id);
-  if (!agent) return null;
+  const agent = agents.get(id)
+  if (!agent) return null
   if (agent.owner.toLowerCase() !== owner.toLowerCase()) {
-    throw new Error('Not authorized to update this agent');
+    throw new Error('Not authorized to update this agent')
   }
-  
+
   // Apply updates
   if (update.character) {
-    agent.character = { ...agent.character, ...update.character };
+    agent.character = { ...agent.character, ...update.character }
   }
   if (update.models) {
-    agent.models = update.models;
+    agent.models = update.models
   }
   if (update.runtime) {
-    agent.runtime = { ...agent.runtime, ...update.runtime };
+    agent.runtime = { ...agent.runtime, ...update.runtime }
   }
   if (update.metadata) {
-    agent.metadata = { ...agent.metadata, ...update.metadata };
+    agent.metadata = { ...agent.metadata, ...update.metadata }
   }
-  
-  agent.updatedAt = Date.now();
-  
+
+  agent.updatedAt = Date.now()
+
   // Update in CQL
   await cqlExec(
     `UPDATE agents SET character = ?, models = ?, runtime = ?, updated_at = ?, metadata = ? WHERE id = ?`,
@@ -298,51 +310,59 @@ export async function updateAgent(
       agent.updatedAt,
       agent.metadata ? JSON.stringify(agent.metadata) : null,
       id,
-    ]
-  );
-  
-  return agent;
+    ],
+  )
+
+  return agent
 }
 
-export async function updateAgentStatus(id: string, status: AgentStatus): Promise<void> {
-  const agent = agents.get(id);
-  if (!agent) return;
-  
-  agent.status = status;
-  agent.updatedAt = Date.now();
-  
-  await cqlExec(
-    'UPDATE agents SET status = ?, updated_at = ? WHERE id = ?',
-    [status, agent.updatedAt, id]
-  );
+export async function updateAgentStatus(
+  id: string,
+  status: AgentStatus,
+): Promise<void> {
+  const agent = agents.get(id)
+  if (!agent) return
+
+  agent.status = status
+  agent.updatedAt = Date.now()
+
+  await cqlExec('UPDATE agents SET status = ?, updated_at = ? WHERE id = ?', [
+    status,
+    agent.updatedAt,
+    id,
+  ])
 }
 
-export async function terminateAgent(id: string, owner: Address): Promise<boolean> {
-  const agent = agents.get(id);
-  if (!agent) return false;
+export async function terminateAgent(
+  id: string,
+  owner: Address,
+): Promise<boolean> {
+  const agent = agents.get(id)
+  if (!agent) return false
   if (agent.owner.toLowerCase() !== owner.toLowerCase()) {
-    throw new Error('Not authorized to terminate this agent');
+    throw new Error('Not authorized to terminate this agent')
   }
-  
-  agent.status = 'terminated';
-  agent.updatedAt = Date.now();
-  
-  await cqlExec(
-    'UPDATE agents SET status = ?, updated_at = ? WHERE id = ?',
-    ['terminated', agent.updatedAt, id]
-  );
-  
+
+  agent.status = 'terminated'
+  agent.updatedAt = Date.now()
+
+  await cqlExec('UPDATE agents SET status = ?, updated_at = ? WHERE id = ?', [
+    'terminated',
+    agent.updatedAt,
+    id,
+  ])
+
   // Disable cron triggers
   await cqlExec(
     'UPDATE agent_cron_triggers SET enabled = 0 WHERE agent_id = ?',
-    [id]
-  );
-  
-  agents.delete(id);
-  cronTriggers.delete(id);
-  
-  console.log(`[AgentRegistry] Terminated agent: ${id}`);
-  return true;
+    [id],
+  )
+
+  agents.delete(id)
+  cronTriggers.delete(id)
+
+  console.log(`[AgentRegistry] Terminated agent: ${id}`)
+  return true
 }
 
 // ============================================================================
@@ -353,7 +373,7 @@ export async function addCronTrigger(
   agentId: string,
   schedule: string,
   action: AgentCronTrigger['action'],
-  payload?: Record<string, unknown>
+  payload?: Record<string, unknown>,
 ): Promise<AgentCronTrigger> {
   const trigger: AgentCronTrigger = {
     id: crypto.randomUUID(),
@@ -363,45 +383,51 @@ export async function addCronTrigger(
     payload,
     enabled: true,
     runCount: 0,
-  };
-  
+  }
+
   await cqlExec(
     `INSERT INTO agent_cron_triggers (id, agent_id, schedule, action, payload, enabled, run_count)
      VALUES (?, ?, ?, ?, ?, 1, 0)`,
-    [trigger.id, trigger.agentId, trigger.schedule, trigger.action, payload ? JSON.stringify(payload) : null]
-  );
-  
-  const existing = cronTriggers.get(agentId) ?? [];
-  existing.push(trigger);
-  cronTriggers.set(agentId, existing);
-  
-  return trigger;
+    [
+      trigger.id,
+      trigger.agentId,
+      trigger.schedule,
+      trigger.action,
+      payload ? JSON.stringify(payload) : null,
+    ],
+  )
+
+  const existing = cronTriggers.get(agentId) ?? []
+  existing.push(trigger)
+  cronTriggers.set(agentId, existing)
+
+  return trigger
 }
 
 export function getCronTriggers(agentId: string): AgentCronTrigger[] {
-  return cronTriggers.get(agentId) ?? [];
+  return cronTriggers.get(agentId) ?? []
 }
 
 export function getAllActiveCronTriggers(): AgentCronTrigger[] {
-  const all: AgentCronTrigger[] = [];
+  const all: AgentCronTrigger[] = []
   for (const triggers of cronTriggers.values()) {
-    all.push(...triggers.filter(t => t.enabled));
+    all.push(...triggers.filter((t) => t.enabled))
   }
-  return all;
+  return all
 }
 
 export async function updateCronTriggerRun(triggerId: string): Promise<void> {
   for (const [_agentId, triggers] of cronTriggers) {
-    const trigger = triggers.find(t => t.id === triggerId);
+    const trigger = triggers.find((t) => t.id === triggerId)
     if (trigger) {
-      trigger.lastRunAt = Date.now();
-      trigger.runCount++;
-      
+      trigger.lastRunAt = Date.now()
+      trigger.runCount++
+
       await cqlExec(
         'UPDATE agent_cron_triggers SET last_run_at = ?, run_count = ? WHERE id = ?',
-        [trigger.lastRunAt, trigger.runCount, triggerId]
-      );
-      break;
+        [trigger.lastRunAt, trigger.runCount, triggerId],
+      )
+      break
     }
   }
 }
@@ -412,28 +438,29 @@ export async function updateCronTriggerRun(triggerId: string): Promise<void> {
 
 export function recordInvocation(agentId: string, latencyMs: number): void {
   // Update count
-  const count = invocationCounts.get(agentId) ?? 0;
-  invocationCounts.set(agentId, count + 1);
-  
+  const count = invocationCounts.get(agentId) ?? 0
+  invocationCounts.set(agentId, count + 1)
+
   // Update latency
-  const latencies = latencyMetrics.get(agentId) ?? [];
-  latencies.push(latencyMs);
+  const latencies = latencyMetrics.get(agentId) ?? []
+  latencies.push(latencyMs)
   if (latencies.length > 1000) {
-    latencies.shift();
+    latencies.shift()
   }
-  latencyMetrics.set(agentId, latencies);
+  latencyMetrics.set(agentId, latencies)
 }
 
 export function getAgentStats(agentId: string): AgentStats | null {
-  const agent = agents.get(agentId);
-  if (!agent) return null;
-  
-  const invocations = invocationCounts.get(agentId) ?? 0;
-  const latencies = latencyMetrics.get(agentId) ?? [];
-  const avgLatency = latencies.length > 0
-    ? latencies.reduce((a, b) => a + b, 0) / latencies.length
-    : 0;
-  
+  const agent = agents.get(agentId)
+  if (!agent) return null
+
+  const invocations = invocationCounts.get(agentId) ?? 0
+  const latencies = latencyMetrics.get(agentId) ?? []
+  const avgLatency =
+    latencies.length > 0
+      ? latencies.reduce((a, b) => a + b, 0) / latencies.length
+      : 0
+
   return {
     agentId,
     totalInvocations: invocations,
@@ -441,16 +468,16 @@ export function getAgentStats(agentId: string): AgentStats | null {
     errorRate: 0, // TODO: track errors
     activeInstances: 0, // Filled by executor
     memoriesCount: 0, // TODO: query CQL
-  };
+  }
 }
 
 // ============================================================================
 // CQL Helpers
 // ============================================================================
 
-async function cqlQuery<T>(sql: string, params: unknown[] = []): Promise<T[]> {
-  if (!registryConfig) return [];
-  
+async function cqlQuery<T>(sql: string, params: SqlParam[] = []): Promise<T[]> {
+  if (!registryConfig) return []
+
   try {
     const response = await fetch(`${registryConfig.cqlUrl}/v1/query`, {
       method: 'POST',
@@ -461,23 +488,23 @@ async function cqlQuery<T>(sql: string, params: unknown[] = []): Promise<T[]> {
         params,
       }),
       signal: AbortSignal.timeout(5000),
-    });
-    
+    })
+
     if (!response.ok) {
-      return [];
+      return []
     }
-    
-    const data = await response.json() as { rows?: T[] };
-    return data.rows ?? [];
+
+    const data = (await response.json()) as { rows?: T[] }
+    return data.rows ?? []
   } catch {
     // CQL not available
-    return [];
+    return []
   }
 }
 
-async function cqlExec(sql: string, params: unknown[] = []): Promise<void> {
-  if (!registryConfig) return;
-  
+async function cqlExec(sql: string, params: SqlParam[] = []): Promise<void> {
+  if (!registryConfig) return
+
   try {
     await fetch(`${registryConfig.cqlUrl}/v1/exec`, {
       method: 'POST',
@@ -489,7 +516,7 @@ async function cqlExec(sql: string, params: unknown[] = []): Promise<void> {
         params,
       }),
       signal: AbortSignal.timeout(5000),
-    });
+    })
   } catch {
     // CQL not available - operations will be in-memory only
   }
@@ -500,15 +527,18 @@ async function cqlExec(sql: string, params: unknown[] = []): Promise<void> {
 // ============================================================================
 
 export function isInitialized(): boolean {
-  return initialized;
+  return initialized
 }
 
 export function getRegistryStats() {
   return {
     totalAgents: agents.size,
-    activeAgents: Array.from(agents.values()).filter(a => a.status === 'active').length,
-    pendingAgents: Array.from(agents.values()).filter(a => a.status === 'pending').length,
+    activeAgents: Array.from(agents.values()).filter(
+      (a) => a.status === 'active',
+    ).length,
+    pendingAgents: Array.from(agents.values()).filter(
+      (a) => a.status === 'pending',
+    ).length,
     totalCronTriggers: getAllActiveCronTriggers().length,
-  };
+  }
 }
-

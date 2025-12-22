@@ -8,11 +8,11 @@
  * - Model downloads and access control
  */
 
-import type { Address, Hex } from "viem";
-import { encodeFunctionData } from "viem";
-import type { NetworkType } from "@jejunetwork/types";
-import type { JejuWallet } from "../wallet";
-import { getContractAddresses } from "../config";
+import type { NetworkType } from '@jejunetwork/types'
+import type { Address, Hex } from 'viem'
+import { encodeFunctionData } from 'viem'
+import { getContractAddresses } from '../config'
+import type { JejuWallet } from '../wallet'
 
 // ============================================================================
 // Types
@@ -48,119 +48,119 @@ export enum AccessLevel {
 }
 
 export interface Model {
-  modelId: Hex;
-  name: string;
-  organization: string;
-  owner: Address;
-  ownerAgentId: bigint;
-  modelType: ModelType;
-  license: LicenseType;
-  licenseUri: string;
-  accessLevel: AccessLevel;
-  description: string;
-  tags: string[];
-  createdAt: number;
-  updatedAt: number;
-  isPublic: boolean;
-  isVerified: boolean;
+  modelId: Hex
+  name: string
+  organization: string
+  owner: Address
+  ownerAgentId: bigint
+  modelType: ModelType
+  license: LicenseType
+  licenseUri: string
+  accessLevel: AccessLevel
+  description: string
+  tags: string[]
+  createdAt: number
+  updatedAt: number
+  isPublic: boolean
+  isVerified: boolean
 }
 
 export interface ModelVersion {
-  versionId: Hex;
-  modelId: Hex;
-  version: string;
-  weightsUri: string;
-  weightsHash: Hex;
-  weightsSize: bigint;
-  configUri: string;
-  tokenizerUri: string;
-  parameterCount: bigint;
-  precision: string;
-  publishedAt: number;
-  isLatest: boolean;
+  versionId: Hex
+  modelId: Hex
+  version: string
+  weightsUri: string
+  weightsHash: Hex
+  weightsSize: bigint
+  configUri: string
+  tokenizerUri: string
+  parameterCount: bigint
+  precision: string
+  publishedAt: number
+  isLatest: boolean
 }
 
 export interface TrainingProvenance {
-  modelId: Hex;
-  versionId: Hex;
-  datasetIds: string[];
-  trainingConfigUri: string;
-  trainingConfigHash: Hex;
-  trainingStarted: number;
-  trainingCompleted: number;
-  computeProviderUri: string;
-  computeJobId: Hex;
-  frameworkVersion: string;
-  baseModels: string[];
-  trainer: Address;
-  verified: boolean;
+  modelId: Hex
+  versionId: Hex
+  datasetIds: string[]
+  trainingConfigUri: string
+  trainingConfigHash: Hex
+  trainingStarted: number
+  trainingCompleted: number
+  computeProviderUri: string
+  computeJobId: Hex
+  frameworkVersion: string
+  baseModels: string[]
+  trainer: Address
+  verified: boolean
 }
 
 export interface ModelMetrics {
-  modelId: Hex;
-  totalDownloads: bigint;
-  totalInferences: bigint;
-  totalStars: bigint;
-  totalForks: bigint;
-  weeklyDownloads: bigint;
-  lastUpdated: number;
+  modelId: Hex
+  totalDownloads: bigint
+  totalInferences: bigint
+  totalStars: bigint
+  totalForks: bigint
+  weeklyDownloads: bigint
+  lastUpdated: number
 }
 
 export interface InferenceEndpoint {
-  endpointId: Hex;
-  modelId: Hex;
-  versionId: Hex;
-  provider: Address;
-  endpointUrl: string;
-  pricePerRequest: bigint;
-  paymentToken: Address;
-  isActive: boolean;
-  createdAt: number;
+  endpointId: Hex
+  modelId: Hex
+  versionId: Hex
+  provider: Address
+  endpointUrl: string
+  pricePerRequest: bigint
+  paymentToken: Address
+  isActive: boolean
+  createdAt: number
 }
 
 export interface CreateModelParams {
-  name: string;
-  organization: string;
-  modelType: ModelType;
-  license: LicenseType;
-  licenseUri?: string;
-  accessLevel: AccessLevel;
-  description: string;
-  tags: string[];
+  name: string
+  organization: string
+  modelType: ModelType
+  license: LicenseType
+  licenseUri?: string
+  accessLevel: AccessLevel
+  description: string
+  tags: string[]
 }
 
 export interface PublishVersionParams {
-  modelId: Hex;
-  version: string;
-  weightsUri: string;
-  weightsHash: Hex;
-  weightsSize: bigint;
-  configUri: string;
-  tokenizerUri: string;
-  parameterCount: bigint;
-  precision: string;
+  modelId: Hex
+  version: string
+  weightsUri: string
+  weightsHash: Hex
+  weightsSize: bigint
+  configUri: string
+  tokenizerUri: string
+  parameterCount: bigint
+  precision: string
 }
 
 export interface RecordProvenanceParams {
-  modelId: Hex;
-  versionId: Hex;
-  datasetIds: string[];
-  trainingConfigUri: string;
-  trainingConfigHash: Hex;
-  trainingStarted: number;
-  trainingCompleted: number;
-  computeProviderUri: string;
-  computeJobId: Hex;
-  frameworkVersion: string;
-  baseModels: string[];
+  modelId: Hex
+  versionId: Hex
+  datasetIds: string[]
+  trainingConfigUri: string
+  trainingConfigHash: Hex
+  trainingStarted: number
+  trainingCompleted: number
+  computeProviderUri: string
+  computeJobId: Hex
+  frameworkVersion: string
+  baseModels: string[]
 }
 
 export interface CreateEndpointParams {
-  modelId: Hex;
-  versionId: Hex;
-  endpointUrl: string;
-  pricePerRequest: bigint;
-  paymentToken?: Address;
+  modelId: Hex
+  versionId: Hex
+  endpointUrl: string
+  pricePerRequest: bigint
+  paymentToken?: Address
 }
 
 // ============================================================================
@@ -168,27 +168,27 @@ export interface CreateEndpointParams {
 // ============================================================================
 
 const MODEL_REGISTRY_ABI = [
-  "function createModel(string name, string organization, uint8 modelType, uint8 license, string licenseUri, uint8 accessLevel, string description, string[] tags) external payable returns (bytes32)",
-  "function publishVersion(bytes32 modelId, string version, string weightsUri, bytes32 weightsHash, uint256 weightsSize, string configUri, string tokenizerUri, uint256 parameterCount, string precision) external returns (bytes32)",
-  "function recordProvenance(bytes32 modelId, bytes32 versionId, string[] datasetIds, string trainingConfigUri, bytes32 trainingConfigHash, uint256 trainingStarted, uint256 trainingCompleted, string computeProviderUri, bytes32 computeJobId, string frameworkVersion, string[] baseModels) external",
-  "function downloadModel(bytes32 modelId) external",
-  "function grantAccess(bytes32 modelId, address user) external",
-  "function toggleStar(bytes32 modelId) external",
-  "function createInferenceEndpoint(bytes32 modelId, bytes32 versionId, string endpointUrl, uint256 pricePerRequest, address paymentToken) external returns (bytes32)",
-  "function requestInference(bytes32 modelId, uint256 endpointIndex) external payable",
-  "function getModel(bytes32 modelId) external view returns (tuple(bytes32 modelId, string name, string organization, address owner, uint256 ownerAgentId, uint8 modelType, uint8 license, string licenseUri, uint8 accessLevel, string description, string[] tags, uint256 createdAt, uint256 updatedAt, bool isPublic, bool isVerified))",
-  "function getModelVersions(bytes32 modelId) external view returns (tuple(bytes32 versionId, bytes32 modelId, string version, string weightsUri, bytes32 weightsHash, uint256 weightsSize, string configUri, string tokenizerUri, uint256 parameterCount, string precision, uint256 publishedAt, bool isLatest)[])",
-  "function getLatestVersion(bytes32 modelId) external view returns (tuple(bytes32 versionId, bytes32 modelId, string version, string weightsUri, bytes32 weightsHash, uint256 weightsSize, string configUri, string tokenizerUri, uint256 parameterCount, string precision, uint256 publishedAt, bool isLatest))",
-  "function getProvenance(bytes32 versionId) external view returns (tuple(bytes32 modelId, bytes32 versionId, string[] datasetIds, string trainingConfigUri, bytes32 trainingConfigHash, uint256 trainingStarted, uint256 trainingCompleted, string computeProviderUri, bytes32 computeJobId, string frameworkVersion, string[] baseModels, address trainer, bool verified))",
-  "function getMetrics(bytes32 modelId) external view returns (tuple(bytes32 modelId, uint256 totalDownloads, uint256 totalInferences, uint256 totalStars, uint256 totalForks, uint256 weeklyDownloads, uint256 lastUpdated))",
-  "function getEndpoints(bytes32 modelId) external view returns (tuple(bytes32 endpointId, bytes32 modelId, bytes32 versionId, address provider, string endpointUrl, uint256 pricePerRequest, address paymentToken, bool isActive, uint256 createdAt)[])",
-  "function getOrganizationModels(string org) external view returns (bytes32[])",
-  "function getTotalModels() external view returns (uint256)",
-  "function getAllModelIds(uint256 offset, uint256 limit) external view returns (bytes32[])",
-  "function hasAccess(bytes32 modelId, address user) external view returns (bool)",
-  "function hasStarred(bytes32 modelId, address user) external view returns (bool)",
-  "function uploadFee() external view returns (uint256)",
-] as const;
+  'function createModel(string name, string organization, uint8 modelType, uint8 license, string licenseUri, uint8 accessLevel, string description, string[] tags) external payable returns (bytes32)',
+  'function publishVersion(bytes32 modelId, string version, string weightsUri, bytes32 weightsHash, uint256 weightsSize, string configUri, string tokenizerUri, uint256 parameterCount, string precision) external returns (bytes32)',
+  'function recordProvenance(bytes32 modelId, bytes32 versionId, string[] datasetIds, string trainingConfigUri, bytes32 trainingConfigHash, uint256 trainingStarted, uint256 trainingCompleted, string computeProviderUri, bytes32 computeJobId, string frameworkVersion, string[] baseModels) external',
+  'function downloadModel(bytes32 modelId) external',
+  'function grantAccess(bytes32 modelId, address user) external',
+  'function toggleStar(bytes32 modelId) external',
+  'function createInferenceEndpoint(bytes32 modelId, bytes32 versionId, string endpointUrl, uint256 pricePerRequest, address paymentToken) external returns (bytes32)',
+  'function requestInference(bytes32 modelId, uint256 endpointIndex) external payable',
+  'function getModel(bytes32 modelId) external view returns (tuple(bytes32 modelId, string name, string organization, address owner, uint256 ownerAgentId, uint8 modelType, uint8 license, string licenseUri, uint8 accessLevel, string description, string[] tags, uint256 createdAt, uint256 updatedAt, bool isPublic, bool isVerified))',
+  'function getModelVersions(bytes32 modelId) external view returns (tuple(bytes32 versionId, bytes32 modelId, string version, string weightsUri, bytes32 weightsHash, uint256 weightsSize, string configUri, string tokenizerUri, uint256 parameterCount, string precision, uint256 publishedAt, bool isLatest)[])',
+  'function getLatestVersion(bytes32 modelId) external view returns (tuple(bytes32 versionId, bytes32 modelId, string version, string weightsUri, bytes32 weightsHash, uint256 weightsSize, string configUri, string tokenizerUri, uint256 parameterCount, string precision, uint256 publishedAt, bool isLatest))',
+  'function getProvenance(bytes32 versionId) external view returns (tuple(bytes32 modelId, bytes32 versionId, string[] datasetIds, string trainingConfigUri, bytes32 trainingConfigHash, uint256 trainingStarted, uint256 trainingCompleted, string computeProviderUri, bytes32 computeJobId, string frameworkVersion, string[] baseModels, address trainer, bool verified))',
+  'function getMetrics(bytes32 modelId) external view returns (tuple(bytes32 modelId, uint256 totalDownloads, uint256 totalInferences, uint256 totalStars, uint256 totalForks, uint256 weeklyDownloads, uint256 lastUpdated))',
+  'function getEndpoints(bytes32 modelId) external view returns (tuple(bytes32 endpointId, bytes32 modelId, bytes32 versionId, address provider, string endpointUrl, uint256 pricePerRequest, address paymentToken, bool isActive, uint256 createdAt)[])',
+  'function getOrganizationModels(string org) external view returns (bytes32[])',
+  'function getTotalModels() external view returns (uint256)',
+  'function getAllModelIds(uint256 offset, uint256 limit) external view returns (bytes32[])',
+  'function hasAccess(bytes32 modelId, address user) external view returns (bool)',
+  'function hasStarred(bytes32 modelId, address user) external view returns (bool)',
+  'function uploadFee() external view returns (uint256)',
+] as const
 
 // ============================================================================
 // Models Module Interface
@@ -196,47 +196,45 @@ const MODEL_REGISTRY_ABI = [
 
 export interface ModelsModule {
   // Model Queries
-  getModel(modelId: Hex): Promise<Model | null>;
-  listModels(offset?: number, limit?: number): Promise<Model[]>;
-  getOrganizationModels(organization: string): Promise<Model[]>;
-  searchModels(query: string): Promise<Model[]>;
-  getTotalModels(): Promise<number>;
+  getModel(modelId: Hex): Promise<Model | null>
+  listModels(offset?: number, limit?: number): Promise<Model[]>
+  getOrganizationModels(organization: string): Promise<Model[]>
+  searchModels(query: string): Promise<Model[]>
+  getTotalModels(): Promise<number>
 
   // Version Management
-  getVersions(modelId: Hex): Promise<ModelVersion[]>;
-  getLatestVersion(modelId: Hex): Promise<ModelVersion | null>;
-  getProvenance(versionId: Hex): Promise<TrainingProvenance | null>;
+  getVersions(modelId: Hex): Promise<ModelVersion[]>
+  getLatestVersion(modelId: Hex): Promise<ModelVersion | null>
+  getProvenance(versionId: Hex): Promise<TrainingProvenance | null>
 
   // Metrics & Analytics
-  getMetrics(modelId: Hex): Promise<ModelMetrics | null>;
-  getEndpoints(modelId: Hex): Promise<InferenceEndpoint[]>;
+  getMetrics(modelId: Hex): Promise<ModelMetrics | null>
+  getEndpoints(modelId: Hex): Promise<InferenceEndpoint[]>
 
   // Access Control
-  hasAccess(modelId: Hex, user?: Address): Promise<boolean>;
-  hasStarred(modelId: Hex, user?: Address): Promise<boolean>;
+  hasAccess(modelId: Hex, user?: Address): Promise<boolean>
+  hasStarred(modelId: Hex, user?: Address): Promise<boolean>
 
   // Write Operations
-  createModel(
-    params: CreateModelParams,
-  ): Promise<{ txHash: Hex; modelId: Hex }>;
+  createModel(params: CreateModelParams): Promise<{ txHash: Hex; modelId: Hex }>
   publishVersion(
     params: PublishVersionParams,
-  ): Promise<{ txHash: Hex; versionId: Hex }>;
-  recordProvenance(params: RecordProvenanceParams): Promise<{ txHash: Hex }>;
-  downloadModel(modelId: Hex): Promise<{ txHash: Hex }>;
-  grantAccess(modelId: Hex, user: Address): Promise<{ txHash: Hex }>;
-  toggleStar(modelId: Hex): Promise<{ txHash: Hex }>;
+  ): Promise<{ txHash: Hex; versionId: Hex }>
+  recordProvenance(params: RecordProvenanceParams): Promise<{ txHash: Hex }>
+  downloadModel(modelId: Hex): Promise<{ txHash: Hex }>
+  grantAccess(modelId: Hex, user: Address): Promise<{ txHash: Hex }>
+  toggleStar(modelId: Hex): Promise<{ txHash: Hex }>
   createEndpoint(
     params: CreateEndpointParams,
-  ): Promise<{ txHash: Hex; endpointId: Hex }>;
+  ): Promise<{ txHash: Hex; endpointId: Hex }>
   requestInference(
     modelId: Hex,
     endpointIndex: number,
     payment?: bigint,
-  ): Promise<{ txHash: Hex }>;
+  ): Promise<{ txHash: Hex }>
 
   // Constants
-  readonly UPLOAD_FEE: bigint;
+  readonly UPLOAD_FEE: bigint
 }
 
 // ============================================================================
@@ -247,63 +245,63 @@ export function createModelsModule(
   wallet: JejuWallet,
   network: NetworkType,
 ): ModelsModule {
-  const contracts = getContractAddresses(network);
+  const contracts = getContractAddresses(network)
   if (!contracts.modelRegistry) {
-    throw new Error(`ModelRegistry contract not deployed on ${network}`);
+    throw new Error(`ModelRegistry contract not deployed on ${network}`)
   }
-  const modelRegistryAddress = contracts.modelRegistry;
+  const modelRegistryAddress = contracts.modelRegistry
 
-  let cachedUploadFee: bigint | null = null;
+  let cachedUploadFee: bigint | null = null
 
   async function getUploadFee(): Promise<bigint> {
-    if (cachedUploadFee !== null) return cachedUploadFee;
+    if (cachedUploadFee !== null) return cachedUploadFee
 
     const fee = (await wallet.publicClient.readContract({
       address: modelRegistryAddress,
       abi: MODEL_REGISTRY_ABI,
-      functionName: "uploadFee",
+      functionName: 'uploadFee',
       args: [],
-    })) as bigint;
+    })) as bigint
 
-    cachedUploadFee = fee;
-    return fee;
+    cachedUploadFee = fee
+    return fee
   }
 
   return {
     get UPLOAD_FEE(): bigint {
       if (cachedUploadFee === null) {
         throw new Error(
-          "Upload fee not yet loaded. Call any write method first.",
-        );
+          'Upload fee not yet loaded. Call any write method first.',
+        )
       }
-      return cachedUploadFee;
+      return cachedUploadFee
     },
 
     async getModel(modelId: Hex): Promise<Model | null> {
       const data = (await wallet.publicClient.readContract({
         address: modelRegistryAddress,
         abi: MODEL_REGISTRY_ABI,
-        functionName: "getModel",
+        functionName: 'getModel',
         args: [modelId],
       })) as {
-        modelId: Hex;
-        name: string;
-        organization: string;
-        owner: Address;
-        ownerAgentId: bigint;
-        modelType: number;
-        license: number;
-        licenseUri: string;
-        accessLevel: number;
-        description: string;
-        tags: readonly string[];
-        createdAt: bigint;
-        updatedAt: bigint;
-        isPublic: boolean;
-        isVerified: boolean;
-      };
+        modelId: Hex
+        name: string
+        organization: string
+        owner: Address
+        ownerAgentId: bigint
+        modelType: number
+        license: number
+        licenseUri: string
+        accessLevel: number
+        description: string
+        tags: readonly string[]
+        createdAt: bigint
+        updatedAt: bigint
+        isPublic: boolean
+        isVerified: boolean
+      }
 
-      if (!data || data.createdAt === 0n) return null;
+      if (!data || data.createdAt === 0n) return null
 
       return {
         modelId: data.modelId,
@@ -321,85 +319,85 @@ export function createModelsModule(
         updatedAt: Number(data.updatedAt),
         isPublic: data.isPublic,
         isVerified: data.isVerified,
-      };
+      }
     },
 
     async listModels(offset = 0, limit = 100): Promise<Model[]> {
       const modelIds = (await wallet.publicClient.readContract({
         address: modelRegistryAddress,
         abi: MODEL_REGISTRY_ABI,
-        functionName: "getAllModelIds",
+        functionName: 'getAllModelIds',
         args: [BigInt(offset), BigInt(limit)],
-      })) as Hex[];
+      })) as Hex[]
 
-      const models: Model[] = [];
+      const models: Model[] = []
       for (const id of modelIds) {
-        const model = await this.getModel(id);
-        if (model) models.push(model);
+        const model = await this.getModel(id)
+        if (model) models.push(model)
       }
-      return models;
+      return models
     },
 
     async getOrganizationModels(organization: string): Promise<Model[]> {
       const modelIds = (await wallet.publicClient.readContract({
         address: modelRegistryAddress,
         abi: MODEL_REGISTRY_ABI,
-        functionName: "getOrganizationModels",
+        functionName: 'getOrganizationModels',
         args: [organization],
-      })) as Hex[];
+      })) as Hex[]
 
-      const models: Model[] = [];
+      const models: Model[] = []
       for (const id of modelIds) {
-        const model = await this.getModel(id);
-        if (model) models.push(model);
+        const model = await this.getModel(id)
+        if (model) models.push(model)
       }
-      return models;
+      return models
     },
 
     async searchModels(query: string): Promise<Model[]> {
       // For now, fetch all and filter locally
       // In production, would use an indexer
-      const allModels = await this.listModels(0, 1000);
-      const lowerQuery = query.toLowerCase();
+      const allModels = await this.listModels(0, 1000)
+      const lowerQuery = query.toLowerCase()
       return allModels.filter(
         (m) =>
           m.name.toLowerCase().includes(lowerQuery) ||
           m.description.toLowerCase().includes(lowerQuery) ||
           m.organization.toLowerCase().includes(lowerQuery) ||
           m.tags.some((t) => t.toLowerCase().includes(lowerQuery)),
-      );
+      )
     },
 
     async getTotalModels(): Promise<number> {
       const total = (await wallet.publicClient.readContract({
         address: modelRegistryAddress,
         abi: MODEL_REGISTRY_ABI,
-        functionName: "getTotalModels",
+        functionName: 'getTotalModels',
         args: [],
-      })) as bigint;
-      return Number(total);
+      })) as bigint
+      return Number(total)
     },
 
     async getVersions(modelId: Hex): Promise<ModelVersion[]> {
       const versions = (await wallet.publicClient.readContract({
         address: modelRegistryAddress,
         abi: MODEL_REGISTRY_ABI,
-        functionName: "getModelVersions",
+        functionName: 'getModelVersions',
         args: [modelId],
       })) as readonly {
-        versionId: Hex;
-        modelId: Hex;
-        version: string;
-        weightsUri: string;
-        weightsHash: Hex;
-        weightsSize: bigint;
-        configUri: string;
-        tokenizerUri: string;
-        parameterCount: bigint;
-        precision: string;
-        publishedAt: bigint;
-        isLatest: boolean;
-      }[];
+        versionId: Hex
+        modelId: Hex
+        version: string
+        weightsUri: string
+        weightsHash: Hex
+        weightsSize: bigint
+        configUri: string
+        tokenizerUri: string
+        parameterCount: bigint
+        precision: string
+        publishedAt: bigint
+        isLatest: boolean
+      }[]
 
       return versions.map((v) => ({
         versionId: v.versionId,
@@ -414,31 +412,31 @@ export function createModelsModule(
         precision: v.precision,
         publishedAt: Number(v.publishedAt),
         isLatest: v.isLatest,
-      }));
+      }))
     },
 
     async getLatestVersion(modelId: Hex): Promise<ModelVersion | null> {
       const v = (await wallet.publicClient.readContract({
         address: modelRegistryAddress,
         abi: MODEL_REGISTRY_ABI,
-        functionName: "getLatestVersion",
+        functionName: 'getLatestVersion',
         args: [modelId],
       })) as {
-        versionId: Hex;
-        modelId: Hex;
-        version: string;
-        weightsUri: string;
-        weightsHash: Hex;
-        weightsSize: bigint;
-        configUri: string;
-        tokenizerUri: string;
-        parameterCount: bigint;
-        precision: string;
-        publishedAt: bigint;
-        isLatest: boolean;
-      };
+        versionId: Hex
+        modelId: Hex
+        version: string
+        weightsUri: string
+        weightsHash: Hex
+        weightsSize: bigint
+        configUri: string
+        tokenizerUri: string
+        parameterCount: bigint
+        precision: string
+        publishedAt: bigint
+        isLatest: boolean
+      }
 
-      if (!v || v.publishedAt === 0n) return null;
+      if (!v || v.publishedAt === 0n) return null
 
       return {
         versionId: v.versionId,
@@ -453,32 +451,32 @@ export function createModelsModule(
         precision: v.precision,
         publishedAt: Number(v.publishedAt),
         isLatest: v.isLatest,
-      };
+      }
     },
 
     async getProvenance(versionId: Hex): Promise<TrainingProvenance | null> {
       const p = (await wallet.publicClient.readContract({
         address: modelRegistryAddress,
         abi: MODEL_REGISTRY_ABI,
-        functionName: "getProvenance",
+        functionName: 'getProvenance',
         args: [versionId],
       })) as {
-        modelId: Hex;
-        versionId: Hex;
-        datasetIds: readonly string[];
-        trainingConfigUri: string;
-        trainingConfigHash: Hex;
-        trainingStarted: bigint;
-        trainingCompleted: bigint;
-        computeProviderUri: string;
-        computeJobId: Hex;
-        frameworkVersion: string;
-        baseModels: readonly string[];
-        trainer: Address;
-        verified: boolean;
-      };
+        modelId: Hex
+        versionId: Hex
+        datasetIds: readonly string[]
+        trainingConfigUri: string
+        trainingConfigHash: Hex
+        trainingStarted: bigint
+        trainingCompleted: bigint
+        computeProviderUri: string
+        computeJobId: Hex
+        frameworkVersion: string
+        baseModels: readonly string[]
+        trainer: Address
+        verified: boolean
+      }
 
-      if (!p || p.trainingStarted === 0n) return null;
+      if (!p || p.trainingStarted === 0n) return null
 
       return {
         modelId: p.modelId,
@@ -494,24 +492,24 @@ export function createModelsModule(
         baseModels: [...p.baseModels],
         trainer: p.trainer,
         verified: p.verified,
-      };
+      }
     },
 
     async getMetrics(modelId: Hex): Promise<ModelMetrics | null> {
       const m = (await wallet.publicClient.readContract({
         address: modelRegistryAddress,
         abi: MODEL_REGISTRY_ABI,
-        functionName: "getMetrics",
+        functionName: 'getMetrics',
         args: [modelId],
       })) as {
-        modelId: Hex;
-        totalDownloads: bigint;
-        totalInferences: bigint;
-        totalStars: bigint;
-        totalForks: bigint;
-        weeklyDownloads: bigint;
-        lastUpdated: bigint;
-      };
+        modelId: Hex
+        totalDownloads: bigint
+        totalInferences: bigint
+        totalStars: bigint
+        totalForks: bigint
+        weeklyDownloads: bigint
+        lastUpdated: bigint
+      }
 
       return {
         modelId: m.modelId,
@@ -521,26 +519,26 @@ export function createModelsModule(
         totalForks: m.totalForks,
         weeklyDownloads: m.weeklyDownloads,
         lastUpdated: Number(m.lastUpdated),
-      };
+      }
     },
 
     async getEndpoints(modelId: Hex): Promise<InferenceEndpoint[]> {
       const endpoints = (await wallet.publicClient.readContract({
         address: modelRegistryAddress,
         abi: MODEL_REGISTRY_ABI,
-        functionName: "getEndpoints",
+        functionName: 'getEndpoints',
         args: [modelId],
       })) as readonly {
-        endpointId: Hex;
-        modelId: Hex;
-        versionId: Hex;
-        provider: Address;
-        endpointUrl: string;
-        pricePerRequest: bigint;
-        paymentToken: Address;
-        isActive: boolean;
-        createdAt: bigint;
-      }[];
+        endpointId: Hex
+        modelId: Hex
+        versionId: Hex
+        provider: Address
+        endpointUrl: string
+        pricePerRequest: bigint
+        paymentToken: Address
+        isActive: boolean
+        createdAt: bigint
+      }[]
 
       return endpoints.map((e) => ({
         endpointId: e.endpointId,
@@ -552,54 +550,54 @@ export function createModelsModule(
         paymentToken: e.paymentToken,
         isActive: e.isActive,
         createdAt: Number(e.createdAt),
-      }));
+      }))
     },
 
     async hasAccess(modelId: Hex, user?: Address): Promise<boolean> {
       return (await wallet.publicClient.readContract({
         address: modelRegistryAddress,
         abi: MODEL_REGISTRY_ABI,
-        functionName: "hasAccess",
+        functionName: 'hasAccess',
         args: [modelId, user ?? wallet.address],
-      })) as boolean;
+      })) as boolean
     },
 
     async hasStarred(modelId: Hex, user?: Address): Promise<boolean> {
       return (await wallet.publicClient.readContract({
         address: modelRegistryAddress,
         abi: MODEL_REGISTRY_ABI,
-        functionName: "hasStarred",
+        functionName: 'hasStarred',
         args: [modelId, user ?? wallet.address],
-      })) as boolean;
+      })) as boolean
     },
 
     async createModel(
       params: CreateModelParams,
     ): Promise<{ txHash: Hex; modelId: Hex }> {
-      const fee = await getUploadFee();
+      const fee = await getUploadFee()
 
       const txHash = await wallet.sendTransaction({
         to: modelRegistryAddress,
         value: fee,
         data: encodeFunctionData({
           abi: MODEL_REGISTRY_ABI,
-          functionName: "createModel",
+          functionName: 'createModel',
           args: [
             params.name,
             params.organization,
             params.modelType,
             params.license,
-            params.licenseUri ?? "",
+            params.licenseUri ?? '',
             params.accessLevel,
             params.description,
             params.tags,
           ],
         }),
-      });
+      })
 
       // Parse modelId from logs in production
-      const modelId = `0x${"0".repeat(64)}` as Hex;
-      return { txHash, modelId };
+      const modelId = `0x${'0'.repeat(64)}` as Hex
+      return { txHash, modelId }
     },
 
     async publishVersion(
@@ -609,7 +607,7 @@ export function createModelsModule(
         to: modelRegistryAddress,
         data: encodeFunctionData({
           abi: MODEL_REGISTRY_ABI,
-          functionName: "publishVersion",
+          functionName: 'publishVersion',
           args: [
             params.modelId,
             params.version,
@@ -622,10 +620,10 @@ export function createModelsModule(
             params.precision,
           ],
         }),
-      });
+      })
 
-      const versionId = `0x${"0".repeat(64)}` as Hex;
-      return { txHash, versionId };
+      const versionId = `0x${'0'.repeat(64)}` as Hex
+      return { txHash, versionId }
     },
 
     async recordProvenance(
@@ -635,7 +633,7 @@ export function createModelsModule(
         to: modelRegistryAddress,
         data: encodeFunctionData({
           abi: MODEL_REGISTRY_ABI,
-          functionName: "recordProvenance",
+          functionName: 'recordProvenance',
           args: [
             params.modelId,
             params.versionId,
@@ -650,9 +648,9 @@ export function createModelsModule(
             params.baseModels,
           ],
         }),
-      });
+      })
 
-      return { txHash };
+      return { txHash }
     },
 
     async downloadModel(modelId: Hex): Promise<{ txHash: Hex }> {
@@ -660,12 +658,12 @@ export function createModelsModule(
         to: modelRegistryAddress,
         data: encodeFunctionData({
           abi: MODEL_REGISTRY_ABI,
-          functionName: "downloadModel",
+          functionName: 'downloadModel',
           args: [modelId],
         }),
-      });
+      })
 
-      return { txHash };
+      return { txHash }
     },
 
     async grantAccess(modelId: Hex, user: Address): Promise<{ txHash: Hex }> {
@@ -673,12 +671,12 @@ export function createModelsModule(
         to: modelRegistryAddress,
         data: encodeFunctionData({
           abi: MODEL_REGISTRY_ABI,
-          functionName: "grantAccess",
+          functionName: 'grantAccess',
           args: [modelId, user],
         }),
-      });
+      })
 
-      return { txHash };
+      return { txHash }
     },
 
     async toggleStar(modelId: Hex): Promise<{ txHash: Hex }> {
@@ -686,12 +684,12 @@ export function createModelsModule(
         to: modelRegistryAddress,
         data: encodeFunctionData({
           abi: MODEL_REGISTRY_ABI,
-          functionName: "toggleStar",
+          functionName: 'toggleStar',
           args: [modelId],
         }),
-      });
+      })
 
-      return { txHash };
+      return { txHash }
     },
 
     async createEndpoint(
@@ -701,19 +699,19 @@ export function createModelsModule(
         to: modelRegistryAddress,
         data: encodeFunctionData({
           abi: MODEL_REGISTRY_ABI,
-          functionName: "createInferenceEndpoint",
+          functionName: 'createInferenceEndpoint',
           args: [
             params.modelId,
             params.versionId,
             params.endpointUrl,
             params.pricePerRequest,
-            params.paymentToken ?? "0x0000000000000000000000000000000000000000",
+            params.paymentToken ?? '0x0000000000000000000000000000000000000000',
           ],
         }),
-      });
+      })
 
-      const endpointId = `0x${"0".repeat(64)}` as Hex;
-      return { txHash, endpointId };
+      const endpointId = `0x${'0'.repeat(64)}` as Hex
+      return { txHash, endpointId }
     },
 
     async requestInference(
@@ -726,12 +724,12 @@ export function createModelsModule(
         value: payment ?? 0n,
         data: encodeFunctionData({
           abi: MODEL_REGISTRY_ABI,
-          functionName: "requestInference",
+          functionName: 'requestInference',
           args: [modelId, BigInt(endpointIndex)],
         }),
-      });
+      })
 
-      return { txHash };
+      return { txHash }
     },
-  };
+  }
 }

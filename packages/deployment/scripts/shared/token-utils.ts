@@ -2,14 +2,14 @@
  * Token utility functions for formatting and calculations
  */
 
-import { getToken, getAllTokens, type TokenConfig } from './protocol-tokens';
+import { getAllTokens, getToken, type TokenConfig } from './protocol-tokens'
 
 /**
  * Get decimals for a token
  */
 export function getTokenDecimals(symbolOrAddress: string): number {
-  const token = getToken(symbolOrAddress);
-  return token?.decimals ?? 18;
+  const token = getToken(symbolOrAddress)
+  return token?.decimals ?? 18
 }
 
 /**
@@ -18,27 +18,27 @@ export function getTokenDecimals(symbolOrAddress: string): number {
 export function formatTokenAmount(
   amount: bigint | string | number,
   symbolOrAddress: string,
-  displayDecimals: number = 4
+  displayDecimals: number = 4,
 ): string {
-  const decimals = getTokenDecimals(symbolOrAddress);
-  const amountBigInt = typeof amount === 'bigint' ? amount : BigInt(amount);
-  
-  const divisor = 10n ** BigInt(decimals);
-  const whole = amountBigInt / divisor;
-  const remainder = amountBigInt % divisor;
-  
+  const decimals = getTokenDecimals(symbolOrAddress)
+  const amountBigInt = typeof amount === 'bigint' ? amount : BigInt(amount)
+
+  const divisor = 10n ** BigInt(decimals)
+  const whole = amountBigInt / divisor
+  const remainder = amountBigInt % divisor
+
   if (remainder === 0n) {
-    return whole.toString();
+    return whole.toString()
   }
-  
-  const fractional = remainder.toString().padStart(decimals, '0');
-  const trimmed = fractional.slice(0, displayDecimals).replace(/0+$/, '');
-  
+
+  const fractional = remainder.toString().padStart(decimals, '0')
+  const trimmed = fractional.slice(0, displayDecimals).replace(/0+$/, '')
+
   if (trimmed.length === 0) {
-    return whole.toString();
+    return whole.toString()
   }
-  
-  return `${whole}.${trimmed}`;
+
+  return `${whole}.${trimmed}`
 }
 
 /**
@@ -46,41 +46,41 @@ export function formatTokenAmount(
  */
 export function parseTokenAmount(
   amount: string,
-  symbolOrAddress: string
+  symbolOrAddress: string,
 ): bigint {
-  const decimals = getTokenDecimals(symbolOrAddress);
-  
-  const [whole, fractional = ''] = amount.split('.');
-  const paddedFractional = fractional.padEnd(decimals, '0').slice(0, decimals);
-  
-  const wholeBigInt = BigInt(whole || '0');
-  const fractionalBigInt = BigInt(paddedFractional);
-  
-  return wholeBigInt * (10n ** BigInt(decimals)) + fractionalBigInt;
+  const decimals = getTokenDecimals(symbolOrAddress)
+
+  const [whole, fractional = ''] = amount.split('.')
+  const paddedFractional = fractional.padEnd(decimals, '0').slice(0, decimals)
+
+  const wholeBigInt = BigInt(whole || '0')
+  const fractionalBigInt = BigInt(paddedFractional)
+
+  return wholeBigInt * 10n ** BigInt(decimals) + fractionalBigInt
 }
 
 /**
  * Get token symbol from address
  */
 export function getTokenSymbol(address: string): string {
-  const token = getToken(address);
-  return token?.symbol ?? 'UNKNOWN';
+  const token = getToken(address)
+  return token?.symbol ?? 'UNKNOWN'
 }
 
 /**
  * Get token name from address
  */
 export function getTokenName(address: string): string {
-  const token = getToken(address);
-  return token?.name ?? 'Unknown Token';
+  const token = getToken(address)
+  return token?.name ?? 'Unknown Token'
 }
 
 /**
  * Get token price in USD
  */
 export function getTokenPriceUSD(symbolOrAddress: string): number {
-  const token = getToken(symbolOrAddress);
-  return token?.priceUSD ?? 0;
+  const token = getToken(symbolOrAddress)
+  return token?.priceUSD ?? 0
 }
 
 /**
@@ -88,15 +88,15 @@ export function getTokenPriceUSD(symbolOrAddress: string): number {
  */
 export function calculateUSDValue(
   amount: bigint | string | number,
-  symbolOrAddress: string
+  symbolOrAddress: string,
 ): number {
-  const priceUSD = getTokenPriceUSD(symbolOrAddress);
-  const decimals = getTokenDecimals(symbolOrAddress);
-  
-  const amountBigInt = typeof amount === 'bigint' ? amount : BigInt(amount);
-  const amountNumber = Number(amountBigInt) / (10 ** decimals);
-  
-  return amountNumber * priceUSD;
+  const priceUSD = getTokenPriceUSD(symbolOrAddress)
+  const decimals = getTokenDecimals(symbolOrAddress)
+
+  const amountBigInt = typeof amount === 'bigint' ? amount : BigInt(amount)
+  const amountNumber = Number(amountBigInt) / 10 ** decimals
+
+  return amountNumber * priceUSD
 }
 
 /**
@@ -106,18 +106,18 @@ export function formatUSD(value: number, decimals: number = 2): string {
   return `$${value.toLocaleString('en-US', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
-  })}`;
+  })}`
 }
 
 /**
  * Get all supported tokens
  */
 export function getAllSupportedTokens(): Array<{
-  symbol: string;
-  address: string;
-  name: string;
-  decimals: number;
-  priceUSD: number;
+  symbol: string
+  address: string
+  name: string
+  decimals: number
+  priceUSD: number
 }> {
   return getAllTokens().map((token) => ({
     symbol: token.symbol,
@@ -125,31 +125,30 @@ export function getAllSupportedTokens(): Array<{
     name: token.name,
     decimals: token.decimals,
     priceUSD: token.priceUSD ?? 0,
-  }));
+  }))
 }
 
 /**
  * Calculate sqrtPriceX96 for Uniswap V4 pool initialization
  */
 export function calculateSqrtPriceX96(priceToken1PerToken0: number): bigint {
-  const sqrtPrice = Math.sqrt(priceToken1PerToken0);
-  const Q96 = 2n ** 96n;
-  return BigInt(Math.floor(sqrtPrice * Number(Q96)));
+  const sqrtPrice = Math.sqrt(priceToken1PerToken0)
+  const Q96 = 2n ** 96n
+  return BigInt(Math.floor(sqrtPrice * Number(Q96)))
 }
 
 /**
  * Calculate price from sqrtPriceX96
  */
 export function priceFromSqrtPriceX96(sqrtPriceX96: bigint): number {
-  const Q96 = 2n ** 96n;
-  const sqrtPrice = Number(sqrtPriceX96) / Number(Q96);
-  return sqrtPrice ** 2;
+  const Q96 = 2n ** 96n
+  const sqrtPrice = Number(sqrtPriceX96) / Number(Q96)
+  return sqrtPrice ** 2
 }
 
 /**
  * Get token configuration
  */
 export function getTokenConfig(symbolOrAddress: string): TokenConfig | null {
-  return getToken(symbolOrAddress);
+  return getToken(symbolOrAddress)
 }
-

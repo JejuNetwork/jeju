@@ -1,15 +1,16 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { useAccount } from 'wagmi'
 import Link from 'next/link'
+import { useCallback, useEffect, useState } from 'react'
+import { useAccount } from 'wagmi'
 import {
-  FaucetStatusSchema,
+  type FaucetClaimResult,
   FaucetClaimResultSchema,
+  type FaucetInfo,
   FaucetInfoSchema,
   type FaucetStatus,
-  type FaucetClaimResult,
-  type FaucetInfo,
+  FaucetStatusSchema,
+  parseJsonResponse,
 } from '@/lib/faucet'
 
 function formatTime(ms: number): string {
@@ -41,8 +42,7 @@ function useFaucet() {
       setLoading(false)
       return
     }
-    const data: unknown = await response.json()
-    const result = FaucetStatusSchema.safeParse(data)
+    const result = await parseJsonResponse(response, FaucetStatusSchema)
     if (!result.success) {
       setError('Invalid faucet status response')
       setLoading(false)
@@ -55,8 +55,7 @@ function useFaucet() {
   const fetchInfo = useCallback(async () => {
     const response = await fetch('/api/faucet/info')
     if (!response.ok) return
-    const data: unknown = await response.json()
-    const result = FaucetInfoSchema.safeParse(data)
+    const result = await parseJsonResponse(response, FaucetInfoSchema)
     if (!result.success) {
       console.error('Invalid faucet info response:', result.error)
       return
@@ -74,8 +73,7 @@ function useFaucet() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ address }),
     })
-    const data: unknown = await response.json()
-    const result = FaucetClaimResultSchema.safeParse(data)
+    const result = await parseJsonResponse(response, FaucetClaimResultSchema)
     if (!result.success) {
       setClaimResult({ success: false, error: 'Invalid claim response' })
       setClaiming(false)
@@ -95,12 +93,30 @@ function useFaucet() {
     }
   }, [address, fetchInfo, fetchStatus])
 
-  return { status, loading, claiming, claimResult, info, claim, refresh: fetchStatus, error }
+  return {
+    status,
+    loading,
+    claiming,
+    claimResult,
+    info,
+    claim,
+    refresh: fetchStatus,
+    error,
+  }
 }
 
 export default function FaucetPage() {
   const { isConnected } = useAccount()
-  const { status, loading, claiming, claimResult, info, claim, refresh, error } = useFaucet()
+  const {
+    status,
+    loading,
+    claiming,
+    claimResult,
+    info,
+    claim,
+    refresh,
+    error,
+  } = useFaucet()
   const [showApiDocs, setShowApiDocs] = useState(false)
 
   if (!isConnected) {
@@ -129,7 +145,9 @@ export default function FaucetPage() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <span className="text-2xl">💧</span>
-              <h1 className="text-xl font-bold">{info?.name || 'JEJU Faucet'}</h1>
+              <h1 className="text-xl font-bold">
+                {info?.name || 'JEJU Faucet'}
+              </h1>
             </div>
             <button
               className="btn btn-secondary p-2"
@@ -138,7 +156,9 @@ export default function FaucetPage() {
               title="Refresh status"
               aria-label="Refresh status"
             >
-              <span className={loading ? 'animate-spin inline-block' : ''}>🔄</span>
+              <span className={loading ? 'animate-spin inline-block' : ''}>
+                🔄
+              </span>
             </button>
           </div>
 
@@ -152,9 +172,15 @@ export default function FaucetPage() {
               <div className="flex items-start gap-3">
                 <span className="text-xl">⚠️</span>
                 <div>
-                  <p className="font-medium text-yellow-500">Faucet Not Configured</p>
-                  <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
-                    Set FAUCET_PRIVATE_KEY environment variable to enable the faucet.
+                  <p className="font-medium text-yellow-500">
+                    Faucet Not Configured
+                  </p>
+                  <p
+                    className="text-sm mt-1"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
+                    Set FAUCET_PRIVATE_KEY environment variable to enable the
+                    faucet.
                   </p>
                 </div>
               </div>
@@ -163,16 +189,28 @@ export default function FaucetPage() {
 
           {/* Stats Grid */}
           <div className="grid grid-cols-2 gap-4 mb-4">
-            <div className="p-3 rounded-lg" style={{ background: 'var(--card-bg)' }}>
-              <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+            <div
+              className="p-3 rounded-lg"
+              style={{ background: 'var(--card-bg)' }}
+            >
+              <span
+                className="text-xs"
+                style={{ color: 'var(--text-secondary)' }}
+              >
                 Amount per claim
               </span>
               <div className="font-bold">
                 {status?.amountPerClaim || info?.amountPerClaim || '100'} JEJU
               </div>
             </div>
-            <div className="p-3 rounded-lg" style={{ background: 'var(--card-bg)' }}>
-              <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+            <div
+              className="p-3 rounded-lg"
+              style={{ background: 'var(--card-bg)' }}
+            >
+              <span
+                className="text-xs"
+                style={{ color: 'var(--text-secondary)' }}
+              >
                 Cooldown
               </span>
               <div className="font-bold">{info?.cooldownHours || 12} hours</div>
@@ -198,10 +236,18 @@ export default function FaucetPage() {
               </div>
               <span
                 className={`text-sm font-medium ${
-                  loading ? 'text-gray-400' : isRegistered ? 'text-green-500' : 'text-yellow-500'
+                  loading
+                    ? 'text-gray-400'
+                    : isRegistered
+                      ? 'text-green-500'
+                      : 'text-yellow-500'
                 }`}
               >
-                {loading ? 'Checking...' : isRegistered ? 'Registered' : 'Not Registered'}
+                {loading
+                  ? 'Checking...'
+                  : isRegistered
+                    ? 'Registered'
+                    : 'Not Registered'}
               </span>
             </div>
 
@@ -244,10 +290,15 @@ export default function FaucetPage() {
               <div className="flex items-start gap-3">
                 <span className="text-xl">⚠️</span>
                 <div>
-                  <p className="font-medium text-yellow-500">Registration Required</p>
-                  <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
-                    Register in the ERC-8004 Identity Registry to claim tokens. This prevents bots
-                    and ensures tokens go to real developers.
+                  <p className="font-medium text-yellow-500">
+                    Registration Required
+                  </p>
+                  <p
+                    className="text-sm mt-1"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
+                    Register in the ERC-8004 Identity Registry to claim tokens.
+                    This prevents bots and ensures tokens go to real developers.
                   </p>
                 </div>
               </div>
@@ -278,7 +329,9 @@ export default function FaucetPage() {
             ) : (
               <span className="flex items-center justify-center gap-2">
                 <span>💧</span>
-                {status?.eligible ? `Claim ${status.amountPerClaim} JEJU` : 'Claim JEJU'}
+                {status?.eligible
+                  ? `Claim ${status.amountPerClaim} JEJU`
+                  : 'Claim JEJU'}
               </span>
             )}
           </button>
@@ -296,8 +349,13 @@ export default function FaucetPage() {
                 <div className="flex items-start gap-3">
                   <span className="text-xl">✅</span>
                   <div>
-                    <p className="font-medium text-green-500">Claim Successful</p>
-                    <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+                    <p className="font-medium text-green-500">
+                      Claim Successful
+                    </p>
+                    <p
+                      className="text-sm mt-1"
+                      style={{ color: 'var(--text-secondary)' }}
+                    >
                       You received {claimResult.amount} JEJU
                     </p>
                     {claimResult.txHash && info?.explorerUrl && (
@@ -318,11 +376,17 @@ export default function FaucetPage() {
                   <span className="text-xl">❌</span>
                   <div>
                     <p className="font-medium text-red-500">Claim Failed</p>
-                    <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+                    <p
+                      className="text-sm mt-1"
+                      style={{ color: 'var(--text-secondary)' }}
+                    >
                       {claimResult.error}
                     </p>
                     {claimResult.cooldownRemaining && (
-                      <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+                      <p
+                        className="text-sm mt-1"
+                        style={{ color: 'var(--text-secondary)' }}
+                      >
                         Try again in {formatTime(claimResult.cooldownRemaining)}
                       </p>
                     )}
@@ -345,17 +409,31 @@ export default function FaucetPage() {
 
           {showApiDocs && (
             <div className="mt-4">
-              <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
+              <p
+                className="text-sm mb-3"
+                style={{ color: 'var(--text-secondary)' }}
+              >
                 Integrate the faucet into your agents and applications.
               </p>
               <div className="space-y-2 text-xs font-mono">
-                <div className="p-2 rounded" style={{ background: 'var(--card-bg)' }}>
-                  <span className="text-green-500">GET</span> /api/faucet/status/:address
+                <div
+                  className="p-2 rounded"
+                  style={{ background: 'var(--card-bg)' }}
+                >
+                  <span className="text-green-500">GET</span>{' '}
+                  /api/faucet/status/:address
                 </div>
-                <div className="p-2 rounded" style={{ background: 'var(--card-bg)' }}>
-                  <span className="text-blue-500">POST</span> /api/faucet/claim {'{ address }'}
+                <div
+                  className="p-2 rounded"
+                  style={{ background: 'var(--card-bg)' }}
+                >
+                  <span className="text-blue-500">POST</span> /api/faucet/claim{' '}
+                  {'{ address }'}
                 </div>
-                <div className="p-2 rounded" style={{ background: 'var(--card-bg)' }}>
+                <div
+                  className="p-2 rounded"
+                  style={{ background: 'var(--card-bg)' }}
+                >
                   <span className="text-purple-500">GET</span> /api/faucet/info
                 </div>
               </div>
@@ -365,7 +443,11 @@ export default function FaucetPage() {
 
         {/* Back to Home */}
         <div className="text-center">
-          <Link href="/" className="text-sm hover:underline" style={{ color: 'var(--text-secondary)' }}>
+          <Link
+            href="/"
+            className="text-sm hover:underline"
+            style={{ color: 'var(--text-secondary)' }}
+          >
             ← Back to Home
           </Link>
         </div>

@@ -1,37 +1,47 @@
 /**
  * @deprecated This file is deprecated. Import from '@jeju-vendor/cloud' or 'vendor/cloud/src' instead.
- * 
+ *
  * This file remains for backwards compatibility but new code should import
  * from the vendor/cloud package directly.
  */
 
-import { keccak256, encodeAbiParameters, decodeAbiParameters, toHex, type Address, type Hex, recoverAddress, hashMessage, type PrivateKeyAccount } from 'viem';
-import { signMessage } from 'viem/accounts';
+import {
+  type Address,
+  decodeAbiParameters,
+  encodeAbiParameters,
+  type Hex,
+  hashMessage,
+  keccak256,
+  type PrivateKeyAccount,
+  recoverAddress,
+  toHex,
+} from 'viem'
+import { signMessage } from 'viem/accounts'
 
 /**
  * @deprecated Use from '@jeju-vendor/cloud'
  * Cloud Reputation Signing Utilities
- * 
+ *
  * Creates properly signed feedback authorizations for CloudReputationProvider.
  * Uses EIP-191 personal sign for EOA wallets and ERC-1271 for smart contract wallets.
  */
 
 export interface FeedbackAuthData {
-  agentId: bigint;
-  clientAddress: string;
-  indexLimit: bigint;
-  expiry: bigint;
-  chainId: bigint;
-  identityRegistry: string;
-  signerAddress: string;
+  agentId: bigint
+  clientAddress: string
+  indexLimit: bigint
+  expiry: bigint
+  chainId: bigint
+  identityRegistry: string
+  signerAddress: string
 }
 
 /**
  * Create and sign feedback authorization
- * 
+ *
  * This creates the authorization that CloudReputationProvider needs to
  * submit feedback to ReputationRegistry on behalf of the cloud agent.
- * 
+ *
  * @param signer Cloud agent's signer (holds cloud agent's private key)
  * @param agentId Target agent receiving feedback
  * @param clientAddress Cloud service address (will be giving feedback)
@@ -44,10 +54,10 @@ export async function createSignedFeedbackAuth(
   agentId: bigint,
   clientAddress: string,
   reputationRegistryAddress: string,
-  chainId: bigint = 31337n
+  chainId: bigint = 31337n,
 ): Promise<Hex> {
-  const signerAddress = account.address;
-  
+  const signerAddress = account.address
+
   // Create auth data structure
   const authData: FeedbackAuthData = {
     agentId,
@@ -56,12 +66,20 @@ export async function createSignedFeedbackAuth(
     expiry: BigInt(Math.floor(Date.now() / 1000) + 86400), // 24 hours
     chainId,
     identityRegistry: reputationRegistryAddress,
-    signerAddress
-  };
-  
+    signerAddress,
+  }
+
   // Encode struct for hashing
   const encoded = encodeAbiParameters(
-    [{ type: 'uint256' }, { type: 'address' }, { type: 'uint64' }, { type: 'uint256' }, { type: 'uint256' }, { type: 'address' }, { type: 'address' }],
+    [
+      { type: 'uint256' },
+      { type: 'address' },
+      { type: 'uint64' },
+      { type: 'uint256' },
+      { type: 'uint256' },
+      { type: 'address' },
+      { type: 'address' },
+    ],
     [
       authData.agentId,
       authData.clientAddress as Address,
@@ -69,31 +87,26 @@ export async function createSignedFeedbackAuth(
       authData.expiry,
       authData.chainId,
       authData.identityRegistry as Address,
-      authData.signerAddress as Address
-    ]
-  );
-  const structHash = keccak256(encoded);
-  
+      authData.signerAddress as Address,
+    ],
+  )
+  const structHash = keccak256(encoded)
+
   // Sign the message
   const signature = await signMessage({
     account,
     message: { raw: structHash },
-  });
-  
+  })
+
   // Parse signature components (r, s, v from signature)
-  const r = ('0x' + signature.slice(2, 66)) as Hex;
-  const s = ('0x' + signature.slice(66, 130)) as Hex;
-  const v = BigInt('0x' + signature.slice(130, 132));
-  
+  const r = `0x${signature.slice(2, 66)}` as Hex
+  const s = `0x${signature.slice(66, 130)}` as Hex
+  const v = BigInt(`0x${signature.slice(130, 132)}`)
+
   // Encode as: struct_data + r + s + v
-  const signedAuth = concat([
-    encoded,
-    r,
-    s,
-    toHex(v, { size: 1 }),
-  ]) as Hex;
-  
-  return signedAuth;
+  const signedAuth = concat([encoded, r, s, toHex(v, { size: 1 })]) as Hex
+
+  return signedAuth
 }
 
 /**
@@ -104,22 +117,22 @@ export async function createBatchSignedAuths(
   agentIds: bigint[],
   clientAddress: Address,
   reputationRegistryAddress: Address,
-  chainId: bigint = 31337n
+  chainId: bigint = 31337n,
 ): Promise<Map<bigint, Hex>> {
-  const auths = new Map<bigint, Hex>();
-  
+  const auths = new Map<bigint, Hex>()
+
   for (const agentId of agentIds) {
     const auth = await createSignedFeedbackAuth(
       account,
       agentId,
       clientAddress,
       reputationRegistryAddress,
-      chainId
-    );
-    auths.set(agentId, auth);
+      chainId,
+    )
+    auths.set(agentId, auth)
   }
-  
-  return auths;
+
+  return auths
 }
 
 /**
@@ -127,17 +140,17 @@ export async function createBatchSignedAuths(
  */
 export function verifyFeedbackAuth(
   signedAuth: Hex,
-  expectedSigner: Address
+  expectedSigner: Address,
 ): boolean {
   try {
     // Extract struct data (first 224 bytes = 448 hex chars)
-    const structData = signedAuth.slice(0, 2 + 448) as Hex;
-    
+    const structData = signedAuth.slice(0, 2 + 448) as Hex
+
     // Extract signature (last 65 bytes = 130 hex chars)
-    const r = ('0x' + signedAuth.slice(-130, -66)) as Hex;
-    const s = ('0x' + signedAuth.slice(-66, -2)) as Hex;
-    const v = BigInt('0x' + signedAuth.slice(-2));
-    
+    const r = `0x${signedAuth.slice(-130, -66)}` as Hex
+    const s = `0x${signedAuth.slice(-66, -2)}` as Hex
+    const v = BigInt(`0x${signedAuth.slice(-2)}`)
+
     // Decode struct
     const decoded = decodeAbiParameters(
       [
@@ -149,9 +162,9 @@ export function verifyFeedbackAuth(
         { type: 'address' },
         { type: 'address' },
       ],
-      structData
-    );
-    
+      structData,
+    )
+
     // Hash struct
     const encoded = encodeAbiParameters(
       [
@@ -163,30 +176,28 @@ export function verifyFeedbackAuth(
         { type: 'address' },
         { type: 'address' },
       ],
-      decoded
-    );
-    const structHash = keccak256(encoded);
-    
+      decoded,
+    )
+    const structHash = keccak256(encoded)
+
     // EIP-191 format
-    const messageHash = hashMessage({ raw: structHash });
-    
+    const messageHash = hashMessage({ raw: structHash })
+
     // Recover signer
     const recoveredSigner = recoverAddress({
       hash: messageHash,
       signature: (r + s.slice(2) + toHex(v).slice(2)) as Hex,
-    });
-    
-    return recoveredSigner.toLowerCase() === expectedSigner.toLowerCase();
+    })
+
+    return recoveredSigner.toLowerCase() === expectedSigner.toLowerCase()
   } catch {
-    return false;
+    return false
   }
 }
 
 function type(t: string): { max: bigint } {
   if (t === 'uint64') {
-    return { max: BigInt('18446744073709551615') };
+    return { max: BigInt('18446744073709551615') }
   }
-  throw new Error(`Unknown type: ${t}`);
+  throw new Error(`Unknown type: ${t}`)
 }
-
-

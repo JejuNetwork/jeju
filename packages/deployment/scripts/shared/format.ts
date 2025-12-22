@@ -3,29 +3,29 @@
  */
 
 export {
-  formatBytes,
-  formatBytesBinary,
-  formatMs,
-  formatDuration,
-  formatDurationVerbose,
-  formatTimeAgo,
-  formatTimestamp,
-  formatNumber,
-  formatUsd,
-  formatPercent,
-  formatAddress,
-  shortenAddress,
-  formatEth,
-  formatGas,
-  formatGasPrice,
-  generateId,
-  generatePrefixedId,
+  chunk,
   classNames,
   cn,
   delay,
-  chunk,
-} from '@jejunetwork/shared';
+  formatAddress,
+  formatBytes,
+  formatBytesBinary,
+  formatDuration,
+  formatDurationVerbose,
+  formatEth,
+  formatGas,
+  formatGasPrice,
+  formatMs,
+  formatNumber,
+  formatPercent,
+  formatTimeAgo,
+  formatTimestamp,
+  formatUsd,
+  generateId,
+  generatePrefixedId,
+  shortenAddress,
+} from '@jejunetwork/shared'
 
 // Legacy aliases for backward compatibility
-export const formatUSD = formatUsd;
-export const formatETH = formatEth;
+export const formatUSD = formatUsd
+export const formatETH = formatEth

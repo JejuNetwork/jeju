@@ -1,47 +1,47 @@
 /**
  * IMAP Server Integration
- * 
+ *
  * Provides IMAP4rev1 compliance via Dovecot passthrough:
  * - OAuth3 authentication via Dovecot OAuth2 plugin
  * - Encrypted storage backend via DWS
  * - Full compatibility with Thunderbird, Apple Mail, etc.
- * 
+ *
  * Architecture:
  * - Dovecot handles IMAP protocol parsing
  * - This service handles authentication and storage backend
  * - All data stored encrypted in IPFS/Arweave
  */
 
-import { spawn, type ChildProcess } from 'child_process';
-import { writeFileSync, mkdirSync, existsSync } from 'fs';
-import { join } from 'path';
-import type { Address } from 'viem';
-import type { IMAPSession } from './types';
-import { getMailboxStorage } from './storage';
-import { activeSessions, authAttemptsTotal } from './metrics';
+import { type ChildProcess, spawn } from 'node:child_process'
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import type { Address } from 'viem'
+import { activeSessions, authAttemptsTotal } from './metrics'
+import { getMailboxStorage } from './storage'
+import type { IMAPSession } from './types'
 
 // ============ Configuration ============
 
 interface IMAPServerConfig {
-  host: string;
-  port: number;
-  tlsCert: string;
-  tlsKey: string;
-  oauth3Endpoint: string;
-  dwsEndpoint: string;
-  dovecotPath?: string;
-  configDir?: string;
+  host: string
+  port: number
+  tlsCert: string
+  tlsKey: string
+  oauth3Endpoint: string
+  dwsEndpoint: string
+  dovecotPath?: string
+  configDir?: string
 }
 
 // ============ IMAP Server ============
 
 export class IMAPServer {
-  private config: IMAPServerConfig;
-  private sessions: Map<string, IMAPSession> = new Map();
-  private dovecotProcess: ChildProcess | null = null;
+  private config: IMAPServerConfig
+  private sessions: Map<string, IMAPSession> = new Map()
+  private dovecotProcess: ChildProcess | null = null
 
   constructor(config: IMAPServerConfig) {
-    this.config = config;
+    this.config = config
   }
 
   /**
@@ -49,45 +49,51 @@ export class IMAPServer {
    * Generates configuration and spawns Dovecot process
    */
   async start(): Promise<void> {
-    console.log(`[IMAP] Starting IMAP server on ${this.config.host}:${this.config.port}`);
-    
+    console.log(
+      `[IMAP] Starting IMAP server on ${this.config.host}:${this.config.port}`,
+    )
+
     // Generate Dovecot configuration
-    const configDir = this.config.configDir ?? '/tmp/jeju-dovecot';
-    this.generateDovecotConfig(configDir);
-    
+    const configDir = this.config.configDir ?? '/tmp/jeju-dovecot'
+    this.generateDovecotConfig(configDir)
+
     // Start Dovecot process
-    const dovecotPath = this.config.dovecotPath ?? 'dovecot';
-    
-    this.dovecotProcess = spawn(dovecotPath, ['-c', join(configDir, 'dovecot.conf'), '-F'], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
+    const dovecotPath = this.config.dovecotPath ?? 'dovecot'
+
+    this.dovecotProcess = spawn(
+      dovecotPath,
+      ['-c', join(configDir, 'dovecot.conf'), '-F'],
+      {
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    )
 
     this.dovecotProcess.stdout?.on('data', (data: Buffer) => {
-      console.log(`[IMAP/Dovecot] ${data.toString().trim()}`);
-    });
+      console.log(`[IMAP/Dovecot] ${data.toString().trim()}`)
+    })
 
     this.dovecotProcess.stderr?.on('data', (data: Buffer) => {
-      console.error(`[IMAP/Dovecot] ${data.toString().trim()}`);
-    });
+      console.error(`[IMAP/Dovecot] ${data.toString().trim()}`)
+    })
 
     this.dovecotProcess.on('error', (error: Error) => {
-      console.error('[IMAP] Failed to start Dovecot:', error.message);
-      console.log('[IMAP] Falling back to built-in IMAP handler');
-      this.dovecotProcess = null;
-    });
+      console.error('[IMAP] Failed to start Dovecot:', error.message)
+      console.log('[IMAP] Falling back to built-in IMAP handler')
+      this.dovecotProcess = null
+    })
 
     this.dovecotProcess.on('exit', (code: number | null) => {
-      console.log(`[IMAP] Dovecot process exited with code ${code}`);
-      this.dovecotProcess = null;
-    });
+      console.log(`[IMAP] Dovecot process exited with code ${code}`)
+      this.dovecotProcess = null
+    })
 
     // Wait for Dovecot to start
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+
     if (this.dovecotProcess) {
-      console.log('[IMAP] Dovecot IMAP server started');
+      console.log('[IMAP] Dovecot IMAP server started')
     } else {
-      console.log('[IMAP] Using built-in IMAP handler (development mode)');
+      console.log('[IMAP] Using built-in IMAP handler (development mode)')
     }
   }
 
@@ -95,32 +101,32 @@ export class IMAPServer {
    * Stop IMAP server
    */
   async stop(): Promise<void> {
-    console.log('[IMAP] Stopping IMAP server');
-    
+    console.log('[IMAP] Stopping IMAP server')
+
     if (this.dovecotProcess) {
-      this.dovecotProcess.kill('SIGTERM');
-      
+      this.dovecotProcess.kill('SIGTERM')
+
       // Wait for graceful shutdown
       await new Promise<void>((resolve) => {
         const timeout = setTimeout(() => {
           if (this.dovecotProcess) {
-            this.dovecotProcess.kill('SIGKILL');
+            this.dovecotProcess.kill('SIGKILL')
           }
-          resolve();
-        }, 5000);
-        
+          resolve()
+        }, 5000)
+
         this.dovecotProcess?.on('exit', () => {
-          clearTimeout(timeout);
-          resolve();
-        });
-      });
-      
-      this.dovecotProcess = null;
+          clearTimeout(timeout)
+          resolve()
+        })
+      })
+
+      this.dovecotProcess = null
     }
-    
+
     // Clear all sessions
-    this.sessions.clear();
-    console.log('[IMAP] IMAP server stopped');
+    this.sessions.clear()
+    console.log('[IMAP] IMAP server stopped')
   }
 
   /**
@@ -128,7 +134,7 @@ export class IMAPServer {
    */
   private generateDovecotConfig(configDir: string): void {
     if (!existsSync(configDir)) {
-      mkdirSync(configDir, { recursive: true });
+      mkdirSync(configDir, { recursive: true })
     }
 
     // Main dovecot.conf
@@ -184,9 +190,9 @@ plugin {
 
 # Include extra configs
 !include ${join(configDir, 'conf.d')}/*.conf
-`;
+`
 
-    writeFileSync(join(configDir, 'dovecot.conf'), mainConfig);
+    writeFileSync(join(configDir, 'dovecot.conf'), mainConfig)
 
     // OAuth2 configuration
     const oauth2Config = `
@@ -202,14 +208,14 @@ tls_ca_cert_file = /etc/ssl/certs/ca-certificates.crt
 # Token validation
 active_attribute = valid
 active_value = true
-`;
+`
 
-    writeFileSync(join(configDir, 'dovecot-oauth2.conf.ext'), oauth2Config);
+    writeFileSync(join(configDir, 'dovecot-oauth2.conf.ext'), oauth2Config)
 
     // Create conf.d directory
-    const confdDir = join(configDir, 'conf.d');
+    const confdDir = join(configDir, 'conf.d')
     if (!existsSync(confdDir)) {
-      mkdirSync(confdDir, { recursive: true });
+      mkdirSync(confdDir, { recursive: true })
     }
 
     // IMAP specific config
@@ -219,26 +225,26 @@ protocol imap {
   mail_max_userip_connections = 50
   imap_client_workarounds = delay-newmail tb-extra-mailbox-sep
 }
-`;
+`
 
-    writeFileSync(join(confdDir, '20-imap.conf'), imapConfig);
+    writeFileSync(join(confdDir, '20-imap.conf'), imapConfig)
 
-    console.log(`[IMAP] Dovecot configuration generated in ${configDir}`);
+    console.log(`[IMAP] Dovecot configuration generated in ${configDir}`)
   }
 
   /**
    * Check if IMAP server is running
    */
   isRunning(): boolean {
-    return this.dovecotProcess !== null && !this.dovecotProcess.killed;
+    return this.dovecotProcess !== null && !this.dovecotProcess.killed
   }
 
   /**
    * Create new IMAP session
    */
   async createSession(_clientIp: string): Promise<string> {
-    const sessionId = `imap-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    
+    const sessionId = `imap-${Date.now()}-${Math.random().toString(36).slice(2)}`
+
     this.sessions.set(sessionId, {
       id: sessionId,
       user: '0x0000000000000000000000000000000000000000' as Address,
@@ -248,16 +254,16 @@ protocol imap {
       capabilities: ['IMAP4rev1', 'AUTH=XOAUTH2', 'SASL-IR', 'IDLE'],
       createdAt: Date.now(),
       lastActivityAt: Date.now(),
-    });
-    
-    activeSessions.inc({ protocol: 'imap' });
-    return sessionId;
+    })
+
+    activeSessions.inc({ protocol: 'imap' })
+    return sessionId
   }
 
   async destroySession(sessionId: string): Promise<void> {
     if (this.sessions.has(sessionId)) {
-      this.sessions.delete(sessionId);
-      activeSessions.dec({ protocol: 'imap' });
+      this.sessions.delete(sessionId)
+      activeSessions.dec({ protocol: 'imap' })
     }
   }
 
@@ -265,7 +271,7 @@ protocol imap {
    * Get session
    */
   getSession(sessionId: string): IMAPSession | undefined {
-    return this.sessions.get(sessionId);
+    return this.sessions.get(sessionId)
   }
 
   /**
@@ -273,28 +279,36 @@ protocol imap {
    */
   async authenticateOAuth3(
     sessionId: string,
-    token: string
+    token: string,
   ): Promise<{ success: boolean; user?: Address; email?: string }> {
     const response = await fetch(`${this.config.oauth3Endpoint}/validate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token }),
-    });
+    })
 
     if (!response.ok) {
-      authAttemptsTotal.inc({ protocol: 'imap', mechanism: 'oauth3', status: 'failure' });
-      return { success: false };
+      authAttemptsTotal.inc({
+        protocol: 'imap',
+        mechanism: 'oauth3',
+        status: 'failure',
+      })
+      return { success: false }
     }
 
-    const data = await response.json() as {
-      valid: boolean;
-      address?: Address;
-      email?: string;
-    };
+    const data = (await response.json()) as {
+      valid: boolean
+      address?: Address
+      email?: string
+    }
 
     if (!data.valid || !data.address) {
-      authAttemptsTotal.inc({ protocol: 'imap', mechanism: 'oauth3', status: 'failure' });
-      return { success: false };
+      authAttemptsTotal.inc({
+        protocol: 'imap',
+        mechanism: 'oauth3',
+        status: 'failure',
+      })
+      return { success: false }
     }
 
     // Create session
@@ -323,26 +337,30 @@ protocol imap {
       ],
       createdAt: Date.now(),
       lastActivityAt: Date.now(),
-    });
+    })
 
-    authAttemptsTotal.inc({ protocol: 'imap', mechanism: 'oauth3', status: 'success' });
-    return { success: true, user: data.address, email: data.email };
+    authAttemptsTotal.inc({
+      protocol: 'imap',
+      mechanism: 'oauth3',
+      status: 'success',
+    })
+    return { success: true, user: data.address, email: data.email }
   }
 
   /**
    * Handle IMAP LIST command (list mailboxes)
    */
   async listMailboxes(sessionId: string): Promise<string[]> {
-    const session = this.sessions.get(sessionId);
+    const session = this.sessions.get(sessionId)
     if (!session || !session.authenticated) {
-      throw new Error('Not authenticated');
+      throw new Error('Not authenticated')
     }
 
-    const storage = getMailboxStorage();
-    const mailbox = await storage.getMailbox(session.user);
+    const storage = getMailboxStorage()
+    const mailbox = await storage.getMailbox(session.user)
 
     if (!mailbox) {
-      return ['INBOX'];
+      return ['INBOX']
     }
 
     return [
@@ -352,57 +370,65 @@ protocol imap {
       'Trash',
       'Spam',
       'Archive',
-      ...mailbox.folders.filter(f => !['inbox', 'sent', 'drafts', 'trash', 'spam', 'archive'].includes(f.toLowerCase())),
-    ];
+      ...mailbox.folders.filter(
+        (f) =>
+          !['inbox', 'sent', 'drafts', 'trash', 'spam', 'archive'].includes(
+            f.toLowerCase(),
+          ),
+      ),
+    ]
   }
 
   /**
    * Handle IMAP SELECT command (select mailbox)
    */
-  async selectMailbox(sessionId: string, mailbox: string): Promise<{
-    exists: number;
-    recent: number;
-    unseen: number;
-    uidValidity: number;
-    uidNext: number;
+  async selectMailbox(
+    sessionId: string,
+    mailbox: string,
+  ): Promise<{
+    exists: number
+    recent: number
+    unseen: number
+    uidValidity: number
+    uidNext: number
   }> {
-    const session = this.sessions.get(sessionId);
+    const session = this.sessions.get(sessionId)
     if (!session || !session.authenticated) {
-      throw new Error('Not authenticated');
+      throw new Error('Not authenticated')
     }
 
-    session.selectedMailbox = mailbox;
-    session.lastActivityAt = Date.now();
+    session.selectedMailbox = mailbox
+    session.lastActivityAt = Date.now()
 
-    const storage = getMailboxStorage();
-    const index = await storage.getIndex(session.user);
+    const storage = getMailboxStorage()
+    const index = await storage.getIndex(session.user)
 
     if (!index) {
-      return { exists: 0, recent: 0, unseen: 0, uidValidity: 1, uidNext: 1 };
+      return { exists: 0, recent: 0, unseen: 0, uidValidity: 1, uidNext: 1 }
     }
 
     // Map IMAP folder names to our folder names
     const folderMap: Record<string, string> = {
-      'INBOX': 'inbox',
-      'Sent': 'sent',
-      'Drafts': 'drafts',
-      'Trash': 'trash',
-      'Spam': 'spam',
-      'Archive': 'archive',
-    };
-
-    const folderKey = folderMap[mailbox] ?? mailbox.toLowerCase();
-    let emails: typeof index.inbox;
-
-    if (folderKey in index) {
-      emails = index[folderKey as keyof typeof index] as typeof index.inbox;
-    } else if (index.folders[folderKey]) {
-      emails = index.folders[folderKey];
-    } else {
-      emails = [];
+      INBOX: 'inbox',
+      Sent: 'sent',
+      Drafts: 'drafts',
+      Trash: 'trash',
+      Spam: 'spam',
+      Archive: 'archive',
     }
 
-    const unseen = emails.filter(e => !e.flags.read).length;
+    const folderKey = folderMap[mailbox] ?? mailbox.toLowerCase()
+    let emails: typeof index.inbox
+
+    if (folderKey in index) {
+      emails = index[folderKey as keyof typeof index] as typeof index.inbox
+    } else if (index.folders[folderKey]) {
+      emails = index.folders[folderKey]
+    } else {
+      emails = []
+    }
+
+    const unseen = emails.filter((e) => !e.flags.read).length
 
     return {
       exists: emails.length,
@@ -410,7 +436,7 @@ protocol imap {
       unseen,
       uidValidity: 1, // Would be stored with mailbox
       uidNext: emails.length + 1,
-    };
+    }
   }
 
   /**
@@ -421,40 +447,42 @@ protocol imap {
   async fetchMessages(
     sessionId: string,
     _sequence: string, // Will be used when integrating with Dovecot IMAP proxy
-    _items: string[]   // Will be used when integrating with Dovecot IMAP proxy
+    _items: string[], // Will be used when integrating with Dovecot IMAP proxy
   ): Promise<Array<{ uid: number; data: Record<string, unknown> }>> {
-    const session = this.sessions.get(sessionId);
+    const session = this.sessions.get(sessionId)
     if (!session || !session.authenticated || !session.selectedMailbox) {
-      throw new Error('No mailbox selected');
+      throw new Error('No mailbox selected')
     }
 
-    const storage = getMailboxStorage();
-    const index = await storage.getIndex(session.user);
+    const storage = getMailboxStorage()
+    const index = await storage.getIndex(session.user)
 
     if (!index) {
-      return [];
+      return []
     }
 
     // Parse sequence (e.g., "1:*", "1,3,5", "1:10")
     // Simplified - just return all for now
     const folderMap: Record<string, string> = {
-      'INBOX': 'inbox',
-      'Sent': 'sent',
-      'Drafts': 'drafts',
-      'Trash': 'trash',
-      'Spam': 'spam',
-      'Archive': 'archive',
-    };
+      INBOX: 'inbox',
+      Sent: 'sent',
+      Drafts: 'drafts',
+      Trash: 'trash',
+      Spam: 'spam',
+      Archive: 'archive',
+    }
 
-    const folderKey = folderMap[session.selectedMailbox] ?? session.selectedMailbox.toLowerCase();
-    let emails: typeof index.inbox;
+    const folderKey =
+      folderMap[session.selectedMailbox] ??
+      session.selectedMailbox.toLowerCase()
+    let emails: typeof index.inbox
 
     if (folderKey in index) {
-      emails = index[folderKey as keyof typeof index] as typeof index.inbox;
+      emails = index[folderKey as keyof typeof index] as typeof index.inbox
     } else if (index.folders[folderKey]) {
-      emails = index.folders[folderKey];
+      emails = index.folders[folderKey]
     } else {
-      emails = [];
+      emails = []
     }
 
     // Build response based on requested items
@@ -473,26 +501,25 @@ protocol imap {
           date: new Date(email.timestamp).toISOString(),
           subject: email.subject,
           from: [{ name: '', email: email.from }],
-          to: email.to.map(t => ({ name: '', email: t })),
+          to: email.to.map((t) => ({ name: '', email: t })),
         },
       },
-    }));
+    }))
   }
-
 }
 
 // ============ Factory ============
 
 export function createIMAPServer(config: IMAPServerConfig): IMAPServer {
-  return new IMAPServer(config);
+  return new IMAPServer(config)
 }
 
 // ============ Dovecot Configuration Generator ============
 
 export function generateDovecotConfig(config: {
-  imapPort: number;
-  oauth3Endpoint: string;
-  storageBackend: string;
+  imapPort: number
+  oauth3Endpoint: string
+  storageBackend: string
 }): string {
   return `
 # Dovecot configuration for Jeju Mail
@@ -531,12 +558,12 @@ mail_location = proxy:${config.storageBackend}
 # Logging
 log_path = /var/log/dovecot.log
 info_log_path = /var/log/dovecot-info.log
-`;
+`
 }
 
 export function generateDovecotOAuth2Config(config: {
-  oauth3Endpoint: string;
-  clientId: string;
+  oauth3Endpoint: string
+  clientId: string
 }): string {
   return `
 # OAuth2 configuration for Dovecot
@@ -551,5 +578,5 @@ client_id = ${config.clientId}
 username_attribute = email
 active_attribute = active
 active_value = true
-`;
+`
 }

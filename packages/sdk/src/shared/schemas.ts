@@ -5,8 +5,8 @@
  * to ensure type safety at runtime.
  */
 
-import { z } from "zod";
-import type { JsonValue, JsonRecord } from "./types";
+import { z } from 'zod'
+import type { JsonRecord, JsonValue } from './types'
 
 // ============================================================================
 // JSON Value Schema
@@ -24,7 +24,7 @@ const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
     z.array(JsonValueSchema),
     z.record(z.string(), JsonValueSchema),
   ]),
-);
+)
 
 /**
  * Zod schema for JSON records (objects)
@@ -32,7 +32,7 @@ const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
 export const JsonRecordSchema: z.ZodType<JsonRecord> = z.record(
   z.string(),
   JsonValueSchema,
-);
+)
 
 // ============================================================================
 // Common Schemas
@@ -41,21 +41,21 @@ export const JsonRecordSchema: z.ZodType<JsonRecord> = z.record(
 /** Ethereum address schema */
 export const AddressSchema = z
   .string()
-  .regex(/^0x[a-fA-F0-9]{40}$/, "Invalid address");
+  .regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid address')
 
 /** Transaction hash schema */
 export const TxHashSchema = z
   .string()
-  .regex(/^0x[a-fA-F0-9]{64}$/, "Invalid tx hash");
+  .regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid tx hash')
 
 /** Bigint string schema (for JSON APIs that return bigints as strings) */
-export const BigIntStringSchema = z.string().transform((val) => BigInt(val));
+export const BigIntStringSchema = z.string().transform((val) => BigInt(val))
 
 /** Optional bigint string */
 export const OptionalBigIntString = z
   .string()
   .optional()
-  .transform((val) => (val ? BigInt(val) : undefined));
+  .transform((val) => (val ? BigInt(val) : undefined))
 
 // ============================================================================
 // Storage API Schemas
@@ -65,21 +65,21 @@ export const StorageStatsSchema = z.object({
   totalPins: z.number(),
   totalSizeBytes: z.number(),
   totalSizeGB: z.number(),
-});
+})
 
 export const PinInfoSchema = z.object({
   cid: z.string(),
   name: z.string(),
-  status: z.enum(["queued", "pinning", "pinned", "failed"]),
+  status: z.enum(['queued', 'pinning', 'pinned', 'failed']),
   sizeBytes: z.number(),
   createdAt: z.number(),
-  tier: z.enum(["hot", "warm", "cold", "permanent"]),
-});
+  tier: z.enum(['hot', 'warm', 'cold', 'permanent']),
+})
 
 export const UploadResultSchema = z.object({
   cid: z.string(),
   size: z.number(),
-});
+})
 
 export const EnhancedStorageStatsSchema = z.object({
   totalPins: z.number(),
@@ -94,33 +94,33 @@ export const EnhancedStorageStatsSchema = z.object({
     z.string(),
     z.object({ count: z.number(), size: z.number() }),
   ),
-});
+})
 
 export const ContentInfoSchema = z.object({
   cid: z.string(),
   name: z.string().optional(),
   size: z.number(),
-  tier: z.enum(["system", "popular", "private"]),
+  tier: z.enum(['system', 'popular', 'private']),
   category: z.enum([
-    "app-bundle",
-    "contract-abi",
-    "user-content",
-    "media",
-    "data",
+    'app-bundle',
+    'contract-abi',
+    'user-content',
+    'media',
+    'data',
   ]),
-  backends: z.array(z.enum(["webtorrent", "ipfs", "arweave", "local"])),
+  backends: z.array(z.enum(['webtorrent', 'ipfs', 'arweave', 'local'])),
   magnetUri: z.string().optional(),
   arweaveTxId: z.string().optional(),
   encrypted: z.boolean().optional(),
   createdAt: z.number(),
   accessCount: z.number(),
-});
+})
 
 export const TorrentInfoSchema = z.object({
   magnetUri: z.string(),
   peers: z.number(),
   seeds: z.number(),
-});
+})
 
 // ============================================================================
 // DeFi API Schemas
@@ -131,14 +131,14 @@ export const SwapQuoteResponseSchema = z.object({
   priceImpact: z.number(),
   route: z.array(AddressSchema),
   fee: z.string(),
-});
+})
 
 export const TokenSchema = z.object({
   address: AddressSchema,
   symbol: z.string(),
   name: z.string(),
   decimals: z.number(),
-});
+})
 
 export const PoolInfoResponseSchema = z.object({
   pools: z.array(
@@ -152,7 +152,7 @@ export const PoolInfoResponseSchema = z.object({
       tick: z.number(),
     }),
   ),
-});
+})
 
 export const PositionsResponseSchema = z.object({
   positions: z.array(
@@ -167,7 +167,7 @@ export const PositionsResponseSchema = z.object({
       feeGrowth1: z.string(),
     }),
   ),
-});
+})
 
 // ============================================================================
 // Cross-chain API Schemas
@@ -177,13 +177,13 @@ export const CrossChainQuoteResponseSchema = z.object({
   quotes: z.array(
     z.object({
       quoteId: z.string(),
-      sourceChain: z.enum(["jeju", "base", "optimism", "arbitrum", "ethereum"]),
+      sourceChain: z.enum(['jeju', 'base', 'optimism', 'arbitrum', 'ethereum']),
       destinationChain: z.enum([
-        "jeju",
-        "base",
-        "optimism",
-        "arbitrum",
-        "ethereum",
+        'jeju',
+        'base',
+        'optimism',
+        'arbitrum',
+        'ethereum',
       ]),
       sourceToken: AddressSchema,
       destinationToken: AddressSchema,
@@ -192,35 +192,35 @@ export const CrossChainQuoteResponseSchema = z.object({
       fee: z.string(),
       feePercent: z.number(),
       estimatedTimeSeconds: z.number(),
-      route: z.enum(["eil", "oif"]),
+      route: z.enum(['eil', 'oif']),
       solver: AddressSchema.optional(),
       xlp: AddressSchema.optional(),
       validUntil: z.number(),
     }),
   ),
-});
+})
 
 export const IntentStatusSchema = z.object({
   intentId: TxHashSchema,
   status: z.enum([
-    "open",
-    "pending",
-    "filled",
-    "expired",
-    "cancelled",
-    "failed",
+    'open',
+    'pending',
+    'filled',
+    'expired',
+    'cancelled',
+    'failed',
   ]),
   solver: AddressSchema.optional(),
   fillTxHash: TxHashSchema.optional(),
   createdAt: z.number(),
   filledAt: z.number().optional(),
-});
+})
 
 export const VoucherRequestResponseSchema = z.object({
   txData: TxHashSchema,
   to: AddressSchema,
   value: z.string(),
-});
+})
 
 export const XLPInfoSchema = z.object({
   address: AddressSchema,
@@ -229,19 +229,19 @@ export const XLPInfoSchema = z.object({
   reputation: z.number(),
   successRate: z.number(),
   avgResponseMs: z.number(),
-});
+})
 
 export const SolverInfoSchema = z.object({
   address: AddressSchema,
   name: z.string(),
   supportedChains: z.array(
-    z.enum(["jeju", "base", "optimism", "arbitrum", "ethereum"]),
+    z.enum(['jeju', 'base', 'optimism', 'arbitrum', 'ethereum']),
   ),
   reputation: z.number(),
   successRate: z.number(),
   totalFills: z.number(),
   avgFillTimeMs: z.number(),
-});
+})
 
 // ============================================================================
 // A2A API Schemas
@@ -268,7 +268,7 @@ export const AgentSkillSchema = z.object({
     .optional(),
   outputs: z.record(z.string(), z.string()).optional(),
   paymentRequired: z.boolean().optional(),
-});
+})
 
 export const AgentCardSchema = z.object({
   protocolVersion: z.string(),
@@ -286,7 +286,7 @@ export const AgentCardSchema = z.object({
     stateTransitionHistory: z.boolean(),
   }),
   skills: z.array(AgentSkillSchema),
-});
+})
 
 export const DiscoveredAgentSchema = z.object({
   name: z.string(),
@@ -300,7 +300,7 @@ export const DiscoveredAgentSchema = z.object({
       description: z.string(),
     }),
   ),
-});
+})
 
 export const A2AResponseSchema = z.object({
   jsonrpc: z.string(),
@@ -323,7 +323,7 @@ export const A2AResponseSchema = z.object({
       data: JsonValueSchema.optional(),
     })
     .optional(),
-});
+})
 
 // ============================================================================
 // Governance API Schemas
@@ -347,7 +347,7 @@ export const ProposalInfoSchema = z.object({
   backerCount: z.number(),
   hasResearch: z.boolean(),
   ceoApproved: z.boolean(),
-});
+})
 
 export const DelegateInfoSchema = z.object({
   address: AddressSchema,
@@ -357,7 +357,7 @@ export const DelegateInfoSchema = z.object({
   totalDelegated: BigIntStringSchema,
   delegatorCount: z.number(),
   isActive: z.boolean(),
-});
+})
 
 export const GovernanceStatsResponseSchema = z.object({
   totalProposals: z.number(),
@@ -366,7 +366,7 @@ export const GovernanceStatsResponseSchema = z.object({
   rejectedProposals: z.number(),
   totalStaked: z.string(),
   totalDelegated: z.string(),
-});
+})
 
 // ============================================================================
 // Identity API Schemas
@@ -382,7 +382,7 @@ export const AgentInfoSchema = z.object({
   registeredAt: z.number(),
   lastActivityAt: z.number(),
   isBanned: z.boolean(),
-});
+})
 
 export const ReputationScoreSchema = z.object({
   agentId: BigIntStringSchema,
@@ -390,16 +390,16 @@ export const ReputationScoreSchema = z.object({
   averageScore: z.number(),
   violationCount: z.number(),
   compositeScore: z.number(),
-  tier: z.enum(["bronze", "silver", "gold", "platinum"]),
-});
+  tier: z.enum(['bronze', 'silver', 'gold', 'platinum']),
+})
 
 export const BanInfoSchema = z.object({
   agentId: BigIntStringSchema,
   isBanned: z.boolean(),
   bannedAt: z.number(),
   reason: z.string(),
-  banType: z.enum(["network", "app", "category"]),
-});
+  banType: z.enum(['network', 'app', 'category']),
+})
 
 // ============================================================================
 // Payments API Schemas
@@ -417,16 +417,16 @@ export const PaymasterInfoResponseSchema = z.object({
       exchangeRate: z.string(),
     }),
   ),
-});
+})
 
 export const PaymasterDetailSchema = z.object({
   vault: AddressSchema,
-});
+})
 
 export const LPPositionSchema = z.object({
   ethShares: z.string(),
   tokenShares: z.string(),
-});
+})
 
 // ============================================================================
 // Staking API Schemas
@@ -435,7 +435,7 @@ export const LPPositionSchema = z.object({
 export const StakingStatsResponseSchema = z.object({
   totalStakers: z.number(),
   currentAPY: z.number(),
-});
+})
 
 export const NodeStakeInfoSchema = z.object({
   operator: AddressSchema,
@@ -447,7 +447,7 @@ export const NodeStakeInfoSchema = z.object({
   lastActivityAt: BigIntStringSchema,
   uptime: BigIntStringSchema,
   slashCount: z.number(),
-});
+})
 
 // ============================================================================
 // DWS API Schemas
@@ -455,7 +455,7 @@ export const NodeStakeInfoSchema = z.object({
 
 export const TriggerSchema = z.object({
   triggerId: z.string(),
-  type: z.enum(["cron", "webhook", "event", "manual", "chain_event"]),
+  type: z.enum(['cron', 'webhook', 'event', 'manual', 'chain_event']),
   name: z.string(),
   config: z.object({
     cronExpression: z.string().optional(),
@@ -474,36 +474,36 @@ export const TriggerSchema = z.object({
   createdAt: z.number(),
   lastTriggeredAt: z.number(),
   triggerCount: z.number(),
-});
+})
 
 export const WorkflowStepSchema = z.object({
   stepId: z.string(),
   name: z.string(),
-  type: z.enum(["compute", "storage", "contract", "http", "transform"]),
+  type: z.enum(['compute', 'storage', 'contract', 'http', 'transform']),
   config: JsonRecordSchema,
   dependencies: z.array(z.string()),
   timeout: z.number(),
   retries: z.number(),
-});
+})
 
 export const WorkflowSchema = z.object({
   workflowId: z.string(),
   name: z.string(),
   description: z.string(),
   owner: AddressSchema,
-  status: z.enum(["active", "paused", "disabled"]),
+  status: z.enum(['active', 'paused', 'disabled']),
   steps: z.array(WorkflowStepSchema),
   createdAt: z.number(),
   updatedAt: z.number(),
   totalExecutions: z.number(),
   successfulExecutions: z.number(),
-});
+})
 
 export const JobSchema = z.object({
   jobId: z.string(),
   workflowId: z.string(),
   triggerId: z.string(),
-  status: z.enum(["pending", "running", "completed", "failed", "cancelled"]),
+  status: z.enum(['pending', 'running', 'completed', 'failed', 'cancelled']),
   startedAt: z.number(),
   completedAt: z.number(),
   duration: z.number(),
@@ -515,11 +515,11 @@ export const JobSchema = z.object({
     z.object({
       stepId: z.string(),
       status: z.enum([
-        "pending",
-        "running",
-        "completed",
-        "failed",
-        "cancelled",
+        'pending',
+        'running',
+        'completed',
+        'failed',
+        'cancelled',
       ]),
       startedAt: z.number(),
       completedAt: z.number(),
@@ -527,7 +527,7 @@ export const JobSchema = z.object({
       error: z.string().nullable(),
     }),
   ),
-});
+})
 
 export const DWSStatsSchema = z.object({
   totalWorkflows: z.number(),
@@ -535,14 +535,14 @@ export const DWSStatsSchema = z.object({
   totalJobs: z.number(),
   successRate: z.number(),
   avgExecutionTime: z.number(),
-});
+})
 
 export const WorkflowMetricsSchema = z.object({
   executions: z.number(),
   successRate: z.number(),
   avgDuration: z.number(),
   lastExecuted: z.number(),
-});
+})
 
 // ============================================================================
 // Names API Schemas
@@ -554,7 +554,7 @@ export const NameInfoSchema = z.object({
   resolver: AddressSchema,
   expiresAt: z.number(),
   registeredAt: z.number(),
-});
+})
 
 export const NameRecordsSchema = z.object({
   address: AddressSchema.optional(),
@@ -565,7 +565,7 @@ export const NameRecordsSchema = z.object({
   avatar: z.string().optional(),
   url: z.string().optional(),
   description: z.string().optional(),
-});
+})
 
 // ============================================================================
 // Inference API Schemas
@@ -586,7 +586,7 @@ export const InferenceResponseSchema = z.object({
     completion_tokens: z.number(),
     total_tokens: z.number(),
   }),
-});
+})
 
 // ============================================================================
 // List Response Wrappers
@@ -594,33 +594,33 @@ export const InferenceResponseSchema = z.object({
 
 export const AgentsListSchema = z.object({
   agents: z.array(DiscoveredAgentSchema),
-});
+})
 export const ProposalsListSchema = z.object({
   proposals: z.array(ProposalInfoSchema),
-});
+})
 export const DelegatesListSchema = z.object({
   delegates: z.array(DelegateInfoSchema),
-});
-export const NamesListSchema = z.object({ names: z.array(NameInfoSchema) });
+})
+export const NamesListSchema = z.object({ names: z.array(NameInfoSchema) })
 export const ContentListSchema = z.object({
   items: z.array(ContentInfoSchema),
-});
-export const PinsListSchema = z.object({ results: z.array(PinInfoSchema) });
+})
+export const PinsListSchema = z.object({ results: z.array(PinInfoSchema) })
 export const IntentsListSchema = z.object({
   intents: z.array(IntentStatusSchema),
-});
-export const XLPsListSchema = z.object({ xlps: z.array(XLPInfoSchema) });
+})
+export const XLPsListSchema = z.object({ xlps: z.array(XLPInfoSchema) })
 export const SolversListSchema = z.object({
   solvers: z.array(SolverInfoSchema),
-});
+})
 export const TriggersListSchema = z.object({
   triggers: z.array(TriggerSchema),
-});
+})
 export const WorkflowsListSchema = z.object({
   workflows: z.array(WorkflowSchema),
-});
-export const JobsListSchema = z.object({ jobs: z.array(JobSchema) });
-export const JobLogsSchema = z.object({ logs: z.array(z.string()) });
+})
+export const JobsListSchema = z.object({ jobs: z.array(JobSchema) })
+export const JobLogsSchema = z.object({ logs: z.array(z.string()) })
 export const NodesListSchema = z.object({
   nodes: z.array(NodeStakeInfoSchema),
-});
+})

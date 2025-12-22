@@ -1,9 +1,13 @@
 /**
  * Node Synpress Configuration - Uses shared Jeju test base
  */
-import { createSynpressConfig, createWalletSetup, PASSWORD } from '@jejunetwork/tests';
+import {
+  createSynpressConfig,
+  createWalletSetup,
+  PASSWORD,
+} from '@jejunetwork/tests'
 
-const NODE_PORT = parseInt(process.env.NODE_PORT || '1420');
+const NODE_PORT = parseInt(process.env.NODE_PORT || '1420', 10)
 
 export default createSynpressConfig({
   appName: 'node',
@@ -18,8 +22,7 @@ export default createSynpressConfig({
       timeout: 120000,
     },
   },
-});
+})
 
-export const basicSetup = createWalletSetup();
-export { PASSWORD };
-
+export const basicSetup = createWalletSetup()
+export { PASSWORD }

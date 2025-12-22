@@ -1,21 +1,22 @@
 /**
  * LoginButton Component
- * 
+ *
  * A pre-styled button for initiating OAuth3 login.
  */
 
-import React, { useCallback, useState } from 'react';
-import { AuthProvider } from '../../index.js';
-import { useOAuth3 } from '../provider.js';
+import type React from 'react'
+import { useCallback, useState } from 'react'
+import { AuthProvider } from '../../index.js'
+import { useOAuth3 } from '../provider.js'
 
 export interface LoginButtonProps {
-  provider?: AuthProvider;
-  onSuccess?: () => void;
-  onError?: (error: Error) => void;
-  className?: string;
-  style?: React.CSSProperties;
-  children?: React.ReactNode;
-  disabled?: boolean;
+  provider?: AuthProvider
+  onSuccess?: () => void
+  onError?: (error: Error) => void
+  className?: string
+  style?: React.CSSProperties
+  children?: React.ReactNode
+  disabled?: boolean
 }
 
 const providerLabels: Record<AuthProvider, string> = {
@@ -28,7 +29,7 @@ const providerLabels: Record<AuthProvider, string> = {
   [AuthProvider.DISCORD]: 'Continue with Discord',
   [AuthProvider.EMAIL]: 'Continue with Email',
   [AuthProvider.PHONE]: 'Continue with Phone',
-};
+}
 
 const providerIcons: Record<AuthProvider, string> = {
   [AuthProvider.WALLET]: '🔐',
@@ -40,36 +41,36 @@ const providerIcons: Record<AuthProvider, string> = {
   [AuthProvider.DISCORD]: '💬',
   [AuthProvider.EMAIL]: '📧',
   [AuthProvider.PHONE]: '📱',
-};
+}
 
 export function LoginButton({
   provider = AuthProvider.WALLET,
   onSuccess,
-  onError,
+  onError: _onError,
   className = '',
   style,
   children,
   disabled = false,
 }: LoginButtonProps) {
-  const { login, isLoading } = useOAuth3();
-  const [isButtonLoading, setIsButtonLoading] = useState(false);
+  const { login, isLoading } = useOAuth3()
+  const [isButtonLoading, setIsButtonLoading] = useState(false)
 
   const handleClick = useCallback(async () => {
-    if (isLoading || isButtonLoading || disabled) return;
+    if (isLoading || isButtonLoading || disabled) return
 
-    setIsButtonLoading(true);
+    setIsButtonLoading(true)
 
-    await login(provider);
-    onSuccess?.();
-    setIsButtonLoading(false);
-  }, [login, provider, isLoading, isButtonLoading, disabled, onSuccess, onError]);
+    await login(provider)
+    onSuccess?.()
+    setIsButtonLoading(false)
+  }, [login, provider, isLoading, isButtonLoading, disabled, onSuccess])
 
   const buttonLabel = children ?? (
     <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
       <span>{providerIcons[provider]}</span>
       <span>{providerLabels[provider]}</span>
     </span>
-  );
+  )
 
   const defaultStyle: React.CSSProperties = {
     display: 'flex',
@@ -80,13 +81,14 @@ export function LoginButton({
     fontWeight: 500,
     borderRadius: '8px',
     border: 'none',
-    cursor: disabled || isLoading || isButtonLoading ? 'not-allowed' : 'pointer',
+    cursor:
+      disabled || isLoading || isButtonLoading ? 'not-allowed' : 'pointer',
     opacity: disabled || isLoading || isButtonLoading ? 0.6 : 1,
     backgroundColor: '#4F46E5',
     color: 'white',
     transition: 'all 0.2s',
     ...style,
-  };
+  }
 
   return (
     <button
@@ -98,5 +100,5 @@ export function LoginButton({
     >
       {isButtonLoading ? 'Connecting...' : buttonLabel}
     </button>
-  );
+  )
 }

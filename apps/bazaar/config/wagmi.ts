@@ -1,7 +1,7 @@
-import { http, createConfig } from 'wagmi'
 import { defineChain } from 'viem'
-import { jeju, JEJU_RPC_URL } from './chains'
+import { createConfig, http } from 'wagmi'
 import { injected } from 'wagmi/connectors'
+import { JEJU_RPC_URL, jeju } from './chains'
 import { NETWORK_NAME } from './index'
 
 const localnet = defineChain({
@@ -26,7 +26,8 @@ const localnet = defineChain({
   testnet: true,
 })
 
-const activeChain = process.env.NEXT_PUBLIC_CHAIN_ID === '1337' ? localnet : jeju
+const activeChain =
+  process.env.NEXT_PUBLIC_CHAIN_ID === '1337' ? localnet : jeju
 
 export const wagmiConfig = createConfig({
   chains: [activeChain],

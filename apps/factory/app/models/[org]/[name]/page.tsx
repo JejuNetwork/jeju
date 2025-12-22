@@ -3,73 +3,74 @@
  * HuggingFace-like model view with inference playground
  */
 
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { useParams } from 'next/navigation';
-import { useAccount } from 'wagmi';
+import { clsx } from 'clsx'
 import {
   Brain,
-  Download,
-  Star,
-  GitFork,
-  Clock,
-  FileText,
-  Code,
-  Play,
-  Copy,
   Check,
-  Shield,
+  Clock,
+  Code,
+  Copy,
   Cpu,
+  Download,
+  FileText,
+  GitFork,
   HardDrive,
   History,
-  Zap,
-  Settings,
-  Terminal,
-  Send,
   Loader2,
-} from 'lucide-react';
-import Link from 'next/link';
-import { clsx } from 'clsx';
-import ReactMarkdown from 'react-markdown';
+  Play,
+  Send,
+  Settings,
+  Shield,
+  Star,
+  Terminal,
+  Zap,
+} from 'lucide-react'
+import Link from 'next/link'
+import { useParams } from 'next/navigation'
+import { useState } from 'react'
+import ReactMarkdown from 'react-markdown'
+import { useAccount } from 'wagmi'
 
-type ModelTab = 'model-card' | 'files' | 'inference' | 'training' | 'versions';
+type ModelTab = 'model-card' | 'files' | 'inference' | 'training' | 'versions'
 
 interface ModelData {
-  id: string;
-  name: string;
-  organization: string;
-  description: string;
-  type: 'llm' | 'vision' | 'audio' | 'embedding' | 'multimodal';
-  task: string;
-  framework: string;
-  parameters: string;
-  precision: string;
-  license: string;
-  downloads: number;
-  stars: number;
-  forks: number;
-  lastUpdated: number;
-  createdAt: number;
-  isVerified: boolean;
-  tags: string[];
-  hasInference: boolean;
-  inferenceEndpoint?: string;
-  files: { name: string; size: string; type: string }[];
-  readme: string;
-  versions: { version: string; date: number; notes: string }[];
+  id: string
+  name: string
+  organization: string
+  description: string
+  type: 'llm' | 'vision' | 'audio' | 'embedding' | 'multimodal'
+  task: string
+  framework: string
+  parameters: string
+  precision: string
+  license: string
+  downloads: number
+  stars: number
+  forks: number
+  lastUpdated: number
+  createdAt: number
+  isVerified: boolean
+  tags: string[]
+  hasInference: boolean
+  inferenceEndpoint?: string
+  files: { name: string; size: string; type: string }[]
+  readme: string
+  versions: { version: string; date: number; notes: string }[]
   computeRequirements: {
-    minVram: string;
-    recommendedVram: string;
-    architecture: string[];
-  };
+    minVram: string
+    recommendedVram: string
+    architecture: string[]
+  }
 }
 
 const mockModel: ModelData = {
   id: '0x1234',
   name: 'llama-3-jeju-ft',
   organization: 'jeju',
-  description: 'LLaMA 3 8B fine-tuned on Jeju Network documentation, smart contract code, and developer discussions. Optimized for Web3 development assistance, code generation, and technical explanations.',
+  description:
+    'LLaMA 3 8B fine-tuned on Jeju Network documentation, smart contract code, and developer discussions. Optimized for Web3 development assistance, code generation, and technical explanations.',
   type: 'llm',
   task: 'Text Generation',
   framework: 'PyTorch',
@@ -84,7 +85,8 @@ const mockModel: ModelData = {
   isVerified: true,
   tags: ['llm', 'code', 'jeju', 'fine-tuned', 'web3', 'solidity', 'ethereum'],
   hasInference: true,
-  inferenceEndpoint: 'https://inference.jejunetwork.org/v1/models/jeju/llama-3-jeju-ft',
+  inferenceEndpoint:
+    'https://inference.jejunetwork.org/v1/models/jeju/llama-3-jeju-ft',
   files: [
     { name: 'model.safetensors', size: '15.2 GB', type: 'model' },
     { name: 'config.json', size: '1.2 KB', type: 'config' },
@@ -94,9 +96,21 @@ const mockModel: ModelData = {
     { name: 'README.md', size: '8.4 KB', type: 'docs' },
   ],
   versions: [
-    { version: 'v1.2.0', date: Date.now() - 2 * 24 * 60 * 60 * 1000, notes: 'Improved code generation quality' },
-    { version: 'v1.1.0', date: Date.now() - 14 * 24 * 60 * 60 * 1000, notes: 'Added Solidity fine-tuning data' },
-    { version: 'v1.0.0', date: Date.now() - 30 * 24 * 60 * 60 * 1000, notes: 'Initial release' },
+    {
+      version: 'v1.2.0',
+      date: Date.now() - 2 * 24 * 60 * 60 * 1000,
+      notes: 'Improved code generation quality',
+    },
+    {
+      version: 'v1.1.0',
+      date: Date.now() - 14 * 24 * 60 * 60 * 1000,
+      notes: 'Added Solidity fine-tuning data',
+    },
+    {
+      version: 'v1.0.0',
+      date: Date.now() - 30 * 24 * 60 * 60 * 1000,
+      notes: 'Initial release',
+    },
   ],
   computeRequirements: {
     minVram: '16 GB',
@@ -155,59 +169,59 @@ print(tokenizer.decode(outputs[0]))
 
 This model is released under the LLAMA 2 Community License.
 `,
-};
+}
 
 export default function ModelDetailPage() {
-  const params = useParams();
-  const org = params.org as string;
-  const name = params.name as string;
-  const { isConnected: _isConnected } = useAccount();
-  
-  const [tab, setTab] = useState<ModelTab>('model-card');
-  const [copied, setCopied] = useState(false);
-  const [isStarred, setIsStarred] = useState(false);
-  
+  const params = useParams()
+  const org = params.org as string
+  const name = params.name as string
+  const { isConnected: _isConnected } = useAccount()
+
+  const [tab, setTab] = useState<ModelTab>('model-card')
+  const [copied, setCopied] = useState(false)
+  const [isStarred, setIsStarred] = useState(false)
+
   // Inference state
-  const [prompt, setPrompt] = useState('');
-  const [response, setResponse] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [prompt, setPrompt] = useState('')
+  const [response, setResponse] = useState('')
+  const [isGenerating, setIsGenerating] = useState(false)
   const [inferenceConfig, setInferenceConfig] = useState({
     maxTokens: 256,
     temperature: 0.7,
     topP: 0.9,
-  });
+  })
 
-  const fullName = `${org}/${name}`;
-  const installCommand = `from transformers import AutoModelForCausalLM\nmodel = AutoModelForCausalLM.from_pretrained("${fullName}")`;
+  const fullName = `${org}/${name}`
+  const installCommand = `from transformers import AutoModelForCausalLM\nmodel = AutoModelForCausalLM.from_pretrained("${fullName}")`
 
   const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+    navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   const formatDate = (timestamp: number) => {
-    const diff = Date.now() - timestamp;
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    if (days === 0) return 'Today';
-    if (days === 1) return 'Yesterday';
-    if (days < 7) return `${days} days ago`;
-    if (days < 30) return `${Math.floor(days / 7)} weeks ago`;
-    return `${Math.floor(days / 30)} months ago`;
-  };
+    const diff = Date.now() - timestamp
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+    if (days === 0) return 'Today'
+    if (days === 1) return 'Yesterday'
+    if (days < 7) return `${days} days ago`
+    if (days < 30) return `${Math.floor(days / 7)} weeks ago`
+    return `${Math.floor(days / 30)} months ago`
+  }
 
   const formatNumber = (num: number) => {
-    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
-    if (num >= 1000) return `${(num / 1000).toFixed(1)}k`;
-    return num.toString();
-  };
+    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}k`
+    return num.toString()
+  }
 
   const runInference = async () => {
-    if (!prompt.trim()) return;
-    
-    setIsGenerating(true);
-    setResponse('');
-    
+    if (!prompt.trim()) return
+
+    setIsGenerating(true)
+    setResponse('')
+
     // Simulate streaming response
     const mockResponse = `Here's a Solidity function based on your request:
 
@@ -235,16 +249,16 @@ contract TokenVault {
 }
 \`\`\`
 
-This contract provides basic deposit and withdraw functionality with proper events for tracking.`;
+This contract provides basic deposit and withdraw functionality with proper events for tracking.`
 
     // Simulate streaming
     for (let i = 0; i < mockResponse.length; i += 5) {
-      await new Promise(r => setTimeout(r, 20));
-      setResponse(mockResponse.slice(0, i + 5));
+      await new Promise((r) => setTimeout(r, 20))
+      setResponse(mockResponse.slice(0, i + 5))
     }
-    setResponse(mockResponse);
-    setIsGenerating(false);
-  };
+    setResponse(mockResponse)
+    setIsGenerating(false)
+  }
 
   const typeColors = {
     llm: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
@@ -252,7 +266,7 @@ This contract provides basic deposit and withdraw functionality with proper even
     audio: 'bg-green-500/20 text-green-400 border-green-500/30',
     embedding: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
     multimodal: 'bg-pink-500/20 text-pink-400 border-pink-500/30',
-  };
+  }
 
   return (
     <div className="min-h-screen">
@@ -265,11 +279,18 @@ This contract provides basic deposit and withdraw functionality with proper even
                 <Brain className="w-8 h-8 text-amber-400" />
                 <div>
                   <h1 className="text-2xl font-bold text-factory-100">
-                    <span className="text-factory-400">{mockModel.organization}/</span>
+                    <span className="text-factory-400">
+                      {mockModel.organization}/
+                    </span>
                     {mockModel.name}
                   </h1>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
-                    <span className={clsx('badge border', typeColors[mockModel.type])}>
+                    <span
+                      className={clsx(
+                        'badge border',
+                        typeColors[mockModel.type],
+                      )}
+                    >
                       {mockModel.type.toUpperCase()}
                     </span>
                     <span className="badge bg-factory-800 text-factory-300 border border-factory-700">
@@ -290,15 +311,22 @@ This contract provides basic deposit and withdraw functionality with proper even
                   </div>
                 </div>
               </div>
-              <p className="text-factory-400 max-w-2xl">{mockModel.description}</p>
+              <p className="text-factory-400 max-w-2xl">
+                {mockModel.description}
+              </p>
             </div>
 
             <div className="flex gap-2">
               <button
                 onClick={() => setIsStarred(!isStarred)}
-                className={clsx('btn text-sm', isStarred ? 'btn-primary' : 'btn-secondary')}
+                className={clsx(
+                  'btn text-sm',
+                  isStarred ? 'btn-primary' : 'btn-secondary',
+                )}
               >
-                <Star className={clsx('w-4 h-4', isStarred && 'fill-current')} />
+                <Star
+                  className={clsx('w-4 h-4', isStarred && 'fill-current')}
+                />
                 {formatNumber(mockModel.stars)}
               </button>
               <button className="btn btn-secondary text-sm">
@@ -313,28 +341,36 @@ This contract provides basic deposit and withdraw functionality with proper even
             <div className="flex items-center gap-3">
               <Download className="w-5 h-5 text-factory-500" />
               <div>
-                <p className="font-semibold text-factory-100">{formatNumber(mockModel.downloads)}</p>
+                <p className="font-semibold text-factory-100">
+                  {formatNumber(mockModel.downloads)}
+                </p>
                 <p className="text-factory-500 text-sm">Downloads</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <Cpu className="w-5 h-5 text-factory-500" />
               <div>
-                <p className="font-semibold text-factory-100">{mockModel.parameters}</p>
+                <p className="font-semibold text-factory-100">
+                  {mockModel.parameters}
+                </p>
                 <p className="text-factory-500 text-sm">Parameters</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <HardDrive className="w-5 h-5 text-factory-500" />
               <div>
-                <p className="font-semibold text-factory-100">{mockModel.computeRequirements.minVram}</p>
+                <p className="font-semibold text-factory-100">
+                  {mockModel.computeRequirements.minVram}
+                </p>
                 <p className="text-factory-500 text-sm">Min VRAM</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <Clock className="w-5 h-5 text-factory-500" />
               <div>
-                <p className="font-semibold text-factory-100">{formatDate(mockModel.lastUpdated)}</p>
+                <p className="font-semibold text-factory-100">
+                  {formatDate(mockModel.lastUpdated)}
+                </p>
                 <p className="text-factory-500 text-sm">Updated</p>
               </div>
             </div>
@@ -342,13 +378,27 @@ This contract provides basic deposit and withdraw functionality with proper even
 
           {/* Tabs */}
           <div className="flex gap-1 overflow-x-auto -mb-px">
-            {([
-              { id: 'model-card' as const, label: 'Model Card', icon: FileText },
-              { id: 'files' as const, label: 'Files', icon: Code, count: mockModel.files.length },
+            {[
+              {
+                id: 'model-card' as const,
+                label: 'Model Card',
+                icon: FileText,
+              },
+              {
+                id: 'files' as const,
+                label: 'Files',
+                icon: Code,
+                count: mockModel.files.length,
+              },
               { id: 'inference' as const, label: 'Inference', icon: Play },
               { id: 'training' as const, label: 'Training', icon: Zap },
-              { id: 'versions' as const, label: 'Versions', icon: History, count: mockModel.versions.length },
-            ]).map(({ id, label, icon: Icon, count }) => (
+              {
+                id: 'versions' as const,
+                label: 'Versions',
+                icon: History,
+                count: mockModel.versions.length,
+              },
+            ].map(({ id, label, icon: Icon, count }) => (
               <button
                 key={id}
                 onClick={() => setTab(id)}
@@ -356,13 +406,15 @@ This contract provides basic deposit and withdraw functionality with proper even
                   'flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap',
                   tab === id
                     ? 'border-accent-500 text-accent-400'
-                    : 'border-transparent text-factory-400 hover:text-factory-100 hover:border-factory-600'
+                    : 'border-transparent text-factory-400 hover:text-factory-100 hover:border-factory-600',
                 )}
               >
                 <Icon className="w-4 h-4" />
                 {label}
                 {count !== undefined && (
-                  <span className="px-1.5 py-0.5 text-xs rounded-full bg-factory-800">{count}</span>
+                  <span className="px-1.5 py-0.5 text-xs rounded-full bg-factory-800">
+                    {count}
+                  </span>
                 )}
               </button>
             ))}
@@ -401,7 +453,9 @@ This contract provides basic deposit and withdraw functionality with proper even
 
               {/* Model Info */}
               <div className="card p-6">
-                <h3 className="font-semibold text-factory-100 mb-4">Model Info</h3>
+                <h3 className="font-semibold text-factory-100 mb-4">
+                  Model Info
+                </h3>
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
                     <span className="text-factory-500">Task</span>
@@ -409,39 +463,58 @@ This contract provides basic deposit and withdraw functionality with proper even
                   </div>
                   <div className="flex justify-between">
                     <span className="text-factory-500">Framework</span>
-                    <span className="text-factory-300">{mockModel.framework}</span>
+                    <span className="text-factory-300">
+                      {mockModel.framework}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-factory-500">Precision</span>
-                    <span className="text-factory-300">{mockModel.precision}</span>
+                    <span className="text-factory-300">
+                      {mockModel.precision}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-factory-500">License</span>
-                    <span className="text-factory-300">{mockModel.license}</span>
+                    <span className="text-factory-300">
+                      {mockModel.license}
+                    </span>
                   </div>
                 </div>
               </div>
 
               {/* Compute Requirements */}
               <div className="card p-6">
-                <h3 className="font-semibold text-factory-100 mb-4">Compute Requirements</h3>
+                <h3 className="font-semibold text-factory-100 mb-4">
+                  Compute Requirements
+                </h3>
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
                     <span className="text-factory-500">Min VRAM</span>
-                    <span className="text-factory-300">{mockModel.computeRequirements.minVram}</span>
+                    <span className="text-factory-300">
+                      {mockModel.computeRequirements.minVram}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-factory-500">Recommended</span>
-                    <span className="text-factory-300">{mockModel.computeRequirements.recommendedVram}</span>
+                    <span className="text-factory-300">
+                      {mockModel.computeRequirements.recommendedVram}
+                    </span>
                   </div>
                   <div className="mt-3">
-                    <span className="text-factory-500 block mb-2">Supported Hardware</span>
+                    <span className="text-factory-500 block mb-2">
+                      Supported Hardware
+                    </span>
                     <div className="space-y-1">
-                      {mockModel.computeRequirements.architecture.map((arch) => (
-                        <span key={arch} className="badge bg-factory-800 text-factory-300 border border-factory-700 mr-1">
-                          {arch}
-                        </span>
-                      ))}
+                      {mockModel.computeRequirements.architecture.map(
+                        (arch) => (
+                          <span
+                            key={arch}
+                            className="badge bg-factory-800 text-factory-300 border border-factory-700 mr-1"
+                          >
+                            {arch}
+                          </span>
+                        ),
+                      )}
                     </div>
                   </div>
                 </div>
@@ -456,23 +529,33 @@ This contract provides basic deposit and withdraw functionality with proper even
                 <p className="text-factory-500 text-sm mb-4">
                   Use the Jeju Model Hub CLI (HuggingFace compatible):
                 </p>
-                
+
                 <div className="space-y-4">
                   <div>
-                    <label className="text-xs text-factory-500 mb-1 block">Install CLI</label>
+                    <label className="text-xs text-factory-500 mb-1 block">
+                      Install CLI
+                    </label>
                     <div className="bg-factory-900 rounded-lg p-3 font-mono text-xs relative">
-                      <pre className="text-factory-400">pip install jeju-hub</pre>
+                      <pre className="text-factory-400">
+                        pip install jeju-hub
+                      </pre>
                       <button
                         onClick={() => copyToClipboard('pip install jeju-hub')}
                         className="absolute top-2 right-2 p-1 hover:bg-factory-800 rounded"
                       >
-                        {copied ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3 text-factory-500" />}
+                        {copied ? (
+                          <Check className="w-3 h-3 text-green-400" />
+                        ) : (
+                          <Copy className="w-3 h-3 text-factory-500" />
+                        )}
                       </button>
                     </div>
                   </div>
 
                   <div>
-                    <label className="text-xs text-factory-500 mb-1 block">Configure Endpoint</label>
+                    <label className="text-xs text-factory-500 mb-1 block">
+                      Configure Endpoint
+                    </label>
                     <div className="bg-factory-900 rounded-lg p-3 font-mono text-xs">
                       <pre className="text-factory-400">{`jeju-hub login
 # or set endpoint
@@ -481,20 +564,30 @@ export HF_ENDPOINT=https://models.jejunetwork.org`}</pre>
                   </div>
 
                   <div>
-                    <label className="text-xs text-factory-500 mb-1 block">Download Model</label>
+                    <label className="text-xs text-factory-500 mb-1 block">
+                      Download Model
+                    </label>
                     <div className="bg-factory-900 rounded-lg p-3 font-mono text-xs relative">
                       <pre className="text-factory-400">{`jeju-hub download ${fullName}`}</pre>
                       <button
-                        onClick={() => copyToClipboard(`jeju-hub download ${fullName}`)}
+                        onClick={() =>
+                          copyToClipboard(`jeju-hub download ${fullName}`)
+                        }
                         className="absolute top-2 right-2 p-1 hover:bg-factory-800 rounded"
                       >
-                        {copied ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3 text-factory-500" />}
+                        {copied ? (
+                          <Check className="w-3 h-3 text-green-400" />
+                        ) : (
+                          <Copy className="w-3 h-3 text-factory-500" />
+                        )}
                       </button>
                     </div>
                   </div>
 
                   <div>
-                    <label className="text-xs text-factory-500 mb-1 block">Python Usage</label>
+                    <label className="text-xs text-factory-500 mb-1 block">
+                      Python Usage
+                    </label>
                     <div className="bg-factory-900 rounded-lg p-3 font-mono text-xs relative">
                       <pre className="text-factory-400 whitespace-pre-wrap">{`from transformers import AutoModelForCausalLM
 
@@ -506,7 +599,11 @@ model = AutoModelForCausalLM.from_pretrained(
                         onClick={() => copyToClipboard(installCommand)}
                         className="absolute top-2 right-2 p-1 hover:bg-factory-800 rounded"
                       >
-                        {copied ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3 text-factory-500" />}
+                        {copied ? (
+                          <Check className="w-3 h-3 text-green-400" />
+                        ) : (
+                          <Copy className="w-3 h-3 text-factory-500" />
+                        )}
                       </button>
                     </div>
                   </div>
@@ -525,8 +622,12 @@ model = AutoModelForCausalLM.from_pretrained(
               >
                 <div className="flex items-center gap-3">
                   <Code className="w-5 h-5 text-factory-400" />
-                  <span className="font-mono text-factory-100">{file.name}</span>
-                  <span className="badge bg-factory-800 text-factory-400 text-xs">{file.type}</span>
+                  <span className="font-mono text-factory-100">
+                    {file.name}
+                  </span>
+                  <span className="badge bg-factory-800 text-factory-400 text-xs">
+                    {file.type}
+                  </span>
                 </div>
                 <div className="flex items-center gap-4">
                   <span className="text-factory-500 text-sm">{file.size}</span>
@@ -610,7 +711,12 @@ model = AutoModelForCausalLM.from_pretrained(
                     min="64"
                     max="1024"
                     value={inferenceConfig.maxTokens}
-                    onChange={(e) => setInferenceConfig(c => ({ ...c, maxTokens: parseInt(e.target.value) }))}
+                    onChange={(e) =>
+                      setInferenceConfig((c) => ({
+                        ...c,
+                        maxTokens: parseInt(e.target.value, 10),
+                      }))
+                    }
                     className="w-full"
                   />
                 </div>
@@ -624,7 +730,12 @@ model = AutoModelForCausalLM.from_pretrained(
                     max="2"
                     step="0.1"
                     value={inferenceConfig.temperature}
-                    onChange={(e) => setInferenceConfig(c => ({ ...c, temperature: parseFloat(e.target.value) }))}
+                    onChange={(e) =>
+                      setInferenceConfig((c) => ({
+                        ...c,
+                        temperature: parseFloat(e.target.value),
+                      }))
+                    }
                     className="w-full"
                   />
                 </div>
@@ -638,14 +749,21 @@ model = AutoModelForCausalLM.from_pretrained(
                     max="1"
                     step="0.05"
                     value={inferenceConfig.topP}
-                    onChange={(e) => setInferenceConfig(c => ({ ...c, topP: parseFloat(e.target.value) }))}
+                    onChange={(e) =>
+                      setInferenceConfig((c) => ({
+                        ...c,
+                        topP: parseFloat(e.target.value),
+                      }))
+                    }
                     className="w-full"
                   />
                 </div>
               </div>
 
               <div className="mt-6 pt-6 border-t border-factory-800">
-                <h4 className="text-sm font-medium text-factory-300 mb-2">API Endpoint</h4>
+                <h4 className="text-sm font-medium text-factory-300 mb-2">
+                  API Endpoint
+                </h4>
                 <code className="text-xs text-factory-500 block bg-factory-950 p-2 rounded break-all">
                   {mockModel.inferenceEndpoint}
                 </code>
@@ -656,20 +774,45 @@ model = AutoModelForCausalLM.from_pretrained(
 
         {tab === 'training' && (
           <div className="card p-6 lg:p-8">
-            <h2 className="text-xl font-semibold text-factory-100 mb-6">Train on Jeju Compute</h2>
+            <h2 className="text-xl font-semibold text-factory-100 mb-6">
+              Train on Jeju Compute
+            </h2>
             <p className="text-factory-400 mb-6">
-              Fine-tune this model on your own data using the Jeju Compute Marketplace.
+              Fine-tune this model on your own data using the Jeju Compute
+              Marketplace.
             </p>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               {[
-                { name: 'QLoRA Fine-tuning', price: '0.5 ETH', duration: '~4 hours', vram: '24 GB' },
-                { name: 'Full Fine-tuning', price: '2.5 ETH', duration: '~12 hours', vram: '80 GB' },
-                { name: 'DPO Training', price: '1.2 ETH', duration: '~6 hours', vram: '48 GB' },
+                {
+                  name: 'QLoRA Fine-tuning',
+                  price: '0.5 ETH',
+                  duration: '~4 hours',
+                  vram: '24 GB',
+                },
+                {
+                  name: 'Full Fine-tuning',
+                  price: '2.5 ETH',
+                  duration: '~12 hours',
+                  vram: '80 GB',
+                },
+                {
+                  name: 'DPO Training',
+                  price: '1.2 ETH',
+                  duration: '~6 hours',
+                  vram: '48 GB',
+                },
               ].map((plan) => (
-                <div key={plan.name} className="card p-6 border-2 border-factory-700 hover:border-accent-500 transition-colors">
-                  <h3 className="font-semibold text-factory-100 mb-2">{plan.name}</h3>
-                  <p className="text-2xl font-bold text-accent-400 mb-4">{plan.price}</p>
+                <div
+                  key={plan.name}
+                  className="card p-6 border-2 border-factory-700 hover:border-accent-500 transition-colors"
+                >
+                  <h3 className="font-semibold text-factory-100 mb-2">
+                    {plan.name}
+                  </h3>
+                  <p className="text-2xl font-bold text-accent-400 mb-4">
+                    {plan.price}
+                  </p>
                   <div className="space-y-2 text-sm text-factory-500">
                     <div className="flex justify-between">
                       <span>Duration</span>
@@ -698,13 +841,18 @@ model = AutoModelForCausalLM.from_pretrained(
         {tab === 'versions' && (
           <div className="card divide-y divide-factory-800">
             {mockModel.versions.map((version, i) => (
-              <div key={version.version} className="p-4 hover:bg-factory-800/50 transition-colors">
+              <div
+                key={version.version}
+                className="p-4 hover:bg-factory-800/50 transition-colors"
+              >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-3">
                     <span className="font-mono font-semibold text-factory-100">
                       {version.version}
                     </span>
-                    {i === 0 && <span className="badge badge-success">Latest</span>}
+                    {i === 0 && (
+                      <span className="badge badge-success">Latest</span>
+                    )}
                   </div>
                   <button className="btn btn-ghost text-sm">
                     <Download className="w-4 h-4" />
@@ -722,6 +870,5 @@ model = AutoModelForCausalLM.from_pretrained(
         )}
       </div>
     </div>
-  );
+  )
 }
-

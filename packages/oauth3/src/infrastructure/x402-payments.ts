@@ -1,80 +1,80 @@
 /**
  * x402 Payment Integration for OAuth3
- * 
+ *
  * Enables micropayments for:
  * - IPFS storage (pinning fees)
  * - TEE compute time
  * - API calls
- * 
+ *
  * Uses HTTP 402 Payment Required with x402 protocol.
  */
 
-import { keccak256, toBytes, type Address, type Hex } from 'viem';
+import { type Address, type Hex, keccak256, toBytes } from 'viem'
 
 export interface PaymentConfig {
   /** Wallet address for payments */
-  payerAddress: Address;
+  payerAddress: Address
   /** Signing function for payment authorization */
-  signPayment: (message: Hex) => Promise<Hex>;
+  signPayment: (message: Hex) => Promise<Hex>
   /** Payment token address (USDC, ETH, etc.) */
-  tokenAddress?: Address;
+  tokenAddress?: Address
   /** Maximum payment per request (in token units) */
-  maxPaymentPerRequest?: bigint;
+  maxPaymentPerRequest?: bigint
 }
 
 export interface PaymentRequest {
   /** Recipient address */
-  recipient: Address;
+  recipient: Address
   /** Amount in token units */
-  amount: bigint;
+  amount: bigint
   /** Token address */
-  token: Address;
+  token: Address
   /** Resource being paid for */
-  resource: string;
+  resource: string
   /** Expiry timestamp */
-  expiry: number;
+  expiry: number
   /** Unique nonce */
-  nonce: Hex;
+  nonce: Hex
 }
 
 export interface PaymentAuthorization {
   /** Payment request details */
-  request: PaymentRequest;
+  request: PaymentRequest
   /** Signature authorizing payment */
-  signature: Hex;
+  signature: Hex
   /** Payer address */
-  payer: Address;
+  payer: Address
 }
 
 export interface PaymentReceipt {
   /** Transaction hash on-chain */
-  txHash?: Hex;
+  txHash?: Hex
   /** Payment ID */
-  paymentId: Hex;
+  paymentId: Hex
   /** Amount paid */
-  amount: bigint;
+  amount: bigint
   /** Resource accessed */
-  resource: string;
+  resource: string
   /** Timestamp */
-  timestamp: number;
+  timestamp: number
 }
 
 /**
  * x402 Payment Client
- * 
+ *
  * Handles HTTP 402 responses and authorizes micropayments.
  */
 export class X402PaymentClient {
-  private config: PaymentConfig;
-  private pendingPayments: Map<Hex, PaymentAuthorization> = new Map();
+  private config: PaymentConfig
+  private pendingPayments: Map<Hex, PaymentAuthorization> = new Map()
 
   constructor(config: PaymentConfig) {
-    this.config = config;
+    this.config = config
   }
 
   /**
    * Make an HTTP request with x402 payment support
-   * 
+   *
    * If the server returns 402, this will:
    * 1. Parse the payment request from headers
    * 2. Authorize the payment if within limits
@@ -82,29 +82,34 @@ export class X402PaymentClient {
    */
   async fetchWithPayment(
     url: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
   ): Promise<Response> {
     // First attempt without payment
-    const response = await fetch(url, options);
+    const response = await fetch(url, options)
 
     if (response.status !== 402) {
-      return response;
+      return response
     }
 
     // Parse payment request from headers
-    const paymentRequest = this.parsePaymentRequest(response);
-    
+    const paymentRequest = this.parsePaymentRequest(response)
+
     if (!paymentRequest) {
-      throw new Error('Invalid 402 response: missing payment request');
+      throw new Error('Invalid 402 response: missing payment request')
     }
 
     // Check if payment is within limits
-    if (this.config.maxPaymentPerRequest && paymentRequest.amount > this.config.maxPaymentPerRequest) {
-      throw new Error(`Payment amount ${paymentRequest.amount} exceeds limit ${this.config.maxPaymentPerRequest}`);
+    if (
+      this.config.maxPaymentPerRequest &&
+      paymentRequest.amount > this.config.maxPaymentPerRequest
+    ) {
+      throw new Error(
+        `Payment amount ${paymentRequest.amount} exceeds limit ${this.config.maxPaymentPerRequest}`,
+      )
     }
 
     // Authorize payment
-    const authorization = await this.authorizePayment(paymentRequest);
+    const authorization = await this.authorizePayment(paymentRequest)
 
     // Retry with payment
     const retryOptions: RequestInit = {
@@ -113,29 +118,29 @@ export class X402PaymentClient {
         ...options.headers,
         'X-402-Payment': JSON.stringify(authorization),
       },
-    };
+    }
 
-    return fetch(url, retryOptions);
+    return fetch(url, retryOptions)
   }
 
   /**
    * Parse payment request from 402 response
    */
   private parsePaymentRequest(response: Response): PaymentRequest | null {
-    const paymentHeader = response.headers.get('X-402-Payment-Required');
-    
+    const paymentHeader = response.headers.get('X-402-Payment-Required')
+
     if (!paymentHeader) {
-      return null;
+      return null
     }
 
     const parsed = JSON.parse(paymentHeader) as {
-      recipient: string;
-      amount: string;
-      token: string;
-      resource: string;
-      expiry: number;
-      nonce: string;
-    };
+      recipient: string
+      amount: string
+      token: string
+      resource: string
+      expiry: number
+      nonce: string
+    }
 
     return {
       recipient: parsed.recipient as Address,
@@ -144,36 +149,39 @@ export class X402PaymentClient {
       resource: parsed.resource,
       expiry: parsed.expiry,
       nonce: parsed.nonce as Hex,
-    };
+    }
   }
 
   /**
    * Authorize a payment request
    */
   private async authorizePayment(
-    request: PaymentRequest
+    request: PaymentRequest,
   ): Promise<PaymentAuthorization> {
     // Check if token matches configured token
-    if (this.config.tokenAddress && request.token !== this.config.tokenAddress) {
-      throw new Error(`Unsupported payment token: ${request.token}`);
+    if (
+      this.config.tokenAddress &&
+      request.token !== this.config.tokenAddress
+    ) {
+      throw new Error(`Unsupported payment token: ${request.token}`)
     }
 
     // Create message to sign
-    const message = this.createPaymentMessage(request);
-    
+    const message = this.createPaymentMessage(request)
+
     // Sign the payment authorization
-    const signature = await this.config.signPayment(message);
+    const signature = await this.config.signPayment(message)
 
     const authorization: PaymentAuthorization = {
       request,
       signature,
       payer: this.config.payerAddress,
-    };
+    }
 
     // Store for receipt tracking
-    this.pendingPayments.set(request.nonce, authorization);
+    this.pendingPayments.set(request.nonce, authorization)
 
-    return authorization;
+    return authorization
   }
 
   /**
@@ -181,23 +189,23 @@ export class X402PaymentClient {
    */
   private createPaymentMessage(request: PaymentRequest): Hex {
     const encoded = toBytes(
-      `x402-payment:${request.recipient}:${request.amount}:${request.token}:${request.resource}:${request.expiry}:${request.nonce}`
-    );
-    return keccak256(encoded);
+      `x402-payment:${request.recipient}:${request.amount}:${request.token}:${request.resource}:${request.expiry}:${request.nonce}`,
+    )
+    return keccak256(encoded)
   }
 
   /**
    * Get pending payment authorizations
    */
   getPendingPayments(): PaymentAuthorization[] {
-    return Array.from(this.pendingPayments.values());
+    return Array.from(this.pendingPayments.values())
   }
 
   /**
    * Clear a pending payment (after receipt)
    */
   clearPendingPayment(nonce: Hex): void {
-    this.pendingPayments.delete(nonce);
+    this.pendingPayments.delete(nonce)
   }
 
   /**
@@ -207,18 +215,20 @@ export class X402PaymentClient {
     recipient: Address,
     amount: bigint,
     resource: string,
-    validitySeconds: number = 3600
+    validitySeconds: number = 3600,
   ): Promise<PaymentAuthorization> {
     const request: PaymentRequest = {
       recipient,
       amount,
-      token: this.config.tokenAddress || '0x0000000000000000000000000000000000000000' as Address,
+      token:
+        this.config.tokenAddress ||
+        ('0x0000000000000000000000000000000000000000' as Address),
       resource,
       expiry: Math.floor(Date.now() / 1000) + validitySeconds,
       nonce: keccak256(toBytes(`${Date.now()}-${crypto.randomUUID()}`)),
-    };
+    }
 
-    return this.authorizePayment(request);
+    return this.authorizePayment(request)
   }
 }
 
@@ -228,22 +238,22 @@ export class X402PaymentClient {
 export function calculateStorageFee(
   sizeBytes: number,
   durationDays: number,
-  tier: 'hot' | 'warm' | 'cold' | 'permanent'
+  tier: 'hot' | 'warm' | 'cold' | 'permanent',
 ): bigint {
   // Base rate: 0.00001 USDC per byte per day for hot storage
-  const baseRate = BigInt(10); // In smallest units (wei-like)
-  
+  const baseRate = BigInt(10) // In smallest units (wei-like)
+
   const tierMultiplier = {
     hot: BigInt(10),
     warm: BigInt(5),
     cold: BigInt(1),
     permanent: BigInt(1000), // Permanent is 100x cold for infinite duration
-  };
+  }
 
-  const bytes = BigInt(sizeBytes);
-  const days = BigInt(durationDays);
-  
-  return bytes * days * baseRate * tierMultiplier[tier] / BigInt(1e6);
+  const bytes = BigInt(sizeBytes)
+  const days = BigInt(durationDays)
+
+  return (bytes * days * baseRate * tierMultiplier[tier]) / BigInt(1e6)
 }
 
 /**
@@ -253,34 +263,42 @@ export function calculateComputeFee(
   durationMinutes: number,
   cpuCores: number,
   memoryGb: number,
-  teeType: 'dstack' | 'phala' | 'simulated'
+  teeType: 'dstack' | 'phala' | 'simulated',
 ): bigint {
   // Base rate: 0.001 USDC per minute per core
-  const baseRate = BigInt(1000);
-  
+  const baseRate = BigInt(1000)
+
   const teeMultiplier = {
     dstack: BigInt(15), // 1.5x for TDX
-    phala: BigInt(12),  // 1.2x for SGX
+    phala: BigInt(12), // 1.2x for SGX
     simulated: BigInt(10), // 1x for simulated
-  };
+  }
 
-  const minutes = BigInt(durationMinutes);
-  const cores = BigInt(cpuCores);
-  const memory = BigInt(memoryGb);
-  
+  const minutes = BigInt(durationMinutes)
+  const cores = BigInt(cpuCores)
+  const memory = BigInt(memoryGb)
+
   // Price = minutes * (cores + memory/4) * baseRate * teeMultiplier
-  return minutes * (cores + memory / BigInt(4)) * baseRate * teeMultiplier[teeType] / BigInt(10);
+  return (
+    (minutes *
+      (cores + memory / BigInt(4)) *
+      baseRate *
+      teeMultiplier[teeType]) /
+    BigInt(10)
+  )
 }
 
-let instance: X402PaymentClient | null = null;
+let instance: X402PaymentClient | null = null
 
-export function createX402PaymentClient(config: PaymentConfig): X402PaymentClient {
+export function createX402PaymentClient(
+  config: PaymentConfig,
+): X402PaymentClient {
   if (!instance) {
-    instance = new X402PaymentClient(config);
+    instance = new X402PaymentClient(config)
   }
-  return instance;
+  return instance
 }
 
 export function resetX402PaymentClient(): void {
-  instance = null;
+  instance = null
 }

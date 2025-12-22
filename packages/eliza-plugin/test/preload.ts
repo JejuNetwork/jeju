@@ -4,15 +4,15 @@
  * which only exists in zod v4, but it's bundled with an older version.
  */
 
-import { z } from 'zod';
-import { mock } from 'bun:test';
+import { mock } from 'bun:test'
+import { z } from 'zod'
 
 // Add .loose() method to ZodObject if it doesn't exist
-const ZodObjectProto = Object.getPrototypeOf(z.object({}));
+const ZodObjectProto = Object.getPrototypeOf(z.object({}))
 if (!ZodObjectProto.loose) {
-  ZodObjectProto.loose = function() {
-    return this.passthrough();
-  };
+  ZodObjectProto.loose = function () {
+    return this.passthrough()
+  }
 }
 
 // Mock @jejunetwork/sdk to avoid build dependency during unit tests
@@ -24,12 +24,9 @@ mock.module('@jejunetwork/sdk', () => ({
     isSmartAccount: false,
     getBalance: async () => 0n,
   }),
-}));
+}))
 
 // Mock @jejunetwork/config to provide test values
 mock.module('@jejunetwork/config', () => ({
   getNetworkName: () => 'jeju',
-}));
-
-export {};
-
+}))

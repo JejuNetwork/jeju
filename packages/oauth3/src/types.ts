@@ -1,11 +1,26 @@
 /**
  * OAuth3 Core Types
- * 
+ *
  * Decentralized authentication with TEE-backed key management,
  * threshold MPC signing, and W3C Verifiable Credentials.
  */
 
-import type { Address, Hex } from 'viem';
+import type { Address, Hex } from 'viem'
+
+// ============ JSON Value Types ============
+// Use these instead of `unknown` when dealing with JSON data
+
+/** Represents any valid JSON value */
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | JsonRecord
+
+/** Represents a JSON object with string keys */
+export type JsonRecord = { [key: string]: JsonValue }
 
 // ============ Provider Types ============
 
@@ -41,31 +56,31 @@ export enum ChainId {
 // ============ Identity Types ============
 
 export interface OAuth3Identity {
-  id: Hex;
-  owner: Address;
-  smartAccount: Address;
-  providers: LinkedProvider[];
-  createdAt: number;
-  updatedAt: number;
-  nonce: bigint;
-  metadata: IdentityMetadata;
+  id: Hex
+  owner: Address
+  smartAccount: Address
+  providers: LinkedProvider[]
+  createdAt: number
+  updatedAt: number
+  nonce: bigint
+  metadata: IdentityMetadata
 }
 
 export interface LinkedProvider {
-  provider: AuthProvider;
-  providerId: string;
-  providerHandle: string;
-  linkedAt: number;
-  verified: boolean;
-  credential: VerifiableCredential | null;
+  provider: AuthProvider
+  providerId: string
+  providerHandle: string
+  linkedAt: number
+  verified: boolean
+  credential: VerifiableCredential | null
 }
 
 export interface IdentityMetadata {
-  name: string;
-  avatar: string;
-  bio: string;
-  url: string;
-  jnsName: string | null;
+  name: string
+  avatar: string
+  bio: string
+  url: string
+  jnsName: string | null
 }
 
 // ============ Session Types ============
@@ -75,14 +90,14 @@ export interface IdentityMetadata {
  * SECURITY: The signing key is intentionally excluded and kept only in the TEE.
  */
 export interface OAuth3Session {
-  sessionId: Hex;
-  identityId: Hex;
-  smartAccount: Address;
-  expiresAt: number;
-  capabilities: SessionCapability[];
+  sessionId: Hex
+  identityId: Hex
+  smartAccount: Address
+  expiresAt: number
+  capabilities: SessionCapability[]
   /** Public key derived from the signing key - can be used to verify signatures */
-  signingPublicKey: Hex;
-  attestation: TEEAttestation;
+  signingPublicKey: Hex
+  attestation: TEEAttestation
 }
 
 /**
@@ -92,7 +107,7 @@ export interface OAuth3Session {
  */
 export interface OAuth3InternalSession extends OAuth3Session {
   /** Private signing key - MUST stay within the TEE */
-  signingKey: Hex;
+  signingKey: Hex
 }
 
 export enum SessionCapability {
@@ -105,12 +120,12 @@ export enum SessionCapability {
 // ============ TEE Types ============
 
 export interface TEEAttestation {
-  quote: Hex;
-  measurement: Hex;
-  reportData: Hex;
-  timestamp: number;
-  provider: TEEProvider;
-  verified: boolean;
+  quote: Hex
+  measurement: Hex
+  reportData: Hex
+  timestamp: number
+  provider: TEEProvider
+  verified: boolean
 }
 
 export enum TEEProvider {
@@ -120,46 +135,46 @@ export enum TEEProvider {
 }
 
 export interface TEENodeInfo {
-  nodeId: string;
-  endpoint: string;
-  provider: TEEProvider;
-  attestation: TEEAttestation;
-  publicKey: Hex;
-  stake: bigint;
-  active: boolean;
+  nodeId: string
+  endpoint: string
+  provider: TEEProvider
+  attestation: TEEAttestation
+  publicKey: Hex
+  stake: bigint
+  active: boolean
 }
 
 // ============ MPC Types ============
 
 export interface MPCCluster {
-  clusterId: string;
-  nodes: MPCNode[];
-  threshold: number;
-  totalNodes: number;
-  publicKey: Hex;
-  networkPublicKey: Hex;
+  clusterId: string
+  nodes: MPCNode[]
+  threshold: number
+  totalNodes: number
+  publicKey: Hex
+  networkPublicKey: Hex
 }
 
 export interface MPCNode {
-  nodeId: string;
-  index: number;
-  endpoint: string;
-  publicKey: Hex;
-  teeAttestation: TEEAttestation;
-  active: boolean;
+  nodeId: string
+  index: number
+  endpoint: string
+  publicKey: Hex
+  teeAttestation: TEEAttestation
+  active: boolean
 }
 
 export interface MPCSignatureRequest {
-  requestId: Hex;
-  keyId: string;
-  message: Hex;
-  messageHash: Hex;
-  requester: Address;
-  threshold: number;
-  participants: string[];
-  status: MPCSignatureStatus;
-  createdAt: number;
-  expiresAt: number;
+  requestId: Hex
+  keyId: string
+  message: Hex
+  messageHash: Hex
+  requester: Address
+  threshold: number
+  participants: string[]
+  status: MPCSignatureStatus
+  createdAt: number
+  expiresAt: number
 }
 
 export enum MPCSignatureStatus {
@@ -171,98 +186,98 @@ export enum MPCSignatureStatus {
 }
 
 export interface MPCSignatureResult {
-  signature: Hex;
-  r: Hex;
-  s: Hex;
-  v: number;
-  participants: string[];
-  requestId: Hex;
+  signature: Hex
+  r: Hex
+  s: Hex
+  v: number
+  participants: string[]
+  requestId: Hex
 }
 
 // ============ OAuth App Types (Multi-tenant) ============
 
 export interface OAuth3App {
-  appId: Hex;
-  name: string;
-  description: string;
-  owner: Address;
-  council: Address;
-  redirectUris: string[];
-  allowedProviders: AuthProvider[];
-  jnsName: string;
-  createdAt: number;
-  active: boolean;
-  metadata: OAuth3AppMetadata;
+  appId: Hex
+  name: string
+  description: string
+  owner: Address
+  council: Address
+  redirectUris: string[]
+  allowedProviders: AuthProvider[]
+  jnsName: string
+  createdAt: number
+  active: boolean
+  metadata: OAuth3AppMetadata
 }
 
 export interface OAuth3AppMetadata {
-  logoUri: string;
-  policyUri: string;
-  termsUri: string;
-  supportEmail: string;
-  webhookUrl: string;
+  logoUri: string
+  policyUri: string
+  termsUri: string
+  supportEmail: string
+  webhookUrl: string
 }
 
 export interface OAuth3AppCredentials {
-  clientId: Hex;
-  clientSecretHash: Hex;
-  encryptedClientSecret: Hex;
+  clientId: Hex
+  clientSecretHash: Hex
+  encryptedClientSecret: Hex
 }
 
 // ============ Farcaster Types ============
 
 export interface FarcasterIdentity {
-  fid: number;
-  username: string;
-  displayName: string;
-  pfpUrl: string;
-  bio: string;
-  custodyAddress: Address;
-  verifiedAddresses: Address[];
-  signerPublicKey: Hex;
+  fid: number
+  username: string
+  displayName: string
+  pfpUrl: string
+  bio: string
+  custodyAddress: Address
+  verifiedAddresses: Address[]
+  signerPublicKey: Hex
 }
 
 export interface FarcasterSignerRequest {
-  fid: number;
-  signerPublicKey: Hex;
-  signature: Hex;
-  deadline: number;
+  fid: number
+  signerPublicKey: Hex
+  signature: Hex
+  deadline: number
 }
 
 // ============ Verifiable Credentials ============
 
 export interface VerifiableCredential {
-  '@context': string[];
-  type: string[];
-  id: string;
-  issuer: CredentialIssuer;
-  issuanceDate: string;
-  expirationDate: string;
-  credentialSubject: CredentialSubject;
-  proof: CredentialProof;
+  '@context': string[]
+  type: string[]
+  id: string
+  issuer: CredentialIssuer
+  issuanceDate: string
+  expirationDate: string
+  credentialSubject: CredentialSubject
+  proof: CredentialProof
 }
 
 export interface CredentialIssuer {
-  id: string;
-  name: string;
+  id: string
+  name: string
 }
 
 export interface CredentialSubject {
-  id: string;
-  provider: AuthProvider;
-  providerId: string;
-  providerHandle: string;
-  walletAddress: Address;
-  verifiedAt: string;
+  id: string
+  provider: AuthProvider
+  providerId: string
+  providerHandle: string
+  walletAddress: Address
+  verifiedAt: string
 }
 
 export interface CredentialProof {
-  type: string;
-  created: string;
-  verificationMethod: string;
-  proofPurpose: string;
-  proofValue: Hex;
-  jws?: string;
+  type: string
+  created: string
+  verificationMethod: string
+  proofPurpose: string
+  proofValue: Hex
+  jws?: string
 }
 
 export enum CredentialType {
@@ -276,47 +291,47 @@ export enum CredentialType {
 // ============ Smart Account Types ============
 
 export interface AccountFactoryConfig {
-  entryPoint: Address;
-  defaultValidator: Address;
-  recoveryModule: Address;
-  sessionKeyModule: Address;
+  entryPoint: Address
+  defaultValidator: Address
+  recoveryModule: Address
+  sessionKeyModule: Address
 }
 
 export interface SmartAccountInfo {
-  address: Address;
-  owner: Address;
-  identityId: Hex;
-  nonce: bigint;
-  deployed: boolean;
-  modules: Address[];
-  sessionKeys: SessionKeyInfo[];
+  address: Address
+  owner: Address
+  identityId: Hex
+  nonce: bigint
+  deployed: boolean
+  modules: Address[]
+  sessionKeys: SessionKeyInfo[]
 }
 
 export interface SessionKeyInfo {
-  publicKey: Hex;
-  permissions: SessionPermission[];
-  validAfter: number;
-  validUntil: number;
-  active: boolean;
+  publicKey: Hex
+  permissions: SessionPermission[]
+  validAfter: number
+  validUntil: number
+  active: boolean
 }
 
 export interface SessionPermission {
-  target: Address;
-  selector: Hex;
-  maxValue: bigint;
-  rateLimit: number;
+  target: Address
+  selector: Hex
+  maxValue: bigint
+  rateLimit: number
 }
 
 // ============ Council Integration Types ============
 
 export interface CouncilConfig {
-  councilId: Hex;
-  name: string;
-  treasury: Address;
-  ceoAgent: Address;
-  councilAgents: Address[];
-  oauth3App: Hex;
-  jnsName: string;
+  councilId: Hex
+  name: string
+  treasury: Address
+  ceoAgent: Address
+  councilAgents: Address[]
+  oauth3App: Hex
+  jnsName: string
 }
 
 export enum CouncilType {
@@ -328,22 +343,22 @@ export enum CouncilType {
 // ============ Open Intent Types ============
 
 export interface CrossChainIdentity {
-  identityId: Hex;
-  homeChain: ChainId;
-  deployedChains: ChainId[];
-  smartAccounts: Map<ChainId, Address>;
-  intentNonce: bigint;
+  identityId: Hex
+  homeChain: ChainId
+  deployedChains: ChainId[]
+  smartAccounts: Map<ChainId, Address>
+  intentNonce: bigint
 }
 
 export interface IdentityIntent {
-  intentId: Hex;
-  identityId: Hex;
-  sourceChain: ChainId;
-  destinationChain: ChainId;
-  action: IdentityIntentAction;
-  payload: Hex;
-  signature: Hex;
-  status: IntentStatus;
+  intentId: Hex
+  identityId: Hex
+  sourceChain: ChainId
+  destinationChain: ChainId
+  action: IdentityIntentAction
+  payload: Hex
+  signature: Hex
+  status: IntentStatus
 }
 
 export enum IdentityIntentAction {
@@ -363,61 +378,61 @@ export enum IntentStatus {
 }
 
 export interface CrossChainIntent {
-  intentId: Hex;
-  sourceChain: ChainId;
-  targetChain: ChainId;
-  sender: Address;
-  receiver: Address;
-  tokenAddress: Address;
-  amount: bigint;
-  data: Hex;
-  deadline: number;
-  signature: Hex;
+  intentId: Hex
+  sourceChain: ChainId
+  targetChain: ChainId
+  sender: Address
+  receiver: Address
+  tokenAddress: Address
+  amount: bigint
+  data: Hex
+  deadline: number
+  signature: Hex
 }
 
 export interface IntentSolution {
-  solverId: Address;
-  intentId: Hex;
-  executionData: Hex;
-  gasUsed: bigint;
-  timestamp: number;
+  solverId: Address
+  intentId: Hex
+  executionData: Hex
+  gasUsed: bigint
+  timestamp: number
 }
 
 // ============ Error Types ============
 
 export interface OAuth3ErrorDetails {
   /** Provider that caused the error */
-  provider?: AuthProvider;
+  provider?: AuthProvider
   /** Session ID related to the error */
-  sessionId?: Hex;
+  sessionId?: Hex
   /** Identity ID related to the error */
-  identityId?: Hex;
+  identityId?: Hex
   /** App ID related to the error */
-  appId?: Hex;
+  appId?: Hex
   /** Address involved in the error */
-  address?: Address;
+  address?: Address
   /** Credential ID related to the error */
-  credentialId?: string;
+  credentialId?: string
   /** Chain ID where the error occurred */
-  chainId?: number;
+  chainId?: number
   /** Expected value in validation errors */
-  expected?: string;
+  expected?: string
   /** Actual value in validation errors */
-  actual?: string;
+  actual?: string
   /** Threshold-related info for MPC errors */
-  threshold?: number;
+  threshold?: number
   /** Number of participants in MPC errors */
-  participants?: number;
+  participants?: number
 }
 
 export class OAuth3Error extends Error {
   constructor(
     message: string,
     public code: OAuth3ErrorCode,
-    public details?: OAuth3ErrorDetails
+    public details?: OAuth3ErrorDetails,
   ) {
-    super(message);
-    this.name = 'OAuth3Error';
+    super(message)
+    this.name = 'OAuth3Error'
   }
 }
 
