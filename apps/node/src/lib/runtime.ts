@@ -1,8 +1,3 @@
-/**
- * Runtime detection and abstraction layer
- * Works in both Tauri and browser environments
- */
-
 import { z } from 'zod'
 import type { HardwareInfo } from '../types'
 import {
@@ -39,9 +34,6 @@ export const isTauri = runtime === 'tauri'
 export const isBrowser = runtime === 'browser'
 export const isNode = runtime === 'node'
 
-/**
- * Runtime API - works in all environments
- */
 export interface RuntimeAPI {
   detectHardware(): Promise<HardwareInfo>
   getConfig(): Promise<RuntimeConfig>
@@ -127,8 +119,6 @@ export interface BotInfo {
   isRunning: boolean
 }
 
-// BotState is imported from validation.ts
-
 const DEFAULT_CONFIG: RuntimeConfig = {
   network: 'localnet',
   rpcUrl: 'http://127.0.0.1:6546',
@@ -142,10 +132,6 @@ const DEFAULT_CONFIG: RuntimeConfig = {
 
 const CONFIG_KEY = 'jeju-node-config'
 
-/**
- * Browser implementation of RuntimeAPI
- */
-/** Type for objects that can be indexed by string keys */
 type Indexable<T> = T & Record<string, unknown>
 
 function createBrowserAPI(): RuntimeAPI {
@@ -548,9 +534,6 @@ function createBrowserAPI(): RuntimeAPI {
   }
 }
 
-/**
- * Tauri implementation of RuntimeAPI (wraps Tauri invoke)
- */
 async function createTauriAPI(): Promise<RuntimeAPI> {
   // Dynamic import: Tauri API only available in Tauri runtime
   const { invoke } = await import('@tauri-apps/api/core')
@@ -688,9 +671,6 @@ async function createTauriAPI(): Promise<RuntimeAPI> {
   }
 }
 
-/**
- * Node.js implementation (for daemon)
- */
 function createNodeAPI(): RuntimeAPI {
   let config: RuntimeConfig = { ...DEFAULT_CONFIG }
   const runningServices = new Map<string, ServiceState>()
@@ -981,9 +961,6 @@ function createNodeAPI(): RuntimeAPI {
   }
 }
 
-/**
- * Get the appropriate API for the current runtime
- */
 let cachedAPI: RuntimeAPI | null = null
 
 export async function getAPI(): Promise<RuntimeAPI> {

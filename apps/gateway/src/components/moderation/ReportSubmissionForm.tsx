@@ -1,4 +1,3 @@
-
 import {
   AlertTriangle,
   FileText,
@@ -127,7 +126,7 @@ export default function ReportSubmissionForm({
     // Get bond amount based on severity
     const bondAmount = Object.values(MODERATION_CONFIG.reportBonds)[
       formData.severity
-    ]
+    ] as string
 
     // Convert app ID to bytes32 (keccak256)
     const appIdBytes32 =

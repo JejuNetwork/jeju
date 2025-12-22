@@ -10,6 +10,40 @@ import {
   type VoteType,
   VoteTypeValue,
 } from '@jejunetwork/types'
+
+/** Reverse mapping from numeric type to ProposalType string */
+const ProposalTypeFromValue: Record<number, ProposalType> = {
+  0: 'PARAMETER_CHANGE',
+  1: 'TREASURY_ALLOCATION',
+  2: 'CODE_UPGRADE',
+  3: 'HIRE_CONTRACTOR',
+  4: 'FIRE_CONTRACTOR',
+  5: 'BOUNTY',
+  6: 'GRANT',
+  7: 'PARTNERSHIP',
+  8: 'POLICY',
+  9: 'EMERGENCY',
+}
+
+/** Reverse mapping from numeric status to ProposalStatus string */
+const ProposalStatusFromValue: Record<number, ProposalStatus> = {
+  0: 'SUBMITTED',
+  1: 'COUNCIL_REVIEW',
+  2: 'RESEARCH_PENDING',
+  3: 'COUNCIL_FINAL',
+  4: 'CEO_QUEUE',
+  5: 'APPROVED',
+  6: 'EXECUTING',
+  7: 'COMPLETED',
+  8: 'REJECTED',
+  9: 'VETOED',
+  10: 'FUTARCHY_PENDING',
+  11: 'FUTARCHY_APPROVED',
+  12: 'FUTARCHY_REJECTED',
+  13: 'DUPLICATE',
+  14: 'SPAM',
+}
+
 import { type Address, encodeFunctionData, type Hex } from 'viem'
 import { getServicesConfig, requireContract } from '../config'
 import {
@@ -236,7 +270,12 @@ export function createGovernanceModule(
     )
     if (!response.ok) throw new Error('Failed to fetch proposal')
     const rawData: unknown = await response.json()
-    return ProposalInfoSchema.parse(rawData)
+    const parsed = ProposalInfoSchema.parse(rawData)
+    return {
+      ...parsed,
+      type: ProposalTypeFromValue[parsed.type] ?? 'PARAMETER_CHANGE',
+      status: ProposalStatusFromValue[parsed.status] ?? 'SUBMITTED',
+    }
   }
 
   async function listProposals(
@@ -251,7 +290,11 @@ export function createGovernanceModule(
 
     const rawData: unknown = await response.json()
     const data = ProposalsListSchema.parse(rawData)
-    return data.proposals
+    return data.proposals.map((p) => ({
+      ...p,
+      type: ProposalTypeFromValue[p.type] ?? 'PARAMETER_CHANGE',
+      status: ProposalStatusFromValue[p.status] ?? 'SUBMITTED',
+    }))
   }
 
   async function backProposal(proposalId: Hex, amount: bigint): Promise<Hex> {

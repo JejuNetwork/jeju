@@ -567,3 +567,40 @@ export interface ValidationResult {
   errors: string[]
   queries: { query: string; result: string }[]
 }
+
+// ============================================================================
+// Utility Functions
+// ============================================================================
+
+/**
+ * Safely format large token amounts using BigInt to avoid precision loss.
+ * Converts wei values to human-readable format with K/M suffixes.
+ */
+export function formatVolume(amount: string): string {
+  if (!/^-?\d+$/.test(amount)) {
+    return '0.0000'
+  }
+
+  const bigValue = BigInt(amount)
+  const divisor = BigInt(1e18)
+  const wholePart = bigValue / divisor
+  const remainder = bigValue % divisor
+  const value = Number(wholePart) + Number(remainder) / 1e18
+
+  if (value >= 1000000) return `${(value / 1000000).toFixed(2)}M`
+  if (value >= 1000) return `${(value / 1000).toFixed(2)}K`
+  return value.toFixed(4)
+}
+
+/**
+ * Format a number with K/M suffixes for display.
+ * Handles both string (token amounts) and number inputs.
+ */
+export function formatNumber(value: string | number): string {
+  if (typeof value === 'string') {
+    return formatVolume(value)
+  }
+  if (value >= 1000000) return `${(value / 1000000).toFixed(2)}M`
+  if (value >= 1000) return `${(value / 1000).toFixed(2)}K`
+  return value.toFixed(2)
+}

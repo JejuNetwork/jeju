@@ -40,7 +40,11 @@ import {
   getLogs,
   waitForTransactionReceipt,
 } from 'viem/actions'
-import { expectJson, GovernanceAddressesSchema } from '../../schemas'
+import {
+  expectJson,
+  ForgeArtifactSchema,
+  GovernanceAddressesSchema,
+} from '../../schemas'
 
 // Configuration
 interface NetworkConfig {

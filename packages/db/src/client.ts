@@ -10,7 +10,7 @@ import { createPool, type Pool } from 'generic-pool'
 import CircuitBreakerLib from 'opossum'
 import pino from 'pino'
 import type { Address, Hex } from 'viem'
-import { toHex } from 'viem'
+import { isAddress, isHex, toHex } from 'viem'
 import { z } from 'zod'
 import type {
   ACLRule,
@@ -32,14 +32,13 @@ import type {
 } from './types.js'
 import { parseTimeout } from './utils.js'
 
-// Hex schema for config validation (inline to avoid circular dependency)
-const HexSchema = z.custom<`0x${string}`>(
-  (val) => typeof val === 'string' && /^0x[0-9a-fA-F]*$/.test(val),
+const HexSchema = z.custom<Hex>(
+  (val): val is Hex => typeof val === 'string' && isHex(val),
   { message: 'Invalid hex string' },
 )
 
-const AddressSchema = z.custom<`0x${string}`>(
-  (val) => typeof val === 'string' && /^0x[a-fA-F0-9]{40}$/.test(val),
+const AddressSchema = z.custom<Address>(
+  (val): val is Address => typeof val === 'string' && isAddress(val),
   { message: 'Invalid address' },
 )
 

@@ -237,10 +237,7 @@ describe.skipIf(!servicesAvailable)('Deep Integration E2E', () => {
   it('should discover apps in agent registry tab', async () => {
     console.log('\n🤖 Testing agent Registry tab...')
 
-    // This would be tested via Playwright/Dappwright
-    // For now, verify the component exists
-
-    console.log('✅ Agent Registry tab ready (manual test required)')
+    console.log('✅ Agent Registry tab ready (requires Playwright E2E test)')
   })
 
   it('should withdraw stake successfully', async () => {

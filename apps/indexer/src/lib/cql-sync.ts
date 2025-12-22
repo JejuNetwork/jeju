@@ -36,8 +36,19 @@ interface QueryResult<T = SqlRow> {
 }
 const getCQLUrl = (): string => process.env.CQL_URL || 'http://localhost:4661'
 
-// Stub CovenantSQLClient
+// Stub CovenantSQLClient - matches @jejunetwork/db interface
+interface _CQLClientConfig {
+  blockProducerEndpoint: string
+  databaseId: string
+}
+
+// Type export to suppress unused warning
+export type { _CQLClientConfig as CQLClientConfig }
+
 class CovenantSQLClient {
+  constructor(_config?: { blockProducerEndpoint: string; databaseId: string }) {
+    // Stub: config not used
+  }
   async query<T = SqlRow>(
     _sql: string,
     _params?: SqlParam[],

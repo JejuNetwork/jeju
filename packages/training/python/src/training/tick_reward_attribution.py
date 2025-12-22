@@ -204,7 +204,7 @@ class TickRewardAttributor:
                     )
                     base_reward *= 0.5 + 0.5 * engagement_rate
 
-            elif purpose == CallPurpose.REASONING:
+            elif purpose == CallPurpose.REASONING:  # noqa: SIM102
                 # Reasoning calls share credit with action outcomes
                 if outcome.trades_executed > 0:
                     success_rate = outcome.trades_successful / outcome.trades_executed
@@ -220,7 +220,7 @@ class TickRewardAttributor:
             total_reward = purpose_rewards.get(purpose, 0.0)
 
             # Apply temporal credit: later calls in successful sequences get more
-            for i, call in enumerate(calls):
+            for _i, call in enumerate(calls):
                 # Base share
                 share = total_reward / len(calls)
 
@@ -257,7 +257,7 @@ class TickRewardAttributor:
                 all_calls_by_purpose[call.purpose].append(call)
 
         # Normalize each purpose group to mean 0 (for GRPO)
-        for purpose, calls in all_calls_by_purpose.items():
+        for _purpose, calls in all_calls_by_purpose.items():
             if len(calls) < 2:
                 continue
 
@@ -336,7 +336,7 @@ def group_samples_for_grpo(
 
     groups = []
 
-    for purpose, purpose_samples in by_purpose.items():
+    for _purpose, purpose_samples in by_purpose.items():
         if len(purpose_samples) < group_size:
             continue
 
@@ -371,7 +371,7 @@ ELIZA MESSAGE HANDLER (single tick, multiple outputs):
 Input:
   <task>Generate dialog and actions for {{agentName}}</task>
   <providers>{{providers}}</providers>
-  
+
 Output:
   <response>
     <thought>Your thought here</thought>          <- PURPOSE: reasoning
@@ -383,10 +383,10 @@ Output:
 In RL training, we break this into 3 training samples:
 1. REASONING sample: Input -> <thought>...</thought>
    Reward: Attributed based on whether actions succeeded
-   
+
 2. ACTION sample: Input + thought context -> <actions>...</actions>
    Reward: Direct from action outcome (P&L, success)
-   
+
 3. RESPONSE sample: Input + thought + actions -> <text>...</text>
    Reward: From social engagement metrics
 

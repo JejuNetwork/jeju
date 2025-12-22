@@ -1,6 +1,10 @@
 /**
- * Gateway-specific contract ABIs
+ * Gateway-specific contract ABIs and constants
  */
+
+/** Zero address constant */
+export const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as const
+
 export const JEJU_TOKEN_ABI = [
   {
     type: 'function',

@@ -10,7 +10,7 @@
  * - IPFS storage for credentials
  */
 
-import { type Address, createPublicClient, type Hex, http, toHex } from 'viem'
+import { type Address, type Hex, http, toHex } from 'viem'
 import { CHAIN_IDS, DEFAULT_RPC } from '../infrastructure/config.js'
 import {
   createDecentralizedDiscovery,
@@ -150,7 +150,6 @@ export class OAuth3Client {
   private session: OAuth3Session | null = null
   private identity: OAuth3Identity | null = null
   private farcasterProvider: FarcasterProvider
-  private publicClient: ReturnType<typeof createPublicClient>
   private eventHandlers: Map<
     OAuth3EventType,
     Set<OAuth3EventHandler<OAuth3EventType>>
@@ -192,9 +191,6 @@ export class OAuth3Client {
     const rpcUrl = config.rpcUrl ?? DEFAULT_RPC
     const chainId = config.chainId ?? CHAIN_IDS.localnet
 
-    this.publicClient = createPublicClient({
-      transport: http(rpcUrl),
-    })
     this.farcasterProvider = new FarcasterProvider()
 
     // Initialize decentralized services if enabled

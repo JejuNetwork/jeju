@@ -16,7 +16,7 @@ import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { type Address, type Hex, keccak256, toBytes } from 'viem'
 import type { BackendManager } from '../../storage/backends'
-import { getRegion, getRegionConfig } from './regions'
+import { getRegion } from './regions'
 import type { TEESecretManager } from './secrets'
 import type {
   NetworkEnvironment,
@@ -115,7 +115,6 @@ export class TEEWorkerRunner {
     await mkdir(this.config.workDir, { recursive: true })
 
     // Verify region is valid for environment
-    const _regionConfig = getRegionConfig(this.config.environment)
     const region = getRegion(this.config.region)
 
     if (!region && this.config.region !== 'local') {

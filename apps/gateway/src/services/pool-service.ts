@@ -393,10 +393,10 @@ const TOKENS: Record<
     symbol: 'USDC',
     decimals: 6,
   },
-  elizaOS: {
-    address: (process.env.ELIZAOS_ADDRESS ||
+  JEJU: {
+    address: (process.env.JEJU_TOKEN_ADDRESS ||
       '0x0000000000000000000000000000000000000002') as Address,
-    symbol: 'elizaOS',
+    symbol: 'JEJU',
     decimals: 18,
   },
 }

@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { formatEther, parseEther } from 'viem'

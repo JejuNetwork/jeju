@@ -2,10 +2,10 @@
  * Proposal Routes
  */
 
+import { expectValid } from '@jejunetwork/types'
 import { Elysia, t } from 'elysia'
 import { createAutocratA2AServer } from '../a2a-server'
 import { getProposalAssistant, type ProposalDraft } from '../proposal-assistant'
-import { expectValid } from '@jejunetwork/types'
 import { A2AJsonRpcResponseSchema, extractA2AData } from '../schemas'
 import { blockchain, config } from '../shared-state'
 import type { CasualProposalCategory, ProposalType } from '../types'

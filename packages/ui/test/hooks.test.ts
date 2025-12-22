@@ -1,12 +1,3 @@
-/**
- * UI Hooks Tests
- *
- * Tests for React hooks provided by @jejunetwork/ui
- *
- * Note: Export tests are skipped when SDK is not built (these are verified by TypeScript compilation).
- * The actual logic tests are in liquidity-utils.test.ts and utils.test.ts
- */
-
 import { describe, expect, test } from 'bun:test'
 import {
   IERC20_ABI,
@@ -23,16 +14,10 @@ import {
   parsePositionFromTuple,
 } from '../src/hooks/liquidity-utils'
 
-// Check if SDK is available (needed for dynamic imports of hooks that depend on SDK)
-// Note: Dynamic imports are required because the hooks module (via context.tsx) has
-// top-level imports from @jejunetwork/sdk (e.g., createJejuClient). Static imports
-// would cause module evaluation errors when SDK is not available, even if tests
-// are skipped with describe.skipIf(). Dynamic imports defer module loading until
-// the test actually runs, avoiding errors when SDK is unavailable.
 let sdkAvailable = false
 try {
-  require.resolve('@jejunetwork/sdk')
-  sdkAvailable = true
+  const sdk = require('@jejunetwork/sdk')
+  sdkAvailable = typeof sdk.createJejuClient === 'function'
 } catch {
   sdkAvailable = false
 }

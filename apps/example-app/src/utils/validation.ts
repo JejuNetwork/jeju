@@ -1,10 +1,3 @@
-/**
- * Validation Utilities with Expect/Throw Patterns
- *
- * Fail-fast validation helpers that throw on invalid data.
- * No defensive programming - we want to expose bugs immediately.
- */
-
 import type { ZodError, ZodType, ZodTypeDef } from 'zod'
 
 /**

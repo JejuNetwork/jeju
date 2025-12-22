@@ -1,7 +1,7 @@
 /**
  * Cross-Chain Liquidity Manager
  *
- * Unified liquidity management across EVM and Solana chains:
+ * Liquidity management across EVM and Solana chains:
  * - Position tracking across all chains/DEXs
  * - Automatic rebalancing for optimal yields
  * - Fee harvesting and compounding
@@ -52,7 +52,7 @@ export interface EVMPosition {
   nftId?: bigint
 }
 
-export interface UnifiedPosition {
+export interface Position {
   id: string
   chain: 'evm' | 'solana'
   chainId: ChainId | 'solana-mainnet' | 'solana-devnet'
@@ -232,20 +232,20 @@ export class LiquidityManager extends EventEmitter {
   }
 
   /**
-   * Get all unified positions
+   * Get all positions
    */
-  getPositions(): UnifiedPosition[] {
-    const unified: UnifiedPosition[] = []
+  getPositions(): Position[] {
+    const positions: Position[] = []
 
     for (const pos of this.evmPositions.values()) {
-      unified.push(this.toUnifiedPosition(pos, 'evm'))
+      positions.push(this.toPosition(pos, 'evm'))
     }
 
     for (const pos of this.solanaPositions.values()) {
-      unified.push(this.toUnifiedPosition(pos, 'solana'))
+      positions.push(this.toPosition(pos, 'solana'))
     }
 
-    return unified.sort((a, b) => b.valueUsd - a.valueUsd)
+    return positions.sort((a, b) => b.valueUsd - a.valueUsd)
   }
 
   /**
@@ -583,10 +583,10 @@ export class LiquidityManager extends EventEmitter {
     return { success: false, error: 'EVM actions not yet implemented' }
   }
 
-  private toUnifiedPosition(
+  private toPosition(
     pos: EVMPosition | SolanaPosition,
     chain: 'evm' | 'solana',
-  ): UnifiedPosition {
+  ): Position {
     if (chain === 'evm') {
       const evmPos = pos as EVMPosition
       return {

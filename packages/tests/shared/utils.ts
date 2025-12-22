@@ -1,10 +1,5 @@
 /**
  * Shared Utilities for Test Infrastructure
- *
- * Consolidates common functionality used across test modules:
- * - Workspace/monorepo root finding
- * - RPC health checking
- * - Service availability checking
  */
 
 import { existsSync, readFileSync } from 'node:fs'

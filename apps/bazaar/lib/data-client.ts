@@ -211,25 +211,6 @@ const mapToken = (c: RawTokenData): Token => {
   }
 }
 
-// Map legacy contract data to Token
-const mapContractToToken = (c: {
-  address: string
-  name: string
-  symbol: string
-  decimals: number
-  totalSupply: string
-  creator: { address: string }
-  firstSeenAt: string
-  verified: boolean
-  totalVolume?: string
-  holderCount?: number
-}): Token =>
-  mapToken({
-    ...c,
-    createdAt: c.firstSeenAt,
-    volume24h: c.totalVolume,
-  })
-
 const TOKEN_ORDER_BY_MAP = {
   volume: 'volume24h_DESC',
   recent: 'createdAt_DESC',
@@ -237,15 +218,6 @@ const TOKEN_ORDER_BY_MAP = {
   price: 'priceUSD_DESC',
   liquidity: 'liquidityUSD_DESC',
   trending: 'txCount24h_DESC',
-} as const
-
-const LEGACY_ORDER_BY_MAP = {
-  volume: 'totalVolume_DESC',
-  recent: 'firstSeenAt_DESC',
-  holders: 'holderCount_DESC',
-  price: 'firstSeenAt_DESC',
-  liquidity: 'totalVolume_DESC',
-  trending: 'firstSeenAt_DESC',
 } as const
 
 export type TokenOrderBy = keyof typeof TOKEN_ORDER_BY_MAP
@@ -265,9 +237,7 @@ export async function fetchTokensWithMarketData(options: {
   const { offset = 0, chainId, orderBy = 'volume', minLiquidity } = options
   const limit = sanitizeLimit(options.limit)
 
-  if (!(await checkIndexerHealth())) {
-    return fetchTokensFallback(offset)
-  }
+  expectTrue(await checkIndexerHealth(), 'Indexer unavailable')
 
   // Build where clause
   const whereConditions: string[] = []
@@ -293,80 +263,11 @@ export async function fetchTokensWithMarketData(options: {
     }
   `,
     { limit, offset, orderBy: [TOKEN_ORDER_BY_MAP[orderBy]] },
-  ).catch(() => null)
+  )
 
-  if (data?.tokens?.length) {
-    return data.tokens.map(mapToken)
-  }
-
-  // Fallback to legacy Contract-based query
-  return fetchTokens({
-    limit,
-    offset,
-    orderBy: orderBy as 'volume' | 'recent' | 'holders',
-  })
+  return data.tokens.map(mapToken)
 }
 
-/**
- * Legacy token fetch from Contract entity (fallback)
- */
-export async function fetchTokens(options: {
-  limit?: number
-  offset?: number
-  verified?: boolean
-  orderBy?: 'volume' | 'recent' | 'holders'
-}): Promise<Token[]> {
-  const { offset = 0, orderBy = 'recent' } = options
-  const limit = sanitizeLimit(options.limit)
-
-  if (await checkIndexerHealth()) {
-    const data = await gql<{
-      contracts: Array<{
-        address: string
-        name: string
-        symbol: string
-        decimals: number
-        totalSupply: string
-        creator: { address: string }
-        firstSeenAt: string
-        verified: boolean
-        totalVolume?: string
-        holderCount?: number
-      }>
-    }>(
-      `
-      query($limit: Int!, $offset: Int!, $orderBy: [ContractOrderByInput!]) {
-        contracts(where: { isERC20_eq: true }, limit: $limit, offset: $offset, orderBy: $orderBy) {
-          address name symbol decimals totalSupply
-          creator { address } firstSeenAt verified totalVolume holderCount
-        }
-      }
-    `,
-      { limit, offset, orderBy: [LEGACY_ORDER_BY_MAP[orderBy]] },
-    )
-    return data.contracts.map(mapContractToToken)
-  }
-
-  return fetchTokensFallback(offset)
-}
-
-function fetchTokensFallback(offset: number): Token[] {
-  return offset === 0
-    ? [
-        {
-          address: '0x0000000000000000000000000000000000000000' as Address,
-          chainId: 420691,
-          name: 'Ether',
-          symbol: 'ETH',
-          decimals: 18,
-          totalSupply: 0n,
-          creator: '0x0000000000000000000000000000000000000000' as Address,
-          createdAt: new Date(0),
-          verified: true,
-        },
-      ]
-    : []
-}
 
 export async function fetchTokenDetails(address: Address): Promise<Token> {
   const validatedAddress = AddressSchema.parse(address)
@@ -571,47 +472,13 @@ export async function fetchPriceHistory(
     { tokenId, interval: graphqlInterval, limit },
   ).catch(() => null)
 
-  if (data?.tokenCandles?.length) {
-    return data.tokenCandles
-      .map((c) => ({
-        timestamp: new Date(c.periodStart).getTime(),
-        open: parseFloat(c.open),
-        high: parseFloat(c.high),
-        low: parseFloat(c.low),
-        close: parseFloat(c.close),
-        volume: BigInt(c.volume),
-      }))
-      .reverse()
+  if (!data?.tokenCandles?.length) {
+    return []
   }
 
-  // Fallback to legacy priceCandles query
-  const legacyData = await gql<{
-    priceCandles: Array<{
-      timestamp: string
-      open: string
-      high: string
-      low: string
-      close: string
-      volume: string
-    }>
-  }>(
-    `
-    query($token: String!, $interval: String!, $limit: Int!) {
-      priceCandles(where: { token_eq: $token, interval_eq: $interval }, limit: $limit, orderBy: timestamp_DESC) {
-        timestamp open high low close volume
-      }
-    }
-  `,
-    { token: validatedAddress.toLowerCase(), interval, limit },
-  ).catch(() => null)
-
-  if (!legacyData?.priceCandles?.length) {
-    return [] // No data available for this token
-  }
-
-  return legacyData.priceCandles
+  return data.tokenCandles
     .map((c) => ({
-      timestamp: new Date(c.timestamp).getTime(),
+      timestamp: new Date(c.periodStart).getTime(),
       open: parseFloat(c.open),
       high: parseFloat(c.high),
       low: parseFloat(c.low),
@@ -708,35 +575,7 @@ export async function fetchToken24hStats(address: Address): Promise<{
     }
   }
 
-  // Fallback to legacy tokenStats
-  const data = await gql<{
-    tokenStats: {
-      volume24h: string
-      trades24h: number
-      priceChange24h: number
-      high24h: string
-      low24h: string
-    } | null
-  }>(
-    `
-    query($address: String!) {
-      tokenStats(token: $address) { volume24h trades24h priceChange24h high24h low24h }
-    }
-  `,
-    { address: validatedAddress.toLowerCase() },
-  ).catch(() => null)
-
-  if (!data?.tokenStats) {
-    return { volume: 0n, trades: 0, priceChange: 0, high: 0, low: 0 }
-  }
-
-  return {
-    volume: BigInt(data.tokenStats.volume24h),
-    trades: data.tokenStats.trades24h,
-    priceChange: data.tokenStats.priceChange24h,
-    high: parseFloat(data.tokenStats.high24h),
-    low: parseFloat(data.tokenStats.low24h),
-  }
+  return { volume: 0n, trades: 0, priceChange: 0, high: 0, low: 0 }
 }
 
 /**

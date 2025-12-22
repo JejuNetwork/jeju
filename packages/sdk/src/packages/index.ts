@@ -8,7 +8,7 @@
  */
 
 import type { Address, Hex, WalletClient } from 'viem'
-import { createPublicClient, createWalletClient, http } from 'viem'
+import { createWalletClient, http } from 'viem'
 import { type LocalAccount, privateKeyToAccount } from 'viem/accounts'
 import {
   HealthCheckResponseSchema,
@@ -371,9 +371,6 @@ export class JejuPkgSDK {
 
   constructor(config: PackageSDKConfig) {
     this.config = config
-    this.publicClient = createPublicClient({
-      transport: http(config.rpcUrl),
-    })
 
     if (config.privateKey) {
       this.account = privateKeyToAccount(config.privateKey)
@@ -433,7 +430,12 @@ export class JejuPkgSDK {
       throw new Error(`Failed to get package version: ${response.statusText}`)
     }
     const rawData: unknown = await response.json()
-    return PackageVersionInfoSchema.parse(rawData)
+    const parsed = PackageVersionInfoSchema.parse(rawData)
+    return {
+      ...parsed,
+      publishedAt: parsed.publishedAt ?? new Date().toISOString(),
+      publishedBy: parsed.publishedBy ?? 'unknown',
+    }
   }
 
   async searchPackages(

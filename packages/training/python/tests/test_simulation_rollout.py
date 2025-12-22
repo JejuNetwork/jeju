@@ -46,7 +46,7 @@ from src.training import (
 def sample_env_state():
     """Create sample environment state"""
     return EnvironmentState(
-        agent_balance=10000.0, agent_pnl=100.0, open_positions=2, active_markets=5
+        agent_balance=10000.0, agentPnL=100.0, open_positions=2, active_markets=5
     )
 
 
@@ -91,7 +91,7 @@ def sample_trajectory(sample_env_state, sample_action, sample_llm_call):
     steps = []
     for i in range(5):
         env = EnvironmentState(
-            agent_balance=10000.0 + i * 100, agent_pnl=i * 100.0, open_positions=i
+            agent_balance=10000.0 + i * 100, agentPnL=i * 100.0, open_positions=i
         )
         steps.append(
             TrajectoryStep(
@@ -368,7 +368,7 @@ class TestRolloutQualityValidator:
             trajectory=sample_trajectory,
         )
 
-        is_valid, issues = RolloutQualityValidator.validate_rollout(result)
+        _, issues = RolloutQualityValidator.validate_rollout(result)
 
         # Should flag too few ticks
         assert any("Too few ticks" in issue for issue in issues)
@@ -388,7 +388,7 @@ class TestRolloutQualityValidator:
             trajectory=sample_trajectory,
         )
 
-        is_valid, issues = RolloutQualityValidator.validate_rollout(result)
+        _, issues = RolloutQualityValidator.validate_rollout(result)
 
         # Should flag low quality
         assert any("Quality score too low" in issue for issue in issues)

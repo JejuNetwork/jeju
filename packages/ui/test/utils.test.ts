@@ -1,7 +1,3 @@
-/**
- * Tests for utility functions in hooks/utils.ts
- */
-
 import { describe, expect, test } from 'bun:test'
 import { requireClient } from '../src/hooks/utils'
 

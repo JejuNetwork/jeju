@@ -46,7 +46,6 @@ export function discoverAppsForWarmup(rootDir = process.cwd()): AppConfig[] {
       const manifestRaw = JSON.parse(readFileSync(manifestPath, 'utf-8'))
       manifest = parseAppManifest(manifestRaw)
     } catch {
-      // Skip apps with invalid/incomplete manifests
       continue
     }
     const mainPort = manifest.ports.main

@@ -13,13 +13,7 @@
  */
 
 import { spawn } from 'bun'
-import {
-  type Address,
-  createPublicClient,
-  createWalletClient,
-  type Hex,
-  http,
-} from 'viem'
+import { type Address, createPublicClient, type Hex, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
 import { createAtroposServer } from './atropos-server'
@@ -84,11 +78,6 @@ async function main() {
   console.log('[2/8] Creating EVM clients...')
   const account = privateKeyToAccount(CONFIG.evmPrivateKey)
   const publicClient = createPublicClient({
-    chain: foundry,
-    transport: http(CONFIG.evmRpcUrl),
-  })
-  const _walletClient = createWalletClient({
-    account,
     chain: foundry,
     transport: http(CONFIG.evmRpcUrl),
   })

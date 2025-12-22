@@ -9,14 +9,14 @@ import type {
   Memory,
   State,
 } from '@elizaos/core'
-import type { JsonValue } from '@jejunetwork/sdk'
+import type { JsonValue } from '@jejunetwork/types'
 import { JEJU_SERVICE_NAME, type JejuService } from '../service'
 import {
   fetchWithTimeout,
   getMessageText,
   isUrlSafeToFetch,
   MAX_JSON_SIZE,
-  safeJsonParse,
+  safeJsonParseUnknown,
   truncateOutput,
   validateServiceExists,
 } from '../validation'
@@ -62,7 +62,15 @@ export const uploadFileAction: Action = {
 
       let jsonData: Record<string, JsonValue>
       try {
-        jsonData = safeJsonParse<Record<string, JsonValue>>(jsonString)
+        const parsed = safeJsonParseUnknown(jsonString)
+        if (
+          typeof parsed !== 'object' ||
+          parsed === null ||
+          Array.isArray(parsed)
+        ) {
+          throw new Error('JSON must be an object')
+        }
+        jsonData = parsed as Record<string, JsonValue>
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Invalid JSON'
         callback?.({
@@ -219,9 +227,10 @@ export const retrieveFileAction: Action = {
     let parsed: Record<string, unknown> | unknown[] | string = text_content
     if (isJson && text_content.length < MAX_JSON_SIZE) {
       try {
-        parsed = safeJsonParse<Record<string, unknown> | unknown[]>(
-          text_content,
-        )
+        const jsonParsed = safeJsonParseUnknown(text_content)
+        if (typeof jsonParsed === 'object' && jsonParsed !== null) {
+          parsed = jsonParsed as Record<string, unknown> | unknown[]
+        }
       } catch {
         // Not valid JSON despite looking like it, keep as string
         parsed = text_content

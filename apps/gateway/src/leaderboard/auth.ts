@@ -6,9 +6,11 @@
  */
 
 import { type TokenClaims, verifyToken } from '@jejunetwork/kms'
+import { LRUCache } from 'lru-cache'
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes, verifyMessage } from 'viem'
 import { GitHubUserResponseSchema } from '../lib/validation.js'
+import { isPrivateIp } from '../rpc/middleware/rate-limiter.js'
 import { LEADERBOARD_CONFIG } from './config.js'
 import { query } from './db.js'
 
@@ -21,15 +23,10 @@ type GitHubUserResponse = {
 }
 
 export interface AuthenticatedUser {
-  /** GitHub username */
   username: string
-  /** GitHub avatar URL */
   avatarUrl: string
-  /** Linked wallet address (if any) */
   wallet?: Address
-  /** Chain ID (CAIP-2 format) */
   chainId?: string
-  /** Token claims */
   claims: TokenClaims
 }
 
@@ -46,22 +43,13 @@ export interface AuthError {
 
 export type AuthOutcome = AuthResult | AuthError
 
-/**
- * Rate limiting state using LRU cache to prevent memory leaks
- * SECURITY: Bounded cache prevents memory exhaustion attacks
- */
-import { LRUCache } from 'lru-cache'
-
 const rateLimitState = new LRUCache<string, { count: number; resetAt: number }>(
   {
-    max: 50000, // Max 50k unique clients tracked
-    ttl: 60 * 60 * 1000, // 1 hour TTL
+    max: 50000,
+    ttl: 60 * 60 * 1000,
   },
 )
 
-/**
- * Check rate limit for a client
- */
 export function checkRateLimit(
   clientId: string,
   config: { requests: number; windowMs: number },
@@ -89,39 +77,6 @@ export function checkRateLimit(
     remaining: config.requests - state.count,
     resetAt: state.resetAt,
   }
-}
-
-/**
- * Check if an IP is a private/local address that could be spoofed
- * SECURITY: Filter out private IPs from X-Forwarded-For to prevent spoofing
- */
-function isPrivateIp(ip: string): boolean {
-  if (
-    ip.startsWith('10.') ||
-    ip.startsWith('192.168.') ||
-    ip.startsWith('127.') ||
-    ip.startsWith('172.16.') ||
-    ip.startsWith('172.17.') ||
-    ip.startsWith('172.18.') ||
-    ip.startsWith('172.19.') ||
-    ip.startsWith('172.20.') ||
-    ip.startsWith('172.21.') ||
-    ip.startsWith('172.22.') ||
-    ip.startsWith('172.23.') ||
-    ip.startsWith('172.24.') ||
-    ip.startsWith('172.25.') ||
-    ip.startsWith('172.26.') ||
-    ip.startsWith('172.27.') ||
-    ip.startsWith('172.28.') ||
-    ip.startsWith('172.29.') ||
-    ip.startsWith('172.30.') ||
-    ip.startsWith('172.31.') ||
-    ip === 'localhost' ||
-    ip === '::1'
-  ) {
-    return true
-  }
-  return false
 }
 
 /**

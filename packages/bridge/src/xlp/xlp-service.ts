@@ -34,6 +34,7 @@ import {
   isSolanaChain as isSolanaChainType,
 } from '../types/index.js'
 import { createLogger } from '../utils/logger.js'
+import { SOLANA_TOKENS } from './jupiter-integration.js'
 
 const log = createLogger('xlp')
 
@@ -93,14 +94,6 @@ const TOKENS: Record<string, Record<number, Address>> = {
     10: '0x4200000000000000000000000000000000000006',
     8453: '0x4200000000000000000000000000000000000006',
   },
-}
-
-// Solana token mints (for cross-chain reference)
-const SOLANA_TOKENS: Record<string, string> = {
-  USDC: 'EPjFWdd5AufqSSqeM2qN1xzybapT8G4wEGGkZwyTDt1v',
-  USDT: 'Es9vMFrzaCERmJfrF4H2FsqcVc7eHvqZN9Y1FMx6ByGu',
-  SOL: 'So11111111111111111111111111111111111111112',
-  WETH: '7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs', // Wormhole WETH
 }
 
 /**

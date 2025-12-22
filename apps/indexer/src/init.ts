@@ -78,7 +78,6 @@ const CONTRACT_TYPES: Record<string, ContractInfo['type']> = {
   // Tokens
   weth: 'token',
   usdc: 'token',
-  elizaOS: 'token',
   jeju: 'token',
 
   // OTC

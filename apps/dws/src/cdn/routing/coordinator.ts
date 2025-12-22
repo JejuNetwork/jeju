@@ -108,7 +108,7 @@ export class CDNCoordinator {
     this.publicClient = createPublicClient({
       chain,
       transport: http(config.rpcUrl),
-    })
+    }) as PublicClient
     this.walletClient = createWalletClient({
       account: this.account,
       chain,
@@ -453,6 +453,7 @@ export class CDNCoordinator {
       functionName: 'completeInvalidation',
       args: [requestIdBytes as `0x${string}`, BigInt(progress.nodesProcessed)],
       account: this.account,
+      chain: this.walletClient.chain,
     })
   }
 

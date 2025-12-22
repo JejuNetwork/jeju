@@ -20,7 +20,6 @@
 
 import { expectValid } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
-import type { Address } from 'viem'
 import { z } from 'zod'
 
 // ============================================================================
@@ -531,9 +530,8 @@ export function createHelmProviderRouter() {
       }))
 
       // Apply Helm release / K8s manifests
-      .post('/apply', ({ body, request }) => {
+      .post('/apply', ({ body }) => {
         const validated = expectValid(manifestsSchema, body, 'Helm apply body')
-        const _owner = request.headers.get('x-jeju-address') as Address
 
         const deployment = parser.parseManifests(
           validated.manifests as KubeManifest[],

@@ -71,19 +71,19 @@ test.describe('Token Lifecycle Flow', () => {
     })
 
     // Step 3: Check token status
-    const elizaOSVisible = await page
-      .getByText('elizaOS')
+    const jejuVisible = await page
+      .getByText('JEJU')
       .isVisible()
       .catch(() => false)
 
-    if (elizaOSVisible) {
+    if (jejuVisible) {
       // Step 4: Deploy Paymaster
       await page.getByRole('button', { name: /Deploy Paymaster/i }).click()
       await page.waitForTimeout(1000)
 
       await page.locator('.input').first().click()
       await page.waitForTimeout(500)
-      await page.getByText('elizaOS').click()
+      await page.getByText('JEJU').click()
       await page.waitForTimeout(1000)
 
       const alreadyDeployed = await page
@@ -102,7 +102,7 @@ test.describe('Token Lifecycle Flow', () => {
 
       await page.locator('.input').first().click()
       await page.waitForTimeout(500)
-      await page.getByText('elizaOS').click()
+      await page.getByText('JEJU').click()
       await page.waitForTimeout(1000)
 
       const noPaymaster = await page

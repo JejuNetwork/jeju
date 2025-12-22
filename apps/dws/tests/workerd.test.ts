@@ -236,12 +236,7 @@ describe('Config Generator', () => {
       updatedAt: Date.now(),
     }
 
-    const config = generateWorkerConfig(worker, 30001, {
-      cpuTimeLimitMs: 50,
-      isolateMemoryMb: 128,
-      requestTimeoutMs: 30000,
-      subrequestLimit: 50,
-    })
+    const config = generateWorkerConfig(worker, 30001)
 
     expect(config).toContain('using Workerd')
     expect(config).toContain('worker.js')

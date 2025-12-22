@@ -63,7 +63,6 @@ import type {
 
 /**
  * Transform raw request body to ProposalDraft
- * Consolidates the repeated transformation pattern used across multiple endpoints
  */
 function toProposalDraft(raw: {
   daoId: string

@@ -61,7 +61,6 @@ setInterval(() => {
   }
 }, RATE_LIMIT_WINDOW_MS)
 
-// Allowed origins for CORS (production should be more restrictive)
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS?.split(',') || [
   `http://localhost:${CORE_PORTS.DOCUMENTATION.DEFAULT}`, // Main docs site
   'http://localhost:3000', // Common dev server port

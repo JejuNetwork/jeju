@@ -1,17 +1,3 @@
-/**
- * Edge Node Coordinator - Production Implementation
- *
- * Decentralized coordination for edge nodes with:
- * - Peer authentication via on-chain registration verification
- * - Message signing and verification
- * - Gossip protocol with fanout (not broadcast all)
- * - LRU caches with TTL eviction
- * - Real WebSocket connections
- * - Prometheus metrics
- * - Health check endpoint
- * - Graceful shutdown
- */
-
 import { randomBytes } from 'node:crypto'
 import * as nodeHttp from 'node:http'
 import { LRUCache } from 'lru-cache'

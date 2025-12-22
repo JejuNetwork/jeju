@@ -126,7 +126,6 @@ export function createWorkerdRouter(options: WorkerdRouterOptions): Elysia {
         const contentType = headers['content-type'] || ''
 
         let name: string
-        let _handler = 'index.handler'
         let memoryMb = 128
         let timeoutMs = 30000
         let cpuTimeMs = 50
@@ -146,7 +145,6 @@ export function createWorkerdRouter(options: WorkerdRouterOptions): Elysia {
           const codeFile = formData.get('code')
 
           name = formData.get('name') as string
-          _handler = (formData.get('handler') as string) || 'index.handler'
           memoryMb = parseInt(formData.get('memoryMb') as string, 10) || 128
           timeoutMs = parseInt(formData.get('timeoutMs') as string, 10) || 30000
           cpuTimeMs = parseInt(formData.get('cpuTimeMs') as string, 10) || 50
@@ -181,7 +179,6 @@ export function createWorkerdRouter(options: WorkerdRouterOptions): Elysia {
           }
 
           name = jsonBody.name
-          _handler = jsonBody.handler ?? 'index.handler'
           memoryMb = jsonBody.memoryMb ?? 128
           timeoutMs = jsonBody.timeoutMs ?? 30000
           cpuTimeMs = jsonBody.cpuTimeMs ?? 50

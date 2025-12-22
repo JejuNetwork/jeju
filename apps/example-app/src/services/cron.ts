@@ -1,10 +1,3 @@
-/**
- * Cron Service for scheduled tasks
- *
- * Provides decentralized cron triggers using the compute network.
- * Handles reminder scheduling and cleanup tasks.
- */
-
 import type { Address } from 'viem'
 import { getDatabase } from '../db/client'
 import type { CronJob } from '../types'

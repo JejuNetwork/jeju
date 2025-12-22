@@ -965,14 +965,9 @@ async function executeSkill(
   switch (skillId) {
     case 'list-protocol-tokens':
       return {
-        message: 'Protocol tokens: elizaOS, CLANKER, VIRTUAL, CLANKERMON',
+        message: 'Protocol tokens: JEJU',
         data: {
-          tokens: [
-            { symbol: 'elizaOS', hasPaymaster: true },
-            { symbol: 'CLANKER', hasPaymaster: true },
-            { symbol: 'VIRTUAL', hasPaymaster: true },
-            { symbol: 'CLANKERMON', hasPaymaster: true },
-          ],
+          tokens: [{ symbol: 'JEJU', hasPaymaster: true }],
         },
       }
     case 'get-node-stats':

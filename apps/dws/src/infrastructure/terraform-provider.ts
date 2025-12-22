@@ -33,7 +33,6 @@
 
 import { expectValid } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
-import type { Address } from 'viem'
 import { z } from 'zod'
 
 // ============================================================================
@@ -321,13 +320,12 @@ export function createTerraformProviderRouter() {
       // Worker Resources
       // ============================================================================
 
-      .post('/resources/dws_worker', ({ body, request }) => {
+      .post('/resources/dws_worker', ({ body }) => {
         const validated = expectValid(
           workerResourceSchema,
           body,
           'Worker resource body',
         )
-        const _owner = request.headers.get('x-jeju-address') as Address
 
         const workerId = `tf-worker-${Date.now()}`
 

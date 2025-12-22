@@ -80,7 +80,7 @@ export const APP_PORTS = {
   facilitator: CORE_PORTS.FACILITATOR.get(),
   // Indexer services (4350-4399 range)
   indexerGraphQL: CORE_PORTS.INDEXER_GRAPHQL.get(),
-  indexerA2A: 4351, // Not in CORE_PORTS, keep hardcoded for now
+  indexerA2A: 4351,
   indexerRest: 4352,
   indexerMcp: 4353,
   indexerDatabase: CORE_PORTS.INDEXER_DATABASE.get(),

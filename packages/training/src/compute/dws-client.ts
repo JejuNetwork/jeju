@@ -152,7 +152,7 @@ export class DWSTrainingClient {
     )
 
     if (!response.ok) {
-      return []
+      throw new Error(`Failed to get job allocations: ${response.statusText}`)
     }
 
     const result = expectValid(
@@ -239,7 +239,7 @@ export class DWSTrainingClient {
         throw new Error(`Missing rollout at index ${i}`)
       }
       return {
-        trajectoryId: rollout.trajectoryId,
+        bundleId: rollout.trajectoryId,
         score: r.score,
         reasoning: r.reasoning,
         confidence: r.confidence,
@@ -335,7 +335,7 @@ export class DWSTrainingClient {
     const response = await fetch(`${this.config.dwsApiUrl}/training/jobs`)
 
     if (!response.ok) {
-      return []
+      throw new Error(`Failed to list jobs: ${response.statusText}`)
     }
 
     const result = expectValid(

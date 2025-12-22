@@ -10,6 +10,7 @@
  * - ERC-8004 agent linking
  */
 
+import { expectValid } from '@jejunetwork/types'
 import {
   type Address,
   type Chain,
@@ -20,7 +21,6 @@ import {
   toBytes,
   type WalletClient,
 } from 'viem'
-import { expectValid } from '@jejunetwork/types'
 import {
   expectValidResponse,
   GitHubRepoPermissionsSchema,

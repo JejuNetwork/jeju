@@ -12,6 +12,7 @@ import {
   parseEther,
 } from 'viem'
 import { baseSepolia } from 'viem/chains'
+import { BAN_MANAGER_ABI } from './abis'
 
 // ============ Types ============
 

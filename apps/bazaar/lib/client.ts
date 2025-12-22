@@ -287,36 +287,3 @@ export const api = {
 
 export type BazaarClient = typeof api
 
-// =============================================================================
-// Legacy helper functions (for backward compatibility)
-// =============================================================================
-
-/**
- * @deprecated Use api.faucet.getInfo() instead
- */
-export async function extractData<T>(response: {
-  data: T | null
-  error: unknown
-}): Promise<T> {
-  if (response.error) {
-    const err = response.error as { message?: string }
-    throw new Error(err.message || 'Unknown error')
-  }
-  if (response.data === null) {
-    throw new Error('No data returned')
-  }
-  return response.data
-}
-
-/**
- * @deprecated Use api methods directly
- */
-export function extractDataSafe<T>(response: {
-  data: T | null
-  error: unknown
-}): T | null {
-  if (response.error) {
-    return null
-  }
-  return response.data
-}

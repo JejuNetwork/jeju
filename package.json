@@ -62,11 +62,8 @@
     "tsup": ">=8.5.1",
     "tough-cookie": ">=4.1.3",
     "whatwg-url": "7.1.0",
-    "@langchain/core": "0.3.30",
-    "langchain": "0.3.30",
     "hardhat": "2.22.18",
-    "@types/chai": "5.2.3",
-    "eslint": "9.39.2"
+    "@types/chai": "5.2.3"
   },
   "scripts": {
     "preinstall": "python3 -c 'import distutils' 2>/dev/null || (echo 'Python distutils not found - run: pip3 install --user --break-system-packages setuptools' && exit 1)",
@@ -276,11 +273,8 @@
     "hawk": ">=9.0.1",
     "tough-cookie": ">=4.1.3",
     "whatwg-url": "7.1.0",
-    "@langchain/core": "0.3.30",
-    "langchain": "0.3.30",
     "hardhat": "2.22.18",
-    "@types/chai": "5.2.3",
-    "eslint": "9.39.2"
+    "@types/chai": "5.2.3"
   },
   "engines": {
     "bun": ">=1.0.0"

@@ -1,19 +1,3 @@
-/**
- * Arbitrage Executor - Real Cross-Chain Arbitrage Execution
- *
- * Handles:
- * - EVM swaps via 1inch Fusion / Uniswap V3
- * - Solana swaps via Jupiter
- * - Cross-chain bridging via ZKSolBridge
- * - Jito bundle submission for Solana MEV
- * - Hyperliquid perpetual trading
- *
- * Revenue Model:
- * - Price difference capture (typically 0.3-2%)
- * - Solver fees on successful fills
- * - MEV on Solana via Jito tips
- */
-
 import {
   type Address,
   type Chain,

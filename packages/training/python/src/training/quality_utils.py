@@ -150,10 +150,7 @@ def check_reasoning_action_alignment(
         else:
             score = 0.4
     elif is_wait:
-        if wait_score > 0:
-            score = 0.7
-        else:
-            score = 0.5
+        score = 0.7 if wait_score > 0 else 0.5
 
     # Cap total at 1.0
     return min(1.0, score + literacy_bonus)
@@ -405,11 +402,11 @@ def assess_trajectory_difficulty(
     for tick in ticks:
         if tick.action:
             curr = tick.action.action_type
-            if prev_action:
-                if (prev_action in ["buy", "long"] and curr in ["sell", "short"]) or (
-                    prev_action in ["sell", "short"] and curr in ["buy", "long"]
-                ):
-                    reversals += 1
+            if prev_action and (
+                (prev_action in ["buy", "long"] and curr in ["sell", "short"])
+                or (prev_action in ["sell", "short"] and curr in ["buy", "long"])
+            ):
+                reversals += 1
             prev_action = curr
 
     if reversals >= 2:

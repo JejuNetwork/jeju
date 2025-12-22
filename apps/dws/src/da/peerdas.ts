@@ -187,7 +187,7 @@ function computeRowParity(row: Uint8Array[], parityIndex: number): Uint8Array {
 /**
  * Compute column parity using proper GF(2^8) arithmetic
  */
-function _computeColumnParity(
+export function computeColumnParity(
   column: Uint8Array[],
   parityIndex: number,
 ): Uint8Array {

@@ -114,11 +114,9 @@ describe('Moderation Load Tests', () => {
   })
 
   test('IPFS upload throughput (10 concurrent)', async () => {
-    // Test IPFS can handle multiple uploads
     const uploadCount = 10
-    const _mockFileSize = 1024 * 100 // 100KB each
 
-    // Simulate uploads
+    // Simulate 10 concurrent 100KB uploads
     const uploads = Array.from(
       { length: uploadCount },
       () => new Promise((resolve) => setTimeout(resolve, 1000)),

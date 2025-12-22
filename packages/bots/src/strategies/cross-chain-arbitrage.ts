@@ -822,14 +822,6 @@ export interface SolanaArbConfig {
 }
 
 export class SolanaArbitrage {
-  private config: SolanaArbConfig
-  private connection: Connection
-
-  constructor(config: SolanaArbConfig) {
-    this.config = config
-    this.connection = new Connection(config.rpcUrl, config.commitment)
-  }
-
   /**
    * Get quote from Raydium via Jupiter aggregator
    */

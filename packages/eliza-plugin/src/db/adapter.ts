@@ -25,22 +25,10 @@ import {
   type World,
 } from '@elizaos/core'
 import { type CQLClient, getCQL, type QueryParam } from '@jejunetwork/db'
+import type { JsonValue } from '@jejunetwork/types'
 import { v4 as uuidv4 } from 'uuid'
-import { type ZodType, z } from 'zod'
+import type { ZodType } from 'zod'
 import { checkMigrationStatus, runCQLMigrations } from './migrations'
-
-type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonValue[]
-  | { [key: string]: JsonValue }
-
-// Internal schemas for database field validation
-const _StringArraySchema = z.array(z.string())
-const _RecordSchema = z.record(z.unknown())
-const _NumberArraySchema = z.array(z.number())
 
 /**
  * CQL Database Adapter Configuration

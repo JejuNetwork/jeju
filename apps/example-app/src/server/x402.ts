@@ -1,12 +1,3 @@
-/**
- * x402 Payment Protocol Middleware
- *
- * Implements HTTP 402 Payment Required for paid API access.
- * Supports JEJU and USDC payments on Base/Jeju networks.
- *
- * All validation uses zod with expect/throw patterns.
- */
-
 import { type Context, Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { createPublicClient, http, parseAbi, verifyMessage } from 'viem'

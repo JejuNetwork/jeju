@@ -179,7 +179,7 @@ export {
   SandwichStrategy,
   SolanaArbStrategy,
   SolverStrategy,
-  type UnifiedPosition,
+  type Position,
   type YieldFarmingConfig,
   YieldFarmingStrategy,
   type YieldOpportunity,
@@ -187,10 +187,10 @@ export {
 } from './strategies'
 // ============ Core Trading Bot ============
 export { TradingBot, type TradingBotOptions } from './trading-bot'
-// ============ Unified Bot ============
+// ============ MEV Bot ============
 export {
   type BotStats,
+  MevBot,
+  type MevBotConfig,
   type TradeResult,
-  UnifiedBot,
-  type UnifiedBotConfig,
-} from './unified-bot'
+} from './mev-bot'

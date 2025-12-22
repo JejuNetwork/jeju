@@ -1,9 +1,3 @@
-/**
- * MCP (Model Context Protocol) Server for tool integrations
- *
- * All endpoints use zod validation with expect/throw patterns.
- */
-
 import { getNetworkName } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import type {
@@ -223,7 +217,7 @@ const MCP_PROMPTS: MCPPrompt[] = [
 const networkName = getNetworkName()
 const isLocalnet = networkName === 'localnet' || networkName === 'Jeju'
 
-export function createMCPServer(): Elysia {
+export function createMCPServer() {
   const todoService = getTodoService()
   const cronService = getCronService()
 
@@ -240,14 +234,16 @@ export function createMCPServer(): Elysia {
         }
       }
 
-      const safeMessage = sanitizeErrorMessage(error, isLocalnet)
+      const errorObj =
+        error instanceof Error ? error : new Error(String(error))
+      const safeMessage = sanitizeErrorMessage(errorObj, isLocalnet)
       return {
         content: [{ type: 'text', text: `Internal error: ${safeMessage}` }],
         isError: true,
       }
     })
     .post('/initialize', () => {
-      const validatedInfo = expectValid(
+      const validatedInfo: MCPServerInfo = expectValid(
         mcpServerInfoSchema,
         MCP_SERVER_INFO,
         'MCP server info',

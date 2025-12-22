@@ -2,21 +2,21 @@
  * Protocol Implementations
  *
  * A2A and MCP protocol servers and middleware:
- * - Unified Server (recommended)
- * - A2A Server (legacy)
- * - MCP Server (legacy)
+ * - Protocol Server (recommended)
+ * - A2A Server
+ * - MCP Server
  * - ERC-8004 Identity Middleware
  * - x402 Payment Middleware
  */
 
-// Legacy A2A Server
+// A2A Server
 export {
   type A2AConfig,
   type A2AResult,
   type AgentCard,
   createA2AServer,
 } from './a2a'
-// Legacy MCP Server
+// MCP Server
 export {
   createMCPServer,
   type MCPConfig,
@@ -44,16 +44,16 @@ export {
   type X402PaymentPayload,
   x402Middleware,
 } from './middleware'
-// Unified Server (recommended)
+// Protocol Server (recommended)
 export {
   type A2ASkill,
+  createServer,
   createServerlessHandler,
-  createUnifiedServer,
   type MCPPrompt,
   type MCPResource,
   type MCPTool,
+  type ServerConfig,
   type ServerInstance,
   type SkillContext,
   startServer,
-  type UnifiedServerConfig,
 } from './server'

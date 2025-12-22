@@ -43,12 +43,7 @@ const initWalletAgent = async ({ runtime }: { runtime: IAgentRuntime }) => {
 export const walletAgent: ProjectAgent = {
   character: jejuWalletCharacter,
   init: async (runtime: IAgentRuntime) => initWalletAgent({ runtime }),
-  plugins: [
-    jejuWalletPlugin,
-    // Future: Add more plugins here
-    // evmPlugin,
-    // sqlPlugin,
-  ],
+  plugins: [jejuWalletPlugin],
 }
 
 /**

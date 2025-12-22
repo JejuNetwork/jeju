@@ -90,7 +90,7 @@ class VLLMServer:
                 if r.ok:
                     print(f"[vLLM] Server ready on port {self.port}")
                     return
-            except:
+            except Exception:
                 pass
             time.sleep(1)
             if i % 10 == 0:

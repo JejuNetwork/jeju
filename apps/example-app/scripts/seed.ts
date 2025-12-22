@@ -1,13 +1,3 @@
-/**
- * OAuth3 Registry Seeding Script
- *
- * Seeds the OAuth3 registry with:
- * - The example-app as an OAuth3 application
- * - A mock TEE node for local development
- *
- * Run with: bun run seed
- */
-
 import { getNetworkName } from '@jejunetwork/config'
 import { AuthProvider, TEEProvider } from '@jejunetwork/oauth3'
 import type { Address, Hex } from 'viem'

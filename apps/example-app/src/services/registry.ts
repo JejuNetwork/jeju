@@ -1,11 +1,3 @@
-/**
- * OAuth3 Registry Service
- *
- * Interacts with on-chain registries for:
- * - App registration and discovery
- * - TEE node registration and health checks
- */
-
 import { getNetworkName } from '@jejunetwork/config'
 import {
   AuthProvider,
@@ -25,20 +17,6 @@ import {
 import { z } from 'zod'
 import { expectValid } from '../utils/validation'
 
-// Chain IDs for different networks - unused for now but kept for future contract integration
-// const CHAIN_IDS: Record<string, number> = {
-//   localnet: 420691,  // Jeju localnet
-//   testnet: 420690,   // Jeju testnet (Base Sepolia)
-//   mainnet: 8453,     // Jeju mainnet (Base)
-// };
-
-// Default contract addresses - kept for future contract integration
-// const DEFAULT_CONTRACTS: Record<string, Address> = {
-//   appRegistry: '0x5FbDB2315678afecb367f032d93F642f64180aa3' as Address,
-//   identityRegistry: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512' as Address,
-//   teeVerifier: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0' as Address,
-// };
-
 export interface RegistryService {
   registerApp(app: Partial<OAuth3App>): Promise<Hex>
   getApp(appId: Hex | string): Promise<OAuth3App | null>
@@ -55,12 +33,6 @@ function getNetworkType(name: string): NetworkType {
   if (name === 'testnet') return 'testnet'
   return 'mainnet'
 }
-
-// Future: Contract address resolution for production registry interactions
-// function getContractAddress(name: keyof typeof DEFAULT_CONTRACTS): Address {
-//   const envKey = `OAUTH3_${name.toUpperCase()}_ADDRESS`;
-//   return (process.env[envKey] as Address) || DEFAULT_CONTRACTS[name];
-// }
 
 class RegistryServiceImpl implements RegistryService {
   private publicClient: PublicClient

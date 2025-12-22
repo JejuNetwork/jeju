@@ -480,8 +480,7 @@ export class JejuGroup {
   }
 
   private async sendToRelay(message: MLSMessage): Promise<void> {
-    // In production, encrypt with MLS and send via WebSocket
-    await fetch(`${this.config.relayUrl}/api/messages`, {
+    const response = await fetch(`${this.config.relayUrl}/api/messages`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -489,18 +488,29 @@ export class JejuGroup {
         message,
       }),
     }).catch(() => null)
-    // Ignore relay errors for now (would retry in production)
+
+    if (response && !response.ok) {
+      console.error(
+        `[MLS Group] Failed to send to relay: ${response.status} ${response.statusText}`,
+      )
+    }
   }
 
   private async notifyRelay(
     event: string,
     data: Record<string, unknown>,
   ): Promise<void> {
-    await fetch(`${this.config.relayUrl}/api/events`, {
+    const response = await fetch(`${this.config.relayUrl}/api/events`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ event, data }),
     }).catch(() => null)
+
+    if (response && !response.ok) {
+      console.error(
+        `[MLS Group] Failed to notify relay of ${event}: ${response.status}`,
+      )
+    }
   }
 
   private generateMessageId(): string {

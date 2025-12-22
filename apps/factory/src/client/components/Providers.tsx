@@ -6,9 +6,6 @@ import { WagmiProvider } from 'wagmi'
 import '@rainbow-me/rainbowkit/styles.css'
 import { wagmiConfig } from '../config/wagmi'
 
-// Note: OAuth3Provider will need to be imported if available
-// import { OAuth3Provider } from '@jejunetwork/oauth3/react'
-
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
     () =>

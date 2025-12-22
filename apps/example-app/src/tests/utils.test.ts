@@ -1,10 +1,3 @@
-/**
- * Unit Tests for Utilities, Types, and Validation
- *
- * Tests type exports, utilities, configuration, and validation helpers
- * without requiring running services.
- */
-
 import { describe, expect, test } from 'bun:test'
 import type { Address } from 'viem'
 import { cacheKeys } from '../services/cache'

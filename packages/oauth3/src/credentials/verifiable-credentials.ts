@@ -262,10 +262,8 @@ export class VerifiableCredentialIssuer {
 
 export class VerifiableCredentialVerifier {
   private trustedIssuers: Set<string>
-  private chainId: number
 
-  constructor(chainId: number, trustedIssuers?: string[]) {
-    this.chainId = chainId
+  constructor(_chainId: number, trustedIssuers?: string[]) {
     this.trustedIssuers = new Set(trustedIssuers ?? [])
   }
 

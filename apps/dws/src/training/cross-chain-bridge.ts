@@ -9,7 +9,7 @@
  * - Client registration
  */
 
-import { Connection, type Keypair, type PublicKey } from '@solana/web3.js'
+import type { Keypair, PublicKey } from '@solana/web3.js'
 import { sign } from 'tweetnacl'
 import {
   type Address,
@@ -174,7 +174,6 @@ export class CrossChainTrainingBridge {
   private evmWalletClient
   private evmAccount
   private solanaKeypair: Keypair | null = null
-  private solanaConnection: Connection
   private config: BridgeConfig
   private psycheClient: PsycheClient | null = null
   private syncInterval: NodeJS.Timeout | null = null
@@ -196,8 +195,6 @@ export class CrossChainTrainingBridge {
         transport: http(config.evmRpcUrl),
       })
     }
-
-    this.solanaConnection = new Connection(config.solanaRpcUrl, 'confirmed')
 
     if (config.solanaKeypair) {
       this.solanaKeypair = config.solanaKeypair
@@ -401,13 +398,11 @@ export class CrossChainTrainingBridge {
       `[Bridge] Registered client ${registration.evmAddress}: ${hash}`,
     )
 
-    // Wait for transaction and get client ID from logs
-    const _receipt = await this.evmPublicClient.waitForTransactionReceipt({
-      hash,
-    })
+    // Wait for transaction
+    await this.evmPublicClient.waitForTransactionReceipt({ hash })
 
-    // Parse client ID from logs (simplified)
-    return 0 // Would parse from _receipt.logs
+    // Would parse client ID from receipt logs in production
+    return 0
   }
 
   async distributeRewards(

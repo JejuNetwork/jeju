@@ -1,17 +1,9 @@
-/**
- * Node Utility Functions
- * App-specific formatting utilities
- */
-
 import { delay, formatAddress } from '@jejunetwork/shared'
 import {
   formatEther as viemFormatEther,
   parseEther as viemParseEther,
 } from 'viem'
 
-/**
- * Format ETH with custom display logic
- */
 export function formatEther(wei: string | bigint): string {
   if (typeof wei === 'string') {
     if (wei === '') {
@@ -32,21 +24,12 @@ export function formatEther(wei: string | bigint): string {
   return num.toFixed(1)
 }
 
-/**
- * Shorten address alias
- */
 export const shortenAddress = formatAddress
 
-/**
- * Parse ETH to wei string
- */
 export function parseWei(eth: string): string {
   return viemParseEther(eth).toString()
 }
 
-/**
- * Sleep utility
- */
 export function sleep(ms: number): Promise<void> {
   return delay(ms)
 }

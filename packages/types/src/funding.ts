@@ -211,8 +211,12 @@ export const PAYMENT_STATUS_DISPLAY: Record<
   },
 }
 
-export type VoteType = 'APPROVE' | 'REJECT' | 'ABSTAIN'
-export const VOTE_TYPES: VoteType[] = ['APPROVE', 'REJECT', 'ABSTAIN']
+export type PaymentVoteType = 'APPROVE' | 'REJECT' | 'ABSTAIN'
+export const PAYMENT_VOTE_TYPES: PaymentVoteType[] = [
+  'APPROVE',
+  'REJECT',
+  'ABSTAIN',
+]
 
 export interface PaymentRequest {
   requestId: string
@@ -237,9 +241,9 @@ export interface PaymentRequest {
   disputeCaseId: string
 }
 
-export interface CouncilVote {
+export interface PaymentCouncilVote {
   voter: Address
-  vote: VoteType
+  vote: PaymentVoteType
   reason: string
   votedAt: number
 }
@@ -275,7 +279,7 @@ export interface FeeDistributionConfig {
   reserveBps: number
 }
 
-export const DEFAULT_FEE_CONFIG: FeeDistributionConfig = {
+export const DEFAULT_FUNDING_FEE_CONFIG: FeeDistributionConfig = {
   treasuryBps: 3000,
   contributorPoolBps: 4000,
   dependencyPoolBps: 2000,
@@ -443,10 +447,10 @@ export function parsePaymentStatus(index: number): PaymentRequestStatus {
   return PAYMENT_REQUEST_STATUSES[index] || 'SUBMITTED'
 }
 
-export function getVoteTypeIndex(vote: VoteType): number {
-  return VOTE_TYPES.indexOf(vote)
+export function getPaymentVoteTypeIndex(vote: PaymentVoteType): number {
+  return PAYMENT_VOTE_TYPES.indexOf(vote)
 }
 
-export function parseVoteType(index: number): VoteType {
-  return VOTE_TYPES[index] || 'ABSTAIN'
+export function parsePaymentVoteType(index: number): PaymentVoteType {
+  return PAYMENT_VOTE_TYPES[index] || 'ABSTAIN'
 }

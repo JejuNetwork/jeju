@@ -73,13 +73,13 @@ scrape_configs:
         labels:
           component: 'monitoring'
 
-  # EigenDA
-  - job_name: 'eigenda'
+  # Jeju DA (PeerDAS-integrated Data Availability)
+  - job_name: 'jeju-da'
     static_configs:
-      - targets: ['disperser-holesky.eigenda.xyz:443']
+      - targets: ['jeju-da:3100']
         labels:
           component: 'data-availability'
-    scheme: https
+    metrics_path: '/metrics'
 
   # Crucible Agent Orchestration
   - job_name: 'crucible-api'

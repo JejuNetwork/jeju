@@ -1,8 +1,3 @@
-/**
- * Compute service - Real contract integration
- * Supports both TEE (confidential) and non-TEE modes
- */
-
 import type { Address } from 'viem'
 import { z } from 'zod'
 import type { HardwareInfo } from '../../types'

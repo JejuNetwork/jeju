@@ -149,6 +149,7 @@ class BabylonAtroposTrainer:
             self.config.model_name, torch_dtype=torch.bfloat16, trust_remote_code=True
         )
 
+        assert self.model is not None, "Failed to load model"
         self.model.to(self.config.device)
         self.model.gradient_checkpointing_enable()
         self.model.train()

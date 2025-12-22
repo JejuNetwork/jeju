@@ -1,21 +1,15 @@
 /**
  * Zod Schemas for External Input Validation
- *
- * Validates all external data: API responses, configuration, CLI arguments
  */
 
 import { AddressSchema } from '@jejunetwork/types'
 import { z } from 'zod'
-
-// ============ Constants ============
 
 /** Weight precision: 10^18 */
 export const WEIGHT_PRECISION = 10n ** 18n
 
 /** Basis points precision: 10000 */
 export const BPS_PRECISION = 10000n
-
-// ============ Configuration Schemas ============
 
 export const EVMChainIdSchema = z.union([
   z.literal(1),
@@ -107,9 +101,7 @@ export const CompositeStrategyConfigSchema = z.object({
   enableRegimeDetection: z.boolean(),
   minConfidenceThreshold: z.number().min(0).max(1),
 })
-export type CompositeStrategyConfig = z.infer<
-  typeof CompositeStrategyConfigSchema
->
+export type CompositeStrategyConfig = z.infer<typeof CompositeStrategyConfigSchema>
 
 export const CrossChainArbConfigSchema = z.object({
   minProfitBps: z.number().int().nonnegative(),
@@ -132,8 +124,6 @@ export const FeeConfigSchema = z.object({
   treasuryAddress: AddressSchema,
   governanceAddress: AddressSchema,
 })
-
-// ============ External API Response Schemas ============
 
 export const CoinGeckoMarketChartSchema = z.object({
   prices: z.array(z.tuple([z.number(), z.number()])),
@@ -168,11 +158,7 @@ export const IndexerPositionsResponseSchema = z.object({
     )
     .optional(),
 })
-export type IndexerPositionsResponse = z.infer<
-  typeof IndexerPositionsResponseSchema
->
-
-// ============ Oracle Response Schemas ============
+export type IndexerPositionsResponse = z.infer<typeof IndexerPositionsResponseSchema>
 
 export const PythPriceSchema = z.object({
   price: z.bigint(),
@@ -189,8 +175,6 @@ export const ChainlinkRoundDataSchema = z.tuple([
   z.bigint(), // answeredInRound
 ])
 
-// ============ Bot Engine Schemas ============
-
 export const StrategyTypeSchema = z.enum([
   'dex-arbitrage',
   'cross-chain-arbitrage',
@@ -204,19 +188,11 @@ export const StrategyTypeSchema = z.enum([
 export const BotEngineConfigSchema = z.object({
   chainId: EVMChainIdSchema,
   rpcUrl: z.string().url(),
-  // Private key must be 0x-prefixed 64 hex chars - NEVER log or expose this value
-  privateKey: z
-    .string()
-    .regex(
-      /^0x[a-fA-F0-9]{64}$/,
-      'Private key must be 0x-prefixed 64 hex characters',
-    ),
+  privateKey: z.string().regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid private key format'),
   enabledStrategies: z.array(StrategyTypeSchema),
   healthCheckIntervalMs: z.number().positive(),
   logLevel: z.enum(['debug', 'info', 'warn', 'error']),
 })
-
-// ============ Jupiter API Schemas (Solana) ============
 
 export const JupiterRouteSwapInfoSchema = z.object({
   ammKey: z.string(),
@@ -249,12 +225,7 @@ export const JupiterQuoteResponseSchema = z.object({
 })
 export type JupiterQuoteResponse = z.infer<typeof JupiterQuoteResponseSchema>
 
-// ============ Validation Helpers ============
-
-/**
- * Parse and validate an EVMChainId from a number
- * Throws if the chain ID is not valid
- */
+/** Parse and validate EVMChainId, throws if invalid */
 export function expectEVMChainId(
   value: number,
   context?: string,

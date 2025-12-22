@@ -153,33 +153,29 @@ export class XMTPSyncService {
    * Sync with a specific peer
    */
   private async syncWithPeer(peer: SyncPeer): Promise<void> {
-    try {
-      const events = await this.fetchEventsFromPeer(peer)
-
-      for (const event of events) {
-        // Check buffer size limit to prevent memory exhaustion
-        if (
-          this.eventBuffer.length >=
-          (this.config.maxBufferSize ?? DEFAULT_MAX_BUFFER_SIZE)
-        ) {
-          console.warn('[XMTP Sync] Event buffer full, dropping oldest events')
-          // Remove oldest 10% to make room
-          const toRemove = Math.ceil(this.eventBuffer.length * 0.1)
-          this.eventBuffer.splice(0, toRemove)
-        }
-        this.eventBuffer.push(event)
-      }
-
-      const lastEvent = events[events.length - 1]
-      if (lastEvent) {
-        peer.lastSyncedAt = Date.now()
-        peer.cursor = lastEvent.id
-      }
-    } catch (error) {
+    const events = await this.fetchEventsFromPeer(peer).catch((error: Error) => {
       console.error(
-        `[XMTP Sync] Failed to sync with peer ${peer.nodeId}:`,
-        error,
+        `[XMTP Sync] Failed to sync with peer ${peer.nodeId}: ${error.message}`,
       )
+      return []
+    })
+
+    for (const event of events) {
+      if (
+        this.eventBuffer.length >=
+        (this.config.maxBufferSize ?? DEFAULT_MAX_BUFFER_SIZE)
+      ) {
+        console.warn('[XMTP Sync] Event buffer full, dropping oldest events')
+        const toRemove = Math.ceil(this.eventBuffer.length * 0.1)
+        this.eventBuffer.splice(0, toRemove)
+      }
+      this.eventBuffer.push(event)
+    }
+
+    const lastEvent = events[events.length - 1]
+    if (lastEvent) {
+      peer.lastSyncedAt = Date.now()
+      peer.cursor = lastEvent.id
     }
   }
 
@@ -318,17 +314,13 @@ export class XMTPSyncService {
    * Broadcast event to all peers
    */
   private async broadcastEvent(event: SyncEvent): Promise<void> {
-    const broadcasts = Array.from(this.peers.values()).map(async (peer) => {
-      try {
-        await fetch(`${peer.url}/api/sync/submit`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(event),
-        })
-      } catch {
-        // Peer unavailable, will sync later
-      }
-    })
+    const broadcasts = Array.from(this.peers.values()).map((peer) =>
+      fetch(`${peer.url}/api/sync/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(event),
+      }),
+    )
 
     await Promise.allSettled(broadcasts)
   }
@@ -341,28 +333,28 @@ export class XMTPSyncService {
   private async loadState(): Promise<void> {
     if (!this.config.persistencePath) return
 
-    try {
-      const file = Bun.file(this.config.persistencePath)
-      if (await file.exists()) {
-        const rawData: unknown = await file.json()
-        const data = expectValid(
-          SyncPersistenceSchema,
-          rawData,
-          'sync persistence load',
-        )
-        this.state = data.state
+    const file = Bun.file(this.config.persistencePath)
+    if (!(await file.exists())) {
+      return
+    }
 
-        for (const peer of data.peers) {
-          this.peers.set(peer.nodeId, peer)
-        }
-      }
-    } catch (error) {
-      // Log the actual error for debugging, then continue with fresh state
-      if (error instanceof Error) {
-        console.log(`[XMTP Sync] Failed to load state: ${error.message}`)
-      } else {
-        console.log('[XMTP Sync] No previous state found')
-      }
+    const rawData: unknown = await file.json().catch(() => null)
+    if (!rawData) {
+      console.log('[XMTP Sync] Failed to parse persistence file')
+      return
+    }
+
+    const result = SyncPersistenceSchema.safeParse(rawData)
+    if (!result.success) {
+      console.log(
+        `[XMTP Sync] Invalid persistence data: ${result.error.message}`,
+      )
+      return
+    }
+
+    this.state = result.data.state
+    for (const peer of result.data.peers) {
+      this.peers.set(peer.nodeId, peer)
     }
   }
 

@@ -1,10 +1,3 @@
-/**
- * Zod Schemas for Runtime Validation
- *
- * All types have corresponding zod schemas for runtime validation.
- * Use these schemas to validate all inputs, outputs, and data transformations.
- */
-
 import {
   AddressSchema,
   BigIntSchema,
@@ -14,17 +7,13 @@ import {
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
 
-// Alias for backwards compatibility
 export const addressSchema = AddressSchema
 const hexSchema = HexSchema
 
-// Todo ID schema - reusable validation for todo IDs
 export const todoIdSchema = z.string().min(1, 'Todo ID is required').trim()
 
-// Todo Priority
 export const todoPrioritySchema = z.enum(['low', 'medium', 'high'])
 
-// Todo schemas
 export const createTodoInputSchema = z.object({
   title: z.string().min(1, 'Title is required').max(500, 'Title too long'),
   description: z.string().max(5000, 'Description too long').optional(),
@@ -60,14 +49,12 @@ export const todoSchema = z.object({
   attachmentCid: z.string().nullable(),
 })
 
-// Pagination constants
 export const PAGINATION_DEFAULTS = {
   DEFAULT_LIMIT: 100,
   MAX_LIMIT: 500,
   DEFAULT_OFFSET: 0,
 } as const
 
-// Query parameter schemas with pagination
 export const listTodosQuerySchema = z.object({
   completed: z
     .string()
@@ -77,7 +64,6 @@ export const listTodosQuerySchema = z.object({
     .optional(),
   priority: todoPrioritySchema.optional(),
   search: z.string().max(200, 'Search query too long').optional(),
-  // Pagination parameters with DoS prevention
   limit: z
     .string()
     .transform((val) =>
@@ -93,7 +79,6 @@ export const listTodosQuerySchema = z.object({
     .optional(),
 })
 
-// Bulk operation schemas
 export const bulkCompleteSchema = z.object({
   ids: z
     .array(z.string().min(1, 'ID is required'))
@@ -108,7 +93,6 @@ export const bulkDeleteSchema = z.object({
     .max(100, 'Too many IDs'),
 })
 
-// Authentication schemas
 export const walletAuthHeadersSchema = z.object({
   'x-jeju-address': addressSchema,
   'x-jeju-timestamp': z
@@ -123,8 +107,6 @@ export const oauth3AuthHeadersSchema = z.object({
   'x-oauth3-session': z.string().min(1, 'Session ID is required'),
 })
 
-// A2A Protocol schemas
-// URL can be relative (starting with /) or absolute
 const urlOrPathSchema = z
   .string()
   .refine(
@@ -187,18 +169,12 @@ export const a2AAgentCardSchema = z.object({
     .optional(),
 })
 
-// Safe argument value type that prevents prototype pollution
-// Only allows primitives, arrays, and plain objects (no __proto__, constructor, etc.)
+type SafePrimitive = string | number | boolean | null
 type SafeArgumentValue =
-  | string
-  | number
-  | boolean
-  | null
+  | SafePrimitive
   | SafeArgumentValue[]
-  | Record<string, SafeArgumentValue>
+  | { [key: string]: SafeArgumentValue }
 
-// Safe argument value schema that prevents prototype pollution
-// Only allows primitives, arrays, and plain objects (no __proto__, constructor, etc.)
 const safeArgumentValueSchema: z.ZodType<
   | string
   | number
@@ -240,7 +216,6 @@ export const a2AMessageSchema = z.object({
               }),
               z.object({
                 kind: z.literal('data'),
-                // Use safe argument value schema to prevent prototype pollution
                 data: z.record(
                   z
                     .string()
@@ -275,7 +250,6 @@ export const a2ASkillParamsSchema = z.object({
   completed: z.boolean().optional(),
 })
 
-// MCP Protocol schemas
 export const mcpServerInfoSchema = z.object({
   name: z.string(),
   version: z.string(),
@@ -343,7 +317,6 @@ export const mcpPromptGetSchema = z.object({
   arguments: z.record(z.string(), z.string()),
 })
 
-// x402 Payment schemas
 export const x402ConfigSchema = z.object({
   enabled: z.boolean(),
   acceptedTokens: z.array(
@@ -373,7 +346,6 @@ export const x402VerifySchema = z.object({
   header: z.string().min(1, 'Payment header is required'),
 })
 
-// Auth routes schemas
 export const authProviderSchema = z.enum([
   'wallet',
   'farcaster',
@@ -393,7 +365,6 @@ export const authCallbackQuerySchema = z.object({
   error: z.string().optional(),
 })
 
-// Stats schema
 export const todoStatsSchema = z.object({
   total: z.number().int().nonnegative(),
   completed: z.number().int().nonnegative(),
@@ -406,7 +377,6 @@ export const todoStatsSchema = z.object({
   }),
 })
 
-// Decrypted todo data schema (for JSON.parse validation)
 export const decryptedTodoDataSchema = z.object({
   title: z.string(),
   description: z.string(),
@@ -414,7 +384,6 @@ export const decryptedTodoDataSchema = z.object({
 
 export type DecryptedTodoData = z.infer<typeof decryptedTodoDataSchema>
 
-// Health check schemas
 export const serviceStatusSchema = z.object({
   name: z.string(),
   status: z.enum(['healthy', 'degraded', 'unhealthy']),
@@ -429,7 +398,6 @@ export const healthResponseSchema = z.object({
   timestamp: TimestampSchema,
 })
 
-// JNS Service schemas
 export const jnsAvailableResponseSchema = z.object({
   available: z.boolean(),
 })
@@ -457,7 +425,6 @@ export const jnsPriceResponseSchema = z.object({
   price: z.string().regex(/^\d+$/, 'Price must be a numeric string'),
 })
 
-// Type exports for TypeScript inference
 export type CreateTodoInput = z.infer<typeof createTodoInputSchema>
 export type UpdateTodoInput = z.infer<typeof updateTodoInputSchema>
 export type Todo = {

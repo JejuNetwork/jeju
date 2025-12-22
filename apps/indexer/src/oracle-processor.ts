@@ -122,7 +122,7 @@ const EVENTS = {
 
 const ORACLE_EVENT_SET = new Set(Object.values(EVENTS))
 
-// Consolidated ABI interfaces - matched to actual contract events
+// ABI interfaces for oracle events
 const ABI = {
   registry: parseAbi([
     'event FeedCreated(bytes32 indexed feedId, string symbol, address baseToken, address quoteToken, address creator)',

@@ -2,78 +2,78 @@ import type {
   NameInfo,
   NameRecords,
   RegisterNameParams,
-} from '@jejunetwork/sdk'
-import { useCallback } from 'react'
-import type { Address, Hex } from 'viem'
-import { useNetworkContext } from '../context'
-import { type AsyncState, requireClient, useAsyncState } from './utils'
+} from "@jejunetwork/sdk";
+import { useCallback } from "react";
+import type { Address, Hex } from "viem";
+import { useNetworkContext } from "../context";
+import { type AsyncState, requireClient, useAsyncState } from "./utils";
 
 export interface UseNamesResult extends AsyncState {
-  resolve: (name: string) => Promise<Address | null>
-  reverseResolve: (address: Address) => Promise<string | null>
-  register: (params: RegisterNameParams) => Promise<Hex>
-  listMyNames: () => Promise<NameInfo[]>
-  isAvailable: (name: string) => Promise<boolean>
-  getPrice: (name: string, years: number) => Promise<bigint>
-  setRecords: (name: string, records: NameRecords) => Promise<Hex>
+  resolve: (name: string) => Promise<Address | null>;
+  reverseResolve: (address: Address) => Promise<string | null>;
+  register: (params: RegisterNameParams) => Promise<Hex>;
+  listMyNames: () => Promise<NameInfo[]>;
+  isAvailable: (name: string) => Promise<boolean>;
+  getPrice: (name: string, years: number) => Promise<bigint>;
+  setRecords: (name: string, records: NameRecords) => Promise<Hex>;
 }
 
 export function useNames(): UseNamesResult {
-  const { client } = useNetworkContext()
-  const { isLoading, error, execute } = useAsyncState()
+  const { client } = useNetworkContext();
+  const { isLoading, error, execute } = useAsyncState();
 
   const resolve = useCallback(
     async (name: string): Promise<Address | null> => {
-      const c = requireClient(client)
-      return c.names.resolve(name)
+      const c = requireClient(client);
+      return c.names.resolve(name);
     },
     [client],
-  )
+  );
 
   const reverseResolve = useCallback(
     async (address: Address): Promise<string | null> => {
-      const c = requireClient(client)
-      return c.names.reverseResolve(address)
+      const c = requireClient(client);
+      return c.names.reverseResolve(address);
     },
     [client],
-  )
+  );
 
   const register = useCallback(
     async (params: RegisterNameParams): Promise<Hex> => {
-      const c = requireClient(client)
-      return execute(() => c.names.register(params))
+      const c = requireClient(client);
+      return execute(() => c.names.register(params));
     },
     [client, execute],
-  )
+  );
 
   const listMyNames = useCallback(async (): Promise<NameInfo[]> => {
-    const c = requireClient(client)
-    return c.names.listMyNames()
-  }, [client])
+    const c = requireClient(client);
+    return c.names.listMyNames();
+  }, [client]);
 
   const isAvailable = useCallback(
     async (name: string): Promise<boolean> => {
-      const c = requireClient(client)
-      return c.names.isAvailable(name)
+      const c = requireClient(client);
+      return c.names.isAvailable(name);
     },
     [client],
-  )
+  );
 
   const getPrice = useCallback(
     async (name: string, years: number): Promise<bigint> => {
-      const c = requireClient(client)
-      return c.names.getRegistrationPrice(name, years)
+      const c = requireClient(client);
+      return c.names.getRegistrationPrice(name, years);
     },
     [client],
-  )
+  );
 
   const setRecords = useCallback(
     async (name: string, records: NameRecords): Promise<Hex> => {
-      const c = requireClient(client)
-      return c.names.setRecords(name, records)
+      const c = requireClient(client);
+      return c.names.setRecords(name, records);
     },
     [client],
-  )
+  );
 
   return {
     isLoading,
@@ -85,5 +85,5 @@ export function useNames(): UseNamesResult {
     isAvailable,
     getPrice,
     setRecords,
-  }
+  };
 }

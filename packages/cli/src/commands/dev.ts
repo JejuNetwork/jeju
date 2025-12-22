@@ -238,13 +238,11 @@ function setupSignalHandlers(): void {
       }
     }
 
-    // Stop monitoring
+    // Stop monitoring (ignore errors during cleanup)
     await execa('docker', ['compose', 'down'], {
       cwd: join(process.cwd(), 'apps/monitoring'),
       reject: false,
-    }).catch(() => {
-      /* noop */
-    })
+    }).catch(() => undefined)
 
     logger.success('Stopped')
     process.exit(0)
@@ -349,9 +347,8 @@ async function startApp(
     process: proc,
   })
 
-  proc.catch(() => {
-    /* noop */
-  })
+  // Prevent unhandled rejection on process termination
+  proc.catch(() => undefined)
 }
 
 async function startVendorOnly(): Promise<void> {

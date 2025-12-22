@@ -63,7 +63,8 @@ export function hashToG1(
     throw new Error(`DST too long: ${dst.length} > ${MAX_DST_LEN}`)
   }
 
-  const point = bls.G1.hashToCurve(message, { DST: dst })
+  const h2cPoint = bls.G1.hashToCurve(message, { DST: dst })
+  const point = bls.G1.ProjectivePoint.fromAffine(h2cPoint.toAffine())
   return `0x${bytesToHex(point.toRawBytes(true))}` as G1Point
 }
 
@@ -79,7 +80,8 @@ export function encodeToG1(
     throw new Error(`DST too long: ${dst.length} > ${MAX_DST_LEN}`)
   }
 
-  const point = bls.G1.hashToCurve(message, { DST: dst })
+  const h2cPoint = bls.G1.hashToCurve(message, { DST: dst })
+  const point = bls.G1.ProjectivePoint.fromAffine(h2cPoint.toAffine())
   return `0x${bytesToHex(point.toRawBytes(true))}` as G1Point
 }
 
@@ -99,7 +101,8 @@ export function hashToG2(
     throw new Error(`DST too long: ${dst.length} > ${MAX_DST_LEN}`)
   }
 
-  const point = bls.G2.hashToCurve(message, { DST: dst })
+  const h2cPoint = bls.G2.hashToCurve(message, { DST: dst })
+  const point = bls.G2.ProjectivePoint.fromAffine(h2cPoint.toAffine())
   return `0x${bytesToHex(point.toRawBytes(true))}` as G2Point
 }
 
@@ -114,7 +117,8 @@ export function encodeToG2(
     throw new Error(`DST too long: ${dst.length} > ${MAX_DST_LEN}`)
   }
 
-  const point = bls.G2.hashToCurve(message, { DST: dst })
+  const h2cPoint = bls.G2.hashToCurve(message, { DST: dst })
+  const point = bls.G2.ProjectivePoint.fromAffine(h2cPoint.toAffine())
   return `0x${bytesToHex(point.toRawBytes(true))}` as G2Point
 }
 

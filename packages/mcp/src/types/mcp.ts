@@ -69,21 +69,13 @@ export interface JsonRpcResponse {
   error?: JsonRpcError
 }
 
-// MCP Protocol Methods
 export enum MCPMethod {
-  // Lifecycle
   INITIALIZE = 'initialize',
   PING = 'ping',
-
-  // Tools
   TOOLS_LIST = 'tools/list',
   TOOLS_CALL = 'tools/call',
-
-  // Resources (for future expansion)
   RESOURCES_LIST = 'resources/list',
   RESOURCES_READ = 'resources/read',
-
-  // Prompts (for future expansion)
   PROMPTS_LIST = 'prompts/list',
   PROMPTS_GET = 'prompts/get',
 }

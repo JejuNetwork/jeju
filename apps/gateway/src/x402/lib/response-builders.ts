@@ -7,6 +7,14 @@ import type {
   VerifyResponse,
 } from './types'
 
+/** Format error message for response */
+export function formatError(error: Error | string): string {
+  if (typeof error === 'string') {
+    return error
+  }
+  return error.message
+}
+
 export function buildVerifyErrorResponse(error: string): VerifyResponse {
   return {
     isValid: false,

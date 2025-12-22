@@ -71,10 +71,7 @@ test.describe('Paymaster Interface', () => {
     await page.locator('.input').first().click()
     await page.waitForTimeout(500)
 
-    await expect(page.getByText('elizaOS')).toBeVisible()
-    await expect(page.getByText('CLANKER')).toBeVisible()
-    await expect(page.getByText('VIRTUAL')).toBeVisible()
-    await expect(page.getByText('CLANKERMON')).toBeVisible()
+    await expect(page.getByText('JEJU')).toBeVisible()
   })
 
   test('shows deployment requirements', async ({
@@ -99,7 +96,7 @@ test.describe('Paymaster Interface', () => {
 })
 
 test.describe('Token Selection', () => {
-  test('selects elizaOS token', async ({
+  test('selects JEJU token', async ({
     context,
     page,
     metamaskPage,
@@ -116,11 +113,11 @@ test.describe('Token Selection', () => {
 
     await page.locator('.input').first().click()
     await page.waitForTimeout(500)
-    await page.getByText('elizaOS').click()
+    await page.getByText('JEJU').click()
     await page.waitForTimeout(1000)
 
     await page.screenshot({
-      path: 'test-results/screenshots/paymaster-elizaos-selected.png',
+      path: 'test-results/screenshots/paymaster-jeju-selected.png',
       fullPage: true,
     })
   })
@@ -142,7 +139,7 @@ test.describe('Token Selection', () => {
 
     await page.locator('.input').first().click()
     await page.waitForTimeout(500)
-    await page.getByText('elizaOS').click()
+    await page.getByText('JEJU').click()
     await page.waitForTimeout(1000)
 
     const slider = page.locator('input[type="range"]')
@@ -174,7 +171,7 @@ test.describe('Token Selection', () => {
 
     await page.locator('.input').first().click()
     await page.waitForTimeout(500)
-    await page.getByText('elizaOS').click()
+    await page.getByText('JEJU').click()
     await page.waitForTimeout(1000)
 
     const deployedIndicator = page.getByText(/already deployed/i)
@@ -184,7 +181,7 @@ test.describe('Token Selection', () => {
       await expect(deployedIndicator).toBeVisible()
     } else {
       const deployButton = page.getByRole('button', {
-        name: /Deploy Paymaster for elizaOS/i,
+        name: /Deploy Paymaster for JEJU/i,
       })
       const hasDeployButton = await deployButton.isVisible().catch(() => false)
       expect(hasDeployButton).toBe(true)
@@ -211,7 +208,7 @@ test.describe('Deployment Transaction', () => {
     await page.locator('.input').first().click()
     await page.waitForTimeout(500)
 
-    const tokens = ['elizaOS', 'CLANKER', 'VIRTUAL', 'CLANKERMON']
+    const tokens = ['JEJU']
     for (const token of tokens) {
       const tokenOption = page.getByText(token)
       const isVisible = await tokenOption.isVisible().catch(() => false)

@@ -101,6 +101,7 @@ class GRPOTrainer:
 
     def load_training_data(self, trajectory_manifest_cid: str, rewards_cid: str) -> list[dict]:
         """Load trajectories and rewards from Jeju Storage"""
+        assert self.tokenizer is not None, "Tokenizer not initialized - call setup() first"
         logger.info(f"Loading trajectories from {trajectory_manifest_cid}")
 
         # Load manifest
@@ -179,6 +180,7 @@ class GRPOTrainer:
 
     def _create_training_mask(self, messages: list[dict], tokens: torch.Tensor) -> torch.Tensor:
         """Create mask for training (1 for assistant tokens, -100 for others)"""
+        assert self.tokenizer is not None, "Tokenizer not initialized"
         mask = torch.full_like(tokens, -100)
 
         # Simple approach: find assistant response regions
@@ -340,6 +342,8 @@ class GRPOTrainer:
 
                 # Accumulate gradients
                 if (batch_idx + 1) % self.gradient_accumulation_steps == 0:
+                    assert self.model is not None, "Model not initialized"
+                    assert self.optimizer is not None, "Optimizer not initialized"
                     grad_norm = torch.nn.utils.clip_grad_norm_(
                         self.model.parameters(), max_norm=self.max_grad_norm
                     )
@@ -355,6 +359,8 @@ class GRPOTrainer:
                     )
 
         # Save checkpoint
+        assert self.model is not None, "Model not initialized"
+        assert self.tokenizer is not None, "Tokenizer not initialized"
         checkpoint_path = os.path.join(output_dir, "checkpoint")
         self.model.save_pretrained(checkpoint_path)
         self.tokenizer.save_pretrained(checkpoint_path)

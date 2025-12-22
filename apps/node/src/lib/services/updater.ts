@@ -1,10 +1,3 @@
-/**
- * Node Auto-Update Service
- *
- * Handles automatic updates for the Jeju node app.
- * Supports Tauri desktop updates and package registry verification.
- */
-
 import type { Address } from 'viem'
 
 // ============================================================================

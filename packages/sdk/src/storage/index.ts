@@ -4,6 +4,7 @@
 
 import type { NetworkType } from '@jejunetwork/types'
 import { parseEther } from 'viem'
+import type { ZodSchema } from 'zod'
 import { getServicesConfig } from '../config'
 import { generateAuthHeaders } from '../shared/api'
 import {

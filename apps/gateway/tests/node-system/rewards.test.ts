@@ -197,40 +197,14 @@ describe('Node Operator Limits', () => {
 })
 
 describe('Token Price-Based Stake Calculation', () => {
-  test('should calculate elizaOS stake for $1000', () => {
+  test('should calculate JEJU stake for $1000', () => {
     const TARGET_USD = 1000
-    const ELIZAOS_PRICE = 0.1
+    const JEJU_PRICE = 0.05
 
-    const requiredTokens = TARGET_USD / ELIZAOS_PRICE
-    expect(requiredTokens).toBe(10000)
+    const requiredTokens = TARGET_USD / JEJU_PRICE
+    expect(requiredTokens).toBe(20000)
 
-    console.log('✅ elizaOS at $0.10:')
+    console.log('✅ JEJU at $0.05:')
     console.log(`   Need ${requiredTokens} tokens for $${TARGET_USD}`)
-  })
-
-  test('should calculate CLANKER stake for $1000', () => {
-    const TARGET_USD = 1000
-    const CLANKER_PRICE = 26.14
-
-    const requiredTokens = TARGET_USD / CLANKER_PRICE
-    expect(requiredTokens).toBeCloseTo(38.25, 1)
-
-    console.log('✅ CLANKER at $26.14:')
-    console.log(
-      `   Need ${requiredTokens.toFixed(2)} tokens for $${TARGET_USD}`,
-    )
-  })
-
-  test('should calculate VIRTUAL stake for $1000', () => {
-    const TARGET_USD = 1000
-    const VIRTUAL_PRICE = 1.85
-
-    const requiredTokens = TARGET_USD / VIRTUAL_PRICE
-    expect(requiredTokens).toBeCloseTo(540.54, 1)
-
-    console.log('✅ VIRTUAL at $1.85:')
-    console.log(
-      `   Need ${requiredTokens.toFixed(2)} tokens for $${TARGET_USD}`,
-    )
   })
 })

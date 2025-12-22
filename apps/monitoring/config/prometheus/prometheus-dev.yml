@@ -71,7 +71,7 @@ scrape_configs:
   #       labels:
   #         component: 'l2-execution'
 
-# Note: OP Stack services (op-node, op-batcher, op-proposer) and EigenDA
+# Note: OP Stack services (op-node, op-batcher, op-proposer) and Jeju DA
 # are not part of the simplified Kurtosis dev setup.
 # For production monitoring, use prometheus.yml instead.
 

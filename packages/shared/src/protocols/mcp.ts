@@ -2,7 +2,7 @@
  * MCP Server Factory - Model Context Protocol
  *
  * Creates MCP servers for dApps.
- * Note: For new implementations, prefer createUnifiedServer from './server'
+ * Note: For new implementations, prefer createServer from './server'
  */
 
 import { cors } from '@elysiajs/cors'

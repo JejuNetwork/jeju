@@ -54,7 +54,7 @@ export default function DeployPaymaster({
         tokens={tokenOptions}
         selectedToken={selectedToken?.symbol}
         onSelect={setSelectedToken}
-        label="Select Token (JEJU, elizaOS, CLANKER, VIRTUAL, etc.)"
+        label="Select Token"
         placeholder="Choose token for paymaster..."
         showBalances={false}
         disabled={isPending}
