@@ -174,6 +174,7 @@ export class CrossChainTrainingBridge {
   private evmWalletClient
   private evmAccount
   private solanaKeypair: Keypair | null = null
+  private solanaConnection: Connection
   private config: BridgeConfig
   private psycheClient: PsycheClient | null = null
   private syncInterval: NodeJS.Timeout | null = null
