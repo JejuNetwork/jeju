@@ -189,6 +189,22 @@ export const dwsCommand = new Command('dws')
       .action(async () => {
         await checkCdnStatus();
       })
+  )
+  // Setup and verification
+  .addCommand(
+    new Command('setup')
+      .description('Install workerd binary (Cloudflare Workers runtime)')
+      .action(async () => {
+        await setupWorkerd();
+      })
+  )
+  .addCommand(
+    new Command('verify-gpu')
+      .description('Verify TEE GPU provisioning and attestation')
+      .option('--network <network>', 'Network: localnet, testnet, mainnet', 'localnet')
+      .action(async (options) => {
+        await verifyTeeGpu(options);
+      })
   );
 
 async function checkStatus(): Promise<void> {
@@ -1156,4 +1172,162 @@ async function buildRunner(options: { push?: boolean; version: string; registry:
   logger.info(`  docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \\`);
   logger.info(`    -e JEJU_WORKFLOW=$(echo '{"runId":"test","jobId":"build","job":{"steps":[{"run":"echo hello"}]}}' | base64) \\`);
   logger.info(`    ${options.registry}/${imageName}:latest`);
+}
+
+/**
+ * Setup workerd (Cloudflare Workers runtime)
+ */
+async function setupWorkerd(): Promise<void> {
+  logger.header('WORKERD SETUP');
+
+  const rootDir = findMonorepoRoot();
+  const dwsDir = join(rootDir, 'apps/dws');
+  const workerdBinPath = join(dwsDir, 'node_modules', '.bin', 'workerd');
+  const workerdPathFile = join(dwsDir, 'node_modules', '.workerd-path');
+
+  // Check if workerd is already installed
+  logger.step('Checking for existing workerd installation...');
+  
+  let isInstalled = false;
+  if (existsSync(workerdBinPath)) {
+    const checkProc = Bun.spawn([workerdBinPath, '--version'], {
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+    const exitCode = await checkProc.exited;
+    isInstalled = exitCode === 0;
+  }
+
+  if (isInstalled) {
+    logger.success('workerd is already installed');
+    logger.keyValue('Path', workerdBinPath);
+    
+    // Show version
+    const versionProc = Bun.spawn([workerdBinPath, '--version'], {
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+    const versionOutput = await new Response(versionProc.stdout).text();
+    logger.keyValue('Version', versionOutput.trim());
+    return;
+  }
+
+  // Run the install script
+  logger.step('Installing workerd...');
+  logger.keyValue('Platform', `${process.platform}-${process.arch}`);
+  logger.newline();
+
+  const installScript = join(dwsDir, 'scripts', 'install-workerd.ts');
+  if (!existsSync(installScript)) {
+    logger.error(`Install script not found: ${installScript}`);
+    process.exit(1);
+  }
+
+  const proc = Bun.spawn(['bun', 'run', installScript], {
+    cwd: dwsDir,
+    stdout: 'inherit',
+    stderr: 'inherit',
+  });
+
+  const exitCode = await proc.exited;
+  if (exitCode !== 0) {
+    logger.error('workerd installation failed');
+    process.exit(1);
+  }
+
+  // Verify installation
+  logger.newline();
+  logger.step('Verifying installation...');
+
+  if (!existsSync(workerdBinPath) && !existsSync(workerdPathFile)) {
+    logger.error('workerd binary not found after installation');
+    process.exit(1);
+  }
+
+  // Check the installed path
+  let installedPath = workerdBinPath;
+  if (existsSync(workerdPathFile)) {
+    installedPath = await Bun.file(workerdPathFile).text();
+    installedPath = installedPath.trim();
+  }
+
+  const verifyProc = Bun.spawn([installedPath, '--version'], {
+    stdout: 'pipe',
+    stderr: 'pipe',
+  });
+  const verifyExitCode = await verifyProc.exited;
+  
+  if (verifyExitCode !== 0) {
+    logger.error('workerd verification failed');
+    process.exit(1);
+  }
+
+  const versionOutput = await new Response(verifyProc.stdout).text();
+  logger.success('workerd installed successfully');
+  logger.keyValue('Path', installedPath);
+  logger.keyValue('Version', versionOutput.trim());
+}
+
+/**
+ * Verify TEE GPU provisioning and attestation
+ */
+async function verifyTeeGpu(options: { network: string }): Promise<void> {
+  logger.header('TEE GPU VERIFICATION');
+
+  const rootDir = findMonorepoRoot();
+  const verifyScript = join(rootDir, 'scripts', 'verify-tee-gpu-provisioning.ts');
+
+  if (!existsSync(verifyScript)) {
+    logger.error(`Verification script not found: ${verifyScript}`);
+    process.exit(1);
+  }
+
+  logger.keyValue('Network', options.network);
+  logger.keyValue('Script', verifyScript);
+  logger.newline();
+
+  // Set up environment based on network
+  const env: Record<string, string> = {
+    ...process.env as Record<string, string>,
+    NETWORK: options.network,
+  };
+
+  if (options.network === 'localnet') {
+    env.RPC_URL = `http://localhost:${DEFAULT_PORTS.l2Rpc}`;
+    env.DWS_ENDPOINT = 'http://localhost:4030';
+  } else if (options.network === 'testnet') {
+    env.RPC_URL = 'https://testnet-rpc.jejunetwork.org';
+    env.DWS_ENDPOINT = 'https://testnet-dws.jejunetwork.org';
+  } else if (options.network === 'mainnet') {
+    env.RPC_URL = 'https://rpc.jejunetwork.org';
+    env.DWS_ENDPOINT = 'https://dws.jejunetwork.org';
+  }
+
+  // Check for required private key
+  if (!process.env.DEPLOYER_PRIVATE_KEY) {
+    logger.error('DEPLOYER_PRIVATE_KEY environment variable required');
+    logger.info('  Set it with: export DEPLOYER_PRIVATE_KEY=0x...');
+    process.exit(1);
+  }
+
+  logger.step('Running TEE GPU verification tests...');
+  logger.newline();
+
+  const proc = Bun.spawn(['bun', 'run', verifyScript], {
+    cwd: rootDir,
+    stdout: 'inherit',
+    stderr: 'inherit',
+    env,
+  });
+
+  const exitCode = await proc.exited;
+  
+  if (exitCode !== 0) {
+    logger.newline();
+    logger.error('TEE GPU verification failed');
+    process.exit(1);
+  }
+
+  logger.newline();
+  logger.success('TEE GPU verification completed');
 }

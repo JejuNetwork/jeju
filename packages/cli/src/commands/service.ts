@@ -3,9 +3,14 @@
  * 
  * Services:
  * - auto-update: Automatic node updates
- * - bridge: Forced inclusion monitor
+ * - bridge: Forced inclusion monitor (legacy)
  * - dispute: Fraud proof challenger
- * - sequencer: Consensus coordinator
+ * - sequencer: Consensus coordinator (with options)
+ * - zkbridge: ZK bridge orchestrator
+ * - forced-inclusion: Stage 2 censorship resistance monitor
+ * - consensus: Decentralized consensus coordinator
+ * - signer: Threshold signer service
+ * - threshold-batcher: Threshold batch submitter proxy
  */
 
 import { Command } from 'commander';
@@ -74,6 +79,38 @@ export const serviceCommand = new Command('service')
       })
   )
   .addCommand(
+    new Command('forced-inclusion')
+      .description('Start forced inclusion monitor (Stage 2 censorship resistance)')
+      .option('--network <network>', 'Network: localnet, testnet, mainnet', 'localnet')
+      .action(async (options) => {
+        await startForcedInclusionMonitor(options);
+      })
+  )
+  .addCommand(
+    new Command('consensus')
+      .description('Start decentralized consensus coordinator')
+      .option('--network <network>', 'Network: localnet, testnet, mainnet', 'localnet')
+      .action(async (options) => {
+        await startConsensusCoordinator(options);
+      })
+  )
+  .addCommand(
+    new Command('signer')
+      .description('Start threshold signer service')
+      .option('--network <network>', 'Network: localnet, testnet, mainnet', 'localnet')
+      .action(async (options) => {
+        await startThresholdSigner(options);
+      })
+  )
+  .addCommand(
+    new Command('threshold-batcher')
+      .description('Start threshold batch submitter proxy')
+      .option('--network <network>', 'Network: localnet, testnet, mainnet', 'localnet')
+      .action(async (options) => {
+        await startThresholdBatcher(options);
+      })
+  )
+  .addCommand(
     new Command('list')
       .description('List running services')
       .action(() => {
@@ -83,7 +120,7 @@ export const serviceCommand = new Command('service')
   .addCommand(
     new Command('stop')
       .description('Stop a running service')
-      .argument('<service>', 'Service name: auto-update, bridge, dispute, sequencer')
+      .argument('<service>', 'Service name: auto-update, bridge, dispute, sequencer, zkbridge, forced-inclusion, consensus, signer, threshold-batcher')
       .action(async (serviceName) => {
         await stopService(serviceName);
       })
@@ -312,6 +349,178 @@ async function startZKBridge(options: { mode: string; relayerOnly?: boolean; pro
   logger.info('Press Ctrl+C to stop');
   
   process.on('SIGINT', () => {
+    proc.kill();
+    process.exit(0);
+  });
+
+  await proc.exited;
+}
+
+async function startForcedInclusionMonitor(options: { network: string }) {
+  const rootDir = findMonorepoRoot();
+  const scriptPath = join(rootDir, 'scripts/sequencer/forced-inclusion-monitor.ts');
+  
+  if (!existsSync(scriptPath)) {
+    logger.error('Forced inclusion monitor script not found');
+    return;
+  }
+
+  logger.header('FORCED INCLUSION MONITOR');
+  logger.info(`Network: ${options.network}`);
+  logger.newline();
+
+  const env: Record<string, string> = {
+    ...process.env,
+    NETWORK: options.network,
+  };
+
+  const proc = spawn({
+    cmd: ['bun', 'run', scriptPath],
+    cwd: rootDir,
+    env,
+    stdout: 'inherit',
+    stderr: 'inherit',
+  });
+
+  runningServices.set('forced-inclusion', proc);
+  
+  logger.success('Forced inclusion monitor started');
+  logger.info('Press Ctrl+C to stop');
+  
+  process.on('SIGINT', () => {
+    proc.kill();
+    process.exit(0);
+  });
+  process.on('SIGTERM', () => {
+    proc.kill();
+    process.exit(0);
+  });
+
+  await proc.exited;
+}
+
+async function startConsensusCoordinator(options: { network: string }) {
+  const rootDir = findMonorepoRoot();
+  const scriptPath = join(rootDir, 'scripts/sequencer/run-consensus.ts');
+  
+  if (!existsSync(scriptPath)) {
+    logger.error('Consensus coordinator script not found');
+    return;
+  }
+
+  logger.header('DECENTRALIZED CONSENSUS COORDINATOR');
+  logger.info(`Network: ${options.network}`);
+  logger.newline();
+
+  const env: Record<string, string> = {
+    ...process.env,
+    NETWORK: options.network,
+  };
+
+  const proc = spawn({
+    cmd: ['bun', 'run', scriptPath],
+    cwd: rootDir,
+    env,
+    stdout: 'inherit',
+    stderr: 'inherit',
+  });
+
+  runningServices.set('consensus', proc);
+  
+  logger.success('Consensus coordinator started');
+  logger.info('Press Ctrl+C to stop');
+  
+  process.on('SIGINT', () => {
+    proc.kill();
+    process.exit(0);
+  });
+  process.on('SIGTERM', () => {
+    proc.kill();
+    process.exit(0);
+  });
+
+  await proc.exited;
+}
+
+async function startThresholdSigner(options: { network: string }) {
+  const rootDir = findMonorepoRoot();
+  const scriptPath = join(rootDir, 'scripts/sequencer/run-signer.ts');
+  
+  if (!existsSync(scriptPath)) {
+    logger.error('Threshold signer script not found');
+    return;
+  }
+
+  logger.header('THRESHOLD SIGNER SERVICE');
+  logger.info(`Network: ${options.network}`);
+  logger.newline();
+
+  const env: Record<string, string> = {
+    ...process.env,
+    NETWORK: options.network,
+  };
+
+  const proc = spawn({
+    cmd: ['bun', 'run', scriptPath],
+    cwd: rootDir,
+    env,
+    stdout: 'inherit',
+    stderr: 'inherit',
+  });
+
+  runningServices.set('signer', proc);
+  
+  logger.success('Threshold signer service started');
+  logger.info('Press Ctrl+C to stop');
+  
+  process.on('SIGINT', () => {
+    proc.kill();
+    process.exit(0);
+  });
+  process.on('SIGTERM', () => {
+    proc.kill();
+    process.exit(0);
+  });
+
+  await proc.exited;
+}
+
+async function startThresholdBatcher(options: { network: string }) {
+  const rootDir = findMonorepoRoot();
+  const scriptPath = join(rootDir, 'scripts/sequencer/threshold-batcher.ts');
+  
+  if (!existsSync(scriptPath)) {
+    logger.error('Threshold batcher script not found');
+    return;
+  }
+
+  logger.header('THRESHOLD BATCH SUBMITTER');
+  logger.info(`Network: ${options.network}`);
+  logger.newline();
+
+  const env: Record<string, string> = {
+    ...process.env,
+    NETWORK: options.network,
+  };
+
+  const proc = spawn({
+    cmd: ['bun', 'run', scriptPath],
+    cwd: rootDir,
+    env,
+    stdout: 'inherit',
+    stderr: 'inherit',
+  });
+
+  runningServices.set('threshold-batcher', proc);
+  
+  logger.success('Threshold batch submitter started');
+  logger.info('Press Ctrl+C to stop');
+  
+  process.on('SIGINT', () => {
+    proc.kill();
+    process.exit(0);
+  });
+  process.on('SIGTERM', () => {
     proc.kill();
     process.exit(0);
   });

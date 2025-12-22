@@ -255,5 +255,161 @@ infraCommand
     });
   });
 
+// ============================================================================
+// Docker Image Building
+// ============================================================================
+
+infraCommand
+  .command('build-images')
+  .description('Build Docker images for all apps')
+  .option('--push', 'Push images to registry')
+  .option('--network <network>', 'Network: localnet | testnet | mainnet')
+  .option('--app <app>', 'Build specific app only')
+  .action(async (options: { push?: boolean; network?: string; app?: string }) => {
+    const rootDir = findMonorepoRoot();
+    const scriptPath = join(rootDir, 'packages/deployment/scripts/build-images.ts');
+    
+    if (!existsSync(scriptPath)) {
+      logger.error('Build images script not found');
+      return;
+    }
+    
+    const args = ['run', scriptPath];
+    if (options.push) args.push('--push');
+    if (options.network) args.push('--network', options.network);
+    if (options.app) args.push('--app', options.app);
+    
+    await execa('bun', args, {
+      cwd: rootDir,
+      stdio: 'inherit',
+    });
+  });
+
+infraCommand
+  .command('build-cql')
+  .description('Build multi-arch CovenantSQL Docker image')
+  .option('--push', 'Push image to registry')
+  .option('--arm-only', 'Build ARM64 only')
+  .option('--x86-only', 'Build x86_64 only')
+  .action(async (options: { push?: boolean; armOnly?: boolean; x86Only?: boolean }) => {
+    const rootDir = findMonorepoRoot();
+    const scriptPath = join(rootDir, 'packages/deployment/scripts/build-covenantsql.ts');
+    
+    if (!existsSync(scriptPath)) {
+      logger.error('Build CovenantSQL script not found');
+      return;
+    }
+    
+    const args = ['run', scriptPath];
+    if (options.push) args.push('--push');
+    if (options.armOnly) args.push('--arm-only');
+    if (options.x86Only) args.push('--x86-only');
+    
+    await execa('bun', args, {
+      cwd: rootDir,
+      stdio: 'inherit',
+    });
+  });
+
+// ============================================================================
+// Monitoring & Observability
+// ============================================================================
+
+infraCommand
+  .command('sync-alerts')
+  .description('Sync Prometheus alerts to Kubernetes ConfigMap')
+  .option('--namespace <ns>', 'Kubernetes namespace')
+  .action(async (options: { namespace?: string }) => {
+    const rootDir = findMonorepoRoot();
+    const scriptPath = join(rootDir, 'packages/deployment/scripts/monitoring/sync-alerts.ts');
+    
+    if (!existsSync(scriptPath)) {
+      logger.error('Sync alerts script not found');
+      return;
+    }
+    
+    const args = ['run', scriptPath];
+    if (options.namespace) args.push('--namespace', options.namespace);
+    
+    await execa('bun', args, {
+      cwd: rootDir,
+      stdio: 'inherit',
+    });
+  });
+
+infraCommand
+  .command('sync-dashboards')
+  .description('Sync Grafana dashboards to Kubernetes ConfigMap')
+  .option('--namespace <ns>', 'Kubernetes namespace')
+  .action(async (options: { namespace?: string }) => {
+    const rootDir = findMonorepoRoot();
+    const scriptPath = join(rootDir, 'packages/deployment/scripts/monitoring/sync-dashboards.ts');
+    
+    if (!existsSync(scriptPath)) {
+      logger.error('Sync dashboards script not found');
+      return;
+    }
+    
+    const args = ['run', scriptPath];
+    if (options.namespace) args.push('--namespace', options.namespace);
+    
+    await execa('bun', args, {
+      cwd: rootDir,
+      stdio: 'inherit',
+    });
+  });
+
+// ============================================================================
+// Node Management
+// ============================================================================
+
+infraCommand
+  .command('auto-update')
+  .description('Start auto-update daemon for node management')
+  .option('--network <network>', 'Network: localnet | testnet | mainnet')
+  .action(async (options: { network?: string }) => {
+    const rootDir = findMonorepoRoot();
+    const scriptPath = join(rootDir, 'scripts/auto-update/update-manager.ts');
+    
+    if (!existsSync(scriptPath)) {
+      logger.error('Auto-update manager script not found');
+      return;
+    }
+    
+    const args = ['run', scriptPath];
+    if (options.network) args.push('--network', options.network);
+    
+    await execa('bun', args, {
+      cwd: rootDir,
+      stdio: 'inherit',
+    });
+  });
+
+// ============================================================================
+// Validation
+// ============================================================================
+
+infraCommand
+  .command('validate-helm')
+  .description('Validate Helm charts')
+  .option('--chart <chart>', 'Validate specific chart only')
+  .action(async (options: { chart?: string }) => {
+    const rootDir = findMonorepoRoot();
+    const scriptPath = join(rootDir, 'scripts/test-helm-charts.ts');
+    
+    if (!existsSync(scriptPath)) {
+      logger.error('Helm charts validation script not found');
+      return;
+    }
+    
+    const args = ['run', scriptPath];
+    if (options.chart) args.push('--chart', options.chart);
+    
+    await execa('bun', args, {
+      cwd: rootDir,
+      stdio: 'inherit',
+    });
+  });
+
 export { infraCommand };
 
