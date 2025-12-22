@@ -14,6 +14,7 @@ import {
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
+import { parse as parseYaml } from 'yaml';
 import type { BackendManager } from '../storage/backends';
 import type { GitRepoManager } from '../git/repo-manager';
 import type {
@@ -103,9 +104,7 @@ export class WorkflowEngine {
    * Parse jeju.yml workflow configuration
    */
   parseWorkflowConfig(content: string): JejuWorkflowConfig {
-    // Simple YAML parsing (in production, use a proper YAML parser)
-    const config = this.parseYaml(content) as unknown as JejuWorkflowConfig;
-    return config;
+    return parseYaml(content) as JejuWorkflowConfig;
   }
 
   /**
@@ -659,65 +658,5 @@ export class WorkflowEngine {
     console.log(`[CI] Recorded execution: ${run.runId} - ${run.conclusion}`);
   }
 
-  /**
-   * Simple YAML parser (for basic cases)
-   */
-  private parseYaml(content: string): Record<string, unknown> {
-    // This is a simplified parser - in production use a proper YAML library
-    const lines = content.split('\n');
-    const result: Record<string, unknown> = {};
-    const stack: Array<{ indent: number; obj: Record<string, unknown>; key?: string }> = [
-      { indent: -1, obj: result },
-    ];
-
-    for (const line of lines) {
-      if (line.trim() === '' || line.trim().startsWith('#')) continue;
-
-      const indent = line.search(/\S/);
-      const trimmed = line.trim();
-
-      // Pop stack until we find parent
-      while (stack.length > 1 && stack[stack.length - 1].indent >= indent) {
-        stack.pop();
-      }
-
-      const parent = stack[stack.length - 1];
-
-      if (trimmed.startsWith('- ')) {
-        // Array item
-        const value = trimmed.slice(2);
-        if (!Array.isArray(parent.obj[parent.key!])) {
-          parent.obj[parent.key!] = [];
-        }
-        (parent.obj[parent.key!] as unknown[]).push(this.parseValue(value));
-      } else if (trimmed.includes(':')) {
-        const colonIndex = trimmed.indexOf(':');
-        const key = trimmed.slice(0, colonIndex).trim();
-        const value = trimmed.slice(colonIndex + 1).trim();
-
-        if (value) {
-          parent.obj[key] = this.parseValue(value);
-        } else {
-          parent.obj[key] = {};
-          stack.push({ indent, obj: parent.obj[key] as Record<string, unknown>, key });
-        }
-      }
-    }
-
-    return result;
-  }
-
-  private parseValue(value: string): string | number | boolean | null {
-    if (value === 'true') return true;
-    if (value === 'false') return false;
-    if (value === 'null') return null;
-    if (/^\d+$/.test(value)) return parseInt(value);
-    if (/^\d*\.\d+$/.test(value)) return parseFloat(value);
-    // Remove quotes
-    if ((value.startsWith("'") && value.endsWith("'")) || (value.startsWith('"') && value.endsWith('"'))) {
-      return value.slice(1, -1);
-    }
-    return value;
-  }
 }
 

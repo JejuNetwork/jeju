@@ -30,10 +30,20 @@ import { getCronService } from '../services/cron';
 import { handleReminderWebhook, handleCleanupWebhook } from '../services/cron';
 import { getOAuth3Service } from '../services/auth';
 import { getRegistryService } from '../services/registry';
+import { expectValid } from '../utils/validation';
+import { z } from 'zod';
 import type { HealthResponse, ServiceStatus } from '../types';
 
-const PORT = parseInt(process.env.PORT || '4500', 10);
-const APP_NAME = process.env.APP_NAME || 'Decentralized App Template';
+// Validate environment variables
+const envSchema = z.object({
+  PORT: z.string().regex(/^\d+$/).transform(Number).default('4500'),
+  APP_NAME: z.string().default('Decentralized App Template'),
+});
+
+const env = expectValid(envSchema, process.env, 'Environment variables');
+
+const PORT = env.PORT;
+const APP_NAME = env.APP_NAME;
 const VERSION = '1.0.0';
 
 const app = new Hono();
@@ -60,7 +70,6 @@ app.use(
 // Request ID middleware
 app.use('/*', async (c, next) => {
   const requestId = `req-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  c.set('requestId', requestId);
   c.header('X-Request-Id', requestId);
   await next();
 });
@@ -156,19 +165,24 @@ app.get('/health', async (c) => {
   const oauth3Start = Date.now();
   const oauth3Service = getOAuth3Service();
   let oauth3Health = { jns: false, storage: false, teeNode: false };
+  let oauth3Error: string | undefined;
   try {
     oauth3Health = await oauth3Service.checkInfrastructureHealth();
-  } catch {
-    // OAuth3 not initialized yet
+  } catch (error) {
+    // OAuth3 not initialized - log the error for debugging
+    oauth3Error = error instanceof Error ? error.message : 'Unknown OAuth3 error';
+    console.warn('[Health] OAuth3 infrastructure check failed:', oauth3Error);
   }
   const oauth3Healthy = oauth3Health.jns && oauth3Health.storage && oauth3Health.teeNode;
   services.push({
     name: 'OAuth3 Infrastructure',
     status: oauth3Healthy ? 'healthy' : 'degraded',
     latency: Date.now() - oauth3Start,
-    details: oauth3Healthy
-      ? 'All components ready'
-      : `JNS: ${oauth3Health.jns}, Storage: ${oauth3Health.storage}, TEE: ${oauth3Health.teeNode}`,
+    details: oauth3Error
+      ? `Error: ${oauth3Error}`
+      : oauth3Healthy
+        ? 'All components ready'
+        : `JNS: ${oauth3Health.jns}, Storage: ${oauth3Health.storage}, TEE: ${oauth3Health.teeNode}`,
   });
   if (!oauth3Healthy) degradedCount++;
 

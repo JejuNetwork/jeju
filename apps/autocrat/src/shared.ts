@@ -2,6 +2,8 @@
  * Shared constants and utilities for Council
  */
 
+import { z } from 'zod';
+
 export const COUNCIL_ABI = [
   'function getProposal(bytes32) view returns (tuple(bytes32, address, uint256, uint8, uint8, uint8, uint256, uint256, uint256, bytes32, address, bytes, uint256, uint256, uint256, uint256, bool, bytes32, bool, bytes32))',
   'function getAutocratVotes(bytes32) view returns (tuple(bytes32, address, uint8, uint8, bytes32, uint256, uint256)[])',
@@ -177,6 +179,20 @@ export interface QualityCriteria {
   costBenefit: number;
 }
 
+// Schema for AI assessment JSON response
+const AIAssessmentResponseSchema = z.object({
+  clarity: z.number().min(0).max(100),
+  completeness: z.number().min(0).max(100),
+  feasibility: z.number().min(0).max(100),
+  alignment: z.number().min(0).max(100),
+  impact: z.number().min(0).max(100),
+  riskAssessment: z.number().min(0).max(100),
+  costBenefit: z.number().min(0).max(100),
+  feedback: z.array(z.string()),
+  blockers: z.array(z.string()),
+  suggestions: z.array(z.string()),
+});
+
 export function calculateQualityScore(criteria: QualityCriteria): number {
   return Math.round(
     criteria.clarity * 0.15 +
@@ -216,8 +232,20 @@ Return ONLY valid JSON:
   if (!response.ok) throw new Error(`AI assessment failed: ${response.status}`);
 
   const data = await response.json() as { choices: Array<{ message: { content: string } }> };
-  const content = data.choices[0]?.message.content ?? '{}';
-  const parsed = JSON.parse(content) as QualityCriteria & { feedback: string[]; blockers: string[]; suggestions: string[] };
+  if (!data.choices || !Array.isArray(data.choices) || data.choices.length === 0) {
+    throw new Error('AI assessment returned no choices');
+  }
+  const firstChoice = data.choices[0];
+  if (!firstChoice.message || typeof firstChoice.message.content !== 'string') {
+    throw new Error('AI assessment response missing message content');
+  }
+  const content = firstChoice.message.content;
+  if (content.length === 0) {
+    throw new Error('AI assessment returned empty content');
+  }
+  
+  const rawParsed = JSON.parse(content);
+  const parsed = AIAssessmentResponseSchema.parse(rawParsed);
 
   return {
     overallScore: calculateQualityScore(parsed),

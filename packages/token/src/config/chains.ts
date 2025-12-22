@@ -1,20 +1,35 @@
 import type { ChainConfig, ChainId } from '../types';
+import { chainConfigSchema, ValidationError } from '../validation';
 
-// Jeju Hyperlane addresses - populated after deployment
-// Run `jeju token deploy:hyperlane` to deploy and update these
-const JEJU_HYPERLANE_DEFAULTS = {
-  // These will be set after running the deployment script
-  // which generates src/config/jeju-hyperlane.ts
-  mailbox: '',
-  igp: '',
-};
+// Default RPC URLs - can be overridden by environment variables
+const DEFAULT_RPC_URLS = {
+  ethereum: 'https://eth.llamarpc.com',
+  optimism: 'https://mainnet.optimism.io',
+  bsc: 'https://bsc-dataseed.binance.org',
+  base: 'https://mainnet.base.org',
+  arbitrum: 'https://arb1.arbitrum.io/rpc',
+  polygon: 'https://polygon-rpc.com',
+  avalanche: 'https://api.avax.network/ext/bc/C/rpc',
+  solana: 'https://api.mainnet-beta.solana.com',
+  sepolia: 'https://rpc.sepolia.org',
+  baseSepolia: 'https://sepolia.base.org',
+  arbitrumSepolia: 'https://sepolia-rollup.arbitrum.io/rpc',
+  solanaDevnet: 'https://api.devnet.solana.com',
+  jejuTestnet: 'https://testnet-rpc.jejunetwork.org',
+} as const;
+
+function getRpcUrl(chainName: keyof typeof DEFAULT_RPC_URLS, envVarName: string): string {
+  const envValue = process.env[envVarName];
+  if (envValue) return envValue;
+  return DEFAULT_RPC_URLS[chainName];
+}
 
 // Mainnet chains
 export const ethereumMainnet: ChainConfig = {
   chainId: 1,
   chainType: 'evm',
   name: 'Ethereum Mainnet',
-  rpcUrl: process.env.ETHEREUM_RPC_URL ?? 'https://eth.llamarpc.com',
+  rpcUrl: getRpcUrl('ethereum', 'ETHEREUM_RPC_URL'),
   blockExplorerUrl: 'https://etherscan.io',
   nativeCurrency: {
     name: 'Ether',
@@ -33,7 +48,7 @@ export const optimism: ChainConfig = {
   chainId: 10,
   chainType: 'evm',
   name: 'Optimism',
-  rpcUrl: process.env.OPTIMISM_RPC_URL ?? 'https://mainnet.optimism.io',
+  rpcUrl: getRpcUrl('optimism', 'OPTIMISM_RPC_URL'),
   blockExplorerUrl: 'https://optimistic.etherscan.io',
   nativeCurrency: {
     name: 'Ether',
@@ -52,7 +67,7 @@ export const bsc: ChainConfig = {
   chainId: 56,
   chainType: 'evm',
   name: 'BNB Smart Chain',
-  rpcUrl: process.env.BSC_RPC_URL ?? 'https://bsc-dataseed.binance.org',
+  rpcUrl: getRpcUrl('bsc', 'BSC_RPC_URL'),
   blockExplorerUrl: 'https://bscscan.com',
   nativeCurrency: {
     name: 'BNB',
@@ -89,7 +104,7 @@ export const arbitrum: ChainConfig = {
   chainId: 42161,
   chainType: 'evm',
   name: 'Arbitrum One',
-  rpcUrl: process.env.ARBITRUM_RPC_URL ?? 'https://arb1.arbitrum.io/rpc',
+  rpcUrl: getRpcUrl('arbitrum', 'ARBITRUM_RPC_URL'),
   blockExplorerUrl: 'https://arbiscan.io',
   nativeCurrency: {
     name: 'Ether',
@@ -108,7 +123,7 @@ export const polygon: ChainConfig = {
   chainId: 137,
   chainType: 'evm',
   name: 'Polygon',
-  rpcUrl: process.env.POLYGON_RPC_URL ?? 'https://polygon-rpc.com',
+  rpcUrl: getRpcUrl('polygon', 'POLYGON_RPC_URL'),
   blockExplorerUrl: 'https://polygonscan.com',
   nativeCurrency: {
     name: 'MATIC',
@@ -126,8 +141,7 @@ export const avalanche: ChainConfig = {
   chainId: 43114,
   chainType: 'evm',
   name: 'Avalanche C-Chain',
-  rpcUrl:
-    process.env.AVALANCHE_RPC_URL ?? 'https://api.avax.network/ext/bc/C/rpc',
+  rpcUrl: getRpcUrl('avalanche', 'AVALANCHE_RPC_URL'),
   blockExplorerUrl: 'https://snowtrace.io',
   nativeCurrency: {
     name: 'AVAX',
@@ -143,9 +157,9 @@ export const avalanche: ChainConfig = {
 
 export const solanaMainnet: ChainConfig = {
   chainId: 'solana-mainnet',
-  chainType: 'svm',
+  chainType: 'solana',
   name: 'Solana Mainnet',
-  rpcUrl: process.env.SOLANA_RPC_URL ?? 'https://api.mainnet-beta.solana.com',
+  rpcUrl: getRpcUrl('solana', 'SOLANA_RPC_URL'),
   blockExplorerUrl: 'https://explorer.solana.com',
   nativeCurrency: { name: 'Solana', symbol: 'SOL', decimals: 9 },
   hyperlaneMailbox: 'EitxJuv2iBjsg2d7jVy2LDC1e2zBrx4GB5Y9h2Ko3A9Y',
@@ -160,7 +174,7 @@ export const sepolia: ChainConfig = {
   chainId: 11155111,
   chainType: 'evm',
   name: 'Sepolia Testnet',
-  rpcUrl: process.env.SEPOLIA_RPC_URL ?? 'https://rpc.sepolia.org',
+  rpcUrl: getRpcUrl('sepolia', 'SEPOLIA_RPC_URL'),
   blockExplorerUrl: 'https://sepolia.etherscan.io',
   nativeCurrency: {
     name: 'Ether',
@@ -178,7 +192,7 @@ export const baseSepolia: ChainConfig = {
   chainId: 84532,
   chainType: 'evm',
   name: 'Base Sepolia',
-  rpcUrl: process.env.BASE_SEPOLIA_RPC_URL ?? 'https://sepolia.base.org',
+  rpcUrl: getRpcUrl('baseSepolia', 'BASE_SEPOLIA_RPC_URL'),
   blockExplorerUrl: 'https://sepolia.basescan.org',
   nativeCurrency: {
     name: 'Ether',
@@ -195,9 +209,7 @@ export const arbitrumSepolia: ChainConfig = {
   chainId: 421614,
   chainType: 'evm',
   name: 'Arbitrum Sepolia',
-  rpcUrl:
-    process.env.ARBITRUM_SEPOLIA_RPC_URL ??
-    'https://sepolia-rollup.arbitrum.io/rpc',
+  rpcUrl: getRpcUrl('arbitrumSepolia', 'ARBITRUM_SEPOLIA_RPC_URL'),
   blockExplorerUrl: 'https://sepolia.arbiscan.io',
   nativeCurrency: {
     name: 'Ether',
@@ -212,9 +224,9 @@ export const arbitrumSepolia: ChainConfig = {
 
 export const solanaDevnet: ChainConfig = {
   chainId: 'solana-devnet',
-  chainType: 'svm',
+  chainType: 'solana',
   name: 'Solana Devnet',
-  rpcUrl: process.env.SOLANA_DEVNET_RPC_URL ?? 'https://api.devnet.solana.com',
+  rpcUrl: getRpcUrl('solanaDevnet', 'SOLANA_DEVNET_RPC_URL'),
   blockExplorerUrl: 'https://explorer.solana.com?cluster=devnet',
   nativeCurrency: { name: 'Solana', symbol: 'SOL', decimals: 9 },
   hyperlaneMailbox: 'E588QtVUvresuXq2KoNEwAmoifCzYGpRBdHByN9KQMbi',
@@ -241,17 +253,16 @@ export const jejuTestnet: ChainConfig = {
   chainId: 420690,
   chainType: 'evm',
   name: 'Jeju Testnet',
-  rpcUrl: process.env.JEJU_RPC_URL ?? 'https://testnet-rpc.jejunetwork.org',
+  rpcUrl: getRpcUrl('jejuTestnet', 'JEJU_RPC_URL'),
   blockExplorerUrl: 'https://testnet-explorer.jejunetwork.org',
   nativeCurrency: {
     name: 'Ether',
     symbol: 'ETH',
     decimals: 18,
   },
-  // Uses env vars or defaults (empty until Hyperlane is deployed)
-  hyperlaneMailbox:
-    process.env.JEJU_HYPERLANE_MAILBOX || JEJU_HYPERLANE_DEFAULTS.mailbox,
-  hyperlaneIgp: process.env.JEJU_HYPERLANE_IGP || JEJU_HYPERLANE_DEFAULTS.igp,
+  // Hyperlane addresses - require env var if custom deployment, otherwise use empty (not yet deployed)
+  hyperlaneMailbox: process.env.JEJU_HYPERLANE_MAILBOX ?? '',
+  hyperlaneIgp: process.env.JEJU_HYPERLANE_IGP ?? '',
   isHomeChain: false,
   avgBlockTime: 2,
   // Jeju uses Uniswap V4 (addresses from Jeju's config)
@@ -281,10 +292,13 @@ export function getEVMChains(mainnetOnly = true): ChainConfig[] {
   return chains.filter((c) => c.chainType === 'evm');
 }
 
-export function getSVMChains(mainnetOnly = true): ChainConfig[] {
+export function getSolanaChains(mainnetOnly = true): ChainConfig[] {
   const chains = mainnetOnly ? MAINNET_CHAINS : ALL_CHAINS;
-  return chains.filter((c) => c.chainType === 'svm');
+  return chains.filter((c) => c.chainType === 'solana');
 }
+
+// Deprecated: Use getSolanaChains instead
+export const getSVMChains = getSolanaChains;
 
 export function getHomeChain(mainnetOnly = true): ChainConfig {
   const chains = mainnetOnly ? MAINNET_CHAINS : ALL_CHAINS;
@@ -295,14 +309,16 @@ export function getHomeChain(mainnetOnly = true): ChainConfig {
   return home;
 }
 
-export function validateChainConfig(config: ChainConfig): void {
-  if (!config.rpcUrl) {
-    throw new Error(`Missing RPC URL for chain ${config.name}`);
+export function validateChainConfig(config: ChainConfig): ChainConfig {
+  const result = chainConfigSchema.safeParse(config);
+  if (!result.success) {
+    const errorMessages = result.error.issues
+      .map((e) => `${e.path.join('.')}: ${e.message}`)
+      .join('; ');
+    throw new ValidationError(
+      `Invalid chain config for ${config.name}: ${errorMessages}`,
+      result.error.issues
+    );
   }
-  if (!config.hyperlaneMailbox) {
-    throw new Error(`Missing Hyperlane mailbox for chain ${config.name}`);
-  }
-  if (config.chainType === 'evm' && !config.hyperlaneMailbox.startsWith('0x')) {
-    throw new Error(`Invalid EVM mailbox address for chain ${config.name}`);
-  }
+  return result.data as ChainConfig;
 }

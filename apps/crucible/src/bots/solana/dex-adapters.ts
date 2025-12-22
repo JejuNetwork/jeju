@@ -15,6 +15,13 @@
  */
 
 import { Connection, PublicKey, Keypair, Transaction, VersionedTransaction } from '@solana/web3.js';
+import { 
+  JupiterQuoteResponseSchema, JupiterSwapResponseSchema, JupiterPriceResponseSchema,
+  RaydiumQuoteResponseSchema, RaydiumSwapResponseSchema, RaydiumPoolsResponseSchema, RaydiumLiquidityResponseSchema, RaydiumPositionsResponseSchema,
+  OrcaQuoteResponseSchema, OrcaSwapResponseSchema, OrcaPoolsResponseSchema, OrcaPoolResponseSchema, OrcaLiquidityResponseSchema, OrcaPositionsResponseSchema,
+  MeteoraQuoteResponseSchema, MeteoraSwapResponseSchema, MeteoraPoolsResponseSchema, MeteoraPoolResponseSchema, MeteoraLiquidityResponseSchema, MeteoraPositionsResponseSchema,
+  parseOrThrow, expect
+} from '../../schemas';
 
 // ============ Types ============
 
@@ -112,24 +119,8 @@ export class JupiterAdapter implements DexAdapter {
     const response = await fetch(url);
     if (!response.ok) return null;
     
-    const data = await response.json() as {
-      inputMint: string;
-      outputMint: string;
-      inAmount: string;
-      outAmount: string;
-      priceImpactPct: string;
-      routePlan: Array<{
-        swapInfo: {
-          ammKey: string;
-          label: string;
-          inputMint: string;
-          outputMint: string;
-          inAmount: string;
-          outAmount: string;
-          feeAmount: string;
-        };
-      }>;
-    };
+    const rawData = await response.json();
+    const data = parseOrThrow(JupiterQuoteResponseSchema, rawData, 'Jupiter quote response');
     
     return {
       inputMint: data.inputMint,
@@ -167,7 +158,8 @@ export class JupiterAdapter implements DexAdapter {
       throw new Error(`Jupiter swap failed: ${await response.text()}`);
     }
     
-    const { swapTransaction } = await response.json() as { swapTransaction: string };
+    const rawData = await response.json();
+    const { swapTransaction } = parseOrThrow(JupiterSwapResponseSchema, rawData, 'Jupiter swap response');
     
     // Deserialize and sign
     const txBuffer = Buffer.from(swapTransaction, 'base64');
@@ -207,8 +199,11 @@ export class JupiterAdapter implements DexAdapter {
     const response = await fetch(url);
     if (!response.ok) return null;
     
-    const data = await response.json() as { data: Record<string, { price: number }> };
-    return data.data[mint]?.price ?? null;
+    const rawData = await response.json();
+    const data = parseOrThrow(JupiterPriceResponseSchema, rawData, 'Jupiter price response');
+    const mintData = data.data[mint];
+    if (!mintData) return null;
+    return mintData.price;
   }
 }
 
@@ -230,24 +225,8 @@ export class RaydiumAdapter implements DexAdapter {
     const response = await fetch(url);
     if (!response.ok) return null;
     
-    const data = await response.json() as {
-      success: boolean;
-      data: {
-        inputMint: string;
-        outputMint: string;
-        inputAmount: string;
-        outputAmount: string;
-        priceImpactPct: number;
-        routePlan: Array<{
-          poolId: string;
-          inputMint: string;
-          outputMint: string;
-          inputAmount: string;
-          outputAmount: string;
-          feeAmount: string;
-        }>;
-      };
-    };
+    const rawData = await response.json();
+    const data = parseOrThrow(RaydiumQuoteResponseSchema, rawData, 'Raydium quote response');
     
     if (!data.success) return null;
     
@@ -289,7 +268,8 @@ export class RaydiumAdapter implements DexAdapter {
       throw new Error(`Raydium swap failed: ${await response.text()}`);
     }
     
-    const data = await response.json() as { data: { transaction: string } };
+    const rawData = await response.json();
+    const data = parseOrThrow(RaydiumSwapResponseSchema, rawData, 'Raydium swap response');
     
     // Deserialize and sign
     const txBuffer = Buffer.from(data.data.transaction, 'base64');
@@ -311,26 +291,14 @@ export class RaydiumAdapter implements DexAdapter {
     const response = await fetch(url);
     if (!response.ok) return [];
     
-    const data = await response.json() as {
-      success: boolean;
-      data: {
-        data: Array<{
-          id: string;
-          mintA: { address: string; symbol: string; decimals: number };
-          mintB: { address: string; symbol: string; decimals: number };
-          tvl: number;
-          feeRate: number;
-          apr24h: number;
-          volume24h: number;
-        }>;
-      };
-    };
+    const rawData = await response.json();
+    const data = parseOrThrow(RaydiumPoolsResponseSchema, rawData, 'Raydium pools response');
     
     if (!data.success) return [];
     
     return data.data.data.map(pool => ({
       id: pool.id,
-      dex: 'raydium' as DexSource,
+      dex: 'raydium',
       tokenA: { mint: pool.mintA.address, symbol: pool.mintA.symbol, decimals: pool.mintA.decimals },
       tokenB: { mint: pool.mintB.address, symbol: pool.mintB.symbol, decimals: pool.mintB.decimals },
       reserveA: 0n, // Would need additional call to get reserves
@@ -344,7 +312,8 @@ export class RaydiumAdapter implements DexAdapter {
 
   async getPool(poolId: string): Promise<LiquidityPool | null> {
     const pools = await this.getPools();
-    return pools.find(p => p.id === poolId) ?? null;
+    const pool = pools.find(p => p.id === poolId);
+    return pool !== undefined ? pool : null;
   }
 
   async addLiquidity(poolId: string, amountA: bigint, amountB: bigint, keypair: Keypair): Promise<string> {
@@ -364,7 +333,8 @@ export class RaydiumAdapter implements DexAdapter {
       throw new Error(`Raydium add liquidity failed: ${await response.text()}`);
     }
     
-    const data = await response.json() as { data: { transaction: string } };
+    const rawData = await response.json();
+    const data = parseOrThrow(RaydiumLiquidityResponseSchema, rawData, 'Raydium add liquidity response');
     
     const txBuffer = Buffer.from(data.data.transaction, 'base64');
     const tx = VersionedTransaction.deserialize(txBuffer);
@@ -392,7 +362,8 @@ export class RaydiumAdapter implements DexAdapter {
       throw new Error(`Raydium remove liquidity failed: ${await response.text()}`);
     }
     
-    const data = await response.json() as { data: { transaction: string } };
+    const rawData = await response.json();
+    const data = parseOrThrow(RaydiumLiquidityResponseSchema, rawData, 'Raydium remove liquidity response');
     
     const txBuffer = Buffer.from(data.data.transaction, 'base64');
     const tx = VersionedTransaction.deserialize(txBuffer);
@@ -409,25 +380,15 @@ export class RaydiumAdapter implements DexAdapter {
     const response = await fetch(url);
     if (!response.ok) return [];
     
-    const data = await response.json() as {
-      success: boolean;
-      data: Array<{
-        poolId: string;
-        mintA: { address: string; symbol: string; decimals: number };
-        mintB: { address: string; symbol: string; decimals: number };
-        amountA: string;
-        amountB: string;
-        valueUsd: number;
-        positionId?: string;
-      }>;
-    };
+    const rawData = await response.json();
+    const data = parseOrThrow(RaydiumPositionsResponseSchema, rawData, 'Raydium positions response');
     
     if (!data.success) return [];
     
     return data.data.map((pos, i) => ({
       id: pos.positionId ?? `raydium-${pos.poolId}-${i}`,
       poolId: pos.poolId,
-      dex: 'raydium' as DexSource,
+      dex: 'raydium',
       owner,
       tokenA: { mint: pos.mintA.address, symbol: pos.mintA.symbol, decimals: pos.mintA.decimals },
       tokenB: { mint: pos.mintB.address, symbol: pos.mintB.symbol, decimals: pos.mintB.decimals },
@@ -457,20 +418,8 @@ export class OrcaAdapter implements DexAdapter {
     const response = await fetch(url);
     if (!response.ok) return null;
     
-    const data = await response.json() as {
-      inputMint: string;
-      outputMint: string;
-      inAmount: string;
-      outAmount: string;
-      priceImpact: number;
-      route: Array<{
-        whirlpool: string;
-        inputMint: string;
-        outputMint: string;
-        inputAmount: string;
-        outputAmount: string;
-      }>;
-    };
+    const rawData = await response.json();
+    const data = parseOrThrow(OrcaQuoteResponseSchema, rawData, 'Orca quote response');
     
     return {
       inputMint: data.inputMint,
@@ -506,7 +455,8 @@ export class OrcaAdapter implements DexAdapter {
       throw new Error(`Orca swap failed: ${await response.text()}`);
     }
     
-    const data = await response.json() as { transaction: string };
+    const rawData = await response.json();
+    const data = parseOrThrow(OrcaSwapResponseSchema, rawData, 'Orca swap response');
     
     const txBuffer = Buffer.from(data.transaction, 'base64');
     const tx = VersionedTransaction.deserialize(txBuffer);
@@ -527,18 +477,8 @@ export class OrcaAdapter implements DexAdapter {
     const response = await fetch(url);
     if (!response.ok) return [];
     
-    const data = await response.json() as {
-      whirlpools: Array<{
-        address: string;
-        tokenMintA: string;
-        tokenMintB: string;
-        tickSpacing: number;
-        feeRate: number;
-        tvl: number;
-        volume24h: number;
-        apr24h: number;
-      }>;
-    };
+    const rawData = await response.json();
+    const data = parseOrThrow(OrcaPoolsResponseSchema, rawData, 'Orca pools response');
     
     return data.whirlpools.map(pool => ({
       id: pool.address,
@@ -560,16 +500,8 @@ export class OrcaAdapter implements DexAdapter {
     const response = await fetch(url);
     if (!response.ok) return null;
     
-    const pool = await response.json() as {
-      address: string;
-      tokenMintA: string;
-      tokenMintB: string;
-      tickSpacing: number;
-      feeRate: number;
-      tvl: number;
-      currentTick: number;
-      sqrtPrice: string;
-    };
+    const rawData = await response.json();
+    const pool = parseOrThrow(OrcaPoolResponseSchema, rawData, 'Orca pool response');
     
     return {
       id: pool.address,
@@ -603,7 +535,8 @@ export class OrcaAdapter implements DexAdapter {
       throw new Error(`Orca add liquidity failed: ${await response.text()}`);
     }
     
-    const data = await response.json() as { transaction: string };
+    const rawData = await response.json();
+    const data = parseOrThrow(OrcaLiquidityResponseSchema, rawData, 'Orca add liquidity response');
     
     const txBuffer = Buffer.from(data.transaction, 'base64');
     const tx = VersionedTransaction.deserialize(txBuffer);
@@ -631,7 +564,8 @@ export class OrcaAdapter implements DexAdapter {
       throw new Error(`Orca remove liquidity failed: ${await response.text()}`);
     }
     
-    const data = await response.json() as { transaction: string };
+    const rawData = await response.json();
+    const data = parseOrThrow(OrcaLiquidityResponseSchema, rawData, 'Orca remove liquidity response');
     
     const txBuffer = Buffer.from(data.transaction, 'base64');
     const tx = VersionedTransaction.deserialize(txBuffer);
@@ -648,25 +582,13 @@ export class OrcaAdapter implements DexAdapter {
     const response = await fetch(url);
     if (!response.ok) return [];
     
-    const data = await response.json() as {
-      positions: Array<{
-        address: string;
-        whirlpool: string;
-        tickLower: number;
-        tickUpper: number;
-        liquidity: string;
-        tokenA: { mint: string; amount: string };
-        tokenB: { mint: string; amount: string };
-        valueUsd: number;
-        feesOwed: { a: string; b: string };
-        inRange: boolean;
-      }>;
-    };
+    const rawData = await response.json();
+    const data = parseOrThrow(OrcaPositionsResponseSchema, rawData, 'Orca positions response');
     
     return data.positions.map(pos => ({
       id: pos.address,
       poolId: pos.whirlpool,
-      dex: 'orca' as DexSource,
+      dex: 'orca',
       owner,
       tokenA: { mint: pos.tokenA.mint, symbol: '', decimals: 9 },
       tokenB: { mint: pos.tokenB.mint, symbol: '', decimals: 9 },
@@ -700,14 +622,8 @@ export class MeteoraAdapter implements DexAdapter {
     const response = await fetch(url);
     if (!response.ok) return null;
     
-    const data = await response.json() as {
-      inputMint: string;
-      outputMint: string;
-      inAmount: string;
-      outAmount: string;
-      priceImpact: number;
-      poolAddress: string;
-    };
+    const rawData = await response.json();
+    const data = parseOrThrow(MeteoraQuoteResponseSchema, rawData, 'Meteora quote response');
     
     return {
       inputMint: data.inputMint,
@@ -743,7 +659,8 @@ export class MeteoraAdapter implements DexAdapter {
       throw new Error(`Meteora swap failed: ${await response.text()}`);
     }
     
-    const data = await response.json() as { transaction: string };
+    const rawData = await response.json();
+    const data = parseOrThrow(MeteoraSwapResponseSchema, rawData, 'Meteora swap response');
     
     const txBuffer = Buffer.from(data.transaction, 'base64');
     const tx = VersionedTransaction.deserialize(txBuffer);
@@ -761,33 +678,25 @@ export class MeteoraAdapter implements DexAdapter {
     const response = await fetch(url);
     if (!response.ok) return [];
     
-    const data = await response.json() as Array<{
-      address: string;
-      name: string;
-      mintX: string;
-      mintY: string;
-      reserveX: string;
-      reserveY: string;
-      baseFee: number;
-      binStep: number;
-      tvl: number;
-      apr: number;
-      volume24h: number;
-    }>;
+    const rawData = await response.json();
+    const data = parseOrThrow(MeteoraPoolsResponseSchema, rawData, 'Meteora pools response');
     
-    let pools = data.map(pool => ({
-      id: pool.address,
-      dex: 'meteora' as DexSource,
-      tokenA: { mint: pool.mintX, symbol: pool.name.split('-')[0] ?? '', decimals: 9 },
-      tokenB: { mint: pool.mintY, symbol: pool.name.split('-')[1] ?? '', decimals: 9 },
-      reserveA: BigInt(pool.reserveX),
-      reserveB: BigInt(pool.reserveY),
-      fee: pool.baseFee,
-      tvlUsd: pool.tvl,
-      apr24h: pool.apr,
-      volume24h: pool.volume24h,
-      tickSpacing: pool.binStep,
-    }));
+    let pools: LiquidityPool[] = data.map(pool => {
+      const nameParts = pool.name.split('-');
+      return {
+        id: pool.address,
+        dex: 'meteora' as DexSource,
+        tokenA: { mint: pool.mintX, symbol: nameParts[0] ? nameParts[0] : '', decimals: 9 },
+        tokenB: { mint: pool.mintY, symbol: nameParts[1] ? nameParts[1] : '', decimals: 9 },
+        reserveA: BigInt(pool.reserveX),
+        reserveB: BigInt(pool.reserveY),
+        fee: pool.baseFee,
+        tvlUsd: pool.tvl,
+        apr24h: pool.apr,
+        volume24h: pool.volume24h,
+        tickSpacing: pool.binStep,
+      };
+    });
     
     if (tokenMints?.length) {
       const mintSet = new Set(tokenMints);
@@ -802,24 +711,15 @@ export class MeteoraAdapter implements DexAdapter {
     const response = await fetch(url);
     if (!response.ok) return null;
     
-    const pool = await response.json() as {
-      address: string;
-      name: string;
-      mintX: string;
-      mintY: string;
-      reserveX: string;
-      reserveY: string;
-      baseFee: number;
-      binStep: number;
-      tvl: number;
-      activeBin: number;
-    };
+    const rawData = await response.json();
+    const pool = parseOrThrow(MeteoraPoolResponseSchema, rawData, 'Meteora pool response');
     
+    const nameParts = pool.name.split('-');
     return {
       id: pool.address,
       dex: 'meteora',
-      tokenA: { mint: pool.mintX, symbol: pool.name.split('-')[0] ?? '', decimals: 9 },
-      tokenB: { mint: pool.mintY, symbol: pool.name.split('-')[1] ?? '', decimals: 9 },
+      tokenA: { mint: pool.mintX, symbol: nameParts[0] ? nameParts[0] : '', decimals: 9 },
+      tokenB: { mint: pool.mintY, symbol: nameParts[1] ? nameParts[1] : '', decimals: 9 },
       reserveA: BigInt(pool.reserveX),
       reserveB: BigInt(pool.reserveY),
       fee: pool.baseFee,
@@ -846,7 +746,8 @@ export class MeteoraAdapter implements DexAdapter {
       throw new Error(`Meteora add liquidity failed: ${await response.text()}`);
     }
     
-    const data = await response.json() as { transaction: string };
+    const rawData = await response.json();
+    const data = parseOrThrow(MeteoraLiquidityResponseSchema, rawData, 'Meteora add liquidity response');
     
     const txBuffer = Buffer.from(data.transaction, 'base64');
     const tx = VersionedTransaction.deserialize(txBuffer);
@@ -874,7 +775,8 @@ export class MeteoraAdapter implements DexAdapter {
       throw new Error(`Meteora remove liquidity failed: ${await response.text()}`);
     }
     
-    const data = await response.json() as { transaction: string };
+    const rawData = await response.json();
+    const data = parseOrThrow(MeteoraLiquidityResponseSchema, rawData, 'Meteora remove liquidity response');
     
     const txBuffer = Buffer.from(data.transaction, 'base64');
     const tx = VersionedTransaction.deserialize(txBuffer);
@@ -891,23 +793,13 @@ export class MeteoraAdapter implements DexAdapter {
     const response = await fetch(url);
     if (!response.ok) return [];
     
-    const data = await response.json() as Array<{
-      publicKey: string;
-      poolAddress: string;
-      mintX: string;
-      mintY: string;
-      amountX: string;
-      amountY: string;
-      valueUsd: number;
-      lowerBinId: number;
-      upperBinId: number;
-      totalClaimedFees: { x: string; y: string };
-    }>;
+    const rawData = await response.json();
+    const data = parseOrThrow(MeteoraPositionsResponseSchema, rawData, 'Meteora positions response');
     
     return data.map(pos => ({
       id: pos.publicKey,
       poolId: pos.poolAddress,
-      dex: 'meteora' as DexSource,
+      dex: 'meteora',
       owner,
       tokenA: { mint: pos.mintX, symbol: '', decimals: 9 },
       tokenB: { mint: pos.mintY, symbol: '', decimals: 9 },
@@ -943,7 +835,10 @@ export class SolanaDexAggregator {
   async getBestQuote(inputMint: string, outputMint: string, amount: bigint): Promise<SwapQuote | null> {
     const quotes = await Promise.all(
       Array.from(this.adapters.values()).map(adapter =>
-        adapter.getQuote(inputMint, outputMint, amount).catch(() => null)
+        adapter.getQuote(inputMint, outputMint, amount).catch((err: Error) => {
+          console.warn(`[SolanaDexAggregator] ${adapter.name} quote failed: ${err.message}`);
+          return null;
+        })
       )
     );
     
@@ -962,7 +857,10 @@ export class SolanaDexAggregator {
   async getAllQuotes(inputMint: string, outputMint: string, amount: bigint): Promise<SwapQuote[]> {
     const quotes = await Promise.all(
       Array.from(this.adapters.values()).map(adapter =>
-        adapter.getQuote(inputMint, outputMint, amount).catch(() => null)
+        adapter.getQuote(inputMint, outputMint, amount).catch((err: Error) => {
+          console.warn(`[SolanaDexAggregator] ${adapter.name} quote failed: ${err.message}`);
+          return null;
+        })
       )
     );
     
@@ -992,9 +890,13 @@ export class SolanaDexAggregator {
    */
   async getAllPools(tokenMints?: string[]): Promise<LiquidityPool[]> {
     const pools = await Promise.all(
-      ['raydium', 'orca', 'meteora'].map(dex => {
-        const adapter = this.adapters.get(dex as DexSource);
-        return adapter?.getPools(tokenMints) ?? Promise.resolve([]);
+      (['raydium', 'orca', 'meteora'] as DexSource[]).map(async dex => {
+        const adapter = this.adapters.get(dex);
+        if (!adapter) return [];
+        return adapter.getPools(tokenMints).catch((err: Error) => {
+          console.warn(`[SolanaDexAggregator] ${dex} getPools failed: ${err.message}`);
+          return [];
+        });
       })
     );
     
@@ -1007,7 +909,10 @@ export class SolanaDexAggregator {
   async getAllPositions(owner: string): Promise<LiquidityPosition[]> {
     const positions = await Promise.all(
       Array.from(this.adapters.values()).map(adapter =>
-        adapter.getPositions(owner).catch(() => [])
+        adapter.getPositions(owner).catch((err: Error) => {
+          console.warn(`[SolanaDexAggregator] ${adapter.name} getPositions failed: ${err.message}`);
+          return [];
+        })
       )
     );
     

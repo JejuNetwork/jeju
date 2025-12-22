@@ -10,6 +10,9 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { type Address, type Hash, formatEther, parseEther, namehash, keccak256, toBytes } from 'viem';
+import { AddressSchema } from '@jejunetwork/types/contracts';
+import { expect, expectTrue, expectPositive } from '@/lib/validation';
+import { NonEmptyStringSchema } from '@/schemas/common';
 import { CONTRACTS } from '@/config';
 
 // Contract addresses from centralized config
@@ -177,44 +180,49 @@ export function useJNSList() {
     priceInEth: string,
     durationDays: number = 30
   ): Promise<Hash> => {
-    if (!walletClient || !address) {
-      throw new Error('Wallet not connected');
-    }
+    const validatedWalletClient = expect(walletClient, 'Wallet not connected');
+    const validatedAddress = expect(address, 'Wallet not connected');
+    AddressSchema.parse(validatedAddress);
+    const validatedPublicClient = expect(publicClient, 'Public client not available');
+    
+    const validatedName = NonEmptyStringSchema.parse(name);
+    const validatedPriceInEth = NonEmptyStringSchema.parse(priceInEth);
+    expectTrue(durationDays > 0, 'Duration must be positive');
 
     setLoading(true);
     setError(null);
 
     // Compute labelhash (tokenId)
-    const labelhash = keccak256(toBytes(name));
+    const labelhash = keccak256(toBytes(validatedName));
     const tokenId = BigInt(labelhash);
 
     // Check if approved
-    const isApproved = await publicClient?.readContract({
+    const isApproved = await validatedPublicClient.readContract({
       address: JNS_REGISTRAR,
       abi: JNS_REGISTRAR_ABI,
       functionName: 'isApprovedForAll',
-      args: [address, BAZAAR],
+      args: [validatedAddress, BAZAAR],
     });
 
     // Approve if needed
     if (!isApproved) {
-      const approveHash = await walletClient.writeContract({
+      const approveHash = await validatedWalletClient.writeContract({
         address: JNS_REGISTRAR,
         abi: JNS_REGISTRAR_ABI,
         functionName: 'setApprovalForAll',
         args: [BAZAAR, true],
       });
       // Wait for approval
-      await publicClient?.waitForTransactionReceipt({ hash: approveHash });
+      await validatedPublicClient.waitForTransactionReceipt({ hash: approveHash });
     }
 
     // Create listing
     // AssetType: 0 = ERC721
     // Currency: 0 = ETH
-    const price = parseEther(priceInEth);
+    const price = parseEther(validatedPriceInEth);
     const duration = BigInt(durationDays * 24 * 60 * 60);
 
-    const hash = await walletClient.writeContract({
+    const hash = await validatedWalletClient.writeContract({
       address: BAZAAR,
       abi: BAZAAR_ABI,
       functionName: 'createListing',
@@ -271,14 +279,16 @@ export function useJNSBuy() {
   const [error, setError] = useState<string | null>(null);
 
   const buyName = useCallback(async (listingId: bigint, price: bigint): Promise<Hash> => {
-    if (!walletClient || !address) {
-      throw new Error('Wallet not connected');
-    }
+    const validatedWalletClient = expect(walletClient, 'Wallet not connected');
+    const validatedAddress = expect(address, 'Wallet not connected');
+    AddressSchema.parse(validatedAddress);
+    expectPositive(listingId, 'Listing ID must be positive');
+    expectPositive(price, 'Price must be positive');
 
     setLoading(true);
     setError(null);
 
-    const hash = await walletClient.writeContract({
+    const hash = await validatedWalletClient.writeContract({
       address: BAZAAR,
       abi: BAZAAR_ABI,
       functionName: 'buyListing',
@@ -337,15 +347,14 @@ export function useJNSListings() {
         }
       `;
 
-      const response = await fetch(indexerUrl, {
+      const validatedIndexerUrl = expect(indexerUrl, 'Indexer URL not configured');
+      const response = await fetch(validatedIndexerUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query }),
       });
 
-      if (!response.ok) {
-        throw new Error(`Indexer error: ${response.status}`);
-      }
+      expectTrue(response.ok, `Indexer error: ${response.status}`);
 
       const { data } = await response.json() as {
         data: {
@@ -375,7 +384,6 @@ export function useJNSListings() {
 
       setListings(fetchedListings);
     } catch (err) {
-      console.error('Failed to fetch JNS listings:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch listings');
       setListings([]);
     } finally {

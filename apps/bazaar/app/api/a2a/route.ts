@@ -3,6 +3,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { A2ARequestSchema } from '@/schemas/api';
+import { expectValid } from '@/lib/validation';
 import { handleA2ARequest, handleAgentCard } from '@/lib/a2a-server';
 
 export async function GET(request: NextRequest) {
@@ -22,5 +24,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  return handleA2ARequest(request);
+  const body = await request.json();
+  const validatedBody = expectValid(A2ARequestSchema, body, 'A2A request');
+  return handleA2ARequest(request, validatedBody);
 }

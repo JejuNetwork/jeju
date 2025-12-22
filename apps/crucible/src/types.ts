@@ -5,6 +5,8 @@
  */
 
 import type { Address } from 'viem';
+import type { ExecutionStatus } from '@jejunetwork/types';
+export type { ExecutionStatus };
 
 // =============================================================================
 // Bot Types
@@ -249,7 +251,7 @@ export interface ExecutionMetadata {
   attestationHash?: string;
 }
 
-export type ExecutionStatus = 'pending' | 'running' | 'completed' | 'failed' | 'timeout';
+// ExecutionStatus is re-exported at the top of the file via the initial import
 
 // =============================================================================
 // Trigger Types

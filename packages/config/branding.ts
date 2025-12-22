@@ -8,113 +8,37 @@
 import { readFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import {
+  BrandingConfigSchema,
+  type BrandingConfig,
+  type ChainBranding,
+  type TokenBranding,
+  type UrlsBranding,
+  type VisualBranding,
+  type FeaturesBranding,
+  type LegalBranding,
+  type SupportBranding,
+  type CliBranding,
+} from './schemas';
+
+export type {
+  BrandingConfig,
+  ChainBranding,
+  TokenBranding,
+  UrlsBranding,
+  VisualBranding,
+  FeaturesBranding,
+  LegalBranding,
+  SupportBranding,
+  CliBranding,
+};
 
 // ============================================================================
-// Types
+// Default Config (for documentation/template purposes)
 // ============================================================================
 
-export interface ChainBranding {
-  name: string;
-  chainId: number;
-  symbol: string;
-  explorerName: string;
-}
-
-export interface TokenBranding {
-  name: string;
-  symbol: string;
-  decimals: number;
-}
-
-export interface LogoBranding {
-  light: string;
-  dark: string;
-  icon: string;
-}
-
-export interface UrlsBranding {
-  website: string;
-  docs: string;
-  explorer: { testnet: string; mainnet: string };
-  rpc: { testnet: string; mainnet: string };
-  api: { testnet: string; mainnet: string };
-  gateway: { testnet: string; mainnet: string };
-  github: string;
-  twitter: string;
-  discord: string;
-  telegram: string;
-}
-
-export interface VisualBranding {
-  primaryColor: string;
-  secondaryColor: string;
-  accentColor: string;
-  backgroundColor: string;
-  textColor: string;
-  logo: LogoBranding;
-  favicon: string;
-}
-
-export interface FeaturesBranding {
-  flashblocks: boolean;
-  flashblocksSubBlockTime: number;
-  blockTime: number;
-  erc4337: boolean;
-  crossChain: boolean;
-  governance: boolean;
-  staking: boolean;
-  identityRegistry: boolean;
-}
-
-export interface LegalBranding {
-  companyName: string;
-  termsUrl: string;
-  privacyUrl: string;
-  copyrightYear: number;
-}
-
-export interface SupportBranding {
-  email: string;
-  discordChannel: string;
-}
-
-export interface CliBranding {
-  name: string;
-  displayName: string;
-  banner: string[];
-}
-
-export interface BrandingConfig {
-  version: string;
-  network: {
-    name: string;
-    displayName: string;
-    tagline: string;
-    description: string;
-    shortDescription: string;
-    keywords: string[];
-  };
-  chains: {
-    testnet: ChainBranding;
-    mainnet: ChainBranding;
-  };
-  urls: UrlsBranding;
-  tokens: {
-    native: TokenBranding;
-    governance: TokenBranding;
-  };
-  branding: VisualBranding;
-  features: FeaturesBranding;
-  legal: LegalBranding;
-  support: SupportBranding;
-  cli: CliBranding;
-}
-
-// ============================================================================
-// Default Config
-// ============================================================================
-
-const DEFAULT_BRANDING: BrandingConfig = {
+/** Template for branding.json - exported for reference/testing */
+export const DEFAULT_BRANDING: BrandingConfig = {
   version: '1.0.0',
   network: {
     name: 'MyNetwork',
@@ -215,20 +139,23 @@ function findConfigDir(): string {
     }
   }
 
+  // Return first location for error message in loadBrandingFile
   return locations[0];
 }
 
 function loadBrandingFile(): BrandingConfig {
-  const dir = configPath || findConfigDir();
+  const dir = configPath ?? findConfigDir();
   const brandingPath = join(dir, 'branding.json');
 
   if (!existsSync(brandingPath)) {
-    console.warn(`No branding.json found at ${brandingPath}, using defaults`);
-    return DEFAULT_BRANDING;
+    throw new Error(
+      `branding.json not found at ${brandingPath}. ` +
+      `Create it from the template or set config path with setConfigPath().`
+    );
   }
 
   const content = readFileSync(brandingPath, 'utf-8');
-  return JSON.parse(content) as BrandingConfig;
+  return BrandingConfigSchema.parse(JSON.parse(content));
 }
 
 /**

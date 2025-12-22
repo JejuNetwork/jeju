@@ -135,17 +135,27 @@ export class BotEngine extends EventEmitter {
    * Get overall bot stats
    */
   getStats(): BotStats {
+    const lastTrade = this.tradeHistory.length > 0 
+      ? this.tradeHistory[this.tradeHistory.length - 1]
+      : null;
+
     return {
       uptime: this.running ? Date.now() - this.startTime : 0,
       totalProfitUsd: this.totalProfit,
       totalTrades: this.totalTrades,
       successRate: this.calculateSuccessRate(),
       activeStrategies: this.config.enabledStrategies,
-      pendingOpportunities: this.crossChainArb?.getOpportunities().length ?? 0,
+      pendingOpportunities: this.crossChainArb 
+        ? this.crossChainArb.getOpportunities().length 
+        : 0,
       liquidityPositions: 0,
-      tfmmPoolsManaged: this.tfmmRebalancer?.getPools().length ?? 0,
-      lastTradeAt: this.tradeHistory[this.tradeHistory.length - 1]?.timestamp ?? 0,
-      lastWeightUpdate: this.tfmmRebalancer?.getStats().lastUpdateTime ?? 0,
+      tfmmPoolsManaged: this.tfmmRebalancer 
+        ? this.tfmmRebalancer.getPools().length 
+        : 0,
+      lastTradeAt: lastTrade ? lastTrade.timestamp : 0,
+      lastWeightUpdate: this.tfmmRebalancer 
+        ? this.tfmmRebalancer.getStats().lastUpdateTime 
+        : 0,
     };
   }
 
@@ -155,6 +165,7 @@ export class BotEngine extends EventEmitter {
   getStrategyStats(strategy: StrategyType): StrategyStats {
     const trades = this.tradeHistory.filter(t => t.strategy === strategy);
     const successfulTrades = trades.filter(t => t.success);
+    const lastTrade = trades.length > 0 ? trades[trades.length - 1] : null;
 
     return {
       type: strategy,
@@ -163,7 +174,7 @@ export class BotEngine extends EventEmitter {
       profitUsd: trades.reduce((sum, t) => sum + t.profitUsd, 0),
       trades: trades.length,
       successRate: trades.length > 0 ? successfulTrades.length / trades.length : 0,
-      lastActivity: trades[trades.length - 1]?.timestamp ?? 0,
+      lastActivity: lastTrade ? lastTrade.timestamp : 0,
     };
   }
 

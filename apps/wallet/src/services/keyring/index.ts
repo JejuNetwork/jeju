@@ -5,9 +5,11 @@
  */
 
 import type { Address, Hex } from 'viem';
-import { generateMnemonic, mnemonicToAccount, privateKeyToAccount, english } from 'viem/accounts';
+import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { generateMnemonic as generateBip39Mnemonic, validateMnemonic } from '@scure/bip39';
 import { wordlist } from '@scure/bip39/wordlists/english';
+import { z } from 'zod';
+import { expectJson } from '../../lib/validation';
 
 type AccountType = 'hd' | 'imported' | 'watch' | 'hardware' | 'smart';
 
@@ -64,17 +66,17 @@ class KeyringService {
 
   // Initialize keyring - must be called with password
   async unlock(password: string): Promise<boolean> {
-    try {
-      // Derive encryption key from password
-      this.sessionKey = await this.deriveKey(password);
-      this.isLocked = false;
-      
-      // Load accounts from storage
-      await this.loadAccounts();
-      return true;
-    } catch {
-      return false;
+    if (!password || password.length === 0) {
+      throw new Error('Password is required');
     }
+    
+    // Derive encryption key from password
+    this.sessionKey = await this.deriveKey(password);
+    this.isLocked = false;
+    
+    // Load accounts from storage
+    await this.loadAccounts();
+    return true;
   }
 
   lock() {
@@ -319,9 +321,6 @@ class KeyringService {
       if (!encryptedMnemonic) throw new Error('Mnemonic not found');
       
       const mnemonic = await this.decrypt(encryptedMnemonic, password);
-      const derivedAccount = mnemonicToAccount(mnemonic, { 
-        path: `${hdAccount.hdPath}/${hdAccount.index}` 
-      });
       
       // The account has a privateKey getter that returns the derived key
       // We need to use the HDAccount's method to get the private key
@@ -425,8 +424,25 @@ class KeyringService {
     // Load from Tauri secure storage in production
     const stored = localStorage.getItem('jeju-accounts');
     if (stored) {
-      const accounts = JSON.parse(stored) as Account[];
-      accounts.forEach(a => this.accounts.set(a.address, a));
+      // WalletAccountSchema is close enough to Account used here, but let's verify.
+      // The Account interface here is slightly different from WalletAccount in types.ts.
+      // Let's define a local schema for this specific Account interface or map it.
+      // Ideally we unify these types, but for now let's just validate against arrays of objects
+      // and trust the shape, or define a local Zod schema.
+      // Let's define a local one for safety.
+      
+      const AccountSchema = z.object({
+        address: z.string(), // We'll cast to Address later
+        type: z.enum(['hd', 'imported', 'watch', 'hardware', 'smart']),
+        name: z.string(),
+        hdPath: z.string().optional(),
+        index: z.number().optional(),
+        isDefault: z.boolean().optional(),
+        createdAt: z.number(),
+      });
+      
+      const accounts = expectJson(stored, z.array(AccountSchema), 'accounts');
+      accounts.forEach(a => this.accounts.set(a.address as Address, a as unknown as Account));
     }
   }
 

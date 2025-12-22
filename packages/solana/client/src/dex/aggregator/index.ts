@@ -218,23 +218,22 @@ export class SolanaDexAggregator {
     dex: DexType;
     positions: LPPosition[];
   }[]> {
+    const [raydiumPositions, meteoraPositions, orcaPositions] = await Promise.all([
+      this.raydium.getLPPositions(userPublicKey),
+      this.meteora.getLPPositions(userPublicKey),
+      this.orca.getLPPositions(userPublicKey),
+    ]);
+
     const results: { dex: DexType; positions: LPPosition[] }[] = [];
 
-    const positionPromises = [
-      { dex: 'raydium' as DexType, promise: this.raydium.getLPPositions(userPublicKey) },
-      { dex: 'meteora' as DexType, promise: this.meteora.getLPPositions(userPublicKey) },
-      { dex: 'orca' as DexType, promise: this.orca.getLPPositions(userPublicKey) },
-    ];
-
-    for (const { dex, promise } of positionPromises) {
-      try {
-        const positions = await promise;
-        if (positions.length > 0) {
-          results.push({ dex, positions });
-        }
-      } catch {
-        // Skip failed queries
-      }
+    if (raydiumPositions.length > 0) {
+      results.push({ dex: 'raydium', positions: raydiumPositions });
+    }
+    if (meteoraPositions.length > 0) {
+      results.push({ dex: 'meteora', positions: meteoraPositions });
+    }
+    if (orcaPositions.length > 0) {
+      results.push({ dex: 'orca', positions: orcaPositions });
     }
 
     return results;
@@ -266,12 +265,8 @@ export class SolanaDexAggregator {
   }
 
   async getBondingCurve(tokenMint: PublicKey): Promise<BondingCurveState | null> {
-    try {
-      const curveAddress = this.pumpswap.deriveBondingCurveAddress(tokenMint);
-      return await this.pumpswap.getBondingCurve(curveAddress);
-    } catch {
-      return null;
-    }
+    const curveAddress = this.pumpswap.deriveBondingCurveAddress(tokenMint);
+    return this.pumpswap.getBondingCurve(curveAddress);
   }
 
   async isBondingCurveToken(tokenMint: PublicKey): Promise<boolean> {
@@ -305,11 +300,7 @@ export class SolanaDexAggregator {
       return 1;
     }
 
-    try {
-      return await this.jupiter.getPrice(tokenMint, USDC, 1_000_000n);
-    } catch {
-      return 0;
-    }
+    return this.jupiter.getPrice(tokenMint, USDC, 1_000_000n);
   }
 
   async getTokenMarketData(tokenMint: PublicKey): Promise<{

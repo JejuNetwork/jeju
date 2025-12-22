@@ -16,7 +16,6 @@ import {
 	BridgeMechanism,
 	SUPPORTED_CHAINS,
 	type RouteRequest,
-	type RouterConfig,
 } from "../../src/router/cross-chain-router.js";
 
 describe("CrossChainRouter", () => {
@@ -299,7 +298,7 @@ describe("CrossChainRouter", () => {
 		});
 
 		it("should have RPC URLs for all chains", () => {
-			for (const [key, chain] of Object.entries(SUPPORTED_CHAINS)) {
+			for (const [_key, chain] of Object.entries(SUPPORTED_CHAINS)) {
 				expect(chain.rpcUrl).toBeDefined();
 				expect(chain.rpcUrl.length).toBeGreaterThan(0);
 			}

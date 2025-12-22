@@ -14,6 +14,7 @@ import clsx from 'clsx';
 
 export function Settings() {
   const { config, updateConfig, setNetwork, hardware } = useAppStore();
+  const [error, setError] = useState<string | null>(null);
   
   const [localConfig, setLocalConfig] = useState({
     start_minimized: config?.start_minimized ?? false,
@@ -26,18 +27,42 @@ export function Settings() {
 
   const handleSave = async () => {
     if (!config) return;
-    await updateConfig({
-      start_minimized: localConfig.start_minimized,
-      start_on_boot: localConfig.start_on_boot,
-      notifications_enabled: localConfig.notifications_enabled,
-      earnings: {
-        auto_claim: localConfig.auto_claim,
-        auto_claim_threshold_wei: (parseFloat(localConfig.auto_claim_threshold) * 1e18).toString(),
-        auto_claim_interval_hours: localConfig.auto_claim_interval,
-        auto_compound: config.earnings.auto_compound,
-        auto_stake_earnings: config.earnings.auto_stake_earnings,
-      },
-    });
+    setError(null);
+
+    // Validate inputs
+    if (localConfig.auto_claim) {
+      if (!/^\d+(\.\d+)?$/.test(localConfig.auto_claim_threshold)) {
+        setError('Invalid claim threshold');
+        return;
+      }
+      const threshold = parseFloat(localConfig.auto_claim_threshold);
+      if (threshold < 0) {
+        setError('Claim threshold cannot be negative');
+        return;
+      }
+
+      if (localConfig.auto_claim_interval < 1 || localConfig.auto_claim_interval > 168) {
+        setError('Check interval must be between 1 and 168 hours');
+        return;
+      }
+    }
+
+    try {
+      await updateConfig({
+        start_minimized: localConfig.start_minimized,
+        start_on_boot: localConfig.start_on_boot,
+        notifications_enabled: localConfig.notifications_enabled,
+        earnings: {
+          auto_claim: localConfig.auto_claim,
+          auto_claim_threshold_wei: (parseFloat(localConfig.auto_claim_threshold) * 1e18).toString(),
+          auto_claim_interval_hours: localConfig.auto_claim_interval,
+          auto_compound: config.earnings.auto_compound,
+          auto_stake_earnings: config.earnings.auto_stake_earnings,
+        },
+      });
+    } catch (e) {
+      setError(String(e));
+    }
   };
 
   const networks = [
@@ -165,8 +190,11 @@ export function Settings() {
                 <input
                   type="number"
                   value={localConfig.auto_claim_threshold}
-                  onChange={(e) => setLocalConfig({ ...localConfig, auto_claim_threshold: e.target.value })}
-                  className="input"
+                  onChange={(e) => {
+                    setLocalConfig({ ...localConfig, auto_claim_threshold: e.target.value });
+                    setError(null);
+                  }}
+                  className={clsx('input', error && error.includes('threshold') && 'border-red-500 focus:border-red-500')}
                   step="0.1"
                   min="0"
                 />
@@ -180,8 +208,11 @@ export function Settings() {
                 <input
                   type="number"
                   value={localConfig.auto_claim_interval}
-                  onChange={(e) => setLocalConfig({ ...localConfig, auto_claim_interval: parseInt(e.target.value) })}
-                  className="input"
+                  onChange={(e) => {
+                    setLocalConfig({ ...localConfig, auto_claim_interval: parseInt(e.target.value) });
+                    setError(null);
+                  }}
+                  className={clsx('input', error && error.includes('interval') && 'border-red-500 focus:border-red-500')}
                   min="1"
                   max="168"
                 />
@@ -288,7 +319,8 @@ export function Settings() {
       </div>
 
       {/* Save Button */}
-      <div className="flex justify-end">
+      <div className="flex flex-col items-end gap-2">
+        {error && <p className="text-sm text-red-400">{error}</p>}
         <button onClick={handleSave} className="btn-primary px-8">
           Save Settings
         </button>

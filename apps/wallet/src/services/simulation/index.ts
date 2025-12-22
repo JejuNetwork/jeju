@@ -99,7 +99,6 @@ export interface SimulationResult {
   
   // Raw data for debugging
   logs: { address: Address; topics: Hex[]; data: Hex }[];
-  trace?: unknown;
 }
 
 export interface TransactionToSimulate {
@@ -114,10 +113,6 @@ export interface TransactionToSimulate {
   maxPriorityFeePerGas?: bigint;
 }
 
-// Common token ABIs for decoding
-const ERC20_TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
-const ERC20_APPROVAL_TOPIC = '0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925';
-const ERC721_TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
 
 // Known contract names
 const KNOWN_CONTRACTS: Record<string, string> = {
@@ -334,7 +329,7 @@ class SimulationService {
    * Analyze contract
    */
   private async analyzeContract(
-    chainId: SupportedChainId,
+    _chainId: SupportedChainId,
     address: Address,
     method?: string
   ): Promise<ContractInteraction> {
@@ -355,16 +350,12 @@ class SimulationService {
    */
   private async getTokenSymbol(chainId: SupportedChainId, address: Address): Promise<string> {
     const client = rpcService.getClient(chainId);
-    try {
-      const symbol = await client.readContract({
-        address,
-        abi: [{ name: 'symbol', type: 'function', inputs: [], outputs: [{ type: 'string' }] }],
-        functionName: 'symbol',
-      });
-      return symbol as string;
-    } catch {
-      return 'UNKNOWN';
-    }
+    const symbol = await client.readContract({
+      address,
+      abi: [{ name: 'symbol', type: 'function', inputs: [], outputs: [{ type: 'string' }] }],
+      functionName: 'symbol',
+    });
+    return symbol as string;
   }
   
   /**
@@ -372,16 +363,12 @@ class SimulationService {
    */
   private async getTokenDecimals(chainId: SupportedChainId, address: Address): Promise<number> {
     const client = rpcService.getClient(chainId);
-    try {
-      const decimals = await client.readContract({
-        address,
-        abi: [{ name: 'decimals', type: 'function', inputs: [], outputs: [{ type: 'uint8' }] }],
-        functionName: 'decimals',
-      });
-      return Number(decimals);
-    } catch {
-      return 18;
-    }
+    const decimals = await client.readContract({
+      address,
+      abi: [{ name: 'decimals', type: 'function', inputs: [], outputs: [{ type: 'uint8' }] }],
+      functionName: 'decimals',
+    });
+    return Number(decimals);
   }
   
   /**
@@ -402,7 +389,7 @@ class SimulationService {
    */
   private assessRisk(
     result: SimulationResult,
-    tx: TransactionToSimulate
+    _tx: TransactionToSimulate
   ): SimulationResult['risk'] {
     const risk: SimulationResult['risk'] = {
       level: 'safe',

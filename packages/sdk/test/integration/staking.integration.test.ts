@@ -7,7 +7,7 @@
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { createJejuClient, type JejuClient } from "../../src";
 import { privateKeyToAccount } from "viem/accounts";
-import { parseEther } from "viem";
+// viem utilities available if needed
 import { setupTestEnvironment, teardownTestEnvironment } from "../setup";
 
 describe("Staking Module Integration Tests", () => {
@@ -31,11 +31,11 @@ describe("Staking Module Integration Tests", () => {
       rpcUrl: env.rpcUrl,
       smartAccount: false,
     });
-  }, 90000);
+  });
 
   afterAll(async () => {
     await teardownTestEnvironment();
-  }, 10000);
+  });
 
   describe("Constants", () => {
     test("MIN_STAKE is defined", () => {

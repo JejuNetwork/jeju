@@ -5,7 +5,7 @@
 
 import type { Address, Hex } from 'viem';
 import * as jeju from '../jeju';
-import { SupportedChainId, SUPPORTED_CHAINS } from '../rpc';
+import { SupportedChainId } from '../rpc';
 
 export interface NFT {
   contractAddress: Address;
@@ -116,7 +116,7 @@ class NFTService {
 
   // Transfer NFT (returns tx data, doesn't send)
   buildTransfer(
-    chainId: SupportedChainId,
+    _chainId: SupportedChainId,
     contractAddress: Address,
     tokenId: bigint,
     from: Address,

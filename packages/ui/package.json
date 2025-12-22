@@ -44,18 +44,18 @@
   "dependencies": {
     "@jejunetwork/sdk": "workspace:*",
     "@jejunetwork/types": "workspace:*",
-    "viem": "2.41.2"
+    "viem": "2.43.2"
   },
   "peerDependencies": {
     "react": ">=18.0.0",
-    "zod": ">=3.22.4"
+    "zod": ">=4.0.0"
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "@types/react": "19.0.0",
-    "typescript": "5.7.3",
+    "@types/react": "19.2.3",
+    "typescript": "5.9.3",
     "prettier": "3.5.3",
-    "react": "19.0.0"
+    "react": "19.2.3"
   },
   "publishConfig": {
     "access": "public"

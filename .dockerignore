@@ -25,8 +25,11 @@ npm-debug.log*
 
 # Build artifacts
 **/target
-**/cache
 **/.turbo
+# Ignore cache directories except app source code
+**/node_modules/**/.cache
+packages/contracts/cache
+.next/cache
 
 # Environment files (keep .env.example)
 .env

@@ -13,6 +13,8 @@ const tryAggregate = fun('0xbce38bd7', "tryAggregate(bool,(address,bytes)[])", {
   calls: p.array(p.struct({target: p.address, callData: p.bytes}))
 }, p.array(p.struct({success: p.bool, returnData: p.bytes})))
 
+// AbiFunction generic types require `any` for the polymorphic multicall pattern
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type MulticallResult<T extends AbiFunction<any, any>> = {
   success: true
   value: FunctionReturn<T>
@@ -22,6 +24,8 @@ export type MulticallResult<T extends AbiFunction<any, any>> = {
   value?: undefined
 }
 
+// AnyFunc is intentionally using `any` to support polymorphic function signatures
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyFunc = AbiFunction<any, any>
 type AggregateTuple<T extends AnyFunc = AnyFunc> = [func: T, address: string, args: T extends AnyFunc ? FunctionArguments<T> : never]
 type Call = {target: string, callData: string}
@@ -46,8 +50,11 @@ export class Multicall extends ContractBase {
   aggregate(
     calls: AggregateTuple[],
     paging?: number
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ): Promise<any[]>
 
+  // Variadic function requires `any[]` for the implementation signature
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async aggregate(...args: any[]): Promise<any[]> {
     let [calls, funcs, page] = this.makeCalls(args)
     let size = calls.length
@@ -78,8 +85,11 @@ export class Multicall extends ContractBase {
   tryAggregate(
     calls: AggregateTuple[],
     paging?: number
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ): Promise<MulticallResult<any>[]>
 
+  // Variadic function requires `any[]` for the implementation signature
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async tryAggregate(...args: any[]): Promise<any[]> {
     let [calls, funcs, page] = this.makeCalls(args)
     let size = calls.length
@@ -108,41 +118,44 @@ export class Multicall extends ContractBase {
     return results
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private makeCalls(args: any[]): [calls: Call[], funcs: AnyFunc[], page: number] {
     let page = typeof args[args.length - 1] == 'number' ? args.pop()! : Number.MAX_SAFE_INTEGER
     switch (args.length) {
       case 1: {
-        let list: AggregateTuple[] = args[0]
-        let calls: Call[] = new Array(list.length)
-        let funcs = new Array(list.length)
+        const list: AggregateTuple[] = args[0]
+        const calls: Call[] = new Array(list.length)
+        const funcs = new Array(list.length)
         for (let i = 0; i < list.length; i++) {
-          let [func, address, args] = list[i]
-          calls[i] = {target: address, callData: func.encode(args)}
+          const [func, address, fnArgs] = list[i]
+          calls[i] = {target: address, callData: func.encode(fnArgs)}
           funcs[i] = func
         }
         return [calls, funcs, page]
       }
       case 2: {
-        let func: AnyFunc = args[0]
-        let list: [address: string, args: any][] = args[1]
-        let calls: Call[] = new Array(list.length)
-        let funcs = new Array(list.length)
+        const func: AnyFunc = args[0]
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const list: [address: string, fnArgs: any][] = args[1]
+        const calls: Call[] = new Array(list.length)
+        const funcs = new Array(list.length)
         for (let i = 0; i < list.length; i++) {
-          let [address, args] = list[i]
-          calls[i] = {target: address, callData: func.encode(args)}
+          const [address, fnArgs] = list[i]
+          calls[i] = {target: address, callData: func.encode(fnArgs)}
           funcs[i] = func
         }
         return [calls, funcs, page]
       }
       case 3: {
-        let func: AnyFunc = args[0]
-        let address: string = args[1]
-        let list: any = args[2]
-        let calls: Call[] = new Array(list.length)
-        let funcs = new Array(list.length)
+        const func: AnyFunc = args[0]
+        const address: string = args[1]
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const list: any[] = args[2]
+        const calls: Call[] = new Array(list.length)
+        const funcs = new Array(list.length)
         for (let i = 0; i < list.length; i++) {
-          let args = list[i]
-          calls[i] = {target: address, callData: func.encode(args)}
+          const fnArgs = list[i]
+          calls[i] = {target: address, callData: func.encode(fnArgs)}
           funcs[i] = func
         }
         return [calls, funcs, page]

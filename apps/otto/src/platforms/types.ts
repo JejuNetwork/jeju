@@ -43,7 +43,7 @@ export interface PlatformAdapter {
   /** Register slash commands (Discord-specific but useful to have in interface) */
   registerCommands?(): Promise<void>;
   
-  /** Handle webhook payload */
+  /** Handle webhook payload (already validated by server.ts) */
   handleWebhook?(payload: unknown): Promise<void>;
   
   /** Set the message handler callback */

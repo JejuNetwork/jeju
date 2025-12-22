@@ -12,7 +12,6 @@
 import { EventEmitter } from 'events';
 import { type Address, type Hex, formatUnits, parseUnits } from 'viem';
 
-const ZERO_HASH = '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex;
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
 import { CrossChainRouter, type RouterConfig } from './cross-chain-router.js';
 import { WormholeAdapter, type WormholeConfig } from './wormhole-adapter.js';
@@ -297,6 +296,7 @@ export class MultiBridgeRouter extends EventEmitter {
    */
   private getAdjustedReliability(provider: BridgeProvider, baseReliability: number): number {
     const stats = this.successRates.get(provider);
+    // Need at least 10 samples for meaningful historical data
     if (!stats || stats.total < 10) {
       return baseReliability;
     }
@@ -587,18 +587,22 @@ export class MultiBridgeRouter extends EventEmitter {
       const successStats = this.successRates.get(provider);
       const times = this.avgExecutionTimes.get(provider);
 
+      // Default to 100% success rate for new providers with no history
       const successRate = successStats && successStats.total > 0
         ? (successStats.success / successStats.total) * 100
         : 100;
 
+      // Use historical avg time if available, otherwise use default characteristics
+      const characteristics = BRIDGE_CHARACTERISTICS[provider];
+      const defaultTime = characteristics?.avgTimeSeconds ?? 600;  // 10 min default
       const avgTime = times && times.length > 0
         ? times.reduce((a, b) => a + b, 0) / times.length
-        : BRIDGE_CHARACTERISTICS[provider]?.avgTimeSeconds || 0;
+        : defaultTime;
 
       stats[provider] = {
         successRate,
         avgExecutionTimeSeconds: avgTime,
-        totalTransfers: successStats?.total || 0,
+        totalTransfers: successStats?.total ?? 0,
       };
     }
 
@@ -616,12 +620,13 @@ export class MultiBridgeRouter extends EventEmitter {
     const routes = await this.findRoutes({
       sourceChainId,
       destChainId,
-      token: token || ZERO_ADDRESS,
+      token: token ?? ZERO_ADDRESS,  // Token is optional for route discovery
       amount: parseUnits('1000', 18),
       recipient: ZERO_ADDRESS,
     });
 
-    return routes[0]?.provider || null;
+    // Return null if no routes available
+    return routes[0]?.provider ?? null;
   }
 }
 

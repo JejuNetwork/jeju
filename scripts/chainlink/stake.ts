@@ -3,7 +3,7 @@
  * Usage: bun run scripts/chainlink/stake.ts [status|stake|unstake|claim] [--amount N]
  */
 
-import { createPublicClient, createWalletClient, http, type Address, type Hex, parseEther, formatEther, parseAbi, decodeEventLog } from 'viem';
+import { createPublicClient, createWalletClient, http, type Hex, parseEther, formatEther, parseAbi, decodeEventLog } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { mainnet } from 'viem/chains';
 import { parseArgs } from 'util';

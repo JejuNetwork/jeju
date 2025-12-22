@@ -1,10 +1,43 @@
 import { z } from 'zod';
+import { NetworkSchema, type NetworkType } from './chain';
+
+// Re-export NetworkSchema as Environment for backward compatibility
+export { NetworkSchema as EnvironmentSchema };
+export type Environment = NetworkType;
+
+// ============ Deployment & Infrastructure Status Types ============
+
+/**
+ * Deployment status for containers, workers, and infrastructure
+ * Consolidates deployment status definitions across the codebase
+ */
+export const DeploymentStatusSchema = z.enum([
+  'pending',    // Waiting to start
+  'building',   // Building image/bundle
+  'deploying',  // Deploying to infrastructure
+  'running',    // Successfully running
+  'stopped',    // Stopped (not failed)
+  'error',      // Deployment failed
+]);
+export type DeploymentStatus = z.infer<typeof DeploymentStatusSchema>;
+
+/**
+ * Worker status (similar to DeploymentStatus but worker-specific)
+ * Consolidates worker status definitions
+ */
+export const WorkerStatusSchema = z.enum([
+  'pending',    // Waiting to start
+  'deploying',  // Currently deploying
+  'active',     // Running and accepting requests
+  'inactive',   // Stopped but not failed
+  'error',      // Worker failed
+]);
+export type WorkerStatus = z.infer<typeof WorkerStatusSchema>;
+
+// ============ Cloud Provider Types ============
 
 export const CloudProviderSchema = z.enum(['aws', 'gcp', 'azure']);
 export type CloudProvider = z.infer<typeof CloudProviderSchema>;
-
-export const EnvironmentSchema = z.enum(['localnet', 'testnet', 'mainnet']);
-export type Environment = z.infer<typeof EnvironmentSchema>;
 
 export const AWSConfigSchema = z.object({
   region: z.string(),
@@ -56,13 +89,36 @@ export const KubernetesNamespaceSchema = z.object({
 });
 export type KubernetesNamespace = z.infer<typeof KubernetesNamespaceSchema>;
 
+/**
+ * Helm chart value types - JSON-serializable values only
+ * Supports nested objects but with strongly typed leaves
+ */
+const HelmValuePrimitiveSchema = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  z.null(),
+]);
+
+// Define a recursive type for Helm values
+type HelmValue = string | number | boolean | null | HelmValue[] | { [key: string]: HelmValue };
+
+const HelmValueSchema: z.ZodType<HelmValue> = z.lazy(() =>
+  z.union([
+    HelmValuePrimitiveSchema,
+    z.array(HelmValueSchema),
+    z.record(z.string(), HelmValueSchema),
+  ])
+);
+
 export const HelmReleaseSchema = z.object({
   name: z.string(),
   namespace: z.string(),
   chart: z.string(),
   version: z.string(),
   repository: z.string().optional(),
-  values: z.record(z.string(), z.unknown()),
+  /** Helm chart values - supports nested objects/arrays with JSON-serializable leaves */
+  values: z.record(z.string(), HelmValueSchema),
   dependencies: z.array(z.string()).optional(),
 });
 export type HelmRelease = z.infer<typeof HelmReleaseSchema>;

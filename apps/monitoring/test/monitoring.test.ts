@@ -8,33 +8,21 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { $ } from 'bun';
 import { fileURLToPath } from 'url';
+import {
+  GrafanaHealthSchema,
+  PrometheusTargetsResponseSchema,
+  GrafanaDataSourceSchema,
+  type GrafanaHealth,
+  type PrometheusTargetsResponse,
+  type GrafanaDataSource,
+} from '../types';
+import { z } from 'zod';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const GRAFANA_PORT = parseInt(process.env.GRAFANA_PORT || '4010');
 const PROMETHEUS_PORT = parseInt(process.env.PROMETHEUS_PORT || '9090');
-
-interface GrafanaHealth {
-  database: string;
-}
-
-interface PrometheusTarget {
-  health: string;
-  labels: Record<string, string>;
-}
-
-interface PrometheusTargetsResponse {
-  status: string;
-  data: {
-    activeTargets: PrometheusTarget[];
-  };
-}
-
-interface GrafanaDataSource {
-  type: string;
-  name: string;
-}
 
 let grafanaAvailable = false;
 let prometheusAvailable = false;
@@ -186,7 +174,7 @@ describe('Monitoring Stack', () => {
       expect(true).toBe(true);
       return;
     }
-    const data = JSON.parse(text) as PrometheusTargetsResponse;
+    const data = PrometheusTargetsResponseSchema.parse(JSON.parse(text));
     expect(data.status).toBe('success');
     expect(data.data).toBeDefined();
   });
@@ -210,7 +198,7 @@ describe('Monitoring Stack', () => {
       expect(true).toBe(true);
       return;
     }
-    const data = JSON.parse(text) as PrometheusTargetsResponse;
+    const data = PrometheusTargetsResponseSchema.parse(JSON.parse(text));
     
     console.log(`   📊 Found ${data.data.activeTargets.length} active targets`);
     expect(Array.isArray(data.data.activeTargets)).toBe(true);
@@ -235,7 +223,7 @@ describe('Monitoring Stack', () => {
       expect(true).toBe(true);
       return;
     }
-    const health = JSON.parse(text) as GrafanaHealth;
+    const health = GrafanaHealthSchema.parse(JSON.parse(text));
     expect(health.database).toBe('ok');
   });
 
@@ -263,14 +251,7 @@ describe('Monitoring Stack', () => {
       expect(true).toBe(true);
       return;
     }
-    let datasources: GrafanaDataSource[];
-    try {
-      datasources = JSON.parse(text) as GrafanaDataSource[];
-    } catch (error) {
-      console.log(`⚠️  Failed to parse Grafana response: ${error instanceof Error ? error.message : String(error)}`);
-      expect(true).toBe(true);
-      return;
-    }
+    const datasources = z.array(GrafanaDataSourceSchema).parse(JSON.parse(text));
     expect(Array.isArray(datasources)).toBe(true);
     console.log(`   📊 Found ${datasources.length} datasources`);
     
@@ -327,14 +308,7 @@ describe('Grafana API Validation', () => {
       expect(true).toBe(true);
       return;
     }
-    let datasources: GrafanaDataSource[];
-    try {
-      datasources = JSON.parse(text) as GrafanaDataSource[];
-    } catch (error) {
-      console.log(`⚠️  Failed to parse Grafana response: ${error instanceof Error ? error.message : String(error)}`);
-      expect(true).toBe(true);
-      return;
-    }
+    const datasources = z.array(GrafanaDataSourceSchema).parse(JSON.parse(text));
     const hasPrometheus = datasources.some((ds) => ds.type === 'prometheus');
     
     if (hasPrometheus) {
@@ -369,14 +343,7 @@ describe('Grafana API Validation', () => {
       expect(true).toBe(true);
       return;
     }
-    let datasources: GrafanaDataSource[];
-    try {
-      datasources = JSON.parse(text) as GrafanaDataSource[];
-    } catch (error) {
-      console.log(`⚠️  Failed to parse Grafana response: ${error instanceof Error ? error.message : String(error)}`);
-      expect(true).toBe(true);
-      return;
-    }
+    const datasources = z.array(GrafanaDataSourceSchema).parse(JSON.parse(text));
     const hasPostgres = datasources.some((ds) => ds.type === 'postgres');
     
     if (hasPostgres) {
@@ -412,14 +379,7 @@ describe('Grafana API Validation', () => {
       expect(true).toBe(true);
       return;
     }
-    let dashboards: Array<{ title: string }>;
-    try {
-      dashboards = JSON.parse(text) as Array<{ title: string }>;
-    } catch (error) {
-      console.log(`⚠️  Failed to parse Grafana response: ${error instanceof Error ? error.message : String(error)}`);
-      expect(true).toBe(true);
-      return;
-    }
+    const dashboards = z.array(z.object({ title: z.string() })).parse(JSON.parse(text));
     console.log(`   📊 Found ${dashboards.length} dashboards in Grafana`);
     
     // Check dashboard files exist

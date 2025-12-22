@@ -17,7 +17,21 @@ import { join } from "node:path";
 import { spawn } from "bun";
 import type { Groth16Proof, Hash32, SP1Proof } from "../types/index.js";
 import { toHash32 } from "../types/index.js";
-import { createLogger } from "../utils/logger.js";
+import { createLogger, ProofDataSchema, Groth16DataSchema, getHomeDir, SuccinctProveResponseSchema } from "../utils/index.js";
+
+/** Type for proof data parsed from JSON */
+interface ProofDataParsed {
+	proof: string;
+	public_inputs: string;
+	vkey_hash: string;
+}
+
+/** Type for groth16 data parsed from JSON */
+interface Groth16DataParsed {
+	a: [string, string];
+	b: [[string, string], [string, string]];
+	c: [string, string];
+}
 
 const log = createLogger("sp1");
 
@@ -40,15 +54,62 @@ export interface SP1Config {
 	workers?: number;
 }
 
+/** Proof type discriminant */
+export type ProofType =
+	| "solana_consensus"
+	| "ethereum_consensus"
+	| "token_transfer"
+	| "batch_transfer";
+
+/** Solana consensus proof inputs */
+export interface SolanaConsensusInputs {
+	slot: bigint;
+	bankHash: Hash32;
+	votes: Array<{ validator: Uint8Array; signature: Uint8Array }>;
+	epochStakes: Map<string, bigint>;
+}
+
+/** Ethereum consensus proof inputs */
+export interface EthereumConsensusInputs {
+	slot: bigint;
+	stateRoot: Hash32;
+	syncCommitteeRoot: Hash32;
+	signatures: Uint8Array[];
+}
+
+/** Token transfer proof inputs */
+export interface TokenTransferInputs {
+	transferId: Hash32;
+	sourceChainId: number;
+	destChainId: number;
+	sender: Uint8Array;
+	recipient: Uint8Array;
+	amount: bigint;
+	stateRoot: Hash32;
+}
+
+/** Batch transfer proof inputs */
+export interface BatchTransferInputs {
+	batchId: Hash32;
+	transfers: Array<{
+		transferId: Hash32;
+		amount: bigint;
+	}>;
+	stateRoot: Hash32;
+}
+
+/** Union type for all proof inputs */
+export type ProofInputs =
+	| SolanaConsensusInputs
+	| EthereumConsensusInputs
+	| TokenTransferInputs
+	| BatchTransferInputs;
+
 export interface ProofRequest {
 	/** Type of proof to generate */
-	type:
-		| "solana_consensus"
-		| "ethereum_consensus"
-		| "token_transfer"
-		| "batch_transfer";
+	type: ProofType;
 	/** Input data for the proof */
-	inputs: unknown;
+	inputs: ProofInputs;
 	/** Priority (higher = faster) */
 	priority?: number;
 }
@@ -239,9 +300,10 @@ export class SP1Client {
 		}
 
 		// Check for sp1 CLI in common paths
+		const home = getHomeDir();
 		const sp1Paths = [
-			join(process.env.HOME ?? "", ".sp1", "bin", "sp1"),
-			join(process.env.HOME ?? "", ".cargo", "bin", "sp1"),
+			join(home, ".sp1", "bin", "sp1"),
+			join(home, ".cargo", "bin", "sp1"),
 		];
 
 		for (const sp1Path of sp1Paths) {
@@ -320,7 +382,10 @@ export class SP1Client {
 		}
 
 		// Now run the prover
-		const programName = programPath.split("/").pop() ?? "program";
+		const programName = programPath.split("/").pop();
+		if (!programName) {
+			throw new Error(`Invalid program path: ${programPath}`);
+		}
 		const proc = spawn({
 			cmd: [
 				cargoProvePath,
@@ -373,6 +438,9 @@ export class SP1Client {
 		request: ProofRequest,
 		startTime: number,
 	): Promise<ProofResult> {
+		const timeout = this.config.timeoutMs ?? 600000;
+		const priority = request.priority ?? 5;  // Default priority is intentional for API
+		
 		const response = await fetch("https://prover.succinct.xyz/api/v1/prove", {
 			method: "POST",
 			headers: {
@@ -382,9 +450,9 @@ export class SP1Client {
 			body: JSON.stringify({
 				program_id: `evmsol_${request.type}`,
 				inputs: request.inputs,
-				priority: request.priority ?? 5,
+				priority,
 			}),
-			signal: AbortSignal.timeout(this.config.timeoutMs ?? 600000),
+			signal: AbortSignal.timeout(timeout),
 		});
 
 		if (!response.ok) {
@@ -401,20 +469,18 @@ export class SP1Client {
 			};
 		}
 
-		const result = (await response.json()) as {
-			proof: string;
-			groth16: {
-				a: string[];
-				b: string[][];
-				c: string[];
-			};
-		};
+		const json = await response.json();
+		const result = SuccinctProveResponseSchema.parse(json);
 
 		return {
 			id,
 			type: request.type,
 			proof: this.parseProof(result.proof),
-			groth16: this.parseGroth16(result.groth16),
+			groth16: this.parseGroth16({
+				a: result.groth16.a as [string, string],
+				b: result.groth16.b as [[string, string], [string, string]],
+				c: result.groth16.c as [string, string],
+			}),
 			generationTimeMs: Date.now() - startTime,
 			success: true,
 		};
@@ -489,7 +555,10 @@ export class SP1Client {
 			token_transfer: "token-transfer",
 			batch_transfer: "token-transfer",
 		};
-		const programName = programMap[type] ?? "unknown";
+		const programName = programMap[type];
+		if (!programName) {
+			throw new Error(`Unknown proof type: ${type}`);
+		}
 		// Return program directory for cargo prove
 		return join(this.config.programsDir, programName);
 	}
@@ -498,9 +567,10 @@ export class SP1Client {
 	 * Get the path to cargo-prove binary
 	 */
 	private getCargoProvePath(): string {
+		const home = getHomeDir();
 		const paths = [
-			join(process.env.HOME ?? "", ".sp1", "bin", "cargo-prove"),
-			join(process.env.HOME ?? "", ".cargo", "bin", "cargo-prove"),
+			join(home, ".sp1", "bin", "cargo-prove"),
+			join(home, ".cargo", "bin", "cargo-prove"),
 		];
 
 		for (const p of paths) {
@@ -509,12 +579,16 @@ export class SP1Client {
 			}
 		}
 
-		return "cargo-prove"; // Hope it's in PATH
+		// Fall back to PATH - this is legitimate since cargo-prove may be installed globally
+		return "cargo-prove";
 	}
 
-	private parseProof(proofData: unknown): SP1Proof {
+	private parseProof(proofData: string | ProofDataParsed): SP1Proof {
 		if (typeof proofData === "string") {
 			const bytes = Buffer.from(proofData, "hex");
+			if (bytes.length < 352) {
+				throw new Error(`Invalid proof data: expected at least 352 bytes, got ${bytes.length}`);
+			}
 			return {
 				proof: bytes.slice(0, 256),
 				publicInputs: bytes.slice(256, 320),
@@ -522,38 +596,23 @@ export class SP1Client {
 			};
 		}
 
-		const p = proofData as {
-			proof?: string;
-			public_inputs?: string;
-			vkey_hash?: string;
-		};
+		const parsed = ProofDataSchema.parse(proofData);
 		return {
-			proof: Buffer.from(p.proof ?? "", "hex"),
-			publicInputs: Buffer.from(p.public_inputs ?? "", "hex"),
-			vkeyHash: toHash32(Buffer.from(p.vkey_hash ?? "00".repeat(32), "hex")),
+			proof: Buffer.from(parsed.proof, "hex"),
+			publicInputs: Buffer.from(parsed.public_inputs, "hex"),
+			vkeyHash: toHash32(Buffer.from(parsed.vkey_hash, "hex")),
 		};
 	}
 
-	private parseGroth16(groth16Data: unknown): Groth16Proof {
-		if (!groth16Data) return this.emptyGroth16();
-
-		const g = groth16Data as { a?: string[]; b?: string[][]; c?: string[] };
-		const aArr = (g.a ?? ["0", "0"]).map(BigInt);
-		const bArr = (
-			g.b ?? [
-				["0", "0"],
-				["0", "0"],
-			]
-		).map((arr) => arr.map(BigInt));
-		const cArr = (g.c ?? ["0", "0"]).map(BigInt);
-
+	private parseGroth16(groth16Data: Groth16DataParsed): Groth16Proof {
+		const parsed = Groth16DataSchema.parse(groth16Data);
 		return {
-			a: [aArr[0] ?? BigInt(0), aArr[1] ?? BigInt(0)],
+			a: [BigInt(parsed.a[0]), BigInt(parsed.a[1])],
 			b: [
-				[bArr[0]?.[0] ?? BigInt(0), bArr[0]?.[1] ?? BigInt(0)],
-				[bArr[1]?.[0] ?? BigInt(0), bArr[1]?.[1] ?? BigInt(0)],
+				[BigInt(parsed.b[0][0]), BigInt(parsed.b[0][1])],
+				[BigInt(parsed.b[1][0]), BigInt(parsed.b[1][1])],
 			],
-			c: [cArr[0] ?? BigInt(0), cArr[1] ?? BigInt(0)],
+			c: [BigInt(parsed.c[0]), BigInt(parsed.c[1])],
 		};
 	}
 
@@ -584,12 +643,15 @@ export class SP1Client {
 export function createSP1Client(config?: Partial<SP1Config>): SP1Client {
 	const programsDir = config?.programsDir ?? join(process.cwd(), "circuits");
 
+	// These defaults are intentional for local development convenience
+	const useMock = config?.useMock ?? !existsSync(programsDir);
+	const useSuccinctNetwork = config?.useSuccinctNetwork ?? Boolean(process.env.SUCCINCT_API_KEY);
+	
 	return new SP1Client({
 		programsDir,
-		useMock: config?.useMock ?? !existsSync(programsDir),
+		useMock,
 		timeoutMs: config?.timeoutMs ?? 600000,
-		useSuccinctNetwork:
-			config?.useSuccinctNetwork ?? Boolean(process.env.SUCCINCT_API_KEY),
+		useSuccinctNetwork,
 		succinctApiKey: config?.succinctApiKey ?? process.env.SUCCINCT_API_KEY,
 		workers: config?.workers ?? 2,
 	});

@@ -11,6 +11,7 @@ import {
 } from "@elizaos/core";
 import { getNetworkName } from "@jejunetwork/config";
 import { JEJU_SERVICE_NAME, type JejuService } from "../service";
+import { validateProvider } from "../validation";
 
 const networkName = getNetworkName();
 
@@ -40,15 +41,27 @@ export const jejuComputeProvider: Provider = {
       gpuType: "NVIDIA_H100",
     });
     const myRentals = await client.compute.listMyRentals();
-    const activeRentals = myRentals.filter((r) => r.status === "ACTIVE");
+    const activeRentals = myRentals.filter(
+      (r: { status: string }) => r.status === "ACTIVE",
+    );
 
     const text = `Available GPU Providers: ${providers.length}
 Active Rentals: ${activeRentals.length}
 ${providers
   .slice(0, 3)
   .map(
-    (p) =>
-      `- ${p.name}: ${p.resources?.gpuType} x${p.resources?.gpuCount} @ ${p.pricing?.pricePerHourFormatted} ETH/hr`,
+    (p: {
+      name: string;
+      address: string;
+      resources?: { gpuType?: string; gpuCount?: number };
+      pricing?: {
+        pricePerHour?: bigint | number;
+        pricePerHourFormatted?: string;
+      };
+    }) => {
+      const validated = validateProvider(p);
+      return `- ${validated.name}: ${validated.resources.gpuType} x${validated.resources.gpuCount} @ ${validated.pricing.pricePerHourFormatted ?? "N/A"} ETH/hr`;
+    },
   )
   .join("\n")}`;
 

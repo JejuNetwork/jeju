@@ -4,8 +4,46 @@ import {
   type PublicClient,
   type Address,
 } from 'viem';
+import { z } from 'zod';
 import type { NetworkInfo, FederatedSolver, NetworkLiquidity, DiscoveryConfig } from './types';
 import { NETWORK_REGISTRY_ABI, FEDERATED_SOLVER_ABI, FEDERATED_LIQUIDITY_ABI } from './abis';
+
+// Zod schemas for validating contract responses
+const NetworkContractsSchema = z.object({
+  identityRegistry: z.string(),
+  solverRegistry: z.string(),
+  inputSettler: z.string(),
+  outputSettler: z.string(),
+  liquidityVault: z.string(),
+  governance: z.string(),
+  oracle: z.string(),
+});
+
+const NetworkInfoSchema = z.object({
+  chainId: z.union([z.number(), z.bigint()]).transform(v => Number(v)),
+  name: z.string(),
+  rpcUrl: z.string(),
+  explorerUrl: z.string(),
+  wsUrl: z.string(),
+  operator: z.string(),
+  contracts: NetworkContractsSchema,
+  genesisHash: z.string(),
+  registeredAt: z.union([z.number(), z.bigint()]).transform(v => Number(v)),
+  stake: z.bigint(),
+  isActive: z.boolean(),
+  isVerified: z.boolean(),
+});
+
+const FederatedSolverSchema = z.object({
+  solverAddress: z.string(),
+  homeChainId: z.union([z.number(), z.bigint()]).transform(v => Number(v)),
+  supportedChains: z.array(z.union([z.number(), z.bigint()])).transform(v => v.map(c => Number(c))),
+  totalStake: z.bigint(),
+  totalFills: z.union([z.number(), z.bigint()]).transform(v => Number(v)),
+  successfulFills: z.union([z.number(), z.bigint()]).transform(v => Number(v)),
+  federatedAt: z.union([z.number(), z.bigint()]).transform(v => Number(v)),
+  isActive: z.boolean(),
+});
 
 interface CacheEntry<T> {
   data: T;
@@ -76,11 +114,15 @@ export class FederationDiscovery {
       abi: NETWORK_REGISTRY_ABI,
       functionName: 'getNetwork',
       args: [BigInt(chainId)],
-    }).catch(() => null);
+    });
 
-    if (!result) return null;
+    const parsed = NetworkInfoSchema.safeParse(result);
+    if (!parsed.success) {
+      console.error(`[Federation] Invalid network data for chain ${chainId}:`, parsed.error);
+      return null;
+    }
 
-    const network = result as unknown as NetworkInfo;
+    const network = parsed.data as NetworkInfo;
     this.setCache(cacheKey, network);
     return network;
   }
@@ -168,13 +210,20 @@ export class FederationDiscovery {
     const solvers: FederatedSolver[] = [];
 
     for (const solverId of solverIds) {
-      const solver = await localClient.readContract({
+      const solverData = await localClient.readContract({
         address: federatedSolverAddress,
         abi: FEDERATED_SOLVER_ABI,
         functionName: 'getSolver',
         args: [solverId],
-      }) as unknown as FederatedSolver;
+      });
 
+      const parsed = FederatedSolverSchema.safeParse(solverData);
+      if (!parsed.success) {
+        console.error(`[Federation] Invalid solver data for ${solverId}:`, parsed.error);
+        continue;
+      }
+
+      const solver = parsed.data as FederatedSolver;
       if (solver.isActive) {
         solvers.push(solver);
       }

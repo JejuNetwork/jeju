@@ -1,15 +1,22 @@
-import { useState } from 'react';
-import { Clock, CheckCircle, XCircle, AlertCircle, ArrowRight, ExternalLink } from 'lucide-react';
+import { useState, type ComponentType } from 'react';
+import { Clock, CheckCircle, XCircle, AlertCircle, ArrowRight, ExternalLink, type LucideProps } from 'lucide-react';
 import { useIntents } from '../../hooks/useIntentAPI';
 import type { Intent, IntentStatus } from '@jejunetwork/types';
 
+const ClockIcon = Clock as ComponentType<LucideProps>;
+const AlertCircleIcon = AlertCircle as ComponentType<LucideProps>;
+const CheckCircleIcon = CheckCircle as ComponentType<LucideProps>;
+const XCircleIcon = XCircle as ComponentType<LucideProps>;
+const ExternalLinkIcon = ExternalLink as ComponentType<LucideProps>;
+const ArrowRightIcon = ArrowRight as ComponentType<LucideProps>;
+
 const STATUS_CONFIG: Record<IntentStatus, { color: string; icon: React.ReactNode; label: string }> = {
-  open: { color: 'var(--chain-jeju)', icon: <Clock size={14} />, label: 'Open' },
-  pending: { color: 'var(--warning-bright)', icon: <AlertCircle size={14} />, label: 'Pending' },
-  filled: { color: 'var(--success-bright)', icon: <CheckCircle size={14} />, label: 'Filled' },
-  expired: { color: 'var(--text-muted)', icon: <Clock size={14} />, label: 'Expired' },
-  cancelled: { color: 'var(--text-muted)', icon: <XCircle size={14} />, label: 'Cancelled' },
-  failed: { color: 'var(--error-bright)', icon: <XCircle size={14} />, label: 'Failed' },
+  open: { color: 'var(--chain-jeju)', icon: <ClockIcon size={14} />, label: 'Open' },
+  pending: { color: 'var(--warning-bright)', icon: <AlertCircleIcon size={14} />, label: 'Pending' },
+  filled: { color: 'var(--success-bright)', icon: <CheckCircleIcon size={14} />, label: 'Filled' },
+  expired: { color: 'var(--text-muted)', icon: <ClockIcon size={14} />, label: 'Expired' },
+  cancelled: { color: 'var(--text-muted)', icon: <XCircleIcon size={14} />, label: 'Cancelled' },
+  failed: { color: 'var(--error-bright)', icon: <XCircleIcon size={14} />, label: 'Failed' },
 };
 
 const CHAIN_NAMES: Record<number, string> = {
@@ -77,14 +84,14 @@ function IntentCard({ intent }: { intent: Intent }) {
             </div>
           </div>
           <button className="button button-ghost" style={{ flexShrink: 0, padding: '0.375rem 0.75rem', fontSize: '0.75rem' }}>
-            <ExternalLink size={12} />View
+            <ExternalLinkIcon size={12} />View
           </button>
         </div>
 
         {/* Route */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', padding: '0.75rem', background: 'var(--surface-hover)', borderRadius: 'var(--radius-md)', flexWrap: 'wrap' }}>
           <ChainBadge name={sourceChain} amount={inputAmount} />
-          <ArrowRight size={18} color="var(--text-muted)" />
+          <ArrowRightIcon size={18} color="var(--text-muted)" />
           <ChainBadge name={destChain} amount={outputAmount} />
         </div>
 

@@ -26,14 +26,17 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["op-dispute-mon"]
           args:
-            - --l1.rpc={{ .Values.config.l1.rpcUrl }}
-            - --l2.rpc={{ .Values.config.l2.rpcUrl }}
-            - --rollup.rpc={{ .Values.config.rollup.rpcUrl }}
+            - "--l1-eth-rpc={{ .Values.config.l1.rpcUrl }}"
+            - "--rollup-rpc={{ .Values.config.rollup.rpcUrl }}"
+            {{- if and .Values.config.gameFactory .Values.config.gameFactory.address (ne .Values.config.gameFactory.address "0x0000000000000000000000000000000000000000") }}
+            - "--game-factory-address={{ .Values.config.gameFactory.address }}"
+            {{- end }}
             {{- if .Values.config.metrics.enabled }}
-            - --metrics.enabled
-            - --metrics.addr={{ .Values.config.metrics.addr }}
-            - --metrics.port={{ .Values.config.metrics.port }}
+            - "--metrics.enabled"
+            - "--metrics.addr={{ .Values.config.metrics.addr }}"
+            - "--metrics.port={{ .Values.config.metrics.port }}"
             {{- end }}
           ports:
             - containerPort: {{ .Values.service.metrics.port }}

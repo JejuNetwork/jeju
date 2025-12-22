@@ -1,6 +1,22 @@
 import { ArrowRight, Activity, Clock, CheckCircle } from 'lucide-react';
-import { useRoutes } from '../../hooks/useIntentAPI';
-import type { IntentRoute } from '@jejunetwork/types';
+import { useRoutes, type Route } from '@/hooks/useIntentAPI';
+
+interface IntentRoute {
+  id: string
+  routeId?: string
+  sourceChain: number
+  destinationChain: number
+  token: string
+  volume24h: string
+  avgFillTime: number
+  successRate: number
+  isActive: boolean
+  totalVolume: string
+  avgFillTimeSeconds: number
+  oracle: string
+  activeSolvers: number
+  avgFeePercent: number
+}
 
 const CHAIN_NAMES: Record<number, string> = {
   1: 'Ethereum',
@@ -23,7 +39,8 @@ const CHAIN_COLORS: Record<number, string> = {
 };
 
 export function RoutesView() {
-  const { data: routes, isLoading } = useRoutes({ active: true });
+  const { data: routes, isLoading } = useRoutes();
+  const typedRoutes = (routes || []) as IntentRoute[];
 
   return (
     <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
@@ -45,13 +62,13 @@ export function RoutesView() {
           <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
             Loading routes...
           </div>
-        ) : routes?.length === 0 ? (
+        ) : typedRoutes.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
             No routes configured. Deploy OIF contracts to enable routes.
           </div>
         ) : (
-          routes?.map((route) => (
-            <RouteCard key={route.routeId} route={route} />
+          typedRoutes.map((route) => (
+            <RouteCard key={route.routeId || route.id} route={route} />
           ))
         )}
       </div>
@@ -60,10 +77,10 @@ export function RoutesView() {
 }
 
 function RouteCard({ route }: { route: IntentRoute }) {
-  const sourceChain = CHAIN_NAMES[route.sourceChainId] || `Chain ${route.sourceChainId}`;
-  const destChain = CHAIN_NAMES[route.destinationChainId] || `Chain ${route.destinationChainId}`;
-  const sourceColor = CHAIN_COLORS[route.sourceChainId] || 'var(--text-secondary)';
-  const destColor = CHAIN_COLORS[route.destinationChainId] || 'var(--text-secondary)';
+  const sourceChain = CHAIN_NAMES[route.sourceChain] || `Chain ${route.sourceChain}`;
+  const destChain = CHAIN_NAMES[route.destinationChain] || `Chain ${route.destinationChain}`;
+  const sourceColor = CHAIN_COLORS[route.sourceChain] || 'var(--text-secondary)';
+  const destColor = CHAIN_COLORS[route.destinationChain] || 'var(--text-secondary)';
 
   return (
     <div

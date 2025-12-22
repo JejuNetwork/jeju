@@ -3,6 +3,8 @@
  * 
  * Implements HTTP 402 Payment Required for paid API access.
  * Supports JEJU and USDC payments on Base/Jeju networks.
+ * 
+ * All validation uses zod with expect/throw patterns.
  */
 
 import { Hono } from 'hono';
@@ -10,6 +12,11 @@ import type { Context, Next } from 'hono';
 import { createPublicClient, http, parseAbi, verifyMessage } from 'viem';
 import { base, baseSepolia } from 'viem/chains';
 import type { Address, Hex } from 'viem';
+import {
+  x402PaymentHeaderSchema,
+  x402VerifySchema,
+} from '../schemas';
+import { expectValid, ValidationError } from '../utils/validation';
 import type { X402Config, X402PaymentHeader, X402PaymentResult, X402Token } from '../types';
 
 // Default token configurations
@@ -105,36 +112,53 @@ class X402MiddlewareImpl implements X402Middleware {
   async verifyPayment(header: string): Promise<X402PaymentResult> {
     const payment = this.parsePaymentHeader(header);
     if (!payment) {
-      return { valid: false, error: 'Invalid payment header format' };
+      throw new ValidationError('Invalid payment header format');
     }
 
+    // Validate payment structure with zod
+    const validatedPayment = expectValid(
+      x402PaymentHeaderSchema,
+      payment,
+      'Payment header'
+    );
+
     // Check deadline
-    if (Date.now() > payment.deadline * 1000) {
-      return { valid: false, error: 'Payment deadline expired' };
+    const now = Date.now();
+    const deadlineMs = validatedPayment.deadline * 1000;
+    if (now > deadlineMs) {
+      throw new ValidationError(
+        `Payment deadline expired: ${deadlineMs} is in the past (now: ${now})`
+      );
     }
 
     // Check payee matches
-    if (payment.payee.toLowerCase() !== this.config.paymentAddress.toLowerCase()) {
-      return { valid: false, error: 'Invalid payment recipient' };
+    if (validatedPayment.payee.toLowerCase() !== this.config.paymentAddress.toLowerCase()) {
+      throw new ValidationError(
+        `Invalid payment recipient: ${validatedPayment.payee} != ${this.config.paymentAddress}`
+      );
     }
 
     // Verify signature
-    const message = this.constructPaymentMessage(payment);
-    const isValid = await this.verifySignature(message, payment.signature, payment.payer);
+    const message = this.constructPaymentMessage(validatedPayment);
+    const isValid = await this.verifySignature(
+      message,
+      validatedPayment.signature,
+      validatedPayment.payer
+    );
     
     if (!isValid) {
-      return { valid: false, error: 'Invalid signature' };
+      throw new ValidationError('Invalid signature');
     }
 
     // Verify on-chain payment (for production)
     if (NETWORK !== 'localnet') {
-      const onChainValid = await this.verifyOnChainPayment(payment);
+      const onChainValid = await this.verifyOnChainPayment(validatedPayment);
       if (!onChainValid.valid) {
         return onChainValid;
       }
     }
 
-    return { valid: true, txHash: payment.signature }; // Use signature as receipt in dev
+    return { valid: true, txHash: validatedPayment.signature }; // Use signature as receipt in dev
   }
 
   getPaymentInfo() {
@@ -145,19 +169,26 @@ class X402MiddlewareImpl implements X402Middleware {
     };
   }
 
-  private parsePaymentHeader(header: string): X402PaymentHeader | null {
+  private parsePaymentHeader(header: string): Record<string, string | number> | null {
     // Format: token:amount:payer:payee:nonce:deadline:signature
     const parts = header.split(':');
-    if (parts.length !== 7) return null;
+    if (parts.length !== 7) {
+      return null;
+    }
+
+    const deadline = parseInt(parts[5], 10);
+    if (isNaN(deadline) || deadline <= 0) {
+      return null;
+    }
 
     return {
-      token: parts[0] as Address,
+      token: parts[0],
       amount: parts[1],
-      payer: parts[2] as Address,
-      payee: parts[3] as Address,
+      payer: parts[2],
+      payee: parts[3],
       nonce: parts[4],
-      deadline: parseInt(parts[5], 10),
-      signature: parts[6] as Hex,
+      deadline,
+      signature: parts[6],
     };
   }
 
@@ -271,10 +302,20 @@ export function createX402Routes(): Hono {
     });
   });
 
-  // Verify payment endpoint
+  // Error handler
+  app.onError((err, c) => {
+    if (err instanceof ValidationError) {
+      return c.json({ valid: false, error: err.message }, 400);
+    }
+    return c.json({ valid: false, error: err.message || 'Internal error' }, 500);
+  });
+
+  // Verify payment endpoint with validated input
   app.post('/verify', async (c) => {
-    const { header } = await c.req.json() as { header: string };
-    const result = await x402.verifyPayment(header);
+    const body = await c.req.json();
+    const validatedInput = expectValid(x402VerifySchema, body, 'Verify payment input');
+    
+    const result = await x402.verifyPayment(validatedInput.header);
     return c.json(result, result.valid ? 200 : 400);
   });
 

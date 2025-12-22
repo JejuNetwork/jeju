@@ -8,6 +8,7 @@ import type {
 } from '../types';
 import { CrucibleStorage } from './storage';
 import { createLogger, type Logger } from './logger';
+import { expect } from '../schemas';
 
 // Full ABI to access all contract data
 const ROOM_REGISTRY_ABI = parseAbi([
@@ -72,7 +73,7 @@ export class RoomSDK {
       abi: ROOM_REGISTRY_ABI,
       functionName: 'createRoom',
       args: [name, description, this.roomTypeToNumber(roomType), configBytes],
-      account: this.walletClient.account,
+      account: expect(this.walletClient.account, 'Wallet client account is required'),
     });
 
     const txHash = await this.walletClient.writeContract(request);
@@ -84,6 +85,7 @@ export class RoomSDK {
   }
 
   async getRoom(roomId: bigint): Promise<Room | null> {
+    expect(roomId > 0n, 'Room ID must be greater than 0');
     this.log.debug('Getting room', { roomId: roomId.toString() });
 
     // Fetch full room data from storage mapping
@@ -141,35 +143,44 @@ export class RoomSDK {
   }
 
   async joinRoom(roomId: bigint, agentId: bigint, role: AgentRole): Promise<void> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    expect(this.walletClient, 'Wallet client required');
+    expect(roomId > 0n, 'Room ID must be greater than 0');
+    expect(agentId > 0n, 'Agent ID must be greater than 0');
+    expect(role, 'Role is required');
 
     this.log.info('Agent joining room', { roomId: roomId.toString(), agentId: agentId.toString(), role });
 
+    const wallet = expect(this.walletClient, 'Wallet client is required');
+    const account = expect(wallet.account, 'Wallet client account is required');
     const { request } = await this.publicClient.simulateContract({
       address: this.config.contracts.roomRegistry,
       abi: ROOM_REGISTRY_ABI,
       functionName: 'joinRoom',
       args: [roomId, agentId, this.agentRoleToNumber(role)],
-      account: this.walletClient.account,
+      account,
     });
 
-    await this.walletClient.writeContract(request);
+    await wallet.writeContract(request);
   }
 
   async leaveRoom(roomId: bigint, agentId: bigint): Promise<void> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    expect(this.walletClient, 'Wallet client required');
+    expect(roomId > 0n, 'Room ID must be greater than 0');
+    expect(agentId > 0n, 'Agent ID must be greater than 0');
 
     this.log.info('Agent leaving room', { roomId: roomId.toString(), agentId: agentId.toString() });
 
+    const wallet = expect(this.walletClient, 'Wallet client is required');
+    const account = expect(wallet.account, 'Wallet client account is required');
     const { request } = await this.publicClient.simulateContract({
       address: this.config.contracts.roomRegistry,
       abi: ROOM_REGISTRY_ABI,
       functionName: 'leaveRoom',
       args: [roomId, agentId],
-      account: this.walletClient.account,
+      account,
     });
 
-    await this.walletClient.writeContract(request);
+    await wallet.writeContract(request);
   }
 
   async loadState(roomId: bigint): Promise<RoomState> {
@@ -179,7 +190,11 @@ export class RoomSDK {
   }
 
   async postMessage(roomId: bigint, agentId: bigint, content: string, action?: string): Promise<RoomMessage> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    expect(this.walletClient, 'Wallet client required');
+    expect(roomId > 0n, 'Room ID must be greater than 0');
+    expect(agentId > 0n, 'Agent ID must be greater than 0');
+    expect(content, 'Message content is required');
+    expect(content.length > 0 && content.length <= 10000, 'Message content must be between 1 and 10000 characters');
 
     this.log.debug('Posting message', { roomId: roomId.toString(), agentId: agentId.toString() });
 
@@ -201,37 +216,47 @@ export class RoomSDK {
 
     const stateCid = await this.storage.storeRoomState(newState);
 
+    const wallet = expect(this.walletClient, 'Wallet client is required');
+    const account = expect(wallet.account, 'Wallet client account is required');
     const { request } = await this.publicClient.simulateContract({
       address: this.config.contracts.roomRegistry,
       abi: ROOM_REGISTRY_ABI,
       functionName: 'updateRoomState',
       args: [roomId, stateCid],
-      account: this.walletClient.account,
+      account,
     });
 
-    await this.walletClient.writeContract(request);
+    await wallet.writeContract(request);
     return message;
   }
 
   async getMessages(roomId: bigint, limit?: number): Promise<RoomMessage[]> {
+    expect(roomId > 0n, 'Room ID must be greater than 0');
+    if (limit !== undefined) {
+      expect(limit > 0 && limit <= 1000, 'Limit must be between 1 and 1000');
+    }
     const state = await this.loadState(roomId);
     return state.messages.slice(-(limit ?? 50));
   }
 
   async setPhase(roomId: bigint, phase: RoomPhase): Promise<void> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    expect(this.walletClient, 'Wallet client required');
+    expect(roomId > 0n, 'Room ID must be greater than 0');
+    expect(phase, 'Phase is required');
 
     this.log.info('Setting room phase', { roomId: roomId.toString(), phase });
 
+    const wallet = expect(this.walletClient, 'Wallet client is required');
+    const account = expect(wallet.account, 'Wallet client account is required');
     const { request } = await this.publicClient.simulateContract({
       address: this.config.contracts.roomRegistry,
       abi: ROOM_REGISTRY_ABI,
       functionName: 'setPhase',
       args: [roomId, this.phaseToNumber(phase)],
-      account: this.walletClient.account,
+      account,
     });
 
-    await this.walletClient.writeContract(request);
+    await wallet.writeContract(request);
 
     const state = await this.loadState(roomId);
     const stateCid = await this.storage.storeRoomState({
@@ -243,14 +268,17 @@ export class RoomSDK {
       abi: ROOM_REGISTRY_ABI,
       functionName: 'updateRoomState',
       args: [roomId, stateCid],
-      account: this.walletClient.account,
+      account,
     });
 
-    await this.walletClient.writeContract(updateRequest);
+    await wallet.writeContract(updateRequest);
   }
 
   async updateScore(roomId: bigint, agentId: bigint, delta: number): Promise<void> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    expect(this.walletClient, 'Wallet client required');
+    expect(roomId > 0n, 'Room ID must be greater than 0');
+    expect(agentId > 0n, 'Agent ID must be greater than 0');
+    expect(typeof delta === 'number' && !isNaN(delta), 'Delta must be a valid number');
 
     this.log.debug('Updating score', { roomId: roomId.toString(), agentId: agentId.toString(), delta });
 
@@ -260,19 +288,21 @@ export class RoomSDK {
     const stateCid = await this.storage.storeRoomState({
       ...state,
       version: state.version + 1,
-      scores: { ...state.scores, [agentIdStr]: (state.scores[agentIdStr] ?? 0) + delta },
+      scores: { ...state.scores, [agentIdStr]: (state.scores[agentIdStr] !== undefined ? state.scores[agentIdStr] : 0) + delta },
       updatedAt: Date.now(),
     });
 
+    const wallet = expect(this.walletClient, 'Wallet client is required');
+    const account = expect(wallet.account, 'Wallet client account is required');
     const { request } = await this.publicClient.simulateContract({
       address: this.config.contracts.roomRegistry,
       abi: ROOM_REGISTRY_ABI,
       functionName: 'updateRoomState',
       args: [roomId, stateCid],
-      account: this.walletClient.account,
+      account,
     });
 
-    await this.walletClient.writeContract(request);
+    await wallet.writeContract(request);
   }
 
   private roomTypeToNumber(type: RoomType): number {
@@ -280,7 +310,11 @@ export class RoomSDK {
   }
 
   private numberToRoomType(num: number): RoomType {
-    return (['collaboration', 'adversarial', 'debate', 'council'] as const)[num] ?? 'collaboration';
+    const types = ['collaboration', 'adversarial', 'debate', 'council'] as const;
+    if (num < 0 || num >= types.length) {
+      throw new Error(`Invalid room type number: ${num}. Must be 0-${types.length - 1}`);
+    }
+    return types[num];
   }
 
   private agentRoleToNumber(role: AgentRole): number {
@@ -288,7 +322,11 @@ export class RoomSDK {
   }
 
   private numberToAgentRole(num: number): AgentRole {
-    return (['participant', 'moderator', 'red_team', 'blue_team', 'observer'] as const)[num] ?? 'participant';
+    const roles = ['participant', 'moderator', 'red_team', 'blue_team', 'observer'] as const;
+    if (num < 0 || num >= roles.length) {
+      throw new Error(`Invalid agent role number: ${num}. Must be 0-${roles.length - 1}`);
+    }
+    return roles[num];
   }
 
   private phaseToNumber(phase: RoomPhase): number {

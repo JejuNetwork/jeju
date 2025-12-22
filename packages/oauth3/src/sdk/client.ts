@@ -22,10 +22,8 @@ import {
   AuthProvider,
   type OAuth3Identity,
   type OAuth3Session,
-  type OAuth3App,
   type LinkedProvider,
   type VerifiableCredential,
-  type FarcasterIdentity,
   type TEEAttestation,
 } from '../types.js';
 import { FarcasterProvider } from '../providers/farcaster.js';
@@ -43,6 +41,7 @@ import {
   OAuth3JNSService,
   createOAuth3JNSService,
 } from '../infrastructure/jns-integration.js';
+import { DEFAULT_RPC, CHAIN_IDS } from '../infrastructure/config.js';
 
 export interface OAuth3Config {
   /** App ID (hex) or JNS name (e.g., 'myapp.oauth3.jeju') */
@@ -119,25 +118,38 @@ export class OAuth3Client {
   private currentNode: DiscoveredNode | null = null;
 
   constructor(config: OAuth3Config) {
+    // Validate required fields
+    if (!config.appId) {
+      throw new Error('OAuth3Config.appId is required');
+    }
+    if (!config.redirectUri) {
+      throw new Error('OAuth3Config.redirectUri is required');
+    }
+
     this.config = config;
+    
+    // Use explicit defaults from config module
+    const rpcUrl = config.rpcUrl ?? DEFAULT_RPC;
+    const chainId = config.chainId ?? CHAIN_IDS.localnet;
+    
     this.publicClient = createPublicClient({
-      transport: http(config.rpcUrl || 'http://localhost:9545'),
+      transport: http(rpcUrl),
     });
     this.farcasterProvider = new FarcasterProvider();
 
     // Initialize decentralized services if enabled
     if (config.decentralized !== false) {
       this.discovery = createDecentralizedDiscovery({
-        rpcUrl: config.rpcUrl,
-        chainId: config.chainId,
+        rpcUrl,
+        chainId,
         ipfsApiEndpoint: config.storageEndpoint,
       });
       this.storage = createOAuth3StorageService({
         ipfsApiEndpoint: config.storageEndpoint,
       });
       this.jns = createOAuth3JNSService({
-        rpcUrl: config.rpcUrl,
-        chainId: config.chainId,
+        rpcUrl,
+        chainId,
       });
     }
 
@@ -214,34 +226,25 @@ export class OAuth3Client {
       await this.initialize();
     }
 
-    try {
-      let session: OAuth3Session;
-      
-      switch (options.provider) {
-        case AuthProvider.WALLET:
-          session = await this.loginWithWallet();
-          break;
-        case AuthProvider.FARCASTER:
-          session = await this.loginWithFarcaster();
-          break;
-        default:
-          session = await this.loginWithOAuth(options);
-      }
-
-      // Store session in decentralized storage
-      if (this.storage) {
-        await this.storage.storeSession(session);
-      }
-
-      return session;
-    } catch (error) {
-      // Try failover on error
-      if (this.discovery && this.currentNode) {
-        await this.failoverToNextNode();
-        return this.login(options);
-      }
-      throw error;
+    let session: OAuth3Session;
+    
+    switch (options.provider) {
+      case AuthProvider.WALLET:
+        session = await this.loginWithWallet();
+        break;
+      case AuthProvider.FARCASTER:
+        session = await this.loginWithFarcaster();
+        break;
+      default:
+        session = await this.loginWithOAuth(options);
     }
+
+    // Store session in decentralized storage
+    if (this.storage) {
+      await this.storage.storeSession(session);
+    }
+
+    return session;
   }
 
   private async loginWithWallet(): Promise<OAuth3Session> {
@@ -264,7 +267,7 @@ export class OAuth3Client {
     }) as Hex;
 
     const teeAgentUrl = this.getTeeAgentUrl();
-    const appId = this.discoveredApp?.appId || this.config.appId;
+    const appId = this.discoveredApp?.appId ?? this.config.appId;
 
     const response = await fetch(`${teeAgentUrl}/auth/wallet`, {
       method: 'POST',
@@ -310,7 +313,7 @@ export class OAuth3Client {
     const result = await this.requestFarcasterSignature(signatureRequest);
 
     const teeAgentUrl = this.getTeeAgentUrl();
-    const appId = this.discoveredApp?.appId || this.config.appId;
+    const appId = this.discoveredApp?.appId ?? this.config.appId;
 
     const response = await fetch(`${teeAgentUrl}/auth/farcaster`, {
       method: 'POST',
@@ -337,7 +340,7 @@ export class OAuth3Client {
 
   private async loginWithOAuth(options: LoginOptions): Promise<OAuth3Session> {
     const teeAgentUrl = this.getTeeAgentUrl();
-    const appId = this.discoveredApp?.appId || this.config.appId;
+    const appId = this.discoveredApp?.appId ?? this.config.appId;
 
     const initResponse = await fetch(`${teeAgentUrl}/auth/init`, {
       method: 'POST',
@@ -568,7 +571,8 @@ export class OAuth3Client {
       return [];
     }
 
-    const subjectDid = `did:ethr:${this.config.chainId || 420691}:${this.session.smartAccount}`;
+    const chainId = this.config.chainId ?? CHAIN_IDS.localnet;
+    const subjectDid = `did:ethr:${chainId}:${this.session.smartAccount}`;
     const storedCredentials = await this.storage.listCredentialsForSubject(subjectDid);
     
     const credentials: VerifiableCredential[] = [];

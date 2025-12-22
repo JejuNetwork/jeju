@@ -8,14 +8,12 @@
 // Set required env before imports
 process.env.KMS_FALLBACK_SECRET = 'test-secret-for-kms-unit-tests';
 
-import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import {
   getKMS,
   resetKMS,
-  KMSService,
   KMSProviderType,
   type AccessControlPolicy,
-  type EncryptRequest,
   ConditionOperator,
 } from './index';
 import type { Address } from 'viem';

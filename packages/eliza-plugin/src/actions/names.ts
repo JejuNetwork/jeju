@@ -11,6 +11,7 @@ import {
 } from "@elizaos/core";
 import { formatEther } from "viem";
 import { JEJU_SERVICE_NAME, type JejuService } from "../service";
+import { getMessageText, validateServiceExists } from "../validation";
 
 export const registerNameAction: Action = {
   name: "REGISTER_NAME",
@@ -23,22 +24,20 @@ export const registerNameAction: Action = {
     "claim name",
   ],
 
-  validate: async (runtime: IAgentRuntime) => {
-    const service = runtime.getService(JEJU_SERVICE_NAME);
-    return !!service;
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
 
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
+    _options?: Record<string, unknown>,
     callback?: HandlerCallback,
-  ) => {
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
 
-    const text = message.content.text ?? "";
+    const text = getMessageText(message);
 
     // Extract name
     const nameMatch = text.match(/([a-z0-9-]+)(?:\.jeju)?/i);
@@ -114,22 +113,20 @@ export const resolveNameAction: Action = {
     "what address",
   ],
 
-  validate: async (runtime: IAgentRuntime) => {
-    const service = runtime.getService(JEJU_SERVICE_NAME);
-    return !!service;
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
 
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
+    _options?: Record<string, unknown>,
     callback?: HandlerCallback,
-  ) => {
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
 
-    const text = message.content.text ?? "";
+    const text = getMessageText(message);
 
     // Extract name
     const nameMatch = text.match(/([a-z0-9-]+\.jeju)/i);

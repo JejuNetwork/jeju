@@ -44,6 +44,8 @@ import {
   type ProxyRequest,
   type CreateListingParams,
 } from '../../api-marketplace';
+import { validateBody, validateParams, validateQuery, validateHeaders, expectValid, jejuAddressHeaderSchema, providerListQuerySchema, providerParamsSchema, listingListQuerySchema, listingParamsSchema, createListingRequestSchema, updateListingRequestSchema, proxyRequestSchema, depositRequestSchema, withdrawRequestSchema, accountParamsSchema, createApiKeyRequestSchema, apiKeyParamsSchema, z } from '../../shared';
+import { extractOriginDomain } from '../../shared/utils/api-marketplace';
 
 export function createAPIMarketplaceRouter(): Hono {
   const app = new Hono();
@@ -85,8 +87,8 @@ export function createAPIMarketplaceRouter(): Hono {
   // ============================================================================
 
   app.get('/providers', (c) => {
-    const category = c.req.query('category');
-    const configuredOnly = c.req.query('configured') === 'true';
+    const { category, configured } = validateQuery(providerListQuerySchema, c);
+    const configuredOnly = configured === true;
 
     let providers = getAllProviders();
 
@@ -113,9 +115,10 @@ export function createAPIMarketplaceRouter(): Hono {
   });
 
   app.get('/providers/:id', (c) => {
-    const provider = getProviderById(c.req.param('id'));
+    const { id } = validateParams(providerParamsSchema, c);
+    const provider = getProviderById(id);
     if (!provider) {
-      return c.json({ error: 'Provider not found' }, 404);
+      throw new Error('Provider not found');
     }
 
     return c.json({
@@ -126,7 +129,8 @@ export function createAPIMarketplaceRouter(): Hono {
   });
 
   app.get('/providers/:id/health', async (c) => {
-    const health = await checkProviderHealth(c.req.param('id'));
+    const { id } = validateParams(providerParamsSchema, c);
+    const health = await checkProviderHealth(id);
     return c.json(health);
   });
 
@@ -139,9 +143,7 @@ export function createAPIMarketplaceRouter(): Hono {
   // ============================================================================
 
   app.get('/listings', async (c) => {
-    const providerId = c.req.query('provider');
-    const seller = c.req.query('seller') as Address | undefined;
-    const activeOnly = c.req.query('active') !== 'false';
+    const { provider: providerId, seller, active: activeOnly } = validateQuery(listingListQuerySchema, c);
 
     let listings = await getAllListings();
 
@@ -167,9 +169,10 @@ export function createAPIMarketplaceRouter(): Hono {
   });
 
   app.get('/listings/:id', async (c) => {
-    const listing = await getListing(c.req.param('id'));
+    const { id } = validateParams(listingParamsSchema, c);
+    const listing = await getListing(id);
     if (!listing) {
-      return c.json({ error: 'Listing not found' }, 404);
+      throw new Error('Listing not found');
     }
 
     const provider = getProviderById(listing.providerId);
@@ -190,29 +193,13 @@ export function createAPIMarketplaceRouter(): Hono {
   });
 
   app.post('/listings', async (c) => {
-    const userAddress = c.req.header('x-jeju-address') as Address;
-    if (!userAddress) {
-      return c.json({ error: 'Missing x-jeju-address header' }, 401);
-    }
-
-    const body = await c.req.json<{
-      providerId: string;
-      apiKey: string;
-      pricePerRequest?: string;
-      limits?: CreateListingParams['limits'];
-      accessControl?: {
-        allowedDomains?: string[];
-        blockedDomains?: string[];
-        allowedEndpoints?: string[];
-        blockedEndpoints?: string[];
-        allowedMethods?: Array<'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'>;
-      };
-    }>();
+    const { 'x-jeju-address': userAddress } = validateHeaders(jejuAddressHeaderSchema, c);
+    const body = await validateBody(createListingRequestSchema, c);
 
     // Validate provider exists
     const provider = getProviderById(body.providerId);
     if (!provider) {
-      return c.json({ error: `Unknown provider: ${body.providerId}` }, 400);
+      throw new Error(`Unknown provider: ${body.providerId}`);
     }
 
     // Store key in vault
@@ -243,27 +230,19 @@ export function createAPIMarketplaceRouter(): Hono {
   });
 
   app.patch('/listings/:id', async (c) => {
-    const userAddress = c.req.header('x-jeju-address') as Address;
-    if (!userAddress) {
-      return c.json({ error: 'Missing x-jeju-address header' }, 401);
-    }
-
-    const listing = await getListing(c.req.param('id'));
+    const { 'x-jeju-address': userAddress } = validateHeaders(jejuAddressHeaderSchema, c);
+    const { id } = validateParams(listingParamsSchema, c);
+    const listing = await getListing(id);
     if (!listing) {
-      return c.json({ error: 'Listing not found' }, 404);
+      throw new Error('Listing not found');
     }
 
     // Only seller can update
     if (listing.seller.toLowerCase() !== userAddress.toLowerCase()) {
-      return c.json({ error: 'Unauthorized' }, 403);
+      throw new Error('Unauthorized');
     }
 
-    const body = await c.req.json<{
-      pricePerRequest?: string;
-      limits?: Partial<CreateListingParams['limits']>;
-      accessControl?: Partial<CreateListingParams['accessControl']>;
-      active?: boolean;
-    }>();
+    const body = await validateBody(updateListingRequestSchema, c);
 
     const updated = await updateListing(listing.id, {
       pricePerRequest: body.pricePerRequest ? BigInt(body.pricePerRequest) : undefined,
@@ -281,9 +260,10 @@ export function createAPIMarketplaceRouter(): Hono {
   });
 
   app.get('/listings/cheapest/:providerId', async (c) => {
-    const listing = await findCheapestListing(c.req.param('providerId'));
+    const { providerId } = validateParams(z.object({ providerId: z.string().min(1) }), c);
+    const listing = await findCheapestListing(providerId);
     if (!listing) {
-      return c.json({ error: 'No active listings for this provider' }, 404);
+      throw new Error('No active listings for this provider');
     }
 
     return c.json({
@@ -299,17 +279,17 @@ export function createAPIMarketplaceRouter(): Hono {
   // ============================================================================
 
   app.post('/proxy', async (c) => {
-    const userAddress = c.req.header('x-jeju-address') as Address;
-    if (!userAddress) {
-      return c.json({ error: 'Missing x-jeju-address header' }, 401);
-    }
-
-    const body = await c.req.json<ProxyRequest>();
-    const originDomain = c.req.header('origin') || c.req.header('referer');
+    const { 'x-jeju-address': userAddress } = validateHeaders(jejuAddressHeaderSchema, c);
+    const body = await validateBody(proxyRequestSchema, c);
+    const headers = validateHeaders(z.object({
+      origin: z.string().url().optional(),
+      referer: z.string().url().optional(),
+    }), c);
+    const originDomain = extractOriginDomain(headers.origin, headers.referer);
 
     const response = await proxyRequest(body, {
       userAddress,
-      originDomain: originDomain ? new URL(originDomain).hostname : undefined,
+      originDomain,
       timeout: 30000,
     });
 
@@ -326,15 +306,11 @@ export function createAPIMarketplaceRouter(): Hono {
 
   // Convenience endpoint for direct provider access
   app.all('/proxy/:providerId/*', async (c) => {
-    const userAddress = c.req.header('x-jeju-address') as Address;
-    if (!userAddress) {
-      return c.json({ error: 'Missing x-jeju-address header' }, 401);
-    }
-
-    const providerId = c.req.param('providerId');
+    const { 'x-jeju-address': userAddress } = validateHeaders(jejuAddressHeaderSchema, c);
+    const { providerId } = validateParams(z.object({ providerId: z.string().min(1) }), c);
     const listing = await findCheapestListing(providerId);
     if (!listing) {
-      return c.json({ error: `No active listings for provider: ${providerId}` }, 404);
+      throw new Error(`No active listings for provider: ${providerId}`);
     }
 
     // Extract path after /proxy/:providerId/
@@ -345,7 +321,12 @@ export function createAPIMarketplaceRouter(): Hono {
     // Get body if present
     let body: string | Record<string, unknown> | undefined;
     if (['POST', 'PUT', 'PATCH'].includes(c.req.method)) {
-      body = await c.req.json().catch(() => undefined);
+      try {
+        body = await validateBody(z.record(z.string(), z.unknown()).optional(), c);
+      } catch {
+        // Body is optional for proxy requests
+        body = undefined;
+      }
     }
 
     // Get query params
@@ -387,10 +368,7 @@ export function createAPIMarketplaceRouter(): Hono {
   // ============================================================================
 
   app.get('/account', async (c) => {
-    const userAddress = c.req.header('x-jeju-address') as Address;
-    if (!userAddress) {
-      return c.json({ error: 'Missing x-jeju-address header' }, 401);
-    }
+    const { 'x-jeju-address': userAddress } = validateHeaders(jejuAddressHeaderSchema, c);
 
     const account = await getAccountInfo(userAddress);
     return c.json({
@@ -402,10 +380,7 @@ export function createAPIMarketplaceRouter(): Hono {
   });
 
   app.get('/account/balance', async (c) => {
-    const userAddress = c.req.header('x-jeju-address') as Address;
-    if (!userAddress) {
-      return c.json({ error: 'Missing x-jeju-address header' }, 401);
-    }
+    const { 'x-jeju-address': userAddress } = validateHeaders(jejuAddressHeaderSchema, c);
 
     const balance = await getBalance(userAddress);
     return c.json({
@@ -415,12 +390,8 @@ export function createAPIMarketplaceRouter(): Hono {
   });
 
   app.post('/account/deposit', async (c) => {
-    const userAddress = c.req.header('x-jeju-address') as Address;
-    if (!userAddress) {
-      return c.json({ error: 'Missing x-jeju-address header' }, 401);
-    }
-
-    const body = await c.req.json<{ amount: string }>();
+    const { 'x-jeju-address': userAddress } = validateHeaders(jejuAddressHeaderSchema, c);
+    const body = await validateBody(depositRequestSchema, c);
     const amount = BigInt(body.amount);
 
     // Check for payment proof
@@ -446,18 +417,14 @@ export function createAPIMarketplaceRouter(): Hono {
   });
 
   app.post('/account/withdraw', async (c) => {
-    const userAddress = c.req.header('x-jeju-address') as Address;
-    if (!userAddress) {
-      return c.json({ error: 'Missing x-jeju-address header' }, 401);
-    }
-
-    const body = await c.req.json<{ amount: string }>();
+    const { 'x-jeju-address': userAddress } = validateHeaders(jejuAddressHeaderSchema, c);
+    const body = await validateBody(withdrawRequestSchema, c);
     const amount = BigInt(body.amount);
 
-    const result = await processWithdraw({ amount, recipient: userAddress }, userAddress);
+    const result = await processWithdraw({ amount, recipient: body.recipient }, userAddress);
 
     if (!result.success) {
-      return c.json({ error: result.error }, 400);
+      throw new Error(result.error || 'Withdrawal failed');
     }
 
     return c.json({
@@ -467,14 +434,11 @@ export function createAPIMarketplaceRouter(): Hono {
   });
 
   app.get('/account/affordable/:listingId', async (c) => {
-    const userAddress = c.req.header('x-jeju-address') as Address;
-    if (!userAddress) {
-      return c.json({ error: 'Missing x-jeju-address header' }, 401);
-    }
-
-    const listing = await getListing(c.req.param('listingId'));
+    const { 'x-jeju-address': userAddress } = validateHeaders(jejuAddressHeaderSchema, c);
+    const { id: listingId } = validateParams(listingParamsSchema.extend({ listingId: z.string().uuid() }), c);
+    const listing = await getListing(listingId);
     if (!listing) {
-      return c.json({ error: 'Listing not found' }, 404);
+      throw new Error('Listing not found');
     }
 
     const balance = await getBalance(userAddress);
@@ -492,14 +456,11 @@ export function createAPIMarketplaceRouter(): Hono {
   // ============================================================================
 
   app.get('/ratelimit/:listingId', async (c) => {
-    const userAddress = c.req.header('x-jeju-address') as Address;
-    if (!userAddress) {
-      return c.json({ error: 'Missing x-jeju-address header' }, 401);
-    }
-
-    const listing = await getListing(c.req.param('listingId'));
+    const { 'x-jeju-address': userAddress } = validateHeaders(jejuAddressHeaderSchema, c);
+    const { listingId } = validateParams(z.object({ listingId: z.string().uuid() }), c);
+    const listing = await getListing(listingId);
     if (!listing) {
-      return c.json({ error: 'Listing not found' }, 404);
+      throw new Error('Listing not found');
     }
 
     const usage = getRateLimitUsage(userAddress, listing.id, listing.limits);
@@ -511,24 +472,18 @@ export function createAPIMarketplaceRouter(): Hono {
   // ============================================================================
 
   app.get('/keys', (c) => {
-    const userAddress = c.req.header('x-jeju-address') as Address;
-    if (!userAddress) {
-      return c.json({ error: 'Missing x-jeju-address header' }, 401);
-    }
+    const { 'x-jeju-address': userAddress } = validateHeaders(jejuAddressHeaderSchema, c);
 
     const keys = getKeysByOwner(userAddress);
     return c.json({ keys, total: keys.length });
   });
 
-  app.delete('/keys/:id', (c) => {
-    const userAddress = c.req.header('x-jeju-address') as Address;
-    if (!userAddress) {
-      return c.json({ error: 'Missing x-jeju-address header' }, 401);
-    }
-
-    const deleted = deleteKey(c.req.param('id'), userAddress);
+  app.delete('/keys/:keyId', (c) => {
+    const { 'x-jeju-address': userAddress } = validateHeaders(jejuAddressHeaderSchema, c);
+    const { keyId } = validateParams(apiKeyParamsSchema, c);
+    const deleted = deleteKey(keyId, userAddress);
     if (!deleted) {
-      return c.json({ error: 'Key not found or unauthorized' }, 404);
+      throw new Error('Key not found or unauthorized');
     }
 
     return c.json({ success: true });
@@ -580,16 +535,15 @@ export function createAPIMarketplaceRouter(): Hono {
 
   // Inference endpoint (for agents/apps) - forwards to /compute/chat/completions
   app.post('/v1/inference', async (c) => {
-    const body = await c.req.json<{
-      messages: Array<{ role: string; content: string }>;
-      model?: string;
-      maxTokens?: number;
-      temperature?: number;
-    }>();
-
-    if (!body.messages || body.messages.length === 0) {
-      return c.json({ error: 'messages array is required' }, 400);
-    }
+    const body = await validateBody(z.object({
+      messages: z.array(z.object({
+        role: z.string(),
+        content: z.string(),
+      })).min(1),
+      model: z.string().optional(),
+      maxTokens: z.number().int().positive().optional(),
+      temperature: z.number().min(0).max(2).optional(),
+    }), c);
 
     // Forward to compute endpoint which handles provider selection
     const computeResponse = await fetch('http://localhost:' + (process.env.PORT ?? '4030') + '/compute/chat/completions', {
@@ -626,11 +580,9 @@ export function createAPIMarketplaceRouter(): Hono {
 
   // Embeddings endpoint (for agents/apps)
   app.post('/v1/embeddings', async (c) => {
-    const body = await c.req.json<{ input: string | string[] }>();
-
-    if (!body.input) {
-      return c.json({ error: 'input is required' }, 400);
-    }
+    const body = await validateBody(z.object({
+      input: z.union([z.string(), z.array(z.string())]),
+    }), c);
 
     const providers = getConfiguredProviders();
     const embeddingProviders = providers.filter(p => p.categories.includes('embeddings'));

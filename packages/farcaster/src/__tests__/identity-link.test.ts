@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, mock, afterEach } from 'bun:test';
+import { describe, it, expect, mock } from 'bun:test';
 import {
   verifyAddressCanLink,
   lookupFidByAddress,
@@ -89,19 +89,18 @@ describe('Identity Link', () => {
       expect(result.valid).toBe(true);
     });
 
-    it('returns error on API failure', async () => {
+    it('throws on API failure', async () => {
       const mockClient = createMockClient({
         getProfile: mock(() => Promise.reject(new Error('Network error'))),
       });
-      
-      const result = await verifyAddressCanLink(
-        123,
-        '0xAny0000000000000000000000000000000000001' as Address,
-        mockClient
-      );
 
-      expect(result.valid).toBe(false);
-      expect(result.error).toContain('Failed to verify');
+      await expect(
+        verifyAddressCanLink(
+          123,
+          '0xAny0000000000000000000000000000000000001' as Address,
+          mockClient
+        )
+      ).rejects.toThrow('Network error');
     });
   });
 
@@ -224,7 +223,7 @@ describe('Identity Link', () => {
       const messageWithWhitespace = '  \n' + message + '\n  ';
       
       // Should still fail because the format doesn't match
-      const parsed = parseLinkProofMessage(messageWithWhitespace);
+      const _parsed = parseLinkProofMessage(messageWithWhitespace);
       // The parser should handle leading whitespace gracefully
       // If it doesn't, that's acceptable - the format should be exact
     });

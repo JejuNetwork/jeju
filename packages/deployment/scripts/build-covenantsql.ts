@@ -11,11 +11,18 @@
 
 import { $ } from "bun";
 import { join } from "path";
+import {
+  getRequiredNetwork,
+  getEcrRegistry,
+  loginToEcr,
+  getGitShortHash,
+  type NetworkType,
+} from "./shared";
 
 const PUSH = process.argv.includes("--push");
 const ARM_ONLY = process.argv.includes("--arm-only");
 const X86_ONLY = process.argv.includes("--x86-only");
-const NETWORK = process.env.NETWORK || "testnet";
+const NETWORK: NetworkType = getRequiredNetwork();
 
 const SCRIPT_DIR = import.meta.dir;
 const DOCKER_DIR = join(SCRIPT_DIR, "../docker/covenantsql");
@@ -26,31 +33,20 @@ function getPlatforms(): string {
   return "linux/amd64,linux/arm64";
 }
 
-async function getEcrRegistry(): Promise<string> {
-  const region = process.env.AWS_REGION || "us-east-1";
-  const accountId = await $`aws sts get-caller-identity --query Account --output text`
-    .text()
-    .then((s) => s.trim());
-  return `${accountId}.dkr.ecr.${region}.amazonaws.com`;
-}
-
 async function setupBuildx(): Promise<string> {
   console.log("🔧 Setting up Docker buildx...\n");
 
   const platforms = getPlatforms();
   const requiredPlatforms = platforms.split(",");
 
-  // List current builders and find one that supports our platforms
   const buildersOutput = await $`docker buildx ls`.text();
   const lines = buildersOutput.split("\n");
 
-  // Check if desktop-linux or default supports our platforms (preferred for stability)
   for (const preferredBuilder of ["desktop-linux", "default"]) {
     for (const line of lines) {
       if (line.startsWith(preferredBuilder) || line.includes(`\\_ ${preferredBuilder}`)) {
-        // Check platform support by looking at the line
-        const hasAllPlatforms = requiredPlatforms.every(
-          (p) => buildersOutput.includes(p.replace("linux/", ""))
+        const hasAllPlatforms = requiredPlatforms.every((p) =>
+          buildersOutput.includes(p.replace("linux/", ""))
         );
         if (hasAllPlatforms) {
           console.log(`   Using builder: ${preferredBuilder}\n`);
@@ -61,11 +57,9 @@ async function setupBuildx(): Promise<string> {
     }
   }
 
-  // Fall back to creating jeju-multiarch builder
   const hasJejuBuilder = buildersOutput.includes("jeju-multiarch");
 
   if (hasJejuBuilder) {
-    // Remove stale builder and recreate
     console.log("   Removing stale jeju-multiarch builder...\n");
     await $`docker buildx rm jeju-multiarch`.quiet().nothrow();
   }
@@ -76,7 +70,7 @@ async function setupBuildx(): Promise<string> {
   return "jeju-multiarch";
 }
 
-async function main() {
+async function main(): Promise<void> {
   console.log("🐳 Building CovenantSQL multi-arch image\n");
   console.log(`   Platforms: ${getPlatforms()}`);
   console.log(`   Push: ${PUSH}`);
@@ -85,21 +79,14 @@ async function main() {
   const builder = await setupBuildx();
   console.log(`   Builder: ${builder}\n`);
 
-  const gitHash = await $`git rev-parse --short HEAD`
-    .text()
-    .then((s) => s.trim())
-    .catch(() => "latest");
+  const gitHash = await getGitShortHash();
   const tag = `${NETWORK}-${gitHash}`;
 
   let imageName = "jeju/covenantsql";
   if (PUSH) {
     const registry = await getEcrRegistry();
     console.log(`📦 ECR Registry: ${registry}\n`);
-
-    // Login to ECR
-    const region = process.env.AWS_REGION || "us-east-1";
-    await $`aws ecr get-login-password --region ${region} | docker login --username AWS --password-stdin ${registry}`;
-
+    await loginToEcr(registry);
     imageName = `${registry}/jeju/covenantsql`;
   }
 
@@ -128,11 +115,8 @@ async function main() {
   if (PUSH) {
     buildArgs.push("--push");
   } else if (!isMultiPlatform) {
-    // Can only --load single platform images
     buildArgs.push("--load");
   }
-  // For local multi-platform builds, we just build without loading
-  // (validates the build but doesn't save locally)
 
   buildArgs.push(DOCKER_DIR);
 

@@ -1,15 +1,27 @@
 /**
  * A2A (Agent-to-Agent) Server for AI agent integration
+ * 
+ * All endpoints use zod validation with expect/throw patterns.
  */
 
 import { Hono } from 'hono';
 import { getNetworkName, getWebsiteUrl } from '@jejunetwork/config';
 import { getTodoService } from '../services/todo';
 import { getCronService } from '../services/cron';
-import type { A2AAgentCard, A2AMessage, A2AResponse, A2ASkill } from '../types';
+import type { A2AResponse } from '../types';
 import type { Address } from 'viem';
+import {
+  a2AMessageSchema,
+  a2ASkillParamsSchema,
+  a2AAgentCardSchema,
+  addressSchema,
+  todoIdSchema,
+} from '../schemas';
+import { expectValid, ValidationError } from '../utils/validation';
+import { prioritizeTodos, getTopPriorities } from '../utils';
+import type { A2ASkillParams } from '../schemas';
 
-const AGENT_CARD: A2AAgentCard = {
+const AGENT_CARD = {
   protocolVersion: '0.3.0',
   name: 'Decentralized Todo Agent',
   description: 'AI-integrated todo management with full decentralization',
@@ -82,48 +94,106 @@ export function createA2AServer(): Hono {
   const todoService = getTodoService();
   const cronService = getCronService();
 
-  // Agent card discovery
-  app.get('/.well-known/agent-card.json', (c) => c.json(AGENT_CARD));
+  // Error handler
+  app.onError((err, c) => {
+    if (err instanceof ValidationError) {
+      return c.json({
+        jsonrpc: '2.0',
+        id: null,
+        error: { code: -32602, message: err.message },
+      });
+    }
+    return c.json({
+      jsonrpc: '2.0',
+      id: null,
+      error: { code: -32603, message: err.message || 'Internal error' },
+    });
+  });
 
-  // Main A2A endpoint
+  // Agent card discovery with validation
+  app.get('/.well-known/agent-card.json', (c) => {
+    const validatedCard = expectValid(a2AAgentCardSchema, AGENT_CARD, 'Agent card');
+    return c.json(validatedCard);
+  });
+
+  // Main A2A endpoint with strict validation
   app.post('/', async (c) => {
-    const body = await c.req.json() as A2AMessage;
-    const address = c.req.header('x-jeju-address') as Address;
-
-    if (body.method !== 'message/send') {
+    const body = await c.req.json();
+    const validatedMessage = expectValid(a2AMessageSchema, body, 'A2A message');
+    
+    const addressHeader = c.req.header('x-jeju-address');
+    if (!addressHeader) {
       const response: A2AResponse = {
         jsonrpc: '2.0',
-        id: body.id,
-        error: { code: -32601, message: 'Method not found' },
+        id: validatedMessage.id,
+        error: { code: 401, message: 'Authentication required: x-jeju-address header missing' },
       };
       return c.json(response);
     }
 
-    if (!address) {
+    const address = expectValid(
+      addressSchema,
+      addressHeader,
+      'x-jeju-address header'
+    );
+
+    if (validatedMessage.method !== 'message/send') {
       const response: A2AResponse = {
         jsonrpc: '2.0',
-        id: body.id,
-        error: { code: 401, message: 'Authentication required' },
+        id: validatedMessage.id,
+        error: { code: -32601, message: `Method not found: ${validatedMessage.method}` },
       };
       return c.json(response);
     }
 
-    const dataPart = body.params?.message?.parts?.find(p => p.kind === 'data');
-    const skillId = dataPart?.data?.skillId as string;
-    const params = dataPart?.data ?? {};
+    const message = validatedMessage.params?.message;
+    if (!message) {
+      const response: A2AResponse = {
+        jsonrpc: '2.0',
+        id: validatedMessage.id,
+        error: { code: -32602, message: 'Message params required' },
+      };
+      return c.json(response);
+    }
+
+    const dataPart = message.parts.find(p => p.kind === 'data');
+    if (!dataPart || dataPart.kind !== 'data') {
+      const response: A2AResponse = {
+        jsonrpc: '2.0',
+        id: validatedMessage.id,
+        error: { code: -32602, message: 'Data part required in message' },
+      };
+      return c.json(response);
+    }
+
+    const skillId = dataPart.data?.skillId;
+    if (!skillId || typeof skillId !== 'string') {
+      const response: A2AResponse = {
+        jsonrpc: '2.0',
+        id: validatedMessage.id,
+        error: { code: -32602, message: 'skillId required in data part' },
+      };
+      return c.json(response);
+    }
+
+    const params = expectValid(
+      a2ASkillParamsSchema,
+      dataPart.data,
+      `Skill params for ${skillId}`
+    );
 
     const result = await executeSkill(skillId, params, address, todoService, cronService);
 
     const response: A2AResponse = {
       jsonrpc: '2.0',
-      id: body.id,
+      id: validatedMessage.id,
       result: {
         role: 'agent',
         parts: [
           { kind: 'text', text: result.message },
           { kind: 'data', data: result.data },
         ],
-        messageId: body.params?.message?.messageId ?? `msg-${Date.now()}`,
+        messageId: message.messageId,
         kind: 'message',
       },
     };
@@ -141,16 +211,17 @@ interface SkillResult {
 
 async function executeSkill(
   skillId: string,
-  params: Record<string, unknown>,
+  params: A2ASkillParams,
   address: Address,
   todoService: ReturnType<typeof getTodoService>,
   cronService: ReturnType<typeof getCronService>
 ): Promise<SkillResult> {
   switch (skillId) {
     case 'list-todos': {
-      const completed = params.completed as boolean | undefined;
-      const priority = params.priority as 'low' | 'medium' | 'high' | undefined;
-      const todos = await todoService.listTodos(address, { completed, priority });
+      const todos = await todoService.listTodos(address, {
+        completed: params.completed,
+        priority: params.priority,
+      });
       
       const incompleteCount = todos.filter(t => !t.completed).length;
       const message = todos.length === 0
@@ -164,16 +235,17 @@ async function executeSkill(
     }
 
     case 'create-todo': {
-      const title = params.title as string;
-      const description = params.description as string | undefined;
-      const priority = params.priority as 'low' | 'medium' | 'high' | undefined;
-      const dueDate = params.dueDate as number | undefined;
-
-      if (!title) {
-        return { message: 'Title is required to create a todo.', data: { error: true } };
+      if (!params.title) {
+        throw new ValidationError('Title is required to create a todo');
       }
 
-      const todo = await todoService.createTodo(address, { title, description, priority, dueDate });
+      const todo = await todoService.createTodo(address, {
+        title: params.title,
+        description: params.description,
+        priority: params.priority,
+        dueDate: params.dueDate,
+      });
+      
       return {
         message: `Created todo: "${todo.title}"`,
         data: { todo, created: true },
@@ -181,14 +253,10 @@ async function executeSkill(
     }
 
     case 'complete-todo': {
-      const id = params.id as string;
-      if (!id) {
-        return { message: 'Todo ID is required.', data: { error: true } };
-      }
-
-      const todo = await todoService.updateTodo(id, address, { completed: true });
+      const todoId = expectValid(todoIdSchema, params.id, 'Todo ID');
+      const todo = await todoService.updateTodo(todoId, address, { completed: true });
       if (!todo) {
-        return { message: `Todo ${id} not found.`, data: { error: true } };
+        throw new ValidationError(`Todo ${params.id} not found`);
       }
 
       return {
@@ -198,19 +266,15 @@ async function executeSkill(
     }
 
     case 'delete-todo': {
-      const id = params.id as string;
-      if (!id) {
-        return { message: 'Todo ID is required.', data: { error: true } };
-      }
-
-      const deleted = await todoService.deleteTodo(id, address);
+      const todoId = expectValid(todoIdSchema, params.id, 'Todo ID');
+      const deleted = await todoService.deleteTodo(todoId, address);
       if (!deleted) {
-        return { message: `Todo ${id} not found.`, data: { error: true } };
+        throw new ValidationError(`Todo ${params.id} not found`);
       }
 
       return {
         message: 'Todo deleted.',
-        data: { deleted: true, id },
+        data: { deleted: true, id: params.id },
       };
     }
 
@@ -225,21 +289,19 @@ async function executeSkill(
     }
 
     case 'set-reminder': {
-      const todoId = params.todoId as string;
-      const reminderTime = params.reminderTime as number;
-
-      if (!todoId || !reminderTime) {
-        return { message: 'Todo ID and reminder time are required.', data: { error: true } };
+      const todoId = expectValid(todoIdSchema, params.todoId, 'Todo ID');
+      if (!params.reminderTime) {
+        throw new ValidationError('Reminder time is required');
       }
 
       const todo = await todoService.getTodo(todoId, address);
       if (!todo) {
-        return { message: `Todo ${todoId} not found.`, data: { error: true } };
+        throw new ValidationError(`Todo ${params.todoId} not found`);
       }
 
-      const reminder = await cronService.scheduleReminder(todoId, address, reminderTime);
+      const reminder = await cronService.scheduleReminder(todoId, address, params.reminderTime);
       return {
-        message: `Reminder set for "${todo.title}" at ${new Date(reminderTime).toISOString()}.`,
+        message: `Reminder set for "${todo.title}" at ${new Date(params.reminderTime).toISOString()}.`,
         data: { reminder, todo },
       };
     }
@@ -247,38 +309,23 @@ async function executeSkill(
     case 'prioritize': {
       const todos = await todoService.listTodos(address, { completed: false });
       
-      // Simple prioritization based on due date and priority level
-      const prioritized = [...todos].sort((a, b) => {
-        // Priority weight
-        const priorityWeight = { high: 0, medium: 1, low: 2 };
-        const aWeight = priorityWeight[a.priority];
-        const bWeight = priorityWeight[b.priority];
-        
-        if (aWeight !== bWeight) return aWeight - bWeight;
-        
-        // Then by due date
-        if (a.dueDate && b.dueDate) return a.dueDate - b.dueDate;
-        if (a.dueDate) return -1;
-        if (b.dueDate) return 1;
-        
-        return 0;
-      });
-
-      const topTasks = prioritized.slice(0, 5);
+      // Use shared prioritization logic from utils
+      const topTasks = getTopPriorities(todos, 5);
+      const allPrioritized = prioritizeTodos(todos);
+      
       const message = topTasks.length === 0
         ? 'No pending tasks to prioritize.'
         : `Top priorities: ${topTasks.map((t, i) => `${i + 1}. ${t.title}`).join(', ')}`;
 
       return {
         message,
-        data: { prioritized: topTasks, total: prioritized.length },
+        data: { prioritized: topTasks, total: allPrioritized.length },
       };
     }
 
     default:
-      return {
-        message: `Unknown skill: ${skillId}`,
-        data: { error: true, availableSkills: AGENT_CARD.skills.map(s => s.id) },
-      };
+      throw new ValidationError(
+        `Unknown skill: ${skillId}. Available: ${AGENT_CARD.skills.map(s => s.id).join(', ')}`
+      );
   }
 }

@@ -24,6 +24,23 @@ function getRpcUrl(network: string): string {
   return 'https://rpc.jejunetwork.org';
 }
 
+// Well-known Anvil test private key - ONLY for localnet
+const ANVIL_TEST_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
+
+function getPrivateKey(network: string): `0x${string}` {
+  const privateKey = process.env.DEPLOYER_PRIVATE_KEY;
+  
+  if (network !== 'localnet') {
+    if (!privateKey) {
+      throw new Error(`DEPLOYER_PRIVATE_KEY environment variable is required for ${network} deployment`);
+    }
+    return privateKey as `0x${string}`;
+  }
+  
+  // Only use test key for localnet
+  return (privateKey ?? ANVIL_TEST_KEY) as `0x${string}`;
+}
+
 // Psyche-compatible run states
 const RUN_STATES = [
   'Uninitialized',
@@ -129,25 +146,6 @@ const CONTRACTS = {
   nodePerformanceOracle: (process.env.NODE_PERFORMANCE_ADDRESS || '0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f') as `0x${string}`,
 };
 
-// RLAIF-specific ABI
-const RLAIF_COORDINATOR_ABI = [
-  { name: 'createRun', type: 'function', inputs: [
-    { name: 'runId', type: 'bytes32' },
-    { name: 'environmentId', type: 'string' },
-    { name: 'policyModelCID', type: 'string' },
-    { name: 'targetIterations', type: 'uint32' },
-  ], outputs: [], stateMutability: 'nonpayable' },
-  { name: 'getRunState', type: 'function', inputs: [{ name: 'runId', type: 'bytes32' }], outputs: [{ name: '', type: 'uint8' }], stateMutability: 'view' },
-  { name: 'getCurrentIteration', type: 'function', inputs: [{ name: 'runId', type: 'bytes32' }], outputs: [{ name: '', type: 'uint32' }], stateMutability: 'view' },
-  { name: 'getBestPolicy', type: 'function', inputs: [{ name: 'runId', type: 'bytes32' }], outputs: [
-    { name: 'policyCID', type: 'string' },
-    { name: 'evalScore', type: 'uint256' },
-  ], stateMutability: 'view' },
-] as const;
-
-const RLAIF_CONTRACTS = {
-  rlaifCoordinator: (process.env.RLAIF_COORDINATOR_ADDRESS || '0x322813Fd9A801c5507c9544369c222f2122d1C2d') as `0x${string}`,
-};
 
 const RLAIF_STATES = [
   'Uninitialized',
@@ -459,7 +457,7 @@ async function listRuns(options: { network: string; status?: string }): Promise<
       console.log(`     Clients: ${run.clients}`);
       console.log('');
     }
-  } catch (error) {
+  } catch (_error) {
     // Fallback: try to get from chain
     logger.warn('DWS not available, checking chain directly...');
     logger.info('No active runs found on chain');
@@ -477,8 +475,8 @@ async function createRun(options: {
 }): Promise<void> {
   logger.header('CREATE TRAINING RUN');
 
-  const privateKey = process.env.DEPLOYER_PRIVATE_KEY || '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
-  const account = privateKeyToAccount(privateKey as `0x${string}`);
+  const privateKey = getPrivateKey(options.network);
+  const account = privateKeyToAccount(privateKey);
   
   const publicClient = createPublicClient({
     chain: foundry,
@@ -572,8 +570,8 @@ async function createRun(options: {
 async function joinRun(runId: string, network: string): Promise<void> {
   logger.header('JOIN TRAINING RUN');
 
-  const privateKey = process.env.DEPLOYER_PRIVATE_KEY || '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
-  const account = privateKeyToAccount(privateKey as `0x${string}`);
+  const privateKey = getPrivateKey(network);
+  const account = privateKeyToAccount(privateKey);
 
   const publicClient = createPublicClient({
     chain: foundry,
@@ -690,8 +688,8 @@ async function getRunInfo(runId: string, network: string): Promise<void> {
 async function pauseRun(runId: string, network: string): Promise<void> {
   logger.header('PAUSE TRAINING RUN');
 
-  const privateKey = process.env.DEPLOYER_PRIVATE_KEY || '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
-  const account = privateKeyToAccount(privateKey as `0x${string}`);
+  const privateKey = getPrivateKey(network);
+  const account = privateKeyToAccount(privateKey);
 
   const publicClient = createPublicClient({
     chain: foundry,
@@ -731,8 +729,8 @@ async function pauseRun(runId: string, network: string): Promise<void> {
 async function resumeRun(runId: string, network: string): Promise<void> {
   logger.header('RESUME TRAINING RUN');
 
-  const privateKey = process.env.DEPLOYER_PRIVATE_KEY || '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
-  const account = privateKeyToAccount(privateKey as `0x${string}`);
+  const privateKey = getPrivateKey(network);
+  const account = privateKeyToAccount(privateKey);
 
   const publicClient = createPublicClient({
     chain: foundry,
@@ -772,8 +770,8 @@ async function resumeRun(runId: string, network: string): Promise<void> {
 async function withdrawFromRun(runId: string, network: string): Promise<void> {
   logger.header('WITHDRAW FROM RUN');
 
-  const privateKey = process.env.DEPLOYER_PRIVATE_KEY || '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
-  const account = privateKeyToAccount(privateKey as `0x${string}`);
+  const privateKey = getPrivateKey(network);
+  const account = privateKeyToAccount(privateKey);
 
   const publicClient = createPublicClient({
     chain: foundry,
@@ -813,8 +811,8 @@ async function withdrawFromRun(runId: string, network: string): Promise<void> {
 async function claimRewards(runId: string, network: string): Promise<void> {
   logger.header('CLAIM REWARDS');
 
-  const privateKey = process.env.DEPLOYER_PRIVATE_KEY || '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
-  const account = privateKeyToAccount(privateKey as `0x${string}`);
+  const privateKey = getPrivateKey(network);
+  const account = privateKeyToAccount(privateKey);
 
   const publicClient = createPublicClient({
     chain: foundry,
@@ -922,7 +920,7 @@ async function listNodes(options: { network: string; count: string; minTier: str
       console.log(`     Tasks: ${metrics.totalTasks}`);
       console.log('');
     }
-  } catch (error) {
+  } catch (_error) {
     logger.warn('Could not fetch nodes from oracle. DWS fallback:');
     
     // Fallback to DWS API
@@ -1054,7 +1052,7 @@ async function createRLAIFRun(options: {
   }
 }
 
-async function getRLAIFStatus(runId: string, network: string): Promise<void> {
+async function getRLAIFStatus(runId: string, _network: string): Promise<void> {
   logger.header('RLAIF RUN STATUS');
 
   const dwsUrl = getDwsUrl();
@@ -1329,7 +1327,7 @@ async function babylonTrain(options: {
       console.log(`   curl -X POST ${dwsUrl}/rlaif/runs/${result.runId}/start`);
       logger.info('4. Monitor progress:');
       console.log(`   jeju training rlaif status ${result.runId}`);
-    } catch (error) {
+    } catch (_error) {
       logger.warn(`DWS not available, falling back to local training`);
       logger.newline();
       logger.info('Run local training:');

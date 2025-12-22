@@ -23,18 +23,17 @@
     "@jejunetwork/db": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/sdk": "workspace:*",
+    "@jejunetwork/types": "workspace:*",
     "@jejunetwork/eliza-plugin": "workspace:*",
     "ai": "^5.0.52",
-    "ethers": "^6.13.4",
-    "hono": "^4.6.5",
-    "viem": "^2.21.0",
-    "zod": "^3.23.8"
+    "hono": "4.11.1",
+    "viem": "2.43.2",
+    "zod": "^4.1.13"
   },
   "devDependencies": {
-    "@playwright/test": "^1.48.0",
-    "@synthetixio/synpress": "^4.0.0",
-    "@types/bun": "^1.1.0",
-    "typescript": "^5.5.4"
-  },
-  "optionalDependencies": {}
+    "@playwright/test": "1.57.0",
+    "@synthetixio/synpress": "4.1.1",
+    "@types/bun": "latest",
+    "typescript": "5.9.3"
+  }
 }

@@ -143,12 +143,16 @@ export class AWSNitroProvider implements ITEEProvider {
 	}
 
 	toTEEAttestation(attestation: AttestationResponse): TEEAttestation {
+		const publicKey = attestation.publicKey ?? this.publicKey;
+		if (!publicKey) {
+			throw new Error("No public key available - initialize provider first");
+		}
 		return {
 			measurement: toHash32(
 				Buffer.from(attestation.measurement.slice(2), "hex"),
 			),
 			quote: attestation.quote,
-			publicKey: attestation.publicKey ?? this.publicKey ?? new Uint8Array(33),
+			publicKey,
 			timestamp: BigInt(attestation.timestamp),
 		};
 	}
@@ -263,8 +267,8 @@ export class AWSNitroProvider implements ITEEProvider {
 		// 2. Establish vsock connection
 		// 3. Get enclave ID and public key
 
-		this.enclaveId =
-			process.env.AWS_ENCLAVE_ID ?? `enclave-${Date.now().toString(36)}`;
+		// In real Nitro environment, AWS_ENCLAVE_ID should be set
+		this.enclaveId = process.env.AWS_ENCLAVE_ID ?? `enclave-${Date.now().toString(36)}`;
 
 		// Generate key pair in enclave
 		this.publicKey = new Uint8Array(33);
@@ -281,13 +285,20 @@ export class AWSNitroProvider implements ITEEProvider {
 		// In production, this would call the NSM via /dev/nsm or vsock
 		// and get a real attestation document
 
+		if (!this.enclaveId) {
+			throw new Error("Enclave not initialized");
+		}
+		if (!this.publicKey) {
+			throw new Error("Public key not initialized");
+		}
+
 		// For now, generate a realistic-looking attestation
 		const userData = Buffer.from(request.data.slice(2), "hex");
 		const nonce = request.nonce ? toBytes(request.nonce) : new Uint8Array(8);
 
 		// Create attestation document structure
 		const doc: NitroAttestationDocument = {
-			moduleId: this.enclaveId ?? "unknown",
+			moduleId: this.enclaveId,
 			timestamp,
 			digest: "SHA384",
 			pcrs: {
@@ -300,7 +311,7 @@ export class AWSNitroProvider implements ITEEProvider {
 			cabundle: [Buffer.from("mock-ca").toString("base64")],
 			userData: Buffer.from(userData).toString("base64"),
 			nonce: Buffer.from(nonce).toString("base64"),
-			publicKey: Buffer.from(this.publicKey ?? []).toString("base64"),
+			publicKey: Buffer.from(this.publicKey).toString("base64"),
 		};
 
 		// Serialize document
@@ -326,7 +337,7 @@ export class AWSNitroProvider implements ITEEProvider {
 			reportData: request.data,
 			signature,
 			timestamp,
-			enclaveId: this.enclaveId ?? "unknown",
+			enclaveId: this.enclaveId,
 			provider: "aws",
 			publicKey: this.publicKey,
 		};
@@ -336,6 +347,10 @@ export class AWSNitroProvider implements ITEEProvider {
 		request: AttestationRequest,
 		timestamp: number,
 	): AttestationResponse {
+		if (!this.enclaveId) {
+			throw new Error("Enclave not initialized");
+		}
+
 		const measurement = keccak256(
 			new Uint8Array([...toBytes(request.data), ...toBytes(BigInt(timestamp))]),
 		);
@@ -356,7 +371,7 @@ export class AWSNitroProvider implements ITEEProvider {
 			reportData: request.data,
 			signature,
 			timestamp,
-			enclaveId: this.enclaveId ?? "nitro-sim",
+			enclaveId: this.enclaveId,
 			provider: "aws",
 			publicKey: this.publicKey,
 		};
@@ -364,7 +379,7 @@ export class AWSNitroProvider implements ITEEProvider {
 
 	private async verifyNitroDocument(quote: Uint8Array): Promise<boolean> {
 		// Simulated mode: verify structure is valid JSON with expected fields
-		if (!this.isRealEnclave) {
+		if (!this.inNitroEnvironment) {
 			return this.verifySimulatedDocument(quote);
 		}
 
@@ -413,8 +428,11 @@ export class AWSNitroProvider implements ITEEProvider {
 export function createAWSNitroProvider(
 	config?: Partial<AWSNitroConfig>,
 ): AWSNitroProvider {
+	// Region has a sensible default for AWS services
+	const region = config?.region ?? process.env.AWS_REGION ?? "us-east-1";
+	
 	return new AWSNitroProvider({
-		region: config?.region ?? process.env.AWS_REGION ?? "us-east-1",
+		region,
 		...config,
 	});
 }

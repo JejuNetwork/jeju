@@ -45,7 +45,7 @@ export const testWithWallet = base.extend<
   { walletContext: BrowserContext }
 >({
   walletContext: [
-    async ({}, use, info) => {
+    async (_fixtures, use, _info) => {
       // Bootstrap wallet with MetaMask extension
       const [wallet, _, context] = await bootstrap("", {
         wallet: "metamask",
@@ -101,32 +101,33 @@ export const testWithConnectedWallet = testWithWallet.extend({
   page: async ({ page, wallet }, use) => {
     // Auto-connect wallet to app
     // This assumes a "Connect" button exists
-    try {
-      // Wait for connect button
-      const connectButton = page.locator('button:has-text("Connect")');
-      const isVisible = await connectButton.isVisible({ timeout: 5000 });
+    const connectButton = page.locator('button:has-text("Connect")');
+    const isVisible = await connectButton.isVisible({ timeout: 5000 });
 
-      if (isVisible) {
-        await connectButton.click();
+    if (isVisible) {
+      await connectButton.click();
 
-        // Wait for MetaMask option
-        await page.waitForSelector('text="MetaMask"', { timeout: 3000 });
-        await page.click('text="MetaMask"');
+      // Wait for MetaMask option
+      await page.waitForSelector('text="MetaMask"', { timeout: 3000 });
+      await page.click('text="MetaMask"');
 
-        // Approve in MetaMask
-        await wallet.approve();
+      // Approve in MetaMask
+      await wallet.approve();
 
-        // Wait for connection success
-        // Look for connected indicator (address, balance, etc.)
-        await page.waitForSelector('[data-connected="true"], button:has-text(/0x/)', {
-          timeout: 10000,
-        });
+      // Wait for connection success
+      // Look for connected indicator (address, balance, etc.)
+      await page.waitForSelector('[data-connected="true"], button:has-text(/0x/)', {
+        timeout: 10000,
+      });
 
-        console.log('✅ Wallet auto-connected successfully');
+      console.log('✅ Wallet auto-connected successfully');
+    } else {
+      // Check if wallet is already connected (no connect button visible)
+      const alreadyConnected = await page.locator('[data-connected="true"], button:has-text(/0x/)').isVisible({ timeout: 2000 });
+      if (!alreadyConnected) {
+        throw new Error('No connect button found and wallet does not appear connected');
       }
-    } catch (e) {
-      console.warn('Auto-connect failed or wallet already connected:', e);
-      // Continue anyway - wallet might already be connected
+      console.log('✅ Wallet already connected');
     }
 
     await use(page);
@@ -150,13 +151,13 @@ export const testWithCustomWallet = base.extend<
   { wallet: Dappwright; customPrivateKey: string },
   { walletContext: BrowserContext }
 >({
-  customPrivateKey: async ({}, use) => {
+  customPrivateKey: async (_fixtures, use) => {
     // Override this in your test file
     await use('');
   },
 
   walletContext: [
-    async ({}, use) => {
+    async (_fixtures, use) => {
       const [wallet, _, context] = await bootstrap("", {
         wallet: "metamask",
         version: "11.16.17",

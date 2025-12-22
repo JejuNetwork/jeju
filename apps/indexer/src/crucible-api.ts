@@ -1,5 +1,7 @@
 import { DataSource } from 'typeorm';
 import { RegisteredAgent, ComputeProvider, StorageProvider } from './model';
+import { addressSchema, validateOrThrow } from './lib/validation';
+import { z } from 'zod';
 
 export interface AgentSearchResult {
   agentId: string;
@@ -74,6 +76,24 @@ export interface ServiceSearchFilter {
   offset?: number;
 }
 
+const agentSearchFilterSchema = z.object({
+  name: z.string().optional(),
+  owner: addressSchema.optional(),
+  active: z.boolean().optional(),
+  hasServices: z.boolean().optional(),
+  limit: z.number().int().min(1).max(100).optional(),
+  offset: z.number().int().min(0).optional(),
+});
+
+const serviceSearchFilterSchema = z.object({
+  type: z.enum(['mcp', 'a2a', 'rest']).optional(),
+  category: z.string().optional(),
+  query: z.string().optional(),
+  verifiedOnly: z.boolean().optional(),
+  limit: z.number().int().min(1).max(100).optional(),
+  offset: z.number().int().min(0).optional(),
+});
+
 function mapProviderToService(
   p: ComputeProvider | StorageProvider,
   category: 'compute' | 'storage'
@@ -95,13 +115,18 @@ export async function searchAgents(
   dataSource: DataSource,
   filter: AgentSearchFilter = {}
 ): Promise<AgentSearchResult[]> {
+  if (!dataSource) {
+    throw new Error('DataSource is required');
+  }
+  
+  const validated = agentSearchFilterSchema.parse(filter);
   const {
     name,
     owner,
     active = true,
     limit = 50,
     offset = 0,
-  } = filter;
+  } = validated;
 
   const agentRepo = dataSource.getRepository(RegisteredAgent);
   let query = agentRepo.createQueryBuilder('a');
@@ -141,6 +166,16 @@ export async function getAgent(
   dataSource: DataSource,
   agentId: string
 ): Promise<AgentSearchResult | null> {
+  if (!dataSource) {
+    throw new Error('DataSource is required');
+  }
+  if (!agentId || typeof agentId !== 'string') {
+    throw new Error('agentId is required and must be a string');
+  }
+  if (!/^\d+$/.test(agentId)) {
+    throw new Error(`Invalid agentId format: ${agentId}. Must be a numeric string.`);
+  }
+  
   const agentRepo = dataSource.getRepository(RegisteredAgent);
   const agent = await agentRepo.findOne({
     where: { agentId: BigInt(agentId) },
@@ -166,6 +201,11 @@ export async function searchServices(
   dataSource: DataSource,
   filter: ServiceSearchFilter = {}
 ): Promise<ServiceSearchResult[]> {
+  if (!dataSource) {
+    throw new Error('DataSource is required');
+  }
+  
+  const validated = serviceSearchFilterSchema.parse(filter);
   const {
     type,
     category,
@@ -173,7 +213,7 @@ export async function searchServices(
     verifiedOnly = false,
     limit = 50,
     offset = 0,
-  } = filter;
+  } = validated;
 
   if (type && type !== 'rest') return []; // Only REST providers indexed currently
 
@@ -210,8 +250,19 @@ export async function getService(
   dataSource: DataSource,
   serviceId: string
 ): Promise<ServiceSearchResult | null> {
+  if (!dataSource) {
+    throw new Error('DataSource is required');
+  }
+  if (!serviceId || typeof serviceId !== 'string' || serviceId.length === 0) {
+    throw new Error('serviceId is required and must be a non-empty string');
+  }
+  
   const [type, address] = serviceId.split('-');
-  if (!address) return null;
+  if (!address) {
+    throw new Error(`Invalid serviceId format: ${serviceId}. Expected format: 'type-address'`);
+  }
+  
+  validateOrThrow(addressSchema, address, 'getService address');
 
   if (type === 'compute') {
     const p = await dataSource.getRepository(ComputeProvider).findOne({ where: { address: address.toLowerCase() } });
@@ -225,6 +276,10 @@ export async function getService(
 }
 
 export async function getCrucibleStats(dataSource: DataSource): Promise<CrucibleStats> {
+  if (!dataSource) {
+    throw new Error('DataSource is required');
+  }
+  
   const [totalAgents, activeAgents, activeCompute, activeStorage] = await Promise.all([
     dataSource.getRepository(RegisteredAgent).count(),
     dataSource.getRepository(RegisteredAgent).count({ where: { active: true } }),
@@ -243,7 +298,18 @@ export async function getAgentServices(
   dataSource: DataSource,
   agentId: string
 ): Promise<ServiceSearchResult[]> {
+  if (!dataSource) {
+    throw new Error('DataSource is required');
+  }
+  if (!agentId || typeof agentId !== 'string') {
+    throw new Error('agentId is required and must be a string');
+  }
+  
   const agentIdNum = parseInt(agentId);
+  if (isNaN(agentIdNum) || agentIdNum <= 0) {
+    throw new Error(`Invalid agentId: ${agentId}. Must be a positive integer.`);
+  }
+  
   const [computeProviders, storageProviders] = await Promise.all([
     dataSource.getRepository(ComputeProvider).find({ where: { agentId: agentIdNum, isActive: true } }),
     dataSource.getRepository(StorageProvider).find({ where: { agentId: agentIdNum, isActive: true } }),

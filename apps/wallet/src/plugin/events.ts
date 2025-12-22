@@ -7,8 +7,6 @@
 
 import type { 
   PluginEvents, 
-  IAgentRuntime,
-  Memory,
   EventPayload,
 } from '@elizaos/core';
 
@@ -38,7 +36,7 @@ interface SignatureRequestPayload extends EventPayload {
  * Handle transaction confirmation events
  */
 const handleTransactionConfirmed = async (payload: TransactionConfirmedPayload) => {
-  const { runtime, txHash, chainId, status, confirmations } = payload;
+  const { runtime, txHash, chainId, status, confirmations: _confirmations } = payload;
   
   runtime.logger.info(`[WalletEvents] Transaction ${txHash} ${status} on chain ${chainId}`);
   
@@ -63,7 +61,7 @@ const handleIntentStatusChanged = async (payload: IntentStatusPayload) => {
  * Handle signature requests from dApps
  */
 const handleSignatureRequest = async (payload: SignatureRequestPayload) => {
-  const { runtime, requestId, type, origin, riskLevel } = payload;
+  const { runtime, requestId, type: _type, origin, riskLevel } = payload;
   
   runtime.logger.info(`[WalletEvents] Signature request ${requestId} from ${origin} (risk: ${riskLevel})`);
   

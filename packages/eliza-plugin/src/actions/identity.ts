@@ -10,6 +10,7 @@ import {
   type State,
 } from "@elizaos/core";
 import { JEJU_SERVICE_NAME, type JejuService } from "../service";
+import { getMessageText, expect, validateServiceExists } from "../validation";
 
 export const registerAgentAction: Action = {
   name: "REGISTER_AGENT",
@@ -22,18 +23,16 @@ export const registerAgentAction: Action = {
     "join network",
   ],
 
-  validate: async (runtime: IAgentRuntime) => {
-    const service = runtime.getService(JEJU_SERVICE_NAME);
-    return !!service;
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
 
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     state: State | undefined,
-    _options: Record<string, unknown>,
+    _options?: Record<string, unknown>,
     callback?: HandlerCallback,
-  ) => {
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
 
@@ -50,8 +49,8 @@ Tags: ${existing.tags.join(", ")}`,
       return;
     }
 
-    const text = message.content.text ?? "";
-    const agentName = state?.agentName || "NetworkAgent";
+    const text = getMessageText(message);
+    const agentName = expect(state?.agentName, "agentName in state");
 
     // Extract tags from message
     const tagMatch = text.match(/tags?:\s*([^.]+)/i);

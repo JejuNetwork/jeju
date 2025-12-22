@@ -4,6 +4,8 @@ import { useAccount, useConnect, useDisconnect, useChainId, useSwitchChain, useB
 import type { UnifiedAccount, TokenBalance, Transaction } from '../sdk/types';
 import { chains, getChain } from '../sdk/chains';
 import { oracleService } from '../services';
+import { expectAddress, expectHex, expectChainId, expectBigInt, expectNonEmpty, expectSchema, requireDefined } from '../lib/validation';
+import { UnifiedAccountSchema, TransactionSchema } from '../sdk/schemas';
 
 // Token prices cache (simple in-memory)
 const priceCache = new Map<string, { price: number; timestamp: number }>();
@@ -24,13 +26,20 @@ export function useWallet() {
 
   useEffect(() => {
     if (address && chainId) {
-      setAccounts([{
+      expectAddress(address, 'address');
+      expectChainId(chainId, 'chainId');
+      
+      const account: UnifiedAccount = {
         id: address,
         label: 'Primary Account',
         evmAccounts: [{ address, type: 'eoa', chainId, isDefault: true }],
         solanaAccounts: [],
         smartAccounts: [],
-      }]);
+      };
+      
+      // Validate the account structure
+      expectSchema(account, UnifiedAccountSchema, 'unified account');
+      setAccounts([account]);
     } else {
       setAccounts([]);
     }
@@ -45,30 +54,48 @@ export function useWallet() {
   }, [connect, connectors]);
 
   const signMessage = useCallback(async (message: string): Promise<Hex> => {
-    if (!walletClient) throw new Error('Wallet not connected');
-    return walletClient.signMessage({ message });
+    expectNonEmpty(message, 'message');
+    const client = requireDefined(walletClient, 'walletClient');
+    const signature = await client.signMessage({ message });
+    expectHex(signature, 'signature');
+    return signature;
   }, [walletClient]);
 
   const sendTransaction = useCallback(async (params: { to: Address; value?: bigint; data?: Hex }): Promise<Hex> => {
-    if (!walletClient) throw new Error('Wallet not connected');
+    const client = requireDefined(walletClient, 'walletClient');
+    expectAddress(params.to, 'params.to');
+    if (params.data) {
+      expectHex(params.data, 'params.data');
+    }
+    
+    const value = params.value ?? 0n;
+    expectBigInt(value, 'params.value');
 
-    const hash = await walletClient.sendTransaction({
+    const hash = await client.sendTransaction({
       to: params.to,
-      value: params.value ?? 0n,
+      value,
       data: params.data,
     });
+    
+    expectHex(hash, 'transaction hash');
+    const currentChainId = requireDefined(chainId, 'chainId');
+    const currentAddress = requireDefined(address, 'address');
+    expectChainId(currentChainId, 'chainId');
 
-    setRecentTransactions((prev) => [{
+    const transaction: Transaction = {
       id: hash,
       hash,
-      chainId: chainId ?? 1,
-      from: address ?? ('0x' as Address),
+      chainId: currentChainId,
+      from: currentAddress,
       to: params.to,
-      value: params.value ?? 0n,
+      value,
       data: params.data,
       status: 'submitted',
       timestamp: Date.now(),
-    }, ...prev.slice(0, 19)]);
+    };
+    
+    expectSchema(transaction, TransactionSchema, 'transaction');
+    setRecentTransactions((prev) => [transaction, ...prev.slice(0, 19)]);
 
     return hash;
   }, [walletClient, chainId, address]);
@@ -97,7 +124,10 @@ export function useWallet() {
     connect: connectWallet,
     disconnect,
     switchChain: useCallback((targetChainId: number) => {
-      if (!chains[targetChainId]) throw new Error(`Chain ${targetChainId} not supported`);
+      expectChainId(targetChainId, 'targetChainId');
+      if (!chains[targetChainId]) {
+        throw new Error(`Chain ${targetChainId} not supported`);
+      }
       switchChain({ chainId: targetChainId });
     }, [switchChain]),
     signMessage,
@@ -125,6 +155,7 @@ export function useMultiChainBalances(address?: Address) {
 
   const fetchBalances = useCallback(async () => {
     if (!address) return;
+    expectAddress(address, 'address');
     setIsLoading(true);
     setError(null);
 
@@ -134,13 +165,26 @@ export function useMultiChainBalances(address?: Address) {
     const results = await Promise.allSettled(
       Object.entries(chains).map(async ([id, chain]) => {
         const chainId = Number(id);
+        expectChainId(chainId, 'chainId');
+        expectNonEmpty(chain.rpcUrls.default.http[0], 'rpcUrl');
+        
         const response = await fetch(chain.rpcUrls.default.http[0], {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getBalance', params: [address, 'latest'] }),
         });
+        
+        if (!response.ok) {
+          throw new Error(`RPC request failed: ${response.status} ${response.statusText}`);
+        }
+        
         const data = await response.json();
-        const balance = BigInt(data.result || '0');
+        if (!data || typeof data !== 'object' || !('result' in data)) {
+          throw new Error(`Invalid RPC response: missing result field`);
+        }
+        
+        const balanceStr = typeof data.result === 'string' ? data.result : '0';
+        const balance = expectBigInt(balanceStr, 'balance');
         return { chainId, chain, balance };
       })
     );

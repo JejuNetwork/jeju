@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
+import { expect } from '@/lib/validation';
 
 const DWS_API_URL = process.env.NEXT_PUBLIC_DWS_URL || 'http://localhost:3456';
+const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || 'http://localhost:9545';
 
 export async function GET() {
   const services: Record<string, boolean> = {
@@ -11,18 +13,22 @@ export async function GET() {
 
   // Check DWS health
   try {
+    expect(DWS_API_URL, 'DWS_API_URL must be configured');
     const response = await fetch(`${DWS_API_URL}/health`, {
       signal: AbortSignal.timeout(5000),
     });
     services.dws = response.ok;
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('must be configured')) {
+      throw error;
+    }
     services.dws = false;
   }
 
   // Check RPC connectivity
   try {
-    const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'http://localhost:9545';
-    const response = await fetch(rpcUrl, {
+    expect(RPC_URL, 'RPC_URL must be configured');
+    const response = await fetch(RPC_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -34,7 +40,10 @@ export async function GET() {
       signal: AbortSignal.timeout(5000),
     });
     services.rpc = response.ok;
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('must be configured')) {
+      throw error;
+    }
     services.rpc = false;
   }
 

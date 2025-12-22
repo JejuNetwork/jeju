@@ -9,9 +9,9 @@
  */
 
 import type { Address, Hex, PublicClient, WalletClient } from 'viem';
-import type { Token, TokenBalance, GasOption, GasEstimate } from './types';
-import { EILClient, type EILClientConfig } from './eil';
-import { AAClient, type AAClientConfig } from './account-abstraction';
+import type { TokenBalance, GasOption } from './types';
+import { EILClient } from './eil';
+import { AAClient } from './account-abstraction';
 
 // ============================================================================
 // Types
@@ -135,23 +135,19 @@ export class GasAbstractionService {
       const chainBalances = tokenBalances.filter((tb) => tb.token.chainId === chainId);
 
       for (const tb of chainBalances) {
-        try {
-          const sponsorCheck = await eilClient.canSponsor(
-            estimatedGasCost,
-            tb.token.address,
-            userAddress
-          );
+        const sponsorCheck = await eilClient.canSponsor(
+          estimatedGasCost,
+          tb.token.address,
+          userAddress
+        );
 
-          if (sponsorCheck.canSponsor) {
-            availableTokens.push({
-              token: tb.token,
-              tokenAmount: sponsorCheck.tokenCost,
-              ethEquivalent: estimatedGasCost,
-              usdValue: tb.usdValue ?? 0,
-            });
-          }
-        } catch {
-          // Token not supported for gas payment
+        if (sponsorCheck.canSponsor) {
+          availableTokens.push({
+            token: tb.token,
+            tokenAmount: sponsorCheck.tokenCost,
+            ethEquivalent: estimatedGasCost,
+            usdValue: tb.usdValue ?? 0,
+          });
         }
       }
     }
@@ -219,31 +215,27 @@ export class GasAbstractionService {
     const gasPrice = await publicClient.getGasPrice();
     const gasCostETH = estimatedGas * gasPrice;
 
-    try {
-      const result = await eilClient.getBestPaymentTokenForApp(
-        '0x0000000000000000000000000000000000000000' as Address, // No specific app
-        userAddress,
-        gasCostETH,
-        chainBalances
-      );
+    const result = await eilClient.getBestPaymentTokenForApp(
+      '0x0000000000000000000000000000000000000000' as Address, // No specific app
+      userAddress,
+      gasCostETH,
+      chainBalances
+    );
 
-      if (result.bestToken === '0x0000000000000000000000000000000000000000') {
-        return null;
-      }
-
-      const tokenBalance = chainBalances.find((tb) => tb.token.address === result.bestToken);
-      if (!tokenBalance) return null;
-
-      return {
-        token: tokenBalance.token,
-        tokenAmount: result.tokenCost,
-        ethEquivalent: gasCostETH,
-        usdValue: tokenBalance.usdValue ?? 0,
-        reason: result.reason,
-      };
-    } catch {
+    if (result.bestToken === '0x0000000000000000000000000000000000000000') {
       return null;
     }
+
+    const tokenBalance = chainBalances.find((tb) => tb.token.address === result.bestToken);
+    if (!tokenBalance) return null;
+
+    return {
+      token: tokenBalance.token,
+      tokenAmount: result.tokenCost,
+      ethEquivalent: gasCostETH,
+      usdValue: tokenBalance.usdValue ?? 0,
+      reason: result.reason,
+    };
   }
 
   /**
@@ -296,19 +288,15 @@ export class GasAbstractionService {
     if (status.needsBridge && this.config.autoBridge && status.bridgeEstimate) {
       const eilClient = this.eilClients.get(status.bridgeEstimate.sourceChain);
       if (eilClient && this.walletClient) {
-        try {
-          const result = await eilClient.createCrossChainTransfer({
-            sourceToken: '0x0000000000000000000000000000000000000000' as Address,
-            amount: status.bridgeEstimate.amount,
-            destinationToken: '0x0000000000000000000000000000000000000000' as Address,
-            destinationChainId: targetChainId,
-            recipient: userAddress,
-          });
+        const result = await eilClient.createCrossChainTransfer({
+          sourceToken: '0x0000000000000000000000000000000000000000' as Address,
+          amount: status.bridgeEstimate.amount,
+          destinationToken: '0x0000000000000000000000000000000000000000' as Address,
+          destinationChainId: targetChainId,
+          recipient: userAddress,
+        });
 
-          return { ready: false, action: 'bridge', txHash: result.txHash };
-        } catch {
-          return { ready: false, action: 'bridge' };
-        }
+        return { ready: false, action: 'bridge', txHash: result.txHash };
       }
     }
 

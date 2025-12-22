@@ -1,10 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ComponentType } from 'react';
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseEther } from 'viem';
-import { Tag, Upload, Award, AlertTriangle, Shield, Zap } from 'lucide-react';
+import { Tag, Upload, Award, AlertTriangle, Shield, Zap, type LucideProps } from 'lucide-react';
 import { MODERATION_CONTRACTS } from '../../config/moderation';
+
+const TagIcon = Tag as ComponentType<LucideProps>;
+const UploadIcon = Upload as ComponentType<LucideProps>;
+const AwardIcon = Award as ComponentType<LucideProps>;
+const AlertTriangleIcon = AlertTriangle as ComponentType<LucideProps>;
+const ShieldIcon = Shield as ComponentType<LucideProps>;
+const ZapIcon = Zap as ComponentType<LucideProps>;
 
 interface LabelProposalInterfaceProps {
   targetAgentId?: bigint;
@@ -19,7 +26,7 @@ const LABEL_TYPES = [
     name: 'HACKER',
     stake: '0.1',
     description: 'Proven exploit/hack - auto-triggers network ban',
-    icon: Zap,
+    icon: ZapIcon,
     color: 'red',
     severity: 'CRITICAL',
   },
@@ -28,7 +35,7 @@ const LABEL_TYPES = [
     name: 'SCAMMER',
     stake: '0.05',
     description: 'Fraudulent behavior - warning label only',
-    icon: AlertTriangle,
+    icon: AlertTriangleIcon,
     color: 'orange',
     severity: 'HIGH',
   },
@@ -37,7 +44,7 @@ const LABEL_TYPES = [
     name: 'SPAM_BOT',
     stake: '0.01',
     description: 'Automated spam - eligible for app-level bans',
-    icon: Tag,
+    icon: TagIcon,
     color: 'yellow',
     severity: 'MEDIUM',
   },
@@ -46,7 +53,7 @@ const LABEL_TYPES = [
     name: 'TRUSTED',
     stake: '0.5',
     description: 'Vouching for good standing - positive reputation',
-    icon: Award,
+    icon: AwardIcon,
     color: 'green',
     severity: 'POSITIVE',
   },
@@ -195,7 +202,7 @@ export default function LabelProposalInterface({ targetAgentId, onSuccess }: Lab
         <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
           {!evidenceFile ? (
             <>
-              <Upload className="mx-auto text-gray-400 mb-2" size={32} />
+              <UploadIcon className="mx-auto text-gray-400 mb-2" size={32} />
               <p className="text-sm text-gray-600 mb-2">
                 Upload proof supporting this label
               </p>
@@ -228,7 +235,7 @@ export default function LabelProposalInterface({ targetAgentId, onSuccess }: Lab
       {selectedLabelInfo && (
         <div className={`bg-${selectedLabelInfo.color}-50 border border-${selectedLabelInfo.color}-200 rounded-lg p-4`}>
           <div className="flex items-start gap-2">
-            <Shield className={`text-${selectedLabelInfo.color}-500 mt-0.5`} size={20} />
+            <ShieldIcon className={`text-${selectedLabelInfo.color}-500 mt-0.5`} size={20} />
             <div className="flex-1">
               <div className={`font-semibold text-${selectedLabelInfo.color}-900 mb-1`}>
                 Stake Required: {selectedLabelInfo.stake} ETH

@@ -12,6 +12,26 @@ import { createHash } from 'crypto';
 import type { Address, Hex } from 'viem';
 import { keccak256, encodePacked } from 'viem';
 import type { BackendManager } from '../../storage/backends';
+import { validateBody, validateParams, validateQuery, validateHeaders, jejuAddressHeaderSchema, datasetCreationSchema, datasetParamsSchema, datasetsSearchQuerySchema, datasetConfigSchema } from '../../shared';
+import { z } from 'zod';
+
+// Extended schemas for HuggingFace-compatible API
+const hfDatasetsQuerySchema = z.object({
+  search: z.string().optional(),
+  author: z.string().optional(),
+  filter: z.string().optional(),
+  sort: z.enum(['downloads', 'modified', 'created']).default('downloads'),
+  limit: z.coerce.number().int().positive().max(100).default(30),
+  offset: z.coerce.number().int().nonnegative().default(0),
+});
+
+const nativeDatasetsQuerySchema = z.object({
+  org: z.string().optional(),
+  q: z.string().optional(),
+  format: z.string().optional(),
+  limit: z.coerce.number().int().positive().max(100).default(50),
+  offset: z.coerce.number().int().nonnegative().default(0),
+});
 
 // ============================================================================
 // Types
@@ -105,12 +125,7 @@ export function createDatasetsRouter(ctx: DatasetsContext): Hono {
 
   // List datasets (HF Hub compatible)
   router.get('/api/datasets', async (c) => {
-    const search = c.req.query('search');
-    const author = c.req.query('author');
-    const filter = c.req.query('filter');
-    const sort = c.req.query('sort') || 'downloads';
-    const limit = parseInt(c.req.query('limit') || '30');
-    const offset = parseInt(c.req.query('offset') || '0');
+    const { search, author, sort, limit, offset } = validateQuery(hfDatasetsQuerySchema, c);
 
     let datasets = Array.from(datasetsStore.values());
 
@@ -166,12 +181,14 @@ export function createDatasetsRouter(ctx: DatasetsContext): Hono {
 
   // Get single dataset (HF Hub compatible)
   router.get('/api/datasets/:org/:name', async (c) => {
-    const org = c.req.param('org');
-    const name = c.req.param('name');
+    const { organization: org, dataset: name } = validateParams(datasetParamsSchema.extend({
+      org: z.string().min(1),
+      name: z.string().min(1),
+    }), c);
 
     const dataset = findDatasetByKey(`${org}/${name}`);
     if (!dataset) {
-      return c.json({ error: 'Dataset not found' }, 404);
+      throw new Error('Dataset not found');
     }
 
     const files = filesStore.get(dataset.datasetId) || [];
@@ -210,7 +227,7 @@ export function createDatasetsRouter(ctx: DatasetsContext): Hono {
 
     const dataset = findDatasetByKey(`${org}/${name}`);
     if (!dataset) {
-      return c.json({ error: 'Dataset not found' }, 404);
+      throw new Error('Dataset not found');
     }
 
     const files = filesStore.get(dataset.datasetId) || [];
@@ -231,7 +248,7 @@ export function createDatasetsRouter(ctx: DatasetsContext): Hono {
 
     const dataset = findDatasetByKey(`${org}/${name}`);
     if (!dataset) {
-      return c.json({ error: 'Dataset not found' }, 404);
+      throw new Error('Dataset not found');
     }
 
     const files = filesStore.get(dataset.datasetId) || [];
@@ -248,7 +265,7 @@ export function createDatasetsRouter(ctx: DatasetsContext): Hono {
 
     const result = await backend.download(file.cid).catch(() => null);
     if (!result) {
-      return c.json({ error: 'File not available' }, 404);
+      throw new Error('File not available');
     }
 
     return new Response(result.content, {
@@ -267,7 +284,7 @@ export function createDatasetsRouter(ctx: DatasetsContext): Hono {
 
     const dataset = findDatasetByKey(`${org}/${name}`);
     if (!dataset) {
-      return c.json({ error: 'Dataset not found' }, 404);
+      throw new Error('Dataset not found');
     }
 
     const files = filesStore.get(dataset.datasetId) || [];
@@ -293,11 +310,7 @@ export function createDatasetsRouter(ctx: DatasetsContext): Hono {
 
   // List all datasets
   router.get('/', async (c) => {
-    const org = c.req.query('org');
-    const search = c.req.query('q');
-    const format = c.req.query('format');
-    const limit = parseInt(c.req.query('limit') || '50');
-    const offset = parseInt(c.req.query('offset') || '0');
+    const { org, q: search, format, limit, offset } = validateQuery(nativeDatasetsQuerySchema, c);
 
     let datasets = Array.from(datasetsStore.values());
 
@@ -341,7 +354,7 @@ export function createDatasetsRouter(ctx: DatasetsContext): Hono {
 
     const dataset = findDatasetByKey(`${org}/${name}`);
     if (!dataset) {
-      return c.json({ error: 'Dataset not found' }, 404);
+      throw new Error('Dataset not found');
     }
 
     const files = filesStore.get(dataset.datasetId) || [];
@@ -358,20 +371,10 @@ export function createDatasetsRouter(ctx: DatasetsContext): Hono {
 
   // Create dataset
   router.post('/', async (c) => {
-    const owner = c.req.header('x-jeju-address') as Address;
-    if (!owner) {
-      return c.json({ error: 'Authentication required' }, 401);
-    }
-
-    const body = await c.req.json<{
-      name: string;
-      organization: string;
-      description: string;
-      format?: DatasetFormat | string;
-      license?: DatasetLicense | string;
-      tags?: string[];
-      isPublic?: boolean;
-    }>();
+    const { 'x-jeju-address': owner } = validateHeaders(jejuAddressHeaderSchema, c);
+    const body = await validateBody(datasetCreationSchema.extend({
+      isPublic: z.boolean().optional(),
+    }), c);
 
     const format = typeof body.format === 'string'
       ? DatasetFormat[body.format.toUpperCase() as keyof typeof DatasetFormat]
@@ -411,21 +414,17 @@ export function createDatasetsRouter(ctx: DatasetsContext): Hono {
 
   // Upload dataset files
   router.post('/:org/:name/upload', async (c) => {
-    const owner = c.req.header('x-jeju-address') as Address;
-    if (!owner) {
-      return c.json({ error: 'Authentication required' }, 401);
-    }
-
+    const { 'x-jeju-address': owner } = validateHeaders(jejuAddressHeaderSchema, c);
     const org = c.req.param('org');
     const name = c.req.param('name');
 
     const dataset = findDatasetByKey(`${org}/${name}`);
     if (!dataset) {
-      return c.json({ error: 'Dataset not found' }, 404);
+      throw new Error('Dataset not found');
     }
 
     if (dataset.owner.toLowerCase() !== owner.toLowerCase()) {
-      return c.json({ error: 'Not authorized' }, 403);
+      throw new Error('Not authorized');
     }
 
     const formData = await c.req.formData();
@@ -474,24 +473,20 @@ export function createDatasetsRouter(ctx: DatasetsContext): Hono {
 
   // Set dataset config
   router.put('/:org/:name/config', async (c) => {
-    const owner = c.req.header('x-jeju-address') as Address;
-    if (!owner) {
-      return c.json({ error: 'Authentication required' }, 401);
-    }
-
+    const { 'x-jeju-address': owner } = validateHeaders(jejuAddressHeaderSchema, c);
     const org = c.req.param('org');
     const name = c.req.param('name');
 
     const dataset = findDatasetByKey(`${org}/${name}`);
     if (!dataset) {
-      return c.json({ error: 'Dataset not found' }, 404);
+      throw new Error('Dataset not found');
     }
 
     if (dataset.owner.toLowerCase() !== owner.toLowerCase()) {
-      return c.json({ error: 'Not authorized' }, 403);
+      throw new Error('Not authorized');
     }
 
-    const config = await c.req.json<DatasetConfig>();
+    const config = await validateBody(datasetConfigSchema, c);
     configsStore.set(dataset.datasetId, config);
 
     return c.json(config);
@@ -504,7 +499,7 @@ export function createDatasetsRouter(ctx: DatasetsContext): Hono {
 
     const dataset = findDatasetByKey(`${org}/${name}`);
     if (!dataset) {
-      return c.json({ error: 'Dataset not found' }, 404);
+      throw new Error('Dataset not found');
     }
 
     const files = filesStore.get(dataset.datasetId) || [];
@@ -519,7 +514,7 @@ export function createDatasetsRouter(ctx: DatasetsContext): Hono {
 
     const dataset = findDatasetByKey(`${org}/${name}`);
     if (!dataset) {
-      return c.json({ error: 'Dataset not found' }, 404);
+      throw new Error('Dataset not found');
     }
 
     const files = filesStore.get(dataset.datasetId) || [];

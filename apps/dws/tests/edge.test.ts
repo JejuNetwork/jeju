@@ -188,7 +188,8 @@ describe('Edge Coordination', () => {
     });
 
     test('earnings for non-existent node returns 404', async () => {
-      const response = await app.request('/edge/earnings/nonexistent');
+      // Use a valid UUID format that doesn't exist
+      const response = await app.request('/edge/earnings/00000000-0000-0000-0000-000000000000');
       expect(response.status).toBe(404);
     });
   });

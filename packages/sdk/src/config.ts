@@ -72,61 +72,93 @@ export interface ContractAddresses {
   federationGovernance?: Address;
 }
 
+/** Safe contract lookup - returns undefined if not found instead of throwing
+ * This is a valid try/catch usage: getContract throws for missing contracts/categories
+ * which is expected for optional contract deployments across different networks
+ */
+function safeGetContract(
+  category: string,
+  name: string,
+  network: NetworkType,
+): Address | undefined {
+  try {
+    // @ts-expect-error - category names may vary by deployment
+    const addr = getContract(category, name, network);
+    return addr ? (addr as Address) : undefined;
+  } catch {
+    // Contract not deployed on this network - return undefined (not zero address)
+    return undefined;
+  }
+}
+
+/** Require a contract address - throws with clear error if not configured
+ * Use this in modules for required contracts that must exist
+ */
+export function requireContract(
+  category: string,
+  name: string,
+  network: NetworkType,
+): Address {
+  try {
+    // @ts-expect-error - category names may vary by deployment
+    const addr = getContract(category, name, network);
+    if (!addr) {
+      throw new Error(`Contract ${category}/${name} returned empty address for ${network}`);
+    }
+    return addr as Address;
+  } catch {
+    // Re-throw with clearer context
+    throw new Error(
+      `Contract ${category}/${name} not configured for ${network}. ` +
+      `Deploy contracts or configure environment variables.`
+    );
+  }
+}
+
 /** Get all contract addresses for a network */
 export function getContractAddresses(network: NetworkType): ContractAddresses {
-  // Type-safe contract lookup that returns undefined if not found
-  const tryGetContract = (category: string, name: string): Address | undefined => {
-    try {
-      // @ts-expect-error - category names may vary by deployment
-      const addr = getContract(network, category, name);
-      return addr as Address;
-    } catch {
-      return undefined;
-    }
-  };
-
   return {
     // Core
-    identityRegistry: tryGetContract("identity", "IdentityRegistry"),
-    validationRegistry: tryGetContract("identity", "ValidationRegistry"),
-    agentRegistry: tryGetContract("identity", "AgentRegistry"),
-    computeMarketplace: tryGetContract("compute", "ComputeMarketplace"),
-    storageMarketplace: tryGetContract("storage", "StorageMarketplace"),
-    jnsRegistry: tryGetContract("names", "JNSRegistry"),
-    jnsResolver: tryGetContract("names", "JNSResolver"),
-    governor: tryGetContract("governance", "Governor"),
-    governorToken: tryGetContract("governance", "GovernorToken"),
+    identityRegistry: safeGetContract("identity", "IdentityRegistry", network),
+    validationRegistry: safeGetContract("identity", "ValidationRegistry", network),
+    agentRegistry: safeGetContract("identity", "AgentRegistry", network),
+    computeMarketplace: safeGetContract("compute", "ComputeMarketplace", network),
+    storageMarketplace: safeGetContract("storage", "StorageMarketplace", network),
+    jnsRegistry: safeGetContract("names", "JNSRegistry", network),
+    jnsResolver: safeGetContract("names", "JNSResolver", network),
+    governor: safeGetContract("governance", "Governor", network),
+    governorToken: safeGetContract("governance", "GovernorToken", network),
 
     // Extended
-    gameIntegration: tryGetContract("games", "GameIntegration"),
-    containerRegistry: tryGetContract("containers", "ContainerRegistry"),
-    tokenLaunchpad: tryGetContract("launchpad", "TokenLaunchpad"),
-    bondingCurve: tryGetContract("launchpad", "BondingCurve"),
-    lpLocker: tryGetContract("launchpad", "LPLocker"),
-    gitRegistry: tryGetContract("developer", "GitRegistry"),
-    packageRegistry: tryGetContract("developer", "PackageRegistry"),
-    modelRegistry: tryGetContract("models", "ModelRegistry"),
-    datasetRegistry: tryGetContract("models", "DatasetRegistry"),
-    vpnRegistry: tryGetContract("vpn", "VPNRegistry"),
+    gameIntegration: safeGetContract("games", "GameIntegration", network),
+    containerRegistry: safeGetContract("containers", "ContainerRegistry", network),
+    tokenLaunchpad: safeGetContract("launchpad", "TokenLaunchpad", network),
+    bondingCurve: safeGetContract("launchpad", "BondingCurve", network),
+    lpLocker: safeGetContract("launchpad", "LPLocker", network),
+    gitRegistry: safeGetContract("developer", "GitRegistry", network),
+    packageRegistry: safeGetContract("developer", "PackageRegistry", network),
+    modelRegistry: safeGetContract("models", "ModelRegistry", network),
+    datasetRegistry: safeGetContract("models", "DatasetRegistry", network),
+    vpnRegistry: safeGetContract("vpn", "VPNRegistry", network),
 
     // DeFi
-    routerV3: tryGetContract("defi", "RouterV3"),
-    positionManager: tryGetContract("defi", "NonfungiblePositionManager"),
-    xlpFactory: tryGetContract("defi", "XLPFactory"),
+    routerV3: safeGetContract("defi", "RouterV3", network),
+    positionManager: safeGetContract("defi", "NonfungiblePositionManager", network),
+    xlpFactory: safeGetContract("defi", "XLPFactory", network),
 
     // Cross-chain
-    inputSettler: tryGetContract("crosschain", "InputSettler"),
-    solverRegistry: tryGetContract("crosschain", "SolverRegistry"),
+    inputSettler: safeGetContract("crosschain", "InputSettler", network),
+    solverRegistry: safeGetContract("crosschain", "SolverRegistry", network),
 
     // Staking
-    staking: tryGetContract("staking", "Staking"),
-    nodeStakingManager: tryGetContract("staking", "NodeStakingManager"),
-    rpcProviderRegistry: tryGetContract("rpc", "RPCProviderRegistry"),
+    staking: safeGetContract("staking", "Staking", network),
+    nodeStakingManager: safeGetContract("staking", "NodeStakingManager", network),
+    rpcProviderRegistry: safeGetContract("rpc", "RPCProviderRegistry", network),
 
     // Federation
-    networkRegistry: tryGetContract("federation", "NetworkRegistry"),
-    registryHub: tryGetContract("federation", "RegistryHub"),
-    federationGovernance: tryGetContract("federation", "FederationGovernance"),
+    networkRegistry: safeGetContract("federation", "NetworkRegistry", network),
+    registryHub: safeGetContract("federation", "RegistryHub", network),
+    federationGovernance: safeGetContract("federation", "FederationGovernance", network),
   };
 }
 

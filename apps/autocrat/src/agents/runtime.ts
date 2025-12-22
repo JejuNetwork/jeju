@@ -3,18 +3,23 @@
  * Uses DWS for decentralized compute - automatically configured per network.
  */
 
-// ElizaOS types - loaded dynamically to avoid import errors
-type AgentRuntime = { character: unknown; agentId: string; registerPlugin: (p: unknown) => Promise<void> };
-type Character = Record<string, unknown>;
-type UUID = string;
-type Plugin = Record<string, unknown>;
-let AgentRuntimeClass: (new (opts: { character: Character; agentId: UUID; plugins: Plugin[] }) => AgentRuntime) | null = null;
-
+import { z } from 'zod';
 import { getDWSComputeUrl, getCurrentNetwork } from '@jejunetwork/config';
 import { autocratAgentTemplates, ceoAgent, type AutocratAgentTemplate } from './templates';
 import { autocratPlugin } from './autocrat-plugin';
 import { ceoPlugin } from './ceo-plugin';
 import type { CEOPersona, GovernanceParams } from '../types';
+
+// ElizaOS types - loaded dynamically to avoid import errors
+// These use Record types since ElizaOS internals vary by version
+type ElizaCharacter = Record<string, string | string[] | Record<string, string>>;
+type ElizaPlugin = Record<string, string | ((...args: unknown[]) => unknown)>;
+type AgentRuntime = { character: ElizaCharacter; agentId: string; registerPlugin: (p: ElizaPlugin) => Promise<void> };
+type UUID = string;
+// Type aliases for ElizaOS compatibility
+type Character = ElizaCharacter;
+type Plugin = ElizaPlugin;
+let AgentRuntimeClass: (new (opts: { character: ElizaCharacter; agentId: UUID; plugins: ElizaPlugin[] }) => AgentRuntime) | null = null;
 
 // ============ Types ============
 
@@ -55,6 +60,15 @@ export interface CEODecision {
   alignment: number;
   recommendations: string[];
 }
+
+// Schema for parsing CEO decision JSON from LLM response
+const CEODecisionResponseSchema = z.object({
+  approved: z.boolean().optional(),
+  reasoning: z.string().optional(),
+  confidence: z.number().min(0).max(100).optional(),
+  alignment: z.number().min(0).max(100).optional(),
+  recommendations: z.array(z.string()).optional(),
+});
 
 interface CEOPersonaConfig {
   persona: CEOPersona;
@@ -302,8 +316,9 @@ export class AutocratAgentRuntimeManager {
     if (!AgentRuntimeClass) {
       throw new Error('ElizaOS AgentRuntime not available');
     }
-    const character: Character = { ...template.character };
-    // Cast plugins to match ElizaOS Plugin type which has different structure
+    // Cast template.character through unknown to satisfy ElizaOS dynamic type system
+    const character = { ...template.character } as unknown as Character;
+    // Cast plugins through unknown for ElizaOS Plugin type compatibility
     const plugins = (template.role === 'CEO' ? [ceoPlugin] : [autocratPlugin]) as unknown as Plugin[];
     const runtime = new AgentRuntimeClass({ character, agentId: template.id as UUID, plugins });
     for (const plugin of plugins) await runtime.registerPlugin(plugin);
@@ -434,7 +449,8 @@ Respond with a JSON object:
     let decision: CEODecision;
     const jsonMatch = decisionResponse.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]) as Partial<CEODecision>;
+      const rawParsed = JSON.parse(jsonMatch[0]);
+      const parsed = CEODecisionResponseSchema.parse(rawParsed);
       decision = {
         approved: parsed.approved ?? false,
         reasoning: parsed.reasoning ?? decisionResponse.slice(0, 500),

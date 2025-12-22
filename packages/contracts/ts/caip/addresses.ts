@@ -9,7 +9,16 @@
 
 import { PublicKey } from '@solana/web3.js';
 import { isAddress as isEvmAddress, getAddress as checksumAddress } from 'viem';
-import { parseChainId, formatChainId, isEvmChain, isSolanaChain, type ChainId } from './chains';
+import { 
+  parseChainId, 
+  formatChainId, 
+  isEvmChain, 
+  isSolanaChain, 
+  SOLANA_MAINNET_GENESIS,
+  SOLANA_DEVNET_GENESIS,
+  SOLANA_TESTNET_GENESIS,
+  type ChainId,
+} from './chains';
 
 // ============================================================================
 // Types
@@ -162,11 +171,11 @@ export function solanaAddressToCAIP10(
 ): string {
   const pubkey = new PublicKey(address);
   
-  const genesisHashes: Record<string, string> = {
-    'mainnet-beta': '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
-    'devnet': 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1',
-    'testnet': '4uhcVJyU9pJkvQyS88uRDiswHXSCkY3z',
-  };
+  const genesisHashes = {
+    'mainnet-beta': SOLANA_MAINNET_GENESIS,
+    'devnet': SOLANA_DEVNET_GENESIS,
+    'testnet': SOLANA_TESTNET_GENESIS,
+  } as const;
 
   return `solana:${genesisHashes[cluster]}:${pubkey.toBase58()}`;
 }
@@ -278,6 +287,4 @@ export function shortenAddress(caip10: string, chars: number = 4): string {
 
   return `${address.slice(0, chars + 2)}...${address.slice(-chars)}`;
 }
-
-
 

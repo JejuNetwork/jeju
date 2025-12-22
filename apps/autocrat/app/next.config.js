@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Next.js 16 uses Turbopack by default
+  turbopack: {},
   transpilePackages: ['lucide-react'],
   async rewrites() {
     const apiUrl = process.env.COUNCIL_API_URL || 'http://localhost:8010'

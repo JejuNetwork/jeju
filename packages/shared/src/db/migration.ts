@@ -332,11 +332,10 @@ export async function migrateData<T extends Record<string, unknown>>(
     whereParams?: unknown[];
     consistency?: ConsistencyLevel;
   } = {}
-): Promise<{ migrated: number; failed: number }> {
+): Promise<{ migrated: number }> {
   const batchSize = options.batchSize ?? 1000;
   let offset = 0;
   let migrated = 0;
-  let failed = 0;
 
   while (true) {
     const rows = await client.select<T>(sourceTable, {
@@ -349,14 +348,7 @@ export async function migrateData<T extends Record<string, unknown>>(
 
     if (rows.length === 0) break;
 
-    const transformed = rows.map(row => {
-      try {
-        return transform(row);
-      } catch {
-        failed++;
-        return null;
-      }
-    }).filter((r): r is Record<string, unknown> => r !== null);
+    const transformed = rows.map(row => transform(row));
 
     if (transformed.length > 0) {
       await client.insert(targetTable, transformed, { consistency: 'strong' });
@@ -366,7 +358,7 @@ export async function migrateData<T extends Record<string, unknown>>(
     offset += batchSize;
   }
 
-  return { migrated, failed };
+  return { migrated };
 }
 
 

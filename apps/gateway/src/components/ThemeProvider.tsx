@@ -1,6 +1,9 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { Sun, Moon } from 'lucide-react';
+import { createContext, useContext, useEffect, useState, type ReactNode, type ComponentType } from 'react';
+import { Sun, Moon, type LucideProps } from 'lucide-react';
+
+const MoonIcon = Moon as ComponentType<LucideProps>;
+const SunIcon = Sun as ComponentType<LucideProps>;
 
 type Theme = 'light' | 'dark';
 
@@ -48,7 +51,7 @@ export function ThemeToggle() {
       className="theme-toggle"
       aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
     >
-      {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+      {theme === 'light' ? <MoonIcon size={18} /> : <SunIcon size={18} />}
     </button>
   );
 }

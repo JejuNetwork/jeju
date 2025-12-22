@@ -7,26 +7,11 @@
  * - Agent hiring/collaboration
  */
 
+import type { Agent } from '@/types';
+
 const CRUCIBLE_API = process.env.NEXT_PUBLIC_CRUCIBLE_URL || 'http://localhost:4020';
 
-// ============ Types ============
-
-export interface Agent {
-  agentId: bigint;
-  owner: string;
-  name: string;
-  botType: 'ai_agent' | 'trading_bot' | 'org_tool';
-  characterCid: string | null;
-  stateCid: string;
-  vaultAddress: string;
-  active: boolean;
-  registeredAt: number;
-  lastExecutedAt: number;
-  executionCount: number;
-  capabilities: string[];
-  specializations: string[];
-  reputation: number;
-}
+export type { Agent };
 
 export interface AgentTask {
   taskId: string;

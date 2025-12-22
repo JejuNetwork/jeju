@@ -2,8 +2,8 @@
  * @fileoverview Network Configuration
  * @module config/network
  * 
- * Single source of truth for all network configuration.
- * Loads from JSON files, provides sensible defaults, and handles graceful fallbacks.
+ * Network-specific utilities for checking availability and loading deployments.
+ * Chain config loading is handled by the main index.ts module.
  * 
  * Key principles:
  * - JSON files store network configs (chain/*.json)
@@ -13,11 +13,15 @@
  */
 
 import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
-import type { NetworkType, ChainConfig } from '../types/src/chain';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+import { ChainConfigSchema, NetworkSchema, type NetworkType, type ChainConfig } from './schemas';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const ROOT = join(__dirname, '..', '..');
-const CONFIG_DIR = join(ROOT, 'packages', 'config');
+const CONFIG_DIR = __dirname;
 const DEPLOYMENTS_DIR = join(ROOT, 'packages', 'contracts', 'deployments');
 
 // ============================================================================
@@ -142,6 +146,7 @@ export const ENTRYPOINT_V07 = '0x0000000071727De22E5E9d8BAf0edAc6f37da032';
 
 /**
  * Load chain configuration from JSON file
+ * Note: This is the canonical implementation - also exported from index.ts
  */
 export function loadChainConfig(network: NetworkType): ChainConfig {
   const configPath = join(CONFIG_DIR, 'chain', `${network}.json`);
@@ -150,8 +155,14 @@ export function loadChainConfig(network: NetworkType): ChainConfig {
     throw new Error(`Chain config not found: ${configPath}`);
   }
   
-  const raw = JSON.parse(readFileSync(configPath, 'utf-8'));
-  return raw as ChainConfig;
+  return ChainConfigSchema.parse(JSON.parse(readFileSync(configPath, 'utf-8')));
+}
+
+/**
+ * Get chain config for current or specified network
+ */
+export function getChainConfig(network?: NetworkType): ChainConfig {
+  return loadChainConfig(network ?? getCurrentNetwork());
 }
 
 /**
@@ -177,7 +188,7 @@ export function loadDeployedContracts(network: NetworkType): DeployedContracts {
   
   for (const file of deploymentFiles) {
     if (existsSync(file)) {
-      const data = JSON.parse(readFileSync(file, 'utf-8'));
+      const data = JSON.parse(readFileSync(file, 'utf-8')) as DeploymentFileData;
       Object.assign(contracts, flattenContracts(data));
     }
   }
@@ -185,17 +196,22 @@ export function loadDeployedContracts(network: NetworkType): DeployedContracts {
   return contracts;
 }
 
+interface DeploymentFileData {
+  [key: string]: string | { contracts: DeploymentFileData } | DeploymentFileData;
+}
+
 /**
  * Flatten nested contract structures
  */
-function flattenContracts(data: Record<string, unknown>): DeployedContracts {
+function flattenContracts(data: DeploymentFileData): DeployedContracts {
   const result: DeployedContracts = {};
   
   for (const [key, value] of Object.entries(data)) {
     if (typeof value === 'string' && value.startsWith('0x')) {
       result[key] = value;
     } else if (typeof value === 'object' && value !== null && 'contracts' in value) {
-      Object.assign(result, flattenContracts((value as { contracts: Record<string, unknown> }).contracts));
+      const nested = value as { contracts: DeploymentFileData };
+      Object.assign(result, flattenContracts(nested.contracts));
     }
   }
   
@@ -208,16 +224,21 @@ function flattenContracts(data: Record<string, unknown>): DeployedContracts {
 
 /**
  * Get the current network based on environment or default
+ * Validates JEJU_NETWORK env var and throws on invalid values
  */
 export function getCurrentNetwork(): NetworkType {
-  const envNetwork = process.env.JEJU_NETWORK as NetworkType;
+  const envNetwork = process.env.JEJU_NETWORK;
   
-  if (envNetwork && ['localnet', 'testnet', 'mainnet'].includes(envNetwork)) {
-    return envNetwork;
+  // No env var set - default to localnet for development
+  if (!envNetwork) return 'localnet';
+  
+  // Validate with Zod schema
+  const result = NetworkSchema.safeParse(envNetwork);
+  if (!result.success) {
+    throw new Error(`Invalid JEJU_NETWORK: ${envNetwork}. Must be one of: localnet, testnet, mainnet`);
   }
   
-  // Default to localnet for development
-  return 'localnet';
+  return result.data;
 }
 
 /**
@@ -364,10 +385,29 @@ export function getContractAddress(
 
 /**
  * Get deployer configuration
+ * For localnet, uses test accounts. For other networks, requires explicit env vars.
  */
 export function getDeployerConfig(): { address: string; privateKey: string } {
-  const address = process.env.DEPLOYER_ADDRESS || TEST_ACCOUNTS.DEPLOYER.address;
-  const privateKey = process.env.DEPLOYER_PRIVATE_KEY || TEST_ACCOUNTS.DEPLOYER.privateKey;
+  const network = getCurrentNetwork();
+  
+  // For localnet, allow test accounts as fallback
+  if (network === 'localnet') {
+    return {
+      address: process.env.DEPLOYER_ADDRESS ?? TEST_ACCOUNTS.DEPLOYER.address,
+      privateKey: process.env.DEPLOYER_PRIVATE_KEY ?? TEST_ACCOUNTS.DEPLOYER.privateKey,
+    };
+  }
+  
+  // For testnet/mainnet, require explicit configuration
+  const address = process.env.DEPLOYER_ADDRESS;
+  const privateKey = process.env.DEPLOYER_PRIVATE_KEY;
+  
+  if (!address) {
+    throw new Error(`DEPLOYER_ADDRESS required for ${network}. Test accounts only allowed on localnet.`);
+  }
+  if (!privateKey) {
+    throw new Error(`DEPLOYER_PRIVATE_KEY required for ${network}. Test accounts only allowed on localnet.`);
+  }
   
   return { address, privateKey };
 }
@@ -376,5 +416,4 @@ export function getDeployerConfig(): { address: string; privateKey: string } {
 // Exports
 // ============================================================================
 
-export type { NetworkType, ChainConfig } from '../types/src/chain';
-
+export type { NetworkType, ChainConfig } from './schemas';

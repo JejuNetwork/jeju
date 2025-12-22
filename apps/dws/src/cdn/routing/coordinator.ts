@@ -210,18 +210,14 @@ export class CDNCoordinator {
       ? body.nodeId 
       : `0x${body.nodeId.padStart(64, '0')}`;
 
-    try {
-      const onChainNode = await this.publicClient.readContract({
-        address: this.registryAddress,
-        abi: CDN_REGISTRY_ABI,
-        functionName: 'getEdgeNode',
-        args: [nodeIdBytes as `0x${string}`],
-      }) as { operator: Address };
-      if (!onChainNode || onChainNode.operator === '0x0000000000000000000000000000000000000000') {
-        return c.json({ error: 'Node not registered on-chain' }, { status: 400 });
-      }
-    } catch {
-      // Registry might not be deployed, allow registration anyway
+    const onChainNode = await this.publicClient.readContract({
+      address: this.registryAddress,
+      abi: CDN_REGISTRY_ABI,
+      functionName: 'getEdgeNode',
+      args: [nodeIdBytes as `0x${string}`],
+    }) as { operator: Address };
+    if (!onChainNode || onChainNode.operator === '0x0000000000000000000000000000000000000000') {
+      return c.json({ error: 'Node not registered on-chain' }, { status: 400 });
     }
 
     const node: ConnectedEdgeNode = {
@@ -374,22 +370,18 @@ export class CDNCoordinator {
     progress.completedAt = Date.now();
 
     // Report completion on-chain
-    try {
-      const requestIdBytes = request.requestId.startsWith('0x')
-        ? request.requestId
-        : `0x${request.requestId.padStart(64, '0')}`;
-      
-      // @ts-expect-error viem ABI type inference
-      await this.walletClient.writeContract({
-        address: this.registryAddress,
-        abi: CDN_REGISTRY_ABI,
-        functionName: 'completeInvalidation',
-        args: [requestIdBytes as `0x${string}`, BigInt(progress.nodesProcessed)],
-        account: this.account,
-      });
-    } catch {
-      // Chain reporting failed, but invalidation still succeeded
-    }
+    const requestIdBytes = request.requestId.startsWith('0x')
+      ? request.requestId
+      : `0x${request.requestId.padStart(64, '0')}`;
+    
+    // @ts-expect-error viem ABI type inference
+    await this.walletClient.writeContract({
+      address: this.registryAddress,
+      abi: CDN_REGISTRY_ABI,
+      functionName: 'completeInvalidation',
+      args: [requestIdBytes as `0x${string}`, BigInt(progress.nodesProcessed)],
+      account: this.account,
+    });
   }
 
   // ============================================================================
@@ -416,18 +408,13 @@ export class CDNCoordinator {
       // Aggregate and report usage
       for (const [provider, usage] of this.usageByProvider) {
         if (usage.bytesEgress >= this.config.minSettlementAmount) {
-          try {
-            // Report usage for billing
-            // This would typically be called per-user, but for now aggregate by provider
-            console.log(`[Coordinator] Reporting usage for provider ${provider}: ${usage.bytesEgress} bytes, ${usage.requests} requests`);
-            
-            // Reset counters
-            usage.bytesEgress = 0;
-            usage.requests = 0;
-            usage.lastReported = Date.now();
-          } catch (e) {
-            console.error(`[Coordinator] Failed to report usage for ${provider}:`, e);
-          }
+          // Report usage for billing
+          console.log(`[Coordinator] Reporting usage for provider ${provider}: ${usage.bytesEgress} bytes, ${usage.requests} requests`);
+          
+          // Reset counters
+          usage.bytesEgress = 0;
+          usage.requests = 0;
+          usage.lastReported = Date.now();
         }
       }
     }, this.config.settlementInterval);

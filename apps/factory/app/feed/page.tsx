@@ -21,7 +21,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { clsx } from 'clsx';
-import { farcasterClient, type Cast, type FarcasterUser } from '@/lib/services/farcaster';
+import { farcasterClient, type Cast } from '@/lib/services/farcaster';
 
 type FeedTab = 'feed' | 'mentions' | 'highlights';
 
@@ -44,76 +44,6 @@ interface PostData {
   isPinned?: boolean;
 }
 
-// Fallback mock data when Farcaster API isn't available
-const mockPosts: PostData[] = [
-  {
-    id: '1',
-    author: {
-      name: 'alice.eth',
-      handle: '@alice',
-      avatar: 'https://avatars.githubusercontent.com/u/1?v=4',
-      fid: 12345,
-    },
-    content: 'Just deployed a new model to the Factory model hub! 🚀 Fine-tuned LLaMA 3 on the jeju documentation corpus. Try it out: factory.jejunetwork.org/models/alice/llama-3-jeju',
-    timestamp: Date.now() - 2 * 60 * 60 * 1000,
-    likes: 42,
-    recasts: 12,
-    replies: 8,
-    hasLiked: false,
-    hasRecasted: false,
-  },
-  {
-    id: '2',
-    author: {
-      name: 'bob.base',
-      handle: '@bob',
-      avatar: 'https://avatars.githubusercontent.com/u/2?v=4',
-      fid: 23456,
-    },
-    content: 'Looking for help auditing our new BountyRegistry contract. 5 ETH bounty for a thorough security review. Must have experience with DeFi protocols.\n\n#security #solidity #bounty',
-    timestamp: Date.now() - 4 * 60 * 60 * 1000,
-    likes: 89,
-    recasts: 34,
-    replies: 23,
-    hasLiked: true,
-    hasRecasted: false,
-  },
-  {
-    id: '3',
-    author: {
-      name: 'Factory Updates',
-      handle: '@factory',
-      avatar: '/factory-icon.png',
-      fid: 1,
-      verified: true,
-    },
-    content: '📢 New release: Factory v1.2.0\n\n• Multi-token bounty rewards\n• Guardian validator network live\n• Model hub inference endpoints\n• Container registry alpha\n\nUpgrade now and start earning!',
-    timestamp: Date.now() - 8 * 60 * 60 * 1000,
-    likes: 256,
-    recasts: 89,
-    replies: 45,
-    hasLiked: false,
-    hasRecasted: true,
-    isPinned: true,
-  },
-  {
-    id: '4',
-    author: {
-      name: 'carol.dev',
-      handle: '@caroldev',
-      avatar: 'https://avatars.githubusercontent.com/u/3?v=4',
-      fid: 34567,
-    },
-    content: 'Just completed my first milestone on the indexer optimization bounty! 🎉\n\nQuery performance improved by 40%. Guardian review pending.\n\n@factory #bounty #indexer',
-    timestamp: Date.now() - 12 * 60 * 60 * 1000,
-    likes: 67,
-    recasts: 15,
-    replies: 12,
-    hasLiked: false,
-    hasRecasted: false,
-  },
-];
-
 const trendingTopics = [
   { tag: '#bounty', posts: 234 },
   { tag: '#models', posts: 189 },
@@ -126,7 +56,7 @@ export default function FeedPage() {
   const { isConnected, address } = useAccount();
   const [tab, setTab] = useState<FeedTab>('feed');
   const [newPost, setNewPost] = useState('');
-  const [posts, setPosts] = useState<PostData[]>(mockPosts);
+  const [posts, setPosts] = useState<PostData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -151,15 +81,16 @@ export default function FeedPage() {
   const loadFeed = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-    try {
-      const { casts } = await farcasterClient.getChannelFeed('factory', { limit: 20 });
-      setPosts(casts.map(transformCastToPost));
-    } catch (err) {
-      console.warn('Failed to load Farcaster feed, using mock data:', err);
-      // Keep using mock data
-    } finally {
-      setIsLoading(false);
-    }
+    farcasterClient.getChannelFeed('factory', { limit: 20 })
+      .then(({ casts }) => {
+        setPosts(casts.map(transformCastToPost));
+      })
+      .catch((err: Error) => {
+        setError(err.message);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
   }, [transformCastToPost]);
 
   useEffect(() => {
@@ -193,6 +124,7 @@ export default function FeedPage() {
       setNewPost('');
     } catch (err) {
       setError('Failed to post');
+      console.error('Failed to post:', err);
     } finally {
       setIsPosting(false);
     }
@@ -245,6 +177,11 @@ export default function FeedPage() {
 
             {/* Compose */}
             <div className="card p-6 mb-6">
+              {error && (
+                <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
+                  {error}
+                </div>
+              )}
               <div className="flex gap-4">
                 <div className="w-12 h-12 rounded-full bg-factory-800 flex items-center justify-center flex-shrink-0">
                   <Users className="w-6 h-6 text-factory-400" />

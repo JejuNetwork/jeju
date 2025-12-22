@@ -15,11 +15,15 @@ import InputSettlerJSON from "./abis/InputSettler.json";
 import OutputSettlerJSON from "./abis/OutputSettler.json";
 import ERC20JSON from "./abis/ERC20.json";
 
-// Extract ABI arrays from JSON (some have .abi property, some are direct arrays)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function getAbi(json: any): readonly unknown[] {
-  if (json && "abi" in json && Array.isArray(json.abi)) return json.abi;
+/** ABI JSON structure - can be either direct array or object with abi property */
+interface AbiJson {
+  abi?: readonly Record<string, unknown>[];
+}
+
+/** Extract ABI arrays from JSON (some have .abi property, some are direct arrays) */
+function getAbi(json: AbiJson | readonly Record<string, unknown>[]): readonly Record<string, unknown>[] {
   if (Array.isArray(json)) return json;
+  if (json && "abi" in json && Array.isArray(json.abi)) return json.abi;
   return [];
 }
 

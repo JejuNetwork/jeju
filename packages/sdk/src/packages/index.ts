@@ -1,15 +1,15 @@
 /**
  * JejuPkg SDK - Client for decentralized NPM package operations
- * 
+ *
  * Provides TypeScript interface for:
  * - Package management
  * - Version publishing
  * - On-chain registry interaction
  */
 
-import type { Address, Hex } from 'viem';
-import { createPublicClient, createWalletClient, http } from 'viem';
-import type { PublicClient, WalletClient } from 'viem';
+import type { Address, Hex } from "viem";
+import { createPublicClient, createWalletClient, http } from "viem";
+import type { PublicClient, WalletClient } from "viem";
 
 export interface PackageSDKConfig {
   rpcUrl: string;
@@ -89,23 +89,236 @@ export interface SearchResult {
 }
 
 const PACKAGE_REGISTRY_ABI = [
-  { type: 'function', name: 'registerScope', inputs: [{ name: 'scope', type: 'string' }], outputs: [], stateMutability: 'nonpayable' },
-  { type: 'function', name: 'createPackage', inputs: [{ name: 'name', type: 'string' }, { name: 'scope', type: 'string' }, { name: 'description', type: 'string' }, { name: 'visibility', type: 'uint8' }, { name: 'manifestCid', type: 'string' }], outputs: [{ type: 'bytes32' }], stateMutability: 'nonpayable' },
-  { type: 'function', name: 'publishVersion', inputs: [{ name: 'packageId', type: 'bytes32' }, { name: 'version', type: 'string' }, { name: 'tarballCid', type: 'string' }, { name: 'integrity', type: 'string' }, { name: 'size', type: 'uint256' }, { name: 'manifestCid', type: 'string' }], outputs: [], stateMutability: 'nonpayable' },
-  { type: 'function', name: 'updateDistTag', inputs: [{ name: 'packageId', type: 'bytes32' }, { name: 'tag', type: 'string' }, { name: 'version', type: 'string' }], outputs: [], stateMutability: 'nonpayable' },
-  { type: 'function', name: 'yankVersion', inputs: [{ name: 'packageId', type: 'bytes32' }, { name: 'version', type: 'string' }], outputs: [], stateMutability: 'nonpayable' },
-  { type: 'function', name: 'deprecatePackage', inputs: [{ name: 'packageId', type: 'bytes32' }, { name: 'message', type: 'string' }], outputs: [], stateMutability: 'nonpayable' },
-  { type: 'function', name: 'addMaintainer', inputs: [{ name: 'packageId', type: 'bytes32' }, { name: 'maintainer', type: 'address' }], outputs: [], stateMutability: 'nonpayable' },
-  { type: 'function', name: 'removeMaintainer', inputs: [{ name: 'packageId', type: 'bytes32' }, { name: 'maintainer', type: 'address' }], outputs: [], stateMutability: 'nonpayable' },
-  { type: 'function', name: 'linkCouncilProposal', inputs: [{ name: 'packageId', type: 'bytes32' }, { name: 'proposalId', type: 'uint256' }], outputs: [], stateMutability: 'nonpayable' },
-  { type: 'function', name: 'getPackage', inputs: [{ name: 'packageId', type: 'bytes32' }], outputs: [{ type: 'tuple', components: [{ name: 'name', type: 'string' }, { name: 'scope', type: 'string' }, { name: 'owner', type: 'address' }, { name: 'description', type: 'string' }, { name: 'visibility', type: 'uint8' }, { name: 'manifestCid', type: 'string' }, { name: 'latestVersion', type: 'string' }, { name: 'createdAt', type: 'uint256' }, { name: 'updatedAt', type: 'uint256' }, { name: 'downloadCount', type: 'uint256' }, { name: 'publishCount', type: 'uint256' }, { name: 'reputationScore', type: 'uint256' }, { name: 'councilProposalId', type: 'uint256' }, { name: 'verified', type: 'bool' }, { name: 'deprecated', type: 'bool' }, { name: 'deprecationMessage', type: 'string' }] }], stateMutability: 'view' },
-  { type: 'function', name: 'getPackageByName', inputs: [{ name: 'fullName', type: 'string' }], outputs: [{ type: 'tuple', components: [{ name: 'name', type: 'string' }, { name: 'scope', type: 'string' }, { name: 'owner', type: 'address' }, { name: 'description', type: 'string' }, { name: 'visibility', type: 'uint8' }, { name: 'manifestCid', type: 'string' }, { name: 'latestVersion', type: 'string' }, { name: 'createdAt', type: 'uint256' }, { name: 'updatedAt', type: 'uint256' }, { name: 'downloadCount', type: 'uint256' }, { name: 'publishCount', type: 'uint256' }, { name: 'reputationScore', type: 'uint256' }, { name: 'councilProposalId', type: 'uint256' }, { name: 'verified', type: 'bool' }, { name: 'deprecated', type: 'bool' }, { name: 'deprecationMessage', type: 'string' }] }], stateMutability: 'view' },
-  { type: 'function', name: 'getVersion', inputs: [{ name: 'packageId', type: 'bytes32' }, { name: 'version', type: 'string' }], outputs: [{ type: 'tuple', components: [{ name: 'version', type: 'string' }, { name: 'tarballCid', type: 'string' }, { name: 'integrity', type: 'string' }, { name: 'size', type: 'uint256' }, { name: 'publishedAt', type: 'uint256' }, { name: 'publishedBy', type: 'address' }, { name: 'yanked', type: 'bool' }] }], stateMutability: 'view' },
-  { type: 'function', name: 'getVersions', inputs: [{ name: 'packageId', type: 'bytes32' }], outputs: [{ type: 'string[]' }], stateMutability: 'view' },
-  { type: 'function', name: 'isMaintainer', inputs: [{ name: 'packageId', type: 'bytes32' }, { name: 'addr', type: 'address' }], outputs: [{ type: 'bool' }], stateMutability: 'view' },
-  { type: 'function', name: 'getPublisher', inputs: [{ name: 'addr', type: 'address' }], outputs: [{ type: 'tuple', components: [{ name: 'addr', type: 'address' }, { name: 'username', type: 'string' }, { name: 'jnsName', type: 'string' }, { name: 'totalPackages', type: 'uint256' }, { name: 'totalDownloads', type: 'uint256' }, { name: 'totalPublishes', type: 'uint256' }, { name: 'reputationScore', type: 'uint256' }, { name: 'stakedAmount', type: 'uint256' }, { name: 'createdAt', type: 'uint256' }, { name: 'verified', type: 'bool' }] }], stateMutability: 'view' },
-  { type: 'function', name: 'getPublisherPackages', inputs: [{ name: 'addr', type: 'address' }], outputs: [{ type: 'bytes32[]' }], stateMutability: 'view' },
-  { type: 'function', name: 'getScopeOwner', inputs: [{ name: 'scope', type: 'string' }], outputs: [{ type: 'address' }], stateMutability: 'view' },
+  {
+    type: "function",
+    name: "registerScope",
+    inputs: [{ name: "scope", type: "string" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "createPackage",
+    inputs: [
+      { name: "name", type: "string" },
+      { name: "scope", type: "string" },
+      { name: "description", type: "string" },
+      { name: "visibility", type: "uint8" },
+      { name: "manifestCid", type: "string" },
+    ],
+    outputs: [{ type: "bytes32" }],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "publishVersion",
+    inputs: [
+      { name: "packageId", type: "bytes32" },
+      { name: "version", type: "string" },
+      { name: "tarballCid", type: "string" },
+      { name: "integrity", type: "string" },
+      { name: "size", type: "uint256" },
+      { name: "manifestCid", type: "string" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "updateDistTag",
+    inputs: [
+      { name: "packageId", type: "bytes32" },
+      { name: "tag", type: "string" },
+      { name: "version", type: "string" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "yankVersion",
+    inputs: [
+      { name: "packageId", type: "bytes32" },
+      { name: "version", type: "string" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "deprecatePackage",
+    inputs: [
+      { name: "packageId", type: "bytes32" },
+      { name: "message", type: "string" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "addMaintainer",
+    inputs: [
+      { name: "packageId", type: "bytes32" },
+      { name: "maintainer", type: "address" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "removeMaintainer",
+    inputs: [
+      { name: "packageId", type: "bytes32" },
+      { name: "maintainer", type: "address" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "linkCouncilProposal",
+    inputs: [
+      { name: "packageId", type: "bytes32" },
+      { name: "proposalId", type: "uint256" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "getPackage",
+    inputs: [{ name: "packageId", type: "bytes32" }],
+    outputs: [
+      {
+        type: "tuple",
+        components: [
+          { name: "name", type: "string" },
+          { name: "scope", type: "string" },
+          { name: "owner", type: "address" },
+          { name: "description", type: "string" },
+          { name: "visibility", type: "uint8" },
+          { name: "manifestCid", type: "string" },
+          { name: "latestVersion", type: "string" },
+          { name: "createdAt", type: "uint256" },
+          { name: "updatedAt", type: "uint256" },
+          { name: "downloadCount", type: "uint256" },
+          { name: "publishCount", type: "uint256" },
+          { name: "reputationScore", type: "uint256" },
+          { name: "councilProposalId", type: "uint256" },
+          { name: "verified", type: "bool" },
+          { name: "deprecated", type: "bool" },
+          { name: "deprecationMessage", type: "string" },
+        ],
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "getPackageByName",
+    inputs: [{ name: "fullName", type: "string" }],
+    outputs: [
+      {
+        type: "tuple",
+        components: [
+          { name: "name", type: "string" },
+          { name: "scope", type: "string" },
+          { name: "owner", type: "address" },
+          { name: "description", type: "string" },
+          { name: "visibility", type: "uint8" },
+          { name: "manifestCid", type: "string" },
+          { name: "latestVersion", type: "string" },
+          { name: "createdAt", type: "uint256" },
+          { name: "updatedAt", type: "uint256" },
+          { name: "downloadCount", type: "uint256" },
+          { name: "publishCount", type: "uint256" },
+          { name: "reputationScore", type: "uint256" },
+          { name: "councilProposalId", type: "uint256" },
+          { name: "verified", type: "bool" },
+          { name: "deprecated", type: "bool" },
+          { name: "deprecationMessage", type: "string" },
+        ],
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "getVersion",
+    inputs: [
+      { name: "packageId", type: "bytes32" },
+      { name: "version", type: "string" },
+    ],
+    outputs: [
+      {
+        type: "tuple",
+        components: [
+          { name: "version", type: "string" },
+          { name: "tarballCid", type: "string" },
+          { name: "integrity", type: "string" },
+          { name: "size", type: "uint256" },
+          { name: "publishedAt", type: "uint256" },
+          { name: "publishedBy", type: "address" },
+          { name: "yanked", type: "bool" },
+        ],
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "getVersions",
+    inputs: [{ name: "packageId", type: "bytes32" }],
+    outputs: [{ type: "string[]" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "isMaintainer",
+    inputs: [
+      { name: "packageId", type: "bytes32" },
+      { name: "addr", type: "address" },
+    ],
+    outputs: [{ type: "bool" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "getPublisher",
+    inputs: [{ name: "addr", type: "address" }],
+    outputs: [
+      {
+        type: "tuple",
+        components: [
+          { name: "addr", type: "address" },
+          { name: "username", type: "string" },
+          { name: "jnsName", type: "string" },
+          { name: "totalPackages", type: "uint256" },
+          { name: "totalDownloads", type: "uint256" },
+          { name: "totalPublishes", type: "uint256" },
+          { name: "reputationScore", type: "uint256" },
+          { name: "stakedAmount", type: "uint256" },
+          { name: "createdAt", type: "uint256" },
+          { name: "verified", type: "bool" },
+        ],
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "getPublisherPackages",
+    inputs: [{ name: "addr", type: "address" }],
+    outputs: [{ type: "bytes32[]" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "getScopeOwner",
+    inputs: [{ name: "scope", type: "string" }],
+    outputs: [{ type: "address" }],
+    stateMutability: "view",
+  },
 ] as const;
 
 export class JejuPkgSDK {
@@ -129,18 +342,20 @@ export class JejuPkgSDK {
   // Package Operations
 
   async getPackage(name: string): Promise<Package> {
-    const response = await fetch(`${this.config.registryUrl}/${encodeURIComponent(name)}`);
+    const response = await fetch(
+      `${this.config.registryUrl}/${encodeURIComponent(name)}`,
+    );
     if (!response.ok) {
       if (response.status === 404) {
         throw new Error(`Package not found: ${name}`);
       }
       throw new Error(`Failed to get package: ${response.statusText}`);
     }
-    
-    const manifest = await response.json() as {
+
+    const manifest = (await response.json()) as {
       name: string;
       description?: string;
-      'dist-tags': Record<string, string>;
+      "dist-tags": Record<string, string>;
       versions: Record<string, PackageVersion>;
       maintainers?: Array<{ name: string }>;
       license?: string;
@@ -151,13 +366,15 @@ export class JejuPkgSDK {
 
     return {
       name: manifest.name,
-      scope: manifest.name.startsWith('@') ? manifest.name.split('/')[0] : undefined,
+      scope: manifest.name.startsWith("@")
+        ? manifest.name.split("/")[0]
+        : undefined,
       fullName: manifest.name,
       description: manifest.description,
-      latestVersion: manifest['dist-tags'].latest,
+      latestVersion: manifest["dist-tags"].latest,
       versions: Object.keys(manifest.versions),
-      distTags: manifest['dist-tags'],
-      maintainers: manifest.maintainers?.map(m => m.name) ?? [],
+      distTags: manifest["dist-tags"],
+      maintainers: manifest.maintainers?.map((m) => m.name) ?? [],
       license: manifest.license,
       repository: manifest.repository,
       keywords: manifest.keywords,
@@ -169,29 +386,42 @@ export class JejuPkgSDK {
     };
   }
 
-  async getPackageVersion(name: string, version: string): Promise<PackageVersion> {
-    const response = await fetch(`${this.config.registryUrl}/${encodeURIComponent(name)}/${version}`);
+  async getPackageVersion(
+    name: string,
+    version: string,
+  ): Promise<PackageVersion> {
+    const response = await fetch(
+      `${this.config.registryUrl}/${encodeURIComponent(name)}/${version}`,
+    );
     if (!response.ok) {
       throw new Error(`Failed to get package version: ${response.statusText}`);
     }
     return response.json() as Promise<PackageVersion>;
   }
 
-  async searchPackages(query: string, options?: {
-    size?: number;
-    from?: number;
-  }): Promise<{ total: number; items: SearchResult[] }> {
+  async searchPackages(
+    query: string,
+    options?: {
+      size?: number;
+      from?: number;
+    },
+  ): Promise<{ total: number; items: SearchResult[] }> {
     const params = new URLSearchParams();
-    params.set('text', query);
-    if (options?.size) params.set('size', options.size.toString());
-    if (options?.from) params.set('from', options.from.toString());
+    params.set("text", query);
+    if (options?.size) params.set("size", options.size.toString());
+    if (options?.from) params.set("from", options.from.toString());
 
-    const response = await fetch(`${this.config.registryUrl}/-/v1/search?${params}`);
+    const response = await fetch(
+      `${this.config.registryUrl}/-/v1/search?${params}`,
+    );
     if (!response.ok) {
       throw new Error(`Failed to search packages: ${response.statusText}`);
     }
 
-    const data = await response.json() as { objects: SearchResult[]; total: number };
+    const data = (await response.json()) as {
+      objects: SearchResult[];
+      total: number;
+    };
     return { total: data.total, items: data.objects };
   }
 
@@ -208,85 +438,108 @@ export class JejuPkgSDK {
       [key: string]: unknown;
     },
     tarball: Buffer,
-    authToken: string
+    authToken: string,
   ): Promise<{ ok: boolean; id: string; rev: string }> {
-    const tarballBase64 = tarball.toString('base64');
-    const filename = `${manifest.name.replace(/\//g, '-')}-${manifest.version}.tgz`;
+    const tarballBase64 = tarball.toString("base64");
+    const filename = `${manifest.name.replace(/\//g, "-")}-${manifest.version}.tgz`;
 
     const body = {
       _id: manifest.name,
       name: manifest.name,
       description: manifest.description,
-      'dist-tags': { latest: manifest.version },
+      "dist-tags": { latest: manifest.version },
       versions: {
         [manifest.version]: {
           ...manifest,
           _id: `${manifest.name}@${manifest.version}`,
           dist: {
-            shasum: '',
-            tarball: '',
+            shasum: "",
+            tarball: "",
           },
         },
       },
       _attachments: {
         [filename]: {
-          content_type: 'application/octet-stream',
+          content_type: "application/octet-stream",
           data: tarballBase64,
           length: tarball.length,
         },
       },
     };
 
-    const response = await fetch(`${this.config.registryUrl}/${encodeURIComponent(manifest.name)}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`,
+    const response = await fetch(
+      `${this.config.registryUrl}/${encodeURIComponent(manifest.name)}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify(body),
       },
-      body: JSON.stringify(body),
-    });
+    );
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: response.statusText })) as { error?: string };
-      throw new Error(`Failed to publish package: ${error.error ?? response.statusText}`);
+      let errorMessage = response.statusText;
+      // Attempt to get error details from JSON response
+      const contentType = response.headers.get("content-type");
+      if (contentType?.includes("application/json")) {
+        const errorBody = await response.json() as { error?: string };
+        errorMessage = errorBody.error ?? response.statusText;
+      }
+      throw new Error(`Failed to publish package: ${errorMessage}`);
     }
 
     return response.json() as Promise<{ ok: boolean; id: string; rev: string }>;
   }
 
-  async unpublish(name: string, version: string, authToken: string): Promise<void> {
-    const response = await fetch(`${this.config.registryUrl}/${encodeURIComponent(name)}/-rev/1`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${authToken}`,
+  async unpublish(
+    name: string,
+    version: string,
+    authToken: string,
+  ): Promise<void> {
+    const response = await fetch(
+      `${this.config.registryUrl}/${encodeURIComponent(name)}/-rev/1`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
       },
-    });
+    );
 
     if (!response.ok) {
       throw new Error(`Failed to unpublish package: ${response.statusText}`);
     }
   }
 
-  async deprecate(name: string, message: string, authToken: string): Promise<void> {
+  async deprecate(
+    name: string,
+    message: string,
+    authToken: string,
+  ): Promise<void> {
     // Get current package
     const pkg = await this.getPackage(name);
-    
+
     // Update all versions with deprecation message
     const body = {
       name,
       versions: Object.fromEntries(
-        pkg.versions.map(v => [v, { deprecated: message }])
+        pkg.versions.map((v) => [v, { deprecated: message }]),
       ),
     };
 
-    const response = await fetch(`${this.config.registryUrl}/${encodeURIComponent(name)}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`,
+    const response = await fetch(
+      `${this.config.registryUrl}/${encodeURIComponent(name)}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify(body),
       },
-      body: JSON.stringify(body),
-    });
+    );
 
     if (!response.ok) {
       throw new Error(`Failed to deprecate package: ${response.statusText}`);
@@ -295,28 +548,43 @@ export class JejuPkgSDK {
 
   // Dist Tags
 
-  async addDistTag(name: string, version: string, tag: string, authToken: string): Promise<void> {
-    const response = await fetch(`${this.config.registryUrl}/-/package/${encodeURIComponent(name)}/dist-tags/${tag}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`,
+  async addDistTag(
+    name: string,
+    version: string,
+    tag: string,
+    authToken: string,
+  ): Promise<void> {
+    const response = await fetch(
+      `${this.config.registryUrl}/-/package/${encodeURIComponent(name)}/dist-tags/${tag}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify(version),
       },
-      body: JSON.stringify(version),
-    });
+    );
 
     if (!response.ok) {
       throw new Error(`Failed to add dist-tag: ${response.statusText}`);
     }
   }
 
-  async removeDistTag(name: string, tag: string, authToken: string): Promise<void> {
-    const response = await fetch(`${this.config.registryUrl}/-/package/${encodeURIComponent(name)}/dist-tags/${tag}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${authToken}`,
+  async removeDistTag(
+    name: string,
+    tag: string,
+    authToken: string,
+  ): Promise<void> {
+    const response = await fetch(
+      `${this.config.registryUrl}/-/package/${encodeURIComponent(name)}/dist-tags/${tag}`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
       },
-    });
+    );
 
     if (!response.ok) {
       throw new Error(`Failed to remove dist-tag: ${response.statusText}`);
@@ -328,7 +596,7 @@ export class JejuPkgSDK {
   async downloadTarball(name: string, version: string): Promise<Buffer> {
     const pkg = await this.getPackageVersion(name, version);
     const response = await fetch(pkg.dist.tarball);
-    
+
     if (!response.ok) {
       throw new Error(`Failed to download tarball: ${response.statusText}`);
     }
@@ -339,13 +607,19 @@ export class JejuPkgSDK {
 
   // Sync from upstream (npmjs.org - for compatibility)
 
-  async syncFromUpstream(name: string, authToken: string): Promise<{ synced: number }> {
-    const response = await fetch(`${this.config.registryUrl}/-/registry/sync/${encodeURIComponent(name)}`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${authToken}`,
+  async syncFromUpstream(
+    name: string,
+    authToken: string,
+  ): Promise<{ synced: number }> {
+    const response = await fetch(
+      `${this.config.registryUrl}/-/registry/sync/${encodeURIComponent(name)}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
       },
-    });
+    );
 
     if (!response.ok) {
       throw new Error(`Failed to sync package: ${response.statusText}`);
@@ -357,7 +631,9 @@ export class JejuPkgSDK {
   // Publisher Operations
 
   async getPublisher(address: string): Promise<Publisher> {
-    const response = await fetch(`${this.config.registryUrl}/-/registry/accounts/${address}`);
+    const response = await fetch(
+      `${this.config.registryUrl}/-/registry/accounts/${address}`,
+    );
     if (!response.ok) {
       throw new Error(`Failed to get publisher: ${response.statusText}`);
     }
@@ -365,26 +641,29 @@ export class JejuPkgSDK {
   }
 
   async login(username: string, password: string): Promise<string> {
-    const response = await fetch(`${this.config.registryUrl}/-/user/org.couchdb.user:${username}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
+    const response = await fetch(
+      `${this.config.registryUrl}/-/user/org.couchdb.user:${username}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: username, password }),
       },
-      body: JSON.stringify({ name: username, password }),
-    });
+    );
 
     if (!response.ok) {
       throw new Error(`Failed to login: ${response.statusText}`);
     }
 
-    const data = await response.json() as { token: string };
+    const data = (await response.json()) as { token: string };
     return data.token;
   }
 
   async whoami(authToken: string): Promise<string> {
     const response = await fetch(`${this.config.registryUrl}/-/whoami`, {
       headers: {
-        'Authorization': `Bearer ${authToken}`,
+        Authorization: `Bearer ${authToken}`,
       },
     });
 
@@ -392,7 +671,7 @@ export class JejuPkgSDK {
       throw new Error(`Failed to get user: ${response.statusText}`);
     }
 
-    const data = await response.json() as { username: string };
+    const data = (await response.json()) as { username: string };
     return data.username;
   }
 
@@ -400,14 +679,16 @@ export class JejuPkgSDK {
 
   async registerScope(scope: string): Promise<Hex> {
     if (!this.walletClient || !this.config.registryAddress) {
-      throw new Error('Wallet client and registry address required for on-chain operations');
+      throw new Error(
+        "Wallet client and registry address required for on-chain operations",
+      );
     }
 
     // @ts-expect-error - chain inferred at runtime from RPC
     const hash = await this.walletClient.writeContract({
       address: this.config.registryAddress,
       abi: PACKAGE_REGISTRY_ABI,
-      functionName: 'registerScope',
+      functionName: "registerScope",
       args: [scope],
     });
 
@@ -419,17 +700,19 @@ export class JejuPkgSDK {
     scope: string,
     description: string,
     visibility: 0 | 1 | 2,
-    manifestCid: string
+    manifestCid: string,
   ): Promise<Hex> {
     if (!this.walletClient || !this.config.registryAddress) {
-      throw new Error('Wallet client and registry address required for on-chain operations');
+      throw new Error(
+        "Wallet client and registry address required for on-chain operations",
+      );
     }
 
     // @ts-expect-error - chain inferred at runtime from RPC
     const hash = await this.walletClient.writeContract({
       address: this.config.registryAddress,
       abi: PACKAGE_REGISTRY_ABI,
-      functionName: 'createPackage',
+      functionName: "createPackage",
       args: [name, scope, description, visibility, manifestCid],
     });
 
@@ -438,14 +721,16 @@ export class JejuPkgSDK {
 
   async linkCouncilProposal(packageId: Hex, proposalId: bigint): Promise<Hex> {
     if (!this.walletClient || !this.config.registryAddress) {
-      throw new Error('Wallet client and registry address required for on-chain operations');
+      throw new Error(
+        "Wallet client and registry address required for on-chain operations",
+      );
     }
 
     // @ts-expect-error - chain inferred at runtime from RPC
     const hash = await this.walletClient.writeContract({
       address: this.config.registryAddress,
       abi: PACKAGE_REGISTRY_ABI,
-      functionName: 'linkCouncilProposal',
+      functionName: "linkCouncilProposal",
       args: [packageId, proposalId],
     });
 
@@ -477,9 +762,11 @@ export function createJejuPkgSDK(config: PackageSDKConfig): JejuPkgSDK {
 // Convenience function for default config
 export function createDefaultPkgSDK(): JejuPkgSDK {
   return new JejuPkgSDK({
-    rpcUrl: process.env.JEJU_RPC_URL ?? 'http://127.0.0.1:9545',
-    registryUrl: process.env.JEJUPKG_URL ?? 'http://localhost:4030/pkg',
-    registryAddress: process.env.PACKAGE_REGISTRY_ADDRESS as Address | undefined,
+    rpcUrl: process.env.JEJU_RPC_URL ?? "http://127.0.0.1:9545",
+    registryUrl: process.env.JEJUPKG_URL ?? "http://localhost:4030/pkg",
+    registryAddress: process.env.PACKAGE_REGISTRY_ADDRESS as
+      | Address
+      | undefined,
   });
 }
 
@@ -499,4 +786,3 @@ export function generateBunfigToml(registryUrl: string): string {
 registry = "${registryUrl}"
 `;
 }
-

@@ -216,26 +216,22 @@ export class LiquidationStrategy {
   private async checkPosition(position: Position): Promise<void> {
     if (!this.client) return;
 
-    try {
-      const result = await this.client.readContract({
-        address: this.perpetualMarketAddress as `0x${string}`,
-        abi: PERPETUAL_MARKET_ABI,
-        functionName: 'isLiquidatable',
-        args: [position.positionId as `0x${string}`],
-      }) as [boolean, bigint];
+    const result = await this.client.readContract({
+      address: this.perpetualMarketAddress as `0x${string}`,
+      abi: PERPETUAL_MARKET_ABI,
+      functionName: 'isLiquidatable',
+      args: [position.positionId as `0x${string}`],
+    }) as [boolean, bigint];
 
-      const [canLiquidate, healthFactor] = result;
+    const [canLiquidate, healthFactor] = result;
 
-      position.lastCheck = Date.now();
+    position.lastCheck = Date.now();
 
-      if (canLiquidate) {
-        await this.createLiquidationOpportunity(position, healthFactor);
-      } else {
-        // Remove existing opportunity if position is no longer liquidatable
-        this.opportunities.delete(position.positionId);
-      }
-    } catch (error) {
-      console.error(`Error checking position ${position.positionId}:`, error);
+    if (canLiquidate) {
+      await this.createLiquidationOpportunity(position, healthFactor);
+    } else {
+      // Remove existing opportunity if position is no longer liquidatable
+      this.opportunities.delete(position.positionId);
     }
   }
 

@@ -10,11 +10,11 @@
       "decimals": 18
     },
     "rpc": {
-      "http": "https://testnet-rpc.jeju.network",
-      "ws": "wss://testnet-ws.jeju.network",
+      "http": "https://testnet-rpc.jejunetwork.org",
+      "ws": "wss://testnet-ws.jejunetwork.org",
       "internal": "http://reth-sequencer.execution.svc.cluster.local:8545"
     },
-    "explorer": "https://explorer.testnet.jeju.network",
+    "explorer": "https://explorer.testnet.jejunetwork.org",
     "blockTime": 2
   },
   "l1": {
@@ -31,10 +31,10 @@
     }
   },
   "api": {
-    "gateway": "https://gateway.testnet.jeju.network",
-    "bundler": "https://bundler.testnet.jeju.network",
-    "indexer": "https://indexer.testnet.jeju.network/graphql",
-    "faucet": "https://faucet.testnet.jeju.network"
+    "gateway": "https://gateway.testnet.jejunetwork.org",
+    "bundler": "https://bundler.testnet.jejunetwork.org",
+    "indexer": "https://indexer.testnet.jejunetwork.org/graphql",
+    "faucet": "https://faucet.testnet.jejunetwork.org"
   },
   "contracts": {
     "jeju": {
@@ -76,27 +76,27 @@
     "address": "0x1c8D40d6E81289B5a1B6e4E3a2E34eA23d1c2A0E"
   },
   "infrastructure": {
-    "domain": "jeju.network",
+    "domain": "jejunetwork.org",
     "aws": {
       "region": "us-east-1",
       "eksCluster": "jeju-testnet",
-      "route53Zone": "Z04346851A3103AANUBUO",
-      "acmCertificate": "arn:aws:acm:us-east-1:502713364895:certificate/0a915a42-9da2-4133-af16-ac7080d23308"
+      "route53Zone": "",
+      "acmCertificate": ""
     },
     "dns": {
-      "rpc": "testnet-rpc.jeju.network",
-      "ws": "testnet-ws.jeju.network",
-      "gateway": "gateway.testnet.jeju.network",
-      "bundler": "bundler.testnet.jeju.network",
-      "indexer": "indexer.testnet.jeju.network",
-      "explorer": "explorer.testnet.jeju.network",
-      "faucet": "faucet.testnet.jeju.network"
+      "rpc": "testnet-rpc.jejunetwork.org",
+      "ws": "testnet-ws.jejunetwork.org",
+      "gateway": "gateway.testnet.jejunetwork.org",
+      "bundler": "bundler.testnet.jejunetwork.org",
+      "indexer": "indexer.testnet.jejunetwork.org",
+      "explorer": "explorer.testnet.jejunetwork.org",
+      "faucet": "faucet.testnet.jejunetwork.org"
     },
     "nameservers": [
-      "ns-1165.awsdns-17.org",
-      "ns-1788.awsdns-31.co.uk",
-      "ns-604.awsdns-11.net",
-      "ns-66.awsdns-08.com"
+      "ns-1391.awsdns-45.org",
+      "ns-1936.awsdns-50.co.uk",
+      "ns-317.awsdns-39.com",
+      "ns-781.awsdns-33.net"
     ]
   }
 }

@@ -222,6 +222,7 @@ resource "aws_ssm_parameter" "kms_endpoint" {
 }
 
 resource "aws_ssm_parameter" "key_registry_address" {
+  count       = var.key_registry_address != "" ? 1 : 0
   name        = "/jeju/${var.environment}/messaging/key-registry-address"
   description = "KeyRegistry contract address"
   type        = "String"
@@ -233,6 +234,7 @@ resource "aws_ssm_parameter" "key_registry_address" {
 }
 
 resource "aws_ssm_parameter" "node_registry_address" {
+  count       = var.node_registry_address != "" ? 1 : 0
   name        = "/jeju/${var.environment}/messaging/node-registry-address"
   description = "MessageNodeRegistry contract address"
   type        = "String"

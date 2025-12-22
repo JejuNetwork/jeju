@@ -114,11 +114,11 @@ export interface NFTModule {
   getNFTInfo(collection: Address, tokenId: bigint): Promise<NFTInfo>;
   getProvenance(
     collection: Address,
-    tokenId: bigint
+    tokenId: bigint,
   ): Promise<ProvenanceEntry[]>;
   getWrappedInfo(
     collection: Address,
-    tokenId: bigint
+    tokenId: bigint,
   ): Promise<WrappedNFTInfo | null>;
 
   // Quotes
@@ -145,12 +145,12 @@ export interface NFTModule {
   approveForBridge(
     collection: Address,
     operator: Address,
-    tokenId?: bigint
+    tokenId?: bigint,
   ): Promise<Hex>;
   isApprovedForBridge(
     collection: Address,
     operator: Address,
-    tokenId?: bigint
+    tokenId?: bigint,
   ): Promise<boolean>;
 
   // My NFTs
@@ -200,31 +200,6 @@ const CROSS_CHAIN_NFT_ABI = [
         ],
       },
     ],
-  },
-] as const;
-
-const CROSS_CHAIN_MULTI_TOKEN_ABI = [
-  {
-    name: "bridgeMultiToken",
-    type: "function",
-    stateMutability: "payable",
-    inputs: [
-      { name: "destinationDomain", type: "uint32" },
-      { name: "recipient", type: "bytes32" },
-      { name: "tokenId", type: "uint256" },
-      { name: "amount", type: "uint256" },
-    ],
-    outputs: [{ name: "messageId", type: "bytes32" }],
-  },
-  {
-    name: "quoteBridge",
-    type: "function",
-    stateMutability: "view",
-    inputs: [
-      { name: "destinationDomain", type: "uint32" },
-      { name: "tokenId", type: "uint256" },
-    ],
-    outputs: [{ name: "fee", type: "uint256" }],
   },
 ] as const;
 
@@ -395,46 +370,6 @@ const ERC721_ABI = [
   },
 ] as const;
 
-const ERC1155_ABI = [
-  {
-    name: "setApprovalForAll",
-    type: "function",
-    stateMutability: "nonpayable",
-    inputs: [
-      { name: "operator", type: "address" },
-      { name: "approved", type: "bool" },
-    ],
-    outputs: [],
-  },
-  {
-    name: "isApprovedForAll",
-    type: "function",
-    stateMutability: "view",
-    inputs: [
-      { name: "account", type: "address" },
-      { name: "operator", type: "address" },
-    ],
-    outputs: [{ name: "approved", type: "bool" }],
-  },
-  {
-    name: "balanceOf",
-    type: "function",
-    stateMutability: "view",
-    inputs: [
-      { name: "account", type: "address" },
-      { name: "id", type: "uint256" },
-    ],
-    outputs: [{ name: "balance", type: "uint256" }],
-  },
-  {
-    name: "uri",
-    type: "function",
-    stateMutability: "view",
-    inputs: [{ name: "id", type: "uint256" }],
-    outputs: [{ name: "uri", type: "string" }],
-  },
-] as const;
-
 // ============ Constants ============
 
 const CHAIN_DOMAINS: Record<SupportedChain, number> = {
@@ -451,19 +386,21 @@ const NFT_TRANSFER_ORDER_TYPE = keccak256(toHex("NFTTransfer"));
 
 export function createNFTModule(
   wallet: JejuWallet,
-  network: NetworkType
+  network: NetworkType,
 ): NFTModule {
   const services = getServicesConfig(network);
 
   // Contract addresses from environment or defaults
   function getNFTPaymasterAddress(): Address {
-    const addr = process.env.NFTEIL_PAYMASTER || process.env.VITE_NFTEIL_PAYMASTER;
+    const addr =
+      process.env.NFTEIL_PAYMASTER || process.env.VITE_NFTEIL_PAYMASTER;
     if (!addr) throw new Error("NFTEIL_PAYMASTER not configured");
     return addr as Address;
   }
 
   function getNFTInputSettlerAddress(): Address {
-    const addr = process.env.NFTEIL_INPUT_SETTLER || process.env.VITE_NFTEIL_INPUT_SETTLER;
+    const addr =
+      process.env.NFTEIL_INPUT_SETTLER || process.env.VITE_NFTEIL_INPUT_SETTLER;
     if (!addr) throw new Error("NFTEIL_INPUT_SETTLER not configured");
     return addr as Address;
   }
@@ -474,10 +411,10 @@ export function createNFTModule(
 
   async function getNFTInfo(
     collection: Address,
-    tokenId: bigint
+    tokenId: bigint,
   ): Promise<NFTInfo> {
     const response = await fetch(
-      `${services.storage.api}/nft/${collection}/${tokenId}`
+      `${services.storage.api}/nft/${collection}/${tokenId}`,
     );
     if (!response.ok) throw new Error("Failed to get NFT info");
     const data = (await response.json()) as {
@@ -504,10 +441,10 @@ export function createNFTModule(
 
   async function getProvenance(
     collection: Address,
-    tokenId: bigint
+    tokenId: bigint,
   ): Promise<ProvenanceEntry[]> {
     const response = await fetch(
-      `${services.storage.api}/nft/${collection}/${tokenId}/provenance`
+      `${services.storage.api}/nft/${collection}/${tokenId}/provenance`,
     );
     if (!response.ok) return [];
     const data = (await response.json()) as {
@@ -532,12 +469,15 @@ export function createNFTModule(
 
   async function getWrappedInfo(
     collection: Address,
-    tokenId: bigint
+    tokenId: bigint,
   ): Promise<WrappedNFTInfo | null> {
     const response = await fetch(
-      `${services.storage.api}/nft/${collection}/${tokenId}/wrapped`
+      `${services.storage.api}/nft/${collection}/${tokenId}/wrapped`,
     );
-    if (!response.ok) return null;
+    if (response.status === 404) return null;
+    if (!response.ok) {
+      throw new Error(`Failed to get wrapped info: ${response.statusText}`);
+    }
     const data = (await response.json()) as {
       isWrapped: boolean;
       homeChainId: number;
@@ -571,7 +511,7 @@ export function createNFTModule(
   }
 
   async function getBridgeQuote(
-    params: BridgeNFTParams
+    params: BridgeNFTParams,
   ): Promise<NFTBridgeQuote> {
     const quotes = await getBridgeQuotes(params);
     if (quotes.length === 0) throw new Error("No quotes available");
@@ -579,7 +519,7 @@ export function createNFTModule(
   }
 
   async function getBridgeQuotes(
-    params: BridgeNFTParams
+    params: BridgeNFTParams,
   ): Promise<NFTBridgeQuote[]> {
     const response = await fetch(`${services.oif.aggregator}/nft/quotes`, {
       method: "POST",
@@ -646,7 +586,7 @@ export function createNFTModule(
   }
 
   async function createVoucherRequest(
-    params: NFTVoucherRequestParams
+    params: NFTVoucherRequestParams,
   ): Promise<Hex> {
     const paymaster = getNFTPaymasterAddress();
 
@@ -674,10 +614,10 @@ export function createNFTModule(
   }
 
   async function getVoucherRequestStatus(
-    requestId: Hex
+    requestId: Hex,
   ): Promise<NFTTransferStatus> {
     const response = await fetch(
-      `${services.oif.aggregator}/nft/voucher/${requestId}`
+      `${services.oif.aggregator}/nft/voucher/${requestId}`,
     );
     if (!response.ok) throw new Error("Failed to get voucher request status");
     return (await response.json()) as NFTTransferStatus;
@@ -703,14 +643,14 @@ export function createNFTModule(
 
     // Get current nonce
     const response = await fetch(
-      `${services.oif.aggregator}/nft/nonce/${wallet.address}`
+      `${services.oif.aggregator}/nft/nonce/${wallet.address}`,
     );
     const { nonce } = (await response.json()) as { nonce: string };
 
     // Encode NFT transfer data
     const orderData = encodeAbiParameters(
       parseAbiParameters(
-        "uint8 assetType, address collection, uint256 tokenId, uint256 amount, uint256 destinationChainId, address recipient, bytes32 metadataHash"
+        "uint8 assetType, address collection, uint256 tokenId, uint256 amount, uint256 destinationChainId, address recipient, bytes32 metadataHash",
       ),
       [
         0, // ERC721
@@ -720,7 +660,7 @@ export function createNFTModule(
         BigInt(destChainId),
         params.recipient ?? wallet.address,
         keccak256(toHex("")),
-      ]
+      ],
     );
 
     const order = {
@@ -745,7 +685,7 @@ export function createNFTModule(
 
   async function getNFTIntentStatus(intentId: Hex): Promise<NFTTransferStatus> {
     const response = await fetch(
-      `${services.oif.aggregator}/nft/intent/${intentId}`
+      `${services.oif.aggregator}/nft/intent/${intentId}`,
     );
     if (!response.ok) throw new Error("Failed to get intent status");
     return (await response.json()) as NFTTransferStatus;
@@ -790,7 +730,7 @@ export function createNFTModule(
   async function approveForBridge(
     collection: Address,
     operator: Address,
-    tokenId?: bigint
+    tokenId?: bigint,
   ): Promise<Hex> {
     if (tokenId !== undefined) {
       const data = encodeFunctionData({
@@ -812,11 +752,11 @@ export function createNFTModule(
   async function isApprovedForBridge(
     collection: Address,
     operator: Address,
-    tokenId?: bigint
+    tokenId?: bigint,
   ): Promise<boolean> {
     // Check approval via aggregator API (more reliable than on-chain for cross-chain state)
     const response = await fetch(
-      `${services.oif.aggregator}/nft/approved?collection=${collection}&operator=${operator}&owner=${wallet.address}${tokenId ? `&tokenId=${tokenId}` : ""}`
+      `${services.oif.aggregator}/nft/approved?collection=${collection}&operator=${operator}&owner=${wallet.address}${tokenId ? `&tokenId=${tokenId}` : ""}`,
     );
     if (!response.ok) return false;
     const data = (await response.json()) as { approved: boolean };
@@ -825,7 +765,7 @@ export function createNFTModule(
 
   async function listMyBridgedNFTs(): Promise<NFTTransferStatus[]> {
     const response = await fetch(
-      `${services.oif.aggregator}/nft/transfers?user=${wallet.address}`
+      `${services.oif.aggregator}/nft/transfers?user=${wallet.address}`,
     );
     if (!response.ok) return [];
     const data = (await response.json()) as { transfers: NFTTransferStatus[] };

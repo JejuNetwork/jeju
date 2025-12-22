@@ -1,5 +1,17 @@
 import type { Address } from 'viem';
-import { getChainId } from './wagmi';
+
+// Server-safe chain ID getter (no client dependencies)
+const getChainId = (): number => {
+  const network = process.env.NEXT_PUBLIC_NETWORK || 'localnet';
+  switch (network) {
+    case 'mainnet':
+      return 8453;
+    case 'testnet':
+      return 84532;
+    default:
+      return 31337;
+  }
+};
 
 // Contract addresses by network
 const ADDRESSES: Record<number, Record<string, Address>> = {

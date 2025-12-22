@@ -6,7 +6,7 @@
  */
 
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
-import { parseEther, formatEther, type Address, type Hex } from "viem";
+import { parseEther, type Address } from "viem";
 import {
   createJejuClient,
   type JejuClient,
@@ -123,7 +123,7 @@ describe("JejuClient Core", () => {
   test("sendTransaction works", async () => {
     if (!env?.chainRunning || !deployer || !user2) return;
     try {
-      const balanceBefore = await user2.getBalance();
+      const _balanceBefore = await user2.getBalance();
       const txHash = await deployer.sendTransaction({
         to: user2.address,
         value: parseEther("0.1"),

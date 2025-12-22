@@ -179,7 +179,10 @@ export class TokenBridgeClient {
 
   async isPaused(): Promise<boolean> {
     const state = await this.getBridgeState();
-    return state?.paused ?? true;
+    if (!state) {
+      throw new Error('Bridge not initialized');
+    }
+    return state.paused;
   }
 
   // ============================================================================

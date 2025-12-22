@@ -14,7 +14,6 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { logger } from '../lib/logger';
 import { findMonorepoRoot } from '../lib/system';
-import { type NetworkType } from '../types';
 
 const runningServices = new Map<string, ReturnType<typeof spawn>>();
 
@@ -328,9 +327,9 @@ function listServices() {
     return;
   }
 
-  for (const [name, proc] of runningServices) {
+  for (const [serviceName, proc] of runningServices) {
     logger.table([{
-      label: name,
+      label: serviceName,
       value: `PID: ${proc.pid}`,
       status: 'ok',
     }]);
@@ -358,7 +357,7 @@ async function stopAllServices() {
 
   logger.step(`Stopping ${runningServices.size} service(s)...`);
   
-  for (const [name, proc] of runningServices) {
+  for (const [_name, proc] of runningServices) {
     proc.kill();
   }
   

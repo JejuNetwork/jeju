@@ -1,70 +1,29 @@
 import { ArrowDown, ArrowUp, Clock, Wifi } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { invoke } from '../api';
-
-interface VPNConnection {
-  connection_id: string;
-  status: string;
-  node: {
-    node_id: string;
-    country_code: string;
-    region: string;
-    latency_ms: number;
-  };
-  connected_at: number | null;
-  local_ip: string | null;
-  public_ip: string | null;
-  bytes_up: number;
-  bytes_down: number;
-  latency_ms: number;
-}
+import {
+  ConnectionStatsSchema,
+  VPNConnectionSchema,
+  type ConnectionStats as ConnectionStatsType,
+  type VPNConnection,
+} from '../api/schemas';
+import { formatBytes, formatDuration } from '../shared/utils';
 
 interface ConnectionStatsProps {
   connection: VPNConnection;
 }
 
-interface Stats {
-  bytes_up: number;
-  bytes_down: number;
-  packets_up: number;
-  packets_down: number;
-  connected_seconds: number;
-  latency_ms: number;
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-}
-
-function formatDuration(seconds: number): string {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = seconds % 60;
-  
-  if (hours > 0) {
-    return `${hours}h ${minutes}m`;
-  }
-  if (minutes > 0) {
-    return `${minutes}m ${secs}s`;
-  }
-  return `${secs}s`;
-}
-
 export function ConnectionStats({ connection }: ConnectionStatsProps) {
-  const [stats, setStats] = useState<Stats | null>(null);
+  // Validate connection prop
+  const validatedConnection = VPNConnectionSchema.parse(connection);
+  
+  const [stats, setStats] = useState<ConnectionStatsType | null>(null);
 
   useEffect(() => {
     const fetchStats = async () => {
-      try {
-        const result = await invoke<Stats | null>('get_connection_stats');
-        if (result) {
-          setStats(result);
-        }
-      } catch (error) {
-        console.error('Failed to fetch stats:', error);
+      const result = await invoke('get_connection_stats', {}, ConnectionStatsSchema.nullable());
+      if (result) {
+        setStats(result);
       }
     };
 
@@ -90,7 +49,7 @@ export function ConnectionStats({ connection }: ConnectionStatsProps) {
             <span className="text-xs text-[#606070]">Download</span>
           </div>
           <div className="text-lg font-semibold">
-            {formatBytes(stats?.bytes_down ?? connection.bytes_down)}
+            {formatBytes(stats?.bytes_down ?? validatedConnection.bytes_down)}
           </div>
         </div>
 
@@ -101,7 +60,7 @@ export function ConnectionStats({ connection }: ConnectionStatsProps) {
             <span className="text-xs text-[#606070]">Upload</span>
           </div>
           <div className="text-lg font-semibold">
-            {formatBytes(stats?.bytes_up ?? connection.bytes_up)}
+            {formatBytes(stats?.bytes_up ?? validatedConnection.bytes_up)}
           </div>
         </div>
 
@@ -123,17 +82,17 @@ export function ConnectionStats({ connection }: ConnectionStatsProps) {
             <span className="text-xs text-[#606070]">Latency</span>
           </div>
           <div className="text-lg font-semibold">
-            {stats?.latency_ms ?? connection.latency_ms}ms
+            {stats?.latency_ms ?? validatedConnection.latency_ms}ms
           </div>
         </div>
       </div>
 
       {/* IP Info */}
-      {connection.local_ip && (
+      {validatedConnection.local_ip && (
         <div className="mt-4 pt-4 border-t border-[#2a2a35]">
           <div className="flex justify-between text-sm">
             <span className="text-[#606070]">VPN IP</span>
-            <span className="font-mono">{connection.local_ip}</span>
+            <span className="font-mono">{validatedConnection.local_ip}</span>
           </div>
         </div>
       )}

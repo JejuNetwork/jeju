@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
-import { useAccount, useChainId, useBalance } from 'wagmi';
-import { parseEther, formatEther, type Address } from 'viem';
-import { useCreateIntent, useOIFConfig, useIntentStatus } from '../hooks/useOIF';
+import { useAccount, useChainId, useBalance, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { parseEther, formatEther, type Address, type Hash } from 'viem';
+import { useOIFConfig } from '@/hooks/useOIF';
 
 const CHAINS = [
   { id: 1, name: 'Ethereum', color: 'var(--chain-ethereum)' },
@@ -15,6 +15,33 @@ const TOKENS = {
   ETH: { symbol: 'ETH', address: '0x0000000000000000000000000000000000000000' as Address, decimals: 18 },
 };
 
+const INPUT_SETTLER_ABI = [
+  {
+    type: 'function',
+    name: 'createIntent',
+    inputs: [{
+      name: 'order',
+      type: 'tuple',
+      components: [
+        { name: 'sourceChainId', type: 'uint256' },
+        { name: 'targetChainId', type: 'uint256' },
+        { name: 'sourceToken', type: 'address' },
+        { name: 'targetToken', type: 'address' },
+        { name: 'sourceAmount', type: 'uint256' },
+        { name: 'targetAddress', type: 'address' },
+        { name: 'deadline', type: 'uint256' },
+        { name: 'data', type: 'bytes' },
+        { name: 'resolver', type: 'address' },
+        { name: 'resolverFee', type: 'uint256' },
+        { name: 'refundAddress', type: 'address' },
+        { name: 'nonce', type: 'uint256' },
+      ],
+    }],
+    outputs: [{ name: 'intentId', type: 'bytes32' }],
+    stateMutability: 'payable',
+  },
+] as const;
+
 export function CrossChainIntent() {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
@@ -23,10 +50,13 @@ export function CrossChainIntent() {
   const [amount, setAmount] = useState('');
   const [destChain, setDestChain] = useState(CHAINS[0].id === chainId ? CHAINS[1].id : CHAINS[0].id);
   const [maxFee, setMaxFee] = useState('0.005');
+  const [intentId, setIntentId] = useState<Hash | null>(null);
+  const [error, setError] = useState<Error | null>(null);
+  const [status, setStatus] = useState<string>('idle');
 
-  const inputSettlerAddress = config.inputSettlers[chainId];
-  const { createIntent, intentId, isPending, isConfirming, isSuccess, error } = useCreateIntent(inputSettlerAddress);
-  const { status } = useIntentStatus(inputSettlerAddress, intentId ?? undefined);
+  const inputSettlerAddress = config.inputSettlers[chainId] as Address | undefined;
+  const { writeContractAsync, isPending } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: intentId ?? undefined });
 
   const { data: balance } = useBalance({ address });
 
@@ -35,23 +65,44 @@ export function CrossChainIntent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!address || !amount) return;
+    if (!address || !amount || !inputSettlerAddress) return;
+
+    setError(null);
+    setStatus('pending');
 
     const amountWei = parseEther(amount);
-    const feeWei = parseEther(maxFee);
-    
-    // For same-token swaps, output = input - fee (solver takes difference)
-    const outputAmount = amountWei * 995n / 1000n; // 0.5% solver fee
+    const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
+    const nonce = BigInt(Date.now());
 
-    await createIntent({
-      inputToken: TOKENS.ETH.address,
-      inputAmount: amountWei,
-      outputToken: TOKENS.ETH.address,
-      outputAmount,
-      destinationChainId: destChain,
-      recipient: address,
-      maxFee: feeWei,
-    });
+    const order = {
+      sourceChainId: BigInt(chainId),
+      targetChainId: BigInt(destChain),
+      sourceToken: TOKENS.ETH.address,
+      targetToken: TOKENS.ETH.address,
+      sourceAmount: amountWei,
+      targetAddress: address,
+      deadline,
+      data: '0x' as `0x${string}`,
+      resolver: '0x0000000000000000000000000000000000000000' as Address,
+      resolverFee: 0n,
+      refundAddress: address,
+      nonce,
+    };
+
+    try {
+      const hash = await writeContractAsync({
+        address: inputSettlerAddress,
+        abi: INPUT_SETTLER_ABI,
+        functionName: 'createIntent',
+        args: [order],
+        value: amountWei,
+      });
+      setIntentId(hash);
+      setStatus('confirming');
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Transaction failed'));
+      setStatus('error');
+    }
   };
 
   if (!isConnected) {
@@ -250,7 +301,7 @@ export function CrossChainIntent() {
         {intentId && (
           <div style={{
             padding: '12px 16px',
-            background: status === 'filled' ? 'var(--success-soft)' : 'var(--accent-tertiary-soft)',
+            background: isSuccess ? 'var(--success-soft)' : 'var(--accent-tertiary-soft)',
             borderRadius: '10px',
             marginBottom: '16px',
             fontSize: '13px',
@@ -265,11 +316,11 @@ export function CrossChainIntent() {
               <span style={{ color: 'var(--text-muted)' }}>Status</span>
               <span style={{
                 fontWeight: 600,
-                color: status === 'filled' ? 'var(--success-bright)' :
-                       status === 'claimed' ? 'var(--warning-bright)' :
-                       status === 'open' ? 'var(--chain-jeju)' : 'var(--text-muted)'
+                color: isSuccess ? 'var(--success-bright)' :
+                       isConfirming ? 'var(--warning-bright)' :
+                       'var(--chain-jeju)'
               }}>
-                {status.toUpperCase()}
+                {isSuccess ? 'CONFIRMED' : isConfirming ? 'CONFIRMING' : status.toUpperCase()}
               </span>
             </div>
           </div>
@@ -293,7 +344,7 @@ export function CrossChainIntent() {
         {/* Submit Button */}
         <button
           type="submit"
-          disabled={isPending || isConfirming || !amount || parseFloat(amount) <= 0}
+          disabled={isPending || isConfirming || !amount || parseFloat(amount) <= 0 || !inputSettlerAddress}
           style={{
             width: '100%',
             padding: '16px',
@@ -319,3 +370,4 @@ export function CrossChainIntent() {
   );
 }
 
+export default CrossChainIntent;

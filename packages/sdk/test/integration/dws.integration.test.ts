@@ -5,9 +5,9 @@
  */
 
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
-import { createJejuClient, type JejuClient, TriggerType, JobStatus } from "../../src";
+import { createJejuClient, type JejuClient, JobStatus } from "../../src";
 import { privateKeyToAccount } from "viem/accounts";
-import { parseEther, type Hex } from "viem";
+import type { Hex } from "viem";
 import { setupTestEnvironment, teardownTestEnvironment } from "../setup";
 
 describe("DWS Module Integration Tests", () => {
@@ -31,11 +31,11 @@ describe("DWS Module Integration Tests", () => {
       rpcUrl: env.rpcUrl,
       smartAccount: false,
     });
-  }, 90000);
+  });
 
   afterAll(async () => {
     await teardownTestEnvironment();
-  }, 10000);
+  });
 
   describe("Trigger Management", () => {
     test("listTriggers returns array", async () => {

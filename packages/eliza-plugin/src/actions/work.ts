@@ -11,9 +11,21 @@ import {
   type State,
   type HandlerCallback,
 } from "@elizaos/core";
-import { getJejuService } from "../service";
-import type { Hex, Address } from "viem";
+import type { Hex } from "viem";
 import { parseEther } from "viem";
+import { JEJU_SERVICE_NAME, type JejuService } from "../service";
+import {
+  validateServiceExists,
+  parseContent,
+  bountyContentSchema,
+  bountyIdSchema,
+  workSubmissionSchema,
+  submissionActionSchema,
+  projectContentSchema,
+  taskContentSchema,
+  guardianContentSchema,
+  formatNumberedList,
+} from "../validation";
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                          BOUNTY ACTIONS
@@ -37,44 +49,45 @@ export const createBountyAction: Action = {
       },
     ],
   ],
-  validate: async () => true,
+  validate: async (runtime: IAgentRuntime) => validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-    _state: State,
-    _options: Record<string, unknown>,
-    callback: HandlerCallback,
+    _state: State | undefined,
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
   ) => {
-    const service = getJejuService();
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
+    const sdk = service.getClient();
 
-    const title = (message.content as { title?: string }).title;
-    const description = (message.content as { description?: string })
-      .description;
-    const rewardStr = (message.content as { reward?: string }).reward;
-    const deadline = (message.content as { deadline?: number }).deadline;
-    const tags = (message.content as { tags?: string[] }).tags;
+    const content = parseContent(message, bountyContentSchema);
 
-    if (!title || !description || !rewardStr || !deadline) {
-      callback({
+    if (
+      !content.title ||
+      !content.description ||
+      !content.reward ||
+      !content.deadline
+    ) {
+      callback?.({
         text: "Required: title, description, reward (ETH), deadline (unix timestamp)",
       });
       return;
     }
 
-    const reward = parseEther(rewardStr);
+    const reward = parseEther(content.reward);
 
-    const result = await service.sdk.work.createBounty({
-      title,
-      description,
+    const result = await sdk.work.createBounty({
+      title: content.title,
+      description: content.description,
       reward,
-      deadline,
-      tags,
+      deadline: content.deadline,
+      tags: content.tags,
     });
 
-    callback({
+    callback?.({
       text: `Bounty created!
 ID: ${result.bountyId}
-Reward: ${rewardStr} ETH
+Reward: ${content.reward} ETH
 Tx: ${result.txHash}`,
     });
   },
@@ -96,17 +109,18 @@ export const listBountiesAction: Action = {
       },
     ],
   ],
-  validate: async () => true,
+  validate: async (runtime: IAgentRuntime) => validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-    _state: State,
-    _options: Record<string, unknown>,
-    callback: HandlerCallback,
+    _state: State | undefined,
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
   ) => {
-    const service = getJejuService();
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
+    const sdk = service.getClient();
 
-    const statusStr = (message.content as { status?: string }).status;
+    const content = parseContent(message, bountyContentSchema);
     const statusMap: Record<string, number> = {
       open: 0,
       in_progress: 1,
@@ -115,23 +129,28 @@ export const listBountiesAction: Action = {
       cancelled: 4,
       disputed: 5,
     };
-    const status = statusStr ? statusMap[statusStr.toLowerCase()] : undefined;
 
-    const bounties = await service.sdk.work.listBounties(status);
+    // Extract status from text if provided
+    const text = content.text ?? "";
+    const statusMatch = text
+      .toLowerCase()
+      .match(/(open|in_progress|review|completed|cancelled|disputed)/);
+    const status = statusMatch ? statusMap[statusMatch[1]] : undefined;
+
+    const bounties = await sdk.work.listBounties(status);
 
     if (bounties.length === 0) {
-      callback({ text: "No bounties found" });
+      callback?.({ text: "No bounties found" });
       return;
     }
 
-    const list = bounties
-      .map(
-        (b, i) =>
-          `${i + 1}. ${b.title} - ${b.reward} wei - ${b.tags.join(", ")}`,
-      )
-      .join("\n");
+    const list = formatNumberedList(
+      bounties,
+      (b: { title: string; reward: bigint | string; tags: string[] }) =>
+        `${b.title} - ${b.reward} wei - ${b.tags.join(", ")}`,
+    );
 
-    callback({ text: `Bounties:\n${list}` });
+    callback?.({ text: `Bounties:\n${list}` });
   },
 };
 
@@ -151,26 +170,27 @@ export const claimBountyAction: Action = {
       },
     ],
   ],
-  validate: async () => true,
+  validate: async (runtime: IAgentRuntime) => validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-    _state: State,
-    _options: Record<string, unknown>,
-    callback: HandlerCallback,
+    _state: State | undefined,
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
   ) => {
-    const service = getJejuService();
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
+    const sdk = service.getClient();
 
-    const bountyId = (message.content as { bountyId?: string }).bountyId;
+    const content = parseContent(message, bountyIdSchema);
 
-    if (!bountyId) {
-      callback({ text: "Bounty ID required" });
+    if (!content.bountyId) {
+      callback?.({ text: "Bounty ID required" });
       return;
     }
 
-    const txHash = await service.sdk.work.claimBounty(bountyId as Hex);
+    const txHash = await sdk.work.claimBounty(content.bountyId as Hex);
 
-    callback({ text: `Bounty claimed! Tx: ${txHash}` });
+    callback?.({ text: `Bounty claimed! Tx: ${txHash}` });
   },
 };
 
@@ -192,35 +212,33 @@ export const submitWorkAction: Action = {
       },
     ],
   ],
-  validate: async () => true,
+  validate: async (runtime: IAgentRuntime) => validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-    _state: State,
-    _options: Record<string, unknown>,
-    callback: HandlerCallback,
+    _state: State | undefined,
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
   ) => {
-    const service = getJejuService();
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
+    const sdk = service.getClient();
 
-    const bountyId = (message.content as { bountyId?: string }).bountyId;
-    const content = (message.content as { workContent?: string }).workContent;
-    const proofOfWork = (message.content as { proofOfWork?: string })
-      .proofOfWork;
+    const content = parseContent(message, workSubmissionSchema);
 
-    if (!bountyId || !content || !proofOfWork) {
-      callback({
+    if (!content.bountyId || !content.workContent || !content.proofOfWork) {
+      callback?.({
         text: "Required: bountyId, workContent, proofOfWork (IPFS hash/URL)",
       });
       return;
     }
 
-    const txHash = await service.sdk.work.submitWork({
-      bountyId: bountyId as Hex,
-      content,
-      proofOfWork,
+    const txHash = await sdk.work.submitWork({
+      bountyId: content.bountyId as Hex,
+      content: content.workContent,
+      proofOfWork: content.proofOfWork,
     });
 
-    callback({ text: `Work submitted! Tx: ${txHash}` });
+    callback?.({ text: `Work submitted! Tx: ${txHash}` });
   },
 };
 
@@ -240,29 +258,31 @@ export const approveSubmissionAction: Action = {
       },
     ],
   ],
-  validate: async () => true,
+  validate: async (runtime: IAgentRuntime) => validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-    _state: State,
-    _options: Record<string, unknown>,
-    callback: HandlerCallback,
+    _state: State | undefined,
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
   ) => {
-    const service = getJejuService();
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
+    const sdk = service.getClient();
 
-    const submissionId = (message.content as { submissionId?: string })
-      .submissionId;
+    const content = parseContent(message, submissionActionSchema);
 
-    if (!submissionId) {
-      callback({ text: "Submission ID required" });
+    if (!content.submissionId) {
+      callback?.({ text: "Submission ID required" });
       return;
     }
 
-    const txHash = await service.sdk.work.approveSubmission(
-      submissionId as Hex,
+    const txHash = await sdk.work.approveSubmission(
+      content.submissionId as Hex,
     );
 
-    callback({ text: `Submission approved! Payment released. Tx: ${txHash}` });
+    callback?.({
+      text: `Submission approved! Payment released. Tx: ${txHash}`,
+    });
   },
 };
 
@@ -282,31 +302,30 @@ export const rejectSubmissionAction: Action = {
       },
     ],
   ],
-  validate: async () => true,
+  validate: async (runtime: IAgentRuntime) => validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-    _state: State,
-    _options: Record<string, unknown>,
-    callback: HandlerCallback,
+    _state: State | undefined,
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
   ) => {
-    const service = getJejuService();
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
+    const sdk = service.getClient();
 
-    const submissionId = (message.content as { submissionId?: string })
-      .submissionId;
-    const feedback = (message.content as { feedback?: string }).feedback;
+    const content = parseContent(message, submissionActionSchema);
 
-    if (!submissionId || !feedback) {
-      callback({ text: "Submission ID and feedback required" });
+    if (!content.submissionId || !content.feedback) {
+      callback?.({ text: "Submission ID and feedback required" });
       return;
     }
 
-    const txHash = await service.sdk.work.rejectSubmission(
-      submissionId as Hex,
-      feedback,
+    const txHash = await sdk.work.rejectSubmission(
+      content.submissionId as Hex,
+      content.feedback,
     );
 
-    callback({ text: `Submission rejected. Tx: ${txHash}` });
+    callback?.({ text: `Submission rejected. Tx: ${txHash}` });
   },
 };
 
@@ -332,37 +351,34 @@ export const createProjectAction: Action = {
       },
     ],
   ],
-  validate: async () => true,
+  validate: async (runtime: IAgentRuntime) => validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-    _state: State,
-    _options: Record<string, unknown>,
-    callback: HandlerCallback,
+    _state: State | undefined,
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
   ) => {
-    const service = getJejuService();
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
+    const sdk = service.getClient();
 
-    const name = (message.content as { name?: string }).name;
-    const description = (message.content as { description?: string })
-      .description;
-    const repository = (message.content as { repository?: string }).repository;
-    const budgetStr = (message.content as { budget?: string }).budget;
+    const content = parseContent(message, projectContentSchema);
 
-    if (!name || !description) {
-      callback({ text: "Required: name, description" });
+    if (!content.name || !content.description) {
+      callback?.({ text: "Required: name, description" });
       return;
     }
 
-    const budget = budgetStr ? parseEther(budgetStr) : undefined;
+    const budget = content.budget ? parseEther(content.budget) : undefined;
 
-    const result = await service.sdk.work.createProject({
-      name,
-      description,
-      repository,
+    const result = await sdk.work.createProject({
+      name: content.name,
+      description: content.description,
+      repository: content.repository,
       budget,
     });
 
-    callback({
+    callback?.({
       text: `Project created!
 ID: ${result.projectId}
 Tx: ${result.txHash}`,
@@ -386,35 +402,35 @@ export const listProjectsAction: Action = {
       },
     ],
   ],
-  validate: async () => true,
+  validate: async (runtime: IAgentRuntime) => validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-    _state: State,
-    _options: Record<string, unknown>,
-    callback: HandlerCallback,
+    _state: State | undefined,
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
   ) => {
-    const service = getJejuService();
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
+    const sdk = service.getClient();
 
-    const mine = (message.content as { mine?: boolean }).mine;
+    const content = parseContent(message, projectContentSchema);
 
-    const projects = mine
-      ? await service.sdk.work.listMyProjects()
-      : await service.sdk.work.listProjects();
+    const projects = content.mine
+      ? await sdk.work.listMyProjects()
+      : await sdk.work.listProjects();
 
     if (projects.length === 0) {
-      callback({ text: "No projects found" });
+      callback?.({ text: "No projects found" });
       return;
     }
 
-    const list = projects
-      .map(
-        (p, i) =>
-          `${i + 1}. ${p.name} - ${p.memberCount} members, ${p.bountyCount} bounties`,
-      )
-      .join("\n");
+    const list = formatNumberedList(
+      projects,
+      (p: { name: string; memberCount: number; bountyCount: number }) =>
+        `${p.name} - ${p.memberCount} members, ${p.bountyCount} bounties`,
+    );
 
-    callback({ text: `Projects:\n${list}` });
+    callback?.({ text: `Projects:\n${list}` });
   },
 };
 
@@ -426,7 +442,9 @@ export const createTaskAction: Action = {
     [
       {
         name: "user",
-        content: { text: "Create task: Implement auth, 0.1 ETH, in project 0x..." },
+        content: {
+          text: "Create task: Implement auth, 0.1 ETH, in project 0x...",
+        },
       },
       {
         name: "assistant",
@@ -434,41 +452,42 @@ export const createTaskAction: Action = {
       },
     ],
   ],
-  validate: async () => true,
+  validate: async (runtime: IAgentRuntime) => validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-    _state: State,
-    _options: Record<string, unknown>,
-    callback: HandlerCallback,
+    _state: State | undefined,
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
   ) => {
-    const service = getJejuService();
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
+    const sdk = service.getClient();
 
-    const projectId = (message.content as { projectId?: string }).projectId;
-    const title = (message.content as { title?: string }).title;
-    const description = (message.content as { description?: string })
-      .description;
-    const rewardStr = (message.content as { reward?: string }).reward;
-    const dueDate = (message.content as { dueDate?: number }).dueDate;
+    const content = parseContent(message, taskContentSchema);
 
-    if (!projectId || !title || !description || !rewardStr) {
-      callback({
+    if (
+      !content.projectId ||
+      !content.title ||
+      !content.description ||
+      !content.reward
+    ) {
+      callback?.({
         text: "Required: projectId, title, description, reward (ETH)",
       });
       return;
     }
 
-    const reward = parseEther(rewardStr);
+    const reward = parseEther(content.reward);
 
-    const txHash = await service.sdk.work.createTask(
-      projectId as Hex,
-      title,
-      description,
+    const txHash = await sdk.work.createTask(
+      content.projectId as Hex,
+      content.title,
+      content.description,
       reward,
-      dueDate,
+      content.dueDate,
     );
 
-    callback({ text: `Task created! Tx: ${txHash}` });
+    callback?.({ text: `Task created! Tx: ${txHash}` });
   },
 };
 
@@ -488,27 +507,28 @@ export const getTasksAction: Action = {
       },
     ],
   ],
-  validate: async () => true,
+  validate: async (runtime: IAgentRuntime) => validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-    _state: State,
-    _options: Record<string, unknown>,
-    callback: HandlerCallback,
+    _state: State | undefined,
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
   ) => {
-    const service = getJejuService();
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
+    const sdk = service.getClient();
 
-    const projectId = (message.content as { projectId?: string }).projectId;
+    const content = parseContent(message, taskContentSchema);
 
-    if (!projectId) {
-      callback({ text: "Project ID required" });
+    if (!content.projectId) {
+      callback?.({ text: "Project ID required" });
       return;
     }
 
-    const tasks = await service.sdk.work.getTasks(projectId as Hex);
+    const tasks = await sdk.work.getTasks(content.projectId as Hex);
 
     if (tasks.length === 0) {
-      callback({ text: "No tasks in this project" });
+      callback?.({ text: "No tasks in this project" });
       return;
     }
 
@@ -521,14 +541,18 @@ export const getTasksAction: Action = {
       "DISPUTED",
     ];
 
-    const list = tasks
-      .map(
-        (t, i) =>
-          `${i + 1}. ${t.title} - ${t.reward} wei - ${statusNames[t.status]} - ${t.assignee || "Unassigned"}`,
-      )
-      .join("\n");
+    const list = formatNumberedList(
+      tasks,
+      (t: {
+        title: string;
+        reward: bigint | string;
+        status: number;
+        assignee?: string;
+      }) =>
+        `${t.title} - ${t.reward} wei - ${statusNames[t.status]} - ${t.assignee ?? "Unassigned"}`,
+    );
 
-    callback({ text: `Tasks:\n${list}` });
+    callback?.({ text: `Tasks:\n${list}` });
   },
 };
 
@@ -552,29 +576,29 @@ export const registerGuardianAction: Action = {
       },
     ],
   ],
-  validate: async () => true,
+  validate: async (runtime: IAgentRuntime) => validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-    _state: State,
-    _options: Record<string, unknown>,
-    callback: HandlerCallback,
+    _state: State | undefined,
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
   ) => {
-    const service = getJejuService();
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
+    const sdk = service.getClient();
 
-    const name = (message.content as { name?: string }).name;
-    const stakeStr = (message.content as { stake?: string }).stake;
+    const content = parseContent(message, guardianContentSchema);
 
-    if (!name || !stakeStr) {
-      callback({ text: "Required: name, stake (ETH)" });
+    if (!content.name || !content.stake) {
+      callback?.({ text: "Required: name, stake (ETH)" });
       return;
     }
 
-    const stake = parseEther(stakeStr);
+    const stake = parseEther(content.stake);
 
-    const txHash = await service.sdk.work.registerAsGuardian(name, stake);
+    const txHash = await sdk.work.registerAsGuardian(content.name, stake);
 
-    callback({ text: `Registered as guardian! Tx: ${txHash}` });
+    callback?.({ text: `Registered as guardian! Tx: ${txHash}` });
   },
 };
 
@@ -594,31 +618,35 @@ export const listGuardiansAction: Action = {
       },
     ],
   ],
-  validate: async () => true,
+  validate: async (runtime: IAgentRuntime) => validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
-    message: Memory,
-    _state: State,
-    _options: Record<string, unknown>,
-    callback: HandlerCallback,
+    _message: Memory,
+    _state: State | undefined,
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
   ) => {
-    const service = getJejuService();
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
+    const sdk = service.getClient();
 
-    const guardians = await service.sdk.work.listGuardians();
+    const guardians = await sdk.work.listGuardians();
 
     if (guardians.length === 0) {
-      callback({ text: "No active guardians" });
+      callback?.({ text: "No active guardians" });
       return;
     }
 
-    const list = guardians
-      .map(
-        (g, i) =>
-          `${i + 1}. ${g.name} - ${g.stake} wei stake - ${g.reviewCount} reviews (${g.approvalRate}% approval)`,
-      )
-      .join("\n");
+    const list = formatNumberedList(
+      guardians,
+      (g: {
+        name: string;
+        stake: bigint | string;
+        reviewCount: number;
+        approvalRate: number;
+      }) =>
+        `${g.name} - ${g.stake} wei stake - ${g.reviewCount} reviews (${g.approvalRate}% approval)`,
+    );
 
-    callback({ text: `Active Guardians:\n${list}` });
+    callback?.({ text: `Active Guardians:\n${list}` });
   },
 };
-

@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /**
  * Build and push Docker images to ECR
- * 
+ *
  * Usage:
  *   NETWORK=testnet bun run scripts/build-images.ts
  *   NETWORK=testnet bun run scripts/build-images.ts --push
@@ -10,50 +10,54 @@
 import { $ } from "bun";
 import { existsSync } from "fs";
 import { join } from "path";
+import {
+  getRequiredNetwork,
+  getEcrRegistry,
+  loginToEcr,
+  getGitShortHash,
+  type NetworkType,
+} from "./shared";
 
-const NETWORK = process.env.NETWORK || "testnet";
+const NETWORK: NetworkType = getRequiredNetwork();
 const PUSH = process.argv.includes("--push");
 const PROJECT_ROOT = join(import.meta.dir, "../../..");
 
-const APPS: Record<string, { dockerfile: string; context: string }> = {
+interface AppConfig {
+  dockerfile: string;
+  context: string;
+}
+
+const APPS: Record<string, AppConfig> = {
   bazaar: { dockerfile: "apps/bazaar/Dockerfile", context: "apps/bazaar" },
   gateway: { dockerfile: "apps/gateway/Dockerfile", context: "apps/gateway" },
   ipfs: { dockerfile: "apps/ipfs/Dockerfile", context: "apps/ipfs" },
   documentation: { dockerfile: "apps/documentation/Dockerfile", context: "." },
-  indexer: { dockerfile: "apps/indexer/Dockerfile.k8s", context: "apps/indexer" }
+  indexer: { dockerfile: "apps/indexer/Dockerfile.k8s", context: "apps/indexer" },
 };
 
-async function getEcrRegistry(): Promise<string> {
-  const region = process.env.AWS_REGION || "us-east-1";
-  const accountId = await $`aws sts get-caller-identity --query Account --output text`.text();
-  return `${accountId.trim()}.dkr.ecr.${region}.amazonaws.com`;
-}
-
-async function main() {
+async function main(): Promise<void> {
   console.log(`🐳 Building Docker images for ${NETWORK}\n`);
 
-  const gitHash = await $`git rev-parse --short HEAD`.text().then(s => s.trim()).catch(() => "latest");
+  const gitHash = await getGitShortHash();
   const tag = `${NETWORK}-${gitHash}`;
 
   let registry = "";
   if (PUSH) {
     registry = await getEcrRegistry();
     console.log(`📦 ECR Registry: ${registry}\n`);
-    
-    // Login to ECR
-    await $`aws ecr get-login-password --region ${process.env.AWS_REGION || "us-east-1"} | docker login --username AWS --password-stdin ${registry}`;
+    await loginToEcr(registry);
   }
 
   for (const [app, config] of Object.entries(APPS)) {
     const dockerfilePath = join(PROJECT_ROOT, config.dockerfile);
-    
+
     if (!existsSync(dockerfilePath)) {
       console.log(`⏭️  Skipping ${app} (no Dockerfile)`);
       continue;
     }
 
     console.log(`\n🔨 Building ${app}...`);
-    
+
     const imageName = PUSH ? `${registry}/jeju/${app}` : `jeju/${app}`;
     const fullTag = `${imageName}:${tag}`;
     const latestTag = `${imageName}:${NETWORK}-latest`;
@@ -84,4 +88,3 @@ async function main() {
 }
 
 main();
-

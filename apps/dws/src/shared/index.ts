@@ -2,6 +2,14 @@
  * Shared utilities for DWS
  */
 
+// Re-export zod for convenience
+export { z } from 'zod';
+
+// Re-export utilities
+export * from './utils/common';
+export * from './utils/rpc';
+export * from './utils/api-marketplace';
+
 // x402 Payment handling
 export {
   x402Middleware,
@@ -29,4 +37,32 @@ export {
   type ReputationScore,
   type MetricsInput,
 } from './reputation';
+
+// Validation utilities and schemas
+export {
+  expectValid,
+  validateBody,
+  validateQuery,
+  validateParams,
+  validateHeaders,
+  validateRequest,
+  addressSchema,
+  hexSchema,
+  strictHexSchema,
+  cidSchema,
+  positiveIntSchema,
+  nonNegativeIntSchema,
+  positiveBigIntSchema,
+  nonEmptyStringSchema,
+  urlSchema,
+  emailSchema,
+  isoDateSchema,
+  timestampSchema,
+  paginationSchema,
+  jejuAddressHeaderSchema,
+  jejuAuthHeadersSchema,
+  errorResponseSchema,
+} from './validation';
+
+export * from './schemas';
 

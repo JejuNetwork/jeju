@@ -8,10 +8,22 @@
  * - Compute resource allocation
  */
 
-import { type Address, type Hex, encodeFunctionData } from "viem";
+import type { Address } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
-import { getServicesConfig, getContract as getContractAddress } from "../config";
+import { getServicesConfig } from "../config";
+import { generateAuthHeaders } from "../shared/api";
+import {
+  TriggerSchema,
+  WorkflowSchema,
+  JobSchema,
+  TriggersListSchema,
+  WorkflowsListSchema,
+  JobsListSchema,
+  JobLogsSchema,
+  DWSStatsSchema,
+  WorkflowMetricsSchema,
+} from "../shared/schemas";
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -151,7 +163,10 @@ export interface DWSModule {
   listMyTriggers(): Promise<Trigger[]>;
 
   /** Update trigger config */
-  updateTrigger(triggerId: string, config: Partial<TriggerConfig>): Promise<void>;
+  updateTrigger(
+    triggerId: string,
+    config: Partial<TriggerConfig>,
+  ): Promise<void>;
 
   /** Enable/disable trigger */
   setTriggerActive(triggerId: string, active: boolean): Promise<void>;
@@ -160,7 +175,10 @@ export interface DWSModule {
   deleteTrigger(triggerId: string): Promise<void>;
 
   /** Manually fire a trigger */
-  fireTrigger(triggerId: string, payload?: Record<string, unknown>): Promise<{ jobId: string }>;
+  fireTrigger(
+    triggerId: string,
+    payload?: Record<string, unknown>,
+  ): Promise<{ jobId: string }>;
 
   // ═══════════════════════════════════════════════════════════════════════
   //                         WORKFLOWS
@@ -176,7 +194,10 @@ export interface DWSModule {
   listMyWorkflows(): Promise<Workflow[]>;
 
   /** Update workflow */
-  updateWorkflow(workflowId: string, updates: Partial<CreateWorkflowParams>): Promise<void>;
+  updateWorkflow(
+    workflowId: string,
+    updates: Partial<CreateWorkflowParams>,
+  ): Promise<void>;
 
   /** Set workflow status */
   setWorkflowStatus(workflowId: string, status: WorkflowStatus): Promise<void>;
@@ -243,16 +264,7 @@ export function createDWSModule(
   const dwsApiUrl = services.dws?.api ?? `${services.gateway.api}/dws`;
 
   async function authHeaders(): Promise<Record<string, string>> {
-    const timestamp = Date.now().toString();
-    const message = `jeju-dws:${timestamp}`;
-    const signature = await wallet.signMessage(message);
-
-    return {
-      "Content-Type": "application/json",
-      "x-jeju-address": wallet.address,
-      "x-jeju-timestamp": timestamp,
-      "x-jeju-signature": signature,
-    };
+    return generateAuthHeaders(wallet, "jeju-dws");
   }
 
   return {
@@ -278,16 +290,32 @@ export function createDWSModule(
 
     async getTrigger(triggerId) {
       const response = await fetch(`${dwsApiUrl}/triggers/${triggerId}`);
-      if (!response.ok) return null;
-      return response.json() as Promise<Trigger>;
+      if (response.status === 404) return null;
+      if (!response.ok) {
+        throw new Error(`Failed to get trigger: ${response.statusText}`);
+      }
+      const rawData: unknown = await response.json();
+      const parsed = TriggerSchema.parse(rawData);
+      return {
+        ...parsed,
+        type: parsed.type as TriggerType,
+        owner: parsed.owner as Address,
+      };
     },
 
     async listMyTriggers() {
       const headers = await authHeaders();
       const response = await fetch(`${dwsApiUrl}/triggers`, { headers });
-      if (!response.ok) return [];
-      const data = await response.json() as { triggers?: Trigger[] };
-      return data.triggers ?? [];
+      if (!response.ok) {
+        throw new Error(`Failed to list triggers: ${response.statusText}`);
+      }
+      const rawData: unknown = await response.json();
+      const data = TriggersListSchema.parse(rawData);
+      return data.triggers.map((t) => ({
+        ...t,
+        type: t.type as TriggerType,
+        owner: t.owner as Address,
+      }));
     },
 
     async updateTrigger(triggerId, config) {
@@ -306,11 +334,14 @@ export function createDWSModule(
 
     async setTriggerActive(triggerId, active) {
       const headers = await authHeaders();
-      const response = await fetch(`${dwsApiUrl}/triggers/${triggerId}/active`, {
-        method: "PUT",
-        headers,
-        body: JSON.stringify({ active }),
-      });
+      const response = await fetch(
+        `${dwsApiUrl}/triggers/${triggerId}/active`,
+        {
+          method: "PUT",
+          headers,
+          body: JSON.stringify({ active }),
+        },
+      );
 
       if (!response.ok) {
         throw new Error("Failed to update trigger status");
@@ -366,16 +397,40 @@ export function createDWSModule(
 
     async getWorkflow(workflowId) {
       const response = await fetch(`${dwsApiUrl}/workflows/${workflowId}`);
-      if (!response.ok) return null;
-      return response.json() as Promise<Workflow>;
+      if (response.status === 404) return null;
+      if (!response.ok) {
+        throw new Error(`Failed to get workflow: ${response.statusText}`);
+      }
+      const rawData: unknown = await response.json();
+      const parsed = WorkflowSchema.parse(rawData);
+      return {
+        ...parsed,
+        owner: parsed.owner as Address,
+        status: parsed.status as WorkflowStatus,
+        steps: parsed.steps.map((s) => ({
+          ...s,
+          type: s.type as WorkflowStep["type"],
+        })),
+      };
     },
 
     async listMyWorkflows() {
       const headers = await authHeaders();
       const response = await fetch(`${dwsApiUrl}/workflows`, { headers });
-      if (!response.ok) return [];
-      const data = await response.json() as { workflows?: Workflow[] };
-      return data.workflows ?? [];
+      if (!response.ok) {
+        throw new Error(`Failed to list workflows: ${response.statusText}`);
+      }
+      const rawData: unknown = await response.json();
+      const data = WorkflowsListSchema.parse(rawData);
+      return data.workflows.map((w) => ({
+        ...w,
+        owner: w.owner as Address,
+        status: w.status as WorkflowStatus,
+        steps: w.steps.map((s) => ({
+          ...s,
+          type: s.type as WorkflowStep["type"],
+        })),
+      }));
     },
 
     async updateWorkflow(workflowId, updates) {
@@ -393,11 +448,14 @@ export function createDWSModule(
 
     async setWorkflowStatus(workflowId, status) {
       const headers = await authHeaders();
-      const response = await fetch(`${dwsApiUrl}/workflows/${workflowId}/status`, {
-        method: "PUT",
-        headers,
-        body: JSON.stringify({ status }),
-      });
+      const response = await fetch(
+        `${dwsApiUrl}/workflows/${workflowId}/status`,
+        {
+          method: "PUT",
+          headers,
+          body: JSON.stringify({ status }),
+        },
+      );
 
       if (!response.ok) {
         throw new Error("Failed to update workflow status");
@@ -418,11 +476,14 @@ export function createDWSModule(
 
     async executeWorkflow(params) {
       const headers = await authHeaders();
-      const response = await fetch(`${dwsApiUrl}/workflows/${params.workflowId}/execute`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ input: params.input }),
-      });
+      const response = await fetch(
+        `${dwsApiUrl}/workflows/${params.workflowId}/execute`,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ input: params.input }),
+        },
+      );
 
       if (!response.ok) {
         throw new Error("Failed to execute workflow");
@@ -438,27 +499,61 @@ export function createDWSModule(
     async getJob(jobId) {
       const headers = await authHeaders();
       const response = await fetch(`${dwsApiUrl}/jobs/${jobId}`, { headers });
-      if (!response.ok) return null;
-      return response.json() as Promise<Job>;
+      if (response.status === 404) return null;
+      if (!response.ok) {
+        throw new Error(`Failed to get job: ${response.statusText}`);
+      }
+      const rawData: unknown = await response.json();
+      const parsed = JobSchema.parse(rawData);
+      return {
+        ...parsed,
+        status: parsed.status as JobStatus,
+        stepResults: parsed.stepResults.map((sr) => ({
+          ...sr,
+          status: sr.status as JobStatus,
+        })),
+      };
     },
 
     async listWorkflowJobs(workflowId, limit = 50) {
       const headers = await authHeaders();
       const response = await fetch(
         `${dwsApiUrl}/workflows/${workflowId}/jobs?limit=${limit}`,
-        { headers }
+        { headers },
       );
-      if (!response.ok) return [];
-      const data = await response.json() as { jobs?: Job[] };
-      return data.jobs ?? [];
+      if (!response.ok) {
+        throw new Error(`Failed to list workflow jobs: ${response.statusText}`);
+      }
+      const rawData: unknown = await response.json();
+      const data = JobsListSchema.parse(rawData);
+      return data.jobs.map((j) => ({
+        ...j,
+        status: j.status as JobStatus,
+        stepResults: j.stepResults.map((sr) => ({
+          ...sr,
+          status: sr.status as JobStatus,
+        })),
+      }));
     },
 
     async listMyJobs(limit = 50) {
       const headers = await authHeaders();
-      const response = await fetch(`${dwsApiUrl}/jobs?limit=${limit}`, { headers });
-      if (!response.ok) return [];
-      const data = await response.json() as { jobs?: Job[] };
-      return data.jobs ?? [];
+      const response = await fetch(`${dwsApiUrl}/jobs?limit=${limit}`, {
+        headers,
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to list jobs: ${response.statusText}`);
+      }
+      const rawData: unknown = await response.json();
+      const data = JobsListSchema.parse(rawData);
+      return data.jobs.map((j) => ({
+        ...j,
+        status: j.status as JobStatus,
+        stepResults: j.stepResults.map((sr) => ({
+          ...sr,
+          status: sr.status as JobStatus,
+        })),
+      }));
     },
 
     async cancelJob(jobId) {
@@ -489,10 +584,15 @@ export function createDWSModule(
 
     async getJobLogs(jobId) {
       const headers = await authHeaders();
-      const response = await fetch(`${dwsApiUrl}/jobs/${jobId}/logs`, { headers });
-      if (!response.ok) return [];
-      const data = await response.json() as { logs?: string[] };
-      return data.logs ?? [];
+      const response = await fetch(`${dwsApiUrl}/jobs/${jobId}/logs`, {
+        headers,
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to get job logs: ${response.statusText}`);
+      }
+      const rawData: unknown = await response.json();
+      const data = JobLogsSchema.parse(rawData);
+      return data.logs;
     },
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -503,44 +603,23 @@ export function createDWSModule(
       const headers = await authHeaders();
       const response = await fetch(`${dwsApiUrl}/stats`, { headers });
       if (!response.ok) {
-        return {
-          totalWorkflows: 0,
-          totalTriggers: 0,
-          totalJobs: 0,
-          successRate: 0,
-          avgExecutionTime: 0,
-        };
+        throw new Error(`Failed to get stats: ${response.statusText}`);
       }
-      return response.json() as Promise<{
-        totalWorkflows: number;
-        totalTriggers: number;
-        totalJobs: number;
-        successRate: number;
-        avgExecutionTime: number;
-      }>;
+      const rawData: unknown = await response.json();
+      return DWSStatsSchema.parse(rawData);
     },
 
     async getWorkflowMetrics(workflowId) {
       const headers = await authHeaders();
       const response = await fetch(
         `${dwsApiUrl}/workflows/${workflowId}/metrics`,
-        { headers }
+        { headers },
       );
       if (!response.ok) {
-        return {
-          executions: 0,
-          successRate: 0,
-          avgDuration: 0,
-          lastExecuted: 0,
-        };
+        throw new Error(`Failed to get workflow metrics: ${response.statusText}`);
       }
-      return response.json() as Promise<{
-        executions: number;
-        successRate: number;
-        avgDuration: number;
-        lastExecuted: number;
-      }>;
+      const rawData: unknown = await response.json();
+      return WorkflowMetricsSchema.parse(rawData);
     },
   };
 }
-

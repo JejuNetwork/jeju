@@ -1,6 +1,17 @@
 import type { IntentRoute, SupportedChainId } from '@jejunetwork/types';
 import { INPUT_SETTLER_ADDRESS, OUTPUT_SETTLER_ADDRESS } from '../config/contracts.js';
 import { ZERO_ADDRESS } from '../lib/contracts.js';
+import {
+  ListRoutesQuerySchema,
+  GetBestRouteRequestSchema,
+  GetVolumeQuerySchema,
+  RouteIdSchema,
+  expect,
+  expectChainId,
+  type ListRoutesQuery,
+  type GetBestRouteRequest,
+  type GetVolumeQuery,
+} from '../lib/validation.js';
 
 // Chain configurations
 const CHAINS = [
@@ -99,39 +110,28 @@ function refreshRouteCache(): void {
   lastCacheUpdate = Date.now();
 }
 
-interface ListRoutesParams {
-  sourceChain?: number;
-  destinationChain?: number;
-  active?: boolean;
-}
-
-interface BestRouteParams {
-  sourceChain: number;
-  destinationChain: number;
-  prioritize?: 'speed' | 'cost';
-}
-
 export class RouteService {
   constructor() {
     refreshRouteCache();
   }
 
-  async listRoutes(params?: ListRoutesParams): Promise<IntentRoute[]> {
+  async listRoutes(params?: ListRoutesQuery): Promise<IntentRoute[]> {
+    const validated = params ? expect(params, ListRoutesQuerySchema, 'listRoutes params') : undefined;
     if (Date.now() - lastCacheUpdate > 5 * 60 * 1000) {
       refreshRouteCache();
     }
 
     let routes = [...routeCache];
 
-    if (params?.sourceChain) {
-      routes = routes.filter(r => r.sourceChainId === params.sourceChain);
+    if (validated?.sourceChain) {
+      routes = routes.filter(r => r.sourceChainId === validated.sourceChain);
     }
-    if (params?.destinationChain) {
-      routes = routes.filter(r => r.destinationChainId === params.destinationChain);
+    if (validated?.destinationChain) {
+      routes = routes.filter(r => r.destinationChainId === validated.destinationChain);
     }
-    if (params?.active === true) {
+    if (validated?.active === true) {
       routes = routes.filter(r => r.isActive);
-    } else if (params?.active === false) {
+    } else if (validated?.active === false) {
       routes = routes.filter(r => !r.isActive);
     }
 
@@ -139,22 +139,26 @@ export class RouteService {
   }
 
   async getRoute(routeId: string): Promise<IntentRoute | null> {
+    const validated = expect(routeId, RouteIdSchema, 'getRoute routeId');
     if (Date.now() - lastCacheUpdate > 5 * 60 * 1000) {
       refreshRouteCache();
     }
-    return routeCache.find(r => r.routeId === routeId) || null;
+    return routeCache.find(r => r.routeId === validated) || null;
   }
 
-  async getBestRoute(params: BestRouteParams): Promise<IntentRoute | null> {
+  async getBestRoute(params: { sourceChain: number; destinationChain: number; prioritize?: 'speed' | 'cost' }): Promise<IntentRoute | null> {
+    const validated = expect(params, GetBestRouteRequestSchema, 'getBestRoute params');
     const routes = await this.listRoutes({ 
-      sourceChain: params.sourceChain, 
-      destinationChain: params.destinationChain 
+      sourceChain: validated.sourceChain, 
+      destinationChain: validated.destinationChain 
     });
     
-    if (routes.length === 0) return null;
+    if (routes.length === 0) {
+      return null;
+    }
 
     const sorted = [...routes].sort((a, b) => {
-      if (params.prioritize === 'speed') {
+      if (validated.prioritize === 'speed') {
         return a.avgFillTimeSeconds - b.avgFillTimeSeconds;
       }
       return a.avgFeePercent - b.avgFeePercent;
@@ -170,16 +174,17 @@ export class RouteService {
     avgFillTime: number;
     period: string;
   }> {
+    const validated = params ? expect(params, GetVolumeQuerySchema, 'getVolume params') : undefined;
     let routes = [...routeCache];
 
-    if (params?.routeId) {
-      routes = routes.filter(r => r.routeId === params.routeId);
+    if (validated?.routeId) {
+      routes = routes.filter(r => r.routeId === validated.routeId);
     }
-    if (params?.sourceChain) {
-      routes = routes.filter(r => r.sourceChainId === params.sourceChain);
+    if (validated?.sourceChain) {
+      routes = routes.filter(r => r.sourceChainId === validated.sourceChain);
     }
-    if (params?.destinationChain) {
-      routes = routes.filter(r => r.destinationChainId === params.destinationChain);
+    if (validated?.destinationChain) {
+      routes = routes.filter(r => r.destinationChainId === validated.destinationChain);
     }
 
     const totalVolume = routes.reduce(
@@ -197,7 +202,7 @@ export class RouteService {
       totalVolumeUsd: (totalVolume * 2500n / 10n ** 18n).toString(),
       totalIntents,
       avgFillTime: Math.round(avgFillTime),
-      period: params?.period || 'all',
+      period: validated?.period || 'all',
     };
   }
 
@@ -206,7 +211,8 @@ export class RouteService {
   }
 
   getTokens(chainId: number): Array<{ address: string; symbol: string; decimals: number }> {
-    return TOKENS[chainId] || [];
+    const validatedChainId = expectChainId(chainId, 'getTokens chainId');
+    return TOKENS[validatedChainId] || [];
   }
 }
 

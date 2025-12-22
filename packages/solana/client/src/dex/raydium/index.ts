@@ -2,15 +2,8 @@
  * Raydium DEX Integration
  */
 
-import {
-  Connection,
-  PublicKey,
-  VersionedTransaction,
-  TransactionMessage,
-} from '@solana/web3.js';
-import {
-  getAssociatedTokenAddress,
-} from '@solana/spl-token';
+import { Connection, PublicKey } from '@solana/web3.js';
+import { expectValid } from '@jejunetwork/types/validation';
 import type {
   SwapParams,
   SwapQuote,
@@ -25,21 +18,21 @@ import type {
   ConcentratedLiquidityParams,
   CLPosition,
 } from '../types';
+import {
+  RaydiumPoolListResponseSchema,
+  RaydiumPoolDetailResponseSchema,
+  RaydiumLPPositionsResponseSchema,
+  RaydiumCLMMPositionsResponseSchema,
+} from '../schemas';
+import {
+  calculateAMMSwap,
+  buildSwapQuote,
+  buildPlaceholderTransaction,
+  poolMatchesFilter,
+  getSwapReserves,
+} from '../utils';
 
 const RAYDIUM_API_BASE = 'https://api-v3.raydium.io';
-
-interface RaydiumApiPool {
-  id: string;
-  mintA: { address: string; symbol: string; decimals: number };
-  mintB: { address: string; symbol: string; decimals: number };
-  mintAmountA: number;
-  mintAmountB: number;
-  tvl: number;
-  feeRate: number;
-  apr: { fee: number; reward: number };
-  lpMint: { address: string };
-  type: 'Standard' | 'Concentrated';
-}
 
 export class RaydiumAdapter implements DexAdapter {
   readonly name = 'raydium' as const;
@@ -57,41 +50,24 @@ export class RaydiumAdapter implements DexAdapter {
     }
 
     const pool = pools.sort((a, b) => Number(b.tvl - a.tvl))[0];
+    const { inputReserve, outputReserve } = getSwapReserves(pool, params.inputMint);
 
-    const isInputA = pool.tokenA.mint.equals(params.inputMint);
-    const inputReserve = isInputA ? pool.reserveA : pool.reserveB;
-    const outputReserve = isInputA ? pool.reserveB : pool.reserveA;
+    const ammResult = calculateAMMSwap({
+      inputAmount: params.amount,
+      inputReserve,
+      outputReserve,
+      feeBps: Math.floor(pool.fee * 10000),
+      slippageBps: params.slippageBps,
+    });
 
-    const feeMultiplier = 10000n - BigInt(Math.floor(pool.fee * 10000));
-    const amountInWithFee = params.amount * feeMultiplier / 10000n;
-    const outputAmount = (amountInWithFee * outputReserve) / (inputReserve + amountInWithFee);
-
-    const minOutputAmount = outputAmount * (10000n - BigInt(params.slippageBps)) / 10000n;
-
-    const spotPrice = Number(outputReserve) / Number(inputReserve);
-    const execPrice = Number(outputAmount) / Number(params.amount);
-    const priceImpact = Math.abs(1 - execPrice / spotPrice) * 100;
-
-    const fee = params.amount * BigInt(Math.floor(pool.fee * 10000)) / 10000n;
-
-    return {
+    return buildSwapQuote({
       inputMint: params.inputMint,
       outputMint: params.outputMint,
       inputAmount: params.amount,
-      outputAmount,
-      minOutputAmount,
-      priceImpactPct: priceImpact,
-      fee,
-      route: [{
-        dex: 'raydium',
-        poolAddress: pool.address,
-        inputMint: params.inputMint,
-        outputMint: params.outputMint,
-        inputAmount: params.amount,
-        outputAmount,
-      }],
+      pool,
+      ammResult,
       dex: 'raydium',
-    };
+    });
   }
 
   async buildSwapTransaction(_quote: SwapQuote): Promise<SwapTransaction> {
@@ -111,20 +87,15 @@ export class RaydiumAdapter implements DexAdapter {
       throw new Error(`Raydium API error: ${response.statusText}`);
     }
 
-    const data = await response.json() as { data: { data: RaydiumApiPool[] } };
+    const rawData = await response.json();
+    const data = expectValid(RaydiumPoolListResponseSchema, rawData, 'Raydium pool list');
     const pools: PoolInfo[] = [];
 
     for (const pool of data.data.data) {
       const mintA = new PublicKey(pool.mintA.address);
       const mintB = new PublicKey(pool.mintB.address);
 
-      if (tokenA && tokenB) {
-        const hasA = mintA.equals(tokenA) || mintB.equals(tokenA);
-        const hasB = mintA.equals(tokenB) || mintB.equals(tokenB);
-        if (!hasA || !hasB) continue;
-      } else if (tokenA) {
-        if (!mintA.equals(tokenA) && !mintB.equals(tokenA)) continue;
-      }
+      if (!poolMatchesFilter(mintA, mintB, { tokenA, tokenB })) continue;
 
       const poolInfo: PoolInfo = {
         address: new PublicKey(pool.id),
@@ -164,7 +135,9 @@ export class RaydiumAdapter implements DexAdapter {
       throw new Error(`Failed to fetch pool: ${pool.toBase58()}`);
     }
 
-    const data = await response.json() as { data: RaydiumApiPool[] };
+    const rawData = await response.json();
+    const data = expectValid(RaydiumPoolDetailResponseSchema, rawData, 'Raydium pool detail');
+
     if (data.data.length === 0) {
       throw new Error(`Pool not found: ${pool.toBase58()}`);
     }
@@ -205,13 +178,11 @@ export class RaydiumAdapter implements DexAdapter {
     const adjustedA = (pool.reserveA * minRatio) / 10000n;
     const adjustedB = (pool.reserveB * minRatio) / 10000n;
 
-    const lpTokenAmount = minRatio;
-
     return {
       pool: params.pool,
       tokenAAmount: adjustedA,
       tokenBAmount: adjustedB,
-      lpTokenAmount,
+      lpTokenAmount: minRatio,
       shareOfPool: Number(minRatio) / 10000,
     };
   }
@@ -220,32 +191,18 @@ export class RaydiumAdapter implements DexAdapter {
     _quote: AddLiquidityQuote,
     params: AddLiquidityParams
   ): Promise<SwapTransaction> {
-    const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash();
-
-    const messageV0 = new TransactionMessage({
-      payerKey: params.userPublicKey,
-      recentBlockhash: blockhash,
-      instructions: [],
-    }).compileToV0Message();
-
-    return {
-      transaction: new VersionedTransaction(messageV0),
-      lastValidBlockHeight,
-    };
+    return buildPlaceholderTransaction(this.connection, params.userPublicKey);
   }
 
   async getRemoveLiquidityQuote(params: RemoveLiquidityParams): Promise<RemoveLiquidityQuote> {
     const pool = await this.getPoolInfo(params.pool);
     const shareRatio = Number(params.lpAmount) / 1e9;
 
-    const tokenAAmount = BigInt(Math.floor(Number(pool.reserveA) * shareRatio));
-    const tokenBAmount = BigInt(Math.floor(Number(pool.reserveB) * shareRatio));
-
     return {
       pool: params.pool,
       lpAmount: params.lpAmount,
-      tokenAAmount,
-      tokenBAmount,
+      tokenAAmount: BigInt(Math.floor(Number(pool.reserveA) * shareRatio)),
+      tokenBAmount: BigInt(Math.floor(Number(pool.reserveB) * shareRatio)),
     };
   }
 
@@ -253,46 +210,28 @@ export class RaydiumAdapter implements DexAdapter {
     _quote: RemoveLiquidityQuote,
     params: RemoveLiquidityParams
   ): Promise<SwapTransaction> {
-    const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash();
-
-    const messageV0 = new TransactionMessage({
-      payerKey: params.userPublicKey,
-      recentBlockhash: blockhash,
-      instructions: [],
-    }).compileToV0Message();
-
-    return {
-      transaction: new VersionedTransaction(messageV0),
-      lastValidBlockHeight,
-    };
+    return buildPlaceholderTransaction(this.connection, params.userPublicKey);
   }
 
   async getLPPositions(userPublicKey: PublicKey): Promise<LPPosition[]> {
     const url = `${RAYDIUM_API_BASE}/pools/info/lp?owner=${userPublicKey.toBase58()}`;
 
-    try {
-      const response = await fetch(url);
-      if (!response.ok) return [];
-
-      const data = await response.json() as { data: Array<{
-        poolId: string;
-        lpMint: string;
-        lpAmount: string;
-        tokenAAmount: string;
-        tokenBAmount: string;
-      }> };
-
-      return data.data.map(pos => ({
-        pool: new PublicKey(pos.poolId),
-        lpMint: new PublicKey(pos.lpMint),
-        lpBalance: BigInt(pos.lpAmount),
-        tokenAValue: BigInt(pos.tokenAAmount),
-        tokenBValue: BigInt(pos.tokenBAmount),
-        unclaimedFees: { tokenA: 0n, tokenB: 0n },
-      }));
-    } catch {
-      return [];
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Raydium LP positions API error: ${response.statusText}`);
     }
+
+    const rawData = await response.json();
+    const data = expectValid(RaydiumLPPositionsResponseSchema, rawData, 'Raydium LP positions');
+
+    return data.data.map(pos => ({
+      pool: new PublicKey(pos.poolId),
+      lpMint: new PublicKey(pos.lpMint),
+      lpBalance: BigInt(pos.lpAmount),
+      tokenAValue: BigInt(pos.tokenAAmount),
+      tokenBValue: BigInt(pos.tokenBAmount),
+      unclaimedFees: { tokenA: 0n, tokenB: 0n },
+    }));
   }
 
   async createCLMMPosition(params: ConcentratedLiquidityParams): Promise<SwapTransaction> {
@@ -302,65 +241,34 @@ export class RaydiumAdapter implements DexAdapter {
       throw new Error('Pool is not a CLMM pool');
     }
 
-    const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash();
-
-    const messageV0 = new TransactionMessage({
-      payerKey: params.userPublicKey,
-      recentBlockhash: blockhash,
-      instructions: [],
-    }).compileToV0Message();
-
-    return {
-      transaction: new VersionedTransaction(messageV0),
-      lastValidBlockHeight,
-    };
+    return buildPlaceholderTransaction(this.connection, params.userPublicKey);
   }
 
   async getCLMMPositions(userPublicKey: PublicKey): Promise<CLPosition[]> {
     const url = `${RAYDIUM_API_BASE}/pools/info/clmm/positions?owner=${userPublicKey.toBase58()}`;
 
-    try {
-      const response = await fetch(url);
-      if (!response.ok) return [];
-
-      const data = await response.json() as { data: Array<{
-        nftMint: string;
-        poolId: string;
-        tickLower: number;
-        tickUpper: number;
-        liquidity: string;
-        tokenFeesOwedA: string;
-        tokenFeesOwedB: string;
-      }> };
-
-      return data.data.map(pos => ({
-        positionMint: new PublicKey(pos.nftMint),
-        pool: new PublicKey(pos.poolId),
-        tickLower: pos.tickLower,
-        tickUpper: pos.tickUpper,
-        liquidity: BigInt(pos.liquidity),
-        tokenAOwed: BigInt(pos.tokenFeesOwedA),
-        tokenBOwed: BigInt(pos.tokenFeesOwedB),
-        feeGrowthA: 0n,
-        feeGrowthB: 0n,
-      }));
-    } catch {
-      return [];
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Raydium CLMM positions API error: ${response.statusText}`);
     }
-  }
 
-  private priceToTick(price: number, decimalsA: number, decimalsB: number): number {
-    const adjustedPrice = price * Math.pow(10, decimalsB - decimalsA);
-    return Math.floor(Math.log(adjustedPrice) / Math.log(1.0001));
-  }
+    const rawData = await response.json();
+    const data = expectValid(RaydiumCLMMPositionsResponseSchema, rawData, 'Raydium CLMM positions');
 
-  private tickToPrice(tick: number, decimalsA: number, decimalsB: number): number {
-    const rawPrice = Math.pow(1.0001, tick);
-    return rawPrice * Math.pow(10, decimalsA - decimalsB);
+    return data.data.map(pos => ({
+      positionMint: new PublicKey(pos.nftMint),
+      pool: new PublicKey(pos.poolId),
+      tickLower: pos.tickLower,
+      tickUpper: pos.tickUpper,
+      liquidity: BigInt(pos.liquidity),
+      tokenAOwed: BigInt(pos.tokenFeesOwedA),
+      tokenBOwed: BigInt(pos.tokenFeesOwedB),
+      feeGrowthA: 0n,
+      feeGrowthB: 0n,
+    }));
   }
 }
 
 export function createRaydiumAdapter(connection: Connection): RaydiumAdapter {
   return new RaydiumAdapter(connection);
 }
-

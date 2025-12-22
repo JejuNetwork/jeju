@@ -3,7 +3,8 @@
  * Types for WebTorrent integration and decentralized content delivery
  */
 
-import type { Address } from './contracts';
+import { z } from 'zod';
+import { AddressSchema, HexSchema } from './validation';
 
 // ============ Content Types ============
 
@@ -14,6 +15,8 @@ export enum ContentStatus {
   BANNED = 3,
 }
 
+export const ContentStatusSchema = z.nativeEnum(ContentStatus);
+
 export enum ContentViolationType {
   NONE = 0,
   CSAM = 1,
@@ -21,6 +24,8 @@ export enum ContentViolationType {
   COPYRIGHT = 3,
   SPAM = 4,
 }
+
+export const ContentViolationTypeSchema = z.nativeEnum(ContentViolationType);
 
 export enum ContentTier {
   NETWORK_FREE = 0,
@@ -30,83 +35,94 @@ export enum ContentTier {
   PREMIUM_HOT = 4,
 }
 
-export interface ContentRecord {
-  contentHash: `0x${string}`;
-  status: ContentStatus;
-  violationType: ContentViolationType;
-  tier: ContentTier;
-  uploader: Address;
-  uploadedAt: number;
-  size: number;
-  seedCount: number;
-  rewardPool: bigint;
-}
+export const ContentTierSchema = z.nativeEnum(ContentTier);
 
-export interface SeederStats {
-  totalBytesServed: bigint;
-  pendingRewards: bigint;
-  activeTorrents: number;
-  lastReportTime: number;
-}
+export const ContentRecordSchema = z.object({
+  contentHash: HexSchema,
+  status: ContentStatusSchema,
+  violationType: ContentViolationTypeSchema,
+  tier: ContentTierSchema,
+  uploader: AddressSchema,
+  uploadedAt: z.number(),
+  size: z.number().int().nonnegative(),
+  seedCount: z.number().int().nonnegative(),
+  rewardPool: z.bigint(),
+});
+export type ContentRecord = z.infer<typeof ContentRecordSchema>;
+
+export const SeederStatsSchema = z.object({
+  totalBytesServed: z.bigint(),
+  pendingRewards: z.bigint(),
+  activeTorrents: z.number().int().nonnegative(),
+  lastReportTime: z.number(),
+});
+export type SeederStats = z.infer<typeof SeederStatsSchema>;
 
 // ============ Torrent Types ============
 
-export interface TorrentInfo {
-  infohash: string;
-  magnetUri: string;
-  name: string;
-  size: number;
-  files: TorrentFile[];
-  createdAt: number;
-  contentHash?: `0x${string}`;
-}
+export const TorrentFileSchema = z.object({
+  name: z.string(),
+  path: z.string(),
+  size: z.number().int().nonnegative(),
+  offset: z.number().int().nonnegative(),
+});
+export type TorrentFile = z.infer<typeof TorrentFileSchema>;
 
-export interface TorrentFile {
-  name: string;
-  path: string;
-  size: number;
-  offset: number;
-}
+export const TorrentInfoSchema = z.object({
+  infohash: z.string(),
+  magnetUri: z.string(),
+  name: z.string(),
+  size: z.number().int().nonnegative(),
+  files: z.array(TorrentFileSchema),
+  createdAt: z.number(),
+  contentHash: HexSchema.optional(),
+});
+export type TorrentInfo = z.infer<typeof TorrentInfoSchema>;
 
-export interface TorrentStats {
-  downloaded: number;
-  uploaded: number;
-  downloadSpeed: number;
-  uploadSpeed: number;
-  peers: number;
-  seeds: number;
-  progress: number;
-  timeRemaining: number;
-}
+export const TorrentStatsSchema = z.object({
+  downloaded: z.number().nonnegative(),
+  uploaded: z.number().nonnegative(),
+  downloadSpeed: z.number().nonnegative(),
+  uploadSpeed: z.number().nonnegative(),
+  peers: z.number().int().nonnegative(),
+  seeds: z.number().int().nonnegative(),
+  progress: z.number().nonnegative(),
+  timeRemaining: z.number().nonnegative(),
+});
+export type TorrentStats = z.infer<typeof TorrentStatsSchema>;
 
-export interface SeedingInfo {
-  infohash: string;
-  bytesUploaded: number;
-  peersServed: number;
-  startedAt: number;
-  lastActivity: number;
-  estimatedRewards: bigint;
-}
+export const SeedingInfoSchema = z.object({
+  infohash: z.string(),
+  bytesUploaded: z.number().nonnegative(),
+  peersServed: z.number().int().nonnegative(),
+  startedAt: z.number(),
+  lastActivity: z.number(),
+  estimatedRewards: z.bigint(),
+});
+export type SeedingInfo = z.infer<typeof SeedingInfoSchema>;
 
 // ============ Upload/Download Types ============
 
-export interface TorrentUploadOptions {
-  name: string;
-  tier: ContentTier;
-  trackers?: string[];
-  comment?: string;
-  private?: boolean;
-}
+export const TorrentUploadOptionsSchema = z.object({
+  name: z.string(),
+  tier: ContentTierSchema,
+  trackers: z.array(z.string()).optional(),
+  comment: z.string().optional(),
+  private: z.boolean().optional(),
+});
+export type TorrentUploadOptions = z.infer<typeof TorrentUploadOptionsSchema>;
 
-export interface TorrentUploadResult {
-  infohash: string;
-  magnetUri: string;
-  contentHash: `0x${string}`;
-  size: number;
-  tier: ContentTier;
-  rewardPoolRequired: bigint;
-}
+export const TorrentUploadResultSchema = z.object({
+  infohash: z.string(),
+  magnetUri: z.string(),
+  contentHash: HexSchema,
+  size: z.number().int().nonnegative(),
+  tier: ContentTierSchema,
+  rewardPoolRequired: z.bigint(),
+});
+export type TorrentUploadResult = z.infer<typeof TorrentUploadResultSchema>;
 
+// Note: TorrentDownloadOptions contains a callback function which cannot be validated with Zod
 export interface TorrentDownloadOptions {
   preferTorrent?: boolean;
   maxPeers?: number;
@@ -116,88 +132,107 @@ export interface TorrentDownloadOptions {
 
 // ============ Swarm Types ============
 
-export interface SwarmInfo {
-  infohash: string;
-  seeders: number;
-  leechers: number;
-  completed: number;
-  lastSeen: number;
-}
+export const SwarmInfoSchema = z.object({
+  infohash: z.string(),
+  seeders: z.number().int().nonnegative(),
+  leechers: z.number().int().nonnegative(),
+  completed: z.number().int().nonnegative(),
+  lastSeen: z.number(),
+});
+export type SwarmInfo = z.infer<typeof SwarmInfoSchema>;
 
-export interface PeerInfo {
-  id: string;
-  address: string;
-  port: number;
-  client: string;
-  downloadSpeed: number;
-  uploadSpeed: number;
-  downloaded: number;
-  uploaded: number;
-}
+export const PeerInfoSchema = z.object({
+  id: z.string(),
+  address: z.string(),
+  port: z.number().int().positive(),
+  client: z.string(),
+  downloadSpeed: z.number().nonnegative(),
+  uploadSpeed: z.number().nonnegative(),
+  downloaded: z.number().nonnegative(),
+  uploaded: z.number().nonnegative(),
+});
+export type PeerInfo = z.infer<typeof PeerInfoSchema>;
 
 // ============ Content Routing Types ============
 
-export type DeliveryMethod = 'torrent' | 'ipfs' | 'cdn' | 'proxy';
+export const DeliveryMethodSchema = z.enum(['torrent', 'ipfs', 'cdn', 'proxy']);
+export type DeliveryMethod = z.infer<typeof DeliveryMethodSchema>;
 
-export interface DeliveryRoute {
-  method: DeliveryMethod;
-  endpoint: string;
-  latencyEstimate: number;
-  cost: bigint;
+// DeliveryRoute is recursive, so we need to use z.lazy
+const BaseDeliveryRouteSchema = z.object({
+  method: DeliveryMethodSchema,
+  endpoint: z.string(),
+  latencyEstimate: z.number().nonnegative(),
+  cost: z.bigint(),
+});
+
+export const DeliveryRouteSchema: z.ZodType<DeliveryRoute> = BaseDeliveryRouteSchema.extend({
+  fallbacks: z.lazy(() => z.array(DeliveryRouteSchema)),
+});
+export type DeliveryRoute = z.infer<typeof BaseDeliveryRouteSchema> & {
   fallbacks: DeliveryRoute[];
-}
+};
 
-export interface ContentIdentifier {
-  contentHash: `0x${string}`;
-  cid?: string;
-  infohash?: string;
-  magnetUri?: string;
-}
+export const ContentIdentifierSchema = z.object({
+  contentHash: HexSchema,
+  cid: z.string().optional(),
+  infohash: z.string().optional(),
+  magnetUri: z.string().optional(),
+});
+export type ContentIdentifier = z.infer<typeof ContentIdentifierSchema>;
 
 // ============ Moderation Types ============
 
-export interface ContentScanResult {
-  safe: boolean;
-  violationType: ContentViolationType;
-  confidence: number;
-  scanDuration: number;
-  details: {
-    csamScore: number;
-    nsfwScore: number;
-    malwareDetected: boolean;
-    sensitiveDataFound: boolean;
-  };
-}
+export const ContentScanDetailsSchema = z.object({
+  csamScore: z.number().nonnegative(),
+  nsfwScore: z.number().nonnegative(),
+  malwareDetected: z.boolean(),
+  sensitiveDataFound: z.boolean(),
+});
 
-export interface ModerationReport {
-  contentHash: `0x${string}`;
-  reporter: Address;
-  violationType: ContentViolationType;
-  evidenceHash: `0x${string}`;
-  timestamp: number;
-  caseId?: `0x${string}`;
-}
+export const ContentScanResultSchema = z.object({
+  safe: z.boolean(),
+  violationType: ContentViolationTypeSchema,
+  confidence: z.number().nonnegative(),
+  scanDuration: z.number().nonnegative(),
+  details: ContentScanDetailsSchema,
+});
+export type ContentScanResult = z.infer<typeof ContentScanResultSchema>;
+
+export const ModerationReportSchema = z.object({
+  contentHash: HexSchema,
+  reporter: AddressSchema,
+  violationType: ContentViolationTypeSchema,
+  evidenceHash: HexSchema,
+  timestamp: z.number(),
+  caseId: HexSchema.optional(),
+});
+export type ModerationReport = z.infer<typeof ModerationReportSchema>;
 
 // ============ Encrypted Storage Types ============
 
-export interface EncryptedContent {
-  cid: string;
-  infohash: string;
-  magnetUri: string;
-  keyId: string;
-  accessControlHash: `0x${string}`;
-  encryptedSize: number;
-  originalSize: number;
-}
+export const EncryptedContentSchema = z.object({
+  cid: z.string(),
+  infohash: z.string(),
+  magnetUri: z.string(),
+  keyId: z.string(),
+  accessControlHash: HexSchema,
+  encryptedSize: z.number().int().nonnegative(),
+  originalSize: z.number().int().nonnegative(),
+});
+export type EncryptedContent = z.infer<typeof EncryptedContentSchema>;
 
-export interface DecryptionRequest {
-  identifier: string;
-  authSignature: {
-    sig: `0x${string}`;
-    message: string;
-    address: Address;
-  };
-}
+export const AuthSignatureSchema = z.object({
+  sig: HexSchema,
+  message: z.string(),
+  address: AddressSchema,
+});
+
+export const DecryptionRequestSchema = z.object({
+  identifier: z.string(),
+  authSignature: AuthSignatureSchema,
+});
+export type DecryptionRequest = z.infer<typeof DecryptionRequestSchema>;
 
 // ============ Contract ABIs ============
 

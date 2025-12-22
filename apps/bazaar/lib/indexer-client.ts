@@ -1,3 +1,5 @@
+import { AddressSchema } from '@jejunetwork/types/contracts';
+import { expect } from '@/lib/validation';
 import { INDEXER_URL as CONFIG_INDEXER_URL } from '../config';
 
 const INDEXER_URL = CONFIG_INDEXER_URL;
@@ -8,6 +10,10 @@ interface GraphQLResponse<T> {
 }
 
 async function graphqlQuery<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
+  if (!query || query.length === 0) {
+    throw new Error('GraphQL query is required and cannot be empty');
+  }
+  
   const response = await fetch(INDEXER_URL, {
     method: 'POST',
     headers: {
@@ -20,17 +26,19 @@ async function graphqlQuery<T>(query: string, variables?: Record<string, unknown
     next: { revalidate: 4 }, // Revalidate every 4 seconds for fresh data
   })
 
+  if (!response.ok) {
+    throw new Error(`Indexer HTTP error: ${response.status} ${response.statusText}`);
+  }
+
   const json = (await response.json()) as GraphQLResponse<T>
 
   if (json.errors) {
     throw new Error(`GraphQL Error: ${json.errors[0].message}`)
   }
 
-  if (!json.data) {
-    throw new Error('No data returned from GraphQL query')
-  }
+  const data = expect(json.data, 'No data returned from GraphQL query');
 
-  return json.data
+  return data
 }
 
 export async function getNetworkTokens(filter?: {
@@ -78,9 +86,14 @@ export async function getNetworkTokens(filter?: {
     }>
   }
 
+  const limit = filter?.limit || 50;
+  const offset = filter?.offset || 0;
+  if (limit <= 0) throw new Error('Limit must be positive');
+  if (offset < 0) throw new Error('Offset must be non-negative');
+  
   const result = await graphqlQuery<QueryResult>(query, {
-    limit: filter?.limit || 50,
-    offset: filter?.offset || 0,
+    limit,
+    offset,
     isERC20: true,
   })
 
@@ -88,6 +101,9 @@ export async function getNetworkTokens(filter?: {
 }
 
 export async function getTokenTransfers(tokenAddress: string, limit = 50) {
+  const validatedAddress = AddressSchema.parse(tokenAddress);
+  if (limit <= 0) throw new Error('Limit must be positive');
+  
   const query = `
     query GetTokenTransfers($tokenAddress: String!, $limit: Int!) {
       tokenTransfers(
@@ -129,7 +145,7 @@ export async function getTokenTransfers(tokenAddress: string, limit = 50) {
   }
 
   const result = await graphqlQuery<QueryResult>(query, {
-    tokenAddress: tokenAddress.toLowerCase(),
+    tokenAddress: validatedAddress.toLowerCase(),
     limit,
   })
 
@@ -137,6 +153,8 @@ export async function getTokenTransfers(tokenAddress: string, limit = 50) {
 }
 
 export async function getTokenHolders(tokenAddress: string, limit = 100) {
+  const validatedAddress = AddressSchema.parse(tokenAddress);
+  if (limit <= 0) throw new Error('Limit must be positive');
   const query = `
     query GetTokenHolders($tokenAddress: String!, $limit: Int!) {
       tokenBalances(
@@ -170,7 +188,7 @@ export async function getTokenHolders(tokenAddress: string, limit = 100) {
   }
 
   const result = await graphqlQuery<QueryResult>(query, {
-    tokenAddress: tokenAddress.toLowerCase(),
+    tokenAddress: validatedAddress.toLowerCase(),
     limit,
   })
 
@@ -178,6 +196,7 @@ export async function getTokenHolders(tokenAddress: string, limit = 100) {
 }
 
 export async function getLatestBlocks(limit = 10) {
+  if (limit <= 0) throw new Error('Limit must be positive');
   const query = `
     query GetBlocks($limit: Int!) {
       blocks(limit: $limit, orderBy: number_DESC) {
@@ -205,6 +224,8 @@ export async function getLatestBlocks(limit = 10) {
 }
 
 export async function getContractDetails(address: string) {
+  const validatedAddress = AddressSchema.parse(address);
+  
   const query = `
     query GetContract($address: String!) {
       contracts(where: { address_eq: $address }, limit: 1) {
@@ -254,9 +275,12 @@ export async function getContractDetails(address: string) {
   }
 
   const result = await graphqlQuery<QueryResult>(query, {
-    address: address.toLowerCase(),
+    address: validatedAddress.toLowerCase(),
   })
 
+  if (result.contracts.length === 0) {
+    throw new Error(`Contract not found: ${validatedAddress}`);
+  }
   return result.contracts[0]
 }
 

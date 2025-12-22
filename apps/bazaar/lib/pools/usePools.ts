@@ -1,4 +1,6 @@
 import { useReadContracts, useWriteContract } from 'wagmi'
+import { AddressSchema } from '@jejunetwork/types/contracts'
+import { expect } from '@/lib/validation'
 import { getV4Contracts } from '@/config/contracts'
 import { JEJU_CHAIN_ID } from '@/config/chains'
 import PoolManagerABI from '../abis/PoolManager.json'
@@ -41,13 +43,16 @@ export function usePool(poolKey: PoolKey | null) {
   if (!slot0Data || !liquidityData || slot0Data.status !== 'success' || liquidityData.status !== 'success') {
     return { pool: null, isLoading, error: error || new Error('Failed to fetch pool data'), refetch }
   }
+  
+  const validatedPoolKey = expect(poolKey, 'Pool key is required');
+  const validatedPoolId = expect(poolId, 'Pool ID is required');
 
   const [sqrtPriceX96, tick, protocolFee, lpFee] = slot0Data.result as [bigint, number, number, number]
   const liquidity = liquidityData.result as bigint
 
   const pool: Pool = {
-    id: poolId,
-    key: poolKey,
+    id: validatedPoolId,
+    key: validatedPoolKey,
     slot0: {
       sqrtPriceX96,
       tick,
@@ -82,14 +87,16 @@ export function useCreatePool() {
 
     validatePoolKey(poolKey)
 
+    const validatedPoolManager = expect(contracts.poolManager, 'Pool manager contract not deployed');
+    AddressSchema.parse(validatedPoolManager);
+
     const hash = await initializePool({
-      address: contracts.poolManager,
+      address: validatedPoolManager,
       abi: POOL_MANAGER_ABI,
       functionName: 'initialize',
       args: [poolKey, params.sqrtPriceX96, '0x'],
     })
-    if (!hash) throw new Error('Transaction failed')
-    return hash as `0x${string}`
+    return expect(hash, 'Transaction failed - no hash returned') as `0x${string}`
   }
 
   return {

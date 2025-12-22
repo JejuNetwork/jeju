@@ -56,7 +56,7 @@ const featuredBounties = [
 ];
 
 export default function HomePage() {
-  const { isConnected } = useAccount();
+  const { isConnected: _isConnected } = useAccount();
 
   return (
     <div className="min-h-screen p-8">

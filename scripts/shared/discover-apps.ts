@@ -23,10 +23,10 @@ const AppManifestSchema = z.object({
     test: z.string().optional(),
     start: z.string().optional(),
   }).passthrough().optional(),
-  ports: z.record(z.number()).optional(),
+  ports: z.record(z.string(), z.number()).optional(),
   dependencies: z.union([
     z.array(z.string()),
-    z.record(z.union([z.array(z.string()), z.string()])),
+    z.record(z.string(), z.union([z.array(z.string()), z.string()])),
   ]).optional(),
   optional: z.boolean().default(true),
   enabled: z.boolean().default(true),
@@ -47,7 +47,7 @@ const AppManifestSchema = z.object({
     a2aEndpoint: z.string().optional(),
     mcpEndpoint: z.string().optional(),
     tags: z.array(z.string()).optional(),
-    metadata: z.record(z.unknown()).optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
     trustModels: z.array(z.string()).optional(),
     x402Support: z.boolean().optional(),
     multiTokenPayments: z.boolean().optional(),
@@ -169,7 +169,7 @@ function discoverAppsInDirectory(
     const result = AppManifestSchema.safeParse(manifestData);
     
     if (!result.success) {
-      console.error(`[NetworkApps] ${entry}: Invalid manifest:`, result.error.errors);
+      console.error(`[NetworkApps] ${entry}: Invalid manifest:`, result.error.issues);
       continue;
     }
 

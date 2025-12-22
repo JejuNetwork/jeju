@@ -1,19 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { useAccount } from 'wagmi';
 import { 
   DollarSign, 
-  Filter, 
   Search, 
   Clock, 
   Users, 
   Tag,
-  Plus,
-  ArrowUpDown,
-  CheckCircle,
-  AlertCircle,
-  Loader2
+  Plus
 } from 'lucide-react';
 import Link from 'next/link';
 import { clsx } from 'clsx';
@@ -86,7 +80,6 @@ const statusLabels = {
 };
 
 export default function BountiesPage() {
-  const { isConnected } = useAccount();
   const [filter, setFilter] = useState<BountyStatus>('all');
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<'reward' | 'deadline' | 'applicants'>('reward');

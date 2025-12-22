@@ -1,43 +1,76 @@
 import type { Context } from 'hono';
 import { validateVerifyRequest, validateSettleRequest } from './request-validation';
 import { buildVerifyErrorResponse, buildSettleErrorResponse, formatError } from './response-builders';
+import type { VerifyRequest, SettleRequest, SettleRequestWithAuth } from './schemas';
 
 function getNetworkFromRequest(requirementsNetwork: string | undefined, defaultNetwork: string): string {
-  return requirementsNetwork ?? defaultNetwork;
+  if (!requirementsNetwork) {
+    return defaultNetwork;
+  }
+  if (typeof requirementsNetwork !== 'string' || requirementsNetwork.length === 0) {
+    return defaultNetwork;
+  }
+  return requirementsNetwork;
 }
 
 export async function parseJsonBody<T>(c: Context): Promise<{ body: T; error?: string }> {
   try {
     const body = await c.req.json<T>();
     return { body };
-  } catch {
-    return { body: null as T, error: 'Invalid JSON request body' };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid JSON request body';
+    return { body: null as T, error: message };
   }
 }
 
-export function handleVerifyRequest(c: Context, body: unknown, defaultNetwork: string): { valid: false; response: Response } | { valid: true; body: { x402Version: number; paymentHeader: string; paymentRequirements: { network?: string; scheme: 'exact' | 'upto'; maxAmountRequired: string; payTo: string; asset: string; resource: string } }; network: string } {
+export function handleVerifyRequest(
+  c: Context,
+  body: unknown,
+  defaultNetwork: string
+): { valid: false; response: Response } | { valid: true; body: VerifyRequest; network: string } {
   const validation = validateVerifyRequest(body);
   if (!validation.valid || !validation.body) {
     const isClientError = validation.error && (
       validation.error.includes('Missing') ||
       validation.error.includes('Invalid JSON') ||
-      validation.error.includes('Unsupported x402Version')
+      validation.error.includes('Unsupported x402Version') ||
+      validation.error.includes('Required')
     );
     const status = isClientError ? 400 : 200;
     return { valid: false, response: c.json(buildVerifyErrorResponse(validation.error ?? 'Validation failed'), status) };
   }
 
   const network = getNetworkFromRequest(validation.body.paymentRequirements.network, defaultNetwork);
-  return { valid: true, body: validation.body as { x402Version: number; paymentHeader: string; paymentRequirements: { network?: string; scheme: 'exact' | 'upto'; maxAmountRequired: string; payTo: string; asset: string; resource: string } }, network };
+  return { valid: true, body: validation.body, network };
 }
 
-export function handleSettleRequest(c: Context, body: unknown, defaultNetwork: string, requireAuthParams = false): { valid: false; response: Response } | { valid: true; body: { x402Version: number; paymentHeader: string; paymentRequirements: { network?: string; scheme: 'exact' | 'upto'; maxAmountRequired: string; payTo: string; asset: string; resource: string }; authParams?: Record<string, unknown> }; network: string } {
-  const validation = validateSettleRequest(body, requireAuthParams);
+export function handleSettleRequest(
+  c: Context,
+  body: unknown,
+  defaultNetwork: string,
+  requireAuthParams: true
+): { valid: false; response: Response } | { valid: true; body: SettleRequestWithAuth; network: string };
+export function handleSettleRequest(
+  c: Context,
+  body: unknown,
+  defaultNetwork: string,
+  requireAuthParams?: false
+): { valid: false; response: Response } | { valid: true; body: SettleRequest; network: string };
+export function handleSettleRequest(
+  c: Context,
+  body: unknown,
+  defaultNetwork: string,
+  requireAuthParams = false
+): { valid: false; response: Response } | { valid: true; body: SettleRequest | SettleRequestWithAuth; network: string } {
+  const validation = requireAuthParams 
+    ? validateSettleRequest(body, true)
+    : validateSettleRequest(body, false);
   if (!validation.valid || !validation.body) {
     const isClientError = validation.error && (
       validation.error.includes('Missing') ||
       validation.error.includes('Invalid JSON') ||
-      validation.error.includes('Unsupported x402Version')
+      validation.error.includes('Unsupported x402Version') ||
+      validation.error.includes('Required')
     );
     const status = isClientError ? 400 : 200;
     return {
@@ -47,7 +80,7 @@ export function handleSettleRequest(c: Context, body: unknown, defaultNetwork: s
   }
 
   const network = getNetworkFromRequest(validation.body.paymentRequirements.network, defaultNetwork);
-  return { valid: true, body: validation.body as { x402Version: number; paymentHeader: string; paymentRequirements: { network?: string; scheme: 'exact' | 'upto'; maxAmountRequired: string; payTo: string; asset: string; resource: string }; authParams?: Record<string, unknown> }, network };
+  return { valid: true, body: validation.body, network };
 }
 
 export function handleRouteError(c: Context, error: unknown, network: string, operation: string) {

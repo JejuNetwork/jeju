@@ -7,6 +7,7 @@
 import { CQLClient, type QueryParam } from '@jeju/db';
 import type { OrgTodo, OrgCheckinSchedule, OrgCheckinResponse, OrgTeamMember } from '../types';
 import { createLogger, type Logger } from '../sdk/logger';
+import { StringArraySchema, parseOrThrow, expect } from '../schemas';
 
 interface TodoRow {
   id: string;
@@ -197,19 +198,30 @@ export class OrgAgent {
       ),
     ]);
 
+    const countRow = countResult.rows[0];
+    if (!countRow) {
+      throw new Error('Count query returned no results');
+    }
     return {
       todos: result.rows.map(row => this.mapTodoRow(row)),
-      total: countResult.rows[0]?.count ?? 0,
+      total: countRow.count,
     };
   }
 
   private mapTodoRow(row: TodoRow): OrgTodo {
-    let tags: string[] = [];
-    try {
-      tags = JSON.parse(row.tags || '[]') as string[];
-    } catch {
-      this.log.warn('Failed to parse tags JSON', { todoId: row.id, tags: row.tags });
+    let tags: string[];
+    if (!row.tags) {
       tags = [];
+    } else {
+      // External data may have invalid JSON - handle gracefully
+      const parseResult = StringArraySchema.safeParse((() => {
+        try {
+          return JSON.parse(row.tags);
+        } catch {
+          return null;
+        }
+      })());
+      tags = parseResult.success ? parseResult.data : [];
     }
 
     return {
@@ -217,8 +229,8 @@ export class OrgAgent {
       orgId: row.org_id,
       title: row.title,
       description: row.description ?? undefined,
-      priority: row.priority as 'low' | 'medium' | 'high',
-      status: row.status as 'pending' | 'in_progress' | 'completed' | 'cancelled',
+      priority: expect(['low', 'medium', 'high'].includes(row.priority) ? row.priority as 'low' | 'medium' | 'high' : null, `Invalid priority: ${row.priority}`),
+      status: expect(['pending', 'in_progress', 'completed', 'cancelled'].includes(row.status) ? row.status as 'pending' | 'in_progress' | 'completed' | 'cancelled' : null, `Invalid status: ${row.status}`),
       assigneeAgentId: row.assignee_agent_id ?? undefined,
       createdBy: row.created_by,
       dueDate: row.due_date ?? undefined,

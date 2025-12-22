@@ -130,7 +130,7 @@ interface Alert {
 }
 
 function AlertCard({ alert }: { alert: Alert }) {
-  const severity = alert.labels.severity || 'info'
+  const severity = alert.labels.severity ?? 'unknown'
 
   return (
     <div className="card-static p-4 md:p-6">

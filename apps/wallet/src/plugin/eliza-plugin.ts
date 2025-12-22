@@ -14,7 +14,7 @@ import type {
   State,
   HandlerCallback,
 } from '@elizaos/core';
-import { type Address, isAddress } from 'viem';
+import { type Address } from 'viem';
 
 // =============================================================================
 // Providers
@@ -101,9 +101,9 @@ export const sendTokenAction: Action = {
   },
   
   handler: async (
-    runtime: IAgentRuntime,
+    _runtime: IAgentRuntime,
     message: Memory,
-    state?: State,
+    _state?: State,
     _options?: Record<string, unknown>,
     callback?: HandlerCallback
   ): Promise<void> => {
@@ -169,9 +169,9 @@ export const swapTokenAction: Action = {
   },
   
   handler: async (
-    runtime: IAgentRuntime,
+    _runtime: IAgentRuntime,
     message: Memory,
-    state?: State,
+    _state?: State,
     _options?: Record<string, unknown>,
     callback?: HandlerCallback
   ): Promise<void> => {
@@ -227,8 +227,8 @@ export const portfolioAction: Action = {
   
   handler: async (
     runtime: IAgentRuntime,
-    message: Memory,
-    state?: State,
+    _message: Memory,
+    _state?: State,
     _options?: Record<string, unknown>,
     callback?: HandlerCallback
   ): Promise<void> => {
@@ -270,9 +270,9 @@ export const registerNameAction: Action = {
   },
   
   handler: async (
-    runtime: IAgentRuntime,
+    _runtime: IAgentRuntime,
     message: Memory,
-    state?: State,
+    _state?: State,
     _options?: Record<string, unknown>,
     callback?: HandlerCallback
   ): Promise<void> => {

@@ -1,8 +1,23 @@
 /**
  * Type definitions for network Messaging SDK
+ * 
+ * Validatable types are imported from ../schemas.ts (source of truth).
+ * Runtime-only types are defined here.
  */
 
-import type { SerializedEncryptedMessage } from './crypto';
+// Import canonical types from schemas (these are the source of truth for wire formats)
+export type {
+  SerializedEncryptedMessage,
+  MessageEnvelope,
+  SendMessageRequest,
+  DeliveryReceiptData,
+  ReadReceiptData,
+  WebSocketIncomingMessage,
+  NodeConfig,
+  MessagingClientConfigBase,
+} from '../schemas';
+
+import type { MessagingClientConfigBase } from '../schemas';
 
 // ============ Core Types ============
 
@@ -103,15 +118,7 @@ export interface NodePerformance {
 
 // ============ Envelope Types ============
 
-export interface MessageEnvelope {
-  id: string;
-  from: string;
-  to: string;
-  encryptedContent: SerializedEncryptedMessage;
-  timestamp: number;
-  signature?: string;
-  cid?: string;            // IPFS CID if stored
-}
+// MessageEnvelope is imported from schemas.ts (canonical definition)
 
 export interface DeliveryReceipt {
   messageId: string;
@@ -122,12 +129,7 @@ export interface DeliveryReceipt {
 
 // ============ API Types ============
 
-export interface SendMessageRequest {
-  to: string;
-  content: string;
-  chatId?: string;
-  replyTo?: string;
-}
+// SendMessageRequest is imported from schemas.ts (canonical definition)
 
 export interface SendMessageResponse {
   success: boolean;
@@ -165,16 +167,11 @@ export type MessageEventHandler = (event: MessageEvent) => void;
 
 // ============ Client Config ============
 
-export interface MessagingClientConfig {
-  /** Network RPC URL */
-  rpcUrl: string;
-  
-  /** Relay node URL (optional, will discover from chain) */
-  relayUrl?: string;
-  
-  /** User's Ethereum address */
-  address: string;
-  
+/**
+ * Full client configuration.
+ * Extends the validatable base with runtime-only properties.
+ */
+export interface MessagingClientConfig extends MessagingClientConfigBase {
   /** Signer function for transactions */
   signer?: (message: string) => Promise<string>;
   
@@ -183,18 +180,6 @@ export interface MessagingClientConfig {
     publicKey: Uint8Array;
     privateKey: Uint8Array;
   };
-  
-  /** NodeRegistry contract address */
-  nodeRegistryAddress?: string;
-  
-  /** KeyRegistry contract address */
-  keyRegistryAddress?: string;
-  
-  /** Auto-reconnect on disconnect */
-  autoReconnect?: boolean;
-  
-  /** Preferred region for node selection */
-  preferredRegion?: string;
 }
 
 // ============ Contract Addresses ============
@@ -206,13 +191,52 @@ export interface ContractAddresses {
   stakingToken?: string;
 }
 
+// ============ Contract Response Types ============
+
+/** Response from KeyRegistry.getKeyBundle() */
+export interface KeyBundleResponse {
+  identityKey: `0x${string}`;
+  signedPreKey: `0x${string}`;
+  preKeySignature: `0x${string}`;
+  preKeyTimestamp: bigint;
+  registeredAt: bigint;
+  lastUpdated: bigint;
+  isActive: boolean;
+}
+
+/** Response from MessageNodeRegistry.getNode() */
+export interface NodeRegistryResponse {
+  nodeId: `0x${string}`;
+  operator: `0x${string}`;
+  endpoint: string;
+  region: string;
+  stakedAmount: bigint;
+  registeredAt: bigint;
+  lastHeartbeat: bigint;
+  messagesRelayed: bigint;
+  feesEarned: bigint;
+  isActive: boolean;
+  isSlashed: boolean;
+}
+
+// WebSocketIncomingMessage, DeliveryReceiptData, ReadReceiptData 
+// are imported from schemas.ts (canonical definitions)
+
 // ============ Error Types ============
+
+export interface MessagingErrorDetails {
+  messageId?: string;
+  address?: string;
+  nodeId?: string;
+  timestamp?: number;
+  originalError?: string;
+}
 
 export class MessagingError extends Error {
   constructor(
     message: string,
     public code: string,
-    public details?: Record<string, unknown>
+    public details?: MessagingErrorDetails
   ) {
     super(message);
     this.name = 'MessagingError';

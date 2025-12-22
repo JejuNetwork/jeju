@@ -5,6 +5,7 @@
 
 import { Hono } from 'hono';
 import type { Address } from 'viem';
+import { validateBody, validateQuery, validateHeaders, scrapingRequestSchema, scrapingFunctionRequestSchema, scrapingFetchQuerySchema, jejuAddressHeaderSchema } from '../../shared';
 
 interface ScrapingNode {
   id: string;
@@ -109,10 +110,7 @@ export function createScrapingRouter(): Hono {
 
   // Register scraping node
   router.post('/nodes', async (c) => {
-    const operator = c.req.header('x-jeju-address') as Address;
-    if (!operator) {
-      return c.json({ error: 'Missing x-jeju-address header' }, 401);
-    }
+    const { 'x-jeju-address': operator } = validateHeaders(jejuAddressHeaderSchema, c);
 
     const body = await c.req.json<{
       endpoint: string;
@@ -175,10 +173,7 @@ export function createScrapingRouter(): Hono {
 
   // Create session (for persistent browser)
   router.post('/sessions', async (c) => {
-    const user = c.req.header('x-jeju-address') as Address;
-    if (!user) {
-      return c.json({ error: 'Missing x-jeju-address header' }, 401);
-    }
+    const { 'x-jeju-address': user } = validateHeaders(jejuAddressHeaderSchema, c);
 
     const body = await c.req.json<{
       browserType?: 'chromium' | 'firefox' | 'webkit';
@@ -200,7 +195,7 @@ export function createScrapingRouter(): Hono {
 
     const node = candidates[0];
     if (!node) {
-      return c.json({ error: 'No available scraping nodes' }, 503);
+      throw new Error('No available scraping nodes');
     }
 
     const sessionId = crypto.randomUUID();
@@ -257,7 +252,7 @@ export function createScrapingRouter(): Hono {
       return c.json({ error: 'Session not found' }, 404);
     }
     if (session.user.toLowerCase() !== user) {
-      return c.json({ error: 'Not authorized' }, 403);
+      throw new Error('Not authorized');
     }
 
     session.status = 'terminated';
@@ -313,7 +308,7 @@ export function createScrapingRouter(): Hono {
         });
       }
       
-      return c.json({ error: 'Screenshot failed' }, 500);
+      throw new Error('Screenshot failed');
     } catch (error) {
       return c.json({
         error: error instanceof Error ? error.message : 'Screenshot failed',
@@ -344,37 +339,14 @@ export function createScrapingRouter(): Hono {
 
   // Scrape with selectors
   router.post('/scrape', async (c) => {
-    const body = await c.req.json<ScrapingRequest & {
-      elements: Array<{
-        selector: string;
-        attribute?: string;
-      }>;
-    }>();
-    
-    if (!body.url) {
-      return c.json({ error: 'URL required' }, 400);
-    }
-
-    try {
-      const result = await performScrape(body, 'scrape');
-      return c.json(result);
-    } catch (error) {
-      return c.json({
-        error: error instanceof Error ? error.message : 'Scraping failed',
-      }, 500);
-    }
+    const body = await validateBody(scrapingRequestSchema, c);
+    const result = await performScrape(body, 'scrape');
+    return c.json(result);
   });
 
   // Run custom function
   router.post('/function', async (c) => {
-    const body = await c.req.json<{
-      code: string;
-      context?: Record<string, unknown>;
-    }>();
-    
-    if (!body.code) {
-      return c.json({ error: 'Code required' }, 400);
-    }
+    const body = await validateBody(scrapingFunctionRequestSchema, c);
 
     // Function execution requires a headless browser
     return c.json({
@@ -388,28 +360,14 @@ export function createScrapingRouter(): Hono {
   // ============================================================================
 
   router.get('/fetch', async (c) => {
-    const url = c.req.query('url');
-    if (!url) {
-      return c.json({ error: 'URL required' }, 400);
-    }
-
-    const screenshot = c.req.query('screenshot') === 'true';
-    const waitFor = c.req.query('waitFor');
-
-    try {
-      const result = await performScrape({
-        url,
-        screenshot,
-        waitFor,
-        javascript: true,
-      }, screenshot ? 'screenshot' : 'content');
-
-      return c.json(result);
-    } catch (error) {
-      return c.json({
-        error: error instanceof Error ? error.message : 'Fetch failed',
-      }, 500);
-    }
+    const { url, screenshot, waitFor } = validateQuery(scrapingFetchQuerySchema, c);
+    const result = await performScrape({
+      url,
+      screenshot: screenshot ?? false,
+      waitFor,
+      javascript: true,
+    }, screenshot ? 'screenshot' : 'content');
+    return c.json(result);
   });
 
   return router;

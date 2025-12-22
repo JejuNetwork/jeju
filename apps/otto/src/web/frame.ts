@@ -4,8 +4,8 @@
  */
 
 import { Hono } from 'hono';
-import type { FarcasterFramePayload } from '../types';
 import { getConfig } from '../config';
+import { expectValid, FarcasterFramePayloadSchema } from '../schemas';
 
 export const frameApi = new Hono();
 const BASE_URL = getConfig().baseUrl;
@@ -32,7 +32,8 @@ frameApi.get('/', (c) => c.html(frame({
 
 // Action handler
 frameApi.post('/action', async (c) => {
-  const payload = await c.req.json() as FarcasterFramePayload;
+  const rawPayload = await c.req.json();
+  const payload = expectValid(FarcasterFramePayloadSchema, rawPayload, 'Farcaster frame action');
   const btn = payload.untrustedData.buttonIndex;
   const input = payload.untrustedData.inputText;
   

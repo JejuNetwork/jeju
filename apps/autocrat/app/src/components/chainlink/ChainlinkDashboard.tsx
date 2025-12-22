@@ -65,8 +65,8 @@ export function ChainlinkDashboard() {
 
   useEffect(() => {
     if (autoState && oracleStats) {
-      const [upkeepCount, totalActive, totalPerforms, totalFees, keeperCount] = autoState as bigint[];
-      const [totalReqs, totalFulfilled, totalCollected, activeJobs, activeOracleCount] = oracleStats as bigint[];
+      const [upkeepCount, totalActive, totalPerforms, totalFees, keeperCount] = autoState as unknown as bigint[];
+      const [totalReqs, totalFulfilled, totalCollected, activeJobs, activeOracleCount] = oracleStats as unknown as bigint[];
       setStats({
         vrf: { totalSubscriptions: 0, totalRequests: 0n, totalFeesCollected: 0n },
         automation: { totalUpkeeps: Number(upkeepCount), activeUpkeeps: Number(totalActive), totalPerforms, totalFeesCollected: totalFees, activeKeepers: (activeKeepers as Address[])?.length ?? 0 },
@@ -109,8 +109,8 @@ export function ChainlinkDashboard() {
             <Row label="Max Gas" value={vrfMaxGas?.toLocaleString() ?? '-'} />
             {vrfFeeConfig && (
               <>
-                <Row label="Flat Fee (LINK)" value={`${(vrfFeeConfig as VRFFeeConfig).fulfillmentFlatFeeLinkPPM / 1e6} LINK`} />
-                <Row label="Premium" value={`${(vrfFeeConfig as VRFFeeConfig).premiumPercentage}%`} />
+                <Row label="Flat Fee (LINK)" value={`${(vrfFeeConfig as unknown as VRFFeeConfig).fulfillmentFlatFeeLinkPPM / 1e6} LINK`} />
+                <Row label="Premium" value={`${(vrfFeeConfig as unknown as VRFFeeConfig).premiumPercentage}%`} />
               </>
             )}
           </div>
@@ -119,11 +119,11 @@ export function ChainlinkDashboard() {
         {tab === 'automation' && autoConfig && (
           <div>
             <h3 className="text-lg font-semibold mb-4">Automation Config</h3>
-            <Row label="Min Balance" value={`${formatEther((autoConfig as AutomationConfig).minUpkeepBalance)} ETH`} />
-            <Row label="Max Gas" value={(autoConfig as AutomationConfig).maxPerformGas.toLocaleString()} />
-            <Row label="Keeper Fee" value={`${(autoConfig as AutomationConfig).keeperFeeBps / 100}%`} />
-            <Row label="Protocol Fee" value={`${(autoConfig as AutomationConfig).protocolFeeBps / 100}%`} />
-            <Row label="Min Stake" value={`${formatEther((autoConfig as AutomationConfig).minKeeperStake)} ETH`} />
+            <Row label="Min Balance" value={`${formatEther((autoConfig as unknown as AutomationConfig).minUpkeepBalance)} ETH`} />
+            <Row label="Max Gas" value={(autoConfig as unknown as AutomationConfig).maxPerformGas.toLocaleString()} />
+            <Row label="Keeper Fee" value={`${(autoConfig as unknown as AutomationConfig).keeperFeeBps / 100}%`} />
+            <Row label="Protocol Fee" value={`${(autoConfig as unknown as AutomationConfig).protocolFeeBps / 100}%`} />
+            <Row label="Min Stake" value={`${formatEther((autoConfig as unknown as AutomationConfig).minKeeperStake)} ETH`} />
           </div>
         )}
 
@@ -142,15 +142,15 @@ export function ChainlinkDashboard() {
             <h3 className="text-lg font-semibold mb-4">Governance</h3>
             {govConfig && (
               <>
-                <Row label="Proposal Delay" value={`${Number((govConfig as bigint[])[0]) / 86400} days`} />
-                <Row label="Grace Period" value={`${Number((govConfig as bigint[])[1]) / 86400} days`} />
+                <Row label="Proposal Delay" value={`${Number((govConfig as unknown as bigint[])[0]) / 86400} days`} />
+                <Row label="Grace Period" value={`${Number((govConfig as unknown as bigint[])[1]) / 86400} days`} />
               </>
             )}
             {revConfig && (
               <>
-                <Row label="Treasury" value={`${(revConfig as RevenueConfig).treasuryBps / 100}%`} />
-                <Row label="Operational" value={`${(revConfig as RevenueConfig).operationalBps / 100}%`} />
-                <Row label="Community" value={`${(revConfig as RevenueConfig).communityBps / 100}%`} />
+                <Row label="Treasury" value={`${(revConfig as unknown as RevenueConfig).treasuryBps / 100}%`} />
+                <Row label="Operational" value={`${(revConfig as unknown as RevenueConfig).operationalBps / 100}%`} />
+                <Row label="Community" value={`${(revConfig as unknown as RevenueConfig).communityBps / 100}%`} />
               </>
             )}
           </div>

@@ -1,4 +1,6 @@
 import { useReadContract, useWriteContract, useAccount, useReadContracts } from 'wagmi'
+import { AddressSchema } from '@jejunetwork/types/contracts'
+import { expect, expectPositive, expectTrue } from '@/lib/validation'
 import { getXLPContracts } from '@/config/contracts'
 import { JEJU_CHAIN_ID } from '@/config/chains'
 import type { Address, Abi } from 'viem'
@@ -163,6 +165,8 @@ export function useV2PairData(pairAddress: Address | null) {
   if (!data || !pairAddress) {
     return { pair: null, userLpBalance: 0n, isLoading, error, refetch }
   }
+  
+  const validatedPairAddress = expect(pairAddress, 'Pair address is required');
 
   const reservesResult = data[0]
   const token0Result = data[1]
@@ -182,7 +186,7 @@ export function useV2PairData(pairAddress: Address | null) {
   const [reserve0, reserve1] = reservesResult.result as [bigint, bigint, number]
 
   const pair: V2Pair = {
-    address: pairAddress,
+    address: validatedPairAddress,
     token0: token0Result.result as Address,
     token1: token1Result.result as Address,
     reserve0,
@@ -229,15 +233,20 @@ export function useCreateV2Pair() {
   const { writeContractAsync, isPending, isSuccess, error, data: txHash } = useWriteContract()
 
   const createPair = async (token0: Address, token1: Address) => {
-    if (!contracts?.v2Factory) throw new Error('V2 Factory not deployed')
+    const validatedToken0 = AddressSchema.parse(token0);
+    const validatedToken1 = AddressSchema.parse(token1);
+    expect(validatedToken0 !== validatedToken1, 'Token0 and Token1 must be different');
+    
+    const factory = expect(contracts?.v2Factory, 'V2 Factory not deployed');
+    AddressSchema.parse(factory);
 
     const hash = await writeContractAsync({
-      address: contracts.v2Factory,
+      address: factory,
       abi: V2_FACTORY_ABI,
       functionName: 'createPair',
-      args: [token0, token1],
+      args: [validatedToken0, validatedToken1],
     })
-    return hash
+    return expect(hash, 'Transaction hash not returned')
   }
 
   return { createPair, isLoading: isPending, isSuccess, error, txHash }
@@ -249,16 +258,18 @@ export function useV2AddLiquidity() {
   const { writeContractAsync, isPending, isSuccess, error, data: txHash } = useWriteContract()
 
   const addLiquidity = async (pairAddress: Address) => {
-    if (!address) throw new Error('Wallet not connected')
+    const validatedAddress = expect(address, 'Wallet not connected');
+    AddressSchema.parse(validatedAddress);
+    const validatedPairAddress = AddressSchema.parse(pairAddress);
 
     // Tokens must be transferred to pair first, then call mint
     const hash = await writeContractAsync({
-      address: pairAddress,
+      address: validatedPairAddress,
       abi: V2_PAIR_ABI,
       functionName: 'mint',
-      args: [address],
+      args: [validatedAddress],
     })
-    return hash
+    return expect(hash, 'Transaction hash not returned')
   }
 
   return { addLiquidity, isLoading: isPending, isSuccess, error, txHash }
@@ -270,16 +281,18 @@ export function useV2RemoveLiquidity() {
   const { writeContractAsync, isPending, isSuccess, error, data: txHash } = useWriteContract()
 
   const removeLiquidity = async (pairAddress: Address) => {
-    if (!address) throw new Error('Wallet not connected')
+    const validatedAddress = expect(address, 'Wallet not connected');
+    AddressSchema.parse(validatedAddress);
+    const validatedPairAddress = AddressSchema.parse(pairAddress);
 
     // LP tokens must be transferred to pair first, then call burn
     const hash = await writeContractAsync({
-      address: pairAddress,
+      address: validatedPairAddress,
       abi: V2_PAIR_ABI,
       functionName: 'burn',
-      args: [address],
+      args: [validatedAddress],
     })
-    return hash
+    return expect(hash, 'Transaction hash not returned')
   }
 
   return { removeLiquidity, isLoading: isPending, isSuccess, error, txHash }
@@ -296,15 +309,21 @@ export function useV2Swap() {
     amount1Out: bigint,
     to?: Address
   ) => {
-    if (!address) throw new Error('Wallet not connected')
+    const validatedAddress = expect(address, 'Wallet not connected');
+    AddressSchema.parse(validatedAddress);
+    const validatedPairAddress = AddressSchema.parse(pairAddress);
+    const recipient = to ? AddressSchema.parse(to) : validatedAddress;
+    
+    expectTrue(amount0Out > 0n || amount1Out > 0n, 'At least one output amount must be positive');
+    expectTrue(amount0Out === 0n || amount1Out === 0n, 'Only one output amount can be non-zero');
 
     const hash = await writeContractAsync({
-      address: pairAddress,
+      address: validatedPairAddress,
       abi: V2_PAIR_ABI,
       functionName: 'swap',
-      args: [amount0Out, amount1Out, to || address, '0x'],
+      args: [amount0Out, amount1Out, recipient, '0x'],
     })
-    return hash
+    return expect(hash, 'Transaction hash not returned')
   }
 
   return { swap, isLoading: isPending, isSuccess, error, txHash }

@@ -6,6 +6,63 @@
  */
 
 import type { Address } from 'viem';
+import { z } from 'zod';
+
+const CacheGetResponseSchema = z.object({
+  value: z.string().nullable(),
+  found: z.boolean(),
+});
+
+const CacheSuccessResponseSchema = z.object({
+  success: z.boolean(),
+});
+
+const CacheKeysResponseSchema = z.object({
+  keys: z.array(z.string()),
+});
+
+const CacheTTLResponseSchema = z.object({
+  ttl: z.number(),
+});
+
+const CacheMGetResponseSchema = z.object({
+  entries: z.record(z.string(), z.string().nullable()),
+});
+
+const CacheStatsResponseSchema = z.object({
+  stats: z.object({
+    totalKeys: z.number(),
+    namespaces: z.number(),
+    usedMemoryMb: z.number(),
+    totalMemoryMb: z.number(),
+    hits: z.number(),
+    misses: z.number(),
+    hitRate: z.number(),
+    totalInstances: z.number(),
+  }),
+});
+
+const CacheInstanceSchema = z.object({
+  id: z.string(),
+  owner: z.string(),
+  namespace: z.string(),
+  maxMemoryMb: z.number(),
+  usedMemoryMb: z.number(),
+  keyCount: z.number(),
+  createdAt: z.number(),
+  expiresAt: z.number(),
+  status: z.enum(['creating', 'running', 'stopped', 'expired', 'error']),
+});
+
+const CacheRentalPlanSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  maxMemoryMb: z.number(),
+  maxKeys: z.number(),
+  pricePerHour: z.string(),
+  pricePerMonth: z.string(),
+  teeRequired: z.boolean(),
+});
 
 export interface CacheClientConfig {
   endpoint: string;
@@ -84,7 +141,8 @@ class DecentralizedCacheClient implements CacheClient {
       throw new Error(`Cache get failed: ${response.statusText}`);
     }
 
-    const data = await response.json() as { value: string | null; found: boolean };
+    const json = await response.json();
+    const data = CacheGetResponseSchema.parse(json);
     return data.found ? data.value : null;
   }
 
@@ -120,7 +178,8 @@ class DecentralizedCacheClient implements CacheClient {
       throw new Error(`Cache delete failed: ${response.statusText}`);
     }
 
-    const data = await response.json() as { success: boolean };
+    const json = await response.json();
+    const data = CacheSuccessResponseSchema.parse(json);
     return data.success;
   }
 
@@ -139,7 +198,8 @@ class DecentralizedCacheClient implements CacheClient {
       throw new Error(`Cache mget failed: ${response.statusText}`);
     }
 
-    const data = await response.json() as { entries: Record<string, string | null> };
+    const json = await response.json();
+    const data = CacheMGetResponseSchema.parse(json);
     return new Map(Object.entries(data.entries));
   }
 
@@ -174,7 +234,8 @@ class DecentralizedCacheClient implements CacheClient {
       throw new Error(`Cache keys failed: ${response.statusText}`);
     }
 
-    const data = await response.json() as { keys: string[] };
+    const json = await response.json();
+    const data = CacheKeysResponseSchema.parse(json);
     return data.keys;
   }
 
@@ -191,7 +252,8 @@ class DecentralizedCacheClient implements CacheClient {
       throw new Error(`Cache ttl failed: ${response.statusText}`);
     }
 
-    const data = await response.json() as { ttl: number };
+    const json = await response.json();
+    const data = CacheTTLResponseSchema.parse(json);
     return data.ttl;
   }
 
@@ -211,7 +273,8 @@ class DecentralizedCacheClient implements CacheClient {
       throw new Error(`Cache expire failed: ${response.statusText}`);
     }
 
-    const data = await response.json() as { success: boolean };
+    const json = await response.json();
+    const data = CacheSuccessResponseSchema.parse(json);
     return data.success;
   }
 
@@ -238,7 +301,8 @@ class DecentralizedCacheClient implements CacheClient {
       throw new Error(`Cache stats failed: ${response.statusText}`);
     }
 
-    const data = await response.json() as { stats: CacheStats };
+    const json = await response.json();
+    const data = CacheStatsResponseSchema.parse(json);
     return data.stats;
   }
 }
@@ -262,7 +326,8 @@ export class CacheRentalClient {
       throw new Error(`List plans failed: ${response.statusText}`);
     }
 
-    const data = await response.json() as { plans: CacheRentalPlan[] };
+    const json = await response.json();
+    const data = z.object({ plans: z.array(CacheRentalPlanSchema) }).parse(json);
     return data.plans;
   }
 
@@ -278,8 +343,9 @@ export class CacheRentalClient {
       throw new Error(`Create instance failed: ${response.statusText}`);
     }
 
-    const data = await response.json() as { instance: CacheInstance };
-    return data.instance;
+    const json = await response.json();
+    const data = z.object({ instance: CacheInstanceSchema }).parse(json);
+    return data.instance as CacheInstance;
   }
 
   async getInstance(id: string): Promise<CacheInstance | null> {
@@ -295,8 +361,9 @@ export class CacheRentalClient {
       throw new Error(`Get instance failed: ${response.statusText}`);
     }
 
-    const data = await response.json() as { instance: CacheInstance };
-    return data.instance;
+    const json = await response.json();
+    const data = z.object({ instance: CacheInstanceSchema }).parse(json);
+    return data.instance as CacheInstance;
   }
 
   async listInstances(): Promise<CacheInstance[]> {
@@ -308,8 +375,9 @@ export class CacheRentalClient {
       throw new Error(`List instances failed: ${response.statusText}`);
     }
 
-    const data = await response.json() as { instances: CacheInstance[] };
-    return data.instances;
+    const json = await response.json();
+    const data = z.object({ instances: z.array(CacheInstanceSchema) }).parse(json);
+    return data.instances as CacheInstance[];
   }
 
   async deleteInstance(id: string): Promise<void> {

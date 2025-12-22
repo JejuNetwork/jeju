@@ -7,6 +7,7 @@
 
 import { Hono, type Context } from 'hono';
 import type { StatusCode as _StatusCode } from 'hono/utils/http-status';
+import { validateBody, validateParams, z } from '../../shared';
 
 const OAUTH3_AGENT_URL = process.env.OAUTH3_AGENT_URL || 'http://localhost:4200';
 
@@ -43,7 +44,7 @@ export function createOAuth3Router(): Hono {
 
   // Initialize OAuth flow
   app.post('/auth/init', async (c) => {
-    const body = await c.req.json();
+    const body = await validateBody(z.record(z.string(), z.unknown()), c);
     const response = await fetch(`${OAUTH3_AGENT_URL}/auth/init`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -54,7 +55,7 @@ export function createOAuth3Router(): Hono {
 
   // OAuth callback
   app.post('/auth/callback', async (c) => {
-    const body = await c.req.json();
+    const body = await validateBody(z.record(z.string(), z.unknown()), c);
     const response = await fetch(`${OAUTH3_AGENT_URL}/auth/callback`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -65,7 +66,7 @@ export function createOAuth3Router(): Hono {
 
   // Wallet auth
   app.post('/auth/wallet', async (c) => {
-    const body = await c.req.json();
+    const body = await validateBody(z.record(z.string(), z.unknown()), c);
     const response = await fetch(`${OAUTH3_AGENT_URL}/auth/wallet`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -76,7 +77,7 @@ export function createOAuth3Router(): Hono {
 
   // Farcaster auth
   app.post('/auth/farcaster', async (c) => {
-    const body = await c.req.json();
+    const body = await validateBody(z.record(z.string(), z.unknown()), c);
     const response = await fetch(`${OAUTH3_AGENT_URL}/auth/farcaster`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -87,14 +88,14 @@ export function createOAuth3Router(): Hono {
 
   // Get session
   app.get('/session/:sessionId', async (c) => {
-    const sessionId = c.req.param('sessionId');
+    const { sessionId } = validateParams(z.object({ sessionId: z.string().uuid() }), c);
     const response = await fetch(`${OAUTH3_AGENT_URL}/session/${sessionId}`);
     return proxyJsonResponse(c, response);
   });
 
   // Refresh session
   app.post('/session/:sessionId/refresh', async (c) => {
-    const sessionId = c.req.param('sessionId');
+    const { sessionId } = validateParams(z.object({ sessionId: z.string().uuid() }), c);
     const response = await fetch(`${OAUTH3_AGENT_URL}/session/${sessionId}/refresh`, {
       method: 'POST',
     });
@@ -103,7 +104,7 @@ export function createOAuth3Router(): Hono {
 
   // Delete session (logout)
   app.delete('/session/:sessionId', async (c) => {
-    const sessionId = c.req.param('sessionId');
+    const { sessionId } = validateParams(z.object({ sessionId: z.string().uuid() }), c);
     const response = await fetch(`${OAUTH3_AGENT_URL}/session/${sessionId}`, {
       method: 'DELETE',
     });
@@ -112,7 +113,7 @@ export function createOAuth3Router(): Hono {
 
   // Sign message
   app.post('/sign', async (c) => {
-    const body = await c.req.json();
+    const body = await validateBody(z.record(z.string(), z.unknown()), c);
     const response = await fetch(`${OAUTH3_AGENT_URL}/sign`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -123,7 +124,7 @@ export function createOAuth3Router(): Hono {
 
   // Issue credential
   app.post('/credential/issue', async (c) => {
-    const body = await c.req.json();
+    const body = await validateBody(z.record(z.string(), z.unknown()), c);
     const response = await fetch(`${OAUTH3_AGENT_URL}/credential/issue`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -134,7 +135,7 @@ export function createOAuth3Router(): Hono {
 
   // Verify credential
   app.post('/credential/verify', async (c) => {
-    const body = await c.req.json();
+    const body = await validateBody(z.record(z.string(), z.unknown()), c);
     const response = await fetch(`${OAUTH3_AGENT_URL}/credential/verify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -147,7 +148,7 @@ export function createOAuth3Router(): Hono {
   app.get('/infrastructure/health', async (c) => {
     const response = await fetch(`${OAUTH3_AGENT_URL}/infrastructure/health`);
     if (!response.ok) {
-      return c.json({ error: 'OAuth3 agent unavailable' }, 503);
+      throw new Error('OAuth3 agent unavailable');
     }
     return c.json(await response.json());
   });

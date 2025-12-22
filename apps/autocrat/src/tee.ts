@@ -7,6 +7,7 @@
  * - DA layer backup for persistence
  */
 
+import { z } from 'zod';
 import { keccak256, stringToHex } from 'viem';
 import { randomBytes, createCipheriv, createDecipheriv } from 'crypto';
 import {
@@ -16,6 +17,31 @@ import {
   type DecisionData,
   type EncryptedData,
 } from './encryption';
+
+// Schemas for JSON parsing
+const EncryptedCipherSchema = z.object({
+  ciphertext: z.string(),
+  iv: z.string(),
+  tag: z.string(),
+});
+
+const RemoteTEEResponseSchema = z.object({
+  approved: z.boolean(),
+  reasoning: z.string(),
+  confidence: z.number(),
+  alignment: z.number(),
+  recommendations: z.array(z.string()),
+  attestation: z.object({
+    quote: z.string(),
+    measurement: z.string(),
+  }).optional(),
+});
+
+const DecryptedReasoningSchema = z.record(z.string(), z.unknown());
+
+const AttestationVerifyResponseSchema = z.object({
+  verified: z.boolean(),
+});
 
 export interface TEEDecisionContext {
   proposalId: string;
@@ -51,7 +77,16 @@ const USE_ENCRYPTION = process.env.USE_ENCRYPTION !== 'false';
 const BACKUP_TO_DA = process.env.BACKUP_TO_DA !== 'false';
 
 function getDerivedKey(): Buffer {
-  const secret = process.env.TEE_ENCRYPTION_SECRET ?? 'council-local-dev-key';
+  const secret = process.env.TEE_ENCRYPTION_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('TEE_ENCRYPTION_SECRET is required in production mode');
+    }
+    console.warn('[TEE] WARNING: Using default dev encryption key - NOT for production use');
+    const devSecret = 'council-local-dev-key';
+    const hash = keccak256(stringToHex(devSecret));
+    return Buffer.from(hash.slice(2, 66), 'hex');
+  }
   const hash = keccak256(stringToHex(secret));
   return Buffer.from(hash.slice(2, 66), 'hex');
 }
@@ -107,14 +142,8 @@ async function callRemoteTEE(context: TEEDecisionContext): Promise<TEEDecisionRe
 
   if (!response.ok) throw new Error(`TEE decision failed: ${response.status}`);
 
-  const data = await response.json() as { 
-    approved: boolean; 
-    reasoning: string; 
-    confidence: number; 
-    alignment: number; 
-    recommendations: string[];
-    attestation?: { quote: string; measurement: string };
-  };
+  const rawData = await response.json();
+  const data = RemoteTEEResponseSchema.parse(rawData);
 
   const internalData = JSON.stringify({ context, decision: data, timestamp: Date.now() });
   const encrypted = encrypt(internalData);
@@ -182,43 +211,44 @@ export async function makeTEEDecision(context: TEEDecisionContext): Promise<TEED
       timestamp: Date.now(),
     };
 
-    try {
-      result.encrypted = await encryptDecision(decisionData);
-      console.log('[TEE] Decision encrypted');
-    } catch (error) {
-      console.error('[TEE] Encryption failed:', (error as Error).message);
-    }
+    result.encrypted = await encryptDecision(decisionData);
+    console.log('[TEE] Decision encrypted');
   }
 
   if (BACKUP_TO_DA && result.encrypted) {
-    try {
-      const backup = await backupToDA(context.proposalId, result.encrypted);
-      result.daBackupHash = backup.hash;
-      console.log('[TEE] Decision backed up to DA:', backup.hash);
-    } catch (error) {
-      console.error('[TEE] DA backup failed:', (error as Error).message);
-    }
+    const backup = await backupToDA(context.proposalId, result.encrypted);
+    result.daBackupHash = backup.hash;
+    console.log('[TEE] Decision backed up to DA:', backup.hash);
   }
 
   return result;
 }
 
 export function decryptReasoning(encryptedReasoning: string): Record<string, unknown> {
-  const { ciphertext, iv, tag } = JSON.parse(encryptedReasoning) as { ciphertext: string; iv: string; tag: string };
-  return JSON.parse(decrypt(ciphertext, iv, tag)) as Record<string, unknown>;
+  const rawParsed = JSON.parse(encryptedReasoning);
+  const { ciphertext, iv, tag } = EncryptedCipherSchema.parse(rawParsed);
+  const decrypted = JSON.parse(decrypt(ciphertext, iv, tag));
+  return DecryptedReasoningSchema.parse(decrypted);
 }
 
 export async function verifyAttestation(attestation: TEEAttestation): Promise<boolean> {
   if (attestation.provider === 'local') return true;
-  if (!TEE_ENDPOINT) return false;
+  if (!TEE_ENDPOINT) {
+    throw new Error('TEE_ENDPOINT is required for remote attestation verification');
+  }
   
   const response = await fetch(`${TEE_ENDPOINT}/verify`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ quote: attestation.quote }),
     signal: AbortSignal.timeout(10000),
-  }).catch(() => null);
+  });
   
-  if (!response?.ok) return false;
-  return ((await response.json()) as { verified: boolean }).verified;
+  if (!response.ok) {
+    throw new Error(`TEE attestation verification failed: ${response.status} ${response.statusText}`);
+  }
+  
+  const rawResult = await response.json();
+  const result = AttestationVerifyResponseSchema.parse(rawResult);
+  return result.verified;
 }

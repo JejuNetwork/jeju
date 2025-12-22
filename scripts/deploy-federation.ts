@@ -15,7 +15,7 @@
  *   bun run scripts/deploy-federation.ts [--network localnet|testnet|mainnet]
  */
 
-import { createPublicClient, createWalletClient, http, parseEther, getContract, formatEther, type Address } from 'viem';
+import { createPublicClient, createWalletClient, http, formatEther, type Address } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';

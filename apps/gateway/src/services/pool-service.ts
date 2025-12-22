@@ -1,5 +1,15 @@
 import { createPublicClient, http, type Address, parseEther, formatEther } from 'viem';
 import { getRpcUrl, JEJU_CHAIN_ID } from '../config/networks.js';
+import {
+  SwapQuoteRequestSchema,
+  TokenPairSchema,
+  expect,
+  expectAddress,
+  expectPositiveNumber,
+  formatError,
+  type SwapQuoteRequest,
+  type TokenPair,
+} from '../lib/validation.js';
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
 const MAX_POOLS_TO_FETCH = 100;
@@ -80,10 +90,6 @@ function calculateEffectivePrice(amountIn: string, amountOut: bigint): string {
   const inNum = Number(amountIn);
   const outNum = Number(formatEther(amountOut));
   return inNum > 0 && !isNaN(inNum) && !isNaN(outNum) ? (outNum / inNum).toFixed(8) : '0';
-}
-
-function formatError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 function logContractError(operation: string, context: string, error: unknown): void {
@@ -373,6 +379,7 @@ class PoolService {
   }
 
   async listPoolsForPair(token0: Address, token1: Address): Promise<Pool[]> {
+    const validated = expect({ token0, token1 }, TokenPairSchema, 'listPoolsForPair params');
     const pools: Pool[] = [];
 
     if (this.contracts.v2Factory !== ZERO_ADDRESS) {
@@ -380,7 +387,7 @@ class PoolService {
         address: this.contracts.v2Factory,
         abi: V2_FACTORY_ABI,
         functionName: 'getPair',
-        args: [token0, token1],
+        args: [validated.token0 as Address, validated.token1 as Address],
       }).catch((error) => {
         logContractError('get V2 pair', `${token0}/${token1}`, error);
         return null;
@@ -393,7 +400,7 @@ class PoolService {
     }
 
     for (const fee of V3_FEE_TIERS) {
-      const v3Pool = await this.getV3Pool(token0, token1, fee);
+      const v3Pool = await this.getV3Pool(validated.token0 as Address, validated.token1 as Address, fee);
       if (v3Pool) pools.push(v3Pool);
     }
 
@@ -402,7 +409,7 @@ class PoolService {
         address: this.contracts.paymaster,
         abi: PAYMASTER_AMM_ABI,
         functionName: 'getReserves',
-        args: [token0, token1],
+        args: [validated.token0 as Address, validated.token1 as Address],
       }).catch((error) => {
         logContractError('get paymaster reserves', `${token0}/${token1}`, error);
         return null;
@@ -412,8 +419,8 @@ class PoolService {
         pools.push({
           address: this.contracts.paymaster,
           type: 'PAYMASTER',
-          token0,
-          token1,
+          token0: validated.token0 as Address,
+          token1: validated.token1 as Address,
           reserve0: formatEther(reserves[0]),
           reserve1: formatEther(reserves[1]),
           fee: PAYMASTER_FEE,
@@ -425,14 +432,15 @@ class PoolService {
   }
 
   async getSwapQuote(tokenIn: Address, tokenOut: Address, amountIn: string): Promise<SwapQuote | null> {
-    const amountInWei = parseEther(amountIn);
+    const validated = expect({ tokenIn, tokenOut, amountIn }, SwapQuoteRequestSchema, 'getSwapQuote params');
+    const amountInWei = parseEther(validated.amountIn);
 
     if (this.contracts.aggregator !== ZERO_ADDRESS) {
       const quote = await this.client.readContract({
         address: this.contracts.aggregator,
         abi: AGGREGATOR_ABI,
         functionName: 'getBestQuote',
-        args: [tokenIn, tokenOut, amountInWei],
+        args: [validated.tokenIn as Address, validated.tokenOut as Address, amountInWei],
       }).catch((error) => {
         logContractError('get best quote from aggregator', '', error);
         return null;
@@ -442,20 +450,20 @@ class PoolService {
         return {
           poolType: POOL_TYPES[quote.poolType] || 'V2',
           pool: quote.pool,
-          amountIn,
+          amountIn: validated.amountIn,
           amountOut: formatEther(quote.amountOut),
           priceImpactBps: Number(quote.priceImpactBps),
           fee: quote.fee,
-          effectivePrice: calculateEffectivePrice(amountIn, quote.amountOut),
+          effectivePrice: calculateEffectivePrice(validated.amountIn, quote.amountOut),
         };
       }
     }
 
-    const pools = await this.listPoolsForPair(tokenIn, tokenOut);
+    const pools = await this.listPoolsForPair(validated.tokenIn as Address, validated.tokenOut as Address);
     const v2Pool = pools.find(p => p.type === 'V2');
 
     if (v2Pool) {
-      const isToken0In = tokenIn.toLowerCase() === v2Pool.token0.toLowerCase();
+      const isToken0In = validated.tokenIn.toLowerCase() === v2Pool.token0.toLowerCase();
       const reserveIn = parseEther(isToken0In ? v2Pool.reserve0 : v2Pool.reserve1);
       const reserveOut = parseEther(isToken0In ? v2Pool.reserve1 : v2Pool.reserve0);
 
@@ -467,11 +475,11 @@ class PoolService {
         return {
           poolType: 'V2',
           pool: v2Pool.address,
-          amountIn,
+          amountIn: validated.amountIn,
           amountOut: formatEther(amountOut),
           priceImpactBps: priceImpact,
           fee: V2_FEE,
-          effectivePrice: calculateEffectivePrice(amountIn, amountOut),
+          effectivePrice: calculateEffectivePrice(validated.amountIn, amountOut),
         };
       }
     }
@@ -480,7 +488,8 @@ class PoolService {
   }
 
   async getAllSwapQuotes(tokenIn: Address, tokenOut: Address, amountIn: string): Promise<SwapQuote[]> {
-    const amountInWei = parseEther(amountIn);
+    const validated = expect({ tokenIn, tokenOut, amountIn }, SwapQuoteRequestSchema, 'getAllSwapQuotes params');
+    const amountInWei = parseEther(validated.amountIn);
     const quotes: SwapQuote[] = [];
 
     if (this.contracts.aggregator !== ZERO_ADDRESS) {
@@ -488,7 +497,7 @@ class PoolService {
         address: this.contracts.aggregator,
         abi: AGGREGATOR_ABI,
         functionName: 'getAllQuotes',
-        args: [tokenIn, tokenOut, amountInWei],
+        args: [validated.tokenIn as Address, validated.tokenOut as Address, amountInWei],
       }).catch((error) => {
         logContractError('get all quotes from aggregator', '', error);
         return [];
@@ -510,7 +519,7 @@ class PoolService {
     }
 
     if (quotes.length === 0) {
-      const bestQuote = await this.getSwapQuote(tokenIn, tokenOut, amountIn);
+      const bestQuote = await this.getSwapQuote(validated.tokenIn as Address, validated.tokenOut as Address, validated.amountIn);
       if (bestQuote) quotes.push(bestQuote);
     }
 

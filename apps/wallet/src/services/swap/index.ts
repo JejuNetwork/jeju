@@ -4,19 +4,10 @@
  */
 
 import type { Address, Hex } from 'viem';
+import type { Token } from '../../sdk/types';
 import { SupportedChainId } from '../rpc';
-import { oracleService, type TokenPrice } from '../oracle';
 
 const JEJU_SOLVER_URL = import.meta.env.VITE_JEJU_SOLVER_URL || 'https://solver.jejunetwork.org/api';
-
-interface Token {
-  chainId: SupportedChainId;
-  address: Address;
-  symbol: string;
-  name: string;
-  decimals: number;
-  logoUri?: string;
-}
 
 interface SwapQuote {
   id: string;
@@ -108,8 +99,8 @@ class SwapService {
         fee: { ...q.fee, amount: BigInt(q.fee.amount) },
       }));
     } catch (error) {
-      // Fallback: estimate locally
-      return [this.estimateQuoteLocally(params)];
+      // Re-throw with context - swap quotes are critical for user transactions
+      throw new Error(`Failed to get swap quote: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -204,43 +195,21 @@ class SwapService {
     return { intentId, status: 'pending' };
   }
 
-  private estimateQuoteLocally(params: SwapParams): SwapQuote {
-    // Simple estimation - would be more sophisticated in production
-    const { inputToken, outputToken, inputAmount } = params;
-    const estimatedOutput = inputAmount * 99n / 100n; // 1% fee estimate
-    
-    return {
-      id: `local-${Date.now()}`,
-      inputToken,
-      outputToken,
-      inputAmount,
-      outputAmount: estimatedOutput,
-      priceImpact: 0.01,
-      route: [],
-      estimatedGas: 150000n,
-      fee: { amount: inputAmount / 100n, token: inputToken },
-      validUntil: Date.now() + 60000,
-      provider: 'local-estimate',
-    };
-  }
-
   // Token list management
   async getPopularTokens(chainId: SupportedChainId): Promise<Token[]> {
-    try {
-      const response = await fetch(`${JEJU_SOLVER_URL}/tokens/${chainId}/popular`);
-      return response.json();
-    } catch {
-      return [];
+    const response = await fetch(`${JEJU_SOLVER_URL}/tokens/${chainId}/popular`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch popular tokens: ${response.status} ${response.statusText}`);
     }
+    return response.json();
   }
 
   async searchTokens(chainId: SupportedChainId, query: string): Promise<Token[]> {
-    try {
-      const response = await fetch(`${JEJU_SOLVER_URL}/tokens/${chainId}/search?q=${encodeURIComponent(query)}`);
-      return response.json();
-    } catch {
-      return [];
+    const response = await fetch(`${JEJU_SOLVER_URL}/tokens/${chainId}/search?q=${encodeURIComponent(query)}`);
+    if (!response.ok) {
+      throw new Error(`Failed to search tokens: ${response.status} ${response.statusText}`);
     }
+    return response.json();
   }
 
   getRecentTokens(): Token[] {

@@ -22,6 +22,13 @@ import type {
   IntentOrder,
   OIFServiceConfig,
 } from '../types';
+import {
+  expectAddress,
+  expectHex,
+  expectChainId,
+  expectBigInt,
+  expectNonNegative,
+} from '../../lib/validation';
 
 // InputSettler ABI (from the network contracts)
 const INPUT_SETTLER_ABI = [
@@ -73,20 +80,6 @@ const INPUT_SETTLER_ABI = [
       { name: 'deadline', type: 'uint256' },
       { name: 'status', type: 'uint8' },
     ],
-  },
-] as const;
-
-// OutputSettler ABI (from the network contracts)
-const OUTPUT_SETTLER_ABI = [
-  {
-    name: 'fill',
-    type: 'function',
-    inputs: [
-      { name: 'orderId', type: 'bytes32' },
-      { name: 'originData', type: 'bytes' },
-      { name: 'fillerData', type: 'bytes' },
-    ],
-    outputs: [],
   },
 ] as const;
 
@@ -153,6 +146,16 @@ export class OIFService {
     orderId: Hex;
     callData: Hex;
   }> {
+    expectChainId(options.sourceChainId, 'sourceChainId');
+    expectChainId(options.destinationChainId, 'destinationChainId');
+    expectAddress(options.inputToken, 'inputToken');
+    expectAddress(options.outputToken, 'outputToken');
+    expectBigInt(options.inputAmount, 'inputAmount');
+    expectBigInt(options.minOutputAmount, 'minOutputAmount');
+    if (options.resolver) expectAddress(options.resolver, 'resolver');
+    if (options.deadline) expectNonNegative(options.deadline, 'deadline');
+    if (options.data) expectHex(options.data, 'data');
+
     this.runtime?.logger.info(`[OIFService] Creating intent: ${options.sourceChainId} -> ${options.destinationChainId}`);
     
     const deadline = options.deadline || Math.floor(Date.now() / 1000) + 3600;
@@ -212,6 +215,15 @@ export class OIFService {
       message: Record<string, unknown>;
     };
   }> {
+    expectAddress(options.user, 'user');
+    expectChainId(options.sourceChainId, 'sourceChainId');
+    expectChainId(options.destinationChainId, 'destinationChainId');
+    expectAddress(options.inputToken, 'inputToken');
+    expectAddress(options.outputToken, 'outputToken');
+    expectBigInt(options.inputAmount, 'inputAmount');
+    expectBigInt(options.minOutputAmount, 'minOutputAmount');
+    if (options.fillDeadline) expectNonNegative(options.fillDeadline, 'fillDeadline');
+
     const openDeadline = Math.floor(Date.now() / 1000) + 300;
     const fillDeadline = options.fillDeadline || Math.floor(Date.now() / 1000) + 3600;
     
@@ -291,6 +303,9 @@ export class OIFService {
    * Get intent/order status
    */
   async getIntent(orderId: Hex, chainId: number): Promise<Intent | null> {
+    expectHex(orderId, 'orderId');
+    expectChainId(chainId, 'chainId');
+
     const cacheKey = `${chainId}-${orderId}`;
     const cached = this.intentCache.get(cacheKey);
     

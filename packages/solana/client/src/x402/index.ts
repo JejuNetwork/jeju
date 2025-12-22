@@ -12,10 +12,30 @@ import {
 } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID, getAssociatedTokenAddress, createAssociatedTokenAccountInstruction } from '@solana/spl-token';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
+import { z } from 'zod';
+import { expectJson } from '@jejunetwork/types/validation';
 
 export const X402_FACILITATOR_PROGRAM_ID = new PublicKey(
   'x4o2Faci11111111111111111111111111111111111'
 );
+
+// ============================================================================
+// Zod Schemas for External Data Validation
+// ============================================================================
+
+/**
+ * Schema for validating encoded payment JSON from external sources
+ */
+const X402EncodedPaymentSchema = z.object({
+  payer: z.string().min(32).max(50), // Base58 Solana address
+  recipient: z.string().min(32).max(50),
+  token: z.string().min(32).max(50),
+  amount: z.string().regex(/^\d+$/, 'Amount must be numeric string'),
+  resource: z.string(),
+  nonce: z.string().min(1),
+  timestamp: z.number().int().positive(),
+  signature: z.string().regex(/^[0-9a-fA-F]+$/, 'Signature must be hex string'),
+});
 
 export const SPL_TOKENS = {
   USDC_MAINNET: new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'),
@@ -56,8 +76,8 @@ export class SolanaX402Client {
     const recipient = new PublicKey(params.recipient);
     const token = new PublicKey(params.token);
     const amount = BigInt(params.amount);
-    const nonce = params.nonce || this.generateNonce();
-    const timestamp = params.timestamp || Math.floor(Date.now() / 1000);
+    const nonce = params.nonce ?? this.generateNonce();
+    const timestamp = params.timestamp ?? Math.floor(Date.now() / 1000);
 
     const message = this.buildMessage({ recipient, token, amount, resource: params.resource, nonce, timestamp });
     const ed25519 = await import('@noble/ed25519');
@@ -84,7 +104,8 @@ export class SolanaX402Client {
   }
 
   decodePayment(encoded: string): X402Payment {
-    const json = JSON.parse(Buffer.from(encoded, 'base64').toString('utf-8'));
+    const jsonString = Buffer.from(encoded, 'base64').toString('utf-8');
+    const json = expectJson(jsonString, X402EncodedPaymentSchema, 'x402 encoded payment');
     return {
       payer: new PublicKey(json.payer),
       recipient: new PublicKey(json.recipient),

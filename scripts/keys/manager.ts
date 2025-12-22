@@ -23,9 +23,9 @@ import {
   type Address,
   type Hex,
 } from 'viem';
-import { privateKeyToAccount, generatePrivateKey, mnemonicToAccount } from 'viem/accounts';
+import { privateKeyToAccount, mnemonicToAccount } from 'viem/accounts';
 import { parseAbi } from 'viem';
-import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs';
+import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import {
@@ -241,7 +241,6 @@ async function generateMnemonic(): Promise<string> {
   } catch {
     // Fallback: generate from random key and convert
     console.log('Using fallback key generation...');
-    const randomKey = generatePrivateKey();
     // For simplicity, just use a different test mnemonic with a salt
     const timestamp = Date.now().toString(36);
     // This is a deterministic but unique derivation for each generation
@@ -298,7 +297,7 @@ async function generateSolanaKeys(mnemonic: string) {
 
     saveSolanaKeys(network, keys);
     console.log(`✅ Solana keys saved to ${KEYS_DIR}/solana-${network}.json`);
-  } catch (e) {
+  } catch {
     console.error('⚠️  Solana key generation failed. Install @solana/web3.js:');
     console.error('   bun add @solana/web3.js ed25519-hd-key');
   }
@@ -435,8 +434,8 @@ async function bridgeToL2s(privateKey: Hex) {
       console.log(`      Tx: https://sepolia.etherscan.io/tx/${hash}`);
       await publicClient.waitForTransactionReceipt({ hash });
       console.log(`   ✅ ${bridge.name} bridge initiated (arrives in ~10-15 min)`);
-    } catch (e) {
-      console.error(`   ❌ ${bridge.name} bridge failed:`, e instanceof Error ? e.message : e);
+    } catch (err) {
+      console.error(`   ❌ ${bridge.name} bridge failed:`, err instanceof Error ? err.message : err);
     }
   }
 }
@@ -472,7 +471,7 @@ async function fundSolana() {
         console.log(`   ✅ ${role}: ${(balance / LAMPORTS_PER_SOL).toFixed(4)} SOL`);
       }
     }
-  } catch (e) {
+  } catch {
     console.error('⚠️  Solana funding failed. Install @solana/web3.js');
   }
 }

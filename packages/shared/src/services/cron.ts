@@ -6,10 +6,14 @@
 
 import type { Address } from 'viem';
 
-export interface CronConfig {
-  endpoint?: string;
-  webhookBase?: string;
-}
+import { z } from 'zod';
+
+const CronConfigSchema = z.object({
+  endpoint: z.string().url(),
+  webhookBase: z.string().url().optional(),
+});
+
+export type CronConfig = z.infer<typeof CronConfigSchema>;
 
 export interface CronService {
   register(job: CronJobConfig): Promise<CronJob>;
@@ -50,9 +54,8 @@ class CronServiceImpl implements CronService {
   private localJobs = new Map<string, CronJob>();
 
   constructor(config: CronConfig) {
-    this.endpoint = config.endpoint || process.env.CRON_ENDPOINT || 'http://localhost:4200/cron';
-    // webhookBase is available in config for future use
-    void config.webhookBase;
+    const validated = CronConfigSchema.parse(config);
+    this.endpoint = validated.endpoint;
   }
 
   async register(job: CronJobConfig): Promise<CronJob> {
@@ -72,7 +75,8 @@ class CronServiceImpl implements CronService {
     };
 
     if (this.available) {
-      await this.remoteRegister(cronJob).catch(() => {
+      await this.remoteRegister(cronJob).catch((err: Error) => {
+        console.error('[Cron] Remote registration failed:', err.message);
         this.available = false;
       });
     }
@@ -85,7 +89,7 @@ class CronServiceImpl implements CronService {
 
   async cancel(jobId: string): Promise<boolean> {
     if (this.available) {
-      await this.remoteCancel(jobId).catch(() => {});
+      await this.remoteCancel(jobId);
     }
 
     const had = this.localJobs.has(jobId);
@@ -146,14 +150,20 @@ class CronServiceImpl implements CronService {
 
     switch (job.type) {
       case 'once':
-        return job.triggerTime ?? now;
+        if (job.triggerTime === undefined) {
+          throw new Error('triggerTime is required for once job type');
+        }
+        return job.triggerTime;
       case 'interval':
-        return now + (job.intervalMs ?? 60000);
+        if (job.intervalMs === undefined) {
+          throw new Error('intervalMs is required for interval job type');
+        }
+        return now + job.intervalMs;
       case 'cron':
         // Simple next minute calculation (full cron parsing would require a library)
         return now + 60000;
       default:
-        return now + 60000;
+        throw new Error(`Unknown job type: ${job.type}`);
     }
   }
 
@@ -179,9 +189,12 @@ class CronServiceImpl implements CronService {
     const url = owner ? `${this.endpoint}/list?owner=${owner}` : `${this.endpoint}/list`;
     const response = await fetch(url, {
       signal: AbortSignal.timeout(5000),
-    }).catch(() => null);
+    });
 
-    if (!response || !response.ok) return null;
+    if (!response.ok) {
+      console.error(`[Cron] remoteList failed: ${response.status}`);
+      return null;
+    }
     const data = await response.json() as { jobs: CronJob[] };
     return data.jobs;
   }
@@ -189,27 +202,38 @@ class CronServiceImpl implements CronService {
   private async remoteGet(jobId: string): Promise<CronJob | null> {
     const response = await fetch(`${this.endpoint}/get/${jobId}`, {
       signal: AbortSignal.timeout(5000),
-    }).catch(() => null);
+    });
 
-    if (!response || !response.ok) return null;
+    if (!response.ok) {
+      console.error(`[Cron] remoteGet failed: ${response.status}`);
+      return null;
+    }
     return await response.json() as CronJob;
   }
 
   private async checkHealth(): Promise<boolean> {
     const response = await fetch(`${this.endpoint}/health`, {
       signal: AbortSignal.timeout(2000),
-    }).catch(() => null);
-    return response?.ok ?? false;
+    });
+    return response.ok;
   }
 }
 
 let instance: CronService | null = null;
 
-export function createCronService(config: CronConfig = {}): CronService {
+export function createCronService(config: CronConfig): CronService {
   if (!instance) {
     instance = new CronServiceImpl(config);
   }
   return instance;
+}
+
+export function getCronServiceFromEnv(): CronService {
+  const endpoint = process.env.CRON_ENDPOINT;
+  if (!endpoint) {
+    throw new Error('CRON_ENDPOINT environment variable is required');
+  }
+  return createCronService({ endpoint });
 }
 
 export function resetCronService(): void {

@@ -4,6 +4,7 @@
  */
 
 import type { Address } from 'viem';
+import { expect, expectTrue } from '@/lib/validation';
 
 // ============ Types ============
 
@@ -106,7 +107,8 @@ export const CROSS_CHAIN_TOKENS: Record<number, Record<string, Address>> = {
  * Get quotes from OIF aggregator for a cross-chain swap
  */
 export async function getCrossChainQuotes(params: CreateIntentParams): Promise<CrossChainQuote[]> {
-  const response = await fetch(`${AGGREGATOR_URL}/api/intents/quote`, {
+  const validatedAggregatorUrl = expect(AGGREGATOR_URL, 'OIF aggregator URL not configured');
+  const response = await fetch(`${validatedAggregatorUrl}/api/intents/quote`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -118,9 +120,7 @@ export async function getCrossChainQuotes(params: CreateIntentParams): Promise<C
     }),
   });
 
-  if (!response.ok) {
-    throw new Error('Failed to fetch quotes');
-  }
+  expectTrue(response.ok, 'Failed to fetch quotes');
 
   return response.json();
 }

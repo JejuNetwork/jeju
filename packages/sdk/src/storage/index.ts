@@ -2,6 +2,8 @@
  * Storage Module - IPFS, multi-provider storage
  */
 
+import { z, type ZodSchema } from "zod";
+
 // Re-export enhanced storage module
 export {
   createEnhancedStorageModule,
@@ -24,13 +26,30 @@ export {
   // Encryption helpers
   encryptForStorage,
   decryptFromStorage,
-} from './enhanced';
+} from "./enhanced";
 
-// viem types used for type safety
 import { parseEther } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
 import { getServicesConfig } from "../config";
+import { generateAuthHeaders } from "../shared/api";
+import {
+  StorageStatsSchema,
+  PinInfoSchema,
+  UploadResultSchema,
+  PinsListSchema,
+} from "../shared/schemas";
+
+/**
+ * JSON value type - valid JSON-serializable values for uploadJson
+ */
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
 
 export type StorageTier = "hot" | "warm" | "cold" | "permanent";
 
@@ -70,7 +89,10 @@ export interface StorageModule {
     data: Uint8Array | Blob | File,
     options?: UploadOptions,
   ): Promise<UploadResult>;
-  uploadJson(data: object, options?: UploadOptions): Promise<UploadResult>;
+  uploadJson(
+    data: JsonValue | Record<string, JsonValue>,
+    options?: UploadOptions,
+  ): Promise<UploadResult>;
 
   // Pin management
   pin(cid: string, options?: UploadOptions): Promise<void>;
@@ -80,7 +102,13 @@ export interface StorageModule {
 
   // Retrieval
   retrieve(cid: string): Promise<Uint8Array>;
-  retrieveJson<T = unknown>(cid: string): Promise<T>;
+  /**
+   * Retrieve and validate JSON from storage using a Zod schema
+   * @param cid - Content identifier
+   * @param schema - Zod schema for validation
+   * @throws Error if validation fails
+   */
+  retrieveJson<T>(cid: string, schema: ZodSchema<T>): Promise<T>;
   getGatewayUrl(cid: string): string;
 
   // Cost estimation
@@ -107,16 +135,7 @@ export function createStorageModule(
   const gatewayUrl = services.storage.ipfsGateway;
 
   async function authHeaders(): Promise<Record<string, string>> {
-    const timestamp = Date.now().toString();
-    const message = `jeju-storage:${timestamp}`;
-    const signature = await wallet.signMessage(message);
-
-    return {
-      "Content-Type": "application/json",
-      "x-jeju-address": wallet.address,
-      "x-jeju-timestamp": timestamp,
-      "x-jeju-signature": signature,
-    };
+    return generateAuthHeaders(wallet, "jeju-storage");
   }
 
   async function getStats(): Promise<StorageStats> {
@@ -127,13 +146,8 @@ export function createStorageModule(
     if (!response.ok)
       throw new Error(`Failed to get stats: ${response.statusText}`);
 
-    const data = (await response.json()) as {
-      totalPins: number;
-      totalSizeBytes: number;
-      totalSizeGB: number;
-    };
-
-    return data;
+    const data: unknown = await response.json();
+    return StorageStatsSchema.parse(data);
   }
 
   async function upload(
@@ -160,7 +174,8 @@ export function createStorageModule(
 
     if (!response.ok) throw new Error(`Upload failed: ${response.statusText}`);
 
-    const result = (await response.json()) as { cid: string; size: number };
+    const rawData: unknown = await response.json();
+    const result = UploadResultSchema.parse(rawData);
 
     return {
       cid: result.cid,
@@ -170,7 +185,7 @@ export function createStorageModule(
   }
 
   async function uploadJson(
-    data: object,
+    data: JsonValue | Record<string, JsonValue>,
     options?: UploadOptions,
   ): Promise<UploadResult> {
     const json = JSON.stringify(data);
@@ -213,7 +228,8 @@ export function createStorageModule(
     if (!response.ok)
       throw new Error(`List pins failed: ${response.statusText}`);
 
-    const data = (await response.json()) as { results: PinInfo[] };
+    const rawData: unknown = await response.json();
+    const data = PinsListSchema.parse(rawData);
     return data.results;
   }
 
@@ -225,7 +241,8 @@ export function createStorageModule(
     if (!response.ok)
       throw new Error(`Get pin status failed: ${response.statusText}`);
 
-    return (await response.json()) as PinInfo;
+    const rawData: unknown = await response.json();
+    return PinInfoSchema.parse(rawData);
   }
 
   async function retrieve(cid: string): Promise<Uint8Array> {
@@ -235,11 +252,13 @@ export function createStorageModule(
     return new Uint8Array(await response.arrayBuffer());
   }
 
-  async function retrieveJson<T = unknown>(cid: string): Promise<T> {
+  async function retrieveJson<T>(cid: string, schema: ZodSchema<T>): Promise<T> {
     const response = await fetch(`${gatewayUrl}/ipfs/${cid}`);
-    if (!response.ok)
+    if (!response.ok) {
       throw new Error(`Retrieve failed: ${response.statusText}`);
-    return (await response.json()) as T;
+    }
+    const data: unknown = await response.json();
+    return schema.parse(data);
   }
 
   function getGatewayUrl(cid: string): string {

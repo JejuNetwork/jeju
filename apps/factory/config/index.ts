@@ -1,4 +1,5 @@
-export * from './wagmi';
+// NOTE: wagmi config is client-only - import directly from './wagmi' in client components
+// export * from './wagmi';  // Removed - causes server/client boundary issues in Next.js 16
 export * from './contracts';
 
 // ============ Jeju Internal Services ============

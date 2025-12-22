@@ -5,10 +5,7 @@
 import { type Address, type Hex, encodeFunctionData } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
-import {
-  getContract as getContractAddress,
-  getServicesConfig,
-} from "../config";
+import { requireContract, getServicesConfig } from "../config";
 
 export type SupportedChain =
   | "jeju"
@@ -105,97 +102,6 @@ export interface CrossChainModule {
   getChainId(chain: SupportedChain): number;
 }
 
-const _INPUT_SETTLER_ABI = [
-  {
-    name: "open",
-    type: "function",
-    stateMutability: "payable",
-    inputs: [
-      {
-        name: "order",
-        type: "tuple",
-        components: [
-          { name: "originSettler", type: "address" },
-          { name: "user", type: "address" },
-          { name: "nonce", type: "uint256" },
-          { name: "originChainId", type: "uint64" },
-          { name: "openDeadline", type: "uint32" },
-          { name: "fillDeadline", type: "uint32" },
-          { name: "orderDataType", type: "bytes32" },
-          { name: "orderData", type: "bytes" },
-        ],
-      },
-      { name: "signature", type: "bytes" },
-      { name: "originFillerData", type: "bytes" },
-    ],
-    outputs: [],
-  },
-  {
-    name: "resolve",
-    type: "function",
-    stateMutability: "view",
-    inputs: [
-      {
-        name: "order",
-        type: "tuple",
-        components: [
-          { name: "originSettler", type: "address" },
-          { name: "user", type: "address" },
-          { name: "nonce", type: "uint256" },
-          { name: "originChainId", type: "uint64" },
-          { name: "openDeadline", type: "uint32" },
-          { name: "fillDeadline", type: "uint32" },
-          { name: "orderDataType", type: "bytes32" },
-          { name: "orderData", type: "bytes" },
-        ],
-      },
-      { name: "originFillerData", type: "bytes" },
-    ],
-    outputs: [
-      {
-        name: "resolved",
-        type: "tuple",
-        components: [
-          { name: "user", type: "address" },
-          { name: "originChainId", type: "uint64" },
-          { name: "openDeadline", type: "uint32" },
-          { name: "fillDeadline", type: "uint32" },
-          { name: "orderId", type: "bytes32" },
-          {
-            name: "maxSpent",
-            type: "tuple[]",
-            components: [
-              { name: "token", type: "address" },
-              { name: "amount", type: "uint256" },
-              { name: "recipient", type: "address" },
-              { name: "chainId", type: "uint64" },
-            ],
-          },
-          {
-            name: "minReceived",
-            type: "tuple[]",
-            components: [
-              { name: "token", type: "address" },
-              { name: "amount", type: "uint256" },
-              { name: "recipient", type: "address" },
-              { name: "chainId", type: "uint64" },
-            ],
-          },
-          {
-            name: "fillInstructions",
-            type: "tuple[]",
-            components: [
-              { name: "destinationChainId", type: "uint64" },
-              { name: "destinationSettler", type: "address" },
-              { name: "originData", type: "bytes" },
-            ],
-          },
-        ],
-      },
-    ],
-  },
-] as const;
-
 const XLP_STAKE_MANAGER_ABI = [
   {
     name: "stake",
@@ -241,11 +147,7 @@ export function createCrossChainModule(
   wallet: JejuWallet,
   network: NetworkType,
 ): CrossChainModule {
-  const xlpStakeManagerAddress = getContractAddress(
-    "eil",
-    "l1StakeManager",
-    network,
-  ) as Address;
+  const xlpStakeManagerAddress = requireContract("eil", "l1StakeManager", network);
   const services = getServicesConfig(network);
 
   async function getQuote(params: TransferParams): Promise<CrossChainQuote> {
@@ -387,7 +289,9 @@ export function createCrossChainModule(
     const response = await fetch(
       `${services.oif.aggregator}/intents?user=${wallet.address}`,
     );
-    if (!response.ok) return [];
+    if (!response.ok) {
+      throw new Error(`Failed to list intents: ${response.statusText}`);
+    }
 
     const data = (await response.json()) as { intents: IntentStatus[] };
     return data.intents;
@@ -451,7 +355,9 @@ export function createCrossChainModule(
 
   async function listSolvers(): Promise<SolverInfo[]> {
     const response = await fetch(`${services.oif.aggregator}/solvers`);
-    if (!response.ok) return [];
+    if (!response.ok) {
+      throw new Error(`Failed to list solvers: ${response.statusText}`);
+    }
 
     const data = (await response.json()) as { solvers: SolverInfo[] };
     return data.solvers;

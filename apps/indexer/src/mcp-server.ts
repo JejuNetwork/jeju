@@ -6,6 +6,37 @@
 
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { validateBody, mcpResourceReadSchema, mcpToolCallSchema, mcpPromptGetSchema, validateOrThrow, analyzeTransactionPromptArgsSchema, summarizeAgentActivityPromptArgsSchema, explainProposalPromptArgsSchema } from './lib/validation';
+import { BadRequestError, NotFoundError } from './lib/types';
+import { addressSchema, hashSchema, blockNumberSchema } from './lib/validation';
+import { z } from 'zod';
+import {
+  buildBlockQuery,
+  buildTransactionQuery,
+  buildAccountQuery,
+  buildTokenBalancesQuery,
+  buildAgentQuery,
+  buildAgentsQuery,
+  buildLogsQuery,
+  buildIntentQuery,
+  buildProposalQuery,
+} from './lib/graphql-utils';
+
+interface MCPResourceContents {
+  note: string;
+  query: string;
+}
+
+interface MCPToolResult {
+  endpoint?: string;
+  method?: string;
+  body?: {
+    query: string;
+    variables?: Record<string, unknown>;
+  };
+  query?: string;
+  error?: string;
+}
 
 // ============================================================================
 // Configuration
@@ -198,8 +229,9 @@ export function createIndexerMCPServer(): Hono {
   });
 
   app.post('/resources/read', async (c) => {
-    const { uri } = await c.req.json() as { uri: string };
-    let contents: unknown;
+    const body = await c.req.json();
+    const { uri } = validateBody(mcpResourceReadSchema, body, 'MCP POST /resources/read');
+    let contents: MCPResourceContents;
 
     switch (uri) {
       case 'indexer://blocks/latest':
@@ -245,7 +277,7 @@ export function createIndexerMCPServer(): Hono {
         break;
 
       default:
-        return c.json({ error: 'Resource not found' }, 404);
+        throw new NotFoundError('MCP Resource', uri);
     }
 
     return c.json({
@@ -263,79 +295,135 @@ export function createIndexerMCPServer(): Hono {
   });
 
   app.post('/tools/call', async (c) => {
-    const { name, arguments: args } = await c.req.json() as { name: string; arguments: Record<string, unknown> };
-    let result: unknown;
+    const body = await c.req.json();
+    const { name, arguments: args } = validateBody(mcpToolCallSchema, body, 'MCP POST /tools/call');
+    let result: MCPToolResult;
     let isError = false;
 
     switch (name) {
-      case 'query_graphql':
+      case 'query_graphql': {
+        if (typeof args.query !== 'string' || !args.query) {
+          throw new BadRequestError('query is required and must be a non-empty string');
+        }
+        const variables = args.variables && typeof args.variables === 'object' && !Array.isArray(args.variables)
+          ? args.variables as Record<string, unknown>
+          : undefined;
         result = {
           endpoint: '/graphql',
           method: 'POST',
           body: {
             query: args.query,
-            variables: args.variables,
+            variables,
           },
         };
         break;
+      }
 
-      case 'get_block':
-        result = {
-          query: `query { blocks(where: { number_eq: ${args.blockNumber} }, limit: 1) { number hash timestamp gasUsed } }`,
-        };
+      case 'get_block': {
+        const blockNumber = typeof args.blockNumber === 'number' ? args.blockNumber : undefined;
+        const blockHash = typeof args.blockHash === 'string' ? args.blockHash : undefined;
+        if (!blockNumber && !blockHash) {
+          throw new BadRequestError('Either blockNumber or blockHash must be provided');
+        }
+        if (blockNumber) {
+          validateOrThrow(blockNumberSchema, blockNumber, 'MCP tool get_block blockNumber');
+        }
+        if (blockHash) {
+          validateOrThrow(hashSchema, blockHash, 'MCP tool get_block blockHash');
+        }
+        const query = buildBlockQuery(blockNumber, blockHash);
+        result = { query: query.query };
         break;
+      }
 
-      case 'get_transaction':
-        result = {
-          query: `query { transactions(where: { hash_eq: "${args.hash}" }, limit: 1) { hash from to value status } }`,
-        };
+      case 'get_transaction': {
+        if (typeof args.hash !== 'string') {
+          throw new BadRequestError('hash is required and must be a string');
+        }
+        validateOrThrow(hashSchema, args.hash, 'MCP tool get_transaction hash');
+        const query = buildTransactionQuery(args.hash);
+        result = { query: query.query };
         break;
+      }
 
-      case 'get_account':
-        result = {
-          query: `query { accounts(where: { id_eq: "${(args.address as string).toLowerCase()}" }, limit: 1) { id balance transactionCount } }`,
-        };
+      case 'get_account': {
+        if (typeof args.address !== 'string') {
+          throw new BadRequestError('address is required and must be a string');
+        }
+        validateOrThrow(addressSchema, args.address, 'MCP tool get_account address');
+        const query = buildAccountQuery(args.address);
+        result = { query: query.query };
         break;
+      }
 
-      case 'get_token_balances':
-        result = {
-          query: `query { tokenBalances(where: { account_eq: "${(args.address as string).toLowerCase()}", balance_gt: "0" }) { token { symbol } balance } }`,
-        };
+      case 'get_token_balances': {
+        if (typeof args.address !== 'string') {
+          throw new BadRequestError('address is required and must be a string');
+        }
+        validateOrThrow(addressSchema, args.address, 'MCP tool get_token_balances address');
+        const query = buildTokenBalancesQuery(args.address);
+        result = { query: query.query };
         break;
+      }
 
-      case 'get_agent':
-        result = {
-          query: `query { registeredAgents(where: { agentId_eq: "${args.agentId}" }, limit: 1) { agentId name role isActive a2aEndpoint } }`,
-        };
+      case 'get_agent': {
+        if (typeof args.agentId !== 'string' && typeof args.agentId !== 'number') {
+          throw new BadRequestError('agentId is required and must be a string or number');
+        }
+        const query = buildAgentQuery(args.agentId);
+        result = { query: query.query };
         break;
+      }
 
-      case 'search_agents':
-        result = {
-          query: `query { registeredAgents(where: { role_eq: "${args.role ?? ''}", isActive_eq: ${args.active ?? true} }, limit: ${args.limit ?? 50}) { agentId name role } }`,
-        };
+      case 'search_agents': {
+        const role = typeof args.role === 'string' ? args.role : undefined;
+        const active = typeof args.active === 'boolean' ? args.active : true;
+        const limit = typeof args.limit === 'number' ? args.limit : 50;
+        const query = buildAgentsQuery({ role, active, limit });
+        result = { query: query.query };
         break;
+      }
 
-      case 'get_intent':
-        result = {
-          query: `query { oifIntents(where: { intentId_eq: "${args.intentId}" }, limit: 1) { intentId sender sourceChain destinationChain amount status } }`,
-        };
+      case 'get_intent': {
+        if (typeof args.intentId !== 'string' || !args.intentId) {
+          throw new BadRequestError('intentId is required and must be a non-empty string');
+        }
+        const query = buildIntentQuery(args.intentId);
+        result = { query: query.query };
         break;
+      }
 
-      case 'get_proposal':
-        result = {
-          query: `query { councilProposals(where: { proposalId_eq: "${args.proposalId}" }, limit: 1) { proposalId title description status votesFor votesAgainst } }`,
-        };
+      case 'get_proposal': {
+        if (typeof args.proposalId !== 'string' || !args.proposalId) {
+          throw new BadRequestError('proposalId is required and must be a non-empty string');
+        }
+        const query = buildProposalQuery(args.proposalId);
+        result = { query: query.query };
         break;
+      }
 
-      case 'get_contract_events':
-        result = {
-          query: `query { logs(where: { address_eq: "${(args.address as string).toLowerCase()}" }, limit: ${args.limit ?? 100}, orderBy: block_number_DESC) { topics data blockNumber } }`,
-        };
+      case 'get_contract_events': {
+        if (typeof args.address !== 'string') {
+          throw new BadRequestError('address is required and must be a string');
+        }
+        validateOrThrow(addressSchema, args.address, 'MCP tool get_contract_events address');
+        const limit = typeof args.limit === 'number' ? args.limit : 100;
+        const eventName = typeof args.eventName === 'string' ? args.eventName : undefined;
+        const fromBlock = typeof args.fromBlock === 'number' ? args.fromBlock : undefined;
+        const toBlock = typeof args.toBlock === 'number' ? args.toBlock : undefined;
+        const query = buildLogsQuery({
+          address: args.address,
+          topic0: eventName,
+          fromBlock,
+          toBlock,
+          limit,
+        });
+        result = { query: query.query };
         break;
+      }
 
       default:
-        result = { error: 'Tool not found' };
-        isError = true;
+        throw new BadRequestError(`Unknown tool: ${name}. Available tools: ${TOOLS.map(t => t.name).join(', ')}`);
     }
 
     return c.json({
@@ -350,31 +438,35 @@ export function createIndexerMCPServer(): Hono {
   });
 
   app.post('/prompts/get', async (c) => {
-    const { name, arguments: args } = await c.req.json() as { name: string; arguments: Record<string, string> };
+    const body = await c.req.json();
+    const { name, arguments: args } = validateBody(mcpPromptGetSchema, body, 'MCP POST /prompts/get');
 
     let messages: Array<{ role: string; content: { type: string; text: string } }> = [];
 
     switch (name) {
-      case 'analyze_transaction':
+      case 'analyze_transaction': {
+        const validated = validateOrThrow(analyzeTransactionPromptArgsSchema, args, 'MCP prompt analyze_transaction');
         messages = [{
           role: 'user',
           content: {
             type: 'text',
             text: `Analyze the following transaction in detail. Explain what it does, the contracts involved, and any notable patterns.
 
-Transaction Hash: ${args.hash}
+Transaction Hash: ${validated.hash}
 
 Please query the transaction data using the indexer tools and provide a comprehensive analysis.`,
           },
         }];
         break;
+      }
 
-      case 'summarize_agent_activity':
+      case 'summarize_agent_activity': {
+        const validated = validateOrThrow(summarizeAgentActivityPromptArgsSchema, args, 'MCP prompt summarize_agent_activity');
         messages = [{
           role: 'user',
           content: {
             type: 'text',
-            text: `Summarize the on-chain activity for agent ID ${args.agentId} over the past ${args.days ?? 30} days.
+            text: `Summarize the on-chain activity for agent ID ${validated.agentId} over the past ${validated.days} days.
 
 Include:
 - Transaction count and volume
@@ -384,13 +476,15 @@ Include:
           },
         }];
         break;
+      }
 
-      case 'explain_proposal':
+      case 'explain_proposal': {
+        const validated = validateOrThrow(explainProposalPromptArgsSchema, args, 'MCP prompt explain_proposal');
         messages = [{
           role: 'user',
           content: {
             type: 'text',
-            text: `Explain governance proposal ${args.proposalId} in simple terms.
+            text: `Explain governance proposal ${validated.proposalId} in simple terms.
 
 Include:
 - What the proposal aims to change
@@ -400,9 +494,10 @@ Include:
           },
         }];
         break;
+      }
 
       default:
-        return c.json({ error: 'Prompt not found' }, 404);
+        throw new NotFoundError('MCP Prompt', name);
     }
 
     return c.json({ messages });

@@ -19,32 +19,12 @@ import type {
   GasEstimate,
   GasServiceConfig,
 } from '../types';
-
-// Token payment ABI (partial)
-const GAS_TOKEN_ABI = [
-  {
-    name: 'getGasTokens',
-    type: 'function',
-    inputs: [],
-    outputs: [{ name: '', type: 'address[]' }],
-  },
-  {
-    name: 'getTokenPrice',
-    type: 'function',
-    inputs: [{ name: 'token', type: 'address' }],
-    outputs: [{ name: 'price', type: 'uint256' }],
-  },
-  {
-    name: 'calculateGasCost',
-    type: 'function',
-    inputs: [
-      { name: 'gasToken', type: 'address' },
-      { name: 'gasUsed', type: 'uint256' },
-      { name: 'gasPrice', type: 'uint256' },
-    ],
-    outputs: [{ name: 'tokenAmount', type: 'uint256' }],
-  },
-] as const;
+import {
+  expectAddress,
+  expectHex,
+  expectChainId,
+  expectBigInt,
+} from '../../lib/validation';
 
 export class GasService {
   static readonly serviceType = 'jeju-gas';
@@ -113,6 +93,7 @@ export class GasService {
    * Get current gas price for a chain
    */
   async getGasPrice(chainId: number): Promise<GasEstimate> {
+    expectChainId(chainId, 'chainId');
     const cached = this.gasPriceCache.get(chainId);
     if (cached && Date.now() - cached.timestamp < this.GAS_CACHE_TTL) {
       return this.buildGasEstimate(cached.price, chainId);
@@ -148,7 +129,9 @@ export class GasService {
    * Get available gas payment options
    */
   async getGasOptions(chainId: number, userAddress?: Address): Promise<GasOption[]> {
-    const publicClient = this.getPublicClient(chainId);
+    expectChainId(chainId, 'chainId');
+    if (userAddress) expectAddress(userAddress, 'userAddress');
+
     const gasEstimate = await this.getGasPrice(chainId);
     
     const options: GasOption[] = [
@@ -207,6 +190,11 @@ export class GasService {
     gasUsed: bigint,
     gasPrice: bigint
   ): Promise<bigint> {
+    expectChainId(chainId, 'chainId');
+    expectAddress(gasToken, 'gasToken');
+    expectBigInt(gasUsed, 'gasUsed');
+    expectBigInt(gasPrice, 'gasPrice');
+
     // Native gas cost
     const nativeGasCost = gasUsed * gasPrice;
     
@@ -242,6 +230,10 @@ export class GasService {
       preVerificationGas: bigint;
     };
   }): Promise<Hex> {
+    expectChainId(options.chainId, 'chainId');
+    expectAddress(options.gasToken, 'gasToken');
+    expectBigInt(options.maxTokenAmount, 'maxTokenAmount');
+
     const paymasterAddress = this.paymasterAddresses.get(options.chainId);
     if (!paymasterAddress || paymasterAddress === '0x0000000000000000000000000000000000000000') {
       throw new Error(`No paymaster configured for chain ${options.chainId}`);
@@ -274,6 +266,11 @@ export class GasService {
     requiredAmount: bigint;
     deficit?: bigint;
   }> {
+    expectChainId(options.chainId, 'chainId');
+    expectAddress(options.userAddress, 'userAddress');
+    if (options.gasToken) expectAddress(options.gasToken, 'gasToken');
+    if (options.estimatedGas) expectBigInt(options.estimatedGas, 'estimatedGas');
+
     const publicClient = this.getPublicClient(options.chainId);
     const gasEstimate = await this.getGasPrice(options.chainId);
     const gasUsed = options.estimatedGas || BigInt(100000);
@@ -320,6 +317,10 @@ export class GasService {
     userAddress: Address,
     estimatedGas?: bigint
   ): Promise<GasOption | null> {
+    expectChainId(chainId, 'chainId');
+    expectAddress(userAddress, 'userAddress');
+    if (estimatedGas) expectBigInt(estimatedGas, 'estimatedGas');
+
     const options = await this.getGasOptions(chainId, userAddress);
     
     for (const option of options) {
@@ -348,6 +349,12 @@ export class GasService {
     data?: Hex;
     from?: Address;
   }): Promise<bigint> {
+    expectChainId(options.chainId, 'chainId');
+    expectAddress(options.to, 'to');
+    if (options.value) expectBigInt(options.value, 'value');
+    if (options.data) expectHex(options.data, 'data');
+    if (options.from) expectAddress(options.from, 'from');
+
     const publicClient = this.getPublicClient(options.chainId);
     
     const estimate = await publicClient.estimateGas({

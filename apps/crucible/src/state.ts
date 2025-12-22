@@ -17,8 +17,34 @@ import type {
   TradingBotState,
   OrgToolState,
 } from "./types";
+import { expect, AgentDefinitionSchema, AgentStateSchema, RoomStateSchema, TradingBotStrategyArraySchema, TradingBotChainArraySchema, StringArraySchema, RoomMemberArraySchema, RoomSchema, RoomConfigSchema, ExecutionOutputSchema, ExecutionCostSchema, ExecutionMetadataSchema, ExecutionResultSchema, parseOrThrow } from "./schemas";
+import type { TradingBotStrategy, TradingBotChain, RoomMember } from "./types";
+import { createLogger } from "./sdk/logger";
 
-const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? "crucible";
+const log = createLogger('State');
+
+const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID;
+
+function getCQLDatabaseId(): string {
+  if (!CQL_DATABASE_ID) {
+    throw new Error('CQL_DATABASE_ID environment variable is required for Crucible state management');
+  }
+  return CQL_DATABASE_ID;
+}
+
+/**
+ * Parse JSON field from database with explicit validation
+ * Throws if the field is empty string (which is invalid JSON)
+ */
+function parseJsonField<T>(value: string | null, defaultForNull: T): T {
+  if (value === null) {
+    return defaultForNull;
+  }
+  if (value === '') {
+    throw new Error('Invalid JSON field: empty string is not valid JSON');
+  }
+  return JSON.parse(value) as T;
+}
 
 // CQL Client
 let cqlClient: CQLClient | null = null;
@@ -28,8 +54,9 @@ let initialized = false;
 async function getCQLClient(): Promise<CQLClient> {
   if (!cqlClient) {
     // CQL URL is automatically resolved from network config
+    const databaseId = getCQLDatabaseId();
     cqlClient = getCQL({
-      databaseId: CQL_DATABASE_ID,
+      databaseId,
       timeout: 30000,
       debug: process.env.NODE_ENV !== 'production',
     });
@@ -149,15 +176,17 @@ async function ensureTablesExist(): Promise<void> {
     `CREATE INDEX IF NOT EXISTS idx_org_states_org ON org_tool_states(org_id)`,
   ];
 
+  const databaseId = getCQLDatabaseId();
   for (const ddl of tables) {
-    await cqlClient!.exec(ddl, [], CQL_DATABASE_ID);
+    await cqlClient!.exec(ddl, [], databaseId);
   }
 
   for (const idx of indexes) {
-    await cqlClient!.exec(idx, [], CQL_DATABASE_ID).catch(() => {});
+    const databaseId = getCQLDatabaseId();
+    await cqlClient!.exec(idx, [], databaseId);
   }
 
-  console.log("[Crucible] CovenantSQL tables ensured");
+  log.info('CovenantSQL tables ensured');
 }
 
 // Agent operations
@@ -179,44 +208,48 @@ export const agentState = {
         JSON.stringify(agent.chains ?? []), agent.treasuryAddress ?? null,
         agent.orgId ?? null, JSON.stringify(agent.capabilities ?? []),
       ],
-      CQL_DATABASE_ID
+      getCQLDatabaseId()
     );
     await getCache().delete(`agent:${id}`);
   },
 
   async get(agentId: string): Promise<AgentDefinition | null> {
+    expect(agentId, 'Agent ID is required');
     const cache = getCache();
-    const cached = await cache.get(`agent:${agentId}`).catch(() => null);
-    if (cached) return JSON.parse(cached) as AgentDefinition;
+    const cached = await cache.get(`agent:${agentId}`);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      return AgentDefinitionSchema.parse(parsed) as AgentDefinition;
+    }
 
     const client = await getCQLClient();
     const result = await client.query<Record<string, unknown>>(
       `SELECT * FROM agents WHERE agent_id = ?`,
       [agentId],
-      CQL_DATABASE_ID
+      getCQLDatabaseId()
     );
     const row = result.rows[0];
     if (row) {
-      const agent: AgentDefinition = {
-        agentId: BigInt(row.agent_id as string),
-        owner: row.owner as `0x${string}`,
+      const parsed = AgentDefinitionSchema.parse({
+        agentId: row.agent_id as string,
+        owner: row.owner as string,
         name: row.name as string,
-        botType: row.bot_type as AgentDefinition["botType"],
+        botType: row.bot_type as string,
         characterCid: row.character_cid as string | undefined,
         stateCid: row.state_cid as string,
-        vaultAddress: row.vault_address as `0x${string}`,
+        vaultAddress: row.vault_address as string,
         active: (row.active as number) === 1,
         registeredAt: row.registered_at as number,
         lastExecutedAt: row.last_executed_at as number,
         executionCount: row.execution_count as number,
-        strategies: JSON.parse((row.strategies as string) || "[]"),
-        chains: JSON.parse((row.chains as string) || "[]"),
-        treasuryAddress: row.treasury_address as `0x${string}` | undefined,
+        strategies: parseJsonField(row.strategies as string | null, []),
+        chains: parseJsonField(row.chains as string | null, []),
+        treasuryAddress: row.treasury_address as string | undefined,
         orgId: row.org_id as string | undefined,
-        capabilities: JSON.parse((row.capabilities as string) || "[]"),
-      };
-      await cache.set(`agent:${agentId}`, JSON.stringify(agent), 300);
-      return agent;
+        capabilities: parseJsonField(row.capabilities as string | null, []),
+      });
+      await cache.set(`agent:${agentId}`, JSON.stringify(parsed), 300);
+      return parsed as AgentDefinition;
     }
     return null;
   },
@@ -243,7 +276,7 @@ export const agentState = {
     const result = await client.query<Record<string, unknown>>(
       `SELECT * FROM agents ${where} ORDER BY registered_at DESC LIMIT 100`,
       params,
-      CQL_DATABASE_ID
+      getCQLDatabaseId()
     );
     return result.rows.map((row) => ({
       agentId: BigInt(row.agent_id as string),
@@ -276,38 +309,42 @@ export const roomState = {
         JSON.stringify(room.members), room.roomType, JSON.stringify(room.config),
         room.active ? 1 : 0, room.createdAt,
       ],
-      CQL_DATABASE_ID
+      getCQLDatabaseId()
     );
     await getCache().delete(`room:${id}`);
   },
 
   async get(roomId: string): Promise<Room | null> {
+    expect(roomId, 'Room ID is required');
     const cache = getCache();
-    const cached = await cache.get(`room:${roomId}`).catch(() => null);
-    if (cached) return JSON.parse(cached) as Room;
+    const cached = await cache.get(`room:${roomId}`);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      return RoomSchema.parse(parsed);
+    }
 
     const client = await getCQLClient();
     const result = await client.query<Record<string, unknown>>(
       `SELECT * FROM rooms WHERE room_id = ?`,
       [roomId],
-      CQL_DATABASE_ID
+      getCQLDatabaseId()
     );
     const row = result.rows[0];
     if (row) {
-      const room: Room = {
-        roomId: BigInt(row.room_id as string),
+      const parsed = RoomSchema.parse({
+        roomId: row.room_id as string,
         name: row.name as string,
         description: row.description as string,
-        owner: row.owner as `0x${string}`,
+        owner: row.owner as string,
         stateCid: row.state_cid as string,
-        members: JSON.parse((row.members as string) || "[]"),
-        roomType: row.room_type as Room["roomType"],
-        config: JSON.parse((row.config as string) || "{}"),
+        members: parseJsonField(row.members as string | null, []),
+        roomType: row.room_type as string,
+        config: parseJsonField(row.config as string | null, {}),
         active: (row.active as number) === 1,
         createdAt: row.created_at as number,
-      };
-      await cache.set(`room:${roomId}`, JSON.stringify(room), 300);
-      return room;
+      });
+      await cache.set(`room:${roomId}`, JSON.stringify(parsed), 300);
+      return parsed;
     }
     return null;
   },
@@ -330,20 +367,23 @@ export const roomState = {
     const result = await client.query<Record<string, unknown>>(
       `SELECT * FROM rooms ${where} ORDER BY created_at DESC LIMIT 100`,
       params,
-      CQL_DATABASE_ID
+      getCQLDatabaseId()
     );
-    return result.rows.map((row) => ({
-      roomId: BigInt(row.room_id as string),
-      name: row.name as string,
-      description: row.description as string,
-      owner: row.owner as `0x${string}`,
-      stateCid: row.state_cid as string,
-      members: JSON.parse((row.members as string) || "[]"),
-      roomType: row.room_type as Room["roomType"],
-      config: JSON.parse((row.config as string) || "{}"),
-      active: (row.active as number) === 1,
-      createdAt: row.created_at as number,
-    }));
+    return result.rows.map((row) => {
+      const parsed = RoomSchema.parse({
+        roomId: row.room_id as string,
+        name: row.name as string,
+        description: row.description as string,
+        owner: row.owner as string,
+        stateCid: row.state_cid as string,
+        members: parseJsonField(row.members as string | null, []),
+        roomType: row.room_type as string,
+        config: parseJsonField(row.config as string | null, {}),
+        active: (row.active as number) === 1,
+        createdAt: row.created_at as number,
+      });
+      return parsed as Room;
+    });
   },
 };
 
@@ -364,7 +404,7 @@ export const executionState = {
         JSON.stringify(execution.metadata),
         execution.metadata.startedAt,
       ],
-      CQL_DATABASE_ID
+      getCQLDatabaseId()
     );
   },
 
@@ -373,17 +413,24 @@ export const executionState = {
     const result = await client.query<Record<string, unknown>>(
       `SELECT * FROM executions WHERE agent_id = ? ORDER BY created_at DESC LIMIT ?`,
       [agentId, limit],
-      CQL_DATABASE_ID
+      getCQLDatabaseId()
     );
-    return result.rows.map((row) => ({
-      executionId: row.id as string,
-      agentId: BigInt(row.agent_id as string),
-      status: row.status as ExecutionResult["status"],
-      output: JSON.parse((row.output as string) || "null"),
-      newStateCid: row.new_state_cid as string | undefined,
-      cost: JSON.parse((row.cost as string) || "{}"),
-      metadata: JSON.parse((row.metadata as string) || "{}"),
-    }));
+    return result.rows.map((row) => {
+      const outputRaw = parseJsonField(row.output as string | null, null);
+      const costRaw = parseJsonField(row.cost as string | null, {});
+      const metadataRaw = parseJsonField(row.metadata as string | null, {});
+      
+      const parsed = ExecutionResultSchema.parse({
+        executionId: expect(row.id as string, 'Execution ID is required'),
+        agentId: expect(row.agent_id as string, 'Agent ID is required'),
+        status: expect(row.status as ExecutionResult["status"], 'Status is required'),
+        output: outputRaw,
+        newStateCid: row.new_state_cid as string | undefined,
+        cost: costRaw,
+        metadata: metadataRaw,
+      });
+      return parsed as ExecutionResult;
+    });
   },
 };
 
@@ -392,7 +439,7 @@ export async function initializeState(): Promise<void> {
   if (initialized) return;
   await getCQLClient();
   initialized = true;
-  console.log("[Crucible] Decentralized state initialized");
+  log.info('Decentralized state initialized');
 }
 
 // Get state mode - always "covenantql" in production

@@ -5,17 +5,12 @@
  */
 
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
-import { keccak256, stringToBytes, stringToHex } from 'viem';
-import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
+import { keccak256, stringToBytes } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 
 const TEST_PORT = 4199;
 const TEST_API_KEY = 'test-api-key-12345';
 const TEST_PRIVATE_KEY = '0x' + '1'.repeat(64);
-
-interface SignerService {
-  start: () => Promise<void>;
-  stop: () => void;
-}
 
 let server: ReturnType<typeof Bun.serve> | null = null;
 

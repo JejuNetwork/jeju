@@ -13,6 +13,8 @@ import type {
 } from '../../workers/types';
 import type { BackendManager } from '../../storage/backends';
 import type { Address } from 'viem';
+import { validateBody, validateParams, validateQuery, validateHeaders, jejuAddressHeaderSchema, contentTypeHeaderSchema, z } from '../../shared';
+import { deployWorkerRequestSchema, workerParamsSchema, workerListQuerySchema, invokeWorkerRequestSchema, workerInvocationParamsSchema } from '../../shared/schemas/workers';
 
 export function createWorkersRouter(backend: BackendManager): Hono {
   const router = new Hono();
@@ -34,12 +36,8 @@ export function createWorkersRouter(backend: BackendManager): Hono {
 
   // Deploy function
   router.post('/', async (c) => {
-    const owner = c.req.header('x-jeju-address') as Address;
-    if (!owner) {
-      return c.json({ error: 'Missing x-jeju-address header' }, 401);
-    }
-
-    const contentType = c.req.header('content-type') ?? '';
+    const { 'x-jeju-address': owner } = validateHeaders(jejuAddressHeaderSchema, c);
+    const { 'content-type': contentType } = validateHeaders(contentTypeHeaderSchema, c);
     let params: DeployParams;
 
     if (contentType.includes('multipart/form-data')) {
@@ -59,17 +57,19 @@ export function createWorkersRouter(backend: BackendManager): Hono {
         env: JSON.parse(formData.get('env') as string || '{}'),
       };
     } else {
-      const body = await c.req.json<DeployParams>();
+      const body = await validateBody(deployWorkerRequestSchema, c);
       params = {
         ...body,
         code: typeof body.code === 'string' 
           ? Buffer.from(body.code, 'base64')
-          : body.code,
+          : body.code instanceof ArrayBuffer
+            ? Buffer.from(body.code)
+            : body.code ?? Buffer.alloc(0),
       };
     }
 
     if (!params.name) {
-      return c.json({ error: 'Function name required' }, 400);
+      throw new Error('Function name required');
     }
 
     // Upload code to storage
@@ -135,10 +135,11 @@ export function createWorkersRouter(backend: BackendManager): Hono {
   });
 
   // Get function
-  router.get('/:id', (c) => {
-    const fn = runtime.getFunction(c.req.param('id'));
+  router.get('/:functionId', (c) => {
+    const { functionId } = validateParams(workerParamsSchema, c);
+    const fn = runtime.getFunction(functionId);
     if (!fn) {
-      return c.json({ error: 'Function not found' }, 404);
+      throw new Error('Function not found');
     }
 
     return c.json({
@@ -148,19 +149,20 @@ export function createWorkersRouter(backend: BackendManager): Hono {
   });
 
   // Update function
-  router.put('/:id', async (c) => {
-    const owner = c.req.header('x-jeju-address') as Address;
-    const fn = runtime.getFunction(c.req.param('id'));
+  router.put('/:functionId', async (c) => {
+    const { 'x-jeju-address': owner } = validateHeaders(jejuAddressHeaderSchema, c);
+    const { functionId } = validateParams(workerParamsSchema, c);
+    const fn = runtime.getFunction(functionId);
     
     if (!fn) {
-      return c.json({ error: 'Function not found' }, 404);
+      throw new Error('Function not found');
     }
 
-    if (fn.owner.toLowerCase() !== owner?.toLowerCase()) {
-      return c.json({ error: 'Not authorized' }, 403);
+    if (fn.owner.toLowerCase() !== owner.toLowerCase()) {
+      throw new Error('Not authorized');
     }
 
-    const updates = await c.req.json<Partial<DeployParams>>();
+    const updates = await validateBody(deployWorkerRequestSchema.partial(), c);
 
     // If code is updated, upload new version
     if (updates.code) {
@@ -190,16 +192,17 @@ export function createWorkersRouter(backend: BackendManager): Hono {
   });
 
   // Delete function
-  router.delete('/:id', async (c) => {
-    const owner = c.req.header('x-jeju-address') as Address;
-    const fn = runtime.getFunction(c.req.param('id'));
+  router.delete('/:functionId', async (c) => {
+    const { 'x-jeju-address': owner } = validateHeaders(jejuAddressHeaderSchema, c);
+    const { functionId } = validateParams(workerParamsSchema, c);
+    const fn = runtime.getFunction(functionId);
     
     if (!fn) {
-      return c.json({ error: 'Function not found' }, 404);
+      throw new Error('Function not found');
     }
 
-    if (fn.owner.toLowerCase() !== owner?.toLowerCase()) {
-      return c.json({ error: 'Not authorized' }, 403);
+    if (fn.owner.toLowerCase() !== owner.toLowerCase()) {
+      throw new Error('Not authorized');
     }
 
     await runtime.undeployFunction(fn.id);
@@ -211,37 +214,33 @@ export function createWorkersRouter(backend: BackendManager): Hono {
   // ============================================================================
 
   // Synchronous invocation
-  router.post('/:id/invoke', async (c) => {
-    const fn = runtime.getFunction(c.req.param('id'));
+  router.post('/:functionId/invoke', async (c) => {
+    const { functionId } = validateParams(workerParamsSchema, c);
+    const fn = runtime.getFunction(functionId);
     if (!fn) {
-      return c.json({ error: 'Function not found' }, 404);
+      throw new Error('Function not found');
     }
 
-    const payload = await c.req.json().catch(() => ({}));
+    const { payload } = await validateBody(invokeWorkerRequestSchema, c);
 
-    try {
-      const result = await runtime.invoke({
-        functionId: fn.id,
-        payload,
-        type: 'sync',
-      });
+    const result = await runtime.invoke({
+      functionId: fn.id,
+      payload,
+      type: 'sync',
+    });
 
-      return c.json(result);
-    } catch (error) {
-      return c.json({
-        error: error instanceof Error ? error.message : 'Invocation failed',
-      }, 500);
-    }
+    return c.json(result);
   });
 
   // Async invocation (fire and forget)
-  router.post('/:id/invoke-async', async (c) => {
-    const fn = runtime.getFunction(c.req.param('id'));
+  router.post('/:functionId/invoke-async', async (c) => {
+    const { functionId } = validateParams(workerParamsSchema, c);
+    const fn = runtime.getFunction(functionId);
     if (!fn) {
-      return c.json({ error: 'Function not found' }, 404);
+      throw new Error('Function not found');
     }
 
-    const payload = await c.req.json().catch(() => ({}));
+    const { payload } = await validateBody(invokeWorkerRequestSchema, c);
 
     // Start invocation but don't wait
     runtime.invoke({
@@ -257,10 +256,11 @@ export function createWorkersRouter(backend: BackendManager): Hono {
   });
 
   // HTTP handler (for web functions)
-  router.all('/:id/http/*', async (c) => {
-    const fn = runtime.getFunction(c.req.param('id'));
+  router.all('/:functionId/http/*', async (c) => {
+    const { functionId } = validateParams(workerParamsSchema, c);
+    const fn = runtime.getFunction(functionId);
     if (!fn) {
-      return c.json({ error: 'Function not found' }, 404);
+      throw new Error('Function not found');
     }
 
     const url = new URL(c.req.url);
@@ -276,32 +276,29 @@ export function createWorkersRouter(backend: BackendManager): Hono {
         : null,
     };
 
-    try {
-      const response = await runtime.invokeHTTP(fn.id, event);
+    const response = await runtime.invokeHTTP(fn.id, event);
 
-      return new Response(response.body, {
-        status: response.statusCode,
-        headers: response.headers,
-      });
-    } catch (error) {
-      return c.json({
-        error: error instanceof Error ? error.message : 'Invocation failed',
-      }, 500);
-    }
+    return new Response(response.body, {
+      status: response.statusCode,
+      headers: response.headers,
+    });
   });
 
   // ============================================================================
   // Logs and Metrics
   // ============================================================================
 
-  router.get('/:id/logs', (c) => {
-    const fn = runtime.getFunction(c.req.param('id'));
+  router.get('/:functionId/logs', (c) => {
+    const { functionId } = validateParams(workerParamsSchema, c);
+    const fn = runtime.getFunction(functionId);
     if (!fn) {
-      return c.json({ error: 'Function not found' }, 404);
+      throw new Error('Function not found');
     }
 
-    const limit = parseInt(c.req.query('limit') ?? '100');
-    const since = parseInt(c.req.query('since') ?? '0');
+    const { limit, since } = validateQuery(z.object({
+      limit: z.coerce.number().int().positive().max(1000).default(100),
+      since: z.coerce.number().int().nonnegative().default(0),
+    }), c);
     
     const logs = runtime.getLogs(fn.id, { limit, since });
     
@@ -312,10 +309,11 @@ export function createWorkersRouter(backend: BackendManager): Hono {
     });
   });
 
-  router.get('/:id/metrics', (c) => {
-    const fn = runtime.getFunction(c.req.param('id'));
+  router.get('/:functionId/metrics', (c) => {
+    const { functionId } = validateParams(workerParamsSchema, c);
+    const fn = runtime.getFunction(functionId);
     if (!fn) {
-      return c.json({ error: 'Function not found' }, 404);
+      throw new Error('Function not found');
     }
 
     return c.json(runtime.getMetrics(fn.id));

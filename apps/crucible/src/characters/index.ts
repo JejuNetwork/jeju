@@ -39,7 +39,8 @@ export const characters: Record<string, AgentCharacter> = {
  * Get character by ID
  */
 export function getCharacter(id: string): AgentCharacter | null {
-  return characters[id] ?? null;
+  const character = characters[id];
+  return character !== undefined ? character : null;
 }
 
 /**

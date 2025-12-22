@@ -101,7 +101,7 @@ export function startLocalCron(callback: () => Promise<OrchestratorTriggerResult
 }
 
 export class ComputeTriggerClient {
-  constructor(private readonly computeUrl = COMPUTE_URL) {}
+  constructor(private readonly computeUrl = process.env.COMPUTE_URL ?? process.env.DWS_URL ?? getDWSComputeUrl()) {}
 
   async register(trigger: Omit<UnifiedTrigger, 'id' | 'createdAt'>): Promise<string> {
     const r = await fetch(`${this.computeUrl}/api/triggers`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(trigger) });

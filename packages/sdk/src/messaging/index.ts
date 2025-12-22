@@ -10,7 +10,7 @@
 import { type Address, type Hex, encodeFunctionData, parseEther } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
-import { getContract as getContractAddress, getServicesConfig } from "../config";
+import { requireContract } from "../config";
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -61,7 +61,9 @@ export interface RegisterKeyParams {
 
 export interface MessagingModule {
   // Node Registry
-  registerNode(params: RegisterMessagingNodeParams): Promise<{ nodeId: Hex; txHash: Hex }>;
+  registerNode(
+    params: RegisterMessagingNodeParams,
+  ): Promise<{ nodeId: Hex; txHash: Hex }>;
   getNode(nodeId: Hex): Promise<MessageNode | null>;
   getMyNodes(): Promise<MessageNode[]>;
   listActiveNodes(): Promise<MessageNode[]>;
@@ -285,17 +287,16 @@ export function createMessagingModule(
   wallet: JejuWallet,
   network: NetworkType,
 ): MessagingModule {
-  const tryGetContract = (category: string, name: string): Address => {
-    try {
-      // @ts-expect-error - category names may vary by deployment
-      return getContractAddress(category, name, network) as Address;
-    } catch {
-      return "0x0000000000000000000000000000000000000000" as Address;
-    }
-  };
-
-  const nodeRegistryAddress = tryGetContract("messaging", "MessageNodeRegistry");
-  const keyRegistryAddress = tryGetContract("messaging", "MessagingKeyRegistry");
+  const nodeRegistryAddress = requireContract(
+    "messaging",
+    "MessageNodeRegistry",
+    network,
+  );
+  const keyRegistryAddress = requireContract(
+    "messaging",
+    "MessagingKeyRegistry",
+    network,
+  );
 
   const MIN_STAKE = parseEther("1000");
   const BASE_FEE_PER_MESSAGE = parseEther("0.0001");
@@ -342,7 +343,8 @@ export function createMessagingModule(
         value: params.stake,
       });
 
-      const nodeId = `0x${Buffer.from(params.endpoint).toString("hex").padEnd(64, "0")}` as Hex;
+      const nodeId =
+        `0x${Buffer.from(params.endpoint).toString("hex").padEnd(64, "0")}` as Hex;
       return { nodeId, txHash };
     },
 
@@ -378,7 +380,11 @@ export function createMessagingModule(
         functionName: "addStake",
         args: [nodeId],
       });
-      return wallet.sendTransaction({ to: nodeRegistryAddress, data, value: amount });
+      return wallet.sendTransaction({
+        to: nodeRegistryAddress,
+        data,
+        value: amount,
+      });
     },
 
     async withdrawNodeStake(nodeId, amount) {
@@ -438,7 +444,11 @@ export function createMessagingModule(
       const data = encodeFunctionData({
         abi: MESSAGING_KEY_REGISTRY_ABI,
         functionName: "registerKey",
-        args: [params.publicKey, params.algorithm ?? "x25519-xsalsa20-poly1305", expiresAt],
+        args: [
+          params.publicKey,
+          params.algorithm ?? "x25519-xsalsa20-poly1305",
+          expiresAt,
+        ],
       });
 
       return wallet.sendTransaction({ to: keyRegistryAddress, data });
@@ -505,4 +515,3 @@ export function createMessagingModule(
     },
   };
 }
-

@@ -9,24 +9,13 @@
  * - CDN deployment for frontend
  */
 
-import { createPublicClient, http, type Address, type Hex } from 'viem';
+import { createPublicClient, http, type Address } from 'viem';
 import type { Account } from 'viem/accounts';
-
-// ============================================================================
-// Configuration
-// ============================================================================
+import type { Model, Repository as BaseRepository, Package as BasePackage, ContainerImage as BaseContainerImage } from '@/types';
 
 const DWS_TAG = 'dws';
-const DWS_STORAGE_TAG = 'dws-storage';
-const DWS_COMPUTE_TAG = 'dws-compute';
-const DWS_GIT_TAG = 'dws-git';
-const DWS_PKG_TAG = 'dws-pkg';
-const DWS_CDN_TAG = 'dws-cdn';
-
-// Fallback URL for development (when no nodes registered)
 const FALLBACK_DWS_URL = process.env.NEXT_PUBLIC_DWS_URL || 'http://localhost:4030';
 
-// ERC-8004 IdentityRegistry ABI (minimal for node discovery)
 const IDENTITY_REGISTRY_ABI = [
   {
     name: 'getAgentsByTag',
@@ -67,10 +56,6 @@ const IDENTITY_REGISTRY_ABI = [
   },
 ] as const;
 
-// ============================================================================
-// Types
-// ============================================================================
-
 export interface DWSNode {
   agentId: bigint;
   endpoint: string;
@@ -80,36 +65,11 @@ export interface DWSNode {
   capabilities: string[];
 }
 
-export interface Repository {
-  id: string;
-  name: string;
-  owner: string;
-  description?: string;
-  isPrivate: boolean;
-  defaultBranch: string;
-  stars: number;
-  forks: number;
-  createdAt: number;
-  updatedAt: number;
-}
+export type Repository = BaseRepository;
 
-export interface Package {
-  name: string;
-  version: string;
-  description?: string;
-  author: string;
-  license: string;
-  downloads: number;
-  publishedAt: number;
-  tarballUri: string;
-  dependencies: Record<string, string>;
-}
+export type Package = BasePackage;
 
-export interface ContainerImage {
-  name: string;
-  tag: string;
-  digest: string;
-  size: number;
+export interface DWSContainerImage extends Omit<BaseContainerImage, 'id' | 'downloads'> {
   architecture: string;
   os: string;
   pushedAt: number;
@@ -128,18 +88,10 @@ export interface ComputeJob {
   cost?: bigint;
 }
 
-export interface Model {
-  id: string;
-  name: string;
-  organization: string;
-  description: string;
-  type: string;
-  version: string;
-  fileUri: string;
-  configUri: string;
-  downloads: number;
-  stars: number;
-  createdAt: number;
+export interface InferenceResult {
+  jobId: string;
+  result?: Record<string, string>;
+  status: 'pending' | 'running' | 'completed' | 'failed';
 }
 
 export interface DWSHealth {
@@ -224,7 +176,6 @@ class DecentralizedDWSClient {
    */
   async discoverNodes(): Promise<void> {
     if (!this.publicClient || !this.registryAddress) {
-      console.warn('[DWS] Not initialized, using fallback URL');
       return;
     }
 
@@ -272,7 +223,6 @@ class DecentralizedDWSClient {
     }
 
     this.lastNodeRefresh = Date.now();
-    console.log(`[DWS] Discovered ${this.nodes.size} healthy nodes`);
   }
 
   private async pingNode(endpoint: string): Promise<boolean> {
@@ -292,7 +242,6 @@ class DecentralizedDWSClient {
     }
 
     if (this.nodes.size === 0) {
-      console.warn('[DWS] No nodes found, using fallback');
       return FALLBACK_DWS_URL;
     }
 
@@ -369,7 +318,6 @@ class DecentralizedDWSClient {
         response = await fetch(failoverUrl, { ...options, headers }).catch(() => null);
         
         if (response?.ok) {
-          console.log(`[DWS] Failover successful to ${node.endpoint}`);
           break;
         }
       }
@@ -525,9 +473,9 @@ class DecentralizedDWSClient {
   // Container Operations
   // ===========================================================================
 
-  async listImages(repository?: string): Promise<ContainerImage[]> {
+  async listImages(repository?: string): Promise<DWSContainerImage[]> {
     const params = repository ? `?repository=${repository}` : '';
-    return this.request<ContainerImage[]>(`/containers/images${params}`);
+    return this.request<DWSContainerImage[]>(`/containers/images${params}`);
   }
 
   async getImageManifest(name: string, tag: string): Promise<{
@@ -539,7 +487,7 @@ class DecentralizedDWSClient {
     return this.request(`/containers/${name}/manifests/${tag}`);
   }
 
-  async pushImage(name: string, tag: string, layers: Blob[]): Promise<ContainerImage> {
+  async pushImage(name: string, tag: string, layers: Blob[]): Promise<DWSContainerImage> {
     const baseUrl = await this.getBestNode();
     const formData = new FormData();
     layers.forEach((layer, i) => formData.append(`layer_${i}`, layer));
@@ -652,12 +600,8 @@ class DecentralizedDWSClient {
     return response.json();
   }
 
-  async runInference(modelId: string, input: Record<string, unknown>): Promise<{
-    jobId: string;
-    result?: unknown;
-    status: string;
-  }> {
-    return this.request(`/models/${modelId}/inference`, {
+  async runInference(modelId: string, input: Record<string, unknown>): Promise<InferenceResult> {
+    return this.request<InferenceResult>(`/models/${modelId}/inference`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ input }),
@@ -828,82 +772,3 @@ class DecentralizedDWSClient {
 
 export const dwsClient = new DecentralizedDWSClient();
 
-// Legacy exports for backwards compatibility
-export async function listRepositories(owner?: string): Promise<Repository[]> {
-  return dwsClient.listRepositories(owner);
-}
-
-export async function getRepository(owner: string, name: string): Promise<Repository> {
-  return dwsClient.getRepository(owner, name);
-}
-
-export async function createRepository(params: { name: string; description?: string; isPrivate?: boolean }): Promise<Repository> {
-  return dwsClient.createRepository(params);
-}
-
-export async function getRepoFiles(owner: string, name: string, path?: string, ref?: string) {
-  return dwsClient.getRepoFiles(owner, name, path, ref);
-}
-
-export async function getFileContent(owner: string, name: string, path: string, ref?: string): Promise<string> {
-  return dwsClient.getFileContent(owner, name, path, ref);
-}
-
-export async function searchPackages(query: string): Promise<Package[]> {
-  return dwsClient.searchPackages(query);
-}
-
-export async function getPackage(name: string, version?: string): Promise<Package> {
-  return dwsClient.getPackage(name, version);
-}
-
-export async function publishPackage(tarball: Blob, metadata: { name: string; version: string; description?: string }): Promise<Package> {
-  return dwsClient.publishPackage(tarball, metadata);
-}
-
-export async function listImages(repository?: string): Promise<ContainerImage[]> {
-  return dwsClient.listImages(repository);
-}
-
-export async function getImageManifest(name: string, tag: string) {
-  return dwsClient.getImageManifest(name, tag);
-}
-
-export async function createTrainingJob(params: { modelName: string; baseModel?: string; datasetUri: string; config: Record<string, unknown> }): Promise<ComputeJob> {
-  return dwsClient.createTrainingJob(params);
-}
-
-export async function createInferenceJob(params: { modelId: string; input: Record<string, unknown> }): Promise<ComputeJob> {
-  return dwsClient.createInferenceJob(params);
-}
-
-export async function getJob(jobId: string): Promise<ComputeJob> {
-  return dwsClient.getJob(jobId);
-}
-
-export async function listJobs(status?: string): Promise<ComputeJob[]> {
-  return dwsClient.listJobs(status);
-}
-
-export async function listModels(params?: { type?: string; organization?: string; search?: string }): Promise<Model[]> {
-  return dwsClient.listModels(params);
-}
-
-export async function getModel(organization: string, name: string): Promise<Model> {
-  return dwsClient.getModel(organization, name);
-}
-
-export async function uploadModel(params: { name: string; organization: string; description: string; type: string; file: Blob; config?: Blob }): Promise<Model> {
-  return dwsClient.uploadModel(params);
-}
-
-export async function runInference(modelId: string, input: Record<string, unknown>) {
-  return dwsClient.runInference(modelId, input);
-}
-
-export async function uploadToIpfs(file: Blob | string, filename?: string): Promise<string> {
-  return dwsClient.uploadToIpfs(file, filename);
-}
-
-export type RepoInfo = Repository;
-export type PackageInfo = Package;

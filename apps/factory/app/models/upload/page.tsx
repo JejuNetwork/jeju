@@ -7,15 +7,13 @@ import {
   Brain, 
   Upload,
   FileUp,
-  Tag,
-  Shield,
   Globe,
   Lock,
   Info,
-  AlertCircle,
   CheckCircle,
   Loader2,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Shield
 } from 'lucide-react';
 import Link from 'next/link';
 import { clsx } from 'clsx';
@@ -43,7 +41,7 @@ const licenses: { value: License; label: string; commercial: boolean }[] = [
 ];
 
 export default function UploadModelPage() {
-  const { isConnected, address } = useAccount();
+  const { isConnected: _isConnected, address: _address } = useAccount();
   const router = useRouter();
   
   const [step, setStep] = useState(1);
@@ -62,7 +60,7 @@ export default function UploadModelPage() {
   
   // Files
   const [modelFile, setModelFile] = useState<File | null>(null);
-  const [configFile, setConfigFile] = useState<File | null>(null);
+  // const [configFile, setConfigFile] = useState<File | null>(null);
   
   // Training provenance
   const [trainingDataUri, setTrainingDataUri] = useState('');

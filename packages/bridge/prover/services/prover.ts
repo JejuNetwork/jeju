@@ -449,5 +449,5 @@ if (import.meta.main) {
   console.log('[Prover] Service running, waiting for requests...');
 
   // Keep process alive
-  await new Promise(() => {});
+  await new Promise(() => { /* noop - keep process running */ });
 }

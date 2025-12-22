@@ -12,31 +12,22 @@ import { describe, test, expect, beforeAll } from 'bun:test';
 import {
   keccak256,
   toBytes,
-  toHex,
-  createPublicClient,
-  createWalletClient,
-  http,
   type Address,
   type Hex,
 } from 'viem';
 import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
-import { foundry } from 'viem/chains';
 
 import {
   FROSTCoordinator,
   generateKeyShares,
-  verifySignature,
-  publicKeyToAddress,
 } from '../src/mpc/frost-signing.js';
 import {
   VerifiableCredentialIssuer,
   VerifiableCredentialVerifier,
-  createCredentialHash,
   credentialToOnChainAttestation,
   didFromAddress,
 } from '../src/credentials/verifiable-credentials.js';
 import {
-  MultiTenantCouncilManager,
   createMultiTenantCouncilManager,
 } from '../src/council/multi-tenant.js';
 import {
@@ -48,11 +39,9 @@ import type {
   AuthProvider,
   OAuth3Identity,
   OAuth3Session,
-  VerifiableCredential,
 } from '../src/types.js';
 
 const TEST_CHAIN_ID = 420691;
-const TEST_RPC_URL = 'http://localhost:9545';
 
 describe('FROST Threshold Signing', () => {
   test('generates valid key shares with threshold', () => {
@@ -573,23 +562,6 @@ describe('Integration: Full OAuth3 Flow', () => {
     );
 
     expect(crossChainState.chainStates.size).toBe(3);
-
-    const session: OAuth3Session = {
-      sessionId: keccak256(toBytes(`session:${Date.now()}`)),
-      identityId: identity.identityId,
-      smartAccount: identity.smartAccount,
-      expiresAt: Date.now() + 86400000,
-      capabilities: ['sign_message', 'sign_transaction'],
-      signingKey: generatePrivateKey(),
-      attestation: {
-        quote: '0x' as Hex,
-        measurement: keccak256(toBytes('oauth3-tee-measurement')),
-        reportData: keccak256(toBytes(`session:${identity.identityId}`)),
-        timestamp: Date.now(),
-        provider: 'dstack',
-        verified: true,
-      },
-    };
 
     const message = keccak256(toBytes('Test transaction for OAuth3'));
     const signature = await frostCoordinator.sign(message, [1, 2]);

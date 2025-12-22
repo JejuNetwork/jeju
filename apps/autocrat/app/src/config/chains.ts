@@ -1,7 +1,7 @@
 import { defineChain } from 'viem'
-import { getNetworkName } from '@jejunetwork/config'
 
-const networkName = getNetworkName()
+// Network name - can't import from @jejunetwork/config in client code (uses fs)
+const networkName = 'Jeju'
 
 export const jejuLocalnet = defineChain({
   id: 8545,

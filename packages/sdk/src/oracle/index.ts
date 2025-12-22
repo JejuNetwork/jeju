@@ -8,10 +8,10 @@
  * - Oracle registry
  */
 
-import { type Address, type Hex, encodeFunctionData, parseEther } from "viem";
+import { type Address, type Hex, encodeFunctionData } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
-import { getContract as getContractAddress } from "../config";
+import { requireContract } from "../config";
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -73,27 +73,47 @@ export interface OracleModule {
   getDescription(feedAddress: Address): Promise<string>;
 
   // Historical Data
-  getHistoricalPrices(feedAddress: Address, startRound: bigint, count: number): Promise<RoundData[]>;
+  getHistoricalPrices(
+    feedAddress: Address,
+    startRound: bigint,
+    count: number,
+  ): Promise<RoundData[]>;
 
   // TWAP
   getTWAP(poolAddress: Address, period: bigint): Promise<bigint>;
-  getTWAPObservations(poolAddress: Address, count: number): Promise<TWAPObservation[]>;
-  consultTWAP(poolAddress: Address, tokenIn: Address, amountIn: bigint, period: bigint): Promise<bigint>;
+  getTWAPObservations(
+    poolAddress: Address,
+    count: number,
+  ): Promise<TWAPObservation[]>;
+  consultTWAP(
+    poolAddress: Address,
+    tokenIn: Address,
+    amountIn: bigint,
+    period: bigint,
+  ): Promise<bigint>;
 
   // Feed Info
   getFeedInfo(feedAddress: Address): Promise<PriceFeed | null>;
   listFeeds(): Promise<PriceFeed[]>;
-  getFeedByPair(baseToken: Address, quoteToken: Address): Promise<Address | null>;
+  getFeedByPair(
+    baseToken: Address,
+    quoteToken: Address,
+  ): Promise<Address | null>;
 
   // Oracle Registry
   registerOracle(params: RegisterOracleParams): Promise<Hex>;
   getOracleConfig(oracleAddress: Address): Promise<OracleConfig | null>;
   listOracles(): Promise<OracleConfig[]>;
-  updateOracleHeartbeat(oracleAddress: Address, heartbeat: bigint): Promise<Hex>;
+  updateOracleHeartbeat(
+    oracleAddress: Address,
+    heartbeat: bigint,
+  ): Promise<Hex>;
 
   // Data Submission (for custom oracles)
   submitPrice(feedId: Hex, price: bigint, timestamp: bigint): Promise<Hex>;
-  submitBatchPrices(updates: { feedId: Hex; price: bigint; timestamp: bigint }[]): Promise<Hex>;
+  submitBatchPrices(
+    updates: { feedId: Hex; price: bigint; timestamp: bigint }[],
+  ): Promise<Hex>;
 
   // Validation
   isPriceStale(feedAddress: Address): Promise<boolean>;
@@ -101,7 +121,11 @@ export interface OracleModule {
   getLastUpdateTime(feedAddress: Address): Promise<bigint>;
 
   // Price Conversion
-  convertPrice(amount: bigint, fromFeed: Address, toFeed: Address): Promise<bigint>;
+  convertPrice(
+    amount: bigint,
+    fromFeed: Address,
+    toFeed: Address,
+  ): Promise<bigint>;
   getUSDPrice(tokenAddress: Address): Promise<bigint>;
 
   // Constants
@@ -255,18 +279,11 @@ const ORACLE_REGISTRY_ABI = [
 //                          IMPLEMENTATION
 // ═══════════════════════════════════════════════════════════════════════════
 
-export function createOracleModule(wallet: JejuWallet, network: NetworkType): OracleModule {
-  const tryGetContract = (category: string, name: string): Address => {
-    try {
-      // @ts-expect-error - category may not match ContractCategoryName
-      return getContractAddress(category, name, network) as Address;
-    } catch {
-      return "0x0000000000000000000000000000000000000000" as Address;
-    }
-  };
-
-  const oracleRegistryAddress = tryGetContract("oracle", "OracleRegistry");
-  const priceOracleAddress = tryGetContract("oracle", "PriceOracle");
+export function createOracleModule(
+  wallet: JejuWallet,
+  network: NetworkType,
+): OracleModule {
+  const oracleRegistryAddress = requireContract("oracle", "OracleRegistry", network);
 
   const MAX_PRICE_AGE = 3600n; // 1 hour
   const MIN_OBSERVATIONS = 10;
@@ -292,13 +309,8 @@ export function createOracleModule(wallet: JejuWallet, network: NetworkType): Or
         functionName: "latestRoundData",
       });
 
-      const [roundId, answer, startedAt, updatedAt, answeredInRound] = result as [
-        bigint,
-        bigint,
-        bigint,
-        bigint,
-        bigint,
-      ];
+      const [roundId, answer, startedAt, updatedAt, answeredInRound] =
+        result as [bigint, bigint, bigint, bigint, bigint];
 
       return {
         roundId,
@@ -317,13 +329,8 @@ export function createOracleModule(wallet: JejuWallet, network: NetworkType): Or
         args: [roundId],
       });
 
-      const [retRoundId, answer, startedAt, updatedAt, answeredInRound] = result as [
-        bigint,
-        bigint,
-        bigint,
-        bigint,
-        bigint,
-      ];
+      const [retRoundId, answer, startedAt, updatedAt, answeredInRound] =
+        result as [bigint, bigint, bigint, bigint, bigint];
 
       return {
         roundId: retRoundId,
@@ -354,17 +361,15 @@ export function createOracleModule(wallet: JejuWallet, network: NetworkType): Or
       const rounds: RoundData[] = [];
       for (let i = 0; i < count; i++) {
         const roundId = startRound + BigInt(i);
-        try {
-          const data = await this.getRoundData(feedAddress, roundId);
-          rounds.push(data);
-        } catch {
-          break;
-        }
+        const data = await this.getRoundData(feedAddress, roundId);
+        // Break if we get invalid data (answer = 0 indicates no data)
+        if (data.answer === 0n) break;
+        rounds.push(data);
       }
       return rounds;
     },
 
-    async getTWAP(poolAddress, period) {
+    async getTWAP(_poolAddress, _period) {
       // Would need to query TWAP oracle
       return 0n;
     },
@@ -390,25 +395,24 @@ export function createOracleModule(wallet: JejuWallet, network: NetworkType): Or
     },
 
     async getFeedInfo(feedAddress) {
-      try {
-        const [roundData, decimals, description] = await Promise.all([
-          this.getLatestRoundData(feedAddress),
-          this.getDecimals(feedAddress),
-          this.getDescription(feedAddress),
-        ]);
+      const [roundData, decimals, description] = await Promise.all([
+        this.getLatestRoundData(feedAddress),
+        this.getDecimals(feedAddress),
+        this.getDescription(feedAddress),
+      ]);
 
-        return {
-          feedAddress,
-          description,
-          decimals,
-          latestRoundId: roundData.roundId,
-          latestPrice: roundData.answer,
-          latestTimestamp: roundData.updatedAt,
-          isActive: true,
-        };
-      } catch {
-        return null;
-      }
+      // Return null if feed has no data (roundId = 0 indicates uninitialized)
+      if (roundData.roundId === 0n) return null;
+
+      return {
+        feedAddress,
+        description,
+        decimals,
+        latestRoundId: roundData.roundId,
+        latestPrice: roundData.answer,
+        latestTimestamp: roundData.updatedAt,
+        isActive: true,
+      };
     },
 
     async listFeeds() {
@@ -475,7 +479,9 @@ export function createOracleModule(wallet: JejuWallet, network: NetworkType): Or
         description: string;
       };
 
-      if (config.oracleAddress === "0x0000000000000000000000000000000000000000") {
+      if (
+        config.oracleAddress === "0x0000000000000000000000000000000000000000"
+      ) {
         return null;
       }
 
@@ -548,7 +554,8 @@ export function createOracleModule(wallet: JejuWallet, network: NetworkType): Or
 
     async getUSDPrice(tokenAddress) {
       // Would need token -> USD feed mapping
-      const usdAddress = "0x0000000000000000000000000000000000000000" as Address;
+      const usdAddress =
+        "0x0000000000000000000000000000000000000000" as Address;
       const feed = await this.getFeedByPair(tokenAddress, usdAddress);
 
       if (!feed) {
@@ -559,4 +566,3 @@ export function createOracleModule(wallet: JejuWallet, network: NetworkType): Or
     },
   };
 }
-

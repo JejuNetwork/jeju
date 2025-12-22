@@ -1,26 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import { useAccount } from 'wagmi';
 import {
   Database,
   Search,
   Filter,
   Download,
   Star,
-  GitFork,
   Clock,
   FileText,
   Upload,
   Eye,
-  Tag,
   Users,
-  ChevronDown,
-  Plus,
   HardDrive,
   BarChart3,
   Shield,
-  ExternalLink,
 } from 'lucide-react';
 import Link from 'next/link';
 import { clsx } from 'clsx';
@@ -148,6 +142,9 @@ const typeIcons: Record<string, React.ReactNode> = {
   tabular: <BarChart3 className="w-4 h-4" />,
 };
 
+// Remove unused typeIcons
+void typeIcons;
+
 const typeColors: Record<string, string> = {
   text: 'bg-blue-500/20 text-blue-400',
   code: 'bg-purple-500/20 text-purple-400',
@@ -158,7 +155,6 @@ const typeColors: Record<string, string> = {
 };
 
 export default function DatasetsPage() {
-  const { isConnected } = useAccount();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'downloads' | 'stars' | 'updated'>('downloads');
@@ -273,7 +269,9 @@ export default function DatasetsPage() {
                       {dataset.organization}/{dataset.name}
                     </Link>
                     {dataset.isVerified && (
-                      <Shield className="w-4 h-4 text-green-400" title="Verified" />
+                      <div title="Verified">
+                        <Shield className="w-4 h-4 text-green-400" />
+                      </div>
                     )}
                     <span className={clsx('badge text-xs', typeColors[dataset.type])}>
                       {dataset.type}

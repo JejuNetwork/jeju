@@ -1,6 +1,10 @@
 import type { Address, Hex } from 'viem';
+import type { TransactionStatus, IntentStatus, VoucherStatus } from '@jejunetwork/types';
 
 export type NetworkType = 'ethereum' | 'solana';
+
+// Re-export consolidated types
+export { TransactionStatus, IntentStatus, VoucherStatus };
 
 export interface ChainConfig {
   id: number;
@@ -84,8 +88,6 @@ export interface AggregatedBalance {
   chains: { chainId: number; balance: bigint; usdValue: number; token: Token }[];
 }
 
-export type TransactionStatus = 'pending' | 'submitted' | 'confirming' | 'confirmed' | 'failed' | 'cancelled';
-
 export interface Transaction {
   id: string;
   hash?: Hex;
@@ -104,8 +106,6 @@ export interface Transaction {
   intentId?: Hex;
   voucherId?: Hex;
 }
-
-export type IntentStatus = 'created' | 'pending' | 'claimed' | 'filling' | 'filled' | 'settled' | 'expired' | 'refunded';
 
 export interface Intent {
   id: Hex;
@@ -158,8 +158,6 @@ export interface IntentRoute {
   inputAmount: bigint;
   outputAmount: bigint;
 }
-
-export type VoucherStatus = 'requested' | 'issued' | 'fulfilled' | 'claimed' | 'expired' | 'slashed';
 
 export interface VoucherRequest {
   id: Hex;
@@ -248,12 +246,17 @@ export type SitePermission =
   | 'personal_sign'
   | 'eth_signTypedData_v4';
 
+// Message payload types for wallet events
+export type WalletMessagePayload = 
+  | { type: 'subscriptionResult'; result: { chainId: number; address: Address } }
+  | { type: 'error'; code: number; message: string };
+
 export type WalletEvent =
   | { type: 'accountsChanged'; accounts: Address[] }
   | { type: 'chainChanged'; chainId: number }
   | { type: 'connect'; chainId: number }
   | { type: 'disconnect' }
-  | { type: 'message'; data: { type: string; data: unknown } }
+  | { type: 'message'; data: WalletMessagePayload }
   | { type: 'intentCreated'; intent: Intent }
   | { type: 'intentFilled'; intent: Intent }
   | { type: 'voucherIssued'; voucher: Voucher }

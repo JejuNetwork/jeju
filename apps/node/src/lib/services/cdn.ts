@@ -5,14 +5,26 @@
  * serving cached content and earning from the CDN marketplace.
  */
 
+import { z } from 'zod';
 import { type Address } from 'viem';
 import { type NodeClient, getChain } from '../contracts';
 import { CDN_REGISTRY_ABI } from '../abis';
 import type { CDNRegion } from '@jejunetwork/types';
 
 // ============================================================================
-// Types
+// Types & Validation
 // ============================================================================
+
+// Use the actual CDNRegion type from @jejunetwork/types
+const CDNRegionSchema = z.string(); // Will validate against actual CDNRegion values
+
+const CDNServiceConfigSchema = z.object({
+  endpoint: z.string().url(),
+  region: CDNRegionSchema,
+  maxCacheSizeMB: z.number().int().positive(),
+  stakeAmount: z.bigint(),
+  supportedOrigins: z.array(z.string().url()),
+});
 
 export interface CDNServiceConfig {
   endpoint: string;
@@ -22,15 +34,15 @@ export interface CDNServiceConfig {
   supportedOrigins: string[];
 }
 
-export interface CDNServiceState {
-  isRegistered: boolean;
-  nodeId: `0x${string}`;
-  endpoint: string;
-  region: CDNRegion;
-  stake: bigint;
-  status: 'healthy' | 'degraded' | 'unhealthy' | 'maintenance' | 'offline';
-  metrics: CDNNodeMetrics;
-}
+const CDNNodeMetricsSchema = z.object({
+  requestsTotal: z.number().int().nonnegative(),
+  bytesServed: z.number().int().nonnegative(),
+  cacheHitRate: z.number().min(0).max(100),
+  avgLatencyMs: z.number().nonnegative(),
+  activeConnections: z.number().int().nonnegative(),
+  cacheEntries: z.number().int().nonnegative(),
+  cacheSizeBytes: z.number().int().nonnegative(),
+});
 
 export interface CDNNodeMetrics {
   requestsTotal: number;
@@ -42,10 +54,56 @@ export interface CDNNodeMetrics {
   cacheSizeBytes: number;
 }
 
+const CDNServiceStateSchema = z.object({
+  isRegistered: z.boolean(),
+  nodeId: z.string().regex(/^0x[a-fA-F0-9]{40}$/).transform((val) => val as `0x${string}`),
+  endpoint: z.string().url(),
+  region: CDNRegionSchema.transform((val) => val as CDNRegion),
+  stake: z.bigint(),
+  status: z.enum(['healthy', 'degraded', 'unhealthy', 'maintenance', 'offline']),
+  metrics: CDNNodeMetricsSchema,
+});
+
+export interface CDNServiceState {
+  isRegistered: boolean;
+  nodeId: `0x${string}`;
+  endpoint: string;
+  region: CDNRegion;
+  stake: bigint;
+  status: 'healthy' | 'degraded' | 'unhealthy' | 'maintenance' | 'offline';
+  metrics: CDNNodeMetrics;
+}
+
+const CDNEarningsSchema = z.object({
+  pending: z.bigint(),
+  total: z.bigint(),
+  lastSettlement: z.number().int().positive(),
+});
+
 export interface CDNEarnings {
   pending: bigint;
   total: bigint;
   lastSettlement: number;
+}
+
+export function validateCDNServiceConfig(data: unknown): CDNServiceConfig {
+  const parsed = CDNServiceConfigSchema.parse(data);
+  return {
+    ...parsed,
+    region: parsed.region as CDNRegion,
+  };
+}
+
+export function validateCDNServiceState(data: unknown): CDNServiceState {
+  return CDNServiceStateSchema.parse(data);
+}
+
+export function validateCDNNodeMetrics(data: unknown): CDNNodeMetrics {
+  return CDNNodeMetricsSchema.parse(data);
+}
+
+export function validateCDNEarnings(data: unknown): CDNEarnings {
+  return CDNEarningsSchema.parse(data);
 }
 
 // ============================================================================
@@ -64,6 +122,10 @@ export class CDNService {
    * Get CDN service state
    */
   async getState(address: Address): Promise<CDNServiceState | null> {
+    if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
+      throw new Error(`Invalid address: ${address}`);
+    }
+    
     // Get operator's nodes
     const nodeIds = await this.client.publicClient.readContract({
       address: this.client.addresses.cdnRegistry,
@@ -128,7 +190,7 @@ export class CDNService {
       'healthy', 'degraded', 'unhealthy', 'maintenance', 'offline',
     ];
 
-    return {
+    const rawState = {
       isRegistered: true,
       nodeId: node.nodeId,
       endpoint: node.endpoint,
@@ -145,17 +207,21 @@ export class CDNService {
         cacheSizeBytes: Number(metrics.cacheSize),
       },
     };
+    
+    return validateCDNServiceState(rawState);
   }
 
   /**
    * Register as CDN edge node
    */
   async register(config: CDNServiceConfig): Promise<string> {
+    const validatedConfig = validateCDNServiceConfig(config);
+    
     if (!this.client.walletClient?.account) {
       throw new Error('Wallet not connected');
     }
 
-    const regionIndex = this.getRegionIndex(config.region);
+    const regionIndex = this.getRegionIndex(validatedConfig.region);
 
     const hash = await this.client.walletClient.writeContract({
       chain: getChain(this.client.chainId),
@@ -163,8 +229,8 @@ export class CDNService {
       address: this.client.addresses.cdnRegistry,
       abi: CDN_REGISTRY_ABI,
       functionName: 'registerEdgeNode',
-      args: [config.endpoint, regionIndex, 0], // 0 = decentralized type
-      value: config.stakeAmount,
+      args: [validatedConfig.endpoint, regionIndex, 0], // 0 = decentralized type
+      value: validatedConfig.stakeAmount,
     });
 
     return hash;

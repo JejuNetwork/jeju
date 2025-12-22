@@ -6,8 +6,6 @@ import {
   Connection,
   PublicKey,
   Keypair,
-  VersionedTransaction,
-  TransactionMessage,
   LAMPORTS_PER_SOL,
 } from '@solana/web3.js';
 import type {
@@ -26,9 +24,11 @@ import type {
   BondingCurveBuyParams,
   BondingCurveSellParams,
 } from '../types';
+import { buildPlaceholderTransaction } from '../utils';
 
 const PUMP_BONDING_CURVE_PROGRAM = new PublicKey('6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P');
 const DEFAULT_GRADUATION_THRESHOLD = 85n * BigInt(LAMPORTS_PER_SOL);
+const SOL_MINT = 'So11111111111111111111111111111111111111112';
 
 export class PumpSwapAdapter implements DexAdapter {
   readonly name = 'pumpswap' as const;
@@ -40,13 +40,8 @@ export class PumpSwapAdapter implements DexAdapter {
   }
 
   async getQuote(params: SwapParams): Promise<SwapQuote> {
-    const isSOL = params.inputMint.toBase58() === 'So11111111111111111111111111111111111111112';
-
-    if (isSOL) {
-      return this.getBuyQuote(params);
-    } else {
-      return this.getSellQuote(params);
-    }
+    const isSOL = params.inputMint.toBase58() === SOL_MINT;
+    return isSOL ? this.getBuyQuote(params) : this.getSellQuote(params);
   }
 
   private async getBuyQuote(params: SwapParams): Promise<SwapQuote> {
@@ -132,43 +127,10 @@ export class PumpSwapAdapter implements DexAdapter {
   }
 
   async buildSwapTransaction(quote: SwapQuote): Promise<SwapTransaction> {
-    const isSOL = quote.inputMint.toBase58() === 'So11111111111111111111111111111111111111112';
-
-    if (isSOL) {
-      return this.buildBuyTransaction(quote);
-    } else {
-      return this.buildSellTransaction(quote);
-    }
-  }
-
-  private async buildBuyTransaction(_quote: SwapQuote): Promise<SwapTransaction> {
-    const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash();
-
-    const messageV0 = new TransactionMessage({
-      payerKey: PublicKey.default,
-      recentBlockhash: blockhash,
-      instructions: [],
-    }).compileToV0Message();
-
-    return {
-      transaction: new VersionedTransaction(messageV0),
-      lastValidBlockHeight,
-    };
-  }
-
-  private async buildSellTransaction(_quote: SwapQuote): Promise<SwapTransaction> {
-    const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash();
-
-    const messageV0 = new TransactionMessage({
-      payerKey: PublicKey.default,
-      recentBlockhash: blockhash,
-      instructions: [],
-    }).compileToV0Message();
-
-    return {
-      transaction: new VersionedTransaction(messageV0),
-      lastValidBlockHeight,
-    };
+    const isSOL = quote.inputMint.toBase58() === SOL_MINT;
+    return isSOL
+      ? buildPlaceholderTransaction(this.connection, PublicKey.default)
+      : buildPlaceholderTransaction(this.connection, PublicKey.default);
   }
 
   async getBondingCurve(curveAddress: PublicKey): Promise<BondingCurveState> {
@@ -190,10 +152,8 @@ export class PumpSwapAdapter implements DexAdapter {
     const complete = data.readUInt8(48) === 1;
 
     const currentPrice = Number(virtualTokenReserves) / Number(virtualSolReserves);
-
     const pricePerToken = Number(virtualSolReserves) / Number(virtualTokenReserves);
     const marketCap = BigInt(Math.floor(pricePerToken * Number(tokenTotalSupply)));
-
     const progress = (Number(realSolReserves) / Number(DEFAULT_GRADUATION_THRESHOLD)) * 100;
 
     const [tokenMint] = PublicKey.findProgramAddressSync(
@@ -221,7 +181,7 @@ export class PumpSwapAdapter implements DexAdapter {
   }
 
   async createBondingCurve(
-    params: BondingCurveParams,
+    _params: BondingCurveParams,
     creator: PublicKey
   ): Promise<{
     transaction: SwapTransaction;
@@ -235,19 +195,10 @@ export class PumpSwapAdapter implements DexAdapter {
       PUMP_BONDING_CURVE_PROGRAM
     );
 
-    const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash();
-
-    const messageV0 = new TransactionMessage({
-      payerKey: creator,
-      recentBlockhash: blockhash,
-      instructions: [],
-    }).compileToV0Message();
+    const transaction = await buildPlaceholderTransaction(this.connection, creator);
 
     return {
-      transaction: {
-        transaction: new VersionedTransaction(messageV0),
-        lastValidBlockHeight,
-      },
+      transaction,
       tokenMint: mintKeypair.publicKey,
       curveAddress,
     };
@@ -257,7 +208,7 @@ export class PumpSwapAdapter implements DexAdapter {
     const curve = await this.getBondingCurve(params.curve);
 
     const quote = await this.getQuote({
-      inputMint: new PublicKey('So11111111111111111111111111111111111111112'),
+      inputMint: new PublicKey(SOL_MINT),
       outputMint: curve.tokenMint,
       amount: params.solAmount,
       slippageBps: 100,
@@ -272,7 +223,7 @@ export class PumpSwapAdapter implements DexAdapter {
 
     const quote = await this.getQuote({
       inputMint: curve.tokenMint,
-      outputMint: new PublicKey('So11111111111111111111111111111111111111112'),
+      outputMint: new PublicKey(SOL_MINT),
       amount: params.tokenAmount,
       slippageBps: 100,
       userPublicKey: params.userPublicKey,
@@ -293,7 +244,7 @@ export class PumpSwapAdapter implements DexAdapter {
       dex: 'pumpswap',
       poolType: 'bonding',
       tokenA: {
-        mint: new PublicKey('So11111111111111111111111111111111111111112'),
+        mint: new PublicKey(SOL_MINT),
         decimals: 9,
         symbol: 'SOL',
       },
@@ -370,4 +321,3 @@ export class PumpSwapAdapter implements DexAdapter {
 export function createPumpSwapAdapter(connection: Connection): PumpSwapAdapter {
   return new PumpSwapAdapter(connection);
 }
-

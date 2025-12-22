@@ -1,10 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ComponentType } from 'react';
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseEther, formatEther } from 'viem';
-import { TrendingUp, TrendingDown, Clock } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, type LucideProps } from 'lucide-react';
 import { MODERATION_CONTRACTS } from '../../config/moderation';
+
+const ClockIcon = Clock as ComponentType<LucideProps>;
+const TrendingUpIcon = TrendingUp as ComponentType<LucideProps>;
+const TrendingDownIcon = TrendingDown as ComponentType<LucideProps>;
 
 interface BanVotingInterfaceProps {
   reportId: bigint;
@@ -169,7 +173,7 @@ export default function BanVotingInterface({ reportId, marketId }: BanVotingInte
       {isActive && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-center gap-2">
-            <Clock className="text-blue-500" size={20} />
+            <ClockIcon className="text-blue-500" size={20} />
             <div>
               <div className="font-semibold text-blue-900">Voting Active</div>
               <div className="text-sm text-blue-700">
@@ -201,7 +205,7 @@ export default function BanVotingInterface({ reportId, marketId }: BanVotingInte
               disabled={isPending || isConfirming}
               className="py-4 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 disabled:bg-gray-300 flex items-center justify-center gap-2"
             >
-              <TrendingUp size={20} />
+              <TrendingUpIcon size={20} />
               Vote YES (Ban)
             </button>
 
@@ -210,7 +214,7 @@ export default function BanVotingInterface({ reportId, marketId }: BanVotingInte
               disabled={isPending || isConfirming}
               className="py-4 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 disabled:bg-gray-300 flex items-center justify-center gap-2"
             >
-              <TrendingDown size={20} />
+              <TrendingDownIcon size={20} />
               Vote NO (Reject)
             </button>
           </div>
@@ -226,7 +230,7 @@ export default function BanVotingInterface({ reportId, marketId }: BanVotingInte
         </div>
       ) : (
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
-          <Clock className="mx-auto text-gray-400 mb-2" size={32} />
+          <ClockIcon className="mx-auto text-gray-400 mb-2" size={32} />
           <div className="font-semibold text-gray-700">Voting Closed</div>
           {market.resolved && (
             <div className="text-sm text-gray-600 mt-2">

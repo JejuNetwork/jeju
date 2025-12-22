@@ -3,7 +3,7 @@
  * Launch tokens, buy/sell on bonding curves, ICO presales
  */
 
-import { type Address, type Hex, type PublicClient, encodeFunctionData, formatUnits, parseUnits, keccak256, toHex, createPublicClient, http } from 'viem';
+import { type Address, type Hex, type PublicClient, encodeFunctionData, createPublicClient, http } from 'viem';
 import { getChainContracts, getNetworkRpcUrl } from '../../sdk/chains';
 import { rpcService, type SupportedChainId, SUPPORTED_CHAINS } from '../rpc';
 

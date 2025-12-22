@@ -1,25 +1,22 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useAccount } from 'wagmi';
+import { useState } from 'react';
 import { 
   Brain, 
   Search, 
-  Download,
-  Star,
-  Play,
+  Download, 
+  Star, 
   Plus,
-  GitFork,
   Clock,
   CheckCircle,
   Shield,
   Zap,
-  BarChart3,
   Loader2
 } from 'lucide-react';
 import Link from 'next/link';
 import { clsx } from 'clsx';
-import { useModels, ModelType, getModelTypeLabel } from '@/lib/hooks/useModels';
+import { useModels } from '@/lib/hooks/useModels';
+import type { ModelType } from '@/types';
 
 type FilterType = 'all' | 'llm' | 'vision' | 'audio' | 'embedding' | 'multimodal';
 
@@ -29,35 +26,25 @@ const typeColors: Record<string, string> = {
   audio: 'bg-green-500/20 text-green-400 border-green-500/30',
   embedding: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
   multimodal: 'bg-pink-500/20 text-pink-400 border-pink-500/30',
-  classifier: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
+  code: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
+  image: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
   other: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
 };
 
-const typeLabels: Record<string, string> = {
-  llm: 'LLM',
-  vision: 'Vision',
-  audio: 'Audio',
-  embedding: 'Embedding',
-  multimodal: 'Multimodal',
-};
-
-function getModelTypeKey(modelType: ModelType): string {
-  const mapping: Record<ModelType, string> = {
-    [ModelType.LLM]: 'llm',
-    [ModelType.VISION]: 'vision',
-    [ModelType.AUDIO]: 'audio',
-    [ModelType.MULTIMODAL]: 'multimodal',
-    [ModelType.EMBEDDING]: 'embedding',
-    [ModelType.CLASSIFIER]: 'classifier',
-    [ModelType.REGRESSION]: 'regression',
-    [ModelType.RL]: 'rl',
-    [ModelType.OTHER]: 'other',
+function getModelTypeLabel(type: ModelType | string): string {
+  const labels: Record<string, string> = {
+    llm: 'LLM',
+    vision: 'Vision',
+    audio: 'Audio',
+    embedding: 'Embedding',
+    multimodal: 'Multimodal',
+    code: 'Code',
+    image: 'Image',
   };
-  return mapping[modelType] || 'other';
+  return labels[type] || 'Other';
 }
 
 export default function ModelsPage() {
-  const { isConnected } = useAccount();
   const [filter, setFilter] = useState<FilterType>('all');
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<'downloads' | 'stars' | 'updated'>('downloads');
@@ -70,18 +57,15 @@ export default function ModelsPage() {
   // Calculate stats from actual data
   const stats = {
     totalModels: models.length,
-    totalDownloads: models.reduce((sum, m) => sum + (m.metrics?.downloads || 0), 0),
-    totalInference: models.filter(m => m.metrics?.inferences && m.metrics.inferences > 0).length,
+    totalDownloads: models.reduce((sum, m) => sum + (m.downloads || 0), 0),
+    totalInference: 0, // Not available in new type yet
     verifiedModels: models.filter(m => m.isVerified).length,
   };
 
   // Sort models
   const sortedModels = [...models].sort((a, b) => {
-    const metricsA = a.metrics || { downloads: 0, stars: 0, inferences: 0 };
-    const metricsB = b.metrics || { downloads: 0, stars: 0, inferences: 0 };
-    
-    if (sortBy === 'downloads') return metricsB.downloads - metricsA.downloads;
-    if (sortBy === 'stars') return metricsB.stars - metricsA.stars;
+    if (sortBy === 'downloads') return b.downloads - a.downloads;
+    if (sortBy === 'stars') return b.stars - a.stars;
     return b.updatedAt - a.updatedAt;
   });
 
@@ -142,7 +126,7 @@ export default function ModelsPage() {
                     : 'bg-factory-800 text-factory-400 hover:text-factory-100'
                 )}
               >
-                {type === 'all' ? 'All Models' : typeLabels[type] || type}
+                {type === 'all' ? 'All Models' : getModelTypeLabel(type)}
               </button>
             ))}
           </div>
@@ -203,12 +187,9 @@ export default function ModelsPage() {
       {!isLoading && !error && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {sortedModels.map((model) => {
-            const typeKey = getModelTypeKey(model.modelType);
-            const metrics = model.metrics || { downloads: 0, stars: 0, inferences: 0 };
-            
             return (
               <Link 
-                key={model.modelId}
+                key={model.id}
                 href={`/models/${model.organization}/${model.name}`}
                 className="card p-6 card-hover"
               >
@@ -223,17 +204,12 @@ export default function ModelsPage() {
                     </div>
                     <span className={clsx(
                       'badge border',
-                      typeColors[typeKey] || typeColors.other
+                      typeColors[model.type] || typeColors.other
                     )}>
-                      {getModelTypeLabel(model.modelType)}
+                      {getModelTypeLabel(model.type)}
                     </span>
                   </div>
-                  {metrics.inferences > 0 && (
-                    <button className="btn btn-secondary text-sm py-1.5">
-                      <Play className="w-3 h-3" />
-                      Try it
-                    </button>
-                  )}
+                  {/* Inference button removed as metrics.inferences is not available */}
                 </div>
 
                 <p className="text-factory-400 text-sm mb-4 line-clamp-2">
@@ -241,7 +217,7 @@ export default function ModelsPage() {
                 </p>
 
                 <div className="flex flex-wrap gap-2 mb-4">
-                  {model.tags.slice(0, 4).map((tag) => (
+                  {model.tags?.slice(0, 4).map((tag) => (
                     <span key={tag} className="badge badge-info">
                       {tag}
                     </span>
@@ -252,11 +228,11 @@ export default function ModelsPage() {
                   <div className="flex items-center gap-4 text-factory-500">
                     <span className="flex items-center gap-1">
                       <Download className="w-4 h-4" />
-                      {formatNumber(metrics.downloads)}
+                      {formatNumber(model.downloads)}
                     </span>
                     <span className="flex items-center gap-1">
                       <Star className="w-4 h-4" />
-                      {formatNumber(metrics.stars)}
+                      {formatNumber(model.stars)}
                     </span>
                   </div>
                   <div className="flex items-center gap-3 text-factory-500">

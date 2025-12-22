@@ -18,21 +18,11 @@ import { execa, type ExecaError } from 'execa';
 import { existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { logger } from '../lib/logger';
-import { createTestOrchestrator, TestOrchestrator } from '../services/test-orchestrator';
-import { createDockerOrchestrator, type TestProfile } from '../services/docker-orchestrator';
+import { createTestOrchestrator } from '../services/test-orchestrator';
 import { discoverApps } from '../lib/testing';
 import type { TestMode, TestResult, CoverageReport } from '../types/test';
 
 export type { TestMode };
-
-const MODE_TO_PROFILE: Record<TestMode, TestProfile> = {
-  unit: 'chain',
-  integration: 'services',
-  e2e: 'apps',
-  full: 'full',
-  infra: 'services',
-  smoke: 'chain',
-};
 
 interface ManifestTesting {
   unit?: { command?: string; timeout?: number };
@@ -45,7 +35,7 @@ interface ManifestTesting {
 export const testCommand = new Command('test')
   .description('Run tests with automatic setup/teardown (unit, integration, e2e, full, infra, smoke)')
   .option('-m, --mode <mode>', 'Test mode: unit, integration, e2e, full, infra, smoke', 'unit')
-  .option('-a, --app <app>', 'Test specific app')
+  .option('--target-app <app>', 'Test specific app')
   .option('--package <pkg>', 'Test specific package')
   .option('--ci', 'CI mode (fail fast, coverage)')
   .option('--coverage', 'Generate coverage reports')
@@ -57,7 +47,7 @@ export const testCommand = new Command('test')
   .option('--skip-preflight', 'Skip preflight checks')
   .option('--skip-warmup', 'Skip app warmup')
   .option('--skip-bootstrap', 'Skip contract bootstrap')
-  .option('--setup-only', 'Only run setup, don\'t run tests')
+  .option('--infra-only', 'Only run infrastructure setup, don\'t run tests')
   .option('--teardown-only', 'Only run teardown')
   .option('--force', 'Force override existing test lock')
   .option('--forge-opts <opts>', 'Pass options to forge test')
@@ -75,11 +65,11 @@ export const testCommand = new Command('test')
     }
 
     // Fail fast on invalid app selection (before any setup)
-    if (options.app) {
+    if (options.targetApp) {
       const apps = discoverApps(rootDir);
-      const exists = apps.some((a) => a.name === options.app);
+      const exists = apps.some((a) => a.name === options.targetApp);
       if (!exists) {
-        logger.error(`App not found: ${options.app}`);
+        logger.error(`App not found: ${options.targetApp}`);
         process.exit(1);
       }
     }
@@ -87,7 +77,7 @@ export const testCommand = new Command('test')
     // Create test orchestrator
     const testOrchestrator = createTestOrchestrator({
       mode,
-      app: options.app,
+      app: options.targetApp,
       skipLock: options.skipLock,
       skipPreflight: options.skipPreflight,
       skipWarmup: options.skipWarmup,
@@ -120,12 +110,12 @@ export const testCommand = new Command('test')
       }
 
       // Test execution phase
-      if (!options.setupOnly && !options.teardownOnly) {
+      if (!options.infraOnly && !options.teardownOnly) {
         const testEnv = { ...testOrchestrator.getEnvVars(), CI: options.ci ? 'true' : '', NODE_ENV: 'test' };
 
       // Route to appropriate test runner
-      if (options.app) {
-        results.push(await runAppTests(rootDir, options.app, mode, options, testEnv));
+      if (options.targetApp) {
+        results.push(await runAppTests(rootDir, options.targetApp, mode, options, testEnv));
       } else if (options.package) {
         results.push(await runPackageTests(rootDir, options.package, options));
       } else {
@@ -185,11 +175,11 @@ export const testCommand = new Command('test')
       }
 
       // Teardown phase
-      if (options.teardownOnly || (!options.keepServices && !options.setupOnly)) {
+      if (options.teardownOnly || (!options.keepServices && !options.infraOnly)) {
         await cleanup();
       }
 
-      if (options.setupOnly) {
+      if (options.infraOnly) {
         logger.success('Setup complete. Services are running.');
         logger.info('Run with --teardown-only to stop services.');
       }
@@ -294,6 +284,64 @@ testCommand
 
     const coverage = await generateCoverageReport(rootDir, [], true);
     printCoverageReport(coverage);
+  });
+
+testCommand
+  .command('e2e')
+  .description('Run E2E tests with full infrastructure (chain, contracts, wallet)')
+  .option('-a, --app <app>', 'Test specific app')
+  .option('--headless', 'Run in headless mode (CI)')
+  .option('--debug', 'Enable debug mode')
+  .option('--build-cache', 'Build wallet cache only')
+  .option('--clear-cache', 'Clear wallet cache')
+  .option('--smoke', 'Run smoke tests only')
+  .option('--setup-only', 'Only setup infrastructure, don\'t run tests')
+  .option('--skip-infra', 'Skip infrastructure setup (assume already running)')
+  .option('--skip-contracts', 'Skip contract deployment')
+  .option('-v, --verbose', 'Verbose output')
+  .action(async (options) => {
+    const rootDir = findMonorepoRoot();
+    logger.header('JEJU E2E - End-to-End Tests');
+
+    // Clear cache if requested
+    if (options.clearCache) {
+      await clearSynpressCache(rootDir);
+      logger.success('Wallet cache cleared');
+      if (!options.buildCache) return;
+    }
+
+    // Build cache only
+    if (options.buildCache) {
+      await buildSynpressCache(rootDir, options);
+      return;
+    }
+
+    // Setup infrastructure (chain + contracts + browsers)
+    let cleanup: (() => Promise<void>) | null = null;
+    if (!options.skipInfra) {
+      cleanup = await setupE2EInfra(rootDir, options);
+    }
+
+    if (options.setupOnly) {
+      logger.success('Infrastructure ready. Run tests with --skip-infra');
+      logger.info('Chain: http://127.0.0.1:9545 (chainId: 1337)');
+      // Keep Anvil running by not calling cleanup
+      return;
+    }
+
+    // Run tests
+    try {
+      const results = await runSynpressTests(rootDir, options);
+      printSummary(results);
+
+      const failed = results.filter(r => !r.passed && !r.skipped).length;
+      if (failed > 0) {
+        if (cleanup) await cleanup();
+        process.exit(1);
+      }
+    } finally {
+      if (cleanup && !options.setupOnly) await cleanup();
+    }
   });
 
 // Test runners
@@ -842,6 +890,490 @@ async function generateCoverageReport(
   writeFileSync(reportPath, JSON.stringify(report, null, 2));
 
   return report;
+}
+
+// Synpress Helpers
+
+async function clearSynpressCache(rootDir: string): Promise<void> {
+  const cacheDirs = [
+    join(rootDir, '.jeju', '.synpress-cache'),
+    join(rootDir, '.synpress-cache'),
+  ];
+  
+  for (const dir of cacheDirs) {
+    if (existsSync(dir)) {
+      await execa('rm', ['-rf', dir]);
+      logger.info(`Cleared: ${dir}`);
+    }
+  }
+}
+
+async function buildSynpressCache(rootDir: string, options: Record<string, unknown>): Promise<void> {
+  logger.step('Building Synpress wallet cache...');
+  
+  // Ensure cache directory exists
+  const cacheDir = join(rootDir, '.jeju', '.synpress-cache');
+  mkdirSync(cacheDir, { recursive: true });
+  
+  // Wallet setup directory - use relative path from packages/tests
+  const testsDir = join(rootDir, 'packages', 'tests');
+  const walletSetupRelative = 'shared/wallet-setup';
+  const walletSetupFile = join(testsDir, walletSetupRelative, 'jeju.setup.ts');
+  
+  if (!existsSync(walletSetupFile)) {
+    logger.error('Wallet setup file not found at: ' + walletSetupFile);
+    process.exit(1);
+  }
+  
+  logger.info(`Using wallet setup from: ${walletSetupRelative}`);
+  
+  try {
+    // Run synpress with relative path to wallet-setup directory
+    await execa('bunx', ['synpress', walletSetupRelative, '--force'], {
+      cwd: testsDir,
+      stdio: options.verbose ? 'inherit' : 'pipe',
+      env: {
+        ...process.env,
+        SYNPRESS_CACHE_DIR: cacheDir,
+      },
+    });
+    logger.success('Wallet cache built successfully');
+  } catch (error) {
+    const err = error as ExecaError;
+    logger.error(`Cache build failed: ${err.message}`);
+    if (options.verbose) {
+      logger.error(String(err.stderr || err.stdout || ''));
+    }
+    process.exit(1);
+  }
+}
+
+async function setupE2EInfra(rootDir: string, options: Record<string, unknown>): Promise<() => Promise<void>> {
+  logger.step('Setting up E2E infrastructure...');
+  
+  // E2E test configuration - fixed values for consistency
+  const E2E_PORT = 9545;
+  const E2E_CHAIN_ID = 1337;
+  const rpcUrl = `http://127.0.0.1:${E2E_PORT}`;
+  let anvilPid: number | null = null;
+  let chainStartedByUs = false;
+  
+  // Standard test accounts (Anvil defaults)
+  const DEPLOYER_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
+  const TEST_WALLET = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
+  
+  // Helper to check chain connectivity
+  async function checkChain(url: string, expectedChainId?: number): Promise<boolean> {
+    try {
+      const result = await execa('curl', [
+        '-s', '-f', '-X', 'POST', url,
+        '-H', 'Content-Type: application/json',
+        '-d', '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}',
+        '--connect-timeout', '3',
+      ], { reject: false });
+      
+      if (result.exitCode !== 0) return false;
+      
+      const data = JSON.parse(result.stdout) as { result?: string; error?: { message: string } };
+      if (!data.result || data.error) return false;
+      
+      if (expectedChainId !== undefined) {
+        const chainId = parseInt(data.result, 16);
+        return chainId === expectedChainId;
+      }
+      
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  
+  // 1. Start or verify chain
+  const chainRunning = await checkChain(rpcUrl, E2E_CHAIN_ID);
+  
+  if (chainRunning) {
+    logger.success(`Chain already running at ${rpcUrl}`);
+  } else {
+    logger.info(`Starting Anvil on port ${E2E_PORT}...`);
+    
+    // When --setup-only is used, detach Anvil so it survives CLI exit
+    const detached = !!options.setupOnly;
+    const anvilProc = execa('anvil', [
+      '--chain-id', String(E2E_CHAIN_ID),
+      '--port', String(E2E_PORT),
+      '--block-time', '1',
+      '--accounts', '10',
+      '--balance', '10000',
+    ], {
+      stdio: detached ? 'ignore' : (options.verbose ? 'inherit' : 'pipe'),
+      reject: false,
+      detached,
+    });
+    
+    // Allow the parent to exit without waiting for detached process
+    if (detached) {
+      anvilProc.unref();
+    }
+    
+    anvilPid = anvilProc.pid ?? null;
+    chainStartedByUs = true;
+    
+    // Wait for chain to be ready
+    let ready = false;
+    for (let i = 0; i < 30; i++) {
+      await new Promise(r => setTimeout(r, 1000));
+      if (await checkChain(rpcUrl, E2E_CHAIN_ID)) {
+        ready = true;
+        break;
+      }
+    }
+    
+    if (!ready) {
+      throw new Error('Anvil failed to start');
+    }
+    logger.success(`Anvil started at ${rpcUrl}`);
+  }
+  
+  // 2. Set environment variables (must be done before any other setup)
+  process.env.L2_RPC_URL = rpcUrl;
+  process.env.JEJU_RPC_URL = rpcUrl;
+  process.env.CHAIN_ID = String(E2E_CHAIN_ID);
+  process.env.DEPLOYER_PRIVATE_KEY = DEPLOYER_KEY;
+  process.env.TEST_WALLET_ADDRESS = TEST_WALLET;
+  
+  // 3. Deploy contracts if needed (skip with --skip-contracts)
+  if (!options.skipContracts) {
+    const bootstrapFile = join(rootDir, 'packages/contracts/deployments/localnet-complete.json');
+    
+    if (existsSync(bootstrapFile)) {
+      logger.success('Contracts already deployed');
+    } else {
+      const bootstrapScript = join(rootDir, 'scripts/bootstrap/bootstrap-localnet-complete.ts');
+      
+      if (existsSync(bootstrapScript)) {
+        logger.info('Deploying contracts...');
+        try {
+          await execa('bun', ['run', bootstrapScript], {
+            cwd: rootDir,
+            stdio: options.verbose ? 'inherit' : 'pipe',
+            env: {
+              ...process.env,
+              JEJU_RPC_URL: rpcUrl,
+              L2_RPC_URL: rpcUrl,
+              DEPLOYER_PRIVATE_KEY: DEPLOYER_KEY,
+            },
+            timeout: 300000, // 5 minute timeout for deployments
+          });
+          logger.success('Contracts deployed');
+        } catch (error) {
+          const err = error as ExecaError;
+          if (options.verbose) {
+            logger.warn(`Contract deployment output: ${err.stderr || err.stdout || ''}`);
+          }
+          logger.warn('Contract deployment failed - tests may have limited functionality');
+        }
+      } else {
+        logger.debug('Bootstrap script not found, skipping contract deployment');
+      }
+    }
+  }
+  
+  // 4. Install playwright browsers if needed
+  try {
+    await execa('bunx', ['playwright', 'install', 'chromium'], {
+      stdio: options.verbose ? 'inherit' : 'pipe',
+    });
+    logger.success('Playwright browsers ready');
+  } catch {
+    logger.warn('Failed to install Playwright browsers - may already be installed');
+  }
+  
+  // 5. Start app if specified
+  let appProc: ReturnType<typeof execa> | null = null;
+  let appStartedByUs = false;
+  
+  if (options.app && typeof options.app === 'string') {
+    const appName = options.app;
+    const apps = discoverApps(rootDir);
+    const appManifest = apps.find(a => a.name === appName);
+    
+    if (appManifest) {
+      const appDir = join(rootDir, 'apps', appName);
+      const devCommand = appManifest.commands?.dev;
+      const mainPort = appManifest.ports?.main;
+      
+      if (devCommand && existsSync(appDir)) {
+        // Check if app already running
+        const appRunning = mainPort ? await checkPort(mainPort) : false;
+        
+        if (appRunning) {
+          logger.success(`${appName} already running on port ${mainPort}`);
+        } else {
+          logger.info(`Starting ${appName}...`);
+          
+          const appEnv = {
+            ...process.env,
+            JEJU_RPC_URL: rpcUrl,
+            L2_RPC_URL: rpcUrl,
+            RPC_URL: rpcUrl,
+            CHAIN_ID: String(E2E_CHAIN_ID),
+            DEPLOYER_PRIVATE_KEY: DEPLOYER_KEY,
+            TEST_WALLET_ADDRESS: TEST_WALLET,
+            PORT: mainPort ? String(mainPort) : undefined,
+            VITE_PORT: mainPort ? String(mainPort) : undefined,
+          };
+          
+          const [cmd, ...args] = devCommand.split(' ');
+          appProc = execa(cmd, args, {
+            cwd: appDir,
+            stdio: options.verbose ? 'inherit' : 'pipe',
+            env: appEnv,
+            reject: false,
+          });
+          
+          appStartedByUs = true;
+          
+          // Wait for app to be ready
+          if (mainPort) {
+            let appReady = false;
+            for (let i = 0; i < 60; i++) { // Wait up to 60 seconds
+              await new Promise(r => setTimeout(r, 1000));
+              if (await checkPort(mainPort)) {
+                appReady = true;
+                break;
+              }
+            }
+            
+            if (appReady) {
+              logger.success(`${appName} ready at http://localhost:${mainPort}`);
+            } else {
+              logger.warn(`${appName} may not be ready - timeout waiting for port ${mainPort}`);
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  // Helper to check if a port is listening (TCP check, then HTTP)
+  async function checkPort(port: number): Promise<boolean> {
+    try {
+      // First try a TCP connection check using nc (more reliable)
+      const ncResult = await execa('nc', ['-z', 'localhost', String(port)], { 
+        reject: false,
+        timeout: 3000,
+      });
+      if (ncResult.exitCode === 0) return true;
+      
+      // Fallback to HTTP check
+      const result = await execa('curl', [
+        '-s', '-o', '/dev/null', '-w', '%{http_code}',
+        `http://localhost:${port}`,
+        '--connect-timeout', '2',
+      ], { reject: false });
+      // Accept any HTTP response (even 404) as "port is listening"
+      const httpCode = parseInt(result.stdout);
+      return httpCode > 0 && httpCode < 600;
+    } catch {
+      return false;
+    }
+  }
+  
+  // 6. Log configuration summary
+  logger.newline();
+  logger.subheader('E2E Test Environment');
+  logger.keyValue('RPC URL', rpcUrl);
+  logger.keyValue('Chain ID', String(E2E_CHAIN_ID));
+  logger.keyValue('Test Wallet', TEST_WALLET);
+  if (options.app && typeof options.app === 'string') {
+    const apps = discoverApps(rootDir);
+    const appManifest = apps.find(a => a.name === options.app);
+    if (appManifest?.ports?.main) {
+      logger.keyValue('App URL', `http://localhost:${appManifest.ports.main}`);
+    }
+  }
+  logger.newline();
+  
+  // Cleanup function
+  return async () => {
+    // Stop app first
+    if (appStartedByUs && appProc && appProc.pid) {
+      try {
+        process.kill(appProc.pid);
+        logger.info(`${options.app} stopped`);
+      } catch {
+        // Process may have already exited
+      }
+    }
+    
+    // Stop Anvil
+    if (chainStartedByUs && anvilPid) {
+      try {
+        process.kill(anvilPid);
+        logger.info('Anvil stopped');
+      } catch {
+        // Process may have already exited
+      }
+    }
+  };
+}
+
+async function runSynpressTests(rootDir: string, options: Record<string, unknown>): Promise<TestResult[]> {
+  const results: TestResult[] = [];
+  
+  // E2E test defaults - consistent with setupE2EInfra
+  const E2E_RPC_URL = 'http://127.0.0.1:9545';
+  const E2E_CHAIN_ID = '1337';
+  const TEST_WALLET = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
+  const DEPLOYER_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
+  
+  const testEnv = {
+    ...process.env,
+    // Chain configuration
+    L2_RPC_URL: E2E_RPC_URL,
+    JEJU_RPC_URL: E2E_RPC_URL,
+    CHAIN_ID: E2E_CHAIN_ID,
+    // Test accounts
+    TEST_WALLET_ADDRESS: TEST_WALLET,
+    DEPLOYER_PRIVATE_KEY: DEPLOYER_KEY,
+    // Synpress/Playwright config
+    CI: options.headless ? 'true' : '',
+    DEBUG: options.debug ? 'synpress:*' : '',
+    SYNPRESS_CACHE_DIR: join(rootDir, '.jeju', '.synpress-cache'),
+    // Disable env file loading to ensure consistent config
+    DOTENV_CONFIG_PATH: '',
+  };
+  
+  // Smoke tests only
+  if (options.smoke) {
+    logger.step('Running Synpress smoke tests...');
+    const result = await runSynpressSmokeTests(rootDir, testEnv, options);
+    results.push(result);
+    return results;
+  }
+  
+  // App-specific tests
+  if (options.app) {
+    logger.step(`Running Synpress tests for ${options.app}...`);
+    const result = await runAppSynpressTests(rootDir, options.app as string, testEnv, options);
+    results.push(result);
+    return results;
+  }
+  
+  // Discover and run all apps with synpress configs
+  const apps = discoverSynpressApps(rootDir);
+  
+  if (apps.length === 0) {
+    logger.warn('No apps with synpress.config.ts found');
+    return [{ name: 'synpress', passed: true, duration: 0, skipped: true }];
+  }
+  
+  logger.info(`Found ${apps.length} apps with Synpress tests: ${apps.join(', ')}`);
+  
+  for (const app of apps) {
+    const result = await runAppSynpressTests(rootDir, app, testEnv, options);
+    results.push(result);
+  }
+  
+  return results;
+}
+
+function discoverSynpressApps(rootDir: string): string[] {
+  const apps: string[] = [];
+  const appsDir = join(rootDir, 'apps');
+  
+  if (!existsSync(appsDir)) return apps;
+  
+  for (const entry of readdirSync(appsDir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    if (entry.name.startsWith('.')) continue;
+    
+    const synpressConfig = join(appsDir, entry.name, 'synpress.config.ts');
+    if (existsSync(synpressConfig)) {
+      apps.push(entry.name);
+    }
+  }
+  
+  return apps;
+}
+
+async function runSynpressSmokeTests(
+  rootDir: string,
+  env: Record<string, string>,
+  _options: Record<string, unknown>
+): Promise<TestResult> {
+  const start = Date.now();
+  const testsPath = join(rootDir, 'packages', 'tests', 'smoke');
+  
+  if (!existsSync(testsPath)) {
+    return { name: 'smoke', passed: true, duration: 0, skipped: true };
+  }
+  
+  try {
+    await execa('bunx', ['playwright', 'test', 'wallet-smoke.spec.ts', '--config', 'synpress.config.ts'], {
+      cwd: testsPath,
+      stdio: 'inherit',
+      env: { ...process.env, ...env },
+    });
+    
+    return { name: 'smoke', passed: true, duration: Date.now() - start };
+  } catch (error) {
+    const err = error as ExecaError;
+    return { name: 'smoke', passed: false, duration: Date.now() - start, output: String(err.stderr || '') };
+  }
+}
+
+async function runAppSynpressTests(
+  rootDir: string,
+  appName: string,
+  env: Record<string, string>,
+  options: Record<string, unknown>
+): Promise<TestResult> {
+  const start = Date.now();
+  
+  // Find app path
+  let appPath = join(rootDir, 'apps', appName);
+  if (!existsSync(appPath)) {
+    appPath = join(rootDir, 'vendor', appName);
+  }
+  
+  if (!existsSync(appPath)) {
+    return { name: appName, passed: false, duration: 0, output: `App not found: ${appName}` };
+  }
+  
+  const synpressConfig = join(appPath, 'synpress.config.ts');
+  if (!existsSync(synpressConfig)) {
+    return { name: appName, passed: true, duration: 0, skipped: true };
+  }
+  
+  // Check if any synpress test directory exists
+  const testDirs = ['tests/synpress', 'tests/e2e-synpress', 'tests/wallet'];
+  const foundTestDir = testDirs.find(dir => existsSync(join(appPath, dir)));
+  
+  if (!foundTestDir) {
+    logger.warn(`No synpress test directory found in ${appName}`);
+    return { name: appName, passed: true, duration: 0, skipped: true };
+  }
+  
+  logger.step(`Running ${appName} Synpress tests (${foundTestDir})...`);
+  
+  try {
+    // Let the synpress.config.ts define testDir - don't override it
+    const args = ['playwright', 'test', '--config', 'synpress.config.ts'];
+    if (options.verbose) args.push('--reporter=list');
+    
+    await execa('bunx', args, {
+      cwd: appPath,
+      stdio: 'inherit',
+      env: { ...process.env, ...env },
+      timeout: 600000, // 10 minutes
+    });
+    
+    return { name: appName, passed: true, duration: Date.now() - start };
+  } catch (error) {
+    const err = error as ExecaError;
+    return { name: appName, passed: false, duration: Date.now() - start, output: String(err.stderr || '') };
+  }
 }
 
 // Helpers

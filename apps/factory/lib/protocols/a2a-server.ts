@@ -6,20 +6,17 @@
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { validateBody, expect } from '@/lib/validation';
+import { a2aRequestSchema } from '@/lib/validation/protocols';
+import { 
+  createRepositorySchema, 
+  createIssueSchema, 
+  createBountySchema,
+  createAgentSchema,
+  createCIRunSchema
+} from '@/lib/validation/schemas';
 
 const NETWORK_NAME = 'Jeju';
-
-interface A2ARequest {
-  jsonrpc: string;
-  method: string;
-  params?: {
-    message?: {
-      messageId: string;
-      parts: Array<{ kind: string; text?: string; data?: Record<string, unknown> }>;
-    };
-  };
-  id: number | string;
-}
 
 interface SkillResult {
   message: string;
@@ -134,7 +131,7 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
     }
 
     case 'get-repo': {
-      const repo = params.repo as string;
+      const repo = expect(params.repo as string, 'repo parameter required');
       return {
         message: `Repository ${repo}`,
         data: {
@@ -151,17 +148,17 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
     }
 
     case 'create-repo': {
-      const { name, description, isPrivate } = params as { name: string; description?: string; isPrivate?: boolean };
+      const validated = createRepositorySchema.parse(params);
       return {
-        message: `Created repository ${name}`,
+        message: `Created repository ${validated.name}`,
         data: {
-          name,
-          url: `https://git.jejunetwork.org/${name}`,
-          cloneUrl: `https://git.jejunetwork.org/${name}.git`,
-          sshUrl: `git@git.jejunetwork.org:${name}.git`,
+          name: validated.name,
+          url: `https://git.jejunetwork.org/${validated.name}`,
+          cloneUrl: `https://git.jejunetwork.org/${validated.name}.git`,
+          sshUrl: `git@git.jejunetwork.org:${validated.name}.git`,
           setupCommands: [
-            `git clone https://git.jejunetwork.org/${name}.git`,
-            `cd ${name}`,
+            `git clone https://git.jejunetwork.org/${validated.name}.git`,
+            `cd ${validated.name}`,
             'git add .',
             'git commit -m "Initial commit"',
             'git push origin main',
@@ -184,20 +181,20 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
     }
 
     case 'create-issue': {
-      const { repo, title, body } = params as { repo: string; title: string; body?: string };
+      const validated = createIssueSchema.parse(params);
       return {
-        message: `Created issue in ${repo}`,
+        message: `Created issue in ${validated.repo}`,
         data: {
           number: Math.floor(Math.random() * 1000),
-          title,
-          url: `https://factory.jejunetwork.org/git/${repo}/issues/${Math.floor(Math.random() * 1000)}`,
+          title: validated.title,
+          url: `https://factory.jejunetwork.org/git/${validated.repo}/issues/${Math.floor(Math.random() * 1000)}`,
         },
       };
     }
 
     // Package Skills
     case 'search-packages': {
-      const query = params.query as string;
+      const query = params.query as string || '';
       return {
         message: `Packages matching "${query || 'all'}"`,
         data: {
@@ -210,7 +207,7 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
     }
 
     case 'get-package': {
-      const name = params.name as string;
+      const name = expect(params.name as string, 'name parameter required');
       return {
         message: `Package ${name}`,
         data: {
@@ -253,7 +250,7 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
     }
 
     case 'get-model': {
-      const modelId = params.modelId as string;
+      const modelId = expect(params.modelId as string, 'modelId parameter required');
       return {
         message: `Model ${modelId}`,
         data: {
@@ -269,7 +266,7 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
     }
 
     case 'download-model': {
-      const modelId = params.modelId as string;
+      const modelId = expect(params.modelId as string, 'modelId parameter required');
       return {
         message: `Download ${modelId}`,
         data: {
@@ -307,13 +304,13 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
     }
 
     case 'create-bounty': {
-      const { title, description, reward, skills } = params as { title: string; description: string; reward: string; skills: string[] };
+      const validated = createBountySchema.parse(params);
       return {
         message: 'Bounty created',
         data: {
           id: `bounty-${Date.now()}`,
-          title,
-          reward,
+          title: validated.title,
+          reward: validated.reward,
           status: 'open',
           url: `https://factory.jejunetwork.org/bounties/${Date.now()}`,
           transactionRequired: true,
@@ -336,9 +333,9 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
     }
 
     case 'trigger-workflow': {
-      const { repo, workflow, branch } = params as { repo: string; workflow: string; branch?: string };
+      const validated = createCIRunSchema.parse(params);
       return {
-        message: `Triggered ${workflow}`,
+        message: `Triggered ${validated.workflow}`,
         data: {
           runId: `run-${Date.now()}`,
           status: 'queued',
@@ -361,13 +358,13 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
     }
 
     case 'deploy-agent': {
-      const { name, type, modelId } = params as { name: string; type: string; modelId: string };
+      const validated = createAgentSchema.parse(params);
       return {
-        message: `Deploying agent ${name}`,
+        message: `Deploying agent ${validated.name}`,
         data: {
           agentId: `agent-${Date.now()}`,
-          name,
-          type,
+          name: validated.name,
+          type: validated.type,
           status: 'deploying',
           estimatedTime: '2 minutes',
         },
@@ -388,7 +385,7 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
     }
 
     case 'post-cast': {
-      const { text } = params as { text: string };
+      const text = expect(params.text as string, 'text parameter required');
       return {
         message: 'Posted to feed',
         data: {
@@ -409,50 +406,58 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
 
 // ============ REQUEST HANDLER ============
 export async function handleA2ARequest(request: NextRequest): Promise<NextResponse> {
-  const body = await request.json() as A2ARequest;
+  try {
+    const body = await validateBody(a2aRequestSchema, await request.json());
 
-  if (body.method !== 'message/send') {
+    if (body.method !== 'message/send') {
+      return NextResponse.json({
+        jsonrpc: '2.0',
+        id: body.id,
+        error: { code: -32601, message: 'Method not found' },
+      });
+    }
+
+    const message = body.params?.message;
+    if (!message?.parts) {
+      return NextResponse.json({
+        jsonrpc: '2.0',
+        id: body.id,
+        error: { code: -32602, message: 'Invalid params' },
+      });
+    }
+
+    const dataPart = message.parts.find((p) => p.kind === 'data');
+    if (!dataPart?.data) {
+      return NextResponse.json({
+        jsonrpc: '2.0',
+        id: body.id,
+        error: { code: -32602, message: 'No data part found' },
+      });
+    }
+
+    const skillId = expect(dataPart.data.skillId as string, 'skillId required in data part');
+    const result = await executeSkill(skillId, dataPart.data);
+
     return NextResponse.json({
       jsonrpc: '2.0',
       id: body.id,
-      error: { code: -32601, message: 'Method not found' },
+      result: {
+        role: 'agent',
+        parts: [
+          { kind: 'text', text: result.message },
+          { kind: 'data', data: result.data },
+        ],
+        messageId: message.messageId,
+        kind: 'message',
+      },
     });
-  }
-
-  const message = body.params?.message;
-  if (!message?.parts) {
+  } catch (error) {
     return NextResponse.json({
       jsonrpc: '2.0',
-      id: body.id,
-      error: { code: -32602, message: 'Invalid params' },
+      id: null,
+      error: { code: -32700, message: error instanceof Error ? error.message : 'Parse error' },
     });
   }
-
-  const dataPart = message.parts.find((p) => p.kind === 'data');
-  if (!dataPart?.data) {
-    return NextResponse.json({
-      jsonrpc: '2.0',
-      id: body.id,
-      error: { code: -32602, message: 'No data part found' },
-    });
-  }
-
-  const skillId = dataPart.data.skillId as string;
-  const result = await executeSkill(skillId, dataPart.data);
-
-  return NextResponse.json({
-    jsonrpc: '2.0',
-    id: body.id,
-    result: {
-      role: 'agent',
-      parts: [
-        { kind: 'text', text: result.message },
-        { kind: 'data', data: result.data },
-      ],
-      messageId: message.messageId,
-      kind: 'message',
-    },
-  });
 }
 
 export function handleAgentCard(): NextResponse {

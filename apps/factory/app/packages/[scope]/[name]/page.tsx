@@ -1,28 +1,22 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useAccount } from 'wagmi';
 import {
   Package,
-  Download,
   Copy,
   Check,
-  Clock,
   Shield,
-  Star,
   GitFork,
   FileText,
   Code,
-  Terminal,
-  Settings,
   Users,
-  ChevronRight,
   ExternalLink,
   AlertTriangle,
   Tag,
+  Terminal,
 } from 'lucide-react';
-import Link from 'next/link';
 import { clsx } from 'clsx';
 
 type PackageTab = 'readme' | 'versions' | 'dependencies' | 'files';
@@ -136,15 +130,16 @@ export default function PackageDetailPage() {
   const params = useParams();
   const rawScope = params.scope as string;
   const name = params.name as string;
-  const { isConnected } = useAccount();
+  const { isConnected: _isConnected } = useAccount();
   
   // Decode URL-encoded scope (e.g., %40jejunetwork -> @jejunetwork)
   const scope = decodeURIComponent(rawScope);
   
   const [tab, setTab] = useState<PackageTab>('readme');
-  const [selectedVersion, setSelectedVersion] = useState(mockPackage.version);
+  // const [selectedVersion, setSelectedVersion] = useState(mockPackage.version);
   const [copied, setCopied] = useState<string | null>(null);
-  const [pkg, setPkg] = useState<PackageInfo>(mockPackage);
+  const [pkg] = useState<PackageInfo>(mockPackage);
+  // const [setPkg] = useState<PackageInfo>(mockPackage);
 
   const fullName = scope.startsWith('@') ? `${scope}/${name}` : name;
 

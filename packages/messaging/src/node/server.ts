@@ -9,7 +9,13 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { sha256 } from '@noble/hashes/sha256';
 import { bytesToHex } from '@noble/hashes/utils';
-import type { MessageEnvelope } from '../sdk/types';
+import { 
+  MessageEnvelopeSchema, 
+  WebSocketSubscribeSchema, 
+  IPFSAddResponseSchema,
+  type MessageEnvelope,
+  type NodeConfig,
+} from '../schemas';
 
 // ============ Types ============
 
@@ -27,12 +33,14 @@ interface Subscriber {
   subscribedAt: number;
 }
 
-interface NodeConfig {
-  port: number;
-  nodeId?: string;
-  ipfsUrl?: string;
-  maxMessageSize?: number;
-  messageRetentionDays?: number;
+/** Message types sent via WebSocket to subscribers */
+interface WebSocketNotification {
+  type: 'message' | 'delivery_receipt' | 'read_receipt' | 'subscribed' | 'error';
+  data?: MessageEnvelope | { messageId: string } | { messageId: string; readAt: number };
+  address?: string;
+  pendingCount?: number;
+  error?: string;
+  details?: { message: string; path?: (string | number)[] }[];
 }
 
 // ============ In-Memory Storage ============
@@ -58,13 +66,21 @@ function generateCID(content: string): string {
 }
 
 function addPendingMessage(recipient: string, messageId: string): void {
-  const pending = pendingByRecipient.get(recipient.toLowerCase()) ?? [];
-  pending.push(messageId);
-  pendingByRecipient.set(recipient.toLowerCase(), pending);
+  const normalizedRecipient = recipient.toLowerCase();
+  const existing = pendingByRecipient.get(normalizedRecipient);
+  if (existing) {
+    existing.push(messageId);
+  } else {
+    pendingByRecipient.set(normalizedRecipient, [messageId]);
+  }
 }
 
 function getPendingMessages(recipient: string): StoredMessage[] {
-  const pending = pendingByRecipient.get(recipient.toLowerCase()) ?? [];
+  const normalizedRecipient = recipient.toLowerCase();
+  const pending = pendingByRecipient.get(normalizedRecipient);
+  if (!pending) {
+    return [];
+  }
   return pending
     .map(id => messages.get(id))
     .filter((m): m is StoredMessage => m !== undefined);
@@ -77,10 +93,10 @@ function markDelivered(messageId: string): void {
   }
 }
 
-function notifySubscriber(address: string, data: Record<string, unknown>): boolean {
+function notifySubscriber(address: string, notification: WebSocketNotification): boolean {
   const subscriber = subscribers.get(address.toLowerCase());
   if (subscriber && subscriber.ws.readyState === WebSocket.OPEN) {
-    subscriber.ws.send(JSON.stringify(data));
+    subscriber.ws.send(JSON.stringify(notification));
     return true;
   }
   return false;
@@ -88,18 +104,22 @@ function notifySubscriber(address: string, data: Record<string, unknown>): boole
 
 // ============ IPFS Integration (Optional) ============
 
-async function storeOnIPFS(content: string, ipfsUrl?: string): Promise<string | null> {
-  if (!ipfsUrl) return null;
-  
+/**
+ * Store content on IPFS. Returns CID on success, null if IPFS is not configured.
+ * Throws if IPFS is configured but storage fails.
+ */
+async function storeOnIPFS(content: string, ipfsUrl: string): Promise<string> {
   const response = await fetch(`${ipfsUrl}/api/v0/add`, {
     method: 'POST',
     body: content,
-  }).catch(() => null);
+  });
   
-  if (!response?.ok) return null;
+  if (!response.ok) {
+    throw new Error(`IPFS storage failed: ${response.status} ${response.statusText}`);
+  }
   
-  const result = await response.json() as { Hash?: string };
-  return result.Hash ?? null;
+  const result = IPFSAddResponseSchema.parse(await response.json());
+  return result.Hash;
 }
 
 // ============ Create Server ============
@@ -115,7 +135,7 @@ export function createRelayServer(config: NodeConfig): Hono {
   app.get('/health', (c) => {
     return c.json({
       status: 'healthy',
-      nodeId: config.nodeId ?? 'local',
+      nodeId: config.nodeId,
       uptime: process.uptime(),
       stats: {
         messagesRelayed: totalMessagesRelayed,
@@ -130,12 +150,19 @@ export function createRelayServer(config: NodeConfig): Hono {
   // ============ Send Message ============
   
   app.post('/send', async (c) => {
-    const envelope = await c.req.json<MessageEnvelope>();
+    const body = await c.req.json();
     
-    // Validate envelope
-    if (!envelope.id || !envelope.from || !envelope.to || !envelope.encryptedContent) {
-      return c.json({ success: false, error: 'Invalid envelope' }, 400);
+    // Validate envelope with Zod schema
+    const parseResult = MessageEnvelopeSchema.safeParse(body);
+    if (!parseResult.success) {
+      return c.json({ 
+        success: false, 
+        error: 'Invalid envelope', 
+        details: parseResult.error.issues 
+      }, 400);
     }
+    
+    const envelope = parseResult.data;
     
     // Check message size
     const messageSize = JSON.stringify(envelope).length;
@@ -161,15 +188,15 @@ export function createRelayServer(config: NodeConfig): Hono {
     totalMessagesRelayed++;
     totalBytesRelayed += messageSize;
     
-    // Try to store on IPFS (async, don't block)
+    // Store on IPFS if configured (async, log failures)
     if (config.ipfsUrl) {
       storeOnIPFS(JSON.stringify(envelope), config.ipfsUrl)
-        .then(ipfsCid => {
-          if (ipfsCid) {
-            storedMessage.storedOnIPFS = true;
-          }
+        .then(() => {
+          storedMessage.storedOnIPFS = true;
         })
-        .catch(() => {});
+        .catch((err: Error) => {
+          console.error(`IPFS storage failed for message ${envelope.id}:`, err.message);
+        });
     }
     
     // Try to deliver immediately via WebSocket
@@ -255,7 +282,7 @@ export function createRelayServer(config: NodeConfig): Hono {
   
   app.get('/stats', (c) => {
     return c.json({
-      nodeId: config.nodeId ?? 'local',
+      nodeId: config.nodeId,
       totalMessagesRelayed,
       totalBytesRelayed,
       activeSubscribers: subscribers.size,
@@ -269,6 +296,62 @@ export function createRelayServer(config: NodeConfig): Hono {
 
 // ============ WebSocket Handler ============
 
+interface WebSocketLike {
+  send: (data: string) => void;
+  close: () => void;
+  readyState: number;
+}
+
+/**
+ * Process a subscription message and set up the subscriber
+ * Returns the subscribed address or null if invalid
+ */
+function processSubscription(
+  rawMessage: string,
+  ws: WebSocketLike,
+  onSubscribe: (address: string) => void
+): string | null {
+  const parseResult = WebSocketSubscribeSchema.safeParse(JSON.parse(rawMessage));
+  
+  if (!parseResult.success) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      error: 'Invalid message format',
+      details: parseResult.error.issues,
+    }));
+    return null;
+  }
+  
+  const address = parseResult.data.address.toLowerCase();
+  
+  subscribers.set(address, {
+    address,
+    ws: ws as WebSocket,
+    subscribedAt: Date.now(),
+  });
+  
+  onSubscribe(address);
+  
+  // Send any pending messages
+  const pending = getPendingMessages(address);
+  for (const msg of pending) {
+    ws.send(JSON.stringify({
+      type: 'message',
+      data: msg.envelope,
+    }));
+    markDelivered(msg.envelope.id);
+  }
+  
+  // Confirm subscription
+  ws.send(JSON.stringify({
+    type: 'subscribed',
+    address,
+    pendingCount: pending.length,
+  }));
+  
+  return address;
+}
+
 export function handleWebSocket(
   ws: WebSocket,
   _request: Request
@@ -276,121 +359,89 @@ export function handleWebSocket(
   let subscribedAddress: string | null = null;
   
   ws.addEventListener('message', (event) => {
-    const data = JSON.parse(event.data as string) as {
-      type: string;
-      address?: string;
-    };
-    
-    if (data.type === 'subscribe' && data.address) {
-      subscribedAddress = data.address.toLowerCase();
-      
-      subscribers.set(subscribedAddress, {
-        address: subscribedAddress,
-        ws,
-        subscribedAt: Date.now(),
-      });
-      
-      console.log(`Subscriber connected: ${subscribedAddress}`);
-      
-      // Send any pending messages
-      const pending = getPendingMessages(subscribedAddress);
-      for (const msg of pending) {
-        ws.send(JSON.stringify({
-          type: 'message',
-          data: msg.envelope,
-        }));
-        markDelivered(msg.envelope.id);
-      }
-      
-      // Confirm subscription
-      ws.send(JSON.stringify({
-        type: 'subscribed',
-        address: subscribedAddress,
-        pendingCount: pending.length,
-      }));
-    }
+    subscribedAddress = processSubscription(
+      event.data as string,
+      ws,
+      () => {}
+    );
   });
   
   ws.addEventListener('close', () => {
     if (subscribedAddress) {
       subscribers.delete(subscribedAddress);
-      console.log(`Subscriber disconnected: ${subscribedAddress}`);
     }
   });
 }
+
+// Track Bun websocket instances separately for the close handler
+const bunWsToAddress = new WeakMap<object, string>();
 
 // ============ Start Server ============
 
 export function startRelayServer(config: NodeConfig): void {
   const app = createRelayServer(config);
   
-  const server = Bun.serve({
+  Bun.serve({
     port: config.port,
     fetch: app.fetch,
     websocket: {
       message(ws, message) {
-        const data = JSON.parse(message as string) as {
-          type: string;
-          address?: string;
+        // Create a WebSocket-like wrapper for the shared handler
+        const wsWrapper: WebSocketLike = {
+          send: (d: string) => { ws.send(d); },
+          close: () => { ws.close(); },
+          readyState: WebSocket.OPEN,
         };
         
-        if (data.type === 'subscribe' && data.address) {
-          const address = data.address.toLowerCase();
-          
-          // Store WebSocket reference (simplified for Bun)
+        const address = processSubscription(
+          message as string,
+          wsWrapper,
+          (addr) => { bunWsToAddress.set(ws, addr); }
+        );
+        
+        if (address) {
+          // Update subscriber with wrapper
           subscribers.set(address, {
             address,
-            ws: ws as unknown as WebSocket,
+            ws: wsWrapper as WebSocket,
             subscribedAt: Date.now(),
           });
-          
-          console.log(`Subscriber connected: ${address}`);
-          
-          // Send pending messages
-          const pending = getPendingMessages(address);
-          for (const msg of pending) {
-            ws.send(JSON.stringify({
-              type: 'message',
-              data: msg.envelope,
-            }));
-            markDelivered(msg.envelope.id);
-          }
-          
-          ws.send(JSON.stringify({
-            type: 'subscribed',
-            address,
-            pendingCount: pending.length,
-          }));
         }
       },
       close(ws) {
-        // Find and remove subscriber
-        for (const [address, sub] of subscribers.entries()) {
-          if (sub.ws === (ws as unknown as WebSocket)) {
-            subscribers.delete(address);
-            console.log(`Subscriber disconnected: ${address}`);
-            break;
-          }
+        const address = bunWsToAddress.get(ws);
+        if (address) {
+          subscribers.delete(address);
+          bunWsToAddress.delete(ws);
         }
       },
     },
   });
-  
-  console.log(`🚀 Network Messaging Relay Node running at http://localhost:${server.port}`);
-  console.log(`   WebSocket: ws://localhost:${server.port}/ws`);
-  console.log(`   Health: http://localhost:${server.port}/health`);
 }
 
 // ============ CLI Entry Point ============
 
 if (import.meta.main) {
-  const port = parseInt(process.env.PORT ?? '3200');
-  const nodeId = process.env.NODE_ID ?? `relay-${Date.now()}`;
+  const portEnv = process.env.PORT;
+  const nodeIdEnv = process.env.NODE_ID;
   const ipfsUrl = process.env.IPFS_URL;
+  
+  if (!portEnv) {
+    throw new Error('PORT environment variable is required');
+  }
+  
+  if (!nodeIdEnv) {
+    throw new Error('NODE_ID environment variable is required');
+  }
+  
+  const port = parseInt(portEnv, 10);
+  if (isNaN(port) || port <= 0 || port > 65535) {
+    throw new Error(`Invalid PORT value: ${portEnv}`);
+  }
   
   startRelayServer({
     port,
-    nodeId,
+    nodeId: nodeIdEnv,
     ipfsUrl,
     maxMessageSize: 1024 * 1024, // 1MB
     messageRetentionDays: 7,

@@ -270,6 +270,7 @@ export interface CommandResult {
   embed?: MessageEmbed;
   buttons?: MessageButton[];
   error?: string;
+  data?: Record<string, unknown>;
 }
 
 export interface MessageEmbed {

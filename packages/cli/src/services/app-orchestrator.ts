@@ -9,7 +9,7 @@
  */
 
 import { spawn, type Subprocess } from 'bun';
-import { existsSync, readFileSync, readdirSync } from 'fs';
+import { existsSync } from 'fs';
 import { join } from 'path';
 import { logger } from '../lib/logger';
 import { discoverApps } from '../lib/testing';
@@ -42,8 +42,9 @@ export class AppOrchestrator {
 
   async start(options: AppOrchestratorOptions = {}): Promise<void> {
     const apps = discoverApps(this.rootDir);
-    const appsToStart = options.apps
-      ? apps.filter(app => options.apps!.includes(app.name))
+    const selectedApps = options.apps;
+    const appsToStart = selectedApps
+      ? apps.filter(app => selectedApps.includes(app.name))
       : apps.filter(app => app.enabled !== false && app.autoStart !== false);
 
     if (appsToStart.length === 0) {
@@ -74,11 +75,15 @@ export class AppOrchestrator {
     }
 
     const mainPort = app.ports?.main;
+    const rpcUrl = this.serviceEnv.L2_RPC_URL ?? this.serviceEnv.JEJU_RPC_URL;
+    if (!rpcUrl) {
+      throw new Error(`No RPC URL configured for app ${app.name}. Set L2_RPC_URL or JEJU_RPC_URL in service environment.`);
+    }
     const appEnv: Record<string, string> = {
       ...process.env as Record<string, string>,
       ...this.serviceEnv,
-      JEJU_RPC_URL: this.serviceEnv.L2_RPC_URL || this.serviceEnv.JEJU_RPC_URL || 'http://localhost:6546',
-      RPC_URL: this.serviceEnv.L2_RPC_URL || this.serviceEnv.JEJU_RPC_URL || 'http://localhost:6546',
+      JEJU_RPC_URL: rpcUrl,
+      RPC_URL: rpcUrl,
       CHAIN_ID: '1337',
     };
 
@@ -136,12 +141,8 @@ export class AppOrchestrator {
     logger.step(`Stopping ${this.runningApps.size} app(s)...`);
 
     for (const [name, proc] of this.runningApps) {
-      try {
-        proc.kill();
-        logger.debug(`Stopped ${name}`);
-      } catch (error) {
-        logger.warn(`Failed to stop ${name}: ${error}`);
-      }
+      proc.kill();
+      logger.debug(`Stopped ${name}`);
     }
 
     this.runningApps.clear();

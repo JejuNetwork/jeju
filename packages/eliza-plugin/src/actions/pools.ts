@@ -10,6 +10,11 @@ import {
   type State,
 } from "@elizaos/core";
 import { JEJU_SERVICE_NAME, type JejuService } from "../service";
+import {
+  expectResponseData,
+  validatePoolStats,
+  validateServiceExists,
+} from "../validation";
 
 export const listPoolsAction: Action = {
   name: "LIST_POOLS",
@@ -22,18 +27,16 @@ export const listPoolsAction: Action = {
     "xlp pools",
   ],
 
-  validate: async (runtime: IAgentRuntime) => {
-    const service = runtime.getService(JEJU_SERVICE_NAME);
-    return !!service;
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
 
   handler: async (
     runtime: IAgentRuntime,
     _message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
 
@@ -47,8 +50,13 @@ export const listPoolsAction: Action = {
     const poolList = pools
       .slice(0, 10)
       .map(
-        (p) =>
-          `• ${p.token0.symbol}/${p.token1.symbol} - Fee: ${p.fee / 10000}% - Liquidity: $${(Number(p.liquidity) / 1e18).toFixed(2)}`
+        (p: {
+          token0: { symbol: string };
+          token1: { symbol: string };
+          fee: number;
+          liquidity: bigint;
+        }) =>
+          `• ${p.token0.symbol}/${p.token1.symbol} - Fee: ${p.fee / 10000}% - Liquidity: $${(Number(p.liquidity) / 1e18).toFixed(2)}`,
       )
       .join("\n");
 
@@ -62,7 +70,10 @@ ${poolList}`,
   examples: [
     [
       { name: "user", content: { text: "Show available pools" } },
-      { name: "agent", content: { text: "Liquidity Pools (8): • ETH/USDC - Fee: 0.3%..." } },
+      {
+        name: "agent",
+        content: { text: "Liquidity Pools (8): • ETH/USDC - Fee: 0.3%..." },
+      },
     ],
   ],
 };
@@ -70,25 +81,18 @@ ${poolList}`,
 export const getPoolStatsAction: Action = {
   name: "GET_POOL_STATS",
   description: "Get statistics for liquidity pools",
-  similes: [
-    "pool stats",
-    "pool statistics",
-    "pool tvl",
-    "pool volume",
-  ],
+  similes: ["pool stats", "pool statistics", "pool tvl", "pool volume"],
 
-  validate: async (runtime: IAgentRuntime) => {
-    const service = runtime.getService(JEJU_SERVICE_NAME);
-    return !!service;
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
 
   handler: async (
     runtime: IAgentRuntime,
     _message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
 
@@ -96,14 +100,18 @@ export const getPoolStatsAction: Action = {
       skillId: "xlp-pool-stats",
     });
 
-    const stats = response.data ?? {};
+    const responseData = expectResponseData(
+      response,
+      "Pool stats API returned no data",
+    );
+    const stats = validatePoolStats(responseData as Record<string, unknown>);
 
     callback?.({
       text: `XLP Pool Statistics:
-• Total Value Locked: $${stats.tvl ?? 0}
-• 24h Volume: $${stats.volume24h ?? 0}
-• Total Pools: ${stats.totalPools ?? 0}
-• Total Swaps: ${stats.totalSwaps ?? 0}`,
+• Total Value Locked: $${stats.tvl}
+• 24h Volume: $${stats.volume24h}
+• Total Pools: ${stats.totalPools}
+• Total Swaps: ${stats.totalSwaps}`,
       content: stats,
     });
   },
@@ -111,7 +119,12 @@ export const getPoolStatsAction: Action = {
   examples: [
     [
       { name: "user", content: { text: "Show pool statistics" } },
-      { name: "agent", content: { text: "XLP Pool Statistics: • Total Value Locked: $1.2M..." } },
+      {
+        name: "agent",
+        content: {
+          text: "XLP Pool Statistics: • Total Value Locked: $1.2M...",
+        },
+      },
     ],
   ],
 };
@@ -126,18 +139,16 @@ export const myPositionsAction: Action = {
     "liquidity positions",
   ],
 
-  validate: async (runtime: IAgentRuntime) => {
-    const service = runtime.getService(JEJU_SERVICE_NAME);
-    return !!service;
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
 
   handler: async (
     runtime: IAgentRuntime,
     _message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
 
@@ -150,8 +161,8 @@ export const myPositionsAction: Action = {
 
     const positionList = positions
       .map(
-        (p) =>
-          `• Position #${p.positionId} - Liquidity: ${p.liquidity.toString()}`
+        (p: { positionId: string | number | bigint; liquidity: bigint }) =>
+          `• Position #${p.positionId} - Liquidity: ${p.liquidity.toString()}`,
       )
       .join("\n");
 
@@ -165,8 +176,10 @@ ${positionList}`,
   examples: [
     [
       { name: "user", content: { text: "Show my liquidity positions" } },
-      { name: "agent", content: { text: "Your Liquidity Positions (2): • Position #1..." } },
+      {
+        name: "agent",
+        content: { text: "Your Liquidity Positions (2): • Position #1..." },
+      },
     ],
   ],
 };
-

@@ -2,9 +2,10 @@ import { useState, useCallback, useEffect } from 'react';
 import { X, ArrowRight, Zap, AlertCircle, Loader2, CheckCircle } from 'lucide-react';
 import { useAccount, useWriteContract, useSwitchChain, useChainId, useWaitForTransactionReceipt } from 'wagmi';
 import { parseEther } from 'viem';
-import { useSupportedChains, useIntentQuote } from '../../hooks/useIntentAPI';
-import { useOIFConfig } from '../../hooks/useOIF';
-import { ZERO_ADDRESS } from '../../lib/contracts';
+import { useSupportedChains, useIntentQuote } from '@/hooks/useIntentAPI';
+import { useOIFConfig } from '@/hooks/useOIF';
+
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as const;
 
 interface CreateIntentModalProps {
   onClose: () => void;

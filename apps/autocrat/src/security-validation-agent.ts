@@ -7,12 +7,19 @@
  * FULLY DECENTRALIZED - All AI inference goes through DWS compute network
  */
 
+import { z } from 'zod';
 import { getDWSComputeUrl, getCurrentNetwork } from '@jejunetwork/config';
 import {
   BountySeverity,
   VulnerabilityType,
   ValidationResult,
 } from './types';
+
+// Schemas for AI response parsing
+const SecurityValidationResponseSchema = z.object({
+  isLikelyValid: z.boolean(),
+  notes: z.array(z.string()),
+});
 
 // ============ Configuration ============
 
@@ -58,12 +65,6 @@ interface SandboxResult {
 
 // ============ DWS AI Inference (Decentralized) ============
 
-async function checkDWSCompute(): Promise<boolean> {
-  const endpoint = getDWSEndpoint();
-  const r = await fetch(`${endpoint}/health`, { signal: AbortSignal.timeout(2000) }).catch(() => null);
-  return r?.ok ?? false;
-}
-
 async function analyzeWithAI(prompt: string, systemPrompt: string, maxTokens = 4096): Promise<string> {
   // All AI inference goes through DWS - fully decentralized
   // DWS routes to best available provider (Groq, OpenAI, Anthropic, etc.)
@@ -84,7 +85,8 @@ async function analyzeWithAI(prompt: string, systemPrompt: string, maxTokens = 4
 
   if (!response.ok) {
     const network = getCurrentNetwork();
-    throw new Error(`DWS compute error (network: ${network}): ${response.status} - AI inference required for security validation`);
+    const errorBody = await response.text().catch(() => 'unknown');
+    throw new Error(`DWS compute error (network: ${network}): ${response.status} ${response.statusText} - ${errorBody}`);
   }
 
   const data = await response.json() as { 
@@ -92,12 +94,20 @@ async function analyzeWithAI(prompt: string, systemPrompt: string, maxTokens = 4
     content?: string;
   };
   
-  const content = data.choices?.[0]?.message?.content ?? data.content;
-  if (!content) {
-    throw new Error('DWS returned empty response - cannot proceed with security validation');
+  // Check for content in standard OpenAI format first
+  if (data.choices && Array.isArray(data.choices) && data.choices.length > 0) {
+    const firstChoice = data.choices[0];
+    if (firstChoice.message && typeof firstChoice.message.content === 'string' && firstChoice.message.content.length > 0) {
+      return firstChoice.message.content;
+    }
   }
   
-  return content;
+  // Check for direct content field (alternative format)
+  if (typeof data.content === 'string' && data.content.length > 0) {
+    return data.content;
+  }
+  
+  throw new Error('DWS returned response without valid content - cannot proceed with security validation');
 }
 
 // ============ Sandbox Execution (Decentralized via DWS) ============
@@ -110,34 +120,48 @@ async function executePoCInSandbox(
   const sandboxConfig = getSandboxConfig(vulnType);
   const endpoint = getDWSEndpoint();
 
-  const response = await fetch(`${endpoint}/api/containers/execute`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      imageRef: sandboxConfig.image,
-      command: sandboxConfig.command,
-      env: {
-        POC_CODE: Buffer.from(proofOfConcept).toString('base64'),
-        VULN_TYPE: String(vulnType),
-        TIMEOUT: String(timeout),
-      },
-      resources: {
-        cpuCores: sandboxConfig.cpuCores,
-        memoryMb: sandboxConfig.memoryMb,
-        storageMb: 512,
-        networkBandwidthMbps: 0, // No network for security
-      },
-      mode: 'serverless',
-      timeout,
-    }),
-  }).catch(() => null);
-
-  if (!response?.ok) {
+  let response: Response;
+  try {
+    response = await fetch(`${endpoint}/api/containers/execute`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        imageRef: sandboxConfig.image,
+        command: sandboxConfig.command,
+        env: {
+          POC_CODE: Buffer.from(proofOfConcept).toString('base64'),
+          VULN_TYPE: String(vulnType),
+          TIMEOUT: String(timeout),
+        },
+        resources: {
+          cpuCores: sandboxConfig.cpuCores,
+          memoryMb: sandboxConfig.memoryMb,
+          storageMb: 512,
+          networkBandwidthMbps: 0, // No network for security
+        },
+        mode: 'serverless',
+        timeout,
+      }),
+    });
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
     return {
       success: false,
       exploitTriggered: false,
       output: '',
-      errorLogs: 'Sandbox execution failed - DWS unavailable',
+      errorLogs: `Sandbox connection failed: ${errorMessage}`,
+      executionTime: 0,
+      memoryUsed: 0,
+    };
+  }
+
+  if (!response.ok) {
+    const errorBody = await response.text().catch(() => 'unknown error');
+    return {
+      success: false,
+      exploitTriggered: false,
+      output: '',
+      errorLogs: `Sandbox execution failed: ${response.status} ${response.statusText} - ${errorBody}`,
       executionTime: 0,
       memoryUsed: 0,
     };
@@ -150,9 +174,21 @@ async function executePoCInSandbox(
     metrics: { executionTimeMs: number; memoryUsedMb: number };
   };
 
+  // Validate expected fields exist
+  if (!result.status) {
+    return {
+      success: false,
+      exploitTriggered: false,
+      output: '',
+      errorLogs: 'Sandbox response missing status field',
+      executionTime: 0,
+      memoryUsed: 0,
+    };
+  }
+
   return {
     success: result.status === 'success',
-    exploitTriggered: result.output?.exploitTriggered ?? false,
+    exploitTriggered: result.output?.exploitTriggered === true,
     output: result.output?.result ?? '',
     errorLogs: result.logs ?? '',
     executionTime: result.metrics?.executionTimeMs ?? 0,
@@ -315,36 +351,9 @@ ${context.suggestedFix || 'Not provided'}
 
 Analyze this submission and provide your assessment.`;
 
-  try {
-    const response = await analyzeWithAI(prompt, systemPrompt);
-    const parsed = JSON.parse(response) as { isLikelyValid: boolean; notes: string[] };
-    return parsed;
-  } catch {
-    // Fallback to heuristic analysis
-    const notes: string[] = [];
-    let isLikelyValid = true;
-
-    if (context.description.length < 100) {
-      notes.push('Description is too brief');
-      isLikelyValid = false;
-    }
-
-    if (context.stepsToReproduce.length < 2) {
-      notes.push('Insufficient reproduction steps');
-      isLikelyValid = false;
-    }
-
-    if (!context.proofOfConcept && context.severity >= BountySeverity.HIGH) {
-      notes.push('High severity claim without PoC - requires manual verification');
-    }
-
-    if (context.affectedComponents.length === 0) {
-      notes.push('No affected components specified');
-      isLikelyValid = false;
-    }
-
-    return { isLikelyValid, notes };
-  }
+  const response = await analyzeWithAI(prompt, systemPrompt);
+  const rawParsed = JSON.parse(response);
+  return SecurityValidationResponseSchema.parse(rawParsed);
 }
 
 async function assessSeverity(
@@ -390,11 +399,7 @@ ${context.suggestedFix}
 
 Analyze this fix.`;
 
-  try {
-    return await analyzeWithAI(prompt, systemPrompt);
-  } catch {
-    return 'Fix analysis unavailable - manual review required';
-  }
+  return await analyzeWithAI(prompt, systemPrompt);
 }
 
 function calculateConfidence(
@@ -428,15 +433,15 @@ function determineResult(
   confidence: number
 ): ValidationResult {
   if (sandboxResult?.exploitTriggered) {
-    return ValidationResult.VERIFIED;
+    return ValidationResult.VALID;
   }
 
   if (confidence >= 70) {
-    return ValidationResult.LIKELY_VALID;
+    return ValidationResult.VALID;
   }
 
   if (confidence >= 40) {
-    return ValidationResult.NEEDS_MORE_INFO;
+    return ValidationResult.NEEDS_REVIEW;
   }
 
   return ValidationResult.INVALID;
@@ -486,11 +491,7 @@ AFFECTED: ${context.affectedComponents.join(', ')}
 
 Write a brief impact assessment.`;
 
-  try {
-    return await analyzeWithAI(prompt, systemPrompt);
-  } catch {
-    return `${BountySeverity[assessedSeverity]} severity ${VulnerabilityType[context.vulnType]} vulnerability affecting ${context.affectedComponents.join(', ')}. Immediate review recommended.`;
-  }
+  return await analyzeWithAI(prompt, systemPrompt);
 }
 
 // ============ Agent Template ============

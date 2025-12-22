@@ -10,10 +10,15 @@
  */
 
 import { z } from 'zod';
-import { AddressSchema } from './contracts';
+import { AddressSchema } from './validation';
+import type { EVMChainId } from './chain';
 
 // ============ Chain & Network Types ============
 
+/**
+ * EIL-supported chain IDs (subset of EVMChainId)
+ * EIL focuses on L2s and testnets for cross-chain interoperability
+ */
 export const SupportedChainIdSchema = z.union([
   z.literal(1),        // Ethereum Mainnet
   z.literal(11155111), // Sepolia (L1 Testnet)
@@ -24,6 +29,13 @@ export const SupportedChainIdSchema = z.union([
   z.literal(420690),   // Network Testnet (L2 on Sepolia)
 ]);
 export type SupportedChainId = z.infer<typeof SupportedChainIdSchema>;
+
+// Type guard to ensure SupportedChainId is a subset of EVMChainId
+export function isSupportedChainId(chainId: EVMChainId): chainId is SupportedChainId {
+  return [
+    1, 11155111, 42161, 10, 1337, 420691, 420690
+  ].includes(chainId as number);
+}
 
 export const ChainInfoSchema = z.object({
   chainId: SupportedChainIdSchema,
@@ -60,7 +72,7 @@ export type XLPStake = z.infer<typeof XLPStakeSchema>;
 export const XLPChainLiquiditySchema = z.object({
   chainId: SupportedChainIdSchema,
   ethBalance: z.string(),             // ETH available for gas sponsorship
-  tokenBalances: z.record(AddressSchema, z.string()), // token address -> balance
+  tokenBalances: z.record(z.string(), z.string()), // token address -> balance (address as string key)
   totalValueUsd: z.string(),
   lastUpdated: z.number(),
 });
@@ -239,6 +251,61 @@ export const EILEventTypeSchema = z.enum([
 ]);
 export type EILEventType = z.infer<typeof EILEventTypeSchema>;
 
+/**
+ * Strongly typed event data schemas for EIL events
+ */
+export const VoucherRequestedDataSchema = z.object({
+  requestId: z.string(),
+  requester: AddressSchema,
+  sourceChain: SupportedChainIdSchema,
+  destinationChain: SupportedChainIdSchema,
+  amount: z.string(),
+  maxFee: z.string(),
+});
+
+export const VoucherIssuedDataSchema = z.object({
+  voucherId: z.string(),
+  requestId: z.string(),
+  xlp: AddressSchema,
+  fee: z.string(),
+});
+
+export const VoucherFulfilledDataSchema = z.object({
+  voucherId: z.string(),
+  recipient: AddressSchema,
+  amount: z.string(),
+});
+
+export const XLPRegisteredDataSchema = z.object({
+  xlpAddress: AddressSchema,
+  stakedAmount: z.string(),
+});
+
+export const XLPStakeDataSchema = z.object({
+  xlpAddress: AddressSchema,
+  amount: z.string(),
+});
+
+export const LiquidityDataSchema = z.object({
+  xlpAddress: AddressSchema,
+  chainId: SupportedChainIdSchema,
+  token: AddressSchema,
+  amount: z.string(),
+});
+
+/**
+ * Union of all EIL event data types
+ */
+export const EILEventDataSchema = z.union([
+  VoucherRequestedDataSchema,
+  VoucherIssuedDataSchema,
+  VoucherFulfilledDataSchema,
+  XLPRegisteredDataSchema,
+  XLPStakeDataSchema,
+  LiquidityDataSchema,
+]);
+export type EILEventData = z.infer<typeof EILEventDataSchema>;
+
 export const EILEventSchema = z.object({
   id: z.string(),
   type: EILEventTypeSchema,
@@ -247,7 +314,8 @@ export const EILEventSchema = z.object({
   transactionHash: z.string(),
   logIndex: z.number(),
   timestamp: z.number(),
-  data: z.record(z.string(), z.unknown()),
+  /** Strongly typed event data */
+  data: EILEventDataSchema,
 });
 export type EILEvent = z.infer<typeof EILEventSchema>;
 

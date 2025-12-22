@@ -1,5 +1,7 @@
 import { useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
 import { toast } from 'sonner'
+import { AddressSchema } from '@jejunetwork/types/contracts'
+import { expect, expectPositive, expectTrue } from '@/lib/validation'
 import NFTMarketplaceABI from '@/lib/abis/NFTMarketplace.json'
 import { CONTRACTS } from '@/config'
 
@@ -15,48 +17,37 @@ interface ListingData {
 }
 
 export function useNFTBuy(listingId: bigint) {
+  expectPositive(listingId, 'Listing ID must be positive');
+  const validatedMarketplace = AddressSchema.parse(MARKETPLACE_ADDRESS);
+  
   const { writeContract, data: hash, isPending } = useWriteContract()
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
 
   const { data: listing, refetch } = useReadContract({
-    address: MARKETPLACE_ADDRESS,
+    address: validatedMarketplace,
     abi: NFTMarketplaceABI,
     functionName: 'getListing',
     args: [listingId],
-    query: { enabled: listingId > 0n && MARKETPLACE_ADDRESS !== '0x0' }
+    query: { enabled: listingId > 0n }
   })
 
   const buyNFT = (maxPrice?: bigint) => {
-    if (MARKETPLACE_ADDRESS === '0x0') {
-      toast.error('Marketplace not deployed')
-      return
-    }
+    const validatedListing = expect(listing, 'Listing not found');
+    const [, , , price, active, endTime] = validatedListing as [string, string, bigint, bigint, boolean, bigint]
 
-    if (!listing) {
-      toast.error('Listing not found')
-      return
-    }
-
-    const [, , , price, active, endTime] = listing as [string, string, bigint, bigint, boolean, bigint]
-
-    if (!active) {
-      toast.error('Listing is not active')
-      return
-    }
+    expect(active, 'Listing is not active');
 
     const now = Math.floor(Date.now() / 1000)
     if (endTime && Number(endTime) < now) {
-      toast.error('Listing has expired')
-      return
+      expectTrue(false, 'Listing has expired');
     }
 
     if (maxPrice && price > maxPrice) {
-      toast.error('Price increased beyond max')
-      return
+      expectTrue(false, `Price increased beyond max: ${price} > ${maxPrice}`);
     }
 
     writeContract({
-      address: MARKETPLACE_ADDRESS,
+      address: validatedMarketplace,
       abi: NFTMarketplaceABI,
       functionName: 'buyListing',
       args: [listingId],

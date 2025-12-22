@@ -1,7 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Search, Users, GitBranch, Package, Building2, Plus, Settings, ExternalLink } from 'lucide-react';
+import { useState, useEffect, type ComponentType } from 'react';
+import { Search, Users, GitBranch, Package, Building2, Plus, Settings, ExternalLink, type LucideProps } from 'lucide-react';
+
+// Fix for Lucide React 19 type compatibility
+const SearchIcon = Search as ComponentType<LucideProps>;
+const UsersIcon = Users as ComponentType<LucideProps>;
+const GitBranchIcon = GitBranch as ComponentType<LucideProps>;
+const PackageIcon = Package as ComponentType<LucideProps>;
+const Building2Icon = Building2 as ComponentType<LucideProps>;
+const PlusIcon = Plus as ComponentType<LucideProps>;
+const SettingsIcon = Settings as ComponentType<LucideProps>;
+const ExternalLinkIcon = ExternalLink as ComponentType<LucideProps>;
 
 interface Organization {
   id: string;
@@ -152,14 +162,14 @@ export default function OrganizationsPage() {
             </p>
           </div>
           <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg font-medium transition-colors flex items-center gap-2">
-            <Plus className="w-4 h-4" />
+            <PlusIcon className="w-4 h-4" />
             New Organization
           </button>
         </div>
 
         {/* Search */}
         <div className="relative mb-8">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
             placeholder="Search organizations..."
@@ -178,7 +188,7 @@ export default function OrganizationsPage() {
               </div>
             ) : filteredOrgs.length === 0 ? (
               <div className="text-center py-12">
-                <Building2 className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                <Building2Icon className="w-12 h-12 text-gray-600 mx-auto mb-4" />
                 <p className="text-gray-400">No organizations found</p>
                 <p className="text-gray-500 text-sm mt-2">
                   Create an organization to collaborate with your team
@@ -215,15 +225,15 @@ export default function OrganizationsPage() {
                         )}
                         <div className="flex items-center gap-6 mt-4 text-sm text-gray-400">
                           <span className="flex items-center gap-1">
-                            <Users className="w-4 h-4" />
+                            <UsersIcon className="w-4 h-4" />
                             {org.members} members
                           </span>
                           <span className="flex items-center gap-1">
-                            <GitBranch className="w-4 h-4" />
+                            <GitBranchIcon className="w-4 h-4" />
                             {org.repositories} repos
                           </span>
                           <span className="flex items-center gap-1">
-                            <Package className="w-4 h-4" />
+                            <PackageIcon className="w-4 h-4" />
                             {org.packages} packages
                           </span>
                         </div>
@@ -246,7 +256,7 @@ export default function OrganizationsPage() {
                   <div className="flex items-center justify-between mb-4">
                     <h2 className="text-xl font-bold">{selectedOrg.displayName}</h2>
                     <button className="p-2 hover:bg-gray-700 rounded-lg transition-colors">
-                      <Settings className="w-5 h-5 text-gray-400" />
+                      <SettingsIcon className="w-5 h-5 text-gray-400" />
                     </button>
                   </div>
 
@@ -265,7 +275,7 @@ export default function OrganizationsPage() {
                         rel="noopener noreferrer"
                         className="flex items-center gap-2 text-blue-400 hover:underline"
                       >
-                        <ExternalLink className="w-4 h-4" />
+                        <ExternalLinkIcon className="w-4 h-4" />
                         {selectedOrg.website}
                       </a>
                     )}
@@ -274,7 +284,7 @@ export default function OrganizationsPage() {
 
                 <div className="p-6 bg-gray-800 rounded-lg border border-gray-700">
                   <h3 className="font-semibold mb-4 flex items-center gap-2">
-                    <Users className="w-5 h-5" />
+                    <UsersIcon className="w-5 h-5" />
                     Members
                   </h3>
                   <div className="space-y-3">
@@ -311,7 +321,7 @@ export default function OrganizationsPage() {
                     href={`/repositories?org=${selectedOrg.name}`}
                     className="p-4 bg-gray-800 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors text-center"
                   >
-                    <GitBranch className="w-6 h-6 mx-auto mb-2 text-blue-400" />
+                    <GitBranchIcon className="w-6 h-6 mx-auto mb-2 text-blue-400" />
                     <div className="text-xl font-bold">{selectedOrg.repositories}</div>
                     <div className="text-sm text-gray-400">Repositories</div>
                   </a>
@@ -319,7 +329,7 @@ export default function OrganizationsPage() {
                     href={`/packages?scope=@${selectedOrg.name}`}
                     className="p-4 bg-gray-800 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors text-center"
                   >
-                    <Package className="w-6 h-6 mx-auto mb-2 text-red-400" />
+                    <PackageIcon className="w-6 h-6 mx-auto mb-2 text-red-400" />
                     <div className="text-xl font-bold">{selectedOrg.packages}</div>
                     <div className="text-sm text-gray-400">Packages</div>
                   </a>
@@ -327,7 +337,7 @@ export default function OrganizationsPage() {
               </div>
             ) : (
               <div className="p-6 bg-gray-800 rounded-lg border border-gray-700 text-center">
-                <Building2 className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                <Building2Icon className="w-12 h-12 text-gray-600 mx-auto mb-4" />
                 <p className="text-gray-400">Select an organization to view details</p>
               </div>
             )}

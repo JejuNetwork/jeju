@@ -21,15 +21,10 @@ import {
   Twitter,
   MessageSquare,
   Shield,
-  Brain,
-  Package,
   CheckCircle,
   Clock,
-  Briefcase,
   Users,
-  Settings,
   Edit2,
-  ExternalLink,
 } from 'lucide-react';
 import Link from 'next/link';
 import { clsx } from 'clsx';

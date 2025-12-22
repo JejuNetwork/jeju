@@ -25,7 +25,7 @@ async function main() {
   process.on('SIGINT', () => { clearInterval(statusInterval); process.exit(0); });
   process.on('SIGTERM', () => { clearInterval(statusInterval); process.exit(0); });
 
-  await new Promise(() => {});
+  await new Promise(() => { /* keep process running */ });
 }
 
 main().catch(e => { console.error(e); process.exit(1); });

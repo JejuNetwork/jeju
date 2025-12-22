@@ -23,6 +23,7 @@ import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { logger } from '../lib/logger';
 import { createInferenceServer, type LocalInferenceServer } from './inference';
+import { DEFAULT_PORTS } from '../types';
 import type { Address, Hex } from 'viem';
 
 export interface ServiceConfig {
@@ -53,19 +54,20 @@ interface MockServer {
   stop(): Promise<void>;
 }
 
-const DEFAULT_PORTS = {
-  inference: 4100,
-  cql: 4300,
-  oracle: 4301,
-  indexer: 4350,
-  jns: 4302,
+// Service-specific ports that extend the CLI defaults
+const SERVICE_PORTS = {
+  inference: DEFAULT_PORTS.inference,
+  cql: DEFAULT_PORTS.cql,
+  oracle: DEFAULT_PORTS.oracle,
+  indexer: DEFAULT_PORTS.indexerGraphQL,
+  jns: DEFAULT_PORTS.jns,
   storage: 4030, // DWS main port
-  cron: 4102,
-  cvm: 4103,
+  cron: DEFAULT_PORTS.cron,
+  cvm: DEFAULT_PORTS.cvm,
   computeBridge: 4031, // DWS compute node port
   git: 4020,
   pkg: 4021, // JejuPkg registry (npm CLI compatible)
-};
+} as const;
 
 /**
  * Fetch real market prices from public APIs (fallback when on-chain oracle not deployed)
@@ -178,7 +180,7 @@ class ServicesOrchestrator {
   }
 
   private async startInference(): Promise<void> {
-    const port = DEFAULT_PORTS.inference;
+    const port = SERVICE_PORTS.inference;
     
     // Check if already running
     if (await isPortInUse(port)) {
@@ -207,7 +209,7 @@ class ServicesOrchestrator {
   }
 
   private async startCQL(): Promise<void> {
-    const port = DEFAULT_PORTS.cql;
+    const port = SERVICE_PORTS.cql;
     
     // Check if already running
     if (await isPortInUse(port)) {
@@ -258,7 +260,7 @@ class ServicesOrchestrator {
   }
 
   private async startOracle(): Promise<void> {
-    const port = DEFAULT_PORTS.oracle;
+    const port = SERVICE_PORTS.oracle;
     
     if (await isPortInUse(port)) {
       logger.info(`Oracle already running on port ${port}`);
@@ -489,7 +491,7 @@ class ServicesOrchestrator {
       stderr: 'inherit',
       env: {
         ...process.env,
-        GQL_PORT: String(DEFAULT_PORTS.indexer),
+        GQL_PORT: String(SERVICE_PORTS.indexer),
         RPC_ETH_HTTP: this.rpcUrl,
         START_BLOCK: '0',
         CHAIN_ID: '1337',
@@ -499,17 +501,17 @@ class ServicesOrchestrator {
     this.services.set('indexer', {
       name: 'Indexer (On-Chain)',
       type: 'process',
-      port: DEFAULT_PORTS.indexer,
+      port: SERVICE_PORTS.indexer,
       process: proc,
-      url: `http://localhost:${DEFAULT_PORTS.indexer}/graphql`,
+      url: `http://localhost:${SERVICE_PORTS.indexer}/graphql`,
       healthCheck: '/graphql',
     });
 
-    logger.success(`Indexer starting on port ${DEFAULT_PORTS.indexer} (indexing blockchain events)`);
+    logger.success(`Indexer starting on port ${SERVICE_PORTS.indexer} (indexing blockchain events)`);
   }
 
   private async startLocalIndexer(): Promise<void> {
-    const port = DEFAULT_PORTS.indexer;
+    const port = SERVICE_PORTS.indexer;
 
     // Start local indexer that connects to the blockchain
     const indexerPath = join(this.rootDir, 'apps/indexer');
@@ -585,7 +587,7 @@ class ServicesOrchestrator {
   }
 
   private async startJNS(): Promise<void> {
-    const port = DEFAULT_PORTS.jns;
+    const port = SERVICE_PORTS.jns;
     
     if (await isPortInUse(port)) {
       logger.info(`JNS already running on port ${port}`);
@@ -617,7 +619,7 @@ class ServicesOrchestrator {
    * All operations go through the blockchain - nothing is mocked
    */
   private async createOnChainJNS(): Promise<MockServer> {
-    const port = DEFAULT_PORTS.jns;
+    const port = SERVICE_PORTS.jns;
     const rpcUrl = this.rpcUrl;
     const contracts = this.loadContractAddresses();
     
@@ -642,15 +644,11 @@ class ServicesOrchestrator {
       'function setText(bytes32 node, string key, string value) external',
     ];
     
-    const registryAbi = [
-      'function owner(bytes32 node) external view returns (address)',
-      'function resolver(bytes32 node) external view returns (address)',
-      'function recordExists(bytes32 node) external view returns (bool)',
-    ];
+    // Import viem utilities for namehash
+    const { keccak256, encodePacked, toHex } = await import('viem');
     
     // ENS-compatible namehash
     const namehash = (name: string): string => {
-      const { keccak256, encodePacked, toHex } = require('viem');
       let node = '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`;
       if (name) {
         const labels = name.split('.');
@@ -748,7 +746,7 @@ class ServicesOrchestrator {
             // Fallback pricing if contract not deployed
             const label = name.split('.')[0];
             const len = label.length;
-            let pricePerYear = len <= 3 ? 100 : len <= 5 ? 50 : 10;
+            const pricePerYear = len <= 3 ? 100 : len <= 5 ? 50 : 10;
             return Response.json({
               name,
               years,
@@ -814,7 +812,7 @@ class ServicesOrchestrator {
   }
 
   private async startStorage(): Promise<void> {
-    const port = DEFAULT_PORTS.storage;
+    const port = SERVICE_PORTS.storage;
     
     if (await isPortInUse(port)) {
       logger.info(`DWS already running on port ${port}`);
@@ -883,7 +881,7 @@ class ServicesOrchestrator {
   }
 
   private async startCron(): Promise<void> {
-    const port = DEFAULT_PORTS.cron;
+    const port = SERVICE_PORTS.cron;
     
     if (await isPortInUse(port)) {
       logger.info(`Cron already running on port ${port}`);
@@ -899,7 +897,7 @@ class ServicesOrchestrator {
 
     // Cron service runs as part of DWS - just register endpoint for CI workflows
     // The CI scheduler is integrated into DWS server (/ci routes)
-    const dwsPort = DEFAULT_PORTS.storage;
+    const dwsPort = SERVICE_PORTS.storage;
     
     // Wait for DWS to start (has CI routes built-in)
     let retries = 20;
@@ -961,7 +959,7 @@ class ServicesOrchestrator {
   }
 
   private async startCVM(): Promise<void> {
-    const port = DEFAULT_PORTS.cvm;
+    const port = SERVICE_PORTS.cvm;
     
     if (await isPortInUse(port)) {
       logger.info(`CVM already running on port ${port}`);
@@ -1035,7 +1033,7 @@ class ServicesOrchestrator {
   }
 
   private async startComputeBridge(): Promise<void> {
-    const port = DEFAULT_PORTS.computeBridge;
+    const port = SERVICE_PORTS.computeBridge;
     
     if (await isPortInUse(port)) {
       logger.info(`DWS Compute Node already running on port ${port}`);
@@ -1051,7 +1049,7 @@ class ServicesOrchestrator {
 
     // Compute service runs as part of DWS - just register endpoint
     // The compute routes are integrated into DWS server (/compute routes)
-    const dwsPort = DEFAULT_PORTS.storage;
+    const dwsPort = SERVICE_PORTS.storage;
     
     // Wait for DWS to start (has compute routes built-in)
     let retries = 20;
@@ -1096,7 +1094,7 @@ class ServicesOrchestrator {
         
         // Forward inference requests to local inference service
         if (url.pathname === '/v1/chat/completions' || url.pathname === '/chat/completions') {
-          const inferencePort = DEFAULT_PORTS.inference;
+          const inferencePort = SERVICE_PORTS.inference;
           const response = await fetch(`http://localhost:${inferencePort}/v1/chat/completions`, {
             method: req.method,
             headers: req.headers,
@@ -1122,7 +1120,7 @@ class ServicesOrchestrator {
   }
 
   private async startGit(): Promise<void> {
-    const port = DEFAULT_PORTS.git;
+    const port = SERVICE_PORTS.git;
     
     if (await isPortInUse(port)) {
       logger.info(`JejuGit already running on port ${port}`);
@@ -1137,7 +1135,7 @@ class ServicesOrchestrator {
     }
 
     // Git is part of DWS - ensure DWS is running first
-    const dwsPort = DEFAULT_PORTS.storage;
+    const dwsPort = SERVICE_PORTS.storage;
     if (await isPortInUse(dwsPort)) {
       // DWS is running, Git is available at /git routes (fully on-chain)
       this.services.set('git', {
@@ -1202,7 +1200,7 @@ class ServicesOrchestrator {
   }
 
   private async startPkg(): Promise<void> {
-    const port = DEFAULT_PORTS.pkg;
+    const port = SERVICE_PORTS.pkg;
     
     if (await isPortInUse(port)) {
       logger.info(`JejuPkg already running on port ${port}`);
@@ -1217,7 +1215,7 @@ class ServicesOrchestrator {
     }
 
     // Pkg registry is part of DWS - ensure DWS is running first
-    const dwsPort = DEFAULT_PORTS.storage;
+    const dwsPort = SERVICE_PORTS.storage;
     if (await isPortInUse(dwsPort)) {
       // DWS is running, pkg registry is available at /pkg routes (npm CLI compatible, on-chain)
       this.services.set('pkg', {
@@ -1360,74 +1358,74 @@ class ServicesOrchestrator {
     const env: Record<string, string> = {};
 
     const inference = this.services.get('inference');
-    if (inference) {
-      env.JEJU_INFERENCE_URL = inference.url!;
-      env.VITE_JEJU_GATEWAY_URL = inference.url!;
+    if (inference?.url) {
+      env.JEJU_INFERENCE_URL = inference.url;
+      env.VITE_JEJU_GATEWAY_URL = inference.url;
     }
 
     const cql = this.services.get('cql');
-    if (cql) {
-      env.CQL_BLOCK_PRODUCER_ENDPOINT = cql.url!;
+    if (cql?.url) {
+      env.CQL_BLOCK_PRODUCER_ENDPOINT = cql.url;
     }
 
     const oracle = this.services.get('oracle');
-    if (oracle) {
-      env.ORACLE_URL = oracle.url!;
+    if (oracle?.url) {
+      env.ORACLE_URL = oracle.url;
     }
 
     const indexer = this.services.get('indexer');
-    if (indexer) {
-      env.INDEXER_GRAPHQL_URL = indexer.url!;
+    if (indexer?.url) {
+      env.INDEXER_GRAPHQL_URL = indexer.url;
     }
 
     const jns = this.services.get('jns');
-    if (jns) {
-      env.JNS_API_URL = jns.url!;
+    if (jns?.url) {
+      env.JNS_API_URL = jns.url;
     }
 
     const storage = this.services.get('storage');
-    if (storage) {
-      env.JEJU_STORAGE_URL = storage.url!;
-      env.DWS_URL = storage.url!;
+    if (storage?.url) {
+      env.JEJU_STORAGE_URL = storage.url;
+      env.DWS_URL = storage.url;
       env.STORAGE_API_URL = `${storage.url}/storage`;
       env.IPFS_GATEWAY = `${storage.url}/cdn`;
     }
 
     const cron = this.services.get('cron');
-    if (cron) {
-      env.CRON_SERVICE_URL = cron.url!;
+    if (cron?.url) {
+      env.CRON_SERVICE_URL = cron.url;
     }
 
     const cvm = this.services.get('cvm');
-    if (cvm) {
-      env.DSTACK_ENDPOINT = cvm.url!;
+    if (cvm?.url) {
+      env.DSTACK_ENDPOINT = cvm.url;
     }
 
     const computeBridge = this.services.get('computeBridge');
-    if (computeBridge) {
-      env.COMPUTE_BRIDGE_URL = computeBridge.url!;
-      env.JEJU_COMPUTE_BRIDGE_URL = computeBridge.url!;
-      env.COMPUTE_MARKETPLACE_URL = computeBridge.url!;
+    if (computeBridge?.url) {
+      env.COMPUTE_BRIDGE_URL = computeBridge.url;
+      env.JEJU_COMPUTE_BRIDGE_URL = computeBridge.url;
+      env.COMPUTE_MARKETPLACE_URL = computeBridge.url;
     }
 
     const git = this.services.get('git');
-    if (git) {
+    if (git?.url) {
       // Git is part of DWS, but expose both URLs for compatibility
-      env.JEJUGIT_URL = git.url!;
-      env.NEXT_PUBLIC_JEJUGIT_URL = git.url!;
+      env.JEJUGIT_URL = git.url;
+      env.NEXT_PUBLIC_JEJUGIT_URL = git.url;
     }
 
     const pkg = this.services.get('pkg');
-    if (pkg) {
+    if (pkg?.url) {
       // Pkg registry is part of DWS, but expose both URLs for compatibility
-      env.JEJUPKG_URL = pkg.url!;
-      env.NEXT_PUBLIC_JEJUPKG_URL = pkg.url!;
+      env.JEJUPKG_URL = pkg.url;
+      env.NEXT_PUBLIC_JEJUPKG_URL = pkg.url;
       // For npm CLI configuration (backwards compatibility)
-      env.npm_config_registry = pkg.url!;
+      env.npm_config_registry = pkg.url;
     }
 
     // DWS provides both Git and Pkg registry - expose unified URL
-    if (storage) {
+    if (storage?.url) {
       env.DWS_GIT_URL = `${storage.url}/git`;
       env.DWS_PKG_URL = `${storage.url}/pkg`;
       // Backwards compatibility alias

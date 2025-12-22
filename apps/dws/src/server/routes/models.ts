@@ -14,6 +14,27 @@ import { createPublicClient, createWalletClient, http, keccak256, encodePacked }
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 import type { BackendManager } from '../../storage/backends';
+import { validateBody, validateParams, validateQuery, validateHeaders, jejuAddressHeaderSchema, modelParamsSchema, modelCreateRequestSchema, modelVersionRequestSchema, lfsBatchRequestSchema, modelInferenceRequestSchema } from '../../shared';
+import { z } from 'zod';
+
+// Query schemas for HuggingFace-compatible API
+const hfModelsQuerySchema = z.object({
+  search: z.string().optional(),
+  author: z.string().optional(),
+  filter: z.string().optional(),
+  sort: z.enum(['downloads', 'likes', 'modified', 'created']).default('downloads'),
+  direction: z.enum(['-1', '1']).default('-1'),
+  limit: z.coerce.number().int().positive().max(100).default(30),
+  offset: z.coerce.number().int().nonnegative().default(0),
+});
+
+const nativeModelsQuerySchema = z.object({
+  type: z.string().optional(),
+  org: z.string().optional(),
+  q: z.string().optional(),
+  limit: z.coerce.number().int().positive().max(100).default(50),
+  offset: z.coerce.number().int().nonnegative().default(0),
+});
 
 // ============================================================================
 // Types
@@ -119,13 +140,7 @@ export function createModelsRouter(ctx: ModelsContext): Hono {
 
   // List models (HF Hub compatible)
   router.get('/api/models', async (c) => {
-    const search = c.req.query('search');
-    const author = c.req.query('author');
-    const filter = c.req.query('filter');
-    const sort = c.req.query('sort') || 'downloads';
-    const direction = c.req.query('direction') || '-1';
-    const limit = parseInt(c.req.query('limit') || '30');
-    const offset = parseInt(c.req.query('offset') || '0');
+    const { search, author, filter, sort, direction, limit, offset } = validateQuery(hfModelsQuerySchema, c);
 
     let models = Array.from(modelsStore.values());
 
@@ -199,13 +214,15 @@ export function createModelsRouter(ctx: ModelsContext): Hono {
 
   // Get single model (HF Hub compatible)
   router.get('/api/models/:org/:name', async (c) => {
-    const org = c.req.param('org');
-    const name = c.req.param('name');
+    const { organization: org, model: name } = validateParams(modelParamsSchema.extend({
+      org: z.string().min(1),
+      name: z.string().min(1),
+    }), c);
     const modelKey = `${org}/${name}`;
 
     const model = findModelByKey(modelKey);
     if (!model) {
-      return c.json({ error: 'Model not found' }, 404);
+      throw new Error('Model not found');
     }
 
     const versions = versionsStore.get(model.modelId) || [];
@@ -253,7 +270,7 @@ export function createModelsRouter(ctx: ModelsContext): Hono {
 
     const model = findModelByKey(`${org}/${name}`);
     if (!model) {
-      return c.json({ error: 'Model not found' }, 404);
+      throw new Error('Model not found');
     }
 
     const files = filesStore.get(model.modelId) || [];
@@ -284,7 +301,7 @@ export function createModelsRouter(ctx: ModelsContext): Hono {
 
     const model = findModelByKey(`${org}/${name}`);
     if (!model) {
-      return c.json({ error: 'Model not found' }, 404);
+      throw new Error('Model not found');
     }
 
     const files = filesStore.get(model.modelId) || [];
@@ -302,7 +319,7 @@ export function createModelsRouter(ctx: ModelsContext): Hono {
     // Redirect to storage backend
     const result = await backend.download(file.cid).catch(() => null);
     if (!result) {
-      return c.json({ error: 'File not available' }, 404);
+      throw new Error('File not available');
     }
 
     return new Response(result.content, {
@@ -319,15 +336,18 @@ export function createModelsRouter(ctx: ModelsContext): Hono {
   router.post('/api/models/:org/:name/info/refs/lfs', async (c) => {
     const org = c.req.param('org');
     const name = c.req.param('name');
-    const body = await c.req.json<{ operation: string; objects: { oid: string; size: number }[] }>();
+    const body = await validateBody(lfsBatchRequestSchema, c);
 
     const model = findModelByKey(`${org}/${name}`);
     if (!model) {
-      return c.json({ error: 'Model not found' }, 404);
+      throw new Error('Model not found');
     }
 
     const files = filesStore.get(model.modelId) || [];
-    const baseUrl = c.req.header('host') || 'localhost:4030';
+    const baseUrl = c.req.header('host');
+    if (!baseUrl) {
+      throw new Error('Missing host header');
+    }
     const protocol = c.req.header('x-forwarded-proto') || 'http';
 
     return c.json({
@@ -362,11 +382,7 @@ export function createModelsRouter(ctx: ModelsContext): Hono {
 
   // List all models
   router.get('/', async (c) => {
-    const type = c.req.query('type');
-    const org = c.req.query('org');
-    const search = c.req.query('q');
-    const limit = parseInt(c.req.query('limit') || '50');
-    const offset = parseInt(c.req.query('offset') || '0');
+    const { type, org, q: search, limit, offset } = validateQuery(nativeModelsQuerySchema, c);
 
     let models = Array.from(modelsStore.values());
 
@@ -410,7 +426,7 @@ export function createModelsRouter(ctx: ModelsContext): Hono {
 
     const model = findModelByKey(`${org}/${name}`);
     if (!model) {
-      return c.json({ error: 'Model not found' }, 404);
+      throw new Error('Model not found');
     }
 
     const versions = versionsStore.get(model.modelId) || [];
@@ -427,20 +443,8 @@ export function createModelsRouter(ctx: ModelsContext): Hono {
 
   // Create model
   router.post('/', async (c) => {
-    const owner = c.req.header('x-jeju-address') as Address;
-    if (!owner) {
-      return c.json({ error: 'Authentication required' }, 401);
-    }
-
-    const body = await c.req.json<{
-      name: string;
-      organization: string;
-      description: string;
-      modelType: ModelType | string;
-      license?: LicenseType | string;
-      tags?: string[];
-      accessLevel?: AccessLevel | string;
-    }>();
+    const { 'x-jeju-address': owner } = validateHeaders(jejuAddressHeaderSchema, c);
+    const body = await validateBody(modelCreateRequestSchema, c);
 
     // Parse enums if strings
     const modelType = typeof body.modelType === 'string' 
@@ -483,21 +487,17 @@ export function createModelsRouter(ctx: ModelsContext): Hono {
 
   // Upload model files
   router.post('/:org/:name/upload', async (c) => {
-    const owner = c.req.header('x-jeju-address') as Address;
-    if (!owner) {
-      return c.json({ error: 'Authentication required' }, 401);
-    }
-
+    const { 'x-jeju-address': owner } = validateHeaders(jejuAddressHeaderSchema, c);
     const org = c.req.param('org');
     const name = c.req.param('name');
 
     const model = findModelByKey(`${org}/${name}`);
     if (!model) {
-      return c.json({ error: 'Model not found' }, 404);
+      throw new Error('Model not found');
     }
 
     if (model.owner.toLowerCase() !== owner.toLowerCase()) {
-      return c.json({ error: 'Not authorized' }, 403);
+      throw new Error('Not authorized');
     }
 
     const formData = await c.req.formData();
@@ -538,31 +538,20 @@ export function createModelsRouter(ctx: ModelsContext): Hono {
 
   // Publish version
   router.post('/:org/:name/versions', async (c) => {
-    const owner = c.req.header('x-jeju-address') as Address;
-    if (!owner) {
-      return c.json({ error: 'Authentication required' }, 401);
-    }
-
+    const { 'x-jeju-address': owner } = validateHeaders(jejuAddressHeaderSchema, c);
     const org = c.req.param('org');
     const name = c.req.param('name');
 
     const model = findModelByKey(`${org}/${name}`);
     if (!model) {
-      return c.json({ error: 'Model not found' }, 404);
+      throw new Error('Model not found');
     }
 
     if (model.owner.toLowerCase() !== owner.toLowerCase()) {
-      return c.json({ error: 'Not authorized' }, 403);
+      throw new Error('Not authorized');
     }
 
-    const body = await c.req.json<{
-      version: string;
-      weightsUri?: string;
-      configUri?: string;
-      tokenizerUri?: string;
-      parameterCount?: number;
-      precision?: string;
-    }>();
+    const body = await validateBody(modelVersionRequestSchema, c);
 
     const files = filesStore.get(model.modelId) || [];
     const weightsFile = files.find(f => f.type === 'weights');
@@ -609,7 +598,7 @@ export function createModelsRouter(ctx: ModelsContext): Hono {
 
     const model = findModelByKey(`${org}/${name}`);
     if (!model) {
-      return c.json({ error: 'Model not found' }, 404);
+      throw new Error('Model not found');
     }
 
     const versions = versionsStore.get(model.modelId) || [];
@@ -623,7 +612,7 @@ export function createModelsRouter(ctx: ModelsContext): Hono {
 
     const model = findModelByKey(`${org}/${name}`);
     if (!model) {
-      return c.json({ error: 'Model not found' }, 404);
+      throw new Error('Model not found');
     }
 
     const files = filesStore.get(model.modelId) || [];
@@ -638,7 +627,7 @@ export function createModelsRouter(ctx: ModelsContext): Hono {
 
     const model = findModelByKey(`${org}/${name}`);
     if (!model) {
-      return c.json({ error: 'Model not found' }, 404);
+      throw new Error('Model not found');
     }
 
     const files = filesStore.get(model.modelId) || [];
@@ -664,17 +653,13 @@ export function createModelsRouter(ctx: ModelsContext): Hono {
 
   // Star/unstar model
   router.post('/:org/:name/star', async (c) => {
-    const user = c.req.header('x-jeju-address');
-    if (!user) {
-      return c.json({ error: 'Authentication required' }, 401);
-    }
-
+    const { 'x-jeju-address': user } = validateHeaders(jejuAddressHeaderSchema, c);
     const org = c.req.param('org');
     const name = c.req.param('name');
 
     const model = findModelByKey(`${org}/${name}`);
     if (!model) {
-      return c.json({ error: 'Model not found' }, 404);
+      throw new Error('Model not found');
     }
 
     const starredUsers = starredStore.get(model.modelId) || new Set();
@@ -701,10 +686,10 @@ export function createModelsRouter(ctx: ModelsContext): Hono {
 
     const model = findModelByKey(`${org}/${name}`);
     if (!model) {
-      return c.json({ error: 'Model not found' }, 404);
+      throw new Error('Model not found');
     }
 
-    const body = await c.req.json();
+    const body = await validateBody(modelInferenceRequestSchema, c);
 
     // Track inference
     const metrics = metricsStore.get(model.modelId) || { downloads: 0, stars: 0, inferences: 0 };

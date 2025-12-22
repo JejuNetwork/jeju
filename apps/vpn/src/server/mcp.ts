@@ -5,13 +5,44 @@
  * - Connect to VPN
  * - Make proxied requests
  * - Query VPN status
+ * 
+ * Uses fail-fast validation patterns
  */
 
 import { Hono } from 'hono';
+import type { Context } from 'hono';
 import type { Address } from 'viem';
 import type { VPNServiceContext } from './types';
 import { verifyAuth } from './auth';
 import { verifyX402Payment } from './x402';
+import {
+  MCPResourceReadSchema,
+  MCPToolCallSchema,
+  MCPPromptGetSchema,
+  ProxyRequestSchema,
+  expectValid,
+  expect,
+} from './schemas';
+import {
+  findBestNode,
+  filterNodesByCountry,
+  getNodesByCountry,
+  calculateNodeLoad,
+} from './utils/nodes';
+import {
+  createSession,
+  getSession,
+  verifySessionOwnership,
+  deleteSession,
+  getSessionDuration,
+  getSessionBytesTransferred,
+  getSessionsForAddress,
+} from './utils/sessions';
+import {
+  getOrCreateContribution,
+  getQuotaRemaining,
+  calculateContributionRatio,
+} from './utils/contributions';
 
 // ============================================================================
 // Types
@@ -50,6 +81,90 @@ interface MCPPrompt {
   description: string;
   arguments?: Array<{ name: string; description: string; required?: boolean }>;
 }
+
+// Resource response types
+interface NodeInfo {
+  nodeId: string;
+  countryCode: string;
+  status: string;
+  load: number;
+}
+
+interface NodesResource {
+  nodes: NodeInfo[];
+}
+
+interface CountriesResource {
+  countries: Array<{ code: string; nodeCount: number }>;
+}
+
+interface VPNStatusResource {
+  connected: boolean;
+  message?: string;
+  sessions?: Array<{
+    sessionId: string;
+    nodeId: string;
+    protocol: string;
+    duration: number;
+  }>;
+}
+
+interface ContributionResource {
+  error?: string;
+  bytesUsed?: string;
+  bytesContributed?: string;
+  cap?: string;
+  quotaRemaining?: string;
+  contributionRatio?: number;
+}
+
+interface PricingResource {
+  pricePerGB: string;
+  pricePerHour: string;
+  pricePerRequest: string;
+  supportedTokens: string[];
+}
+
+interface ErrorResource {
+  error: string;
+}
+
+type MCPResourceResult = NodesResource | CountriesResource | VPNStatusResource | ContributionResource | PricingResource | ErrorResource;
+
+// Tool result types
+interface VPNConnectResult {
+  connectionId: string;
+  endpoint: string;
+  publicKey: string;
+  countryCode: string;
+}
+
+interface VPNDisconnectResult {
+  success: boolean;
+  bytesTransferred: string;
+}
+
+interface GetNodesResult {
+  nodes: NodeInfo[];
+}
+
+interface ProxyRequestResult {
+  status: number;
+  body: string;
+}
+
+interface ContributionStatusResult {
+  bytesUsed: string;
+  bytesContributed: string;
+  quotaRemaining: string;
+  contributionRatio: number;
+}
+
+interface ToolErrorResult {
+  error: string;
+}
+
+type MCPToolResult = VPNConnectResult | VPNDisconnectResult | GetNodesResult | ProxyRequestResult | ContributionStatusResult | ToolErrorResult;
 
 // ============================================================================
 // Server Info
@@ -211,6 +326,12 @@ const MCP_PROMPTS: MCPPrompt[] = [
 export function createMCPRouter(ctx: VPNServiceContext): Hono {
   const router = new Hono();
 
+  // Error handling middleware
+  router.onError((err, c) => {
+    console.error('MCP API error:', err);
+    return c.json({ error: err.message || 'Internal server error' }, 500);
+  });
+
   /**
    * POST /initialize - Initialize MCP session
    */
@@ -236,15 +357,19 @@ export function createMCPRouter(ctx: VPNServiceContext): Hono {
     const auth = await verifyAuth(c);
     const address = auth.valid ? auth.address : null;
 
-    const { uri } = await c.req.json() as { uri: string };
+    const rawBody = await c.req.json();
+    const body = expectValid(MCPResourceReadSchema, rawBody, 'resource read request');
 
-    const content = await readResource(ctx, uri, address as Address | null);
-    const resource = MCP_RESOURCES.find(r => r.uri === uri);
+    const content = await readResource(ctx, body.uri, address as Address | null);
+    const resource = MCP_RESOURCES.find(r => r.uri === body.uri);
+    if (!resource) {
+      throw new Error(`Resource not found: ${body.uri}`);
+    }
 
     return c.json({
       contents: [{
-        uri,
-        mimeType: resource?.mimeType || 'application/json',
+        uri: body.uri,
+        mimeType: resource.mimeType,
         text: JSON.stringify(content, null, 2),
       }],
     });
@@ -264,12 +389,10 @@ export function createMCPRouter(ctx: VPNServiceContext): Hono {
     const auth = await verifyAuth(c);
     const address = auth.valid ? auth.address : null;
 
-    const { name, arguments: args } = await c.req.json() as { 
-      name: string; 
-      arguments: Record<string, unknown>;
-    };
+    const rawBody = await c.req.json();
+    const body = expectValid(MCPToolCallSchema, rawBody, 'tool call request');
 
-    const result = await callTool(ctx, c, name, args, address as Address | null);
+    const result = await callTool(ctx, c, body.name, body.arguments, address as Address | null);
 
     return c.json({
       content: [{
@@ -291,12 +414,10 @@ export function createMCPRouter(ctx: VPNServiceContext): Hono {
    * POST /prompts/get - Get a prompt
    */
   router.post('/prompts/get', async (c) => {
-    const { name, arguments: args } = await c.req.json() as {
-      name: string;
-      arguments: Record<string, string>;
-    };
+    const rawBody = await c.req.json();
+    const body = expectValid(MCPPromptGetSchema, rawBody, 'prompt get request');
 
-    const prompt = await getPrompt(ctx, name, args);
+    const prompt = await getPrompt(ctx, body.name, body.arguments ?? {});
 
     return c.json({
       description: prompt.description,
@@ -315,66 +436,65 @@ async function readResource(
   ctx: VPNServiceContext,
   uri: string,
   address: Address | null,
-): Promise<unknown> {
+): Promise<MCPResourceResult> {
   switch (uri) {
-    case 'vpn://nodes':
+    case 'vpn://nodes': {
       return {
         nodes: Array.from(ctx.nodes.values()).map(n => ({
           nodeId: n.nodeId,
           countryCode: n.countryCode,
           status: n.status,
-          load: Math.round((n.activeConnections / n.maxConnections) * 100),
+          load: calculateNodeLoad(n),
         })),
       };
+    }
 
-    case 'vpn://countries':
-      const countries = new Map<string, number>();
-      for (const node of ctx.nodes.values()) {
-        countries.set(node.countryCode, (countries.get(node.countryCode) || 0) + 1);
-      }
+    case 'vpn://countries': {
+      const countries = getNodesByCountry(ctx);
       return {
         countries: Array.from(countries.entries()).map(([code, count]) => ({
           code,
           nodeCount: count,
         })),
       };
+    }
 
-    case 'vpn://status':
+    case 'vpn://status': {
       if (!address) return { connected: false, message: 'Not authenticated' };
-      const sessions = Array.from(ctx.sessions.values())
-        .filter(s => s.clientAddress === address);
+      const sessions = getSessionsForAddress(ctx, address);
       return {
         connected: sessions.length > 0,
         sessions: sessions.map(s => ({
           sessionId: s.sessionId,
           nodeId: s.nodeId,
           protocol: s.protocol,
-          duration: Date.now() - s.startTime,
+          duration: getSessionDuration(s),
         })),
       };
+    }
 
-    case 'vpn://contribution':
+    case 'vpn://contribution': {
       if (!address) return { error: 'Authentication required' };
-      const contribution = ctx.contributions.get(address);
-      return contribution ? {
+      const contribution = getOrCreateContribution(ctx, address);
+      const quotaRemaining = getQuotaRemaining(contribution);
+      const contributionRatio = calculateContributionRatio(contribution);
+      return {
         bytesUsed: contribution.bytesUsed.toString(),
         bytesContributed: contribution.bytesContributed.toString(),
         cap: contribution.cap.toString(),
-        quotaRemaining: (contribution.cap - contribution.bytesContributed).toString(),
-      } : {
-        bytesUsed: '0',
-        bytesContributed: '0',
-        cap: '0',
-        quotaRemaining: '0',
+        quotaRemaining: quotaRemaining.toString(),
+        contributionRatio,
       };
+    }
 
-    case 'vpn://pricing':
+    case 'vpn://pricing': {
       return {
         pricePerGB: ctx.config.pricing.pricePerGB.toString(),
         pricePerHour: ctx.config.pricing.pricePerHour.toString(),
         pricePerRequest: ctx.config.pricing.pricePerRequest.toString(),
         supportedTokens: ctx.config.pricing.supportedTokens,
       };
+    }
 
     default:
       return { error: 'Resource not found' };
@@ -387,47 +507,37 @@ async function readResource(
 
 async function callTool(
   ctx: VPNServiceContext,
-  c: any,
+  c: Context,
   name: string,
   args: Record<string, unknown>,
   address: Address | null,
-): Promise<{ result: unknown; isError: boolean }> {
+): Promise<{ result: MCPToolResult; isError: boolean }> {
   switch (name) {
     case 'vpn_connect': {
       if (!address) {
-        return { result: { error: 'Authentication required' }, isError: true };
+        throw new Error('Authentication required for VPN connection');
       }
 
-      const countryCode = args.countryCode as string | undefined;
-      const protocol = (args.protocol as string) || 'wireguard';
+      const countryCode = typeof args.countryCode === 'string' ? args.countryCode : undefined;
+      const protocol = typeof args.protocol === 'string' ? args.protocol : 'wireguard';
+      
+      expect(['wireguard', 'socks5', 'http'].includes(protocol), `Invalid protocol: ${protocol}`);
 
-      let nodes = Array.from(ctx.nodes.values()).filter(n => n.status === 'online');
-      if (countryCode) {
-        nodes = nodes.filter(n => n.countryCode === countryCode.toUpperCase());
+      const node = findBestNode(ctx, countryCode);
+      if (!node) {
+        throw new Error('No available nodes matching criteria');
       }
 
-      if (nodes.length === 0) {
-        return { result: { error: 'No available nodes' }, isError: true };
-      }
-
-      const node = nodes[0];
-      const sessionId = `sess-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
-      ctx.sessions.set(sessionId, {
-        sessionId,
-        clientAddress: address,
-        nodeId: node.nodeId,
-        protocol: protocol as 'wireguard' | 'socks5' | 'http',
-        startTime: Date.now(),
-        bytesUp: BigInt(0),
-        bytesDown: BigInt(0),
-        isPaid: false,
-        paymentAmount: BigInt(0),
-      });
+      const session = createSession(
+        ctx,
+        address,
+        node.nodeId,
+        protocol as 'wireguard' | 'socks5' | 'http'
+      );
 
       return {
         result: {
-          connectionId: sessionId,
+          connectionId: session.sessionId,
           endpoint: node.endpoint,
           publicKey: node.wireguardPubKey,
           countryCode: node.countryCode,
@@ -437,29 +547,34 @@ async function callTool(
     }
 
     case 'vpn_disconnect': {
-      const connectionId = args.connectionId as string;
-      const session = ctx.sessions.get(connectionId);
-      
-      if (!session) {
-        return { result: { error: 'Session not found' }, isError: true };
+      if (!address) {
+        throw new Error('Authentication required for disconnect');
       }
+      
+      const connectionId = typeof args.connectionId === 'string' ? args.connectionId : null;
+      if (!connectionId || connectionId.length === 0) {
+        throw new Error('connectionId must be a non-empty string');
+      }
+      
+      const session = getSession(ctx, connectionId);
+      verifySessionOwnership(session, address);
 
-      ctx.sessions.delete(connectionId);
+      deleteSession(ctx, connectionId);
       return {
         result: {
           success: true,
-          bytesTransferred: (session.bytesUp + session.bytesDown).toString(),
+          bytesTransferred: getSessionBytesTransferred(session).toString(),
         },
         isError: false,
       };
     }
 
     case 'get_vpn_nodes': {
-      const countryCode = args.countryCode as string | undefined;
+      const countryCode = typeof args.countryCode === 'string' ? args.countryCode : undefined;
       
       let nodes = Array.from(ctx.nodes.values());
       if (countryCode) {
-        nodes = nodes.filter(n => n.countryCode === countryCode.toUpperCase());
+        nodes = filterNodesByCountry(nodes, countryCode);
       }
 
       return {
@@ -468,7 +583,7 @@ async function callTool(
             nodeId: n.nodeId,
             countryCode: n.countryCode,
             status: n.status,
-            load: Math.round((n.activeConnections / n.maxConnections) * 100),
+            load: calculateNodeLoad(n),
           })),
         },
         isError: false,
@@ -479,64 +594,50 @@ async function callTool(
       const paymentHeader = c.req.header('x-payment');
       const paymentResult = await verifyX402Payment(
         paymentHeader || '',
-        ctx.config.pricing.pricePerRequest,
+        BigInt(ctx.config.pricing.pricePerRequest),
         'vpn:proxy',
         ctx.config,
       );
 
-      if (!paymentResult.valid) {
-        return {
-          result: {
-            error: 'Payment required',
-            paymentDetails: {
-              amount: ctx.config.pricing.pricePerRequest.toString(),
-              recipient: ctx.config.paymentRecipient,
-              resource: 'vpn:proxy',
-            },
-          },
-          isError: true,
-        };
-      }
+      expect(
+        paymentResult.valid,
+        paymentResult.error || 'Payment required. Include x-payment header with valid x402 payment.'
+      );
 
-      const url = args.url as string;
-      const method = (args.method as string) || 'GET';
-      const headers = args.headers as Record<string, string> | undefined;
-      const body = args.body as string | undefined;
+      const proxyRequest = expectValid(ProxyRequestSchema, args, 'proxy request params');
 
-      try {
-        const response = await fetch(url, { method, headers, body });
-        const responseBody = await response.text();
+      const response = await fetch(proxyRequest.url, {
+        method: proxyRequest.method,
+        headers: proxyRequest.headers,
+        body: proxyRequest.body,
+      });
 
-        return {
-          result: {
-            status: response.status,
-            body: responseBody.slice(0, 10000),
-          },
-          isError: false,
-        };
-      } catch (error) {
-        return {
-          result: { error: error instanceof Error ? error.message : 'Request failed' },
-          isError: true,
-        };
-      }
+      const responseBody = await response.text();
+
+      return {
+        result: {
+          status: response.status,
+          body: responseBody.slice(0, 10000),
+        },
+        isError: false,
+      };
     }
 
     case 'get_contribution_status': {
       if (!address) {
-        return { result: { error: 'Authentication required' }, isError: true };
+        throw new Error('Authentication required for contribution status');
       }
 
-      const contribution = ctx.contributions.get(address);
+      const contribution = getOrCreateContribution(ctx, address);
+      const quotaRemaining = getQuotaRemaining(contribution);
+      const contributionRatio = calculateContributionRatio(contribution);
+
       return {
-        result: contribution ? {
+        result: {
           bytesUsed: contribution.bytesUsed.toString(),
           bytesContributed: contribution.bytesContributed.toString(),
-          quotaRemaining: (contribution.cap - contribution.bytesContributed).toString(),
-        } : {
-          bytesUsed: '0',
-          bytesContributed: '0',
-          quotaRemaining: '0',
+          quotaRemaining: quotaRemaining.toString(),
+          contributionRatio,
         },
         isError: false,
       };

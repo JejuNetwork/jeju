@@ -271,26 +271,40 @@ export const INFRA_PORTS = {
 // URL Builders
 // ============================================================================
 
+/** Port configuration interface used by all port registries */
+interface PortConfig {
+  DEFAULT: number;
+  ENV_VAR: string;
+  get: () => number;
+}
+
+/**
+ * Generic URL builder for any port config
+ * Checks environment for full URL override, then port override, then uses default
+ */
+function buildUrl(portConfig: PortConfig, protocol: 'http' | 'ws' = 'http'): string {
+  const urlEnvVar = portConfig.ENV_VAR.replace('_PORT', '_URL');
+  
+  // Check for full URL override
+  const envUrl = process.env[urlEnvVar];
+  if (envUrl) {
+    return envUrl;
+  }
+  
+  // Build URL from port (with port override support)
+  const port = portConfig.get();
+  const host = process.env.HOST ?? 'localhost';
+  return `${protocol}://${host}:${port}`;
+}
+
 /**
  * Build URL for a core app service
- * Checks environment for full URL override, then port override, then uses default
  */
 export function getCoreAppUrl(
   appName: keyof typeof CORE_PORTS,
   protocol: 'http' | 'ws' = 'http'
 ): string {
-  const portConfig = CORE_PORTS[appName];
-  const urlEnvVar = `${portConfig.ENV_VAR.replace('_PORT', '_URL')}`;
-  
-  // 1. Check for full URL override
-  if (process.env[urlEnvVar]) {
-    return process.env[urlEnvVar]!;
-  }
-  
-  // 2. Build URL from port (with port override support)
-  const port = portConfig.get();
-  const host = process.env.HOST || 'localhost';
-  return `${protocol}://${host}:${port}`;
+  return buildUrl(CORE_PORTS[appName], protocol);
 }
 
 /**
@@ -300,18 +314,7 @@ export function getVendorAppUrl(
   appName: keyof typeof VENDOR_PORTS,
   protocol: 'http' | 'ws' = 'http'
 ): string {
-  const portConfig = VENDOR_PORTS[appName];
-  const urlEnvVar = `${portConfig.ENV_VAR.replace('_PORT', '_URL')}`;
-  
-  // 1. Check for full URL override
-  if (process.env[urlEnvVar]) {
-    return process.env[urlEnvVar]!;
-  }
-  
-  // 2. Build URL from port
-  const port = portConfig.get();
-  const host = process.env.HOST || 'localhost';
-  return `${protocol}://${host}:${port}`;
+  return buildUrl(VENDOR_PORTS[appName], protocol);
 }
 
 /**
@@ -321,18 +324,7 @@ export function getInfraUrl(
   serviceName: keyof typeof INFRA_PORTS,
   protocol: 'http' | 'ws' = 'http'
 ): string {
-  const portConfig = INFRA_PORTS[serviceName];
-  const urlEnvVar = `${portConfig.ENV_VAR.replace('_PORT', '_URL')}`;
-  
-  // 1. Check for full URL override
-  if (process.env[urlEnvVar]) {
-    return process.env[urlEnvVar]!;
-  }
-  
-  // 2. Build URL from port
-  const port = portConfig.get();
-  const host = process.env.HOST || 'localhost';
-  return `${protocol}://${host}:${port}`;
+  return buildUrl(INFRA_PORTS[serviceName], protocol);
 }
 
 // ============================================================================
@@ -448,14 +440,10 @@ export function getL2WsUrl(): string {
   const port = INFRA_PORTS.L2_WS.get();
   const host = process.env.RPC_HOST || '127.0.0.1';
   return `ws://${host}:${port}`;
-}
-
-/**
+}/**
  * Alias for getL2RpcUrl - the "default" Jeju RPC
  */
-export const getJejuRpcUrl = getL2RpcUrl;
-
-/**
+export const getJejuRpcUrl = getL2RpcUrl;/**
  * Check if a URL points to localnet
  */
 export function isLocalnet(rpcUrl: string): boolean {
@@ -468,4 +456,3 @@ export function isLocalnet(rpcUrl: string): boolean {
     rpcUrl.includes(`:${l2Port}`)
   );
 }
-

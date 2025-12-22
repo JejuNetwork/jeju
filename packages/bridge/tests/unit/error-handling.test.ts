@@ -10,7 +10,7 @@
  */
 
 import { describe, expect, it } from "bun:test";
-import type { Hex, Address } from "viem";
+import type { Address } from "viem";
 import {
 	ChainId,
 	createEVMClient,

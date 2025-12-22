@@ -5,12 +5,11 @@
  * their own OAuth3 apps, CEOs, and governance while sharing the same infrastructure.
  */
 
-import { keccak256, toBytes, toHex, type Address, type Hex } from 'viem';
+import { keccak256, toBytes, type Address, type Hex } from 'viem';
 import type {
   CouncilConfig,
   CouncilType,
   OAuth3App,
-  OAuth3AppMetadata,
   AuthProvider,
 } from '../types.js';
 

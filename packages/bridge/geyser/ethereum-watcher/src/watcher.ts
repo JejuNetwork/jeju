@@ -120,12 +120,7 @@ export class BeaconChainWatcher {
    */
   private async pollLoop(): Promise<void> {
     while (this.running) {
-      try {
-        await this.checkForUpdates();
-      } catch (error) {
-        console.error('[BeaconWatcher] Error in poll loop:', error);
-      }
-
+      await this.checkForUpdates();
       await this.sleep(this.config.pollingIntervalMs);
     }
   }
@@ -302,23 +297,19 @@ export class BeaconChainWatcher {
    * Get beacon state root for a slot
    */
   private async getStateRoot(slot: bigint): Promise<Hex> {
-    try {
-      const response = await fetch(
-        `${this.config.beaconRpcUrl}/eth/v1/beacon/headers/${slot}`
-      );
+    const response = await fetch(
+      `${this.config.beaconRpcUrl}/eth/v1/beacon/headers/${slot}`
+    );
 
-      if (!response.ok) {
-        return '0x0000000000000000000000000000000000000000000000000000000000000000';
-      }
-
-      const data = (await response.json()) as {
-        data: { header: { message: { state_root: string } } };
-      };
-
-      return data.data.header.message.state_root as Hex;
-    } catch {
-      return '0x0000000000000000000000000000000000000000000000000000000000000000';
+    if (!response.ok) {
+      throw new Error(`Failed to get state root for slot ${slot}: ${response.status} ${response.statusText}`);
     }
+
+    const data = (await response.json()) as {
+      data: { header: { message: { state_root: string } } };
+    };
+
+    return data.data.header.message.state_root as Hex;
   }
 
   /**

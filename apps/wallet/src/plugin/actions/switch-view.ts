@@ -4,7 +4,6 @@
  * Switches between simple and advanced wallet views.
  */
 
-import { WalletService } from '../services/wallet.service';
 import type { ActionContext, ActionResult } from './wallet-info';
 
 interface SwitchViewParams {

@@ -75,6 +75,8 @@ export interface HardwareInfo {
 export type ComputeMode = 'tee' | 'non-tee';
 export type ComputeType = 'cpu' | 'gpu' | 'both';
 
+import type { HardwareInfo as HardwareInfoSnake } from '../types';
+
 export interface ComputeCapabilities {
   cpuCompute: {
     available: boolean;
@@ -93,7 +95,123 @@ export interface ComputeCapabilities {
   warnings: string[];
 }
 
+/**
+ * Convert snake_case format to camelCase format
+ */
+export function convertHardwareToCamelCase(hw: HardwareInfoSnake): HardwareInfo {
+  return {
+    os: hw.os,
+    osVersion: hw.os_version,
+    hostname: hw.hostname,
+    cpu: {
+      name: hw.cpu.name,
+      vendor: hw.cpu.vendor,
+      coresPhysical: hw.cpu.cores_physical,
+      coresLogical: hw.cpu.cores_logical,
+      frequencyMhz: hw.cpu.frequency_mhz,
+      architecture: hw.cpu.architecture,
+      estimatedFlops: 0,
+      supportsAvx: false,
+      supportsAvx2: false,
+      supportsAvx512: false,
+    },
+    memory: {
+      totalMb: hw.memory.total_mb,
+      usedMb: hw.memory.used_mb,
+      availableMb: hw.memory.available_mb,
+      usagePercent: hw.memory.usage_percent,
+    },
+    gpus: hw.gpus.map(g => ({
+      index: g.index,
+      name: g.name,
+      vendor: g.vendor,
+      memoryTotalMb: g.memory_total_mb,
+      memoryFreeMb: g.memory_total_mb - g.memory_used_mb,
+      suitableForInference: g.suitable_for_inference,
+      cudaVersion: g.cuda_version,
+      driverVersion: g.driver_version,
+      computeCapability: g.compute_capability,
+      tensorCores: false,
+      estimatedTflops: 0,
+      powerWatts: null,
+      temperatureCelsius: g.temperature_celsius,
+    })),
+    tee: {
+      hasIntelTdx: hw.tee.has_intel_tdx,
+      hasIntelSgx: hw.tee.has_intel_sgx,
+      hasAmdSev: hw.tee.has_amd_sev,
+      hasNvidiaCc: hw.tee.has_nvidia_cc,
+      attestationAvailable: hw.tee.attestation_available,
+    },
+    docker: {
+      available: hw.docker.available,
+      version: hw.docker.version,
+      runtimeAvailable: hw.docker.runtime_available,
+      gpuSupport: hw.docker.gpu_support,
+      images: hw.docker.images,
+    },
+  };
+}
+
+/**
+ * Convert hardware.ts camelCase format to types.ts snake_case format
+ */
+export function convertHardwareToSnakeCase(hw: HardwareInfo): HardwareInfoSnake {
+  return {
+    os: hw.os,
+    os_version: hw.osVersion,
+    hostname: hw.hostname,
+    cpu: {
+      name: hw.cpu.name,
+      vendor: hw.cpu.vendor,
+      cores_physical: hw.cpu.coresPhysical,
+      cores_logical: hw.cpu.coresLogical,
+      frequency_mhz: hw.cpu.frequencyMhz,
+      usage_percent: hw.cpu.estimatedFlops > 0 ? 0 : 0,
+      architecture: hw.cpu.architecture,
+    },
+    memory: {
+      total_mb: hw.memory.totalMb,
+      used_mb: hw.memory.usedMb,
+      available_mb: hw.memory.availableMb,
+      usage_percent: hw.memory.usagePercent,
+    },
+    gpus: hw.gpus.map(gpu => ({
+      index: gpu.index,
+      name: gpu.name,
+      vendor: gpu.vendor,
+      memory_total_mb: gpu.memoryTotalMb,
+      memory_used_mb: gpu.memoryTotalMb - gpu.memoryFreeMb,
+      utilization_percent: 0,
+      temperature_celsius: gpu.temperatureCelsius,
+      driver_version: gpu.driverVersion,
+      cuda_version: gpu.cudaVersion,
+      compute_capability: gpu.computeCapability,
+      suitable_for_inference: gpu.suitableForInference,
+    })),
+    storage: [],
+    network: [],
+    tee: {
+      has_intel_tdx: hw.tee.hasIntelTdx,
+      has_intel_sgx: hw.tee.hasIntelSgx,
+      has_amd_sev: hw.tee.hasAmdSev,
+      has_nvidia_cc: hw.tee.hasNvidiaCc,
+      attestation_available: hw.tee.attestationAvailable,
+      tdx_version: null,
+      sgx_version: null,
+    },
+    docker: {
+      available: hw.docker.available,
+      version: hw.docker.version,
+      runtime_available: hw.docker.runtimeAvailable,
+      gpu_support: hw.docker.gpuSupport,
+      images: hw.docker.images,
+    },
+  };
+}
+
 function execCommand(cmd: string, timeout = 5000): string | null {
+
   try {
     return execSync(cmd, { encoding: 'utf-8', timeout, stdio: ['pipe', 'pipe', 'pipe'] }).trim();
   } catch {
@@ -103,6 +221,9 @@ function execCommand(cmd: string, timeout = 5000): string | null {
 
 export function detectCpu(): CpuInfo {
   const cpus = os.cpus();
+  if (cpus.length === 0) {
+    throw new Error('detectCpu: no CPUs detected');
+  }
   const firstCpu = cpus[0];
   const coresLogical = cpus.length;
   
@@ -110,8 +231,12 @@ export function detectCpu(): CpuInfo {
   let coresPhysical = Math.ceil(coresLogical / 2);
   const lscpuOutput = execCommand('lscpu 2>/dev/null | grep "Core(s) per socket" | awk \'{print $4}\'');
   const socketsOutput = execCommand('lscpu 2>/dev/null | grep "Socket(s)" | awk \'{print $2}\'');
-  if (lscpuOutput && socketsOutput) {
-    coresPhysical = parseInt(lscpuOutput, 10) * parseInt(socketsOutput, 10);
+  if (lscpuOutput !== null && socketsOutput !== null) {
+    const cores = parseInt(lscpuOutput, 10);
+    const sockets = parseInt(socketsOutput, 10);
+    if (!isNaN(cores) && !isNaN(sockets)) {
+      coresPhysical = cores * sockets;
+    }
   }
   
   // Detect AVX support
@@ -120,21 +245,26 @@ export function detectCpu(): CpuInfo {
   let supportsAvx512 = false;
   
   const cpuFlags = execCommand('cat /proc/cpuinfo 2>/dev/null | grep flags | head -1');
-  if (cpuFlags) {
+  if (cpuFlags !== null) {
     supportsAvx = cpuFlags.includes(' avx ');
     supportsAvx2 = cpuFlags.includes(' avx2 ');
     supportsAvx512 = cpuFlags.includes('avx512');
   }
   
-  // Estimate GFLOPS (very rough: cores * freq * ops per cycle)
-  const freq = firstCpu?.speed || 3000;
+  // Get CPU frequency - firstCpu is guaranteed to exist
+  const freq = firstCpu.speed > 0 ? firstCpu.speed : 3000;
   const opsPerCycle = supportsAvx512 ? 32 : supportsAvx2 ? 16 : supportsAvx ? 8 : 4;
   const estimatedFlops = coresPhysical * freq * opsPerCycle / 1000; // GFLOPS
   
+  // Get CPU name - firstCpu is guaranteed to exist
+  const cpuModel = firstCpu.model;
+  const cpuName = cpuModel.length > 0 ? cpuModel : 'Unknown CPU';
+  const cpuVendor = cpuModel.includes('Intel') ? 'Intel' : 
+                    cpuModel.includes('AMD') ? 'AMD' : 'Unknown';
+  
   return {
-    name: firstCpu?.model || 'Unknown',
-    vendor: firstCpu?.model.includes('Intel') ? 'Intel' : 
-            firstCpu?.model.includes('AMD') ? 'AMD' : 'Unknown',
+    name: cpuName,
+    vendor: cpuVendor,
     coresPhysical,
     coresLogical,
     frequencyMhz: freq,

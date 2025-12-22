@@ -2,8 +2,11 @@
 
 import { WagmiProvider } from 'wagmi'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { wagmiConfig } from '@/config/wagmi'
+import { OAuth3Provider } from '@jejunetwork/oauth3/react'
+import { wagmiConfig, chainId, rpcUrl } from '@/config/wagmi'
 import { useState } from 'react'
+
+const OAUTH3_AGENT_URL = process.env.NEXT_PUBLIC_OAUTH3_AGENT_URL || 'http://localhost:4200';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -21,7 +24,24 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <WagmiProvider config={wagmiConfig}>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        <OAuth3Provider
+          config={{
+            appId: 'bazaar.apps.jeju',
+            redirectUri: typeof window !== 'undefined' 
+              ? `${window.location.origin}/auth/callback` 
+              : 'http://localhost:4006/auth/callback',
+            chainId,
+            rpcUrl,
+            teeAgentUrl: OAUTH3_AGENT_URL,
+            decentralized: true,
+          }}
+          autoConnect={true}
+          persistSession={true}
+        >
+          {children}
+        </OAuth3Provider>
+      </QueryClientProvider>
     </WagmiProvider>
   )
 }

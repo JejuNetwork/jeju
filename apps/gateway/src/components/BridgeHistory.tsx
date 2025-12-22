@@ -2,8 +2,16 @@ import { useQuery } from '@tanstack/react-query';
 import { useAccount } from 'wagmi';
 import { useProtocolTokens } from '../hooks/useProtocolTokens';
 import { formatTokenAmount } from '../lib/tokenUtils';
-import { Clock, CheckCircle, XCircle, Loader, RefreshCw } from 'lucide-react';
+import { Clock, CheckCircle, XCircle, Loader, RefreshCw, type LucideProps } from 'lucide-react';
 import { INDEXER_URL } from '../config';
+import type { ComponentType } from 'react';
+
+// Fix for Lucide React 19 type compatibility
+const ClockIcon = Clock as ComponentType<LucideProps>;
+const CheckCircleIcon = CheckCircle as ComponentType<LucideProps>;
+const XCircleIcon = XCircle as ComponentType<LucideProps>;
+const LoaderIcon = Loader as ComponentType<LucideProps>;
+const RefreshCwIcon = RefreshCw as ComponentType<LucideProps>;
 
 interface BridgeTransfer {
   id: string;
@@ -119,7 +127,7 @@ export default function BridgeHistory() {
       <div className="card">
         <h3 style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>Bridge History</h3>
         <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-          <Loader size={24} style={{ animation: 'spin 1s linear infinite' }} />
+          <LoaderIcon size={24} style={{ animation: 'spin 1s linear infinite' }} />
           <p style={{ marginTop: '0.5rem' }}>Loading transfers...</p>
         </div>
       </div>
@@ -171,7 +179,7 @@ export default function BridgeHistory() {
           }}
           title="Refresh"
         >
-          <RefreshCw size={18} />
+          <RefreshCwIcon size={18} />
         </button>
       </div>
 
@@ -179,13 +187,13 @@ export default function BridgeHistory() {
         {transfers.map(transfer => {
           const token = getToken(transfer.token);
           const statusIcon = transfer.status === 'confirmed' ? (
-            <CheckCircle size={20} style={{ color: 'var(--success)' }} />
+            <CheckCircleIcon size={20} style={{ color: 'var(--success)' }} />
           ) : transfer.status === 'failed' ? (
-            <XCircle size={20} style={{ color: 'var(--error)' }} />
+            <XCircleIcon size={20} style={{ color: 'var(--error)' }} />
           ) : transfer.status === 'pending' ? (
-            <Loader size={20} style={{ color: 'var(--info)', animation: 'spin 1s linear infinite' }} />
+            <LoaderIcon size={20} style={{ color: 'var(--info)', animation: 'spin 1s linear infinite' }} />
           ) : (
-            <Clock size={20} style={{ color: 'var(--text-muted)' }} />
+            <ClockIcon size={20} style={{ color: 'var(--text-muted)' }} />
           );
 
           return (

@@ -15,6 +15,7 @@ import {
 } from 'viem';
 import { OracleAggregator } from '../../oracles';
 import type { EVMChainId } from '../../types';
+import { sleep } from '../../shared';
 
 export interface FundingArbConfig {
   chainId: EVMChainId;
@@ -169,7 +170,11 @@ export class FundingArbitrageBot {
     }
 
     // Extract position ID from receipt logs
-    const perpPositionId = perpReceipt.logs[0]?.topics[1] as `0x${string}`;
+    const firstLog = perpReceipt.logs[0];
+    if (!firstLog || !firstLog.topics[1]) {
+      throw new Error('Failed to extract position ID from perp transaction receipt');
+    }
+    const perpPositionId = firstLog.topics[1] as `0x${string}`;
 
     // 2. Execute spot trade (buy if short perp, sell if long perp)
     const spotPath = isShortPerp 
@@ -304,7 +309,7 @@ export class FundingArbitrageBot {
     return parseUnits((maxUsd / price / this.config.targetLeverage).toString(), 18);
   }
 
-  getStats() {
+  getStats(): { activePositions: number; markets: string[]; positions: { marketId: string; direction: Direction; size: string }[] } {
     return { 
       activePositions: this.positions.size, 
       markets: [...this.positions.keys()],
@@ -316,5 +321,3 @@ export class FundingArbitrageBot {
     };
   }
 }
-
-const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));

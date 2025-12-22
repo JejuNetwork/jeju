@@ -198,7 +198,9 @@ export class CISecretsStore {
     if (!env) return;
 
     for (const secret of env.secrets) {
-      this.deleteSecret(secret.secretId, '0x0' as Address).catch(() => {});
+      this.deleteSecret(secret.secretId, '0x0' as Address).catch((err: Error) => {
+        console.error(`[SecretsStore] Failed to delete secret ${secret.secretId}: ${err.message}`);
+      });
     }
 
     this.environments.delete(envId);

@@ -5,7 +5,7 @@
 
 import type { Address, Hex } from 'viem';
 import { rpcService, type SupportedChainId } from '../rpc';
-import { encodeFunctionData, keccak256, concat, toHex, pad } from 'viem';
+import { encodeFunctionData } from 'viem';
 
 // Safe Transaction Service API base URLs
 const SAFE_API_URLS: Record<number, string> = {
@@ -14,11 +14,6 @@ const SAFE_API_URLS: Record<number, string> = {
   8453: 'https://safe-transaction-base.safe.global',
   42161: 'https://safe-transaction-arbitrum.safe.global',
 };
-
-// Safe contract addresses (same across chains)
-const SAFE_PROXY_FACTORY = '0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2' as Address;
-const SAFE_SINGLETON = '0xd9Db270c1B5E3Bd161E8c8503c55cEABeE709552' as Address;
-const SAFE_FALLBACK_HANDLER = '0xf48f2B2d2a534e402487b3ee7C18c33Aec0Fe5e4' as Address;
 
 export interface SafeInfo {
   address: Address;
@@ -265,7 +260,7 @@ class SafeService {
    */
   async confirmTransaction(
     chainId: number,
-    safeAddress: Address,
+    _safeAddress: Address,
     safeTxHash: Hex,
     signer: { signMessage: (message: string) => Promise<Hex>; address: Address }
   ): Promise<void> {
@@ -294,7 +289,7 @@ class SafeService {
    * Execute a fully signed transaction
    */
   async executeTransaction(
-    chainId: SupportedChainId,
+    _chainId: SupportedChainId,
     safeAddress: Address,
     tx: SafeTransaction,
     signatures: Hex

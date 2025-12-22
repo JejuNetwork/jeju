@@ -12,7 +12,7 @@
 import { type Address, type Hex, encodeFunctionData, parseEther } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
-import { getContract as getContractAddress, getServicesConfig } from "../config";
+import { requireContract } from "../config";
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -33,9 +33,9 @@ export enum ReportType {
 }
 
 export enum SeverityLevel {
-  LOW = 0,      // 7 day voting
-  MEDIUM = 1,   // 3 day voting
-  HIGH = 2,     // 24 hour voting
+  LOW = 0, // 7 day voting
+  MEDIUM = 1, // 3 day voting
+  HIGH = 2, // 24 hour voting
   CRITICAL = 3, // Immediate temp ban + 24 hour voting
 }
 
@@ -279,7 +279,9 @@ export interface ModerationModule {
   // ═══════════════════════════════════════════════════════════════════════════
 
   /** Submit a new report against a user */
-  createReport(params: CreateReportParams): Promise<{ reportId: Hex; txHash: Hex }>;
+  createReport(
+    params: CreateReportParams,
+  ): Promise<{ reportId: Hex; txHash: Hex }>;
 
   /** Get report by ID */
   getReport(reportId: Hex): Promise<Report | null>;
@@ -776,23 +778,27 @@ export function createModerationModule(
   wallet: JejuWallet,
   network: NetworkType,
 ): ModerationModule {
-  const services = getServicesConfig(network);
-
-  // Helper to safely get contract addresses
-  const tryGetContract = (category: string, name: string): Address => {
-    try {
-      // @ts-expect-error - category names may vary by deployment
-      return getContractAddress(category, name, network) as Address;
-    } catch {
-      return "0x0000000000000000000000000000000000000000" as Address;
-    }
-  };
-
-  const evidenceRegistryAddress = tryGetContract("moderation", "EvidenceRegistry");
-  const moderationMarketplaceAddress = tryGetContract("moderation", "ModerationMarketplace");
-  const reputationLabelManagerAddress = tryGetContract("moderation", "ReputationLabelManager");
-  const banManagerAddress = tryGetContract("moderation", "BanManager");
-  const reportingSystemAddress = tryGetContract("moderation", "ReportingSystem");
+  const evidenceRegistryAddress = requireContract(
+    "moderation",
+    "EvidenceRegistry",
+    network,
+  );
+  const moderationMarketplaceAddress = requireContract(
+    "moderation",
+    "ModerationMarketplace",
+    network,
+  );
+  const reputationLabelManagerAddress = requireContract(
+    "moderation",
+    "ReputationLabelManager",
+    network,
+  );
+  const banManagerAddress = requireContract("moderation", "BanManager", network);
+  const reportingSystemAddress = requireContract(
+    "moderation",
+    "ReportingSystem",
+    network,
+  );
 
   const MIN_EVIDENCE_STAKE = parseEther("0.001");
   const MIN_SUPPORT_STAKE = parseEther("0.0005");
@@ -1157,7 +1163,7 @@ export function createModerationModule(
     },
 
     async getMyIssuedLabels() {
-      const ids = await wallet.publicClient.readContract({
+      await wallet.publicClient.readContract({
         address: reputationLabelManagerAddress,
         abi: REPUTATION_LABEL_MANAGER_ABI,
         functionName: "getLabelsByIssuer",
@@ -1232,7 +1238,16 @@ export function createModerationModule(
       });
 
       // Result is tuple [isBanned, banType, bannedAt, expiresAt, reason, proposalId, reporter, caseId]
-      const [isBanned, banType, bannedAt, expiresAt, reason, proposalId, reporter, caseId] = result;
+      const [
+        isBanned,
+        banType,
+        bannedAt,
+        expiresAt,
+        reason,
+        proposalId,
+        reporter,
+        caseId,
+      ] = result;
 
       if (!isBanned && bannedAt === 0n) return null;
 
@@ -1257,7 +1272,16 @@ export function createModerationModule(
       });
 
       // Result is tuple [isBanned, banType, bannedAt, expiresAt, reason, proposalId, reporter, caseId]
-      const [isBanned, banType, bannedAt, expiresAt, reason, proposalId, reporter, caseId] = result;
+      const [
+        isBanned,
+        banType,
+        bannedAt,
+        expiresAt,
+        reason,
+        proposalId,
+        reporter,
+        caseId,
+      ] = result;
 
       if (!isBanned && bannedAt === 0n) return null;
 
@@ -1300,7 +1324,7 @@ export function createModerationModule(
 
     async createReport(params) {
       const stake = params.stake ?? MIN_REPORT_STAKE;
-      const appId = params.appId ?? ("0x" + "0".repeat(64)) as Hex;
+      const appId = params.appId ?? (("0x" + "0".repeat(64)) as Hex);
 
       let data: Hex;
 
@@ -1331,7 +1355,9 @@ export function createModerationModule(
           ],
         });
       } else {
-        throw new Error("Must provide either reportedAgentId or reportedAddress");
+        throw new Error(
+          "Must provide either reportedAgentId or reportedAddress",
+        );
       }
 
       const txHash = await wallet.sendTransaction({
@@ -1340,7 +1366,8 @@ export function createModerationModule(
         value: stake,
       });
 
-      const reportId = `0x${Buffer.from(params.reason).toString("hex").padEnd(64, "0")}` as Hex;
+      const reportId =
+        `0x${Buffer.from(params.reason).toString("hex").padEnd(64, "0")}` as Hex;
       return { reportId, txHash };
     },
 
@@ -1442,4 +1469,3 @@ export function createModerationModule(
     },
   };
 }
-

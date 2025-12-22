@@ -10,7 +10,7 @@ import { securityEngine, type RiskLevel } from '../../services/security';
 import { approvalService } from '../../services/approval';
 import { historyService } from '../../services/history';
 import { aaService } from '../../services/account-abstraction';
-import { formatEther, parseEther } from 'viem';
+import { parseEther } from 'viem';
 
 export interface ActionContext {
   walletAddress?: Address;
@@ -295,7 +295,7 @@ export const getGasPriceAction = {
   description: 'Show current gas prices across chains',
   similes: ['gas', 'gas price', 'gas fees', 'how much is gas'],
   
-  async execute(context: ActionContext): Promise<ActionResult> {
+  async execute(_context: ActionContext): Promise<ActionResult> {
     const chainIds = Object.keys(SUPPORTED_CHAINS).map(Number) as SupportedChainId[];
     const gasPrices = await Promise.all(chainIds.map(id => oracleService.getGasPrice(id)));
 

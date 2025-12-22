@@ -13,6 +13,7 @@ import {
   type WalletClient,
 } from 'viem';
 import type { ChainDeployment, LiquidityAllocation } from '../types';
+import type { DexProtocol } from '@jejunetwork/types';
 
 // ============================================================================
 // ABIs
@@ -47,7 +48,8 @@ const LP_LOCKER_ABI = parseAbi([
 // Types
 // ============================================================================
 
-export type DexProtocol = 'uniswap-v2' | 'uniswap-v3' | 'sushiswap' | 'pancakeswap';
+// Re-export consolidated DexProtocol
+export type { DexProtocol };
 
 export interface LiquidityDeploymentParams {
   publicClient: PublicClient;
@@ -118,12 +120,14 @@ export async function addLiquidityV2(
   console.log(
     `Approving router ${routerAddress} to spend ${tokenAmount} tokens...`
   );
+  if (!walletClient.chain) throw new Error('WalletClient must have a chain configured');
+
   const approvalHash = await walletClient.writeContract({
     address: tokenAddress,
     abi: ERC20_ABI,
     functionName: 'approve',
     args: [routerAddress, tokenAmount],
-    chain: walletClient.chain ?? null,
+    chain: walletClient.chain,
     account,
   });
 
@@ -150,7 +154,7 @@ export async function addLiquidityV2(
       deadline,
     ],
     value: ethAmount,
-    chain: walletClient.chain ?? null,
+    chain: walletClient.chain,
     account,
   });
 
@@ -207,6 +211,8 @@ export async function addLiquidityV3(
   const amount0Desired = isToken0 ? tokenAmount : ethAmount;
   const amount1Desired = isToken0 ? ethAmount : tokenAmount;
 
+  if (!walletClient.chain) throw new Error('WalletClient must have a chain configured');
+
   // Approve token spending
   console.log('Approving token for V3 position manager...');
   const approvalHash = await walletClient.writeContract({
@@ -214,7 +220,7 @@ export async function addLiquidityV3(
     abi: ERC20_ABI,
     functionName: 'approve',
     args: [nonfungiblePositionManager, tokenAmount],
-    chain: walletClient.chain ?? null,
+    chain: walletClient.chain,
     account,
   });
   await publicClient.waitForTransactionReceipt({ hash: approvalHash });
@@ -239,7 +245,7 @@ export async function addLiquidityV3(
       deadline,
     }],
     value: isToken0 ? 0n : ethAmount,
-    chain: walletClient.chain ?? null,
+    chain: walletClient.chain,
     account,
   });
 
@@ -275,6 +281,8 @@ export async function lockLPTokens(params: LPLockParams): Promise<{
   const account = walletClient.account;
   if (!account) throw new Error('WalletClient must have an account');
 
+  if (!walletClient.chain) throw new Error('WalletClient must have a chain configured');
+
   // Approve locker
   console.log('Approving LP tokens for locker...');
   const approvalHash = await walletClient.writeContract({
@@ -282,7 +290,7 @@ export async function lockLPTokens(params: LPLockParams): Promise<{
     abi: ERC20_ABI,
     functionName: 'approve',
     args: [lockerContract, amount],
-    chain: walletClient.chain ?? null,
+    chain: walletClient.chain,
     account,
   });
   await publicClient.waitForTransactionReceipt({ hash: approvalHash });
@@ -297,7 +305,7 @@ export async function lockLPTokens(params: LPLockParams): Promise<{
     abi: LP_LOCKER_ABI,
     functionName: 'lock',
     args: [lpTokenAddress, amount, unlockTime, account.address],
-    chain: walletClient.chain ?? null,
+    chain: walletClient.chain,
     account,
   });
 
@@ -405,5 +413,9 @@ export function getFeeTierTickSpacing(fee: number): number {
     3000: 60,   // 0.3%
     10000: 200, // 1%
   };
-  return spacings[fee] ?? 60;
+  const spacing = spacings[fee];
+  if (spacing === undefined) {
+    throw new Error(`Unknown fee tier: ${fee}. Valid tiers are: 500, 3000, 10000`);
+  }
+  return spacing;
 }

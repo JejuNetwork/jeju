@@ -7,10 +7,20 @@
 import { privateKeyToAccount } from 'viem/accounts';
 import { readFileSync, existsSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
+import { z } from 'zod';
 import type { Address } from 'viem';
-import { createStorageService } from './storage';
-import { createJNSService, setupDAppJNS } from './jns';
-import { createCronService } from './cron';
+import { getStorageServiceFromEnv } from './storage';
+import { getJNSServiceFromEnv, setupDAppJNS } from './jns';
+import { getCronServiceFromEnv } from './cron';
+
+// Manifest schema for validation
+const JejuManifestSchema = z.object({
+  name: z.string().optional(),
+  version: z.string().optional(),
+  ports: z.object({
+    main: z.number().optional(),
+  }).optional(),
+});
 
 export interface DeployConfig {
   appDir: string;
@@ -61,7 +71,7 @@ export async function deployApp(config: DeployConfig): Promise<DeployResult> {
 
   // Setup JNS
   console.log('\n🌐 Configuring JNS...');
-  const jns = createJNSService();
+  const jns = getJNSServiceFromEnv();
   await setupDAppJNS(jns, owner, {
     name: config.jnsName,
     backendUrl,
@@ -73,7 +83,7 @@ export async function deployApp(config: DeployConfig): Promise<DeployResult> {
   const cronJobIds: string[] = [];
   if (config.cronJobs && config.cronJobs.length > 0) {
     console.log('\n⏰ Setting up cron jobs...');
-    const cron = createCronService();
+    const cron = getCronServiceFromEnv();
     
     for (const job of config.cronJobs) {
       const cronJob = await cron.register({
@@ -139,7 +149,7 @@ async function buildFrontend(appDir: string): Promise<void> {
 }
 
 async function deployFrontendToIPFS(buildDir: string, owner: Address): Promise<string> {
-  const storage = createStorageService();
+  const storage = getStorageServiceFromEnv();
   
   // Collect all files
   const files: Array<{ path: string; content: Uint8Array }> = [];
@@ -184,10 +194,18 @@ async function deployFrontendToIPFS(buildDir: string, owner: Address): Promise<s
 function getPortFromManifest(appDir: string): number {
   const manifestPath = join(appDir, 'jeju-manifest.json');
   if (existsSync(manifestPath)) {
-    const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'));
-    return manifest.ports?.main || 4000;
+    const rawManifest = JSON.parse(readFileSync(manifestPath, 'utf-8'));
+    const result = JejuManifestSchema.safeParse(rawManifest);
+    if (!result.success) {
+      throw new Error(`Invalid manifest at ${manifestPath}: ${result.error.message}`);
+    }
+    const port = result.data.ports?.main;
+    if (port === undefined) {
+      throw new Error(`Manifest at ${manifestPath} missing ports.main`);
+    }
+    return port;
   }
-  return 4000;
+  throw new Error(`No manifest found at ${manifestPath}`);
 }
 
 // Migration helper

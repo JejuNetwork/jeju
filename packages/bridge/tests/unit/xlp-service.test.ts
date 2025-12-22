@@ -16,7 +16,6 @@ import {
 	isSolanaChain,
 	getSolanaTokenMint,
 	getEvmTokenAddress,
-	type XLPConfig,
 	type FillRequest,
 } from "../../src/xlp/xlp-service.js";
 import type { Hex } from "viem";

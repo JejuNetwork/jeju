@@ -4,6 +4,7 @@
 
 import type { AgentCharacter, ExecutionOptions } from '../types';
 import { createLogger, type Logger } from './logger';
+import { expect, AgentCharacterSchema, ModelsResponseSchema, InferenceResponseSchema, EmbeddingResponseSchema } from '../schemas';
 
 export interface ComputeConfig {
   marketplaceUrl: string;
@@ -49,11 +50,18 @@ export class CrucibleCompute {
   async getAvailableModels(): Promise<ModelInfo[]> {
     this.log.debug('Fetching available models');
     const r = await fetch(`${this.config.marketplaceUrl}/api/v1/models`);
-    if (!r.ok) {
-      this.log.error('Failed to fetch models', { status: r.status });
-      throw new Error(`Failed to fetch models: ${r.statusText}`);
-    }
-    const models = ((await r.json()) as { models: ModelInfo[] }).models;
+    expect(r.ok, `Failed to fetch models: ${r.statusText}`);
+    const rawResult = await r.json();
+    const parsed = ModelsResponseSchema.parse(rawResult);
+    const models: ModelInfo[] = parsed.models.map(m => ({
+      id: m.id,
+      name: m.name,
+      provider: m.provider,
+      pricePerInputToken: m.pricePerInputToken,
+      pricePerOutputToken: m.pricePerOutputToken,
+      maxContextLength: m.maxContextLength,
+      capabilities: m.capabilities,
+    }));
     this.log.debug('Models fetched', { count: models.length });
     return models;
   }
@@ -80,7 +88,22 @@ export class CrucibleCompute {
     context: { recentMessages?: Array<{ role: string; content: string }>; memories?: string[]; roomContext?: string },
     options?: ExecutionOptions
   ): Promise<InferenceResponse> {
-    const model = character.modelPreferences?.large ?? this.config.defaultModel ?? 'llama-3.1-8b';
+    expect(character, 'Character is required');
+    AgentCharacterSchema.parse(character);
+    expect(userMessage, 'User message is required');
+    expect(userMessage.length > 0, 'User message cannot be empty');
+    expect(context, 'Context is required');
+    if (options?.maxTokens !== undefined) {
+      expect(options.maxTokens > 0 && options.maxTokens <= 100000, 'Max tokens must be between 1 and 100000');
+    }
+    if (options?.temperature !== undefined) {
+      expect(options.temperature >= 0 && options.temperature <= 2, 'Temperature must be between 0 and 2');
+    }
+
+    const model = character.modelPreferences?.large ?? this.config.defaultModel;
+    if (!model) {
+      throw new Error('Model is required: either character.modelPreferences.large or defaultModel in ComputeConfig must be set');
+    }
     this.log.info('Running inference', { model, messageLength: userMessage.length });
 
     const messages: Array<{ role: string; content: string }> = [
@@ -101,44 +124,64 @@ export class CrucibleCompute {
   }
 
   async inference(request: InferenceRequest): Promise<InferenceResponse> {
-    const start = Date.now();
-    this.log.debug('Inference request', { model: request.model, messageCount: request.messages.length });
-
-    const r = await fetch(`${this.config.marketplaceUrl}/api/v1/inference`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(request),
-    });
-    if (!r.ok) {
-      const error = await r.text();
-      this.log.error('Inference failed', { status: r.status, error });
-      throw new Error(`Inference failed: ${error}`);
+    expect(request, 'Inference request is required');
+    expect(request.messages, 'Messages are required');
+    expect(request.messages.length > 0, 'At least one message is required');
+    const model = request.model ?? this.config.defaultModel;
+    if (!model) {
+      throw new Error('Model is required: either specify model in request or set defaultModel in ComputeConfig');
+    }
+    if (request.maxTokens !== undefined) {
+      expect(request.maxTokens > 0 && request.maxTokens <= 100000, 'Max tokens must be between 1 and 100000');
+    }
+    if (request.temperature !== undefined) {
+      expect(request.temperature >= 0 && request.temperature <= 2, 'Temperature must be between 0 and 2');
     }
 
-    const result = await r.json() as {
-      content: string; model: string; usage: { prompt_tokens: number; completion_tokens: number }; cost: string;
-    };
+    const start = Date.now();
+    this.log.debug('Inference request', { model, messageCount: request.messages.length });
+
+    const r = await fetch(`${this.config.marketplaceUrl}/api/v1/inference`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...request, model }),
+    });
+    if (!r.ok) {
+      throw new Error(`Inference failed: ${await r.text()}`);
+    }
+
+    const rawResult = await r.json();
+    const result = InferenceResponseSchema.parse(rawResult);
     return {
-      content: result.content, model: result.model,
+      content: result.content,
+      model: result.model,
       tokensUsed: { input: result.usage.prompt_tokens, output: result.usage.completion_tokens },
-      cost: BigInt(result.cost), latencyMs: Date.now() - start,
+      cost: result.cost,
+      latencyMs: Date.now() - start,
     };
   }
 
   async generateEmbedding(text: string): Promise<number[]> {
+    expect(text, 'Text is required');
+    expect(text.length > 0, 'Text cannot be empty');
     this.log.debug('Generating embedding', { textLength: text.length });
     const r = await fetch(`${this.config.marketplaceUrl}/api/v1/embeddings`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ input: text }),
     });
-    if (!r.ok) {
-      this.log.error('Embedding failed', { status: r.status });
-      throw new Error(`Embedding failed: ${r.statusText}`);
-    }
-    return ((await r.json()) as { embedding: number[] }).embedding;
+    expect(r.ok, `Embedding failed: ${r.statusText}`);
+    const rawResult = await r.json();
+    const result = EmbeddingResponseSchema.parse(rawResult);
+    return result.embedding;
   }
 
   async estimateCost(messages: Array<{ role: string; content: string }>, model: string, maxOutputTokens: number): Promise<bigint> {
+    expect(messages, 'Messages are required');
+    expect(messages.length > 0, 'At least one message is required');
+    expect(model, 'Model is required');
+    expect(model.length > 0, 'Model cannot be empty');
+    expect(maxOutputTokens > 0, 'Max output tokens must be greater than 0');
+    expect(maxOutputTokens <= 100000, 'Max output tokens must be less than or equal to 100000');
+
     const models = await this.getAvailableModels();
-    const m = models.find(x => x.id === model);
-    if (!m) throw new Error(`Model not found: ${model}`);
+    const m = expect(models.find(x => x.id === model), `Model not found: ${model}`);
 
     const inputTokens = Math.ceil(messages.reduce((sum, x) => sum + x.content.length, 0) / 4);
     return BigInt(inputTokens) * BigInt(m.pricePerInputToken) + BigInt(maxOutputTokens) * BigInt(m.pricePerOutputToken);

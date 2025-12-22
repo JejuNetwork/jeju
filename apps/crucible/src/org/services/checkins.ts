@@ -98,7 +98,10 @@ export class CheckinService {
 
     const responses = this.getResponses(state, scheduleId, params);
     const byMember = new Map<string, CheckinResponse[]>();
-    responses.forEach(r => byMember.set(r.responderAgentId, [...(byMember.get(r.responderAgentId) ?? []), r]));
+    responses.forEach(r => {
+      const existing = byMember.get(r.responderAgentId);
+      byMember.set(r.responderAgentId, existing ? [...existing, r] : [r]);
+    });
 
     const members = Array.from(byMember.entries()).map(([agentId, resps]) => {
       const member = state.teamMembers.find(m => m.agentId === agentId);
@@ -106,7 +109,7 @@ export class CheckinService {
         name: member?.displayName ?? `Agent ${agentId.slice(0, 8)}`,
         responseCount: resps.length,
         streak: this.calcStreak(resps),
-        blockerCount: resps.reduce((sum, r) => sum + (r.blockers?.length ?? 0), 0),
+        blockerCount: resps.reduce((sum, r) => sum + (r.blockers ? r.blockers.length : 0), 0),
       };
     });
 
@@ -129,9 +132,17 @@ export class CheckinService {
   }
 
   private calcNextRun(timeUtc: string, frequency: CheckinFrequency): number {
-    const [h, m] = timeUtc.split(':').map(Number);
+    const parts = timeUtc.split(':');
+    if (parts.length < 2) {
+      throw new Error(`Invalid timeUtc format: ${timeUtc}. Expected HH:MM`);
+    }
+    const h = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    if (isNaN(h) || isNaN(m) || h < 0 || h > 23 || m < 0 || m > 59) {
+      throw new Error(`Invalid timeUtc values: ${timeUtc}. Hour must be 0-23, minute must be 0-59`);
+    }
     const next = new Date();
-    next.setUTCHours(h ?? 9, m ?? 0, 0, 0);
+    next.setUTCHours(h, m, 0, 0);
     if (next <= new Date()) next.setDate(next.getDate() + 1);
     if (frequency === 'weekdays') while (next.getDay() === 0 || next.getDay() === 6) next.setDate(next.getDate() + 1);
     else if (frequency === 'weekly') while (next.getDay() !== 1) next.setDate(next.getDate() + 1);
@@ -151,7 +162,14 @@ export class CheckinService {
 
   private calcExpected(frequency: CheckinFrequency, start: number, end: number): number {
     const days = Math.ceil((end - start) / 86400000);
-    return { daily: days, weekdays: Math.ceil(days * 5 / 7), weekly: Math.ceil(days / 7), bi_weekly: Math.ceil(days / 14), monthly: Math.ceil(days / 30) }[frequency] ?? days;
+    const frequencyMap: Record<CheckinFrequency, number> = {
+      daily: days,
+      weekdays: Math.ceil(days * 5 / 7),
+      weekly: Math.ceil(days / 7),
+      bi_weekly: Math.ceil(days / 14),
+      monthly: Math.ceil(days / 30),
+    };
+    return frequencyMap[frequency];
   }
 }
 

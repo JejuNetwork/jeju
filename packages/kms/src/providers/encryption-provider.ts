@@ -7,7 +7,7 @@
 import { keccak256, toBytes, toHex } from 'viem';
 import type { Address, Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { kmsLogger as log } from '../logger.js';
+import { encLogger as log } from '../logger.js';
 import {
   type AccessCondition,
   type AccessControlPolicy,
@@ -27,6 +27,16 @@ import {
   type SignRequest,
   ConditionOperator,
 } from '../types.js';
+import {
+  generateKeyId,
+  deriveKeyFromSecret,
+  sealWithMasterKey,
+  unsealWithMasterKey,
+  encryptToPayload,
+  decryptFromPayload,
+  deriveKeyForEncryption,
+  parseCiphertextPayload,
+} from '../crypto.js';
 
 interface EncryptionKey {
   id: string;
@@ -64,7 +74,7 @@ export class EncryptionProvider implements KMSProvider {
   constructor(_config: EncryptionConfig) {
     const secret = process.env.KMS_FALLBACK_SECRET ?? process.env.TEE_ENCRYPTION_SECRET;
     if (secret) {
-      this.masterKey = toBytes(keccak256(toBytes(secret)));
+      this.masterKey = deriveKeyFromSecret(secret);
     } else {
       this.masterKey = crypto.getRandomValues(new Uint8Array(32));
       log.warn('No KMS_FALLBACK_SECRET set, using ephemeral key');
@@ -96,11 +106,11 @@ export class EncryptionProvider implements KMSProvider {
   async generateKey(owner: Address, keyType: KeyType, curve: KeyCurve, policy: AccessControlPolicy): Promise<GeneratedKey> {
     await this.ensureConnected();
 
-    const keyId = `enc-${Date.now().toString(36)}-${crypto.randomUUID().slice(0, 8)}`;
+    const keyId = generateKeyId('enc');
     const keyBytes = crypto.getRandomValues(new Uint8Array(32));
     const keyHex = toHex(keyBytes) as `0x${string}`;
     const account = privateKeyToAccount(keyHex);
-    const encryptedKey = await this.sealKey(keyBytes);
+    const encryptedKey = await sealWithMasterKey(keyBytes, this.masterKey);
     keyBytes.fill(0);
 
     const metadata: KeyMetadata = { id: keyId, type: keyType, curve, createdAt: Date.now(), owner, policy, providerType: KMSProviderType.ENCRYPTION };
@@ -118,7 +128,9 @@ export class EncryptionProvider implements KMSProvider {
   }
 
   getKeyVersions(keyId: string): KeyVersionRecord[] {
-    return this.keyVersions.get(keyId) ?? [];
+    const versions = this.keyVersions.get(keyId);
+    if (!versions) throw new Error(`Key versions not found for ${keyId}`);
+    return versions;
   }
 
   async revokeKey(keyId: string): Promise<void> {
@@ -135,28 +147,24 @@ export class EncryptionProvider implements KMSProvider {
     await this.ensureConnected();
 
     const dataStr = typeof request.data === 'string' ? request.data : new TextDecoder().decode(request.data);
-    const keyId = request.keyId ?? `enc-${Date.now().toString(36)}-${crypto.randomUUID().slice(0, 8)}`;
+    const keyId = request.keyId ?? generateKeyId('enc');
 
     let encryptionKey: Uint8Array;
     let version = 1;
     
     const existingKey = this.keys.get(keyId);
     if (existingKey) {
-      encryptionKey = await this.unsealKey(existingKey.encryptedKey);
+      encryptionKey = await unsealWithMasterKey(existingKey.encryptedKey, this.masterKey);
       version = existingKey.version;
     } else {
-      encryptionKey = await this.deriveKey(keyId, request.policy);
+      encryptionKey = await deriveKeyForEncryption(this.masterKey, keyId, JSON.stringify(request.policy));
     }
 
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const cryptoKey = await crypto.subtle.importKey('raw', encryptionKey, { name: 'AES-GCM' }, false, ['encrypt']);
-    const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cryptoKey, toBytes(dataStr));
+    const ciphertext = await encryptToPayload(dataStr, encryptionKey, { version });
     encryptionKey.fill(0);
 
-    const encryptedArray = new Uint8Array(encrypted);
-
     return {
-      ciphertext: JSON.stringify({ ciphertext: toHex(encryptedArray.slice(0, -16)), iv: toHex(iv), tag: toHex(encryptedArray.slice(-16)), version }),
+      ciphertext,
       dataHash: keccak256(toBytes(dataStr)),
       accessControlHash: keccak256(toBytes(JSON.stringify(request.policy.conditions))),
       policy: request.policy,
@@ -177,7 +185,7 @@ export class EncryptionProvider implements KMSProvider {
       if (!allowed) throw new Error('Access denied: policy conditions not met');
     }
 
-    const parsed = JSON.parse(payload.ciphertext) as { ciphertext: string; iv: string; tag: string; version?: number };
+    const parsed = parseCiphertextPayload(payload.ciphertext);
     const version = parsed.version ?? 1;
 
     let decryptionKey: Uint8Array;
@@ -185,24 +193,23 @@ export class EncryptionProvider implements KMSProvider {
     
     if (existingKey) {
       if (version !== existingKey.version) {
-        const versionRecord = this.keyVersions.get(payload.keyId)?.find(v => v.version === version);
+        const versions = this.keyVersions.get(payload.keyId);
+        if (!versions) throw new Error(`Key versions not found for ${payload.keyId}`);
+        const versionRecord = versions.find(v => v.version === version);
         if (!versionRecord) throw new Error(`Key version ${version} not found`);
         if (versionRecord.status === 'revoked') throw new Error(`Key version ${version} has been revoked`);
-        decryptionKey = await this.unsealKey(versionRecord.encryptedKey);
+        decryptionKey = await unsealWithMasterKey(versionRecord.encryptedKey, this.masterKey);
       } else {
-        decryptionKey = await this.unsealKey(existingKey.encryptedKey);
+        decryptionKey = await unsealWithMasterKey(existingKey.encryptedKey, this.masterKey);
       }
     } else {
-      decryptionKey = await this.deriveKey(payload.keyId, payload.policy);
+      decryptionKey = await deriveKeyForEncryption(this.masterKey, payload.keyId, JSON.stringify(payload.policy));
     }
 
-    const cryptoKey = await crypto.subtle.importKey('raw', decryptionKey, { name: 'AES-GCM' }, false, ['decrypt']);
+    const result = await decryptFromPayload(payload.ciphertext, decryptionKey);
     decryptionKey.fill(0);
 
-    const combined = new Uint8Array([...toBytes(parsed.ciphertext as Hex), ...toBytes(parsed.tag as Hex)]);
-    const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: toBytes(parsed.iv as Hex) }, cryptoKey, combined);
-
-    return new TextDecoder().decode(decrypted);
+    return result;
   }
 
   async sign(request: SignRequest): Promise<SignedMessage> {
@@ -211,7 +218,7 @@ export class EncryptionProvider implements KMSProvider {
     const key = this.keys.get(request.keyId);
     if (!key) throw new Error(`Key ${request.keyId} not found`);
 
-    const keyBytes = await this.unsealKey(key.encryptedKey);
+    const keyBytes = await unsealWithMasterKey(key.encryptedKey, this.masterKey);
     const account = privateKeyToAccount(toHex(keyBytes) as `0x${string}`);
     keyBytes.fill(0);
 
@@ -226,7 +233,7 @@ export class EncryptionProvider implements KMSProvider {
     await this.ensureConnected();
 
     const expiration = Date.now() + expirationHours * 60 * 60 * 1000;
-    const sessionId = `session-${Date.now().toString(36)}-${crypto.randomUUID().slice(0, 8)}`;
+    const sessionId = generateKeyId('session');
     const publicKey = keccak256(toBytes(`${sessionId}:${authSig.address}:${expiration}`));
 
     const sessionKey: SessionKey = { publicKey, expiration, capabilities, authSig };
@@ -251,11 +258,12 @@ export class EncryptionProvider implements KMSProvider {
 
     const newKeyBytes = crypto.getRandomValues(new Uint8Array(32));
     const account = privateKeyToAccount(toHex(newKeyBytes) as `0x${string}`);
-    const encryptedNewKey = await this.sealKey(newKeyBytes);
+    const encryptedNewKey = await sealWithMasterKey(newKeyBytes, this.masterKey);
     newKeyBytes.fill(0);
 
     const newVersion = existingKey.version + 1;
-    const versions = this.keyVersions.get(keyId) ?? [];
+    const versions = this.keyVersions.get(keyId);
+    if (!versions) throw new Error(`Key versions not found for ${keyId}`);
     
     const currentVersion = versions.find(v => v.status === 'active');
     if (currentVersion) {
@@ -322,34 +330,11 @@ export class EncryptionProvider implements KMSProvider {
     }
   }
 
-  private async deriveKey(keyId: string, policy: AccessControlPolicy): Promise<Uint8Array> {
-    const material = toBytes(keccak256(toBytes(`${keyId}:${JSON.stringify(policy)}`)));
-    const baseKey = await crypto.subtle.importKey('raw', this.masterKey, { name: 'HKDF' }, false, ['deriveBits']);
-    const derivedBits = await crypto.subtle.deriveBits({ name: 'HKDF', salt: material, info: toBytes('encryption'), hash: 'SHA-256' }, baseKey, 256);
-    return new Uint8Array(derivedBits);
-  }
-
-  private async sealKey(key: Uint8Array): Promise<Uint8Array> {
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const cryptoKey = await crypto.subtle.importKey('raw', this.masterKey, { name: 'AES-GCM' }, false, ['encrypt']);
-    const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cryptoKey, key);
-    const result = new Uint8Array(12 + encrypted.byteLength);
-    result.set(iv, 0);
-    result.set(new Uint8Array(encrypted), 12);
-    return result;
-  }
-
-  private async unsealKey(sealed: Uint8Array): Promise<Uint8Array> {
-    const cryptoKey = await crypto.subtle.importKey('raw', this.masterKey, { name: 'AES-GCM' }, false, ['decrypt']);
-    const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: sealed.slice(0, 12) }, cryptoKey, sealed.slice(12));
-    return new Uint8Array(decrypted);
-  }
-
   private async ensureConnected(): Promise<void> {
     if (!this.connected) await this.connect();
   }
 
-  getStatus() {
+  getStatus(): { connected: boolean; keyCount: number; sessionCount: number } {
     return { connected: this.connected, keyCount: this.keys.size, sessionCount: this.sessions.size };
   }
 }
@@ -358,12 +343,15 @@ let encryptionProvider: EncryptionProvider | null = null;
 
 export function getEncryptionProvider(config?: Partial<EncryptionConfig>): EncryptionProvider {
   if (!encryptionProvider) {
-    encryptionProvider = new EncryptionProvider({ debug: config?.debug ?? process.env.KMS_DEBUG === 'true' });
+    const debug = config?.debug ?? process.env.KMS_DEBUG === 'true';
+    encryptionProvider = new EncryptionProvider({ debug });
   }
   return encryptionProvider;
 }
 
 export function resetEncryptionProvider(): void {
-  encryptionProvider?.disconnect().catch(() => {});
-  encryptionProvider = null;
+  if (encryptionProvider) {
+    encryptionProvider.disconnect().catch((e: Error) => log.warn('Encryption provider disconnect failed', { error: e.message }));
+    encryptionProvider = null;
+  }
 }

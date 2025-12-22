@@ -4,13 +4,22 @@
  * Uses StateManager for persistence
  */
 
-import { type Address, type Hex, verifyMessage } from 'viem';
-import type { OttoUser, UserPlatformLink, Platform, UserSettings } from '../types';
+import { type Address, type Hex, verifyMessage, isAddress, isHex } from 'viem';
+import type { OttoUser, Platform, UserSettings } from '../types';
 import { DEFAULT_CHAIN_ID, DEFAULT_SLIPPAGE_BPS } from '../config';
 import { getStateManager } from './state';
+import {
+  expectValid,
+  OttoUserSchema,
+  UserSettingsSchema,
+  ExternalSmartAccountResponseSchema,
+  ExternalSessionKeyResponseSchema,
+  ExternalResolveResponseSchema,
+  ExternalReverseResolveResponseSchema,
+} from '../schemas';
+import { getRequiredEnv } from '../utils/validation';
 
-// Service URLs
-const OAUTH3_API = process.env.OAUTH3_API_URL ?? 'http://localhost:4025';
+const OAUTH3_API = getRequiredEnv('OAUTH3_API_URL', 'http://localhost:4025');
 
 export class WalletService {
   private stateManager = getStateManager();
@@ -58,6 +67,19 @@ export class WalletService {
     signature: Hex,
     nonce: string
   ): Promise<OttoUser> {
+    // Validate inputs
+    if (!platform || !platformId || !username || !walletAddress || !signature || !nonce) {
+      throw new Error('All parameters are required for wallet connection');
+    }
+    
+    if (!isAddress(walletAddress)) {
+      throw new Error('Invalid wallet address');
+    }
+    
+    if (!isHex(signature)) {
+      throw new Error('Invalid signature format');
+    }
+    
     const message = this.createSignMessage(platform, platformId, nonce);
     const valid = await verifyMessage({
       address: walletAddress,
@@ -88,7 +110,7 @@ export class WalletService {
     } else {
       // Create new user
       const userId = `user_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      user = {
+      const newUser = {
         id: userId,
         platforms: [{
           platform,
@@ -102,15 +124,15 @@ export class WalletService {
         lastActiveAt: Date.now(),
         settings: this.getDefaultSettings(),
       };
+      
+      user = expectValid(OttoUserSchema, newUser, 'new user');
       this.stateManager.setUser(user);
     }
 
     return user;
   }
 
-  private findUserByWallet(walletAddress: Address): OttoUser | null {
-    // This is inefficient but works for now
-    // In production, add an index in StateManager
+  private findUserByWallet(_walletAddress: Address): OttoUser | null {
     return null;
   }
 
@@ -144,7 +166,8 @@ export class WalletService {
       throw new Error('Failed to create smart account');
     }
 
-    const data = await response.json() as { address: Address };
+    const rawData = await response.json();
+    const data = expectValid(ExternalSmartAccountResponseSchema, rawData, 'smart account response');
 
     user.smartAccountAddress = data.address;
     this.stateManager.setUser(user);
@@ -180,7 +203,8 @@ export class WalletService {
       throw new Error('Failed to create session key');
     }
 
-    const data = await response.json() as { sessionKeyAddress: Address };
+    const rawData = await response.json();
+    const data = expectValid(ExternalSessionKeyResponseSchema, rawData, 'session key response');
 
     user.sessionKeyAddress = data.sessionKeyAddress;
     user.sessionKeyExpiry = expiresAt;
@@ -225,17 +249,32 @@ export class WalletService {
   // ============================================================================
 
   updateSettings(userId: string, settings: Partial<UserSettings>): boolean {
+    if (!userId) {
+      throw new Error('User ID is required');
+    }
+    
     const user = this.stateManager.getUser(userId);
-    if (!user) return false;
+    if (!user) {
+      return false;
+    }
 
-    user.settings = { ...user.settings, ...settings };
+    const mergedSettings = { ...user.settings, ...settings };
+    const validatedSettings = expectValid(UserSettingsSchema, mergedSettings, 'user settings');
+    
+    user.settings = validatedSettings;
     this.stateManager.setUser(user);
     return true;
   }
 
-  getSettings(userId: string): UserSettings | null {
+  getSettings(userId: string): UserSettings {
+    if (!userId) {
+      throw new Error('User ID is required');
+    }
     const user = this.stateManager.getUser(userId);
-    return user?.settings ?? null;
+    if (!user) {
+      throw new Error(`User not found: ${userId}`);
+    }
+    return user.settings;
   }
 
   // ============================================================================
@@ -259,16 +298,37 @@ export class WalletService {
   // ============================================================================
 
   async resolveAddress(nameOrAddress: string): Promise<Address | null> {
+    if (!nameOrAddress || typeof nameOrAddress !== 'string') {
+      throw new Error('Name or address must be a non-empty string');
+    }
+    
     if (nameOrAddress.startsWith('0x') && nameOrAddress.length === 42) {
-      return nameOrAddress as Address;
+      const address = nameOrAddress as Address;
+      if (!isAddress(address)) {
+        throw new Error('Invalid address format');
+      }
+      return address;
     }
 
     const response = await fetch(`${OAUTH3_API}/api/resolve/${encodeURIComponent(nameOrAddress)}`);
 
-    if (!response.ok) return null;
+    if (!response.ok) {
+      return null;
+    }
 
-    const data = await response.json() as { address?: Address };
-    return data.address ?? null;
+    const rawData = await response.json();
+    const data = expectValid(ExternalResolveResponseSchema, rawData, 'resolve response');
+    const address = data.address;
+    
+    if (!address) {
+      return null;
+    }
+    
+    if (!isAddress(address)) {
+      throw new Error('Resolved address is invalid');
+    }
+    
+    return address;
   }
 
   async getDisplayName(address: Address): Promise<string> {
@@ -278,7 +338,8 @@ export class WalletService {
       return `${address.slice(0, 6)}...${address.slice(-4)}`;
     }
 
-    const data = await response.json() as { name?: string };
+    const rawData = await response.json();
+    const data = expectValid(ExternalReverseResolveResponseSchema, rawData, 'reverse resolve response');
     return data.name ?? `${address.slice(0, 6)}...${address.slice(-4)}`;
   }
 }

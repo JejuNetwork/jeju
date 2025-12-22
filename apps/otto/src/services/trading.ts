@@ -3,7 +3,7 @@
  * Handles all trading operations: swaps, bridges, token launches, etc.
  */
 
-import { type Address, parseEther, formatEther, formatUnits, parseUnits, type Hex } from 'viem';
+import { type Address, formatUnits, parseUnits, type Hex } from 'viem';
 import type {
   TokenInfo,
   Balance,
@@ -20,11 +20,34 @@ import type {
   OttoUser,
 } from '../types';
 import { DEFAULT_CHAIN_ID, DEFAULT_SLIPPAGE_BPS, getChainName } from '../config';
+import {
+  expectValid,
+  SwapParamsSchema,
+  BridgeParamsSchema,
+  TokenLaunchParamsSchema,
+  CreateLimitOrderParamsSchema,
+  SwapQuoteSchema,
+  BridgeQuoteSchema,
+  TokenInfoSchema,
+  BalanceSchema,
+  SwapResultSchema,
+  BridgeResultSchema,
+  TokenLaunchResultSchema,
+  LimitOrderSchema,
+  OttoUserSchema,
+  ExternalTokenInfoResponseSchema,
+  ExternalBalancesResponseSchema,
+  ExternalSwapExecuteResponseSchema,
+  ExternalBridgeExecuteResponseSchema,
+  ExternalBridgeStatusResponseSchema,
+  ExternalTokenLaunchResponseSchema,
+  ExternalTransferResponseSchema,
+} from '../schemas';
+import { getRequiredEnv } from '../utils/validation';
 
-// Service URLs - configured via environment
-const BAZAAR_API = process.env.BAZAAR_API_URL ?? 'http://localhost:3001';
-const GATEWAY_API = process.env.GATEWAY_API_URL ?? 'http://localhost:4003';
-const INDEXER_API = process.env.INDEXER_API_URL ?? 'http://localhost:4350';
+const BAZAAR_API = getRequiredEnv('BAZAAR_API_URL', 'http://localhost:3001');
+const GATEWAY_API = getRequiredEnv('GATEWAY_API_URL', 'http://localhost:4003');
+const INDEXER_API = getRequiredEnv('INDEXER_API_URL', 'http://localhost:4350');
 
 export class TradingService {
   private limitOrders = new Map<string, LimitOrder>();
@@ -34,6 +57,10 @@ export class TradingService {
   // ============================================================================
 
   async getTokenInfo(addressOrSymbol: string, chainId: number = DEFAULT_CHAIN_ID): Promise<TokenInfo | null> {
+    if (!addressOrSymbol || typeof addressOrSymbol !== 'string') {
+      throw new Error('Invalid token address or symbol');
+    }
+    
     const response = await fetch(`${INDEXER_API}/graphql`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -56,10 +83,20 @@ export class TradingService {
       }),
     });
 
-    if (!response.ok) return null;
+    if (!response.ok) {
+      return null;
+    }
 
-    const data = await response.json() as { data?: { token?: TokenInfo } };
-    return data.data?.token ?? null;
+    const rawData = await response.json();
+    const data = expectValid(ExternalTokenInfoResponseSchema, rawData, 'token info response');
+    const token = data.data?.token;
+    
+    if (!token) {
+      return null;
+    }
+    
+    // Validate token data
+    return expectValid(TokenInfoSchema, token, 'token info');
   }
 
   async getTokenPrice(addressOrSymbol: string, chainId: number = DEFAULT_CHAIN_ID): Promise<number | null> {
@@ -68,6 +105,10 @@ export class TradingService {
   }
 
   async getBalances(userAddress: Address, chainId?: number): Promise<Balance[]> {
+    if (!userAddress) {
+      throw new Error('User address is required');
+    }
+    
     const chains = chainId ? [chainId] : [DEFAULT_CHAIN_ID, 1, 8453, 10, 42161];
     const balances: Balance[] = [];
 
@@ -98,9 +139,14 @@ export class TradingService {
       });
 
       if (response.ok) {
-        const data = await response.json() as { data?: { balances?: Balance[] } };
+        const rawData = await response.json();
+        const data = expectValid(ExternalBalancesResponseSchema, rawData, `balances response chain ${chain}`);
         if (data.data?.balances) {
-          balances.push(...data.data.balances);
+          // Validate each balance
+          for (const balance of data.data.balances) {
+            const validated = expectValid(BalanceSchema, balance, `balance on chain ${chain}`);
+            balances.push(validated);
+          }
         }
       }
     }
@@ -113,34 +159,44 @@ export class TradingService {
   // ============================================================================
 
   async getSwapQuote(params: SwapParams): Promise<SwapQuote | null> {
-    const chainId = params.chainId ?? DEFAULT_CHAIN_ID;
-    const slippageBps = params.slippageBps ?? DEFAULT_SLIPPAGE_BPS;
+    const validatedParams = expectValid(SwapParamsSchema, params, 'swap params');
+    const chainId = validatedParams.chainId ?? DEFAULT_CHAIN_ID;
+    const slippageBps = validatedParams.slippageBps ?? DEFAULT_SLIPPAGE_BPS;
 
     const response = await fetch(`${BAZAAR_API}/api/swap/quote`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        fromToken: params.fromToken,
-        toToken: params.toToken,
-        amount: params.amount,
+        fromToken: validatedParams.fromToken,
+        toToken: validatedParams.toToken,
+        amount: validatedParams.amount,
         chainId,
         slippageBps,
       }),
     });
 
-    if (!response.ok) return null;
+    if (!response.ok) {
+      return null;
+    }
 
-    return response.json() as Promise<SwapQuote>;
+    const quote = await response.json() as SwapQuote;
+    return expectValid(SwapQuoteSchema, quote, 'swap quote');
   }
 
   async executeSwap(user: OttoUser, params: SwapParams): Promise<SwapResult> {
-    const quote = await this.getSwapQuote(params);
+    const validatedUser = expectValid(OttoUserSchema, user, 'user');
+    const validatedParams = expectValid(SwapParamsSchema, params, 'swap params');
+    
+    const quote = await this.getSwapQuote(validatedParams);
     if (!quote) {
-      return { success: false, fromAmount: params.amount, toAmount: '0', error: 'Failed to get swap quote' };
+      return { success: false, fromAmount: validatedParams.amount, toAmount: '0', error: 'Failed to get swap quote' };
     }
 
     // Use smart account if available, otherwise primary wallet
-    const walletAddress = user.smartAccountAddress ?? user.primaryWallet;
+    const walletAddress = validatedUser.smartAccountAddress ?? validatedUser.primaryWallet;
+    if (!walletAddress) {
+      throw new Error('User has no wallet address');
+    }
 
     const response = await fetch(`${BAZAAR_API}/api/swap/execute`, {
       method: 'POST',
@@ -150,29 +206,32 @@ export class TradingService {
       },
       body: JSON.stringify({
         quoteId: quote.quoteId,
-        fromToken: params.fromToken,
-        toToken: params.toToken,
-        amount: params.amount,
+        fromToken: validatedParams.fromToken,
+        toToken: validatedParams.toToken,
+        amount: validatedParams.amount,
         minOutput: quote.toAmountMin,
-        chainId: params.chainId ?? DEFAULT_CHAIN_ID,
+        chainId: validatedParams.chainId ?? DEFAULT_CHAIN_ID,
         // For AA, we'd include session key signature here
-        sessionKey: user.sessionKeyAddress,
+        sessionKey: validatedUser.sessionKeyAddress,
       }),
     });
 
     if (!response.ok) {
       const error = await response.text();
-      return { success: false, fromAmount: params.amount, toAmount: '0', error };
+      return { success: false, fromAmount: validatedParams.amount, toAmount: '0', error };
     }
 
-    const result = await response.json() as { txHash: Hex; toAmount: string };
+    const rawResult = await response.json();
+    const result = expectValid(ExternalSwapExecuteResponseSchema, rawResult, 'swap execute response');
     
-    return {
+    const swapResult = {
       success: true,
       txHash: result.txHash,
-      fromAmount: params.amount,
+      fromAmount: validatedParams.amount,
       toAmount: result.toAmount,
     };
+    
+    return expectValid(SwapResultSchema, swapResult, 'swap result');
   }
 
   // ============================================================================
@@ -180,31 +239,47 @@ export class TradingService {
   // ============================================================================
 
   async getBridgeQuote(params: BridgeParams): Promise<BridgeQuote | null> {
+    const validatedParams = expectValid(BridgeParamsSchema, params, 'bridge params');
+    
     const response = await fetch(`${GATEWAY_API}/api/intents/quote`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        sourceChain: params.sourceChainId,
-        destinationChain: params.destChainId,
-        sourceToken: params.sourceToken,
-        destinationToken: params.destToken,
-        amount: params.amount,
+        sourceChain: validatedParams.sourceChainId,
+        destinationChain: validatedParams.destChainId,
+        sourceToken: validatedParams.sourceToken,
+        destinationToken: validatedParams.destToken,
+        amount: validatedParams.amount,
       }),
     });
 
-    if (!response.ok) return null;
+    if (!response.ok) {
+      return null;
+    }
 
     const quotes = await response.json() as BridgeQuote[];
-    return quotes[0] ?? null; // Return best quote
+    const bestQuote = quotes[0];
+    
+    if (!bestQuote) {
+      return null;
+    }
+    
+    return expectValid(BridgeQuoteSchema, bestQuote, 'bridge quote');
   }
 
   async executeBridge(user: OttoUser, params: BridgeParams): Promise<BridgeResult> {
-    const quote = await this.getBridgeQuote(params);
+    const validatedUser = expectValid(OttoUserSchema, user, 'user');
+    const validatedParams = expectValid(BridgeParamsSchema, params, 'bridge params');
+    
+    const quote = await this.getBridgeQuote(validatedParams);
     if (!quote) {
       return { success: false, status: 'failed', error: 'Failed to get bridge quote' };
     }
 
-    const walletAddress = user.smartAccountAddress ?? user.primaryWallet;
+    const walletAddress = validatedUser.smartAccountAddress ?? validatedUser.primaryWallet;
+    if (!walletAddress) {
+      throw new Error('User has no wallet address');
+    }
 
     const response = await fetch(`${GATEWAY_API}/api/intents`, {
       method: 'POST',
@@ -214,14 +289,14 @@ export class TradingService {
       },
       body: JSON.stringify({
         quoteId: quote.quoteId,
-        sourceChain: params.sourceChainId,
-        destinationChain: params.destChainId,
-        sourceToken: params.sourceToken,
-        destinationToken: params.destToken,
-        amount: params.amount,
-        recipient: params.recipient ?? walletAddress,
-        maxSlippageBps: params.maxSlippageBps ?? DEFAULT_SLIPPAGE_BPS,
-        sessionKey: user.sessionKeyAddress,
+        sourceChain: validatedParams.sourceChainId,
+        destinationChain: validatedParams.destChainId,
+        sourceToken: validatedParams.sourceToken,
+        destinationToken: validatedParams.destToken,
+        amount: validatedParams.amount,
+        recipient: validatedParams.recipient ?? walletAddress,
+        maxSlippageBps: validatedParams.maxSlippageBps ?? DEFAULT_SLIPPAGE_BPS,
+        sessionKey: validatedUser.sessionKeyAddress,
       }),
     });
 
@@ -230,14 +305,17 @@ export class TradingService {
       return { success: false, status: 'failed', error };
     }
 
-    const result = await response.json() as { intentId: string; sourceTxHash: Hex };
+    const rawResult = await response.json();
+    const result = expectValid(ExternalBridgeExecuteResponseSchema, rawResult, 'bridge execute response');
     
-    return {
+    const bridgeResult = {
       success: true,
       intentId: result.intentId,
       sourceTxHash: result.sourceTxHash,
-      status: 'pending',
+      status: 'pending' as const,
     };
+    
+    return expectValid(BridgeResultSchema, bridgeResult, 'bridge result');
   }
 
   async getBridgeStatus(intentId: string): Promise<BridgeResult> {
@@ -247,20 +325,19 @@ export class TradingService {
       return { success: false, status: 'failed', error: 'Failed to get intent status' };
     }
 
-    const data = await response.json() as {
-      status: 'open' | 'pending' | 'filled' | 'expired';
-      sourceTxHash?: Hex;
-      destinationTxHash?: Hex;
-    };
+    const rawData = await response.json();
+    const data = expectValid(ExternalBridgeStatusResponseSchema, rawData, 'bridge status response');
 
-    return {
+    const bridgeResult = {
       success: data.status === 'filled',
       intentId,
       sourceTxHash: data.sourceTxHash,
       destTxHash: data.destinationTxHash,
-      status: data.status === 'open' || data.status === 'pending' ? 'pending' : 
-              data.status === 'filled' ? 'filled' : 'expired',
+      status: data.status === 'open' || data.status === 'pending' ? 'pending' as const : 
+              data.status === 'filled' ? 'filled' as const : 'expired' as const,
     };
+    
+    return expectValid(BridgeResultSchema, bridgeResult, 'bridge status result');
   }
 
   // ============================================================================
@@ -268,8 +345,15 @@ export class TradingService {
   // ============================================================================
 
   async launchToken(user: OttoUser, params: TokenLaunchParams): Promise<TokenLaunchResult> {
-    const walletAddress = user.smartAccountAddress ?? user.primaryWallet;
-    const chainId = params.chainId ?? DEFAULT_CHAIN_ID;
+    const validatedUser = expectValid(OttoUserSchema, user, 'user');
+    const validatedParams = expectValid(TokenLaunchParamsSchema, params, 'token launch params');
+    
+    const walletAddress = validatedUser.smartAccountAddress ?? validatedUser.primaryWallet;
+    if (!walletAddress) {
+      throw new Error('User has no wallet address');
+    }
+    
+    const chainId = validatedParams.chainId ?? DEFAULT_CHAIN_ID;
 
     const response = await fetch(`${BAZAAR_API}/api/launchpad/create`, {
       method: 'POST',
@@ -278,18 +362,18 @@ export class TradingService {
         'X-Wallet-Address': walletAddress,
       },
       body: JSON.stringify({
-        name: params.name,
-        symbol: params.symbol,
-        description: params.description,
-        imageUrl: params.imageUrl,
-        initialSupply: params.initialSupply,
-        initialLiquidity: params.initialLiquidity,
+        name: validatedParams.name,
+        symbol: validatedParams.symbol,
+        description: validatedParams.description,
+        imageUrl: validatedParams.imageUrl,
+        initialSupply: validatedParams.initialSupply,
+        initialLiquidity: validatedParams.initialLiquidity,
         chainId,
-        taxBuyBps: params.taxBuyBps ?? 0,
-        taxSellBps: params.taxSellBps ?? 0,
-        maxWalletBps: params.maxWalletBps ?? 10000, // 100% = no limit
+        taxBuyBps: validatedParams.taxBuyBps ?? 0,
+        taxSellBps: validatedParams.taxSellBps ?? 0,
+        maxWalletBps: validatedParams.maxWalletBps ?? 10000, // 100% = no limit
         creator: walletAddress,
-        sessionKey: user.sessionKeyAddress,
+        sessionKey: validatedUser.sessionKeyAddress,
       }),
     });
 
@@ -298,18 +382,17 @@ export class TradingService {
       return { success: false, error };
     }
 
-    const result = await response.json() as { 
-      tokenAddress: Address;
-      poolAddress: Address;
-      txHash: Hex;
-    };
+    const rawResult = await response.json();
+    const result = expectValid(ExternalTokenLaunchResponseSchema, rawResult, 'token launch response');
 
-    return {
+    const launchResult = {
       success: true,
       tokenAddress: result.tokenAddress,
       poolAddress: result.poolAddress,
       txHash: result.txHash,
     };
+    
+    return expectValid(TokenLaunchResultSchema, launchResult, 'token launch result');
   }
 
   // ============================================================================
@@ -317,39 +400,57 @@ export class TradingService {
   // ============================================================================
 
   async createLimitOrder(user: OttoUser, params: CreateLimitOrderParams): Promise<LimitOrder> {
-    const fromToken = await this.getTokenInfo(params.fromToken.toString(), params.chainId);
-    const toToken = await this.getTokenInfo(params.toToken.toString(), params.chainId);
+    expectValid(OttoUserSchema, user, 'user');
+    const validatedParams = expectValid(CreateLimitOrderParamsSchema, params, 'limit order params');
+    
+    const chainId = validatedParams.chainId ?? DEFAULT_CHAIN_ID;
+    const fromToken = await this.getTokenInfo(validatedParams.fromToken.toString(), chainId);
+    const toToken = await this.getTokenInfo(validatedParams.toToken.toString(), chainId);
 
     if (!fromToken || !toToken) {
-      throw new Error('Invalid tokens');
+      throw new Error(`Invalid tokens: ${!fromToken ? 'fromToken' : 'toToken'} not found`);
     }
 
     const orderId = `order_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const order: LimitOrder = {
       orderId,
-      userId: params.userId,
+      userId: validatedParams.userId,
       fromToken,
       toToken,
-      fromAmount: params.fromAmount,
-      targetPrice: params.targetPrice,
-      chainId: params.chainId ?? DEFAULT_CHAIN_ID,
+      fromAmount: validatedParams.fromAmount,
+      targetPrice: validatedParams.targetPrice,
+      chainId,
       status: 'open',
       createdAt: Date.now(),
-      expiresAt: params.expiresIn ? Date.now() + params.expiresIn : undefined,
+      expiresAt: validatedParams.expiresIn ? Date.now() + validatedParams.expiresIn : undefined,
     };
 
-    this.limitOrders.set(orderId, order);
+    const validatedOrder = expectValid(LimitOrderSchema, order, 'limit order');
+    this.limitOrders.set(orderId, validatedOrder);
 
     // In production, this would be submitted to a limit order system
     // For now, we store it locally and check periodically
 
-    return order;
+    return validatedOrder;
   }
 
   async cancelLimitOrder(orderId: string, userId: string): Promise<boolean> {
+    if (!orderId || !userId) {
+      throw new Error('Order ID and user ID are required');
+    }
+    
     const order = this.limitOrders.get(orderId);
-    if (!order || order.userId !== userId) return false;
-    if (order.status !== 'open') return false;
+    if (!order) {
+      return false;
+    }
+    
+    if (order.userId !== userId) {
+      return false;
+    }
+    
+    if (order.status !== 'open') {
+      return false;
+    }
 
     order.status = 'cancelled';
     return true;
@@ -371,7 +472,17 @@ export class TradingService {
     recipient: Address,
     chainId: number = DEFAULT_CHAIN_ID
   ): Promise<{ success: boolean; txHash?: Hex; error?: string }> {
-    const walletAddress = user.smartAccountAddress ?? user.primaryWallet;
+    const validatedUser = expectValid(OttoUserSchema, user, 'user');
+    
+    // Validate inputs
+    if (!tokenAddress || !amount || !recipient) {
+      throw new Error('Token address, amount, and recipient are required');
+    }
+    
+    const walletAddress = validatedUser.smartAccountAddress ?? validatedUser.primaryWallet;
+    if (!walletAddress) {
+      throw new Error('User has no wallet address');
+    }
 
     const response = await fetch(`${BAZAAR_API}/api/transfer`, {
       method: 'POST',
@@ -384,7 +495,7 @@ export class TradingService {
         amount,
         to: recipient,
         chainId,
-        sessionKey: user.sessionKeyAddress,
+        sessionKey: validatedUser.sessionKeyAddress,
       }),
     });
 
@@ -393,7 +504,8 @@ export class TradingService {
       return { success: false, error };
     }
 
-    const result = await response.json() as { txHash: Hex };
+    const rawResult = await response.json();
+    const result = expectValid(ExternalTransferResponseSchema, rawResult, 'transfer response');
     return { success: true, txHash: result.txHash };
   }
 
@@ -437,6 +549,14 @@ export class TradingService {
   }
 
   parseAmount(amount: string, decimals: number): string {
+    if (!amount || typeof amount !== 'string') {
+      throw new Error('Amount must be a non-empty string');
+    }
+    
+    if (decimals < 0 || decimals > 255) {
+      throw new Error(`Invalid decimals: ${decimals}`);
+    }
+    
     return parseUnits(amount, decimals).toString();
   }
 

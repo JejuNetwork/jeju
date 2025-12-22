@@ -7,6 +7,12 @@ import { describe, test, expect, beforeAll } from 'bun:test';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+import { z } from 'zod';
+import {
+  GrafanaDashboardSchema,
+  GrafanaDataSourceSchema,
+  type GrafanaDashboard,
+} from '../types';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,31 +23,6 @@ const AUTH = Buffer.from('admin:admin').toString('base64');
 
 const DASHBOARD_DIR = path.join(__dirname, '..', 'grafana', 'dashboards');
 
-interface GrafanaTarget {
-  expr?: string;
-  rawSql?: string;
-  refId?: string;
-}
-
-interface GrafanaPanel {
-  id: number;
-  title: string;
-  type: string;
-  targets?: GrafanaTarget[];
-  datasource?: { type: string; uid: string };
-  gridPos?: { h: number; w: number; x: number; y: number };
-}
-
-interface GrafanaDashboard {
-  title: string;
-  uid?: string;
-  panels: GrafanaPanel[];
-  templating?: { list: Array<{ name: string; type: string }> };
-  schemaVersion?: number;
-  tags?: string[];
-  refresh?: string;
-}
-
 async function grafanaRequest(endpoint: string): Promise<Response> {
   return fetch(`${GRAFANA_URL}${endpoint}`, {
     headers: { 'Authorization': `Basic ${AUTH}`, 'Content-Type': 'application/json' }
@@ -51,7 +32,7 @@ async function grafanaRequest(endpoint: string): Promise<Response> {
 function loadDashboard(filename: string): GrafanaDashboard {
   const filepath = path.join(DASHBOARD_DIR, filename);
   const content = fs.readFileSync(filepath, 'utf-8');
-  return JSON.parse(content);
+  return GrafanaDashboardSchema.parse(JSON.parse(content));
 }
 
 const dashboardFiles = fs.readdirSync(DASHBOARD_DIR).filter(f => f.endsWith('.json'));
@@ -581,7 +562,7 @@ describe('Grafana API Validation', () => {
       expect(true).toBe(true);
       return;
     }
-    const datasources = JSON.parse(text) as Array<{ type: string; uid: string }>;
+    const datasources = z.array(GrafanaDataSourceSchema).parse(JSON.parse(text));
     const prometheus = datasources.find(ds => ds.type === 'prometheus');
     if (prometheus) {
       expect(prometheus.uid).toBe('prometheus');
@@ -610,7 +591,7 @@ describe('Grafana API Validation', () => {
       expect(true).toBe(true);
       return;
     }
-    const datasources = JSON.parse(text) as Array<{ type: string; uid: string }>;
+    const datasources = z.array(GrafanaDataSourceSchema).parse(JSON.parse(text));
     const postgres = datasources.find(ds => ds.type === 'postgres');
     if (postgres) {
       expect(postgres.uid).toBe('postgres-indexer');
@@ -639,7 +620,7 @@ describe('Grafana API Validation', () => {
       expect(true).toBe(true);
       return;
     }
-    const dashboards = JSON.parse(text) as Array<{ title: string }>;
+    const dashboards = z.array(z.object({ title: z.string() })).parse(JSON.parse(text));
     console.log(`📊 Found ${dashboards.length} provisioned dashboards`);
     // Check dashboard files exist even if not all provisioned
     const dashboardFiles = fs.readdirSync(DASHBOARD_DIR).filter(f => f.endsWith('.json'));

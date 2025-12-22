@@ -15,6 +15,30 @@
       "types": "./dist/auth/index.d.ts",
       "import": "./dist/auth/index.js"
     },
+    "./auth/siwe": {
+      "types": "./dist/auth/siwe.d.ts",
+      "import": "./dist/auth/siwe.js"
+    },
+    "./auth/passkeys": {
+      "types": "./dist/auth/passkeys.d.ts",
+      "import": "./dist/auth/passkeys.js"
+    },
+    "./auth/siwf": {
+      "types": "./dist/auth/siwf.d.ts",
+      "import": "./dist/auth/siwf.js"
+    },
+    "./auth/types": {
+      "types": "./dist/auth/types.d.ts",
+      "import": "./dist/auth/types.js"
+    },
+    "./auth/hooks": {
+      "types": "./dist/auth/hooks.d.ts",
+      "import": "./dist/auth/hooks.js"
+    },
+    "./auth/provider": {
+      "types": "./dist/auth/provider.d.ts",
+      "import": "./dist/auth/provider.js"
+    },
     "./chains": {
       "types": "./dist/chains/index.d.ts",
       "import": "./dist/chains/index.js"
@@ -66,18 +90,20 @@
     "@jejunetwork/db": "workspace:*",
     "@jejunetwork/kms": "workspace:*",
     "@jejunetwork/config": "workspace:*",
-    "hono": "^4.7.0",
-    "viem": "^2.21.0",
-    "wagmi": "^2.12.0"
+    "@jejunetwork/types": "workspace:*",
+    "hono": "4.11.1",
+    "viem": "2.43.2",
+    "wagmi": "2.18.1",
+    "zod": "^3.24.1"
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0"
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "@types/node": "^25.0.2",
-    "@types/react": "^18.2.0 || ^19.0.0",
-    "typescript": "^5.7.0"
+    "@types/node": "22.15.30",
+    "@types/react": "19.2.3",
+    "typescript": "5.9.3"
   },
   "publishConfig": {
     "access": "public"

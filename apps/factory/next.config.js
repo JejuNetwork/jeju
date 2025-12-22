@@ -1,6 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Next.js 16 uses Turbopack by default
+  turbopack: {
+    resolveAlias: {
+      'porto/internal': './lib/stubs/porto-stub.js',
+      'porto': './lib/stubs/porto-stub.js',
+    },
+  },
   // Skip TypeScript errors during build (monorepo type conflicts)
   typescript: {
     ignoreBuildErrors: true,

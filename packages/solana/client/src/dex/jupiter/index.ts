@@ -7,6 +7,7 @@ import {
   PublicKey,
   VersionedTransaction,
 } from '@solana/web3.js';
+import { expectValid } from '@jejunetwork/types/validation';
 import type {
   SwapParams,
   SwapQuote,
@@ -21,49 +22,22 @@ import type {
   LPPosition,
   DexType,
 } from '../types';
+import {
+  JupiterQuoteResponseSchema,
+  JupiterSwapResponseSchema,
+  JupiterTokenListSchema,
+  type JupiterQuoteResponse,
+  type JupiterToken,
+} from '../schemas';
 
 const JUPITER_QUOTE_API = 'https://quote-api.jup.ag/v6/quote';
 const JUPITER_SWAP_API = 'https://quote-api.jup.ag/v6/swap';
 const JUPITER_TOKENS_API = 'https://token.jup.ag/all';
 
-interface JupiterQuoteResponse {
-  inputMint: string;
-  outputMint: string;
-  inAmount: string;
-  outAmount: string;
-  otherAmountThreshold: string;
-  swapMode: string;
-  slippageBps: number;
-  priceImpactPct: string;
-  routePlan: JupiterRoutePlan[];
-  contextSlot: number;
-  timeTaken: number;
-}
-
-interface JupiterRoutePlan {
-  swapInfo: {
-    ammKey: string;
-    label: string;
-    inputMint: string;
-    outputMint: string;
-    inAmount: string;
-    outAmount: string;
-    feeAmount: string;
-    feeMint: string;
-  };
-  percent: number;
-}
-
-interface JupiterSwapResponse {
-  swapTransaction: string;
-  lastValidBlockHeight: number;
-  prioritizationFeeLamports: number;
-}
-
 export class JupiterAdapter implements DexAdapter {
   readonly name = 'jupiter' as const;
   private connection: Connection;
-  private tokenCache: Map<string, { symbol: string; decimals: number }> = new Map();
+  private tokenCache: Map<string, JupiterToken> = new Map();
 
   constructor(connection: Connection) {
     this.connection = connection;
@@ -84,7 +58,8 @@ export class JupiterAdapter implements DexAdapter {
       throw new Error(`Jupiter quote failed: ${error}`);
     }
 
-    const data = await response.json() as JupiterQuoteResponse;
+    const rawData = await response.json();
+    const data = expectValid(JupiterQuoteResponseSchema, rawData, 'Jupiter quote response');
 
     let totalFee = 0n;
     for (const step of data.routePlan) {
@@ -120,12 +95,16 @@ export class JupiterAdapter implements DexAdapter {
       quote.inputAmount
     );
 
+    if (quote.route.length === 0) {
+      throw new Error('Quote has no route');
+    }
+
     const response = await fetch(JUPITER_SWAP_API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         quoteResponse,
-        userPublicKey: quote.route[0]?.inputMint.toBase58(),
+        userPublicKey: quote.route[0].inputMint.toBase58(),
         wrapAndUnwrapSol: true,
         dynamicComputeUnitLimit: true,
         prioritizationFeeLamports: 'auto',
@@ -137,7 +116,9 @@ export class JupiterAdapter implements DexAdapter {
       throw new Error(`Jupiter swap build failed: ${error}`);
     }
 
-    const data = await response.json() as JupiterSwapResponse;
+    const rawData = await response.json();
+    const data = expectValid(JupiterSwapResponseSchema, rawData, 'Jupiter swap response');
+
     const swapTransactionBuf = Buffer.from(data.swapTransaction, 'base64');
     const transaction = VersionedTransaction.deserialize(swapTransactionBuf);
 
@@ -174,7 +155,9 @@ export class JupiterAdapter implements DexAdapter {
       throw new Error(`Jupiter swap build failed: ${error}`);
     }
 
-    const data = await response.json() as JupiterSwapResponse;
+    const rawData = await response.json();
+    const data = expectValid(JupiterSwapResponseSchema, rawData, 'Jupiter swap response');
+
     const swapTransactionBuf = Buffer.from(data.swapTransaction, 'base64');
     const transaction = VersionedTransaction.deserialize(swapTransactionBuf);
 
@@ -200,7 +183,8 @@ export class JupiterAdapter implements DexAdapter {
       throw new Error(`Jupiter quote failed: ${await response.text()}`);
     }
 
-    return response.json();
+    const rawData = await response.json();
+    return expectValid(JupiterQuoteResponseSchema, rawData, 'Jupiter quote response');
   }
 
   private labelToDex(label: string): DexType {
@@ -246,9 +230,9 @@ export class JupiterAdapter implements DexAdapter {
     return [];
   }
 
-  async getTokenList(): Promise<Map<string, { symbol: string; decimals: number; name: string }>> {
+  async getTokenList(): Promise<Map<string, JupiterToken>> {
     if (this.tokenCache.size > 0) {
-      return this.tokenCache as Map<string, { symbol: string; decimals: number; name: string }>;
+      return this.tokenCache;
     }
 
     const response = await fetch(JUPITER_TOKENS_API);
@@ -256,23 +240,15 @@ export class JupiterAdapter implements DexAdapter {
       throw new Error('Failed to fetch Jupiter token list');
     }
 
-    const tokens = await response.json() as Array<{
-      address: string;
-      symbol: string;
-      decimals: number;
-      name: string;
-    }>;
+    const rawData = await response.json();
+    const tokens = expectValid(JupiterTokenListSchema, rawData, 'Jupiter token list');
 
-    const tokenMap = new Map<string, { symbol: string; decimals: number; name: string }>();
+    const tokenMap = new Map<string, JupiterToken>();
     for (const token of tokens) {
-      tokenMap.set(token.address, {
-        symbol: token.symbol,
-        decimals: token.decimals,
-        name: token.name,
-      });
+      tokenMap.set(token.address, token);
     }
 
-    this.tokenCache = tokenMap as Map<string, { symbol: string; decimals: number }>;
+    this.tokenCache = tokenMap;
     return tokenMap;
   }
 
@@ -319,4 +295,3 @@ export class JupiterAdapter implements DexAdapter {
 export function createJupiterAdapter(connection: Connection): JupiterAdapter {
   return new JupiterAdapter(connection);
 }
-

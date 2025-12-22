@@ -12,7 +12,6 @@ import {
   OAuth3Client,
   createOAuth3Client,
   type OAuth3Config,
-  type LoginOptions,
   AuthProvider,
   type OAuth3Session,
   type OAuth3Identity,
@@ -78,6 +77,9 @@ class OAuth3ServiceImpl implements OAuth3Service {
   }
 
   async signMessage(message: string | Uint8Array): Promise<Hex> {
+    if (!message) {
+      throw new Error('Message to sign is required');
+    }
     return this.client.signMessage({ message });
   }
 
@@ -94,11 +96,19 @@ class OAuth3ServiceImpl implements OAuth3Service {
   }
 
   getSmartAccountAddress(): Address | null {
-    return this.client.getSession()?.smartAccount || null;
+    const session = this.client.getSession();
+    if (!session) {
+      return null;
+    }
+    return session.smartAccount;
   }
 
   getOwnerAddress(): Address | null {
-    return this.client.getIdentity()?.owner || null;
+    const identity = this.client.getIdentity();
+    if (!identity) {
+      return null;
+    }
+    return identity.owner;
   }
 
   async checkInfrastructureHealth(): Promise<{ jns: boolean; storage: boolean; teeNode: boolean }> {

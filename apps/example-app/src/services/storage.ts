@@ -19,7 +19,7 @@ interface StorageService {
 }
 
 class IPFSStorageService implements StorageService {
-  private healthChecked = false;
+  private healthLastChecked = 0;
   private healthy = false;
 
   async upload(data: Uint8Array, name: string, owner: Address): Promise<string> {
@@ -60,17 +60,22 @@ class IPFSStorageService implements StorageService {
 
   async isHealthy(): Promise<boolean> {
     // Cache the health check result for 30 seconds
-    if (this.healthChecked && Date.now() - (this.healthChecked as unknown as number) < 30000) {
+    if (Date.now() - this.healthLastChecked < 30000) {
       return this.healthy;
     }
 
-    const response = await fetch(`${STORAGE_ENDPOINT}/health`, {
-      signal: AbortSignal.timeout(5000),
-    }).catch(() => null);
+    try {
+      const response = await fetch(`${STORAGE_ENDPOINT}/health`, {
+        signal: AbortSignal.timeout(5000),
+      });
+      this.healthy = response.ok;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.debug(`[Storage] Health check failed: ${errorMsg}`);
+      this.healthy = false;
+    }
     
-    this.healthy = response?.ok ?? false;
-    this.healthChecked = true;
-    
+    this.healthLastChecked = Date.now();
     return this.healthy;
   }
 }

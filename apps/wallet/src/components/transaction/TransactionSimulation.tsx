@@ -5,6 +5,8 @@
 
 import React from 'react';
 import type { SimulationResult } from '../../services/simulation';
+import { expectSchema } from '../../lib/validation';
+import { SimulationResultSchema } from '../../plugin/schemas';
 
 interface TransactionSimulationProps {
   simulation: SimulationResult;
@@ -55,6 +57,18 @@ export const TransactionSimulation: React.FC<TransactionSimulationProps> = ({
   onProceed,
   onCancel,
 }) => {
+  // Validate props
+  if (simulation) {
+    try {
+      expectSchema(simulation, SimulationResultSchema, 'TransactionSimulation props.simulation');
+    } catch (e) {
+      console.error('Invalid simulation result:', e);
+      // In development we might want to throw, but in production maybe fallback?
+      // "fail fast implementation across the board" -> throw
+      throw e;
+    }
+  }
+
   if (loading) {
     return (
       <div className="p-4 bg-zinc-900 rounded-lg">

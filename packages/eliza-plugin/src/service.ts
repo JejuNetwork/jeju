@@ -172,7 +172,9 @@ export class StandaloneJejuService {
  * Initialize standalone service for testing
  * (Does not require Eliza runtime)
  */
-export async function initJejuService(config: StandaloneConfig): Promise<StandaloneJejuService> {
+export async function initJejuService(
+  config: StandaloneConfig,
+): Promise<StandaloneJejuService> {
   const sdk = await createJejuClient({
     network: config.network,
     privateKey: config.privateKey,
@@ -190,7 +192,9 @@ export async function initJejuService(config: StandaloneConfig): Promise<Standal
  */
 export function getJejuService(): StandaloneJejuService {
   if (!standaloneService) {
-    throw new Error("Jeju service not initialized. Call initJejuService() first.");
+    throw new Error(
+      "Jeju service not initialized. Call initJejuService() first.",
+    );
   }
   return standaloneService;
 }

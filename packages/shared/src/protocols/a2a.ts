@@ -8,6 +8,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { getNetworkName, getWebsiteUrl } from '@jejunetwork/config';
 import type { Address } from 'viem';
+import type { A2ASkill } from './server';
 
 export interface A2AConfig {
   name: string;
@@ -17,13 +18,7 @@ export interface A2AConfig {
   executeSkill: (skillId: string, params: Record<string, unknown>, address: Address) => Promise<A2AResult>;
 }
 
-export interface A2ASkill {
-  id: string;
-  name: string;
-  description: string;
-  tags: string[];
-  examples?: string[];
-}
+export type { A2ASkill };
 
 export interface A2AResult {
   message: string;
@@ -107,8 +102,15 @@ export function createA2AServer(config: A2AConfig): Hono {
     }
 
     const dataPart = body.params?.message?.parts?.find(p => p.kind === 'data');
-    const skillId = dataPart?.data?.skillId as string;
-    const params = dataPart?.data ?? {};
+    if (!dataPart?.data) {
+      return c.json({
+        jsonrpc: '2.0',
+        id: body.id,
+        error: { code: -32602, message: 'No data part found in message' },
+      });
+    }
+    const skillId = dataPart.data.skillId as string;
+    const params = dataPart.data;
 
     const result = await config.executeSkill(skillId, params, address);
 

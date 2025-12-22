@@ -1,8 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ComponentType } from 'react';
 import { formatEther, parseEther } from 'viem';
-import { Server, Key, Zap, Clock, AlertCircle, CheckCircle, Copy, Trash2, RefreshCw, ExternalLink, Shield, Award } from 'lucide-react';
+import { Server, Key, Zap, Clock, AlertCircle, CheckCircle, Copy, Trash2, RefreshCw, ExternalLink, Shield, Award, type LucideProps } from 'lucide-react';
 import { useRPCStaking } from '../hooks/useRPCStaking';
 import { RPC_GATEWAY_URL } from '../config';
+
+const ServerIcon = Server as ComponentType<LucideProps>;
+const KeyIcon = Key as ComponentType<LucideProps>;
+const ZapIcon = Zap as ComponentType<LucideProps>;
+const ClockIcon = Clock as ComponentType<LucideProps>;
+const AlertCircleIcon = AlertCircle as ComponentType<LucideProps>;
+const CheckCircleIcon = CheckCircle as ComponentType<LucideProps>;
+const CopyIcon = Copy as ComponentType<LucideProps>;
+const Trash2Icon = Trash2 as ComponentType<LucideProps>;
+const RefreshCwIcon = RefreshCw as ComponentType<LucideProps>;
+const ExternalLinkIcon = ExternalLink as ComponentType<LucideProps>;
+const ShieldIcon = Shield as ComponentType<LucideProps>;
+const AwardIcon = Award as ComponentType<LucideProps>;
 
 const UNBONDING_DAYS = 7;
 const formatUsd = (v: number) => v.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
@@ -36,7 +49,7 @@ export default function RPCSetupTab() {
 
   if (!isConnected) return (
     <div className="p-6 text-center">
-      <Server className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+      <ServerIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
       <h3 className="text-lg font-medium text-gray-900">Connect Wallet</h3>
       <p className="text-gray-500 mt-2">Connect your wallet to manage RPC access</p>
     </div>
@@ -47,17 +60,17 @@ export default function RPCSetupTab() {
       <div className="flex items-center justify-between">
         <div><h2 className="text-xl font-semibold">RPC Access</h2><p className="text-sm text-gray-500">Stake JEJU tokens to increase your rate limits</p></div>
         <button onClick={() => { refetchPosition(); fetchApiKeys(); }} className="p-2 rounded-lg hover:bg-gray-100">
-          <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCwIcon className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
         </button>
       </div>
 
-      {error && <div className="rounded-lg bg-red-50 border border-red-200 p-4 flex items-start gap-3"><AlertCircle className="h-5 w-5 text-red-500" /><p className="text-sm text-red-700">{error}</p></div>}
-      {!isContractConfigured && <div className="rounded-lg bg-yellow-50 border border-yellow-200 p-4 flex items-start gap-3"><AlertCircle className="h-5 w-5 text-yellow-500" /><div><p className="text-sm font-medium text-yellow-800">Staking Contract Not Deployed</p><p className="text-sm text-yellow-700 mt-1">RPC staking not available. Free tier API keys still work.</p></div></div>}
+      {error && <div className="rounded-lg bg-red-50 border border-red-200 p-4 flex items-start gap-3"><AlertCircleIcon className="h-5 w-5 text-red-500" /><p className="text-sm text-red-700">{error}</p></div>}
+      {!isContractConfigured && <div className="rounded-lg bg-yellow-50 border border-yellow-200 p-4 flex items-start gap-3"><AlertCircleIcon className="h-5 w-5 text-yellow-500" /><div><p className="text-sm font-medium text-yellow-800">Staking Contract Not Deployed</p><p className="text-sm text-yellow-700 mt-1">RPC staking not available. Free tier API keys still work.</p></div></div>}
 
       {/* Current Tier */}
       <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
         <div className="p-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white flex items-center justify-between">
-          <div className="flex items-center gap-3"><Zap className="h-8 w-8" /><div><div className="text-sm opacity-80">Current Tier</div><div className="text-2xl font-bold">{tier}</div></div></div>
+          <div className="flex items-center gap-3"><ZapIcon className="h-8 w-8" /><div><div className="text-sm opacity-80">Current Tier</div><div className="text-2xl font-bold">{tier}</div></div></div>
           <div className="text-right"><div className="text-sm opacity-80">Rate Limit</div><div className="text-2xl font-bold">{rateLimit === 0 ? 'Unlimited' : `${rateLimit}/min`}</div></div>
         </div>
         <div className="p-4 grid grid-cols-2 gap-4 text-sm">
@@ -65,14 +78,14 @@ export default function RPCSetupTab() {
           <div><span className="text-gray-500">USD Value:</span><span className="ml-2 font-medium">{formatUsd(stakeUsdValue)}</span></div>
           <div><span className="text-gray-500">Balance:</span><span className="ml-2 font-medium">{jejuBalance} JEJU</span></div>
           <div><span className="text-gray-500">JEJU Price:</span><span className="ml-2 font-medium">{formatUsd(jejuPrice)}</span></div>
-          {reputationDiscount > 0 && <div className="col-span-2 flex items-center gap-2 text-green-600"><Award className="h-4 w-4" /><span>Reputation bonus: {reputationDiscount / 100}% stake multiplier</span></div>}
+          {reputationDiscount > 0 && <div className="col-span-2 flex items-center gap-2 text-green-600"><AwardIcon className="h-4 w-4" /><span>Reputation bonus: {reputationDiscount / 100}% stake multiplier</span></div>}
         </div>
       </div>
 
       {/* Staking */}
       {isContractConfigured && (
         <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-4">
-          <h3 className="font-medium flex items-center gap-2"><Shield className="h-5 w-5" />Stake JEJU</h3>
+          <h3 className="font-medium flex items-center gap-2"><ShieldIcon className="h-5 w-5" />Stake JEJU</h3>
           <div className="grid grid-cols-4 gap-4">
             {Object.entries(tierRequirements).map(([t, c]) => (
               <button key={t} onClick={() => t !== 'FREE' && setStakeAmt(String(c.jejuNeeded))} disabled={t === 'FREE'}
@@ -91,7 +104,7 @@ export default function RPCSetupTab() {
           </div>
           {Number(staked) > 0 && (
             <div className="border-t pt-4 mt-4">
-              <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2"><Clock className="h-4 w-4" />Unbonding ({UNBONDING_DAYS} day wait)</h4>
+              <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2"><ClockIcon className="h-4 w-4" />Unbonding ({UNBONDING_DAYS} day wait)</h4>
               {Number(unbonding) > 0 ? (
                 <div className="p-3 bg-yellow-50 rounded-lg">
                   <div className="text-sm"><span className="font-medium">{unbonding} JEJU</span> unbonding</div>
@@ -111,16 +124,16 @@ export default function RPCSetupTab() {
 
       {/* API Keys */}
       <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-4">
-        <h3 className="font-medium flex items-center gap-2"><Key className="h-5 w-5" />API Keys</h3>
+        <h3 className="font-medium flex items-center gap-2"><KeyIcon className="h-5 w-5" />API Keys</h3>
         {newKey && (
           <div className="p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3">
-            <CheckCircle className="h-5 w-5 text-green-500" />
+            <CheckCircleIcon className="h-5 w-5 text-green-500" />
             <div className="flex-1">
               <p className="font-medium text-green-800">API Key Created</p>
               <p className="text-sm text-green-700 mt-1">Copy now - won't be shown again</p>
               <div className="mt-2 flex items-center gap-2">
                 <code className="px-2 py-1 bg-green-100 rounded text-sm font-mono flex-1 break-all">{newKey}</code>
-                <button onClick={handleCopy} className="p-2 hover:bg-green-200 rounded">{copied ? <CheckCircle className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}</button>
+                <button onClick={handleCopy} className="p-2 hover:bg-green-200 rounded">{copied ? <CheckCircleIcon className="h-4 w-4 text-green-600" /> : <CopyIcon className="h-4 w-4" />}</button>
               </div>
               <button onClick={() => setNewKey(null)} className="mt-2 text-sm text-green-600 hover:underline">Done</button>
             </div>
@@ -142,7 +155,7 @@ export default function RPCSetupTab() {
                   </div>
                   <div className="text-xs text-gray-500 mt-1">{k.requestCount.toLocaleString()} requests • Created {new Date(k.createdAt).toLocaleDateString()}</div>
                 </div>
-                {k.isActive && <button onClick={() => confirm('Revoke this key?') && revokeApiKey(k.id)} className="p-2 text-red-500 hover:bg-red-50 rounded"><Trash2 className="h-4 w-4" /></button>}
+                {k.isActive && <button onClick={() => confirm('Revoke this key?') && revokeApiKey(k.id)} className="p-2 text-red-500 hover:bg-red-50 rounded"><Trash2Icon className="h-4 w-4" /></button>}
               </div>
             ))}
           </div>
@@ -151,7 +164,7 @@ export default function RPCSetupTab() {
 
       {/* RPC Endpoints */}
       <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-4">
-        <h3 className="font-medium flex items-center gap-2"><Server className="h-5 w-5" />RPC Endpoints</h3>
+        <h3 className="font-medium flex items-center gap-2"><ServerIcon className="h-5 w-5" />RPC Endpoints</h3>
         <div className="grid grid-cols-2 gap-4 text-sm">
           {CHAINS.map(c => (
             <div key={c.chainId} className="p-3 border border-gray-200 rounded-lg">
@@ -164,7 +177,7 @@ export default function RPCSetupTab() {
           ))}
         </div>
         <a href={`${RPC_GATEWAY_URL}/v1/chains`} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline flex items-center gap-1">
-          View all chains <ExternalLink className="h-3 w-3" />
+          View all chains <ExternalLinkIcon className="h-3 w-3" />
         </a>
       </div>
     </div>

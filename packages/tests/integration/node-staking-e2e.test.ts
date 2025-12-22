@@ -16,7 +16,7 @@
 
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
 import { $ } from 'bun';
-import { createPublicClient, createWalletClient, http, parseAbi, readContract, writeContract, waitForTransactionReceipt, formatEther, parseEther, getBalance, type Address, type PublicClient, type WalletClient } from 'viem';
+import { createPublicClient, createWalletClient, http, parseAbi, readContract, waitForTransactionReceipt, formatEther, parseEther, type Address, type PublicClient, type WalletClient } from 'viem';
 import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
 import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
 
@@ -461,10 +461,10 @@ describe.skipIf(!runE2ETests || !kurtosisAvailable)('Node Staking System E2E (Mu
 if (import.meta.main) {
   console.log('Running Node Rewards E2E Tests...\n');
   
-  const { test, describe, expect, beforeAll, afterAll } = await import('bun:test');
+  const { test: _test, describe: _describe, expect: _expect, beforeAll: _beforeAll, afterAll: _afterAll } = await import('bun:test');
   
   // Import test framework
-  const runner = await import('bun:test');
+  const _runner = await import('bun:test');
   
   console.log('\n✅ All E2E tests completed successfully!\n');
 }

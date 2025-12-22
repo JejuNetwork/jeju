@@ -11,7 +11,7 @@
  */
 
 import { describe, test, expect, beforeAll } from 'bun:test';
-import { createPublicClient, createWalletClient, http, parseAbi, readContract, writeContract, waitForTransactionReceipt, getLogs, decodeEventLog, formatEther, parseEther, keccak256, encodePacked, toBytes, signMessage, zeroAddress, getBalance, type Address } from 'viem';
+import { createPublicClient, createWalletClient, http, parseAbi, readContract, waitForTransactionReceipt, getLogs, decodeEventLog, parseEther, keccak256, encodePacked, zeroAddress, getBalance, type Address } from 'viem';
 import { privateKeyToAccount, signMessage as signMsg } from 'viem/accounts';
 import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
 import { existsSync, readFileSync } from 'fs';
@@ -83,7 +83,7 @@ describe('EIL Flow Integration Tests', () => {
   let l1PublicClient: ReturnType<typeof createPublicClient>;
   let l2PublicClient: ReturnType<typeof createPublicClient>;
   let l1WalletClient: ReturnType<typeof createWalletClient>;
-  let l2WalletClient: ReturnType<typeof createWalletClient>;
+  let _l2WalletClient: ReturnType<typeof createWalletClient>;
   let xlpL1: ReturnType<typeof privateKeyToAccount>;
   let xlpL2: ReturnType<typeof privateKeyToAccount>;
   let user: ReturnType<typeof privateKeyToAccount>;
@@ -453,7 +453,7 @@ describe('EIL Flow Integration Tests', () => {
     }
     
     // XLP claims source funds
-    const xlpBalanceBefore = await getBalance(l2PublicClient, { address: xlpL2.address });
+    const _xlpBalanceBefore = await getBalance(l2PublicClient, { address: xlpL2.address });
     const claimHash = await xlpL2WalletClient.writeContract({
       address: eilConfig.crossChainPaymaster as Address,
       abi: paymasterAbi,
@@ -461,7 +461,7 @@ describe('EIL Flow Integration Tests', () => {
       args: [voucherId],
     });
     await waitForTransactionReceipt(l2PublicClient, { hash: claimHash });
-    const xlpBalanceAfter = await getBalance(l2PublicClient, { address: xlpL2.address });
+    const _xlpBalanceAfter = await getBalance(l2PublicClient, { address: xlpL2.address });
     
     // Verify voucher is claimed
     const voucher = await readContract(l2PublicClient, {

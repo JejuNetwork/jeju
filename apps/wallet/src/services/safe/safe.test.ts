@@ -5,7 +5,7 @@
  * to avoid test isolation issues.
  */
 
-import { describe, it, expect, beforeEach, mock } from 'bun:test';
+import { describe, it, expect, beforeEach } from 'bun:test';
 import type { Address, Hex } from 'viem';
 
 // Create a test-only SafeService that doesn't depend on rpcService for pure methods

@@ -5,6 +5,8 @@
 
 import type { Address } from 'viem';
 import { storage } from '../../platform/storage';
+import { z } from 'zod';
+import { ContactSchema } from '../../plugin/schemas';
 
 export interface Contact {
   id: string;
@@ -25,11 +27,10 @@ class ContactsService {
   private contacts: Map<string, Contact> = new Map();
   
   async initialize(): Promise<void> {
-    const saved = await storage.get(STORAGE_KEY);
+    const saved = await storage.getJSON('jeju_contacts', z.array(ContactSchema));
     if (saved) {
-      const data = JSON.parse(saved) as Contact[];
-      for (const contact of data) {
-        this.contacts.set(contact.id, contact);
+      for (const contact of saved) {
+        this.contacts.set(contact.id, contact as Contact);
       }
     }
   }

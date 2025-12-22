@@ -1,8 +1,11 @@
+import { type ComponentType } from 'react';
 import { useNodeStaking, useNodeInfo, useNodeRewards } from '../hooks/useNodeStaking';
 import { useProtocolTokens } from '../hooks/useProtocolTokens';
 import { formatTokenAmount, formatUSD } from '../lib/tokenUtils';
 import { formatUptimeScore, REGION_NAMES } from '../lib/nodeStaking';
-import { Server } from 'lucide-react';
+import { Server, type LucideProps } from 'lucide-react';
+
+const ServerIcon = Server as ComponentType<LucideProps>;
 
 interface NodeCardProps {
   nodeId: string;
@@ -146,7 +149,7 @@ export default function MyNodesCard() {
   if (!operatorNodeIds || operatorNodeIds.length === 0) {
     return (
       <div className="card" style={{ textAlign: 'center', padding: '3rem 1rem' }}>
-        <Server size={48} style={{ margin: '0 auto 1rem', color: 'var(--text-muted)' }} />
+        <ServerIcon size={48} style={{ margin: '0 auto 1rem', color: 'var(--text-muted)' }} />
         <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>No Nodes Yet</h3>
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
           Stake tokens and register a node to start earning rewards

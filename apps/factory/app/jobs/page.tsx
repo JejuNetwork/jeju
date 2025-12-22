@@ -6,7 +6,6 @@ import {
   Briefcase, 
   Search, 
   Plus,
-  MapPin,
   Clock,
   DollarSign,
   Building2,
@@ -14,7 +13,6 @@ import {
   CheckCircle,
   Users,
   Zap,
-  ExternalLink
 } from 'lucide-react';
 import Link from 'next/link';
 import { clsx } from 'clsx';
@@ -120,7 +118,7 @@ const typeConfig: Record<JobType, { label: string; color: string }> = {
 };
 
 export default function JobsPage() {
-  const { isConnected } = useAccount();
+  const { isConnected: _isConnected } = useAccount();
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<JobType | 'all'>('all');
 

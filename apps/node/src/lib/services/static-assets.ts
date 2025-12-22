@@ -39,6 +39,27 @@ const StaticAssetConfigSchema = z.object({
 
 export type StaticAssetConfig = z.infer<typeof StaticAssetConfigSchema>;
 
+// Schema for network assets in manifest
+const NetworkAssetSchema = z.object({
+  contentHash: z.string().min(1),
+  name: z.string().min(1),
+  path: z.string().min(1),
+  size: z.number().int().positive(),
+  mimeType: z.string().min(1),
+  version: z.string().min(1),
+  priority: z.enum(['critical', 'high', 'normal', 'low']),
+  magnetUri: z.string().optional(),
+  ipfsCid: z.string().optional(),
+});
+
+// Schema for asset manifest
+const AssetManifestSchema = z.object({
+  version: z.string().min(1),
+  timestamp: z.number().int().positive(),
+  assets: z.array(NetworkAssetSchema),
+  checksum: z.string().min(1),
+});
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -468,15 +489,15 @@ export class StaticAssetService {
   private async refreshManifest(): Promise<void> {
     // Try URL-based manifest first (primary method)
     if (this.config.manifestUrl) {
-      try {
-        const data = await this.fetchFromCDN(this.config.manifestUrl);
-        if (data) {
-          this.manifest = JSON.parse(data.toString()) as AssetManifest;
+      const data = await this.fetchFromCDN(this.config.manifestUrl);
+      if (data) {
+        const parseResult = AssetManifestSchema.safeParse(JSON.parse(data.toString()));
+        if (parseResult.success) {
+          this.manifest = parseResult.data;
           console.log(`[StaticAssets] Loaded manifest v${this.manifest.version} from URL`);
           return;
         }
-      } catch (error) {
-        console.warn('[StaticAssets] Failed to load manifest from URL:', error);
+        console.warn('[StaticAssets] Invalid manifest format:', parseResult.error.message);
       }
     }
 

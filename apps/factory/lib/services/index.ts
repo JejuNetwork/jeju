@@ -13,14 +13,16 @@
 import { dwsClient as _dwsClient } from './dws';
 export { 
   type DWSHealth, 
-  type RepoInfo, 
-  type PackageInfo, 
-  type ContainerImage, 
+  type DWSContainerImage, 
   type ComputeJob,
   type Repository,
   type Package,
-  type Model,
+  type InferenceResult,
+  type DWSNode,
+  type CDNDeployResult,
+  type CIWorkflow,
 } from './dws';
+export type { Model } from '@/types';
 export const dwsClient = _dwsClient;
 
 // External Services (with MPC KMS secrets)

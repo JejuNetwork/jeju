@@ -45,7 +45,8 @@ const mockTokens = [
 export default function PackageSettingsPage() {
   const params = useParams();
   const router = useRouter();
-  const { isConnected } = useAccount();
+  void router; // Suppress unused
+  const { isConnected: _isConnected } = useAccount();
   const rawScope = params.scope as string;
   const name = params.name as string;
   const scope = decodeURIComponent(rawScope);

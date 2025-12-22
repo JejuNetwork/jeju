@@ -85,7 +85,7 @@ async function main() {
   process.on('SIGINT', () => { adapter.stop(); process.exit(0); });
   process.on('SIGTERM', () => { adapter.stop(); process.exit(0); });
 
-  await new Promise(() => {});
+  await new Promise(() => { /* keep process running */ });
 }
 
 main().catch(e => { console.error(e); process.exit(1); });

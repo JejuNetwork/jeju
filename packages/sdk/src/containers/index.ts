@@ -13,7 +13,7 @@ import type { Address, Hex } from "viem";
 import { encodeFunctionData, keccak256, toHex } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
-import { getServicesConfig, getContractAddresses } from "../config";
+import { getContractAddresses } from "../config";
 
 // ============================================================================
 // Types
@@ -346,7 +346,7 @@ export interface ContainersModule {
 
 export function createContainersModule(
   wallet: JejuWallet,
-  network: NetworkType
+  network: NetworkType,
 ): ContainersModule {
   const addresses = getContractAddresses(network);
   const registryAddress = addresses.containerRegistry as Address;
@@ -378,9 +378,13 @@ export function createContainersModule(
     starCount: bigint;
     isVerified: boolean;
   }): ContainerRepository {
+    const visibility = visibilityReverseMap[raw.visibility];
+    if (!visibility) {
+      throw new Error(`Invalid visibility value: ${raw.visibility}`);
+    }
     return {
       ...raw,
-      visibility: visibilityReverseMap[raw.visibility] ?? "PUBLIC",
+      visibility,
       tags: [...raw.tags],
     };
   }
@@ -407,7 +411,7 @@ export function createContainersModule(
   }
 
   async function createRepository(
-    params: CreateRepositoryParams
+    params: CreateRepositoryParams,
   ): Promise<Hex> {
     const data = encodeFunctionData({
       abi: CONTAINER_REGISTRY_ABI,
@@ -439,7 +443,7 @@ export function createContainersModule(
   }
 
   async function getRepositoryByName(
-    fullName: string
+    fullName: string,
   ): Promise<ContainerRepository> {
     const result = await wallet.publicClient.readContract({
       address: registryAddress,
@@ -564,7 +568,7 @@ export function createContainersModule(
 
   async function getManifestByTag(
     repoId: Hex,
-    tag: string
+    tag: string,
   ): Promise<ImageManifest> {
     const result = await wallet.publicClient.readContract({
       address: registryAddress,
@@ -645,4 +649,3 @@ export function createContainersModule(
     parseImageReference,
   };
 }
-

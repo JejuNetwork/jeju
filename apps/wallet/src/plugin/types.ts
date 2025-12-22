@@ -305,11 +305,20 @@ export interface TransactionRisk {
   recommendation?: string;
 }
 
+export interface SignatureRiskDetails {
+  spender?: Address;
+  amount?: bigint;
+  deadline?: number;
+  permitType?: 'ERC20Permit' | 'Permit2' | 'DAIPermit';
+  domain?: string;
+  targetContract?: Address;
+}
+
 export interface SignatureRisk {
   type: 'permit' | 'unlimited' | 'suspicious' | 'phishing';
   severity: 'low' | 'medium' | 'high' | 'critical';
   description: string;
-  details?: Record<string, unknown>;
+  details?: SignatureRiskDetails;
 }
 
 // ============================================================================

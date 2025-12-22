@@ -62,7 +62,7 @@ async function validateKurtosis(): Promise<void> {
   results.push({ name: "Kurtosis", passed: true });
 }
 
-async function main() {
+async function main(): Promise<void> {
   console.log("🔍 Validating deployment configurations...\n");
 
   await Promise.all([

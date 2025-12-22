@@ -106,7 +106,7 @@ describe('EdgeCoordinator', () => {
     it('should sign and verify messages', async () => {
       // This is tested implicitly through the gossip protocol
       // Messages with invalid signatures are rejected
-      const peers = coordinator1.getPeers();
+      const _peers = coordinator1.getPeers();
       
       // If we got peers, signature verification is working
       expect(true).toBe(true);
@@ -115,34 +115,34 @@ describe('EdgeCoordinator', () => {
 });
 
 describe('Content Verification', () => {
-  it('should verify SHA256 hash', () => {
+  it('should verify SHA256 hash', async () => {
     const data = Buffer.from('Test data for hashing');
-    const crypto = require('crypto');
+    const crypto = await import('crypto');
     const hash = crypto.createHash('sha256').update(data).digest('hex');
 
-    expect(verifyContentHash(data, `0x${hash}`)).toBe(true);
-    expect(verifyContentHash(data, '0x' + '00'.repeat(32))).toBe(false);
+    expect(await verifyContentHash(data, `0x${hash}`)).toBe(true);
+    expect(await verifyContentHash(data, '0x' + '00'.repeat(32))).toBe(false);
   });
 
-  it('should handle CIDv0 format', () => {
+  it('should handle CIDv0 format', async () => {
     // CIDv0 starts with Qm
     const data = Buffer.from('IPFS content');
     // This is a simplified test - real CID verification is more complex
-    expect(typeof verifyContentHash(data, 'QmTest123')).toBe('boolean');
+    expect(typeof await verifyContentHash(data, 'QmTest123')).toBe('boolean');
   });
 
-  it('should handle infohash format', () => {
+  it('should handle infohash format', async () => {
     const data = Buffer.from('BitTorrent content');
-    const crypto = require('crypto');
+    const crypto = await import('crypto');
     const hash = crypto.createHash('sha1').update(data).digest('hex');
 
-    expect(verifyContentHash(data, hash)).toBe(true);
+    expect(await verifyContentHash(data, hash)).toBe(true);
   });
 });
 
 // Helper function for content verification
-function verifyContentHash(data: Buffer, expectedHash: string): boolean {
-  const crypto = require('crypto');
+async function verifyContentHash(data: Buffer, expectedHash: string): Promise<boolean> {
+  const crypto = await import('crypto');
 
   if (expectedHash.startsWith('0x')) {
     const hash = crypto.createHash('sha256').update(data).digest('hex');

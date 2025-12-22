@@ -70,7 +70,7 @@ describe('Multiplayer Race Condition Tests', () => {
   test('Item on ground during multiple pickups', async () => {
     console.log('\n⚡ Test: High-contention item pickup\n');
     
-    const itemInstanceId = 'rare_item_001';
+    const _itemInstanceId = 'rare_item_001';
     
     console.log('   Setup: Rare item drops, 10 players nearby\n');
     

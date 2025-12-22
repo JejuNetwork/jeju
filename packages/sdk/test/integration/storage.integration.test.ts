@@ -28,7 +28,7 @@ describe("Storage Integration Tests", () => {
     } catch {
       // Setup failed - tests will be skipped
     }
-  }, 90000);
+  });
 
   afterAll(async () => {
     if (uploadedCid && client) {
@@ -43,7 +43,7 @@ describe("Storage Integration Tests", () => {
     } catch {
       // Cleanup failed - ignore
     }
-  }, 10000);
+  });
 
   test("client created successfully", () => {
     if (!env?.chainRunning) return;

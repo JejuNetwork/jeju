@@ -145,7 +145,12 @@ export function useAuth(options: UseAuthOptions = {}): UseAuthReturn {
     const init = async () => {
       if (decentralized) {
         // Try to initialize discovery, fallback to configured TEE URL on failure
-        await client.initialize().catch(() => {});
+        try {
+          await client.initialize();
+        } catch (initError) {
+          // Log initialization errors - client will fallback to configured TEE URL
+          console.warn('OAuth3 discovery initialization failed, using configured TEE URL:', initError);
+        }
       }
       setIsInitialized(true);
       
@@ -209,8 +214,9 @@ export function useAuth(options: UseAuthOptions = {}): UseAuthReturn {
   const logout = useCallback(async () => {
     try {
       await client.logout();
-    } catch {
-      // Session may already be invalidated
+    } catch (logoutError) {
+      // Log but don't throw - session may already be invalidated on server
+      console.warn('OAuth3 logout error (session may already be invalidated):', logoutError);
     }
     clearSession();
   }, [client, clearSession]);
@@ -281,14 +287,19 @@ export function useAuth(options: UseAuthOptions = {}): UseAuthReturn {
 
     try {
       return await client.signMessage({ message });
-    } catch {
-      // Fall back to local key if available
+    } catch (signError) {
+      // Fall back to local key if available (for offline-first or testing)
       const storedKey = localStorage.getItem('jeju_private_key');
       if (storedKey) {
+        // Validate stored key is a valid hex string
+        if (!/^0x[0-9a-fA-F]{64}$/.test(storedKey)) {
+          throw new Error('Invalid stored private key format');
+        }
+        console.warn('OAuth3 sign failed, using local key fallback:', signError);
         const account = privateKeyToAccount(storedKey as Hex);
         return account.signMessage({ message });
       }
-      throw new Error('Unable to sign message');
+      throw new Error(`Unable to sign message: ${signError instanceof Error ? signError.message : 'Unknown error'}`);
     }
   }, [client, session]);
 

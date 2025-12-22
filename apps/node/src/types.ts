@@ -306,11 +306,14 @@ export interface AppConfig {
   notifications_enabled: boolean;
 }
 
+/** Custom settings value type - supports primitives and arrays of primitives */
+export type CustomSettingValue = string | number | boolean | null | Array<string | number | boolean | null>;
+
 export interface ServiceConfig {
   enabled: boolean;
   auto_start: boolean;
   stake_amount: string | null;
-  custom_settings: Record<string, unknown>;
+  custom_settings: Record<string, CustomSettingValue>;
 }
 
 export type ViewType = 'dashboard' | 'services' | 'bots' | 'earnings' | 'staking' | 'settings' | 'wallet';

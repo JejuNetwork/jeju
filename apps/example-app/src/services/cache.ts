@@ -31,7 +31,7 @@ function cleanExpired(): void {
 }
 
 class ComputeCacheService implements CacheService {
-  private healthChecked = false;
+  private healthLastChecked = 0;
   private healthy = false;
   private useFallback = false;
   private checkedFallback = false;
@@ -77,12 +77,15 @@ class ComputeCacheService implements CacheService {
 
       const data = (await response.json()) as { value: T | null };
       return data.value;
-    } catch {
-      // If request fails, use fallback
+    } catch (error) {
+      // If request fails, use fallback for localnet
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       if (NETWORK === 'localnet' || NETWORK === 'Jeju') {
+        console.warn(`[Cache] Get failed, using fallback: ${errorMsg}`);
         this.useFallback = true;
         return this.get(key);
       }
+      console.error(`[Cache] Get failed: ${errorMsg}`);
       return null;
     }
   }
@@ -109,11 +112,15 @@ class ComputeCacheService implements CacheService {
       if (!response.ok) {
         throw new Error(`Cache set failed: ${response.status}`);
       }
-    } catch {
-      // If request fails, use fallback
+    } catch (error) {
+      // If request fails, use fallback for localnet
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       if (NETWORK === 'localnet' || NETWORK === 'Jeju') {
+        console.warn(`[Cache] Set failed, using fallback: ${errorMsg}`);
         this.useFallback = true;
         await this.set(key, value, ttlMs);
+      } else {
+        console.error(`[Cache] Set failed: ${errorMsg}`);
       }
     }
   }
@@ -137,11 +144,15 @@ class ComputeCacheService implements CacheService {
       if (!response.ok && response.status !== 404) {
         throw new Error(`Cache delete failed: ${response.status}`);
       }
-    } catch {
-      // If request fails, use fallback
+    } catch (error) {
+      // If request fails, use fallback for localnet
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       if (NETWORK === 'localnet' || NETWORK === 'Jeju') {
+        console.warn(`[Cache] Delete failed, using fallback: ${errorMsg}`);
         this.useFallback = true;
         memoryCache.delete(key);
+      } else {
+        console.error(`[Cache] Delete failed: ${errorMsg}`);
       }
     }
   }
@@ -163,11 +174,15 @@ class ComputeCacheService implements CacheService {
       if (!response.ok) {
         throw new Error(`Cache clear failed: ${response.status}`);
       }
-    } catch {
-      // If request fails, use fallback
+    } catch (error) {
+      // If request fails, use fallback for localnet
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       if (NETWORK === 'localnet' || NETWORK === 'Jeju') {
+        console.warn(`[Cache] Clear failed, using fallback: ${errorMsg}`);
         this.useFallback = true;
         memoryCache.clear();
+      } else {
+        console.error(`[Cache] Clear failed: ${errorMsg}`);
       }
     }
   }
@@ -176,7 +191,7 @@ class ComputeCacheService implements CacheService {
     if (this.useFallback) return true; // In-memory fallback is always healthy
 
     // Cache the health check result for 30 seconds
-    if (this.healthChecked && Date.now() - (this.healthChecked as unknown as number) < 30000) {
+    if (Date.now() - this.healthLastChecked < 30000) {
       return this.healthy;
     }
 
@@ -186,11 +201,13 @@ class ComputeCacheService implements CacheService {
       });
 
       this.healthy = response.ok;
-    } catch {
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.debug(`[Cache] Health check failed: ${errorMsg}`);
       this.healthy = false;
     }
 
-    this.healthChecked = true;
+    this.healthLastChecked = Date.now();
     return this.healthy;
   }
 }

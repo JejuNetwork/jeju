@@ -5,6 +5,7 @@
 
 import { Hono } from 'hono';
 import type { Address } from 'viem';
+import { validateBody, validateParams, validateQuery, validateHeaders, expectValid, jejuAddressHeaderSchema, vpnNodeRegistrationSchema, vpnNodeHeartbeatSchema, vpnSessionRequestSchema, vpnNodeParamsSchema, vpnSessionParamsSchema, vpnNodesQuerySchema, z } from '../../shared';
 
 interface ProxyNode {
   id: string;
@@ -101,22 +102,8 @@ export function createVPNRouter(): Hono {
 
   // Register proxy node
   router.post('/nodes', async (c) => {
-    const operator = c.req.header('x-jeju-address') as Address;
-    if (!operator) {
-      return c.json({ error: 'Missing x-jeju-address header' }, 401);
-    }
-
-    const body = await c.req.json<{
-      endpoint: string;
-      region: string;
-      country: string;
-      city?: string;
-      type: 'residential' | 'datacenter' | 'mobile';
-      protocol: 'http' | 'https' | 'socks5';
-      port: number;
-      bandwidth: number;
-      metadata?: Record<string, string>;
-    }>();
+    const { 'x-jeju-address': operator } = validateHeaders(jejuAddressHeaderSchema, c);
+    const body = await validateBody(vpnNodeRegistrationSchema, c);
 
     const id = crypto.randomUUID();
     const node: ProxyNode = {
@@ -147,10 +134,7 @@ export function createVPNRouter(): Hono {
 
   // List nodes
   router.get('/nodes', (c) => {
-    const region = c.req.query('region');
-    const country = c.req.query('country');
-    const type = c.req.query('type');
-    const status = c.req.query('status') ?? 'active';
+    const { region, country, type, status } = validateQuery(vpnNodesQuerySchema, c);
 
     let nodes = Array.from(proxyNodes.values());
     
@@ -176,15 +160,13 @@ export function createVPNRouter(): Hono {
 
   // Node heartbeat
   router.post('/nodes/:id/heartbeat', async (c) => {
-    const node = proxyNodes.get(c.req.param('id'));
+    const { id } = validateParams(vpnNodeParamsSchema, c);
+    const node = proxyNodes.get(id);
     if (!node) {
-      return c.json({ error: 'Node not found' }, 404);
+      throw new Error('Node not found');
     }
 
-    const body = await c.req.json<{
-      latency?: number;
-      bandwidth?: number;
-    }>();
+    const body = await validateBody(vpnNodeHeartbeatSchema, c);
 
     node.lastSeen = Date.now();
     if (body.latency !== undefined) node.latency = body.latency;
@@ -199,17 +181,8 @@ export function createVPNRouter(): Hono {
 
   // Create proxy session
   router.post('/sessions', async (c) => {
-    const user = c.req.header('x-jeju-address') as Address;
-    if (!user) {
-      return c.json({ error: 'Missing x-jeju-address header' }, 401);
-    }
-
-    const body = await c.req.json<{
-      region?: string;
-      country?: string;
-      type?: 'residential' | 'datacenter' | 'mobile';
-      duration?: number; // seconds
-    }>();
+    const { 'x-jeju-address': user } = validateHeaders(jejuAddressHeaderSchema, c);
+    const body = await validateBody(vpnSessionRequestSchema, c);
 
     // Find best available node
     let candidates = Array.from(proxyNodes.values())
@@ -224,7 +197,7 @@ export function createVPNRouter(): Hono {
 
     const node = candidates[0];
     if (!node) {
-      return c.json({ error: 'No available proxy nodes' }, 503);
+      throw new Error('No available proxy nodes');
     }
 
     const sessionId = crypto.randomUUID();
@@ -261,8 +234,9 @@ export function createVPNRouter(): Hono {
   });
 
   // Get session status
-  router.get('/sessions/:id', (c) => {
-    const session = sessions.get(c.req.param('id'));
+  router.get('/sessions/:sessionId', (c) => {
+    const { sessionId } = validateParams(vpnSessionParamsSchema, c);
+    const session = sessions.get(sessionId);
     if (!session) {
       return c.json({ error: 'Session not found' }, 404);
     }
@@ -285,15 +259,16 @@ export function createVPNRouter(): Hono {
   });
 
   // Terminate session
-  router.delete('/sessions/:id', (c) => {
-    const user = c.req.header('x-jeju-address')?.toLowerCase();
-    const session = sessions.get(c.req.param('id'));
+  router.delete('/sessions/:sessionId', (c) => {
+    const { 'x-jeju-address': user } = validateHeaders(z.object({ 'x-jeju-address': z.string().optional() }), c);
+    const { sessionId } = validateParams(vpnSessionParamsSchema, c);
+    const session = sessions.get(sessionId);
     
     if (!session) {
-      return c.json({ error: 'Session not found' }, 404);
+      throw new Error('Session not found');
     }
-    if (session.user.toLowerCase() !== user) {
-      return c.json({ error: 'Not authorized' }, 403);
+    if (!user || session.user.toLowerCase() !== user) {
+      throw new Error('Not authorized');
     }
 
     session.status = 'terminated';
@@ -305,19 +280,20 @@ export function createVPNRouter(): Hono {
   // ============================================================================
 
   router.all('/proxy/:sessionId/*', async (c) => {
-    const session = sessions.get(c.req.param('sessionId'));
+    const { sessionId } = validateParams(vpnSessionParamsSchema, c);
+    const session = sessions.get(sessionId);
     if (!session || session.status !== 'active') {
-      return c.json({ error: 'Invalid or expired session' }, 401);
+      throw new Error('Invalid or expired session');
     }
 
     if (Date.now() > session.expiresAt) {
       session.status = 'expired';
-      return c.json({ error: 'Session expired' }, 401);
+      throw new Error('Session expired');
     }
 
     const node = proxyNodes.get(session.nodeId);
     if (!node || node.status !== 'active') {
-      return c.json({ error: 'Proxy node unavailable' }, 503);
+      throw new Error('Proxy node unavailable');
     }
 
     // Get target URL
@@ -345,9 +321,7 @@ export function createVPNRouter(): Hono {
         headers: response.headers,
       });
     } catch (error) {
-      return c.json({
-        error: error instanceof Error ? error.message : 'Proxy request failed',
-      }, 502);
+      throw new Error(error instanceof Error ? error.message : 'Proxy request failed');
     }
   });
 

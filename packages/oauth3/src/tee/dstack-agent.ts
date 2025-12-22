@@ -15,6 +15,7 @@
 
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { z } from 'zod';
 import { keccak256, toBytes, toHex, type Address, type Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import type {
@@ -35,6 +36,54 @@ import {
 import {
   FROSTCoordinator,
 } from '../mpc/frost-signing.js';
+import {
+  HexSchema,
+  AddressSchema,
+  validateResponse,
+  GoogleUserInfoSchema,
+  GitHubUserSchema,
+  TwitterUserSchema,
+  DiscordUserSchema,
+} from '../validation.js';
+
+const AuthInitSchema = z.object({
+  provider: z.string(),
+  appId: HexSchema,
+  redirectUri: z.string().url(),
+});
+
+const AuthCallbackSchema = z.object({
+  state: z.string().min(1),
+  code: z.string().min(1),
+});
+
+const FarcasterAuthSchema = z.object({
+  fid: z.number().int().positive(),
+  custodyAddress: AddressSchema,
+  signature: HexSchema,
+  message: z.string().min(1),
+  appId: HexSchema,
+});
+
+const WalletAuthSchema = z.object({
+  address: AddressSchema,
+  signature: HexSchema,
+  message: z.string().min(1),
+  appId: HexSchema,
+});
+
+const SignRequestSchema = z.object({
+  sessionId: HexSchema,
+  message: HexSchema,
+});
+
+const CredentialIssueSchema = z.object({
+  sessionId: HexSchema,
+  provider: z.string(),
+  providerId: z.string().min(1),
+  providerHandle: z.string(),
+  walletAddress: AddressSchema,
+});
 
 const DSTACK_SOCKET = process.env.DSTACK_SOCKET ?? '/var/run/dstack.sock';
 const TEE_MODE = process.env.TEE_MODE ?? 'simulated';
@@ -177,47 +226,29 @@ export class DstackAuthAgent {
     });
 
     this.app.post('/auth/init', async (c) => {
-      const body = await c.req.json() as {
-        provider: AuthProvider;
-        appId: Hex;
-        redirectUri: string;
-      };
-
-      const result = await this.initAuth(body.provider, body.appId, body.redirectUri);
+      const rawBody = await c.req.json();
+      const body = validateResponse(AuthInitSchema, rawBody, 'auth init request');
+      const result = await this.initAuth(body.provider as AuthProvider, body.appId, body.redirectUri);
       return c.json(result);
     });
 
     this.app.post('/auth/callback', async (c) => {
-      const body = await c.req.json() as {
-        state: string;
-        code: string;
-      };
-
+      const rawBody = await c.req.json();
+      const body = validateResponse(AuthCallbackSchema, rawBody, 'auth callback request');
       const result = await this.handleCallback(body.state, body.code);
       return c.json(result);
     });
 
     this.app.post('/auth/farcaster', async (c) => {
-      const body = await c.req.json() as {
-        fid: number;
-        custodyAddress: Address;
-        signature: Hex;
-        message: string;
-        appId: Hex;
-      };
-
+      const rawBody = await c.req.json();
+      const body = validateResponse(FarcasterAuthSchema, rawBody, 'farcaster auth request');
       const result = await this.authFarcaster(body);
       return c.json(result);
     });
 
     this.app.post('/auth/wallet', async (c) => {
-      const body = await c.req.json() as {
-        address: Address;
-        signature: Hex;
-        message: string;
-        appId: Hex;
-      };
-
+      const rawBody = await c.req.json();
+      const body = validateResponse(WalletAuthSchema, rawBody, 'wallet auth request');
       const result = await this.authWallet(body);
       return c.json(result);
     });
@@ -285,34 +316,26 @@ export class DstackAuthAgent {
     });
 
     this.app.post('/sign', async (c) => {
-      const body = await c.req.json() as {
-        sessionId: Hex;
-        message: Hex;
-      };
-
+      const rawBody = await c.req.json();
+      const body = validateResponse(SignRequestSchema, rawBody, 'sign request');
       const result = await this.sign(body.sessionId, body.message);
       return c.json(result);
     });
 
     this.app.post('/credential/issue', async (c) => {
-      const body = await c.req.json() as {
-        sessionId: Hex;
-        provider: AuthProvider;
-        providerId: string;
-        providerHandle: string;
-        walletAddress: Address;
-      };
-
-      const credential = await this.issueCredential(body);
+      const rawBody = await c.req.json();
+      const body = validateResponse(CredentialIssueSchema, rawBody, 'credential issue request');
+      const credential = await this.issueCredential({
+        ...body,
+        provider: body.provider as AuthProvider,
+      });
       return c.json(credential);
     });
 
     this.app.post('/credential/verify', async (c) => {
-      const body = await c.req.json() as {
-        credential: VerifiableCredential;
-      };
-
-      const valid = await this.verifyCredential(body.credential);
+      const rawBody = await c.req.json();
+      const body = z.object({ credential: z.record(z.string(), z.unknown()) }).parse(rawBody);
+      const valid = await this.verifyCredential(body.credential as unknown as VerifiableCredential);
       return c.json({ valid });
     });
   }
@@ -746,6 +769,7 @@ export class DstackAuthAgent {
 
     const sessionId = keccak256(toBytes(`farcaster:${params.fid}:${Date.now()}`));
     
+    // Note: providerHandle and appId are validated above but createSession uses different params
     return this.createSession(
       sessionId,
       'farcaster' as AuthProvider,
@@ -776,8 +800,8 @@ export class DstackAuthAgent {
     sessionId: Hex,
     provider: AuthProvider,
     providerId: string,
-    providerHandle: string,
-    appId: Hex
+    _providerHandle: string,
+    _appId: Hex
   ): Promise<OAuth3Session> {
     const signingKeyBytes = crypto.getRandomValues(new Uint8Array(32));
     const signingKey = toHex(signingKeyBytes);
@@ -984,35 +1008,6 @@ export class DstackAuthAgent {
   }
 
   async start(port: number): Promise<void> {
-    const attestation = await this.getAttestation();
-    
-    // Check decentralized infrastructure health
-    let storageHealthy = false;
-    let jnsHealthy = false;
-    if (this.decentralizedStore) {
-      storageHealthy = await this.decentralizedStore.storage.isHealthy();
-      jnsHealthy = await this.decentralizedStore.jns.isAvailable('health.jeju').catch(() => false) !== false;
-    }
-    
-    console.log(`
-╔═══════════════════════════════════════════════════════════╗
-║         OAuth3 Decentralized TEE Auth Agent                ║
-╠═══════════════════════════════════════════════════════════╣
-║  Node ID:      ${this.config.nodeId.slice(0, 38).padEnd(38)}║
-║  Cluster:      ${this.config.clusterId.slice(0, 38).padEnd(38)}║
-║  Address:      ${this.nodeAccount.address.padEnd(38)}║
-║  TEE Provider: ${(attestation.provider as string).padEnd(38)}║
-║  Verified:     ${String(attestation.verified).padEnd(38)}║
-║  Port:         ${String(port).padEnd(38)}║
-╠═══════════════════════════════════════════════════════════╣
-║  Decentralized Infrastructure                              ║
-║  ───────────────────────────────────────                   ║
-║  Storage:      ${(storageHealthy ? '✓ Connected' : '✗ Unavailable').padEnd(38)}║
-║  JNS:          ${(jnsHealthy ? '✓ Connected' : '✗ Unavailable').padEnd(38)}║
-║  Compute:      ${'✓ Running in TEE'.padEnd(38)}║
-╚═══════════════════════════════════════════════════════════╝
-`);
-
     Bun.serve({
       port,
       fetch: this.app.fetch,
@@ -1035,10 +1030,8 @@ export async function startAuthAgent(): Promise<DstackAuthAgent> {
       '0x0000000000000000000000000000000000000000') as Address,
     chainRpcUrl: process.env.JEJU_RPC_URL ?? 'http://localhost:9545',
     chainId: parseInt(process.env.CHAIN_ID ?? '420691'),
-    // Infrastructure
     jnsGateway: process.env.JNS_GATEWAY ?? process.env.GATEWAY_API ?? 'http://localhost:4020',
     storageEndpoint: process.env.STORAGE_API_ENDPOINT ?? 'http://localhost:4010',
-    // MPC configuration
     mpcEnabled,
     mpcThreshold: parseInt(process.env.MPC_THRESHOLD ?? '2'),
     mpcTotalParties: parseInt(process.env.MPC_TOTAL_PARTIES ?? '3'),
@@ -1046,10 +1039,8 @@ export async function startAuthAgent(): Promise<DstackAuthAgent> {
 
   const agent = new DstackAuthAgent(config);
   
-  // Initialize MPC if enabled
   if (mpcEnabled) {
     await agent.initializeMPC();
-    console.log(`MPC initialized: threshold=${config.mpcThreshold}/${config.mpcTotalParties}`);
   }
   
   await agent.start(parseInt(process.env.OAUTH3_PORT ?? '4200'));

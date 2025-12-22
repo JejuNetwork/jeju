@@ -50,21 +50,17 @@ const networkName = getNetworkName();
 const cliName = cli.name;
 
 function getVersion(): string {
-  try {
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = dirname(__filename);
-    const pkgPath = join(__dirname, '..', 'package.json');
-    if (existsSync(pkgPath)) {
-      const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
-      return pkg.version;
-    }
-  } catch {
-    // Fallback
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = dirname(__filename);
+  const pkgPath = join(__dirname, '..', 'package.json');
+  if (existsSync(pkgPath)) {
+    const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8')) as { version: string };
+    return pkg.version;
   }
   return '0.1.0';
 }
 
-function printBanner() {
+function printBanner(): void {
   const banner = cli.banner.join('\n');
   console.log(chalk.cyan('\n' + banner));
   console.log(chalk.dim(`  ${getNetworkTagline()}\n`));

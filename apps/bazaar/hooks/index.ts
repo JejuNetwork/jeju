@@ -23,6 +23,37 @@ export * from './perps';
 // Token Launchpad (Bonding Curve & ICO)
 export * from './launchpad';
 
+// Protocol Tokens
+export * from './useProtocolTokens';
+
+// Intent API (OIF) - explicitly exclude ChainInfo to avoid conflict with useEIL
+export {
+  useIntentAPI,
+  useIntents,
+  useSupportedChains,
+  useIntentQuote,
+  useOIFStats,
+  useAllIntents,
+  useRoutes,
+  useSolvers,
+  useSolverLeaderboard,
+  type Intent,
+  type CreateIntentParams,
+  type IntentQuote,
+  type OIFStats,
+  type Route,
+  type Solver,
+  type LeaderboardEntry,
+} from './useIntentAPI';
+// OIFChainInfo is now defined in config/chains
+export type { OIFChainInfo } from '@/config/chains';
+
+// OIF (Open Intent Framework)
+export * from './useOIF';
+
+// EIL (Cross-chain)
+export * from './useEIL';
+
 // TFMM (Temporal Function Market Maker) - import specific exports to avoid conflicts
 export {
   useTFMMPools,

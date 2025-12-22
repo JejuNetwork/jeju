@@ -30,7 +30,7 @@ export function getLocalnetRpcUrl(): string {
 		}
 
 		return `http://${address}`;
-	} catch (error) {
+	} catch {
 		// Fallback to default port if Kurtosis is not running
 		console.warn('⚠️  Warning: Could not get RPC URL from Kurtosis, using default port 9545');
 		console.warn('Make sure localnet is running: bun run localnet:start');

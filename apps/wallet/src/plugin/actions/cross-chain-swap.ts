@@ -4,9 +4,9 @@
  * Performs bridgeless cross-chain swaps using EIL.
  */
 
-import { WalletService } from '../services/wallet.service';
 import { EILService } from '../services/eil.service';
 import type { ActionContext, ActionResult } from './wallet-info';
+import { expectChainId, expectNonEmpty } from '../../lib/validation';
 
 interface CrossChainParams {
   fromToken?: string;
@@ -79,6 +79,12 @@ export const crossChainSwapAction = {
       : state.activeChainId;
     const destChainId = CHAIN_NAME_TO_ID[params.destChain?.toLowerCase() || ''] || 8453;
     
+    expectChainId(sourceChainId, 'sourceChainId');
+    expectChainId(destChainId, 'destChainId');
+    if (params.amount) expectNonEmpty(params.amount, 'amount');
+    if (params.fromToken) expectNonEmpty(params.fromToken, 'fromToken');
+    if (params.toToken) expectNonEmpty(params.toToken, 'toToken');
+
     // Check if route is supported
     if (!eilService.isRouteSupported(sourceChainId, destChainId)) {
       return {

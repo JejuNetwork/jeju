@@ -13,7 +13,6 @@ import {
   getL1RpcUrl,
   getRpcUrl,
   getChainId,
-  getContractAddress,
   loadDeployedContracts,
   TEST_ACCOUNTS,
   L2_PREDEPLOYS,

@@ -14,6 +14,21 @@ import { rateLimiter, getRateLimitStats, RATE_LIMITS } from './middleware/rate-l
 import { proxyRequest, proxyBatchRequest, getEndpointHealth, getChainStats } from './proxy/rpc-proxy.js';
 import { createApiKey, getApiKeysForAddress, revokeApiKeyById, getApiKeyStats } from './services/api-keys.js';
 import { generatePaymentRequirement, getPaymentInfo, getCredits, purchaseCredits, processPayment } from './services/x402-payments.js';
+import { z } from 'zod';
+import {
+  RpcRequestSchema,
+  RpcBatchRequestSchema,
+  CreateApiKeyRequestSchema,
+  KeyIdSchema,
+  PurchaseCreditsRequestSchema,
+  PaymentRequirementQuerySchema,
+  ChainIdSchema,
+  expect,
+  expectChainId,
+  expectAddress,
+  validateBody,
+  validateQuery,
+} from '../lib/validation.js';
 
 export const rpcApp = new Hono();
 
@@ -91,8 +106,11 @@ rpcApp.get('/v1/chains', (c) => {
 });
 
 rpcApp.get('/v1/chains/:chainId', (c) => {
-  const chainId = Number(c.req.param('chainId'));
-  if (!isChainSupported(chainId)) return c.json({ error: `Unsupported chain: ${chainId}` }, 404);
+  const chainIdParam = Number(c.req.param('chainId'));
+  const chainId = expectChainId(chainIdParam, 'chainId');
+  if (!isChainSupported(chainId)) {
+    return c.json({ error: `Unsupported chain: ${chainId}` }, 404);
+  }
 
   const chain = getChain(chainId);
   const health = getEndpointHealth();
@@ -114,7 +132,9 @@ rpcApp.get('/v1/chains/:chainId', (c) => {
 
 // RPC Proxy
 rpcApp.post('/v1/rpc/:chainId', async (c) => {
-  const chainId = Number(c.req.param('chainId'));
+  const chainIdParam = Number(c.req.param('chainId'));
+  const chainId = expectChainId(chainIdParam, 'chainId');
+  
   if (!isChainSupported(chainId)) {
     return c.json({ jsonrpc: '2.0', id: null, error: { code: -32001, message: `Unsupported chain: ${chainId}` } }, 400);
   }
@@ -122,35 +142,32 @@ rpcApp.post('/v1/rpc/:chainId', async (c) => {
   let body: unknown;
   try {
     body = await c.req.json();
-  } catch {
-    return c.json({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error: Invalid JSON' } }, 400);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Parse error: Invalid JSON';
+    return c.json({ jsonrpc: '2.0', id: null, error: { code: -32700, message } }, 400);
   }
 
   // Get user address for x402 payment processing
-  const userAddress = c.req.header('X-Wallet-Address');
+  const userAddressHeader = c.req.header('X-Wallet-Address');
+  const userAddress = userAddressHeader && isAddress(userAddressHeader) ? userAddressHeader : undefined;
   const paymentHeader = c.req.header('X-Payment');
 
   if (Array.isArray(body)) {
-    if (body.length === 0) return c.json({ jsonrpc: '2.0', id: null, error: { code: -32600, message: 'Invalid request: Empty batch' } }, 400);
-    if (body.length > 100) return c.json({ jsonrpc: '2.0', id: null, error: { code: -32600, message: 'Invalid request: Batch too large (max 100)' } }, 400);
+    const validated = expect(body, RpcBatchRequestSchema, 'RPC batch request');
     
     // Check x402 payment for batch (use first method as reference)
-    const firstMethod = (body[0] as { method?: string })?.method || 'eth_call';
+    const firstMethod = validated[0]?.method || 'eth_call';
     const paymentResult = await processPayment(paymentHeader, chainId, firstMethod, userAddress);
     if (!paymentResult.allowed) {
       c.header('X-Payment-Required', 'true');
       return c.json({ jsonrpc: '2.0', id: null, error: { code: 402, message: 'Payment required', data: paymentResult.requirement } }, 402);
     }
     
-    const results = await proxyBatchRequest(chainId, body);
+    const results = await proxyBatchRequest(chainId, validated);
     return c.json(results.map(r => r.response));
   }
 
-  if (!body || typeof body !== 'object' || !('method' in body)) {
-    return c.json({ jsonrpc: '2.0', id: null, error: { code: -32600, message: 'Invalid request: Missing method' } }, 400);
-  }
-
-  const rpcBody = body as { jsonrpc: string; id: number | string; method: string; params?: unknown[] };
+  const rpcBody = expect(body, RpcRequestSchema, 'RPC request');
   
   // Check x402 payment for single request
   const paymentResult = await processPayment(paymentHeader, chainId, rpcBody.method, userAddress);
@@ -187,7 +204,9 @@ rpcApp.get('/v1/keys', async (c) => {
 
 rpcApp.post('/v1/keys', async (c) => {
   const address = getValidatedAddress(c);
-  if (!address) return c.json({ error: 'Valid X-Wallet-Address header required' }, 401);
+  if (!address) {
+    return c.json({ error: 'Valid X-Wallet-Address header required' }, 401);
+  }
 
   const existingKeys = await getApiKeysForAddress(address);
   if (existingKeys.filter(k => k.isActive).length >= MAX_API_KEYS_PER_ADDRESS) {
@@ -197,11 +216,12 @@ rpcApp.post('/v1/keys', async (c) => {
   let body: { name?: string } = {};
   try {
     body = await c.req.json();
-  } catch (e) {
+  } catch {
     // Body is optional for this endpoint, continue with empty object
-    console.debug('No JSON body provided to RPC endpoint');
   }
-  const name = (body.name || 'Default').slice(0, 100);
+  
+  const validated = expect({ ...body, address }, CreateApiKeyRequestSchema, 'create API key');
+  const name = (validated.name || 'Default').slice(0, 100);
   const { key, record } = await createApiKey(address, name);
 
   return c.json({
@@ -216,12 +236,15 @@ rpcApp.post('/v1/keys', async (c) => {
 
 rpcApp.delete('/v1/keys/:keyId', async (c) => {
   const address = getValidatedAddress(c);
-  const keyId = c.req.param('keyId');
-  if (!address) return c.json({ error: 'Valid X-Wallet-Address header required' }, 401);
-  if (!keyId || keyId.length !== 32) return c.json({ error: 'Invalid key ID format' }, 400);
-
+  if (!address) {
+    return c.json({ error: 'Valid X-Wallet-Address header required' }, 401);
+  }
+  
+  const keyId = expect(c.req.param('keyId'), KeyIdSchema, 'keyId');
   const success = await revokeApiKeyById(keyId, address);
-  if (!success) return c.json({ error: 'Key not found or not owned by this address' }, 404);
+  if (!success) {
+    return c.json({ error: 'Key not found or not owned by this address' }, 404);
+  }
 
   return c.json({ message: 'API key revoked', id: keyId });
 });
@@ -288,22 +311,30 @@ rpcApp.get('/v1/payments/credits', async (c) => {
 
 rpcApp.post('/v1/payments/credits', async (c) => {
   const address = getValidatedAddress(c);
-  if (!address) return c.json({ error: 'Valid X-Wallet-Address header required' }, 401);
+  if (!address) {
+    return c.json({ error: 'Valid X-Wallet-Address header required' }, 401);
+  }
 
-  let body: { txHash?: string; amount?: string };
-  try { body = await c.req.json(); } catch { return c.json({ error: 'Invalid JSON body' }, 400); }
-
-  const { txHash, amount } = body;
-  if (!txHash || !amount) return c.json({ error: 'txHash and amount required' }, 400);
-
-  const result = await purchaseCredits(address, txHash, BigInt(amount));
-  return c.json({ success: result.success, newBalance: result.newBalance.toString(), message: 'Credits added to your account' });
+  try {
+    const validated = validateBody(PurchaseCreditsRequestSchema, await c.req.json(), 'purchase credits');
+    const result = await purchaseCredits(address, validated.txHash, BigInt(validated.amount));
+    return c.json({ success: result.success, newBalance: result.newBalance.toString(), message: 'Credits added to your account' });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid request';
+    return c.json({ error: message }, 400);
+  }
 });
 
 rpcApp.get('/v1/payments/requirement', (c) => {
-  const chainId = Number(c.req.query('chainId') || '1');
-  const method = c.req.query('method') || 'eth_blockNumber';
-  return c.json(generatePaymentRequirement(chainId, method), 402);
+  try {
+    const validated = validateQuery(PaymentRequirementQuerySchema, c.req.query(), 'payment requirement');
+    const chainId = validated.chainId || 1;
+    const method = validated.method || 'eth_blockNumber';
+    return c.json(generatePaymentRequirement(chainId, method), 402);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid request';
+    return c.json({ error: message }, 400);
+  }
 });
 
 // MCP Server Endpoints
@@ -332,41 +363,44 @@ rpcApp.post('/mcp/initialize', (c) => c.json({ protocolVersion: '2024-11-05', se
 rpcApp.post('/mcp/resources/list', (c) => c.json({ resources: MCP_RESOURCES }));
 
 rpcApp.post('/mcp/resources/read', async (c) => {
-  let body: { uri: string };
-  try { body = await c.req.json(); } catch { return c.json({ error: 'Invalid JSON body' }, 400); }
-  
-  const { uri } = body;
-  if (!uri || typeof uri !== 'string') return c.json({ error: 'Missing or invalid uri' }, 400);
+  try {
+    const validated = validateBody(z.object({ uri: z.string().min(1) }), await c.req.json(), 'MCP resource read');
+    const { uri } = validated;
 
-  let contents: unknown;
-  switch (uri) {
-    case 'rpc://chains':
-      contents = Object.values(CHAINS).map(chain => ({ chainId: chain.chainId, name: chain.name, isTestnet: chain.isTestnet, endpoint: `/v1/rpc/${chain.chainId}` }));
-      break;
-    case 'rpc://health':
-      contents = getEndpointHealth();
-      break;
-    case 'rpc://tiers':
-      contents = { FREE: { stake: 0, limit: 10 }, BASIC: { stake: 100, limit: 100 }, PRO: { stake: 1000, limit: 1000 }, UNLIMITED: { stake: 10000, limit: 'unlimited' } };
-      break;
-    default:
-      return c.json({ error: 'Resource not found' }, 404);
+    let contents: unknown;
+    switch (uri) {
+      case 'rpc://chains':
+        contents = Object.values(CHAINS).map(chain => ({ chainId: chain.chainId, name: chain.name, isTestnet: chain.isTestnet, endpoint: `/v1/rpc/${chain.chainId}` }));
+        break;
+      case 'rpc://health':
+        contents = getEndpointHealth();
+        break;
+      case 'rpc://tiers':
+        contents = { FREE: { stake: 0, limit: 10 }, BASIC: { stake: 100, limit: 100 }, PRO: { stake: 1000, limit: 1000 }, UNLIMITED: { stake: 10000, limit: 'unlimited' } };
+        break;
+      default:
+        return c.json({ error: 'Resource not found' }, 404);
+    }
+
+    return c.json({ contents: [{ uri, mimeType: 'application/json', text: JSON.stringify(contents, null, 2) }] });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid request';
+    return c.json({ error: message }, 400);
   }
-
-  return c.json({ contents: [{ uri, mimeType: 'application/json', text: JSON.stringify(contents, null, 2) }] });
 });
 
 rpcApp.post('/mcp/tools/list', (c) => c.json({ tools: MCP_TOOLS }));
 
 rpcApp.post('/mcp/tools/call', async (c) => {
-  let body: { name: string; arguments: Record<string, unknown> };
-  try { body = await c.req.json(); } catch { return c.json({ error: 'Invalid JSON body' }, 400); }
-
-  const { name, arguments: args = {} } = body;
-  if (!name || typeof name !== 'string') return c.json({ error: 'Missing or invalid tool name' }, 400);
-
   let result: unknown;
   let isError = false;
+
+  try {
+    const validated = validateBody(z.object({ 
+      name: z.string().min(1),
+      arguments: z.record(z.string(), z.unknown()).optional().default({}),
+    }), await c.req.json(), 'MCP tool call');
+    const { name, arguments: args = {} } = validated;
 
   switch (name) {
     case 'list_chains': {
@@ -377,38 +411,68 @@ rpcApp.post('/mcp/tools/call', async (c) => {
       break;
     }
     case 'get_chain': {
-      const chainId = args.chainId as number;
-      if (typeof chainId !== 'number' || !isChainSupported(chainId)) { result = { error: `Unsupported chain: ${chainId}` }; isError = true; }
-      else result = getChain(chainId);
+      try {
+        const chainId = expectChainId(args.chainId as number, 'chainId');
+        if (!isChainSupported(chainId)) {
+          result = { error: `Unsupported chain: ${chainId}` };
+          isError = true;
+        } else {
+          result = getChain(chainId);
+        }
+      } catch {
+        result = { error: 'Invalid chain ID' };
+        isError = true;
+      }
       break;
     }
     case 'create_api_key': {
-      const address = args.address as string;
-      if (!address || !isAddress(address)) { result = { error: 'Invalid address' }; isError = true; break; }
-      const existingKeys = await getApiKeysForAddress(address as Address);
-      if (existingKeys.filter(k => k.isActive).length >= MAX_API_KEYS_PER_ADDRESS) { result = { error: `Maximum API keys reached (${MAX_API_KEYS_PER_ADDRESS})` }; isError = true; break; }
-      const keyName = ((args.name as string) || 'MCP Generated').slice(0, 100);
-      const { key, record } = await createApiKey(address as Address, keyName);
-      result = { key, id: record.id, tier: record.tier };
+      try {
+        const address = expectAddress(args.address, 'address');
+        const existingKeys = await getApiKeysForAddress(address);
+        if (existingKeys.filter(k => k.isActive).length >= MAX_API_KEYS_PER_ADDRESS) {
+          result = { error: `Maximum API keys reached (${MAX_API_KEYS_PER_ADDRESS})` };
+          isError = true;
+          break;
+        }
+        const keyName = ((args.name as string) || 'MCP Generated').slice(0, 100);
+        const { key, record } = await createApiKey(address, keyName);
+        result = { key, id: record.id, tier: record.tier };
+      } catch {
+        result = { error: 'Invalid address' };
+        isError = true;
+      }
       break;
     }
     case 'check_rate_limit': {
-      const address = args.address as string;
-      if (!address || !isAddress(address)) { result = { error: 'Invalid address' }; isError = true; break; }
-      const keys = await getApiKeysForAddress(address as Address);
-      result = { address, apiKeys: keys.length, tiers: RATE_LIMITS };
+      try {
+        const address = expectAddress(args.address, 'address');
+        const keys = await getApiKeysForAddress(address);
+        result = { address, apiKeys: keys.length, tiers: RATE_LIMITS };
+      } catch {
+        result = { error: 'Invalid address' };
+        isError = true;
+      }
       break;
     }
     case 'get_usage': {
-      const address = args.address as string;
-      if (!address || !isAddress(address)) { result = { error: 'Invalid address' }; isError = true; break; }
-      const keys = await getApiKeysForAddress(address as Address);
-      result = { address, apiKeys: keys.length, totalRequests: keys.reduce((sum, k) => sum + k.requestCount, 0) };
+      try {
+        const address = expectAddress(args.address, 'address');
+        const keys = await getApiKeysForAddress(address);
+        result = { address, apiKeys: keys.length, totalRequests: keys.reduce((sum, k) => sum + k.requestCount, 0) };
+      } catch {
+        result = { error: 'Invalid address' };
+        isError = true;
+      }
       break;
     }
     default:
       result = { error: 'Tool not found' };
       isError = true;
+  }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Tool execution failed';
+    result = { error: message };
+    isError = true;
   }
 
   return c.json({ content: [{ type: 'text', text: JSON.stringify(result, null, 2) }], isError });

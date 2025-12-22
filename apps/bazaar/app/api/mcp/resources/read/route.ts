@@ -3,48 +3,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getNetworkTokens, getLatestBlocks } from '@/lib/indexer-client';
-
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
-
-async function readResource(uri: string): Promise<unknown | null> {
-  switch (uri) {
-    case 'bazaar://tokens': {
-      const tokens = await getNetworkTokens({ limit: 50 });
-      return {
-        tokens: tokens.map((t) => ({
-          address: t.address,
-          creator: t.creator.address,
-          isERC20: t.isERC20,
-        })),
-      };
-    }
-
-    case 'bazaar://blocks': {
-      const blocks = await getLatestBlocks(10);
-      return {
-        blocks: blocks.map((b) => ({
-          number: b.number,
-          hash: b.hash,
-          timestamp: b.timestamp,
-        })),
-      };
-    }
-
-    case 'bazaar://pools':
-      return { pools: [], note: 'Query Uniswap V4 for pool data' };
-
-    case 'bazaar://nfts':
-      return { nfts: [], note: 'NFT indexing coming soon' };
-
-    default:
-      return null;
-  }
-}
+import { MCPResourceReadRequestSchema } from '@/schemas/api';
+import { expectValid, expectExists } from '@/lib/validation';
+import { CORS_HEADERS } from '@/lib/mcp/constants';
+import { readMCPResource } from '@/lib/mcp/resources';
 
 export async function OPTIONS() {
   return new NextResponse(null, { headers: CORS_HEADERS });
@@ -52,23 +14,10 @@ export async function OPTIONS() {
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { uri } = body;
+  const { uri } = expectValid(MCPResourceReadRequestSchema, body, 'MCP resource read request');
 
-  if (!uri) {
-    return NextResponse.json(
-      { error: { code: -32602, message: 'Missing required parameter: uri' } },
-      { status: 400, headers: CORS_HEADERS }
-    );
-  }
-
-  const contents = await readResource(uri);
-
-  if (contents === null) {
-    return NextResponse.json(
-      { error: `Resource not found: ${uri}` },
-      { status: 404, headers: CORS_HEADERS }
-    );
-  }
+  const contents = await readMCPResource(uri);
+  expectExists(contents, `Resource not found: ${uri}`);
 
   return NextResponse.json({
     contents: [{

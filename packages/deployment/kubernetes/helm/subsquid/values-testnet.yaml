@@ -71,14 +71,21 @@ postgres:
 
 ingress:
   enabled: true
+  className: alb
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:502713364895:certificate/34c89eb5-a94f-406a-be3c-c40008f4f693"
   hosts:
-    - host: indexer.testnet.jeju.network
+    - host: indexer.testnet.jejunetwork.org
       paths:
         - path: /
           pathType: Prefix
   tls:
     - secretName: subsquid-testnet-tls
       hosts:
-        - indexer.testnet.jeju.network
+        - indexer.testnet.jejunetwork.org
 
 

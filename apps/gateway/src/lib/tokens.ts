@@ -72,5 +72,8 @@ export function getPaymasterTokens(): ProtocolToken[] {
 
 export function hasBanEnforcement(symbol: string): boolean {
   const token = getProtocolTokens().find(t => t.symbol.toLowerCase() === symbol.toLowerCase());
-  return token?.hasBanEnforcement ?? false;
+  if (!token) {
+    throw new Error(`Token not found: ${symbol}`);
+  }
+  return token.hasBanEnforcement === true;
 }

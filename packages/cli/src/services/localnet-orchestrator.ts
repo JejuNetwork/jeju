@@ -8,12 +8,10 @@
  * - Health checks
  */
 
-import { execa } from 'execa';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { existsSync } from 'fs';
 import { join } from 'path';
 import { logger } from '../lib/logger';
 import { startLocalnet, stopLocalnet, bootstrapContracts, checkRpcHealth, loadPortsConfig } from '../lib/chain';
-import { DEFAULT_PORTS } from '../types';
 
 export interface LocalnetStatus {
   running: boolean;

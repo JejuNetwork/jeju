@@ -6,7 +6,9 @@
 import type { Address } from 'viem';
 
 export type WorkerRuntime = 'bun' | 'node' | 'deno';
-export type WorkerStatus = 'pending' | 'deploying' | 'active' | 'inactive' | 'error';
+// Re-export consolidated WorkerStatus
+import type { WorkerStatus } from '@jejunetwork/types';
+export type { WorkerStatus };
 export type InvocationType = 'sync' | 'async' | 'event';
 
 export interface WorkerFunction {

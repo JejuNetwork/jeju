@@ -5,21 +5,44 @@
 
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { serveStatic } from 'hono/serve-static';
 import { serve } from '@hono/node-server';
 import { getConfig } from './config';
-import { OttoAgent } from './agent';
+import { getOttoAgent } from './agent';
 import { chatApi } from './web/chat-api';
 import { frameApi } from './web/frame';
 import { miniappApi } from './web/miniapp';
 import { startLimitOrderMonitor, stopLimitOrderMonitor } from './eliza/runtime';
-import type { TelegramWebhookPayload, TwilioWebhookPayload, DiscordWebhookPayload, FarcasterFramePayload } from './types';
+import { z } from 'zod';
+import {
+  expectValid,
+  DiscordWebhookPayloadSchema,
+  TelegramWebhookPayloadSchema,
+  TwilioWebhookPayloadSchema,
+  FarcasterFramePayloadSchema,
+  TwitterWebhookPayloadSchema,
+} from './schemas';
+import {
+  createHealthResponse,
+  createStatusResponse,
+  createChainsResponse,
+  createInfoResponse,
+} from './utils/response';
+import {
+  handleDiscordWebhook,
+  handleTelegramWebhook,
+  handleWhatsAppWebhook,
+  handleFarcasterWebhook,
+  handleTwitterWebhook,
+  generateTwitterCrcResponse,
+} from './hooks/useWebhook';
+import { validateCrcToken, validateAddress, validateHex, validatePlatform, validateNonce } from './utils/validation';
+import { createErrorHtml, createWalletConnectedHtml } from './utils/html';
 
 const app = new Hono();
 const config = getConfig();
 
 // Initialize agent
-const agent = new OttoAgent();
+const agent = getOttoAgent();
 
 // Middleware
 app.use('/*', cors({
@@ -34,42 +57,14 @@ app.use('/*', cors({
 
 app.get('/health', (c) => {
   const status = agent.getStatus();
-  return c.json({
-    status: 'healthy',
-    agent: 'otto',
-    version: '1.0.0',
-    platforms: status,
-  });
+  const response = createHealthResponse(status);
+  return c.json(response);
 });
 
 app.get('/status', (c) => {
   const status = agent.getStatus();
-  return c.json({
-    name: 'Otto Trading Agent',
-    version: '1.0.0',
-    platforms: {
-      discord: {
-        enabled: config.discord.enabled,
-        ready: status.ready.includes('discord'),
-      },
-      telegram: {
-        enabled: config.telegram.enabled,
-        ready: status.ready.includes('telegram'),
-      },
-      whatsapp: {
-        enabled: config.whatsapp.enabled,
-        ready: status.ready.includes('whatsapp'),
-      },
-      farcaster: {
-        enabled: config.farcaster.enabled,
-        ready: status.ready.includes('farcaster'),
-      },
-    },
-    ai: {
-      enabled: config.ai.enabled,
-    },
-    chains: config.trading.supportedChains,
-  });
+  const response = createStatusResponse(config, status);
+  return c.json(response);
 });
 
 // ============================================================================
@@ -78,7 +73,8 @@ app.get('/status', (c) => {
 
 // Discord webhook (for interactions API)
 app.post('/webhooks/discord', async (c) => {
-  const payload = await c.req.json() as DiscordWebhookPayload;
+  const rawPayload = await c.req.json();
+  const payload = expectValid(DiscordWebhookPayloadSchema, rawPayload, 'Discord webhook');
   
   // Discord requires immediate response for interaction verification
   if (payload.type === 1) {
@@ -87,8 +83,9 @@ app.post('/webhooks/discord', async (c) => {
   }
   
   // Handle interaction asynchronously
-  agent.handleDiscordWebhook(payload).catch(err => {
-    console.error('[Otto] Discord webhook error:', err);
+  handleDiscordWebhook(payload).catch((err: Error) => {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error('[Otto] Discord webhook error:', errorMessage);
   });
   
   // Acknowledge receipt
@@ -100,16 +97,18 @@ app.post('/webhooks/telegram', async (c) => {
   // Verify secret token if configured
   if (config.telegram.webhookSecret) {
     const secretToken = c.req.header('X-Telegram-Bot-Api-Secret-Token');
-    if (secretToken !== config.telegram.webhookSecret) {
+    if (!secretToken || secretToken !== config.telegram.webhookSecret) {
       return c.json({ error: 'Invalid secret token' }, 403);
     }
   }
   
-  const payload = await c.req.json() as TelegramWebhookPayload;
+  const rawPayload = await c.req.json();
+  const payload = expectValid(TelegramWebhookPayloadSchema, rawPayload, 'Telegram webhook');
   
   // Handle update asynchronously
-  agent.handleTelegramWebhook(payload).catch(err => {
-    console.error('[Otto] Telegram webhook error:', err);
+  handleTelegramWebhook(payload).catch((err: Error) => {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error('[Otto] Telegram webhook error:', errorMessage);
   });
   
   return c.json({ ok: true });
@@ -120,7 +119,7 @@ app.post('/webhooks/whatsapp', async (c) => {
   // Parse form data (Twilio sends as application/x-www-form-urlencoded)
   const formData = await c.req.parseBody();
   
-  const payload: TwilioWebhookPayload = {
+  const rawPayload = {
     MessageSid: String(formData['MessageSid'] ?? ''),
     From: String(formData['From'] ?? ''),
     To: String(formData['To'] ?? ''),
@@ -129,9 +128,12 @@ app.post('/webhooks/whatsapp', async (c) => {
     MediaUrl0: formData['MediaUrl0'] ? String(formData['MediaUrl0']) : undefined,
   };
   
+  const payload = expectValid(TwilioWebhookPayloadSchema, rawPayload, 'WhatsApp webhook');
+  
   // Handle message asynchronously
-  agent.handleWhatsAppWebhook(payload).catch(err => {
-    console.error('[Otto] WhatsApp webhook error:', err);
+  handleWhatsAppWebhook(payload).catch((err: Error) => {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error('[Otto] WhatsApp webhook error:', errorMessage);
   });
   
   // Return empty TwiML response
@@ -147,7 +149,8 @@ app.get('/webhooks/whatsapp', (c) => {
 
 // Farcaster Frame webhook
 app.post('/webhooks/farcaster', async (c) => {
-  const payload = await c.req.json() as FarcasterFramePayload;
+  const rawPayload = await c.req.json();
+  const payload = expectValid(FarcasterFramePayloadSchema, rawPayload, 'Farcaster webhook');
   
   // Validate frame message
   const adapter = agent.getFarcasterAdapter();
@@ -161,8 +164,9 @@ app.post('/webhooks/farcaster', async (c) => {
   }
   
   // Handle frame interaction
-  agent.handleFarcasterWebhook(payload).catch(err => {
-    console.error('[Otto] Farcaster webhook error:', err);
+  handleFarcasterWebhook(payload).catch((err: Error) => {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error('[Otto] Farcaster webhook error:', errorMessage);
   });
   
   return c.json({ ok: true });
@@ -170,32 +174,33 @@ app.post('/webhooks/farcaster', async (c) => {
 
 // Twitter webhook (Account Activity API)
 app.post('/webhooks/twitter', async (c) => {
-  const payload = await c.req.json();
+  const rawPayload = await c.req.json();
+  const payload = expectValid(TwitterWebhookPayloadSchema, rawPayload, 'Twitter webhook');
   
-  // Forward to Twitter adapter
-  const adapter = agent.platformManager.getAdapter('twitter');
-  if (adapter && 'handleWebhook' in adapter) {
-    (adapter as { handleWebhook: (p: unknown) => Promise<void> }).handleWebhook(payload).catch(err => {
-      console.error('[Otto] Twitter webhook error:', err);
-    });
-  }
+  // Handle webhook asynchronously
+  handleTwitterWebhook(payload).catch((err: Error) => {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error('[Otto] Twitter webhook error:', errorMessage);
+  });
   
   return c.json({ ok: true });
 });
 
 // Twitter webhook verification (CRC challenge)
 app.get('/webhooks/twitter', async (c) => {
-  const crcToken = c.req.query('crc_token');
-  if (!crcToken) {
+  const crcTokenParam = c.req.query('crc_token');
+  if (!crcTokenParam) {
     return c.text('Missing crc_token', 400);
   }
   
-  // Generate CRC response (would need TWITTER_API_SECRET)
-  const crypto = await import('crypto');
+  const crcToken = validateCrcToken(crcTokenParam);
   const apiSecret = process.env.TWITTER_API_SECRET ?? '';
-  const hmac = crypto.createHmac('sha256', apiSecret);
-  hmac.update(crcToken);
-  const responseToken = 'sha256=' + hmac.digest('base64');
+  
+  if (!apiSecret) {
+    throw new Error('TWITTER_API_SECRET is required for CRC verification');
+  }
+  
+  const responseToken = await generateTwitterCrcResponse(crcToken, apiSecret);
   
   return c.json({ response_token: responseToken });
 });
@@ -230,43 +235,14 @@ app.get('/', (c) => c.redirect('/miniapp'));
 
 // Get supported chains
 app.get('/api/chains', (c) => {
-  return c.json({
-    chains: config.trading.supportedChains,
-    defaultChainId: config.trading.defaultChainId,
-  });
+  const response = createChainsResponse(config);
+  return c.json(response);
 });
 
 // Get agent info
 app.get('/api/info', (c) => {
-  return c.json({
-    name: 'Otto',
-    description: 'Decentralized multi-platform AI trading agent',
-    version: '1.0.0',
-    platforms: ['discord', 'telegram', 'whatsapp', 'farcaster', 'web'],
-    features: [
-      'swap',
-      'bridge',
-      'send',
-      'launch',
-      'portfolio',
-      'limit-orders',
-      'cross-chain',
-    ],
-    miniapps: {
-      telegram: `${config.baseUrl}/miniapp/telegram`,
-      farcaster: `${config.baseUrl}/miniapp/farcaster`,
-      web: `${config.baseUrl}/miniapp/`,
-    },
-    frame: `${config.baseUrl}/frame`,
-    links: {
-      discord: config.discord.applicationId 
-        ? `https://discord.com/api/oauth2/authorize?client_id=${config.discord.applicationId}&permissions=2147485696&scope=bot%20applications.commands`
-        : null,
-      telegram: config.telegram.token
-        ? `https://t.me/${config.telegram.token.split(':')[0]}`
-        : null,
-    },
-  });
+  const response = createInfoResponse(config);
+  return c.json(response);
 });
 
 // ============================================================================
@@ -277,34 +253,19 @@ app.get('/auth/callback', async (c) => {
   const { address, signature, platform, platformId, nonce } = c.req.query();
   
   if (!address || !signature || !platform || !platformId || !nonce) {
-    return c.html(`
-      <html>
-        <body style="font-family: system-ui; padding: 2rem; text-align: center; background: #1a1a2e; color: #fff;">
-          <h1>Connection Failed</h1>
-          <p>Missing required parameters.</p>
-        </body>
-      </html>
-    `);
+    return c.html(createErrorHtml('Connection Failed', 'Missing required parameters.'));
   }
   
-  // This would be handled by the wallet service
-  // For now, just show success
-  return c.html(`
-    <html>
-      <body style="font-family: system-ui; padding: 2rem; text-align: center; background: #1a1a2e; color: #fff;">
-        <h1>✅ Wallet Connected</h1>
-        <p>Your wallet has been connected to Otto.</p>
-        <p>You can now close this window and return to ${platform}.</p>
-        <script>
-          // Try to close window or redirect
-          if (window.opener) {
-            window.opener.postMessage({ type: 'wallet_connected', address: '${address}' }, '*');
-          }
-          setTimeout(() => window.close(), 2000);
-        </script>
-      </body>
-    </html>
-  `);
+  // Validate parameters with fail-fast
+  validateAddress(address);
+  validateHex(signature);
+  validatePlatform(platform);
+  expectValid(z.string().min(1), platformId, 'auth callback platformId');
+  validateNonce(nonce);
+  
+  // Note: Actual wallet connection happens in /api/chat/auth/verify
+  // This route just shows the success page
+  return c.html(createWalletConnectedHtml(address, platform));
 });
 
 // Wallet connect page
@@ -400,7 +361,8 @@ app.get('/auth/connect', (c) => {
                 location.href = '/auth/callback?address=' + address + '&platform=web&platformId=' + address + '&nonce=' + nonce + '&signature=' + signature;
               }
             } catch (err) {
-              console.error(err);
+              const errorMessage = err instanceof Error ? err.message : String(err);
+              console.error('Connection error:', errorMessage);
               alert('Connection failed');
             }
           }
@@ -496,7 +458,8 @@ process.on('SIGTERM', async () => {
 });
 
 // Run
-main().catch(err => {
-  console.error('[Otto] Fatal error:', err);
+main().catch((err: Error) => {
+  const errorMessage = err instanceof Error ? err.message : String(err);
+  console.error('[Otto] Fatal error:', errorMessage);
   process.exit(1);
 });

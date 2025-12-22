@@ -6,6 +6,20 @@
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { validateBody, expect } from '@/lib/validation';
+import { 
+  mcpResourceReadSchema, 
+  mcpToolCallSchema, 
+  mcpPromptGetSchema 
+} from '@/lib/validation/protocols';
+import {
+  createRepositorySchema,
+  createIssueSchema,
+  createPullRequestSchema,
+  createBountySchema,
+  createCIRunSchema,
+  createAgentSchema
+} from '@/lib/validation/schemas';
 
 const SERVER_INFO = {
   name: 'jeju-factory',
@@ -14,6 +28,7 @@ const SERVER_INFO = {
   capabilities: { resources: true, tools: true, prompts: true },
 };
 
+// ... (keep RESOURCES constant) ...
 // ============ RESOURCES ============
 const RESOURCES = [
   // Git Resources
@@ -47,6 +62,7 @@ const RESOURCES = [
   { uri: 'factory://agents', name: 'Agents', description: 'Deployed AI agents', mimeType: 'application/json' },
 ];
 
+// ... (keep TOOLS constant) ...
 // ============ TOOLS ============
 const TOOLS = [
   // Git Tools
@@ -312,6 +328,7 @@ const TOOLS = [
   },
 ];
 
+// ... (keep PROMPTS constant) ...
 // ============ PROMPTS ============
 const PROMPTS = [
   {
@@ -342,45 +359,54 @@ const PROMPTS = [
 
 // ============ HANDLERS ============
 export async function handleMCPRequest(request: NextRequest, endpoint: string): Promise<NextResponse> {
-  switch (endpoint) {
-    case 'initialize':
-      return NextResponse.json({
-        protocolVersion: '2024-11-05',
-        serverInfo: SERVER_INFO,
-        capabilities: SERVER_INFO.capabilities,
-      });
+  try {
+    switch (endpoint) {
+      case 'initialize':
+        return NextResponse.json({
+          protocolVersion: '2024-11-05',
+          serverInfo: SERVER_INFO,
+          capabilities: SERVER_INFO.capabilities,
+        });
 
-    case 'resources/list':
-      return NextResponse.json({ resources: RESOURCES });
+      case 'resources/list':
+        return NextResponse.json({ resources: RESOURCES });
 
-    case 'resources/read': {
-      const body = await request.json() as { uri: string };
-      return handleResourceRead(body.uri);
+      case 'resources/read': {
+        const body = await validateBody(mcpResourceReadSchema, await request.json());
+        return handleResourceRead(body.uri);
+      }
+
+      case 'tools/list':
+        return NextResponse.json({ tools: TOOLS });
+
+      case 'tools/call': {
+        const body = await validateBody(mcpToolCallSchema, await request.json());
+        return handleToolCall(body.name, body.arguments);
+      }
+
+      case 'prompts/list':
+        return NextResponse.json({ prompts: PROMPTS });
+
+      case 'prompts/get': {
+        const body = await validateBody(mcpPromptGetSchema, await request.json());
+        return handlePromptGet(body.name, body.arguments);
+      }
+
+      default:
+        return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
-
-    case 'tools/list':
-      return NextResponse.json({ tools: TOOLS });
-
-    case 'tools/call': {
-      const body = await request.json() as { name: string; arguments: Record<string, unknown> };
-      return handleToolCall(body.name, body.arguments);
-    }
-
-    case 'prompts/list':
-      return NextResponse.json({ prompts: PROMPTS });
-
-    case 'prompts/get': {
-      const body = await request.json() as { name: string; arguments: Record<string, string> };
-      return handlePromptGet(body.name, body.arguments);
-    }
-
-    default:
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  } catch (error) {
+    return NextResponse.json({ 
+      error: { 
+        code: -32603, 
+        message: error instanceof Error ? error.message : 'Internal error' 
+      } 
+    }, { status: 500 });
   }
 }
 
 async function handleResourceRead(uri: string): Promise<NextResponse> {
-  let contents: unknown;
+  let contents: Record<string, unknown>;
 
   switch (uri) {
     case 'factory://git/repos':
@@ -442,98 +468,129 @@ async function handleResourceRead(uri: string): Promise<NextResponse> {
 }
 
 async function handleToolCall(name: string, args: Record<string, unknown>): Promise<NextResponse> {
-  let result: unknown;
+  let result: Record<string, unknown>;
   let isError = false;
 
-  switch (name) {
-    case 'create_repository':
-      result = {
-        id: `repo-${Date.now()}`,
-        name: args.name,
-        url: `https://git.jejunetwork.org/${args.name}`,
-        cloneUrl: `https://git.jejunetwork.org/${args.name}.git`,
-        sshUrl: `git@git.jejunetwork.org:${args.name}.git`,
-      };
-      break;
+  try {
+    switch (name) {
+      case 'create_repository': {
+        const validated = createRepositorySchema.parse(args);
+        result = {
+          id: `repo-${Date.now()}`,
+          name: validated.name,
+          url: `https://git.jejunetwork.org/${validated.name}`,
+          cloneUrl: `https://git.jejunetwork.org/${validated.name}.git`,
+          sshUrl: `git@git.jejunetwork.org:${validated.name}.git`,
+        };
+        break;
+      }
 
-    case 'create_issue':
-      result = {
-        number: Math.floor(Math.random() * 1000),
-        title: args.title,
-        url: `https://factory.jejunetwork.org/git/${args.repo}/issues/${Math.floor(Math.random() * 1000)}`,
-      };
-      break;
+      case 'create_issue': {
+        const validated = createIssueSchema.parse(args);
+        result = {
+          number: Math.floor(Math.random() * 1000),
+          title: validated.title,
+          url: `https://factory.jejunetwork.org/git/${validated.repo}/issues/${Math.floor(Math.random() * 1000)}`,
+        };
+        break;
+      }
 
-    case 'search_packages':
-      result = {
-        packages: [
-          { name: '@jeju/sdk', version: '1.5.2', description: 'Jeju Network SDK' },
-        ],
-        total: 1,
-      };
-      break;
+      case 'create_pull_request': {
+        const validated = createPullRequestSchema.parse(args);
+        result = {
+          number: Math.floor(Math.random() * 1000),
+          title: validated.title,
+          url: `https://factory.jejunetwork.org/git/${validated.repo}/pulls/${Math.floor(Math.random() * 1000)}`,
+        };
+        break;
+      }
 
-    case 'get_model':
-      result = {
-        id: args.modelId,
-        name: 'Llama 3 Jeju Fine-tuned',
-        type: 'llm',
-        downloads: 15000,
-        size: '4.2GB',
-        license: 'MIT',
-      };
-      break;
+      case 'search_packages':
+        result = {
+          packages: [
+            { name: '@jeju/sdk', version: '1.5.2', description: 'Jeju Network SDK' },
+          ],
+          total: 1,
+        };
+        break;
 
-    case 'download_model':
-      result = {
-        modelId: args.modelId,
-        instructions: `# Download with Jeju Hub CLI
-jeju-hub download ${args.modelId} --format=${args.format || 'safetensors'}
+      case 'get_model': {
+        const modelId = expect(args.modelId as string, 'modelId required');
+        result = {
+          id: modelId,
+          name: 'Llama 3 Jeju Fine-tuned',
+          type: 'llm',
+          downloads: 15000,
+          size: '4.2GB',
+          license: 'MIT',
+        };
+        break;
+      }
 
-# Or use Python
-from jeju_hub import snapshot_download
-snapshot_download("${args.modelId}")`,
-      };
-      break;
+      case 'download_model': {
+        const modelId = expect(args.modelId as string, 'modelId required');
+        const format = args.format as string || 'safetensors';
+        result = {
+          modelId,
+          instructions: `# Download with Jeju Hub CLI
+  jeju-hub download ${modelId} --format=${format}
 
-    case 'list_bounties':
-      result = {
-        bounties: [
-          { id: '1', title: 'Implement ERC-4337', reward: '5000', currency: 'USDC', status: 'open' },
-        ],
-      };
-      break;
+  # Or use Python
+  from jeju_hub import snapshot_download
+  snapshot_download("${modelId}")`,
+        };
+        break;
+      }
 
-    case 'create_bounty':
-      result = {
-        id: `bounty-${Date.now()}`,
-        title: args.title,
-        reward: args.reward,
-        status: 'open',
-        url: `https://factory.jejunetwork.org/bounties/${Date.now()}`,
-      };
-      break;
+      case 'list_bounties':
+        result = {
+          bounties: [
+            { id: '1', title: 'Implement ERC-4337', reward: '5000', currency: 'USDC', status: 'open' },
+          ],
+        };
+        break;
 
-    case 'trigger_workflow':
-      result = {
-        runId: `run-${Date.now()}`,
-        status: 'queued',
-        url: `https://factory.jejunetwork.org/ci/runs/${Date.now()}`,
-      };
-      break;
+      case 'create_bounty': {
+        const validated = createBountySchema.parse(args);
+        result = {
+          id: `bounty-${Date.now()}`,
+          title: validated.title,
+          reward: validated.reward,
+          status: 'open',
+          url: `https://factory.jejunetwork.org/bounties/${Date.now()}`,
+        };
+        break;
+      }
 
-    case 'deploy_agent':
-      result = {
-        agentId: `agent-${Date.now()}`,
-        name: args.name,
-        status: 'deploying',
-        url: `https://factory.jejunetwork.org/agents/${Date.now()}`,
-      };
-      break;
+      case 'trigger_workflow': {
+        const validated = createCIRunSchema.parse(args);
+        result = {
+          runId: `run-${Date.now()}`,
+          workflow: validated.workflow,
+          status: 'queued',
+          url: `https://factory.jejunetwork.org/ci/runs/${Date.now()}`,
+        };
+        break;
+      }
 
-    default:
-      result = { error: 'Tool not found' };
-      isError = true;
+      case 'deploy_agent': {
+        const validated = createAgentSchema.parse(args);
+        result = {
+          agentId: `agent-${Date.now()}`,
+          name: validated.name,
+          status: 'deploying',
+          url: `https://factory.jejunetwork.org/agents/${Date.now()}`,
+        };
+        break;
+      }
+
+      default:
+        result = { error: 'Tool not found' };
+        isError = true;
+    }
+  } catch (error) {
+    result = { error: error instanceof Error ? error.message : 'Tool execution failed' };
+    isError = true;
   }
 
   return NextResponse.json({
@@ -547,12 +604,15 @@ async function handlePromptGet(name: string, args: Record<string, string>): Prom
 
   switch (name) {
     case 'code_review':
+      const repo = expect(args.repo, 'repo required');
+      const prNumber = expect(args.prNumber, 'prNumber required');
+      
       messages = [
         {
           role: 'user',
           content: {
             type: 'text',
-            text: `Please review the pull request #${args.prNumber} in ${args.repo}. 
+            text: `Please review the pull request #${prNumber} in ${repo}. 
             
 Focus on:
 1. Code quality and best practices
@@ -568,14 +628,17 @@ Provide specific, actionable feedback.`,
       break;
 
     case 'bounty_proposal':
+      const title = expect(args.title, 'title required');
+      const skills = expect(args.skills, 'skills required');
+
       messages = [
         {
           role: 'user',
           content: {
             type: 'text',
-            text: `Create a detailed bounty proposal for: ${args.title}
+            text: `Create a detailed bounty proposal for: ${title}
 
-Required skills: ${args.skills}
+Required skills: ${skills}
 
 Include:
 1. Clear problem statement
@@ -606,4 +669,5 @@ export function handleMCPInfo(): NextResponse {
     capabilities: SERVER_INFO.capabilities,
   });
 }
+
 

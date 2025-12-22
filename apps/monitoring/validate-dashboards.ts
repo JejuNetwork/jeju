@@ -7,6 +7,12 @@
 import { Pool, PoolClient, QueryResult } from 'pg';
 import { readdir, readFile } from 'fs/promises';
 import { join } from 'path';
+import {
+  GrafanaDashboardSchema,
+  PrometheusQueryResponseSchema,
+  type GrafanaDashboard,
+  type ValidationResult,
+} from './types';
 
 const pool = new Pool({
   host: 'localhost',
@@ -18,37 +24,6 @@ const pool = new Pool({
 
 const GRAFANA_URL = 'http://localhost:4010';
 const GRAFANA_AUTH = 'Basic ' + Buffer.from('admin:admin').toString('base64');
-
-interface ValidationResult {
-  dashboard: string;
-  passed: number;
-  failed: number;
-  errors: string[];
-  queries: { query: string; result: string }[];
-}
-
-interface DashboardTarget {
-  rawSql?: string;
-  expr?: string;
-}
-
-interface DashboardPanel {
-  id: number;
-  title?: string;
-  targets?: DashboardTarget[];
-}
-
-interface Dashboard {
-  title?: string;
-  uid?: string;
-  panels?: DashboardPanel[];
-}
-
-interface PrometheusQueryResponse {
-  data?: {
-    result?: Array<{ value: [number, string] }>;
-  };
-}
 
 async function testDatabaseQuery(query: string): Promise<{ success: boolean; error?: string; rowCount?: number }> {
   const client: PoolClient = await pool.connect();
@@ -81,7 +56,7 @@ async function validateDashboards(): Promise<void> {
   for (const file of dashboardFiles) {
     console.log(`\n📊 Testing ${file}...`);
     const content = await readFile(join(dashboardsDir, file), 'utf-8');
-    const dashboard = JSON.parse(content) as Dashboard;
+    const dashboard = GrafanaDashboardSchema.parse(JSON.parse(content));
 
     const result: ValidationResult = {
       dashboard: dashboard.title || file,
@@ -181,9 +156,14 @@ async function validateDashboards(): Promise<void> {
   console.log('🔥 Testing Prometheus...');
   const response = await fetch(`${GRAFANA_URL.replace('4010', '9090')}/api/v1/query?query=up`).catch(() => null);
   if (response?.ok) {
-    const data = await response.json() as PrometheusQueryResponse;
-    const upCount = data.data?.result?.filter((r) => r.value[1] === '1').length || 0;
-    console.log(`✅ Prometheus responding: ${upCount} services up`);
+    const rawData = await response.json();
+    const parsed = PrometheusQueryResponseSchema.safeParse(rawData);
+    if (parsed.success) {
+      const upCount = parsed.data.data?.result?.filter((r) => r.value[1] === '1').length || 0;
+      console.log(`✅ Prometheus responding: ${upCount} services up`);
+    } else {
+      console.log(`⚠️ Prometheus response invalid: ${parsed.error.message}`);
+    }
   } else {
     console.log(`❌ Prometheus unreachable`);
   }

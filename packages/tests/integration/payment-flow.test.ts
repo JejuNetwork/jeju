@@ -223,7 +223,7 @@ describe.skipIf(!localnetAvailable)('Payment Flow Integration', () => {
       args: [TEST_CONFIG.testAccount.address, 'chat-completion']
     });
 
-    const [totalSpent, requestCount, lastUsedBlock, volumeDiscount] = usage;
+    const [totalSpent, requestCount, _lastUsedBlock, volumeDiscount] = usage;
 
     console.log(`User stats:`);
     console.log(`  Total spent: ${formatUnits(totalSpent, 18)} elizaOS`);

@@ -8,6 +8,8 @@
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi'
 import { useState, useCallback, useEffect } from 'react'
 import { parseEther, type Address } from 'viem'
+import { AddressSchema } from '@jejunetwork/types/contracts'
+import { expect, expectPositive } from '@/lib/validation'
 
 // Re-export shared types and utilities
 export {
@@ -152,10 +154,10 @@ export function useCrossChainSwap(paymasterAddress: Address | undefined) {
   }, [isPending, isConfirming, isSuccess])
 
   const executeCrossChainSwap = useCallback(async (params: CrossChainSwapParams) => {
-    if (!paymasterAddress || !userAddress) {
-      setError('Wallet not connected or EIL not configured')
-      return
-    }
+    const validatedPaymasterAddress = expect(paymasterAddress, 'EIL paymaster not configured');
+    const validatedUserAddress = expect(userAddress, 'Wallet not connected');
+    AddressSchema.parse(validatedPaymasterAddress);
+    AddressSchema.parse(validatedUserAddress);
 
     setSwapStatus('creating')
     setError(null)
@@ -167,8 +169,12 @@ export function useCrossChainSwap(paymasterAddress: Address | undefined) {
     const isETH = params.sourceToken === '0x0000000000000000000000000000000000000000'
     const txValue = isETH ? params.amount + maxFee : maxFee
 
+    AddressSchema.parse(params.sourceToken);
+    AddressSchema.parse(params.destinationToken);
+    expectPositive(params.amount, 'Amount must be positive');
+    
     writeContract({
-      address: paymasterAddress,
+      address: validatedPaymasterAddress,
       abi: CROSS_CHAIN_PAYMASTER_ABI,
       functionName: 'createVoucherRequest',
       args: [
@@ -176,7 +182,7 @@ export function useCrossChainSwap(paymasterAddress: Address | undefined) {
         params.amount,
         params.destinationToken,
         BigInt(params.destinationChainId),
-        params.recipient || userAddress,
+        params.recipient || validatedUserAddress,
         gasOnDestination,
         maxFee,
         feeIncrement
@@ -267,7 +273,7 @@ export function useAppPreference(preferenceAddress: Address | undefined, appAddr
 
   return {
     preference,
-    fallbackTokens: (fallbackTokens || []) as Address[],
+    fallbackTokens: (fallbackTokens ?? []) as Address[],
   }
 }
 

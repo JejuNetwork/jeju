@@ -23,41 +23,34 @@ export async function verifyAddressCanLink(
   address: Address,
   client: FarcasterClient = new FarcasterClient()
 ): Promise<LinkVerificationResult> {
-  try {
-    const profile = await client.getProfile(fid);
+  const profile = await client.getProfile(fid);
 
-    // Check if address is custody address
-    if (profile.custodyAddress.toLowerCase() === address.toLowerCase()) {
-      return {
-        valid: true,
-        fid,
-        linkedAddress: profile.custodyAddress,
-      };
-    }
-
-    // Check if address is a verified address
-    const isVerified = profile.verifiedAddresses.some(
-      (v) => v.toLowerCase() === address.toLowerCase()
-    );
-
-    if (isVerified) {
-      return {
-        valid: true,
-        fid,
-        linkedAddress: address,
-      };
-    }
-
+  // Check if address is custody address
+  if (profile.custodyAddress.toLowerCase() === address.toLowerCase()) {
     return {
-      valid: false,
-      error: 'Address not associated with this FID',
-    };
-  } catch (error) {
-    return {
-      valid: false,
-      error: `Failed to verify: ${(error as Error).message}`,
+      valid: true,
+      fid,
+      linkedAddress: profile.custodyAddress,
     };
   }
+
+  // Check if address is a verified address
+  const isVerified = profile.verifiedAddresses.some(
+    (v) => v.toLowerCase() === address.toLowerCase()
+  );
+
+  if (isVerified) {
+    return {
+      valid: true,
+      fid,
+      linkedAddress: address,
+    };
+  }
+
+  return {
+    valid: false,
+    error: 'Address not associated with this FID',
+  };
 }
 
 export async function lookupFidByAddress(
@@ -65,7 +58,10 @@ export async function lookupFidByAddress(
   client: FarcasterClient = new FarcasterClient()
 ): Promise<number | null> {
   const profile = await client.getProfileByVerifiedAddress(address);
-  return profile?.fid ?? null;
+  if (profile === null) {
+    return null;
+  }
+  return profile.fid;
 }
 
 export function generateLinkProofMessage(params: {
@@ -86,40 +82,41 @@ export function generateLinkProofMessage(params: {
   ].join('\n');
 }
 
-export function parseLinkProofMessage(message: string): {
+export interface ParsedLinkProof {
   fid: number;
   jejuAddress: Address;
   timestamp: number;
   domain: string;
-} | null {
-  try {
-    const lines = message.split('\n');
-    
-    const domainMatch = lines[0].match(/^(.+) wants to link/);
-    const domain = domainMatch?.[1] || '';
-    
-    let fid = 0;
-    let jejuAddress: Address = '0x0' as Address;
-    let timestamp = 0;
+}
 
-    for (const line of lines) {
-      if (line.startsWith('Farcaster ID: ')) {
-        fid = parseInt(line.slice(14), 10);
-      } else if (line.startsWith('Jeju Address: ')) {
-        jejuAddress = line.slice(14) as Address;
-      } else if (line.startsWith('Timestamp: ')) {
-        timestamp = parseInt(line.slice(11), 10);
-      }
-    }
+export function parseLinkProofMessage(message: string): ParsedLinkProof | null {
+  const lines = message.split('\n');
 
-    if (!fid || !jejuAddress || !timestamp) {
-      return null;
-    }
-
-    return { fid, jejuAddress, timestamp, domain };
-  } catch {
+  const domainMatch = lines[0]?.match(/^(.+) wants to link/);
+  if (!domainMatch) {
     return null;
   }
+  const domain = domainMatch[1];
+
+  let fid: number | undefined;
+  let jejuAddress: Address | undefined;
+  let timestamp: number | undefined;
+
+  for (const line of lines) {
+    if (line.startsWith('Farcaster ID: ')) {
+      fid = parseInt(line.slice(14), 10);
+    } else if (line.startsWith('Jeju Address: ')) {
+      jejuAddress = line.slice(14) as Address;
+    } else if (line.startsWith('Timestamp: ')) {
+      timestamp = parseInt(line.slice(11), 10);
+    }
+  }
+
+  if (fid === undefined || jejuAddress === undefined || timestamp === undefined) {
+    return null;
+  }
+
+  return { fid, jejuAddress, timestamp, domain };
 }
 
 export async function verifyLinkProof(
@@ -149,42 +146,34 @@ export async function verifyLinkProof(
   const profile = await client.getProfile(expectedFid);
 
   // Try custody address first
-  try {
-    const isValidCustody = await verifyMessage({
-      address: profile.custodyAddress,
+  const isValidCustody = await verifyMessage({
+    address: profile.custodyAddress,
+    message,
+    signature,
+  });
+
+  if (isValidCustody) {
+    return {
+      valid: true,
+      fid: expectedFid,
+      linkedAddress: parsed.jejuAddress,
+    };
+  }
+
+  // Try verified addresses
+  for (const verifiedAddr of profile.verifiedAddresses) {
+    const isValid = await verifyMessage({
+      address: verifiedAddr,
       message,
       signature,
     });
 
-    if (isValidCustody) {
+    if (isValid) {
       return {
         valid: true,
         fid: expectedFid,
         linkedAddress: parsed.jejuAddress,
       };
-    }
-  } catch {
-    // Continue to try verified addresses
-  }
-
-  // Try verified addresses
-  for (const verifiedAddr of profile.verifiedAddresses) {
-    try {
-      const isValid = await verifyMessage({
-        address: verifiedAddr,
-        message,
-        signature,
-      });
-
-      if (isValid) {
-        return {
-          valid: true,
-          fid: expectedFid,
-          linkedAddress: parsed.jejuAddress,
-        };
-      }
-    } catch {
-      // Continue
     }
   }
 

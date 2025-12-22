@@ -9,11 +9,10 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { html } from 'hono/html';
 import { generateCallbackHtml } from './callback-handler.js';
-import { DstackAuthAgent } from '../tee/dstack-agent.js';
 import { FROSTCoordinator } from '../mpc/frost-signing.js';
 import { VerifiableCredentialIssuer } from '../credentials/verifiable-credentials.js';
 import { createMultiTenantCouncilManager } from '../council/multi-tenant.js';
-import { keccak256, toBytes, toHex, type Address, type Hex } from 'viem';
+import { keccak256, toBytes, type Address } from 'viem';
 import { generatePrivateKey } from 'viem/accounts';
 import { AuthProvider } from '../types.js';
 
@@ -303,7 +302,7 @@ app.get('/callback', (c) => {
 });
 
 app.post('/api/auth/wallet', async (c) => {
-  const { address, signature, message } = await c.req.json() as {
+  const { address } = await c.req.json() as {
     address: string;
     signature: string;
     message: string;

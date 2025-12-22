@@ -230,24 +230,24 @@ export async function executeInSandbox(
 
   // Execute via DWS compute (decentralized container execution)
   const dwsEndpoint = getDWSEndpoint();
-  const response = await fetch(`${dwsEndpoint}/api/containers/execute`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      imageRef: config.imageRef,
-      command: config.command,
-      env: config.env,
-      resources: config.resources,
-      mode: 'serverless',
-      timeout: config.timeout,
-      // Security options would be passed to container runtime
-    }),
-  }).catch((err) => {
-    console.error(`[Sandbox] DWS request failed:`, err);
-    return null;
-  });
-
-  if (!response?.ok) {
+  let response: Response;
+  try {
+    response = await fetch(`${dwsEndpoint}/api/containers/execute`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        imageRef: config.imageRef,
+        command: config.command,
+        env: config.env,
+        resources: config.resources,
+        mode: 'serverless',
+        timeout: config.timeout,
+        // Security options would be passed to container runtime
+      }),
+    });
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error(`[Sandbox] DWS request failed:`, errorMessage);
     job.status = 'failed';
     job.completedAt = Date.now();
     job.result = {
@@ -256,7 +256,26 @@ export async function executeInSandbox(
       exploitTriggered: false,
       exploitDetails: '',
       stdout: '',
-      stderr: 'Failed to connect to DWS compute service',
+      stderr: `DWS connection error: ${errorMessage}`,
+      metrics: { executionTimeMs: 0, peakMemoryMb: 0, cpuTimeMs: 0 },
+      artifacts: [],
+    };
+    activeJobs.delete(jobId);
+    completedJobs.set(jobId, job);
+    return job;
+  }
+
+  if (!response.ok) {
+    const errorBody = await response.text().catch(() => 'unknown error');
+    job.status = 'failed';
+    job.completedAt = Date.now();
+    job.result = {
+      success: false,
+      exitCode: -1,
+      exploitTriggered: false,
+      exploitDetails: '',
+      stdout: '',
+      stderr: `DWS returned ${response.status}: ${errorBody}`,
       metrics: { executionTimeMs: 0, peakMemoryMb: 0, cpuTimeMs: 0 },
       artifacts: [],
     };
@@ -286,19 +305,41 @@ export async function executeInSandbox(
 
   job.completedAt = Date.now();
 
-  if (result.status === 'success' || result.status === 'completed') {
+  // Validate result structure before processing
+  if (!result.status) {
+    job.status = 'failed';
+    job.result = {
+      success: false,
+      exitCode: -1,
+      exploitTriggered: false,
+      exploitDetails: '',
+      stdout: '',
+      stderr: 'DWS response missing status field',
+      metrics: { executionTimeMs: 0, peakMemoryMb: 0, cpuTimeMs: 0 },
+      artifacts: [],
+    };
+  } else if (result.status === 'success' || result.status === 'completed') {
+    // Extract metrics safely - these are expected for successful executions
+    const executionTimeMs = result.metrics?.executionTimeMs;
+    const memoryUsedMb = result.metrics?.memoryUsedMb;
+    const cpuUsagePercent = result.metrics?.cpuUsagePercent;
+    
+    if (executionTimeMs === undefined) {
+      console.warn(`[Sandbox] Job ${jobId}: Missing executionTimeMs in metrics`);
+    }
+    
     job.status = 'completed';
     job.result = {
       success: true,
-      exitCode: result.exitCode ?? 0,
-      exploitTriggered: result.output?.exploitTriggered ?? false,
+      exitCode: typeof result.exitCode === 'number' ? result.exitCode : 0,
+      exploitTriggered: result.output?.exploitTriggered === true,
       exploitDetails: result.output?.exploitDetails ?? '',
       stdout: result.output?.result ?? '',
       stderr: result.logs ?? '',
       metrics: {
-        executionTimeMs: result.metrics?.executionTimeMs ?? 0,
-        peakMemoryMb: result.metrics?.memoryUsedMb ?? 0,
-        cpuTimeMs: Math.floor((result.metrics?.cpuUsagePercent ?? 0) * (result.metrics?.executionTimeMs ?? 0) / 100),
+        executionTimeMs: executionTimeMs ?? 0,
+        peakMemoryMb: memoryUsedMb ?? 0,
+        cpuTimeMs: Math.floor((cpuUsagePercent ?? 0) * (executionTimeMs ?? 0) / 100),
       },
       artifacts: [],
     };
@@ -318,11 +359,11 @@ export async function executeInSandbox(
     job.status = 'failed';
     job.result = {
       success: false,
-      exitCode: result.exitCode ?? -1,
+      exitCode: typeof result.exitCode === 'number' ? result.exitCode : -1,
       exploitTriggered: false,
       exploitDetails: '',
       stdout: result.output?.result ?? '',
-      stderr: result.logs ?? 'Execution failed',
+      stderr: result.logs ?? `Execution failed with status: ${result.status}`,
       metrics: {
         executionTimeMs: result.metrics?.executionTimeMs ?? 0,
         peakMemoryMb: result.metrics?.memoryUsedMb ?? 0,
@@ -403,7 +444,7 @@ export async function validatePoCInSandbox(
 
   if (!job.result) {
     return {
-      result: ValidationResult.SANDBOX_ERROR,
+      result: ValidationResult.INVALID,
       exploitVerified: false,
       logs: 'No result from sandbox execution',
       executionTime: 0,
@@ -413,13 +454,13 @@ export async function validatePoCInSandbox(
   let validationResult: ValidationResult;
 
   if (job.result.exploitTriggered) {
-    validationResult = ValidationResult.VERIFIED;
+    validationResult = ValidationResult.VALID;
   } else if (job.result.success && job.result.exitCode === 0) {
-    validationResult = ValidationResult.LIKELY_VALID;
+    validationResult = ValidationResult.VALID;
   } else if (job.status === 'timeout') {
-    validationResult = ValidationResult.NEEDS_MORE_INFO;
+    validationResult = ValidationResult.NEEDS_REVIEW;
   } else if (job.status === 'failed') {
-    validationResult = ValidationResult.SANDBOX_ERROR;
+    validationResult = ValidationResult.INVALID;
   } else {
     validationResult = ValidationResult.INVALID;
   }

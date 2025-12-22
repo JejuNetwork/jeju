@@ -3,6 +3,9 @@ import { mainnet, arbitrum, optimism, base, bsc, sepolia } from 'viem/chains';
 import { EventEmitter } from 'events';
 import type { ChainConfig, ChainId, Pool, Token } from '../autocrat-types';
 import { XLP_V2_PAIR_ABI, XLP_V2_FACTORY_ABI } from '../lib/contracts';
+import { createLogger } from '../../sdk/logger';
+
+const log = createLogger('Collector');
 
 export interface PendingTransaction {
   hash: string;
@@ -109,7 +112,7 @@ export class EventCollector extends EventEmitter {
   }
 
   async initialize(): Promise<void> {
-    console.log('📡 Initializing event collectors...');
+    log.info('Initializing event collectors');
 
     for (const config of this.configs) {
       const chainDef = this.getChainDef(config.chainId);
@@ -130,7 +133,7 @@ export class EventCollector extends EventEmitter {
         this.wsClients.set(config.chainId, wsClient);
       }
 
-      console.log(`✓ Connected to ${config.name} (${config.chainId})`);
+      log.info('Connected to chain', { name: config.name, chainId: config.chainId });
     }
   }
 
@@ -138,12 +141,12 @@ export class EventCollector extends EventEmitter {
     if (this.running) return;
     this.running = true;
 
-    console.log('👁️ Starting event collection...');
+    log.info('Starting event collection');
 
     for (const [chainId, client] of this.clients) {
       const unwatchBlocks = client.watchBlocks({
         onBlock: (block) => this.handleBlock(chainId, block),
-        onError: (error) => console.error(`Block watch error on ${chainId}:`, error),
+        onError: (error) => log.error('Block watch error', { chainId, error: String(error) }),
       });
       this.unwatchers.push(unwatchBlocks);
 
@@ -157,7 +160,7 @@ export class EventCollector extends EventEmitter {
     this.running = false;
     this.unwatchers.forEach((unwatch) => unwatch());
     this.unwatchers = [];
-    console.log('Event collection stopped');
+    log.info('Event collection stopped');
   }
 
   /**
@@ -274,7 +277,7 @@ export class EventCollector extends EventEmitter {
     }
 
     const duration = Date.now() - startTime;
-    console.log(`   Discovered ${pools.length} pools in ${duration}ms (${Math.round(pools.length / (duration / 1000))} pools/sec)`);
+    log.info('Pools discovered', { count: pools.length, durationMs: duration, poolsPerSec: Math.round(pools.length / (duration / 1000)) });
     return pools;
   }
 
@@ -325,12 +328,16 @@ export class EventCollector extends EventEmitter {
         const tx = await client.getTransaction({ hash: txHash as `0x${string}` });
         if (!tx) return;
 
+        // Skip transactions without required fields
+        if (!tx.to || !tx.gasPrice) {
+          return;
+        }
         const pendingTx: PendingTransaction = {
           hash: tx.hash,
           from: tx.from,
-          to: tx.to ?? '',
+          to: tx.to,
           value: tx.value,
-          gasPrice: tx.gasPrice ?? 0n,
+          gasPrice: tx.gasPrice,
           maxFeePerGas: tx.maxFeePerGas,
           maxPriorityFeePerGas: tx.maxPriorityFeePerGas,
           gas: tx.gas,
@@ -370,7 +377,7 @@ export class EventCollector extends EventEmitter {
         abi: [SYNC_EVENT],
         eventName: 'Sync',
         onLogs: (logs) => this.handleSyncLogs(chainId, logs),
-        onError: (error) => console.error(`Sync watch error on ${chainId}:`, error),
+        onError: (error) => log.error('Sync watch error', { chainId, error: String(error) }),
       });
       this.unwatchers.push(unwatchSyncs);
     }
@@ -378,62 +385,58 @@ export class EventCollector extends EventEmitter {
 
   private handleSwapLogs(chainId: ChainId, logs: Log[]): void {
     for (const log of logs) {
-      try {
-        const decoded = decodeEventLog({
-          abi: [SWAP_EVENT],
-          data: log.data,
-          topics: log.topics,
-        });
+      const decoded = decodeEventLog({
+        abi: [SWAP_EVENT],
+        data: log.data,
+        topics: log.topics,
+      });
 
-        const event: SwapEvent = {
-          poolAddress: log.address,
-          sender: decoded.args.sender as string,
-          recipient: decoded.args.to as string,
-          amount0In: decoded.args.amount0In as bigint,
-          amount1In: decoded.args.amount1In as bigint,
-          amount0Out: decoded.args.amount0Out as bigint,
-          amount1Out: decoded.args.amount1Out as bigint,
-          blockNumber: log.blockNumber ?? 0n,
-          transactionHash: log.transactionHash ?? '0x',
-          chainId,
-        };
+      const event: SwapEvent = {
+        poolAddress: log.address,
+        sender: decoded.args.sender as string,
+        recipient: decoded.args.to as string,
+        amount0In: decoded.args.amount0In as bigint,
+        amount1In: decoded.args.amount1In as bigint,
+        amount0Out: decoded.args.amount0Out as bigint,
+        amount1Out: decoded.args.amount1Out as bigint,
+        blockNumber: log.blockNumber ?? 0n,
+        transactionHash: log.transactionHash ?? '0x',
+        chainId,
+      };
 
-        this.emit('swap', event);
-      } catch (error) {
-        console.warn('Failed to decode swap event', { error: String(error) });
-      }
+      this.emit('swap', event);
     }
   }
 
   private handleSyncLogs(chainId: ChainId, logs: Log[]): void {
     for (const log of logs) {
-      try {
-        const decoded = decodeEventLog({
-          abi: [SYNC_EVENT],
-          data: log.data,
-          topics: log.topics,
-        });
+      const decoded = decodeEventLog({
+        abi: [SYNC_EVENT],
+        data: log.data,
+        topics: log.topics,
+      });
 
-        const poolAddress = log.address.toLowerCase();
-        const pool = this.pools.get(poolAddress);
-        if (pool) {
-          pool.reserve0 = (decoded.args.reserve0 as bigint).toString();
-          pool.reserve1 = (decoded.args.reserve1 as bigint).toString();
-          pool.lastUpdate = Date.now();
-        }
-
-        const event: SyncEvent = {
-          poolAddress: log.address,
-          reserve0: decoded.args.reserve0 as bigint,
-          reserve1: decoded.args.reserve1 as bigint,
-          blockNumber: log.blockNumber ?? 0n,
-          chainId,
-        };
-
-        this.emit('sync', event);
-      } catch (error) {
-        console.warn('Failed to decode sync event', { error: String(error) });
+      const poolAddress = log.address.toLowerCase();
+      const pool = this.pools.get(poolAddress);
+      if (pool) {
+        pool.reserve0 = (decoded.args.reserve0 as bigint).toString();
+        pool.reserve1 = (decoded.args.reserve1 as bigint).toString();
+        pool.lastUpdate = Date.now();
       }
+
+      // Skip logs without block number
+      if (log.blockNumber === null) {
+        continue;
+      }
+      const event: SyncEvent = {
+        poolAddress: log.address,
+        reserve0: decoded.args.reserve0 as bigint,
+        reserve1: decoded.args.reserve1 as bigint,
+        blockNumber: log.blockNumber,
+        chainId,
+      };
+
+      this.emit('sync', event);
     }
   }
 }

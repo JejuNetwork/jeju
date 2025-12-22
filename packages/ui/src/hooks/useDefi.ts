@@ -1,10 +1,7 @@
-/**
- * DeFi hook
- */
-
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import type { Address, Hex } from "viem";
 import { useNetworkContext } from "../context";
+import { useAsyncState, requireClient, type AsyncState } from "./utils";
 import type {
   SwapParams,
   SwapQuote,
@@ -13,67 +10,66 @@ import type {
   AddLiquidityParams,
 } from "@jejunetwork/sdk";
 
-export function useDefi() {
+export interface UseDefiResult extends AsyncState {
+  getSwapQuote: (params: SwapParams) => Promise<SwapQuote>;
+  swap: (quote: SwapQuote) => Promise<Hex>;
+  listPools: () => Promise<PoolInfo[]>;
+  addLiquidity: (params: AddLiquidityParams) => Promise<Hex>;
+  listPositions: () => Promise<LiquidityPosition[]>;
+  collectFees: (positionId: bigint) => Promise<Hex>;
+  getBalance: (token: Address) => Promise<bigint>;
+}
+
+export function useDefi(): UseDefiResult {
   const { client } = useNetworkContext();
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
+  const { isLoading, error, execute } = useAsyncState();
 
   const getSwapQuote = useCallback(
     async (params: SwapParams): Promise<SwapQuote> => {
-      if (!client) throw new Error("Not connected");
-      return client.defi.getSwapQuote(params);
+      const c = requireClient(client);
+      return c.defi.getSwapQuote(params);
     },
     [client],
   );
 
   const swap = useCallback(
     async (quote: SwapQuote): Promise<Hex> => {
-      if (!client) throw new Error("Not connected");
-      setIsLoading(true);
-      setError(null);
-
-      const txHash = await client.defi.swap(quote);
-      setIsLoading(false);
-      return txHash;
+      const c = requireClient(client);
+      return execute(() => c.defi.swap(quote));
     },
-    [client],
+    [client, execute],
   );
 
   const listPools = useCallback(async (): Promise<PoolInfo[]> => {
-    if (!client) throw new Error("Not connected");
-    return client.defi.listPools();
+    const c = requireClient(client);
+    return c.defi.listPools();
   }, [client]);
 
   const addLiquidity = useCallback(
     async (params: AddLiquidityParams): Promise<Hex> => {
-      if (!client) throw new Error("Not connected");
-      setIsLoading(true);
-      setError(null);
-
-      const txHash = await client.defi.addLiquidity(params);
-      setIsLoading(false);
-      return txHash;
+      const c = requireClient(client);
+      return execute(() => c.defi.addLiquidity(params));
     },
-    [client],
+    [client, execute],
   );
 
   const listPositions = useCallback(async (): Promise<LiquidityPosition[]> => {
-    if (!client) throw new Error("Not connected");
-    return client.defi.listPositions();
+    const c = requireClient(client);
+    return c.defi.listPositions();
   }, [client]);
 
   const collectFees = useCallback(
     async (positionId: bigint): Promise<Hex> => {
-      if (!client) throw new Error("Not connected");
-      return client.defi.collectFees(positionId);
+      const c = requireClient(client);
+      return c.defi.collectFees(positionId);
     },
     [client],
   );
 
   const getBalance = useCallback(
     async (token: Address): Promise<bigint> => {
-      if (!client) throw new Error("Not connected");
-      return client.defi.getBalance(token);
+      const c = requireClient(client);
+      return c.defi.getBalance(token);
     },
     [client],
   );

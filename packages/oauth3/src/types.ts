@@ -17,6 +17,8 @@ export enum AuthProvider {
   TWITTER = 'twitter',
   GITHUB = 'github',
   DISCORD = 'discord',
+  EMAIL = 'email',
+  PHONE = 'phone',
 }
 
 export enum ChainId {

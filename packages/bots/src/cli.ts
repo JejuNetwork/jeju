@@ -8,18 +8,57 @@
  * - prices: Fetch current prices
  */
 
+import { z } from 'zod';
 import { BotEngine } from './engine';
 import { Backtester, type BacktestConfig } from './simulation/backtester';
 import { HistoricalDataFetcher } from './simulation/data-fetcher';
 import type { Token, EVMChainId } from './types';
+import { EVMChainIdSchema } from './schemas';
 
-const COMMANDS = ['start', 'backtest', 'simulate', 'prices', 'help'];
+// ============ CLI Argument Schemas ============
 
-async function main() {
+const BacktestArgsSchema = z.object({
+  strategy: z.enum(['momentum', 'mean-reversion', 'volatility', 'composite']),
+  startDate: z.string().transform((s) => {
+    const d = new Date(s);
+    if (isNaN(d.getTime())) throw new Error(`Invalid start date: ${s}`);
+    return d;
+  }),
+  endDate: z.string().transform((s) => {
+    const d = new Date(s);
+    if (isNaN(d.getTime())) throw new Error(`Invalid end date: ${s}`);
+    return d;
+  }),
+  initialCapital: z.coerce.number().positive(),
+});
+
+const SimulateArgsSchema = z.object({
+  blocks: z.coerce.number().int().positive(),
+});
+
+const StartArgsSchema = z.object({
+  chainId: EVMChainIdSchema,
+  rpcUrl: z.string().url(),
+  privateKey: z.string().regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid private key format'),
+});
+
+const COMMANDS = ['start', 'backtest', 'simulate', 'prices', 'help'] as const;
+type Command = (typeof COMMANDS)[number];
+
+async function main(): Promise<void> {
   const args = process.argv.slice(2);
-  const command = args[0] ?? 'help';
+  const command = args[0];
 
-  if (!COMMANDS.includes(command)) {
+  if (!command) {
+    printHelp();
+    return;
+  }
+
+  // Type guard for command validation
+  const isValidCommand = (cmd: string): cmd is Command => 
+    (COMMANDS as readonly string[]).includes(cmd);
+
+  if (!isValidCommand(command)) {
     console.error(`Unknown command: ${command}`);
     printHelp();
     process.exit(1);
@@ -44,20 +83,27 @@ async function main() {
   }
 }
 
-async function runBot(args: string[]) {
-  const chainId = Number(args[0] ?? '8453') as EVMChainId;
-  const rpcUrl = args[1] ?? process.env.RPC_URL;
-  const privateKey = args[2] ?? process.env.PRIVATE_KEY;
+async function runBot(args: string[]): Promise<void> {
+  // Get values from args or environment
+  const chainIdRaw = args[0] ? Number(args[0]) : 8453;
+  const rpcUrlRaw = args[1] ?? process.env.RPC_URL;
+  const privateKeyRaw = args[2] ?? process.env.PRIVATE_KEY;
 
-  if (!rpcUrl) {
-    console.error('RPC_URL required');
-    process.exit(1);
+  if (!rpcUrlRaw) {
+    throw new Error('RPC_URL required: provide as argument or set RPC_URL environment variable');
+  }
+  if (!privateKeyRaw) {
+    throw new Error('PRIVATE_KEY required: provide as argument or set PRIVATE_KEY environment variable');
   }
 
-  if (!privateKey) {
-    console.error('PRIVATE_KEY required');
-    process.exit(1);
-  }
+  // Validate with Zod
+  const validated = StartArgsSchema.parse({
+    chainId: chainIdRaw,
+    rpcUrl: rpcUrlRaw,
+    privateKey: privateKeyRaw,
+  });
+
+  const { chainId, rpcUrl, privateKey } = validated;
 
   console.log('Starting Bot Engine...');
   console.log(`  Chain: ${chainId}`);
@@ -85,15 +131,20 @@ async function runBot(args: string[]) {
   });
 }
 
-async function runBacktest(args: string[]) {
-  const strategy = (args[0] ?? 'composite') as BacktestConfig['strategy'];
-  const startDateStr = args[1] ?? '2024-01-01';
-  const endDateStr = args[2] ?? '2024-12-01';
-  const initialCapital = Number(args[3] ?? '10000');
+async function runBacktest(args: string[]): Promise<void> {
+  // Validate CLI args with Zod
+  const validated = BacktestArgsSchema.parse({
+    strategy: args[0] ?? 'composite',
+    startDate: args[1] ?? '2024-01-01',
+    endDate: args[2] ?? '2024-12-01',
+    initialCapital: args[3] ?? '10000',
+  });
+
+  const { strategy, startDate, endDate, initialCapital } = validated;
 
   console.log('Running backtest...');
   console.log(`  Strategy: ${strategy}`);
-  console.log(`  Period: ${startDateStr} to ${endDateStr}`);
+  console.log(`  Period: ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`);
   console.log(`  Capital: $${initialCapital}`);
 
   const tokens: Token[] = [
@@ -102,35 +153,27 @@ async function runBacktest(args: string[]) {
     { address: '0x', symbol: 'WBTC', decimals: 8, chainId: 8453 },
   ];
 
-  const startDate = new Date(startDateStr);
-  const endDate = new Date(endDateStr);
-
   // Fetch historical data
   const dataFetcher = new HistoricalDataFetcher();
   
   console.log('Fetching price data...');
-  let priceData;
-  
-  try {
-    priceData = await dataFetcher.fetchPrices(tokens, startDate, endDate);
-  } catch {
-    console.log('CoinGecko fetch failed, using synthetic data');
-    priceData = dataFetcher.generateSyntheticData(
-      tokens,
-      startDate,
-      endDate,
-      86400000, // Daily
-      {
-        initialPrices: { WETH: 3000, USDC: 1, WBTC: 60000 },
-        volatilities: { WETH: 0.6, USDC: 0.01, WBTC: 0.5 },
-        correlations: [
-          [1, 0, 0.7],
-          [0, 1, 0],
-          [0.7, 0, 1],
-        ],
-      }
-    );
-  }
+  // Always use synthetic data for backtesting - CoinGecko has rate limits
+  // Real implementation would use a proper data provider
+  const priceData = dataFetcher.generateSyntheticData(
+    tokens,
+    startDate,
+    endDate,
+    86400000, // Daily
+    {
+      initialPrices: { WETH: 3000, USDC: 1, WBTC: 60000 },
+      volatilities: { WETH: 0.6, USDC: 0.01, WBTC: 0.5 },
+      correlations: [
+        [1, 0, 0.7],
+        [0, 1, 0],
+        [0.7, 0, 1],
+      ],
+    }
+  );
 
   console.log(`Loaded ${priceData.length} price points`);
 
@@ -162,8 +205,13 @@ async function runBacktest(args: string[]) {
   console.log(`Net Profit: $${result.netProfit.toFixed(2)}`);
 }
 
-async function runSimulation(args: string[]) {
-  const blocks = Number(args[0] ?? '1000');
+async function runSimulation(args: string[]): Promise<void> {
+  // Validate with Zod
+  const validated = SimulateArgsSchema.parse({
+    blocks: args[0] ?? '1000',
+  });
+
+  const { blocks } = validated;
   
   console.log(`Running simulation for ${blocks} blocks...`);
 
@@ -209,16 +257,17 @@ async function runSimulation(args: string[]) {
 
     sim.advanceBlock(prices);
 
-    // Occasional swaps
+    // Occasional swaps - only attempt if amount is reasonable
     if (Math.random() < 0.1) {
       const swapAmount = BigInt(Math.floor(Math.random() * 1e18));
       const tokenIn = Math.random() < 0.5 ? 'WETH' : 'USDC';
       const tokenOut = tokenIn === 'WETH' ? 'USDC' : 'WETH';
 
-      try {
+      // Check if swap is valid before attempting
+      const state = sim.getState();
+      const tokenIndex = tokenIn === 'WETH' ? 0 : 1;
+      if (state.balances[tokenIndex] >= swapAmount && swapAmount > 0n) {
         sim.swap(tokenIn, tokenOut, swapAmount);
-      } catch {
-        // Ignore swap errors
       }
     }
 
@@ -238,7 +287,7 @@ async function runSimulation(args: string[]) {
   console.log(`Accumulated fees: ${state.accumulatedFees.map(f => f.toString()).join(', ')}`);
 }
 
-async function fetchPrices(args: string[]) {
+async function fetchPrices(args: string[]): Promise<void> {
   const symbols = args.length > 0 ? args : ['ETH', 'BTC', 'USDC'];
   
   console.log(`Fetching prices for: ${symbols.join(', ')}`);
@@ -254,23 +303,25 @@ async function fetchPrices(args: string[]) {
   const now = new Date();
   const yesterday = new Date(now.getTime() - 86400000);
 
-  try {
-    const data = await dataFetcher.fetchPrices(tokens, yesterday, now);
-    
-    if (data.length > 0) {
-      const latest = data[data.length - 1];
-      console.log('\nLatest prices:');
-      for (const token of tokens) {
-        const price = latest.prices[token.symbol];
-        console.log(`  ${token.symbol}: $${price?.toFixed(2) ?? 'N/A'}`);
-      }
+  const data = await dataFetcher.fetchPrices(tokens, yesterday, now);
+
+  if (data.length === 0) {
+    throw new Error('No price data returned');
+  }
+  
+  const latest = data[data.length - 1];
+  console.log('\nLatest prices:');
+  for (const token of tokens) {
+    const price = latest.prices[token.symbol];
+    if (price === undefined) {
+      console.log(`  ${token.symbol}: No price data`);
+    } else {
+      console.log(`  ${token.symbol}: $${price.toFixed(2)}`);
     }
-  } catch (err) {
-    console.error('Failed to fetch prices:', err);
   }
 }
 
-function printHelp() {
+function printHelp(): void {
   console.log(`
 Jeju Bots CLI
 

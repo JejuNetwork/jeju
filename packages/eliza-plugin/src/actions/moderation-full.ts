@@ -10,11 +10,21 @@ import {
   type Memory,
   type State,
   type HandlerCallback,
-  logger,
 } from "@elizaos/core";
-import { getJejuService } from "../service";
 import type { Hex, Address } from "viem";
 import { parseEther } from "viem";
+import { JEJU_SERVICE_NAME, type JejuService } from "../service";
+import {
+  validateServiceExists,
+  parseContent,
+  evidenceContentSchema,
+  evidenceSupportSchema,
+  caseContentSchema,
+  caseIdSchema,
+  appealContentSchema,
+  labelContentSchema,
+  formatNumberedList,
+} from "../validation";
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                          EVIDENCE ACTIONS
@@ -41,41 +51,38 @@ export const submitEvidenceAction: Action = {
       },
     ],
   ],
-  validate: async () => true,
+  validate: async (runtime: IAgentRuntime) => validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-    _state: State,
-    _options: Record<string, unknown>,
-    callback: HandlerCallback,
+    _state: State | undefined,
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
   ) => {
-    const service = getJejuService();
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
+    const sdk = service.getClient();
 
-    const caseId = (message.content as { caseId?: string }).caseId;
-    const ipfsHash = (message.content as { ipfsHash?: string }).ipfsHash;
-    const summary = (message.content as { summary?: string }).summary;
-    const position = (message.content as { position?: string }).position;
-    const stakeAmount = (message.content as { stake?: string }).stake;
+    const content = parseContent(message, evidenceContentSchema);
 
-    if (!caseId || !ipfsHash || !summary) {
-      callback({
+    if (!content.caseId || !content.ipfsHash || !content.summary) {
+      callback?.({
         text: "Missing required fields: caseId, ipfsHash, summary",
       });
       return;
     }
 
-    const positionValue = position === "against" ? 1 : 0;
-    const stake = stakeAmount ? parseEther(stakeAmount) : undefined;
+    const positionValue = content.position === "against" ? 1 : 0;
+    const stake = content.stake ? parseEther(content.stake) : undefined;
 
-    const result = await service.sdk.moderation.submitEvidence({
-      caseId: caseId as Hex,
-      ipfsHash,
-      summary,
+    const result = await sdk.moderation.submitEvidence({
+      caseId: content.caseId as Hex,
+      ipfsHash: content.ipfsHash,
+      summary: content.summary,
       position: positionValue,
       stake,
     });
 
-    callback({
+    callback?.({
       text: `Evidence submitted. ID: ${result.evidenceId}\nTx: ${result.txHash}`,
     });
   },
@@ -97,37 +104,35 @@ export const supportEvidenceAction: Action = {
       },
     ],
   ],
-  validate: async () => true,
+  validate: async (runtime: IAgentRuntime) => validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-    _state: State,
-    _options: Record<string, unknown>,
-    callback: HandlerCallback,
+    _state: State | undefined,
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
   ) => {
-    const service = getJejuService();
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
+    const sdk = service.getClient();
 
-    const evidenceId = (message.content as { evidenceId?: string }).evidenceId;
-    const isSupporting =
-      (message.content as { support?: boolean }).support !== false;
-    const comment = (message.content as { comment?: string }).comment;
-    const stakeAmount = (message.content as { stake?: string }).stake;
+    const content = parseContent(message, evidenceSupportSchema);
 
-    if (!evidenceId) {
-      callback({ text: "Evidence ID required" });
+    if (!content.evidenceId) {
+      callback?.({ text: "Evidence ID required" });
       return;
     }
 
-    const stake = stakeAmount ? parseEther(stakeAmount) : undefined;
+    const isSupporting = content.support !== false;
+    const stake = content.stake ? parseEther(content.stake) : undefined;
 
-    const txHash = await service.sdk.moderation.supportEvidence({
-      evidenceId: evidenceId as Hex,
+    const txHash = await sdk.moderation.supportEvidence({
+      evidenceId: content.evidenceId as Hex,
       isSupporting,
-      comment,
+      comment: content.comment,
       stake,
     });
 
-    callback({
+    callback?.({
       text: `Evidence ${isSupporting ? "supported" : "opposed"}. Tx: ${txHash}`,
     });
   },
@@ -149,41 +154,44 @@ export const getEvidenceAction: Action = {
       },
     ],
   ],
-  validate: async () => true,
+  validate: async (runtime: IAgentRuntime) => validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-    _state: State,
-    _options: Record<string, unknown>,
-    callback: HandlerCallback,
+    _state: State | undefined,
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
   ) => {
-    const service = getJejuService();
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
+    const sdk = service.getClient();
 
-    const evidenceId = (message.content as { evidenceId?: string }).evidenceId;
+    const content = parseContent(message, evidenceSupportSchema);
 
-    if (!evidenceId) {
-      callback({ text: "Evidence ID required" });
+    if (!content.evidenceId) {
+      callback?.({ text: "Evidence ID required" });
       return;
     }
 
-    const evidence = await service.sdk.moderation.getEvidence(
-      evidenceId as Hex,
+    const evidence = await sdk.moderation.getEvidence(
+      content.evidenceId as Hex,
     );
 
     if (!evidence) {
-      callback({ text: "Evidence not found" });
+      callback?.({ text: "Evidence not found" });
       return;
     }
 
-    callback({
-      text: `Evidence ${evidenceId}:
+    const statusNames = ["ACTIVE", "REWARDED", "SLASHED"];
+
+    callback?.({
+      text: `Evidence ${content.evidenceId}:
 - Case: ${evidence.caseId}
 - Submitter: ${evidence.submitter}
 - Position: ${evidence.position === 0 ? "FOR_ACTION" : "AGAINST_ACTION"}
 - Stake: ${evidence.stake} wei
 - Support: ${evidence.supportStake} wei (${evidence.supporterCount} supporters)
 - Oppose: ${evidence.opposeStake} wei (${evidence.opposerCount} opposers)
-- Status: ${["ACTIVE", "REWARDED", "SLASHED"][evidence.status]}
+- Status: ${statusNames[evidence.status]}
 - Summary: ${evidence.summary}`,
     });
   },
@@ -205,41 +213,41 @@ export const listCaseEvidenceAction: Action = {
       },
     ],
   ],
-  validate: async () => true,
+  validate: async (runtime: IAgentRuntime) => validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-    _state: State,
-    _options: Record<string, unknown>,
-    callback: HandlerCallback,
+    _state: State | undefined,
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
   ) => {
-    const service = getJejuService();
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
+    const sdk = service.getClient();
 
-    const caseId = (message.content as { caseId?: string }).caseId;
+    const content = parseContent(message, caseIdSchema);
 
-    if (!caseId) {
-      callback({ text: "Case ID required" });
+    if (!content.caseId) {
+      callback?.({ text: "Case ID required" });
       return;
     }
 
-    const evidence = await service.sdk.moderation.listCaseEvidence(
-      caseId as Hex,
+    const evidence = await sdk.moderation.listCaseEvidence(
+      content.caseId as Hex,
     );
 
     if (evidence.length === 0) {
-      callback({ text: "No evidence submitted for this case" });
+      callback?.({ text: "No evidence submitted for this case" });
       return;
     }
 
-    const list = evidence
-      .map(
-        (e, i) =>
-          `${i + 1}. ${e.position === 0 ? "FOR" : "AGAINST"} - ${e.stake} wei - ${e.summary.slice(0, 50)}...`,
-      )
-      .join("\n");
+    const list = formatNumberedList(
+      evidence,
+      (e: { position: number; stake: bigint | string; summary: string }) =>
+        `${e.position === 0 ? "FOR" : "AGAINST"} - ${e.stake} wei - ${e.summary.slice(0, 50)}...`,
+    );
 
-    callback({
-      text: `Evidence for case ${caseId}:\n${list}`,
+    callback?.({
+      text: `Evidence for case ${content.caseId}:\n${list}`,
     });
   },
 };
@@ -260,28 +268,29 @@ export const claimEvidenceRewardAction: Action = {
       },
     ],
   ],
-  validate: async () => true,
+  validate: async (runtime: IAgentRuntime) => validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-    _state: State,
-    _options: Record<string, unknown>,
-    callback: HandlerCallback,
+    _state: State | undefined,
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
   ) => {
-    const service = getJejuService();
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
+    const sdk = service.getClient();
 
-    const evidenceId = (message.content as { evidenceId?: string }).evidenceId;
+    const content = parseContent(message, evidenceSupportSchema);
 
-    if (!evidenceId) {
-      callback({ text: "Evidence ID required" });
+    if (!content.evidenceId) {
+      callback?.({ text: "Evidence ID required" });
       return;
     }
 
-    const txHash = await service.sdk.moderation.claimEvidenceReward(
-      evidenceId as Hex,
+    const txHash = await sdk.moderation.claimEvidenceReward(
+      content.evidenceId as Hex,
     );
 
-    callback({ text: `Reward claimed. Tx: ${txHash}` });
+    callback?.({ text: `Reward claimed. Tx: ${txHash}` });
   },
 };
 
@@ -307,47 +316,37 @@ export const createCaseAction: Action = {
       },
     ],
   ],
-  validate: async () => true,
+  validate: async (runtime: IAgentRuntime) => validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-    _state: State,
-    _options: Record<string, unknown>,
-    callback: HandlerCallback,
+    _state: State | undefined,
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
   ) => {
-    const service = getJejuService();
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
+    const sdk = service.getClient();
 
-    const entity = (message.content as { entity?: string }).entity;
-    const reportType = (message.content as { reportType?: string }).reportType;
-    const description = (message.content as { description?: string })
-      .description;
-    const evidence = (message.content as { evidence?: string }).evidence;
-    const stakeAmount = (message.content as { stake?: string }).stake;
+    const content = parseContent(message, caseContentSchema);
 
-    if (!entity || !reportType || !description) {
-      callback({
+    if (!content.entity || !content.reportType || !content.description) {
+      callback?.({
         text: "Missing required fields: entity, reportType, description",
       });
       return;
     }
 
-    const stake = stakeAmount ? parseEther(stakeAmount) : undefined;
+    const stake = content.stake ? parseEther(content.stake) : undefined;
 
-    const result = await service.sdk.moderation.createCase({
-      reportedEntity: entity as Address,
-      reportType: reportType as
-        | "spam"
-        | "scam"
-        | "abuse"
-        | "illegal"
-        | "tos_violation"
-        | "other",
-      description,
-      evidence,
+    const result = await sdk.moderation.createCase({
+      reportedEntity: content.entity as Address,
+      reportType: content.reportType,
+      description: content.description,
+      evidence: content.evidence,
       stake,
     });
 
-    callback({
+    callback?.({
       text: `Case created. ID: ${result.caseId}\nTx: ${result.txHash}`,
     });
   },
@@ -369,27 +368,28 @@ export const getCaseAction: Action = {
       },
     ],
   ],
-  validate: async () => true,
+  validate: async (runtime: IAgentRuntime) => validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-    _state: State,
-    _options: Record<string, unknown>,
-    callback: HandlerCallback,
+    _state: State | undefined,
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
   ) => {
-    const service = getJejuService();
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
+    const sdk = service.getClient();
 
-    const caseId = (message.content as { caseId?: string }).caseId;
+    const content = parseContent(message, caseIdSchema);
 
-    if (!caseId) {
-      callback({ text: "Case ID required" });
+    if (!content.caseId) {
+      callback?.({ text: "Case ID required" });
       return;
     }
 
-    const caseData = await service.sdk.moderation.getCase(caseId as Hex);
+    const caseData = await sdk.moderation.getCase(content.caseId as Hex);
 
     if (!caseData) {
-      callback({ text: "Case not found" });
+      callback?.({ text: "Case not found" });
       return;
     }
 
@@ -408,8 +408,8 @@ export const getCaseAction: Action = {
       "SLASH",
     ];
 
-    callback({
-      text: `Case ${caseId}:
+    callback?.({
+      text: `Case ${content.caseId}:
 - Reporter: ${caseData.reporter}
 - Reported: ${caseData.reportedEntity}
 - Type: ${caseData.reportType}
@@ -437,17 +437,19 @@ export const listCasesAction: Action = {
       },
     ],
   ],
-  validate: async () => true,
+  validate: async (runtime: IAgentRuntime) => validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-    _state: State,
-    _options: Record<string, unknown>,
-    callback: HandlerCallback,
+    _state: State | undefined,
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
   ) => {
-    const service = getJejuService();
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
+    const sdk = service.getClient();
 
-    const statusStr = (message.content as { status?: string }).status;
+    const content = parseContent(message, caseIdSchema);
+
     const statusMap: Record<string, number> = {
       pending: 0,
       under_review: 1,
@@ -455,25 +457,26 @@ export const listCasesAction: Action = {
       appealed: 3,
       closed: 4,
     };
-    const status = statusStr
-      ? statusMap[statusStr.toLowerCase()]
-      : undefined;
+    const status = content.status ? statusMap[content.status] : undefined;
 
-    const cases = await service.sdk.moderation.listCases(status);
+    const cases = await sdk.moderation.listCases(status);
 
     if (cases.length === 0) {
-      callback({ text: "No cases found" });
+      callback?.({ text: "No cases found" });
       return;
     }
 
-    const list = cases
-      .map(
-        (c, i) =>
-          `${i + 1}. ${c.reportType} against ${c.reportedEntity.slice(0, 10)}... - ${c.totalStake} wei`,
-      )
-      .join("\n");
+    const list = formatNumberedList(
+      cases,
+      (c: {
+        reportType: string;
+        reportedEntity: string;
+        totalStake: bigint | string;
+      }) =>
+        `${c.reportType} against ${c.reportedEntity.slice(0, 10)}... - ${c.totalStake} wei`,
+    );
 
-    callback({
+    callback?.({
       text: `Moderation cases:\n${list}`,
     });
   },
@@ -495,34 +498,33 @@ export const appealCaseAction: Action = {
       },
     ],
   ],
-  validate: async () => true,
+  validate: async (runtime: IAgentRuntime) => validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-    _state: State,
-    _options: Record<string, unknown>,
-    callback: HandlerCallback,
+    _state: State | undefined,
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
   ) => {
-    const service = getJejuService();
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
+    const sdk = service.getClient();
 
-    const caseId = (message.content as { caseId?: string }).caseId;
-    const reason = (message.content as { reason?: string }).reason;
-    const stakeAmount = (message.content as { stake?: string }).stake;
+    const content = parseContent(message, appealContentSchema);
 
-    if (!caseId || !reason) {
-      callback({ text: "Case ID and reason required" });
+    if (!content.caseId || !content.reason) {
+      callback?.({ text: "Case ID and reason required" });
       return;
     }
 
-    const stake = stakeAmount ? parseEther(stakeAmount) : undefined;
+    const stake = content.stake ? parseEther(content.stake) : undefined;
 
-    const txHash = await service.sdk.moderation.appealCase(
-      caseId as Hex,
-      reason,
+    const txHash = await sdk.moderation.appealCase(
+      content.caseId as Hex,
+      content.reason,
       stake,
     );
 
-    callback({ text: `Appeal submitted. Tx: ${txHash}` });
+    callback?.({ text: `Appeal submitted. Tx: ${txHash}` });
   },
 };
 
@@ -532,7 +534,8 @@ export const appealCaseAction: Action = {
 
 export const issueLabelAction: Action = {
   name: "ISSUE_REPUTATION_LABEL",
-  description: "Issue a reputation label to an address (validator role required)",
+  description:
+    "Issue a reputation label to an address (validator role required)",
   similes: ["add label", "tag address", "mark reputation"],
   examples: [
     [
@@ -546,38 +549,40 @@ export const issueLabelAction: Action = {
       },
     ],
   ],
-  validate: async () => true,
+  validate: async (runtime: IAgentRuntime) => validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-    _state: State,
-    _options: Record<string, unknown>,
-    callback: HandlerCallback,
+    _state: State | undefined,
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
   ) => {
-    const service = getJejuService();
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
+    const sdk = service.getClient();
 
-    const target = (message.content as { target?: string }).target;
-    const label = (message.content as { label?: string }).label;
-    const score = (message.content as { score?: number }).score;
-    const reason = (message.content as { reason?: string }).reason;
-    const expiresIn = (message.content as { expiresIn?: number }).expiresIn;
+    const content = parseContent(message, labelContentSchema);
 
-    if (!target || !label || score === undefined || !reason) {
-      callback({
+    if (
+      !content.target ||
+      !content.label ||
+      content.score === undefined ||
+      !content.reason
+    ) {
+      callback?.({
         text: "Required: target, label, score (0-10000), reason",
       });
       return;
     }
 
-    const txHash = await service.sdk.moderation.issueLabel({
-      target: target as Address,
-      label,
-      score,
-      reason,
-      expiresIn,
+    const txHash = await sdk.moderation.issueLabel({
+      target: content.target as Address,
+      label: content.label,
+      score: content.score,
+      reason: content.reason,
+      expiresIn: content.expiresIn,
     });
 
-    callback({ text: `Label issued. Tx: ${txHash}` });
+    callback?.({ text: `Label issued. Tx: ${txHash}` });
   },
 };
 
@@ -597,39 +602,45 @@ export const getLabelsAction: Action = {
       },
     ],
   ],
-  validate: async () => true,
+  validate: async (runtime: IAgentRuntime) => validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-    _state: State,
-    _options: Record<string, unknown>,
-    callback: HandlerCallback,
+    _state: State | undefined,
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
   ) => {
-    const service = getJejuService();
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
+    const sdk = service.getClient();
 
-    const target = (message.content as { target?: string }).target;
+    const content = parseContent(message, labelContentSchema);
 
-    if (!target) {
-      callback({ text: "Target address required" });
+    if (!content.target) {
+      callback?.({ text: "Target address required" });
       return;
     }
 
-    const labels = await service.sdk.moderation.getLabels(target as Address);
+    const labels = await sdk.moderation.getLabels(content.target as Address);
 
     if (labels.length === 0) {
-      callback({ text: "No labels found for this address" });
+      callback?.({ text: "No labels found for this address" });
       return;
     }
 
     const list = labels
       .map(
-        (l) =>
+        (l: {
+          label: string;
+          score: number;
+          revoked: boolean;
+          reason: string;
+        }) =>
           `- ${l.label}: ${l.score} (${l.revoked ? "REVOKED" : "active"}) - ${l.reason}`,
       )
       .join("\n");
 
-    callback({
-      text: `Reputation labels for ${target}:\n${list}`,
+    callback?.({
+      text: `Reputation labels for ${content.target}:\n${list}`,
     });
   },
 };
@@ -650,35 +661,35 @@ export const checkTrustAction: Action = {
       },
     ],
   ],
-  validate: async () => true,
+  validate: async (runtime: IAgentRuntime) => validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-    _state: State,
-    _options: Record<string, unknown>,
-    callback: HandlerCallback,
+    _state: State | undefined,
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
   ) => {
-    const service = getJejuService();
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
+    const sdk = service.getClient();
 
-    const target = (message.content as { target?: string }).target;
+    const content = parseContent(message, labelContentSchema);
 
-    if (!target) {
-      callback({ text: "Target address required" });
+    if (!content.target) {
+      callback?.({ text: "Target address required" });
       return;
     }
 
     const [isTrusted, isSuspicious, score] = await Promise.all([
-      service.sdk.moderation.isTrusted(target as Address),
-      service.sdk.moderation.isSuspicious(target as Address),
-      service.sdk.moderation.getAggregateScore(target as Address),
+      sdk.moderation.isTrusted(content.target as Address),
+      sdk.moderation.isSuspicious(content.target as Address),
+      sdk.moderation.getAggregateScore(content.target as Address),
     ]);
 
-    callback({
-      text: `Trust status for ${target}:
+    callback?.({
+      text: `Trust status for ${content.target}:
 - Trusted: ${isTrusted ? "Yes ✓" : "No"}
 - Suspicious: ${isSuspicious ? "Yes ⚠" : "No"}
 - Aggregate Score: ${score}/10000`,
     });
   },
 };
-

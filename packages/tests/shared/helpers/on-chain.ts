@@ -291,7 +291,11 @@ export function compareSnapshots(
 ): { ethChange: bigint; tokenChanges: Map<Address, bigint>; blocksDiff: bigint } {
   const tokenChanges = new Map<Address, bigint>();
   for (const [addr, bal] of before.tokenBalances) {
-    tokenChanges.set(addr, (after.tokenBalances.get(addr) || 0n) - bal);
+    const afterBal = after.tokenBalances.get(addr);
+    if (afterBal === undefined) {
+      throw new Error(`Token ${addr} was in 'before' snapshot but not in 'after' snapshot`);
+    }
+    tokenChanges.set(addr, afterBal - bal);
   }
   return {
     ethChange: after.ethBalance - before.ethBalance,

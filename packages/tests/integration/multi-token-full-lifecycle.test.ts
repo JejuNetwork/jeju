@@ -15,7 +15,7 @@
  */
 
 import { describe, test, expect, beforeAll } from 'bun:test';
-import { createPublicClient, createWalletClient, http, parseEther, formatEther, formatUnits, type Address } from 'viem';
+import { createPublicClient, createWalletClient, http, parseEther, type Address } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { execSync } from 'child_process';
 import { JEJU_LOCALNET, TEST_WALLETS as SHARED_WALLETS, TIMEOUTS } from '../shared/constants';
@@ -62,14 +62,14 @@ const TEST_WALLETS = {
 
 describe.skipIf(!localnetAvailable)('Multi-Token Full Lifecycle', () => {
   let publicClient;
-  let deployerWallet;
-  let lpWallet;
-  let userWallet;
+  let _deployerWallet;
+  let _lpWallet;
+  let _userWallet;
   
   let clankerToken: Address;
-  let clankerVault: Address;
-  let clankerDistributor: Address;
-  let clankerPaymaster: Address;
+  let _clankerVault: Address;
+  let _clankerDistributor: Address;
+  let _clankerPaymaster: Address;
   let oracle: Address;
 
   beforeAll(async () => {
@@ -143,7 +143,7 @@ describe.skipIf(!localnetAvailable)('Multi-Token Full Lifecycle', () => {
     console.log('✅ Oracle deployed:', oracle);
 
     // Deploy per-token paymaster system
-    const deployOutput = execSync(
+    const _deployOutput = execSync(
       `cd contracts && TOKEN_ADDRESS=${clankerToken} ORACLE_ADDRESS=${oracle} \
         forge script script/DeployPerTokenPaymaster.s.sol:DeployPerTokenPaymaster \
         --rpc-url ${TEST_CONFIG.jejuRpcUrl} \
@@ -167,7 +167,7 @@ describe.skipIf(!localnetAvailable)('Multi-Token Full Lifecycle', () => {
     console.log('\n📝 Step 3: LP Adding ETH Liquidity...');
 
     // LP deposits 10 ETH to CLANKER vault
-    const depositAmount = parseEther('10');
+    const _depositAmount = parseEther('10');
 
     // This would be actual contract call in full implementation
     console.log('✅ LP deposited 10 ETH to CLANKER vault');

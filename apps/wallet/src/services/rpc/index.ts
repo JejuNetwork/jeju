@@ -31,19 +31,6 @@ export function getNetworkRpc(chainId: SupportedChainId): string {
   return `${JEJU_RPC_BASE}/${chainNames[chainId]}`;
 }
 
-// Fallback public RPCs (only used if network is unavailable)
-const FALLBACK_RPCS: Record<SupportedChainId, string> = {
-  1: 'https://eth.llamarpc.com',
-  8453: 'https://mainnet.base.org',
-  42161: 'https://arb1.arbitrum.io/rpc',
-  10: 'https://mainnet.optimism.io',
-  56: 'https://bsc-dataseed.binance.org',
-};
-
-interface RPCResponse<T> {
-  result: T;
-  error?: { code: number; message: string };
-}
 
 class RPCService {
   private clients: Map<SupportedChainId, PublicClient> = new Map();
@@ -145,12 +132,8 @@ class RPCService {
     const chainIds = Object.keys(SUPPORTED_CHAINS).map(Number) as SupportedChainId[];
     const results = await Promise.all(
       chainIds.map(async (chainId) => {
-        try {
-          const balance = await this.getBalance(chainId, address);
-          return { chainId, balance, formatted: formatEther(balance) };
-        } catch {
-          return { chainId, balance: 0n, formatted: '0' };
-        }
+        const balance = await this.getBalance(chainId, address);
+        return { chainId, balance, formatted: formatEther(balance) };
       })
     );
     return results;

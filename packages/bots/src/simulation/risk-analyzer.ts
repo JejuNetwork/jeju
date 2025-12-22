@@ -55,18 +55,24 @@ export class RiskAnalyzer {
 
     // Risk-adjusted returns
     const dailyRiskFree = this.riskFreeRate / 365;
-    const excessReturns = returns.map(r => r - dailyRiskFree);
-    const sharpeRatio = (meanReturn - dailyRiskFree) / (stdDev || 0.0001) * annualizationFactor;
+    
+    // Validate we have enough data for meaningful statistics
+    if (stdDev === 0) {
+      throw new Error('Insufficient variance in returns data - cannot calculate risk metrics');
+    }
+    
+    const sharpeRatio = (meanReturn - dailyRiskFree) / stdDev * annualizationFactor;
 
     // Sortino ratio (downside deviation only)
     const negativeReturns = returns.filter(r => r < 0);
     const downsideDeviation = negativeReturns.length > 0 
       ? this.standardDeviation(negativeReturns)
-      : 0.0001;
+      : stdDev; // Use total volatility if no downside moves
     const sortinoRatio = (meanReturn - dailyRiskFree) / downsideDeviation * annualizationFactor;
 
     // Calmar ratio (return / max drawdown)
-    const calmarRatio = annualizedMean / (maxDrawdown || 0.0001);
+    // If no drawdown, return Infinity to indicate perfect performance
+    const calmarRatio = maxDrawdown > 0 ? annualizedMean / maxDrawdown : Infinity;
 
     return {
       meanReturn: annualizedMean,
@@ -163,7 +169,14 @@ export class RiskAnalyzer {
 
       const mean = this.mean(windowReturns);
       const std = this.standardDeviation(windowReturns);
-      const sharpe = (mean - this.riskFreeRate / 365) / (std || 0.0001) * Math.sqrt(365);
+      // Skip if no variance in this window
+      if (std === 0) {
+        rollingSharpe.push(0);
+        rollingVol.push(0);
+        rollingReturn.push(mean * 365);
+        continue;
+      }
+      const sharpe = (mean - this.riskFreeRate / 365) / std * Math.sqrt(365);
 
       rollingSharpe.push(sharpe);
       rollingVol.push(std * Math.sqrt(365));

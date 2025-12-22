@@ -8,16 +8,42 @@
 import { getCQL, type CQLClient, type QueryParam } from "@jejunetwork/db";
 import { getCacheClient, type CacheClient } from "@jejunetwork/shared";
 import { getCurrentNetwork } from "@jejunetwork/config";
+import { z } from 'zod';
 
 const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? "autocrat";
 
-// Types
+// ============ Schemas for JSON parsing ============
+
+const ProposalStatusSchema = z.enum(["draft", "review", "voting", "approved", "rejected", "executed"]);
+const ModerationTargetTypeSchema = z.enum(["proposal", "user", "research"]);
+
+const AutocratVotesRecordSchema = z.record(z.string(), z.boolean());
+const SourcesArraySchema = z.array(z.string());
+
+const ProposalSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  description: z.string(),
+  author: z.string(),
+  status: ProposalStatusSchema,
+  qualityScore: z.number(),
+  autocratVotes: AutocratVotesRecordSchema,
+  futarchyMarketId: z.string().optional(),
+  createdAt: z.number(),
+  updatedAt: z.number(),
+});
+
+// ============ Types ============
+
+export type ProposalStatus = z.infer<typeof ProposalStatusSchema>;
+export type ModerationTargetType = z.infer<typeof ModerationTargetTypeSchema>;
+
 export interface Proposal {
   id: string;
   title: string;
   description: string;
   author: string;
-  status: "draft" | "review" | "voting" | "approved" | "rejected" | "executed";
+  status: ProposalStatus;
   qualityScore: number;
   autocratVotes: Record<string, boolean>;
   futarchyMarketId?: string;
@@ -38,7 +64,7 @@ export interface ResearchResult {
 export interface ModerationFlag {
   id: string;
   targetId: string;
-  targetType: "proposal" | "user" | "research";
+  targetType: ModerationTargetType;
   flagType: string;
   reason: string;
   reporterId: string;
@@ -158,12 +184,7 @@ async function ensureTablesExist(): Promise<void> {
   }
 
   for (const idx of indexes) {
-    try {
-      await cqlClient!.exec(idx, [], CQL_DATABASE_ID);
-    } catch (e) {
-      // Index creation may fail if index already exists, which is acceptable
-      console.debug(`Index creation skipped (may already exist): ${idx.substring(0, 50)}...`);
-    }
+    await cqlClient!.exec(idx, [], CQL_DATABASE_ID);
   }
 
   console.log("[Council] CovenantSQL tables ensured");
@@ -199,7 +220,8 @@ export const proposalState = {
     const cache = getCache();
     const cached = await cache.get(`proposal:${id}`).catch(() => null);
     if (cached) {
-      return JSON.parse(cached) as Proposal;
+      const parsed = JSON.parse(cached);
+      return ProposalSchema.parse(parsed);
     }
 
     const client = await getCQLClient();
@@ -210,14 +232,17 @@ export const proposalState = {
     );
     const row = result.rows[0];
     if (row) {
+      const autocratVotes = AutocratVotesRecordSchema.parse(
+        JSON.parse((row.council_votes as string) || "{}")
+      );
       const proposal: Proposal = {
         id: row.id as string,
         title: row.title as string,
         description: row.description as string,
         author: row.author as string,
-        status: row.status as Proposal["status"],
+        status: ProposalStatusSchema.parse(row.status),
         qualityScore: row.quality_score as number,
-        autocratVotes: JSON.parse((row.council_votes as string) || "{}"),
+        autocratVotes,
         futarchyMarketId: row.futarchy_market_id as string | undefined,
         createdAt: row.created_at as number,
         updatedAt: row.updated_at as number,
@@ -269,7 +294,7 @@ export const proposalState = {
     await getCache().delete(`proposal:${id}`);
   },
 
-  async list(status?: Proposal["status"], limit = 50): Promise<Proposal[]> {
+  async list(status?: ProposalStatus, limit = 50): Promise<Proposal[]> {
     const client = await getCQLClient();
     const where = status ? "WHERE status = ?" : "";
     const params = status ? [status, limit] : [limit];
@@ -283,9 +308,11 @@ export const proposalState = {
       title: row.title as string,
       description: row.description as string,
       author: row.author as string,
-      status: row.status as Proposal["status"],
+      status: ProposalStatusSchema.parse(row.status),
       qualityScore: row.quality_score as number,
-      autocratVotes: JSON.parse((row.council_votes as string) || "{}"),
+      autocratVotes: AutocratVotesRecordSchema.parse(
+        JSON.parse((row.council_votes as string) || "{}")
+      ),
       futarchyMarketId: row.futarchy_market_id as string | undefined,
       createdAt: row.created_at as number,
       updatedAt: row.updated_at as number,
@@ -325,7 +352,7 @@ export const researchState = {
       proposalId: row.proposal_id as string,
       topic: row.topic as string,
       summary: row.summary as string,
-      sources: JSON.parse((row.sources as string) || "[]"),
+      sources: SourcesArraySchema.parse(JSON.parse((row.sources as string) || "[]")),
       confidence: row.confidence as number,
       createdAt: row.created_at as number,
     }));

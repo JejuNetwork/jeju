@@ -3,12 +3,7 @@
  */
 
 import { NextResponse } from 'next/server';
-
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
+import { CORS_HEADERS } from '@/lib/mcp/constants';
 
 export async function OPTIONS() {
   return new NextResponse(null, { headers: CORS_HEADERS });

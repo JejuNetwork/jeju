@@ -19,8 +19,6 @@ import {
   createWalletClient,
   http,
   parseAbi,
-  decodeFunctionResult,
-  encodeFunctionData,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
@@ -218,6 +216,14 @@ export class WarpRouteDeployer {
       throw new Error(`No wallet client for chain ${chainId}`);
     }
 
+    const account = clients.wallet.account;
+    if (!account) {
+      throw new Error(`Wallet client for chain ${chainId} must have an account`);
+    }
+    if (!clients.wallet.chain) {
+      throw new Error(`Wallet client for chain ${chainId} must have a chain configured`);
+    }
+
     const addresses = HYPERLANE_ADDRESSES[chainId];
     if (!addresses) {
       throw new Error(`Hyperlane not deployed on chain ${chainId}`);
@@ -229,7 +235,7 @@ export class WarpRouteDeployer {
       abi: HYPERLANE_ISM_FACTORY_ABI,
       functionName: 'deploy',
       args: [config.validators, config.threshold],
-      account: clients.wallet.account,
+      account,
     });
 
     // Execute deployment
@@ -238,6 +244,8 @@ export class WarpRouteDeployer {
       abi: HYPERLANE_ISM_FACTORY_ABI,
       functionName: 'deploy',
       args: [config.validators, config.threshold],
+      chain: clients.wallet.chain,
+      account,
     });
 
     await clients.public.waitForTransactionReceipt({ hash });
@@ -260,6 +268,14 @@ export class WarpRouteDeployer {
       throw new Error(`No wallet client for chain ${chain.chainId}`);
     }
 
+    const account = clients.wallet.account;
+    if (!account) {
+      throw new Error(`Wallet client for chain ${chain.chainId} must have an account`);
+    }
+    if (!clients.wallet.chain) {
+      throw new Error(`Wallet client for chain ${chain.chainId} must have a chain configured`);
+    }
+
     const addresses = HYPERLANE_ADDRESSES[chain.chainId];
     if (!addresses) {
       throw new Error(`Hyperlane not deployed on chain ${chain.chainId}`);
@@ -271,14 +287,14 @@ export class WarpRouteDeployer {
     let tokenAddress: Address;
 
     switch (chain.tokenType) {
-      case 'native':
+      case 'native': {
         functionName = 'deployNative';
         const nativeSimulation = await clients.public.simulateContract({
           address: addresses.warpFactory,
           abi: HYPERLANE_WARP_FACTORY_ABI,
           functionName: 'deployNative',
           args: [chain.mailbox, ismAddress, chain.igp, chain.owner],
-          account: clients.wallet.account,
+          account,
         });
         warpRouteAddress = nativeSimulation.result;
         tokenAddress = '0x0000000000000000000000000000000000000000' as Address; // Native token
@@ -287,10 +303,13 @@ export class WarpRouteDeployer {
           abi: HYPERLANE_WARP_FACTORY_ABI,
           functionName: 'deployNative',
           args: [chain.mailbox, ismAddress, chain.igp, chain.owner],
+          chain: clients.wallet.chain,
+          account,
         });
         break;
+      }
 
-      case 'collateral':
+      case 'collateral': {
         if (!chain.tokenAddress) {
           throw new Error('Token address required for collateral warp route');
         }
@@ -300,7 +319,7 @@ export class WarpRouteDeployer {
           abi: HYPERLANE_WARP_FACTORY_ABI,
           functionName: 'deployCollateral',
           args: [chain.tokenAddress, chain.mailbox, ismAddress, chain.igp, chain.owner],
-          account: clients.wallet.account,
+          account,
         });
         warpRouteAddress = collateralSimulation.result;
         tokenAddress = chain.tokenAddress;
@@ -309,17 +328,20 @@ export class WarpRouteDeployer {
           abi: HYPERLANE_WARP_FACTORY_ABI,
           functionName: 'deployCollateral',
           args: [chain.tokenAddress, chain.mailbox, ismAddress, chain.igp, chain.owner],
+          chain: clients.wallet.chain,
+          account,
         });
         break;
+      }
 
-      case 'synthetic':
+      case 'synthetic': {
         functionName = 'deploySynthetic';
         const syntheticSimulation = await clients.public.simulateContract({
           address: addresses.warpFactory,
           abi: HYPERLANE_WARP_FACTORY_ABI,
           functionName: 'deploySynthetic',
           args: [config.decimals, config.name, config.symbol, chain.mailbox, ismAddress, chain.igp, chain.owner],
-          account: clients.wallet.account,
+          account,
         });
         warpRouteAddress = syntheticSimulation.result;
         // For synthetic, the warp route address IS the token address
@@ -329,8 +351,11 @@ export class WarpRouteDeployer {
           abi: HYPERLANE_WARP_FACTORY_ABI,
           functionName: 'deploySynthetic',
           args: [config.decimals, config.name, config.symbol, chain.mailbox, ismAddress, chain.igp, chain.owner],
+          chain: clients.wallet.chain,
+          account,
         });
         break;
+      }
     }
 
     await clients.public.waitForTransactionReceipt({ hash });
@@ -359,6 +384,14 @@ export class WarpRouteDeployer {
       throw new Error(`No wallet client for chain ${localChainId}`);
     }
 
+    const account = clients.wallet.account;
+    if (!account) {
+      throw new Error(`Wallet client for chain ${localChainId} must have an account`);
+    }
+    if (!clients.wallet.chain) {
+      throw new Error(`Wallet client for chain ${localChainId} must have a chain configured`);
+    }
+
     // Convert address to bytes32
     const routerBytes32 = `0x${remoteRouter.slice(2).padStart(64, '0')}` as Hex;
 
@@ -367,6 +400,8 @@ export class WarpRouteDeployer {
       abi: HYPERLANE_WARP_ROUTE_ABI,
       functionName: 'enrollRemoteRouter',
       args: [remoteChainId, routerBytes32],
+      chain: clients.wallet.chain,
+      account,
     });
 
     await clients.public.waitForTransactionReceipt({ hash });

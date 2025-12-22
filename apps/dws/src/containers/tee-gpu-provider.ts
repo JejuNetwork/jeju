@@ -436,7 +436,7 @@ export class TEEGPUProvider {
 // ============================================================================
 
 /** GPU specifications by type */
-const GPU_SPECS: Record<GPUType, Omit<GPUCapabilities, 'gpuCount'>> = {
+export const GPU_SPECS: Record<GPUType, Omit<GPUCapabilities, 'gpuCount'>> = {
   [GPUType.H200]: {
     gpuType: GPUType.H200,
     vramGb: 141,

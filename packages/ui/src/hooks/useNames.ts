@@ -1,75 +1,76 @@
-/**
- * Names hook
- */
-
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import type { Address, Hex } from "viem";
 import { useNetworkContext } from "../context";
+import { useAsyncState, requireClient, type AsyncState } from "./utils";
 import type {
   NameInfo,
   RegisterNameParams,
   NameRecords,
 } from "@jejunetwork/sdk";
 
-export function useNames() {
+export interface UseNamesResult extends AsyncState {
+  resolve: (name: string) => Promise<Address | null>;
+  reverseResolve: (address: Address) => Promise<string | null>;
+  register: (params: RegisterNameParams) => Promise<Hex>;
+  listMyNames: () => Promise<NameInfo[]>;
+  isAvailable: (name: string) => Promise<boolean>;
+  getPrice: (name: string, years: number) => Promise<bigint>;
+  setRecords: (name: string, records: NameRecords) => Promise<Hex>;
+}
+
+export function useNames(): UseNamesResult {
   const { client } = useNetworkContext();
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
+  const { isLoading, error, execute } = useAsyncState();
 
   const resolve = useCallback(
     async (name: string): Promise<Address | null> => {
-      if (!client) throw new Error("Not connected");
-      return client.names.resolve(name);
+      const c = requireClient(client);
+      return c.names.resolve(name);
     },
     [client],
   );
 
   const reverseResolve = useCallback(
     async (address: Address): Promise<string | null> => {
-      if (!client) throw new Error("Not connected");
-      return client.names.reverseResolve(address);
+      const c = requireClient(client);
+      return c.names.reverseResolve(address);
     },
     [client],
   );
 
   const register = useCallback(
     async (params: RegisterNameParams): Promise<Hex> => {
-      if (!client) throw new Error("Not connected");
-      setIsLoading(true);
-      setError(null);
-
-      const txHash = await client.names.register(params);
-      setIsLoading(false);
-      return txHash;
+      const c = requireClient(client);
+      return execute(() => c.names.register(params));
     },
-    [client],
+    [client, execute],
   );
 
   const listMyNames = useCallback(async (): Promise<NameInfo[]> => {
-    if (!client) throw new Error("Not connected");
-    return client.names.listMyNames();
+    const c = requireClient(client);
+    return c.names.listMyNames();
   }, [client]);
 
   const isAvailable = useCallback(
     async (name: string): Promise<boolean> => {
-      if (!client) throw new Error("Not connected");
-      return client.names.isAvailable(name);
+      const c = requireClient(client);
+      return c.names.isAvailable(name);
     },
     [client],
   );
 
   const getPrice = useCallback(
     async (name: string, years: number): Promise<bigint> => {
-      if (!client) throw new Error("Not connected");
-      return client.names.getRegistrationPrice(name, years);
+      const c = requireClient(client);
+      return c.names.getRegistrationPrice(name, years);
     },
     [client],
   );
 
   const setRecords = useCallback(
     async (name: string, records: NameRecords): Promise<Hex> => {
-      if (!client) throw new Error("Not connected");
-      return client.names.setRecords(name, records);
+      const c = requireClient(client);
+      return c.names.setRecords(name, records);
     },
     [client],
   );

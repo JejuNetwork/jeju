@@ -9,7 +9,7 @@
  * - Resource contention
  */
 
-import { describe, expect, it, beforeEach } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import {
 	createTEEBatcher,
 	ChainId,

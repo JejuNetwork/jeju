@@ -7,7 +7,6 @@
  * - Managing MCP sessions
  */
 
-import type { Address } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
 import { getServicesConfig } from "../config";
@@ -34,12 +33,15 @@ export interface MCPTool {
   description?: string;
   inputSchema: {
     type: "object";
-    properties: Record<string, {
-      type: string;
-      description?: string;
-      enum?: string[];
-      default?: unknown;
-    }>;
+    properties: Record<
+      string,
+      {
+        type: string;
+        description?: string;
+        enum?: string[];
+        default?: unknown;
+      }
+    >;
     required?: string[];
   };
 }
@@ -104,8 +106,10 @@ export interface MCPSession {
 export interface MCPModule {
   // Server Discovery
   discoverServer(endpoint: string): Promise<MCPServer>;
-  listKnownServers(): Promise<Array<{ name: string; endpoint: string; info: MCPServer }>>;
-  
+  listKnownServers(): Promise<
+    Array<{ name: string; endpoint: string; info: MCPServer }>
+  >;
+
   // Session Management
   createSession(endpoint: string): Promise<MCPSession>;
   closeSession(sessionId: string): Promise<void>;
@@ -142,14 +146,20 @@ export interface MCPModule {
   // Network Services (pre-configured endpoints)
   factory: {
     listTools(): Promise<MCPTool[]>;
-    callTool(toolName: string, args: Record<string, unknown>): Promise<MCPToolResult>;
+    callTool(
+      toolName: string,
+      args: Record<string, unknown>,
+    ): Promise<MCPToolResult>;
     listResources(): Promise<MCPResource[]>;
     readResource(uri: string): Promise<MCPResourceContent>;
   };
-  
+
   gateway: {
     listTools(): Promise<MCPTool[]>;
-    callTool(toolName: string, args: Record<string, unknown>): Promise<MCPToolResult>;
+    callTool(
+      toolName: string,
+      args: Record<string, unknown>,
+    ): Promise<MCPToolResult>;
     listResources(): Promise<MCPResource[]>;
     readResource(uri: string): Promise<MCPResourceContent>;
   };
@@ -189,7 +199,7 @@ export function createMCPModule(
     params?: Record<string, unknown>,
   ): Promise<T> {
     const headers = await buildAuthHeaders();
-    
+
     const body = {
       jsonrpc: "2.0",
       method,
@@ -207,7 +217,7 @@ export function createMCPModule(
       throw new Error(`MCP request failed: ${response.statusText}`);
     }
 
-    const result = await response.json() as {
+    const result = (await response.json()) as {
       jsonrpc: string;
       id: number;
       result?: T;
@@ -224,10 +234,15 @@ export function createMCPModule(
   function createServiceClient(baseUrl: string) {
     return {
       async listTools(): Promise<MCPTool[]> {
-        return mcpRequest<{ tools: MCPTool[] }>(baseUrl, "tools/list").then((r) => r.tools);
+        return mcpRequest<{ tools: MCPTool[] }>(baseUrl, "tools/list").then(
+          (r) => r.tools,
+        );
       },
 
-      async callTool(toolName: string, args: Record<string, unknown>): Promise<MCPToolResult> {
+      async callTool(
+        toolName: string,
+        args: Record<string, unknown>,
+      ): Promise<MCPToolResult> {
         return mcpRequest<MCPToolResult>(baseUrl, "tools/call", {
           name: toolName,
           arguments: args,
@@ -235,15 +250,20 @@ export function createMCPModule(
       },
 
       async listResources(): Promise<MCPResource[]> {
-        return mcpRequest<{ resources: MCPResource[] }>(baseUrl, "resources/list").then(
-          (r) => r.resources,
-        );
+        return mcpRequest<{ resources: MCPResource[] }>(
+          baseUrl,
+          "resources/list",
+        ).then((r) => r.resources);
       },
 
       async readResource(uri: string): Promise<MCPResourceContent> {
-        return mcpRequest<{ contents: MCPResourceContent[] }>(baseUrl, "resources/read", {
-          uri,
-        }).then((r) => r.contents[0]);
+        return mcpRequest<{ contents: MCPResourceContent[] }>(
+          baseUrl,
+          "resources/read",
+          {
+            uri,
+          },
+        ).then((r) => r.contents[0]);
       },
     };
   }
@@ -270,15 +290,25 @@ export function createMCPModule(
         { name: "Gateway", endpoint: gatewayMcpUrl },
       ];
 
-      const servers: Array<{ name: string; endpoint: string; info: MCPServer }> = [];
+      const servers: Array<{
+        name: string;
+        endpoint: string;
+        info: MCPServer;
+      }> = [];
 
-      for (const { name, endpoint } of knownEndpoints) {
-        try {
+      // Discover servers in parallel, filter out unavailable ones
+      const results = await Promise.allSettled(
+        knownEndpoints.map(async ({ name, endpoint }) => {
           const info = await this.discoverServer(endpoint);
-          servers.push({ name, endpoint, info });
-        } catch {
-          // Server not available
+          return { name, endpoint, info };
+        }),
+      );
+
+      for (const result of results) {
+        if (result.status === "fulfilled") {
+          servers.push(result.value);
         }
+        // Skip unavailable servers - this is expected behavior for optional services
       }
 
       return servers;
@@ -318,7 +348,10 @@ export function createMCPModule(
     },
 
     async listTools(endpoint) {
-      const result = await mcpRequest<{ tools: MCPTool[] }>(endpoint, "tools/list");
+      const result = await mcpRequest<{ tools: MCPTool[] }>(
+        endpoint,
+        "tools/list",
+      );
       return result.tools;
     },
 
@@ -389,7 +422,10 @@ export function createMCPModule(
     },
 
     async listPrompts(endpoint) {
-      const result = await mcpRequest<{ prompts: MCPPrompt[] }>(endpoint, "prompts/list");
+      const result = await mcpRequest<{ prompts: MCPPrompt[] }>(
+        endpoint,
+        "prompts/list",
+      );
       return result.prompts;
     },
 
@@ -407,4 +443,3 @@ export function createMCPModule(
     gateway: createServiceClient(gatewayMcpUrl),
   };
 }
-

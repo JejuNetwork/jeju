@@ -6,6 +6,8 @@
 import { secureStorage } from '../../platform/secure-storage';
 import { generateMnemonic, validateMnemonic } from '@scure/bip39';
 import { wordlist } from '@scure/bip39/wordlists/english';
+import { BackupStateSchema } from '../../plugin/schemas';
+import { expectJson } from '../../lib/validation';
 
 interface BackupState {
   hasBackedUp: boolean;
@@ -27,7 +29,7 @@ class BackupService {
   async initialize(): Promise<void> {
     const saved = await secureStorage.get(STORAGE_KEY);
     if (saved) {
-      this.state = JSON.parse(saved);
+      this.state = expectJson(saved, BackupStateSchema, 'backup state');
     }
   }
   
@@ -51,7 +53,6 @@ class BackupService {
    * Returns indices of words to verify
    */
   generateVerificationChallenge(wordCount: number = 12): number[] {
-    const indices: number[] = [];
     const positions = [0, 3, 6, 9]; // Verify 4 words
     
     // For 24-word phrases, add more positions

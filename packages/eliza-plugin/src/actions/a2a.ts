@@ -10,6 +10,7 @@ import {
   type State,
 } from "@elizaos/core";
 import { JEJU_SERVICE_NAME, type JejuService } from "../service";
+import { getMessageText, validateServiceExists } from "../validation";
 
 export const callAgentAction: Action = {
   name: "CALL_AGENT",
@@ -22,35 +23,42 @@ export const callAgentAction: Action = {
     "message agent",
   ],
 
-  validate: async (runtime: IAgentRuntime) => {
-    const service = runtime.getService(JEJU_SERVICE_NAME);
-    return !!service;
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
 
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
-    const text = message.content.text ?? "";
+    const text = getMessageText(message);
 
     // Extract agent endpoint/name and request
     const agentMatch = text.match(/agent\s+([^\s]+)/i);
     const skillMatch = text.match(/skill\s+([^\s]+)/i);
 
     if (!agentMatch) {
-      callback?.({ text: "Please specify an agent to call (e.g., 'call agent compute.jeju')" });
+      callback?.({
+        text: "Please specify an agent to call (e.g., 'call agent compute.jeju')",
+      });
+      return;
+    }
+
+    if (!skillMatch) {
+      callback?.({
+        text: "Please specify a skill to call (e.g., 'call agent compute.jeju skill list-providers')",
+      });
       return;
     }
 
     const agentEndpoint = agentMatch[1];
-    const skillId = skillMatch?.[1] ?? "default";
+    const skillId = skillMatch[1];
 
-    callback?.({ text: `Calling agent ${agentEndpoint}...` });
+    callback?.({ text: `Calling agent ${agentEndpoint} skill ${skillId}...` });
 
     const response = await client.a2a.callSkill(agentEndpoint, skillId, {
       message: text,
@@ -65,8 +73,16 @@ ${response.message}`,
 
   examples: [
     [
-      { name: "user", content: { text: "Call agent compute.jeju skill list-providers" } },
-      { name: "agent", content: { text: "Agent response from compute.jeju: Found 5 providers..." } },
+      {
+        name: "user",
+        content: { text: "Call agent compute.jeju skill list-providers" },
+      },
+      {
+        name: "agent",
+        content: {
+          text: "Agent response from compute.jeju: Found 5 providers...",
+        },
+      },
     ],
   ],
 };
@@ -82,21 +98,19 @@ export const discoverAgentsAction: Action = {
     "available agents",
   ],
 
-  validate: async (runtime: IAgentRuntime) => {
-    const service = runtime.getService(JEJU_SERVICE_NAME);
-    return !!service;
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
 
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
-    const text = message.content.text ?? "";
+    const text = getMessageText(message);
 
     // Extract optional tag filter
     const tagMatch = text.match(/tag[s]?\s+([^\s]+)/i);
@@ -111,7 +125,10 @@ export const discoverAgentsAction: Action = {
 
     const agentList = agents
       .slice(0, 10)
-      .map((a) => `• ${a.name} (${a.endpoint}) - ${a.skills.length} skills`)
+      .map(
+        (a: { name: string; endpoint: string; skills: string[] }) =>
+          `• ${a.name} (${a.endpoint}) - ${a.skills.length} skills`,
+      )
       .join("\n");
 
     callback?.({
@@ -128,4 +145,3 @@ ${agentList}`,
     ],
   ],
 };
-

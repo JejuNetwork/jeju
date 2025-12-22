@@ -21,6 +21,13 @@ import type {
   Voucher,
   EILServiceConfig,
 } from '../types';
+import {
+  expectAddress,
+  expectHex,
+  expectChainId,
+  expectBigInt,
+  expectNonNegative,
+} from '../../lib/validation';
 
 // CrossChainPaymaster ABI (from the network contracts)
 const CROSS_CHAIN_PAYMASTER_ABI = [
@@ -144,6 +151,12 @@ export class EILService {
     feePercent: number;
     estimatedTime: number;
   }> {
+    expectChainId(options.sourceChainId, 'sourceChainId');
+    expectChainId(options.destinationChainId, 'destinationChainId');
+    expectAddress(options.sourceToken, 'sourceToken');
+    expectAddress(options.destinationToken, 'destinationToken');
+    expectBigInt(options.amount, 'amount');
+
     const cacheKey = `${options.sourceChainId}-${options.destinationChainId}-${options.sourceToken}-${options.destinationToken}-${options.amount}`;
     const cached = this.quoteCache.get(cacheKey);
     
@@ -218,7 +231,15 @@ export class EILService {
     requestId: Hex;
     callData: Hex;
   }> {
+    expectChainId(options.sourceChainId, 'sourceChainId');
+    expectChainId(options.destinationChainId, 'destinationChainId');
+    expectAddress(options.sourceToken, 'sourceToken');
+    expectAddress(options.destinationToken, 'destinationToken');
+    expectBigInt(options.sourceAmount, 'sourceAmount');
+    expectBigInt(options.minDestinationAmount, 'minDestinationAmount');
+    
     const deadline = options.deadline || Math.floor(Date.now() / 1000) + 3600;
+    expectNonNegative(deadline, 'deadline');
     
     const callData = encodeFunctionData({
       abi: CROSS_CHAIN_PAYMASTER_ABI,
@@ -258,6 +279,9 @@ export class EILService {
     requestId: Hex,
     chainId: number
   ): Promise<VoucherRequest | null> {
+    expectHex(requestId, 'requestId');
+    expectChainId(chainId, 'chainId');
+
     const publicClient = this.getPublicClient(chainId);
     
     const result = await publicClient.readContract({
@@ -303,6 +327,9 @@ export class EILService {
     voucherId: Hex,
     chainId: number
   ): Promise<Voucher | null> {
+    expectHex(voucherId, 'voucherId');
+    expectChainId(chainId, 'chainId');
+
     const publicClient = this.getPublicClient(chainId);
     
     const result = await publicClient.readContract({
@@ -345,6 +372,13 @@ export class EILService {
     sourceChainCallData: Hex;
     estimatedOutput: bigint;
   }> {
+    expectChainId(options.sourceChainId, 'sourceChainId');
+    expectChainId(options.destinationChainId, 'destinationChainId');
+    expectAddress(options.sourceToken, 'sourceToken');
+    expectAddress(options.destinationToken, 'destinationToken');
+    expectBigInt(options.amount, 'amount');
+    expectAddress(options.recipient, 'recipient');
+
     this.runtime?.logger.info(`[EILService] Executing cross-chain swap: ${options.sourceChainId} -> ${options.destinationChainId}`);
     
     const quote = await this.getQuote({
@@ -432,7 +466,11 @@ export class EILService {
     gasToken: Address;
     maxGasTokenAmount: bigint;
   }): Promise<Hex> {
-    return ('0x' + 
+    expectChainId(options.chainId, 'chainId');
+    expectAddress(options.gasToken, 'gasToken');
+    expectBigInt(options.maxGasTokenAmount, 'maxGasTokenAmount');
+
+    return ('0x' +  
       this.config.crossChainPaymasterAddress.slice(2) +
       options.gasToken.slice(2) +
       options.maxGasTokenAmount.toString(16).padStart(64, '0')

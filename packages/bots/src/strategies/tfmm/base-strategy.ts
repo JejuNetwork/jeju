@@ -9,7 +9,8 @@
  */
 
 import type { TFMMRiskParameters, OraclePrice, Token } from '../../types';
-import { OracleAggregator } from '../../oracles';
+import type { OracleAggregator } from '../../oracles';
+import { WEIGHT_PRECISION, BPS_PRECISION } from '../../shared';
 
 // ============ Types ============
 
@@ -42,11 +43,6 @@ export interface StrategySignal {
   strength: number;     // 0 to 1, confidence in signal
   reason: string;
 }
-
-// ============ Constants ============
-
-const WEIGHT_PRECISION = 10n ** 18n;
-const BPS_PRECISION = 10000n;
 
 // ============ Base Strategy Class ============
 
@@ -274,11 +270,6 @@ export abstract class BaseTFMMStrategy {
 
 // ============ Helper Functions ============
 
-export function weightToBps(weight: bigint): number {
-  return Number((weight * 10000n) / WEIGHT_PRECISION);
-}
-
-export function bpsToWeight(bps: number): bigint {
-  return (BigInt(bps) * WEIGHT_PRECISION) / 10000n;
-}
+// Re-export from shared
+export { weightToBps, bpsToWeight } from '../../shared';
 

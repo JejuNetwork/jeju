@@ -6,6 +6,67 @@ import { keccak_256 } from "@noble/hashes/sha3";
 
 // Re-export logger
 export { createLogger, type Logger, type LogLevel } from "./logger.js";
+
+// Re-export validation utilities
+export {
+	requireEnv,
+	getHomeDir,
+	hashToHex,
+	hexToHash32,
+	computeMerkleRoot,
+	// Schemas
+	ProofDataSchema,
+	Groth16DataSchema,
+	PhalaHealthResponseSchema,
+	PhalaAttestationResponseSchema,
+	PhalaVerifyResponseSchema,
+	NitroDocumentSchema,
+	GCPTokenResponseSchema,
+	SP1ConfigSchema,
+	PhalaConfigSchema,
+	AWSNitroConfigSchema,
+	GCPConfidentialConfigSchema,
+	EVMChainConfigSchema,
+	SolanaConfigSchema,
+	OrchestratorConfigSchema,
+	JupiterQuoteResponseSchema,
+	OrderbookLevelSchema,
+	OrderbookResponseSchema,
+	RelayerEnvSchema,
+	WormholeVAAResponseSchema,
+	HyperCoreMarketSchema,
+	HyperCoreMarketsResponseSchema,
+	HyperCorePositionSchema,
+	HyperCoreClearinghouseResponseSchema,
+	HyperCoreOrderResponseSchema,
+	HyperCoreL2BookResponseSchema,
+	EVMRPCResponseSchema,
+	SolanaHealthResponseSchema,
+	SuccinctProveResponseSchema,
+	// Relayer schemas
+	ValidatorVoteSchema,
+	ConsensusSnapshotSchema,
+	CrossChainTransferSchema,
+	EthereumUpdateSchema,
+	TransferSubmissionSchema,
+	// Types
+	type ProofData,
+	type Groth16Data,
+	type PhalaHealthResponse,
+	type PhalaAttestationResponse,
+	type NitroDocument,
+	type SP1Config as ValidationSP1Config,
+	type PhalaConfig as ValidationPhalaConfig,
+	type AWSNitroConfig as ValidationAWSNitroConfig,
+	type GCPConfidentialConfig as ValidationGCPConfidentialConfig,
+	type WormholeVAAResponse,
+	type HyperCoreMarket,
+	type HyperCorePosition,
+	type EVMRPCResponse,
+	type SolanaHealthResponse as SolanaHealthResponseType,
+	type SuccinctProveResponse,
+} from "./validation.js";
+
 import type { Hash32 } from "../types/index.js";
 import { toHash32 } from "../types/index.js";
 

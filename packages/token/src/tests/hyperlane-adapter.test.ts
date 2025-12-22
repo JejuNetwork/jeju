@@ -68,8 +68,8 @@ describe('HyperlaneAdapter - addressToBytes32', () => {
     );
   });
 
-  test('handles address without 0x prefix', () => {
-    const address = 'abcdefabcdefabcdefabcdefabcdefabcdefabcd';
+  test('handles address and normalizes to lowercase', () => {
+    const address = '0xAbCdEfAbCdEfAbCdEfAbCdEfAbCdEfAbCdEfAbCd' as Address;
     const bytes32 = adapter.addressToBytes32(address);
     expect(bytes32.startsWith('0x')).toBe(true);
     expect(bytes32.endsWith('abcdefabcdefabcdefabcdefabcdefabcdefabcd')).toBe(
@@ -178,7 +178,7 @@ describe('HyperlaneAdapter - getClient Error Handling', () => {
 
   test('throws for SVM chain (no EVM client)', () => {
     expect(() => adapter.getClient('solana-mainnet')).toThrow(
-      'No client for chain'
+      'Invalid EVM chain ID'
     );
   });
 });
@@ -187,111 +187,81 @@ describe('HyperlaneAdapter - generateWarpRouteConfig', () => {
   let adapter: HyperlaneAdapter;
   const tokenAddress =
     '0xTokenAddress123456789012345678901234567890' as Address;
-  const owner = '0xOwnerAddress12345678901234567890123456789' as Address;
-  const validators = ['0xVal1', '0xVal2', '0xVal3'];
   const emptyRoutes = {} as Record<ChainId, Address>;
+  const validators = [
+    '0xVal1Address12345678901234567890123456789' as Address,
+    '0xVal2Address12345678901234567890123456789' as Address,
+    '0xVal3Address12345678901234567890123456789' as Address,
+  ];
 
   beforeEach(() => {
     adapter = new HyperlaneAdapter(MAINNET_CHAINS, emptyRoutes);
   });
 
-  test('home chain is collateral type', () => {
-    const configs = adapter.generateWarpRouteConfig(
-      tokenAddress,
-      [1, 8453],
-      1,
-      owner,
+  test('generates collateral config by default', () => {
+    const ismConfig: MultisigISMConfig = {
+      type: 'multisig',
       validators,
-      2
-    );
-    expect(configs[1].tokenType).toBe('collateral');
-    expect(configs[1].tokenAddress).toBe(tokenAddress);
+      threshold: 2,
+    };
+    const config = adapter.generateWarpRouteConfig(tokenAddress, ismConfig);
+    expect(config.tokenType).toBe('collateral');
+    expect(config.token).toBe(tokenAddress);
   });
 
-  test('non-home chains are synthetic type', () => {
-    const configs = adapter.generateWarpRouteConfig(
-      tokenAddress,
-      [1, 8453, 42161],
-      1,
-      owner,
+  test('generates native config when isNative=true', () => {
+    const ismConfig: MultisigISMConfig = {
+      type: 'multisig',
       validators,
-      2
-    );
-    expect(configs[8453].tokenType).toBe('synthetic');
-    expect(configs[42161].tokenType).toBe('synthetic');
-    expect(configs[8453].tokenAddress).toBe(
-      '0x0000000000000000000000000000000000000000'
-    );
+      threshold: 2,
+    };
+    const config = adapter.generateWarpRouteConfig(tokenAddress, ismConfig, true);
+    expect(config.tokenType).toBe('native');
+    expect(config.token).toBe(tokenAddress);
   });
 
-  test('threshold cannot exceed validator count', () => {
-    const configs = adapter.generateWarpRouteConfig(
-      tokenAddress,
-      [1],
-      1,
-      owner,
+  test('includes ISM config in result', () => {
+    const ismConfig: MultisigISMConfig = {
+      type: 'multisig',
       validators,
-      5 // More than 3 validators
-    );
-    const ism = configs[1].ismConfig as MultisigISMConfig;
-    // Config accepts the threshold as-is - validation would happen on-chain
-    expect(ism.threshold).toBe(5);
+      threshold: 2,
+    };
+    const config = adapter.generateWarpRouteConfig(tokenAddress, ismConfig);
+    expect(config.ism.type).toBe('multisig');
+    expect(config.ism.validators).toEqual(validators);
+    expect(config.ism.threshold).toBe(2);
   });
 
-  test('threshold of 1 creates 1-of-N multisig', () => {
-    const configs = adapter.generateWarpRouteConfig(
-      tokenAddress,
-      [1],
-      1,
-      owner,
+  test('mailbox is placeholder address', () => {
+    const ismConfig: MultisigISMConfig = {
+      type: 'multisig',
       validators,
-      1
-    );
-    const ism = configs[1].ismConfig as MultisigISMConfig;
-    expect(ism.threshold).toBe(1);
-    expect(ism.validators.length).toBe(3);
+      threshold: 1,
+    };
+    const config = adapter.generateWarpRouteConfig(tokenAddress, ismConfig);
+    expect(config.mailbox).toBe('0x0000000000000000000000000000000000000000');
   });
 
-  test('handles single chain deployment', () => {
-    const configs = adapter.generateWarpRouteConfig(
-      tokenAddress,
-      [1],
-      1,
-      owner,
+  test('preserves ISM threshold', () => {
+    const ismConfig: MultisigISMConfig = {
+      type: 'multisig',
       validators,
-      2
-    );
-    expect(Object.keys(configs).length).toBe(1);
-    expect(configs[1]).toBeDefined();
+      threshold: 3,
+    };
+    const config = adapter.generateWarpRouteConfig(tokenAddress, ismConfig);
+    expect(config.ism.threshold).toBe(3);
   });
 
-  test('handles many chains', () => {
-    const manyChains: ChainId[] = [1, 8453, 42161, 10, 137, 56];
-    const configs = adapter.generateWarpRouteConfig(
-      tokenAddress,
-      manyChains,
-      1,
-      owner,
-      validators,
-      2
-    );
-    expect(Object.keys(configs).length).toBe(manyChains.length);
-    for (const chainId of manyChains) {
-      expect(configs[chainId]).toBeDefined();
-    }
-  });
-
-  test('owner is set correctly on all chains', () => {
-    const configs = adapter.generateWarpRouteConfig(
-      tokenAddress,
-      [1, 8453],
-      1,
-      owner,
-      validators,
-      2
-    );
-    expect(configs[1].owner).toBe(owner);
-    expect(configs[8453].owner).toBe(owner);
+  test('handles single validator', () => {
+    const singleValidator = [validators[0]];
+    const ismConfig: MultisigISMConfig = {
+      type: 'multisig',
+      validators: singleValidator,
+      threshold: 1,
+    };
+    const config = adapter.generateWarpRouteConfig(tokenAddress, ismConfig);
+    expect(config.ism.validators.length).toBe(1);
+    expect(config.ism.threshold).toBe(1);
   });
 });
 

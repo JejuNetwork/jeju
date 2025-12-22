@@ -501,10 +501,12 @@ export class ReputationSyncService extends EventEmitter {
       if (!solanaRep) continue;
 
       // Only sync if there's a significant difference (> 5 points)
-      const scoreDiff = Math.abs(evmRep.averageScore - solanaRep.averageScore);
+      const evmScore = Number(evmRep.averageScore);
+      const solanaScore = solanaRep.averageScore;
+      const scoreDiff = Math.abs(evmScore - solanaScore);
       if (scoreDiff > 5) {
         // Sync from higher to lower
-        if (evmRep.averageScore > solanaRep.averageScore) {
+        if (evmScore > solanaScore) {
           const result = await this.syncEVMToSolana(agentId, solanaAgentId);
           if (result) synced++;
           else failed++;

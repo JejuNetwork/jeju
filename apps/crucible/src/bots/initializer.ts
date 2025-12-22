@@ -46,32 +46,28 @@ export class BotInitializer {
 
     await Promise.allSettled(
       defaultBots.map(async (botConfig) => {
-        try {
-          const character = this.createBotCharacter(botConfig);
-          const { agentId, vaultAddress } = await this.config.agentSdk.registerAgent(character, {
-            initialFunding: parseEther(botConfig.initialFunding),
-          });
+        const character = this.createBotCharacter(botConfig);
+        const { agentId, vaultAddress } = await this.config.agentSdk.registerAgent(character, {
+          initialFunding: parseEther(botConfig.initialFunding),
+        });
 
-          this.log.info('Bot agent registered', { name: botConfig.name, agentId: agentId.toString(), vaultAddress });
+        this.log.info('Bot agent registered', { name: botConfig.name, agentId: agentId.toString(), vaultAddress });
 
-          const botOptions = createTradingBotOptions(
-            botConfig,
-            agentId,
-            privateKey,
-            this.config.crucibleConfig.network,
-            this.config.treasuryAddress
-          );
+        const botOptions = createTradingBotOptions(
+          botConfig,
+          agentId,
+          privateKey,
+          this.config.crucibleConfig.network,
+          this.config.treasuryAddress
+        );
 
-          const bot = new TradingBot(botOptions);
-          await bot.initialize();
-          await bot.start();
+        const bot = new TradingBot(botOptions);
+        await bot.initialize();
+        await bot.start();
 
-          initializedBots.set(agentId, bot);
-          this.bots.set(agentId, bot);
-          this.log.info('Bot initialized and started', { name: botConfig.name, agentId: agentId.toString() });
-        } catch (error) {
-          this.log.error('Failed to initialize bot', { name: botConfig.name, error: String(error) });
-        }
+        initializedBots.set(agentId, bot);
+        this.bots.set(agentId, bot);
+        this.log.info('Bot initialized and started', { name: botConfig.name, agentId: agentId.toString() });
       })
     );
 

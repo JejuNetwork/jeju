@@ -2,6 +2,7 @@
  * Payments Module - Paymasters, x402, credits
  */
 
+import { z } from "zod";
 import {
   type Address,
   type Hex,
@@ -12,10 +13,13 @@ import {
 } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
-import {
-  getContract as getContractAddress,
-  getServicesConfig,
-} from "../config";
+import { requireContract, getServicesConfig } from "../config";
+
+/**
+ * Service type schema for credit system
+ */
+export const ServiceTypeSchema = z.enum(["compute", "storage", "inference"]);
+export type ServiceType = z.infer<typeof ServiceTypeSchema>;
 
 export interface PaymasterInfo {
   address: Address;
@@ -41,7 +45,7 @@ export interface X402Receipt {
 }
 
 export interface CreditBalance {
-  service: "compute" | "storage" | "inference";
+  service: ServiceType;
   balance: bigint;
   balanceFormatted: string;
 }
@@ -71,17 +75,9 @@ export interface PaymentsModule {
   verifyX402Receipt(receipt: X402Receipt): Promise<boolean>;
 
   // Prepaid credits
-  getCredits(
-    service: "compute" | "storage" | "inference",
-  ): Promise<CreditBalance>;
-  depositCredits(
-    service: "compute" | "storage" | "inference",
-    amount: bigint,
-  ): Promise<Hex>;
-  withdrawCredits(
-    service: "compute" | "storage" | "inference",
-    amount: bigint,
-  ): Promise<Hex>;
+  getCredits(service: ServiceType): Promise<CreditBalance>;
+  depositCredits(service: ServiceType, amount: bigint): Promise<Hex>;
+  withdrawCredits(service: ServiceType, amount: bigint): Promise<Hex>;
 }
 
 const PAYMASTER_FACTORY_ABI = [
@@ -185,16 +181,8 @@ export function createPaymentsModule(
   wallet: JejuWallet,
   network: NetworkType,
 ): PaymentsModule {
-  const paymasterFactoryAddress = getContractAddress(
-    "payments",
-    "paymasterFactory",
-    network,
-  ) as Address;
-  const creditManagerAddress = getContractAddress(
-    "payments",
-    "creditManager",
-    network,
-  ) as Address;
+  const paymasterFactoryAddress = requireContract("payments", "paymasterFactory", network);
+  const creditManagerAddress = requireContract("payments", "creditManager", network);
   const services = getServicesConfig(network);
 
   async function getBalance(): Promise<bigint> {
@@ -232,7 +220,9 @@ export function createPaymentsModule(
 
   async function listPaymasters(): Promise<PaymasterInfo[]> {
     const response = await fetch(`${services.gateway.api}/paymasters`);
-    if (!response.ok) return [];
+    if (!response.ok) {
+      throw new Error(`Failed to list paymasters: ${response.statusText}`);
+    }
 
     const data = (await response.json()) as {
       paymasters: Array<{
@@ -373,11 +363,9 @@ export function createPaymentsModule(
     return data.valid;
   }
 
-  async function getCredits(
-    service: "compute" | "storage" | "inference",
-  ): Promise<CreditBalance> {
+  async function getCredits(service: ServiceType): Promise<CreditBalance> {
     if (!creditManagerAddress) {
-      return { service, balance: 0n, balanceFormatted: "0" };
+      throw new Error("Credit manager not configured for this network");
     }
 
     const creditManager = getContract({
@@ -399,10 +387,12 @@ export function createPaymentsModule(
   }
 
   async function depositCredits(
-    service: "compute" | "storage" | "inference",
+    service: ServiceType,
     amount: bigint,
   ): Promise<Hex> {
-    if (!creditManagerAddress) throw new Error("Credit manager not configured");
+    if (!creditManagerAddress) {
+      throw new Error("Credit manager not configured for this network");
+    }
 
     const data = encodeFunctionData({
       abi: CREDIT_MANAGER_ABI,
@@ -418,10 +408,12 @@ export function createPaymentsModule(
   }
 
   async function withdrawCredits(
-    service: "compute" | "storage" | "inference",
+    service: ServiceType,
     amount: bigint,
   ): Promise<Hex> {
-    if (!creditManagerAddress) throw new Error("Credit manager not configured");
+    if (!creditManagerAddress) {
+      throw new Error("Credit manager not configured for this network");
+    }
 
     const data = encodeFunctionData({
       abi: CREDIT_MANAGER_ABI,

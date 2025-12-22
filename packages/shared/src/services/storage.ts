@@ -5,14 +5,17 @@
  */
 
 import type { Address } from 'viem';
+import { z } from 'zod';
 
 export type StorageTier = 'hot' | 'warm' | 'cold' | 'permanent';
 
-export interface StorageConfig {
-  apiEndpoint?: string;
-  gatewayEndpoint?: string;
-  defaultTier?: StorageTier;
-}
+const StorageConfigSchema = z.object({
+  apiEndpoint: z.string().url(),
+  gatewayEndpoint: z.string().url(),
+  defaultTier: z.enum(['hot', 'warm', 'cold', 'permanent']).default('hot'),
+});
+
+export type StorageConfig = z.infer<typeof StorageConfigSchema>;
 
 export interface StorageService {
   upload(data: Uint8Array | Blob, name: string, options?: UploadOptions): Promise<UploadResult>;
@@ -50,9 +53,10 @@ class StorageServiceImpl implements StorageService {
   private localFallback = new Map<string, Uint8Array>();
 
   constructor(config: StorageConfig) {
-    this.apiEndpoint = config.apiEndpoint || process.env.STORAGE_API_ENDPOINT || 'http://localhost:4010';
-    this.gatewayEndpoint = config.gatewayEndpoint || process.env.IPFS_GATEWAY || 'http://localhost:4180';
-    this.defaultTier = config.defaultTier || 'hot';
+    const validated = StorageConfigSchema.parse(config);
+    this.apiEndpoint = validated.apiEndpoint;
+    this.gatewayEndpoint = validated.gatewayEndpoint;
+    this.defaultTier = validated.defaultTier;
   }
 
   async upload(data: Uint8Array | Blob, name: string, options?: UploadOptions): Promise<UploadResult> {
@@ -166,12 +170,17 @@ class StorageServiceImpl implements StorageService {
       headers,
       body: formData,
       signal: AbortSignal.timeout(60000),
-    }).catch(() => {
+    }).catch((err: Error) => {
+      console.error('[Storage] Upload failed:', err.message);
       this.available = false;
       return null;
     });
 
-    if (!response || !response.ok) return null;
+    if (!response) return null;
+    if (!response.ok) {
+      console.error(`[Storage] Upload failed: ${response.status}`);
+      return null;
+    }
     const data = await response.json() as { cid: string };
     return data.cid;
   }
@@ -179,27 +188,42 @@ class StorageServiceImpl implements StorageService {
   private async remoteRetrieve(cid: string): Promise<Uint8Array | null> {
     const response = await fetch(`${this.gatewayEndpoint}/ipfs/${cid}`, {
       signal: AbortSignal.timeout(60000),
-    }).catch(() => null);
+    });
 
-    if (!response || !response.ok) return null;
+    if (!response.ok) {
+      console.error(`[Storage] Retrieve failed: ${response.status}`);
+      return null;
+    }
     return new Uint8Array(await response.arrayBuffer());
   }
 
   private async checkHealth(): Promise<boolean> {
     const response = await fetch(`${this.apiEndpoint}/health`, {
       signal: AbortSignal.timeout(5000),
-    }).catch(() => null);
-    return response?.ok ?? false;
+    });
+    return response.ok;
   }
 }
 
 let instance: StorageService | null = null;
 
-export function createStorageService(config: StorageConfig = {}): StorageService {
+export function createStorageService(config: StorageConfig): StorageService {
   if (!instance) {
     instance = new StorageServiceImpl(config);
   }
   return instance;
+}
+
+export function getStorageServiceFromEnv(): StorageService {
+  const apiEndpoint = process.env.STORAGE_API_ENDPOINT;
+  const gatewayEndpoint = process.env.IPFS_GATEWAY;
+  if (!apiEndpoint) {
+    throw new Error('STORAGE_API_ENDPOINT environment variable is required');
+  }
+  if (!gatewayEndpoint) {
+    throw new Error('IPFS_GATEWAY environment variable is required');
+  }
+  return createStorageService({ apiEndpoint, gatewayEndpoint, defaultTier: 'hot' });
 }
 
 export function resetStorageService(): void {

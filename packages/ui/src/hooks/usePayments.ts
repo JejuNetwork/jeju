@@ -1,72 +1,66 @@
-/**
- * Payments hook
- */
-
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import type { Address, Hex } from "viem";
 import { useNetworkContext } from "../context";
-import type { PaymasterInfo, CreditBalance } from "@jejunetwork/sdk";
+import { useAsyncState, requireClient, type AsyncState } from "./utils";
+import type {
+  PaymasterInfo,
+  CreditBalance,
+  ServiceType,
+} from "@jejunetwork/sdk";
 
-export function usePayments() {
+export interface UsePaymentsResult extends AsyncState {
+  getBalance: () => Promise<bigint>;
+  getTokenBalance: (token: Address) => Promise<bigint>;
+  listPaymasters: () => Promise<PaymasterInfo[]>;
+  getCredits: (service: ServiceType) => Promise<CreditBalance>;
+  depositCredits: (service: ServiceType, amount: bigint) => Promise<Hex>;
+  provideLiquidity: (paymaster: Address, amount: bigint) => Promise<Hex>;
+}
+
+export function usePayments(): UsePaymentsResult {
   const { client } = useNetworkContext();
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
+  const { isLoading, error, execute } = useAsyncState();
 
   const getBalance = useCallback(async (): Promise<bigint> => {
-    if (!client) throw new Error("Not connected");
-    return client.payments.getBalance();
+    const c = requireClient(client);
+    return c.payments.getBalance();
   }, [client]);
 
   const getTokenBalance = useCallback(
     async (token: Address): Promise<bigint> => {
-      if (!client) throw new Error("Not connected");
-      return client.payments.getTokenBalance(token);
+      const c = requireClient(client);
+      return c.payments.getTokenBalance(token);
     },
     [client],
   );
 
   const listPaymasters = useCallback(async (): Promise<PaymasterInfo[]> => {
-    if (!client) throw new Error("Not connected");
-    return client.payments.listPaymasters();
+    const c = requireClient(client);
+    return c.payments.listPaymasters();
   }, [client]);
 
   const getCredits = useCallback(
-    async (
-      service: "compute" | "storage" | "inference",
-    ): Promise<CreditBalance> => {
-      if (!client) throw new Error("Not connected");
-      return client.payments.getCredits(service);
+    async (service: ServiceType): Promise<CreditBalance> => {
+      const c = requireClient(client);
+      return c.payments.getCredits(service);
     },
     [client],
   );
 
   const depositCredits = useCallback(
-    async (
-      service: "compute" | "storage" | "inference",
-      amount: bigint,
-    ): Promise<Hex> => {
-      if (!client) throw new Error("Not connected");
-      setIsLoading(true);
-      setError(null);
-
-      const txHash = await client.payments.depositCredits(service, amount);
-      setIsLoading(false);
-      return txHash;
+    async (service: ServiceType, amount: bigint): Promise<Hex> => {
+      const c = requireClient(client);
+      return execute(() => c.payments.depositCredits(service, amount));
     },
-    [client],
+    [client, execute],
   );
 
   const provideLiquidity = useCallback(
     async (paymaster: Address, amount: bigint): Promise<Hex> => {
-      if (!client) throw new Error("Not connected");
-      setIsLoading(true);
-      setError(null);
-
-      const txHash = await client.payments.provideLiquidity(paymaster, amount);
-      setIsLoading(false);
-      return txHash;
+      const c = requireClient(client);
+      return execute(() => c.payments.provideLiquidity(paymaster, amount));
     },
-    [client],
+    [client, execute],
   );
 
   return {

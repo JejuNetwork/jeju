@@ -139,8 +139,15 @@ class SecurityEngine {
           message: `Transaction will fail: ${simulation.error}`,
         });
       }
-    } catch {
-      // Simulation failed
+    } catch (simError) {
+      // Log simulation failure but continue analysis - simulation may be unavailable
+      console.warn('Transaction simulation failed:', simError);
+      results.push({
+        ruleId: 'simulation_failed',
+        triggered: true,
+        level: 'medium',
+        message: `Simulation unavailable: ${simError instanceof Error ? simError.message : 'Unknown error'}`,
+      });
     }
 
     // Calculate overall risk

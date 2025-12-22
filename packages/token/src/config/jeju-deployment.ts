@@ -130,8 +130,8 @@ export const JEJU_MAINNET_CONFIG = {
     rpcUrl: process.env.JEJU_MAINNET_RPC_URL ?? 'https://rpc.jejunetwork.org',
     blockExplorerUrl: 'https://explorer.jejunetwork.org',
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-    hyperlaneMailbox: '', // Set after Hyperlane deployment
-    hyperlaneIgp: '', // Set after Hyperlane deployment
+    hyperlaneMailbox: process.env.JEJU_MAINNET_HYPERLANE_MAILBOX ?? '',
+    hyperlaneIgp: process.env.JEJU_MAINNET_HYPERLANE_IGP ?? '',
     isHomeChain: true,
     avgBlockTime: 2,
   },

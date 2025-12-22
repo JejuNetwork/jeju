@@ -1,0 +1,36 @@
+# Jeju Email - Localnet Values
+global:
+  environment: localnet
+  emailDomain: jeju.mail
+
+relay:
+  replicaCount: 1
+  autoscaling:
+    enabled: false
+  env:
+    JEJU_RPC_URL: "http://op-geth:8545"
+    EMAIL_REGISTRY_ADDRESS: ""
+    EMAIL_STAKING_ADDRESS: ""
+    DWS_ENDPOINT: "http://dws:4000"
+    MODERATION_MARKETPLACE_ADDRESS: ""
+    CONTENT_SCREENING_ENABLED: "true"
+    AI_MODEL_ENDPOINT: "http://localhost:4030/compute/chat/completions"
+
+imap:
+  enabled: false  # Use mock for local dev
+
+smtp:
+  enabled: false  # Use mock for local dev
+
+bridge:
+  enabled: false  # No external bridge in localnet
+
+secrets:
+  create: true
+  operatorPrivateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+
+ingress:
+  enabled: false
+
+monitoring:
+  enabled: false

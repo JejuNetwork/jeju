@@ -203,18 +203,14 @@ export async function captureWalletFlow(
 
   // Capture wallet popup (if visible)
   const walletScreenshots: string[] = [];
-  try {
-    // Check if wallet page is open and has content
-    if (!walletPage.isClosed()) {
-      const walletShot = await captureScreenshot(walletPage, {
-        appName,
-        feature,
-        step: `${beforeApproval}-wallet`,
-      });
-      walletScreenshots.push(walletShot);
-    }
-  } catch (e) {
-    console.warn('Could not capture wallet screenshot:', e);
+  // Check if wallet page is open and has content
+  if (!walletPage.isClosed()) {
+    const walletShot = await captureScreenshot(walletPage, {
+      appName,
+      feature,
+      step: `${beforeApproval}-wallet`,
+    });
+    walletScreenshots.push(walletShot);
   }
 
   // Wait for approval to complete

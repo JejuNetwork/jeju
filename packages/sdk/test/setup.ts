@@ -10,7 +10,7 @@
  */
 
 import { execa, type ResultPromise } from "execa";
-import { existsSync, readFileSync, writeFileSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, unlinkSync } from "fs";
 import { join, resolve } from "path";
 import type { Hex } from "viem";
 
@@ -123,7 +123,7 @@ function releaseLock(): void {
     if (existsSync(TEST_LOCK_FILE)) {
       const lockData = JSON.parse(readFileSync(TEST_LOCK_FILE, "utf-8"));
       if (lockData.pid === process.pid) {
-        require("fs").unlinkSync(TEST_LOCK_FILE);
+        unlinkSync(TEST_LOCK_FILE);
       }
     }
   } catch {
@@ -187,7 +187,7 @@ async function deployContracts(): Promise<void> {
       stdio: "pipe",
     });
     console.log("✓ Contracts deployed");
-  } catch (error) {
+  } catch {
     console.log("⚠ Contract deployment failed (may already be deployed)");
   }
 }
@@ -243,7 +243,7 @@ async function startServices(): Promise<void> {
         },
       });
       startedProcesses.push(proc);
-    } catch (e) {
+    } catch {
       console.log(`⚠ Failed to start ${svc.name}`);
     }
   }

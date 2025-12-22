@@ -365,19 +365,12 @@ export class PkgRegistryManager {
    * Get package by ID
    */
   async getPackage(packageId: Hex): Promise<Package | null> {
-    let result: ContractPackageData | null = null;
-    try {
-      result = await this.publicClient.readContract({
-        address: this.packageRegistryAddress,
-        abi: PACKAGE_REGISTRY_ABI,
-        functionName: 'getPackage',
-        args: [packageId],
-      }) as ContractPackageData;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`[Pkg Registry] Failed to read package ${packageId}: ${errorMessage}`);
-      return null;
-    }
+    const result = await this.publicClient.readContract({
+      address: this.packageRegistryAddress,
+      abi: PACKAGE_REGISTRY_ABI,
+      functionName: 'getPackage',
+      args: [packageId],
+    }) as ContractPackageData;
 
     if (!result || result.createdAt === 0n) {
       return null;
@@ -392,19 +385,12 @@ export class PkgRegistryManager {
   async getPackageByName(fullName: string): Promise<Package | null> {
     const { name, scope } = this.parsePackageName(fullName);
 
-    let result: ContractPackageData | null = null;
-    try {
-      result = await this.publicClient.readContract({
-        address: this.packageRegistryAddress,
-        abi: PACKAGE_REGISTRY_ABI,
-        functionName: 'getPackageByName',
-        args: [name, scope],
-      }) as ContractPackageData;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`[Pkg Registry] Failed to read package by name ${fullName}: ${errorMessage}`);
-      return null;
-    }
+    const result = await this.publicClient.readContract({
+      address: this.packageRegistryAddress,
+      abi: PACKAGE_REGISTRY_ABI,
+      functionName: 'getPackageByName',
+      args: [name, scope],
+    }) as ContractPackageData;
 
     if (!result || result.createdAt === 0n) {
       return null;

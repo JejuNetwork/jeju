@@ -15,6 +15,7 @@
  */
 
 import { keccak256, toBytes } from "viem";
+import { z } from "zod";
 import type { TEEAttestation } from "../types/index.js";
 import { toHash32 } from "../types/index.js";
 import type {
@@ -135,12 +136,16 @@ export class GCPConfidentialProvider implements ITEEProvider {
 	}
 
 	toTEEAttestation(attestation: AttestationResponse): TEEAttestation {
+		const publicKey = attestation.publicKey ?? this.publicKey;
+		if (!publicKey) {
+			throw new Error("No public key available - initialize provider first");
+		}
 		return {
 			measurement: toHash32(
 				Buffer.from(attestation.measurement.slice(2), "hex"),
 			),
 			quote: attestation.quote,
-			publicKey: attestation.publicKey ?? this.publicKey ?? new Uint8Array(33),
+			publicKey,
 			timestamp: BigInt(attestation.timestamp),
 		};
 	}
@@ -280,12 +285,16 @@ export class GCPConfidentialProvider implements ITEEProvider {
 		// In production, get attestation token from GCP
 		// using the Confidential Computing attestation API
 
+		if (!this.instanceId) {
+			throw new Error("Instance not initialized");
+		}
+
 		const userData = Buffer.from(request.data.slice(2), "hex");
 
 		// Create token claims
 		const claims: GCPAttestationToken["claims"] = {
 			iss: "https://confidentialcomputing.googleapis.com/",
-			sub: this.instanceId ?? "unknown",
+			sub: this.instanceId,
 			aud: this.config.project,
 			exp: Math.floor(timestamp / 1000) + 3600,
 			iat: Math.floor(timestamp / 1000),
@@ -322,7 +331,7 @@ export class GCPConfidentialProvider implements ITEEProvider {
 			reportData: request.data,
 			signature,
 			timestamp,
-			enclaveId: this.instanceId ?? "unknown",
+			enclaveId: this.instanceId,
 			provider: "gcp",
 			publicKey: this.publicKey,
 		};
@@ -332,6 +341,10 @@ export class GCPConfidentialProvider implements ITEEProvider {
 		request: AttestationRequest,
 		timestamp: number,
 	): AttestationResponse {
+		if (!this.instanceId) {
+			throw new Error("Instance not initialized");
+		}
+
 		const measurement = keccak256(
 			new Uint8Array([...toBytes(request.data), ...toBytes(BigInt(timestamp))]),
 		);
@@ -352,7 +365,7 @@ export class GCPConfidentialProvider implements ITEEProvider {
 			reportData: request.data,
 			signature,
 			timestamp,
-			enclaveId: this.instanceId ?? "gcp-sim",
+			enclaveId: this.instanceId,
 			provider: "gcp",
 			publicKey: this.publicKey,
 		};
@@ -382,15 +395,24 @@ export class GCPConfidentialProvider implements ITEEProvider {
 			return false;
 		}
 
-		// Decode and validate payload
-		const payloadJson = Buffer.from(parts[1], 'base64url').toString('utf-8');
-		const claims = JSON.parse(payloadJson) as GCPAttestationToken['claims'];
+		// Decode and validate payload with Zod
+		const ClaimsSchema = z.object({
+			iss: z.string(),
+			sub: z.string(),
+			aud: z.string(),
+			exp: z.number().optional(),
+			iat: z.number().optional(),
+		});
 
-		// Verify required fields
-		if (!claims.iss || !claims.sub || !claims.aud) {
-			log.error("Invalid token: missing required claims");
+		const payloadJson = Buffer.from(parts[1], 'base64url').toString('utf-8');
+		const parseResult = ClaimsSchema.safeParse(JSON.parse(payloadJson));
+		
+		if (!parseResult.success) {
+			log.error("Invalid token: missing required claims", { errors: parseResult.error.issues });
 			return false;
 		}
+
+		const claims = parseResult.data;
 
 		// Verify issuer
 		if (claims.iss !== "https://confidentialcomputing.googleapis.com/") {
@@ -422,8 +444,13 @@ export class GCPConfidentialProvider implements ITEEProvider {
 export function createGCPConfidentialProvider(
 	config?: Partial<GCPConfidentialConfig>,
 ): GCPConfidentialProvider {
+	const project = config?.project ?? process.env.GCP_PROJECT;
+	if (!project) {
+		throw new Error("GCP_PROJECT is required - set via config or environment variable");
+	}
+	
 	return new GCPConfidentialProvider({
-		project: config?.project ?? process.env.GCP_PROJECT ?? "",
+		project,
 		zone: config?.zone ?? process.env.GCP_ZONE ?? "us-central1-a",
 		...config,
 	});

@@ -10,7 +10,7 @@ import { test, expect } from '@playwright/test';
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:4002';
 
 test.describe('Gateway Portal', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page: _page }) => {
     // Check if gateway is running
     try {
       const response = await fetch(GATEWAY_URL, { signal: AbortSignal.timeout(3000) });

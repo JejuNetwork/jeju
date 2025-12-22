@@ -19,22 +19,22 @@ import type { Provider, IAgentRuntime, Memory, State, ProviderResult } from '@el
 // ============================================================================
 
 function getAutocratA2A(): string {
-  return process.env.getAutocratA2A() ?? getAutocratA2AUrl();
+  return process.env.AUTOCRAT_A2A_URL ?? getAutocratA2AUrl();
 }
 
 function getAutocratMCP(): string {
-  return process.env.getAutocratMCP() ?? `${getAutocratUrl()}/mcp`;
+  return process.env.AUTOCRAT_MCP_URL ?? `${getAutocratUrl()}/mcp`;
 }
 
 function getCEOA2A(): string {
   const baseUrl = getAutocratUrl();
   // CEO server runs on port 4004 in localnet, separate service elsewhere
-  return process.env.getCEOA2A() ?? baseUrl.replace(':4040', ':4004').replace('-autocrat', '-ceo') + '/a2a';
+  return process.env.CEO_A2A_URL ?? baseUrl.replace(':4040', ':4004').replace('-autocrat', '-ceo') + '/a2a';
 }
 
 function getCEOMCP(): string {
   const baseUrl = getAutocratUrl();
-  return process.env.getCEOMCP() ?? baseUrl.replace(':4040', ':4004').replace('-autocrat', '-ceo') + '/mcp';
+  return process.env.CEO_MCP_URL ?? baseUrl.replace(':4040', ':4004').replace('-autocrat', '-ceo') + '/mcp';
 }
 
 // Service registry for A2A discovery - resolved dynamically

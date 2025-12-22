@@ -1,6 +1,9 @@
 import { createPublicClient, http, type Address, type PublicClient, parseAbiItem } from 'viem'
+import { AddressSchema } from '@jejunetwork/types/contracts'
+import { expect, expectTrue } from '@/lib/validation'
 import { INDEXER_URL, RPC_URL } from '@/config'
 
+/** Token data from indexer/RPC - simplified for data fetching */
 export interface Token {
   address: Address
   name: string
@@ -17,6 +20,7 @@ export interface Token {
   holders?: number
 }
 
+/** Prediction market data from indexer */
 export interface PredictionMarket {
   id: string
   question: string
@@ -30,6 +34,7 @@ export interface PredictionMarket {
   resolutionTime?: Date
 }
 
+/** OHLCV price candle data */
 export interface PriceCandle {
   timestamp: number
   open: number
@@ -76,20 +81,19 @@ export async function checkIndexerHealth(): Promise<boolean> {
 }
 
 async function gql<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
-  const response = await fetch(INDEXER_URL, {
+  const validatedIndexerUrl = expect(INDEXER_URL, 'INDEXER_URL not configured');
+  const response = await fetch(validatedIndexerUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query, variables }),
   })
 
-  if (!response.ok) {
-    throw new Error(`Indexer: ${response.status} ${response.statusText}`)
-  }
+  expectTrue(response.ok, `Indexer: ${response.status} ${response.statusText}`)
 
   const json = await response.json() as { data?: T; errors?: Array<{ message: string }> }
   if (json.errors?.length) throw new Error(`GraphQL: ${json.errors[0].message}`)
-  if (!json.data) throw new Error('No data from indexer')
-  return json.data
+  const data = expect(json.data, 'No data from indexer')
+  return data
 }
 
 const mapToken = (c: {
@@ -103,18 +107,25 @@ const mapToken = (c: {
   verified: boolean
   totalVolume?: string
   holderCount?: number
-}): Token => ({
-  address: c.address as Address,
-  name: c.name || 'Unknown Token',
-  symbol: c.symbol || '???',
-  decimals: c.decimals || 18,
-  totalSupply: BigInt(c.totalSupply || '0'),
-  creator: c.creator.address as Address,
-  createdAt: new Date(c.firstSeenAt),
-  verified: c.verified || false,
-  volume24h: c.totalVolume ? BigInt(c.totalVolume) : undefined,
-  holders: c.holderCount,
-})
+}): Token => {
+  if (!c.name) throw new Error(`Token ${c.address}: name is required`)
+  if (!c.symbol) throw new Error(`Token ${c.address}: symbol is required`)
+  if (c.decimals === undefined || c.decimals === null) throw new Error(`Token ${c.address}: decimals is required`)
+  if (!c.totalSupply) throw new Error(`Token ${c.address}: totalSupply is required`)
+  
+  return {
+    address: c.address as Address,
+    name: c.name,
+    symbol: c.symbol,
+    decimals: c.decimals,
+    totalSupply: BigInt(c.totalSupply),
+    creator: c.creator.address as Address,
+    createdAt: new Date(c.firstSeenAt),
+    verified: c.verified,
+    volume24h: c.totalVolume ? BigInt(c.totalVolume) : undefined,
+    holders: c.holderCount,
+  }
+}
 
 const ORDER_BY_MAP = {
   volume: 'totalVolume_DESC',
@@ -152,13 +163,21 @@ export async function fetchTokens(options: {
 }
 
 export async function fetchTokenDetails(address: Address): Promise<Token> {
-  const client = getRpcClient()
+  const validatedAddress = AddressSchema.parse(address);
+  const client = getRpcClient();
+  expect(client, 'RPC client not initialized');
+  
   const [name, symbol, decimals, totalSupply] = await Promise.all([
-    client.readContract({ address, abi: ERC20_ABI, functionName: 'name' }),
-    client.readContract({ address, abi: ERC20_ABI, functionName: 'symbol' }),
-    client.readContract({ address, abi: ERC20_ABI, functionName: 'decimals' }),
-    client.readContract({ address, abi: ERC20_ABI, functionName: 'totalSupply' }),
+    client.readContract({ address: validatedAddress, abi: ERC20_ABI, functionName: 'name' }),
+    client.readContract({ address: validatedAddress, abi: ERC20_ABI, functionName: 'symbol' }),
+    client.readContract({ address: validatedAddress, abi: ERC20_ABI, functionName: 'decimals' }),
+    client.readContract({ address: validatedAddress, abi: ERC20_ABI, functionName: 'totalSupply' }),
   ])
+  
+  expect(name, 'Token name not found');
+  expect(symbol, 'Token symbol not found');
+  expect(decimals !== undefined && decimals !== null, 'Token decimals not found');
+  expect(totalSupply !== undefined && totalSupply !== null, 'Token totalSupply not found');
 
   let creator: Address = '0x0000000000000000000000000000000000000000'
   let createdAt = new Date()
@@ -188,7 +207,18 @@ export async function fetchTokenDetails(address: Address): Promise<Token> {
     }
   }
 
-  return { address, name, symbol, decimals, totalSupply, creator, createdAt, verified, volume24h, holders }
+  return { 
+    address: validatedAddress, 
+    name: String(name), 
+    symbol: String(symbol), 
+    decimals: Number(decimals), 
+    totalSupply: BigInt(totalSupply), 
+    creator, 
+    createdAt, 
+    verified, 
+    volume24h, 
+    holders 
+  }
 }
 
 export async function fetchPredictionMarkets(options: {
@@ -233,6 +263,10 @@ export async function fetchPriceHistory(
   interval: '1m' | '5m' | '15m' | '1h' | '4h' | '1d',
   limit = 100
 ): Promise<PriceCandle[]> {
+  const validatedAddress = AddressSchema.parse(tokenAddress);
+  expect(limit > 0, 'Limit must be positive');
+  expect(['1m', '5m', '15m', '1h', '4h', '1d'].includes(interval), `Invalid interval: ${interval}`);
+  
   if (!(await checkIndexerHealth())) {
     throw new Error('Price history unavailable: indexer offline')
   }
@@ -245,7 +279,7 @@ export async function fetchPriceHistory(
         timestamp open high low close volume
       }
     }
-  `, { token: tokenAddress.toLowerCase(), interval, limit })
+  `, { token: validatedAddress.toLowerCase(), interval, limit })
 
   if (!data.priceCandles?.length) {
     return [] // No data available for this token
@@ -260,6 +294,10 @@ export async function fetchPriceHistory(
 }
 
 export async function searchTokens(query: string, limit = 20): Promise<Token[]> {
+  expect(query, 'Search query is required');
+  expect(query.length > 0, 'Search query cannot be empty');
+  expect(limit > 0, 'Limit must be positive');
+  
   if (!(await checkIndexerHealth())) return []
 
   const data = await gql<{ contracts: Array<Parameters<typeof mapToken>[0]> }>(`
@@ -279,24 +317,29 @@ export async function searchTokens(query: string, limit = 20): Promise<Token[]> 
 export async function fetchToken24hStats(address: Address): Promise<{
   volume: bigint; trades: number; priceChange: number; high: number; low: number
 }> {
-  if (await checkIndexerHealth()) {
-    const data = await gql<{ tokenStats: {
-      volume24h: string; trades24h: number; priceChange24h: number; high24h: string; low24h: string
-    } | null }>(`
-      query($address: String!) {
-        tokenStats(token: $address) { volume24h trades24h priceChange24h high24h low24h }
-      }
-    `, { address: address.toLowerCase() }).catch(() => null)
-
-    if (data?.tokenStats) {
-      return {
-        volume: BigInt(data.tokenStats.volume24h),
-        trades: data.tokenStats.trades24h,
-        priceChange: data.tokenStats.priceChange24h,
-        high: parseFloat(data.tokenStats.high24h),
-        low: parseFloat(data.tokenStats.low24h),
-      }
-    }
+  const validatedAddress = AddressSchema.parse(address);
+  
+  if (!(await checkIndexerHealth())) {
+    throw new Error('Token 24h stats unavailable: indexer offline')
   }
-  return { volume: 0n, trades: 0, priceChange: 0, high: 0, low: 0 }
+
+  const data = await gql<{ tokenStats: {
+    volume24h: string; trades24h: number; priceChange24h: number; high24h: string; low24h: string
+  } | null }>(`
+    query($address: String!) {
+      tokenStats(token: $address) { volume24h trades24h priceChange24h high24h low24h }
+    }
+  `, { address: validatedAddress.toLowerCase() })
+
+  if (!data.tokenStats) {
+    throw new Error(`No stats found for token ${validatedAddress}`)
+  }
+  
+  return {
+    volume: BigInt(data.tokenStats.volume24h),
+    trades: data.tokenStats.trades24h,
+    priceChange: data.tokenStats.priceChange24h,
+    high: parseFloat(data.tokenStats.high24h),
+    low: parseFloat(data.tokenStats.low24h),
+  }
 }

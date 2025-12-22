@@ -70,7 +70,7 @@ async function startLocalnet(): Promise<void> {
   const foundryBin = join(homeDir, ".foundry/bin");
   const path = `${foundryBin}:${process.env.PATH}`;
 
-  const proc = spawn(["anvil", "--port", "9545", "--chain-id", "1337", "--accounts", "10", "--balance", "10000"], {
+  const _proc = spawn(["anvil", "--port", "9545", "--chain-id", "1337", "--accounts", "10", "--balance", "10000"], {
     env: { ...process.env, PATH: path },
     stdout: "pipe",
     stderr: "pipe",

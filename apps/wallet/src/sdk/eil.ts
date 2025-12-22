@@ -11,8 +11,8 @@
  */
 
 import type { Address, Hex, PublicClient, WalletClient } from 'viem';
-import { encodeFunctionData, parseEther, formatEther } from 'viem';
-import type { VoucherRequest, Voucher, GasOption, Token, TokenBalance } from './types';
+import { parseEther } from 'viem';
+import type { VoucherRequest, TokenBalance } from './types';
 import { getChainContracts } from './chains';
 
 // ============================================================================
@@ -314,8 +314,8 @@ export class EILClient {
 
     if (result.requester === ZERO_ADDRESS) return null;
 
-    let status: VoucherRequest['status'] = 'requested';
-    if (result.claimed) status = 'issued';
+    let status: VoucherRequest['status'] = 'pending';
+    if (result.claimed) status = 'claimed';
     if (result.expired) status = 'expired';
     if (result.refunded) status = 'expired';
 

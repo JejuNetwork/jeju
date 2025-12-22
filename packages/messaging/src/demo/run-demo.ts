@@ -49,7 +49,7 @@ async function runDemo(): Promise<void> {
   console.log('='.repeat(50));
   
   // Step 1: Start relay node
-  console.log('\n📡 Step 1: Starting relay node...');
+  console.log('\n Step 1: Starting relay node...');
   startRelayServer({
     port: RELAY_PORT,
     nodeId: 'demo-relay-1',

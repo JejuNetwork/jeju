@@ -1,14 +1,14 @@
 #!/usr/bin/env bun
 /**
  * Full deployment pipeline for testnet/mainnet
- * 
+ *
  * Steps:
  * 1. Validate configurations
  * 2. Deploy infrastructure (Terraform)
  * 3. Build and push Docker images
  * 4. Deploy to Kubernetes (Helmfile)
  * 5. Verify deployment
- * 
+ *
  * Usage:
  *   NETWORK=testnet bun run scripts/deploy-full.ts
  *   NETWORK=mainnet bun run scripts/deploy-full.ts
@@ -16,17 +16,28 @@
 
 import { $ } from "bun";
 import { join } from "path";
+import { getRequiredNetwork, type NetworkType } from "./shared";
 
 const ROOT = join(import.meta.dir, "..");
-const NETWORK = process.env.NETWORK || "testnet";
 
-const STEPS = {
+const NETWORK: NetworkType = getRequiredNetwork();
+
+interface DeploymentSteps {
+  VALIDATE: boolean;
+  TERRAFORM: boolean;
+  IMAGES: boolean;
+  CQL_IMAGE: boolean;
+  KUBERNETES: boolean;
+  VERIFY: boolean;
+}
+
+const STEPS: DeploymentSteps = {
   VALIDATE: process.env.SKIP_VALIDATE !== "true",
   TERRAFORM: process.env.SKIP_TERRAFORM !== "true",
   IMAGES: process.env.SKIP_IMAGES !== "true",
   CQL_IMAGE: process.env.BUILD_CQL_IMAGE === "true" || process.env.USE_ARM64_CQL === "true",
   KUBERNETES: process.env.SKIP_KUBERNETES !== "true",
-  VERIFY: process.env.SKIP_VERIFY !== "true"
+  VERIFY: process.env.SKIP_VERIFY !== "true",
 };
 
 async function step(name: string, fn: () => Promise<void>): Promise<void> {
@@ -36,7 +47,7 @@ async function step(name: string, fn: () => Promise<void>): Promise<void> {
   await fn();
 }
 
-async function main() {
+async function main(): Promise<void> {
   console.log(`
 ╔══════════════════════════════════════════════════════════════╗
 ║                                                              ║
@@ -51,7 +62,6 @@ async function main() {
 
   const startTime = Date.now();
 
-  // Step 1: Validate
   if (STEPS.VALIDATE) {
     await step("Validating configurations", async () => {
       const result = await $`bun run ${join(ROOT, "scripts/validate.ts")}`.nothrow();
@@ -59,7 +69,6 @@ async function main() {
     });
   }
 
-  // Step 2: Terraform
   if (STEPS.TERRAFORM) {
     await step("Deploying infrastructure", async () => {
       await $`NETWORK=${NETWORK} bun run ${join(ROOT, "scripts/terraform.ts")} plan`;
@@ -67,31 +76,26 @@ async function main() {
     });
   }
 
-  // Step 3: Docker images
   if (STEPS.IMAGES) {
     await step("Building and pushing Docker images", async () => {
       await $`NETWORK=${NETWORK} bun run ${join(ROOT, "scripts/build-images.ts")} --push`;
     });
   }
 
-  // Step 3.5: CovenantSQL image (for ARM64 support)
   if (STEPS.CQL_IMAGE) {
     await step("Building and pushing CovenantSQL multi-arch image", async () => {
       await $`NETWORK=${NETWORK} bun run ${join(ROOT, "scripts/build-covenantsql.ts")} --push`;
     });
   }
 
-  // Step 4: Kubernetes
   if (STEPS.KUBERNETES) {
     await step("Deploying to Kubernetes", async () => {
       await $`NETWORK=${NETWORK} bun run ${join(ROOT, "scripts/helmfile.ts")} sync`;
     });
   }
 
-  // Step 5: Verify
   if (STEPS.VERIFY) {
     await step("Verifying deployment", async () => {
-      // Add health checks here
       console.log("Running health checks...");
       await $`kubectl get pods -n jeju-apps`.nothrow();
     });
@@ -110,8 +114,7 @@ async function main() {
 `);
 }
 
-main().catch(err => {
+main().catch((err: Error) => {
   console.error("\n❌ Deployment failed:", err.message);
   process.exit(1);
 });
-

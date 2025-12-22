@@ -219,7 +219,7 @@ export class SolanaTokenSDK {
    * Transfer tokens between accounts
    */
   async transferTokens(
-    mint: PublicKey,
+    _mint: PublicKey,
     from: PublicKey,
     to: PublicKey,
     owner: Keypair,
@@ -278,16 +278,18 @@ export class SolanaTokenSDK {
 
   /**
    * Get token balance for an owner
+   * Returns 0n if the token account doesn't exist
    */
   async getBalance(mint: PublicKey, owner: PublicKey): Promise<bigint> {
     const ata = await getAssociatedTokenAddress(mint, owner);
     
-    try {
-      const balance = await this.connection.getTokenAccountBalance(ata);
-      return BigInt(balance.value.amount);
-    } catch {
+    const accountInfo = await this.connection.getAccountInfo(ata);
+    if (!accountInfo) {
       return 0n;
     }
+    
+    const balance = await this.connection.getTokenAccountBalance(ata);
+    return BigInt(balance.value.amount);
   }
 
   /**
@@ -299,13 +301,9 @@ export class SolanaTokenSDK {
     });
 
     const results: TokenAccountInfo[] = [];
-    for (const { pubkey, account } of accounts.value) {
-      try {
-        const info = await this.getTokenAccountInfo(pubkey);
-        results.push(info);
-      } catch {
-        // Skip invalid accounts
-      }
+    for (const { pubkey } of accounts.value) {
+      const info = await this.getTokenAccountInfo(pubkey);
+      results.push(info);
     }
 
     return results;

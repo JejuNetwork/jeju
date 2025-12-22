@@ -1,11 +1,22 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type ComponentType } from 'react';
 import { useAccount, useReadContract } from 'wagmi';
 import { formatEther, type Address, zeroAddress } from 'viem';
-import { Tag, Search, ExternalLink, Settings, RefreshCw, CheckCircle, AlertCircle, Link, Shield, AlertTriangle } from 'lucide-react';
+import { Tag, Search, ExternalLink, Settings, RefreshCw, CheckCircle, AlertCircle, Link, Shield, AlertTriangle, type LucideProps } from 'lucide-react';
 import { useJNSLookup, useJNSRegister, useJNSResolver, useJNSReverse, type JNSRegistration, type JNSPriceQuote, type JNSAppInfo } from '../hooks/useJNS';
 import { MODERATION_CONTRACTS } from '../config/moderation';
 import { NETWORK } from '../config';
 import { ZERO_BYTES32 } from '../lib/contracts';
+
+const SearchIcon = Search as ComponentType<LucideProps>;
+const CheckCircleIcon = CheckCircle as ComponentType<LucideProps>;
+const AlertCircleIcon = AlertCircle as ComponentType<LucideProps>;
+const LinkIcon = Link as ComponentType<LucideProps>;
+const TagIcon = Tag as ComponentType<LucideProps>;
+const RefreshCwIcon = RefreshCw as ComponentType<LucideProps>;
+const SettingsIcon = Settings as ComponentType<LucideProps>;
+const ShieldIcon = Shield as ComponentType<LucideProps>;
+const AlertTriangleIcon = AlertTriangle as ComponentType<LucideProps>;
+const ExternalLinkIcon = ExternalLink as ComponentType<LucideProps>;
 
 function NameSearchCard() {
   const { address } = useAccount();
@@ -70,7 +81,7 @@ function NameSearchCard() {
   return (
     <div className="card">
       <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        <Search size={20} />
+        <SearchIcon size={20} />
         Search & Register Names
       </h3>
 
@@ -115,14 +126,14 @@ function NameSearchCard() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
             {searchResult.available ? (
               <>
-                <CheckCircle size={20} style={{ color: 'var(--success)' }} />
+                <CheckCircleIcon size={20} style={{ color: 'var(--success)' }} />
                 <span style={{ fontWeight: '600', color: 'var(--success)' }}>
                   {searchName}.jeju is available
                 </span>
               </>
             ) : (
               <>
-                <AlertCircle size={20} style={{ color: 'var(--warning)' }} />
+                <AlertCircleIcon size={20} style={{ color: 'var(--warning)' }} />
                 <span style={{ fontWeight: '600', color: 'var(--warning)' }}>
                   {searchName}.jeju is taken
                 </span>
@@ -195,7 +206,7 @@ function NameSearchCard() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                   <span style={{ color: 'var(--text-secondary)' }}>Linked Agent:</span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                    <Link size={12} />
+                    <LinkIcon size={12} />
                     Agent #{searchResult.appInfo.agentId.toString()}
                   </span>
                 </div>
@@ -260,7 +271,7 @@ function MyNamesCard() {
     return (
       <div className="card">
         <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Tag size={20} />
+          <TagIcon size={20} />
           My Names
         </h3>
         <p style={{ color: 'var(--text-secondary)' }}>Connect wallet to view your names</p>
@@ -271,7 +282,7 @@ function MyNamesCard() {
   return (
     <div className="card">
       <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        <Tag size={20} />
+        <TagIcon size={20} />
         My Names
       </h3>
 
@@ -306,7 +317,7 @@ function MyNamesCard() {
                   disabled={renewing}
                   style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
                 >
-                  <RefreshCw size={14} /> Renew
+                  <RefreshCwIcon size={14} /> Renew
                 </button>
                 <button
                   className="button-secondary"
@@ -426,7 +437,7 @@ function NameManagerCard() {
   return (
     <div className="card">
       <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        <Settings size={20} />
+        <SettingsIcon size={20} />
         Name Manager
       </h3>
 
@@ -456,7 +467,7 @@ function NameManagerCard() {
           {/* ERC-8004 Agent Link */}
           <div>
             <label style={{ marginBottom: '0.25rem', fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-              <Link size={12} /> Linked ERC-8004 Agent
+              <LinkIcon size={12} /> Linked ERC-8004 Agent
             </label>
             {editMode ? (
               <input
@@ -475,15 +486,15 @@ function NameManagerCard() {
                     <span style={{ fontFamily: 'var(--font-mono)' }}>Agent #{resolverData.agentId.toString()}</span>
                     {banType === 0 ? (
                       <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--success)', fontSize: '0.75rem' }}>
-                        <Shield size={12} /> Good Standing
+                        <ShieldIcon size={12} /> Good Standing
                       </span>
                     ) : banType === 3 ? (
                       <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--error)', fontSize: '0.75rem' }}>
-                        <AlertTriangle size={12} /> Banned
+                        <AlertTriangleIcon size={12} /> Banned
                       </span>
                     ) : (
                       <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--warning)', fontSize: '0.75rem' }}>
-                        <AlertCircle size={12} /> Under Review
+                        <AlertCircleIcon size={12} /> Under Review
                       </span>
                     )}
                   </>
@@ -583,7 +594,7 @@ function RegisteredAppsCard() {
   return (
     <div className="card">
       <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        <ExternalLink size={20} />
+        <ExternalLinkIcon size={20} />
         Registered Apps
       </h3>
 

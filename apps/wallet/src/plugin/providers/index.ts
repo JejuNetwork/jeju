@@ -5,7 +5,7 @@
  */
 
 import { WalletService } from '../services/wallet.service';
-import type { TokenBalance, WalletState } from '../types';
+import type { TokenBalance } from '../types';
 
 export interface ProviderResult {
   text: string;

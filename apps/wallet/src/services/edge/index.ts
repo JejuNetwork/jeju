@@ -6,8 +6,9 @@
  * mobile platforms run lightweight versions.
  */
 
-import { getPlatformInfo, isDesktop, isMobile, isIOS } from '../../platform/detection';
-import type { PlatformCapabilities } from '../../platform/types';
+import { getPlatformInfo } from '../../platform/detection';
+import { EdgeConfigSchema, CoordinatorMessageSchema } from '../../plugin/schemas';
+import { expectJson } from '../../lib/validation';
 
 // ============================================================================
 // Types
@@ -177,7 +178,6 @@ export class WalletEdgeService {
   async start(): Promise<void> {
     if (this.stats.status === 'running') return;
     if (!this.config.enabled) {
-      console.log('[WalletEdge] Service disabled in config');
       return;
     }
 
@@ -185,8 +185,6 @@ export class WalletEdgeService {
     this.startTime = Date.now();
 
     // Platform-specific initialization
-    const platform = getPlatformInfo();
-    
     if (this.config.enableTorrent && this.canUseTorrent()) {
       await this.initTorrent();
     }
@@ -215,7 +213,6 @@ export class WalletEdgeService {
     await this.seedDefaultAssets();
 
     this.stats.status = 'running';
-    console.log(`[WalletEdge] Started (${platform.type})`);
   }
 
   async stop(): Promise<void> {
@@ -247,8 +244,6 @@ export class WalletEdgeService {
 
     // Final stats report
     await this.reportStats();
-
-    console.log('[WalletEdge] Stopped');
   }
 
   pause(): void {
@@ -296,7 +291,7 @@ export class WalletEdgeService {
     if (typeof localStorage !== 'undefined') {
       const saved = localStorage.getItem('jeju_edge_config');
       if (saved) {
-        this.config = { ...this.config, ...JSON.parse(saved) };
+        this.config = { ...this.config, ...expectJson(saved, EdgeConfigSchema.partial(), 'edge config') };
       }
     }
   }
@@ -468,7 +463,8 @@ export class WalletEdgeService {
     const platform = getPlatformInfo();
 
     if (platform.category === 'desktop' && '__TAURI__' in globalThis) {
-      // Use Tauri filesystem
+      // Use Tauri filesystem - dynamic import for desktop only
+      // @ts-expect-error - Tauri types only available when building for desktop
       const { writeBinaryFile, BaseDirectory } = await import('@tauri-apps/api/fs');
       await writeBinaryFile(`cache/${key}`, data, { dir: BaseDirectory.AppData });
     } else if (typeof indexedDB !== 'undefined') {
@@ -483,6 +479,7 @@ export class WalletEdgeService {
     const platform = getPlatformInfo();
 
     if (platform.category === 'desktop' && '__TAURI__' in globalThis) {
+      // @ts-expect-error - Tauri types only available when building for desktop
       const { readBinaryFile, BaseDirectory } = await import('@tauri-apps/api/fs');
       const data = await readBinaryFile(`cache/${key}`, { dir: BaseDirectory.AppData }).catch(() => null);
       return data ? new Uint8Array(data) : null;
@@ -504,6 +501,7 @@ export class WalletEdgeService {
     const platform = getPlatformInfo();
 
     if (platform.category === 'desktop' && '__TAURI__' in globalThis) {
+      // @ts-expect-error - Tauri types only available when building for desktop
       const { removeFile, BaseDirectory } = await import('@tauri-apps/api/fs');
       await removeFile(`cache/${key}`, { dir: BaseDirectory.AppData }).catch(() => {});
     } else if (typeof indexedDB !== 'undefined') {
@@ -546,6 +544,7 @@ export class WalletEdgeService {
 
   private async initTorrent(): Promise<void> {
     // Dynamically import WebTorrent for platforms that support it
+    // @ts-expect-error - WebTorrent types only available when package is installed
     const WebTorrent = (await import('webtorrent')).default;
     const client = new WebTorrent({
       dht: true,
@@ -575,14 +574,13 @@ export class WalletEdgeService {
         if (torrent) torrent.destroy();
       },
       getStats: () => ({
-        uploadSpeed: client.torrents.reduce((sum, t) => sum + t.uploadSpeed, 0),
-        downloadSpeed: client.torrents.reduce((sum, t) => sum + t.downloadSpeed, 0),
-        peers: client.torrents.reduce((sum, t) => sum + t.numPeers, 0),
+        uploadSpeed: client.torrents.reduce((sum: number, t: { uploadSpeed: number }) => sum + t.uploadSpeed, 0),
+        downloadSpeed: client.torrents.reduce((sum: number, t: { downloadSpeed: number }) => sum + t.downloadSpeed, 0),
+        peers: client.torrents.reduce((sum: number, t: { numPeers: number }) => sum + t.numPeers, 0),
         torrents: client.torrents.length,
       }),
     };
 
-    console.log('[WalletEdge] Torrent client initialized');
   }
 
   private async initProxy(): Promise<void> {
@@ -590,6 +588,7 @@ export class WalletEdgeService {
     if (!('__TAURI__' in globalThis)) return;
 
     // Proxy runs in Rust backend, we just control it
+    // @ts-expect-error - Tauri types only available when building for desktop
     const { invoke } = await import('@tauri-apps/api/tauri');
 
     this.proxyService = {
@@ -599,13 +598,11 @@ export class WalletEdgeService {
     };
 
     await this.proxyService.start();
-    console.log('[WalletEdge] Proxy service initialized');
   }
 
   private async initCDNCache(): Promise<void> {
     // Initialize cache from stored data
     await this.loadConfig();
-    console.log('[WalletEdge] CDN cache initialized');
   }
 
   // ============================================================================
@@ -618,20 +615,19 @@ export class WalletEdgeService {
     this.coordinatorWs = new WebSocket(`${wsUrl}/edge/coordinate`);
 
     this.coordinatorWs.onopen = () => {
-      console.log('[WalletEdge] Connected to coordinator');
       this.registerWithCoordinator();
     };
 
     this.coordinatorWs.onmessage = (event) => {
-      this.handleCoordinatorMessage(JSON.parse(event.data as string));
+      const msg = expectJson(event.data as string, CoordinatorMessageSchema, 'coordinator message');
+      this.handleCoordinatorMessage(msg as { type: string; [key: string]: unknown });
     };
 
-    this.coordinatorWs.onerror = (error) => {
-      console.error('[WalletEdge] WebSocket error:', error);
+    this.coordinatorWs.onerror = () => {
+      // WebSocket error handled silently
     };
 
     this.coordinatorWs.onclose = () => {
-      console.log('[WalletEdge] Disconnected from coordinator');
       // Reconnect after 10 seconds
       if (this.stats.status === 'running') {
         setTimeout(() => this.connectToCoordinator(), 10000);

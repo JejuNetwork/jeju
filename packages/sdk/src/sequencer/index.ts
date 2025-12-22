@@ -11,7 +11,7 @@
 import { type Address, type Hex, encodeFunctionData, parseEther } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
-import { getContract as getContractAddress } from "../config";
+import { requireContract } from "../config";
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -93,18 +93,26 @@ export interface SequencerModule {
   }>;
 
   // Forced Inclusion
-  requestForcedInclusion(params: ForcedInclusionParams): Promise<{ txHash: Hex; requestId: Hex }>;
-  getForcedInclusionRequest(requestId: Hex): Promise<ForcedInclusionRequest | null>;
+  requestForcedInclusion(
+    params: ForcedInclusionParams,
+  ): Promise<{ txHash: Hex; requestId: Hex }>;
+  getForcedInclusionRequest(
+    requestId: Hex,
+  ): Promise<ForcedInclusionRequest | null>;
   getMyForcedInclusionRequests(): Promise<ForcedInclusionRequest[]>;
   executeForcedInclusion(requestId: Hex): Promise<Hex>;
 
   // Rotation
-  getRotationSchedule(): Promise<{ sequencer: Address; startBlock: bigint; endBlock: bigint }[]>;
+  getRotationSchedule(): Promise<
+    { sequencer: Address; startBlock: bigint; endBlock: bigint }[]
+  >;
   getSlotDuration(): Promise<bigint>;
 
   // Slashing
   reportMissedBlock(sequencer: Address, blockNumber: bigint): Promise<Hex>;
-  getSlashingHistory(sequencer: Address): Promise<{ blockNumber: bigint; amount: bigint; reason: string }[]>;
+  getSlashingHistory(
+    sequencer: Address,
+  ): Promise<{ blockNumber: bigint; amount: bigint; reason: string }[]>;
 
   // Constants
   readonly MIN_SEQUENCER_STAKE: bigint;
@@ -275,18 +283,20 @@ const FORCED_INCLUSION_ABI = [
 //                          IMPLEMENTATION
 // ═══════════════════════════════════════════════════════════════════════════
 
-export function createSequencerModule(wallet: JejuWallet, network: NetworkType): SequencerModule {
-  const tryGetContract = (category: string, name: string): Address => {
-    try {
-      // @ts-expect-error - category may not match ContractCategoryName
-      return getContractAddress(category, name, network) as Address;
-    } catch {
-      return "0x0000000000000000000000000000000000000000" as Address;
-    }
-  };
-
-  const sequencerRegistryAddress = tryGetContract("sequencer", "SequencerRegistry");
-  const forcedInclusionAddress = tryGetContract("sequencer", "ForcedInclusion");
+export function createSequencerModule(
+  wallet: JejuWallet,
+  network: NetworkType,
+): SequencerModule {
+  const sequencerRegistryAddress = requireContract(
+    "sequencer",
+    "SequencerRegistry",
+    network,
+  );
+  const forcedInclusionAddress = requireContract(
+    "sequencer",
+    "ForcedInclusion",
+    network,
+  );
 
   const MIN_SEQUENCER_STAKE = parseEther("1");
   const SLOT_DURATION = 12n; // 12 seconds
@@ -371,7 +381,9 @@ export function createSequencerModule(wallet: JejuWallet, network: NetworkType):
         slashCount: bigint;
       };
 
-      if (seq.sequencerAddress === "0x0000000000000000000000000000000000000000") {
+      if (
+        seq.sequencerAddress === "0x0000000000000000000000000000000000000000"
+      ) {
         return null;
       }
 
@@ -551,4 +563,3 @@ export function createSequencerModule(wallet: JejuWallet, network: NetworkType):
     },
   };
 }
-

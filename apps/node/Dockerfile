@@ -7,22 +7,23 @@ FROM oven/bun:1.3 AS builder
 WORKDIR /app
 
 # Copy workspace files
-COPY package.json bun.lock ./
+COPY package.json bun.lockb ./
+COPY patches/ ./patches/
 COPY apps/node/package.json ./apps/node/
 COPY packages/config/package.json ./packages/config/
 COPY packages/contracts/package.json ./packages/contracts/
 COPY packages/shared/package.json ./packages/shared/
-COPY types/package.json ./types/
+COPY packages/types/package.json ./packages/types/
 
 # Install dependencies
-RUN bun install --frozen-lockfile
+RUN bun install
 
 # Copy source code
 COPY apps/node/ ./apps/node/
 COPY packages/config/ ./packages/config/
 COPY packages/contracts/ ./packages/contracts/
 COPY packages/shared/ ./packages/shared/
-COPY types/ ./types/
+COPY packages/types/ ./packages/types/
 
 # Build the app
 WORKDIR /app/apps/node

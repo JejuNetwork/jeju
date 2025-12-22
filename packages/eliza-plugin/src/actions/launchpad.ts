@@ -5,7 +5,6 @@
 import type {
   Action,
   ActionExample,
-  Content,
   HandlerCallback,
   IAgentRuntime,
   Memory,
@@ -14,6 +13,7 @@ import type {
 import { parseEther, formatEther, type Address, type Hex } from "viem";
 import { JejuService, JEJU_SERVICE_NAME } from "../service";
 import { getNetworkName } from "@jejunetwork/config";
+import { getMessageText, validateServiceExists } from "../validation";
 
 const networkName = getNetworkName();
 
@@ -25,21 +25,19 @@ export const createTokenAction: Action = {
   name: "CREATE_TOKEN",
   similes: ["create token", "launch token", "deploy token", "new token"],
   description: `Create a new ERC-20 token on ${networkName}`,
-  validate: async (runtime: IAgentRuntime, _message: Memory) => {
-    return !!runtime.getService(JEJU_SERVICE_NAME);
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const sdk = service.getClient();
 
-    const content = message.content as Content;
-    const text = content?.text || "";
+    const text = getMessageText(message);
 
     // Parse token details
     const nameMatch = text.match(/name[:\s]+["']?([^"',]+)["']?/i);
@@ -79,11 +77,15 @@ export const createTokenAction: Action = {
     [
       {
         name: "user",
-        content: { text: 'Create token with name: "My Token", symbol: MTK, supply: 1,000,000' },
+        content: {
+          text: 'Create token with name: "My Token", symbol: MTK, supply: 1,000,000',
+        },
       },
       {
         name: "assistant",
-        content: { text: "Token Created: My Token (MTK)\nToken Address: 0x..." },
+        content: {
+          text: "Token Created: My Token (MTK)\nToken Address: 0x...",
+        },
       },
     ],
   ] as ActionExample[][],
@@ -97,21 +99,19 @@ export const createPresaleAction: Action = {
   name: "CREATE_PRESALE",
   similes: ["create presale", "launch presale", "start presale", "new presale"],
   description: `Create a new token presale on ${networkName}`,
-  validate: async (runtime: IAgentRuntime, _message: Memory) => {
-    return !!runtime.getService(JEJU_SERVICE_NAME);
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const sdk = service.getClient();
 
-    const content = message.content as Content;
-    const text = content?.text || "";
+    const text = getMessageText(message);
 
     // Parse presale details
     const tokenMatch = text.match(/token[:\s]+(0x[a-fA-F0-9]{40})/i);
@@ -127,10 +127,18 @@ export const createPresaleAction: Action = {
       return;
     }
 
+    if (!softCapMatch || !hardCapMatch) {
+      await callback?.({
+        text: `Please specify presale caps. Example:
+'Create presale for token: 0x..., rate: 1000 tokens per ETH, soft cap: 10 ETH, hard cap: 100 ETH'`,
+      });
+      return;
+    }
+
     const token = tokenMatch[1] as Address;
     const rate = BigInt(rateMatch[1]);
-    const softCap = parseEther(softCapMatch?.[1] || "10");
-    const hardCap = parseEther(hardCapMatch?.[1] || "100");
+    const softCap = parseEther(softCapMatch[1]);
+    const hardCap = parseEther(hardCapMatch[1]);
 
     // Default times: start now, end in 7 days
     const startTime = BigInt(Math.floor(Date.now() / 1000));
@@ -163,7 +171,9 @@ export const createPresaleAction: Action = {
     [
       {
         name: "user",
-        content: { text: "Create presale for token: 0x742d..., rate: 1000, soft cap: 10 ETH, hard cap: 100 ETH" },
+        content: {
+          text: "Create presale for token: 0x742d..., rate: 1000, soft cap: 10 ETH, hard cap: 100 ETH",
+        },
       },
       {
         name: "assistant",
@@ -181,24 +191,24 @@ export const contributePresaleAction: Action = {
   name: "CONTRIBUTE_PRESALE",
   similes: ["contribute", "buy presale", "join presale", "invest in presale"],
   description: `Contribute to a token presale on ${networkName}`,
-  validate: async (runtime: IAgentRuntime, _message: Memory) => {
-    return !!runtime.getService(JEJU_SERVICE_NAME);
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const sdk = service.getClient();
 
-    const content = message.content as Content;
-    const text = content?.text || "";
+    const text = getMessageText(message);
 
     // Parse: "contribute 1 ETH to presale 0x..."
-    const presaleMatch = text.match(/presale[:\s]+(0x[a-fA-F0-9]{64})/i) || text.match(/(0x[a-fA-F0-9]{64})/);
+    const presaleMatch =
+      text.match(/presale[:\s]+(0x[a-fA-F0-9]{64})/i) ??
+      text.match(/(0x[a-fA-F0-9]{64})/);
     const amountMatch = text.match(/(\d+(?:\.\d+)?)\s*ETH/i);
 
     if (!presaleMatch || !amountMatch) {
@@ -239,18 +249,22 @@ export const contributePresaleAction: Action = {
 
 export const listPresalesAction: Action = {
   name: "LIST_PRESALES",
-  similes: ["list presales", "active presales", "show presales", "presale list"],
+  similes: [
+    "list presales",
+    "active presales",
+    "show presales",
+    "presale list",
+  ],
   description: `List active token presales on ${networkName}`,
-  validate: async (runtime: IAgentRuntime, _message: Memory) => {
-    return !!runtime.getService(JEJU_SERVICE_NAME);
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     _message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const sdk = service.getClient();
 
@@ -265,7 +279,15 @@ export const listPresalesAction: Action = {
 
     const presaleList = presales
       .slice(0, 10)
-      .map((p) => `- ${p.presaleId.slice(0, 10)}...: ${formatEther(p.raised)}/${formatEther(p.hardCap)} ETH (${p.status})`)
+      .map(
+        (p: {
+          presaleId: string;
+          raised: bigint;
+          hardCap: bigint;
+          status: string;
+        }) =>
+          `- ${p.presaleId.slice(0, 10)}...: ${formatEther(p.raised)}/${formatEther(p.hardCap)} ETH (${p.status})`,
+      )
       .join("\n");
 
     await callback?.({
@@ -282,7 +304,9 @@ export const listPresalesAction: Action = {
       },
       {
         name: "assistant",
-        content: { text: "Active Presales (5):\n- 0x1234...: 50/100 ETH (ACTIVE)" },
+        content: {
+          text: "Active Presales (5):\n- 0x1234...: 50/100 ETH (ACTIVE)",
+        },
       },
     ],
   ] as ActionExample[][],
@@ -296,21 +320,19 @@ export const createBondingCurveAction: Action = {
   name: "CREATE_BONDING_CURVE",
   similes: ["create bonding curve", "launch bonding curve", "pump fun style"],
   description: `Create a bonding curve token launch on ${networkName}`,
-  validate: async (runtime: IAgentRuntime, _message: Memory) => {
-    return !!runtime.getService(JEJU_SERVICE_NAME);
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const sdk = service.getClient();
 
-    const content = message.content as Content;
-    const text = content?.text || "";
+    const text = getMessageText(message);
 
     const nameMatch = text.match(/name[:\s]+["']?([^"',]+)["']?/i);
     const symbolMatch = text.match(/symbol[:\s]+["']?([A-Z0-9]+)["']?/i);
@@ -327,7 +349,8 @@ export const createBondingCurveAction: Action = {
     const symbol = symbolMatch[1].trim();
 
     // Use ETH as reserve token (zero address = native token)
-    const reserveToken = "0x0000000000000000000000000000000000000000" as Address;
+    const reserveToken =
+      "0x0000000000000000000000000000000000000000" as Address;
 
     const txHash = await sdk.launchpad.createBondingCurve({
       name,
@@ -355,7 +378,9 @@ export const createBondingCurveAction: Action = {
     [
       {
         name: "user",
-        content: { text: 'Create bonding curve with name: "Meme Token", symbol: MEME' },
+        content: {
+          text: 'Create bonding curve with name: "Meme Token", symbol: MEME',
+        },
       },
       {
         name: "assistant",
@@ -373,23 +398,23 @@ export const buyFromCurveAction: Action = {
   name: "BUY_FROM_CURVE",
   similes: ["buy from curve", "buy curve token", "pump it"],
   description: `Buy tokens from a bonding curve on ${networkName}`,
-  validate: async (runtime: IAgentRuntime, _message: Memory) => {
-    return !!runtime.getService(JEJU_SERVICE_NAME);
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const sdk = service.getClient();
 
-    const content = message.content as Content;
-    const text = content?.text || "";
+    const text = getMessageText(message);
 
-    const curveMatch = text.match(/curve[:\s]+(0x[a-fA-F0-9]{64})/i) || text.match(/(0x[a-fA-F0-9]{64})/);
+    const curveMatch =
+      text.match(/curve[:\s]+(0x[a-fA-F0-9]{64})/i) ??
+      text.match(/(0x[a-fA-F0-9]{64})/);
     const amountMatch = text.match(/(\d+(?:\.\d+)?)\s*ETH/i);
 
     if (!curveMatch || !amountMatch) {
@@ -432,23 +457,23 @@ export const sellToCurveAction: Action = {
   name: "SELL_TO_CURVE",
   similes: ["sell to curve", "sell curve token", "dump it"],
   description: `Sell tokens to a bonding curve on ${networkName}`,
-  validate: async (runtime: IAgentRuntime, _message: Memory) => {
-    return !!runtime.getService(JEJU_SERVICE_NAME);
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const sdk = service.getClient();
 
-    const content = message.content as Content;
-    const text = content?.text || "";
+    const text = getMessageText(message);
 
-    const curveMatch = text.match(/curve[:\s]+(0x[a-fA-F0-9]{64})/i) || text.match(/(0x[a-fA-F0-9]{64})/);
+    const curveMatch =
+      text.match(/curve[:\s]+(0x[a-fA-F0-9]{64})/i) ??
+      text.match(/(0x[a-fA-F0-9]{64})/);
     const amountMatch = text.match(/(\d+(?:,\d+)*)\s*tokens?/i);
 
     if (!curveMatch || !amountMatch) {
@@ -491,16 +516,15 @@ export const listCurvesAction: Action = {
   name: "LIST_BONDING_CURVES",
   similes: ["list curves", "active curves", "show bonding curves"],
   description: `List active bonding curves on ${networkName}`,
-  validate: async (runtime: IAgentRuntime, _message: Memory) => {
-    return !!runtime.getService(JEJU_SERVICE_NAME);
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     _message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const sdk = service.getClient();
 
@@ -515,7 +539,14 @@ export const listCurvesAction: Action = {
 
     const curveList = curves
       .slice(0, 10)
-      .map((c) => `- ${c.curveId.slice(0, 10)}...: ${formatEther(c.currentPrice)} ETH (${formatEther(c.reserveBalance)} ETH reserve)`)
+      .map(
+        (c: {
+          curveId: string;
+          currentPrice: bigint;
+          reserveBalance: bigint;
+        }) =>
+          `- ${c.curveId.slice(0, 10)}...: ${formatEther(c.currentPrice)} ETH (${formatEther(c.reserveBalance)} ETH reserve)`,
+      )
       .join("\n");
 
     await callback?.({
@@ -532,7 +563,9 @@ export const listCurvesAction: Action = {
       },
       {
         name: "assistant",
-        content: { text: "Active Bonding Curves (3):\n- 0x1234...: 0.0001 ETH (10 ETH reserve)" },
+        content: {
+          text: "Active Bonding Curves (3):\n- 0x1234...: 0.0001 ETH (10 ETH reserve)",
+        },
       },
     ],
   ] as ActionExample[][],
@@ -546,23 +579,23 @@ export const lockLPAction: Action = {
   name: "LOCK_LP",
   similes: ["lock lp", "lock liquidity", "lp lock"],
   description: `Lock LP tokens on ${networkName}`,
-  validate: async (runtime: IAgentRuntime, _message: Memory) => {
-    return !!runtime.getService(JEJU_SERVICE_NAME);
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const sdk = service.getClient();
 
-    const content = message.content as Content;
-    const text = content?.text || "";
+    const text = getMessageText(message);
 
-    const lpTokenMatch = text.match(/lp[:\s]+(0x[a-fA-F0-9]{40})/i) || text.match(/(0x[a-fA-F0-9]{40})/);
+    const lpTokenMatch =
+      text.match(/lp[:\s]+(0x[a-fA-F0-9]{40})/i) ??
+      text.match(/(0x[a-fA-F0-9]{40})/);
     const amountMatch = text.match(/(\d+(?:\.\d+)?)\s*(lp)?/i);
     const daysMatch = text.match(/(\d+)\s*days?/i);
 
@@ -573,10 +606,19 @@ export const lockLPAction: Action = {
       return;
     }
 
+    if (!daysMatch) {
+      await callback?.({
+        text: "Please specify the lock duration. Example: 'Lock 100 LP 0x... for 365 days'",
+      });
+      return;
+    }
+
     const lpToken = lpTokenMatch[1] as Address;
     const amount = parseEther(amountMatch[1]);
-    const days = parseInt(daysMatch?.[1] || "365");
-    const unlockTime = BigInt(Math.floor(Date.now() / 1000) + days * 24 * 60 * 60);
+    const days = parseInt(daysMatch[1]);
+    const unlockTime = BigInt(
+      Math.floor(Date.now() / 1000) + days * 24 * 60 * 60,
+    );
 
     const txHash = await sdk.launchpad.lockLP(lpToken, amount, unlockTime);
 
@@ -603,4 +645,3 @@ export const lockLPAction: Action = {
     ],
   ] as ActionExample[][],
 };
-

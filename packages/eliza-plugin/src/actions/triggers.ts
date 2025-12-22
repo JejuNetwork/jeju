@@ -10,6 +10,7 @@ import {
   type State,
 } from "@elizaos/core";
 import { JEJU_SERVICE_NAME, type JejuService } from "../service";
+import { getMessageText, validateServiceExists } from "../validation";
 
 export const createTriggerAction: Action = {
   name: "CREATE_TRIGGER",
@@ -22,45 +23,60 @@ export const createTriggerAction: Action = {
     "automate",
   ],
 
-  validate: async (runtime: IAgentRuntime) => {
-    const service = runtime.getService(JEJU_SERVICE_NAME);
-    return !!service;
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
 
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
+    _options?: Record<string, unknown>,
     callback?: HandlerCallback,
-  ) => {
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
 
-    const text = message.content.text ?? "";
+    const text = getMessageText(message);
 
     // Parse trigger type and parameters
     const isCron = /cron|schedule|every|hourly|daily/i.test(text);
     const type = isCron ? "cron" : "webhook";
 
-    // Extract cron expression or use default
-    let cronExpression = "0 * * * *"; // Every hour by default
-    if (/every\s*(\d+)\s*min/i.test(text)) {
-      const mins = text.match(/every\s*(\d+)\s*min/i)?.[1];
-      cronExpression = `*/${mins} * * * *`;
+    // Extract cron expression
+    let cronExpression: string | undefined;
+    const minsMatch = text.match(/every\s*(\d+)\s*min/i);
+    if (minsMatch) {
+      cronExpression = `*/${minsMatch[1]} * * * *`;
     } else if (/hourly/i.test(text)) {
       cronExpression = "0 * * * *";
     } else if (/daily/i.test(text)) {
       cronExpression = "0 0 * * *";
     }
 
-    // Extract endpoint URL
-    const urlMatch = text.match(/https?:\/\/[^\s]+/);
-    const endpoint = urlMatch?.[0] ?? "https://example.com/webhook";
+    if (type === "cron" && !cronExpression) {
+      callback?.({
+        text: "Please specify a schedule (e.g., 'every 5 minutes', 'hourly', 'daily').",
+      });
+      return;
+    }
 
-    // Extract name
+    // Extract endpoint URL - required for webhooks
+    const urlMatch = text.match(/https?:\/\/[^\s]+/);
+    if (!urlMatch) {
+      callback?.({ text: "Please provide an endpoint URL for the trigger." });
+      return;
+    }
+    const endpoint = urlMatch[0];
+
+    // Extract name - required
     const nameMatch = text.match(/(?:named?|called?)\s+["']?([^"'\s]+)["']?/i);
-    const name = nameMatch?.[1] ?? `trigger-${Date.now()}`;
+    if (!nameMatch) {
+      callback?.({
+        text: "Please specify a name for the trigger (e.g., 'named my-trigger').",
+      });
+      return;
+    }
+    const name = nameMatch[1];
 
     callback?.({ text: `Creating ${type} trigger "${name}"...` });
 

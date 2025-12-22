@@ -1,11 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAccount } from 'wagmi';
 import { 
   Bot, 
   Search, 
-  Filter,
   Star,
   Briefcase,
   Shield,
@@ -13,7 +11,6 @@ import {
   Brain,
   CheckCircle,
   Clock,
-  DollarSign,
   Users,
   MessageSquare,
   Plus
@@ -49,9 +46,9 @@ const capabilityIcons: Record<string, typeof Bot> = {
 };
 
 export default function AgentsPage() {
-  const { isConnected, address } = useAccount();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<AgentCapability>('all');
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<'reputation' | 'jobs' | 'recent'>('reputation');
@@ -62,20 +59,12 @@ export default function AgentsPage() {
 
   const loadAgents = async () => {
     setLoading(true);
-    try {
-      const capability = filter === 'all' ? undefined : filter;
-      const result = await crucibleService.getAgents({ 
-        capability, 
-        active: true 
-      });
-      setAgents(result);
-    } catch (error) {
-      console.error('Failed to load agents:', error);
-      // Use mock data for demo
-      setAgents(mockAgents);
-    } finally {
-      setLoading(false);
-    }
+    setError(null);
+    const capability = filter === 'all' ? undefined : filter;
+    crucibleService.getAgents({ capability, active: true })
+      .then(setAgents)
+      .catch((err: Error) => setError(err.message))
+      .finally(() => setLoading(false));
   };
 
   const filteredAgents = agents.filter(agent => {
@@ -199,8 +188,18 @@ export default function AgentsPage() {
         </div>
       )}
 
+      {/* Error State */}
+      {error && (
+        <div className="card p-12 text-center">
+          <Bot className="w-12 h-12 mx-auto mb-4 text-red-400" />
+          <h3 className="text-lg font-medium text-red-300 mb-2">Failed to load agents</h3>
+          <p className="text-factory-500 mb-4">{error}</p>
+          <button onClick={loadAgents} className="btn btn-primary">Retry</button>
+        </div>
+      )}
+
       {/* Empty State */}
-      {!loading && filteredAgents.length === 0 && (
+      {!loading && !error && filteredAgents.length === 0 && (
         <div className="card p-12 text-center">
           <Bot className="w-12 h-12 mx-auto mb-4 text-factory-600" />
           <h3 className="text-lg font-medium text-factory-300 mb-2">No agents found</h3>
@@ -296,72 +295,4 @@ function formatTimeSince(timestamp: number): string {
   const days = Math.floor(hours / 24);
   return `${days}d ago`;
 }
-
-// Mock data for demo
-const mockAgents: Agent[] = [
-  {
-    agentId: BigInt(1),
-    owner: '0x1234...5678',
-    name: 'CodeGuardian',
-    botType: 'ai_agent',
-    characterCid: 'ipfs://...',
-    stateCid: 'ipfs://...',
-    vaultAddress: '0x...',
-    active: true,
-    registeredAt: Date.now() - 30 * 24 * 60 * 60 * 1000,
-    lastExecutedAt: Date.now() - 2 * 60 * 60 * 1000,
-    executionCount: 156,
-    capabilities: ['bounty_validation', 'code_audit', 'pr_review'],
-    specializations: ['solidity', 'security'],
-    reputation: 95,
-  },
-  {
-    agentId: BigInt(2),
-    owner: '0x2345...6789',
-    name: 'ModelMaster',
-    botType: 'ai_agent',
-    characterCid: 'ipfs://...',
-    stateCid: 'ipfs://...',
-    vaultAddress: '0x...',
-    active: true,
-    registeredAt: Date.now() - 60 * 24 * 60 * 60 * 1000,
-    lastExecutedAt: Date.now() - 30 * 60 * 1000,
-    executionCount: 89,
-    capabilities: ['model_training', 'code_audit'],
-    specializations: ['ml', 'pytorch', 'llm'],
-    reputation: 88,
-  },
-  {
-    agentId: BigInt(3),
-    owner: '0x3456...7890',
-    name: 'PRReviewer',
-    botType: 'ai_agent',
-    characterCid: 'ipfs://...',
-    stateCid: 'ipfs://...',
-    vaultAddress: '0x...',
-    active: true,
-    registeredAt: Date.now() - 45 * 24 * 60 * 60 * 1000,
-    lastExecutedAt: Date.now() - 5 * 60 * 1000,
-    executionCount: 312,
-    capabilities: ['pr_review', 'code_audit'],
-    specializations: ['typescript', 'react', 'testing'],
-    reputation: 92,
-  },
-  {
-    agentId: BigInt(4),
-    owner: '0x4567...8901',
-    name: 'BountyHunter',
-    botType: 'ai_agent',
-    characterCid: 'ipfs://...',
-    stateCid: 'ipfs://...',
-    vaultAddress: '0x...',
-    active: true,
-    registeredAt: Date.now() - 90 * 24 * 60 * 60 * 1000,
-    lastExecutedAt: Date.now() - 1 * 60 * 60 * 1000,
-    executionCount: 78,
-    capabilities: ['bounty_validation', 'general'],
-    specializations: ['full-stack', 'web3'],
-    reputation: 85,
-  },
-];
 

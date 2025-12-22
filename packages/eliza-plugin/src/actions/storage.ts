@@ -10,6 +10,7 @@ import {
   type State,
 } from "@elizaos/core";
 import { JEJU_SERVICE_NAME, type JejuService } from "../service";
+import { getMessageText, validateServiceExists } from "../validation";
 
 export const uploadFileAction: Action = {
   name: "UPLOAD_FILE",
@@ -22,22 +23,20 @@ export const uploadFileAction: Action = {
     "upload to storage",
   ],
 
-  validate: async (runtime: IAgentRuntime) => {
-    const service = runtime.getService(JEJU_SERVICE_NAME);
-    return !!service;
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
 
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
+    _options?: Record<string, unknown>,
     callback?: HandlerCallback,
-  ) => {
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
 
-    const text = message.content.text ?? "";
+    const text = getMessageText(message);
 
     // Check for JSON data to upload
     const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -120,22 +119,20 @@ export const retrieveFileAction: Action = {
     "get cid",
   ],
 
-  validate: async (runtime: IAgentRuntime) => {
-    const service = runtime.getService(JEJU_SERVICE_NAME);
-    return !!service;
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
 
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
+    _options?: Record<string, unknown>,
     callback?: HandlerCallback,
-  ) => {
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
 
-    const text = message.content.text ?? "";
+    const text = getMessageText(message);
 
     // Extract CID
     const cidMatch = text.match(/Qm[a-zA-Z0-9]{44}|bafy[a-zA-Z0-9]+/);
@@ -152,13 +149,13 @@ export const retrieveFileAction: Action = {
     const data = await client.storage.retrieve(cid);
     const text_content = new TextDecoder().decode(data);
 
-    // Try to parse as JSON
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(text_content);
-    } catch {
-      parsed = null;
-    }
+    // Parse as JSON if it looks like JSON
+    const isJson =
+      text_content.trim().startsWith("{") ||
+      text_content.trim().startsWith("[");
+    const parsed: Record<string, unknown> | string = isJson
+      ? (JSON.parse(text_content) as Record<string, unknown>)
+      : text_content;
 
     callback?.({
       text: `Retrieved content (${data.length} bytes):
@@ -167,7 +164,7 @@ ${text_content.slice(0, 1000)}${text_content.length > 1000 ? "..." : ""}`,
       content: {
         cid,
         size: data.length,
-        content: parsed ?? text_content,
+        content: parsed,
         gatewayUrl: client.storage.getGatewayUrl(cid),
       },
     });

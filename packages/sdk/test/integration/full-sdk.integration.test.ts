@@ -51,13 +51,13 @@ describe("Full SDK Integration Tests", () => {
 
     console.log(`\n✓ Client initialized for ${client.address}`);
     console.log("\n───────────────────────────────────────────────────────\n");
-  }, 90000);
+  });
 
   afterAll(async () => {
     console.log("\n───────────────────────────────────────────────────────");
     console.log("  Cleaning up...");
     await teardownTestEnvironment();
-  }, 10000);
+  });
 
   describe("Client Initialization", () => {
     test("client is created with all modules", () => {

@@ -9,6 +9,8 @@ import {
   IPFSFile,
   FileCategory,
 } from './model';
+import { addressSchema, validateOrThrow } from './lib/validation';
+import { z } from 'zod';
 
 export interface ProviderResult {
   address: string;
@@ -86,6 +88,14 @@ export interface ProviderSearchOptions {
   offset?: number;
 }
 
+const providerSearchOptionsSchema = z.object({
+  type: z.enum(['compute', 'storage']).optional(),
+  agentLinkedOnly: z.boolean().optional(),
+  activeOnly: z.boolean().optional(),
+  limit: z.number().int().min(1).max(100).optional(),
+  offset: z.number().int().min(0).optional(),
+});
+
 // Helper to convert Uint8Array to hex string
 function bytesToHex(bytes: Uint8Array | null | undefined): string {
   if (!bytes) return '';
@@ -96,13 +106,18 @@ export async function searchProviders(
   dataSource: DataSource,
   options: ProviderSearchOptions = {}
 ): Promise<ProviderResult[]> {
+  if (!dataSource) {
+    throw new Error('DataSource is required');
+  }
+  
+  const validated = providerSearchOptionsSchema.parse(options);
   const {
     type,
     agentLinkedOnly = false,
     activeOnly = true,
     limit = 50,
     offset = 0,
-  } = options;
+  } = validated;
 
   const results: ProviderResult[] = [];
 
@@ -186,6 +201,14 @@ export async function getProviderByAddress(
   isFullStack: boolean;
   agentId?: number;
 } | null> {
+  if (!dataSource) {
+    throw new Error('DataSource is required');
+  }
+  if (!address || typeof address !== 'string') {
+    throw new Error('address is required and must be a string');
+  }
+  
+  validateOrThrow(addressSchema, address, 'getProviderByAddress address');
   const normalizedAddress = address.toLowerCase();
 
   const computeRepo = dataSource.getRepository(ComputeProvider);
@@ -256,6 +279,13 @@ export async function getProvidersByAgentId(
   storage: Array<{ address: string; name: string; endpoint: string; providerType: string; isActive: boolean }>;
   isFullStack: boolean;
 }> {
+  if (!dataSource) {
+    throw new Error('DataSource is required');
+  }
+  if (typeof agentId !== 'number' || agentId <= 0 || !Number.isInteger(agentId)) {
+    throw new Error(`Invalid agentId: ${agentId}. Must be a positive integer.`);
+  }
+  
   const computeRepo = dataSource.getRepository(ComputeProvider);
   const storageRepo = dataSource.getRepository(StorageProvider);
 
@@ -284,11 +314,22 @@ export async function getProvidersByAgentId(
 /**
  * Search container images stored for compute use
  */
+const containerSearchOptionsSchema = z.object({
+  category: z.nativeEnum(FileCategory).optional(),
+  limit: z.number().int().min(1).max(100).optional(),
+  offset: z.number().int().min(0).optional(),
+});
+
 export async function searchContainers(
   dataSource: DataSource,
   options: { category?: FileCategory; limit?: number; offset?: number } = {}
 ): Promise<ContainerSearchResult[]> {
-  const { category = FileCategory.GAME_ASSET, limit = 50, offset = 0 } = options;
+  if (!dataSource) {
+    throw new Error('DataSource is required');
+  }
+  
+  const validated = containerSearchOptionsSchema.parse(options);
+  const { category = FileCategory.GAME_ASSET, limit = 50, offset = 0 } = validated;
 
   const fileRepo = dataSource.getRepository(IPFSFile);
   const files = await fileRepo.find({
@@ -316,6 +357,11 @@ export async function searchContainers(
 /**
  * Find compute providers compatible with a container
  */
+const findComputeOptionsSchema = z.object({
+  minGpuVram: z.number().int().min(0).optional(),
+  requireTee: z.boolean().optional(),
+});
+
 export async function findComputeForContainer(
   dataSource: DataSource,
   cid: string,
@@ -331,6 +377,15 @@ export async function findComputeForContainer(
     totalRentals: number;
   }>;
 }> {
+  if (!dataSource) {
+    throw new Error('DataSource is required');
+  }
+  if (!cid || typeof cid !== 'string' || cid.length === 0) {
+    throw new Error('cid is required and must be a non-empty string');
+  }
+  
+  validateOrThrow(findComputeOptionsSchema, _options, 'findComputeForContainer options');
+  
   const fileRepo = dataSource.getRepository(IPFSFile);
   const file = await fileRepo.findOne({ where: { cid } });
 
@@ -374,6 +429,10 @@ export async function findComputeForContainer(
  * Get marketplace statistics
  */
 export async function getMarketplaceStats(dataSource: DataSource): Promise<MarketplaceStats> {
+  if (!dataSource) {
+    throw new Error('DataSource is required');
+  }
+  
   const computeRepo = dataSource.getRepository(ComputeProvider);
   const storageRepo = dataSource.getRepository(StorageProvider);
   const rentalRepo = dataSource.getRepository(ComputeRental);

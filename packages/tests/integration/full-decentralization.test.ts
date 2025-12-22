@@ -9,8 +9,7 @@
  * - Storage (IPFS/Arweave)
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
-import { Hono } from 'hono';
+import { describe, it, expect } from 'bun:test';
 
 // ============================================================================
 // Test Configuration
@@ -52,7 +51,7 @@ describe('CovenantSQL Integration', () => {
   it('should support strong consistency queries', async () => {
     const { createCovenantSQLClient } = await import('@jejunetwork/shared');
     
-    const client = createCovenantSQLClient({
+    const _client = createCovenantSQLClient({
       nodes: ['http://localhost:4661'],
       databaseId: 'test-db',
       privateKey: 'test-key',
@@ -70,7 +69,7 @@ describe('CovenantSQL Integration', () => {
   it('should support eventual consistency queries', async () => {
     const { createCovenantSQLClient } = await import('@jejunetwork/shared');
     
-    const client = createCovenantSQLClient({
+    const _client = createCovenantSQLClient({
       nodes: ['http://localhost:4661'],
       databaseId: 'test-db',
       privateKey: 'test-key',
@@ -85,7 +84,7 @@ describe('CovenantSQL Integration', () => {
   });
 
   it('should run migrations', async () => {
-    const { createCovenantSQLClient, MigrationManager, createTableMigration } = await import('@jejunetwork/shared');
+    const { createCovenantSQLClient, MigrationManager, createTableMigration: _createTableMigration } = await import('@jejunetwork/shared');
     
     const client = createCovenantSQLClient({
       nodes: ['http://localhost:4661'],

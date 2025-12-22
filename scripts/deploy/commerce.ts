@@ -14,7 +14,6 @@
 
 import {
   createPublicClient,
-  createWalletClient,
   http,
   parseEther,
   formatEther,

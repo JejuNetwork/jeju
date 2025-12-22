@@ -29,8 +29,20 @@ import type { DataSource, EntityMetadata } from 'typeorm';
 
 const CQL_ENABLED = process.env.CQL_SYNC_ENABLED === 'true';
 const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'indexer-sync';
-const SYNC_INTERVAL_MS = parseInt(process.env.CQL_SYNC_INTERVAL ?? '30000');
-const BATCH_SIZE = parseInt(process.env.CQL_SYNC_BATCH_SIZE ?? '1000');
+const SYNC_INTERVAL_MS = (() => {
+  const interval = parseInt(process.env.CQL_SYNC_INTERVAL ?? '30000');
+  if (isNaN(interval) || interval <= 0) {
+    throw new Error(`Invalid CQL_SYNC_INTERVAL: ${process.env.CQL_SYNC_INTERVAL}. Must be a positive integer.`);
+  }
+  return interval;
+})();
+const BATCH_SIZE = (() => {
+  const batch = parseInt(process.env.CQL_SYNC_BATCH_SIZE ?? '1000');
+  if (isNaN(batch) || batch <= 0) {
+    throw new Error(`Invalid CQL_SYNC_BATCH_SIZE: ${process.env.CQL_SYNC_BATCH_SIZE}. Must be a positive integer.`);
+  }
+  return batch;
+})();
 
 // ============================================================================
 // Sync State
@@ -64,6 +76,10 @@ export class CQLSyncService {
   }
 
   async initialize(dataSource: DataSource): Promise<void> {
+    if (!dataSource) {
+      throw new Error('DataSource is required');
+    }
+    
     if (!CQL_ENABLED) {
       console.log('[CQLSync] Disabled - set CQL_SYNC_ENABLED=true to enable');
       return;
@@ -252,15 +268,20 @@ export class CQLSyncService {
       )
     `.trim();
 
-    await this.client.exec(sql, undefined, CQL_DATABASE_ID).catch((err) => {
-      console.warn(`[CQLSync] Table creation failed for ${meta.tableName}:`, err);
+    await this.client.exec(sql, undefined, CQL_DATABASE_ID).catch((err: Error) => {
+      // Table creation is idempotent - log warning but continue
+      console.warn(`[CQLSync] Table creation for ${meta.tableName} failed: ${err.message}`);
     });
   }
 
   private async loadSyncStates(): Promise<void> {
     const result = await this.client
       .query<SyncState>('SELECT * FROM _cql_sync_states', undefined, CQL_DATABASE_ID)
-      .catch(() => ({ rows: [], rowCount: 0, columns: [], executionTime: 0, blockHeight: 0 }));
+      .catch((err: Error) => {
+        // Table may not exist on first run - this is expected
+        console.log(`[CQLSync] Loading sync states: ${err.message} (will create table on first sync)`);
+        return { rows: [] as SyncState[], rowCount: 0 };
+      });
 
     for (const row of result.rows) {
       syncStates.set(row.entity, row);
@@ -277,8 +298,9 @@ export class CQLSyncService {
                     total_synced = ${state.totalSynced}
     `.trim();
 
-    await this.client.exec(sql, undefined, CQL_DATABASE_ID).catch(() => {
-      // Ignore - table may not exist yet
+    await this.client.exec(sql, undefined, CQL_DATABASE_ID).catch((err: Error) => {
+      // Sync state table may not exist on first run - this is expected
+      console.log(`[CQLSync] Saving sync state for ${state.entity}: ${err.message}`);
     });
   }
 
@@ -320,7 +342,9 @@ export function getCQLSync(): CQLSyncService {
 
 export function resetCQLSync(): void {
   if (cqlSyncService) {
-    cqlSyncService.stop().catch(() => {});
+    cqlSyncService.stop().catch((err: Error) => {
+      console.warn(`[CQLSync] Error during shutdown: ${err.message}`);
+    });
     cqlSyncService = null;
   }
 }

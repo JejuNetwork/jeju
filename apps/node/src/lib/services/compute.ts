@@ -3,18 +3,40 @@
  * Supports both TEE (confidential) and non-TEE modes
  */
 
+import { z } from 'zod';
 import { type Address } from 'viem';
 import { type NodeClient, getChain } from '../contracts';
 import { COMPUTE_STAKING_ABI, INFERENCE_SERVING_ABI } from '../abis';
 import { 
-  type HardwareInfo, 
+  type HardwareInfo as HardwareInfoCamel, 
   type ComputeCapabilities,
   getComputeCapabilities,
-  NON_TEE_WARNING 
+  NON_TEE_WARNING,
+  convertHardwareToSnakeCase,
+  convertHardwareToCamelCase 
 } from '../hardware';
+import type { HardwareInfo } from '../../types';
+// Hardware validation handled in hardware.ts
 
 export type ComputeMode = 'tee' | 'non-tee';
 export type ComputeType = 'cpu' | 'gpu' | 'both';
+
+const ComputeModeSchema = z.enum(['tee', 'non-tee']);
+const ComputeTypeSchema = z.enum(['cpu', 'gpu', 'both']);
+
+const ComputeServiceConfigSchema = z.object({
+  modelId: z.string().min(1),
+  endpoint: z.string().url(),
+  pricePerInputToken: z.bigint(),
+  pricePerOutputToken: z.bigint(),
+  stakeAmount: z.bigint(),
+  computeType: ComputeTypeSchema,
+  computeMode: ComputeModeSchema,
+  cpuCores: z.number().int().positive().optional(),
+  gpuIds: z.array(z.number().int().nonnegative()).optional(),
+  dockerImage: z.string().min(1).optional(),
+  acceptNonTeeRisk: z.boolean().optional(),
+});
 
 export interface ComputeServiceConfig {
   modelId: string;
@@ -22,14 +44,22 @@ export interface ComputeServiceConfig {
   pricePerInputToken: bigint;
   pricePerOutputToken: bigint;
   stakeAmount: bigint;
-  // New fields for CPU/GPU compute
   computeType: ComputeType;
   computeMode: ComputeMode;
-  cpuCores?: number; // Cores to allocate
-  gpuIds?: number[]; // GPU indices to use
-  dockerImage?: string; // For containerized compute
-  acceptNonTeeRisk?: boolean; // User acknowledged non-TEE warning
+  cpuCores?: number;
+  gpuIds?: number[];
+  dockerImage?: string;
+  acceptNonTeeRisk?: boolean;
 }
+
+const ComputeServiceStateSchema = z.object({
+  isRegistered: z.boolean(),
+  isStaked: z.boolean(),
+  stakeAmount: z.bigint(),
+  pendingBalance: z.bigint(),
+  modelId: z.string().min(1),
+  endpoint: z.string().url(),
+});
 
 export interface ComputeServiceState {
   isRegistered: boolean;
@@ -40,29 +70,58 @@ export interface ComputeServiceState {
   endpoint: string;
 }
 
+const AddressSchema = z.string().regex(/^0x[a-fA-F0-9]{40}$/).transform((val) => val as Address);
+
+const ComputeOfferSchema = z.object({
+  provider: AddressSchema,
+  computeType: ComputeTypeSchema,
+  computeMode: ComputeModeSchema,
+  cpuCores: z.number().int().positive(),
+  cpuGflops: z.number().nonnegative(),
+  memoryMb: z.number().int().positive(),
+  gpuCount: z.number().int().nonnegative(),
+  gpuModels: z.array(z.string().min(1)),
+  gpuVramMb: z.number().int().nonnegative(),
+  gpuTflops: z.number().nonnegative(),
+  pricePerHourWei: z.bigint(),
+  pricePerGpuHourWei: z.bigint(),
+  isOnline: z.boolean(),
+  jobsCompleted: z.number().int().nonnegative(),
+  reputation: z.number().int().min(0).max(100),
+  teeAvailable: z.boolean(),
+  teeType: z.string().nullable(),
+});
+
 export interface ComputeOffer {
   provider: Address;
   computeType: ComputeType;
   computeMode: ComputeMode;
-  // CPU specs
   cpuCores: number;
   cpuGflops: number;
   memoryMb: number;
-  // GPU specs (if applicable)
   gpuCount: number;
   gpuModels: string[];
   gpuVramMb: number;
   gpuTflops: number;
-  // Pricing
   pricePerHourWei: bigint;
   pricePerGpuHourWei: bigint;
-  // Status
   isOnline: boolean;
   jobsCompleted: number;
   reputation: number;
-  // TEE status
   teeAvailable: boolean;
   teeType: string | null;
+}
+
+function validateComputeServiceConfig(data: unknown): ComputeServiceConfig {
+  return ComputeServiceConfigSchema.parse(data);
+}
+
+function validateComputeServiceState(data: unknown): ComputeServiceState {
+  return ComputeServiceStateSchema.parse(data);
+}
+
+function validateComputeOffer(data: unknown): ComputeOffer {
+  return ComputeOfferSchema.parse(data);
 }
 
 export class ComputeService {
@@ -75,9 +134,13 @@ export class ComputeService {
     this.client = client;
   }
 
-  setHardware(hardware: HardwareInfo): void {
-    this.hardware = hardware;
-    this.capabilities = getComputeCapabilities(hardware);
+  setHardware(hardware: HardwareInfo | HardwareInfoCamel): void {
+    // Convert to camelCase for getComputeCapabilities if needed
+    const hwCamel = 'os_version' in hardware 
+      ? convertHardwareToCamelCase(hardware)
+      : hardware as HardwareInfoCamel;
+    this.hardware = 'os_version' in hardware ? hardware : convertHardwareToSnakeCase(hardware);
+    this.capabilities = getComputeCapabilities(hwCamel);
   }
 
   getCapabilities(): ComputeCapabilities | null {
@@ -109,6 +172,9 @@ export class ComputeService {
   }
 
   async getState(address: Address): Promise<ComputeServiceState> {
+    if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
+      throw new Error(`Invalid address: ${address}`);
+    }
     const [stake, service, pendingBalance] = await Promise.all([
       this.client.publicClient.readContract({
         address: this.client.addresses.computeStaking,
@@ -130,7 +196,7 @@ export class ComputeService {
       }),
     ]);
 
-    return {
+    const rawState = {
       isRegistered: service[4], // isActive
       isStaked: stake[0] > 0n,
       stakeAmount: stake[0],
@@ -138,6 +204,8 @@ export class ComputeService {
       modelId: service[0],
       endpoint: service[1],
     };
+    
+    return validateComputeServiceState(rawState);
   }
 
   async stake(amount: bigint): Promise<string> {
@@ -158,12 +226,14 @@ export class ComputeService {
   }
 
   async registerService(config: ComputeServiceConfig): Promise<string> {
+    const validatedConfig = validateComputeServiceConfig(config);
+    
     if (!this.client.walletClient?.account) {
       throw new Error('Wallet not connected');
     }
 
     // Check if non-TEE mode requires acknowledgment
-    if (this.isNonTeeMode(config.computeType) && !this.nonTeeAcknowledged && !config.acceptNonTeeRisk) {
+    if (this.isNonTeeMode(validatedConfig.computeType) && !this.nonTeeAcknowledged && !validatedConfig.acceptNonTeeRisk) {
       throw new Error('Non-TEE compute requires user acknowledgment of privacy risks. Call acknowledgeNonTeeRisk() first.');
     }
 
@@ -172,13 +242,13 @@ export class ComputeService {
       throw new Error('Hardware not profiled. Call setHardware() first.');
     }
 
-    if (config.computeType === 'gpu' || config.computeType === 'both') {
+    if (validatedConfig.computeType === 'gpu' || validatedConfig.computeType === 'both') {
       if (!this.capabilities.gpuCompute.available) {
         throw new Error('GPU compute requested but no suitable GPU detected');
       }
     }
 
-    if (config.computeType === 'cpu' || config.computeType === 'both') {
+    if (validatedConfig.computeType === 'cpu' || validatedConfig.computeType === 'both') {
       if (!this.capabilities.cpuCompute.available) {
         throw new Error('CPU compute requested but system does not meet requirements');
       }
@@ -188,18 +258,18 @@ export class ComputeService {
     const address = this.client.walletClient.account.address;
     const state = await this.getState(address);
     if (!state.isStaked) {
-      await this.stake(config.stakeAmount);
+      await this.stake(validatedConfig.stakeAmount);
     }
 
     // Build endpoint with compute metadata
-    const endpointUrl = new URL(config.endpoint);
-    endpointUrl.searchParams.set('compute_type', config.computeType);
-    endpointUrl.searchParams.set('compute_mode', config.computeMode);
-    if (config.cpuCores) {
-      endpointUrl.searchParams.set('cpu_cores', config.cpuCores.toString());
+    const endpointUrl = new URL(validatedConfig.endpoint);
+    endpointUrl.searchParams.set('compute_type', validatedConfig.computeType);
+    endpointUrl.searchParams.set('compute_mode', validatedConfig.computeMode);
+    if (validatedConfig.cpuCores) {
+      endpointUrl.searchParams.set('cpu_cores', validatedConfig.cpuCores.toString());
     }
-    if (config.gpuIds && config.gpuIds.length > 0) {
-      endpointUrl.searchParams.set('gpu_ids', config.gpuIds.join(','));
+    if (validatedConfig.gpuIds && validatedConfig.gpuIds.length > 0) {
+      endpointUrl.searchParams.set('gpu_ids', validatedConfig.gpuIds.join(','));
     }
 
     // Then register service
@@ -210,10 +280,10 @@ export class ComputeService {
       abi: INFERENCE_SERVING_ABI,
       functionName: 'registerService',
       args: [
-        config.modelId,
+        validatedConfig.modelId,
         endpointUrl.toString(),
-        config.pricePerInputToken,
-        config.pricePerOutputToken,
+        validatedConfig.pricePerInputToken,
+        validatedConfig.pricePerOutputToken,
       ],
     });
 
@@ -258,30 +328,34 @@ export class ComputeService {
     pricePerGpuHourWei: bigint,
     computeType: ComputeType = 'both'
   ): Omit<ComputeOffer, 'provider' | 'isOnline' | 'jobsCompleted' | 'reputation'> | null {
-    if (!this.hardware || !this.capabilities) {
+    if (!this.hardware || !this.capabilities || !this.client.walletClient?.account) {
       return null;
     }
 
-    const teeType = this.hardware.tee.hasIntelTdx ? 'Intel TDX' :
-                    this.hardware.tee.hasIntelSgx ? 'Intel SGX' :
-                    this.hardware.tee.hasAmdSev ? 'AMD SEV' :
-                    this.hardware.tee.hasNvidiaCc ? 'NVIDIA CC' : null;
+    const address = this.client.walletClient.account.address;
+    const teeType = this.hardware.tee.has_intel_tdx ? 'Intel TDX' :
+                    this.hardware.tee.has_intel_sgx ? 'Intel SGX' :
+                    this.hardware.tee.has_amd_sev ? 'AMD SEV' :
+                    this.hardware.tee.has_nvidia_cc ? 'NVIDIA CC' : null;
 
-    return {
+    const rawOffer = {
+      provider: address,
       computeType,
       computeMode: this.isNonTeeMode(computeType) ? 'non-tee' : 'tee',
-      cpuCores: this.hardware.cpu.coresPhysical,
-      cpuGflops: this.hardware.cpu.estimatedFlops,
-      memoryMb: this.hardware.memory.totalMb,
+      cpuCores: this.hardware.cpu.cores_physical,
+      cpuGflops: 0, // Not available in snake_case format
+      memoryMb: this.hardware.memory.total_mb,
       gpuCount: this.hardware.gpus.length,
       gpuModels: this.hardware.gpus.map(g => g.name),
       gpuVramMb: this.capabilities.gpuCompute.totalVram,
       gpuTflops: this.capabilities.gpuCompute.estimatedTflops,
       pricePerHourWei,
       pricePerGpuHourWei,
-      teeAvailable: this.hardware.tee.attestationAvailable,
+      teeAvailable: this.hardware.tee.attestation_available,
       teeType,
     };
+    
+    return validateComputeOffer(rawOffer);
   }
 }
 

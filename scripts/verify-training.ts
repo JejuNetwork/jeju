@@ -24,9 +24,9 @@ async function verifyTraining() {
   // Test 1: Check imports work
   console.log('1. Testing imports...');
   try {
-    const { TrainingSDK } = await import('../apps/dws/src/compute/sdk/training');
-    const { DistributedTrainingClient } = await import('../apps/dws/src/compute/sdk/distributed-training');
-    const { P2PTrainingNetwork } = await import('../apps/dws/src/compute/sdk/p2p');
+    await import('../apps/dws/src/compute/sdk/training');
+    await import('../apps/dws/src/compute/sdk/distributed-training');
+    await import('../apps/dws/src/compute/sdk/p2p');
     console.log('   ✓ SDK imports successful');
   } catch (error) {
     console.log(`   ✗ SDK import failed: ${error}`);
@@ -185,7 +185,7 @@ async function verifyTraining() {
     } else {
       console.log('   ⚠ TrainingCoordinator not deployed (deploy with: jeju dev --bootstrap)');
     }
-  } catch (error) {
+  } catch {
     console.log('   ⚠ Chain not running (start with: jeju dev)');
   }
 

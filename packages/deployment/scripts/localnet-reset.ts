@@ -5,7 +5,7 @@
 
 import { $ } from "bun";
 
-async function main() {
+async function main(): Promise<void> {
   console.log("🔄 Resetting Network Localnet...\n");
 
   await $`bun run ${import.meta.dir}/localnet-stop.ts`.quiet();

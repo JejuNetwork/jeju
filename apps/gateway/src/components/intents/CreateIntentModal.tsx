@@ -1,10 +1,17 @@
-import { useState, useCallback, useEffect } from 'react';
-import { X, ArrowRight, Zap, AlertCircle, Loader2, CheckCircle } from 'lucide-react';
+import { useState, useCallback, useEffect, type ComponentType } from 'react';
+import { X, ArrowRight, Zap, AlertCircle, Loader2, CheckCircle, type LucideProps } from 'lucide-react';
 import { useAccount, useWriteContract, useSwitchChain, useChainId, useWaitForTransactionReceipt } from 'wagmi';
 import { parseEther } from 'viem';
 import { useSupportedChains, useIntentQuote } from '../../hooks/useIntentAPI';
 import { useOIFConfig } from '../../hooks/useOIF';
 import { ZERO_ADDRESS } from '../../lib/contracts';
+
+const XIcon = X as ComponentType<LucideProps>;
+const ArrowRightIcon = ArrowRight as ComponentType<LucideProps>;
+const AlertCircleIcon = AlertCircle as ComponentType<LucideProps>;
+const CheckCircleIcon = CheckCircle as ComponentType<LucideProps>;
+const Loader2Icon = Loader2 as ComponentType<LucideProps>;
+const ZapIcon = Zap as ComponentType<LucideProps>;
 
 interface CreateIntentModalProps {
   onClose: () => void;
@@ -115,7 +122,7 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
             <h2 style={{ fontSize: 'clamp(1.125rem, 4vw, 1.25rem)', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Create Intent</h2>
             <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', margin: '0.25rem 0 0' }}>Cross-chain swap via OIF</p>
           </div>
-          <button onClick={onClose} className="button button-ghost" style={{ padding: '0.5rem', flexShrink: 0 }}><X size={20} /></button>
+          <button onClick={onClose} className="button button-ghost" style={{ padding: '0.5rem', flexShrink: 0 }}><XIcon size={20} /></button>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -131,7 +138,7 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
 
           <div style={{ display: 'flex', justifyContent: 'center' }}>
             <div style={{ width: '36px', height: '36px', borderRadius: 'var(--radius-md)', background: 'var(--surface-hover)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <ArrowRight size={16} color="var(--text-muted)" style={{ transform: 'rotate(90deg)' }} />
+              <ArrowRightIcon size={16} color="var(--text-muted)" style={{ transform: 'rotate(90deg)' }} />
             </div>
           </div>
 
@@ -162,19 +169,19 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
           {quotesLoading && <div style={{ padding: '1rem', background: 'var(--surface-hover)', borderRadius: 'var(--radius-md)', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Fetching quotes...</div>}
 
           {!isConnected && (
-            <div className="banner banner-warning" style={{ fontSize: '0.75rem' }}><AlertCircle size={16} />Connect wallet to create intent</div>
+            <div className="banner banner-warning" style={{ fontSize: '0.75rem' }}><AlertCircleIcon size={16} />Connect wallet to create intent</div>
           )}
 
           {isConnected && !isCorrectChain && (
-            <div className="banner banner-warning" style={{ fontSize: '0.75rem' }}><AlertCircle size={16} />Switch to source chain to create intent</div>
+            <div className="banner banner-warning" style={{ fontSize: '0.75rem' }}><AlertCircleIcon size={16} />Switch to source chain to create intent</div>
           )}
 
           {error && (
-            <div className="banner" style={{ background: 'var(--error-soft)', border: '1px solid var(--error)', color: 'var(--error)', fontSize: '0.75rem' }}><AlertCircle size={16} />{error}</div>
+            <div className="banner" style={{ background: 'var(--error-soft)', border: '1px solid var(--error)', color: 'var(--error)', fontSize: '0.75rem' }}><AlertCircleIcon size={16} />{error}</div>
           )}
 
           {txStatus === 'success' && intentId && (
-            <div className="banner banner-success" style={{ fontSize: '0.75rem' }}><CheckCircle size={16} />Intent created! ID: {intentId.slice(0, 10)}...</div>
+            <div className="banner banner-success" style={{ fontSize: '0.75rem' }}><CheckCircleIcon size={16} />Intent created! ID: {intentId.slice(0, 10)}...</div>
           )}
 
           <button
@@ -184,15 +191,15 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
             style={{ width: '100%', padding: '1rem' }}
           >
             {txStatus === 'pending' || txStatus === 'confirming' ? (
-              <><Loader2 size={18} className="animate-spin" />{txStatus === 'pending' ? 'Confirm in wallet...' : 'Confirming...'}</>
+              <><Loader2Icon size={18} className="animate-spin" />{txStatus === 'pending' ? 'Confirm in wallet...' : 'Confirming...'}</>
             ) : txStatus === 'success' ? (
-              <><CheckCircle size={18} />Intent Created</>
+              <><CheckCircleIcon size={18} />Intent Created</>
             ) : !isConnected ? (
               'Connect Wallet'
             ) : !isCorrectChain ? (
               'Switch Network'
             ) : (
-              <><Zap size={18} />Create Intent</>
+              <><ZapIcon size={18} />Create Intent</>
             )}
           </button>
         </div>

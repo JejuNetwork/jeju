@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
-import { createPaymentRequirement, checkPayment, PAYMENT_TIERS, PaymentRequirements } from './lib/x402.js';
+import { createPaymentRequirement, checkPayment, PAYMENT_TIERS, type PaymentRequirements } from './lib/x402.js';
 import { Address, isAddress } from 'viem';
 import { rateLimit, agentRateLimit, strictRateLimit } from './middleware/rate-limit.js';
 import { intentService } from './services/intent-service.js';
@@ -31,6 +31,46 @@ import {
 } from './lib/moderation-api.js';
 import { poolService, type V2Pool, type PaymasterPool } from './services/pool-service.js';
 import { getProviderInfo } from '@jejunetwork/shared';
+import {
+  A2ARequestSchema,
+  CreateIntentRequestSchema,
+  GetQuoteRequestSchema,
+  IntentIdSchema,
+  CancelIntentRequestSchema,
+  TokenPairSchema,
+  SwapQuoteRequestSchema,
+  CheckBanStatusRequestSchema,
+  GetModeratorProfileRequestSchema,
+  GetModerationCasesQuerySchema,
+  CaseIdSchema,
+  GetReportsQuerySchema,
+  AgentIdSchema,
+  PrepareStakeRequestSchema,
+  PrepareReportRequestSchema,
+  PrepareVoteRequestSchema,
+  PrepareChallengeRequestSchema,
+  PrepareAppealRequestSchema,
+  FaucetStatusRequestSchema,
+  FaucetClaimRequestSchema,
+  ListIntentsQuerySchema,
+  ListRoutesQuerySchema,
+  RouteIdSchema,
+  GetBestRouteRequestSchema,
+  GetVolumeQuerySchema,
+  SolverLeaderboardQuerySchema,
+  ListSolversQuerySchema,
+  ListPoolsQuerySchema,
+  McpResourceReadRequestSchema,
+  McpToolCallRequestSchema,
+  expect,
+  expectAddress,
+  expectChainId,
+  expectPositiveNumber,
+  validateBody,
+  validateQuery,
+  formatError,
+  toResponseData,
+} from './lib/validation.js';
 
 const app = express();
 const PORT = PORTS.a2a;
@@ -169,12 +209,7 @@ const MCP_TOOLS = [
   { name: 'faucet_info', description: 'Get faucet configuration and requirements', inputSchema: { type: 'object', properties: {} } },
 ] : []);
 
-interface A2ARequest {
-  jsonrpc: string;
-  method: string;
-  params?: { message?: { messageId: string; parts: Array<{ kind: string; text?: string; data?: Record<string, string | number | boolean> }> } };
-  id: number | string;
-}
+import type { A2ARequest } from './lib/validation.js';
 
 interface SkillResult {
   message: string;
@@ -200,27 +235,30 @@ async function executeSkill(skillId: string, params: Record<string, unknown>, pa
       return { message: 'Paymaster deployment authorized', data: { token: params.token, fee: PAYMENT_TIERS.PAYMASTER_DEPLOYMENT.toString() } };
     }
     case 'add-liquidity': {
-      const paymentCheck = await checkPayment(paymentHeader, PAYMENT_TIERS.LIQUIDITY_ADD, PAYMENT_RECIPIENT);
-      if (!paymentCheck.paid) return { message: 'Payment required', data: {}, requiresPayment: createPaymentRequirement('/a2a', PAYMENT_TIERS.LIQUIDITY_ADD, 'Liquidity provision fee', PAYMENT_RECIPIENT) };
-      return { message: 'Liquidity addition prepared', data: { paymaster: params.paymaster, amount: params.amount } };
-    }
-    case 'create-intent': {
-      const intent = await intentService.createIntent({ sourceChain: params.sourceChain as number, destinationChain: params.destinationChain as number, sourceToken: params.sourceToken as string, destinationToken: params.destinationToken as string, amount: params.amount as string, recipient: params.recipient as string, maxFee: params.maxFee as string });
+      const validated = expect(params, CreateIntentRequestSchema, 'add-liquidity params');
+      const intent = await intentService.createIntent({
+        ...validated,
+        sourceToken: validated.sourceToken as Address,
+        destinationToken: validated.destinationToken as Address,
+        recipient: validated.recipient as Address | undefined,
+      });
       return { message: `Intent created successfully. ID: ${intent.intentId}`, data: { intent } };
     }
-    case 'get-quote': {
-      const quotes = await intentService.getQuotes({ sourceChain: params.sourceChain as number, destinationChain: params.destinationChain as number, sourceToken: params.sourceToken as string, destinationToken: params.destinationToken as string, amount: params.amount as string });
-      return { message: `Found ${quotes.length} quotes for your intent`, data: { quotes, bestQuote: quotes[0] } };
-    }
     case 'track-intent': {
-      const intent = await intentService.getIntent(params.intentId as string);
-      if (!intent) return { message: 'Intent not found', data: { error: 'Intent not found' } };
-      return { message: `Intent ${params.intentId} status: ${intent.status}`, data: intent };
+      const intentId = expect(params.intentId, IntentIdSchema, 'track-intent intentId');
+      const intent = await intentService.getIntent(intentId);
+      if (!intent) {
+        throw new Error(`Intent not found: ${intentId}`);
+      }
+      return { message: `Intent ${intentId} status: ${intent.status}`, data: intent };
     }
     case 'cancel-intent': {
-      const user = params.user as string;
-      if (!user) return { message: 'User address required', data: { error: 'Missing user parameter' } };
-      const result = await intentService.cancelIntent(params.intentId as string, user);
+      if (!params.intentId || !params.user) {
+        throw new Error('intentId and user required');
+      }
+      const intentId = expect(params.intentId, IntentIdSchema, 'cancel-intent intentId');
+      const user = expectAddress(params.user, 'cancel-intent user');
+      const result = await intentService.cancelIntent(intentId, user);
       return { message: result.success ? 'Intent cancelled successfully' : result.message, data: result };
     }
     case 'list-routes': {
@@ -228,23 +266,37 @@ async function executeSkill(skillId: string, params: Record<string, unknown>, pa
       return { message: `Found ${routes.length} active routes`, data: { routes, totalRoutes: routes.length } };
     }
     case 'get-best-route': {
-      const route = await routeService.getBestRoute({ sourceChain: params.sourceChain as number, destinationChain: params.destinationChain as number, prioritize: (params.prioritize as 'speed' | 'cost') || 'cost' });
-      return { message: route ? `Best route found via ${route.oracle}` : 'No route available', data: { route } };
+      if (!params.sourceChain || !params.destinationChain) {
+        throw new Error('sourceChain and destinationChain required');
+      }
+      const validated = expect(params, GetBestRouteRequestSchema, 'get-best-route params');
+      const route = await routeService.getBestRoute(validated);
+      if (!route) {
+        throw new Error('No route available');
+      }
+      return { message: `Best route found via ${route.oracle}`, data: { route } };
     }
     case 'list-solvers': {
-      const solvers = await solverService.listSolvers();
+      const validated = params && Object.keys(params).length > 0
+        ? expect(params, ListSolversQuerySchema, 'list-solvers params')
+        : undefined;
+      const solvers = await solverService.listSolvers(validated);
       return { message: `${solvers.length} active solvers`, data: { solvers, activeSolvers: solvers.length } };
     }
     case 'get-solver-liquidity': {
-      const liquidity = await solverService.getSolverLiquidity(params.solver as string);
-      return { message: `Solver ${(params.solver as string).slice(0, 10)}... liquidity retrieved`, data: { solver: params.solver, liquidity } };
+      const solver = expectAddress(params.solver, 'get-solver-liquidity solver');
+      const liquidity = await solverService.getSolverLiquidity(solver);
+      return { message: `Solver ${solver.slice(0, 10)}... liquidity retrieved`, data: { solver, liquidity } };
     }
     case 'get-stats': {
       const stats = await intentService.getStats();
       return { message: `OIF Stats: ${stats.totalIntents} intents, $${stats.totalVolumeUsd} volume`, data: stats };
     }
     case 'get-volume': {
-      const volume = await routeService.getVolume({ sourceChain: params.sourceChain as number, destinationChain: params.destinationChain as number, period: (params.period as '24h' | '7d' | '30d' | 'all') || 'all' });
+      const validated = params && Object.keys(params).length > 0
+        ? expect(params, GetVolumeQuerySchema, 'get-volume params')
+        : {};
+      const volume = await routeService.getVolume(validated);
       return { message: `Route volume: $${volume.totalVolumeUsd}`, data: volume };
     }
     // XLP Pool Skills
@@ -253,142 +305,129 @@ async function executeSkill(skillId: string, params: Record<string, unknown>, pa
       return { message: `Found ${pools.length} V2 pools`, data: { pools, count: pools.length } };
     }
     case 'list-v3-pools': {
-      // V3 pools can't be directly enumerated - need to query specific pairs
-      const stats = await poolService.getPoolStats();
-      return { message: `${stats.v3Pools} V3 pools available. Query specific token pairs for details.`, data: { v3PoolCount: stats.v3Pools, note: 'Use list-pools-for-pair with token addresses to query V3 pools' } };
-    }
-    case 'get-pool-reserves': {
-      const token0 = params.token0 as string;
-      const token1 = params.token1 as string;
-      if (!token0 || !token1) return { message: 'Token addresses required', data: { error: 'Missing token0 or token1 parameter' } };
-      const pools = await poolService.listPoolsForPair(token0 as Address, token1 as Address);
+      const validated = expect(params, TokenPairSchema, 'get-pool-reserves params');
+      const pools = await poolService.listPoolsForPair(validated.token0 as Address, validated.token1 as Address);
       const totalReserve0 = pools.reduce((sum, p) => sum + Number(p.type === 'V2' ? (p as V2Pool).reserve0 : p.type === 'PAYMASTER' ? (p as PaymasterPool).reserve0 : '0'), 0);
       const totalReserve1 = pools.reduce((sum, p) => sum + Number(p.type === 'V2' ? (p as V2Pool).reserve1 : p.type === 'PAYMASTER' ? (p as PaymasterPool).reserve1 : '0'), 0);
       return { message: `Found ${pools.length} pools with reserves`, data: { pools, aggregatedReserves: { reserve0: totalReserve0.toString(), reserve1: totalReserve1.toString() } } };
     }
     case 'get-swap-quote': {
-      const tokenIn = params.tokenIn as string;
-      const tokenOut = params.tokenOut as string;
-      const amountIn = params.amountIn as string;
-      if (!tokenIn || !tokenOut || !amountIn) return { message: 'Missing parameters', data: { error: 'tokenIn, tokenOut, and amountIn required' } };
-      const quote = await poolService.getSwapQuote(tokenIn as Address, tokenOut as Address, amountIn);
-      if (!quote) return { message: 'No liquidity available for this swap', data: { error: 'No liquidity' } };
-      return { message: `Best quote: ${amountIn} → ${quote.amountOut} via ${quote.poolType} pool (${quote.priceImpactBps / 100}% impact)`, data: { quote } };
+      const validated = expect(params, SwapQuoteRequestSchema, 'get-swap-quote params');
+      const quote = await poolService.getSwapQuote(validated.tokenIn as Address, validated.tokenOut as Address, validated.amountIn);
+      if (!quote) {
+        throw new Error(`No liquidity available for swap: ${validated.tokenIn} -> ${validated.tokenOut}`);
+      }
+      return { message: `Best quote: ${validated.amountIn} → ${quote.amountOut} via ${quote.poolType} pool (${quote.priceImpactBps / 100}% impact)`, data: { quote } };
     }
     case 'get-all-swap-quotes': {
-      const tokenIn = params.tokenIn as string;
-      const tokenOut = params.tokenOut as string;
-      const amountIn = params.amountIn as string;
-      if (!tokenIn || !tokenOut || !amountIn) return { message: 'Missing parameters', data: { error: 'tokenIn, tokenOut, and amountIn required' } };
-      const quotes = await poolService.getAllSwapQuotes(tokenIn as Address, tokenOut as Address, amountIn);
+      const validated = expect(params, SwapQuoteRequestSchema, 'get-all-swap-quotes params');
+      const quotes = await poolService.getAllSwapQuotes(validated.tokenIn as Address, validated.tokenOut as Address, validated.amountIn);
       return { message: `Found ${quotes.length} quotes`, data: { quotes, bestQuote: quotes[0] } };
     }
-    case 'get-pool-stats': {
-      const stats = await poolService.getPoolStats();
-      return { message: `XLP: ${stats.totalPools} pools, $${stats.totalLiquidityUsd} TVL`, data: stats as unknown as Record<string, unknown> };
-    }
     case 'list-pools-for-pair': {
-      const token0 = params.token0 as string;
-      const token1 = params.token1 as string;
-      if (!token0 || !token1) return { message: 'Token addresses required', data: { error: 'Missing token0 or token1 parameter' } };
-      const pools = await poolService.listPoolsForPair(token0 as Address, token1 as Address);
+      const validated = expect(params, TokenPairSchema, 'list-pools-for-pair params');
+      const pools = await poolService.listPoolsForPair(validated.token0 as Address, validated.token1 as Address);
       return { message: `Found ${pools.length} pools for pair`, data: { pools, v2Count: pools.filter(p => p.type === 'V2').length, v3Count: pools.filter(p => p.type === 'V3').length, paymasterAvailable: pools.some(p => p.type === 'PAYMASTER') } };
     }
     case 'check-ban-status': {
-      const address = params.address as string;
-      if (!address) return { message: 'Address required', data: { error: 'Missing address parameter' } };
-      const status = await checkBanStatus(address);
-      return { message: status.isBanned ? `Address is ${status.isOnNotice ? 'on notice' : 'banned'}: ${status.reason}` : 'Address is not banned', data: status as unknown as Record<string, unknown> };
+      const validated = expect(params, CheckBanStatusRequestSchema, 'check-ban-status params');
+      const status = await checkBanStatus(validated.address as Address);
+      return { message: status.isBanned ? `Address is ${status.isOnNotice ? 'on notice' : 'banned'}: ${status.reason}` : 'Address is not banned', data: toResponseData(status) };
     }
     case 'get-moderator-profile': {
-      const address = params.address as string;
-      if (!address) return { message: 'Address required', data: { error: 'Missing address parameter' } };
-      const profile = await getModeratorProfile(address);
-      if (!profile) return { message: 'Not a moderator or data unavailable', data: { address, isStaked: false } };
-      return { message: `${profile.tier} tier moderator with ${profile.winRate}% win rate and ${profile.netPnL} ETH P&L`, data: profile as unknown as Record<string, unknown> };
+      const validated = expect(params, GetModeratorProfileRequestSchema, 'get-moderator-profile params');
+      const profile = await getModeratorProfile(validated.address as Address);
+      if (!profile) {
+        throw new Error(`Moderator profile not found for address: ${validated.address}`);
+      }
+      return { message: `${profile.tier} tier moderator with ${profile.winRate}% win rate and ${profile.netPnL} ETH P&L`, data: toResponseData(profile) };
     }
     case 'get-moderation-cases': {
-      const cases = await getModerationCases({ activeOnly: params.activeOnly as boolean, resolvedOnly: params.resolvedOnly as boolean, limit: params.limit as number });
+      const validated = params && Object.keys(params).length > 0
+        ? expect(params, GetModerationCasesQuerySchema, 'get-moderation-cases params')
+        : {};
+      const cases = await getModerationCases(validated);
       return { message: `Found ${cases.length} moderation cases`, data: { cases, count: cases.length } };
     }
     case 'get-moderation-case': {
-      const caseId = params.caseId as string;
-      if (!caseId) return { message: 'Case ID required', data: { error: 'Missing caseId parameter' } };
+      const caseId = expect(params.caseId, CaseIdSchema, 'get-moderation-case caseId');
       const caseData = await getModerationCase(caseId);
-      if (!caseData) return { message: 'Case not found', data: { error: 'Case not found', caseId } };
-      return { message: `Case ${caseData.status}: ${caseData.target.slice(0, 10)}... - ${caseData.reason.slice(0, 50)}`, data: caseData as unknown as Record<string, unknown> };
+      if (!caseData) {
+        throw new Error(`Moderation case not found: ${caseId}`);
+      }
+      return { message: `Case ${caseData.status}: ${caseData.target.slice(0, 10)}... - ${caseData.reason.slice(0, 50)}`, data: toResponseData(caseData) };
     }
     case 'get-reports': {
-      const reports = await getReports({ limit: params.limit as number, pendingOnly: params.pendingOnly as boolean });
+      const validated = params && Object.keys(params).length > 0
+        ? expect(params, GetReportsQuerySchema, 'get-reports params')
+        : {};
+      const reports = await getReports(validated);
       return { message: `Found ${reports.length} reports`, data: { reports, count: reports.length } };
     }
     case 'get-agent-labels': {
-      const agentId = params.agentId as number;
-      if (!agentId) return { message: 'Agent ID required', data: { error: 'Missing agentId parameter' } };
+      const agentId = expect(params.agentId, AgentIdSchema, 'get-agent-labels agentId');
       const labels = await getAgentLabels(agentId);
-      return { message: labels.labels.length > 0 ? `Agent has labels: ${labels.labels.join(', ')}` : 'Agent has no labels', data: labels as unknown as Record<string, unknown> };
+      return { message: labels.labels.length > 0 ? `Agent has labels: ${labels.labels.join(', ')}` : 'Agent has no labels', data: toResponseData(labels) };
     }
     case 'get-moderation-stats': {
       const stats = await getModerationStats();
-      return { message: `${stats.totalCases} total cases, ${stats.activeCases} active, ${stats.totalStaked} ETH staked, ${stats.banRate}% ban rate`, data: stats as unknown as Record<string, unknown> };
+      return { message: `${stats.totalCases} total cases, ${stats.activeCases} active, ${stats.totalStaked} ETH staked, ${stats.banRate}% ban rate`, data: toResponseData(stats) };
     }
     case 'prepare-moderation-stake': {
-      const amount = params.amount as string;
-      if (!amount) return { message: 'Amount required', data: { error: 'Missing amount parameter' } };
-      const tx = prepareStakeTransaction(amount);
-      return { message: `Prepared stake transaction for ${amount} ETH`, data: { action: 'sign-and-send', transaction: tx, note: 'Wait 24h after staking before voting power activates' } };
+      const validated = expect(params, PrepareStakeRequestSchema, 'prepare-moderation-stake params');
+      const tx = prepareStakeTransaction(validated.amount);
+      return { message: `Prepared stake transaction for ${validated.amount} ETH`, data: { action: 'sign-and-send', transaction: tx, note: 'Wait 24h after staking before voting power activates' } };
     }
     case 'prepare-report': {
-      const { target, reason, evidenceHash } = params as { target: string; reason: string; evidenceHash: string };
-      if (!target || !reason || !evidenceHash) return { message: 'Missing parameters', data: { error: 'target, reason, and evidenceHash required' } };
-      const tx = prepareReportTransaction(target, reason, evidenceHash);
+      const validated = expect(params, PrepareReportRequestSchema, 'prepare-report params');
+      const tx = prepareReportTransaction(validated.target as Address, validated.reason, validated.evidenceHash as `0x${string}`);
       return { message: `Prepared report transaction`, data: { action: 'sign-and-send', transaction: tx, warning: 'Your stake is at risk if community votes to clear' } };
     }
     case 'prepare-vote': {
-      const { caseId, voteYes } = params as { caseId: string; voteYes: boolean };
-      if (!caseId || voteYes === undefined) return { message: 'Missing parameters', data: { error: 'caseId and voteYes required' } };
-      const tx = prepareVoteTransaction(caseId, voteYes);
-      return { message: `Prepared vote ${voteYes ? 'BAN' : 'CLEAR'} transaction`, data: { action: 'sign-and-send', transaction: tx } };
+      const validated = expect(params, PrepareVoteRequestSchema, 'prepare-vote params');
+      const tx = prepareVoteTransaction(validated.caseId, validated.voteYes);
+      return { message: `Prepared vote ${validated.voteYes ? 'BAN' : 'CLEAR'} transaction`, data: { action: 'sign-and-send', transaction: tx } };
     }
     case 'prepare-challenge': {
-      const { caseId, stakeAmount } = params as { caseId: string; stakeAmount: string };
-      if (!caseId || !stakeAmount) return { message: 'Missing parameters', data: { error: 'caseId and stakeAmount required' } };
-      const tx = prepareChallengeTransaction(caseId, stakeAmount);
+      const validated = expect(params, PrepareChallengeRequestSchema, 'prepare-challenge params');
+      const tx = prepareChallengeTransaction(validated.caseId, validated.stakeAmount);
       return { message: `Prepared challenge transaction`, data: { action: 'sign-and-send', transaction: tx, warning: 'Stake at risk if ban upheld' } };
     }
     case 'prepare-appeal': {
-      const { caseId, stakeAmount } = params as { caseId: string; stakeAmount: string };
-      if (!caseId || !stakeAmount) return { message: 'Missing parameters', data: { error: 'caseId and stakeAmount required' } };
-      const tx = prepareAppealTransaction(caseId, stakeAmount);
+      const validated = expect(params, PrepareAppealRequestSchema, 'prepare-appeal params');
+      const tx = prepareAppealTransaction(validated.caseId, validated.stakeAmount);
       return { message: `Prepared appeal transaction`, data: { action: 'sign-and-send', transaction: tx, note: 'Appeals require 10x the original stake' } };
     }
     // Faucet skills (testnet only)
     case 'faucet-status': {
-      if (!IS_TESTNET) return { message: 'Faucet is only available on testnet', data: { error: 'Faucet disabled on mainnet' } };
-      const address = params.address as string;
-      if (!address) return { message: 'Address required', data: { error: 'Missing address parameter' } };
-      const status = await faucetService.getFaucetStatus(address as Address);
+      if (!IS_TESTNET) {
+        throw new Error('Faucet is only available on testnet');
+      }
+      const validated = expect(params, FaucetStatusRequestSchema, 'faucet-status params');
+      const status = await faucetService.getFaucetStatus(validated.address as Address);
       const message = status.eligible
         ? `You are eligible to claim ${status.amountPerClaim} JEJU`
         : status.isRegistered
           ? `Cooldown active: ${Math.ceil(status.cooldownRemaining / 3600000)}h remaining`
           : 'You must register in the ERC-8004 Identity Registry first';
-      return { message, data: status as unknown as Record<string, unknown> };
+      return { message, data: toResponseData(status) };
     }
     case 'faucet-claim': {
-      if (!IS_TESTNET) return { message: 'Faucet is only available on testnet', data: { error: 'Faucet disabled on mainnet' } };
-      const address = params.address as string;
-      if (!address) return { message: 'Address required', data: { error: 'Missing address parameter' } };
-      const result = await faucetService.claimFromFaucet(address as Address);
-      const message = result.success
-        ? `Successfully claimed ${result.amount} JEJU. TX: ${result.txHash}`
-        : result.error || 'Claim failed';
-      return { message, data: result as unknown as Record<string, unknown> };
+      if (!IS_TESTNET) {
+        throw new Error('Faucet is only available on testnet');
+      }
+      const validated = expect(params, FaucetClaimRequestSchema, 'faucet-claim params');
+      const result = await faucetService.claimFromFaucet(validated.address as Address);
+      if (!result.success) {
+        throw new Error(result.error || 'Claim failed');
+      }
+      const message = `Successfully claimed ${result.amount} JEJU. TX: ${result.txHash}`;
+      return { message, data: toResponseData(result) };
     }
     case 'faucet-info': {
       if (!IS_TESTNET) return { message: 'Faucet is only available on testnet', data: { error: 'Faucet disabled on mainnet' } };
       const info = faucetService.getFaucetInfo();
-      return { message: `${info.name}: Claim ${info.amountPerClaim} ${info.tokenSymbol} every ${info.cooldownHours}h`, data: info as unknown as Record<string, unknown> };
+      return { message: `${info.name}: Claim ${info.amountPerClaim} ${info.tokenSymbol} every ${info.cooldownHours}h`, data: toResponseData(info) };
     }
     // RPC Gateway Skills (using local imports)
     case 'rpc-list-chains': {
@@ -402,9 +441,8 @@ async function executeSkill(skillId: string, params: Record<string, unknown>, pa
       return { message: `${chains.length} chains supported`, data: { chains } };
     }
     case 'rpc-get-limits': {
-      const address = params.address as string;
-      if (!address || !isAddress(address)) return { message: 'Valid address required', data: { error: 'Missing or invalid address parameter' } };
-      const keys = await getApiKeysForAddress(address as Address);
+      const address = expectAddress(params.address, 'rpc-get-limits address');
+      const keys = await getApiKeysForAddress(address);
       const activeKeys = keys.filter(k => k.isActive);
       return {
         message: `Tier: FREE, Limit: ${RATE_LIMITS.FREE}/min`,
@@ -412,21 +450,19 @@ async function executeSkill(skillId: string, params: Record<string, unknown>, pa
       };
     }
     case 'rpc-get-usage': {
-      const address = params.address as string;
-      if (!address || !isAddress(address)) return { message: 'Valid address required', data: { error: 'Missing or invalid address parameter' } };
-      const keys = await getApiKeysForAddress(address as Address);
+      const address = expectAddress(params.address, 'rpc-get-usage address');
+      const keys = await getApiKeysForAddress(address);
       const totalRequests = keys.reduce((sum, k) => sum + k.requestCount, 0);
       return { message: `${totalRequests} total requests, ${keys.length} API keys`, data: { totalRequests, apiKeys: keys.length } };
     }
     case 'rpc-create-key': {
-      const address = params.address as string;
-      const name = (params.name as string) || 'A2A Generated';
-      if (!address || !isAddress(address)) return { message: 'Valid address required', data: { error: 'Missing or invalid address parameter' } };
-      const existingKeys = await getApiKeysForAddress(address as Address);
+      const address = expectAddress(params.address, 'rpc-create-key address');
+      const name = (typeof params.name === 'string' ? params.name : 'A2A Generated').slice(0, 100);
+      const existingKeys = await getApiKeysForAddress(address);
       if (existingKeys.filter(k => k.isActive).length >= 10) {
-        return { message: 'Maximum API keys reached (10)', data: { error: 'Maximum API keys reached' } };
+        throw new Error('Maximum API keys reached (10)');
       }
-      const { key, record } = await createApiKey(address as Address, name);
+      const { key, record } = await createApiKey(address, name);
       return { message: `API key created: ${key.slice(0, 15)}...`, data: { key, id: record.id, tier: record.tier, warning: 'Store this key securely - it will not be shown again' } };
     }
     case 'rpc-staking-info': {
@@ -473,28 +509,32 @@ app.get('/.well-known/governance-agent-card.json', (_req: Request, res: Response
 });
 
 app.post('/a2a', agentRateLimit(), async (req: Request, res: Response) => {
-  const body: A2ARequest = req.body;
-
-  if (body.method !== 'message/send') {
-    return res.json({ jsonrpc: '2.0', id: body.id, error: { code: -32601, message: 'Method not found' } });
+  let body: A2ARequest;
+  try {
+    body = validateBody(A2ARequestSchema, req.body, 'A2A request');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid request';
+    return res.json({ jsonrpc: '2.0', id: null, error: { code: -32600, message } });
   }
 
-  const message = body.params?.message;
-  if (!message || !message.parts) {
-    return res.json({ jsonrpc: '2.0', id: body.id, error: { code: -32602, message: 'Invalid params' } });
-  }
-
+  const message = body.params.message;
   const dataPart = message.parts.find((p) => p.kind === 'data');
-  if (!dataPart || !dataPart.data) {
+  if (!dataPart?.data) {
     return res.json({ jsonrpc: '2.0', id: body.id, error: { code: -32602, message: 'No data part found' } });
   }
 
-  const skillId = dataPart.data.skillId as string;
-  if (!skillId) {
+  const skillId = dataPart.data.skillId;
+  if (typeof skillId !== 'string' || !skillId) {
     return res.json({ jsonrpc: '2.0', id: body.id, error: { code: -32602, message: 'No skillId specified' } });
   }
 
-  const result = await executeSkill(skillId, dataPart.data as Record<string, unknown>, req.headers['x-payment'] as string || null);
+  let result: SkillResult;
+  try {
+    result = await executeSkill(skillId, dataPart.data as Record<string, unknown>, req.headers['x-payment'] as string || null);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Skill execution failed';
+    return res.json({ jsonrpc: '2.0', id: body.id, error: { code: -32603, message } });
+  }
 
   if (result.requiresPayment) {
     return res.status(402).json({ jsonrpc: '2.0', id: body.id, error: { code: 402, message: 'Payment Required', data: result.requiresPayment } });
@@ -516,7 +556,15 @@ app.post('/mcp/resources/list', agentRateLimit(), (_req: Request, res: Response)
 });
 
 app.post('/mcp/resources/read', agentRateLimit(), async (req: Request, res: Response) => {
-  const { uri } = req.body;
+  let validated: { uri: string };
+  try {
+    validated = validateBody(McpResourceReadRequestSchema, req.body, 'MCP resource read');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid request';
+    return res.status(400).json({ error: message });
+  }
+
+  const { uri } = validated;
   let contents: unknown;
 
   switch (uri) {
@@ -552,92 +600,193 @@ app.post('/mcp/tools/list', agentRateLimit(), (_req: Request, res: Response) => 
 });
 
 app.post('/mcp/tools/call', agentRateLimit(), async (req: Request, res: Response) => {
-  const { name, arguments: args } = req.body;
+  let validated: { name: string; arguments: Record<string, unknown> };
+  try {
+    const parsed = validateBody(McpToolCallRequestSchema, req.body, 'MCP tool call');
+    validated = { name: parsed.name, arguments: parsed.arguments || {} };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid request';
+    return res.status(400).json({ error: message });
+  }
+
+  const { name, arguments: args } = validated;
   let result: unknown;
   let isError = false;
 
-  switch (name) {
-    // Intent Tools
-    case 'create_intent': result = await intentService.createIntent(args); break;
-    case 'get_quote': result = await intentService.getQuotes(args); break;
-    case 'track_intent': result = await intentService.getIntent(args.intentId); break;
-    case 'list_routes': result = await routeService.listRoutes(args); break;
-    case 'list_solvers': result = await solverService.listSolvers(args); break;
-    // XLP Pool Tools
-    case 'list_v2_pools': result = await poolService.listV2Pools(); break;
-    case 'get_pool_reserves':
-      if (!args.token0 || !args.token1) { result = { error: 'token0 and token1 required' }; isError = true; }
-      else result = await poolService.listPoolsForPair(args.token0, args.token1);
-      break;
-    case 'get_swap_quote':
-      if (!args.tokenIn || !args.tokenOut || !args.amountIn) { result = { error: 'tokenIn, tokenOut, and amountIn required' }; isError = true; }
-      else result = await poolService.getSwapQuote(args.tokenIn, args.tokenOut, args.amountIn);
-      break;
-    case 'get_all_swap_quotes':
-      if (!args.tokenIn || !args.tokenOut || !args.amountIn) { result = { error: 'tokenIn, tokenOut, and amountIn required' }; isError = true; }
-      else result = await poolService.getAllSwapQuotes(args.tokenIn, args.tokenOut, args.amountIn);
-      break;
-    case 'get_pool_stats': result = await poolService.getPoolStats(); break;
-    case 'list_pools_for_pair':
-      if (!args.token0 || !args.token1) { result = { error: 'token0 and token1 required' }; isError = true; }
-      else result = await poolService.listPoolsForPair(args.token0, args.token1);
-      break;
-    // Moderation Tools
-    case 'check_ban_status': 
-      if (!args.address) { result = { error: 'Address required' }; isError = true; }
-      else result = await checkBanStatus(args.address);
-      break;
-    case 'get_moderator_profile':
-      if (!args.address) { result = { error: 'Address required' }; isError = true; }
-      else result = await getModeratorProfile(args.address);
-      break;
-    case 'get_moderation_cases': result = await getModerationCases(args); break;
-    case 'get_moderation_case':
-      if (!args.caseId) { result = { error: 'Case ID required' }; isError = true; }
-      else result = await getModerationCase(args.caseId);
-      break;
-    case 'get_reports': result = await getReports(args); break;
-    case 'get_agent_labels':
-      if (!args.agentId) { result = { error: 'Agent ID required' }; isError = true; }
-      else result = await getAgentLabels(args.agentId);
-      break;
-    case 'get_moderation_stats': result = await getModerationStats(); break;
-    case 'prepare_stake':
-      if (!args.amount) { result = { error: 'Amount required' }; isError = true; }
-      else result = { action: 'sign-and-send', transaction: prepareStakeTransaction(args.amount) };
-      break;
-    case 'prepare_report':
-      if (!args.target || !args.reason || !args.evidenceHash) { result = { error: 'target, reason, evidenceHash required' }; isError = true; }
-      else result = { action: 'sign-and-send', transaction: prepareReportTransaction(args.target, args.reason, args.evidenceHash) };
-      break;
-    case 'prepare_vote':
-      if (!args.caseId || args.voteYes === undefined) { result = { error: 'caseId and voteYes required' }; isError = true; }
-      else result = { action: 'sign-and-send', transaction: prepareVoteTransaction(args.caseId, args.voteYes) };
-      break;
-    case 'prepare_challenge':
-      if (!args.caseId || !args.stakeAmount) { result = { error: 'caseId and stakeAmount required' }; isError = true; }
-      else result = { action: 'sign-and-send', transaction: prepareChallengeTransaction(args.caseId, args.stakeAmount) };
-      break;
-    case 'prepare_appeal':
-      if (!args.caseId || !args.stakeAmount) { result = { error: 'caseId and stakeAmount required' }; isError = true; }
-      else result = { action: 'sign-and-send', transaction: prepareAppealTransaction(args.caseId, args.stakeAmount) };
-      break;
-    // Faucet Tools (testnet only)
-    case 'faucet_status':
-      if (!IS_TESTNET) { result = { error: 'Faucet is only available on testnet' }; isError = true; }
-      else if (!args.address) { result = { error: 'Address required' }; isError = true; }
-      else result = await faucetService.getFaucetStatus(args.address);
-      break;
-    case 'faucet_claim':
-      if (!IS_TESTNET) { result = { error: 'Faucet is only available on testnet' }; isError = true; }
-      else if (!args.address) { result = { error: 'Address required' }; isError = true; }
-      else result = await faucetService.claimFromFaucet(args.address);
-      break;
-    case 'faucet_info':
-      if (!IS_TESTNET) { result = { error: 'Faucet is only available on testnet' }; isError = true; }
-      else result = faucetService.getFaucetInfo();
-      break;
-    default: result = { error: 'Tool not found' }; isError = true;
+  try {
+    switch (name) {
+      // Intent Tools
+      case 'create_intent': {
+        const validatedArgs = expect(args, CreateIntentRequestSchema, 'create_intent');
+        result = await intentService.createIntent({
+          ...validatedArgs,
+          sourceToken: validatedArgs.sourceToken as Address,
+          destinationToken: validatedArgs.destinationToken as Address,
+          recipient: validatedArgs.recipient as Address | undefined,
+        });
+        break;
+      }
+      case 'get_quote': {
+        const validatedArgs = expect(args, GetQuoteRequestSchema, 'get_quote');
+        result = await intentService.getQuotes({
+          ...validatedArgs,
+          sourceToken: validatedArgs.sourceToken as Address,
+          destinationToken: validatedArgs.destinationToken as Address,
+        });
+        break;
+      }
+      case 'track_intent': {
+        const intentId = expect(args.intentId, IntentIdSchema, 'track_intent intentId');
+        result = await intentService.getIntent(intentId);
+        break;
+      }
+      case 'list_routes': {
+        const validatedArgs = args && Object.keys(args).length > 0
+          ? expect(args, ListRoutesQuerySchema, 'list_routes')
+          : undefined;
+        result = await routeService.listRoutes(validatedArgs);
+        break;
+      }
+      case 'list_solvers': {
+        const validatedArgs = args && Object.keys(args).length > 0
+          ? expect(args, ListSolversQuerySchema, 'list_solvers')
+          : undefined;
+        result = await solverService.listSolvers(validatedArgs);
+        break;
+      }
+      // XLP Pool Tools
+      case 'list_v2_pools': {
+        result = await poolService.listV2Pools();
+        break;
+      }
+      case 'get_pool_reserves': {
+        const validatedArgs = expect(args, TokenPairSchema, 'get_pool_reserves');
+        result = await poolService.listPoolsForPair(validatedArgs.token0 as Address, validatedArgs.token1 as Address);
+        break;
+      }
+      case 'get_swap_quote': {
+        const validatedArgs = expect(args, SwapQuoteRequestSchema, 'get_swap_quote');
+        result = await poolService.getSwapQuote(validatedArgs.tokenIn as Address, validatedArgs.tokenOut as Address, validatedArgs.amountIn);
+        break;
+      }
+      case 'get_all_swap_quotes': {
+        const validatedArgs = expect(args, SwapQuoteRequestSchema, 'get_all_swap_quotes');
+        result = await poolService.getAllSwapQuotes(validatedArgs.tokenIn as Address, validatedArgs.tokenOut as Address, validatedArgs.amountIn);
+        break;
+      }
+      case 'get_pool_stats': {
+        result = await poolService.getPoolStats();
+        break;
+      }
+      case 'list_pools_for_pair': {
+        const validatedArgs = expect(args, TokenPairSchema, 'list_pools_for_pair');
+        result = await poolService.listPoolsForPair(validatedArgs.token0 as Address, validatedArgs.token1 as Address);
+        break;
+      }
+      // Moderation Tools
+      case 'check_ban_status': {
+        const validatedArgs = expect(args, CheckBanStatusRequestSchema, 'check_ban_status');
+        result = await checkBanStatus(validatedArgs.address as Address);
+        break;
+      }
+      case 'get_moderator_profile': {
+        const validatedArgs = expect(args, GetModeratorProfileRequestSchema, 'get_moderator_profile');
+        result = await getModeratorProfile(validatedArgs.address as Address);
+        break;
+      }
+      case 'get_moderation_cases': {
+        const validatedArgs = args && Object.keys(args).length > 0
+          ? expect(args, GetModerationCasesQuerySchema, 'get_moderation_cases')
+          : {};
+        result = await getModerationCases(validatedArgs);
+        break;
+      }
+      case 'get_moderation_case': {
+        const caseId = expect(args.caseId, CaseIdSchema, 'get_moderation_case caseId');
+        result = await getModerationCase(caseId);
+        break;
+      }
+      case 'get_reports': {
+        const validatedArgs = args && Object.keys(args).length > 0
+          ? expect(args, GetReportsQuerySchema, 'get_reports')
+          : {};
+        result = await getReports(validatedArgs);
+        break;
+      }
+      case 'get_agent_labels': {
+        const agentId = expect(args.agentId, AgentIdSchema, 'get_agent_labels agentId');
+        result = await getAgentLabels(agentId);
+        break;
+      }
+      case 'get_moderation_stats': {
+        result = await getModerationStats();
+        break;
+      }
+      case 'prepare_stake': {
+        const validatedArgs = expect(args, PrepareStakeRequestSchema, 'prepare_stake');
+        result = { action: 'sign-and-send', transaction: prepareStakeTransaction(validatedArgs.amount) };
+        break;
+      }
+      case 'prepare_report': {
+        const validatedArgs = expect(args, PrepareReportRequestSchema, 'prepare_report');
+        result = { action: 'sign-and-send', transaction: prepareReportTransaction(validatedArgs.target as Address, validatedArgs.reason, validatedArgs.evidenceHash as `0x${string}`) };
+        break;
+      }
+      case 'prepare_vote': {
+        const validatedArgs = expect(args, PrepareVoteRequestSchema, 'prepare_vote');
+        result = { action: 'sign-and-send', transaction: prepareVoteTransaction(validatedArgs.caseId, validatedArgs.voteYes) };
+        break;
+      }
+      case 'prepare_challenge': {
+        const validatedArgs = expect(args, PrepareChallengeRequestSchema, 'prepare_challenge');
+        result = { action: 'sign-and-send', transaction: prepareChallengeTransaction(validatedArgs.caseId, validatedArgs.stakeAmount) };
+        break;
+      }
+      case 'prepare_appeal': {
+        const validatedArgs = expect(args, PrepareAppealRequestSchema, 'prepare_appeal');
+        result = { action: 'sign-and-send', transaction: prepareAppealTransaction(validatedArgs.caseId, validatedArgs.stakeAmount) };
+        break;
+      }
+      // Faucet Tools (testnet only)
+      case 'faucet_status': {
+        if (!IS_TESTNET) {
+          result = { error: 'Faucet is only available on testnet' };
+          isError = true;
+          break;
+        }
+        const validatedArgs = expect(args, FaucetStatusRequestSchema, 'faucet_status');
+        result = await faucetService.getFaucetStatus(validatedArgs.address as Address);
+        break;
+      }
+      case 'faucet_claim': {
+        if (!IS_TESTNET) {
+          result = { error: 'Faucet is only available on testnet' };
+          isError = true;
+          break;
+        }
+        const validatedArgs = expect(args, FaucetClaimRequestSchema, 'faucet_claim');
+        result = await faucetService.claimFromFaucet(validatedArgs.address as Address);
+        break;
+      }
+      case 'faucet_info': {
+        if (!IS_TESTNET) {
+          result = { error: 'Faucet is only available on testnet' };
+          isError = true;
+          break;
+        }
+        result = faucetService.getFaucetInfo();
+        break;
+      }
+      default: {
+        result = { error: 'Tool not found' };
+        isError = true;
+        break;
+      }
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Tool execution failed';
+    result = { error: message };
+    isError = true;
   }
 
   res.json({ content: [{ type: 'text', text: JSON.stringify(result, null, 2) }], isError });
@@ -648,91 +797,164 @@ app.get('/mcp', agentRateLimit(), (_req: Request, res: Response) => {
 });
 
 app.post('/api/intents', strictRateLimit(), async (req: Request, res: Response) => {
-  const { sourceChain, destinationChain, sourceToken, destinationToken, amount } = req.body;
-  if (!sourceChain || !destinationChain || !sourceToken || !destinationToken || !amount) {
-    return res.status(400).json({ error: 'Missing required fields', required: ['sourceChain', 'destinationChain', 'sourceToken', 'destinationToken', 'amount'] });
+  try {
+    const validated = validateBody(CreateIntentRequestSchema, req.body, 'create intent');
+    res.json(await intentService.createIntent({
+      ...validated,
+      sourceToken: validated.sourceToken as Address,
+      destinationToken: validated.destinationToken as Address,
+      recipient: validated.recipient as Address | undefined,
+    }));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid request';
+    res.status(400).json({ error: message });
   }
-  res.json(await intentService.createIntent(req.body));
 });
 
 app.get('/api/intents/:intentId', async (req: Request, res: Response) => {
-  const intent = await intentService.getIntent(req.params.intentId);
-  if (!intent) return res.status(404).json({ error: 'Intent not found' });
-  res.json(intent);
+  try {
+    const intentId = expect(req.params.intentId, IntentIdSchema, 'intentId');
+    const intent = await intentService.getIntent(intentId);
+    if (!intent) {
+      return res.status(404).json({ error: 'Intent not found' });
+    }
+    res.json(intent);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid request';
+    res.status(400).json({ error: message });
+  }
 });
 
 app.get('/api/intents', async (req: Request, res: Response) => {
-  const { user, status, sourceChain, destinationChain, limit } = req.query;
-  res.json(await intentService.listIntents({
-    user: user as string,
-    status: status as string,
-    sourceChain: sourceChain ? Number(sourceChain) : undefined,
-    destinationChain: destinationChain ? Number(destinationChain) : undefined,
-    limit: limit ? Number(limit) : 50,
-  }));
+  try {
+    const validated = Object.keys(req.query).length > 0
+      ? validateQuery(ListIntentsQuerySchema, req.query, 'list intents')
+      : undefined;
+    res.json(await intentService.listIntents(validated));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid request';
+    res.status(400).json({ error: message });
+  }
 });
 
 app.post('/api/intents/:intentId/cancel', strictRateLimit(), async (req: Request, res: Response) => {
-  const { user } = req.body;
-  if (!user) return res.status(400).json({ error: 'User address required' });
-  res.json(await intentService.cancelIntent(req.params.intentId, user));
+  try {
+    const intentId = expect(req.params.intentId, IntentIdSchema, 'intentId');
+    const validated = validateBody(CancelIntentRequestSchema, req.body, 'cancel intent');
+    res.json(await intentService.cancelIntent(intentId, validated.user));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid request';
+    res.status(400).json({ error: message });
+  }
 });
 
 app.post('/api/intents/quote', async (req: Request, res: Response) => {
-  const { sourceChain, destinationChain, sourceToken, destinationToken, amount } = req.body;
-  if (!sourceChain || !destinationChain || !sourceToken || !destinationToken || !amount) {
-    return res.status(400).json({ error: 'Missing required fields' });
+  try {
+    const validated = validateBody(GetQuoteRequestSchema, req.body, 'get quote');
+    res.json(await intentService.getQuotes({
+      ...validated,
+      sourceToken: validated.sourceToken as Address,
+      destinationToken: validated.destinationToken as Address,
+    }));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid request';
+    res.status(400).json({ error: message });
   }
-  res.json(await intentService.getQuotes(req.body));
 });
 
 app.get('/api/routes', async (req: Request, res: Response) => {
-  const { sourceChain, destinationChain, active } = req.query;
-  res.json(await routeService.listRoutes({
-    sourceChain: sourceChain ? Number(sourceChain) : undefined,
-    destinationChain: destinationChain ? Number(destinationChain) : undefined,
-    active: active !== undefined ? active === 'true' : undefined,
-  }));
+  try {
+    const validated = Object.keys(req.query).length > 0
+      ? validateQuery(ListRoutesQuerySchema, req.query, 'list routes')
+      : undefined;
+    res.json(await routeService.listRoutes(validated));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid request';
+    res.status(400).json({ error: message });
+  }
 });
 
 app.get('/api/routes/:routeId', async (req: Request, res: Response) => {
-  const route = await routeService.getRoute(req.params.routeId);
-  if (!route) return res.status(404).json({ error: 'Route not found' });
-  res.json(route);
+  try {
+    const routeId = expect(req.params.routeId, RouteIdSchema, 'routeId');
+    const route = await routeService.getRoute(routeId);
+    if (!route) {
+      return res.status(404).json({ error: 'Route not found' });
+    }
+    res.json(route);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid request';
+    res.status(400).json({ error: message });
+  }
 });
 
 app.post('/api/routes/best', async (req: Request, res: Response) => {
-  res.json(await routeService.getBestRoute(req.body));
+  try {
+    const validated = validateBody(GetBestRouteRequestSchema, req.body, 'get best route');
+    res.json(await routeService.getBestRoute(validated));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid request';
+    res.status(400).json({ error: message });
+  }
 });
 
 app.get('/api/routes/:routeId/volume', async (req: Request, res: Response) => {
-  res.json(await routeService.getVolume({ routeId: req.params.routeId, period: (req.query.period as '24h' | '7d' | '30d' | 'all') || '24h' }));
+  try {
+    const routeId = expect(req.params.routeId, RouteIdSchema, 'routeId');
+    const validated = validateQuery(GetVolumeQuerySchema, { ...req.query, routeId }, 'get volume');
+    res.json(await routeService.getVolume(validated));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid request';
+    res.status(400).json({ error: message });
+  }
 });
 
 app.get('/api/solvers/leaderboard', async (req: Request, res: Response) => {
-  const { limit, sortBy } = req.query;
-  const validSortBy = ['volume', 'fills', 'reputation', 'successRate'];
-  const sort = sortBy && validSortBy.includes(sortBy as string) ? sortBy as 'volume' | 'fills' | 'reputation' | 'successRate' : 'volume';
-  res.json(await solverService.getLeaderboard({ limit: limit ? Number(limit) : 20, sortBy: sort }));
+  try {
+    const validated = Object.keys(req.query).length > 0
+      ? validateQuery(SolverLeaderboardQuerySchema, req.query, 'solver leaderboard')
+      : undefined;
+    res.json(await solverService.getLeaderboard(validated));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid request';
+    res.status(400).json({ error: message });
+  }
 });
 
 app.get('/api/solvers', async (req: Request, res: Response) => {
-  const { chainId, minReputation, active } = req.query;
-  res.json(await solverService.listSolvers({
-    chainId: chainId ? Number(chainId) : undefined,
-    minReputation: minReputation ? Number(minReputation) : undefined,
-    active: active !== 'false',
-  }));
+  try {
+    const validated = Object.keys(req.query).length > 0
+      ? validateQuery(ListSolversQuerySchema, req.query, 'list solvers')
+      : undefined;
+    res.json(await solverService.listSolvers(validated));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid request';
+    res.status(400).json({ error: message });
+  }
 });
 
 app.get('/api/solvers/:address/liquidity', async (req: Request, res: Response) => {
-  res.json(await solverService.getSolverLiquidity(req.params.address));
+  try {
+    const address = expectAddress(req.params.address, 'solver address');
+    res.json(await solverService.getSolverLiquidity(address));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid request';
+    res.status(400).json({ error: message });
+  }
 });
 
 app.get('/api/solvers/:address', async (req: Request, res: Response) => {
-  const solver = await solverService.getSolver(req.params.address);
-  if (!solver) return res.status(404).json({ error: 'Solver not found' });
-  res.json(solver);
+  try {
+    const address = expectAddress(req.params.address, 'solver address');
+    const solver = await solverService.getSolver(address);
+    if (!solver) {
+      return res.status(404).json({ error: 'Solver not found' });
+    }
+    res.json(solver);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid request';
+    res.status(400).json({ error: message });
+  }
 });
 
 app.get('/api/stats', async (_req: Request, res: Response) => {
@@ -740,7 +962,13 @@ app.get('/api/stats', async (_req: Request, res: Response) => {
 });
 
 app.get('/api/stats/chain/:chainId', async (req: Request, res: Response) => {
-  res.json(await intentService.getChainStats(Number(req.params.chainId)));
+  try {
+    const chainId = expectChainId(Number(req.params.chainId), 'chainId');
+    res.json(await intentService.getChainStats(chainId));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid request';
+    res.status(400).json({ error: message });
+  }
 });
 
 app.get('/api/config/chains', (_req: Request, res: Response) => {
@@ -756,35 +984,23 @@ app.get('/api/config/tokens', (req: Request, res: Response) => {
   }
 });
 
-function validateTokenPair(token0: unknown, token1: unknown): { valid: true; token0: Address; token1: Address } | { valid: false; error: string; status: number } {
-  if (!token0 || !token1) {
-    return { valid: false, error: 'token0 and token1 required', status: 400 };
-  }
-  if (!isAddress(token0 as string)) {
-    return { valid: false, error: 'Invalid token0 address', status: 400 };
-  }
-  if (!isAddress(token1 as string)) {
-    return { valid: false, error: 'Invalid token1 address', status: 400 };
-  }
-  return { valid: true, token0: token0 as Address, token1: token1 as Address };
-}
-
 app.get('/api/pools', async (req: Request, res: Response) => {
-  const { type, token0, token1 } = req.query;
-  if (token0 && token1) {
-    const validation = validateTokenPair(token0, token1);
-    if (!validation.valid) {
-      return res.status(validation.status).json({ error: validation.error });
+  try {
+    const validated = validateQuery(ListPoolsQuerySchema, req.query, 'list pools');
+    if (validated.token0 && validated.token1) {
+      const pools = await poolService.listPoolsForPair(validated.token0 as Address, validated.token1 as Address);
+      return res.json({ pools, count: pools.length });
     }
-    const pools = await poolService.listPoolsForPair(validation.token0, validation.token1);
-    return res.json({ pools, count: pools.length });
+    if (validated.type === 'v2') {
+      const pools = await poolService.listV2Pools();
+      return res.json({ pools, count: pools.length });
+    }
+    const stats = await poolService.getPoolStats();
+    res.json(stats);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid request';
+    res.status(400).json({ error: message });
   }
-  if (type === 'v2') {
-    const pools = await poolService.listV2Pools();
-    return res.json({ pools, count: pools.length });
-  }
-  const stats = await poolService.getPoolStats();
-  res.json(stats);
 });
 
 app.get('/api/pools/v2', async (_req: Request, res: Response) => {
@@ -805,54 +1021,40 @@ app.get('/api/pools/contracts', (_req: Request, res: Response) => {
   res.json(poolService.getContracts());
 });
 
-function validateSwapRequest(tokenIn: unknown, tokenOut: unknown, amountIn: unknown): { valid: true } | { valid: false; error: string; status: number } {
-  if (!tokenIn || !tokenOut || !amountIn) {
-    return { valid: false, error: 'tokenIn, tokenOut, and amountIn required', status: 400 };
-  }
-  if (!isAddress(tokenIn as string)) {
-    return { valid: false, error: 'Invalid tokenIn address', status: 400 };
-  }
-  if (!isAddress(tokenOut as string)) {
-    return { valid: false, error: 'Invalid tokenOut address', status: 400 };
-  }
-  const amountNum = Number(amountIn);
-  if (isNaN(amountNum) || amountNum <= 0) {
-    return { valid: false, error: 'Invalid amountIn: must be a positive number', status: 400 };
-  }
-  return { valid: true };
-}
-
 app.post('/api/pools/quote', async (req: Request, res: Response) => {
-  const { tokenIn, tokenOut, amountIn } = req.body;
-  const validation = validateSwapRequest(tokenIn, tokenOut, amountIn);
-  if (!validation.valid) {
-    return res.status(validation.status).json({ error: validation.error });
+  try {
+    const validated = validateBody(SwapQuoteRequestSchema, req.body, 'swap quote');
+    const quote = await poolService.getSwapQuote(validated.tokenIn as Address, validated.tokenOut as Address, validated.amountIn);
+    if (!quote) {
+      return res.status(404).json({ error: 'No liquidity available for this swap' });
+    }
+    res.json(quote);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid request';
+    res.status(400).json({ error: message });
   }
-  const quote = await poolService.getSwapQuote(tokenIn as Address, tokenOut as Address, amountIn as string);
-  if (!quote) {
-    return res.status(404).json({ error: 'No liquidity available for this swap' });
-  }
-  res.json(quote);
 });
 
 app.post('/api/pools/quotes', async (req: Request, res: Response) => {
-  const { tokenIn, tokenOut, amountIn } = req.body;
-  const validation = validateSwapRequest(tokenIn, tokenOut, amountIn);
-  if (!validation.valid) {
-    return res.status(validation.status).json({ error: validation.error });
+  try {
+    const validated = validateBody(SwapQuoteRequestSchema, req.body, 'swap quotes');
+    const quotes = await poolService.getAllSwapQuotes(validated.tokenIn as Address, validated.tokenOut as Address, validated.amountIn);
+    res.json({ quotes, bestQuote: quotes[0] || null, count: quotes.length });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid request';
+    res.status(400).json({ error: message });
   }
-  const quotes = await poolService.getAllSwapQuotes(tokenIn as Address, tokenOut as Address, amountIn as string);
-  res.json({ quotes, bestQuote: quotes[0] || null, count: quotes.length });
 });
 
 app.get('/api/pools/pair/:token0/:token1', async (req: Request, res: Response) => {
-  const { token0, token1 } = req.params;
-  const validation = validateTokenPair(token0, token1);
-  if (!validation.valid) {
-    return res.status(validation.status).json({ error: validation.error });
+  try {
+    const validated = expect({ token0: req.params.token0, token1: req.params.token1 }, TokenPairSchema, 'token pair');
+    const pools = await poolService.listPoolsForPair(validated.token0 as Address, validated.token1 as Address);
+    res.json({ pools, count: pools.length });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid request';
+    res.status(400).json({ error: message });
   }
-  const pools = await poolService.listPoolsForPair(validation.token0, validation.token1);
-  res.json({ pools, count: pools.length });
 });
 
 // Faucet REST API (testnet only)
@@ -862,26 +1064,34 @@ app.get('/api/faucet/info', (_req: Request, res: Response) => {
 });
 
 app.get('/api/faucet/status/:address', async (req: Request, res: Response) => {
-  if (!IS_TESTNET) return res.status(403).json({ error: 'Faucet is only available on testnet' });
-  const { address } = req.params;
-  if (!address) {
-    return res.status(400).json({ error: 'Address required' });
+  if (!IS_TESTNET) {
+    return res.status(403).json({ error: 'Faucet is only available on testnet' });
   }
-  const status = await faucetService.getFaucetStatus(address as Address);
-  res.json(status);
+  try {
+    const address = expectAddress(req.params.address, 'faucet status address');
+    const status = await faucetService.getFaucetStatus(address);
+    res.json(status);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid request';
+    res.status(400).json({ error: message });
+  }
 });
 
 app.post('/api/faucet/claim', strictRateLimit(), async (req: Request, res: Response) => {
-  if (!IS_TESTNET) return res.status(403).json({ error: 'Faucet is only available on testnet' });
-  const { address } = req.body;
-  if (!address) {
-    return res.status(400).json({ error: 'Address required in request body' });
+  if (!IS_TESTNET) {
+    return res.status(403).json({ error: 'Faucet is only available on testnet' });
   }
-  const result = await faucetService.claimFromFaucet(address as Address);
-  if (!result.success) {
-    return res.status(400).json(result);
+  try {
+    const validated = validateBody(FaucetClaimRequestSchema, req.body, 'faucet claim');
+    const result = await faucetService.claimFromFaucet(validated.address as Address);
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+    res.json(result);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid request';
+    res.status(400).json({ error: message });
   }
-  res.json(result);
 });
 
 app.get('/health', (_req: Request, res: Response) => {

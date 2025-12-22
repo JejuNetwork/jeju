@@ -11,6 +11,7 @@ import {
 } from "@elizaos/core";
 import { formatEther } from "viem";
 import { JEJU_SERVICE_NAME, type JejuService } from "../service";
+import { validateServiceExists } from "../validation";
 
 export const checkBalanceAction: Action = {
   name: "CHECK_BALANCE",
@@ -23,18 +24,16 @@ export const checkBalanceAction: Action = {
     "wallet balance",
   ],
 
-  validate: async (runtime: IAgentRuntime) => {
-    const service = runtime.getService(JEJU_SERVICE_NAME);
-    return !!service;
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
 
   handler: async (
     runtime: IAgentRuntime,
     _message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
+    _options?: Record<string, unknown>,
     callback?: HandlerCallback,
-  ) => {
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
 

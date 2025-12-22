@@ -13,7 +13,7 @@
  *   bun run scripts/fund-testnet-deployer.ts [--bridge]
  */
 
-import { createPublicClient, createWalletClient, http, parseEther, formatEther, getBalance, waitForTransactionReceipt, sendTransaction, type Address } from 'viem';
+import { createPublicClient, createWalletClient, http, parseEther, formatEther, getBalance, waitForTransactionReceipt, type Address } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { parseAbi } from 'viem';
 import { inferChainFromRpcUrl } from '../shared/chain-utils';

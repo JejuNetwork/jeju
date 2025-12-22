@@ -7,29 +7,18 @@ import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
 import { spawn, type ChildProcess } from 'child_process';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import {
+  AgentCardSchema,
+  A2AResponseSchema,
+  type AgentCard,
+  type A2AResponse,
+} from '../types';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const A2A_PORT = 9091;
 const A2A_URL = `http://localhost:${A2A_PORT}`;
-
-interface AgentCard {
-  protocolVersion: string;
-  name: string;
-  description: string;
-  skills: Array<{ id: string; examples: string[] }>;
-}
-
-interface A2AResponse {
-  jsonrpc: string;
-  id: string;
-  result?: {
-    role: string;
-    parts: Array<{ kind: string; text?: string; data?: Record<string, unknown> }>;
-  };
-  error?: { code: number; message: string };
-}
 
 let serverProcess: ChildProcess | null = null;
 let serverAvailable = false;
@@ -46,13 +35,9 @@ async function checkServerAvailable(): Promise<boolean> {
     if (!text || text.trim() === '') {
       return false;
     }
-    // Verify it's valid JSON
-    try {
-      const data = JSON.parse(text);
-      return data && typeof data === 'object' && data.protocolVersion !== undefined;
-    } catch {
-      return false;
-    }
+    // Verify it's a valid agent card
+    const parsed = AgentCardSchema.safeParse(JSON.parse(text));
+    return parsed.success;
   } catch {
     return false;
   }
@@ -149,7 +134,7 @@ describe('A2A Monitoring Server', () => {
     if (!text || text.trim() === '') {
       throw new Error('Empty response from agent card endpoint');
     }
-    const card = JSON.parse(text) as AgentCard;
+    const card = AgentCardSchema.parse(JSON.parse(text));
     expect(card.protocolVersion).toBe('0.3.0');
     expect(card.name).toBe('Jeju Monitoring');
     expect(card.description).toContain('Prometheus');
@@ -196,7 +181,7 @@ describe('A2A Monitoring Server', () => {
     if (!text || text.trim() === '') {
       throw new Error('Empty response from A2A endpoint');
     }
-    const result = JSON.parse(text) as A2AResponse;
+    const result = A2AResponseSchema.parse(JSON.parse(text));
     expect(result.jsonrpc).toBe('2.0');
     expect(result.id).toBe('1');
     expect(result.result).toBeDefined();
@@ -235,7 +220,7 @@ describe('A2A Monitoring Server', () => {
     if (!text || text.trim() === '') {
       throw new Error('Empty response from A2A endpoint');
     }
-    const result = JSON.parse(text) as A2AResponse;
+    const result = A2AResponseSchema.parse(JSON.parse(text));
     expect(result.jsonrpc).toBe('2.0');
     expect(result.result).toBeDefined();
   });
@@ -266,7 +251,7 @@ describe('A2A Monitoring Server', () => {
     });
 
     expect(response.ok).toBe(true);
-    const result = await response.json() as A2AResponse;
+    const result = A2AResponseSchema.parse(await response.json());
     expect(result.jsonrpc).toBe('2.0');
     expect(result.result).toBeDefined();
   });
@@ -302,7 +287,7 @@ describe('A2A Monitoring Server', () => {
     if (!text || text.trim() === '') {
       throw new Error('Empty response from A2A endpoint');
     }
-    const result = JSON.parse(text) as A2AResponse;
+    const result = A2AResponseSchema.parse(JSON.parse(text));
     const textPart = result.result?.parts.find((p) => p.kind === 'text');
     expect(textPart?.text).toBe('Missing PromQL query');
   });
@@ -338,7 +323,7 @@ describe('A2A Monitoring Server', () => {
     if (!text || text.trim() === '') {
       throw new Error('Empty response from A2A endpoint');
     }
-    const result = JSON.parse(text) as A2AResponse;
+    const result = A2AResponseSchema.parse(JSON.parse(text));
     const textPart = result.result?.parts.find((p) => p.kind === 'text');
     expect(textPart?.text).toBe('Unknown skill');
   });
@@ -369,7 +354,7 @@ describe('A2A Monitoring Server', () => {
     if (!text || text.trim() === '') {
       throw new Error('Empty response from A2A endpoint');
     }
-    const result = JSON.parse(text) as A2AResponse;
+    const result = A2AResponseSchema.parse(JSON.parse(text));
     expect(result.error).toBeDefined();
     expect(result.error?.code).toBe(-32601);
     expect(result.error?.message).toBe('Method not found');
@@ -389,7 +374,7 @@ describe('A2A Monitoring Server - Integration', () => {
     if (!text || text.trim() === '') {
       throw new Error('Empty response from agent card endpoint');
     }
-    const card = JSON.parse(text) as AgentCard;
+    const card = AgentCardSchema.parse(JSON.parse(text));
 
     const queryMetrics = card.skills.find((s) => s.id === 'query-metrics');
     expect(queryMetrics?.examples).toBeArray();
@@ -445,7 +430,7 @@ describe('A2A Monitoring Server - Integration', () => {
         if (!text || text.trim() === '') {
           throw new Error('Empty response from A2A endpoint');
         }
-        return JSON.parse(text) as A2AResponse;
+        return A2AResponseSchema.parse(JSON.parse(text));
       })
     );
     expect(results.every(r => r.jsonrpc === '2.0')).toBe(true);

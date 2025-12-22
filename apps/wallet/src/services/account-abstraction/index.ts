@@ -3,10 +3,10 @@
  * Uses network paymaster contracts and bundler
  */
 
-import type { Address, Hex, PublicClient } from 'viem';
-import { encodeFunctionData, concat, pad, toHex, keccak256, encodeAbiParameters } from 'viem';
+import type { Address, Hex } from 'viem';
+import { encodeFunctionData, concat, toHex, keccak256, encodeAbiParameters } from 'viem';
 import * as jeju from '../jeju';
-import { rpcService, SupportedChainId, SUPPORTED_CHAINS } from '../rpc';
+import { rpcService, SupportedChainId } from '../rpc';
 // ERC-4337 Entry Point (v0.7)
 const ENTRY_POINT_V07 = '0x0000000071727De22E5E9d8BAf0edAc6f37da032' as Address;
 
@@ -125,7 +125,7 @@ class AccountAbstractionService {
 
   // Create smart account
   async createSmartAccount(owner: Address, chainId: SupportedChainId): Promise<SmartAccount> {
-    const address = await this.getSmartAccountAddress(owner, chainId);
+    await this.getSmartAccountAddress(owner, chainId);
     return this.accounts.get(`${chainId}:${owner}`)!;
   }
 
@@ -237,63 +237,47 @@ class AccountAbstractionService {
     partialOp: { sender: Address; nonce: bigint; initCode: Hex; callData: Hex },
     entryPoint: Address
   ): Promise<GasEstimate> {
-    try {
-      const estimate = await jeju.estimateUserOperationGas(
-        chainId,
-        {
-          sender: partialOp.sender,
-          nonce: toHex(partialOp.nonce),
-          initCode: partialOp.initCode,
-          callData: partialOp.callData,
-          callGasLimit: toHex(500000n),
-          verificationGasLimit: toHex(500000n),
-          preVerificationGas: toHex(50000n),
-          maxFeePerGas: toHex(50000000000n),
-          maxPriorityFeePerGas: toHex(1500000000n),
-          paymasterAndData: '0x',
-          signature: '0x',
-        },
-        entryPoint
-      );
+    const estimate = await jeju.estimateUserOperationGas(
+      chainId,
+      {
+        sender: partialOp.sender,
+        nonce: toHex(partialOp.nonce),
+        initCode: partialOp.initCode,
+        callData: partialOp.callData,
+        callGasLimit: toHex(500000n),
+        verificationGasLimit: toHex(500000n),
+        preVerificationGas: toHex(50000n),
+        maxFeePerGas: toHex(50000000000n),
+        maxPriorityFeePerGas: toHex(1500000000n),
+        paymasterAndData: '0x',
+        signature: '0x',
+      },
+      entryPoint
+    );
 
-      // Get current gas prices
-      const gasPrices = await jeju.getGasPrice();
+    // Get current gas prices
+    const gasPrices = await jeju.getGasPrice();
 
-      return {
-        ...estimate,
-        maxFeePerGas: gasPrices.fast,
-        maxPriorityFeePerGas: gasPrices.standard / 10n,
-      };
-    } catch {
-      // Fallback estimates
-      const gasPrices = await jeju.getGasPrice();
-      return {
-        callGasLimit: 200000n,
-        verificationGasLimit: 300000n,
-        preVerificationGas: 50000n,
-        maxFeePerGas: gasPrices.fast,
-        maxPriorityFeePerGas: gasPrices.standard / 10n,
-      };
-    }
+    return {
+      ...estimate,
+      maxFeePerGas: gasPrices.fast,
+      maxPriorityFeePerGas: gasPrices.standard / 10n,
+    };
   }
 
   // Get nonce from EntryPoint
   private async getNonce(account: SmartAccount): Promise<bigint> {
-    try {
-      const client = rpcService.getClient(account.chainId);
-      const entryPoint = getEntryPoint(account.chainId);
-      
-      const nonce = await client.readContract({
-        address: entryPoint,
-        abi: [{ name: 'getNonce', type: 'function', inputs: [{ type: 'address' }, { type: 'uint192' }], outputs: [{ type: 'uint256' }] }],
-        functionName: 'getNonce',
-        args: [account.address, 0n],
-      });
-      
-      return nonce as bigint;
-    } catch {
-      return 0n;
-    }
+    const client = rpcService.getClient(account.chainId);
+    const entryPoint = getEntryPoint(account.chainId);
+    
+    const nonce = await client.readContract({
+      address: entryPoint,
+      abi: [{ name: 'getNonce', type: 'function', inputs: [{ type: 'address' }, { type: 'uint192' }], outputs: [{ type: 'uint256' }] }],
+      functionName: 'getNonce',
+      args: [account.address, 0n],
+    });
+    
+    return nonce as bigint;
   }
 
   // Compute UserOp hash

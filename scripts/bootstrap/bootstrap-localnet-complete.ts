@@ -459,7 +459,7 @@ class CompleteBootstrapper {
           [token.address, contracts.priceOracle ?? '0x0000000000000000000000000000000000000000', String(token.minFee), String(token.maxFee)],
           `${token.symbol} registered (${token.minFee}-${token.maxFee} bps fee range)`
         );
-      } catch (error: unknown) {
+      } catch {
         console.log(`     ⚠️  ${token.symbol} registration skipped (may already exist)`);
       }
     }
@@ -519,7 +519,7 @@ class CompleteBootstrapper {
 
       console.log('  ✅ Moderation system deployed');
       return { banManager, reputationLabelManager };
-    } catch (error: unknown) {
+    } catch {
       console.log('  ⚠️  Moderation deployment skipped (contracts may not exist)');
       return { banManager: '0x0000000000000000000000000000000000000000', reputationLabelManager: '0x0000000000000000000000000000000000000000' };
     }
@@ -772,7 +772,7 @@ class CompleteBootstrapper {
         'USDC-elizaOS': '0x...',
         'ETH-elizaOS': '0x...'
       };
-    } catch (error: unknown) {
+    } catch {
       console.log('  ⚠️  Pool initialization skipped');
       return {};
     }

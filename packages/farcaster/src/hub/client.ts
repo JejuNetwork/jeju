@@ -1,5 +1,3 @@
-// Permissionless Farcaster Hub Client - connects directly to Hubble nodes
-
 import type { Address, Hex } from 'viem';
 import type {
   HubConfig,
@@ -14,6 +12,22 @@ import type {
   CastFilter,
   PaginatedResponse,
 } from './types';
+import {
+  HubInfoResponseSchema,
+  UserDataResponseSchema,
+  VerificationsResponseSchema,
+  CastsResponseSchema,
+  SingleCastResponseSchema,
+  ReactionsResponseSchema,
+  LinksResponseSchema,
+  UsernameProofResponseSchema,
+  VerificationLookupResponseSchema,
+  EventsResponseSchema,
+  USER_DATA_TYPE_MAP,
+  type ParsedCastMessage,
+  type HubEventType,
+  type HubEventBody,
+} from './schemas';
 
 const DEFAULT_HUB_URL = 'nemes.farcaster.xyz:2283';
 const DEFAULT_TIMEOUT = 10000;
@@ -36,52 +50,74 @@ export class HubError extends Error {
   }
 }
 
+function parseCastMessage(msg: ParsedCastMessage): FarcasterCast {
+  return {
+    hash: msg.hash as Hex,
+    fid: msg.data.fid,
+    text: msg.data.castAddBody.text,
+    timestamp: msg.data.timestamp,
+    parentHash: msg.data.castAddBody.parentCastId?.hash as Hex | undefined,
+    parentFid: msg.data.castAddBody.parentCastId?.fid,
+    parentUrl: msg.data.castAddBody.parentUrl,
+    embeds: msg.data.castAddBody.embeds.map((e) => ({
+      url: e.url,
+      castId: e.castId ? { fid: e.castId.fid, hash: e.castId.hash as Hex } : undefined,
+    })),
+    mentions: msg.data.castAddBody.mentions,
+    mentionsPositions: msg.data.castAddBody.mentionsPositions,
+  };
+}
+
+function parseLinkMessage(msg: { data: { fid: number; timestamp: number; linkBody: { targetFid: number } } }): FarcasterLink {
+  return {
+    fid: msg.data.fid,
+    targetFid: msg.data.linkBody.targetFid,
+    type: 'follow' as const,
+    timestamp: msg.data.timestamp,
+  };
+}
+
 export class FarcasterClient {
-  private hubUrl: string;
-  private httpUrl: string;
-  private timeoutMs: number;
+  private readonly httpUrl: string;
+  private readonly timeoutMs: number;
 
   constructor(config: Partial<HubConfig> = {}) {
-    this.hubUrl = config.hubUrl || DEFAULT_HUB_URL;
-    this.httpUrl = config.httpUrl || this.deriveHttpUrl(this.hubUrl);
-    this.timeoutMs = config.timeoutMs || DEFAULT_TIMEOUT;
+    const hubUrl = config.hubUrl ?? DEFAULT_HUB_URL;
+    this.httpUrl = config.httpUrl ?? this.deriveHttpUrl(hubUrl);
+    this.timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT;
   }
 
   private deriveHttpUrl(hubUrl: string): string {
-    // Convert gRPC URL to HTTP URL
     const [host] = hubUrl.split(':');
     return `http://${host}:2281`;
   }
 
   private async fetch<T>(path: string, params: Record<string, string> = {}): Promise<T> {
     const url = new URL(path, this.httpUrl);
-    Object.entries(params).forEach(([key, value]) => {
+    for (const [key, value] of Object.entries(params)) {
       if (value !== undefined) {
         url.searchParams.set(key, value);
       }
-    });
+    }
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
 
-    try {
-      const response = await fetch(url.toString(), {
-        signal: controller.signal,
-        headers: { 'Content-Type': 'application/json' },
-      });
+    const response = await fetch(url.toString(), {
+      signal: controller.signal,
+      headers: { 'Content-Type': 'application/json' },
+    }).finally(() => clearTimeout(timeout));
 
-      if (!response.ok) {
-        throw HubError.fromResponse(response.status, response.statusText);
-      }
-
-      return response.json() as Promise<T>;
-    } finally {
-      clearTimeout(timeout);
+    if (!response.ok) {
+      throw HubError.fromResponse(response.status, response.statusText);
     }
+
+    return response.json() as Promise<T>;
   }
 
   async getHubInfo(): Promise<HubInfoResponse> {
-    return this.fetch<HubInfoResponse>('/v1/info');
+    const data = await this.fetch('/v1/info');
+    return HubInfoResponseSchema.parse(data);
   }
 
   async isSyncing(): Promise<boolean> {
@@ -89,8 +125,12 @@ export class FarcasterClient {
   }
 
   async getProfile(fid: number): Promise<FarcasterProfile> {
-    const userData = await this.getUserDataByFid(fid);
-    const verifications = await this.getVerificationsByFid(fid);
+    const [userData, verifications, followers, following] = await Promise.all([
+      this.getUserDataByFid(fid),
+      this.getVerificationsByFid(fid),
+      this.getLinksByTargetFid(fid),
+      this.getLinksByFid(fid),
+    ]);
 
     const profile: FarcasterProfile = {
       fid,
@@ -99,161 +139,90 @@ export class FarcasterClient {
       bio: '',
       pfpUrl: '',
       custodyAddress: '0x0' as Address,
-      verifiedAddresses: [],
-      followerCount: 0,
-      followingCount: 0,
+      verifiedAddresses: verifications
+        .filter((v) => v.protocol === 'ethereum')
+        .map((v) => v.address),
+      followerCount: followers.messages.length,
+      followingCount: following.messages.length,
       registeredAt: 0,
     };
 
-    // Parse user data
     for (const data of userData) {
-      switch (data.type) {
-        case 'username':
-          profile.username = data.value;
-          break;
-        case 'display':
-          profile.displayName = data.value;
-          break;
-        case 'bio':
-          profile.bio = data.value;
-          break;
-        case 'pfp':
-          profile.pfpUrl = data.value;
-          break;
-      }
+      if (data.type === 'username') profile.username = data.value;
+      else if (data.type === 'display') profile.displayName = data.value;
+      else if (data.type === 'bio') profile.bio = data.value;
+      else if (data.type === 'pfp') profile.pfpUrl = data.value;
+
       if (!profile.registeredAt || data.timestamp < profile.registeredAt) {
         profile.registeredAt = data.timestamp;
       }
     }
 
-    // Add verified addresses
-    profile.verifiedAddresses = verifications
-      .filter((v) => v.protocol === 'ethereum')
-      .map((v) => v.address);
-
-    // Get follower/following counts
-    const [followers, following] = await Promise.all([
-      this.getLinksByTargetFid(fid),
-      this.getLinksByFid(fid),
-    ]);
-
-    profile.followerCount = followers.messages.length;
-    profile.followingCount = following.messages.length;
-
     return profile;
   }
 
   async getProfileByUsername(username: string): Promise<FarcasterProfile | null> {
+    let data;
     try {
-      const response = await this.fetch<{ proofs: Array<{ fid: number }> }>(
-        '/v1/userNameProofByName',
-        { name: username }
-      );
-      if (response.proofs.length > 0) {
-        return this.getProfile(response.proofs[0].fid);
-      }
-      return null;
+      data = await this.fetch('/v1/userNameProofByName', { name: username });
     } catch (e) {
       if (e instanceof HubError && e.code === 'NOT_FOUND') return null;
       throw e;
     }
+    const response = UsernameProofResponseSchema.parse(data);
+    if (response.proofs.length > 0) {
+      return this.getProfile(response.proofs[0].fid);
+    }
+    return null;
   }
 
   async getProfileByVerifiedAddress(address: Address): Promise<FarcasterProfile | null> {
+    let data;
     try {
-      const response = await this.fetch<{ 
-        messages: Array<{ data: { fid: number } }> 
-      }>('/v1/verificationsByFid', {
+      data = await this.fetch('/v1/verificationsByFid', {
         address: address.toLowerCase(),
       });
-
-      if (response.messages.length > 0) {
-        return this.getProfile(response.messages[0].data.fid);
-      }
-      return null;
     } catch (e) {
       if (e instanceof HubError && e.code === 'NOT_FOUND') return null;
       throw e;
     }
+    const response = VerificationLookupResponseSchema.parse(data);
+
+    if (response.messages.length > 0) {
+      return this.getProfile(response.messages[0].data.fid);
+    }
+    return null;
   }
 
   async getUserDataByFid(fid: number): Promise<UserData[]> {
-    const response = await this.fetch<{
-      messages: Array<{
-        data: {
-          fid: number;
-          timestamp: number;
-          userDataBody: { type: string; value: string };
-        };
-      }>;
-    }>('/v1/userDataByFid', { fid: fid.toString() });
+    const data = await this.fetch('/v1/userDataByFid', { fid: fid.toString() });
+    const response = UserDataResponseSchema.parse(data);
 
-    return response.messages.map((msg) => ({
-      fid: msg.data.fid,
-      type: this.parseUserDataType(msg.data.userDataBody.type),
-      value: msg.data.userDataBody.value,
-      timestamp: msg.data.timestamp,
-    }));
-  }
-
-  private parseUserDataType(type: string): UserDataType {
-    const typeMap: Record<string, UserDataType> = {
-      USER_DATA_TYPE_PFP: 'pfp',
-      USER_DATA_TYPE_DISPLAY: 'display',
-      USER_DATA_TYPE_BIO: 'bio',
-      USER_DATA_TYPE_URL: 'url',
-      USER_DATA_TYPE_USERNAME: 'username',
-      USER_DATA_TYPE_LOCATION: 'location',
-    };
-    return typeMap[type] || 'username';
+    return response.messages.map((msg) => {
+      const mappedType = USER_DATA_TYPE_MAP[msg.data.userDataBody.type];
+      return {
+        fid: msg.data.fid,
+        type: mappedType as UserDataType,
+        value: msg.data.userDataBody.value,
+        timestamp: msg.data.timestamp,
+      };
+    });
   }
 
   async getCastsByFid(
     fid: number,
     options: CastFilter = {}
   ): Promise<PaginatedResponse<FarcasterCast>> {
-    const params: Record<string, string> = {
-      fid: fid.toString(),
-    };
+    const params: Record<string, string> = { fid: fid.toString() };
     if (options.pageSize) params.pageSize = options.pageSize.toString();
     if (options.pageToken) params.pageToken = options.pageToken;
     if (options.reverse) params.reverse = 'true';
 
-    const response = await this.fetch<{
-      messages: Array<{
-        hash: string;
-        data: {
-          fid: number;
-          timestamp: number;
-          castAddBody: {
-            text: string;
-            parentCastId?: { fid: number; hash: string };
-            parentUrl?: string;
-            embeds: Array<{ url?: string; castId?: { fid: number; hash: string } }>;
-            mentions: number[];
-            mentionsPositions: number[];
-          };
-        };
-      }>;
-      nextPageToken?: string;
-    }>('/v1/castsByFid', params);
+    const data = await this.fetch('/v1/castsByFid', params);
+    const response = CastsResponseSchema.parse(data);
 
     return {
-      messages: response.messages.map((msg) => ({
-        hash: msg.hash as Hex,
-        fid: msg.data.fid,
-        text: msg.data.castAddBody.text,
-        timestamp: msg.data.timestamp,
-        parentHash: msg.data.castAddBody.parentCastId?.hash as Hex | undefined,
-        parentFid: msg.data.castAddBody.parentCastId?.fid,
-        parentUrl: msg.data.castAddBody.parentUrl,
-        embeds: msg.data.castAddBody.embeds.map((e) => ({
-          url: e.url,
-          castId: e.castId ? { fid: e.castId.fid, hash: e.castId.hash as Hex } : undefined,
-        })),
-        mentions: msg.data.castAddBody.mentions,
-        mentionsPositions: msg.data.castAddBody.mentionsPositions,
-      })),
+      messages: response.messages.map(parseCastMessage),
       nextPageToken: response.nextPageToken,
     };
   }
@@ -262,95 +231,34 @@ export class FarcasterClient {
     channelUrl: string,
     options: CastFilter = {}
   ): Promise<PaginatedResponse<FarcasterCast>> {
-    const params: Record<string, string> = {
-      url: channelUrl,
-    };
+    const params: Record<string, string> = { url: channelUrl };
     if (options.pageSize) params.pageSize = options.pageSize.toString();
     if (options.pageToken) params.pageToken = options.pageToken;
 
-    const response = await this.fetch<{
-      messages: Array<{
-        hash: string;
-        data: {
-          fid: number;
-          timestamp: number;
-          castAddBody: {
-            text: string;
-            parentUrl?: string;
-            embeds: Array<{ url?: string }>;
-            mentions: number[];
-            mentionsPositions: number[];
-          };
-        };
-      }>;
-      nextPageToken?: string;
-    }>('/v1/castsByParent', params);
+    const data = await this.fetch('/v1/castsByParent', params);
+    const response = CastsResponseSchema.parse(data);
 
     return {
-      messages: response.messages.map((msg) => ({
-        hash: msg.hash as Hex,
-        fid: msg.data.fid,
-        text: msg.data.castAddBody.text,
-        timestamp: msg.data.timestamp,
-        parentUrl: msg.data.castAddBody.parentUrl,
-        embeds: msg.data.castAddBody.embeds.map((e) => ({ url: e.url })),
-        mentions: msg.data.castAddBody.mentions,
-        mentionsPositions: msg.data.castAddBody.mentionsPositions,
-      })),
+      messages: response.messages.map(parseCastMessage),
       nextPageToken: response.nextPageToken,
     };
   }
 
   async getCast(fid: number, hash: Hex): Promise<FarcasterCast | null> {
+    let data;
     try {
-      const response = await this.fetch<{
-        data: {
-          fid: number;
-          timestamp: number;
-          castAddBody: {
-            text: string;
-            parentCastId?: { fid: number; hash: string };
-            parentUrl?: string;
-            embeds: Array<{ url?: string }>;
-            mentions: number[];
-            mentionsPositions: number[];
-          };
-        };
-        hash: string;
-      }>('/v1/castById', { fid: fid.toString(), hash });
-
-      return {
-        hash: response.hash as Hex,
-        fid: response.data.fid,
-        text: response.data.castAddBody.text,
-        timestamp: response.data.timestamp,
-        parentHash: response.data.castAddBody.parentCastId?.hash as Hex | undefined,
-        parentFid: response.data.castAddBody.parentCastId?.fid,
-        parentUrl: response.data.castAddBody.parentUrl,
-        embeds: response.data.castAddBody.embeds.map((e) => ({ url: e.url })),
-        mentions: response.data.castAddBody.mentions,
-        mentionsPositions: response.data.castAddBody.mentionsPositions,
-      };
+      data = await this.fetch('/v1/castById', { fid: fid.toString(), hash });
     } catch (e) {
       if (e instanceof HubError && e.code === 'NOT_FOUND') return null;
       throw e;
     }
+    const response = SingleCastResponseSchema.parse(data);
+    return parseCastMessage(response);
   }
 
   async getReactionsByFid(fid: number): Promise<PaginatedResponse<FarcasterReaction>> {
-    const response = await this.fetch<{
-      messages: Array<{
-        data: {
-          fid: number;
-          timestamp: number;
-          reactionBody: {
-            type: string;
-            targetCastId: { fid: number; hash: string };
-          };
-        };
-      }>;
-      nextPageToken?: string;
-    }>('/v1/reactionsByFid', { fid: fid.toString() });
+    const data = await this.fetch('/v1/reactionsByFid', { fid: fid.toString() });
+    const response = ReactionsResponseSchema.parse(data);
 
     return {
       messages: response.messages.map((msg) => ({
@@ -365,113 +273,57 @@ export class FarcasterClient {
   }
 
   async getLinksByFid(fid: number): Promise<PaginatedResponse<FarcasterLink>> {
-    const response = await this.fetch<{
-      messages: Array<{
-        data: {
-          fid: number;
-          timestamp: number;
-          linkBody: { type: string; targetFid: number };
-        };
-      }>;
-      nextPageToken?: string;
-    }>('/v1/linksByFid', { fid: fid.toString() });
+    const data = await this.fetch('/v1/linksByFid', { fid: fid.toString() });
+    const response = LinksResponseSchema.parse(data);
 
     return {
-      messages: response.messages.map((msg) => ({
-        fid: msg.data.fid,
-        targetFid: msg.data.linkBody.targetFid,
-        type: 'follow',
-        timestamp: msg.data.timestamp,
-      })),
+      messages: response.messages.map(parseLinkMessage),
       nextPageToken: response.nextPageToken,
     };
   }
 
   async getLinksByTargetFid(targetFid: number): Promise<PaginatedResponse<FarcasterLink>> {
-    const response = await this.fetch<{
-      messages: Array<{
-        data: {
-          fid: number;
-          timestamp: number;
-          linkBody: { type: string; targetFid: number };
-        };
-      }>;
-      nextPageToken?: string;
-    }>('/v1/linksByTargetFid', { target_fid: targetFid.toString() });
+    const data = await this.fetch('/v1/linksByTargetFid', { target_fid: targetFid.toString() });
+    const response = LinksResponseSchema.parse(data);
 
     return {
-      messages: response.messages.map((msg) => ({
-        fid: msg.data.fid,
-        targetFid: msg.data.linkBody.targetFid,
-        type: 'follow',
-        timestamp: msg.data.timestamp,
-      })),
+      messages: response.messages.map(parseLinkMessage),
       nextPageToken: response.nextPageToken,
     };
   }
 
   async getVerificationsByFid(fid: number): Promise<FarcasterVerification[]> {
-    const response = await this.fetch<{
-      messages: Array<{
-        data: {
-          fid: number;
-          timestamp: number;
-          verificationAddAddressBody: {
-            address: string;
-            protocol: string;
-            chainId: number;
-          };
-        };
-      }>;
-    }>('/v1/verificationsByFid', { fid: fid.toString() });
+    const data = await this.fetch('/v1/verificationsByFid', { fid: fid.toString() });
+    const response = VerificationsResponseSchema.parse(data);
 
     return response.messages.map((msg) => ({
       fid: msg.data.fid,
       address: msg.data.verificationAddAddressBody.address as Address,
-      protocol:
-        msg.data.verificationAddAddressBody.protocol === 'PROTOCOL_SOLANA'
-          ? 'solana'
-          : 'ethereum',
+      protocol: msg.data.verificationAddAddressBody.protocol === 'PROTOCOL_SOLANA' ? 'solana' : 'ethereum',
       timestamp: msg.data.timestamp,
       chainId: msg.data.verificationAddAddressBody.chainId,
     }));
   }
 
   async *subscribeToEvents(fromEventId?: number): AsyncGenerator<HubEvent> {
-    let currentEventId = fromEventId || 0;
+    let currentEventId = fromEventId ?? 0;
 
     while (true) {
-      try {
-        const response = await this.fetch<{
-          events: Array<{
-            id: number;
-            type: string;
-            body: Record<string, unknown>;
-          }>;
-        }>('/v1/events', {
-          from_event_id: currentEventId.toString(),
-        });
+      const data = await this.fetch('/v1/events', {
+        from_event_id: currentEventId.toString(),
+      });
+      const response = EventsResponseSchema.parse(data);
 
-        for (const event of response.events) {
-          currentEventId = event.id;
-          yield {
-            id: event.id,
-            type: event.type as HubEventType,
-            body: event.body,
-          };
-        }
-
-        // Wait before next poll
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-      } catch (e) {
-        // Rate limiting or transient errors - back off and retry
-        if (e instanceof HubError && (e.code === 'RATE_LIMITED' || e.code === 'NETWORK')) {
-          await new Promise((resolve) => setTimeout(resolve, 5000));
-          continue;
-        }
-        // Fatal errors - rethrow
-        throw e;
+      for (const event of response.events) {
+        currentEventId = event.id;
+        yield {
+          id: event.id,
+          type: event.type,
+          body: event.body,
+        };
       }
+
+      await new Promise((resolve) => setTimeout(resolve, 1000));
     }
   }
 }
@@ -479,16 +331,7 @@ export class FarcasterClient {
 export interface HubEvent {
   id: number;
   type: HubEventType;
-  body: Record<string, unknown>;
+  body: HubEventBody;
 }
 
-export type HubEventType =
-  | 'HUB_EVENT_TYPE_MERGE_MESSAGE'
-  | 'HUB_EVENT_TYPE_PRUNE_MESSAGE'
-  | 'HUB_EVENT_TYPE_REVOKE_MESSAGE'
-  | 'HUB_EVENT_TYPE_MERGE_ID_REGISTRY_EVENT'
-  | 'HUB_EVENT_TYPE_MERGE_NAME_REGISTRY_EVENT';
-
-// Export singleton for convenience
 export const farcasterClient = new FarcasterClient();
-

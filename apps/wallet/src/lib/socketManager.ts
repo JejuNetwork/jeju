@@ -53,15 +53,15 @@ class SocketManager {
     });
 
     this.socket.on('connect', () => {
-      console.log('[Socket] Connected to server');
+      // Connected
     });
 
-    this.socket.on('disconnect', (reason) => {
-      console.log('[Socket] Disconnected:', reason);
+    this.socket.on('disconnect', (_reason) => {
+      // Disconnected
     });
 
-    this.socket.on('connect_error', (error) => {
-      console.error('[Socket] Connection error:', error.message);
+    this.socket.on('connect_error', (_error) => {
+      // Connection error handled
     });
 
     // Listen for messages
@@ -95,7 +95,6 @@ class SocketManager {
 
   joinChannel(channelId: string, serverId: string, options?: { isDm?: boolean }) {
     if (!this.socket?.connected) {
-      console.warn('[Socket] Cannot join channel - not connected');
       return;
     }
 
@@ -110,7 +109,6 @@ class SocketManager {
       userId: this.userId,
       ...options,
     });
-    console.log('[Socket] Joined channel:', channelId);
   }
 
   leaveChannel(channelId: string) {
@@ -120,7 +118,6 @@ class SocketManager {
     if (this.currentChannel === channelId) {
       this.currentChannel = null;
     }
-    console.log('[Socket] Left channel:', channelId);
   }
 
   sendMessage(
@@ -134,7 +131,6 @@ class SocketManager {
     }
   ) {
     if (!this.socket?.connected) {
-      console.error('[Socket] Cannot send message - not connected');
       return;
     }
 
@@ -150,7 +146,6 @@ class SocketManager {
     };
 
     this.socket.emit('message', message);
-    console.log('[Socket] Sent message to channel:', channelId);
   }
 
   onMessage(handler: MessageHandler): () => void {
@@ -161,7 +156,7 @@ class SocketManager {
   }
 
   isConnected(): boolean {
-    return this.socket?.connected ?? false;
+    return this.socket !== null && this.socket.connected;
   }
 
   getCurrentUserId(): string | null {

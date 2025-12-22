@@ -64,7 +64,8 @@ type EILNetworkConfig = {
   chains: Record<string, EILChainConfig>;
 };
 
-type EILConfig = {
+// JSON config structure from eil.json
+interface EILJsonConfig {
   version: string;
   lastUpdated: string;
   entryPoint: string;
@@ -73,19 +74,30 @@ type EILConfig = {
   testnet: EILNetworkConfig;
   mainnet: EILNetworkConfig;
   localnet: EILNetworkConfig;
-};
+}
+
+const typedConfig = eilConfig as unknown as EILJsonConfig;
 
 // Helper to get chain config based on current network
 function getNetworkConfig(): EILNetworkConfig {
-  const config = eilConfig as unknown as EILConfig;
-  if (NETWORK === 'testnet') return config.testnet;
-  if (NETWORK === 'mainnet') return config.mainnet;
-  return config.localnet;
+  if (NETWORK === 'testnet') return typedConfig.testnet;
+  if (NETWORK === 'mainnet') return typedConfig.mainnet;
+  return typedConfig.localnet;
 }
 
 export function useEILConfig() {
   const { chain } = useAccount();
-  const chainId = chain?.id?.toString() || '420691';
+  if (!chain?.id) {
+    return {
+      isAvailable: false,
+      crossChainPaymaster: undefined,
+      appTokenPreference: undefined,
+      supportedChains: [],
+      l1StakeManager: undefined,
+      supportedTokens: [],
+    };
+  }
+  const chainId = chain.id.toString();
   
   const networkConfig = getNetworkConfig();
   const chainConfig = networkConfig.chains[chainId];
@@ -111,7 +123,7 @@ export function useEILConfig() {
     appTokenPreference: appTokenPreferenceAddr || undefined,
     supportedChains: configuredChains,
     l1StakeManager: (networkConfig.hub.l1StakeManager || undefined) as Address | undefined,
-    supportedTokens: (eilConfig as unknown as EILConfig).supportedTokens as Address[],
+    supportedTokens: typedConfig.supportedTokens as readonly string[] as Address[],
   };
 }
 
@@ -482,7 +494,7 @@ export function useAppPreference(preferenceAddress: Address | undefined, appAddr
 
   return {
     preference,
-    fallbackTokens: (fallbackTokens || []) as Address[],
+    fallbackTokens: fallbackTokens ? (fallbackTokens as Address[]) : [],
   };
 }
 

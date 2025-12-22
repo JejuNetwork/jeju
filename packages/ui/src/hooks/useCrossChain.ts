@@ -1,10 +1,7 @@
-/**
- * Cross-chain hook
- */
-
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import type { Hex } from "viem";
 import { useNetworkContext } from "../context";
+import { useAsyncState, requireClient, type AsyncState } from "./utils";
 import type {
   TransferParams,
   CrossChainQuote,
@@ -12,48 +9,50 @@ import type {
   SupportedChain,
 } from "@jejunetwork/sdk";
 
-export function useCrossChain() {
+export interface UseCrossChainResult extends AsyncState {
+  getQuote: (params: TransferParams) => Promise<CrossChainQuote>;
+  getQuotes: (params: TransferParams) => Promise<CrossChainQuote[]>;
+  transfer: (quote: CrossChainQuote) => Promise<Hex>;
+  listMyIntents: () => Promise<IntentStatus[]>;
+  getSupportedChains: () => SupportedChain[];
+}
+
+export function useCrossChain(): UseCrossChainResult {
   const { client } = useNetworkContext();
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
+  const { isLoading, error, execute } = useAsyncState();
 
   const getQuote = useCallback(
     async (params: TransferParams): Promise<CrossChainQuote> => {
-      if (!client) throw new Error("Not connected");
-      return client.crosschain.getQuote(params);
+      const c = requireClient(client);
+      return c.crosschain.getQuote(params);
     },
     [client],
   );
 
   const getQuotes = useCallback(
     async (params: TransferParams): Promise<CrossChainQuote[]> => {
-      if (!client) throw new Error("Not connected");
-      return client.crosschain.getQuotes(params);
+      const c = requireClient(client);
+      return c.crosschain.getQuotes(params);
     },
     [client],
   );
 
   const transfer = useCallback(
     async (quote: CrossChainQuote): Promise<Hex> => {
-      if (!client) throw new Error("Not connected");
-      setIsLoading(true);
-      setError(null);
-
-      const txHash = await client.crosschain.transfer(quote);
-      setIsLoading(false);
-      return txHash;
+      const c = requireClient(client);
+      return execute(() => c.crosschain.transfer(quote));
     },
-    [client],
+    [client, execute],
   );
 
   const listMyIntents = useCallback(async (): Promise<IntentStatus[]> => {
-    if (!client) throw new Error("Not connected");
-    return client.crosschain.listMyIntents();
+    const c = requireClient(client);
+    return c.crosschain.listMyIntents();
   }, [client]);
 
   const getSupportedChains = useCallback((): SupportedChain[] => {
-    if (!client) throw new Error("Not connected");
-    return client.crosschain.getSupportedChains();
+    const c = requireClient(client);
+    return c.crosschain.getSupportedChains();
   }, [client]);
 
   return {

@@ -9,6 +9,9 @@
 
 import { EventEmitter } from 'events';
 import type { ChainId } from '../autocrat-types';
+import { createLogger } from '../../sdk/logger';
+
+const log = createLogger('Mempool');
 
 export interface MempoolTransaction {
   hash: string;
@@ -122,7 +125,7 @@ export class MempoolStreamer extends EventEmitter {
     if (this.running) return;
     this.running = true;
 
-    console.log('🔮 Starting mempool streaming...');
+    log.info('Starting mempool streaming');
 
     for (const [chainId, config] of this.configs) {
       await this.startChainStream(chainId, config);
@@ -193,7 +196,7 @@ export class MempoolStreamer extends EventEmitter {
 
     const network = networkMap[chainId];
     if (!network) {
-      console.log(`   Alchemy not available for chain ${chainId}`);
+      log.warn('Alchemy not available', { chainId });
       return;
     }
 
@@ -221,7 +224,7 @@ export class MempoolStreamer extends EventEmitter {
     };
 
     ws.onerror = (error) => {
-      console.error(`   Alchemy error (chain ${chainId}):`, error);
+      log.error('Alchemy error', { chainId, error: String(error) });
     };
 
     ws.onclose = () => {
@@ -239,7 +242,7 @@ export class MempoolStreamer extends EventEmitter {
     const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
-      console.log(`   ✓ WebSocket connected (chain ${chainId})`);
+      log.info('WebSocket connected', { chainId });
 
       // Subscribe to pending transactions
       ws.send(JSON.stringify({
@@ -259,7 +262,7 @@ export class MempoolStreamer extends EventEmitter {
     };
 
     ws.onclose = () => {
-      console.log(`   WebSocket disconnected (chain ${chainId})`);
+      log.warn('WebSocket disconnected', { chainId });
       if (this.running) {
         setTimeout(() => this.startWebSocketStream(chainId, wsUrl), 5000);
       }

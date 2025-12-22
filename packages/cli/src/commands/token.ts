@@ -16,11 +16,7 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { join } from 'path';
-import { existsSync } from 'fs';
-import { execa } from 'execa';
 import { logger } from '../lib/logger';
-import { findMonorepoRoot } from '../lib/system';
 
 // Known token configurations
 const KNOWN_TOKENS: Record<string, { name: string; totalSupply: string; homeChain: string }> = {

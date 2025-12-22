@@ -89,10 +89,10 @@ describe('ChainConfig', () => {
     expect(evmChains.every((c) => c.chainType === 'evm')).toBe(true);
   });
 
-  test('should get SVM chains only', () => {
-    const svmChains = getSVMChains();
-    expect(svmChains.length).toBeGreaterThan(0);
-    expect(svmChains.every((c) => c.chainType === 'svm')).toBe(true);
+  test('should get Solana chains only', () => {
+    const solanaChains = getSVMChains(); // getSVMChains is deprecated alias
+    expect(solanaChains.length).toBeGreaterThan(0);
+    expect(solanaChains.every((c) => c.chainType === 'solana')).toBe(true);
   });
 
   test('should validate chain config', () => {
@@ -102,7 +102,7 @@ describe('ChainConfig', () => {
 
   test('Solana mainnet should be configured', () => {
     const solana = getChainConfig('solana-mainnet');
-    expect(solana.chainType).toBe('svm');
+    expect(solana.chainType).toBe('solana');
     expect(solana.nativeCurrency.symbol).toBe('SOL');
     expect(solana.nativeCurrency.decimals).toBe(9);
   });
@@ -131,8 +131,8 @@ describe('FeeComparison', () => {
 
 describe('SolanaIntegration', () => {
   test('should have Solana in mainnet chains', () => {
-    const svmChains = getSVMChains(true);
-    const solana = svmChains.find((c) => c.chainId === 'solana-mainnet');
+    const solanaChains = getSVMChains(true); // getSVMChains is deprecated alias
+    const solana = solanaChains.find((c) => c.chainId === 'solana-mainnet');
     expect(solana).toBeDefined();
   });
 

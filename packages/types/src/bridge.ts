@@ -1,6 +1,12 @@
 import { z } from 'zod';
-import { AddressSchema } from './contracts';
+import { AddressSchema } from './validation';
 
+// ============ Transfer Status Types ============
+
+/**
+ * Bridge transfer status (comprehensive)
+ * Used for cross-chain bridge transfers
+ */
 export const BridgeTransferStatusSchema = z.enum([
   'pending',
   'submitted',
@@ -9,6 +15,12 @@ export const BridgeTransferStatusSchema = z.enum([
   'failed',
 ]);
 export type BridgeTransferStatus = z.infer<typeof BridgeTransferStatusSchema>;
+
+/**
+ * Simple transfer status (for basic transfers)
+ * Consolidates TransferStatus definitions
+ */
+export type TransferStatus = 'pending' | 'completed' | 'failed';
 
 export const BridgeTransferSchema = z.object({
   id: z.string(),
@@ -49,16 +61,25 @@ export const BridgeEstimateSchema = z.object({
 });
 export type BridgeEstimate = z.infer<typeof BridgeEstimateSchema>;
 
-export interface BridgeEventLog {
-  event: 'ERC20BridgeInitiated' | 'ERC20BridgeFinalized' | 'ETHBridgeInitiated' | 'ETHBridgeFinalized';
-  from: string;
-  to: string;
-  amount: string;
-  localToken: string;
-  remoteToken: string;
-  extraData: string;
-  transactionHash: string;
-  blockNumber: number;
-  timestamp: number;
-}
+export const BridgeEventTypeSchema = z.enum([
+  'ERC20BridgeInitiated',
+  'ERC20BridgeFinalized',
+  'ETHBridgeInitiated',
+  'ETHBridgeFinalized',
+]);
+export type BridgeEventType = z.infer<typeof BridgeEventTypeSchema>;
+
+export const BridgeEventLogSchema = z.object({
+  event: BridgeEventTypeSchema,
+  from: AddressSchema,
+  to: AddressSchema,
+  amount: z.string(),
+  localToken: AddressSchema,
+  remoteToken: AddressSchema,
+  extraData: z.string(),
+  transactionHash: z.string(),
+  blockNumber: z.number().int().nonnegative(),
+  timestamp: z.number(),
+});
+export type BridgeEventLog = z.infer<typeof BridgeEventLogSchema>;
 

@@ -5,11 +5,36 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import { CrossChainArbitrage } from './cross-chain-arbitrage';
 
+// Mock chain config for testing (no RPC URLs required for basic tests)
+const mockChains = [
+  {
+    chainId: 1 as const,
+    name: 'Ethereum',
+    rpcUrl: 'http://localhost:8545',
+    type: 'evm' as const,
+    blockTimeMs: 12000,
+    nativeSymbol: 'ETH',
+    dexes: [],
+    bridges: [],
+  },
+  {
+    chainId: 8453 as const,
+    name: 'Base',
+    rpcUrl: 'http://localhost:8546',
+    type: 'evm' as const,
+    blockTimeMs: 2000,
+    nativeSymbol: 'ETH',
+    dexes: [],
+    bridges: [],
+  },
+];
+
 describe('CrossChainArbitrage', () => {
   let arb: CrossChainArbitrage;
 
   beforeEach(() => {
     arb = new CrossChainArbitrage({
+      chains: mockChains,
       minProfitBps: 50,
       minProfitUsd: 10,
       maxSlippageBps: 100,
@@ -23,10 +48,10 @@ describe('CrossChainArbitrage', () => {
     arb.stop();
   });
 
-  test('should initialize with default config', () => {
-    const defaultArb = new CrossChainArbitrage();
-    expect(defaultArb).toBeDefined();
-    defaultArb.stop();
+  test('should initialize with provided chain config', () => {
+    const testArb = new CrossChainArbitrage({ chains: mockChains });
+    expect(testArb).toBeDefined();
+    testArb.stop();
   });
 
   test('should return empty opportunities initially', () => {
@@ -90,7 +115,7 @@ describe('CrossChainArbitrage', () => {
 
 describe('CrossChainArbitrage chain configuration', () => {
   test('should add custom chain', () => {
-    const arb = new CrossChainArbitrage();
+    const arb = new CrossChainArbitrage({ chains: mockChains });
 
     arb.addChain({
       chainId: 420690,

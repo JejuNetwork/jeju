@@ -18,7 +18,7 @@ import {
   clearClientCache,
   ERC20_ABI,
 } from './on-chain';
-import { parseEther, type Address, type Hash, type TransactionReceipt, type Log } from 'viem';
+import { parseEther, type Address, type Hash, type TransactionReceipt } from 'viem';
 
 // Clear cache between tests
 beforeEach(() => {
@@ -380,7 +380,7 @@ describe('clearClientCache - Cache Management', () => {
 
   test('should not throw when clearing populated cache', () => {
     // Trigger client creation by calling getEthBalance (will fail but creates client)
-    getEthBalance(TEST_ADDRESS, { rpcUrl: FAKE_RPC }).catch(() => {});
+    getEthBalance(TEST_ADDRESS, { rpcUrl: FAKE_RPC }).catch(() => { /* intentionally empty */ });
     expect(() => clearClientCache()).not.toThrow();
   });
 });

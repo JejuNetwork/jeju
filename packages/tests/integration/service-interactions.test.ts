@@ -38,9 +38,9 @@ import {
   TIMEOUTS,
 } from '../shared/constants';
 
-const RPC_URL = JEJU_LOCALNET.rpcUrl;
+const _RPC_URL = JEJU_LOCALNET.rpcUrl;
 const GRAPHQL_URL = APP_URLS.indexerGraphQL;
-const TIMEOUT = TIMEOUTS.indexerSync;
+const _TIMEOUT = TIMEOUTS.indexerSync;
 
 /**
  * Helper: Query GraphQL endpoint
@@ -84,7 +84,7 @@ async function waitForIndexer(txHash: string, maxAttempts = 10): Promise<boolean
       if (data.transactions && data.transactions.length > 0) {
         return true;
       }
-    } catch (error) {
+    } catch (_error) {
       // Indexer might not be ready yet
     }
 

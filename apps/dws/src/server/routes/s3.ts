@@ -6,6 +6,8 @@
 import { Hono } from 'hono';
 import { S3Backend, S3Error, NotModifiedError } from '../../storage/s3-backend';
 import type { BackendManager } from '../../storage/backends';
+import { validateParams, validateQuery, validateBody, expectValid, bucketParamsSchema, objectParamsSchema, objectListQuerySchema, createBucketRequestSchema, presignRequestSchema, completeMultipartXmlSchema } from '../../shared';
+import { z } from 'zod';
 
 export function createS3Router(backend: BackendManager): Hono {
   const router = new Hono();
@@ -56,7 +58,8 @@ export function createS3Router(backend: BackendManager): Hono {
 
   // List buckets
   router.get('/', async (c) => {
-    const owner = c.req.header('x-jeju-address');
+    const headers = validateHeaders(z.object({ 'x-jeju-address': z.string().optional() }), c);
+    const owner = headers['x-jeju-address'];
     const buckets = await s3.listBuckets(owner);
 
     return c.json({
@@ -64,7 +67,7 @@ export function createS3Router(backend: BackendManager): Hono {
         Name: b.name,
         CreationDate: b.creationDate.toISOString(),
       })),
-      Owner: { ID: owner ?? 'anonymous' },
+      Owner: { ID: owner || 'anonymous' },
     });
   });
 
@@ -74,48 +77,42 @@ export function createS3Router(backend: BackendManager): Hono {
 
   // Create bucket
   router.put('/:bucket', async (c) => {
-    const bucket = c.req.param('bucket');
-    const owner = c.req.header('x-jeju-address') ?? 'anonymous';
-    const region = c.req.header('x-amz-bucket-region') ?? 'us-east-1';
+    const { bucket } = validateParams(bucketParamsSchema, c);
+    const owner = c.req.header('x-jeju-address') || 'anonymous';
+    const region = c.req.header('x-amz-bucket-region') || 'us-east-1';
 
-    try {
-      await s3.createBucket(bucket, owner, region);
-      return c.body(null, 200);
-    } catch (error) {
-      const { status, body } = handleError(error);
-      return c.json(body, status);
-    }
+    await s3.createBucket(bucket, owner, region);
+    return c.body(null, 200);
   });
 
   // Delete bucket
   router.delete('/:bucket', async (c) => {
-    const bucket = c.req.param('bucket');
-
-    try {
-      await s3.deleteBucket(bucket);
-      return c.body(null, 204);
-    } catch (error) {
-      const { status, body } = handleError(error);
-      return c.json(body, status);
-    }
+    const { bucket } = validateParams(bucketParamsSchema, c);
+    await s3.deleteBucket(bucket);
+    return c.body(null, 204);
   });
 
   // Get bucket location
   router.get('/:bucket', async (c) => {
-    const bucket = c.req.param('bucket');
+    const { bucket } = validateParams(bucketParamsSchema, c);
     const listType = c.req.query('list-type');
 
     // List objects if list-type is specified
     if (listType === '2') {
-      try {
-        const result = await s3.listObjects({
-          bucket,
-          prefix: c.req.query('prefix'),
-          delimiter: c.req.query('delimiter'),
-          maxKeys: parseInt(c.req.query('max-keys') ?? '1000'),
-          continuationToken: c.req.query('continuation-token'),
-          startAfter: c.req.query('start-after'),
-        });
+      const { prefix, delimiter, 'max-keys': maxKeys, 'continuation-token': continuationToken, 'start-after': startAfter } = validateQuery(objectListQuerySchema.extend({
+        'list-type': z.literal('2'),
+        'max-keys': z.coerce.number().int().positive().max(1000).optional(),
+        'continuation-token': z.string().optional(),
+        'start-after': z.string().optional(),
+      }), c);
+      const result = await s3.listObjects({
+        bucket,
+        prefix,
+        delimiter,
+        maxKeys: maxKeys ?? 1000,
+        continuationToken,
+        startAfter,
+      });
 
         return c.json({
           Name: result.name,
@@ -134,18 +131,12 @@ export function createS3Router(backend: BackendManager): Hono {
           ContinuationToken: result.continuationToken,
           NextContinuationToken: result.nextContinuationToken,
         });
-      } catch (error) {
-        const { status, body } = handleError(error);
-        return c.json(body, status);
-      }
     }
 
     // Get bucket info
     const bucketInfo = await s3.getBucket(bucket);
     if (!bucketInfo) {
-      return c.json({
-        Error: { Code: 'NoSuchBucket', Message: 'Bucket does not exist' },
-      }, 404);
+      throw new Error('Bucket does not exist');
     }
 
     return c.json({
@@ -159,8 +150,10 @@ export function createS3Router(backend: BackendManager): Hono {
 
   // Put object
   router.put('/:bucket/:key{.+}', async (c) => {
-    const bucket = c.req.param('bucket');
-    const key = c.req.param('key');
+    const { bucket, key } = validateParams(objectParamsSchema.extend({
+      bucket: z.string().min(1),
+      key: z.string().min(1),
+    }), c);
 
     // Check for presigned URL
     const signature = c.req.query('X-DWS-Signature');
@@ -169,14 +162,11 @@ export function createS3Router(backend: BackendManager): Hono {
 
     if (signature && expires && operation) {
       if (!s3.verifyPresignedUrl(bucket, key, signature, expires, operation)) {
-        return c.json({
-          Error: { Code: 'SignatureDoesNotMatch', Message: 'Invalid signature' },
-        }, 403);
+        throw new Error('Invalid signature');
       }
     }
 
-    try {
-      const body = await c.req.arrayBuffer();
+    const body = await c.req.arrayBuffer();
       const contentType = c.req.header('content-type');
       
       // Parse metadata headers
@@ -204,16 +194,14 @@ export function createS3Router(backend: BackendManager): Hono {
       }
 
       return c.body(null, 200);
-    } catch (error) {
-      const { status, body } = handleError(error);
-      return c.json(body, status);
-    }
   });
 
   // Get object (also handles HEAD via Hono routing)
   router.get('/:bucket/:key{.+}', async (c) => {
-    const bucket = c.req.param('bucket');
-    const key = c.req.param('key');
+    const { bucket, key } = validateParams(objectParamsSchema.extend({
+      bucket: z.string().min(1),
+      key: z.string().min(1),
+    }), c);
     const isHead = c.req.method === 'HEAD';
 
     // Check for presigned URL
@@ -223,39 +211,37 @@ export function createS3Router(backend: BackendManager): Hono {
 
     if (signature && expires && operation) {
       if (!s3.verifyPresignedUrl(bucket, key, signature, expires, operation)) {
-        return c.json({
-          Error: { Code: 'SignatureDoesNotMatch', Message: 'Invalid signature' },
-        }, 403);
+        throw new Error('Invalid signature');
       }
     }
 
-    try {
-      // For HEAD requests, use headObject to avoid fetching the body
-      if (isHead) {
-        const result = await s3.headObject(bucket, key);
-        
-        const headers = new Headers();
-        headers.set('Content-Type', result.contentType);
-        headers.set('Content-Length', String(result.contentLength));
-        headers.set('ETag', result.etag);
-        headers.set('Last-Modified', result.lastModified.toUTCString());
-        headers.set('x-amz-storage-class', result.storageClass);
-        
-        if (result.versionId) {
-          headers.set('x-amz-version-id', result.versionId);
-        }
-        
-        for (const [metaKey, value] of Object.entries(result.metadata)) {
-          headers.set(`x-amz-meta-${metaKey}`, value);
-        }
-        
-        return new Response(null, { status: 200, headers });
+    // For HEAD requests, use headObject to avoid fetching the body
+    if (isHead) {
+      const result = await s3.headObject(bucket, key);
+      
+      const headers = new Headers();
+      headers.set('Content-Type', result.contentType);
+      headers.set('Content-Length', String(result.contentLength));
+      headers.set('ETag', result.etag);
+      headers.set('Last-Modified', result.lastModified.toUTCString());
+      headers.set('x-amz-storage-class', result.storageClass);
+      
+      if (result.versionId) {
+        headers.set('x-amz-version-id', result.versionId);
       }
       
-      const ifNoneMatch = c.req.header('if-none-match');
-      const ifModifiedSince = c.req.header('if-modified-since');
-      const range = c.req.header('range');
+      for (const [metaKey, value] of Object.entries(result.metadata)) {
+        headers.set(`x-amz-meta-${metaKey}`, value);
+      }
+      
+      return new Response(null, { status: 200, headers });
+    }
+    
+    const ifNoneMatch = c.req.header('if-none-match');
+    const ifModifiedSince = c.req.header('if-modified-since');
+    const range = c.req.header('range');
 
+    try {
       const result = await s3.getObject({
         bucket,
         key,
@@ -290,23 +276,18 @@ export function createS3Router(backend: BackendManager): Hono {
       if (error instanceof NotModifiedError) {
         return c.body(null, 304);
       }
-      const { status, body } = handleError(error);
-      return c.json(body, status);
+      throw error;
     }
   });
 
   // Delete object
   router.delete('/:bucket/:key{.+}', async (c) => {
-    const bucket = c.req.param('bucket');
-    const key = c.req.param('key');
-
-    try {
-      await s3.deleteObject({ bucket, key });
-      return c.body(null, 204);
-    } catch (error) {
-      const { status, body } = handleError(error);
-      return c.json(body, status);
-    }
+    const { bucket, key } = validateParams(objectParamsSchema.extend({
+      bucket: z.string().min(1),
+      key: z.string().min(1),
+    }), c);
+    await s3.deleteObject({ bucket, key });
+    return c.body(null, 204);
   });
 
   // ============================================================================
@@ -336,30 +317,21 @@ export function createS3Router(backend: BackendManager): Hono {
     // Complete multipart upload
     const uploadId = c.req.query('uploadId');
     if (uploadId) {
-      try {
-        const body = await c.req.json<{
-          CompleteMultipartUpload: {
-            Part: Array<{ PartNumber: number; ETag: string }>;
-          };
-        }>();
+      const body = await validateBody(completeMultipartXmlSchema, c);
 
-        const parts = body.CompleteMultipartUpload.Part.map(p => ({
-          partNumber: p.PartNumber,
-          etag: p.ETag,
-        }));
+      const parts = body.CompleteMultipartUpload.Part.map(p => ({
+        partNumber: p.PartNumber,
+        etag: p.ETag,
+      }));
 
-        const result = await s3.completeMultipartUpload(uploadId, parts);
+      const result = await s3.completeMultipartUpload(uploadId, parts);
 
-        return c.json({
-          Location: `/${bucket}/${key}`,
-          Bucket: bucket,
-          Key: key,
-          ETag: result.etag,
-        });
-      } catch (error) {
-        const { status, body } = handleError(error);
-        return c.json(body, status);
-      }
+      return c.json({
+        Location: `/${bucket}/${key}`,
+        Bucket: bucket,
+        Key: key,
+        ETag: result.etag,
+      });
     }
 
     return c.json({ Error: { Code: 'InvalidRequest', Message: 'Invalid request' } }, 400);
@@ -370,13 +342,7 @@ export function createS3Router(backend: BackendManager): Hono {
   // ============================================================================
 
   router.post('/presign', async (c) => {
-    const body = await c.req.json<{
-      bucket: string;
-      key: string;
-      operation: 'getObject' | 'putObject';
-      expiresIn: number;
-      contentType?: string;
-    }>();
+    const body = await validateBody(presignRequestSchema, c);
 
     const result = s3.generatePresignedUrl({
       bucket: body.bucket,

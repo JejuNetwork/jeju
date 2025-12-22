@@ -3,7 +3,7 @@
  * View and revoke token approvals
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import type { Address, Hex } from 'viem';
 import { encodeFunctionData } from 'viem';
 
@@ -37,8 +37,6 @@ interface ApprovalManagerProps {
   onRefresh: () => void;
 }
 
-const UNLIMITED_THRESHOLD = 2n ** 200n;
-
 const RiskBadge: React.FC<{ level: TokenApproval['spender']['riskLevel'] }> = ({ level }) => {
   const styles: Record<string, string> = {
     safe: 'bg-green-500/20 text-green-400',
@@ -55,7 +53,7 @@ const RiskBadge: React.FC<{ level: TokenApproval['spender']['riskLevel'] }> = ({
 };
 
 export const ApprovalManager: React.FC<ApprovalManagerProps> = ({
-  address,
+  address: _address,
   approvals,
   loading,
   onRevoke,

@@ -15,9 +15,7 @@ import { createPublicClient, createWalletClient, http, formatEther, parseEther, 
 import { privateKeyToAccount } from 'viem/accounts';
 import chalk from 'chalk';
 import { logger } from '../lib/logger';
-import { getNetworkName } from '@jejunetwork/config';
-
-const networkName = getNetworkName();
+import '@jejunetwork/config';
 
 // Contract ABIs (minimal)
 const NETWORK_REGISTRY_ABI = [
@@ -374,7 +372,7 @@ federationCommand
   .command('sync')
   .description('Sync registry data from all chains')
   .option('--registry-id <id>', 'Sync specific registry')
-  .action(async (options) => {
+  .action(async (_options) => {
     logger.header('SYNC REGISTRIES');
 
     console.log(chalk.cyan('Triggering federation sync...\n'));

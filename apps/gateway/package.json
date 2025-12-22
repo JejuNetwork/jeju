@@ -65,22 +65,25 @@
   "dependencies": {
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/db": "workspace:*",
+    "@jejunetwork/dws": "workspace:*",
     "@jejunetwork/kms": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/types": "workspace:*",
     "@rainbow-me/rainbowkit": "2.2.9",
-    "@tanstack/react-query": "5.90.5",
+    "react-router-dom": "6.28.0",
+    "@tanstack/react-query": "5.90.12",
     "cors": "2.8.5",
     "express": "5.0.1",
-    "hono": "4.7.0",
-    "lucide-react": "0.546.0",
-    "react": "19.0.0",
-    "react-dom": "19.0.0",
-    "recharts": "3.3.0",
-    "viem": "2.41.2",
+    "hono": "4.11.1",
+    "lucide-react": "0.562.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "recharts": "3.6.0",
+    "viem": "2.43.2",
     "wagmi": "2.18.1",
     "ws": "8.18.3",
-    "zod": "^3.25.76"
+    "zod": "^4.1.13",
+    "@jejunetwork/oauth3": "workspace:*"
   },
   "devDependencies": {
     "@jejunetwork/tests": "workspace:*",
@@ -91,8 +94,8 @@
     "@types/express": "5.0.3",
     "@types/node": "22.15.30",
     "@types/ws": "8.18.1",
-    "@types/react": "19.0.0",
-    "@types/react-dom": "19.0.0",
+    "@types/react": "19.2.3",
+    "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "5.0.4",
     "concurrently": "9.1.0",
     "eslint": "8.57.1",
@@ -100,7 +103,7 @@
     "eslint-plugin-react-refresh": "0.4.20",
     "globals": "15.15.0",
     "playwright-core": "1.57.0",
-    "typescript": "5.7.3",
+    "typescript": "5.9.3",
     "vite": "6.3.5"
   }
 }

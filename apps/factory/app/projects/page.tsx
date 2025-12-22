@@ -7,7 +7,6 @@ import {
   Search, 
   Plus,
   Users,
-  Clock,
   CheckCircle2,
   Circle,
   AlertCircle,
@@ -135,7 +134,7 @@ const priorityConfig: Record<TaskPriority, { label: string; color: string }> = {
 };
 
 export default function ProjectsPage() {
-  const { isConnected } = useAccount();
+  useAccount();
   const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
   const [search, setSearch] = useState('');
 
@@ -171,7 +170,7 @@ export default function ProjectsPage() {
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center -space-x-2">
-            {mockProject.members.map((member, i) => (
+            {mockProject.members.map((member) => (
               <div
                 key={member}
                 className="w-8 h-8 rounded-full bg-gradient-to-br from-accent-500 to-purple-600 flex items-center justify-center text-xs font-bold border-2 border-factory-900"

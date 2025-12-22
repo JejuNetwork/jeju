@@ -19,6 +19,7 @@ import type {
 import { type ContractName, deployContractCreate2 } from './contract-deployer';
 import { deploySolanaChain } from './solana-deployer';
 import { deployLiquidity } from './liquidity-deployer';
+import { addressToBytes32 } from '../utils/address';
 
 export interface DeploymentStep {
   name: string;
@@ -83,9 +84,11 @@ export class MultiChainLauncher {
       'in_progress'
     );
 
-    const homeDeployment = await this.deployHomeChain(
-      walletClients.get(homeChain.chainId)!
-    );
+    const homeWalletClient = walletClients.get(homeChain.chainId);
+    if (!homeWalletClient) {
+      throw new Error(`No wallet client provided for home chain ${homeChain.chainId}`);
+    }
+    const homeDeployment = await this.deployHomeChain(homeWalletClient);
     deployments.push(homeDeployment);
     deterministicAddresses[homeChain.chainId] = homeDeployment.token;
 
@@ -122,7 +125,7 @@ export class MultiChainLauncher {
       );
     }
 
-    const solanaChain = this.config.chains.find((c) => c.chainType === 'svm');
+    const solanaChain = this.config.chains.find((c) => c.chainType === 'solana');
     if (solanaChain) {
       this.updateProgress(
         'Deploy on Solana',
@@ -153,15 +156,23 @@ export class MultiChainLauncher {
     );
 
     for (const allocation of this.config.liquidity.allocations) {
+      const walletClient = walletClients.get(allocation.chainId);
+      if (!walletClient) {
+        throw new Error(`No wallet client provided for chain ${allocation.chainId}`);
+      }
+      const deployment = deployments.find((d) => d.chainId === allocation.chainId);
+      if (!deployment) {
+        throw new Error(`No deployment found for chain ${allocation.chainId}`);
+      }
       this.updateProgress(
         `Deploy liquidity on chain ${allocation.chainId}`,
         allocation.chainId,
         'in_progress'
       );
       await this.deployLiquidityInternal(
-        walletClients.get(allocation.chainId)!,
+        walletClient,
         allocation.chainId,
-        deployments.find((d) => d.chainId === allocation.chainId)!
+        deployment
       );
       this.updateProgress(
         `Deploy liquidity on chain ${allocation.chainId}`,
@@ -183,7 +194,10 @@ export class MultiChainLauncher {
     walletClient: WalletClient
   ): Promise<ChainDeployment> {
     const homeChain = getHomeChain();
-    const publicClient = this.clients.get(homeChain.chainId)!;
+    const publicClient = this.clients.get(homeChain.chainId);
+    if (!publicClient) {
+      throw new Error(`No public client for home chain ${homeChain.chainId}`);
+    }
     const txHashes: Hex[] = [];
 
     // 1. Deploy Token
@@ -293,7 +307,10 @@ export class MultiChainLauncher {
     walletClient: WalletClient,
     _homeTokenAddress: Address
   ): Promise<ChainDeployment> {
-    const publicClient = this.clients.get(chain.chainId)!;
+    const publicClient = this.clients.get(chain.chainId);
+    if (!publicClient) {
+      throw new Error(`No public client for chain ${chain.chainId}`);
+    }
     const txHashes: Hex[] = [];
 
     // 1. Deploy Token (synthetic - no initial supply)
@@ -436,7 +453,7 @@ export class MultiChainLauncher {
     remoteRouter: string
   ): Promise<void> {
     const domainId = this.getDomainId(remoteDomain);
-    const routerBytes32 = this.addressToBytes32(remoteRouter);
+    const routerBytes32 = addressToBytes32(remoteRouter);
 
     const abi = parseAbi([
       'function enrollRemoteRouter(uint32 domain, bytes32 router) external',
@@ -444,13 +461,14 @@ export class MultiChainLauncher {
 
     const account = walletClient.account;
     if (!account) throw new Error('WalletClient must have an account');
+    if (!walletClient.chain) throw new Error('WalletClient must have a chain configured');
 
     await walletClient.writeContract({
       address: localWarpRoute,
       abi,
       functionName: 'enrollRemoteRouter',
       args: [domainId, routerBytes32],
-      chain: walletClient.chain ?? null,
+      chain: walletClient.chain,
       account,
     });
   }
@@ -574,12 +592,14 @@ export class MultiChainLauncher {
       'function setInterchainGasPaymaster(address _igp) external',
     ]);
 
+    if (!walletClient.chain) throw new Error('WalletClient must have a chain configured');
+
     await walletClient.writeContract({
       address: result.address,
       abi,
       functionName: 'setInterchainGasPaymaster',
       args: [chain.hyperlaneIgp as Address],
-      chain: walletClient.chain ?? null,
+      chain: walletClient.chain,
       account,
     });
 
@@ -604,6 +624,8 @@ export class MultiChainLauncher {
     const treasuryBps = Math.round(fees.distribution.treasury * 100);
     const burnBps = Math.round(fees.distribution.burn * 100);
 
+    if (!walletClient.chain) throw new Error('WalletClient must have a chain configured');
+
     await walletClient.writeContract({
       address: tokenAddress,
       abi,
@@ -619,7 +641,7 @@ export class MultiChainLauncher {
         BigInt(maxWalletPercent),
         BigInt(maxTxPercent),
       ],
-      chain: walletClient.chain ?? null,
+      chain: walletClient.chain,
       account,
     });
   }
@@ -637,12 +659,14 @@ export class MultiChainLauncher {
       'function setBurner(address burner, bool authorized) external',
     ]);
 
+    if (!walletClient.chain) throw new Error('WalletClient must have a chain configured');
+
     await walletClient.writeContract({
       address: tokenAddress,
       abi,
       functionName: 'setMinter',
       args: [warpRouteAddress, true],
-      chain: walletClient.chain ?? null,
+      chain: walletClient.chain,
       account,
     });
 
@@ -651,7 +675,7 @@ export class MultiChainLauncher {
       abi,
       functionName: 'setBurner',
       args: [warpRouteAddress, true],
-      chain: walletClient.chain ?? null,
+      chain: walletClient.chain,
       account,
     });
   }
@@ -663,17 +687,12 @@ export class MultiChainLauncher {
     return chainId;
   }
 
-  private addressToBytes32(address: string): Hex {
-    const clean = address.toLowerCase().replace('0x', '');
-    return `0x${clean.padStart(64, '0')}` as Hex;
-  }
-
   private calculateTotalSteps(): number {
     let steps = 1; // Home chain
     steps += this.config.chains.filter(
       (c) => !c.isHomeChain && c.chainType === 'evm'
     ).length;
-    if (this.config.chains.some((c) => c.chainType === 'svm')) steps += 1;
+    if (this.config.chains.some((c) => c.chainType === 'solana')) steps += 1;
     steps += 1; // Hyperlane config
     steps += this.config.liquidity.allocations.length;
     return steps;

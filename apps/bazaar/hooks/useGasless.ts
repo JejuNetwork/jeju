@@ -20,6 +20,8 @@ import {
   parseEther,
   encodePacked,
 } from 'viem'
+import { AddressSchema } from '@jejunetwork/types/contracts'
+import { expect } from '@/lib/validation'
 import { getGameContracts } from '@/config/contracts'
 import { JEJU_CHAIN_ID } from '@/config/chains'
 
@@ -130,24 +132,28 @@ export function useSponsorshipStatus(): SponsorshipStatus & { isLoading: boolean
       setIsLoading(false)
       return
     }
+    
+    const validatedAddress = expect(address, 'Address is required');
+    const validatedPublicClient = expect(publicClient, 'Public client is required');
+    const validatedPaymasterAddress = expect(paymasterAddress, 'Paymaster address is required');
 
     setIsLoading(true)
 
     // Check paymaster status
     const [paymasterStatus, remaining, maxTx] = await Promise.all([
-      publicClient.readContract({
-        address: paymasterAddress,
+      validatedPublicClient.readContract({
+        address: validatedPaymasterAddress,
         abi: SPONSORED_PAYMASTER_ABI,
         functionName: 'getStatus',
       }).catch(() => null),
-      publicClient.readContract({
-        address: paymasterAddress,
+      validatedPublicClient.readContract({
+        address: validatedPaymasterAddress,
         abi: SPONSORED_PAYMASTER_ABI,
         functionName: 'getRemainingTx',
-        args: [address],
+        args: [validatedAddress],
       }).catch(() => 0n),
-      publicClient.readContract({
-        address: paymasterAddress,
+      validatedPublicClient.readContract({
+        address: validatedPaymasterAddress,
         abi: SPONSORED_PAYMASTER_ABI,
         functionName: 'maxTxPerUserPerHour',
       }).catch(() => 100n),
@@ -160,6 +166,7 @@ export function useSponsorshipStatus(): SponsorshipStatus & { isLoading: boolean
         maxTxPerHour: Number(maxTx),
         reason: 'Paymaster not deployed',
       })
+      setIsLoading(false)
       setIsLoading(false)
       return
     }
@@ -244,13 +251,10 @@ export function useGaslessWrite<TAbi extends Abi>(): {
       functionName: string
       args?: readonly unknown[]
     }): Promise<`0x${string}` | null> => {
-      if (!address || !publicClient || !walletClient) {
-        setResult((prev) => ({
-          ...prev,
-          error: new Error('Wallet not connected'),
-        }))
-        return null
-      }
+      const validatedAddress = expect(address, 'Wallet not connected');
+      const validatedPublicClient = expect(publicClient, 'Public client not available');
+      const validatedWalletClient = expect(walletClient, 'Wallet client not available');
+      AddressSchema.parse(params.address);
 
       setResult({
         hash: undefined,
@@ -270,11 +274,12 @@ export function useGaslessWrite<TAbi extends Abi>(): {
       // Check if we can use gasless
       let canUseGasless = false
       if (sponsorship.isAvailable && paymasterAddress) {
-        const [canSponsor] = await publicClient.readContract({
-          address: paymasterAddress,
+        const validatedPaymasterAddress = expect(paymasterAddress, 'Paymaster address is required');
+        const [canSponsor] = await validatedPublicClient.readContract({
+          address: validatedPaymasterAddress,
           abi: SPONSORED_PAYMASTER_ABI,
           functionName: 'canSponsor',
-          args: [address, params.address, parseEther('0.005')], // Estimate ~0.005 ETH gas
+          args: [validatedAddress, params.address, parseEther('0.005')], // Estimate ~0.005 ETH gas
         }).catch(() => [false, 'Error checking sponsorship'])
 
         canUseGasless = canSponsor as boolean
@@ -282,12 +287,13 @@ export function useGaslessWrite<TAbi extends Abi>(): {
 
       // If bundler is available and sponsorship works, use ERC-4337
       if (canUseGasless && BUNDLER_URL && paymasterAddress) {
+        const validatedPaymasterAddress = expect(paymasterAddress, 'Paymaster address is required');
         const hash = await submitViaUserOperation(
-          address,
+          validatedAddress,
           params.address,
           callData,
-          paymasterAddress,
-          publicClient
+          validatedPaymasterAddress,
+          validatedPublicClient
         )
 
         if (hash) {
@@ -304,14 +310,14 @@ export function useGaslessWrite<TAbi extends Abi>(): {
       }
 
       // Fallback: Regular transaction (user pays gas)
-      const hash = await walletClient.sendTransaction({
+      const hash = await validatedWalletClient.sendTransaction({
         to: params.address,
         data: callData,
-        account: address,
+        account: validatedAddress,
       })
 
       // Wait for confirmation
-      const receipt = await publicClient.waitForTransactionReceipt({ hash })
+      const receipt = await validatedPublicClient.waitForTransactionReceipt({ hash })
 
       setResult({
         hash,

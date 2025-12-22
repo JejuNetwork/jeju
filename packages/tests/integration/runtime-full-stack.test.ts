@@ -147,7 +147,7 @@ describe.skipIf(!servicesAvailable)('Runtime Full Stack Integration', () => {
   let l2Client: ReturnType<typeof createPublicClient>;
   let deployerWallet: ReturnType<typeof createWalletClient>;
   let deployerAccount: ReturnType<typeof privateKeyToAccount>;
-  const deployedContracts: DeployedContracts = {};
+  const _deployedContracts: DeployedContracts = {};
 
   beforeAll(async () => {
     console.log('\n🔍 Checking service availability...\n');
@@ -566,7 +566,7 @@ describe.skipIf(!servicesAvailable)('Runtime Full Stack Integration', () => {
           console.log(`   Contracts:     ${stats.contracts}`);
           console.log(`   Accounts:      ${stats.accounts}`);
           console.log('');
-        } catch (error) {
+        } catch (_error) {
           console.log('📊 Indexer Statistics: Not available\n');
         }
       }
@@ -603,7 +603,7 @@ async function checkService(name: string, url: string): Promise<boolean> {
       console.log(`✅ ${name}: Running`);
       return true;
     }
-  } catch (error) {
+  } catch (_error) {
     console.log(`❌ ${name}: Not available`);
   }
   
@@ -637,7 +637,7 @@ async function checkGraphQL(name: string, url: string): Promise<boolean> {
       console.log(`✅ ${name}: Running`);
       return true;
     }
-  } catch (error) {
+  } catch (_error) {
     console.log(`⏭️  ${name}: Not running (optional)`);
   }
   
@@ -647,7 +647,7 @@ async function checkGraphQL(name: string, url: string): Promise<boolean> {
 /**
  * Check if PostgreSQL database is available
  */
-async function checkDatabase(name: string, url: string): Promise<boolean> {
+async function checkDatabase(name: string, _url: string): Promise<boolean> {
   try {
     const { exec } = await import('child_process');
     const { promisify } = await import('util');
@@ -656,7 +656,7 @@ async function checkDatabase(name: string, url: string): Promise<boolean> {
     await execAsync('docker ps | grep squid-db-1', { timeout: 2000 });
     console.log(`✅ ${name}: Running`);
     return true;
-  } catch (error) {
+  } catch (_error) {
     console.log(`⏭️  ${name}: Not running (optional)`);
     return false;
   }

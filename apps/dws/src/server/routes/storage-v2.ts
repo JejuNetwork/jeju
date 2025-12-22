@@ -12,6 +12,9 @@
 import { Hono } from 'hono';
 import { getMultiBackendManager, MultiBackendManager } from '../../storage/multi-backend';
 import type { ContentTier, ContentCategory, StorageBackendType } from '../../storage/types';
+import { validateParams, validateQuery, validateHeaders, validateBody, cidSchema, regionHeaderSchema, z } from '../../shared';
+import { extractClientRegion } from '../../shared/utils/common';
+import { uploadV2JsonRequestSchema, downloadV2QuerySchema, contentListQuerySchema, popularContentQuerySchema, underseededContentQuerySchema, regionalParamsSchema, torrentParamsSchema, arweaveParamsSchema, contentTierSchema, contentCategorySchema, storageBackendTypeSchema } from '../../shared/schemas/storage';
 
 export function createStorageRouterV2(): Hono {
   const router = new Hono();
@@ -48,18 +51,20 @@ export function createStorageRouterV2(): Hono {
     const formData = await c.req.formData();
     const file = formData.get('file');
     if (!(file instanceof File)) {
-      return c.json({ error: 'file required' }, 400);
+      throw new Error('file required');
     }
 
     const content = Buffer.from(await file.arrayBuffer());
     
-    // Parse options from form
-    const tier = (formData.get('tier') as ContentTier) ?? 'popular';
-    const category = (formData.get('category') as ContentCategory) ?? 'data';
+    // Parse and validate options from form
+    const tierRaw = formData.get('tier');
+    const tier = tierRaw ? expectValid(contentTierSchema, tierRaw) : 'popular';
+    const categoryRaw = formData.get('category');
+    const category = categoryRaw ? expectValid(contentCategorySchema, categoryRaw) : 'data';
     const encrypt = formData.get('encrypt') === 'true';
     const permanent = formData.get('permanent') === 'true';
     const backendsStr = formData.get('backends') as string | null;
-    const preferredBackends = backendsStr?.split(',').filter(Boolean) as StorageBackendType[] | undefined;
+    const preferredBackends = backendsStr?.split(',').filter(Boolean).map(b => expectValid(storageBackendTypeSchema, b)) as StorageBackendType[] | undefined;
     const accessPolicy = formData.get('accessPolicy') as string | undefined;
 
     const result = await manager.upload(content, {
@@ -112,12 +117,14 @@ export function createStorageRouterV2(): Hono {
     const formData = await c.req.formData();
     const file = formData.get('file');
     if (!(file instanceof File)) {
-      return c.json({ error: 'file required' }, 400);
+      throw new Error('file required');
     }
 
     const content = Buffer.from(await file.arrayBuffer());
-    const tier = (formData.get('tier') as ContentTier) ?? 'popular';
-    const category = (formData.get('category') as ContentCategory) ?? 'data';
+    const tierRaw = formData.get('tier');
+    const tier = tierRaw ? expectValid(contentTierSchema, tierRaw) : 'popular';
+    const categoryRaw = formData.get('category');
+    const category = categoryRaw ? expectValid(contentCategorySchema, categoryRaw) : 'data';
 
     const result = await manager.uploadPermanent(content, {
       filename: file.name,
@@ -134,21 +141,23 @@ export function createStorageRouterV2(): Hono {
   // ============================================================================
 
   router.get('/download/:cid', async (c) => {
-    const cid = c.req.param('cid');
-    const region = c.req.header('x-region') ?? c.req.header('cf-ipcountry') ?? 'unknown';
-    const preferredBackend = c.req.query('backend') as StorageBackendType | undefined;
-    const decrypt = c.req.query('decrypt') === 'true';
-    const decryptionKeyId = c.req.header('x-decryption-key-id');
+    const { cid } = validateParams(z.object({ cid: cidSchema }), c);
+    const { 'x-region': xRegion, 'cf-ipcountry': cfIpCountry } = validateHeaders(regionHeaderSchema, c);
+    const region = extractClientRegion(xRegion, cfIpCountry);
+    const { backend: preferredBackend, decrypt: decryptStr } = validateQuery(z.object({
+      backend: z.enum(['ipfs', 'arweave', 'webtorrent']).optional(),
+      decrypt: z.string().optional(),
+    }), c);
+    const decrypt = decryptStr === 'true';
+    const { 'x-decryption-key-id': decryptionKeyId } = validateHeaders(z.object({ 'x-decryption-key-id': z.string().optional() }), c);
 
     const result = await manager.download(cid, {
       region,
       preferredBackends: preferredBackend ? [preferredBackend] : undefined,
       decryptionKeyId: decrypt ? decryptionKeyId : undefined,
-    }).catch((e: Error) => ({ error: e.message }));
-
-    if ('error' in result) {
-      return c.json({ error: 'Not found' }, 404);
-    }
+    }).catch((e: Error) => {
+      throw new Error('Not found');
+    });
 
     const metadata = result.metadata;
     const contentType = metadata?.contentType ?? 'application/octet-stream';
@@ -166,7 +175,7 @@ export function createStorageRouterV2(): Hono {
   });
 
   router.get('/download/:cid/json', async (c) => {
-    const cid = c.req.param('cid');
+    const { cid } = validateParams(z.object({ cid: cidSchema }), c);
     const region = c.req.header('x-region') ?? 'unknown';
 
     const result = await manager.download(cid, { region }).catch((e: Error) => ({ error: e.message }));
@@ -184,11 +193,11 @@ export function createStorageRouterV2(): Hono {
   // ============================================================================
 
   router.get('/content/:cid', async (c) => {
-    const cid = c.req.param('cid');
+    const { cid } = validateParams(z.object({ cid: cidSchema }), c);
     const metadata = manager.getMetadata(cid);
 
     if (!metadata) {
-      return c.json({ error: 'Not found' }, 404);
+      throw new Error('Not found');
     }
 
     return c.json(metadata);
@@ -213,7 +222,7 @@ export function createStorageRouterV2(): Hono {
   });
 
   router.get('/exists/:cid', async (c) => {
-    const cid = c.req.param('cid');
+    const { cid } = validateParams(z.object({ cid: cidSchema }), c);
     const exists = await manager.exists(cid);
     return c.json({ cid, exists });
   });
@@ -223,7 +232,7 @@ export function createStorageRouterV2(): Hono {
   // ============================================================================
 
   router.get('/popular', async (c) => {
-    const limit = parseInt(c.req.query('limit') ?? '100', 10);
+    const { limit } = validateQuery(popularContentQuerySchema, c);
     const popular = manager.getPopularContent(limit);
     return c.json({ items: popular });
   });
@@ -235,7 +244,7 @@ export function createStorageRouterV2(): Hono {
   });
 
   router.get('/regional/:region', async (c) => {
-    const region = c.req.param('region');
+    const { region } = validateParams(regionalParamsSchema, c);
     const popularity = manager.getRegionalPopularity(region);
     return c.json(popularity);
   });
@@ -262,11 +271,11 @@ export function createStorageRouterV2(): Hono {
   });
 
   router.get('/magnet/:cid', async (c) => {
-    const cid = c.req.param('cid');
+    const { cid } = validateParams(torrentParamsSchema, c);
     const metadata = manager.getMetadata(cid);
 
     if (!metadata || !metadata.addresses.magnetUri) {
-      return c.text('Magnet URI not found', 404);
+      throw new Error('Magnet URI not found');
     }
 
     // Return magnet URI as text for easy copy
@@ -307,7 +316,7 @@ export function createStorageRouterV2(): Hono {
     const formData = await c.req.formData();
     const file = formData.get('file');
     if (!(file instanceof File)) {
-      return c.json({ error: 'file required' }, 400);
+      throw new Error('file required');
     }
 
     const content = Buffer.from(await file.arrayBuffer());
@@ -344,14 +353,13 @@ export function createStorageRouterV2(): Hono {
   });
 
   router.get('/ipfs/:cid', async (c) => {
-    const cid = c.req.param('cid');
-    const region = c.req.header('x-region') ?? 'unknown';
+    const { cid } = validateParams(z.object({ cid: cidSchema }), c);
+    const { 'x-region': xRegion } = validateHeaders(regionHeaderSchema, c);
+    const region = xRegion ?? 'unknown';
 
-    const result = await manager.download(cid, { region }).catch((e: Error) => ({ error: e.message }));
-
-    if ('error' in result) {
-      return c.json({ error: 'Not found' }, 404);
-    }
+    const result = await manager.download(cid, { region }).catch((e: Error) => {
+      throw new Error('Not found');
+    });
 
     const contentType = result.metadata?.contentType ?? 'application/octet-stream';
 

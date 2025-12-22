@@ -79,12 +79,20 @@ export class RPCClient {
 
     if (await this.isGatewayAvailable()) {
       const response = await this.requestViaGateway<T>(chainId, request);
-      if (!response.error) return response.result as T;
+      if (!response.error) {
+        if (response.result === undefined) {
+          throw new Error(`RPC response missing result for method ${method}`);
+        }
+        return response.result;
+      }
     }
 
     const response = await this.requestViaFallback<T>(chainId, request);
     if (response.error) throw new Error(`RPC Error: ${response.error.message}`);
-    return response.result as T;
+    if (response.result === undefined) {
+      throw new Error(`RPC response missing result for method ${method}`);
+    }
+    return response.result;
   }
 
   private async requestViaGateway<T>(chainId: number, request: JsonRpcRequest): Promise<JsonRpcResponse<T>> {

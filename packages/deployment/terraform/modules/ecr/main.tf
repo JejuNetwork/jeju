@@ -68,6 +68,31 @@ variable "repositories" {
       name                 = "jeju/covenantsql"
       scan_on_push         = true
       image_tag_mutability = "MUTABLE"
+    },
+    {
+      name                 = "jeju/op-dispute-mon"
+      scan_on_push         = true
+      image_tag_mutability = "MUTABLE"
+    },
+    {
+      name                 = "jeju/op-supervisor"
+      scan_on_push         = true
+      image_tag_mutability = "MUTABLE"
+    },
+    {
+      name                 = "jeju/dws"
+      scan_on_push         = true
+      image_tag_mutability = "MUTABLE"
+    },
+    {
+      name                 = "jeju/compute"
+      scan_on_push         = true
+      image_tag_mutability = "MUTABLE"
+    },
+    {
+      name                 = "jeju/rpc-gateway"
+      scan_on_push         = true
+      image_tag_mutability = "MUTABLE"
     }
   ]
 }

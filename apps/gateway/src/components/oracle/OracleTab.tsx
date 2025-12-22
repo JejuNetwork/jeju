@@ -1,10 +1,16 @@
-import { useState } from 'react';
-import { Activity, TrendingUp, Users, Clock, DollarSign } from 'lucide-react';
+import { useState, type ComponentType } from 'react';
+import { Activity, TrendingUp, Users, Clock, DollarSign, type LucideProps } from 'lucide-react';
 import { formatEther } from 'viem';
 import { useFeedRegistry, useOracleNetworkStats, useOracleSubscriptions } from '../../hooks/useOracleNetwork';
 import { FeedsView } from './FeedsView';
 import { SubscriptionsView } from './SubscriptionsView';
 import { OperatorsView } from './OperatorsView';
+
+const ActivityIcon = Activity as ComponentType<LucideProps>;
+const TrendingUpIcon = TrendingUp as ComponentType<LucideProps>;
+const UsersIcon = Users as ComponentType<LucideProps>;
+const ClockIcon = Clock as ComponentType<LucideProps>;
+const DollarSignIcon = DollarSign as ComponentType<LucideProps>;
 
 type SubTab = 'feeds' | 'subscriptions' | 'operators';
 
@@ -20,7 +26,7 @@ export function OracleTab() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="card p-4">
           <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
-            <Activity size={14} />
+            <ActivityIcon size={14} />
             Active Feeds
           </div>
           <div className="text-2xl font-bold">{activeFeeds}</div>
@@ -31,7 +37,7 @@ export function OracleTab() {
 
         <div className="card p-4">
           <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
-            <Users size={14} />
+            <UsersIcon size={14} />
             Your Subscriptions
           </div>
           <div className="text-2xl font-bold">{subscriptionIds.length}</div>
@@ -42,7 +48,7 @@ export function OracleTab() {
 
         <div className="card p-4">
           <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
-            <DollarSign size={14} />
+            <DollarSignIcon size={14} />
             Total Fees
           </div>
           <div className="text-2xl font-bold">
@@ -55,7 +61,7 @@ export function OracleTab() {
 
         <div className="card p-4">
           <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
-            <Clock size={14} />
+            <ClockIcon size={14} />
             Current Epoch
           </div>
           <div className="text-2xl font-bold">{currentEpoch?.toString() ?? '1'}</div>
@@ -76,7 +82,7 @@ export function OracleTab() {
           onClick={() => setActiveSubTab('feeds')}
         >
           <div className="flex items-center gap-2">
-            <TrendingUp size={16} />
+            <TrendingUpIcon size={16} />
             Price Feeds
           </div>
         </button>
@@ -89,7 +95,7 @@ export function OracleTab() {
           onClick={() => setActiveSubTab('subscriptions')}
         >
           <div className="flex items-center gap-2">
-            <DollarSign size={16} />
+            <DollarSignIcon size={16} />
             Subscriptions
           </div>
         </button>
@@ -102,7 +108,7 @@ export function OracleTab() {
           onClick={() => setActiveSubTab('operators')}
         >
           <div className="flex items-center gap-2">
-            <Users size={16} />
+            <UsersIcon size={16} />
             Operators
           </div>
         </button>

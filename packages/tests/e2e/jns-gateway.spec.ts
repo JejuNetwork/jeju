@@ -13,8 +13,8 @@
 
 import { testWithSynpress } from '@synthetixio/synpress';
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
-import { createPublicClient, http, type Address } from 'viem';
-import { createWalletSetup, PASSWORD, TEST_WALLET_ADDRESS } from '../shared/synpress.config.base';
+import { createPublicClient, http } from 'viem';
+import { createWalletSetup, PASSWORD } from '../shared/synpress.config.base';
 
 const basicSetup = createWalletSetup();
 const test = testWithSynpress(metaMaskFixtures(basicSetup));
@@ -31,7 +31,7 @@ const chain = {
   rpcUrls: { default: { http: [RPC_URL] } },
 };
 
-const publicClient = createPublicClient({
+const _publicClient = createPublicClient({
   chain,
   transport: http(RPC_URL),
 });
@@ -89,7 +89,7 @@ test.describe('Wake Page Tests', () => {
     await page.goto(`${JNS_GATEWAY_URL}/health`);
 
     // Check page structure is valid
-    await expect(page).toHaveTitle(|Network|Gateway/i);
+    await expect(page).toHaveTitle(/Network|Gateway/i);
 
     console.log('✅ Gateway page loads correctly');
   });
@@ -169,7 +169,7 @@ test.describe('Health Check Standard', () => {
   test('should respond to standard health endpoints', async ({ page }) => {
     // Test /health
     await page.goto(`${JNS_GATEWAY_URL}/health`);
-    let response = JSON.parse(await page.textContent('body') || '{}');
+    const response = JSON.parse(await page.textContent('body') || '{}');
     expect(response.status).toBe('healthy');
     expect(response.service).toBeTruthy();
 

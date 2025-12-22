@@ -20,6 +20,12 @@ export * from './deployer';
 // Integration helpers
 export * from './integration';
 
+// Validation (Zod schemas)
+export * from './validation';
+
+// Utility functions
+export * from './utils';
+
 // Type definitions
 export * from './types';
 

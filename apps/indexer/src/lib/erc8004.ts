@@ -2,12 +2,15 @@
  * ERC-8004 Registry Integration for Indexer
  */
 
-import { createPublicClient, http, parseAbi, type Address } from 'viem';
+import { createPublicClient, http, parseAbi, type Address, type PublicClient } from 'viem';
 import { inferChainFromRpcUrl } from './chain-utils';
+import { addressSchema, validateOrThrow } from './validation';
 
+// Helper to read contract with proper typing for the indexer's use case
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function readContract<T>(client: any, params: { address: Address; abi: readonly unknown[]; functionName: string; args?: readonly unknown[] }): Promise<T> {
-  return client.readContract(params) as Promise<T>;
+async function readContract<T>(client: PublicClient, params: { address: Address; abi: readonly any[]; functionName: string; args?: readonly unknown[] }): Promise<T> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return client.readContract(params as any) as Promise<T>;
 }
 
 const IDENTITY_REGISTRY_ABI = parseAbi([
@@ -32,6 +35,12 @@ function getPublicClient() {
 }
 
 export async function checkUserBan(userAddress: string): Promise<BanCheckResult> {
+  if (!userAddress || typeof userAddress !== 'string') {
+    throw new Error('userAddress is required and must be a string');
+  }
+  
+  validateOrThrow(addressSchema, userAddress, 'checkUserBan userAddress');
+  
   const banManagerAddress = process.env.BAN_MANAGER_ADDRESS;
   const identityRegistryAddress = process.env.IDENTITY_REGISTRY_ADDRESS;
   

@@ -5,7 +5,7 @@
  */
 
 import { Elysia } from "elysia";
-import { createLogger } from "../utils/logger.js";
+import { createLogger, EVMRPCResponseSchema, SolanaHealthResponseSchema } from "../utils/index.js";
 
 const log = createLogger("health");
 
@@ -214,7 +214,14 @@ export class HealthChecker {
 				return;
 			}
 
-			const data = (await response.json()) as { result?: string };
+			const json = await response.json();
+			const data = EVMRPCResponseSchema.parse(json);
+			
+			if (data.error) {
+				this.setComponentHealth(name, "unhealthy", latency, data.error.message);
+				return;
+			}
+			
 			if (data.result) {
 				this.metrics.evmBlockNumbers.set(chainId, BigInt(data.result));
 			}
@@ -255,7 +262,14 @@ export class HealthChecker {
 				return;
 			}
 
-			const data = (await response.json()) as { result?: string };
+			const json = await response.json();
+			const data = SolanaHealthResponseSchema.parse(json);
+			
+			if (data.error) {
+				this.setComponentHealth(name, "unhealthy", latency, data.error.message);
+				return;
+			}
+			
 			if (data.result === "ok") {
 				this.setComponentHealth(
 					name,

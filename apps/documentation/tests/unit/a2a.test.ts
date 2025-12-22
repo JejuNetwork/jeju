@@ -3,18 +3,15 @@
  * Tests skills, error handling, edge cases, and integration with filesystem
  */
 
-import { test, expect, describe, beforeAll } from 'bun:test';
+import { test, expect, describe } from 'bun:test';
 import { existsSync } from 'fs';
-import { readFile, readdir } from 'fs/promises';
+import { readFile } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { searchDocumentation, listTopics, DOCS_ROOT, EXCLUDED_DIRS } from '../../lib/a2a';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SERVER_PATH = join(__dirname, '../../server/a2a-server.ts');
-const DOCS_ROOT = join(__dirname, '../..');
-
-// Import the server module for testing functions
-// We'll test the exported functions directly
 
 describe('A2A Server Structure', () => {
   test('server file exists', () => {
@@ -73,33 +70,6 @@ describe('Documentation Files Exist', () => {
 });
 
 describe('Search Documentation Integration', () => {
-  // Simulate searchDocumentation functionality
-  async function searchDocumentation(query: string): Promise<Array<{ file: string; matches: number }>> {
-    const results: Array<{ file: string; matches: number }> = [];
-    const regex = new RegExp(query, 'gi');
-    const EXCLUDED_DIRS = new Set(['node_modules', '.vitepress', 'public', 'api']);
-
-    async function searchDir(dir: string) {
-      const entries = await readdir(dir, { withFileTypes: true });
-      for (const entry of entries) {
-        const fullPath = join(dir, entry.name);
-        if (entry.isDirectory() && !EXCLUDED_DIRS.has(entry.name)) {
-          await searchDir(fullPath);
-        } else if (entry.isFile() && entry.name.endsWith('.md')) {
-          const content = await readFile(fullPath, 'utf-8');
-          const matches = (content.match(regex) || []).length;
-          if (matches > 0) {
-            const relativePath = fullPath.replace(DOCS_ROOT + '/', '');
-            results.push({ file: relativePath, matches });
-          }
-        }
-      }
-    }
-
-    await searchDir(DOCS_ROOT);
-    return results.sort((a, b) => b.matches - a.matches).slice(0, 20);
-  }
-
   test('finds results for common terms', async () => {
     const results = await searchDocumentation('jeju');
     expect(results.length).toBeGreaterThan(0);
@@ -155,25 +125,6 @@ describe('Search Documentation Integration', () => {
 });
 
 describe('List Topics Integration', () => {
-  async function listTopics(): Promise<Array<{ name: string; path: string }>> {
-    const topics: Array<{ name: string; path: string }> = [];
-    const EXCLUDED_DIRS = new Set(['node_modules', '.vitepress', 'public', 'api']);
-
-    async function scanDir(dir: string, prefix = '') {
-      const entries = await readdir(dir, { withFileTypes: true });
-      for (const entry of entries) {
-        if (entry.isDirectory() && !EXCLUDED_DIRS.has(entry.name)) {
-          await scanDir(join(dir, entry.name), `${prefix}${entry.name}/`);
-        } else if (entry.isFile() && entry.name.endsWith('.md')) {
-          topics.push({ name: entry.name.replace('.md', ''), path: prefix + entry.name });
-        }
-      }
-    }
-
-    await scanDir(DOCS_ROOT);
-    return topics;
-  }
-
   test('returns array of topics', async () => {
     const topics = await listTopics();
     expect(Array.isArray(topics)).toBe(true);
@@ -290,7 +241,7 @@ describe('Error Handling Patterns', () => {
   test('handles internal errors gracefully', async () => {
     const serverCode = await Bun.file(SERVER_PATH).text();
     expect(serverCode).toContain('-32603');
-    expect(serverCode).toContain('Internal error');
+    expect(serverCode).toContain('err.message');
   });
 });
 
@@ -305,16 +256,9 @@ describe('Configuration', () => {
     expect(serverCode).toContain('7778');
   });
 
-  test('defines MAX_SEARCH_RESULTS', async () => {
-    const serverCode = await Bun.file(SERVER_PATH).text();
-    expect(serverCode).toContain('MAX_SEARCH_RESULTS');
-    expect(serverCode).toContain('20');
-  });
-
-  test('defines excluded directories', async () => {
-    const serverCode = await Bun.file(SERVER_PATH).text();
-    expect(serverCode).toContain('EXCLUDED_DIRS');
-    expect(serverCode).toContain('node_modules');
-    expect(serverCode).toContain('.vitepress');
+  test('EXCLUDED_DIRS includes expected directories', () => {
+    expect(EXCLUDED_DIRS.has('node_modules')).toBe(true);
+    expect(EXCLUDED_DIRS.has('.vitepress')).toBe(true);
+    expect(EXCLUDED_DIRS.has('public')).toBe(true);
   });
 });

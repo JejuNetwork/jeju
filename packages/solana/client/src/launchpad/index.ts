@@ -9,7 +9,6 @@ import {
   PublicKey,
   Keypair,
   SystemProgram,
-  Transaction,
   TransactionInstruction,
   LAMPORTS_PER_SOL,
 } from '@solana/web3.js';
@@ -19,7 +18,6 @@ import {
   getAssociatedTokenAddress,
   createAssociatedTokenAccountInstruction,
 } from '@solana/spl-token';
-import { Program, AnchorProvider, BN, Wallet, Idl } from '@coral-xyz/anchor';
 
 // Program ID - matches Anchor.toml
 export const LAUNCHPAD_PROGRAM_ID = new PublicKey('6q2T4SEeE2U4XsFNa5piNy6Vzv2qvdZXmAHhQH7BYVJd');

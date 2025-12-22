@@ -20,10 +20,38 @@ import {
   createPktLines,
   createFlushPkt,
 } from '../../git/pack';
-import type { CreateRepoRequest, GitRef, CreateIssueRequest, UpdateIssueRequest, CreatePRRequest, UpdatePRRequest as _UpdatePRRequest, Repository } from '../../git/types';
+import type { GitRef } from '../../git/types';
 import { trackGitContribution } from '../../git/leaderboard-integration';
+import { validateBody, validateParams, validateQuery, validateHeaders, z, paginationQuerySchema, jejuAddressHeaderSchema, createRepoRequestSchema, repoParamsSchema, userReposParamsSchema, repoListQuerySchema, createIssueRequestSchema, updateIssueRequestSchema, issueParamsSchema, createPRRequestSchema, prParamsSchema, starParamsSchema, forkParamsSchema, createIssueCommentRequestSchema } from '../../shared';
 
 const GIT_AGENT = 'jeju-git/1.0.0';
+
+// Query schemas for search and pagination
+const searchRepositoriesQuerySchema = z.object({
+  q: z.string().default(''),
+  sort: z.enum(['stars', 'forks', 'updated']).optional(),
+  page: z.coerce.number().int().positive().default(1),
+  per_page: z.coerce.number().int().positive().max(100).default(30),
+});
+
+const searchQuerySchema = z.object({
+  q: z.string().default(''),
+  page: z.coerce.number().int().positive().default(1),
+  per_page: z.coerce.number().int().positive().max(100).default(30),
+});
+
+const commitsQuerySchema = z.object({
+  ref: z.string().default('main'),
+  limit: z.coerce.number().int().positive().max(100).default(20),
+});
+
+const contentsQuerySchema = z.object({
+  ref: z.string().default('main'),
+});
+
+const outboxQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+});
 
 interface GitContext {
   repoManager: GitRepoManager;
@@ -50,27 +78,10 @@ export function createGitRouter(ctx: GitContext): Hono {
   // ============ Repository CRUD ============
 
   router.get('/repos', async (c) => {
-    const offset = parseInt(c.req.query('offset') || '0');
-    const limit = parseInt(c.req.query('limit') || '20');
+    const { offset, limit } = validateQuery(repoListQuerySchema, c);
     
-    // Try blockchain first, fallback to empty list if unavailable
-    let repos: Repository[] = [];
-    let total = 0;
-    
-    try {
-      repos = await repoManager.getAllRepositories(offset, limit);
-      total = await repoManager.getRepositoryCount();
-    } catch (error) {
-      console.warn('[Git] Blockchain unavailable, returning empty repos list:', (error as Error).message);
-      // Return empty list when blockchain is unavailable
-      return c.json({
-        repositories: [],
-        total: 0,
-        offset,
-        limit,
-        warning: 'Blockchain unavailable - repository list from on-chain registry not accessible',
-      });
-    }
+    const repos = await repoManager.getAllRepositories(offset, limit);
+    const total = await repoManager.getRepositoryCount();
 
     return c.json({
       repositories: repos.map((r) => ({
@@ -93,11 +104,8 @@ export function createGitRouter(ctx: GitContext): Hono {
   });
 
   router.post('/repos', async (c) => {
-    const body = await c.req.json<CreateRepoRequest>();
-    const signer = c.req.header('x-jeju-address') as Address;
-
-    if (!signer) return c.json({ error: 'Missing x-jeju-address header' }, 401);
-    if (!body.name) return c.json({ error: 'Repository name is required' }, 400);
+    const body = await validateBody(createRepoRequestSchema, c);
+    const { 'x-jeju-address': signer } = validateHeaders(jejuAddressHeaderSchema, c);
 
     const result = await repoManager.createRepository(body, signer);
     trackGitContribution(signer, result.repoId as Hex, body.name, 'branch', { branch: 'main', message: 'Repository created' });
@@ -106,10 +114,11 @@ export function createGitRouter(ctx: GitContext): Hono {
   });
 
   router.get('/repos/:owner/:name', async (c) => {
-    const owner = c.req.param('owner') as Address;
-    const name = c.req.param('name');
+    const { owner, name } = validateParams(repoParamsSchema, c);
     const repo = await repoManager.getRepositoryByName(owner, name);
-    if (!repo) return c.json({ error: 'Repository not found' }, 404);
+    if (!repo) {
+      throw new Error('Repository not found');
+    }
 
     const branches = await repoManager.getBranches(repo.repoId);
     const starCount = socialManager.getStarCount(repo.repoId);
@@ -139,42 +148,36 @@ export function createGitRouter(ctx: GitContext): Hono {
   });
 
   router.get('/users/:address/repos', async (c) => {
-    const address = c.req.param('address') as Address;
-    
-    try {
-      const repos = await repoManager.getUserRepositories(address);
-      return c.json({
-        repositories: repos.map((r) => ({
-          repoId: r.repoId,
-          owner: r.owner,
-          name: r.name,
-          description: r.description,
-          visibility: r.visibility === 0 ? 'public' : 'private',
-          starCount: Number(r.starCount),
-          createdAt: Number(r.createdAt),
-          cloneUrl: `${getBaseUrl(c)}/git/${r.owner}/${r.name}`,
-        })),
-      });
-    } catch (error) {
-      console.warn('[Git] Blockchain unavailable for user repos:', (error as Error).message);
-      return c.json({
-        repositories: [],
-        warning: 'Blockchain unavailable - user repositories not accessible',
-      });
-    }
+    const { address } = validateParams(userReposParamsSchema, c);
+    const repos = await repoManager.getUserRepositories(address);
+    return c.json({
+      repositories: repos.map((r) => ({
+        repoId: r.repoId,
+        owner: r.owner,
+        name: r.name,
+        description: r.description,
+        visibility: r.visibility === 0 ? 'public' : 'private',
+        starCount: Number(r.starCount),
+        createdAt: Number(r.createdAt),
+        cloneUrl: `${getBaseUrl(c)}/git/${r.owner}/${r.name}`,
+      })),
+    });
   });
 
   // ============ Issues API ============
 
   router.get('/:owner/:name/issues', async (c) => {
-    const owner = c.req.param('owner') as Address;
-    const name = c.req.param('name');
+    const { owner, name } = validateParams(repoParamsSchema, c);
     const repo = await repoManager.getRepositoryByName(owner, name);
-    if (!repo) return c.json({ error: 'Repository not found' }, 404);
+    if (!repo) {
+      throw new Error('Repository not found');
+    }
 
-    const state = c.req.query('state') as 'open' | 'closed' | 'all' | undefined;
-    const page = parseInt(c.req.query('page') || '1');
-    const perPage = parseInt(c.req.query('per_page') || '30');
+    const { state, page, per_page: perPage } = validateQuery(z.object({
+      state: z.enum(['open', 'closed', 'all']).optional(),
+      page: z.coerce.number().int().positive().default(1),
+      per_page: z.coerce.number().int().positive().max(100).default(30),
+    }), c);
 
     await issuesManager.getIssueIndex(repo.repoId, repo.metadataCid.slice(2));
     const result = await issuesManager.listIssues(repo.repoId, { state, page, perPage });
@@ -183,15 +186,15 @@ export function createGitRouter(ctx: GitContext): Hono {
   });
 
   router.post('/:owner/:name/issues', async (c) => {
-    const owner = c.req.param('owner') as Address;
-    const name = c.req.param('name');
-    const user = c.req.header('x-jeju-address') as Address;
-    if (!user) return c.json({ error: 'Authentication required' }, 401);
+    const { owner, name } = validateParams(repoParamsSchema, c);
+    const { 'x-jeju-address': user } = validateHeaders(jejuAddressHeaderSchema, c);
 
     const repo = await repoManager.getRepositoryByName(owner, name);
-    if (!repo) return c.json({ error: 'Repository not found' }, 404);
+    if (!repo) {
+      throw new Error('Repository not found');
+    }
 
-    const body = await c.req.json<CreateIssueRequest>();
+    const body = await validateBody(createIssueRequestSchema, c);
     await issuesManager.getIssueIndex(repo.repoId, repo.metadataCid.slice(2));
     const result = await issuesManager.createIssue(repo.repoId, user, body);
 
@@ -200,32 +203,33 @@ export function createGitRouter(ctx: GitContext): Hono {
     return c.json(result.issue, 201);
   });
 
-  router.get('/:owner/:name/issues/:number', async (c) => {
-    const owner = c.req.param('owner') as Address;
-    const name = c.req.param('name');
-    const issueNumber = parseInt(c.req.param('number'));
+  router.get('/:owner/:name/issues/:issueNumber', async (c) => {
+    const { owner, name, issueNumber } = validateParams(issueParamsSchema, c);
 
     const repo = await repoManager.getRepositoryByName(owner, name);
-    if (!repo) return c.json({ error: 'Repository not found' }, 404);
+    if (!repo) {
+      throw new Error('Repository not found');
+    }
 
     await issuesManager.getIssueIndex(repo.repoId, repo.metadataCid.slice(2));
     const issue = await issuesManager.getIssue(repo.repoId, issueNumber);
-    if (!issue) return c.json({ error: 'Issue not found' }, 404);
+    if (!issue) {
+      throw new Error('Issue not found');
+    }
 
     return c.json(issue);
   });
 
-  router.patch('/:owner/:name/issues/:number', async (c) => {
-    const owner = c.req.param('owner') as Address;
-    const name = c.req.param('name');
-    const issueNumber = parseInt(c.req.param('number'));
-    const user = c.req.header('x-jeju-address') as Address;
-    if (!user) return c.json({ error: 'Authentication required' }, 401);
+  router.patch('/:owner/:name/issues/:issueNumber', async (c) => {
+    const { owner, name, issueNumber } = validateParams(issueParamsSchema, c);
+    const { 'x-jeju-address': user } = validateHeaders(jejuAddressHeaderSchema, c);
 
     const repo = await repoManager.getRepositoryByName(owner, name);
-    if (!repo) return c.json({ error: 'Repository not found' }, 404);
+    if (!repo) {
+      throw new Error('Repository not found');
+    }
 
-    const body = await c.req.json<UpdateIssueRequest>();
+    const body = await validateBody(updateIssueRequestSchema, c);
     await issuesManager.getIssueIndex(repo.repoId, repo.metadataCid.slice(2));
     const result = await issuesManager.updateIssue(repo.repoId, issueNumber, user, body);
 
@@ -236,17 +240,16 @@ export function createGitRouter(ctx: GitContext): Hono {
     return c.json(result.issue);
   });
 
-  router.post('/:owner/:name/issues/:number/comments', async (c) => {
-    const owner = c.req.param('owner') as Address;
-    const name = c.req.param('name');
-    const issueNumber = parseInt(c.req.param('number'));
-    const user = c.req.header('x-jeju-address') as Address;
-    if (!user) return c.json({ error: 'Authentication required' }, 401);
+  router.post('/:owner/:name/issues/:issueNumber/comments', async (c) => {
+    const { owner, name, issueNumber } = validateParams(issueParamsSchema, c);
+    const { 'x-jeju-address': user } = validateHeaders(jejuAddressHeaderSchema, c);
 
     const repo = await repoManager.getRepositoryByName(owner, name);
-    if (!repo) return c.json({ error: 'Repository not found' }, 404);
+    if (!repo) {
+      throw new Error('Repository not found');
+    }
 
-    const { body: commentBody } = await c.req.json<{ body: string }>();
+    const { body: commentBody } = await validateBody(createIssueCommentRequestSchema, c);
     await issuesManager.getIssueIndex(repo.repoId, repo.metadataCid.slice(2));
     const result = await issuesManager.addComment(repo.repoId, issueNumber, user, commentBody);
 
@@ -256,14 +259,17 @@ export function createGitRouter(ctx: GitContext): Hono {
   // ============ Pull Requests API ============
 
   router.get('/:owner/:name/pulls', async (c) => {
-    const owner = c.req.param('owner') as Address;
-    const name = c.req.param('name');
+    const { owner, name } = validateParams(repoParamsSchema, c);
     const repo = await repoManager.getRepositoryByName(owner, name);
-    if (!repo) return c.json({ error: 'Repository not found' }, 404);
+    if (!repo) {
+      throw new Error('Repository not found');
+    }
 
-    const state = c.req.query('state') as 'open' | 'closed' | 'merged' | 'all' | undefined;
-    const page = parseInt(c.req.query('page') || '1');
-    const perPage = parseInt(c.req.query('per_page') || '30');
+    const { state, page, per_page: perPage } = validateQuery(z.object({
+      state: z.enum(['open', 'closed', 'merged', 'all']).optional(),
+      page: z.coerce.number().int().positive().default(1),
+      per_page: z.coerce.number().int().positive().max(100).default(30),
+    }), c);
 
     await pullRequestsManager.getPRIndex(repo.repoId, repo.metadataCid.slice(2));
     const result = await pullRequestsManager.listPRs(repo.repoId, { state, page, perPage });
@@ -272,15 +278,15 @@ export function createGitRouter(ctx: GitContext): Hono {
   });
 
   router.post('/:owner/:name/pulls', async (c) => {
-    const owner = c.req.param('owner') as Address;
-    const name = c.req.param('name');
-    const user = c.req.header('x-jeju-address') as Address;
-    if (!user) return c.json({ error: 'Authentication required' }, 401);
+    const { owner, name } = validateParams(repoParamsSchema, c);
+    const { 'x-jeju-address': user } = validateHeaders(jejuAddressHeaderSchema, c);
 
     const repo = await repoManager.getRepositoryByName(owner, name);
-    if (!repo) return c.json({ error: 'Repository not found' }, 404);
+    if (!repo) {
+      throw new Error('Repository not found');
+    }
 
-    const body = await c.req.json<CreatePRRequest>();
+    const body = await validateBody(createPRRequestSchema, c);
     await pullRequestsManager.getPRIndex(repo.repoId, repo.metadataCid.slice(2));
     const result = await pullRequestsManager.createPR(repo.repoId, user, body);
 
@@ -289,33 +295,36 @@ export function createGitRouter(ctx: GitContext): Hono {
     return c.json(result.pr, 201);
   });
 
-  router.get('/:owner/:name/pulls/:number', async (c) => {
-    const owner = c.req.param('owner') as Address;
-    const name = c.req.param('name');
-    const prNumber = parseInt(c.req.param('number'));
+  router.get('/:owner/:name/pulls/:prNumber', async (c) => {
+    const { owner, name, prNumber } = validateParams(prParamsSchema, c);
 
     const repo = await repoManager.getRepositoryByName(owner, name);
-    if (!repo) return c.json({ error: 'Repository not found' }, 404);
+    if (!repo) {
+      throw new Error('Repository not found');
+    }
 
     await pullRequestsManager.getPRIndex(repo.repoId, repo.metadataCid.slice(2));
     const pr = await pullRequestsManager.getPR(repo.repoId, prNumber);
-    if (!pr) return c.json({ error: 'Pull request not found' }, 404);
+    if (!pr) {
+      throw new Error('Pull request not found');
+    }
 
     return c.json(pr);
   });
 
-  router.post('/:owner/:name/pulls/:number/merge', async (c) => {
-    const owner = c.req.param('owner') as Address;
-    const name = c.req.param('name');
-    const prNumber = parseInt(c.req.param('number'));
-    const user = c.req.header('x-jeju-address') as Address;
-    if (!user) return c.json({ error: 'Authentication required' }, 401);
+  router.post('/:owner/:name/pulls/:prNumber/merge', async (c) => {
+    const { owner, name, prNumber } = validateParams(prParamsSchema, c);
+    const { 'x-jeju-address': user } = validateHeaders(jejuAddressHeaderSchema, c);
 
     const repo = await repoManager.getRepositoryByName(owner, name);
-    if (!repo) return c.json({ error: 'Repository not found' }, 404);
+    if (!repo) {
+      throw new Error('Repository not found');
+    }
 
     const hasWrite = await repoManager.hasWriteAccess(repo.repoId, user);
-    if (!hasWrite) return c.json({ error: 'Write access denied' }, 403);
+    if (!hasWrite) {
+      throw new Error('Write access denied');
+    }
 
     await pullRequestsManager.getPRIndex(repo.repoId, repo.metadataCid.slice(2));
     const result = await pullRequestsManager.mergePR(repo.repoId, prNumber, user);
@@ -328,39 +337,39 @@ export function createGitRouter(ctx: GitContext): Hono {
   // ============ Stars API ============
 
   router.get('/:owner/:name/stargazers', async (c) => {
-    const owner = c.req.param('owner') as Address;
-    const name = c.req.param('name');
+    const { owner, name } = validateParams(repoParamsSchema, c);
     const repo = await repoManager.getRepositoryByName(owner, name);
-    if (!repo) return c.json({ error: 'Repository not found' }, 404);
+    if (!repo) {
+      throw new Error('Repository not found');
+    }
 
-    const page = parseInt(c.req.query('page') || '1');
-    const perPage = parseInt(c.req.query('per_page') || '30');
+    const { page, per_page: perPage } = validateQuery(paginationQuerySchema, c);
 
     const result = await socialManager.getStargazers(repo.repoId, { page, perPage });
     return c.json(result);
   });
 
   router.put('/:owner/:name/star', async (c) => {
-    const owner = c.req.param('owner') as Address;
-    const name = c.req.param('name');
-    const user = c.req.header('x-jeju-address') as Address;
-    if (!user) return c.json({ error: 'Authentication required' }, 401);
+    const { owner, name } = validateParams(starParamsSchema, c);
+    const { 'x-jeju-address': user } = validateHeaders(jejuAddressHeaderSchema, c);
 
     const repo = await repoManager.getRepositoryByName(owner, name);
-    if (!repo) return c.json({ error: 'Repository not found' }, 404);
+    if (!repo) {
+      throw new Error('Repository not found');
+    }
 
     const result = await socialManager.starRepo(repo.repoId, user);
     return c.json(result, 200);
   });
 
   router.delete('/:owner/:name/star', async (c) => {
-    const owner = c.req.param('owner') as Address;
-    const name = c.req.param('name');
-    const user = c.req.header('x-jeju-address') as Address;
-    if (!user) return c.json({ error: 'Authentication required' }, 401);
+    const { owner, name } = validateParams(starParamsSchema, c);
+    const { 'x-jeju-address': user } = validateHeaders(jejuAddressHeaderSchema, c);
 
     const repo = await repoManager.getRepositoryByName(owner, name);
-    if (!repo) return c.json({ error: 'Repository not found' }, 404);
+    if (!repo) {
+      throw new Error('Repository not found');
+    }
 
     const result = await socialManager.unstarRepo(repo.repoId, user);
     return c.json(result, 200);
@@ -374,23 +383,19 @@ export function createGitRouter(ctx: GitContext): Hono {
     const repo = await repoManager.getRepositoryByName(owner, name);
     if (!repo) return c.json({ error: 'Repository not found' }, 404);
 
-    const page = parseInt(c.req.query('page') || '1');
-    const perPage = parseInt(c.req.query('per_page') || '30');
+    const { page, per_page: perPage } = validateQuery(paginationQuerySchema, c);
 
     const result = await socialManager.getForks(repo.repoId, { page, perPage });
     return c.json(result);
   });
 
   router.post('/:owner/:name/forks', async (c) => {
-    const owner = c.req.param('owner') as Address;
-    const name = c.req.param('name');
-    const user = c.req.header('x-jeju-address') as Address;
-    if (!user) return c.json({ error: 'Authentication required' }, 401);
-
+    const { owner, name } = validateParams(forkParamsSchema, c);
+    const { 'x-jeju-address': user } = validateHeaders(jejuAddressHeaderSchema, c);
     const repo = await repoManager.getRepositoryByName(owner, name);
-    if (!repo) return c.json({ error: 'Repository not found' }, 404);
+    if (!repo) throw new Error('Repository not found');
 
-    const { name: forkName } = await c.req.json<{ name?: string }>();
+    const { name: forkName } = await validateBody(z.object({ name: z.string().optional() }), c);
     const result = await socialManager.forkRepo(repo.repoId, user, { name: forkName });
 
     return c.json({ repoId: result.repo.repoId, cloneUrl: `${getBaseUrl(c)}/git/${user}/${result.repo.name}` }, 201);
@@ -399,29 +404,19 @@ export function createGitRouter(ctx: GitContext): Hono {
   // ============ Search API ============
 
   router.get('/search/repositories', async (c) => {
-    const q = c.req.query('q') || '';
-    const page = parseInt(c.req.query('page') || '1');
-    const perPage = parseInt(c.req.query('per_page') || '30');
-    const sort = c.req.query('sort') as 'stars' | 'forks' | 'updated' | undefined;
-
+    const { q, sort, page, per_page: perPage } = validateQuery(searchRepositoriesQuerySchema, c);
     const result = await searchManager.searchRepositories(q, { page, perPage, sort });
     return c.json(result);
   });
 
   router.get('/search/code', async (c) => {
-    const q = c.req.query('q') || '';
-    const page = parseInt(c.req.query('page') || '1');
-    const perPage = parseInt(c.req.query('per_page') || '30');
-
+    const { q, page, per_page: perPage } = validateQuery(searchQuerySchema, c);
     const result = await searchManager.searchCode(q, { page, perPage });
     return c.json(result);
   });
 
   router.get('/search/issues', async (c) => {
-    const q = c.req.query('q') || '';
-    const page = parseInt(c.req.query('page') || '1');
-    const perPage = parseInt(c.req.query('per_page') || '30');
-
+    const { q, page, per_page: perPage } = validateQuery(searchQuerySchema, c);
     const result = await searchManager.searchIssues(q, { page, perPage });
     return c.json(result);
   });
@@ -450,26 +445,27 @@ export function createGitRouter(ctx: GitContext): Hono {
     });
 
     router.get('/users/:username', async (c) => {
-      const username = c.req.param('username');
-      const accept = c.req.header('Accept') || '';
+      const { username } = validateParams(z.object({ username: z.string().min(1) }), c);
+      const { accept } = validateHeaders(z.object({ accept: z.string().optional() }), c);
+      const acceptHeader = accept || '';
 
-      if (!accept.includes('application/activity+json') && !accept.includes('application/ld+json')) {
+      if (!acceptHeader.includes('application/activity+json') && !acceptHeader.includes('application/ld+json')) {
         return c.redirect(`${getBaseUrl(c)}/${username}`);
       }
 
       const user = await socialManager.getUserByName(username);
-      if (!user) return c.json({ error: 'User not found' }, 404);
+      if (!user) throw new Error('User not found');
 
       const actor = federation.getUserActor(user);
       return c.json(actor, 200, { 'Content-Type': 'application/activity+json' });
     });
 
     router.post('/users/:username/inbox', async (c) => {
-      const username = c.req.param('username');
+      const { username } = validateParams(z.object({ username: z.string().min(1) }), c);
       const user = await socialManager.getUserByName(username);
-      if (!user) return c.json({ error: 'User not found' }, 404);
+      if (!user) throw new Error('User not found');
 
-      const activity = await c.req.json();
+      const activity = await validateBody(z.record(z.string(), z.unknown()), c);
       const actorUrl = `${getBaseUrl(c)}/users/${username}`;
       const result = await federation.handleInboxActivity(actorUrl, activity);
 
@@ -481,12 +477,12 @@ export function createGitRouter(ctx: GitContext): Hono {
     });
 
     router.get('/users/:username/outbox', async (c) => {
-      const username = c.req.param('username');
+      const { username } = validateParams(z.object({ username: z.string().min(1) }), c);
       const user = await socialManager.getUserByName(username);
       if (!user) return c.json({ error: 'User not found' }, 404);
 
       const actorUrl = `${getBaseUrl(c)}/users/${username}`;
-      const page = parseInt(c.req.query('page') || '1');
+      const { page } = validateQuery(outboxQuerySchema, c);
       const outbox = federation.getOutboxActivities(actorUrl, { page });
 
       return c.json(outbox, 200, { 'Content-Type': 'application/activity+json' });
@@ -668,10 +664,9 @@ export function createGitRouter(ctx: GitContext): Hono {
   });
 
   router.get('/:owner/:name/contents/*', async (c) => {
-    const owner = c.req.param('owner') as Address;
-    const name = c.req.param('name');
+    const { owner, name } = validateParams(repoParamsSchema, c);
     const path = c.req.path.split('/contents/')[1] || '';
-    const ref = c.req.query('ref') || 'main';
+    const { ref } = validateQuery(contentsQuerySchema, c);
 
     const repo = await repoManager.getRepositoryByName(owner, name);
     if (!repo) return c.json({ error: 'Repository not found' }, 404);
@@ -738,10 +733,8 @@ export function createGitRouter(ctx: GitContext): Hono {
   });
 
   router.get('/:owner/:name/commits', async (c) => {
-    const owner = c.req.param('owner') as Address;
-    const name = c.req.param('name');
-    const ref = c.req.query('ref') || 'main';
-    const limit = parseInt(c.req.query('limit') || '20');
+    const { owner, name } = validateParams(repoParamsSchema, c);
+    const { ref, limit } = validateQuery(commitsQuerySchema, c);
 
     const repo = await repoManager.getRepositoryByName(owner, name);
     if (!repo) return c.json({ error: 'Repository not found' }, 404);

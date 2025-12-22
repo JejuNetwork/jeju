@@ -10,7 +10,7 @@
 
 import { Command } from 'commander';
 import prompts from 'prompts';
-import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, statSync, cpSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, statSync } from 'fs';
 import { join, relative } from 'path';
 import chalk from 'chalk';
 import { execa } from 'execa';
@@ -39,7 +39,7 @@ const vendorSubcommand = new Command('vendor')
     await createVendorManifest(appName);
   });
 
-async function createVendorManifest(appName: string) {
+async function createVendorManifest(appName: string): Promise<void> {
   const rootDir = findMonorepoRoot();
   const scriptPath = join(rootDir, 'scripts/vendor/create-vendor-manifest.ts');
   

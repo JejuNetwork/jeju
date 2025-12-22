@@ -21,8 +21,26 @@ import {
 import {
   BountySeverity,
   BountySubmissionStatus,
-  type BountySubmissionDraft,
 } from './types';
+import {
+  BountySubmissionDraftSchema,
+  BugBountySubmitRequestSchema,
+  BugBountyVoteRequestSchema,
+  BugBountyCEODecisionRequestSchema,
+  BugBountyFixRequestSchema,
+  BugBountyDiscloseRequestSchema,
+  BugBountyCompleteValidationRequestSchema,
+  BugBountyListQuerySchema,
+} from './schemas';
+import {
+  parseAndValidateBody,
+  parseAndValidateQuery,
+  parseAndValidateParam,
+  parseBigInt,
+  successResponse,
+} from './validation';
+import { expect } from './schemas';
+import { z } from 'zod';
 
 // ============ Router ============
 
@@ -50,31 +68,28 @@ router.get('/stats', async (c) => {
 
 router.get('/submissions', async (c) => {
   const service = getBugBountyService();
+  const query = parseAndValidateQuery(c, BugBountyListQuerySchema, 'Bug bounty submissions query');
   
-  const statusParam = c.req.query('status');
-  const severity = c.req.query('severity');
-  const researcher = c.req.query('researcher') as Address | undefined;
-  const limit = parseInt(c.req.query('limit') ?? '50', 10);
-
   const filter: {
     status?: BountySubmissionStatus;
     severity?: BountySeverity;
     researcher?: Address;
   } = {};
 
-  if (statusParam !== undefined) {
-    filter.status = parseInt(statusParam, 10) as BountySubmissionStatus;
+  if (query.status !== undefined) {
+    filter.status = parseInt(query.status, 10) as BountySubmissionStatus;
   }
-  if (severity !== undefined) {
-    filter.severity = parseInt(severity, 10) as BountySeverity;
+  if (query.severity !== undefined) {
+    filter.severity = parseInt(query.severity, 10) as BountySeverity;
   }
-  if (researcher) {
-    filter.researcher = researcher;
+  if (query.researcher) {
+    filter.researcher = query.researcher;
   }
 
+  const limit = query.limit ?? 50;
   const submissions = service.list(filter).slice(0, limit);
 
-  return c.json({
+  return successResponse(c, {
     submissions: submissions.map(s => {
       const { stake, rewardAmount, researcherAgentId, ...rest } = s;
       return {
@@ -90,18 +105,16 @@ router.get('/submissions', async (c) => {
 
 router.get('/submissions/:id', async (c) => {
   const service = getBugBountyService();
-  const id = c.req.param('id');
+  const id = parseAndValidateParam(c, 'id', z.string().min(1), 'Submission ID');
   
   const submission = service.get(id);
-  if (!submission) {
-    return c.json({ error: 'Submission not found' }, 404);
-  }
+  expect(submission !== null && submission !== undefined, 'Submission not found');
 
   const votes = service.getGuardianVotes(id);
 
   const { stake, rewardAmount, researcherAgentId, ...submissionRest } = submission;
 
-  return c.json({
+  return successResponse(c, {
     submission: {
       ...submissionRest,
       stake: stake.toString(),
@@ -122,11 +135,9 @@ router.get('/submissions/:id', async (c) => {
 // ============ Assessment ============
 
 router.post('/assess', async (c) => {
-  const draft = await c.req.json() as BountySubmissionDraft;
-  
+  const draft = await parseAndValidateBody(c, BountySubmissionDraftSchema, 'Bounty submission assessment request');
   const assessment = assessSubmission(draft);
-
-  return c.json({
+  return successResponse(c, {
     ...assessment,
     estimatedReward: assessment.estimatedReward.toString(),
   });
@@ -136,27 +147,15 @@ router.post('/assess', async (c) => {
 
 router.post('/submit', async (c) => {
   const service = getBugBountyService();
-  const body = await c.req.json() as BountySubmissionDraft & {
-    researcher?: Address;
-    researcherAgentId?: string;
-  };
-
-  // Validate required fields
-  if (!body.title || !body.summary || !body.description) {
-    return c.json({ error: 'Missing required fields' }, 400);
-  }
-
-  if (body.severity === undefined || body.vulnType === undefined) {
-    return c.json({ error: 'Severity and vulnerability type required' }, 400);
-  }
+  const body = await parseAndValidateBody(c, BugBountySubmitRequestSchema, 'Bounty submission request');
 
   // Use placeholder if no wallet connected (would be handled by frontend)
-  const researcher = body.researcher ?? '0x0000000000000000000000000000000000000000' as Address;
-  const researcherAgentId = BigInt(body.researcherAgentId ?? '0');
+  const researcher = (body.researcher ?? '0x0000000000000000000000000000000000000000') as Address;
+  const researcherAgentId = parseBigInt(body.researcherAgentId ?? '0', 'Researcher agent ID');
 
   const submission = await service.submit(body, researcher, researcherAgentId);
 
-  return c.json({
+  return successResponse(c, {
     submissionId: submission.submissionId,
     status: submission.status,
     message: 'Submission received. Validation will begin shortly.',
@@ -167,17 +166,15 @@ router.post('/submit', async (c) => {
 
 router.post('/validate/:id', async (c) => {
   const service = getBugBountyService();
-  const id = c.req.param('id');
+  const id = parseAndValidateParam(c, 'id', z.string().min(1), 'Submission ID');
   
   const submission = service.get(id);
-  if (!submission) {
-    return c.json({ error: 'Submission not found' }, 404);
-  }
+  expect(submission !== null && submission !== undefined, 'Submission not found');
 
   // Trigger validation
   await service.triggerValidation(id);
 
-  return c.json({
+  return successResponse(c, {
     submissionId: id,
     status: 'validating',
     message: 'Validation started',
@@ -186,15 +183,12 @@ router.post('/validate/:id', async (c) => {
 
 router.post('/validate/:id/complete', async (c) => {
   const service = getBugBountyService();
-  const id = c.req.param('id');
-  const body = await c.req.json() as {
-    result: number;
-    notes: string;
-  };
+  const id = parseAndValidateParam(c, 'id', z.string().min(1), 'Submission ID');
+  const body = await parseAndValidateBody(c, BugBountyCompleteValidationRequestSchema, 'Complete validation request');
 
   const submission = service.completeValidation(id, body.result, body.notes);
 
-  return c.json({
+  return successResponse(c, {
     submissionId: id,
     status: submission.status,
     validationResult: submission.validationResult,
@@ -205,44 +199,39 @@ router.post('/validate/:id/complete', async (c) => {
 
 router.post('/vote/:id', async (c) => {
   const service = getBugBountyService();
-  const id = c.req.param('id');
-  const body = await c.req.json() as {
-    guardian: Address;
-    agentId: string;
-    approved: boolean;
-    suggestedReward: string;
-    feedback: string;
-  };
+  const id = parseAndValidateParam(c, 'id', z.string().min(1), 'Submission ID');
+  const body = await parseAndValidateBody(c, BugBountyVoteRequestSchema, 'Guardian vote request');
 
   const vote = service.guardianVote(
     id,
-    body.guardian,
-    BigInt(body.agentId),
+    body.guardian as Address,
+    parseBigInt(body.agentId, 'Agent ID'),
     body.approved,
-    BigInt(body.suggestedReward),
+    parseBigInt(body.suggestedReward, 'Suggested reward'),
     body.feedback
   );
 
   const submission = service.get(id);
+  expect(submission !== null && submission !== undefined, 'Submission not found');
 
-  return c.json({
+  return successResponse(c, {
     vote: {
       ...vote,
       suggestedReward: vote.suggestedReward.toString(),
     },
-    submissionStatus: submission?.status,
-    guardianApprovals: submission?.guardianApprovals,
-    guardianRejections: submission?.guardianRejections,
+    submissionStatus: submission.status,
+    guardianApprovals: submission.guardianApprovals,
+    guardianRejections: submission.guardianRejections,
   });
 });
 
 router.get('/votes/:id', async (c) => {
   const service = getBugBountyService();
-  const id = c.req.param('id');
+  const id = parseAndValidateParam(c, 'id', z.string().min(1), 'Submission ID');
   
   const votes = service.getGuardianVotes(id);
 
-  return c.json({
+  return successResponse(c, {
     votes: votes.map(v => ({
       ...v,
       suggestedReward: v.suggestedReward.toString(),
@@ -254,21 +243,17 @@ router.get('/votes/:id', async (c) => {
 
 router.post('/ceo-decision/:id', async (c) => {
   const service = getBugBountyService();
-  const id = c.req.param('id');
-  const body = await c.req.json() as {
-    approved: boolean;
-    rewardAmount: string;
-    notes: string;
-  };
+  const id = parseAndValidateParam(c, 'id', z.string().min(1), 'Submission ID');
+  const body = await parseAndValidateBody(c, BugBountyCEODecisionRequestSchema, 'CEO decision request');
 
   const submission = service.ceoDecision(
     id,
     body.approved,
-    BigInt(body.rewardAmount),
+    parseBigInt(body.rewardAmount, 'Reward amount'),
     body.notes
   );
 
-  return c.json({
+  return successResponse(c, {
     submissionId: id,
     status: submission.status,
     rewardAmount: submission.rewardAmount.toString(),
@@ -295,12 +280,12 @@ router.post('/payout/:id', async (c) => {
 
 router.post('/fix/:id', async (c) => {
   const service = getBugBountyService();
-  const id = c.req.param('id');
-  const body = await c.req.json() as { commitHash: string };
+  const id = parseAndValidateParam(c, 'id', z.string().min(1), 'Submission ID');
+  const body = await parseAndValidateBody(c, BugBountyFixRequestSchema, 'Fix record request');
 
   const submission = service.recordFix(id, body.commitHash);
 
-  return c.json({
+  return successResponse(c, {
     submissionId: id,
     fixCommitHash: submission.fixCommitHash,
     disclosureDate: submission.disclosureDate,
@@ -309,12 +294,12 @@ router.post('/fix/:id', async (c) => {
 
 router.post('/disclose/:id', async (c) => {
   const service = getBugBountyService();
-  const id = c.req.param('id');
-  const body = await c.req.json() as { researcher: Address };
+  const id = parseAndValidateParam(c, 'id', z.string().min(1), 'Submission ID');
+  const body = await parseAndValidateBody(c, BugBountyDiscloseRequestSchema, 'Disclosure request');
 
-  const submission = service.researcherDisclose(id, body.researcher);
+  const submission = service.researcherDisclose(id, body.researcher as Address);
 
-  return c.json({
+  return successResponse(c, {
     submissionId: id,
     researcherDisclosed: submission.researcherDisclosed,
     disclosureDate: submission.disclosureDate,
@@ -325,11 +310,11 @@ router.post('/disclose/:id', async (c) => {
 
 router.get('/researcher/:address', async (c) => {
   const service = getBugBountyService();
-  const address = c.req.param('address') as Address;
+  const address = parseAndValidateParam(c, 'address', z.string().regex(/^0x[a-fA-F0-9]{40}$/), 'Researcher address');
 
-  const stats = service.getResearcherStats(address);
+  const stats = service.getResearcherStats(address as Address);
 
-  return c.json({
+  return successResponse(c, {
     ...stats,
     totalEarned: stats.totalEarned.toString(),
   });
@@ -339,12 +324,10 @@ router.get('/researcher/:address', async (c) => {
 
 router.post('/ai-validate/:id', async (c) => {
   const service = getBugBountyService();
-  const id = c.req.param('id');
+  const id = parseAndValidateParam(c, 'id', z.string().min(1), 'Submission ID');
   
   const submission = service.get(id);
-  if (!submission) {
-    return c.json({ error: 'Submission not found' }, 404);
-  }
+  expect(submission !== null && submission !== undefined, 'Submission not found');
 
   const context: ValidationContext = {
     submissionId: submission.submissionId,
@@ -354,8 +337,8 @@ router.post('/ai-validate/:id', async (c) => {
     description: submission.description,
     affectedComponents: submission.affectedComponents,
     stepsToReproduce: submission.stepsToReproduce,
-    proofOfConcept: '', // Would be decrypted from encryptedReportCid
-    suggestedFix: submission.suggestedFix,
+    proofOfConcept: submission.proofOfConcept ?? '', // Would be decrypted from encryptedReportCid
+    suggestedFix: submission.suggestedFix ?? '',
   };
 
   const report = await validateSubmission(context);
@@ -363,7 +346,7 @@ router.post('/ai-validate/:id', async (c) => {
   // Update submission with validation result
   service.completeValidation(id, report.result, report.securityNotes.join('\n'));
 
-  return c.json({
+  return successResponse(c, {
     submissionId: id,
     result: report.result,
     confidence: report.confidence,

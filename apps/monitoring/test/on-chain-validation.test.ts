@@ -4,14 +4,10 @@
  */
 
 import { describe, test, expect } from 'bun:test';
+import type { GraphQLResponse, JsonRpcParams, JsonRpcResponse } from '../types';
 
 const INDEXER_GRAPHQL_URL = process.env.INDEXER_GRAPHQL_URL || 'http://localhost:4350/graphql';
 const RPC_URL = process.env.RPC_URL || 'http://localhost:9545';
-
-interface GraphQLResponse<T> {
-  data?: T;
-  errors?: Array<{ message: string }>;
-}
 
 async function graphqlQuery<T>(query: string): Promise<T> {
   const response = await fetch(INDEXER_GRAPHQL_URL, {
@@ -24,17 +20,20 @@ async function graphqlQuery<T>(query: string): Promise<T> {
   if (result.errors) {
     throw new Error(result.errors[0].message);
   }
-  return result.data!;
+  if (!result.data) {
+    throw new Error('GraphQL response missing data field');
+  }
+  return result.data;
 }
 
-async function rpcCall<T>(method: string, params: unknown[] = []): Promise<T> {
+async function rpcCall<T>(method: string, params: JsonRpcParams = []): Promise<T> {
   const response = await fetch(RPC_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ jsonrpc: '2.0', method, params, id: 1 })
   });
 
-  const result = await response.json() as { result: T; error?: { message: string } };
+  const result = await response.json() as JsonRpcResponse<T>;
   if (result.error) {
     throw new Error(result.error.message);
   }
@@ -63,7 +62,12 @@ describe('Block Count Validation', () => {
       return;
     }
 
-    const indexedBlockNumber = indexerData.blocks[0]?.number || 0;
+    const firstBlock = indexerData.blocks[0];
+    if (!firstBlock) {
+      console.log('⚠️ No blocks indexed yet - skipping validation');
+      return;
+    }
+    const indexedBlockNumber = firstBlock.number;
 
     console.log(`📊 On-chain: ${onChainBlockNumber}, Indexed: ${indexedBlockNumber}`);
 

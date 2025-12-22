@@ -5,6 +5,8 @@
 
 import type { PlatformAdapter, MessageHandler, SendMessageOptions, PlatformUserInfo, PlatformChannelInfo } from './types';
 import type { PlatformMessage, MessageEmbed, MessageButton, TwitterWebhookPayload } from '../types';
+import { z } from 'zod';
+import { expectValid, TwitterWebhookPayloadSchema, PlatformMessageSchema } from '../schemas';
 
 interface TwitterCredentials {
   apiKey: string;
@@ -81,26 +83,33 @@ export class TwitterAdapter implements PlatformAdapter {
   }
 
   async handleWebhook(payload: TwitterWebhookPayload): Promise<void> {
-    // Handle Account Activity API webhook (requires elevated access)
-    if (payload.tweet_create_events) {
-      for (const tweet of payload.tweet_create_events) {
-        if (this.isMention(tweet)) {
+    const validatedPayload = expectValid(TwitterWebhookPayloadSchema, payload, 'Twitter webhook');
+    
+    if (validatedPayload.tweet_create_events) {
+      for (const webhookTweet of validatedPayload.tweet_create_events) {
+        if (this.isMention(webhookTweet)) {
+          const tweet: Tweet = {
+            id: webhookTweet.id_str,
+            text: webhookTweet.text,
+            author_id: webhookTweet.user.id_str,
+            created_at: webhookTweet.created_at,
+            in_reply_to_user_id: webhookTweet.in_reply_to_status_id_str,
+          };
           await this.processTweet(tweet);
         }
       }
     }
     
-    if (payload.direct_message_events) {
-      for (const dm of payload.direct_message_events) {
-        if (dm.type === 'message_create' && dm.message_create.sender_id !== payload.for_user_id) {
+    if (validatedPayload.direct_message_events) {
+      for (const dm of validatedPayload.direct_message_events) {
+        if (dm.type === 'message_create' && dm.message_create.sender_id !== validatedPayload.for_user_id) {
           await this.processDirectMessage(dm);
         }
       }
     }
   }
 
-  async sendMessage(channelId: string, content: string, options?: SendMessageOptions): Promise<string> {
-    // channelId is either a tweet ID (for replies) or 'dm:user_id' for DMs
+  async sendMessage(channelId: string, content: string, _options?: SendMessageOptions): Promise<string> {
     if (channelId.startsWith('dm:')) {
       const recipientId = channelId.replace('dm:', '');
       return this.sendDirectMessage(recipientId, content);
@@ -110,26 +119,23 @@ export class TwitterAdapter implements PlatformAdapter {
   }
 
   async sendEmbed(channelId: string, embed: MessageEmbed, buttons?: MessageButton[]): Promise<string> {
-    // Twitter doesn't support embeds - format as text
     const content = this.formatEmbed(embed, buttons);
     return this.sendMessage(channelId, content);
   }
 
-  async replyToMessage(channelId: string, messageId: string, content: string, options?: SendMessageOptions): Promise<string> {
+  async replyToMessage(_channelId: string, messageId: string, content: string, _options?: SendMessageOptions): Promise<string> {
     return this.postTweet(content, messageId);
   }
 
-  async editMessage(channelId: string, messageId: string, content: string): Promise<void> {
-    // Twitter doesn't support editing tweets via API (as of 2024)
+  async editMessage(_channelId: string, _messageId: string, _content: string): Promise<void> {
     console.log('[Twitter] Tweet editing not supported');
   }
 
-  async deleteMessage(channelId: string, messageId: string): Promise<void> {
+  async deleteMessage(_channelId: string, messageId: string): Promise<void> {
     await this.deleteTweet(messageId);
   }
 
-  async addReaction(channelId: string, messageId: string, emoji: string): Promise<void> {
-    // Like the tweet
+  async addReaction(_channelId: string, messageId: string, _emoji: string): Promise<void> {
     await this.likeTweet(messageId);
   }
 
@@ -165,18 +171,36 @@ export class TwitterAdapter implements PlatformAdapter {
   // Private methods
 
   private async verifyCredentials(): Promise<TwitterUser | null> {
-    const response = await this.apiRequest('GET', '/users/me');
-    return response?.data ?? null;
+    const TwitterUserSchema = z.object({
+      id: z.string().min(1),
+      name: z.string().min(1),
+      username: z.string().min(1),
+      profile_image_url: z.string().url().optional(),
+    });
+    
+    const response = await this.apiRequest<z.infer<typeof TwitterUserSchema>>('GET', '/users/me');
+    if (!response?.data) {
+      return null;
+    }
+    
+    const validated = expectValid(TwitterUserSchema, response.data, 'Twitter credentials');
+    return validated as TwitterUser;
   }
 
   private startPolling(): void {
     // Poll every 15 seconds (rate limit friendly)
     this.pollingInterval = setInterval(() => {
-      this.pollMentions().catch(err => console.error('[Twitter] Poll error:', err));
+      this.pollMentions().catch((err: Error) => {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        console.error('[Twitter] Poll error:', errorMessage);
+      });
     }, 15000);
     
     // Initial poll
-    this.pollMentions().catch(err => console.error('[Twitter] Initial poll error:', err));
+    this.pollMentions().catch((err: Error) => {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.error('[Twitter] Initial poll error:', errorMessage);
+    });
   }
 
   private async pollMentions(): Promise<void> {
@@ -194,19 +218,32 @@ export class TwitterAdapter implements PlatformAdapter {
     
     if (response?.data) {
       // Process newest first, but update lastMentionId with the newest
-      const tweets = response.data as Tweet[];
+      const TweetArraySchema = z.array(z.object({
+        id: z.string().min(1),
+        text: z.string(),
+        author_id: z.string().min(1),
+        created_at: z.string(),
+        conversation_id: z.string().optional(),
+        in_reply_to_user_id: z.string().optional(),
+      }));
+      
+      const tweets = expectValid(TweetArraySchema, response.data ?? [], 'Twitter mentions');
       if (tweets.length > 0) {
         this.lastMentionId = tweets[0].id;
       }
       
       // Process in reverse order (oldest first)
       for (const tweet of tweets.reverse()) {
-        await this.processTweet(tweet);
+        await this.processTweet(tweet as Tweet);
       }
     }
   }
 
   private async processTweet(tweet: Tweet): Promise<void> {
+    if (!tweet.id || !tweet.author_id || !tweet.text) {
+      throw new Error('Invalid tweet: missing required fields');
+    }
+    
     // Extract command from tweet text
     const content = this.extractCommand(tweet.text);
     if (!content) return;
@@ -222,12 +259,18 @@ export class TwitterAdapter implements PlatformAdapter {
       replyToId: tweet.in_reply_to_user_id ? tweet.id : undefined,
     };
     
+    const validatedMessage = expectValid(PlatformMessageSchema, message, 'Twitter tweet message');
+    
     if (this.messageHandler) {
-      await this.messageHandler(message);
+      await this.messageHandler(validatedMessage);
     }
   }
 
   private async processDirectMessage(dm: { message_create: { sender_id: string; message_data: { text: string } } }): Promise<void> {
+    if (!dm.message_create?.sender_id || !dm.message_create?.message_data?.text) {
+      throw new Error('Invalid direct message: missing required fields');
+    }
+    
     const message: PlatformMessage = {
       platform: 'twitter',
       messageId: dm.message_create.sender_id + '-' + Date.now(),
@@ -238,8 +281,10 @@ export class TwitterAdapter implements PlatformAdapter {
       isCommand: true,
     };
     
+    const validatedMessage = expectValid(PlatformMessageSchema, message, 'Twitter DM message');
+    
     if (this.messageHandler) {
-      await this.messageHandler(message);
+      await this.messageHandler(validatedMessage);
     }
   }
 
@@ -268,8 +313,11 @@ export class TwitterAdapter implements PlatformAdapter {
       body.reply = { in_reply_to_tweet_id: replyToId };
     }
     
-    const response = await this.apiRequest('POST', '/tweets', body);
-    return response?.data?.id ?? '';
+    const response = await this.apiRequest<{ id: string }>('POST', '/tweets', body);
+    if (!response?.data?.id) {
+      throw new Error('Failed to post tweet: no ID returned');
+    }
+    return response.data.id;
   }
 
   private async deleteTweet(tweetId: string): Promise<void> {
@@ -289,13 +337,28 @@ export class TwitterAdapter implements PlatformAdapter {
       message: { text },
     };
     
-    const response = await this.apiRequest('POST', '/dm_conversations/with/:participant_id/messages', body);
-    return response?.data?.dm_event_id ?? '';
+    const response = await this.apiRequest<{ dm_event_id: string }>('POST', '/dm_conversations/with/:participant_id/messages', body);
+    if (!response?.data?.dm_event_id) {
+      throw new Error('Failed to send direct message: no event ID returned');
+    }
+    return response.data.dm_event_id;
   }
 
   private async fetchUser(userId: string): Promise<TwitterUser | null> {
-    const response = await this.apiRequest('GET', `/users/${userId}?user.fields=profile_image_url`);
-    return response?.data ?? null;
+    const TwitterUserSchema = z.object({
+      id: z.string().min(1),
+      name: z.string().min(1),
+      username: z.string().min(1),
+      profile_image_url: z.string().url().optional(),
+    });
+    
+    const response = await this.apiRequest<z.infer<typeof TwitterUserSchema>>('GET', `/users/${userId}?user.fields=profile_image_url`);
+    if (!response?.data) {
+      return null;
+    }
+    
+    const validated = expectValid(TwitterUserSchema, response.data, 'Twitter user');
+    return validated as TwitterUser;
   }
 
   private formatEmbed(embed: MessageEmbed, buttons?: MessageButton[]): string {
@@ -327,7 +390,7 @@ export class TwitterAdapter implements PlatformAdapter {
     return lines.join('\n');
   }
 
-  private async apiRequest(method: string, endpoint: string, body?: Record<string, unknown>): Promise<{ data?: unknown } | null> {
+  private async apiRequest<T = Record<string, unknown>>(method: string, endpoint: string, body?: Record<string, unknown>): Promise<{ data?: T } | null> {
     const url = `https://api.twitter.com/2${endpoint}`;
     
     const headers: Record<string, string> = {

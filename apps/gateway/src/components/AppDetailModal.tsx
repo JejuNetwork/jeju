@@ -1,8 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ComponentType } from 'react';
 import { useAccount } from 'wagmi';
-import { X, ExternalLink, Trash2, Edit, Github } from 'lucide-react';
+import { X, ExternalLink, Trash2, Edit, Github, type LucideProps } from 'lucide-react';
 import { useRegistryAppDetails, useRegistry, IDENTITY_REGISTRY_ADDRESS } from '../hooks/useRegistry';
 import GitHubReputationPanel from './GitHubReputationPanel';
+
+// Fix for Lucide React 19 type compatibility
+const XIcon = X as ComponentType<LucideProps>;
+const ExternalLinkIcon = ExternalLink as ComponentType<LucideProps>;
+const Trash2Icon = Trash2 as ComponentType<LucideProps>;
+const EditIcon = Edit as ComponentType<LucideProps>;
+const GithubIcon = Github as ComponentType<LucideProps>;
 
 interface AppDetailModalProps {
   agentId: bigint;
@@ -37,7 +44,7 @@ export default function AppDetailModal({ agentId, onClose }: AppDetailModalProps
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0, 0, 0, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }} onClick={onClose}>
       <div className="card" style={{ maxWidth: '600px', width: '100%', maxHeight: '90vh', overflow: 'auto', position: 'relative' }} onClick={(e) => e.stopPropagation()}>
         <button onClick={onClose} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem' }}>
-          <X size={24} />
+          <XIcon size={24} />
         </button>
 
         {isLoading && (
@@ -75,7 +82,7 @@ export default function AppDetailModal({ agentId, onClose }: AppDetailModalProps
                 <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem' }}>A2A Endpoint</h3>
                 <div style={{ padding: '0.75rem', background: 'var(--surface-hover)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
                   <code style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', wordBreak: 'break-all', minWidth: 0 }}>{app.a2aEndpoint}</code>
-                  <a href={app.a2aEndpoint} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-primary)', flexShrink: 0 }}><ExternalLink size={16} /></a>
+                  <a href={app.a2aEndpoint} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-primary)', flexShrink: 0 }}><ExternalLinkIcon size={16} /></a>
                 </div>
               </div>
             )}
@@ -112,7 +119,7 @@ export default function AppDetailModal({ agentId, onClose }: AppDetailModalProps
             {/* GitHub Developer Reputation */}
             <div style={{ marginBottom: '1.5rem' }}>
               <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Github size={18} />Developer Reputation
+                <GithubIcon size={18} />Developer Reputation
               </h3>
               <GitHubReputationPanel
                 agentId={agentId}
@@ -125,10 +132,10 @@ export default function AppDetailModal({ agentId, onClose }: AppDetailModalProps
                 <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', color: 'var(--warning)' }}>Owner Actions</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.75rem' }}>
                   <button className="button button-secondary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                    <Edit size={16} />Edit
+                    <EditIcon size={16} />Edit
                   </button>
                   <button className="button" onClick={handleWithdraw} disabled={isWithdrawing} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: 'var(--error)' }}>
-                    <Trash2 size={16} />{isWithdrawing ? 'Withdrawing...' : 'Withdraw'}
+                    <Trash2Icon size={16} />{isWithdrawing ? 'Withdrawing...' : 'Withdraw'}
                   </button>
                 </div>
                 <p style={{ fontSize: '0.75rem', color: 'var(--warning)', marginTop: '0.75rem' }}>

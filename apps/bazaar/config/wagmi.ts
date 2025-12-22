@@ -40,3 +40,7 @@ export const wagmiConfig = createConfig({
   },
   ssr: true,
 })
+
+// Export for OAuth3 provider
+export const chainId = activeChain.id
+export const rpcUrl = activeChain.rpcUrls.default.http[0]

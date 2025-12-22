@@ -521,5 +521,6 @@ export function getChainName(chainId: ChainId): string {
     [ChainId.LOCAL_EVM]: 'Local EVM',
     [ChainId.LOCAL_SOLANA]: 'Local Solana',
   };
+  // Display format for unknown chains - this is for display only, not a bug
   return names[chainId] ?? `Unknown (${chainId})`;
 }

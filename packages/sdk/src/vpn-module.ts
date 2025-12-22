@@ -114,22 +114,30 @@ const VPN_REGISTRY_ABI = [
 // Implementation
 // ============================================================================
 
-export function createVPNModule(wallet: JejuWallet, network: NetworkType): VPNModule {
+export function createVPNModule(
+  wallet: JejuWallet,
+  network: NetworkType,
+): VPNModule {
   const contracts = getContractAddresses(network);
-  const vpnRegistryAddress = contracts.vpnRegistry || "0x0000000000000000000000000000000000000000" as Address;
+  if (!contracts.vpnRegistry) {
+    throw new Error(`VPNRegistry contract not deployed on ${network}`);
+  }
+  const vpnRegistryAddress = contracts.vpnRegistry;
 
   // Node caching
   let nodesCache: VPNNodeInfo[] = [];
   let lastFetch = 0;
   const CACHE_TTL = 60000; // 1 minute
 
-  async function fetchNodeDetails(operator: Address): Promise<VPNNodeInfo | null> {
-    const nodeData = await wallet.publicClient.readContract({
+  async function fetchNodeDetails(
+    operator: Address,
+  ): Promise<VPNNodeInfo | null> {
+    const nodeData = (await wallet.publicClient.readContract({
       address: vpnRegistryAddress,
       abi: VPN_REGISTRY_ABI,
       functionName: "getNode",
       args: [operator],
-    }) as {
+    })) as {
       operator: Address;
       countryCode: Hex;
       regionHash: Hex;
@@ -146,7 +154,10 @@ export function createVPNModule(wallet: JejuWallet, network: NetworkType): VPNMo
 
     if (!nodeData || nodeData.registeredAt === 0n) return null;
 
-    const countryCode = Buffer.from(nodeData.countryCode.slice(2), "hex").toString();
+    const countryCode = Buffer.from(
+      nodeData.countryCode.slice(2),
+      "hex",
+    ).toString();
 
     return {
       operator: nodeData.operator,
@@ -158,21 +169,24 @@ export function createVPNModule(wallet: JejuWallet, network: NetworkType): VPNMo
       lastSeen: Number(nodeData.lastSeen),
       totalBytesServed: nodeData.totalBytesServed,
       totalSessions: nodeData.totalSessions,
-      successRate: nodeData.totalSessions > 0n 
-        ? Number((nodeData.successfulSessions * 100n) / nodeData.totalSessions)
-        : 100,
+      successRate:
+        nodeData.totalSessions > 0n
+          ? Number(
+              (nodeData.successfulSessions * 100n) / nodeData.totalSessions,
+            )
+          : 100,
     };
   }
 
   async function refreshNodesCache(): Promise<void> {
     if (Date.now() - lastFetch < CACHE_TTL && nodesCache.length > 0) return;
 
-    const activeAddresses = await wallet.publicClient.readContract({
+    const activeAddresses = (await wallet.publicClient.readContract({
       address: vpnRegistryAddress,
       abi: VPN_REGISTRY_ABI,
       functionName: "getActiveExitNodes",
       args: [],
-    }) as Address[];
+    })) as Address[];
 
     const nodes: VPNNodeInfo[] = [];
     for (const addr of activeAddresses) {
@@ -240,8 +254,14 @@ export function createVPNModule(wallet: JejuWallet, network: NetworkType): VPNMo
         }) as Promise<bigint>,
       ]);
 
-      const totalBytesServed = nodesCache.reduce((sum, n) => sum + n.totalBytesServed, 0n);
-      const totalSessions = nodesCache.reduce((sum, n) => sum + Number(n.totalSessions), 0);
+      const totalBytesServed = nodesCache.reduce(
+        (sum, n) => sum + n.totalBytesServed,
+        0n,
+      );
+      const totalSessions = nodesCache.reduce(
+        (sum, n) => sum + Number(n.totalSessions),
+        0,
+      );
       const regions = new Set(nodesCache.map((n) => n.countryCode));
 
       return {
@@ -253,7 +273,9 @@ export function createVPNModule(wallet: JejuWallet, network: NetworkType): VPNMo
       };
     },
 
-    async getNodePerformance(operator: Address): Promise<VPNPerformance | null> {
+    async getNodePerformance(
+      operator: Address,
+    ): Promise<VPNPerformance | null> {
       const node = await fetchNodeDetails(operator);
       if (!node) return null;
 
@@ -266,8 +288,11 @@ export function createVPNModule(wallet: JejuWallet, network: NetworkType): VPNMo
       };
     },
 
-    async registerNode(params: RegisterVPNNodeParams): Promise<{ txHash: Hex }> {
-      const countryBytes = `0x${Buffer.from(params.countryCode).toString("hex").padEnd(4, "0")}` as Hex;
+    async registerNode(
+      params: RegisterVPNNodeParams,
+    ): Promise<{ txHash: Hex }> {
+      const countryBytes =
+        `0x${Buffer.from(params.countryCode).toString("hex").padEnd(4, "0")}` as Hex;
       const wireguardKey = `0x${"00".repeat(32)}` as Hex; // Placeholder
 
       const txHash = await wallet.sendTransaction({
@@ -323,4 +348,3 @@ export function createVPNModule(wallet: JejuWallet, network: NetworkType): VPNMo
     },
   };
 }
-

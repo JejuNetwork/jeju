@@ -8,7 +8,7 @@ import { findMonorepoRoot } from '../lib/system';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { logger } from '../lib/logger';
-import { startLocalnet, stopLocalnet, getChainStatus, bootstrapContracts } from '../lib/chain';
+import { stopLocalnet, bootstrapContracts } from '../lib/chain';
 import { discoverApps } from '../lib/testing';
 import { createOrchestrator, type ServicesOrchestrator } from '../services/orchestrator';
 import { createInfrastructureService, type InfrastructureService } from '../services/infrastructure';
@@ -59,7 +59,7 @@ export const devCommand = new Command('dev')
     await startDev(options);
   });
 
-async function startDev(options: { minimal?: boolean; only?: string; skip?: string; inference?: boolean; services?: boolean; bootstrap?: boolean; noApps?: boolean; proxy?: boolean }) {
+async function startDev(options: { minimal?: boolean; only?: string; skip?: string; inference?: boolean; services?: boolean; bootstrap?: boolean; noApps?: boolean; proxy?: boolean }): Promise<void> {
   logger.header('JEJU DEV');
 
   const rootDir = process.cwd();
@@ -118,8 +118,9 @@ async function startDev(options: { minimal?: boolean; only?: string; skip?: stri
   const appsToStart = filterApps(apps, options);
 
   // Get service environment variables (combine infrastructure + orchestrator)
-  const infraEnv = infrastructureService?.getEnvVars() || {};
-  const orchestratorEnv = servicesOrchestrator?.getEnvVars() || {};
+  // Infrastructure is always initialized at this point - no need for fallback
+  const infraEnv = infrastructureService.getEnvVars();
+  const orchestratorEnv = servicesOrchestrator?.getEnvVars() ?? {};
   const serviceEnv = { ...infraEnv, ...orchestratorEnv };
 
   logger.step(`Starting ${appsToStart.length} apps...`);
@@ -160,7 +161,7 @@ async function startLocalProxy(rootDir: string): Promise<void> {
   }
 }
 
-async function stopDev() {
+async function stopDev(): Promise<void> {
   logger.header('STOPPING');
 
   logger.step('Stopping localnet...');
@@ -168,7 +169,7 @@ async function stopDev() {
   logger.success('Stopped');
 }
 
-function setupSignalHandlers() {
+function setupSignalHandlers(): void {
   const cleanup = async () => {
     if (isShuttingDown) return;
     isShuttingDown = true;
@@ -200,7 +201,7 @@ function setupSignalHandlers() {
     await execa('docker', ['compose', 'down'], {
       cwd: join(process.cwd(), 'apps/monitoring'),
       reject: false,
-    }).catch(() => {});
+    }).catch(() => { /* noop */ });
 
     logger.success('Stopped');
     process.exit(0);
@@ -296,10 +297,10 @@ async function startApp(rootDir: string, app: AppManifest, rpcUrl: string, servi
     process: proc,
   });
 
-  proc.catch(() => {});
+  proc.catch(() => { /* noop */ });
 }
 
-async function startVendorOnly() {
+async function startVendorOnly(): Promise<void> {
   const rootDir = findMonorepoRoot();
   const scriptPath = join(rootDir, 'scripts/dev-with-vendor.ts');
   
@@ -318,7 +319,7 @@ async function startVendorOnly() {
   });
 }
 
-function printReady(rpcUrl: string, services: RunningService[], orchestrator: ServicesOrchestrator | null) {
+function printReady(rpcUrl: string, services: RunningService[], orchestrator: ServicesOrchestrator | null): void {
   console.clear();
 
   logger.header('READY');
@@ -387,5 +388,5 @@ function printReady(rpcUrl: string, services: RunningService[], orchestrator: Se
 }
 
 async function waitForever(): Promise<void> {
-  await new Promise(() => {});
+  await new Promise(() => { /* never resolves */ });
 }

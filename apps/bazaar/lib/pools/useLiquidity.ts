@@ -1,4 +1,6 @@
 import { useWriteContract, useReadContracts, useAccount } from 'wagmi'
+import { AddressSchema } from '@jejunetwork/types/contracts'
+import { expect, expectPositive, expectTrue } from '@/lib/validation'
 import { getV4Contracts } from '@/config/contracts'
 import { JEJU_CHAIN_ID } from '@/config/chains'
 import PositionManagerABI from '../abis/PositionManager.json'
@@ -20,12 +22,17 @@ export function useAddLiquidity() {
   } = useWriteContract()
 
   const addLiquidity = async (params: AddLiquidityParams) => {
-    if (!contracts.positionManager) {
-      throw new Error('Position manager contract not deployed')
-    }
+    const positionManager = expect(contracts.positionManager, 'Position manager contract not deployed');
+    AddressSchema.parse(positionManager);
+    
+    expectPositive(params.liquidity, 'Liquidity must be positive');
+    expectPositive(params.amount0Max, 'Amount0Max must be positive');
+    expectPositive(params.amount1Max, 'Amount1Max must be positive');
+    AddressSchema.parse(params.recipient);
+    expectTrue(params.deadline > BigInt(Math.floor(Date.now() / 1000)), 'Deadline must be in the future');
 
     const hash = await mintPosition({
-      address: contracts.positionManager,
+      address: positionManager,
       abi: POSITION_MANAGER_ABI,
       functionName: 'mint',
       args: [
@@ -40,7 +47,7 @@ export function useAddLiquidity() {
       ],
       value: 0n,
     })
-    return hash || ('0x' as `0x${string}`)
+    return expect(hash, 'Transaction hash not returned') as `0x${string}`
   }
 
   return {
@@ -64,12 +71,15 @@ export function useRemoveLiquidity() {
   } = useWriteContract()
 
   const removeLiquidity = async (params: RemoveLiquidityParams) => {
-    if (!contracts.positionManager) {
-      throw new Error('Position manager contract not deployed')
-    }
+    const positionManager = expect(contracts.positionManager, 'Position manager contract not deployed');
+    AddressSchema.parse(positionManager);
+    
+    expectPositive(params.tokenId, 'Token ID must be positive');
+    expectPositive(params.liquidity, 'Liquidity must be positive');
+    expectTrue(params.deadline > BigInt(Math.floor(Date.now() / 1000)), 'Deadline must be in the future');
 
     const hash = await burnPosition({
-      address: contracts.positionManager,
+      address: positionManager,
       abi: POSITION_MANAGER_ABI,
       functionName: 'burn',
       args: [
@@ -80,7 +90,7 @@ export function useRemoveLiquidity() {
         params.deadline,
       ],
     })
-    return hash || ('0x' as `0x${string}`)
+    return expect(hash, 'Transaction hash not returned') as `0x${string}`
   }
 
   return {
@@ -128,6 +138,9 @@ export function usePosition(tokenId: bigint | null, poolKey: PoolKey | null) {
   if (!data || data.length === 0 || !poolKey || !tokenId) {
     return { position: null, isLoading, error, refetch }
   }
+  
+  const validatedPoolKey = expect(poolKey, 'Pool key is required');
+  const validatedTokenId = expect(tokenId, 'Token ID is required');
 
   const positionData = data[0]
   if (positionData.status !== 'success') {
@@ -140,10 +153,11 @@ export function usePosition(tokenId: bigint | null, poolKey: PoolKey | null) {
     bigint
   ]
 
+  const validatedAddress = expect(address, 'Address is required');
   const position: Position = {
-    tokenId,
-    poolId: computePoolId(poolKey),
-    owner: address!,
+    tokenId: validatedTokenId,
+    poolId: computePoolId(validatedPoolKey),
+    owner: validatedAddress,
     tickLower: 0, // Would need to be stored/provided
     tickUpper: 0, // Would need to be stored/provided
     liquidity,
@@ -173,18 +187,18 @@ export function useCollectFees(tokenId: bigint | null) {
   } = useWriteContract()
 
   const collectFees = async () => {
-    if (!tokenId) throw new Error('No token ID provided')
-    if (!contracts.positionManager) {
-      throw new Error('Position manager contract not deployed')
-    }
+    const validatedTokenId = expect(tokenId, 'No token ID provided');
+    expectPositive(validatedTokenId, 'Token ID must be positive');
+    const positionManager = expect(contracts.positionManager, 'Position manager contract not deployed');
+    AddressSchema.parse(positionManager);
     
     const hash = await collect({
-      address: contracts.positionManager,
+      address: positionManager,
       abi: POSITION_MANAGER_ABI,
       functionName: 'burn',
-      args: [tokenId, 0n, 0n, 0n, BigInt(Math.floor(Date.now() / 1000) + 1800)],
+      args: [validatedTokenId, 0n, 0n, 0n, BigInt(Math.floor(Date.now() / 1000) + 1800)],
     })
-    return hash || ('0x' as `0x${string}`)
+    return expect(hash, 'Transaction hash not returned')
   }
 
   return {

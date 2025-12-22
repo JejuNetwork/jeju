@@ -20,7 +20,9 @@
 
 import { Hono, type Context } from 'hono';
 
-type HealthStatus = 'healthy' | 'degraded' | 'unhealthy' | 'unfunded' | 'unknown';
+// Re-export consolidated HealthStatus
+import type { HealthStatus } from '@jejunetwork/types';
+export type { HealthStatus };
 type DependencyType = 'database' | 'cache' | 'api' | 'blockchain' | 'ipfs' | 'storage' | 'compute' | 'trigger';
 
 interface DependencyConfig {
@@ -52,13 +54,9 @@ interface HealthMiddlewareConfig {
   funding?: FundingConfig;
 }
 
-interface HealthResponse {
-  status: HealthStatus;
-  service: string;
-  version: string;
-  timestamp: string;
-  uptime: number;
-}
+// Re-export consolidated HealthResponse
+import type { HealthResponse } from '@jejunetwork/types';
+export type { HealthResponse };
 
 interface DependencyHealth {
   name: string;

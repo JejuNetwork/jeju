@@ -1,8 +1,22 @@
-import { useState } from 'react';
+import { useState, type ComponentType } from 'react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount } from 'wagmi';
-import { Wallet, Factory, DropletIcon, BarChart3, Zap, Server, Book, Waves, Activity, Tag, Sparkles, Droplet, Radio } from 'lucide-react';
+import { Wallet, Factory, DropletIcon, BarChart3, Zap, Server, Book, Waves, Activity, Tag, Sparkles, Droplet, Radio, type LucideProps } from 'lucide-react';
 import { ThemeToggle } from './ThemeProvider';
+
+// Fix for Lucide React 19 type compatibility
+const WalletIcon = Wallet as ComponentType<LucideProps>;
+const FactoryIcon = Factory as ComponentType<LucideProps>;
+const SparklesIcon = Sparkles as ComponentType<LucideProps>;
+const BookIcon = Book as ComponentType<LucideProps>;
+const DropletIconComp = Droplet as ComponentType<LucideProps>;
+const ZapIcon = Zap as ComponentType<LucideProps>;
+const ActivityIcon = Activity as ComponentType<LucideProps>;
+const RadioIcon = Radio as ComponentType<LucideProps>;
+const WavesIcon = Waves as ComponentType<LucideProps>;
+const ServerIcon = Server as ComponentType<LucideProps>;
+const BarChart3Icon = BarChart3 as ComponentType<LucideProps>;
+const TagIcon = Tag as ComponentType<LucideProps>;
 import TokenList from './TokenList';
 import RegisterToken from './RegisterToken';
 import DeployPaymaster from './DeployPaymaster';
@@ -21,19 +35,19 @@ import { OracleTab } from './oracle';
 
 type TabId = 'tokens' | 'deploy' | 'liquidity' | 'earnings' | 'transfer' | 'xlp' | 'nodes' | 'registry' | 'intents' | 'names' | 'faucet' | 'oracle';
 
-const TABS: { id: TabId; icon: typeof Factory; label: string }[] = [
-  { id: 'registry', icon: Book, label: 'Bazaar' },
-  { id: 'faucet', icon: Droplet, label: 'Faucet' },
-  { id: 'transfer', icon: Zap, label: 'Transfer' },
-  { id: 'intents', icon: Activity, label: 'Intents' },
-  { id: 'oracle', icon: Radio, label: 'Oracle' },
-  { id: 'xlp', icon: Waves, label: 'XLP' },
-  { id: 'tokens', icon: Factory, label: 'Tokens' },
-  { id: 'deploy', icon: Factory, label: 'Deploy' },
-  { id: 'liquidity', icon: DropletIcon, label: 'Liquidity' },
-  { id: 'earnings', icon: BarChart3, label: 'Earnings' },
-  { id: 'nodes', icon: Server, label: 'Nodes' },
-  { id: 'names', icon: Tag, label: 'Names' },
+const TABS: { id: TabId; icon: ComponentType<LucideProps>; label: string }[] = [
+  { id: 'registry', icon: BookIcon, label: 'Bazaar' },
+  { id: 'faucet', icon: DropletIconComp, label: 'Faucet' },
+  { id: 'transfer', icon: ZapIcon, label: 'Transfer' },
+  { id: 'intents', icon: ActivityIcon, label: 'Intents' },
+  { id: 'oracle', icon: RadioIcon, label: 'Oracle' },
+  { id: 'xlp', icon: WavesIcon, label: 'XLP' },
+  { id: 'tokens', icon: FactoryIcon, label: 'Tokens' },
+  { id: 'deploy', icon: FactoryIcon, label: 'Deploy' },
+  { id: 'liquidity', icon: DropletIconComp, label: 'Liquidity' },
+  { id: 'earnings', icon: BarChart3Icon, label: 'Earnings' },
+  { id: 'nodes', icon: ServerIcon, label: 'Nodes' },
+  { id: 'names', icon: TagIcon, label: 'Names' },
 ];
 
 export default function Dashboard() {
@@ -44,7 +58,7 @@ export default function Dashboard() {
     <div style={{ minHeight: '100vh' }}>
       <header className="header">
         <div className="container header-content">
-          <div className="header-brand"><Sparkles size={24} />Agent Bazaar</div>
+          <div className="header-brand"><SparklesIcon size={24} />Agent Bazaar</div>
           <div className="header-actions">
             <ThemeToggle />
             <ConnectButton showBalance={false} chainStatus="icon" accountStatus="avatar" />
@@ -55,7 +69,7 @@ export default function Dashboard() {
       <div className="container" style={{ paddingTop: '1.5rem' }}>
         {!isConnected ? (
           <div className="card hero-card animate-fade-in">
-            <div className="hero-icon"><Wallet size={36} /></div>
+            <div className="hero-icon"><WalletIcon size={36} /></div>
             <h2 className="hero-title">Connect Wallet</h2>
             <ConnectButton />
           </div>

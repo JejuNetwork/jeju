@@ -8,10 +8,10 @@
  * - Rewards claiming
  */
 
-import { type Address, type Hex, encodeFunctionData, parseEther } from "viem";
+import { type Address, type Hex, encodeFunctionData } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
-import { getContract as getContractAddress, getServicesConfig } from "../config";
+import { requireContract } from "../config";
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -289,19 +289,8 @@ export function createTrainingModule(
   wallet: JejuWallet,
   network: NetworkType,
 ): TrainingModule {
-  const services = getServicesConfig(network);
-
-  const tryGetContract = (category: string, name: string): Address => {
-    try {
-      // @ts-expect-error - category names may vary by deployment
-      return getContractAddress(category, name, network) as Address;
-    } catch {
-      return "0x0000000000000000000000000000000000000000" as Address;
-    }
-  };
-
-  const coordinatorAddress = tryGetContract("training", "TrainingCoordinator");
-  const rewardsAddress = tryGetContract("training", "TrainingRewards");
+  const coordinatorAddress = requireContract("training", "TrainingCoordinator", network);
+  const rewardsAddress = requireContract("training", "TrainingRewards", network);
 
   return {
     async createRun(params) {
@@ -318,7 +307,7 @@ export function createTrainingModule(
           params.datasetHash,
           params.hyperparameters ?? "",
           params.privacyMode ?? PrivacyMode.PUBLIC,
-          params.mpcKeyId ?? ("0x" + "0".repeat(64)) as Hex,
+          params.mpcKeyId ?? (("0x" + "0".repeat(64)) as Hex),
         ],
       });
 
@@ -338,7 +327,8 @@ export function createTrainingModule(
         args: [runId],
       });
 
-      if (result[1] === "0x0000000000000000000000000000000000000000") return null;
+      if (result[1] === "0x0000000000000000000000000000000000000000")
+        return null;
 
       const clientCount = await wallet.publicClient.readContract({
         address: coordinatorAddress,
@@ -361,8 +351,8 @@ export function createTrainingModule(
           roundDuration: 300n,
         },
         model: {
-          modelHash: "0x" + "0".repeat(64) as Hex,
-          datasetHash: "0x" + "0".repeat(64) as Hex,
+          modelHash: ("0x" + "0".repeat(64)) as Hex,
+          datasetHash: ("0x" + "0".repeat(64)) as Hex,
           hyperparameters: "",
           targetEpochs: 0,
         },
@@ -531,4 +521,3 @@ export function createTrainingModule(
     },
   };
 }
-

@@ -13,6 +13,7 @@ export default tseslint.config(
       '**/lib/**',
       '**/.next/**',
       '**/.cache/**',
+      '**/.cache-synpress/**',
       '**/.turbo/**',
       '**/coverage/**',
       'vendor/**',
@@ -29,6 +30,12 @@ export default tseslint.config(
       '**/next.config.js',
       '**/postcss.config.js',
       '**/tailwind.config.js',
+      // Synpress wallet cache files (vendor code)
+      '**/packages/tests/.cache-synpress/**',
+      // CLI bin files are plain JS with CommonJS
+      '**/packages/cli/bin/**',
+      // Bundled/minified JS files
+      '**/scripts/shared/x402.js',
     ],
   },
   // Base JS recommended rules

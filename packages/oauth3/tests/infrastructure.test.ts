@@ -4,7 +4,7 @@
  * Coverage: boundary conditions, error handling, integration points, concurrency, output verification
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { describe, it, expect, beforeEach } from 'bun:test';
 import type { Address, Hex } from 'viem';
 import { keccak256, toBytes } from 'viem';
 import { OAuth3JNSService, createOAuth3JNSService, resetOAuth3JNSService } from '../src/infrastructure/jns-integration.js';
@@ -14,7 +14,7 @@ import { OAuth3DecentralizedDiscovery, createDecentralizedDiscovery, resetDecent
 import { namehash, labelhash } from '../src/infrastructure/abis.js';
 import { 
   CHAIN_IDS, CONTRACTS, MIN_STAKE, CACHE_EXPIRY_MS, ZERO_ADDRESS,
-  getNetworkType, getContracts, DEFAULT_RPC, DEFAULT_IPFS_API
+  getNetworkType, getContracts,
 } from '../src/infrastructure/config.js';
 import { TEEProvider, AuthProvider, type OAuth3Session, type VerifiableCredential } from '../src/types.js';
 import { calculateStorageFee, calculateComputeFee, X402PaymentClient, createX402PaymentClient, resetX402PaymentClient } from '../src/infrastructure/x402-payments.js';

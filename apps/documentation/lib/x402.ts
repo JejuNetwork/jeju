@@ -3,10 +3,12 @@
  * Standalone implementation for documentation-specific payment tiers
  */
 
+import { z } from 'zod';
+
 type Address = `0x${string}`;
 
-// Define parseEther locally to avoid viem dependency issues during tests
-const parseEther = (value: string): bigint => {
+/** Parse ether string to wei bigint */
+export const parseEther = (value: string): bigint => {
   const [whole, decimal = ''] = value.split('.');
   const paddedDecimal = decimal.padEnd(18, '0').slice(0, 18);
   return BigInt(whole + paddedDecimal);
@@ -18,6 +20,20 @@ export const PAYMENT_TIERS = {
   TUTORIALS: parseEther('0.02'),
   EXAMPLES: parseEther('0.01'),
 } as const;
+
+const AddressSchema = z.string().regex(/^0x[a-fA-F0-9]{40}$/) as z.ZodType<Address>;
+
+export const PaymentPayloadSchema = z.object({
+  version: z.number(),
+  network: z.string(),
+  amount: z.string(),
+  recipient: AddressSchema,
+  resource: z.string(),
+  timestamp: z.number(),
+  nonce: z.string(),
+  payer: AddressSchema,
+  signature: z.string(),
+});
 
 export interface PaymentScheme {
   scheme: string;
@@ -38,17 +54,7 @@ export interface PaymentRequirements {
   accepts: PaymentScheme[];
 }
 
-export interface PaymentPayload {
-  version: number;
-  network: string;
-  amount: string;
-  recipient: Address;
-  resource: string;
-  timestamp: number;
-  nonce: string;
-  payer: Address;
-  signature: string;
-}
+export type PaymentPayload = z.infer<typeof PaymentPayloadSchema>;
 
 type Network = 'base-sepolia' | 'base' | 'jeju' | 'jeju-testnet';
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as const;
@@ -83,12 +89,20 @@ export function createPaymentRequirement(
   };
 }
 
+const JsonPaymentPayloadSchema = z.string()
+  .transform((s, ctx) => {
+    try {
+      return JSON.parse(s);
+    } catch {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Invalid JSON' });
+      return z.NEVER;
+    }
+  })
+  .pipe(PaymentPayloadSchema);
+
 export function parsePaymentHeader(header: string): PaymentPayload | null {
-  try {
-    return JSON.parse(header) as PaymentPayload;
-  } catch {
-    return null;
-  }
+  const result = JsonPaymentPayloadSchema.safeParse(header);
+  return result.success ? result.data : null;
 }
 
 export function checkPayment(

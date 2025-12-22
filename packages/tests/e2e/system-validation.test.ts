@@ -11,7 +11,7 @@
  */
 
 import { describe, test, expect, beforeAll } from 'bun:test';
-import { createPublicClient, createWalletClient, http, parseAbi, readContract, writeContract, waitForTransactionReceipt, formatEther, parseEther, parseUnits, type Address, type PublicClient, type WalletClient } from 'viem';
+import { createPublicClient, createWalletClient, http, formatEther, parseEther, parseUnits, type PublicClient, type WalletClient } from 'viem';
 import { privateKeyToAccount, type Account } from 'viem/accounts';
 import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
 import { 
@@ -28,7 +28,7 @@ const TEST_CONFIG = {
 };
 
 // Contract ABIs (minimal)
-const STAKING_ABI = [
+const _STAKING_ABI = [
   'function stake(uint256 ethAmount, uint256 tokenAmount) external payable',
   'function unstake(uint256 shares) external',
   'function claimRewards() external',
@@ -39,7 +39,7 @@ const STAKING_ABI = [
   'event RewardsClaimed(address indexed user, uint256 amount)',
 ];
 
-const CREDIT_MANAGER_ABI = [
+const _CREDIT_MANAGER_ABI = [
   'function deposit(uint256 amount) external',
   'function withdraw(uint256 amount) external',
   'function spend(address user, uint256 amount) external',
@@ -49,7 +49,7 @@ const CREDIT_MANAGER_ABI = [
   'event Spent(address indexed user, uint256 amount)',
 ];
 
-const ERC20_ABI = [
+const _ERC20_ABI = [
   'function balanceOf(address) view returns (uint256)',
   'function approve(address spender, uint256 amount) returns (bool)',
   'function transfer(address to, uint256 amount) returns (bool)',
@@ -59,13 +59,13 @@ const ERC20_ABI = [
 // Test state
 let publicClient: PublicClient;
 let deployerAccount: Account;
-let deployerWalletClient: WalletClient;
+let _deployerWalletClient: WalletClient;
 let user1Account: Account;
-let user1WalletClient: WalletClient;
-let user2Account: Account;
-let user2WalletClient: WalletClient;
-let solverAccount: Account;
-let solverWalletClient: WalletClient;
+let _user1WalletClient: WalletClient;
+let _user2Account: Account;
+let _user2WalletClient: WalletClient;
+let _solverAccount: Account;
+let _solverWalletClient: WalletClient;
 
 // Validation tracking
 interface ValidationResult {
@@ -98,16 +98,16 @@ beforeAll(async () => {
   
   // Use test accounts (anvil defaults)
   deployerAccount = privateKeyToAccount('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as `0x${string}`);
-  deployerWalletClient = createWalletClient({ chain, transport: http(TEST_CONFIG.rpcUrl), account: deployerAccount });
+  _deployerWalletClient = createWalletClient({ chain, transport: http(TEST_CONFIG.rpcUrl), account: deployerAccount });
   
   user1Account = privateKeyToAccount('0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as `0x${string}`);
-  user1WalletClient = createWalletClient({ chain, transport: http(TEST_CONFIG.rpcUrl), account: user1Account });
+  _user1WalletClient = createWalletClient({ chain, transport: http(TEST_CONFIG.rpcUrl), account: user1Account });
   
-  user2Account = privateKeyToAccount('0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a' as `0x${string}`);
-  user2WalletClient = createWalletClient({ chain, transport: http(TEST_CONFIG.rpcUrl), account: user2Account });
+  _user2Account = privateKeyToAccount('0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a' as `0x${string}`);
+  _user2WalletClient = createWalletClient({ chain, transport: http(TEST_CONFIG.rpcUrl), account: _user2Account });
   
-  solverAccount = privateKeyToAccount('0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6' as `0x${string}`);
-  solverWalletClient = createWalletClient({ chain, transport: http(TEST_CONFIG.rpcUrl), account: solverAccount });
+  _solverAccount = privateKeyToAccount('0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6' as `0x${string}`);
+  _solverWalletClient = createWalletClient({ chain, transport: http(TEST_CONFIG.rpcUrl), account: _solverAccount });
 });
 
 // ============================================================

@@ -1,0 +1,241 @@
+# Jeju Email Service - Helm Values
+# Default configuration for all environments
+
+# Global settings
+global:
+  environment: localnet
+  emailDomain: jeju.mail
+  
+# Relay service (core MTA)
+relay:
+  replicaCount: 3
+  
+  image:
+    repository: ghcr.io/jejunetwork/jeju-email-relay
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 3300
+  
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  
+  # Autoscaling
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+  
+  # Environment variables
+  env:
+    JEJU_RPC_URL: ""
+    EMAIL_REGISTRY_ADDRESS: ""
+    EMAIL_STAKING_ADDRESS: ""
+    DWS_ENDPOINT: ""
+    MODERATION_MARKETPLACE_ADDRESS: ""
+    CONTENT_SCREENING_ENABLED: "true"
+    AI_MODEL_ENDPOINT: ""
+  
+  # Config
+  config:
+    rateLimits:
+      free:
+        emailsPerDay: 50
+        emailsPerHour: 10
+        maxRecipients: 5
+        maxAttachmentSizeMb: 5
+      staked:
+        emailsPerDay: 500
+        emailsPerHour: 100
+        maxRecipients: 50
+        maxAttachmentSizeMb: 25
+      premium:
+        emailsPerDay: 5000
+        emailsPerHour: 1000
+        maxRecipients: 500
+        maxAttachmentSizeMb: 100
+
+# IMAP server (Dovecot)
+imap:
+  enabled: true
+  replicaCount: 2
+  
+  image:
+    repository: ghcr.io/jejunetwork/jeju-email-imap
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: LoadBalancer
+    port: 993
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-type: nlb
+  
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  
+  # Dovecot configuration
+  dovecot:
+    sslMinProtocol: TLSv1.2
+    authMechanisms: oauthbearer xoauth2
+    imapCapabilities: "+XOAUTH2"
+
+# SMTP submission server
+smtp:
+  enabled: true
+  replicaCount: 2
+  
+  image:
+    repository: ghcr.io/jejunetwork/jeju-email-smtp
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: LoadBalancer
+    port: 587
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-type: nlb
+  
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  
+  # DKIM configuration
+  dkim:
+    selector: default
+    # Private key stored in secret
+
+# Web2 bridge (SES integration)
+bridge:
+  enabled: true
+  replicaCount: 2
+  
+  image:
+    repository: ghcr.io/jejunetwork/jeju-email-bridge
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  
+  # AWS SES configuration
+  ses:
+    region: us-east-1
+    # Credentials stored in secret
+
+# Secrets
+secrets:
+  # Name of existing secret containing:
+  # - OPERATOR_PRIVATE_KEY
+  # - DKIM_PRIVATE_KEY  
+  # - SES_ACCESS_KEY_ID
+  # - SES_SECRET_ACCESS_KEY
+  existingSecret: ""
+  
+  # Or create new secret
+  create: true
+  operatorPrivateKey: ""
+  dkimPrivateKey: ""
+  sesAccessKeyId: ""
+  sesSecretAccessKey: ""
+
+# TLS certificates
+tls:
+  # Use cert-manager
+  certManager:
+    enabled: true
+    issuerRef:
+      name: letsencrypt-prod
+      kind: ClusterIssuer
+  
+  # Or use existing secret
+  existingSecret: ""
+
+# Service account
+serviceAccount:
+  create: true
+  name: jeju-email
+  annotations: {}
+
+# Pod security
+podSecurityContext:
+  fsGroup: 1000
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  readOnlyRootFilesystem: true
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - jeju-email
+          topologyKey: kubernetes.io/hostname
+
+# Ingress (for API)
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 50m
+  hosts:
+    - host: mail.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: jeju-email-tls
+      hosts:
+        - mail.example.com
+
+# Monitoring
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+  
+  # Grafana dashboard
+  dashboard:
+    enabled: true
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1

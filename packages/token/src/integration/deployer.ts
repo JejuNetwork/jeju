@@ -197,6 +197,10 @@ export class TokenDeployer {
       this.jejuContracts
     );
 
+    if (!this.config.oracleAddress) {
+      throw new Error('oracleAddress is required for Jeju registration');
+    }
+
     const registrationParams: TokenRegistrationParams = {
       tokenAddress: homeDeployment.tokenAddress,
       name: this.config.name,
@@ -207,9 +211,7 @@ export class TokenDeployer {
       website: this.config.website,
       twitter: this.config.twitter,
       discord: this.config.discord,
-      oracleAddress:
-        this.config.oracleAddress ??
-        ('0x0000000000000000000000000000000000000000' as Address),
+      oracleAddress: this.config.oracleAddress,
     };
 
     const crossChainConfigs: CrossChainConfig[] = result.evmDeployments

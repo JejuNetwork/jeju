@@ -138,21 +138,29 @@ describe('RiskAnalyzer', () => {
     expect(results.get('3 Std Dev')!).toBeLessThan(results.get('1 Std Dev')!);
   });
 
-  test('should handle edge case with minimal data', () => {
-    const snapshots = createSnapshots([10000, 10100]);
+  test('should handle edge case with minimal data (non-zero variance)', () => {
+    // Need at least some variance for meaningful metrics
+    const snapshots = createSnapshots([10000, 10100, 10050]);
     const metrics = analyzer.calculateMetrics(snapshots);
 
     expect(metrics).toBeDefined();
     expect(typeof metrics.maxDrawdown).toBe('number');
   });
 
-  test('should handle flat portfolio', () => {
+  test('should throw for flat portfolio with zero variance', () => {
     const snapshots = createSnapshots([10000, 10000, 10000, 10000, 10000]);
+    
+    // Zero variance portfolio cannot have meaningful risk metrics
+    expect(() => analyzer.calculateMetrics(snapshots)).toThrow('Insufficient variance');
+  });
+
+  test('should handle near-flat portfolio with tiny variance', () => {
+    // Small but non-zero variance
+    const snapshots = createSnapshots([10000, 10000.01, 10000.02, 10000.01, 10000.03]);
     const metrics = analyzer.calculateMetrics(snapshots);
 
-    // Max drawdown should be 0 for flat portfolio
-    expect(metrics.maxDrawdown).toBe(0);
-    // Other metrics should be defined
+    // Max drawdown should be essentially 0 for nearly flat portfolio
+    expect(metrics.maxDrawdown).toBeLessThan(0.001);
     expect(metrics).toBeDefined();
     expect(typeof metrics.sharpeRatio).toBe('number');
   });

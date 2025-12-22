@@ -1,5 +1,7 @@
 import { useAccount, useWriteContract, useReadContract, useWaitForTransactionReceipt } from 'wagmi'
 import { parseEther, formatEther, type Address } from 'viem'
+import { AddressSchema } from '@jejunetwork/types/contracts'
+import { expect } from '@/lib/validation'
 import { ICOPresaleAbi } from '@jejunetwork/contracts'
 
 export interface PresaleStatus {
@@ -140,13 +142,12 @@ export function useICOPresale(presaleAddress: Address | null) {
    * Start the presale (creator only)
    */
   const startPresale = () => {
-    if (!presaleAddress) {
-      throw new Error('No presale address')
-    }
+    const validatedAddress = expect(presaleAddress, 'No presale address');
+    AddressSchema.parse(validatedAddress);
 
     reset()
     writeContract({
-      address: presaleAddress,
+      address: validatedAddress,
       abi: ICOPresaleAbi,
       functionName: 'startPresale',
       args: [],
@@ -157,13 +158,14 @@ export function useICOPresale(presaleAddress: Address | null) {
    * Contribute ETH to the presale
    */
   const contribute = (ethAmount: string) => {
-    if (!presaleAddress) {
-      throw new Error('No presale address')
-    }
+    const validatedAddress = expect(presaleAddress, 'No presale address');
+    AddressSchema.parse(validatedAddress);
+    expect(ethAmount, 'ETH amount is required');
+    expect(parseFloat(ethAmount) > 0, 'ETH amount must be positive');
 
     reset()
     writeContract({
-      address: presaleAddress,
+      address: validatedAddress,
       abi: ICOPresaleAbi,
       functionName: 'contribute',
       args: [],
@@ -175,13 +177,12 @@ export function useICOPresale(presaleAddress: Address | null) {
    * Finalize the presale (anyone can call after end time)
    */
   const finalize = () => {
-    if (!presaleAddress) {
-      throw new Error('No presale address')
-    }
+    const validatedAddress = expect(presaleAddress, 'No presale address');
+    AddressSchema.parse(validatedAddress);
 
     reset()
     writeContract({
-      address: presaleAddress,
+      address: validatedAddress,
       abi: ICOPresaleAbi,
       functionName: 'finalize',
       args: [],
@@ -192,13 +193,12 @@ export function useICOPresale(presaleAddress: Address | null) {
    * Claim tokens (after successful presale + lock period)
    */
   const claim = () => {
-    if (!presaleAddress) {
-      throw new Error('No presale address')
-    }
+    const validatedAddress = expect(presaleAddress, 'No presale address');
+    AddressSchema.parse(validatedAddress);
 
     reset()
     writeContract({
-      address: presaleAddress,
+      address: validatedAddress,
       abi: ICOPresaleAbi,
       functionName: 'claim',
       args: [],
@@ -209,13 +209,12 @@ export function useICOPresale(presaleAddress: Address | null) {
    * Get refund (after failed presale)
    */
   const refund = () => {
-    if (!presaleAddress) {
-      throw new Error('No presale address')
-    }
+    const validatedAddress = expect(presaleAddress, 'No presale address');
+    AddressSchema.parse(validatedAddress);
 
     reset()
     writeContract({
-      address: presaleAddress,
+      address: validatedAddress,
       abi: ICOPresaleAbi,
       functionName: 'refund',
       args: [],
@@ -245,8 +244,8 @@ export function useICOPresale(presaleAddress: Address | null) {
     // State
     isConnected,
     presaleAddress,
-    tokenAddress: tokenAddress as Address | undefined,
-    creator: creator as Address | undefined,
+    tokenAddress: tokenAddress ? (tokenAddress as Address) : undefined,
+    creator: creator ? (creator as Address) : undefined,
     status: parsedStatus,
     contribution: parsedContribution as UserContribution | undefined,
     config: config as {

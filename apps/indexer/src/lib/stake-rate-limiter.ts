@@ -1,10 +1,12 @@
-import { createPublicClient, http, parseAbi, isAddress, type Address } from 'viem';
+import { createPublicClient, http, parseAbi, isAddress, type Address, type PublicClient, type Chain, type Transport } from 'viem';
 import type { Request, Response, NextFunction } from 'express';
 import { loadNetworkConfig } from '../network-config';
 import { inferChainFromRpcUrl } from './chain-utils';
+import { addressSchema, validateOrThrow } from './validation';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function readContract<T>(client: any, params: { address: Address; abi: readonly unknown[]; functionName: string; args?: readonly unknown[] }): Promise<T> {
+type ViemPublicClient = PublicClient<Transport, Chain>;
+
+async function readContract<T>(client: ViemPublicClient, params: { address: Address; abi: readonly unknown[]; functionName: string; args?: readonly unknown[] }): Promise<T> {
   return client.readContract(params) as Promise<T>;
 }
 
@@ -26,9 +28,8 @@ const STAKING_ABI = parseAbi([
   'function positions(address) view returns (uint256,uint256,uint256)',
 ]);
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let contracts: {
-  publicClient: any;
+  publicClient: ViemPublicClient;
   identityAddress: Address | null;
   banAddress: Address | null;
   stakingAddress: Address | null;
@@ -53,6 +54,7 @@ function getContracts() {
 }
 
 async function getStakeTier(address: string): Promise<RateTier> {
+  validateOrThrow(addressSchema, address, 'getStakeTier address');
   const key = address.toLowerCase();
   const cached = stakeCache.get(key);
   if (cached && cached.expiresAt > Date.now()) return cached.tier;

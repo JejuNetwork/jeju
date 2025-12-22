@@ -1,71 +1,12 @@
 import { DataSource, Not, IsNull } from 'typeorm';
 import { RegisteredAgent, TagIndex, ComputeProvider, StorageProvider } from '../model';
+import { searchParamsSchema, type SearchParams, type EndpointType, type ServiceCategory } from './validation';
+import type { AgentSearchResult, ProviderResult, SearchResult } from './types';
+
+export type { AgentSearchResult, ProviderResult, SearchResult };
 
 const searchCache = new Map<string, { data: SearchResult; expiresAt: number }>();
 const CACHE_TTL = 30_000;
-
-export type EndpointType = 'a2a' | 'mcp' | 'rest' | 'graphql' | 'all';
-export type ServiceCategory = 'agent' | 'workflow' | 'app' | 'game' | 'oracle' | 'marketplace' | 'compute' | 'storage' | 'all';
-
-export interface SearchParams {
-  query?: string;
-  endpointType?: EndpointType;
-  tags?: string[];
-  category?: ServiceCategory;
-  minStakeTier?: number;
-  verified?: boolean;
-  active?: boolean;
-  limit?: number;
-  offset?: number;
-}
-
-export interface AgentSearchResult {
-  agentId: string;
-  name: string;
-  description: string | null;
-  tags: string[];
-  serviceType: string | null;
-  category: string | null;
-  endpoints: {
-    a2a: string | null;
-    mcp: string | null;
-  };
-  tools: {
-    mcpTools: string[];
-    a2aSkills: string[];
-  };
-  stakeTier: number;
-  stakeAmount: string;
-  x402Support: boolean;
-  active: boolean;
-  isBanned: boolean;
-  registeredAt: string;
-  score: number;
-}
-
-export interface ProviderResult {
-  providerId: string;
-  type: 'compute' | 'storage';
-  name: string;
-  endpoint: string;
-  agentId: number | null;
-  isActive: boolean;
-  isVerified: boolean;
-  score: number;
-}
-
-export interface SearchResult {
-  agents: AgentSearchResult[];
-  providers: ProviderResult[];
-  total: number;
-  facets: {
-    tags: Array<{ tag: string; count: number }>;
-    serviceTypes: Array<{ type: string; count: number }>;
-    endpointTypes: Array<{ type: string; count: number }>;
-  };
-  query: string | null;
-  took: number;
-}
 
 function hashParams(params: SearchParams): string {
   return JSON.stringify(params);
@@ -99,22 +40,25 @@ function mapAgentToResult(agent: RegisteredAgent, score: number): AgentSearchRes
 
 export async function search(
   dataSource: DataSource,
-  params: SearchParams = {}
+  params: Partial<SearchParams> = {}
 ): Promise<SearchResult> {
+  if (!dataSource) {
+    throw new Error('DataSource is required');
+  }
+  
+  const validated = searchParamsSchema.parse(params);
   const startTime = Date.now();
-  const {
-    query,
-    endpointType = 'all',
-    tags,
-    category,
-    minStakeTier = 0,
-    verified,
-    active = true,
-    limit = 50,
-    offset = 0,
-  } = params;
+  const query = validated.query;
+  const endpointType = validated.endpointType ?? 'all';
+  const tags = validated.tags;
+  const category = validated.category;
+  const minStakeTier = validated.minStakeTier ?? 0;
+  const verified = validated.verified;
+  const active = validated.active ?? true;
+  const limit = validated.limit ?? 50;
+  const offset = validated.offset ?? 0;
 
-  const cacheKey = hashParams(params);
+  const cacheKey = hashParams(validated);
   const cached = searchCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
     return { ...cached.data, took: Date.now() - startTime };
@@ -171,7 +115,7 @@ export async function search(
 
     const buildQuery = (alias: string) => {
       const conditions = [`${alias}.isActive = :active`];
-      const params: Record<string, unknown> = { active };
+      const params: { active: boolean; q?: string } = { active };
       if (searchPattern) {
         conditions.push(`(LOWER(${alias}.name) LIKE LOWER(:q) OR LOWER(${alias}.endpoint) LIKE LOWER(:q))`);
         params.q = searchPattern;
@@ -247,6 +191,16 @@ export async function getAgentById(
   dataSource: DataSource,
   agentId: string
 ): Promise<AgentSearchResult | null> {
+  if (!dataSource) {
+    throw new Error('DataSource is required');
+  }
+  if (!agentId || typeof agentId !== 'string') {
+    throw new Error('agentId must be a non-empty string');
+  }
+  if (!/^\d+$/.test(agentId)) {
+    throw new Error(`Invalid agentId format: ${agentId}. Must be a numeric string.`);
+  }
+  
   const agentRepo = dataSource.getRepository(RegisteredAgent);
   const agent = await agentRepo.findOne({
     where: { agentId: BigInt(agentId) },
@@ -260,6 +214,13 @@ export async function getPopularTags(
   dataSource: DataSource,
   limit = 50
 ): Promise<Array<{ tag: string; count: number }>> {
+  if (!dataSource) {
+    throw new Error('DataSource is required');
+  }
+  if (typeof limit !== 'number' || limit <= 0 || limit > 1000) {
+    throw new Error(`Invalid limit: ${limit}. Must be between 1 and 1000.`);
+  }
+  
   const tagRepo = dataSource.getRepository(TagIndex);
   const tags = await tagRepo.find({
     order: { agentCount: 'DESC' },

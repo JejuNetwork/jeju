@@ -247,7 +247,7 @@ export class CrossChainIdentityManager {
     identityId: Hex,
     sourceChain: ChainId,
     targetChain: ChainId,
-    session: OAuth3Session
+    _session: OAuth3Session
   ): Promise<IdentitySyncIntent> {
     const state = this.identityStates.get(identityId);
     if (!state) {
@@ -288,20 +288,6 @@ export class CrossChainIdentityManager {
   ): Promise<CrossChainAuthIntent> {
     const deadline = Math.floor(Date.now() / 1000) + 3600;
 
-    const intentHash = keccak256(encodeAbiParameters(
-      parseAbiParameters('bytes32, uint256, uint256, address, bytes4, bytes, uint256, uint256'),
-      [
-        session.identityId,
-        BigInt(this.homeChain),
-        BigInt(targetChain),
-        targetContract,
-        functionSelector,
-        callData,
-        value,
-        BigInt(deadline),
-      ]
-    ));
-
     const signature = '0x' as Hex;
 
     return {
@@ -332,7 +318,7 @@ export class CrossChainIdentityManager {
     };
   }
 
-  async getIntentStatus(intentId: Hex): Promise<{
+  async getIntentStatus(_intentId: Hex): Promise<{
     status: 'pending' | 'solving' | 'executed' | 'failed';
     solution?: IntentSolution;
     executionTx?: Hex;

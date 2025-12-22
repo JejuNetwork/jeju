@@ -16,13 +16,23 @@ import { createMCPRouter } from './mcp';
 import { createRESTRouter } from './rest';
 import { createX402Middleware } from './x402';
 import type { VPNServerConfig, VPNServiceContext } from './types';
+import { VPNServerConfigSchema, expectValid } from './schemas';
 
 export function createVPNServer(config: VPNServerConfig): Hono {
+  // Validate config on startup
+  expectValid(VPNServerConfigSchema, config, 'VPN server config');
+
   const app = new Hono();
 
   // Base middleware
   app.use('*', cors());
   app.use('*', logger());
+
+  // Global error handler
+  app.onError((err, c) => {
+    console.error('VPN Server error:', err);
+    return c.json({ error: err.message || 'Internal server error' }, 500);
+  });
 
   // Service context available to all routes
   const ctx: VPNServiceContext = {

@@ -240,7 +240,7 @@ export const faucetDeployCommand = new Command('deploy')
   .option('-c, --chain <chain>', 'Chain to deploy to', 'jeju')
   .option('--eth-amount <wei>', 'ETH drip amount in wei', '100000000000000000') // 0.1 ETH
   .option('--cooldown <seconds>', 'Cooldown in seconds', '86400') // 24 hours
-  .action(async (options) => {
+  .action(async (_options) => {
     logger.header('DEPLOY FAUCET');
     logger.info('Use: bun run scripts/deploy/faucet.ts --network testnet');
     logger.newline();

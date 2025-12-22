@@ -14,22 +14,29 @@
 
 import { keccak256, toBytes, toHex, type Address, type Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
+import { z } from 'zod';
 import type {
   AuthProvider,
   FarcasterIdentity,
   FarcasterSignerRequest,
-  VerifiableCredential,
   LinkedProvider,
 } from '../types.js';
+import {
+  NeynarUserSchema,
+  NeynarCastSchema,
+  HubUserDataResponseSchema,
+  HubVerificationsResponseSchema,
+  HubUsernameProofSchema,
+  FrameValidationResponseSchema,
+  type NeynarUser,
+  type NeynarCast,
+  validateResponse,
+} from '../validation.js';
 
-// Hub URL for permissionless access (used when no API key)
 const FARCASTER_HUB_URL = process.env.FARCASTER_HUB_URL ?? 'https://nemes.farcaster.xyz:2281';
-// Neynar API URL (optional, for rate-limited but feature-rich access)
 const FARCASTER_API_URL = process.env.FARCASTER_API_URL ?? 'https://api.neynar.com/v2';
 const NEYNAR_API_KEY = process.env.NEYNAR_API_KEY ?? '';
 
-// Determine if we should use permissionless hub access
-const USE_HUB_DIRECT = !NEYNAR_API_KEY;
 
 export interface FarcasterProfile {
   fid: number;
@@ -105,7 +112,6 @@ export class FarcasterProvider {
   }
 
   async getProfileByFid(fid: number): Promise<FarcasterProfile> {
-    // Use permissionless hub access when no API key
     if (this.useHubDirect) {
       return this.getProfileFromHub(fid);
     }
@@ -118,7 +124,12 @@ export class FarcasterProvider {
       throw new Error(`Failed to fetch Farcaster profile: ${response.status}`);
     }
 
-    const data = await response.json() as { users: Array<NeynarUser> };
+    const rawData = await response.json();
+    const data = validateResponse(
+      z.object({ users: z.array(NeynarUserSchema) }),
+      rawData,
+      'Neynar user bulk response'
+    );
     const user = data.users[0];
 
     if (!user) {
@@ -128,38 +139,20 @@ export class FarcasterProvider {
     return this.mapNeynarUser(user);
   }
 
-  /**
-   * Fetch profile directly from Farcaster Hub (permissionless)
-   */
   private async getProfileFromHub(fid: number): Promise<FarcasterProfile> {
-    // Fetch user data from hub
     const userDataResponse = await fetch(`${this.hubUrl}/v1/userDataByFid?fid=${fid}`);
     if (!userDataResponse.ok) {
       throw new Error(`Failed to fetch user data from hub: ${userDataResponse.status}`);
     }
 
-    const userData = await userDataResponse.json() as {
-      messages: Array<{
-        data: {
-          fid: number;
-          userDataBody: { type: string; value: string };
-        };
-      }>;
-    };
+    const rawUserData = await userDataResponse.json();
+    const userData = validateResponse(HubUserDataResponseSchema, rawUserData, 'Hub user data response');
 
-    // Fetch verifications
     const verificationsResponse = await fetch(`${this.hubUrl}/v1/verificationsByFid?fid=${fid}`);
     const verifications = verificationsResponse.ok 
-      ? await verificationsResponse.json() as {
-          messages: Array<{
-            data: {
-              verificationAddAddressBody: { address: string; protocol: string };
-            };
-          }>;
-        }
+      ? validateResponse(HubVerificationsResponseSchema, await verificationsResponse.json(), 'Hub verifications response')
       : { messages: [] };
 
-    // Build profile from hub data
     const profile: FarcasterProfile = {
       fid,
       username: '',
@@ -173,7 +166,6 @@ export class FarcasterProvider {
       activeStatus: 'active',
     };
 
-    // Parse user data
     for (const msg of userData.messages) {
       const type = msg.data.userDataBody.type;
       const value = msg.data.userDataBody.value;
@@ -184,16 +176,15 @@ export class FarcasterProvider {
       else if (type === 'USER_DATA_TYPE_BIO') profile.bio = value;
     }
 
-    // Parse verifications
     profile.verifiedAddresses = verifications.messages
-      .filter((m) => m.data.verificationAddAddressBody.protocol !== 'PROTOCOL_SOLANA')
-      .map((m) => m.data.verificationAddAddressBody.address as Address);
+      .filter((m) => m.data.verificationAddAddressBody?.protocol !== 'PROTOCOL_SOLANA')
+      .map((m) => m.data.verificationAddAddressBody?.address as Address)
+      .filter(Boolean);
 
     return profile;
   }
 
   async getProfileByUsername(username: string): Promise<FarcasterProfile> {
-    // Use permissionless hub access when no API key
     if (this.useHubDirect) {
       return this.getProfileByUsernameFromHub(username);
     }
@@ -206,26 +197,27 @@ export class FarcasterProvider {
       throw new Error(`Failed to fetch Farcaster profile: ${response.status}`);
     }
 
-    const data = await response.json() as { user: NeynarUser };
+    const rawData = await response.json();
+    const data = validateResponse(
+      z.object({ user: NeynarUserSchema }),
+      rawData,
+      'Neynar user by username response'
+    );
     return this.mapNeynarUser(data.user);
   }
 
-  /**
-   * Fetch profile by username from Hub (permissionless)
-   */
   private async getProfileByUsernameFromHub(username: string): Promise<FarcasterProfile> {
-    // First resolve username to FID
     const proofResponse = await fetch(`${this.hubUrl}/v1/userNameProofByName?name=${username}`);
     if (!proofResponse.ok) {
       throw new Error(`Username not found: ${username}`);
     }
 
-    const proof = await proofResponse.json() as { fid: number };
+    const rawProof = await proofResponse.json();
+    const proof = validateResponse(HubUsernameProofSchema, rawProof, 'Hub username proof');
     return this.getProfileFromHub(proof.fid);
   }
 
   async getProfileByVerifiedAddress(address: Address): Promise<FarcasterProfile | null> {
-    // Use permissionless hub access when no API key
     if (this.useHubDirect) {
       return this.getProfileByVerifiedAddressFromHub(address);
     }
@@ -239,9 +231,14 @@ export class FarcasterProvider {
       return null;
     }
 
-    const data = await response.json() as Record<string, NeynarUser[]>;
-    const users = data[address.toLowerCase()];
-
+    const rawData = await response.json();
+    const schema = z.record(z.string(), z.array(NeynarUserSchema));
+    const result = schema.safeParse(rawData);
+    if (!result.success) {
+      return null;
+    }
+    
+    const users = result.data[address.toLowerCase()];
     if (!users || users.length === 0) {
       return null;
     }
@@ -249,22 +246,24 @@ export class FarcasterProvider {
     return this.mapNeynarUser(users[0]);
   }
 
-  /**
-   * Fetch profile by verified address from Hub (permissionless)
-   */
   private async getProfileByVerifiedAddressFromHub(address: Address): Promise<FarcasterProfile | null> {
-    // Search for verification with this address
     const response = await fetch(`${this.hubUrl}/v1/verificationsByFid?address=${address.toLowerCase()}`);
     if (!response.ok) {
       return null;
     }
 
-    const data = await response.json() as { messages: Array<{ data: { fid: number } }> };
-    if (data.messages.length === 0) {
+    const rawData = await response.json();
+    const result = HubVerificationsResponseSchema.safeParse(rawData);
+    if (!result.success || result.data.messages.length === 0) {
       return null;
     }
 
-    return this.getProfileFromHub(data.messages[0].data.fid);
+    const fid = result.data.messages[0].data.fid;
+    if (fid === undefined) {
+      return null;
+    }
+
+    return this.getProfileFromHub(fid);
   }
 
   async verifySignInMessage(
@@ -283,7 +282,6 @@ export class FarcasterProvider {
     }
 
     const profile = await this.getProfileByFid(parsedMessage.fid);
-
     const messageHash = keccak256(toBytes(message));
     
     const response = await fetch(`${this.apiUrl}/farcaster/user/verify`, {
@@ -300,7 +298,8 @@ export class FarcasterProvider {
       return { valid: false, fid: parsedMessage.fid, custodyAddress: profile.custodyAddress };
     }
 
-    const data = await response.json() as { valid: boolean };
+    const rawData = await response.json();
+    const data = validateResponse(z.object({ valid: z.boolean() }), rawData, 'Verify response');
 
     return {
       valid: data.valid,
@@ -351,7 +350,23 @@ export class FarcasterProvider {
       throw new Error(`Failed to register signer: ${response.status}`);
     }
 
-    return response.json() as Promise<FarcasterSigner>;
+    const rawData = await response.json();
+    const schema = z.object({
+      signerUuid: z.string(),
+      publicKey: z.string(),
+      status: z.enum(['pending_approval', 'approved', 'revoked']),
+      fid: z.number().int(),
+      permissions: z.array(z.string()),
+    });
+    
+    const data = validateResponse(schema, rawData, 'Signer registration response');
+    return {
+      signerUuid: data.signerUuid,
+      publicKey: data.publicKey as Hex,
+      status: data.status,
+      fid: data.fid,
+      permissions: data.permissions,
+    };
   }
 
   async validateFrameMessage(
@@ -369,22 +384,8 @@ export class FarcasterProvider {
       throw new Error(`Failed to validate frame message: ${response.status}`);
     }
 
-    const data = await response.json() as {
-      valid: boolean;
-      action: {
-        interactor: { fid: number };
-        url: string;
-        message_hash: string;
-        timestamp: number;
-        network: number;
-        button_index: number;
-        cast_id?: { fid: number; hash: string };
-        input_text?: string;
-        state?: string;
-        transaction_id?: string;
-        address?: string;
-      };
-    };
+    const rawData = await response.json();
+    const data = validateResponse(FrameValidationResponseSchema, rawData, 'Frame validation response');
 
     return {
       valid: data.valid,
@@ -417,7 +418,12 @@ export class FarcasterProvider {
       throw new Error(`Failed to fetch casts: ${response.status}`);
     }
 
-    const data = await response.json() as { casts: NeynarCast[] };
+    const rawData = await response.json();
+    const data = validateResponse(
+      z.object({ casts: z.array(NeynarCastSchema) }),
+      rawData,
+      'Neynar casts response'
+    );
     return data.casts.map(this.mapNeynarCast);
   }
 
@@ -557,18 +563,7 @@ export class FarcasterProvider {
   private mapNeynarCast(cast: NeynarCast): FarcasterCast {
     return {
       hash: cast.hash as Hex,
-      author: {
-        fid: cast.author.fid,
-        username: cast.author.username,
-        displayName: cast.author.display_name,
-        pfpUrl: cast.author.pfp_url,
-        bio: cast.author.profile?.bio?.text ?? '',
-        followerCount: cast.author.follower_count,
-        followingCount: cast.author.following_count,
-        verifiedAddresses: (cast.author.verified_addresses?.eth_addresses ?? []) as Address[],
-        custodyAddress: cast.author.custody_address as Address,
-        activeStatus: cast.author.active_status as 'active' | 'inactive',
-      },
+      author: this.mapNeynarUser(cast.author),
       text: cast.text,
       timestamp: new Date(cast.timestamp).getTime(),
       parentHash: cast.parent_hash as Hex | undefined,
@@ -580,30 +575,6 @@ export class FarcasterProvider {
       },
     };
   }
-}
-
-interface NeynarUser {
-  fid: number;
-  username: string;
-  display_name: string;
-  pfp_url: string;
-  profile?: { bio?: { text?: string } };
-  follower_count: number;
-  following_count: number;
-  verified_addresses?: { eth_addresses?: string[] };
-  custody_address: string;
-  active_status: string;
-}
-
-interface NeynarCast {
-  hash: string;
-  author: NeynarUser;
-  text: string;
-  timestamp: string;
-  parent_hash?: string;
-  parent_url?: string;
-  embeds?: Array<{ url: string }>;
-  reactions?: { likes_count?: number; recasts_count?: number };
 }
 
 export const farcasterProvider = new FarcasterProvider();

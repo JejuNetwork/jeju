@@ -22,6 +22,9 @@ import type {
 } from '../autocrat-types';
 import { XLP_ROUTER_ABI, PERPETUAL_MARKET_ABI, ZERO_ADDRESS, ERC20_ABI } from '../lib/contracts';
 import { MevBundler, type BundleTransaction } from './bundler';
+import { createLogger } from '../../sdk/logger';
+
+const log = createLogger('Executor');
 
 export interface ContractAddresses {
   xlpRouter?: string;
@@ -93,7 +96,7 @@ export class TransactionExecutor {
   }
 
   async initialize(): Promise<void> {
-    console.log(`🔑 Initializing executor (${this.account.address}, Flashbots: ${this.useFlashbots ? 'enabled' : 'disabled'})`);
+    log.info('Initializing executor', { address: this.account.address, flashbots: this.useFlashbots });
 
     for (const chainConfig of this.chainConfigs) {
       const chain = this.getChainDef(chainConfig.chainId);
@@ -107,7 +110,7 @@ export class TransactionExecutor {
         const bundler = new MevBundler(this.config.privateKey, chainConfig.chainId);
         if (bundler.hasFlashbotsSupport) {
           this.bundlers.set(chainConfig.chainId, bundler);
-          console.log(`   ${chainConfig.name}: Flashbots ${bundler.isL2 ? '(L2 builder)' : '(mainnet relay)'}`);
+          log.info('Flashbots configured', { chain: chainConfig.name, isL2: bundler.isL2 });
         }
       }
 
@@ -115,7 +118,7 @@ export class TransactionExecutor {
       this.nonces.set(chainConfig.chainId, nonce);
 
       const balance = await publicClient.getBalance({ address: this.account.address });
-      console.log(`   ${chainConfig.name}: ${(Number(balance) / 1e18).toFixed(4)} ETH, nonce: ${nonce}`);
+      log.info('Chain initialized', { chain: chainConfig.name, balance: (Number(balance) / 1e18).toFixed(4), nonce });
     }
   }
 
@@ -488,7 +491,7 @@ export class TransactionExecutor {
     backrunData: `0x${string}`,
     context: ExecutionContext
   ): Promise<ExecutionResult> {
-    console.log('⚠️  Executing sandwich without Flashbots');
+    log.warn('Executing sandwich without Flashbots');
 
     const inputToken = opportunity.frontrunTx.path[0] as `0x${string}`;
     const outputToken = opportunity.frontrunTx.path[opportunity.frontrunTx.path.length - 1] as `0x${string}`;
@@ -622,8 +625,14 @@ export class TransactionExecutor {
   }
 
   private getOpportunityChainId(opportunity: Opportunity): ChainId {
-    return ('chainId' in opportunity) ? opportunity.chainId : 
-           ('sourceChainId' in opportunity) ? opportunity.sourceChainId : 1337 as ChainId;
+    const opportunityId = opportunity.id;
+    if ('chainId' in opportunity) {
+      return opportunity.chainId;
+    }
+    if ('sourceChainId' in opportunity) {
+      return opportunity.sourceChainId;
+    }
+    throw new Error(`Opportunity ${opportunityId} has no chainId or sourceChainId`);
   }
 
   private async getOptimalGasPrice(publicClient: PublicClient): Promise<bigint> {

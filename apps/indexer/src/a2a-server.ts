@@ -7,6 +7,40 @@
 
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { 
+  validateBody, 
+  a2aRequestSchema,
+  getBlockSkillSchema,
+  getTransactionSkillSchema,
+  getLogsSkillSchema,
+  getAccountSkillSchema,
+  getTokenBalancesSkillSchema,
+  getAgentSkillSchema,
+  getAgentsSkillSchema,
+  getAgentReputationSkillSchema,
+  getIntentSkillSchema,
+  getSolverSkillSchema,
+  getProposalSkillSchema,
+  getProposalsSkillSchema,
+  validateOrThrow,
+} from './lib/validation';
+import { BadRequestError } from './lib/types';
+import {
+  buildBlockQuery,
+  buildTransactionQuery,
+  buildAccountQuery,
+  buildTokenBalancesQuery,
+  buildAgentQuery,
+  buildAgentsQuery,
+  buildLogsQuery,
+  buildIntentQuery,
+  buildSolverQuery,
+  buildProposalQuery,
+  buildProposalsQuery,
+  buildNetworkStatsQuery,
+  buildTokenStatsQuery,
+  buildAgentReputationQuery,
+} from './lib/graphql-utils';
 
 // Local agent card creator (avoids React dependency from shared package)
 function createAgentCard(options: {
@@ -49,18 +83,6 @@ function createAgentCard(options: {
 // ============================================================================
 // Types
 // ============================================================================
-
-interface A2ARequest {
-  jsonrpc: string;
-  method: string;
-  params?: {
-    message?: {
-      messageId: string;
-      parts: Array<{ kind: string; text?: string; data?: Record<string, unknown> }>;
-    };
-  };
-  id: number | string;
-}
 
 interface SkillResult {
   message: string;
@@ -128,344 +150,193 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
   switch (skillId) {
     // Block/Transaction Skills
     case 'get-block': {
-      const blockNumber = params.blockNumber as number | undefined;
-      const blockHash = params.blockHash as string | undefined;
+      const validated = validateOrThrow(getBlockSkillSchema, params, `A2A skill ${skillId}`);
+      const query = buildBlockQuery(validated.blockNumber, validated.blockHash);
       return {
-        message: `Block data for ${blockNumber ?? blockHash}`,
+        message: `Block data for ${validated.blockNumber ?? validated.blockHash}`,
         data: {
           endpoint: '/graphql',
-          query: `query GetBlock($number: Int, $hash: String) {
-            blocks(where: { number_eq: $number, hash_eq: $hash }, limit: 1) {
-              number
-              hash
-              timestamp
-              transactionCount
-              gasUsed
-              gasLimit
-            }
-          }`,
-          variables: { number: blockNumber, hash: blockHash },
+          ...query,
         },
       };
     }
 
     case 'get-transaction': {
-      const hash = params.hash as string;
-      if (!hash) {
-        return { message: 'Transaction hash required', data: { error: 'Missing hash' } };
-      }
+      const validated = validateOrThrow(getTransactionSkillSchema, params, `A2A skill ${skillId}`);
+      const query = buildTransactionQuery(validated.hash);
       return {
-        message: `Transaction ${hash}`,
+        message: `Transaction ${validated.hash}`,
         data: {
           endpoint: '/graphql',
-          query: `query GetTx($hash: String!) {
-            transactions(where: { hash_eq: $hash }, limit: 1) {
-              hash
-              from
-              to
-              value
-              gasUsed
-              status
-              blockNumber
-              timestamp
-            }
-          }`,
-          variables: { hash },
+          ...query,
         },
       };
     }
 
     case 'get-logs': {
-      const { address, topics, fromBlock, toBlock, limit } = params as {
-        address?: string;
-        topics?: string[];
-        fromBlock?: number;
-        toBlock?: number;
-        limit?: number;
-      };
+      const validated = validateOrThrow(getLogsSkillSchema, params, `A2A skill ${skillId}`);
+      const topics = validated.topics;
+      const query = buildLogsQuery({
+        address: validated.address,
+        topic0: topics?.[0],
+        fromBlock: validated.fromBlock,
+        toBlock: validated.toBlock,
+        limit: validated.limit ?? 100,
+      });
       return {
         message: 'Event logs query',
         data: {
           endpoint: '/graphql',
-          query: `query GetLogs($address: String, $topic0: String, $fromBlock: Int, $toBlock: Int, $limit: Int) {
-            logs(where: {
-              address_eq: $address
-              topic0_eq: $topic0
-              block: { number_gte: $fromBlock, number_lte: $toBlock }
-            }, limit: $limit, orderBy: block_number_DESC) {
-              address
-              topics
-              data
-              blockNumber
-              transactionHash
-            }
-          }`,
-          variables: { address, topic0: topics?.[0], fromBlock, toBlock, limit: limit ?? 100 },
+          ...query,
         },
       };
     }
 
     // Account Skills
     case 'get-account': {
-      const address = params.address as string;
-      if (!address) {
-        return { message: 'Address required', data: { error: 'Missing address' } };
-      }
+      const validated = validateOrThrow(getAccountSkillSchema, params, `A2A skill ${skillId}`);
+      const query = buildAccountQuery(validated.address);
       return {
-        message: `Account ${address}`,
+        message: `Account ${validated.address}`,
         data: {
           endpoint: '/graphql',
-          query: `query GetAccount($address: String!) {
-            accounts(where: { id_eq: $address }, limit: 1) {
-              id
-              balance
-              transactionCount
-              contractCode
-            }
-          }`,
-          variables: { address: address.toLowerCase() },
+          ...query,
         },
       };
     }
 
     case 'get-token-balances': {
-      const address = params.address as string;
+      const validated = validateOrThrow(getTokenBalancesSkillSchema, params, `A2A skill ${skillId}`);
+      const query = buildTokenBalancesQuery(validated.address);
       return {
-        message: `Token balances for ${address}`,
+        message: `Token balances for ${validated.address}`,
         data: {
           endpoint: '/graphql',
-          query: `query GetTokenBalances($address: String!) {
-            tokenBalances(where: { account_eq: $address, balance_gt: "0" }) {
-              token { address symbol decimals name }
-              balance
-            }
-          }`,
-          variables: { address: address.toLowerCase() },
+          ...query,
         },
       };
     }
 
     // ERC-8004 Agent Skills
     case 'get-agent': {
-      const agentId = params.agentId as string | number;
+      const validated = validateOrThrow(getAgentSkillSchema, params, `A2A skill ${skillId}`);
+      const query = buildAgentQuery(validated.agentId);
       return {
-        message: `Agent ${agentId}`,
+        message: `Agent ${validated.agentId}`,
         data: {
           endpoint: '/graphql',
-          query: `query GetAgent($agentId: BigInt!) {
-            registeredAgents(where: { agentId_eq: $agentId }, limit: 1) {
-              agentId
-              owner
-              name
-              role
-              a2aEndpoint
-              mcpEndpoint
-              isActive
-              registeredAt
-              metadata { key value }
-            }
-          }`,
-          variables: { agentId },
+          ...query,
         },
       };
     }
 
     case 'get-agents': {
-      const { role, active, limit, offset } = params as {
-        role?: string;
-        active?: boolean;
-        limit?: number;
-        offset?: number;
-      };
+      const validated = validateOrThrow(getAgentsSkillSchema, params, `A2A skill ${skillId}`);
+      const query = buildAgentsQuery({
+        role: validated.role,
+        active: validated.active,
+        limit: validated.limit ?? 50,
+        offset: validated.offset ?? 0,
+      });
       return {
         message: 'Query agents',
         data: {
           endpoint: '/graphql',
-          query: `query GetAgents($role: String, $active: Boolean, $limit: Int, $offset: Int) {
-            registeredAgents(
-              where: { role_eq: $role, isActive_eq: $active }
-              limit: $limit
-              offset: $offset
-              orderBy: registeredAt_DESC
-            ) {
-              agentId
-              owner
-              name
-              role
-              isActive
-            }
-          }`,
-          variables: { role, active, limit: limit ?? 50, offset: offset ?? 0 },
+          ...query,
         },
       };
     }
 
     case 'get-agent-reputation': {
-      const agentId = params.agentId as string | number;
+      const validated = validateOrThrow(getAgentReputationSkillSchema, params, `A2A skill ${skillId}`);
+      const query = buildAgentReputationQuery(validated.agentId);
       return {
-        message: `Reputation for agent ${agentId}`,
+        message: `Reputation for agent ${validated.agentId}`,
         data: {
           endpoint: '/graphql',
-          query: `query GetReputation($agentId: BigInt!) {
-            agentFeedback(where: { agentId_eq: $agentId }) {
-              score
-              tag
-              details
-              feedbackBy
-              timestamp
-            }
-            agentValidations(where: { agentId_eq: $agentId }) {
-              validated
-              validator
-              timestamp
-            }
-          }`,
-          variables: { agentId },
+          ...query,
         },
       };
     }
 
     // OIF/EIL Skills
     case 'get-intent': {
-      const intentId = params.intentId as string;
+      const validated = validateOrThrow(getIntentSkillSchema, params, `A2A skill ${skillId}`);
+      const query = buildIntentQuery(validated.intentId);
       return {
-        message: `Intent ${intentId}`,
+        message: `Intent ${validated.intentId}`,
         data: {
           endpoint: '/graphql',
-          query: `query GetIntent($intentId: String!) {
-            oifIntents(where: { intentId_eq: $intentId }, limit: 1) {
-              intentId
-              sender
-              sourceChain
-              destinationChain
-              sourceToken
-              destinationToken
-              amount
-              status
-              solver
-              createdAt
-              settledAt
-            }
-          }`,
-          variables: { intentId },
+          ...query,
         },
       };
     }
 
     case 'get-solver': {
-      const solverAddress = params.address as string;
+      const validated = validateOrThrow(getSolverSkillSchema, params, `A2A skill ${skillId}`);
+      const query = buildSolverQuery(validated.address);
       return {
-        message: `Solver ${solverAddress}`,
+        message: `Solver ${validated.address}`,
         data: {
           endpoint: '/graphql',
-          query: `query GetSolver($address: String!) {
-            oifSolvers(where: { address_eq: $address }, limit: 1) {
-              address
-              agentId
-              stake
-              isActive
-              settledCount
-              totalVolume
-              reputation
-            }
-          }`,
-          variables: { address: solverAddress.toLowerCase() },
+          ...query,
         },
       };
     }
 
     // Governance Skills
     case 'get-proposal': {
-      const proposalId = params.proposalId as string;
+      const validated = validateOrThrow(getProposalSkillSchema, params, `A2A skill ${skillId}`);
+      const query = buildProposalQuery(validated.proposalId);
       return {
-        message: `Proposal ${proposalId}`,
+        message: `Proposal ${validated.proposalId}`,
         data: {
           endpoint: '/graphql',
-          query: `query GetProposal($proposalId: String!) {
-            councilProposals(where: { proposalId_eq: $proposalId }, limit: 1) {
-              proposalId
-              title
-              description
-              proposer
-              status
-              votesFor
-              votesAgainst
-              createdAt
-              executedAt
-            }
-          }`,
-          variables: { proposalId },
+          ...query,
         },
       };
     }
 
     case 'get-proposals': {
-      const { status, limit } = params as { status?: string; limit?: number };
+      const validated = validateOrThrow(getProposalsSkillSchema, params, `A2A skill ${skillId}`);
+      const query = buildProposalsQuery({
+        status: validated.status,
+        limit: validated.limit ?? 20,
+      });
       return {
         message: 'Query proposals',
         data: {
           endpoint: '/graphql',
-          query: `query GetProposals($status: String, $limit: Int) {
-            councilProposals(
-              where: { status_eq: $status }
-              limit: $limit
-              orderBy: createdAt_DESC
-            ) {
-              proposalId
-              title
-              status
-              votesFor
-              votesAgainst
-              createdAt
-            }
-          }`,
-          variables: { status, limit: limit ?? 20 },
+          ...query,
         },
       };
     }
 
     // Statistics Skills
     case 'get-network-stats': {
+      const query = buildNetworkStatsQuery();
       return {
         message: 'Network statistics',
         data: {
           endpoint: '/graphql',
-          query: `query GetNetworkStats {
-            networkSnapshots(limit: 1, orderBy: timestamp_DESC) {
-              totalTransactions
-              totalAccounts
-              totalContracts
-              totalTokens
-              blockNumber
-              timestamp
-            }
-          }`,
+          ...query,
         },
       };
     }
 
     case 'get-token-stats': {
+      const query = buildTokenStatsQuery();
       return {
         message: 'Token statistics',
         data: {
           endpoint: '/graphql',
-          query: `query GetTokenStats {
-            tokenDistributions(limit: 10, orderBy: totalSupply_DESC) {
-              token { address symbol name }
-              holders
-              totalSupply
-              transfers24h
-            }
-          }`,
+          ...query,
         },
       };
     }
 
     default:
-      return {
-        message: 'Unknown skill',
-        data: { error: 'Skill not found', availableSkills: AGENT_CARD.skills.map(s => s.id) },
-      };
+      throw new BadRequestError(`Unknown skill: ${skillId}. Available skills: ${AGENT_CARD.skills.map(s => s.id).join(', ')}`);
   }
 }
 
@@ -481,40 +352,26 @@ export function createIndexerA2AServer(): Hono {
   app.get('/.well-known/agent-card.json', (c) => c.json(AGENT_CARD));
 
   app.post('/', async (c) => {
-    const body = await c.req.json() as A2ARequest;
+    const body = await c.req.json();
+    const validated = validateBody(a2aRequestSchema, body, 'A2A POST /');
 
-    if (body.method !== 'message/send') {
-      return c.json({
-        jsonrpc: '2.0',
-        id: body.id,
-        error: { code: -32601, message: 'Method not found' },
-      });
-    }
-
-    const message = body.params?.message;
-    if (!message?.parts) {
-      return c.json({
-        jsonrpc: '2.0',
-        id: body.id,
-        error: { code: -32602, message: 'Invalid params' },
-      });
-    }
-
+    const message = validated.params.message;
     const dataPart = message.parts.find((p) => p.kind === 'data');
+    
     if (!dataPart?.data) {
-      return c.json({
-        jsonrpc: '2.0',
-        id: body.id,
-        error: { code: -32602, message: 'No data part found' },
-      });
+      throw new BadRequestError('No data part found in message');
     }
 
-    const skillId = dataPart.data.skillId as string;
+    const skillId = dataPart.data.skillId;
+    if (typeof skillId !== 'string' || !skillId) {
+      throw new BadRequestError('skillId is required and must be a string');
+    }
+
     const result = await executeSkill(skillId, dataPart.data);
 
     return c.json({
       jsonrpc: '2.0',
-      id: body.id,
+      id: validated.id,
       result: {
         role: 'agent',
         parts: [

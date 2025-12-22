@@ -52,6 +52,7 @@ export class FutarchyClient {
   private readonly client: PublicClient;
   private readonly walletClient: WalletClient;
   private readonly account: PrivateKeyAccount | null;
+  private readonly chain: ReturnType<typeof inferChainFromRpcUrl>;
   private readonly councilAddress: Address;
   private readonly marketAddress: Address;
 
@@ -60,6 +61,7 @@ export class FutarchyClient {
 
   constructor(config: FutarchyConfig) {
     const chain = inferChainFromRpcUrl(config.rpcUrl);
+    this.chain = chain;
     // @ts-expect-error viem version type mismatch in monorepo
     this.client = createPublicClient({
       chain,
@@ -167,8 +169,8 @@ export class FutarchyClient {
     if (!m) return { success: false, error: 'No market for proposal' };
     if (!m.canResolve) return { success: false, error: `Cannot resolve yet. Deadline: ${new Date(m.deadline * 1000).toISOString()}` };
 
-    // @ts-expect-error viem ABI type inference
     const hash = await this.walletClient.writeContract({
+      chain: this.chain,
       address: this.councilAddress,
       abi: COUNCIL_ABI,
       functionName: 'resolveFutarchy',
@@ -218,6 +220,7 @@ export class FutarchyClient {
     if (!this.account) throw new Error('Wallet required');
 
     const hash = await this.walletClient.writeContract({
+      chain: this.chain,
       address: this.marketAddress,
       abi: MARKET_ABI,
       functionName: position === 'yes' ? 'buyYes' : 'buyNo',

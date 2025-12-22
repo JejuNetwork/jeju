@@ -227,7 +227,9 @@ export class ArbitrageDetector {
       if (!hyperPrice) continue;
       
       // Get Base DEX price for comparison
-      const baseQuote = await this.getEvmPrice(pair.split('-')[0] ?? '', 8453);
+      const baseToken = pair.split('-')[0];
+      if (!baseToken) continue;
+      const baseQuote = await this.getEvmPrice(baseToken, 8453);
       if (!baseQuote) continue;
       
       // Calculate opportunity
@@ -345,29 +347,25 @@ export class ArbitrageDetector {
     
     const url = `${JUPITER_API}/quote?inputMint=${mint}&outputMint=${usdcMint}&amount=${amount}&slippageBps=50`;
     
-    try {
-      const response = await fetch(url);
-      if (!response.ok) return null;
-      
-      const data = await response.json() as {
-        inAmount: string;
-        outAmount: string;
-        priceImpactPct: string;
-      };
-      
-      return {
-        chain: 'solana',
-        dex: 'jupiter',
-        tokenIn: token,
-        tokenOut: 'USDC',
-        amountIn: BigInt(data.inAmount),
-        amountOut: BigInt(data.outAmount),
-        priceImpactBps: parseFloat(data.priceImpactPct) * 100,
-        timestamp: Date.now(),
-      };
-    } catch {
-      return null;
-    }
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    
+    const data = await response.json() as {
+      inAmount: string;
+      outAmount: string;
+      priceImpactPct: string;
+    };
+    
+    return {
+      chain: 'solana',
+      dex: 'jupiter',
+      tokenIn: token,
+      tokenOut: 'USDC',
+      amountIn: BigInt(data.inAmount),
+      amountOut: BigInt(data.outAmount),
+      priceImpactBps: parseFloat(data.priceImpactPct) * 100,
+      timestamp: Date.now(),
+    };
   }
 
   private async getEvmPrice(token: string, chainId: number): Promise<PriceQuote | null> {
@@ -527,21 +525,22 @@ export class ArbitrageDetector {
   }
 
   private async getHyperliquidPrice(pair: string): Promise<number | null> {
-    try {
-      const response = await fetch(`${HYPERLIQUID_API}/info`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'allMids' }),
-      });
-      
-      if (!response.ok) return null;
-      
-      const data = await response.json() as Record<string, string>;
-      const symbol = pair.split('-')[0] ?? '';
-      return parseFloat(data[symbol] ?? '0');
-    } catch {
-      return null;
-    }
+    const response = await fetch(`${HYPERLIQUID_API}/info`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'allMids' }),
+    });
+    
+    if (!response.ok) return null;
+    
+    const data = await response.json() as Record<string, string>;
+    const symbol = pair.split('-')[0];
+    if (!symbol) return null;
+    
+    const priceStr = data[symbol];
+    if (!priceStr) return null;
+    
+    return parseFloat(priceStr);
   }
 
   // ============ Helpers ============

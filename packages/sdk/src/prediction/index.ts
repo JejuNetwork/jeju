@@ -11,7 +11,7 @@
 import { type Address, type Hex, encodeFunctionData, parseEther } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
-import { getContract as getContractAddress, getServicesConfig } from "../config";
+import { requireContract } from "../config";
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -75,7 +75,9 @@ export interface TradeParams {
 
 export interface PredictionModule {
   // Market Management
-  createMarket(params: CreateMarketParams): Promise<{ marketId: Hex; txHash: Hex }>;
+  createMarket(
+    params: CreateMarketParams,
+  ): Promise<{ marketId: Hex; txHash: Hex }>;
   getMarket(marketId: Hex): Promise<PredictionMarket | null>;
   listActiveMarkets(): Promise<PredictionMarket[]>;
   listResolvedMarkets(): Promise<PredictionMarket[]>;
@@ -265,16 +267,11 @@ export function createPredictionModule(
   wallet: JejuWallet,
   network: NetworkType,
 ): PredictionModule {
-  const tryGetContract = (category: string, name: string): Address => {
-    try {
-      // @ts-expect-error - category names may vary by deployment
-      return getContractAddress(category, name, network) as Address;
-    } catch {
-      return "0x0000000000000000000000000000000000000000" as Address;
-    }
-  };
-
-  const predictionMarketAddress = tryGetContract("prediction", "PredictionMarket");
+  const predictionMarketAddress = requireContract(
+    "prediction",
+    "PredictionMarket",
+    network,
+  );
 
   async function readMarket(marketId: Hex): Promise<PredictionMarket | null> {
     const result = await wallet.publicClient.readContract({
@@ -394,7 +391,11 @@ export function createPredictionModule(
         args: [params.marketId, params.isYes, params.shares, maxCost],
       });
 
-      const cost = await this.getBuyPrice(params.marketId, params.isYes, params.shares);
+      const cost = await this.getBuyPrice(
+        params.marketId,
+        params.isYes,
+        params.shares,
+      );
 
       return wallet.sendTransaction({
         to: predictionMarketAddress,
@@ -485,7 +486,10 @@ export function createPredictionModule(
 
     async getMarketVolume(marketId) {
       const market = await readMarket(marketId);
-      return market?.totalVolume ?? 0n;
+      if (!market) {
+        throw new Error(`Market ${marketId} not found`);
+      }
+      return market.totalVolume;
     },
 
     async getTotalVolume() {
@@ -498,5 +502,3 @@ export function createPredictionModule(
     },
   };
 }
-
-

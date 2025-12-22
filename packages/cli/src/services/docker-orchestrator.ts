@@ -68,7 +68,12 @@ export class DockerOrchestrator {
 
   constructor(rootDir: string, config: Partial<OrchestratorConfig> = {}) {
     this.rootDir = rootDir;
-    this.config = { ...DEFAULT_CONFIG, ...config };
+    this.config = {
+      profile: config.profile ?? DEFAULT_CONFIG.profile,
+      projectName: config.projectName ?? DEFAULT_CONFIG.projectName,
+      detach: config.detach ?? DEFAULT_CONFIG.detach,
+      timeout: config.timeout ?? DEFAULT_CONFIG.timeout,
+    };
     this.composePath = join(rootDir, 'packages/tests/docker-compose.test.yml');
   }
 
@@ -113,22 +118,19 @@ export class DockerOrchestrator {
   async stop(): Promise<void> {
     logger.step('Stopping services...');
 
-    try {
-      await execa('docker', [
-        'compose',
-        '-f', this.composePath,
-        '-p', this.config.projectName || 'jeju-test',
-        'down',
-        '-v', // Remove volumes
-        '--remove-orphans',
-      ], {
-        cwd: this.rootDir,
-        stdio: 'pipe',
-      });
-      logger.success('Services stopped');
-    } catch {
-      // Ignore errors on stop
-    }
+    await execa('docker', [
+      'compose',
+      '-f', this.composePath,
+      '-p', this.config.projectName || 'jeju-test',
+      'down',
+      '-v', // Remove volumes
+      '--remove-orphans',
+    ], {
+      cwd: this.rootDir,
+      stdio: 'pipe',
+      reject: false, // Don't throw if services weren't running
+    });
+    logger.success('Services stopped');
   }
 
   async status(): Promise<ServiceStatus[]> {

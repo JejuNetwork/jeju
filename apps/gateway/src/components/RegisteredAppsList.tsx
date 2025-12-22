@@ -1,6 +1,18 @@
-import { useState, useEffect, useCallback } from 'react';
-import { RefreshCw, Sparkles, Search, ExternalLink, Zap, Server, Bot, Box, Shield, DollarSign } from 'lucide-react';
+import { useState, useEffect, useCallback, type ComponentType } from 'react';
+import { RefreshCw, Sparkles, Search, ExternalLink, Zap, Server, Bot, Box, Shield, DollarSign, type LucideProps } from 'lucide-react';
 import { INDEXER_URL } from '../config';
+
+// Icon aliases for React 19 compatibility
+const SearchIcon = Search as ComponentType<LucideProps>;
+const RefreshCwIcon = RefreshCw as ComponentType<LucideProps>;
+const SparklesIcon = Sparkles as ComponentType<LucideProps>;
+const ExternalLinkIcon = ExternalLink as ComponentType<LucideProps>;
+const ZapIcon = Zap as ComponentType<LucideProps>;
+const ServerIcon = Server as ComponentType<LucideProps>;
+const BotIcon = Bot as ComponentType<LucideProps>;
+const BoxIcon = Box as ComponentType<LucideProps>;
+const ShieldIcon = Shield as ComponentType<LucideProps>;
+const DollarSignIcon = DollarSign as ComponentType<LucideProps>;
 
 interface RegisteredApp {
   agentId: string;
@@ -29,10 +41,10 @@ interface RegisteredAppsListProps {
 }
 
 const TYPE_FILTERS = [
-  { value: 'all', label: 'All', icon: Box },
-  { value: 'agent', label: 'Agents', icon: Bot },
-  { value: 'mcp', label: 'MCP', icon: Server },
-  { value: 'app', label: 'Apps', icon: Box },
+  { value: 'all', label: 'All', icon: BoxIcon },
+  { value: 'agent', label: 'Agents', icon: BotIcon },
+  { value: 'mcp', label: 'MCP', icon: ServerIcon },
+  { value: 'app', label: 'Apps', icon: BoxIcon },
 ];
 
 const CATEGORY_FILTERS = [
@@ -141,9 +153,9 @@ function formatStake(amount: string): string {
 
 function getServiceIcon(type: string) {
   switch (type) {
-    case 'mcp': return Server;
-    case 'app': return Box;
-    default: return Bot;
+    case 'mcp': return ServerIcon;
+    case 'app': return BoxIcon;
+    default: return BotIcon;
   }
 }
 
@@ -182,7 +194,7 @@ export default function RegisteredAppsList({ onSelectApp }: RegisteredAppsListPr
     <div>
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
         <div style={{ position: 'relative', flex: '1 1 200px', minWidth: 0 }}>
-          <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+          <SearchIcon size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
           <input
             className="input"
             type="text"
@@ -196,7 +208,7 @@ export default function RegisteredAppsList({ onSelectApp }: RegisteredAppsListPr
           {CATEGORY_FILTERS.map((cat) => <option key={cat.value} value={cat.value}>{cat.label}</option>)}
         </select>
         <button onClick={fetchApps} className="button button-secondary" style={{ padding: '0.75rem', flexShrink: 0 }}>
-          <RefreshCw size={16} />
+          <RefreshCwIcon size={16} />
         </button>
       </div>
 
@@ -216,11 +228,11 @@ export default function RegisteredAppsList({ onSelectApp }: RegisteredAppsListPr
       <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
         <label className="pill" style={{ cursor: 'pointer', gap: '0.5rem' }}>
           <input type="checkbox" checked={x402Only} onChange={(e) => setX402Only(e.target.checked)} style={{ accentColor: 'var(--accent-primary)' }} />
-          <DollarSign size={12} /> x402
+          <DollarSignIcon size={12} /> x402
         </label>
         <label className="pill" style={{ cursor: 'pointer', gap: '0.5rem' }}>
           <input type="checkbox" checked={activeOnly} onChange={(e) => setActiveOnly(e.target.checked)} style={{ accentColor: 'var(--accent-primary)' }} />
-          <Zap size={12} /> Active
+          <ZapIcon size={12} /> Active
         </label>
       </div>
 
@@ -243,7 +255,7 @@ export default function RegisteredAppsList({ onSelectApp }: RegisteredAppsListPr
 
       {!isLoading && apps.length === 0 && (
         <div className="card empty-state">
-          <Sparkles size={48} className="empty-state-icon" />
+          <SparklesIcon size={48} className="empty-state-icon" />
           <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>No Agents Found</h3>
           <p>{searchQuery ? `No results for "${searchQuery}"` : 'No agents registered yet'}</p>
         </div>
@@ -310,15 +322,15 @@ export default function RegisteredAppsList({ onSelectApp }: RegisteredAppsListPr
 
                 {(app.a2aEndpoint || app.mcpEndpoint) && (
                   <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-                    {app.a2aEndpoint && <span className="badge badge-info" style={{ fontSize: '0.6875rem' }}><Bot size={10} /> A2A</span>}
-                    {app.mcpEndpoint && <span className="badge" style={{ fontSize: '0.6875rem', background: 'var(--accent-secondary-soft)', color: 'var(--accent-secondary)' }}><Server size={10} /> MCP</span>}
+                    {app.a2aEndpoint && <span className="badge badge-info" style={{ fontSize: '0.6875rem' }}><BotIcon size={10} /> A2A</span>}
+                    {app.mcpEndpoint && <span className="badge" style={{ fontSize: '0.6875rem', background: 'var(--accent-secondary-soft)', color: 'var(--accent-secondary)' }}><ServerIcon size={10} /> MCP</span>}
                     {(app.mcpTools?.length || 0) > 0 && <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', marginLeft: 'auto' }}>{app.mcpTools?.length} tools</span>}
                   </div>
                 )}
 
                 <div style={{ padding: '0.75rem', background: 'var(--surface-hover)', borderRadius: 'var(--radius-md)', fontSize: '0.8125rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                    <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Shield size={12} /> Tier</span>
+                    <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}><ShieldIcon size={12} /> Tier</span>
                     <span style={{ fontWeight: 600, color: `var(--${tier.className === 'text-muted' ? 'text-muted' : tier.className === 'text-success' ? 'success' : tier.className === 'text-info' ? 'info' : 'accent-primary'})` }}>
                       {tier.label}
                       {app.stakeAmount !== '<0.001' && app.stakeAmount !== '0.000' && <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: '0.75rem' }}> ({app.stakeAmount} ETH)</span>}
@@ -333,12 +345,12 @@ export default function RegisteredAppsList({ onSelectApp }: RegisteredAppsListPr
                 <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
                   {app.metadataUri && (
                     <a href={app.metadataUri} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="button button-ghost" style={{ flex: 1, justifyContent: 'center', fontSize: '0.75rem' }}>
-                      <ExternalLink size={12} /> Metadata
+                      <ExternalLinkIcon size={12} /> Metadata
                     </a>
                   )}
                   {app.a2aEndpoint && (
                     <a href={app.a2aEndpoint} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="button button-ghost" style={{ flex: 1, justifyContent: 'center', fontSize: '0.75rem', color: 'var(--info)' }}>
-                      <Bot size={12} /> A2A
+                      <BotIcon size={12} /> A2A
                     </a>
                   )}
                 </div>

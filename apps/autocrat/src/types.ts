@@ -724,3 +724,123 @@ export interface FundingStats {
   totalDistributed: bigint;
   uniqueStakers: number;
 }
+
+// ============ Bug Bounty Types ============
+
+export enum BountySeverity {
+  LOW = 0,
+  MEDIUM = 1,
+  HIGH = 2,
+  CRITICAL = 3,
+}
+
+export enum VulnerabilityType {
+  FUNDS_AT_RISK = 0,
+  WALLET_DRAIN = 1,
+  REMOTE_CODE_EXECUTION = 2,
+  TEE_BYPASS = 3,
+  CONSENSUS_ATTACK = 4,
+  MPC_KEY_EXPOSURE = 5,
+  PRIVILEGE_ESCALATION = 6,
+  DENIAL_OF_SERVICE = 7,
+  INFORMATION_DISCLOSURE = 8,
+  OTHER = 9,
+}
+
+export enum BountySubmissionStatus {
+  PENDING = 0,
+  VALIDATING = 1,
+  GUARDIAN_REVIEW = 2,
+  CEO_REVIEW = 3,
+  APPROVED = 4,
+  REJECTED = 5,
+  PAID = 6,
+  WITHDRAWN = 7,
+}
+
+export enum ValidationResult {
+  VALID = 0,
+  INVALID = 1,
+  NEEDS_REVIEW = 2,
+}
+
+export interface BountySubmissionDraft {
+  title: string;
+  summary: string;
+  description: string;
+  severity: BountySeverity;
+  vulnType: VulnerabilityType;
+  affectedComponents: string[];
+  stepsToReproduce: string[];
+  proofOfConcept?: string;
+  suggestedFix?: string;
+  impact?: string;
+}
+
+export interface BountySubmission extends BountySubmissionDraft {
+  submissionId: string;
+  researcher: Address;
+  researcherAgentId: bigint;
+  stake: bigint;
+  rewardAmount: bigint;
+  status: BountySubmissionStatus;
+  validationResult: ValidationResult;
+  validationNotes: string;
+  guardianApprovals: number;
+  guardianRejections: number;
+  submittedAt: number;
+  validatedAt: number;
+  resolvedAt: number;
+  fixCommitHash: string | null;
+  disclosureDate: number | null;
+  researcherDisclosed: boolean;
+  encryptedReportCid: string;
+  encryptionKeyId: string;
+  proofOfConceptHash: string;
+}
+
+export interface BountyAssessment {
+  severityScore: number;
+  impactScore: number;
+  exploitabilityScore: number;
+  isImmediateThreat: boolean;
+  estimatedReward: bigint;
+  validationPriority: 'critical' | 'high' | 'medium' | 'low';
+  feedback: string[];
+  readyToSubmit: boolean;
+}
+
+export interface BountyGuardianVote {
+  submissionId: string;
+  guardian: Address;
+  agentId: bigint;
+  approved: boolean;
+  suggestedReward: bigint;
+  feedback: string;
+  votedAt: number;
+}
+
+export interface ResearcherStats {
+  address: Address;
+  totalSubmissions: number;
+  approvedSubmissions: number;
+  rejectedSubmissions: number;
+  totalEarned: bigint;
+  averageReward: bigint;
+  successRate: number;
+}
+
+export interface BountyPoolStats {
+  totalPool: bigint;
+  totalPaidOut: bigint;
+  pendingPayouts: bigint;
+  activeSubmissions: number;
+  guardianCount: number;
+}
+
+export const SEVERITY_REWARDS: Record<BountySeverity, { min: string; max: string }> = {
+  [BountySeverity.LOW]: { min: '$500', max: '$2,500' },
+  [BountySeverity.MEDIUM]: { min: '$2,500', max: '$10,000' },
+  [BountySeverity.HIGH]: { min: '$10,000', max: '$25,000' },
+  [BountySeverity.CRITICAL]: { min: '$25,000', max: '$50,000' },
+};

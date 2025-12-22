@@ -43,7 +43,7 @@ const assignees = [
 export default function NewIssuePage() {
   const params = useParams();
   const router = useRouter();
-  const { isConnected, address } = useAccount();
+  const { isConnected } = useAccount();
   const owner = params.owner as string;
   const repo = params.repo as string;
 

@@ -78,8 +78,26 @@ async function callAutocratA2A(skillId: string, params: Record<string, unknown> 
     }),
   });
 
-  const result = await response.json() as { result?: { parts?: Array<{ kind: string; data?: Record<string, unknown> }> } };
-  return result.result?.parts?.find((p) => p.kind === 'data')?.data ?? {};
+  if (!response.ok) {
+    throw new Error(`Autocrat A2A call failed for '${skillId}': ${response.status} ${response.statusText}`);
+  }
+
+  const result = await response.json() as { result?: { parts?: Array<{ kind: string; data?: Record<string, unknown> }> }; error?: { message: string } };
+  if (result.error) {
+    throw new Error(`Autocrat A2A call for '${skillId}' returned error: ${result.error.message}`);
+  }
+  
+  const parts = result.result?.parts;
+  if (!parts || parts.length === 0) {
+    throw new Error(`Autocrat A2A call for '${skillId}' returned no parts`);
+  }
+  
+  const dataPart = parts.find((p) => p.kind === 'data');
+  if (!dataPart || !dataPart.data) {
+    throw new Error(`Autocrat A2A call for '${skillId}' returned no data part`);
+  }
+  
+  return dataPart.data;
 }
 
 // ============================================================================
@@ -335,19 +353,18 @@ export const treasuryProvider: Provider = {
       ceo?: { treasuryBalance?: string };
     };
 
-    const treasury = stats.treasury ?? {
-      balance: stats.ceo?.treasuryBalance ?? '0',
-      totalAllocated: '0',
-      pendingProposals: 0,
-    };
+    // Treasury data is optional - display what's available
+    const balance = stats.treasury?.balance ?? stats.ceo?.treasuryBalance ?? 'unavailable';
+    const totalAllocated = stats.treasury?.totalAllocated ?? 'unavailable';
+    const pendingProposals = stats.treasury?.pendingProposals ?? 0;
 
     return {
       text: `💰 TREASURY STATUS
 
 💵 BALANCE
-Current: ${treasury.balance} ETH
-Allocated: ${treasury.totalAllocated} ETH
-Pending Proposals: ${treasury.pendingProposals}
+Current: ${balance} ETH
+Allocated: ${totalAllocated} ETH
+Pending Proposals: ${pendingProposals}
 
 📈 BUDGET GUIDELINES
 - Small grants: < 0.5 ETH (streamlined approval)
@@ -439,14 +456,9 @@ export const mcpResourcesProvider: Provider = {
   ): Promise<ProviderResult> => {
     const mcpUrl = process.env.AUTOCRAT_MCP_URL ?? `${getAutocratUrl()}/mcp`;
     
-    let tools: Array<{ name: string; description: string }> = [];
-    try {
-      const response = await fetch(`${mcpUrl}/tools`);
-      const data = await response.json() as { tools?: Array<{ name: string; description: string }> };
-      tools = data.tools ?? [];
-    } catch {
-      // MCP not available
-    }
+    const response = await fetch(`${mcpUrl}/tools`);
+    const data = await response.json() as { tools?: Array<{ name: string; description: string }> };
+    const tools = data.tools ?? [];
 
     return {
       text: `🔧 AVAILABLE MCP TOOLS
@@ -460,8 +472,8 @@ ${tools.length > 0
 • get_council_deliberation: Get council agent votes`}
 
 🔗 ENDPOINTS
-- A2A: ${AUTOCRAT_A2A_URL}
-- MCP: ${MCP_URL}
+- A2A: ${process.env.AUTOCRAT_A2A_URL ?? 'http://localhost:8010/a2a'}
+- MCP: ${process.env.AUTOCRAT_MCP_URL ?? 'http://localhost:8010/mcp'}
 
 💡 USAGE
 Use these tools to gather information and prepare actions.

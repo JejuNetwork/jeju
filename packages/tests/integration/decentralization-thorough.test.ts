@@ -9,7 +9,7 @@
  * - Actual output verification
  */
 
-import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll } from 'bun:test';
+import { describe, it, expect, beforeEach } from 'bun:test';
 
 // =============================================================================
 // CovenantSQL Client Tests
@@ -161,7 +161,7 @@ describe('CovenantSQL Client - SQL Operations', () => {
   it('should build correct INSERT SQL for single row', async () => {
     const { createCovenantSQLClient } = await import('@jejunetwork/shared');
     
-    const client = createCovenantSQLClient({
+    const _client = createCovenantSQLClient({
       nodes: ['http://localhost:4661'],
       databaseId: 'test',
       privateKey: 'key',
@@ -175,7 +175,7 @@ describe('CovenantSQL Client - SQL Operations', () => {
   it('should build correct INSERT SQL for multiple rows', async () => {
     const { createCovenantSQLClient } = await import('@jejunetwork/shared');
     
-    const client = createCovenantSQLClient({
+    const _client = createCovenantSQLClient({
       nodes: ['http://localhost:4661'],
       databaseId: 'test',
       privateKey: 'key',
@@ -194,7 +194,7 @@ describe('CovenantSQL Client - SQL Operations', () => {
   it('should handle empty insert data', async () => {
     const { createCovenantSQLClient } = await import('@jejunetwork/shared');
     
-    const client = createCovenantSQLClient({
+    const _client = createCovenantSQLClient({
       nodes: ['http://localhost:4661'],
       databaseId: 'test',
       privateKey: 'key',
@@ -581,7 +581,7 @@ describe('MPC Custody - Threshold Signing', () => {
 
   it('should reject signing with insufficient parties', async () => {
     const { getMPCCoordinator, resetMPCCoordinator } = await import('@jejunetwork/kms');
-    const { keccak256, toBytes } = await import('viem');
+    const { keccak256: _keccak256, toBytes: _toBytes } = await import('viem');
     
     resetMPCCoordinator();
     const manager = getMPCCoordinator();

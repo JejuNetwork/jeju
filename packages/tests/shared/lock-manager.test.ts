@@ -6,10 +6,8 @@ import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import { LockManager, withTestLock } from './lock-manager';
 import { existsSync, unlinkSync, writeFileSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { spawn } from 'bun';
-
 const TEST_LOCK_DIR = '/tmp/jeju-test-locks';
-const TEST_LOCK_FILE = 'test.lock';
+const _TEST_LOCK_FILE = 'test.lock';
 
 // Helper to get a fresh lock manager for each test
 function createTestLock(options: { ttlMs?: number; force?: boolean } = {}) {
@@ -20,18 +18,18 @@ function createTestLock(options: { ttlMs?: number; force?: boolean } = {}) {
 }
 
 // Ensure test directory exists
-beforeEach(() => {
-  const { mkdirSync } = require('fs');
+beforeEach(async () => {
+  const { mkdirSync } = await import('fs');
   try {
     mkdirSync(TEST_LOCK_DIR, { recursive: true });
-  } catch {}
+  } catch { /* intentionally empty */ }
 });
 
 // Cleanup after tests
 afterEach(() => {
   const lockPath = join(TEST_LOCK_DIR, '.jeju', '.jeju-e2e-test.lock');
   if (existsSync(lockPath)) {
-    try { unlinkSync(lockPath); } catch {}
+    try { unlinkSync(lockPath); } catch { /* intentionally empty */ }
   }
 });
 
@@ -292,7 +290,7 @@ describe('withTestLock - Wrapper Function', () => {
       await withTestLock(async () => {
         throw new Error('Test error');
       }, { lockDir: TEST_LOCK_DIR });
-    } catch (e) {
+    } catch (_e) {
       // Expected
     }
 

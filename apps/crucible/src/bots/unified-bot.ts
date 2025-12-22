@@ -39,6 +39,9 @@ import { RiskManager } from './engine/risk-manager';
 // Contract integrations (EIL/XLP/OIF)
 import { XLPManager, type XLPConfig, type XLPProfile, type LiquidityRequest } from './contracts/eil-xlp';
 import { OIFSolver, type OIFSolverConfig, type OpenIntent, IntentStatus } from './contracts/oif-solver';
+import { createLogger } from '../sdk/logger';
+
+const log = createLogger('UnifiedBot');
 
 // ============ Types ============
 
@@ -160,9 +163,7 @@ export class UnifiedBot extends EventEmitter {
    * Initialize all components
    */
   async initialize(): Promise<void> {
-    console.log('🤖 Initializing Unified MEV + LP Bot...');
-    console.log(`   EVM chains: ${this.config.evmChains.join(', ')}`);
-    console.log(`   Solana network: ${this.config.solanaNetwork}`);
+    log.info('Initializing Unified MEV + LP Bot', { evmChains: this.config.evmChains, solanaNetwork: this.config.solanaNetwork });
 
     // Initialize Solana
     await this.initializeSolana();
@@ -176,7 +177,7 @@ export class UnifiedBot extends EventEmitter {
     // Initialize engine
     await this.initializeEngine();
 
-    console.log('✅ Bot initialized successfully');
+    log.info('Bot initialized successfully');
   }
 
   private async initializeSolana(): Promise<void> {
@@ -198,7 +199,7 @@ export class UnifiedBot extends EventEmitter {
     this.solanaDex = new SolanaDexAggregator(this.solanaConnection);
 
     const slot = await this.solanaConnection.getSlot();
-    console.log(`   Solana slot: ${slot}`);
+    log.info('Solana slot', { slot });
   }
 
   private async initializeEVM(): Promise<void> {
@@ -230,7 +231,7 @@ export class UnifiedBot extends EventEmitter {
         const strategy = new DexArbitrageStrategy(chainId, baseStrategyConfig('DEX_ARBITRAGE'));
         this.dexArb.set(chainId, strategy);
       }
-      console.log('   ✓ DEX Arbitrage enabled');
+      log.info('DEX Arbitrage enabled');
     }
 
     // Cross-Chain Arbitrage
@@ -246,7 +247,7 @@ export class UnifiedBot extends EventEmitter {
         this.solanaConnection.rpcEndpoint,
         this.config.solanaPrivateKey
       );
-      console.log('   ✓ Solana Arbitrage enabled');
+      log.info('Solana Arbitrage enabled');
     }
 
     // Liquidity Management
@@ -278,7 +279,7 @@ export class UnifiedBot extends EventEmitter {
 
     // XLP (Cross-chain Liquidity Provider) integration
     if (this.config.enableXLP && this.config.evmPrivateKey && this.config.xlpConfig) {
-      console.log('🌉 Initializing XLP (Cross-chain Liquidity Provider)...');
+      log.info('Initializing XLP (Cross-chain Liquidity Provider)');
       
       for (const chainId of this.config.evmChains) {
         const rpcUrl = process.env[`RPC_URL_${chainId}`];
@@ -308,7 +309,7 @@ export class UnifiedBot extends EventEmitter {
       }
       
       if (this.xlpManagers.size > 0) {
-        console.log(`   ✓ XLP enabled on ${this.xlpManagers.size} chains`);
+        log.info('XLP enabled', { chainCount: this.xlpManagers.size });
       }
     }
 
@@ -343,7 +344,7 @@ export class UnifiedBot extends EventEmitter {
           maxSlippageBps: this.config.maxSlippageBps,
         });
         
-        console.log(`   ✓ OIF Solver enabled on ${Object.keys(chainConfigs).length} chains`);
+        log.info('OIF Solver enabled', { chainCount: Object.keys(chainConfigs).length });
       }
     }
 
@@ -381,7 +382,7 @@ export class UnifiedBot extends EventEmitter {
       
       // Listen for opportunities
       this.yieldFarming.on('opportunities', (opps: YieldOpportunity[]) => {
-        console.log(`   Found ${opps.length} yield farming opportunities`);
+        log.debug('Found yield farming opportunities', { count: opps.length });
         this.emit('yield-opportunities', opps);
       });
 
@@ -405,7 +406,7 @@ export class UnifiedBot extends EventEmitter {
       cooldownAfterFailMs: 60_000,
     });
 
-    console.log('   ✓ Engine initialized');
+    log.info('Engine initialized');
   }
 
   /**
@@ -440,7 +441,7 @@ export class UnifiedBot extends EventEmitter {
     // Start monitoring loop
     this.monitorLoop();
 
-    console.log('✅ Bot started');
+    log.info('Bot started');
     this.emit('started');
   }
 
@@ -457,7 +458,7 @@ export class UnifiedBot extends EventEmitter {
     this.liquidityManager?.stop();
     this.yieldFarming?.stop();
 
-    console.log('✅ Bot stopped');
+    log.info('Bot stopped');
     this.emit('stopped');
   }
 
@@ -728,12 +729,12 @@ export class UnifiedBot extends EventEmitter {
   }
 
   private handleOpportunity(strategy: string, opp: ArbitrageOpportunity | CrossChainArbOpportunity): void {
-    console.log(`📊 Opportunity: ${strategy} | ${opp.type} | Profit: ${opp.netProfitUsd ?? 'N/A'} USD`);
+    log.debug('Opportunity detected', { strategy, type: opp.type, profitUsd: opp.netProfitUsd ?? 'N/A' });
     this.emit('opportunity', { strategy, opportunity: opp });
   }
 
   private handleRebalanceOpportunities(actions: RebalanceAction[]): void {
-    console.log(`🔄 ${actions.length} rebalance opportunities detected`);
+    log.debug('Rebalance opportunities detected', { count: actions.length });
     this.emit('rebalance', actions);
   }
 
@@ -745,12 +746,12 @@ export class UnifiedBot extends EventEmitter {
       // Log summary every minute
       if (Date.now() % 60000 < 10000) {
         const stats = this.getStats();
-        console.log(
-          `📈 Bot Status | Trades: ${stats.totalTrades} | ` +
-          `Profit: $${stats.totalProfitUsd.toFixed(2)} | ` +
-          `Pending: ${stats.pendingOpportunities} | ` +
-          `LP Positions: ${stats.liquidityPositions}`
-        );
+        log.info('Bot status', { 
+          trades: stats.totalTrades, 
+          profitUsd: stats.totalProfitUsd.toFixed(2),
+          pending: stats.pendingOpportunities,
+          lpPositions: stats.liquidityPositions 
+        });
       }
 
       await new Promise(resolve => setTimeout(resolve, 1000));

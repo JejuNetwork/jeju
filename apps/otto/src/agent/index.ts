@@ -3,13 +3,26 @@
  * Uses unified ElizaOS-style runtime for all message processing
  */
 
-import type { PlatformMessage, CommandResult, Platform } from '../types';
+import type {
+  PlatformMessage,
+  CommandResult,
+  Platform,
+  DiscordWebhookPayload,
+  TelegramWebhookPayload,
+  TwilioWebhookPayload,
+  FarcasterFramePayload,
+} from '../types';
 import type { PlatformAdapter } from '../platforms/types';
 import { PlatformManager } from '../platforms';
 import { processMessage } from '../eliza/runtime';
+import {
+  expectValid,
+  PlatformMessageSchema,
+  CommandResultSchema,
+} from '../schemas';
 
 export class OttoAgent {
-  private platformManager: PlatformManager;
+  readonly platformManager: PlatformManager;
 
   constructor() {
     this.platformManager = new PlatformManager();
@@ -18,10 +31,8 @@ export class OttoAgent {
   async start(): Promise<void> {
     console.log('[Otto] Starting agent...');
 
-    // Initialize all platforms
     await this.platformManager.initialize();
 
-    // Set up message handlers for each platform
     for (const [platform, adapter] of this.platformManager.getAdapters()) {
       adapter.onMessage(async (message: PlatformMessage) => {
         await this.handleMessage(message, adapter);
@@ -40,13 +51,13 @@ export class OttoAgent {
   }
 
   private async handleMessage(message: PlatformMessage, adapter: PlatformAdapter): Promise<void> {
-    console.log(`[Otto] Received message from ${message.platform}:${message.userId}: ${message.content.slice(0, 50)}...`);
+    const validatedMessage = expectValid(PlatformMessageSchema, message, 'agent handleMessage');
+    console.log(`[Otto] Received message from ${validatedMessage.platform}:${validatedMessage.userId}: ${validatedMessage.content.slice(0, 50)}...`);
 
-    // Process through unified runtime (handles both commands and AI)
-    const result = await processMessage(message);
+    const result = await processMessage(validatedMessage);
+    const validatedResult = expectValid(CommandResultSchema, result, 'command result');
 
-    // Send response
-    await this.sendResponse(adapter, message, result);
+    await this.sendResponse(adapter, validatedMessage, validatedResult);
   }
 
   private async sendResponse(
@@ -54,6 +65,10 @@ export class OttoAgent {
     message: PlatformMessage,
     result: CommandResult
   ): Promise<void> {
+    if (!message.channelId || !result.message) {
+      throw new Error('Channel ID and result message are required');
+    }
+    
     if (result.embed) {
       await adapter.sendEmbed(message.channelId, result.embed, result.buttons);
     } else {
@@ -65,31 +80,31 @@ export class OttoAgent {
   }
 
   // ============================================================================
-  // Webhook Handlers
+  // Webhook Handlers (payloads already validated by server.ts)
   // ============================================================================
 
-  async handleDiscordWebhook(payload: unknown): Promise<void> {
+  async handleDiscordWebhook(payload: DiscordWebhookPayload): Promise<void> {
     const adapter = this.platformManager.getAdapter('discord');
     if (adapter?.handleWebhook) {
       await adapter.handleWebhook(payload);
     }
   }
 
-  async handleTelegramWebhook(payload: unknown): Promise<void> {
+  async handleTelegramWebhook(payload: TelegramWebhookPayload): Promise<void> {
     const adapter = this.platformManager.getAdapter('telegram');
     if (adapter?.handleWebhook) {
       await adapter.handleWebhook(payload);
     }
   }
 
-  async handleWhatsAppWebhook(payload: unknown): Promise<void> {
+  async handleWhatsAppWebhook(payload: TwilioWebhookPayload): Promise<void> {
     const adapter = this.platformManager.getAdapter('whatsapp');
     if (adapter?.handleWebhook) {
       await adapter.handleWebhook(payload);
     }
   }
 
-  async handleFarcasterWebhook(payload: unknown): Promise<void> {
+  async handleFarcasterWebhook(payload: FarcasterFramePayload): Promise<void> {
     const adapter = this.platformManager.getAdapter('farcaster');
     if (adapter?.handleWebhook) {
       await adapter.handleWebhook(payload);
@@ -109,7 +124,9 @@ export class OttoAgent {
   // ============================================================================
 
   async chat(message: PlatformMessage): Promise<CommandResult> {
-    return processMessage(message);
+    const validatedMessage = expectValid(PlatformMessageSchema, message, 'chat message');
+    const result = await processMessage(validatedMessage);
+    return expectValid(CommandResultSchema, result, 'chat result');
   }
 
   // ============================================================================
@@ -126,3 +143,12 @@ export class OttoAgent {
   }
 }
 
+// Singleton instance for hooks
+let ottoAgentInstance: OttoAgent | null = null;
+
+export function getOttoAgent(): OttoAgent {
+  if (!ottoAgentInstance) {
+    ottoAgentInstance = new OttoAgent();
+  }
+  return ottoAgentInstance;
+}

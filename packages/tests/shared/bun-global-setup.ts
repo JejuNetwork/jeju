@@ -23,6 +23,8 @@
 import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import type { Subprocess } from 'bun';
+import { findJejuWorkspaceRoot, isRpcAvailable, isServiceAvailable, getRpcUrl, checkContractsDeployed } from './utils';
+import type { InfraStatus } from './schemas';
 
 // Infrastructure state
 let localnetProcess: Subprocess | null = null;
@@ -43,68 +45,13 @@ const DOCKER_SERVICES = {
 } as const;
 
 // Environment URLs
-const RPC_URL = process.env.L2_RPC_URL || process.env.JEJU_RPC_URL || `http://127.0.0.1:${LOCALNET_PORT}`;
-const DWS_URL = process.env.DWS_URL || `http://127.0.0.1:${DWS_PORT}`;
-
-interface InfraStatus {
-  rpc: boolean;
-  dws: boolean;
-  docker: { [key: string]: boolean };
-  rpcUrl: string;
-  dwsUrl: string;
-}
-
-async function checkPort(port: number, path = '/'): Promise<boolean> {
-  try {
-    const url = `http://127.0.0.1:${port}${path}`;
-    const response = await fetch(url, { 
-      method: path === '/' ? 'GET' : 'POST',
-      signal: AbortSignal.timeout(2000),
-      ...(path !== '/' && {
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_chainId', params: [], id: 1 }),
-      }),
-    });
-    return response.ok;
-  } catch {
-    return false;
-  }
-}
-
-async function checkRpc(url: string): Promise<boolean> {
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_chainId', params: [], id: 1 }),
-      signal: AbortSignal.timeout(3000),
-    });
-    return response.ok;
-  } catch {
-    return false;
-  }
-}
-
-async function checkDws(url: string): Promise<boolean> {
-  try {
-    const response = await fetch(`${url}/health`, { signal: AbortSignal.timeout(3000) });
-    return response.ok;
-  } catch {
-    return false;
-  }
-}
+const RPC_URL = getRpcUrl();
+const DWS_URL = process.env.DWS_URL ?? `http://127.0.0.1:${DWS_PORT}`;
 
 async function checkDockerService(port: number, healthPath: string): Promise<boolean> {
-  try {
-    const url = `http://127.0.0.1:${port}${healthPath}`;
-    const response = await fetch(url, {
-      method: healthPath.startsWith('/api/v0') ? 'POST' : 'GET',
-      signal: AbortSignal.timeout(3000),
-    });
-    return response.ok;
-  } catch {
-    return false;
-  }
+  const url = `http://127.0.0.1:${port}${healthPath}`;
+  const method = healthPath.startsWith('/api/v0') ? 'POST' : 'GET';
+  return isServiceAvailable(url, 3000);
 }
 
 async function checkDockerServices(): Promise<{ [key: string]: boolean }> {
@@ -121,25 +68,12 @@ async function checkDockerServices(): Promise<{ [key: string]: boolean }> {
 
 async function checkInfrastructure(): Promise<InfraStatus> {
   const [rpc, dws, docker] = await Promise.all([
-    checkRpc(RPC_URL),
-    checkDws(DWS_URL),
+    isRpcAvailable(RPC_URL),
+    isServiceAvailable(`${DWS_URL}/health`),
     checkDockerServices(),
   ]);
   
   return { rpc, dws, docker, rpcUrl: RPC_URL, dwsUrl: DWS_URL };
-}
-
-function findMonorepoRoot(): string {
-  let dir = process.cwd();
-  for (let i = 0; i < 10; i++) {
-    if (existsSync(join(dir, 'bun.lock')) && existsSync(join(dir, 'packages'))) {
-      return dir;
-    }
-    const parent = join(dir, '..');
-    if (parent === dir) break;
-    dir = parent;
-  }
-  return process.cwd();
 }
 
 async function startLocalnet(rootDir: string): Promise<void> {
@@ -148,8 +82,7 @@ async function startLocalnet(rootDir: string): Promise<void> {
   // Check if anvil is available
   const anvil = Bun.which('anvil');
   if (!anvil) {
-    console.warn('Anvil not found. Install foundry: curl -L https://foundry.paradigm.xyz | bash');
-    return;
+    throw new Error('Anvil not found. Install foundry: curl -L https://foundry.paradigm.xyz | bash');
   }
 
   localnetProcess = Bun.spawn([anvil, '--port', String(LOCALNET_PORT), '--chain-id', '1337'], {
@@ -160,7 +93,7 @@ async function startLocalnet(rootDir: string): Promise<void> {
 
   // Wait for localnet to be ready
   for (let i = 0; i < 30; i++) {
-    if (await checkRpc(`http://127.0.0.1:${LOCALNET_PORT}`)) {
+    if (await isRpcAvailable(`http://127.0.0.1:${LOCALNET_PORT}`)) {
       console.log('Localnet ready');
       return;
     }
@@ -175,8 +108,7 @@ async function startDws(rootDir: string): Promise<void> {
   
   const dwsPath = join(rootDir, 'apps', 'dws');
   if (!existsSync(dwsPath)) {
-    console.warn('DWS app not found');
-    return;
+    throw new Error('DWS app not found');
   }
 
   dwsProcess = Bun.spawn(['bun', 'run', 'dev'], {
@@ -193,7 +125,7 @@ async function startDws(rootDir: string): Promise<void> {
 
   // Wait for DWS to be ready
   for (let i = 0; i < 30; i++) {
-    if (await checkDws(`http://127.0.0.1:${DWS_PORT}`)) {
+    if (await isServiceAvailable(`http://127.0.0.1:${DWS_PORT}/health`)) {
       console.log('DWS ready');
       return;
     }
@@ -204,26 +136,12 @@ async function startDws(rootDir: string): Promise<void> {
 }
 
 async function bootstrapContracts(rootDir: string): Promise<boolean> {
-  // Check if contracts are already deployed
   const rpcUrl = `http://127.0.0.1:${LOCALNET_PORT}`;
-  try {
-    const response = await fetch(rpcUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'eth_getCode',
-        params: ['0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9', 'latest'],
-        id: 1,
-      }),
-    });
-    const data = await response.json() as { result: string };
-    if (data.result && data.result !== '0x' && data.result.length > 2) {
-      console.log('Contracts already deployed');
-      return true;
-    }
-  } catch {
-    // Continue to deploy
+  
+  // Check if contracts are already deployed
+  if (await checkContractsDeployed(rpcUrl)) {
+    console.log('Contracts already deployed');
+    return true;
   }
 
   console.log('Bootstrapping contracts...');
@@ -234,30 +152,25 @@ async function bootstrapContracts(rootDir: string): Promise<boolean> {
     return false;
   }
 
-  try {
-    const proc = Bun.spawn(['bun', 'run', bootstrapScript], {
-      cwd: rootDir,
-      stdout: 'pipe',
-      stderr: 'pipe',
-      env: {
-        ...process.env,
-        L2_RPC_URL: rpcUrl,
-        JEJU_RPC_URL: rpcUrl,
-      },
-    });
+  const proc = Bun.spawn(['bun', 'run', bootstrapScript], {
+    cwd: rootDir,
+    stdout: 'pipe',
+    stderr: 'pipe',
+    env: {
+      ...process.env,
+      L2_RPC_URL: rpcUrl,
+      JEJU_RPC_URL: rpcUrl,
+    },
+  });
 
-    const exitCode = await proc.exited;
-    if (exitCode === 0) {
-      console.log('Contracts bootstrapped');
-      return true;
-    } else {
-      console.warn('Bootstrap failed, continuing without contracts');
-      return false;
-    }
-  } catch (error) {
-    console.warn(`Bootstrap error: ${error}`);
-    return false;
+  const exitCode = await proc.exited;
+  if (exitCode === 0) {
+    console.log('Contracts bootstrapped');
+    return true;
   }
+  
+  console.warn('Bootstrap failed, continuing without contracts');
+  return false;
 }
 
 async function stopProcess(proc: Subprocess | null): Promise<void> {
@@ -309,7 +222,7 @@ export async function setup(): Promise<void> {
   console.log('║  All infrastructure required - no fallbacks.                 ║');
   console.log('╚══════════════════════════════════════════════════════════════╝\n');
 
-  const rootDir = findMonorepoRoot();
+  const rootDir = findJejuWorkspaceRoot();
   console.log(`Monorepo root: ${rootDir}`);
 
   // Check if infrastructure already running (from jeju test or manual start)

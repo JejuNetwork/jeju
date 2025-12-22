@@ -96,9 +96,8 @@ describe('WalletService', () => {
   });
 
   describe('settings', () => {
-    test('returns null settings for non-existent user', () => {
-      const settings = service.getSettings('nonexistent');
-      expect(settings).toBeNull();
+    test('throws for non-existent user', () => {
+      expect(() => service.getSettings('nonexistent')).toThrow('User not found: nonexistent');
     });
 
     test('returns false when updating non-existent user', () => {

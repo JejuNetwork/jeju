@@ -3,9 +3,9 @@
  * Register names, resolve, reverse lookup
  */
 
-import { type Address } from 'viem';
 import { jnsService } from '../../services';
 import type { ActionContext, ActionResult } from './wallet-info';
+import { expectNonEmpty, expectPositive } from '../../lib/validation';
 
 export const registerNameAction = {
   name: 'REGISTER_JNS_NAME',
@@ -25,12 +25,14 @@ export const registerNameAction = {
     }
     
     const name = params.name.replace('.jeju', '');
+    expectNonEmpty(name, 'name');
     if (name.length < 3) {
       return { success: false, message: 'Name must be at least 3 characters.' };
     }
     
     logger.info(`[JNS] Checking availability: ${name}`);
     
+    if (params.years) expectPositive(params.years, 'years');
     const pricing = await jnsService.getPrice(name, params.years || 1);
     
     if (!pricing.available) {
@@ -64,6 +66,7 @@ export const resolveNameAction = {
     }
     
     const name = params.name;
+    expectNonEmpty(name, 'name');
     const address = await jnsService.resolve(name);
     
     if (!address) {
@@ -95,6 +98,7 @@ export const setNameAction = {
       return { success: false, message: 'Please provide the name to set. Example: "set primary name alice.jeju"' };
     }
     
+    expectNonEmpty(params.name, 'name');
     const tx = jnsService.buildSetPrimaryNameTx(params.name);
     if (!tx) {
       return { success: false, message: 'JNS contracts not configured on this network.' };

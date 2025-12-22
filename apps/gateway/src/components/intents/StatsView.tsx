@@ -1,5 +1,13 @@
-import { Activity, DollarSign, Users, CheckCircle, Clock, TrendingUp } from 'lucide-react';
+import React, { type ComponentType } from 'react';
+import { Activity, DollarSign, Users, CheckCircle, Clock, TrendingUp, type LucideProps } from 'lucide-react';
 import { useOIFStats } from '../../hooks/useIntentAPI';
+
+const ActivityIcon = Activity as ComponentType<LucideProps>;
+const DollarSignIcon = DollarSign as ComponentType<LucideProps>;
+const UsersIcon = Users as ComponentType<LucideProps>;
+const CheckCircleIcon = CheckCircle as ComponentType<LucideProps>;
+const ClockIcon = Clock as ComponentType<LucideProps>;
+const TrendingUpIcon = TrendingUp as ComponentType<LucideProps>;
 
 export function StatsView() {
   const { data: stats, isLoading } = useOIFStats();
@@ -31,28 +39,28 @@ export function StatsView() {
         marginBottom: '32px',
       }}>
         <StatCard
-          icon={<Activity size={24} />}
+          icon={<ActivityIcon size={24} />}
           iconBg="linear-gradient(135deg, var(--chain-jeju), var(--accent-tertiary))"
           title="Total Intents"
           value={stats?.totalIntents.toLocaleString() || '0'}
           subtitle={`${stats?.last24hIntents || 0} in last 24h`}
         />
         <StatCard
-          icon={<DollarSign size={24} />}
+          icon={<DollarSignIcon size={24} />}
           iconBg="linear-gradient(135deg, var(--accent-secondary), var(--warning))"
           title="Total Volume"
           value={`$${formatLargeNumber(parseFloat(stats?.totalVolumeUsd || '0'))}`}
           subtitle={`$${formatLargeNumber(parseFloat(stats?.last24hVolume || '0'))} in last 24h`}
         />
         <StatCard
-          icon={<Users size={24} />}
+          icon={<UsersIcon size={24} />}
           iconBg="linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))"
           title="Active Solvers"
           value={stats?.activeSolvers.toString() || '0'}
           subtitle={`${stats?.totalSolvers || 0} total registered`}
         />
         <StatCard
-          icon={<CheckCircle size={24} />}
+          icon={<CheckCircleIcon size={24} />}
           iconBg="linear-gradient(135deg, var(--success-bright), var(--accent-tertiary))"
           title="Success Rate"
           value={`${stats?.successRate.toFixed(1) || 0}%`}
@@ -68,22 +76,22 @@ export function StatsView() {
         marginBottom: '32px',
       }}>
         <MiniStat
-          icon={<TrendingUp size={18} />}
+          icon={<TrendingUpIcon size={18} />}
           label="Total Fees"
           value={`$${formatLargeNumber(parseFloat(stats?.totalFeesUsd || '0'))}`}
         />
         <MiniStat
-          icon={<Clock size={18} />}
+          icon={<ClockIcon size={18} />}
           label="Avg Fill Time"
           value={`${stats?.avgFillTimeSeconds || 0}s`}
         />
         <MiniStat
-          icon={<Activity size={18} />}
+          icon={<ActivityIcon size={18} />}
           label="Active Routes"
           value={stats?.activeRoutes.toString() || '0'}
         />
         <MiniStat
-          icon={<DollarSign size={18} />}
+          icon={<DollarSignIcon size={18} />}
           label="Solver Stake"
           value={formatETH(stats?.totalSolverStake || '0')}
         />

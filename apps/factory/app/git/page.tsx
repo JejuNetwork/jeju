@@ -13,8 +13,6 @@ import {
   Globe,
   Eye,
   Users,
-  Code,
-  FileCode
 } from 'lucide-react';
 import Link from 'next/link';
 import { clsx } from 'clsx';
@@ -100,7 +98,7 @@ const languageColors: Record<string, string> = {
 };
 
 export default function GitPage() {
-  const { isConnected, address } = useAccount();
+  const { isConnected: _isConnected, address: _address } = useAccount();
   const [filter, setFilter] = useState<RepoFilter>('all');
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<'updated' | 'stars' | 'name'>('updated');

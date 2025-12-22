@@ -11,6 +11,9 @@
 import { createPublicClient, http, type PublicClient, type Block, type Chain } from 'viem';
 import { mainnet, arbitrum, optimism, base } from 'viem/chains';
 import type { ChainId } from '../autocrat-types';
+import { createLogger } from '../../sdk/logger';
+
+const log = createLogger('GasOracle');
 
 interface GasStats {
   baseFee: bigint;
@@ -54,7 +57,7 @@ export class GasOracle {
   async initialize(
     chains: Array<{ chainId: ChainId; rpcUrl: string }>
   ): Promise<void> {
-    console.log('⛽ Initializing gas oracle...');
+    log.info('Initializing gas oracle');
 
     for (const chain of chains) {
       const chainDef = CHAIN_DEFS[chain.chainId] || {
@@ -90,7 +93,7 @@ export class GasOracle {
       this.updateAllChains();
     }, 3000);
 
-    console.log('   Gas tracking started');
+    log.info('Gas tracking started');
   }
 
   /**
@@ -213,30 +216,26 @@ export class GasOracle {
     const client = this.clients.get(chainId);
     if (!client) return;
 
-    try {
-      const [block, feeHistory] = await Promise.all([
-        client.getBlock({ blockTag: 'latest' }),
-        client.getFeeHistory({
-          blockCount: 5,
-          rewardPercentiles: [10, 50, 90],
-        }),
-      ]);
+    const [block, feeHistory] = await Promise.all([
+      client.getBlock({ blockTag: 'latest' }),
+      client.getFeeHistory({
+        blockCount: 5,
+        rewardPercentiles: [10, 50, 90],
+      }),
+    ]);
 
-      const stats = this.parseGasStats(block, feeHistory, chainId);
-      this.currentStats.set(chainId, stats);
+    const stats = this.parseGasStats(block, feeHistory, chainId);
+    this.currentStats.set(chainId, stats);
 
-      // Add to history
-      const history = this.gasHistory.get(chainId) || [];
-      history.push(stats);
+    // Add to history
+    const history = this.gasHistory.get(chainId) || [];
+    history.push(stats);
 
-      // Keep only recent history
-      if (history.length > HISTORY_BLOCKS) {
-        history.shift();
-      }
-      this.gasHistory.set(chainId, history);
-    } catch (error) {
-      // Silently fail - will retry next interval
+    // Keep only recent history
+    if (history.length > HISTORY_BLOCKS) {
+      history.shift();
     }
+    this.gasHistory.set(chainId, history);
   }
 
   private parseGasStats(
@@ -248,7 +247,10 @@ export class GasOracle {
     },
     chainId: ChainId
   ): GasStats {
-    const baseFee = block.baseFeePerGas || BigInt(30e9);
+    if (!block.baseFeePerGas) {
+      throw new Error('Block missing baseFeePerGas - cannot parse gas stats without EIP-1559 base fee');
+    }
+    const baseFee = block.baseFeePerGas;
 
     // Get priority fees from fee history
     let minPriorityFee = BigInt(1e9);

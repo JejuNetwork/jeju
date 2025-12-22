@@ -12,7 +12,7 @@ import type {
   TEECacheEntry,
 } from '../types/index.js';
 import { toHash32 } from '../types/index.js';
-import { createLogger } from '../utils/logger.js';
+import { createLogger, hashToHex } from '../utils/index.js';
 
 const log = createLogger('tee-batcher');
 
@@ -72,7 +72,7 @@ export class TEEBatcher {
     this.currentBatch.estimatedTotalCost += estimatedCost;
 
     // Save batch info before potential finalization
-    const batchId = this.hashToString(this.currentBatch.id);
+    const batchId = hashToHex(this.currentBatch.id);
 
     // Check if batch is ready
     if (this.currentBatch.transfers.length >= this.config.maxBatchSize) {
@@ -89,7 +89,7 @@ export class TEEBatcher {
   getBatchStatus(batchId: string): BatchState | null {
     if (
       this.currentBatch &&
-      this.hashToString(this.currentBatch.id) === batchId
+      hashToHex(this.currentBatch.id) === batchId
     ) {
       return this.currentBatch;
     }
@@ -185,7 +185,7 @@ export class TEEBatcher {
     this.currentBatch.status = 'ready';
 
     // Move to pending
-    const batchId = this.hashToString(this.currentBatch.id);
+    const batchId = hashToHex(this.currentBatch.id);
     this.pendingBatches.set(batchId, this.currentBatch);
 
     log.info('Batch ready', { batchId: batchId.slice(0, 8), transferCount: this.currentBatch.transfers.length });
@@ -291,12 +291,6 @@ export class TEEBatcher {
       publicKey,
       timestamp: BigInt(Date.now()),
     };
-  }
-
-  private hashToString(hash: Hash32): string {
-    return Array.from(hash)
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('');
   }
 }
 

@@ -4,10 +4,10 @@
  * Sends tokens to a recipient address.
  */
 
-import { WalletService } from '../services/wallet.service';
 import { SecurityService } from '../services/security.service';
 import { type Address, parseUnits, isAddress } from 'viem';
 import type { ActionContext, ActionResult } from './wallet-info';
+import { expectAddress, expectBigInt, expectChainId, expectNonEmpty } from '../../lib/validation';
 
 interface SendParams {
   recipient?: string;
@@ -60,20 +60,26 @@ export const sendTokenAction = {
       return { success: false, message: 'Please unlock your wallet first' };
     }
     
-    const recipient = (params.recipient || params.to) as Address;
+    const recipient = (params.recipient || params.to) as string;
     
     if (!recipient || !isAddress(recipient)) {
       return { success: false, message: 'Invalid recipient address' };
     }
     
+    expectAddress(recipient, 'recipient');
+    
     const amount = params.amount || '0';
+    expectNonEmpty(amount, 'amount');
+    
     const token = params.token || 'ETH';
     const chainId = params.chainId || state.activeChainId;
+    expectChainId(chainId, 'chainId');
     
     // Parse amount
     let value: bigint;
     try {
       value = parseUnits(amount, 18);
+      expectBigInt(value, 'value');
     } catch {
       return { success: false, message: 'Invalid amount format' };
     }
@@ -82,7 +88,7 @@ export const sendTokenAction = {
     if (securityService) {
       const analysis = await securityService.analyzeTransaction({
         chainId,
-        to: recipient,
+        to: recipient as Address,
         value,
       });
       

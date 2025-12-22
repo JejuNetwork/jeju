@@ -1,29 +1,51 @@
 import { defineConfig, devices } from '@playwright/test';
+import { join } from 'path';
+import { findJejuWorkspaceRoot } from '../shared/utils';
 
 /**
  * Synpress config for wallet smoke tests
  *
- * These tests require MetaMask and a running localnet.
- * Run: bunx playwright test --config packages/tests/smoke/synpress.config.ts
+ * These tests verify the full Synpress setup works:
+ * - MetaMask extension loads
+ * - Wallet imports correctly
+ * - Network is configured
+ * - Can connect to dApps
+ * - On-chain verification works
+ *
+ * CLI:
+ *   jeju test synpress --smoke
+ * 
+ * Direct:
+ *   bunx playwright test --config packages/tests/smoke/synpress.config.ts
  */
+
+const rootDir = findJejuWorkspaceRoot();
+
 export default defineConfig({
   testDir: '.',
   testMatch: 'wallet-smoke.spec.ts',
-  fullyParallel: false,
-  workers: 1,
-  retries: 0,
-  timeout: 120000,
+  fullyParallel: false, // Synpress requires sequential execution
+  workers: 1, // Single worker for MetaMask
+  retries: process.env.CI ? 1 : 0,
+  timeout: 180000, // 3 minutes per test
+  globalTimeout: 600000, // 10 minutes total
+
+  expect: {
+    timeout: 30000,
+  },
 
   reporter: [
     ['list'],
-    ['json', { outputFile: 'wallet-smoke-results.json' }],
+    ['json', { outputFile: join(rootDir, 'test-results', 'wallet-smoke-results.json') }],
   ],
 
   use: {
-    trace: 'on-first-retry',
+    trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
     viewport: { width: 1280, height: 720 },
+    actionTimeout: 30000,
+    navigationTimeout: 30000,
   },
 
   projects: [

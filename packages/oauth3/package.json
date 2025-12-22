@@ -1,7 +1,7 @@
 {
   "name": "@jejunetwork/oauth3",
-  "version": "0.1.0",
-  "description": "Decentralized OAuth3 authentication with TEE-backed key management, FROST MPC signing, and W3C Verifiable Credentials",
+  "version": "0.2.0",
+  "description": "Decentralized OAuth3 authentication with TEE-backed key management, FROST MPC signing, MFA (Passkeys/TOTP), and W3C Verifiable Credentials",
   "license": "MIT",
   "type": "module",
   "main": "dist/index.js",
@@ -10,6 +10,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/react/index.d.ts",
+      "import": "./dist/react/index.js"
     }
   },
   "files": [
@@ -69,21 +73,26 @@
     "bun": ">=1.0.0"
   },
   "dependencies": {
-    "@noble/curves": "^1.4.0",
-    "@noble/hashes": "^1.4.0",
-    "viem": "^2.21.0",
-    "hono": "^4.6.0"
+    "@noble/curves": "1.9.7",
+    "@noble/hashes": "1.7.1",
+    "viem": "2.43.2",
+    "hono": "4.11.1",
+    "zod": "3.24.1"
   },
   "devDependencies": {
-    "@types/bun": "^1.1.0",
-    "typescript": "^5.5.0"
+    "@types/bun": "latest",
+    "typescript": "5.9.3"
   },
   "peerDependencies": {
-    "viem": "^2.0.0"
+    "viem": ">=2.0.0",
+    "react": ">=18.0.0"
   },
   "peerDependenciesMeta": {
     "viem": {
       "optional": false
+    },
+    "react": {
+      "optional": true
     }
   },
   "publishConfig": {

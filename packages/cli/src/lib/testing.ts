@@ -265,12 +265,8 @@ export function discoverApps(rootDir: string, includeVendor = false): AppManifes
       const manifestPath = join(baseDir, entry.name, 'jeju-manifest.json');
       if (!existsSync(manifestPath)) continue;
       
-      try {
-        const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'));
-        apps.push(manifest);
-      } catch {
-        // Skip invalid manifests
-      }
+      const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8')) as AppManifest;
+      apps.push(manifest);
     }
   }
   

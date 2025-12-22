@@ -5,7 +5,8 @@
  * These tests verify the logic of our production implementations.
  */
 
-import { describe, it, expect, beforeEach } from 'bun:test';
+import { describe, it, expect } from 'bun:test';
+import * as crypto from 'crypto';
 import { z } from 'zod';
 
 // ============================================================================
@@ -214,8 +215,6 @@ describe('Configuration Schemas', () => {
 // ============================================================================
 
 describe('Content Hash Verification', () => {
-  const crypto = require('crypto');
-
   function verifyContentHash(data: Buffer, expectedHash: string): boolean {
     if (expectedHash.startsWith('0x')) {
       const hash = crypto.createHash('sha256').update(data).digest('hex');
@@ -224,7 +223,7 @@ describe('Content Hash Verification', () => {
 
     if (expectedHash.startsWith('Qm')) {
       // CIDv0 format - simplified check
-      const hash = crypto.createHash('sha256').update(data).digest('hex');
+      const _hash = crypto.createHash('sha256').update(data).digest('hex');
       return expectedHash.length === 46; // CIDv0 is always 46 chars
     }
 

@@ -1,10 +1,25 @@
 import { Star, Activity, Clock, TrendingUp, Shield } from 'lucide-react';
-import { useSolvers, useSolverLeaderboard } from '../../hooks/useIntentAPI';
-import type { Solver } from '@jejunetwork/types';
+import { useSolvers, useSolverLeaderboard, type Solver as BaseSolver, type LeaderboardEntry } from '@/hooks/useIntentAPI';
+
+interface Solver extends BaseSolver {
+  reputation: number
+  totalFills: number
+  avgFillTimeMs: number
+  totalVolumeUsd: string
+  supportedChains: number[]
+}
+
+interface ExtendedLeaderboardEntry extends LeaderboardEntry {
+  solver: string
+  totalFills: number
+  reputation: number
+}
 
 export function SolversView() {
-  const { data: solvers, isLoading } = useSolvers({ active: true });
-  const { data: leaderboard } = useSolverLeaderboard('volume');
+  const { data: solvers, isLoading } = useSolvers();
+  const { data: leaderboard } = useSolverLeaderboard();
+  const typedSolvers = (solvers || []) as Solver[];
+  const typedLeaderboard = (leaderboard || []) as ExtendedLeaderboardEntry[];
 
   return (
     <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
@@ -31,11 +46,11 @@ export function SolversView() {
           Top Solvers by Volume
         </h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {leaderboard?.length === 0 ? (
+          {typedLeaderboard.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-secondary)' }}>
               No solvers registered yet
             </div>
-          ) : leaderboard?.slice(0, 5).map((entry, index) => (
+          ) : typedLeaderboard.slice(0, 5).map((entry: ExtendedLeaderboardEntry, index: number) => (
             <div
               key={entry.solver}
               style={{
@@ -110,12 +125,12 @@ export function SolversView() {
           <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
             Loading solvers...
           </div>
-        ) : solvers?.length === 0 ? (
+        ) : typedSolvers.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
             No solvers registered yet
           </div>
         ) : (
-          solvers?.map((solver) => (
+          typedSolvers.map((solver: Solver) => (
             <SolverCard key={solver.address} solver={solver} />
           ))
         )}

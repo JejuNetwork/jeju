@@ -3,6 +3,14 @@
 import { use } from 'react';
 import { useReadContract } from 'wagmi';
 import { Shield, AlertTriangle, Flag, Clock, TrendingUp, Github } from 'lucide-react';
+
+// Fix for Lucide React 19 type compatibility
+const ShieldIcon = Shield as any;
+const AlertTriangleIcon = AlertTriangle as any;
+const FlagIcon = Flag as any;
+const ClockIcon = Clock as any;
+const TrendingUpIcon = TrendingUp as any;
+const GithubIcon = Github as any;
 import ReputationViewer from '../../../components/moderation/ReputationViewer';
 import GitHubReputationPanel from '../../../components/GitHubReputationPanel';
 import { MODERATION_CONTRACTS } from '../../../config/moderation';
@@ -100,7 +108,7 @@ export default function AgentProfilePage({ params }: PageProps) {
     return (
       <div className="min-h-screen bg-gray-50 p-8">
         <div className="max-w-4xl mx-auto text-center">
-          <AlertTriangle className="mx-auto text-red-500 mb-4" size={48} />
+          <AlertTriangleIcon className="mx-auto text-red-500 mb-4" size={48} />
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Agent Not Found</h1>
           <p className="text-gray-600">Agent ID {id} does not exist in the registry.</p>
         </div>
@@ -121,11 +129,11 @@ export default function AgentProfilePage({ params }: PageProps) {
               <h1 className="text-3xl font-bold text-gray-900 mb-2">Agent #{id}</h1>
               <div className="flex items-center gap-3 text-sm text-gray-600">
                 <span className="flex items-center gap-1">
-                  <Clock size={16} />
+                  <ClockIcon size={16} />
                   Registered {registeredDate.toLocaleDateString()}
                 </span>
                 <span className="flex items-center gap-1">
-                  <TrendingUp size={16} />
+                  <TrendingUpIcon size={16} />
                   Active {lastActive.toLocaleDateString()}
                 </span>
               </div>
@@ -133,7 +141,7 @@ export default function AgentProfilePage({ params }: PageProps) {
 
             <div className="flex gap-2">
               <button className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 flex items-center gap-2">
-                <Flag size={16} />
+                <FlagIcon size={16} />
                 Report
               </button>
             </div>
@@ -171,7 +179,7 @@ export default function AgentProfilePage({ params }: PageProps) {
         {/* Reputation Section */}
         <div className="bg-white rounded-lg shadow-sm p-6">
           <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-            <Shield size={24} />
+            <ShieldIcon size={24} />
             Reputation & Moderation Status
           </h2>
           <ReputationViewer agentId={agentId} />
@@ -180,7 +188,7 @@ export default function AgentProfilePage({ params }: PageProps) {
         {/* GitHub Reputation Section */}
         <div className="bg-white rounded-lg shadow-sm p-6">
           <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-            <Github size={24} />
+            <GithubIcon size={24} />
             Developer Reputation
           </h2>
           <GitHubReputationPanel
@@ -211,7 +219,7 @@ export default function AgentProfilePage({ params }: PageProps) {
             </div>
           ) : (
             <div className="text-center py-8 text-gray-500">
-              <Flag className="mx-auto mb-2 text-gray-300" size={32} />
+              <FlagIcon className="mx-auto mb-2 text-gray-300" size={32} />
               <p>No reports filed against this agent</p>
             </div>
           )}

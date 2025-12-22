@@ -1,10 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ComponentType } from 'react';
 import { useReadContract } from 'wagmi';
-import { Shield, AlertTriangle } from 'lucide-react';
+import { Shield, AlertTriangle, type LucideProps } from 'lucide-react';
 import { MODERATION_CONTRACTS } from '../../config/moderation';
 import { ZERO_BYTES32 } from '../../lib/contracts';
+
+const ShieldIcon = Shield as ComponentType<LucideProps>;
+const AlertTriangleIcon = AlertTriangle as ComponentType<LucideProps>;
 
 interface ReputationViewerProps {
   agentId: bigint;
@@ -157,7 +160,7 @@ export default function ReputationViewer({ agentId }: ReputationViewerProps) {
       {/* Stake Tier */}
       <div className="card">
         <div className="flex items-center gap-2 mb-2">
-          <Shield size={20} />
+          <ShieldIcon size={20} />
           <h3 className="font-semibold">Reputation Stake</h3>
         </div>
         <div className="text-2xl font-bold">
@@ -172,7 +175,7 @@ export default function ReputationViewer({ agentId }: ReputationViewerProps) {
       {reputation.networkBanned && (
         <div className="card bg-red-50 border-red-300">
           <div className="flex items-center gap-2 text-red-700">
-            <AlertTriangle size={20} />
+            <AlertTriangleIcon size={20} />
             <h3 className="font-semibold">NETWORK BAN</h3>
           </div>
           <p className="text-sm text-red-600 mt-2">

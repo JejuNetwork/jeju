@@ -12,6 +12,7 @@ import {
 import { formatEther } from "viem";
 import { getNetworkName } from "@jejunetwork/config";
 import { JEJU_SERVICE_NAME, type JejuService } from "../service";
+import { expect } from "../validation";
 
 const networkName = getNetworkName();
 
@@ -46,7 +47,7 @@ export const jejuWalletProvider: Provider = {
     }
 
     const balanceFormatted = formatEther(BigInt(walletData.balance));
-    const agentName = state?.agentName || "The agent";
+    const agentName = expect(state?.agentName, "agentName in state");
 
     const text = `${agentName}'s ${networkName} Wallet:
 Address: ${walletData.address}

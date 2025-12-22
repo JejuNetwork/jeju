@@ -21,6 +21,7 @@ import type {
   FundingConfig,
   DAOStatus,
 } from './types';
+import { expect, expectDefined } from './schemas';
 
 // Re-export types for convenience
 export type { CEOPersona, GovernanceParams, CouncilMemberConfig, FundingConfig, DAOStatus };
@@ -931,6 +932,8 @@ export class DAOService {
   // ============ DAO Read Operations ============
 
   async getDAO(daoId: string): Promise<DAO> {
+    expectDefined(daoId, 'DAO ID is required');
+    expect(daoId.length > 0 && daoId.length <= 100, `DAO ID must be 1-100 characters, got ${daoId.length}`);
     const result = (await this.publicClient.readContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
@@ -942,6 +945,8 @@ export class DAOService {
   }
 
   async getDAOByName(name: string): Promise<DAO> {
+    expectDefined(name, 'DAO name is required');
+    expect(name.length > 0 && name.length <= 100, `DAO name must be 1-100 characters, got ${name.length}`);
     const result = (await this.publicClient.readContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
@@ -953,6 +958,8 @@ export class DAOService {
   }
 
   async getDAOFull(daoId: string): Promise<DAOFull> {
+    expectDefined(daoId, 'DAO ID is required');
+    expect(daoId.length > 0 && daoId.length <= 100, `DAO ID must be 1-100 characters, got ${daoId.length}`);
     const cached = this.daoCache.get(daoId);
     if (cached) {
       return cached;
@@ -972,6 +979,8 @@ export class DAOService {
   }
 
   async getCEOPersona(daoId: string): Promise<CEOPersona> {
+    expectDefined(daoId, 'DAO ID is required');
+    expect(daoId.length > 0 && daoId.length <= 100, `DAO ID must be 1-100 characters, got ${daoId.length}`);
     const result = (await this.publicClient.readContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
@@ -992,6 +1001,8 @@ export class DAOService {
   }
 
   async getGovernanceParams(daoId: string): Promise<GovernanceParams> {
+    expectDefined(daoId, 'DAO ID is required');
+    expect(daoId.length > 0 && daoId.length <= 100, `DAO ID must be 1-100 characters, got ${daoId.length}`);
     const result = (await this.publicClient.readContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
@@ -1009,6 +1020,8 @@ export class DAOService {
   }
 
   async getCouncilMembers(daoId: string): Promise<CouncilMemberConfig[]> {
+    expectDefined(daoId, 'DAO ID is required');
+    expect(daoId.length > 0 && daoId.length <= 100, `DAO ID must be 1-100 characters, got ${daoId.length}`);
     const result = (await this.publicClient.readContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
@@ -1027,6 +1040,8 @@ export class DAOService {
   }
 
   async getLinkedPackages(daoId: string): Promise<string[]> {
+    expectDefined(daoId, 'DAO ID is required');
+    expect(daoId.length > 0 && daoId.length <= 100, `DAO ID must be 1-100 characters, got ${daoId.length}`);
     const result = (await this.publicClient.readContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
@@ -1038,6 +1053,8 @@ export class DAOService {
   }
 
   async getLinkedRepos(daoId: string): Promise<string[]> {
+    expectDefined(daoId, 'DAO ID is required');
+    expect(daoId.length > 0 && daoId.length <= 100, `DAO ID must be 1-100 characters, got ${daoId.length}`);
     const result = (await this.publicClient.readContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
@@ -1069,6 +1086,8 @@ export class DAOService {
   }
 
   async daoExists(daoId: string): Promise<boolean> {
+    expectDefined(daoId, 'DAO ID is required');
+    expect(daoId.length > 0 && daoId.length <= 100, `DAO ID must be 1-100 characters, got ${daoId.length}`);
     return (await this.publicClient.readContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
@@ -1406,6 +1425,8 @@ export class DAOService {
   }
 
   async getDAOProjects(daoId: string): Promise<string[]> {
+    expectDefined(daoId, 'DAO ID is required');
+    expect(daoId.length > 0 && daoId.length <= 100, `DAO ID must be 1-100 characters, got ${daoId.length}`);
     const result = (await this.publicClient.readContract({
       address: this.config.daoFundingAddress,
       abi: DAOFundingABI,
@@ -1417,6 +1438,8 @@ export class DAOService {
   }
 
   async getActiveProjects(daoId: string): Promise<FundingProject[]> {
+    expectDefined(daoId, 'DAO ID is required');
+    expect(daoId.length > 0 && daoId.length <= 100, `DAO ID must be 1-100 characters, got ${daoId.length}`);
     const result = (await this.publicClient.readContract({
       address: this.config.daoFundingAddress,
       abi: DAOFundingABI,
@@ -1428,6 +1451,8 @@ export class DAOService {
   }
 
   async getCurrentEpoch(daoId: string): Promise<FundingEpoch> {
+    expectDefined(daoId, 'DAO ID is required');
+    expect(daoId.length > 0 && daoId.length <= 100, `DAO ID must be 1-100 characters, got ${daoId.length}`);
     const result = (await this.publicClient.readContract({
       address: this.config.daoFundingAddress,
       abi: DAOFundingABI,
@@ -1599,9 +1624,11 @@ export class DAOService {
   }
 
   async createEpoch(daoId: string, budget: bigint, matchingPool: bigint): Promise<Hash> {
-    if (!this.walletClient) {
-      throw new Error('Wallet client not initialized');
-    }
+    expectDefined(daoId, 'DAO ID is required');
+    expect(daoId.length > 0 && daoId.length <= 100, `DAO ID must be 1-100 characters, got ${daoId.length}`);
+    expect(budget > 0n, `Budget must be positive, got ${budget.toString()}`);
+    expect(matchingPool >= 0n, `Matching pool must be non-negative, got ${matchingPool.toString()}`);
+    expect(this.walletClient !== null && this.walletClient !== undefined, 'Wallet client not initialized');
 
     // @ts-expect-error viem version type mismatch in monorepo
     return this.walletClient.writeContract({
@@ -1654,6 +1681,8 @@ export class DAOService {
   // ============ Utility Methods ============
 
   async getFundingAllocations(daoId: string): Promise<FundingAllocation[]> {
+    expectDefined(daoId, 'DAO ID is required');
+    expect(daoId.length > 0 && daoId.length <= 100, `DAO ID must be 1-100 characters, got ${daoId.length}`);
     const projects = await this.getActiveProjects(daoId);
     const epoch = await this.getCurrentEpoch(daoId);
 

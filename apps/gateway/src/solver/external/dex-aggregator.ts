@@ -151,38 +151,34 @@ export class DexAggregator {
     const quotes: DexQuote[] = [];
 
     const quotePromises = FEE_TIERS.map(async (fee) => {
-      try {
-        const result = await client.simulateContract({
-          address: quoter,
-          abi: QUOTER_V2_ABI,
-          functionName: 'quoteExactInputSingle',
-          args: [{
-            tokenIn,
-            tokenOut,
-            amountIn,
-            fee,
-            sqrtPriceLimitX96: BigInt(0),
-          }],
-        });
-
-        const [amountOut, , , gasEstimate] = result.result;
-
-        return {
-          dex: 'uniswap_v3' as const,
-          amountOut,
-          path: [tokenIn, tokenOut],
+      const result = await client.simulateContract({
+        address: quoter,
+        abi: QUOTER_V2_ABI,
+        functionName: 'quoteExactInputSingle',
+        args: [{
+          tokenIn,
+          tokenOut,
+          amountIn,
           fee,
-          gasEstimate,
-          priceImpactBps: 0,
-        };
-      } catch {
-        return null;
-      }
+          sqrtPriceLimitX96: BigInt(0),
+        }],
+      });
+
+      const [amountOut, , , gasEstimate] = result.result;
+
+      return {
+        dex: 'uniswap_v3' as const,
+        amountOut,
+        path: [tokenIn, tokenOut],
+        fee,
+        gasEstimate,
+        priceImpactBps: 0,
+      };
     });
 
-    const results = await Promise.all(quotePromises);
+    const results = await Promise.allSettled(quotePromises);
     for (const result of results) {
-      if (result) quotes.push(result);
+      if (result.status === 'fulfilled') quotes.push(result.value);
     }
 
     return quotes;
@@ -201,26 +197,22 @@ export class DexAggregator {
     const router = UNISWAP_V2_ROUTER[chainId];
     if (!router) return null;
 
-    try {
-      const result = await client.readContract({
-        address: router,
-        abi: V2_ROUTER_ABI,
-        functionName: 'getAmountsOut',
-        args: [amountIn, [tokenIn, tokenOut]],
-      });
+    const result = await client.readContract({
+      address: router,
+      abi: V2_ROUTER_ABI,
+      functionName: 'getAmountsOut',
+      args: [amountIn, [tokenIn, tokenOut]],
+    });
 
-      const amountOut = result[result.length - 1];
+    const amountOut = result[result.length - 1];
 
-      return {
-        dex: 'uniswap_v2',
-        amountOut,
-        path: [tokenIn, tokenOut],
-        gasEstimate: BigInt(150000),
-        priceImpactBps: 0,
-      };
-    } catch {
-      return null;
-    }
+    return {
+      dex: 'uniswap_v2',
+      amountOut,
+      path: [tokenIn, tokenOut],
+      gasEstimate: BigInt(150000),
+      priceImpactBps: 0,
+    };
   }
 
   /**

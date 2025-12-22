@@ -17,9 +17,9 @@ function runApp(args: string): string {
       timeout: 30000,
       env: { ...process.env, HOME: TEST_DIR },
     });
-  } catch (e: Error | unknown) {
-    const error = e as { stdout?: string; stderr?: string };
-    return error.stdout || error.stderr || '';
+  } catch (e) {
+    const execError = e as { stdout?: string; stderr?: string };
+    return execError.stdout ?? execError.stderr ?? '';
   }
 }
 

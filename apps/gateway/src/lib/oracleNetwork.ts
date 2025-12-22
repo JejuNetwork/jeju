@@ -24,7 +24,11 @@ const ORACLE_ADDRESSES: Record<number, {
 };
 
 export function getOracleAddresses() {
-  return ORACLE_ADDRESSES[CHAIN_ID] ?? ORACLE_ADDRESSES[84532];
+  const addresses = ORACLE_ADDRESSES[CHAIN_ID];
+  if (!addresses) {
+    throw new Error(`Oracle addresses not configured for chain ${CHAIN_ID}`);
+  }
+  return addresses;
 }
 
 export const FEED_REGISTRY_ABI = [

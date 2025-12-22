@@ -9,15 +9,11 @@
  */
 
 import type { Address, Hex, PublicClient, WalletClient } from 'viem';
-import { createPublicClient, createWalletClient, http, custom } from 'viem';
+import { createPublicClient, http } from 'viem';
+import { z } from 'zod';
 import type {
-  Account,
-  SmartAccount,
-  SolanaAccount,
   UnifiedAccount,
-  Token,
   TokenBalance,
-  Transaction,
   WalletState,
   WalletEvent,
 } from './types';
@@ -26,6 +22,25 @@ import { EILClient, createEILClient } from './eil';
 import { OIFClient, createOIFClient } from './oif';
 import { AAClient, createAAClient } from './account-abstraction';
 import { GasAbstractionService, createGasService } from './gas-abstraction';
+import {
+  expectAddress,
+  expectHex,
+  expectChainId,
+  expectBigInt,
+  expectNonEmpty,
+  expectDefined,
+  expectSchema,
+  expectJson,
+} from '../lib/validation';
+import { UnifiedAccountSchema } from './schemas';
+
+// Schema for EIP-712 typed data
+const TypedDataSchema = z.object({
+  domain: z.record(z.string(), z.unknown()),
+  types: z.record(z.string(), z.array(z.object({ name: z.string(), type: z.string() }))),
+  primaryType: z.string(),
+  message: z.record(z.string(), z.unknown()),
+});
 
 // ============================================================================
 // Types
@@ -143,6 +158,7 @@ export class WalletCore {
   // ============================================================================
 
   async unlock(password: string): Promise<boolean> {
+    expectNonEmpty(password, 'password');
     // In a real implementation, this would decrypt the stored keys
     // For now, we simulate unlock
     this.state.isUnlocked = true;
@@ -174,6 +190,9 @@ export class WalletCore {
     mnemonic?: string;
     label?: string;
   }): Promise<UnifiedAccount> {
+    if (params.privateKey) expectHex(params.privateKey, 'privateKey');
+    if (params.mnemonic) expectNonEmpty(params.mnemonic, 'mnemonic');
+    
     // Generate or import account
     // This is simplified - real implementation would handle key derivation
     const id = `account-${Date.now()}`;
@@ -185,9 +204,11 @@ export class WalletCore {
       solanaAccounts: [],
       smartAccounts: [],
     };
+    
+    expectSchema(newAccount, UnifiedAccountSchema, 'new account');
 
     this.state.accounts.push(newAccount);
-
+    
     if (!this.state.activeAccountId) {
       this.state.activeAccountId = id;
     }
@@ -196,6 +217,7 @@ export class WalletCore {
   }
 
   setActiveAccount(accountId: string): void {
+    expectNonEmpty(accountId, 'accountId');
     if (this.state.accounts.find((a) => a.id === accountId)) {
       this.state.activeAccountId = accountId;
       const account = this.getActiveAccount();
@@ -214,6 +236,7 @@ export class WalletCore {
   }
 
   async switchChain(chainId: number): Promise<void> {
+    expectChainId(chainId, 'chainId');
     if (!chains[chainId]) {
       throw new Error(`Chain ${chainId} not supported`);
     }
@@ -231,6 +254,9 @@ export class WalletCore {
   // ============================================================================
 
   async getBalance(address: Address, chainId?: number): Promise<bigint> {
+    expectAddress(address, 'address');
+    if (chainId) expectChainId(chainId, 'chainId');
+    
     const cid = chainId ?? this.getActiveChainId();
     const client = this.publicClients.get(cid);
     if (!client) throw new Error(`Chain ${cid} not configured`);
@@ -243,6 +269,10 @@ export class WalletCore {
     tokenAddress: Address,
     chainId?: number
   ): Promise<bigint> {
+    expectAddress(address, 'address');
+    expectAddress(tokenAddress, 'tokenAddress');
+    if (chainId) expectChainId(chainId, 'chainId');
+
     const cid = chainId ?? this.getActiveChainId();
     const client = this.publicClients.get(cid);
     if (!client) throw new Error(`Chain ${cid} not configured`);
@@ -262,32 +292,29 @@ export class WalletCore {
       args: [address],
     });
 
-    return balance;
+    return balance as bigint;
   }
 
   async getAllBalances(address: Address): Promise<TokenBalance[]> {
+    expectAddress(address, 'address');
     const balances: TokenBalance[] = [];
 
     // Get native balances for all chains
     for (const chainId of this.getSupportedChains()) {
-      try {
-        const balance = await this.getBalance(address, chainId);
-        const chain = chains[chainId];
+      const balance = await this.getBalance(address, chainId);
+      const chain = chains[chainId];
 
-        balances.push({
-          token: {
-            address: '0x0000000000000000000000000000000000000000' as Address,
-            chainId,
-            symbol: chain.nativeCurrency.symbol,
-            name: chain.nativeCurrency.name,
-            decimals: chain.nativeCurrency.decimals,
-            isNative: true,
-          },
-          balance,
-        });
-      } catch {
-        // Chain might be unavailable
-      }
+      balances.push({
+        token: {
+          address: '0x0000000000000000000000000000000000000000' as Address,
+          chainId,
+          symbol: chain.nativeCurrency.symbol,
+          name: chain.nativeCurrency.name,
+          decimals: chain.nativeCurrency.decimals,
+          isNative: true,
+        },
+        balance,
+      });
     }
 
     return balances;
@@ -298,6 +325,7 @@ export class WalletCore {
   // ============================================================================
 
   getEILClient(chainId?: number): EILClient {
+    if (chainId) expectChainId(chainId, 'chainId');
     const cid = chainId ?? this.getActiveChainId();
     const client = this.eilClients.get(cid);
     if (!client) throw new Error(`EIL not configured for chain ${cid}`);
@@ -305,6 +333,7 @@ export class WalletCore {
   }
 
   getOIFClient(chainId?: number): OIFClient {
+    if (chainId) expectChainId(chainId, 'chainId');
     const cid = chainId ?? this.getActiveChainId();
     const client = this.oifClients.get(cid);
     if (!client) throw new Error(`OIF not configured for chain ${cid}`);
@@ -312,6 +341,7 @@ export class WalletCore {
   }
 
   getAAClient(chainId?: number): AAClient {
+    if (chainId) expectChainId(chainId, 'chainId');
     const cid = chainId ?? this.getActiveChainId();
     const client = this.aaClients.get(cid);
     if (!client) throw new Error(`AA not configured for chain ${cid}`);
@@ -335,6 +365,12 @@ export class WalletCore {
     useSmartAccount?: boolean;
     gasToken?: Address;
   }): Promise<Hex> {
+    expectAddress(params.to, 'params.to');
+    if (params.value) expectBigInt(params.value, 'params.value');
+    if (params.data) expectHex(params.data, 'params.data');
+    if (params.chainId) expectChainId(params.chainId, 'params.chainId');
+    if (params.gasToken) expectAddress(params.gasToken, 'params.gasToken');
+
     const chainId = params.chainId ?? this.getActiveChainId();
 
     if (params.useSmartAccount) {
@@ -348,7 +384,7 @@ export class WalletCore {
       let paymasterAndData: Hex = '0x';
       if (params.gasToken) {
         const eilClient = this.getEILClient(chainId);
-        paymasterAndData = eilClient.buildPaymasterData(0, params.gasToken);
+        paymasterAndData = await eilClient.buildPaymasterData(0, params.gasToken);
       }
 
       const result = await aaClient.execute({
@@ -383,10 +419,11 @@ export class WalletCore {
       },
     });
 
-    return hash;
+    return expectHex(hash, 'transaction hash');
   }
 
   async signMessage(message: string | Uint8Array): Promise<Hex> {
+    if (!message) throw new Error('Message is required');
     if (!this.walletClient?.account) {
       throw new Error('Wallet not connected');
     }
@@ -396,7 +433,7 @@ export class WalletCore {
       message: typeof message === 'string' ? message : { raw: message },
     });
 
-    return signature;
+    return expectHex(signature, 'signature');
   }
 
   async signTypedData(typedData: {
@@ -405,6 +442,12 @@ export class WalletCore {
     primaryType: string;
     message: Record<string, unknown>;
   }): Promise<Hex> {
+    expectDefined(typedData, 'typedData');
+    expectDefined(typedData.domain, 'typedData.domain');
+    expectDefined(typedData.types, 'typedData.types');
+    expectDefined(typedData.primaryType, 'typedData.primaryType');
+    expectDefined(typedData.message, 'typedData.message');
+
     if (!this.walletClient?.account) {
       throw new Error('Wallet not connected');
     }
@@ -422,7 +465,7 @@ export class WalletCore {
       message: typedData.message,
     });
 
-    return signature;
+    return expectHex(signature, 'signature');
   }
 
   // ============================================================================
@@ -430,6 +473,7 @@ export class WalletCore {
   // ============================================================================
 
   async connect(origin: string): Promise<Address[]> {
+    expectNonEmpty(origin, 'origin');
     const account = this.getActiveAccount();
     if (!account?.evmAccounts[0]) {
       throw new Error('No account available');
@@ -449,10 +493,12 @@ export class WalletCore {
   }
 
   disconnect(origin: string): void {
+    expectNonEmpty(origin, 'origin');
     this.state.connectedSites = this.state.connectedSites.filter((s) => s.origin !== origin);
   }
 
   isConnected(origin: string): boolean {
+    expectNonEmpty(origin, 'origin');
     return this.state.connectedSites.some((s) => s.origin === origin);
   }
 
@@ -483,6 +529,8 @@ export class WalletCore {
   // ============================================================================
 
   async request(args: { method: string; params?: unknown[] }): Promise<unknown> {
+    expectDefined(args, 'args');
+    expectNonEmpty(args.method, 'args.method');
     const { method, params = [] } = args;
 
     switch (method) {
@@ -497,6 +545,7 @@ export class WalletCore {
 
       case 'eth_sendTransaction': {
         const [txParams] = params as [{ to: Address; value?: string; data?: Hex }];
+        expectDefined(txParams, 'txParams');
         return this.sendTransaction({
           to: txParams.to,
           value: txParams.value ? BigInt(txParams.value) : undefined,
@@ -506,16 +555,19 @@ export class WalletCore {
 
       case 'personal_sign': {
         const [message] = params as [string];
+        expectNonEmpty(message, 'message');
         return this.signMessage(message);
       }
 
       case 'eth_signTypedData_v4': {
         const [, typedData] = params as [string, string];
-        return this.signTypedData(JSON.parse(typedData));
+        expectNonEmpty(typedData, 'typedData');
+        return this.signTypedData(expectJson(typedData, TypedDataSchema, 'typedData'));
       }
 
       case 'wallet_switchEthereumChain': {
         const [{ chainId }] = params as [{ chainId: string }];
+        expectNonEmpty(chainId, 'chainId');
         await this.switchChain(parseInt(chainId, 16));
         return null;
       }

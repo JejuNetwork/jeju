@@ -12,7 +12,7 @@
 import { type Address, type Hex, encodeFunctionData, parseEther } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
-import { getContract as getContractAddress } from "../config";
+import { requireContract } from "../config";
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -109,32 +109,46 @@ export interface CrossChainNFTParams {
 
 export interface BridgeModule {
   // Token Bridging (L1 -> L2)
-  depositETH(params: Omit<DepositParams, "token">): Promise<{ txHash: Hex; depositId: Hex }>;
+  depositETH(
+    params: Omit<DepositParams, "token">,
+  ): Promise<{ txHash: Hex; depositId: Hex }>;
   depositERC20(params: DepositParams): Promise<{ txHash: Hex; depositId: Hex }>;
   getDeposit(depositId: Hex): Promise<BridgeDeposit | null>;
   getMyDeposits(): Promise<BridgeDeposit[]>;
 
   // Token Bridging (L2 -> L1)
-  initiateWithdrawal(params: WithdrawParams): Promise<{ txHash: Hex; withdrawalId: Hex }>;
+  initiateWithdrawal(
+    params: WithdrawParams,
+  ): Promise<{ txHash: Hex; withdrawalId: Hex }>;
   proveWithdrawal(withdrawalId: Hex, proof: Hex): Promise<Hex>;
   finalizeWithdrawal(withdrawalId: Hex): Promise<Hex>;
   getWithdrawal(withdrawalId: Hex): Promise<BridgeWithdrawal | null>;
   getMyWithdrawals(): Promise<BridgeWithdrawal[]>;
-  getWithdrawalStatus(withdrawalId: Hex): Promise<{ proven: boolean; finalized: boolean; timeRemaining: bigint }>;
+  getWithdrawalStatus(
+    withdrawalId: Hex,
+  ): Promise<{ proven: boolean; finalized: boolean; timeRemaining: bigint }>;
 
   // Cross-Chain Messaging
-  sendMessage(params: SendMessageParams): Promise<{ txHash: Hex; messageId: Hex }>;
+  sendMessage(
+    params: SendMessageParams,
+  ): Promise<{ txHash: Hex; messageId: Hex }>;
   getMessage(messageId: Hex): Promise<CrossChainMessage | null>;
   getMessageStatus(messageId: Hex): Promise<MessageStatus>;
   relayMessage(messageId: Hex, proof: Hex): Promise<Hex>;
 
   // NFT Bridging
-  bridgeNFT(params: CrossChainNFTParams): Promise<{ txHash: Hex; transferId: Hex }>;
+  bridgeNFT(
+    params: CrossChainNFTParams,
+  ): Promise<{ txHash: Hex; transferId: Hex }>;
   getNFTTransfer(transferId: Hex): Promise<NFTBridgeTransfer | null>;
   getMyNFTTransfers(): Promise<NFTBridgeTransfer[]>;
 
   // Hyperlane
-  sendHyperlaneMessage(destDomain: number, recipient: Address, message: Hex): Promise<{ txHash: Hex; messageId: Hex }>;
+  sendHyperlaneMessage(
+    destDomain: number,
+    recipient: Address,
+    message: Hex,
+  ): Promise<{ txHash: Hex; messageId: Hex }>;
   quoteHyperlaneGas(destDomain: number, message: Hex): Promise<bigint>;
   getHyperlaneMessageStatus(messageId: Hex): Promise<boolean>;
 
@@ -143,8 +157,14 @@ export interface BridgeModule {
   verifyZKBridgeTransfer(transferId: Hex): Promise<boolean>;
 
   // Utilities
-  getSupportedChains(): Promise<{ chainId: bigint; name: string; bridgeType: BridgeType }[]>;
-  estimateBridgeFee(token: Address, amount: bigint, destChainId: bigint): Promise<bigint>;
+  getSupportedChains(): Promise<
+    { chainId: bigint; name: string; bridgeType: BridgeType }[]
+  >;
+  estimateBridgeFee(
+    token: Address,
+    amount: bigint,
+    destChainId: bigint,
+  ): Promise<bigint>;
   getFinalizationPeriod(): Promise<bigint>;
 
   // Constants
@@ -293,20 +313,13 @@ const NFT_BRIDGE_ABI = [
 //                          IMPLEMENTATION
 // ═══════════════════════════════════════════════════════════════════════════
 
-export function createBridgeModule(wallet: JejuWallet, network: NetworkType): BridgeModule {
-  const tryGetContract = (category: string, name: string): Address => {
-    try {
-      // @ts-expect-error - category may not match ContractCategoryName
-      return getContractAddress(category, name, network) as Address;
-    } catch {
-      return "0x0000000000000000000000000000000000000000" as Address;
-    }
-  };
-
-  const optimismPortalAddress = tryGetContract("bridge", "OptimismPortal");
-  const hyperlaneMailboxAddress = tryGetContract("bridge", "HyperlaneMailbox");
-  const nftBridgeAddress = tryGetContract("bridge", "NFTBridge");
-  const zkBridgeAddress = tryGetContract("bridge", "ZKBridge");
+export function createBridgeModule(
+  wallet: JejuWallet,
+  network: NetworkType,
+): BridgeModule {
+  const optimismPortalAddress = requireContract("bridge", "OptimismPortal", network);
+  const hyperlaneMailboxAddress = requireContract("bridge", "HyperlaneMailbox", network);
+  const nftBridgeAddress = requireContract("bridge", "NFTBridge", network);
 
   const MIN_BRIDGE_AMOUNT = parseEther("0.0001");
   const FINALIZATION_PERIOD = 604800n; // 7 days in seconds
@@ -338,7 +351,7 @@ export function createBridgeModule(wallet: JejuWallet, network: NetworkType): Br
       return { txHash, depositId: txHash as Hex };
     },
 
-    async depositERC20(params) {
+    async depositERC20(_params) {
       // Would need L1 standard bridge
       const txHash = await wallet.sendTransaction({
         to: optimismPortalAddress,
@@ -386,14 +399,22 @@ export function createBridgeModule(wallet: JejuWallet, network: NetworkType): Br
     },
 
     async getWithdrawalStatus(_withdrawalId) {
-      return { proven: false, finalized: false, timeRemaining: FINALIZATION_PERIOD };
+      return {
+        proven: false,
+        finalized: false,
+        timeRemaining: FINALIZATION_PERIOD,
+      };
     },
 
     async sendMessage(params) {
       // Use Hyperlane for cross-chain messaging
-      const recipientBytes32 = ("0x" + params.recipient.slice(2).padStart(64, "0")) as Hex;
+      const recipientBytes32 = ("0x" +
+        params.recipient.slice(2).padStart(64, "0")) as Hex;
 
-      const fee = await this.quoteHyperlaneGas(Number(params.destChainId), params.data);
+      const fee = await this.quoteHyperlaneGas(
+        Number(params.destChainId),
+        params.data,
+      );
 
       const data = encodeFunctionData({
         abi: HYPERLANE_MAILBOX_ABI,
@@ -426,7 +447,12 @@ export function createBridgeModule(wallet: JejuWallet, network: NetworkType): Br
       const data = encodeFunctionData({
         abi: NFT_BRIDGE_ABI,
         functionName: "bridgeNFT",
-        args: [params.tokenAddress, params.tokenId, params.recipient, params.destChainId],
+        args: [
+          params.tokenAddress,
+          params.tokenId,
+          params.recipient,
+          params.destChainId,
+        ],
       });
 
       const txHash = await wallet.sendTransaction({
@@ -457,7 +483,8 @@ export function createBridgeModule(wallet: JejuWallet, network: NetworkType): Br
     },
 
     async sendHyperlaneMessage(destDomain, recipient, message) {
-      const recipientBytes32 = ("0x" + recipient.slice(2).padStart(64, "0")) as Hex;
+      const recipientBytes32 = ("0x" +
+        recipient.slice(2).padStart(64, "0")) as Hex;
 
       const fee = await this.quoteHyperlaneGas(destDomain, message);
 
@@ -477,7 +504,8 @@ export function createBridgeModule(wallet: JejuWallet, network: NetworkType): Br
     },
 
     async quoteHyperlaneGas(destDomain, message) {
-      const recipientBytes32 = ("0x" + wallet.address.slice(2).padStart(64, "0")) as Hex;
+      const recipientBytes32 = ("0x" +
+        wallet.address.slice(2).padStart(64, "0")) as Hex;
 
       return (await wallet.publicClient.readContract({
         address: hyperlaneMailboxAddress,
@@ -508,7 +536,11 @@ export function createBridgeModule(wallet: JejuWallet, network: NetworkType): Br
       return [
         { chainId: 1n, name: "Ethereum", bridgeType: BridgeType.CANONICAL },
         { chainId: 8453n, name: "Base", bridgeType: BridgeType.CANONICAL },
-        { chainId: 84532n, name: "Base Sepolia", bridgeType: BridgeType.CANONICAL },
+        {
+          chainId: 84532n,
+          name: "Base Sepolia",
+          bridgeType: BridgeType.CANONICAL,
+        },
       ];
     },
 
@@ -521,4 +553,3 @@ export function createBridgeModule(wallet: JejuWallet, network: NetworkType): Br
     },
   };
 }
-

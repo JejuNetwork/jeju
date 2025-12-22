@@ -12,7 +12,7 @@
 import { type Address, type Hex, encodeFunctionData, parseEther } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
-import { getContract as getContractAddress } from "../config";
+import { requireContract } from "../config";
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -146,9 +146,13 @@ export interface PerpsModule {
   // Position Queries
   getPosition(positionId: Hex): Promise<PerpsPosition | null>;
   getTraderPositions(trader?: Address): Promise<PerpsPosition[]>;
-  getPositionPnl(positionId: Hex): Promise<{ unrealizedPnl: bigint; fundingPnl: bigint }>;
+  getPositionPnl(
+    positionId: Hex,
+  ): Promise<{ unrealizedPnl: bigint; fundingPnl: bigint }>;
   getLiquidationPrice(positionId: Hex): Promise<bigint>;
-  isLiquidatable(positionId: Hex): Promise<{ canLiquidate: boolean; healthFactor: bigint }>;
+  isLiquidatable(
+    positionId: Hex,
+  ): Promise<{ canLiquidate: boolean; healthFactor: bigint }>;
 
   // Orders
   placeOrder(params: PlaceOrderParams): Promise<Hex>;
@@ -158,7 +162,9 @@ export interface PerpsModule {
   getTraderOrders(trader?: Address): Promise<Order[]>;
 
   // Liquidation
-  liquidate(positionId: Hex): Promise<{ txHash: Hex; liquidatorReward: bigint }>;
+  liquidate(
+    positionId: Hex,
+  ): Promise<{ txHash: Hex; liquidatorReward: bigint }>;
 
   // Constants
   readonly MAX_LEVERAGE: number;
@@ -458,17 +464,11 @@ const PERPS_MARKET_ABI = [
 //                          IMPLEMENTATION
 // ═══════════════════════════════════════════════════════════════════════════
 
-export function createPerpsModule(wallet: JejuWallet, network: NetworkType): PerpsModule {
-  const tryGetContract = (category: string, name: string): Address => {
-    try {
-      // @ts-expect-error - category may not match ContractCategoryName
-      return getContractAddress(category, name, network) as Address;
-    } catch {
-      return "0x0000000000000000000000000000000000000000" as Address;
-    }
-  };
-
-  const perpsMarketAddress = tryGetContract("perps", "PerpetualMarket");
+export function createPerpsModule(
+  wallet: JejuWallet,
+  network: NetworkType,
+): PerpsModule {
+  const perpsMarketAddress = requireContract("perps", "PerpetualMarket", network);
 
   const MAX_LEVERAGE = 50;
   const MIN_MARGIN = parseEther("0.001");
@@ -501,7 +501,7 @@ export function createPerpsModule(wallet: JejuWallet, network: NetworkType): Per
         isActive: boolean;
       };
 
-      if (market.marketId === ("0x" + "0".repeat(64) as Hex)) return null;
+      if (market.marketId === (("0x" + "0".repeat(64)) as Hex)) return null;
 
       return {
         ...market,
@@ -599,14 +599,14 @@ export function createPerpsModule(wallet: JejuWallet, network: NetworkType): Per
         ],
       });
 
-      const txHash = await wallet.sendTransaction({
+      const resultTxHash = await wallet.sendTransaction({
         to: perpsMarketAddress,
         data,
       });
 
       // Return placeholder - actual result would come from tx receipt
       return {
-        positionId: txHash as Hex,
+        positionId: resultTxHash as Hex,
         executionPrice: 0n,
         fee: 0n,
         realizedPnl: 0n,
@@ -621,7 +621,7 @@ export function createPerpsModule(wallet: JejuWallet, network: NetworkType): Per
         args: [positionId],
       });
 
-      const txHash = await wallet.sendTransaction({
+      await wallet.sendTransaction({
         to: perpsMarketAddress,
         data,
       });
@@ -642,7 +642,7 @@ export function createPerpsModule(wallet: JejuWallet, network: NetworkType): Per
         args: [positionId, sizeDecrease],
       });
 
-      const txHash = await wallet.sendTransaction({
+      await wallet.sendTransaction({
         to: perpsMarketAddress,
         data,
       });
@@ -747,7 +747,7 @@ export function createPerpsModule(wallet: JejuWallet, network: NetworkType): Per
 
     async placeOrder(params) {
       const order = {
-        orderId: "0x" + "0".repeat(64) as Hex,
+        orderId: ("0x" + "0".repeat(64)) as Hex,
         trader: wallet.address,
         marketId: params.marketId,
         side: params.side,
@@ -833,4 +833,3 @@ export function createPerpsModule(wallet: JejuWallet, network: NetworkType): Per
     },
   };
 }
-

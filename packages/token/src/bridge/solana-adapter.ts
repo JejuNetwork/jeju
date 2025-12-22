@@ -344,8 +344,15 @@ export class SolanaAdapter {
       42161: INTERCHAIN_GAS_FEES.ARBITRUM,
       56: INTERCHAIN_GAS_FEES.BSC,
       137: INTERCHAIN_GAS_FEES.POLYGON,
+      43114: INTERCHAIN_GAS_FEES.DEFAULT, // Avalanche
     };
-    return feesByDomain[destinationDomain] ?? INTERCHAIN_GAS_FEES.DEFAULT;
+    const fee = feesByDomain[destinationDomain];
+    if (fee === undefined) {
+      throw new Error(
+        `Unknown destination domain: ${destinationDomain}. Supported domains: ${Object.keys(feesByDomain).join(', ')}`
+      );
+    }
+    return fee;
   }
 
   private getEvmDomainId(chainId: ChainId): number {

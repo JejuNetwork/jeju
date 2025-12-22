@@ -7,40 +7,65 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { getLocalnetChain, getTestnetChain, getMainnetChain } from '@jejunetwork/shared';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
+import { z } from 'zod';
+
+// Schema for deployment address files
+const DeploymentAddressesSchema = z.record(z.string(), z.string());
 
 // Load addresses from deployment files
 function loadAddressesFromDeployment(network: 'testnet' | 'mainnet'): ContractAddresses | null {
-  try {
-    const deploymentPath = join(process.cwd(), 'packages', 'contracts', 'deployments', network, 'addresses.json');
-    if (!existsSync(deploymentPath)) {
-      return null;
-    }
-    const data = JSON.parse(readFileSync(deploymentPath, 'utf-8')) as Record<string, string>;
-    return {
-      identityRegistry: (data.IdentityRegistry || data.identityRegistry || '0x0000000000000000000000000000000000000000') as Address,
-      nodeStakingManager: (data.NodeStakingManager || data.nodeStakingManager || '0x0000000000000000000000000000000000000000') as Address,
-      computeRegistry: (data.ComputeRegistry || data.computeRegistry || '0x0000000000000000000000000000000000000000') as Address,
-      computeStaking: (data.ComputeStaking || data.computeStaking || '0x0000000000000000000000000000000000000000') as Address,
-      inferenceServing: (data.InferenceServing || data.inferenceServing || '0x0000000000000000000000000000000000000000') as Address,
-      triggerRegistry: (data.TriggerRegistry || data.triggerRegistry || '0x0000000000000000000000000000000000000000') as Address,
-      storageMarket: (data.StorageMarket || data.storageMarket || '0x0000000000000000000000000000000000000000') as Address,
-      contentRegistry: (data.ContentRegistry || data.contentRegistry || '0x0000000000000000000000000000000000000000') as Address,
-      oracleStakingManager: (data.OracleStakingManager || data.oracleStakingManager || '0x0000000000000000000000000000000000000000') as Address,
-      feedRegistry: (data.FeedRegistry || data.feedRegistry || '0x0000000000000000000000000000000000000000') as Address,
-      reportVerifier: (data.ReportVerifier || data.reportVerifier || '0x0000000000000000000000000000000000000000') as Address,
-      proxyRegistry: (data.ProxyRegistry || data.proxyRegistry || '0x0000000000000000000000000000000000000000') as Address,
-      sequencerRegistry: (data.SequencerRegistry || data.sequencerRegistry || '0x0000000000000000000000000000000000000000') as Address,
-      liquidityAggregator: (data.LiquidityAggregator || data.liquidityAggregator || '0x0000000000000000000000000000000000000000') as Address,
-      solverRegistry: (data.SolverRegistry || data.solverRegistry || '0x0000000000000000000000000000000000000000') as Address,
-      feeDistributor: (data.FeeDistributor || data.feeDistributor || '0x0000000000000000000000000000000000000000') as Address,
-      banManager: (data.BanManager || data.banManager || '0x0000000000000000000000000000000000000000') as Address,
-      cdnRegistry: (data.CDNRegistry || data.cdnRegistry || '0x0000000000000000000000000000000000000000') as Address,
-      cdnBilling: (data.CDNBilling || data.cdnBilling || '0x0000000000000000000000000000000000000000') as Address,
-      vpnRegistry: (data.VPNRegistry || data.vpnRegistry || '0x0000000000000000000000000000000000000000') as Address,
-    };
-  } catch {
+  const deploymentPath = join(process.cwd(), 'packages', 'contracts', 'deployments', network, 'addresses.json');
+  if (!existsSync(deploymentPath)) {
     return null;
   }
+  const data = DeploymentAddressesSchema.parse(JSON.parse(readFileSync(deploymentPath, 'utf-8')));
+  
+  // Helper to get address with validation
+  const getAddress = (pascalKey: string, camelKey: string): Address => {
+    const value = data[pascalKey] ?? data[camelKey];
+    if (!value) {
+      throw new Error(`Missing contract address for ${pascalKey} in ${network} deployment`);
+    }
+    if (!/^0x[a-fA-F0-9]{40}$/.test(value)) {
+      throw new Error(`Invalid contract address for ${pascalKey}: ${value}`);
+    }
+    return value as Address;
+  };
+  
+  // Helper for optional addresses (contracts that may not be deployed yet)
+  const getOptionalAddress = (pascalKey: string, camelKey: string): Address => {
+    const value = data[pascalKey] ?? data[camelKey];
+    if (!value) {
+      return '0x0000000000000000000000000000000000000000' as Address;
+    }
+    if (!/^0x[a-fA-F0-9]{40}$/.test(value)) {
+      throw new Error(`Invalid contract address for ${pascalKey}: ${value}`);
+    }
+    return value as Address;
+  };
+  
+  return {
+    identityRegistry: getAddress('IdentityRegistry', 'identityRegistry'),
+    nodeStakingManager: getAddress('NodeStakingManager', 'nodeStakingManager'),
+    computeRegistry: getOptionalAddress('ComputeRegistry', 'computeRegistry'),
+    computeStaking: getOptionalAddress('ComputeStaking', 'computeStaking'),
+    inferenceServing: getOptionalAddress('InferenceServing', 'inferenceServing'),
+    triggerRegistry: getOptionalAddress('TriggerRegistry', 'triggerRegistry'),
+    storageMarket: getOptionalAddress('StorageMarket', 'storageMarket'),
+    contentRegistry: getOptionalAddress('ContentRegistry', 'contentRegistry'),
+    oracleStakingManager: getOptionalAddress('OracleStakingManager', 'oracleStakingManager'),
+    feedRegistry: getOptionalAddress('FeedRegistry', 'feedRegistry'),
+    reportVerifier: getOptionalAddress('ReportVerifier', 'reportVerifier'),
+    proxyRegistry: getOptionalAddress('ProxyRegistry', 'proxyRegistry'),
+    sequencerRegistry: getOptionalAddress('SequencerRegistry', 'sequencerRegistry'),
+    liquidityAggregator: getOptionalAddress('LiquidityAggregator', 'liquidityAggregator'),
+    solverRegistry: getOptionalAddress('SolverRegistry', 'solverRegistry'),
+    feeDistributor: getOptionalAddress('FeeDistributor', 'feeDistributor'),
+    banManager: getOptionalAddress('BanManager', 'banManager'),
+    cdnRegistry: getOptionalAddress('CDNRegistry', 'cdnRegistry'),
+    cdnBilling: getOptionalAddress('CDNBilling', 'cdnBilling'),
+    vpnRegistry: getOptionalAddress('VPNRegistry', 'vpnRegistry'),
+  };
 }
 
 // Chain definitions from shared config
@@ -107,27 +132,56 @@ export function getContractAddresses(chainId: number): ContractAddresses {
 
   // Testnet addresses - loaded from deployment files or environment
   if (chainId === 420691) {
-    return loadAddressesFromDeployment('testnet') || {
-      identityRegistry: (process.env.IDENTITY_REGISTRY || '0x0000000000000000000000000000000000000000') as Address,
-      nodeStakingManager: (process.env.NODE_STAKING_MANAGER || '0x0000000000000000000000000000000000000000') as Address,
-      computeRegistry: (process.env.COMPUTE_REGISTRY || '0x0000000000000000000000000000000000000000') as Address,
-      computeStaking: (process.env.COMPUTE_STAKING || '0x0000000000000000000000000000000000000000') as Address,
-      inferenceServing: (process.env.INFERENCE_SERVING || '0x0000000000000000000000000000000000000000') as Address,
-      triggerRegistry: (process.env.TRIGGER_REGISTRY || '0x0000000000000000000000000000000000000000') as Address,
-      storageMarket: (process.env.STORAGE_MARKET || '0x0000000000000000000000000000000000000000') as Address,
-      contentRegistry: (process.env.CONTENT_REGISTRY || '0x0000000000000000000000000000000000000000') as Address,
-      oracleStakingManager: (process.env.ORACLE_STAKING_MANAGER || '0x0000000000000000000000000000000000000000') as Address,
-      feedRegistry: (process.env.FEED_REGISTRY || '0x0000000000000000000000000000000000000000') as Address,
-      reportVerifier: (process.env.REPORT_VERIFIER || '0x0000000000000000000000000000000000000000') as Address,
-      proxyRegistry: (process.env.PROXY_REGISTRY || '0x0000000000000000000000000000000000000000') as Address,
-      sequencerRegistry: (process.env.SEQUENCER_REGISTRY || '0x0000000000000000000000000000000000000000') as Address,
-      liquidityAggregator: (process.env.LIQUIDITY_AGGREGATOR || '0x0000000000000000000000000000000000000000') as Address,
-      solverRegistry: (process.env.SOLVER_REGISTRY || '0x0000000000000000000000000000000000000000') as Address,
-      feeDistributor: (process.env.FEE_DISTRIBUTOR || '0x0000000000000000000000000000000000000000') as Address,
+    const fromDeployment = loadAddressesFromDeployment('testnet');
+    if (fromDeployment) {
+      return fromDeployment;
+    }
+    
+    // Helper to get required address from environment
+    const getEnvAddress = (envKey: string, name: string): Address => {
+      const value = process.env[envKey];
+      if (!value) {
+        throw new Error(`Missing ${name} address: set ${envKey} environment variable or deploy contracts`);
+      }
+      if (!/^0x[a-fA-F0-9]{40}$/.test(value)) {
+        throw new Error(`Invalid ${name} address in ${envKey}: ${value}`);
+      }
+      return value as Address;
+    };
+    
+    // Helper for optional addresses
+    const getOptionalEnvAddress = (envKey: string): Address => {
+      const value = process.env[envKey];
+      if (!value) {
+        return '0x0000000000000000000000000000000000000000' as Address;
+      }
+      if (!/^0x[a-fA-F0-9]{40}$/.test(value)) {
+        throw new Error(`Invalid address in ${envKey}: ${value}`);
+      }
+      return value as Address;
+    };
+    
+    return {
+      identityRegistry: getEnvAddress('IDENTITY_REGISTRY', 'IdentityRegistry'),
+      nodeStakingManager: getEnvAddress('NODE_STAKING_MANAGER', 'NodeStakingManager'),
+      computeRegistry: getOptionalEnvAddress('COMPUTE_REGISTRY'),
+      computeStaking: getOptionalEnvAddress('COMPUTE_STAKING'),
+      inferenceServing: getOptionalEnvAddress('INFERENCE_SERVING'),
+      triggerRegistry: getOptionalEnvAddress('TRIGGER_REGISTRY'),
+      storageMarket: getOptionalEnvAddress('STORAGE_MARKET'),
+      contentRegistry: getOptionalEnvAddress('CONTENT_REGISTRY'),
+      oracleStakingManager: getOptionalEnvAddress('ORACLE_STAKING_MANAGER'),
+      feedRegistry: getOptionalEnvAddress('FEED_REGISTRY'),
+      reportVerifier: getOptionalEnvAddress('REPORT_VERIFIER'),
+      proxyRegistry: getOptionalEnvAddress('PROXY_REGISTRY'),
+      sequencerRegistry: getOptionalEnvAddress('SEQUENCER_REGISTRY'),
+      liquidityAggregator: getOptionalEnvAddress('LIQUIDITY_AGGREGATOR'),
+      solverRegistry: getOptionalEnvAddress('SOLVER_REGISTRY'),
+      feeDistributor: getOptionalEnvAddress('FEE_DISTRIBUTOR'),
       banManager: '0x0000000000000000000000000000000000000000' as Address,
       cdnRegistry: '0x0000000000000000000000000000000000000000' as Address,
       cdnBilling: '0x0000000000000000000000000000000000000000' as Address,
-      vpnRegistry: (process.env.VPN_REGISTRY || '0x0000000000000000000000000000000000000000') as Address,
+      vpnRegistry: getOptionalEnvAddress('VPN_REGISTRY'),
     };
   }
 

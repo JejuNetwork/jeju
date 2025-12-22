@@ -173,3 +173,41 @@ export async function initLocalServices(): Promise<void> {
 export function isInitialized(): boolean {
   return initialized;
 }
+
+// ============ Ollama Support (Local LLM) ============
+
+const OLLAMA_URL = process.env.OLLAMA_URL ?? 'http://localhost:11434';
+export const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? 'llama3.2';
+
+export async function checkOllama(): Promise<boolean> {
+  const r = await fetch(`${OLLAMA_URL}/api/tags`, { signal: AbortSignal.timeout(2000) }).catch(() => null);
+  return r?.ok ?? false;
+}
+
+export async function ollamaGenerate(prompt: string, systemPrompt?: string): Promise<string> {
+  const available = await checkOllama();
+  if (!available) {
+    throw new Error('Ollama not available. Start with: ollama serve');
+  }
+
+  const messages = systemPrompt 
+    ? [{ role: 'system', content: systemPrompt }, { role: 'user', content: prompt }]
+    : [{ role: 'user', content: prompt }];
+
+  const r = await fetch(`${OLLAMA_URL}/api/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: OLLAMA_MODEL,
+      messages,
+      stream: false,
+    }),
+  });
+
+  if (!r.ok) {
+    throw new Error(`Ollama error: ${r.status}`);
+  }
+
+  const data = await r.json() as { message?: { content?: string }; content?: string };
+  return data.message?.content ?? data.content ?? '';
+}

@@ -6,10 +6,22 @@
  * - Cache (Compute Redis)
  * - Storage (IPFS)
  * - KMS (Encryption)
+ * 
+ * Uses zod validation and expect/throw patterns throughout.
  */
 
 import type { Address } from 'viem';
 import type { Todo, CreateTodoInput, UpdateTodoInput } from '../types';
+import {
+  createTodoInputSchema,
+  updateTodoInputSchema,
+  todoSchema,
+  todoStatsSchema,
+  addressSchema,
+  todoIdSchema,
+  decryptedTodoDataSchema,
+} from '../schemas';
+import { expectValid, ValidationError } from '../utils/validation';
 import { getTodoRepository } from '../db/client';
 import { getCache, cacheKeys } from './cache';
 import { getKMSService } from './kms';
@@ -50,54 +62,78 @@ class TodoServiceImpl implements TodoService {
     priority?: 'low' | 'medium' | 'high';
     search?: string;
   }): Promise<Todo[]> {
+    expectValid(addressSchema, owner, 'Owner address');
+
     // Skip cache if filtering
     if (options?.priority || options?.search || options?.completed !== undefined) {
-      return this.repository.listByOwner(owner, options);
+      const todos = await this.repository.listByOwner(owner, options);
+      // Validate all todos
+      return todos.map(todo => expectValid(todoSchema, todo, `Todo ${todo.id}`));
     }
 
     // Check cache
     const cacheKey = cacheKeys.todoList(owner);
     const cached = await this.cache.get<Todo[]>(cacheKey);
-    if (cached) return cached;
+    if (cached) {
+      return cached.map(todo => expectValid(todoSchema, todo, `Cached todo ${todo.id}`));
+    }
 
     const todos = await this.repository.listByOwner(owner);
-    await this.cache.set(cacheKey, todos, 60000); // 1 minute TTL
-    return todos;
+    const validatedTodos = todos.map(todo => expectValid(todoSchema, todo, `Todo ${todo.id}`));
+    await this.cache.set(cacheKey, validatedTodos, 60000); // 1 minute TTL
+    return validatedTodos;
   }
 
   async getTodo(id: string, owner: Address): Promise<Todo | null> {
+    expectValid(todoIdSchema, id, 'Todo ID');
+    expectValid(addressSchema, owner, 'Owner address');
+
     const cacheKey = cacheKeys.todoItem(id);
     const cached = await this.cache.get<Todo>(cacheKey);
     if (cached && cached.owner.toLowerCase() === owner.toLowerCase()) {
-      return cached;
+      return expectValid(todoSchema, cached, `Cached todo ${id}`);
     }
 
     const todo = await this.repository.getById(id, owner);
     if (todo) {
-      await this.cache.set(cacheKey, todo, 60000);
+      const validatedTodo = expectValid(todoSchema, todo, `Todo ${id}`);
+      await this.cache.set(cacheKey, validatedTodo, 60000);
+      return validatedTodo;
     }
-    return todo;
+    return null;
   }
 
   async createTodo(owner: Address, input: CreateTodoInput): Promise<Todo> {
-    let todo = await this.repository.create(owner, input);
+    expectValid(addressSchema, owner, 'Owner address');
+
+    const validatedInput = expectValid(createTodoInputSchema, input, 'Create todo input');
+    let todo = await this.repository.create(owner, validatedInput);
+    todo = expectValid(todoSchema, todo, `Created todo ${todo.id}`);
 
     // Handle encryption if requested
-    if (input.encrypt) {
+    if (validatedInput.encrypt) {
       const sensitiveData = JSON.stringify({
         title: todo.title,
         description: todo.description,
       });
       const encrypted = await this.kms.encrypt(sensitiveData, owner);
       await this.repository.setEncryptedData(todo.id, owner, encrypted);
-      todo = (await this.repository.getById(todo.id, owner))!;
+      const updated = await this.repository.getById(todo.id, owner);
+      if (!updated) {
+        throw new ValidationError(`Failed to retrieve todo ${todo.id} after encryption`);
+      }
+      todo = expectValid(todoSchema, updated, `Encrypted todo ${todo.id}`);
     }
 
     // Handle attachment if provided
-    if (input.attachment) {
-      const cid = await this.storage.upload(input.attachment, `${todo.id}-attachment`, owner);
+    if (validatedInput.attachment) {
+      const cid = await this.storage.upload(validatedInput.attachment, `${todo.id}-attachment`, owner);
       await this.repository.setAttachmentCid(todo.id, owner, cid);
-      todo = (await this.repository.getById(todo.id, owner))!;
+      const updated = await this.repository.getById(todo.id, owner);
+      if (!updated) {
+        throw new ValidationError(`Failed to retrieve todo ${todo.id} after attachment`);
+      }
+      todo = expectValid(todoSchema, updated, `Todo with attachment ${todo.id}`);
     }
 
     // Invalidate cache
@@ -107,17 +143,26 @@ class TodoServiceImpl implements TodoService {
   }
 
   async updateTodo(id: string, owner: Address, input: UpdateTodoInput): Promise<Todo | null> {
-    const todo = await this.repository.update(id, owner, input);
+    expectValid(todoIdSchema, id, 'Todo ID');
+    expectValid(addressSchema, owner, 'Owner address');
+
+    const validatedInput = expectValid(updateTodoInputSchema, input, 'Update todo input');
+    const todo = await this.repository.update(id, owner, validatedInput);
     if (!todo) return null;
+
+    const validatedTodo = expectValid(todoSchema, todo, `Updated todo ${id}`);
 
     // Invalidate caches
     await this.cache.delete(cacheKeys.todoItem(id));
     await this.invalidateOwnerCache(owner);
 
-    return todo;
+    return validatedTodo;
   }
 
   async deleteTodo(id: string, owner: Address): Promise<boolean> {
+    expectValid(todoIdSchema, id, 'Todo ID');
+    expectValid(addressSchema, owner, 'Owner address');
+
     const deleted = await this.repository.delete(id, owner);
     if (deleted) {
       await this.cache.delete(cacheKeys.todoItem(id));
@@ -152,7 +197,8 @@ class TodoServiceImpl implements TodoService {
     if (!todo || !todo.encryptedData) return todo;
 
     const decrypted = await this.kms.decrypt(todo.encryptedData, owner);
-    const data = JSON.parse(decrypted) as { title: string; description: string };
+    const parsed: unknown = JSON.parse(decrypted);
+    const data = expectValid(decryptedTodoDataSchema, parsed, 'Decrypted todo data');
 
     // Return todo with decrypted data (but don't persist decryption)
     return {
@@ -183,25 +229,48 @@ class TodoServiceImpl implements TodoService {
     overdue: number;
     byPriority: { low: number; medium: number; high: number };
   }> {
+    expectValid(addressSchema, owner, 'Owner address');
+
     const cacheKey = cacheKeys.todoStats(owner);
     const cached = await this.cache.get<ReturnType<typeof this.getStats>>(cacheKey);
-    if (cached) return cached;
+    if (cached) {
+      return expectValid(todoStatsSchema, cached, 'Cached todo stats');
+    }
 
     const stats = await this.repository.getStats(owner);
-    await this.cache.set(cacheKey, stats, 30000); // 30 second TTL
-    return stats;
+    const validatedStats = expectValid(todoStatsSchema, stats, 'Todo stats');
+    await this.cache.set(cacheKey, validatedStats, 30000); // 30 second TTL
+    return validatedStats;
   }
 
   async bulkComplete(ids: string[], owner: Address): Promise<Todo[]> {
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw new ValidationError('IDs array is required and cannot be empty');
+    }
+    expectValid(addressSchema, owner, 'Owner address');
+    // Validate all IDs
+    ids.forEach((id, i) => expectValid(todoIdSchema, id, `Todo ID at index ${i}`));
+
     const completed = await this.repository.bulkComplete(ids, owner);
+    const validatedTodos = completed.map(todo => 
+      expectValid(todoSchema, todo, `Bulk completed todo ${todo.id}`)
+    );
+    
     await this.invalidateOwnerCache(owner);
     for (const id of ids) {
       await this.cache.delete(cacheKeys.todoItem(id));
     }
-    return completed;
+    return validatedTodos;
   }
 
   async bulkDelete(ids: string[], owner: Address): Promise<number> {
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw new ValidationError('IDs array is required and cannot be empty');
+    }
+    expectValid(addressSchema, owner, 'Owner address');
+    // Validate all IDs
+    ids.forEach((id, i) => expectValid(todoIdSchema, id, `Todo ID at index ${i}`));
+
     const count = await this.repository.bulkDelete(ids, owner);
     await this.invalidateOwnerCache(owner);
     for (const id of ids) {

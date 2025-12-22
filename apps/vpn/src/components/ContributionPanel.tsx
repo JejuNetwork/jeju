@@ -1,114 +1,26 @@
-import { useEffect, useState } from 'react';
-import { invoke } from '../api';
-import { Activity, HardDrive, Users, Coins, ArrowUpDown, Gauge, Database, Zap, ToggleLeft, ToggleRight } from 'lucide-react';
-
-interface ContributionStatus {
-  vpn_bytes_used: number;
-  bytes_contributed: number;
-  contribution_cap: number;
-  quota_remaining: number;
-  is_contributing: boolean;
-  is_paused: boolean;
-  cdn_bytes_served: number;
-  relay_bytes_served: number;
-  period_start: number;
-  period_end: number;
-}
-
-interface ContributionStats {
-  total_bytes_contributed: number;
-  total_vpn_bytes_used: number;
-  contribution_ratio: number;
-  tokens_earned: number;
-  tokens_pending: number;
-  users_helped: number;
-  cdn_requests_served: number;
-  uptime_seconds: number;
-}
-
-interface ContributionSettings {
-  enabled: boolean;
-  max_bandwidth_percent: number;
-  share_cdn: boolean;
-  share_vpn_relay: boolean;
-  earning_mode: boolean;
-  earning_bandwidth_percent: number;
-  schedule_enabled: boolean;
-  schedule_start: string;
-  schedule_end: string;
-}
-
-interface BandwidthState {
-  total_bandwidth_mbps: number;
-  user_usage_mbps: number;
-  available_mbps: number;
-  contribution_mbps: number;
-  contribution_percent: number;
-  is_user_idle: boolean;
-  idle_seconds: number;
-  adaptive_enabled: boolean;
-}
-
-interface DWSState {
-  active: boolean;
-  cache_used_mb: number;
-  bytes_served: number;
-  requests_served: number;
-  cached_cids: number;
-  earnings_wei: number;
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-}
+import { Activity, HardDrive, Users, Coins, ArrowUpDown, Gauge, Database, ToggleLeft, ToggleRight } from 'lucide-react';
+import { useContribution } from '../hooks';
+import { formatBytes } from '../shared/utils';
 
 export function ContributionPanel() {
-  const [status, setStatus] = useState<ContributionStatus | null>(null);
-  const [stats, setStats] = useState<ContributionStats | null>(null);
-  const [settings, setSettings] = useState<ContributionSettings | null>(null);
-  const [bandwidth, setBandwidth] = useState<BandwidthState | null>(null);
-  const [dws, setDws] = useState<DWSState | null>(null);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [statusData, statsData, bwData, dwsData] = await Promise.all([
-          invoke<ContributionStatus>('get_contribution_status'),
-          invoke<ContributionStats>('get_contribution_stats'),
-          invoke<BandwidthState>('get_bandwidth_state'),
-          invoke<DWSState>('get_dws_state'),
-        ]);
-        setStatus(statusData);
-        setStats(statsData);
-        setBandwidth(bwData);
-        setDws(dwsData);
-      } catch (error) {
-        console.error('Failed to fetch contribution data:', error);
-      }
-    };
-
-    fetchData();
-    const interval = setInterval(fetchData, 3000);
-    return () => clearInterval(interval);
-  }, []);
+  const { status, stats, settings, bandwidth, dws, updateSettings } = useContribution();
 
   const toggleContribution = async () => {
-    if (!settings) return;
+    if (!settings) {
+      throw new Error('Settings not loaded');
+    }
     
     const newSettings = { ...settings, enabled: !settings.enabled };
-    await invoke('set_contribution_settings', { settings: newSettings });
-    setSettings(newSettings);
+    await updateSettings(newSettings);
   };
 
   const toggleEarningMode = async () => {
-    if (!settings) return;
+    if (!settings) {
+      throw new Error('Settings not loaded');
+    }
     
     const newSettings = { ...settings, earning_mode: !settings.earning_mode };
-    await invoke('set_contribution_settings', { settings: newSettings });
-    setSettings(newSettings);
+    await updateSettings(newSettings);
   };
 
   const quotaPercent = status 

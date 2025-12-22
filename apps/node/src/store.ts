@@ -1,4 +1,5 @@
 // Global state management with Zustand
+// Fail-fast validation with expect/throw patterns
 
 import { create } from 'zustand';
 import { invoke } from '@tauri-apps/api/core';
@@ -16,6 +17,24 @@ import type {
   AppConfig,
   ViewType,
 } from './types';
+import {
+  validateHardwareInfo,
+  validateWalletInfo,
+  validateBalanceInfo,
+  validateAgentInfo,
+  validateBanStatus,
+  validateServiceWithStatusArray,
+  validateBotWithStatusArray,
+  validateEarningsSummary,
+  validateProjectedEarnings,
+  validateAppConfig,
+  validateViewType,
+  StartServiceRequestSchema,
+  StartBotRequestSchema,
+  StakeRequestSchema,
+  UnstakeRequestSchema,
+} from './validation';
+import { validateStakingInfo } from './validation';
 
 interface AppStore {
   // Navigation
@@ -85,7 +104,10 @@ interface AppStore {
 export const useAppStore = create<AppStore>((set, get) => ({
   // Navigation
   currentView: 'dashboard',
-  setCurrentView: (view) => set({ currentView: view }),
+  setCurrentView: (view) => {
+    const validatedView = validateViewType(view);
+    set({ currentView: validatedView });
+  },
 
   // Loading
   isLoading: true,
@@ -95,236 +117,192 @@ export const useAppStore = create<AppStore>((set, get) => ({
   // Hardware
   hardware: null,
   fetchHardware: async () => {
-    try {
-      const hardware = await invoke<HardwareInfo>('detect_hardware');
-      set({ hardware });
-    } catch (e) {
-      set({ error: `Failed to detect hardware: ${e}` });
-    }
+    const raw = await invoke('detect_hardware');
+    const hardware = validateHardwareInfo(raw);
+    set({ hardware });
   },
 
   // Wallet
   wallet: null,
   balance: null,
   fetchWallet: async () => {
-    try {
-      const wallet = await invoke<WalletInfo | null>('get_wallet_info');
-      set({ wallet });
-    } catch (e) {
-      console.error('Failed to fetch wallet:', e);
+    const raw = await invoke('get_wallet_info');
+    if (raw === null) {
+      set({ wallet: null });
+      return;
     }
+    const wallet = validateWalletInfo(raw);
+    set({ wallet });
   },
   fetchBalance: async () => {
-    try {
-      const balance = await invoke<BalanceInfo>('get_balance');
-      set({ balance });
-    } catch (e) {
-      console.error('Failed to fetch balance:', e);
-    }
+    const raw = await invoke('get_balance');
+    const balance = validateBalanceInfo(raw);
+    set({ balance });
   },
 
   // Agent
   agent: null,
   banStatus: null,
   fetchAgent: async () => {
-    try {
-      const agent = await invoke<AgentInfo | null>('get_agent_info');
-      set({ agent });
-    } catch (e) {
-      console.error('Failed to fetch agent:', e);
+    const raw = await invoke('get_agent_info');
+    if (raw === null) {
+      set({ agent: null });
+      return;
     }
+    const agent = validateAgentInfo(raw);
+    set({ agent });
   },
   fetchBanStatus: async () => {
-    try {
-      const banStatus = await invoke<BanStatus>('check_ban_status');
-      set({ banStatus });
-    } catch (e) {
-      console.error('Failed to fetch ban status:', e);
-    }
+    const raw = await invoke('check_ban_status');
+    const banStatus = validateBanStatus(raw);
+    set({ banStatus });
   },
 
   // Services
   services: [],
   fetchServices: async () => {
-    try {
-      const services = await invoke<ServiceWithStatus[]>('get_available_services');
-      set({ services });
-    } catch (e) {
-      set({ error: `Failed to fetch services: ${e}` });
-    }
+    const raw = await invoke('get_available_services');
+    const services = validateServiceWithStatusArray(raw);
+    set({ services });
   },
   startService: async (serviceId, stakeAmount) => {
-    try {
-      set({ isLoading: true, loadingMessage: `Starting ${serviceId}...` });
-      await invoke('start_service', {
-        request: {
-          service_id: serviceId,
-          auto_stake: !!stakeAmount,
-          stake_amount: stakeAmount,
-          custom_settings: null,
-        },
-      });
-      await get().fetchServices();
-    } catch (e) {
-      set({ error: `Failed to start service: ${e}` });
-    } finally {
-      set({ isLoading: false });
+    if (!serviceId || typeof serviceId !== 'string' || serviceId.length === 0) {
+      throw new Error('Invalid serviceId: must be a non-empty string');
     }
+    
+    const request = StartServiceRequestSchema.parse({
+      service_id: serviceId,
+      auto_stake: stakeAmount !== undefined && stakeAmount !== '',
+      stake_amount: stakeAmount !== undefined && stakeAmount !== '' ? stakeAmount : null,
+      custom_settings: null,
+    });
+    
+    set({ isLoading: true, loadingMessage: `Starting ${serviceId}...` });
+    await invoke('start_service', { request });
+    await get().fetchServices();
+    set({ isLoading: false });
   },
   stopService: async (serviceId) => {
-    try {
-      set({ isLoading: true, loadingMessage: `Stopping ${serviceId}...` });
-      await invoke('stop_service', { service_id: serviceId });
-      await get().fetchServices();
-    } catch (e) {
-      set({ error: `Failed to stop service: ${e}` });
-    } finally {
-      set({ isLoading: false });
+    if (!serviceId || typeof serviceId !== 'string' || serviceId.length === 0) {
+      throw new Error('Invalid serviceId: must be a non-empty string');
     }
+    
+    set({ isLoading: true, loadingMessage: `Stopping ${serviceId}...` });
+    await invoke('stop_service', { service_id: serviceId });
+    await get().fetchServices();
+    set({ isLoading: false });
   },
 
   // Bots
   bots: [],
   fetchBots: async () => {
-    try {
-      const bots = await invoke<BotWithStatus[]>('get_available_bots');
-      set({ bots });
-    } catch (e) {
-      set({ error: `Failed to fetch bots: ${e}` });
-    }
+    const raw = await invoke('get_available_bots');
+    const bots = validateBotWithStatusArray(raw);
+    set({ bots });
   },
   startBot: async (botId, capitalWei) => {
-    try {
-      set({ isLoading: true, loadingMessage: `Starting ${botId}...` });
-      await invoke('start_bot', {
-        request: {
-          bot_id: botId,
-          capital_allocation_wei: capitalWei,
-        },
-      });
-      await get().fetchBots();
-    } catch (e) {
-      set({ error: `Failed to start bot: ${e}` });
-    } finally {
-      set({ isLoading: false });
+    if (!botId || typeof botId !== 'string' || botId.length === 0) {
+      throw new Error('Invalid botId: must be a non-empty string');
     }
+    
+    const request = StartBotRequestSchema.parse({
+      bot_id: botId,
+      capital_allocation_wei: capitalWei,
+    });
+    
+    set({ isLoading: true, loadingMessage: `Starting ${botId}...` });
+    await invoke('start_bot', { request });
+    await get().fetchBots();
+    set({ isLoading: false });
   },
   stopBot: async (botId) => {
-    try {
-      set({ isLoading: true, loadingMessage: `Stopping ${botId}...` });
-      await invoke('stop_bot', { bot_id: botId });
-      await get().fetchBots();
-    } catch (e) {
-      set({ error: `Failed to stop bot: ${e}` });
-    } finally {
-      set({ isLoading: false });
+    if (!botId || typeof botId !== 'string' || botId.length === 0) {
+      throw new Error('Invalid botId: must be a non-empty string');
     }
+    
+    set({ isLoading: true, loadingMessage: `Stopping ${botId}...` });
+    await invoke('stop_bot', { bot_id: botId });
+    await get().fetchBots();
+    set({ isLoading: false });
   },
 
   // Earnings
   earnings: null,
   projectedEarnings: null,
   fetchEarnings: async () => {
-    try {
-      const earnings = await invoke<EarningsSummary>('get_earnings_summary');
-      set({ earnings });
-    } catch (e) {
-      console.error('Failed to fetch earnings:', e);
-    }
+    const raw = await invoke('get_earnings_summary');
+    const earnings = validateEarningsSummary(raw);
+    set({ earnings });
   },
   fetchProjectedEarnings: async () => {
-    try {
-      const projectedEarnings = await invoke<ProjectedEarnings>('get_projected_earnings');
-      set({ projectedEarnings });
-    } catch (e) {
-      console.error('Failed to fetch projected earnings:', e);
-    }
+    const raw = await invoke('get_projected_earnings');
+    const projectedEarnings = validateProjectedEarnings(raw);
+    set({ projectedEarnings });
   },
 
   // Staking
   staking: null,
   fetchStaking: async () => {
-    try {
-      const staking = await invoke<StakingInfo>('get_staking_info');
-      set({ staking });
-    } catch (e) {
-      console.error('Failed to fetch staking:', e);
-    }
+    const raw = await invoke('get_staking_info');
+    const staking = validateStakingInfo(raw);
+    set({ staking });
   },
   stake: async (serviceId, amountWei) => {
-    try {
-      set({ isLoading: true, loadingMessage: 'Staking...' });
-      await invoke('stake', {
-        request: {
-          service_id: serviceId,
-          amount_wei: amountWei,
-          token_address: null,
-        },
-      });
-      await get().fetchStaking();
-    } catch (e) {
-      set({ error: `Failed to stake: ${e}` });
-    } finally {
-      set({ isLoading: false });
-    }
+    const request = StakeRequestSchema.parse({
+      service_id: serviceId,
+      amount_wei: amountWei,
+      token_address: null,
+    });
+    
+    set({ isLoading: true, loadingMessage: 'Staking...' });
+    await invoke('stake', { request });
+    await get().fetchStaking();
+    set({ isLoading: false });
   },
   unstake: async (serviceId, amountWei) => {
-    try {
-      set({ isLoading: true, loadingMessage: 'Unstaking...' });
-      await invoke('unstake', {
-        request: {
-          service_id: serviceId,
-          amount_wei: amountWei,
-        },
-      });
-      await get().fetchStaking();
-    } catch (e) {
-      set({ error: `Failed to unstake: ${e}` });
-    } finally {
-      set({ isLoading: false });
-    }
+    const request = UnstakeRequestSchema.parse({
+      service_id: serviceId,
+      amount_wei: amountWei,
+    });
+    
+    set({ isLoading: true, loadingMessage: 'Unstaking...' });
+    await invoke('unstake', { request });
+    await get().fetchStaking();
+    set({ isLoading: false });
   },
   claimRewards: async (serviceId) => {
-    try {
-      set({ isLoading: true, loadingMessage: 'Claiming rewards...' });
-      await invoke('claim_rewards', { service_id: serviceId });
-      await get().fetchStaking();
-      await get().fetchEarnings();
-    } catch (e) {
-      set({ error: `Failed to claim rewards: ${e}` });
-    } finally {
-      set({ isLoading: false });
-    }
+    set({ isLoading: true, loadingMessage: 'Claiming rewards...' });
+    await invoke('claim_rewards', { service_id: serviceId });
+    await get().fetchStaking();
+    await get().fetchEarnings();
+    set({ isLoading: false });
   },
 
   // Config
   config: null,
   fetchConfig: async () => {
-    try {
-      const config = await invoke<AppConfig>('get_config');
-      set({ config });
-    } catch (e) {
-      console.error('Failed to fetch config:', e);
-    }
+    const raw = await invoke('get_config');
+    const config = validateAppConfig(raw);
+    set({ config });
   },
   updateConfig: async (updates) => {
-    try {
-      const config = await invoke<AppConfig>('update_config', { request: updates });
-      set({ config });
-    } catch (e) {
-      set({ error: `Failed to update config: ${e}` });
+    if (!updates || typeof updates !== 'object') {
+      throw new Error('Invalid config updates: must be an object');
     }
+    
+    const raw = await invoke('update_config', { request: updates });
+    const config = validateAppConfig(raw);
+    set({ config });
   },
   setNetwork: async (network) => {
-    try {
-      set({ isLoading: true, loadingMessage: `Switching to ${network}...` });
-      await invoke('set_network', { network });
-      await get().fetchConfig();
-    } catch (e) {
-      set({ error: `Failed to set network: ${e}` });
-    } finally {
-      set({ isLoading: false });
+    if (!network || typeof network !== 'string' || network.length === 0) {
+      throw new Error('Invalid network: must be a non-empty string');
     }
+    
+    set({ isLoading: true, loadingMessage: `Switching to ${network}...` });
+    await invoke('set_network', { network });
+    await get().fetchConfig();
+    set({ isLoading: false });
   },
 
   // Error handling
@@ -335,26 +313,22 @@ export const useAppStore = create<AppStore>((set, get) => ({
   initialize: async () => {
     set({ isLoading: true, loadingMessage: 'Initializing Network Node...' });
     
-    try {
-      await get().fetchHardware();
-      await get().fetchConfig();
-      await get().fetchWallet();
-      await get().fetchServices();
-      await get().fetchBots();
-      await get().fetchProjectedEarnings();
-      
-      if (get().wallet) {
-        await get().fetchBalance();
-        await get().fetchAgent();
-        await get().fetchBanStatus();
-        await get().fetchEarnings();
-        await get().fetchStaking();
-      }
-    } catch (e) {
-      set({ error: `Initialization failed: ${e}` });
-    } finally {
-      set({ isLoading: false, loadingMessage: '' });
+    await get().fetchHardware();
+    await get().fetchConfig();
+    await get().fetchWallet();
+    await get().fetchServices();
+    await get().fetchBots();
+    await get().fetchProjectedEarnings();
+    
+    if (get().wallet) {
+      await get().fetchBalance();
+      await get().fetchAgent();
+      await get().fetchBanStatus();
+      await get().fetchEarnings();
+      await get().fetchStaking();
     }
+    
+    set({ isLoading: false, loadingMessage: '' });
   },
 }));
 

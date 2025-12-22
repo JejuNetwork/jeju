@@ -6,7 +6,9 @@
 import type { Address } from 'viem';
 
 export type DeploymentType = 'container' | 'worker' | 'serverless';
-export type DeploymentStatus = 'pending' | 'building' | 'deploying' | 'running' | 'stopped' | 'error';
+// Re-export consolidated DeploymentStatus
+import type { DeploymentStatus } from '@jejunetwork/types';
+export type { DeploymentStatus };
 
 export interface ContainerSpec {
   image: string;                    // Container image or code bundle CID

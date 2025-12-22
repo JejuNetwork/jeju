@@ -62,16 +62,12 @@ class NetworkProvider {
   }
 
   private async initialize(): Promise<void> {
-    try {
-      this.chainId = await this.request({ method: 'eth_chainId' }) as string;
-      this.networkVersion = parseInt(this.chainId, 16).toString();
-      
-      const accounts = await this.request({ method: 'eth_accounts' }) as string[];
-      if (accounts.length > 0) {
-        this.selectedAddress = accounts[0];
-      }
-    } catch {
-      // Extension might not be ready
+    this.chainId = await this.request({ method: 'eth_chainId' }) as string;
+    this.networkVersion = parseInt(this.chainId, 16).toString();
+    
+    const accounts = await this.request({ method: 'eth_accounts' }) as string[];
+    if (accounts.length > 0) {
+      this.selectedAddress = accounts[0];
     }
   }
 
@@ -223,5 +219,5 @@ if (!window.ethereum) {
 }
 window.jeju = provider;
 
-console.log('Network Wallet provider injected');
+// Provider injected
 

@@ -1,9 +1,11 @@
-import { createPublicClient, http, keccak256, stringToHex, type Address, type Chain } from 'viem';
+import { createPublicClient, http, keccak256, stringToHex, type Address, type Chain, type PublicClient } from 'viem';
 import { parseAbi } from 'viem';
 
+// Helper to read contract with proper typing for the indexer's use case
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function readContract<T>(client: any, params: { address: Address; abi: readonly unknown[]; functionName: string; args?: readonly unknown[] }): Promise<T> {
-  return client.readContract(params) as Promise<T>;
+async function readContract<T>(client: PublicClient, params: { address: Address; abi: readonly any[]; functionName: string; args?: readonly unknown[] }): Promise<T> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return client.readContract(params as any) as Promise<T>;
 }
 
 export interface CrossServiceProvider {
@@ -206,8 +208,7 @@ export interface CrossServiceConfig {
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 export class CrossServiceClient {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private publicClient: any;
+  private publicClient: PublicClient;
   private computeRegistryAddress?: Address;
   private storageRegistryAddress?: Address;
   private identityRegistryAddress?: Address;
@@ -563,5 +564,11 @@ export const CROSS_SERVICE_EVENTS = {
 export const CROSS_SERVICE_EVENT_SET = new Set(Object.values(CROSS_SERVICE_EVENTS));
 
 export function isCrossServiceEvent(topic0: string): boolean {
+  if (!topic0 || typeof topic0 !== 'string') {
+    throw new Error('topic0 is required and must be a string');
+  }
+  if (!topic0.match(/^0x[a-fA-F0-9]{64}$/)) {
+    throw new Error(`Invalid topic0 format: ${topic0}. Must be a 32-byte hex string.`);
+  }
   return CROSS_SERVICE_EVENT_SET.has(topic0 as `0x${string}`);
 }

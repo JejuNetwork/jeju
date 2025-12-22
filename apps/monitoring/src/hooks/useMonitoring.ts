@@ -1,48 +1,70 @@
 import { useState, useEffect, useCallback } from 'react'
+import { z } from 'zod'
 
-interface MetricResult {
-  metric: Record<string, string>
-  value: [number, string]
-}
+// Zod schemas for API responses
+const MetricResultSchema = z.object({
+  metric: z.record(z.string(), z.string()),
+  value: z.tuple([z.number(), z.string()]),
+})
 
-interface Alert {
-  state: string
-  labels: Record<string, string>
-  annotations: Record<string, string>
-  activeAt?: string
-}
+const AlertSchema = z.object({
+  state: z.string(),
+  labels: z.record(z.string(), z.string()),
+  annotations: z.record(z.string(), z.string()),
+  activeAt: z.string().optional(),
+})
 
-interface Target {
-  health: string
-  labels: Record<string, string>
-  lastScrape: string
-  lastScrapeDuration: number
-  scrapeUrl: string
-}
+const TargetSchema = z.object({
+  health: z.string(),
+  labels: z.record(z.string(), z.string()),
+  lastScrape: z.string(),
+  lastScrapeDuration: z.number(),
+  scrapeUrl: z.string(),
+})
 
-interface OIFStats {
-  totalIntents: number
-  activeSolvers: number
-  totalVolumeUsd: string
-  successRate: number
-}
+const OIFStatsSchema = z.object({
+  totalIntents: z.number(),
+  activeSolvers: z.number(),
+  totalVolumeUsd: z.string(),
+  successRate: z.number().optional(),
+})
 
-interface Solver {
-  address: string
-  name: string
-  successRate: number
-  reputation: number
-}
+const SolverSchema = z.object({
+  address: z.string(),
+  name: z.string(),
+  successRate: z.number(),
+  reputation: z.number(),
+})
 
-interface Route {
-  routeId: string
-  source: number
-  destination: number
-  successRate: number
-  avgTime: number
-}
+const RouteSchema = z.object({
+  routeId: z.string(),
+  source: z.number(),
+  destination: z.number(),
+  successRate: z.number(),
+  avgTime: z.number(),
+})
 
-async function sendA2ARequest(skillId: string, query?: string) {
+const A2AResponseSchema = z.object({
+  result: z.object({
+    parts: z.array(z.object({
+      kind: z.string(),
+      data: z.record(z.string(), z.unknown()).optional(),
+      text: z.string().optional(),
+    })),
+  }).optional(),
+  error: z.object({
+    message: z.string(),
+  }).optional(),
+})
+
+type MetricResult = z.infer<typeof MetricResultSchema>
+type Alert = z.infer<typeof AlertSchema>
+type Target = z.infer<typeof TargetSchema>
+type OIFStats = z.infer<typeof OIFStatsSchema>
+type Solver = z.infer<typeof SolverSchema>
+type Route = z.infer<typeof RouteSchema>
+
+async function sendA2ARequest(skillId: string, query?: string): Promise<Record<string, unknown> | null> {
   const response = await fetch('/api/a2a', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -62,35 +84,78 @@ async function sendA2ARequest(skillId: string, query?: string) {
     })
   })
   
+  if (!response.ok) {
+    throw new Error(`A2A request failed: ${response.status}`)
+  }
+  
   const json = await response.json()
-  const dataPart = json.result?.parts?.find((p: { kind: string }) => p.kind === 'data')
-  return dataPart?.data
+  const parsed = A2AResponseSchema.safeParse(json)
+  
+  if (!parsed.success) {
+    throw new Error(`Invalid A2A response: ${parsed.error.message}`)
+  }
+  
+  if (parsed.data.error) {
+    throw new Error(parsed.data.error.message)
+  }
+  
+  const dataPart = parsed.data.result?.parts.find((p) => p.kind === 'data')
+  return (dataPart?.data as Record<string, unknown>) ?? null
 }
 
 export function useMetricsQuery(query: string, refreshInterval = 30000) {
-  const [data, setData] = useState<MetricResult[] | null>(null)
+  const [data, setData] = useState<MetricResult[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const fetch = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true)
-    const result = await sendA2ARequest('query-metrics', query)
-    if (result?.error) {
-      setError(result.error)
-    } else {
-      setData(result?.result || [])
+    try {
+      const result = await sendA2ARequest('query-metrics', query)
+      if (!result) {
+        setData([])
+        setError(null)
+        return
+      }
+      
+      if (result.error) {
+        setError(String(result.error))
+        setData([])
+        return
+      }
+      
+      // Validate the result array
+      const resultArray = result.result
+      if (!Array.isArray(resultArray)) {
+        setData([])
+        setError(null)
+        return
+      }
+      
+      const parsed = z.array(MetricResultSchema).safeParse(resultArray)
+      if (!parsed.success) {
+        setError(`Invalid metrics data: ${parsed.error.message}`)
+        setData([])
+        return
+      }
+      
+      setData(parsed.data)
       setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error')
+      setData([])
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }, [query])
 
   useEffect(() => {
-    fetch()
-    const interval = setInterval(fetch, refreshInterval)
+    fetchData()
+    const interval = setInterval(fetchData, refreshInterval)
     return () => clearInterval(interval)
-  }, [fetch, refreshInterval])
+  }, [fetchData, refreshInterval])
 
-  return { data, loading, error, refetch: fetch }
+  return { data, loading, error, refetch: fetchData }
 }
 
 export function useAlerts(refreshInterval = 15000) {
@@ -98,26 +163,53 @@ export function useAlerts(refreshInterval = 15000) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const fetch = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true)
-    const result = await sendA2ARequest('get-alerts')
-    if (result?.error) {
-      setError(result.error)
-      setAlerts([])
-    } else {
-      setAlerts(result?.alerts || [])
+    try {
+      const result = await sendA2ARequest('get-alerts')
+      if (!result) {
+        setAlerts([])
+        setError(null)
+        return
+      }
+      
+      if (result.error) {
+        setError(String(result.error))
+        setAlerts([])
+        return
+      }
+      
+      const alertsArray = result.alerts
+      if (!Array.isArray(alertsArray)) {
+        setAlerts([])
+        setError(null)
+        return
+      }
+      
+      const parsed = z.array(AlertSchema).safeParse(alertsArray)
+      if (!parsed.success) {
+        setError(`Invalid alerts data: ${parsed.error.message}`)
+        setAlerts([])
+        return
+      }
+      
+      setAlerts(parsed.data)
       setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error')
+      setAlerts([])
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }, [])
 
   useEffect(() => {
-    fetch()
-    const interval = setInterval(fetch, refreshInterval)
+    fetchData()
+    const interval = setInterval(fetchData, refreshInterval)
     return () => clearInterval(interval)
-  }, [fetch, refreshInterval])
+  }, [fetchData, refreshInterval])
 
-  return { alerts, loading, error, refetch: fetch }
+  return { alerts, loading, error, refetch: fetchData }
 }
 
 export function useTargets(refreshInterval = 30000) {
@@ -125,29 +217,56 @@ export function useTargets(refreshInterval = 30000) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const fetch = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true)
-    const result = await sendA2ARequest('get-targets')
-    if (result?.error) {
-      setError(result.error)
-      setTargets([])
-    } else {
-      setTargets(result?.targets || [])
+    try {
+      const result = await sendA2ARequest('get-targets')
+      if (!result) {
+        setTargets([])
+        setError(null)
+        return
+      }
+      
+      if (result.error) {
+        setError(String(result.error))
+        setTargets([])
+        return
+      }
+      
+      const targetsArray = result.targets
+      if (!Array.isArray(targetsArray)) {
+        setTargets([])
+        setError(null)
+        return
+      }
+      
+      const parsed = z.array(TargetSchema).safeParse(targetsArray)
+      if (!parsed.success) {
+        setError(`Invalid targets data: ${parsed.error.message}`)
+        setTargets([])
+        return
+      }
+      
+      setTargets(parsed.data)
       setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error')
+      setTargets([])
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }, [])
 
   useEffect(() => {
-    fetch()
-    const interval = setInterval(fetch, refreshInterval)
+    fetchData()
+    const interval = setInterval(fetchData, refreshInterval)
     return () => clearInterval(interval)
-  }, [fetch, refreshInterval])
+  }, [fetchData, refreshInterval])
 
   const upCount = targets.filter(t => t.health === 'up').length
   const downCount = targets.filter(t => t.health === 'down').length
 
-  return { targets, upCount, downCount, loading, error, refetch: fetch }
+  return { targets, upCount, downCount, loading, error, refetch: fetchData }
 }
 
 export function useOIFStats(refreshInterval = 30000) {
@@ -157,34 +276,65 @@ export function useOIFStats(refreshInterval = 30000) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const fetch = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true)
-    
-    const [statsResult, solversResult, routesResult] = await Promise.all([
-      sendA2ARequest('oif-stats'),
-      sendA2ARequest('oif-solver-health'),
-      sendA2ARequest('oif-route-stats'),
-    ])
-    
-    if (statsResult?.error || solversResult?.error || routesResult?.error) {
-      setError(statsResult?.error || solversResult?.error || routesResult?.error)
-    } else {
-      setStats(statsResult)
-      setSolvers(solversResult?.solvers || [])
-      setRoutes(routesResult?.routes || [])
+    try {
+      const [statsResult, solversResult, routesResult] = await Promise.all([
+        sendA2ARequest('oif-stats'),
+        sendA2ARequest('oif-solver-health'),
+        sendA2ARequest('oif-route-stats'),
+      ])
+      
+      // Check for errors in any result
+      const firstError = 
+        (statsResult?.error ? String(statsResult.error) : null) ??
+        (solversResult?.error ? String(solversResult.error) : null) ??
+        (routesResult?.error ? String(routesResult.error) : null)
+      
+      if (firstError) {
+        setError(firstError)
+        return
+      }
+      
+      // Parse stats
+      if (statsResult) {
+        const parsedStats = OIFStatsSchema.safeParse(statsResult)
+        if (parsedStats.success) {
+          setStats(parsedStats.data)
+        }
+      }
+      
+      // Parse solvers
+      if (solversResult?.solvers && Array.isArray(solversResult.solvers)) {
+        const parsedSolvers = z.array(SolverSchema).safeParse(solversResult.solvers)
+        if (parsedSolvers.success) {
+          setSolvers(parsedSolvers.data)
+        }
+      }
+      
+      // Parse routes
+      if (routesResult?.routes && Array.isArray(routesResult.routes)) {
+        const parsedRoutes = z.array(RouteSchema).safeParse(routesResult.routes)
+        if (parsedRoutes.success) {
+          setRoutes(parsedRoutes.data)
+        }
+      }
+      
       setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error')
+    } finally {
+      setLoading(false)
     }
-    
-    setLoading(false)
   }, [])
 
   useEffect(() => {
-    fetch()
-    const interval = setInterval(fetch, refreshInterval)
+    fetchData()
+    const interval = setInterval(fetchData, refreshInterval)
     return () => clearInterval(interval)
-  }, [fetch, refreshInterval])
+  }, [fetchData, refreshInterval])
 
-  return { stats, solvers, routes, loading, error, refetch: fetch }
+  return { stats, solvers, routes, loading, error, refetch: fetchData }
 }
 
 export function useSystemHealth() {

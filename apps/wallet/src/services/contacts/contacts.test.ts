@@ -11,6 +11,7 @@ vi.mock('../../platform/storage', () => ({
     get: vi.fn(() => Promise.resolve(null)),
     set: vi.fn(() => Promise.resolve(undefined)),
     remove: vi.fn(() => Promise.resolve(undefined)),
+    getJSON: vi.fn(() => Promise.resolve(null)),
   },
 }));
 

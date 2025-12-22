@@ -5,10 +5,13 @@
  */
 
 import type { Address, Hex } from 'viem';
+import { z } from 'zod';
 
-export interface JNSConfig {
-  gatewayEndpoint?: string;
-}
+const JNSConfigSchema = z.object({
+  gatewayEndpoint: z.string().url(),
+});
+
+export type JNSConfig = z.infer<typeof JNSConfigSchema>;
 
 export interface JNSService {
   isAvailable(name: string): Promise<boolean>;
@@ -36,13 +39,16 @@ class JNSServiceImpl implements JNSService {
   private gateway: string;
 
   constructor(config: JNSConfig) {
-    this.gateway = config.gatewayEndpoint || process.env.GATEWAY_API || 'http://localhost:4020';
+    const validated = JNSConfigSchema.parse(config);
+    this.gateway = validated.gatewayEndpoint;
   }
 
   async isAvailable(name: string): Promise<boolean> {
     const normalized = this.normalize(name);
-    const response = await fetch(`${this.gateway}/jns/available/${normalized}`).catch(() => null);
-    if (!response || !response.ok) return false;
+    const response = await fetch(`${this.gateway}/jns/available/${normalized}`);
+    if (!response.ok) {
+      throw new Error(`Failed to check name availability: ${response.status}`);
+    }
     const data = await response.json() as { available: boolean };
     return data.available;
   }
@@ -72,23 +78,32 @@ class JNSServiceImpl implements JNSService {
 
   async resolve(name: string): Promise<Address | null> {
     const normalized = this.normalize(name);
-    const response = await fetch(`${this.gateway}/jns/resolve/${normalized}`).catch(() => null);
-    if (!response || !response.ok) return null;
+    const response = await fetch(`${this.gateway}/jns/resolve/${normalized}`);
+    if (!response.ok) {
+      if (response.status === 404) return null;
+      throw new Error(`Failed to resolve name: ${response.status}`);
+    }
     const data = await response.json() as { address: Address };
     return data.address;
   }
 
   async reverseResolve(address: Address): Promise<string | null> {
-    const response = await fetch(`${this.gateway}/jns/reverse/${address}`).catch(() => null);
-    if (!response || !response.ok) return null;
+    const response = await fetch(`${this.gateway}/jns/reverse/${address}`);
+    if (!response.ok) {
+      if (response.status === 404) return null;
+      throw new Error(`Failed to reverse resolve: ${response.status}`);
+    }
     const data = await response.json() as { name: string };
     return data.name;
   }
 
   async getRecords(name: string): Promise<JNSRecords> {
     const normalized = this.normalize(name);
-    const response = await fetch(`${this.gateway}/jns/records/${normalized}`).catch(() => null);
-    if (!response || !response.ok) return {};
+    const response = await fetch(`${this.gateway}/jns/records/${normalized}`);
+    if (!response.ok) {
+      if (response.status === 404) return {};
+      throw new Error(`Failed to get records: ${response.status}`);
+    }
     return await response.json() as JNSRecords;
   }
 
@@ -110,13 +125,10 @@ class JNSServiceImpl implements JNSService {
 
   async getPrice(name: string, durationYears: number): Promise<bigint> {
     const normalized = this.normalize(name);
-    const response = await fetch(`${this.gateway}/jns/price/${normalized}?years=${durationYears}`).catch(() => null);
+    const response = await fetch(`${this.gateway}/jns/price/${normalized}?years=${durationYears}`);
     
-    if (!response || !response.ok) {
-      // Default pricing based on name length
-      const label = normalized.replace('.jeju', '');
-      const basePrice = label.length <= 3 ? 0.1 : label.length <= 5 ? 0.05 : 0.01;
-      return BigInt(Math.floor(basePrice * durationYears * 1e18));
+    if (!response.ok) {
+      throw new Error(`Failed to get price: ${response.status}`);
     }
 
     const data = await response.json() as { price: string };
@@ -130,11 +142,19 @@ class JNSServiceImpl implements JNSService {
 
 let instance: JNSService | null = null;
 
-export function createJNSService(config: JNSConfig = {}): JNSService {
+export function createJNSService(config: JNSConfig): JNSService {
   if (!instance) {
     instance = new JNSServiceImpl(config);
   }
   return instance;
+}
+
+export function getJNSServiceFromEnv(): JNSService {
+  const gatewayEndpoint = process.env.GATEWAY_API;
+  if (!gatewayEndpoint) {
+    throw new Error('GATEWAY_API environment variable is required');
+  }
+  return createJNSService({ gatewayEndpoint });
 }
 
 export function resetJNSService(): void {

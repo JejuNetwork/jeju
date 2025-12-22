@@ -42,13 +42,16 @@ export class MigrationManager {
    * Get current migration version
    */
   async getCurrentVersion(): Promise<number> {
-    const result = await this.client.query<{ version: number }>(
+    const result = await this.client.query<{ version: number | null }>(
       `SELECT MAX(version) as version FROM ${this.tableName}`,
       [],
       this.databaseId
     );
 
-    return result.rows[0]?.version ?? 0;
+    // MAX() returns NULL if no rows exist, which is valid for empty migration table
+    const firstRow = result.rows[0];
+    if (!firstRow) return 0;
+    return firstRow.version ?? 0;
   }
 
   /**

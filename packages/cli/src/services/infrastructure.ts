@@ -9,12 +9,11 @@
  * NO FALLBACKS - all infrastructure must be running.
  */
 
-import { execa, type Options as ExecaOptions } from 'execa';
+import { execa } from 'execa';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { platform } from 'os';
 import { logger } from '../lib/logger';
-import { checkDocker } from '../lib/system';
 import { DEFAULT_PORTS } from '../types';
 
 export interface ServiceHealth {
@@ -237,15 +236,12 @@ export class InfrastructureService {
   async stopServices(): Promise<void> {
     logger.step('Stopping Docker services...');
     
-    try {
-      await execa('docker', ['compose', 'down'], {
-        cwd: this.rootDir,
-        stdio: 'pipe',
-      });
-      logger.success('Docker services stopped');
-    } catch {
-      // Ignore errors on stop
-    }
+    await execa('docker', ['compose', 'down'], {
+      cwd: this.rootDir,
+      stdio: 'pipe',
+      reject: false, // Don't throw if services weren't running
+    });
+    logger.success('Docker services stopped');
   }
 
   /**
@@ -314,11 +310,7 @@ export class InfrastructureService {
    * Stop localnet
    */
   async stopLocalnet(): Promise<void> {
-    try {
-      await execa('pkill', ['-f', `anvil.*--port.*${LOCALNET_PORT}`], { reject: false });
-    } catch {
-      // Ignore
-    }
+    await execa('pkill', ['-f', `anvil.*--port.*${LOCALNET_PORT}`], { reject: false });
   }
 
   /**

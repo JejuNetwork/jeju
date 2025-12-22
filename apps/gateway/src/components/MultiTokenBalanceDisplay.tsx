@@ -1,8 +1,11 @@
-import { useMemo } from 'react';
+import { useMemo, type ComponentType } from 'react';
 import { useTokenBalances } from '../hooks/useTokenBalances';
 import { useProtocolTokens } from '../hooks/useProtocolTokens';
 import { formatTokenAmount, formatUSD, calculateUSDValue } from '../lib/tokenUtils';
-import { Coins, Star } from 'lucide-react';
+import { Coins, Star, type LucideProps } from 'lucide-react';
+
+const CoinsIcon = Coins as ComponentType<LucideProps>;
+const StarIcon = Star as ComponentType<LucideProps>;
 
 export default function MultiTokenBalanceDisplay() {
   const { balances, isLoading } = useTokenBalances();
@@ -38,7 +41,7 @@ export default function MultiTokenBalanceDisplay() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <div style={{ width: '40px', height: '40px', background: 'var(--gradient-brand)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
-            <Coins size={20} />
+            <CoinsIcon size={20} />
           </div>
           <div>
             <h2 style={{ fontSize: '1.125rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Token Balances</h2>
@@ -82,7 +85,7 @@ export default function MultiTokenBalanceDisplay() {
                   alignItems: 'center',
                   gap: '2px',
                 }}>
-                  <Star size={10} fill="white" />
+                  <StarIcon size={10} fill="white" />
                   Preferred
                 </div>
               )}

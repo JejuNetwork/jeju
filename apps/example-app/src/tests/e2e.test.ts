@@ -13,8 +13,7 @@
  */
 
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
-import { privateKeyToAccount, generatePrivateKey, signMessage } from 'viem/accounts';
-import type { PrivateKeyAccount } from 'viem/accounts';
+import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
 
 const API_URL = process.env.API_URL || 'http://localhost:4500';
 const TEST_WALLET = privateKeyToAccount(generatePrivateKey());
@@ -36,7 +35,7 @@ async function checkServer(): Promise<boolean> {
 async function getAuthHeaders(): Promise<Record<string, string>> {
   const timestamp = Date.now().toString();
   const message = 'jeju-dapp:' + timestamp;
-  const signature = await signMessage(TEST_WALLET, { message });
+  const signature = await TEST_WALLET.signMessage({ message });
 
   return {
     'Content-Type': 'application/json',
@@ -423,7 +422,7 @@ describe('Authentication', () => {
     
     const oldTimestamp = (Date.now() - 10 * 60 * 1000).toString();
     const message = 'jeju-dapp:' + oldTimestamp;
-    const signature = await TEST_WALLET.signMessage(message);
+    const signature = await TEST_WALLET.signMessage({ message });
 
     const response = await fetch(API_URL + '/api/v1/todos', {
       headers: {

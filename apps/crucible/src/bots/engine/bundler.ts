@@ -14,6 +14,9 @@ import { createWalletClient, http, type Chain, keccak256, toBytes } from 'viem';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { mainnet, arbitrum, optimism, base } from 'viem/chains';
 import type { ChainId } from '../autocrat-types';
+import { createLogger } from '../../sdk/logger';
+
+const log = createLogger('Bundler');
 
 export interface BundleTransaction {
   to: `0x${string}`;
@@ -286,7 +289,7 @@ export class MevBundler {
 
     const { signature, body } = await this.signBundle(params);
 
-    console.log(`📦 Sending bundle to ${this.builders.size} builders...`);
+    log.info('Sending bundle to builders', { builderCount: this.builders.size });
 
     // Submit to all builders in parallel
     const results = await Promise.allSettled(
@@ -339,7 +342,7 @@ export class MevBundler {
       .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
       .map(r => r.reason?.message || 'Unknown error');
 
-    console.log(`   ✗ Bundle rejected by all builders`);
+    log.warn('Bundle rejected by all builders');
     return {
       bundleHash: '',
       success: false,

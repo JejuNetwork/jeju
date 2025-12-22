@@ -50,7 +50,7 @@ export const cleanCommand = new Command('clean')
           rmSync(fullPath, { recursive: true, force: true });
           logger.info(`Removed ${path}`);
           cleaned++;
-        } catch (e) {
+        } catch (_e) {
           logger.warn(`Failed to remove ${path}`);
         }
       }
@@ -77,7 +77,7 @@ export const cleanCommand = new Command('clean')
             logger.info(`Removing ${path}...`);
             rmSync(fullPath, { recursive: true, force: true });
             cleanedModules++;
-          } catch (e) {
+          } catch (_e) {
             logger.warn(`Failed to remove ${path}`);
           }
         }
@@ -108,7 +108,7 @@ export const cleanCommand = new Command('clean')
           rmSync(fullPath, { recursive: true, force: true });
           logger.info(`Removed ${path}`);
           cleanedLogs++;
-        } catch (e) {
+        } catch (_e) {
           logger.warn(`Failed to remove ${path}`);
         }
       }

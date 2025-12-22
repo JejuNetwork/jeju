@@ -76,3 +76,30 @@ export const getChainId = () => {
   }
 };
 
+// Export constants for OAuth3
+export const CHAIN_ID = getChainId();
+
+export const RPC_URL = (() => {
+  const network = process.env.NEXT_PUBLIC_NETWORK || 'localnet';
+  switch (network) {
+    case 'mainnet':
+      return 'https://mainnet.base.org';
+    case 'testnet':
+      return 'https://sepolia.base.org';
+    default:
+      return 'http://localhost:9545';
+  }
+})();
+
+export const OAUTH3_AGENT_URL = process.env.NEXT_PUBLIC_OAUTH3_AGENT_URL || (() => {
+  const network = process.env.NEXT_PUBLIC_NETWORK || 'localnet';
+  switch (network) {
+    case 'mainnet':
+      return 'https://auth.jejunetwork.org';
+    case 'testnet':
+      return 'https://testnet-auth.jejunetwork.org';
+    default:
+      return 'http://localhost:4200';
+  }
+})();
+

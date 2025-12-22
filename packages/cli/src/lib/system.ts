@@ -247,25 +247,17 @@ export async function installKurtosis(): Promise<boolean> {
 }
 
 export async function isPortAvailable(port: number): Promise<boolean> {
-  try {
-    const result = await execa('lsof', ['-i', `:${port}`], { reject: false });
-    return result.exitCode !== 0;
-  } catch {
-    return true; // Assume available if lsof fails
-  }
+  const result = await execa('lsof', ['-i', `:${port}`], { reject: false });
+  return result.exitCode !== 0;
 }
 
 export async function killPort(port: number): Promise<void> {
-  try {
-    const result = await execa('lsof', ['-ti', `:${port}`], { reject: false });
-    if (result.exitCode === 0 && result.stdout) {
-      const pids = result.stdout.trim().split('\n');
-      for (const pid of pids) {
-        await execa('kill', ['-9', pid], { reject: false });
-      }
+  const result = await execa('lsof', ['-ti', `:${port}`], { reject: false });
+  if (result.exitCode === 0 && result.stdout) {
+    const pids = result.stdout.trim().split('\n');
+    for (const pid of pids) {
+      await execa('kill', ['-9', pid], { reject: false });
     }
-  } catch {
-    // Ignore errors
   }
 }
 

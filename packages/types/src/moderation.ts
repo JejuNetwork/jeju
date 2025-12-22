@@ -3,6 +3,9 @@
  * Shared types for ban checking and moderation across all network apps
  */
 
+import { z } from 'zod';
+import { AddressSchema } from './validation';
+
 // ============ Enums ============
 
 export enum BanType {
@@ -11,6 +14,8 @@ export enum BanType {
   CHALLENGED = 2,   // Target staked, market active
   PERMANENT = 3     // Market resolved, ban confirmed
 }
+
+export const BanTypeSchema = z.nativeEnum(BanType);
 
 export enum BanStatus {
   NONE = 'NONE',
@@ -21,16 +26,22 @@ export enum BanStatus {
   APPEALING = 'APPEALING'
 }
 
+export const BanStatusSchema = z.nativeEnum(BanStatus);
+
 export enum MarketOutcome {
   PENDING = 'PENDING',
   BAN_UPHELD = 'BAN_UPHELD',
   BAN_REJECTED = 'BAN_REJECTED'
 }
 
+export const MarketOutcomeSchema = z.nativeEnum(MarketOutcome);
+
 export enum VotePosition {
   YES = 0,
   NO = 1
 }
+
+export const VotePositionSchema = z.nativeEnum(VotePosition);
 
 export enum ReputationTier {
   UNTRUSTED = 0,    // 0-1000 score: Can't report alone
@@ -40,98 +51,109 @@ export enum ReputationTier {
   TRUSTED = 4       // 8001-10000: Can report alone, reduced stake
 }
 
+export const ReputationTierSchema = z.nativeEnum(ReputationTier);
+
 // ============ Interfaces ============
 
-export interface BanRecord {
-  isBanned: boolean;
-  banType: BanType;
-  bannedAt: number;
-  expiresAt: number;
-  reason: string;
-  proposalId: string;
-  reporter: string;
-  caseId: string;
-}
+export const BanRecordSchema = z.object({
+  isBanned: z.boolean(),
+  banType: BanTypeSchema,
+  bannedAt: z.number(),
+  expiresAt: z.number(),
+  reason: z.string(),
+  proposalId: z.string(),
+  reporter: AddressSchema,
+  caseId: z.string(),
+});
+export type BanRecord = z.infer<typeof BanRecordSchema>;
 
-export interface StakeInfo {
-  amount: bigint;
-  stakedAt: number;
-  stakedBlock: number;
-  lastActivityBlock: number;
-  isStaked: boolean;
-}
+export const StakeInfoSchema = z.object({
+  amount: z.bigint(),
+  stakedAt: z.number(),
+  stakedBlock: z.number(),
+  lastActivityBlock: z.number(),
+  isStaked: z.boolean(),
+});
+export type StakeInfo = z.infer<typeof StakeInfoSchema>;
 
-export interface BanCase {
-  caseId: string;
-  reporter: string;
-  target: string;
-  reporterStake: bigint;
-  targetStake: bigint;
-  reason: string;
-  evidenceHash: string;
-  status: BanStatus;
-  createdAt: number;
-  marketOpenUntil: number;
-  yesVotes: bigint;
-  noVotes: bigint;
-  totalPot: bigint;
-  resolved: boolean;
-  outcome: MarketOutcome;
-  appealCount: number;
-}
+export const BanCaseSchema = z.object({
+  caseId: z.string(),
+  reporter: AddressSchema,
+  target: AddressSchema,
+  reporterStake: z.bigint(),
+  targetStake: z.bigint(),
+  reason: z.string(),
+  evidenceHash: z.string(),
+  status: BanStatusSchema,
+  createdAt: z.number(),
+  marketOpenUntil: z.number(),
+  yesVotes: z.bigint(),
+  noVotes: z.bigint(),
+  totalPot: z.bigint(),
+  resolved: z.boolean(),
+  outcome: MarketOutcomeSchema,
+  appealCount: z.number(),
+});
+export type BanCase = z.infer<typeof BanCaseSchema>;
 
-export interface Vote {
-  position: VotePosition;
-  weight: bigint;
-  stakedAt: number;
-  hasVoted: boolean;
-  hasClaimed: boolean;
-}
+export const VoteSchema = z.object({
+  position: VotePositionSchema,
+  weight: z.bigint(),
+  stakedAt: z.number(),
+  hasVoted: z.boolean(),
+  hasClaimed: z.boolean(),
+});
+export type Vote = z.infer<typeof VoteSchema>;
 
-export interface BanCheckResult {
-  allowed: boolean;
-  reason?: string;
-  banType?: BanType;
-  bannedAt?: number;
-  caseId?: string;
-  reporter?: string;
-  canAppeal?: boolean;
-}
+export const BanCheckResultSchema = z.object({
+  allowed: z.boolean(),
+  reason: z.string().optional(),
+  banType: BanTypeSchema.optional(),
+  bannedAt: z.number().optional(),
+  caseId: z.string().optional(),
+  reporter: AddressSchema.optional(),
+  canAppeal: z.boolean().optional(),
+});
+export type BanCheckResult = z.infer<typeof BanCheckResultSchema>;
 
-export interface ModerationMarketStats {
-  totalCases: number;
-  activeCases: number;
-  resolvedCases: number;
-  totalStaked: bigint;
-  totalSlashed: bigint;
-  averageVotingPeriod: number;
-}
+export const ModerationMarketStatsSchema = z.object({
+  totalCases: z.number(),
+  activeCases: z.number(),
+  resolvedCases: z.number(),
+  totalStaked: z.bigint(),
+  totalSlashed: z.bigint(),
+  averageVotingPeriod: z.number(),
+});
+export type ModerationMarketStats = z.infer<typeof ModerationMarketStatsSchema>;
 
-export interface ModeratorReputation {
-  successfulBans: number;
-  unsuccessfulBans: number;
-  totalSlashedFrom: bigint;
-  totalSlashedOthers: bigint;
-  reputationScore: number;
-  lastReportTimestamp: number;
-  reportCooldownUntil: number;
-  tier: ReputationTier;
-  netPnL: bigint;
-}
+export const ModeratorReputationSchema = z.object({
+  successfulBans: z.number(),
+  unsuccessfulBans: z.number(),
+  totalSlashedFrom: z.bigint(),
+  totalSlashedOthers: z.bigint(),
+  reputationScore: z.number(),
+  lastReportTimestamp: z.number(),
+  reportCooldownUntil: z.number(),
+  tier: ReputationTierSchema,
+  netPnL: z.bigint(),
+});
+export type ModeratorReputation = z.infer<typeof ModeratorReputationSchema>;
 
-export interface ReportEvidence {
-  evidenceHashes: string[];
-  notes: string[];
-  category: string;
-  timestamp: number;
-}
+export const ReportEvidenceSchema = z.object({
+  evidenceHashes: z.array(z.string()),
+  notes: z.array(z.string()),
+  category: z.string(),
+  timestamp: z.number(),
+});
+export type ReportEvidence = z.infer<typeof ReportEvidenceSchema>;
 
-export interface QuorumStatus {
-  reached: boolean;
-  currentCount: number;
-  requiredCount: number;
-  reporters: string[];
-}
+export const QuorumStatusSchema = z.object({
+  reached: z.boolean(),
+  currentCount: z.number(),
+  requiredCount: z.number(),
+  reporters: z.array(AddressSchema),
+});
+export type QuorumStatus = z.infer<typeof QuorumStatusSchema>;
 
 // ============ Contract ABIs ============
 
@@ -469,8 +491,9 @@ export function getBanStatusLabel(status: BanStatus): string {
     case BanStatus.BANNED: return 'Banned';
     case BanStatus.CLEARED: return 'Cleared';
     case BanStatus.APPEALING: return 'Appealing';
-    default: return 'Unknown';
   }
+  const _exhaustiveCheck: never = status;
+  throw new Error(`Unhandled BanStatus: ${_exhaustiveCheck}`);
 }
 
 /**
@@ -482,8 +505,9 @@ export function getBanTypeLabel(banType: BanType): string {
     case BanType.ON_NOTICE: return 'On Notice';
     case BanType.CHALLENGED: return 'Challenged';
     case BanType.PERMANENT: return 'Permanent';
-    default: return 'Unknown';
   }
+  const _exhaustiveCheck: never = banType;
+  throw new Error(`Unhandled BanType: ${_exhaustiveCheck}`);
 }
 
 /**
@@ -533,8 +557,9 @@ export function getReputationTierLabel(tier: ReputationTier): string {
     case ReputationTier.MEDIUM: return 'Medium';
     case ReputationTier.HIGH: return 'High';
     case ReputationTier.TRUSTED: return 'Trusted';
-    default: return 'Unknown';
   }
+  const _exhaustiveCheck: never = tier;
+  throw new Error(`Unhandled ReputationTier: ${_exhaustiveCheck}`);
 }
 
 /**
@@ -558,8 +583,9 @@ export function getQuorumForTier(tier: ReputationTier): number {
     case ReputationTier.MEDIUM: return 2;
     case ReputationTier.HIGH: return 1;
     case ReputationTier.TRUSTED: return 1;
-    default: return Infinity;
   }
+  const _exhaustiveCheck: never = tier;
+  throw new Error(`Unhandled ReputationTier: ${_exhaustiveCheck}`);
 }
 
 /**

@@ -1,10 +1,7 @@
-/**
- * Governance hook
- */
-
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import type { Hex } from "viem";
 import { useNetworkContext } from "../context";
+import { useAsyncState, requireClient, type AsyncState } from "./utils";
 import type {
   ProposalInfo,
   CreateProposalParams,
@@ -13,53 +10,50 @@ import type {
 } from "@jejunetwork/sdk";
 import type { ProposalStatus } from "@jejunetwork/types";
 
-export function useGovernance() {
+export interface UseGovernanceResult extends AsyncState {
+  listProposals: (status?: ProposalStatus) => Promise<ProposalInfo[]>;
+  createProposal: (params: CreateProposalParams) => Promise<Hex>;
+  vote: (params: VoteParams) => Promise<Hex>;
+  getVotingPower: () => Promise<bigint>;
+  listDelegates: () => Promise<DelegateInfo[]>;
+}
+
+export function useGovernance(): UseGovernanceResult {
   const { client } = useNetworkContext();
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
+  const { isLoading, error, execute } = useAsyncState();
 
   const listProposals = useCallback(
     async (status?: ProposalStatus): Promise<ProposalInfo[]> => {
-      if (!client) throw new Error("Not connected");
-      return client.governance.listProposals(status);
+      const c = requireClient(client);
+      return c.governance.listProposals(status);
     },
     [client],
   );
 
   const createProposal = useCallback(
     async (params: CreateProposalParams): Promise<Hex> => {
-      if (!client) throw new Error("Not connected");
-      setIsLoading(true);
-      setError(null);
-
-      const txHash = await client.governance.createProposal(params);
-      setIsLoading(false);
-      return txHash;
+      const c = requireClient(client);
+      return execute(() => c.governance.createProposal(params));
     },
-    [client],
+    [client, execute],
   );
 
   const vote = useCallback(
     async (params: VoteParams): Promise<Hex> => {
-      if (!client) throw new Error("Not connected");
-      setIsLoading(true);
-      setError(null);
-
-      const txHash = await client.governance.vote(params);
-      setIsLoading(false);
-      return txHash;
+      const c = requireClient(client);
+      return execute(() => c.governance.vote(params));
     },
-    [client],
+    [client, execute],
   );
 
   const getVotingPower = useCallback(async (): Promise<bigint> => {
-    if (!client) throw new Error("Not connected");
-    return client.governance.getVotingPower();
+    const c = requireClient(client);
+    return c.governance.getVotingPower();
   }, [client]);
 
   const listDelegates = useCallback(async (): Promise<DelegateInfo[]> => {
-    if (!client) throw new Error("Not connected");
-    return client.governance.listDelegates();
+    const c = requireClient(client);
+    return c.governance.listDelegates();
   }, [client]);
 
   return {

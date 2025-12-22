@@ -19,6 +19,10 @@ import {
     AgentValidation
 } from './model';
 import { createAccountFactory } from './lib/entities';
+import { z } from 'zod';
+
+// Schema for validating MCP tools and A2A skills arrays from on-chain metadata
+const stringArraySchema = z.array(z.string());
 import {
     AGENT_REGISTERED,
     STAKE_INCREASED,
@@ -335,46 +339,35 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                 if (!agent) continue;
 
                 const key = args.key;
-                let value: string;
-                try {
-                    value = hexToString(args.value);
-                } catch {
-                    value = args.value;
-                }
+                let metadataValue: string;
 
                 // Update agent fields based on key
-                if (key === 'name') agent.name = value;
-                else if (key === 'description') agent.description = value;
-                else if (key === 'a2aEndpoint') agent.a2aEndpoint = value;
-                else if (key === 'mcpEndpoint') agent.mcpEndpoint = value;
-                else if (key === 'serviceType') agent.serviceType = value;
-                else if (key === 'category') agent.category = value;
-                else if (key === 'image') agent.image = value;
-                else if (key === 'x402Support') {
-                    // x402Support is encoded as bool - decode it properly
-                    try {
-                        const decodedBool = decodeAbiParameters([{ type: 'bool' }], args.value)[0];
-                        agent.x402Support = decodedBool;
-                        value = decodedBool ? 'true' : 'false'; // Store as readable string
-                    } catch {
-                        agent.x402Support = value === 'true';
-                        value = agent.x402Support ? 'true' : 'false';
-                    }
+                if (key === 'x402Support') {
+                    // x402Support is ABI-encoded as bool
+                    const decodedBool = decodeAbiParameters([{ type: 'bool' }], args.value)[0];
+                    agent.x402Support = decodedBool;
+                    metadataValue = decodedBool ? 'true' : 'false';
                 }
-                // Handle tools and skills as JSON arrays
                 else if (key === 'mcpTools') {
-                    try {
-                        agent.mcpTools = JSON.parse(value);
-                    } catch {
-                        agent.mcpTools = value.split(',').map((t: string) => t.trim()).filter(Boolean);
-                    }
+                    const value = hexToString(args.value);
+                    agent.mcpTools = stringArraySchema.parse(JSON.parse(value));
+                    metadataValue = value;
                 }
                 else if (key === 'a2aSkills') {
-                    try {
-                        agent.a2aSkills = JSON.parse(value);
-                    } catch {
-                        agent.a2aSkills = value.split(',').map((s: string) => s.trim()).filter(Boolean);
-                    }
+                    const value = hexToString(args.value);
+                    agent.a2aSkills = stringArraySchema.parse(JSON.parse(value));
+                    metadataValue = value;
+                }
+                else {
+                    // Standard string metadata fields
+                    metadataValue = hexToString(args.value);
+                    if (key === 'name') agent.name = metadataValue;
+                    else if (key === 'description') agent.description = metadataValue;
+                    else if (key === 'a2aEndpoint') agent.a2aEndpoint = metadataValue;
+                    else if (key === 'mcpEndpoint') agent.mcpEndpoint = metadataValue;
+                    else if (key === 'serviceType') agent.serviceType = metadataValue;
+                    else if (key === 'category') agent.category = metadataValue;
+                    else if (key === 'image') agent.image = metadataValue;
                 }
 
                 agent.lastActivityAt = blockTimestamp;
@@ -383,7 +376,7 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                     id: `${agentId.toString()}-${key}-${block.header.height}`,
                     agent,
                     key,
-                    value,
+                    value: metadataValue,
                     updatedAt: blockTimestamp,
                     txHash,
                     blockNumber: block.header.height

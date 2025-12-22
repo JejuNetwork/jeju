@@ -641,18 +641,14 @@ export class CowProtocolSolver extends EventEmitter {
     for (const chainId of this.supportedChains) {
       if (!this.clients.has(chainId)) continue;
 
-      try {
-        const auction = await this.fetchCurrentAuction(chainId);
-        if (!auction) continue;
+      const auction = await this.fetchCurrentAuction(chainId);
+      if (!auction) continue;
 
-        const existing = this.currentAuctions.get(chainId);
-        if (!existing || existing.id !== auction.id) {
-          this.currentAuctions.set(chainId, auction);
-          console.log(`🐮 CoW auction ${auction.id}: ${auction.orders.length} orders on chain ${chainId}`);
-          this.emit('auction', auction);
-        }
-      } catch (err) {
-        // Silently handle errors - API might be temporarily unavailable
+      const existing = this.currentAuctions.get(chainId);
+      if (!existing || existing.id !== auction.id) {
+        this.currentAuctions.set(chainId, auction);
+        console.log(`🐮 CoW auction ${auction.id}: ${auction.orders.length} orders on chain ${chainId}`);
+        this.emit('auction', auction);
       }
     }
   }

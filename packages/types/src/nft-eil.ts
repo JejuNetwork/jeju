@@ -12,7 +12,7 @@
  */
 
 import { z } from 'zod';
-import { AddressSchema } from './contracts';
+import { AddressSchema } from './validation';
 import { SupportedChainIdSchema } from './eil';
 export { SupportedChainIdSchema };
 
@@ -275,6 +275,49 @@ export const NFTEILEventTypeSchema = z.enum([
 ]);
 export type NFTEILEventType = z.infer<typeof NFTEILEventTypeSchema>;
 
+/**
+ * Strongly typed event data for NFT EIL events
+ */
+export const NFTVoucherEventDataSchema = z.object({
+  requestId: z.string().optional(),
+  voucherId: z.string().optional(),
+  collection: AddressSchema.optional(),
+  tokenId: z.string().optional(),
+  amount: z.string().optional(),
+  xlp: AddressSchema.optional(),
+  user: AddressSchema.optional(),
+  recipient: AddressSchema.optional(),
+  fee: z.string().optional(),
+});
+
+export const NFTBridgeEventDataSchema = z.object({
+  transferId: z.string().optional(),
+  collection: AddressSchema.optional(),
+  tokenId: z.string().optional(),
+  sourceChainId: SupportedChainIdSchema.optional(),
+  destinationChainId: SupportedChainIdSchema.optional(),
+  sender: AddressSchema.optional(),
+  recipient: AddressSchema.optional(),
+});
+
+export const NFTOrderEventDataSchema = z.object({
+  orderId: z.string().optional(),
+  user: AddressSchema.optional(),
+  solver: AddressSchema.optional(),
+  collection: AddressSchema.optional(),
+  tokenId: z.string().optional(),
+});
+
+/**
+ * Union of all NFT EIL event data types
+ */
+export const NFTEILEventDataSchema = z.union([
+  NFTVoucherEventDataSchema,
+  NFTBridgeEventDataSchema,
+  NFTOrderEventDataSchema,
+]);
+export type NFTEILEventData = z.infer<typeof NFTEILEventDataSchema>;
+
 export const NFTEILEventSchema = z.object({
   id: z.string(),
   type: NFTEILEventTypeSchema,
@@ -283,7 +326,8 @@ export const NFTEILEventSchema = z.object({
   transactionHash: z.string(),
   logIndex: z.number(),
   timestamp: z.number(),
-  data: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])),
+  /** Strongly typed event data */
+  data: NFTEILEventDataSchema,
 });
 export type NFTEILEvent = z.infer<typeof NFTEILEventSchema>;
 
@@ -334,30 +378,36 @@ export type NFTEILStats = z.infer<typeof NFTEILStatsSchema>;
 
 // ============ SDK Types ============
 
-export interface CrossChainNFTParams {
-  assetType: NFTAssetType;
-  collection: `0x${string}`;
-  tokenId: bigint;
-  amount: bigint;
-  destinationChainId: number;
-  recipient?: `0x${string}`;
-  mode: 'hyperlane' | 'xlp' | 'intent';
-  maxFee?: bigint;
-}
+export const NFTBridgeModeSchema = z.enum(['hyperlane', 'xlp', 'intent']);
+export type NFTBridgeMode = z.infer<typeof NFTBridgeModeSchema>;
 
-export interface NFTBridgeResult {
-  txHash: `0x${string}`;
-  requestId?: string;
-  messageId?: string;
-  orderId?: string;
-  estimatedArrival: number;
-}
+export const CrossChainNFTParamsSchema = z.object({
+  assetType: NFTAssetTypeSchema,
+  collection: AddressSchema,
+  tokenId: z.bigint(),
+  amount: z.bigint(),
+  destinationChainId: z.number().int().positive(),
+  recipient: AddressSchema.optional(),
+  mode: NFTBridgeModeSchema,
+  maxFee: z.bigint().optional(),
+});
+export type CrossChainNFTParams = z.infer<typeof CrossChainNFTParamsSchema>;
 
-export interface WrappedNFTDetails {
-  isWrapped: boolean;
-  homeChainId?: number;
-  originalCollection?: `0x${string}`;
-  originalTokenId?: bigint;
-  tokenURI?: string;
-  provenance: ProvenanceEntry[];
-}
+export const NFTBridgeResultSchema = z.object({
+  txHash: z.string(),
+  requestId: z.string().optional(),
+  messageId: z.string().optional(),
+  orderId: z.string().optional(),
+  estimatedArrival: z.number(),
+});
+export type NFTBridgeResult = z.infer<typeof NFTBridgeResultSchema>;
+
+export const WrappedNFTDetailsSchema = z.object({
+  isWrapped: z.boolean(),
+  homeChainId: z.number().int().positive().optional(),
+  originalCollection: AddressSchema.optional(),
+  originalTokenId: z.bigint().optional(),
+  tokenURI: z.string().optional(),
+  provenance: z.array(ProvenanceEntrySchema),
+});
+export type WrappedNFTDetails = z.infer<typeof WrappedNFTDetailsSchema>;

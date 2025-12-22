@@ -12,7 +12,7 @@
  * 3. Decryption requires threshold of nodes to participate
  */
 
-import { keccak256, toBytes, toHex, type Hex, type Address } from 'viem';
+import { keccak256, toBytes, toHex, type Hex } from 'viem';
 
 export interface ThresholdKeyConfig {
   /** Cluster ID for the MPC group */
@@ -219,7 +219,8 @@ export class ThresholdEncryptionService {
       signal: AbortSignal.timeout(5000),
     }).catch(() => null);
 
-    return response?.ok ?? false;
+    if (!response) return false;
+    return response.ok;
   }
 
   /**

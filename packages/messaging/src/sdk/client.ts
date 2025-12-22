@@ -27,10 +27,19 @@ import {
   type SendMessageResponse,
   type MessageEvent,
   type MessageEventHandler,
+  type KeyBundleResponse,
+  type NodeRegistryResponse,
+  type DeliveryReceiptData,
+  type ReadReceiptData,
   MessagingError,
   ErrorCodes,
 } from './types';
 import { KEY_REGISTRY_ABI, MESSAGE_NODE_REGISTRY_ABI } from './abis';
+import { 
+  WebSocketIncomingMessageSchema, 
+  SendMessageRequestSchema,
+  MessagingClientConfigBaseSchema,
+} from '../schemas';
 
 // ============ Client Implementation ============
 
@@ -47,6 +56,9 @@ export class MessagingClient {
   private messageCache: Map<string, Message> = new Map();
 
   constructor(config: MessagingClientConfig) {
+    // Validate the JSON-serializable portion of config
+    MessagingClientConfigBaseSchema.parse(config);
+    
     this.config = config;
     
     this.publicClient = createPublicClient({
@@ -79,7 +91,6 @@ export class MessagingClient {
     const isRegistered = await this.isKeyRegistered();
     
     if (!isRegistered) {
-      console.log('Key not registered, registering on-chain...');
       await this.registerKeyOnChain();
     }
 
@@ -105,9 +116,9 @@ export class MessagingClient {
       abi: KEY_REGISTRY_ABI,
       functionName: 'getKeyBundle',
       args: [this.config.address as Address],
-    });
+    }) as KeyBundleResponse;
 
-    return (bundle as { isActive: boolean }).isActive;
+    return bundle.isActive;
   }
 
   /**
@@ -172,20 +183,14 @@ export class MessagingClient {
         abi: MESSAGE_NODE_REGISTRY_ABI,
         functionName: 'getNode',
         args: [nodeId],
-      }) as {
-        nodeId: Hex;
-        operator: Address;
-        endpoint: string;
-        region: string;
-        isActive: boolean;
-      };
+      }) as NodeRegistryResponse;
 
       if (nodeInfo.isActive) {
         nodes.push({
           nodeId: nodeInfo.nodeId,
           endpoint: nodeInfo.endpoint,
           region: nodeInfo.region,
-          isHealthy: true, // Will verify on connect
+          isHealthy: true,
         });
       }
     }
@@ -195,11 +200,14 @@ export class MessagingClient {
 
   /**
    * Select best relay node based on region and latency
+   * Returns null if no healthy nodes are available
    */
-  async selectBestNode(): Promise<RelayNode | undefined> {
+  async selectBestNode(): Promise<RelayNode | null> {
     const nodes = await this.discoverNodes();
     
-    if (nodes.length === 0) return undefined;
+    if (nodes.length === 0) {
+      return null;
+    }
 
     // Filter by preferred region if specified
     let candidates = this.config.preferredRegion
@@ -211,18 +219,26 @@ export class MessagingClient {
       candidates = nodes;
     }
 
-    // Test latency and select best
-    const latencies = await Promise.all(
+    // Test latency and select best - collect results with error handling per node
+    const latencyResults = await Promise.all(
       candidates.map(async (node) => {
         const start = Date.now();
-        const healthy = await this.checkNodeHealth(node.endpoint);
+        let healthy = false;
+        try {
+          healthy = await this.checkNodeHealth(node.endpoint);
+        } catch {
+          // Node is unhealthy if health check fails
+          healthy = false;
+        }
         const latency = Date.now() - start;
         return { node, latency, healthy };
       })
     );
 
-    const healthyNodes = latencies.filter(l => l.healthy);
-    if (healthyNodes.length === 0) return undefined;
+    const healthyNodes = latencyResults.filter(l => l.healthy);
+    if (healthyNodes.length === 0) {
+      return null;
+    }
 
     // Sort by latency and return best
     healthyNodes.sort((a, b) => a.latency - b.latency);
@@ -234,6 +250,7 @@ export class MessagingClient {
 
   /**
    * Check if relay node is healthy
+   * @throws Error if health check fails or times out
    */
   async checkNodeHealth(endpoint: string): Promise<boolean> {
     const controller = new AbortController();
@@ -242,9 +259,9 @@ export class MessagingClient {
     const healthUrl = endpoint.replace(/\/$/, '') + '/health';
     const response = await fetch(healthUrl, {
       signal: controller.signal,
-    }).catch(() => null);
-    clearTimeout(timeout);
-    return response?.ok ?? false;
+    }).finally(() => clearTimeout(timeout));
+    
+    return response.ok;
   }
 
   // ============ Relay Connection ============
@@ -255,38 +272,40 @@ export class MessagingClient {
   async connectToRelay(): Promise<void> {
     // Select best node if not already connected
     if (!this.relayNode) {
-      this.relayNode = await this.selectBestNode();
+      const selectedNode = await this.selectBestNode();
       
-      if (!this.relayNode) {
-        // Use direct URL if configured
-        if (this.config.relayUrl) {
-          this.relayNode = {
-            nodeId: 'direct',
-            endpoint: this.config.relayUrl,
-            region: 'unknown',
-            isHealthy: true,
-          };
-        } else {
-          throw new MessagingError('No relay nodes available', ErrorCodes.NODE_NOT_FOUND);
-        }
+      if (selectedNode) {
+        this.relayNode = selectedNode;
+      } else if (this.config.relayUrl) {
+        // Use direct URL if configured and no nodes discovered
+        this.relayNode = {
+          nodeId: 'direct',
+          endpoint: this.config.relayUrl,
+          region: 'unknown',
+          isHealthy: true,
+        };
+      } else {
+        throw new MessagingError('No relay nodes available', ErrorCodes.NODE_NOT_FOUND);
       }
     }
 
+    const relayNode = this.relayNode;
+    
     // Connect WebSocket
-    const wsUrl = this.relayNode.endpoint
+    const wsUrl = relayNode.endpoint
       .replace('http://', 'ws://')
       .replace('https://', 'wss://')
       .replace(/\/$/, '') + '/ws';
 
     return new Promise((resolve, reject) => {
-      this.ws = new WebSocket(wsUrl);
+      const ws = new WebSocket(wsUrl);
+      this.ws = ws;
 
-      this.ws.onopen = () => {
-        console.log('Connected to relay:', this.relayNode?.endpoint);
+      ws.onopen = () => {
         this.reconnectAttempts = 0;
         
         // Subscribe to messages for this address
-        this.ws?.send(JSON.stringify({
+        ws.send(JSON.stringify({
           type: 'subscribe',
           address: this.config.address,
         }));
@@ -294,53 +313,66 @@ export class MessagingClient {
         resolve();
       };
 
-      this.ws.onmessage = (event) => {
+      ws.onmessage = (event) => {
         this.handleWebSocketMessage(event.data as string);
       };
 
-      this.ws.onclose = () => {
-        console.log('Disconnected from relay');
+      ws.onclose = () => {
         if (this.config.autoReconnect !== false) {
           this.handleReconnect();
         }
       };
 
-      this.ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
+      ws.onerror = () => {
         reject(new MessagingError('Failed to connect to relay', ErrorCodes.NOT_CONNECTED));
       };
     });
   }
 
   private handleWebSocketMessage(data: string): void {
-    const parsed = JSON.parse(data) as {
-      type: string;
-      data: MessageEnvelope | { messageId: string; readAt?: number };
-    };
+    const parseResult = WebSocketIncomingMessageSchema.safeParse(JSON.parse(data));
+    
+    if (!parseResult.success) {
+      this.emitEvent({
+        type: 'error',
+        data: {
+          code: ErrorCodes.INVALID_MESSAGE,
+          message: 'Invalid WebSocket message format',
+        },
+      });
+      return;
+    }
+    
+    const parsed = parseResult.data;
     
     switch (parsed.type) {
       case 'message':
         this.handleIncomingMessage(parsed.data as MessageEnvelope);
         break;
-      case 'delivery_receipt':
+      case 'delivery_receipt': {
+        if (!this.relayNode) {
+          throw new MessagingError('Received delivery receipt but not connected to relay', ErrorCodes.NOT_CONNECTED);
+        }
+        const deliveryData = parsed.data as DeliveryReceiptData;
         this.emitEvent({
           type: 'message:delivered',
           data: {
-            messageId: (parsed.data as { messageId: string }).messageId,
-            nodeId: this.relayNode?.nodeId ?? '',
+            messageId: deliveryData.messageId,
+            nodeId: this.relayNode.nodeId,
             deliveredAt: Date.now(),
             signature: '',
           },
         });
         break;
-      case 'read_receipt':
+      }
+      case 'read_receipt': {
+        const readData = parsed.data as ReadReceiptData;
         this.emitEvent({
           type: 'message:read',
-          data: parsed.data as { messageId: string; readAt: number },
+          data: readData,
         });
         break;
-      default:
-        console.log('Unknown message type:', parsed.type);
+      }
     }
   }
 
@@ -367,16 +399,29 @@ export class MessagingClient {
 
   private handleReconnect(): void {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.log('Max reconnect attempts reached');
+      this.emitEvent({
+        type: 'error',
+        data: {
+          code: ErrorCodes.NOT_CONNECTED,
+          message: `Failed to reconnect after ${this.maxReconnectAttempts} attempts`,
+        },
+      });
       return;
     }
 
     this.reconnectAttempts++;
     const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
     
-    console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
     setTimeout(() => {
-      this.connectToRelay().catch(console.error);
+      this.connectToRelay().catch((err: Error) => {
+        this.emitEvent({
+          type: 'error',
+          data: {
+            code: ErrorCodes.NOT_CONNECTED,
+            message: `Reconnection attempt ${this.reconnectAttempts} failed: ${err.message}`,
+          },
+        });
+      });
     }, delay);
   }
 
@@ -386,6 +431,9 @@ export class MessagingClient {
    * Send a message to a recipient
    */
   async sendMessage(request: SendMessageRequest): Promise<SendMessageResponse> {
+    // Validate request
+    SendMessageRequestSchema.parse(request);
+    
     if (!this.keyPair) {
       throw new MessagingError('Client not initialized', ErrorCodes.NO_KEY_BUNDLE);
     }
@@ -446,7 +494,7 @@ export class MessagingClient {
       abi: KEY_REGISTRY_ABI,
       functionName: 'getKeyBundle',
       args: [address as Address],
-    }) as { identityKey: Hex; isActive: boolean };
+    }) as KeyBundleResponse;
 
     if (!bundle.isActive) return undefined;
 
@@ -517,24 +565,30 @@ export class MessagingClient {
 
   /**
    * Get public key (for sharing)
+   * Returns null if client not initialized
    */
-  getPublicKey(): Uint8Array | undefined {
-    return this.keyPair?.publicKey;
+  getPublicKey(): Uint8Array | null {
+    if (!this.keyPair) {
+      return null;
+    }
+    return this.keyPair.publicKey;
   }
 
   /**
    * Check if connected
    */
   isConnected(): boolean {
-    return this.ws?.readyState === WebSocket.OPEN;
+    return this.ws !== undefined && this.ws.readyState === WebSocket.OPEN;
   }
 
   /**
    * Disconnect from relay
    */
   disconnect(): void {
-    this.ws?.close();
-    this.ws = undefined;
+    if (this.ws) {
+      this.ws.close();
+      this.ws = undefined;
+    }
     this.relayNode = undefined;
   }
 

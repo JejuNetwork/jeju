@@ -20,38 +20,31 @@ export async function registerServiceWorker(
     return undefined;
   }
 
-  try {
-    const registration = await navigator.serviceWorker.register(swUrl, {
-      scope: options.scope ?? '/',
-      updateViaCache: options.updateViaCache ?? 'none',
-    });
+  const registration = await navigator.serviceWorker.register(swUrl, {
+    scope: options.scope ?? '/',
+    updateViaCache: options.updateViaCache ?? 'none',
+  });
 
-    registration.onupdatefound = () => {
-      const installingWorker = registration.installing;
-      if (!installingWorker) return;
+  registration.onupdatefound = () => {
+    const installingWorker = registration.installing;
+    if (!installingWorker) return;
 
-      installingWorker.onstatechange = () => {
-        if (installingWorker.state === 'installed') {
-          if (navigator.serviceWorker.controller) {
-            // New content available
-            console.log('[SW] New content available');
-            options.onUpdate?.(registration);
-          } else {
-            // Content cached for offline
-            console.log('[SW] Content cached for offline use');
-            options.onSuccess?.(registration);
-            options.onOfflineReady?.();
-          }
+    installingWorker.onstatechange = () => {
+      if (installingWorker.state === 'installed') {
+        if (navigator.serviceWorker.controller) {
+          console.log('[SW] New content available');
+          options.onUpdate?.(registration);
+        } else {
+          console.log('[SW] Content cached for offline use');
+          options.onSuccess?.(registration);
+          options.onOfflineReady?.();
         }
-      };
+      }
     };
+  };
 
-    console.log('[SW] Service worker registered');
-    return registration;
-  } catch (error) {
-    console.error('[SW] Registration failed:', error);
-    return undefined;
-  }
+  console.log('[SW] Service worker registered');
+  return registration;
 }
 
 export async function unregisterServiceWorker(): Promise<boolean> {
@@ -59,23 +52,15 @@ export async function unregisterServiceWorker(): Promise<boolean> {
     return false;
   }
 
-  try {
-    const registration = await navigator.serviceWorker.ready;
-    return registration.unregister();
-  } catch {
-    return false;
-  }
+  const registration = await navigator.serviceWorker.ready;
+  return registration.unregister();
 }
 
 export async function checkForUpdates(): Promise<void> {
   if (!('serviceWorker' in navigator)) return;
 
-  try {
-    const registration = await navigator.serviceWorker.ready;
-    await registration.update();
-  } catch (error) {
-    console.error('[SW] Update check failed:', error);
-  }
+  const registration = await navigator.serviceWorker.ready;
+  await registration.update();
 }
 
 export function sendMessageToSW(message: Record<string, unknown>): void {

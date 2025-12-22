@@ -8,21 +8,20 @@ import type { Solver, SolverLeaderboardEntry, SolverLiquidity, SupportedChainId 
 import * as chainService from './chain-service';
 import { ZERO_ADDRESS } from '../lib/contracts.js';
 import { solverState, initializeState } from './state.js';
+import {
+  ListSolversQuerySchema,
+  SolverLeaderboardQuerySchema,
+  SolverAddressSchema,
+  expect,
+  expectChainId,
+  expectAddress,
+  type ListSolversQuery,
+  type SolverLeaderboardQuery,
+} from '../lib/validation.js';
 
 const KNOWN_SOLVER_ADDRESSES: string[] = (process.env.OIF_DEV_SOLVER_ADDRESSES || '')
   .split(',')
   .filter(addr => addr.startsWith('0x') && addr.length === 42);
-
-interface ListSolversParams {
-  chainId?: number;
-  minReputation?: number;
-  active?: boolean;
-}
-
-interface LeaderboardParams {
-  limit?: number;
-  sortBy?: 'volume' | 'fills' | 'reputation' | 'successRate';
-}
 
 export class SolverService {
   private initialized = false;
@@ -83,18 +82,19 @@ export class SolverService {
     return solverState.get(address);
   }
 
-  async listSolvers(params?: ListSolversParams): Promise<Solver[]> {
+  async listSolvers(params?: { chainId?: number; minReputation?: number; active?: boolean }): Promise<Solver[]> {
+    const validated = params ? expect(params, ListSolversQuerySchema, 'listSolvers params') : undefined;
     if (!this.initialized) {
       await this.initialize();
     }
 
     let solvers = await solverState.list({
-      status: params?.active !== false ? 'active' : undefined,
-      minReputation: params?.minReputation,
+      status: validated?.active !== false ? 'active' : undefined,
+      minReputation: validated?.minReputation,
     });
 
-    if (params?.chainId) {
-      const chainId = params.chainId as SupportedChainId;
+    if (validated?.chainId) {
+      const chainId = validated.chainId;
       solvers = solvers.filter(s => s.supportedChains.includes(chainId));
     }
 
@@ -102,23 +102,26 @@ export class SolverService {
   }
 
   async getSolver(address: string): Promise<Solver | null> {
+    const validated = expectAddress(address, 'getSolver address');
     // Check CQL first
-    const cached = await solverState.get(address);
+    const cached = await solverState.get(validated);
     if (cached) return cached;
 
     // Refresh from chain
-    return this.refreshSolverFromChain(address as `0x${string}`);
+    return this.refreshSolverFromChain(validated);
   }
 
   async getSolverLiquidity(address: string): Promise<SolverLiquidity[]> {
-    const solver = await this.getSolver(address);
+    const validated = expectAddress(address, 'getSolverLiquidity address');
+    const solver = await this.getSolver(validated);
     return solver?.liquidity || [];
   }
 
-  async getLeaderboard(params?: LeaderboardParams): Promise<SolverLeaderboardEntry[]> {
+  async getLeaderboard(params?: { limit?: number; sortBy?: 'volume' | 'fills' | 'reputation' | 'successRate' }): Promise<SolverLeaderboardEntry[]> {
+    const validated = params ? expect(params, SolverLeaderboardQuerySchema, 'getLeaderboard params') : undefined;
     const solvers = await this.listSolvers();
-    const limit = params?.limit || 10;
-    const sortBy = params?.sortBy || 'volume';
+    const limit = validated?.limit || 10;
+    const sortBy = validated?.sortBy || 'volume';
 
     const sorted = [...solvers].sort((a, b) => {
       switch (sortBy) {
@@ -153,18 +156,21 @@ export class SolverService {
     destinationChain: number,
     token: string
   ): Promise<Solver[]> {
+    const validatedSourceChain = expectChainId(sourceChain, 'findSolversForRoute sourceChain');
+    const validatedDestChain = expectChainId(destinationChain, 'findSolversForRoute destinationChain');
+    const validatedToken = expectAddress(token, 'findSolversForRoute token');
     const allSolvers = await this.listSolvers({ active: true });
-    const srcChain = sourceChain as SupportedChainId;
-    const destChain = destinationChain as SupportedChainId;
+    const srcChain = validatedSourceChain;
+    const destChain = validatedDestChain;
     
     return allSolvers.filter(solver => {
       const supportsSource = solver.supportedChains.includes(srcChain);
       const supportsDest = solver.supportedChains.includes(destChain);
       
-      const sourceTokens = solver.supportedTokens[sourceChain.toString()] || [];
+      const sourceTokens = solver.supportedTokens[validatedSourceChain.toString()] || [];
       
-      const supportsToken = sourceTokens.includes(token) || 
-        token === ZERO_ADDRESS;
+      const supportsToken = sourceTokens.includes(validatedToken) || 
+        validatedToken === ZERO_ADDRESS;
       
       return supportsSource && supportsDest && supportsToken;
     });
@@ -176,8 +182,11 @@ export class SolverService {
     volumeUsd?: string;
     feesUsd?: string;
   }): Promise<void> {
-    const solver = await this.getSolver(address);
-    if (!solver) return;
+    const validated = expectAddress(address, 'updateSolverStats address');
+    const solver = await this.getSolver(validated);
+    if (!solver) {
+      throw new Error(`Solver not found: ${validated}`);
+    }
 
     if (stats.totalFills !== undefined) solver.totalFills = stats.totalFills;
     if (stats.successfulFills !== undefined) solver.successfulFills = stats.successfulFills;

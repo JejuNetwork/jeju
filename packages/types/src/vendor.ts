@@ -1,76 +1,119 @@
 /**
- * Vendor App Types
- * Type definitions for vendor application manifests and discovery
+ * @fileoverview Vendor App Types
+ *
+ * Type definitions for vendor application manifests and discovery.
+ * Includes Zod schemas for runtime validation.
  */
 
-export interface VendorManifest {
+import { z } from 'zod';
+
+// ============ Commands Schema ============
+
+export const VendorCommandsSchema = z.object({
+  dev: z.string().optional(),
+  build: z.string().optional(),
+  test: z.string().optional(),
+  start: z.string().optional(),
+});
+export type VendorCommands = z.infer<typeof VendorCommandsSchema>;
+
+// ============ Health Check Schema ============
+
+export const VendorHealthCheckSchema = z.object({
+  url: z.string().url().optional(),
+  interval: z.number().int().positive().optional(),
+});
+export type VendorHealthCheck = z.infer<typeof VendorHealthCheckSchema>;
+
+// ============ Dependency Types ============
+
+export const MonorepoDependencySchema = z.enum(['contracts', 'config', 'shared', 'scripts']);
+export type MonorepoDependency = z.infer<typeof MonorepoDependencySchema>;
+
+// ============ Manifest Schema ============
+
+export const VendorManifestSchema = z.object({
   /** Kebab-case app identifier */
-  name: string;
-  
+  name: z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'Name must be kebab-case'),
+
   /** Human-readable display name */
-  displayName?: string;
-  
+  displayName: z.string().optional(),
+
   /** Semantic version */
-  version: string;
-  
+  version: z.string().regex(/^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$/, 'Version must be semver'),
+
   /** Brief description */
-  description?: string;
-  
+  description: z.string().optional(),
+
   /** Available commands */
-  commands?: {
-    dev?: string;
-    build?: string;
-    test?: string;
-    start?: string;
-  };
-  
+  commands: VendorCommandsSchema.optional(),
+
   /** Port mappings */
-  ports?: Record<string, number>;
-  
+  ports: z.record(z.string(), z.number().int().positive()).optional(),
+
   /** Dependencies on monorepo components */
-  dependencies?: Array<'contracts' | 'config' | 'shared' | 'scripts'>;
-  
+  dependencies: z.array(MonorepoDependencySchema).optional(),
+
   /** Whether this app is optional */
-  optional?: boolean;
-  
+  optional: z.boolean().optional(),
+
   /** Whether this app is enabled */
-  enabled?: boolean;
-  
+  enabled: z.boolean().optional(),
+
   /** Tags for categorization */
-  tags?: string[];
-  
+  tags: z.array(z.string()).optional(),
+
   /** Health check configuration */
-  healthCheck?: {
-    url?: string;
-    interval?: number;
-  };
-}
+  healthCheck: VendorHealthCheckSchema.optional(),
+});
+export type VendorManifest = z.infer<typeof VendorManifestSchema>;
 
-export interface VendorApp {
+// ============ App Schema ============
+
+export const VendorAppSchema = z.object({
   /** App name from manifest */
-  name: string;
-  
+  name: z.string(),
+
   /** Absolute path to app directory */
-  path: string;
-  
+  path: z.string(),
+
   /** Parsed and validated manifest */
-  manifest: VendorManifest;
-  
+  manifest: VendorManifestSchema,
+
   /** Whether app files actually exist */
-  exists: boolean;
-}
+  exists: z.boolean(),
+});
+export type VendorApp = z.infer<typeof VendorAppSchema>;
 
-export interface VendorDiscoveryResult {
+// ============ Discovery Result Schema ============
+
+export const VendorDiscoveryResultSchema = z.object({
   /** All discovered apps */
-  apps: VendorApp[];
-  
+  apps: z.array(VendorAppSchema),
+
   /** Apps that are enabled and exist */
-  availableApps: VendorApp[];
-  
+  availableApps: z.array(VendorAppSchema),
+
   /** Apps that are enabled but not initialized */
-  missingApps: VendorApp[];
-  
+  missingApps: z.array(VendorAppSchema),
+
   /** Apps that are disabled */
-  disabledApps: VendorApp[];
+  disabledApps: z.array(VendorAppSchema),
+});
+export type VendorDiscoveryResult = z.infer<typeof VendorDiscoveryResultSchema>;
+
+// ============ Helper Functions ============
+
+/**
+ * Validate a vendor manifest
+ */
+export function validateManifest(manifest: unknown): VendorManifest {
+  return VendorManifestSchema.parse(manifest);
 }
 
+/**
+ * Check if a manifest is valid
+ */
+export function isValidManifest(manifest: unknown): manifest is VendorManifest {
+  return VendorManifestSchema.safeParse(manifest).success;
+}

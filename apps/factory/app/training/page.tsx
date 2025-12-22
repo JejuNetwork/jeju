@@ -15,12 +15,9 @@ import {
   BarChart3,
   Plus,
   RefreshCw,
-  CheckCircle,
-  AlertCircle,
   Loader2,
   GitBranch,
   Database,
-  Shield,
   Coins,
   ArrowRight,
   Brain,
@@ -31,7 +28,6 @@ import {
   GPUTier,
   useOptimalNodes,
   getRunStateLabel,
-  getRunStateColor,
 } from '@/lib/hooks/useTraining';
 import { dwsClient } from '@/lib/services/dws';
 
@@ -62,7 +58,7 @@ interface AvailableModel {
 }
 
 export default function TrainingPage() {
-  const { address, isConnected } = useAccount();
+  useAccount();
   const [activeTab, setActiveTab] = useState<'runs' | 'models' | 'nodes'>('runs');
   const [runs, setRuns] = useState<ActiveRun[]>([]);
   const [models, setModels] = useState<AvailableModel[]>([]);
@@ -259,7 +255,7 @@ export default function TrainingPage() {
           <p className="text-factory-400">Loading training data...</p>
         </div>
       ) : activeTab === 'runs' ? (
-        <RunsTab runs={runs} isConnected={isConnected} />
+        <RunsTab runs={runs} />
       ) : activeTab === 'models' ? (
         <ModelsTab models={models} />
       ) : (
@@ -269,7 +265,7 @@ export default function TrainingPage() {
   );
 }
 
-function RunsTab({ runs, isConnected }: { runs: ActiveRun[]; isConnected: boolean }) {
+function RunsTab({ runs }: { runs: ActiveRun[] }) {
   if (runs.length === 0) {
     return (
       <div className="card p-12 text-center">

@@ -17,8 +17,7 @@
 
 import { BaseTFMMStrategy, type StrategyContext, type WeightCalculation, type StrategySignal } from './base-strategy';
 import type { OracleAggregator } from '../../oracles';
-
-const WEIGHT_PRECISION = 10n ** 18n;
+import { WEIGHT_PRECISION } from '../../shared';
 
 export interface VolatilityConfig {
   lookbackPeriodMs: number;         // Default: 30 days
@@ -61,7 +60,7 @@ export class VolatilityStrategy extends BaseTFMMStrategy {
   }
 
   async calculateWeights(ctx: StrategyContext): Promise<WeightCalculation> {
-    const { tokens, currentWeights, prices, riskParams } = ctx;
+    const { tokens, currentWeights, riskParams } = ctx;
     const signals: StrategySignal[] = [];
     const volatilities: VolatilityMetrics[] = [];
 
@@ -116,7 +115,8 @@ export class VolatilityStrategy extends BaseTFMMStrategy {
       
       const dailyVol = historicalVol;
       const annualizedVol = dailyVol * annualizationFactor;
-      const volRatio = recentVol / (historicalVol || 0.01);
+      // Avoid division by zero - if historical vol is 0, treat ratio as 1 (normal)
+      const volRatio = historicalVol > 0 ? recentVol / historicalVol : 1.0;
 
       volatilities.push({
         dailyVol,
@@ -126,7 +126,7 @@ export class VolatilityStrategy extends BaseTFMMStrategy {
         volRatio,
       });
 
-      // Update historical volatility tracking
+      // Update historical volatility tracking - empty array is valid initial state
       const tokenVols = this.historicalVols.get(token.address) ?? [];
       tokenVols.push(annualizedVol);
       if (tokenVols.length > 100) tokenVols.shift();

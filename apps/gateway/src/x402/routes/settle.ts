@@ -1,7 +1,6 @@
 import { Hono, type Context } from 'hono';
-import type { Hex } from 'viem';
-import type { DecodedPayment, SettlementResult, PaymentRequirements } from '../lib/types';
-import type { PublicClient, WalletClient } from 'viem';
+import type { DecodedPayment, SettlementResult, PaymentRequirements, AuthParams } from '../lib/schemas';
+import type { PublicClient, WalletClient, Hex } from 'viem';
 import { config } from '../config';
 import {
   createClients,
@@ -13,10 +12,10 @@ import {
 import { verifyPayment } from '../services/verifier';
 import { parseJsonBody, handleSettleRequest } from '../lib/route-helpers';
 import { buildSettleErrorResponse, buildSettleSuccessResponse } from '../lib/response-builders';
+import { expect } from '../../lib/validation';
 
 const app = new Hono();
 
-type AuthParams = { validAfter: number; validBefore: number; authNonce: Hex; authSignature: Hex };
 type SettleBody = { paymentHeader: string; paymentRequirements: PaymentRequirements };
 type StandardSettleFn = (payment: DecodedPayment, network: string, publicClient: PublicClient, walletClient: WalletClient) => Promise<SettlementResult>;
 type GaslessSettleFn = (payment: DecodedPayment, network: string, publicClient: PublicClient, walletClient: WalletClient, authParams: AuthParams) => Promise<SettlementResult>;

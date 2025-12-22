@@ -8,16 +8,16 @@ ingress:
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
     alb.ingress.kubernetes.io/ssl-redirect: "443"
-    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:502713364895:certificate/0a915a42-9da2-4133-af16-ac7080d23308"
+    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:502713364895:certificate/34c89eb5-a94f-406a-be3c-c40008f4f693"
   hosts:
-    - host: explorer.testnet.jeju.network
+    - host: explorer.testnet.jejunetwork.org
       paths:
         - path: /
           pathType: Prefix
   tls:
     - secretName: blockscout-testnet-tls
       hosts:
-        - explorer.testnet.jeju.network
+        - explorer.testnet.jejunetwork.org
 
 config:
   subnetwork: "Testnet"

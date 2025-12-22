@@ -31,11 +31,11 @@ describe("Training Module Integration Tests", () => {
       rpcUrl: env.rpcUrl,
       smartAccount: false,
     });
-  }, 90000);
+  });
 
   afterAll(async () => {
     await teardownTestEnvironment();
-  }, 10000);
+  });
 
   describe("Training Run Management", () => {
     test("getTrainingRun returns null for non-existent", async () => {

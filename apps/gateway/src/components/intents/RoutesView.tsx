@@ -1,6 +1,12 @@
-import { ArrowRight, Activity, Clock, CheckCircle } from 'lucide-react';
+import React, { type ComponentType } from 'react';
+import { ArrowRight, Activity, Clock, CheckCircle, type LucideProps } from 'lucide-react';
 import { useRoutes } from '../../hooks/useIntentAPI';
 import type { IntentRoute } from '@jejunetwork/types';
+
+const ArrowRightIcon = ArrowRight as ComponentType<LucideProps>;
+const ActivityIcon = Activity as ComponentType<LucideProps>;
+const ClockIcon = Clock as ComponentType<LucideProps>;
+const CheckCircleIcon = CheckCircle as ComponentType<LucideProps>;
 
 const CHAIN_NAMES: Record<number, string> = {
   1: 'Ethereum',
@@ -85,7 +91,7 @@ function RouteCard({ route }: { route: IntentRoute }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <ChainIcon color={sourceColor} />
           <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{sourceChain}</div>
-          <ArrowRight size={20} color="var(--text-secondary)" />
+          <ArrowRightIcon size={20} color="var(--text-secondary)" />
           <ChainIcon color={destColor} />
           <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{destChain}</div>
         </div>
@@ -118,17 +124,17 @@ function RouteCard({ route }: { route: IntentRoute }) {
         marginBottom: '16px',
       }}>
         <StatItem
-          icon={<Activity size={14} />}
+          icon={<ActivityIcon size={14} />}
           label="Volume"
           value={formatVolume(route.totalVolume)}
         />
         <StatItem
-          icon={<Clock size={14} />}
+          icon={<ClockIcon size={14} />}
           label="Avg Time"
           value={`${route.avgFillTimeSeconds}s`}
         />
         <StatItem
-          icon={<CheckCircle size={14} />}
+          icon={<CheckCircleIcon size={14} />}
           label="Success"
           value={`${route.successRate.toFixed(1)}%`}
         />

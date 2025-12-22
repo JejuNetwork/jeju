@@ -10,6 +10,7 @@ import {
   type State,
 } from "@elizaos/core";
 import { JEJU_SERVICE_NAME, type JejuService } from "../service";
+import { getMessageText, expect, validateServiceExists } from "../validation";
 
 export const runInferenceAction: Action = {
   name: "RUN_INFERENCE",
@@ -22,18 +23,16 @@ export const runInferenceAction: Action = {
     "generate text",
   ],
 
-  validate: async (runtime: IAgentRuntime) => {
-    const service = runtime.getService(JEJU_SERVICE_NAME);
-    return !!service;
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
 
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
+    _options?: Record<string, unknown>,
     callback?: HandlerCallback,
-  ) => {
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
 
@@ -46,11 +45,16 @@ export const runInferenceAction: Action = {
     }
 
     // Use the prompt from the message
-    const prompt = message.content.text ?? "";
+    const prompt = getMessageText(message);
 
     // Find a suitable model (prefer llama or gpt)
-    const model =
-      models.find((m) => /llama|gpt|mistral/i.test(m.model)) ?? models[0];
+    const preferredModel = models.find((m: { model: string }) =>
+      /llama|gpt|mistral/i.test(m.model),
+    );
+    const model = expect(
+      preferredModel ?? models[0],
+      "available inference model",
+    );
 
     callback?.({ text: `Running inference on ${model.model}...` });
 

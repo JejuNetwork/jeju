@@ -49,8 +49,8 @@ describe('Config', () => {
       expect(getChainName(101)).toBe('Solana');
     });
 
-    test('returns fallback for unknown chains', () => {
-      expect(getChainName(99999)).toBe('Chain 99999');
+    test('throws for unknown chains', () => {
+      expect(() => getChainName(99999)).toThrow('Unsupported chain ID: 99999');
     });
   });
 

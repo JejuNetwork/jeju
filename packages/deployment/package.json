@@ -32,7 +32,8 @@
     "deploy:mainnet": "NETWORK=mainnet bun run scripts/deploy-full.ts"
   },
   "dependencies": {
-    "viem": "2.41.2"
+    "viem": "2.43.2",
+    "zod": "4.2.1"
   },
   "devDependencies": {
     "@types/bun": "latest"

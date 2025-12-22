@@ -4,29 +4,17 @@
  */
 
 import type { Address, Hex } from 'viem';
+import type { ChainType, EVMChainId, SolanaNetwork } from '@jejunetwork/types';
 
 // =============================================================================
 // CHAIN TYPES
 // =============================================================================
 
-/** Supported chain identifiers */
-export type ChainId =
-  | 1 // Ethereum Mainnet (Home Chain)
-  | 10 // Optimism
-  | 56 // BSC
-  | 137 // Polygon
-  | 8453 // Base
-  | 42161 // Arbitrum One
-  | 43114 // Avalanche
-  | 11155111 // Sepolia (testnet)
-  | 84532 // Base Sepolia (testnet)
-  | 421614 // Arbitrum Sepolia (testnet)
-  | 420690 // Jeju Testnet (L2 on Sepolia)
-  | 'solana-mainnet'
-  | 'solana-devnet';
+/** Supported chain identifiers - combines EVM and Solana */
+export type ChainId = EVMChainId | SolanaNetwork;
 
-/** Chain type classification */
-export type ChainType = 'evm' | 'svm';
+// Re-export consolidated chain types
+export type { ChainType, EVMChainId, SolanaNetwork };
 
 /** Chain configuration for deployment */
 export interface ChainConfig {
@@ -154,6 +142,18 @@ export interface TokenEconomics {
 // LIQUIDITY CONFIGURATION
 // =============================================================================
 
+/**
+ * DEX protocols for liquidity deployment
+ * Includes EVM DEXes (Uniswap) and Solana DEXes (Raydium, Orca, Jupiter)
+ */
+export type LiquidityDex =
+  | 'uniswap-v4'
+  | 'uniswap-v3'
+  | 'sushiswap'
+  | 'raydium'
+  | 'orca'
+  | 'jupiter';
+
 /** Liquidity distribution per chain */
 export interface LiquidityAllocation {
   chainId: ChainId;
@@ -164,13 +164,7 @@ export interface LiquidityAllocation {
   /** Paired asset (e.g., WETH, USDC) */
   pairedAsset: Address | 'SOL';
   /** DEX to deploy on (e.g., 'uniswap-v4', 'raydium', 'orca') */
-  dex:
-    | 'uniswap-v4'
-    | 'uniswap-v3'
-    | 'sushiswap'
-    | 'raydium'
-    | 'orca'
-    | 'jupiter';
+  dex: LiquidityDex;
 }
 
 /** Complete liquidity deployment configuration */

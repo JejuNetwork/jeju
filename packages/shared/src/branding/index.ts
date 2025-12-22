@@ -4,6 +4,9 @@
  * Re-exports branding from config and provides React-friendly utilities
  */
 
+// Import for local use
+import { getVisualBranding as getVisualBrandingConfig } from '@jejunetwork/config';
+
 // Re-export everything from config
 export {
   getBranding,
@@ -39,9 +42,7 @@ export {
  * Get CSS variables from branding for use in apps
  */
 export function getBrandingCssVars(): Record<string, string> {
-  // Import dynamically to avoid circular deps
-  const { getVisualBranding } = require('@jejunetwork/config');
-  const visual = getVisualBranding();
+  const visual = getVisualBrandingConfig();
   
   return {
     '--brand-primary': visual.primaryColor,

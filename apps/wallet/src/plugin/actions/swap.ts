@@ -4,9 +4,9 @@
  * Swaps one token for another on the same chain.
  */
 
-import { WalletService } from '../services/wallet.service';
 import { GasService } from '../services/gas.service';
 import type { ActionContext, ActionResult } from './wallet-info';
+import { expectChainId, expectNonEmpty } from '../../lib/validation';
 
 interface SwapParams {
   fromToken?: string;
@@ -52,6 +52,10 @@ export const swapAction = {
     }
     
     const chainId = params.chainId || state.activeChainId;
+    expectChainId(chainId, 'chainId');
+    if (params.amount) expectNonEmpty(params.amount, 'amount');
+    if (params.fromToken) expectNonEmpty(params.fromToken, 'fromToken');
+    if (params.toToken) expectNonEmpty(params.toToken, 'toToken');
     
     // Get gas estimate if available
     let gasInfo = '';

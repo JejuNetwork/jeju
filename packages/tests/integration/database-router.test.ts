@@ -188,7 +188,7 @@ describe.skipIf(!POSTGRES_AVAILABLE)('DatabaseReplicaRouter', () => {
           );
           throw new Error('Intentional rollback');
         });
-      } catch (error) {
+      } catch (_error) {
         // Expected
       }
 

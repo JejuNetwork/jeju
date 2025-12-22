@@ -12,7 +12,7 @@ export const addLiquidityAction = {
   description: 'Add liquidity to a token pair pool',
   similes: ['ADD_LP', 'PROVIDE_LIQUIDITY', 'DEPOSIT_POOL'],
   
-  async execute(context: ActionContext, params?: { tokenA?: string; tokenB?: string; amountA?: string }): Promise<ActionResult> {
+  async execute(context: ActionContext, _params?: { tokenA?: string; tokenB?: string; amountA?: string }): Promise<ActionResult> {
     const state = context.walletService.getState();
     if (!state.currentAccount) {
       return { success: false, message: 'Please connect your wallet first.' };

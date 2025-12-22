@@ -14,6 +14,7 @@ import { cors } from 'hono/cors';
 import type { Address, Hex } from 'viem';
 import type { Context, Next } from 'hono';
 import type { ServiceHealth } from '../types';
+// Error handler is now using Hono's app.onError
 import { createStorageRouter } from './routes/storage';
 import { createComputeRouter } from './routes/compute';
 import { createCDNRouter } from './routes/cdn';
@@ -109,6 +110,46 @@ const rateLimitCleanupInterval = setInterval(() => {
 }, RATE_LIMIT_WINDOW_MS);
 
 const app = new Hono();
+
+// Global error handler - converts validation errors to proper HTTP status codes
+app.onError((error, c) => {
+  const message = error.message;
+  const lowerMessage = message.toLowerCase();
+  
+  // Check for auth-related errors (401) - check header validation failures
+  const isAuthError = lowerMessage.includes('x-jeju-address') 
+    || lowerMessage.includes('authentication')
+    || lowerMessage.includes('x-jeju-signature')
+    || lowerMessage.includes('x-jeju-nonce');
+  
+  // Check for not found errors (404)
+  const isNotFound = lowerMessage.includes('not found');
+  
+  // Check for permission errors (403)
+  const isForbidden = lowerMessage.includes('access denied') 
+    || lowerMessage.includes('permission')
+    || lowerMessage.includes('not authorized');
+  
+  // Check for validation/bad request errors (400)
+  const isBadRequest = lowerMessage.includes('invalid')
+    || lowerMessage.includes('required')
+    || lowerMessage.includes('validation failed')
+    || lowerMessage.includes('expected')
+    || lowerMessage.includes('no version data')
+    || lowerMessage.includes('no attachment')
+    || lowerMessage.includes('unknown tool')
+    || lowerMessage.includes('unknown resource')
+    || lowerMessage.includes('unsupported');
+  
+  const statusCode = isAuthError ? 401
+    : isNotFound ? 404
+    : isForbidden ? 403
+    : isBadRequest ? 400
+    : 500;
+  
+  return c.json({ error: message }, statusCode);
+});
+
 app.use('/*', cors({ origin: '*' }));
 app.use('/*', rateLimiter());
 

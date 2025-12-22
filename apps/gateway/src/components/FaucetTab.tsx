@@ -1,8 +1,47 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type ComponentType } from 'react';
 import { useAccount } from 'wagmi';
-import { Droplet, Clock, CheckCircle2, AlertCircle, ExternalLink, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
+import { Droplet, Clock, CheckCircle2, AlertCircle, ExternalLink, RefreshCw, ChevronDown, ChevronUp, type LucideProps } from 'lucide-react';
+import { z } from 'zod';
 import type { FaucetStatus, FaucetClaimResult, FaucetInfo } from '../services/faucet-service';
 import { EXPLORER_URL } from '../config';
+
+// Zod schemas for API response validation
+const FaucetStatusSchema = z.object({
+  eligible: z.boolean(),
+  isRegistered: z.boolean(),
+  cooldownRemaining: z.number(),
+  nextClaimAt: z.number().nullable(),
+  amountPerClaim: z.string(),
+  faucetBalance: z.string(),
+});
+
+const FaucetClaimResultSchema = z.object({
+  success: z.boolean(),
+  txHash: z.string().optional(),
+  amount: z.string().optional(),
+  error: z.string().optional(),
+  cooldownRemaining: z.number().optional(),
+});
+
+const FaucetInfoSchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  tokenSymbol: z.string(),
+  amountPerClaim: z.string(),
+  cooldownHours: z.number(),
+  requirements: z.array(z.string()),
+  chainId: z.number(),
+  chainName: z.string(),
+});
+
+const DropletIcon = Droplet as ComponentType<LucideProps>;
+const RefreshCwIcon = RefreshCw as ComponentType<LucideProps>;
+const CheckCircle2Icon = CheckCircle2 as ComponentType<LucideProps>;
+const AlertCircleIcon = AlertCircle as ComponentType<LucideProps>;
+const ClockIcon = Clock as ComponentType<LucideProps>;
+const ExternalLinkIcon = ExternalLink as ComponentType<LucideProps>;
+const ChevronUpIcon = ChevronUp as ComponentType<LucideProps>;
+const ChevronDownIcon = ChevronDown as ComponentType<LucideProps>;
 
 function formatTime(ms: number): string {
   const hours = Math.floor(ms / 3600000);
@@ -34,7 +73,13 @@ function useFaucet() {
       return;
     }
     const data = await response.json();
-    setStatus(data);
+    const result = FaucetStatusSchema.safeParse(data);
+    if (!result.success) {
+      setError('Invalid faucet status response');
+      setLoading(false);
+      return;
+    }
+    setStatus(result.data);
     setLoading(false);
   }, [address]);
 
@@ -42,7 +87,12 @@ function useFaucet() {
     const response = await fetch('/api/faucet/info');
     if (!response.ok) return;
     const data = await response.json();
-    setInfo(data);
+    const result = FaucetInfoSchema.safeParse(data);
+    if (!result.success) {
+      console.error('Invalid faucet info response:', result.error);
+      return;
+    }
+    setInfo(result.data);
   }, []);
 
   const claim = useCallback(async () => {
@@ -56,9 +106,15 @@ function useFaucet() {
       body: JSON.stringify({ address }),
     });
     const data = await response.json();
-    setClaimResult(data);
+    const result = FaucetClaimResultSchema.safeParse(data);
+    if (!result.success) {
+      setClaimResult({ success: false, error: 'Invalid claim response' });
+      setClaiming(false);
+      return;
+    }
+    setClaimResult(result.data);
     setClaiming(false);
-    if (data.success) {
+    if (result.data.success) {
       await fetchStatus();
     }
   }, [address, fetchStatus]);
@@ -82,7 +138,7 @@ export default function FaucetTab() {
     return (
       <div className="card">
         <div className="card-header">
-          <Droplet size={20} />
+          <DropletIcon size={20} />
           <h3>JEJU Faucet</h3>
         </div>
         <p className="text-secondary">Connect your wallet to use the faucet.</p>
@@ -97,10 +153,10 @@ export default function FaucetTab() {
       {/* Main Faucet Card */}
       <div className="card">
         <div className="card-header">
-          <Droplet size={20} />
+          <DropletIcon size={20} />
           <h3>{info?.name || 'JEJU Testnet Faucet'}</h3>
           <button className="button button-secondary" onClick={refresh} disabled={loading} title="Refresh status">
-            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+            <RefreshCwIcon size={16} className={loading ? 'animate-spin' : ''} />
           </button>
         </div>
         
@@ -126,11 +182,11 @@ export default function FaucetTab() {
           <div className="flex items-center justify-between p-3 rounded-lg bg-surface">
             <div className="flex items-center gap-2">
               {loading ? (
-                <RefreshCw size={18} className="animate-spin text-gray-400" />
+                <RefreshCwIcon size={18} className="animate-spin text-gray-400" />
               ) : isRegistered ? (
-                <CheckCircle2 size={18} className="text-green-500" />
+                <CheckCircle2Icon size={18} className="text-green-500" />
               ) : (
-                <AlertCircle size={18} className="text-yellow-500" />
+                <AlertCircleIcon size={18} className="text-yellow-500" />
               )}
               <span className="text-sm">ERC-8004 Registry</span>
             </div>
@@ -143,11 +199,11 @@ export default function FaucetTab() {
           <div className="flex items-center justify-between p-3 rounded-lg bg-surface">
             <div className="flex items-center gap-2">
               {loading ? (
-                <RefreshCw size={18} className="animate-spin text-gray-400" />
+                <RefreshCwIcon size={18} className="animate-spin text-gray-400" />
               ) : status && status.cooldownRemaining === 0 ? (
-                <CheckCircle2 size={18} className="text-green-500" />
+                <CheckCircle2Icon size={18} className="text-green-500" />
               ) : (
-                <Clock size={18} className="text-yellow-500" />
+                <ClockIcon size={18} className="text-yellow-500" />
               )}
               <span className="text-sm">Cooldown</span>
             </div>
@@ -161,7 +217,7 @@ export default function FaucetTab() {
         {!loading && !isRegistered && (
           <div className="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/20 mb-4">
             <div className="flex items-start gap-3">
-              <AlertCircle size={20} className="text-yellow-500 flex-shrink-0 mt-0.5" />
+              <AlertCircleIcon size={20} className="text-yellow-500 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="font-medium text-yellow-500">Registration Required</p>
                 <p className="text-secondary text-sm mt-1">
@@ -181,7 +237,7 @@ export default function FaucetTab() {
                   }}
                   className="text-primary text-sm mt-2 inline-flex items-center gap-1 hover:underline font-medium"
                 >
-                  Register Now <ExternalLink size={14} />
+                  Register Now <ExternalLinkIcon size={14} />
                 </button>
               </div>
             </div>
@@ -192,7 +248,7 @@ export default function FaucetTab() {
         {error && (
           <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 mb-4">
             <div className="flex items-center gap-2">
-              <AlertCircle size={18} className="text-red-500" />
+              <AlertCircleIcon size={18} className="text-red-500" />
               <span className="text-red-500 text-sm">{error}</span>
             </div>
           </div>
@@ -206,12 +262,12 @@ export default function FaucetTab() {
         >
           {claiming ? (
             <>
-              <RefreshCw size={16} className="animate-spin" />
+              <RefreshCwIcon size={16} className="animate-spin" />
               Claiming...
             </>
           ) : (
             <>
-              <Droplet size={16} />
+              <DropletIcon size={16} />
               {status?.eligible ? `Claim ${status.amountPerClaim} JEJU` : 'Claim JEJU'}
             </>
           )}
@@ -222,7 +278,7 @@ export default function FaucetTab() {
           <div className={`mt-4 p-4 rounded-lg ${claimResult.success ? 'bg-green-500/10 border border-green-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
             {claimResult.success ? (
               <div className="flex items-start gap-3">
-                <CheckCircle2 size={20} className="text-green-500 flex-shrink-0 mt-0.5" />
+                <CheckCircle2Icon size={20} className="text-green-500 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="font-medium text-green-500">Claim Successful</p>
                   <p className="text-secondary text-sm mt-1">
@@ -235,14 +291,14 @@ export default function FaucetTab() {
                       rel="noopener noreferrer"
                       className="text-primary text-sm mt-2 inline-flex items-center gap-1 hover:underline"
                     >
-                      View Transaction <ExternalLink size={14} />
+                      View Transaction <ExternalLinkIcon size={14} />
                     </a>
                   )}
                 </div>
               </div>
             ) : (
               <div className="flex items-start gap-3">
-                <AlertCircle size={20} className="text-red-500 flex-shrink-0 mt-0.5" />
+                <AlertCircleIcon size={20} className="text-red-500 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="font-medium text-red-500">Claim Failed</p>
                   <p className="text-secondary text-sm mt-1">{claimResult.error}</p>
@@ -265,7 +321,7 @@ export default function FaucetTab() {
           onClick={() => setShowApiDocs(!showApiDocs)}
         >
           <h3 className="text-sm">Developer API</h3>
-          {showApiDocs ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          {showApiDocs ? <ChevronUpIcon size={16} /> : <ChevronDownIcon size={16} />}
         </button>
         
         {showApiDocs && (

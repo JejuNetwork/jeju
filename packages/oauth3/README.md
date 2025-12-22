@@ -1,17 +1,19 @@
 # @jejunetwork/oauth3
 
-Fully decentralized OAuth3 authentication with TEE-backed key management, FROST threshold MPC signing, and W3C Verifiable Credentials.
+**Open-source, self-hostable alternative to Privy.** Fully decentralized OAuth3 authentication with TEE-backed key management, FROST threshold MPC signing, MFA (Passkeys/TOTP), and W3C Verifiable Credentials.
 
 ## Features
 
 - **🔐 TEE-Backed Security** - Keys managed inside Trusted Execution Environments (dstack/Intel TDX or Phala CVM)
 - **🔑 FROST MPC Signing** - 2-of-3 threshold signatures across distributed nodes
-- **🌐 Multi-Provider Auth** - Wallet (SIWE), Farcaster (SIWF), Google, Apple, Twitter, GitHub, Discord
+- **🌐 Multi-Provider Auth** - Wallet (SIWE), Farcaster (SIWF), Google, Apple, Twitter, GitHub, Discord, **Email**, **Phone/SMS**
+- **🛡️ Multi-Factor Auth** - WebAuthn/Passkeys, TOTP (authenticator apps), backup codes
 - **📜 Verifiable Credentials** - W3C-compliant identity attestations
 - **⛓️ Cross-Chain Identity** - Open Intents for multi-chain account deployment
 - **🏷️ JNS Integration** - Decentralized app and identity resolution
 - **💾 IPFS Storage** - Encrypted session and credential storage
 - **💰 x402 Payments** - Micropayment integration for services
+- **⚛️ React SDK** - Complete hooks and components for React apps
 
 ## Installation
 
@@ -20,6 +22,24 @@ bun add @jejunetwork/oauth3
 # or
 npm install @jejunetwork/oauth3
 ```
+
+## Provider Setup
+
+For detailed instructions on setting up each authentication provider (Google, GitHub, Twitter, Discord, Apple, Farcaster, Email, Phone), see:
+
+**📖 [Provider Setup Guide](./docs/PROVIDER_SETUP.md)**
+
+Quick links:
+- [Understanding Callback URLs](./docs/PROVIDER_SETUP.md#understanding-callback-urls)
+- [Google OAuth Setup](./docs/PROVIDER_SETUP.md#google-oauth)
+- [GitHub OAuth Setup](./docs/PROVIDER_SETUP.md#github-oauth)
+- [Twitter/X OAuth Setup](./docs/PROVIDER_SETUP.md#twitterx-oauth)
+- [Discord OAuth Setup](./docs/PROVIDER_SETUP.md#discord-oauth)
+- [Apple Sign-In Setup](./docs/PROVIDER_SETUP.md#apple-sign-in)
+- [Farcaster Setup](./docs/PROVIDER_SETUP.md#farcaster)
+- [Email Authentication](./docs/PROVIDER_SETUP.md#email-authentication)
+- [Phone/SMS Authentication](./docs/PROVIDER_SETUP.md#phonesms-authentication)
+- [Environment Variables Reference](./docs/PROVIDER_SETUP.md#environment-variables-reference)
 
 ## Quick Start
 
@@ -182,27 +202,35 @@ MPC_ENABLED=true MPC_THRESHOLD=2 MPC_TOTAL_PARTIES=3 bun run start:agent
 
 ### Environment Variables
 
+Copy the example environment file and configure your providers:
+
+```bash
+cp docker/env.example .env
+# Edit .env with your provider credentials
+```
+
+See [docker/env.example](./docker/env.example) for all available options, or the [Provider Setup Guide](./docs/PROVIDER_SETUP.md#environment-variables-reference) for details.
+
+**Core Variables:**
+
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `CHAIN_ID` | Network chain ID | `420691` (localnet) |
 | `JEJU_RPC_URL` | RPC endpoint | `http://localhost:9545` |
 | `OAUTH3_PORT` | Agent HTTP port | `4200` |
 | `TEE_MODE` | TEE provider (`dstack`, `phala`, `simulated`) | `simulated` |
-| `MPC_ENABLED` | Enable MPC signing | `false` |
-| `MPC_THRESHOLD` | Required signers | `2` |
-| `MPC_TOTAL_PARTIES` | Total MPC nodes | `3` |
-| `IPFS_API_ENDPOINT` | IPFS/DWS API | `http://localhost:4030/storage/api/v0` |
-| `IPFS_GATEWAY_ENDPOINT` | IPFS gateway | `http://localhost:4030/storage/ipfs` |
-| `GOOGLE_CLIENT_ID` | Google OAuth client ID | - |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth secret | - |
-| `GITHUB_CLIENT_ID` | GitHub OAuth client ID | - |
-| `GITHUB_CLIENT_SECRET` | GitHub OAuth secret | - |
-| `TWITTER_CLIENT_ID` | Twitter OAuth client ID | - |
-| `TWITTER_CLIENT_SECRET` | Twitter OAuth secret | - |
-| `DISCORD_CLIENT_ID` | Discord OAuth client ID | - |
-| `DISCORD_CLIENT_SECRET` | Discord OAuth secret | - |
-| `FARCASTER_FID` | Farcaster FID for signing | - |
-| `FARCASTER_SIGNER_KEY` | Farcaster signer private key | - |
+
+**Provider Variables:**
+
+| Provider | Required Variables |
+|----------|-------------------|
+| Google | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` |
+| GitHub | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` |
+| Twitter | `TWITTER_CLIENT_ID`, `TWITTER_CLIENT_SECRET` |
+| Discord | `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` |
+| Apple | `APPLE_CLIENT_ID`, `APPLE_CLIENT_SECRET`, `APPLE_TEAM_ID`, `APPLE_KEY_ID` |
+| Email | `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM_ADDRESS` |
+| Phone | `SMS_PROVIDER`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` |
 
 ## API Reference
 
@@ -331,7 +359,70 @@ const { council, oauth3App } = await manager.deployCouncil({
 
 ## Integrating with Your App
 
-### React Example
+### React SDK (Recommended)
+
+```tsx
+// Use the built-in React SDK for the best experience
+import { OAuth3Provider, useOAuth3, LoginModal, ConnectedAccount, MFASetup } from '@jejunetwork/oauth3/react';
+
+function App() {
+  return (
+    <OAuth3Provider config={{
+      appId: 'myapp.apps.jeju',
+      redirectUri: window.location.origin + '/auth/callback',
+      chainId: 420690,
+    }}>
+      <MyApp />
+    </OAuth3Provider>
+  );
+}
+
+function MyApp() {
+  const { isAuthenticated, login, logout, session } = useOAuth3();
+  const [showLogin, setShowLogin] = useState(false);
+
+  if (isAuthenticated) {
+    return (
+      <div>
+        <ConnectedAccount showLogout onLogout={() => console.log('Logged out')} />
+        <MFASetup onComplete={(method) => console.log('MFA enabled:', method)} />
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <button onClick={() => setShowLogin(true)}>Sign In</button>
+      <LoginModal 
+        isOpen={showLogin} 
+        onClose={() => setShowLogin(false)}
+        onSuccess={() => console.log('Logged in!')}
+        showEmailPhone // Enable email/phone auth
+      />
+    </>
+  );
+}
+```
+
+### React Hooks
+
+```tsx
+import { useLogin, useMFA, useCredentials, useSession } from '@jejunetwork/oauth3/react';
+
+// Login hook with all providers
+const { login, loginWithEmail, loginWithPhone, verifyEmailCode, verifyPhoneCode } = useLogin();
+
+// MFA management
+const { setupTOTP, verifyTOTP, setupPasskey, generateBackupCodes } = useMFA();
+
+// Credentials management  
+const { credentials, issueCredential, verifyCredential } = useCredentials();
+
+// Session management
+const { session, isAuthenticated, refreshSession, logout, timeUntilExpiry } = useSession();
+```
+
+### Manual Integration
 
 ```tsx
 import { createOAuth3Client, AuthProvider } from '@jejunetwork/oauth3';
@@ -369,8 +460,8 @@ function LoginButton() {
       <button onClick={() => handleLogin(AuthProvider.FARCASTER)}>
         Sign in with Farcaster
       </button>
-      <button onClick={() => handleLogin(AuthProvider.GITHUB)}>
-        Sign in with GitHub
+      <button onClick={() => handleLogin(AuthProvider.EMAIL)}>
+        Sign in with Email
       </button>
     </div>
   );

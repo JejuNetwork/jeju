@@ -13,13 +13,10 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  Plus,
-  Minus,
   ChevronDown,
   ChevronRight,
   Loader2,
   Send,
-  MoreHorizontal,
   Check,
   X,
   Eye,
@@ -52,7 +49,7 @@ Fixes the contract verification issue on Base Sepolia testnet.
 
 Closes #42`,
   author: { name: 'bob.eth', avatar: 'https://avatars.githubusercontent.com/u/2?v=4' },
-  status: 'open' as const,
+  status: 'open' as 'open' | 'merged' | 'closed',
   isDraft: false,
   sourceBranch: 'fix/verification',
   targetBranch: 'main',
@@ -183,7 +180,7 @@ export default function PullRequestDetailPage() {
     setIsSubmitting(false);
   };
 
-  const totalChanges = mockFiles.reduce((sum, f) => sum + f.additions + f.deletions, 0);
+  // const totalChanges = mockFiles.reduce((sum, f) => sum + f.additions + f.deletions, 0);
 
   return (
     <div className="min-h-screen p-8">

@@ -1,10 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ComponentType } from 'react';
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseEther } from 'viem';
-import { Upload, AlertTriangle, FileText, Image } from 'lucide-react';
+import { Upload, AlertTriangle, FileText, Image, type LucideProps } from 'lucide-react';
 import { MODERATION_CONTRACTS, MODERATION_CONFIG } from '../../config/moderation';
+
+const UploadIcon = Upload as ComponentType<LucideProps>;
+const AlertTriangleIcon = AlertTriangle as ComponentType<LucideProps>;
+const FileTextIcon = FileText as ComponentType<LucideProps>;
+const ImageIcon = Image as ComponentType<LucideProps>;
 
 import { uploadToIPFS } from '../../lib/ipfs';
 
@@ -219,7 +224,7 @@ export default function ReportSubmissionForm({
                   {level.warning && ` • ${level.warning}`}
                 </div>
               </div>
-              {level.value === 3 && <AlertTriangle className="text-red-500" size={20} />}
+              {level.value === 3 && <AlertTriangleIcon className="text-red-500" size={20} />}
             </button>
           ))}
         </div>
@@ -231,7 +236,7 @@ export default function ReportSubmissionForm({
         <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
           {!evidenceFile ? (
             <>
-              <Upload className="mx-auto text-gray-400 mb-2" size={32} />
+              <UploadIcon className="mx-auto text-gray-400 mb-2" size={32} />
               <p className="text-sm text-gray-600 mb-2">
                 Upload screenshots, videos, or documents
               </p>
@@ -251,7 +256,7 @@ export default function ReportSubmissionForm({
             </>
           ) : (
             <div className="flex items-center justify-center gap-3">
-              <Image className="text-green-500" size={24} />
+              <ImageIcon className="text-green-500" size={24} />
               <div className="text-left">
                 <div className="font-medium">{evidenceFile.name}</div>
                 <div className="text-sm text-gray-600">
@@ -279,7 +284,7 @@ export default function ReportSubmissionForm({
       {/* Bond Display */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <div className="flex items-start gap-2">
-          <FileText className="text-blue-500 mt-0.5" size={20} />
+          <FileTextIcon className="text-blue-500 mt-0.5" size={20} />
           <div className="flex-1">
             <div className="font-semibold text-blue-900">Report Bond Required</div>
             <div className="text-sm text-blue-700 mt-1">

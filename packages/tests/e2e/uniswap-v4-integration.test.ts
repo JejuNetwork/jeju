@@ -9,7 +9,7 @@
  */
 
 import { describe, test, expect, beforeAll } from 'bun:test';
-import { createPublicClient, createWalletClient, http, parseEther, formatEther, type PublicClient, type WalletClient } from 'viem';
+import { createPublicClient, createWalletClient, http, formatEther, type PublicClient, type WalletClient } from 'viem';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { rawDeployments } from '@jejunetwork/contracts';
 import { getLocalnetRpcUrl } from '../../scripts/shared/get-localnet-rpc';
@@ -39,7 +39,7 @@ interface TokenDeployment {
 describe('Uniswap V4 Integration Tests', () => {
     let rpcUrl: string;
     let publicClient: PublicClient;
-    let walletClient: WalletClient;
+    let _walletClient: WalletClient;
     let account: PrivateKeyAccount;
     let v4Deployment: V4Deployment;
     let tokenDeployment: TokenDeployment;
@@ -56,7 +56,7 @@ describe('Uniswap V4 Integration Tests', () => {
             transport: http(rpcUrl),
         });
 
-        walletClient = createWalletClient({
+        _walletClient = createWalletClient({
             account,
             transport: http(rpcUrl),
         });

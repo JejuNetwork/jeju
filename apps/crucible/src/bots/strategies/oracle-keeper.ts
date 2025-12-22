@@ -231,62 +231,58 @@ export class OracleKeeperStrategy {
   private async checkToken(token: string, source: PriceSource): Promise<void> {
     if (!this.publicClient) return;
 
-    const lastUpdate = this.lastUpdateByToken.get(token) ?? 0;
-    if (Date.now() - lastUpdate < UPDATE_COOLDOWN_MS) return;
+    const lastUpdate = this.lastUpdateByToken.get(token);
+    if (lastUpdate !== undefined && Date.now() - lastUpdate < UPDATE_COOLDOWN_MS) return;
 
-    try {
-      // Get on-chain price
-      const onChainResult = await this.publicClient.readContract({
-        address: this.priceOracleAddress as `0x${string}`,
-        abi: PRICE_ORACLE_ABI,
-        functionName: 'getPrice',
-        args: [token as `0x${string}`],
-      }) as [bigint, bigint];
+    // Get on-chain price
+    const onChainResult = await this.publicClient.readContract({
+      address: this.priceOracleAddress as `0x${string}`,
+      abi: PRICE_ORACLE_ABI,
+      functionName: 'getPrice',
+      args: [token as `0x${string}`],
+    }) as [bigint, bigint];
 
-      const [onChainPrice, decimals] = onChainResult;
+    const [onChainPrice, decimals] = onChainResult;
 
-      // Check if stale
-      const isFresh = await this.publicClient.readContract({
-        address: this.priceOracleAddress as `0x${string}`,
-        abi: PRICE_ORACLE_ABI,
-        functionName: 'isPriceFresh',
-        args: [token as `0x${string}`],
-      }) as boolean;
+    // Check if stale
+    const isFresh = await this.publicClient.readContract({
+      address: this.priceOracleAddress as `0x${string}`,
+      abi: PRICE_ORACLE_ABI,
+      functionName: 'isPriceFresh',
+      args: [token as `0x${string}`],
+    }) as boolean;
 
-      // Get external price
-      const externalPrice = await this.fetchExternalPrice(source);
-      if (!externalPrice) return;
+    // Get external price
+    const externalPrice = await this.fetchExternalPrice(source);
+    if (!externalPrice) return;
 
-      // Check if update needed
-      let shouldUpdate = false;
-      let reason = '';
+    // Check if update needed
+    let shouldUpdate = false;
+    let reason = '';
 
-      if (!isFresh) {
+    if (!isFresh) {
+      shouldUpdate = true;
+      reason = 'stale';
+    } else if (onChainPrice > 0n) {
+      // Check deviation
+      const diff = onChainPrice > externalPrice.price
+        ? onChainPrice - externalPrice.price
+        : externalPrice.price - onChainPrice;
+      const deviationBps = Number((diff * 10000n) / onChainPrice);
+
+      if (deviationBps > DEVIATION_THRESHOLD_BPS) {
         shouldUpdate = true;
-        reason = 'stale';
-      } else if (onChainPrice > 0n) {
-        // Check deviation
-        const diff = onChainPrice > externalPrice.price
-          ? onChainPrice - externalPrice.price
-          : externalPrice.price - onChainPrice;
-        const deviationBps = Number((diff * 10000n) / onChainPrice);
-
-        if (deviationBps > DEVIATION_THRESHOLD_BPS) {
-          shouldUpdate = true;
-          reason = `deviation ${deviationBps} bps`;
-        }
-      } else {
-        // No price set yet
-        shouldUpdate = true;
-        reason = 'no price';
+        reason = `deviation ${deviationBps} bps`;
       }
+    } else {
+      // No price set yet
+      shouldUpdate = true;
+      reason = 'no price';
+    }
 
-      if (shouldUpdate) {
-        console.log(`🔮 Updating ${source.symbol} price (${reason})`);
-        await this.updatePrice(token, externalPrice.price, externalPrice.decimals);
-      }
-    } catch (error) {
-      console.error(`Error checking ${source.symbol}:`, error);
+    if (shouldUpdate) {
+      console.log(`🔮 Updating ${source.symbol} price (${reason})`);
+      await this.updatePrice(token, externalPrice.price, externalPrice.decimals);
     }
   }
 
@@ -298,9 +294,9 @@ export class OracleKeeperStrategy {
     }
 
     // Try Pyth Network (fast updates, good coverage)
-    if (source.pythPriceId || PYTH_PRICE_IDS[source.symbol]) {
-      const priceId = source.pythPriceId || PYTH_PRICE_IDS[source.symbol];
-      const price = await this.fetchPythPrice(source.symbol, priceId);
+    const pythPriceId = source.pythPriceId ?? PYTH_PRICE_IDS[source.symbol];
+    if (pythPriceId) {
+      const price = await this.fetchPythPrice(source.symbol, pythPriceId);
       if (price) return price;
     }
 
@@ -571,8 +567,10 @@ export class OracleKeeperStrategy {
     }> = [];
 
     for (const [token, source] of this.priceSources) {
-      const lastUpdate = this.lastUpdateByToken.get(token) ?? 0;
-      const ageSeconds = Math.floor((Date.now() - lastUpdate) / 1000);
+      const lastUpdate = this.lastUpdateByToken.get(token);
+      const ageSeconds = lastUpdate !== undefined 
+        ? Math.floor((Date.now() - lastUpdate) / 1000)
+        : STALE_THRESHOLD_SEC + 1; // If never updated, treat as stale
 
       if (ageSeconds > STALE_THRESHOLD_SEC) {
         opportunities.push({

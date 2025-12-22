@@ -9,7 +9,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import { MPCCoordinator, resetMPCCoordinator } from './coordinator';
 import { recoverMessageAddress } from 'viem';
 import type { Address, Hex } from 'viem';
-import { keccak256, toBytes, toHex, hashMessage } from 'viem';
+import { keccak256, toBytes, toHex } from 'viem';
 
 describe('MPC Coordinator Edge Cases', () => {
   let coordinator: MPCCoordinator;
@@ -88,7 +88,7 @@ describe('MPC Coordinator Edge Cases', () => {
         stake: BigInt(1e18),
         registeredAt: Date.now(),
         attestation: { quote: '0x' as Hex, measurement: '0x' as Hex, timestamp: 0, verified: false },
-      })).toThrow('Party attestation required and not verified');
+      })).toThrow('Party attestation is not verified');
     });
 
     it('should filter stale parties from active list', async () => {
@@ -101,7 +101,7 @@ describe('MPC Coordinator Edge Cases', () => {
     });
 
     it('should handle party re-registration', () => {
-      const party1 = coordinator.registerParty({
+      const _party1 = coordinator.registerParty({
         id: 'party-1',
         index: 1,
         endpoint: 'http://localhost:4100',

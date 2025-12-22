@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import type { Address, Hex } from 'viem';
+import type { Address } from 'viem';
 import { ApprovalManager, buildRevokeTransaction } from './ApprovalManager';
 import { approvalService } from '../../services/approval';
 
@@ -13,7 +13,7 @@ interface ApprovalsViewProps {
   chainId?: number;
 }
 
-export const ApprovalsView: React.FC<ApprovalsViewProps> = ({ address, chainId = 1 }) => {
+export const ApprovalsView: React.FC<ApprovalsViewProps> = ({ address, chainId: _chainId = 1 }) => {
   const [approvals, setApprovals] = useState<Parameters<typeof ApprovalManager>[0]['approvals']>([]);
   const [loading, setLoading] = useState(true);
   
@@ -40,8 +40,8 @@ export const ApprovalsView: React.FC<ApprovalsViewProps> = ({ address, chainId =
         chainId: a.chainId,
         lastUpdated: new Date(a.lastUpdated).toISOString(),
       })));
-    } catch (error) {
-      console.error('Failed to fetch approvals:', error);
+    } catch {
+      // Failed to fetch approvals - UI will show empty state
     } finally {
       setLoading(false);
     }
@@ -52,13 +52,13 @@ export const ApprovalsView: React.FC<ApprovalsViewProps> = ({ address, chainId =
   }, [fetchApprovals]);
   
   const handleRevoke = async (approval: typeof approvals[0]) => {
-    const { to, data } = buildRevokeTransaction(
+    buildRevokeTransaction(
       approval.token.address,
       approval.spender.address
     );
     
     // In a real app, this would use the transaction service
-    console.log('Revoking approval:', { to, data });
+    // Revoking approval with { to, data }
     
     // Refresh after revoke
     await fetchApprovals();

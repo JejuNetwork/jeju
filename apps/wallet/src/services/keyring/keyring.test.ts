@@ -2,7 +2,7 @@
  * Keyring Service Tests
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { KeyringService } from './index';
 
 // Mock localStorage for Node/Bun environment

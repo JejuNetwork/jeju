@@ -59,6 +59,9 @@ export class FederationClient {
       oracle: contracts.oracle,
     };
 
+    const account = this.walletClient.account;
+    if (!account) throw new Error('Wallet account not available');
+    
     const hash = await this.walletClient.writeContract({
       address: this.config.networkRegistryAddress,
       abi: NETWORK_REGISTRY_ABI,
@@ -74,7 +77,7 @@ export class FederationClient {
       ],
       value: stake,
       chain: null,
-      account: this.walletClient.account!,
+      account,
     });
 
     return hash;
@@ -88,13 +91,16 @@ export class FederationClient {
   ): Promise<Hex> {
     if (!this.walletClient) throw new Error('Wallet not configured');
 
+    const account = this.walletClient.account;
+    if (!account) throw new Error('Wallet account not available');
+    
     return this.walletClient.writeContract({
       address: this.config.networkRegistryAddress,
       abi: NETWORK_REGISTRY_ABI,
       functionName: 'updateNetwork',
       args: [BigInt(this.config.localChainId), name, rpcUrl, explorerUrl, wsUrl],
       chain: null,
-      account: this.walletClient.account!,
+      account,
     });
   }
 
@@ -111,39 +117,48 @@ export class FederationClient {
       oracle: contracts.oracle,
     };
 
+    const account = this.walletClient.account;
+    if (!account) throw new Error('Wallet account not available');
+    
     return this.walletClient.writeContract({
       address: this.config.networkRegistryAddress,
       abi: NETWORK_REGISTRY_ABI,
       functionName: 'updateContracts',
       args: [BigInt(this.config.localChainId), contractsTuple],
       chain: null,
-      account: this.walletClient.account!,
+      account,
     });
   }
 
   async establishTrust(targetChainId: number): Promise<Hex> {
     if (!this.walletClient) throw new Error('Wallet not configured');
 
+    const account = this.walletClient.account;
+    if (!account) throw new Error('Wallet account not available');
+    
     return this.walletClient.writeContract({
       address: this.config.networkRegistryAddress,
       abi: NETWORK_REGISTRY_ABI,
       functionName: 'establishTrust',
       args: [BigInt(this.config.localChainId), BigInt(targetChainId)],
       chain: null,
-      account: this.walletClient.account!,
+      account,
     });
   }
 
   async revokeTrust(targetChainId: number): Promise<Hex> {
     if (!this.walletClient) throw new Error('Wallet not configured');
 
+    const account = this.walletClient.account;
+    if (!account) throw new Error('Wallet account not available');
+    
     return this.walletClient.writeContract({
       address: this.config.networkRegistryAddress,
       abi: NETWORK_REGISTRY_ABI,
       functionName: 'revokeTrust',
       args: [BigInt(this.config.localChainId), BigInt(targetChainId)],
       chain: null,
-      account: this.walletClient.account!,
+      account,
     });
   }
 
@@ -208,13 +223,16 @@ export class FederationClient {
       throw new Error('Wallet or FederatedIdentity not configured');
     }
 
+    const account = this.walletClient.account;
+    if (!account) throw new Error('Wallet account not available');
+    
     return this.walletClient.writeContract({
       address: this.config.federatedIdentityAddress,
       abi: FEDERATED_IDENTITY_ABI,
       functionName: 'federateLocalAgent',
       args: [BigInt(localAgentId), signature],
       chain: null,
-      account: this.walletClient.account!,
+      account,
     });
   }
 
@@ -254,13 +272,16 @@ export class FederationClient {
       throw new Error('Wallet or FederatedSolver not configured');
     }
 
+    const account = this.walletClient.account;
+    if (!account) throw new Error('Wallet account not available');
+    
     return this.walletClient.writeContract({
       address: this.config.federatedSolverAddress,
       abi: FEDERATED_SOLVER_ABI,
       functionName: 'federateLocalSolver',
       args: [supportedChains.map(c => BigInt(c))],
       chain: null,
-      account: this.walletClient.account!,
+      account,
     });
   }
 
@@ -305,13 +326,16 @@ export class FederationClient {
       throw new Error('Wallet or FederatedLiquidity not configured');
     }
 
+    const account = this.walletClient.account;
+    if (!account) throw new Error('Wallet account not available');
+    
     return this.walletClient.writeContract({
       address: this.config.federatedLiquidityAddress,
       abi: FEDERATED_LIQUIDITY_ABI,
       functionName: 'registerXLP',
       args: [supportedChains.map(c => BigInt(c))],
       chain: null,
-      account: this.walletClient.account!,
+      account,
     });
   }
 
@@ -355,6 +379,9 @@ export class FederationClient {
 
     const isETH = token === '0x0000000000000000000000000000000000000000';
 
+    const account = this.walletClient.account;
+    if (!account) throw new Error('Wallet account not available');
+    
     return this.walletClient.writeContract({
       address: this.config.federatedLiquidityAddress,
       abi: FEDERATED_LIQUIDITY_ABI,
@@ -362,7 +389,7 @@ export class FederationClient {
       args: [token, amount, BigInt(targetChainId)],
       value: isETH ? amount : 0n,
       chain: null,
-      account: this.walletClient.account!,
+      account,
     });
   }
 

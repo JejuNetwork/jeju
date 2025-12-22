@@ -5,19 +5,33 @@
 
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import type { Address, Hex } from 'viem';
-import { verifyMessage } from 'viem';
-import type { ChatMessage, PlatformMessage } from '../types';
+import type { Address } from 'viem';
+import { z } from 'zod';
+import { isAddress } from 'viem';
+import type { PlatformMessage } from '../types';
 import { processMessage } from '../eliza/runtime';
-import { getWalletService } from '../services/wallet';
-import { getStateManager } from '../services/state';
 import { getConfig } from '../config';
-
-const walletService = getWalletService();
-const stateManager = getStateManager();
-
-// Chat message history per session (ephemeral, not persisted)
-const sessionMessages = new Map<string, ChatMessage[]>();
+import {
+  expectValid,
+  ChatRequestSchema,
+  ChatResponseSchema,
+  ChatMessageSchema,
+  AuthMessageResponseSchema,
+  AuthVerifyRequestSchema,
+} from '../schemas';
+import {
+  createChatSession,
+  getSessionMessages,
+  addSessionMessage,
+  getOrCreateSession,
+} from '../hooks/useSession';
+import {
+  generateAuthMessage,
+  verifyAndConnectWallet,
+} from '../hooks/useAuth';
+import { validateAddress, validateSessionId } from '../utils/validation';
+import { getStateManager } from '../services/state';
+import { createSuccessResponse } from '../utils/response';
 
 export const chatApi = new Hono();
 
@@ -29,62 +43,67 @@ chatApi.use('/*', cors({
 
 // Create session
 chatApi.post('/session', async (c) => {
-  const body = await c.req.json().catch(() => ({})) as { walletAddress?: Address };
+  const rawBody = await c.req.json().catch(() => ({}));
+  const SessionCreateSchema = z.object({
+    walletAddress: z.string().refine((val) => !val || isAddress(val), { message: 'Invalid address' }).optional(),
+  });
+  const body = expectValid(SessionCreateSchema, rawBody, 'create session');
 
-  const session = stateManager.createSession(body.walletAddress);
-
-  const welcome: ChatMessage = {
-    id: crypto.randomUUID(),
-    role: 'assistant',
-    content: body.walletAddress
-      ? `Connected. Ready to trade. Try: \`swap 1 ETH to USDC\``
-      : `Otto here. Type \`help\` or \`connect\` to start.`,
-    timestamp: Date.now(),
-  };
-
-  sessionMessages.set(session.sessionId, [welcome]);
-  return c.json({ sessionId: session.sessionId, messages: [welcome] });
+  const walletAddress = body.walletAddress ? validateAddress(body.walletAddress) as Address : undefined;
+  const { sessionId, messages } = createChatSession(walletAddress);
+  
+  return c.json({ sessionId, messages });
 });
 
 // Get session
 chatApi.get('/session/:id', (c) => {
-  const session = stateManager.getSession(c.req.param('id'));
-  if (!session) return c.json({ error: 'Session not found' }, 404);
+  const sessionIdParam = c.req.param('id');
+  const sessionId = validateSessionId(sessionIdParam);
   
-  const messages = sessionMessages.get(session.sessionId) ?? [];
+  const stateManager = getStateManager();
+  const session = stateManager.getSession(sessionId);
+  
+  if (!session) {
+    return c.json({ error: 'Session not found' }, 404);
+  }
+  
+  const messages = getSessionMessages(sessionId);
+  
   return c.json({ sessionId: session.sessionId, messages, userId: session.userId });
 });
 
 // Send message - USES ELIZA RUNTIME
 chatApi.post('/chat', async (c) => {
-  const body = await c.req.json() as { sessionId?: string; message: string; userId?: string };
-  const walletAddress = c.req.header('X-Wallet-Address') as Address | undefined;
+  const rawBody = await c.req.json();
+  const body = expectValid(ChatRequestSchema, rawBody, 'chat request');
+  
+  const walletAddressHeader = c.req.header('X-Wallet-Address');
+  const walletAddress = walletAddressHeader 
+    ? validateAddress(walletAddressHeader) as Address
+    : undefined;
 
-  let sessionId = body.sessionId ?? c.req.header('X-Session-Id');
-  let session = sessionId ? stateManager.getSession(sessionId) : null;
-
-  if (!session) {
-    session = stateManager.createSession(walletAddress);
-    sessionId = session.sessionId;
-    sessionMessages.set(sessionId, []);
-  }
-
-  const messages = sessionMessages.get(sessionId) ?? [];
+  const { sessionId, session } = getOrCreateSession(
+    body.sessionId ?? c.req.header('X-Session-Id'),
+    walletAddress
+  );
 
   // Add user message
-  const userMsg: ChatMessage = {
+  const userMsg = {
     id: crypto.randomUUID(),
-    role: 'user',
+    role: 'user' as const,
     content: body.message,
     timestamp: Date.now(),
   };
-  messages.push(userMsg);
+  const validatedUserMsg = expectValid(ChatMessageSchema, userMsg, 'user message');
+  addSessionMessage(sessionId, validatedUserMsg);
+
+  const stateManager = getStateManager();
   stateManager.updateSession(sessionId, {});
 
   // Process through ElizaOS-style runtime
   const platformMessage: PlatformMessage = {
     platform: 'web',
-    messageId: userMsg.id,
+    messageId: validatedUserMsg.id,
     channelId: sessionId,
     userId: session.userId,
     content: body.message.trim(),
@@ -95,63 +114,60 @@ chatApi.post('/chat', async (c) => {
   const result = await processMessage(platformMessage);
 
   // Create response
-  const assistantMsg: ChatMessage = {
+  const assistantMsg = {
     id: crypto.randomUUID(),
-    role: 'assistant',
+    role: 'assistant' as const,
     content: result.message,
     timestamp: Date.now(),
   };
-  messages.push(assistantMsg);
+  const validatedAssistantMsg = expectValid(ChatMessageSchema, assistantMsg, 'assistant message');
+  addSessionMessage(sessionId, validatedAssistantMsg);
 
   const requiresAuth = !walletAddress && result.message.toLowerCase().includes('connect');
   const config = getConfig();
 
-  return c.json({
+  const response = {
     sessionId,
-    message: assistantMsg,
+    message: validatedAssistantMsg,
     requiresAuth,
     authUrl: requiresAuth ? `${config.baseUrl}/auth/connect` : undefined,
-  });
+  };
+  
+  return c.json(expectValid(ChatResponseSchema, response, 'chat response'));
 });
 
 // Auth message for signing
 chatApi.get('/auth/message', (c) => {
-  const address = c.req.query('address') as Address;
-  if (!address) return c.json({ error: 'Address required' }, 400);
-
-  const nonce = crypto.randomUUID();
-  const message = `Sign in to Otto\nAddress: ${address}\nNonce: ${nonce}`;
-  return c.json({ message, nonce });
+  const addressParam = c.req.query('address');
+  if (!addressParam) {
+    return c.json({ error: 'Address required' }, 400);
+  }
+  
+  const address = validateAddress(addressParam) as Address;
+  const { message, nonce } = generateAuthMessage(address);
+  const response = { message, nonce };
+  
+  return c.json(expectValid(AuthMessageResponseSchema, response, 'auth message response'));
 });
 
 // Verify signature
 chatApi.post('/auth/verify', async (c) => {
-  const body = await c.req.json() as {
-    address: Address;
-    message: string;
-    signature: Hex;
-    sessionId: string;
-  };
+  const rawBody = await c.req.json();
+  const body = expectValid(AuthVerifyRequestSchema, rawBody, 'auth verify request');
 
-  const valid = await verifyMessage({
-    address: body.address,
-    message: body.message,
-    signature: body.signature,
-  });
+  const result = await verifyAndConnectWallet(
+    body.address,
+    body.message,
+    body.signature,
+    body.sessionId,
+    'web'
+  );
 
-  if (!valid) return c.json({ error: 'Invalid signature' }, 401);
-
-  const session = stateManager.getSession(body.sessionId);
-  if (session) {
-    stateManager.updateSession(body.sessionId, { userId: body.address, walletAddress: body.address });
+  if (!result.success) {
+    return c.json({ error: result.error ?? 'Verification failed' }, 401);
   }
 
-  const nonce = body.message.match(/Nonce: ([a-zA-Z0-9-]+)/)?.[1];
-  if (nonce) {
-    await walletService.verifyAndConnect('web', body.sessionId, body.address, body.address, body.signature, nonce);
-  }
-
-  return c.json({ success: true, address: body.address });
+  return c.json(createSuccessResponse(body.address));
 });
 
 export default chatApi;

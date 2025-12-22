@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '../api';
 import { Shield, Globe, Zap, Gauge, Info, ExternalLink, ChevronRight, Power } from 'lucide-react';
+import { z } from 'zod';
+
+// Schema for boolean responses
+const BooleanResponseSchema = z.boolean();
 
 export function SettingsPanel() {
   const [killSwitch, setKillSwitch] = useState(true);
@@ -9,8 +13,13 @@ export function SettingsPanel() {
   
   // Fetch initial autostart state
   useEffect(() => {
-    invoke<boolean>('get_autostart_enabled').then(setAutoStart).catch(() => {});
+    invoke('get_autostart_enabled', {}, BooleanResponseSchema)
+      .then(setAutoStart)
+      .catch((error: Error) => {
+        throw error; // Fail fast
+      });
   }, []);
+  
   const [minimizeToTray, setMinimizeToTray] = useState(true);
   const [adaptiveMode, setAdaptiveMode] = useState(true);
   const [dwsEnabled, setDwsEnabled] = useState(true);
@@ -105,7 +114,7 @@ export function SettingsPanel() {
             </div>
             <button
               onClick={async () => {
-                const result = await invoke<boolean>('toggle_autostart').catch(() => !autoStart);
+                const result = await invoke('toggle_autostart', {}, BooleanResponseSchema);
                 setAutoStart(result);
               }}
               className={`w-12 h-6 rounded-full transition-colors ${

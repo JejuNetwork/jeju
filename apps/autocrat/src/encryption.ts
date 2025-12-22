@@ -12,8 +12,78 @@
  * FULLY DECENTRALIZED - Uses network-aware endpoints
  */
 
+import { z } from 'zod';
 import { getServiceUrl, getRpcUrl } from '@jejunetwork/config';
 import { keccak256, stringToHex } from 'viem';
+
+// Schemas for JSON parsing
+const EncryptedCiphertextSchema = z.object({
+  ciphertext: z.string(),
+  iv: z.string(),
+  tag: z.string(),
+  version: z.number().optional(),
+});
+
+const DASearchResultSchema = z.object({
+  results: z.array(z.object({
+    keyId: z.string(),
+    dataHash: z.string(),
+    encryptedAt: z.number(),
+    metadata: z.record(z.string(), z.string()),
+  })),
+});
+
+const DARetrieveResultSchema = z.object({
+  data: z.string(),
+});
+
+const DAStoreResultSchema = z.object({
+  keyId: z.string(),
+  dataHash: z.string(),
+});
+
+const DAStoredDataSchema = z.object({
+  encryptedData: z.lazy(() => EncryptedDataSchema),
+});
+
+const EncryptedDataSchema: z.ZodType<EncryptedData> = z.object({
+  ciphertext: z.string(),
+  dataToEncryptHash: z.string(),
+  accessControlConditions: z.array(z.object({
+    contractAddress: z.string(),
+    standardContractType: z.string(),
+    chain: z.string(),
+    method: z.string(),
+    parameters: z.array(z.string()),
+    returnValueTest: z.object({
+      comparator: z.string(),
+      value: z.string(),
+    }),
+  })),
+  chain: z.string(),
+  encryptedAt: z.number(),
+});
+
+const RPCResultSchema = z.object({
+  result: z.string().optional(),
+  error: z.object({ message: z.string() }).optional(),
+});
+
+const DecisionDataSchema = z.object({
+  proposalId: z.string(),
+  approved: z.boolean(),
+  reasoning: z.string(),
+  confidenceScore: z.number(),
+  alignmentScore: z.number(),
+  autocratVotes: z.array(z.object({
+    role: z.string(),
+    vote: z.string(),
+    reasoning: z.string(),
+  })),
+  researchSummary: z.string().optional(),
+  model: z.string(),
+  timestamp: z.number(),
+});
 
 // Types for encrypted data
 interface AccessControlCondition {
@@ -214,11 +284,8 @@ export async function decryptDecision(
   await initEncryption();
   
   const policyHash = keccak256(stringToHex(JSON.stringify(encryptedData.accessControlConditions)));
-  const { ciphertext, iv, tag } = JSON.parse(encryptedData.ciphertext) as {
-    ciphertext: string;
-    iv: string;
-    tag: string;
-  };
+  const rawParsed = JSON.parse(encryptedData.ciphertext);
+  const { ciphertext, iv, tag } = EncryptedCiphertextSchema.parse(rawParsed);
   const decryptedString = await decrypt(ciphertext, iv, tag, policyHash);
 
   return { decryptedString, verified: true };
@@ -228,7 +295,8 @@ export async function decryptDecision(
  * Parse decrypted decision data
  */
 export function parseDecisionData(decryptedString: string): DecisionData {
-  return JSON.parse(decryptedString) as DecisionData;
+  const rawParsed = JSON.parse(decryptedString);
+  return DecisionDataSchema.parse(rawParsed);
 }
 
 /**
@@ -266,11 +334,11 @@ export async function backupToDA(
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`DA backup failed: ${response.status} - ${errorText}`);
+    throw new Error(`DA backup failed: ${response.status}`);
   }
 
-  const result = (await response.json()) as { keyId: string; dataHash: string };
+  const rawResult = await response.json();
+  const result = DAStoreResultSchema.parse(rawResult);
   console.log('[DA] Decision backed up:', result.dataHash);
   return { keyId: result.keyId, hash: result.dataHash };
 }
@@ -293,9 +361,8 @@ export async function retrieveFromDA(proposalId: string): Promise<EncryptedData 
     return null;
   }
 
-  const searchResult = (await searchResponse.json()) as {
-    results: Array<{ keyId: string; dataHash: string; encryptedAt: number; metadata: Record<string, string> }>;
-  };
+  const rawSearchResult = await searchResponse.json();
+  const searchResult = DASearchResultSchema.parse(rawSearchResult);
 
   if (searchResult.results.length === 0) {
     return null;
@@ -317,8 +384,10 @@ export async function retrieveFromDA(proposalId: string): Promise<EncryptedData 
     return null;
   }
 
-  const retrieveResult = (await retrieveResponse.json()) as { data: string };
-  const parsed = JSON.parse(retrieveResult.data) as { encryptedData: EncryptedData };
+  const rawRetrieveResult = await retrieveResponse.json();
+  const retrieveResult = DARetrieveResultSchema.parse(rawRetrieveResult);
+  const rawParsed = JSON.parse(retrieveResult.data);
+  const parsed = DAStoredDataSchema.parse(rawParsed);
   
   return parsed.encryptedData;
 }
@@ -369,7 +438,12 @@ export async function canDecrypt(
     return false;
   }
 
-  const result = (await response.json()) as { result?: string; error?: { message: string } };
+  const rawResult = await response.json();
+  const parseResult = RPCResultSchema.safeParse(rawResult);
+  if (!parseResult.success) {
+    return false;
+  }
+  const result = parseResult.data;
   
   if (result.error || !result.result || result.result === '0x') {
     return false;

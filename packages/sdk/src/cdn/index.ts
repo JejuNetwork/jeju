@@ -11,7 +11,7 @@
 import { type Address, type Hex, encodeFunctionData, parseEther } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
-import { getContract as getContractAddress, getServicesConfig } from "../config";
+import { requireContract } from "../config";
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -97,7 +97,9 @@ export interface CDNModule {
   deactivateProvider(): Promise<Hex>;
 
   // Edge Node Management
-  registerNode(params: RegisterNodeParams): Promise<{ nodeId: Hex; txHash: Hex }>;
+  registerNode(
+    params: RegisterNodeParams,
+  ): Promise<{ nodeId: Hex; txHash: Hex }>;
   getNode(nodeId: Hex): Promise<EdgeNode | null>;
   listNodes(): Promise<EdgeNode[]>;
   listNodesByRegion(region: CDNRegion): Promise<EdgeNode[]>;
@@ -117,8 +119,12 @@ export interface CDNModule {
   purgeAllCache(siteId: Hex): Promise<Hex>;
 
   // Metrics
-  getNodeMetrics(nodeId: Hex): Promise<{ requestsServed: bigint; bandwidthServed: bigint }>;
-  getSiteMetrics(siteId: Hex): Promise<{ requests: bigint; bandwidth: bigint; cacheHitRate: number }>;
+  getNodeMetrics(
+    nodeId: Hex,
+  ): Promise<{ requestsServed: bigint; bandwidthServed: bigint }>;
+  getSiteMetrics(
+    siteId: Hex,
+  ): Promise<{ requests: bigint; bandwidth: bigint; cacheHitRate: number }>;
 
   // Constants
   readonly MIN_NODE_STAKE: bigint;
@@ -204,18 +210,7 @@ export function createCDNModule(
   wallet: JejuWallet,
   network: NetworkType,
 ): CDNModule {
-  const services = getServicesConfig(network);
-
-  const tryGetContract = (category: string, name: string): Address => {
-    try {
-      // @ts-expect-error - category names may vary by deployment
-      return getContractAddress(category, name, network) as Address;
-    } catch {
-      return "0x0000000000000000000000000000000000000000" as Address;
-    }
-  };
-
-  const cdnRegistryAddress = tryGetContract("cdn", "CDNRegistry");
+  const cdnRegistryAddress = requireContract("cdn", "CDNRegistry", network);
 
   const MIN_NODE_STAKE = parseEther("0.001");
   const MIN_PROVIDER_STAKE = parseEther("0.1");
@@ -267,7 +262,7 @@ export function createCDNModule(
         value: params.stake,
       });
 
-      return { nodeId: "0x" + "0".repeat(64) as Hex, txHash };
+      return { nodeId: ("0x" + "0".repeat(64)) as Hex, txHash };
     },
 
     async getNode(_nodeId) {
@@ -316,7 +311,7 @@ export function createCDNModule(
         data,
       });
 
-      return { siteId: "0x" + "0".repeat(64) as Hex, txHash };
+      return { siteId: ("0x" + "0".repeat(64)) as Hex, txHash };
     },
 
     async getSite(_siteId) {
@@ -362,4 +357,3 @@ export function createCDNModule(
     },
   };
 }
-

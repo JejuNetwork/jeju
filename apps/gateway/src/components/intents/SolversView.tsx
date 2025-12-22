@@ -1,6 +1,13 @@
-import { Star, Activity, Clock, TrendingUp, Shield } from 'lucide-react';
+import type { ComponentType } from 'react';
+import { Star, Activity, Clock, TrendingUp, Shield, type LucideProps } from 'lucide-react';
 import { useSolvers, useSolverLeaderboard } from '../../hooks/useIntentAPI';
 import type { Solver } from '@jejunetwork/types';
+
+const TrendingUpIcon = TrendingUp as ComponentType<LucideProps>;
+const StarIcon = Star as ComponentType<LucideProps>;
+const ShieldIcon = Shield as ComponentType<LucideProps>;
+const ActivityIcon = Activity as ComponentType<LucideProps>;
+const ClockIcon = Clock as ComponentType<LucideProps>;
 
 export function SolversView() {
   const { data: solvers, isLoading } = useSolvers({ active: true });
@@ -27,7 +34,7 @@ export function SolversView() {
         backdropFilter: 'blur(8px)',
       }}>
         <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)' }}>
-          <TrendingUp size={18} color="var(--accent-primary)" />
+          <TrendingUpIcon size={18} color="var(--accent-primary)" />
           Top Solvers by Volume
         </h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -89,7 +96,7 @@ export function SolversView() {
                   background: `${getReputationColor(entry.reputation)}20`,
                   borderRadius: '4px',
                 }}>
-                  <Star size={12} color={getReputationColor(entry.reputation)} />
+                  <StarIcon size={12} color={getReputationColor(entry.reputation)} />
                   <span style={{ fontSize: '12px', fontWeight: 500, color: getReputationColor(entry.reputation) }}>
                     {entry.reputation}
                   </span>
@@ -147,7 +154,7 @@ function SolverCard({ solver }: { solver: Solver }) {
             alignItems: 'center',
             justifyContent: 'center',
           }}>
-            <Shield size={24} color="white" />
+            <ShieldIcon size={24} color="white" />
           </div>
           <div>
             <div style={{ fontWeight: 600, fontSize: '16px', color: 'var(--text-primary)' }}>{solver.name}</div>
@@ -166,8 +173,8 @@ function SolverCard({ solver }: { solver: Solver }) {
         gap: '12px',
         marginBottom: '16px',
       }}>
-        <StatBox icon={<Activity size={14} />} label="Total Fills" value={solver.totalFills.toString()} />
-        <StatBox icon={<Clock size={14} />} label="Avg Time" value={`${(solver.avgFillTimeMs / 1000).toFixed(1)}s`} />
+        <StatBox icon={<ActivityIcon size={14} />} label="Total Fills" value={solver.totalFills.toString()} />
+        <StatBox icon={<ClockIcon size={14} />} label="Avg Time" value={`${(solver.avgFillTimeMs / 1000).toFixed(1)}s`} />
         <StatBox label="Success Rate" value={`${solver.successRate}%`} positive />
         <StatBox label="Total Volume" value={`$${formatNumber(parseFloat(solver.totalVolumeUsd))}`} />
       </div>
@@ -210,7 +217,7 @@ function ReputationBadge({ score }: { score: number }) {
       border: `1px solid ${color}40`,
       borderRadius: '20px',
     }}>
-      <Star size={14} color={color} />
+      <StarIcon size={14} color={color} />
       <span style={{ fontSize: '14px', fontWeight: 600, color }}>{score}</span>
     </div>
   );

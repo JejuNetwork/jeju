@@ -162,22 +162,17 @@ class ElizaClient {
 
   // Check if ElizaOS server is available
   async isAvailable(): Promise<boolean> {
-    try {
-      const response = await fetch(`${this.baseUrl}/health`, { method: 'GET' });
-      return response.ok;
-    } catch {
-      return false;
-    }
+    const response = await fetch(`${this.baseUrl}/health`, { method: 'GET' });
+    return response.ok;
   }
 
   // Get available agents
   async getAgents(): Promise<Agent[]> {
-    try {
-      const response = await this.request<{ agents: Agent[] }>('/api/agents');
-      return response.agents || [];
-    } catch {
-      return [];
+    const response = await this.request<{ agents: Agent[] }>('/api/agents');
+    if (!response.agents) {
+      throw new Error('Invalid agents response: missing agents array');
     }
+    return response.agents;
   }
 
   // Agent APIs

@@ -1,0 +1,61 @@
+# Jeju Email - Testnet Values
+global:
+  environment: testnet
+  emailDomain: jeju.mail
+
+relay:
+  replicaCount: 3
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+  env:
+    JEJU_RPC_URL: "https://testnet-rpc.jejunetwork.org"
+    EMAIL_REGISTRY_ADDRESS: ""  # Set after deployment
+    EMAIL_STAKING_ADDRESS: ""   # Set after deployment
+    DWS_ENDPOINT: "https://dws.testnet.jejunetwork.org"
+    MODERATION_MARKETPLACE_ADDRESS: ""
+    CONTENT_SCREENING_ENABLED: "true"
+    AI_MODEL_ENDPOINT: "https://compute.testnet.jejunetwork.org/chat/completions"
+
+imap:
+  enabled: true
+  replicaCount: 2
+
+smtp:
+  enabled: true
+  replicaCount: 2
+
+bridge:
+  enabled: true
+  replicaCount: 2
+  ses:
+    region: us-east-1
+
+secrets:
+  existingSecret: "jeju-email-testnet-secrets"
+
+tls:
+  certManager:
+    enabled: true
+    issuerRef:
+      name: letsencrypt-staging
+      kind: ClusterIssuer
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-staging
+  hosts:
+    - host: mail.testnet.jejunetwork.org
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: jeju-email-testnet-tls
+      hosts:
+        - mail.testnet.jejunetwork.org
+
+monitoring:
+  enabled: true

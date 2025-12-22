@@ -102,7 +102,11 @@ export function initializeIndexer(): void {
   let registeredCount = 0;
   for (const [name, address] of Object.entries(config.contracts)) {
     if (address && typeof address === 'string') {
-      const contractType = CONTRACT_TYPES[name] || 'token';
+      const contractType = CONTRACT_TYPES[name];
+      if (!contractType) {
+        console.warn(`Unknown contract type for '${name}' - add it to CONTRACT_TYPES mapping`);
+        continue; // Skip unknown contracts rather than silently defaulting
+      }
       registerContract({
         address,
         name,

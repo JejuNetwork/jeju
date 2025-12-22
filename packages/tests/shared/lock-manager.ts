@@ -21,36 +21,15 @@ import { existsSync, unlinkSync, writeFileSync, readFileSync, renameSync, mkdirS
 import { hostname } from 'os';
 import { join } from 'path';
 import { randomBytes } from 'crypto';
+import { findJejuWorkspaceRoot } from './utils';
+import { parseLockMetadata, type LockMetadata, type LockManagerOptions } from './schemas';
 
-export interface LockMetadata {
-  pid: number;
-  timestamp: number;
-  hostname: string;
-  command: string;
-}
-
-export interface LockManagerOptions {
-  lockDir?: string;
-  ttlMs?: number;
-  force?: boolean;
-}
+// Re-export types for backwards compatibility
+export type { LockMetadata, LockManagerOptions };
 
 const DEFAULT_TTL_MS = 30 * 60 * 1000; // 30 minutes - adjust if tests take longer
 const LOCK_FILE = '.jeju/.jeju-e2e-test.lock';
 const MAX_ACQUIRE_ATTEMPTS = 3;
-
-function findWorkspaceRoot(): string {
-  let dir = process.cwd();
-  while (dir !== '/') {
-    const pkgPath = join(dir, 'package.json');
-    if (existsSync(pkgPath)) {
-      const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
-      if (pkg.name === 'jeju') return dir;
-    }
-    dir = join(dir, '..');
-  }
-  return process.cwd();
-}
 
 export class LockManager {
   private readonly lockPath: string;
@@ -60,7 +39,7 @@ export class LockManager {
   private cleanupRegistered = false;
 
   constructor(options: LockManagerOptions = {}) {
-    const lockDir = options.lockDir ?? findWorkspaceRoot();
+    const lockDir = options.lockDir ?? findJejuWorkspaceRoot();
     this.lockPath = join(lockDir, LOCK_FILE);
     // Ensure .jeju directory exists
     const jejuDir = join(lockDir, '.jeju');
@@ -76,7 +55,8 @@ export class LockManager {
       return { locked: false };
     }
 
-    const metadata: LockMetadata = JSON.parse(readFileSync(this.lockPath, 'utf-8'));
+    const raw = JSON.parse(readFileSync(this.lockPath, 'utf-8'));
+    const metadata = parseLockMetadata(raw);
     const age = Date.now() - metadata.timestamp;
     const stale = age > this.ttlMs || !this.isProcessRunning(metadata.pid);
 
@@ -109,16 +89,23 @@ export class LockManager {
 
       if (!status.stale && !this.force) {
         const meta = status.metadata;
-        const ageMinutes = meta ? Math.floor((Date.now() - meta.timestamp) / 60000) : 0;
+        if (!meta) {
+          throw new Error('Lock status indicated locked but metadata is missing');
+        }
+        const ageMinutes = Math.floor((Date.now() - meta.timestamp) / 60000);
         return {
           acquired: false,
           blockedBy: meta,
-          message: `E2E tests already running (PID: ${meta?.pid}, ${ageMinutes}m ago). Use --force to override.`,
+          message: `E2E tests already running (PID: ${meta.pid}, ${ageMinutes}m ago). Use --force to override.`,
         };
       }
 
       // Stale or force - try to claim it atomically
-      console.log(`[LockManager] Cleaning stale lock from PID ${status.metadata?.pid}`);
+      const staleMeta = status.metadata;
+      if (!staleMeta) {
+        throw new Error('Lock status indicated locked but metadata is missing');
+      }
+      console.log(`[LockManager] Cleaning stale lock from PID ${staleMeta.pid}`);
       if (this.tryAtomicReplace(metadata)) {
         this.isLockOwner = true;
         this.registerCleanupHandlers();
@@ -153,24 +140,35 @@ export class LockManager {
 
   private tryAtomicReplace(metadata: LockMetadata): boolean {
     const tempPath = `${this.lockPath}.${randomBytes(8).toString('hex')}`;
+    
+    // Ensure directory exists
+    const lockDir = join(this.lockPath, '..');
+    if (lockDir !== this.lockPath && !existsSync(lockDir)) {
+      mkdirSync(lockDir, { recursive: true });
+    }
+    
+    writeFileSync(tempPath, JSON.stringify(metadata, null, 2));
+    
     try {
-      // Ensure directory exists
-      const lockDir = join(this.lockPath, '..');
-      if (lockDir !== this.lockPath && !existsSync(lockDir)) {
-        mkdirSync(lockDir, { recursive: true });
-      }
-      writeFileSync(tempPath, JSON.stringify(metadata, null, 2));
       // Atomic rename - if lock was modified by another process, this still works
       // but we verify ownership after
       renameSync(tempPath, this.lockPath);
-      
-      // Verify we own it (another process could have done same thing)
-      const current = JSON.parse(readFileSync(this.lockPath, 'utf-8')) as LockMetadata;
-      return current.pid === process.pid && current.timestamp === metadata.timestamp;
-    } catch {
-      try { unlinkSync(tempPath); } catch { /* ignore */ }
-      return false;
+    } catch (e) {
+      // Clean up temp file on rename failure
+      if (existsSync(tempPath)) {
+        unlinkSync(tempPath);
+      }
+      // ENOENT means another process already replaced the lock - that's a race we lost
+      if ((e as NodeJS.ErrnoException).code === 'ENOENT') {
+        return false;
+      }
+      throw e;
     }
+    
+    // Verify we own it (another process could have done same thing)
+    const raw = JSON.parse(readFileSync(this.lockPath, 'utf-8'));
+    const current = parseLockMetadata(raw);
+    return current.pid === process.pid && current.timestamp === metadata.timestamp;
   }
 
   releaseLock(): boolean {
@@ -178,7 +176,8 @@ export class LockManager {
       return false;
     }
 
-    const metadata: LockMetadata = JSON.parse(readFileSync(this.lockPath, 'utf-8'));
+    const raw = JSON.parse(readFileSync(this.lockPath, 'utf-8'));
+    const metadata = parseLockMetadata(raw);
     if (metadata.pid !== process.pid) {
       return false;
     }

@@ -1,5 +1,8 @@
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { parseEther } from 'viem'
+import { AddressSchema } from '@jejunetwork/types/contracts'
+import { expect, expectPositive, expectTrue } from '@/lib/validation'
+import { NonEmptyStringSchema } from '@/schemas/common'
 import { toast } from 'sonner'
 import NFTMarketplaceABI from '@/lib/abis/NFTMarketplace.json'
 import { CONTRACTS } from '@/config'
@@ -15,26 +18,29 @@ export function useNFTOffer() {
     tokenId: bigint,
     offerPriceETH: string
   ) => {
-    if (MARKETPLACE_ADDRESS === '0x0') {
-      toast.error('Marketplace not deployed')
-      return
-    }
+    const validatedNftContract = AddressSchema.parse(nftContract);
+    expectPositive(tokenId, 'Token ID must be positive');
+    const validatedOfferPriceETH = NonEmptyStringSchema.parse(offerPriceETH);
+    const validatedMarketplace = AddressSchema.parse(MARKETPLACE_ADDRESS);
+    expectTrue(validatedMarketplace !== '0x0000000000000000000000000000000000000000', 'Marketplace not deployed');
 
-    const price = parseEther(offerPriceETH)
+    const price = parseEther(validatedOfferPriceETH)
 
     writeContract({
-      address: MARKETPLACE_ADDRESS,
+      address: validatedMarketplace,
       abi: NFTMarketplaceABI,
       functionName: 'makeOffer',
-      args: [nftContract, tokenId, price],
+      args: [validatedNftContract, tokenId, price],
       value: price
     })
     toast.success('Offer submitted')
   }
 
   const acceptOffer = (offerId: bigint) => {
+    expectPositive(offerId, 'Offer ID must be positive');
+    const validatedMarketplace = AddressSchema.parse(MARKETPLACE_ADDRESS);
     writeContract({
-      address: MARKETPLACE_ADDRESS,
+      address: validatedMarketplace,
       abi: NFTMarketplaceABI,
       functionName: 'acceptOffer',
       args: [offerId]

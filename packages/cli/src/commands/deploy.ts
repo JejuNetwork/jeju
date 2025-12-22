@@ -313,17 +313,6 @@ export const deployCommand = new Command('deploy')
     }
   });
 
-function findMonorepoRootLocal(): string {
-  let dir = process.cwd();
-  while (dir !== '/') {
-    if (existsSync(join(dir, 'bun.lock')) && existsSync(join(dir, 'packages'))) {
-      return dir;
-    }
-    dir = join(dir, '..');
-  }
-  return process.cwd();
-}
-
 async function runDeployContracts(rootDir: string, network: NetworkType, dryRun: boolean): Promise<void> {
   logger.subheader('Contracts');
   

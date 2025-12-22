@@ -7,10 +7,10 @@
  * - Multi-token support with Chainlink price oracles
  */
 
-import { type Address, type Hex, encodeFunctionData, parseEther } from "viem";
+import { type Address, type Hex, encodeFunctionData } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
-import { getContract as getContractAddress, getServicesConfig } from "../config";
+import { requireContract } from "../config";
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -109,7 +109,9 @@ export interface OTCModule {
   getTokenPrice(tokenId: Hex): Promise<bigint>;
 
   // Consignments
-  createConsignment(params: CreateConsignmentParams): Promise<{ consignmentId: bigint; txHash: Hex }>;
+  createConsignment(
+    params: CreateConsignmentParams,
+  ): Promise<{ consignmentId: bigint; txHash: Hex }>;
   getConsignment(consignmentId: bigint): Promise<Consignment | null>;
   listActiveConsignments(): Promise<Consignment[]>;
   listMyConsignments(): Promise<Consignment[]>;
@@ -117,7 +119,9 @@ export interface OTCModule {
   topUpConsignment(consignmentId: bigint, amount: bigint): Promise<Hex>;
 
   // Offers
-  createOffer(params: CreateOfferParams): Promise<{ offerId: bigint; txHash: Hex }>;
+  createOffer(
+    params: CreateOfferParams,
+  ): Promise<{ offerId: bigint; txHash: Hex }>;
   getOffer(offerId: bigint): Promise<Offer | null>;
   listMyOffers(): Promise<Offer[]>;
   listPendingOffers(): Promise<Offer[]>;
@@ -128,7 +132,12 @@ export interface OTCModule {
   cancelOffer(offerId: bigint): Promise<Hex>;
 
   // Quotes
-  getQuote(consignmentId: bigint, tokenAmount: bigint, discountBps: number, currency: PaymentCurrency): Promise<{
+  getQuote(
+    consignmentId: bigint,
+    tokenAmount: bigint,
+    discountBps: number,
+    currency: PaymentCurrency,
+  ): Promise<{
     priceUsd: bigint;
     paymentAmount: bigint;
     currency: PaymentCurrency;
@@ -322,16 +331,7 @@ export function createOTCModule(
   wallet: JejuWallet,
   network: NetworkType,
 ): OTCModule {
-  const tryGetContract = (category: string, name: string): Address => {
-    try {
-      // @ts-expect-error - category names may vary by deployment
-      return getContractAddress(category, name, network) as Address;
-    } catch {
-      return "0x0000000000000000000000000000000000000000" as Address;
-    }
-  };
-
-  const otcAddress = tryGetContract("otc", "OTC");
+  const otcAddress = requireContract("otc", "OTC", network);
 
   async function readConsignment(id: bigint): Promise<Consignment | null> {
     const result = await wallet.publicClient.readContract({
@@ -378,7 +378,8 @@ export function createOTCModule(
         args: [tokenId],
       });
 
-      if (result[0] === "0x0000000000000000000000000000000000000000") return null;
+      if (result[0] === "0x0000000000000000000000000000000000000000")
+        return null;
 
       return {
         tokenId,
@@ -498,7 +499,7 @@ export function createOTCModule(
     },
 
     async listMyOffers() {
-      const ids = await wallet.publicClient.readContract({
+      await wallet.publicClient.readContract({
         address: otcAddress,
         abi: OTC_ABI,
         functionName: "getBeneficiaryOffers",
@@ -508,7 +509,7 @@ export function createOTCModule(
     },
 
     async listPendingOffers() {
-      const ids = await wallet.publicClient.readContract({
+      await wallet.publicClient.readContract({
         address: otcAddress,
         abi: OTC_ABI,
         functionName: "getOpenOfferIds",
@@ -579,4 +580,3 @@ export function createOTCModule(
     },
   };
 }
-

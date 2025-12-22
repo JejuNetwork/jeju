@@ -43,6 +43,20 @@ const ProxyConfigSchema = z.object({
 
 export type ProxyConfig = z.infer<typeof ProxyConfigSchema>;
 
+// Schema for auth tokens
+const AuthTokenSchema = z.object({
+  nodeId: z.string().min(1),
+  requestId: z.string().min(1),
+  timestamp: z.number().int().positive(),
+  signature: z.string().min(1),
+});
+
+// Schema for coordinator messages
+const CoordinatorMessageSchema = z.object({
+  type: z.string().min(1),
+  domain: z.string().optional(),
+}).passthrough();
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -55,13 +69,6 @@ export interface ProxyState {
   totalBytesTransferred: number;
   currentConnections: number;
   earnings: bigint;
-}
-
-interface AuthToken {
-  nodeId: string;
-  requestId: string;
-  timestamp: number;
-  signature: string;
 }
 
 // ============================================================================
@@ -414,7 +421,7 @@ export class ResidentialProxyService {
     }
 
     try {
-      const token: AuthToken = JSON.parse(Buffer.from(authHeader, 'base64').toString());
+      const token = AuthTokenSchema.parse(JSON.parse(Buffer.from(authHeader, 'base64').toString()));
 
       // Check token hasn't expired
       if (Date.now() - token.timestamp > this.config.authTokenTtlMs) {
@@ -709,7 +716,7 @@ export class ResidentialProxyService {
         });
 
         ws.on('message', (data) => {
-          const message = JSON.parse(data.toString());
+          const message = CoordinatorMessageSchema.parse(JSON.parse(data.toString()));
           this.handleCoordinatorMessage(message);
         });
 
@@ -737,7 +744,7 @@ export class ResidentialProxyService {
     }
   }
 
-  private handleCoordinatorMessage(message: { type: string; [key: string]: unknown }): void {
+  private handleCoordinatorMessage(message: z.infer<typeof CoordinatorMessageSchema>): void {
     switch (message.type) {
       case 'registered':
         console.log('[Proxy] Registered with coordinator');

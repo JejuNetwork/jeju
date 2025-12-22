@@ -35,14 +35,15 @@ export type CountryCode = z.infer<typeof CountryCodeSchema>;
 /**
  * Legal status for VPN operations in each country
  */
-export interface CountryLegalStatus {
-  countryCode: CountryCode;
-  vpnLegal: boolean;
-  canBeExitNode: boolean;
-  canBeClient: boolean;
-  requiresExtraConsent: boolean;
-  notes: string;
-}
+export const CountryLegalStatusSchema = z.object({
+  countryCode: CountryCodeSchema,
+  vpnLegal: z.boolean(),
+  canBeExitNode: z.boolean(),
+  canBeClient: z.boolean(),
+  requiresExtraConsent: z.boolean(),
+  notes: z.string(),
+});
+export type CountryLegalStatus = z.infer<typeof CountryLegalStatusSchema>;
 
 /**
  * Countries where VPN exit is allowed
@@ -110,55 +111,59 @@ export const VPNNodeStatusSchema = z.enum([
 ]);
 export type VPNNodeStatus = z.infer<typeof VPNNodeStatusSchema>;
 
+import { HexSchema } from './validation';
+
 /**
  * VPN node registered on-chain
  */
-export interface VPNNode {
+export const VPNNodeSchema = z.object({
   // Identity
-  nodeId: `0x${string}`;
-  operator: `0x${string}`;
-  agentId?: bigint;           // ERC-8004 agent ID if registered
+  nodeId: HexSchema,
+  operator: HexSchema,
+  agentId: z.bigint().optional(),           // ERC-8004 agent ID if registered
 
   // Location
-  countryCode: CountryCode;
-  regionCode: string;         // More specific region (e.g., 'us-east-1')
+  countryCode: CountryCodeSchema,
+  regionCode: z.string(),         // More specific region (e.g., 'us-east-1')
 
   // Network
-  endpoint: string;           // Public endpoint for connections
-  wireguardPubKey?: string;   // WireGuard public key
-  port: number;
+  endpoint: z.string(),           // Public endpoint for connections
+  wireguardPubKey: z.string().optional(),   // WireGuard public key
+  port: z.number().int().positive(),
 
   // Capabilities
-  nodeType: VPNNodeType;
-  capabilities: VPNCapability[];
-  maxBandwidthMbps: number;
-  maxConnections: number;
+  nodeType: VPNNodeTypeSchema,
+  capabilities: z.array(VPNCapabilitySchema),
+  maxBandwidthMbps: z.number().positive(),
+  maxConnections: z.number().int().positive(),
 
   // Staking
-  stake: bigint;
-  registeredAt: number;
+  stake: z.bigint(),
+  registeredAt: z.number(),
 
   // Status
-  status: VPNNodeStatus;
-  lastSeen: number;
+  status: VPNNodeStatusSchema,
+  lastSeen: z.number(),
 
   // Metrics
-  totalBytesServed: bigint;
-  totalSessions: bigint;
-  successRate: number;        // 0-100
-  avgLatencyMs: number;
-}
+  totalBytesServed: z.bigint(),
+  totalSessions: z.bigint(),
+  successRate: z.number().min(0).max(100),        // 0-100
+  avgLatencyMs: z.number().nonnegative(),
+});
+export type VPNNode = z.infer<typeof VPNNodeSchema>;
 
 /**
  * Node info for display in UI
  */
-export interface VPNNodeInfo {
-  node: VPNNode;
-  latencyMs: number;          // Current latency to this node
-  load: number;               // Current load 0-100
-  recommended: boolean;       // Algorithm recommends this node
-  reputationScore: number;    // 0-100 based on history
-}
+export const VPNNodeInfoSchema = z.object({
+  node: VPNNodeSchema,
+  latencyMs: z.number().nonnegative(),          // Current latency to this node
+  load: z.number().min(0).max(100),               // Current load 0-100
+  recommended: z.boolean(),       // Algorithm recommends this node
+  reputationScore: z.number().min(0).max(100),    // 0-100 based on history
+});
+export type VPNNodeInfo = z.infer<typeof VPNNodeInfoSchema>;
 
 // ============================================================================
 // Fair Contribution Model
@@ -172,50 +177,52 @@ export interface VPNNodeInfo {
  * - Contribution capped at 3x their VPN usage
  * - Contribution includes: CDN serving + VPN relay (where legal)
  */
-export interface ContributionQuota {
+export const ContributionQuotaSchema = z.object({
   // Usage tracking
-  vpnBytesUsed: bigint;           // How much VPN data user has consumed
-  contributionCap: bigint;         // vpnBytesUsed * 3 = max contribution
-  bytesContributed: bigint;        // How much user has contributed
+  vpnBytesUsed: z.bigint(),           // How much VPN data user has consumed
+  contributionCap: z.bigint(),         // vpnBytesUsed * 3 = max contribution
+  bytesContributed: z.bigint(),        // How much user has contributed
 
   // Contribution breakdown
-  cdnBytesServed: bigint;          // Static assets served
-  relayBytesServed: bigint;        // VPN relay traffic (where legal)
+  cdnBytesServed: z.bigint(),          // Static assets served
+  relayBytesServed: z.bigint(),        // VPN relay traffic (where legal)
 
   // Status
-  quotaRemaining: bigint;          // contributionCap - bytesContributed
-  isContributing: boolean;         // Currently sharing resources
-  contributionPaused: boolean;     // User manually paused
+  quotaRemaining: z.bigint(),          // contributionCap - bytesContributed
+  isContributing: z.boolean(),         // Currently sharing resources
+  contributionPaused: z.boolean(),     // User manually paused
 
   // Period
-  periodStart: number;             // Timestamp of period start
-  periodEnd: number;               // Resets monthly
-}
+  periodStart: z.number(),             // Timestamp of period start
+  periodEnd: z.number(),               // Resets monthly
+});
+export type ContributionQuota = z.infer<typeof ContributionQuotaSchema>;
 
 /**
  * Contribution settings for user
  */
-export interface ContributionSettings {
+export const ContributionSettingsSchema = z.object({
   // Auto contribution (default enabled)
-  enableAutoContribution: boolean;
+  enableAutoContribution: z.boolean(),
 
   // Bandwidth limits
-  maxBandwidthPercent: number;     // Default 10%, max bandwidth to share
-  maxBandwidthMbps: number;        // Absolute cap in Mbps
+  maxBandwidthPercent: z.number().min(0).max(100),     // Default 10%, max bandwidth to share
+  maxBandwidthMbps: z.number().positive(),        // Absolute cap in Mbps
 
   // What to share
-  shareCDN: boolean;               // Share static asset serving (default true)
-  shareVPNRelay: boolean;          // Share VPN relay where legal (default true based on country)
+  shareCDN: z.boolean(),               // Share static asset serving (default true)
+  shareVPNRelay: z.boolean(),          // Share VPN relay where legal (default true based on country)
 
   // Schedule
-  enableSchedule: boolean;
-  scheduleStart: string;           // e.g., "22:00" - start sharing at 10pm
-  scheduleEnd: string;             // e.g., "06:00" - stop at 6am
+  enableSchedule: z.boolean(),
+  scheduleStart: z.string(),           // e.g., "22:00" - start sharing at 10pm
+  scheduleEnd: z.string(),             // e.g., "06:00" - stop at 6am
 
   // Earning mode (opt-in for more contribution)
-  earningModeEnabled: boolean;
-  earningBandwidthPercent: number; // Higher than default when earning
-}
+  earningModeEnabled: z.boolean(),
+  earningBandwidthPercent: z.number().min(0).max(100), // Higher than default when earning
+});
+export type ContributionSettings = z.infer<typeof ContributionSettingsSchema>;
 
 export const DEFAULT_CONTRIBUTION_SETTINGS: ContributionSettings = {
   enableAutoContribution: true,
@@ -253,24 +260,25 @@ export type VPNConnectionStatus = z.infer<typeof VPNConnectionStatusSchema>;
 /**
  * VPN connection options
  */
-export interface VPNConnectOptions {
+export const VPNConnectOptionsSchema = z.object({
   // Node selection
-  nodeId?: `0x${string}`;     // Specific node to connect to
-  countryCode?: CountryCode;   // Preferred country
-  regionCode?: string;         // Preferred region
+  nodeId: HexSchema.optional(),     // Specific node to connect to
+  countryCode: CountryCodeSchema.optional(),   // Preferred country
+  regionCode: z.string().optional(),         // Preferred region
 
   // Protocol
-  protocol: VPNProtocol;
+  protocol: VPNProtocolSchema,
 
   // Features
-  killSwitch: boolean;         // Block traffic if VPN disconnects
-  splitTunnel: string[];       // Apps/domains to exclude from VPN
-  dns: string[];               // Custom DNS servers
+  killSwitch: z.boolean(),         // Block traffic if VPN disconnects
+  splitTunnel: z.array(z.string()),       // Apps/domains to exclude from VPN
+  dns: z.array(z.string()),               // Custom DNS servers
 
   // Auto-reconnect
-  autoReconnect: boolean;
-  reconnectAttempts: number;
-}
+  autoReconnect: z.boolean(),
+  reconnectAttempts: z.number().int().positive(),
+});
+export type VPNConnectOptions = z.infer<typeof VPNConnectOptionsSchema>;
 
 export const DEFAULT_VPN_CONNECT_OPTIONS: VPNConnectOptions = {
   protocol: 'wireguard',
@@ -284,31 +292,32 @@ export const DEFAULT_VPN_CONNECT_OPTIONS: VPNConnectOptions = {
 /**
  * Active VPN connection
  */
-export interface VPNConnection {
+export const VPNConnectionSchema = z.object({
   // Connection info
-  connectionId: string;
-  status: VPNConnectionStatus;
-  connectedAt?: number;
-  disconnectedAt?: number;
+  connectionId: z.string(),
+  status: VPNConnectionStatusSchema,
+  connectedAt: z.number().optional(),
+  disconnectedAt: z.number().optional(),
 
   // Node info
-  node: VPNNode;
-  protocol: VPNProtocol;
+  node: VPNNodeSchema,
+  protocol: VPNProtocolSchema,
 
   // Network
-  localIP?: string;            // Assigned IP in VPN network
-  publicIP?: string;           // Exit node's public IP
-  latencyMs: number;
+  localIP: z.string().optional(),            // Assigned IP in VPN network
+  publicIP: z.string().optional(),           // Exit node's public IP
+  latencyMs: z.number().nonnegative(),
 
   // Stats
-  bytesUp: bigint;
-  bytesDown: bigint;
-  packetsUp: bigint;
-  packetsDown: bigint;
+  bytesUp: z.bigint(),
+  bytesDown: z.bigint(),
+  packetsUp: z.bigint(),
+  packetsDown: z.bigint(),
 
   // Error
-  error?: string;
-}
+  error: z.string().optional(),
+});
+export type VPNConnection = z.infer<typeof VPNConnectionSchema>;
 
 // ============================================================================
 // WireGuard Types
@@ -317,59 +326,63 @@ export interface VPNConnection {
 /**
  * WireGuard peer configuration
  */
-export interface WireGuardPeer {
-  publicKey: string;
-  endpoint: string;            // host:port
-  allowedIPs: string[];        // e.g., ['0.0.0.0/0', '::/0']
-  persistentKeepalive?: number; // seconds
-}
+export const WireGuardPeerSchema = z.object({
+  publicKey: z.string(),
+  endpoint: z.string(),            // host:port
+  allowedIPs: z.array(z.string()),        // e.g., ['0.0.0.0/0', '::/0']
+  persistentKeepalive: z.number().int().positive().optional(), // seconds
+});
+export type WireGuardPeer = z.infer<typeof WireGuardPeerSchema>;
 
 /**
  * WireGuard interface configuration
  */
-export interface WireGuardConfig {
-  privateKey: string;
-  address: string[];           // e.g., ['10.0.0.2/24']
-  dns: string[];
-  mtu?: number;
-  peers: WireGuardPeer[];
-}
+export const WireGuardConfigSchema = z.object({
+  privateKey: z.string(),
+  address: z.array(z.string()),           // e.g., ['10.0.0.2/24']
+  dns: z.array(z.string()),
+  mtu: z.number().int().positive().optional(),
+  peers: z.array(WireGuardPeerSchema),
+});
+export type WireGuardConfig = z.infer<typeof WireGuardConfigSchema>;
 
 // ============================================================================
 // VPN SDK Types
 // ============================================================================
 
-export interface VPNClientConfig {
+export const VPNClientConfigSchema = z.object({
   // Network
-  rpcUrl: string;
-  chainId: number;
+  rpcUrl: z.string().url(),
+  chainId: z.number().int().positive(),
 
   // Contracts
-  contracts: {
-    vpnRegistry: `0x${string}`;
-    vpnBilling: `0x${string}`;
-  };
+  contracts: z.object({
+    vpnRegistry: HexSchema,
+    vpnBilling: HexSchema,
+  }),
 
   // Discovery
-  coordinatorUrl?: string;     // WebSocket URL for node discovery
-  bootstrapNodes?: string[];   // Initial nodes to connect to
+  coordinatorUrl: z.string().url().optional(),     // WebSocket URL for node discovery
+  bootstrapNodes: z.array(z.string()).optional(),   // Initial nodes to connect to
 
   // Defaults
-  defaultCountry?: CountryCode;
-  defaultProtocol?: VPNProtocol;
-}
+  defaultCountry: CountryCodeSchema.optional(),
+  defaultProtocol: VPNProtocolSchema.optional(),
+});
+export type VPNClientConfig = z.infer<typeof VPNClientConfigSchema>;
 
 /**
  * Node query options
  */
-export interface VPNNodeQuery {
-  countryCode?: CountryCode;
-  regionCode?: string;
-  capabilities?: VPNCapability[];
-  minBandwidthMbps?: number;
-  maxLatencyMs?: number;
-  limit?: number;
-}
+export const VPNNodeQuerySchema = z.object({
+  countryCode: CountryCodeSchema.optional(),
+  regionCode: z.string().optional(),
+  capabilities: z.array(VPNCapabilitySchema).optional(),
+  minBandwidthMbps: z.number().positive().optional(),
+  maxLatencyMs: z.number().positive().optional(),
+  limit: z.number().int().positive().optional(),
+});
+export type VPNNodeQuery = z.infer<typeof VPNNodeQuerySchema>;
 
 // ============================================================================
 // Earnings and Billing
@@ -378,19 +391,20 @@ export interface VPNNodeQuery {
 /**
  * Pricing for VPN services
  */
-export interface VPNPricing {
+export const VPNPricingSchema = z.object({
   // Client costs (for paid tier)
-  pricePerGBClient: bigint;
-  pricePerHourClient: bigint;
+  pricePerGBClient: z.bigint(),
+  pricePerHourClient: z.bigint(),
 
   // Provider earnings
-  providerSharePercent: number;    // 85%
-  protocolFeePercent: number;      // 10%
-  treasuryFeePercent: number;      // 5%
+  providerSharePercent: z.number().min(0).max(100),    // 85%
+  protocolFeePercent: z.number().min(0).max(100),      // 10%
+  treasuryFeePercent: z.number().min(0).max(100),      // 5%
 
   // Bonus for CDN
-  cdnBonusMultiplier: number;      // 1.2x for serving popular assets
-}
+  cdnBonusMultiplier: z.number().positive(),      // 1.2x for serving popular assets
+});
+export type VPNPricing = z.infer<typeof VPNPricingSchema>;
 
 export const DEFAULT_VPN_PRICING: VPNPricing = {
   pricePerGBClient: BigInt('100000000000000'),      // 0.0001 ETH/GB
@@ -404,60 +418,65 @@ export const DEFAULT_VPN_PRICING: VPNPricing = {
 /**
  * Provider earnings
  */
-export interface VPNProviderEarnings {
+export const VPNProviderEarningsSchema = z.object({
   // Period
-  periodStart: number;
-  periodEnd: number;
+  periodStart: z.number(),
+  periodEnd: z.number(),
 
   // Earnings breakdown
-  vpnRelayEarnings: bigint;
-  cdnServingEarnings: bigint;
-  totalEarnings: bigint;
+  vpnRelayEarnings: z.bigint(),
+  cdnServingEarnings: z.bigint(),
+  totalEarnings: z.bigint(),
 
   // Stats
-  totalBytesServed: bigint;
-  totalSessions: number;
-  uniqueClients: number;
+  totalBytesServed: z.bigint(),
+  totalSessions: z.number().int().nonnegative(),
+  uniqueClients: z.number().int().nonnegative(),
 
   // Pending
-  pendingWithdrawal: bigint;
-  lastWithdrawal?: number;
-}
+  pendingWithdrawal: z.bigint(),
+  lastWithdrawal: z.number().optional(),
+});
+export type VPNProviderEarnings = z.infer<typeof VPNProviderEarningsSchema>;
 
 // ============================================================================
 // Events
 // ============================================================================
 
-export interface VPNNodeRegisteredEvent {
-  nodeId: `0x${string}`;
-  operator: `0x${string}`;
-  countryCode: CountryCode;
-  stake: bigint;
-  timestamp: number;
-}
+export const VPNNodeRegisteredEventSchema = z.object({
+  nodeId: HexSchema,
+  operator: HexSchema,
+  countryCode: CountryCodeSchema,
+  stake: z.bigint(),
+  timestamp: z.number(),
+});
+export type VPNNodeRegisteredEvent = z.infer<typeof VPNNodeRegisteredEventSchema>;
 
-export interface VPNSessionStartedEvent {
-  sessionId: string;
-  clientId: `0x${string}`;
-  nodeId: `0x${string}`;
-  protocol: VPNProtocol;
-  timestamp: number;
-}
+export const VPNSessionStartedEventSchema = z.object({
+  sessionId: z.string(),
+  clientId: HexSchema,
+  nodeId: HexSchema,
+  protocol: VPNProtocolSchema,
+  timestamp: z.number(),
+});
+export type VPNSessionStartedEvent = z.infer<typeof VPNSessionStartedEventSchema>;
 
-export interface VPNSessionEndedEvent {
-  sessionId: string;
-  bytesUp: bigint;
-  bytesDown: bigint;
-  durationSeconds: number;
-  successful: boolean;
-  timestamp: number;
-}
+export const VPNSessionEndedEventSchema = z.object({
+  sessionId: z.string(),
+  bytesUp: z.bigint(),
+  bytesDown: z.bigint(),
+  durationSeconds: z.number().nonnegative(),
+  successful: z.boolean(),
+  timestamp: z.number(),
+});
+export type VPNSessionEndedEvent = z.infer<typeof VPNSessionEndedEventSchema>;
 
-export interface VPNPaymentEvent {
-  sessionId: string;
-  payer: `0x${string}`;
-  provider: `0x${string}`;
-  amount: bigint;
-  timestamp: number;
-}
+export const VPNPaymentEventSchema = z.object({
+  sessionId: z.string(),
+  payer: HexSchema,
+  provider: HexSchema,
+  amount: z.bigint(),
+  timestamp: z.number(),
+});
+export type VPNPaymentEvent = z.infer<typeof VPNPaymentEventSchema>;
 

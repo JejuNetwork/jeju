@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeAll } from 'bun:test';
-import { createPublicClient, createWalletClient, http, parseAbi, readContract, writeContract, waitForTransactionReceipt, getLogs, decodeEventLog, keccak256, stringToBytes, type Address } from 'viem';
+import { createPublicClient, createWalletClient, http, parseAbi, waitForTransactionReceipt, getLogs, decodeEventLog, type Address } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
 import { 

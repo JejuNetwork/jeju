@@ -12,8 +12,8 @@
  * 7. Withdraw stakes
  */
 
-import { describe, it, beforeAll, afterAll, expect } from 'bun:test';
-import { createWalletClient, createPublicClient, http, parseEther } from 'viem';
+import { describe, it, beforeAll, afterAll } from 'bun:test';
+import { createWalletClient, createPublicClient, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { JEJU_LOCALNET, TEST_WALLETS } from '../shared/constants';
 
@@ -74,13 +74,13 @@ describe.skipIf(!servicesAvailable)('Deep Integration E2E', () => {
     console.log('\n📱 Registering Bazaar...');
 
     const account = privateKeyToAccount(PRIVATE_KEY);
-    const walletClient = createWalletClient({
+    const _walletClient = createWalletClient({
       account,
       transport: http(RPC_URL),
     });
 
     // Approve elizaOS tokens
-    const elizaOSAddress = process.env.ELIZAOS_TOKEN_ADDRESS as `0x${string}`;
+    const _elizaOSAddress = process.env.ELIZAOS_TOKEN_ADDRESS as `0x${string}`;
     
     // Calculate required stake (35 elizaOS for $3.50)
     // const requiredStake = await calculateRequiredStake(elizaOSAddress);
@@ -125,7 +125,7 @@ describe.skipIf(!servicesAvailable)('Deep Integration E2E', () => {
   it('should discover apps via registry contract', async () => {
     console.log('\n🔍 Agent discovering apps...');
 
-    const publicClient = createPublicClient({
+    const _publicClient = createPublicClient({
       transport: http(RPC_URL),
     });
 
@@ -148,7 +148,7 @@ describe.skipIf(!servicesAvailable)('Deep Integration E2E', () => {
   it('should fetch A2A endpoints from metadata', async () => {
     console.log('\n🔗 Fetching A2A endpoints...');
 
-    const publicClient = createPublicClient({
+    const _publicClient = createPublicClient({
       transport: http(RPC_URL),
     });
 
@@ -230,13 +230,13 @@ describe.skipIf(!servicesAvailable)('Deep Integration E2E', () => {
     console.log('\n💰 Testing stake withdrawal...');
 
     const account = privateKeyToAccount(PRIVATE_KEY);
-    const walletClient = createWalletClient({
+    const _walletClient = createWalletClient({
       account,
       transport: http(RPC_URL),
     });
 
     // Get initial balance
-    const publicClient = createPublicClient({
+    const _publicClient = createPublicClient({
       transport: http(RPC_URL),
     });
 

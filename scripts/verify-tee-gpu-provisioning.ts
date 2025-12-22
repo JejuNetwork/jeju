@@ -89,7 +89,6 @@ const _walletClient = createWalletClient({
 });
 
 let provider: TEEGPUProvider;
-let dwsAvailable = false;
 
 // ============================================================================
 // Tests
@@ -139,8 +138,6 @@ async function testDWSRegistration() {
         capabilities: ['tee', GPUType.H200, 'fp8', 'tensor-cores'],
       }),
     });
-
-    dwsAvailable = true;
 
     // Allow 404 if route doesn't exist yet
     if (!response.ok && response.status !== 404) {

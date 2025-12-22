@@ -7,7 +7,7 @@ import { $ } from "bun";
 
 const ENCLAVE_NAME = "jeju-localnet";
 
-async function main() {
+async function main(): Promise<void> {
   console.log("🛑 Stopping Network Localnet...\n");
 
   const result = await $`kurtosis enclave rm -f ${ENCLAVE_NAME}`.nothrow();

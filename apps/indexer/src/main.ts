@@ -106,7 +106,10 @@ processor.run(new TypeormDatabase({supportHotBlocks: true}), async (ctx: Process
         if (dataSource) {
             cqlSync.initialize(dataSource as Parameters<typeof cqlSync.initialize>[0])
                 .then(() => cqlSync.start())
-                .catch((err: Error) => ctx.log.warn(`CQL sync failed to start: ${err.message}`));
+                .catch((err: Error) => {
+                    // Log error but don't crash - CQL sync is optional enhancement
+                    ctx.log.error(`CQL sync initialization failed: ${err.message}. Continuing without decentralized reads.`);
+                });
         }
     }
     const blocks: Block[] = []

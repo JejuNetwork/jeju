@@ -154,10 +154,18 @@ export class TestOrchestrator {
       try {
         logger.step('Running preflight checks...');
         const envVars = this.getEnvVars();
+        const rpcUrl = envVars.L2_RPC_URL ?? envVars.JEJU_RPC_URL;
+        if (!rpcUrl) {
+          throw new Error('No RPC URL available for preflight checks. Localnet may not have started properly.');
+        }
+        const chainId = envVars.CHAIN_ID;
+        if (!chainId) {
+          throw new Error('No CHAIN_ID available for preflight checks.');
+        }
         const { runPreflightChecks } = await import('@jejunetwork/tests/preflight');
         const preflightResult = await runPreflightChecks({
-          rpcUrl: envVars.L2_RPC_URL || envVars.JEJU_RPC_URL || 'http://localhost:6546',
-          chainId: parseInt(envVars.CHAIN_ID || '1337'),
+          rpcUrl,
+          chainId: parseInt(chainId),
         });
 
         if (!preflightResult.success) {

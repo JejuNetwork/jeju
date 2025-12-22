@@ -1,6 +1,9 @@
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { toast } from 'sonner';
 import { useEffect } from 'react';
+import { AddressSchema } from '@jejunetwork/types/contracts';
+import { NonEmptyStringSchema } from '@/schemas/common';
+import { expect } from '@/lib/validation';
 import { CONTRACTS } from '@/config';
 
 const PREDIMARKET_ADDRESS = CONTRACTS.predimarket;
@@ -16,6 +19,7 @@ const PREDIMARKET_ABI = [
 ] as const;
 
 export function useClaim(sessionId: string) {
+  const validatedSessionId = NonEmptyStringSchema.parse(sessionId);
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
@@ -34,16 +38,14 @@ export function useClaim(sessionId: string) {
   }, [error]);
 
   const claim = () => {
-    if (PREDIMARKET_ADDRESS === '0x0') {
-      toast.error('Predimarket contract not deployed');
-      return;
-    }
+    const validatedAddress = expect(PREDIMARKET_ADDRESS !== '0x0' ? PREDIMARKET_ADDRESS : null, 'Predimarket contract not deployed');
+    AddressSchema.parse(validatedAddress);
 
     writeContract({
-      address: PREDIMARKET_ADDRESS,
+      address: validatedAddress,
       abi: PREDIMARKET_ABI,
       functionName: 'claim',
-      args: [sessionId as `0x${string}`],
+      args: [validatedSessionId as `0x${string}`],
     });
   };
 

@@ -3,7 +3,7 @@
  * Re-exports from @jejunetwork/contracts with wallet-specific utilities
  */
 
-import type { Address, Hex } from 'viem';
+import type { Address } from 'viem';
 
 // ============================================================================
 // Core ABIs (minimal fragments for wallet operations)

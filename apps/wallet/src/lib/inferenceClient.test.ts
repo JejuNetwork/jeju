@@ -18,7 +18,7 @@ describe('InferenceClient', () => {
 
   beforeEach(() => {
     mockFetch = vi.fn();
-    globalThis.fetch = mockFetch as typeof fetch;
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
     client = new InferenceClient({
       gatewayUrl: 'https://test-gateway.example.com',
       maxRetries: 1, // Fast retries for tests

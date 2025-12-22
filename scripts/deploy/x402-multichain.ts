@@ -17,9 +17,7 @@
 
 import {
   createPublicClient,
-  createWalletClient,
   http,
-  parseEther,
   formatEther,
   type Chain,
   type Address,
@@ -28,7 +26,7 @@ import {
 import { privateKeyToAccount } from 'viem/accounts';
 import { Logger } from '../shared/logger';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
-import { resolve, dirname } from 'path';
+import { resolve } from 'path';
 
 const logger = new Logger({ prefix: 'deploy-x402' });
 
@@ -390,7 +388,7 @@ function updateDeploymentsFile(
   logger.info(`Updated ${filePath}`);
 }
 
-function updateConfigContracts(chainId: number, facilitatorAddress: Address, isMainnet: boolean) {
+function updateConfigContracts(chainId: number, facilitatorAddress: Address, _isMainnet: boolean) {
   const configPath = resolve(process.cwd(), 'packages/config/contracts.json');
 
   if (!existsSync(configPath)) {

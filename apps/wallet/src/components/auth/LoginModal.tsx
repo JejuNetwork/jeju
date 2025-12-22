@@ -49,14 +49,13 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
   const handleGenerateWallet = async () => {
     setActiveProvider('wallet');
     try {
-      const { address } = await generateWallet();
-      console.log('Generated wallet:', address);
+      await generateWallet();
       // Auto login with the generated wallet
       await login('wallet');
       onSuccess?.();
       onClose();
     } catch {
-      // Error handling
+      // Error handling in useAuth
     } finally {
       setActiveProvider(null);
     }

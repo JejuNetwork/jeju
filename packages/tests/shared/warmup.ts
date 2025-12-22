@@ -2,61 +2,17 @@
  * App Warmup - Pre-compiles Next.js apps and visits pages to cache them
  */
 
-import { spawn } from 'bun';
+import { spawn } from 'child_process';
 import { existsSync, readFileSync, readdirSync, statSync } from 'fs';
-import { join, resolve } from 'path';
+import { join } from 'path';
 import { chromium, type Browser } from 'playwright';
+import { findJejuWorkspaceRoot } from './utils';
+import { parseAppManifest, type AppConfig, type WarmupOptions, type WarmupResult, type AppWarmupResult } from './schemas';
 
-export interface AppConfig {
-  name: string;
-  path: string;
-  port: number;
-  routes: string[];
-  isNextJs: boolean;
-}
-
-export interface WarmupOptions {
-  apps?: string[];
-  visitPages?: boolean;
-  buildApps?: boolean;
-  timeout?: number;
-  headless?: boolean;
-}
-
-export interface WarmupResult {
-  success: boolean;
-  apps: AppWarmupResult[];
-  duration: number;
-}
-
-export interface AppWarmupResult {
-  name: string;
-  success: boolean;
-  pagesVisited: number;
-  buildTime?: number;
-  errors: string[];
-}
+// Re-export types for backwards compatibility
+export type { AppConfig, WarmupOptions, WarmupResult, AppWarmupResult };
 
 const DEFAULT_ROUTES = ['/', '/about', '/settings'];
-
-function findJejuWorkspaceRoot(startDir: string): string | null {
-  let dir = startDir;
-  while (dir !== '/') {
-    const pkgPath = join(dir, 'package.json');
-    if (existsSync(pkgPath)) {
-      try {
-        const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8')) as { name?: string };
-        if (pkg.name === 'jeju') return dir;
-      } catch {
-        // keep walking up
-      }
-    }
-    const parent = resolve(dir, '..');
-    if (parent === dir) break;
-    dir = parent;
-  }
-  return null;
-}
 
 export function discoverAppsForWarmup(rootDir = process.cwd()): AppConfig[] {
   // Allow being called from deep within the workspace (e.g. `packages/tests`)
@@ -64,11 +20,8 @@ export function discoverAppsForWarmup(rootDir = process.cwd()): AppConfig[] {
   let resolvedRoot = rootDir;
   let appsDir = join(resolvedRoot, 'apps');
   if (!existsSync(appsDir)) {
-    const workspaceRoot = findJejuWorkspaceRoot(rootDir);
-    if (workspaceRoot) {
-      resolvedRoot = workspaceRoot;
-      appsDir = join(resolvedRoot, 'apps');
-    }
+    resolvedRoot = findJejuWorkspaceRoot(rootDir);
+    appsDir = join(resolvedRoot, 'apps');
   }
   if (!existsSync(appsDir)) return [];
 
@@ -78,18 +31,15 @@ export function discoverAppsForWarmup(rootDir = process.cwd()): AppConfig[] {
     if (appName.startsWith('.') || appName === 'node_modules') continue;
 
     const appPath = join(appsDir, appName);
-    try {
-      if (!statSync(appPath).isDirectory()) continue;
-    } catch {
-      continue;
-    }
+    const stat = statSync(appPath, { throwIfNoEntry: false });
+    if (!stat?.isDirectory()) continue;
 
     const manifestPath = join(appPath, 'jeju-manifest.json');
     if (!existsSync(manifestPath)) continue;
 
-    const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'));
-    const mainPort = manifest.ports?.main;
-    if (!mainPort) continue;
+    const manifestRaw = JSON.parse(readFileSync(manifestPath, 'utf-8'));
+    const manifest = parseAppManifest(manifestRaw);
+    const mainPort = manifest.ports.main;
 
     // Only include apps with test configs
     const hasTestConfig = existsSync(join(appPath, 'synpress.config.ts')) ||
@@ -100,7 +50,11 @@ export function discoverAppsForWarmup(rootDir = process.cwd()): AppConfig[] {
     const packagePath = join(appPath, 'package.json');
     let isNextJs = false;
     if (existsSync(packagePath)) {
-      const pkg = JSON.parse(readFileSync(packagePath, 'utf-8'));
+      interface PackageJson {
+        dependencies?: Record<string, string>;
+        devDependencies?: Record<string, string>;
+      }
+      const pkg = JSON.parse(readFileSync(packagePath, 'utf-8')) as PackageJson;
       isNextJs = !!(pkg.dependencies?.next || pkg.devDependencies?.next);
     }
 
@@ -108,7 +62,7 @@ export function discoverAppsForWarmup(rootDir = process.cwd()): AppConfig[] {
       name: appName,
       path: appPath,
       port: mainPort,
-      routes: manifest.warmupRoutes || DEFAULT_ROUTES,
+      routes: manifest.warmupRoutes ?? DEFAULT_ROUTES,
       isNextJs,
     });
   }
@@ -136,11 +90,9 @@ async function buildApp(
   console.log(`  Building ${appConfig.name}...`);
 
   return new Promise((resolve) => {
-    const proc = spawn({
-      cmd: ['bun', 'run', 'build'],
+    const proc = spawn('bun', ['run', 'build'], {
       cwd: appConfig.path,
-      stdout: 'pipe',
-      stderr: 'pipe',
+      stdio: 'pipe',
     });
 
     const timeoutId = setTimeout(() => {
@@ -148,13 +100,18 @@ async function buildApp(
       resolve({ success: false, duration: Date.now() - startTime, error: 'Build timeout' });
     }, timeout);
 
-    proc.exited.then((exitCode) => {
+    proc.on('exit', (exitCode) => {
       clearTimeout(timeoutId);
       resolve({
         success: exitCode === 0,
         duration: Date.now() - startTime,
         error: exitCode !== 0 ? `Build exited with code ${exitCode}` : undefined,
       });
+    });
+
+    proc.on('error', (err) => {
+      clearTimeout(timeoutId);
+      resolve({ success: false, duration: Date.now() - startTime, error: err.message });
     });
   });
 }
@@ -173,7 +130,11 @@ async function visitPages(
   for (const route of appConfig.routes) {
     try {
       const response = await page.goto(`${baseUrl}${route}`, { timeout, waitUntil: 'domcontentloaded' });
-      const status = response?.status() ?? 0;
+      if (!response) {
+        errors.push(`${route}: No response received from navigation`);
+        continue;
+      }
+      const status = response.status();
       
       if (status >= 500) {
         errors.push(`${route}: HTTP ${status}`);

@@ -25,79 +25,57 @@
  *   await metamask.switchNetwork(JEJU_CHAIN.name);
  * });
  * ```
+ * 
+ * CLI Usage:
+ * ```bash
+ * # Run all e2e tests
+ * jeju test e2e
+ * 
+ * # Run e2e tests for specific app
+ * jeju test e2e --app gateway
+ * 
+ * # Run smoke tests only
+ * jeju test e2e --smoke
+ * 
+ * # Build wallet cache (run once)
+ * jeju test e2e --build-cache
+ * 
+ * # CI mode (headless)
+ * jeju test e2e --headless
+ * ```
  */
 
 import { defineConfig, devices, type PlaywrightTestConfig } from '@playwright/test';
-import { join } from 'path';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
-// ============================================================================
-// CANONICAL TEST CONSTANTS - USE THESE EVERYWHERE
-// ============================================================================
+// Import canonical constants from utils
+import {
+  SEED_PHRASE,
+  PASSWORD,
+  TEST_WALLET_ADDRESS,
+  TEST_ACCOUNTS,
+  JEJU_CHAIN,
+  JEJU_CHAIN_ID,
+  JEJU_RPC_URL,
+  findJejuWorkspaceRoot,
+} from './utils';
 
-/** Standard test seed phrase (Anvil default) */
-export const SEED_PHRASE = 'test test test test test test test test test test test junk';
+// Re-export for backwards compatibility
+export { SEED_PHRASE, PASSWORD, TEST_WALLET_ADDRESS, TEST_ACCOUNTS, JEJU_CHAIN, JEJU_CHAIN_ID, JEJU_RPC_URL };
 
-/** Standard test wallet password for MetaMask */
-export const PASSWORD = 'Tester@1234';
+// ES module compatibility - get __dirname equivalent
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
-/** Default test wallet address (account 0 from seed phrase) */
-export const TEST_WALLET_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
-
-/** Chain ID for localnet (matches Anvil default) */
-export const JEJU_CHAIN_ID = parseInt(process.env.CHAIN_ID || '1337');
-
-/** RPC URL for localnet */
-export const JEJU_RPC_URL = process.env.L2_RPC_URL || process.env.JEJU_RPC_URL || 'http://127.0.0.1:9545';
-
-/** Synpress cache directory */
-export const SYNPRESS_CACHE_DIR = join(process.cwd(), '..', '..', '.jeju', '.synpress-cache');
+/** Synpress cache directory - uses env var or finds monorepo root */
+export const SYNPRESS_CACHE_DIR = process.env.SYNPRESS_CACHE_DIR ?? join(findJejuWorkspaceRoot(), '.jeju', '.synpress-cache');
 
 /** Global setup path */
 export const GLOBAL_SETUP_PATH = join(__dirname, 'global-setup.ts');
 
 /** Global teardown path */
 export const GLOBAL_TEARDOWN_PATH = join(__dirname, 'global-teardown.ts');
-
-/** Test accounts (Anvil defaults) */
-export const TEST_ACCOUNTS = {
-  deployer: {
-    address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as const,
-    privateKey: '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as const,
-  },
-  user1: {
-    address: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as const,
-    privateKey: '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as const,
-  },
-  user2: {
-    address: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC' as const,
-    privateKey: '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a' as const,
-  },
-  user3: {
-    address: '0x90F79bf6EB2c4f870365E785982E1f101E93b906' as const,
-    privateKey: '0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6' as const,
-  },
-  operator: {
-    address: '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65' as const,
-    privateKey: '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a' as const,
-  },
-} as const;
-
-// ============================================================================
-// NETWORK CONFIGURATION
-// ============================================================================
-
-/**
- * Network Localnet chain configuration for MetaMask
- * This is the PRIMARY chain config - all apps should use this.
- */
-export const JEJU_CHAIN = {
-  chainId: JEJU_CHAIN_ID,
-  chainIdHex: `0x${JEJU_CHAIN_ID.toString(16)}`,
-  name: 'Jeju Localnet',
-  rpcUrl: JEJU_RPC_URL,
-  symbol: 'ETH',
-  blockExplorerUrl: '',
-} as const;
 
 // ============================================================================
 // CONFIG OPTIONS

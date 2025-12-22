@@ -1,117 +1,26 @@
-import { useState, useEffect } from 'react';
-import { invoke } from './api';
+import { useState } from 'react';
 import { Shield, Globe, Activity, Settings, Users, HardDrive } from 'lucide-react';
 import { VPNToggle } from './components/VPNToggle';
 import { RegionSelector } from './components/RegionSelector';
 import { ConnectionStats } from './components/ConnectionStats';
 import { ContributionPanel } from './components/ContributionPanel';
 import { SettingsPanel } from './components/SettingsPanel';
+import { useVPNStatus, useVPNNodes, useVPNConnection } from './hooks';
 
 type Tab = 'vpn' | 'contribution' | 'settings';
 
-interface VPNStatus {
-  status: 'Disconnected' | 'Connecting' | 'Connected' | 'Reconnecting' | 'Error';
-  connection: VPNConnection | null;
-}
-
-interface VPNConnection {
-  connection_id: string;
-  status: string;
-  node: VPNNode;
-  connected_at: number | null;
-  local_ip: string | null;
-  public_ip: string | null;
-  bytes_up: number;
-  bytes_down: number;
-  latency_ms: number;
-}
-
-interface VPNNode {
-  node_id: string;
-  operator: string;
-  country_code: string;
-  region: string;
-  endpoint: string;
-  wireguard_pubkey: string;
-  latency_ms: number;
-  load: number;
-  reputation: number;
-  capabilities: {
-    supports_wireguard: boolean;
-    supports_socks5: boolean;
-    supports_http: boolean;
-    serves_cdn: boolean;
-    is_vpn_exit: boolean;
-  };
-}
-
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>('vpn');
-  const [vpnStatus, setVPNStatus] = useState<VPNStatus>({ status: 'Disconnected', connection: null });
-  const [nodes, setNodes] = useState<VPNNode[]>([]);
-  const [selectedNode, setSelectedNode] = useState<VPNNode | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-
-  // Fetch VPN status periodically
-  useEffect(() => {
-    const fetchStatus = async () => {
-      try {
-        const status = await invoke<VPNStatus>('get_status');
-        setVPNStatus(status);
-      } catch (error) {
-        console.error('Failed to fetch VPN status:', error);
-      }
-    };
-
-    fetchStatus();
-    const interval = setInterval(fetchStatus, 2000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Fetch nodes on mount
-  useEffect(() => {
-    const fetchNodes = async () => {
-      try {
-        const nodeList = await invoke<VPNNode[]>('get_nodes', { countryCode: null });
-        setNodes(nodeList);
-        if (nodeList.length > 0 && !selectedNode) {
-          // Select best node by default
-          const best = nodeList.reduce((a, b) => 
-            (a.latency_ms + a.load * 10) < (b.latency_ms + b.load * 10) ? a : b
-          );
-          setSelectedNode(best);
-        }
-      } catch (error) {
-        console.error('Failed to fetch nodes:', error);
-      }
-    };
-
-    fetchNodes();
-  }, []);
+  const { status: vpnStatus } = useVPNStatus();
+  const { nodes, selectedNode, selectNode: handleSelectNode } = useVPNNodes();
+  const { connect, disconnect, isLoading } = useVPNConnection();
 
   const handleConnect = async () => {
     if (vpnStatus.status === 'Connected') {
-      setIsLoading(true);
-      try {
-        await invoke('disconnect');
-      } catch (error) {
-        console.error('Failed to disconnect:', error);
-      }
-      setIsLoading(false);
+      await disconnect();
     } else {
-      setIsLoading(true);
-      try {
-        await invoke('connect', { nodeId: selectedNode?.node_id ?? null });
-      } catch (error) {
-        console.error('Failed to connect:', error);
-      }
-      setIsLoading(false);
+      await connect(selectedNode);
     }
-  };
-
-  const handleSelectNode = async (node: VPNNode) => {
-    setSelectedNode(node);
-    await invoke('select_node', { nodeId: node.node_id });
   };
 
   const isConnected = vpnStatus.status === 'Connected';

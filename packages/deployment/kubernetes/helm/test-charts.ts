@@ -24,7 +24,7 @@
 
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { readdirSync, statSync } from 'fs';
+import { readdirSync, statSync, existsSync } from 'fs';
 import { join } from 'path';
 
 const execAsync = promisify(exec);
@@ -59,18 +59,15 @@ function getCharts(baseDir: string): ChartTest[] {
     const chartPath = join(baseDir, item);
     const chartYaml = join(chartPath, 'Chart.yaml');
 
-    try {
-      // Check if it's a directory with Chart.yaml
-      if (statSync(chartPath).isDirectory() && statSync(chartYaml).isFile()) {
-        charts.push({
-          name: item,
-          path: chartPath,
-          environments: ['localnet', 'testnet', 'mainnet'],
-          requiredValues: ['replicaCount', 'image.repository', 'resources'],
-        });
-      }
-    } catch (error) {
-      // Not a valid chart, skip
+    // Check if it's a directory with Chart.yaml using existsSync (no try/catch needed)
+    if (existsSync(chartPath) && existsSync(chartYaml) && 
+        statSync(chartPath).isDirectory() && statSync(chartYaml).isFile()) {
+      charts.push({
+        name: item,
+        path: chartPath,
+        environments: ['localnet', 'testnet', 'mainnet'],
+        requiredValues: ['replicaCount', 'image.repository', 'resources'],
+      });
     }
   }
 
@@ -247,7 +244,7 @@ async function testResourceLimits(chart: ChartTest): Promise<void> {
 /**
  * Print test summary
  */
-function printSummary() {
+function printSummary(): void {
   const passed = results.filter(r => r.passed).length;
   const failed = results.filter(r => !r.passed).length;
   const total = results.length;
@@ -287,7 +284,7 @@ function printSummary() {
 /**
  * Main test runner
  */
-async function main() {
+async function main(): Promise<void> {
   console.log('╔══════════════════════════════════════════════════════════════════╗');
   console.log('║                                                                  ║');
   console.log('║              HELM CHART VALIDATION TESTS                         ║');

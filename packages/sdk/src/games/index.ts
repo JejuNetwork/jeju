@@ -9,14 +9,10 @@
  */
 
 import type { Address, Hex } from "viem";
-import {
-  encodeFunctionData,
-  decodeAbiParameters,
-  parseAbiParameters,
-} from "viem";
+import { encodeFunctionData } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
-import { getServicesConfig, getContractAddresses } from "../config";
+import { getContractAddresses } from "../config";
 
 // ============================================================================
 // Types
@@ -358,7 +354,7 @@ export interface GamesModule {
     to: Address,
     itemIds: bigint[],
     amounts: bigint[],
-    data?: Hex
+    data?: Hex,
   ): Promise<Hex>;
   burnItem(itemId: bigint, amount: bigint): Promise<Hex>;
   transferItem(params: TransferItemParams): Promise<Hex>;
@@ -366,7 +362,7 @@ export interface GamesModule {
     to: Address,
     itemIds: bigint[],
     amounts: bigint[],
-    data?: Hex
+    data?: Hex,
   ): Promise<Hex>;
   setItemApprovalForAll(operator: Address, approved: boolean): Promise<Hex>;
   isItemApprovedForAll(operator: Address, account?: Address): Promise<boolean>;
@@ -383,7 +379,7 @@ export interface GamesModule {
 export function createGamesModule(
   wallet: JejuWallet,
   network: NetworkType,
-  gameIntegrationAddress?: Address
+  gameIntegrationAddress?: Address,
 ): GamesModule {
   const addresses = getContractAddresses(network);
   const gameIntegration =
@@ -543,7 +539,7 @@ export function createGamesModule(
   // Items operations
   async function getItemBalance(
     itemId: bigint,
-    account?: Address
+    account?: Address,
   ): Promise<bigint> {
     const contracts = await getContracts();
     return wallet.publicClient.readContract({
@@ -556,7 +552,7 @@ export function createGamesModule(
 
   async function getItemBalances(
     itemIds: bigint[],
-    account?: Address
+    account?: Address,
   ): Promise<bigint[]> {
     const contracts = await getContracts();
     const addr = account ?? wallet.address;
@@ -597,7 +593,7 @@ export function createGamesModule(
     to: Address,
     itemIds: bigint[],
     amounts: bigint[],
-    data?: Hex
+    data?: Hex,
   ): Promise<Hex> {
     const contracts = await getContracts();
     const txData = encodeFunctionData({
@@ -650,7 +646,7 @@ export function createGamesModule(
     to: Address,
     itemIds: bigint[],
     amounts: bigint[],
-    data?: Hex
+    data?: Hex,
   ): Promise<Hex> {
     const contracts = await getContracts();
     const txData = encodeFunctionData({
@@ -667,7 +663,7 @@ export function createGamesModule(
 
   async function setItemApprovalForAll(
     operator: Address,
-    approved: boolean
+    approved: boolean,
   ): Promise<Hex> {
     const contracts = await getContracts();
     const data = encodeFunctionData({
@@ -684,7 +680,7 @@ export function createGamesModule(
 
   async function isItemApprovedForAll(
     operator: Address,
-    account?: Address
+    account?: Address,
   ): Promise<boolean> {
     const contracts = await getContracts();
     return wallet.publicClient.readContract({
@@ -753,4 +749,3 @@ export function createGamesModule(
     getGameStats,
   };
 }
-

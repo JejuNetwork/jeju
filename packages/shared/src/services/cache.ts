@@ -5,11 +5,15 @@
  * Falls back to in-memory when compute unavailable.
  */
 
-export interface CacheConfig {
-  endpoint?: string;
-  defaultTTL?: number;
-  fallbackEnabled?: boolean;
-}
+import { z } from 'zod';
+
+const CacheConfigSchema = z.object({
+  endpoint: z.string().url(),
+  defaultTTL: z.number().positive().default(300000), // 5 minutes
+  fallbackEnabled: z.boolean().default(true),
+});
+
+export type CacheConfig = z.infer<typeof CacheConfigSchema>;
 
 export interface CacheService {
   get<T>(key: string): Promise<T | null>;
@@ -32,8 +36,9 @@ class CacheServiceImpl implements CacheService {
   private computeAvailable = true;
 
   constructor(config: CacheConfig) {
-    this.endpoint = config.endpoint || process.env.COMPUTE_CACHE_ENDPOINT || 'http://localhost:4200/cache';
-    this.defaultTTL = config.defaultTTL || 300000; // 5 minutes
+    const validated = CacheConfigSchema.parse(config);
+    this.endpoint = validated.endpoint;
+    this.defaultTTL = validated.defaultTTL;
   }
 
   async get<T>(key: string): Promise<T | null> {
@@ -61,7 +66,8 @@ class CacheServiceImpl implements CacheService {
 
     // Try compute cache
     if (this.computeAvailable) {
-      await this.remoteSet(key, value, ttl).catch(() => {
+      await this.remoteSet(key, value, ttl).catch((err: Error) => {
+        console.error('[Cache] Remote set failed:', err.message);
         this.computeAvailable = false;
       });
     }
@@ -72,7 +78,9 @@ class CacheServiceImpl implements CacheService {
 
   async delete(key: string): Promise<void> {
     if (this.computeAvailable) {
-      await this.remoteDelete(key).catch(() => {});
+      await this.remoteDelete(key).catch((err: Error) => {
+        console.error('[Cache] Remote delete failed:', err.message);
+      });
     }
     this.fallback.delete(key);
   }
@@ -84,7 +92,9 @@ class CacheServiceImpl implements CacheService {
 
   async clear(pattern?: string): Promise<void> {
     if (this.computeAvailable) {
-      await this.remoteClear(pattern).catch(() => {});
+      await this.remoteClear(pattern).catch((err: Error) => {
+        console.error('[Cache] Remote clear failed:', err.message);
+      });
     }
 
     if (pattern) {
@@ -112,9 +122,12 @@ class CacheServiceImpl implements CacheService {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ key }),
       signal: AbortSignal.timeout(2000),
-    }).catch(() => null);
+    });
 
-    if (!response || !response.ok) return null;
+    if (!response.ok) {
+      console.error(`[Cache] remoteGet failed: ${response.status}`);
+      return null;
+    }
     const data = await response.json() as { value: T | null };
     return data.value;
   }
@@ -149,18 +162,26 @@ class CacheServiceImpl implements CacheService {
   private async checkHealth(): Promise<boolean> {
     const response = await fetch(`${this.endpoint}/health`, {
       signal: AbortSignal.timeout(2000),
-    }).catch(() => null);
-    return response?.ok ?? false;
+    });
+    return response.ok;
   }
 }
 
 let instance: CacheService | null = null;
 
-export function createCacheService(config: CacheConfig = {}): CacheService {
+export function createCacheService(config: CacheConfig): CacheService {
   if (!instance) {
     instance = new CacheServiceImpl(config);
   }
   return instance;
+}
+
+export function getCacheServiceFromEnv(): CacheService {
+  const endpoint = process.env.COMPUTE_CACHE_ENDPOINT;
+  if (!endpoint) {
+    throw new Error('COMPUTE_CACHE_ENDPOINT environment variable is required');
+  }
+  return createCacheService({ endpoint, defaultTTL: 300000, fallbackEnabled: true });
 }
 
 export function resetCacheService(): void {

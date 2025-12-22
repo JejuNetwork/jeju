@@ -13,13 +13,19 @@ import {
   type Address,
   type Hex,
   decodeErrorResult,
-  decodeFunctionData,
 } from 'viem';
 import type {
   SecurityAnalysis,
   SignatureRisk,
   TransactionRisk,
 } from '../types';
+import {
+  expectAddress,
+  expectHex,
+  expectChainId,
+  expectBigInt,
+  expectNonEmpty,
+} from '../../lib/validation';
 
 // Known malicious/scam patterns
 const KNOWN_SCAM_PATTERNS = [
@@ -41,8 +47,6 @@ export class SecurityService {
   private runtime: IAgentRuntime | null = null;
   private publicClients: Map<number, PublicClient> = new Map();
   
-  // Cache for contract verification
-  private contractCache: Map<string, { isVerified: boolean; name?: string }> = new Map();
   
   constructor() {}
   
@@ -77,6 +81,12 @@ export class SecurityService {
     data?: Hex;
     from?: Address;
   }): Promise<SecurityAnalysis> {
+    expectChainId(options.chainId, 'chainId');
+    expectAddress(options.to, 'to');
+    if (options.value) expectBigInt(options.value, 'value');
+    if (options.data) expectHex(options.data, 'data');
+    if (options.from) expectAddress(options.from, 'from');
+
     this.runtime?.logger.info(`[SecurityService] Analyzing transaction to ${options.to}`);
     
     const risks: TransactionRisk[] = [];
@@ -175,6 +185,12 @@ export class SecurityService {
     error?: string;
     returnData?: Hex;
   }> {
+    expectChainId(options.chainId, 'chainId');
+    expectAddress(options.to, 'to');
+    if (options.value) expectBigInt(options.value, 'value');
+    if (options.data) expectHex(options.data, 'data');
+    if (options.from) expectAddress(options.from, 'from');
+
     const publicClient = this.getPublicClient(options.chainId);
     
     const from = options.from || '0x0000000000000000000000000000000000000001' as Address;
@@ -247,14 +263,15 @@ export class SecurityService {
       const { primaryType, message, domain } = options.typedData;
       
       if (primaryType === 'Permit') {
+        const spenderAddr = message.spender as string;
         risks.push({
           type: 'permit',
           severity: 'medium',
           description: 'This signature will approve token spending',
           details: {
-            spender: message.spender as string,
-            value: message.value as string,
-            deadline: message.deadline as number,
+            spender: spenderAddr.startsWith('0x') ? spenderAddr as `0x${string}` : undefined,
+            amount: typeof message.value === 'string' ? BigInt(message.value) : undefined,
+            deadline: typeof message.deadline === 'number' ? message.deadline : undefined,
           },
         });
         riskLevel = 'medium';
@@ -321,6 +338,8 @@ export class SecurityService {
     warnings: string[];
     summary: string;
   }> {
+    expectNonEmpty(url, 'url');
+    
     let domain: string;
     try {
       domain = new URL(url).hostname;

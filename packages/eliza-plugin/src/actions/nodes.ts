@@ -10,6 +10,12 @@ import {
   type State,
 } from "@elizaos/core";
 import { JEJU_SERVICE_NAME, type JejuService } from "../service";
+import {
+  expectResponseData,
+  expectArray,
+  validateNodeStats,
+  validateServiceExists,
+} from "../validation";
 
 export const listNodesAction: Action = {
   name: "LIST_NODES",
@@ -22,18 +28,16 @@ export const listNodesAction: Action = {
     "node operators",
   ],
 
-  validate: async (runtime: IAgentRuntime) => {
-    const service = runtime.getService(JEJU_SERVICE_NAME);
-    return !!service;
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
 
   handler: async (
     runtime: IAgentRuntime,
     _message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
 
@@ -41,12 +45,20 @@ export const listNodesAction: Action = {
       skillId: "list-nodes",
     });
 
-    const nodes = (response.data?.nodes ?? []) as Array<{
+    const responseData = expectResponseData(
+      response,
+      "Nodes API returned no data",
+    );
+    const nodes = expectArray<{
       address: string;
       name: string;
       stake: string;
       status: string;
-    }>;
+    }>(
+      responseData as Record<string, unknown>,
+      "nodes",
+      "Nodes API response missing nodes array",
+    );
 
     if (nodes.length === 0) {
       callback?.({ text: "No nodes registered yet." });
@@ -55,7 +67,10 @@ export const listNodesAction: Action = {
 
     const nodeList = nodes
       .slice(0, 10)
-      .map((n) => `• ${n.name} (${n.address.slice(0, 10)}...) - Stake: ${n.stake} ETH - ${n.status}`)
+      .map(
+        (n) =>
+          `• ${n.name} (${n.address.slice(0, 10)}...) - Stake: ${n.stake} ETH - ${n.status}`,
+      )
       .join("\n");
 
     callback?.({
@@ -68,7 +83,10 @@ ${nodeList}`,
   examples: [
     [
       { name: "user", content: { text: "List network nodes" } },
-      { name: "agent", content: { text: "Registered nodes (12): • Node-1..." } },
+      {
+        name: "agent",
+        content: { text: "Registered nodes (12): • Node-1..." },
+      },
     ],
   ],
 };
@@ -84,18 +102,16 @@ export const getNodeStatsAction: Action = {
     "infrastructure stats",
   ],
 
-  validate: async (runtime: IAgentRuntime) => {
-    const service = runtime.getService(JEJU_SERVICE_NAME);
-    return !!service;
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
 
   handler: async (
     runtime: IAgentRuntime,
     _message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
 
@@ -103,15 +119,19 @@ export const getNodeStatsAction: Action = {
       skillId: "get-node-stats",
     });
 
-    const stats = response.data ?? {};
+    const responseData = expectResponseData(
+      response,
+      "Node stats API returned no data",
+    );
+    const stats = validateNodeStats(responseData as Record<string, unknown>);
 
     callback?.({
       text: `Network Node Statistics:
-• Total Nodes: ${stats.totalNodes ?? 0}
-• Active Nodes: ${stats.activeNodes ?? 0}
-• Total Stake: ${stats.totalStake ?? "0"} ETH
-• Average Uptime: ${stats.averageUptime ?? 0}%
-• Network Capacity: ${stats.capacity ?? "Unknown"}`,
+• Total Nodes: ${stats.totalNodes}
+• Active Nodes: ${stats.activeNodes}
+• Total Stake: ${stats.totalStake} ETH
+• Average Uptime: ${stats.averageUptime}%
+• Network Capacity: ${stats.capacity}`,
       content: stats,
     });
   },
@@ -119,8 +139,10 @@ export const getNodeStatsAction: Action = {
   examples: [
     [
       { name: "user", content: { text: "Show node stats" } },
-      { name: "agent", content: { text: "Network Node Statistics: • Total Nodes: 15..." } },
+      {
+        name: "agent",
+        content: { text: "Network Node Statistics: • Total Nodes: 15..." },
+      },
     ],
   ],
 };
-

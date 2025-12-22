@@ -14,26 +14,23 @@ describe("JejuService Integration Tests", () => {
   let env: Awaited<ReturnType<typeof setupTestEnvironment>> | null = null;
 
   beforeAll(async () => {
-    try {
-      env = await setupTestEnvironment();
-      
-      if (!env.chainRunning) return;
+    env = await setupTestEnvironment();
+    
+    if (!env.chainRunning) return;
 
-      service = await initJejuService({
-        privateKey: env.privateKey,
-        network: "localnet",
-        rpcUrl: env.rpcUrl,
-      });
-    } catch (e) {
-      console.error("Setup failed:", e);
-    }
+    service = await initJejuService({
+      privateKey: env.privateKey,
+      network: "localnet",
+      rpcUrl: env.rpcUrl,
+    });
   }, 90000);
 
   afterAll(async () => {
+    // Cleanup code - try/catch is valid here as we don't want cleanup failures to fail tests
     try {
       await teardownTestEnvironment();
     } catch {
-      // Cleanup failed - ignore
+      // Cleanup failures are not test failures
     }
   }, 10000);
 
@@ -66,57 +63,32 @@ describe("JejuService Integration Tests", () => {
 
   test("names isAvailable integration (requires contracts)", async () => {
     if (!env?.contractsDeployed || !service) return;
-
-    try {
-      const available = await service.sdk.names.isAvailable("test-unique-name-123456");
-      expect(typeof available).toBe("boolean");
-    } catch {
-      // Expected if contracts not deployed
-    }
+    const available = await service.sdk.names.isAvailable("test-unique-name-123456");
+    expect(typeof available).toBe("boolean");
   });
 
   test("compute listProviders integration (requires contracts)", async () => {
     if (!env?.contractsDeployed || !service) return;
-
-    try {
-      const providers = await service.sdk.compute.listProviders();
-      expect(Array.isArray(providers)).toBe(true);
-    } catch {
-      // Expected if contracts not deployed
-    }
+    const providers = await service.sdk.compute.listProviders();
+    expect(Array.isArray(providers)).toBe(true);
   });
 
   test("compute listModels integration (requires contracts)", async () => {
     if (!env?.contractsDeployed || !service) return;
-
-    try {
-      const models = await service.sdk.compute.listModels();
-      expect(Array.isArray(models)).toBe(true);
-    } catch {
-      // Expected if contracts not deployed
-    }
+    const models = await service.sdk.compute.listModels();
+    expect(Array.isArray(models)).toBe(true);
   });
 
   test("governance listProposals integration (requires contracts)", async () => {
     if (!env?.contractsDeployed || !service) return;
-
-    try {
-      const proposals = await service.sdk.governance.listProposals();
-      expect(Array.isArray(proposals)).toBe(true);
-    } catch {
-      // Expected if contracts not deployed
-    }
+    const proposals = await service.sdk.governance.listProposals();
+    expect(Array.isArray(proposals)).toBe(true);
   });
 
   test("a2a discover gateway (requires services)", async () => {
     if (!env?.servicesRunning || !service) return;
-
-    try {
-      const card = await service.sdk.a2a.discover(env.gatewayUrl);
-      expect(card).toBeDefined();
-      expect(card.protocolVersion).toBe("0.3.0");
-    } catch {
-      // Expected if services not running
-    }
+    const card = await service.sdk.a2a.discover(env.gatewayUrl);
+    expect(card).toBeDefined();
+    expect(card.protocolVersion).toBe("0.3.0");
   });
 });

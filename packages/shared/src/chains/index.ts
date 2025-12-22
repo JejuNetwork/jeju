@@ -169,7 +169,7 @@ export function createAgentCard(options: {
     capabilities: { streaming: false, pushNotifications: false, stateTransitionHistory: false },
     defaultInputModes: ['text', 'data'],
     defaultOutputModes: ['text', 'data'],
-    skills: options.skills || [],
+    skills: options.skills ?? [],
   };
 }
 

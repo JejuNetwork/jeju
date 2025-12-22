@@ -45,7 +45,9 @@ export interface OIFConfig {
   totalVolume: bigint;
 }
 
-export type IntentStatus = 'open' | 'filled' | 'cancelled' | 'expired';
+// Import consolidated IntentStatus from @jejunetwork/types (OIF standard)
+import type { IntentStatus } from '@jejunetwork/types';
+export type { IntentStatus };
 
 export interface Intent {
   creator: PublicKey;
@@ -169,14 +171,10 @@ export class OIFClient {
 
     const solvers: Solver[] = [];
     for (const { account } of accounts) {
-      try {
-        const solver = this.deserializeSolver(account.data);
-        if (solver.active) {
-          solvers.push(solver);
-          if (solvers.length >= limit) break;
-        }
-      } catch {
-        // Skip non-solver accounts
+      const solver = this.deserializeSolver(account.data);
+      if (solver.active) {
+        solvers.push(solver);
+        if (solvers.length >= limit) break;
       }
     }
     return solvers;
@@ -470,20 +468,22 @@ export class OIFClient {
     if (address.startsWith('0x')) {
       return this.hexToBytes(address);
     }
-    try {
-      return new PublicKey(address).toBytes();
-    } catch {
-      const bytes = new Uint8Array(32);
-      const encoded = new TextEncoder().encode(address);
-      bytes.set(encoded.slice(0, 32));
-      return bytes;
-    }
+    return new PublicKey(address).toBytes();
   }
 
   private hexToBytes(hex: string): Uint8Array {
     const cleaned = hex.startsWith('0x') ? hex.slice(2) : hex;
+    if (!/^[0-9a-fA-F]*$/.test(cleaned)) {
+      throw new Error(`Invalid hex string: ${hex}`);
+    }
+    if (cleaned.length === 0) {
+      throw new Error('Empty hex string');
+    }
     const bytes = new Uint8Array(32);
-    const hexBytes = cleaned.match(/.{1,2}/g) || [];
+    const hexBytes = cleaned.match(/.{1,2}/g);
+    if (!hexBytes) {
+      throw new Error(`Failed to parse hex string: ${hex}`);
+    }
     for (let i = 0; i < Math.min(hexBytes.length, 32); i++) {
       bytes[i] = parseInt(hexBytes[i], 16);
     }

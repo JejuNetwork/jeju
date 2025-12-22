@@ -5,97 +5,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { dwsClient } from '../services/dws';
-
-// ============================================================================
-// Types
-// ============================================================================
-
-export enum ModelType {
-  LLM = 0,
-  VISION = 1,
-  AUDIO = 2,
-  MULTIMODAL = 3,
-  EMBEDDING = 4,
-  CLASSIFIER = 5,
-  REGRESSION = 6,
-  RL = 7,
-  OTHER = 8,
-}
-
-export enum LicenseType {
-  MIT = 0,
-  APACHE_2 = 1,
-  GPL_3 = 2,
-  CC_BY_4 = 3,
-  CC_BY_NC_4 = 4,
-  LLAMA_2 = 5,
-  CUSTOM = 6,
-  PROPRIETARY = 7,
-}
-
-export interface Model {
-  modelId: string;
-  name: string;
-  organization: string;
-  owner: string;
-  modelType: ModelType;
-  license: LicenseType;
-  description: string;
-  tags: string[];
-  createdAt: number;
-  updatedAt: number;
-  isPublic: boolean;
-  isVerified: boolean;
-  metrics?: {
-    downloads: number;
-    stars: number;
-    inferences: number;
-  };
-}
-
-export interface ModelVersion {
-  versionId: string;
-  modelId: string;
-  version: string;
-  weightsUri: string;
-  weightsHash: string;
-  weightsSize: number;
-  configUri: string;
-  tokenizerUri: string;
-  parameterCount: number;
-  precision: string;
-  publishedAt: number;
-  isLatest: boolean;
-}
-
-export interface ModelFile {
-  filename: string;
-  cid: string;
-  size: number;
-  sha256: string;
-  type: 'weights' | 'config' | 'tokenizer' | 'other';
-}
-
-export interface Dataset {
-  datasetId: string;
-  name: string;
-  organization: string;
-  owner: string;
-  description: string;
-  format: number;
-  license: number;
-  tags: string[];
-  size: number;
-  numRows: number;
-  numFiles: number;
-  createdAt: number;
-  updatedAt: number;
-  isPublic: boolean;
-  metrics?: {
-    downloads: number;
-    views: number;
-  };
-}
+import type { Model, ModelVersion, ModelFile, Dataset, ModelType } from '@/types';
 
 // ============================================================================
 // Hooks
@@ -123,7 +33,8 @@ export function useModels(params?: {
       return [];
     });
     
-    setModels(result);
+    // Cast to compatible type
+    setModels(result as unknown as Model[]);
     setIsLoading(false);
   }
 
@@ -182,7 +93,7 @@ export function useModelActions() {
     organization: string;
     description: string;
     modelType: ModelType;
-    license?: LicenseType;
+    license?: string;
     tags?: string[];
   }) => {
     setIsPending(true);
@@ -191,7 +102,10 @@ export function useModelActions() {
     const response = await fetch(`${dwsUrl}/models`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(params),
+      body: JSON.stringify({
+        ...params,
+        type: params.modelType, // Map modelType to type for API
+      }),
     });
 
     setIsPending(false);
@@ -362,7 +276,9 @@ export function useDataset(organization: string, name: string) {
       return;
     }
 
-    const data = await response.json();
+    const data = await response.json() as Dataset & { 
+      files?: { filename: string; cid: string; size: number; split?: string }[] 
+    };
     setDataset(data);
     setFiles(data.files || []);
     setIsLoading(false);
@@ -374,30 +290,16 @@ export function useDataset(organization: string, name: string) {
 // Type label helpers
 export function getModelTypeLabel(type: ModelType): string {
   const labels: Record<ModelType, string> = {
-    [ModelType.LLM]: 'LLM',
-    [ModelType.VISION]: 'Vision',
-    [ModelType.AUDIO]: 'Audio',
-    [ModelType.MULTIMODAL]: 'Multimodal',
-    [ModelType.EMBEDDING]: 'Embedding',
-    [ModelType.CLASSIFIER]: 'Classifier',
-    [ModelType.REGRESSION]: 'Regression',
-    [ModelType.RL]: 'RL',
-    [ModelType.OTHER]: 'Other',
+    'llm': 'LLM',
+    'image': 'Image',
+    'audio': 'Audio',
+    'multimodal': 'Multimodal',
+    'embedding': 'Embedding',
+    'code': 'Code',
   };
   return labels[type] || 'Other';
 }
 
-export function getLicenseLabel(license: LicenseType): string {
-  const labels: Record<LicenseType, string> = {
-    [LicenseType.MIT]: 'MIT',
-    [LicenseType.APACHE_2]: 'Apache 2.0',
-    [LicenseType.GPL_3]: 'GPL 3.0',
-    [LicenseType.CC_BY_4]: 'CC BY 4.0',
-    [LicenseType.CC_BY_NC_4]: 'CC BY-NC 4.0',
-    [LicenseType.LLAMA_2]: 'Llama 2',
-    [LicenseType.CUSTOM]: 'Custom',
-    [LicenseType.PROPRIETARY]: 'Proprietary',
-  };
-  return labels[license] || 'Unknown';
+export function getLicenseLabel(license: string): string {
+  return license;
 }
-

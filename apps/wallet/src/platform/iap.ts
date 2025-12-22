@@ -53,14 +53,9 @@ export async function openInExternalBrowser(url: string): Promise<boolean> {
   const platform = getPlatformInfo();
 
   if (platform.category === 'mobile') {
-    try {
-      const { Browser } = await import('@capacitor/browser');
-      await Browser.open({ url, presentationStyle: 'fullscreen' });
-      return true;
-    } catch {
-      window.open(url, '_system');
-      return true;
-    }
+    const { Browser } = await import('@capacitor/browser');
+    await Browser.open({ url, presentationStyle: 'fullscreen' });
+    return true;
   }
 
   window.open(url, '_blank');

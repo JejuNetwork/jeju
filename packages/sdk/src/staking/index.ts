@@ -11,7 +11,7 @@
 import { type Address, type Hex, encodeFunctionData, parseEther } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
-import { getContract as getContractAddress, getServicesConfig } from "../config";
+import { requireContract, getServicesConfig } from "../config";
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -107,7 +107,11 @@ export interface StakingModule {
   // ═══════════════════════════════════════════════════════════════════════
 
   /** Register as a node operator */
-  registerNode(nodeType: NodeType, metadata: string, stake: bigint): Promise<Hex>;
+  registerNode(
+    nodeType: NodeType,
+    metadata: string,
+    stake: bigint,
+  ): Promise<Hex>;
 
   /** Add stake to an existing node */
   addNodeStake(amount: bigint): Promise<Hex>;
@@ -405,19 +409,9 @@ export function createStakingModule(
 ): StakingModule {
   const services = getServicesConfig(network);
 
-  // Helper to safely get contract addresses
-  const tryGetContract = (category: string, name: string): Address => {
-    try {
-      // @ts-expect-error - category names may vary by deployment
-      return getContractAddress(category, name, network) as Address;
-    } catch {
-      return "0x0000000000000000000000000000000000000000" as Address;
-    }
-  };
-
-  const stakingAddress = tryGetContract("staking", "Staking");
-  const nodeStakingAddress = tryGetContract("staking", "NodeStakingManager");
-  const rpcProviderAddress = tryGetContract("rpc", "RPCProviderRegistry");
+  const stakingAddress = requireContract("staking", "Staking", network);
+  const nodeStakingAddress = requireContract("staking", "NodeStakingManager", network);
+  const rpcProviderAddress = requireContract("rpc", "RPCProviderRegistry", network);
 
   const MIN_STAKE = parseEther("100"); // 100 JEJU
   const UNBONDING_PERIOD = 604800n; // 7 days
@@ -523,15 +517,23 @@ export function createStakingModule(
       });
 
       // Fetch from API for more stats
-      const response = await fetch(`${services.gateway.api}/staking/stats`).catch(() => null);
-      const data = response?.ok 
-        ? await response.json() as { totalStakers?: number; currentAPY?: number }
-        : null;
+      const response = await fetch(`${services.gateway.api}/staking/stats`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch staking stats: ${response.statusText}`);
+      }
+      const data = (await response.json()) as {
+        totalStakers: number;
+        currentAPY: number;
+      };
+
+      if (typeof data.totalStakers !== "number" || typeof data.currentAPY !== "number") {
+        throw new Error("Invalid staking stats response");
+      }
 
       return {
         totalStaked,
-        totalStakers: data?.totalStakers ?? 0,
-        currentAPY: data?.currentAPY ?? 0,
+        totalStakers: data.totalStakers,
+        currentAPY: data.currentAPY,
         tierThresholds: {
           [StakingTier.NONE]: 0n,
           [StakingTier.BRONZE]: parseEther("100"),
@@ -639,11 +641,16 @@ export function createStakingModule(
     async listNodes(nodeType) {
       // Fetch from API
       const response = await fetch(
-        `${services.gateway.api}/staking/nodes?type=${nodeType}`
+        `${services.gateway.api}/staking/nodes?type=${nodeType}`,
       );
-      if (!response.ok) return [];
-      const data = await response.json() as { nodes?: NodeStakeInfo[] };
-      return data.nodes ?? [];
+      if (!response.ok) {
+        throw new Error(`Failed to list nodes: ${response.statusText}`);
+      }
+      const data = (await response.json()) as { nodes: NodeStakeInfo[] };
+      if (!Array.isArray(data.nodes)) {
+        throw new Error("Invalid API response: expected nodes array");
+      }
+      return data.nodes;
     },
 
     async getMinNodeStake(nodeType) {
@@ -775,4 +782,3 @@ export function createStakingModule(
     },
   };
 }
-

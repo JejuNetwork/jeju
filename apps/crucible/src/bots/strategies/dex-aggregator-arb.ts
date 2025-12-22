@@ -28,6 +28,7 @@ import {
 } from 'viem';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { mainnet, arbitrum, optimism, base } from 'viem/chains';
+import { OneInchQuoteResponseSchema, ParaswapQuoteResponseSchema, parseOrThrow, expect } from '../../schemas';
 
 // ============ Configuration ============
 
@@ -263,7 +264,7 @@ export class DexAggregatorArbStrategy extends EventEmitter {
     // Initialize clients
     for (const [chainIdStr, rpcUrl] of Object.entries(config.rpcUrls)) {
       const chainId = Number(chainIdStr);
-      const chainConfig = CHAIN_CONFIGS[chainId as keyof typeof CHAIN_CONFIGS];
+      const chainConfig = expect(CHAIN_CONFIGS[chainId as keyof typeof CHAIN_CONFIGS], `Invalid chain ID: ${chainId}`);
       if (!chainConfig) continue;
 
       const publicClient = createPublicClient({
@@ -571,11 +572,8 @@ export class DexAggregatorArbStrategy extends EventEmitter {
       return null;
     }
 
-    const data = await response.json() as {
-      dstAmount: string;
-      gas: number;
-      estimatedGas?: number;
-    };
+    const rawData = await response.json();
+    const data = parseOrThrow(OneInchQuoteResponseSchema, rawData, '1inch quote response');
 
     // Use estimatedGas if available, otherwise gas field
     const gasEstimate = BigInt(data.estimatedGas ?? data.gas ?? 200000);
@@ -606,16 +604,8 @@ export class DexAggregatorArbStrategy extends EventEmitter {
       return null;
     }
 
-    const data = await response.json() as {
-      priceRoute?: {
-        destAmount: string;
-        gasCost: string;
-        gasCostUSD?: string;
-        srcUSD?: string;
-        destUSD?: string;
-      };
-      error?: string;
-    };
+    const rawData = await response.json();
+    const data = parseOrThrow(ParaswapQuoteResponseSchema, rawData, 'Paraswap quote response');
 
     if (data.error || !data.priceRoute) {
       console.warn(`[DEX Arb] Paraswap error: ${data.error ?? 'no priceRoute'}`);
@@ -691,11 +681,12 @@ export class DexAggregatorArbStrategy extends EventEmitter {
     let buyHash: Hex;
     if (opportunity.buyQuote.txData) {
       // Use pre-built tx data from aggregator
+      const txData = expect(opportunity.buyQuote.txData, 'Tx data missing for buy quote') as Hex;
       buyHash = await clients.wallet.sendTransaction({
         account: this.account,
         chain: null,
         to: buyRouter,
-        data: opportunity.buyQuote.txData as Hex,
+        data: txData,
       });
     } else {
       // Build Uniswap V3 swap
@@ -752,11 +743,12 @@ export class DexAggregatorArbStrategy extends EventEmitter {
     // Step 5: Execute sell swap (tokenB -> tokenA)
     let sellHash: Hex;
     if (opportunity.sellQuote.txData) {
+      const txData = expect(opportunity.sellQuote.txData, 'Tx data missing for sell quote') as Hex;
       sellHash = await clients.wallet.sendTransaction({
         account: this.account,
         chain: null,
         to: sellRouter,
-        data: opportunity.sellQuote.txData as Hex,
+        data: txData,
       });
     } else {
       const sellData = encodeFunctionData({

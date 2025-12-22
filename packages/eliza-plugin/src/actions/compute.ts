@@ -11,6 +11,11 @@ import {
 } from "@elizaos/core";
 import type { Address } from "viem";
 import { JEJU_SERVICE_NAME, type JejuService } from "../service";
+import {
+  getMessageText,
+  validateProvider,
+  validateServiceExists,
+} from "../validation";
 
 function extractRentalParams(text: string): {
   provider?: Address;
@@ -51,27 +56,32 @@ export const rentGpuAction: Action = {
     "need gpu",
   ],
 
-  validate: async (runtime: IAgentRuntime) => {
-    const service = runtime.getService(JEJU_SERVICE_NAME);
-    return !!service;
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
 
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-    state: State | undefined,
-    _options: Record<string, unknown>,
+    _state: State | undefined,
+    _options?: Record<string, unknown>,
     callback?: HandlerCallback,
-  ) => {
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
 
-    const params = extractRentalParams(message.content.text ?? "");
-    const hours = params.hours ?? 1;
+    const params = extractRentalParams(getMessageText(message));
+
+    if (!params.hours) {
+      callback?.({
+        text: "Please specify how many hours you need the GPU. Example: 'Rent an H100 GPU for 2 hours'",
+      });
+      return;
+    }
+    const hours = params.hours;
 
     // Find a suitable provider
     const providers = await client.compute.listProviders({
-      gpuType: (params.gpuType as "NVIDIA_H100") ?? undefined,
+      gpuType: params.gpuType as "NVIDIA_H100" | undefined,
     });
 
     if (providers.length === 0) {
@@ -83,7 +93,8 @@ export const rentGpuAction: Action = {
 
     const provider = params.provider
       ? providers.find(
-          (p) => p.address.toLowerCase() === params.provider!.toLowerCase(),
+          (p: { address: string }) =>
+            p.address.toLowerCase() === params.provider!.toLowerCase(),
         )
       : providers[0];
 
@@ -92,12 +103,15 @@ export const rentGpuAction: Action = {
       return;
     }
 
+    // Validate provider has required fields
+    const validatedProvider = validateProvider(provider);
+
     // Get quote
     const quote = await client.compute.getQuote(provider.address, hours);
 
     callback?.({
-      text: `Found provider: ${provider.name}
-GPU: ${provider.resources?.gpuType} x${provider.resources?.gpuCount}
+      text: `Found provider: ${validatedProvider.name}
+GPU: ${validatedProvider.resources.gpuType} x${validatedProvider.resources.gpuCount}
 Price: ${quote.costFormatted} ETH for ${hours} hours
 
 Creating rental...`,

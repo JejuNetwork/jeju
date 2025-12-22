@@ -74,7 +74,7 @@ export function useIntents() {
           maxFee: params.maxFee ?? 0n,
           openDeadline: 0, // Would come from contract
           fillDeadline: 0,
-          status: 'created',
+          status: 'open',
           txHash: result.txHash,
           createdAt: Date.now(),
         };
@@ -242,12 +242,19 @@ export function useIntentHistory() {
         `https://api.jejunetwork.org/oif/intents?user=${address}`
       );
 
-      if (response.ok) {
-        const data = await response.json();
-        setIntents(data.intents ?? []);
+      if (!response.ok) {
+        throw new Error(`Intent history fetch failed: ${response.status} ${response.statusText}`);
       }
-    } catch {
-      // Silently fail - history is optional
+      
+      const data = await response.json();
+      if (!data || typeof data !== 'object') {
+        throw new Error('Invalid intent history response format');
+      }
+      setIntents(data.intents ?? []);
+    } catch (historyError) {
+      // Log error but don't throw - history is non-critical UI feature
+      console.warn('Failed to fetch intent history:', historyError);
+      // Keep existing intents rather than clearing
     } finally {
       setIsLoading(false);
     }

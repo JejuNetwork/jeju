@@ -36,7 +36,7 @@ const PYTH_PRICE_IDS: Record<string, `0x${string}`> = {
   'LINK/USD': '0x8ac0c70fff57e9aefdf5edf44b51d62c2d433653cbb2cf5cc06bb115af04d221',
 };
 
-const CHAINLINK_FEEDS: Record<EVMChainId, Record<string, Address>> = {
+const CHAINLINK_FEEDS: Partial<Record<EVMChainId, Record<string, Address>>> = {
   1: {
     'ETH/USD': '0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419',
     'BTC/USD': '0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c',
@@ -185,7 +185,7 @@ export class OracleAggregator {
     maxStalenessSeconds: number
   ): Promise<OraclePrice | null> {
     const feeds = CHAINLINK_FEEDS[chainId];
-    if (!feeds) return null;
+    if (!feeds || Object.keys(feeds).length === 0) return null;
 
     const pairKey = this.tokenToPair(token);
     const feedAddress = feeds[pairKey];
@@ -272,6 +272,8 @@ export class OracleAggregator {
   }
 
   isStale(price: OraclePrice, maxAgeMs: number): boolean {
+    // With zero maxAge, any price is considered stale (no caching allowed)
+    if (maxAgeMs === 0) return true;
     return Date.now() - price.timestamp > maxAgeMs;
   }
 
@@ -293,23 +295,33 @@ export class OracleAggregator {
       throw new Error(`No price sources available for ${token}`);
     }
 
-    if (!pythPrice || !chainlinkPrice) {
-      // Only one source available
-      return { valid: true, price: (pythPrice ?? chainlinkPrice)! };
+    if (!pythPrice && chainlinkPrice) {
+      // Only Chainlink available
+      return { valid: true, price: chainlinkPrice };
     }
+    
+    if (pythPrice && !chainlinkPrice) {
+      // Only Pyth available
+      return { valid: true, price: pythPrice };
+    }
+    
+    // Both prices are available (exhaustive check guarantees this)
+    // TypeScript can't infer this, so we explicitly narrow
+    const pyth = pythPrice as OraclePrice;
+    const chainlink = chainlinkPrice as OraclePrice;
 
-    const deviation = this.calculateDeviation(pythPrice.price, chainlinkPrice.price);
+    const deviation = this.calculateDeviation(pyth.price, chainlink.price);
     
     // Use Pyth as primary, validate against Chainlink
     return {
       valid: deviation <= maxDeviationBps,
-      price: pythPrice,
+      price: pyth,
       deviation,
     };
   }
 }
 
-export const TOKEN_SYMBOLS: Record<EVMChainId, Record<string, string>> = {
+export const TOKEN_SYMBOLS: Partial<Record<EVMChainId, Record<string, string>>> = {
   1: {
     '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2': 'WETH',
     '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599': 'WBTC',
@@ -353,6 +365,10 @@ export const TOKEN_SYMBOLS: Record<EVMChainId, Record<string, string>> = {
 export function getTokenSymbol(address: string, chainId: EVMChainId): string {
   const normalized = address.toLowerCase();
   const chainTokens = TOKEN_SYMBOLS[chainId];
+  
+  if (!chainTokens) {
+    return 'UNKNOWN';
+  }
   
   for (const [addr, symbol] of Object.entries(chainTokens)) {
     if (addr.toLowerCase() === normalized) return symbol;

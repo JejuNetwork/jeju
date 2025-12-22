@@ -365,11 +365,15 @@ export class CovenantRepository<T extends Record<string, unknown>> {
   }
 
   async softDelete(criteria: Partial<T>): Promise<QueryResult<T>> {
-    return this.update(criteria, { deleted_at: new Date().toISOString() } as unknown as Partial<T>);
+    // Soft delete by setting deleted_at timestamp
+    const updateData = { deleted_at: new Date().toISOString() } as unknown as Partial<T>;
+    return this.update(criteria, updateData);
   }
 
   async restore(criteria: Partial<T>): Promise<QueryResult<T>> {
-    return this.update(criteria, { deleted_at: null } as unknown as Partial<T>);
+    // Restore by clearing deleted_at
+    const updateData = { deleted_at: null } as unknown as Partial<T>;
+    return this.update(criteria, updateData);
   }
 
   async exists(where: Partial<T>): Promise<boolean> {

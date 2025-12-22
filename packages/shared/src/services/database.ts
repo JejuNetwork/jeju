@@ -6,13 +6,16 @@
 
 import { getCQL, type CQLClient } from '@jejunetwork/db';
 import type { Hex } from 'viem';
+import { z } from 'zod';
 
-export interface DatabaseConfig {
-  databaseId: string;
-  endpoint?: string;
-  timeout?: number;
-  debug?: boolean;
-}
+const DatabaseConfigSchema = z.object({
+  databaseId: z.string().min(1),
+  endpoint: z.string().url(),
+  timeout: z.number().positive().default(30000),
+  debug: z.boolean().default(false),
+});
+
+export type DatabaseConfig = z.infer<typeof DatabaseConfigSchema>;
 
 export interface DatabaseService {
   query<T>(sql: string, params?: QueryParam[]): Promise<QueryResult<T>>;
@@ -46,12 +49,13 @@ class DatabaseServiceImpl implements DatabaseService {
   private config: DatabaseConfig;
 
   constructor(config: DatabaseConfig) {
-    this.config = config;
+    const validated = DatabaseConfigSchema.parse(config);
+    this.config = validated;
     this.client = getCQL({
-      blockProducerEndpoint: config.endpoint || process.env.CQL_BLOCK_PRODUCER_ENDPOINT || 'http://localhost:4300',
-      databaseId: config.databaseId,
-      timeout: config.timeout || 30000,
-      debug: config.debug || process.env.NODE_ENV !== 'production',
+      blockProducerEndpoint: validated.endpoint,
+      databaseId: validated.databaseId,
+      timeout: validated.timeout,
+      debug: validated.debug,
     });
   }
 
@@ -126,7 +130,9 @@ export function createDatabaseService(config: DatabaseConfig): DatabaseService {
     instances.set(key, new DatabaseServiceImpl(config));
   }
   
-  return instances.get(key)!;
+  const instance = instances.get(key);
+  if (!instance) throw new Error(`Database service for ${key} not initialized`);
+  return instance;
 }
 
 export function resetDatabaseService(databaseId: string): void {

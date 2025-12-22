@@ -13,6 +13,7 @@ import { getCIEventBus } from '../../ci/event-bus';
 import { getCIScheduler } from '../../ci/scheduler';
 import { decodeBytes32ToOid } from '../../git/oid-utils';
 import type { LogEntry, CIEvent, Runner } from '../../ci/types';
+import { validateBody, validateParams, validateQuery, validateHeaders, expectValid, jejuAddressHeaderSchema, workflowListParamsSchema, workflowDetailParamsSchema, createWorkflowRunRequestSchema, workflowRunParamsSchema, workflowRunListQuerySchema, jobRunParamsSchema, stepRunParamsSchema, logsQuerySchema, artifactListParamsSchema, artifactDownloadParamsSchema, runnerRegistrationRequestSchema, runnerParamsSchema, createSecretRequestSchema, updateSecretRequestSchema, secretParamsSchema, createEnvironmentRequestSchema, updateEnvironmentRequestSchema, environmentParamsSchema, createWebhookRequestSchema, webhookParamsSchema, webhookDeliveryParamsSchema, runIdParamsSchema, artifactParamsSchema, secretIdParamsSchema, environmentNameParamsSchema, createTriggerRequestSchema, triggerParamsSchema, badgeParamsSchema, badgeQuerySchema, z, strictHexSchema } from '../../shared';
 
 interface CIContext {
   workflowEngine: WorkflowEngine;
@@ -37,7 +38,7 @@ export function createCIRouter(ctx: CIContext): Hono {
   );
 
   router.get('/workflows/:repoId', async (c) => {
-    const repoId = c.req.param('repoId') as Hex;
+    const { repoId } = validateParams(workflowListParamsSchema, c);
     const workflows = await workflowEngine.loadRepositoryWorkflows(repoId);
 
     return c.json({
@@ -67,8 +68,7 @@ export function createCIRouter(ctx: CIContext): Hono {
   });
 
   router.get('/workflows/:repoId/:workflowId', async (c) => {
-    const repoId = c.req.param('repoId') as Hex;
-    const workflowId = c.req.param('workflowId') as Hex;
+    const { repoId, workflowId } = validateParams(workflowDetailParamsSchema, c);
 
     await workflowEngine.loadRepositoryWorkflows(repoId);
     const runs = workflowEngine.getWorkflowRuns(workflowId);
@@ -97,19 +97,18 @@ export function createCIRouter(ctx: CIContext): Hono {
   });
 
   router.post('/runs/:repoId/:workflowId', async (c) => {
-    const repoId = c.req.param('repoId') as Hex;
-    const workflowId = c.req.param('workflowId') as Hex;
-    const triggeredBy = c.req.header('x-jeju-address') as Address;
+    const { repoId, workflowId } = validateParams(workflowDetailParamsSchema, c);
+    const { 'x-jeju-address': triggeredBy } = validateHeaders(jejuAddressHeaderSchema, c);
 
-    if (!triggeredBy) return c.json({ error: 'Missing x-jeju-address header' }, 401);
-
-    const body = await c.req.json<{ branch?: string; inputs?: Record<string, string> }>();
+    const body = await validateBody(createWorkflowRunRequestSchema, c);
 
     await workflowEngine.loadRepositoryWorkflows(repoId);
 
-    const branch = body.branch || 'main';
+    const branch = body.branch;
     const branchData = await repoManager.getBranch(repoId, branch);
-    if (!branchData) return c.json({ error: `Branch not found: ${branch}` }, 404);
+    if (!branchData) {
+      throw new Error(`Branch not found: ${branch}`);
+    }
 
     const run = await workflowEngine.triggerRun(
       workflowId,
@@ -138,8 +137,11 @@ export function createCIRouter(ctx: CIContext): Hono {
   });
 
   router.get('/runs/:runId', async (c) => {
-    const run = workflowEngine.getRun(c.req.param('runId'));
-    if (!run) return c.json({ error: 'Run not found' }, 404);
+    const { runId } = validateParams(workflowRunParamsSchema, c);
+    const run = workflowEngine.getRun(runId);
+    if (!run) {
+      throw new Error('Run not found');
+    }
 
     return c.json({
       runId: run.runId,
@@ -186,11 +188,11 @@ export function createCIRouter(ctx: CIContext): Hono {
   });
 
   router.get('/runs/:runId/logs', async (c) => {
-    const run = workflowEngine.getRun(c.req.param('runId'));
-    if (!run) return c.json({ error: 'Run not found' }, 404);
+    const { runId } = validateParams(runIdParamsSchema, c);
+    const run = workflowEngine.getRun(runId);
+    if (!run) throw new Error('Run not found');
 
-    const jobId = c.req.query('job');
-    const stepId = c.req.query('step');
+    const { jobId, stepId } = validateQuery(logsQuerySchema, c);
 
     if (run.logsCid) {
       const result = await backend.download(run.logsCid);
@@ -226,9 +228,9 @@ export function createCIRouter(ctx: CIContext): Hono {
   });
 
   router.get('/runs/:runId/logs/stream', async (c) => {
-    const runId = c.req.param('runId');
+    const { runId } = validateParams(z.object({ runId: z.string().min(1) }), c);
     const run = workflowEngine.getRun(runId);
-    if (!run) return c.json({ error: 'Run not found' }, 404);
+    if (!run) throw new Error('Run not found');
 
     return streamSSE(c, async (stream) => {
       const unsubscribe = workflowEngine.subscribeToLogs(runId, (entry: LogEntry) => {
@@ -256,26 +258,24 @@ export function createCIRouter(ctx: CIContext): Hono {
   });
 
   router.post('/runs/:runId/cancel', async (c) => {
-    const triggeredBy = c.req.header('x-jeju-address') as Address;
-    if (!triggeredBy) return c.json({ error: 'Missing x-jeju-address header' }, 401);
-
-    const runId = c.req.param('runId');
+    const { 'x-jeju-address': triggeredBy } = validateHeaders(jejuAddressHeaderSchema, c);
+    const { runId } = validateParams(runIdParamsSchema, c);
     const success = workflowEngine.cancelRun(runId);
 
     if (!success) {
       const run = workflowEngine.getRun(runId);
-      if (!run) return c.json({ error: 'Run not found' }, 404);
-      return c.json({ error: 'Run already finished' }, 400);
+      if (!run) throw new Error('Run not found');
+      throw new Error('Run already finished');
     }
 
     return c.json({ success: true, runId, status: 'cancelled' });
   });
 
   router.get('/repos/:repoId/runs', async (c) => {
-    const repoId = c.req.param('repoId') as Hex;
-    const limit = parseInt(c.req.query('limit') || '20');
-    const statusFilter = c.req.query('status');
-    const branch = c.req.query('branch');
+    const { repoId } = validateParams(z.object({ repoId: strictHexSchema }), c);
+    const { limit, status: statusFilter, branch } = validateQuery(workflowRunListQuerySchema.extend({
+      branch: z.string().optional(),
+    }), c);
 
     let runs = workflowEngine.getRepositoryRuns(repoId);
     if (statusFilter) runs = runs.filter((r) => r.status === statusFilter);
@@ -305,18 +305,19 @@ export function createCIRouter(ctx: CIContext): Hono {
   });
 
   router.post('/artifacts', async (c) => {
-    const triggeredBy = c.req.header('x-jeju-address') as Address;
-    if (!triggeredBy) return c.json({ error: 'Missing x-jeju-address header' }, 401);
+    const { 'x-jeju-address': triggeredBy } = validateHeaders(jejuAddressHeaderSchema, c);
 
     const formData = await c.req.formData();
-    const file = formData.get('file') as File;
-    const name = formData.get('name') as string;
-    const runId = formData.get('runId') as string;
-    const retention = parseInt(formData.get('retention') as string) || 7;
-
-    if (!file || !name || !runId) {
-      return c.json({ error: 'Missing required fields: file, name, runId' }, 400);
+    const file = formData.get('file');
+    const name = formData.get('name');
+    const runId = formData.get('runId');
+    const retentionStr = formData.get('retention');
+    
+    if (!(file instanceof File) || !name || !runId) {
+      throw new Error('Missing required fields: file, name, runId');
     }
+    
+    const retention = retentionStr ? parseInt(retentionStr as string, 10) : 7;
 
     const content = Buffer.from(await file.arrayBuffer());
     const artifact = await workflowEngine.uploadArtifact(runId, name, content, [], retention);
@@ -325,17 +326,16 @@ export function createCIRouter(ctx: CIContext): Hono {
   });
 
   router.get('/artifacts/:runId', async (c) => {
-    const runId = c.req.param('runId');
+    const { runId } = validateParams(runIdParamsSchema, c);
     const artifacts = workflowEngine.getArtifacts(runId);
     return c.json({ artifacts });
   });
 
   router.get('/artifacts/:runId/:name', async (c) => {
-    const runId = c.req.param('runId');
-    const name = c.req.param('name');
+    const { runId, name } = validateParams(artifactParamsSchema, c);
 
     const content = await workflowEngine.downloadArtifact(runId, name);
-    if (!content) return c.json({ error: 'Artifact not found' }, 404);
+    if (!content) throw new Error('Artifact not found');
 
     return new Response(content, {
       headers: {
@@ -346,9 +346,8 @@ export function createCIRouter(ctx: CIContext): Hono {
   });
 
   router.get('/secrets/:repoId', async (c) => {
-    const repoId = c.req.param('repoId') as Hex;
-    const triggeredBy = c.req.header('x-jeju-address') as Address;
-    if (!triggeredBy) return c.json({ error: 'Missing x-jeju-address header' }, 401);
+    const { repoId } = validateParams(z.object({ repoId: strictHexSchema }), c);
+    const { 'x-jeju-address': triggeredBy } = validateHeaders(jejuAddressHeaderSchema, c);
 
     const secrets = secretsStore.listSecrets(repoId);
     return c.json({
@@ -363,42 +362,33 @@ export function createCIRouter(ctx: CIContext): Hono {
   });
 
   router.post('/secrets/:repoId', async (c) => {
-    const repoId = c.req.param('repoId') as Hex;
-    const triggeredBy = c.req.header('x-jeju-address') as Address;
-    if (!triggeredBy) return c.json({ error: 'Missing x-jeju-address header' }, 401);
-
-    const body = await c.req.json<{ name: string; value: string; environment?: string }>();
-    if (!body.name || !body.value) {
-      return c.json({ error: 'Missing required fields: name, value' }, 400);
-    }
+    const { repoId } = validateParams(z.object({ repoId: strictHexSchema }), c);
+    const { 'x-jeju-address': triggeredBy } = validateHeaders(jejuAddressHeaderSchema, c);
+    const body = await validateBody(createSecretRequestSchema, c);
 
     const secret = await secretsStore.createSecret(repoId, body.name, body.value, triggeredBy, body.environment);
     return c.json({ secretId: secret.secretId, name: secret.name });
   });
 
   router.put('/secrets/:secretId', async (c) => {
-    const secretId = c.req.param('secretId');
-    const triggeredBy = c.req.header('x-jeju-address') as Address;
-    if (!triggeredBy) return c.json({ error: 'Missing x-jeju-address header' }, 401);
-
-    const body = await c.req.json<{ value: string }>();
-    if (!body.value) return c.json({ error: 'Missing required field: value' }, 400);
+    const { secretId } = validateParams(secretIdParamsSchema, c);
+    const { 'x-jeju-address': triggeredBy } = validateHeaders(jejuAddressHeaderSchema, c);
+    const body = await validateBody(updateSecretRequestSchema, c);
 
     const secret = await secretsStore.updateSecret(secretId, body.value, triggeredBy);
     return c.json({ secretId: secret.secretId, updatedAt: secret.updatedAt });
   });
 
   router.delete('/secrets/:secretId', async (c) => {
-    const secretId = c.req.param('secretId');
-    const triggeredBy = c.req.header('x-jeju-address') as Address;
-    if (!triggeredBy) return c.json({ error: 'Missing x-jeju-address header' }, 401);
+    const { secretId } = validateParams(secretIdParamsSchema, c);
+    const { 'x-jeju-address': triggeredBy } = validateHeaders(jejuAddressHeaderSchema, c);
 
     await secretsStore.deleteSecret(secretId, triggeredBy);
     return c.json({ success: true });
   });
 
   router.get('/environments/:repoId', async (c) => {
-    const repoId = c.req.param('repoId') as Hex;
+    const { repoId } = validateParams(z.object({ repoId: strictHexSchema }), c);
     const environments = secretsStore.listEnvironments(repoId);
 
     return c.json({
@@ -416,18 +406,9 @@ export function createCIRouter(ctx: CIContext): Hono {
   });
 
   router.post('/environments/:repoId', async (c) => {
-    const repoId = c.req.param('repoId') as Hex;
-    const triggeredBy = c.req.header('x-jeju-address') as Address;
-    if (!triggeredBy) return c.json({ error: 'Missing x-jeju-address header' }, 401);
-
-    const body = await c.req.json<{
-      name: string;
-      url?: string;
-      protectionRules?: { requiredReviewers?: Address[]; waitTimer?: number; preventSelfReview?: boolean };
-      variables?: Record<string, string>;
-    }>();
-
-    if (!body.name) return c.json({ error: 'Missing required field: name' }, 400);
+    const { repoId } = validateParams(z.object({ repoId: strictHexSchema }), c);
+    const { 'x-jeju-address': triggeredBy } = validateHeaders(jejuAddressHeaderSchema, c);
+    const body = await validateBody(createEnvironmentRequestSchema, c);
 
     const env = await secretsStore.createEnvironment(repoId, body.name, triggeredBy, {
       url: body.url,
@@ -439,11 +420,10 @@ export function createCIRouter(ctx: CIContext): Hono {
   });
 
   router.get('/environments/:repoId/:name', async (c) => {
-    const repoId = c.req.param('repoId') as Hex;
-    const name = c.req.param('name');
+    const { repoId, name } = validateParams(environmentNameParamsSchema, c);
 
     const env = secretsStore.getEnvironment(repoId, name);
-    if (!env) return c.json({ error: 'Environment not found' }, 404);
+    if (!env) throw new Error('Environment not found');
 
     return c.json({
       environmentId: env.environmentId,
@@ -458,48 +438,40 @@ export function createCIRouter(ctx: CIContext): Hono {
   });
 
   router.put('/environments/:repoId/:name', async (c) => {
-    const repoId = c.req.param('repoId') as Hex;
-    const name = c.req.param('name');
-    const triggeredBy = c.req.header('x-jeju-address') as Address;
-    if (!triggeredBy) return c.json({ error: 'Missing x-jeju-address header' }, 401);
-
-    const body = await c.req.json<{
-      url?: string;
-      protectionRules?: { requiredReviewers?: Address[]; waitTimer?: number; preventSelfReview?: boolean };
-      variables?: Record<string, string>;
-    }>();
+    const { repoId, name } = validateParams(z.object({
+      repoId: strictHexSchema,
+      name: z.string().min(1),
+    }), c);
+    const { 'x-jeju-address': triggeredBy } = validateHeaders(jejuAddressHeaderSchema, c);
+    const body = await validateBody(updateEnvironmentRequestSchema, c);
 
     const env = await secretsStore.updateEnvironment(repoId, name, body);
     return c.json({ environmentId: env.environmentId, updatedAt: env.updatedAt });
   });
 
   router.delete('/environments/:repoId/:name', async (c) => {
-    const repoId = c.req.param('repoId') as Hex;
-    const name = c.req.param('name');
-    const triggeredBy = c.req.header('x-jeju-address') as Address;
-    if (!triggeredBy) return c.json({ error: 'Missing x-jeju-address header' }, 401);
+    const { repoId, name } = validateParams(environmentNameParamsSchema, c);
+    const { 'x-jeju-address': triggeredBy } = validateHeaders(jejuAddressHeaderSchema, c);
 
     secretsStore.deleteEnvironment(repoId, name);
     return c.json({ success: true });
   });
 
   router.post('/environments/:repoId/:name/secrets', async (c) => {
-    const repoId = c.req.param('repoId') as Hex;
-    const envName = c.req.param('name');
-    const triggeredBy = c.req.header('x-jeju-address') as Address;
-    if (!triggeredBy) return c.json({ error: 'Missing x-jeju-address header' }, 401);
-
-    const body = await c.req.json<{ name: string; value: string }>();
-    if (!body.name || !body.value) {
-      return c.json({ error: 'Missing required fields: name, value' }, 400);
-    }
+    const { repoId, name: envName } = validateParams(environmentNameParamsSchema, c);
+    const { 'x-jeju-address': triggeredBy } = validateHeaders(jejuAddressHeaderSchema, c);
+    const body = await validateBody(z.object({
+      name: z.string().min(1),
+      value: z.string().min(1),
+    }), c);
 
     const secret = await secretsStore.addEnvironmentSecret(repoId, envName, body.name, body.value, triggeredBy);
     return c.json({ secretId: secret.secretId, name: secret.name });
   });
 
   router.get('/runners', async (c) => {
-    const labels = c.req.query('labels')?.split(',');
+    const { labels: labelsStr } = validateQuery(z.object({ labels: z.string().optional() }), c);
+    const labels = labelsStr ? labelsStr.split(',').filter(Boolean) : undefined;
     const runners = workflowEngine.getRunners(labels);
 
     return c.json({
@@ -518,16 +490,11 @@ export function createCIRouter(ctx: CIContext): Hono {
   });
 
   router.post('/runners', async (c) => {
-    const triggeredBy = c.req.header('x-jeju-address') as Address;
-    if (!triggeredBy) return c.json({ error: 'Missing x-jeju-address header' }, 401);
-
-    const body = await c.req.json<{
-      name: string;
-      labels: string[];
-      nodeId: string;
-      capabilities: Runner['capabilities'];
-      selfHosted?: boolean;
-    }>();
+    const { 'x-jeju-address': triggeredBy } = validateHeaders(jejuAddressHeaderSchema, c);
+    const body = await validateBody(runnerRegistrationRequestSchema.extend({
+      nodeId: z.string().min(1),
+      selfHosted: z.boolean().optional(),
+    }), c);
 
     const runner = workflowEngine.registerRunner({
       runnerId: crypto.randomUUID(),
@@ -545,28 +512,33 @@ export function createCIRouter(ctx: CIContext): Hono {
   });
 
   router.post('/runners/:runnerId/heartbeat', async (c) => {
-    const runnerId = c.req.param('runnerId');
+    const { runnerId } = validateParams(runnerParamsSchema, c);
     workflowEngine.runnerHeartbeat(runnerId);
     return c.json({ success: true });
   });
 
   router.delete('/runners/:runnerId', async (c) => {
-    const runnerId = c.req.param('runnerId');
-    const triggeredBy = c.req.header('x-jeju-address') as Address;
-    if (!triggeredBy) return c.json({ error: 'Missing x-jeju-address header' }, 401);
+    const { runnerId } = validateParams(runnerParamsSchema, c);
+    const { 'x-jeju-address': triggeredBy } = validateHeaders(jejuAddressHeaderSchema, c);
 
     workflowEngine.unregisterRunner(runnerId);
     return c.json({ success: true });
   });
 
   router.post('/webhooks/:repoId', async (c) => {
-    const repoId = c.req.param('repoId') as Hex;
-    const event = c.req.header('x-jeju-event') || c.req.header('x-github-event');
-    const signature = c.req.header('x-jeju-signature') || c.req.header('x-hub-signature-256');
+    const { repoId } = validateParams(z.object({ repoId: strictHexSchema }), c);
+    const { 'x-jeju-event': jejuEvent, 'x-github-event': githubEvent, 'x-jeju-signature': jejuSig, 'x-hub-signature-256': hubSig } = validateHeaders(z.object({
+      'x-jeju-event': z.string().optional(),
+      'x-github-event': z.string().optional(),
+      'x-jeju-signature': z.string().optional(),
+      'x-hub-signature-256': z.string().optional(),
+    }), c);
+    const event = jejuEvent || githubEvent;
+    const signature = jejuSig || hubSig;
 
-    if (!event) return c.json({ error: 'Missing event header' }, 400);
+    if (!event) throw new Error('Missing event header');
 
-    const body = await c.req.json<Record<string, unknown>>();
+    const body = await validateBody(z.record(z.string(), z.unknown()), c);
 
     let ciEvent: CIEvent;
 
@@ -601,7 +573,7 @@ export function createCIRouter(ctx: CIContext): Hono {
         };
         break;
       default:
-        return c.json({ error: `Unsupported event: ${event}` }, 400);
+        throw new Error(`Unsupported event: ${event}`);
     }
 
     await eventBus.emit(ciEvent);
@@ -659,7 +631,7 @@ export function createCIRouter(ctx: CIContext): Hono {
   const simpleTriggers = new Map<string, SimpleTrigger>();
   
   router.get('/triggers', (c) => {
-    const owner = c.req.header('x-jeju-address') as Address | undefined;
+    const { 'x-jeju-address': owner } = validateHeaders(z.object({ 'x-jeju-address': z.string().optional() }), c);
     let triggers = Array.from(simpleTriggers.values());
     
     if (owner) {
@@ -670,28 +642,17 @@ export function createCIRouter(ctx: CIContext): Hono {
   });
   
   router.get('/triggers/:id', (c) => {
-    const trigger = simpleTriggers.get(c.req.param('id'));
+    const { id } = validateParams(triggerParamsSchema, c);
+    const trigger = simpleTriggers.get(id);
     if (!trigger) {
-      return c.json({ error: 'Trigger not found' }, 404);
+      throw new Error('Trigger not found');
     }
     return c.json({ trigger });
   });
   
   router.post('/triggers', async (c) => {
-    const owner = c.req.header('x-jeju-address') as Address;
-    if (!owner) return c.json({ error: 'Missing x-jeju-address header' }, 401);
-    
-    const body = await c.req.json<{
-      name: string;
-      type: 'cron' | 'webhook' | 'event';
-      schedule?: string;
-      target: string;
-      enabled?: boolean;
-    }>();
-    
-    if (!body.name || !body.type || !body.target) {
-      return c.json({ error: 'name, type, and target are required' }, 400);
-    }
+    const { 'x-jeju-address': owner } = validateHeaders(jejuAddressHeaderSchema, c);
+    const body = await validateBody(createTriggerRequestSchema, c);
     
     const trigger: SimpleTrigger = {
       id: crypto.randomUUID(),
@@ -710,20 +671,19 @@ export function createCIRouter(ctx: CIContext): Hono {
   });
   
   router.put('/triggers/:id', async (c) => {
-    const id = c.req.param('id');
-    const owner = c.req.header('x-jeju-address') as Address;
-    if (!owner) return c.json({ error: 'Missing x-jeju-address header' }, 401);
+    const { id } = validateParams(triggerParamsSchema, c);
+    const { 'x-jeju-address': owner } = validateHeaders(jejuAddressHeaderSchema, c);
     
     const trigger = simpleTriggers.get(id);
     if (!trigger) {
-      return c.json({ error: 'Trigger not found' }, 404);
+      throw new Error('Trigger not found');
     }
     
     if (trigger.owner !== owner) {
-      return c.json({ error: 'Not authorized' }, 403);
+      throw new Error('Not authorized');
     }
     
-    const body = await c.req.json<Partial<SimpleTrigger>>();
+    const body = await validateBody(createTriggerRequestSchema.partial(), c);
     const updated = { ...trigger, ...body, id, owner };
     simpleTriggers.set(id, updated);
     
@@ -731,17 +691,16 @@ export function createCIRouter(ctx: CIContext): Hono {
   });
   
   router.delete('/triggers/:id', (c) => {
-    const id = c.req.param('id');
-    const owner = c.req.header('x-jeju-address') as Address;
-    if (!owner) return c.json({ error: 'Missing x-jeju-address header' }, 401);
+    const { id } = validateParams(triggerParamsSchema, c);
+    const { 'x-jeju-address': owner } = validateHeaders(jejuAddressHeaderSchema, c);
     
     const trigger = simpleTriggers.get(id);
     if (!trigger) {
-      return c.json({ error: 'Trigger not found' }, 404);
+      throw new Error('Trigger not found');
     }
     
     if (trigger.owner !== owner) {
-      return c.json({ error: 'Not authorized' }, 403);
+      throw new Error('Not authorized');
     }
     
     simpleTriggers.delete(id);
@@ -749,9 +708,10 @@ export function createCIRouter(ctx: CIContext): Hono {
   });
   
   router.post('/triggers/:id/run', async (c) => {
-    const trigger = simpleTriggers.get(c.req.param('id'));
+    const { id } = validateParams(triggerParamsSchema, c);
+    const trigger = simpleTriggers.get(id);
     if (!trigger) {
-      return c.json({ error: 'Trigger not found' }, 404);
+      throw new Error('Trigger not found');
     }
     
     // Execute the trigger
@@ -773,8 +733,8 @@ export function createCIRouter(ctx: CIContext): Hono {
   });
 
   router.get('/badge/:repoId/:workflowId', async (c) => {
-    const workflowId = c.req.param('workflowId') as Hex;
-    const branch = c.req.query('branch');
+    const { repoId, workflowId } = validateParams(badgeParamsSchema, c);
+    const { branch } = validateQuery(badgeQuerySchema, c);
     let runs = workflowEngine.getWorkflowRuns(workflowId);
 
     if (branch) {

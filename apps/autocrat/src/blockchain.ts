@@ -22,6 +22,8 @@ import {
   type ProposalFromContract, type AutocratVoteFromContract,
   type ModelFromContract, type DecisionFromContract, type CEOStatsFromContract
 } from './shared';
+import { ProposalIdSchema } from './schemas';
+import { validateOrThrow, expect } from './schemas';
 
 export class AutocratBlockchain {
   readonly client: PublicClient;
@@ -63,18 +65,19 @@ export class AutocratBlockchain {
   }
 
   async getProposal(proposalId: string): Promise<{ proposal: ProposalFromContract; votes: AutocratVoteFromContract[] } | null> {
+    const validated = validateOrThrow(ProposalIdSchema, proposalId, 'Proposal ID');
     if (!this.councilDeployed) return null;
     const proposal = await readContract(this.client, {
       address: this.councilAddress,
       abi: COUNCIL_ABI,
       functionName: 'getProposal',
-      args: [proposalId],
+      args: [validated],
     }) as ProposalFromContract;
     const votes = await readContract(this.client, {
       address: this.councilAddress,
       abi: COUNCIL_ABI,
       functionName: 'getAutocratVotes',
-      args: [proposalId],
+      args: [validated],
     }) as AutocratVoteFromContract[];
     return { proposal, votes };
   }
@@ -113,6 +116,7 @@ export class AutocratBlockchain {
   }
 
   async listProposals(activeOnly: boolean, limit = 20): Promise<{ total: number; proposals: Array<{ proposalId: string; proposer: string; type: string; status: string; qualityScore: number; createdAt: string }> }> {
+    expect(limit > 0 && limit <= 1000, `Limit must be between 1 and 1000, got ${limit}`);
     if (!this.councilDeployed) return { total: 0, proposals: [] };
 
     const proposalIds = activeOnly
@@ -150,8 +154,10 @@ export class AutocratBlockchain {
 
   async getCEOStatus(): Promise<{ currentModel: { modelId: string; name: string; provider: string; totalStaked?: string; benchmarkScore?: string }; stats: { totalDecisions: string; approvedDecisions: string; overriddenDecisions: string; approvalRate: string; overrideRate: string } }> {
     if (!this.ceoDeployed) {
+      const ceoModel = this.config.agents?.ceo?.model ?? 'local';
+      const ceoName = this.config.agents?.ceo?.name ?? 'Local CEO';
       return {
-        currentModel: { modelId: this.config.agents.ceo.model, name: this.config.agents.ceo.name, provider: 'local' },
+        currentModel: { modelId: ceoModel, name: ceoName, provider: 'local' },
         stats: { totalDecisions: '0', approvedDecisions: '0', overriddenDecisions: '0', approvalRate: '0%', overrideRate: '0%' }
       };
     }
@@ -186,20 +192,21 @@ export class AutocratBlockchain {
   }
 
   async getDecision(proposalId: string): Promise<{ decided: boolean; decision?: { proposalId: string; modelId: string; approved: boolean; decisionHash: string; decidedAt: string; confidenceScore: string; alignmentScore: string; disputed: boolean; overridden: boolean } }> {
+    const validated = validateOrThrow(ProposalIdSchema, proposalId, 'Proposal ID');
     if (!this.ceoDeployed) return { decided: false };
 
     const decision = await readContract(this.client, {
       address: this.ceoAgentAddress,
       abi: CEO_AGENT_ABI,
       functionName: 'getDecision',
-      args: [proposalId],
+      args: [validated],
     }) as DecisionFromContract;
     if (!decision.decidedAt || decision.decidedAt === 0n) return { decided: false };
 
     return {
       decided: true,
       decision: {
-        proposalId: decision.proposalId,
+        proposalId: validated,
         modelId: decision.modelId,
         approved: decision.approved,
         decisionHash: decision.decisionHash,
@@ -245,6 +252,7 @@ export class AutocratBlockchain {
   }
 
   async getRecentDecisions(limit = 10): Promise<Array<{ decisionId: string; proposalId: string; approved: boolean; confidenceScore: number; alignmentScore: number; decidedAt: number; disputed: boolean; overridden: boolean }>> {
+    expect(limit > 0 && limit <= 100, `Limit must be between 1 and 100, got ${limit}`);
     if (!this.ceoDeployed) return [];
 
     const decisionIds = await readContract(this.client, {
@@ -281,13 +289,17 @@ export class AutocratBlockchain {
 
   async getGovernanceStats(): Promise<{ totalProposals: string; ceo: { model: string; decisions: string; approvalRate: string }; parameters: { minQualityScore: string; autocratVotingPeriod: string; gracePeriod: string } }> {
     if (!this.councilDeployed || !this.ceoDeployed) {
+      const ceoModel = this.config.agents?.ceo?.model ?? 'local';
+      const minQuality = this.config.parameters?.minQualityScore ?? 70;
+      const votingPeriod = this.config.parameters?.autocratVotingPeriod ?? 86400;
+      const gracePeriod = this.config.parameters?.gracePeriod ?? 172800;
       return {
         totalProposals: '0',
-        ceo: { model: this.config.agents.ceo.model, decisions: '0', approvalRate: '0%' },
+        ceo: { model: ceoModel, decisions: '0', approvalRate: '0%' },
         parameters: {
-          minQualityScore: this.config.parameters.minQualityScore.toString(),
-          autocratVotingPeriod: `${this.config.parameters.autocratVotingPeriod} seconds`,
-          gracePeriod: `${this.config.parameters.gracePeriod} seconds`
+          minQualityScore: minQuality.toString(),
+          autocratVotingPeriod: `${votingPeriod} seconds`,
+          gracePeriod: `${gracePeriod} seconds`
         }
       };
     }
@@ -334,14 +346,16 @@ export class AutocratBlockchain {
   }
 
   getAutocratStatus() {
+    const votingPeriod = this.config.parameters?.autocratVotingPeriod ?? 86400;
+    const gracePeriod = this.config.parameters?.gracePeriod ?? 172800;
     return {
       agents: ['Treasury', 'Code', 'Community', 'Security'].map((role, i) => ({
         role,
         index: i,
         description: ['Financial review', 'Technical review', 'Community impact', 'Security assessment'][i]
       })),
-      votingPeriod: `${this.config.parameters.autocratVotingPeriod} seconds`,
-      gracePeriod: `${this.config.parameters.gracePeriod} seconds`
+      votingPeriod: `${votingPeriod} seconds`,
+      gracePeriod: `${gracePeriod} seconds`
     };
   }
 }

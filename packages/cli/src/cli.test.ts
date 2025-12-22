@@ -141,7 +141,7 @@ describe('status command', () => {
   });
 
   test('--check runs full diagnostics', async () => {
-    const { stdout, exitCode } = await runCLI(['status', '--check']);
+    const { stdout } = await runCLI(['status', '--check']);
     // May timeout without docker, just verify it starts
     expect(stdout).toContain('SYSTEM CHECK');
   }, 30000);

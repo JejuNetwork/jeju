@@ -9,24 +9,11 @@
  */
 
 import { z } from 'zod';
+import { AddressSchema, ChainIdSchema } from '@jejunetwork/types/validation';
 
 // ============ Chain Configuration ============
 
-export const ChainIdSchema = z.union([
-  z.literal(1),        // Ethereum Mainnet
-  z.literal(11155111), // Sepolia
-  z.literal(42161),    // Arbitrum One
-  z.literal(421614),   // Arbitrum Sepolia
-  z.literal(10),       // Optimism
-  z.literal(11155420), // OP Sepolia
-  z.literal(8453),     // Base
-  z.literal(84532),    // Base Sepolia
-  z.literal(56),       // BSC
-  z.literal(97),       // BSC Testnet
-  z.literal(1337),     // Localnet
-  z.literal(420691),   // Network Mainnet
-  z.literal(420690),   // Network Testnet
-]);
+export { ChainIdSchema };
 export type ChainId = z.infer<typeof ChainIdSchema>;
 
 export const ChainConfigSchema = z.object({

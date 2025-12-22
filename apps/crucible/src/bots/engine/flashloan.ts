@@ -24,6 +24,9 @@ import {
 import { privateKeyToAccount } from 'viem/accounts';
 import { mainnet, arbitrum, optimism, base } from 'viem/chains';
 import type { ChainId, ArbitrageOpportunity } from '../autocrat-types';
+import { createLogger } from '../../sdk/logger';
+
+const log = createLogger('Flashloan');
 
 // Flash loan provider addresses by chain
 const AAVE_V3_POOL: Record<number, `0x${string}`> = {
@@ -136,7 +139,7 @@ export class FlashLoanExecutor {
    * Initialize and fetch flash loan premiums
    */
   async initialize(): Promise<void> {
-    console.log(`⚡ Initializing flash loan executor (chain ${this.chainId})`);
+    log.info('Initializing flash loan executor', { chainId: this.chainId });
 
     if (this.aavePool) {
       try {
@@ -146,19 +149,19 @@ export class FlashLoanExecutor {
           functionName: 'FLASHLOAN_PREMIUM_TOTAL',
         });
         this.aavePremium = premium;
-        console.log(`   Aave V3 premium: ${Number(premium)} bps`);
+        log.info('Aave V3 premium', { premiumBps: Number(premium) });
       } catch {
-        console.log(`   Aave V3 not available`);
+        log.warn('Aave V3 not available');
         this.aavePool = null;
       }
     }
 
     if (this.balancerVault) {
-      console.log(`   Balancer Vault available (no fee)`);
+      log.info('Balancer Vault available (no fee)');
     }
 
     if (!this.aavePool && !this.balancerVault) {
-      console.warn(`   ⚠️ No flash loan providers available on chain ${this.chainId}`);
+      log.warn('No flash loan providers available', { chainId: this.chainId });
     }
   }
 
@@ -203,9 +206,7 @@ export class FlashLoanExecutor {
       return { success: false, error: 'No flash loan provider available' };
     }
 
-    console.log(`⚡ Executing flash loan arbitrage via ${provider}`);
-    console.log(`   Token: ${inputToken}`);
-    console.log(`   Amount: ${inputAmount}`);
+    log.info('Executing flash loan arbitrage', { provider, token: inputToken, amount: inputAmount });
 
     switch (provider) {
       case 'aave':
@@ -257,7 +258,7 @@ export class FlashLoanExecutor {
         chain: CHAIN_DEFS[this.chainId] || null,
       });
 
-      console.log(`   Flash loan TX: ${hash}`);
+      log.debug('Flash loan TX', { hash });
 
       const receipt = await this.publicClient.waitForTransactionReceipt({ hash });
 
@@ -274,8 +275,7 @@ export class FlashLoanExecutor {
       const gasCost = gasUsed * (receipt.effectiveGasPrice || 0n);
       const actualProfit = balanceAfter - balanceBefore + gasCost; // Add back gas to see gross profit
 
-      console.log(`   ✓ Flash loan executed`);
-      console.log(`   Actual profit: ${Number(actualProfit) / 1e18} ETH`);
+      log.info('Flash loan executed', { txHash: hash, actualProfitEth: Number(actualProfit) / 1e18 });
 
       return {
         success: true,
@@ -328,7 +328,7 @@ export class FlashLoanExecutor {
         chain: CHAIN_DEFS[this.chainId] || null,
       });
 
-      console.log(`   Flash loan TX: ${hash}`);
+      log.debug('Flash loan TX', { hash });
 
       const receipt = await this.publicClient.waitForTransactionReceipt({ hash });
 
@@ -344,8 +344,7 @@ export class FlashLoanExecutor {
       const gasCost = gasUsed * (receipt.effectiveGasPrice || 0n);
       const actualProfit = balanceAfter - balanceBefore + gasCost;
 
-      console.log(`   ✓ Flash loan executed`);
-      console.log(`   Actual profit: ${Number(actualProfit) / 1e18} ETH`);
+      log.info('Flash loan executed', { txHash: hash, actualProfitEth: Number(actualProfit) / 1e18 });
 
       return {
         success: true,

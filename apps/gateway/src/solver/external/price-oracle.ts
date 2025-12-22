@@ -89,37 +89,32 @@ export class PriceOracle {
     const feed = CHAINLINK_FEEDS[feedKey];
     if (!feed) return null;
 
-    try {
-      const result = await this.client.readContract({
-        address: feed.address,
-        abi: AGGREGATOR_ABI,
-        functionName: 'latestRoundData',
-      });
+    const result = await this.client.readContract({
+      address: feed.address,
+      abi: AGGREGATOR_ABI,
+      functionName: 'latestRoundData',
+    });
 
-      const [, answer, , updatedAt] = result;
-      const price = Number(answer) / (10 ** feed.decimals);
-      const timestamp = Number(updatedAt);
-      const stale = Date.now() / 1000 - timestamp > this.STALE_THRESHOLD;
+    const [, answer, , updatedAt] = result;
+    const price = Number(answer) / (10 ** feed.decimals);
+    const timestamp = Number(updatedAt);
+    const stale = Date.now() / 1000 - timestamp > this.STALE_THRESHOLD;
 
-      const priceData: PriceData = {
-        price,
-        decimals: feed.decimals,
-        timestamp,
-        source: 'chainlink',
-        stale,
-      };
+    const priceData: PriceData = {
+      price,
+      decimals: feed.decimals,
+      timestamp,
+      source: 'chainlink',
+      stale,
+    };
 
-      // Cache it
-      this.cache.set(tokenLower, {
-        price: priceData,
-        expiry: Date.now() + this.CACHE_TTL,
-      });
+    // Cache it
+    this.cache.set(tokenLower, {
+      price: priceData,
+      expiry: Date.now() + this.CACHE_TTL,
+    });
 
-      return priceData;
-    } catch (err) {
-      console.error(`Error fetching Chainlink price for ${feedKey}:`, err);
-      return null;
-    }
+    return priceData;
   }
 
   /**

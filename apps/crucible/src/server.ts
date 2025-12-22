@@ -9,7 +9,7 @@ import { logger } from 'hono/logger';
 import { createPublicClient, createWalletClient, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { mainnet, sepolia, localhost } from 'viem/chains';
-import type { CrucibleConfig, AgentCharacter, ExecutionRequest } from './types';
+import type { CrucibleConfig, ExecutionRequest } from './types';
 import { createStorage } from './sdk/storage';
 import { createCompute } from './sdk/compute';
 import { createAgentSDK } from './sdk/agent';
@@ -19,6 +19,24 @@ import { createLogger } from './sdk/logger';
 import { getCharacter, listCharacters } from './characters';
 import { BotInitializer } from './bots/initializer';
 import type { TradingBot } from './bots/trading-bot';
+import {
+  parseOrThrow,
+  expect,
+  RegisterAgentRequestSchema,
+  AgentIdParamSchema,
+  FundAgentRequestSchema,
+  AddMemoryRequestSchema,
+  CreateRoomRequestSchema,
+  RoomIdParamSchema,
+  JoinRoomRequestSchema,
+  LeaveRoomRequestSchema,
+  PostMessageRequestSchema,
+  SetPhaseRequestSchema,
+  ExecuteRequestSchema,
+  AgentSearchQuerySchema,
+  BotIdParamSchema,
+} from './schemas';
+import { z } from 'zod';
 
 const log = createLogger('Server');
 
@@ -31,26 +49,53 @@ const metrics = {
   startTime: Date.now(),
 };
 
+function getRequiredEnv(key: string): string {
+  const value = process.env[key];
+  if (!value) {
+    throw new Error(`Required environment variable ${key} is not set`);
+  }
+  return value;
+}
+
+function getRequiredAddress(key: string): `0x${string}` {
+  const value = getRequiredEnv(key);
+  if (!value.startsWith('0x') || value.length !== 42) {
+    throw new Error(`Environment variable ${key} must be a valid Ethereum address`);
+  }
+  return value as `0x${string}`;
+}
+
+function getNetwork(): 'localnet' | 'testnet' | 'mainnet' {
+  const network = process.env.NETWORK;
+  if (!network) {
+    throw new Error('NETWORK environment variable is required (localnet, testnet, or mainnet)');
+  }
+  if (network !== 'localnet' && network !== 'testnet' && network !== 'mainnet') {
+    throw new Error(`Invalid NETWORK: ${network}. Must be one of: localnet, testnet, mainnet`);
+  }
+  return network;
+}
+
 const config: CrucibleConfig = {
-  rpcUrl: process.env.RPC_URL ?? 'http://127.0.0.1:6546',
+  rpcUrl: getRequiredEnv('RPC_URL'),
   privateKey: process.env.PRIVATE_KEY,
   contracts: {
-    agentVault: (process.env.AGENT_VAULT_ADDRESS ?? '0x0000000000000000000000000000000000000000') as `0x${string}`,
-    roomRegistry: (process.env.ROOM_REGISTRY_ADDRESS ?? '0x0000000000000000000000000000000000000000') as `0x${string}`,
-    triggerRegistry: (process.env.TRIGGER_REGISTRY_ADDRESS ?? '0x0000000000000000000000000000000000000000') as `0x${string}`,
-    identityRegistry: (process.env.IDENTITY_REGISTRY_ADDRESS ?? '0x0000000000000000000000000000000000000000') as `0x${string}`,
-    serviceRegistry: (process.env.SERVICE_REGISTRY_ADDRESS ?? '0x0000000000000000000000000000000000000000') as `0x${string}`,
-    autocratTreasury: (process.env.AUTOCRAT_TREASURY_ADDRESS ?? '0x0000000000000000000000000000000000000000') as `0x${string}`,
+    agentVault: getRequiredAddress('AGENT_VAULT_ADDRESS'),
+    roomRegistry: getRequiredAddress('ROOM_REGISTRY_ADDRESS'),
+    triggerRegistry: getRequiredAddress('TRIGGER_REGISTRY_ADDRESS'),
+    identityRegistry: getRequiredAddress('IDENTITY_REGISTRY_ADDRESS'),
+    serviceRegistry: getRequiredAddress('SERVICE_REGISTRY_ADDRESS'),
+    autocratTreasury: process.env.AUTOCRAT_TREASURY_ADDRESS as `0x${string}` | undefined,
   },
   services: {
-    computeMarketplace: process.env.COMPUTE_MARKETPLACE_URL ?? 'http://127.0.0.1:4007',
-    storageApi: process.env.STORAGE_API_URL ?? 'http://127.0.0.1:3100',
-    ipfsGateway: process.env.IPFS_GATEWAY ?? 'http://127.0.0.1:3100',
-    indexerGraphql: process.env.INDEXER_GRAPHQL_URL ?? 'http://127.0.0.1:4350/graphql',
+    computeMarketplace: getRequiredEnv('COMPUTE_MARKETPLACE_URL'),
+    storageApi: getRequiredEnv('STORAGE_API_URL'),
+    ipfsGateway: getRequiredEnv('IPFS_GATEWAY'),
+    indexerGraphql: getRequiredEnv('INDEXER_GRAPHQL_URL'),
     cqlEndpoint: process.env.CQL_ENDPOINT,
     dexCacheUrl: process.env.DEX_CACHE_URL,
   },
-  network: (process.env.NETWORK as 'localnet' | 'testnet' | 'mainnet') ?? 'localnet',
+  network: getNetwork(),
 };
 
 const chain = config.network === 'mainnet' ? mainnet : config.network === 'testnet' ? sepolia : localhost;
@@ -193,14 +238,16 @@ app.get('/api/v1/characters', (c) => {
 });
 
 app.get('/api/v1/characters/:id', (c) => {
-  const character = getCharacter(c.req.param('id'));
-  if (!character) return c.json({ error: 'Character not found' }, 404);
+  const id = c.req.param('id');
+  expect(id, 'Character ID is required');
+  const character = expect(getCharacter(id), `Character not found: ${id}`);
   return c.json({ character });
 });
 
 // Agent Management
 app.post('/api/v1/agents', async (c) => {
-  const body = await c.req.json() as { character: AgentCharacter; initialFunding?: string };
+  const rawBody = await c.req.json();
+  const body = parseOrThrow(RegisterAgentRequestSchema, rawBody, 'Register agent request');
   log.info('Registering agent', { name: body.character.name });
 
   const result = await agentSdk.registerAgent(
@@ -218,55 +265,71 @@ app.post('/api/v1/agents', async (c) => {
 });
 
 app.get('/api/v1/agents/:agentId', async (c) => {
-  const agent = await agentSdk.getAgent(BigInt(c.req.param('agentId')));
-  if (!agent) return c.json({ error: 'Agent not found' }, 404);
-  return c.json({ agent: { ...agent, agentId: agent.agentId.toString() } });
+  const params = parseOrThrow(AgentIdParamSchema, c.req.param(), 'Agent ID parameter');
+  const agentId = BigInt(params.agentId);
+  const agent = await agentSdk.getAgent(agentId);
+  const validAgent = expect(agent, `Agent not found: ${params.agentId}`);
+  return c.json({ agent: { ...validAgent, agentId: validAgent.agentId.toString() } });
 });
 
 app.get('/api/v1/agents/:agentId/character', async (c) => {
-  const character = await agentSdk.loadCharacter(BigInt(c.req.param('agentId')));
-  return c.json({ character });
+  const params = parseOrThrow(AgentIdParamSchema, c.req.param(), 'Agent ID parameter');
+  try {
+    const character = await agentSdk.loadCharacter(BigInt(params.agentId));
+    return c.json({ character });
+  } catch (error) {
+    return c.json({ error: String(error) }, 404);
+  }
 });
 
 app.get('/api/v1/agents/:agentId/state', async (c) => {
-  const state = await agentSdk.loadState(BigInt(c.req.param('agentId')));
+  const params = parseOrThrow(AgentIdParamSchema, c.req.param(), 'Agent ID parameter');
+  const state = await agentSdk.loadState(BigInt(params.agentId));
   return c.json({ state });
 });
 
 app.get('/api/v1/agents/:agentId/balance', async (c) => {
-  const balance = await agentSdk.getVaultBalance(BigInt(c.req.param('agentId')));
+  const params = parseOrThrow(AgentIdParamSchema, c.req.param(), 'Agent ID parameter');
+  const balance = await agentSdk.getVaultBalance(BigInt(params.agentId));
   return c.json({ balance: balance.toString() });
 });
 
 app.post('/api/v1/agents/:agentId/fund', async (c) => {
-  const agentId = BigInt(c.req.param('agentId'));
-  const body = await c.req.json() as { amount: string };
-  const txHash = await agentSdk.fundVault(agentId, BigInt(body.amount));
-  return c.json({ txHash });
+  const params = parseOrThrow(AgentIdParamSchema, c.req.param(), 'Agent ID parameter');
+  const rawBody = await c.req.json();
+  const body = parseOrThrow(FundAgentRequestSchema, rawBody, 'Fund agent request');
+  const agentId = BigInt(params.agentId);
+  try {
+    const txHash = await agentSdk.fundVault(agentId, BigInt(body.amount));
+    return c.json({ txHash });
+  } catch (error) {
+    return c.json({ error: String(error) }, 400);
+  }
 });
 
 app.post('/api/v1/agents/:agentId/memory', async (c) => {
-  const agentId = BigInt(c.req.param('agentId'));
-  const body = await c.req.json() as { content: string; importance?: number; roomId?: string };
+  const params = parseOrThrow(AgentIdParamSchema, c.req.param(), 'Agent ID parameter');
+  const rawBody = await c.req.json();
+  const body = parseOrThrow(AddMemoryRequestSchema, rawBody, 'Add memory request');
+  const agentId = BigInt(params.agentId);
   const memory = await agentSdk.addMemory(agentId, body.content, {
-    importance: body.importance, roomId: body.roomId,
+    importance: body.importance,
+    roomId: body.roomId,
+    userId: body.userId,
   });
   return c.json({ memory });
 });
 
 // Room Management
 app.post('/api/v1/rooms', async (c) => {
-  const body = await c.req.json() as {
-    name: string; description: string;
-    roomType: 'collaboration' | 'adversarial' | 'debate' | 'council';
-    config: { maxMembers?: number; turnBased?: boolean; turnTimeout?: number };
-  };
+  const rawBody = await c.req.json();
+  const body = parseOrThrow(CreateRoomRequestSchema, rawBody, 'Create room request');
   log.info('Creating room', { name: body.name, roomType: body.roomType });
 
   const result = await roomSdk.createRoom(body.name, body.description, body.roomType, {
-    maxMembers: body.config.maxMembers ?? 10,
-    turnBased: body.config.turnBased ?? false,
-    turnTimeout: body.config.turnTimeout ?? 300,
+    maxMembers: body.config?.maxMembers ?? 10,
+    turnBased: body.config?.turnBased ?? false,
+    turnTimeout: body.config?.turnTimeout ?? 300,
     visibility: 'public' as const,
   });
   metrics.rooms.created++;
@@ -275,75 +338,84 @@ app.post('/api/v1/rooms', async (c) => {
 });
 
 app.get('/api/v1/rooms/:roomId', async (c) => {
-  const room = await roomSdk.getRoom(BigInt(c.req.param('roomId')));
-  if (!room) return c.json({ error: 'Room not found' }, 404);
+  const params = parseOrThrow(RoomIdParamSchema, c.req.param(), 'Room ID parameter');
+  const room = await roomSdk.getRoom(BigInt(params.roomId));
+  const validRoom = expect(room, `Room not found: ${params.roomId}`);
   return c.json({
     room: {
-      ...room, roomId: room.roomId.toString(),
-      members: room.members.map(m => ({ ...m, agentId: m.agentId.toString() })),
+      ...validRoom, roomId: validRoom.roomId.toString(),
+      members: validRoom.members.map(m => ({ ...m, agentId: m.agentId.toString() })),
     },
   });
 });
 
 app.post('/api/v1/rooms/:roomId/join', async (c) => {
-  const roomId = BigInt(c.req.param('roomId'));
-  const body = await c.req.json() as { agentId: string; role: 'participant' | 'moderator' | 'red_team' | 'blue_team' | 'observer' };
-  await roomSdk.joinRoom(roomId, BigInt(body.agentId), body.role);
+  const params = parseOrThrow(RoomIdParamSchema, c.req.param(), 'Room ID parameter');
+  const rawBody = await c.req.json();
+  const body = parseOrThrow(JoinRoomRequestSchema, rawBody, 'Join room request');
+  await roomSdk.joinRoom(BigInt(params.roomId), BigInt(body.agentId), body.role);
   return c.json({ success: true });
 });
 
 app.post('/api/v1/rooms/:roomId/leave', async (c) => {
-  const roomId = BigInt(c.req.param('roomId'));
-  const body = await c.req.json() as { agentId: string };
-  await roomSdk.leaveRoom(roomId, BigInt(body.agentId));
+  const params = parseOrThrow(RoomIdParamSchema, c.req.param(), 'Room ID parameter');
+  const rawBody = await c.req.json();
+  const body = parseOrThrow(LeaveRoomRequestSchema, rawBody, 'Leave room request');
+  await roomSdk.leaveRoom(BigInt(params.roomId), BigInt(body.agentId));
   return c.json({ success: true });
 });
 
 app.post('/api/v1/rooms/:roomId/message', async (c) => {
-  const roomId = BigInt(c.req.param('roomId'));
-  const body = await c.req.json() as { agentId: string; content: string; action?: string };
-  const message = await roomSdk.postMessage(roomId, BigInt(body.agentId), body.content, body.action);
+  const params = parseOrThrow(RoomIdParamSchema, c.req.param(), 'Room ID parameter');
+  const rawBody = await c.req.json();
+  const body = parseOrThrow(PostMessageRequestSchema, rawBody, 'Post message request');
+  const message = await roomSdk.postMessage(BigInt(params.roomId), BigInt(body.agentId), body.content, body.action);
   metrics.rooms.messages++;
   return c.json({ message });
 });
 
 app.get('/api/v1/rooms/:roomId/messages', async (c) => {
-  const roomId = BigInt(c.req.param('roomId'));
-  const messages = await roomSdk.getMessages(roomId, parseInt(c.req.query('limit') ?? '50'));
-  return c.json({ messages });
+  const params = parseOrThrow(RoomIdParamSchema, c.req.param(), 'Room ID parameter');
+  const limitStr = c.req.query('limit');
+  const limit = limitStr ? parseOrThrow(z.number().int().min(1).max(1000), parseInt(limitStr), 'Limit query parameter') : 50;
+  try {
+    const messages = await roomSdk.getMessages(BigInt(params.roomId), limit);
+    return c.json({ messages });
+  } catch (error) {
+    return c.json({ error: String(error) }, 404);
+  }
 });
 
 app.post('/api/v1/rooms/:roomId/phase', async (c) => {
-  const roomId = BigInt(c.req.param('roomId'));
-  const body = await c.req.json() as { phase: 'setup' | 'active' | 'paused' | 'completed' | 'archived' };
-  await roomSdk.setPhase(roomId, body.phase);
+  const params = parseOrThrow(RoomIdParamSchema, c.req.param(), 'Room ID parameter');
+  const rawBody = await c.req.json();
+  const body = parseOrThrow(SetPhaseRequestSchema, rawBody, 'Set phase request');
+  await roomSdk.setPhase(BigInt(params.roomId), body.phase);
   return c.json({ success: true });
 });
 
 // Execution
 app.post('/api/v1/execute', async (c) => {
-  if (!walletClient || !account) {
-    return c.json({ error: 'Executor not configured - missing private key' }, 500);
-  }
+  expect(walletClient && account, 'Executor not configured - missing private key');
 
-  const body = await c.req.json() as {
-    agentId: string; triggerId?: string;
-    input: { message?: string; roomId?: string; userId?: string; context?: Record<string, unknown> };
-    options?: { maxTokens?: number; temperature?: number; requireTee?: boolean; maxCost?: string; timeout?: number };
-  };
+  const rawBody = await c.req.json();
+  const body = parseOrThrow(ExecuteRequestSchema, rawBody, 'Execute request');
 
   log.info('Executing agent', { agentId: body.agentId });
 
   const executorSdk = createExecutorSDK({
     crucibleConfig: config, storage, compute, agentSdk, roomSdk,
-    publicClient, walletClient, executorAddress: account.address,
+    publicClient, walletClient: expect(walletClient, 'Wallet client is required'), executorAddress: expect(account, 'Account is required').address,
   });
 
   const request: ExecutionRequest = {
     agentId: BigInt(body.agentId),
     triggerId: body.triggerId,
     input: body.input,
-    options: body.options ? { ...body.options, maxCost: body.options.maxCost ? BigInt(body.options.maxCost) : undefined } : undefined,
+    options: body.options ? {
+      ...body.options,
+      maxCost: body.options.maxCost ? BigInt(body.options.maxCost) : undefined,
+    } : undefined,
   };
 
   const result = await executorSdk.execute(request);
@@ -374,45 +446,58 @@ app.get('/api/v1/bots', async (c) => {
 });
 
 app.get('/api/v1/bots/:agentId/metrics', async (c) => {
-  const agentId = BigInt(c.req.param('agentId'));
-  const bot = tradingBots.get(agentId);
-  if (!bot) return c.json({ error: 'Bot not found' }, 404);
+  const params = parseOrThrow(BotIdParamSchema, c.req.param(), 'Bot ID parameter');
+  const agentId = BigInt(params.agentId);
+  const bot = expect(tradingBots.get(agentId), `Bot not found: ${params.agentId}`);
   return c.json({ metrics: bot.getMetrics() });
 });
 
 app.post('/api/v1/bots/:agentId/stop', async (c) => {
-  const agentId = BigInt(c.req.param('agentId'));
-  const bot = tradingBots.get(agentId);
-  if (!bot) return c.json({ error: 'Bot not found' }, 404);
+  const params = parseOrThrow(BotIdParamSchema, c.req.param(), 'Bot ID parameter');
+  const agentId = BigInt(params.agentId);
+  const bot = expect(tradingBots.get(agentId), `Bot not found: ${params.agentId}`);
   await bot.stop();
   tradingBots.delete(agentId);
   return c.json({ success: true });
 });
 
 app.post('/api/v1/bots/:agentId/start', async (c) => {
-  const agentId = BigInt(c.req.param('agentId'));
-  const bot = tradingBots.get(agentId);
-  if (!bot) return c.json({ error: 'Bot not found' }, 404);
+  const params = parseOrThrow(BotIdParamSchema, c.req.param(), 'Bot ID parameter');
+  const agentId = BigInt(params.agentId);
+  const bot = expect(tradingBots.get(agentId), `Bot not found: ${params.agentId}`);
   await bot.start();
   return c.json({ success: true });
 });
 
 // Search
 app.get('/api/v1/search/agents', async (c) => {
-  const result = await agentSdk.searchAgents({
-    name: c.req.query('name'),
-    owner: c.req.query('owner') as `0x${string}` | undefined,
-    active: c.req.query('active') ? c.req.query('active') === 'true' : undefined,
-    limit: parseInt(c.req.query('limit') ?? '20'),
-  });
-  return c.json({
-    agents: result.items.map(a => ({ ...a, agentId: a.agentId.toString() })),
-    total: result.total,
-    hasMore: result.hasMore,
-  });
+  try {
+    const rawQuery = c.req.query();
+    const parsedQuery = AgentSearchQuerySchema.parse(rawQuery);
+    const result = await agentSdk.searchAgents({
+      name: parsedQuery.name,
+      owner: parsedQuery.owner as `0x${string}` | undefined,
+      active: parsedQuery.active,
+      limit: parsedQuery.limit ?? 20,
+    });
+    return c.json({
+      agents: result.items.map(a => ({ ...a, agentId: a.agentId.toString() })),
+      total: result.total,
+      hasMore: result.hasMore,
+    });
+  } catch (error) {
+    return c.json({ error: String(error) }, 400);
+  }
 });
 
-const port = parseInt(process.env.PORT ?? '4020');
+const portStr = process.env.PORT;
+if (!portStr) {
+  throw new Error('PORT environment variable is required');
+}
+const port = parseInt(portStr, 10);
+if (isNaN(port) || port <= 0 || port > 65535) {
+  throw new Error(`Invalid PORT: ${portStr}. Must be a valid port number`);
+}
 
 log.info('Starting server', { port, network: config.network, wallet: account?.address ?? 'not configured' });
 

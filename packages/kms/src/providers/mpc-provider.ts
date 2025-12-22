@@ -22,6 +22,14 @@ import {
   type ThresholdSignRequest,
 } from '../types.js';
 import { getMPCCoordinator, type MPCCoordinator, type KeyVersion } from '../mpc/index.js';
+import { mpcLogger as log } from '../logger.js';
+import { parseEnvInt } from '../schemas.js';
+import {
+  generateKeyId,
+  deriveKeyFromSecret,
+  encryptToPayload,
+  decryptFromPayload,
+} from '../crypto.js';
 
 interface MPCKey {
   metadata: KeyMetadata;
@@ -43,13 +51,18 @@ export class MPCProvider implements KMSProvider {
     this.config = config;
     this.coordinator = getMPCCoordinator({ threshold: config.threshold, totalParties: config.totalParties });
     const secret = process.env.MPC_ENCRYPTION_SECRET ?? process.env.KMS_FALLBACK_SECRET;
-    this.encryptionKey = secret ? toBytes(keccak256(toBytes(secret))) : crypto.getRandomValues(new Uint8Array(32));
+    if (secret) {
+      this.encryptionKey = deriveKeyFromSecret(secret);
+    } else {
+      this.encryptionKey = crypto.getRandomValues(new Uint8Array(32));
+      log.warn('No MPC_ENCRYPTION_SECRET set, using ephemeral key - keys will be lost on restart');
+    }
   }
 
   async isAvailable(): Promise<boolean> {
     if (this.config.coordinatorEndpoint) {
       const response = await fetch(`${this.config.coordinatorEndpoint}/health`, { signal: AbortSignal.timeout(2000) }).catch(() => null);
-      return response?.ok ?? false;
+      return response !== null && response.ok;
     }
     return true;
   }
@@ -61,17 +74,15 @@ export class MPCProvider implements KMSProvider {
     if (status.activeParties < this.config.totalParties) {
       for (let i = 0; i < this.config.totalParties; i++) {
         const partyKey = crypto.getRandomValues(new Uint8Array(32));
-        try {
-          this.coordinator.registerParty({
-            id: `party-${i + 1}`,
-            index: i + 1,
-            endpoint: `http://localhost:${4100 + i}`,
-            publicKey: toHex(partyKey),
-            address: `0x${toHex(partyKey).slice(2, 42)}` as Address,
-            stake: BigInt(1e18),
-            registeredAt: Date.now(),
-          });
-        } catch { /* already registered */ }
+        this.coordinator.registerParty({
+          id: `party-${i + 1}`,
+          index: i + 1,
+          endpoint: `http://localhost:${4100 + i}`,
+          publicKey: toHex(partyKey),
+          address: `0x${toHex(partyKey).slice(2, 42)}` as Address,
+          stake: BigInt(1e18),
+          registeredAt: Date.now(),
+        });
       }
     }
     this.connected = true;
@@ -86,7 +97,7 @@ export class MPCProvider implements KMSProvider {
   async generateKey(owner: Address, keyType: KeyType, curve: KeyCurve, policy: AccessControlPolicy): Promise<GeneratedKey> {
     await this.ensureConnected();
 
-    const keyId = `mpc-${Date.now().toString(36)}-${crypto.randomUUID().slice(0, 8)}`;
+    const keyId = generateKeyId('mpc');
     const partyIds = this.coordinator.getActiveParties().slice(0, this.config.totalParties).map(p => p.id);
 
     if (partyIds.length < this.config.threshold) {
@@ -114,7 +125,8 @@ export class MPCProvider implements KMSProvider {
 
   getKeyVersions(keyId: string): KeyVersion[] {
     const key = this.keys.get(keyId);
-    return key ? this.coordinator.getKeyVersions(key.mpcKeyId) : [];
+    if (!key) throw new Error(`Key ${keyId} not found`);
+    return this.coordinator.getKeyVersions(key.mpcKeyId);
   }
 
   async revokeKey(keyId: string): Promise<void> {
@@ -128,18 +140,19 @@ export class MPCProvider implements KMSProvider {
     await this.ensureConnected();
 
     const dataStr = typeof request.data === 'string' ? request.data : new TextDecoder().decode(request.data);
-    const keyId = request.keyId ?? `mpc-enc-${Date.now().toString(36)}`;
+    const keyId = request.keyId ?? generateKeyId('mpc-enc');
 
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const cryptoKey = await crypto.subtle.importKey('raw', this.encryptionKey, { name: 'AES-GCM' }, false, ['encrypt']);
-    const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cryptoKey, toBytes(dataStr));
-
-    const encryptedArray = new Uint8Array(encrypted);
     const mpcKey = this.keys.get(keyId);
-    const version = mpcKey ? this.coordinator.getKey(mpcKey.mpcKeyId)?.version : 1;
+    let version = 1;
+    if (mpcKey) {
+      const coordKey = this.coordinator.getKey(mpcKey.mpcKeyId);
+      if (coordKey) version = coordKey.version;
+    }
+
+    const ciphertext = await encryptToPayload(dataStr, this.encryptionKey, { version, mpc: true });
 
     return {
-      ciphertext: JSON.stringify({ ciphertext: toHex(encryptedArray.slice(0, -16)), iv: toHex(iv), tag: toHex(encryptedArray.slice(-16)), mpc: true, version: version ?? 1 }),
+      ciphertext,
       dataHash: keccak256(toBytes(dataStr)),
       accessControlHash: keccak256(toBytes(JSON.stringify(request.policy))),
       policy: request.policy,
@@ -152,13 +165,7 @@ export class MPCProvider implements KMSProvider {
 
   async decrypt(request: DecryptRequest): Promise<string> {
     await this.ensureConnected();
-
-    const parsed = JSON.parse(request.payload.ciphertext) as { ciphertext: string; iv: string; tag: string };
-    const cryptoKey = await crypto.subtle.importKey('raw', this.encryptionKey, { name: 'AES-GCM' }, false, ['decrypt']);
-    const combined = new Uint8Array([...toBytes(parsed.ciphertext as Hex), ...toBytes(parsed.tag as Hex)]);
-    const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: toBytes(parsed.iv as Hex) }, cryptoKey, combined);
-
-    return new TextDecoder().decode(decrypted);
+    return decryptFromPayload(request.payload.ciphertext, this.encryptionKey);
   }
 
   async sign(request: SignRequest): Promise<SignedMessage> {
@@ -215,11 +222,19 @@ export class MPCProvider implements KMSProvider {
     const session = this.coordinator.getSession(sessionId);
     if (!session) return null;
 
+    const activeParties = this.coordinator.getActiveParties();
+    const participantAddresses: Address[] = [];
+    for (const id of session.participants) {
+      const party = activeParties.find(p => p.id === id);
+      if (!party) throw new Error(`Party ${id} not found in active parties`);
+      participantAddresses.push(party.address);
+    }
+
     return {
       sessionId: session.sessionId,
       keyId: session.keyId,
       message: session.messageHash,
-      participants: session.participants.map(id => this.coordinator.getActiveParties().find(p => p.id === id)?.address ?? '0x0' as Address),
+      participants: participantAddresses,
       threshold: session.threshold,
       collectedShares: session.reveals.size,
       status: session.status === 'expired' ? 'failed' : session.status,
@@ -236,13 +251,13 @@ export class MPCProvider implements KMSProvider {
     key.versions = this.coordinator.getKeyVersions(key.mpcKeyId);
   }
 
-  private policyToAccessPolicy(policy: AccessControlPolicy) {
+  private policyToAccessPolicy(policy: AccessControlPolicy): { type: 'open' } | { type: 'role'; roles: string[] } | { type: 'stake'; minStake: bigint } {
     const condition = policy.conditions[0];
-    if (!condition) return { type: 'open' as const };
+    if (!condition) return { type: 'open' };
     switch (condition.type) {
-      case 'role': return { type: 'role' as const, roles: [condition.role] };
-      case 'stake': return { type: 'stake' as const, minStake: BigInt(Math.floor(condition.minStakeUSD * 1e18)) };
-      default: return { type: 'open' as const };
+      case 'role': return { type: 'role', roles: [condition.role] };
+      case 'stake': return { type: 'stake', minStake: BigInt(Math.floor(condition.minStakeUSD * 1e18)) };
+      default: return { type: 'open' };
     }
   }
 
@@ -250,7 +265,7 @@ export class MPCProvider implements KMSProvider {
     if (!this.connected) await this.connect();
   }
 
-  getStatus() {
+  getStatus(): { connected: boolean; threshold: number; totalParties: number; activeParties: number; keyCount: number } {
     const coordStatus = this.coordinator.getStatus();
     return { connected: this.connected, threshold: this.config.threshold, totalParties: this.config.totalParties, activeParties: coordStatus.activeParties, keyCount: coordStatus.totalKeys };
   }
@@ -260,19 +275,23 @@ let mpcProvider: MPCProvider | null = null;
 
 export function getMPCProvider(config?: Partial<MPCConfig>): MPCProvider {
   if (!mpcProvider) {
-    const network = process.env.MPC_NETWORK ?? 'localnet';
+    const networkEnv = process.env.MPC_NETWORK;
+    const network = networkEnv === 'mainnet' || networkEnv === 'testnet' ? networkEnv : 'localnet';
     const defaultThreshold = network === 'mainnet' ? 3 : 2;
     const defaultTotal = network === 'mainnet' ? 5 : 3;
-    mpcProvider = new MPCProvider({
-      threshold: config?.threshold ?? parseInt(process.env.MPC_THRESHOLD ?? defaultThreshold.toString()),
-      totalParties: config?.totalParties ?? parseInt(process.env.MPC_TOTAL_PARTIES ?? defaultTotal.toString()),
-      coordinatorEndpoint: config?.coordinatorEndpoint ?? process.env.MPC_COORDINATOR_ENDPOINT,
-    });
+    
+    const threshold = config?.threshold ?? parseEnvInt(process.env.MPC_THRESHOLD, defaultThreshold);
+    const totalParties = config?.totalParties ?? parseEnvInt(process.env.MPC_TOTAL_PARTIES, defaultTotal);
+    const coordinatorEndpoint = config?.coordinatorEndpoint ?? process.env.MPC_COORDINATOR_ENDPOINT;
+    
+    mpcProvider = new MPCProvider({ threshold, totalParties, coordinatorEndpoint });
   }
   return mpcProvider;
 }
 
 export function resetMPCProvider(): void {
-  mpcProvider?.disconnect().catch(() => {});
-  mpcProvider = null;
+  if (mpcProvider) {
+    mpcProvider.disconnect().catch((e: Error) => log.warn('MPC provider disconnect failed', { error: e.message }));
+    mpcProvider = null;
+  }
 }

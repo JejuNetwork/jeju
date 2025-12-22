@@ -5,10 +5,7 @@
 import { type Address, type Hex, encodeFunctionData } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
-import {
-  getContract as getContractAddress,
-  getServicesConfig,
-} from "../config";
+import { requireContract, getServicesConfig } from "../config";
 
 export interface AgentInfo {
   agentId: bigint;
@@ -129,33 +126,6 @@ const IDENTITY_REGISTRY_ABI = [
   },
 ] as const;
 
-const _BAN_MANAGER_ABI = [
-  {
-    name: "isNetworkBanned",
-    type: "function",
-    stateMutability: "view",
-    inputs: [{ name: "agentId", type: "uint256" }],
-    outputs: [{ type: "bool" }],
-  },
-  {
-    name: "getNetworkBan",
-    type: "function",
-    stateMutability: "view",
-    inputs: [{ name: "agentId", type: "uint256" }],
-    outputs: [
-      {
-        type: "tuple",
-        components: [
-          { name: "isBanned", type: "bool" },
-          { name: "bannedAt", type: "uint256" },
-          { name: "reason", type: "string" },
-          { name: "proposalId", type: "bytes32" },
-        ],
-      },
-    ],
-  },
-] as const;
-
 const REPORTING_ABI = [
   {
     name: "submitReport",
@@ -186,16 +156,8 @@ export function createIdentityModule(
   wallet: JejuWallet,
   network: NetworkType,
 ): IdentityModule {
-  const identityAddress = getContractAddress(
-    "registry",
-    "identity",
-    network,
-  ) as Address;
-  const reportingAddress = getContractAddress(
-    "moderation",
-    "reportingSystem",
-    network,
-  ) as Address;
+  const identityAddress = requireContract("registry", "identity", network);
+  const reportingAddress = requireContract("moderation", "reportingSystem", network);
   const services = getServicesConfig(network);
 
   async function register(
@@ -260,7 +222,9 @@ export function createIdentityModule(
       : `${services.gateway.api}/identity/agents`;
 
     const response = await fetch(url);
-    if (!response.ok) return [];
+    if (!response.ok) {
+      throw new Error(`Failed to list agents: ${response.statusText}`);
+    }
 
     const data = (await response.json()) as { agents: AgentInfo[] };
     return data.agents;
@@ -271,14 +235,7 @@ export function createIdentityModule(
       `${services.gateway.api}/identity/reputation/${agentId}`,
     );
     if (!response.ok) {
-      return {
-        agentId,
-        feedbackCount: 0,
-        averageScore: 0,
-        violationCount: 0,
-        compositeScore: 0,
-        tier: "bronze",
-      };
+      throw new Error(`Failed to get reputation: ${response.statusText}`);
     }
 
     return (await response.json()) as ReputationScore;
@@ -334,13 +291,7 @@ export function createIdentityModule(
       `${services.gateway.api}/moderation/ban/${agentId}`,
     );
     if (!response.ok) {
-      return {
-        agentId,
-        isBanned: false,
-        bannedAt: 0,
-        reason: "",
-        banType: "network",
-      };
+      throw new Error(`Failed to get ban status: ${response.statusText}`);
     }
 
     return (await response.json()) as BanInfo;

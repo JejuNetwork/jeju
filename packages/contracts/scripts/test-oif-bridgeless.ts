@@ -30,9 +30,7 @@ import {
   http, 
   parseUnits, 
   formatUnits,
-  encodeFunctionData,
   type Address,
-  type Hex,
 } from "viem";
 import { baseSepolia } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
@@ -149,13 +147,16 @@ const ERC20_ABI = [
 ] as const;
 
 async function main() {
-  const PRIVATE_KEY = (process.env.PRIVATE_KEY || process.env.MAINNET_PRIVATE_KEY) as `0x${string}`;
+  const PRIVATE_KEY = process.env.PRIVATE_KEY ?? process.env.MAINNET_PRIVATE_KEY;
   if (!PRIVATE_KEY) {
     console.error("❌ PRIVATE_KEY required");
     process.exit(1);
   }
+  
+  // Type guard ensures PRIVATE_KEY is valid hex string after validation
+  const privateKey = PRIVATE_KEY as `0x${string}`;
 
-  const account = privateKeyToAccount(PRIVATE_KEY);
+  const account = privateKeyToAccount(privateKey);
   
   const publicClient = createPublicClient({
     chain: baseSepolia,
@@ -203,7 +204,7 @@ async function main() {
     if (solverInfo[0]) {
       console.log(`   Stake: ${formatUnits(solverInfo[1], 18)} ETH`);
     }
-  } catch (e) {
+  } catch {
     console.log("   Not registered as solver");
   }
 

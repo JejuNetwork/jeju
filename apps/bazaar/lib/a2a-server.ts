@@ -1,5 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import type { A2ARequest as A2ARequestType } from '@/schemas/api';
+import { expect } from '@/lib/validation';
 import { NETWORK_NAME } from '@/config';
 
 // Client-safe A2A helpers (avoiding @jejunetwork/shared which uses fs)
@@ -36,17 +38,7 @@ function createAgentCard(options: {
   };
 }
 
-interface A2ARequest {
-  jsonrpc: string;
-  method: string;
-  params?: {
-    message?: {
-      messageId: string;
-      parts: Array<{ kind: string; text?: string; data?: Record<string, unknown> }>;
-    };
-  };
-  id: number | string;
-}
+// Using A2ARequestType from schemas instead of local interface
 
 interface SkillResult {
   message: string;
@@ -139,10 +131,7 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
     }
 
     case 'get-launch': {
-      const launchId = params.launchId as string;
-      if (!launchId) {
-        return { message: 'Launch ID required', data: { error: 'Missing launchId' } };
-      }
+      const launchId = expect(params.launchId as string | undefined, 'Launch ID required');
       return {
         message: `Launch details for ${launchId}`,
         data: {
@@ -178,9 +167,9 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
 
     case 'prepare-participate': {
       const { launchId, amount, address } = params as { launchId: string; amount: string; address: string };
-      if (!launchId || !amount || !address) {
-        return { message: 'Missing parameters', data: { error: 'launchId, amount, and address required' } };
-      }
+      expect(launchId, 'launchId is required');
+      expect(amount, 'amount is required');
+      expect(address, 'address is required');
       return {
         message: `Prepare participation in ${launchId}`,
         data: {
@@ -708,41 +697,26 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
   }
 }
 
-export async function handleA2ARequest(request: NextRequest): Promise<NextResponse> {
-  const body = await request.json() as A2ARequest;
-
-  if (body.method !== 'message/send') {
-    return NextResponse.json({
-      jsonrpc: '2.0',
-      id: body.id,
-      error: { code: -32601, message: 'Method not found' },
-    });
+export async function handleA2ARequest(request: NextRequest, validatedBody: A2ARequestType): Promise<NextResponse> {
+  if (validatedBody.method !== 'message/send') {
+    throw new Error(`Method not found: ${validatedBody.method}`);
   }
 
-  const message = body.params?.message;
-  if (!message?.parts) {
-    return NextResponse.json({
-      jsonrpc: '2.0',
-      id: body.id,
-      error: { code: -32602, message: 'Invalid params' },
-    });
-  }
+  const message = expect(validatedBody.params?.message, 'Message is required');
+  const parts = expect(message.parts, 'Message parts are required');
 
-  const dataPart = message.parts.find((p) => p.kind === 'data');
-  if (!dataPart?.data) {
-    return NextResponse.json({
-      jsonrpc: '2.0',
-      id: body.id,
-      error: { code: -32602, message: 'No data part found' },
-    });
-  }
+  const dataPart = expect(
+    parts.find((p) => p.kind === 'data'),
+    'Data part is required'
+  );
+  const dataPartData = expect(dataPart.data, 'Data part data is required');
 
-  const skillId = dataPart.data.skillId as string;
-  const result = await executeSkill(skillId, dataPart.data);
+  const skillId = expect(dataPartData.skillId as string | undefined, 'skillId is required');
+  const result = await executeSkill(skillId, dataPartData);
 
   return NextResponse.json({
     jsonrpc: '2.0',
-    id: body.id,
+    id: validatedBody.id,
     result: {
       role: 'agent',
       parts: [

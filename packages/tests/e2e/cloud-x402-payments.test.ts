@@ -13,7 +13,7 @@
  */
 
 import { describe, test, expect, beforeAll } from 'bun:test';
-import { createPublicClient, createWalletClient, http, parseAbi, readContract, writeContract, waitForTransactionReceipt, formatEther, formatUnits, parseUnits, decodeEventLog, type Address, type PublicClient, type WalletClient } from 'viem';
+import { createPublicClient, createWalletClient, http, parseAbi, readContract, waitForTransactionReceipt, formatEther, formatUnits, parseUnits, decodeEventLog, type Address, type PublicClient, type WalletClient } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
 import { Logger } from '../../../scripts/shared/logger';
@@ -586,7 +586,7 @@ describe.skipIf(!localnetAvailable)('Cloud x402 E2E - Volume Discounts', () => {
       args: [userAccount.address, serviceName],
     }) as [bigint, bigint, bigint, bigint];
     
-    const [totalSpent, requestCount, lastUsedBlock, volumeDiscount] = usageResult;
+    const [totalSpent, requestCount, _lastUsedBlock, volumeDiscount] = usageResult;
     
     logger.info(`  User stats:`);
     logger.info(`    Total spent: ${formatEther(totalSpent)} elizaOS`);

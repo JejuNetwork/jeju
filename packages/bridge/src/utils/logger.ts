@@ -10,7 +10,7 @@ interface LogEntry {
   level: LogLevel;
   service: string;
   message: string;
-  [key: string]: unknown;
+  [key: string]: string | number | boolean | null | undefined;
 }
 
 const LOG_LEVELS: Record<LogLevel, number> = {
@@ -20,7 +20,15 @@ const LOG_LEVELS: Record<LogLevel, number> = {
   error: 3,
 };
 
-const currentLevel = (process.env.LOG_LEVEL as LogLevel) ?? 'info';
+function getLogLevel(): LogLevel {
+  const envLevel = process.env.LOG_LEVEL;
+  if (!envLevel) return 'info';
+  if (envLevel in LOG_LEVELS) return envLevel as LogLevel;
+  console.warn(`Invalid LOG_LEVEL "${envLevel}", using "info"`);
+  return 'info';
+}
+
+const currentLevel = getLogLevel();
 const isProduction = process.env.NODE_ENV === 'production';
 
 function shouldLog(level: LogLevel): boolean {

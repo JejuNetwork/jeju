@@ -102,6 +102,7 @@ config:
     containerRegistry: ""
     modelRegistry: ""
     jnsRegistry: ""
+    jnsResolver: ""
     storageManager: ""
   
   # Storage backends
@@ -111,13 +112,22 @@ config:
     backends:
       - type: ipfs
         enabled: true
-        gateway: ""
+        gateway: "https://ipfs.io"
         pinningService: ""
       - type: arweave
         enabled: true
-        gateway: ""
+        gateway: "https://arweave.net"
       - type: webtorrent
         enabled: true
+  
+  # JNS Gateway configuration (serves decentralized apps)
+  jnsGateway:
+    enabled: true
+    domain: "jns.testnet.jejunetwork.org"
+    wildcardDomain: "*.jns.testnet.jejunetwork.org"
+    defaultTtl: 300
+    cacheEnabled: true
+    fallbackToIpfs: true
   
   # CDN configuration
   cdn:

@@ -116,7 +116,6 @@ export async function createWallet(config: WalletConfig): Promise<JejuWallet> {
 
     // Only create smart account if contracts are deployed
     if (entryPoint && factoryAddress && entryPoint !== "0x") {
-       
       const smartAccount = await toSimpleSmartAccount({
         client: publicClient,
         // @ts-expect-error - permissionless library expects specific account types
@@ -138,7 +137,7 @@ export async function createWallet(config: WalletConfig): Promise<JejuWallet> {
         },
       });
 
-smartAccountClient = createSmartAccountClient({
+      smartAccountClient = createSmartAccountClient({
         account: smartAccount,
         chain,
         bundlerTransport: http(bundlerUrl),
@@ -160,11 +159,12 @@ smartAccountClient = createSmartAccountClient({
 
     async sendTransaction({ to, value, data }) {
       if (smartAccountClient) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const hash = await (smartAccountClient as any).sendTransaction({
+        // SmartAccountClient's sendTransaction has compatible signature but different generics
+        const hash = await smartAccountClient.sendTransaction({
           to,
           value: value ?? 0n,
           data: data ?? "0x",
+          account: smartAccountClient.account,
         });
         return hash;
       }

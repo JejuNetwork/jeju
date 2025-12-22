@@ -4,8 +4,10 @@
  */
 
 import { createPublicClient, http, type PublicClient } from 'viem';
+import { z } from 'zod';
 import { storage } from '../../platform/storage';
-import type { SupportedChainId } from '../rpc';
+import { CustomRPCSchema, CustomChainSchema } from '../../plugin/schemas';
+import { ChainIdSchema } from '../../lib/validation';
 
 export interface CustomRPC {
   id: string;
@@ -48,27 +50,27 @@ class CustomRPCService {
   
   async initialize(): Promise<void> {
     // Load custom RPCs
-    const rpcsData = await storage.get(STORAGE_KEYS.customRpcs);
-    if (rpcsData) {
-      const rpcs = JSON.parse(rpcsData) as CustomRPC[];
+    const rpcs = await storage.getJSON(STORAGE_KEYS.customRpcs, z.array(CustomRPCSchema));
+    if (rpcs) {
       for (const rpc of rpcs) {
         this.customRpcs.set(rpc.id, rpc);
       }
     }
     
     // Load custom chains
-    const chainsData = await storage.get(STORAGE_KEYS.customChains);
-    if (chainsData) {
-      const chains = JSON.parse(chainsData) as CustomChain[];
+    const chains = await storage.getJSON(STORAGE_KEYS.customChains, z.array(CustomChainSchema));
+    if (chains) {
       for (const chain of chains) {
         this.customChains.set(chain.id, chain);
       }
     }
     
     // Load preferences
-    const prefsData = await storage.get(STORAGE_KEYS.rpcPreferences);
-    if (prefsData) {
-      const prefs = JSON.parse(prefsData) as [number, string][];
+    const prefs = await storage.getJSON(
+      STORAGE_KEYS.rpcPreferences, 
+      z.array(z.tuple([ChainIdSchema, z.string()]))
+    );
+    if (prefs) {
       for (const [chainId, rpcId] of prefs) {
         this.rpcPreferences.set(chainId, rpcId);
       }
@@ -304,33 +306,29 @@ class CustomRPCService {
    * Test RPC health
    */
   async testRPC(url: string, expectedChainId?: number): Promise<boolean> {
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          id: 1,
-          method: 'eth_chainId',
-          params: [],
-        }),
-      });
-      
-      if (!response.ok) return false;
-      
-      const data = await response.json();
-      if (data.error) return false;
-      
-      // Verify chain ID if expected
-      if (expectedChainId !== undefined) {
-        const chainId = parseInt(data.result, 16);
-        if (chainId !== expectedChainId) return false;
-      }
-      
-      return true;
-    } catch {
-      return false;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'eth_chainId',
+        params: [],
+      }),
+    });
+    
+    if (!response.ok) return false;
+    
+    const data = await response.json();
+    if (data.error) return false;
+    
+    // Verify chain ID if expected
+    if (expectedChainId !== undefined) {
+      const chainId = parseInt(data.result, 16);
+      if (chainId !== expectedChainId) return false;
     }
+    
+    return true;
   }
   
   /**
@@ -354,12 +352,8 @@ class CustomRPCService {
   }
   
   private isValidUrl(url: string): boolean {
-    try {
-      const parsed = new URL(url);
-      return parsed.protocol === 'http:' || parsed.protocol === 'https:';
-    } catch {
-      return false;
-    }
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
   }
   
   private generateId(prefix: string): string {

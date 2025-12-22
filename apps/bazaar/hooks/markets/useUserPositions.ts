@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { request, gql } from 'graphql-request';
+import { AddressSchema } from '@jejunetwork/types/contracts';
+import { expect } from '@/lib/validation';
 import type { Position } from '@/types/markets';
 import { INDEXER_URL } from '@/config';
 
@@ -36,12 +38,12 @@ export function useUserPositions(address?: `0x${string}`) {
     }
 
     async function fetchPositions() {
-      if (!address) return;
-      
-      const endpoint = INDEXER_URL;
+      const validatedAddress = expect(address, 'Address is required');
+      AddressSchema.parse(validatedAddress);
+      const endpoint = expect(INDEXER_URL, 'INDEXER_URL is not configured');
       
       const data = await request(endpoint, POSITIONS_QUERY, {
-        user: address.toLowerCase()
+        user: validatedAddress.toLowerCase()
       }) as {
         marketPositions: Array<{
           id: string;

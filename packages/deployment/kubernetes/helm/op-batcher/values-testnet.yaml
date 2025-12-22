@@ -1,7 +1,7 @@
 # OP-Batcher values for testnet
 # Uses internal L1 full node
 
-replicaCount: 1
+replicaCount: 0  # Disabled - OP Stack L1 contracts not deployed yet
 
 resources:
   limits:
@@ -17,8 +17,8 @@ tolerations: []
 
 config:
   l1:
-    # Use internal L1 full node - no rate limits
-    rpcUrl: "http://geth-l1.l1.svc.cluster.local:8545"
+    # Use public Sepolia RPC for testnet (internal L1 node has disk space issues)
+    rpcUrl: "https://ethereum-sepolia-rpc.publicnode.com"
   l2:
     rpcUrl: "http://reth-sequencer.execution.svc.cluster.local:8545"
   rollup:

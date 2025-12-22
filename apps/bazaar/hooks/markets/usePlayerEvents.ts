@@ -7,6 +7,8 @@
 
 import { useState, useEffect } from 'react';
 import { request, gql } from 'graphql-request';
+import { AddressSchema } from '@jejunetwork/types/contracts';
+import { expect } from '@/lib/validation';
 import { INDEXER_URL } from '@/config';
 
 const PLAYER_EVENTS_QUERY = gql`
@@ -169,27 +171,31 @@ export function usePlayerEvents(playerAddress?: string) {
     async function fetchEvents() {
       setLoading(true);
       
-      try {
-        const data = await request<PlayerEventsResponse>(INDEXER_URL, PLAYER_EVENTS_QUERY, {
-          player: playerAddress
-        });
-
-        setSkillEvents(data.playerSkillEvents || []);
-        setDeathEvents(data.playerDeathEvents || []);
-        setKillEvents(data.playerKillEvents || []);
-        setAchievements(data.playerAchievements || []);
-        setPlayerStats(data.playerStats?.[0] || null);
-        setError(null);
-      } catch (err) {
-        // Web2 fallback - just return empty data
-        console.debug('[PlayerEvents] Indexer not available', err);
-        setSkillEvents([]);
-        setDeathEvents([]);
-        setKillEvents([]);
-        setAchievements([]);
-        setPlayerStats(null);
-      }
+      const validatedAddress = AddressSchema.parse(playerAddress);
+      const validatedIndexerUrl = expect(INDEXER_URL, 'INDEXER_URL not configured');
       
+      const data = await request<PlayerEventsResponse>(validatedIndexerUrl, PLAYER_EVENTS_QUERY, {
+        player: validatedAddress
+      });
+
+      if (!data.playerSkillEvents) {
+        throw new Error('Invalid response: playerSkillEvents not found');
+      }
+      if (!data.playerDeathEvents) {
+        throw new Error('Invalid response: playerDeathEvents not found');
+      }
+      if (!data.playerKillEvents) {
+        throw new Error('Invalid response: playerKillEvents not found');
+      }
+      if (!data.playerAchievements) {
+        throw new Error('Invalid response: playerAchievements not found');
+      }
+      setSkillEvents(data.playerSkillEvents);
+      setDeathEvents(data.playerDeathEvents);
+      setKillEvents(data.playerKillEvents);
+      setAchievements(data.playerAchievements);
+      setPlayerStats(data.playerStats[0] ?? null);
+      setError(null);
       setLoading(false);
     }
 
@@ -207,6 +213,5 @@ export function usePlayerEvents(playerAddress?: string) {
     playerStats, 
     loading, 
     error,
-    isWeb2Mode: !playerAddress || error !== null,
   };
 }

@@ -1,0 +1,90 @@
+# Docker Compose for Jeju Email - Local Development
+# Run: docker-compose -f email-localnet.yaml up -d
+#
+# Services:
+# - email-relay: Core MTA relay service
+# - mailhog: Mock SMTP server for testing
+# - dovecot: IMAP server (optional)
+
+version: "3.8"
+
+services:
+  # Email Relay Service
+  email-relay:
+    build:
+      context: ../../../apps/dws
+      dockerfile: Dockerfile
+    container_name: jeju-email-relay
+    ports:
+      - "3300:3300"
+    environment:
+      - PORT=3300
+      - ENVIRONMENT=localnet
+      - EMAIL_DOMAIN=jeju.mail
+      - JEJU_RPC_URL=http://op-geth:8545
+      - EMAIL_REGISTRY_ADDRESS=
+      - EMAIL_STAKING_ADDRESS=
+      - DWS_ENDPOINT=http://dws:4000
+      - MODERATION_MARKETPLACE_ADDRESS=
+      - CONTENT_SCREENING_ENABLED=true
+      - AI_MODEL_ENDPOINT=http://host.docker.internal:4030/compute/chat/completions
+      - OPERATOR_PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+    command: bun run src/email/relay.ts
+    depends_on:
+      - mailhog
+    networks:
+      - jeju-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3300/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # MailHog - Mock SMTP Server for Testing
+  # Web UI: http://localhost:8025
+  # SMTP: localhost:1025
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: jeju-mailhog
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+    networks:
+      - jeju-network
+
+  # Dovecot IMAP Server (Optional - for full IMAP testing)
+  dovecot:
+    image: dovecot/dovecot:latest
+    container_name: jeju-dovecot
+    ports:
+      - "993:993"   # IMAPS
+      - "143:143"   # IMAP
+    volumes:
+      - dovecot-mail:/var/mail
+      - ./dovecot/dovecot.conf:/etc/dovecot/dovecot.conf:ro
+    environment:
+      - DOVECOT_USER=mail
+    networks:
+      - jeju-network
+    profiles:
+      - full  # Only start with --profile full
+
+  # Redis for rate limiting and caching
+  redis:
+    image: redis:7-alpine
+    container_name: jeju-email-redis
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - jeju-network
+    command: redis-server --appendonly yes
+
+networks:
+  jeju-network:
+    external: true
+
+volumes:
+  dovecot-mail:
+  redis-data:

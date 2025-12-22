@@ -39,13 +39,6 @@ const TFMM_POOL_ABI = parseAbi([
   'function owner() view returns (address)',
 ]);
 
-const WEIGHT_RUNNER_ABI = parseAbi([
-  'function performUpdate(address pool) external',
-  'function pools(address) view returns (address strategyRule, uint256 updateInterval, uint256 lastUpdate, bool active)',
-  'function canUpdate(address pool) view returns (bool)',
-  'function estimateUpdateGas(address pool) view returns (uint256)',
-]);
-
 // ============ Types ============
 
 export interface TFMMRebalancerConfig {
@@ -127,23 +120,11 @@ export class TFMMRebalancer extends EventEmitter {
    */
   async registerPool(poolAddress: Address, updateIntervalMs?: number): Promise<void> {
     // Fetch pool info
-    const [tokens, currentWeights, guardRails] = await Promise.all([
-      this.publicClient.readContract({
-        address: poolAddress,
-        abi: TFMM_POOL_ABI,
-        functionName: 'getTokens',
-      }) as Promise<Address[]>,
-      this.publicClient.readContract({
-        address: poolAddress,
-        abi: TFMM_POOL_ABI,
-        functionName: 'getNormalizedWeights',
-      }) as Promise<bigint[]>,
-      this.publicClient.readContract({
-        address: poolAddress,
-        abi: TFMM_POOL_ABI,
-        functionName: 'getGuardRails',
-      }) as Promise<readonly [bigint, bigint, bigint]>,
-    ]);
+    const tokens = await this.publicClient.readContract({
+      address: poolAddress,
+      abi: TFMM_POOL_ABI,
+      functionName: 'getTokens',
+    }) as Address[];
 
     // Build token info (would need to fetch symbols/decimals in production)
     const tokenInfos: Token[] = tokens.map((addr, i) => ({
@@ -157,11 +138,10 @@ export class TFMMRebalancer extends EventEmitter {
       address: poolAddress,
       tokens: tokenInfos,
       lastUpdate: 0,
-      updateInterval: updateIntervalMs ?? this.config.updateIntervalMs,
+      updateInterval: updateIntervalMs !== undefined ? updateIntervalMs : this.config.updateIntervalMs,
       enabled: true,
     });
 
-    console.log(`Registered TFMM pool ${poolAddress} with ${tokens.length} tokens`);
     this.emit('pool-registered', { address: poolAddress, tokens: tokenInfos });
   }
 
@@ -179,10 +159,6 @@ export class TFMMRebalancer extends EventEmitter {
   start(): void {
     if (this.running) return;
     this.running = true;
-
-    console.log('Starting TFMM Rebalancer...');
-    console.log(`  Managing ${this.pools.size} pools`);
-    console.log(`  Update interval: ${this.config.updateIntervalMs}ms`);
 
     // Start update loop
     this.updateLoop = setInterval(() => this.checkAndUpdate(), 10000); // Check every 10s
@@ -205,7 +181,6 @@ export class TFMMRebalancer extends EventEmitter {
       this.updateLoop = null;
     }
 
-    console.log('TFMM Rebalancer stopped');
     this.emit('stopped');
   }
 
@@ -224,7 +199,6 @@ export class TFMMRebalancer extends EventEmitter {
       // Check gas price
       const gasPrice = await this.publicClient.getGasPrice();
       if (gasPrice > this.config.maxGasPrice) {
-        console.log(`Gas price too high (${gasPrice}), skipping update for ${address}`);
         continue;
       }
 
@@ -259,7 +233,7 @@ export class TFMMRebalancer extends EventEmitter {
     console.log(`Rebalancing pool ${poolAddress}...`);
 
     // Fetch current state
-    const [currentWeights, balances, lastUpdateBlock, guardRailsRaw] = await Promise.all([
+    const [currentWeights, _balances, _lastUpdateBlock, guardRailsRaw] = await Promise.all([
       this.publicClient.readContract({
         address: poolAddress,
         abi: TFMM_POOL_ABI,
@@ -455,13 +429,15 @@ export class TFMMRebalancer extends EventEmitter {
     regime: string;
   } {
     const enabledPools = Array.from(this.pools.values()).filter(p => p.enabled).length;
-    const lastUpdate = this.updateHistory[this.updateHistory.length - 1];
+    const lastUpdate = this.updateHistory.length > 0 
+      ? this.updateHistory[this.updateHistory.length - 1] 
+      : null;
 
     return {
       poolCount: this.pools.size,
       enabledPools,
       totalUpdates: this.updateHistory.length,
-      lastUpdateTime: lastUpdate?.timestamp ?? 0,
+      lastUpdateTime: lastUpdate ? lastUpdate.timestamp : 0,
       regime: this.strategy.getRegime(),
     };
   }

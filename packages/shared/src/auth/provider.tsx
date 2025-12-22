@@ -13,6 +13,7 @@ import type { AuthConfig, AuthSession, AuthState, AuthContextType, SocialProvide
 import { createSIWEMessage, formatSIWEMessage, verifySIWESignature } from './siwe';
 import { createSIWFMessage, verifySIWFSignature, createAuthChannel, pollAuthChannel } from './siwf';
 import { registerPasskey, authenticateWithPasskey, type PasskeyConfig } from './passkeys';
+import { parseStoredSession, OAuthInitResponseSchema } from './schemas';
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
@@ -47,10 +48,10 @@ export function AuthProvider({ children, config, wallet, onSessionChange }: Auth
     
     const stored = localStorage.getItem(SESSION_KEY);
     if (stored) {
-      const session = JSON.parse(stored) as AuthSession;
-      if (session.expiresAt > Date.now()) {
-        setState(s => ({ ...s, session, isAuthenticated: true, isLoading: false }));
-        onSessionChange?.(session);
+      const session = parseStoredSession(stored);
+      if (session && session.expiresAt > Date.now()) {
+        setState(s => ({ ...s, session: session as AuthSession, isAuthenticated: true, isLoading: false }));
+        onSessionChange?.(session as AuthSession);
       } else {
         localStorage.removeItem(SESSION_KEY);
         setState(s => ({ ...s, isLoading: false }));
@@ -253,7 +254,12 @@ export function AuthProvider({ children, config, wallet, onSessionChange }: Auth
       throw new Error(`Failed to initialize OAuth: ${initResponse.status}`);
     }
 
-    const { authUrl, state: authState } = await initResponse.json() as { authUrl: string; state: string };
+    const initJson = await initResponse.json();
+    const initResult = OAuthInitResponseSchema.safeParse(initJson);
+    if (!initResult.success) {
+      throw new Error(`Invalid OAuth init response: ${initResult.error.message}`);
+    }
+    const { authUrl, state: authState } = initResult.data;
 
     sessionStorage.setItem('oauth3_state', authState);
     sessionStorage.setItem('oauth3_provider', provider);
@@ -265,7 +271,7 @@ export function AuthProvider({ children, config, wallet, onSessionChange }: Auth
   // Logout
   const logout = useCallback(async (): Promise<void> => {
     if (wallet) {
-      await wallet.disconnect().catch(() => {});
+      await wallet.disconnect().catch(() => { /* ignore disconnect errors */ });
     }
     setSession(null);
   }, [wallet, setSession]);

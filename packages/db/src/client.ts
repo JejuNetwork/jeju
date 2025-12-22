@@ -7,18 +7,56 @@
 
 import { toHex } from 'viem';
 import type { Address, Hex } from 'viem';
+import { z } from 'zod';
 import { getCQLUrl, getCQLMinerUrl } from '@jejunetwork/config';
+import { parseTimeout } from './utils.js';
 import type {
   CQLConfig, CQLConnection, CQLConnectionPool, CQLTransaction,
   DatabaseConfig, DatabaseInfo, ExecResult, QueryParam, QueryResult,
   RentalInfo, RentalPlan, CreateRentalRequest, ACLRule, GrantRequest, RevokeRequest, BlockProducerInfo,
 } from './types.js';
 
+// Zod schemas for API response validation
+const QueryResponseSchema = z.object({
+  rows: z.array(z.object({}).passthrough()),
+  rowCount: z.number(),
+  columns: z.array(z.string()),
+  blockHeight: z.number(),
+});
+
+const ExecResponseSchema = z.object({
+  rowsAffected: z.number(),
+  lastInsertId: z.string().optional(),
+  txHash: z.string(),
+  blockHeight: z.number(),
+  gasUsed: z.string(),
+});
+
+// Zod schema for CQL config validation
+const HexSchema = z.string().regex(/^0x[a-fA-F0-9]+$/, 'Invalid hex string');
+const CQLConfigSchema = z.object({
+  blockProducerEndpoint: z.string().url(),
+  minerEndpoint: z.string().url().optional(),
+  privateKey: HexSchema.optional(),
+  databaseId: z.string().min(1).optional(),
+  timeout: z.number().int().positive().optional(),
+  debug: z.boolean().optional(),
+});
+
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 const LOG_LEVELS: Record<LogLevel, number> = { debug: 0, info: 1, warn: 2, error: 3 };
+const DEFAULT_LOG_LEVEL: LogLevel = 'info';
 
-function log(level: LogLevel, msg: string, data?: Record<string, unknown>) {
-  const minLevel = (process.env.LOG_LEVEL?.toLowerCase() as LogLevel) || 'info';
+function getLogLevel(): LogLevel {
+  const envLevel = process.env.LOG_LEVEL?.toLowerCase();
+  if (envLevel && envLevel in LOG_LEVELS) {
+    return envLevel as LogLevel;
+  }
+  return DEFAULT_LOG_LEVEL;
+}
+
+function log(level: LogLevel, msg: string, data?: Record<string, unknown>): void {
+  const minLevel = getLogLevel();
   if (LOG_LEVELS[level] < LOG_LEVELS[minLevel]) return;
   const entry = { timestamp: new Date().toISOString(), level, service: 'cql', message: msg, ...data };
   const out = process.env.NODE_ENV === 'production' ? JSON.stringify(entry) : `[${entry.timestamp}] [${level.toUpperCase()}] [cql] ${msg}${data ? ' ' + JSON.stringify(data) : ''}`;
@@ -134,13 +172,23 @@ class CQLConnectionImpl implements CQLConnection {
 
     if (!response.ok) throw new Error(`CQL ${type} failed: ${response.status} - ${await response.text()}`);
 
-    const result = await response.json();
+    const rawResult = await response.json();
     const executionTime = Date.now() - startTime;
     if (this.debug) console.log(`[CQL] ${type}: ${sql.slice(0, 100)}... (${executionTime}ms)`);
 
-    return type === 'query'
-      ? { rows: result.rows ?? [], rowCount: result.rowCount ?? 0, columns: result.columns ?? [], executionTime, blockHeight: result.blockHeight ?? 0 }
-      : { rowsAffected: result.rowsAffected ?? 0, lastInsertId: result.lastInsertId ? BigInt(result.lastInsertId) : undefined, txHash: result.txHash as Hex, blockHeight: result.blockHeight ?? 0, gasUsed: BigInt(result.gasUsed ?? '0') };
+    if (type === 'query') {
+      const result = QueryResponseSchema.parse(rawResult);
+      return {
+        rows: result.rows,
+        rowCount: result.rowCount,
+        columns: result.columns.map(name => ({ name, type: 'TEXT' as const, nullable: true, primaryKey: false, autoIncrement: false })),
+        executionTime,
+        blockHeight: result.blockHeight,
+      };
+    } else {
+      const result = ExecResponseSchema.parse(rawResult);
+      return { rowsAffected: result.rowsAffected, lastInsertId: result.lastInsertId ? BigInt(result.lastInsertId) : undefined, txHash: result.txHash as Hex, blockHeight: result.blockHeight, gasUsed: BigInt(result.gasUsed) };
+    }
   }
 }
 
@@ -335,6 +383,8 @@ export class CQLClient {
 
 let cqlClient: CQLClient | null = null;
 
+const DEFAULT_TIMEOUT = 30000;
+
 /**
  * Get a CQL client with automatic network-aware configuration.
  * Configuration is resolved in this order:
@@ -344,25 +394,35 @@ let cqlClient: CQLClient | null = null;
  */
 export function getCQL(config?: Partial<CQLConfig>): CQLClient {
   if (!cqlClient) {
-    // Use centralized config - network aware, no hardcoded defaults
     const blockProducerEndpoint = config?.blockProducerEndpoint ?? getCQLUrl();
     const minerEndpoint = config?.minerEndpoint ?? getCQLMinerUrl();
     
-    cqlClient = new CQLClient({
+    if (!blockProducerEndpoint) {
+      throw new Error('CQL blockProducerEndpoint is required. Set via config, CQL_BLOCK_PRODUCER_ENDPOINT env var, or JEJU_NETWORK.');
+    }
+    
+    const resolvedConfig = {
       blockProducerEndpoint,
       minerEndpoint,
-      privateKey: config?.privateKey ?? (process.env.CQL_PRIVATE_KEY as Hex),
+      privateKey: config?.privateKey ?? (process.env.CQL_PRIVATE_KEY as Hex | undefined),
       databaseId: config?.databaseId ?? process.env.CQL_DATABASE_ID,
-      timeout: config?.timeout ?? parseInt(process.env.CQL_TIMEOUT ?? '30000'),
+      timeout: config?.timeout ?? parseTimeout(process.env.CQL_TIMEOUT, DEFAULT_TIMEOUT),
       debug: config?.debug ?? process.env.CQL_DEBUG === 'true',
-    });
+    };
+    
+    // Validate the resolved config
+    const validated = CQLConfigSchema.parse(resolvedConfig);
+    
+    cqlClient = new CQLClient(validated as CQLConfig);
   }
   return cqlClient;
 }
 
-export function resetCQL(): void {
-  cqlClient?.close().catch(console.error);
-  cqlClient = null;
+export async function resetCQL(): Promise<void> {
+  if (cqlClient) {
+    await cqlClient.close();
+    cqlClient = null;
+  }
 }
 
 export { CQLClient as CovenantSQLClient };

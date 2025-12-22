@@ -40,7 +40,8 @@ rpcApp.onError((err, c) => {
 function getValidatedAddress(c: { req: { header: (name: string) => string | undefined } }): Address | null {
   const address = c.req.header('X-Wallet-Address');
   if (!address || !isAddress(address)) return null;
-  return address as Address;
+  // Safe cast - isAddress validates the format
+  return address;
 }
 
 // Health & Discovery
@@ -197,9 +198,8 @@ rpcApp.post('/v1/keys', async (c) => {
   let body: { name?: string } = {};
   try {
     body = await c.req.json();
-  } catch (e) {
+  } catch {
     // Body is optional for this endpoint, continue with empty object
-    console.debug('No JSON body provided to RPC endpoint');
   }
   const name = (body.name || 'Default').slice(0, 100);
   const { key, record } = await createApiKey(address, name);

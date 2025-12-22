@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { request, gql } from 'graphql-request';
+import { NonEmptyStringSchema } from '@/schemas/common';
+import { expect } from '@/lib/validation';
 import type { Market } from '@/types/markets';
 import { calculateYesPrice, calculateNoPrice } from '@/lib/markets/lmsrPricing';
 import { INDEXER_URL } from '@/config';
@@ -22,6 +24,8 @@ const MARKET_QUERY = gql`
 `;
 
 export function useMarket(sessionId: string) {
+  const validatedSessionId = NonEmptyStringSchema.parse(sessionId);
+  
   const [market, setMarket] = useState<Market | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -29,9 +33,9 @@ export function useMarket(sessionId: string) {
   useEffect(() => {
     async function fetchMarket() {
       try {
-        const endpoint = INDEXER_URL;
+        const endpoint = expect(INDEXER_URL, 'INDEXER_URL not configured');
         
-        const data = await request(endpoint, MARKET_QUERY, { id: sessionId }) as {
+        const data = await request(endpoint, MARKET_QUERY, { id: validatedSessionId }) as {
           predictionMarkets: Array<{
             id: string;
             sessionId: string;
@@ -46,13 +50,9 @@ export function useMarket(sessionId: string) {
           }>
         };
 
-        if (data.predictionMarkets.length === 0) {
-          setError(new Error('Market not found'));
-          setLoading(false);
-          return;
-        }
+        expect(data.predictionMarkets.length > 0, `Market not found: ${validatedSessionId}`);
 
-        const m = data.predictionMarkets[0];
+        const m = expect(data.predictionMarkets[0], 'Market data is missing');
         const yesShares = BigInt(m.yesShares);
         const noShares = BigInt(m.noShares);
         const liquidityB = BigInt(m.liquidityB);
@@ -84,7 +84,7 @@ export function useMarket(sessionId: string) {
     fetchMarket();
     const interval = setInterval(fetchMarket, 5000);
     return () => clearInterval(interval);
-  }, [sessionId]);
+  }, [validatedSessionId]);
 
   return { market, loading, error };
 }

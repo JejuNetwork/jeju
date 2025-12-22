@@ -5,450 +5,516 @@
  * providing price feeds, FX rates, stablecoin pegs, and market status
  */
 
-import type { Address } from 'viem';
+import { z } from 'zod';
+import { AddressSchema, HexSchema } from './validation';
+import type { Address, Hex } from 'viem';
 
 // ============ Core Types ============
 
 /** Feed identifier (keccak256 of baseAsset + quoteAsset) */
-export type FeedId = `0x${string}`;
+export type FeedId = Hex;
 
 /** Report hash for dispute tracking */
-export type ReportHash = `0x${string}`;
+export type ReportHash = Hex;
 
 /** Committee assignment round */
 export type CommitteeRound = bigint;
 
 // ============ Feed Configuration ============
 
-export interface FeedSpec {
-  feedId: FeedId;
-  symbol: string;
-  baseToken: Address;
-  quoteToken: Address;
-  decimals: number;
-  heartbeatSeconds: number;
-  twapWindowSeconds: number;
-  minLiquidityUSD: bigint;
-  maxDeviationBps: number;
-  minOracles: number;
-  quorumThreshold: number;
-  isActive: boolean;
-  requiresConfidence: boolean;
-  category: FeedCategory;
-}
+export const FeedCategorySchema = z.enum([
+  'SPOT_PRICE',
+  'TWAP',
+  'FX_RATE',
+  'STABLECOIN_PEG',
+  'LST_RATE',
+  'GAS_PRICE',
+  'SEQUENCER_STATUS',
+  'MARKET_STATUS',
+]);
+export type FeedCategory = z.infer<typeof FeedCategorySchema>;
 
-export type FeedCategory = 
-  | 'SPOT_PRICE'
-  | 'TWAP'
-  | 'FX_RATE'
-  | 'STABLECOIN_PEG'
-  | 'LST_RATE'
-  | 'GAS_PRICE'
-  | 'SEQUENCER_STATUS'
-  | 'MARKET_STATUS';
+export const FeedSpecSchema = z.object({
+  feedId: HexSchema,
+  symbol: z.string(),
+  baseToken: AddressSchema,
+  quoteToken: AddressSchema,
+  decimals: z.number().int().positive(),
+  heartbeatSeconds: z.number().int().positive(),
+  twapWindowSeconds: z.number().int().positive(),
+  minLiquidityUSD: z.bigint(),
+  maxDeviationBps: z.number().int().nonnegative(),
+  minOracles: z.number().int().positive(),
+  quorumThreshold: z.number().int().positive(),
+  isActive: z.boolean(),
+  requiresConfidence: z.boolean(),
+  category: FeedCategorySchema,
+});
+export type FeedSpec = z.infer<typeof FeedSpecSchema>;
 
-export interface FeedCreateParams {
-  symbol: string;
-  baseToken: Address;
-  quoteToken: Address;
-  decimals?: number;
-  heartbeatSeconds?: number;
-  twapWindowSeconds?: number;
-  minLiquidityUSD?: bigint;
-  maxDeviationBps?: number;
-  minOracles?: number;
-  quorumThreshold?: number;
-  requiresConfidence?: boolean;
-  category?: FeedCategory;
-}
+export const FeedCreateParamsSchema = z.object({
+  symbol: z.string(),
+  baseToken: AddressSchema,
+  quoteToken: AddressSchema,
+  decimals: z.number().int().positive().optional(),
+  heartbeatSeconds: z.number().int().positive().optional(),
+  twapWindowSeconds: z.number().int().positive().optional(),
+  minLiquidityUSD: z.bigint().optional(),
+  maxDeviationBps: z.number().int().nonnegative().optional(),
+  minOracles: z.number().int().positive().optional(),
+  quorumThreshold: z.number().int().positive().optional(),
+  requiresConfidence: z.boolean().optional(),
+  category: FeedCategorySchema.optional(),
+});
+export type FeedCreateParams = z.infer<typeof FeedCreateParamsSchema>;
 
 // ============ Price Data ============
 
-export interface PriceReport {
-  feedId: FeedId;
-  price: bigint;
-  confidence: bigint;
-  timestamp: bigint;
-  round: bigint;
-  sources: VenueSource[];
-  signatures: OracleSignature[];
-}
+export const VenueSourceSchema = z.object({
+  chainId: z.number().int().positive(),
+  venue: AddressSchema,
+  price: z.bigint(),
+  liquidity: z.bigint(),
+  timestamp: z.bigint(),
+});
+export type VenueSource = z.infer<typeof VenueSourceSchema>;
 
-export interface VenueSource {
-  chainId: number;
-  venue: Address;
-  price: bigint;
-  liquidity: bigint;
-  timestamp: bigint;
-}
+export const OracleSignatureSchema = z.object({
+  signer: AddressSchema,
+  v: z.number().int(),
+  r: HexSchema,
+  s: HexSchema,
+});
+export type OracleSignature = z.infer<typeof OracleSignatureSchema>;
 
-export interface OracleSignature {
-  signer: Address;
-  v: number;
-  r: `0x${string}`;
-  s: `0x${string}`;
-}
+export const PriceReportSchema = z.object({
+  feedId: HexSchema,
+  price: z.bigint(),
+  confidence: z.bigint(),
+  timestamp: z.bigint(),
+  round: z.bigint(),
+  sources: z.array(VenueSourceSchema),
+  signatures: z.array(OracleSignatureSchema),
+});
+export type PriceReport = z.infer<typeof PriceReportSchema>;
 
-export interface ConsensusPrice {
-  price: bigint;
-  confidence: bigint;
-  timestamp: bigint;
-  round: bigint;
-  oracleCount: number;
-  reportHash: ReportHash;
-}
+export const ConsensusPriceSchema = z.object({
+  price: z.bigint(),
+  confidence: z.bigint(),
+  timestamp: z.bigint(),
+  round: z.bigint(),
+  oracleCount: z.number().int().positive(),
+  reportHash: HexSchema,
+});
+export type ConsensusPrice = z.infer<typeof ConsensusPriceSchema>;
 
-export interface PriceFeedData {
-  feedId: FeedId;
-  spec: FeedSpec;
-  latestPrice: ConsensusPrice | null;
-  isStale: boolean;
-  lastUpdateBlock: bigint;
-}
+export const PriceFeedDataSchema = z.object({
+  feedId: HexSchema,
+  spec: FeedSpecSchema,
+  latestPrice: ConsensusPriceSchema.nullable(),
+  isStale: z.boolean(),
+  lastUpdateBlock: z.bigint(),
+});
+export type PriceFeedData = z.infer<typeof PriceFeedDataSchema>;
 
 // ============ Oracle Operator ============
 
-export interface OracleOperator {
-  operatorId: `0x${string}`;
-  owner: Address;
-  agentId: bigint;
-  stakedToken: Address;
-  stakedAmount: bigint;
-  stakedValueUSD: bigint;
-  delegatedAmount: bigint;
-  reputationScore: number;
-  accuracyScore: number;
-  totalSubmissions: bigint;
-  validSubmissions: bigint;
-  registrationTime: bigint;
-  lastSubmissionTime: bigint;
-  status: OperatorStatus;
-  workerKeys: Address[];
-  supportedFeeds: FeedId[];
-}
+export const OperatorStatusSchema = z.enum([
+  'ACTIVE',
+  'UNBONDING',
+  'INACTIVE',
+  'SLASHED',
+  'JAILED',
+]);
+export type OperatorStatus = z.infer<typeof OperatorStatusSchema>;
 
-export type OperatorStatus = 
-  | 'ACTIVE'
-  | 'UNBONDING'
-  | 'INACTIVE'
-  | 'SLASHED'
-  | 'JAILED';
+export const OracleOperatorSchema = z.object({
+  operatorId: HexSchema,
+  owner: AddressSchema,
+  agentId: z.bigint(),
+  stakedToken: AddressSchema,
+  stakedAmount: z.bigint(),
+  stakedValueUSD: z.bigint(),
+  delegatedAmount: z.bigint(),
+  reputationScore: z.number().nonnegative(),
+  accuracyScore: z.number().nonnegative(),
+  totalSubmissions: z.bigint(),
+  validSubmissions: z.bigint(),
+  registrationTime: z.bigint(),
+  lastSubmissionTime: z.bigint(),
+  status: OperatorStatusSchema,
+  workerKeys: z.array(AddressSchema),
+  supportedFeeds: z.array(HexSchema),
+});
+export type OracleOperator = z.infer<typeof OracleOperatorSchema>;
 
-export interface OperatorRegistrationParams {
-  stakingToken: Address;
-  stakeAmount: bigint;
-  agentId: bigint;
-  workerKeys?: Address[];
-  supportedFeeds?: FeedId[];
-}
+export const OperatorRegistrationParamsSchema = z.object({
+  stakingToken: AddressSchema,
+  stakeAmount: z.bigint(),
+  agentId: z.bigint(),
+  workerKeys: z.array(AddressSchema).optional(),
+  supportedFeeds: z.array(HexSchema).optional(),
+});
+export type OperatorRegistrationParams = z.infer<typeof OperatorRegistrationParamsSchema>;
 
-export interface OperatorPerformance {
-  operatorId: `0x${string}`;
-  epochNumber: bigint;
-  participationRate: number;
-  accuracyRate: number;
-  medianDeviation: number;
-  reportsSubmitted: number;
-  reportsAccepted: number;
-  disputesReceived: number;
-  slashesIncurred: number;
-}
+export const OperatorPerformanceSchema = z.object({
+  operatorId: HexSchema,
+  epochNumber: z.bigint(),
+  participationRate: z.number().nonnegative(),
+  accuracyRate: z.number().nonnegative(),
+  medianDeviation: z.number(),
+  reportsSubmitted: z.number().int().nonnegative(),
+  reportsAccepted: z.number().int().nonnegative(),
+  disputesReceived: z.number().int().nonnegative(),
+  slashesIncurred: z.number().int().nonnegative(),
+});
+export type OperatorPerformance = z.infer<typeof OperatorPerformanceSchema>;
 
 // ============ Committee Management ============
 
-export interface Committee {
-  feedId: FeedId;
-  round: CommitteeRound;
-  members: Address[];
-  threshold: number;
-  activeUntil: bigint;
-  leader: Address;
-}
+export const CommitteeSchema = z.object({
+  feedId: HexSchema,
+  round: z.bigint(),
+  members: z.array(AddressSchema),
+  threshold: z.number().int().positive(),
+  activeUntil: z.bigint(),
+  leader: AddressSchema,
+});
+export type Committee = z.infer<typeof CommitteeSchema>;
 
-export interface CommitteeAssignment {
-  operatorId: `0x${string}`;
-  feedId: FeedId;
-  round: CommitteeRound;
-  isLeader: boolean;
-  assignedAt: bigint;
-}
+export const CommitteeAssignmentSchema = z.object({
+  operatorId: HexSchema,
+  feedId: HexSchema,
+  round: z.bigint(),
+  isLeader: z.boolean(),
+  assignedAt: z.bigint(),
+});
+export type CommitteeAssignment = z.infer<typeof CommitteeAssignmentSchema>;
 
 // ============ Delegation ============
 
-export interface DelegationPool {
-  operatorId: `0x${string}`;
-  totalDelegated: bigint;
-  totalDelegatedUSD: bigint;
-  delegatorCount: number;
-  delegationFeeRateBps: number;
-  minDelegation: bigint;
-  maxCapacity: bigint;
-  isAcceptingDelegations: boolean;
-}
+export const DelegationPoolSchema = z.object({
+  operatorId: HexSchema,
+  totalDelegated: z.bigint(),
+  totalDelegatedUSD: z.bigint(),
+  delegatorCount: z.number().int().nonnegative(),
+  delegationFeeRateBps: z.number().int().nonnegative(),
+  minDelegation: z.bigint(),
+  maxCapacity: z.bigint(),
+  isAcceptingDelegations: z.boolean(),
+});
+export type DelegationPool = z.infer<typeof DelegationPoolSchema>;
 
-export interface OracleDelegation {
-  delegator: Address;
-  operatorId: `0x${string}`;
-  amount: bigint;
-  stakedToken: Address;
-  delegatedAt: bigint;
-  lastClaimTime: bigint;
-  pendingRewards: bigint;
-}
+export const OracleDelegationSchema = z.object({
+  delegator: AddressSchema,
+  operatorId: HexSchema,
+  amount: z.bigint(),
+  stakedToken: AddressSchema,
+  delegatedAt: z.bigint(),
+  lastClaimTime: z.bigint(),
+  pendingRewards: z.bigint(),
+});
+export type OracleDelegation = z.infer<typeof OracleDelegationSchema>;
 
-export interface DelegationParams {
-  operatorId: `0x${string}`;
-  amount: bigint;
-  stakingToken: Address;
-}
+export const DelegationParamsSchema = z.object({
+  operatorId: HexSchema,
+  amount: z.bigint(),
+  stakingToken: AddressSchema,
+});
+export type DelegationParams = z.infer<typeof DelegationParamsSchema>;
 
 // ============ Disputes ============
 
-export interface Dispute {
-  disputeId: `0x${string}`;
-  reportHash: ReportHash;
-  feedId: FeedId;
-  disputer: Address;
-  bond: bigint;
-  reason: DisputeReason;
-  evidence: `0x${string}`;
-  status: DisputeStatus;
-  createdAt: bigint;
-  deadline: bigint;
-  resolution: DisputeResolution | null;
-  affectedSigners: Address[];
-}
+export const DisputeReasonSchema = z.enum([
+  'PRICE_DEVIATION',
+  'INVALID_SOURCE',
+  'LOW_LIQUIDITY',
+  'STALE_DATA',
+  'INVALID_SIGNATURE',
+  'MANIPULATION',
+  'OTHER',
+]);
+export type DisputeReason = z.infer<typeof DisputeReasonSchema>;
 
-export type DisputeReason = 
-  | 'PRICE_DEVIATION'
-  | 'INVALID_SOURCE'
-  | 'LOW_LIQUIDITY'
-  | 'STALE_DATA'
-  | 'INVALID_SIGNATURE'
-  | 'MANIPULATION'
-  | 'OTHER';
+export const DisputeStatusSchema = z.enum([
+  'OPEN',
+  'CHALLENGED',
+  'RESOLVED_VALID',
+  'RESOLVED_INVALID',
+  'ESCALATED_TO_FUTARCHY',
+  'EXPIRED',
+]);
+export type DisputeStatus = z.infer<typeof DisputeStatusSchema>;
 
-export type DisputeStatus = 
-  | 'OPEN'
-  | 'CHALLENGED'
-  | 'RESOLVED_VALID'
-  | 'RESOLVED_INVALID'
-  | 'ESCALATED_TO_FUTARCHY'
-  | 'EXPIRED';
+export const DisputeResolutionOutcomeSchema = z.enum([
+  'REPORT_VALID',
+  'REPORT_INVALID',
+  'INCONCLUSIVE',
+]);
 
-export interface DisputeResolution {
-  outcome: 'REPORT_VALID' | 'REPORT_INVALID' | 'INCONCLUSIVE';
-  resolvedAt: bigint;
-  resolvedBy: Address | 'AUTOMATIC' | 'FUTARCHY';
-  slashAmount: bigint;
-  disputerReward: bigint;
-}
+export const DisputeResolvedBySchema = z.union([
+  AddressSchema,
+  z.literal('AUTOMATIC'),
+  z.literal('FUTARCHY'),
+]);
+export type DisputeResolvedBy = z.infer<typeof DisputeResolvedBySchema>;
 
-export interface DisputeCreateParams {
-  reportHash: ReportHash;
-  reason: DisputeReason;
-  evidence: `0x${string}`;
-  bond: bigint;
-}
+export const DisputeResolutionSchema = z.object({
+  outcome: DisputeResolutionOutcomeSchema,
+  resolvedAt: z.bigint(),
+  resolvedBy: DisputeResolvedBySchema,
+  slashAmount: z.bigint(),
+  disputerReward: z.bigint(),
+});
+export type DisputeResolution = z.infer<typeof DisputeResolutionSchema>;
+
+export const DisputeSchema = z.object({
+  disputeId: HexSchema,
+  reportHash: HexSchema,
+  feedId: HexSchema,
+  disputer: AddressSchema,
+  bond: z.bigint(),
+  reason: DisputeReasonSchema,
+  evidence: HexSchema,
+  status: DisputeStatusSchema,
+  createdAt: z.bigint(),
+  deadline: z.bigint(),
+  resolution: DisputeResolutionSchema.nullable(),
+  affectedSigners: z.array(AddressSchema),
+});
+export type Dispute = z.infer<typeof DisputeSchema>;
+
+export const DisputeCreateParamsSchema = z.object({
+  reportHash: HexSchema,
+  reason: DisputeReasonSchema,
+  evidence: HexSchema,
+  bond: z.bigint(),
+});
+export type DisputeCreateParams = z.infer<typeof DisputeCreateParamsSchema>;
 
 // ============ Fees & Revenue ============
 
-export interface FeeConfig {
-  subscriptionFeePerMonth: bigint;
-  perReadFee: bigint;
-  treasuryShareBps: number;
-  operatorShareBps: number;
-  delegatorShareBps: number;
-  disputerRewardBps: number;
-}
+export const FeeConfigSchema = z.object({
+  subscriptionFeePerMonth: z.bigint(),
+  perReadFee: z.bigint(),
+  treasuryShareBps: z.number().int().nonnegative(),
+  operatorShareBps: z.number().int().nonnegative(),
+  delegatorShareBps: z.number().int().nonnegative(),
+  disputerRewardBps: z.number().int().nonnegative(),
+});
+export type FeeConfig = z.infer<typeof FeeConfigSchema>;
 
-export interface Subscription {
-  subscriber: Address;
-  feedIds: FeedId[];
-  startTime: bigint;
-  endTime: bigint;
-  amountPaid: bigint;
-  isActive: boolean;
-}
+export const SubscriptionSchema = z.object({
+  subscriber: AddressSchema,
+  feedIds: z.array(HexSchema),
+  startTime: z.bigint(),
+  endTime: z.bigint(),
+  amountPaid: z.bigint(),
+  isActive: z.boolean(),
+});
+export type Subscription = z.infer<typeof SubscriptionSchema>;
 
-export interface OperatorEarnings {
-  operatorId: `0x${string}`;
-  totalEarned: bigint;
-  totalClaimed: bigint;
-  pendingRewards: bigint;
-  lastClaimTime: bigint;
-  earningsByFeed: Record<string, bigint>;
-}
+export const OperatorEarningsSchema = z.object({
+  operatorId: HexSchema,
+  totalEarned: z.bigint(),
+  totalClaimed: z.bigint(),
+  pendingRewards: z.bigint(),
+  lastClaimTime: z.bigint(),
+  earningsByFeed: z.record(z.string(), z.bigint()),
+});
+export type OperatorEarnings = z.infer<typeof OperatorEarningsSchema>;
 
 // ============ Network Stats ============
 
-export interface OracleNetworkStats {
-  totalOperators: number;
-  activeOperators: number;
-  totalStakedUSD: bigint;
-  totalDelegatedUSD: bigint;
-  totalFeeds: number;
-  activeFeeds: number;
-  totalReports: bigint;
-  totalDisputes: bigint;
-  avgAccuracy: number;
-  avgUptime: number;
-}
+export const OracleNetworkStatsSchema = z.object({
+  totalOperators: z.number().int().nonnegative(),
+  activeOperators: z.number().int().nonnegative(),
+  totalStakedUSD: z.bigint(),
+  totalDelegatedUSD: z.bigint(),
+  totalFeeds: z.number().int().nonnegative(),
+  activeFeeds: z.number().int().nonnegative(),
+  totalReports: z.bigint(),
+  totalDisputes: z.bigint(),
+  avgAccuracy: z.number().nonnegative(),
+  avgUptime: z.number().nonnegative(),
+});
+export type OracleNetworkStats = z.infer<typeof OracleNetworkStatsSchema>;
 
-export interface FeedStats {
-  feedId: FeedId;
-  symbol: string;
-  totalReports: bigint;
-  avgUpdateFrequency: number;
-  avgConfidence: number;
-  lastUpdateTime: bigint;
-  subscriberCount: number;
-  totalRevenue: bigint;
-}
+export const FeedStatsSchema = z.object({
+  feedId: HexSchema,
+  symbol: z.string(),
+  totalReports: z.bigint(),
+  avgUpdateFrequency: z.number().nonnegative(),
+  avgConfidence: z.number().nonnegative(),
+  lastUpdateTime: z.bigint(),
+  subscriberCount: z.number().int().nonnegative(),
+  totalRevenue: z.bigint(),
+});
+export type FeedStats = z.infer<typeof FeedStatsSchema>;
 
 // ============ ERC-8004 Integration ============
 
-export interface OraclePerformanceAttestation {
-  agentId: bigint;
-  epochNumber: bigint;
-  timestamp: bigint;
-  participationRate: number;
-  accuracyRate: number;
-  medianDeviation: number;
-  disputesReceived: number;
-  slashesIncurred: number;
-  attestationHash: `0x${string}`;
-}
+export const OraclePerformanceAttestationSchema = z.object({
+  agentId: z.bigint(),
+  epochNumber: z.bigint(),
+  timestamp: z.bigint(),
+  participationRate: z.number().nonnegative(),
+  accuracyRate: z.number().nonnegative(),
+  medianDeviation: z.number(),
+  disputesReceived: z.number().int().nonnegative(),
+  slashesIncurred: z.number().int().nonnegative(),
+  attestationHash: HexSchema,
+});
+export type OraclePerformanceAttestation = z.infer<typeof OraclePerformanceAttestationSchema>;
 
-export interface OracleModerationAction {
-  operatorId: `0x${string}`;
-  agentId: bigint;
-  action: 'JAIL' | 'UNJAIL' | 'BAN' | 'SLASH';
-  reason: string;
-  evidenceHash: `0x${string}`;
-  duration: bigint;
-  timestamp: bigint;
-  initiatedBy: Address | 'AUTOMATIC' | 'FUTARCHY';
-}
+export const OracleModerationActionTypeSchema = z.enum(['JAIL', 'UNJAIL', 'BAN', 'SLASH']);
+
+export const OracleModerationActionSchema = z.object({
+  operatorId: HexSchema,
+  agentId: z.bigint(),
+  action: OracleModerationActionTypeSchema,
+  reason: z.string(),
+  evidenceHash: HexSchema,
+  duration: z.bigint(),
+  timestamp: z.bigint(),
+  initiatedBy: z.union([AddressSchema, z.literal('AUTOMATIC'), z.literal('FUTARCHY')]),
+});
+export type OracleModerationAction = z.infer<typeof OracleModerationActionSchema>;
 
 // ============ Report Verification ============
 
-export interface ReportVerificationResult {
-  isValid: boolean;
-  reportHash: ReportHash;
-  errors: ReportError[];
-  validSignerCount: number;
-  quorumMet: boolean;
-}
+export const ReportErrorSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('INVALID_SIGNATURE'), signer: AddressSchema }),
+  z.object({ type: z.literal('NOT_COMMITTEE_MEMBER'), signer: AddressSchema }),
+  z.object({ type: z.literal('PRICE_OUT_OF_BOUNDS'), price: z.bigint(), bounds: z.object({ min: z.bigint(), max: z.bigint() }) }),
+  z.object({ type: z.literal('STALE_TIMESTAMP'), timestamp: z.bigint(), maxAge: z.bigint() }),
+  z.object({ type: z.literal('INSUFFICIENT_QUORUM'), have: z.number().int(), need: z.number().int() }),
+  z.object({ type: z.literal('INVALID_ROUND'), expected: z.bigint(), got: z.bigint() }),
+  z.object({ type: z.literal('LOW_LIQUIDITY'), venue: AddressSchema, liquidity: z.bigint(), required: z.bigint() }),
+]);
+export type ReportError = z.infer<typeof ReportErrorSchema>;
 
-export type ReportError = 
-  | { type: 'INVALID_SIGNATURE'; signer: Address }
-  | { type: 'NOT_COMMITTEE_MEMBER'; signer: Address }
-  | { type: 'PRICE_OUT_OF_BOUNDS'; price: bigint; bounds: { min: bigint; max: bigint } }
-  | { type: 'STALE_TIMESTAMP'; timestamp: bigint; maxAge: bigint }
-  | { type: 'INSUFFICIENT_QUORUM'; have: number; need: number }
-  | { type: 'INVALID_ROUND'; expected: bigint; got: bigint }
-  | { type: 'LOW_LIQUIDITY'; venue: Address; liquidity: bigint; required: bigint };
+export const ReportVerificationResultSchema = z.object({
+  isValid: z.boolean(),
+  reportHash: HexSchema,
+  errors: z.array(ReportErrorSchema),
+  validSignerCount: z.number().int().nonnegative(),
+  quorumMet: z.boolean(),
+});
+export type ReportVerificationResult = z.infer<typeof ReportVerificationResultSchema>;
 
 // ============ TWAP Sources ============
 
-export interface TWAPSource {
-  chainId: number;
-  chainName: string;
-  venue: Address;
-  venueName: string;
-  poolAddress: Address;
-  token0: Address;
-  token1: Address;
-  fee: number;
-  liquidity: bigint;
-  isActive: boolean;
-}
+export const TWAPSourceSchema = z.object({
+  chainId: z.number().int().positive(),
+  chainName: z.string(),
+  venue: AddressSchema,
+  venueName: z.string(),
+  poolAddress: AddressSchema,
+  token0: AddressSchema,
+  token1: AddressSchema,
+  fee: z.number().int().nonnegative(),
+  liquidity: z.bigint(),
+  isActive: z.boolean(),
+});
+export type TWAPSource = z.infer<typeof TWAPSourceSchema>;
 
-export interface TWAPConfig {
-  feedId: FeedId;
-  sources: TWAPSource[];
-  windowSeconds: number;
-  minSources: number;
-  outlierThresholdBps: number;
-}
+export const TWAPConfigSchema = z.object({
+  feedId: HexSchema,
+  sources: z.array(TWAPSourceSchema),
+  windowSeconds: z.number().int().positive(),
+  minSources: z.number().int().positive(),
+  outlierThresholdBps: z.number().int().nonnegative(),
+});
+export type TWAPConfig = z.infer<typeof TWAPConfigSchema>;
 
 // ============ Contract Addresses ============
 
-export interface OracleContractAddresses {
-  feedRegistry: Address;
-  reportVerifier: Address;
-  committeeManager: Address;
-  oracleStakingManager: Address;
-  delegationPool: Address;
-  disputeGame: Address;
-  feeRouter: Address;
-  twapOracle: Address;
-}
+export const OracleContractAddressesSchema = z.object({
+  feedRegistry: AddressSchema,
+  reportVerifier: AddressSchema,
+  committeeManager: AddressSchema,
+  oracleStakingManager: AddressSchema,
+  delegationPool: AddressSchema,
+  disputeGame: AddressSchema,
+  feeRouter: AddressSchema,
+  twapOracle: AddressSchema,
+});
+export type OracleContractAddresses = z.infer<typeof OracleContractAddressesSchema>;
 
 // ============ Events ============
 
-export interface FeedCreatedEvent {
-  feedId: FeedId;
-  symbol: string;
-  creator: Address;
-  transactionHash: `0x${string}`;
-  blockNumber: bigint;
-}
+export const FeedCreatedEventSchema = z.object({
+  feedId: HexSchema,
+  symbol: z.string(),
+  creator: AddressSchema,
+  transactionHash: HexSchema,
+  blockNumber: z.bigint(),
+});
+export type FeedCreatedEvent = z.infer<typeof FeedCreatedEventSchema>;
 
-export interface ReportSubmittedEvent {
-  feedId: FeedId;
-  reportHash: ReportHash;
-  price: bigint;
-  round: bigint;
-  signerCount: number;
-  transactionHash: `0x${string}`;
-  blockNumber: bigint;
-}
+export const ReportSubmittedEventSchema = z.object({
+  feedId: HexSchema,
+  reportHash: HexSchema,
+  price: z.bigint(),
+  round: z.bigint(),
+  signerCount: z.number().int().positive(),
+  transactionHash: HexSchema,
+  blockNumber: z.bigint(),
+});
+export type ReportSubmittedEvent = z.infer<typeof ReportSubmittedEventSchema>;
 
-export interface OperatorRegisteredEvent {
-  operatorId: `0x${string}`;
-  owner: Address;
-  agentId: bigint;
-  stakedAmount: bigint;
-  transactionHash: `0x${string}`;
-  blockNumber: bigint;
-}
+export const OperatorRegisteredEventSchema = z.object({
+  operatorId: HexSchema,
+  owner: AddressSchema,
+  agentId: z.bigint(),
+  stakedAmount: z.bigint(),
+  transactionHash: HexSchema,
+  blockNumber: z.bigint(),
+});
+export type OperatorRegisteredEvent = z.infer<typeof OperatorRegisteredEventSchema>;
 
-export interface DisputeOpenedEvent {
-  disputeId: `0x${string}`;
-  reportHash: ReportHash;
-  disputer: Address;
-  bond: bigint;
-  reason: DisputeReason;
-  transactionHash: `0x${string}`;
-  blockNumber: bigint;
-}
+export const DisputeOpenedEventSchema = z.object({
+  disputeId: HexSchema,
+  reportHash: HexSchema,
+  disputer: AddressSchema,
+  bond: z.bigint(),
+  reason: DisputeReasonSchema,
+  transactionHash: HexSchema,
+  blockNumber: z.bigint(),
+});
+export type DisputeOpenedEvent = z.infer<typeof DisputeOpenedEventSchema>;
 
-export interface DisputeResolvedEvent {
-  disputeId: `0x${string}`;
-  outcome: DisputeResolution['outcome'];
-  slashAmount: bigint;
-  disputerReward: bigint;
-  transactionHash: `0x${string}`;
-  blockNumber: bigint;
-}
+export const DisputeResolvedEventSchema = z.object({
+  disputeId: HexSchema,
+  outcome: DisputeResolutionOutcomeSchema,
+  slashAmount: z.bigint(),
+  disputerReward: z.bigint(),
+  transactionHash: HexSchema,
+  blockNumber: z.bigint(),
+});
+export type DisputeResolvedEvent = z.infer<typeof DisputeResolvedEventSchema>;
 
-export interface OperatorSlashedEvent {
-  operatorId: `0x${string}`;
-  amount: bigint;
-  reason: string;
-  transactionHash: `0x${string}`;
-  blockNumber: bigint;
-}
+export const OperatorSlashedEventSchema = z.object({
+  operatorId: HexSchema,
+  amount: z.bigint(),
+  reason: z.string(),
+  transactionHash: HexSchema,
+  blockNumber: z.bigint(),
+});
+export type OperatorSlashedEvent = z.infer<typeof OperatorSlashedEventSchema>;
 
 // ============ Default Values ============
+
+// Helper to avoid BigInt exponentiation transpilation issues
+const E18 = 1000000000000000000n; // 10^18
+const E15 = 1000000000000000n; // 10^15
 
 export const DEFAULT_FEED_CONFIG = {
   decimals: 8,
   heartbeatSeconds: 3600,
   twapWindowSeconds: 1800,
-  minLiquidityUSD: 100000n * 10n ** 18n,
+  minLiquidityUSD: 100000n * E18,
   maxDeviationBps: 100,
   minOracles: 3,
   quorumThreshold: 2,
@@ -457,8 +523,8 @@ export const DEFAULT_FEED_CONFIG = {
 } as const;
 
 export const DEFAULT_FEE_CONFIG: FeeConfig = {
-  subscriptionFeePerMonth: 100n * 10n ** 18n,
-  perReadFee: 1n * 10n ** 15n,
+  subscriptionFeePerMonth: 100n * E18,
+  perReadFee: 1n * E15,
   treasuryShareBps: 1000,
   operatorShareBps: 7000,
   delegatorShareBps: 1500,
@@ -466,7 +532,7 @@ export const DEFAULT_FEE_CONFIG: FeeConfig = {
 };
 
 export const DISPUTE_CONSTANTS = {
-  MIN_BOND_USD: 100n * 10n ** 18n,
+  MIN_BOND_USD: 100n * E18,
   CHALLENGE_WINDOW_SECONDS: 86400,
   RESOLUTION_WINDOW_SECONDS: 259200,
   SLASH_DEVIATION_BPS: 100,

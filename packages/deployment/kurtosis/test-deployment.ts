@@ -32,11 +32,21 @@ const FOUNDRY_ACCOUNTS = [
   },
 ] as const;
 
+interface TestResultDetails {
+  blockNumber?: number;
+  chainId?: number;
+  gasPrice?: string;
+  blocksProduced?: number;
+  blockTime?: number;
+  hash?: string;
+  gasUsed?: string;
+}
+
 interface TestResult {
   name: string;
   passed: boolean;
   message?: string;
-  details?: Record<string, unknown>;
+  details?: TestResultDetails;
 }
 
 const results: TestResult[] = [];
@@ -44,7 +54,7 @@ const results: TestResult[] = [];
 /**
  * Main test runner
  */
-async function main() {
+async function main(): Promise<void> {
   console.log('╔═══════════════════════════════════════════════════════════════╗');
   console.log('║                                                               ║');
   console.log('║   🧪 KURTOSIS LOCALNET DEPLOYMENT TEST                        ║');
@@ -76,7 +86,7 @@ async function main() {
 /**
  * Test: Enclave is running
  */
-async function testEnclaveRunning() {
+async function testEnclaveRunning(): Promise<void> {
   console.log('1️⃣  Checking enclave status...');
   
   try {
@@ -107,7 +117,7 @@ async function testEnclaveRunning() {
 /**
  * Test: L1 RPC connectivity
  */
-async function testL1RPC() {
+async function testL1RPC(): Promise<void> {
   console.log('2️⃣  Testing L1 RPC...');
   
   try {
@@ -142,7 +152,7 @@ async function testL1RPC() {
 /**
  * Test: L2 RPC connectivity
  */
-async function testL2RPC() {
+async function testL2RPC(): Promise<void> {
   console.log('3️⃣  Testing L2 RPC...');
   
   try {
@@ -180,7 +190,7 @@ async function testL2RPC() {
 /**
  * Test: Pre-funded accounts
  */
-async function testPreFundedAccounts() {
+async function testPreFundedAccounts(): Promise<void> {
   console.log('4️⃣  Verifying pre-funded accounts...');
   
   try {
@@ -217,7 +227,7 @@ async function testPreFundedAccounts() {
 /**
  * Test: Block production
  */
-async function testBlockProduction() {
+async function testBlockProduction(): Promise<void> {
   console.log('5️⃣  Testing block production...');
   
   try {
@@ -260,7 +270,7 @@ async function testBlockProduction() {
 /**
  * Test: Transaction execution
  */
-async function testTransactionExecution() {
+async function testTransactionExecution(): Promise<void> {
   console.log('6️⃣  Testing transaction execution...');
   
   try {
@@ -309,7 +319,7 @@ async function testTransactionExecution() {
 /**
  * Print test summary
  */
-function printSummary() {
+function printSummary(): void {
   const passed = results.filter(r => r.passed).length;
   const failed = results.filter(r => !r.passed).length;
   const total = results.length;
@@ -342,10 +352,15 @@ function printSummary() {
   }
 }
 
+interface ExecResult {
+  stdout: string;
+  stderr: string;
+}
+
 /**
  * Execute shell command
  */
-async function execAsync(command: string): Promise<{ stdout: string; stderr: string }> {
+async function execAsync(command: string): Promise<ExecResult> {
   const { exec } = await import('child_process');
   const { promisify } = await import('util');
   const execPromise = promisify(exec);

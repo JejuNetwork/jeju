@@ -12,13 +12,14 @@ import {
 } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
-import { getContract as getContractAddress } from "../config";
+import { requireContract } from "../config";
 import {
   COMPUTE_REGISTRY_ABI,
   COMPUTE_RENTAL_ABI,
   INFERENCE_ABI,
   TRIGGER_REGISTRY_ABI,
 } from "../contracts";
+import { InferenceResponseSchema } from "../shared/schemas";
 
 const GPU_TYPES = [
   "NONE",
@@ -186,26 +187,10 @@ export function createComputeModule(
   wallet: JejuWallet,
   network: NetworkType,
 ): ComputeModule {
-  const registryAddress = getContractAddress(
-    "compute",
-    "registry",
-    network,
-  ) as Address;
-  const rentalAddress = getContractAddress(
-    "compute",
-    "rental",
-    network,
-  ) as Address;
-  const inferenceAddress = getContractAddress(
-    "compute",
-    "inference",
-    network,
-  ) as Address;
-  const triggerAddress = getContractAddress(
-    "compute",
-    "triggerRegistry",
-    network,
-  ) as Address;
+  const registryAddress = requireContract("compute", "registry", network);
+  const rentalAddress = requireContract("compute", "rental", network);
+  const inferenceAddress = requireContract("compute", "inference", network);
+  const triggerAddress = requireContract("compute", "triggerRegistry", network);
 
   const registry = getContract({
     address: registryAddress,
@@ -276,7 +261,10 @@ export function createComputeModule(
         dockerEnabled: boolean;
       };
 
-      const gpuType = GPU_TYPES[resources.resources.gpuType] ?? "NONE";
+      const gpuType = GPU_TYPES[resources.resources.gpuType];
+      if (!gpuType) {
+        throw new Error(`Invalid GPU type index: ${resources.resources.gpuType}`);
+      }
 
       // Apply filters
       if (options?.gpuType && gpuType !== options.gpuType) continue;
@@ -387,7 +375,7 @@ export function createComputeModule(
       rentalId: r.rentalId,
       user: r.user,
       provider: r.provider,
-      status: RENTAL_STATUS[r.status] ?? "PENDING",
+      status: RENTAL_STATUS[r.status] ?? (() => { throw new Error(`Invalid rental status: ${r.status}`); })(),
       startTime: Number(r.startTime),
       endTime: Number(r.endTime),
       totalCost: r.totalCost,
@@ -463,7 +451,9 @@ export function createComputeModule(
             endpoint: svc.endpoint,
             pricePerInputToken: svc.pricePerInputToken,
             pricePerOutputToken: svc.pricePerOutputToken,
-            pricePerToken: formatEther(svc.pricePerInputToken + svc.pricePerOutputToken),
+            pricePerToken: formatEther(
+              svc.pricePerInputToken + svc.pricePerOutputToken,
+            ),
             active: svc.active,
           });
         }
@@ -500,21 +490,18 @@ export function createComputeModule(
       throw new Error(`Inference failed: ${response.statusText}`);
     }
 
-    const data = (await response.json()) as {
-      id: string;
-      model: string;
-      choices: Array<{ message: { content: string } }>;
-      usage: {
-        prompt_tokens: number;
-        completion_tokens: number;
-        total_tokens: number;
-      };
-    };
+    const rawData: unknown = await response.json();
+    const data = InferenceResponseSchema.parse(rawData);
 
+    if (data.choices.length === 0) {
+      throw new Error("Invalid inference response: empty choices array");
+    }
+
+    const firstChoice = data.choices[0];
     return {
       id: data.id,
       model: data.model,
-      content: data.choices[0]?.message?.content ?? "",
+      content: firstChoice.message.content,
       usage: {
         promptTokens: data.usage.prompt_tokens,
         completionTokens: data.usage.completion_tokens,
@@ -557,7 +544,7 @@ export function createComputeModule(
     return {
       triggerId,
       owner: t[0],
-      type: typeMap[t[1]] ?? "webhook",
+      type: typeMap[t[1]] ?? (() => { throw new Error(`Invalid trigger type: ${t[1]}`); })(),
       name: t[2],
       endpoint: t[3],
       active: t[4],

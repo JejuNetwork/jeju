@@ -269,34 +269,29 @@ export async function connectWallet(
 
   console.log(`Connecting ${walletName} wallet...`);
 
-  try {
-    // Click connect button (various patterns)
-    const connectButton = page.locator(
-      'button:has-text("Connect"), button:has-text("Connect Wallet")'
-    ).first();
+  // Click connect button (various patterns)
+  const connectButton = page.locator(
+    'button:has-text("Connect"), button:has-text("Connect Wallet")'
+  ).first();
 
-    await connectButton.click({ timeout: 5000 });
+  await connectButton.click({ timeout: 5000 });
 
-    // Wait for wallet selection modal
-    await page.waitForTimeout(1000);
+  // Wait for wallet selection modal
+  await page.waitForTimeout(1000);
 
-    // Click wallet option (MetaMask, Rainbow, etc.)
-    const walletOption = page.locator(`text="${walletName}", button:has-text("${walletName}")`).first();
-    await walletOption.click({ timeout: 3000 });
+  // Click wallet option (MetaMask, Rainbow, etc.)
+  const walletOption = page.locator(`text="${walletName}", button:has-text("${walletName}")`).first();
+  await walletOption.click({ timeout: 3000 });
 
-    // Approve connection in MetaMask
-    await wallet.approve();
+  // Approve connection in MetaMask
+  await wallet.approve();
 
-    // Wait for connection success
-    await expect(
-      page.locator('[data-connected="true"], button:has-text(/0x/)')
-    ).toBeVisible({ timeout });
+  // Wait for connection success
+  await expect(
+    page.locator('[data-connected="true"], button:has-text(/0x/)')
+  ).toBeVisible({ timeout });
 
-    console.log(`✅ Wallet connected successfully`);
-  } catch (error) {
-    console.warn(`Wallet connection failed or already connected:`, error);
-    throw error;
-  }
+  console.log(`✅ Wallet connected successfully`);
 }
 
 /**
@@ -316,7 +311,14 @@ export async function getBalance(
   ).first();
 
   const balanceText = await balanceElement.textContent();
-  const balance = balanceText?.match(/[\d.]+/)?.[0] || '0';
+  if (!balanceText) {
+    throw new Error(`Could not read balance text for ${options.token}`);
+  }
+  const match = balanceText.match(/[\d.]+/);
+  if (!match) {
+    throw new Error(`Could not parse balance from text: "${balanceText}"`);
+  }
+  const balance = match[0];
 
   console.log(`${options.token} balance: ${balance}`);
   return balance;

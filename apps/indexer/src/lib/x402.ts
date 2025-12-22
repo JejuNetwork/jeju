@@ -6,6 +6,8 @@
 
 import { parseEther } from 'viem';
 import type { Address } from 'viem';
+import { z } from 'zod';
+import { addressSchema, validateOrThrow } from './validation';
 
 // ============ Types ============
 
@@ -32,8 +34,8 @@ export interface PaymentScheme {
 export interface PaymentPayload {
   scheme: string;
   network: string;
-  asset: Address;
-  payTo: Address;
+  asset: string;
+  payTo: string;
   amount: string;
   resource: string;
   nonce: string;
@@ -85,20 +87,53 @@ export const INDEXER_PAYMENT_TIERS = {
 
 // ============ Stub Functions ============
 
-export function verifyPayment(_payload: PaymentPayload): boolean {
-  return true; // Stub - implement actual verification if needed
+const paymentPayloadSchema = z.object({
+  scheme: z.string().min(1),
+  network: z.string().min(1),
+  asset: addressSchema,
+  payTo: addressSchema,
+  amount: z.string().regex(/^\d+$/, 'Amount must be a string representation of a positive integer'),
+  resource: z.string().min(1),
+  nonce: z.string().min(1),
+  timestamp: z.number().int().positive(),
+  signature: z.string().optional(),
+});
+
+export function verifyPayment(payload: PaymentPayload): boolean {
+  if (!payload) {
+    throw new Error('Payment payload is required');
+  }
+  const result = paymentPayloadSchema.safeParse(payload);
+  return result.success;
 }
 
 export function parsePaymentHeader(header: string): PaymentPayload | null {
+  if (!header || typeof header !== 'string' || header.trim().length === 0) {
+    return null;
+  }
   try {
-    return JSON.parse(Buffer.from(header, 'base64').toString('utf8'));
+    const decoded = Buffer.from(header, 'base64').toString('utf8');
+    const parsed = JSON.parse(decoded);
+    const validated = paymentPayloadSchema.parse(parsed);
+    return validated;
   } catch {
     return null;
   }
 }
 
-export function checkPayment(_payload: PaymentPayload): { valid: boolean; error?: string } {
-  return { valid: true };
+export function checkPayment(payload: PaymentPayload): { valid: boolean; error?: string } {
+  if (!payload) {
+    return { valid: false, error: 'Payment payload is required' };
+  }
+  try {
+    paymentPayloadSchema.parse(payload);
+    return { valid: true };
+  } catch (error) {
+    if (error instanceof Error) {
+      return { valid: false, error: error.message };
+    }
+    return { valid: false, error: 'Invalid payment payload' };
+  }
 }
 
 export function createBasePaymentRequirement(
@@ -108,6 +143,27 @@ export function createBasePaymentRequirement(
   amount: bigint,
   network: X402Network = 'jeju'
 ): PaymentRequirements {
+  if (!recipientAddress || typeof recipientAddress !== 'string') {
+    throw new Error('recipientAddress is required and must be a string');
+  }
+  validateOrThrow(addressSchema, recipientAddress, 'createBasePaymentRequirement recipientAddress');
+  
+  if (!resource || typeof resource !== 'string' || resource.trim().length === 0) {
+    throw new Error('resource is required and must be a non-empty string');
+  }
+  
+  if (!description || typeof description !== 'string' || description.trim().length === 0) {
+    throw new Error('description is required and must be a non-empty string');
+  }
+  
+  if (typeof amount !== 'bigint' || amount <= 0n) {
+    throw new Error(`Invalid amount: ${amount}. Must be a positive bigint.`);
+  }
+  
+  if (!Object.keys(CHAIN_IDS).includes(network)) {
+    throw new Error(`Invalid network: ${network}. Must be one of: ${Object.keys(CHAIN_IDS).join(', ')}`);
+  }
+  
   return {
     x402Version: 1,
     error: 'Payment Required',
@@ -126,7 +182,14 @@ export function createBasePaymentRequirement(
   };
 }
 
-export function signPaymentPayload(_payload: PaymentPayload, _privateKey: string): string {
+export function signPaymentPayload(payload: PaymentPayload, privateKey: string): string {
+  if (!payload) {
+    throw new Error('payload is required');
+  }
+  if (!privateKey || typeof privateKey !== 'string' || privateKey.trim().length === 0) {
+    throw new Error('privateKey is required and must be a non-empty string');
+  }
+  paymentPayloadSchema.parse(payload);
   return ''; // Stub
 }
 

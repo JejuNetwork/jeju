@@ -4,11 +4,14 @@
  */
 
 import type { Address, Hex } from 'viem';
+import type { TransactionStatus } from '@jejunetwork/types';
 import * as jeju from '../jeju';
 import { SupportedChainId, SUPPORTED_CHAINS } from '../rpc';
+import { expectAddress, expectHex, expectChainId, expectBigInt, expectNonNegative, requireDefined } from '../../lib/validation';
 
 export type TransactionType = 'send' | 'receive' | 'swap' | 'approve' | 'contract' | 'unknown';
-export type TransactionStatus = 'pending' | 'confirmed' | 'failed';
+// Re-export consolidated TransactionStatus
+export type { TransactionStatus };
 
 export interface Transaction {
   hash: Hex;
@@ -45,7 +48,12 @@ class HistoryService {
     address: Address,
     options: { chainId?: SupportedChainId; limit?: number } = {}
   ): Promise<Transaction[]> {
-    const { limit = 50 } = options;
+    expectAddress(address, 'address');
+    const limit = options.limit ?? 50;
+    expectNonNegative(limit, 'limit');
+    if (options.chainId !== undefined) {
+      expectChainId(options.chainId, 'chainId');
+    }
 
     try {
       const [txs, transfers] = await Promise.all([
@@ -75,22 +83,31 @@ class HistoryService {
           type = isSend ? 'send' : 'receive';
         }
 
+        const txHash = expectHex(tx.hash, 'tx.hash');
+        const txFrom = expectAddress(tx.from, 'tx.from');
+        const txTo = tx.to ? expectAddress(tx.to, 'tx.to') : null;
+        const txValue = expectBigInt(tx.value, 'tx.value');
+        const txTimestamp = new Date(tx.timestamp).getTime() / 1000;
+        if (txTimestamp <= 0) {
+          throw new Error(`Invalid timestamp: ${tx.timestamp}`);
+        }
+        
         return {
-          hash: tx.hash as Hex,
+          hash: txHash,
           chainId: 1337 as SupportedChainId, // Default to localnet; indexer provides actual chainId
           type,
           status: tx.status === 'SUCCESS' ? 'confirmed' : tx.status === 'FAILURE' ? 'failed' : 'pending',
-          from: tx.from as Address,
-          to: tx.to as Address | null,
-          value: BigInt(tx.value),
-          timestamp: new Date(tx.timestamp).getTime() / 1000,
-          gasUsed: tx.gasUsed ? BigInt(tx.gasUsed) : undefined,
+          from: txFrom,
+          to: txTo,
+          value: txValue,
+          timestamp: txTimestamp,
+          gasUsed: tx.gasUsed ? expectBigInt(tx.gasUsed, 'tx.gasUsed') : undefined,
           tokenTransfers: txTransfers?.map((t) => ({
-            token: t.token as Address,
-            symbol: t.tokenSymbol,
-            from: t.from as Address,
-            to: t.to as Address,
-            value: BigInt(t.value),
+            token: expectAddress(t.token, 'transfer.token'),
+            symbol: requireDefined(t.tokenSymbol, 'transfer.tokenSymbol'),
+            from: expectAddress(t.from, 'transfer.from'),
+            to: expectAddress(t.to, 'transfer.to'),
+            value: expectBigInt(t.value, 'transfer.value'),
           })),
         };
       });
@@ -110,6 +127,7 @@ class HistoryService {
 
   // Get pending transactions
   async getPendingTransactions(address: Address): Promise<Transaction[]> {
+    expectAddress(address, 'address');
     return Array.from(pendingTxs.values())
       .filter((tx) => tx.from.toLowerCase() === address.toLowerCase())
       .filter((tx) => tx.status === 'pending');
@@ -117,11 +135,15 @@ class HistoryService {
 
   // Add a pending transaction
   addPending(tx: Transaction): void {
+    expectAddress(tx.from, 'tx.from');
+    expectHex(tx.hash, 'tx.hash');
+    expectChainId(tx.chainId, 'tx.chainId');
     pendingTxs.set(tx.hash, tx);
   }
 
   // Update transaction status
   updateStatus(hash: Hex, status: TransactionStatus): void {
+    expectHex(hash, 'hash');
     const tx = pendingTxs.get(hash);
     if (tx) {
       tx.status = status;
@@ -134,9 +156,17 @@ class HistoryService {
 
   // Format transaction for display
   formatTransaction(tx: Transaction, userAddress: Address): FormattedTransaction {
+    expectAddress(userAddress, 'userAddress');
+    expectAddress(tx.from, 'tx.from');
+    expectHex(tx.hash, 'tx.hash');
+    expectChainId(tx.chainId, 'tx.chainId');
+    
     const isSend = tx.from.toLowerCase() === userAddress.toLowerCase();
     const chain = SUPPORTED_CHAINS[tx.chainId];
-    const symbol = chain?.nativeCurrency?.symbol || 'ETH';
+    if (!chain) {
+      throw new Error(`Chain ${tx.chainId} not supported`);
+    }
+    const symbol = chain.nativeCurrency?.symbol || 'ETH';
 
     let title = '';
     let subtitle = '';

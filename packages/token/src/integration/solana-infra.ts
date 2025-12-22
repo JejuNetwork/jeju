@@ -236,14 +236,9 @@ export class SolanaInfraManager {
 // ============================================================================
 
 export class SolanaWarpRouteManager {
-  constructor(
-    _infra: SolanaInfraManager,
-    _network: 'mainnet' | 'devnet' = 'devnet'
-  ) {
-    // Hyperlane program addresses stored for reference
-    // mailbox: mainnet=EitxJuv2iBjsg2d7jVy2LDC1e2zBrx4GB5Y9h2Ko3A9Y, devnet=E588QtVUvresuXq2KoNEwAmoifCzYGpRBdHByN9KQMbi
-    // igp: mainnet=Hs7KVBU67nBnWhDj4MWXdUCMJd6v5tQYNrVDRHhhmDPF, devnet=3TJMcAhHRE7JN98URK7s5eeGfmVSvL4GAgegPq5K2nYg
-  }
+  // Hyperlane program addresses for reference:
+  // mailbox: mainnet=EitxJuv2iBjsg2d7jVy2LDC1e2zBrx4GB5Y9h2Ko3A9Y, devnet=E588QtVUvresuXq2KoNEwAmoifCzYGpRBdHByN9KQMbi
+  // igp: mainnet=Hs7KVBU67nBnWhDj4MWXdUCMJd6v5tQYNrVDRHhhmDPF, devnet=3TJMcAhHRE7JN98URK7s5eeGfmVSvL4GAgegPq5K2nYg
 
   async getWarpRouteInstructions(
     config: HyperlaneWarpConfig
@@ -267,11 +262,8 @@ export function createSolanaInfra(
   return new SolanaInfraManager(network);
 }
 
-export function createSolanaWarpRouteManager(
-  network: 'mainnet' | 'devnet' = 'devnet'
-): SolanaWarpRouteManager {
-  const infra = createSolanaInfra(network);
-  return new SolanaWarpRouteManager(infra, network);
+export function createSolanaWarpRouteManager(): SolanaWarpRouteManager {
+  return new SolanaWarpRouteManager();
 }
 
 // ============================================================================

@@ -294,10 +294,8 @@ describe('Web2 Fallback Validation', () => {
     expect(typeof useBurnItem).toBe('function')
   })
 
-  test('config should handle missing contracts gracefully', () => {
-    // Should not throw for unknown chain
-    const contracts = getGameContracts(999999)
-    expect(contracts).toBeDefined()
-    expect(typeof contracts).toBe('object')
+  test('config should throw for missing contracts', () => {
+    // Should throw for unknown chain (fail-fast pattern)
+    expect(() => getGameContracts(999999)).toThrow('Game contracts not configured for chain 999999')
   })
 })

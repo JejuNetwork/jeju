@@ -9,6 +9,8 @@
  */
 
 import type { Address } from 'viem';
+import { z } from 'zod';
+import { expectJson } from './validation';
 
 // ============================================================================
 // Types
@@ -152,7 +154,47 @@ class InferenceClient {
   }
 
   /**
+   * Default models for fallback when gateway is unavailable
+   */
+  private static readonly DEFAULT_MODELS: AvailableModel[] = [
+    {
+      id: 'jeju/llama-3.1-70b',
+      name: 'Llama 3.1 70B',
+      description: 'High-quality open-source LLM',
+      contextWindow: 128000,
+      pricePerInputToken: '0.0001',
+      pricePerOutputToken: '0.0003',
+      provider: 'jeju-network',
+      teeType: 'none',
+      active: true,
+    },
+    {
+      id: 'jeju/llama-3.1-8b',
+      name: 'Llama 3.1 8B',
+      description: 'Fast and efficient open-source LLM',
+      contextWindow: 128000,
+      pricePerInputToken: '0.00005',
+      pricePerOutputToken: '0.0001',
+      provider: 'jeju-network',
+      teeType: 'none',
+      active: true,
+    },
+    {
+      id: 'jeju/llama-3.1-70b-tee',
+      name: 'Llama 3.1 70B (TEE)',
+      description: 'Private inference with TEE attestation',
+      contextWindow: 128000,
+      pricePerInputToken: '0.0002',
+      pricePerOutputToken: '0.0006',
+      provider: 'jeju-network',
+      teeType: 'sgx',
+      active: true,
+    },
+  ];
+
+  /**
    * Fetch available models from the compute network
+   * Falls back to default models if gateway is unavailable (non-critical UI feature)
    */
   async getModels(forceRefresh = false): Promise<AvailableModel[]> {
     const now = Date.now();
@@ -166,56 +208,22 @@ class InferenceClient {
       });
 
       if (!response.ok) {
-        console.warn('[Inference] Failed to fetch models, using defaults');
-        return this.getDefaultModels();
+        throw new Error(`Failed to fetch models: ${response.status}`);
       }
 
       const data = await response.json();
-      this.availableModels = data.models || data.data || [];
+      const models = data.models || data.data;
+      if (!Array.isArray(models)) {
+        throw new Error('Invalid models response: expected array');
+      }
+      this.availableModels = models;
       this.lastModelFetch = now;
       return this.availableModels;
-    } catch (error) {
-      console.warn('[Inference] Model discovery failed:', error);
-      return this.getDefaultModels();
+    } catch (fetchError) {
+      // Log error and return defaults - model listing is non-critical UI feature
+      console.warn('Failed to fetch models from gateway, using defaults:', fetchError);
+      return InferenceClient.DEFAULT_MODELS;
     }
-  }
-
-  private getDefaultModels(): AvailableModel[] {
-    return [
-      {
-        id: 'jeju/llama-3.1-70b',
-        name: 'Llama 3.1 70B',
-        description: 'High-quality open LLM for general tasks',
-        contextWindow: 128000,
-        pricePerInputToken: '0.0000001',
-        pricePerOutputToken: '0.0000003',
-        provider: 'jeju-network',
-        teeType: 'simulated',
-        active: true,
-      },
-      {
-        id: 'jeju/llama-3.1-8b',
-        name: 'Llama 3.1 8B',
-        description: 'Fast and efficient LLM for simple tasks',
-        contextWindow: 128000,
-        pricePerInputToken: '0.00000001',
-        pricePerOutputToken: '0.00000003',
-        provider: 'jeju-network',
-        teeType: 'simulated',
-        active: true,
-      },
-      {
-        id: 'openai/gpt-4o',
-        name: 'GPT-4o',
-        description: 'OpenAI flagship model',
-        contextWindow: 128000,
-        pricePerInputToken: '0.000005',
-        pricePerOutputToken: '0.000015',
-        provider: 'openai',
-        teeType: 'none',
-        active: true,
-      },
-    ];
   }
 
   /**
@@ -248,8 +256,6 @@ class InferenceClient {
       max_tokens: request.maxTokens ?? 2048,
       stream: false,
     };
-
-    let lastError: Error | null = null;
 
     for (let attempt = 0; attempt < this.config.maxRetries; attempt++) {
       try {
@@ -309,7 +315,6 @@ class InferenceClient {
           teeAttestation: data.tee_attestation,
         };
       } catch (error) {
-        lastError = error as Error;
         console.warn(`[Inference] Attempt ${attempt + 1} failed:`, error);
         
         if (attempt < this.config.maxRetries - 1) {
@@ -383,7 +388,16 @@ class InferenceClient {
             }
 
             try {
-              const parsed = JSON.parse(data);
+              const ChunkSchema = z.object({
+                id: z.string().optional(),
+                choices: z.array(z.object({
+                  delta: z.object({
+                    content: z.string().optional(),
+                  }).optional(),
+                })).optional(),
+              });
+              
+              const parsed = expectJson(data, ChunkSchema, 'stream chunk');
               const content = parsed.choices?.[0]?.delta?.content || '';
               if (content) {
                 fullContent += content;

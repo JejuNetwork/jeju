@@ -116,8 +116,6 @@ export class CCIPAdapter {
   private walletClients: Map<number, WalletClient> = new Map();
   private tokenPools: Map<string, CCIPTokenPool> = new Map(); // "chainId-token" -> pool
 
-  constructor() {}
-
   /**
    * Register a chain with its clients
    */
@@ -190,12 +188,14 @@ export class CCIPAdapter {
     const linkToken = CCIP_LINK_TOKEN[request.sourceChainId];
     
     // Build message
+    const data = request.data ?? '0x';  // data is optional for simple transfers
+    const gasLimit = request.gasLimit ?? 200000n;  // default gas limit
     const message: CCIPMessage = {
       receiver: request.recipient as Hex,
-      data: request.data ?? '0x',
+      data,
       tokenAmounts: [{ token: request.token, amount: request.amount }],
       feeToken: '0x0000000000000000000000000000000000000000', // Native for first estimate
-      extraArgs: this.encodeExtraArgs(request.gasLimit ?? 200000n),
+      extraArgs: this.encodeExtraArgs(gasLimit),
     };
     
     const nativeFee = await client.readContract({
@@ -244,12 +244,14 @@ export class CCIPAdapter {
     const feeToken = request.payInLink ? linkToken : '0x0000000000000000000000000000000000000000' as Address;
     
     // Build message
+    const transferData = request.data ?? '0x';  // data is optional
+    const transferGasLimit = request.gasLimit ?? 200000n;  // default gas limit
     const message: CCIPMessage = {
       receiver: request.recipient as Hex,
-      data: request.data ?? '0x',
+      data: transferData,
       tokenAmounts: [{ token: request.token, amount: request.amount }],
       feeToken,
-      extraArgs: this.encodeExtraArgs(request.gasLimit ?? 200000n),
+      extraArgs: this.encodeExtraArgs(transferGasLimit),
     };
     
     const publicClient = this.publicClients.get(request.sourceChainId);
@@ -442,6 +444,7 @@ export class CCIPAdapter {
       56: 180,      // BNB: ~3 min
       998: 600,     // Hyperliquid: ~10 min (estimated)
     };
+    // Default to 10 minutes for unknown chains (conservative estimate)
     return times[destChainId] ?? 600;
   }
 }

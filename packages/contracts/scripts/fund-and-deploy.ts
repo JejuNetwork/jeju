@@ -14,10 +14,34 @@ import { privateKeyToAccount } from "viem/accounts";
 import { execSync } from "child_process";
 import { writeFileSync } from "fs";
 
-const PRIVATE_KEY = (process.env.PRIVATE_KEY || process.env.MAINNET_PRIVATE_KEY) as `0x${string}`;
-if (!PRIVATE_KEY) {
+const PRIVATE_KEY_RAW = process.env.PRIVATE_KEY ?? process.env.MAINNET_PRIVATE_KEY;
+if (!PRIVATE_KEY_RAW) {
   console.error("❌ PRIVATE_KEY required");
   process.exit(1);
+}
+
+// Type guard ensures PRIVATE_KEY is valid hex string after validation
+const PRIVATE_KEY = PRIVATE_KEY_RAW as `0x${string}`;
+
+/**
+ * Execute a shell command and return the output
+ * @throws Error with command output on failure
+ */
+function exec(command: string, cwd: string, env?: Record<string, string>): string {
+  return execSync(command, {
+    cwd,
+    env: { ...process.env, ...env },
+    encoding: "utf-8",
+    maxBuffer: 10 * 1024 * 1024,
+  });
+}
+
+/**
+ * Extract an address from command output using a pattern
+ */
+function extractAddress(output: string, pattern: RegExp): string | undefined {
+  const match = output.match(pattern);
+  return match?.[1];
 }
 
 const account = privateKeyToAccount(PRIVATE_KEY);
@@ -58,6 +82,59 @@ function printFaucetLinks() {
   console.log("   - https://bwarelabs.com/faucets/base-testnet");
 }
 
+const CONTRACTS_DIR = "/Users/shawwalters/jeju/packages/contracts";
+
+interface DeploymentResult {
+  name: string;
+  address?: string;
+  error?: string;
+}
+
+/**
+ * Deploy a contract using forge script
+ */
+function deployWithForgeScript(
+  scriptPath: string,
+  rpcUrl: string,
+  addressPattern: RegExp,
+  env: Record<string, string>
+): DeploymentResult[] {
+  const results: DeploymentResult[] = [];
+  const output = exec(
+    `forge script ${scriptPath} --rpc-url ${rpcUrl} --broadcast --legacy`,
+    CONTRACTS_DIR,
+    { PRIVATE_KEY, ...env }
+  );
+  
+  // Handle both single and multiple patterns
+  if (Array.isArray(addressPattern)) {
+    for (const { name, pattern } of addressPattern) {
+      const address = extractAddress(output, pattern);
+      results.push({ name, address });
+    }
+  } else {
+    const address = extractAddress(output, addressPattern);
+    results.push({ name: scriptPath, address });
+  }
+  
+  return results;
+}
+
+/**
+ * Deploy a contract using forge create
+ */
+function deployWithForgeCreate(
+  contractPath: string,
+  rpcUrl: string,
+  constructorArgs: string[]
+): string | undefined {
+  const output = exec(
+    `forge create ${contractPath} --rpc-url ${rpcUrl} --private-key ${PRIVATE_KEY} --constructor-args ${constructorArgs.join(" ")} --legacy`,
+    CONTRACTS_DIR
+  );
+  return extractAddress(output, /Deployed to:\s*(0x[a-fA-F0-9]{40})/);
+}
+
 async function deployToChain(chainName: string, rpcUrl: string): Promise<Record<string, string>> {
   console.log(`\n📦 Deploying to ${chainName}...`);
   
@@ -66,28 +143,17 @@ async function deployToChain(chainName: string, rpcUrl: string): Promise<Record<
   // Deploy IdentityRegistry
   console.log("   1. Deploying IdentityRegistry...");
   try {
-    const output = execSync(
+    const output = exec(
       `forge script script/DeployIdentityRegistry.s.sol:DeployIdentityRegistry --rpc-url ${rpcUrl} --broadcast --legacy`,
-      {
-        cwd: "/Users/shawwalters/jeju/packages/contracts",
-        env: {
-          ...process.env,
-          PRIVATE_KEY,
-          DEPLOYER_PRIVATE_KEY: PRIVATE_KEY,
-          BASESCAN_API_KEY: "dummy",
-          ETHERSCAN_API_KEY: "dummy",
-        },
-        encoding: "utf-8",
-        maxBuffer: 10 * 1024 * 1024,
-      }
+      CONTRACTS_DIR,
+      { PRIVATE_KEY, DEPLOYER_PRIVATE_KEY: PRIVATE_KEY, BASESCAN_API_KEY: "dummy", ETHERSCAN_API_KEY: "dummy" }
     );
-    
-    const match = output.match(/IdentityRegistry:\s*(0x[a-fA-F0-9]{40})/);
-    if (match) {
-      contracts.IdentityRegistry = match[1];
-      console.log(`      ✅ IdentityRegistry: ${match[1]}`);
+    const address = extractAddress(output, /IdentityRegistry:\s*(0x[a-fA-F0-9]{40})/);
+    if (address) {
+      contracts.IdentityRegistry = address;
+      console.log(`      ✅ IdentityRegistry: ${address}`);
     }
-  } catch (e: unknown) {
+  } catch (e: Error | unknown) {
     const message = e instanceof Error ? e.message : String(e);
     console.error("      ❌ Failed:", message);
   }
@@ -95,98 +161,76 @@ async function deployToChain(chainName: string, rpcUrl: string): Promise<Record<
   // Deploy OIF
   console.log("   2. Deploying OIF Contracts...");
   try {
-    const output = execSync(
+    const output = exec(
       `forge script script/DeployOIF.s.sol:DeployOIF --rpc-url ${rpcUrl} --broadcast --legacy`,
-      {
-        cwd: "/Users/shawwalters/jeju/packages/contracts",
-        env: {
-          ...process.env,
-          PRIVATE_KEY,
-          ORACLE_TYPE: "simple",
-          BASESCAN_API_KEY: "dummy",
-          ETHERSCAN_API_KEY: "dummy",
-        },
-        encoding: "utf-8",
-        maxBuffer: 10 * 1024 * 1024,
-      }
+      CONTRACTS_DIR,
+      { PRIVATE_KEY, ORACLE_TYPE: "simple", BASESCAN_API_KEY: "dummy", ETHERSCAN_API_KEY: "dummy" }
     );
     
-    // Parse OIF addresses
-    const patterns = [
+    const oifPatterns = [
       { name: "SolverRegistry", pattern: /SolverRegistry deployed to:\s*(0x[a-fA-F0-9]{40})/ },
       { name: "SimpleOracle", pattern: /SimpleOracle deployed to:\s*(0x[a-fA-F0-9]{40})/ },
       { name: "InputSettler", pattern: /InputSettler deployed to:\s*(0x[a-fA-F0-9]{40})/ },
       { name: "OutputSettler", pattern: /OutputSettler deployed to:\s*(0x[a-fA-F0-9]{40})/ },
     ];
     
-    for (const { name, pattern } of patterns) {
-      const match = output.match(pattern);
-      if (match) {
-        contracts[name] = match[1];
-        console.log(`      ✅ ${name}: ${match[1]}`);
+    for (const { name, pattern } of oifPatterns) {
+      const address = extractAddress(output, pattern);
+      if (address) {
+        contracts[name] = address;
+        console.log(`      ✅ ${name}: ${address}`);
       }
     }
-  } catch (e: unknown) {
+  } catch (e: Error | unknown) {
     const message = e instanceof Error ? e.message : String(e);
     console.error("      ❌ OIF deployment failed:", message);
   }
   
-  // Deploy MockUSDC
+  // Deploy MockUSDC - try cast first, fall back to forge create
   console.log("   3. Deploying Test USDC...");
   try {
-    // Create a simple deploy script inline
-    const output = execSync(
+    const castOutput = exec(
       `cast send --rpc-url ${rpcUrl} --private-key ${PRIVATE_KEY} --create $(cat out/MockNetworkUSDC.sol/MockNetworkUSDC.json | jq -r '.bytecode.object')$(cast abi-encode "constructor(address)" ${account.address}) 2>&1`,
-      {
-        cwd: "/Users/shawwalters/jeju/packages/contracts",
-        encoding: "utf-8",
-      }
+      CONTRACTS_DIR
     );
-    
-    const match = output.match(/contractAddress\s+(0x[a-fA-F0-9]{40})/);
-    if (match) {
-      contracts.USDC = match[1];
-      console.log(`      ✅ USDC: ${match[1]}`);
+    const address = extractAddress(castOutput, /contractAddress\s+(0x[a-fA-F0-9]{40})/);
+    if (address) {
+      contracts.USDC = address;
+      console.log(`      ✅ USDC: ${address}`);
     }
-  } catch (e: unknown) {
-    // Try forge create instead
+  } catch {
+    // Fall back to forge create
     try {
-      const output = execSync(
-        `forge create src/tokens/MockNetworkUSDC.sol:MockNetworkUSDC --rpc-url ${rpcUrl} --private-key ${PRIVATE_KEY} --constructor-args ${account.address} --legacy`,
-        {
-          cwd: "/Users/shawwalters/jeju/packages/contracts",
-          encoding: "utf-8",
-        }
+      const address = deployWithForgeCreate(
+        "src/tokens/MockNetworkUSDC.sol:MockNetworkUSDC",
+        rpcUrl,
+        [account.address]
       );
-      
-      const match = output.match(/Deployed to:\s*(0x[a-fA-F0-9]{40})/);
-      if (match) {
-        contracts.USDC = match[1];
-        console.log(`      ✅ USDC: ${match[1]}`);
+      if (address) {
+        contracts.USDC = address;
+        console.log(`      ✅ USDC: ${address}`);
       }
-    } catch (e2: unknown) {
-      console.error("      ❌ USDC deployment failed");
+    } catch (e: Error | unknown) {
+      const message = e instanceof Error ? e.message : String(e);
+      console.error("      ❌ USDC deployment failed:", message);
     }
   }
   
   // Deploy ElizaOSToken
   console.log("   4. Deploying ElizaOS Token...");
   try {
-    const output = execSync(
-      `forge create src/tokens/ElizaOSToken.sol:ElizaOSToken --rpc-url ${rpcUrl} --private-key ${PRIVATE_KEY} --constructor-args ${account.address} --legacy`,
-      {
-        cwd: "/Users/shawwalters/jeju/packages/contracts",
-        encoding: "utf-8",
-      }
+    const address = deployWithForgeCreate(
+      "src/tokens/ElizaOSToken.sol:ElizaOSToken",
+      rpcUrl,
+      [account.address]
     );
-    
-    const match = output.match(/Deployed to:\s*(0x[a-fA-F0-9]{40})/);
-    if (match) {
-      contracts.ElizaOSToken = match[1];
-      console.log(`      ✅ ElizaOSToken: ${match[1]}`);
+    if (address) {
+      contracts.ElizaOSToken = address;
+      console.log(`      ✅ ElizaOSToken: ${address}`);
     }
-  } catch (e: unknown) {
-    console.error("      ❌ ElizaOSToken deployment failed");
+  } catch (e: Error | unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    console.error("      ❌ ElizaOSToken deployment failed:", message);
   }
   
   return contracts;

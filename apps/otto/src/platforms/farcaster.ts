@@ -3,48 +3,46 @@
  * Integrates with Farcaster via Neynar API for DMs and cast mentions
  */
 
-import type { Address, Hex } from 'viem';
+import { z } from 'zod';
 import type { PlatformAdapter, MessageHandler, SendMessageOptions, PlatformUserInfo, PlatformChannelInfo } from './types';
 import type { PlatformMessage, MessageEmbed, MessageButton } from '../types';
+import { expectValid, PlatformMessageSchema } from '../schemas';
 
-const NEYNAR_API_URL = process.env.NEYNAR_API_URL ?? 'https://api.neynar.com/v2';
-const NEYNAR_API_KEY = process.env.NEYNAR_API_KEY ?? '';
-const FARCASTER_BOT_FID = parseInt(process.env.FARCASTER_BOT_FID ?? '0');
-const FARCASTER_SIGNER_UUID = process.env.FARCASTER_SIGNER_UUID ?? '';
-
-interface FarcasterUser {
-  fid: number;
-  username: string;
-  display_name: string;
-  pfp_url: string;
-  custody_address: string;
-  verified_addresses?: { eth_addresses?: string[] };
+// These are read lazily to allow graceful startup without Farcaster configured
+function getNeynarApiUrl(): string {
+  return process.env.NEYNAR_API_URL ?? 'https://api.neynar.com/v2';
 }
 
-interface FarcasterCast {
-  hash: string;
-  author: FarcasterUser;
-  text: string;
-  timestamp: string;
-  parent_hash?: string;
-  parent_url?: string;
-  mentioned_profiles?: FarcasterUser[];
-  channel?: { id: string; name: string };
+function getNeynarApiKey(): string {
+  const key = process.env.NEYNAR_API_KEY;
+  if (!key) {
+    throw new Error('NEYNAR_API_KEY is required for Farcaster integration');
+  }
+  return key;
 }
 
-interface FarcasterDirectCast {
-  id: string;
-  conversation_id: string;
-  sender: FarcasterUser;
-  recipient: FarcasterUser;
-  text: string;
-  timestamp: string;
+function getFarcasterBotFid(): number {
+  const fid = process.env.FARCASTER_BOT_FID;
+  if (!fid) {
+    throw new Error('FARCASTER_BOT_FID is required for Farcaster integration');
+  }
+  const parsed = parseInt(fid);
+  if (isNaN(parsed) || parsed <= 0) {
+    throw new Error(`Invalid FARCASTER_BOT_FID: ${fid}`);
+  }
+  return parsed;
 }
+
+function getFarcasterSignerUuid(): string {
+  return process.env.FARCASTER_SIGNER_UUID ?? ''
+}
+
 
 export class FarcasterAdapter implements PlatformAdapter {
   readonly platform = 'farcaster' as const;
   
   private apiKey: string;
+  private apiUrl: string;
   private botFid: number;
   private signerUuid: string;
   private messageHandler: MessageHandler | null = null;
@@ -54,22 +52,26 @@ export class FarcasterAdapter implements PlatformAdapter {
   private lastDmTimestamp = 0;
 
   constructor(apiKey?: string, botFid?: number, signerUuid?: string) {
-    this.apiKey = apiKey ?? NEYNAR_API_KEY;
-    this.botFid = botFid ?? FARCASTER_BOT_FID;
-    this.signerUuid = signerUuid ?? FARCASTER_SIGNER_UUID;
+    // Use provided values or lazily load from env (will throw if not configured)
+    this.apiKey = apiKey ?? '';
+    this.apiUrl = getNeynarApiUrl();
+    this.botFid = botFid ?? 0;
+    this.signerUuid = signerUuid ?? '';
+    // Actual validation happens in initialize() to allow graceful startup
   }
 
   async initialize(): Promise<void> {
     console.log('[Farcaster] Initializing...');
     
+    // Load from env if not provided in constructor
     if (!this.apiKey) {
-      console.log('[Farcaster] No API key configured, skipping');
-      return;
+      this.apiKey = getNeynarApiKey();
     }
-
     if (!this.botFid) {
-      console.log('[Farcaster] No bot FID configured, skipping');
-      return;
+      this.botFid = getFarcasterBotFid();
+    }
+    if (!this.signerUuid) {
+      this.signerUuid = getFarcasterSignerUuid();
     }
 
     // Verify API key works
@@ -119,13 +121,39 @@ export class FarcasterAdapter implements PlatformAdapter {
 
   private async pollMentions(): Promise<void> {
     const response = await fetch(
-      `${NEYNAR_API_URL}/farcaster/notifications?fid=${this.botFid}&type=mentions`,
+      `${this.apiUrl}/farcaster/notifications?fid=${this.botFid}&type=mentions`,
       { headers: this.getHeaders() }
     ).catch(() => null);
 
     if (!response?.ok) return;
 
-    const data = await response.json() as { notifications: Array<{ cast: FarcasterCast; most_recent_timestamp: string }> };
+    const rawData = await response.json();
+    const NotificationsResponseSchema = z.object({
+      notifications: z.array(z.object({
+        cast: z.object({
+          hash: z.string().min(1),
+          author: z.object({
+            fid: z.number().int().positive(),
+            username: z.string().min(1),
+            display_name: z.string().min(1),
+            pfp_url: z.string().url(),
+            custody_address: z.string().min(1),
+          }),
+          text: z.string(),
+          timestamp: z.string(),
+          parent_hash: z.string().optional(),
+          parent_url: z.string().optional(),
+          mentioned_profiles: z.array(z.unknown()).optional(),
+          channel: z.object({
+            id: z.string().min(1),
+            name: z.string().min(1),
+          }).optional(),
+        }),
+        most_recent_timestamp: z.string(),
+      })),
+    });
+    
+    const data = expectValid(NotificationsResponseSchema, rawData, 'Farcaster notifications response');
     
     for (const notification of data.notifications) {
       const timestamp = new Date(notification.most_recent_timestamp).getTime();
@@ -151,8 +179,10 @@ export class FarcasterAdapter implements PlatformAdapter {
         replyToId: cast.parent_hash,
       };
 
+      const validatedMessage = expectValid(PlatformMessageSchema, message, 'Farcaster mention message');
+
       if (this.messageHandler) {
-        await this.messageHandler(message);
+        await this.messageHandler(validatedMessage);
       }
     }
   }
@@ -160,13 +190,40 @@ export class FarcasterAdapter implements PlatformAdapter {
   private async pollDirectCasts(): Promise<void> {
     // Get direct cast conversations
     const response = await fetch(
-      `${NEYNAR_API_URL}/farcaster/direct_cast/conversations?fid=${this.botFid}`,
+      `${this.apiUrl}/farcaster/direct_cast/conversations?fid=${this.botFid}`,
       { headers: this.getHeaders() }
     ).catch(() => null);
 
     if (!response?.ok) return;
 
-    const data = await response.json() as { conversations: Array<{ id: string; last_message: FarcasterDirectCast }> };
+    const rawData = await response.json();
+    const ConversationsResponseSchema = z.object({
+      conversations: z.array(z.object({
+        id: z.string().min(1),
+        last_message: z.object({
+          id: z.string().min(1),
+          conversation_id: z.string().min(1),
+          sender: z.object({
+            fid: z.number().int().positive(),
+            username: z.string().min(1),
+            display_name: z.string().min(1),
+            pfp_url: z.string().url(),
+            custody_address: z.string().min(1),
+          }),
+          recipient: z.object({
+            fid: z.number().int().positive(),
+            username: z.string().min(1),
+            display_name: z.string().min(1),
+            pfp_url: z.string().url(),
+            custody_address: z.string().min(1),
+          }),
+          text: z.string(),
+          timestamp: z.string(),
+        }),
+      })),
+    });
+    
+    const data = expectValid(ConversationsResponseSchema, rawData, 'Farcaster conversations response');
 
     for (const conv of data.conversations) {
       const dm = conv.last_message;
@@ -191,8 +248,10 @@ export class FarcasterAdapter implements PlatformAdapter {
         isCommand: true,
       };
 
+      const validatedMessage = expectValid(PlatformMessageSchema, message, 'Farcaster DM message');
+
       if (this.messageHandler) {
-        await this.messageHandler(message);
+        await this.messageHandler(validatedMessage);
       }
     }
   }
@@ -225,7 +284,7 @@ export class FarcasterAdapter implements PlatformAdapter {
     return this.sendMessage(channelId, content);
   }
 
-  async replyToMessage(channelId: string, messageId: string, content: string, options?: SendMessageOptions): Promise<string> {
+  async replyToMessage(channelId: string, messageId: string, content: string, _options?: SendMessageOptions): Promise<string> {
     if (channelId.startsWith('dm:')) {
       return this.sendDirectCast(channelId.slice(3), content);
     }
@@ -234,13 +293,11 @@ export class FarcasterAdapter implements PlatformAdapter {
   }
 
   async editMessage(_channelId: string, _messageId: string, _content: string): Promise<void> {
-    // Farcaster doesn't support editing casts
     console.log('[Farcaster] Edit not supported');
   }
 
   async deleteMessage(_channelId: string, messageId: string): Promise<void> {
-    // Delete cast
-    await fetch(`${NEYNAR_API_URL}/farcaster/cast`, {
+    await fetch(`${this.apiUrl}/farcaster/cast`, {
       method: 'DELETE',
       headers: this.getHeaders(),
       body: JSON.stringify({
@@ -250,10 +307,10 @@ export class FarcasterAdapter implements PlatformAdapter {
     });
   }
 
-  async addReaction(channelId: string, messageId: string, emoji: string): Promise<void> {
+  async addReaction(_channelId: string, messageId: string, emoji: string): Promise<void> {
     // Like the cast
     if (emoji === '👍' || emoji === '❤️' || emoji === 'like') {
-      await fetch(`${NEYNAR_API_URL}/farcaster/reaction`, {
+      await fetch(`${this.apiUrl}/farcaster/reaction`, {
         method: 'POST',
         headers: this.getHeaders(),
         body: JSON.stringify({
@@ -270,13 +327,27 @@ export class FarcasterAdapter implements PlatformAdapter {
     if (isNaN(fid)) return null;
 
     const response = await fetch(
-      `${NEYNAR_API_URL}/farcaster/user/bulk?fids=${fid}`,
+      `${this.apiUrl}/farcaster/user/bulk?fids=${fid}`,
       { headers: this.getHeaders() }
     ).catch(() => null);
 
     if (!response?.ok) return null;
 
-    const data = await response.json() as { users: FarcasterUser[] };
+    const rawData = await response.json();
+    const UsersResponseSchema = z.object({
+      users: z.array(z.object({
+        fid: z.number().int().positive(),
+        username: z.string().min(1),
+        display_name: z.string().min(1),
+        pfp_url: z.string().url(),
+        custody_address: z.string().min(1),
+        verified_addresses: z.object({
+          eth_addresses: z.array(z.string()).optional(),
+        }).optional(),
+      })),
+    });
+    
+    const data = expectValid(UsersResponseSchema, rawData, 'Farcaster users response');
     const user = data.users[0];
     if (!user) return null;
 
@@ -307,7 +378,7 @@ export class FarcasterAdapter implements PlatformAdapter {
 
     // Farcaster channel
     const response = await fetch(
-      `${NEYNAR_API_URL}/farcaster/channel?id=${channelId}`,
+      `${this.apiUrl}/farcaster/channel?id=${channelId}`,
       { headers: this.getHeaders() }
     ).catch(() => null);
 
@@ -319,12 +390,20 @@ export class FarcasterAdapter implements PlatformAdapter {
       };
     }
 
-    const data = await response.json() as { channel: { id: string; name: string } };
+    const rawData = await response.json();
+    const ChannelResponseSchema = z.object({
+      channel: z.object({
+        id: z.string().min(1),
+        name: z.string().min(1),
+      }),
+    });
+    
+    const data = expectValid(ChannelResponseSchema, rawData, 'Farcaster channel response');
     
     return {
       id: data.channel.id,
       name: data.channel.name,
-      type: 'group',
+      type: 'group' as const,
     };
   }
 
@@ -338,7 +417,7 @@ export class FarcasterAdapter implements PlatformAdapter {
       body.parent = replyTo;
     }
 
-    const response = await fetch(`${NEYNAR_API_URL}/farcaster/cast`, {
+    const response = await fetch(`${this.apiUrl}/farcaster/cast`, {
       method: 'POST',
       headers: this.getHeaders(),
       body: JSON.stringify(body),
@@ -348,12 +427,19 @@ export class FarcasterAdapter implements PlatformAdapter {
       throw new Error(`Failed to post cast: ${response.status}`);
     }
 
-    const data = await response.json() as { cast: { hash: string } };
+    const rawData = await response.json();
+    const CastResponseSchema = z.object({
+      cast: z.object({
+        hash: z.string().min(1),
+      }),
+    });
+    
+    const data = expectValid(CastResponseSchema, rawData, 'Farcaster cast response');
     return data.cast.hash;
   }
 
   private async sendDirectCast(conversationId: string, text: string): Promise<string> {
-    const response = await fetch(`${NEYNAR_API_URL}/farcaster/direct_cast`, {
+    const response = await fetch(`${this.apiUrl}/farcaster/direct_cast`, {
       method: 'POST',
       headers: this.getHeaders(),
       body: JSON.stringify({
@@ -367,7 +453,14 @@ export class FarcasterAdapter implements PlatformAdapter {
       throw new Error(`Failed to send direct cast: ${response.status}`);
     }
 
-    const data = await response.json() as { message: { id: string } };
+    const rawData = await response.json();
+    const DirectCastResponseSchema = z.object({
+      message: z.object({
+        id: z.string().min(1),
+      }),
+    });
+    
+    const data = expectValid(DirectCastResponseSchema, rawData, 'Farcaster direct cast response');
     return data.message.id;
   }
 
@@ -423,7 +516,7 @@ export class FarcasterAdapter implements PlatformAdapter {
     inputText?: string;
     castHash?: string;
   } | null> {
-    const response = await fetch(`${NEYNAR_API_URL}/farcaster/frame/validate`, {
+    const response = await fetch(`${this.apiUrl}/farcaster/frame/validate`, {
       method: 'POST',
       headers: this.getHeaders(),
       body: JSON.stringify({

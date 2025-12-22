@@ -5,11 +5,14 @@
  */
 
 import type { Address } from 'viem';
+import { z } from 'zod';
 
-export interface KMSConfig {
-  endpoint?: string;
-  provider?: 'mpc' | 'tee';
-}
+const KMSConfigSchema = z.object({
+  endpoint: z.string().url(),
+  provider: z.enum(['mpc', 'tee']).default('mpc'),
+});
+
+export type KMSConfig = z.infer<typeof KMSConfigSchema>;
 
 export interface KMSServiceClient {
   encrypt(data: string, owner: Address, policy?: EncryptionPolicy): Promise<string>;
@@ -32,7 +35,8 @@ class KMSServiceImpl implements KMSServiceClient {
   private available = true;
 
   constructor(config: KMSConfig) {
-    this.endpoint = config.endpoint || process.env.KMS_ENDPOINT || 'http://localhost:4400';
+    const validated = KMSConfigSchema.parse(config);
+    this.endpoint = validated.endpoint;
   }
 
   async encrypt(data: string, owner: Address, policy?: EncryptionPolicy): Promise<string> {
@@ -98,12 +102,17 @@ class KMSServiceImpl implements KMSServiceClient {
         },
       }),
       signal: AbortSignal.timeout(5000),
-    }).catch(() => {
+    }).catch((err: Error) => {
+      console.error('[KMS] Encrypt request failed:', err.message);
       this.available = false;
       return null;
     });
 
-    if (!response || !response.ok) return null;
+    if (!response) return null;
+    if (!response.ok) {
+      console.error(`[KMS] Encrypt failed: ${response.status}`);
+      return null;
+    }
     const result = await response.json() as { encrypted: string };
     return result.encrypted;
   }
@@ -117,12 +126,17 @@ class KMSServiceImpl implements KMSServiceClient {
       },
       body: JSON.stringify({ payload: encryptedData }),
       signal: AbortSignal.timeout(5000),
-    }).catch(() => {
+    }).catch((err: Error) => {
+      console.error('[KMS] Decrypt request failed:', err.message);
       this.available = false;
       return null;
     });
 
-    if (!response || !response.ok) return null;
+    if (!response) return null;
+    if (!response.ok) {
+      console.error(`[KMS] Decrypt failed: ${response.status}`);
+      return null;
+    }
     const result = await response.json() as { decrypted: string };
     return result.decrypted;
   }
@@ -136,9 +150,12 @@ class KMSServiceImpl implements KMSServiceClient {
       },
       body: JSON.stringify({ message }),
       signal: AbortSignal.timeout(5000),
-    }).catch(() => null);
+    });
 
-    if (!response || !response.ok) return null;
+    if (!response.ok) {
+      console.error(`[KMS] Sign failed: ${response.status}`);
+      return null;
+    }
     const result = await response.json() as { signature: string };
     return result.signature;
   }
@@ -146,18 +163,26 @@ class KMSServiceImpl implements KMSServiceClient {
   private async checkHealth(): Promise<boolean> {
     const response = await fetch(`${this.endpoint}/health`, {
       signal: AbortSignal.timeout(2000),
-    }).catch(() => null);
-    return response?.ok ?? false;
+    });
+    return response.ok;
   }
 }
 
 let instance: KMSServiceClient | null = null;
 
-export function createKMSService(config: KMSConfig = {}): KMSServiceClient {
+export function createKMSService(config: KMSConfig): KMSServiceClient {
   if (!instance) {
     instance = new KMSServiceImpl(config);
   }
   return instance;
+}
+
+export function getKMSServiceFromEnv(): KMSServiceClient {
+  const endpoint = process.env.KMS_ENDPOINT;
+  if (!endpoint) {
+    throw new Error('KMS_ENDPOINT environment variable is required');
+  }
+  return createKMSService({ endpoint, provider: 'mpc' });
 }
 
 export function resetKMSService(): void {

@@ -13,10 +13,9 @@
 import { Backtester, type BacktestConfig } from './simulation/backtester';
 import { HistoricalDataFetcher } from './simulation/data-fetcher';
 import { RiskAnalyzer } from './simulation/risk-analyzer';
-import { PortfolioSimulator } from './simulation/portfolio-simulator';
 import { CrossChainArbitrage } from './strategies/cross-chain-arbitrage';
 import { OracleAggregator } from './oracles';
-import type { Token, EVMChainId, BacktestResult, PortfolioSnapshot } from './types';
+import type { Token, BacktestResult, PortfolioSnapshot } from './types';
 
 // ============ Configuration ============
 
@@ -28,16 +27,9 @@ const TOKENS: Token[] = [
 
 const STRATEGIES = ['momentum', 'mean-reversion', 'volatility', 'composite'] as const;
 
-const TEST_PERIODS = [
-  { name: '1 Month', days: 30 },
-  { name: '3 Months', days: 90 },
-  { name: '6 Months', days: 180 },
-  { name: '1 Year', days: 365 },
-];
-
 // ============ Main Analysis ============
 
-async function main() {
+async function main(): Promise<void> {
   console.log('╔══════════════════════════════════════════════════════════════╗');
   console.log('║           JEJU BOTS - COMPREHENSIVE ANALYSIS                 ║');
   console.log('╚══════════════════════════════════════════════════════════════╝\n');
@@ -52,7 +44,7 @@ async function main() {
 
 // ============ Oracle Analysis ============
 
-async function analyzeOracles() {
+async function analyzeOracles(): Promise<void> {
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('                    ORACLE INTEGRATION ANALYSIS');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
@@ -99,7 +91,7 @@ async function analyzeOracles() {
 
 // ============ Strategy Backtesting ============
 
-async function analyzeStrategies() {
+async function analyzeStrategies(): Promise<void> {
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('                    STRATEGY PERFORMANCE ANALYSIS');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
@@ -205,7 +197,7 @@ async function analyzeStrategies() {
 
 // ============ Cross-Chain Arbitrage Analysis ============
 
-async function analyzeCrossChainArbitrage() {
+async function analyzeCrossChainArbitrage(): Promise<void> {
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('                 CROSS-CHAIN ARBITRAGE ANALYSIS');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
@@ -272,7 +264,7 @@ async function analyzeCrossChainArbitrage() {
 
 // ============ Risk Metrics Analysis ============
 
-async function analyzeRiskMetrics() {
+async function analyzeRiskMetrics(): Promise<void> {
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('                    RISK METRICS ANALYSIS');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
@@ -330,7 +322,10 @@ async function analyzeRiskMetrics() {
   console.log(`  Number of Drawdowns:   ${drawdowns.drawdownPeriods.length}`);
   console.log(`  Max Drawdown:          ${fmtPct(drawdowns.maxDrawdown)}`);
   console.log(`  Avg Recovery Time:     ${fmt(drawdowns.avgRecoveryDays, 1)} days`);
-  console.log(`  Longest Recovery:      ${drawdowns.longestRecoveryDays ?? 'N/A'} days\n`);
+  const longestRecoveryStr = drawdowns.longestRecoveryDays !== undefined 
+    ? `${drawdowns.longestRecoveryDays} days`
+    : 'No complete recoveries';
+  console.log(`  Longest Recovery:      ${longestRecoveryStr}\n`);
 
   // Stress test
   console.log('Stress Test Results:');
@@ -355,7 +350,7 @@ async function analyzeRiskMetrics() {
 
 // ============ Optimization Report ============
 
-async function generateOptimizationReport() {
+async function generateOptimizationReport(): Promise<void> {
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('                    OPTIMIZATION RECOMMENDATIONS');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');

@@ -12,11 +12,9 @@
 
 import { describe, it, expect, beforeAll, afterAll } from "bun:test";
 import {
-  createPublicClient,
   createWalletClient,
   http,
   parseEther,
-  encodeDeployData,
   encodePacked,
   type Address,
   type Hex,
@@ -30,7 +28,6 @@ import {
   TEST_RPC_URL,
   TEST_ACCOUNTS,
   ENTRYPOINT_V07_ADDRESS,
-  mineBlock,
   type TestContext,
 } from "./setup";
 
@@ -60,7 +57,7 @@ const ENTRYPOINT_ABI = [
   },
 ] as const;
 
-const SPONSORED_PAYMASTER_ABI = [
+const _SPONSORED_PAYMASTER_ABI = [
   {
     name: "getStatus",
     type: "function",
@@ -141,7 +138,7 @@ const SPONSORED_PAYMASTER_ABI = [
   },
 ] as const;
 
-const SIMPLE_ACCOUNT_FACTORY_ABI = [
+const _SIMPLE_ACCOUNT_FACTORY_ABI = [
   {
     name: "getAddress",
     type: "function",
@@ -181,7 +178,7 @@ describe("Account Abstraction Integration Tests", () => {
     // Get addresses from environment if available (for post-deployment testing)
     sponsoredPaymasterAddress = process.env.SPONSORED_PAYMASTER_ADDRESS as Address | undefined;
     simpleAccountFactoryAddress = process.env.SIMPLE_ACCOUNT_FACTORY_ADDRESS as Address | undefined;
-  }, 30000);
+  });
 
   afterAll(async () => {
     await teardownTestEnvironment(ctx);
@@ -438,8 +435,9 @@ describe("Integration Summary", () => {
     console.log("AA Integration Test Summary");
     console.log("=".repeat(50));
     console.log(`EntryPoint: ${ENTRYPOINT_V07_ADDRESS}`);
-    console.log(`SponsoredPaymaster: ${sponsoredPaymasterAddress || "Not deployed"}`);
-    console.log(`SimpleAccountFactory: ${simpleAccountFactoryAddress || "Not deployed"}`);
+    // These addresses are optional - may not be deployed in all test scenarios
+    console.log(`SponsoredPaymaster: ${sponsoredPaymasterAddress ?? "Not deployed"}`);
+    console.log(`SimpleAccountFactory: ${simpleAccountFactoryAddress ?? "Not deployed"}`);
     console.log("=".repeat(50) + "\n");
   });
 });

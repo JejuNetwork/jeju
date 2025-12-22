@@ -1,4 +1,6 @@
 import { Address, keccak256, encodePacked } from 'viem'
+import { AddressSchema } from '@jejunetwork/types/contracts'
+import { expect, expectTrue, expectPositive } from '@/lib/validation'
 import { PoolKey } from './types'
 
 export function computePoolId(key: PoolKey): `0x${string}` {
@@ -41,7 +43,7 @@ export function getTickSpacing(fee: number): number {
 }
 
 export function calculateSqrtPriceX96(amount0: bigint, amount1: bigint): bigint {
-  if (amount0 === 0n) throw new Error('Amount0 cannot be zero')
+  expectTrue(amount0 !== 0n, 'Amount0 cannot be zero')
   
   // Calculate price = amount1 / amount0
   const price = (amount1 * (2n ** 192n)) / amount0
@@ -84,18 +86,12 @@ export function getZeroAddress(): Address {
 }
 
 export function validatePoolKey(key: PoolKey): void {
-  if (key.currency0 === key.currency1) {
-    throw new Error('Tokens must be different')
-  }
-  if (key.currency0.toLowerCase() > key.currency1.toLowerCase()) {
-    throw new Error('currency0 must be less than currency1')
-  }
-  if (key.fee < 0 || key.fee > 1000000) {
-    throw new Error('Fee must be between 0 and 1000000')
-  }
-  if (key.tickSpacing <= 0) {
-    throw new Error('Tick spacing must be positive')
-  }
+  AddressSchema.parse(key.currency0);
+  AddressSchema.parse(key.currency1);
+  expectTrue(key.currency0 !== key.currency1, 'Tokens must be different');
+  expectTrue(key.currency0.toLowerCase() < key.currency1.toLowerCase(), 'currency0 must be less than currency1');
+  expectTrue(key.fee >= 0 && key.fee <= 1000000, 'Fee must be between 0 and 1000000');
+  expectPositive(key.tickSpacing, 'Tick spacing must be positive');
 }
 
 export function priceToTick(price: number): number {

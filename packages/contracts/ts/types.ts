@@ -5,6 +5,49 @@
 
 import type { Abi, Address } from 'viem';
 
+// Re-export schemas and types
+export {
+  AddressSchema,
+  UniswapV4DeploymentSchema,
+  BazaarMarketplaceDeploymentSchema,
+  ERC20FactoryDeploymentSchema,
+  IdentitySystemDeploymentSchema,
+  PaymasterSystemDeploymentSchema,
+  MultiTokenSystemDeploymentSchema,
+  EILDeploymentSchema,
+  LiquiditySystemDeploymentSchema,
+  XLPDeploymentSchema,
+  L1DeploymentSchema,
+  ModerationSystemDeploymentSchema,
+  LaunchpadDeploymentSchema,
+  GameSystemDeploymentSchema,
+  ContractAddressesSchema,
+  type UniswapV4Deployment,
+  type BazaarMarketplaceDeployment,
+  type ERC20FactoryDeployment,
+  type IdentitySystemDeployment,
+  type PaymasterSystemDeployment,
+  type MultiTokenSystemDeployment,
+  type EILDeployment,
+  type LiquiditySystemDeployment,
+  type XLPDeployment,
+  type L1Deployment,
+  type ModerationSystemDeployment,
+  type LaunchpadDeployment,
+  type GameSystemDeployment,
+  type ContractAddresses,
+  parseUniswapV4Deployment,
+  parseBazaarMarketplaceDeployment,
+  parseERC20FactoryDeployment,
+  parseIdentitySystemDeployment,
+  parsePaymasterSystemDeployment,
+  parseXLPDeployment,
+  parseGameSystemDeployment,
+  parseLaunchpadDeployment,
+  safeParseUniswapV4Deployment,
+  safeParseGameSystemDeployment,
+} from './schemas';
+
 // ============================================================================
 // Network Types
 // ============================================================================
@@ -33,192 +76,6 @@ export const NETWORK_BY_CHAIN_ID: Record<ChainId, NetworkName> = {
   11155111: 'testnet',
   1: 'mainnet',
 };
-
-// ============================================================================
-// Deployment Types
-// ============================================================================
-
-export interface UniswapV4Deployment {
-  poolManager?: Address;
-  weth?: Address;
-  swapRouter?: Address;
-  positionManager?: Address;
-  quoterV4?: Address;
-  stateView?: Address;
-  timestamp?: string | number;
-  deployer?: Address;
-  chainId?: number;
-  network?: string;
-  deployedAt?: string;
-  version?: string;
-  features?: {
-    singleton?: boolean;
-    hooks?: boolean;
-    flashAccounting?: boolean;
-    nativeETH?: boolean;
-  };
-  notes?: string;
-}
-
-export interface BazaarMarketplaceDeployment {
-  at?: Address;
-  marketplace?: Address;
-  goldToken?: Address;
-  usdcToken?: Address;
-  Owner?: Address;
-  Recipient?: Address;
-}
-
-export interface ERC20FactoryDeployment {
-  at?: Address;
-  factory?: Address;
-}
-
-export interface IdentitySystemDeployment {
-  Deployer?: Address;
-  IdentityRegistry?: Address;
-  identityRegistry?: Address;
-  reputationRegistry?: Address;
-  validationRegistry?: Address;
-  serviceRegistry?: Address;
-  creditManager?: Address;
-  cloudReputationProvider?: Address;
-  usdc?: Address;
-  elizaOS?: Address;
-}
-
-export interface PaymasterSystemDeployment {
-  tokenRegistry?: Address;
-  priceOracle?: Address;
-  paymasterFactory?: Address;
-  entryPoint?: Address;
-  sponsoredPaymaster?: Address;
-  exampleDeployments?: Array<{
-    token: Address;
-    symbol: string;
-    paymaster: string;
-    vault: string;
-    distributor: string;
-  }>;
-}
-
-export interface MultiTokenSystemDeployment {
-  tokenRegistry?: Address;
-  usdc?: Address;
-  weth?: Address;
-  elizaOS?: Address;
-  [key: string]: Address | undefined;
-}
-
-export interface EILDeployment {
-  identityRegistry?: Address;
-  reputationRegistry?: Address;
-  validationRegistry?: Address;
-  serviceRegistry?: Address;
-  creditManager?: Address;
-  deployer?: Address;
-  timestamp?: string;
-}
-
-export interface LiquiditySystemDeployment {
-  liquidityVault?: Address;
-  poolManager?: Address;
-  token0?: Address;
-  token1?: Address;
-}
-
-export interface XLPDeployment {
-  v2Factory?: Address;
-  v3Factory?: Address;
-  router?: Address;
-  positionManager?: Address;
-  liquidityAggregator?: Address;
-  routerRegistry?: Address;
-  weth?: Address;
-  deployedAt?: string;
-  chainId?: number;
-}
-
-export interface L1Deployment {
-  portal?: Address;
-  bridge?: Address;
-  systemConfig?: Address;
-  l1CrossDomainMessenger?: Address;
-  l1StandardBridge?: Address;
-  optimismPortal?: Address;
-  addressManager?: Address;
-}
-
-export interface ModerationSystemDeployment {
-  banManager?: Address;
-  moderationMarketplace?: Address;
-  reportingSystem?: Address;
-  reputationLabelManager?: Address;
-  predimarket?: Address;
-  registryGovernance?: Address;
-  treasury?: Address;
-  deployedAt?: string;
-  chainId?: number;
-}
-
-export interface LaunchpadDeployment {
-  tokenLaunchpad?: Address;
-  lpLockerTemplate?: Address;
-  defaultCommunityVault?: Address;
-  xlpV2Factory?: Address;
-  weth?: Address;
-  deployedAt?: string;
-  chainId?: number;
-}
-
-// ============================================================================
-// Contract Address Types
-// ============================================================================
-
-export interface ContractAddresses {
-  // Identity & Registry
-  identityRegistry?: Address;
-  reputationRegistry?: Address;
-  validationRegistry?: Address;
-  serviceRegistry?: Address;
-  
-  // Moderation
-  banManager?: Address;
-  moderationMarketplace?: Address;
-  reportingSystem?: Address;
-  reputationLabelManager?: Address;
-  
-  // DeFi
-  poolManager?: Address;
-  swapRouter?: Address;
-  positionManager?: Address;
-  quoterV4?: Address;
-  stateView?: Address;
-  weth?: Address;
-  
-  // Marketplace
-  marketplace?: Address;
-  predimarket?: Address;
-  
-  // Token Factory
-  erc20Factory?: Address;
-  
-  // Paymaster / AA
-  entryPoint?: Address;
-  paymasterFactory?: Address;
-  tokenRegistry?: Address;
-  priceOracle?: Address;
-  
-  // Tokens
-  usdc?: Address;
-  elizaOS?: Address;
-  goldToken?: Address;
-  jeju?: Address;
-  
-  // Launchpad
-  tokenLaunchpad?: Address;
-  lpLockerTemplate?: Address;
-}
 
 // ============================================================================
 // ABI Types
@@ -251,9 +108,8 @@ export type DeploymentFile =
 export const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
 
 /**
- * Check if an address is valid (not zero address)
+ * Check if an address is valid (not zero address, null, or undefined)
  */
-export function isValidAddress(address: Address | string | undefined): address is Address {
+export function isValidAddress(address: Address | string | undefined | null): address is Address {
   return !!address && address !== ZERO_ADDRESS && address.startsWith('0x');
 }
-

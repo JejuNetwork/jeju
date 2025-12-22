@@ -25,6 +25,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { getNetworkName } from '@jejunetwork/config';
+import type { Address } from 'viem';
 import { createAutocratA2AServer } from './a2a-server';
 import { createAutocratMCPServer } from './mcp-server';
 import { getBlockchain } from './blockchain';
@@ -33,16 +34,84 @@ import { initLocalServices } from './local-services';
 import { getTEEMode } from './tee';
 import { autocratAgentRuntime } from './agents';
 import { registerAutocratTriggers, startLocalCron, getComputeTriggerClient, type OrchestratorTriggerResult } from './compute-trigger';
-import { getProposalAssistant, type ProposalDraft, type QualityAssessment } from './proposal-assistant';
-import { getResearchAgent, type ResearchRequest } from './research-agent';
-import { ERC8004Client, getERC8004Client, type ERC8004Config } from './erc8004';
+import { getProposalAssistant } from './proposal-assistant';
+import { getResearchAgent } from './research-agent';
+import { getERC8004Client, type ERC8004Config } from './erc8004';
 import { getFutarchyClient, type FutarchyConfig } from './futarchy';
 import { getModerationSystem, initModeration, FlagType } from './moderation';
 import { getRegistryIntegrationClient, type RegistryIntegrationConfig } from './registry-integration';
 import type { CouncilConfig } from './types';
 import { DAOService, createDAOService } from './dao-service';
 import { getFundingOracle, type FundingOracle } from './funding-oracle';
-import type { CasualSubmission, CasualProposalCategory } from './proposal-assistant';
+import type { CasualSubmission, CasualProposalCategory, ProposalDraft } from './proposal-assistant';
+import type { ProposalType } from './types';
+
+/**
+ * Transform raw request body to ProposalDraft
+ * Consolidates the repeated transformation pattern used across multiple endpoints
+ */
+function toProposalDraft(raw: {
+  daoId: string;
+  title: string;
+  summary: string;
+  description: string;
+  proposalType: ProposalType;
+  casualCategory?: string;
+  targetContract?: `0x${string}`;
+  calldata?: `0x${string}`;
+  value?: string;
+  tags?: string[];
+  linkedPackageId?: string;
+  linkedRepoId?: string;
+}): ProposalDraft {
+  return {
+    daoId: raw.daoId,
+    title: raw.title,
+    summary: raw.summary,
+    description: raw.description,
+    proposalType: raw.proposalType,
+    casualCategory: raw.casualCategory as CasualProposalCategory | undefined,
+    targetContract: raw.targetContract,
+    callData: raw.calldata,
+    value: raw.value,
+    tags: raw.tags,
+    linkedPackageId: raw.linkedPackageId,
+    linkedRepoId: raw.linkedRepoId,
+  };
+}
+
+import {
+  AssessProposalRequestSchema,
+  ImproveProposalRequestSchema,
+  GenerateProposalRequestSchema,
+  ResearchRequestSchema,
+  FactCheckRequestSchema,
+  AgentRegisterRequestSchema,
+  AgentFeedbackRequestSchema,
+  FutarchyEscalateRequestSchema,
+  FutarchyResolveRequestSchema,
+  FutarchyExecuteRequestSchema,
+  ModerationFlagRequestSchema,
+  ModerationVoteRequestSchema,
+  ModerationResolveRequestSchema,
+  CasualAssessRequestSchema,
+  CasualHelpRequestSchema,
+  OrchestratorActiveRequestSchema,
+  RegistryProfilesRequestSchema,
+  ProposalDraftSchema,
+  ProposalIdSchema,
+  ProposalListQuerySchema,
+  PaginationQuerySchema,
+} from './schemas';
+import {
+  parseAndValidateBody,
+  parseAndValidateQuery,
+  parseAndValidateParam,
+  parseBigInt,
+  successResponse,
+} from './validation';
+import { expect } from './schemas';
+import { z } from 'zod';
 
 const ZERO_ADDR = '0x0000000000000000000000000000000000000000' as `0x${string}`;
 const addr = (key: string) => (process.env[key] ?? ZERO_ADDR) as `0x${string}`;
@@ -120,8 +189,19 @@ async function callA2AInternal(app: Hono, skillId: string, params: Record<string
       params: { message: { messageId: `rest-${Date.now()}`, parts: [{ kind: 'data', data: { skillId, params } }] } },
     }),
   });
-  const result = await response.json();
-  return result.result?.parts?.find((p: { kind: string }) => p.kind === 'data')?.data ?? { error: 'Failed' };
+  const result = await response.json() as { result?: { parts?: Array<{ kind: string; data?: Record<string, unknown> }> }; error?: { message: string } };
+  if (result.error) {
+    throw new Error(`A2A call failed for skill '${skillId}': ${result.error.message}`);
+  }
+  const parts = result.result?.parts;
+  if (!parts || parts.length === 0) {
+    throw new Error(`A2A call for skill '${skillId}' returned no parts`);
+  }
+  const dataPart = parts.find((p: { kind: string }) => p.kind === 'data');
+  if (!dataPart || !dataPart.data) {
+    throw new Error(`A2A call for skill '${skillId}' returned no data part`);
+  }
+  return dataPart.data;
 }
 
 const config = getConfig();
@@ -136,8 +216,16 @@ app.route('/a2a', a2aServer.getRouter());
 app.route('/mcp', mcpServer.getRouter());
 app.get('/.well-known/agent-card.json', (c) => c.redirect('/a2a/.well-known/agent-card.json'));
 
-app.get('/api/v1/proposals', async (c) => c.json(await callA2AInternal(app, 'list-proposals', { activeOnly: c.req.query('active') === 'true' })));
-app.get('/api/v1/proposals/:id', async (c) => c.json(await callA2AInternal(app, 'get-proposal', { proposalId: c.req.param('id') })));
+app.get('/api/v1/proposals', async (c) => {
+  const query = parseAndValidateQuery(c, ProposalListQuerySchema, 'Proposals list query');
+  const result = await callA2AInternal(app, 'list-proposals', { activeOnly: query.active === 'true' });
+  return successResponse(c, result);
+});
+app.get('/api/v1/proposals/:id', async (c) => {
+  const proposalId = parseAndValidateParam(c, 'id', ProposalIdSchema, 'Proposal ID');
+  const result = await callA2AInternal(app, 'get-proposal', { proposalId });
+  return successResponse(c, result);
+});
 app.get('/api/v1/ceo', async (c) => c.json(await callA2AInternal(app, 'get-ceo-status')));
 app.get('/api/v1/governance/stats', async (c) => c.json(await callA2AInternal(app, 'get-governance-stats')));
 
@@ -148,27 +236,44 @@ app.get('/api/v1/ceo/models', async (c) => {
 });
 
 app.get('/api/v1/ceo/decisions', async (c) => {
-  const limit = parseInt(c.req.query('limit') ?? '10', 10);
+  const query = parseAndValidateQuery(c, z.object({ limit: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(100)).optional() }), 'CEO decisions query');
+  const limit = query.limit ?? 10;
   const decisions = await blockchain.getRecentDecisions(limit);
-  return c.json({ decisions });
+  return successResponse(c, { decisions });
 });
 
 let orchestrator: AutocratOrchestrator | null = null;
 
 app.post('/api/v1/orchestrator/start', async (c) => {
-  if (orchestrator?.getStatus().running) return c.json({ error: 'Already running' }, 400);
-  orchestrator = createOrchestrator(config, blockchain);
+  expect(orchestrator === null || orchestrator.getStatus().running !== true, 'Orchestrator already running');
+  const orchestratorConfig: import('./orchestrator').AutocratConfig = {
+    rpcUrl: config.rpcUrl,
+    daoRegistry: config.contracts.daoRegistry as Address,
+    daoFunding: config.contracts.daoFunding as Address,
+    contracts: {
+      daoRegistry: config.contracts.daoRegistry as Address,
+      daoFunding: config.contracts.daoFunding as Address,
+    },
+  };
+  orchestrator = createOrchestrator(orchestratorConfig, blockchain);
   await orchestrator.start();
-  return c.json({ status: 'started', ...orchestrator.getStatus() });
+  expect(orchestrator !== null, 'Failed to create orchestrator');
+  return successResponse(c, { status: 'started', ...orchestrator.getStatus() });
 });
 
 app.post('/api/v1/orchestrator/stop', async (c) => {
-  if (!orchestrator?.getStatus().running) return c.json({ error: 'Not running' }, 400);
+  expect(orchestrator !== null, 'Orchestrator not running');
+  expect(orchestrator.getStatus().running === true, 'Orchestrator not running');
   await orchestrator.stop();
-  return c.json({ status: 'stopped' });
+  return successResponse(c, { status: 'stopped' });
 });
 
-app.get('/api/v1/orchestrator/status', (c) => c.json(orchestrator?.getStatus() ?? { running: false, cycleCount: 0 }));
+app.get('/api/v1/orchestrator/status', (c) => {
+  if (!orchestrator) {
+    return c.json({ running: false, cycleCount: 0, message: 'Orchestrator not initialized' });
+  }
+  return c.json(orchestrator.getStatus());
+});
 
 app.post('/trigger/orchestrator', async (c) => {
   await c.req.json().catch(() => ({}));
@@ -184,8 +289,10 @@ app.get('/api/v1/triggers', async (c) => {
 
 app.get('/api/v1/triggers/history', async (c) => {
   const client = getComputeTriggerClient();
-  if (!await client.isAvailable()) return c.json({ mode: 'local', executions: [] });
-  return c.json({ mode: 'compute', executions: await client.getHistory(undefined, parseInt(c.req.query('limit') ?? '50', 10)) });
+  if (!await client.isAvailable()) return successResponse(c, { mode: 'local', executions: [] });
+  const query = parseAndValidateQuery(c, z.object({ limit: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(1000)).optional() }), 'Triggers history query');
+  const limit = query.limit ?? 50;
+  return successResponse(c, { mode: 'compute', executions: await client.getHistory(undefined, limit) });
 });
 
 app.post('/api/v1/triggers/execute', async (c) => c.json(await runOrchestratorCycle()));
@@ -194,76 +301,59 @@ app.post('/api/v1/triggers/execute', async (c) => c.json(await runOrchestratorCy
 const proposalAssistant = getProposalAssistant(blockchain);
 
 app.post('/api/v1/proposals/assess', async (c) => {
-  try {
-    const draft = await c.req.json() as ProposalDraft;
-    if (!draft.title || !draft.description) {
-      return c.json({ error: 'title and description are required' }, 400);
-    }
-    const assessment = await proposalAssistant.assessQuality(draft);
-    return c.json(assessment);
-  } catch (error) {
-    console.error('[Assess] Error:', error);
-    const message = error instanceof Error ? error.message : 'Assessment failed';
-    return c.json({ error: message }, 500);
-  }
+  const draftRaw = await parseAndValidateBody(c, AssessProposalRequestSchema, 'Proposal assessment request');
+  const draft = toProposalDraft(draftRaw);
+  const assessment = await proposalAssistant.assessQuality(draft);
+  return successResponse(c, assessment);
 });
 
 app.post('/api/v1/proposals/check-duplicates', async (c) => {
-  const draft = await c.req.json() as ProposalDraft;
+  const draftRaw = await parseAndValidateBody(c, ProposalDraftSchema, 'Proposal duplicate check request');
+  const draft = toProposalDraft(draftRaw);
   const duplicates = await proposalAssistant.checkDuplicates(draft);
-  return c.json({ duplicates });
+  return successResponse(c, { duplicates });
 });
 
 app.post('/api/v1/proposals/improve', async (c) => {
-  const body = await c.req.json() as { draft: ProposalDraft; criterion: string };
-  if (!body.draft || !body.criterion) {
-    return c.json({ error: 'draft and criterion are required' }, 400);
-  }
-  const improved = await proposalAssistant.improveProposal(body.draft, body.criterion as keyof QualityAssessment['criteria']);
-  return c.json({ improved });
+  const body = await parseAndValidateBody(c, ImproveProposalRequestSchema, 'Proposal improvement request');
+  const draft = toProposalDraft(body.draft);
+  const improved = await proposalAssistant.improveProposal(draft, body.criterion);
+  return successResponse(c, { improved });
 });
 
 app.post('/api/v1/proposals/generate', async (c) => {
-  const body = await c.req.json() as { idea: string; proposalType: number };
-  if (!body.idea) {
-    return c.json({ error: 'idea is required' }, 400);
-  }
+  const body = await parseAndValidateBody(c, GenerateProposalRequestSchema, 'Proposal generation request');
   const draft = await proposalAssistant.generateProposal(body.idea, body.proposalType ?? 0);
-  return c.json(draft);
+  return successResponse(c, draft);
 });
 
 app.post('/api/v1/proposals/quick-score', async (c) => {
-  const draft = await c.req.json() as ProposalDraft;
+  const draftRaw = await parseAndValidateBody(c, ProposalDraftSchema, 'Proposal quick score request');
+  const draft = toProposalDraft(draftRaw);
   const score = proposalAssistant.quickScore(draft);
   const contentHash = proposalAssistant.getContentHash(draft);
-  return c.json({ score, contentHash, readyForFullAssessment: score >= 60 });
+  return successResponse(c, { score, contentHash, readyForFullAssessment: score >= 60 });
 });
 
 // Research Agent API
 const researchAgent = getResearchAgent();
 
 app.post('/api/v1/research/conduct', async (c) => {
-  const request = await c.req.json() as ResearchRequest;
-  if (!request.proposalId || !request.title || !request.description) {
-    return c.json({ error: 'proposalId, title, and description are required' }, 400);
-  }
+  const request = await parseAndValidateBody(c, ResearchRequestSchema, 'Research conduct request');
   const report = await researchAgent.conductResearch(request);
-  return c.json(report);
+  return successResponse(c, report);
 });
 
 app.post('/api/v1/research/quick-screen', async (c) => {
-  const request = await c.req.json() as ResearchRequest;
+  const request = await parseAndValidateBody(c, ResearchRequestSchema, 'Research quick screen request');
   const result = await researchAgent.quickScreen(request);
-  return c.json(result);
+  return successResponse(c, result);
 });
 
 app.post('/api/v1/research/fact-check', async (c) => {
-  const body = await c.req.json() as { claim: string; context: string };
-  if (!body.claim) {
-    return c.json({ error: 'claim is required' }, 400);
-  }
+  const body = await parseAndValidateBody(c, FactCheckRequestSchema, 'Fact check request');
   const result = await researchAgent.factCheck(body.claim, body.context ?? '');
-  return c.json(result);
+  return successResponse(c, result);
 });
 
 // ERC-8004 Agent Registry API
@@ -282,44 +372,35 @@ app.get('/api/v1/agents/count', async (c) => {
 });
 
 app.get('/api/v1/agents/:id', async (c) => {
-  const agentId = BigInt(c.req.param('id'));
+  const idParam = parseAndValidateParam(c, 'id', z.string().min(1), 'Agent ID');
+  const agentId = parseBigInt(idParam, 'Agent ID');
   const identity = await erc8004.getAgentIdentity(agentId);
-  if (!identity) return c.json({ error: 'Agent not found' }, 404);
+  expect(identity !== null, 'Agent not found');
   const reputation = await erc8004.getAgentReputation(agentId);
   const validation = await erc8004.getValidationSummary(agentId);
-  return c.json({ ...identity, reputation, validation });
+  return successResponse(c, { ...identity, reputation, validation });
 });
 
 app.post('/api/v1/agents/register', async (c) => {
-  const body = await c.req.json() as { name: string; role: string; a2aEndpoint: string; mcpEndpoint: string };
-  if (!body.name || !body.role) return c.json({ error: 'name and role are required' }, 400);
-
-  try {
-    const agentId = await erc8004.registerAgent(body.name, body.role, body.a2aEndpoint ?? '', body.mcpEndpoint ?? '');
-    return c.json({ agentId: agentId.toString(), registered: agentId > 0n });
-  } catch (e) {
-    return c.json({ error: e instanceof Error ? e.message : 'Registration failed', registered: false }, 400);
-  }
+  const body = await parseAndValidateBody(c, AgentRegisterRequestSchema, 'Agent registration request');
+  const agentId = await erc8004.registerAgent(body.name, body.role, body.a2aEndpoint ?? '', body.mcpEndpoint ?? '');
+  expect(agentId > 0n, 'Agent registration failed');
+  return successResponse(c, { agentId: agentId.toString(), registered: true });
 });
 
 app.post('/api/v1/agents/:id/feedback', async (c) => {
-  const agentId = BigInt(c.req.param('id'));
-  const body = await c.req.json() as { score: number; tag: string; details?: string };
-  if (body.score === undefined || !body.tag) return c.json({ error: 'score and tag are required' }, 400);
-
-  try {
-    const txHash = await erc8004.submitFeedback(agentId, body.score, body.tag, body.details);
-    return c.json({ success: true, txHash });
-  } catch (e) {
-    return c.json({ error: e instanceof Error ? e.message : 'Feedback failed', success: false }, 400);
-  }
+  const idParam = parseAndValidateParam(c, 'id', z.string().min(1), 'Agent ID');
+  const agentId = parseBigInt(idParam, 'Agent ID');
+  const body = await parseAndValidateBody(c, AgentFeedbackRequestSchema, 'Agent feedback request');
+  const txHash = await erc8004.submitFeedback(agentId, body.score, body.tag, body.details);
+  return successResponse(c, { success: true, txHash });
 });
 
 // Futarchy API
 const futarchyConfig: FutarchyConfig = {
   rpcUrl: config.rpcUrl,
-  councilAddress: config.contracts.council as string,
-  predimarketAddress: config.contracts.predimarket as string,
+  councilAddress: config.contracts.council as `0x${string}`,
+  predimarketAddress: ('predimarket' in config.contracts ? (config.contracts as Record<string, Address>)['predimarket'] : undefined) ?? '0x0000000000000000000000000000000000000000' as `0x${string}`,
   operatorKey: process.env.OPERATOR_KEY ?? process.env.PRIVATE_KEY,
 };
 const futarchy = getFutarchyClient(futarchyConfig);
@@ -335,36 +416,35 @@ app.get('/api/v1/futarchy/pending', async (c) => {
 });
 
 app.get('/api/v1/futarchy/market/:proposalId', async (c) => {
-  const market = await futarchy.getFutarchyMarket(c.req.param('proposalId'));
-  if (!market) return c.json({ error: 'No futarchy market for this proposal' }, 404);
-  return c.json(market);
+  const proposalId = parseAndValidateParam(c, 'proposalId', ProposalIdSchema, 'Proposal ID');
+  const market = await futarchy.getFutarchyMarket(proposalId);
+  expect(market !== null, 'No futarchy market for this proposal');
+  return successResponse(c, market);
 });
 
 app.post('/api/v1/futarchy/escalate', async (c) => {
-  const body = await c.req.json() as { proposalId: string };
-  if (!body.proposalId) return c.json({ error: 'proposalId is required' }, 400);
+  const body = await parseAndValidateBody(c, FutarchyEscalateRequestSchema, 'Futarchy escalate request');
   const result = await futarchy.escalateToFutarchy(body.proposalId);
-  return c.json(result);
+  return successResponse(c, result);
 });
 
 app.post('/api/v1/futarchy/resolve', async (c) => {
-  const body = await c.req.json() as { proposalId: string };
-  if (!body.proposalId) return c.json({ error: 'proposalId is required' }, 400);
+  const body = await parseAndValidateBody(c, FutarchyResolveRequestSchema, 'Futarchy resolve request');
   const result = await futarchy.resolveFutarchy(body.proposalId);
-  return c.json(result);
+  return successResponse(c, result);
 });
 
 app.post('/api/v1/futarchy/execute', async (c) => {
-  const body = await c.req.json() as { proposalId: string };
-  if (!body.proposalId) return c.json({ error: 'proposalId is required' }, 400);
+  const body = await parseAndValidateBody(c, FutarchyExecuteRequestSchema, 'Futarchy execute request');
   const result = await futarchy.executeFutarchyApproved(body.proposalId);
-  return c.json(result);
+  return successResponse(c, result);
 });
 
 app.get('/api/v1/futarchy/sentiment/:proposalId', async (c) => {
-  const sentiment = await futarchy.getMarketSentiment(c.req.param('proposalId'));
-  if (!sentiment) return c.json({ error: 'No market for this proposal' }, 404);
-  return c.json(sentiment);
+  const proposalId = parseAndValidateParam(c, 'proposalId', ProposalIdSchema, 'Proposal ID');
+  const sentiment = await futarchy.getMarketSentiment(proposalId);
+  expect(sentiment !== null, 'No market for this proposal');
+  return successResponse(c, sentiment);
 });
 
 app.get('/api/v1/futarchy/parameters', async (c) => {
@@ -377,47 +457,33 @@ app.get('/api/v1/futarchy/parameters', async (c) => {
 const moderation = getModerationSystem();
 
 app.post('/api/v1/moderation/flag', async (c) => {
-  const body = await c.req.json() as { proposalId: string; flagger: string; flagType: string; reason: string; stake: number; evidence?: string };
-  if (!body.proposalId || !body.flagger || !body.flagType || !body.reason) {
-    return c.json({ error: 'proposalId, flagger, flagType, and reason are required' }, 400);
-  }
-  if (!Object.values(FlagType).includes(body.flagType as FlagType)) {
-    return c.json({ error: `Invalid flagType. Must be one of: ${Object.values(FlagType).join(', ')}` }, 400);
-  }
-  try {
-    const flag = moderation.submitFlag(body.proposalId, body.flagger, body.flagType as FlagType, body.reason, body.stake ?? 10, body.evidence);
-    return c.json(flag);
-  } catch (e) {
-    return c.json({ error: e instanceof Error ? e.message : 'Failed to submit flag' }, 400);
-  }
+  const body = await parseAndValidateBody(c, ModerationFlagRequestSchema, 'Moderation flag request');
+  const flag = moderation.submitFlag(body.proposalId, body.flagger, body.flagType as FlagType, body.reason, body.stake ?? 10, body.evidence);
+  return successResponse(c, flag);
 });
 
 app.post('/api/v1/moderation/vote', async (c) => {
-  const body = await c.req.json() as { flagId: string; voter: string; upvote: boolean };
-  if (!body.flagId || !body.voter || body.upvote === undefined) {
-    return c.json({ error: 'flagId, voter, and upvote are required' }, 400);
-  }
+  const body = await parseAndValidateBody(c, ModerationVoteRequestSchema, 'Moderation vote request');
   moderation.voteOnFlag(body.flagId, body.voter, body.upvote);
-  return c.json({ success: true });
+  return successResponse(c, { success: true });
 });
 
 app.post('/api/v1/moderation/resolve', async (c) => {
-  const body = await c.req.json() as { flagId: string; upheld: boolean };
-  if (!body.flagId || body.upheld === undefined) {
-    return c.json({ error: 'flagId and upheld are required' }, 400);
-  }
+  const body = await parseAndValidateBody(c, ModerationResolveRequestSchema, 'Moderation resolve request');
   moderation.resolveFlag(body.flagId, body.upheld);
-  return c.json({ success: true });
+  return successResponse(c, { success: true });
 });
 
 app.get('/api/v1/moderation/score/:proposalId', (c) => {
-  const score = moderation.getProposalModerationScore(c.req.param('proposalId'));
-  return c.json(score);
+  const proposalId = parseAndValidateParam(c, 'proposalId', ProposalIdSchema, 'Proposal ID');
+  const score = moderation.getProposalModerationScore(proposalId);
+  return successResponse(c, score);
 });
 
 app.get('/api/v1/moderation/flags/:proposalId', (c) => {
-  const flags = moderation.getProposalFlags(c.req.param('proposalId'));
-  return c.json({ flags });
+  const proposalId = parseAndValidateParam(c, 'proposalId', ProposalIdSchema, 'Proposal ID');
+  const flags = moderation.getProposalFlags(proposalId);
+  return successResponse(c, { flags });
 });
 
 app.get('/api/v1/moderation/active-flags', (c) => {
@@ -426,19 +492,22 @@ app.get('/api/v1/moderation/active-flags', (c) => {
 });
 
 app.get('/api/v1/moderation/leaderboard', (c) => {
-  const limit = parseInt(c.req.query('limit') ?? '10', 10);
+  const query = parseAndValidateQuery(c, z.object({ limit: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(100)).optional() }), 'Moderation leaderboard query');
+  const limit = query.limit ?? 10;
   const moderators = moderation.getTopModerators(limit);
-  return c.json({ moderators });
+  return successResponse(c, { moderators });
 });
 
 app.get('/api/v1/moderation/moderator/:address', (c) => {
-  const stats = moderation.getModeratorStats(c.req.param('address'));
-  return c.json(stats);
+  const address = parseAndValidateParam(c, 'address', z.string().regex(/^0x[a-fA-F0-9]{40}$/), 'Moderator address');
+  const stats = moderation.getModeratorStats(address as `0x${string}`);
+  return successResponse(c, stats);
 });
 
 app.get('/api/v1/moderation/should-reject/:proposalId', (c) => {
-  const result = moderation.shouldAutoReject(c.req.param('proposalId'));
-  return c.json(result);
+  const proposalId = parseAndValidateParam(c, 'proposalId', ProposalIdSchema, 'Proposal ID');
+  const result = moderation.shouldAutoReject(proposalId);
+  return successResponse(c, result);
 });
 
 // DAO Registry API - Multi-tenant DAO management
@@ -477,12 +546,13 @@ app.get('/api/v1/dao/active', async (c) => {
 
 app.get('/api/v1/dao/:daoId', async (c) => {
   const service = initDAOService();
-  if (!service) return c.json({ error: 'DAO Registry not deployed' }, 503);
-  const daoId = c.req.param('daoId');
+  expect(service !== null, 'DAO Registry not deployed');
+  const daoId = parseAndValidateParam(c, 'daoId', z.string().min(1).max(100), 'DAO ID');
   const exists = await service.daoExists(daoId);
-  if (!exists) return c.json({ error: 'DAO not found' }, 404);
+  expect(exists, 'DAO not found');
+  expect(service !== null, 'DAO service not initialized');
   const dao = await service.getDAOFull(daoId);
-  return c.json(dao);
+  return successResponse(c, dao);
 });
 
 app.get('/api/v1/dao/:daoId/persona', async (c) => {
@@ -558,29 +628,24 @@ app.get('/api/v1/dao/:daoId/funding/knobs', async (c) => {
 
 // Casual Proposal API
 app.post('/api/v1/dao/:daoId/casual/assess', async (c) => {
-  const daoId = c.req.param('daoId');
-  const body = await c.req.json() as { category: CasualProposalCategory; title: string; content: string };
-  if (!body.category || !body.title || !body.content) {
-    return c.json({ error: 'category, title, and content are required' }, 400);
-  }
+  const daoId = parseAndValidateParam(c, 'daoId', z.string().min(1).max(100), 'DAO ID');
+  const body = await parseAndValidateBody(c, CasualAssessRequestSchema, 'Casual proposal assessment request');
   const submission: CasualSubmission = {
     daoId,
-    category: body.category,
+    category: body.category as CasualProposalCategory,
     title: body.title,
     content: body.content,
   };
   const assessment = await proposalAssistant.assessCasualSubmission(submission);
-  return c.json(assessment);
+  return successResponse(c, assessment);
 });
 
 app.post('/api/v1/dao/:daoId/casual/help', async (c) => {
-  const daoId = c.req.param('daoId');
-  const body = await c.req.json() as { category: CasualProposalCategory; content: string };
-  if (!body.category) {
-    return c.json({ error: 'category is required' }, 400);
-  }
-  const help = await proposalAssistant.helpCraftSubmission(body.category, body.content ?? '', daoId);
-  return c.json(help);
+  const daoId = parseAndValidateParam(c, 'daoId', z.string().min(1).max(100), 'DAO ID');
+  const body = await parseAndValidateBody(c, CasualHelpRequestSchema, 'Casual proposal help request');
+  const category = body.category as CasualProposalCategory;
+  const help = await proposalAssistant.helpCraftSubmission(category, body.content ?? '', daoId);
+  return successResponse(c, help);
 });
 
 app.get('/api/v1/casual/categories', (c) => {
@@ -590,7 +655,7 @@ app.get('/api/v1/casual/categories', (c) => {
 
 // Orchestrator DAO status
 app.get('/api/v1/orchestrator/dao/:daoId', (c) => {
-  if (!orchestrator) return c.json({ error: 'Orchestrator not running' }, 503);
+  expect(orchestrator !== null, 'Orchestrator not running');
   const status = orchestrator.getDAOStatus(c.req.param('daoId'));
   if (!status) return c.json({ error: 'DAO not tracked' }, 404);
   return c.json(status);
@@ -603,10 +668,11 @@ app.post('/api/v1/orchestrator/dao/:daoId/refresh', async (c) => {
 });
 
 app.post('/api/v1/orchestrator/dao/:daoId/active', async (c) => {
-  if (!orchestrator) return c.json({ error: 'Orchestrator not running' }, 503);
-  const body = await c.req.json() as { active: boolean };
-  orchestrator.setDAOActive(c.req.param('daoId'), body.active ?? true);
-  return c.json({ success: true });
+  expect(orchestrator !== null, 'Orchestrator not running');
+  const daoId = parseAndValidateParam(c, 'daoId', z.string().min(1).max(100), 'DAO ID');
+  const body = await parseAndValidateBody(c, OrchestratorActiveRequestSchema, 'Orchestrator active request');
+  orchestrator.setDAOActive(daoId, body.active);
+  return successResponse(c, { success: true });
 });
 
 // Registry Integration API - Deep AI DAO integration
@@ -621,10 +687,11 @@ const registryIntegration = getRegistryIntegrationClient(registryConfig);
 
 // Get comprehensive agent profile with composite score
 app.get('/api/v1/registry/profile/:agentId', async (c) => {
-  const agentId = BigInt(c.req.param('agentId'));
+  const idParam = parseAndValidateParam(c, 'agentId', z.string().min(1), 'Agent ID');
+  const agentId = parseBigInt(idParam, 'Agent ID');
   const profile = await registryIntegration.getAgentProfile(agentId);
-  if (!profile) return c.json({ error: 'Agent not found' }, 404);
-  return c.json({
+  expect(profile !== null && profile !== undefined, 'Agent not found');
+  return successResponse(c, {
     ...profile,
     agentId: profile.agentId.toString(),
     stakedAmount: profile.stakedAmount.toString(),
@@ -633,10 +700,9 @@ app.get('/api/v1/registry/profile/:agentId', async (c) => {
 
 // Get multiple agent profiles
 app.post('/api/v1/registry/profiles', async (c) => {
-  const body = await c.req.json() as { agentIds: string[] };
-  if (!body.agentIds?.length) return c.json({ error: 'agentIds required' }, 400);
+  const body = await parseAndValidateBody(c, RegistryProfilesRequestSchema, 'Registry profiles request');
   const profiles = await registryIntegration.getAgentProfiles(body.agentIds.map(id => BigInt(id)));
-  return c.json({
+  return successResponse(c, {
     profiles: profiles.map(p => ({
       ...p,
       agentId: p.agentId.toString(),
@@ -647,11 +713,15 @@ app.post('/api/v1/registry/profiles', async (c) => {
 
 // Get voting power for an address
 app.get('/api/v1/registry/voting-power/:address', async (c) => {
-  const address = c.req.param('address');
-  const agentId = BigInt(c.req.query('agentId') ?? '0');
-  const baseVotes = BigInt(c.req.query('baseVotes') ?? '1000000000000000000'); // Default 1 token
-  const power = await registryIntegration.getVotingPower(address, agentId, baseVotes);
-  return c.json({
+  const address = parseAndValidateParam(c, 'address', z.string().regex(/^0x[a-fA-F0-9]{40}$/), 'Address');
+  const query = parseAndValidateQuery(c, z.object({
+    agentId: z.string().regex(/^\d+$/).transform(s => BigInt(s)).optional(),
+    baseVotes: z.string().regex(/^\d+$/).transform(s => BigInt(s)).optional(),
+  }), 'Voting power query');
+  const agentId = query.agentId ?? 0n;
+  const baseVotes = query.baseVotes ?? BigInt('1000000000000000000');
+  const power = await registryIntegration.getVotingPower(address as `0x${string}`, agentId, baseVotes);
+  return successResponse(c, {
     ...power,
     baseVotes: power.baseVotes.toString(),
     effectiveVotes: power.effectiveVotes.toString(),
@@ -660,11 +730,12 @@ app.get('/api/v1/registry/voting-power/:address', async (c) => {
 
 // Search agents by tag
 app.get('/api/v1/registry/search/tag/:tag', async (c) => {
-  const tag = c.req.param('tag');
-  const offset = parseInt(c.req.query('offset') ?? '0', 10);
-  const limit = parseInt(c.req.query('limit') ?? '50', 10);
+  const tag = parseAndValidateParam(c, 'tag', z.string().min(1).max(50), 'Tag');
+  const query = parseAndValidateQuery(c, PaginationQuerySchema, 'Tag search query');
+  const offset = query.offset ?? 0;
+  const limit = query.limit ?? 50;
   const result = await registryIntegration.searchByTag(tag, offset, limit);
-  return c.json({
+  return successResponse(c, {
     ...result,
     agentIds: result.agentIds.map(id => id.toString()),
   });
@@ -745,7 +816,8 @@ app.get('/api/v1/registry/eligibility/:agentId', async (c) => {
 
 // Delegation endpoints
 app.get('/api/v1/registry/delegate/:address', async (c) => {
-  const delegate = await registryIntegration.getDelegate(c.req.param('address'));
+  const addressParam = parseAndValidateParam(c, 'address', z.string().regex(/^0x[a-fA-F0-9]{40}$/), 'Delegate address');
+  const delegate = await registryIntegration.getDelegate(addressParam as `0x${string}`);
   if (!delegate) return c.json({ error: 'Not a registered delegate' }, 404);
   return c.json({
     ...delegate,
@@ -777,14 +849,24 @@ app.get('/api/v1/registry/security-council', async (c) => {
 });
 
 app.get('/api/v1/registry/is-council-member/:address', async (c) => {
-  const isMember = await registryIntegration.isSecurityCouncilMember(c.req.param('address'));
+  const addressParam = parseAndValidateParam(c, 'address', z.string().regex(/^0x[a-fA-F0-9]{40}$/), 'Council member address');
+  const isMember = await registryIntegration.isSecurityCouncilMember(addressParam as `0x${string}`);
   return c.json({ isMember });
 });
 
 async function runOrchestratorCycle(): Promise<OrchestratorTriggerResult> {
   const start = Date.now();
   if (!orchestrator) {
-    orchestrator = createOrchestrator(config, blockchain);
+    const orchestratorConfig: import('./orchestrator').AutocratConfig = {
+      rpcUrl: config.rpcUrl,
+      daoRegistry: config.contracts.daoRegistry as Address,
+      daoFunding: config.contracts.daoFunding as Address,
+      contracts: {
+        daoRegistry: config.contracts.daoRegistry as Address,
+        daoFunding: config.contracts.daoFunding as Address,
+      },
+    };
+    orchestrator = createOrchestrator(orchestratorConfig, blockchain);
     await orchestrator.start();
   }
   const status = orchestrator.getStatus();
@@ -908,7 +990,16 @@ async function start() {
 `);
 
   if (autoStart && blockchain.councilDeployed) {
-    orchestrator = createOrchestrator(config, blockchain);
+    const orchestratorConfig: import('./orchestrator').AutocratConfig = {
+      rpcUrl: config.rpcUrl,
+      daoRegistry: config.contracts.daoRegistry as Address,
+      daoFunding: config.contracts.daoFunding as Address,
+      contracts: {
+        daoRegistry: config.contracts.daoRegistry as Address,
+        daoFunding: config.contracts.daoFunding as Address,
+      },
+    };
+    orchestrator = createOrchestrator(orchestratorConfig, blockchain);
     await orchestrator.start();
     if (triggerMode === 'local') startLocalCron(runOrchestratorCycle);
   }

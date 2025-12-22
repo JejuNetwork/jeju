@@ -130,6 +130,7 @@ export class JejuGitRemote {
     for (const line of lines) {
       if (line.startsWith('#') || !line.trim()) continue;
 
+      // eslint-disable-next-line no-control-regex -- Git protocol uses NUL bytes
       const match = line.match(/^([0-9a-f]{40})\s+([^\x00]+)/);
       if (match) {
         const [, oid, refName] = match;

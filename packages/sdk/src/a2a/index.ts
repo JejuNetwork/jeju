@@ -5,6 +5,7 @@
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
 import type { ServicesConfig } from "../config";
+import { AgentCardSchema, DiscoveredAgentSchema, AgentsListSchema } from "../shared/schemas";
 
 export interface AgentCard {
   protocolVersion: string;
@@ -128,7 +129,8 @@ export function createA2AModule(
     if (!response.ok)
       throw new Error(`Failed to discover agent at ${endpoint}`);
 
-    return (await response.json()) as AgentCard;
+    const rawData: unknown = await response.json();
+    return AgentCardSchema.parse(rawData);
   }
 
   async function discoverByJNS(name: string): Promise<DiscoveredAgent> {
@@ -151,15 +153,22 @@ export function createA2AModule(
       endpoint: records.a2aEndpoint,
       card,
       jnsName: normalized,
-      skills: card.skills.map((s) => ({ id: s.id, name: s.name, description: s.description })),
+      skills: card.skills.map((s) => ({
+        id: s.id,
+        name: s.name,
+        description: s.description,
+      })),
     };
   }
 
   async function listKnownAgents(): Promise<DiscoveredAgent[]> {
     const response = await fetch(`${services.gateway.api}/a2a/agents`);
-    if (!response.ok) return [];
+    if (!response.ok) {
+      throw new Error(`Failed to list known agents: ${response.statusText}`);
+    }
 
-    const data = (await response.json()) as { agents: DiscoveredAgent[] };
+    const rawData: unknown = await response.json();
+    const data = AgentsListSchema.parse(rawData);
     return data.agents;
   }
 
@@ -225,12 +234,15 @@ export function createA2AModule(
       throw new Error(`A2A error: ${result.error.message}`);
     }
 
-    const textPart = result.result?.parts.find((p) => p.kind === "text");
-    const dataPart = result.result?.parts.find((p) => p.kind === "data");
+    if (!result.result) {
+      throw new Error("A2A call returned no result");
+    }
+    const textPart = result.result.parts.find((p) => p.kind === "text");
+    const dataPart = result.result.parts.find((p) => p.kind === "data");
 
     return {
       message: textPart?.text ?? "",
-      data: dataPart?.data ?? {},
+      data: dataPart?.data ?? {},  // Empty object is valid for responses with no structured data
     };
   }
 
@@ -265,7 +277,10 @@ export function createA2AModule(
       params: tags ? { tags } : {},
     });
 
-    const apps = (response.data?.apps ?? []) as Array<{
+    if (!response.data || !Array.isArray(response.data.apps)) {
+      throw new Error("Invalid response from list-registered-apps: expected apps array");
+    }
+    const apps = response.data.apps as Array<{
       name: string;
       endpoint: string;
       jnsName?: string;
@@ -275,14 +290,23 @@ export function createA2AModule(
     // Discover agent cards for each app
     const agents: DiscoveredAgent[] = [];
     for (const app of apps.slice(0, 20)) {
-      const card = await discover(app.endpoint).catch(() => null);
+      // Agent discovery can fail for individual agents without failing the whole list
+      // Log the error but continue with other agents
+      const card = await discover(app.endpoint).catch((err: Error) => {
+        console.warn(`Failed to discover agent at ${app.endpoint}: ${err.message}`);
+        return null;
+      });
       if (card) {
         agents.push({
           name: app.name,
           endpoint: app.endpoint,
           card,
           jnsName: app.jnsName,
-          skills: card.skills.map((s) => ({ id: s.id, name: s.name, description: s.description })),
+          skills: card.skills.map((s) => ({
+            id: s.id,
+            name: s.name,
+            description: s.description,
+          })),
         });
       }
     }
@@ -333,7 +357,6 @@ export function createA2AModule(
 
     let buffer = "";
 
-     
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;

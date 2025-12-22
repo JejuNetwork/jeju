@@ -2,9 +2,13 @@
  * OAuth3 Callback Handler for Gateway
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ComponentType } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, type LucideProps } from 'lucide-react';
+
+const Loader2Icon = Loader2 as ComponentType<LucideProps>;
+const CheckCircleIcon = CheckCircle as ComponentType<LucideProps>;
+const XCircleIcon = XCircle as ComponentType<LucideProps>;
 
 export function AuthCallback() {
   const navigate = useNavigate();
@@ -78,7 +82,7 @@ export function AuthCallback() {
       <div className="text-center space-y-4">
         {status === 'loading' && (
           <>
-            <Loader2 className="w-16 h-16 animate-spin mx-auto text-violet-500" />
+            <Loader2Icon className="w-16 h-16 animate-spin mx-auto text-violet-500" />
             <h1 className="text-2xl font-bold text-foreground">Signing you in...</h1>
             <p className="text-muted-foreground">Please wait while we complete authentication</p>
           </>
@@ -86,7 +90,7 @@ export function AuthCallback() {
 
         {status === 'success' && (
           <>
-            <CheckCircle className="w-16 h-16 mx-auto text-emerald-500" />
+            <CheckCircleIcon className="w-16 h-16 mx-auto text-emerald-500" />
             <h1 className="text-2xl font-bold text-emerald-400">Success!</h1>
             <p className="text-muted-foreground">Redirecting you back...</p>
           </>
@@ -94,7 +98,7 @@ export function AuthCallback() {
 
         {status === 'error' && (
           <>
-            <XCircle className="w-16 h-16 mx-auto text-red-500" />
+            <XCircleIcon className="w-16 h-16 mx-auto text-red-500" />
             <h1 className="text-2xl font-bold text-red-400">Authentication Failed</h1>
             <p className="text-muted-foreground">{error}</p>
             <button

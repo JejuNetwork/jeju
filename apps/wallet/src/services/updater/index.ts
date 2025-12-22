@@ -5,7 +5,7 @@
  * Pulls from the Jeju package registry and DWS for decentralized updates.
  */
 
-import { getPlatformInfo, isDesktop, isMobile, isExtension } from '../../platform/detection';
+import { getPlatformInfo, isDesktop } from '../../platform/detection';
 import type { PlatformType } from '../../platform/types';
 
 // ============================================================================
@@ -124,7 +124,6 @@ export class UpdateService {
       this.checkForUpdates();
     }, this.config.checkInterval);
 
-    console.log('[Updater] Started');
   }
 
   stop(): void {
@@ -137,8 +136,6 @@ export class UpdateService {
       this.downloadController.abort();
       this.downloadController = null;
     }
-
-    console.log('[Updater] Stopped');
   }
 
   // ============================================================================
@@ -393,7 +390,7 @@ export class UpdateService {
   }
 
   private async computeHash(data: Uint8Array): Promise<string> {
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data.buffer as ArrayBuffer);
     const hashArray = new Uint8Array(hashBuffer);
     return Array.from(hashArray).map(b => b.toString(16).padStart(2, '0')).join('');
   }
@@ -402,6 +399,7 @@ export class UpdateService {
     const platform = getPlatformInfo();
 
     if (platform.category === 'desktop' && '__TAURI__' in globalThis) {
+      // @ts-expect-error - Tauri types only available when building for desktop
       const { writeBinaryFile, BaseDirectory } = await import('@tauri-apps/api/fs');
       await writeBinaryFile('pending_update', data, { dir: BaseDirectory.AppData });
     } else if (typeof indexedDB !== 'undefined') {
@@ -450,6 +448,7 @@ export class UpdateService {
     this.notify('onInstallStart');
 
     try {
+      // @ts-expect-error - Tauri types only available when building for desktop
       const { invoke } = await import('@tauri-apps/api/tauri');
       await invoke('install_update');
       
@@ -472,7 +471,8 @@ export class UpdateService {
       // Chrome extension
       chrome.runtime.reload();
     } else if (platform.type === 'firefox-extension') {
-      // Firefox extension
+      // Firefox extension - browser global available in Firefox extension context
+      // @ts-expect-error - browser global only available in Firefox extension
       (browser as { runtime: { reload: () => void } }).runtime.reload();
     }
 

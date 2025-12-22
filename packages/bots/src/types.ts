@@ -5,44 +5,47 @@
  */
 
 import type { Address } from 'viem';
+import type { ChainType, EVMChainId, SolanaNetwork, BaseChainConfig, Token as SharedToken } from '@jejunetwork/types';
 
 // ============ Chain Types ============
+// Re-export consolidated chain types from @jejunetwork/types
+export type { ChainType, EVMChainId, SolanaNetwork };
 
-export type EVMChainId = 
-  | 1        // Ethereum Mainnet
-  | 8453     // Base
-  | 56       // BSC
-  | 42161    // Arbitrum One
-  | 10       // Optimism
-  | 84532    // Base Sepolia
-  | 11155111 // Sepolia
-  | 420690   // Jeju Testnet
-  | 420691   // Jeju Mainnet
-  | 1337;    // Localnet
-
-export type SolanaNetwork = 'mainnet-beta' | 'devnet' | 'localnet';
-
-export type ChainType = 'evm' | 'solana';
-
-export interface ChainConfig {
-  chainId: EVMChainId | SolanaNetwork;
-  chainType: ChainType;
-  name: string;
-  rpcUrl: string;
+/**
+ * Bot-specific chain configuration
+ * Extends BaseChainConfig with bot-specific fields
+ */
+export interface ChainConfig extends BaseChainConfig {
   blockTimeMs: number;
   nativeCurrency: { symbol: string; decimals: number };
-  explorerUrl?: string;
 }
 
 // ============ Token Types ============
 
+/**
+ * Token type for bots package
+ * Compatible with SharedToken but allows SolanaNetwork chainId
+ */
 export interface Token {
   address: string;
   symbol: string;
   decimals: number;
-  chainId: EVMChainId | SolanaNetwork;
+  chainId: EVMChainId | SolanaNetwork | number;
   name?: string;
   logoUri?: string;
+}
+
+/**
+ * Convert bots Token to shared Token type
+ */
+export function toSharedToken(token: Token): SharedToken {
+  return {
+    address: token.address as Address,
+    name: token.name ?? token.symbol,
+    symbol: token.symbol,
+    decimals: token.decimals,
+    chainId: typeof token.chainId === 'number' ? token.chainId : 1,
+  };
 }
 
 export interface TokenPair {
@@ -65,17 +68,9 @@ export interface Pool {
   lastUpdate?: number;
 }
 
-export type DexProtocol = 
-  | 'uniswap-v2' 
-  | 'uniswap-v3' 
-  | 'sushiswap' 
-  | 'curve' 
-  | 'balancer'
-  | 'pancakeswap-v2'
-  | 'pancakeswap-v3'
-  | 'xlp-v2'
-  | 'xlp-v3'
-  | 'tfmm';
+// Re-export consolidated DexProtocol
+import type { DexProtocol } from '@jejunetwork/types';
+export type { DexProtocol };
 
 // ============ TFMM Types ============
 
@@ -138,6 +133,8 @@ export interface TFMMStrategyConfig extends StrategyConfig {
 
 // ============ Opportunity Types ============
 
+export type OpportunityStatus = 'DETECTED' | 'EXECUTING' | 'COMPLETED' | 'FAILED' | 'EXPIRED';
+
 export interface ArbitrageOpportunity {
   id: string;
   type: 'DEX_ARBITRAGE' | 'CROSS_CHAIN' | 'TRIANGULAR';
@@ -165,8 +162,6 @@ export interface CrossChainArbOpportunity extends ArbitrageOpportunity {
   bridgeFee: string;
   bridgeTime: number;
 }
-
-export type OpportunityStatus = 'DETECTED' | 'EXECUTING' | 'COMPLETED' | 'FAILED' | 'EXPIRED';
 
 // ============ Oracle Types ============
 

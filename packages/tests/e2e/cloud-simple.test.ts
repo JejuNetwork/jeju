@@ -8,7 +8,7 @@
  */
 
 import { describe, test, expect, beforeAll } from 'bun:test';
-import { createPublicClient, createWalletClient, http, parseAbi, readContract, writeContract, waitForTransactionReceipt, getBytecode, isAddress, formatEther, formatUnits, type Address } from 'viem';
+import { createPublicClient, http, parseAbi, readContract, getBytecode, isAddress, formatEther, formatUnits, type Address } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
 import { existsSync, readFileSync } from 'fs';

@@ -29,108 +29,74 @@
 import { readFileSync, existsSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { ChainConfigSchema, type ChainConfig, type NetworkType } from '../types/src/chain';
+import {
+  ContractsConfigSchema,
+  ServicesConfigSchema,
+  EILConfigSchema,
+  FederationFullConfigSchema,
+  VendorAppsConfigSchema,
+  TestnetConfigSchema,
+  type ContractsConfig,
+  type ServicesNetworkConfig,
+  type EILConfig,
+  type EILNetworkConfig,
+  type EILChainConfig,
+  type FederationFullConfig,
+  type FederationHubConfig,
+  type FederationNetworkConfig,
+  type VendorAppConfig,
+  type TestnetConfig,
+  type NetworkType,
+  type ChainConfig,
+  type ContractCategory,
+} from './schemas';
+
+// Import for internal use - these are also re-exported via 'export * from ./network'
+import { loadChainConfig, getChainConfig as _getChainConfig, getCurrentNetwork } from './network';
 
 export * from './network';
 export * from './ports';
-export type { ChainConfig, NetworkType } from '../types/src/chain';
+export * from './schemas';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const CONFIG_DIR = __dirname;
 
 // ============================================================================
-// Types
+// Types (re-exported from schemas.ts for convenience)
 // ============================================================================
 
-export interface ContractCategory {
-  [key: string]: string;
-}
+// ContractCategory is exported from schemas.ts
+// Alias for backwards compatibility
+export type ContractCategoryName = ContractCategory;
 
-export interface NetworkContracts {
-  chainId: number;
-  tokens: ContractCategory;
-  registry: ContractCategory;
-  moderation: ContractCategory;
-  nodeStaking: ContractCategory;
-  jns: ContractCategory;
-  payments: ContractCategory;
-  defi: ContractCategory;
-  compute: ContractCategory;
-  governance: ContractCategory;
-  oif: ContractCategory;
-  eil: ContractCategory;
-}
-
-export type ContractCategoryName = 
-  | 'tokens' | 'registry' | 'moderation' | 'nodeStaking' | 'jns'
-  | 'payments' | 'defi' | 'compute' | 'governance' | 'oif' | 'eil';
-
-export interface ExternalChainContracts {
-  chainId: number;
-  rpcUrl: string;
-  oif?: ContractCategory;
-  eil?: ContractCategory;
-  tokens?: ContractCategory;
-  poc?: ContractCategory;
-}
-
-export interface ContractsConfig {
-  version: string;
-  constants: {
-    entryPoint: string;
-    entryPointV07: string;
-    l2Messenger: string;
-    l2StandardBridge: string;
-    weth: string;
-  };
-  localnet: NetworkContracts;
-  testnet: NetworkContracts;
-  mainnet: NetworkContracts;
-  external: Record<string, ExternalChainContracts>;
-}
-
-export interface ServicesConfig {
-  rpc: { l1: string; l2: string; ws: string };
-  explorer: string;
-  indexer: { graphql: string; websocket: string };
-  gateway: { ui: string; api: string; a2a: string; mcp: string; ws: string };
-  rpcGateway: string;
-  bazaar: string;
-  storage: { api: string; ipfsGateway: string };
-  compute: { marketplace: string; nodeApi: string };
-  oif: { aggregator: string };
-  leaderboard: { api: string; ui: string };
-  monitoring: { prometheus: string; grafana: string };
-  crucible: { api: string; executor: string };
-  cql: { blockProducer: string; miner: string };
-  dws: { api: string; compute: string };
-  autocrat: { api: string; a2a: string };
-  kms: { api: string; mpc: string };
-  factory: { ui: string; api: string; mcp: string };
-  externalRpcs?: Record<string, string>;
-}
+type NetworkContracts = ContractsConfig['localnet'];
 
 // ============================================================================
 // Loaders
 // ============================================================================
 
-function loadJson<T>(filename: string): T {
+function loadJsonRaw(filename: string): unknown {
   const path = resolve(CONFIG_DIR, filename);
   if (!existsSync(path)) throw new Error(`Config not found: ${path}`);
   return JSON.parse(readFileSync(path, 'utf-8'));
 }
 
 let contractsCache: ContractsConfig | null = null;
-let servicesCache: Record<string, ServicesConfig> | null = null;
+let servicesCache: Record<NetworkType, ServicesNetworkConfig> | null = null;
 
 function loadContracts(): ContractsConfig {
-  if (!contractsCache) contractsCache = loadJson<ContractsConfig>('contracts.json');
+  if (!contractsCache) {
+    contractsCache = ContractsConfigSchema.parse(loadJsonRaw('contracts.json'));
+  }
   return contractsCache;
 }
 
-function loadServices(): Record<string, ServicesConfig> {
-  if (!servicesCache) servicesCache = loadJson<Record<string, ServicesConfig>>('services.json');
+function loadServices(): Record<NetworkType, ServicesNetworkConfig> {
+  if (!servicesCache) {
+    const parsed = ServicesConfigSchema.parse(loadJsonRaw('services.json'));
+    servicesCache = parsed;
+  }
   return servicesCache;
 }
 
@@ -138,25 +104,12 @@ function loadServices(): Record<string, ServicesConfig> {
 // Core Functions
 // ============================================================================
 
-/** Get current network from JEJU_NETWORK env or default to localnet */
-export function getCurrentNetwork(): NetworkType {
-  return (process.env.JEJU_NETWORK as NetworkType) || 'localnet';
-}
-
-/** Load chain config for a network */
-export function loadChainConfig(network: NetworkType): ChainConfig {
-  const path = resolve(CONFIG_DIR, `chain/${network}.json`);
-  return ChainConfigSchema.parse(JSON.parse(readFileSync(path, 'utf-8')));
-}
-
-/** Get chain config with env override support */
-export function getChainConfig(network?: NetworkType): ChainConfig {
-  return loadChainConfig(network || getCurrentNetwork());
-}
+// Note: getCurrentNetwork, loadChainConfig, and getChainConfig are imported from './network'
+// and re-exported via 'export * from './network'' above
 
 /** Get chain ID */
 export function getChainId(network?: NetworkType): number {
-  return getChainConfig(network).chainId;
+  return _getChainConfig(network).chainId;
 }
 
 // ============================================================================
@@ -196,10 +149,21 @@ export function getContract(
   const categoryKey = `${category.toUpperCase()}_${envName}`;
   if (process.env[categoryKey]) return process.env[categoryKey]!;
   
-  const net = network || getCurrentNetwork();
+  const net = network ?? getCurrentNetwork();
   const contracts = loadContracts();
   const netContracts = contracts[net as keyof Pick<ContractsConfig, 'localnet' | 'testnet' | 'mainnet'>];
-  return netContracts?.[category]?.[name] || '';
+  if (!netContracts) {
+    throw new Error(`No contracts configured for network: ${net}`);
+  }
+  const categoryContracts = netContracts[category];
+  if (!categoryContracts) {
+    throw new Error(`Contract category ${category} not found for ${net}`);
+  }
+  const address = categoryContracts[name];
+  if (!address) {
+    throw new Error(`Contract ${category}.${name} not found for ${net}. Set ${category.toUpperCase()}_${toEnvKey(name)} or add to contracts.json`);
+  }
+  return address;
 }
 
 /** Get constant contract address (EntryPoint, L2Messenger, etc.) */
@@ -215,10 +179,18 @@ export function getExternalContract(
 ): string {
   const contracts = loadContracts();
   const chainContracts = contracts.external[chain];
-  if (!chainContracts) return '';
+  if (!chainContracts) {
+    throw new Error(`External chain ${chain} not configured in contracts.json`);
+  }
   const categoryContracts = chainContracts[category as keyof typeof chainContracts];
-  if (!categoryContracts || typeof categoryContracts !== 'object') return '';
-  return (categoryContracts as Record<string, string>)[name] || '';
+  if (!categoryContracts || typeof categoryContracts !== 'object') {
+    throw new Error(`Category ${category} not configured for external chain ${chain}`);
+  }
+  const address = (categoryContracts as Record<string, string>)[name];
+  if (!address) {
+    throw new Error(`Contract ${name} not found in external.${chain}.${category}`);
+  }
+  return address;
 }
 
 // ============================================================================
@@ -232,29 +204,31 @@ export interface PoCConfig {
   chainId: number;
 }
 
-// Fallback RPC URLs for when Jeju's node is unavailable
-const FALLBACK_RPCS: Record<string, string> = {
-  baseSepolia: 'https://sepolia.base.org',
-  base: 'https://mainnet.base.org',
-};
-
 /** Get PoC configuration for the default chain (Base Sepolia for testnet) */
 export function getPoCConfig(network?: NetworkType): PoCConfig {
-  const net = network || getCurrentNetwork();
+  const net = network ?? getCurrentNetwork();
   const chain = net === 'mainnet' ? 'base' : 'baseSepolia';
   const contracts = loadContracts();
   const chainConfig = contracts.external[chain];
   
-  const pocContracts = chainConfig?.poc as Record<string, string> | undefined;
+  if (!chainConfig) {
+    throw new Error(`External chain ${chain} not configured for PoC on ${net}`);
+  }
   
-  // Use Jeju's RPC if available, otherwise fall back to public endpoint
-  const rpcUrl = chainConfig?.rpcUrl || FALLBACK_RPCS[chain] || '';
+  const pocContracts = chainConfig.poc as Record<string, string> | undefined;
+  if (!pocContracts) {
+    throw new Error(`PoC contracts not configured for ${chain}`);
+  }
+  
+  if (!chainConfig.rpcUrl) {
+    throw new Error(`RPC URL not configured for ${chain}`);
+  }
   
   return {
-    validatorAddress: pocContracts?.validator || '',
-    identityRegistryAddress: pocContracts?.identityRegistry || '',
-    rpcUrl,
-    chainId: chainConfig?.chainId || 0,
+    validatorAddress: pocContracts.validator,
+    identityRegistryAddress: pocContracts.identityRegistry,
+    rpcUrl: chainConfig.rpcUrl,
+    chainId: chainConfig.chainId,
   };
 }
 
@@ -276,14 +250,28 @@ export function getPoCRpcUrl(network?: NetworkType): string {
 /** Get external chain RPC URL */
 export function getExternalRpc(chain: string): string {
   const envKey = `${chain.toUpperCase()}_RPC_URL`;
-  if (process.env[envKey]) return process.env[envKey]!;
-  return loadContracts().external[chain]?.rpcUrl || '';
+  const envValue = process.env[envKey];
+  if (envValue) return envValue;
+  
+  const contracts = loadContracts();
+  const chainConfig = contracts.external[chain];
+  if (!chainConfig) {
+    throw new Error(`External chain ${chain} not configured. Set ${envKey} or add to contracts.json`);
+  }
+  if (!chainConfig.rpcUrl) {
+    throw new Error(`RPC URL not configured for external chain ${chain}`);
+  }
+  return chainConfig.rpcUrl;
 }
 
 /** Get all contracts for current network */
 export function getContractsConfig(network?: NetworkType): NetworkContracts {
-  const net = network || getCurrentNetwork();
-  return loadContracts()[net as keyof Pick<ContractsConfig, 'localnet' | 'testnet' | 'mainnet'>];
+  const net = network ?? getCurrentNetwork();
+  const contracts = loadContracts()[net as keyof Pick<ContractsConfig, 'localnet' | 'testnet' | 'mainnet'>];
+  if (!contracts) {
+    throw new Error(`No contracts configured for network: ${net}`);
+  }
+  return contracts;
 }
 
 // ============================================================================
@@ -301,68 +289,68 @@ function getEnvService(key: string): string | undefined {
 }
 
 /** Get services config with env overrides */
-export function getServicesConfig(network?: NetworkType): ServicesConfig {
-  const net = network || getCurrentNetwork();
+export function getServicesConfig(network?: NetworkType): ServicesNetworkConfig {
+  const net = network ?? getCurrentNetwork();
   const config = loadServices()[net];
   
   return {
     ...config,
     rpc: {
-      l1: getEnvService('JEJU_L1_RPC_URL') || getEnvService('L1_RPC_URL') || config.rpc.l1,
-      l2: getEnvService('JEJU_RPC_URL') || getEnvService('RPC_URL') || config.rpc.l2,
-      ws: getEnvService('JEJU_WS_URL') || getEnvService('WS_URL') || config.rpc.ws,
+      l1: getEnvService('JEJU_L1_RPC_URL') ?? getEnvService('L1_RPC_URL') ?? config.rpc.l1,
+      l2: getEnvService('JEJU_RPC_URL') ?? getEnvService('RPC_URL') ?? config.rpc.l2,
+      ws: getEnvService('JEJU_WS_URL') ?? getEnvService('WS_URL') ?? config.rpc.ws,
     },
-    explorer: getEnvService('JEJU_EXPLORER_URL') || config.explorer,
+    explorer: getEnvService('JEJU_EXPLORER_URL') ?? config.explorer,
     indexer: {
-      graphql: getEnvService('INDEXER_URL') || getEnvService('INDEXER_GRAPHQL_URL') || config.indexer.graphql,
-      websocket: getEnvService('INDEXER_WS_URL') || config.indexer.websocket,
+      graphql: getEnvService('INDEXER_URL') ?? getEnvService('INDEXER_GRAPHQL_URL') ?? config.indexer.graphql,
+      websocket: getEnvService('INDEXER_WS_URL') ?? config.indexer.websocket,
     },
     gateway: {
-      ui: getEnvService('GATEWAY_URL') || config.gateway.ui,
-      api: getEnvService('GATEWAY_API_URL') || config.gateway.api,
-      a2a: getEnvService('GATEWAY_A2A_URL') || config.gateway.a2a,
-      mcp: getEnvService('GATEWAY_MCP_URL') || config.gateway.mcp,
-      ws: getEnvService('GATEWAY_WS_URL') || config.gateway.ws,
+      ui: getEnvService('GATEWAY_URL') ?? config.gateway.ui,
+      api: getEnvService('GATEWAY_API_URL') ?? config.gateway.api,
+      a2a: getEnvService('GATEWAY_A2A_URL') ?? config.gateway.a2a,
+      mcp: getEnvService('GATEWAY_MCP_URL') ?? config.gateway.mcp,
+      ws: getEnvService('GATEWAY_WS_URL') ?? config.gateway.ws,
     },
-    rpcGateway: getEnvService('RPC_GATEWAY_URL') || config.rpcGateway,
-    bazaar: getEnvService('BAZAAR_URL') || config.bazaar,
+    rpcGateway: getEnvService('RPC_GATEWAY_URL') ?? config.rpcGateway,
+    bazaar: getEnvService('BAZAAR_URL') ?? config.bazaar,
     storage: {
-      api: getEnvService('STORAGE_API_URL') || getEnvService('JEJU_IPFS_API') || config.storage.api,
-      ipfsGateway: getEnvService('IPFS_GATEWAY_URL') || getEnvService('JEJU_IPFS_GATEWAY') || config.storage.ipfsGateway,
+      api: getEnvService('STORAGE_API_URL') ?? getEnvService('JEJU_IPFS_API') ?? config.storage.api,
+      ipfsGateway: getEnvService('IPFS_GATEWAY_URL') ?? getEnvService('JEJU_IPFS_GATEWAY') ?? config.storage.ipfsGateway,
     },
     compute: {
-      marketplace: getEnvService('COMPUTE_URL') || config.compute.marketplace,
-      nodeApi: getEnvService('COMPUTE_API_URL') || config.compute.nodeApi,
+      marketplace: getEnvService('COMPUTE_URL') ?? config.compute.marketplace,
+      nodeApi: getEnvService('COMPUTE_API_URL') ?? config.compute.nodeApi,
     },
     oif: {
-      aggregator: getEnvService('OIF_AGGREGATOR_URL') || config.oif.aggregator,
+      aggregator: getEnvService('OIF_AGGREGATOR_URL') ?? config.oif.aggregator,
     },
     leaderboard: {
-      api: getEnvService('LEADERBOARD_API_URL') || config.leaderboard.api,
-      ui: getEnvService('LEADERBOARD_URL') || config.leaderboard.ui,
+      api: getEnvService('LEADERBOARD_API_URL') ?? config.leaderboard.api,
+      ui: getEnvService('LEADERBOARD_URL') ?? config.leaderboard.ui,
     },
     monitoring: config.monitoring,
     crucible: config.crucible,
     cql: {
-      blockProducer: getEnvService('CQL_BLOCK_PRODUCER_ENDPOINT') || getEnvService('CQL_URL') || config.cql.blockProducer,
-      miner: getEnvService('CQL_MINER_ENDPOINT') || config.cql.miner,
+      blockProducer: getEnvService('CQL_BLOCK_PRODUCER_ENDPOINT') ?? getEnvService('CQL_URL') ?? config.cql.blockProducer,
+      miner: getEnvService('CQL_MINER_ENDPOINT') ?? config.cql.miner,
     },
     dws: {
-      api: getEnvService('DWS_URL') || getEnvService('DWS_API_URL') || config.dws.api,
-      compute: getEnvService('DWS_COMPUTE_URL') || config.dws.compute,
+      api: getEnvService('DWS_URL') ?? getEnvService('DWS_API_URL') ?? config.dws.api,
+      compute: getEnvService('DWS_COMPUTE_URL') ?? config.dws.compute,
     },
     autocrat: {
-      api: getEnvService('AUTOCRAT_URL') || getEnvService('AUTOCRAT_API_URL') || config.autocrat.api,
-      a2a: getEnvService('AUTOCRAT_A2A_URL') || config.autocrat.a2a,
+      api: getEnvService('AUTOCRAT_URL') ?? getEnvService('AUTOCRAT_API_URL') ?? config.autocrat.api,
+      a2a: getEnvService('AUTOCRAT_A2A_URL') ?? config.autocrat.a2a,
     },
     kms: {
-      api: getEnvService('KMS_URL') || getEnvService('KMS_API_URL') || config.kms.api,
-      mpc: getEnvService('KMS_MPC_URL') || config.kms.mpc,
+      api: getEnvService('KMS_URL') ?? getEnvService('KMS_API_URL') ?? config.kms.api,
+      mpc: getEnvService('KMS_MPC_URL') ?? config.kms.mpc,
     },
     factory: {
-      ui: getEnvService('FACTORY_URL') || config.factory?.ui || 'http://127.0.0.1:4009',
-      api: getEnvService('FACTORY_API_URL') || config.factory?.api || 'http://127.0.0.1:4009',
-      mcp: getEnvService('FACTORY_MCP_URL') || config.factory?.mcp || 'http://127.0.0.1:4009/api/mcp',
+      ui: getEnvService('FACTORY_URL') ?? config.factory.ui,
+      api: getEnvService('FACTORY_API_URL') ?? config.factory.api,
+      mcp: getEnvService('FACTORY_MCP_URL') ?? config.factory.mcp,
     },
   };
 }
@@ -381,15 +369,31 @@ export function getServiceUrl(
   if (service === 'explorer') return config.explorer;
   
   if (service === 'rpc') {
-    return subService === 'l1' ? config.rpc.l1 : subService === 'ws' ? config.rpc.ws : config.rpc.l2;
+    if (subService === 'l1') return config.rpc.l1;
+    if (subService === 'ws') return config.rpc.ws;
+    return config.rpc.l2;
   }
   
   const svc = config[service];
   if (typeof svc === 'string') return svc;
-  if (subService && typeof svc === 'object') return (svc as Record<string, string>)[subService] || '';
-  // Return first value if no subservice specified
-  if (typeof svc === 'object') return Object.values(svc)[0] || '';
-  return '';
+  
+  if (typeof svc === 'object') {
+    if (subService) {
+      const url = (svc as Record<string, string>)[subService];
+      if (!url) {
+        throw new Error(`Service ${service}.${subService} not configured`);
+      }
+      return url;
+    }
+    // Return first value if no subservice specified
+    const values = Object.values(svc);
+    if (values.length === 0) {
+      throw new Error(`Service ${service} has no URLs configured`);
+    }
+    return values[0] as string;
+  }
+  
+  throw new Error(`Service ${service} not configured`);
 }
 
 // ============================================================================
@@ -477,19 +481,22 @@ export function getBridgeContractAddress(
 // Config
 // ============================================================================
 
+// Alias for backwards compatibility
+export type ServicesConfig = ServicesNetworkConfig;
+
 export interface NetworkConfig {
   network: NetworkType;
   chain: ChainConfig;
-  services: ServicesConfig;
+  services: ServicesNetworkConfig;
   contracts: NetworkContracts;
 }
 
 /** Get full config for current network */
 export function getConfig(network?: NetworkType): NetworkConfig {
-  const net = network || getCurrentNetwork();
+  const net = network ?? getCurrentNetwork();
   return {
     network: net,
-    chain: getChainConfig(net),
+    chain: _getChainConfig(net),
     services: getServicesConfig(net),
     contracts: getContractsConfig(net),
   };
@@ -504,7 +511,7 @@ export function getConfig(network?: NetworkType): NetworkConfig {
  * Returns addresses with env override support for VITE_ and NEXT_PUBLIC_
  */
 export function getFrontendContracts(network?: NetworkType) {
-  const net = network || getCurrentNetwork();
+  const net = network ?? getCurrentNetwork();
   return {
     // Tokens
     jeju: getContract('tokens', 'jeju', net),
@@ -585,49 +592,23 @@ export function getFrontendServices(network?: NetworkType) {
 // EIL (Cross-Chain Liquidity)
 // ============================================================================
 
-export interface EILChainConfig {
-  chainId: number;
-  name: string;
-  rpcUrl: string;
-  crossChainPaymaster: string;
-  l1StakeManager?: string;
-  status: 'active' | 'planned';
-  tokens: Record<string, string>;
-}
-
-export interface EILNetworkConfig {
-  hub: {
-    chainId: number;
-    name: string;
-    rpcUrl: string;
-    l1StakeManager: string;
-    crossChainPaymaster: string;
-    status: 'active' | 'planned';
-  };
-  chains: Record<string, EILChainConfig>;
-}
-
-export interface EILConfig {
-  version: string;
-  entryPoint: string;
-  l2Messenger: string;
-  supportedTokens: string[];
-  localnet: EILNetworkConfig;
-  testnet: EILNetworkConfig;
-  mainnet: EILNetworkConfig;
-}
-
 let eilCache: EILConfig | null = null;
 
 function loadEILConfig(): EILConfig {
-  if (!eilCache) eilCache = loadJson<EILConfig>('eil.json');
+  if (!eilCache) {
+    eilCache = EILConfigSchema.parse(loadJsonRaw('eil.json'));
+  }
   return eilCache;
 }
 
 /** Get EIL config for a network */
 export function getEILConfig(network?: NetworkType): EILNetworkConfig {
-  const net = network || getCurrentNetwork();
-  return loadEILConfig()[net];
+  const net = network ?? getCurrentNetwork();
+  const config = loadEILConfig()[net];
+  if (!config) {
+    throw new Error(`EIL config not found for network: ${net}`);
+  }
+  return config;
 }
 
 /** Get all supported EIL chains for a network */
@@ -661,7 +642,13 @@ export function getCrossChainPaymaster(chainNameOrId: string | number, network?:
   const chain = typeof chainNameOrId === 'number' 
     ? getEILChainById(chainNameOrId, network)
     : getEILChain(chainNameOrId, network);
-  return chain?.crossChainPaymaster || '';
+  if (!chain) {
+    throw new Error(`EIL chain ${chainNameOrId} not configured`);
+  }
+  if (!chain.crossChainPaymaster) {
+    throw new Error(`Cross-chain paymaster not configured for chain ${chainNameOrId}`);
+  }
+  return chain.crossChainPaymaster;
 }
 
 /** Get supported token address on a specific chain */
@@ -669,75 +656,31 @@ export function getEILToken(chainNameOrId: string | number, tokenSymbol: string,
   const chain = typeof chainNameOrId === 'number'
     ? getEILChainById(chainNameOrId, network)
     : getEILChain(chainNameOrId, network);
-  return chain?.tokens[tokenSymbol] || '';
+  if (!chain) {
+    throw new Error(`EIL chain ${chainNameOrId} not configured`);
+  }
+  const token = chain.tokens[tokenSymbol];
+  if (!token) {
+    throw new Error(`Token ${tokenSymbol} not configured for EIL chain ${chainNameOrId}`);
+  }
+  return token;
 }
 
 // ============================================================================
 // Vendor Apps (for setup scripts)
 // ============================================================================
 
-export interface VendorAppConfig {
-  name: string;
-  url: string;
-  path: string;
-  description?: string;
-  private: boolean;
-  optional: boolean;
-  branch: string;
-}
-
 export function loadVendorAppsConfig(): { apps: VendorAppConfig[] } {
-  return loadJson<{ apps: VendorAppConfig[] }>('vendor-apps.json');
+  return VendorAppsConfigSchema.parse(loadJsonRaw('vendor-apps.json'));
 }
 
 // ============================================================================
 // Testnet Config (quick access)
 // ============================================================================
 
-export interface TestnetConfig {
-  network: string;
-  version: string;
-  jeju: {
-    chainId: number;
-    networkName: string;
-    currency: { name: string; symbol: string; decimals: number };
-    rpc: { http: string; ws: string; internal: string };
-    explorer: string;
-    blockTime: number;
-  };
-  l1: {
-    chainId: number;
-    networkName: string;
-    rpc: { http: string; fallback: string[]; beacon: string; internal: string };
-  };
-  api: {
-    gateway: string;
-    bundler: string;
-    indexer: string;
-    faucet: string;
-  };
-  contracts: {
-    jeju: Record<string, string>;
-    sepolia: Record<string, string>;
-  };
-  supportedChains: Record<string, {
-    name: string;
-    rpc: string;
-    explorer: string;
-    crossChainPaymaster: string;
-  }>;
-  deployer: { address: string };
-  infrastructure: {
-    domain: string;
-    aws: { region: string; eksCluster: string; route53Zone: string; acmCertificate: string };
-    dns: Record<string, string>;
-    nameservers: string[];
-  };
-}
-
 /** Load the full testnet configuration */
 export function getTestnetConfig(): TestnetConfig {
-  return loadJson<TestnetConfig>('testnet.json');
+  return TestnetConfigSchema.parse(loadJsonRaw('testnet.json'));
 }
 
 /** Get the testnet RPC URL */
@@ -764,79 +707,18 @@ export function getTestnetChainIds(): number[] {
 // Federation Config
 // ============================================================================
 
-export interface FederationHubConfig {
-  chainId: number;
-  name: string;
-  rpcUrl: string;
-  networkRegistryAddress: string;
-  status: 'active' | 'pending' | 'planned';
-}
-
-export interface FederationNetworkConfig {
-  chainId: number;
-  name: string;
-  rpcUrl: string;
-  explorerUrl: string;
-  wsUrl: string;
-  contracts: {
-    identityRegistry: string;
-    solverRegistry: string;
-    inputSettler: string;
-    outputSettler: string;
-    liquidityVault: string;
-    governance: string;
-    oracle: string;
-    federatedIdentity: string;
-    federatedSolver: string;
-    federatedLiquidity: string;
-  };
-  isOrigin: boolean;
-  status: 'active' | 'pending' | 'planned';
-}
-
-export interface FederationFullConfig {
-  version: string;
-  hub: {
-    testnet: FederationHubConfig;
-    mainnet: FederationHubConfig;
-  };
-  networks: Record<string, FederationNetworkConfig>;
-  trustConfig: {
-    defaultTrust: string;
-    trustLevels: Record<string, number>;
-    requiredStakeETH: Record<string, string>;
-  };
-  crossChain: {
-    supportedOracles: string[];
-    defaultOracle: string;
-    superchainConfig: {
-      crossL2InboxAddress: string;
-      l2ToL2MessengerAddress: string;
-    };
-  };
-  discovery: {
-    endpoints: string[];
-    refreshIntervalSeconds: number;
-    cacheEnabled: boolean;
-  };
-  governance: {
-    networkVerificationQuorum: number;
-    trustEstablishmentDelay: number;
-    slashingEnabled: boolean;
-    slashingPercentBps: number;
-  };
-}
-
 let federationCache: FederationFullConfig | null = null;
 
 function loadFederationConfig(): FederationFullConfig {
-  if (!federationCache) federationCache = loadJson<FederationFullConfig>('federation.json');
+  if (!federationCache) {
+    federationCache = FederationFullConfigSchema.parse(loadJsonRaw('federation.json'));
+  }
   return federationCache;
 }
 
 /** Get federation hub config for current network type */
 export function getFederationHub(network?: NetworkType): FederationHubConfig {
-  const net = network || getCurrentNetwork();
+  const net = network ?? getCurrentNetwork();
   const config = loadFederationConfig();
   return net === 'mainnet' ? config.hub.mainnet : config.hub.testnet;
 }
@@ -894,15 +776,6 @@ export {
   generateForkBranding,
   setConfigPath,
   clearBrandingCache,
-  type BrandingConfig,
-  type ChainBranding,
-  type TokenBranding,
-  type UrlsBranding,
-  type VisualBranding,
-  type FeaturesBranding,
-  type LegalBranding,
-  type SupportBranding,
-  type CliBranding,
 } from './branding';
 
 // ============================================================================
@@ -919,10 +792,9 @@ export {
   validateSecrets,
   getActiveProvider,
   initSecretsDirectory,
-  type SecretName,
-  type SecretProvider,
-  type SecretResult,
 } from './secrets';
+
+export type { SecretName, SecretProvider, SecretResult } from './secrets';
 
 export {
   getApiKey,
@@ -936,12 +808,9 @@ export {
   getAIProviderKeys,
   hasAnyAIProvider,
   generateApiKeyDocs,
-  type ApiKeyName,
-  type ApiKeyConfig,
-  type ApiKeyStatus,
-  type BlockExplorerKeys,
-  type AIProviderKeys,
 } from './api-keys';
+
+export type { ApiKeyName, ApiKeyConfig, ApiKeyStatus, BlockExplorerKeys, AIProviderKeys } from './api-keys';
 
 // ============================================================================
 // Test Keys
@@ -966,11 +835,8 @@ export {
   getRoleDescription,
   printKeys,
   SOLANA_ROLE_PATHS,
-  type KeyRole,
-  type KeyPair,
   type TestKeySet,
   type RoleConfig,
-  type SolanaKeyPair,
   type ChainBalance,
 } from './test-keys';
 
@@ -994,5 +860,4 @@ export {
   validateConfig,
   printConfigSummary,
   type DeploymentArtifact,
-  type ContractCategoryKey,
 } from './update';

@@ -12,6 +12,19 @@ import { getChainStatus, bootstrapContracts } from '../lib/chain';
 import { createInfrastructureService } from '../services/infrastructure';
 import { findMonorepoRoot } from '../lib/system';
 import { DEFAULT_PORTS } from '../types';
+import { 
+  validate, 
+  ServiceHealthResponseSchema, 
+  UploadResponseSchema,
+  RepoListResponseSchema,
+  RepoSchema,
+  CreateRepoResponseSchema,
+  PackageSearchResultSchema,
+  PackageInfoSchema,
+  WorkflowListResponseSchema,
+  CIRunListResponseSchema,
+  CIRunSchema,
+} from '../schemas';
 import type { Address } from 'viem';
 
 const DWS_PORT = parseInt(process.env.DWS_PORT || '4030');
@@ -198,42 +211,33 @@ async function checkStatus(): Promise<void> {
     });
 
     if (response.ok) {
-      const health = (await response.json()) as {
-        status: string;
-        service: string;
-        version: string;
-        uptime: number;
-        decentralized?: {
-          identityRegistry: string;
-          registeredNodes: number;
-          connectedPeers: number;
-          frontendCid: string;
-          p2pEnabled: boolean;
-        };
-        services: Record<string, { status: string }>;
-        backends: { available: string[]; health: Record<string, boolean> };
-      };
+      const rawData = await response.json();
+      const health = validate(rawData, ServiceHealthResponseSchema, 'DWS health');
 
       logger.newline();
       logger.subheader('DWS Server');
       logger.table([
         { label: 'Status', value: health.status, status: health.status === 'healthy' ? 'ok' : 'error' },
-        { label: 'Version', value: health.version, status: 'ok' },
-        { label: 'Uptime', value: `${Math.floor(health.uptime / 1000)}s`, status: 'ok' },
+        { label: 'Version', value: health.version ?? 'unknown', status: 'ok' },
+        { label: 'Uptime', value: health.uptime ? `${Math.floor(health.uptime / 1000)}s` : 'unknown', status: 'ok' },
       ]);
 
       logger.newline();
       logger.subheader('Services');
-      for (const [name, svc] of Object.entries(health.services)) {
-        const status = svc.status === 'healthy' ? 'ok' : svc.status === 'not-configured' ? 'warn' : 'error';
-        logger.table([{ label: name, value: svc.status, status }]);
+      if (health.services) {
+        for (const [name, svc] of Object.entries(health.services)) {
+          const status = svc.status === 'healthy' ? 'ok' : svc.status === 'not-configured' ? 'warn' : 'error';
+          logger.table([{ label: name, value: svc.status, status }]);
+        }
       }
 
-      logger.newline();
-      logger.subheader('Storage Backends');
-      for (const backend of health.backends.available) {
-        const healthy = health.backends.health[backend];
-        logger.table([{ label: backend, value: healthy ? 'healthy' : 'unhealthy', status: healthy ? 'ok' : 'error' }]);
+      if (health.backends) {
+        logger.newline();
+        logger.subheader('Storage Backends');
+        for (const backend of health.backends.available) {
+          const healthy = health.backends.health[backend];
+          logger.table([{ label: backend, value: healthy ? 'healthy' : 'unhealthy', status: healthy ? 'ok' : 'error' }]);
+        }
       }
 
       if (health.decentralized) {
@@ -431,10 +435,11 @@ async function uploadFile(filePath: string): Promise<void> {
       throw new Error(error);
     }
 
-    const result = (await response.json()) as { cid: string; backend: string; size: number };
+    const rawResult = await response.json();
+    const result = validate(rawResult, UploadResponseSchema, 'upload response');
     logger.success('Upload complete');
     logger.keyValue('CID', result.cid);
-    logger.keyValue('Backend', result.backend);
+    if (result.backend) logger.keyValue('Backend', result.backend);
     logger.newline();
     logger.info(`Download with: jeju dws download ${result.cid}`);
   } catch (error) {
@@ -493,18 +498,8 @@ async function listRepos(options: { user?: string; limit: string }): Promise<voi
 
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-    const data = (await response.json()) as {
-      repositories: Array<{
-        repoId: string;
-        owner: string;
-        name: string;
-        description: string;
-        visibility: string;
-        starCount: number;
-        cloneUrl: string;
-      }>;
-      total?: number;
-    };
+    const rawData = await response.json();
+    const data = validate(rawData, RepoListResponseSchema, 'repo list response');
 
     if (data.repositories.length === 0) {
       logger.info('No repositories found');
@@ -517,7 +512,7 @@ async function listRepos(options: { user?: string; limit: string }): Promise<voi
       const visibility = repo.visibility === 'private' ? '🔒' : '📦';
       console.log(`  ${visibility} ${repo.owner.slice(0, 8)}.../${repo.name}`);
       if (repo.description) console.log(`     ${repo.description}`);
-      console.log(`     ⭐ ${repo.starCount} | Clone: ${repo.cloneUrl}`);
+      console.log(`     ⭐ ${repo.starCount ?? 0}${repo.cloneUrl ? ` | Clone: ${repo.cloneUrl}` : ''}`);
       console.log('');
     }
   } catch (error) {
@@ -543,33 +538,21 @@ async function getRepo(owner: string, name: string): Promise<void> {
       process.exit(1);
     }
 
-    const repo = (await response.json()) as {
-      repoId: string;
-      owner: string;
-      name: string;
-      description: string;
-      visibility: string;
-      starCount: number;
-      forkCount: number;
-      createdAt: number;
-      updatedAt: number;
-      defaultBranch: string;
-      branches: Array<{ name: string; tipCommit: string; protected: boolean }>;
-      cloneUrl: string;
-    };
+    const rawRepo = await response.json();
+    const repo = validate(rawRepo, RepoSchema, 'repo details');
 
     logger.header('REPOSITORY DETAILS');
     logger.keyValue('Name', `${repo.owner.slice(0, 10)}.../${repo.name}`);
     logger.keyValue('ID', repo.repoId);
-    logger.keyValue('Visibility', repo.visibility);
+    if (repo.visibility) logger.keyValue('Visibility', repo.visibility);
     if (repo.description) logger.keyValue('Description', repo.description);
-    logger.keyValue('Stars', String(repo.starCount));
-    logger.keyValue('Forks', String(repo.forkCount));
-    logger.keyValue('Default Branch', repo.defaultBranch);
-    logger.keyValue('Created', new Date(repo.createdAt * 1000).toISOString());
-    logger.keyValue('Clone URL', repo.cloneUrl);
+    if (repo.starCount !== undefined) logger.keyValue('Stars', String(repo.starCount));
+    if (repo.forkCount !== undefined) logger.keyValue('Forks', String(repo.forkCount));
+    if (repo.defaultBranch) logger.keyValue('Default Branch', repo.defaultBranch);
+    if (repo.createdAt) logger.keyValue('Created', new Date(repo.createdAt * 1000).toISOString());
+    if (repo.cloneUrl) logger.keyValue('Clone URL', repo.cloneUrl);
 
-    if (repo.branches.length > 0) {
+    if (repo.branches && repo.branches.length > 0) {
       logger.newline();
       logger.subheader('Branches');
       for (const branch of repo.branches) {
@@ -619,7 +602,8 @@ async function createRepo(
       throw new Error(error);
     }
 
-    const result = (await response.json()) as { repoId: string; cloneUrl: string };
+    const rawResult = await response.json();
+    const result = validate(rawResult, CreateRepoResponseSchema, 'create repo response');
     logger.success('Repository created');
     logger.keyValue('Repo ID', result.repoId);
     logger.keyValue('Clone URL', result.cloneUrl);
@@ -647,18 +631,8 @@ async function searchPackages(query: string, options: { limit: string }): Promis
 
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-    const data = (await response.json()) as {
-      objects: Array<{
-        package: {
-          name: string;
-          scope?: string;
-          version: string;
-          description: string;
-          publisher: { username: string };
-        };
-      }>;
-      total: number;
-    };
+    const rawData = await response.json();
+    const data = validate(rawData, PackageSearchResultSchema, 'package search result');
 
     if (data.objects.length === 0) {
       logger.info('No packages found');
@@ -698,13 +672,8 @@ async function getPackageInfo(name: string): Promise<void> {
       process.exit(1);
     }
 
-    const pkg = (await response.json()) as {
-      name: string;
-      description?: string;
-      'dist-tags'?: Record<string, string>;
-      versions: Record<string, { version: string; description?: string }>;
-      time?: Record<string, string>;
-    };
+    const rawPkg = await response.json();
+    const pkg = validate(rawPkg, PackageInfoSchema, 'package info');
 
     logger.header('PACKAGE INFO');
     logger.keyValue('Name', pkg.name);
@@ -744,16 +713,8 @@ async function listWorkflows(repoId: string): Promise<void> {
 
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-    const data = (await response.json()) as {
-      workflows: Array<{
-        workflowId: string;
-        name: string;
-        description: string;
-        triggers: string[];
-        jobs: Array<{ name: string; stepCount: number }>;
-        active: boolean;
-      }>;
-    };
+    const rawData = await response.json();
+    const data = validate(rawData, WorkflowListResponseSchema, 'workflow list');
 
     if (data.workflows.length === 0) {
       logger.info('No workflows found');
@@ -792,20 +753,8 @@ async function listRuns(repoId: string, options: { status?: string; limit: strin
 
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-    const data = (await response.json()) as {
-      runs: Array<{
-        runId: string;
-        workflowId: string;
-        status: string;
-        conclusion: string | null;
-        branch: string;
-        commitSha: string;
-        startedAt: number;
-        completedAt: number | null;
-        duration: number;
-      }>;
-      total: number;
-    };
+    const rawData = await response.json();
+    const data = validate(rawData, CIRunListResponseSchema, 'CI run list');
 
     if (data.runs.length === 0) {
       logger.info('No runs found');
@@ -822,7 +771,7 @@ async function listRuns(repoId: string, options: { status?: string; limit: strin
       console.log(`  ${statusIcon} ${run.runId.slice(0, 8)}...`);
       console.log(`     Branch: ${run.branch} @ ${run.commitSha}`);
       console.log(`     Status: ${run.status}${run.conclusion ? ` (${run.conclusion})` : ''}`);
-      console.log(`     Duration: ${Math.round(run.duration / 1000)}s`);
+      if (run.duration !== undefined) console.log(`     Duration: ${Math.round(run.duration / 1000)}s`);
       console.log('');
     }
   } catch (error) {
@@ -848,31 +797,8 @@ async function getRunDetails(runId: string): Promise<void> {
       process.exit(1);
     }
 
-    const run = (await response.json()) as {
-      runId: string;
-      workflowId: string;
-      repoId: string;
-      status: string;
-      conclusion: string | null;
-      branch: string;
-      commitSha: string;
-      triggeredBy: string;
-      startedAt: number;
-      completedAt: number | null;
-      jobs: Array<{
-        jobId: string;
-        name: string;
-        status: string;
-        conclusion: string | null;
-        steps: Array<{
-          stepId: string;
-          name: string;
-          status: string;
-          conclusion: string | null;
-          exitCode: number | null;
-        }>;
-      }>;
-    };
+    const rawRun = await response.json();
+    const run = validate(rawRun, CIRunSchema, 'CI run details');
 
     logger.header('RUN DETAILS');
     logger.keyValue('Run ID', run.runId);
@@ -881,11 +807,11 @@ async function getRunDetails(runId: string): Promise<void> {
     if (run.conclusion) logger.keyValue('Conclusion', run.conclusion);
     logger.keyValue('Branch', run.branch);
     logger.keyValue('Commit', run.commitSha);
-    logger.keyValue('Triggered By', run.triggeredBy);
+    if (run.triggeredBy) logger.keyValue('Triggered By', run.triggeredBy);
     logger.keyValue('Started', new Date(run.startedAt).toISOString());
     if (run.completedAt) logger.keyValue('Completed', new Date(run.completedAt).toISOString());
 
-    if (run.jobs.length > 0) {
+    if (run.jobs && run.jobs.length > 0) {
       logger.newline();
       logger.subheader('Jobs');
       for (const job of run.jobs) {

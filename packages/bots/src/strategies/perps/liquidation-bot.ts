@@ -14,6 +14,8 @@ import {
 } from 'viem';
 import { OracleAggregator } from '../../oracles';
 import type { EVMChainId } from '../../types';
+import { sleep } from '../../shared';
+import { IndexerPositionsResponseSchema } from '../../schemas';
 
 export interface LiquidationBotConfig {
   chainId: EVMChainId;
@@ -133,33 +135,18 @@ export class LiquidationBot {
     });
 
     if (!response.ok) {
-      console.error(`Indexer request failed: ${response.status}`);
-      return;
+      throw new Error(`Indexer request failed: ${response.status}`);
     }
 
-    const json = await response.json() as { 
-      data?: { positions: Array<{
-        positionId: string;
-        trader: string;
-        marketId: string;
-        side: string;
-        size: string;
-        margin: string;
-        entryPrice: string;
-        liquidationPrice: string;
-        lastUpdateTime: number;
-      }> };
-      errors?: Array<{ message: string }>;
-    };
+    const rawJson: unknown = await response.json();
+    const json = IndexerPositionsResponseSchema.parse(rawJson);
 
-    if (json.errors?.length) {
-      console.error(`Indexer error: ${json.errors[0].message}`);
-      return;
+    if (json.errors && json.errors.length > 0) {
+      throw new Error(`Indexer error: ${json.errors[0].message}`);
     }
 
-    if (!json.data?.positions) {
-      console.warn('No positions returned from indexer');
-      return;
+    if (!json.data || !json.data.positions) {
+      throw new Error('Indexer returned no position data');
     }
 
     // Update cache
@@ -179,7 +166,6 @@ export class LiquidationBot {
     }
 
     this.lastIndexerSync = Date.now();
-    console.log(`Synced ${this.positionCache.size} positions from indexer`);
   }
 
   private async tick(): Promise<void> {
@@ -267,7 +253,7 @@ export class LiquidationBot {
     }
   }
 
-  getStats() {
+  getStats(): { executed: number; rewards: string; failed: number; monitored: number; lastSync: string } {
     return {
       executed: this.stats.executed,
       rewards: formatUnits(this.stats.rewards, 18),
@@ -277,5 +263,3 @@ export class LiquidationBot {
     };
   }
 }
-
-const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));

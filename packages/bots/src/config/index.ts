@@ -7,14 +7,20 @@
 
 import type { EVMChainId, TFMMRiskParameters, FeeConfig } from '../types';
 
+// Re-export validated types from schemas
+export type {
+  MomentumStrategyConfig,
+  MeanReversionStrategyConfig,
+  VolatilityStrategyConfig,
+  CompositeStrategyConfig,
+  CrossChainArbConfigValidated,
+} from '../schemas';
+
 // ============ Environment Loading ============
 
-function getEnv(key: string, defaultValue?: string): string {
+function getEnvWithDefault(key: string, defaultValue: string): string {
   const value = process.env[key];
-  if (value === undefined && defaultValue === undefined) {
-    throw new Error(`Missing required environment variable: ${key}`);
-  }
-  return value ?? defaultValue!;
+  return value !== undefined ? value : defaultValue;
 }
 
 function getEnvNumber(key: string, defaultValue: number): number {
@@ -37,7 +43,7 @@ export interface ChainRpcConfig {
   blockTimeMs: number;
 }
 
-export const CHAIN_CONFIGS: Record<EVMChainId, Omit<ChainRpcConfig, 'rpcUrl' | 'wsUrl'>> = {
+export const CHAIN_CONFIGS: Partial<Record<EVMChainId, Omit<ChainRpcConfig, 'rpcUrl' | 'wsUrl'>>> = {
   1: { chainId: 1, blockTimeMs: 12000 },
   8453: { chainId: 8453, blockTimeMs: 2000 },
   42161: { chainId: 42161, blockTimeMs: 250 },
@@ -52,12 +58,16 @@ export const CHAIN_CONFIGS: Record<EVMChainId, Omit<ChainRpcConfig, 'rpcUrl' | '
 
 export function getChainConfig(chainId: EVMChainId): ChainRpcConfig {
   const base = CHAIN_CONFIGS[chainId];
+  if (!base) {
+    throw new Error(`No configuration for chain ${chainId}`);
+  }
   const rpcEnvKey = `${chainId === 1 ? 'ETH' : chainId === 8453 ? 'BASE' : chainId === 42161 ? 'ARB' : chainId === 10 ? 'OP' : chainId === 56 ? 'BSC' : 'RPC'}_RPC_URL`;
+  const wsEnvKey = rpcEnvKey.replace('_RPC_', '_WS_');
   
   return {
     ...base,
-    rpcUrl: getEnv(rpcEnvKey, 'http://localhost:6546'),
-    wsUrl: process.env[`${rpcEnvKey.replace('_RPC_', '_WS_')}`],
+    rpcUrl: getEnvWithDefault(rpcEnvKey, 'http://localhost:6546'),
+    wsUrl: process.env[wsEnvKey], // Optional WebSocket URL
   };
 }
 
@@ -91,37 +101,14 @@ export function getTFMMConfig(): TFMMConfig {
 }
 
 // ============ Strategy Configuration ============
+// Types imported from schemas.ts via Zod inference
 
-export interface MomentumStrategyConfig {
-  lookbackPeriodMs: number;
-  shortTermPeriodMs: number;
-  sensitivity: number;
-  momentumThresholdBps: number;
-  useEMA: boolean;
-}
-
-export interface MeanReversionStrategyConfig {
-  lookbackPeriodMs: number;
-  deviationThreshold: number;
-  sensitivity: number;
-  useBollinger: boolean;
-  bollingerMultiplier: number;
-}
-
-export interface VolatilityStrategyConfig {
-  lookbackPeriodMs: number;
-  targetVolatilityPct: number;
-  maxVolatilityPct: number;
-  useInverseVolWeighting: boolean;
-}
-
-export interface CompositeStrategyConfig {
-  momentumWeight: number;
-  meanReversionWeight: number;
-  volatilityWeight: number;
-  enableRegimeDetection: boolean;
-  minConfidenceThreshold: number;
-}
+import type {
+  MomentumStrategyConfig,
+  MeanReversionStrategyConfig,
+  VolatilityStrategyConfig,
+  CompositeStrategyConfig,
+} from '../schemas';
 
 export function getMomentumConfig(): MomentumStrategyConfig {
   return {
@@ -163,6 +150,8 @@ export function getCompositeConfig(): CompositeStrategyConfig {
 }
 
 // ============ Cross-Chain Arbitrage Configuration ============
+// Note: CrossChainArbConfig includes enabledChains as EVMChainId[] (local type)
+// The validated schema type is CrossChainArbConfigValidated from schemas.ts
 
 export interface CrossChainArbConfig {
   minProfitBps: number;
@@ -175,7 +164,7 @@ export interface CrossChainArbConfig {
 }
 
 export function getCrossChainArbConfig(): CrossChainArbConfig {
-  const enabledChainsStr = getEnv('CROSS_CHAIN_ENABLED_CHAINS', '1,8453,42161,10,56');
+  const enabledChainsStr = getEnvWithDefault('CROSS_CHAIN_ENABLED_CHAINS', '1,8453,42161,10,56');
   const enabledChains = enabledChainsStr.split(',').map(s => Number(s.trim()) as EVMChainId);
 
   return {
@@ -205,32 +194,32 @@ export function getDefaultFees(): DefaultFeeConfig {
       protocolFeeBps: getEnvNumber('FEE_STANDARD_PROTOCOL_BPS', 1000),
       xlpFulfillmentFeeBps: getEnvNumber('FEE_XLP_FULFILLMENT_BPS', 10),
       oifSolverFeeBps: getEnvNumber('FEE_OIF_SOLVER_BPS', 5),
-      treasuryAddress: getEnv('TREASURY_ADDRESS', '0x0000000000000000000000000000000000000000') as `0x${string}`,
-      governanceAddress: getEnv('GOVERNANCE_ADDRESS', '0x0000000000000000000000000000000000000000') as `0x${string}`,
+      treasuryAddress: getEnvWithDefault('TREASURY_ADDRESS', '0x0000000000000000000000000000000000000000') as `0x${string}`,
+      governanceAddress: getEnvWithDefault('GOVERNANCE_ADDRESS', '0x0000000000000000000000000000000000000000') as `0x${string}`,
     },
     stable: {
       swapFeeBps: getEnvNumber('FEE_STABLE_SWAP_BPS', 5),
       protocolFeeBps: getEnvNumber('FEE_STABLE_PROTOCOL_BPS', 1000),
       xlpFulfillmentFeeBps: 5,
       oifSolverFeeBps: 3,
-      treasuryAddress: getEnv('TREASURY_ADDRESS', '0x0000000000000000000000000000000000000000') as `0x${string}`,
-      governanceAddress: getEnv('GOVERNANCE_ADDRESS', '0x0000000000000000000000000000000000000000') as `0x${string}`,
+      treasuryAddress: getEnvWithDefault('TREASURY_ADDRESS', '0x0000000000000000000000000000000000000000') as `0x${string}`,
+      governanceAddress: getEnvWithDefault('GOVERNANCE_ADDRESS', '0x0000000000000000000000000000000000000000') as `0x${string}`,
     },
     premium: {
       swapFeeBps: getEnvNumber('FEE_PREMIUM_SWAP_BPS', 50),
       protocolFeeBps: getEnvNumber('FEE_PREMIUM_PROTOCOL_BPS', 1500),
       xlpFulfillmentFeeBps: 15,
       oifSolverFeeBps: 8,
-      treasuryAddress: getEnv('TREASURY_ADDRESS', '0x0000000000000000000000000000000000000000') as `0x${string}`,
-      governanceAddress: getEnv('GOVERNANCE_ADDRESS', '0x0000000000000000000000000000000000000000') as `0x${string}`,
+      treasuryAddress: getEnvWithDefault('TREASURY_ADDRESS', '0x0000000000000000000000000000000000000000') as `0x${string}`,
+      governanceAddress: getEnvWithDefault('GOVERNANCE_ADDRESS', '0x0000000000000000000000000000000000000000') as `0x${string}`,
     },
     experimental: {
       swapFeeBps: getEnvNumber('FEE_EXPERIMENTAL_SWAP_BPS', 100),
       protocolFeeBps: getEnvNumber('FEE_EXPERIMENTAL_PROTOCOL_BPS', 2000),
       xlpFulfillmentFeeBps: 20,
       oifSolverFeeBps: 10,
-      treasuryAddress: getEnv('TREASURY_ADDRESS', '0x0000000000000000000000000000000000000000') as `0x${string}`,
-      governanceAddress: getEnv('GOVERNANCE_ADDRESS', '0x0000000000000000000000000000000000000000') as `0x${string}`,
+      treasuryAddress: getEnvWithDefault('TREASURY_ADDRESS', '0x0000000000000000000000000000000000000000') as `0x${string}`,
+      governanceAddress: getEnvWithDefault('GOVERNANCE_ADDRESS', '0x0000000000000000000000000000000000000000') as `0x${string}`,
     },
   };
 }
@@ -253,11 +242,16 @@ export interface FullBotConfig {
 export function loadFullConfig(): FullBotConfig {
   const chainId = getEnvNumber('CHAIN_ID', 8453) as EVMChainId;
   const chainConfig = getChainConfig(chainId);
+  const privateKey = process.env.PRIVATE_KEY;
+  
+  if (!privateKey) {
+    throw new Error('PRIVATE_KEY environment variable is required');
+  }
 
   return {
     chainId,
     rpcUrl: chainConfig.rpcUrl,
-    privateKey: getEnv('PRIVATE_KEY', ''),
+    privateKey,
     tfmm: getTFMMConfig(),
     momentum: getMomentumConfig(),
     meanReversion: getMeanReversionConfig(),

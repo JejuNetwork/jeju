@@ -15,7 +15,7 @@
  */
 
 import { describe, test, expect, beforeAll } from 'bun:test';
-import { createPublicClient, createWalletClient, http, parseAbi, readContract, writeContract, waitForTransactionReceipt, formatEther, parseEther, getBalance, type Address } from 'viem';
+import { createPublicClient, createWalletClient, http, parseAbi, readContract, waitForTransactionReceipt, formatEther, parseEther, type Address } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
 
@@ -501,7 +501,7 @@ describe('Staking - Unbonding Flow', () => {
         functionName: 'completeUnstaking',
         args: [],
       });
-    } catch (e) {
+    } catch (_e) {
       reverted = true;
     }
     
@@ -618,7 +618,7 @@ describe('Staking - Edge Cases', () => {
         functionName: 'distributeFees',
         args: [0n, 0n],
       });
-    } catch (e) {
+    } catch (_e) {
       reverted = true;
     }
     

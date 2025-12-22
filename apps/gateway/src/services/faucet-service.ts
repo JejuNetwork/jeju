@@ -5,6 +5,7 @@ import { JEJU_CHAIN_ID, getRpcUrl, getChainName, IS_TESTNET } from '../config/ne
 import { JEJU_TOKEN_ADDRESS, IDENTITY_REGISTRY_ADDRESS } from '../config/contracts.js';
 import { jejuTestnet } from '../lib/chains.js';
 import { faucetState, initializeState } from './state.js';
+import { expectAddress } from '../lib/validation.js';
 
 const FAUCET_CONFIG = {
   cooldownMs: 12 * 60 * 60 * 1000,
@@ -95,15 +96,13 @@ async function getFaucetBalance(): Promise<bigint> {
 }
 
 export async function getFaucetStatus(address: Address): Promise<FaucetStatus> {
-  if (!isAddress(address)) {
-    return { eligible: false, isRegistered: false, cooldownRemaining: 0, nextClaimAt: null, amountPerClaim: formatEther(FAUCET_CONFIG.amountPerClaim), faucetBalance: '0' };
-  }
+  const validated = expectAddress(address, 'getFaucetStatus address');
 
   const [isRegistered, cooldownRemaining, faucetBalance, lastClaim] = await Promise.all([
-    isRegisteredAgent(address),
-    getCooldownRemaining(address),
+    isRegisteredAgent(validated),
+    getCooldownRemaining(validated),
     getFaucetBalance(),
-    faucetState.getLastClaim(address),
+    faucetState.getLastClaim(validated),
   ]);
 
   return {
@@ -117,19 +116,25 @@ export async function getFaucetStatus(address: Address): Promise<FaucetStatus> {
 }
 
 export async function claimFromFaucet(address: Address): Promise<FaucetClaimResult> {
-  if (!isAddress(address)) return { success: false, error: 'Invalid wallet address format' };
+  const validated = expectAddress(address, 'claimFromFaucet address');
 
-  const isRegistered = await isRegisteredAgent(address);
-  if (!isRegistered) return { success: false, error: 'Address must be registered in the ERC-8004 Identity Registry' };
+  const isRegistered = await isRegisteredAgent(validated);
+  if (!isRegistered) {
+    throw new Error('Address must be registered in the ERC-8004 Identity Registry');
+  }
 
-  const cooldownRemaining = await getCooldownRemaining(address);
-  if (cooldownRemaining > 0) return { success: false, error: 'Faucet cooldown active', cooldownRemaining };
+  const cooldownRemaining = await getCooldownRemaining(validated);
+  if (cooldownRemaining > 0) {
+    throw new Error(`Faucet cooldown active: ${Math.ceil(cooldownRemaining / 3600000)}h remaining`);
+  }
 
   const faucetBalance = await getFaucetBalance();
-  if (faucetBalance < FAUCET_CONFIG.amountPerClaim) return { success: false, error: 'Faucet is empty, please try again later' };
+  if (faucetBalance < FAUCET_CONFIG.amountPerClaim) {
+    throw new Error('Faucet is empty, please try again later');
+  }
 
   if (FAUCET_CONFIG.jejuTokenAddress === ZERO_ADDRESS) {
-    return { success: false, error: 'JEJU token not configured' };
+    throw new Error('JEJU token not configured');
   }
 
   const walletClient = getWalletClient();
@@ -137,10 +142,10 @@ export async function claimFromFaucet(address: Address): Promise<FaucetClaimResu
     address: FAUCET_CONFIG.jejuTokenAddress,
     abi: IERC20_ABI,
     functionName: 'transfer',
-    args: [address, FAUCET_CONFIG.amountPerClaim],
+    args: [validated, FAUCET_CONFIG.amountPerClaim],
   });
 
-  await faucetState.recordClaim(address);
+  await faucetState.recordClaim(validated);
   return { success: true, txHash: hash, amount: formatEther(FAUCET_CONFIG.amountPerClaim) };
 }
 

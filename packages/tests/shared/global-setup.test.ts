@@ -31,7 +31,7 @@ describe('setupTestEnvironment - Option Handling', () => {
         skipPreflight: true,
         skipWarmup: true,
       });
-    } catch (e) {
+    } catch (_e) {
       // Expected to fail - chain not running
     }
 
@@ -45,7 +45,7 @@ describe('setupTestEnvironment - Option Handling', () => {
         skipPreflight: true,
         skipWarmup: true,
       });
-    } catch (e) {
+    } catch (_e) {
       // Expected
     }
 
@@ -62,7 +62,7 @@ describe('setupTestEnvironment - Option Handling', () => {
         skipWarmup: true,
         skipPreflight: true, // Skip preflight to avoid timeout
       });
-    } catch (e) {
+    } catch (_e) {
       // Expected
     }
 
@@ -77,7 +77,7 @@ describe('setupTestEnvironment - Option Handling', () => {
         skipWarmup: true,
         skipPreflight: true, // Skip preflight to avoid timeout
       });
-    } catch (e) {
+    } catch (_e) {
       // Expected
     }
 
@@ -91,7 +91,7 @@ describe('setupTestEnvironment - Option Handling', () => {
         skipLock: true,
         skipPreflight: true,
       });
-    } catch (e) {
+    } catch (_e) {
       // Expected
     }
 
@@ -109,7 +109,7 @@ describe('setupTestEnvironment - Option Handling', () => {
         skipPreflight: true,
         skipWarmup: true,
       });
-    } catch (e) {
+    } catch (_e) {
       // Expected
     }
 
@@ -228,7 +228,7 @@ describe('Global Setup - Cleanup Function', () => {
 
       // Calling cleanup should not throw
       expect(() => cleanup()).not.toThrow();
-    } catch (e) {
+    } catch (_e) {
       // Setup might fail
     }
   });
@@ -245,7 +245,7 @@ describe('Global Setup - Cleanup Function', () => {
       cleanup();
       cleanup();
       cleanup();
-    } catch (e) {
+    } catch (_e) {
       // Setup might fail
     }
   });

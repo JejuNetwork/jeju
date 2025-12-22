@@ -1,12 +1,25 @@
 /**
  * REST API Routes for Todo CRUD operations
+ * 
+ * All routes use zod validation with expect/throw patterns.
+ * Invalid data causes immediate errors - no silent failures.
  */
 
 import { Hono } from 'hono';
 import type { Address } from 'viem';
-import { recoverMessageAddress, hashMessage } from 'viem';
+import { recoverMessageAddress } from 'viem';
 import { getTodoService } from '../services/todo';
-import type { CreateTodoInput, UpdateTodoInput, Todo } from '../types';
+import {
+  walletAuthHeadersSchema,
+  createTodoInputSchema,
+  updateTodoInputSchema,
+  listTodosQuerySchema,
+  bulkCompleteSchema,
+  bulkDeleteSchema,
+  todoIdSchema,
+} from '../schemas';
+import { expectValid, expectDefined, ValidationError } from '../utils/validation';
+import { constructAuthMessage, TIMESTAMP_WINDOW_MS } from '../utils';
 
 interface AuthContext {
   Variables: {
@@ -18,81 +31,102 @@ export function createRESTRoutes(): Hono<AuthContext> {
   const app = new Hono<AuthContext>();
   const todoService = getTodoService();
 
-  // Authentication middleware
+  // Authentication middleware with strict validation
   app.use('/*', async (c, next) => {
-    const address = c.req.header('x-jeju-address');
-    const timestamp = c.req.header('x-jeju-timestamp');
-    const signature = c.req.header('x-jeju-signature');
-
     // Allow unauthenticated for health/docs
     if (c.req.path === '/health' || c.req.path === '/docs') {
       return next();
     }
 
-    if (!address || !timestamp || !signature) {
-      return c.json({ error: 'Authentication required', details: 'Missing x-jeju-address, x-jeju-timestamp, or x-jeju-signature headers' }, 401);
-    }
+    // Validate headers with zod
+    const headers = {
+      'x-jeju-address': c.req.header('x-jeju-address'),
+      'x-jeju-timestamp': c.req.header('x-jeju-timestamp'),
+      'x-jeju-signature': c.req.header('x-jeju-signature'),
+    };
+
+    const validatedHeaders = expectValid(
+      walletAuthHeadersSchema,
+      headers,
+      'Authentication headers'
+    );
 
     // Verify timestamp is recent (within 5 minutes)
-    const ts = parseInt(timestamp, 10);
-    if (isNaN(ts) || Math.abs(Date.now() - ts) > 5 * 60 * 1000) {
-      return c.json({ error: 'Invalid timestamp', details: 'Timestamp must be within 5 minutes' }, 401);
+    const now = Date.now();
+    const timestamp = validatedHeaders['x-jeju-timestamp'];
+    const timeDiff = Math.abs(now - timestamp);
+    
+    if (timeDiff > TIMESTAMP_WINDOW_MS) {
+      throw new ValidationError(
+        `Timestamp expired: ${timestamp} is ${timeDiff}ms old (max ${TIMESTAMP_WINDOW_MS}ms)`
+      );
     }
 
-    // Verify signature
-    const message = `jeju-dapp:${timestamp}`;
-    let recoveredAddress: string;
-    try {
-      const messageHash = hashMessage({ message });
-      recoveredAddress = await recoverMessageAddress({
-        hash: messageHash,
-        signature: signature as `0x${string}`,
-      });
-    } catch {
-      return c.json({ error: 'Invalid signature format' }, 401);
+    // Verify signature using shared auth message construction
+    const message = constructAuthMessage(timestamp);
+    const recoveredAddress = await recoverMessageAddress({
+      message,
+      signature: validatedHeaders['x-jeju-signature'],
+    });
+
+    if (recoveredAddress.toLowerCase() !== validatedHeaders['x-jeju-address'].toLowerCase()) {
+      throw new ValidationError(
+        `Signature mismatch: recovered ${recoveredAddress}, expected ${validatedHeaders['x-jeju-address']}`
+      );
     }
 
-    if (recoveredAddress.toLowerCase() !== address.toLowerCase()) {
-      return c.json({ error: 'Invalid signature' }, 401);
-    }
-
-    c.set('address', address as Address);
+    c.set('address', validatedHeaders['x-jeju-address'] as Address);
     return next();
   });
 
-  // List todos
-  app.get('/todos', async (c) => {
-    const address = c.get('address');
-    const completed = c.req.query('completed');
-    const priority = c.req.query('priority') as 'low' | 'medium' | 'high' | undefined;
-    const search = c.req.query('search');
+  // Error handler for validation errors
+  app.onError((err, c) => {
+    if (err instanceof ValidationError) {
+      return c.json({ error: err.message, code: 'VALIDATION_ERROR' }, 400);
+    }
+    return c.json({ error: err.message || 'Internal server error', code: 'INTERNAL_ERROR' }, 500);
+  });
 
-    const todos = await todoService.listTodos(address, {
-      completed: completed ? completed === 'true' : undefined,
-      priority,
-      search,
-    });
+  // List todos with validated query parameters
+  app.get('/todos', async (c) => {
+    const address = expectDefined(c.get('address'), 'Address must be set by auth middleware');
+    
+    const queryParams = {
+      completed: c.req.query('completed'),
+      priority: c.req.query('priority'),
+      search: c.req.query('search'),
+    };
+    
+    const validatedQuery = expectValid(
+      listTodosQuerySchema,
+      queryParams,
+      'Query parameters'
+    );
+
+    const todos = await todoService.listTodos(address, validatedQuery);
 
     return c.json({ todos, count: todos.length });
   });
 
-  // Create todo
+  // Create todo with validated input
   app.post('/todos', async (c) => {
-    const address = c.get('address');
-    const body = await c.req.json() as CreateTodoInput;
+    const address = expectDefined(c.get('address'), 'Address must be set by auth middleware');
+    const body = await c.req.json();
+    
+    const validatedInput = expectValid(
+      createTodoInputSchema,
+      body,
+      'Create todo input'
+    );
 
-    if (!body.title || body.title.trim().length === 0) {
-      return c.json({ error: 'Title is required' }, 400);
-    }
-
-    const todo = await todoService.createTodo(address, body);
+    const todo = await todoService.createTodo(address, validatedInput);
     return c.json({ todo }, 201);
   });
 
-  // Get todo by ID
+  // Get todo by ID with validated ID
   app.get('/todos/:id', async (c) => {
-    const address = c.get('address');
-    const id = c.req.param('id');
+    const address = expectDefined(c.get('address'), 'Address must be set by auth middleware');
+    const id = expectValid(todoIdSchema, c.req.param('id'), 'Todo ID');
 
     const todo = await todoService.getTodo(id, address);
     if (!todo) {
@@ -102,13 +136,19 @@ export function createRESTRoutes(): Hono<AuthContext> {
     return c.json({ todo });
   });
 
-  // Update todo
+  // Update todo with validated input
   app.patch('/todos/:id', async (c) => {
-    const address = c.get('address');
-    const id = c.req.param('id');
-    const body = await c.req.json() as UpdateTodoInput;
+    const address = expectDefined(c.get('address'), 'Address must be set by auth middleware');
+    const id = expectValid(todoIdSchema, c.req.param('id'), 'Todo ID');
+    
+    const body = await c.req.json();
+    const validatedInput = expectValid(
+      updateTodoInputSchema,
+      body,
+      'Update todo input'
+    );
 
-    const todo = await todoService.updateTodo(id, address, body);
+    const todo = await todoService.updateTodo(id, address, validatedInput);
     if (!todo) {
       return c.json({ error: 'Todo not found' }, 404);
     }
@@ -116,10 +156,10 @@ export function createRESTRoutes(): Hono<AuthContext> {
     return c.json({ todo });
   });
 
-  // Delete todo
+  // Delete todo with validated ID
   app.delete('/todos/:id', async (c) => {
-    const address = c.get('address');
-    const id = c.req.param('id');
+    const address = expectDefined(c.get('address'), 'Address must be set by auth middleware');
+    const id = expectValid(todoIdSchema, c.req.param('id'), 'Todo ID');
 
     const deleted = await todoService.deleteTodo(id, address);
     if (!deleted) {
@@ -129,10 +169,10 @@ export function createRESTRoutes(): Hono<AuthContext> {
     return c.json({ success: true });
   });
 
-  // Encrypt todo
+  // Encrypt todo with validated ID
   app.post('/todos/:id/encrypt', async (c) => {
-    const address = c.get('address');
-    const id = c.req.param('id');
+    const address = expectDefined(c.get('address'), 'Address must be set by auth middleware');
+    const id = expectValid(todoIdSchema, c.req.param('id'), 'Todo ID');
 
     const todo = await todoService.encryptTodo(id, address);
     if (!todo) {
@@ -142,10 +182,10 @@ export function createRESTRoutes(): Hono<AuthContext> {
     return c.json({ todo, encrypted: true });
   });
 
-  // Decrypt todo
+  // Decrypt todo with validated ID
   app.post('/todos/:id/decrypt', async (c) => {
-    const address = c.get('address');
-    const id = c.req.param('id');
+    const address = expectDefined(c.get('address'), 'Address must be set by auth middleware');
+    const id = expectValid(todoIdSchema, c.req.param('id'), 'Todo ID');
 
     const todo = await todoService.decryptTodo(id, address);
     if (!todo) {
@@ -155,23 +195,30 @@ export function createRESTRoutes(): Hono<AuthContext> {
     return c.json({ todo, decrypted: true });
   });
 
-  // Upload attachment
+  // Upload attachment with validated ID and file
   app.post('/todos/:id/attach', async (c) => {
-    const address = c.get('address');
-    const id = c.req.param('id');
+    const address = expectDefined(c.get('address'), 'Address must be set by auth middleware');
+    const id = expectValid(todoIdSchema, c.req.param('id'), 'Todo ID');
     
-    const contentType = c.req.header('content-type') || '';
+    const contentType = c.req.header('content-type');
+    const isMultipart = contentType !== undefined && contentType.includes('multipart/form-data');
     let data: Uint8Array;
 
-    if (contentType.includes('multipart/form-data')) {
+    if (isMultipart) {
       const formData = await c.req.formData();
-      const file = formData.get('file') as File;
-      if (!file) {
-        return c.json({ error: 'No file provided' }, 400);
+      const file = formData.get('file');
+      
+      if (!file || !(file instanceof File)) {
+        throw new ValidationError('File is required in multipart/form-data request');
       }
+      
       data = new Uint8Array(await file.arrayBuffer());
     } else {
-      data = new Uint8Array(await c.req.arrayBuffer());
+      const arrayBuffer = await c.req.arrayBuffer();
+      if (arrayBuffer.byteLength === 0) {
+        throw new ValidationError('File data cannot be empty');
+      }
+      data = new Uint8Array(arrayBuffer);
     }
 
     const todo = await todoService.attachFile(id, address, data);
@@ -182,35 +229,40 @@ export function createRESTRoutes(): Hono<AuthContext> {
     return c.json({ todo, attachmentCid: todo.attachmentCid });
   });
 
-  // Get statistics
+  // Get statistics with validated address
   app.get('/stats', async (c) => {
-    const address = c.get('address');
+    const address = expectDefined(c.get('address'), 'Address must be set by auth middleware');
     const stats = await todoService.getStats(address);
     return c.json({ stats });
   });
 
-  // Bulk operations
+  // Bulk complete with validated input
   app.post('/todos/bulk/complete', async (c) => {
-    const address = c.get('address');
-    const { ids } = await c.req.json() as { ids: string[] };
+    const address = expectDefined(c.get('address'), 'Address must be set by auth middleware');
+    const body = await c.req.json();
+    
+    const validatedInput = expectValid(
+      bulkCompleteSchema,
+      body,
+      'Bulk complete input'
+    );
 
-    if (!Array.isArray(ids) || ids.length === 0) {
-      return c.json({ error: 'ids array required' }, 400);
-    }
-
-    const results = await todoService.bulkComplete(ids, address);
+    const results = await todoService.bulkComplete(validatedInput.ids, address);
     return c.json({ completed: results.length, todos: results });
   });
 
+  // Bulk delete with validated input
   app.post('/todos/bulk/delete', async (c) => {
-    const address = c.get('address');
-    const { ids } = await c.req.json() as { ids: string[] };
+    const address = expectDefined(c.get('address'), 'Address must be set by auth middleware');
+    const body = await c.req.json();
+    
+    const validatedInput = expectValid(
+      bulkDeleteSchema,
+      body,
+      'Bulk delete input'
+    );
 
-    if (!Array.isArray(ids) || ids.length === 0) {
-      return c.json({ error: 'ids array required' }, 400);
-    }
-
-    const count = await todoService.bulkDelete(ids, address);
+    const count = await todoService.bulkDelete(validatedInput.ids, address);
     return c.json({ deleted: count });
   });
 

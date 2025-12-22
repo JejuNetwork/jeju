@@ -177,11 +177,11 @@ export function useRegistryAppDetails(agentId: bigint) {
     agentId,
     name: `Agent #${agentId}`,
     owner: owner as string,
-    tags: (tags as string[]) || [],
+    tags: tags ? (tags as string[]) : [],
     a2aEndpoint: a2aEndpoint as string | undefined,
-    stakeToken: (stakeInfo as { token: string; amount: bigint; depositedAt: bigint } | undefined)?.token || 'ETH',
-    stakeAmount: ((stakeInfo as { token: string; amount: bigint; depositedAt: bigint } | undefined)?.amount || 0n).toString(),
-    depositedAt: (stakeInfo as { token: string; amount: bigint; depositedAt: bigint } | undefined)?.depositedAt || 0n,
+    stakeToken: stakeInfo ? (stakeInfo as { token: string; amount: bigint; depositedAt: bigint }).token : 'ETH',
+    stakeAmount: stakeInfo ? (stakeInfo as { token: string; amount: bigint; depositedAt: bigint }).amount.toString() : '0',
+    depositedAt: stakeInfo ? (stakeInfo as { token: string; amount: bigint; depositedAt: bigint }).depositedAt : 0n,
   } : null;
 
   return { app, isLoading, refetch: async () => {} };

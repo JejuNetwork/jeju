@@ -16,39 +16,23 @@
  * 6. Test transaction succeeds
  */
 
-import { createPublicClient, createWalletClient, http, parseEther, formatEther, type Address, type Chain } from 'viem';
+import { createPublicClient, createWalletClient, http, parseEther, formatEther, type Chain, type Address } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
+import { getRpcUrl, getChainId, TEST_WALLET_ADDRESS, TEST_ACCOUNTS, isRpcAvailable } from './utils';
+import type { PreflightConfig, PreflightResult, PreflightCheck } from './schemas';
 
-export interface PreflightConfig {
-  rpcUrl: string;
-  chainId: number;
-  testPrivateKey: string;
-  minBalance: bigint;
-  timeout: number;
-}
+const TEST_ADDRESS = TEST_WALLET_ADDRESS as Address;
 
-export interface PreflightResult {
-  success: boolean;
-  checks: PreflightCheck[];
-  duration: number;
-}
-
-export interface PreflightCheck {
-  name: string;
-  passed: boolean;
-  message: string;
-  details?: Record<string, string | number | boolean>;
-}
+// Re-export types for backwards compatibility
+export type { PreflightConfig, PreflightResult, PreflightCheck };
 
 const DEFAULT_CONFIG: PreflightConfig = {
-  rpcUrl: process.env.L2_RPC_URL || process.env.JEJU_RPC_URL || 'http://localhost:9545',
-  chainId: parseInt(process.env.CHAIN_ID || '1337'),
-  testPrivateKey: '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
+  rpcUrl: getRpcUrl(),
+  chainId: getChainId(),
+  testPrivateKey: TEST_ACCOUNTS.deployer.privateKey,
   minBalance: parseEther('1'),
   timeout: 30000,
 };
-
-const TEST_WALLET_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address;
 
 function createChain(rpcUrl: string, chainId: number): Chain {
   return {
@@ -108,7 +92,7 @@ export async function runPreflightChecks(config: Partial<PreflightConfig> = {}):
   // Check 3: Balance
   console.log('3/6 Test account balance...');
   try {
-    const balance = await publicClient.getBalance({ address: TEST_WALLET_ADDRESS });
+    const balance = await publicClient.getBalance({ address: TEST_ADDRESS });
     if (balance < cfg.minBalance) {
       return fail('Balance', `${formatEther(balance)} ETH (need ${formatEther(cfg.minBalance)})`);
     }
@@ -142,7 +126,7 @@ export async function runPreflightChecks(config: Partial<PreflightConfig> = {}):
     const account = privateKeyToAccount(cfg.testPrivateKey as `0x${string}`);
     const gas = await publicClient.estimateGas({
       account: account.address,
-      to: TEST_WALLET_ADDRESS,
+      to: TEST_ADDRESS,
       value: parseEther('0.001'),
     });
     checks.push({ name: 'Gas', passed: true, message: `${gas}` });
@@ -188,16 +172,7 @@ export async function runPreflightChecks(config: Partial<PreflightConfig> = {}):
 
 export async function quickHealthCheck(config: Partial<PreflightConfig> = {}): Promise<boolean> {
   const cfg = { ...DEFAULT_CONFIG, ...config };
-  const client = createPublicClient({
-    chain: createChain(cfg.rpcUrl, cfg.chainId),
-    transport: http(cfg.rpcUrl, { timeout: 5000 }),
-  });
-
-  try {
-    return (await client.getChainId()) === cfg.chainId;
-  } catch {
-    return false;
-  }
+  return isRpcAvailable(cfg.rpcUrl, 5000);
 }
 
 export async function waitForChain(config: Partial<PreflightConfig> = {}, maxWaitMs = 60000): Promise<boolean> {

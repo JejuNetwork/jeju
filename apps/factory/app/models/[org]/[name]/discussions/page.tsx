@@ -12,19 +12,19 @@ import {
   ThumbsUp,
   MessageCircle,
   Clock,
-  Tag,
   CheckCircle,
-  AlertCircle,
   Loader2,
   Send,
   Pin,
   Lock,
-  MoreHorizontal,
 } from 'lucide-react';
 import Link from 'next/link';
 import { clsx } from 'clsx';
 import { formatDistanceToNow } from 'date-fns';
-import ReactMarkdown from 'react-markdown';
+// Remove unused import if possible, but ReactMarkdown is often used in JSX. 
+// If unused, remove it. Assuming it's unused based on logs.
+// Checking logs: 'ReactMarkdown' is declared but its value is never read.
+// So I will remove it.
 
 interface Discussion {
   id: string;

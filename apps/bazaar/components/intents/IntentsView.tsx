@@ -1,7 +1,18 @@
 import { useState } from 'react';
 import { Clock, CheckCircle, XCircle, AlertCircle, ArrowRight, ExternalLink } from 'lucide-react';
-import { useIntents } from '../../hooks/useIntentAPI';
-import type { Intent, IntentStatus } from '@jejunetwork/types';
+import { useAllIntents } from '@/hooks/useIntentAPI';
+
+type IntentStatus = 'open' | 'pending' | 'filled' | 'expired' | 'cancelled' | 'failed';
+
+interface Intent {
+  intentId: string;
+  status: IntentStatus;
+  sourceChainId: number;
+  createdAt?: number;
+  solver?: string;
+  inputs: Array<{ amount: string; chainId: number }>;
+  outputs: Array<{ amount: string; chainId: number }>;
+}
 
 const STATUS_CONFIG: Record<IntentStatus, { color: string; icon: React.ReactNode; label: string }> = {
   open: { color: 'var(--chain-jeju)', icon: <Clock size={14} />, label: 'Open' },
@@ -24,7 +35,7 @@ const CHAIN_NAMES: Record<number, string> = {
 
 export function IntentsView() {
   const [statusFilter, setStatusFilter] = useState<string>('');
-  const { data: intents, isLoading } = useIntents({ status: statusFilter || undefined, limit: 100 });
+  const { data: intents, isLoading } = useAllIntents({ status: statusFilter || undefined, limit: 100 });
 
   return (
     <div style={{ maxWidth: '1400px', margin: '0 auto' }}>

@@ -9,6 +9,7 @@ import type { Address, Hex } from 'viem';
 import { keccak256, toBytes, verifyMessage } from 'viem';
 import { getKMS } from '../kms.js';
 import type { AuthSignature } from '../types.js';
+import { tokenClaimsSchema, tokenHeaderSchema, tokenOptionsSchema, verifyTokenOptionsSchema } from '../schemas.js';
 
 export interface TokenClaims {
   /** Subject (user identifier, e.g. GitHub username or wallet address) */
@@ -17,12 +18,12 @@ export interface TokenClaims {
   iss: string;
   /** Audience (e.g. 'gateway' or specific app) */
   aud: string;
-  /** Issued at (unix timestamp seconds) */
-  iat: number;
-  /** Expiration (unix timestamp seconds) */
-  exp: number;
-  /** Token ID (unique identifier) */
-  jti: string;
+  /** Issued at (unix timestamp seconds) - set automatically when issuing */
+  iat?: number;
+  /** Expiration (unix timestamp seconds) - set from options or claims */
+  exp?: number;
+  /** Token ID (unique identifier) - set automatically when issuing */
+  jti?: string;
   /** Optional: linked wallet address */
   wallet?: Address;
   /** Optional: linked chain ID (CAIP-2 format e.g. 'eip155:420691') */
@@ -81,13 +82,23 @@ export async function issueToken(
     expiresInSeconds?: number;
   }
 ): Promise<SignedToken> {
+  // Validate claims
+  const claimsResult = tokenClaimsSchema.omit({ iat: true, jti: true }).safeParse(claims);
+  if (!claimsResult.success) throw new Error(`Invalid claims: ${claimsResult.error.message}`);
+  
+  if (options) {
+    const optionsResult = tokenOptionsSchema.safeParse(options);
+    if (!optionsResult.success) throw new Error(`Invalid options: ${optionsResult.error.message}`);
+  }
+
   const kms = getKMS();
   await kms.initialize();
 
   const now = Math.floor(Date.now() / 1000);
   const jti = crypto.randomUUID();
 
-  const expiration = typeof claims.exp === 'number' ? claims.exp : now + (options?.expiresInSeconds || 3600);
+  const expiresInSeconds = options?.expiresInSeconds ?? 3600;
+  const expiration = typeof claims.exp === 'number' ? claims.exp : now + expiresInSeconds;
   const fullClaims = {
     ...claims,
     iat: now,
@@ -100,7 +111,10 @@ export async function issueToken(
   const signingInput = `${headerB64}.${payloadB64}`;
 
   const messageHash = keccak256(toBytes(signingInput));
-  const signed = await kms.sign({ message: messageHash, keyId: options?.keyId || '' });
+  
+  // keyId is required for signing
+  if (!options?.keyId) throw new Error('keyId is required for token signing');
+  const signed = await kms.sign({ message: messageHash, keyId: options.keyId });
 
   const signatureB64 = base64urlEncode(signed.signature);
 
@@ -120,10 +134,15 @@ export async function issueTokenWithWallet(
   authSig: AuthSignature,
   options?: { expiresInSeconds?: number }
 ): Promise<SignedToken> {
+  // Validate claims
+  const claimsResult = tokenClaimsSchema.omit({ iat: true, jti: true }).safeParse(claims);
+  if (!claimsResult.success) throw new Error(`Invalid claims: ${claimsResult.error.message}`);
+  
   const now = Math.floor(Date.now() / 1000);
   const jti = crypto.randomUUID();
 
-  const expiration = typeof claims.exp === 'number' ? claims.exp : now + (options?.expiresInSeconds || 3600);
+  const expiresInSeconds = options?.expiresInSeconds ?? 3600;
+  const expiration = typeof claims.exp === 'number' ? claims.exp : now + expiresInSeconds;
   const fullClaims = {
     ...claims,
     iat: now,
@@ -147,6 +166,9 @@ export async function issueTokenWithWallet(
 
 /**
  * Verify a token and extract claims
+ * 
+ * This function returns a result object rather than throwing to support
+ * verification workflows where invalid tokens are expected.
  */
 export async function verifyToken(
   token: string,
@@ -161,6 +183,11 @@ export async function verifyToken(
     allowExpired?: boolean;
   }
 ): Promise<TokenVerifyResult> {
+  if (options) {
+    const optionsResult = verifyTokenOptionsSchema.safeParse(options);
+    if (!optionsResult.success) throw new Error(`Invalid options: ${optionsResult.error.message}`);
+  }
+
   const parts = token.split('.');
   if (parts.length !== 3) {
     return { valid: false, error: 'Invalid token format: expected 3 parts' };
@@ -168,24 +195,32 @@ export async function verifyToken(
 
   const [headerB64, payloadB64, signatureB64] = parts;
 
-  // Decode header and payload
-  let header: { alg: string; typ: string };
-  let claims: TokenClaims;
-
-  try {
-    header = JSON.parse(base64urlDecode(headerB64));
-    claims = JSON.parse(base64urlDecode(payloadB64));
-  } catch {
-    return { valid: false, error: 'Invalid token encoding' };
+  // Decode header and payload - parse failures indicate malformed tokens
+  const headerJson = base64urlDecode(headerB64);
+  const payloadJson = base64urlDecode(payloadB64);
+  
+  const headerParsed: unknown = JSON.parse(headerJson);
+  const payloadParsed: unknown = JSON.parse(payloadJson);
+  
+  // Validate header structure - allow alg variations for wallet-signed tokens
+  if (typeof headerParsed !== 'object' || headerParsed === null) {
+    return { valid: false, error: 'Invalid token header structure' };
   }
-
-  if (header.typ !== 'JWT') {
-    return { valid: false, error: 'Invalid token type' };
+  const headerObj = headerParsed as Record<string, unknown>;
+  if (typeof headerObj.alg !== 'string' || typeof headerObj.typ !== 'string' || headerObj.typ !== 'JWT') {
+    return { valid: false, error: 'Invalid token header: must have alg and typ=JWT' };
   }
+  const header = { alg: headerObj.alg, typ: headerObj.typ as 'JWT' };
+  
+  const claimsResult = tokenClaimsSchema.safeParse(payloadParsed);
+  if (!claimsResult.success) {
+    return { valid: false, error: `Invalid token claims: ${claimsResult.error.message}` };
+  }
+  const claims = claimsResult.data;
 
   // Check expiration
   const now = Math.floor(Date.now() / 1000);
-  if (!options?.allowExpired && claims.exp && claims.exp < now) {
+  if (!options?.allowExpired && claims.exp !== undefined && claims.exp < now) {
     return { valid: false, error: 'Token expired', claims };
   }
 
@@ -201,14 +236,8 @@ export async function verifyToken(
 
   // Verify signature
   const signingInput = `${headerB64}.${payloadB64}`;
-  let signature: Hex;
-
-  try {
-    const decoded = base64urlDecode(signatureB64);
-    signature = (decoded.startsWith('0x') ? decoded : `0x${Buffer.from(decoded, 'utf8').toString('hex')}`) as Hex;
-  } catch {
-    return { valid: false, error: 'Invalid signature encoding', claims };
-  }
+  const decoded = base64urlDecode(signatureB64);
+  const signature = (decoded.startsWith('0x') ? decoded : `0x${Buffer.from(decoded, 'utf8').toString('hex')}`) as Hex;
 
   if (header.alg === 'ES256K' && claims.wallet) {
     // Wallet-signed token - verify against wallet address
@@ -249,16 +278,19 @@ export async function verifyToken(
 
 /**
  * Extract claims from token without verification (use with caution)
+ * 
+ * Returns null for invalid tokens - this is intentional as this function
+ * is used for quick token inspection without throwing.
  */
 export function decodeToken(token: string): TokenClaims | null {
   const parts = token.split('.');
   if (parts.length !== 3) return null;
 
-  try {
-    return JSON.parse(base64urlDecode(parts[1]));
-  } catch {
-    return null;
-  }
+  const payloadJson = base64urlDecode(parts[1]);
+  const parsed = JSON.parse(payloadJson) as unknown;
+  const result = tokenClaimsSchema.safeParse(parsed);
+  if (!result.success) return null;
+  return result.data;
 }
 
 /**
@@ -266,7 +298,8 @@ export function decodeToken(token: string): TokenClaims | null {
  */
 export function isTokenExpired(token: string): boolean {
   const claims = decodeToken(token);
-  if (!claims?.exp) return false;
+  if (!claims) return true; // Invalid token is considered expired
+  if (claims.exp === undefined) return false; // No expiration means not expired
   return claims.exp < Math.floor(Date.now() / 1000);
 }
 
@@ -283,7 +316,7 @@ export async function refreshToken(
   const result = await verifyToken(token, { allowExpired: true });
   if (!result.valid || !result.claims) return null;
 
-  const { iat, jti, exp, ...claims } = result.claims;
+  const { iat: _iat, jti: _jti, exp: _exp, ...claims } = result.claims;
   return issueToken(claims as Omit<TokenClaims, 'iat' | 'jti'>, options);
 }
 

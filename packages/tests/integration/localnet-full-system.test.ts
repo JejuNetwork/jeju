@@ -27,7 +27,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'bun:test';
-import { createPublicClient, createWalletClient, http, parseAbi, readContract, writeContract, waitForTransactionReceipt, deployContract, getBlockNumber, getBalance, getChainId, getCode, getBlock, getFeeData, formatEther, parseEther, parseUnits, formatUnits, decodeEventLog, keccak256, stringToBytes, getTransactionReceipt, type Address, type PublicClient, type WalletClient } from 'viem';
+import { createPublicClient, createWalletClient, http, parseAbi, readContract, waitForTransactionReceipt, deployContract, getBlockNumber, getBalance, getChainId, getCode, getBlock, getFeeData, formatEther, parseEther, formatUnits, decodeEventLog, keccak256, stringToBytes, type Address, type PublicClient, type WalletClient } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
 import {
@@ -300,7 +300,7 @@ describe.skipIf(!localnetAvailable)('Localnet Full System Integration', () => {
         } else {
           console.log('   ⚠️  GraphQL endpoint not yet running (expected if indexer not started)');
         }
-      } catch (error) {
+      } catch (_error) {
         console.log('   ℹ️  Indexer not running (start with: cd apps/indexer && npm run dev)');
       }
     });
@@ -322,7 +322,7 @@ describe.skipIf(!localnetAvailable)('Localnet Full System Integration', () => {
             console.log(`   📈 Latest block: ${data.data.blocks[0]?.number || 'N/A'}`);
           }
         }
-      } catch (error) {
+      } catch (_error) {
         // Indexer not running - that's okay, it's optional for this test
         console.log('   ℹ️  Skipping indexer tests (indexer not running)');
       }
@@ -352,7 +352,7 @@ describe.skipIf(!localnetAvailable)('Localnet Full System Integration', () => {
             console.log(`   📊 Indexed ${data.data.transactions.length} transactions`);
           }
         }
-      } catch (error) {
+      } catch (_error) {
         console.log('   ℹ️  Skipping transaction query (indexer not running)');
       }
     });
@@ -364,7 +364,7 @@ describe.skipIf(!localnetAvailable)('Localnet Full System Integration', () => {
       
       // Query historical Transfer events for user1 (from earlier transfer)
       const tokenAbi = parseAbi(MockERC20Artifact.abi);
-      const transferEventTopic = keccak256(stringToBytes('Transfer(address,address,uint256)'));
+      const _transferEventTopic = keccak256(stringToBytes('Transfer(address,address,uint256)'));
       
       const logs = await l2PublicClient.getLogs({
         address: deployedContracts.elizaOS as Address,
@@ -519,7 +519,6 @@ describe.skipIf(!localnetAvailable)('Service Interaction Tests', () => {
   let deployerAccount: ReturnType<typeof privateKeyToAccount>;
   let deployerWalletClient: WalletClient;
   let user1Account: ReturnType<typeof privateKeyToAccount>;
-  let user1WalletClient: WalletClient;
 
   beforeAll(async () => {
     const l2Chain = inferChainFromRpcUrl(TEST_CONFIG.l2RpcUrl);
@@ -527,7 +526,6 @@ describe.skipIf(!localnetAvailable)('Service Interaction Tests', () => {
     deployerAccount = privateKeyToAccount(TEST_WALLETS.deployer.privateKey as `0x${string}`);
     deployerWalletClient = createWalletClient({ chain: l2Chain, transport: http(TEST_CONFIG.l2RpcUrl), account: deployerAccount });
     user1Account = privateKeyToAccount(TEST_WALLETS.user1.privateKey as `0x${string}`);
-    user1WalletClient = createWalletClient({ chain: l2Chain, transport: http(TEST_CONFIG.l2RpcUrl), account: user1Account });
   });
 
   describe('RPC → Indexer Flow', () => {
@@ -714,10 +712,16 @@ describe.skipIf(!localnetAvailable)('End-to-End User Journey', () => {
     console.log(`   3️⃣  Transaction confirmed in block ${receipt.blockNumber}`);
     
     // Step 4: Calculate expected balance reduction
-    const gasUsed = receipt.gasUsed ?? 21000n;
-    const gasPrice = receipt.gasPrice ?? parseUnits('1', 'gwei');
-    const gasCost = gasUsed * gasPrice;
-    const totalCost = sendAmount + gasCost;
+    if (!receipt.gasUsed) {
+      throw new Error('Receipt missing gasUsed field');
+    }
+    if (!receipt.gasPrice && !receipt.effectiveGasPrice) {
+      throw new Error('Receipt missing gasPrice/effectiveGasPrice field');
+    }
+    const gasUsed = receipt.gasUsed;
+    const gasPrice = receipt.effectiveGasPrice ?? receipt.gasPrice;
+    const gasCost = gasUsed * gasPrice!;
+    const _totalCost = sendAmount + gasCost;
     
     // Fresh client to avoid cache
     const freshClient = createPublicClient({ chain: l2Chain, transport: http(TEST_CONFIG.l2RpcUrl) });

@@ -2,12 +2,8 @@
  * Orca Whirlpools Integration
  */
 
-import {
-  Connection,
-  PublicKey,
-  VersionedTransaction,
-  TransactionMessage,
-} from '@solana/web3.js';
+import { Connection, PublicKey } from '@solana/web3.js';
+import { expectValid } from '@jejunetwork/types/validation';
 import type {
   SwapParams,
   SwapQuote,
@@ -22,35 +18,20 @@ import type {
   ConcentratedLiquidityParams,
   CLPosition,
 } from '../types';
+import {
+  OrcaWhirlpoolsResponseSchema,
+  OrcaWhirlpoolInfoSchema,
+  OrcaPositionsResponseSchema,
+} from '../schemas';
+import {
+  calculateAMMSwap,
+  buildSwapQuote,
+  buildPlaceholderTransaction,
+  poolMatchesFilter,
+  getSwapReserves,
+} from '../utils';
 
 const ORCA_API_BASE = 'https://api.mainnet.orca.so/v1';
-
-interface OrcaWhirlpoolInfo {
-  address: string;
-  tokenMintA: string;
-  tokenMintB: string;
-  tickSpacing: number;
-  tickCurrentIndex: number;
-  sqrtPrice: string;
-  liquidity: string;
-  feeRate: number;
-  tokenDecimalsA: number;
-  tokenDecimalsB: number;
-  tokenSymbolA: string;
-  tokenSymbolB: string;
-  tvl: number;
-  apr: number;
-}
-
-interface OrcaPositionInfo {
-  positionMint: string;
-  whirlpool: string;
-  liquidity: string;
-  tickLowerIndex: number;
-  tickUpperIndex: number;
-  feeOwedA: string;
-  feeOwedB: string;
-}
 
 export class OrcaAdapter implements DexAdapter {
   readonly name = 'orca' as const;
@@ -68,41 +49,24 @@ export class OrcaAdapter implements DexAdapter {
     }
 
     const pool = pools.sort((a, b) => Number(b.tvl - a.tvl))[0];
+    const { inputReserve, outputReserve } = getSwapReserves(pool, params.inputMint);
 
-    const isInputA = pool.tokenA.mint.equals(params.inputMint);
-    const inputReserve = isInputA ? pool.reserveA : pool.reserveB;
-    const outputReserve = isInputA ? pool.reserveB : pool.reserveA;
+    const ammResult = calculateAMMSwap({
+      inputAmount: params.amount,
+      inputReserve,
+      outputReserve,
+      feeBps: Math.floor(pool.fee * 10000),
+      slippageBps: params.slippageBps,
+    });
 
-    const feeMultiplier = 10000n - BigInt(Math.floor(pool.fee * 10000));
-    const amountInWithFee = params.amount * feeMultiplier / 10000n;
-    const outputAmount = (amountInWithFee * outputReserve) / (inputReserve + amountInWithFee);
-
-    const minOutputAmount = outputAmount * (10000n - BigInt(params.slippageBps)) / 10000n;
-
-    const spotPrice = Number(outputReserve) / Number(inputReserve);
-    const execPrice = Number(outputAmount) / Number(params.amount);
-    const priceImpact = Math.abs(1 - execPrice / spotPrice) * 100;
-
-    const fee = params.amount * BigInt(Math.floor(pool.fee * 10000)) / 10000n;
-
-    return {
+    return buildSwapQuote({
       inputMint: params.inputMint,
       outputMint: params.outputMint,
       inputAmount: params.amount,
-      outputAmount,
-      minOutputAmount,
-      priceImpactPct: priceImpact,
-      fee,
-      route: [{
-        dex: 'orca',
-        poolAddress: pool.address,
-        inputMint: params.inputMint,
-        outputMint: params.outputMint,
-        inputAmount: params.amount,
-        outputAmount,
-      }],
+      pool,
+      ammResult,
       dex: 'orca',
-    };
+    });
   }
 
   async buildSwapTransaction(_quote: SwapQuote): Promise<SwapTransaction> {
@@ -117,20 +81,15 @@ export class OrcaAdapter implements DexAdapter {
       throw new Error(`Orca API error: ${response.statusText}`);
     }
 
-    const data = await response.json() as { whirlpools: OrcaWhirlpoolInfo[] };
+    const rawData = await response.json();
+    const data = expectValid(OrcaWhirlpoolsResponseSchema, rawData, 'Orca whirlpools');
     const pools: PoolInfo[] = [];
 
     for (const pool of data.whirlpools) {
       const mintA = new PublicKey(pool.tokenMintA);
       const mintB = new PublicKey(pool.tokenMintB);
 
-      if (tokenA && tokenB) {
-        const hasA = mintA.equals(tokenA) || mintB.equals(tokenA);
-        const hasB = mintA.equals(tokenB) || mintB.equals(tokenB);
-        if (!hasA || !hasB) continue;
-      } else if (tokenA) {
-        if (!mintA.equals(tokenA) && !mintB.equals(tokenA)) continue;
-      }
+      if (!poolMatchesFilter(mintA, mintB, { tokenA, tokenB })) continue;
 
       const sqrtPrice = BigInt(pool.sqrtPrice);
       const liquidity = BigInt(pool.liquidity);
@@ -177,7 +136,8 @@ export class OrcaAdapter implements DexAdapter {
       throw new Error(`Failed to fetch pool: ${pool.toBase58()}`);
     }
 
-    const data = await response.json() as OrcaWhirlpoolInfo;
+    const rawData = await response.json();
+    const data = expectValid(OrcaWhirlpoolInfoSchema, rawData, 'Orca whirlpool info');
 
     const sqrtPrice = BigInt(data.sqrtPrice);
     const liquidity = BigInt(data.liquidity);
@@ -228,18 +188,7 @@ export class OrcaAdapter implements DexAdapter {
     _quote: AddLiquidityQuote,
     params: AddLiquidityParams
   ): Promise<SwapTransaction> {
-    const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash();
-
-    const messageV0 = new TransactionMessage({
-      payerKey: params.userPublicKey,
-      recentBlockhash: blockhash,
-      instructions: [],
-    }).compileToV0Message();
-
-    return {
-      transaction: new VersionedTransaction(messageV0),
-      lastValidBlockHeight,
-    };
+    return buildPlaceholderTransaction(this.connection, params.userPublicKey);
   }
 
   async getRemoveLiquidityQuote(params: RemoveLiquidityParams): Promise<RemoveLiquidityQuote> {
@@ -258,18 +207,7 @@ export class OrcaAdapter implements DexAdapter {
     _quote: RemoveLiquidityQuote,
     params: RemoveLiquidityParams
   ): Promise<SwapTransaction> {
-    const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash();
-
-    const messageV0 = new TransactionMessage({
-      payerKey: params.userPublicKey,
-      recentBlockhash: blockhash,
-      instructions: [],
-    }).compileToV0Message();
-
-    return {
-      transaction: new VersionedTransaction(messageV0),
-      lastValidBlockHeight,
-    };
+    return buildPlaceholderTransaction(this.connection, params.userPublicKey);
   }
 
   async getLPPositions(userPublicKey: PublicKey): Promise<LPPosition[]> {
@@ -291,26 +229,25 @@ export class OrcaAdapter implements DexAdapter {
   async getWhirlpoolPositions(userPublicKey: PublicKey): Promise<CLPosition[]> {
     const url = `${ORCA_API_BASE}/positions/${userPublicKey.toBase58()}`;
 
-    try {
-      const response = await fetch(url);
-      if (!response.ok) return [];
-
-      const data = await response.json() as { positions: OrcaPositionInfo[] };
-
-      return data.positions.map(pos => ({
-        positionMint: new PublicKey(pos.positionMint),
-        pool: new PublicKey(pos.whirlpool),
-        tickLower: pos.tickLowerIndex,
-        tickUpper: pos.tickUpperIndex,
-        liquidity: BigInt(pos.liquidity),
-        tokenAOwed: BigInt(pos.feeOwedA),
-        tokenBOwed: BigInt(pos.feeOwedB),
-        feeGrowthA: 0n,
-        feeGrowthB: 0n,
-      }));
-    } catch {
-      return [];
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Orca positions API error: ${response.statusText}`);
     }
+
+    const rawData = await response.json();
+    const data = expectValid(OrcaPositionsResponseSchema, rawData, 'Orca positions');
+
+    return data.positions.map(pos => ({
+      positionMint: new PublicKey(pos.positionMint),
+      pool: new PublicKey(pos.whirlpool),
+      tickLower: pos.tickLowerIndex,
+      tickUpper: pos.tickUpperIndex,
+      liquidity: BigInt(pos.liquidity),
+      tokenAOwed: BigInt(pos.feeOwedA),
+      tokenBOwed: BigInt(pos.feeOwedB),
+      feeGrowthA: 0n,
+      feeGrowthB: 0n,
+    }));
   }
 
   async createWhirlpoolPosition(params: ConcentratedLiquidityParams): Promise<SwapTransaction> {
@@ -320,70 +257,17 @@ export class OrcaAdapter implements DexAdapter {
       throw new Error('Pool is not a Whirlpool');
     }
 
-    const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash();
-
-    const messageV0 = new TransactionMessage({
-      payerKey: params.userPublicKey,
-      recentBlockhash: blockhash,
-      instructions: [],
-    }).compileToV0Message();
-
-    return {
-      transaction: new VersionedTransaction(messageV0),
-      lastValidBlockHeight,
-    };
+    return buildPlaceholderTransaction(this.connection, params.userPublicKey);
   }
 
   async collectFees(
     _positionMint: PublicKey,
     userPublicKey: PublicKey
   ): Promise<SwapTransaction> {
-    const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash();
-
-    const messageV0 = new TransactionMessage({
-      payerKey: userPublicKey,
-      recentBlockhash: blockhash,
-      instructions: [],
-    }).compileToV0Message();
-
-    return {
-      transaction: new VersionedTransaction(messageV0),
-      lastValidBlockHeight,
-    };
-  }
-
-  private priceToTick(
-    price: number,
-    decimalsA: number,
-    decimalsB: number,
-    tickSpacing: number
-  ): number {
-    const adjustedPrice = price * Math.pow(10, decimalsB - decimalsA);
-    const tick = Math.floor(Math.log(adjustedPrice) / Math.log(1.0001));
-    return Math.floor(tick / tickSpacing) * tickSpacing;
-  }
-
-  private tickToPrice(
-    tick: number,
-    decimalsA: number,
-    decimalsB: number
-  ): number {
-    const rawPrice = Math.pow(1.0001, tick);
-    return rawPrice * Math.pow(10, decimalsA - decimalsB);
-  }
-
-  private sqrtPriceX64ToPrice(
-    sqrtPriceX64: bigint,
-    decimalsA: number,
-    decimalsB: number
-  ): number {
-    const sqrtPrice = Number(sqrtPriceX64) / (2 ** 64);
-    const price = sqrtPrice * sqrtPrice;
-    return price * Math.pow(10, decimalsA - decimalsB);
+    return buildPlaceholderTransaction(this.connection, userPublicKey);
   }
 }
 
 export function createOrcaAdapter(connection: Connection): OrcaAdapter {
   return new OrcaAdapter(connection);
 }
-

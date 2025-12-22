@@ -2,6 +2,8 @@ import { useWriteContract, useWaitForTransactionReceipt, useReadContract, useAcc
 import { parseEther } from 'viem'
 import { toast } from 'sonner'
 import { useEffect, useState } from 'react'
+import { AddressSchema } from '@jejunetwork/types/contracts'
+import { expect, expectPositive, expectTrue } from '@/lib/validation'
 import NFTMarketplaceABI from '@/lib/abis/NFTMarketplace.json'
 import { CONTRACTS } from '@/config'
 
@@ -35,6 +37,10 @@ const ERC721_ABI = [
 ] as const
 
 export function useNFTListing(nftContract: `0x${string}`, tokenId: bigint) {
+  const validatedContract = AddressSchema.parse(nftContract);
+  expectPositive(tokenId, 'Token ID must be positive');
+  const validatedMarketplace = AddressSchema.parse(MARKETPLACE_ADDRESS);
+  
   const { address } = useAccount()
   const { writeContract, data: hash, isPending } = useWriteContract()
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
@@ -42,19 +48,19 @@ export function useNFTListing(nftContract: `0x${string}`, tokenId: bigint) {
   const [isApproved, setIsApproved] = useState(false)
 
   const { data: owner, refetch: refetchOwner } = useReadContract({
-    address: nftContract,
+    address: validatedContract,
     abi: ERC721_ABI,
     functionName: 'ownerOf',
     args: [tokenId],
-    query: { enabled: !!nftContract && tokenId > 0n }
+    query: { enabled: true }
   })
 
   const { data: approved, refetch: refetchApproval } = useReadContract({
-    address: nftContract,
+    address: validatedContract,
     abi: ERC721_ABI,
     functionName: 'getApproved',
     args: [tokenId],
-    query: { enabled: !!nftContract && tokenId > 0n }
+    query: { enabled: true }
   })
 
   useEffect(() => {
@@ -64,76 +70,50 @@ export function useNFTListing(nftContract: `0x${string}`, tokenId: bigint) {
   }, [owner, address])
 
   useEffect(() => {
-    if (approved && MARKETPLACE_ADDRESS) {
-      setIsApproved(approved.toLowerCase() === MARKETPLACE_ADDRESS.toLowerCase())
+    if (approved) {
+      setIsApproved(approved.toLowerCase() === validatedMarketplace.toLowerCase())
     }
-  }, [approved])
+  }, [approved, validatedMarketplace])
 
   const approveNFT = () => {
-    if (MARKETPLACE_ADDRESS === '0x0') {
-      toast.error('Marketplace not deployed')
-      return
-    }
-
-    if (!isOwner) {
-      toast.error('You do not own this NFT')
-      return
-    }
+    expectTrue(isOwner, 'You do not own this NFT');
 
     writeContract({
-      address: nftContract,
+      address: validatedContract,
       abi: ERC721_ABI,
       functionName: 'approve',
-      args: [MARKETPLACE_ADDRESS, tokenId]
+      args: [validatedMarketplace, tokenId]
     })
     toast.success('Approval submitted - waiting for confirmation...')
     setTimeout(() => refetchApproval(), 3000)
   }
 
   const createListing = (priceETH: string, durationDays: number) => {
-    if (MARKETPLACE_ADDRESS === '0x0') {
-      toast.error('Marketplace not deployed')
-      return
-    }
-
-    if (!isOwner) {
-      toast.error('You do not own this NFT')
-      return
-    }
-
-    if (!isApproved) {
-      toast.error('NFT not approved for marketplace', {
-        action: { label: 'Approve', onClick: approveNFT }
-      })
-      return
-    }
+    expectTrue(isOwner, 'You do not own this NFT');
+    expectTrue(isApproved, 'NFT not approved for marketplace');
 
     const priceNum = parseFloat(priceETH)
-    if (priceNum < 0.001) {
-      toast.error('Minimum listing price is 0.001 ETH')
-      return
-    }
+    expectTrue(priceNum >= 0.001, 'Minimum listing price is 0.001 ETH');
+    expectTrue(durationDays > 0, 'Duration must be positive');
 
     const price = parseEther(priceETH)
     const duration = BigInt(durationDays * 24 * 60 * 60)
 
     writeContract({
-      address: MARKETPLACE_ADDRESS,
+      address: validatedMarketplace,
       abi: NFTMarketplaceABI,
       functionName: 'createListing',
-      args: [nftContract, tokenId, price, duration]
+      args: [validatedContract, tokenId, price, duration]
     })
     toast.success('Listing submitted - waiting for confirmation...')
   }
 
   const cancelListing = (listingId: bigint) => {
-    if (!isOwner) {
-      toast.error('You do not own this NFT')
-      return
-    }
+    expectTrue(isOwner, 'You do not own this NFT');
+    expectPositive(listingId, 'Listing ID must be positive');
 
     writeContract({
-      address: MARKETPLACE_ADDRESS,
+      address: validatedMarketplace,
       abi: NFTMarketplaceABI,
       functionName: 'cancelListing',
       args: [listingId]

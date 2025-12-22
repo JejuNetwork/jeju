@@ -6,6 +6,7 @@
  */
 
 import type { AttestationQuote, DerivedKey, TLSCertificate, TEEInfo } from './types'
+import { existsSync } from 'fs'
 
 interface TappdQuoteResponse {
   quote: string
@@ -65,16 +66,24 @@ export class DstackClient {
   private timeout: number
 
   constructor(config: DstackClientConfig = {}) {
-    // Default to Unix socket, fall back to simulator endpoint
-    this.endpoint = config.endpoint 
-      || process.env.DSTACK_ENDPOINT 
-      || 'unix:/var/run/dstack.sock'
+    // Determine endpoint from config or environment
+    const endpoint = config.endpoint ?? process.env.DSTACK_ENDPOINT
+    if (!endpoint) {
+      // Check if we're in a TEE environment
+      if (existsSync('/var/run/dstack.sock')) {
+        this.endpoint = 'unix:/var/run/dstack.sock'
+      } else {
+        throw new Error('DSTACK_ENDPOINT must be configured or running in a TEE environment')
+      }
+    } else {
+      this.endpoint = endpoint
+    }
     
-    this.isSimulator = config.forceSimulator 
+    this.isSimulator = config.forceSimulator === true
       || process.env.DSTACK_SIMULATOR === 'true'
       || this.endpoint.includes('simulator')
     
-    this.timeout = config.timeout || 30000
+    this.timeout = config.timeout ?? 30000
   }
 
   /**
@@ -123,11 +132,11 @@ export class DstackClient {
    * Derive a key for a specific purpose
    * 
    * @param purpose - Purpose of the key (e.g., 'signing', 'encryption')
-   * @param path - Optional derivation path
+   * @param path - Optional derivation path (defaults to /jeju/{purpose})
    * @returns Derived key with signature chain
    */
   async deriveKey(purpose: string, path?: string): Promise<DerivedKey> {
-    const derivationPath = path || `/jeju/${purpose}`
+    const derivationPath = path ?? `/jeju/${purpose}`
     
     const response = await this.request<TappdDeriveKeyResponse>(
       '/DeriveKey',
@@ -166,7 +175,7 @@ export class DstackClient {
         method: 'POST',
         body: JSON.stringify({ 
           domain,
-          alt_names: altNames || [],
+          alt_names: altNames ?? [],
           // Request RA-TLS certificate if in production mode
           ra_tls: !this.isSimulator
         })
@@ -216,8 +225,11 @@ export class DstackClient {
   private buildUrl(path: string): string {
     if (this.endpoint.startsWith('unix:')) {
       // Unix socket - would need special handling in Node.js
-      // For now, assume there's an HTTP bridge or use the HTTP endpoint
-      const httpEndpoint = process.env.DSTACK_HTTP_ENDPOINT || 'http://localhost:8090'
+      // For now, assume there's an HTTP bridge
+      const httpEndpoint = process.env.DSTACK_HTTP_ENDPOINT
+      if (!httpEndpoint) {
+        throw new Error('DSTACK_HTTP_ENDPOINT must be set when using Unix socket')
+      }
       return `${httpEndpoint}${path}`
     }
     
@@ -236,15 +248,7 @@ export function createDstackClient(config?: DstackClientConfig): DstackClient {
  * Check if running in a TEE environment
  */
 export function isInTEE(): boolean {
-  // Check for Dstack socket
   if (process.env.DSTACK_ENDPOINT) return true
-  
-  // Check for common TEE indicators
-  try {
-    const fs = require('fs')
-    return fs.existsSync('/var/run/dstack.sock') || fs.existsSync('/dev/tdx_guest')
-  } catch {
-    return false
-  }
+  return existsSync('/var/run/dstack.sock') || existsSync('/dev/tdx_guest')
 }
 

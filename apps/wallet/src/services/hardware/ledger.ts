@@ -191,7 +191,7 @@ export class LedgerKeyring {
     );
     
     // Combine transaction with signature
-    const signedTx = this.buildSignedTx(rawTxHex, signature, isEIP1559);
+    const signedTx = this.buildSignedTx(rawTxHex, signature);
     return signedTx;
   }
   
@@ -345,13 +345,9 @@ export class LedgerKeyring {
   
   private buildSignedTx(
     rawTx: string,
-    signature: { v: string; r: string; s: string },
-    isEIP1559: boolean
+    signature: { v: string; r: string; s: string }
   ): Hex {
     // Build signed transaction from raw tx and signature
-    const v = parseInt(signature.v, 16);
-    const r = '0x' + signature.r;
-    const s = '0x' + signature.s;
     
     // For simplicity, return concatenated signature
     // In production, properly encode the signed transaction

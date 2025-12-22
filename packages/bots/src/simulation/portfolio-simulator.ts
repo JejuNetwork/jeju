@@ -12,9 +12,7 @@ import type { Token, OraclePrice } from '../types';
 import { CompositeStrategy } from '../strategies/tfmm/composite-strategy';
 import type { StrategyContext, WeightCalculation } from '../strategies/tfmm/base-strategy';
 import { OracleAggregator } from '../oracles';
-
-const WEIGHT_PRECISION = 10n ** 18n;
-const BPS_PRECISION = 10000n;
+import { WEIGHT_PRECISION, BPS_PRECISION } from '../shared';
 
 export interface SimulatedPool {
   address: string;
@@ -219,7 +217,6 @@ export class PortfolioSimulator {
    * Add liquidity proportionally
    */
   addLiquidity(amounts: bigint[]): bigint {
-    const totalValueBefore = this.calculateTotalValue();
     let minRatio = WEIGHT_PRECISION;
 
     for (let i = 0; i < amounts.length; i++) {
@@ -293,7 +290,12 @@ export class PortfolioSimulator {
     const inIndex = this.pool.tokens.findIndex(t => t.symbol === tokenIn);
     const outIndex = this.pool.tokens.findIndex(t => t.symbol === tokenOut);
 
-    if (inIndex === -1 || outIndex === -1) return 0n;
+    if (inIndex === -1) {
+      throw new Error(`Token ${tokenIn} not found in pool`);
+    }
+    if (outIndex === -1) {
+      throw new Error(`Token ${tokenOut} not found in pool`);
+    }
 
     const balanceIn = this.pool.balances[inIndex];
     const balanceOut = this.pool.balances[outIndex];

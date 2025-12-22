@@ -2,8 +2,8 @@ import { Hono } from 'hono';
 import type { InferenceRequest } from '../../types';
 import type { Address } from 'viem';
 import { computeJobState } from '../../state.js';
-
-type JobStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+import type { JobStatus } from '@jejunetwork/types';
+import { validateBody, validateParams, validateQuery, validateHeaders, expectValid, jejuAddressHeaderSchema, createJobRequestSchema, jobParamsSchema, jobListQuerySchema, inferenceRequestSchema, embeddingsRequestSchema, trainingNodeRegistrationSchema, trainingRunsQuerySchema, trainingRunParamsSchema, nodeParamsSchema, z } from '../../shared';
 
 interface ComputeJob {
   jobId: string;
@@ -61,7 +61,7 @@ export function createComputeRouter(): Hono {
   });
 
   app.post('/chat/completions', async (c) => {
-    const body = await c.req.json<InferenceRequest>();
+    const body = await validateBody(inferenceRequestSchema, c);
     
     // Check if AWS Bedrock is available (credentials from AWS SDK default chain)
     const bedrockEnabled = process.env.AWS_BEDROCK_ENABLED === 'true' || 
@@ -296,7 +296,7 @@ Set one of: GROQ_API_KEY, OPENROUTER_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY,
   });
 
   app.post('/embeddings', async (c) => {
-    const body = await c.req.json<{ input: string | string[]; model?: string }>();
+    const body = await validateBody(embeddingsRequestSchema, c);
     
     // Check if AWS Bedrock is available
     const bedrockEnabled = process.env.AWS_BEDROCK_ENABLED === 'true' || 
@@ -413,27 +413,17 @@ Set one of: GROQ_API_KEY, OPENROUTER_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY,
   });
 
   app.post('/jobs', async (c) => {
-    const submitter = c.req.header('x-jeju-address') as Address;
-    if (!submitter) return c.json({ error: 'Missing x-jeju-address header' }, 401);
-
-    const { command, shell = 'bash', env = {}, workingDir, timeout = DEFAULT_TIMEOUT } = await c.req.json<{
-      command: string;
-      shell?: string;
-      env?: Record<string, string>;
-      workingDir?: string;
-      timeout?: number;
-    }>();
-
-    if (!command) return c.json({ error: 'Command is required' }, 400);
+    const { 'x-jeju-address': submitter } = validateHeaders(jejuAddressHeaderSchema, c);
+    const body = await validateBody(createJobRequestSchema, c);
 
     const jobId = crypto.randomUUID();
     const job: ComputeJob = {
       jobId,
-      command,
-      shell,
-      env,
-      workingDir,
-      timeout,
+      command: body.command,
+      shell: body.shell,
+      env: body.env,
+      workingDir: body.workingDir,
+      timeout: body.timeout,
       status: 'queued',
       output: '',
       exitCode: null,
@@ -449,8 +439,11 @@ Set one of: GROQ_API_KEY, OPENROUTER_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY,
   });
 
   app.get('/jobs/:jobId', async (c) => {
-    const row = await computeJobState.get(c.req.param('jobId'));
-    if (!row) return c.json({ error: 'Job not found' }, 404);
+    const { jobId } = validateParams(jobParamsSchema, c);
+    const row = await computeJobState.get(jobId);
+    if (!row) {
+      throw new Error('Job not found');
+    }
 
     return c.json({
       jobId: row.job_id,
@@ -464,10 +457,13 @@ Set one of: GROQ_API_KEY, OPENROUTER_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY,
   });
 
   app.post('/jobs/:jobId/cancel', async (c) => {
-    const row = await computeJobState.get(c.req.param('jobId'));
-    if (!row) return c.json({ error: 'Job not found' }, 404);
+    const { jobId } = validateParams(jobParamsSchema, c);
+    const row = await computeJobState.get(jobId);
+    if (!row) {
+      throw new Error('Job not found');
+    }
     if (row.status === 'completed' || row.status === 'failed') {
-      return c.json({ error: 'Job already finished' }, 400);
+      throw new Error('Job already finished');
     }
 
     const job: ComputeJob = {
@@ -492,9 +488,8 @@ Set one of: GROQ_API_KEY, OPENROUTER_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY,
   });
 
   app.get('/jobs', async (c) => {
-    const submitter = c.req.header('x-jeju-address')?.toLowerCase();
-    const statusFilter = c.req.query('status');
-    const limit = parseInt(c.req.query('limit') || '20');
+    const { 'x-jeju-address': submitter } = validateHeaders(z.object({ 'x-jeju-address': z.string().optional() }), c);
+    const { status: statusFilter, limit } = validateQuery(jobListQuerySchema, c);
 
     const rows = await computeJobState.list({
       submittedBy: submitter,
@@ -616,7 +611,7 @@ const trainingNodes: Map<string, TrainingNode> = new Map();
 export function addTrainingRoutes(app: Hono): void {
   // List training runs
   app.get('/training/runs', async (c) => {
-    const status = c.req.query('status');
+    const { status } = validateQuery(trainingRunsQuerySchema, c);
     let runs = Array.from(trainingRuns.values());
     
     if (status === 'active') {
@@ -632,11 +627,11 @@ export function addTrainingRoutes(app: Hono): void {
 
   // Get training run
   app.get('/training/runs/:runId', async (c) => {
-    const runId = c.req.param('runId');
+    const { runId } = validateParams(trainingRunParamsSchema, c);
     const run = trainingRuns.get(runId);
     
     if (!run) {
-      return c.json({ error: 'Run not found' }, 404);
+      throw new Error('Run not found');
     }
     
     return c.json(run);
@@ -650,11 +645,11 @@ export function addTrainingRoutes(app: Hono): void {
 
   // Get node info
   app.get('/nodes/:address', async (c) => {
-    const address = c.req.param('address');
+    const { address } = validateParams(nodeParamsSchema, c);
     const node = trainingNodes.get(address.toLowerCase());
     
     if (!node) {
-      return c.json({ error: 'Node not found' }, 404);
+      throw new Error('Node not found');
     }
     
     return c.json(node);
@@ -662,14 +657,7 @@ export function addTrainingRoutes(app: Hono): void {
 
   // Register as training node (for DWS nodes)
   app.post('/nodes/register', async (c) => {
-    const body = await c.req.json<{
-      address: string;
-      gpuTier: number;
-      capabilities?: string[];
-      endpoint?: string;
-      region?: string;
-      teeProvider?: string;
-    }>();
+    const body = await validateBody(trainingNodeRegistrationSchema, c);
     const address = body.address.toLowerCase();
     
     trainingNodes.set(address, {
@@ -697,7 +685,7 @@ export function addTrainingRoutes(app: Hono): void {
 
   // Training webhook for state updates
   app.post('/training/webhook', async (c) => {
-    const body = await c.req.json<TrainingRun>();
+    const body = await validateBody(trainingRunSchema, c);
     trainingRuns.set(body.runId, body);
     return c.json({ success: true });
   });

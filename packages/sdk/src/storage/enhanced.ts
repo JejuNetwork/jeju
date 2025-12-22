@@ -1,6 +1,6 @@
 /**
  * Enhanced Storage Module - Multi-backend decentralized storage
- * 
+ *
  * Provides easy-to-use interface for:
  * - Multi-backend storage (WebTorrent, IPFS, Arweave)
  * - Content tiering (System, Popular, Private)
@@ -8,23 +8,30 @@
  * - P2P content distribution
  */
 
-import { parseEther, type Address } from 'viem';
-import type { NetworkType } from '@jejunetwork/types';
-import type { JejuWallet } from '../wallet';
-import { getServicesConfig } from '../config';
+import { parseEther, type Address } from "viem";
+import type { NetworkType } from "@jejunetwork/types";
+import type { JejuWallet } from "../wallet";
+import { getServicesConfig } from "../config";
+import { generateAuthHeaders } from "../shared/api";
+import {
+  EnhancedStorageStatsSchema,
+  ContentInfoSchema,
+  ContentListSchema,
+  TorrentInfoSchema,
+} from "../shared/schemas";
 
 // ============================================================================
 // Types
 // ============================================================================
 
-export type StorageBackend = 'webtorrent' | 'ipfs' | 'arweave' | 'local';
-export type ContentTier = 'system' | 'popular' | 'private';
-export type ContentCategory = 
-  | 'app-bundle' 
-  | 'contract-abi' 
-  | 'user-content' 
-  | 'media' 
-  | 'data';
+export type StorageBackend = "webtorrent" | "ipfs" | "arweave" | "local";
+export type ContentTier = "system" | "popular" | "private";
+export type ContentCategory =
+  | "app-bundle"
+  | "contract-abi"
+  | "user-content"
+  | "media"
+  | "data";
 
 export interface EnhancedStorageStats {
   totalPins: number;
@@ -57,14 +64,14 @@ export interface EnhancedUploadOptions {
   tier?: ContentTier;
   category?: ContentCategory;
   backends?: StorageBackend[];
-  
+
   // Encryption (for private content)
   encrypt?: boolean;
   accessPolicy?: AccessPolicy;
-  
+
   // Arweave
   permanent?: boolean;
-  
+
   // WebTorrent
   createTorrent?: boolean;
 }
@@ -88,7 +95,7 @@ export interface DownloadOptions {
 }
 
 export interface AccessPolicy {
-  type: 'public' | 'stake-gated' | 'token-gated' | 'agent-owner' | 'role-gated';
+  type: "public" | "stake-gated" | "token-gated" | "agent-owner" | "role-gated";
   params?: {
     minStakeUSD?: number;
     tokenAddress?: Address;
@@ -102,31 +109,48 @@ export interface AccessPolicy {
 export interface EnhancedStorageModule {
   // Stats
   getStats(): Promise<EnhancedStorageStats>;
-  
+
   // Upload
-  upload(data: Uint8Array | Blob | File, options?: EnhancedUploadOptions): Promise<EnhancedUploadResult>;
-  uploadJson(data: object, options?: EnhancedUploadOptions): Promise<EnhancedUploadResult>;
-  uploadPermanent(data: Uint8Array | Blob | File, options?: Omit<EnhancedUploadOptions, 'permanent'>): Promise<EnhancedUploadResult>;
-  
+  upload(
+    data: Uint8Array | Blob | File,
+    options?: EnhancedUploadOptions,
+  ): Promise<EnhancedUploadResult>;
+  uploadJson(
+    data: object,
+    options?: EnhancedUploadOptions,
+  ): Promise<EnhancedUploadResult>;
+  uploadPermanent(
+    data: Uint8Array | Blob | File,
+    options?: Omit<EnhancedUploadOptions, "permanent">,
+  ): Promise<EnhancedUploadResult>;
+
   // Download
   download(cid: string, options?: DownloadOptions): Promise<Uint8Array>;
   downloadJson<T = unknown>(cid: string, options?: DownloadOptions): Promise<T>;
-  
+
   // Content management
   getContent(cid: string): Promise<ContentInfo | null>;
-  listContent(options?: { tier?: ContentTier; category?: ContentCategory }): Promise<ContentInfo[]>;
-  
+  listContent(options?: {
+    tier?: ContentTier;
+    category?: ContentCategory;
+  }): Promise<ContentInfo[]>;
+
   // WebTorrent
-  getTorrentInfo(cid: string): Promise<{ magnetUri: string; peers: number; seeds: number } | null>;
+  getTorrentInfo(
+    cid: string,
+  ): Promise<{ magnetUri: string; peers: number; seeds: number } | null>;
   seedContent(cid: string): Promise<void>;
-  
+
   // URLs
   getGatewayUrl(cid: string): string;
   getMagnetUri(cid: string): Promise<string | null>;
   getArweaveUrl(txId: string): string;
-  
+
   // Cost estimation
-  estimateCost(sizeBytes: number, options: EnhancedUploadOptions): Promise<{
+  estimateCost(
+    sizeBytes: number,
+    options: EnhancedUploadOptions,
+  ): Promise<{
     ipfs: bigint;
     arweave: bigint;
     total: bigint;
@@ -139,12 +163,12 @@ export interface EnhancedStorageModule {
 
 const STORAGE_PRICING = {
   ipfs: {
-    hot: parseEther('0.0001'),      // per GB per month
-    warm: parseEther('0.00005'),
-    cold: parseEther('0.00001'),
+    hot: parseEther("0.0001"), // per GB per month
+    warm: parseEther("0.00005"),
+    cold: parseEther("0.00001"),
   },
-  arweave: parseEther('0.01'),       // one-time per GB (permanent)
-  webtorrent: parseEther('0'),       // Free (P2P)
+  arweave: parseEther("0.01"), // one-time per GB (permanent)
+  webtorrent: parseEther("0"), // Free (P2P)
 };
 
 // ============================================================================
@@ -153,26 +177,15 @@ const STORAGE_PRICING = {
 
 export function createEnhancedStorageModule(
   wallet: JejuWallet,
-  network: NetworkType
+  network: NetworkType,
 ): EnhancedStorageModule {
   const services = getServicesConfig(network);
   const apiUrl = services.storage.api;
   const gatewayUrl = services.storage.ipfsGateway;
-  const arweaveGateway = 'https://arweave.net';
-  // KMS endpoint would be configured separately if needed
-  const kmsEndpoint: string | undefined = undefined;
+  const arweaveGateway = "https://arweave.net";
 
   async function authHeaders(): Promise<Record<string, string>> {
-    const timestamp = Date.now().toString();
-    const message = `jeju-storage:${timestamp}`;
-    const signature = await wallet.signMessage(message);
-
-    return {
-      'Content-Type': 'application/json',
-      'x-jeju-address': wallet.address,
-      'x-jeju-timestamp': timestamp,
-      'x-jeju-signature': signature,
-    };
+    return generateAuthHeaders(wallet, "jeju-storage");
   }
 
   async function getStats(): Promise<EnhancedStorageStats> {
@@ -184,34 +197,37 @@ export function createEnhancedStorageModule(
       throw new Error(`Failed to get stats: ${response.statusText}`);
     }
 
-    return await response.json() as EnhancedStorageStats;
+    const rawData: unknown = await response.json();
+    return EnhancedStorageStatsSchema.parse(rawData);
   }
 
   async function upload(
     data: Uint8Array | Blob | File,
-    options: EnhancedUploadOptions = {}
+    options: EnhancedUploadOptions = {},
   ): Promise<EnhancedUploadResult> {
     const formData = new FormData();
     const blob = data instanceof Uint8Array ? new Blob([data]) : data;
-    formData.append('file', blob, options.name ?? 'file');
+    formData.append("file", blob, options.name ?? "file");
 
     // Set options
-    if (options.tier) formData.append('tier', options.tier);
-    if (options.category) formData.append('category', options.category);
-    if (options.backends) formData.append('backends', options.backends.join(','));
-    if (options.encrypt) formData.append('encrypt', 'true');
-    if (options.permanent) formData.append('permanent', 'true');
-    if (options.createTorrent !== false) formData.append('createTorrent', 'true');
-    
+    if (options.tier) formData.append("tier", options.tier);
+    if (options.category) formData.append("category", options.category);
+    if (options.backends)
+      formData.append("backends", options.backends.join(","));
+    if (options.encrypt) formData.append("encrypt", "true");
+    if (options.permanent) formData.append("permanent", "true");
+    if (options.createTorrent !== false)
+      formData.append("createTorrent", "true");
+
     if (options.accessPolicy) {
-      formData.append('accessPolicy', JSON.stringify(options.accessPolicy));
+      formData.append("accessPolicy", JSON.stringify(options.accessPolicy));
     }
 
     const headers = await authHeaders();
-    delete headers['Content-Type'];
+    delete headers["Content-Type"];
 
     const response = await fetch(`${apiUrl}/v2/upload`, {
-      method: 'POST',
+      method: "POST",
       headers,
       body: formData,
     });
@@ -220,7 +236,7 @@ export function createEnhancedStorageModule(
       throw new Error(`Upload failed: ${response.statusText}`);
     }
 
-    const result = await response.json() as EnhancedUploadResult;
+    const result = (await response.json()) as EnhancedUploadResult;
     return {
       ...result,
       gatewayUrl: getGatewayUrl(result.cid),
@@ -229,39 +245,40 @@ export function createEnhancedStorageModule(
 
   async function uploadJson(
     data: object,
-    options: EnhancedUploadOptions = {}
+    options: EnhancedUploadOptions = {},
   ): Promise<EnhancedUploadResult> {
     const json = JSON.stringify(data);
     const bytes = new TextEncoder().encode(json);
     return upload(new Uint8Array(bytes), {
       ...options,
-      name: options.name ?? 'data.json',
-      category: options.category ?? 'data',
+      name: options.name ?? "data.json",
+      category: options.category ?? "data",
     });
   }
 
   async function uploadPermanent(
     data: Uint8Array | Blob | File,
-    options: Omit<EnhancedUploadOptions, 'permanent'> = {}
+    options: Omit<EnhancedUploadOptions, "permanent"> = {},
   ): Promise<EnhancedUploadResult> {
     return upload(data, {
       ...options,
       permanent: true,
-      backends: ['arweave', 'ipfs', 'webtorrent'],
+      backends: ["arweave", "ipfs", "webtorrent"],
     });
   }
 
   async function download(
     cid: string,
-    options: DownloadOptions = {}
+    options: DownloadOptions = {},
   ): Promise<Uint8Array> {
     const params = new URLSearchParams();
-    if (options.preferredBackend) params.append('backend', options.preferredBackend);
-    if (options.decrypt) params.append('decrypt', 'true');
-    if (options.region) params.append('region', options.region);
+    if (options.preferredBackend)
+      params.append("backend", options.preferredBackend);
+    if (options.decrypt) params.append("decrypt", "true");
+    if (options.region) params.append("region", options.region);
 
-    const url = `${apiUrl}/v2/download/${cid}${params.toString() ? '?' + params.toString() : ''}`;
-    
+    const url = `${apiUrl}/v2/download/${cid}${params.toString() ? "?" + params.toString() : ""}`;
+
     const response = await fetch(url, {
       headers: await authHeaders(),
     });
@@ -273,9 +290,9 @@ export function createEnhancedStorageModule(
     return new Uint8Array(await response.arrayBuffer());
   }
 
-  async function downloadJson<T = unknown>(
+  async function downloadJson<T>(
     cid: string,
-    options: DownloadOptions = {}
+    options: DownloadOptions = {},
   ): Promise<T> {
     const data = await download(cid, options);
     const text = new TextDecoder().decode(data);
@@ -292,18 +309,20 @@ export function createEnhancedStorageModule(
       throw new Error(`Failed to get content: ${response.statusText}`);
     }
 
-    return await response.json() as ContentInfo;
+    const rawData: unknown = await response.json();
+    return ContentInfoSchema.parse(rawData);
   }
 
-  async function listContent(
-    options?: { tier?: ContentTier; category?: ContentCategory }
-  ): Promise<ContentInfo[]> {
+  async function listContent(options?: {
+    tier?: ContentTier;
+    category?: ContentCategory;
+  }): Promise<ContentInfo[]> {
     const params = new URLSearchParams();
-    if (options?.tier) params.append('tier', options.tier);
-    if (options?.category) params.append('category', options.category);
+    if (options?.tier) params.append("tier", options.tier);
+    if (options?.category) params.append("category", options.category);
 
-    const url = `${apiUrl}/v2/content${params.toString() ? '?' + params.toString() : ''}`;
-    
+    const url = `${apiUrl}/v2/content${params.toString() ? "?" + params.toString() : ""}`;
+
     const response = await fetch(url, {
       headers: await authHeaders(),
     });
@@ -312,22 +331,28 @@ export function createEnhancedStorageModule(
       throw new Error(`Failed to list content: ${response.statusText}`);
     }
 
-    const data = await response.json() as { items: ContentInfo[] };
+    const rawData: unknown = await response.json();
+    const data = ContentListSchema.parse(rawData);
     return data.items;
   }
 
-  async function getTorrentInfo(cid: string): Promise<{ magnetUri: string; peers: number; seeds: number } | null> {
+  async function getTorrentInfo(
+    cid: string,
+  ): Promise<{ magnetUri: string; peers: number; seeds: number } | null> {
     const response = await fetch(`${apiUrl}/v2/torrent/${cid}`);
-    
-    if (response.status === 404) return null;
-    if (!response.ok) return null;
 
-    return await response.json() as { magnetUri: string; peers: number; seeds: number };
+    if (response.status === 404) return null;
+    if (!response.ok) {
+      throw new Error(`Failed to get torrent info: ${response.statusText}`);
+    }
+
+    const rawData: unknown = await response.json();
+    return TorrentInfoSchema.parse(rawData);
   }
 
   async function seedContent(cid: string): Promise<void> {
     const response = await fetch(`${apiUrl}/v2/seed/${cid}`, {
-      method: 'POST',
+      method: "POST",
       headers: await authHeaders(),
     });
 
@@ -351,19 +376,19 @@ export function createEnhancedStorageModule(
 
   async function estimateCost(
     sizeBytes: number,
-    options: EnhancedUploadOptions
+    options: EnhancedUploadOptions,
   ): Promise<{ ipfs: bigint; arweave: bigint; total: bigint }> {
     const sizeGB = sizeBytes / (1024 * 1024 * 1024);
-    
+
     // IPFS cost (monthly)
-    const ipfsTier = options.tier === 'private' ? 'hot' : 'warm';
+    const ipfsTier = options.tier === "private" ? "hot" : "warm";
     const ipfsCost = BigInt(Math.ceil(sizeGB)) * STORAGE_PRICING.ipfs[ipfsTier];
-    
+
     // Arweave cost (one-time permanent)
-    const arweaveCost = options.permanent 
-      ? BigInt(Math.ceil(sizeGB)) * STORAGE_PRICING.arweave 
+    const arweaveCost = options.permanent
+      ? BigInt(Math.ceil(sizeGB)) * STORAGE_PRICING.arweave
       : 0n;
-    
+
     return {
       ipfs: ipfsCost,
       arweave: arweaveCost,
@@ -400,13 +425,13 @@ export interface EncryptionOptions {
 
 export async function encryptForStorage(
   data: Uint8Array,
-  options: EncryptionOptions
+  options: EncryptionOptions,
 ): Promise<{ ciphertext: Uint8Array; keyId: string }> {
   const response = await fetch(`${options.kmsEndpoint}/encrypt`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      data: Buffer.from(data).toString('base64'),
+      data: Buffer.from(data).toString("base64"),
       policy: options.policy,
     }),
   });
@@ -415,9 +440,12 @@ export async function encryptForStorage(
     throw new Error(`Encryption failed: ${response.statusText}`);
   }
 
-  const result = await response.json() as { ciphertext: string; keyId: string };
+  const result = (await response.json()) as {
+    ciphertext: string;
+    keyId: string;
+  };
   return {
-    ciphertext: new Uint8Array(Buffer.from(result.ciphertext, 'base64')),
+    ciphertext: new Uint8Array(Buffer.from(result.ciphertext, "base64")),
     keyId: result.keyId,
   };
 }
@@ -425,13 +453,13 @@ export async function encryptForStorage(
 export async function decryptFromStorage(
   ciphertext: Uint8Array,
   keyId: string,
-  kmsEndpoint: string
+  kmsEndpoint: string,
 ): Promise<Uint8Array> {
   const response = await fetch(`${kmsEndpoint}/decrypt`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      ciphertext: Buffer.from(ciphertext).toString('base64'),
+      ciphertext: Buffer.from(ciphertext).toString("base64"),
       keyId,
     }),
   });
@@ -440,8 +468,8 @@ export async function decryptFromStorage(
     throw new Error(`Decryption failed: ${response.statusText}`);
   }
 
-  const result = await response.json() as { plaintext: string };
-  return new Uint8Array(Buffer.from(result.plaintext, 'base64'));
+  const result = (await response.json()) as { plaintext: string };
+  return new Uint8Array(Buffer.from(result.plaintext, "base64"));
 }
 
 // ============================================================================
@@ -449,46 +477,45 @@ export async function decryptFromStorage(
 // ============================================================================
 
 export function publicPolicy(): AccessPolicy {
-  return { type: 'public' };
+  return { type: "public" };
 }
 
 export function stakeGatedPolicy(
   registryAddress: Address,
-  minStakeUSD: number
+  minStakeUSD: number,
 ): AccessPolicy {
   return {
-    type: 'stake-gated',
+    type: "stake-gated",
     params: { registryAddress, minStakeUSD },
   };
 }
 
 export function tokenGatedPolicy(
   tokenAddress: Address,
-  minBalance: string
+  minBalance: string,
 ): AccessPolicy {
   return {
-    type: 'token-gated',
+    type: "token-gated",
     params: { tokenAddress, minBalance },
   };
 }
 
 export function agentOwnerPolicy(
   registryAddress: Address,
-  agentId: number
+  agentId: number,
 ): AccessPolicy {
   return {
-    type: 'agent-owner',
+    type: "agent-owner",
     params: { registryAddress, agentId },
   };
 }
 
 export function roleGatedPolicy(
   registryAddress: Address,
-  role: string
+  role: string,
 ): AccessPolicy {
   return {
-    type: 'role-gated',
+    type: "role-gated",
     params: { registryAddress, role },
   };
 }
-

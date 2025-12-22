@@ -7,7 +7,6 @@
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { createJejuClient, type JejuClient } from "../../src";
 import { privateKeyToAccount } from "viem/accounts";
-import { parseEther, type Hex } from "viem";
 import { setupTestEnvironment, teardownTestEnvironment } from "../setup";
 
 describe("Federation Module Integration Tests", () => {
@@ -31,11 +30,11 @@ describe("Federation Module Integration Tests", () => {
       rpcUrl: env.rpcUrl,
       smartAccount: false,
     });
-  }, 90000);
+  });
 
   afterAll(async () => {
     await teardownTestEnvironment();
-  }, 10000);
+  });
 
   describe("Network Queries", () => {
     test("getAllNetworks returns array", async () => {

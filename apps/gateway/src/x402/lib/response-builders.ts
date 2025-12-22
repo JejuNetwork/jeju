@@ -1,6 +1,7 @@
 import type { Address } from 'viem';
 import type { VerifyResponse, SettleResponse, DecodedPayment, SettlementResult } from './types';
 import { formatAmount, calculateProtocolFee } from '../services/settler';
+import { formatError } from '../../lib/validation';
 
 export function buildVerifyErrorResponse(error: string): VerifyResponse {
   return {
@@ -28,7 +29,7 @@ export function buildSettleErrorResponse(
   payer: Address | null = null,
   recipient: Address | null = null,
   amount: { human: string; base: string; symbol: string; decimals: number } | null = null,
-  txHash: string | null = null
+  txHash: `0x${string}` | null = null
 ): SettleResponse {
   return {
     success: false,
@@ -72,6 +73,5 @@ export function buildSettleSuccessResponse(
   };
 }
 
-export function formatError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
+// Re-export formatError for backwards compatibility
+export { formatError };

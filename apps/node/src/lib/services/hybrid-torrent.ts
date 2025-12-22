@@ -63,20 +63,18 @@ interface WebTorrentInstance {
   add: (magnetUri: string, opts: { announce: string[] }) => WebTorrentTorrent;
   seed: (data: Buffer, opts: Record<string, unknown>) => WebTorrentTorrent;
   get: (infohash: string) => WebTorrentTorrent | null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  on: (event: string, handler: (...args: any[]) => void) => void;
+  on: (event: string, handler: (...args: unknown[]) => void) => void;
   destroy: (cb?: () => void) => void;
 }
 
-import { createPublicClient, createWalletClient, http, getContract } from 'viem';
+import { createPublicClient, createWalletClient, http as viemHttp } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { createHash, randomBytes } from 'crypto';
 import type { Address } from 'viem';
-import { CONTENT_REGISTRY_ABI } from '../abis';
 import { z } from 'zod';
 import { Registry, Counter, Gauge } from 'prom-client';
 import { LRUCache } from 'lru-cache';
-import * as http from 'http';
+import * as nodeHttp from 'http';
 
 // ============================================================================
 // Configuration Schema
@@ -91,6 +89,7 @@ const TorrentConfigSchema = z.object({
   maxCacheBytes: z.number().default(10 * 1024 * 1024 * 1024), // 10 GB
   maxCacheEntries: z.number().default(10000),
   rpcUrl: z.string().url().optional(),
+  chainId: z.number().optional(),
   privateKey: z.string().optional(),
   contentRegistryAddress: z.string().optional(),
   seedingOracleUrl: z.string().url().optional(), // Optional in dev, required in prod
@@ -278,7 +277,7 @@ export class HybridTorrentService {
   private contentRegistryAddress: string | null = null;
   private reportInterval: ReturnType<typeof setInterval> | null = null;
   private blocklistSyncInterval: ReturnType<typeof setInterval> | null = null;
-  private metricsServer: http.Server | null = null;
+  private metricsServer: nodeHttp.Server | null = null;
 
   constructor(config: Partial<HybridTorrentConfig>) {
     // Validate config - seedingOracleUrl is required
@@ -299,12 +298,12 @@ export class HybridTorrentService {
 
     // Setup on-chain integration
     if (this.config.rpcUrl && this.config.contentRegistryAddress) {
-      this.publicClient = createPublicClient({ transport: http(this.config.rpcUrl) });
+      this.publicClient = createPublicClient({ transport: viemHttp(this.config.rpcUrl) });
       if (this.config.privateKey) {
         const account = privateKeyToAccount(this.config.privateKey as `0x${string}`);
         this.walletClient = createWalletClient({
           account,
-          transport: http(this.config.rpcUrl),
+          transport: viemHttp(this.config.rpcUrl),
         });
         this.contentRegistryAddress = this.config.contentRegistryAddress;
       }
@@ -321,8 +320,8 @@ export class HybridTorrentService {
       webSeeds: true,
     });
 
-    this.client.on('error', (err: Error | string) => {
-      const message = typeof err === 'string' ? err : err.message;
+    this.client.on('error', (err) => {
+      const message = typeof err === 'string' ? err : err instanceof Error ? err.message : String(err);
       console.error('[HybridTorrent] Client error:', message);
     });
   }
@@ -386,7 +385,7 @@ export class HybridTorrentService {
   }
 
   private async startMetricsServer(): Promise<void> {
-    this.metricsServer = http.createServer(async (req, res) => {
+    this.metricsServer = nodeHttp.createServer(async (req: nodeHttp.IncomingMessage, res: nodeHttp.ServerResponse) => {
       if (req.url === '/metrics') {
         res.setHeader('Content-Type', metricsRegistry.contentType);
         res.end(await metricsRegistry.metrics());
@@ -743,8 +742,10 @@ export class HybridTorrentService {
 
         // Submit to contract with oracle signature
         const hash = await this.walletClient.writeContract({
+          account: null,
+          chain: null,
           address: this.contentRegistryAddress as `0x${string}`,
-          abi: [{ name: 'reportSeeding', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'infohash', type: 'bytes32' }, { name: 'bytesUploaded', type: 'uint256' }, { name: 'timestamp', type: 'uint256' }, { name: 'nonce', type: 'string' }, { name: 'signature', type: 'bytes' }], outputs: [] }],
+          abi: [{ name: 'reportSeeding', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'infohash', type: 'bytes32' }, { name: 'bytesUploaded', type: 'uint256' }, { name: 'timestamp', type: 'uint256' }, { name: 'nonce', type: 'string' }, { name: 'signature', type: 'bytes' }], outputs: [] }] as const,
           functionName: 'reportSeeding',
           args: [
             `0x${infohash}` as `0x${string}`,
@@ -774,8 +775,10 @@ export class HybridTorrentService {
   private async registerSeeding(infohash: string): Promise<void> {
     if (!this.contentRegistryAddress || !this.walletClient || !this.publicClient) return;
     const hash = await this.walletClient.writeContract({
+      account: null,
+      chain: null,
       address: this.contentRegistryAddress as `0x${string}`,
-      abi: [{ name: 'startSeeding', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'infohash', type: 'bytes32' }], outputs: [] }],
+      abi: [{ name: 'startSeeding', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'infohash', type: 'bytes32' }], outputs: [] }] as const,
       functionName: 'startSeeding',
       args: [`0x${infohash}` as `0x${string}`],
     });
@@ -786,8 +789,10 @@ export class HybridTorrentService {
   private async unregisterSeeding(infohash: string): Promise<void> {
     if (!this.contentRegistryAddress || !this.walletClient || !this.publicClient) return;
     const hash = await this.walletClient.writeContract({
+      account: null,
+      chain: null,
       address: this.contentRegistryAddress as `0x${string}`,
-      abi: [{ name: 'stopSeeding', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'infohash', type: 'bytes32' }], outputs: [] }],
+      abi: [{ name: 'stopSeeding', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'infohash', type: 'bytes32' }], outputs: [] }] as const,
       functionName: 'stopSeeding',
       args: [`0x${infohash}` as `0x${string}`],
     });

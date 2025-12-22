@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { useLiquidityVault } from '../hooks/useLiquidityVault';
-import { usePaymasterDeployment } from '../hooks/usePaymasterFactory';
-import { useProtocolTokens } from '../hooks/useProtocolTokens';
+import { useLiquidityVault } from '@/hooks/useLiquidityVault';
+import { usePaymasterDeployment } from '@/hooks/usePaymasterFactory';
+import { useProtocolTokens } from '@/hooks/useProtocolTokens';
 import { parseEther, formatEther } from 'viem';
-import TokenSelector from './TokenSelector';
-import type { TokenOption } from './TokenSelector';
+import TokenSelector from '@/components/TokenSelector';
+import type { TokenOption } from '@/components/TokenSelector';
 
 export default function AddLiquidity({ vaultAddress: propVaultAddress }: { vaultAddress?: `0x${string}` }) {
   const [ethAmount, setEthAmount] = useState('1');
@@ -28,13 +28,12 @@ export default function AddLiquidity({ vaultAddress: propVaultAddress }: { vault
   const handleAddLiquidity = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const amount = parseEther(ethAmount);
-    await addETHLiquidity(amount);
+    await addETHLiquidity(ethAmount);
   };
 
   const handleRemoveLiquidity = async () => {
     if (!lpPosition) return;
-    await removeETHLiquidity(lpPosition.ethShares);
+    await removeETHLiquidity(formatEther(lpPosition.ethShares));
   };
 
   return (
@@ -45,10 +44,9 @@ export default function AddLiquidity({ vaultAddress: propVaultAddress }: { vault
         <TokenSelector
           tokens={tokenOptions}
           selectedToken={selectedToken?.symbol}
-          onSelect={setSelectedToken}
+          onSelect={(token) => setSelectedToken(typeof token === 'string' ? null : token)}
           label="Select Token (JEJU, elizaOS, CLANKER, VIRTUAL, etc.)"
           placeholder="Choose token vault..."
-          showBalances={false}
           disabled={isLoading}
         />
 
@@ -115,7 +113,7 @@ export default function AddLiquidity({ vaultAddress: propVaultAddress }: { vault
             <div>
               <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>ETH Value</p>
               <p style={{ fontSize: '1.25rem', fontWeight: '600', margin: '0.25rem 0' }}>
-                {formatEther(lpPosition.ethValue)} ETH
+                {lpPosition.ethValue} ETH
               </p>
             </div>
             <div>

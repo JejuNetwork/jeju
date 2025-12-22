@@ -1,35 +1,51 @@
 # Testnet values for Jeju Compute Services
 
 common:
-  rpcUrl: "https://testnet-rpc.jeju.network"
+  rpcUrl: "https://testnet-rpc.jejunetwork.org"
   registryAddress: ""  # Set by CI/CD
   workerRegistryAddress: ""  # Set by CI/CD
   
+global:
+  imageRegistry: "502713364895.dkr.ecr.us-east-1.amazonaws.com"
+
 computeNode:
-  replicaCount: 2
+  replicaCount: 0  # Disabled - compute image not yet built
   image:
+    repository: 502713364895.dkr.ecr.us-east-1.amazonaws.com/jeju/compute
     tag: testnet-latest
   env:
     NODE_ENV: testnet
 
 workerRuntime:
-  replicaCount: 2
+  replicaCount: 0  # Disabled - compute image not yet built
   image:
+    repository: 502713364895.dkr.ecr.us-east-1.amazonaws.com/jeju/compute
     tag: testnet-latest
   autoscaling:
+    enabled: false
     minReplicas: 2
     maxReplicas: 5
 
 mpcNode:
-  replicaCount: 3
+  replicaCount: 0  # Disabled - compute image not yet built
   image:
+    repository: 502713364895.dkr.ecr.us-east-1.amazonaws.com/jeju/compute
     tag: testnet-latest
   env:
     MPC_NETWORK_ID: jeju-testnet
 
 ingress:
+  enabled: true
+  className: alb
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:310059084903:certificate/08b1d47e-dbfa-4695-a8af-a4c66b7dc55e"
+    alb.ingress.kubernetes.io/group.name: jeju-testnet
   hosts:
-    - host: compute.testnet.jeju.network
+    - host: compute.testnet.jejunetwork.org
       paths:
         - path: /
           pathType: Prefix
@@ -43,4 +59,4 @@ ingress:
   tls:
     - secretName: compute-testnet-tls
       hosts:
-        - compute.testnet.jeju.network
+        - compute.testnet.jejunetwork.org

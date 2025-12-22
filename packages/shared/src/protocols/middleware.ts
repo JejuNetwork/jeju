@@ -11,7 +11,20 @@
 import type { Context, Next } from 'hono';
 import type { Address } from 'viem';
 import { createPublicClient, http, verifyMessage, getAddress } from 'viem';
+import { z } from 'zod';
 import { getChain } from '../chains';
+
+const X402PaymentPayloadSchema = z.object({
+  scheme: z.string(),
+  network: z.string(),
+  amount: z.string(),
+  asset: z.string(),
+  payTo: z.string(),
+  resource: z.string(),
+  nonce: z.string(),
+  timestamp: z.number(),
+  signature: z.string(),
+});
 
 // ============================================================================
 // Types
@@ -189,8 +202,8 @@ export async function getAgentInfo(address: Address): Promise<AgentInfo | null> 
   };
 }
 
-export function erc8004Middleware(options: { requireRegistration?: boolean; requireActive?: boolean } = {}) {
-  return async (c: Context, next: Next) => {
+export function erc8004Middleware(options: { requireRegistration?: boolean; requireActive?: boolean } = {}): (c: Context, next: Next) => Promise<Response | void> {
+  return async (c: Context, next: Next): Promise<Response | void> => {
     const address = c.req.header('x-jeju-address') as Address | undefined;
 
     if (!address) {
@@ -277,9 +290,16 @@ export function parseX402Header(header: string): X402PaymentPayload | null {
 
   const payloadB64 = parts[2];
   const payloadJson = Buffer.from(payloadB64, 'base64').toString('utf8');
-  const payload = JSON.parse(payloadJson) as X402PaymentPayload;
+  
+  const parseResult = X402PaymentPayloadSchema.safeParse(JSON.parse(payloadJson));
+  if (!parseResult.success) return null;
 
-  return payload;
+  return {
+    ...parseResult.data,
+    asset: parseResult.data.asset as Address,
+    payTo: parseResult.data.payTo as Address,
+    signature: parseResult.data.signature as `0x${string}`,
+  };
 }
 
 export async function verifyX402Payment(
@@ -345,8 +365,8 @@ export async function verifyX402Payment(
   return { valid: true, signer };
 }
 
-export function x402Middleware(requiredAmount?: bigint) {
-  return async (c: Context, next: Next) => {
+export function x402Middleware(requiredAmount?: bigint): (c: Context, next: Next) => Promise<Response | void> {
+  return async (c: Context, next: Next): Promise<Response | void> => {
     const paymentHeader = c.req.header('x-payment');
     
     if (!paymentHeader) {

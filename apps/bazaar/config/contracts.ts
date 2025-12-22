@@ -79,7 +79,8 @@ function buildV4Contracts(chainId: ChainId): V4Contracts {
 
 export const V4_CONTRACTS: Record<number, V4Contracts> = {
   1337: buildV4Contracts(1337),
-  420691: buildV4Contracts(420691),
+  // Only build for JEJU_CHAIN_ID if it's different from 1337
+  ...(JEJU_CHAIN_ID !== 1337 ? { [JEJU_CHAIN_ID]: buildV4Contracts(JEJU_CHAIN_ID as ChainId) } : {}),
 }
 
 function buildNFTContracts(chainId: ChainId): NFTContracts {
@@ -100,7 +101,7 @@ function buildNFTContracts(chainId: ChainId): NFTContracts {
 
 export const NFT_CONTRACTS: Record<number, NFTContracts> = {
   1337: buildNFTContracts(1337),
-  [JEJU_CHAIN_ID]: buildNFTContracts(420691),
+  ...(JEJU_CHAIN_ID !== 1337 ? { [JEJU_CHAIN_ID]: buildNFTContracts(JEJU_CHAIN_ID as ChainId) } : {}),
 }
 
 function buildTokenFactoryContracts(chainId: ChainId): TokenFactoryContracts {
@@ -128,7 +129,7 @@ function buildLaunchpadContracts(chainId: ChainId): LaunchpadContracts {
 
 export const LAUNCHPAD_CONTRACTS: Record<number, LaunchpadContracts> = {
   1337: buildLaunchpadContracts(1337),
-  [JEJU_CHAIN_ID]: buildLaunchpadContracts(420691),
+  ...(JEJU_CHAIN_ID !== 1337 ? { [JEJU_CHAIN_ID]: buildLaunchpadContracts(JEJU_CHAIN_ID as ChainId) } : {}),
 }
 
 export function getV4Contracts(chainId: number): V4Contracts {
@@ -140,7 +141,11 @@ export function getV4Contracts(chainId: number): V4Contracts {
 }
 
 export function getNFTContracts(chainId: number): NFTContracts {
-  return NFT_CONTRACTS[chainId] || {}
+  const contracts = NFT_CONTRACTS[chainId]
+  if (!contracts) {
+    throw new Error(`NFT contracts not configured for chain ${chainId}`)
+  }
+  return contracts
 }
 
 export function hasV4Periphery(chainId: number): boolean {
@@ -186,7 +191,7 @@ function buildXLPContracts(chainId: ChainId): XLPContracts {
 
 export const XLP_CONTRACTS: Record<number, XLPContracts> = {
   1337: buildXLPContracts(1337),
-  [JEJU_CHAIN_ID]: buildXLPContracts(420691),
+  ...(JEJU_CHAIN_ID !== 1337 ? { [JEJU_CHAIN_ID]: buildXLPContracts(JEJU_CHAIN_ID as ChainId) } : {}),
 }
 
 export function getXLPContracts(chainId: number): XLPContracts | undefined {
@@ -223,9 +228,13 @@ function buildGameContracts(chainId: ChainId): GameContracts {
 
 export const GAME_CONTRACTS: Record<number, GameContracts> = {
   1337: buildGameContracts(1337),
-  [JEJU_CHAIN_ID]: buildGameContracts(420691),
+  ...(JEJU_CHAIN_ID !== 1337 ? { [JEJU_CHAIN_ID]: buildGameContracts(JEJU_CHAIN_ID as ChainId) } : {}),
 }
 
 export function getGameContracts(chainId: number): GameContracts {
-  return GAME_CONTRACTS[chainId] || {}
+  const contracts = GAME_CONTRACTS[chainId]
+  if (!contracts) {
+    throw new Error(`Game contracts not configured for chain ${chainId}`)
+  }
+  return contracts
 }

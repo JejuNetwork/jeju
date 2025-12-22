@@ -81,34 +81,27 @@ describe('HyperlaneAdapter', () => {
   test('generateWarpRouteConfig creates correct config', () => {
     const tokenAddress =
       '0xTokenAddress123456789012345678901234567890' as Address;
-    const chains: ChainId[] = [1, 8453];
-    const owner = '0xOwnerAddress12345678901234567890123456789' as Address;
-    const validators = ['0xValidator1', '0xValidator2', '0xValidator3'];
-
-    const configs = adapter.generateWarpRouteConfig(
-      tokenAddress,
-      chains,
-      1, // home chain
-      owner,
+    const validators = [
+      '0xValidator1Address1234567890123456789012' as Address,
+      '0xValidator2Address1234567890123456789012' as Address,
+      '0xValidator3Address1234567890123456789012' as Address,
+    ];
+    const ismConfig: MultisigISMConfig = {
+      type: 'multisig',
       validators,
-      2 // threshold
-    );
+      threshold: 2,
+    };
 
-    // Home chain should be collateral type
-    expect(configs[1].tokenType).toBe('collateral');
-    expect(configs[1].tokenAddress).toBe(tokenAddress);
+    const config = adapter.generateWarpRouteConfig(tokenAddress, ismConfig);
 
-    // Other chains should be synthetic
-    expect(configs[8453].tokenType).toBe('synthetic');
-    expect(configs[8453].tokenAddress).toBe(
-      '0x0000000000000000000000000000000000000000'
-    );
+    // Default should be collateral type
+    expect(config.tokenType).toBe('collateral');
+    expect(config.token).toBe(tokenAddress);
 
-    // Both should have same ISM config
-    expect(configs[1].ismConfig.type).toBe('multisig');
-    const ismConfig = configs[1].ismConfig as MultisigISMConfig;
-    expect(ismConfig.validators).toEqual(validators);
-    expect(ismConfig.threshold).toBe(2);
+    // ISM config should be included
+    expect(config.ism.type).toBe('multisig');
+    expect(config.ism.validators).toEqual(validators);
+    expect(config.ism.threshold).toBe(2);
   });
 
   test('getDeploymentSalt is deterministic', () => {
@@ -189,7 +182,7 @@ describe('Chain Configuration Validation', () => {
     const solana = getChainConfig('solana-mainnet');
     expect(solana.hyperlaneMailbox).toBeDefined();
     expect(solana.hyperlaneIgp).toBeDefined();
-    expect(solana.chainType).toBe('svm');
+    expect(solana.chainType).toBe('solana');
   });
 
   test('All mainnet chains have Hyperlane mailbox', () => {

@@ -3,7 +3,7 @@
  */
 
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { type Address, parseEther, formatEther } from 'viem';
+import { type Address } from 'viem';
 import { getContractAddress, getContractAddressSafe } from '@/config/contracts';
 
 // ============ ABI Fragments ============

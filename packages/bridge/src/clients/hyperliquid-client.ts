@@ -23,6 +23,12 @@ import {
   type PrivateKeyAccount,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
+import {
+  HyperCoreMarketsResponseSchema,
+  HyperCoreClearinghouseResponseSchema,
+  HyperCoreOrderResponseSchema,
+  HyperCoreL2BookResponseSchema,
+} from '../utils/index.js';
 
 // ============ Hyperliquid Chain Definition ============
 
@@ -64,21 +70,8 @@ interface HyperCoreOrder {
   cloid?: string;
 }
 
-interface HyperCorePosition {
-  coin: string;
-  szi: string;
-  entryPx: string;
-  positionValue: string;
-  unrealizedPnl: string;
-  leverage: string;
-}
-
-interface HyperCoreMarket {
-  name: string;
-  szDecimals: number;
-  maxLeverage: number;
-  onlyIsolated: boolean;
-}
+/** Imported from validation - re-export for local use */
+import type { HyperCorePosition, HyperCoreMarket } from '../utils/index.js';
 
 // ============ Client Configuration ============
 
@@ -98,6 +91,7 @@ export class HyperliquidClient {
   private account: PrivateKeyAccount | null = null;
 
   constructor(config: HyperliquidClientConfig = {}) {
+    // Default RPC endpoints are the official Hyperliquid endpoints
     this.config = {
       hyperEvmRpc: config.hyperEvmRpc ?? 'https://api.hyperliquid.xyz/evm',
       hyperCoreApi: config.hyperCoreApi ?? 'https://api.hyperliquid.xyz',
@@ -210,7 +204,8 @@ export class HyperliquidClient {
       body: JSON.stringify({ type: 'meta' }),
     });
 
-    const data = await response.json() as { universe: HyperCoreMarket[] };
+    const json = await response.json();
+    const data = HyperCoreMarketsResponseSchema.parse(json);
     return data.universe;
   }
 
@@ -230,7 +225,8 @@ export class HyperliquidClient {
       }),
     });
 
-    const data = await response.json() as { assetPositions: { position: HyperCorePosition }[] };
+    const json = await response.json();
+    const data = HyperCoreClearinghouseResponseSchema.parse(json);
     return data.assetPositions.map(ap => ap.position);
   }
 
@@ -264,7 +260,8 @@ export class HyperliquidClient {
       }),
     });
 
-    const result = await response.json() as { status: string; response?: Record<string, unknown> };
+    const json = await response.json();
+    const result = HyperCoreOrderResponseSchema.parse(json);
     return result;
   }
 
@@ -284,7 +281,8 @@ export class HyperliquidClient {
       }),
     });
 
-    return await response.json() as { coin: string; levels: { px: string; sz: string; n: number }[][] };
+    const json = await response.json();
+    return HyperCoreL2BookResponseSchema.parse(json);
   }
 
   /**
@@ -292,10 +290,19 @@ export class HyperliquidClient {
    */
   async getMidPrice(coin: string): Promise<number> {
     const book = await this.getOrderbook(coin);
-    if (book.levels.length < 2) throw new Error('Orderbook not available');
+    if (book.levels.length < 2) {
+      throw new Error('Orderbook not available - insufficient levels');
+    }
 
-    const bestBid = parseFloat(book.levels[0]?.[0]?.px ?? '0');
-    const bestAsk = parseFloat(book.levels[1]?.[0]?.px ?? '0');
+    const bidLevel = book.levels[0]?.[0];
+    const askLevel = book.levels[1]?.[0];
+    
+    if (!bidLevel?.px || !askLevel?.px) {
+      throw new Error('Orderbook has no bid or ask prices');
+    }
+
+    const bestBid = parseFloat(bidLevel.px);
+    const bestAsk = parseFloat(askLevel.px);
 
     return (bestBid + bestAsk) / 2;
   }

@@ -5,6 +5,7 @@
 
 import { Hono } from 'hono';
 import type { Address, Hex } from 'viem';
+import { validateBody, validateParams, validateHeaders, expectValid, jejuAddressHeaderSchema, createKmsKeyRequestSchema, kmsKeyParamsSchema, signRequestSchema, encryptRequestSchema, decryptRequestSchema, keyListQuerySchema, z } from '../../shared';
 
 // MPC Configuration
 const MPC_CONFIG = {
@@ -79,16 +80,12 @@ export function createKMSRouter(): Hono {
 
   // Generate new MPC key
   router.post('/keys', async (c) => {
-    const owner = c.req.header('x-jeju-address') as Address;
-    if (!owner) {
-      return c.json({ error: 'Missing x-jeju-address header' }, 401);
-    }
-
-    const body = await c.req.json<{
-      threshold?: number;
-      totalParties?: number;
-      metadata?: Record<string, string>;
-    }>();
+    const { 'x-jeju-address': owner } = validateHeaders(jejuAddressHeaderSchema, c);
+    const body = await validateBody(createKmsKeyRequestSchema.extend({
+      threshold: z.number().int().min(2).optional(),
+      totalParties: z.number().int().positive().optional(),
+      metadata: z.record(z.string(), z.string()).optional(),
+    }), c);
 
     const threshold = body.threshold ?? MPC_CONFIG.defaultThreshold;
     const totalParties = body.totalParties ?? MPC_CONFIG.defaultParties;
@@ -142,7 +139,7 @@ export function createKMSRouter(): Hono {
 
   // List keys
   router.get('/keys', (c) => {
-    const owner = c.req.header('x-jeju-address')?.toLowerCase();
+    const { 'x-jeju-address': owner } = validateHeaders(z.object({ 'x-jeju-address': z.string().optional() }), c);
     
     let keyList = Array.from(keys.values());
     if (owner) {
@@ -163,9 +160,10 @@ export function createKMSRouter(): Hono {
 
   // Get key details
   router.get('/keys/:keyId', (c) => {
-    const key = keys.get(c.req.param('keyId'));
+    const { keyId } = validateParams(kmsKeyParamsSchema, c);
+    const key = keys.get(keyId);
     if (!key) {
-      return c.json({ error: 'Key not found' }, 404);
+      throw new Error('Key not found');
     }
 
     return c.json({
@@ -182,14 +180,15 @@ export function createKMSRouter(): Hono {
 
   // Rotate key
   router.post('/keys/:keyId/rotate', async (c) => {
-    const owner = c.req.header('x-jeju-address') as Address;
-    const key = keys.get(c.req.param('keyId'));
+    const { 'x-jeju-address': owner } = validateHeaders(jejuAddressHeaderSchema, c);
+    const { keyId } = validateParams(kmsKeyParamsSchema, c);
+    const key = keys.get(keyId);
     
     if (!key) {
-      return c.json({ error: 'Key not found' }, 404);
+      throw new Error('Key not found');
     }
-    if (key.owner.toLowerCase() !== owner?.toLowerCase()) {
-      return c.json({ error: 'Not authorized' }, 403);
+    if (key.owner.toLowerCase() !== owner.toLowerCase()) {
+      throw new Error('Not authorized');
     }
 
     const body = await c.req.json<{
@@ -211,14 +210,15 @@ export function createKMSRouter(): Hono {
 
   // Delete key
   router.delete('/keys/:keyId', (c) => {
-    const owner = c.req.header('x-jeju-address') as Address;
-    const key = keys.get(c.req.param('keyId'));
+    const { 'x-jeju-address': owner } = validateHeaders(jejuAddressHeaderSchema, c);
+    const { keyId } = validateParams(kmsKeyParamsSchema, c);
+    const key = keys.get(keyId);
     
     if (!key) {
-      return c.json({ error: 'Key not found' }, 404);
+      throw new Error('Key not found');
     }
-    if (key.owner.toLowerCase() !== owner?.toLowerCase()) {
-      return c.json({ error: 'Not authorized' }, 403);
+    if (key.owner.toLowerCase() !== owner.toLowerCase()) {
+      throw new Error('Not authorized');
     }
 
     keys.delete(key.keyId);
@@ -231,19 +231,14 @@ export function createKMSRouter(): Hono {
 
   // Request signature
   router.post('/sign', async (c) => {
-    const requester = c.req.header('x-jeju-address') as Address;
-    if (!requester) {
-      return c.json({ error: 'Missing x-jeju-address header' }, 401);
-    }
-
-    const body = await c.req.json<{
-      keyId: string;
-      messageHash: Hex;
-    }>();
+    const { 'x-jeju-address': requester } = validateHeaders(jejuAddressHeaderSchema, c);
+    const body = await validateBody(signRequestSchema.extend({
+      keyId: z.string().uuid(),
+    }), c);
 
     const key = keys.get(body.keyId);
     if (!key) {
-      return c.json({ error: 'Key not found' }, 404);
+      throw new Error('Key not found');
     }
 
     // Development mode: sign with locally-derived key
@@ -276,10 +271,9 @@ export function createKMSRouter(): Hono {
   // ============================================================================
 
   router.post('/encrypt', async (c) => {
-    const body = await c.req.json<{
-      data: string;
-      keyId?: string;
-    }>();
+    const body = await validateBody(encryptRequestSchema.extend({
+      keyId: z.string().uuid().optional(),
+    }), c);
 
     // AES-256-GCM encryption (development mode - key stored in memory)
     const nodeCrypto = await import('crypto');
@@ -306,10 +300,9 @@ export function createKMSRouter(): Hono {
   });
 
   router.post('/decrypt', async (c) => {
-    const body = await c.req.json<{
-      encrypted: string;
-      keyId: string;
-    }>();
+    const body = await validateBody(decryptRequestSchema.extend({
+      keyId: z.string().uuid(),
+    }), c);
 
     const mpcEnabled = !!process.env.MPC_COORDINATOR_URL;
     

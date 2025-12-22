@@ -12,6 +12,7 @@ import { createRLAIFCoordinator } from '../../rlaif/coordinator';
 import { createTrajectoryStore } from '../../rlaif/trajectory-store';
 import { createRulerScorer } from '../../rlaif/ruler-scorer';
 import type { RLAIFRunConfig, RLAlgorithm } from '../../rlaif/types';
+import { validateBody, validateParams, validateQuery, expectValid, rlaifRunCreationSchema, rlaifRunStartSchema, rlaifRunParamsSchema, rlaifRolloutsSchema, rlaifJudgeSchema, rlaifCidParamsSchema, rlaifManifestTrajectoriesQuerySchema } from '../../shared';
 
 const app = new Hono();
 
@@ -67,7 +68,7 @@ interface CreateRunBody {
 }
 
 app.post('/runs', async (c) => {
-  const body = await c.req.json<CreateRunBody>();
+  const body = await validateBody(rlaifRunCreationSchema, c);
 
   const runConfig: RLAIFRunConfig = {
     runId: body.runId ?? `run-${Date.now()}`,
@@ -117,19 +118,19 @@ app.post('/runs', async (c) => {
 });
 
 app.get('/runs/:runId', (c) => {
-  const runId = c.req.param('runId');
+  const { runId } = validateParams(rlaifRunParamsSchema, c);
   const run = coordinator.getRun(runId);
 
   if (!run) {
-    return c.json({ error: 'Run not found' }, 404);
+    throw new Error('Run not found');
   }
 
   return c.json(run);
 });
 
 app.post('/runs/:runId/start', async (c) => {
-  const runId = c.req.param('runId');
-  const body = await c.req.json<{ maxIterations?: number; stopOnFailure?: boolean }>();
+  const { runId } = validateParams(rlaifRunParamsSchema, c);
+  const body = await validateBody(rlaifRunStartSchema, c);
 
   // Start in background
   coordinator.runContinuousTraining(runId, body).catch((err) => {
@@ -140,7 +141,7 @@ app.post('/runs/:runId/start', async (c) => {
 });
 
 app.post('/runs/:runId/iteration', async (c) => {
-  const runId = c.req.param('runId');
+  const { runId } = validateParams(rlaifRunParamsSchema, c);
 
   const iteration = await coordinator.runIteration(runId);
 
@@ -148,7 +149,7 @@ app.post('/runs/:runId/iteration', async (c) => {
 });
 
 app.post('/runs/:runId/pause', async (c) => {
-  const runId = c.req.param('runId');
+  const { runId } = validateParams(rlaifRunParamsSchema, c);
   // On-chain pause requires contract interaction
   return c.json({ 
     runId, 
@@ -158,7 +159,7 @@ app.post('/runs/:runId/pause', async (c) => {
 });
 
 app.post('/runs/:runId/resume', async (c) => {
-  const runId = c.req.param('runId');
+  const { runId } = validateParams(rlaifRunParamsSchema, c);
   // On-chain resume requires contract interaction
   return c.json({ 
     runId, 
@@ -188,12 +189,12 @@ interface SubmitRolloutsBody {
 }
 
 app.post('/runs/:runId/rollouts', async (c) => {
-  const runId = c.req.param('runId');
-  const body = await c.req.json<SubmitRolloutsBody>();
+  const { runId } = validateParams(rlaifRunParamsSchema, c);
+  const body = await validateBody(rlaifRolloutsSchema, c);
 
   const run = coordinator.getRun(runId);
   if (!run) {
-    return c.json({ error: 'Run not found' }, 404);
+    throw new Error('Run not found');
   }
 
   const trajectories = body.trajectories.map((t) => ({
@@ -233,7 +234,7 @@ interface ScoreTrajectoriesBody {
 }
 
 app.post('/judge', async (c) => {
-  const body = await c.req.json<ScoreTrajectoriesBody>();
+  const body = await validateBody(rlaifJudgeSchema, c);
 
   const rubric = body.rubric ?? {
     id: 'default',
@@ -259,23 +260,22 @@ app.post('/judge', async (c) => {
 });
 
 app.get('/trajectories/:cid', async (c) => {
-  const cid = c.req.param('cid');
+  const { cid } = validateParams(rlaifCidParamsSchema, c);
 
   const trajectory = await trajectoryStore.loadTrajectory(cid);
   return c.json(trajectory);
 });
 
 app.get('/manifests/:cid', async (c) => {
-  const cid = c.req.param('cid');
+  const { cid } = validateParams(rlaifCidParamsSchema, c);
 
   const manifest = await trajectoryStore.loadManifest(cid);
   return c.json(manifest);
 });
 
 app.get('/manifests/:cid/trajectories', async (c) => {
-  const cid = c.req.param('cid');
-  const limit = parseInt(c.req.query('limit') ?? '100');
-  const offset = parseInt(c.req.query('offset') ?? '0');
+  const { cid } = validateParams(rlaifCidParamsSchema, c);
+  const { limit, offset } = validateQuery(rlaifManifestTrajectoriesQuerySchema, c);
 
   const manifest = await trajectoryStore.loadManifest(cid);
   const slicedCIDs = manifest.trajectoryCIDs.slice(offset, offset + limit);
@@ -293,7 +293,7 @@ app.get('/manifests/:cid/trajectories', async (c) => {
 });
 
 app.get('/rewards/:cid', async (c) => {
-  const cid = c.req.param('cid');
+  const { cid } = validateParams(rlaifCidParamsSchema, c);
 
   const rewards = await trajectoryStore.loadRewards(cid);
   return c.json({ scores: rewards });

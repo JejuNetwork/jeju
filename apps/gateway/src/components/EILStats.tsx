@@ -1,6 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import { Zap } from 'lucide-react';
+import type { ComponentType } from 'react';
+import { Zap, type LucideProps } from 'lucide-react';
 import { INDEXER_URL } from '../config';
+
+const ZapIcon = Zap as ComponentType<LucideProps>;
 
 interface EILStatsData {
   totalVolumeEth: string;
@@ -156,7 +159,7 @@ export default function EILStats() {
     <div style={{ marginBottom: '1.5rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
         <div style={{ width: 36, height: 36, background: 'var(--gradient-brand)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Zap size={18} color="white" />
+          <ZapIcon size={18} color="white" />
         </div>
         <h2 className="section-title" style={{ margin: 0 }}>EIL Protocol</h2>
         <span className="badge badge-success">Live</span>

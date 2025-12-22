@@ -52,12 +52,13 @@
     "cryptography"
   ],
   "dependencies": {
-    "viem": "2.41.2",
+    "viem": "2.43.2",
+    "zod": "^3.24.4",
     "@jejunetwork/oauth3": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "typescript": "5.7.3"
+    "typescript": "5.9.3"
   },
   "peerDependencies": {
     "viem": ">=2.0.0"

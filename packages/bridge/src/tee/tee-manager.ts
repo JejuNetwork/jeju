@@ -21,7 +21,7 @@ import type {
 	TEEProvider,
 	TEEProviderConfig,
 } from "./types.js";
-import { createLogger } from "../utils/logger.js";
+import { createLogger, computeMerkleRoot } from "../utils/index.js";
 
 const log = createLogger("tee-manager");
 
@@ -80,7 +80,10 @@ export class TEEManager {
 		if (!this.initialized) await this.initialize();
 		if (!this.provider) throw new Error("TEE provider not initialized");
 
-		const transfersRoot = this.computeMerkleRoot(transfers.map((t) => t.transferId));
+		const transfersRoot = computeMerkleRoot(
+			transfers.map((t) => t.transferId),
+			(data) => this.keccakHash(data),
+		);
 		const attestData = keccak256(
 			new Uint8Array([...batchId, ...transfersRoot, ...toBytes(BigInt(transfers.length))]),
 		);
@@ -99,9 +102,10 @@ export class TEEManager {
 		environment: TEEEnvironment | null;
 		providerStatus: Awaited<ReturnType<ITEEProvider["getStatus"]>> | null;
 	}> {
+		const providerType: TEEProvider = this.provider?.provider ?? "mock";
 		return {
 			initialized: this.initialized,
-			provider: this.provider?.provider ?? "mock",
+			provider: providerType,
 			environment: this.environment,
 			providerStatus: this.provider ? await this.provider.getStatus() : null,
 		};
@@ -245,11 +249,16 @@ export class TEEManager {
 		switch (provider) {
 			case "aws":
 				return createAWSNitroProvider({ region: this.config.awsRegion });
-			case "gcp":
+			case "gcp": {
+				const gcpProject = this.config.gcpProject;
+				if (!gcpProject) {
+					throw new Error("GCP provider requires gcpProject in config");
+				}
 				return createGCPConfidentialProvider({
-					project: this.config.gcpProject ?? "",
+					project: gcpProject,
 					zone: this.config.gcpZone,
 				});
+			}
 			case "phala":
 				return new PhalaProviderAdapter(this.config);
 			default:
@@ -257,27 +266,9 @@ export class TEEManager {
 		}
 	}
 
-	private computeMerkleRoot(leaves: Hash32[]): Hash32 {
-		if (leaves.length === 0) return toHash32(new Uint8Array(32));
-		if (leaves.length === 1) return leaves[0];
-
-		let currentLevel: Uint8Array[] = leaves.map((h) => new Uint8Array(h));
-
-		while (currentLevel.length > 1) {
-			const nextLevel: Uint8Array[] = [];
-			for (let i = 0; i < currentLevel.length; i += 2) {
-				const left = currentLevel[i];
-				const right = currentLevel[i + 1] ?? currentLevel[i];
-				const combined = new Uint8Array(64);
-				combined.set(left, 0);
-				combined.set(right, 32);
-				const hash = keccak256(combined);
-				nextLevel.push(Buffer.from(hash.slice(2), "hex"));
-			}
-			currentLevel = nextLevel;
-		}
-
-		return toHash32(currentLevel[0]);
+	private keccakHash(data: Uint8Array): Uint8Array {
+		const hash = keccak256(data);
+		return Buffer.from(hash.slice(2), "hex");
 	}
 }
 
@@ -345,10 +336,13 @@ class PhalaProviderAdapter implements ITEEProvider {
 	}
 
 	toTEEAttestation(attestation: AttestationResponse): TEEAttestation {
+		if (!attestation.publicKey) {
+			throw new Error("Attestation missing public key");
+		}
 		return {
 			measurement: toHash32(Buffer.from(attestation.measurement.slice(2), "hex")),
 			quote: attestation.quote,
-			publicKey: attestation.publicKey ?? new Uint8Array(33),
+			publicKey: attestation.publicKey,
 			timestamp: BigInt(attestation.timestamp),
 		};
 	}

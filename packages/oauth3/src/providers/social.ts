@@ -5,8 +5,17 @@
  * Token exchange and profile fetching happens in the TEE agent.
  */
 
-import { keccak256, toBytes, toHex, type Address, type Hex } from 'viem';
+import { z } from 'zod';
+import { keccak256, toHex, type Hex } from 'viem';
 import { AuthProvider } from '../types.js';
+import {
+  OAuthTokenResponseSchema,
+  GoogleUserInfoSchema,
+  GitHubUserSchema,
+  TwitterUserSchema,
+  DiscordUserSchema,
+  validateResponse,
+} from '../validation.js';
 
 export interface OAuthConfig {
   clientId: string;
@@ -33,6 +42,47 @@ export interface OAuthToken {
   idToken?: string;
 }
 
+interface GoogleProfileRaw {
+  id: string;
+  email: string;
+  name: string;
+  picture: string;
+  verified_email: boolean;
+}
+
+interface GitHubProfileRaw {
+  id: number;
+  login: string;
+  name: string | null;
+  email: string | null;
+  avatar_url: string;
+}
+
+interface TwitterProfileRaw {
+  id: string;
+  username: string;
+  name: string;
+  profile_image_url?: string;
+  verified?: boolean;
+}
+
+interface DiscordProfileRaw {
+  id: string;
+  username: string;
+  global_name: string | null;
+  email?: string;
+  avatar: string | null;
+  verified?: boolean;
+}
+
+interface AppleIdTokenPayload {
+  sub: string;
+  email?: string;
+  email_verified?: boolean;
+}
+
+type OAuthProfileRaw = GoogleProfileRaw | GitHubProfileRaw | TwitterProfileRaw | DiscordProfileRaw | AppleIdTokenPayload;
+
 export interface OAuthProfile {
   id: string;
   email?: string;
@@ -40,7 +90,7 @@ export interface OAuthProfile {
   avatar?: string;
   handle?: string;
   verified: boolean;
-  raw: Record<string, unknown>;
+  raw: OAuthProfileRaw;
 }
 
 abstract class OAuthProvider {
@@ -53,7 +103,7 @@ abstract class OAuthProvider {
   }
 
   abstract getAuthorizationUrl(state: OAuthState): string;
-  abstract exchangeCode(code: string, state: OAuthState): Promise<OAuthToken>;
+  abstract exchangeCode(code: string, state?: OAuthState): Promise<OAuthToken>;
   abstract getProfile(token: OAuthToken): Promise<OAuthProfile>;
 
   protected generateState(appId: Hex): OAuthState {
@@ -68,7 +118,7 @@ abstract class OAuthProvider {
     };
   }
 
-  protected async fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
+  protected async fetchJson<T = unknown>(url: string, options?: RequestInit): Promise<T> {
     const response = await fetch(url, options);
     if (!response.ok) {
       const text = await response.text();
@@ -104,15 +154,8 @@ export class GoogleProvider extends OAuthProvider {
     return `${GoogleProvider.AUTH_URL}?${params}`;
   }
 
-  async exchangeCode(code: string, state: OAuthState): Promise<OAuthToken> {
-    const response = await this.fetchJson<{
-      access_token: string;
-      refresh_token?: string;
-      token_type: string;
-      expires_in: number;
-      scope: string;
-      id_token?: string;
-    }>(GoogleProvider.TOKEN_URL, {
+  async exchangeCode(code: string): Promise<OAuthToken> {
+    const rawResponse = await this.fetchJson(GoogleProvider.TOKEN_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
@@ -124,34 +167,32 @@ export class GoogleProvider extends OAuthProvider {
       }),
     });
 
+    const response = validateResponse(OAuthTokenResponseSchema, rawResponse, 'Google token response');
+
     return {
       accessToken: response.access_token,
       refreshToken: response.refresh_token,
       tokenType: response.token_type,
       expiresIn: response.expires_in,
-      scope: response.scope,
+      scope: response.scope ?? '',
       idToken: response.id_token,
     };
   }
 
   async getProfile(token: OAuthToken): Promise<OAuthProfile> {
-    const response = await this.fetchJson<{
-      id: string;
-      email: string;
-      name: string;
-      picture: string;
-      verified_email: boolean;
-    }>(GoogleProvider.PROFILE_URL, {
+    const rawResponse = await this.fetchJson(GoogleProvider.PROFILE_URL, {
       headers: { Authorization: `Bearer ${token.accessToken}` },
     });
 
+    const response = validateResponse(GoogleUserInfoSchema, rawResponse, 'Google user info');
+
     return {
-      id: response.id,
+      id: response.id ?? response.sub ?? '',
       email: response.email,
       name: response.name,
       avatar: response.picture,
-      verified: response.verified_email,
-      raw: response as unknown as Record<string, unknown>,
+      verified: response.verified_email ?? response.email_verified ?? false,
+      raw: { id: response.id ?? response.sub ?? '', email: response.email, name: response.name, picture: response.picture, verified_email: response.verified_email ?? response.email_verified ?? false },
     };
   }
 }
@@ -179,14 +220,8 @@ export class AppleProvider extends OAuthProvider {
     return `${AppleProvider.AUTH_URL}?${params}`;
   }
 
-  async exchangeCode(code: string, _state: OAuthState): Promise<OAuthToken> {
-    const response = await this.fetchJson<{
-      access_token: string;
-      refresh_token?: string;
-      token_type: string;
-      expires_in: number;
-      id_token: string;
-    }>(AppleProvider.TOKEN_URL, {
+  async exchangeCode(code: string): Promise<OAuthToken> {
+    const rawResponse = await this.fetchJson(AppleProvider.TOKEN_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
@@ -197,6 +232,8 @@ export class AppleProvider extends OAuthProvider {
         grant_type: 'authorization_code',
       }),
     });
+
+    const response = validateResponse(OAuthTokenResponseSchema, rawResponse, 'Apple token response');
 
     return {
       accessToken: response.access_token,
@@ -209,20 +246,24 @@ export class AppleProvider extends OAuthProvider {
   }
 
   async getProfile(token: OAuthToken): Promise<OAuthProfile> {
-    // Apple ID token contains the profile info
     if (!token.idToken) throw new Error('No ID token from Apple');
     
-    const payload = JSON.parse(atob(token.idToken.split('.')[1])) as {
-      sub: string;
-      email?: string;
-      email_verified?: boolean;
-    };
+    const payloadStr = atob(token.idToken.split('.')[1]);
+    const rawPayload = JSON.parse(payloadStr);
+    
+    const AppleIdTokenSchema = z.object({
+      sub: z.string(),
+      email: z.string().optional(),
+      email_verified: z.union([z.boolean(), z.string()]).optional(),
+    });
+    
+    const payload = validateResponse(AppleIdTokenSchema, rawPayload, 'Apple ID token');
 
     return {
       id: payload.sub,
       email: payload.email,
-      verified: payload.email_verified ?? false,
-      raw: payload as unknown as Record<string, unknown>,
+      verified: payload.email_verified === true || payload.email_verified === 'true',
+      raw: { sub: payload.sub, email: payload.email, email_verified: payload.email_verified === true || payload.email_verified === 'true' },
     };
   }
 }
@@ -240,7 +281,6 @@ export class TwitterProvider extends OAuthProvider {
   }
 
   getAuthorizationUrl(state: OAuthState): string {
-    // Generate PKCE code verifier and challenge
     const codeVerifier = toHex(crypto.getRandomValues(new Uint8Array(32))).slice(2);
     state.codeVerifier = codeVerifier;
     
@@ -259,16 +299,10 @@ export class TwitterProvider extends OAuthProvider {
     return `${TwitterProvider.AUTH_URL}?${params}`;
   }
 
-  async exchangeCode(code: string, state: OAuthState): Promise<OAuthToken> {
-    if (!state.codeVerifier) throw new Error('No PKCE code verifier');
+  async exchangeCode(code: string, state?: OAuthState): Promise<OAuthToken> {
+    if (!state?.codeVerifier) throw new Error('No PKCE code verifier');
 
-    const response = await this.fetchJson<{
-      access_token: string;
-      refresh_token?: string;
-      token_type: string;
-      expires_in: number;
-      scope: string;
-    }>(TwitterProvider.TOKEN_URL, {
+    const rawResponse = await this.fetchJson(TwitterProvider.TOKEN_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -282,35 +316,31 @@ export class TwitterProvider extends OAuthProvider {
       }),
     });
 
+    const response = validateResponse(OAuthTokenResponseSchema, rawResponse, 'Twitter token response');
+
     return {
       accessToken: response.access_token,
       refreshToken: response.refresh_token,
       tokenType: response.token_type,
       expiresIn: response.expires_in,
-      scope: response.scope,
+      scope: response.scope ?? '',
     };
   }
 
   async getProfile(token: OAuthToken): Promise<OAuthProfile> {
-    const response = await this.fetchJson<{
-      data: {
-        id: string;
-        name: string;
-        username: string;
-        profile_image_url: string;
-        verified: boolean;
-      };
-    }>(`${TwitterProvider.PROFILE_URL}?user.fields=profile_image_url,verified`, {
+    const rawResponse = await this.fetchJson(`${TwitterProvider.PROFILE_URL}?user.fields=profile_image_url,verified`, {
       headers: { Authorization: `Bearer ${token.accessToken}` },
     });
+
+    const response = validateResponse(TwitterUserSchema, rawResponse, 'Twitter user info');
 
     return {
       id: response.data.id,
       name: response.data.name,
       handle: `@${response.data.username}`,
       avatar: response.data.profile_image_url,
-      verified: response.data.verified,
-      raw: response.data as unknown as Record<string, unknown>,
+      verified: response.data.verified ?? false,
+      raw: { id: response.data.id, username: response.data.username, name: response.data.name, profile_image_url: response.data.profile_image_url, verified: response.data.verified },
     };
   }
 }
@@ -337,12 +367,14 @@ export class GitHubProvider extends OAuthProvider {
     return `${GitHubProvider.AUTH_URL}?${params}`;
   }
 
-  async exchangeCode(code: string, _state: OAuthState): Promise<OAuthToken> {
-    const response = await this.fetchJson<{
-      access_token: string;
-      token_type: string;
-      scope: string;
-    }>(GitHubProvider.TOKEN_URL, {
+  async exchangeCode(code: string): Promise<OAuthToken> {
+    const GitHubTokenSchema = z.object({
+      access_token: z.string(),
+      token_type: z.string(),
+      scope: z.string(),
+    });
+
+    const rawResponse = await this.fetchJson(GitHubProvider.TOKEN_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -356,36 +388,34 @@ export class GitHubProvider extends OAuthProvider {
       }),
     });
 
+    const response = validateResponse(GitHubTokenSchema, rawResponse, 'GitHub token response');
+
     return {
       accessToken: response.access_token,
       tokenType: response.token_type,
-      expiresIn: 0, // GitHub tokens don't expire
+      expiresIn: 0,
       scope: response.scope,
     };
   }
 
   async getProfile(token: OAuthToken): Promise<OAuthProfile> {
-    const response = await this.fetchJson<{
-      id: number;
-      login: string;
-      name: string;
-      email: string;
-      avatar_url: string;
-    }>(GitHubProvider.PROFILE_URL, {
+    const rawResponse = await this.fetchJson(GitHubProvider.PROFILE_URL, {
       headers: {
         Authorization: `Bearer ${token.accessToken}`,
         Accept: 'application/vnd.github+json',
       },
     });
 
+    const response = validateResponse(GitHubUserSchema, rawResponse, 'GitHub user info');
+
     return {
       id: response.id.toString(),
-      email: response.email,
-      name: response.name,
+      email: response.email ?? undefined,
+      name: response.name ?? undefined,
       handle: `@${response.login}`,
       avatar: response.avatar_url,
-      verified: true, // GitHub emails are verified
-      raw: response as unknown as Record<string, unknown>,
+      verified: true,
+      raw: { id: response.id, login: response.login, name: response.name, email: response.email, avatar_url: response.avatar_url },
     };
   }
 }
@@ -413,14 +443,8 @@ export class DiscordProvider extends OAuthProvider {
     return `${DiscordProvider.AUTH_URL}?${params}`;
   }
 
-  async exchangeCode(code: string, _state: OAuthState): Promise<OAuthToken> {
-    const response = await this.fetchJson<{
-      access_token: string;
-      refresh_token: string;
-      token_type: string;
-      expires_in: number;
-      scope: string;
-    }>(DiscordProvider.TOKEN_URL, {
+  async exchangeCode(code: string): Promise<OAuthToken> {
+    const rawResponse = await this.fetchJson(DiscordProvider.TOKEN_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
@@ -432,26 +456,23 @@ export class DiscordProvider extends OAuthProvider {
       }),
     });
 
+    const response = validateResponse(OAuthTokenResponseSchema, rawResponse, 'Discord token response');
+
     return {
       accessToken: response.access_token,
       refreshToken: response.refresh_token,
       tokenType: response.token_type,
       expiresIn: response.expires_in,
-      scope: response.scope,
+      scope: response.scope ?? '',
     };
   }
 
   async getProfile(token: OAuthToken): Promise<OAuthProfile> {
-    const response = await this.fetchJson<{
-      id: string;
-      username: string;
-      global_name: string;
-      email: string;
-      avatar: string;
-      verified: boolean;
-    }>(DiscordProvider.PROFILE_URL, {
+    const rawResponse = await this.fetchJson(DiscordProvider.PROFILE_URL, {
       headers: { Authorization: `Bearer ${token.accessToken}` },
     });
+
+    const response = validateResponse(DiscordUserSchema, rawResponse, 'Discord user info');
 
     const avatarUrl = response.avatar
       ? `https://cdn.discordapp.com/avatars/${response.id}/${response.avatar}.png`
@@ -460,11 +481,11 @@ export class DiscordProvider extends OAuthProvider {
     return {
       id: response.id,
       email: response.email,
-      name: response.global_name || response.username,
+      name: response.global_name ?? response.username,
       handle: `@${response.username}`,
       avatar: avatarUrl,
-      verified: response.verified,
-      raw: response as unknown as Record<string, unknown>,
+      verified: response.verified ?? false,
+      raw: { id: response.id, username: response.username, global_name: response.global_name, email: response.email, avatar: response.avatar, verified: response.verified },
     };
   }
 }

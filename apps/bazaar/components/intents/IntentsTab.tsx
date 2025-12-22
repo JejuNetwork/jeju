@@ -6,7 +6,7 @@ import { RoutesView } from './RoutesView';
 import { SolversView } from './SolversView';
 import { StatsView } from './StatsView';
 import { CreateIntentModal } from './CreateIntentModal';
-import { useOIFStats } from '../../hooks/useIntentAPI';
+import { useOIFStats } from '@/hooks/useIntentAPI';
 
 type View = 'intents' | 'routes' | 'solvers' | 'stats';
 

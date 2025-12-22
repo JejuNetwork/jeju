@@ -367,5 +367,3 @@ export function getAssetChainMap(symbol: string): Map<string, string> | undefine
   return asset?.chains;
 }
 
-
-

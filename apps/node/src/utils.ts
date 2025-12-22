@@ -1,15 +1,25 @@
 // Utility functions
+import { formatEther as viemFormatEther, parseEther as viemParseEther } from 'viem';
 
-export function formatEther(wei: string): string {
-  const weiNum = BigInt(wei || '0');
-  const ethNum = Number(weiNum) / 1e18;
-  
-  if (ethNum === 0) return '0';
-  if (ethNum < 0.0001) return '<0.0001';
-  if (ethNum < 0.01) return ethNum.toFixed(4);
-  if (ethNum < 1) return ethNum.toFixed(3);
-  if (ethNum < 100) return ethNum.toFixed(2);
-  return ethNum.toFixed(1);
+export function formatEther(wei: string | bigint): string {
+  if (typeof wei === 'string') {
+    if (wei === '') {
+      throw new Error('formatEther: empty string provided');
+    }
+    if (!/^\d+$/.test(wei)) {
+      throw new Error(`formatEther: invalid wei string "${wei}"`);
+    }
+  }
+  const weiBigInt = typeof wei === 'string' ? BigInt(wei) : wei;
+  const formatted = viemFormatEther(weiBigInt);
+  // Optional: custom formatting logic if needed on top of viem
+  const num = parseFloat(formatted);
+  if (num === 0) return '0';
+  if (num < 0.0001) return '<0.0001';
+  if (num < 0.01) return num.toFixed(4);
+  if (num < 1) return num.toFixed(3);
+  if (num < 100) return num.toFixed(2);
+  return num.toFixed(1);
 }
 
 export function formatUsd(amount: number): string {
@@ -49,7 +59,7 @@ export function shortenAddress(address: string, chars = 4): string {
 }
 
 export function parseWei(eth: string): string {
-  return (parseFloat(eth) * 1e18).toString();
+  return viemParseEther(eth).toString();
 }
 
 export function classNames(...classes: (string | boolean | undefined)[]): string {
@@ -59,4 +69,3 @@ export function classNames(...classes: (string | boolean | undefined)[]): string
 export function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
-

@@ -15,6 +15,20 @@ import { formatEther } from '../utils';
 import { invoke } from '@tauri-apps/api/core';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
+import { z } from 'zod';
+
+const CreateWalletRequestSchema = z.object({
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+});
+
+const ImportWalletRequestSchema = z.object({
+  private_key: z.string().regex(/^0x[a-fA-F0-9]{64}$/).nullable(),
+  mnemonic: z.string().min(1).nullable(),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+}).refine(
+  (data) => (data.private_key !== null) !== (data.mnemonic !== null),
+  { message: 'Must provide either private_key or mnemonic, not both' }
+);
 
 type WalletAction = 'create' | 'import' | 'external' | 'jeju' | null;
 
@@ -30,57 +44,37 @@ export function WalletView() {
   const [error, setError] = useState<string | null>(null);
 
   const handleCreate = async () => {
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters');
-      return;
-    }
+    const request = CreateWalletRequestSchema.parse({ password });
     
     setLoading(true);
     setError(null);
     
-    try {
-      await invoke('create_wallet', {
-        request: { password },
-      });
-      await fetchWallet();
-      await fetchBalance();
-      setAction(null);
-      setPassword('');
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setLoading(false);
-    }
+    await invoke('create_wallet', { request });
+    await fetchWallet();
+    await fetchBalance();
+    setAction(null);
+    setPassword('');
+    setLoading(false);
   };
 
   const handleImport = async () => {
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters');
-      return;
-    }
+    const request = ImportWalletRequestSchema.parse({
+      private_key: importType === 'key' ? (privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`) : null,
+      mnemonic: importType === 'mnemonic' ? mnemonic : null,
+      password,
+    });
     
     setLoading(true);
     setError(null);
     
-    try {
-      await invoke('import_wallet', {
-        request: {
-          private_key: importType === 'key' ? privateKey : null,
-          mnemonic: importType === 'mnemonic' ? mnemonic : null,
-          password,
-        },
-      });
-      await fetchWallet();
-      await fetchBalance();
-      setAction(null);
-      setPassword('');
-      setPrivateKey('');
-      setMnemonic('');
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setLoading(false);
-    }
+    await invoke('import_wallet', { request });
+    await fetchWallet();
+    await fetchBalance();
+    setAction(null);
+    setPassword('');
+    setPrivateKey('');
+    setMnemonic('');
+    setLoading(false);
   };
 
   const copyAddress = () => {

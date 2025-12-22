@@ -7,15 +7,31 @@
  * - SIWF (Sign In With Farcaster)
  * - Passkeys (WebAuthn)
  * - Social logins via OAuth3
+ * - Email/Phone authentication
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ComponentType } from 'react';
 import { useAccount, useSignMessage, useDisconnect } from 'wagmi';
 import { ConnectButton, useConnectModal } from '@rainbow-me/rainbowkit';
-import { X, Key, User, Wallet, Chrome, Github, Twitter, MessageCircle, Fingerprint, ExternalLink, Loader2 } from 'lucide-react';
+import { X, Key, User, Wallet, Chrome, Github, Twitter, MessageCircle, Fingerprint, ExternalLink, Loader2, Mail, Phone, type LucideProps } from 'lucide-react';
 import { createSIWEMessage, formatSIWEMessage } from '@jejunetwork/shared/auth/siwe';
 import { isPlatformAuthenticatorAvailable } from '@jejunetwork/shared/auth/passkeys';
-import { CHAIN_ID } from '../../config';
+import { CHAIN_ID, OAUTH3_AGENT_URL } from '../../config';
+import { useOAuth3 } from '@jejunetwork/oauth3/react';
+import { AuthProvider } from '@jejunetwork/oauth3';
+
+// Fix for Lucide React 19 type compatibility
+const XIcon = X as ComponentType<LucideProps>;
+const KeyIcon = Key as ComponentType<LucideProps>;
+const WalletIcon = Wallet as ComponentType<LucideProps>;
+const ChromeIcon = Chrome as ComponentType<LucideProps>;
+const GithubIcon = Github as ComponentType<LucideProps>;
+const TwitterIcon = Twitter as ComponentType<LucideProps>;
+const MessageCircleIcon = MessageCircle as ComponentType<LucideProps>;
+const FingerprintIcon = Fingerprint as ComponentType<LucideProps>;
+const Loader2Icon = Loader2 as ComponentType<LucideProps>;
+const MailIcon = Mail as ComponentType<LucideProps>;
+const PhoneIcon = Phone as ComponentType<LucideProps>;
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -30,7 +46,7 @@ interface AuthSession {
   provider?: string;
 }
 
-type AuthStep = 'choose' | 'wallet' | 'signing' | 'success' | 'error';
+type AuthStep = 'choose' | 'wallet' | 'signing' | 'email' | 'phone' | 'success' | 'error';
 
 const SESSION_KEY = 'gateway_auth_session';
 
@@ -39,11 +55,18 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
   const [error, setError] = useState<string | null>(null);
   const [hasPasskeys, setHasPasskeys] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [emailInput, setEmailInput] = useState('');
+  const [phoneInput, setPhoneInput] = useState('');
+  const [codeInput, setCodeInput] = useState('');
+  const [codeSent, setCodeSent] = useState(false);
 
   const { address, isConnected } = useAccount();
   const { signMessageAsync } = useSignMessage();
   const { disconnect } = useDisconnect();
   const { openConnectModal } = useConnectModal();
+  
+  // OAuth3 integration
+  const oauth3Context = useOAuth3();
 
   useEffect(() => {
     isPlatformAuthenticatorAvailable().then(setHasPasskeys);
@@ -104,10 +127,25 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
     setError(null);
 
     try {
-      const oauth3Url = import.meta.env.VITE_OAUTH3_AGENT_URL || 'http://localhost:4200';
-      const redirectUri = `${window.location.origin}/auth/callback`;
+      // Use OAuth3 SDK if available
+      if (oauth3Context?.login) {
+        await oauth3Context.login({ provider: AuthProvider.FARCASTER });
+        const session: AuthSession = {
+          address: oauth3Context.session?.smartAccountAddress || 'oauth3-farcaster',
+          method: 'siwf',
+          expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+          provider: 'farcaster',
+        };
+        localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+        setStep('success');
+        onSuccess?.(session);
+        setTimeout(() => onClose(), 1500);
+        return;
+      }
 
-      const response = await fetch(`${oauth3Url}/auth/init`, {
+      // Fallback to direct API call
+      const redirectUri = `${window.location.origin}/auth/callback`;
+      const response = await fetch(`${OAUTH3_AGENT_URL}/auth/init`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -134,10 +172,31 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
     setError(null);
 
     try {
-      const oauth3Url = import.meta.env.VITE_OAUTH3_AGENT_URL || 'http://localhost:4200';
-      const redirectUri = `${window.location.origin}/auth/callback`;
+      // Use OAuth3 SDK if available
+      if (oauth3Context?.login) {
+        const providerMap: Record<string, AuthProvider> = {
+          google: AuthProvider.GOOGLE,
+          github: AuthProvider.GITHUB,
+          twitter: AuthProvider.TWITTER,
+          discord: AuthProvider.DISCORD,
+        };
+        await oauth3Context.login({ provider: providerMap[provider] });
+        const session: AuthSession = {
+          address: oauth3Context.session?.smartAccountAddress || `oauth3-${provider}`,
+          method: 'social',
+          expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+          provider,
+        };
+        localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+        setStep('success');
+        onSuccess?.(session);
+        setTimeout(() => onClose(), 1500);
+        return;
+      }
 
-      const response = await fetch(`${oauth3Url}/auth/init`, {
+      // Fallback to direct API call
+      const redirectUri = `${window.location.origin}/auth/callback`;
+      const response = await fetch(`${OAUTH3_AGENT_URL}/auth/init`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -155,6 +214,120 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
       window.location.href = authUrl;
     } catch (err) {
       setError((err as Error).message);
+      setIsLoading(false);
+    }
+  };
+
+  const handleEmail = () => {
+    setStep('email');
+    setCodeSent(false);
+    setCodeInput('');
+  };
+
+  const handlePhone = () => {
+    setStep('phone');
+    setCodeSent(false);
+    setCodeInput('');
+  };
+
+  const handleSendEmailCode = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`${OAUTH3_AGENT_URL}/auth/email/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailInput, appId: 'gateway.apps.jeju' }),
+      });
+
+      if (!response.ok) throw new Error('Failed to send verification code');
+      setCodeSent(true);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerifyEmailCode = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`${OAUTH3_AGENT_URL}/auth/email/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailInput, code: codeInput, appId: 'gateway.apps.jeju' }),
+      });
+
+      if (!response.ok) throw new Error('Invalid verification code');
+      
+      const data = await response.json();
+      const session: AuthSession = {
+        address: data.smartAccount || `email:${emailInput}`,
+        method: 'social',
+        expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+        provider: 'email',
+      };
+      localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+      setStep('success');
+      onSuccess?.(session);
+      setTimeout(() => onClose(), 1500);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSendPhoneCode = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`${OAUTH3_AGENT_URL}/auth/phone/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: phoneInput, appId: 'gateway.apps.jeju' }),
+      });
+
+      if (!response.ok) throw new Error('Failed to send verification code');
+      setCodeSent(true);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerifyPhoneCode = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`${OAUTH3_AGENT_URL}/auth/phone/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: phoneInput, code: codeInput, appId: 'gateway.apps.jeju' }),
+      });
+
+      if (!response.ok) throw new Error('Invalid verification code');
+      
+      const data = await response.json();
+      const session: AuthSession = {
+        address: data.smartAccount || `phone:${phoneInput}`,
+        method: 'social',
+        expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+        provider: 'phone',
+      };
+      localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+      setStep('success');
+      onSuccess?.(session);
+      setTimeout(() => onClose(), 1500);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
       setIsLoading(false);
     }
   };
@@ -202,7 +375,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
         <div className="flex items-center justify-between p-6 border-b border-border">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
-              <Key className="w-5 h-5 text-white" />
+              <KeyIcon className="w-5 h-5 text-white" />
             </div>
             <div>
               <h2 className="text-lg font-semibold text-foreground">Sign In</h2>
@@ -210,7 +383,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
             </div>
           </div>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-accent transition-colors">
-            <X className="w-5 h-5" />
+            <XIcon className="w-5 h-5" />
           </button>
         </div>
 
@@ -235,7 +408,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                   className="w-full flex items-center gap-4 p-4 rounded-xl bg-secondary/50 border border-border hover:bg-secondary hover:border-violet-500/30 transition-all group"
                 >
                   <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center">
-                    <Wallet className="w-5 h-5 text-white" />
+                    <WalletIcon className="w-5 h-5 text-white" />
                   </div>
                   <div className="flex-1 text-left">
                     <p className="font-medium">Connect Wallet</p>
@@ -261,7 +434,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                     <p className="font-medium">Farcaster</p>
                     <p className="text-xs text-muted-foreground">Sign in with Warpcast</p>
                   </div>
-                  {isLoading && <Loader2 className="w-5 h-5 animate-spin" />}
+                  {isLoading && <Loader2Icon className="w-5 h-5 animate-spin" />}
                 </button>
               </div>
 
@@ -277,7 +450,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                     className="flex items-center justify-center p-3 rounded-xl bg-secondary/50 border border-border hover:bg-red-500/10 hover:border-red-500/30 transition-all"
                     title="Google"
                   >
-                    <Chrome className="w-5 h-5" />
+                    <ChromeIcon className="w-5 h-5" />
                   </button>
                   <button
                     onClick={() => handleSocial('github')}
@@ -285,7 +458,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                     className="flex items-center justify-center p-3 rounded-xl bg-secondary/50 border border-border hover:bg-gray-500/10 hover:border-gray-500/30 transition-all"
                     title="GitHub"
                   >
-                    <Github className="w-5 h-5" />
+                    <GithubIcon className="w-5 h-5" />
                   </button>
                   <button
                     onClick={() => handleSocial('twitter')}
@@ -293,7 +466,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                     className="flex items-center justify-center p-3 rounded-xl bg-secondary/50 border border-border hover:bg-blue-500/10 hover:border-blue-500/30 transition-all"
                     title="Twitter"
                   >
-                    <Twitter className="w-5 h-5" />
+                    <TwitterIcon className="w-5 h-5" />
                   </button>
                   <button
                     onClick={() => handleSocial('discord')}
@@ -301,7 +474,32 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                     className="flex items-center justify-center p-3 rounded-xl bg-secondary/50 border border-border hover:bg-indigo-500/10 hover:border-indigo-500/30 transition-all"
                     title="Discord"
                   >
-                    <MessageCircle className="w-5 h-5" />
+                    <MessageCircleIcon className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Email/Phone */}
+              <div className="space-y-2">
+                <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Email / Phone
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={handleEmail}
+                    disabled={isLoading}
+                    className="flex items-center justify-center gap-2 p-3 rounded-xl bg-secondary/50 border border-border hover:bg-blue-500/10 hover:border-blue-500/30 transition-all"
+                  >
+                    <MailIcon className="w-5 h-5" />
+                    <span className="text-sm">Email</span>
+                  </button>
+                  <button
+                    onClick={handlePhone}
+                    disabled={isLoading}
+                    className="flex items-center justify-center gap-2 p-3 rounded-xl bg-secondary/50 border border-border hover:bg-green-500/10 hover:border-green-500/30 transition-all"
+                  >
+                    <PhoneIcon className="w-5 h-5" />
+                    <span className="text-sm">Phone</span>
                   </button>
                 </div>
               </div>
@@ -318,22 +516,130 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                     className="w-full flex items-center gap-4 p-4 rounded-xl bg-secondary/50 border border-border hover:bg-emerald-500/10 hover:border-emerald-500/30 transition-all"
                   >
                     <div className="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center">
-                      <Fingerprint className="w-5 h-5 text-white" />
+                      <FingerprintIcon className="w-5 h-5 text-white" />
                     </div>
                     <div className="flex-1 text-left">
                       <p className="font-medium">Passkey</p>
                       <p className="text-xs text-muted-foreground">Touch ID, Face ID, or security key</p>
                     </div>
-                    {isLoading && <Loader2 className="w-5 h-5 animate-spin" />}
+                    {isLoading && <Loader2Icon className="w-5 h-5 animate-spin" />}
                   </button>
                 </div>
               )}
             </>
           )}
 
+          {step === 'email' && (
+            <div className="space-y-4">
+              <button 
+                onClick={() => { setStep('choose'); setCodeSent(false); }} 
+                className="text-sm text-violet-400 hover:underline"
+              >
+                ← Back to options
+              </button>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Email Address</label>
+                <input
+                  type="email"
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                  placeholder="you@example.com"
+                  className="w-full p-3 rounded-xl bg-secondary border border-border focus:border-violet-500 focus:outline-none transition-colors"
+                  disabled={codeSent}
+                />
+              </div>
+
+              {!codeSent ? (
+                <button
+                  onClick={handleSendEmailCode}
+                  disabled={isLoading || !emailInput}
+                  className="w-full p-3 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-medium transition-colors disabled:opacity-50"
+                >
+                  {isLoading ? <Loader2Icon className="w-5 h-5 animate-spin mx-auto" /> : 'Send Code'}
+                </button>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Verification Code</label>
+                    <input
+                      type="text"
+                      value={codeInput}
+                      onChange={(e) => setCodeInput(e.target.value)}
+                      placeholder="123456"
+                      maxLength={6}
+                      className="w-full p-3 rounded-xl bg-secondary border border-border focus:border-violet-500 focus:outline-none transition-colors text-center text-2xl tracking-widest"
+                    />
+                  </div>
+                  <button
+                    onClick={handleVerifyEmailCode}
+                    disabled={isLoading || codeInput.length < 6}
+                    className="w-full p-3 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-medium transition-colors disabled:opacity-50"
+                  >
+                    {isLoading ? <Loader2Icon className="w-5 h-5 animate-spin mx-auto" /> : 'Verify'}
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
+          {step === 'phone' && (
+            <div className="space-y-4">
+              <button 
+                onClick={() => { setStep('choose'); setCodeSent(false); }} 
+                className="text-sm text-violet-400 hover:underline"
+              >
+                ← Back to options
+              </button>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Phone Number</label>
+                <input
+                  type="tel"
+                  value={phoneInput}
+                  onChange={(e) => setPhoneInput(e.target.value)}
+                  placeholder="+1 234 567 8900"
+                  className="w-full p-3 rounded-xl bg-secondary border border-border focus:border-violet-500 focus:outline-none transition-colors"
+                  disabled={codeSent}
+                />
+              </div>
+
+              {!codeSent ? (
+                <button
+                  onClick={handleSendPhoneCode}
+                  disabled={isLoading || !phoneInput}
+                  className="w-full p-3 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-medium transition-colors disabled:opacity-50"
+                >
+                  {isLoading ? <Loader2Icon className="w-5 h-5 animate-spin mx-auto" /> : 'Send Code'}
+                </button>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Verification Code</label>
+                    <input
+                      type="text"
+                      value={codeInput}
+                      onChange={(e) => setCodeInput(e.target.value)}
+                      placeholder="123456"
+                      maxLength={6}
+                      className="w-full p-3 rounded-xl bg-secondary border border-border focus:border-violet-500 focus:outline-none transition-colors text-center text-2xl tracking-widest"
+                    />
+                  </div>
+                  <button
+                    onClick={handleVerifyPhoneCode}
+                    disabled={isLoading || codeInput.length < 6}
+                    className="w-full p-3 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-medium transition-colors disabled:opacity-50"
+                  >
+                    {isLoading ? <Loader2Icon className="w-5 h-5 animate-spin mx-auto" /> : 'Verify'}
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
           {step === 'wallet' && (
             <div className="text-center py-8">
-              <Loader2 className="w-12 h-12 animate-spin mx-auto text-violet-500" />
+              <Loader2Icon className="w-12 h-12 animate-spin mx-auto text-violet-500" />
               <p className="mt-4 text-muted-foreground">Connecting wallet...</p>
               <p className="text-xs text-muted-foreground mt-2">Please check your wallet</p>
             </div>
@@ -341,7 +647,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
 
           {step === 'signing' && (
             <div className="text-center py-8">
-              <Loader2 className="w-12 h-12 animate-spin mx-auto text-violet-500" />
+              <Loader2Icon className="w-12 h-12 animate-spin mx-auto text-violet-500" />
               <p className="mt-4 text-muted-foreground">Signing message...</p>
               <p className="text-xs text-muted-foreground mt-2">Please sign the message in your wallet</p>
             </div>
@@ -360,7 +666,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
           {step === 'error' && (
             <div className="text-center py-8">
               <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mx-auto">
-                <X className="w-8 h-8 text-red-400" />
+                <XIcon className="w-8 h-8 text-red-400" />
               </div>
               <p className="mt-4 font-semibold text-red-400">Sign in failed</p>
               <button

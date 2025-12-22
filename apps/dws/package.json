@@ -42,9 +42,11 @@
     "@jejunetwork/sdk": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/types": "workspace:*",
-    "hono": "4.7.0",
+    "hono": "4.11.1",
     "lru-cache": "11.2.4",
-    "viem": "2.41.2"
+    "viem": "2.43.2",
+    "yaml": "^2.8.2",
+    "zod": "^4.1.13"
   },
   "devDependencies": {
     "@types/bun": "latest"

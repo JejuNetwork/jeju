@@ -4,6 +4,7 @@
 
 import type { PlatformAdapter, MessageHandler, SendMessageOptions, PlatformUserInfo, PlatformChannelInfo } from './types';
 import type { PlatformMessage, MessageEmbed, MessageButton, TwilioWebhookPayload } from '../types';
+import { expectValid, TwilioWebhookPayloadSchema, PlatformMessageSchema } from '../schemas';
 
 interface TwilioClient {
   messages: {
@@ -57,10 +58,14 @@ export class WhatsAppAdapter implements PlatformAdapter {
   }
 
   async handleWebhook(payload: TwilioWebhookPayload): Promise<void> {
-    if (!payload.Body) return;
+    const validatedPayload = expectValid(TwilioWebhookPayloadSchema, payload, 'WhatsApp webhook');
+    
+    if (!validatedPayload.Body) {
+      return;
+    }
     
     // Extract content - remove "otto" prefix if present
-    let content = payload.Body.trim();
+    let content = validatedPayload.Body.trim();
     const isCommand = content.toLowerCase().startsWith('otto ') || content.toLowerCase() === 'otto';
     
     if (isCommand) {
@@ -70,24 +75,29 @@ export class WhatsAppAdapter implements PlatformAdapter {
       return;
     }
     
-    const from = payload.From.replace('whatsapp:', '');
+    const from = validatedPayload.From.replace('whatsapp:', '');
+    if (!from) {
+      throw new Error('Invalid WhatsApp From field');
+    }
     
     const message: PlatformMessage = {
       platform: 'whatsapp',
-      messageId: payload.MessageSid,
+      messageId: validatedPayload.MessageSid,
       channelId: from, // For WhatsApp, channel is the phone number
       userId: from,
       content,
       timestamp: Date.now(),
       isCommand: true,
-      attachments: payload.NumMedia ? [{
+      attachments: validatedPayload.NumMedia && validatedPayload.MediaUrl0 ? [{
         type: 'image',
-        url: payload.MediaUrl0 ?? '',
+        url: validatedPayload.MediaUrl0,
       }] : undefined,
     };
     
+    const validatedMessage = expectValid(PlatformMessageSchema, message, 'WhatsApp platform message');
+    
     if (this.messageHandler) {
-      await this.messageHandler(message);
+      await this.messageHandler(validatedMessage);
     }
   }
 

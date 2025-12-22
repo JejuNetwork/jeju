@@ -2,15 +2,23 @@
  * Tests for Unified Protocol Server
  */
 
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test, beforeAll } from 'bun:test';
 import {
   createUnifiedServer,
   skillSuccess,
   skillError,
   skillRequiresPayment,
+  configureX402,
   type UnifiedServerConfig,
   type SkillContext,
 } from './server';
+
+beforeAll(() => {
+  configureX402({
+    network: 'testnet',
+    paymentRecipient: '0x0000000000000000000000000000000000000001' as `0x${string}`,
+  });
+});
 
 // Test configuration
 const testConfig: UnifiedServerConfig = {

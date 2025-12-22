@@ -1,5 +1,7 @@
 import { useAccount, useWriteContract, useReadContract, useWaitForTransactionReceipt } from 'wagmi'
 import { parseEther, type Address } from 'viem'
+import { AddressSchema } from '@jejunetwork/types/contracts'
+import { expect, expectTrue, expectPositive } from '@/lib/validation'
 import { TokenLaunchpadAbi } from '@jejunetwork/contracts'
 import { getLaunchpadContracts, hasLaunchpad } from '@/config/contracts'
 import { JEJU_CHAIN_ID } from '@/config/chains'
@@ -80,19 +82,27 @@ export function useTokenLaunchpad(chainId: number = JEJU_CHAIN_ID) {
     communityVault: Address | null,
     config: BondingCurveConfig
   ) => {
-    if (!launchpadAddress) {
-      throw new Error('Launchpad not available on this chain')
-    }
+    const validatedLaunchpadAddress = expect(launchpadAddress, 'Launchpad not available on this chain');
+    AddressSchema.parse(validatedLaunchpadAddress);
+
+    expectTrue(name.length > 0, 'Name cannot be empty');
+    expectTrue(symbol.length > 0, 'Symbol cannot be empty');
+    expectTrue(creatorFeeBps >= 0 && creatorFeeBps <= 10000, 'CreatorFeeBps must be between 0 and 10000');
+    expectPositive(parseFloat(config.virtualEthReserves), 'VirtualEthReserves must be positive');
+    expectPositive(parseFloat(config.graduationTarget), 'GraduationTarget must be positive');
+    expectPositive(parseFloat(config.tokenSupply), 'TokenSupply must be positive');
+    
+    const validatedCommunityVault = communityVault ? AddressSchema.parse(communityVault) : '0x0000000000000000000000000000000000000000' as Address;
 
     writeContract({
-      address: launchpadAddress,
+      address: validatedLaunchpadAddress,
       abi: TokenLaunchpadAbi,
       functionName: 'launchBondingCurve',
       args: [
         name,
         symbol,
         creatorFeeBps,
-        communityVault || '0x0000000000000000000000000000000000000000',
+        validatedCommunityVault,
         {
           virtualEthReserves: parseEther(config.virtualEthReserves),
           graduationTarget: parseEther(config.graduationTarget),
@@ -113,12 +123,25 @@ export function useTokenLaunchpad(chainId: number = JEJU_CHAIN_ID) {
     communityVault: Address | null,
     config: ICOConfig
   ) => {
-    if (!launchpadAddress) {
-      throw new Error('Launchpad not available on this chain')
-    }
+    const validatedLaunchpadAddress = expect(launchpadAddress, 'Launchpad not available on this chain');
+    AddressSchema.parse(validatedLaunchpadAddress);
+    
+    expectTrue(name.length > 0, 'Name cannot be empty');
+    expectTrue(symbol.length > 0, 'Symbol cannot be empty');
+    expectPositive(parseFloat(totalSupply), 'TotalSupply must be positive');
+    expectTrue(creatorFeeBps >= 0 && creatorFeeBps <= 10000, 'CreatorFeeBps must be between 0 and 10000');
+    expectPositive(parseFloat(config.presalePrice), 'PresalePrice must be positive');
+    expectTrue(config.presaleAllocationBps >= 0 && config.presaleAllocationBps <= 10000, 'PresaleAllocationBps must be between 0 and 10000');
+    expectTrue(config.lpFundingBps >= 0 && config.lpFundingBps <= 10000, 'LpFundingBps must be between 0 and 10000');
+    expectPositive(parseFloat(config.softCap), 'SoftCap must be positive');
+    expectPositive(parseFloat(config.hardCap), 'HardCap must be positive');
+    expectTrue(parseFloat(config.hardCap) >= parseFloat(config.softCap), 'HardCap must be >= SoftCap');
+    expectPositive(config.presaleDuration, 'PresaleDuration must be positive');
+    
+    const validatedCommunityVault = communityVault ? AddressSchema.parse(communityVault) : '0x0000000000000000000000000000000000000000' as Address;
 
     writeContract({
-      address: launchpadAddress,
+      address: validatedLaunchpadAddress,
       abi: TokenLaunchpadAbi,
       functionName: 'launchICO',
       args: [
@@ -126,7 +149,7 @@ export function useTokenLaunchpad(chainId: number = JEJU_CHAIN_ID) {
         symbol,
         parseEther(totalSupply),
         creatorFeeBps,
-        communityVault || '0x0000000000000000000000000000000000000000',
+        validatedCommunityVault,
         {
           presaleAllocationBps: BigInt(config.presaleAllocationBps),
           presalePrice: parseEther(config.presalePrice),

@@ -8,7 +8,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Send, Loader2, Check, X, AlertTriangle, Shield, Wallet, ArrowLeftRight, HelpCircle, Sparkles, History, Zap, Cpu, Bot } from 'lucide-react';
 import { useWallet, useMultiChainBalances, formatUsd, formatTokenAmount } from '../../hooks/useWallet';
-import { inferenceClient, type ChatResponse, type StreamChunk } from '../../lib/inferenceClient';
+import { inferenceClient, type ChatResponse } from '../../lib/inferenceClient';
 import { elizaClient } from '../../lib/elizaClient';
 import type { Address } from 'viem';
 

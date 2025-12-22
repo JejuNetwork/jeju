@@ -22,9 +22,9 @@ describe('Logger Utility', () => {
   const originalError = console.error;
 
   beforeEach(() => {
-    consoleSpy = spyOn(console, 'log').mockImplementation(() => {});
-    consoleWarnSpy = spyOn(console, 'warn').mockImplementation(() => {});
-    consoleErrorSpy = spyOn(console, 'error').mockImplementation(() => {});
+    consoleSpy = spyOn(console, 'log').mockImplementation(() => { /* noop */ });
+    consoleWarnSpy = spyOn(console, 'warn').mockImplementation(() => { /* noop */ });
+    consoleErrorSpy = spyOn(console, 'error').mockImplementation(() => { /* noop */ });
   });
   
   afterEach(() => {

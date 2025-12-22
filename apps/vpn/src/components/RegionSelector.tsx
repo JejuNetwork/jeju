@@ -1,24 +1,9 @@
 import { useState } from 'react';
 import { ChevronDown, Check, Wifi, Zap } from 'lucide-react';
-
-interface VPNNode {
-  node_id: string;
-  operator: string;
-  country_code: string;
-  region: string;
-  endpoint: string;
-  wireguard_pubkey: string;
-  latency_ms: number;
-  load: number;
-  reputation: number;
-  capabilities: {
-    supports_wireguard: boolean;
-    supports_socks5: boolean;
-    supports_http: boolean;
-    serves_cdn: boolean;
-    is_vpn_exit: boolean;
-  };
-}
+import type { VPNNode } from '../api/schemas';
+import { VPNNodeSchema } from '../api/schemas';
+import { z } from 'zod';
+import { findBestClientNode } from '../shared/utils';
 
 interface RegionSelectorProps {
   nodes: VPNNode[];
@@ -62,8 +47,14 @@ const COUNTRY_NAMES: Record<string, string> = {
 export function RegionSelector({ nodes, selectedNode, onSelectNode, disabled }: RegionSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
 
+  // Validate nodes array
+  const validatedNodes = z.array(VPNNodeSchema).parse(nodes);
+  
+  // Validate selectedNode if present
+  const validatedSelectedNode = selectedNode ? VPNNodeSchema.parse(selectedNode) : null;
+
   // Group nodes by country
-  const nodesByCountry = nodes.reduce((acc, node) => {
+  const nodesByCountry = validatedNodes.reduce((acc: Record<string, VPNNode[]>, node: VPNNode) => {
     if (!acc[node.country_code]) {
       acc[node.country_code] = [];
     }
@@ -93,21 +84,21 @@ export function RegionSelector({ nodes, selectedNode, onSelectNode, disabled }: 
       >
         <div className="flex items-center gap-3">
           <span className="text-2xl">
-            {selectedNode ? COUNTRY_FLAGS[selectedNode.country_code] || '🌍' : '🌍'}
+            {validatedSelectedNode ? COUNTRY_FLAGS[validatedSelectedNode.country_code] || '🌍' : '🌍'}
           </span>
           <div className="text-left">
             <div className="font-medium">
-              {selectedNode 
-                ? COUNTRY_NAMES[selectedNode.country_code] || selectedNode.country_code
+              {validatedSelectedNode 
+                ? COUNTRY_NAMES[validatedSelectedNode.country_code] || validatedSelectedNode.country_code
                 : 'Select Region'}
             </div>
-            {selectedNode && (
+            {validatedSelectedNode && (
               <div className="flex items-center gap-2 text-xs text-[#606070]">
-                <span className={getLatencyColor(selectedNode.latency_ms)}>
-                  {selectedNode.latency_ms}ms
+                <span className={getLatencyColor(validatedSelectedNode.latency_ms)}>
+                  {validatedSelectedNode.latency_ms}ms
                 </span>
                 <span>•</span>
-                <span>{selectedNode.region}</span>
+                <span>{validatedSelectedNode.region}</span>
               </div>
             )}
           </div>
@@ -121,9 +112,7 @@ export function RegionSelector({ nodes, selectedNode, onSelectNode, disabled }: 
           {/* Auto Select Option */}
           <button
             onClick={() => {
-              const best = nodes.reduce((a, b) => 
-                (a.latency_ms + a.load * 10) < (b.latency_ms + b.load * 10) ? a : b
-              );
+              const best = findBestClientNode(validatedNodes);
               onSelectNode(best);
               setIsOpen(false);
             }}
@@ -136,11 +125,12 @@ export function RegionSelector({ nodes, selectedNode, onSelectNode, disabled }: 
           </button>
 
           {/* Countries */}
-          {Object.entries(nodesByCountry).map(([countryCode, countryNodes]) => {
-            const bestNode = countryNodes.reduce((a, b) => 
-              (a.latency_ms + a.load * 10) < (b.latency_ms + b.load * 10) ? a : b
-            );
-            const isSelected = selectedNode?.country_code === countryCode;
+          {Object.entries(nodesByCountry).map(([countryCode, countryNodes]: [string, VPNNode[]]) => {
+            if (countryNodes.length === 0) {
+              return null;
+            }
+            const bestNode = findBestClientNode(countryNodes);
+            const isSelected = validatedSelectedNode?.country_code === countryCode;
 
             return (
               <button

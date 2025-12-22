@@ -168,7 +168,7 @@ export function Dashboard() {
                   </p>
                 </div>
                 <span className={`badge ${alert.labels.severity === 'critical' ? 'badge-error' : 'badge-warning'}`}>
-                  {alert.labels.severity || 'warning'}
+                  {alert.labels.severity ?? 'unknown'}
                 </span>
               </div>
             ))}

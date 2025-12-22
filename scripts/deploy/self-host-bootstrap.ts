@@ -741,7 +741,7 @@ class SelfHostingBootstrap {
     }
 
     // Register each name
-    for (const { name, app, cid } of namesToRegister) {
+    for (const { name, cid } of namesToRegister) {
       console.log(`Registering ${name}.jeju...`);
 
       // Check availability

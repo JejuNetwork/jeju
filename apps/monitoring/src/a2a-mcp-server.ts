@@ -8,6 +8,12 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { getNetworkName, getWebsiteUrl } from '@jejunetwork/config';
+import {
+  MCPRequestSchema,
+  MCPResourceReadSchema,
+  MCPToolCallSchema,
+  MCPPromptGetSchema,
+} from '../types';
 
 // ============================================================================
 // Configuration
@@ -170,15 +176,28 @@ export function createMonitoringA2AServer(): Hono {
   app.get('/.well-known/agent-card.json', (c) => c.json(AGENT_CARD));
 
   app.post('/', async (c) => {
-    const body = await c.req.json() as { id: unknown; method: string; params?: { message?: { parts?: Array<{ kind: string; data?: Record<string, unknown> }>; messageId?: string } } };
+    const rawBody = await c.req.json();
+    const parseResult = MCPRequestSchema.safeParse(rawBody);
+    
+    if (!parseResult.success) {
+      return c.json({ 
+        jsonrpc: '2.0', 
+        id: rawBody.id, 
+        error: { code: -32600, message: `Invalid request: ${parseResult.error.message}` } 
+      });
+    }
+    
+    const body = parseResult.data;
     
     if (body.method !== 'message/send') {
       return c.json({ jsonrpc: '2.0', id: body.id, error: { code: -32601, message: 'Method not found' } });
     }
 
-    const dataPart = body.params?.message?.parts?.find((p) => p.kind === 'data');
-    const skillId = dataPart?.data?.skillId as string;
-    const result = await executeSkill(skillId, dataPart?.data ?? {});
+    const parts = body.params?.message?.parts ?? [];
+    const dataPart = parts.find((p) => p.kind === 'data');
+    const skillId = (dataPart?.data?.skillId as string) ?? '';
+    const skillData = dataPart?.data ?? {};
+    const result = await executeSkill(skillId, skillData as Record<string, unknown>);
 
     return c.json({
       jsonrpc: '2.0',
@@ -229,8 +248,15 @@ export function createMonitoringMCPServer(): Hono {
   app.post('/resources/list', (c) => c.json({ resources: MCP_RESOURCES }));
 
   app.post('/resources/read', async (c) => {
-    const { uri } = await c.req.json() as { uri: string };
-    let contents: unknown = {};
+    const rawBody = await c.req.json();
+    const parseResult = MCPResourceReadSchema.safeParse(rawBody);
+    
+    if (!parseResult.success) {
+      return c.json({ error: `Invalid request: ${parseResult.error.message}` }, 400);
+    }
+    
+    const { uri } = parseResult.data;
+    let contents: Record<string, unknown>;
 
     switch (uri) {
       case 'monitoring://services':
@@ -262,8 +288,15 @@ export function createMonitoringMCPServer(): Hono {
   app.post('/tools/list', (c) => c.json({ tools: MCP_TOOLS }));
 
   app.post('/tools/call', async (c) => {
-    const { name, arguments: args } = await c.req.json() as { name: string; arguments: Record<string, unknown> };
-    let result: unknown = {};
+    const rawBody = await c.req.json();
+    const parseResult = MCPToolCallSchema.safeParse(rawBody);
+    
+    if (!parseResult.success) {
+      return c.json({ content: [{ type: 'text', text: `Invalid request: ${parseResult.error.message}` }], isError: true });
+    }
+    
+    const { name, arguments: args } = parseResult.data;
+    let result: Record<string, unknown>;
 
     switch (name) {
       case 'check_service':
@@ -291,28 +324,42 @@ export function createMonitoringMCPServer(): Hono {
   app.post('/prompts/list', (c) => c.json({ prompts: MCP_PROMPTS }));
 
   app.post('/prompts/get', async (c) => {
-    const { name, arguments: args } = await c.req.json() as { name: string; arguments: Record<string, string> };
-    let messages: Array<{ role: string; content: { type: string; text: string } }> = [];
+    const rawBody = await c.req.json();
+    const parseResult = MCPPromptGetSchema.safeParse(rawBody);
+    
+    if (!parseResult.success) {
+      return c.json({ error: `Invalid request: ${parseResult.error.message}` }, 400);
+    }
+    
+    const { name, arguments: args } = parseResult.data;
+    let messages: Array<{ role: string; content: { type: string; text: string } }>;
 
     switch (name) {
-      case 'analyze_incident':
+      case 'analyze_incident': {
+        const alertId = args.alertId;
+        if (!alertId) {
+          return c.json({ error: 'alertId argument is required' }, 400);
+        }
         messages = [{
           role: 'user',
           content: {
             type: 'text',
-            text: `Analyze the monitoring incident with alert ID ${args.alertId}. Provide root cause analysis and recommended actions.`,
+            text: `Analyze the monitoring incident with alert ID ${alertId}. Provide root cause analysis and recommended actions.`,
           },
         }];
         break;
-      case 'summarize_health':
+      }
+      case 'summarize_health': {
+        const timeframe = args.timeframe ?? 'last 24 hours';
         messages = [{
           role: 'user',
           content: {
             type: 'text',
-            text: `Summarize the system health status over the ${args.timeframe ?? 'last 24 hours'}. Include key metrics and any concerning trends.`,
+            text: `Summarize the system health status over the ${timeframe}. Include key metrics and any concerning trends.`,
           },
         }];
         break;
+      }
       default:
         return c.json({ error: 'Prompt not found' }, 404);
     }

@@ -94,7 +94,10 @@ export class EVMLightClientClient {
 
   async isInitialized(): Promise<boolean> {
     const state = await this.getState();
-    return state?.initialized ?? false;
+    if (!state) {
+      return false;
+    }
+    return state.initialized;
   }
 
   async initializeInstructions(

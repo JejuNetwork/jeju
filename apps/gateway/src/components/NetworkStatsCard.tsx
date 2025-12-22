@@ -1,6 +1,12 @@
+import { type ComponentType } from 'react';
 import { useNodeStaking } from '../hooks/useNodeStaking';
 import { formatUSD } from '../lib/tokenUtils';
-import { Globe, Server, TrendingUp, AlertTriangle } from 'lucide-react';
+import { Globe, Server, TrendingUp, AlertTriangle, type LucideProps } from 'lucide-react';
+
+const ServerIcon = Server as ComponentType<LucideProps>;
+const TrendingUpIcon = TrendingUp as ComponentType<LucideProps>;
+const GlobeIcon = Globe as ComponentType<LucideProps>;
+const AlertTriangleIcon = AlertTriangle as ComponentType<LucideProps>;
 
 export default function NetworkStatsCard() {
   const { networkStats, operatorStats } = useNodeStaking();
@@ -31,7 +37,7 @@ export default function NetworkStatsCard() {
         <div className="grid grid-3" style={{ gap: '1rem' }}>
           <div style={{ padding: '1rem', background: 'var(--surface-hover)', borderRadius: '8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-              <Server size={20} style={{ color: 'var(--accent-primary)' }} />
+              <ServerIcon size={20} style={{ color: 'var(--accent-primary)' }} />
               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Total Nodes</span>
             </div>
             <p style={{ fontSize: '2rem', fontWeight: '700', color: 'var(--accent-primary)', margin: 0 }}>
@@ -41,7 +47,7 @@ export default function NetworkStatsCard() {
 
           <div style={{ padding: '1rem', background: 'var(--surface-hover)', borderRadius: '8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-              <TrendingUp size={20} style={{ color: 'var(--success)' }} />
+              <TrendingUpIcon size={20} style={{ color: 'var(--success)' }} />
               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Total Staked</span>
             </div>
             <p style={{ fontSize: '2rem', fontWeight: '700', color: 'var(--success)', margin: 0 }}>
@@ -51,7 +57,7 @@ export default function NetworkStatsCard() {
 
           <div style={{ padding: '1rem', background: 'var(--surface-hover)', borderRadius: '8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-              <Globe size={20} style={{ color: 'var(--accent-primary)' }} />
+              <GlobeIcon size={20} style={{ color: 'var(--accent-primary)' }} />
               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Rewards Claimed</span>
             </div>
             <p style={{ fontSize: '2rem', fontWeight: '700', color: 'var(--accent-primary)', margin: 0 }}>
@@ -105,7 +111,7 @@ export default function NetworkStatsCard() {
             {isNearLimit && (
               <div style={{ padding: '0.75rem', background: 'var(--warning-soft)', borderRadius: '8px', marginTop: '0.75rem', border: '1px solid var(--warning)' }}>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'start' }}>
-                  <AlertTriangle size={18} style={{ color: 'var(--warning)', flexShrink: 0, marginTop: '0.125rem' }} />
+                  <AlertTriangleIcon size={18} style={{ color: 'var(--warning)', flexShrink: 0, marginTop: '0.125rem' }} />
                   <div>
                     <p style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--warning)', margin: 0 }}>
                       ⚠️ Approaching Ownership Limit

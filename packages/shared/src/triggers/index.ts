@@ -285,10 +285,14 @@ export interface AppTriggersConfig {
  * Register all triggers for an app
  */
 export async function registerAppTriggers(config: AppTriggersConfig): Promise<Trigger[]> {
+  if (!config.appHost && !config.appPort) {
+    throw new Error('Either appHost or appPort must be provided');
+  }
+  
   const client = getTriggerClient();
   const registeredTriggers: Trigger[] = [];
   
-  const baseUrl = config.appHost ?? `http://localhost:${config.appPort}`;
+  const baseUrl = config.appHost ? config.appHost : `http://localhost:${config.appPort}`;
 
   for (const triggerConfig of config.triggers) {
     // Check if trigger already exists
@@ -305,16 +309,16 @@ export async function registerAppTriggers(config: AppTriggersConfig): Promise<Tr
 
     const trigger = await client.create({
       name: `${config.appName}-${triggerConfig.name}`,
-      description: triggerConfig.description ?? `${config.appName} ${triggerConfig.name} trigger`,
+      description: triggerConfig.description ? triggerConfig.description : `${config.appName} ${triggerConfig.name} trigger`,
       type: triggerConfig.type,
       cronExpression: triggerConfig.cronExpression,
       webhookPath: triggerConfig.webhookPath,
       eventTypes: triggerConfig.eventTypes,
       endpoint: `${baseUrl}${triggerConfig.endpointPath}`,
-      method: triggerConfig.method ?? 'POST',
-      timeout: triggerConfig.timeout ?? 60,
+      method: triggerConfig.method ? triggerConfig.method : 'POST',
+      timeout: triggerConfig.timeout ? triggerConfig.timeout : 60,
       agentId: config.agentId,
-      registerOnChain: triggerConfig.registerOnChain ?? true,
+      registerOnChain: triggerConfig.registerOnChain !== undefined ? triggerConfig.registerOnChain : true,
     });
 
     console.log(`[Triggers] Registered ${triggerConfig.name}: ${trigger.id}`);
@@ -342,20 +346,29 @@ export async function unregisterAppTriggers(appName: string): Promise<void> {
 // Singleton client
 let triggerClient: TriggerClient | null = null;
 
+export function createTriggerClient(config: TriggerConfig): TriggerClient {
+  return new DecentralizedTriggerClient(config);
+}
+
 export function getTriggerClient(): TriggerClient {
   if (triggerClient) return triggerClient;
 
-  const computeEndpoint = process.env.COMPUTE_ENDPOINT ?? process.env.TRIGGER_SERVICE_URL ?? 'http://localhost:4007';
+  const computeEndpoint = process.env.COMPUTE_ENDPOINT ?? process.env.TRIGGER_SERVICE_URL;
+  if (!computeEndpoint) {
+    throw new Error('COMPUTE_ENDPOINT or TRIGGER_SERVICE_URL environment variable is required');
+  }
+
   const rpcUrl = process.env.COMPUTE_RPC_URL ?? process.env.RPC_URL;
   const registryAddress = process.env.TRIGGER_REGISTRY_ADDRESS as Address | undefined;
   const privateKey = process.env.PRIVATE_KEY as Hex | undefined;
+  const timeoutStr = process.env.TRIGGER_TIMEOUT;
 
   triggerClient = new DecentralizedTriggerClient({
     computeEndpoint,
     rpcUrl,
     registryAddress,
     privateKey,
-    timeout: parseInt(process.env.TRIGGER_TIMEOUT ?? '10000', 10),
+    timeout: timeoutStr ? parseInt(timeoutStr, 10) : undefined,
   });
 
   return triggerClient;

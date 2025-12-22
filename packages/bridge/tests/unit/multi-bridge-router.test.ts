@@ -13,7 +13,6 @@ import { describe, expect, it, beforeEach } from "bun:test";
 import {
 	MultiBridgeRouter,
 	createMultiBridgeRouter,
-	type MultiBridgeConfig,
 	type TransferParams,
 	type BridgeProvider,
 } from "../../src/router/multi-bridge-router.js";

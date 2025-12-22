@@ -50,11 +50,11 @@ interface Build {
 }
 
 const statusConfig = {
-  queued: { icon: Clock, color: 'text-gray-400', bg: 'bg-gray-500/20', label: 'Queued' },
+  queued: { icon: Clock, color: 'text-gray-400', bg: 'bg-gray-500/20', label: 'Queued', animate: false },
   in_progress: { icon: Loader2, color: 'text-blue-400', bg: 'bg-blue-500/20', label: 'Building', animate: true },
-  completed: { icon: CheckCircle, color: 'text-green-400', bg: 'bg-green-500/20', label: 'Success' },
-  failed: { icon: XCircle, color: 'text-red-400', bg: 'bg-red-500/20', label: 'Failed' },
-  cancelled: { icon: StopCircle, color: 'text-yellow-400', bg: 'bg-yellow-500/20', label: 'Cancelled' },
+  completed: { icon: CheckCircle, color: 'text-green-400', bg: 'bg-green-500/20', label: 'Success', animate: false },
+  failed: { icon: XCircle, color: 'text-red-400', bg: 'bg-red-500/20', label: 'Failed', animate: false },
+  cancelled: { icon: StopCircle, color: 'text-yellow-400', bg: 'bg-yellow-500/20', label: 'Cancelled', animate: false },
 };
 
 export default function CIDashboard() {
@@ -84,11 +84,11 @@ export default function CIDashboard() {
     if (filter === 'success' && build.conclusion !== 'success') return false;
     if (filter === 'failed' && build.conclusion !== 'failure') return false;
     if (selectedRepo && build.repoName !== selectedRepo) return false;
-    if (search && !build.repoName.toLowerCase().includes(search.toLowerCase()) && !build.commitMessage?.toLowerCase().includes(search.toLowerCase())) return false;
+    if (search && !build.repoName?.toLowerCase().includes(search.toLowerCase()) && !build.commitMessage?.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
 
-  const repos = [...new Set(builds.map((b) => b.repoName))];
+  const repos = [...new Set(builds.map((b) => b.repoName).filter((r): r is string => !!r))];
   const runningCount = builds.filter((b) => b.status === 'in_progress' || b.status === 'queued').length;
 
   const formatDuration = (ms: number) => {
@@ -103,7 +103,8 @@ export default function CIDashboard() {
     if (build.status === 'completed') {
       return build.conclusion === 'success' ? statusConfig.completed : statusConfig.failed;
     }
-    return statusConfig[build.status] || statusConfig.queued;
+    const status = statusConfig[build.status as keyof typeof statusConfig];
+    return status || statusConfig.queued;
   };
 
   return (
@@ -229,7 +230,12 @@ export default function CIDashboard() {
           </div>
 
           <div className="flex-1 space-y-2">
-            {filteredBuilds.length === 0 ? (
+            {isLoading ? (
+              <div className="text-center py-16">
+                <Loader2 className="w-12 h-12 mx-auto mb-4 text-neutral-600 animate-spin" />
+                <p className="text-neutral-400">Loading builds...</p>
+              </div>
+            ) : filteredBuilds.length === 0 ? (
               <div className="text-center py-16">
                 <Package className="w-12 h-12 mx-auto mb-4 text-neutral-600" />
                 <p className="text-neutral-400">No builds found</p>

@@ -125,7 +125,9 @@ export interface WorkflowStep {
 
 // ============ Run Types ============
 
-export type RunStatus = 'queued' | 'in_progress' | 'completed' | 'failed' | 'cancelled' | 'skipped' | 'waiting';
+// Import consolidated RunStatus from @jejunetwork/types
+import type { RunStatus } from '@jejunetwork/types';
+export type { RunStatus };
 
 export interface WorkflowRun {
   runId: Hex;

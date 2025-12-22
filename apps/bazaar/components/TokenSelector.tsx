@@ -1,29 +1,56 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { getAllTokens, TokenInfo, isTokenDeployed } from '@/config/tokens'
+import { getAllTokens, isTokenDeployed } from '@/config/tokens'
 import { clsx } from 'clsx'
 
-interface TokenSelectorProps {
-  selected: string
-  onSelect: (symbol: string) => void
-  exclude?: string
+export interface TokenOption {
+  symbol: string;
+  name: string;
+  address: string;
+  decimals: number;
+  priceUSD?: number;
+  logoUrl?: string;
 }
 
-export function TokenSelector({ selected, onSelect, exclude }: TokenSelectorProps) {
+interface TokenSelectorProps {
+  selected?: string
+  selectedToken?: string
+  onSelect: (token: TokenOption | string) => void
+  exclude?: string
+  tokens?: TokenOption[]
+  label?: string
+  placeholder?: string
+  disabled?: boolean
+}
+
+export function TokenSelector({ 
+  selected, 
+  selectedToken: selectedTokenProp,
+  onSelect, 
+  exclude, 
+  tokens: propTokens,
+  label,
+  placeholder = 'Select token',
+  disabled = false,
+}: TokenSelectorProps) {
   const [isOpen, setIsOpen] = useState(false)
+  
+  // Support both selected (string) and selectedToken (string) props
+  const selectedValue = selected || selectedTokenProp
   
   // Get tokens and sort with JEJU first
   const tokens = useMemo(() => {
+    if (propTokens) return propTokens
     const filtered = getAllTokens().filter((t) => t.symbol !== exclude && isTokenDeployed(t))
     return filtered.sort((a, b) => {
       if (a.symbol === 'JEJU') return -1
       if (b.symbol === 'JEJU') return 1
       return 0
     })
-  }, [exclude])
+  }, [exclude, propTokens])
 
-  const selectedToken = tokens.find((t) => t.symbol === selected)
+  const selectedToken = tokens.find((t) => t.symbol === selectedValue)
 
   return (
     <div className="relative">
@@ -53,7 +80,8 @@ export function TokenSelector({ selected, onSelect, exclude }: TokenSelectorProp
                 <button
                   key={token.symbol}
                   onClick={() => {
-                    onSelect(token.symbol)
+                    // Support both token object and symbol string callbacks
+                    onSelect(token)
                     setIsOpen(false)
                   }}
                   className={clsx(
@@ -83,3 +111,4 @@ export function TokenSelector({ selected, onSelect, exclude }: TokenSelectorProp
   )
 }
 
+export default TokenSelector;

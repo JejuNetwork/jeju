@@ -15,9 +15,7 @@
 
 import { BaseTFMMStrategy, type StrategyContext, type WeightCalculation, type StrategySignal } from './base-strategy';
 import type { OracleAggregator } from '../../oracles';
-
-const WEIGHT_PRECISION = 10n ** 18n;
-const BPS_PRECISION = 10000n;
+import { WEIGHT_PRECISION, BPS_PRECISION } from '../../shared';
 
 export interface MomentumConfig {
   lookbackPeriodMs: number;      // Default: 7 days in ms
@@ -49,7 +47,7 @@ export class MomentumStrategy extends BaseTFMMStrategy {
   }
 
   async calculateWeights(ctx: StrategyContext): Promise<WeightCalculation> {
-    const { tokens, currentWeights, prices, riskParams } = ctx;
+    const { tokens, currentWeights, riskParams } = ctx;
     const signals: StrategySignal[] = [];
     const momentumScores: bigint[] = [];
 

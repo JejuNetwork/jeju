@@ -31,11 +31,11 @@ describe("Sequencer Module Integration Tests", () => {
       rpcUrl: env.rpcUrl,
       smartAccount: false,
     });
-  }, 90000);
+  });
 
   afterAll(async () => {
     await teardownTestEnvironment();
-  }, 10000);
+  });
 
   describe("Sequencer Queries", () => {
     test("getCurrentSequencer returns address or null", async () => {

@@ -525,17 +525,11 @@ async function ensureUser(username: string): Promise<void> {
   );
 
   if (existing.length === 0) {
-    // Fetch avatar URL from GitHub
-    let avatarUrl = '';
-    try {
-      const response = await fetch(`https://api.github.com/users/${username}`);
-      if (response.ok) {
-        const data = await response.json() as { avatar_url: string };
-        avatarUrl = data.avatar_url;
-      }
-    } catch {
-      // Ignore avatar fetch errors
-    }
+    // Fetch avatar URL from GitHub - fail-fast on errors
+    const response = await fetch(`https://api.github.com/users/${username}`);
+    const avatarUrl = response.ok
+      ? ((await response.json()) as { avatar_url: string }).avatar_url
+      : '';
 
     await exec(
       `INSERT OR IGNORE INTO users (username, avatar_url, is_bot, last_updated)

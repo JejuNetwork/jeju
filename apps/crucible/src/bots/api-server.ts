@@ -27,6 +27,8 @@ import { serve } from '@hono/node-server';
 import { UnifiedBot, type UnifiedBotConfig, type TradeResult } from './unified-bot';
 import type { RebalanceAction, UnifiedPosition, PoolAnalysis } from './strategies/liquidity-manager';
 import type { ChainId } from './autocrat-types';
+import { parseOrThrow, expect, AddLiquidityRequestSchema, SwapRequestSchema, RebalanceActionIdParamSchema, YieldVerifyParamSchema, QuotesParamsSchema } from '../schemas';
+import { z } from 'zod';
 
 // ============ Types ============
 
@@ -99,8 +101,10 @@ function createRestAPI(bot: UnifiedBot): Hono {
 
   // Pool recommendations
   app.get('/pools', async (c) => {
-    const minTvl = c.req.query('minTvl') ? parseFloat(c.req.query('minTvl')!) : undefined;
-    const minApr = c.req.query('minApr') ? parseFloat(c.req.query('minApr')!) : undefined;
+    const minTvlStr = c.req.query('minTvl');
+    const minAprStr = c.req.query('minApr');
+    const minTvl = minTvlStr ? parseOrThrow(z.number().min(0), parseFloat(minTvlStr), 'minTvl query parameter') : undefined;
+    const minApr = minAprStr ? parseOrThrow(z.number().min(0).max(10000), parseFloat(minAprStr), 'minApr query parameter') : undefined;
     
     const pools = await bot.getPoolRecommendations({ minTvl, minApr });
     return c.json(pools);
@@ -114,13 +118,9 @@ function createRestAPI(bot: UnifiedBot): Hono {
 
   // Execute rebalance action
   app.post('/rebalance/:actionId', async (c) => {
-    const { actionId } = c.req.param();
+    const params = parseOrThrow(RebalanceActionIdParamSchema, c.req.param(), 'Action ID parameter');
     const actions = await bot.getRebalanceActions();
-    const action = actions.find(a => a.positionId === actionId);
-    
-    if (!action) {
-      return c.json({ success: false, error: 'Action not found' }, 404);
-    }
+    const action = expect(actions.find(a => a.positionId === params.actionId), `Action not found: ${params.actionId}`);
 
     const result = await bot.executeRebalance(action);
     return c.json(result);
@@ -130,7 +130,8 @@ function createRestAPI(bot: UnifiedBot): Hono {
 
   // Yield farming opportunities (ranked by risk-adjusted return)
   app.get('/yield', (c) => {
-    const limit = c.req.query('limit') ? parseInt(c.req.query('limit')!) : 20;
+    const limitStr = c.req.query('limit');
+    const limit = limitStr ? parseOrThrow(z.number().int().min(1).max(100), parseInt(limitStr), 'Limit query parameter') : 20;
     const opportunities = bot.getYieldOpportunities(limit);
     return c.json(opportunities);
   });
@@ -143,16 +144,17 @@ function createRestAPI(bot: UnifiedBot): Hono {
 
   // Verify yield for an opportunity (on-chain verification)
   app.get('/yield/verify/:id', async (c) => {
-    const { id } = c.req.param();
-    const result = await bot.verifyYield(id);
+    const params = parseOrThrow(YieldVerifyParamSchema, c.req.param(), 'Yield verify parameter');
+    const result = await bot.verifyYield(params.id);
     return c.json(result);
   });
 
   // Add liquidity
   app.post('/liquidity/add', async (c) => {
-    const body = await c.req.json();
+    const rawBody = await c.req.json();
+    const body = parseOrThrow(AddLiquidityRequestSchema, rawBody, 'Add liquidity request');
     const result = await bot.addLiquidity({
-      chain: body.chain,
+      chain: body.chain as 'evm' | 'solana',
       dex: body.dex,
       poolId: body.poolId,
       amountA: body.amountA,
@@ -170,14 +172,15 @@ function createRestAPI(bot: UnifiedBot): Hono {
 
   // Get Solana swap quotes
   app.get('/quotes/:inputMint/:outputMint/:amount', async (c) => {
-    const { inputMint, outputMint, amount } = c.req.param();
-    const quotes = await bot.getSolanaQuotes(inputMint, outputMint, amount);
+    const params = parseOrThrow(QuotesParamsSchema, c.req.param(), 'Quotes parameters');
+    const quotes = await bot.getSolanaQuotes(params.inputMint, params.outputMint, params.amount);
     return c.json(quotes);
   });
 
   // Execute swap
   app.post('/swap', async (c) => {
-    const body = await c.req.json();
+    const rawBody = await c.req.json();
+    const body = parseOrThrow(SwapRequestSchema, rawBody, 'Swap request');
     const result = await bot.executeSolanaSwap(
       body.inputMint,
       body.outputMint,
@@ -188,7 +191,8 @@ function createRestAPI(bot: UnifiedBot): Hono {
 
   // Trade history
   app.get('/trades', (c) => {
-    const limit = c.req.query('limit') ? parseInt(c.req.query('limit')!) : 100;
+    const limitStr = c.req.query('limit');
+    const limit = limitStr ? parseOrThrow(z.number().int().min(1).max(1000), parseInt(limitStr), 'Limit query parameter') : 100;
     const trades = bot.getTradeHistory(limit);
     return c.json(trades);
   });
@@ -265,31 +269,41 @@ function createA2AAPI(bot: UnifiedBot, config: APIConfig): Hono {
         return c.json({ result: bot.getLiquidityPositions() });
 
       case 'getPools':
-        const pools = await bot.getPoolRecommendations(params);
+        const poolParams = params ? parseOrThrow(z.object({
+          minTvl: z.number().min(0).optional(),
+          minApr: z.number().min(0).max(10000).optional(),
+        }).strict(), params, 'Get pools params') : undefined;
+        const pools = await bot.getPoolRecommendations(poolParams);
         return c.json({ result: pools });
 
       case 'getRebalanceActions':
         const actions = await bot.getRebalanceActions();
         return c.json({ result: actions });
 
-      case 'executeRebalance':
-        const action = params as RebalanceAction;
+      case 'executeRebalance': {
+        expect(params, 'Rebalance action params are required');
+        expect(params.positionId, 'Position ID is required');
+        const rebalanceActions = await bot.getRebalanceActions();
+        const action = expect(rebalanceActions.find(a => a.positionId === params.positionId), `Action not found: ${params.positionId}`);
         const result = await bot.executeRebalance(action);
         return c.json({ result });
+      }
 
       case 'getQuotes':
+        const quotesParams = parseOrThrow(QuotesParamsSchema, params, 'Get quotes params');
         const quotes = await bot.getSolanaQuotes(
-          params.inputMint,
-          params.outputMint,
-          params.amount
+          quotesParams.inputMint,
+          quotesParams.outputMint,
+          quotesParams.amount
         );
         return c.json({ result: quotes });
 
       case 'executeSwap':
+        const swapParams = parseOrThrow(SwapRequestSchema, params, 'Execute swap params');
         const swapResult = await bot.executeSolanaSwap(
-          params.inputMint,
-          params.outputMint,
-          params.amount
+          swapParams.inputMint,
+          swapParams.outputMint,
+          swapParams.amount
         );
         return c.json({ result: swapResult });
 
@@ -481,10 +495,11 @@ function createMCPAPI(bot: UnifiedBot): Hono {
         return c.json({ result: bot.getLiquidityPositions() });
 
       case 'get_pool_recommendations':
-        const pools = await bot.getPoolRecommendations({
-          minTvl: params.minTvl,
-          minApr: params.minApr,
-        });
+        const poolRecParams = params ? parseOrThrow(z.object({
+          minTvl: z.number().min(0).optional(),
+          minApr: z.number().min(0).max(10000).optional(),
+        }).strict(), params, 'Pool recommendations params') : undefined;
+        const pools = await bot.getPoolRecommendations(poolRecParams);
         return c.json({ result: pools });
 
       case 'get_rebalance_actions':
@@ -492,35 +507,36 @@ function createMCPAPI(bot: UnifiedBot): Hono {
         return c.json({ result: actions });
 
       case 'execute_rebalance': {
-        const actions = await bot.getRebalanceActions();
-        const action = actions.find(a => a.positionId === params.positionId);
-        if (!action) {
-          return c.json({ error: 'Action not found' }, 404);
-        }
+        expect(params, 'Rebalance params are required');
+        expect(params.positionId, 'Position ID is required');
+        const rebalanceActions = await bot.getRebalanceActions();
+        const action = expect(rebalanceActions.find(a => a.positionId === params.positionId), `Action not found: ${params.positionId}`);
         const result = await bot.executeRebalance(action);
         return c.json({ result });
       }
 
       case 'get_swap_quotes': {
+        const quotesParams = parseOrThrow(QuotesParamsSchema, params, 'Get swap quotes params');
         const quotes = await bot.getSolanaQuotes(
-          params.inputMint,
-          params.outputMint,
-          params.amount
+          quotesParams.inputMint,
+          quotesParams.outputMint,
+          quotesParams.amount
         );
         return c.json({ result: quotes });
       }
 
       case 'execute_swap': {
+        const swapParams = parseOrThrow(SwapRequestSchema, params, 'Execute swap params');
         const result = await bot.executeSolanaSwap(
-          params.inputMint,
-          params.outputMint,
-          params.amount
+          swapParams.inputMint,
+          swapParams.outputMint,
+          swapParams.amount
         );
         return c.json({ result });
       }
 
       case 'get_yield_opportunities': {
-        const limit = typeof params.limit === 'number' ? params.limit : 20;
+        const limit = params?.limit !== undefined ? parseOrThrow(z.number().int().min(1).max(100), params.limit, 'Yield opportunities limit') : 20;
         return c.json({ result: bot.getYieldOpportunities(limit) });
       }
 
@@ -528,25 +544,27 @@ function createMCPAPI(bot: UnifiedBot): Hono {
         return c.json({ result: bot.getYieldStats() });
 
       case 'verify_yield': {
-        const id = typeof params.id === 'string' ? params.id : '';
-        if (!id) return c.json({ error: 'Missing id' }, 400);
-        const result = await bot.verifyYield(id);
+        const verifyParams = parseOrThrow(YieldVerifyParamSchema, params, 'Verify yield params');
+        const result = await bot.verifyYield(verifyParams.id);
         return c.json({ result });
       }
 
       case 'add_liquidity': {
+        const liquidityParams = parseOrThrow(AddLiquidityRequestSchema, params, 'Add liquidity params');
         const result = await bot.addLiquidity({
-          chain: params.chain,
-          dex: params.dex,
-          poolId: params.poolId,
-          amountA: params.amountA,
-          amountB: params.amountB,
+          chain: liquidityParams.chain as 'evm' | 'solana',
+          dex: liquidityParams.dex,
+          poolId: liquidityParams.poolId,
+          amountA: liquidityParams.amountA,
+          amountB: liquidityParams.amountB,
         });
         return c.json({ result });
       }
 
-      case 'get_trade_history':
-        return c.json({ result: bot.getTradeHistory(params.limit ?? 100) });
+      case 'get_trade_history': {
+        const limit = params?.limit !== undefined ? parseOrThrow(z.number().int().min(1).max(1000), params.limit, 'Trade history limit') : 100;
+        return c.json({ result: bot.getTradeHistory(limit) });
+      }
 
       default:
         return c.json({ error: 'Tool not found' }, 404);

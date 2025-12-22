@@ -221,7 +221,7 @@ export class ENSMirrorService {
           abi: ENS_RESOLVER_ABI,
           functionName: 'contenthash',
           args: [ensNode],
-        }).catch(() => '0x' as Hex) as Hex;
+        }) as Hex;
       }
 
       if (fetchAddress) {
@@ -230,7 +230,7 @@ export class ENSMirrorService {
           abi: ENS_RESOLVER_ABI,
           functionName: 'addr',
           args: [ensNode],
-        }).catch(() => '0x0000000000000000000000000000000000000000' as Address) as Address;
+        }) as Address;
       }
 
       for (const key of textKeys) {
@@ -239,7 +239,7 @@ export class ENSMirrorService {
           abi: ENS_RESOLVER_ABI,
           functionName: 'text',
           args: [ensNode, key],
-        }).catch(() => '') as string;
+        }) as string;
         textValues.push(value);
       }
     }
@@ -333,13 +333,13 @@ export class ENSMirrorService {
         abi: ENS_RESOLVER_ABI,
         functionName: 'addr',
         args: [node],
-      }).catch(() => null) as Promise<Address | null>,
+      }) as Promise<Address>,
       this.ethClient.readContract({
         address: resolverAddr,
         abi: ENS_RESOLVER_ABI,
         functionName: 'contenthash',
         args: [node],
-      }).catch(() => null) as Promise<Hex | null>,
+      }) as Promise<Hex>,
     ]);
 
     return { address, contenthash };

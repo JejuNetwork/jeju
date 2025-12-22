@@ -1,10 +1,7 @@
-/**
- * Compute hook
- */
-
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import type { Address, Hex } from "viem";
 import { useNetworkContext } from "../context";
+import { useAsyncState, requireClient, type AsyncState } from "./utils";
 import type {
   ProviderInfo,
   RentalInfo,
@@ -14,22 +11,28 @@ import type {
   ListProvidersOptions,
 } from "@jejunetwork/sdk";
 
-export function useCompute() {
+export interface UseComputeResult extends AsyncState {
+  listProviders: (options?: ListProvidersOptions) => Promise<ProviderInfo[]>;
+  getQuote: (
+    provider: Address,
+    durationHours: number,
+  ) => Promise<{ cost: bigint; costFormatted: string }>;
+  createRental: (params: CreateRentalParams) => Promise<Hex>;
+  listMyRentals: () => Promise<RentalInfo[]>;
+  cancelRental: (rentalId: Hex) => Promise<Hex>;
+  inference: (params: InferenceParams) => Promise<InferenceResult>;
+}
+
+export function useCompute(): UseComputeResult {
   const { client } = useNetworkContext();
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
+  const { isLoading, error, execute } = useAsyncState();
 
   const listProviders = useCallback(
     async (options?: ListProvidersOptions): Promise<ProviderInfo[]> => {
-      if (!client) throw new Error("Not connected");
-      setIsLoading(true);
-      setError(null);
-
-      const providers = await client.compute.listProviders(options);
-      setIsLoading(false);
-      return providers;
+      const c = requireClient(client);
+      return execute(() => c.compute.listProviders(options));
     },
-    [client],
+    [client, execute],
   );
 
   const getQuote = useCallback(
@@ -37,49 +40,39 @@ export function useCompute() {
       provider: Address,
       durationHours: number,
     ): Promise<{ cost: bigint; costFormatted: string }> => {
-      if (!client) throw new Error("Not connected");
-      return client.compute.getQuote(provider, durationHours);
+      const c = requireClient(client);
+      return c.compute.getQuote(provider, durationHours);
     },
     [client],
   );
 
   const createRental = useCallback(
     async (params: CreateRentalParams): Promise<Hex> => {
-      if (!client) throw new Error("Not connected");
-      setIsLoading(true);
-      setError(null);
-
-      const txHash = await client.compute.createRental(params);
-      setIsLoading(false);
-      return txHash;
+      const c = requireClient(client);
+      return execute(() => c.compute.createRental(params));
     },
-    [client],
+    [client, execute],
   );
 
   const listMyRentals = useCallback(async (): Promise<RentalInfo[]> => {
-    if (!client) throw new Error("Not connected");
-    return client.compute.listMyRentals();
+    const c = requireClient(client);
+    return c.compute.listMyRentals();
   }, [client]);
 
   const cancelRental = useCallback(
     async (rentalId: Hex): Promise<Hex> => {
-      if (!client) throw new Error("Not connected");
-      return client.compute.cancelRental(rentalId);
+      const c = requireClient(client);
+      return c.compute.cancelRental(rentalId);
     },
     [client],
   );
 
   const inference = useCallback(
     async (params: InferenceParams): Promise<InferenceResult> => {
-      if (!client) throw new Error("Not connected");
-      setIsLoading(true);
-      setError(null);
-
-      const result = await client.compute.inference(params);
-      setIsLoading(false);
-      return result;
+      const c = requireClient(client);
+      return execute(() => c.compute.inference(params));
     },
-    [client],
+    [client, execute],
   );
 
   return {

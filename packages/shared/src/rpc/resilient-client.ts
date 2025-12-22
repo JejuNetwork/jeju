@@ -4,6 +4,8 @@
  * Handles DNS failures by falling back to direct IPs, ENS, or on-chain registry
  */
 
+import { z } from 'zod';
+
 export interface RPCEndpoint {
   url: string
   priority: number
@@ -11,23 +13,28 @@ export interface RPCEndpoint {
   region?: string
 }
 
-// Default endpoints - update with actual IPs after deployment
+const RPCResponseSchema = z.object({
+  jsonrpc: z.string(),
+  id: z.union([z.number(), z.string()]),
+  result: z.unknown().optional(),
+  error: z.object({
+    code: z.number(),
+    message: z.string(),
+    data: z.unknown().optional(),
+  }).optional(),
+});
+
+const ENSResolveSchema = z.object({
+  address: z.string().optional(),
+});
+
 const DEFAULT_ENDPOINTS: RPCEndpoint[] = [
-  // Primary DNS endpoints
   { url: 'https://rpc.jejunetwork.org', priority: 1, type: 'dns', region: 'global' },
   { url: 'https://testnet-rpc.jejunetwork.org', priority: 1, type: 'dns', region: 'global' },
-  
-  // Direct IP fallbacks (update after deployment)
-  // AWS us-east-1
-  // { url: 'https://52.x.x.x', priority: 2, type: 'direct', region: 'aws-east' },
-  // GCP us-central1  
-  // { url: 'https://35.x.x.x', priority: 2, type: 'direct', region: 'gcp-central' },
-  
-  // ENS fallback
   { url: 'jeju.eth', priority: 3, type: 'ens', region: 'global' },
 ]
 
-interface HealthStatus {
+interface EndpointHealthStatus {
   healthy: boolean
   lastCheck: number
   latency: number
@@ -36,7 +43,7 @@ interface HealthStatus {
 
 export class ResilientRPCClient {
   private endpoints: RPCEndpoint[]
-  private healthStatus: Map<string, HealthStatus> = new Map()
+  private healthStatus: Map<string, EndpointHealthStatus> = new Map()
   private healthCheckInterval: ReturnType<typeof setInterval> | null = null
   private readonly healthCheckIntervalMs = 30000
   private readonly maxConsecutiveFailures = 3
@@ -50,7 +57,7 @@ export class ResilientRPCClient {
   private initializeHealthStatus(): void {
     for (const endpoint of this.endpoints) {
       this.healthStatus.set(endpoint.url, {
-        healthy: true, // Assume healthy initially
+        healthy: true,
         lastCheck: 0,
         latency: 0,
         consecutiveFailures: 0,
@@ -103,7 +110,7 @@ export class ResilientRPCClient {
     }
   }
 
-  private markUnhealthy(url: string, status: HealthStatus): void {
+  private markUnhealthy(url: string, status: EndpointHealthStatus): void {
     const failures = status.consecutiveFailures + 1
     this.healthStatus.set(url, {
       healthy: failures < this.maxConsecutiveFailures,
@@ -126,21 +133,19 @@ export class ResilientRPCClient {
   }
 
   private async resolveENS(ensName: string): Promise<string> {
-    // Simple ENS resolution via public resolver
-    // In production, use @ensdomains/ensjs
-    try {
-      const response = await fetch(
-        `https://api.ensdomains.io/resolve/${ensName}`,
-        { signal: AbortSignal.timeout(5000) }
-      )
-      if (response.ok) {
-        const data = await response.json() as { address?: string }
-        return data.address ?? ensName
-      }
-    } catch {
-      // Fall through to return original name
+    const response = await fetch(
+      `https://api.ensdomains.io/resolve/${ensName}`,
+      { signal: AbortSignal.timeout(5000) }
+    )
+    if (!response.ok) {
+      throw new Error(`ENS resolution failed: ${response.status}`)
     }
-    return ensName
+    const json = await response.json()
+    const data = ENSResolveSchema.parse(json)
+    if (!data.address) {
+      throw new Error(`ENS name ${ensName} not found`)
+    }
+    return data.address
   }
 
   private getHealthyEndpoints(): RPCEndpoint[] {
@@ -164,7 +169,6 @@ export class ResilientRPCClient {
     const healthyEndpoints = this.getHealthyEndpoints()
     
     if (healthyEndpoints.length === 0) {
-      // All endpoints failed - try all anyway as last resort
       healthyEndpoints.push(...this.endpoints)
     }
 
@@ -189,7 +193,8 @@ export class ResilientRPCClient {
           throw new Error(`HTTP ${response.status}`)
         }
 
-        const data = await response.json() as { result?: T; error?: { message: string } }
+        const json = await response.json()
+        const data = RPCResponseSchema.parse(json)
         
         if (data.error) {
           throw new Error(data.error.message)
@@ -198,7 +203,6 @@ export class ResilientRPCClient {
         return data.result as T
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error))
-        // Mark as potentially unhealthy
         const status = this.healthStatus.get(endpoint.url)
         if (status) {
           this.markUnhealthy(endpoint.url, status)

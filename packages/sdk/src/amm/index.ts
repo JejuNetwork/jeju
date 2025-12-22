@@ -12,7 +12,7 @@
 import { type Address, type Hex, encodeFunctionData, parseEther } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
-import { getContract as getContractAddress } from "../config";
+import { requireContract } from "../config";
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -124,34 +124,66 @@ export interface AMMPosition {
 
 export interface AMMModule {
   // Quotes
-  getQuote(tokenIn: Address, tokenOut: Address, amountIn: bigint): Promise<AMMSwapQuote>;
+  getQuote(
+    tokenIn: Address,
+    tokenOut: Address,
+    amountIn: bigint,
+  ): Promise<AMMSwapQuote>;
   getAmountsOutV2(amountIn: bigint, path: Address[]): Promise<bigint[]>;
   getAmountsInV2(amountOut: bigint, path: Address[]): Promise<bigint[]>;
 
   // V2 Swaps
   swapExactTokensForTokensV2(params: SwapV2Params): Promise<Hex>;
-  swapTokensForExactTokensV2(params: Omit<SwapV2Params, "amountOutMin"> & { amountOut: bigint; amountInMax: bigint }): Promise<Hex>;
+  swapTokensForExactTokensV2(
+    params: Omit<SwapV2Params, "amountOutMin"> & {
+      amountOut: bigint;
+      amountInMax: bigint;
+    },
+  ): Promise<Hex>;
   swapExactETHForTokensV2(params: Omit<SwapV2Params, "tokenIn">): Promise<Hex>;
   swapExactTokensForETHV2(params: Omit<SwapV2Params, "tokenOut">): Promise<Hex>;
 
   // V3 Swaps
   exactInputSingleV3(params: SwapV3Params): Promise<Hex>;
-  exactOutputSingleV3(params: Omit<SwapV3Params, "amountOutMin"> & { amountOut: bigint; amountInMax: bigint }): Promise<Hex>;
+  exactOutputSingleV3(
+    params: Omit<SwapV3Params, "amountOutMin"> & {
+      amountOut: bigint;
+      amountInMax: bigint;
+    },
+  ): Promise<Hex>;
 
   // Liquidity V2
-  addLiquidityV2(params: AddLiquidityV2Params): Promise<{ txHash: Hex; liquidity: bigint }>;
-  removeLiquidityV2(params: RemoveLiquidityV2Params): Promise<{ txHash: Hex; amountA: bigint; amountB: bigint }>;
-  addLiquidityETHV2(params: Omit<AddLiquidityV2Params, "tokenB"> & { ethAmount: bigint }): Promise<{ txHash: Hex; liquidity: bigint }>;
+  addLiquidityV2(
+    params: AddLiquidityV2Params,
+  ): Promise<{ txHash: Hex; liquidity: bigint }>;
+  removeLiquidityV2(
+    params: RemoveLiquidityV2Params,
+  ): Promise<{ txHash: Hex; amountA: bigint; amountB: bigint }>;
+  addLiquidityETHV2(
+    params: Omit<AddLiquidityV2Params, "tokenB"> & { ethAmount: bigint },
+  ): Promise<{ txHash: Hex; liquidity: bigint }>;
 
   // Liquidity V3
-  addLiquidityV3(params: AddLiquidityV3Params): Promise<{ txHash: Hex; tokenId: bigint; liquidity: bigint }>;
-  increaseLiquidityV3(tokenId: bigint, amount0Desired: bigint, amount1Desired: bigint): Promise<Hex>;
+  addLiquidityV3(
+    params: AddLiquidityV3Params,
+  ): Promise<{ txHash: Hex; tokenId: bigint; liquidity: bigint }>;
+  increaseLiquidityV3(
+    tokenId: bigint,
+    amount0Desired: bigint,
+    amount1Desired: bigint,
+  ): Promise<Hex>;
   decreaseLiquidityV3(tokenId: bigint, liquidity: bigint): Promise<Hex>;
-  collectFeesV3(tokenId: bigint): Promise<{ txHash: Hex; amount0: bigint; amount1: bigint }>;
+  collectFeesV3(
+    tokenId: bigint,
+  ): Promise<{ txHash: Hex; amount0: bigint; amount1: bigint }>;
 
   // Pool Info
   getV2Pool(tokenA: Address, tokenB: Address): Promise<V2Pool | null>;
-  getV3Pool(tokenA: Address, tokenB: Address, fee: number): Promise<V3Pool | null>;
+  getV3Pool(
+    tokenA: Address,
+    tokenB: Address,
+    fee: number,
+  ): Promise<V3Pool | null>;
   getV3Position(tokenId: bigint): Promise<AMMPosition | null>;
   getMyV3Positions(): Promise<AMMPosition[]>;
 
@@ -159,8 +191,15 @@ export interface AMMModule {
   getSpotPrice(tokenIn: Address, tokenOut: Address): Promise<bigint>;
 
   // Factory
-  createV2Pool(tokenA: Address, tokenB: Address): Promise<{ txHash: Hex; pairAddress: Address }>;
-  createV3Pool(tokenA: Address, tokenB: Address, fee: number): Promise<{ txHash: Hex; poolAddress: Address }>;
+  createV2Pool(
+    tokenA: Address,
+    tokenB: Address,
+  ): Promise<{ txHash: Hex; pairAddress: Address }>;
+  createV3Pool(
+    tokenA: Address,
+    tokenB: Address,
+    fee: number,
+  ): Promise<{ txHash: Hex; poolAddress: Address }>;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -350,19 +389,12 @@ const V2_PAIR_ABI = [
 //                          IMPLEMENTATION
 // ═══════════════════════════════════════════════════════════════════════════
 
-export function createAMMModule(wallet: JejuWallet, network: NetworkType): AMMModule {
-  const tryGetContract = (category: string, name: string): Address => {
-    try {
-      // @ts-expect-error - category may not match ContractCategoryName
-      return getContractAddress(category, name, network) as Address;
-    } catch {
-      return "0x0000000000000000000000000000000000000000" as Address;
-    }
-  };
-
-  const routerAddress = tryGetContract("amm", "XLPRouter");
-  const v2FactoryAddress = tryGetContract("amm", "XLPV2Factory");
-  const v3FactoryAddress = tryGetContract("amm", "XLPV3Factory");
+export function createAMMModule(
+  wallet: JejuWallet,
+  network: NetworkType,
+): AMMModule {
+  const routerAddress = requireContract("amm", "XLPRouter", network);
+  const v2FactoryAddress = requireContract("amm", "XLPV2Factory", network);
 
   const defaultDeadline = () => BigInt(Math.floor(Date.now() / 1000) + 1800); // 30 minutes
 
@@ -648,4 +680,3 @@ export function createAMMModule(wallet: JejuWallet, network: NetworkType): AMMMo
     },
   };
 }
-

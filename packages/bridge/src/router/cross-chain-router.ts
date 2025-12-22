@@ -488,7 +488,7 @@ export class CrossChainRouter {
     }
   }
 
-  private async executeEILStep(step: RouteStep, request: RouteRequest): Promise<{
+  private async executeEILStep(step: RouteStep, _request: RouteRequest): Promise<{
     success: boolean;
     transactionHash?: string;
     error?: string;
@@ -504,7 +504,7 @@ export class CrossChainRouter {
     };
   }
 
-  private async executeZKSolStep(step: RouteStep, request: RouteRequest): Promise<{
+  private async executeZKSolStep(step: RouteStep, _request: RouteRequest): Promise<{
     success: boolean;
     transactionHash?: string;
     error?: string;
@@ -520,7 +520,7 @@ export class CrossChainRouter {
     };
   }
 
-  private async executeHyperlaneStep(step: RouteStep, request: RouteRequest): Promise<{
+  private async executeHyperlaneStep(step: RouteStep, _request: RouteRequest): Promise<{
     success: boolean;
     transactionHash?: string;
     error?: string;
@@ -536,7 +536,7 @@ export class CrossChainRouter {
     };
   }
 
-  private async executeCCIPStep(step: RouteStep, request: RouteRequest): Promise<{
+  private async executeCCIPStep(_step: RouteStep, _request: RouteRequest): Promise<{
     success: boolean;
     transactionHash?: string;
     error?: string;
@@ -548,7 +548,7 @@ export class CrossChainRouter {
     };
   }
 
-  private async executeOIFStep(step: RouteStep, request: RouteRequest): Promise<{
+  private async executeOIFStep(step: RouteStep, _request: RouteRequest): Promise<{
     success: boolean;
     transactionHash?: string;
     error?: string;

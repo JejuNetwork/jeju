@@ -4,10 +4,11 @@ import { BrowserRouter } from 'react-router-dom';
 import { WagmiProvider, http } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RainbowKitProvider, getDefaultConfig, darkTheme } from '@rainbow-me/rainbowkit';
+import { OAuth3Provider } from '@jejunetwork/oauth3/react';
 import '@rainbow-me/rainbowkit/styles.css';
 import App from './App';
 import './styles/index.css';
-import { CHAIN_ID, RPC_URL, NETWORK, WALLETCONNECT_PROJECT_ID } from './config';
+import { CHAIN_ID, RPC_URL, NETWORK, WALLETCONNECT_PROJECT_ID, OAUTH3_AGENT_URL } from './config';
 
 const jejuChain = {
   id: CHAIN_ID,
@@ -51,9 +52,22 @@ if (root) {
       <WagmiProvider config={config}>
         <QueryClientProvider client={queryClient}>
           <RainbowKitProvider theme={rainbowTheme}>
-            <BrowserRouter>
-              <App />
-            </BrowserRouter>
+            <OAuth3Provider
+              config={{
+                appId: 'dws.apps.jeju',
+                redirectUri: `${window.location.origin}/auth/callback`,
+                chainId: CHAIN_ID,
+                rpcUrl: RPC_URL,
+                teeAgentUrl: OAUTH3_AGENT_URL,
+                decentralized: true,
+              }}
+              autoConnect={true}
+              persistSession={true}
+            >
+              <BrowserRouter>
+                <App />
+              </BrowserRouter>
+            </OAuth3Provider>
           </RainbowKitProvider>
         </QueryClientProvider>
       </WagmiProvider>

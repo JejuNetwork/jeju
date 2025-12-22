@@ -42,6 +42,18 @@
     "./torrent": {
       "import": "./dist/torrent.js",
       "types": "./dist/torrent.d.ts"
+    },
+    "./validation": {
+      "import": "./dist/validation.js",
+      "types": "./dist/validation.d.ts"
+    },
+    "./events": {
+      "import": "./dist/events.js",
+      "types": "./dist/events.d.ts"
+    },
+    "./api": {
+      "import": "./dist/api.js",
+      "types": "./dist/api.d.ts"
     }
   },
   "files": [
@@ -69,10 +81,10 @@
     "eil"
   ],
   "devDependencies": {
-    "typescript": "5.7.3"
+    "typescript": "5.9.3"
   },
   "peerDependencies": {
-    "zod": ">=3.0.0"
+    "zod": ">=4.0.0"
   },
   "publishConfig": {
     "access": "public"

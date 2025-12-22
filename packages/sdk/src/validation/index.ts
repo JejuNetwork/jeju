@@ -1,6 +1,6 @@
 /**
  * Validation Module - ERC-8004 Validation Registry
- * 
+ *
  * Provides validation request/response functionality for trustless agent verification.
  * Supports TEE attestation, zkML proofs, and stake-secured validation.
  */
@@ -11,12 +11,11 @@ import {
   encodeFunctionData,
   keccak256,
   toHex,
-  fromHex,
   type PublicClient,
 } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
-import { getContract as getContractAddress, getServicesConfig } from "../config";
+import { requireContract } from "../config";
 
 // ============ Types ============
 
@@ -76,7 +75,7 @@ export interface ValidationModule {
   getSummary(
     agentId: bigint,
     validatorAddresses?: Address[],
-    tag?: Hex
+    tag?: Hex,
   ): Promise<ValidationSummary>;
 
   // Get all validations for an agent
@@ -199,24 +198,20 @@ function stringToBytes32(str: string): Hex {
 export function createValidationModule(
   wallet: JejuWallet,
   network: NetworkType,
-  publicClient?: PublicClient
+  publicClient?: PublicClient,
 ): ValidationModule {
-  const validationAddress = getContractAddress(
-    "registry",
-    "validation",
-    network
-  ) as Address;
-  const _services = getServicesConfig(network);
+  const validationAddress = requireContract("registry", "validation", network);
+  const client = publicClient ?? wallet.publicClient;
 
   async function requestValidation(
-    params: RequestValidationParams
+    params: RequestValidationParams,
   ): Promise<Hex> {
     const requestHash =
       params.requestHash ||
       keccak256(
         toHex(
-          `${params.validatorAddress}${params.agentId}${params.requestUri}${Date.now()}`
-        )
+          `${params.validatorAddress}${params.agentId}${params.requestUri}${Date.now()}`,
+        ),
       );
 
     const data = encodeFunctionData({
@@ -234,7 +229,7 @@ export function createValidationModule(
   }
 
   async function respondToValidation(
-    params: RespondValidationParams
+    params: RespondValidationParams,
   ): Promise<Hex> {
     if (params.response < 0 || params.response > 100) {
       throw new Error("Response must be 0-100");
@@ -289,10 +284,10 @@ export function createValidationModule(
     };
   }
 
-  async function getRequest(requestHash: Hex): Promise<ValidationRequest | null> {
-    if (!publicClient) throw new Error("Public client required for reads");
-
-    const result = (await publicClient.readContract({
+  async function getRequest(
+    requestHash: Hex,
+  ): Promise<ValidationRequest | null> {
+    const result = (await client.readContract({
       address: validationAddress,
       abi: VALIDATION_REGISTRY_ABI,
       functionName: "getRequest",
@@ -315,7 +310,7 @@ export function createValidationModule(
   async function getSummary(
     agentId: bigint,
     validatorAddresses?: Address[],
-    tag?: Hex
+    tag?: Hex,
   ): Promise<ValidationSummary> {
     if (!publicClient) throw new Error("Public client required for reads");
 
@@ -336,9 +331,7 @@ export function createValidationModule(
   }
 
   async function getAgentValidations(agentId: bigint): Promise<Hex[]> {
-    if (!publicClient) throw new Error("Public client required for reads");
-
-    const result = (await publicClient.readContract({
+    const result = (await client.readContract({
       address: validationAddress,
       abi: VALIDATION_REGISTRY_ABI,
       functionName: "getAgentValidations",
@@ -349,7 +342,7 @@ export function createValidationModule(
   }
 
   async function getValidatorRequests(
-    validatorAddress: Address
+    validatorAddress: Address,
   ): Promise<Hex[]> {
     if (!publicClient) throw new Error("Public client required for reads");
 
@@ -364,9 +357,7 @@ export function createValidationModule(
   }
 
   async function requestExists(requestHash: Hex): Promise<boolean> {
-    if (!publicClient) throw new Error("Public client required for reads");
-
-    const result = (await publicClient.readContract({
+    const result = (await client.readContract({
       address: validationAddress,
       abi: VALIDATION_REGISTRY_ABI,
       functionName: "requestExists",

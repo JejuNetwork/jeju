@@ -1,10 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ComponentType } from 'react';
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi';
 import { parseEther, formatEther } from 'viem';
-import { Shield, TrendingUp, Award, AlertCircle } from 'lucide-react';
+import { Shield, TrendingUp, Award, AlertCircle, type LucideProps } from 'lucide-react';
 import { MODERATION_CONTRACTS } from '../../config/moderation';
+
+const AlertCircleIcon = AlertCircle as ComponentType<LucideProps>;
+const ShieldIcon = Shield as ComponentType<LucideProps>;
+const TrendingUpIcon = TrendingUp as ComponentType<LucideProps>;
+const AwardIcon = Award as ComponentType<LucideProps>;
 
 const TIER_INFO = [
   { name: 'None', stake: '0', benefits: 'Basic access only' },
@@ -122,7 +127,7 @@ export default function StakingUI({ agentId: providedAgentId }: StakingUIProps) 
   if (!agentId || agentId === 0n) {
     return (
       <div className="text-center py-8">
-        <AlertCircle className="mx-auto text-yellow-500 mb-2" size={32} />
+        <AlertCircleIcon className="mx-auto text-yellow-500 mb-2" size={32} />
         <div className="text-gray-700 font-semibold mb-2">Not Registered</div>
         <div className="text-sm text-gray-600">You must register in the Identity Registry first</div>
       </div>
@@ -136,7 +141,7 @@ export default function StakingUI({ agentId: providedAgentId }: StakingUIProps) 
       {/* Current Tier */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
         <div className="flex items-center gap-3 mb-2">
-          <Shield className="text-blue-500" size={24} />
+          <ShieldIcon className="text-blue-500" size={24} />
           <h3 className="text-lg font-semibold text-blue-900">Current Reputation Tier</h3>
         </div>
         <div className="text-3xl font-bold text-blue-900 mb-1">
@@ -173,7 +178,7 @@ export default function StakingUI({ agentId: providedAgentId }: StakingUIProps) 
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <Shield size={20} className={isCurrentTier ? 'text-blue-500' : 'text-gray-400'} />
+                    <ShieldIcon size={20} className={isCurrentTier ? 'text-blue-500' : 'text-gray-400'} />
                     <span className="font-semibold">Tier {index}: {tier.name}</span>
                   </div>
                   {isCurrentTier && (
@@ -195,7 +200,7 @@ export default function StakingUI({ agentId: providedAgentId }: StakingUIProps) 
       {selectedTier !== null && selectedTier > currentTier && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-6">
           <div className="flex items-center gap-2 mb-4">
-            <TrendingUp className="text-green-600" size={24} />
+            <TrendingUpIcon className="text-green-600" size={24} />
             <h3 className="text-lg font-semibold text-green-900">Ready to Upgrade</h3>
           </div>
           <div className="mb-4">
@@ -220,7 +225,7 @@ export default function StakingUI({ agentId: providedAgentId }: StakingUIProps) 
       {/* Benefits Info */}
       <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
         <h4 className="font-semibold mb-2 flex items-center gap-2">
-          <Award size={18} className="text-yellow-500" />
+          <AwardIcon size={18} className="text-yellow-500" />
           Reputation Benefits
         </h4>
         <ul className="text-sm text-gray-700 space-y-1">

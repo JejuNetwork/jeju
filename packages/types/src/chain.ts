@@ -1,7 +1,55 @@
 import { z } from 'zod';
+import { AddressSchema } from './validation';
 
 export const NetworkSchema = z.enum(['localnet', 'testnet', 'mainnet']);
+
+/**
+ * Optional address schema - allows empty strings for contracts that haven't been deployed yet
+ * Empty string means "not yet deployed/configured"
+ */
+const OptionalAddressSchema = z.string().refine(
+  (val) => val === '' || /^0x[a-fA-F0-9]{40}$/.test(val),
+  { message: 'Must be empty or valid Ethereum address' }
+);
 export type NetworkType = z.infer<typeof NetworkSchema>;
+
+// ============ Chain Type Classification ============
+
+/**
+ * Chain type classification - distinguishes between EVM and Solana chains
+ */
+export type ChainType = 'evm' | 'solana';
+
+// ============ EVM Chain IDs ============
+
+/**
+ * Supported EVM chain IDs across the Jeju ecosystem
+ * Consolidates all EVM chain definitions into a single source of truth
+ */
+export type EVMChainId =
+  | 1        // Ethereum Mainnet
+  | 10       // Optimism
+  | 56       // BSC (Binance Smart Chain)
+  | 137      // Polygon
+  | 42161    // Arbitrum One
+  | 43114    // Avalanche
+  | 8453     // Base
+  | 84532    // Base Sepolia (testnet)
+  | 11155111 // Sepolia (testnet)
+  | 11155420 // Optimism Sepolia (testnet)
+  | 421614   // Arbitrum Sepolia (testnet)
+  | 420690   // Jeju Testnet (L2 on Sepolia)
+  | 420691   // Jeju Mainnet (L2 on Ethereum)
+  | 1337     // Localnet (development)
+  | 31337;   // Local EVM (development)
+
+// ============ Solana Networks ============
+
+/**
+ * Supported Solana network identifiers
+ * Includes both standard and common alias names
+ */
+export type SolanaNetwork = 'mainnet-beta' | 'devnet' | 'localnet' | 'solana-mainnet' | 'solana-devnet';
 
 const GasTokenSchema = z.object({
   name: z.string(),
@@ -9,24 +57,51 @@ const GasTokenSchema = z.object({
   decimals: z.number(),
 });
 
-const L2ContractsSchema = z.object({
-  L2CrossDomainMessenger: z.string(),
-  L2StandardBridge: z.string(),
-  L2ToL1MessagePasser: z.string(),
-  L2ERC721Bridge: z.string(),
-  GasPriceOracle: z.string(),
-  L1Block: z.string(),
-  WETH: z.string(),
+/** OP Stack L2 contract addresses for chain config */
+const ChainL2ContractsSchema = z.object({
+  L2CrossDomainMessenger: AddressSchema,
+  L2StandardBridge: AddressSchema,
+  L2ToL1MessagePasser: AddressSchema,
+  L2ERC721Bridge: AddressSchema,
+  GasPriceOracle: AddressSchema,
+  L1Block: AddressSchema,
+  WETH: AddressSchema,
 });
 
-const L1ContractsSchema = z.object({
-  OptimismPortal: z.string(),
-  L2OutputOracle: z.string(),
-  L1CrossDomainMessenger: z.string(),
-  L1StandardBridge: z.string(),
-  SystemConfig: z.string(),
+/** OP Stack L1 contract addresses for chain config - allows empty for undeployed contracts */
+const ChainL1ContractsSchema = z.object({
+  OptimismPortal: OptionalAddressSchema,
+  L2OutputOracle: OptionalAddressSchema,
+  L1CrossDomainMessenger: OptionalAddressSchema,
+  L1StandardBridge: OptionalAddressSchema,
+  SystemConfig: OptionalAddressSchema,
 });
 
+// ============ Base Chain Configuration ============
+
+/**
+ * Base chain configuration interface
+ * Used as foundation for domain-specific chain configs
+ */
+export interface BaseChainConfig {
+  chainId: EVMChainId | SolanaNetwork;
+  chainType: ChainType;
+  name: string;
+  rpcUrl: string;
+  explorerUrl?: string;
+  nativeCurrency?: {
+    symbol: string;
+    decimals: number;
+    name?: string;
+  };
+}
+
+// ============ OP Stack Chain Configuration ============
+
+/**
+ * OP Stack-specific chain configuration (extends base)
+ * Used for OP Stack L2 deployments
+ */
 export const ChainConfigSchema = z.object({
   chainId: z.number(),
   networkId: z.number(),
@@ -42,8 +117,8 @@ export const ChainConfigSchema = z.object({
   blockTime: z.number(),
   gasToken: GasTokenSchema,
   contracts: z.object({
-    l2: L2ContractsSchema,
-    l1: L1ContractsSchema,
+    l2: ChainL2ContractsSchema,
+    l1: ChainL1ContractsSchema,
   }),
 });
 export type ChainConfig = z.infer<typeof ChainConfigSchema>;

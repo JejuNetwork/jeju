@@ -232,16 +232,16 @@ export async function pollAuthChannel(params: {
       nonce?: string;
     };
 
-    if (data.state === 'completed' && data.fid) {
+    if (data.state === 'completed' && data.fid && data.custodyAddress && data.signature && data.message && data.nonce) {
       return {
         fid: data.fid,
         username: data.username || '',
         displayName: data.displayName || '',
         pfpUrl: data.pfpUrl || '',
-        custodyAddress: data.custodyAddress!,
-        signature: data.signature!,
-        message: data.message!,
-        nonce: data.nonce!,
+        custodyAddress: data.custodyAddress,
+        signature: data.signature,
+        message: data.message,
+        nonce: data.nonce,
       };
     }
 
@@ -289,7 +289,7 @@ export async function getFarcasterUser(params: {
     }
     const verification = msg.data.verificationAddEthAddressBody;
     if (verification) {
-      user.verifiedAddresses!.push(verification.address as Address);
+      user.verifiedAddresses?.push(verification.address as Address);
     }
   }
 

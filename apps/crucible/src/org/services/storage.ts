@@ -3,6 +3,7 @@
  */
 
 import type { OrgState, Todo, CheckinSchedule, CheckinResponse, TeamMember } from '../types';
+import { expect, StorageUploadResponseSchema, OrgStateSchema, parseOrThrow } from '../../schemas';
 
 export interface OrgStorageConfig {
   apiUrl: string;
@@ -17,18 +18,28 @@ export class OrgStorage {
   }
 
   async loadState(cid: string): Promise<OrgState> {
+    expect(cid, 'CID is required');
+    expect(cid.length > 0, 'CID cannot be empty');
     const r = await fetch(`${this.config.ipfsGateway}/ipfs/${cid}`);
-    if (!r.ok) throw new Error(`Failed to load org state: ${r.statusText}`);
-    return r.json() as Promise<OrgState>;
+    expect(r.ok, `Failed to load org state: ${r.statusText}`);
+    const rawResult = await r.json();
+    // Note: OrgStateSchema matches org/types.ts OrgState, not types.ts OrgToolState
+    // This is correct as org/services/storage.ts uses org/types.ts types
+    return OrgStateSchema.parse(rawResult) as OrgState;
   }
 
   async saveState(state: OrgState): Promise<string> {
+    expect(state, 'Org state is required');
+    expect(state.orgId, 'Org ID is required');
+    expect(state.version >= 0, 'Version must be non-negative');
     const r = await fetch(`${this.config.apiUrl}/api/v1/add`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content: JSON.stringify(state), filename: `org-${state.orgId}-v${state.version}.json`, pin: true }),
     });
-    if (!r.ok) throw new Error(`Failed to save org state: ${r.statusText}`);
-    return ((await r.json()) as { cid: string }).cid;
+    expect(r.ok, `Failed to save org state: ${r.statusText}`);
+    const rawResult = await r.json();
+    const result = StorageUploadResponseSchema.parse(rawResult);
+    return result.cid;
   }
 
   createInitialState(orgId: string): OrgState {

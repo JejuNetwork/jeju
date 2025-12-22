@@ -5,9 +5,8 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams } from 'next/navigation';
-import { useAccount } from 'wagmi';
 import {
   GitBranch,
   GitCommit,
@@ -15,19 +14,14 @@ import {
   AlertCircle,
   Star,
   GitFork,
-  Eye,
   Code,
   FileText,
   Folder,
   File,
-  Clock,
-  ChevronRight,
   Download,
   Play,
-  Settings,
   Copy,
   Check,
-  Lock,
   Globe,
   Tag,
   History,
@@ -35,7 +29,6 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { clsx } from 'clsx';
-import { useDWSGit } from '@/lib/hooks';
 
 type RepoTab = 'code' | 'commits' | 'issues' | 'pulls' | 'actions';
 
@@ -97,12 +90,9 @@ export default function RepoDetailPage() {
   const params = useParams();
   const owner = params.owner as string;
   const repo = params.repo as string;
-  const { isConnected } = useAccount();
-  const { getRepository, getRepoFiles, isReady } = useDWSGit();
-  
   const [tab, setTab] = useState<RepoTab>('code');
-  const [branch, setBranch] = useState('main');
-  const [path, setPath] = useState('');
+  const [branch] = useState('main');
+  // const [path, setPath] = useState('');
   const [isStarred, setIsStarred] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -128,11 +118,11 @@ export default function RepoDetailPage() {
     return `${Math.floor(days / 30)} months ago`;
   };
 
-  const formatSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
+  // const formatSize = (bytes: number) => {
+  //   if (bytes < 1024) return `${bytes} B`;
+  //   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  //   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  // };
 
   return (
     <div className="min-h-screen">

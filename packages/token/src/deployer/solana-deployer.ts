@@ -128,14 +128,10 @@ export async function deploySolanaChain(
   deploymentConfig: DeploymentConfig,
   payer: Keypair
 ): Promise<ChainDeployment> {
-  const isMainnet = chain.chainId === 'solana-mainnet';
-  const connection = new Connection(
-    chain.rpcUrl ||
-      (isMainnet
-        ? 'https://api.mainnet-beta.solana.com'
-        : 'https://api.devnet.solana.com'),
-    'confirmed'
-  );
+  if (!chain.rpcUrl) {
+    throw new Error(`rpcUrl is required for Solana chain deployment: ${chain.name}`);
+  }
+  const connection = new Connection(chain.rpcUrl, 'confirmed');
 
   const txSignatures: string[] = [];
 

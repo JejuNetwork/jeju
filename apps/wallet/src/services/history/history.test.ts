@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { HistoryService, type Transaction, type TransactionType } from './index';
+import { HistoryService, type Transaction } from './index';
 
 describe('HistoryService', () => {
   let service: HistoryService;

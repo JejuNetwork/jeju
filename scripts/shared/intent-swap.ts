@@ -12,7 +12,9 @@ import { Address, parseEther, formatEther, encodeFunctionData, encodeAbiParamete
 
 // ============ Types ============
 
-export type IntentStatus = 'pending' | 'claimed' | 'filled' | 'expired' | 'refunded';
+// Import consolidated IntentStatus from @jejunetwork/types (OIF standard)
+import type { IntentStatus } from '@jejunetwork/types';
+export type { IntentStatus };
 
 export interface SwapIntent {
   id: `0x${string}`;
@@ -84,9 +86,6 @@ export interface IntentSwapConfig {
 // ============ Intent Swap Router ============
 
 export class IntentSwapRouter {
-  constructor(_config: IntentSwapConfig) {
-    // Config parameter kept for future use but not stored
-  }
 
   /**
    * Get quote for a swap intent

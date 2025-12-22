@@ -8,18 +8,39 @@ function requireEnv(name: string): string {
 
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
+function parsePort(portStr: string, defaultPort: number): number {
+  const port = parseInt(portStr);
+  if (isNaN(port) || port <= 0 || port > 65535) {
+    throw new Error(`Invalid port: ${portStr}. Must be between 1 and 65535.`);
+  }
+  return port;
+}
+
+function parsePositiveInt(value: string, defaultValue: number, name: string): number {
+  const parsed = parseInt(value);
+  if (isNaN(parsed) || parsed <= 0) {
+    if (value !== undefined && value !== '') {
+      throw new Error(`Invalid ${name}: ${value}. Must be a positive integer.`);
+    }
+    return defaultValue;
+  }
+  return parsed;
+}
+
 const DB_CONFIG = {
   host: IS_PRODUCTION ? requireEnv('DB_HOST') : (process.env.DB_HOST || 'localhost'),
-  port: parseInt(IS_PRODUCTION ? requireEnv('DB_PORT') : (process.env.DB_PORT || '23798')),
+  port: IS_PRODUCTION 
+    ? parsePort(requireEnv('DB_PORT'), 23798)
+    : parsePort(process.env.DB_PORT || '23798', 23798),
   database: IS_PRODUCTION ? requireEnv('DB_NAME') : (process.env.DB_NAME || 'indexer'),
   username: IS_PRODUCTION ? requireEnv('DB_USER') : (process.env.DB_USER || 'postgres'),
   password: IS_PRODUCTION ? requireEnv('DB_PASS') : (process.env.DB_PASS || 'postgres'),
 };
 
 const POOL_CONFIG = {
-  poolSize: parseInt(process.env.DB_POOL_SIZE || '10'),
-  connectionTimeoutMillis: parseInt(process.env.DB_CONNECT_TIMEOUT || '10000'),
-  idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT || '30000'),
+  poolSize: parsePositiveInt(process.env.DB_POOL_SIZE || '10', 10, 'DB_POOL_SIZE'),
+  connectionTimeoutMillis: parsePositiveInt(process.env.DB_CONNECT_TIMEOUT || '10000', 10000, 'DB_CONNECT_TIMEOUT'),
+  idleTimeoutMillis: parsePositiveInt(process.env.DB_IDLE_TIMEOUT || '30000', 30000, 'DB_IDLE_TIMEOUT'),
 };
 
 function toSnakeCase(str: string): string {

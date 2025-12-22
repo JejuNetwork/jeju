@@ -320,7 +320,7 @@ async function main() {
       const publicClient = createPublicClient({ chain: chainObj, transport: http(chain.rpc) });
       const balance = await getBalanceFormatted(publicClient, deployerAccount.address);
       log(`${chain.name}: ${balance} ETH`);
-    } catch (e) {
+    } catch {
       error(`${chain.name}: Unable to connect`);
     }
   }

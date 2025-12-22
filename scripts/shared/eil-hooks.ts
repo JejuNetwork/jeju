@@ -11,6 +11,7 @@
  */
 
 import { parseEther, formatEther, Address } from 'viem';
+import type { StakeStatus } from '@jejunetwork/types';
 
 // ============ Types ============
 
@@ -70,7 +71,9 @@ export interface EILStats {
 }
 
 export type SwapStatus = 'idle' | 'approving' | 'creating' | 'waiting' | 'complete' | 'error';
-export type StakeStatus = 'idle' | 'pending' | 'complete' | 'error';
+
+// Re-export consolidated StakeStatus
+export type { StakeStatus };
 
 // ============ Supported Chains ============
 

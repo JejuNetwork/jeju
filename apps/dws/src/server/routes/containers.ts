@@ -4,7 +4,6 @@
  */
 
 import { Hono } from 'hono';
-import type { Address } from 'viem';
 
 import {
   runContainer,
@@ -22,9 +21,19 @@ import {
   registerNode,
   warmContainers,
   type ExecutionRequest,
-  type ContainerResources,
   type ComputeNode,
 } from '../../containers';
+import { 
+  validateBody, 
+  validateParams, 
+  validateHeaders, 
+  jejuAddressHeaderSchema, 
+  containerExecutionRequestSchema,
+  containerCostEstimateSchema,
+  warmContainersRequestSchema,
+  nodeRegistrationSchema,
+  z 
+} from '../../shared';
 
 export function createContainerRouter(): Hono {
   const app = new Hono();
@@ -54,25 +63,8 @@ export function createContainerRouter(): Hono {
   // ============================================================================
 
   app.post('/execute', async (c) => {
-    const userAddress = c.req.header('x-jeju-address') as Address;
-    if (!userAddress) {
-      return c.json({ error: 'Missing x-jeju-address header' }, 401);
-    }
-
-    const body = await c.req.json<{
-      image: string;
-      command?: string[];
-      env?: Record<string, string>;
-      resources?: Partial<ContainerResources>;
-      mode?: 'serverless' | 'dedicated' | 'spot';
-      timeout?: number;
-      input?: unknown;
-      webhook?: string;
-    }>();
-
-    if (!body.image) {
-      return c.json({ error: 'Image reference is required' }, 400);
-    }
+    const { 'x-jeju-address': userAddress } = validateHeaders(jejuAddressHeaderSchema, c);
+    const body = await validateBody(containerExecutionRequestSchema, c);
 
     const request: ExecutionRequest = {
       imageRef: body.image,
@@ -85,8 +77,8 @@ export function createContainerRouter(): Hono {
         gpuType: body.resources?.gpuType,
         gpuCount: body.resources?.gpuCount,
       },
-      mode: body.mode ?? 'serverless',
-      timeout: body.timeout ?? 300000,
+      mode: body.mode,
+      timeout: body.timeout,
       input: body.input,
       webhook: body.webhook,
     };
@@ -107,7 +99,7 @@ export function createContainerRouter(): Hono {
   });
 
   app.get('/executions', (c) => {
-    const userAddress = c.req.header('x-jeju-address') as Address;
+    const { 'x-jeju-address': userAddress } = validateHeaders(jejuAddressHeaderSchema, c);
     const executions = listExecutions(userAddress);
 
     return c.json({
@@ -144,7 +136,7 @@ export function createContainerRouter(): Hono {
       return c.json(result);
     }
 
-    return c.json({ error: 'Execution not found' }, 404);
+    throw new Error('Execution not found');
   });
 
   app.post('/executions/:id/cancel', (c) => {
@@ -152,7 +144,7 @@ export function createContainerRouter(): Hono {
     const cancelled = cancelExecution(executionId);
 
     if (!cancelled) {
-      return c.json({ error: 'Execution not found or cannot be cancelled' }, 400);
+      throw new Error('Execution not found or cannot be cancelled');
     }
 
     return c.json({ executionId, status: 'cancelled' });
@@ -163,16 +155,12 @@ export function createContainerRouter(): Hono {
   // ============================================================================
 
   app.post('/estimate', async (c) => {
-    const body = await c.req.json<{
-      resources: ContainerResources;
-      durationMs: number;
-      expectColdStart?: boolean;
-    }>();
+    const body = await validateBody(containerCostEstimateSchema, c);
 
     const cost = estimateCost(
       body.resources,
       body.durationMs,
-      body.expectColdStart ?? false
+      body.expectColdStart
     );
 
     return c.json({
@@ -196,20 +184,8 @@ export function createContainerRouter(): Hono {
   });
 
   app.post('/warm', async (c) => {
-    const userAddress = c.req.header('x-jeju-address') as Address;
-    if (!userAddress) {
-      return c.json({ error: 'Missing x-jeju-address header' }, 401);
-    }
-
-    const body = await c.req.json<{
-      image: string;
-      count: number;
-      resources?: Partial<ContainerResources>;
-    }>();
-
-    if (!body.image || !body.count) {
-      return c.json({ error: 'Image and count are required' }, 400);
-    }
+    const { 'x-jeju-address': userAddress } = validateHeaders(jejuAddressHeaderSchema, c);
+    const body = await validateBody(warmContainersRequestSchema, c);
 
     await warmContainers(
       body.image,
@@ -275,18 +251,7 @@ export function createContainerRouter(): Hono {
   });
 
   app.post('/nodes', async (c) => {
-    const body = await c.req.json<{
-      nodeId: string;
-      address: Address;
-      endpoint: string;
-      region: string;
-      zone: string;
-      totalCpu: number;
-      totalMemoryMb: number;
-      totalStorageMb: number;
-      gpuTypes?: string[];
-      capabilities?: string[];
-    }>();
+    const body = await validateBody(nodeRegistrationSchema, c);
 
     const node: ComputeNode = {
       nodeId: body.nodeId,

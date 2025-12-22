@@ -17,7 +17,7 @@ describe('Types and Interfaces', () => {
     expect(TODO_PRIORITIES).toContain('low');
     expect(TODO_PRIORITIES).toContain('medium');
     expect(TODO_PRIORITIES).toContain('high');
-    expect(TODO_PRIORITIES).toContain('urgent');
+    expect(TODO_PRIORITIES.length).toBe(3);
   });
 
   test('should export A2A skill IDs', async () => {
@@ -164,17 +164,15 @@ describe('Priority Sorting', () => {
 
     const todos = [
       { id: '1', priority: 'low' as const },
-      { id: '2', priority: 'urgent' as const },
-      { id: '3', priority: 'medium' as const },
-      { id: '4', priority: 'high' as const },
+      { id: '2', priority: 'medium' as const },
+      { id: '3', priority: 'high' as const },
     ];
 
     const sorted = sortByPriority(todos);
 
-    expect(sorted[0].priority).toBe('urgent');
-    expect(sorted[1].priority).toBe('high');
-    expect(sorted[2].priority).toBe('medium');
-    expect(sorted[3].priority).toBe('low');
+    expect(sorted[0].priority).toBe('high');
+    expect(sorted[1].priority).toBe('medium');
+    expect(sorted[2].priority).toBe('low');
   });
 
   test('should handle empty arrays', async () => {

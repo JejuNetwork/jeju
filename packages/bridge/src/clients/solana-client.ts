@@ -293,23 +293,25 @@ export class SolanaClient {
 
   /**
    * Get token balance
+   * Returns 0 if account doesn't exist (user has never held this token)
    */
   async getTokenBalance(mint: PublicKey, owner?: PublicKey): Promise<bigint> {
+    // Use provided owner or fall back to configured keypair
     const ownerPubkey = owner ?? this.keypair?.publicKey;
     if (!ownerPubkey) {
-      throw new Error('No owner specified');
+      throw new Error('No owner specified - provide owner parameter or configure keypair');
     }
 
     const tokenAccount = await getAssociatedTokenAddress(mint, ownerPubkey);
 
-    try {
-      const account = await getAccount(this.connection, tokenAccount);
-      return account.amount;
-    } catch {
-      // Account doesn't exist or is not initialized - return 0 balance
-      // This is expected behavior for tokens the user has never held
+    const accountInfo = await this.connection.getAccountInfo(tokenAccount);
+    if (!accountInfo) {
+      // Account doesn't exist - user has never held this token, return 0 balance
       return BigInt(0);
     }
+    
+    // Parse SPL token account data
+    return accountInfo.data.readBigUInt64LE(64);
   }
 
   /**
@@ -443,9 +445,10 @@ export class SolanaClient {
 
   /**
    * Get the configured public key
+   * Returns null if no keypair was provided during construction
    */
   getPublicKey(): PublicKey | null {
-    return this.keypair?.publicKey ?? null;
+    return this.keypair?.publicKey ?? null;  // Legitimately optional
   }
 
   /**
@@ -456,10 +459,11 @@ export class SolanaClient {
   }
 
   /**
-   * Get the keypair for signing (null if not configured)
+   * Get the keypair for signing
+   * Returns null if no keypair was provided during construction
    */
   getKeypair(): Keypair | null {
-    return this.keypair ?? null;
+    return this.keypair;  // Already typed as Keypair | null
   }
 
   /**

@@ -12,67 +12,18 @@
 import { existsSync } from 'fs';
 import { join } from 'path';
 import type { Subprocess } from 'bun';
+import {
+  findJejuWorkspaceRoot,
+  isRpcAvailable,
+  isServiceAvailable,
+  checkContractsDeployed as checkContracts,
+} from './utils';
 
 const LOCALNET_PORT = 9545;
 const DWS_PORT = 4030;
 
 let localnetProcess: Subprocess | null = null;
 let dwsProcess: Subprocess | null = null;
-
-function findMonorepoRoot(): string {
-  let dir = process.cwd();
-  for (let i = 0; i < 10; i++) {
-    if (existsSync(join(dir, 'bun.lock')) && existsSync(join(dir, 'packages'))) {
-      return dir;
-    }
-    const parent = join(dir, '..');
-    if (parent === dir) break;
-    dir = parent;
-  }
-  return process.cwd();
-}
-
-async function checkRpc(port: number): Promise<boolean> {
-  try {
-    const response = await fetch(`http://127.0.0.1:${port}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_chainId', params: [], id: 1 }),
-      signal: AbortSignal.timeout(2000),
-    });
-    return response.ok;
-  } catch {
-    return false;
-  }
-}
-
-async function checkDws(port: number): Promise<boolean> {
-  try {
-    const response = await fetch(`http://127.0.0.1:${port}/health`, { signal: AbortSignal.timeout(2000) });
-    return response.ok;
-  } catch {
-    return false;
-  }
-}
-
-async function checkContractsDeployed(): Promise<boolean> {
-  try {
-    const response = await fetch(`http://127.0.0.1:${LOCALNET_PORT}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'eth_getCode',
-        params: ['0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9', 'latest'],
-        id: 1,
-      }),
-    });
-    const data = await response.json() as { result: string };
-    return data.result && data.result !== '0x' && data.result.length > 2;
-  } catch {
-    return false;
-  }
-}
 
 async function startLocalnet(rootDir: string): Promise<boolean> {
   const anvil = Bun.which('anvil');
@@ -89,7 +40,7 @@ async function startLocalnet(rootDir: string): Promise<boolean> {
   });
 
   for (let i = 0; i < 30; i++) {
-    if (await checkRpc(LOCALNET_PORT)) {
+    if (await isRpcAvailable(`http://127.0.0.1:${LOCALNET_PORT}`)) {
       console.log('✅ Localnet ready');
       return true;
     }
@@ -100,8 +51,10 @@ async function startLocalnet(rootDir: string): Promise<boolean> {
   return false;
 }
 
-async function bootstrapContracts(rootDir: string): Promise<boolean> {
-  if (await checkContractsDeployed()) {
+async function bootstrapContractsLocal(rootDir: string): Promise<boolean> {
+  const rpcUrl = `http://127.0.0.1:${LOCALNET_PORT}`;
+  
+  if (await checkContracts(rpcUrl)) {
     console.log('✅ Contracts already deployed');
     return true;
   }
@@ -114,26 +67,23 @@ async function bootstrapContracts(rootDir: string): Promise<boolean> {
     return false;
   }
 
-  try {
-    const proc = Bun.spawn(['bun', 'run', bootstrapScript], {
-      cwd: rootDir,
-      stdout: 'inherit',
-      stderr: 'inherit',
-      env: {
-        ...process.env,
-        L2_RPC_URL: `http://127.0.0.1:${LOCALNET_PORT}`,
-        JEJU_RPC_URL: `http://127.0.0.1:${LOCALNET_PORT}`,
-      },
-    });
+  const proc = Bun.spawn(['bun', 'run', bootstrapScript], {
+    cwd: rootDir,
+    stdout: 'inherit',
+    stderr: 'inherit',
+    env: {
+      ...process.env,
+      L2_RPC_URL: rpcUrl,
+      JEJU_RPC_URL: rpcUrl,
+    },
+  });
 
-    const exitCode = await proc.exited;
-    if (exitCode === 0) {
-      console.log('✅ Contracts bootstrapped');
-      return true;
-    }
-  } catch (error) {
-    console.log(`⚠️  Bootstrap error: ${error}`);
+  const exitCode = await proc.exited;
+  if (exitCode === 0) {
+    console.log('✅ Contracts bootstrapped');
+    return true;
   }
+  
   return false;
 }
 
@@ -159,7 +109,7 @@ async function startDws(rootDir: string): Promise<boolean> {
   });
 
   for (let i = 0; i < 30; i++) {
-    if (await checkDws(DWS_PORT)) {
+    if (await isServiceAvailable(`http://127.0.0.1:${DWS_PORT}/health`)) {
       console.log('✅ DWS ready');
       return true;
     }
@@ -185,13 +135,13 @@ export async function ensureInfra(): Promise<{
   contracts: boolean;
   dws: boolean;
 }> {
-  const rootDir = findMonorepoRoot();
+  const rootDir = findJejuWorkspaceRoot();
   const result = { rpc: false, contracts: false, dws: false };
 
   console.log('\n=== Jeju Dev Environment ===\n');
 
   // Check/start RPC
-  if (await checkRpc(LOCALNET_PORT)) {
+  if (await isRpcAvailable(`http://127.0.0.1:${LOCALNET_PORT}`)) {
     console.log('✅ Localnet already running');
     result.rpc = true;
   } else {
@@ -205,14 +155,14 @@ export async function ensureInfra(): Promise<{
 
   // Bootstrap contracts (default true, set BOOTSTRAP_CONTRACTS=false to skip)
   if (process.env.BOOTSTRAP_CONTRACTS !== 'false') {
-    result.contracts = await bootstrapContracts(rootDir);
+    result.contracts = await bootstrapContractsLocal(rootDir);
   } else {
-    result.contracts = await checkContractsDeployed();
+    result.contracts = await checkContracts(`http://127.0.0.1:${LOCALNET_PORT}`);
     console.log(result.contracts ? '✅ Contracts deployed' : '⚠️  No contracts (BOOTSTRAP_CONTRACTS=false)');
   }
 
   // Check/start DWS
-  if (await checkDws(DWS_PORT)) {
+  if (await isServiceAvailable(`http://127.0.0.1:${DWS_PORT}/health`)) {
     console.log('✅ DWS already running');
     result.dws = true;
   } else {

@@ -1,44 +1,26 @@
-/**
- * @jejunetwork/ui - React hooks for network SDK
- *
- * @example
- * ```tsx
- * import { NetworkProvider, useJeju, useCompute, useDefi } from '@jejunetwork/ui';
- *
- * function App() {
- *   return (
- *     <NetworkProvider network="testnet" privateKey="0x...">
- *       <MyComponent />
- *     </NetworkProvider>
- *   );
- * }
- *
- * function MyComponent() {
- *   const { address, balance } = useJeju();
- *   const { providers, createRental } = useCompute();
- *   const { swap, pools } = useDefi();
- *   // ...
- * }
- * ```
- */
-
 export {
   NetworkProvider,
-  NetworkProvider as JejuProvider, // Alias for convenience
+  NetworkProvider as JejuProvider,
   useNetworkContext,
   type NetworkContextValue,
+  type NetworkProviderProps,
 } from "./context";
 
-// Core hooks
-export { useJeju } from "./hooks/useJeju";
-export { useBalance } from "./hooks/useBalance";
+export {
+  useAsyncState,
+  requireClient,
+  type AsyncState,
+  type UseAsyncStateResult,
+} from "./hooks/utils";
 
-// Module hooks
-export { useCompute } from "./hooks/useCompute";
-export { useStorage } from "./hooks/useStorage";
-export { useDefi } from "./hooks/useDefi";
-export { useGovernance } from "./hooks/useGovernance";
-export { useNames } from "./hooks/useNames";
-export { useIdentity } from "./hooks/useIdentity";
-export { useCrossChain } from "./hooks/useCrossChain";
-export { usePayments } from "./hooks/usePayments";
+export { useJeju, type JejuState } from "./hooks/useJeju";
+export { useBalance, type UseBalanceResult } from "./hooks/useBalance";
+export { useCompute, type UseComputeResult } from "./hooks/useCompute";
+export { useStorage, type UseStorageResult } from "./hooks/useStorage";
+export { useDefi, type UseDefiResult } from "./hooks/useDefi";
+export { useGovernance, type UseGovernanceResult } from "./hooks/useGovernance";
+export { useNames, type UseNamesResult } from "./hooks/useNames";
+export { useIdentity, type UseIdentityResult } from "./hooks/useIdentity";
+export { useCrossChain, type UseCrossChainResult } from "./hooks/useCrossChain";
+export { usePayments, type UsePaymentsResult } from "./hooks/usePayments";
+export type { ServiceType } from "@jejunetwork/sdk";

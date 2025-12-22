@@ -1,9 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ComponentType } from 'react';
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi';
 import { formatEther, type Address } from 'viem';
-import { RefreshCw, Users, Activity, Clock, Shield, TrendingUp, AlertCircle, Check } from 'lucide-react';
+import { RefreshCw, Users, Activity, Clock, Shield, TrendingUp, AlertCircle, Check, type LucideProps } from 'lucide-react';
+
+const RefreshCwIcon = RefreshCw as ComponentType<LucideProps>;
+const UsersIcon = Users as ComponentType<LucideProps>;
+const ActivityIcon = Activity as ComponentType<LucideProps>;
+const ClockIcon = Clock as ComponentType<LucideProps>;
+const ShieldIcon = Shield as ComponentType<LucideProps>;
+const TrendingUpIcon = TrendingUp as ComponentType<LucideProps>;
+const AlertCircleIcon = AlertCircle as ComponentType<LucideProps>;
+const CheckIcon = Check as ComponentType<LucideProps>;
 
 const SEQUENCER_REGISTRY_ADDRESS = process.env.NEXT_PUBLIC_SEQUENCER_REGISTRY as Address || '0x0000000000000000000000000000000000000000';
 const FEDERATION_GOVERNANCE_ADDRESS = process.env.NEXT_PUBLIC_FEDERATION_GOVERNANCE as Address || '0x0000000000000000000000000000000000000000';
@@ -144,7 +153,7 @@ export function SequencerDashboard() {
             disabled={!canRotate() || isRotating || isRotateConfirming}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <RefreshCw className={`w-4 h-4 ${isRotating || isRotateConfirming ? 'animate-spin' : ''}`} />
+            <RefreshCwIcon className={`w-4 h-4 ${isRotating || isRotateConfirming ? 'animate-spin' : ''}`} />
             {isRotating ? 'Rotating...' : isRotateConfirming ? 'Confirming...' : 'Rotate Sequencer'}
           </button>
         </div>
@@ -174,7 +183,7 @@ export function SequencerDashboard() {
           <div className="bg-white rounded-xl p-6 border shadow-sm">
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2 bg-green-100 rounded-lg">
-                <Shield className="w-5 h-5 text-green-600" />
+                <ShieldIcon className="w-5 h-5 text-green-600" />
               </div>
               <span className="text-sm text-gray-500">Current Sequencer</span>
             </div>
@@ -190,7 +199,7 @@ export function SequencerDashboard() {
           <div className="bg-white rounded-xl p-6 border shadow-sm">
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2 bg-blue-100 rounded-lg">
-                <Activity className="w-5 h-5 text-blue-600" />
+                <ActivityIcon className="w-5 h-5 text-blue-600" />
               </div>
               <span className="text-sm text-gray-500">Verified Chains</span>
             </div>
@@ -206,7 +215,7 @@ export function SequencerDashboard() {
           <div className="bg-white rounded-xl p-6 border shadow-sm">
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2 bg-purple-100 rounded-lg">
-                <Clock className="w-5 h-5 text-purple-600" />
+                <ClockIcon className="w-5 h-5 text-purple-600" />
               </div>
               <span className="text-sm text-gray-500">Next Rotation</span>
             </div>
@@ -222,7 +231,7 @@ export function SequencerDashboard() {
           <div className="bg-white rounded-xl p-6 border shadow-sm">
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2 bg-orange-100 rounded-lg">
-                <TrendingUp className="w-5 h-5 text-orange-600" />
+                <TrendingUpIcon className="w-5 h-5 text-orange-600" />
               </div>
               <span className="text-sm text-gray-500">Total Staked</span>
             </div>
@@ -287,7 +296,7 @@ export function SequencerDashboard() {
 
               {(!verifiedChains || verifiedChains.length === 0) && (
                 <div className="text-center py-8 text-gray-500">
-                  <AlertCircle className="w-8 h-8 mx-auto mb-2" />
+                  <AlertCircleIcon className="w-8 h-8 mx-auto mb-2" />
                   <p>No verified chains available</p>
                 </div>
               )}
@@ -313,12 +322,12 @@ export function SequencerDashboard() {
               >
                 {isRotated ? (
                   <>
-                    <Check className="w-5 h-5" />
+                    <CheckIcon className="w-5 h-5" />
                     Rotated
                   </>
                 ) : (
                   <>
-                    <RefreshCw className={`w-5 h-5 ${isRotating || isRotateConfirming ? 'animate-spin' : ''}`} />
+                    <RefreshCwIcon className={`w-5 h-5 ${isRotating || isRotateConfirming ? 'animate-spin' : ''}`} />
                     {isRotating ? 'Rotating...' : isRotateConfirming ? 'Confirming...' : 'Rotate Now'}
                   </>
                 )}
@@ -338,7 +347,7 @@ export function SequencerDashboard() {
 
             {(!activeSequencers || activeSequencers.length === 0) && (
               <div className="text-center py-8 text-gray-500">
-                <Users className="w-8 h-8 mx-auto mb-2" />
+                <UsersIcon className="w-8 h-8 mx-auto mb-2" />
                 <p>No active sequencers</p>
               </div>
             )}
@@ -350,16 +359,29 @@ export function SequencerDashboard() {
 }
 
 function SequencerCard({ address: addr }: { address: Address }) {
-  const { data: sequencer } = useReadContract({
+  const { data: sequencerData } = useReadContract({
     address: SEQUENCER_REGISTRY_ADDRESS,
     abi: SEQUENCER_REGISTRY_ABI,
     functionName: 'sequencers',
     args: [addr],
   });
 
-  if (!sequencer) return null;
+  if (!sequencerData) return null;
 
-  const seq = sequencer as unknown as SequencerInfo;
+  // Destructure the contract return tuple into a typed object
+  const seq: SequencerInfo = {
+    address: addr,
+    agentId: sequencerData.agentId,
+    stake: sequencerData.stake,
+    reputationScore: sequencerData.reputationScore,
+    registeredAt: sequencerData.registeredAt,
+    blocksProposed: sequencerData.blocksProposed,
+    blocksMissed: sequencerData.blocksMissed,
+    totalRewardsEarned: sequencerData.totalRewardsEarned,
+    pendingRewards: sequencerData.pendingRewards,
+    isActive: sequencerData.isActive,
+    isSlashed: sequencerData.isSlashed,
+  };
   const uptime = seq.blocksProposed > 0n 
     ? (Number(seq.blocksProposed) / (Number(seq.blocksProposed) + Number(seq.blocksMissed)) * 100).toFixed(1)
     : '100.0';

@@ -24,7 +24,7 @@ describe('CrucibleStorage Edge Cases', () => {
       const minimalCharacter: AgentCharacter = {
         id: 'minimal',
         name: 'M',
-        description: '',
+        description: 'Minimal test character',
         system: 'You are minimal.',
         bio: [],
         messageExamples: [],
@@ -100,7 +100,7 @@ describe('CrucibleStorage Edge Cases', () => {
       mockFetch.mockImplementation(() => Promise.reject(new Error('Network error')));
 
       const character: AgentCharacter = {
-        id: 'test', name: 'Test', description: '', system: 'Test',
+        id: 'test', name: 'Test', description: 'Test character', system: 'Test',
         bio: [], messageExamples: [], topics: [], adjectives: [],
         style: { all: [], chat: [], post: [] },
       };
@@ -114,7 +114,7 @@ describe('CrucibleStorage Edge Cases', () => {
       );
 
       const character: AgentCharacter = {
-        id: 'test', name: 'Test', description: '', system: 'Test',
+        id: 'test', name: 'Test', description: 'Test character', system: 'Test',
         bio: [], messageExamples: [], topics: [], adjectives: [],
         style: { all: [], chat: [], post: [] },
       };
@@ -128,7 +128,7 @@ describe('CrucibleStorage Edge Cases', () => {
       );
 
       const character: AgentCharacter = {
-        id: 'test', name: 'Test', description: '', system: 'Test',
+        id: 'test', name: 'Test', description: 'Test character', system: 'Test',
         bio: [], messageExamples: [], topics: [], adjectives: [],
         style: { all: [], chat: [], post: [] },
       };
@@ -142,7 +142,7 @@ describe('CrucibleStorage Edge Cases', () => {
       );
 
       const character: AgentCharacter = {
-        id: 'test', name: 'Test', description: '', system: 'Test',
+        id: 'test', name: 'Test', description: 'Test character', system: 'Test',
         bio: [], messageExamples: [], topics: [], adjectives: [],
         style: { all: [], chat: [], post: [] },
       };
@@ -351,7 +351,7 @@ describe('CrucibleStorage Edge Cases', () => {
       const characters: AgentCharacter[] = Array(10).fill(null).map((_, i) => ({
         id: `concurrent-${i}`,
         name: `Agent ${i}`,
-        description: '',
+        description: `Concurrent test agent ${i}`,
         system: 'Test',
         bio: [],
         messageExamples: [],

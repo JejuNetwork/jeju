@@ -20,7 +20,6 @@ import {
   Loader2,
   Send,
   Lock,
-  Unlock,
   GitBranch,
 } from 'lucide-react';
 import Link from 'next/link';

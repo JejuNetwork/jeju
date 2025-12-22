@@ -30,7 +30,6 @@ export {
   type KeyPair,
   type EncryptedMessage,
   type SerializedEncryptedMessage,
-  type MessageEnvelope,
 } from './crypto';
 
 // Types
@@ -47,6 +46,7 @@ export {
   type RelayNode,
   type NodeInfo,
   type NodePerformance,
+  type MessageEnvelope,
   type DeliveryReceipt,
   type SendMessageRequest,
   type SendMessageResponse,
@@ -56,6 +56,12 @@ export {
   type MessageEventHandler,
   type MessagingClientConfig,
   type ContractAddresses,
+  type KeyBundleResponse,
+  type NodeRegistryResponse,
+  type WebSocketIncomingMessage,
+  type DeliveryReceiptData,
+  type ReadReceiptData,
+  type MessagingErrorDetails,
   MessagingError,
   ErrorCodes,
 } from './types';

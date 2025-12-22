@@ -58,15 +58,11 @@ export async function checkRpcHealth(rpcUrl: string, timeout = 5000): Promise<bo
 }
 
 export async function getAccountBalance(rpcUrl: string, address: `0x${string}`): Promise<string> {
-  try {
-    const client = createPublicClient({
-      transport: http(rpcUrl, { timeout: 5000 }),
-    });
-    const balance = await client.getBalance({ address });
-    return formatEther(balance);
-  } catch {
-    return '0';
-  }
+  const client = createPublicClient({
+    transport: http(rpcUrl, { timeout: 5000 }),
+  });
+  const balance = await client.getBalance({ address });
+  return formatEther(balance);
 }
 
 export async function startLocalnet(rootDir: string): Promise<{ l1Port: number; l2Port: number }> {
@@ -132,9 +128,18 @@ export async function startLocalnet(rootDir: string): Promise<{ l1Port: number; 
   const l2PortResult = await execa('kurtosis', ['port', 'print', ENCLAVE_NAME, 'op-geth', 'rpc']);
   const cqlPortResult = await execa('kurtosis', ['port', 'print', ENCLAVE_NAME, 'covenantsql', 'api'], { reject: false });
   
-  const l1Port = parseInt(l1PortResult.stdout.trim().split(':').pop() || '0');
-  const l2Port = parseInt(l2PortResult.stdout.trim().split(':').pop() || '0');
-  const cqlPort = cqlPortResult.exitCode === 0 ? parseInt(cqlPortResult.stdout.trim().split(':').pop() || '0') : 0;
+  const l1PortStr = l1PortResult.stdout.trim().split(':').pop();
+  const l2PortStr = l2PortResult.stdout.trim().split(':').pop();
+  if (!l1PortStr || !l2PortStr) {
+    throw new Error('Failed to parse L1 or L2 port from Kurtosis output');
+  }
+  const l1Port = parseInt(l1PortStr);
+  const l2Port = parseInt(l2PortStr);
+  if (isNaN(l1Port) || isNaN(l2Port) || l1Port === 0 || l2Port === 0) {
+    throw new Error(`Invalid port values: L1=${l1Port}, L2=${l2Port}`);
+  }
+  const cqlPortStr = cqlPortResult.exitCode === 0 ? cqlPortResult.stdout.trim().split(':').pop() : null;
+  const cqlPort = cqlPortStr ? parseInt(cqlPortStr) : 0;
 
   // Save ports config
   const portsConfig = {
@@ -214,16 +219,12 @@ export function loadPortsConfig(rootDir: string): { l1Port: number; l2Port: numb
     return null;
   }
   
-  try {
-    // Parse to verify valid JSON, but use default ports
-    JSON.parse(readFileSync(portsFile, 'utf-8'));
-    return {
-      l1Port: DEFAULT_PORTS.l1Rpc,
-      l2Port: DEFAULT_PORTS.l2Rpc,
-    };
-  } catch {
-    return null;
-  }
+  // Parse to verify valid JSON, but use default ports
+  JSON.parse(readFileSync(portsFile, 'utf-8'));
+  return {
+    l1Port: DEFAULT_PORTS.l1Rpc,
+    l2Port: DEFAULT_PORTS.l2Rpc,
+  };
 }
 
 export async function bootstrapContracts(rootDir: string, rpcUrl: string): Promise<void> {
@@ -238,23 +239,18 @@ export async function bootstrapContracts(rootDir: string, rpcUrl: string): Promi
   
   const bootstrapScript = join(rootDir, 'scripts/bootstrap/bootstrap-localnet-complete.ts');
   if (!existsSync(bootstrapScript)) {
-    logger.warn('Bootstrap script not found, skipping contract deployment');
-    return;
+    throw new Error(`Bootstrap script not found: ${bootstrapScript}`);
   }
 
-  try {
-    await execa('bun', ['run', bootstrapScript], {
-      cwd: rootDir,
-      env: {
-        ...process.env,
-        JEJU_RPC_URL: rpcUrl,
-        L2_RPC_URL: rpcUrl,
-      },
-      stdio: 'pipe',
-    });
-    logger.success('Contracts bootstrapped');
-  } catch (error) {
-    logger.warn('Contract bootstrap failed, continuing anyway');
-  }
+  await execa('bun', ['run', bootstrapScript], {
+    cwd: rootDir,
+    env: {
+      ...process.env,
+      JEJU_RPC_URL: rpcUrl,
+      L2_RPC_URL: rpcUrl,
+    },
+    stdio: 'pipe',
+  });
+  logger.success('Contracts bootstrapped');
 }
 

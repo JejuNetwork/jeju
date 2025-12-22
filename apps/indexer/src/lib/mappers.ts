@@ -1,6 +1,16 @@
 import { RegisteredAgent, Block, Transaction, ComputeProvider, StorageProvider } from '../model';
 
 export function mapAgentSummary(agent: RegisteredAgent) {
+  if (!agent) {
+    throw new Error('Agent is required');
+  }
+  if (agent.agentId === undefined || agent.agentId === null) {
+    throw new Error('Agent agentId is required');
+  }
+  if (!agent.registeredAt) {
+    throw new Error('Agent registeredAt is required');
+  }
+  
   return {
     agentId: agent.agentId.toString(),
     name: agent.name,
@@ -37,6 +47,19 @@ export function mapAgentWithTools(agent: RegisteredAgent) {
 }
 
 export function mapBlockSummary(block: Block) {
+  if (!block) {
+    throw new Error('Block is required');
+  }
+  if (typeof block.number !== 'number' || block.number < 0) {
+    throw new Error(`Invalid block number: ${block.number}`);
+  }
+  if (!block.hash || typeof block.hash !== 'string') {
+    throw new Error(`Invalid block hash: ${block.hash}`);
+  }
+  if (!block.timestamp) {
+    throw new Error('Block timestamp is required');
+  }
+  
   return {
     number: block.number,
     hash: block.hash,
@@ -47,6 +70,19 @@ export function mapBlockSummary(block: Block) {
 }
 
 export function mapBlockDetail(block: Block) {
+  if (!block) {
+    throw new Error('Block is required');
+  }
+  if (typeof block.number !== 'number' || block.number < 0) {
+    throw new Error(`Invalid block number: ${block.number}`);
+  }
+  if (!block.hash || typeof block.hash !== 'string') {
+    throw new Error(`Invalid block hash: ${block.hash}`);
+  }
+  if (!block.timestamp) {
+    throw new Error('Block timestamp is required');
+  }
+  
   return {
     number: block.number,
     hash: block.hash,
@@ -83,6 +119,16 @@ export function mapTransactionDetail(tx: Transaction) {
 }
 
 export function mapProviderSummary(p: ComputeProvider | StorageProvider, type: 'compute' | 'storage') {
+  if (!p) {
+    throw new Error('Provider is required');
+  }
+  if (type !== 'compute' && type !== 'storage') {
+    throw new Error(`Invalid provider type: ${type}. Must be 'compute' or 'storage'`);
+  }
+  if (!p.address || typeof p.address !== 'string') {
+    throw new Error(`Invalid provider address: ${p.address}`);
+  }
+  
   return {
     address: p.address,
     name: p.name,

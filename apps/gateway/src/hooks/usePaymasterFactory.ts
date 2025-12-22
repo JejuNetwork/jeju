@@ -30,7 +30,7 @@ export function usePaymasterFactory() {
   };
 
   return {
-    allDeployments: (allDeployments as `0x${string}`[]) || [],
+    allDeployments: allDeployments ? (allDeployments as `0x${string}`[]) : [],
     deployPaymaster,
     isPending: isPending || isConfirming,
     isSuccess,

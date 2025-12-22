@@ -40,6 +40,7 @@ export function Bots() {
   const [expandedBot, setExpandedBot] = useState<string | null>(null);
   const [startingBot, setStartingBot] = useState<string | null>(null);
   const [capitalAmount, setCapitalAmount] = useState('0.1');
+  const [error, setError] = useState<string | null>(null);
 
   const handleStartBot = async (bot: BotWithStatus) => {
     if (!wallet) {
@@ -59,15 +60,36 @@ export function Bots() {
     }
 
     setStartingBot(bot.metadata.id);
+    setCapitalAmount(bot.metadata.min_capital_eth.toString());
+    setError(null);
   };
 
   const handleConfirmStart = async () => {
     if (!startingBot) return;
     
-    const capitalWei = (parseFloat(capitalAmount) * 1e18).toString();
-    await startBot(startingBot, capitalWei);
-    setStartingBot(null);
-    setCapitalAmount('0.1');
+    // Validate capital amount
+    if (!/^\d+(\.\d+)?$/.test(capitalAmount)) {
+      setError('Invalid amount');
+      return;
+    }
+    
+    const bot = bots.find(b => b.metadata.id === startingBot);
+    const amount = parseFloat(capitalAmount);
+    
+    if (bot && amount < bot.metadata.min_capital_eth) {
+      setError(`Minimum capital is ${bot.metadata.min_capital_eth} ETH`);
+      return;
+    }
+    
+    try {
+      const capitalWei = (amount * 1e18).toString(); // Safe due to regex check above
+      await startBot(startingBot, capitalWei);
+      setStartingBot(null);
+      setCapitalAmount('0.1');
+      setError(null);
+    } catch (e) {
+      setError(String(e));
+    }
   };
 
   const handleStopBot = async (botId: string) => {
@@ -277,14 +299,21 @@ export function Bots() {
                   <input
                     type="number"
                     value={capitalAmount}
-                    onChange={(e) => setCapitalAmount(e.target.value)}
-                    className="input"
+                    onChange={(e) => {
+                      setCapitalAmount(e.target.value);
+                      setError(null);
+                    }}
+                    className={clsx('input', error && 'border-red-500 focus:border-red-500')}
                     step="0.01"
                     min={bots.find(b => b.metadata.id === startingBot)?.metadata.min_capital_eth || 0}
                   />
-                  <p className="text-xs text-volcanic-500 mt-1">
-                    Minimum: {bots.find(b => b.metadata.id === startingBot)?.metadata.min_capital_eth} ETH
-                  </p>
+                  {error ? (
+                    <p className="text-xs text-red-400 mt-1">{error}</p>
+                  ) : (
+                    <p className="text-xs text-volcanic-500 mt-1">
+                      Minimum: {bots.find(b => b.metadata.id === startingBot)?.metadata.min_capital_eth} ETH
+                    </p>
+                  )}
                 </div>
                 
                 <div className="bg-volcanic-800/50 rounded-lg p-3">

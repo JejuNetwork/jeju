@@ -16,7 +16,7 @@ const RPC_URL = process.env.RPC_URL || "http://127.0.0.1:6546";
 
 describe("Validation Integration Tests", () => {
   let agentClient: JejuClient;
-  let validatorClient: JejuClient;
+  let _validatorClient: JejuClient;
   let chainRunning = false;
   let contractsDeployed = false;
 
@@ -43,7 +43,7 @@ describe("Validation Integration Tests", () => {
     });
 
     const validatorAccount = privateKeyToAccount(VALIDATOR_PRIVATE_KEY);
-    validatorClient = await createJejuClient({
+    _validatorClient = await createJejuClient({
       account: validatorAccount,
       network: "localnet",
       rpcUrl: RPC_URL,

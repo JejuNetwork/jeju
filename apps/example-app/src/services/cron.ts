@@ -5,7 +5,7 @@
  * Handles reminder scheduling and cleanup tasks.
  */
 
-import type { Address, Hex } from 'viem';
+import type { Address } from 'viem';
 import type { CronJob } from '../types';
 import { getDatabase } from '../db/client';
 
@@ -33,7 +33,7 @@ interface CronService {
 }
 
 class ComputeCronService implements CronService {
-  private healthChecked = false;
+  private healthLastChecked = 0;
   private healthy = false;
 
   async scheduleReminder(todoId: string, owner: Address, reminderTime: number): Promise<Reminder> {
@@ -151,17 +151,22 @@ class ComputeCronService implements CronService {
 
   async isHealthy(): Promise<boolean> {
     // Cache the health check result for 30 seconds
-    if (this.healthChecked && Date.now() - (this.healthChecked as unknown as number) < 30000) {
+    if (Date.now() - this.healthLastChecked < 30000) {
       return this.healthy;
     }
 
-    const response = await fetch(`${CRON_ENDPOINT}/health`, {
-      signal: AbortSignal.timeout(5000),
-    }).catch(() => null);
+    try {
+      const response = await fetch(`${CRON_ENDPOINT}/health`, {
+        signal: AbortSignal.timeout(5000),
+      });
+      this.healthy = response.ok;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.debug(`[Cron] Health check failed: ${errorMsg}`);
+      this.healthy = false;
+    }
     
-    this.healthy = response?.ok ?? false;
-    this.healthChecked = true;
-    
+    this.healthLastChecked = Date.now();
     return this.healthy;
   }
 

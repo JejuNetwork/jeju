@@ -1,64 +1,26 @@
-/**
- * @fileoverview Farcaster Frames Types
- * 
- * Types for building Farcaster Frames (interactive mini-apps).
- * @see https://docs.farcaster.xyz/reference/frames/spec
- */
-
+import { z } from 'zod';
 import type { Address, Hex } from 'viem';
+import { AddressSchema } from '../hub/schemas';
+
+// Re-export FrameActionPayload from schemas to avoid duplication
+export type { FrameActionPayload } from '../hub/schemas';
 
 // ============ Frame Metadata ============
 
 export interface FrameMetadata {
-  /** Frame specification version */
   version: 'vNext';
-  /** Frame image URL */
   image: string;
-  /** Image aspect ratio */
   imageAspectRatio?: '1.91:1' | '1:1';
-  /** Buttons (max 4) */
   buttons?: FrameButton[];
-  /** Input text field */
   inputText?: string;
-  /** Post URL for button actions */
   postUrl?: string;
-  /** State data (max 4096 bytes) */
   state?: string;
 }
 
 export interface FrameButton {
-  /** Button label (max 256 bytes) */
   label: string;
-  /** Button action type */
   action?: 'post' | 'post_redirect' | 'link' | 'mint' | 'tx';
-  /** Target URL for link/tx actions */
   target?: string;
-}
-
-// ============ Frame Actions ============
-
-export interface FrameActionPayload {
-  /** Untrusted data from frame action */
-  untrustedData: {
-    fid: number;
-    url: string;
-    messageHash: Hex;
-    timestamp: number;
-    network: number;
-    buttonIndex: number;
-    inputText?: string;
-    state?: string;
-    transactionId?: Hex;
-    address?: Address;
-    castId: {
-      fid: number;
-      hash: Hex;
-    };
-  };
-  /** Trusted data (signature verified by hub) */
-  trustedData: {
-    messageBytes: Hex;
-  };
 }
 
 export interface FrameValidationResult {
@@ -87,53 +49,48 @@ export interface FrameMessage {
 // ============ Transaction Frames ============
 
 export interface FrameTransactionTarget {
-  /** Chain ID in CAIP-2 format (e.g., 'eip155:8453' for Base) */
   chainId: string;
-  /** Transaction method */
   method: 'eth_sendTransaction';
-  /** Transaction parameters */
   params: FrameTransactionParams;
 }
 
 export interface FrameTransactionParams {
-  /** Recipient address */
   to: Address;
-  /** ETH value in wei (hex) */
   value?: Hex;
-  /** Transaction data */
   data?: Hex;
-  /** Attribution (optional, for tracking) */
   attribution?: boolean;
 }
 
-// ============ Jeju-Specific Frame Types ============
+// ============ Jeju-Specific Frame State Schemas ============
 
-export interface JejuBridgeFrameState {
-  sourceChain: number;
-  targetChain: number;
-  token: Address;
-  amount: string;
-  recipient?: Address;
-}
+export const JejuBridgeFrameStateSchema = z.object({
+  sourceChain: z.number(),
+  targetChain: z.number(),
+  token: AddressSchema,
+  amount: z.string(),
+  recipient: AddressSchema.optional(),
+});
 
-export interface JejuSwapFrameState {
-  tokenIn: Address;
-  tokenOut: Address;
-  amountIn: string;
-  slippage: number;
-}
+export const JejuSwapFrameStateSchema = z.object({
+  tokenIn: AddressSchema,
+  tokenOut: AddressSchema,
+  amountIn: z.string(),
+  slippage: z.number(),
+});
 
-export interface JejuAgentFrameState {
-  agentId: Address;
-  action: 'view' | 'delegate' | 'hire';
-}
+export const JejuAgentFrameStateSchema = z.object({
+  agentId: AddressSchema,
+  action: z.enum(['view', 'delegate', 'hire']),
+});
+
+export type JejuBridgeFrameState = z.infer<typeof JejuBridgeFrameStateSchema>;
+export type JejuSwapFrameState = z.infer<typeof JejuSwapFrameStateSchema>;
+export type JejuAgentFrameState = z.infer<typeof JejuAgentFrameStateSchema>;
 
 // ============ Frame Response Types ============
 
 export interface FrameResponse {
-  /** Frame HTML with meta tags */
   html: string;
-  /** Frame metadata for programmatic use */
   metadata: FrameMetadata;
 }
 
@@ -144,9 +101,6 @@ export interface FrameErrorResponse {
 
 // ============ Helper Functions ============
 
-/**
- * Generate frame meta tags HTML
- */
 export function generateFrameMetaTags(metadata: FrameMetadata): string {
   const tags: string[] = [
     `<meta property="fc:frame" content="${metadata.version}" />`,
@@ -185,9 +139,6 @@ export function generateFrameMetaTags(metadata: FrameMetadata): string {
   return tags.join('\n');
 }
 
-/**
- * Create a frame HTML response
- */
 export function createFrameResponse(metadata: FrameMetadata, title = 'Jeju Frame'): string {
   return `<!DOCTYPE html>
 <html>
@@ -203,22 +154,15 @@ export function createFrameResponse(metadata: FrameMetadata, title = 'Jeju Frame
 </html>`;
 }
 
-/**
- * Parse frame state from URL-encoded string
- */
-export function parseFrameState<T>(state: string | undefined): T | null {
+export function parseFrameState<T>(state: string | undefined, schema: z.ZodType<T>): T | null {
   if (!state) return null;
-  try {
-    return JSON.parse(decodeURIComponent(state)) as T;
-  } catch {
-    return null;
-  }
+  const decoded = decodeURIComponent(state);
+  const json: unknown = JSON.parse(decoded);
+  const result = schema.safeParse(json);
+  if (!result.success) return null;
+  return result.data;
 }
 
-/**
- * Encode frame state for URL
- */
 export function encodeFrameState<T>(state: T): string {
   return encodeURIComponent(JSON.stringify(state));
 }
-

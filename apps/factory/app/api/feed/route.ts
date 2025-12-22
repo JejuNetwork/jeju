@@ -1,33 +1,46 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { validateQuery, validateBody, errorResponse } from '@/lib/validation';
+import { getFeedQuerySchema, createFeedPostSchema } from '@/lib/validation/schemas';
 import { farcasterClient } from '@/lib/services/farcaster';
 
 // GET /api/feed - Get feed posts
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const channel = searchParams.get('channel');
-  const cursor = searchParams.get('cursor');
-  const limit = parseInt(searchParams.get('limit') || '20');
+  try {
+    const { searchParams } = new URL(request.url);
+    const query = validateQuery(getFeedQuerySchema, searchParams);
 
-  const feed = await farcasterClient.getChannelFeed(channel || undefined, { cursor: cursor || undefined, limit });
-  return NextResponse.json(feed);
+    const feed = await farcasterClient.getChannelFeed(query.channel ?? undefined, {
+      cursor: query.cursor ?? undefined,
+      limit: query.limit,
+    });
+    return NextResponse.json(feed);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return errorResponse(message, 400);
+  }
 }
 
 // POST /api/feed - Create a new post (cast)
 export async function POST(request: NextRequest) {
-  const body = await request.json();
-  const { text, embeds, parentHash, channelId } = body;
+  try {
+    const body = await validateBody(createFeedPostSchema, request.json());
 
-  const signerUuid = request.headers.get('x-farcaster-signer');
-  if (!signerUuid) {
-    return NextResponse.json({ error: 'Farcaster signer required' }, { status: 401 });
+    const signerUuid = request.headers.get('x-farcaster-signer');
+    if (!signerUuid) {
+      return errorResponse('Farcaster signer required', 401);
+    }
+
+    const cast = await farcasterClient.publishCast(signerUuid, body.text, {
+      embeds: body.embeds,
+      parentHash: body.parentHash,
+      channelId: body.channelId,
+    });
+
+    return NextResponse.json(cast, { status: 201 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    const status = message.includes('required') ? 401 : 400;
+    return errorResponse(message, status);
   }
-
-  const cast = await farcasterClient.publishCast(signerUuid, text, {
-    embeds,
-    parent: parentHash,
-    channelId,
-  });
-
-  return NextResponse.json(cast, { status: 201 });
 }
 

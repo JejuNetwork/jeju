@@ -14,7 +14,7 @@ import { VolatilityStrategy } from '../strategies/tfmm/volatility-strategy';
 import { CompositeStrategy } from '../strategies/tfmm/composite-strategy';
 import type { BaseTFMMStrategy, StrategyContext } from '../strategies/tfmm/base-strategy';
 import { OracleAggregator } from '../oracles';
-import { RiskAnalyzer } from './risk-analyzer';
+import { WEIGHT_PRECISION } from '../shared';
 
 // ============ Types ============
 
@@ -38,34 +38,19 @@ export interface PriceDataPoint {
   prices: Record<string, number>; // token symbol -> USD price
 }
 
-type _SimulationState = {
-  timestamp: number;
-  weights: number[];
-  balances: bigint[];
-  valueUsd: number;
-  cumulativeFees: number;
-  rebalanceCount: number;
-};
 
 // ============ Backtester ============
 
 export class Backtester {
-  private _riskAnalyzer = new RiskAnalyzer();
-
   /**
    * Run a backtest
    */
   async run(config: BacktestConfig): Promise<BacktestResult> {
-    console.log('Starting backtest...');
-    console.log(`  Strategy: ${config.strategy}`);
-    console.log(`  Period: ${config.startDate.toISOString()} to ${config.endDate.toISOString()}`);
-    console.log(`  Initial capital: $${config.initialCapitalUsd}`);
 
     // Create strategy
     const strategy = this.createStrategy(config.strategy, config.strategyParams);
 
     // Initialize state
-    const PRECISION = 10n ** 18n;
     let weights = config.initialWeights.map(w => BigInt(Math.floor(w * 1e18)));
     let balances = this.calculateInitialBalances(
       config.initialCapitalUsd,
@@ -80,8 +65,8 @@ export class Backtester {
     let lastRebalance = config.priceData[0].timestamp;
 
     const riskParams: TFMMRiskParameters = {
-      minWeight: PRECISION / 20n,  // 5%
-      maxWeight: (PRECISION * 95n) / 100n, // 95%
+      minWeight: WEIGHT_PRECISION / 20n,  // 5%
+      maxWeight: (WEIGHT_PRECISION * 95n) / 100n, // 95%
       maxWeightChangeBps: 500,
       minUpdateIntervalBlocks: 10,
       oracleStalenessSeconds: 3600,
@@ -196,7 +181,8 @@ export class Backtester {
       returns.reduce((sum, r) => sum + (r - meanReturn) ** 2, 0) / returns.length
     );
     const riskFreeRate = 0.05 / 365; // 5% annual, daily
-    const sharpeRatio = (meanReturn - riskFreeRate) / (stdDev || 1);
+    // If stdDev is 0, Sharpe is technically undefined - return 0 to indicate no meaningful risk-adjusted measure
+    const sharpeRatio = stdDev > 0 ? (meanReturn - riskFreeRate) / stdDev : 0;
     const annualizedSharpe = sharpeRatio * Math.sqrt(365);
 
     // Calculate max drawdown
@@ -232,7 +218,7 @@ export class Backtester {
     );
     const impermanentLoss = (holdValue - finalSnapshot.valueUsd) / holdValue;
 
-    const result: BacktestResult = {
+    return {
       totalReturn,
       annualizedReturn,
       sharpeRatio: annualizedSharpe,
@@ -245,16 +231,6 @@ export class Backtester {
       netProfit: finalSnapshot.valueUsd - config.initialCapitalUsd,
       snapshots,
     };
-
-    console.log('Backtest complete:');
-    console.log(`  Total return: ${(totalReturn * 100).toFixed(2)}%`);
-    console.log(`  Annualized return: ${(annualizedReturn * 100).toFixed(2)}%`);
-    console.log(`  Sharpe ratio: ${annualizedSharpe.toFixed(2)}`);
-    console.log(`  Max drawdown: ${(maxDrawdown * 100).toFixed(2)}%`);
-    console.log(`  Total rebalances: ${rebalanceCount}`);
-    console.log(`  Total fees: $${cumulativeFees.toFixed(2)}`);
-
-    return result;
   }
 
   /**
@@ -433,7 +409,8 @@ export class Backtester {
     const stdDev = Math.sqrt(
       returns.reduce((sum, r) => sum + (r - meanReturn) ** 2, 0) / returns.length
     );
-    const sharpeRatio = (meanReturn - 0.05 / 365) / (stdDev || 1) * Math.sqrt(365);
+    // If stdDev is 0, Sharpe is technically undefined - return 0 to indicate no meaningful risk-adjusted measure
+    const sharpeRatio = stdDev > 0 ? (meanReturn - 0.05 / 365) / stdDev * Math.sqrt(365) : 0;
 
     let maxDrawdown = 0;
     let peak = snapshots[0].valueUsd;

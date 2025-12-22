@@ -40,7 +40,7 @@ export async function setupTestEnvironment(options: SetupOptions = {}): Promise<
     chainId = parseInt(process.env.CHAIN_ID || String(DEFAULT_CHAIN_ID)),
     skipLock = false,
     skipPreflight = false,
-    skipWarmup = false,
+    skipWarmup: _skipWarmup = false,
     force = false,
     apps = [],
   } = options;
@@ -100,7 +100,7 @@ export async function setupTestEnvironment(options: SetupOptions = {}): Promise<
 const JEJU_RPC = process.env.JEJU_RPC_URL || process.env.L2_RPC_URL || DEFAULT_RPC;
 const CHAIN_ID = parseInt(process.env.CHAIN_ID || String(DEFAULT_CHAIN_ID));
 
-async function globalSetup(config: FullConfig) {
+async function globalSetup(_config: FullConfig) {
   console.log('\n🔧 Global Setup Starting...\n');
 
   // 1. Check if chain is running
@@ -123,7 +123,7 @@ async function globalSetup(config: FullConfig) {
       });
       
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as { result: string };
         const remoteChainId = parseInt(data.result, 16);
         
         if (remoteChainId === CHAIN_ID) {
@@ -150,24 +150,20 @@ async function globalSetup(config: FullConfig) {
   }
 
   // 2. Get block number
-  try {
-    const response = await fetch(JEJU_RPC, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'eth_blockNumber',
-        params: [],
-        id: 1,
-      }),
-    });
-    
-    const data = await response.json();
-    const blockNumber = parseInt(data.result, 16);
-    console.log(`   Block: ${blockNumber}`);
-  } catch {
-    // Non-fatal
-  }
+  const blockResponse = await fetch(JEJU_RPC, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      method: 'eth_blockNumber',
+      params: [],
+      id: 1,
+    }),
+  });
+  
+  const blockData = await blockResponse.json() as { result: string };
+  const blockNumber = parseInt(blockData.result, 16);
+  console.log(`   Block: ${blockNumber}`);
 
   // 3. Create output directory
   const outputDir = join(process.cwd(), 'test-results');

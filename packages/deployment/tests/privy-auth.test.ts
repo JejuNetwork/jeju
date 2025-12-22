@@ -41,7 +41,12 @@ interface MockPrivyUser {
 
 // ============ Configuration ============
 
-const PRIVY_APP_ID = process.env.PRIVY_APP_ID || process.env.PUBLIC_PRIVY_APP_ID;
+// Privy credentials - check both common env var names
+function getPrivyAppId(): string | undefined {
+  return process.env.PRIVY_APP_ID ?? process.env.PUBLIC_PRIVY_APP_ID;
+}
+
+const PRIVY_APP_ID = getPrivyAppId();
 const PRIVY_APP_SECRET = process.env.PRIVY_APP_SECRET;
 
 function isPrivyConfigured(): boolean {
@@ -84,7 +89,7 @@ function createMockPrivyClient(): MockPrivyClient {
       return { userId };
     },
     getUserById: async (userId: string) => {
-      return mockUsers[userId] || null;
+      return mockUsers[userId] ?? null;
     },
   };
 }
@@ -109,9 +114,10 @@ async function verifyPrivyToken(
 
   return {
     privyUserId: user.id,
+    // These fields are legitimately optional - not all users have all linked accounts
     farcasterFid: user.farcaster?.fid ? String(user.farcaster.fid) : null,
-    walletAddress: user.wallet?.address || null,
-    email: user.email?.address || null,
+    walletAddress: user.wallet?.address ?? null,
+    email: user.email?.address ?? null,
     isVerified: true,
   };
 }

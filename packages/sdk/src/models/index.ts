@@ -9,8 +9,7 @@
  */
 
 import type { Address, Hex } from "viem";
-import { createPublicClient, http, encodeFunctionData } from "viem";
-import type { PublicClient } from "viem";
+import { encodeFunctionData } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
 import { getContractAddresses } from "../config";
@@ -217,14 +216,24 @@ export interface ModelsModule {
   hasStarred(modelId: Hex, user?: Address): Promise<boolean>;
 
   // Write Operations
-  createModel(params: CreateModelParams): Promise<{ txHash: Hex; modelId: Hex }>;
-  publishVersion(params: PublishVersionParams): Promise<{ txHash: Hex; versionId: Hex }>;
+  createModel(
+    params: CreateModelParams,
+  ): Promise<{ txHash: Hex; modelId: Hex }>;
+  publishVersion(
+    params: PublishVersionParams,
+  ): Promise<{ txHash: Hex; versionId: Hex }>;
   recordProvenance(params: RecordProvenanceParams): Promise<{ txHash: Hex }>;
   downloadModel(modelId: Hex): Promise<{ txHash: Hex }>;
   grantAccess(modelId: Hex, user: Address): Promise<{ txHash: Hex }>;
   toggleStar(modelId: Hex): Promise<{ txHash: Hex }>;
-  createEndpoint(params: CreateEndpointParams): Promise<{ txHash: Hex; endpointId: Hex }>;
-  requestInference(modelId: Hex, endpointIndex: number, payment?: bigint): Promise<{ txHash: Hex }>;
+  createEndpoint(
+    params: CreateEndpointParams,
+  ): Promise<{ txHash: Hex; endpointId: Hex }>;
+  requestInference(
+    modelId: Hex,
+    endpointIndex: number,
+    payment?: bigint,
+  ): Promise<{ txHash: Hex }>;
 
   // Constants
   readonly UPLOAD_FEE: bigint;
@@ -234,38 +243,47 @@ export interface ModelsModule {
 // Implementation
 // ============================================================================
 
-export function createModelsModule(wallet: JejuWallet, network: NetworkType): ModelsModule {
+export function createModelsModule(
+  wallet: JejuWallet,
+  network: NetworkType,
+): ModelsModule {
   const contracts = getContractAddresses(network);
-  const modelRegistryAddress = (contracts.modelRegistry || "0x0000000000000000000000000000000000000000") as Address;
+  if (!contracts.modelRegistry) {
+    throw new Error(`ModelRegistry contract not deployed on ${network}`);
+  }
+  const modelRegistryAddress = contracts.modelRegistry;
 
   let cachedUploadFee: bigint | null = null;
 
   async function getUploadFee(): Promise<bigint> {
     if (cachedUploadFee !== null) return cachedUploadFee;
-    
-    const fee = await wallet.publicClient.readContract({
+
+    const fee = (await wallet.publicClient.readContract({
       address: modelRegistryAddress,
       abi: MODEL_REGISTRY_ABI,
       functionName: "uploadFee",
       args: [],
-    }) as bigint;
-    
+    })) as bigint;
+
     cachedUploadFee = fee;
     return fee;
   }
 
   return {
     get UPLOAD_FEE(): bigint {
-      return cachedUploadFee ?? 0n;
+      if (cachedUploadFee === null) {
+        throw new Error("Upload fee not yet loaded. Call any write method first.");
+      }
+      return cachedUploadFee;
     },
 
     async getModel(modelId: Hex): Promise<Model | null> {
-      const data = await wallet.publicClient.readContract({
+      const data = (await wallet.publicClient.readContract({
         address: modelRegistryAddress,
         abi: MODEL_REGISTRY_ABI,
         functionName: "getModel",
         args: [modelId],
-      }) as {
+      })) as {
         modelId: Hex;
         name: string;
         organization: string;
@@ -305,12 +323,12 @@ export function createModelsModule(wallet: JejuWallet, network: NetworkType): Mo
     },
 
     async listModels(offset = 0, limit = 100): Promise<Model[]> {
-      const modelIds = await wallet.publicClient.readContract({
+      const modelIds = (await wallet.publicClient.readContract({
         address: modelRegistryAddress,
         abi: MODEL_REGISTRY_ABI,
         functionName: "getAllModelIds",
         args: [BigInt(offset), BigInt(limit)],
-      }) as Hex[];
+      })) as Hex[];
 
       const models: Model[] = [];
       for (const id of modelIds) {
@@ -321,12 +339,12 @@ export function createModelsModule(wallet: JejuWallet, network: NetworkType): Mo
     },
 
     async getOrganizationModels(organization: string): Promise<Model[]> {
-      const modelIds = await wallet.publicClient.readContract({
+      const modelIds = (await wallet.publicClient.readContract({
         address: modelRegistryAddress,
         abi: MODEL_REGISTRY_ABI,
         functionName: "getOrganizationModels",
         args: [organization],
-      }) as Hex[];
+      })) as Hex[];
 
       const models: Model[] = [];
       for (const id of modelIds) {
@@ -346,27 +364,27 @@ export function createModelsModule(wallet: JejuWallet, network: NetworkType): Mo
           m.name.toLowerCase().includes(lowerQuery) ||
           m.description.toLowerCase().includes(lowerQuery) ||
           m.organization.toLowerCase().includes(lowerQuery) ||
-          m.tags.some((t) => t.toLowerCase().includes(lowerQuery))
+          m.tags.some((t) => t.toLowerCase().includes(lowerQuery)),
       );
     },
 
     async getTotalModels(): Promise<number> {
-      const total = await wallet.publicClient.readContract({
+      const total = (await wallet.publicClient.readContract({
         address: modelRegistryAddress,
         abi: MODEL_REGISTRY_ABI,
         functionName: "getTotalModels",
         args: [],
-      }) as bigint;
+      })) as bigint;
       return Number(total);
     },
 
     async getVersions(modelId: Hex): Promise<ModelVersion[]> {
-      const versions = await wallet.publicClient.readContract({
+      const versions = (await wallet.publicClient.readContract({
         address: modelRegistryAddress,
         abi: MODEL_REGISTRY_ABI,
         functionName: "getModelVersions",
         args: [modelId],
-      }) as readonly {
+      })) as readonly {
         versionId: Hex;
         modelId: Hex;
         version: string;
@@ -398,12 +416,12 @@ export function createModelsModule(wallet: JejuWallet, network: NetworkType): Mo
     },
 
     async getLatestVersion(modelId: Hex): Promise<ModelVersion | null> {
-      const v = await wallet.publicClient.readContract({
+      const v = (await wallet.publicClient.readContract({
         address: modelRegistryAddress,
         abi: MODEL_REGISTRY_ABI,
         functionName: "getLatestVersion",
         args: [modelId],
-      }) as {
+      })) as {
         versionId: Hex;
         modelId: Hex;
         version: string;
@@ -437,12 +455,12 @@ export function createModelsModule(wallet: JejuWallet, network: NetworkType): Mo
     },
 
     async getProvenance(versionId: Hex): Promise<TrainingProvenance | null> {
-      const p = await wallet.publicClient.readContract({
+      const p = (await wallet.publicClient.readContract({
         address: modelRegistryAddress,
         abi: MODEL_REGISTRY_ABI,
         functionName: "getProvenance",
         args: [versionId],
-      }) as {
+      })) as {
         modelId: Hex;
         versionId: Hex;
         datasetIds: readonly string[];
@@ -478,12 +496,12 @@ export function createModelsModule(wallet: JejuWallet, network: NetworkType): Mo
     },
 
     async getMetrics(modelId: Hex): Promise<ModelMetrics | null> {
-      const m = await wallet.publicClient.readContract({
+      const m = (await wallet.publicClient.readContract({
         address: modelRegistryAddress,
         abi: MODEL_REGISTRY_ABI,
         functionName: "getMetrics",
         args: [modelId],
-      }) as {
+      })) as {
         modelId: Hex;
         totalDownloads: bigint;
         totalInferences: bigint;
@@ -505,12 +523,12 @@ export function createModelsModule(wallet: JejuWallet, network: NetworkType): Mo
     },
 
     async getEndpoints(modelId: Hex): Promise<InferenceEndpoint[]> {
-      const endpoints = await wallet.publicClient.readContract({
+      const endpoints = (await wallet.publicClient.readContract({
         address: modelRegistryAddress,
         abi: MODEL_REGISTRY_ABI,
         functionName: "getEndpoints",
         args: [modelId],
-      }) as readonly {
+      })) as readonly {
         endpointId: Hex;
         modelId: Hex;
         versionId: Hex;
@@ -553,7 +571,9 @@ export function createModelsModule(wallet: JejuWallet, network: NetworkType): Mo
       })) as boolean;
     },
 
-    async createModel(params: CreateModelParams): Promise<{ txHash: Hex; modelId: Hex }> {
+    async createModel(
+      params: CreateModelParams,
+    ): Promise<{ txHash: Hex; modelId: Hex }> {
       const fee = await getUploadFee();
 
       const txHash = await wallet.sendTransaction({
@@ -580,7 +600,9 @@ export function createModelsModule(wallet: JejuWallet, network: NetworkType): Mo
       return { txHash, modelId };
     },
 
-    async publishVersion(params: PublishVersionParams): Promise<{ txHash: Hex; versionId: Hex }> {
+    async publishVersion(
+      params: PublishVersionParams,
+    ): Promise<{ txHash: Hex; versionId: Hex }> {
       const txHash = await wallet.sendTransaction({
         to: modelRegistryAddress,
         data: encodeFunctionData({
@@ -604,7 +626,9 @@ export function createModelsModule(wallet: JejuWallet, network: NetworkType): Mo
       return { txHash, versionId };
     },
 
-    async recordProvenance(params: RecordProvenanceParams): Promise<{ txHash: Hex }> {
+    async recordProvenance(
+      params: RecordProvenanceParams,
+    ): Promise<{ txHash: Hex }> {
       const txHash = await wallet.sendTransaction({
         to: modelRegistryAddress,
         data: encodeFunctionData({
@@ -668,7 +692,9 @@ export function createModelsModule(wallet: JejuWallet, network: NetworkType): Mo
       return { txHash };
     },
 
-    async createEndpoint(params: CreateEndpointParams): Promise<{ txHash: Hex; endpointId: Hex }> {
+    async createEndpoint(
+      params: CreateEndpointParams,
+    ): Promise<{ txHash: Hex; endpointId: Hex }> {
       const txHash = await wallet.sendTransaction({
         to: modelRegistryAddress,
         data: encodeFunctionData({
@@ -688,7 +714,11 @@ export function createModelsModule(wallet: JejuWallet, network: NetworkType): Mo
       return { txHash, endpointId };
     },
 
-    async requestInference(modelId: Hex, endpointIndex: number, payment?: bigint): Promise<{ txHash: Hex }> {
+    async requestInference(
+      modelId: Hex,
+      endpointIndex: number,
+      payment?: bigint,
+    ): Promise<{ txHash: Hex }> {
       const txHash = await wallet.sendTransaction({
         to: modelRegistryAddress,
         value: payment ?? 0n,
@@ -703,4 +733,3 @@ export function createModelsModule(wallet: JejuWallet, network: NetworkType): Mo
     },
   };
 }
-

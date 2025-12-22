@@ -107,8 +107,13 @@ export interface UniversalId {
 
 /**
  * Parse any CAIP identifier (CAIP-2, CAIP-10, or CAIP-19)
+ * @throws Error if the CAIP identifier is empty or invalid
  */
 export function parseUniversalId(caip: string): UniversalId {
+  if (!caip || typeof caip !== 'string') {
+    throw new Error('CAIP identifier must be a non-empty string');
+  }
+
   // CAIP-19 contains '/'
   if (caip.includes('/')) {
     const { chainId, assetNamespace, assetReference, tokenId } = parseAssetType(caip);
@@ -124,7 +129,11 @@ export function parseUniversalId(caip: string): UniversalId {
   }
 
   // Count colons to distinguish CAIP-2 from CAIP-10
-  const colonCount = (caip.match(/:/g) || []).length;
+  const colonCount = (caip.match(/:/g) ?? []).length;
+  
+  if (colonCount === 0) {
+    throw new Error(`Invalid CAIP identifier: ${caip} - must contain at least one colon`);
+  }
   
   if (colonCount === 1) {
     // CAIP-2: namespace:reference

@@ -1,7 +1,3 @@
-/**
- * Network React Context
- */
-
 import {
   createContext,
   useContext,
@@ -9,12 +5,13 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { z } from "zod";
 import {
   createJejuClient,
   type JejuClient,
   type JejuClientConfig,
 } from "@jejunetwork/sdk";
-import type { NetworkType } from "@jejunetwork/types";
+import { NetworkSchema, HexSchema, expectValid } from "@jejunetwork/types";
 import type { Hex, Account } from "viem";
 
 export interface NetworkContextValue {
@@ -29,9 +26,17 @@ const NetworkContext = createContext<NetworkContextValue>({
   error: null,
 });
 
+const NetworkProviderPropsSchema = z.object({
+  network: NetworkSchema.default("testnet"),
+  privateKey: HexSchema.optional(),
+  mnemonic: z.string().min(1).optional(),
+  smartAccount: z.boolean().default(true),
+  rpcUrl: z.string().url().optional(),
+});
+
 export interface NetworkProviderProps {
   children: ReactNode;
-  network?: NetworkType;
+  network?: z.infer<typeof NetworkSchema>;
   privateKey?: Hex;
   mnemonic?: string;
   account?: Account;
@@ -47,7 +52,7 @@ export function NetworkProvider({
   account,
   smartAccount = true,
   rpcUrl,
-}: NetworkProviderProps) {
+}: NetworkProviderProps): React.JSX.Element {
   const [client, setClient] = useState<JejuClient | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -58,17 +63,23 @@ export function NetworkProvider({
       return;
     }
 
-    const init = async () => {
+    const validatedConfig = expectValid(
+      NetworkProviderPropsSchema,
+      { network, privateKey, mnemonic, smartAccount, rpcUrl },
+      "NetworkProvider config",
+    );
+
+    const init = async (): Promise<void> => {
       setIsLoading(true);
       setError(null);
 
       const config: JejuClientConfig = {
-        network,
-        privateKey,
-        mnemonic,
+        network: validatedConfig.network,
+        privateKey: validatedConfig.privateKey,
+        mnemonic: validatedConfig.mnemonic,
         account,
-        smartAccount,
-        rpcUrl,
+        smartAccount: validatedConfig.smartAccount,
+        rpcUrl: validatedConfig.rpcUrl,
       };
 
       const jejuClient = await createJejuClient(config);
@@ -76,11 +87,11 @@ export function NetworkProvider({
       setIsLoading(false);
     };
 
-    init().catch((err) => {
+    init().catch((err: unknown) => {
       setError(err instanceof Error ? err : new Error(String(err)));
       setIsLoading(false);
     });
-  }, [network, privateKey, mnemonic, smartAccount, rpcUrl]);
+  }, [network, privateKey, mnemonic, account, smartAccount, rpcUrl]);
 
   return (
     <NetworkContext.Provider value={{ client, isLoading, error }}>

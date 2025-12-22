@@ -5,7 +5,7 @@
  * Supports compute marketplace for deep research
  */
 
-import { getDWSComputeUrl, getServiceUrl } from '@jejunetwork/config';
+import { getDWSComputeUrl } from '@jejunetwork/config';
 import { keccak256, stringToHex } from 'viem';
 import { checkDWSCompute, dwsGenerate } from './agents/runtime';
 import { parseJson } from './utils';
@@ -94,8 +94,10 @@ interface ComputeInferenceResult {
   latencyMs: number;
 }
 
-async function computeMarketplaceInference(prompt: string, systemPrompt: string): Promise<string | null> {
-  if (!COMPUTE_ENABLED) return null;
+async function computeMarketplaceInference(prompt: string, systemPrompt: string): Promise<string> {
+  if (!COMPUTE_ENABLED) {
+    throw new Error('Compute marketplace is not enabled');
+  }
 
   const request: ComputeInferenceRequest = {
     modelId: COMPUTE_MODEL,
@@ -116,35 +118,41 @@ async function computeMarketplaceInference(prompt: string, systemPrompt: string)
   });
 
   if (!response.ok) {
-    console.warn(`[ResearchAgent] Compute marketplace error: ${response.status}`);
-    return null;
+    throw new Error(`Compute marketplace inference failed: ${response.status} ${response.statusText}`);
   }
 
   const result = await response.json() as ComputeInferenceResult;
   console.log(`[ResearchAgent] Compute inference: ${result.tokensUsed?.input ?? 0}/${result.tokensUsed?.output ?? 0} tokens, ${result.latencyMs}ms, ${result.cost.amount} ${result.cost.currency}`);
-  return result.content ?? null;
+  
+  if (!result.content) {
+    throw new Error('Compute marketplace returned empty content');
+  }
+  
+  return result.content;
 }
 
 async function checkComputeMarketplace(): Promise<boolean> {
   if (!COMPUTE_ENABLED) return false;
   const computeEndpoint = getComputeEndpoint();
-  const response = await fetch(`${computeEndpoint}/health`).catch(() => null);
-  return response?.ok ?? false;
+  const response = await fetch(`${computeEndpoint}/health`);
+  return response.ok;
 }
 
 export class ResearchAgent {
   async conductResearch(request: ResearchRequest): Promise<ResearchReport> {
     const requestHash = keccak256(stringToHex(JSON.stringify(request)));
-    if (cache.has(requestHash)) return cache.get(requestHash)!;
+    const cachedReport = cache.get(requestHash);
+    if (cachedReport) return cachedReport;
 
     const startedAt = Date.now();
     const depth = request.depth ?? 'standard';
     
     // Try compute marketplace first for deep research
-    if (depth === 'deep' && await checkComputeMarketplace()) {
-      console.log('[ResearchAgent] Using compute marketplace for deep research');
-      const report = await this.generateComputeMarketplaceReport(request, requestHash, startedAt);
-      if (report) {
+    if (depth === 'deep') {
+      const computeAvailable = await checkComputeMarketplace().catch(() => false);
+      if (computeAvailable) {
+        console.log('[ResearchAgent] Using compute marketplace for deep research');
+        const report = await this.generateComputeMarketplaceReport(request, requestHash, startedAt);
         evictOldest();
         cache.set(requestHash, report);
         return report;
@@ -168,7 +176,7 @@ export class ResearchAgent {
     request: ResearchRequest,
     requestHash: string,
     startedAt: number
-  ): Promise<ResearchReport | null> {
+  ): Promise<ResearchReport> {
     const prompt = `Conduct comprehensive deep research on this DAO governance proposal:
 
 ID: ${request.proposalId}
@@ -190,7 +198,6 @@ Return JSON:
 {"summary":"...","recommendation":"proceed|reject|modify","confidenceLevel":0-100,"riskLevel":"low|medium|high|critical","keyFindings":[],"concerns":[],"alternatives":[],"sections":[{"title":"...","content":"...","confidence":0-100}]}`;
 
     const content = await computeMarketplaceInference(prompt, 'Expert DAO researcher and governance analyst. Provide thorough, objective analysis. Return only valid JSON.');
-    if (!content) return null;
 
     type ParsedReport = {
       summary: string;
@@ -204,26 +211,36 @@ Return JSON:
     };
     const parsed = parseJson<ParsedReport>(content);
     if (!parsed) {
-      console.warn('[ResearchAgent] Failed to parse compute marketplace response');
-      return null;
+      throw new Error(`Failed to parse compute marketplace response: ${content.slice(0, 200)}`);
     }
 
     const completedAt = Date.now();
-    const rec = ['proceed', 'reject', 'modify'].includes(parsed.recommendation) ? parsed.recommendation : 'modify';
-    const risk = ['low', 'medium', 'high', 'critical'].includes(parsed.riskLevel) ? parsed.riskLevel : 'medium';
+    
+    if (!parsed.recommendation || !['proceed', 'reject', 'modify'].includes(parsed.recommendation)) {
+      throw new Error(`Invalid recommendation in response: ${parsed.recommendation}`);
+    }
+    if (!parsed.riskLevel || !['low', 'medium', 'high', 'critical'].includes(parsed.riskLevel)) {
+      throw new Error(`Invalid riskLevel in response: ${parsed.riskLevel}`);
+    }
+    if (typeof parsed.confidenceLevel !== 'number' || parsed.confidenceLevel < 0 || parsed.confidenceLevel > 100) {
+      throw new Error(`Invalid confidenceLevel in response: ${parsed.confidenceLevel}`);
+    }
+    if (!parsed.summary || parsed.summary.length === 0) {
+      throw new Error('Missing summary in response');
+    }
 
     return {
       proposalId: request.proposalId,
       requestHash,
       model: `compute:${COMPUTE_MODEL}`,
-      sections: parsed.sections ?? [],
-      recommendation: rec as ResearchReport['recommendation'],
-      confidenceLevel: typeof parsed.confidenceLevel === 'number' ? parsed.confidenceLevel : 60,
-      riskLevel: risk as ResearchReport['riskLevel'],
-      summary: parsed.summary ?? 'Analysis complete.',
-      keyFindings: parsed.keyFindings ?? [],
-      concerns: parsed.concerns ?? [],
-      alternatives: parsed.alternatives ?? [],
+      sections: parsed.sections,
+      recommendation: parsed.recommendation as ResearchReport['recommendation'],
+      confidenceLevel: parsed.confidenceLevel,
+      riskLevel: parsed.riskLevel as ResearchReport['riskLevel'],
+      summary: parsed.summary,
+      keyFindings: parsed.keyFindings,
+      concerns: parsed.concerns,
+      alternatives: parsed.alternatives,
       startedAt,
       completedAt,
       executionTime: completedAt - startedAt,
@@ -254,18 +271,56 @@ Return JSON:
     }
 
     const completedAt = Date.now();
-    const rec = ['proceed', 'reject', 'modify'].includes(parsed.recommendation) ? parsed.recommendation : 'modify';
-    const risk = ['low', 'medium', 'high', 'critical'].includes(parsed.riskLevel) ? parsed.riskLevel : 'medium';
+    
+    // Validate required fields with fail-fast patterns
+    if (!parsed.recommendation || !['proceed', 'reject', 'modify'].includes(parsed.recommendation)) {
+      console.warn(`[ResearchAgent] Invalid recommendation '${parsed.recommendation}' - using heuristics`);
+      return this.generateHeuristicReport(request, requestHash, startedAt);
+    }
+    if (!parsed.riskLevel || !['low', 'medium', 'high', 'critical'].includes(parsed.riskLevel)) {
+      console.warn(`[ResearchAgent] Invalid riskLevel '${parsed.riskLevel}' - using heuristics`);
+      return this.generateHeuristicReport(request, requestHash, startedAt);
+    }
+    if (typeof parsed.confidenceLevel !== 'number' || parsed.confidenceLevel < 0 || parsed.confidenceLevel > 100) {
+      console.warn(`[ResearchAgent] Invalid confidenceLevel '${parsed.confidenceLevel}' - using heuristics`);
+      return this.generateHeuristicReport(request, requestHash, startedAt);
+    }
+    if (!parsed.summary || parsed.summary.length === 0) {
+      console.warn('[ResearchAgent] Missing summary - using heuristics');
+      return this.generateHeuristicReport(request, requestHash, startedAt);
+    }
+    if (!Array.isArray(parsed.sections)) {
+      console.warn('[ResearchAgent] Missing sections array - using heuristics');
+      return this.generateHeuristicReport(request, requestHash, startedAt);
+    }
+    if (!Array.isArray(parsed.keyFindings)) {
+      console.warn('[ResearchAgent] Missing keyFindings array - using heuristics');
+      return this.generateHeuristicReport(request, requestHash, startedAt);
+    }
+    if (!Array.isArray(parsed.concerns)) {
+      console.warn('[ResearchAgent] Missing concerns array - using heuristics');
+      return this.generateHeuristicReport(request, requestHash, startedAt);
+    }
+    if (!Array.isArray(parsed.alternatives)) {
+      console.warn('[ResearchAgent] Missing alternatives array - using heuristics');
+      return this.generateHeuristicReport(request, requestHash, startedAt);
+    }
 
     return {
-      proposalId: request.proposalId, requestHash, model: 'dws-compute',
-      sections: parsed.sections ?? [],
-      recommendation: rec as ResearchReport['recommendation'],
-      confidenceLevel: typeof parsed.confidenceLevel === 'number' ? parsed.confidenceLevel : 60,
-      riskLevel: risk as ResearchReport['riskLevel'],
-      summary: parsed.summary ?? 'Analysis complete.',
-      keyFindings: parsed.keyFindings ?? [], concerns: parsed.concerns ?? [], alternatives: parsed.alternatives ?? [],
-      startedAt, completedAt, executionTime: completedAt - startedAt,
+      proposalId: request.proposalId,
+      requestHash,
+      model: 'dws-compute',
+      sections: parsed.sections,
+      recommendation: parsed.recommendation as ResearchReport['recommendation'],
+      confidenceLevel: parsed.confidenceLevel,
+      riskLevel: parsed.riskLevel as ResearchReport['riskLevel'],
+      summary: parsed.summary,
+      keyFindings: parsed.keyFindings,
+      concerns: parsed.concerns,
+      alternatives: parsed.alternatives,
+      startedAt,
+      completedAt,
+      executionTime: completedAt - startedAt,
     };
   }
 

@@ -7,7 +7,7 @@
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { createJejuClient, type JejuClient } from "../../src";
 import { privateKeyToAccount } from "viem/accounts";
-import { zeroAddress, type Hex } from "viem";
+import { zeroAddress } from "viem";
 import { setupTestEnvironment, teardownTestEnvironment } from "../setup";
 
 describe("Oracle Module Integration Tests", () => {
@@ -31,11 +31,11 @@ describe("Oracle Module Integration Tests", () => {
       rpcUrl: env.rpcUrl,
       smartAccount: false,
     });
-  }, 90000);
+  });
 
   afterAll(async () => {
     await teardownTestEnvironment();
-  }, 10000);
+  });
 
   describe("Price Queries", () => {
     test("getPrice returns null for non-configured asset", async () => {

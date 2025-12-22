@@ -11,10 +11,12 @@ import {
 } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
+import { requireContract, getServicesConfig } from "../config";
 import {
-  getContract as getContractAddress,
-  getServicesConfig,
-} from "../config";
+  SwapQuoteResponseSchema,
+  PoolInfoResponseSchema,
+  PositionsResponseSchema,
+} from "../shared/schemas";
 
 export interface Token {
   address: Address;
@@ -224,21 +226,9 @@ export function createDefiModule(
   wallet: JejuWallet,
   network: NetworkType,
 ): DefiModule {
-  const swapRouterAddress = getContractAddress(
-    "defi",
-    "swapRouter",
-    network,
-  ) as Address;
-  const positionManagerAddress = getContractAddress(
-    "defi",
-    "positionManager",
-    network,
-  ) as Address;
-  const tokenFactoryAddress = getContractAddress(
-    "registry",
-    "tokenFactory",
-    network,
-  ) as Address;
+  const swapRouterAddress = requireContract("defi", "swapRouter", network);
+  const positionManagerAddress = requireContract("defi", "positionManager", network);
+  const tokenFactoryAddress = requireContract("registry", "tokenFactory", network);
   const services = getServicesConfig(network);
 
   async function getToken(address: Address): Promise<Token> {
@@ -302,12 +292,8 @@ export function createDefiModule(
       throw new Error(`Failed to get swap quote: ${response.statusText}`);
     }
 
-    const data = (await response.json()) as {
-      amountOut: string;
-      priceImpact: number;
-      route: Address[];
-      fee: string;
-    };
+    const rawData: unknown = await response.json();
+    const data = SwapQuoteResponseSchema.parse(rawData);
 
     const slippage = params.slippageBps ?? 50;
     const amountOut = BigInt(data.amountOut);
@@ -320,7 +306,7 @@ export function createDefiModule(
       amountOut,
       amountOutMin,
       priceImpact: data.priceImpact,
-      route: data.route,
+      route: data.route as Address[],
       fee: BigInt(data.fee),
     };
   }
@@ -361,22 +347,17 @@ export function createDefiModule(
     if (!response.ok)
       throw new Error(`Failed to list pools: ${response.statusText}`);
 
-    const data = (await response.json()) as {
-      pools: Array<{
-        poolId: Hex;
-        token0: Token;
-        token1: Token;
-        fee: number;
-        liquidity: string;
-        sqrtPriceX96: string;
-        tick: number;
-      }>;
-    };
+    const rawData: unknown = await response.json();
+    const data = PoolInfoResponseSchema.parse(rawData);
 
     return data.pools.map((p) => ({
-      ...p,
+      poolId: p.poolId as Hex,
+      token0: p.token0 as Token,
+      token1: p.token1 as Token,
+      fee: p.fee,
       liquidity: BigInt(p.liquidity),
       sqrtPriceX96: BigInt(p.sqrtPriceX96),
+      tick: p.tick,
     }));
   }
 
@@ -464,25 +445,17 @@ export function createDefiModule(
     const response = await fetch(
       `${services.gateway.api}/positions/${wallet.address}`,
     );
-    if (!response.ok) return [];
+    if (!response.ok) {
+      throw new Error(`Failed to list positions: ${response.statusText}`);
+    }
 
-    const data = (await response.json()) as {
-      positions: Array<{
-        positionId: string;
-        token0: Address;
-        token1: Address;
-        tickLower: number;
-        tickUpper: number;
-        liquidity: string;
-        feeGrowth0: string;
-        feeGrowth1: string;
-      }>;
-    };
+    const rawData: unknown = await response.json();
+    const data = PositionsResponseSchema.parse(rawData);
 
     return data.positions.map((p) => ({
       positionId: BigInt(p.positionId),
-      token0: p.token0,
-      token1: p.token1,
+      token0: p.token0 as Address,
+      token1: p.token1 as Address,
       tickLower: p.tickLower,
       tickUpper: p.tickUpper,
       liquidity: BigInt(p.liquidity),

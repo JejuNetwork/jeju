@@ -11,8 +11,8 @@
  */
 
 import type { Address, Hex, PublicClient, WalletClient } from 'viem';
-import { encodeFunctionData, parseEther, encodeAbiParameters } from 'viem';
-import type { Intent, IntentParams, IntentQuote, IntentRoute, IntentStatus } from './types';
+import { parseEther, encodeAbiParameters } from 'viem';
+import type { Intent, IntentParams, IntentQuote, IntentStatus } from './types';
 import { getChainContracts } from './chains';
 
 // ============================================================================
@@ -351,7 +351,6 @@ export class OIFClient {
       address: this.inputSettlerAddress,
       abi: INPUT_SETTLER_ABI,
       functionName: 'open',
-      // @ts-expect-error - Complex ABI tuple type
       args,
     });
 
@@ -438,10 +437,10 @@ export class OIFClient {
 
     if (result.user === ZERO_ADDRESS) return null;
 
-    let status: IntentStatus = 'created';
-    if (result.solver !== ZERO_ADDRESS) status = 'claimed';
+    let status: IntentStatus = 'open';
+    if (result.solver !== ZERO_ADDRESS) status = 'pending';
     if (result.filled) status = 'filled';
-    if (result.refunded) status = 'refunded';
+    if (result.refunded) status = 'expired';
 
     return {
       id: intentId,
@@ -538,7 +537,7 @@ export class OIFClient {
         const intent = await this.getIntent(intentId);
         if (intent) {
           callback(intent.status);
-          if (intent.status === 'filled' || intent.status === 'refunded') {
+          if (intent.status === 'filled' || intent.status === 'expired') {
             break;
           }
         }

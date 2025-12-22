@@ -4,7 +4,12 @@
     "jsx": "react-jsx",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["node", "bun"],
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "outDir": "./dist",
+    "declaration": true,
+    "declarationMap": true,
+    "rootDir": "./src",
+    "noEmit": false
   },
   "include": [
     "src/**/*"

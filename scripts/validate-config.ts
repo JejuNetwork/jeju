@@ -166,10 +166,6 @@ function validateTokensConfig(): void {
   results.push({ name, passed: true });
 }
 
-function validateAddressFormat(address: string): boolean {
-  return /^0x[a-fA-F0-9]{40}$/.test(address);
-}
-
 function validateEILConfig(): void {
   const path = join(CONFIG_DIR, 'eil.json');
   const name = 'EIL config';

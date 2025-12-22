@@ -34,7 +34,6 @@ Bun.serve({
     if (pathname.endsWith('.ts')) {
       const filePath = join(frontendDir, pathname);
       if (existsSync(filePath)) {
-        const code = readFileSync(filePath, 'utf-8');
         const transpiled = await Bun.build({
           entrypoints: [filePath],
           target: 'browser',

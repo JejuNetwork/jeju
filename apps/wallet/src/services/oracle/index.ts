@@ -4,7 +4,7 @@
  */
 
 import * as jeju from '../jeju';
-import { SupportedChainId, SUPPORTED_CHAINS } from '../rpc';
+import { SupportedChainId } from '../rpc';
 
 export interface GasPrice {
   slow: { gwei: number; estimatedTime: number };
@@ -30,23 +30,16 @@ const NATIVE_SYMBOLS: Record<number, string> = {
   420691: 'ETH',
 };
 
-// Fallback prices (used when oracle unavailable)
-const FALLBACK_PRICES: Record<string, number> = {
-  ETH: 3000,
-  BNB: 600,
-  USDC: 1,
-  USDT: 1,
-  DAI: 1,
-  WETH: 3000,
-};
-
 class OracleService {
   private priceCache = new Map<string, { price: number; timestamp: number }>();
   private cacheExpiry = 30_000; // 30 seconds
 
   // Get native token price in USD
   async getNativeTokenPrice(chainId: SupportedChainId): Promise<number> {
-    const symbol = NATIVE_SYMBOLS[chainId] || 'ETH';
+    const symbol = NATIVE_SYMBOLS[chainId];
+    if (!symbol) {
+      throw new Error(`No native token symbol configured for chain ${chainId}`);
+    }
     return this.getTokenPrice(symbol);
   }
 
@@ -57,68 +50,45 @@ class OracleService {
       return cached.price;
     }
 
-    try {
-      const prices = await jeju.getOraclePrices([symbol]);
-      const feed = prices.get(symbol);
-      
-      if (feed) {
-        const price = Number(feed.price) / 10 ** feed.decimals;
-        this.priceCache.set(symbol, { price, timestamp: Date.now() });
-        return price;
-      }
-    } catch (error) {
-      console.warn('Oracle fetch failed, using fallback:', error);
+    const prices = await jeju.getOraclePrices([symbol]);
+    const feed = prices.get(symbol);
+    
+    if (!feed) {
+      throw new Error(`No price feed for symbol: ${symbol}`);
     }
-
-    return FALLBACK_PRICES[symbol] || 0;
+    
+    const price = Number(feed.price) / 10 ** feed.decimals;
+    this.priceCache.set(symbol, { price, timestamp: Date.now() });
+    return price;
   }
 
   // Get multiple token prices
   async getTokenPrices(symbols: string[]): Promise<Map<string, number>> {
     const result = new Map<string, number>();
+    const prices = await jeju.getOraclePrices(symbols);
     
-    try {
-      const prices = await jeju.getOraclePrices(symbols);
-      
-      for (const symbol of symbols) {
-        const feed = prices.get(symbol);
-        if (feed) {
-          const price = Number(feed.price) / 10 ** feed.decimals;
-          result.set(symbol, price);
-          this.priceCache.set(symbol, { price, timestamp: Date.now() });
-        } else {
-          result.set(symbol, FALLBACK_PRICES[symbol] || 0);
-        }
+    for (const symbol of symbols) {
+      const feed = prices.get(symbol);
+      if (!feed) {
+        throw new Error(`No price feed for symbol: ${symbol}`);
       }
-    } catch {
-      // Use fallbacks
-      for (const symbol of symbols) {
-        result.set(symbol, FALLBACK_PRICES[symbol] || 0);
-      }
+      const price = Number(feed.price) / 10 ** feed.decimals;
+      result.set(symbol, price);
+      this.priceCache.set(symbol, { price, timestamp: Date.now() });
     }
 
     return result;
   }
 
   // Get gas prices for a chain
-  async getGasPrice(chainId: SupportedChainId): Promise<GasPrice> {
-    try {
-      const prices = await jeju.getGasPrice();
-      
-      return {
-        slow: { gwei: Number(prices.slow) / 1e9, estimatedTime: 120 },
-        standard: { gwei: Number(prices.standard) / 1e9, estimatedTime: 60 },
-        fast: { gwei: Number(prices.fast) / 1e9, estimatedTime: 15 },
-      };
-    } catch {
-      // Fallback based on chain
-      const base = chainId === 1 ? 30 : chainId === 56 ? 3 : 0.001;
-      return {
-        slow: { gwei: base * 0.8, estimatedTime: 120 },
-        standard: { gwei: base, estimatedTime: 60 },
-        fast: { gwei: base * 1.5, estimatedTime: 15 },
-      };
-    }
+  async getGasPrice(_chainId: SupportedChainId): Promise<GasPrice> {
+    const prices = await jeju.getGasPrice();
+    
+    return {
+      slow: { gwei: Number(prices.slow) / 1e9, estimatedTime: 120 },
+      standard: { gwei: Number(prices.standard) / 1e9, estimatedTime: 60 },
+      fast: { gwei: Number(prices.fast) / 1e9, estimatedTime: 15 },
+    };
   }
 
   // Convert token amount to USD

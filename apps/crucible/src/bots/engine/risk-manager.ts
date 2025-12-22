@@ -11,6 +11,9 @@
  */
 
 import type { ChainId, ExecutionResult } from '../autocrat-types';
+import { createLogger } from '../../sdk/logger';
+
+const log = createLogger('RiskManager');
 
 // Simplified opportunity type for risk assessment
 interface RiskOpportunity {
@@ -331,7 +334,7 @@ export class RiskManager {
    */
   resetDaily(): void {
     // Daily stats are calculated dynamically, no explicit reset needed
-    console.log('📊 Daily risk stats reset');
+    log.info('Daily risk stats reset');
   }
 
   // ============ Private Methods ============

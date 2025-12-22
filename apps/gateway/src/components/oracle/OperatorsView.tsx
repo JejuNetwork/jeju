@@ -1,7 +1,15 @@
-import { useState } from 'react';
-import { Users, Shield, Activity, TrendingUp, Clock, AlertCircle, CheckCircle } from 'lucide-react';
+import { useState, type ComponentType } from 'react';
+import { Users, Shield, Activity, TrendingUp, Clock, AlertCircle, CheckCircle, type LucideProps } from 'lucide-react';
 import { useAccount } from 'wagmi';
 import { useOperatorCommittees, useFeedRegistry } from '../../hooks/useOracleNetwork';
+
+const UsersIcon = Users as ComponentType<LucideProps>;
+const ShieldIcon = Shield as ComponentType<LucideProps>;
+const ActivityIcon = Activity as ComponentType<LucideProps>;
+const TrendingUpIcon = TrendingUp as ComponentType<LucideProps>;
+const ClockIcon = Clock as ComponentType<LucideProps>;
+const AlertCircleIcon = AlertCircle as ComponentType<LucideProps>;
+const CheckCircleIcon = CheckCircle as ComponentType<LucideProps>;
 
 interface OperatorsViewProps {
   onRegister?: () => void;
@@ -16,7 +24,7 @@ export function OperatorsView({ onRegister }: OperatorsViewProps) {
   if (!isConnected) {
     return (
       <div className="card p-8 text-center">
-        <Users size={48} className="mx-auto text-gray-400 mb-4" />
+        <UsersIcon size={48} className="mx-auto text-gray-400 mb-4" />
         <h3 className="text-lg font-semibold mb-2">Connect Wallet</h3>
         <p className="text-gray-500">
           Connect your wallet to register as an oracle operator or view your assignments.
@@ -31,17 +39,17 @@ export function OperatorsView({ onRegister }: OperatorsViewProps) {
       <div className="card p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-bold flex items-center gap-2">
-            <Shield size={20} />
+            <ShieldIcon size={20} />
             Operator Status
           </h3>
           {assignedFeeds.length > 0 ? (
             <span className="flex items-center gap-1 text-green-500 text-sm">
-              <CheckCircle size={16} />
+              <CheckCircleIcon size={16} />
               Active
             </span>
           ) : (
             <span className="flex items-center gap-1 text-gray-500 text-sm">
-              <AlertCircle size={16} />
+              <AlertCircleIcon size={16} />
               Not Registered
             </span>
           )}
@@ -81,7 +89,7 @@ export function OperatorsView({ onRegister }: OperatorsViewProps) {
                       {feedId.slice(0, 10)}...{feedId.slice(-8)}
                     </span>
                     <span className="flex items-center gap-1 text-green-500 text-xs">
-                      <Activity size={12} />
+                      <ActivityIcon size={12} />
                       Active
                     </span>
                   </div>
@@ -259,7 +267,7 @@ function OperatorRegistrationForm({
         {/* Info Box */}
         <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
           <div className="flex items-start gap-2">
-            <AlertCircle size={16} className="text-blue-500 mt-0.5" />
+            <AlertCircleIcon size={16} className="text-blue-500 mt-0.5" />
             <div className="text-sm">
               <p className="font-medium text-blue-700 dark:text-blue-300">
                 Requirements for Operators
@@ -408,7 +416,7 @@ function PerformanceMetrics() {
   return (
     <div className="card p-6">
       <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-        <TrendingUp size={20} />
+        <TrendingUpIcon size={20} />
         Performance Metrics
       </h3>
 
@@ -434,7 +442,7 @@ function PerformanceMetrics() {
       <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between text-sm">
           <span className="text-gray-500 flex items-center gap-1">
-            <Clock size={14} />
+            <ClockIcon size={14} />
             Current Epoch
           </span>
           <span className="font-mono">{metrics.epoch}</span>
@@ -498,7 +506,7 @@ function RequirementItem({
   return (
     <div className="flex items-start gap-3">
       <div className={`mt-0.5 ${met ? 'text-green-500' : 'text-gray-300'}`}>
-        {met ? <CheckCircle size={18} /> : <div className="w-4 h-4 rounded-full border-2 border-current" />}
+        {met ? <CheckCircleIcon size={18} /> : <div className="w-4 h-4 rounded-full border-2 border-current" />}
       </div>
       <div>
         <div className="font-medium text-sm">{title}</div>

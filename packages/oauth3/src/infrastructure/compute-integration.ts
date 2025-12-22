@@ -229,7 +229,8 @@ export class OAuth3ComputeService {
   async checkNodeHealth(endpoint: string): Promise<boolean> {
     if (!endpoint) return false;
     const response = await fetch(`${endpoint}/health`, { signal: AbortSignal.timeout(5000) }).catch(() => null);
-    return response?.ok ?? false;
+    if (!response) return false;
+    return response.ok;
   }
 
   async getTrustedMeasurements(): Promise<Hex[]> {

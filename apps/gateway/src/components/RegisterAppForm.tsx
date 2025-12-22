@@ -1,10 +1,14 @@
-import { useState } from 'react';
+import { useState, type ComponentType } from 'react';
 import { useAccount } from 'wagmi';
-import { AlertCircle, CheckCircle, Info } from 'lucide-react';
+import { AlertCircle, CheckCircle, Info, type LucideProps } from 'lucide-react';
 import TokenSelector, { TokenOption } from './TokenSelector';
 import { useProtocolTokens } from '../hooks/useProtocolTokens';
 import { useRegistry, useRequiredStake } from '../hooks/useRegistry';
 import { formatTokenAmount } from '../lib/tokenUtils';
+
+const InfoIcon = Info as ComponentType<LucideProps>;
+const AlertCircleIcon = AlertCircle as ComponentType<LucideProps>;
+const CheckCircleIcon = CheckCircle as ComponentType<LucideProps>;
 
 const AVAILABLE_TAGS = [
   { value: 'developer', label: 'Developer', icon: '👨‍💻' },
@@ -106,7 +110,7 @@ export default function RegisterAppForm() {
       {/* Info Banner */}
       <div className="card" style={{ marginBottom: '1rem', background: 'var(--primary-soft)', border: '1px solid var(--primary)' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
-          <Info size={20} style={{ color: 'var(--primary)', flexShrink: 0, marginTop: '2px' }} />
+          <InfoIcon size={20} style={{ color: 'var(--primary)', flexShrink: 0, marginTop: '2px' }} />
           <div>
             <p style={{ fontWeight: 600, color: 'var(--primary)', marginBottom: '0.25rem' }}>
               ERC-8004 Identity Registry
@@ -132,7 +136,7 @@ export default function RegisterAppForm() {
             alignItems: 'center',
             gap: '0.5rem',
           }}>
-            <AlertCircle size={20} style={{ color: 'var(--error)' }} />
+            <AlertCircleIcon size={20} style={{ color: 'var(--error)' }} />
             <span style={{ color: 'var(--error)' }}>{error}</span>
           </div>
         )}
@@ -146,7 +150,7 @@ export default function RegisterAppForm() {
             marginBottom: '1.5rem',
           }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
-              <CheckCircle size={20} style={{ color: 'var(--success)', flexShrink: 0, marginTop: '2px' }} />
+              <CheckCircleIcon size={20} style={{ color: 'var(--success)', flexShrink: 0, marginTop: '2px' }} />
               <div>
                 <span style={{ color: 'var(--success)', fontWeight: 600 }}>Registration successful!</span>
                 <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>

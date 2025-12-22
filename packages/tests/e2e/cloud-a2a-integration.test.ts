@@ -9,7 +9,7 @@
  */
 
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
-import { createPublicClient, http, getContract, toHex, zeroHash } from 'viem';
+import { createPublicClient, http, getContract, zeroHash } from 'viem';
 import { Logger } from '../../scripts/shared/logger';
 
 const logger = new Logger('cloud-a2a-e2e');
@@ -17,7 +17,7 @@ const logger = new Logger('cloud-a2a-e2e');
 // Test server
 let server: ReturnType<typeof Bun.serve> | null = null;
 const serverPort = 3333;
-const integration: { skillId: string; agentId: string } | null = null;
+const _integration: { skillId: string; agentId: string } | null = null;
 
 describe('Cloud A2A E2E - Server Setup', () => {
   beforeAll(async () => {
@@ -374,7 +374,7 @@ async function handleA2ARequest(req: Request): Promise<Response> {
         kind: 'message'
       }
     });
-  } catch (error) {
+  } catch (_error) {
     return Response.json({
       jsonrpc: '2.0',
       id: 1,

@@ -1,10 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ComponentType } from 'react';
 import { useWriteContract, useWaitForTransactionReceipt, useAccount, useReadContract } from 'wagmi';
 import { parseEther } from 'viem';
-import { Scale, Upload, AlertCircle } from 'lucide-react';
+import { Scale, Upload, AlertCircle, type LucideProps } from 'lucide-react';
 import { MODERATION_CONTRACTS } from '../../config/moderation';
+
+const AlertCircleIcon = AlertCircle as ComponentType<LucideProps>;
+const ScaleIcon = Scale as ComponentType<LucideProps>;
+const UploadIcon = Upload as ComponentType<LucideProps>;
 
 interface AppealSubmissionProps {
   agentId: bigint;
@@ -120,7 +124,7 @@ export default function AppealSubmission({ agentId: _agentId, proposalId, onSucc
   if (!canAppeal && proposalData) {
     return (
       <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-        <AlertCircle className="mx-auto text-red-500 mb-2" size={32} />
+        <AlertCircleIcon className="mx-auto text-red-500 mb-2" size={32} />
         <div className="font-semibold text-red-900 mb-1">Appeal Period Expired</div>
         <div className="text-sm text-red-700">
           Appeals must be submitted within 7 days of ban execution
@@ -139,7 +143,7 @@ export default function AppealSubmission({ agentId: _agentId, proposalId, onSucc
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <div className="flex items-start gap-2">
-          <Scale className="text-blue-500 mt-0.5" size={20} />
+          <ScaleIcon className="text-blue-500 mt-0.5" size={20} />
           <div>
             <div className="font-semibold text-blue-900">Appeal Process</div>
             <div className="text-sm text-blue-700 mt-1">
@@ -173,7 +177,7 @@ export default function AppealSubmission({ agentId: _agentId, proposalId, onSucc
         <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
           {!evidenceFile ? (
             <>
-              <Upload className="mx-auto text-gray-400 mb-2" size={32} />
+              <UploadIcon className="mx-auto text-gray-400 mb-2" size={32} />
               <p className="text-sm text-gray-600 mb-2">Upload evidence proving the ban was unjust</p>
               <input
                 type="file"

@@ -1,58 +1,41 @@
 /**
- * @fileoverview A2A (Agent-to-Agent) server for network monitoring
- * @module monitoring/server/a2a
+ * A2A (Agent-to-Agent) server for network monitoring
  * 
- * Exposes Prometheus metrics and network health status via the A2A protocol,
- * enabling AI agents to programmatically query blockchain network metrics.
+ * Exposes Prometheus metrics and network health status via the A2A protocol.
  */
 
 import { getNetworkName } from '@jejunetwork/config';
-
-const networkName = getNetworkName();
-
-/*
- * 
- * Features:
- * - Execute PromQL queries against Prometheus
- * - Retrieve active alerts and their status
- * - Query scrape targets health
- * - Get network performance metrics
- * 
- * @example Query metrics from an agent
- * ```typescript
- * const response = await fetch('http://localhost:9091/api/a2a', {
- *   method: 'POST',
- *   headers: { 'Content-Type': 'application/json' },
- *   body: JSON.stringify({
- *     jsonrpc: '2.0',
- *     method: 'message/send',
- *     params: {
- *       message: {
- *         messageId: 'msg-123',
- *         parts: [{
- *           kind: 'data',
- *           data: {
- *             skillId: 'query-metrics',
- *             query: 'rate(http_requests_total[5m])'
- *           }
- *         }]
- *       }
- *     },
- *     id: 1
- *   })
- * });
- * ```
- */
-
+import { z } from 'zod';
 import express from 'express';
 import cors from 'cors';
+import {
+  A2ARequestSchema,
+  PrometheusQueryResultSchema,
+  PrometheusAlertsResponseSchema,
+  PrometheusTargetsResponseSchema,
+  OIFStatsResponseSchema,
+  OIFSolverSchema,
+  OIFRouteSchema,
+} from '../types';
+
+const networkName = getNetworkName();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-const PROMETHEUS_URL = process.env.PROMETHEUS_URL || 'http://localhost:9090';
-const OIF_AGGREGATOR_URL = process.env.OIF_AGGREGATOR_URL || 'http://localhost:4010';
+const PROMETHEUS_URL = process.env.PROMETHEUS_URL;
+const OIF_AGGREGATOR_URL = process.env.OIF_AGGREGATOR_URL;
+
+if (!PROMETHEUS_URL) {
+  console.warn('⚠️ PROMETHEUS_URL not set, defaulting to http://localhost:9090');
+}
+if (!OIF_AGGREGATOR_URL) {
+  console.warn('⚠️ OIF_AGGREGATOR_URL not set, defaulting to http://localhost:4010');
+}
+
+const prometheusUrl = PROMETHEUS_URL ?? 'http://localhost:9090';
+const oifAggregatorUrl = OIF_AGGREGATOR_URL ?? 'http://localhost:4010';
 
 function formatVolume(amount: string): string {
   const value = parseFloat(amount) / 1e18;
@@ -126,7 +109,18 @@ app.get('/.well-known/agent-card.json', (_req, res) => {
 });
 
 app.post('/api/a2a', async (req, res) => {
-  const { method, params, id } = req.body;
+  // Validate incoming request
+  const parseResult = A2ARequestSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return res.json({
+      jsonrpc: '2.0',
+      id: req.body.id,
+      error: { code: -32600, message: `Invalid request: ${parseResult.error.message}` }
+    });
+  }
+
+  const { method, params, id } = parseResult.data;
+  
   if (method !== 'message/send') {
     return res.json({ 
       jsonrpc: '2.0', 
@@ -135,160 +129,197 @@ app.post('/api/a2a', async (req, res) => {
     });
   }
 
-  interface MessagePart {
-    kind: string;
-    data?: { skillId?: string; query?: string };
-  }
-  interface Message {
-    messageId: string;
-    parts: MessagePart[];
+  if (!params?.message) {
+    return res.json({
+      jsonrpc: '2.0',
+      id,
+      error: { code: -32600, message: 'Missing params.message' }
+    });
   }
 
-  const message = params?.message as Message | undefined;
-  const dataPart = message?.parts.find((p: MessagePart) => p.kind === 'data');
+  const message = params.message;
+  const dataPart = message.parts.find((p) => p.kind === 'data');
   const skillId = dataPart?.data?.skillId;
   const query = dataPart?.data?.query;
 
-  let result;
-  try {
-    switch (skillId) {
-      case 'query-metrics': {
-        if (!query) {
-          result = { message: 'Missing PromQL query', data: { error: 'query required' } };
-          break;
-        }
-        
-        const response = await fetch(`${PROMETHEUS_URL}/api/v1/query?query=${encodeURIComponent(query)}`);
-        const data = await response.json();
-        
-        result = { 
-          message: `Query results for: ${query}`, 
-          data: data.data 
-        };
+  let result: { message: string; data: Record<string, unknown> };
+
+  switch (skillId) {
+    case 'query-metrics': {
+      if (!query) {
+        result = { message: 'Missing PromQL query', data: { error: 'query required' } };
         break;
       }
-
-      case 'get-alerts': {
-        interface PrometheusAlert {
-          state: string;
-          labels: Record<string, string>;
-          annotations: Record<string, string>;
-        }
-        interface AlertsResponse {
-          data?: { alerts?: PrometheusAlert[] };
-        }
-        
-        const response = await fetch(`${PROMETHEUS_URL}/api/v1/alerts`);
-        const data = await response.json() as AlertsResponse;
-        
-        const activeAlerts = data.data?.alerts?.filter((a: PrometheusAlert) => a.state === 'firing') || [];
-        
-        result = { 
-          message: `Found ${activeAlerts.length} active alerts`, 
-          data: { alerts: activeAlerts } 
-        };
+      
+      const response = await fetch(`${prometheusUrl}/api/v1/query?query=${encodeURIComponent(query)}`);
+      if (!response.ok) {
+        result = { message: 'Prometheus query failed', data: { error: `HTTP ${response.status}` } };
         break;
       }
-
-      case 'get-targets': {
-        interface PrometheusTarget {
-          health: string;
-          labels: Record<string, string>;
-          lastScrape: string;
-        }
-        interface TargetsResponse {
-          data?: { activeTargets?: PrometheusTarget[] };
-        }
-        
-        const response = await fetch(`${PROMETHEUS_URL}/api/v1/targets`);
-        const data = await response.json() as TargetsResponse;
-        
-        const targets = data.data?.activeTargets || [];
-        const upCount = targets.filter((t: PrometheusTarget) => t.health === 'up').length;
-        
-        result = { 
-          message: `${upCount}/${targets.length} targets healthy`, 
-          data: { targets } 
-        };
+      
+      const rawData = await response.json();
+      const parsed = PrometheusQueryResultSchema.safeParse(rawData);
+      if (!parsed.success) {
+        result = { message: 'Invalid Prometheus response', data: { error: parsed.error.message } };
         break;
       }
-
-      // OIF Skills
-      case 'oif-stats': {
-        const response = await fetch(`${OIF_AGGREGATOR_URL}/api/stats`);
-        const stats = await response.json();
-        
-        result = {
-          message: `OIF Stats: ${stats.totalIntents} intents, ${stats.activeSolvers} solvers, $${formatVolume(stats.totalVolumeUsd)} volume`,
-          data: stats
-        };
-        break;
-      }
-
-      case 'oif-solver-health': {
-        const response = await fetch(`${OIF_AGGREGATOR_URL}/api/solvers?active=true`);
-        const solvers = await response.json();
-        
-        const healthySolvers = solvers.filter((s: { successRate: number }) => s.successRate >= 95);
-        const avgSuccessRate = solvers.length > 0 
-          ? solvers.reduce((sum: number, s: { successRate: number }) => sum + s.successRate, 0) / solvers.length 
-          : 0;
-        
-        result = {
-          message: `${healthySolvers.length}/${solvers.length} solvers healthy, avg success rate: ${avgSuccessRate.toFixed(1)}%`,
-          data: {
-            totalSolvers: solvers.length,
-            healthySolvers: healthySolvers.length,
-            avgSuccessRate,
-            solvers: solvers.map((s: { address: string; name: string; successRate: number; reputation: number }) => ({
-              address: s.address,
-              name: s.name,
-              successRate: s.successRate,
-              reputation: s.reputation
-            }))
-          }
-        };
-        break;
-      }
-
-      case 'oif-route-stats': {
-        const response = await fetch(`${OIF_AGGREGATOR_URL}/api/routes?active=true`);
-        const routes = await response.json();
-        
-        const totalVolume = routes.reduce((sum: bigint, r: { totalVolume: string }) => sum + BigInt(r.totalVolume), 0n);
-        const avgSuccessRate = routes.length > 0
-          ? routes.reduce((sum: number, r: { successRate: number }) => sum + r.successRate, 0) / routes.length
-          : 0;
-        
-        result = {
-          message: `${routes.length} active routes, ${formatVolume(totalVolume.toString())} ETH volume, ${avgSuccessRate.toFixed(1)}% success`,
-          data: {
-            totalRoutes: routes.length,
-            totalVolume: totalVolume.toString(),
-            avgSuccessRate,
-            routes: routes.map((r: { routeId: string; sourceChainId: number; destinationChainId: number; successRate: number; avgFillTimeSeconds: number }) => ({
-              routeId: r.routeId,
-              source: r.sourceChainId,
-              destination: r.destinationChainId,
-              successRate: r.successRate,
-              avgTime: r.avgFillTimeSeconds
-            }))
-          }
-        };
-        break;
-      }
-
-      default:
-        result = { message: 'Unknown skill', data: { error: 'invalid skillId' } };
+      
+      result = { 
+        message: `Query results for: ${query}`, 
+        data: parsed.data.data ?? { result: [] }
+      };
+      break;
     }
-  } catch (error) {
-    result = { 
-      message: 'Query failed', 
-      data: { error: error instanceof Error ? error.message : 'Unknown error' } 
-    };
+
+    case 'get-alerts': {
+      const response = await fetch(`${prometheusUrl}/api/v1/alerts`);
+      if (!response.ok) {
+        result = { message: 'Failed to fetch alerts', data: { error: `HTTP ${response.status}` } };
+        break;
+      }
+      
+      const rawData = await response.json();
+      const parsed = PrometheusAlertsResponseSchema.safeParse(rawData);
+      if (!parsed.success) {
+        result = { message: 'Invalid alerts response', data: { error: parsed.error.message } };
+        break;
+      }
+      
+      const activeAlerts = parsed.data.data.alerts.filter((a) => a.state === 'firing');
+      
+      result = { 
+        message: `Found ${activeAlerts.length} active alerts`, 
+        data: { alerts: activeAlerts } 
+      };
+      break;
+    }
+
+    case 'get-targets': {
+      const response = await fetch(`${prometheusUrl}/api/v1/targets`);
+      if (!response.ok) {
+        result = { message: 'Failed to fetch targets', data: { error: `HTTP ${response.status}` } };
+        break;
+      }
+      
+      const rawData = await response.json();
+      const parsed = PrometheusTargetsResponseSchema.safeParse(rawData);
+      if (!parsed.success) {
+        result = { message: 'Invalid targets response', data: { error: parsed.error.message } };
+        break;
+      }
+      
+      const targets = parsed.data.data.activeTargets;
+      const upCount = targets.filter((t) => t.health === 'up').length;
+      
+      result = { 
+        message: `${upCount}/${targets.length} targets healthy`, 
+        data: { targets } 
+      };
+      break;
+    }
+
+    case 'oif-stats': {
+      const response = await fetch(`${oifAggregatorUrl}/api/stats`);
+      if (!response.ok) {
+        result = { message: 'OIF stats unavailable', data: { error: `HTTP ${response.status}` } };
+        break;
+      }
+      
+      const rawData = await response.json();
+      const parsed = OIFStatsResponseSchema.safeParse(rawData);
+      if (!parsed.success) {
+        result = { message: 'Invalid OIF stats response', data: { error: parsed.error.message } };
+        break;
+      }
+      
+      const stats = parsed.data;
+      result = {
+        message: `OIF Stats: ${stats.totalIntents} intents, ${stats.activeSolvers} solvers, $${formatVolume(stats.totalVolumeUsd)} volume`,
+        data: stats
+      };
+      break;
+    }
+
+    case 'oif-solver-health': {
+      const response = await fetch(`${oifAggregatorUrl}/api/solvers?active=true`);
+      if (!response.ok) {
+        result = { message: 'OIF solvers unavailable', data: { error: `HTTP ${response.status}` } };
+        break;
+      }
+      
+      const rawData = await response.json();
+      const parsed = z.array(OIFSolverSchema).safeParse(rawData);
+      if (!parsed.success) {
+        result = { message: 'Invalid solvers response', data: { error: parsed.error.message } };
+        break;
+      }
+      
+      const solvers = parsed.data;
+      const healthySolvers = solvers.filter((s) => s.successRate >= 95);
+      const avgSuccessRate = solvers.length > 0 
+        ? solvers.reduce((sum, s) => sum + s.successRate, 0) / solvers.length 
+        : 0;
+      
+      result = {
+        message: `${healthySolvers.length}/${solvers.length} solvers healthy, avg success rate: ${avgSuccessRate.toFixed(1)}%`,
+        data: {
+          totalSolvers: solvers.length,
+          healthySolvers: healthySolvers.length,
+          avgSuccessRate,
+          solvers: solvers.map((s) => ({
+            address: s.address,
+            name: s.name,
+            successRate: s.successRate,
+            reputation: s.reputation
+          }))
+        }
+      };
+      break;
+    }
+
+    case 'oif-route-stats': {
+      const response = await fetch(`${oifAggregatorUrl}/api/routes?active=true`);
+      if (!response.ok) {
+        result = { message: 'OIF routes unavailable', data: { error: `HTTP ${response.status}` } };
+        break;
+      }
+      
+      const rawData = await response.json();
+      const parsed = z.array(OIFRouteSchema).safeParse(rawData);
+      if (!parsed.success) {
+        result = { message: 'Invalid routes response', data: { error: parsed.error.message } };
+        break;
+      }
+      
+      const routes = parsed.data;
+      const totalVolume = routes.reduce((sum, r) => sum + BigInt(r.totalVolume), 0n);
+      const avgSuccessRate = routes.length > 0
+        ? routes.reduce((sum, r) => sum + r.successRate, 0) / routes.length
+        : 0;
+      
+      result = {
+        message: `${routes.length} active routes, ${formatVolume(totalVolume.toString())} ETH volume, ${avgSuccessRate.toFixed(1)}% success`,
+        data: {
+          totalRoutes: routes.length,
+          totalVolume: totalVolume.toString(),
+          avgSuccessRate,
+          routes: routes.map((r) => ({
+            routeId: r.routeId,
+            source: r.sourceChainId,
+            destination: r.destinationChainId,
+            successRate: r.successRate,
+            avgTime: r.avgFillTimeSeconds
+          }))
+        }
+      };
+      break;
+    }
+
+    default:
+      result = { message: 'Unknown skill', data: { error: 'invalid skillId' } };
   }
 
-  res.json({
+  return res.json({
     jsonrpc: '2.0',
     id,
     result: { 
@@ -297,7 +328,7 @@ app.post('/api/a2a', async (req, res) => {
         { kind: 'text', text: result.message }, 
         { kind: 'data', data: result.data }
       ], 
-      messageId: message?.messageId ?? id, 
+      messageId: message.messageId, 
       kind: 'message' 
     }
   });

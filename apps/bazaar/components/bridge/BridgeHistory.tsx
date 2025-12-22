@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { useAccount } from 'wagmi';
-import { useProtocolTokens } from '../hooks/useProtocolTokens';
-import { formatTokenAmount } from '../lib/tokenUtils';
+import { useProtocolTokens } from '@/hooks/useProtocolTokens';
+import { formatTokenAmount } from '@/lib/tokenUtils';
 import { Clock, CheckCircle, XCircle, Loader, RefreshCw } from 'lucide-react';
-import { INDEXER_URL } from '../config';
+import { INDEXER_URL } from '@/config';
 
 interface BridgeTransfer {
   id: string;

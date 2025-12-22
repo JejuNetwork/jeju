@@ -30,17 +30,20 @@ export function useTokenRegistry() {
     minFee: number,
     maxFee: number
   ) => {
+    if (!registrationFee) {
+      throw new Error('Registration fee not loaded yet');
+    }
     writeContract({
       address: tokenRegistry,
       abi: TOKEN_REGISTRY_ABI,
       functionName: 'registerToken',
       args: [tokenAddress, oracleAddress, BigInt(minFee), BigInt(maxFee)],
-      value: registrationFee || parseEther('0.1'),
+      value: registrationFee,
     });
   };
 
   return {
-    allTokens: (allTokens as `0x${string}`[]) || [],
+    allTokens: allTokens ? (allTokens as `0x${string}`[]) : [],
     registrationFee,
     registerToken,
     isPending: isPending || isConfirming,

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { DollarSign, Plus, Clock, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { useState, type ComponentType } from 'react';
+import { DollarSign, Plus, Clock, CheckCircle, XCircle, Loader2, type LucideProps } from 'lucide-react';
 import { formatEther } from 'viem';
 import { useAccount } from 'wagmi';
 import {
@@ -10,6 +10,13 @@ import {
 } from '../../hooks/useOracleNetwork';
 import { formatTimestamp } from '../../lib/oracleNetwork';
 
+const DollarSignIcon = DollarSign as ComponentType<LucideProps>;
+const PlusIcon = Plus as ComponentType<LucideProps>;
+const ClockIcon = Clock as ComponentType<LucideProps>;
+const CheckCircleIcon = CheckCircle as ComponentType<LucideProps>;
+const XCircleIcon = XCircle as ComponentType<LucideProps>;
+const Loader2Icon = Loader2 as ComponentType<LucideProps>;
+
 export function SubscriptionsView() {
   const { isConnected } = useAccount();
   const { subscriptionIds, feeConfig, isSubscribing, subscribe } = useOracleSubscriptions();
@@ -18,7 +25,7 @@ export function SubscriptionsView() {
   if (!isConnected) {
     return (
       <div className="card p-8 text-center">
-        <DollarSign size={48} className="mx-auto text-gray-400 mb-4" />
+        <DollarSignIcon size={48} className="mx-auto text-gray-400 mb-4" />
         <h3 className="text-lg font-semibold mb-2">Connect Wallet</h3>
         <p className="text-gray-500">
           Connect your wallet to view and manage your oracle subscriptions.
@@ -43,7 +50,7 @@ export function SubscriptionsView() {
               className="button flex items-center gap-2"
               onClick={() => setShowNewSubscription(true)}
             >
-              <Plus size={14} />
+              <PlusIcon size={14} />
               New Subscription
             </button>
           </div>
@@ -62,7 +69,7 @@ export function SubscriptionsView() {
       {/* Subscription List */}
       {subscriptionIds.length === 0 ? (
         <div className="card p-8 text-center">
-          <DollarSign size={48} className="mx-auto text-gray-400 mb-4" />
+          <DollarSignIcon size={48} className="mx-auto text-gray-400 mb-4" />
           <h3 className="text-lg font-semibold mb-2">No Active Subscriptions</h3>
           <p className="text-gray-500 mb-4">
             Subscribe to oracle feeds to access real-time price data.
@@ -110,9 +117,9 @@ function SubscriptionCard({ subscriptionId }: SubscriptionCardProps) {
         <div>
           <div className="flex items-center gap-2 mb-1">
             {isActive ? (
-              <CheckCircle size={16} className="text-green-500" />
+              <CheckCircleIcon size={16} className="text-green-500" />
             ) : (
-              <XCircle size={16} className="text-red-500" />
+              <XCircleIcon size={16} className="text-red-500" />
             )}
             <span className="font-semibold">
               {subscription.feedIds.length} Feed{subscription.feedIds.length !== 1 ? 's' : ''}
@@ -132,7 +139,7 @@ function SubscriptionCard({ subscriptionId }: SubscriptionCardProps) {
 
         <div className="text-right">
           <div className="flex items-center gap-1 text-sm">
-            <Clock size={12} />
+            <ClockIcon size={12} />
             <span>Expires: {formatTimestamp(subscription.endTime)}</span>
           </div>
           <div className="text-xs text-gray-500">
@@ -263,12 +270,12 @@ function NewSubscriptionForm({ onClose, onSubscribe, isSubscribing }: NewSubscri
         >
           {isSubscribing ? (
             <>
-              <Loader2 size={14} className="animate-spin" />
+              <Loader2Icon size={14} className="animate-spin" />
               Subscribing...
             </>
           ) : (
             <>
-              <DollarSign size={14} />
+              <DollarSignIcon size={14} />
               Subscribe
             </>
           )}

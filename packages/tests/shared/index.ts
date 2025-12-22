@@ -1,5 +1,32 @@
 /** @jejunetwork/tests - Shared E2E test utilities */
 
+// Schemas - Zod validation for external data
+export * from './schemas';
+
+// Shared utilities - DRY consolidated code
+export {
+  // Constants (canonical source)
+  SEED_PHRASE,
+  PASSWORD,
+  TEST_WALLET_ADDRESS,
+  TEST_ACCOUNTS,
+  JEJU_CHAIN,
+  JEJU_CHAIN_ID,
+  JEJU_RPC_URL,
+  // Utilities
+  findJejuWorkspaceRoot,
+  checkRpcHealth,
+  isRpcAvailable,
+  checkContractsDeployed,
+  checkServiceHealth,
+  isServiceAvailable,
+  waitForRpc,
+  waitForService,
+  getRpcUrl,
+  getChainId,
+  getTestEnv,
+} from './utils';
+
 // Synpress
 export {
   test, expect, basicSetup, walletPassword,
@@ -10,9 +37,7 @@ export {
 
 export {
   createSynpressConfig, createWalletSetup, createSmokeTestConfig,
-  SEED_PHRASE, PASSWORD, TEST_WALLET_ADDRESS, TEST_ACCOUNTS,
-  JEJU_CHAIN, JEJU_CHAIN_ID, JEJU_RPC_URL, SYNPRESS_CACHE_DIR,
-  GLOBAL_SETUP_PATH, GLOBAL_TEARDOWN_PATH,
+  SYNPRESS_CACHE_DIR, GLOBAL_SETUP_PATH, GLOBAL_TEARDOWN_PATH,
   type SynpressConfigOptions, type WalletSetupOptions, type WalletSetupResult,
 } from './synpress.config.base';
 
@@ -20,14 +45,13 @@ export {
 export {
   createAppConfig,
   createPlaywrightConfig,
-  getTestEnv,
   type AppConfigOptions,
 } from './playwright.config.base';
 
 // Test infrastructure
-export { LockManager, withTestLock, type LockMetadata, type LockManagerOptions } from './lock-manager';
-export { runPreflightChecks, quickHealthCheck, waitForChain, type PreflightConfig, type PreflightResult, type PreflightCheck } from './preflight';
-export { warmupApps, quickWarmup, discoverAppsForWarmup, type AppConfig, type WarmupOptions, type WarmupResult, type AppWarmupResult } from './warmup';
+export { LockManager, withTestLock } from './lock-manager';
+export { runPreflightChecks, quickHealthCheck, waitForChain } from './preflight';
+export { warmupApps, quickWarmup, discoverAppsForWarmup } from './warmup';
 export { default as globalSetup, setupTestEnvironment } from './global-setup';
 
 // Bun test infrastructure

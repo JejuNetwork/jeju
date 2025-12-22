@@ -142,11 +142,12 @@ export class EVMClient {
     }
 
     // Get required fee
+    const payloadLength = params.payload?.length ?? 0;  // Payload is optional, default to 0 length
     const fee = await this.publicClient.readContract({
       address: this.config.bridgeAddress,
       abi: BRIDGE_ABI,
       functionName: 'getTransferFee',
-      args: [BigInt(params.destChainId), BigInt(params.payload?.length ?? 0)],
+      args: [BigInt(params.destChainId), BigInt(payloadLength)],
     });
 
     // Initiate transfer
@@ -297,7 +298,11 @@ export class EVMClient {
       6: TransferStatus.FAILED,
     };
 
-    return statusMap[Number(status)] ?? TransferStatus.PENDING;
+    const mappedStatus = statusMap[Number(status)];
+    if (!mappedStatus) {
+      throw new Error(`Unknown transfer status: ${status}`);
+    }
+    return mappedStatus;
   }
 
   /**
@@ -331,9 +336,10 @@ export class EVMClient {
    * Get token balance
    */
   async getTokenBalance(token: Address, account?: Address): Promise<bigint> {
+    // Use provided account or fall back to configured account
     const address = account ?? this.account?.address;
     if (!address) {
-      throw new Error('No account specified');
+      throw new Error('No account specified - provide account parameter or configure privateKey');
     }
 
     return await this.publicClient.readContract({
@@ -432,9 +438,10 @@ export class EVMClient {
 
   /**
    * Get the configured account address
+   * Returns null if no privateKey was provided during construction
    */
   getAddress(): Address | null {
-    return this.account?.address ?? null;
+    return this.account?.address ?? null;  // Legitimately optional - returns null if no wallet configured
   }
 
   /**

@@ -14,12 +14,10 @@ import {
   Copy,
   Terminal,
   X,
-  Tag,
   Shield,
   Globe,
   Lock,
   HardDrive,
-  BarChart3,
 } from 'lucide-react';
 import Link from 'next/link';
 import { clsx } from 'clsx';
@@ -47,7 +45,7 @@ const licenses = [
 ];
 
 export default function UploadDatasetPage() {
-  const { isConnected, address } = useAccount();
+  const { isConnected } = useAccount();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 

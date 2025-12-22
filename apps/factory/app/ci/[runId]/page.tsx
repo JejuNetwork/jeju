@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { clsx } from 'clsx';
@@ -30,17 +30,18 @@ import {
   Server,
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
-import { useWorkflowRun, useRunLogs, useCIActions, useArtifacts, type WorkflowRun, type LogEntry } from '@/lib/hooks/useCI';
+import { useWorkflowRun, useRunLogs, useCIActions, useArtifacts } from '@/lib/hooks/useCI';
 
-const DWS_API_URL = process.env.NEXT_PUBLIC_DWS_URL || 'http://localhost:4030';
+// Remove DWS_API_URL unused constant
+// const DWS_API_URL = process.env.NEXT_PUBLIC_DWS_URL || 'http://localhost:4030';
 
 const statusConfig = {
-  queued: { icon: Clock, color: 'text-neutral-400', bg: 'bg-neutral-500/20' },
+  queued: { icon: Clock, color: 'text-neutral-400', bg: 'bg-neutral-500/20', animate: false },
   in_progress: { icon: Loader2, color: 'text-blue-400', bg: 'bg-blue-500/20', animate: true },
-  completed: { icon: CheckCircle, color: 'text-green-400', bg: 'bg-green-500/20' },
-  failed: { icon: XCircle, color: 'text-red-400', bg: 'bg-red-500/20' },
-  skipped: { icon: AlertCircle, color: 'text-neutral-500', bg: 'bg-neutral-500/20' },
-  cancelled: { icon: StopCircle, color: 'text-yellow-400', bg: 'bg-yellow-500/20' },
+  completed: { icon: CheckCircle, color: 'text-green-400', bg: 'bg-green-500/20', animate: false },
+  failed: { icon: XCircle, color: 'text-red-400', bg: 'bg-red-500/20', animate: false },
+  skipped: { icon: AlertCircle, color: 'text-neutral-500', bg: 'bg-neutral-500/20', animate: false },
+  cancelled: { icon: StopCircle, color: 'text-yellow-400', bg: 'bg-yellow-500/20', animate: false },
 };
 
 export default function BuildDetailPage() {
@@ -48,7 +49,7 @@ export default function BuildDetailPage() {
   const runId = params.runId as string;
 
   const { run: build, isLoading, refetch } = useWorkflowRun(runId);
-  const { logs, isStreaming } = useRunLogs(runId);
+  const { logs } = useRunLogs(runId);
   const { cancelRun, rerunWorkflow } = useCIActions();
   const { artifacts, downloadArtifact } = useArtifacts(runId);
 
@@ -77,7 +78,8 @@ export default function BuildDetailPage() {
     if (s === 'completed') {
       return conclusion === 'success' ? statusConfig.completed : statusConfig.failed;
     }
-    return statusConfig[s as keyof typeof statusConfig] || statusConfig.queued;
+    const status = statusConfig[s as keyof typeof statusConfig];
+    return status || statusConfig.queued;
   };
 
   const copyLogs = () => {

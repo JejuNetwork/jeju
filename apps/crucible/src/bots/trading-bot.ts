@@ -173,9 +173,9 @@ export class TradingBot {
       const outputSettlers: Record<number, string> = {};
       for (const chainConfig of this.chainConfigs) {
         const addresses = this.config.contractAddresses?.[chainConfig.chainId];
-        if (addresses) {
-          inputSettlers[chainConfig.chainId] = addresses.xlpRouter ?? '';
-          outputSettlers[chainConfig.chainId] = addresses.xlpRouter ?? '';
+        if (addresses?.xlpRouter) {
+          inputSettlers[chainConfig.chainId] = addresses.xlpRouter;
+          outputSettlers[chainConfig.chainId] = addresses.xlpRouter;
         }
       }
       await this.solver.initialize(inputSettlers, outputSettlers);

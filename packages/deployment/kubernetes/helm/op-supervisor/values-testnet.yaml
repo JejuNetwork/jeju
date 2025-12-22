@@ -1,7 +1,11 @@
 # OP-Supervisor values for testnet
 # Enables Superchain native interop for cross-L2 messaging
 
-replicaCount: 1  # Enabled for OIF cross-chain attestations
+replicaCount: 0  # Disabled - needs complex multi-chain config not ready for testnet
+
+image:
+  repository: 502713364895.dkr.ecr.us-east-1.amazonaws.com/jeju/op-supervisor
+  tag: "testnet-latest"
 
 resources:
   limits:
@@ -11,18 +15,23 @@ resources:
     cpu: 500m
     memory: 1Gi
 
-nodeSelector: {}
+nodeSelector: null
 
-tolerations: []
+tolerations:
+  - key: workload
+    operator: Equal
+    value: rpc
+    effect: NoSchedule
 
 config:
   datadir: "/data"
   
   l1:
-    # Use internal L1 full node (Sepolia)
-    rpcUrl: "http://geth-l1.l1.svc.cluster.local:8545"
+    # Use public Sepolia RPC for testnet (internal L1 node has disk space issues)
+    rpcUrl: "https://rpc.sepolia.org"
     beacon:
-      url: "http://lighthouse.l1.svc.cluster.local:5052"
+      # Public beacon API (optional, empty to disable)
+      url: ""
   
   chains:
     # Jeju Testnet (our chain)

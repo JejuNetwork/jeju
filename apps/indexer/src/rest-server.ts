@@ -2,33 +2,84 @@ import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { getDataSource } from './lib/db';
 import { stakeRateLimiter, getRateLimitStats, RATE_LIMITS } from './lib/stake-rate-limiter';
-import { search, getAgentById, getPopularTags, SearchParams } from './lib/search';
+import { search, getAgentById, getPopularTags } from './lib/search';
 import { mapAgentSummary, mapBlockSummary, mapBlockDetail, mapTransactionSummary, mapTransactionDetail } from './lib/mappers';
+import { mapAccountResponse, mapContractResponse, mapTokenTransferResponse, mapOracleFeedResponse, mapOracleOperatorResponse, mapOracleReportResponse, mapOracleDisputeResponse, mapCrossServiceRequestResponse } from './lib/response-utils';
+import { mapNodeResponse } from './lib/node-utils';
+import { mapContainerListResponse } from './lib/container-utils';
+import { mapComputeProviderToList, mapStorageProviderToList } from './lib/provider-list-utils';
 import {
   Block, Transaction, Account, Contract, TokenTransfer,
   RegisteredAgent, NodeStake, ComputeProvider, StorageProvider,
   TagIndex, ContainerImage, CrossServiceRequest, ComputeRental,
-  StorageDeal, MarketplaceStats, OracleFeed, OracleOperator,
-  OracleReport, OracleDispute, OracleSubscription, OracleNetworkStats,
+  StorageDeal, OracleFeed, OracleOperator,
+  OracleReport, OracleDispute, OracleSubscription,
 } from './model';
 import { formatEther } from 'viem';
+import {
+  validateQuery,
+  validateParams,
+  restSearchParamsSchema,
+  agentsQuerySchema,
+  agentIdParamSchema,
+  agentTagParamSchema,
+  blocksQuerySchema,
+  blockNumberOrHashParamSchema,
+  transactionsQuerySchema,
+  transactionHashParamSchema,
+  accountAddressParamSchema,
+  contractsQuerySchema,
+  tokenTransfersQuerySchema,
+  nodesQuerySchema,
+  providersQuerySchema,
+  containersQuerySchema,
+  containerCidParamSchema,
+  crossServiceRequestsQuerySchema,
+  oracleFeedsQuerySchema,
+  oracleFeedIdParamSchema,
+  oracleOperatorsQuerySchema,
+  oracleOperatorAddressParamSchema,
+  oracleReportsQuerySchema,
+  oracleDisputesQuerySchema,
+  paginationSchema,
+  type SearchParams,
+} from './lib/validation';
+import { z } from 'zod';
+import { NotFoundError } from './lib/types';
+import { getMarketplaceStats, getOracleStats, getNetworkStats } from './lib/stats-utils';
+import { getFullStackProviders, getContainerDetail } from './lib/provider-utils';
+import { parseBlockIdentifier, buildBlockWhereClause } from './lib/block-utils';
+import {
+  buildContractsQuery,
+  buildTokenTransfersQuery,
+  buildOracleFeedsQuery,
+  buildOracleOperatorsQuery,
+  buildOracleReportsQuery,
+  buildOracleDisputesQuery,
+  buildContainersQuery,
+  buildCrossServiceRequestsQuery,
+} from './lib/query-utils';
+import { getOracleFeedDetail } from './lib/oracle-utils';
+import { getAgentsByTag } from './lib/agent-utils';
+import { getBlocks } from './lib/block-query-utils';
+import { getTransactions, getTransactionByHash } from './lib/transaction-utils';
+import { getAccountByAddress } from './lib/account-utils';
+import { getNodes } from './lib/node-query-utils';
+import { getProviders } from './lib/provider-query-utils';
+import { getOracleOperatorByAddress } from './lib/oracle-operator-utils';
+import { getBlockByIdentifier } from './lib/block-detail-utils';
 
 const REST_PORT = parseInt(process.env.REST_PORT || '4352');
+
+if (!REST_PORT || REST_PORT <= 0 || REST_PORT > 65535) {
+  throw new Error(`Invalid REST_PORT: ${REST_PORT}. Must be between 1 and 65535`);
+}
 
 type AsyncHandler = (req: Request, res: Response, next: NextFunction) => Promise<void>;
 const asyncHandler = (fn: AsyncHandler) => (req: Request, res: Response, next: NextFunction) => 
   Promise.resolve(fn(req, res, next)).catch(next);
 
-function parsePagination(query: Request['query'], defaults = { limit: 50, maxLimit: 100 }) {
-  const limitStr = Array.isArray(query.limit) ? query.limit[0] : query.limit;
-  const offsetStr = Array.isArray(query.offset) ? query.offset[0] : query.offset;
-  return {
-    limit: Math.min(defaults.maxLimit, parseInt(String(limitStr || defaults.limit)) || defaults.limit),
-    offset: Math.max(0, parseInt(String(offsetStr || '0')) || 0),
-  };
-}
-
-const app = express();
+const app: express.Application = express();
 app.use(cors());
 app.use(express.json());
 app.use(stakeRateLimiter({ skipPaths: ['/health', '/'] }));
@@ -72,37 +123,46 @@ app.get('/', (_req: Request, res: Response) => {
 
 app.get('/api/search', asyncHandler(async (req, res) => {
   const ds = await getDataSource();
-  const params: SearchParams = {
-    query: req.query.q as string,
-    endpointType: req.query.type as SearchParams['endpointType'],
-    tags: req.query.tags ? (req.query.tags as string).split(',') : undefined,
-    category: req.query.category as SearchParams['category'],
-    minStakeTier: req.query.minTier ? parseInt(req.query.minTier as string) : undefined,
-    verified: req.query.verified === 'true',
-    active: req.query.active !== 'false',
-    limit: Math.min(100, parseInt(req.query.limit as string) || 50),
-    offset: parseInt(req.query.offset as string) || 0,
+  const validated = validateQuery(restSearchParamsSchema, req.query, 'GET /api/search');
+  
+  const params: Partial<SearchParams> = {
+    query: validated.q,
+    endpointType: validated.type,
+    tags: validated.tags,
+    category: validated.category,
+    minStakeTier: validated.minTier,
+    verified: validated.verified,
+    active: validated.active,
+    limit: validated.limit,
+    offset: validated.offset,
   };
+  
   const results = await search(ds, params);
   res.json(results);
 }));
 
-app.get('/api/tags', asyncHandler(async (_req, res) => {
+app.get('/api/tags', asyncHandler(async (req, res) => {
   const ds = await getDataSource();
+  // Validate query params even if not used (for consistency and future-proofing)
+  validateQuery(z.object({}).passthrough(), req.query, 'GET /api/tags');
   const tags = await getPopularTags(ds, 100);
   res.json({ tags, total: tags.length });
 }));
 
 app.get('/api/agents', asyncHandler(async (req, res) => {
   const ds = await getDataSource();
-  const { limit, offset } = parsePagination(req.query);
-  const active = req.query.active !== 'false';
+  const validated = validateQuery(agentsQuerySchema, req.query, 'GET /api/agents');
+  
+  const where: { active?: boolean } = {};
+  if (validated.active !== undefined) {
+    where.active = validated.active;
+  }
   
   const [agents, total] = await ds.getRepository(RegisteredAgent).findAndCount({
-    where: { active },
+    where,
     order: { registeredAt: 'DESC' },
-    take: limit,
-    skip: offset,
+    take: validated.limit,
+    skip: validated.offset,
     relations: ['owner'],
   });
 
@@ -112,49 +172,44 @@ app.get('/api/agents', asyncHandler(async (req, res) => {
       owner: a.owner?.address,
     })),
     total,
-    limit,
-    offset,
+    limit: validated.limit,
+    offset: validated.offset,
   });
 }));
 
 app.get('/api/agents/:id', asyncHandler(async (req, res) => {
   const ds = await getDataSource();
-  const agent = await getAgentById(ds, req.params.id);
+  const { id } = validateParams(agentIdParamSchema, req.params, 'GET /api/agents/:id');
+  
+  const agent = await getAgentById(ds, id);
   if (!agent) {
-    res.status(404).json({ error: 'Agent not found' });
-    return;
+    throw new NotFoundError('Agent', id);
   }
+  
   res.json(agent);
 }));
 
 app.get('/api/agents/tag/:tag', asyncHandler(async (req, res) => {
   const ds = await getDataSource();
-  const { limit } = parsePagination(req.query);
-  const tag = req.params.tag.toLowerCase();
+  const { tag } = validateParams(agentTagParamSchema, req.params, 'GET /api/agents/tag/:tag');
+  const validated = validateQuery(paginationSchema, req.query, 'GET /api/agents/tag/:tag');
   
-  const agents = await ds.getRepository(RegisteredAgent)
-    .createQueryBuilder('a')
-    .where(':tag = ANY(a.tags)', { tag })
-    .andWhere('a.active = true')
-    .orderBy('a.stakeTier', 'DESC')
-    .take(limit)
-    .getMany();
-
+  const result = await getAgentsByTag(ds, tag, validated.limit);
+  
   res.json({
-    tag,
-    agents: agents.map(mapAgentSummary),
-    count: agents.length,
+    tag: result.tag,
+    agents: result.agents.map(mapAgentSummary),
+    count: result.agents.length,
   });
 }));
 
 app.get('/api/blocks', asyncHandler(async (req, res) => {
   const ds = await getDataSource();
-  const { limit, offset } = parsePagination(req.query, { limit: 20, maxLimit: 100 });
+  const validated = validateQuery(blocksQuerySchema, req.query, 'GET /api/blocks');
   
-  const blocks = await ds.getRepository(Block).find({
-    order: { number: 'DESC' },
-    take: limit,
-    skip: offset,
+  const blocks = await getBlocks(ds, {
+    limit: validated.limit,
+    offset: validated.offset,
   });
 
   res.json({
@@ -164,13 +219,11 @@ app.get('/api/blocks', asyncHandler(async (req, res) => {
 
 app.get('/api/blocks/:numberOrHash', asyncHandler(async (req, res) => {
   const ds = await getDataSource();
-  const param = req.params.numberOrHash;
-  const where = param.startsWith('0x') ? { hash: param } : { number: parseInt(param) };
+  const { numberOrHash } = validateParams(blockNumberOrHashParamSchema, req.params, 'GET /api/blocks/:numberOrHash');
   
-  const block = await ds.getRepository(Block).findOne({ where });
+  const block = await getBlockByIdentifier(ds, numberOrHash);
   if (!block) {
-    res.status(404).json({ error: 'Block not found' });
-    return;
+    throw new NotFoundError('Block', numberOrHash);
   }
   
   res.json({
@@ -182,13 +235,11 @@ app.get('/api/blocks/:numberOrHash', asyncHandler(async (req, res) => {
 
 app.get('/api/transactions', asyncHandler(async (req, res) => {
   const ds = await getDataSource();
-  const { limit, offset } = parsePagination(req.query, { limit: 20, maxLimit: 100 });
+  const validated = validateQuery(transactionsQuerySchema, req.query, 'GET /api/transactions');
   
-  const txs = await ds.getRepository(Transaction).find({
-    order: { blockNumber: 'DESC' },
-    take: limit,
-    skip: offset,
-    relations: ['from', 'to'],
+  const txs = await getTransactions(ds, {
+    limit: validated.limit,
+    offset: validated.offset,
   });
 
   res.json({
@@ -198,14 +249,12 @@ app.get('/api/transactions', asyncHandler(async (req, res) => {
 
 app.get('/api/transactions/:hash', asyncHandler(async (req, res) => {
   const ds = await getDataSource();
-  const tx = await ds.getRepository(Transaction).findOne({
-    where: { hash: req.params.hash },
-    relations: ['from', 'to', 'block'],
-  });
+  const { hash } = validateParams(transactionHashParamSchema, req.params, 'GET /api/transactions/:hash');
+  
+  const tx = await getTransactionByHash(ds, hash);
   
   if (!tx) {
-    res.status(404).json({ error: 'Transaction not found' });
-    return;
+    throw new NotFoundError('Transaction', hash);
   }
   
   res.json({
@@ -218,360 +267,132 @@ app.get('/api/transactions/:hash', asyncHandler(async (req, res) => {
 
 app.get('/api/accounts/:address', asyncHandler(async (req, res) => {
   const ds = await getDataSource();
-  const account = await ds.getRepository(Account).findOne({
-    where: { address: req.params.address.toLowerCase() },
-  });
+  const { address } = validateParams(accountAddressParamSchema, req.params, 'GET /api/accounts/:address');
+  
+  const account = await getAccountByAddress(ds, address);
   
   if (!account) {
-    res.status(404).json({ error: 'Account not found' });
-    return;
+    throw new NotFoundError('Account', address.toLowerCase());
   }
   
-  res.json({
-    address: account.address,
-    isContract: account.isContract,
-    transactionCount: account.transactionCount,
-    totalValueSent: account.totalValueSent.toString(),
-    totalValueReceived: account.totalValueReceived.toString(),
-    firstSeenBlock: account.firstSeenBlock,
-    lastSeenBlock: account.lastSeenBlock,
-    labels: account.labels,
-  });
+  res.json(mapAccountResponse(account));
 }));
 
 app.get('/api/contracts', asyncHandler(async (req, res) => {
   const ds = await getDataSource();
-  const { limit } = parsePagination(req.query, { limit: 20, maxLimit: 100 });
-  const type = req.query.type as string;
+  const validated = validateQuery(contractsQuerySchema, req.query, 'GET /api/contracts');
   
-  let query = ds.getRepository(Contract).createQueryBuilder('c')
-    .leftJoinAndSelect('c.creator', 'creator');
-  if (type) query = query.where('c.contractType = :type', { type: type.toUpperCase() });
+  const query = buildContractsQuery(ds, {
+    type: validated.type,
+    limit: validated.limit,
+  });
   
-  const contracts = await query.orderBy('c.firstSeenAt', 'DESC').take(limit).getMany();
+  const contracts = await query.getMany();
 
   res.json({
-    contracts: contracts.map(c => ({
-      address: c.address,
-      contractType: c.contractType,
-      isERC20: c.isERC20,
-      isERC721: c.isERC721,
-      isERC1155: c.isERC1155,
-      creator: c.creator?.address,
-      firstSeenAt: c.firstSeenAt.toISOString(),
-    })),
+    contracts: contracts.map(mapContractResponse),
   });
 }));
 
 app.get('/api/tokens/transfers', asyncHandler(async (req, res) => {
   const ds = await getDataSource();
-  const { limit } = parsePagination(req.query, { limit: 20, maxLimit: 100 });
-  const token = req.query.token as string;
+  const validated = validateQuery(tokenTransfersQuerySchema, req.query, 'GET /api/tokens/transfers');
   
-  let query = ds.getRepository(TokenTransfer).createQueryBuilder('t')
-    .leftJoinAndSelect('t.from', 'from')
-    .leftJoinAndSelect('t.to', 'to')
-    .leftJoinAndSelect('t.token', 'token');
-  if (token) query = query.where('token.address = :token', { token: token.toLowerCase() });
+  const query = buildTokenTransfersQuery(ds, {
+    token: validated.token,
+    limit: validated.limit,
+  });
   
-  const transfers = await query.orderBy('t.timestamp', 'DESC').take(limit).getMany();
+  const transfers = await query.getMany();
 
   res.json({
-    transfers: transfers.map(t => ({
-      id: t.id,
-      token: t.token?.address,
-      from: t.from?.address,
-      to: t.to?.address,
-      value: t.value?.toString(),
-      tokenId: t.tokenId,
-      tokenStandard: t.tokenStandard,
-      timestamp: t.timestamp.toISOString(),
-    })),
+    transfers: transfers.map(mapTokenTransferResponse),
   });
 }));
 
 app.get('/api/nodes', asyncHandler(async (req, res) => {
   const ds = await getDataSource();
-  const { limit } = parsePagination(req.query);
-  const active = req.query.active !== 'false';
+  const validated = validateQuery(nodesQuerySchema, req.query, 'GET /api/nodes');
   
-  const nodes = await ds.getRepository(NodeStake).find({
-    where: active ? { isActive: true } : {},
-    order: { stakedValueUSD: 'DESC' },
-    take: limit,
+  const nodes = await getNodes(ds, {
+    active: validated.active,
+    limit: validated.limit,
   });
 
   res.json({
-    nodes: nodes.map(n => ({
-      nodeId: n.nodeId,
-      operator: n.operator,
-      stakedToken: n.stakedToken,
-      stakedAmount: n.stakedAmount.toString(),
-      stakedValueUSD: n.stakedValueUSD.toString(),
-      rpcUrl: n.rpcUrl,
-      geographicRegion: n.geographicRegion,
-      isActive: n.isActive,
-      isSlashed: n.isSlashed,
-      uptimeScore: n.currentUptimeScore?.toString(),
-    })),
+    nodes: nodes.map(mapNodeResponse),
     total: nodes.length,
   });
 }));
 
 app.get('/api/providers', asyncHandler(async (req, res) => {
   const ds = await getDataSource();
-  const { limit } = parsePagination(req.query);
-  const type = req.query.type as string;
+  const validated = validateQuery(providersQuerySchema, req.query, 'GET /api/providers');
   
-  type ProviderInfo = { type: 'compute' | 'storage'; address: string; name: string; endpoint: string; agentId: number | null; isActive: boolean };
-  const providers: ProviderInfo[] = [];
+  const result = await getProviders(ds, {
+    type: validated.type,
+    limit: validated.limit,
+  });
 
-  if (!type || type === 'compute') {
-    const compute = await ds.getRepository(ComputeProvider).find({ where: { isActive: true }, take: limit });
-    providers.push(...compute.map(p => ({
-      type: 'compute' as const, address: p.address, name: p.name || 'Compute Provider',
-      endpoint: p.endpoint, agentId: p.agentId || null, isActive: p.isActive,
-    })));
-  }
-
-  if (!type || type === 'storage') {
-    const storage = await ds.getRepository(StorageProvider).find({ where: { isActive: true }, take: limit });
-    providers.push(...storage.map(p => ({
-      type: 'storage' as const, address: p.address, name: p.name,
-      endpoint: p.endpoint, agentId: p.agentId || null, isActive: p.isActive,
-    })));
-  }
-
-  res.json({ providers, total: providers.length });
+  res.json(result);
 }));
 
 app.get('/api/containers', asyncHandler(async (req, res) => {
   const ds = await getDataSource();
-  const { limit, offset } = parsePagination(req.query);
-  const verified = req.query.verified === 'true';
-  const gpuRequired = req.query.gpu === 'true';
-  const teeRequired = req.query.tee === 'true';
+  const validated = validateQuery(containersQuerySchema, req.query, 'GET /api/containers');
   
-  let query = ds.getRepository(ContainerImage).createQueryBuilder('c')
-    .leftJoinAndSelect('c.storageProvider', 'sp')
-    .leftJoinAndSelect('c.uploadedBy', 'uploader');
+  const query = buildContainersQuery(ds, {
+    verified: validated.verified,
+    gpu: validated.gpu,
+    tee: validated.tee,
+    limit: validated.limit,
+    offset: validated.offset,
+  });
   
-  if (verified) query = query.andWhere('c.verified = :verified', { verified: true });
-  if (gpuRequired) query = query.andWhere('c.gpuRequired = :gpu', { gpu: true });
-  if (teeRequired) query = query.andWhere('c.teeRequired = :tee', { tee: true });
-  
-  const [containers, total] = await query.orderBy('c.pullCount', 'DESC').take(limit).skip(offset).getManyAndCount();
+  const [containers, total] = await query.getManyAndCount();
 
   res.json({
-    containers: containers.map(c => ({
-      cid: c.cid,
-      name: c.name,
-      tag: c.tag,
-      sizeBytes: c.sizeBytes.toString(),
-      uploadedAt: c.uploadedAt.toISOString(),
-      uploadedBy: c.uploadedBy?.address,
-      storageProvider: c.storageProvider?.address,
-      tier: c.tier,
-      architecture: c.architecture,
-      gpuRequired: c.gpuRequired,
-      minGpuVram: c.minGpuVram,
-      teeRequired: c.teeRequired,
-      verified: c.verified,
-      pullCount: c.pullCount,
-      lastPulledAt: c.lastPulledAt?.toISOString(),
-    })),
+    containers: containers.map(mapContainerListResponse),
     total,
-    limit,
-    offset,
+    limit: validated.limit,
+    offset: validated.offset,
   });
 }));
 
 app.get('/api/containers/:cid', asyncHandler(async (req: Request, res: Response) => {
   const ds = await getDataSource();
-  const repo = ds.getRepository(ContainerImage);
-  
-  const container = await repo.findOne({
-    where: { cid: req.params.cid },
-    relations: ['storageProvider', 'uploadedBy', 'verifiedBy'],
-  });
-  
-  if (!container) {
-    res.status(404).json({ error: 'Container not found' });
-    return;
-  }
-  
-  const computeRepo = ds.getRepository(ComputeProvider);
-  const compatibleProviders = await computeRepo.find({
-    where: { isActive: true },
-    order: { totalEarnings: 'DESC' },
-    take: 10,
-  });
-  
-  res.json({
-    container: {
-      cid: container.cid,
-      name: container.name,
-      tag: container.tag,
-      sizeBytes: container.sizeBytes.toString(),
-      uploadedAt: container.uploadedAt.toISOString(),
-      uploadedBy: container.uploadedBy?.address,
-      storageProvider: container.storageProvider ? {
-        address: container.storageProvider.address,
-        name: container.storageProvider.name,
-        endpoint: container.storageProvider.endpoint,
-      } : null,
-      tier: container.tier,
-      expiresAt: container.expiresAt?.toISOString(),
-      architecture: container.architecture,
-      gpuRequired: container.gpuRequired,
-      minGpuVram: container.minGpuVram,
-      teeRequired: container.teeRequired,
-      contentHash: container.contentHash,
-      verified: container.verified,
-      verifiedBy: container.verifiedBy?.agentId?.toString(),
-      pullCount: container.pullCount,
-      lastPulledAt: container.lastPulledAt?.toISOString(),
-    },
-    compatibleProviders: compatibleProviders.map(p => ({
-      address: p.address,
-      name: p.name || 'Compute Provider',
-      endpoint: p.endpoint,
-      agentId: p.agentId,
-      isActive: p.isActive,
-    })),
-  });
+  const { cid } = validateParams(containerCidParamSchema, req.params, 'GET /api/containers/:cid');
+  const result = await getContainerDetail(ds, cid);
+  res.json(result);
 }));
 
 app.get('/api/cross-service/requests', asyncHandler(async (req, res) => {
   const ds = await getDataSource();
-  const { limit, offset } = parsePagination(req.query);
-  const status = req.query.status as string;
-  const type = req.query.type as string;
+  const validated = validateQuery(crossServiceRequestsQuerySchema, req.query, 'GET /api/cross-service/requests');
   
-  let query = ds.getRepository(CrossServiceRequest).createQueryBuilder('r')
-    .leftJoinAndSelect('r.requester', 'requester')
-    .leftJoinAndSelect('r.containerImage', 'container')
-    .leftJoinAndSelect('r.sourceProvider', 'storage')
-    .leftJoinAndSelect('r.destinationProvider', 'compute');
+  const query = buildCrossServiceRequestsQuery(ds, {
+    status: validated.status,
+    type: validated.type,
+    limit: validated.limit,
+    offset: validated.offset,
+  });
   
-  if (status) query = query.andWhere('r.status = :status', { status: status.toUpperCase() });
-  if (type) query = query.andWhere('r.requestType = :type', { type: type.toUpperCase() });
-  
-  const [requests, total] = await query.orderBy('r.createdAt', 'DESC').take(limit).skip(offset).getManyAndCount();
+  const [requests, total] = await query.getManyAndCount();
 
   res.json({
-    requests: requests.map(r => ({
-      requestId: r.requestId,
-      requester: r.requester?.address,
-      type: r.requestType,
-      sourceCid: r.sourceCid,
-      sourceProvider: r.sourceProvider?.address,
-      destinationProvider: r.destinationProvider?.address,
-      status: r.status,
-      createdAt: r.createdAt.toISOString(),
-      completedAt: r.completedAt?.toISOString(),
-      storageCost: r.storageCost.toString(),
-      bandwidthCost: r.bandwidthCost.toString(),
-      totalCost: r.totalCost.toString(),
-      error: r.error,
-      txHash: r.txHash,
-      blockNumber: r.blockNumber,
-    })),
+    requests: requests.map(mapCrossServiceRequestResponse),
     total,
-    limit,
-    offset,
+    limit: validated.limit,
+    offset: validated.offset,
   });
 }));
 
-app.get('/api/marketplace/stats', asyncHandler(async (_req, res) => {
+app.get('/api/marketplace/stats', asyncHandler(async (req, res) => {
   const ds = await getDataSource();
-  
-  // Compute stats
-  const computeRepo = ds.getRepository(ComputeProvider);
-  const computeProviders = await computeRepo.find();
-  const activeCompute = computeProviders.filter(p => p.isActive);
-  const agentLinkedCompute = computeProviders.filter(p => p.agentId && p.agentId > 0);
-  const totalComputeStake = computeProviders.reduce((sum, p) => sum + (p.stakeAmount || 0n), 0n);
-  const totalComputeEarnings = computeProviders.reduce((sum, p) => sum + (p.totalEarnings || 0n), 0n);
-  
-  // Storage stats
-  const storageRepo = ds.getRepository(StorageProvider);
-  const storageProviders = await storageRepo.find();
-  const activeStorage = storageProviders.filter(p => p.isActive);
-  const agentLinkedStorage = storageProviders.filter(p => p.agentId && p.agentId > 0);
-  const totalStorageStake = storageProviders.reduce((sum, p) => sum + (p.stakeAmount || 0n), 0n);
-  const totalCapacity = storageProviders.reduce((sum, p) => sum + Number(p.totalCapacityGB || 0n), 0);
-  const usedCapacity = storageProviders.reduce((sum, p) => sum + Number(p.usedCapacityGB || 0n), 0);
-  
-  // Cross-service stats
-  const containerRepo = ds.getRepository(ContainerImage);
-  const requestRepo = ds.getRepository(CrossServiceRequest);
-  const [totalContainers, verifiedContainers] = await Promise.all([
-    containerRepo.count(),
-    containerRepo.count({ where: { verified: true } }),
-  ]);
-  const [totalRequests, successfulRequests] = await Promise.all([
-    requestRepo.count(),
-    requestRepo.count({ where: { status: 'COMPLETED' as never } }),
-  ]);
-  
-  // Rental stats
-  const rentalRepo = ds.getRepository(ComputeRental);
-  const dealRepo = ds.getRepository(StorageDeal);
-  const [totalRentals, activeRentals] = await Promise.all([
-    rentalRepo.count(),
-    rentalRepo.count({ where: { status: 'ACTIVE' as never } }),
-  ]);
-  const [totalDeals, activeDeals] = await Promise.all([
-    dealRepo.count(),
-    dealRepo.count({ where: { status: 'ACTIVE' as never } }),
-  ]);
-  
-  // Agent stats
-  const agentRepo = ds.getRepository(RegisteredAgent);
-  const totalAgents = await agentRepo.count({ where: { active: true } });
-  const bannedAgents = await agentRepo.count({ where: { isBanned: true } });
-  
-  // Full-stack agents (both compute and storage with same agent ID)
-  const computeAgentIds = new Set(agentLinkedCompute.map(p => p.agentId));
-  const fullStackCount = agentLinkedStorage.filter(p => p.agentId && computeAgentIds.has(p.agentId)).length;
-
-  res.json({
-    compute: {
-      totalProviders: computeProviders.length,
-      activeProviders: activeCompute.length,
-      agentLinkedProviders: agentLinkedCompute.length,
-      totalRentals,
-      activeRentals,
-      totalStakedETH: formatEther(totalComputeStake),
-      totalEarningsETH: formatEther(totalComputeEarnings),
-    },
-    storage: {
-      totalProviders: storageProviders.length,
-      activeProviders: activeStorage.length,
-      agentLinkedProviders: agentLinkedStorage.length,
-      totalDeals,
-      activeDeals,
-      totalCapacityTB: (totalCapacity / 1024).toFixed(2),
-      usedCapacityTB: (usedCapacity / 1024).toFixed(2),
-      totalStakedETH: formatEther(totalStorageStake),
-    },
-    crossService: {
-      totalContainerImages: totalContainers,
-      verifiedContainerImages: verifiedContainers,
-      totalCrossServiceRequests: totalRequests,
-      successfulRequests,
-      fullStackAgents: fullStackCount,
-    },
-    erc8004: {
-      totalRegisteredAgents: totalAgents,
-      computeAgents: agentLinkedCompute.length,
-      storageAgents: agentLinkedStorage.length,
-      fullStackAgents: fullStackCount,
-      bannedAgents,
-    },
-    lastUpdated: new Date().toISOString(),
-  });
+  // Validate query params even if not used (for consistency and future-proofing)
+  validateQuery(z.object({}).passthrough(), req.query, 'GET /api/marketplace/stats');
+  const stats = await getMarketplaceStats(ds);
+  res.json(stats);
 }));
 
 // ============================================================================
@@ -580,385 +401,131 @@ app.get('/api/marketplace/stats', asyncHandler(async (_req, res) => {
 
 app.get('/api/full-stack', asyncHandler(async (req: Request, res: Response) => {
   const ds = await getDataSource();
-  const limit = Math.min(50, parseInt(req.query.limit as string) || 20);
-  
-  // Find agents that are linked to both compute and storage providers
-  const computeRepo = ds.getRepository(ComputeProvider);
-  const storageRepo = ds.getRepository(StorageProvider);
-  
-  const computeWithAgent = await computeRepo.find({
-    where: { isActive: true },
-  });
-  const storageWithAgent = await storageRepo.find({
-    where: { isActive: true },
-  });
-  
-  // Group by agent ID
-  const computeByAgent = new Map<number, ComputeProvider[]>();
-  for (const p of computeWithAgent) {
-    if (p.agentId) {
-      const existing = computeByAgent.get(p.agentId) || [];
-      existing.push(p);
-      computeByAgent.set(p.agentId, existing);
-    }
-  }
-  
-  const fullStackProviders: Array<{
-    agentId: number;
-    compute: Array<{ address: string; name: string; endpoint: string }>;
-    storage: Array<{ address: string; name: string; endpoint: string; providerType: string }>;
-  }> = [];
-  
-  for (const storage of storageWithAgent) {
-    if (storage.agentId && computeByAgent.has(storage.agentId)) {
-      const computeProviders = computeByAgent.get(storage.agentId) || [];
-      
-      // Check if we already have this agent
-      let existing = fullStackProviders.find(f => f.agentId === storage.agentId);
-      if (!existing) {
-        existing = {
-          agentId: storage.agentId,
-          compute: computeProviders.map(c => ({
-            address: c.address,
-            name: c.name || 'Compute Provider',
-            endpoint: c.endpoint,
-          })),
-          storage: [],
-        };
-        fullStackProviders.push(existing);
-      }
-      
-      existing.storage.push({
-        address: storage.address,
-        name: storage.name,
-        endpoint: storage.endpoint,
-        providerType: storage.providerType,
-      });
-    }
-  }
-  
-  res.json({
-    fullStackProviders: fullStackProviders.slice(0, limit),
-    total: fullStackProviders.length,
-  });
+  const validated = validateQuery(paginationSchema.extend({ limit: z.coerce.number().int().min(1).max(50).default(20) }), req.query, 'GET /api/full-stack');
+  const result = await getFullStackProviders(ds, validated.limit);
+  res.json(result);
 }));
 
 app.get('/api/oracle/feeds', asyncHandler(async (req, res) => {
   const ds = await getDataSource();
-  const { limit, offset } = parsePagination(req.query);
-  const category = req.query.category as string;
-  const active = req.query.active !== 'false';
+  const validated = validateQuery(oracleFeedsQuerySchema, req.query, 'GET /api/oracle/feeds');
   
-  let query = ds.getRepository(OracleFeed).createQueryBuilder('f');
-  if (active) query = query.where('f.isActive = :active', { active: true });
-  if (category) query = query.andWhere('f.category = :category', { category: category.toUpperCase() });
+  const query = buildOracleFeedsQuery(ds, {
+    active: validated.active,
+    category: validated.category,
+    limit: validated.limit,
+    offset: validated.offset,
+  });
   
-  const [feeds, total] = await query.orderBy('f.totalReports', 'DESC').take(limit).skip(offset).getManyAndCount();
+  const [feeds, total] = await query.getManyAndCount();
 
   res.json({
-    feeds: feeds.map(f => ({
-      feedId: f.feedId,
-      symbol: f.symbol,
-      baseToken: f.baseToken,
-      quoteToken: f.quoteToken,
-      decimals: f.decimals,
-      heartbeatSeconds: f.heartbeatSeconds,
-      category: f.category,
-      isActive: f.isActive,
-      minOracles: f.minOracles,
-      quorumThreshold: f.quorumThreshold,
-      latestPrice: f.latestPrice?.toString(),
-      latestConfidence: f.latestConfidence?.toString(),
-      latestTimestamp: f.latestTimestamp?.toISOString(),
-      latestRound: f.latestRound?.toString(),
-      totalReports: f.totalReports,
-      totalDisputes: f.totalDisputes,
-      createdAt: f.createdAt.toISOString(),
-      lastUpdated: f.lastUpdated.toISOString(),
-    })),
+    feeds: feeds.map(mapOracleFeedResponse),
     total,
-    limit,
-    offset,
+    limit: validated.limit,
+    offset: validated.offset,
   });
 }));
 
 app.get('/api/oracle/feeds/:feedId', asyncHandler(async (req, res) => {
   const ds = await getDataSource();
-  const feed = await ds.getRepository(OracleFeed).findOne({ where: { feedId: req.params.feedId } });
-  
-  if (!feed) {
-    res.status(404).json({ error: 'Feed not found' });
-    return;
-  }
-  
-  const recentReports = await ds.getRepository(OracleReport).find({
-    where: { feed: { id: feed.id } },
-    order: { submittedAt: 'DESC' },
-    take: 10,
-    relations: ['submittedBy'],
-  });
-  
-  res.json({
-    feed: {
-      feedId: feed.feedId,
-      symbol: feed.symbol,
-      baseToken: feed.baseToken,
-      quoteToken: feed.quoteToken,
-      decimals: feed.decimals,
-      heartbeatSeconds: feed.heartbeatSeconds,
-      category: feed.category,
-      isActive: feed.isActive,
-      minOracles: feed.minOracles,
-      quorumThreshold: feed.quorumThreshold,
-      latestPrice: feed.latestPrice?.toString(),
-      latestConfidence: feed.latestConfidence?.toString(),
-      latestTimestamp: feed.latestTimestamp?.toISOString(),
-      latestRound: feed.latestRound?.toString(),
-      totalReports: feed.totalReports,
-      totalDisputes: feed.totalDisputes,
-      createdAt: feed.createdAt.toISOString(),
-      lastUpdated: feed.lastUpdated.toISOString(),
-    },
-    recentReports: recentReports.map(r => ({
-      reportId: r.reportId,
-      round: r.round.toString(),
-      price: r.price.toString(),
-      confidence: r.confidence.toString(),
-      timestamp: r.timestamp.toISOString(),
-      isDisputed: r.isDisputed,
-      isValid: r.isValid,
-      submittedBy: r.submittedBy?.address,
-      submittedAt: r.submittedAt.toISOString(),
-    })),
-  });
+  const { feedId } = validateParams(oracleFeedIdParamSchema, req.params, 'GET /api/oracle/feeds/:feedId');
+  const result = await getOracleFeedDetail(ds, feedId);
+  res.json(result);
 }));
 
 app.get('/api/oracle/operators', asyncHandler(async (req, res) => {
   const ds = await getDataSource();
-  const { limit, offset } = parsePagination(req.query);
-  const active = req.query.active !== 'false';
-  const jailed = req.query.jailed === 'true';
+  const validated = validateQuery(oracleOperatorsQuerySchema, req.query, 'GET /api/oracle/operators');
   
-  let query = ds.getRepository(OracleOperator).createQueryBuilder('o');
-  if (active) query = query.where('o.isActive = :active', { active: true });
-  if (jailed) query = query.andWhere('o.isJailed = :jailed', { jailed: true });
+  const query = buildOracleOperatorsQuery(ds, {
+    active: validated.active,
+    jailed: validated.jailed,
+    limit: validated.limit,
+    offset: validated.offset,
+  });
   
-  const [operators, total] = await query.orderBy('o.stakedAmount', 'DESC').take(limit).skip(offset).getManyAndCount();
+  const [operators, total] = await query.getManyAndCount();
 
   res.json({
-    operators: operators.map(o => ({
-      address: o.address,
-      identityId: o.identityId?.toString(),
-      isActive: o.isActive,
-      isJailed: o.isJailed,
-      stakedAmount: o.stakedAmount.toString(),
-      delegatedAmount: o.delegatedAmount.toString(),
-      totalSlashed: o.totalSlashed.toString(),
-      reportsSubmitted: o.reportsSubmitted,
-      reportsAccepted: o.reportsAccepted,
-      disputesAgainst: o.disputesAgainst,
-      disputesLost: o.disputesLost,
-      participationScore: o.participationScore,
-      accuracyScore: o.accuracyScore,
-      uptimeScore: o.uptimeScore,
-      totalEarnings: o.totalEarnings.toString(),
-      pendingRewards: o.pendingRewards.toString(),
-      registeredAt: o.registeredAt.toISOString(),
-      lastActiveAt: o.lastActiveAt.toISOString(),
-    })),
+    operators: operators.map(mapOracleOperatorResponse),
     total,
-    limit,
-    offset,
+    limit: validated.limit,
+    offset: validated.offset,
   });
 }));
 
 app.get('/api/oracle/operators/:address', asyncHandler(async (req, res) => {
   const ds = await getDataSource();
-  const operator = await ds.getRepository(OracleOperator).findOne({
-    where: { address: req.params.address.toLowerCase() },
-  });
+  const { address } = validateParams(oracleOperatorAddressParamSchema, req.params, 'GET /api/oracle/operators/:address');
+  
+  const operator = await getOracleOperatorByAddress(ds, address);
   
   if (!operator) {
-    res.status(404).json({ error: 'Operator not found' });
-    return;
+    throw new NotFoundError('Oracle Operator', address.toLowerCase());
   }
   
   res.json({
-    operator: {
-      address: operator.address,
-      identityId: operator.identityId?.toString(),
-      isActive: operator.isActive,
-      isJailed: operator.isJailed,
-      stakedAmount: operator.stakedAmount.toString(),
-      delegatedAmount: operator.delegatedAmount.toString(),
-      totalSlashed: operator.totalSlashed.toString(),
-      reportsSubmitted: operator.reportsSubmitted,
-      reportsAccepted: operator.reportsAccepted,
-      disputesAgainst: operator.disputesAgainst,
-      disputesLost: operator.disputesLost,
-      participationScore: operator.participationScore,
-      accuracyScore: operator.accuracyScore,
-      uptimeScore: operator.uptimeScore,
-      totalEarnings: operator.totalEarnings.toString(),
-      pendingRewards: operator.pendingRewards.toString(),
-      registeredAt: operator.registeredAt.toISOString(),
-      lastActiveAt: operator.lastActiveAt.toISOString(),
-    },
+    operator: mapOracleOperatorResponse(operator),
   });
 }));
 
 app.get('/api/oracle/reports', asyncHandler(async (req, res) => {
   const ds = await getDataSource();
-  const { limit, offset } = parsePagination(req.query);
-  const feedId = req.query.feedId as string;
-  const disputed = req.query.disputed === 'true';
+  const validated = validateQuery(oracleReportsQuerySchema, req.query, 'GET /api/oracle/reports');
   
-  let query = ds.getRepository(OracleReport).createQueryBuilder('r')
-    .leftJoinAndSelect('r.feed', 'feed')
-    .leftJoinAndSelect('r.submittedBy', 'submitter');
+  const query = buildOracleReportsQuery(ds, {
+    feedId: validated.feedId,
+    disputed: validated.disputed,
+    limit: validated.limit,
+    offset: validated.offset,
+  });
   
-  if (feedId) query = query.where('feed.feedId = :feedId', { feedId });
-  if (disputed) query = query.andWhere('r.isDisputed = :disputed', { disputed: true });
-  
-  const [reports, total] = await query.orderBy('r.submittedAt', 'DESC').take(limit).skip(offset).getManyAndCount();
+  const [reports, total] = await query.getManyAndCount();
 
   res.json({
-    reports: reports.map(r => ({
-      reportId: r.reportId,
-      feedId: r.feed?.feedId,
-      symbol: r.feed?.symbol,
-      round: r.round.toString(),
-      price: r.price.toString(),
-      confidence: r.confidence.toString(),
-      timestamp: r.timestamp.toISOString(),
-      isDisputed: r.isDisputed,
-      isValid: r.isValid,
-      submittedBy: r.submittedBy?.address,
-      submittedAt: r.submittedAt.toISOString(),
-      txHash: r.txHash,
-      blockNumber: r.blockNumber,
-    })),
+    reports: reports.map(mapOracleReportResponse),
     total,
-    limit,
-    offset,
+    limit: validated.limit,
+    offset: validated.offset,
   });
 }));
 
 app.get('/api/oracle/disputes', asyncHandler(async (req: Request, res: Response) => {
   const ds = await getDataSource();
-  const { limit, offset } = parsePagination(req.query);
-  const statusParam = Array.isArray(req.query.status) ? req.query.status[0] : req.query.status;
-  const status: string | undefined = typeof statusParam === 'string' ? statusParam : undefined;
+  const validated = validateQuery(oracleDisputesQuerySchema, req.query, 'GET /api/oracle/disputes');
   
-  let query = ds.getRepository(OracleDispute).createQueryBuilder('d')
-    .leftJoinAndSelect('d.report', 'report')
-    .leftJoinAndSelect('d.feed', 'feed')
-    .leftJoinAndSelect('d.disputer', 'disputer')
-    .leftJoinAndSelect('d.challenger', 'challenger');
+  const query = buildOracleDisputesQuery(ds, {
+    status: validated.status,
+    limit: validated.limit,
+    offset: validated.offset,
+  });
   
-  if (status) query = query.where('d.status = :status', { status: status.toUpperCase() });
-  
-  const [disputes, total] = await query.orderBy('d.openedAt', 'DESC').take(limit).skip(offset).getManyAndCount();
+  const [disputes, total] = await query.getManyAndCount();
 
   res.json({
-    disputes: disputes.map(d => ({
-      disputeId: d.disputeId,
-      reportId: d.report?.reportId,
-      feedId: d.feed?.feedId,
-      disputer: d.disputer?.address,
-      bond: d.bond.toString(),
-      reason: d.reason,
-      status: d.status,
-      challenger: d.challenger?.address,
-      challengeBond: d.challengeBond?.toString(),
-      outcome: d.outcome,
-      slashedAmount: d.slashedAmount?.toString(),
-      openedAt: d.openedAt.toISOString(),
-      challengeDeadline: d.challengeDeadline.toISOString(),
-      resolvedAt: d.resolvedAt?.toISOString(),
-      txHash: d.txHash,
-      blockNumber: d.blockNumber,
-    })),
+    disputes: disputes.map(mapOracleDisputeResponse),
     total,
-    limit,
-    offset,
+    limit: validated.limit,
+    offset: validated.offset,
   });
 }));
 
-app.get('/api/oracle/stats', asyncHandler(async (_req, res) => {
+app.get('/api/oracle/stats', asyncHandler(async (req, res) => {
   const ds = await getDataSource();
-  
-  const [totalFeeds, activeFeeds, operators, totalReports, disputedReports, totalDisputes, openDisputes, totalSubscriptions, activeSubscriptions] = await Promise.all([
-    ds.getRepository(OracleFeed).count(),
-    ds.getRepository(OracleFeed).count({ where: { isActive: true } }),
-    ds.getRepository(OracleOperator).find(),
-    ds.getRepository(OracleReport).count(),
-    ds.getRepository(OracleReport).count({ where: { isDisputed: true } }),
-    ds.getRepository(OracleDispute).count(),
-    ds.getRepository(OracleDispute).count({ where: { status: 'OPEN' as never } }),
-    ds.getRepository(OracleSubscription).count(),
-    ds.getRepository(OracleSubscription).count({ where: { isActive: true } }),
-  ]);
-  
-  const activeOperators = operators.filter(o => o.isActive && !o.isJailed);
-  const totalStaked = operators.reduce((sum, o) => sum + o.stakedAmount, 0n);
-  const totalEarnings = operators.reduce((sum, o) => sum + o.totalEarnings, 0n);
-  const avgParticipation = operators.length > 0 ? Math.floor(operators.reduce((sum, o) => sum + o.participationScore, 0) / operators.length) : 0;
-  const avgAccuracy = operators.length > 0 ? Math.floor(operators.reduce((sum, o) => sum + o.accuracyScore, 0) / operators.length) : 0;
-
-  res.json({
-    feeds: {
-      total: totalFeeds,
-      active: activeFeeds,
-    },
-    operators: {
-      total: operators.length,
-      active: activeOperators.length,
-      jailed: operators.filter(o => o.isJailed).length,
-      totalStakedETH: formatEther(totalStaked),
-      totalEarningsETH: formatEther(totalEarnings),
-      avgParticipationScore: avgParticipation,
-      avgAccuracyScore: avgAccuracy,
-    },
-    reports: {
-      total: totalReports,
-      disputed: disputedReports,
-      disputeRate: totalReports > 0 ? ((disputedReports / totalReports) * 10000).toFixed(0) : '0',
-    },
-    disputes: {
-      total: totalDisputes,
-      open: openDisputes,
-    },
-    subscriptions: {
-      total: totalSubscriptions,
-      active: activeSubscriptions,
-    },
-    lastUpdated: new Date().toISOString(),
-  });
+  // Validate query params even if not used (for consistency and future-proofing)
+  validateQuery(z.object({}).passthrough(), req.query, 'GET /api/oracle/stats');
+  const stats = await getOracleStats(ds);
+  res.json(stats);
 }));
 
-app.get('/api/stats', asyncHandler(async (_req, res) => {
+app.get('/api/stats', asyncHandler(async (req, res) => {
   const ds = await getDataSource();
-  
-  const [blockCount, txCount, accountCount, contractCount, agentCount, nodeCount] = await Promise.all([
-    ds.getRepository(Block).count(),
-    ds.getRepository(Transaction).count(),
-    ds.getRepository(Account).count(),
-    ds.getRepository(Contract).count(),
-    ds.getRepository(RegisteredAgent).count({ where: { active: true } }),
-    ds.getRepository(NodeStake).count({ where: { isActive: true } }),
-  ]);
-
-  const latestBlock = await ds.getRepository(Block).createQueryBuilder('b').orderBy('b.number', 'DESC').limit(1).getOne();
-
+  // Validate query params even if not used (for consistency and future-proofing)
+  validateQuery(z.object({}).passthrough(), req.query, 'GET /api/stats');
+  const stats = await getNetworkStats(ds);
   res.json({
-    blocks: blockCount,
-    transactions: txCount,
-    accounts: accountCount,
-    contracts: contractCount,
-    agents: agentCount,
-    nodes: nodeCount,
-    latestBlock: latestBlock?.number || 0,
+    ...stats,
     rateLimitStats: getRateLimitStats(),
   });
 }));
@@ -979,6 +546,22 @@ app.get('/api/rate-limits', (_req, res) => {
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error('[REST] Unhandled error:', err.message, err.stack);
+  
+  if (err.name === 'ValidationError' || err.message.includes('Validation error')) {
+    res.status(400).json({ error: 'Validation error', message: err.message });
+    return;
+  }
+  
+  if (err.name === 'NotFoundError') {
+    res.status(404).json({ error: err.message });
+    return;
+  }
+  
+  if (err.name === 'BadRequestError') {
+    res.status(400).json({ error: err.message });
+    return;
+  }
+  
   res.status(500).json({ error: 'Internal server error', message: err.message });
 });
 
@@ -991,7 +574,10 @@ export async function startRestServer(): Promise<void> {
 }
 
 if (require.main === module) {
-  startRestServer().catch(console.error);
+  startRestServer().catch((err: Error) => {
+    console.error('REST server failed to start:', err.message);
+    process.exit(1);
+  });
 }
 
 export { app };

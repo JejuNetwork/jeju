@@ -14,7 +14,8 @@
  * example.jejunetwork.org → resolves example.jeju → contenthash → IPFS gateway
  */
 
-import { Hono, type Context } from 'hono';
+import { Hono } from 'hono';
+import type { Context } from 'hono';
 import { cors } from 'hono/cors';
 import { createPublicClient, http, type Address, type Hex, keccak256 as viemKeccak256, toHex } from 'viem';
 import { base, baseSepolia } from 'viem/chains';
@@ -196,8 +197,7 @@ function getMimeType(path: string): string {
 export class JNSGateway {
   private app: Hono;
   private config: JNSGatewayConfig;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private client: any;
+  private client: ReturnType<typeof createPublicClient>;
   private localCache: Map<string, { content: ResolvedContent; expiry: number }> =
     new Map();
   private readonly CACHE_TTL = 300_000; // 5 minutes
@@ -383,8 +383,7 @@ export class JNSGateway {
   /**
    * Serve content from JNS-resolved CID
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private async serveJNSContent(c: Context<any>, name: string, path: string): Promise<Response> {
+  private async serveJNSContent(c: Context, name: string, path: string): Promise<Response> {
     const content = await this.resolveJNS(name);
 
     if (!content) {
@@ -399,8 +398,7 @@ export class JNSGateway {
    * 
    * DECENTRALIZED: Uses only our configured IPFS gateway - no centralized fallbacks.
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private async serveIpfsContent(c: Context<any>, cid: string, path: string): Promise<Response> {
+  private async serveIpfsContent(c: Context, cid: string, path: string): Promise<Response> {
     const gateway = this.config.ipfsGatewayUrl;
     const url = `${gateway}/ipfs/${cid}${path}`;
 

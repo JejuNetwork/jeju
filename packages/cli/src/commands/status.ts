@@ -32,7 +32,7 @@ export const statusCommand = new Command('status')
     }
   });
 
-async function quickStatus(network: NetworkType) {
+async function quickStatus(network: NetworkType): Promise<void> {
   logger.header('STATUS');
 
   // Chain status
@@ -92,8 +92,8 @@ async function quickStatus(network: NetworkType) {
         logger.table([{ label: name, value: 'running', status: 'ok' }]);
       }
     }
-  } catch {
-    // Not in workspace
+  } catch (error) {
+    logger.debug(`App discovery skipped: ${error instanceof Error ? error.message : 'not in workspace'}`);
   }
 
   // Test wallet
@@ -110,7 +110,7 @@ async function quickStatus(network: NetworkType) {
   }
 }
 
-async function fullCheck(network: NetworkType) {
+async function fullCheck(network: NetworkType): Promise<void> {
   logger.header('SYSTEM CHECK');
   let hasErrors = false;
   let hasWarnings = false;

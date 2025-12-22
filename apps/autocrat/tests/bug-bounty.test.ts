@@ -10,12 +10,13 @@
  * - Payout
  */
 
-import { describe, test, expect, beforeAll } from 'bun:test';
+import { describe, test, expect, beforeAll, beforeEach } from 'bun:test';
 import { Hono } from 'hono';
 import { parseEther, formatEther } from 'viem';
 import {
   getBugBountyService,
   assessSubmission,
+  resetBugBountyService,
 } from '../src/bug-bounty-service';
 import {
   validatePoCInSandbox,
@@ -43,6 +44,7 @@ describe('Bug Bounty Service', () => {
   let service: ReturnType<typeof getBugBountyService>;
 
   beforeAll(() => {
+    resetBugBountyService();
     service = getBugBountyService();
   });
 
@@ -192,33 +194,38 @@ ws.onopen = () => {
       expect(retrieved!.title).toBe(draft.title);
     });
 
-    test('should prioritize by stake', async () => {
-      const lowStake: BountySubmissionDraft = {
+    test('should prioritize by severity and stake', async () => {
+      // Reset state to ensure clean test
+      resetBugBountyService();
+      
+      // Submit medium severity 
+      const mediumSeverity: BountySubmissionDraft = {
         severity: BountySeverity.MEDIUM,
         vulnType: VulnerabilityType.OTHER,
-        title: 'Low stake submission test',
-        summary: 'Test submission with low stake for priority testing purposes only.',
-        description: 'This is a test submission to verify that stake-based prioritization works correctly in the bug bounty queue.',
+        title: 'Medium severity submission test',
+        summary: 'Test submission with medium severity for priority testing purposes and verification.',
+        description: 'This is a test submission to verify that severity-based prioritization works correctly in the bug bounty queue. The bug bounty system should prioritize submissions with higher severity to ensure critical issues are addressed first by the security team.',
         affectedComponents: ['Other'],
-        stepsToReproduce: ['Step 1', 'Step 2'],
+        stepsToReproduce: ['Step 1 - Submit medium severity', 'Step 2 - Verify priority'],
         proofOfConcept: '',
         suggestedFix: '',
-        stake: '0.01',
       };
 
-      const highStake: BountySubmissionDraft = {
-        ...lowStake,
-        title: 'High stake submission test',
-        stake: '1.0',
+      // Submit high severity (should be prioritized)
+      const highSeverity: BountySubmissionDraft = {
+        ...mediumSeverity,
+        severity: BountySeverity.HIGH,
+        title: 'High severity submission test',
       };
 
-      await service.submit(lowStake, RESEARCHER_ADDRESS, 2n);
-      await service.submit(highStake, RESEARCHER_ADDRESS, 3n);
+      await service.submit(mediumSeverity, RESEARCHER_ADDRESS, 2n);
+      await service.submit(highSeverity, RESEARCHER_ADDRESS, 3n);
 
-      const list = service.list({ severity: BountySeverity.MEDIUM });
+      // List all - high severity should come first due to priority calculation
+      const list = service.list();
       
-      // Higher stake should be first
-      expect(list[0].title).toBe('High stake submission test');
+      // Higher severity * stake should be first (HIGH=2 > MEDIUM=1)
+      expect(list[0].title).toBe('High severity submission test');
     });
   });
 
@@ -264,10 +271,10 @@ This affects all authenticated users and could lead to data theft or unauthorize
         severity: BountySeverity.CRITICAL,
         vulnType: VulnerabilityType.FUNDS_AT_RISK,
         title: 'Fake critical vulnerability',
-        summary: 'This is a fake submission to test rejection flow and validation handling.',
-        description: 'This submission contains no actual vulnerability and should be rejected by the validation process.',
+        summary: 'This is a fake submission to test rejection flow and validation handling in the system.',
+        description: 'This submission contains no actual vulnerability and should be rejected by the validation process. The submission is intentionally incomplete and lacks proper technical details to test that the guardian review process correctly identifies and rejects invalid or low-quality submissions that waste reviewer time.',
         affectedComponents: ['Smart Contracts'],
-        stepsToReproduce: ['There are no steps', 'This is fake'],
+        stepsToReproduce: ['There are no steps to reproduce', 'This is fake submission'],
         proofOfConcept: '',
         suggestedFix: '',
         stake: '0.01',
@@ -316,14 +323,14 @@ This affects the entire MPC infrastructure and could lead to key compromise.
       // HIGH severity requires 4 guardian approvals
       const reward = parseEther('6'); // 6 ETH suggested
 
-      service.guardianVote(submission.submissionId, GUARDIAN_1, 1n, true, reward, 'Valid timing attack');
-      service.guardianVote(submission.submissionId, GUARDIAN_2, 2n, true, reward, 'Confirmed');
-      service.guardianVote(submission.submissionId, GUARDIAN_3, 3n, true, reward, 'Verified');
+      service.guardianVote(submission.submissionId, GUARDIAN_1, 1n, true, reward, 'Valid timing attack confirmed');
+      service.guardianVote(submission.submissionId, GUARDIAN_2, 2n, true, reward, 'Confirmed valid attack vector');
+      service.guardianVote(submission.submissionId, GUARDIAN_3, 3n, true, reward, 'Verified timing analysis');
       
       let status = service.get(submission.submissionId);
       expect(status!.status).toBe(BountySubmissionStatus.GUARDIAN_REVIEW); // Still in review
 
-      service.guardianVote(submission.submissionId, GUARDIAN_4, 4n, true, reward, 'Approve');
+      service.guardianVote(submission.submissionId, GUARDIAN_4, 4n, true, reward, 'Approve this submission');
       
       status = service.get(submission.submissionId);
       expect(status!.status).toBe(BountySubmissionStatus.CEO_REVIEW); // HIGH goes to CEO
@@ -335,10 +342,10 @@ This affects the entire MPC infrastructure and could lead to key compromise.
         severity: BountySeverity.MEDIUM,
         vulnType: VulnerabilityType.OTHER,
         title: 'Dubious vulnerability claim',
-        summary: 'Questionable vulnerability that guardians will reject during review process.',
-        description: 'This submission is intentionally weak to test the guardian rejection flow.',
+        summary: 'Questionable vulnerability that guardians will reject during review process testing.',
+        description: 'This submission is intentionally weak to test the guardian rejection flow. The vulnerability claim lacks sufficient technical evidence and clear reproduction steps. Guardians should identify this as a low-quality submission and vote to reject it through the normal review process.',
         affectedComponents: ['Other'],
-        stepsToReproduce: ['Unclear step', 'Another unclear step'],
+        stepsToReproduce: ['Unclear step that lacks detail', 'Another unclear step'],
         proofOfConcept: '',
         suggestedFix: '',
         stake: '0.01',
@@ -350,7 +357,7 @@ This affects the entire MPC infrastructure and could lead to key compromise.
       // 6 rejections should reject
       for (let i = 0; i < 6; i++) {
         const guardianAddr = `0x${(7 + i).toString(16).padStart(40, '0')}` as `0x${string}`;
-        service.guardianVote(submission.submissionId, guardianAddr, BigInt(10 + i), false, 0n, 'Not valid');
+        service.guardianVote(submission.submissionId, guardianAddr, BigInt(10 + i), false, 0n, 'Not valid - insufficient evidence provided');
       }
 
       const status = service.get(submission.submissionId);
@@ -401,7 +408,7 @@ contract Exploit {
       const guardians = [GUARDIAN_1, GUARDIAN_2, GUARDIAN_3, GUARDIAN_4, GUARDIAN_5];
       
       for (let i = 0; i < 5; i++) {
-        service.guardianVote(submission.submissionId, guardians[i], BigInt(20 + i), true, reward, 'Critical - approve');
+        service.guardianVote(submission.submissionId, guardians[i], BigInt(20 + i), true, reward, 'Critical vulnerability - approve this submission');
       }
 
       let status = service.get(submission.submissionId);
@@ -424,7 +431,7 @@ contract Exploit {
 
       // Check researcher stats
       const stats = service.getResearcherStats(RESEARCHER_ADDRESS);
-      expect(stats.approvedCount).toBeGreaterThan(0);
+      expect(stats.approvedSubmissions).toBeGreaterThan(0);
       expect(stats.totalEarned).toBeGreaterThanOrEqual(finalReward);
     });
 
@@ -433,10 +440,10 @@ contract Exploit {
         severity: BountySeverity.HIGH,
         vulnType: VulnerabilityType.CONSENSUS_ATTACK,
         title: 'Theoretical 51% attack vector',
-        summary: 'Theoretical attack on consensus that requires impractical resources.',
-        description: 'Theoretical consensus attack that would require controlling 60% of the network which is economically infeasible.',
+        summary: 'Theoretical attack on consensus that requires impractical resources beyond any known entity.',
+        description: 'Theoretical consensus attack that would require controlling 60% of the network which is economically infeasible. This submission describes an attack vector that while technically possible would require resources exceeding those of any known actor. The economic cost of acquiring sufficient stake would exceed any potential gain from the attack.',
         affectedComponents: ['Governance'],
-        stepsToReproduce: ['Control 60% of network', 'Execute attack'],
+        stepsToReproduce: ['Control 60% of network hashrate or stake', 'Execute the theoretical attack vector'],
         proofOfConcept: '',
         suggestedFix: '',
         stake: '0.1',
@@ -447,10 +454,10 @@ contract Exploit {
 
       // 4 guardians approve but CEO rejects
       const reward = parseEther('5');
-      service.guardianVote(submission.submissionId, GUARDIAN_1, 30n, true, reward, 'Theoretical but valid');
-      service.guardianVote(submission.submissionId, GUARDIAN_2, 31n, true, reward, 'Approve');
-      service.guardianVote(submission.submissionId, GUARDIAN_3, 32n, true, reward, 'Approve');
-      service.guardianVote(submission.submissionId, GUARDIAN_4, 33n, true, reward, 'Approve');
+      service.guardianVote(submission.submissionId, GUARDIAN_1, 30n, true, reward, 'Theoretical but valid vulnerability');
+      service.guardianVote(submission.submissionId, GUARDIAN_2, 31n, true, reward, 'Approve this theoretical vulnerability');
+      service.guardianVote(submission.submissionId, GUARDIAN_3, 32n, true, reward, 'Approve this submission for CEO review');
+      service.guardianVote(submission.submissionId, GUARDIAN_4, 33n, true, reward, 'Approve - should go to CEO');
 
       let status = service.get(submission.submissionId);
       expect(status!.status).toBe(BountySubmissionStatus.CEO_REVIEW);
@@ -474,10 +481,10 @@ contract Exploit {
         severity: BountySeverity.MEDIUM,
         vulnType: VulnerabilityType.INFORMATION_DISCLOSURE,
         title: 'API key exposure in frontend bundle',
-        summary: 'Internal API keys are exposed in the production JavaScript bundle.',
-        description: 'The frontend build process includes internal API keys in the JavaScript bundle which are visible to anyone.',
+        summary: 'Internal API keys are exposed in the production JavaScript bundle and can be seen by anyone.',
+        description: 'The frontend build process includes internal API keys in the JavaScript bundle which are visible to anyone who views the page source. These keys could be used to access internal APIs or services. The keys should be moved to server-side environment variables and accessed through a backend proxy.',
         affectedComponents: ['Frontend'],
-        stepsToReproduce: ['Open browser dev tools', 'Search for API_KEY in sources', 'Find exposed keys'],
+        stepsToReproduce: ['Open browser dev tools on the page', 'Search for API_KEY in sources tab', 'Find exposed keys in the bundle'],
         proofOfConcept: 'grep -r "API_KEY" dist/main.js',
         suggestedFix: 'Move keys to backend proxy',
         stake: '0.05',
@@ -488,17 +495,17 @@ contract Exploit {
 
       // Guardian approval (3 for MEDIUM)
       const reward = parseEther('2');
-      service.guardianVote(submission.submissionId, GUARDIAN_1, 40n, true, reward, 'Valid');
-      service.guardianVote(submission.submissionId, GUARDIAN_2, 41n, true, reward, 'Valid');
-      service.guardianVote(submission.submissionId, GUARDIAN_3, 42n, true, reward, 'Valid');
+      service.guardianVote(submission.submissionId, GUARDIAN_1, 40n, true, reward, 'Valid API key exposure confirmed');
+      service.guardianVote(submission.submissionId, GUARDIAN_2, 41n, true, reward, 'Valid - found keys in bundle');
+      service.guardianVote(submission.submissionId, GUARDIAN_3, 42n, true, reward, 'Valid submission - approve');
 
       // MEDIUM doesn't go to CEO
       let status = service.get(submission.submissionId);
       expect(status!.status).toBe(BountySubmissionStatus.APPROVED);
 
-      // Record fix
-      const fixed = service.recordFix(submission.submissionId, 'abc123def456');
-      expect(fixed.fixCommitHash).toBe('abc123def456');
+      // Record fix - must be a valid 40-char hex git commit hash
+      const fixed = service.recordFix(submission.submissionId, 'abc123def456abc123def456abc123def456abc1');
+      expect(fixed.fixCommitHash).toBe('abc123def456abc123def456abc123def456abc1');
       expect(fixed.disclosureDate).toBeGreaterThan(Date.now() / 1000);
 
       // Researcher can disclose

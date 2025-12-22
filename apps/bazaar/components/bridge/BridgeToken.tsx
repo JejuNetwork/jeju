@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import TokenSelector from './TokenSelector';
-import { useProtocolTokens } from '../hooks/useProtocolTokens';
-import { parseTokenAmount, formatUSD, calculateUSDValue } from '../lib/tokenUtils';
-import type { TokenOption } from './TokenSelector';
+import TokenSelector from '@/components/TokenSelector';
+import { useProtocolTokens } from '@/hooks/useProtocolTokens';
+import { parseTokenAmount, formatUsd as formatUSD, calculateUSDValue } from '@/lib/tokenUtils';
+import type { TokenOption } from '@/components/TokenSelector';
 
 const STANDARD_BRIDGE_ADDRESS = '0x4200000000000000000000000000000000000010' as const;
 
@@ -120,7 +120,7 @@ export default function BridgeToken() {
             <TokenSelector
               tokens={tokens}
               selectedToken={selectedToken?.symbol}
-              onSelect={setSelectedToken}
+              onSelect={(token) => setSelectedToken(typeof token === 'string' ? null : token)}
               label="Supported Base Tokens"
               placeholder="Select token..."
               disabled={isPending || isConfirming}

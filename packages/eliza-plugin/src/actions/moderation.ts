@@ -10,6 +10,12 @@ import {
   type State,
 } from "@elizaos/core";
 import { JEJU_SERVICE_NAME, type JejuService } from "../service";
+import {
+  getMessageText,
+  expectResponseData,
+  expectArray,
+  validateServiceExists,
+} from "../validation";
 
 export const reportAgentAction: Action = {
   name: "REPORT_AGENT",
@@ -22,21 +28,19 @@ export const reportAgentAction: Action = {
     "report abuse",
   ],
 
-  validate: async (runtime: IAgentRuntime) => {
-    const service = runtime.getService(JEJU_SERVICE_NAME);
-    return !!service;
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
 
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
-    const text = message.content.text ?? "";
+    const text = getMessageText(message);
 
     // Extract address/agent ID and reason
     const addressMatch = text.match(/0x[a-fA-F0-9]{40}/);
@@ -76,7 +80,10 @@ Your report will be reviewed by moderators.`,
   examples: [
     [
       { name: "user", content: { text: "Report agent #123 for spam" } },
-      { name: "agent", content: { text: "Report submitted successfully. Transaction: 0x..." } },
+      {
+        name: "agent",
+        content: { text: "Report submitted successfully. Transaction: 0x..." },
+      },
     ],
   ],
 };
@@ -92,18 +99,16 @@ export const listModerationCasesAction: Action = {
     "moderation queue",
   ],
 
-  validate: async (runtime: IAgentRuntime) => {
-    const service = runtime.getService(JEJU_SERVICE_NAME);
-    return !!service;
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
 
   handler: async (
     runtime: IAgentRuntime,
     _message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
 
@@ -111,12 +116,20 @@ export const listModerationCasesAction: Action = {
       skillId: "moderation-list-active-cases",
     });
 
-    const cases = (response.data?.cases ?? []) as Array<{
+    const responseData = expectResponseData(
+      response,
+      "Moderation API returned no data",
+    );
+    const cases = expectArray<{
       caseId: string;
       reportType: string;
       votesFor: number;
       votesAgainst: number;
-    }>;
+    }>(
+      responseData as Record<string, unknown>,
+      "cases",
+      "Moderation API response missing cases array",
+    );
 
     if (cases.length === 0) {
       callback?.({ text: "No active moderation cases at this time." });
@@ -125,7 +138,10 @@ export const listModerationCasesAction: Action = {
 
     const caseList = cases
       .slice(0, 10)
-      .map((c) => `• Case ${c.caseId}: ${c.reportType} (${c.votesFor} for / ${c.votesAgainst} against)`)
+      .map(
+        (c) =>
+          `• Case ${c.caseId}: ${c.reportType} (${c.votesFor} for / ${c.votesAgainst} against)`,
+      )
       .join("\n");
 
     callback?.({
@@ -140,8 +156,10 @@ Use 'vote on case [id] [for/against]' to participate.`,
   examples: [
     [
       { name: "user", content: { text: "Show active moderation cases" } },
-      { name: "agent", content: { text: "Active moderation cases (5): • Case 1: spam..." } },
+      {
+        name: "agent",
+        content: { text: "Active moderation cases (5): • Case 1: spam..." },
+      },
     ],
   ],
 };
-

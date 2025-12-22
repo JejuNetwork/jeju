@@ -3,27 +3,7 @@
  */
 
 import { NextResponse } from 'next/server';
-
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
-
-const MCP_SERVER_INFO = {
-  name: 'bazaar',
-  version: '1.0.0',
-  description: 'Network DeFi + NFT Marketplace',
-  capabilities: {
-    resources: true,
-    tools: true,
-    prompts: false,
-    experimental: {
-      x402Payments: true,
-      erc8004Integration: true,
-    },
-  },
-};
+import { CORS_HEADERS, MCP_SERVER_INFO } from '@/lib/mcp/constants';
 
 export async function OPTIONS() {
   return new NextResponse(null, { headers: CORS_HEADERS });

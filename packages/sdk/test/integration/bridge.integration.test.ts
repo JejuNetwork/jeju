@@ -31,11 +31,11 @@ describe("Bridge Module Integration Tests", () => {
       rpcUrl: env.rpcUrl,
       smartAccount: false,
     });
-  }, 90000);
+  });
 
   afterAll(async () => {
     await teardownTestEnvironment();
-  }, 10000);
+  });
 
   describe("Token Bridging", () => {
     test("getSupportedTokens returns array", async () => {

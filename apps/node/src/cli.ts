@@ -10,6 +10,7 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
+import { z } from 'zod';
 import { detectHardware, getComputeCapabilities, NON_TEE_WARNING } from './lib/hardware';
 import { createNodeClient } from './lib/contracts';
 import { createNodeServices } from './lib/services';
@@ -118,6 +119,26 @@ program
   .option('--gpu', 'Enable GPU compute')
   .option('--accept-non-tee', 'Accept non-confidential compute risks')
   .action(async (options) => {
+    // Validate options
+    const NetworkSchema = z.enum(['mainnet', 'testnet', 'localnet']);
+    const KeySchema = z.string().regex(/^0x[a-fA-F0-9]{64}$/).optional();
+    
+    try {
+      options.network = NetworkSchema.parse(options.network);
+      if (options.key) {
+        options.key = KeySchema.parse(options.key);
+      }
+    } catch (e) {
+      if (e instanceof z.ZodError) {
+        console.error(chalk.red('\n  Configuration Error:'));
+        e.issues.forEach((issue: z.core.$ZodIssue) => {
+          console.error(chalk.red(`    ${issue.path.join('.')}: ${issue.message}`));
+        });
+        process.exit(1);
+      }
+      throw e;
+    }
+
     console.log(chalk.cyan('\n  Starting Network Node...\n'));
     
     const hardware = detectHardware();

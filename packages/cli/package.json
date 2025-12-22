@@ -49,9 +49,9 @@
     "chalk": "5.4.1",
     "commander": "12.1.0",
     "execa": "9.5.3",
-    "hono": "4.7.0",
+    "hono": "4.11.1",
     "prompts": "2.4.2",
-    "viem": "2.41.2",
+    "viem": "2.43.2",
     "which": "4.0.0",
     "@noble/curves": "2.0.1",
     "@noble/hashes": "1.7.1"
@@ -63,18 +63,24 @@
     "@types/bun": "latest",
     "@types/prompts": "2.4.9",
     "@types/which": "3.0.4",
-    "typescript": "5.7.3"
+    "typescript": "5.9.3"
   },
   "peerDependencies": {
     "@jejunetwork/config": ">=0.1.0",
     "@jejunetwork/contracts": ">=0.2.0",
     "@jejunetwork/types": ">=0.1.0",
-    "zod": ">=3.22.4"
+    "@jejunetwork/tests": ">=0.1.0",
+    "@playwright/test": ">=1.55.0",
+    "@synthetixio/synpress": ">=4.0.0",
+    "zod": ">=4.0.0"
   },
   "peerDependenciesMeta": {
     "@jejunetwork/config": { "optional": true },
     "@jejunetwork/contracts": { "optional": true },
     "@jejunetwork/types": { "optional": true },
+    "@jejunetwork/tests": { "optional": true },
+    "@playwright/test": { "optional": true },
+    "@synthetixio/synpress": { "optional": true },
     "zod": { "optional": true }
   },
   "engines": {

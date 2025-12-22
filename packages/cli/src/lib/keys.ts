@@ -189,11 +189,7 @@ export function loadKeys(network: NetworkType): KeySet | null {
     return null;
   }
   
-  try {
-    return JSON.parse(readFileSync(keyFile, 'utf-8'));
-  } catch {
-    return null;
-  }
+  return JSON.parse(readFileSync(keyFile, 'utf-8')) as KeySet;
 }
 
 export function hasKeys(network: NetworkType): boolean {

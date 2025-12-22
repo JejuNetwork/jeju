@@ -10,6 +10,7 @@ export const RPC_URL = import.meta.env.VITE_RPC_URL || import.meta.env.VITE_JEJU
 export const WS_URL = import.meta.env.VITE_WS_URL || getDefaultWsUrl();
 
 // External services
+export const OAUTH3_AGENT_URL = import.meta.env.VITE_OAUTH3_AGENT_URL || getDefaultOAuth3AgentUrl();
 export const INDEXER_URL = import.meta.env.VITE_INDEXER_URL || getDefaultIndexerUrl();
 export const INDEXER_REST_URL = import.meta.env.VITE_INDEXER_REST_URL || getDefaultIndexerRestUrl();
 export const INDEXER_A2A_URL = import.meta.env.VITE_INDEXER_A2A_URL || getDefaultIndexerA2AUrl();
@@ -203,5 +204,13 @@ function getDefaultExplorerUrl(): string {
     case 'mainnet': return 'https://explorer.jejunetwork.org';
     case 'testnet': return 'https://testnet-explorer.jejunetwork.org';
     default: return 'http://127.0.0.1:4000';
+  }
+}
+
+function getDefaultOAuth3AgentUrl(): string {
+  switch (NETWORK) {
+    case 'mainnet': return 'https://auth.jejunetwork.org';
+    case 'testnet': return 'https://testnet-auth.jejunetwork.org';
+    default: return 'http://127.0.0.1:4200';
   }
 }

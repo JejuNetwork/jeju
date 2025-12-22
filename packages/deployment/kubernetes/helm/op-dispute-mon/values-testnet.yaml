@@ -1,7 +1,11 @@
 # OP-Dispute-Mon values for testnet
 # Monitors dispute games for fault proofs
 
-replicaCount: 1
+replicaCount: 0  # Disabled - needs game factory address that isn't deployed yet
+
+image:
+  repository: 502713364895.dkr.ecr.us-east-1.amazonaws.com/jeju/op-dispute-mon
+  tag: "testnet-latest"
 
 resources:
   limits:
@@ -11,14 +15,18 @@ resources:
     cpu: 250m
     memory: 512Mi
 
-nodeSelector: {}
+nodeSelector: null
 
-tolerations: []
+tolerations:
+  - key: workload
+    operator: Equal
+    value: rpc
+    effect: NoSchedule
 
 config:
   l1:
-    # Use internal L1 full node
-    rpcUrl: "http://geth-l1.l1.svc.cluster.local:8545"
+    # Use public Sepolia RPC for testnet (internal L1 node has disk space issues)
+    rpcUrl: "https://rpc.sepolia.org"
   l2:
     rpcUrl: "http://reth-rpc.rpc.svc.cluster.local:8545"
   rollup:

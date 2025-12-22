@@ -12,12 +12,18 @@ import type {
   ChainId,
   CrossChainTransfer,
   EthereumStateCommitment,
-  Hash32,
   SolanaStateCommitment,
   SP1Proof,
 } from '../types/index.js';
 import { TransferStatus, toHash32 } from '../types/index.js';
-import { createLogger } from '../utils/logger.js';
+import {
+  createLogger,
+  hashToHex,
+  ConsensusSnapshotSchema,
+  CrossChainTransferSchema,
+  EthereumUpdateSchema,
+  TransferSubmissionSchema,
+} from '../utils/index.js';
 
 // ============ Logger ============
 
@@ -236,21 +242,24 @@ export class RelayerService {
 
     // Solana consensus snapshot from Geyser plugin
     this.app.post('/consensus', async ({ body }) => {
-      const snapshot = body as ConsensusSnapshot;
+      const parsed = ConsensusSnapshotSchema.parse(body);
+      const snapshot = this.parseConsensusSnapshot(parsed);
       await this.handleSolanaConsensus(snapshot);
       return { status: 'accepted' };
     });
 
     // Solana bridge transfer from Geyser plugin
     this.app.post('/transfer', async ({ body }) => {
-      const transfer = body as CrossChainTransfer;
+      const parsed = CrossChainTransferSchema.parse(body);
+      const transfer = this.parseCrossChainTransfer(parsed);
       await this.handleIncomingTransfer(transfer, 'solana');
       return { status: 'accepted' };
     });
 
     // Ethereum finality update from beacon watcher
     this.app.post('/ethereum/finality', async ({ body }) => {
-      const update = body as EthereumUpdate;
+      const parsed = EthereumUpdateSchema.parse(body);
+      const update = this.parseEthereumUpdate(parsed);
       await this.handleEthereumFinality(update);
       return { status: 'accepted' };
     });
@@ -269,13 +278,12 @@ export class RelayerService {
 
     // Manual transfer submission
     this.app.post('/submit-transfer', async ({ body }) => {
-      const transfer = body as CrossChainTransfer & {
-        source: 'evm' | 'solana';
-      };
-      await this.handleIncomingTransfer(transfer, transfer.source);
+      const parsed = TransferSubmissionSchema.parse(body);
+      const transfer = this.parseCrossChainTransfer(parsed);
+      await this.handleIncomingTransfer(transfer, parsed.source);
       return {
         status: 'accepted',
-        transferId: this.hashToHex(transfer.transferId),
+        transferId: hashToHex(transfer.transferId),
       };
     });
 
@@ -293,6 +301,98 @@ export class RelayerService {
       };
     });
   }
+
+  // =============================================================================
+  // PARSING HELPERS - Convert Zod validated data to internal types
+  // =============================================================================
+
+  private toUint8Array(data: Uint8Array | number[]): Uint8Array {
+    return data instanceof Uint8Array ? data : new Uint8Array(data);
+  }
+
+  private parseConsensusSnapshot(parsed: {
+    slot: bigint;
+    bankHash: Uint8Array | number[];
+    parentHash: Uint8Array | number[];
+    blockTime: number;
+    votes: Array<{
+      validator: Uint8Array | number[];
+      voteAccount: Uint8Array | number[];
+      slot: bigint;
+      hash: Uint8Array | number[];
+      signature: Uint8Array | number[];
+      timestamp: number;
+    }>;
+    transactionsRoot: Uint8Array | number[];
+    epoch: bigint;
+    epochStakesRoot: Uint8Array | number[];
+  }): ConsensusSnapshot {
+    return {
+      slot: parsed.slot,
+      bankHash: this.toUint8Array(parsed.bankHash),
+      parentHash: this.toUint8Array(parsed.parentHash),
+      blockTime: parsed.blockTime,
+      votes: parsed.votes.map(v => ({
+        validator: this.toUint8Array(v.validator),
+        voteAccount: this.toUint8Array(v.voteAccount),
+        slot: v.slot,
+        hash: this.toUint8Array(v.hash),
+        signature: this.toUint8Array(v.signature),
+        timestamp: v.timestamp,
+      })),
+      transactionsRoot: this.toUint8Array(parsed.transactionsRoot),
+      epoch: parsed.epoch,
+      epochStakesRoot: this.toUint8Array(parsed.epochStakesRoot),
+    };
+  }
+
+  private parseCrossChainTransfer(parsed: {
+    transferId: Uint8Array | number[];
+    sourceChain: number;
+    destChain: number;
+    token: Uint8Array | number[];
+    sender: Uint8Array | number[];
+    recipient: Uint8Array | number[];
+    amount: bigint;
+    nonce: bigint;
+    timestamp: bigint;
+    payload: Uint8Array | number[];
+  }): CrossChainTransfer {
+    return {
+      transferId: toHash32(this.toUint8Array(parsed.transferId)),
+      sourceChain: parsed.sourceChain as ChainId,
+      destChain: parsed.destChain as ChainId,
+      token: toHash32(this.toUint8Array(parsed.token)),
+      sender: this.toUint8Array(parsed.sender),
+      recipient: this.toUint8Array(parsed.recipient),
+      amount: parsed.amount,
+      nonce: parsed.nonce,
+      timestamp: parsed.timestamp,
+      payload: this.toUint8Array(parsed.payload),
+    };
+  }
+
+  private parseEthereumUpdate(parsed: {
+    slot: bigint;
+    blockRoot: Uint8Array | number[];
+    stateRoot: Uint8Array | number[];
+    executionStateRoot: Uint8Array | number[];
+    executionBlockNumber: bigint;
+    executionBlockHash: Uint8Array | number[];
+  }): EthereumUpdate {
+    return {
+      slot: parsed.slot,
+      blockRoot: this.toUint8Array(parsed.blockRoot),
+      stateRoot: this.toUint8Array(parsed.stateRoot),
+      executionStateRoot: this.toUint8Array(parsed.executionStateRoot),
+      executionBlockNumber: parsed.executionBlockNumber,
+      executionBlockHash: this.toUint8Array(parsed.executionBlockHash),
+    };
+  }
+
+  // =============================================================================
+  // CONSENSUS HANDLERS
+  // =============================================================================
 
   private async handleSolanaConsensus(
     snapshot: ConsensusSnapshot,
@@ -346,7 +446,7 @@ export class RelayerService {
     transfer: CrossChainTransfer,
     source: 'evm' | 'solana',
   ): Promise<void> {
-    const transferId = this.hashToHex(transfer.transferId);
+    const transferId = hashToHex(transfer.transferId);
     log.info('Received transfer', { transferId, source });
 
     // Get source commitment
@@ -656,7 +756,7 @@ export class RelayerService {
 
     // Mark batch as proven
     const proofBatch = this.batcher.markBatchProven(
-      this.hashToHex(batch.id),
+      hashToHex(batch.id),
       proof,
     );
 
@@ -699,7 +799,7 @@ export class RelayerService {
     transfer: CrossChainTransfer,
     proof: SP1Proof,
   ): Promise<void> {
-    const txId = this.hashToHex(transfer.transferId);
+    const txId = hashToHex(transfer.transferId);
     const pending = this.pendingTransfers.get(txId);
 
     if (!pending) {
@@ -832,12 +932,6 @@ export class RelayerService {
       pendingTransfers: this.pendingTransfers.size,
       pendingBatches: 0, // Would get from batcher
     };
-  }
-
-  private hashToHex(hash: Hash32): string {
-    return Array.from(hash)
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('');
   }
 }
 

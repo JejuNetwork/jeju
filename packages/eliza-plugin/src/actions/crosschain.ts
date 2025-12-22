@@ -12,6 +12,7 @@ import {
 import { type Address, parseEther, formatEther } from "viem";
 import { JEJU_SERVICE_NAME, type JejuService } from "../service";
 import type { SupportedChain } from "@jejunetwork/sdk";
+import { getMessageText, validateServiceExists } from "../validation";
 
 function parseTransferParams(text: string): {
   amount?: bigint;
@@ -63,22 +64,20 @@ export const crossChainTransferAction: Action = {
     "bridge tokens",
   ],
 
-  validate: async (runtime: IAgentRuntime) => {
-    const service = runtime.getService(JEJU_SERVICE_NAME);
-    return !!service;
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
 
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
+    _options?: Record<string, unknown>,
     callback?: HandlerCallback,
-  ) => {
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
 
-    const params = parseTransferParams(message.content.text ?? "");
+    const params = parseTransferParams(getMessageText(message));
 
     if (!params.amount || !params.to) {
       callback?.({
@@ -90,7 +89,17 @@ Supported chains: ${client.crosschain.getSupportedChains().join(", ")}`,
       return;
     }
 
-    const from = params.from ?? "jeju";
+    if (!params.from) {
+      callback?.({
+        text: `Please specify the source chain.
+Example: "Bridge 1 ETH from jeju to base"
+
+Supported chains: ${client.crosschain.getSupportedChains().join(", ")}`,
+      });
+      return;
+    }
+
+    const from = params.from;
     const token = "0x0000000000000000000000000000000000000000" as Address; // ETH
 
     callback?.({

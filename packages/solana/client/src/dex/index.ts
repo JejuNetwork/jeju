@@ -21,3 +21,9 @@ export * from './pumpswap';
 
 // Types
 export * from './types';
+
+// Schemas (for external API validation)
+export * from './schemas';
+
+// Utilities
+export * from './utils';

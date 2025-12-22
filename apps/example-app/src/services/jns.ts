@@ -6,20 +6,18 @@
  */
 
 import type { Address, Hex } from 'viem';
+import {
+  jnsAvailableResponseSchema,
+  jnsRegisterResponseSchema,
+  jnsRecordsSchema,
+  jnsResolveResponseSchema,
+  jnsPriceResponseSchema,
+} from '../schemas';
+import { expectValid } from '../utils/validation';
+import type { JNSRecords } from '../types';
 
 const GATEWAY_API = process.env.GATEWAY_API || 'http://localhost:4020';
 const JNS_NAME = process.env.JNS_NAME || 'todo.jeju';
-
-interface JNSRecords {
-  address?: Address;
-  contentHash?: string;
-  a2aEndpoint?: string;
-  mcpEndpoint?: string;
-  restEndpoint?: string;
-  avatar?: string;
-  url?: string;
-  description?: string;
-}
 
 interface JNSService {
   isNameAvailable(name: string): Promise<boolean>;
@@ -33,10 +31,20 @@ interface JNSService {
 class JNSServiceImpl implements JNSService {
   async isNameAvailable(name: string): Promise<boolean> {
     const normalized = this.normalizeName(name);
-    const response = await fetch(`${GATEWAY_API}/jns/available/${normalized}`).catch(() => null);
-    if (!response || !response.ok) return false;
-    const data = await response.json() as { available: boolean };
-    return data.available;
+    let response: Response;
+    try {
+      response = await fetch(`${GATEWAY_API}/jns/available/${normalized}`);
+    } catch (error) {
+      throw new Error(`JNS gateway unreachable: ${error instanceof Error ? error.message : 'network error'}`);
+    }
+    
+    if (!response.ok) {
+      throw new Error(`JNS availability check failed: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    const validated = expectValid(jnsAvailableResponseSchema, data, 'JNS available response');
+    return validated.available;
   }
 
   async register(name: string, owner: Address, durationYears: number): Promise<{ txHash: Hex; name: string }> {
@@ -58,8 +66,9 @@ class JNSServiceImpl implements JNSService {
       throw new Error(`Failed to register name: ${await response.text()}`);
     }
 
-    const data = await response.json() as { txHash: Hex };
-    return { txHash: data.txHash, name: normalized };
+    const data = await response.json();
+    const validated = expectValid(jnsRegisterResponseSchema, data, 'JNS register response');
+    return { txHash: validated.txHash as Hex, name: normalized };
   }
 
   async setRecords(name: string, records: JNSRecords): Promise<{ txHash: Hex }> {
@@ -75,35 +84,72 @@ class JNSServiceImpl implements JNSService {
       throw new Error(`Failed to set records: ${await response.text()}`);
     }
 
-    return await response.json() as { txHash: Hex };
+    const data = await response.json();
+    const validated = expectValid(jnsRegisterResponseSchema, data, 'JNS set records response');
+    return { txHash: validated.txHash as Hex };
   }
 
   async getRecords(name: string): Promise<JNSRecords> {
     const normalized = this.normalizeName(name);
-    const response = await fetch(`${GATEWAY_API}/jns/records/${normalized}`).catch(() => null);
-    if (!response || !response.ok) return {};
-    return await response.json() as JNSRecords;
+    let response: Response;
+    try {
+      response = await fetch(`${GATEWAY_API}/jns/records/${normalized}`);
+    } catch (error) {
+      throw new Error(`JNS gateway unreachable: ${error instanceof Error ? error.message : 'network error'}`);
+    }
+    
+    if (response.status === 404) {
+      // Name not registered - return empty records
+      return {};
+    }
+    
+    if (!response.ok) {
+      throw new Error(`JNS records fetch failed: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    return expectValid(jnsRecordsSchema, data, 'JNS records response');
   }
 
   async resolve(name: string): Promise<Address | null> {
     const normalized = this.normalizeName(name);
-    const response = await fetch(`${GATEWAY_API}/jns/resolve/${normalized}`).catch(() => null);
-    if (!response || !response.ok) return null;
-    const data = await response.json() as { address: Address };
-    return data.address;
+    let response: Response;
+    try {
+      response = await fetch(`${GATEWAY_API}/jns/resolve/${normalized}`);
+    } catch (error) {
+      throw new Error(`JNS gateway unreachable: ${error instanceof Error ? error.message : 'network error'}`);
+    }
+    
+    if (response.status === 404) {
+      // Name not registered
+      return null;
+    }
+    
+    if (!response.ok) {
+      throw new Error(`JNS resolve failed: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    const validated = expectValid(jnsResolveResponseSchema, data, 'JNS resolve response');
+    return validated.address as Address;
   }
 
   async getRegistrationPrice(name: string, durationYears: number): Promise<bigint> {
     const normalized = this.normalizeName(name);
-    const response = await fetch(`${GATEWAY_API}/jns/price/${normalized}?years=${durationYears}`).catch(() => null);
-    if (!response || !response.ok) {
-      // Default pricing based on name length
-      const label = normalized.replace('.jeju', '');
-      const basePrice = label.length <= 3 ? 0.1 : label.length <= 5 ? 0.05 : 0.01;
-      return BigInt(Math.floor(basePrice * durationYears * 1e18));
+    let response: Response;
+    try {
+      response = await fetch(`${GATEWAY_API}/jns/price/${normalized}?years=${durationYears}`);
+    } catch (error) {
+      throw new Error(`JNS gateway unreachable: ${error instanceof Error ? error.message : 'network error'}`);
     }
-    const data = await response.json() as { price: string };
-    return BigInt(data.price);
+    
+    if (!response.ok) {
+      throw new Error(`JNS price fetch failed: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    const validated = expectValid(jnsPriceResponseSchema, data, 'JNS price response');
+    return BigInt(validated.price);
   }
 
   private normalizeName(name: string): string {
@@ -141,7 +187,7 @@ export async function setupDAppJNS(
     a2aEndpoint: `${config.backendUrl}/a2a`,
     mcpEndpoint: `${config.backendUrl}/mcp`,
     restEndpoint: `${config.backendUrl}/api/v1`,
-    description: config.description || 'Decentralized Todo Application',
+    description: config.description !== undefined ? config.description : 'Decentralized Todo Application',
   };
 
   // If name not registered, register it

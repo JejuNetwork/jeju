@@ -9,7 +9,7 @@
  * Uses HTTP 402 Payment Required with x402 protocol.
  */
 
-import { keccak256, toBytes, toHex, type Address, type Hex } from 'viem';
+import { keccak256, toBytes, type Address, type Hex } from 'viem';
 
 export interface PaymentConfig {
   /** Wallet address for payments */

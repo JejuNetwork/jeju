@@ -144,46 +144,30 @@ describe("JejuService", () => {
 describe("Compute Actions", () => {
   test("LIST_PROVIDERS via SDK", async () => {
     if (!env.chainRunning) return;
-    try {
-      const providers = await service.sdk.compute.listProviders();
-      expect(Array.isArray(providers)).toBe(true);
-    } catch {
-      // Expected if contracts not deployed
-    }
+    const providers = await service.sdk.compute.listProviders();
+    expect(Array.isArray(providers)).toBe(true);
   });
 
   test("LIST_MODELS via SDK", async () => {
     if (!env.chainRunning) return;
-    try {
-      const models = await service.sdk.compute.listModels();
-      expect(Array.isArray(models)).toBe(true);
-    } catch {
-      // Expected if contracts not deployed
-    }
+    const models = await service.sdk.compute.listModels();
+    expect(Array.isArray(models)).toBe(true);
   });
 
   test("LIST_MY_RENTALS via SDK", async () => {
     if (!env.chainRunning) return;
-    try {
-      const rentals = await service.sdk.compute.listMyRentals();
-      expect(Array.isArray(rentals)).toBe(true);
-    } catch {
-      // Expected if contracts not deployed
-    }
+    const rentals = await service.sdk.compute.listMyRentals();
+    expect(Array.isArray(rentals)).toBe(true);
   });
 
   test("GET_QUOTE via SDK", async () => {
     if (!env.chainRunning) return;
-    try {
-      const quote = await service.sdk.compute.getQuote({
-        gpuType: "RTX4090",
-        durationHours: 1,
-      });
-      expect(quote).toBeDefined();
-      expect(typeof quote.totalCost).toBe("bigint");
-    } catch {
-      // Expected if contracts not deployed
-    }
+    const quote = await service.sdk.compute.getQuote({
+      gpuType: "RTX4090",
+      durationHours: 1,
+    });
+    expect(quote).toBeDefined();
+    expect(typeof quote.totalCost).toBe("bigint");
   });
 });
 
@@ -194,74 +178,45 @@ describe("Compute Actions", () => {
 describe("Storage Actions", () => {
   test("ESTIMATE_STORAGE_COST via SDK", async () => {
     if (!env.chainRunning) return;
-    try {
-      const cost = await service.sdk.storage.estimateCost(1024 * 1024, 30);
-      expect(typeof cost).toBe("bigint");
-    } catch {
-      // Expected if contracts not deployed
-    }
+    const cost = await service.sdk.storage.estimateCost(1024 * 1024, 30);
+    expect(typeof cost).toBe("bigint");
   });
 
   test("UPLOAD_FILE via SDK", async () => {
     if (!env.servicesRunning) return;
-
-    try {
-      const testData = new Blob(["e2e test " + Date.now()]);
-      const cid = await service.sdk.storage.upload(testData);
-      expect(cid).toBeDefined();
-      expect(typeof cid).toBe("string");
-    } catch {
-      // Expected if services not running
-    }
+    const testData = new Blob(["e2e test " + Date.now()]);
+    const cid = await service.sdk.storage.upload(testData);
+    expect(cid).toBeDefined();
+    expect(typeof cid).toBe("string");
   });
 
   test("RETRIEVE_FILE via SDK", async () => {
     if (!env.servicesRunning) return;
-
-    try {
-      const testData = new Blob(["retrieve test " + Date.now()]);
-      const cid = await service.sdk.storage.upload(testData);
-      const retrieved = await service.sdk.storage.retrieve(cid);
-      expect(retrieved).toBeDefined();
-    } catch {
-      // Expected if services not running
-    }
+    const testData = new Blob(["retrieve test " + Date.now()]);
+    const cid = await service.sdk.storage.upload(testData);
+    const retrieved = await service.sdk.storage.retrieve(cid);
+    expect(retrieved).toBeDefined();
   });
 
   test("PIN_CID via SDK", async () => {
     if (!env.servicesRunning) return;
-
-    try {
-      const testData = new Blob(["pin test " + Date.now()]);
-      const cid = await service.sdk.storage.upload(testData);
-      const result = await service.sdk.storage.pin(cid);
-      expect(result).toBeDefined();
-    } catch {
-      // Expected if services not running
-    }
+    const testData = new Blob(["pin test " + Date.now()]);
+    const cid = await service.sdk.storage.upload(testData);
+    const result = await service.sdk.storage.pin(cid);
+    expect(result).toBeDefined();
   });
 
   test("LIST_PINS via SDK", async () => {
     if (!env.servicesRunning) return;
-
-    try {
-      const pins = await service.sdk.storage.listPins();
-      expect(Array.isArray(pins)).toBe(true);
-    } catch {
-      // Expected if services not running
-    }
+    const pins = await service.sdk.storage.listPins();
+    expect(Array.isArray(pins)).toBe(true);
   });
 
   test("GET_STORAGE_STATS via SDK", async () => {
     if (!env.servicesRunning) return;
-
-    try {
-      const stats = await service.sdk.storage.getStats();
-      expect(stats).toBeDefined();
-      expect(typeof stats.totalSize).toBe("number");
-    } catch {
-      // Expected if services not running
-    }
+    const stats = await service.sdk.storage.getStats();
+    expect(stats).toBeDefined();
+    expect(typeof stats.totalSize).toBe("number");
   });
 });
 
@@ -272,46 +227,30 @@ describe("Storage Actions", () => {
 describe("DeFi Actions", () => {
   test("LIST_POOLS via SDK", async () => {
     if (!env.chainRunning) return;
-    try {
-      const pools = await service.sdk.defi.listPools();
-      expect(Array.isArray(pools)).toBe(true);
-    } catch {
-      // Expected if contracts not deployed
-    }
+    const pools = await service.sdk.defi.listPools();
+    expect(Array.isArray(pools)).toBe(true);
   });
 
   test("MY_POSITIONS via SDK", async () => {
     if (!env.chainRunning) return;
-    try {
-      const positions = await service.sdk.defi.listPositions();
-      expect(Array.isArray(positions)).toBe(true);
-    } catch {
-      // Expected if contracts not deployed
-    }
+    const positions = await service.sdk.defi.listPositions();
+    expect(Array.isArray(positions)).toBe(true);
   });
 
   test("GET_SWAP_QUOTE via SDK", async () => {
     if (!env.chainRunning) return;
-    try {
-      const quote = await service.sdk.defi.getSwapQuote({
-        tokenIn: "0x0000000000000000000000000000000000000000" as Address,
-        tokenOut: "0x0000000000000000000000000000000000000001" as Address,
-        amountIn: parseEther("1"),
-      });
-      expect(quote).toBeDefined();
-    } catch {
-      // Expected if contracts not deployed
-    }
+    const quote = await service.sdk.defi.getSwapQuote({
+      tokenIn: "0x0000000000000000000000000000000000000000" as Address,
+      tokenOut: "0x0000000000000000000000000000000000000001" as Address,
+      amountIn: parseEther("1"),
+    });
+    expect(quote).toBeDefined();
   });
 
   test("GET_SUPPORTED_TOKENS via SDK", async () => {
     if (!env.chainRunning) return;
-    try {
-      const tokens = await service.sdk.defi.getSupportedTokens();
-      expect(Array.isArray(tokens)).toBe(true);
-    } catch {
-      // Expected if contracts not deployed
-    }
+    const tokens = await service.sdk.defi.getSupportedTokens();
+    expect(Array.isArray(tokens)).toBe(true);
   });
 });
 
@@ -322,32 +261,20 @@ describe("DeFi Actions", () => {
 describe("Governance Actions", () => {
   test("LIST_PROPOSALS via SDK", async () => {
     if (!env.chainRunning) return;
-    try {
-      const proposals = await service.sdk.governance.listProposals();
-      expect(Array.isArray(proposals)).toBe(true);
-    } catch {
-      // Expected if contracts not deployed
-    }
+    const proposals = await service.sdk.governance.listProposals();
+    expect(Array.isArray(proposals)).toBe(true);
   });
 
   test("GET_VOTING_POWER via SDK", async () => {
     if (!env.chainRunning) return;
-    try {
-      const power = await service.sdk.governance.getVotingPower();
-      expect(typeof power).toBe("bigint");
-    } catch {
-      // Expected if contracts not deployed
-    }
+    const power = await service.sdk.governance.getVotingPower();
+    expect(typeof power).toBe("bigint");
   });
 
   test("GET_DELEGATES via SDK", async () => {
     if (!env.chainRunning) return;
-    try {
-      const delegate = await service.sdk.governance.getDelegates();
-      expect(delegate === null || typeof delegate === "string").toBe(true);
-    } catch {
-      // Expected if contracts not deployed
-    }
+    const delegate = await service.sdk.governance.getDelegates();
+    expect(delegate === null || typeof delegate === "string").toBe(true);
   });
 });
 
@@ -358,42 +285,26 @@ describe("Governance Actions", () => {
 describe("Names (JNS) Actions", () => {
   test("CHECK_AVAILABILITY via SDK", async () => {
     if (!env.chainRunning) return;
-    try {
-      const available = await service.sdk.names.isAvailable("e2etest" + Date.now());
-      expect(typeof available).toBe("boolean");
-    } catch {
-      // Expected if contracts not deployed
-    }
+    const available = await service.sdk.names.isAvailable("e2etest" + Date.now());
+    expect(typeof available).toBe("boolean");
   });
 
   test("GET_REGISTRATION_COST via SDK", async () => {
     if (!env.chainRunning) return;
-    try {
-      const cost = await service.sdk.names.getRegistrationCost("testname", 1);
-      expect(typeof cost).toBe("bigint");
-    } catch {
-      // Expected if contracts not deployed
-    }
+    const cost = await service.sdk.names.getRegistrationCost("testname", 1);
+    expect(typeof cost).toBe("bigint");
   });
 
   test("RESOLVE_NAME via SDK", async () => {
     if (!env.chainRunning) return;
-    try {
-      const address = await service.sdk.names.resolve("nonexistent.jeju");
-      expect(address === null || typeof address === "string").toBe(true);
-    } catch {
-      // Expected if contracts not deployed
-    }
+    const address = await service.sdk.names.resolve("nonexistent.jeju");
+    expect(address === null || typeof address === "string").toBe(true);
   });
 
   test("REVERSE_RESOLVE via SDK", async () => {
     if (!env.chainRunning) return;
-    try {
-      const name = await service.sdk.names.reverseResolve(service.sdk.address);
-      expect(name === null || typeof name === "string").toBe(true);
-    } catch {
-      // Expected if contracts not deployed
-    }
+    const name = await service.sdk.names.reverseResolve(service.sdk.address);
+    expect(name === null || typeof name === "string").toBe(true);
   });
 });
 
@@ -404,32 +315,20 @@ describe("Names (JNS) Actions", () => {
 describe("Identity Actions", () => {
   test("GET_MY_AGENT via SDK", async () => {
     if (!env.chainRunning) return;
-    try {
-      const agent = await service.sdk.identity.getMyAgent();
-      expect(agent === null || typeof agent === "object").toBe(true);
-    } catch {
-      // Expected if contracts not deployed
-    }
+    const agent = await service.sdk.identity.getMyAgent();
+    expect(agent === null || typeof agent === "object").toBe(true);
   });
 
   test("AM_I_BANNED via SDK", async () => {
     if (!env.chainRunning) return;
-    try {
-      const banned = await service.sdk.identity.amIBanned();
-      expect(typeof banned).toBe("boolean");
-    } catch {
-      // Expected if contracts not deployed
-    }
+    const banned = await service.sdk.identity.amIBanned();
+    expect(typeof banned).toBe("boolean");
   });
 
   test("LIST_AGENTS via SDK", async () => {
     if (!env.chainRunning) return;
-    try {
-      const agents = await service.sdk.identity.listAgents();
-      expect(Array.isArray(agents)).toBe(true);
-    } catch {
-      // Expected if contracts not deployed
-    }
+    const agents = await service.sdk.identity.listAgents();
+    expect(Array.isArray(agents)).toBe(true);
   });
 });
 
@@ -445,32 +344,20 @@ describe("Cross-chain Actions", () => {
 
   test("LIST_SOLVERS via SDK", async () => {
     if (!env.chainRunning) return;
-    try {
-      const solvers = await service.sdk.crosschain.listSolvers();
-      expect(Array.isArray(solvers)).toBe(true);
-    } catch {
-      // Expected if contracts not deployed
-    }
+    const solvers = await service.sdk.crosschain.listSolvers();
+    expect(Array.isArray(solvers)).toBe(true);
   });
 
   test("LIST_XLPS via SDK", async () => {
     if (!env.chainRunning) return;
-    try {
-      const xlps = await service.sdk.crosschain.listXLPs();
-      expect(Array.isArray(xlps)).toBe(true);
-    } catch {
-      // Expected if contracts not deployed
-    }
+    const xlps = await service.sdk.crosschain.listXLPs();
+    expect(Array.isArray(xlps)).toBe(true);
   });
 
   test("LIST_MY_INTENTS via SDK", async () => {
     if (!env.chainRunning) return;
-    try {
-      const intents = await service.sdk.crosschain.listMyIntents();
-      expect(Array.isArray(intents)).toBe(true);
-    } catch {
-      // Expected if contracts not deployed
-    }
+    const intents = await service.sdk.crosschain.listMyIntents();
+    expect(Array.isArray(intents)).toBe(true);
   });
 });
 
@@ -487,32 +374,20 @@ describe("Payments Actions", () => {
 
   test("GET_CREDITS via SDK", async () => {
     if (!env.chainRunning) return;
-    try {
-      const credits = await service.sdk.payments.getCredits();
-      expect(typeof credits).toBe("bigint");
-    } catch {
-      // Expected if contracts not deployed
-    }
+    const credits = await service.sdk.payments.getCredits();
+    expect(typeof credits).toBe("bigint");
   });
 
   test("LIST_PAYMASTERS via SDK", async () => {
     if (!env.chainRunning) return;
-    try {
-      const paymasters = await service.sdk.payments.listPaymasters();
-      expect(Array.isArray(paymasters)).toBe(true);
-    } catch {
-      // Expected if contracts not deployed
-    }
+    const paymasters = await service.sdk.payments.listPaymasters();
+    expect(Array.isArray(paymasters)).toBe(true);
   });
 
   test("GET_PAYMASTER_STATUS via SDK", async () => {
     if (!env.chainRunning) return;
-    try {
-      const status = await service.sdk.payments.getPaymasterStatus();
-      expect(status).toBeDefined();
-    } catch {
-      // Expected if contracts not deployed
-    }
+    const status = await service.sdk.payments.getPaymasterStatus();
+    expect(status).toBeDefined();
   });
 });
 
@@ -523,38 +398,24 @@ describe("Payments Actions", () => {
 describe("A2A Actions", () => {
   test("DISCOVER_AGENTS via SDK", async () => {
     if (!env.servicesRunning) return;
-    try {
-      const agents = await service.sdk.a2a.discoverAgents();
-      expect(Array.isArray(agents)).toBe(true);
-    } catch {
-      // Expected if services not running
-    }
+    const agents = await service.sdk.a2a.discoverAgents();
+    expect(Array.isArray(agents)).toBe(true);
   });
 
   test("DISCOVER gateway via SDK", async () => {
     if (!env.servicesRunning) return;
-
-    try {
-      const card = await service.sdk.a2a.discover("http://localhost:4000");
-      expect(card).toBeDefined();
-      expect(card.name).toBeDefined();
-    } catch {
-      // Expected if services not running
-    }
+    const card = await service.sdk.a2a.discover("http://localhost:4000");
+    expect(card).toBeDefined();
+    expect(card.name).toBeDefined();
   });
 
   test("CALL gateway skill via SDK", async () => {
     if (!env.servicesRunning) return;
-
-    try {
-      const result = await service.sdk.a2a.call("http://localhost:4000", {
-        skill: "list-protocol-tokens",
-        params: {},
-      });
-      expect(result).toBeDefined();
-    } catch {
-      // Expected if services not running
-    }
+    const result = await service.sdk.a2a.call("http://localhost:4000", {
+      skill: "list-protocol-tokens",
+      params: {},
+    });
+    expect(result).toBeDefined();
   });
 });
 
@@ -564,21 +425,15 @@ describe("A2A Actions", () => {
 
 describe("Games Actions", () => {
   test("GET_GOLD_BALANCE via SDK", async () => {
-    try {
-      const balance = await service.sdk.games.getGoldBalance(service.sdk.address);
-      expect(typeof balance).toBe("bigint");
-    } catch {
-      // Expected if games contracts not deployed
-    }
+    if (!env.chainRunning) return;
+    const balance = await service.sdk.games.getGoldBalance(service.sdk.address);
+    expect(typeof balance).toBe("bigint");
   });
 
   test("GET_ITEM_BALANCE via SDK", async () => {
-    try {
-      const balance = await service.sdk.games.getItemBalance(service.sdk.address, 1n);
-      expect(typeof balance).toBe("bigint");
-    } catch {
-      // Expected if games contracts not deployed
-    }
+    if (!env.chainRunning) return;
+    const balance = await service.sdk.games.getItemBalance(service.sdk.address, 1n);
+    expect(typeof balance).toBe("bigint");
   });
 });
 
@@ -588,21 +443,14 @@ describe("Games Actions", () => {
 
 describe("Containers Actions", () => {
   test("LIST_MY_REPOS via SDK", async () => {
-    try {
-      const repos = await service.sdk.containers.listMyRepositories();
-      expect(Array.isArray(repos)).toBe(true);
-    } catch {
-      // Expected if container registry not deployed
-    }
+    if (!env.chainRunning) return;
+    const repos = await service.sdk.containers.listMyRepositories();
+    expect(Array.isArray(repos)).toBe(true);
   });
 
   test("GET_REPO_ID via SDK", () => {
-    try {
-      const repoId = service.sdk.containers.getRepoId(service.sdk.address, "test");
-      expect(repoId).toMatch(/^0x[a-fA-F0-9]{64}$/);
-    } catch {
-      // Expected if container registry not deployed
-    }
+    const repoId = service.sdk.containers.getRepoId(service.sdk.address, "test");
+    expect(repoId).toMatch(/^0x[a-fA-F0-9]{64}$/);
   });
 });
 
@@ -612,30 +460,21 @@ describe("Containers Actions", () => {
 
 describe("Launchpad Actions", () => {
   test("LIST_PRESALES via SDK", async () => {
-    try {
-      const presales = await service.sdk.launchpad.listActivePresales();
-      expect(Array.isArray(presales)).toBe(true);
-    } catch {
-      // Expected if launchpad contracts not deployed
-    }
+    if (!env.chainRunning) return;
+    const presales = await service.sdk.launchpad.listActivePresales();
+    expect(Array.isArray(presales)).toBe(true);
   });
 
   test("LIST_BONDING_CURVES via SDK", async () => {
-    try {
-      const curves = await service.sdk.launchpad.listActiveCurves();
-      expect(Array.isArray(curves)).toBe(true);
-    } catch {
-      // Expected if launchpad contracts not deployed
-    }
+    if (!env.chainRunning) return;
+    const curves = await service.sdk.launchpad.listActiveCurves();
+    expect(Array.isArray(curves)).toBe(true);
   });
 
   test("LIST_MY_LP_LOCKS via SDK", async () => {
-    try {
-      const locks = await service.sdk.launchpad.listMyLPLocks();
-      expect(Array.isArray(locks)).toBe(true);
-    } catch {
-      // Expected if launchpad contracts not deployed
-    }
+    if (!env.chainRunning) return;
+    const locks = await service.sdk.launchpad.listMyLPLocks();
+    expect(Array.isArray(locks)).toBe(true);
   });
 });
 
@@ -645,75 +484,51 @@ describe("Launchpad Actions", () => {
 
 describe("Moderation Actions", () => {
   test("LIST_CASES via SDK", async () => {
-    try {
-      const cases = await service.sdk.moderation.listCases();
-      expect(Array.isArray(cases)).toBe(true);
-    } catch {
-      // Expected if moderation contracts not deployed
-    }
+    if (!env.chainRunning) return;
+    const cases = await service.sdk.moderation.listCases();
+    expect(Array.isArray(cases)).toBe(true);
   });
 
   test("LIST_MY_CASES via SDK", async () => {
-    try {
-      const cases = await service.sdk.moderation.listMyCases();
-      expect(Array.isArray(cases)).toBe(true);
-    } catch {
-      // Expected if moderation contracts not deployed
-    }
+    if (!env.chainRunning) return;
+    const cases = await service.sdk.moderation.listMyCases();
+    expect(Array.isArray(cases)).toBe(true);
   });
 
   test("LIST_MY_EVIDENCE via SDK", async () => {
-    try {
-      const evidence = await service.sdk.moderation.listMyEvidence();
-      expect(Array.isArray(evidence)).toBe(true);
-    } catch {
-      // Expected if moderation contracts not deployed
-    }
+    if (!env.chainRunning) return;
+    const evidence = await service.sdk.moderation.listMyEvidence();
+    expect(Array.isArray(evidence)).toBe(true);
   });
 
   test("GET_UNCLAIMED_REWARDS via SDK", async () => {
-    try {
-      const rewards = await service.sdk.moderation.getUnclaimedRewards();
-      expect(typeof rewards).toBe("bigint");
-    } catch {
-      // Expected if moderation contracts not deployed
-    }
+    if (!env.chainRunning) return;
+    const rewards = await service.sdk.moderation.getUnclaimedRewards();
+    expect(typeof rewards).toBe("bigint");
   });
 
   test("IS_TRUSTED via SDK", async () => {
-    try {
-      const trusted = await service.sdk.moderation.isTrusted(service.sdk.address);
-      expect(typeof trusted).toBe("boolean");
-    } catch {
-      // Expected if moderation contracts not deployed
-    }
+    if (!env.chainRunning) return;
+    const trusted = await service.sdk.moderation.isTrusted(service.sdk.address);
+    expect(typeof trusted).toBe("boolean");
   });
 
   test("IS_SUSPICIOUS via SDK", async () => {
-    try {
-      const suspicious = await service.sdk.moderation.isSuspicious(service.sdk.address);
-      expect(typeof suspicious).toBe("boolean");
-    } catch {
-      // Expected if moderation contracts not deployed
-    }
+    if (!env.chainRunning) return;
+    const suspicious = await service.sdk.moderation.isSuspicious(service.sdk.address);
+    expect(typeof suspicious).toBe("boolean");
   });
 
   test("GET_AGGREGATE_SCORE via SDK", async () => {
-    try {
-      const score = await service.sdk.moderation.getAggregateScore(service.sdk.address);
-      expect(typeof score).toBe("number");
-    } catch {
-      // Expected if moderation contracts not deployed
-    }
+    if (!env.chainRunning) return;
+    const score = await service.sdk.moderation.getAggregateScore(service.sdk.address);
+    expect(typeof score).toBe("number");
   });
 
   test("GET_LABELS via SDK", async () => {
-    try {
-      const labels = await service.sdk.moderation.getLabels(service.sdk.address);
-      expect(Array.isArray(labels)).toBe(true);
-    } catch {
-      // Expected if moderation contracts not deployed
-    }
+    if (!env.chainRunning) return;
+    const labels = await service.sdk.moderation.getLabels(service.sdk.address);
+    expect(Array.isArray(labels)).toBe(true);
   });
 });
 
@@ -723,66 +538,45 @@ describe("Moderation Actions", () => {
 
 describe("Work Actions", () => {
   test("LIST_BOUNTIES via SDK", async () => {
-    try {
-      const bounties = await service.sdk.work.listBounties();
-      expect(Array.isArray(bounties)).toBe(true);
-    } catch {
-      // Expected if work contracts not deployed
-    }
+    if (!env.chainRunning) return;
+    const bounties = await service.sdk.work.listBounties();
+    expect(Array.isArray(bounties)).toBe(true);
   });
 
   test("LIST_MY_BOUNTIES via SDK", async () => {
-    try {
-      const bounties = await service.sdk.work.listMyBounties();
-      expect(Array.isArray(bounties)).toBe(true);
-    } catch {
-      // Expected if work contracts not deployed
-    }
+    if (!env.chainRunning) return;
+    const bounties = await service.sdk.work.listMyBounties();
+    expect(Array.isArray(bounties)).toBe(true);
   });
 
   test("LIST_MY_HUNTS via SDK", async () => {
-    try {
-      const hunts = await service.sdk.work.listMyHunts();
-      expect(Array.isArray(hunts)).toBe(true);
-    } catch {
-      // Expected if work contracts not deployed
-    }
+    if (!env.chainRunning) return;
+    const hunts = await service.sdk.work.listMyHunts();
+    expect(Array.isArray(hunts)).toBe(true);
   });
 
   test("LIST_PROJECTS via SDK", async () => {
-    try {
-      const projects = await service.sdk.work.listProjects();
-      expect(Array.isArray(projects)).toBe(true);
-    } catch {
-      // Expected if work contracts not deployed
-    }
+    if (!env.chainRunning) return;
+    const projects = await service.sdk.work.listProjects();
+    expect(Array.isArray(projects)).toBe(true);
   });
 
   test("LIST_MY_PROJECTS via SDK", async () => {
-    try {
-      const projects = await service.sdk.work.listMyProjects();
-      expect(Array.isArray(projects)).toBe(true);
-    } catch {
-      // Expected if work contracts not deployed
-    }
+    if (!env.chainRunning) return;
+    const projects = await service.sdk.work.listMyProjects();
+    expect(Array.isArray(projects)).toBe(true);
   });
 
   test("LIST_GUARDIANS via SDK", async () => {
-    try {
-      const guardians = await service.sdk.work.listGuardians();
-      expect(Array.isArray(guardians)).toBe(true);
-    } catch {
-      // Expected if work contracts not deployed
-    }
+    if (!env.chainRunning) return;
+    const guardians = await service.sdk.work.listGuardians();
+    expect(Array.isArray(guardians)).toBe(true);
   });
 
   test("GET_GUARDIAN via SDK", async () => {
-    try {
-      const guardian = await service.sdk.work.getGuardian(service.sdk.address);
-      expect(guardian === null || typeof guardian === "object").toBe(true);
-    } catch {
-      // Expected if work contracts not deployed
-    }
+    if (!env.chainRunning) return;
+    const guardian = await service.sdk.work.getGuardian(service.sdk.address);
+    expect(guardian === null || typeof guardian === "object").toBe(true);
   });
 });
 
@@ -1006,4 +800,3 @@ describe("Action Coverage", () => {
     expect(jejuPlugin.actions!.length).toBeGreaterThanOrEqual(totalExpected - 10); // Allow some variance
   });
 });
-

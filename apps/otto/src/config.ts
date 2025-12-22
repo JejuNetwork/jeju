@@ -3,6 +3,7 @@
  */
 
 import type { OttoConfig } from './types';
+import { expectValid, OttoConfigSchema } from './schemas';
 
 export const DEFAULT_CHAIN_ID = 420691; // Jeju Network
 export const DEFAULT_SLIPPAGE_BPS = 50; // 0.5%
@@ -104,10 +105,26 @@ export const OTTO_COMMANDS = {
 } as const;
 
 export function getConfig(): OttoConfig {
-  return {
-    port: parseInt(process.env.OTTO_PORT ?? '4040'),
-    webhookPort: parseInt(process.env.OTTO_WEBHOOK_PORT ?? '4041'),
-    baseUrl: process.env.OTTO_BASE_URL ?? 'http://localhost:4040',
+  const port = parseInt(process.env.OTTO_PORT ?? '4040');
+  const webhookPort = parseInt(process.env.OTTO_WEBHOOK_PORT ?? '4041');
+  
+  if (isNaN(port) || port <= 0 || port > 65535) {
+    throw new Error(`Invalid port: ${process.env.OTTO_PORT}`);
+  }
+  
+  if (isNaN(webhookPort) || webhookPort <= 0 || webhookPort > 65535) {
+    throw new Error(`Invalid webhook port: ${process.env.OTTO_WEBHOOK_PORT}`);
+  }
+  
+  const baseUrl = process.env.OTTO_BASE_URL ?? 'http://localhost:4040';
+  if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+    throw new Error(`Invalid base URL: ${baseUrl}`);
+  }
+  
+  const config = {
+    port,
+    webhookPort,
+    baseUrl,
     
     discord: {
       enabled: !!process.env.DISCORD_BOT_TOKEN,
@@ -159,11 +176,16 @@ export function getConfig(): OttoConfig {
       modelApiKey: process.env.AI_MODEL_API_KEY,
     },
   };
+  
+  return expectValid(OttoConfigSchema, config, 'Otto config');
 }
 
 export function getChainName(chainId: number): string {
   const chain = SUPPORTED_CHAINS.find(c => c.chainId === chainId);
-  return chain?.name ?? `Chain ${chainId}`;
+  if (!chain) {
+    throw new Error(`Unsupported chain ID: ${chainId}`);
+  }
+  return chain.name;
 }
 
 export function getChainId(name: string): number | null {
@@ -177,6 +199,9 @@ export function isChainSupported(chainId: number): boolean {
 
 export function isSolanaChain(chainId: number): boolean {
   const chain = SUPPORTED_CHAINS.find(c => c.chainId === chainId);
+  if (!chain) {
+    throw new Error(`Unsupported chain ID: ${chainId}`);
+  }
   return 'isSolana' in chain && chain.isSolana === true;
 }
 

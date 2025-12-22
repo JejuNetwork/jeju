@@ -14,7 +14,7 @@
  */
 
 import { describe, test, expect, beforeAll } from 'bun:test';
-import { createPublicClient, createWalletClient, http, parseAbi, readContract, writeContract, waitForTransactionReceipt, getLogs, decodeEventLog, parseUnits, formatUnits, parseEther, formatEther, keccak256, stringToHex, generatePrivateKey, privateKeyToAccount, type Address, type PublicClient, type WalletClient, type Account } from 'viem';
+import { createPublicClient, createWalletClient, http, parseAbi, readContract, writeContract, waitForTransactionReceipt, decodeEventLog, parseUnits, formatUnits, parseEther, formatEther, keccak256, stringToHex, stringToBytes, generatePrivateKey, privateKeyToAccount, type Address, type PublicClient, type WalletClient, type Account } from 'viem';
 import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
 import { Logger } from '../../scripts/shared/logger';
 import { CloudIntegration, ViolationType, type CloudConfig } from '../../scripts/shared/cloud-integration';
@@ -24,7 +24,7 @@ const logger = new Logger('cloud-complete-workflow');
 let publicClient: PublicClient;
 let cloudOperator: WalletClient;
 let cloudOperatorAccount: Account;
-let cloudAgentSigner: WalletClient;
+let _cloudAgentSigner: WalletClient;
 let cloudAgentAccount: Account;
 let testUser: WalletClient;
 let testUserAccount: Account;
@@ -51,7 +51,7 @@ describe('Complete User Workflow E2E', () => {
     });
     
     cloudAgentAccount = privateKeyToAccount('0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a' as `0x${string}`);
-    cloudAgentSigner = createWalletClient({
+    _cloudAgentSigner = createWalletClient({
       account: cloudAgentAccount,
       chain,
       transport: http(rpcUrl),

@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ApprovalService, type TokenApproval, type ApprovalSummary } from './index';
+import { ApprovalService } from './index';
 import { maxUint256 } from 'viem';
 
 describe('ApprovalService', () => {

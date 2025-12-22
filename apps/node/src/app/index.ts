@@ -16,51 +16,54 @@ import { join, dirname } from 'path';
 import { homedir } from 'os';
 import { createInterface } from 'readline';
 import chalk from 'chalk';
+import { z } from 'zod';
 import { createNodeClient } from '../lib/contracts';
 import { createNodeServices } from '../lib/services';
-import { detectHardware, meetsRequirements } from '../lib/hardware';
+import { detectHardware, meetsRequirements, convertHardwareToSnakeCase, convertHardwareToCamelCase } from '../lib/hardware';
 import type { ServiceRequirements } from '../lib/hardware';
 import { formatEther } from 'viem';
 
 // ============================================================================
-// Types
+// Types & Validation
 // ============================================================================
 
-export interface AppConfig {
-  version: string;
-  network: 'mainnet' | 'testnet' | 'localnet';
-  rpcUrl: string;
-  chainId: number;
-  privateKey: string;
-  walletAddress: string;
-  services: {
-    compute: boolean;
-    storage: boolean;
-    oracle: boolean;
-    proxy: boolean;
-    cron: boolean;
-    rpc: boolean;
-    xlp: boolean;
-    solver: boolean;
-    sequencer: boolean;
-  };
-  compute: {
-    type: 'cpu' | 'gpu' | 'both';
-    cpuCores: number;
-    gpuIds: number[];
-    pricePerHour: string;
-    acceptNonTee: boolean;
-  };
-  bots: {
-    enabled: boolean;
-    dexArb: boolean;
-    crossChainArb: boolean;
-    liquidation: boolean;
-  };
-  autoClaim: boolean;
-  autoStake: boolean;
-  logLevel: 'debug' | 'info' | 'warn' | 'error';
-}
+const CliAppConfigSchema = z.object({
+  version: z.string().regex(/^\d+\.\d+\.\d+/, 'Version must be semver format'),
+  network: z.enum(['mainnet', 'testnet', 'localnet']),
+  rpcUrl: z.string().url(),
+  chainId: z.number().int().positive(),
+  privateKey: z.string().regex(/^0x[a-fA-F0-9]{64}$/).or(z.literal('')),
+  walletAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/).or(z.literal('')),
+  services: z.object({
+    compute: z.boolean(),
+    storage: z.boolean(),
+    oracle: z.boolean(),
+    proxy: z.boolean(),
+    cron: z.boolean(),
+    rpc: z.boolean(),
+    xlp: z.boolean(),
+    solver: z.boolean(),
+    sequencer: z.boolean(),
+  }),
+  compute: z.object({
+    type: z.enum(['cpu', 'gpu', 'both']),
+    cpuCores: z.number().int().positive(),
+    gpuIds: z.array(z.number().int().nonnegative()),
+    pricePerHour: z.string().regex(/^\d+(\.\d+)?$/, 'Price must be a valid number string'),
+    acceptNonTee: z.boolean(),
+  }),
+  bots: z.object({
+    enabled: z.boolean(),
+    dexArb: z.boolean(),
+    crossChainArb: z.boolean(),
+    liquidation: z.boolean(),
+  }),
+  autoClaim: z.boolean(),
+  autoStake: z.boolean(),
+  logLevel: z.enum(['debug', 'info', 'warn', 'error']),
+});
+
+export type AppConfig = z.infer<typeof CliAppConfigSchema>;
 
 const DEFAULT_CONFIG: AppConfig = {
   version: '1.0.0',
@@ -121,7 +124,16 @@ function getConfigPath(): string {
 function loadConfig(): AppConfig {
   const configPath = getConfigPath();
   if (existsSync(configPath)) {
-    return { ...DEFAULT_CONFIG, ...JSON.parse(readFileSync(configPath, 'utf-8')) };
+    const fileContent = readFileSync(configPath, 'utf-8');
+    const parsed = JSON.parse(fileContent);
+    const merged = { ...DEFAULT_CONFIG, ...parsed };
+    // Validate the merged config
+    const result = CliAppConfigSchema.safeParse(merged);
+    if (!result.success) {
+      console.error('Invalid config file, using defaults. Errors:', result.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join('; '));
+      return DEFAULT_CONFIG;
+    }
+    return result.data;
   }
   return DEFAULT_CONFIG;
 }
@@ -144,16 +156,25 @@ function log(level: string, message: string): void {
     error: chalk.red,
     success: chalk.green,
   };
-  console.log(`${chalk.dim(timestamp)} ${colors[level]?.(`[${level.toUpperCase()}]`) || ''} ${message}`);
+  const colorFn = colors[level];
+  const levelLabel = colorFn ? colorFn(`[${level.toUpperCase()}]`) : `[${level.toUpperCase()}]`;
+  console.log(`${chalk.dim(timestamp)} ${levelLabel} ${message}`);
 }
 
 async function prompt(question: string, defaultValue?: string): Promise<string> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   return new Promise((resolve) => {
-    const text = defaultValue ? `${question} [${chalk.dim(defaultValue)}]: ` : `${question}: `;
+    const text = defaultValue !== undefined ? `${question} [${chalk.dim(defaultValue)}]: ` : `${question}: `;
     rl.question(text, (answer) => {
       rl.close();
-      resolve(answer.trim() || defaultValue || '');
+      const trimmed = answer.trim();
+      if (trimmed !== '') {
+        resolve(trimmed);
+      } else if (defaultValue !== undefined) {
+        resolve(defaultValue);
+      } else {
+        resolve('');
+      }
     });
   });
 }
@@ -181,22 +202,28 @@ async function cmdSetup(): Promise<void> {
   console.log(chalk.bold('\n  Quick Setup\n'));
   
   const config = loadConfig();
-  const hardware = detectHardware();
+  const hardwareRaw = detectHardware();
+  const hardware = convertHardwareToSnakeCase(hardwareRaw);
   
   // Show hardware
   console.log(`  ${chalk.bold('Your Machine:')}`);
-  console.log(`    CPU: ${hardware.cpu.coresPhysical} cores`);
-  console.log(`    RAM: ${(hardware.memory.totalMb / 1024).toFixed(0)} GB`);
+  console.log(`    CPU: ${hardware.cpu.cores_physical} cores`);
+  console.log(`    RAM: ${(hardware.memory.total_mb / 1024).toFixed(0)} GB`);
   console.log(`    GPU: ${hardware.gpus.length > 0 ? hardware.gpus[0].name : 'None'}`);
-  console.log(`    Docker: ${hardware.docker.runtimeAvailable ? 'Ready' : 'Not running'}\n`);
+  console.log(`    Docker: ${hardware.docker.runtime_available ? 'Ready' : 'Not running'}\n`);
   
   // Network
-  const network = await prompt('  Network (testnet/mainnet)', config.network);
-  config.network = network as 'testnet' | 'mainnet';
+  const networkInput = await prompt('  Network (testnet/mainnet)', config.network);
+  if (networkInput !== 'testnet' && networkInput !== 'mainnet' && networkInput !== 'localnet') {
+    throw new Error(`Invalid network: ${networkInput}. Must be 'testnet', 'mainnet', or 'localnet'`);
+  }
+  config.network = networkInput;
   config.rpcUrl = config.network === 'mainnet' 
     ? 'https://rpc.jejunetwork.org' 
-    : 'https://testnet-rpc.jejunetwork.org';
-  config.chainId = config.network === 'mainnet' ? 420690 : 420691;
+    : config.network === 'testnet'
+    ? 'https://testnet-rpc.jejunetwork.org'
+    : 'http://localhost:8545';
+  config.chainId = config.network === 'mainnet' ? 420690 : config.network === 'testnet' ? 420691 : 1337;
   
   // Wallet
   if (!config.privateKey) {
@@ -205,14 +232,14 @@ async function cmdSetup(): Promise<void> {
     if (hasKey) {
       const key = await prompt('  Enter private key (0x...)');
       if (key) {
-        config.privateKey = key.startsWith('0x') ? key : `0x${key}`;
-        try {
-          const { privateKeyToAccount } = await import('viem/accounts');
-          config.walletAddress = privateKeyToAccount(config.privateKey as `0x${string}`).address;
-          console.log(chalk.green(`    ✓ Wallet: ${config.walletAddress}`));
-        } catch {
-          console.log(chalk.yellow('    ⚠ Invalid key'));
+        const normalizedKey = key.startsWith('0x') ? key : `0x${key}`;
+        if (!/^0x[a-fA-F0-9]{64}$/.test(normalizedKey)) {
+          throw new Error('Invalid private key format: must be 64 hex characters (with or without 0x prefix)');
         }
+        const { privateKeyToAccount } = await import('viem/accounts');
+        config.privateKey = normalizedKey;
+        config.walletAddress = privateKeyToAccount(normalizedKey as `0x${string}`).address;
+        console.log(chalk.green(`    ✓ Wallet: ${config.walletAddress}`));
       }
     } else {
       console.log('    Set JEJU_PRIVATE_KEY env var or run setup again later.\n');
@@ -236,25 +263,24 @@ async function cmdSetup(): Promise<void> {
 
 async function cmdStatus(): Promise<void> {
   const config = loadConfig();
-  const hardware = detectHardware();
+  const hardwareRaw = detectHardware();
+  const hardware = convertHardwareToSnakeCase(hardwareRaw);
   
   console.log(chalk.bold('\n  Node Status\n'));
   
   // Connection
   let connected = false;
   let blockNum = 0;
-  try {
-    const res = await fetch(config.rpcUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),
-    });
-    const data = await res.json() as { result?: string };
-    if (data.result) {
-      connected = true;
-      blockNum = parseInt(data.result, 16);
-    }
-  } catch { /* ignore */ }
+  const res = await fetch(config.rpcUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),
+  });
+  const data = await res.json() as { result?: string };
+  if (data.result) {
+    connected = true;
+    blockNum = parseInt(data.result, 16);
+  }
   
   console.log(`  ${chalk.bold('Network')}`);
   console.log(`    ${config.network} ${connected ? chalk.green('● Connected') : chalk.red('● Disconnected')}`);
@@ -265,11 +291,9 @@ async function cmdStatus(): Promise<void> {
   if (config.walletAddress) {
     console.log(`    ${config.walletAddress.slice(0, 10)}...${config.walletAddress.slice(-8)}`);
     if (connected) {
-      try {
-        const client = createNodeClient(config.rpcUrl, config.chainId, config.privateKey);
-        const balance = await client.publicClient.getBalance({ address: config.walletAddress as `0x${string}` });
-        console.log(`    Balance: ${formatEther(balance)} ETH`);
-      } catch { /* ignore */ }
+      const client = createNodeClient(config.rpcUrl, config.chainId, config.privateKey);
+      const balance = await client.publicClient.getBalance({ address: config.walletAddress as `0x${string}` });
+      console.log(`    Balance: ${formatEther(balance)} ETH`);
     }
   } else {
     console.log(chalk.yellow('    Not configured - run `jeju-node setup`'));
@@ -277,10 +301,10 @@ async function cmdStatus(): Promise<void> {
   
   // Hardware
   console.log(`\n  ${chalk.bold('Hardware')}`);
-  console.log(`    CPU: ${hardware.cpu.coresPhysical} cores`);
-  console.log(`    RAM: ${(hardware.memory.totalMb / 1024).toFixed(1)} GB`);
+  console.log(`    CPU: ${hardware.cpu.cores_physical} cores`);
+  console.log(`    RAM: ${(hardware.memory.total_mb / 1024).toFixed(1)} GB`);
   console.log(`    GPU: ${hardware.gpus.length > 0 ? hardware.gpus[0].name : 'None'}`);
-  console.log(`    TEE: ${hardware.tee.attestationAvailable ? 'Available' : 'Not available'}`);
+  console.log(`    TEE: ${hardware.tee.attestation_available ? 'Available' : 'Not available'}`);
   
   // Services
   console.log(`\n  ${chalk.bold('Services')}`);
@@ -303,14 +327,22 @@ async function cmdStart(): Promise<void> {
   
   // Use env var if available
   if (process.env.JEJU_PRIVATE_KEY) {
-    config.privateKey = process.env.JEJU_PRIVATE_KEY;
+    const envKey = process.env.JEJU_PRIVATE_KEY;
+    const normalizedKey = envKey.startsWith('0x') ? envKey : `0x${envKey}`;
+    if (!/^0x[a-fA-F0-9]{64}$/.test(normalizedKey)) {
+      throw new Error('Invalid JEJU_PRIVATE_KEY environment variable: must be 64 hex characters');
+    }
+    config.privateKey = normalizedKey;
+    const { privateKeyToAccount } = await import('viem/accounts');
+    config.walletAddress = privateKeyToAccount(normalizedKey as `0x${string}`).address;
   }
   
   log('info', `Starting on ${config.network}...`);
   
   // Detect hardware
-  const hardware = detectHardware();
-  log('info', `Hardware: ${hardware.cpu.coresPhysical} CPU cores, ${(hardware.memory.totalMb / 1024).toFixed(0)}GB RAM`);
+  const hardwareRaw = detectHardware();
+  const hardware = convertHardwareToSnakeCase(hardwareRaw);
+  log('info', `Hardware: ${hardware.cpu.cores_physical} CPU cores, ${(hardware.memory.total_mb / 1024).toFixed(0)}GB RAM`);
   if (hardware.gpus.length > 0) {
     log('info', `GPU: ${hardware.gpus[0].name}`);
   }
@@ -342,7 +374,8 @@ async function cmdStart(): Promise<void> {
     
     const req = SERVICE_REQUIREMENTS[name];
     if (req) {
-      const check = meetsRequirements(hardware, req);
+      const hardwareCamel = convertHardwareToCamelCase(hardware);
+      const check = meetsRequirements(hardwareCamel, req);
       if (!check.meets) {
         log('warn', `Skipping ${name}: ${check.issues[0]}`);
         continue;
@@ -464,8 +497,18 @@ async function main(): Promise<void> {
   
   // Apply env overrides
   if (process.env.JEJU_NETWORK) {
+    const envNetwork = process.env.JEJU_NETWORK;
+    if (envNetwork !== 'testnet' && envNetwork !== 'mainnet' && envNetwork !== 'localnet') {
+      throw new Error(`Invalid JEJU_NETWORK environment variable: ${envNetwork}. Must be 'testnet', 'mainnet', or 'localnet'`);
+    }
     const config = loadConfig();
-    config.network = process.env.JEJU_NETWORK as 'testnet' | 'mainnet';
+    config.network = envNetwork;
+    config.rpcUrl = config.network === 'mainnet' 
+      ? 'https://rpc.jejunetwork.org' 
+      : config.network === 'testnet'
+      ? 'https://testnet-rpc.jejunetwork.org'
+      : 'http://localhost:8545';
+    config.chainId = config.network === 'mainnet' ? 420690 : config.network === 'testnet' ? 420691 : 1337;
     saveConfig(config);
   }
   
@@ -503,30 +546,29 @@ ${chalk.bold('Quick Start:')}
   
   // Apply flags
   if (values.network) {
+    if (values.network !== 'testnet' && values.network !== 'mainnet' && values.network !== 'localnet') {
+      throw new Error(`Invalid network: ${values.network}. Must be 'testnet', 'mainnet', or 'localnet'`);
+    }
     const config = loadConfig();
-    config.network = values.network as 'testnet' | 'mainnet';
-    config.rpcUrl = config.network === 'mainnet' ? 'https://rpc.jejunetwork.org' : 'https://testnet-rpc.jejunetwork.org';
-    config.chainId = config.network === 'mainnet' ? 420690 : 420691;
+    config.network = values.network;
+    config.rpcUrl = config.network === 'mainnet' 
+      ? 'https://rpc.jejunetwork.org' 
+      : config.network === 'testnet'
+      ? 'https://testnet-rpc.jejunetwork.org'
+      : 'http://localhost:8545';
+    config.chainId = config.network === 'mainnet' ? 420690 : config.network === 'testnet' ? 420691 : 1337;
     saveConfig(config);
   }
   
   if (values.key) {
+    const normalizedKey = values.key.startsWith('0x') ? values.key : `0x${values.key}`;
+    if (!/^0x[a-fA-F0-9]{64}$/.test(normalizedKey)) {
+      throw new Error('Invalid private key format: must be 64 hex characters (with or without 0x prefix)');
+    }
     const config = loadConfig();
-    config.privateKey = values.key;
-    try {
-      const { privateKeyToAccount } = await import('viem/accounts');
-      config.walletAddress = privateKeyToAccount(config.privateKey as `0x${string}`).address;
-    } catch { /* ignore */ }
-    saveConfig(config);
-  }
-  
-  if (values.all) {
-    const config = loadConfig();
-    config.services = {
-      compute: true, storage: true, oracle: true, proxy: true,
-      cron: true, rpc: true, xlp: true, solver: true, sequencer: false,
-    };
-    saveConfig(config);
+    config.privateKey = normalizedKey;
+    const { privateKeyToAccount } = await import('viem/accounts');
+    config.walletAddress = privateKeyToAccount(normalizedKey as `0x${string}`).address;
   }
   
   switch (command) {

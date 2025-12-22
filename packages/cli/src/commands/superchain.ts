@@ -10,9 +10,8 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { logger } from '../lib/logger';
-import { getNetworkName, getNetworkDisplayName } from '@jejunetwork/config';
+import { getNetworkDisplayName } from '@jejunetwork/config';
 
-const networkName = getNetworkName();
 const displayName = getNetworkDisplayName();
 
 // Superchain requirements

@@ -120,5 +120,46 @@ export {
 // Logger
 export { createLogger, kmsLogger } from './logger.js';
 
+// Crypto utilities
+export {
+  aesGcmEncrypt,
+  aesGcmDecrypt,
+  sealWithMasterKey,
+  unsealWithMasterKey,
+  deriveEncryptionKey,
+  encryptToPayload,
+  decryptFromPayload,
+  parseCiphertextPayload,
+  generateKeyId,
+  deriveKeyFromSecret,
+  deriveKeyForEncryption,
+  type AESGCMPayload,
+} from './crypto.js';
+
+// Validation schemas
+export {
+  kmsConfigSchema,
+  mpcConfigSchema,
+  teeConfigSchema,
+  encryptionConfigSchema,
+  generateKeyOptionsSchema,
+  encryptRequestSchema,
+  signRequestSchema,
+  thresholdSignRequestSchema,
+  tokenHeaderSchema,
+  tokenClaimsSchema,
+  tokenOptionsSchema,
+  verifyTokenOptionsSchema,
+  secretPolicySchema,
+  vaultConfigSchema,
+  mpcPartySchema,
+  mpcKeyGenParamsSchema,
+  mpcSignRequestSchema,
+  mpcCoordinatorConfigSchema,
+  ciphertextPayloadSchema,
+  validateOrThrow,
+  parseEnvInt,
+} from './schemas.js';
+
 // SDK utilities
 export * from './sdk/index.js';

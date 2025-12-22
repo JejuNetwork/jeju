@@ -136,50 +136,46 @@ export class JITLiquidityProvider extends EventEmitter {
     const client = this.clients.get(chainId);
     if (!client) return null;
 
-    try {
-      const [slot0, tickSpacing] = await Promise.all([
-        client.public.readContract({
-          address: pool,
-          abi: POOL_ABI,
-          functionName: 'slot0',
-        }),
-        client.public.readContract({
-          address: pool,
-          abi: POOL_ABI,
-          functionName: 'tickSpacing',
-        }),
-      ]);
+    const [slot0, tickSpacing] = await Promise.all([
+      client.public.readContract({
+        address: pool,
+        abi: POOL_ABI,
+        functionName: 'slot0',
+      }),
+      client.public.readContract({
+        address: pool,
+        abi: POOL_ABI,
+        functionName: 'tickSpacing',
+      }),
+    ]);
 
-      const currentTick = slot0[1];
-      const spacing = Number(tickSpacing);
+    const currentTick = slot0[1];
+    const spacing = Number(tickSpacing);
 
-      const tickLower = Math.floor((currentTick - this.config.tickRange) / spacing) * spacing;
-      const tickUpper = Math.ceil((currentTick + this.config.tickRange) / spacing) * spacing;
+    const tickLower = Math.floor((currentTick - this.config.tickRange) / spacing) * spacing;
+    const tickUpper = Math.ceil((currentTick + this.config.tickRange) / spacing) * spacing;
 
-      const feeRate = BigInt(fee);
-      const expectedFees = (swapAmount * feeRate) / BigInt(1e6);
+    const feeRate = BigInt(fee);
+    const expectedFees = (swapAmount * feeRate) / BigInt(1e6);
 
-      if (expectedFees < this.config.minProfitWei) {
-        return null;
-      }
-
-      return {
-        intentId,
-        chainId,
-        pool,
-        token0,
-        token1,
-        fee,
-        direction,
-        swapAmount,
-        expectedFees,
-        optimalTickLower: tickLower,
-        optimalTickUpper: tickUpper,
-        deadline,
-      };
-    } catch {
+    if (expectedFees < this.config.minProfitWei) {
       return null;
     }
+
+    return {
+      intentId,
+      chainId,
+      pool,
+      token0,
+      token1,
+      fee,
+      direction,
+      swapAmount,
+      expectedFees,
+      optimalTickLower: tickLower,
+      optimalTickUpper: tickUpper,
+      deadline,
+    };
   }
 
   /**

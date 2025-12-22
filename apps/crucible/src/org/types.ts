@@ -4,6 +4,10 @@
  * Type definitions for decentralized organization management.
  */
 
+// Re-export consolidated TodoStatus
+import type { TodoStatus } from '@jejunetwork/types';
+export type { TodoStatus };
+
 import type { Address } from 'viem';
 
 // =============================================================================
@@ -11,7 +15,7 @@ import type { Address } from 'viem';
 // =============================================================================
 
 export type TodoPriority = 'low' | 'medium' | 'high' | 'urgent';
-export type TodoStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
+// TodoStatus is imported from @jejunetwork/types above
 
 export interface Todo {
   id: string;

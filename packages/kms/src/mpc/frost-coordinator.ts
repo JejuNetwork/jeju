@@ -38,7 +38,8 @@ let FROSTCoordinator: FROSTCoordinatorType | null = null;
 async function loadFROST(): Promise<void> {
   if (!FROSTCoordinator) {
     const oauth3 = await import('@jejunetwork/oauth3');
-    // Cast to unknown first to avoid type mismatch with dynamic import
+    // Dynamic import requires runtime type assertion - oauth3.FROSTCoordinator implements FROSTCoordinatorType
+    if (!oauth3.FROSTCoordinator) throw new Error('FROSTCoordinator not found in @jejunetwork/oauth3');
     FROSTCoordinator = oauth3.FROSTCoordinator as unknown as FROSTCoordinatorType;
   }
 }
@@ -55,8 +56,9 @@ export class FROSTMPCCoordinator {
   }
 
   registerParty(party: Omit<MPCParty, 'status' | 'lastSeen'>): MPCParty {
-    if (this.config.requireAttestation && !party.attestation?.verified) {
-      throw new Error('Party attestation required and not verified');
+    if (this.config.requireAttestation) {
+      if (!party.attestation) throw new Error('Party attestation is required');
+      if (!party.attestation.verified) throw new Error('Party attestation is not verified');
     }
     if (party.stake < this.config.minPartyStake) {
       throw new Error(`Insufficient stake: ${party.stake} < ${this.config.minPartyStake}`);
@@ -147,14 +149,12 @@ export class FROSTMPCCoordinator {
     const { keyId, messageHash, requester } = request;
 
     const coordinator = this.frostClusters.get(keyId);
-    if (!coordinator) {
-      throw new Error(`Key ${keyId} not found`);
-    }
+    if (!coordinator) throw new Error(`Key ${keyId} not found`);
 
     const cluster = coordinator.getCluster();
     const versions = this.keyVersions.get(keyId);
-    const currentVersion = versions?.[versions.length - 1];
-    if (!currentVersion) throw new Error(`No version found for key ${keyId}`);
+    if (!versions || versions.length === 0) throw new Error(`No versions found for key ${keyId}`);
+    const currentVersion = versions[versions.length - 1];
 
     const sessionId = keccak256(toBytes(`sign:${keyId}:${messageHash}:${Date.now()}`));
 
@@ -226,7 +226,8 @@ export class FROSTMPCCoordinator {
     if (!coordinator) return undefined;
 
     const cluster = coordinator.getCluster();
-    const versions = this.keyVersions.get(keyId) || [];
+    const versions = this.keyVersions.get(keyId);
+    if (!versions || versions.length === 0) throw new Error(`Key versions not found for ${keyId}`);
 
     return {
       keyId,
@@ -236,12 +237,14 @@ export class FROSTMPCCoordinator {
       totalParties: cluster.totalParties,
       partyShares: new Map(),
       version: versions.length,
-      createdAt: versions[0]?.createdAt ?? Date.now(),
+      createdAt: versions[0].createdAt,
     };
   }
 
   getKeyVersions(keyId: string): KeyVersion[] {
-    return this.keyVersions.get(keyId) || [];
+    const versions = this.keyVersions.get(keyId);
+    if (!versions) throw new Error(`Key versions not found for ${keyId}`);
+    return versions;
   }
 
   getSession(sessionId: string): MPCSignSession | undefined {

@@ -16,7 +16,7 @@
 
 import { createPublicClient, createWalletClient, http, parseEther, formatEther, encodeDeployData, encodeFunctionData, getContractAddress, zeroAddress, zeroHash, getAddress, type Address, type Chain } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { waitForTransactionReceipt, getBalance, readContract, getLogs, decodeEventLog } from 'viem/actions';
+import { waitForTransactionReceipt, getBalance, getLogs, decodeEventLog } from 'viem/actions';
 import { parseAbi } from 'viem';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';

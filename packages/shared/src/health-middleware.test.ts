@@ -6,7 +6,7 @@
 
 import { describe, test, expect, beforeEach } from 'bun:test';
 import { Hono } from 'hono';
-import { healthMiddleware, healthChecks, type HealthMiddlewareConfig } from './health-middleware';
+import { healthMiddleware, healthChecks } from './health-middleware';
 
 describe('healthMiddleware', () => {
   let app: Hono;
@@ -440,7 +440,7 @@ describe('healthChecks helpers', () => {
       const server = Bun.serve({
         port: 0,
         fetch() {
-          return new Promise(() => {}); // Never resolves
+          return new Promise(() => { /* intentionally never resolves */ });
         },
       });
 

@@ -3,6 +3,8 @@
 import { useReadContract, useReadContracts, useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi'
 import { useState, useCallback, useMemo } from 'react'
 import { type Address, type Hash } from 'viem'
+import { AddressSchema } from '@jejunetwork/types/contracts'
+import { expect, expectPositive, expectTrue } from '@/lib/validation'
 import { CONTRACTS } from '@/config'
 
 
@@ -616,13 +618,19 @@ export function useOpenPosition(perpetualMarketAddress: Address | undefined) {
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
 
   const openPosition = useCallback(async (params: OpenPositionParams) => {
-    if (!perpetualMarketAddress || !userAddress) {
-      setError('Wallet not connected')
-      return
-    }
+    const validatedMarketAddress = expect(perpetualMarketAddress, 'Perpetual market address not configured');
+    AddressSchema.parse(validatedMarketAddress);
+    const validatedUserAddress = expect(userAddress, 'Wallet not connected');
+    AddressSchema.parse(validatedUserAddress);
+    
+    AddressSchema.parse(params.marginToken);
+    expectPositive(params.marginAmount, 'Margin amount must be positive');
+    expectPositive(params.size, 'Position size must be positive');
+    expectTrue(params.leverage > 0 && params.leverage <= 100, 'Leverage must be between 1 and 100');
+    
     setError(null)
     writeContract({
-      address: perpetualMarketAddress,
+      address: validatedMarketAddress,
       abi: PERPETUAL_MARKET_ABI,
       functionName: 'openPosition',
       args: [params.marketId, params.marginToken, params.marginAmount, params.size, params.side, BigInt(params.leverage)]
@@ -638,14 +646,14 @@ export function useClosePosition(perpetualMarketAddress: Address | undefined) {
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
 
   const closePosition = useCallback(async (positionId: Hash, sizeDecrease?: bigint) => {
-    if (!perpetualMarketAddress) {
-      setError('Not configured')
-      return
-    }
+    const validatedMarketAddress = expect(perpetualMarketAddress, 'Market address not configured');
+    AddressSchema.parse(validatedMarketAddress);
+    expect(positionId, 'Position ID is required');
+    
     setError(null)
     const decreaseAmount = sizeDecrease ?? BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff')
     writeContract({
-      address: perpetualMarketAddress,
+      address: validatedMarketAddress,
       abi: PERPETUAL_MARKET_ABI,
       functionName: 'decreasePosition',
       args: [positionId, decreaseAmount]
@@ -661,13 +669,14 @@ export function useDepositCollateral(marginManagerAddress: Address | undefined) 
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
 
   const deposit = useCallback(async (token: Address, amount: bigint) => {
-    if (!marginManagerAddress) {
-      setError('Not configured')
-      return
-    }
+    const validatedManagerAddress = expect(marginManagerAddress, 'Margin manager address not configured');
+    AddressSchema.parse(validatedManagerAddress);
+    AddressSchema.parse(token);
+    expectPositive(amount, 'Deposit amount must be positive');
+    
     setError(null)
     writeContract({
-      address: marginManagerAddress,
+      address: validatedManagerAddress,
       abi: MARGIN_MANAGER_ABI,
       functionName: 'deposit',
       args: [token, amount]
@@ -683,13 +692,14 @@ export function useWithdrawCollateral(marginManagerAddress: Address | undefined)
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
 
   const withdraw = useCallback(async (token: Address, amount: bigint) => {
-    if (!marginManagerAddress) {
-      setError('Not configured')
-      return
-    }
+    const validatedManagerAddress = expect(marginManagerAddress, 'Margin manager address not configured');
+    AddressSchema.parse(validatedManagerAddress);
+    AddressSchema.parse(token);
+    expectPositive(amount, 'Withdraw amount must be positive');
+    
     setError(null)
     writeContract({
-      address: marginManagerAddress,
+      address: validatedManagerAddress,
       abi: MARGIN_MANAGER_ABI,
       functionName: 'withdraw',
       args: [token, amount]

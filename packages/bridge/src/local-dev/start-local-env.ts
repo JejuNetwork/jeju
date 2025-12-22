@@ -304,7 +304,7 @@ async function main(): Promise<void> {
 		});
 
 		// Wait forever
-		await new Promise(() => {});
+		await new Promise(() => { /* noop - keep process running */ });
 	} catch (error) {
 		console.error("❌ Failed to start local environment:", error);
 

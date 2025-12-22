@@ -239,6 +239,48 @@ const SEVERITY_NAMES: Record<number, string> = { 0: 'LOW', 1: 'MEDIUM', 2: 'HIGH
 const REPORT_STATUS_NAMES: Record<number, string> = { 0: 'PENDING', 1: 'RESOLVED_YES', 2: 'RESOLVED_NO', 3: 'EXECUTED' };
 const LABEL_NAMES: Record<number, string> = { 0: 'NONE', 1: 'HACKER', 2: 'SCAMMER', 3: 'SPAM_BOT', 4: 'TRUSTED' };
 
+function getBanTypeName(code: number): string {
+  const name = BAN_TYPE_NAMES[code];
+  if (!name) throw new Error(`Unknown ban type code: ${code}`);
+  return name;
+}
+
+function getCaseStatusName(code: number): string {
+  const name = CASE_STATUS_NAMES[code];
+  if (!name) throw new Error(`Unknown case status code: ${code}`);
+  return name;
+}
+
+function getTierName(code: number): string {
+  const name = TIER_NAMES[code];
+  if (!name) throw new Error(`Unknown tier code: ${code}`);
+  return name;
+}
+
+function getReportTypeName(code: number): string {
+  const name = REPORT_TYPE_NAMES[code];
+  if (!name) throw new Error(`Unknown report type code: ${code}`);
+  return name;
+}
+
+function getSeverityName(code: number): string {
+  const name = SEVERITY_NAMES[code];
+  if (!name) throw new Error(`Unknown severity code: ${code}`);
+  return name;
+}
+
+function getReportStatusName(code: number): string {
+  const name = REPORT_STATUS_NAMES[code];
+  if (!name) throw new Error(`Unknown report status code: ${code}`);
+  return name;
+}
+
+function getLabelName(code: number): string {
+  const name = LABEL_NAMES[code];
+  if (!name) throw new Error(`Unknown label code: ${code}`);
+  return name;
+}
+
 // ============ ABIs ============
 
 const BAN_MANAGER_ABI = [
@@ -361,14 +403,15 @@ export class ModerationAPI {
     if (!isBanned && !onNotice) return defaultResult;
 
     const ban = addressBan as { banType: number; reason: string; caseId: `0x${string}`; reporter: Address; bannedAt: bigint } | null;
+    const banType = ban ? getBanTypeName(ban.banType) : 'NONE';
     return {
       address,
       isBanned,
       isOnNotice: onNotice,
-      banType: BAN_TYPE_NAMES[ban?.banType ?? 0],
-      reason: ban?.reason || (isOnNotice ? 'Account on notice - pending review' : 'Banned'),
+      banType,
+      reason: ban?.reason ? ban.reason : (onNotice ? 'Account on notice - pending review' : 'Banned'),
       caseId: ban?.caseId && ban.caseId !== '0x0000000000000000000000000000000000000000000000000000000000000000' ? ban.caseId : null,
-      reporter: ban?.reporter || null,
+      reporter: ban?.reporter ? ban.reporter : null,
       bannedAt: ban?.bannedAt ? Number(ban.bannedAt) : null,
       canAppeal: ban?.banType === 3,
     };
@@ -401,7 +444,7 @@ export class ModerationAPI {
       isStaked: stakeData.isStaked,
       stakedSince: Number(stakeData.stakedAt),
       reputationScore: Number(repData.reputationScore),
-      tier: TIER_NAMES[tier as number] || 'MEDIUM',
+      tier: getTierName(tier as number),
       successfulBans: wins,
       unsuccessfulBans: losses,
       winRate: total > 0 ? Math.round((wins / total) * 100) : 50,
@@ -417,8 +460,8 @@ export class ModerationAPI {
   async getModerationCases(options?: { activeOnly?: boolean; resolvedOnly?: boolean; limit?: number }): Promise<ModerationCase[]> {
     if (!this.config.moderationMarketplaceAddress) return [];
 
-    const rawCaseIds = await this.client.readContract({ address: this.config.moderationMarketplaceAddress, abi: MODERATION_MARKETPLACE_ABI, functionName: 'getAllCaseIds' }).catch(() => []);
-    const caseIds = (rawCaseIds || []) as `0x${string}`[];
+    const rawCaseIds = await this.client.readContract({ address: this.config.moderationMarketplaceAddress, abi: MODERATION_MARKETPLACE_ABI, functionName: 'getAllCaseIds' }).catch(() => [] as `0x${string}`[]);
+    const caseIds = rawCaseIds as `0x${string}`[];
     if (!caseIds.length) return [];
 
     const limit = options?.limit || 50;
@@ -426,7 +469,9 @@ export class ModerationAPI {
 
     const cases = await Promise.all(
       caseIds.slice(0, limit).map(async (caseId: `0x${string}`) => {
-        const rawCaseData = await this.client.readContract({ address: this.config.moderationMarketplaceAddress!, abi: MODERATION_MARKETPLACE_ABI, functionName: 'getCase', args: [caseId] }).catch(() => null);
+        const address = this.config.moderationMarketplaceAddress;
+        if (!address) return null;
+        const rawCaseData = await this.client.readContract({ address, abi: MODERATION_MARKETPLACE_ABI, functionName: 'getCase', args: [caseId] }).catch(() => null);
         if (!rawCaseData) return null;
         const caseData = rawCaseData as CaseData;
 
@@ -438,7 +483,7 @@ export class ModerationAPI {
           targetStake: formatEther(caseData.targetStake),
           reason: caseData.reason,
           evidenceHash: caseData.evidenceHash,
-          status: CASE_STATUS_NAMES[caseData.status] || 'UNKNOWN',
+          status: getCaseStatusName(caseData.status),
           createdAt: Number(caseData.createdAt),
           votingEndsAt: Number(caseData.marketOpenUntil),
           yesVotes: formatEther(caseData.yesVotes),
@@ -474,7 +519,7 @@ export class ModerationAPI {
       targetStake: formatEther(caseData.targetStake),
       reason: caseData.reason,
       evidenceHash: caseData.evidenceHash,
-      status: CASE_STATUS_NAMES[caseData.status] || 'UNKNOWN',
+      status: getCaseStatusName(caseData.status),
       createdAt: Number(caseData.createdAt),
       votingEndsAt: Number(caseData.marketOpenUntil),
       yesVotes: formatEther(caseData.yesVotes),
@@ -497,14 +542,16 @@ export class ModerationAPI {
     const limit = options?.limit || 50;
     const reports = await Promise.all(
       reportIds.slice(0, limit).map(async (reportId: bigint) => {
-        const rawReport = await this.client.readContract({ address: this.config.reportingSystemAddress!, abi: REPORTING_SYSTEM_ABI, functionName: 'getReport', args: [reportId] }).catch(() => null);
+        const address = this.config.reportingSystemAddress;
+        if (!address) return null;
+        const rawReport = await this.client.readContract({ address, abi: REPORTING_SYSTEM_ABI, functionName: 'getReport', args: [reportId] }).catch(() => null);
         if (!rawReport) return null;
         const report = rawReport as ReportData;
 
         return {
           reportId: Number(report.reportId),
-          reportType: REPORT_TYPE_NAMES[report.reportType] || 'UNKNOWN',
-          severity: SEVERITY_NAMES[report.severity] || 'UNKNOWN',
+          reportType: getReportTypeName(report.reportType),
+          severity: getSeverityName(report.severity),
           targetAgentId: Number(report.targetAgentId),
           sourceApp: report.sourceAppId,
           reporter: report.reporter,
@@ -514,7 +561,7 @@ export class ModerationAPI {
           reportBond: formatEther(report.reportBond),
           createdAt: Number(report.createdAt),
           votingEndsAt: Number(report.votingEnds),
-          status: REPORT_STATUS_NAMES[report.status] || 'UNKNOWN',
+          status: getReportStatusName(report.status),
         } as Report;
       })
     );
@@ -530,7 +577,7 @@ export class ModerationAPI {
 
     const rawLabelIds = await this.client.readContract({ address: this.config.reputationLabelManagerAddress, abi: REPUTATION_LABEL_MANAGER_ABI, functionName: 'getLabels', args: [BigInt(agentId)] }).catch(() => [] as number[]);
     const labelIds = rawLabelIds as number[];
-    const labels = labelIds.map((id: number) => LABEL_NAMES[id] || 'UNKNOWN').filter((l: string) => l !== 'NONE' && l !== 'UNKNOWN');
+    const labels = labelIds.map((id: number) => getLabelName(id)).filter((l: string) => l !== 'NONE');
 
     return { agentId, labels, isHacker: labels.includes('HACKER'), isScammer: labels.includes('SCAMMER'), isSpamBot: labels.includes('SPAM_BOT'), isTrusted: labels.includes('TRUSTED') };
   }

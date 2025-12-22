@@ -12,13 +12,14 @@
 
 import type { Hex } from "viem";
 import { bytesToHex, keccak256, toBytes } from "viem";
+import { z } from "zod";
 import type {
 	CrossChainTransfer,
 	Hash32,
 	TEEAttestation,
 } from "../types/index.js";
 import { toHash32 } from "../types/index.js";
-import { createLogger } from "../utils/logger.js";
+import { createLogger, computeMerkleRoot } from "../utils/index.js";
 
 const log = createLogger("phala");
 
@@ -107,32 +108,29 @@ export class PhalaClient {
 		}
 
 		// Verify Phala endpoint is reachable
-		try {
-			const response = await fetch(`${this.config.endpoint}/health`, {
-				method: "GET",
-				signal: AbortSignal.timeout(this.config.timeoutMs ?? 30000),
-			});
+		const timeout = this.config.timeoutMs ?? 30000;
+		const response = await fetch(`${this.config.endpoint}/health`, {
+			method: "GET",
+			signal: AbortSignal.timeout(timeout),
+		});
 
-			if (!response.ok) {
-				throw new Error(`Phala endpoint returned ${response.status}`);
-			}
-
-			const healthData = (await response.json()) as {
-				enclave_id?: string;
-				public_key?: string;
-			};
-			log.info("Connected to TEE enclave", { enclaveId: healthData.enclave_id ?? "unknown" });
-
-			if (healthData.public_key) {
-				this.enclavePublicKey = Buffer.from(healthData.public_key, "hex");
-			}
-
-			this.initialized = true;
-		} catch (error) {
-			throw new Error(
-				`Failed to connect to Phala: ${error instanceof Error ? error.message : "Unknown error"}`,
-			);
+		if (!response.ok) {
+			throw new Error(`Phala endpoint returned ${response.status}`);
 		}
+
+		const HealthResponseSchema = z.object({
+			enclave_id: z.string(),
+			public_key: z.string().optional(),
+		});
+
+		const healthData = HealthResponseSchema.parse(await response.json());
+		log.info("Connected to TEE enclave", { enclaveId: healthData.enclave_id });
+
+		if (healthData.public_key) {
+			this.enclavePublicKey = Buffer.from(healthData.public_key, "hex");
+		}
+
+		this.initialized = true;
 	}
 
 	/**
@@ -149,20 +147,27 @@ export class PhalaClient {
 			return this.generateMockAttestation(request);
 		}
 
+		// Use provided nonce or generate from timestamp
+		const nonce = request.nonce?.toString() ?? Date.now().toString();
 		const payload = {
 			data: request.data,
 			operator_address: request.operatorAddress,
-			nonce: request.nonce?.toString() ?? Date.now().toString(),
+			nonce,
 		};
+
+		const timeout = this.config.timeoutMs ?? 30000;
+		const headers: Record<string, string> = {
+			"Content-Type": "application/json",
+		};
+		if (this.config.apiKey) {
+			headers["X-API-Key"] = this.config.apiKey;
+		}
 
 		const response = await fetch(`${this.config.endpoint}/attestation`, {
 			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				...(this.config.apiKey ? { "X-API-Key": this.config.apiKey } : {}),
-			},
+			headers,
 			body: JSON.stringify(payload),
-			signal: AbortSignal.timeout(this.config.timeoutMs ?? 30000),
+			signal: AbortSignal.timeout(timeout),
 		});
 
 		if (!response.ok) {
@@ -201,7 +206,13 @@ export class PhalaClient {
 	): Promise<PhalaBatchAttestation> {
 		// Compute merkle root of transfer IDs
 		const transferIds = transfers.map((t) => t.transferId);
-		const transfersRoot = this.computeMerkleRoot(transferIds);
+		const transfersRoot = computeMerkleRoot(
+			transferIds,
+			(data) => {
+				const hash = keccak256(data);
+				return Buffer.from(hash.slice(2), "hex");
+			},
+		);
 
 		// Build data to attest
 		const attestData = keccak256(
@@ -256,34 +267,31 @@ export class PhalaClient {
 		}
 
 		// For production, verify against Phala's verification service
-		try {
-			const response = await fetch(`${this.config.endpoint}/verify`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					quote: Buffer.from(attestation.quote).toString("hex"),
-					mr_enclave: attestation.mrEnclave,
-					report_data: attestation.reportData,
-					signature: attestation.signature,
-				}),
-				signal: AbortSignal.timeout(this.config.timeoutMs ?? 30000),
-			});
+		const timeout = this.config.timeoutMs ?? 30000;
+		const response = await fetch(`${this.config.endpoint}/verify`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				quote: Buffer.from(attestation.quote).toString("hex"),
+				mr_enclave: attestation.mrEnclave,
+				report_data: attestation.reportData,
+				signature: attestation.signature,
+			}),
+			signal: AbortSignal.timeout(timeout),
+		});
 
-			if (!response.ok) {
-				errors.push(`Verification service returned ${response.status}`);
-			} else {
-				const result = (await response.json()) as {
-					valid: boolean;
-					error?: string;
-				};
-				if (!result.valid) {
-					errors.push(result.error ?? "Attestation verification failed");
-				}
+		if (!response.ok) {
+			errors.push(`Verification service returned ${response.status}`);
+		} else {
+			const VerifyResponseSchema = z.object({
+				valid: z.boolean(),
+				error: z.string().optional(),
+			});
+			const result = VerifyResponseSchema.parse(await response.json());
+			if (!result.valid) {
+				const errorMsg = result.error ?? "Attestation verification failed";
+				errors.push(errorMsg);
 			}
-		} catch (error) {
-			errors.push(
-				`Verification failed: ${error instanceof Error ? error.message : "Unknown"}`,
-			);
 		}
 
 		return { valid: errors.length === 0, errors };
@@ -293,6 +301,9 @@ export class PhalaClient {
 	 * Convert attestation to format used by batcher
 	 */
 	toTEEAttestation(attestation: PhalaAttestationResponse): TEEAttestation {
+		if (!this.enclavePublicKey) {
+			throw new Error("Enclave public key not initialized - call initialize() first");
+		}
 		return {
 			measurement: toHash32(
 				attestation.mrEnclave.startsWith("0x")
@@ -300,7 +311,7 @@ export class PhalaClient {
 					: Buffer.from(attestation.mrEnclave, "hex"),
 			),
 			quote: attestation.quote,
-			publicKey: this.enclavePublicKey ?? new Uint8Array(33),
+			publicKey: this.enclavePublicKey,
 			timestamp: BigInt(attestation.timestamp),
 		};
 	}
@@ -341,39 +352,6 @@ export class PhalaClient {
 			enclaveId: `mock-enclave-${timestamp.toString(36)}`,
 		};
 	}
-
-	private computeMerkleRoot(leaves: Hash32[]): Hash32 {
-		if (leaves.length === 0) {
-			return toHash32(new Uint8Array(32));
-		}
-
-		if (leaves.length === 1) {
-			return leaves[0];
-		}
-
-		// Convert Hash32[] to Uint8Array[] for hashing
-		let currentLevel: Uint8Array[] = leaves.map((h) => new Uint8Array(h));
-
-		while (currentLevel.length > 1) {
-			const nextLevel: Uint8Array[] = [];
-
-			for (let i = 0; i < currentLevel.length; i += 2) {
-				const left = currentLevel[i];
-				const right = currentLevel[i + 1] ?? currentLevel[i];
-
-				const combined = new Uint8Array(64);
-				combined.set(left, 0);
-				combined.set(right, 32);
-
-				const hash = keccak256(combined);
-				nextLevel.push(Buffer.from(hash.slice(2), "hex"));
-			}
-
-			currentLevel = nextLevel;
-		}
-
-		return toHash32(currentLevel[0]);
-	}
 }
 
 // =============================================================================
@@ -382,15 +360,16 @@ export class PhalaClient {
 
 export function createPhalaClient(config?: Partial<PhalaConfig>): PhalaClient {
 	const endpoint = config?.endpoint ?? process.env.PHALA_ENDPOINT;
+	const useMock = !endpoint || (config?.useMock ?? false);
 
 	if (!endpoint) {
 		log.warn("PHALA_ENDPOINT not set, using mock mode");
 	}
 
 	return new PhalaClient({
-		endpoint: endpoint ?? "http://localhost:8000",
+		endpoint: endpoint ?? "http://localhost:8000",  // Default for mock mode only
 		apiKey: config?.apiKey ?? process.env.PHALA_API_KEY,
-		useMock: !endpoint || config?.useMock,
+		useMock,
 		timeoutMs: config?.timeoutMs ?? 30000,
 	});
 }

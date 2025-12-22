@@ -5,10 +5,10 @@
  * contracts for decentralized work coordination.
  */
 
-import { type Address, type Hex, encodeFunctionData, parseEther } from "viem";
+import { type Address, type Hex, encodeFunctionData } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
-import { getContract as getContractAddress } from "../config";
+import { requireContract } from "../config";
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -571,19 +571,9 @@ export function createWorkModule(
   wallet: JejuWallet,
   network: NetworkType,
 ): WorkModule {
-  // Helper to safely get contract addresses
-  const tryGetContract = (category: string, name: string): Address => {
-    try {
-      // @ts-expect-error - category names may vary by deployment
-      return getContractAddress(category, name, network) as Address;
-    } catch {
-      return "0x0000000000000000000000000000000000000000" as Address;
-    }
-  };
-
-  const bountyRegistryAddress = tryGetContract("work", "BountyRegistry");
-  const projectBoardAddress = tryGetContract("work", "ProjectBoard");
-  const guardianRegistryAddress = tryGetContract("work", "GuardianRegistry");
+  const bountyRegistryAddress = requireContract("work", "BountyRegistry", network);
+  const projectBoardAddress = requireContract("work", "ProjectBoard", network);
+  const guardianRegistryAddress = requireContract("work", "GuardianRegistry", network);
 
   // Helper to read bounty
   async function readBounty(bountyId: Hex): Promise<Bounty | null> {
@@ -1090,4 +1080,3 @@ export function createWorkModule(
     },
   };
 }
-

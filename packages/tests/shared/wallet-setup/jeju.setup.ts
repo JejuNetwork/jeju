@@ -9,19 +9,51 @@
  * ```typescript
  * export { default, PASSWORD, SEED_PHRASE } from '@jejunetwork/tests/wallet-setup';
  * ```
+ * 
+ * Or re-export in app synpress.config.ts:
+ * ```typescript
+ * import { createSynpressConfig, createWalletSetup, PASSWORD, SEED_PHRASE } from '@jejunetwork/tests';
+ * export default createSynpressConfig({ appName: 'myapp', port: 3000 });
+ * export const basicSetup = createWalletSetup();
+ * export { PASSWORD, SEED_PHRASE };
+ * ```
+ * 
+ * CLI commands:
+ * ```bash
+ * # Build wallet cache (do this once)
+ * jeju test e2e --build-cache
+ * 
+ * # Run e2e tests for an app
+ * jeju test e2e --app myapp
+ * 
+ * # Run all e2e tests
+ * jeju test e2e
+ * ```
  */
 
 import { defineWalletSetup } from '@synthetixio/synpress';
 import { MetaMask } from '@synthetixio/synpress/playwright';
 import { PASSWORD, SEED_PHRASE, JEJU_CHAIN } from '../synpress.config.base';
 
+/**
+ * Default wallet setup for Jeju testing.
+ * 
+ * This setup:
+ * 1. Imports the standard test wallet using Anvil's default seed phrase
+ * 2. Adds the Jeju Localnet network (chainId 1337)
+ * 3. Switches to the Jeju network
+ * 
+ * The test wallet address will be: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+ */
 export default defineWalletSetup(PASSWORD, async (context, walletPage) => {
   const metamask = new MetaMask(context, walletPage, PASSWORD);
 
   // Import the standard test wallet
+  console.log('[Jeju Wallet Setup] Importing wallet...');
   await metamask.importWallet(SEED_PHRASE);
 
   // Add the Jeju Localnet network
+  console.log(`[Jeju Wallet Setup] Adding network: ${JEJU_CHAIN.name} (chainId: ${JEJU_CHAIN.chainId})`);
   await metamask.addNetwork({
     name: JEJU_CHAIN.name,
     rpcUrl: JEJU_CHAIN.rpcUrl,
@@ -30,8 +62,12 @@ export default defineWalletSetup(PASSWORD, async (context, walletPage) => {
   });
 
   // Switch to the Jeju network
+  console.log(`[Jeju Wallet Setup] Switching to network: ${JEJU_CHAIN.name}`);
   await metamask.switchNetwork(JEJU_CHAIN.name);
+
+  console.log('[Jeju Wallet Setup] Complete');
 });
 
 // Re-export constants for convenience
 export { PASSWORD, SEED_PHRASE, JEJU_CHAIN } from '../synpress.config.base';
+export { TEST_WALLET_ADDRESS, JEJU_CHAIN_ID, JEJU_RPC_URL } from '../synpress.config.base';

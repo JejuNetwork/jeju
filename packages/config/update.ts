@@ -17,9 +17,21 @@
  * ```
  */
 
+import { z } from 'zod';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { 
+  ContractsConfigSchema, 
+  ServicesConfigSchema, 
+  EILConfigSchema,
+  ChainConfigSchema,
+  type NetworkType, 
+  type ContractsConfig,
+  type ServicesConfig,
+  type EILConfig,
+  type ContractCategoryExtended,
+} from './schemas';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -28,29 +40,57 @@ const CONFIG_DIR = __dirname;
 const ARTIFACTS_DIR = join(__dirname, '../deployment/.artifacts');
 
 // ============================================================================
+// Zod Schemas for Validation
+// ============================================================================
+
+const AddressSchema = z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid address format');
+
+const DeploymentArtifactSchema = z.object({
+  network: z.enum(['localnet', 'testnet', 'mainnet']),
+  timestamp: z.string(),
+  deployer: AddressSchema,
+  contracts: z.record(z.string(), z.object({
+    address: AddressSchema,
+    txHash: z.string().optional(),
+    blockNumber: z.number().optional(),
+  })),
+  services: z.record(z.string(), z.string()).optional(),
+});
+
+const TerraformOutputsSchema = z.record(z.string(), z.object({
+  value: z.union([z.string(), z.record(z.string(), z.string())]),
+  type: z.string().optional(),
+}));
+
+// ============================================================================
 // Types
 // ============================================================================
 
-export type NetworkType = 'localnet' | 'testnet' | 'mainnet';
-export type ContractCategoryKey = 
-  | 'tokens' | 'registry' | 'moderation' | 'nodeStaking' | 'jns'
-  | 'payments' | 'commerce' | 'defi' | 'compute' | 'governance' | 'oif' | 'eil' | 'fees';
+/** Contract category keys - uses unified type from schemas.ts */
+export type ContractCategoryKey = ContractCategoryExtended;
 
-export interface DeploymentArtifact {
-  network: NetworkType;
-  timestamp: string;
-  deployer: string;
-  contracts: Record<string, {
-    address: string;
-    txHash?: string;
-    blockNumber?: number;
-  }>;
-  services?: Record<string, string>;
-}
+export type DeploymentArtifact = z.infer<typeof DeploymentArtifactSchema>;
+export type TerraformOutputs = z.infer<typeof TerraformOutputsSchema>;
 
 // ============================================================================
 // Contract Updates
 // ============================================================================
+
+// Helper to load and parse contracts.json with type safety
+function loadContractsFile(): ContractsConfig & { lastUpdated?: string } {
+  const contractsPath = join(CONFIG_DIR, 'contracts.json');
+  const raw = JSON.parse(readFileSync(contractsPath, 'utf-8')) as ContractsConfig & { lastUpdated?: string };
+  // Validate structure matches expected schema
+  ContractsConfigSchema.parse(raw);
+  return raw;
+}
+
+// Helper to save contracts.json with proper formatting
+function saveContractsFile(contracts: ContractsConfig & { lastUpdated?: string }): void {
+  const contractsPath = join(CONFIG_DIR, 'contracts.json');
+  contracts.lastUpdated = new Date().toISOString().split('T')[0];
+  writeFileSync(contractsPath, JSON.stringify(contracts, null, 2) + '\n');
+}
 
 /**
  * Update a contract address in contracts.json
@@ -61,21 +101,25 @@ export function updateContractAddress(
   address: string,
   network: NetworkType
 ): void {
-  const contractsPath = join(CONFIG_DIR, 'contracts.json');
-  const contracts = JSON.parse(readFileSync(contractsPath, 'utf-8'));
+  // Validate address format
+  AddressSchema.parse(address);
   
-  if (!contracts[network]) {
+  const contracts = loadContractsFile();
+  
+  const netContracts = contracts[network];
+  if (!netContracts) {
     throw new Error(`Unknown network: ${network}`);
   }
   
-  if (!contracts[network][category]) {
-    contracts[network][category] = {};
+  // Type-safe access to category - using type assertion for dynamic property access
+  const categoryContracts = netContracts[category as keyof typeof netContracts] as Record<string, string> | undefined;
+  if (!categoryContracts) {
+    // Category doesn't exist, create it
+    (netContracts as unknown as Record<string, Record<string, string>>)[category] = {};
   }
+  (netContracts[category as keyof typeof netContracts] as Record<string, string>)[name] = address;
   
-  contracts[network][category][name] = address;
-  contracts.lastUpdated = new Date().toISOString().split('T')[0];
-  
-  writeFileSync(contractsPath, JSON.stringify(contracts, null, 2) + '\n');
+  saveContractsFile(contracts);
   console.log(`✅ Updated contracts.json: ${network}.${category}.${name} = ${address}`);
 }
 
@@ -86,18 +130,23 @@ export function updateContracts(
   updates: Array<{ category: ContractCategoryKey; name: string; address: string }>,
   network: NetworkType
 ): void {
-  const contractsPath = join(CONFIG_DIR, 'contracts.json');
-  const contracts = JSON.parse(readFileSync(contractsPath, 'utf-8'));
-  
-  for (const { category, name, address } of updates) {
-    if (!contracts[network][category]) {
-      contracts[network][category] = {};
-    }
-    contracts[network][category][name] = address;
+  // Validate all addresses upfront
+  for (const { address } of updates) {
+    AddressSchema.parse(address);
   }
   
-  contracts.lastUpdated = new Date().toISOString().split('T')[0];
-  writeFileSync(contractsPath, JSON.stringify(contracts, null, 2) + '\n');
+  const contracts = loadContractsFile();
+  const netContracts = contracts[network];
+  
+  for (const { category, name, address } of updates) {
+    const categoryContracts = netContracts[category as keyof typeof netContracts] as Record<string, string> | undefined;
+    if (!categoryContracts) {
+      (netContracts as unknown as Record<string, Record<string, string>>)[category] = {};
+    }
+    (netContracts[category as keyof typeof netContracts] as Record<string, string>)[name] = address;
+  }
+  
+  saveContractsFile(contracts);
   console.log(`✅ Updated ${updates.length} contract addresses in contracts.json`);
 }
 
@@ -106,25 +155,27 @@ export function updateContracts(
  */
 export function updateExternalContract(
   chain: string,
-  category: 'oif' | 'eil' | 'payments' | 'tokens',
+  category: 'oif' | 'eil' | 'payments' | 'tokens' | 'poc',
   name: string,
   address: string
 ): void {
-  const contractsPath = join(CONFIG_DIR, 'contracts.json');
-  const contracts = JSON.parse(readFileSync(contractsPath, 'utf-8'));
+  // Validate address format
+  AddressSchema.parse(address);
   
-  if (!contracts.external[chain]) {
+  const contracts = loadContractsFile();
+  
+  const chainContracts = contracts.external[chain];
+  if (!chainContracts) {
     throw new Error(`Unknown external chain: ${chain}`);
   }
   
-  if (!contracts.external[chain][category]) {
-    contracts.external[chain][category] = {};
+  const categoryContracts = chainContracts[category as keyof typeof chainContracts];
+  if (!categoryContracts) {
+    (chainContracts as unknown as Record<string, Record<string, string>>)[category] = {};
   }
+  (chainContracts[category as keyof typeof chainContracts] as Record<string, string>)[name] = address;
   
-  contracts.external[chain][category][name] = address;
-  contracts.lastUpdated = new Date().toISOString().split('T')[0];
-  
-  writeFileSync(contractsPath, JSON.stringify(contracts, null, 2) + '\n');
+  saveContractsFile(contracts);
   console.log(`✅ Updated contracts.json: external.${chain}.${category}.${name} = ${address}`);
 }
 
@@ -132,7 +183,23 @@ export function updateExternalContract(
 // Service URL Updates
 // ============================================================================
 
-type ServiceCategory = 'rpc' | 'indexer' | 'gateway' | 'storage' | 'compute' | 'oif' | 'leaderboard' | 'monitoring' | 'crucible' | 'cql' | 'dws' | 'autocrat';
+type ServiceCategory = 'rpc' | 'indexer' | 'gateway' | 'storage' | 'compute' | 'oif' | 'leaderboard' | 'monitoring' | 'crucible' | 'cql' | 'dws' | 'autocrat' | 'kms' | 'factory';
+
+const UrlSchema = z.string().url('Invalid URL format');
+
+// Helper to load and parse services.json with type safety
+function loadServicesFile(): ServicesConfig {
+  const servicesPath = join(CONFIG_DIR, 'services.json');
+  const raw = JSON.parse(readFileSync(servicesPath, 'utf-8')) as ServicesConfig;
+  ServicesConfigSchema.parse(raw);
+  return raw;
+}
+
+// Helper to save services.json with proper formatting
+function saveServicesFile(services: ServicesConfig): void {
+  const servicesPath = join(CONFIG_DIR, 'services.json');
+  writeFileSync(servicesPath, JSON.stringify(services, null, 2) + '\n');
+}
 
 /**
  * Update a service URL in services.json
@@ -143,22 +210,26 @@ export function updateServiceUrl(
   url: string,
   network: NetworkType
 ): void {
-  const servicesPath = join(CONFIG_DIR, 'services.json');
-  const services = JSON.parse(readFileSync(servicesPath, 'utf-8'));
+  // Validate URL format
+  UrlSchema.parse(url);
   
-  if (!services[network]) {
+  const services = loadServicesFile();
+  
+  const netServices = services[network];
+  if (!netServices) {
     throw new Error(`Unknown network: ${network}`);
   }
   
-  if (typeof services[network][category] === 'string') {
-    services[network][category] = url;
-  } else if (typeof services[network][category] === 'object') {
-    services[network][category][subKey] = url;
+  const categoryConfig = netServices[category as keyof typeof netServices];
+  if (typeof categoryConfig === 'string') {
+    (netServices as unknown as Record<string, string | object>)[category] = url;
+  } else if (typeof categoryConfig === 'object') {
+    (categoryConfig as Record<string, string>)[subKey] = url;
   } else {
-    services[network][category] = { [subKey]: url };
+    (netServices as unknown as Record<string, Record<string, string>>)[category] = { [subKey]: url };
   }
   
-  writeFileSync(servicesPath, JSON.stringify(services, null, 2) + '\n');
+  saveServicesFile(services);
   console.log(`✅ Updated services.json: ${network}.${category}.${subKey} = ${url}`);
 }
 
@@ -166,21 +237,39 @@ export function updateServiceUrl(
  * Update external RPC URL
  */
 export function updateExternalRpc(chainName: string, url: string, network: NetworkType): void {
-  const servicesPath = join(CONFIG_DIR, 'services.json');
-  const services = JSON.parse(readFileSync(servicesPath, 'utf-8'));
+  // Validate URL format
+  UrlSchema.parse(url);
   
-  if (!services[network].externalRpcs) {
-    services[network].externalRpcs = {};
+  const services = loadServicesFile();
+  
+  const netServices = services[network];
+  if (!netServices.externalRpcs) {
+    netServices.externalRpcs = {};
   }
   
-  services[network].externalRpcs[chainName] = url;
-  writeFileSync(servicesPath, JSON.stringify(services, null, 2) + '\n');
+  netServices.externalRpcs[chainName] = url;
+  saveServicesFile(services);
   console.log(`✅ Updated services.json: ${network}.externalRpcs.${chainName} = ${url}`);
 }
 
 // ============================================================================
 // EIL Config Updates
 // ============================================================================
+
+// Helper to load and parse eil.json with type safety
+function loadEILFile(): EILConfig & { lastUpdated?: string } {
+  const eilPath = join(CONFIG_DIR, 'eil.json');
+  const raw = JSON.parse(readFileSync(eilPath, 'utf-8')) as EILConfig & { lastUpdated?: string };
+  EILConfigSchema.parse(raw);
+  return raw;
+}
+
+// Helper to save eil.json with proper formatting
+function saveEILFile(eil: EILConfig & { lastUpdated?: string }): void {
+  const eilPath = join(CONFIG_DIR, 'eil.json');
+  eil.lastUpdated = new Date().toISOString().split('T')[0];
+  writeFileSync(eilPath, JSON.stringify(eil, null, 2) + '\n');
+}
 
 /**
  * Update EIL chain config
@@ -195,22 +284,30 @@ export function updateEILChain(
   },
   network: NetworkType
 ): void {
-  const eilPath = join(CONFIG_DIR, 'eil.json');
-  const eil = JSON.parse(readFileSync(eilPath, 'utf-8'));
+  // Validate addresses if provided
+  if (updates.crossChainPaymaster) AddressSchema.parse(updates.crossChainPaymaster);
+  if (updates.l1StakeManager) AddressSchema.parse(updates.l1StakeManager);
+  if (updates.tokens) {
+    for (const addr of Object.values(updates.tokens)) {
+      AddressSchema.parse(addr);
+    }
+  }
   
-  if (!eil[network]?.chains?.[chainName]) {
+  const eil = loadEILFile();
+  
+  const netConfig = eil[network];
+  if (!netConfig?.chains?.[chainName]) {
     throw new Error(`Unknown EIL chain: ${chainName} on ${network}`);
   }
   
-  const chain = eil[network].chains[chainName];
+  const chain = netConfig.chains[chainName];
   
   if (updates.crossChainPaymaster) chain.crossChainPaymaster = updates.crossChainPaymaster;
   if (updates.l1StakeManager) chain.l1StakeManager = updates.l1StakeManager;
   if (updates.status) chain.status = updates.status;
   if (updates.tokens) chain.tokens = { ...chain.tokens, ...updates.tokens };
   
-  eil.lastUpdated = new Date().toISOString().split('T')[0];
-  writeFileSync(eilPath, JSON.stringify(eil, null, 2) + '\n');
+  saveEILFile(eil);
   console.log(`✅ Updated eil.json: ${network}.chains.${chainName}`);
 }
 
@@ -250,7 +347,8 @@ export function loadLatestArtifact(network: NetworkType): DeploymentArtifact | n
     return null;
   }
   
-  return JSON.parse(readFileSync(latestPath, 'utf-8'));
+  const raw = JSON.parse(readFileSync(latestPath, 'utf-8'));
+  return DeploymentArtifactSchema.parse(raw);
 }
 
 /**
@@ -281,13 +379,6 @@ export function applyArtifactToConfig(artifact: DeploymentArtifact): void {
 // ============================================================================
 // Terraform Integration
 // ============================================================================
-
-interface TerraformOutputs {
-  [key: string]: {
-    value: string | Record<string, string>;
-    type?: string;
-  };
-}
 
 /**
  * Parse Terraform outputs and update config
@@ -324,11 +415,11 @@ export function applyTerraformOutputsFile(
   network: NetworkType
 ): void {
   if (!existsSync(outputsPath)) {
-    console.error(`Terraform outputs file not found: ${outputsPath}`);
-    return;
+    throw new Error(`Terraform outputs file not found: ${outputsPath}`);
   }
   
-  const outputs: TerraformOutputs = JSON.parse(readFileSync(outputsPath, 'utf-8'));
+  const raw = JSON.parse(readFileSync(outputsPath, 'utf-8'));
+  const outputs = TerraformOutputsSchema.parse(raw);
   applyTerraformOutputs(outputs, network);
 }
 
@@ -346,8 +437,18 @@ export function updateChainConfig(
     l2?: Record<string, string>;
   }
 ): void {
+  // Validate addresses
+  const validateAddresses = (addresses: Record<string, string>): void => {
+    for (const addr of Object.values(addresses)) {
+      AddressSchema.parse(addr);
+    }
+  };
+  
+  if (updates.l1) validateAddresses(updates.l1);
+  if (updates.l2) validateAddresses(updates.l2);
+  
   const chainPath = join(CONFIG_DIR, `chain/${network}.json`);
-  const chain = JSON.parse(readFileSync(chainPath, 'utf-8'));
+  const chain = ChainConfigSchema.parse(JSON.parse(readFileSync(chainPath, 'utf-8')));
   
   if (updates.l1) {
     chain.contracts.l1 = { ...chain.contracts.l1, ...updates.l1 };
@@ -364,22 +465,30 @@ export function updateChainConfig(
 // Validation
 // ============================================================================
 
+const CONFIG_VALIDATORS = {
+  'contracts.json': ContractsConfigSchema,
+  'services.json': ServicesConfigSchema,
+  'eil.json': EILConfigSchema,
+} as const;
+
 /**
- * Validate config files are properly formatted
+ * Validate config files are properly formatted and match schemas
  */
 export function validateConfig(): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
   
-  const files = ['contracts.json', 'services.json', 'eil.json', 'federation.json'];
-  
-  for (const file of files) {
+  for (const [file, schema] of Object.entries(CONFIG_VALIDATORS)) {
     const path = join(CONFIG_DIR, file);
-    try {
-      JSON.parse(readFileSync(path, 'utf-8'));
-    } catch (e) {
-      errors.push(`Invalid JSON in ${file}: ${e instanceof Error ? e.message : String(e)}`);
+    const raw = JSON.parse(readFileSync(path, 'utf-8'));
+    const result = schema.safeParse(raw);
+    if (!result.success) {
+      errors.push(`Schema validation failed for ${file}: ${result.error.message}`);
     }
   }
+  
+  // Also validate federation.json exists and is valid JSON
+  const federationPath = join(CONFIG_DIR, 'federation.json');
+  JSON.parse(readFileSync(federationPath, 'utf-8'));
   
   return { valid: errors.length === 0, errors };
 }
@@ -391,24 +500,27 @@ export function printConfigSummary(network: NetworkType): void {
   console.log(`\n📋 Config Summary for ${network}\n`);
   console.log('─'.repeat(60));
   
-  // Count contracts
-  const contracts = JSON.parse(readFileSync(join(CONFIG_DIR, 'contracts.json'), 'utf-8'));
+  // Count contracts using typed access
+  const contracts = loadContractsFile();
   const netContracts = contracts[network];
   let total = 0;
   let configured = 0;
   
   for (const category of Object.keys(netContracts)) {
     if (category === 'chainId') continue;
-    for (const [, address] of Object.entries(netContracts[category] as Record<string, string>)) {
-      total++;
-      if (address) configured++;
+    const categoryContracts = netContracts[category as keyof typeof netContracts];
+    if (typeof categoryContracts === 'object') {
+      for (const address of Object.values(categoryContracts as Record<string, string>)) {
+        total++;
+        if (address) configured++;
+      }
     }
   }
   
   console.log(`Contracts: ${configured}/${total} configured`);
   
-  // Services - just verify file exists
-  JSON.parse(readFileSync(join(CONFIG_DIR, 'services.json'), 'utf-8'));
+  // Services - load with validation
+  loadServicesFile();
   console.log(`Services: Configured for ${network}`);
   
   console.log('─'.repeat(60));

@@ -1,20 +1,43 @@
-/**
- * Core network hook
- */
-
 import { useNetworkContext } from "../context";
+import type { JejuClient } from "@jejunetwork/sdk";
+import type { Address } from "viem";
+import type { NetworkType } from "@jejunetwork/types";
 
-export function useJeju() {
+export interface JejuState {
+  client: JejuClient | null;
+  isLoading: boolean;
+  error: Error | null;
+  isConnected: boolean;
+  address: Address | null;
+  network: NetworkType | null;
+  chainId: number | null;
+  isSmartAccount: boolean;
+}
+
+export function useJeju(): JejuState {
   const { client, isLoading, error } = useNetworkContext();
+
+  if (!client) {
+    return {
+      client: null,
+      isLoading,
+      error,
+      isConnected: false,
+      address: null,
+      network: null,
+      chainId: null,
+      isSmartAccount: false,
+    };
+  }
 
   return {
     client,
     isLoading,
     error,
-    isConnected: !!client,
-    address: client?.address ?? null,
-    network: client?.network ?? null,
-    chainId: client?.chainId ?? null,
-    isSmartAccount: client?.isSmartAccount ?? false,
+    isConnected: true,
+    address: client.address,
+    network: client.network,
+    chainId: client.chainId,
+    isSmartAccount: client.isSmartAccount,
   };
 }

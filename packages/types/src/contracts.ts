@@ -1,7 +1,24 @@
 import { z } from 'zod';
+import { AddressSchema } from './validation';
 
-export const AddressSchema = z.string().regex(/^0x[a-fA-F0-9]{40}$/);
+export { AddressSchema };
 export type Address = z.infer<typeof AddressSchema>;
+
+// ============================================================================
+// Transaction Status Types
+// ============================================================================
+
+/**
+ * Transaction execution status
+ * Consolidates all transaction status definitions across the codebase
+ */
+export type TransactionStatus = 
+  | 'pending'      // Transaction created but not yet submitted
+  | 'submitted'    // Transaction submitted to network
+  | 'confirming'   // Waiting for confirmations
+  | 'confirmed'    // Transaction confirmed on chain
+  | 'failed'       // Transaction failed
+  | 'cancelled';   // Transaction cancelled by user
 
 export const L1ContractsSchema = z.object({
   OptimismPortal: AddressSchema,

@@ -11,7 +11,7 @@
  */
 
 import { z } from 'zod';
-import { AddressSchema } from './contracts';
+import { AddressSchema } from './validation';
 import { SupportedChainIdSchema } from './eil';
 export { SupportedChainIdSchema };
 export type { SupportedChainId } from './eil';
@@ -413,6 +413,60 @@ export const OIFEventTypeSchema = z.enum([
 ]);
 export type OIFEventType = z.infer<typeof OIFEventTypeSchema>;
 
+/**
+ * Strongly typed event data schemas for OIF events
+ */
+export const IntentCreatedDataSchema = z.object({
+  intentId: z.string(),
+  user: AddressSchema,
+  sourceChainId: SupportedChainIdSchema,
+  inputAmount: z.string(),
+  outputAmount: z.string(),
+});
+
+export const IntentFilledDataSchema = z.object({
+  intentId: z.string(),
+  solver: AddressSchema,
+  fee: z.string(),
+  executionTimeMs: z.number().optional(),
+});
+
+export const IntentCancelledDataSchema = z.object({
+  intentId: z.string(),
+  reason: z.string().optional(),
+});
+
+export const OrderEventDataSchema = z.object({
+  orderId: z.string(),
+  user: AddressSchema,
+  amount: z.string().optional(),
+});
+
+export const SolverEventDataSchema = z.object({
+  solver: AddressSchema,
+  stake: z.string().optional(),
+  reason: z.string().optional(),
+});
+
+export const AttestationDataSchema = z.object({
+  attestationId: z.string(),
+  intentId: z.string(),
+  oracleType: OracleTypeSchema,
+});
+
+/**
+ * Union of all OIF event data types
+ */
+export const OIFEventDataSchema = z.union([
+  IntentCreatedDataSchema,
+  IntentFilledDataSchema,
+  IntentCancelledDataSchema,
+  OrderEventDataSchema,
+  SolverEventDataSchema,
+  AttestationDataSchema,
+]);
+export type OIFEventData = z.infer<typeof OIFEventDataSchema>;
+
 export const OIFEventSchema = z.object({
   id: z.string(),
   type: OIFEventTypeSchema,
@@ -421,23 +475,31 @@ export const OIFEventSchema = z.object({
   transactionHash: z.string(),
   logIndex: z.number(),
   timestamp: z.number(),
-  data: z.record(z.string(), z.unknown()),
+  /** Strongly typed event data */
+  data: OIFEventDataSchema,
 });
 export type OIFEvent = z.infer<typeof OIFEventSchema>;
 
 // ============ A2A Skill Types ============
+
+/**
+ * Skill input parameter schema - no unknown types
+ */
+export const SkillInputParamSchema = z.object({
+  type: z.string(),
+  required: z.boolean().optional(),
+  /** Default value as JSON-serializable types */
+  default: z.union([z.string(), z.number(), z.boolean(), z.null(), z.array(z.string()), z.record(z.string(), z.string())]).optional(),
+  description: z.string().optional(),
+});
+export type SkillInputParam = z.infer<typeof SkillInputParamSchema>;
 
 export const OIFSkillSchema = z.object({
   id: z.string(),
   name: z.string(),
   description: z.string(),
   tags: z.array(z.string()),
-  inputs: z.record(z.string(), z.object({
-    type: z.string(),
-    required: z.boolean().optional(),
-    default: z.unknown().optional(),
-    description: z.string().optional(),
-  })).optional(),
+  inputs: z.record(z.string(), SkillInputParamSchema).optional(),
   outputs: z.record(z.string(), z.string()).optional(),
 });
 export type OIFSkill = z.infer<typeof OIFSkillSchema>;

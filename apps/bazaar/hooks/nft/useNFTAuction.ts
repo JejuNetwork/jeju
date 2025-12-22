@@ -1,5 +1,8 @@
 import { useWriteContract, useWaitForTransactionReceipt, useReadContract, useAccount } from 'wagmi'
 import { parseEther, formatEther } from 'viem'
+import { AddressSchema } from '@jejunetwork/types/contracts'
+import { expect, expectPositive, expectTrue } from '@/lib/validation'
+import { NonEmptyStringSchema } from '@/schemas/common'
 import { toast } from 'sonner'
 import NFTMarketplaceABI from '@/lib/abis/NFTMarketplace.json'
 import { CONTRACTS } from '@/config'
@@ -36,53 +39,50 @@ export function useNFTAuction(auctionId?: bigint) {
     durationDays: number,
     buyoutPriceETH?: string
   ) => {
-    const reservePrice = parseEther(reservePriceETH)
+    const validatedNftContract = AddressSchema.parse(nftContract);
+    expectPositive(tokenId, 'Token ID must be positive');
+    const validatedReservePriceETH = NonEmptyStringSchema.parse(reservePriceETH);
+    expectPositive(durationDays, 'Duration must be positive');
+    const validatedMarketplace = AddressSchema.parse(MARKETPLACE_ADDRESS);
+    
+    const reservePrice = parseEther(validatedReservePriceETH)
     const duration = BigInt(durationDays * 24 * 60 * 60)
-    const buyoutPrice = buyoutPriceETH ? parseEther(buyoutPriceETH) : 0n
+    const buyoutPrice = buyoutPriceETH ? parseEther(NonEmptyStringSchema.parse(buyoutPriceETH)) : 0n
 
     writeContract({
-      address: MARKETPLACE_ADDRESS,
+      address: validatedMarketplace,
       abi: NFTMarketplaceABI,
       functionName: 'createAuction',
-      args: [nftContract, tokenId, reservePrice, duration, buyoutPrice]
+      args: [validatedNftContract, tokenId, reservePrice, duration, buyoutPrice]
     })
     toast.success('Auction created')
   }
 
   const placeBid = (auctionId: bigint, bidAmountETH: string) => {
-    const bidAmount = parseEther(bidAmountETH)
+    expectPositive(auctionId, 'Auction ID must be positive');
+    const validatedBidAmountETH = NonEmptyStringSchema.parse(bidAmountETH);
+    const validatedMarketplace = AddressSchema.parse(MARKETPLACE_ADDRESS);
+    const validatedAuction = expect(auction, 'Auction not found');
+    const bidAmount = parseEther(validatedBidAmountETH)
 
-    if (auction) {
-      const [, , , reservePrice, highestBid, highestBidder, endTime, settled] = auction as AuctionData
+    const [, , , reservePrice, highestBid, highestBidder, endTime, settled] = validatedAuction as AuctionData
 
-      const now = Math.floor(Date.now() / 1000)
-      if (Number(endTime) < now) {
-        toast.error('Auction has ended')
-        return
-      }
+    const now = Math.floor(Date.now() / 1000)
+    expectTrue(Number(endTime) >= now, 'Auction has ended');
+    expectTrue(!settled, 'Auction already settled');
 
-      if (settled) {
-        toast.error('Auction already settled')
-        return
-      }
+    const minBid = highestBid > 0n 
+      ? highestBid + (highestBid / BigInt(20))
+      : reservePrice
 
-      const minBid = highestBid > 0n 
-        ? highestBid + (highestBid / BigInt(20))
-        : reservePrice
+    expectTrue(bidAmount >= minBid, `Minimum bid: ${formatEther(minBid)} ETH`);
 
-      if (bidAmount < minBid) {
-        toast.error(`Minimum bid: ${formatEther(minBid)} ETH`)
-        return
-      }
-
-      if (highestBidder && highestBidder.toLowerCase() === address?.toLowerCase()) {
-        toast.error('You already have the highest bid')
-        return
-      }
+    if (highestBidder && highestBidder.toLowerCase() === address?.toLowerCase()) {
+      expectTrue(false, 'You already have the highest bid');
     }
 
     writeContract({
-      address: MARKETPLACE_ADDRESS,
+      address: validatedMarketplace,
       abi: NFTMarketplaceABI,
       functionName: 'placeBid',
       args: [auctionId],
@@ -97,23 +97,20 @@ export function useNFTAuction(auctionId?: bigint) {
   }
 
   const settleAuction = (auctionId: bigint) => {
-    if (auction) {
-      const [, , , , , , endTime, settled] = auction as AuctionData
+    expectPositive(auctionId, 'Auction ID must be positive');
+    const validatedMarketplace = AddressSchema.parse(MARKETPLACE_ADDRESS);
+    const validatedAuction = expect(auction, 'Auction not found');
+    
+    if (validatedAuction) {
+      const [, , , , , , endTime, settled] = validatedAuction as AuctionData
 
       const now = Math.floor(Date.now() / 1000)
-      if (Number(endTime) >= now) {
-        toast.error(`Auction ends in ${Math.floor((Number(endTime) - now) / 60)} minutes`)
-        return
-      }
-
-      if (settled) {
-        toast.error('Auction already settled')
-        return
-      }
+      expectTrue(Number(endTime) < now, `Auction ends in ${Math.floor((Number(endTime) - now) / 60)} minutes`);
+      expectTrue(!settled, 'Auction already settled');
     }
 
     writeContract({
-      address: MARKETPLACE_ADDRESS,
+      address: validatedMarketplace,
       abi: NFTMarketplaceABI,
       functionName: 'settleAuction',
       args: [auctionId]

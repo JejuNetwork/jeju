@@ -49,23 +49,19 @@ export function useGasOptions(tokenBalances: TokenBalance[]) {
         const options: GasOption[] = [];
 
         for (const tb of chainBalances) {
-          try {
-            const sponsorCheck = await eilClient.canSponsor(
-              gasCostETH,
-              tb.token.address,
-              address
-            );
+          const sponsorCheck = await eilClient.canSponsor(
+            gasCostETH,
+            tb.token.address,
+            address
+          );
 
-            if (sponsorCheck.canSponsor) {
-              options.push({
-                token: tb.token,
-                tokenAmount: sponsorCheck.tokenCost,
-                ethEquivalent: gasCostETH,
-                usdValue: tb.usdValue ?? 0,
-              });
-            }
-          } catch {
-            // Token not supported
+          if (sponsorCheck.canSponsor) {
+            options.push({
+              token: tb.token,
+              tokenAmount: sponsorCheck.tokenCost,
+              ethEquivalent: gasCostETH,
+              usdValue: tb.usdValue ?? 0,
+            });
           }
         }
 
@@ -138,15 +134,10 @@ export function useGasPreview(
 
     const fetchPreview = async () => {
       setIsLoading(true);
-      try {
-        const gasPrice = await publicClient.getGasPrice();
-        const cost = await eilClient.previewTokenCost(estimatedGas, gasPrice, tokenAddress);
-        setTokenCost(cost);
-      } catch {
-        setTokenCost(0n);
-      } finally {
-        setIsLoading(false);
-      }
+      const gasPrice = await publicClient.getGasPrice();
+      const cost = await eilClient.previewTokenCost(estimatedGas, gasPrice, tokenAddress);
+      setTokenCost(cost);
+      setIsLoading(false);
     };
 
     fetchPreview();
@@ -172,18 +163,13 @@ export function useGasStatus() {
     if (!address || !publicClient) return;
 
     const checkGas = async () => {
-      try {
-        const balance = await publicClient.getBalance({ address });
-        setNativeBalance(balance);
+      const balance = await publicClient.getBalance({ address });
+      setNativeBalance(balance);
 
-        // Consider having gas if balance > 0.001 ETH
-        const minGas = 1000000000000000n; // 0.001 ETH
-        setHasGas(balance >= minGas);
-        setNeedsBridge(balance < minGas);
-      } catch {
-        setHasGas(false);
-        setNeedsBridge(true);
-      }
+      // Consider having gas if balance > 0.001 ETH
+      const minGas = 1000000000000000n; // 0.001 ETH
+      setHasGas(balance >= minGas);
+      setNeedsBridge(balance < minGas);
     };
 
     checkGas();

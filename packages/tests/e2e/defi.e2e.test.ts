@@ -1,16 +1,16 @@
 import { describe, test, expect, beforeAll } from "bun:test";
-import { createPublicClient, createWalletClient, http } from "viem";
+import { createPublicClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 import type { ChainConfig } from "@jejunetwork/types";
-import { rawDeployments, getContractAddresses } from "@jejunetwork/contracts";
+import { getContractAddresses } from "@jejunetwork/contracts";
 
 const CONFIG_PATH = join(process.cwd(), "config", "chain", "localnet.json");
 
 describe("DeFi E2E Tests", () => {
   let publicClient: ReturnType<typeof createPublicClient>;
-  let account: ReturnType<typeof privateKeyToAccount>;
+  let _account: ReturnType<typeof privateKeyToAccount>;
   let deployment: {
     uniswapV4: { PoolManager?: string; SwapRouter?: string };
     synthetixV3: Record<string, string>;
@@ -37,7 +37,7 @@ describe("DeFi E2E Tests", () => {
     }
     config = JSON.parse(readFileSync(CONFIG_PATH, "utf-8"));
 
-    account = privateKeyToAccount(
+    _account = privateKeyToAccount(
       "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
     );
 

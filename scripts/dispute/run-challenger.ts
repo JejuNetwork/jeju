@@ -100,7 +100,7 @@ class ChallengerService {
     this.startProofSubmitter();
 
     // Keep running
-    await new Promise(() => {});
+    await new Promise(() => { /* keep process running */ });
   }
 
   stop(): void {

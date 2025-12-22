@@ -3,7 +3,44 @@
  * Powers the Factory channel feed
  */
 
-import { FARCASTER_HUB_URL, NEYNAR_API_URL, FACTORY_CHANNEL_ID } from '@/config';
+import { z } from 'zod';
+import { NEYNAR_API_URL, FACTORY_CHANNEL_ID } from '@/config';
+
+const neynarUserSchema = z.object({
+  fid: z.number(),
+  username: z.string(),
+  display_name: z.string(),
+  pfp_url: z.string(),
+  profile: z.object({
+    bio: z.object({
+      text: z.string().optional(),
+    }).optional(),
+  }).optional(),
+  follower_count: z.number().optional(),
+  following_count: z.number().optional(),
+  verified_addresses: z.object({
+    eth_addresses: z.array(z.string()).optional(),
+  }).optional(),
+});
+
+const neynarCastSchema = z.object({
+  hash: z.string(),
+  thread_hash: z.string(),
+  author: neynarUserSchema,
+  text: z.string(),
+  timestamp: z.string(),
+  embeds: z.array(z.object({ url: z.string() })).optional(),
+  reactions: z.object({
+    likes: z.number().optional(),
+    recasts: z.number().optional(),
+  }).optional(),
+  replies: z.object({
+    count: z.number().optional(),
+  }).optional(),
+  channel: z.object({
+    id: z.string(),
+  }).nullable().optional(),
+});
 
 export interface FarcasterUser {
   fid: number;
@@ -189,36 +226,35 @@ class FarcasterClient {
     return data.casts.map(this.transformCast);
   }
 
-  // ============ Helpers ============
-
-  private transformCast(cast: Record<string, unknown>): Cast {
-    const author = cast.author as Record<string, unknown>;
+  private transformCast(rawCast: unknown): Cast {
+    const cast = neynarCastSchema.parse(rawCast);
     return {
-      hash: cast.hash as string,
-      threadHash: cast.thread_hash as string,
-      author: this.transformUser(author),
-      text: cast.text as string,
-      timestamp: new Date(cast.timestamp as string).getTime(),
-      embeds: (cast.embeds as { url: string }[]) || [],
+      hash: cast.hash,
+      threadHash: cast.thread_hash,
+      author: this.transformUser(cast.author),
+      text: cast.text,
+      timestamp: new Date(cast.timestamp).getTime(),
+      embeds: cast.embeds ?? [],
       reactions: {
-        likes: (cast.reactions as Record<string, number>)?.likes || 0,
-        recasts: (cast.reactions as Record<string, number>)?.recasts || 0,
+        likes: cast.reactions?.likes ?? 0,
+        recasts: cast.reactions?.recasts ?? 0,
       },
-      replies: (cast.replies as Record<string, number>)?.count || 0,
-      channel: (cast.channel as Record<string, string>)?.id || null,
+      replies: cast.replies?.count ?? 0,
+      channel: cast.channel?.id ?? null,
     };
   }
 
-  private transformUser(user: Record<string, unknown>): FarcasterUser {
+  private transformUser(rawUser: unknown): FarcasterUser {
+    const user = neynarUserSchema.parse(rawUser);
     return {
-      fid: user.fid as number,
-      username: user.username as string,
-      displayName: user.display_name as string,
-      pfpUrl: user.pfp_url as string,
-      bio: (user.profile as Record<string, Record<string, string>>)?.bio?.text || '',
-      followerCount: user.follower_count as number,
-      followingCount: user.following_count as number,
-      verifiedAddresses: (user.verified_addresses as Record<string, string[]>)?.eth_addresses || [],
+      fid: user.fid,
+      username: user.username,
+      displayName: user.display_name,
+      pfpUrl: user.pfp_url,
+      bio: user.profile?.bio?.text ?? '',
+      followerCount: user.follower_count ?? 0,
+      followingCount: user.following_count ?? 0,
+      verifiedAddresses: user.verified_addresses?.eth_addresses ?? [],
     };
   }
 }

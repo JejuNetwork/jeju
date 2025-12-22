@@ -81,12 +81,7 @@ describe("Hook Return Types", () => {
     
     // Hooks should throw when used outside JejuProvider
     expect(() => {
-      // This would throw in React context
-      try {
-        useJeju();
-      } catch (e) {
-        throw e;
-      }
+      useJeju();
     }).toThrow();
   });
 });

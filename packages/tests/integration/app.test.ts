@@ -9,7 +9,7 @@
  * 5. Verify serving via gateway
  */
 
-import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
+import { describe, test, expect } from 'bun:test';
 import { createPublicClient, createWalletClient, http, type Address, type Hex, namehash, parseEther } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { localhost } from 'viem/chains';
@@ -69,15 +69,30 @@ describe.skipIf(skipIfNoContracts)('Decentralized App Deployment', () => {
       const formData = new FormData();
       formData.append('file', new Blob([htmlContent], { type: 'text/html' }), 'index.html');
 
-      const response = await fetch(`${IPFS_API_URL}/api/v0/add`, {
-        method: 'POST',
-        body: formData,
-      }).catch(() => null);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
+      let response: Response;
+      try {
+        response = await fetch(`${IPFS_API_URL}/api/v0/add`, {
+          method: 'POST',
+          body: formData,
+          signal: controller.signal,
+        });
+      } catch (e) {
+        clearTimeout(timeoutId);
+        // Connection refused or timeout - IPFS not available
+        if (e instanceof Error && (e.name === 'AbortError' || e.message.includes('ECONNREFUSED'))) {
+          console.log('IPFS not available - skipping upload test');
+          ipfsCid = 'QmTest123'; // Mock CID for subsequent tests
+          return;
+        }
+        throw e;
+      }
+      clearTimeout(timeoutId);
 
-      if (!response?.ok) {
-        console.log('IPFS not available - skipping upload test');
-        ipfsCid = 'QmTest123'; // Mock CID for subsequent tests
-        return;
+      if (!response.ok) {
+        throw new Error(`IPFS upload failed: ${response.status} ${response.statusText}`);
       }
 
       const result = await response.json();
@@ -105,7 +120,7 @@ describe.skipIf(skipIfNoContracts)('Decentralized App Deployment', () => {
         abi: JNS_REGISTRAR_ABI,
         functionName: 'available',
         args: [testAppName],
-      }).catch(() => true);
+      });
 
       expect(available).toBe(true);
       console.log(`✅ Name ${testAppName} is available`);
@@ -143,7 +158,7 @@ describe.skipIf(skipIfNoContracts)('Decentralized App Deployment', () => {
         abi: JNS_REGISTRAR_ABI,
         functionName: 'rentPrice',
         args: [testAppName, duration],
-      }).catch(() => parseEther('0.001'));
+      });
 
       const { request } = await publicClient.simulateContract({
         address: JNS_REGISTRAR,
@@ -234,8 +249,15 @@ describe.skipIf(skipIfNoContracts)('Decentralized App Deployment', () => {
       const hash = await walletClient.writeContract(request);
       const receipt = await publicClient.waitForTransactionReceipt({ hash });
 
-      keepaliveId = receipt.logs[0]?.topics[1] as Hex ?? '0x0';
-      expect(keepaliveId).not.toBe('0x0');
+      const log = receipt.logs[0];
+      if (!log) {
+        throw new Error('No logs emitted from registerKeepalive transaction');
+      }
+      const topic = log.topics[1];
+      if (!topic) {
+        throw new Error('Missing keepaliveId topic in log');
+      }
+      keepaliveId = topic as Hex;
       console.log(`✅ Registered keepalive: ${keepaliveId.slice(0, 10)}...`);
     });
 
@@ -281,11 +303,21 @@ describe.skipIf(skipIfNoContracts)('Decentralized App Deployment', () => {
 
   describe('Gateway Serving', () => {
     test('should resolve JNS via gateway API', async () => {
-      const response = await fetch(`${JNS_GATEWAY_URL}/api/resolve/${testJnsName}`).catch(() => null);
+      let response: Response;
+      try {
+        response = await fetch(`${JNS_GATEWAY_URL}/api/resolve/${testJnsName}`, {
+          signal: AbortSignal.timeout(5000),
+        });
+      } catch (e) {
+        if (e instanceof Error && (e.name === 'AbortError' || e.name === 'TimeoutError' || e.message.includes('ECONNREFUSED'))) {
+          console.log('Gateway not available - skipping resolve test');
+          return;
+        }
+        throw e;
+      }
 
-      if (!response?.ok) {
-        console.log('Gateway not available - skipping resolve test');
-        return;
+      if (!response.ok) {
+        throw new Error(`Gateway returned ${response.status}: ${response.statusText}`);
       }
 
       const data = await response.json();
@@ -294,11 +326,21 @@ describe.skipIf(skipIfNoContracts)('Decentralized App Deployment', () => {
     });
 
     test('should check keepalive status via gateway', async () => {
-      const response = await fetch(`${JNS_GATEWAY_URL}/api/keepalive/status/${testJnsName}`).catch(() => null);
+      let response: Response;
+      try {
+        response = await fetch(`${JNS_GATEWAY_URL}/api/keepalive/status/${testJnsName}`, {
+          signal: AbortSignal.timeout(5000),
+        });
+      } catch (e) {
+        if (e instanceof Error && (e.name === 'AbortError' || e.name === 'TimeoutError' || e.message.includes('ECONNREFUSED'))) {
+          console.log('Gateway not available - skipping keepalive status test');
+          return;
+        }
+        throw e;
+      }
 
-      if (!response?.ok) {
-        console.log('Gateway not available - skipping keepalive status test');
-        return;
+      if (!response.ok) {
+        throw new Error(`Gateway returned ${response.status}: ${response.statusText}`);
       }
 
       const data = await response.json();
@@ -315,10 +357,19 @@ describe('Health Check Standard', () => {
     let anyEndpointAvailable = false;
 
     for (const endpoint of endpoints) {
-      const response = await fetch(`${JNS_GATEWAY_URL}${endpoint}`, { signal: AbortSignal.timeout(2000) }).catch(() => null);
+      let response: Response;
+      try {
+        response = await fetch(`${JNS_GATEWAY_URL}${endpoint}`, { signal: AbortSignal.timeout(2000) });
+      } catch (e) {
+        if (e instanceof Error && (e.name === 'AbortError' || e.name === 'TimeoutError' || e.message.includes('ECONNREFUSED'))) {
+          console.log(`Gateway endpoint ${endpoint} not available - skipping`);
+          continue;
+        }
+        throw e;
+      }
 
-      if (!response?.ok) {
-        console.log(`Gateway endpoint ${endpoint} not available - skipping`);
+      if (!response.ok) {
+        console.log(`Gateway endpoint ${endpoint} returned ${response.status} - skipping`);
         continue;
       }
 
@@ -331,8 +382,6 @@ describe('Health Check Standard', () => {
     if (!anyEndpointAvailable) {
       console.log('⏭️  No gateway endpoints available - skipping');
     }
-    // Test passes if gateway not running (graceful skip)
-    expect(true).toBe(true);
   });
 });
 

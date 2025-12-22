@@ -28,12 +28,12 @@ interface DrizzleCQLConfig {
 }
 
 interface DrizzleLogger {
-  logQuery(query: string, params: unknown[]): void;
+  logQuery(query: string, params: SQLValue[]): void;
 }
 
 type SQLValue = string | number | boolean | null | bigint | Uint8Array;
 
-interface PreparedQuery<T = unknown> {
+interface PreparedQuery<T> {
   execute(): Promise<T[]>;
   values: SQLValue[];
 }
@@ -282,15 +282,13 @@ class DeleteBuilder<T extends Record<string, unknown>> {
 function createDrizzleCQL(
   client: CQLClient,
   databaseId: string,
-  config?: DrizzleCQLConfig
+  config?: DrizzleCQLConfig,
 ): DrizzleCQL {
-  const logger = config?.logger;
-
-  function logQuery(sql: string, params: unknown[]): void {
-    if (logger === true) {
-      console.log('[CQL Drizzle]', sql, params);
-    } else if (typeof logger === 'object' && logger.logQuery) {
-      logger.logQuery(sql, params);
+  function logQuery(query: string, params: SQLValue[]): void {
+    if (config?.logger === true) {
+      console.log('[CQL Drizzle]', query, params);
+    } else if (typeof config?.logger === 'object') {
+      config.logger.logQuery(query, params);
     }
   }
 

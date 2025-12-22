@@ -5,10 +5,7 @@
 import { type Address, type Hex, encodeFunctionData, namehash } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
-import {
-  getContract as getContractAddress,
-  getServicesConfig,
-} from "../config";
+import { requireContract, getServicesConfig } from "../config";
 
 export interface NameInfo {
   name: string;
@@ -178,23 +175,6 @@ const JNS_RESOLVER_ABI = [
   },
 ] as const;
 
-const _REVERSE_REGISTRAR_ABI = [
-  {
-    name: "node",
-    type: "function",
-    stateMutability: "pure",
-    inputs: [{ name: "addr", type: "address" }],
-    outputs: [{ type: "bytes32" }],
-  },
-  {
-    name: "setName",
-    type: "function",
-    stateMutability: "nonpayable",
-    inputs: [{ name: "name", type: "string" }],
-    outputs: [],
-  },
-] as const;
-
 function normalizeName(name: string): string {
   // Ensure .jeju suffix
   if (!name.endsWith(".jeju")) {
@@ -211,16 +191,8 @@ export function createNamesModule(
   wallet: JejuWallet,
   network: NetworkType,
 ): NamesModule {
-  const registrarAddress = getContractAddress(
-    "jns",
-    "registrar",
-    network,
-  ) as Address;
-  const resolverAddress = getContractAddress(
-    "jns",
-    "resolver",
-    network,
-  ) as Address;
+  const registrarAddress = requireContract("jns", "registrar", network);
+  const resolverAddress = requireContract("jns", "resolver", network);
   const services = getServicesConfig(network);
 
   async function resolve(name: string): Promise<Address | null> {
@@ -360,7 +332,9 @@ export function createNamesModule(
     const response = await fetch(
       `${services.gateway.api}/jns/names/${wallet.address}`,
     );
-    if (!response.ok) return [];
+    if (!response.ok) {
+      throw new Error(`Failed to list names: ${response.statusText}`);
+    }
 
     const data = (await response.json()) as { names: NameInfo[] };
     return data.names;

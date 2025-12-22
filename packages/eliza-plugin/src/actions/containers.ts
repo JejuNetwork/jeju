@@ -5,15 +5,15 @@
 import type {
   Action,
   ActionExample,
-  Content,
   HandlerCallback,
   IAgentRuntime,
   Memory,
   State,
 } from "@elizaos/core";
-import type { Address, Hex } from "viem";
+import type { Address } from "viem";
 import { JejuService, JEJU_SERVICE_NAME } from "../service";
 import { getNetworkName } from "@jejunetwork/config";
+import { getMessageText, validateServiceExists } from "../validation";
 
 const networkName = getNetworkName();
 
@@ -25,24 +25,24 @@ export const createRepoAction: Action = {
   name: "CREATE_CONTAINER_REPO",
   similes: ["create repo", "create container repository", "new container repo"],
   description: `Create a new container repository on ${networkName}`,
-  validate: async (runtime: IAgentRuntime, _message: Memory) => {
-    return !!runtime.getService(JEJU_SERVICE_NAME);
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const sdk = service.getClient();
 
-    const content = message.content as Content;
-    const text = content?.text || "";
+    const text = getMessageText(message);
 
     // Parse: "create repo myorg/myimage"
-    const repoMatch = text.match(/repo(?:sitory)?\s+([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)/i);
+    const repoMatch = text.match(
+      /repo(?:sitory)?\s+([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)/i,
+    );
     if (!repoMatch) {
       await callback?.({
         text: "Please specify the repository name as 'namespace/name'. Example: 'Create repo myorg/myimage'",
@@ -100,21 +100,19 @@ export const getRepoInfoAction: Action = {
   name: "GET_CONTAINER_REPO",
   similes: ["get repo", "repo info", "container info", "show repo"],
   description: `Get container repository information from ${networkName}`,
-  validate: async (runtime: IAgentRuntime, _message: Memory) => {
-    return !!runtime.getService(JEJU_SERVICE_NAME);
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const sdk = service.getClient();
 
-    const content = message.content as Content;
-    const text = content?.text || "";
+    const text = getMessageText(message);
 
     // Parse repo name
     const repoMatch = text.match(/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)/);
@@ -132,8 +130,8 @@ export const getRepoInfoAction: Action = {
       text: `Repository: ${repo.namespace}/${repo.name}
 - Owner: ${repo.owner}
 - Visibility: ${repo.visibility}
-- Description: ${repo.description || "(none)"}
-- Tags: ${repo.tags.join(", ") || "(none)"}
+- Description: ${repo.description ? repo.description : "(none)"}
+- Tags: ${repo.tags.length > 0 ? repo.tags.join(", ") : "(none)"}
 - Pull Count: ${repo.pullCount.toString()}
 - Star Count: ${repo.starCount.toString()}
 - Verified: ${repo.isVerified}
@@ -150,7 +148,9 @@ export const getRepoInfoAction: Action = {
       },
       {
         name: "assistant",
-        content: { text: "Repository: myorg/myimage\n- Pull Count: 100\n- Verified: true" },
+        content: {
+          text: "Repository: myorg/myimage\n- Pull Count: 100\n- Verified: true",
+        },
       },
     ],
   ] as ActionExample[][],
@@ -164,16 +164,15 @@ export const listMyReposAction: Action = {
   name: "LIST_MY_REPOS",
   similes: ["my repos", "my repositories", "list my containers", "my images"],
   description: `List your container repositories on ${networkName}`,
-  validate: async (runtime: IAgentRuntime, _message: Memory) => {
-    return !!runtime.getService(JEJU_SERVICE_NAME);
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     _message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const sdk = service.getClient();
 
@@ -187,7 +186,15 @@ export const listMyReposAction: Action = {
     }
 
     const repoList = repos
-      .map((r) => `- ${r.namespace}/${r.name} (${r.visibility}, ${r.pullCount} pulls)`)
+      .map(
+        (r: {
+          namespace: string;
+          name: string;
+          visibility: string;
+          pullCount: number | bigint;
+        }) =>
+          `- ${r.namespace}/${r.name} (${r.visibility}, ${r.pullCount} pulls)`,
+      )
       .join("\n");
 
     await callback?.({
@@ -204,7 +211,9 @@ export const listMyReposAction: Action = {
       },
       {
         name: "assistant",
-        content: { text: "Your Container Repositories (2):\n- myorg/api (PUBLIC, 50 pulls)\n- myorg/worker (PRIVATE, 10 pulls)" },
+        content: {
+          text: "Your Container Repositories (2):\n- myorg/api (PUBLIC, 50 pulls)\n- myorg/worker (PRIVATE, 10 pulls)",
+        },
       },
     ],
   ] as ActionExample[][],
@@ -218,24 +227,24 @@ export const getManifestAction: Action = {
   name: "GET_IMAGE_MANIFEST",
   similes: ["get manifest", "image manifest", "image info", "tag info"],
   description: `Get container image manifest from ${networkName}`,
-  validate: async (runtime: IAgentRuntime, _message: Memory) => {
-    return !!runtime.getService(JEJU_SERVICE_NAME);
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const sdk = service.getClient();
 
-    const content = message.content as Content;
-    const text = content?.text || "";
+    const text = getMessageText(message);
 
     // Parse: myorg/myimage:tag
-    const imageMatch = text.match(/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+):([a-zA-Z0-9_.-]+)/);
+    const imageMatch = text.match(
+      /([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+):([a-zA-Z0-9_.-]+)/,
+    );
     if (!imageMatch) {
       await callback?.({
         text: "Please specify the image as 'namespace/name:tag'. Example: 'Get manifest myorg/myimage:latest'",
@@ -269,7 +278,9 @@ export const getManifestAction: Action = {
       },
       {
         name: "assistant",
-        content: { text: "Image: myorg/myimage:latest\n- Size: 150.5 MB\n- Architectures: amd64, arm64" },
+        content: {
+          text: "Image: myorg/myimage:latest\n- Size: 150.5 MB\n- Architectures: amd64, arm64",
+        },
       },
     ],
   ] as ActionExample[][],
@@ -283,21 +294,19 @@ export const starRepoAction: Action = {
   name: "STAR_CONTAINER_REPO",
   similes: ["star repo", "star repository", "favorite repo"],
   description: `Star a container repository on ${networkName}`,
-  validate: async (runtime: IAgentRuntime, _message: Memory) => {
-    return !!runtime.getService(JEJU_SERVICE_NAME);
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const sdk = service.getClient();
 
-    const content = message.content as Content;
-    const text = content?.text || "";
+    const text = getMessageText(message);
 
     const repoMatch = text.match(/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)/);
     if (!repoMatch) {
@@ -339,21 +348,19 @@ export const grantAccessAction: Action = {
   name: "GRANT_REPO_ACCESS",
   similes: ["grant access", "add collaborator", "share repo"],
   description: `Grant access to a private container repository on ${networkName}`,
-  validate: async (runtime: IAgentRuntime, _message: Memory) => {
-    return !!runtime.getService(JEJU_SERVICE_NAME);
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const sdk = service.getClient();
 
-    const content = message.content as Content;
-    const text = content?.text || "";
+    const text = getMessageText(message);
 
     const repoMatch = text.match(/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)/);
     const addressMatch = text.match(/0x[a-fA-F0-9]{40}/);
@@ -381,7 +388,9 @@ export const grantAccessAction: Action = {
     [
       {
         name: "user",
-        content: { text: "Grant access to myorg/myimage for 0x742d35Cc6634C0532925a3b844Bc454e4438f44e" },
+        content: {
+          text: "Grant access to myorg/myimage for 0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
+        },
       },
       {
         name: "assistant",
@@ -390,4 +399,3 @@ export const grantAccessAction: Action = {
     ],
   ] as ActionExample[][],
 };
-

@@ -2,12 +2,8 @@
  * Meteora DEX Integration
  */
 
-import {
-  Connection,
-  PublicKey,
-  VersionedTransaction,
-  TransactionMessage,
-} from '@solana/web3.js';
+import { Connection, PublicKey } from '@solana/web3.js';
+import { expectValid } from '@jejunetwork/types/validation';
 import type {
   SwapParams,
   SwapQuote,
@@ -21,38 +17,21 @@ import type {
   LPPosition,
   ConcentratedLiquidityParams,
 } from '../types';
+import {
+  MeteoraPoolListSchema,
+  MeteoraPoolInfoSchema,
+  MeteoraPositionsListSchema,
+} from '../schemas';
+import {
+  calculateAMMSwap,
+  buildSwapQuote,
+  buildPlaceholderTransaction,
+  poolMatchesFilter,
+  getSwapReserves,
+  inferDecimals,
+} from '../utils';
 
 const METEORA_API_BASE = 'https://dlmm-api.meteora.ag';
-
-interface MeteoraPoolInfo {
-  address: string;
-  name: string;
-  mint_x: string;
-  mint_y: string;
-  reserve_x: string;
-  reserve_y: string;
-  reserve_x_amount: number;
-  reserve_y_amount: number;
-  bin_step: number;
-  base_fee_percentage: string;
-  liquidity: string;
-  current_price: number;
-  apy: number;
-  hide: boolean;
-}
-
-interface MeteoraPositionInfo {
-  address: string;
-  pair_address: string;
-  total_x_amount: string;
-  total_y_amount: string;
-  position_bin_data: Array<{
-    bin_id: number;
-    position_liquidity: string;
-  }>;
-  fee_x: string;
-  fee_y: string;
-}
 
 export class MeteoraAdapter implements DexAdapter {
   readonly name = 'meteora' as const;
@@ -70,41 +49,24 @@ export class MeteoraAdapter implements DexAdapter {
     }
 
     const pool = pools.sort((a, b) => Number(b.tvl - a.tvl))[0];
+    const { inputReserve, outputReserve } = getSwapReserves(pool, params.inputMint);
 
-    const isInputX = pool.tokenA.mint.equals(params.inputMint);
-    const inputReserve = isInputX ? pool.reserveA : pool.reserveB;
-    const outputReserve = isInputX ? pool.reserveB : pool.reserveA;
+    const ammResult = calculateAMMSwap({
+      inputAmount: params.amount,
+      inputReserve,
+      outputReserve,
+      feeBps: Math.floor(pool.fee * 10000),
+      slippageBps: params.slippageBps,
+    });
 
-    const feeMultiplier = 10000n - BigInt(Math.floor(pool.fee * 10000));
-    const amountInWithFee = params.amount * feeMultiplier / 10000n;
-    const outputAmount = (amountInWithFee * outputReserve) / (inputReserve + amountInWithFee);
-
-    const minOutputAmount = outputAmount * (10000n - BigInt(params.slippageBps)) / 10000n;
-
-    const spotPrice = Number(outputReserve) / Number(inputReserve);
-    const execPrice = Number(outputAmount) / Number(params.amount);
-    const priceImpact = Math.abs(1 - execPrice / spotPrice) * 100;
-
-    const fee = params.amount * BigInt(Math.floor(pool.fee * 10000)) / 10000n;
-
-    return {
+    return buildSwapQuote({
       inputMint: params.inputMint,
       outputMint: params.outputMint,
       inputAmount: params.amount,
-      outputAmount,
-      minOutputAmount,
-      priceImpactPct: priceImpact,
-      fee,
-      route: [{
-        dex: 'meteora',
-        poolAddress: pool.address,
-        inputMint: params.inputMint,
-        outputMint: params.outputMint,
-        inputAmount: params.amount,
-        outputAmount,
-      }],
+      pool,
+      ammResult,
       dex: 'meteora',
-    };
+    });
   }
 
   async buildSwapTransaction(_quote: SwapQuote): Promise<SwapTransaction> {
@@ -119,22 +81,17 @@ export class MeteoraAdapter implements DexAdapter {
       throw new Error(`Meteora API error: ${response.statusText}`);
     }
 
-    const data = await response.json() as MeteoraPoolInfo[];
+    const rawData = await response.json();
+    const poolsData = expectValid(MeteoraPoolListSchema, rawData, 'Meteora pool list');
     const pools: PoolInfo[] = [];
 
-    for (const pool of data) {
+    for (const pool of poolsData) {
       if (pool.hide) continue;
 
       const mintX = new PublicKey(pool.mint_x);
       const mintY = new PublicKey(pool.mint_y);
 
-      if (tokenA && tokenB) {
-        const hasA = mintX.equals(tokenA) || mintY.equals(tokenA);
-        const hasB = mintX.equals(tokenB) || mintY.equals(tokenB);
-        if (!hasA || !hasB) continue;
-      } else if (tokenA) {
-        if (!mintX.equals(tokenA) && !mintY.equals(tokenA)) continue;
-      }
+      if (!poolMatchesFilter(mintX, mintY, { tokenA, tokenB })) continue;
 
       const [symbolX, symbolY] = pool.name.split('-');
 
@@ -144,12 +101,12 @@ export class MeteoraAdapter implements DexAdapter {
         poolType: 'dlmm',
         tokenA: {
           mint: mintX,
-          decimals: this.inferDecimals(pool.reserve_x_amount, pool.reserve_x),
+          decimals: inferDecimals(pool.reserve_x_amount, pool.reserve_x),
           symbol: symbolX || mintX.toBase58().slice(0, 4),
         },
         tokenB: {
           mint: mintY,
-          decimals: this.inferDecimals(pool.reserve_y_amount, pool.reserve_y),
+          decimals: inferDecimals(pool.reserve_y_amount, pool.reserve_y),
           symbol: symbolY || mintY.toBase58().slice(0, 4),
         },
         reserveA: BigInt(pool.reserve_x),
@@ -176,7 +133,8 @@ export class MeteoraAdapter implements DexAdapter {
       throw new Error(`Failed to fetch pool: ${pool.toBase58()}`);
     }
 
-    const data = await response.json() as MeteoraPoolInfo;
+    const rawData = await response.json();
+    const data = expectValid(MeteoraPoolInfoSchema, rawData, 'Meteora pool info');
     const [symbolX, symbolY] = data.name.split('-');
 
     const poolInfo: PoolInfo = {
@@ -185,12 +143,12 @@ export class MeteoraAdapter implements DexAdapter {
       poolType: 'dlmm',
       tokenA: {
         mint: new PublicKey(data.mint_x),
-        decimals: this.inferDecimals(data.reserve_x_amount, data.reserve_x),
+        decimals: inferDecimals(data.reserve_x_amount, data.reserve_x),
         symbol: symbolX || '',
       },
       tokenB: {
         mint: new PublicKey(data.mint_y),
-        decimals: this.inferDecimals(data.reserve_y_amount, data.reserve_y),
+        decimals: inferDecimals(data.reserve_y_amount, data.reserve_y),
         symbol: symbolY || '',
       },
       reserveA: BigInt(data.reserve_x),
@@ -224,18 +182,7 @@ export class MeteoraAdapter implements DexAdapter {
     _quote: AddLiquidityQuote,
     params: AddLiquidityParams
   ): Promise<SwapTransaction> {
-    const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash();
-
-    const messageV0 = new TransactionMessage({
-      payerKey: params.userPublicKey,
-      recentBlockhash: blockhash,
-      instructions: [],
-    }).compileToV0Message();
-
-    return {
-      transaction: new VersionedTransaction(messageV0),
-      lastValidBlockHeight,
-    };
+    return buildPlaceholderTransaction(this.connection, params.userPublicKey);
   }
 
   async getRemoveLiquidityQuote(params: RemoveLiquidityParams): Promise<RemoveLiquidityQuote> {
@@ -254,46 +201,34 @@ export class MeteoraAdapter implements DexAdapter {
     _quote: RemoveLiquidityQuote,
     params: RemoveLiquidityParams
   ): Promise<SwapTransaction> {
-    const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash();
-
-    const messageV0 = new TransactionMessage({
-      payerKey: params.userPublicKey,
-      recentBlockhash: blockhash,
-      instructions: [],
-    }).compileToV0Message();
-
-    return {
-      transaction: new VersionedTransaction(messageV0),
-      lastValidBlockHeight,
-    };
+    return buildPlaceholderTransaction(this.connection, params.userPublicKey);
   }
 
   async getLPPositions(userPublicKey: PublicKey): Promise<LPPosition[]> {
     const url = `${METEORA_API_BASE}/position/${userPublicKey.toBase58()}`;
 
-    try {
-      const response = await fetch(url);
-      if (!response.ok) return [];
-
-      const data = await response.json() as MeteoraPositionInfo[];
-
-      return data.map(pos => ({
-        pool: new PublicKey(pos.pair_address),
-        lpMint: new PublicKey(pos.address),
-        lpBalance: BigInt(pos.position_bin_data.reduce(
-          (sum, bin) => sum + BigInt(bin.position_liquidity),
-          0n
-        )),
-        tokenAValue: BigInt(pos.total_x_amount),
-        tokenBValue: BigInt(pos.total_y_amount),
-        unclaimedFees: {
-          tokenA: BigInt(pos.fee_x),
-          tokenB: BigInt(pos.fee_y),
-        },
-      }));
-    } catch {
-      return [];
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Meteora positions API error: ${response.statusText}`);
     }
+
+    const rawData = await response.json();
+    const data = expectValid(MeteoraPositionsListSchema, rawData, 'Meteora positions');
+
+    return data.map(pos => ({
+      pool: new PublicKey(pos.pair_address),
+      lpMint: new PublicKey(pos.address),
+      lpBalance: BigInt(pos.position_bin_data.reduce(
+        (sum, bin) => sum + BigInt(bin.position_liquidity),
+        0n
+      )),
+      tokenAValue: BigInt(pos.total_x_amount),
+      tokenBValue: BigInt(pos.total_y_amount),
+      unclaimedFees: {
+        tokenA: BigInt(pos.fee_x),
+        tokenB: BigInt(pos.fee_y),
+      },
+    }));
   }
 
   async getActiveBin(pool: PublicKey): Promise<{ binId: number; price: number }> {
@@ -317,7 +252,8 @@ export class MeteoraAdapter implements DexAdapter {
       throw new Error(`Failed to fetch pool: ${pool.toBase58()}`);
     }
 
-    const data = await response.json() as MeteoraPoolInfo;
+    const rawData = await response.json();
+    const data = expectValid(MeteoraPoolInfoSchema, rawData, 'Meteora pool info');
 
     return {
       address: pool,
@@ -329,38 +265,11 @@ export class MeteoraAdapter implements DexAdapter {
   }
 
   async createDLMMPosition(params: ConcentratedLiquidityParams): Promise<SwapTransaction> {
-    const poolInfo = await this.getPoolInfoDetailed(params.pool);
-
-    const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash();
-
-    const messageV0 = new TransactionMessage({
-      payerKey: params.userPublicKey,
-      recentBlockhash: blockhash,
-      instructions: [],
-    }).compileToV0Message();
-
-    return {
-      transaction: new VersionedTransaction(messageV0),
-      lastValidBlockHeight,
-    };
-  }
-
-  private inferDecimals(amount: number, rawAmount: string): number {
-    if (amount === 0) return 9;
-    const ratio = parseFloat(rawAmount) / amount;
-    return Math.round(Math.log10(ratio));
-  }
-
-  private priceToBinId(price: number, binStep: number): number {
-    return Math.floor(Math.log(price) / Math.log(1 + binStep / 10000));
-  }
-
-  private binIdToPrice(binId: number, binStep: number): number {
-    return Math.pow(1 + binStep / 10000, binId);
+    await this.getPoolInfoDetailed(params.pool);
+    return buildPlaceholderTransaction(this.connection, params.userPublicKey);
   }
 }
 
 export function createMeteoraAdapter(connection: Connection): MeteoraAdapter {
   return new MeteoraAdapter(connection);
 }
-

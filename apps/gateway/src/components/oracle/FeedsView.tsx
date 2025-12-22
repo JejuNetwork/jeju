@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { RefreshCw, TrendingUp, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
+import { useState, type ComponentType } from 'react';
+import { RefreshCw, TrendingUp, AlertTriangle, CheckCircle, Clock, type LucideProps } from 'lucide-react';
 import { useFeedDetails } from '../../hooks/useOracleNetwork';
 import {
   formatPrice,
@@ -9,6 +9,12 @@ import {
   FEED_CATEGORY_LABELS,
   FeedCategory,
 } from '../../lib/oracleNetwork';
+
+const TrendingUpIcon = TrendingUp as ComponentType<LucideProps>;
+const CheckCircleIcon = CheckCircle as ComponentType<LucideProps>;
+const AlertTriangleIcon = AlertTriangle as ComponentType<LucideProps>;
+const ClockIcon = Clock as ComponentType<LucideProps>;
+const RefreshCwIcon = RefreshCw as ComponentType<LucideProps>;
 
 interface FeedsViewProps {
   feedIds: `0x${string}`[];
@@ -20,7 +26,7 @@ export function FeedsView({ feedIds }: FeedsViewProps) {
   if (feedIds.length === 0) {
     return (
       <div className="card p-8 text-center">
-        <TrendingUp size={48} className="mx-auto text-gray-400 mb-4" />
+        <TrendingUpIcon size={48} className="mx-auto text-gray-400 mb-4" />
         <h3 className="text-lg font-semibold mb-2">No Feeds Available</h3>
         <p className="text-gray-500">
           Oracle feeds will appear here once they are created and activated.
@@ -104,17 +110,17 @@ function FeedCard({ feedId, isSelected, onSelect }: FeedCardProps) {
                   ${formatPrice(price, feedSpec.decimals)}
                 </span>
                 {isValid && !stale ? (
-                  <CheckCircle size={16} className="text-green-500" />
+                  <CheckCircleIcon size={16} className="text-green-500" />
                 ) : stale ? (
-                  <AlertTriangle size={16} className="text-yellow-500" />
+                  <AlertTriangleIcon size={16} className="text-yellow-500" />
                 ) : (
-                  <AlertTriangle size={16} className="text-red-500" />
+                  <AlertTriangleIcon size={16} className="text-red-500" />
                 )}
               </div>
               <div className="flex items-center justify-end gap-2 text-xs text-gray-500">
                 <span>±{formatConfidence(confidence ?? 0n)}</span>
                 <span>•</span>
-                <Clock size={12} />
+                <ClockIcon size={12} />
                 <span>{timestamp ? formatTimeAgo(timestamp) : 'never'}</span>
               </div>
             </>
@@ -131,7 +137,7 @@ function FeedCard({ feedId, isSelected, onSelect }: FeedCardProps) {
             refetch();
           }}
         >
-          <RefreshCw size={16} />
+          <RefreshCwIcon size={16} />
         </button>
       </div>
     </div>
@@ -217,7 +223,7 @@ function FeedDetailsPanel({ feedId, onClose }: FeedDetailsPanelProps) {
           className="button button-secondary flex items-center gap-2"
           onClick={() => refetch()}
         >
-          <RefreshCw size={14} />
+          <RefreshCwIcon size={14} />
           Refresh
         </button>
       </div>

@@ -6,6 +6,7 @@
 import { Hono } from 'hono';
 import { getDWSUrl } from '@jejunetwork/config';
 import type { BackendManager } from '../../storage/backends';
+import { validateBody, validateHeaders, z } from '../../shared';
 
 interface MCPContext {
   backend?: BackendManager;
@@ -48,7 +49,7 @@ export function createMCPRouter(ctx: MCPContext = {}): Hono {
 
   // Read resource content
   router.post('/resources/read', async (c) => {
-    const body = await c.req.json<{ uri: string }>();
+    const body = await validateBody(z.object({ uri: z.string().min(1) }), c);
     const baseUrl = getDWSUrl();
 
     const fetchResource = async (path: string): Promise<Record<string, unknown>> => {
@@ -79,7 +80,7 @@ export function createMCPRouter(ctx: MCPContext = {}): Hono {
         data = { runs: [], total: 0 }; // CI runs need repo context
         break;
       default:
-        return c.json({ error: { code: -32602, message: `Unknown resource: ${body.uri}` } }, 400);
+        throw new Error(`Unknown resource: ${body.uri}`);
     }
 
     return c.json({
@@ -164,9 +165,13 @@ export function createMCPRouter(ctx: MCPContext = {}): Hono {
 
   // Execute tool
   router.post('/tools/call', async (c) => {
-    const body = await c.req.json<{ name: string; arguments: Record<string, string | number> }>();
+    const body = await validateBody(z.object({
+      name: z.string().min(1),
+      arguments: z.record(z.string(), z.union([z.string(), z.number()])),
+    }), c);
     const baseUrl = getDWSUrl();
-    const address = c.req.header('x-jeju-address') || '0x0000000000000000000000000000000000000000';
+    const { 'x-jeju-address': address } = validateHeaders(z.object({ 'x-jeju-address': z.string().optional() }), c);
+    const userAddress = address || '0x0000000000000000000000000000000000000000';
 
     switch (body.name) {
       case 'dws_upload': {
@@ -198,7 +203,7 @@ export function createMCPRouter(ctx: MCPContext = {}): Hono {
       case 'dws_create_repo': {
         const response = await fetch(`${baseUrl}/git/repos`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-jeju-address': address },
+          headers: { 'Content-Type': 'application/json', 'x-jeju-address': userAddress },
           body: JSON.stringify({
             name: body.arguments.name,
             description: body.arguments.description || '',
@@ -212,7 +217,7 @@ export function createMCPRouter(ctx: MCPContext = {}): Hono {
       case 'dws_run_compute': {
         const response = await fetch(`${baseUrl}/compute/jobs`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-jeju-address': address },
+          headers: { 'Content-Type': 'application/json', 'x-jeju-address': userAddress },
           body: JSON.stringify({
             command: body.arguments.command,
             shell: body.arguments.shell || 'bash',
@@ -240,7 +245,7 @@ export function createMCPRouter(ctx: MCPContext = {}): Hono {
       }
 
       default:
-        return c.json({ error: { code: -32602, message: `Unknown tool: ${body.name}` } }, 400);
+        throw new Error(`Unknown tool: ${body.name}`);
     }
   });
 

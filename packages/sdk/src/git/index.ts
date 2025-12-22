@@ -1,6 +1,6 @@
 /**
  * JejuGit SDK - Client for decentralized Git operations
- * 
+ *
  * Provides TypeScript interface for:
  * - Repository management
  * - Git operations
@@ -8,9 +8,9 @@
  * - On-chain registry interaction
  */
 
-import type { Address, Hex } from 'viem';
-import { createPublicClient, createWalletClient, http } from 'viem';
-import type { PublicClient, WalletClient } from 'viem';
+import type { Address, Hex } from "viem";
+import { createPublicClient, createWalletClient, http } from "viem";
+import type { PublicClient, WalletClient } from "viem";
 
 export interface GitSDKConfig {
   rpcUrl: string;
@@ -25,7 +25,7 @@ export interface Repository {
   fullName: string;
   owner: string;
   description?: string;
-  visibility: 'public' | 'private' | 'internal';
+  visibility: "public" | "private" | "internal";
   defaultBranch: string;
   cloneUrl: string;
   starCount: number;
@@ -45,7 +45,7 @@ export interface Issue {
   number: number;
   title: string;
   body: string;
-  state: 'open' | 'closed';
+  state: "open" | "closed";
   author: string;
   assignees: string[];
   labels: string[];
@@ -59,7 +59,7 @@ export interface PullRequest {
   number: number;
   title: string;
   body: string;
-  state: 'open' | 'closed' | 'merged';
+  state: "open" | "closed" | "merged";
   author: string;
   sourceBranch: string;
   targetBranch: string;
@@ -90,221 +90,199 @@ export interface GitUser {
   createdAt: string;
 }
 
-// Repository struct type definition
-type RepositoryStruct = {
-  name: string;
-  owner: Address;
-  description: string;
-  visibility: number;
-  defaultBranch: string;
-  headCid: string;
-  packCid: string;
-  createdAt: bigint;
-  updatedAt: bigint;
-  pushedAt: bigint;
-  starCount: bigint;
-  forkCount: bigint;
-  cloneCount: bigint;
-  forkedFrom: Hex;
-  reputationScore: bigint;
-  councilProposalId: bigint;
-  verified: boolean;
-  archived: boolean;
-};
-
 const GIT_REGISTRY_ABI = [
   {
-    type: 'function',
-    name: 'createRepository',
+    type: "function",
+    name: "createRepository",
     inputs: [
-      { name: 'name', type: 'string' },
-      { name: 'description', type: 'string' },
-      { name: 'visibility', type: 'uint8' },
-      { name: 'defaultBranch', type: 'string' },
+      { name: "name", type: "string" },
+      { name: "description", type: "string" },
+      { name: "visibility", type: "uint8" },
+      { name: "defaultBranch", type: "string" },
     ],
-    outputs: [{ type: 'bytes32' }],
-    stateMutability: 'nonpayable',
+    outputs: [{ type: "bytes32" }],
+    stateMutability: "nonpayable",
   },
   {
-    type: 'function',
-    name: 'forkRepository',
-    inputs: [{ name: 'parentId', type: 'bytes32' }],
-    outputs: [{ type: 'bytes32' }],
-    stateMutability: 'nonpayable',
+    type: "function",
+    name: "forkRepository",
+    inputs: [{ name: "parentId", type: "bytes32" }],
+    outputs: [{ type: "bytes32" }],
+    stateMutability: "nonpayable",
   },
   {
-    type: 'function',
-    name: 'starRepository',
-    inputs: [{ name: 'repoId', type: 'bytes32' }],
+    type: "function",
+    name: "starRepository",
+    inputs: [{ name: "repoId", type: "bytes32" }],
     outputs: [],
-    stateMutability: 'nonpayable',
+    stateMutability: "nonpayable",
   },
   {
-    type: 'function',
-    name: 'unstarRepository',
-    inputs: [{ name: 'repoId', type: 'bytes32' }],
+    type: "function",
+    name: "unstarRepository",
+    inputs: [{ name: "repoId", type: "bytes32" }],
     outputs: [],
-    stateMutability: 'nonpayable',
+    stateMutability: "nonpayable",
   },
   {
-    type: 'function',
-    name: 'addContributor',
+    type: "function",
+    name: "addContributor",
     inputs: [
-      { name: 'repoId', type: 'bytes32' },
-      { name: 'contributor', type: 'address' },
-    ],
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    name: 'removeContributor',
-    inputs: [
-      { name: 'repoId', type: 'bytes32' },
-      { name: 'contributor', type: 'address' },
+      { name: "repoId", type: "bytes32" },
+      { name: "contributor", type: "address" },
     ],
     outputs: [],
-    stateMutability: 'nonpayable',
+    stateMutability: "nonpayable",
   },
   {
-    type: 'function',
-    name: 'createIssue',
+    type: "function",
+    name: "removeContributor",
     inputs: [
-      { name: 'repoId', type: 'bytes32' },
-      { name: 'title', type: 'string' },
-      { name: 'cid', type: 'string' },
-    ],
-    outputs: [{ type: 'uint256' }],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    name: 'closeIssue',
-    inputs: [
-      { name: 'repoId', type: 'bytes32' },
-      { name: 'number', type: 'uint256' },
+      { name: "repoId", type: "bytes32" },
+      { name: "contributor", type: "address" },
     ],
     outputs: [],
-    stateMutability: 'nonpayable',
+    stateMutability: "nonpayable",
   },
   {
-    type: 'function',
-    name: 'createPullRequest',
+    type: "function",
+    name: "createIssue",
     inputs: [
-      { name: 'repoId', type: 'bytes32' },
-      { name: 'title', type: 'string' },
-      { name: 'sourceBranch', type: 'string' },
-      { name: 'targetBranch', type: 'string' },
-      { name: 'cid', type: 'string' },
+      { name: "repoId", type: "bytes32" },
+      { name: "title", type: "string" },
+      { name: "cid", type: "string" },
     ],
-    outputs: [{ type: 'uint256' }],
-    stateMutability: 'nonpayable',
+    outputs: [{ type: "uint256" }],
+    stateMutability: "nonpayable",
   },
   {
-    type: 'function',
-    name: 'mergePullRequest',
+    type: "function",
+    name: "closeIssue",
     inputs: [
-      { name: 'repoId', type: 'bytes32' },
-      { name: 'number', type: 'uint256' },
+      { name: "repoId", type: "bytes32" },
+      { name: "number", type: "uint256" },
     ],
     outputs: [],
-    stateMutability: 'nonpayable',
+    stateMutability: "nonpayable",
   },
   {
-    type: 'function',
-    name: 'linkCouncilProposal',
+    type: "function",
+    name: "createPullRequest",
     inputs: [
-      { name: 'repoId', type: 'bytes32' },
-      { name: 'proposalId', type: 'uint256' },
+      { name: "repoId", type: "bytes32" },
+      { name: "title", type: "string" },
+      { name: "sourceBranch", type: "string" },
+      { name: "targetBranch", type: "string" },
+      { name: "cid", type: "string" },
+    ],
+    outputs: [{ type: "uint256" }],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "mergePullRequest",
+    inputs: [
+      { name: "repoId", type: "bytes32" },
+      { name: "number", type: "uint256" },
     ],
     outputs: [],
-    stateMutability: 'nonpayable',
+    stateMutability: "nonpayable",
   },
   {
-    type: 'function',
-    name: 'getRepository',
-    inputs: [{ name: 'repoId', type: 'bytes32' }],
+    type: "function",
+    name: "linkCouncilProposal",
+    inputs: [
+      { name: "repoId", type: "bytes32" },
+      { name: "proposalId", type: "uint256" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "getRepository",
+    inputs: [{ name: "repoId", type: "bytes32" }],
     outputs: [
       {
-        type: 'tuple',
+        type: "tuple",
         components: [
-          { name: 'name', type: 'string' },
-          { name: 'owner', type: 'address' },
-          { name: 'description', type: 'string' },
-          { name: 'visibility', type: 'uint8' },
-          { name: 'defaultBranch', type: 'string' },
-          { name: 'headCid', type: 'string' },
-          { name: 'packCid', type: 'string' },
-          { name: 'createdAt', type: 'uint256' },
-          { name: 'updatedAt', type: 'uint256' },
-          { name: 'pushedAt', type: 'uint256' },
-          { name: 'starCount', type: 'uint256' },
-          { name: 'forkCount', type: 'uint256' },
-          { name: 'cloneCount', type: 'uint256' },
-          { name: 'forkedFrom', type: 'bytes32' },
-          { name: 'reputationScore', type: 'uint256' },
-          { name: 'councilProposalId', type: 'uint256' },
-          { name: 'verified', type: 'bool' },
-          { name: 'archived', type: 'bool' },
+          { name: "name", type: "string" },
+          { name: "owner", type: "address" },
+          { name: "description", type: "string" },
+          { name: "visibility", type: "uint8" },
+          { name: "defaultBranch", type: "string" },
+          { name: "headCid", type: "string" },
+          { name: "packCid", type: "string" },
+          { name: "createdAt", type: "uint256" },
+          { name: "updatedAt", type: "uint256" },
+          { name: "pushedAt", type: "uint256" },
+          { name: "starCount", type: "uint256" },
+          { name: "forkCount", type: "uint256" },
+          { name: "cloneCount", type: "uint256" },
+          { name: "forkedFrom", type: "bytes32" },
+          { name: "reputationScore", type: "uint256" },
+          { name: "councilProposalId", type: "uint256" },
+          { name: "verified", type: "bool" },
+          { name: "archived", type: "bool" },
         ],
       },
     ],
-    stateMutability: 'view',
+    stateMutability: "view",
   },
   {
-    type: 'function',
-    name: 'getRepositoryByName',
-    inputs: [{ name: 'fullName', type: 'string' }],
+    type: "function",
+    name: "getRepositoryByName",
+    inputs: [{ name: "fullName", type: "string" }],
     outputs: [
       {
-        type: 'tuple',
+        type: "tuple",
         components: [
-          { name: 'name', type: 'string' },
-          { name: 'owner', type: 'address' },
-          { name: 'description', type: 'string' },
-          { name: 'visibility', type: 'uint8' },
-          { name: 'defaultBranch', type: 'string' },
-          { name: 'headCid', type: 'string' },
-          { name: 'packCid', type: 'string' },
-          { name: 'createdAt', type: 'uint256' },
-          { name: 'updatedAt', type: 'uint256' },
-          { name: 'pushedAt', type: 'uint256' },
-          { name: 'starCount', type: 'uint256' },
-          { name: 'forkCount', type: 'uint256' },
-          { name: 'cloneCount', type: 'uint256' },
-          { name: 'forkedFrom', type: 'bytes32' },
-          { name: 'reputationScore', type: 'uint256' },
-          { name: 'councilProposalId', type: 'uint256' },
-          { name: 'verified', type: 'bool' },
-          { name: 'archived', type: 'bool' },
+          { name: "name", type: "string" },
+          { name: "owner", type: "address" },
+          { name: "description", type: "string" },
+          { name: "visibility", type: "uint8" },
+          { name: "defaultBranch", type: "string" },
+          { name: "headCid", type: "string" },
+          { name: "packCid", type: "string" },
+          { name: "createdAt", type: "uint256" },
+          { name: "updatedAt", type: "uint256" },
+          { name: "pushedAt", type: "uint256" },
+          { name: "starCount", type: "uint256" },
+          { name: "forkCount", type: "uint256" },
+          { name: "cloneCount", type: "uint256" },
+          { name: "forkedFrom", type: "bytes32" },
+          { name: "reputationScore", type: "uint256" },
+          { name: "councilProposalId", type: "uint256" },
+          { name: "verified", type: "bool" },
+          { name: "archived", type: "bool" },
         ],
       },
     ],
-    stateMutability: 'view',
+    stateMutability: "view",
   },
   {
-    type: 'function',
-    name: 'isContributor',
+    type: "function",
+    name: "isContributor",
     inputs: [
-      { name: 'repoId', type: 'bytes32' },
-      { name: 'user', type: 'address' },
+      { name: "repoId", type: "bytes32" },
+      { name: "user", type: "address" },
     ],
-    outputs: [{ type: 'bool' }],
-    stateMutability: 'view',
+    outputs: [{ type: "bool" }],
+    stateMutability: "view",
   },
   {
-    type: 'function',
-    name: 'getUserRepositories',
-    inputs: [{ name: 'user', type: 'address' }],
-    outputs: [{ type: 'bytes32[]' }],
-    stateMutability: 'view',
+    type: "function",
+    name: "getUserRepositories",
+    inputs: [{ name: "user", type: "address" }],
+    outputs: [{ type: "bytes32[]" }],
+    stateMutability: "view",
   },
   {
-    type: 'function',
-    name: 'getUserStars',
-    inputs: [{ name: 'user', type: 'address' }],
-    outputs: [{ type: 'bytes32[]' }],
-    stateMutability: 'view',
+    type: "function",
+    name: "getUserStars",
+    inputs: [{ name: "user", type: "address" }],
+    outputs: [{ type: "bytes32[]" }],
+    stateMutability: "view",
   },
 ] as const;
 
@@ -331,46 +309,59 @@ export class JejuGitSDK {
   async listRepositories(options?: {
     page?: number;
     perPage?: number;
-    sort?: 'updated' | 'created' | 'stars';
-    visibility?: 'public' | 'private';
+    sort?: "updated" | "created" | "stars";
+    visibility?: "public" | "private";
   }): Promise<{ total: number; items: Repository[] }> {
     const params = new URLSearchParams();
-    if (options?.page) params.set('page', options.page.toString());
-    if (options?.perPage) params.set('per_page', options.perPage.toString());
-    if (options?.sort) params.set('sort', options.sort);
-    if (options?.visibility) params.set('visibility', options.visibility);
+    if (options?.page) params.set("page", options.page.toString());
+    if (options?.perPage) params.set("per_page", options.perPage.toString());
+    if (options?.sort) params.set("sort", options.sort);
+    if (options?.visibility) params.set("visibility", options.visibility);
 
     // DWS uses /git/repos endpoint
-    const response = await fetch(`${this.config.gitServerUrl}/git/repos?${params}`);
-    if (!response.ok) throw new Error(`Failed to list repositories: ${response.statusText}`);
-    
-    const data = await response.json() as { repositories: Repository[]; total: number };
+    const response = await fetch(
+      `${this.config.gitServerUrl}/git/repos?${params}`,
+    );
+    if (!response.ok)
+      throw new Error(`Failed to list repositories: ${response.statusText}`);
+
+    const data = (await response.json()) as {
+      repositories: Repository[];
+      total: number;
+    };
     return { total: data.total, items: data.repositories };
   }
 
   async getRepository(owner: string, repo: string): Promise<Repository> {
-    const response = await fetch(`${this.config.gitServerUrl}/git/repos/${owner}/${repo}`);
-    if (!response.ok) throw new Error(`Failed to get repository: ${response.statusText}`);
+    const response = await fetch(
+      `${this.config.gitServerUrl}/git/repos/${owner}/${repo}`,
+    );
+    if (!response.ok)
+      throw new Error(`Failed to get repository: ${response.statusText}`);
     return response.json() as Promise<Repository>;
   }
 
-  async createRepository(options: {
-    name: string;
-    description?: string;
-    visibility?: 'public' | 'private' | 'internal';
-    defaultBranch?: string;
-    topics?: string[];
-  }, authToken: string): Promise<Repository> {
+  async createRepository(
+    options: {
+      name: string;
+      description?: string;
+      visibility?: "public" | "private" | "internal";
+      defaultBranch?: string;
+      topics?: string[];
+    },
+    authToken: string,
+  ): Promise<Repository> {
     const response = await fetch(`${this.config.gitServerUrl}/git/repos`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'x-jeju-address': authToken, // DWS uses x-jeju-address header
+        "Content-Type": "application/json",
+        "x-jeju-address": authToken, // DWS uses x-jeju-address header
       },
       body: JSON.stringify(options),
     });
 
-    if (!response.ok) throw new Error(`Failed to create repository: ${response.statusText}`);
+    if (!response.ok)
+      throw new Error(`Failed to create repository: ${response.statusText}`);
     return response.json() as Promise<Repository>;
   }
 
@@ -379,123 +370,184 @@ export class JejuGitSDK {
     repo: string,
     updates: {
       description?: string;
-      visibility?: 'public' | 'private' | 'internal';
+      visibility?: "public" | "private" | "internal";
       defaultBranch?: string;
       topics?: string[];
     },
-    authToken: string
+    authToken: string,
   ): Promise<Repository> {
-    const response = await fetch(`${this.config.gitServerUrl}/api/v1/repos/${owner}/${repo}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`,
+    const response = await fetch(
+      `${this.config.gitServerUrl}/api/v1/repos/${owner}/${repo}`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify(updates),
       },
-      body: JSON.stringify(updates),
-    });
+    );
 
-    if (!response.ok) throw new Error(`Failed to update repository: ${response.statusText}`);
+    if (!response.ok)
+      throw new Error(`Failed to update repository: ${response.statusText}`);
     return response.json() as Promise<Repository>;
   }
 
-  async deleteRepository(owner: string, repo: string, authToken: string): Promise<void> {
-    const response = await fetch(`${this.config.gitServerUrl}/api/v1/repos/${owner}/${repo}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${authToken}`,
+  async deleteRepository(
+    owner: string,
+    repo: string,
+    authToken: string,
+  ): Promise<void> {
+    const response = await fetch(
+      `${this.config.gitServerUrl}/api/v1/repos/${owner}/${repo}`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
       },
-    });
+    );
 
-    if (!response.ok) throw new Error(`Failed to delete repository: ${response.statusText}`);
+    if (!response.ok)
+      throw new Error(`Failed to delete repository: ${response.statusText}`);
   }
 
-  async forkRepository(owner: string, repo: string, authToken: string): Promise<Repository> {
-    const response = await fetch(`${this.config.gitServerUrl}/api/v1/repos/${owner}/${repo}/fork`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${authToken}`,
+  async forkRepository(
+    owner: string,
+    repo: string,
+    authToken: string,
+  ): Promise<Repository> {
+    const response = await fetch(
+      `${this.config.gitServerUrl}/api/v1/repos/${owner}/${repo}/fork`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
       },
-    });
+    );
 
-    if (!response.ok) throw new Error(`Failed to fork repository: ${response.statusText}`);
+    if (!response.ok)
+      throw new Error(`Failed to fork repository: ${response.statusText}`);
     return response.json() as Promise<Repository>;
   }
 
-  async starRepository(owner: string, repo: string, authToken: string): Promise<void> {
-    const response = await fetch(`${this.config.gitServerUrl}/api/v1/repos/${owner}/${repo}/star`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${authToken}`,
+  async starRepository(
+    owner: string,
+    repo: string,
+    authToken: string,
+  ): Promise<void> {
+    const response = await fetch(
+      `${this.config.gitServerUrl}/api/v1/repos/${owner}/${repo}/star`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
       },
-    });
+    );
 
-    if (!response.ok) throw new Error(`Failed to star repository: ${response.statusText}`);
+    if (!response.ok)
+      throw new Error(`Failed to star repository: ${response.statusText}`);
   }
 
-  async unstarRepository(owner: string, repo: string, authToken: string): Promise<void> {
-    const response = await fetch(`${this.config.gitServerUrl}/api/v1/repos/${owner}/${repo}/star`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${authToken}`,
+  async unstarRepository(
+    owner: string,
+    repo: string,
+    authToken: string,
+  ): Promise<void> {
+    const response = await fetch(
+      `${this.config.gitServerUrl}/api/v1/repos/${owner}/${repo}/star`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
       },
-    });
+    );
 
-    if (!response.ok) throw new Error(`Failed to unstar repository: ${response.statusText}`);
+    if (!response.ok)
+      throw new Error(`Failed to unstar repository: ${response.statusText}`);
   }
 
   // Branch and Tag Operations
 
   async listBranches(owner: string, repo: string): Promise<Branch[]> {
-    const response = await fetch(`${this.config.gitServerUrl}/api/v1/repos/${owner}/${repo}/branches`);
-    if (!response.ok) throw new Error(`Failed to list branches: ${response.statusText}`);
+    const response = await fetch(
+      `${this.config.gitServerUrl}/api/v1/repos/${owner}/${repo}/branches`,
+    );
+    if (!response.ok)
+      throw new Error(`Failed to list branches: ${response.statusText}`);
     return response.json() as Promise<Branch[]>;
   }
 
   async listTags(owner: string, repo: string): Promise<Tag[]> {
-    const response = await fetch(`${this.config.gitServerUrl}/api/v1/repos/${owner}/${repo}/tags`);
-    if (!response.ok) throw new Error(`Failed to list tags: ${response.statusText}`);
+    const response = await fetch(
+      `${this.config.gitServerUrl}/api/v1/repos/${owner}/${repo}/tags`,
+    );
+    if (!response.ok)
+      throw new Error(`Failed to list tags: ${response.statusText}`);
     return response.json() as Promise<Tag[]>;
   }
 
   // Issue Operations
 
-  async listIssues(owner: string, repo: string, options?: {
-    state?: 'open' | 'closed' | 'all';
-    page?: number;
-    perPage?: number;
-  }): Promise<Issue[]> {
+  async listIssues(
+    owner: string,
+    repo: string,
+    options?: {
+      state?: "open" | "closed" | "all";
+      page?: number;
+      perPage?: number;
+    },
+  ): Promise<Issue[]> {
     const params = new URLSearchParams();
-    if (options?.state) params.set('state', options.state);
-    if (options?.page) params.set('page', options.page.toString());
-    if (options?.perPage) params.set('per_page', options.perPage.toString());
+    if (options?.state) params.set("state", options.state);
+    if (options?.page) params.set("page", options.page.toString());
+    if (options?.perPage) params.set("per_page", options.perPage.toString());
 
-    const response = await fetch(`${this.config.gitServerUrl}/api/v1/repos/${owner}/${repo}/issues?${params}`);
-    if (!response.ok) throw new Error(`Failed to list issues: ${response.statusText}`);
+    const response = await fetch(
+      `${this.config.gitServerUrl}/api/v1/repos/${owner}/${repo}/issues?${params}`,
+    );
+    if (!response.ok)
+      throw new Error(`Failed to list issues: ${response.statusText}`);
     return response.json() as Promise<Issue[]>;
   }
 
   async getIssue(owner: string, repo: string, number: number): Promise<Issue> {
-    const response = await fetch(`${this.config.gitServerUrl}/api/v1/repos/${owner}/${repo}/issues/${number}`);
-    if (!response.ok) throw new Error(`Failed to get issue: ${response.statusText}`);
+    const response = await fetch(
+      `${this.config.gitServerUrl}/api/v1/repos/${owner}/${repo}/issues/${number}`,
+    );
+    if (!response.ok)
+      throw new Error(`Failed to get issue: ${response.statusText}`);
     return response.json() as Promise<Issue>;
   }
 
   async createIssue(
     owner: string,
     repo: string,
-    options: { title: string; body?: string; labels?: string[]; assignees?: string[] },
-    authToken: string
+    options: {
+      title: string;
+      body?: string;
+      labels?: string[];
+      assignees?: string[];
+    },
+    authToken: string,
   ): Promise<Issue> {
-    const response = await fetch(`${this.config.gitServerUrl}/api/v1/repos/${owner}/${repo}/issues`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`,
+    const response = await fetch(
+      `${this.config.gitServerUrl}/api/v1/repos/${owner}/${repo}/issues`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify(options),
       },
-      body: JSON.stringify(options),
-    });
+    );
 
-    if (!response.ok) throw new Error(`Failed to create issue: ${response.statusText}`);
+    if (!response.ok)
+      throw new Error(`Failed to create issue: ${response.statusText}`);
     return response.json() as Promise<Issue>;
   }
 
@@ -503,105 +555,163 @@ export class JejuGitSDK {
     owner: string,
     repo: string,
     number: number,
-    updates: { title?: string; body?: string; state?: 'open' | 'closed'; labels?: string[] },
-    authToken: string
+    updates: {
+      title?: string;
+      body?: string;
+      state?: "open" | "closed";
+      labels?: string[];
+    },
+    authToken: string,
   ): Promise<Issue> {
-    const response = await fetch(`${this.config.gitServerUrl}/api/v1/repos/${owner}/${repo}/issues/${number}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`,
+    const response = await fetch(
+      `${this.config.gitServerUrl}/api/v1/repos/${owner}/${repo}/issues/${number}`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify(updates),
       },
-      body: JSON.stringify(updates),
-    });
+    );
 
-    if (!response.ok) throw new Error(`Failed to update issue: ${response.statusText}`);
+    if (!response.ok)
+      throw new Error(`Failed to update issue: ${response.statusText}`);
     return response.json() as Promise<Issue>;
   }
 
   // Pull Request Operations
 
-  async listPullRequests(owner: string, repo: string, options?: {
-    state?: 'open' | 'closed' | 'all';
-    page?: number;
-    perPage?: number;
-  }): Promise<PullRequest[]> {
+  async listPullRequests(
+    owner: string,
+    repo: string,
+    options?: {
+      state?: "open" | "closed" | "all";
+      page?: number;
+      perPage?: number;
+    },
+  ): Promise<PullRequest[]> {
     const params = new URLSearchParams();
-    if (options?.state) params.set('state', options.state);
-    if (options?.page) params.set('page', options.page.toString());
-    if (options?.perPage) params.set('per_page', options.perPage.toString());
+    if (options?.state) params.set("state", options.state);
+    if (options?.page) params.set("page", options.page.toString());
+    if (options?.perPage) params.set("per_page", options.perPage.toString());
 
-    const response = await fetch(`${this.config.gitServerUrl}/api/v1/repos/${owner}/${repo}/pulls?${params}`);
-    if (!response.ok) throw new Error(`Failed to list pull requests: ${response.statusText}`);
+    const response = await fetch(
+      `${this.config.gitServerUrl}/api/v1/repos/${owner}/${repo}/pulls?${params}`,
+    );
+    if (!response.ok)
+      throw new Error(`Failed to list pull requests: ${response.statusText}`);
     return response.json() as Promise<PullRequest[]>;
   }
 
-  async getPullRequest(owner: string, repo: string, number: number): Promise<PullRequest> {
-    const response = await fetch(`${this.config.gitServerUrl}/api/v1/repos/${owner}/${repo}/pulls/${number}`);
-    if (!response.ok) throw new Error(`Failed to get pull request: ${response.statusText}`);
+  async getPullRequest(
+    owner: string,
+    repo: string,
+    number: number,
+  ): Promise<PullRequest> {
+    const response = await fetch(
+      `${this.config.gitServerUrl}/api/v1/repos/${owner}/${repo}/pulls/${number}`,
+    );
+    if (!response.ok)
+      throw new Error(`Failed to get pull request: ${response.statusText}`);
     return response.json() as Promise<PullRequest>;
   }
 
   async createPullRequest(
     owner: string,
     repo: string,
-    options: { title: string; body?: string; sourceBranch: string; targetBranch?: string },
-    authToken: string
+    options: {
+      title: string;
+      body?: string;
+      sourceBranch: string;
+      targetBranch?: string;
+    },
+    authToken: string,
   ): Promise<PullRequest> {
-    const response = await fetch(`${this.config.gitServerUrl}/api/v1/repos/${owner}/${repo}/pulls`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`,
+    const response = await fetch(
+      `${this.config.gitServerUrl}/api/v1/repos/${owner}/${repo}/pulls`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify(options),
       },
-      body: JSON.stringify(options),
-    });
+    );
 
-    if (!response.ok) throw new Error(`Failed to create pull request: ${response.statusText}`);
+    if (!response.ok)
+      throw new Error(`Failed to create pull request: ${response.statusText}`);
     return response.json() as Promise<PullRequest>;
   }
 
-  async mergePullRequest(owner: string, repo: string, number: number, authToken: string): Promise<PullRequest> {
-    const response = await fetch(`${this.config.gitServerUrl}/api/v1/repos/${owner}/${repo}/pulls/${number}/merge`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${authToken}`,
+  async mergePullRequest(
+    owner: string,
+    repo: string,
+    number: number,
+    authToken: string,
+  ): Promise<PullRequest> {
+    const response = await fetch(
+      `${this.config.gitServerUrl}/api/v1/repos/${owner}/${repo}/pulls/${number}/merge`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
       },
-    });
+    );
 
-    if (!response.ok) throw new Error(`Failed to merge pull request: ${response.statusText}`);
+    if (!response.ok)
+      throw new Error(`Failed to merge pull request: ${response.statusText}`);
     return response.json() as Promise<PullRequest>;
   }
 
   // User Operations
 
   async getUser(username: string): Promise<GitUser> {
-    const response = await fetch(`${this.config.gitServerUrl}/api/v1/users/${username}`);
-    if (!response.ok) throw new Error(`Failed to get user: ${response.statusText}`);
+    const response = await fetch(
+      `${this.config.gitServerUrl}/api/v1/users/${username}`,
+    );
+    if (!response.ok)
+      throw new Error(`Failed to get user: ${response.statusText}`);
     return response.json() as Promise<GitUser>;
   }
 
   async getUserRepositories(username: string): Promise<Repository[]> {
-    const response = await fetch(`${this.config.gitServerUrl}/api/v1/users/${username}/repos`);
-    if (!response.ok) throw new Error(`Failed to get user repositories: ${response.statusText}`);
+    const response = await fetch(
+      `${this.config.gitServerUrl}/api/v1/users/${username}/repos`,
+    );
+    if (!response.ok)
+      throw new Error(
+        `Failed to get user repositories: ${response.statusText}`,
+      );
     return response.json() as Promise<Repository[]>;
   }
 
   // Search
 
-  async searchRepositories(query: string, options?: {
-    page?: number;
-    perPage?: number;
-  }): Promise<{ total: number; items: Repository[] }> {
+  async searchRepositories(
+    query: string,
+    options?: {
+      page?: number;
+      perPage?: number;
+    },
+  ): Promise<{ total: number; items: Repository[] }> {
     const params = new URLSearchParams();
-    params.set('q', query);
-    if (options?.page) params.set('page', options.page.toString());
-    if (options?.perPage) params.set('per_page', options.perPage.toString());
+    params.set("q", query);
+    if (options?.page) params.set("page", options.page.toString());
+    if (options?.perPage) params.set("per_page", options.perPage.toString());
 
-    const response = await fetch(`${this.config.gitServerUrl}/api/v1/search/repositories?${params}`);
-    if (!response.ok) throw new Error(`Failed to search repositories: ${response.statusText}`);
-    
-    const data = await response.json() as { total_count: number; items: Repository[] };
+    const response = await fetch(
+      `${this.config.gitServerUrl}/api/v1/search/repositories?${params}`,
+    );
+    if (!response.ok)
+      throw new Error(`Failed to search repositories: ${response.statusText}`);
+
+    const data = (await response.json()) as {
+      total_count: number;
+      items: Repository[];
+    };
     return { total: data.total_count, items: data.items };
   }
 
@@ -611,17 +721,19 @@ export class JejuGitSDK {
     name: string,
     description: string,
     visibility: 0 | 1 | 2,
-    defaultBranch: string
+    defaultBranch: string,
   ): Promise<Hex> {
     if (!this.walletClient || !this.config.registryAddress) {
-      throw new Error('Wallet client and registry address required for on-chain operations');
+      throw new Error(
+        "Wallet client and registry address required for on-chain operations",
+      );
     }
 
     // @ts-expect-error - chain inferred at runtime from RPC
     const hash = await this.walletClient.writeContract({
       address: this.config.registryAddress,
       abi: GIT_REGISTRY_ABI,
-      functionName: 'createRepository',
+      functionName: "createRepository",
       args: [name, description, visibility, defaultBranch],
     });
 
@@ -630,14 +742,16 @@ export class JejuGitSDK {
 
   async linkCouncilProposal(repoId: Hex, proposalId: bigint): Promise<Hex> {
     if (!this.walletClient || !this.config.registryAddress) {
-      throw new Error('Wallet client and registry address required for on-chain operations');
+      throw new Error(
+        "Wallet client and registry address required for on-chain operations",
+      );
     }
 
     // @ts-expect-error - chain inferred at runtime from RPC
     const hash = await this.walletClient.writeContract({
       address: this.config.registryAddress,
       abi: GIT_REGISTRY_ABI,
-      functionName: 'linkCouncilProposal',
+      functionName: "linkCouncilProposal",
       args: [repoId, proposalId],
     });
 
@@ -648,7 +762,8 @@ export class JejuGitSDK {
 
   async healthCheck(): Promise<{ status: string; service: string }> {
     const response = await fetch(`${this.config.gitServerUrl}/git/health`);
-    if (!response.ok) throw new Error(`Health check failed: ${response.statusText}`);
+    if (!response.ok)
+      throw new Error(`Health check failed: ${response.statusText}`);
     return response.json() as Promise<{ status: string; service: string }>;
   }
 
@@ -666,9 +781,8 @@ export function createJejuGitSDK(config: GitSDKConfig): JejuGitSDK {
 // Convenience function for default config
 export function createDefaultGitSDK(): JejuGitSDK {
   return new JejuGitSDK({
-    rpcUrl: process.env.JEJU_RPC_URL ?? 'http://127.0.0.1:9545',
-    gitServerUrl: process.env.JEJUGIT_URL ?? 'http://localhost:4030/git',
+    rpcUrl: process.env.JEJU_RPC_URL ?? "http://127.0.0.1:9545",
+    gitServerUrl: process.env.JEJUGIT_URL ?? "http://localhost:4030/git",
     registryAddress: process.env.GIT_REGISTRY_ADDRESS as Address | undefined,
   });
 }
-

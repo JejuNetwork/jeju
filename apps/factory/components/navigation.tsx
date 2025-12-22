@@ -25,7 +25,6 @@ import {
   Users,
   Play,
   Database,
-  Rocket,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 

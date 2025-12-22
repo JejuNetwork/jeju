@@ -96,8 +96,9 @@ export class MPCCoordinator {
   }
 
   registerParty(party: Omit<MPCParty, 'status' | 'lastSeen'>): MPCParty {
-    if (this.config.requireAttestation && !party.attestation?.verified) {
-      throw new Error('Party attestation required and not verified');
+    if (this.config.requireAttestation) {
+      if (!party.attestation) throw new Error('Party attestation is required');
+      if (!party.attestation.verified) throw new Error('Party attestation is not verified');
     }
     if (party.stake < this.config.minPartyStake) {
       throw new Error(`Insufficient stake: ${party.stake} < ${this.config.minPartyStake}`);
@@ -209,7 +210,9 @@ export class MPCCoordinator {
   }
 
   getKeyVersions(keyId: string): KeyVersion[] {
-    return this.keyVersions.get(keyId) ?? [];
+    const versions = this.keyVersions.get(keyId);
+    if (!versions) throw new Error(`Key versions not found for ${keyId}`);
+    return versions;
   }
 
   async requestSignature(request: MPCSignRequest): Promise<MPCSignSession> {
@@ -332,8 +335,9 @@ export class MPCCoordinator {
     const versions = this.keyVersions.get(keyId);
     if (!versions) throw new Error(`Key versions not found for ${keyId}`);
 
-    const threshold = newThreshold ?? key.threshold;
-    const partyIds = newParties ?? Array.from(key.partyShares.keys());
+    // newThreshold and newParties are optional rotation parameters - use current values if not provided
+    const threshold = newThreshold !== undefined ? newThreshold : key.threshold;
+    const partyIds = newParties !== undefined ? newParties : Array.from(key.partyShares.keys());
 
     if (threshold < 2) throw new Error('Threshold must be at least 2');
     if (threshold > partyIds.length) throw new Error('Threshold cannot exceed party count');
@@ -438,7 +442,7 @@ export class MPCCoordinator {
     return cleaned;
   }
 
-  getStatus() {
+  getStatus(): { activeParties: number; totalKeys: number; activeSessions: number; config: MPCCoordinatorConfig } {
     return {
       activeParties: this.getActiveParties().length,
       totalKeys: this.keys.size,

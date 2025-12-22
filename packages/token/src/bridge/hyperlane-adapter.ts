@@ -19,6 +19,7 @@ import {
 import { mainnet, optimism, base, arbitrum, polygon, bsc, avalanche, sepolia, baseSepolia, arbitrumSepolia } from 'viem/chains';
 import { getDomainId } from '../config/domains';
 import type { ChainConfig, ChainId, MultisigISMConfig } from '../types';
+import { addressToBytes32 as toBytes32, bytes32ToAddress as toAddress } from '../utils/address';
 
 // Map EVM chain IDs to viem chains
 const VIEM_CHAINS: Record<number, Chain> = {
@@ -108,17 +109,14 @@ export class HyperlaneAdapter {
    * Convert an EVM address to bytes32 format
    */
   addressToBytes32(address: Address): Hex {
-    const clean = address.slice(2);
-    return `0x${clean.toLowerCase().padStart(64, '0')}` as Hex;
+    return toBytes32(address);
   }
 
   /**
    * Convert bytes32 back to an EVM address
    */
   bytes32ToAddress(bytes32: Hex): Address {
-    // Take last 40 characters (20 bytes)
-    const addressPart = bytes32.slice(-40);
-    return `0x${addressPart}` as Address;
+    return toAddress(bytes32);
   }
 
   /**

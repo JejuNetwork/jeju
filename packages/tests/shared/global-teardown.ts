@@ -10,7 +10,7 @@ import { FullConfig } from '@playwright/test';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
-async function globalTeardown(config: FullConfig) {
+async function globalTeardown(_config: FullConfig) {
   console.log('\n🧹 Global Teardown Starting...\n');
 
   const outputDir = join(process.cwd(), 'test-results');
@@ -18,17 +18,22 @@ async function globalTeardown(config: FullConfig) {
   // Read test environment info
   const envFile = join(outputDir, 'test-env.json');
   if (existsSync(envFile)) {
-    try {
-      const envInfo = JSON.parse(readFileSync(envFile, 'utf-8'));
-      envInfo.endTime = new Date().toISOString();
-      envInfo.duration = Date.now() - new Date(envInfo.startTime).getTime();
-      
-      writeFileSync(envFile, JSON.stringify(envInfo, null, 2));
-      
-      console.log(`   Duration: ${(envInfo.duration / 1000).toFixed(2)}s`);
-    } catch {
-      // Non-fatal
+    interface TestEnvInfo {
+      rpcUrl: string;
+      chainId: number;
+      startTime: string;
+      ci: boolean;
+      endTime?: string;
+      duration?: number;
     }
+    
+    const envInfo = JSON.parse(readFileSync(envFile, 'utf-8')) as TestEnvInfo;
+    envInfo.endTime = new Date().toISOString();
+    envInfo.duration = Date.now() - new Date(envInfo.startTime).getTime();
+    
+    writeFileSync(envFile, JSON.stringify(envInfo, null, 2));
+    
+    console.log(`   Duration: ${(envInfo.duration / 1000).toFixed(2)}s`);
   }
 
   console.log('\n✅ Global Teardown Complete\n');

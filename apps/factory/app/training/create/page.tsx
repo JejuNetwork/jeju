@@ -13,16 +13,13 @@ import {
   Database,
   Settings,
   Users,
-  Coins,
   Zap,
   Shield,
   CheckCircle,
   AlertCircle,
   Loader2,
-  GitBranch,
   Upload,
   Search,
-  Clock,
   Server,
 } from 'lucide-react';
 import {
@@ -32,8 +29,7 @@ import {
   useOptimalNodes,
   getDefaultLLMConfig,
 } from '@/lib/hooks/useTraining';
-import { dwsClient } from '@/lib/services/dws';
-import { parseEther, formatEther } from 'viem';
+import { parseEther } from 'viem';
 
 type Step = 'model' | 'dataset' | 'config' | 'nodes' | 'review';
 
@@ -578,6 +574,7 @@ function CreateTrainingContent() {
 
 export default function CreateTrainingPage() {
   return (
+    // @ts-expect-error Suspense type mismatch in React 19
     <Suspense fallback={
       <div className="min-h-screen p-8 flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-accent-400" />

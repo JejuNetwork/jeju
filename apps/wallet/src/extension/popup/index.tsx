@@ -13,8 +13,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider, createConfig, http } from 'wagmi';
 import { mainnet, base, arbitrum, optimism, bsc } from 'wagmi/chains';
 import { injected } from 'wagmi/connectors';
+import { z } from 'zod';
 import App from '../../App';
 import '../../index.css';
+import { expectJson, expectSchema } from '../../lib/validation';
 
 // Network RPC - open API, no keys required
 const JEJU_RPC = 'https://rpc.jejunetwork.org';
@@ -43,18 +45,32 @@ const queryClient = new QueryClient({
   },
 });
 
+import { z } from 'zod';
+import { expectJson, expectNonEmpty } from '../../lib/validation';
+
+const PopupParamsSchema = z.object({
+  path: z.string().optional(),
+  data: z.record(z.string(), z.unknown()).optional(),
+  requestId: z.string().uuid().optional(),
+});
+
 // Extension-specific URL parameter handling
-function getPopupParams(): { path?: string; data?: Record<string, unknown>; requestId?: string } {
+function getPopupParams(): z.infer<typeof PopupParamsSchema> {
   const url = new URL(window.location.href);
   const path = url.hash.replace('#/', '');
   const data = url.searchParams.get('data');
   const requestId = url.searchParams.get('requestId');
 
-  return {
+  const params: { path?: string; data?: Record<string, unknown>; requestId?: string } = {
     path: path || undefined,
-    data: data ? JSON.parse(data) : undefined,
     requestId: requestId || undefined,
   };
+
+  if (data) {
+    params.data = expectJson(data, z.record(z.string(), z.unknown()), 'popup data');
+  }
+
+  return expectSchema(params, PopupParamsSchema, 'popup params');
 }
 
 // Send response back to background script

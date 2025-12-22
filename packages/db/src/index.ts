@@ -43,6 +43,9 @@ export {
   createIndex,
 } from './migration.js';
 
+// Utilities
+export { parsePort, parseTimeout, parseBoolean } from './utils.js';
+
 // Types
 export type {
   // Config

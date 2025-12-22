@@ -5,12 +5,23 @@
  * Deployed to IPFS via Storage Marketplace.
  */
 
+// Ethereum provider types for wallet interaction
+type EthereumRequestMethod = 
+  | 'eth_requestAccounts'
+  | 'personal_sign'
+  | 'eth_accounts';
+
+interface EthereumRequestArgs {
+  method: EthereumRequestMethod;
+  params?: (string | number)[];
+}
+
 declare global {
   interface Window {
     ethereum?: {
-      request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-      on: (event: string, handler: (...args: unknown[]) => void) => void;
-      removeListener: (event: string, handler: (...args: unknown[]) => void) => void;
+      request: (args: EthereumRequestArgs) => Promise<string | string[]>;
+      on: (event: 'accountsChanged', handler: (accounts: string[]) => void) => void;
+      removeListener: (event: 'accountsChanged', handler: (accounts: string[]) => void) => void;
     };
   }
 }
@@ -69,7 +80,66 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
   };
 }
 
-// API functions
+// Validation helpers
+// Validates external API responses to ensure type safety
+function validateTodo(data: Record<string, unknown>): Todo {
+  if (typeof data.id !== 'string' || !data.id) throw new Error('Todo ID is required');
+  if (typeof data.title !== 'string' || !data.title) throw new Error('Todo title is required');
+  if (typeof data.description !== 'string') throw new Error('Todo description must be string');
+  if (typeof data.completed !== 'boolean') throw new Error('Todo completed must be boolean');
+  if (!['low', 'medium', 'high'].includes(data.priority as string)) {
+    throw new Error('Todo priority must be low, medium, or high');
+  }
+  if (data.dueDate !== null && (typeof data.dueDate !== 'number' || data.dueDate <= 0)) {
+    throw new Error('Todo dueDate must be null or positive number');
+  }
+  if (typeof data.createdAt !== 'number' || data.createdAt <= 0) {
+    throw new Error('Todo createdAt must be positive number');
+  }
+  if (typeof data.updatedAt !== 'number' || data.updatedAt <= 0) {
+    throw new Error('Todo updatedAt must be positive number');
+  }
+  if (typeof data.owner !== 'string' || !data.owner) throw new Error('Todo owner is required');
+  if (data.encryptedData !== null && typeof data.encryptedData !== 'string') {
+    throw new Error('Todo encryptedData must be null or string');
+  }
+  if (data.attachmentCid !== null && typeof data.attachmentCid !== 'string') {
+    throw new Error('Todo attachmentCid must be null or string');
+  }
+  
+  return {
+    id: data.id,
+    title: data.title,
+    description: data.description as string,
+    completed: data.completed,
+    priority: data.priority as 'low' | 'medium' | 'high',
+    dueDate: data.dueDate as number | null,
+    createdAt: data.createdAt,
+    updatedAt: data.updatedAt,
+    owner: data.owner,
+    encryptedData: data.encryptedData as string | null,
+    attachmentCid: data.attachmentCid as string | null,
+  };
+}
+
+function validateTitle(title: string): string {
+  if (!title || typeof title !== 'string' || title.trim().length === 0) {
+    throw new Error('Title is required and cannot be empty');
+  }
+  if (title.length > 500) {
+    throw new Error('Title too long (max 500 characters)');
+  }
+  return title.trim();
+}
+
+function validatePriority(priority: string): 'low' | 'medium' | 'high' {
+  if (!['low', 'medium', 'high'].includes(priority)) {
+    throw new Error('Priority must be low, medium, or high');
+  }
+  return priority as 'low' | 'medium' | 'high';
+}
+
+// API functions with validation
 async function fetchTodos(): Promise<void> {
   state.loading = true;
   state.error = null;
@@ -80,66 +150,105 @@ async function fetchTodos(): Promise<void> {
   
   const response = await fetch(`${API_URL}/todos${params}`, { headers });
   if (!response.ok) {
-    throw new Error('Failed to fetch todos');
+    const errorText = await response.text();
+    throw new Error(`Failed to fetch todos: ${response.status} ${errorText}`);
   }
 
-  const data = await response.json() as { todos: Todo[] };
-  state.todos = data.todos;
+  const data = await response.json() as { todos: Record<string, unknown>[] };
+  if (!data.todos || !Array.isArray(data.todos)) {
+    throw new Error('Invalid response: todos must be an array');
+  }
+  
+  state.todos = data.todos.map(todo => validateTodo(todo));
   state.loading = false;
   render();
 }
 
 async function createTodo(title: string, priority: 'low' | 'medium' | 'high'): Promise<void> {
+  const validatedTitle = validateTitle(title);
+  const validatedPriority = validatePriority(priority);
+  
   const headers = await getAuthHeaders();
   
   const response = await fetch(`${API_URL}/todos`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ title, priority }),
+    body: JSON.stringify({ title: validatedTitle, priority: validatedPriority }),
   });
 
   if (!response.ok) {
-    throw new Error('Failed to create todo');
+    const errorText = await response.text();
+    throw new Error(`Failed to create todo: ${response.status} ${errorText}`);
   }
 
   await fetchTodos();
 }
 
 async function toggleTodo(id: string, completed: boolean): Promise<void> {
+  if (!id || typeof id !== 'string' || id.trim().length === 0) {
+    throw new Error('Todo ID is required');
+  }
+  if (typeof completed !== 'boolean') {
+    throw new Error('Completed must be a boolean');
+  }
+  
   const headers = await getAuthHeaders();
   
-  await fetch(`${API_URL}/todos/${id}`, {
+  const response = await fetch(`${API_URL}/todos/${id}`, {
     method: 'PATCH',
     headers,
     body: JSON.stringify({ completed }),
   });
 
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to toggle todo: ${response.status} ${errorText}`);
+  }
+
   await fetchTodos();
 }
 
 async function deleteTodo(id: string): Promise<void> {
+  if (!id || typeof id !== 'string' || id.trim().length === 0) {
+    throw new Error('Todo ID is required');
+  }
+  
   const headers = await getAuthHeaders();
   
-  await fetch(`${API_URL}/todos/${id}`, {
+  const response = await fetch(`${API_URL}/todos/${id}`, {
     method: 'DELETE',
     headers,
   });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to delete todo: ${response.status} ${errorText}`);
+  }
 
   await fetchTodos();
 }
 
 async function encryptTodo(id: string): Promise<void> {
+  if (!id || typeof id !== 'string' || id.trim().length === 0) {
+    throw new Error('Todo ID is required');
+  }
+  
   const headers = await getAuthHeaders();
   
-  await fetch(`${API_URL}/todos/${id}/encrypt`, {
+  const response = await fetch(`${API_URL}/todos/${id}/encrypt`, {
     method: 'POST',
     headers,
   });
 
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to encrypt todo: ${response.status} ${errorText}`);
+  }
+
   await fetchTodos();
 }
 
-// Wallet connection
+// Wallet connection with validation
 async function connectWallet(): Promise<void> {
   if (!window.ethereum) {
     state.error = 'Please install MetaMask or another Web3 wallet';
@@ -151,10 +260,17 @@ async function connectWallet(): Promise<void> {
     method: 'eth_requestAccounts',
   }) as string[];
 
-  if (accounts.length > 0) {
-    state.address = accounts[0];
-    await fetchTodos();
+  if (accounts.length === 0) {
+    throw new Error('No accounts returned from wallet');
   }
+
+  const address = accounts[0];
+  if (!address.startsWith('0x')) {
+    throw new Error(`Invalid address format: ${address}`);
+  }
+
+  state.address = address;
+  await fetchTodos();
 }
 
 function disconnectWallet(): void {
@@ -366,15 +482,34 @@ function attachEventListeners(): void {
   // Disconnect button
   document.getElementById('disconnect')?.addEventListener('click', disconnectWallet);
 
-  // Form submit
+  // Form submit with validation
   document.getElementById('todo-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const input = document.getElementById('todo-input') as HTMLInputElement;
     const select = document.getElementById('priority-select') as HTMLSelectElement;
     
-    if (input.value.trim()) {
-      await createTodo(input.value.trim(), select.value as 'low' | 'medium' | 'high');
+    if (!input || !select) {
+      state.error = 'Form elements not found';
+      render();
+      return;
+    }
+    
+    try {
+      const title = input.value.trim();
+      const priority = select.value;
+      
+      if (!title) {
+        state.error = 'Title is required';
+        render();
+        return;
+      }
+      
+      await createTodo(title, validatePriority(priority));
       input.value = '';
+      state.error = null;
+    } catch (error) {
+      state.error = error instanceof Error ? error.message : 'Failed to create todo';
+      render();
     }
   });
 

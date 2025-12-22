@@ -100,6 +100,7 @@ export class JejuRegistryIntegration {
   ): Promise<RegistrationResult> {
     const account = this.walletClient.account;
     if (!account) throw new Error('WalletClient must have an account');
+    if (!this.walletClient.chain) throw new Error('WalletClient must have a chain configured');
 
     const txHashes: Hex[] = [];
 
@@ -112,7 +113,7 @@ export class JejuRegistryIntegration {
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'register',
       args: [tokenUri],
-      chain: this.walletClient.chain ?? null,
+      chain: this.walletClient.chain,
       account: account,
     });
     txHashes.push(registerTx);
@@ -121,10 +122,12 @@ export class JejuRegistryIntegration {
       hash: registerTx,
     });
 
-    // Parse agentId from logs
-    const agentId = registerReceipt.logs[0]?.topics[1]
-      ? BigInt(registerReceipt.logs[0].topics[1])
-      : 0n;
+    // Parse agentId from logs - require the log to exist
+    const agentIdTopic = registerReceipt.logs[0]?.topics[1];
+    if (!agentIdTopic) {
+      throw new Error('Failed to parse agentId from IdentityRegistry registration logs');
+    }
+    const agentId = BigInt(agentIdTopic);
 
     // 2. Register with TokenRegistry
     console.log('Registering with TokenRegistry...');
@@ -135,6 +138,10 @@ export class JejuRegistryIntegration {
       functionName: 'registrationFee',
     });
 
+    // Use explicit defaults for optional fee margin params - these are valid business defaults
+    const minFeeMargin = params.minFeeMargin !== undefined ? BigInt(params.minFeeMargin) : 0n;
+    const maxFeeMargin = params.maxFeeMargin !== undefined ? BigInt(params.maxFeeMargin) : 200n;
+
     const tokenRegTx = await this.walletClient.writeContract({
       address: this.contracts.tokenRegistry,
       abi: TOKEN_REGISTRY_ABI,
@@ -142,11 +149,11 @@ export class JejuRegistryIntegration {
       args: [
         params.tokenAddress,
         params.oracleAddress,
-        BigInt(params.minFeeMargin ?? 0),
-        BigInt(params.maxFeeMargin ?? 200),
+        minFeeMargin,
+        maxFeeMargin,
       ],
       value: registrationFee,
-      chain: this.walletClient.chain ?? null,
+      chain: this.walletClient.chain,
       account: account,
     });
     txHashes.push(tokenRegTx);

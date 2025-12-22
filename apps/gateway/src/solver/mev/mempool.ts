@@ -292,54 +292,48 @@ export class MempoolMonitor extends EventEmitter {
 
     // Decode based on selector
     // This is simplified - real implementation would use proper ABI decoding
-    try {
-      // For Uniswap V2 swapExactTokensForTokens
-      if (selector === SWAP_SELECTORS.swapExactTokensForTokens) {
-        const amountIn = BigInt(`0x${tx.data.slice(10, 74)}`);
-        const amountOutMin = BigInt(`0x${tx.data.slice(74, 138)}`);
-        
-        // Path offset at position 3 (bytes 138-202)
-        // Path length and addresses would need proper decoding
-        
-        return {
-          tx,
-          chainId: tx.chainId,
-          router: tx.to,
-          selector,
-          tokenIn: '0x0000000000000000000000000000000000000000' as Address, // Would decode from path
-          tokenOut: '0x0000000000000000000000000000000000000000' as Address,
-          amountIn,
-          amountOutMin,
-          deadline: 0,
-          path: [],
-        };
-      }
+    // For Uniswap V2 swapExactTokensForTokens
+    if (selector === SWAP_SELECTORS.swapExactTokensForTokens) {
+      const amountIn = BigInt(`0x${tx.data.slice(10, 74)}`);
+      const amountOutMin = BigInt(`0x${tx.data.slice(74, 138)}`);
+      
+      // Path offset at position 3 (bytes 138-202)
+      // Path length and addresses would need proper decoding
+      
+      return {
+        tx,
+        chainId: tx.chainId,
+        router: tx.to,
+        selector,
+        tokenIn: '0x0000000000000000000000000000000000000000' as Address, // Would decode from path
+        tokenOut: '0x0000000000000000000000000000000000000000' as Address,
+        amountIn,
+        amountOutMin,
+        deadline: 0,
+        path: [],
+      };
+    }
 
-      // For Uniswap V3 exactInputSingle
-      if (selector === SWAP_SELECTORS.exactInputSingle) {
-        // Struct: tokenIn, tokenOut, fee, recipient, deadline, amountIn, amountOutMinimum, sqrtPriceLimitX96
-        const tokenIn = `0x${tx.data.slice(34, 74)}` as Address;
-        const tokenOut = `0x${tx.data.slice(98, 138)}` as Address;
-        const amountIn = BigInt(`0x${tx.data.slice(202, 266)}`);
-        const amountOutMin = BigInt(`0x${tx.data.slice(266, 330)}`);
-        
-        return {
-          tx,
-          chainId: tx.chainId,
-          router: tx.to,
-          selector,
-          tokenIn,
-          tokenOut,
-          amountIn,
-          amountOutMin,
-          deadline: 0,
-          path: [tokenIn, tokenOut],
-        };
-      }
-
-    } catch {
-      // Failed to parse, skip
-      return null;
+    // For Uniswap V3 exactInputSingle
+    if (selector === SWAP_SELECTORS.exactInputSingle) {
+      // Struct: tokenIn, tokenOut, fee, recipient, deadline, amountIn, amountOutMinimum, sqrtPriceLimitX96
+      const tokenIn = `0x${tx.data.slice(34, 74)}` as Address;
+      const tokenOut = `0x${tx.data.slice(98, 138)}` as Address;
+      const amountIn = BigInt(`0x${tx.data.slice(202, 266)}`);
+      const amountOutMin = BigInt(`0x${tx.data.slice(266, 330)}`);
+      
+      return {
+        tx,
+        chainId: tx.chainId,
+        router: tx.to,
+        selector,
+        tokenIn,
+        tokenOut,
+        amountIn,
+        amountOutMin,
+        deadline: 0,
+        path: [tokenIn, tokenOut],
+      };
     }
 
     return null;

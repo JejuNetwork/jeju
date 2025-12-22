@@ -80,91 +80,109 @@ const UNISWAP_V3_QUOTER_ABI = parseAbi([
   'function quoteExactInputSingle(address tokenIn, address tokenOut, uint24 fee, uint256 amountIn, uint160 sqrtPriceLimitX96) external returns (uint256 amountOut)',
 ]);
 
-const UNISWAP_V3_POOL_ABI = parseAbi([
-  'function liquidity() external view returns (uint128)',
-]);
-
 // ============ Default Configurations ============
 
-const DEFAULT_CHAINS: ChainConfig[] = [
-  {
-    chainId: 1,
-    name: 'Ethereum',
-    rpcUrl: process.env.ETH_RPC_URL ?? 'https://eth.llamarpc.com',
-    type: 'evm',
-    blockTimeMs: 12000,
-    nativeSymbol: 'ETH',
-    dexes: [
-      { name: 'Uniswap V3', type: 'uniswap-v3', router: '0xE592427A0AEce92De3Edee1F18E0157C05861564', quoter: '0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6' },
-      { name: 'Uniswap V2', type: 'uniswap-v2', router: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D', factory: '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f' },
-      { name: 'Curve', type: 'curve', router: '0x99a58482BD75cbab83b27EC03CA68fF489b5788f' },
-    ],
-    bridges: [
-      { name: 'Stargate', type: 'stargate', contract: '0x8731d54E9D02c286767d56ac03e8037C07e01e98', supportedChains: [8453, 42161, 10, 56], estimatedTimeSeconds: 60, baseFeeUsd: 0.5 },
-      { name: 'Across', type: 'across', contract: '0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5', supportedChains: [8453, 42161, 10], estimatedTimeSeconds: 120, baseFeeUsd: 0.3 },
-    ],
-  },
-  {
-    chainId: 8453,
-    name: 'Base',
-    rpcUrl: process.env.BASE_RPC_URL ?? 'https://mainnet.base.org',
-    type: 'evm',
-    blockTimeMs: 2000,
-    nativeSymbol: 'ETH',
-    dexes: [
-      { name: 'Aerodrome', type: 'uniswap-v2', router: '0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43', factory: '0x420DD381b31aEf6683db6B902084cB0FFECe40Da' },
-      { name: 'Uniswap V3', type: 'uniswap-v3', router: '0x2626664c2603336E57B271c5C0b26F421741e481', quoter: '0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a' },
-    ],
-    bridges: [
-      { name: 'Stargate', type: 'stargate', contract: '0x45f1A95A4D3f3836523F5c83673c797f4d4d263B', supportedChains: [1, 42161, 10, 56], estimatedTimeSeconds: 60, baseFeeUsd: 0.5 },
-    ],
-  },
-  {
-    chainId: 42161,
-    name: 'Arbitrum',
-    rpcUrl: process.env.ARB_RPC_URL ?? 'https://arb1.arbitrum.io/rpc',
-    type: 'evm',
-    blockTimeMs: 250,
-    nativeSymbol: 'ETH',
-    dexes: [
-      { name: 'Uniswap V3', type: 'uniswap-v3', router: '0xE592427A0AEce92De3Edee1F18E0157C05861564', quoter: '0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6' },
-      { name: 'Camelot', type: 'uniswap-v2', router: '0xc873fEcbd354f5A56E00E710B90EF4201db2448d', factory: '0x6EcCab422D763aC031210895C81787E87B43A652' },
-    ],
-    bridges: [
-      { name: 'Stargate', type: 'stargate', contract: '0x53Bf833A5d6c4ddA888F69c22C88C9f356a41614', supportedChains: [1, 8453, 10, 56], estimatedTimeSeconds: 60, baseFeeUsd: 0.5 },
-    ],
-  },
-  {
-    chainId: 10,
-    name: 'Optimism',
-    rpcUrl: process.env.OP_RPC_URL ?? 'https://mainnet.optimism.io',
-    type: 'evm',
-    blockTimeMs: 2000,
-    nativeSymbol: 'ETH',
-    dexes: [
-      { name: 'Velodrome', type: 'uniswap-v2', router: '0xa062aE8A9c5e11aaA026fc2670B0D65ccc8B2858', factory: '0x25CbdDb98b35ab1FF77413456B31EC81A6B6B746' },
-      { name: 'Uniswap V3', type: 'uniswap-v3', router: '0xE592427A0AEce92De3Edee1F18E0157C05861564', quoter: '0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6' },
-    ],
-    bridges: [
-      { name: 'Stargate', type: 'stargate', contract: '0xB0D502E938ed5f4df2E681fE6E419ff29631d62b', supportedChains: [1, 8453, 42161, 56], estimatedTimeSeconds: 60, baseFeeUsd: 0.5 },
-    ],
-  },
-  {
-    chainId: 56,
-    name: 'BSC',
-    rpcUrl: process.env.BSC_RPC_URL ?? 'https://bsc-dataseed.binance.org',
-    type: 'evm',
-    blockTimeMs: 3000,
-    nativeSymbol: 'BNB',
-    dexes: [
-      { name: 'PancakeSwap V3', type: 'uniswap-v3', router: '0x13f4EA83D0bd40E75C8222255bc855a974568Dd4', quoter: '0xB048Bbc1Ee6b733FFfCFb9e9CeF7375518e25997' },
-      { name: 'PancakeSwap V2', type: 'uniswap-v2', router: '0x10ED43C718714eb63d5aA57B78B54704E256024E', factory: '0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73' },
-    ],
-    bridges: [
-      { name: 'Stargate', type: 'stargate', contract: '0x4a364f8c717cAAD9A442737Eb7b8A55cc6cf18D8', supportedChains: [1, 8453, 42161, 10], estimatedTimeSeconds: 60, baseFeeUsd: 0.5 },
-    ],
-  },
-];
+function getRequiredEnv(key: string): string {
+  const value = process.env[key];
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${key}`);
+  }
+  return value;
+}
+
+function getChainRpcUrl(chainId: number): string {
+  switch (chainId) {
+    case 1: return getRequiredEnv('ETH_RPC_URL');
+    case 8453: return getRequiredEnv('BASE_RPC_URL');
+    case 42161: return getRequiredEnv('ARB_RPC_URL');
+    case 10: return getRequiredEnv('OP_RPC_URL');
+    case 56: return getRequiredEnv('BSC_RPC_URL');
+    default: throw new Error(`No RPC URL configured for chain ${chainId}`);
+  }
+}
+
+// Chain configs are built lazily when needed
+function buildDefaultChains(): ChainConfig[] {
+  return [
+    {
+      chainId: 1,
+      name: 'Ethereum',
+      rpcUrl: getChainRpcUrl(1),
+      type: 'evm',
+      blockTimeMs: 12000,
+      nativeSymbol: 'ETH',
+      dexes: [
+        { name: 'Uniswap V3', type: 'uniswap-v3', router: '0xE592427A0AEce92De3Edee1F18E0157C05861564', quoter: '0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6' },
+        { name: 'Uniswap V2', type: 'uniswap-v2', router: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D', factory: '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f' },
+        { name: 'Curve', type: 'curve', router: '0x99a58482BD75cbab83b27EC03CA68fF489b5788f' },
+      ],
+      bridges: [
+        { name: 'Stargate', type: 'stargate', contract: '0x8731d54E9D02c286767d56ac03e8037C07e01e98', supportedChains: [8453, 42161, 10, 56], estimatedTimeSeconds: 60, baseFeeUsd: 0.5 },
+        { name: 'Across', type: 'across', contract: '0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5', supportedChains: [8453, 42161, 10], estimatedTimeSeconds: 120, baseFeeUsd: 0.3 },
+      ],
+    },
+    {
+      chainId: 8453,
+      name: 'Base',
+      rpcUrl: getChainRpcUrl(8453),
+      type: 'evm',
+      blockTimeMs: 2000,
+      nativeSymbol: 'ETH',
+      dexes: [
+        { name: 'Aerodrome', type: 'uniswap-v2', router: '0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43', factory: '0x420DD381b31aEf6683db6B902084cB0FFECe40Da' },
+        { name: 'Uniswap V3', type: 'uniswap-v3', router: '0x2626664c2603336E57B271c5C0b26F421741e481', quoter: '0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a' },
+      ],
+      bridges: [
+        { name: 'Stargate', type: 'stargate', contract: '0x45f1A95A4D3f3836523F5c83673c797f4d4d263B', supportedChains: [1, 42161, 10, 56], estimatedTimeSeconds: 60, baseFeeUsd: 0.5 },
+      ],
+    },
+    {
+      chainId: 42161,
+      name: 'Arbitrum',
+      rpcUrl: getChainRpcUrl(42161),
+      type: 'evm',
+      blockTimeMs: 250,
+      nativeSymbol: 'ETH',
+      dexes: [
+        { name: 'Uniswap V3', type: 'uniswap-v3', router: '0xE592427A0AEce92De3Edee1F18E0157C05861564', quoter: '0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6' },
+        { name: 'Camelot', type: 'uniswap-v2', router: '0xc873fEcbd354f5A56E00E710B90EF4201db2448d', factory: '0x6EcCab422D763aC031210895C81787E87B43A652' },
+      ],
+      bridges: [
+        { name: 'Stargate', type: 'stargate', contract: '0x53Bf833A5d6c4ddA888F69c22C88C9f356a41614', supportedChains: [1, 8453, 10, 56], estimatedTimeSeconds: 60, baseFeeUsd: 0.5 },
+      ],
+    },
+    {
+      chainId: 10,
+      name: 'Optimism',
+      rpcUrl: getChainRpcUrl(10),
+      type: 'evm',
+      blockTimeMs: 2000,
+      nativeSymbol: 'ETH',
+      dexes: [
+        { name: 'Velodrome', type: 'uniswap-v2', router: '0xa062aE8A9c5e11aaA026fc2670B0D65ccc8B2858', factory: '0x25CbdDb98b35ab1FF77413456B31EC81A6B6B746' },
+        { name: 'Uniswap V3', type: 'uniswap-v3', router: '0xE592427A0AEce92De3Edee1F18E0157C05861564', quoter: '0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6' },
+      ],
+      bridges: [
+        { name: 'Stargate', type: 'stargate', contract: '0xB0D502E938ed5f4df2E681fE6E419ff29631d62b', supportedChains: [1, 8453, 42161, 56], estimatedTimeSeconds: 60, baseFeeUsd: 0.5 },
+      ],
+    },
+    {
+      chainId: 56,
+      name: 'BSC',
+      rpcUrl: getChainRpcUrl(56),
+      type: 'evm',
+      blockTimeMs: 3000,
+      nativeSymbol: 'BNB',
+      dexes: [
+        { name: 'PancakeSwap V3', type: 'uniswap-v3', router: '0x13f4EA83D0bd40E75C8222255bc855a974568Dd4', quoter: '0xB048Bbc1Ee6b733FFfCFb9e9CeF7375518e25997' },
+        { name: 'PancakeSwap V2', type: 'uniswap-v2', router: '0x10ED43C718714eb63d5aA57B78B54704E256024E', factory: '0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73' },
+      ],
+      bridges: [
+        { name: 'Stargate', type: 'stargate', contract: '0x4a364f8c717cAAD9A442737Eb7b8A55cc6cf18D8', supportedChains: [1, 8453, 42161, 10], estimatedTimeSeconds: 60, baseFeeUsd: 0.5 },
+      ],
+    },
+  ];
+}
 
 // ============ Token Pairs to Monitor ============
 
@@ -202,8 +220,7 @@ export interface CrossChainArbConfig {
   enableExecution: boolean;
 }
 
-const DEFAULT_CONFIG: CrossChainArbConfig = {
-  chains: DEFAULT_CHAINS,
+const DEFAULT_CONFIG: Omit<CrossChainArbConfig, 'chains'> & { chains?: ChainConfig[] } = {
   minProfitBps: 50,         // 0.5% minimum profit
   minProfitUsd: 10,         // $10 minimum profit
   maxSlippageBps: 100,      // 1% max slippage
@@ -231,7 +248,9 @@ export class CrossChainArbitrage extends EventEmitter {
 
   constructor(config: Partial<CrossChainArbConfig> = {}) {
     super();
-    this.config = { ...DEFAULT_CONFIG, ...config };
+    // Build chains lazily - will throw if env vars not set
+    const chains = config.chains ?? buildDefaultChains();
+    this.config = { ...DEFAULT_CONFIG, chains, ...config };
 
     // Initialize oracle
     const rpcUrls: Partial<Record<EVMChainId, string>> = {};
@@ -351,12 +370,16 @@ export class CrossChainArbitrage extends EventEmitter {
     quoteSymbol: string
   ): Promise<void> {
     const client = this.evmClients.get(chain.chainId as EVMChainId);
-    if (!client) return;
+    if (!client) {
+      // Chain not initialized, skip silently (chain may not be configured)
+      return;
+    }
 
     const pairKey = `${baseSymbol}/${quoteSymbol}`;
     const baseToken = this.getTokenAddress(baseSymbol, chain.chainId as EVMChainId);
     const quoteToken = this.getTokenAddress(quoteSymbol, chain.chainId as EVMChainId);
 
+    // Token not available on this chain, skip
     if (!baseToken || !quoteToken) return;
 
     const amountIn = parseUnits('1', 18); // 1 token
@@ -374,39 +397,35 @@ export class CrossChainArbitrage extends EventEmitter {
 
       price = amounts[1];
 
-      // Fetch liquidity from pair contract
-      try {
-        const factory = await client.readContract({
-          address: dex.router!,
-          abi: UNISWAP_V2_ROUTER_ABI,
-          functionName: 'factory',
+      // Fetch liquidity from pair contract (errors caught by Promise.allSettled in caller)
+      const factory = await client.readContract({
+        address: dex.router!,
+        abi: UNISWAP_V2_ROUTER_ABI,
+        functionName: 'factory',
+      }) as `0x${string}`;
+
+      const pairAddress = await client.readContract({
+        address: factory,
+        abi: UNISWAP_V2_FACTORY_ABI,
+        functionName: 'getPair',
+        args: [baseToken, quoteToken],
+      }) as `0x${string}`;
+
+      if (pairAddress !== '0x0000000000000000000000000000000000000000') {
+        const [reserve0, reserve1] = await client.readContract({
+          address: pairAddress,
+          abi: UNISWAP_V2_PAIR_ABI,
+          functionName: 'getReserves',
+        }) as [bigint, bigint, number];
+
+        const token0 = await client.readContract({
+          address: pairAddress,
+          abi: UNISWAP_V2_PAIR_ABI,
+          functionName: 'token0',
         }) as `0x${string}`;
 
-        const pairAddress = await client.readContract({
-          address: factory,
-          abi: UNISWAP_V2_FACTORY_ABI,
-          functionName: 'getPair',
-          args: [baseToken, quoteToken],
-        }) as `0x${string}`;
-
-        if (pairAddress !== '0x0000000000000000000000000000000000000000') {
-          const [reserve0, reserve1] = await client.readContract({
-            address: pairAddress,
-            abi: UNISWAP_V2_PAIR_ABI,
-            functionName: 'getReserves',
-          }) as [bigint, bigint, number];
-
-          const token0 = await client.readContract({
-            address: pairAddress,
-            abi: UNISWAP_V2_PAIR_ABI,
-            functionName: 'token0',
-          }) as `0x${string}`;
-
-          // Liquidity in quote token terms
-          liquidity = token0.toLowerCase() === baseToken.toLowerCase() ? reserve1 : reserve0;
-        }
-      } catch {
-        // Failed to get liquidity, continue with 0
+        // Liquidity in quote token terms
+        liquidity = token0.toLowerCase() === baseToken.toLowerCase() ? reserve1 : reserve0;
       }
     } else if (dex.type === 'uniswap-v3' && dex.quoter) {
       // V3 quote
@@ -432,7 +451,7 @@ export class CrossChainArbitrage extends EventEmitter {
       timestamp: Date.now(),
     };
 
-    const existing = this.prices.get(pairKey) ?? [];
+    const existing = this.prices.get(pairKey) ?? []; // Empty array is valid initial state
     const filteredExisting = existing.filter(
       p => !(p.chainId === chain.chainId && p.dex === dex.name)
     );
@@ -673,25 +692,25 @@ export class SolanaArbitrage {
   ): Promise<bigint> {
     const JUPITER_API = 'https://quote-api.jup.ag/v6';
     
-    try {
-      let url = `${JUPITER_API}/quote?inputMint=${inputMint.toBase58()}&outputMint=${outputMint.toBase58()}&amount=${amount.toString()}&slippageBps=50`;
-      
-      // Filter to specific DEX if requested
-      if (dexFilter) {
-        url += `&onlyDirectRoutes=true&dexes=${dexFilter}`;
-      }
-
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Jupiter API error: ${response.statusText}`);
-      }
-
-      const data = await response.json() as { outAmount?: string };
-      return BigInt(data.outAmount || '0');
-    } catch (error) {
-      console.error(`Failed to get Jupiter quote for ${dexFilter || 'all'}:`, error);
-      return 0n;
+    let url = `${JUPITER_API}/quote?inputMint=${inputMint.toBase58()}&outputMint=${outputMint.toBase58()}&amount=${amount.toString()}&slippageBps=50`;
+    
+    // Filter to specific DEX if requested
+    if (dexFilter) {
+      url += `&onlyDirectRoutes=true&dexes=${dexFilter}`;
     }
+
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Jupiter API error: ${response.statusText}`);
+    }
+
+    const rawData: unknown = await response.json();
+    // Validate the Jupiter response has required fields
+    if (!rawData || typeof rawData !== 'object' || !('outAmount' in rawData)) {
+      throw new Error('Jupiter API returned invalid response');
+    }
+    const data = rawData as { outAmount: string };
+    return BigInt(data.outAmount);
   }
 
   /**

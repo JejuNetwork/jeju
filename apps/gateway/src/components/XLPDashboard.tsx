@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, type ComponentType } from 'react';
 import { useAccount } from 'wagmi';
 import { useQuery } from '@tanstack/react-query';
 import { parseEther, formatEther, type Address } from 'viem';
@@ -6,8 +6,12 @@ import { useXLPLiquidity, useXLPRegistration, useXLPPosition, useEILConfig } fro
 import { useProtocolTokens } from '../hooks/useProtocolTokens';
 import TokenSelector from './TokenSelector';
 import type { TokenOption } from './TokenSelector';
-import { Clock, CheckCircle, XCircle } from 'lucide-react';
+import { Clock, CheckCircle, XCircle, type LucideProps } from 'lucide-react';
 import { INDEXER_URL } from '../config';
+
+const CheckCircleIcon = CheckCircle as ComponentType<LucideProps>;
+const XCircleIcon = XCircle as ComponentType<LucideProps>;
+const ClockIcon = Clock as ComponentType<LucideProps>;
 
 interface VoucherHistoryItem {
   id: string;
@@ -641,11 +645,11 @@ function VoucherHistory() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
       {history.map((item) => {
         const statusIcon = item.status === 'FULFILLED' ? (
-          <CheckCircle size={18} style={{ color: 'var(--success)' }} />
+          <CheckCircleIcon size={18} style={{ color: 'var(--success)' }} />
         ) : item.status === 'EXPIRED' || item.status === 'REFUNDED' ? (
-          <XCircle size={18} style={{ color: 'var(--error)' }} />
+          <XCircleIcon size={18} style={{ color: 'var(--error)' }} />
         ) : (
-          <Clock size={18} style={{ color: 'var(--warning)' }} />
+          <ClockIcon size={18} style={{ color: 'var(--warning)' }} />
         );
 
         const amountEth = (Number(BigInt(item.sourceAmount)) / 1e18).toFixed(4);

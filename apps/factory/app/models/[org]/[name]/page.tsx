@@ -19,20 +19,15 @@ import {
   Play,
   Copy,
   Check,
-  ExternalLink,
   Shield,
-  Tag,
   Cpu,
   HardDrive,
-  Users,
   History,
   Zap,
   Settings,
   Terminal,
   Send,
   Loader2,
-  AlertCircle,
-  CheckCircle,
 } from 'lucide-react';
 import Link from 'next/link';
 import { clsx } from 'clsx';
@@ -166,7 +161,7 @@ export default function ModelDetailPage() {
   const params = useParams();
   const org = params.org as string;
   const name = params.name as string;
-  const { isConnected } = useAccount();
+  const { isConnected: _isConnected } = useAccount();
   
   const [tab, setTab] = useState<ModelTab>('model-card');
   const [copied, setCopied] = useState(false);

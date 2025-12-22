@@ -7,15 +7,15 @@
 
 const KMS_ENDPOINT = process.env.NEXT_PUBLIC_KMS_ENDPOINT || 'http://localhost:4035';
 
-interface KMSSecret {
-  keyId: string;
-  value: string;
-  metadata: {
-    service: string;
-    createdAt: number;
-    rotatedAt?: number;
-  };
-}
+// interface KMSSecret {
+//   keyId: string;
+//   value: string;
+//   metadata: {
+//     service: string;
+//     createdAt: number;
+//     rotatedAt?: number;
+//   };
+// }
 
 /**
  * Fetch decrypted secret from MPC KMS
@@ -123,16 +123,16 @@ export interface GitHubPR {
 }
 
 export class GitHubService {
-  private tokenKeyId: string | null = null;
+  // private tokenKeyId: string | null = null;
   private cachedToken: string | null = null;
-  private userAddress: string | null = null;
+  // private userAddress: string | null = null;
 
   /**
    * Initialize with MPC KMS key ID (token stored encrypted)
    */
   async initialize(tokenKeyId: string, userAddress: string, signature: string): Promise<void> {
-    this.tokenKeyId = tokenKeyId;
-    this.userAddress = userAddress;
+    // this.tokenKeyId = tokenKeyId;
+    // this.userAddress = userAddress;
     this.cachedToken = await getSecret(tokenKeyId, userAddress, signature);
   }
 
@@ -141,9 +141,9 @@ export class GitHubService {
    */
   async storeToken(token: string, userAddress: string, signature: string): Promise<string> {
     const keyId = await storeSecret('github', token, userAddress, signature);
-    this.tokenKeyId = keyId;
+    // this.tokenKeyId = keyId;
     this.cachedToken = token;
-    this.userAddress = userAddress;
+    // this.userAddress = userAddress;
     return keyId;
   }
 
@@ -256,27 +256,15 @@ export interface LinearProject {
 }
 
 export class LinearService {
-  private apiKeyId: string | null = null;
   private cachedApiKey: string | null = null;
-  private userAddress: string | null = null;
 
-  /**
-   * Initialize with MPC KMS key ID
-   */
   async initialize(keyId: string, userAddress: string, signature: string): Promise<void> {
-    this.apiKeyId = keyId;
-    this.userAddress = userAddress;
     this.cachedApiKey = await getSecret(keyId, userAddress, signature);
   }
 
-  /**
-   * Store Linear API key in MPC KMS
-   */
   async storeApiKey(apiKey: string, userAddress: string, signature: string): Promise<string> {
     const keyId = await storeSecret('linear', apiKey, userAddress, signature);
-    this.apiKeyId = keyId;
     this.cachedApiKey = apiKey;
-    this.userAddress = userAddress;
     return keyId;
   }
 
@@ -430,15 +418,16 @@ export interface NpmSearchResult {
 }
 
 export class NpmService {
-  private authTokenKeyId: string | null = null;
-  private cachedAuthToken: string | null = null;
+  // private authTokenKeyId: string | null = null;
+  // private cachedAuthToken: string | null = null;
 
   /**
    * Initialize with MPC KMS for npm auth token (for publishing)
    */
   async initialize(keyId: string, userAddress: string, signature: string): Promise<void> {
-    this.authTokenKeyId = keyId;
-    this.cachedAuthToken = await getSecret(keyId, userAddress, signature);
+    // this.authTokenKeyId = keyId;
+    // this.cachedAuthToken = await getSecret(keyId, userAddress, signature);
+    await getSecret(keyId, userAddress, signature); // Retrieve but don't store for now if unused
   }
 
   async getPackage(name: string): Promise<NpmPackage> {

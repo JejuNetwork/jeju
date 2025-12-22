@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /**
  * Helmfile wrapper for Kubernetes deployments
- * 
+ *
  * Usage:
  *   NETWORK=testnet bun run scripts/helmfile.ts sync
  *   NETWORK=testnet bun run scripts/helmfile.ts diff
@@ -10,27 +10,19 @@
 
 import { $ } from "bun";
 import { join } from "path";
+import { getRequiredNetwork, createCommandValidator, type NetworkType } from "./shared";
 
 const ROOT = join(import.meta.dir, "..");
-const NETWORK = process.env.NETWORK || "testnet";
-const COMMAND = process.argv[2] || "diff";
 
-const VALID_COMMANDS = ["diff", "sync", "apply", "destroy", "status", "list"];
-const VALID_NETWORKS = ["localnet", "testnet", "mainnet"];
+const VALID_COMMANDS = ["diff", "sync", "apply", "destroy", "status", "list"] as const;
+type ValidCommand = (typeof VALID_COMMANDS)[number];
 
-async function main() {
-  if (!VALID_COMMANDS.includes(COMMAND)) {
-    console.error(`❌ Invalid command: ${COMMAND}`);
-    console.error(`   Valid: ${VALID_COMMANDS.join(", ")}`);
-    process.exit(1);
-  }
+const getRequiredCommand = createCommandValidator(VALID_COMMANDS, "helmfile.ts");
 
-  if (!VALID_NETWORKS.includes(NETWORK)) {
-    console.error(`❌ Invalid network: ${NETWORK}`);
-    console.error(`   Valid: ${VALID_NETWORKS.join(", ")}`);
-    process.exit(1);
-  }
+const NETWORK: NetworkType = getRequiredNetwork();
+const COMMAND: ValidCommand = getRequiredCommand();
 
+async function main(): Promise<void> {
   const helmfileDir = join(ROOT, "kubernetes/helmfile");
   console.log(`☸️  Helmfile ${COMMAND} for ${NETWORK}\n`);
 
@@ -45,4 +37,3 @@ async function main() {
 }
 
 main();
-

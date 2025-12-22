@@ -237,24 +237,24 @@ export async function getOraclePrices(symbols: string[]): Promise<Map<string, Or
 }
 
 export async function getGasPrice(): Promise<{ slow: bigint; standard: bigint; fast: bigint }> {
-  try {
-    const data = await graphql<{ oracleFeeds: Array<{ latestPrice: string }> }>(`
-      query {
-        oracleFeeds(where: { category_eq: L2_GAS, isActive_eq: true }, limit: 1) {
-          latestPrice
-        }
+  const data = await graphql<{ oracleFeeds: Array<{ latestPrice: string }> }>(`
+    query {
+      oracleFeeds(where: { category_eq: L2_GAS, isActive_eq: true }, limit: 1) {
+        latestPrice
       }
-    `);
-    
-    const baseGas = BigInt(data.oracleFeeds[0]?.latestPrice || '1000000000');
-    return {
-      slow: baseGas * 80n / 100n,
-      standard: baseGas,
-      fast: baseGas * 120n / 100n,
-    };
-  } catch {
-    return { slow: 1000000000n, standard: 1500000000n, fast: 2000000000n };
+    }
+  `);
+  
+  if (!data.oracleFeeds[0]?.latestPrice) {
+    throw new Error('No gas price oracle feed available');
   }
+  
+  const baseGas = BigInt(data.oracleFeeds[0].latestPrice);
+  return {
+    slow: baseGas * 80n / 100n,
+    standard: baseGas,
+    fast: baseGas * 120n / 100n,
+  };
 }
 
 // ============================================================================

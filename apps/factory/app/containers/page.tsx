@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useAccount } from 'wagmi';
 import { 
   Container, 
   Search, 
@@ -92,7 +91,6 @@ const mockContainers = [
 ];
 
 export default function ContainersPage() {
-  const { isConnected } = useAccount();
   const [filter, setFilter] = useState<ContainerFilter>('all');
   const [search, setSearch] = useState('');
   const [copiedImage, setCopiedImage] = useState<string | null>(null);

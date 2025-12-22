@@ -1,4 +1,6 @@
 import { useReadContract, useWriteContract, useAccount, useReadContracts } from 'wagmi'
+import { AddressSchema } from '@jejunetwork/types/contracts'
+import { expect, expectTrue } from '@/lib/validation'
 import { getXLPContracts } from '@/config/contracts'
 import { JEJU_CHAIN_ID } from '@/config/chains'
 import type { Address, Abi } from 'viem'
@@ -214,6 +216,8 @@ export function useV3PoolData(poolAddress: Address | null) {
   if (!data || !poolAddress) {
     return { pool: null, isLoading, error, refetch }
   }
+  
+  const validatedPoolAddress = expect(poolAddress, 'Pool address is required');
 
   const slot0Result = data[0]
   const liquidityResult = data[1]
@@ -236,7 +240,7 @@ export function useV3PoolData(poolAddress: Address | null) {
   const [sqrtPriceX96, tick] = slot0Result.result as [bigint, number, number, number, number, number, boolean]
 
   const pool: V3Pool = {
-    address: poolAddress,
+    address: validatedPoolAddress,
     token0: token0Result.result as Address,
     token1: token1Result.result as Address,
     fee: feeResult.result as number,
@@ -256,15 +260,21 @@ export function useCreateV3Pool() {
   const { writeContractAsync, isPending, isSuccess, error, data: txHash } = useWriteContract()
 
   const createPool = async (token0: Address, token1: Address, fee: number) => {
-    if (!contracts?.v3Factory) throw new Error('V3 Factory not deployed')
+    const validatedToken0 = AddressSchema.parse(token0);
+    const validatedToken1 = AddressSchema.parse(token1);
+    expectTrue(validatedToken0 !== validatedToken1, 'Token0 and Token1 must be different');
+    expectTrue(fee >= 0 && fee <= 1000000, 'Fee must be between 0 and 1000000');
+    
+    const factory = expect(contracts?.v3Factory, 'V3 Factory not deployed');
+    AddressSchema.parse(factory);
 
     const hash = await writeContractAsync({
-      address: contracts.v3Factory,
+      address: factory,
       abi: V3_FACTORY_ABI,
       functionName: 'createPool',
-      args: [token0, token1, fee],
+      args: [validatedToken0, validatedToken1, fee],
     })
-    return hash
+    return expect(hash, 'Transaction hash not returned')
   }
 
   return { createPool, isLoading: isPending, isSuccess, error, txHash }
@@ -275,13 +285,16 @@ export function useInitializeV3Pool() {
   const { writeContractAsync, isPending, isSuccess, error, data: txHash } = useWriteContract()
 
   const initialize = async (poolAddress: Address, sqrtPriceX96: bigint) => {
+    const validatedPoolAddress = AddressSchema.parse(poolAddress);
+    expectTrue(sqrtPriceX96 > 0n, 'SqrtPriceX96 must be positive');
+
     const hash = await writeContractAsync({
-      address: poolAddress,
+      address: validatedPoolAddress,
       abi: V3_POOL_ABI,
       functionName: 'initialize',
       args: [sqrtPriceX96],
     })
-    return hash
+    return expect(hash, 'Transaction hash not returned')
   }
 
   return { initialize, isLoading: isPending, isSuccess, error, txHash }

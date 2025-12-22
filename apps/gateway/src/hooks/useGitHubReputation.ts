@@ -225,7 +225,7 @@ export function useGitHubReputation() {
       const { message, timestamp } = await messageResponse.json();
 
       // Sign the message
-      const signature = await signMessageAsync({ message });
+      const signature = await signMessageAsync({ message, account: address });
 
       // Submit verification with timestamp for replay protection
       const verifyResponse = await fetch(`${LEADERBOARD_API}/api/wallet/verify`, {
@@ -352,6 +352,7 @@ export function useGitHubReputation() {
         address: GITHUB_REPUTATION_PROVIDER_ADDRESS,
         abi: GITHUB_REPUTATION_PROVIDER_ABI,
         functionName: 'submitAttestation',
+        account: address,
         args: [
           agentId,
           score,
@@ -449,12 +450,13 @@ export function useGitHubReputation() {
   // Parse on-chain data - memoized to prevent recomputation
   const onChainReputation = useMemo<OnChainReputation | null>(() => {
     if (!agentReputation) return null;
+    const [hasBoost, score] = agentReputation as [boolean, number];
     return {
-      score: (agentReputation as [boolean, number])[1],
+      score,
       isValid: true,
       lastUpdated: 0n,
-      hasBoost: (agentReputation as [boolean, number])[0],
-      stakeDiscount: Number(stakeDiscount || 0n) / 100,
+      hasBoost,
+      stakeDiscount: stakeDiscount ? Number(stakeDiscount) / 100 : 0,
     };
   }, [agentReputation, stakeDiscount]);
 

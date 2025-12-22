@@ -10,29 +10,20 @@
 
 import {
   createPublicClient,
-  createWalletClient,
   http,
   type Address,
   type PublicClient,
   type WalletClient,
-  type Chain,
   type Hex,
-} from 'viem';
-import { z } from 'zod';
+} from "viem";
 import {
   VPN_LEGAL_COUNTRIES,
   type VPNNode,
   type VPNNodeQuery,
-  type VPNConnection,
-  type VPNConnectOptions,
-  type VPNProtocol,
-  type VPNConnectionStatus,
   type ContributionQuota,
-  type ContributionSettings,
-  type VPNProviderEarnings,
   type CountryCode,
   type CountryLegalStatus,
-} from '@jejunetwork/types';
+} from "@jejunetwork/types";
 
 // ============================================================================
 // Configuration
@@ -54,14 +45,14 @@ export interface VPNSDKConfig {
 // ============================================================================
 
 const VPN_REGISTRY_ABI = [
-  'function getNode(address operator) external view returns (tuple(address operator, bytes2 countryCode, bytes32 regionHash, string endpoint, string wireguardPubKey, uint256 stake, uint256 registeredAt, uint256 lastSeen, tuple(bool supportsWireGuard, bool supportsSOCKS5, bool supportsHTTPConnect, bool servesCDN, bool isVPNExit) capabilities, bool active, uint256 totalBytesServed, uint256 totalSessions, uint256 successfulSessions))',
-  'function getActiveExitNodes() external view returns (address[])',
-  'function getNodesByCountry(bytes2 countryCode) external view returns (address[])',
-  'function getContribution(address user) external view returns (tuple(uint256 vpnBytesUsed, uint256 bytesContributed, uint256 periodStart, uint256 periodEnd))',
-  'function hasReachedContributionCap(address user) external view returns (bool)',
-  'function getRemainingQuota(address user) external view returns (uint256)',
-  'function allowedCountries(bytes2 countryCode) external view returns (bool)',
-  'function blockedCountries(bytes2 countryCode) external view returns (bool)',
+  "function getNode(address operator) external view returns (tuple(address operator, bytes2 countryCode, bytes32 regionHash, string endpoint, string wireguardPubKey, uint256 stake, uint256 registeredAt, uint256 lastSeen, tuple(bool supportsWireGuard, bool supportsSOCKS5, bool supportsHTTPConnect, bool servesCDN, bool isVPNExit) capabilities, bool active, uint256 totalBytesServed, uint256 totalSessions, uint256 successfulSessions))",
+  "function getActiveExitNodes() external view returns (address[])",
+  "function getNodesByCountry(bytes2 countryCode) external view returns (address[])",
+  "function getContribution(address user) external view returns (tuple(uint256 vpnBytesUsed, uint256 bytesContributed, uint256 periodStart, uint256 periodEnd))",
+  "function hasReachedContributionCap(address user) external view returns (bool)",
+  "function getRemainingQuota(address user) external view returns (uint256)",
+  "function allowedCountries(bytes2 countryCode) external view returns (bool)",
+  "function blockedCountries(bytes2 countryCode) external view returns (bool)",
 ] as const;
 
 // ============================================================================
@@ -99,7 +90,10 @@ export class VPNClient {
    */
   async getNodes(query?: VPNNodeQuery): Promise<VPNNode[]> {
     // Check cache
-    if (Date.now() - this.lastNodesFetch < this.NODES_CACHE_TTL && this.nodesCache.length > 0) {
+    if (
+      Date.now() - this.lastNodesFetch < this.NODES_CACHE_TTL &&
+      this.nodesCache.length > 0
+    ) {
       return this.filterNodes(this.nodesCache, query);
     }
 
@@ -107,20 +101,21 @@ export class VPNClient {
     let nodeAddresses: Address[];
 
     if (query?.countryCode) {
-      const countryBytes = `0x${Buffer.from(query.countryCode).toString('hex')}` as Hex;
-      nodeAddresses = await this.publicClient.readContract({
+      const countryBytes =
+        `0x${Buffer.from(query.countryCode).toString("hex")}` as Hex;
+      nodeAddresses = (await this.publicClient.readContract({
         address: this.config.contracts.vpnRegistry,
         abi: VPN_REGISTRY_ABI,
-        functionName: 'getNodesByCountry',
+        functionName: "getNodesByCountry",
         args: [countryBytes],
-      }) as Address[];
+      })) as Address[];
     } else {
-      nodeAddresses = await this.publicClient.readContract({
+      nodeAddresses = (await this.publicClient.readContract({
         address: this.config.contracts.vpnRegistry,
         abi: VPN_REGISTRY_ABI,
-        functionName: 'getActiveExitNodes',
+        functionName: "getActiveExitNodes",
         args: [],
-      }) as Address[];
+      })) as Address[];
     }
 
     // Fetch node details
@@ -146,7 +141,7 @@ export class VPNClient {
     const node = await this.publicClient.readContract({
       address: this.config.contracts.vpnRegistry,
       abi: VPN_REGISTRY_ABI,
-      functionName: 'getNode',
+      functionName: "getNode",
       args: [address],
     });
 
@@ -176,34 +171,45 @@ export class VPNClient {
 
     if (nodeData.registeredAt === BigInt(0)) return null;
 
-    const countryCode = Buffer.from(nodeData.countryCode.slice(2), 'hex').toString() as CountryCode;
+    const countryCode = Buffer.from(
+      nodeData.countryCode.slice(2),
+      "hex",
+    ).toString() as CountryCode;
 
     return {
       nodeId: address as `0x${string}`,
       operator: nodeData.operator as `0x${string}`,
       countryCode,
-      regionCode: '', // Would need to decode from regionHash
+      regionCode: "", // Would need to decode from regionHash
       endpoint: nodeData.endpoint,
       wireguardPubKey: nodeData.wireguardPubKey,
       port: this.extractPort(nodeData.endpoint),
-      nodeType: 'datacenter', // Would need additional metadata
+      nodeType: "datacenter", // Would need additional metadata
       capabilities: [
-        ...(nodeData.capabilities.supportsWireGuard ? ['wireguard' as const] : []),
-        ...(nodeData.capabilities.supportsSOCKS5 ? ['socks5' as const] : []),
-        ...(nodeData.capabilities.supportsHTTPConnect ? ['http_connect' as const] : []),
-        ...(nodeData.capabilities.servesCDN ? ['cdn' as const] : []),
+        ...(nodeData.capabilities.supportsWireGuard
+          ? ["wireguard" as const]
+          : []),
+        ...(nodeData.capabilities.supportsSOCKS5 ? ["socks5" as const] : []),
+        ...(nodeData.capabilities.supportsHTTPConnect
+          ? ["http_connect" as const]
+          : []),
+        ...(nodeData.capabilities.servesCDN ? ["cdn" as const] : []),
       ],
       maxBandwidthMbps: 100, // Would need additional metadata
       maxConnections: 100, // Would need additional metadata
       stake: nodeData.stake,
       registeredAt: Number(nodeData.registeredAt),
-      status: nodeData.active ? 'online' : 'offline',
+      status: nodeData.active ? "online" : "offline",
       lastSeen: Number(nodeData.lastSeen),
       totalBytesServed: nodeData.totalBytesServed,
       totalSessions: nodeData.totalSessions,
-      successRate: nodeData.totalSessions > 0
-        ? Number((nodeData.successfulSessions * BigInt(100)) / nodeData.totalSessions)
-        : 100,
+      successRate:
+        nodeData.totalSessions > 0
+          ? Number(
+              (nodeData.successfulSessions * BigInt(100)) /
+                nodeData.totalSessions,
+            )
+          : 100,
       avgLatencyMs: 0, // Would need to ping
     };
   }
@@ -216,9 +222,11 @@ export class VPNClient {
     if (nodes.length === 0) return null;
 
     // Score nodes by success rate and recency
-    const scoredNodes = nodes.map(node => ({
+    const scoredNodes = nodes.map((node) => ({
       node,
-      score: node.successRate * 0.5 + (100 - (Date.now() - node.lastSeen * 1000) / 60000) * 0.5,
+      score:
+        node.successRate * 0.5 +
+        (100 - (Date.now() - node.lastSeen * 1000) / 60000) * 0.5,
     }));
 
     scoredNodes.sort((a, b) => b.score - a.score);
@@ -233,12 +241,12 @@ export class VPNClient {
    * Check if a country allows VPN exit nodes
    */
   async isCountryAllowed(countryCode: CountryCode): Promise<boolean> {
-    const countryBytes = `0x${Buffer.from(countryCode).toString('hex')}` as Hex;
+    const countryBytes = `0x${Buffer.from(countryCode).toString("hex")}` as Hex;
 
     const isBlocked = await this.publicClient.readContract({
       address: this.config.contracts.vpnRegistry,
       abi: VPN_REGISTRY_ABI,
-      functionName: 'blockedCountries',
+      functionName: "blockedCountries",
       args: [countryBytes],
     });
 
@@ -249,7 +257,7 @@ export class VPNClient {
    * Get legal status for a country
    */
   getLegalStatus(countryCode: CountryCode): CountryLegalStatus | undefined {
-    return VPN_LEGAL_COUNTRIES.find(c => c.countryCode === countryCode);
+    return VPN_LEGAL_COUNTRIES.find((c) => c.countryCode === countryCode);
   }
 
   // ============================================================================
@@ -260,12 +268,12 @@ export class VPNClient {
    * Get user's contribution quota
    */
   async getContribution(address: Address): Promise<ContributionQuota> {
-    const contrib = await this.publicClient.readContract({
+    const contrib = (await this.publicClient.readContract({
       address: this.config.contracts.vpnRegistry,
       abi: VPN_REGISTRY_ABI,
-      functionName: 'getContribution',
+      functionName: "getContribution",
       args: [address],
-    }) as {
+    })) as {
       vpnBytesUsed: bigint;
       bytesContributed: bigint;
       periodStart: bigint;
@@ -273,12 +281,15 @@ export class VPNClient {
     };
 
     const cap = contrib.vpnBytesUsed * BigInt(3);
-    const remaining = cap > contrib.bytesContributed ? cap - contrib.bytesContributed : BigInt(0);
+    const remaining =
+      cap > contrib.bytesContributed
+        ? cap - contrib.bytesContributed
+        : BigInt(0);
 
     const hasReachedCap = await this.publicClient.readContract({
       address: this.config.contracts.vpnRegistry,
       abi: VPN_REGISTRY_ABI,
-      functionName: 'hasReachedContributionCap',
+      functionName: "hasReachedContributionCap",
       args: [address],
     });
 
@@ -300,12 +311,12 @@ export class VPNClient {
    * Check if user has reached contribution cap
    */
   async hasReachedCap(address: Address): Promise<boolean> {
-    return await this.publicClient.readContract({
+    return (await this.publicClient.readContract({
       address: this.config.contracts.vpnRegistry,
       abi: VPN_REGISTRY_ABI,
-      functionName: 'hasReachedContributionCap',
+      functionName: "hasReachedContributionCap",
       args: [address],
-    }) as boolean;
+    })) as boolean;
   }
 
   // ============================================================================
@@ -315,21 +326,32 @@ export class VPNClient {
   private filterNodes(nodes: VPNNode[], query?: VPNNodeQuery): VPNNode[] {
     if (!query) return nodes;
 
-    return nodes.filter(node => {
-      if (query.countryCode && node.countryCode !== query.countryCode) return false;
-      if (query.regionCode && node.regionCode !== query.regionCode) return false;
-      if (query.capabilities) {
-        const hasAll = query.capabilities.every(cap => node.capabilities.includes(cap));
-        if (!hasAll) return false;
-      }
-      if (query.minBandwidthMbps && node.maxBandwidthMbps < query.minBandwidthMbps) return false;
-      if (query.maxLatencyMs && node.avgLatencyMs > query.maxLatencyMs) return false;
-      return true;
-    }).slice(0, query.limit ?? 100);
+    return nodes
+      .filter((node) => {
+        if (query.countryCode && node.countryCode !== query.countryCode)
+          return false;
+        if (query.regionCode && node.regionCode !== query.regionCode)
+          return false;
+        if (query.capabilities) {
+          const hasAll = query.capabilities.every((cap) =>
+            node.capabilities.includes(cap),
+          );
+          if (!hasAll) return false;
+        }
+        if (
+          query.minBandwidthMbps &&
+          node.maxBandwidthMbps < query.minBandwidthMbps
+        )
+          return false;
+        if (query.maxLatencyMs && node.avgLatencyMs > query.maxLatencyMs)
+          return false;
+        return true;
+      })
+      .slice(0, query.limit ?? 100);
   }
 
   private extractPort(endpoint: string): number {
-    const parts = endpoint.split(':');
+    const parts = endpoint.split(":");
     return parts.length > 1 ? parseInt(parts[parts.length - 1]) : 51820;
   }
 }
@@ -351,7 +373,7 @@ export function createVPNClient(config: VPNSDKConfig): VPNClient {
 // ============================================================================
 
 export interface VPNPaymentParams {
-  resource: 'vpn:connect' | 'vpn:proxy' | 'vpn:bandwidth';
+  resource: "vpn:connect" | "vpn:proxy" | "vpn:bandwidth";
   amount: bigint;
 }
 
@@ -370,16 +392,16 @@ export async function createVPNPaymentHeader(
 ): Promise<VPNPaymentHeader> {
   const timestamp = Math.floor(Date.now() / 1000);
   const nonce = `${wallet.address}-${timestamp}-${Math.random().toString(36).slice(2, 8)}`;
-  
+
   const message = `x402:exact:jeju:${config.contracts.vpnRegistry}:${params.amount}:0x0000000000000000000000000000000000000000:${params.resource}:${nonce}:${timestamp}`;
   const signature = await wallet.signMessage(message);
 
   const payload = {
-    scheme: 'exact',
-    network: 'jeju',
+    scheme: "exact",
+    network: "jeju",
     payTo: config.contracts.vpnRegistry,
     amount: params.amount.toString(),
-    asset: '0x0000000000000000000000000000000000000000',
+    asset: "0x0000000000000000000000000000000000000000",
     resource: params.resource,
     nonce,
     timestamp,
@@ -387,7 +409,7 @@ export async function createVPNPaymentHeader(
   };
 
   return {
-    header: `x402 ${Buffer.from(JSON.stringify(payload)).toString('base64')}`,
+    header: `x402 ${Buffer.from(JSON.stringify(payload)).toString("base64")}`,
     expiresAt: timestamp + 300,
   };
 }
@@ -399,16 +421,24 @@ export async function createVPNPaymentHeader(
 export interface VPNAgentClient {
   /** Discover VPN agent capabilities */
   discover(): Promise<VPNAgentCard>;
-  
+
   /** Connect to VPN via A2A */
-  connect(countryCode?: string, protocol?: string): Promise<VPNConnectionResult>;
-  
+  connect(
+    countryCode?: string,
+    protocol?: string,
+  ): Promise<VPNConnectionResult>;
+
   /** Disconnect via A2A */
-  disconnect(connectionId: string): Promise<{ success: boolean; bytesTransferred: string }>;
-  
+  disconnect(
+    connectionId: string,
+  ): Promise<{ success: boolean; bytesTransferred: string }>;
+
   /** Make proxied request via A2A */
-  proxyRequest(url: string, options?: ProxyRequestOptions): Promise<ProxyResult>;
-  
+  proxyRequest(
+    url: string,
+    options?: ProxyRequestOptions,
+  ): Promise<ProxyResult>;
+
   /** Get contribution status via A2A */
   getContribution(): Promise<ContributionStatus>;
 }
@@ -468,10 +498,10 @@ export function createVPNAgentClient(
     const signature = await wallet.signMessage(message);
 
     return {
-      'Content-Type': 'application/json',
-      'x-jeju-address': wallet.address,
-      'x-jeju-timestamp': timestamp,
-      'x-jeju-signature': signature,
+      "Content-Type": "application/json",
+      "x-jeju-address": wallet.address,
+      "x-jeju-timestamp": timestamp,
+      "x-jeju-signature": signature,
     };
   }
 
@@ -482,40 +512,48 @@ export function createVPNAgentClient(
   ): Promise<T> {
     const headers = await buildAuthHeaders();
     if (paymentHeader) {
-      headers['x-payment'] = paymentHeader;
+      headers["x-payment"] = paymentHeader;
     }
 
     const messageId = `msg-${++messageCounter}-${Date.now()}`;
     const body = {
-      jsonrpc: '2.0',
-      method: 'message/send',
+      jsonrpc: "2.0",
+      method: "message/send",
       params: {
         message: {
           messageId,
-          parts: [{ kind: 'data', data: { skillId, params } }],
+          parts: [{ kind: "data", data: { skillId, params } }],
         },
       },
       id: messageCounter,
     };
 
     const response = await fetch(`${endpoint}/a2a`, {
-      method: 'POST',
+      method: "POST",
       headers,
       body: JSON.stringify(body),
     });
 
-    const result = await response.json() as {
+    const result = (await response.json()) as {
       jsonrpc: string;
       result?: { parts: Array<{ kind: string; data?: T }> };
       error?: { code: number; message: string };
     };
 
     if (result.error) {
-      throw new Error(`A2A error ${result.error.code}: ${result.error.message}`);
+      throw new Error(
+        `A2A error ${result.error.code}: ${result.error.message}`,
+      );
     }
 
-    const dataPart = result.result?.parts.find(p => p.kind === 'data');
-    return dataPart?.data as T;
+    if (!result.result) {
+      throw new Error("VPN A2A call returned no result");
+    }
+    const dataPart = result.result.parts.find((p) => p.kind === "data");
+    if (!dataPart || dataPart.data === undefined) {
+      throw new Error("VPN A2A call returned no data");
+    }
+    return dataPart.data as T;
   }
 
   return {
@@ -524,26 +562,38 @@ export function createVPNAgentClient(
       return response.json();
     },
 
-    async connect(countryCode?: string, protocol?: string): Promise<VPNConnectionResult> {
-      return callSkill('vpn_connect', { countryCode, protocol });
+    async connect(
+      countryCode?: string,
+      protocol?: string,
+    ): Promise<VPNConnectionResult> {
+      return callSkill("vpn_connect", { countryCode, protocol });
     },
 
-    async disconnect(connectionId: string): Promise<{ success: boolean; bytesTransferred: string }> {
-      return callSkill('vpn_disconnect', { connectionId });
+    async disconnect(
+      connectionId: string,
+    ): Promise<{ success: boolean; bytesTransferred: string }> {
+      return callSkill("vpn_disconnect", { connectionId });
     },
 
-    async proxyRequest(url: string, options?: ProxyRequestOptions): Promise<ProxyResult> {
-      return callSkill('proxy_request', {
-        url,
-        method: options?.method,
-        headers: options?.headers,
-        body: options?.body,
-        countryCode: options?.countryCode,
-      }, options?.paymentHeader);
+    async proxyRequest(
+      url: string,
+      options?: ProxyRequestOptions,
+    ): Promise<ProxyResult> {
+      return callSkill(
+        "proxy_request",
+        {
+          url,
+          method: options?.method,
+          headers: options?.headers,
+          body: options?.body,
+          countryCode: options?.countryCode,
+        },
+        options?.paymentHeader,
+      );
     },
 
     async getContribution(): Promise<ContributionStatus> {
-      return callSkill('get_contribution', {});
+      return callSkill("get_contribution", {});
     },
   };
 }
@@ -564,5 +614,4 @@ export type {
   VPNProviderEarnings,
   CountryCode,
   CountryLegalStatus,
-} from '@jejunetwork/types';
-
+} from "@jejunetwork/types";

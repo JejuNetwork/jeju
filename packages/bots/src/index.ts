@@ -8,6 +8,12 @@
 // Types
 export * from './types';
 
+// Schemas (Zod validation)
+export * from './schemas';
+
+// Shared utilities
+export * from './shared';
+
 // Oracle Integration
 export { OracleAggregator, TOKEN_SYMBOLS, getTokenSymbol } from './oracles';
 

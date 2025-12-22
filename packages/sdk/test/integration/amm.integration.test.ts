@@ -7,7 +7,7 @@
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { createJejuClient, type JejuClient } from "../../src";
 import { privateKeyToAccount } from "viem/accounts";
-import { parseEther, zeroAddress, type Hex } from "viem";
+import { parseEther, zeroAddress } from "viem";
 import { setupTestEnvironment, teardownTestEnvironment } from "../setup";
 
 describe("AMM Module Integration Tests", () => {
@@ -31,11 +31,11 @@ describe("AMM Module Integration Tests", () => {
       rpcUrl: env.rpcUrl,
       smartAccount: false,
     });
-  }, 90000);
+  });
 
   afterAll(async () => {
     await teardownTestEnvironment();
-  }, 10000);
+  });
 
   describe("Pool Queries", () => {
     test("getPool returns null for non-existent", async () => {

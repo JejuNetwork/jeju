@@ -14,6 +14,12 @@ import type {
   VestingSchedule,
   VestingConfig,
 } from '../types';
+import {
+  feeDistributionSchema,
+  tokenAllocationSchema,
+  tokenEconomicsSchema,
+  ValidationError,
+} from '../validation';
 
 // =============================================================================
 // COMMON CONSTANTS
@@ -49,9 +55,18 @@ export const DEFAULT_FEE_DISTRIBUTION: FeeDistribution = {
 /**
  * Validate fee distribution sums to 100%
  */
-export function validateFeeDistribution(distribution: FeeDistribution): boolean {
-  const total = Object.values(distribution).reduce((sum, val) => sum + val, 0);
-  return total === 100;
+export function validateFeeDistribution(distribution: FeeDistribution): FeeDistribution {
+  const result = feeDistributionSchema.safeParse(distribution);
+  if (!result.success) {
+    const errorMessages = result.error.issues
+      .map((e) => `${e.path.join('.')}: ${e.message}`)
+      .join('; ');
+    throw new ValidationError(
+      `Invalid fee distribution: ${errorMessages}`,
+      result.error.issues
+    );
+  }
+  return result.data;
 }
 
 // =============================================================================
@@ -139,11 +154,37 @@ export function calculateVestingSchedule(
 }
 
 /**
- * Calculate allocation percentages sum to 100%
+ * Validate allocation percentages sum to 100%
  */
-export function validateAllocation(allocation: TokenAllocation): boolean {
-  const total = Object.values(allocation).reduce((sum, val) => sum + val, 0);
-  return total === 100;
+export function validateAllocation(allocation: TokenAllocation): TokenAllocation {
+  const result = tokenAllocationSchema.safeParse(allocation);
+  if (!result.success) {
+    const errorMessages = result.error.issues
+      .map((e) => `${e.path.join('.')}: ${e.message}`)
+      .join('; ');
+    throw new ValidationError(
+      `Invalid token allocation: ${errorMessages}`,
+      result.error.issues
+    );
+  }
+  return result.data;
+}
+
+/**
+ * Validate a complete token economics configuration
+ */
+export function validateTokenEconomicsConfig(config: TokenEconomics): TokenEconomics {
+  const result = tokenEconomicsSchema.safeParse(config);
+  if (!result.success) {
+    const errorMessages = result.error.issues
+      .map((e) => `${e.path.join('.')}: ${e.message}`)
+      .join('; ');
+    throw new ValidationError(
+      `Invalid token economics: ${errorMessages}`,
+      result.error.issues
+    );
+  }
+  return result.data as TokenEconomics;
 }
 
 /**

@@ -6,8 +6,8 @@
 import type { Address, Hex } from 'viem';
 import { encodeFunctionData, maxUint256 } from 'viem';
 import * as jeju from '../jeju';
-import { SupportedChainId, SUPPORTED_CHAINS, rpcService } from '../rpc';
-import { securityEngine, type RiskLevel } from '../security';
+import { SupportedChainId, rpcService } from '../rpc';
+import { type RiskLevel } from '../security';
 
 export interface TokenApproval {
   tokenAddress: Address;
@@ -104,15 +104,8 @@ class ApprovalService {
         nftApprovals: [],
       };
     } catch (error) {
-      console.warn('Failed to fetch approvals from indexer:', error);
-      return {
-        totalTokenApprovals: 0,
-        totalNFTApprovals: 0,
-        unlimitedApprovals: 0,
-        highRiskApprovals: 0,
-        tokenApprovals: [],
-        nftApprovals: [],
-      };
+      // Re-throw with context - approval data is critical for security
+      throw new Error(`Failed to fetch approvals: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -135,7 +128,7 @@ class ApprovalService {
 
   // Build revoke transaction
   buildRevoke(
-    chainId: SupportedChainId,
+    _chainId: SupportedChainId,
     tokenAddress: Address,
     spender: Address
   ): { to: Address; data: Hex; value: bigint } {
@@ -149,7 +142,7 @@ class ApprovalService {
 
   // Build approve transaction
   buildApprove(
-    chainId: SupportedChainId,
+    _chainId: SupportedChainId,
     tokenAddress: Address,
     spender: Address,
     amount: bigint | 'unlimited'

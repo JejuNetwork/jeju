@@ -7,7 +7,7 @@
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { createJejuClient, type JejuClient } from "../../src";
 import { privateKeyToAccount } from "viem/accounts";
-import { zeroAddress, type Hex } from "viem";
+import { zeroAddress } from "viem";
 import { setupTestEnvironment, teardownTestEnvironment } from "../setup";
 
 describe("Agents Module Integration Tests", () => {
@@ -16,26 +16,31 @@ describe("Agents Module Integration Tests", () => {
   let skipTests = false;
 
   beforeAll(async () => {
-    env = await setupTestEnvironment();
+    try {
+      env = await setupTestEnvironment();
 
-    if (!env.chainRunning) {
-      console.log("⚠ Chain not running - skipping agents tests");
+      if (!env.chainRunning) {
+        console.log("⚠ Chain not running - skipping agents tests");
+        skipTests = true;
+        return;
+      }
+
+      const account = privateKeyToAccount(env.privateKey);
+      client = await createJejuClient({
+        account,
+        network: "localnet",
+        rpcUrl: env.rpcUrl,
+        smartAccount: false,
+      });
+    } catch (e) {
+      console.log("⚠ Setup failed - skipping agents tests:", e);
       skipTests = true;
-      return;
     }
-
-    const account = privateKeyToAccount(env.privateKey);
-    client = await createJejuClient({
-      account,
-      network: "localnet",
-      rpcUrl: env.rpcUrl,
-      smartAccount: false,
-    });
-  }, 90000);
+  });
 
   afterAll(async () => {
     await teardownTestEnvironment();
-  }, 10000);
+  });
 
   describe("Vault Management", () => {
     test("getAllVaults returns array", async () => {

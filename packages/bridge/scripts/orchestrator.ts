@@ -451,7 +451,7 @@ Environment Variables:
   await orchestrator.start();
 
   // Keep process alive
-  await new Promise(() => {});
+  await new Promise(() => { /* noop - keep process running */ });
 }
 
 main().catch((error) => {

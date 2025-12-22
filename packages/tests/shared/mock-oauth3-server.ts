@@ -17,7 +17,7 @@
  *   afterAll(async () => { await stopOAuth3TestServer(); });
  */
 
-import { toHex, type Address, type Hex } from 'viem';
+import { type Address, type Hex } from 'viem';
 
 // Import from source since we're in the same monorepo
 // The DstackAuthAgent runs the real production OAuth3 TEE code

@@ -8,7 +8,7 @@
  * - Reactions and comments
  */
 
-import type { Address, Hex } from "viem";
+import type { Address } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
 import { getServicesConfig } from "../config";
@@ -96,24 +96,41 @@ export interface SearchParams {
 
 export interface FeedModule {
   // Feed Reading
-  getHomeFeed(cursor?: string, limit?: number): Promise<{
+  getHomeFeed(
+    cursor?: string,
+    limit?: number,
+  ): Promise<{
     posts: FeedPost[];
     nextCursor?: string;
   }>;
-  getChannelFeed(channelId: string, cursor?: string, limit?: number): Promise<{
+  getChannelFeed(
+    channelId: string,
+    cursor?: string,
+    limit?: number,
+  ): Promise<{
     posts: FeedPost[];
     nextCursor?: string;
   }>;
-  getUserFeed(fid: number, cursor?: string, limit?: number): Promise<{
+  getUserFeed(
+    fid: number,
+    cursor?: string,
+    limit?: number,
+  ): Promise<{
     posts: FeedPost[];
     nextCursor?: string;
   }>;
-  getTrendingFeed(cursor?: string, limit?: number): Promise<{
+  getTrendingFeed(
+    cursor?: string,
+    limit?: number,
+  ): Promise<{
     posts: FeedPost[];
     nextCursor?: string;
   }>;
   getPost(hash: string): Promise<FeedPost | null>;
-  getReplies(hash: string, cursor?: string): Promise<{
+  getReplies(
+    hash: string,
+    cursor?: string,
+  ): Promise<{
     posts: FeedPost[];
     nextCursor?: string;
   }>;
@@ -136,18 +153,27 @@ export interface FeedModule {
   searchUsers(query: string): Promise<FeedUser[]>;
   follow(fid: number): Promise<void>;
   unfollow(fid: number): Promise<void>;
-  getFollowers(fid: number, cursor?: string): Promise<{
+  getFollowers(
+    fid: number,
+    cursor?: string,
+  ): Promise<{
     users: FeedUser[];
     nextCursor?: string;
   }>;
-  getFollowing(fid: number, cursor?: string): Promise<{
+  getFollowing(
+    fid: number,
+    cursor?: string,
+  ): Promise<{
     users: FeedUser[];
     nextCursor?: string;
   }>;
 
   // Channels
   getChannel(channelId: string): Promise<FeedChannel | null>;
-  listChannels(cursor?: string, limit?: number): Promise<{
+  listChannels(
+    cursor?: string,
+    limit?: number,
+  ): Promise<{
     channels: FeedChannel[];
     nextCursor?: string;
   }>;
@@ -228,7 +254,9 @@ export function createFeedModule(
       const params = new URLSearchParams();
       if (cursor) params.set("cursor", cursor);
       params.set("limit", limit.toString());
-      return request<{ posts: FeedPost[]; nextCursor?: string }>(`/home?${params}`);
+      return request<{ posts: FeedPost[]; nextCursor?: string }>(
+        `/home?${params}`,
+      );
     },
 
     async getChannelFeed(channelId, cursor, limit = 25) {
@@ -253,7 +281,9 @@ export function createFeedModule(
       const params = new URLSearchParams();
       if (cursor) params.set("cursor", cursor);
       params.set("limit", limit.toString());
-      return request<{ posts: FeedPost[]; nextCursor?: string }>(`/trending?${params}`);
+      return request<{ posts: FeedPost[]; nextCursor?: string }>(
+        `/trending?${params}`,
+      );
     },
 
     async getPost(hash) {
@@ -321,7 +351,9 @@ export function createFeedModule(
     },
 
     async searchUsers(query) {
-      return request<FeedUser[]>(`/users/search?q=${encodeURIComponent(query)}`);
+      return request<FeedUser[]>(
+        `/users/search?q=${encodeURIComponent(query)}`,
+      );
     },
 
     async follow(fid) {
@@ -355,7 +387,9 @@ export function createFeedModule(
       const params = new URLSearchParams();
       if (cursor) params.set("cursor", cursor);
       params.set("limit", limit.toString());
-      return request<{ channels: FeedChannel[]; nextCursor?: string }>(`/channels?${params}`);
+      return request<{ channels: FeedChannel[]; nextCursor?: string }>(
+        `/channels?${params}`,
+      );
     },
 
     async getTrendingChannels(limit = 10) {
@@ -363,7 +397,9 @@ export function createFeedModule(
     },
 
     async searchChannels(query) {
-      return request<FeedChannel[]>(`/channels/search?q=${encodeURIComponent(query)}`);
+      return request<FeedChannel[]>(
+        `/channels/search?q=${encodeURIComponent(query)}`,
+      );
     },
 
     async followChannel(channelId) {
@@ -429,4 +465,3 @@ export function createFeedModule(
     },
   };
 }
-

@@ -10,6 +10,14 @@ import {
   type State,
 } from "@elizaos/core";
 import { JEJU_SERVICE_NAME, type JejuService } from "../service";
+import {
+  getMessageText,
+  expectResponseData,
+  expectArray,
+  validateIntentQuote,
+  validateIntentInfo,
+  validateServiceExists,
+} from "../validation";
 
 export const createIntentAction: Action = {
   name: "CREATE_INTENT",
@@ -21,21 +29,19 @@ export const createIntentAction: Action = {
     "swap across chains",
   ],
 
-  validate: async (runtime: IAgentRuntime) => {
-    const service = runtime.getService(JEJU_SERVICE_NAME);
-    return !!service;
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
 
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
-    const text = message.content.text ?? "";
+    const text = getMessageText(message);
 
     // Parse intent from natural language
     // "Swap 1 ETH on Ethereum for USDC on Arbitrum"
@@ -54,6 +60,8 @@ Example: "Swap 1 ETH on Ethereum for USDC on Arbitrum"`,
       return;
     }
 
+    const destChain = toChainMatch?.[1]?.toLowerCase() ?? "jeju"; // Default destination is jeju
+
     callback?.({ text: "Getting quote for your intent..." });
 
     // For the intent, we use the A2A call since getQuote expects different params
@@ -61,21 +69,25 @@ Example: "Swap 1 ETH on Ethereum for USDC on Arbitrum"`,
       skillId: "get-quote",
       params: {
         sourceChain: fromChainMatch[1].toLowerCase(),
-        destinationChain: toChainMatch?.[1].toLowerCase() ?? "jeju",
+        destinationChain: destChain,
         sourceToken: amountMatch[2].toUpperCase(),
         destinationToken: toTokenMatch[1].toUpperCase(),
         amount: amountMatch[1],
       },
     });
 
-    const quote = quoteResponse.data ?? {};
+    const quoteData = expectResponseData(
+      quoteResponse,
+      "Intent API returned no quote data",
+    );
+    const quote = validateIntentQuote(quoteData as Record<string, unknown>);
 
     callback?.({
       text: `Intent Quote:
-From: ${quote.amountIn ?? amountMatch[1]} ${amountMatch[2]} on ${fromChainMatch[1]}
-To: ${quote.amountOut ?? "?"} ${toTokenMatch[1]} on ${toChainMatch?.[1] ?? "Jeju"}
-Fee: ${quote.fee ?? "?"}
-Estimated time: ${quote.estimatedTimeSeconds ?? "?"}s
+From: ${quote.amountIn} ${amountMatch[2]} on ${fromChainMatch[1]}
+To: ${quote.amountOut} ${toTokenMatch[1]} on ${destChain}
+Fee: ${quote.fee}
+Estimated time: ${quote.estimatedTimeSeconds}s
 
 Say "confirm intent" to execute.`,
       content: quote,
@@ -84,8 +96,14 @@ Say "confirm intent" to execute.`,
 
   examples: [
     [
-      { name: "user", content: { text: "Swap 1 ETH on Ethereum for USDC on Arbitrum" } },
-      { name: "agent", content: { text: "Intent Quote: From: 1 ETH on Ethereum..." } },
+      {
+        name: "user",
+        content: { text: "Swap 1 ETH on Ethereum for USDC on Arbitrum" },
+      },
+      {
+        name: "agent",
+        content: { text: "Intent Quote: From: 1 ETH on Ethereum..." },
+      },
     ],
   ],
 };
@@ -100,21 +118,19 @@ export const trackIntentAction: Action = {
     "where is my swap",
   ],
 
-  validate: async (runtime: IAgentRuntime) => {
-    const service = runtime.getService(JEJU_SERVICE_NAME);
-    return !!service;
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
 
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
-    const text = message.content.text ?? "";
+    const text = getMessageText(message);
 
     const intentIdMatch = text.match(/0x[a-fA-F0-9]{64}/);
 
@@ -128,16 +144,20 @@ export const trackIntentAction: Action = {
       params: { intentId: intentIdMatch[0] },
     });
 
-    const intent = response.data;
+    const intentData = expectResponseData(
+      response,
+      "Intent tracking API returned no data",
+    );
+    const intent = validateIntentInfo(intentData as Record<string, unknown>);
 
     callback?.({
       text: `Intent Status:
-ID: ${intent?.intentId ?? intentIdMatch[0]}
-Status: ${intent?.status ?? "Unknown"}
-Source: ${intent?.sourceChain ?? "?"} → Dest: ${intent?.destChain ?? "?"}
-Amount: ${intent?.amountIn ?? "?"} → ${intent?.amountOut ?? "?"}
-Solver: ${intent?.solver ?? "Pending"}
-${intent?.txHash ? `Transaction: ${intent.txHash}` : ""}`,
+ID: ${intent.intentId}
+Status: ${intent.status}
+Source: ${intent.sourceChain} → Dest: ${intent.destChain}
+Amount: ${intent.amountIn} → ${intent.amountOut}
+Solver: ${intent.solver}
+${intent.txHash ? `Transaction: ${intent.txHash}` : ""}`,
       content: intent,
     });
   },
@@ -145,7 +165,10 @@ ${intent?.txHash ? `Transaction: ${intent.txHash}` : ""}`,
   examples: [
     [
       { name: "user", content: { text: "Track intent 0x1234..." } },
-      { name: "agent", content: { text: "Intent Status: ID: 0x1234... Status: Filled..." } },
+      {
+        name: "agent",
+        content: { text: "Intent Status: ID: 0x1234... Status: Filled..." },
+      },
     ],
   ],
 };
@@ -153,25 +176,18 @@ ${intent?.txHash ? `Transaction: ${intent.txHash}` : ""}`,
 export const listSolversAction: Action = {
   name: "LIST_SOLVERS",
   description: "List active OIF solvers with reputation",
-  similes: [
-    "list solvers",
-    "show solvers",
-    "active solvers",
-    "intent solvers",
-  ],
+  similes: ["list solvers", "show solvers", "active solvers", "intent solvers"],
 
-  validate: async (runtime: IAgentRuntime) => {
-    const service = runtime.getService(JEJU_SERVICE_NAME);
-    return !!service;
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
 
   handler: async (
     runtime: IAgentRuntime,
     _message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
 
@@ -179,11 +195,19 @@ export const listSolversAction: Action = {
       skillId: "list-solvers",
     });
 
-    const solvers = (response.data?.solvers ?? []) as Array<{
+    const responseData = expectResponseData(
+      response,
+      "Solvers API returned no data",
+    );
+    const solvers = expectArray<{
       address: string;
       reputation: number;
       liquidity: string;
-    }>;
+    }>(
+      responseData as Record<string, unknown>,
+      "solvers",
+      "Solvers API response missing solvers array",
+    );
 
     if (solvers.length === 0) {
       callback?.({ text: "No active solvers at this time." });
@@ -192,7 +216,10 @@ export const listSolversAction: Action = {
 
     const solverList = solvers
       .slice(0, 10)
-      .map((s) => `• ${s.address.slice(0, 10)}... - Rep: ${s.reputation} - Liquidity: ${s.liquidity}`)
+      .map(
+        (s) =>
+          `• ${s.address.slice(0, 10)}... - Rep: ${s.reputation} - Liquidity: ${s.liquidity}`,
+      )
       .join("\n");
 
     callback?.({
@@ -205,7 +232,10 @@ ${solverList}`,
   examples: [
     [
       { name: "user", content: { text: "Show active solvers" } },
-      { name: "agent", content: { text: "Active Solvers (5): • 0x1234... - Rep: 98..." } },
+      {
+        name: "agent",
+        content: { text: "Active Solvers (5): • 0x1234... - Rep: 98..." },
+      },
     ],
   ],
 };
@@ -221,18 +251,16 @@ export const listRoutesAction: Action = {
     "supported chains",
   ],
 
-  validate: async (runtime: IAgentRuntime) => {
-    const service = runtime.getService(JEJU_SERVICE_NAME);
-    return !!service;
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
 
   handler: async (
     runtime: IAgentRuntime,
     _message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
 
@@ -240,7 +268,7 @@ export const listRoutesAction: Action = {
 
     callback?.({
       text: `Supported Cross-Chain Routes:
-${chains.map((c) => `• ${c}`).join("\n")}
+${chains.map((c: string) => `• ${c}`).join("\n")}
 
 You can transfer between any of these chains using intents.`,
       content: { chains },
@@ -249,9 +277,14 @@ You can transfer between any of these chains using intents.`,
 
   examples: [
     [
-      { name: "user", content: { text: "What cross-chain routes are available?" } },
-      { name: "agent", content: { text: "Supported Cross-Chain Routes: • ethereum • base..." } },
+      {
+        name: "user",
+        content: { text: "What cross-chain routes are available?" },
+      },
+      {
+        name: "agent",
+        content: { text: "Supported Cross-Chain Routes: • ethereum • base..." },
+      },
     ],
   ],
 };
-

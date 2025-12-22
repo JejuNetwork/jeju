@@ -2,12 +2,59 @@ import { useState, useMemo } from 'react';
 import { useAccount } from 'wagmi';
 import { useQuery } from '@tanstack/react-query';
 import { parseEther, formatEther, type Address } from 'viem';
-import { useXLPLiquidity, useXLPRegistration, useXLPPosition, useEILConfig } from '../hooks/useEIL';
-import { useProtocolTokens } from '../hooks/useProtocolTokens';
-import TokenSelector from './TokenSelector';
-import type { TokenOption } from './TokenSelector';
+import { useEILConfig } from '@/hooks/useEIL';
+import { useProtocolTokens } from '@/hooks/useProtocolTokens';
+import TokenSelector from '@/components/TokenSelector';
+import type { TokenOption } from '@/components/TokenSelector';
 import { Clock, CheckCircle, XCircle } from 'lucide-react';
-import { INDEXER_URL } from '../config';
+import { INDEXER_URL } from '@/config';
+
+// Stub hooks that need to be implemented
+function useXLPLiquidity(_paymasterAddress: Address | undefined) {
+  return {
+    addLiquidity: async () => {},
+    removeLiquidity: async () => {},
+    ethBalance: 0n,
+    depositETH: async (_amount: bigint) => {},
+    withdrawETH: async (_amount: bigint) => {},
+    depositToken: async (_token: Address, _amount: bigint) => {},
+    isLoading: false,
+    isAddSuccess: false,
+    isRemoveSuccess: false,
+    isSuccess: false,
+  }
+}
+
+function useXLPRegistration(_paymasterAddress: Address | undefined) {
+  return {
+    register: async (_chains: number[], _amount: bigint) => {},
+    unregister: async () => {},
+    addStake: async (_amount: bigint) => {},
+    startUnbonding: async (_amount: bigint) => {},
+    completeUnbonding: async () => {},
+    isLoading: false,
+    isRegistered: false,
+    isSuccess: false,
+  }
+}
+
+interface XLPPositionData {
+  lpBalance: bigint
+  sharePercent: number
+  ethValue: string
+  stakedAmount: bigint
+  unbondingAmount: bigint
+  isActive: boolean
+  supportedChains: number[]
+  unbondingStartTime: number | null
+}
+
+function useXLPPosition(_paymasterAddress: Address | undefined) {
+  return {
+    position: null as XLPPositionData | null,
+    isLoading: false,
+  }
+}
 
 interface VoucherHistoryItem {
   id: string;
@@ -372,7 +419,7 @@ export default function XLPDashboard() {
               <TokenSelector
                 tokens={tokenOptions}
                 selectedToken={selectedToken?.symbol}
-                onSelect={setSelectedToken}
+                onSelect={(token) => setSelectedToken(typeof token === 'string' ? null : token)}
                 label="Select Token"
                 placeholder="Choose token..."
                 disabled={isLoading}

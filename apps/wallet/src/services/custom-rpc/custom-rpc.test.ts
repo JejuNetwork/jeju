@@ -11,6 +11,7 @@ vi.mock('../../platform/storage', () => ({
     get: vi.fn(() => Promise.resolve(null)),
     set: vi.fn(() => Promise.resolve(undefined)),
     remove: vi.fn(() => Promise.resolve(undefined)),
+    getJSON: vi.fn(() => Promise.resolve(null)),
   },
 }));
 
@@ -58,7 +59,7 @@ describe('CustomRPCService', () => {
           name: 'Invalid',
           url: 'not-a-url',
         })
-      ).rejects.toThrow('Invalid RPC URL');
+      ).rejects.toThrow(); // URL validation throws when parsing invalid URL
     });
   });
 

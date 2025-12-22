@@ -45,7 +45,11 @@ Your LP Positions: ${positions.length}
 ${pools
   .slice(0, 3)
   .map(
-    (p) =>
+    (p: {
+      token0: { symbol: string };
+      token1: { symbol: string };
+      liquidity: bigint;
+    }) =>
       `- ${p.token0.symbol}/${p.token1.symbol}: TVL ${formatEther(p.liquidity)}`,
   )
   .join("\n")}`;

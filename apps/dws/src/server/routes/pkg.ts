@@ -10,6 +10,7 @@ import { PkgRegistryManager } from '../../pkg/registry-manager';
 import { UpstreamProxy } from '../../pkg/upstream';
 import type { PkgPublishPayload, PkgSearchResult, PackageManifest, CacheConfig, UpstreamRegistryConfig } from '../../pkg/types';
 import { recordPackagePublish, recordPackageDownload } from '../../pkg/leaderboard-integration';
+import { validateBody, validateParams, validateQuery, validateHeaders, expectValid, jejuAddressHeaderSchema, packageListQuerySchema, packageParamsSchema, packageVersionParamsSchema, publishPackageRequestSchema, installPackageRequestSchema } from '../../shared';
 
 interface PkgContext {
   registryManager: PkgRegistryManager;
@@ -49,7 +50,9 @@ export function createPkgRouter(ctx: PkgContext): Hono {
 
   router.get('/-/whoami', (c) => {
     const address = c.req.header('x-jeju-address');
-    if (!address) return c.json({ error: 'Not authenticated' }, 401);
+    if (!address) {
+      return c.json({ error: 'Authentication required' }, 401);
+    }
     return c.json({ username: address });
   });
 
@@ -59,15 +62,7 @@ export function createPkgRouter(ctx: PkgContext): Hono {
     const size = parseInt(c.req.query('size') || '20');
     const from = parseInt(c.req.query('from') || '0');
 
-    // Search local packages first, fallback to empty if blockchain unavailable
-    let localPackages: Awaited<ReturnType<typeof registryManager.searchPackages>> = [];
-    
-    try {
-      localPackages = await registryManager.searchPackages(text, from, size);
-    } catch (error) {
-      console.warn('[Pkg] Blockchain unavailable for search:', (error as Error).message);
-      // Return empty results when blockchain is unavailable
-    }
+    const localPackages = await registryManager.searchPackages(text, from, size);
 
     const result: PkgSearchResult = {
       objects: localPackages.map((pkg) => ({
@@ -133,7 +128,7 @@ export function createPkgRouter(ctx: PkgContext): Hono {
     const user = c.req.header('x-jeju-address') as Address | undefined;
 
     const versionMatch = tarballName.match(/-(\d+\.\d+\.\d+[^.]*).tgz$/);
-    if (!versionMatch) return c.json({ error: 'Invalid tarball name' }, 400);
+    if (!versionMatch) throw new Error('Invalid tarball name');
 
     const version = versionMatch[1];
 
@@ -192,7 +187,7 @@ export function createPkgRouter(ctx: PkgContext): Hono {
       return c.json(upstreamVersion, 200, { 'X-Served-From': 'upstream-cache' });
     }
 
-    return c.json({ error: 'Not found' }, 404);
+    throw new Error('Not found');
   });
 
   // Unscoped package version metadata
@@ -215,13 +210,12 @@ export function createPkgRouter(ctx: PkgContext): Hono {
       return c.json(upstreamVersion, 200, { 'X-Served-From': 'upstream-cache' });
     }
 
-    return c.json({ error: 'Not found' }, 404);
+    throw new Error('Not found');
   });
 
   // Publish package
   router.put('/:package{.+}', async (c) => {
-    const publisher = c.req.header('x-jeju-address') as Address;
-    if (!publisher) return c.json({ error: 'Missing x-jeju-address header' }, 401);
+    const { 'x-jeju-address': publisher } = validateHeaders(jejuAddressHeaderSchema, c);
 
     const packageName = c.req.param('package');
     const fullName = packageName.replace('%2f', '/').replace('%2F', '/');
@@ -229,11 +223,11 @@ export function createPkgRouter(ctx: PkgContext): Hono {
 
     const versionKey = Object.keys(body.versions)[0];
     const versionData = body.versions[versionKey];
-    if (!versionData) return c.json({ error: 'No version data provided' }, 400);
+    if (!versionData) throw new Error('No version data provided');
 
     const attachmentKey = Object.keys(body._attachments)[0];
     const attachment = body._attachments[attachmentKey];
-    if (!attachment) return c.json({ error: 'No attachment provided' }, 400);
+    if (!attachment) throw new Error('No attachment provided');
 
     const tarball = Buffer.from(attachment.data, 'base64');
 
@@ -278,18 +272,17 @@ export function createPkgRouter(ctx: PkgContext): Hono {
 
   // Deprecate package version
   router.delete('/:package{.+}/-rev/:rev', async (c) => {
-    const publisher = c.req.header('x-jeju-address') as Address;
-    if (!publisher) return c.json({ error: 'Missing x-jeju-address header' }, 401);
+    const { 'x-jeju-address': publisher } = validateHeaders(jejuAddressHeaderSchema, c);
 
     const packageName = c.req.param('package');
     const fullName = packageName.replace('%2f', '/').replace('%2F', '/');
 
     const pkg = await registryManager.getPackageByName(fullName);
-    if (!pkg) return c.json({ error: 'Package not found' }, 404);
+    if (!pkg) throw new Error('Package not found');
 
     // Check ownership
     if (pkg.owner.toLowerCase() !== publisher.toLowerCase()) {
-      return c.json({ error: 'Not authorized' }, 403);
+      throw new Error('Not authorized');
     }
 
     // Deprecation requires on-chain transaction (not yet implemented)
@@ -322,7 +315,7 @@ export function createPkgRouter(ctx: PkgContext): Hono {
       });
     }
 
-    return c.json({ error: 'Not found' }, 404);
+    throw new Error('Not found');
   });
 
   return router;

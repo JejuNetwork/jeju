@@ -25,7 +25,7 @@ import {
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { mainnet, sepolia, arbitrum, base, optimism } from 'viem/chains';
 import { EventEmitter } from 'events';
-import { createLogger } from '../utils/logger.js';
+import { createLogger, WormholeVAAResponseSchema } from '../utils/index.js';
 
 const log = createLogger('wormhole');
 
@@ -133,6 +133,8 @@ const CHAINS: Record<number, { chain: Chain; name: string }> = {
   10: { chain: optimism, name: 'Optimism' },
 };
 
+const DEFAULT_WORMHOLE_REST_API = 'https://api.wormholescan.io';
+
 export class WormholeAdapter extends EventEmitter {
   private account: PrivateKeyAccount;
   private evmClients: Map<number, ChainClients> = new Map();
@@ -143,7 +145,7 @@ export class WormholeAdapter extends EventEmitter {
   constructor(config: WormholeConfig) {
     super();
     this.account = privateKeyToAccount(config.evmPrivateKey);
-    this.wormholeRestApi = config.wormholeRestApi || 'https://api.wormholescan.io';
+    this.wormholeRestApi = config.wormholeRestApi ?? DEFAULT_WORMHOLE_REST_API;
 
     // Initialize EVM clients
     for (const [chainIdStr, rpcUrl] of Object.entries(config.evmRpcUrls)) {
@@ -242,11 +244,14 @@ export class WormholeAdapter extends EventEmitter {
 
     // Parse sequence from logs
     let sequence: bigint = 0n;
-    for (const log of receipt.logs) {
+    for (const logEntry of receipt.logs) {
       // Look for LogMessagePublished event from core bridge
-      if (log.address.toLowerCase() === coreBridge.toLowerCase()) {
-        // Sequence is in the data field
-        sequence = BigInt(log.topics[1] || '0');
+      if (logEntry.address.toLowerCase() === coreBridge.toLowerCase()) {
+        // Sequence is in the topics - topic[1] contains the sequence
+        const sequenceTopic = logEntry.topics[1];
+        if (sequenceTopic) {
+          sequence = BigInt(sequenceTopic);
+        }
         break;
       }
     }
@@ -509,8 +514,14 @@ export class WormholeAdapter extends EventEmitter {
       return null;
     }
 
-    const data = await response.json() as { data?: { vaa?: string } };
-    return data.data?.vaa ? this.parseVAA(data.data.vaa) : null;
+    const json = await response.json();
+    const data = WormholeVAAResponseSchema.parse(json);
+    
+    if (!data.data?.vaa) {
+      return null;
+    }
+    
+    return this.parseVAA(data.data.vaa);
   }
 
   /**

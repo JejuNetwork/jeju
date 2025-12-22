@@ -26,6 +26,7 @@ import {
 import { EncryptionProvider, getEncryptionProvider } from './providers/encryption-provider.js';
 import { TEEProvider, getTEEProvider } from './providers/tee-provider.js';
 import { MPCProvider, getMPCProvider } from './providers/mpc-provider.js';
+import { generateKeyOptionsSchema, validateOrThrow, parseEnvInt } from './schemas.js';
 
 type ConcreteProvider = EncryptionProvider | TEEProvider | MPCProvider;
 
@@ -85,9 +86,11 @@ export class KMSService {
     options: { type?: KeyType; curve?: KeyCurve; policy: AccessControlPolicy; provider?: KMSProviderType }
   ): Promise<GeneratedKey> {
     await this.ensureInitialized();
-    if (!options.policy.conditions?.length) throw new Error('Access control policy must have at least one condition');
+    validateOrThrow(generateKeyOptionsSchema, options, 'Invalid generateKey options');
+    const keyType: KeyType = options.type ?? 'encryption';
+    const curve: KeyCurve = options.curve ?? 'secp256k1';
     const provider = await this.getAvailableProvider(options.provider);
-    return provider.generateKey(owner, options.type ?? 'encryption', options.curve ?? 'secp256k1', options.policy);
+    return provider.generateKey(owner, keyType, curve, options.policy);
   }
 
   getKey(keyId: string): KeyMetadata | null {
@@ -124,6 +127,7 @@ export class KMSService {
 
   async sign(request: SignRequest, provider?: KMSProviderType): Promise<SignedMessage> {
     await this.ensureInitialized();
+    if (!request.keyId) throw new Error('keyId is required for signing');
     const signingTypes = [KMSProviderType.TEE, KMSProviderType.MPC];
     const preferredType = provider ?? signingTypes.find(t => this.providers.has(t));
     if (!preferredType) throw new Error('No signing-capable provider available');
@@ -149,14 +153,16 @@ export class KMSService {
 
   validateSession(session: SessionKey): boolean {
     const enc = this.providers.get(KMSProviderType.ENCRYPTION) as EncryptionProvider | undefined;
-    return enc?.validateSession(session) ?? false;
+    if (!enc) return false;
+    return enc.validateSession(session);
   }
 
-  getStatus() {
+  getStatus(): { initialized: boolean; providers: Record<string, { available: boolean; status: Record<string, unknown> }>; defaultProvider: KMSProviderType } {
     const providers: Record<string, { available: boolean; status: Record<string, unknown> }> = {};
     for (const [type, provider] of this.providers.entries()) {
       const status = (provider as ConcreteProvider).getStatus() as Record<string, unknown>;
-      providers[type] = { available: Boolean(status.connected ?? false), status };
+      const connected = typeof status.connected === 'boolean' ? status.connected : false;
+      providers[type] = { available: connected, status };
     }
     return { initialized: this.initialized, providers, defaultProvider: this.config.defaultProvider };
   }
@@ -168,19 +174,46 @@ export class KMSService {
 
 let kmsService: KMSService | null = null;
 
+function buildKMSConfig(config?: Partial<KMSConfig>): KMSConfig {
+  const encryptionConfig = config?.providers?.encryption ?? { debug: process.env.KMS_DEBUG === 'true' };
+  
+  let teeConfig = config?.providers?.tee;
+  if (!teeConfig && process.env.TEE_ENDPOINT) {
+    teeConfig = { endpoint: process.env.TEE_ENDPOINT };
+  }
+  
+  let mpcConfig = config?.providers?.mpc;
+  if (!mpcConfig && process.env.MPC_COORDINATOR_ENDPOINT) {
+    const threshold = parseEnvInt(process.env.MPC_THRESHOLD, 2);
+    const totalParties = parseEnvInt(process.env.MPC_TOTAL_PARTIES, 3);
+    mpcConfig = { threshold, totalParties, coordinatorEndpoint: process.env.MPC_COORDINATOR_ENDPOINT };
+  }
+  
+  const defaultProviderEnv = process.env.KMS_DEFAULT_PROVIDER;
+  let defaultProvider: KMSProviderType;
+  if (config?.defaultProvider) {
+    defaultProvider = config.defaultProvider;
+  } else if (defaultProviderEnv === 'encryption' || defaultProviderEnv === 'tee' || defaultProviderEnv === 'mpc') {
+    defaultProvider = defaultProviderEnv as KMSProviderType;
+  } else {
+    defaultProvider = KMSProviderType.ENCRYPTION;
+  }
+  
+  const defaultChain = config?.defaultChain ?? process.env.KMS_DEFAULT_CHAIN ?? 'base-sepolia';
+  const fallbackEnabled = config?.fallbackEnabled ?? true;
+  
+  return {
+    providers: { encryption: encryptionConfig, tee: teeConfig, mpc: mpcConfig },
+    defaultProvider,
+    defaultChain,
+    registryAddress: config?.registryAddress,
+    fallbackEnabled,
+  };
+}
+
 export function getKMS(config?: Partial<KMSConfig>): KMSService {
   if (!kmsService) {
-    kmsService = new KMSService({
-      providers: {
-        encryption: config?.providers?.encryption ?? { debug: process.env.KMS_DEBUG === 'true' },
-        tee: config?.providers?.tee ?? (process.env.TEE_ENDPOINT ? { endpoint: process.env.TEE_ENDPOINT } : undefined),
-        mpc: config?.providers?.mpc ?? (process.env.MPC_COORDINATOR_ENDPOINT ? { threshold: parseInt(process.env.MPC_THRESHOLD ?? '2'), totalParties: parseInt(process.env.MPC_TOTAL_PARTIES ?? '3'), coordinatorEndpoint: process.env.MPC_COORDINATOR_ENDPOINT } : undefined),
-      },
-      defaultProvider: (config?.defaultProvider ?? process.env.KMS_DEFAULT_PROVIDER as KMSProviderType) ?? KMSProviderType.ENCRYPTION,
-      defaultChain: config?.defaultChain ?? process.env.KMS_DEFAULT_CHAIN ?? 'base-sepolia',
-      registryAddress: config?.registryAddress,
-      fallbackEnabled: config?.fallbackEnabled ?? true,
-    });
+    kmsService = new KMSService(buildKMSConfig(config));
   }
   return kmsService;
 }

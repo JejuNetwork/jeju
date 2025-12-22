@@ -1,15 +1,52 @@
 /**
  * REST API for VPN operations
+ * 
+ * All endpoints use Zod validation and fail-fast patterns
  */
 
 import { Hono } from 'hono';
-import type { Address } from 'viem';
-import type { VPNServiceContext, ProxyRequest } from './types';
-import { verifyAuth, getAuthAddress } from './auth';
+import type { VPNServiceContext, VPNNodeState } from './types';
+import { verifyAuth } from './auth';
 import { verifyX402Payment } from './x402';
+import {
+  ConnectRequestSchema,
+  DisconnectRequestSchema,
+  ProxyRequestSchema,
+  ContributionSettingsRequestSchema,
+  NodesQuerySchema,
+  expectValid,
+  expect,
+} from './schemas';
+import {
+  findBestNode,
+  sortNodesByStatusAndLoad,
+  getNodesByCountry,
+  calculateNodeLoad,
+  getNodeById,
+} from './utils/nodes';
+import {
+  createSession,
+  getSession,
+  verifySessionOwnership,
+  deleteSession,
+  getSessionDuration,
+} from './utils/sessions';
+import {
+  getOrCreateContribution,
+  getQuotaRemaining,
+  calculateContributionRatio,
+  isContributionPeriodExpired,
+  resetContributionPeriod,
+} from './utils/contributions';
 
 export function createRESTRouter(ctx: VPNServiceContext): Hono {
   const router = new Hono();
+
+  // Error handling middleware
+  router.onError((err, c) => {
+    console.error('REST API error:', err);
+    return c.json({ error: err.message || 'Internal server error' }, 500);
+  });
 
   // ========== Public Endpoints ==========
 
@@ -17,25 +54,22 @@ export function createRESTRouter(ctx: VPNServiceContext): Hono {
    * GET /nodes - List available VPN nodes
    */
   router.get('/nodes', async (c) => {
-    const countryCode = c.req.query('country');
-    const capability = c.req.query('capability');
+    // Hono query() returns Record<string, string | string[] | undefined>
+    // Convert to plain object for Zod validation
+    const queryParams: Record<string, string | undefined> = {};
+    for (const [key, value] of Object.entries(c.req.query())) {
+      queryParams[key] = Array.isArray(value) ? value[0] : value;
+    }
+    const query = expectValid(NodesQuerySchema, queryParams, 'nodes query params');
     
     let nodes = Array.from(ctx.nodes.values());
     
-    if (countryCode) {
-      nodes = nodes.filter(n => n.countryCode === countryCode.toUpperCase());
-    }
-    
-    if (capability) {
-      // Filter by capability if needed
+    if (query.country) {
+      nodes = nodes.filter(n => n.countryCode === query.country);
     }
     
     // Sort by status and connections
-    nodes.sort((a, b) => {
-      if (a.status === 'online' && b.status !== 'online') return -1;
-      if (a.status !== 'online' && b.status === 'online') return 1;
-      return a.activeConnections - b.activeConnections;
-    });
+    nodes = sortNodesByStatusAndLoad(nodes);
 
     return c.json({
       nodes: nodes.map(n => ({
@@ -43,7 +77,7 @@ export function createRESTRouter(ctx: VPNServiceContext): Hono {
         countryCode: n.countryCode,
         endpoint: n.endpoint,
         status: n.status,
-        load: Math.round((n.activeConnections / n.maxConnections) * 100),
+        load: calculateNodeLoad(n),
       })),
       total: nodes.length,
     });
@@ -54,12 +88,11 @@ export function createRESTRouter(ctx: VPNServiceContext): Hono {
    */
   router.get('/nodes/:nodeId', async (c) => {
     const nodeId = c.req.param('nodeId');
-    const node = ctx.nodes.get(nodeId);
-    
-    if (!node) {
-      return c.json({ error: 'Node not found' }, 404);
+    if (!nodeId || nodeId.length === 0) {
+      throw new Error('Node ID required');
     }
-
+    
+    const node = getNodeById(ctx, nodeId);
     return c.json({ node });
   });
 
@@ -67,12 +100,7 @@ export function createRESTRouter(ctx: VPNServiceContext): Hono {
    * GET /countries - List available countries
    */
   router.get('/countries', async (c) => {
-    const countries = new Map<string, number>();
-    
-    for (const node of ctx.nodes.values()) {
-      const count = countries.get(node.countryCode) || 0;
-      countries.set(node.countryCode, count + 1);
-    }
+    const countries = getNodesByCountry(ctx);
 
     return c.json({
       countries: Array.from(countries.entries()).map(([code, count]) => ({
@@ -109,44 +137,35 @@ export function createRESTRouter(ctx: VPNServiceContext): Hono {
    */
   router.post('/connect', async (c) => {
     const auth = await verifyAuth(c);
-    if (!auth.valid) {
-      return c.json({ error: auth.error }, 401);
+    expect(auth.valid, auth.error || 'Authentication required');
+    if (!auth.address) {
+      throw new Error('Authentication address missing');
     }
 
-    const body = await c.req.json() as {
-      nodeId?: string;
-      countryCode?: string;
-      protocol?: 'wireguard' | 'socks5';
-    };
+    const rawBody = await c.req.json();
+    const body = expectValid(ConnectRequestSchema, rawBody, 'connect request');
 
     // Find best node
-    let targetNode = body.nodeId 
-      ? ctx.nodes.get(body.nodeId)
-      : findBestNode(ctx, body.countryCode);
-
-    if (!targetNode) {
-      return c.json({ error: 'No available nodes' }, 503);
+    let targetNode: VPNNodeState | undefined;
+    if (body.nodeId) {
+      targetNode = getNodeById(ctx, body.nodeId);
+    } else {
+      targetNode = findBestNode(ctx, body.countryCode);
     }
 
-    // Create session
-    const sessionId = `sess-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const session = {
-      sessionId,
-      clientAddress: auth.address as Address,
-      nodeId: targetNode.nodeId,
-      protocol: body.protocol || 'wireguard',
-      startTime: Date.now(),
-      bytesUp: BigInt(0),
-      bytesDown: BigInt(0),
-      isPaid: false,
-      paymentAmount: BigInt(0),
-    };
+    expect(targetNode !== undefined, 'No available nodes matching criteria');
 
-    ctx.sessions.set(sessionId, session);
+    // Create session using utility
+    const session = createSession(
+      ctx,
+      auth.address,
+      targetNode.nodeId,
+      body.protocol || 'wireguard'
+    );
 
     // Return connection details
     return c.json({
-      sessionId,
+      sessionId: session.sessionId,
       node: {
         nodeId: targetNode.nodeId,
         countryCode: targetNode.countryCode,
@@ -165,7 +184,7 @@ export function createRESTRouter(ctx: VPNServiceContext): Hono {
       socks5Config: session.protocol === 'socks5' ? {
         host: targetNode.endpoint.split(':')[0],
         port: 1080,
-        username: sessionId,
+        username: session.sessionId,
         password: auth.address,
       } : undefined,
     });
@@ -176,27 +195,23 @@ export function createRESTRouter(ctx: VPNServiceContext): Hono {
    */
   router.post('/disconnect', async (c) => {
     const auth = await verifyAuth(c);
-    if (!auth.valid) {
-      return c.json({ error: auth.error }, 401);
+    expect(auth.valid, auth.error || 'Authentication required');
+    if (!auth.address) {
+      throw new Error('Authentication address missing');
     }
 
-    const body = await c.req.json() as { sessionId: string };
-    const session = ctx.sessions.get(body.sessionId);
-
-    if (!session) {
-      return c.json({ error: 'Session not found' }, 404);
-    }
-
-    if (session.clientAddress !== auth.address) {
-      return c.json({ error: 'Not your session' }, 403);
-    }
+    const rawBody = await c.req.json();
+    const body = expectValid(DisconnectRequestSchema, rawBody, 'disconnect request');
+    
+    const session = getSession(ctx, body.sessionId);
+    verifySessionOwnership(session, auth.address);
 
     // End session
-    ctx.sessions.delete(body.sessionId);
+    deleteSession(ctx, body.sessionId);
 
     return c.json({
       success: true,
-      duration: Date.now() - session.startTime,
+      duration: getSessionDuration(session),
       bytesUp: session.bytesUp.toString(),
       bytesDown: session.bytesDown.toString(),
     });
@@ -207,27 +222,25 @@ export function createRESTRouter(ctx: VPNServiceContext): Hono {
    */
   router.get('/session/:sessionId', async (c) => {
     const auth = await verifyAuth(c);
-    if (!auth.valid) {
-      return c.json({ error: auth.error }, 401);
+    expect(auth.valid, auth.error || 'Authentication required');
+    if (!auth.address) {
+      throw new Error('Authentication address missing');
     }
 
-    const sessionId = c.req.param('sessionId');
-    const session = ctx.sessions.get(sessionId);
-
-    if (!session) {
-      return c.json({ error: 'Session not found' }, 404);
+    const sessionIdParam = c.req.param('sessionId');
+    if (!sessionIdParam || sessionIdParam.length === 0) {
+      throw new Error('Session ID required');
     }
-
-    if (session.clientAddress !== auth.address) {
-      return c.json({ error: 'Not your session' }, 403);
-    }
+    
+    const session = getSession(ctx, sessionIdParam);
+    verifySessionOwnership(session, auth.address);
 
     return c.json({
       sessionId: session.sessionId,
       nodeId: session.nodeId,
       protocol: session.protocol,
       startTime: session.startTime,
-      duration: Date.now() - session.startTime,
+      duration: getSessionDuration(session),
       bytesUp: session.bytesUp.toString(),
       bytesDown: session.bytesDown.toString(),
       isPaid: session.isPaid,
@@ -243,66 +256,43 @@ export function createRESTRouter(ctx: VPNServiceContext): Hono {
     // Verify x402 payment for proxy requests
     const paymentResult = await verifyX402Payment(
       paymentHeader || '',
-      ctx.config.pricing.pricePerRequest,
+      BigInt(ctx.config.pricing.pricePerRequest),
       'vpn:proxy',
       ctx.config,
     );
 
-    if (!paymentResult.valid) {
-      // Return 402 Payment Required
-      return c.json({
-        error: 'Payment required',
-        paymentDetails: {
-          amount: ctx.config.pricing.pricePerRequest.toString(),
-          recipient: ctx.config.paymentRecipient,
-          resource: 'vpn:proxy',
-          tokens: ctx.config.pricing.supportedTokens,
-        },
-      }, 402);
-    }
+    expect(
+      paymentResult.valid,
+      paymentResult.error || 'Payment required. Include x-payment header with valid x402 payment.'
+    );
 
-    const body = await c.req.json() as ProxyRequest;
-
-    // Validate URL
-    try {
-      new URL(body.url);
-    } catch {
-      return c.json({ error: 'Invalid URL' }, 400);
-    }
+    const rawBody = await c.req.json();
+    const body = expectValid(ProxyRequestSchema, rawBody, 'proxy request');
 
     // Find exit node
     const exitNode = findBestNode(ctx, body.countryCode);
-    if (!exitNode) {
-      return c.json({ error: 'No available nodes' }, 503);
-    }
+    expect(exitNode !== undefined, 'No available nodes matching criteria');
 
     // Make proxied request
     const startTime = Date.now();
-    try {
-      const response = await fetch(body.url, {
-        method: body.method || 'GET',
-        headers: body.headers,
-        body: body.body,
-      });
+    const response = await fetch(body.url, {
+      method: body.method,
+      headers: body.headers,
+      body: body.body,
+    });
 
-      const responseBody = await response.text();
-      const responseHeaders: Record<string, string> = {};
-      response.headers.forEach((v, k) => { responseHeaders[k] = v; });
+    const responseBody = await response.text();
+    const responseHeaders: Record<string, string> = {};
+    response.headers.forEach((v, k) => { responseHeaders[k] = v; });
 
-      return c.json({
-        status: response.status,
-        headers: responseHeaders,
-        body: responseBody,
-        exitNode: exitNode.nodeId,
-        exitCountry: exitNode.countryCode,
-        latencyMs: Date.now() - startTime,
-      });
-    } catch (error) {
-      return c.json({
-        error: 'Proxy request failed',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      }, 502);
-    }
+    return c.json({
+      status: response.status,
+      headers: responseHeaders,
+      body: responseBody,
+      exitNode: exitNode.nodeId,
+      exitCountry: exitNode.countryCode,
+      latencyMs: Date.now() - startTime,
+    });
   });
 
   /**
@@ -310,33 +300,44 @@ export function createRESTRouter(ctx: VPNServiceContext): Hono {
    */
   router.get('/contribution', async (c) => {
     const auth = await verifyAuth(c);
-    if (!auth.valid) {
-      return c.json({ error: auth.error }, 401);
+    expect(auth.valid, auth.error || 'Authentication required');
+    if (!auth.address) {
+      throw new Error('Authentication address missing');
     }
 
-    const contribution = ctx.contributions.get(auth.address as string);
+    const contribution = getOrCreateContribution(ctx, auth.address);
     
-    if (!contribution) {
-      // New user, no contribution yet
+    // Check if this is a new user (no usage yet)
+    if (contribution.bytesUsed === BigInt(0) && contribution.bytesContributed === BigInt(0)) {
+      const now = Date.now();
+      const periodEnd = now + 30 * 24 * 60 * 60 * 1000;
       return c.json({
         bytesUsed: '0',
         bytesContributed: '0',
         cap: '0',
         quotaRemaining: '0',
-        periodStart: Date.now(),
-        periodEnd: Date.now() + 30 * 24 * 60 * 60 * 1000,
+        periodStart: now,
+        periodEnd,
         isNewUser: true,
       });
     }
+
+    // Check if period expired and reset if needed
+    if (isContributionPeriodExpired(contribution)) {
+      resetContributionPeriod(contribution);
+    }
+
+    const quotaRemaining = getQuotaRemaining(contribution);
+    const contributionRatio = calculateContributionRatio(contribution);
 
     return c.json({
       bytesUsed: contribution.bytesUsed.toString(),
       bytesContributed: contribution.bytesContributed.toString(),
       cap: contribution.cap.toString(),
-      quotaRemaining: (contribution.cap - contribution.bytesContributed).toString(),
+      quotaRemaining: quotaRemaining.toString(),
       periodStart: contribution.periodStart,
       periodEnd: contribution.periodEnd,
-      contributionRatio: Number(contribution.bytesContributed) / Math.max(1, Number(contribution.bytesUsed)),
+      contributionRatio,
     });
   });
 
@@ -345,17 +346,13 @@ export function createRESTRouter(ctx: VPNServiceContext): Hono {
    */
   router.post('/contribution/settings', async (c) => {
     const auth = await verifyAuth(c);
-    if (!auth.valid) {
-      return c.json({ error: auth.error }, 401);
+    expect(auth.valid, auth.error || 'Authentication required');
+    if (!auth.address) {
+      throw new Error('Authentication address missing');
     }
 
-    const body = await c.req.json() as {
-      enabled?: boolean;
-      maxBandwidthPercent?: number;
-      shareCDN?: boolean;
-      shareVPNRelay?: boolean;
-      earningMode?: boolean;
-    };
+    const rawBody = await c.req.json();
+    const body = expectValid(ContributionSettingsRequestSchema, rawBody, 'contribution settings');
 
     // Store settings (would persist to DB in production)
     return c.json({
@@ -365,24 +362,5 @@ export function createRESTRouter(ctx: VPNServiceContext): Hono {
   });
 
   return router;
-}
-
-function findBestNode(ctx: VPNServiceContext, countryCode?: string): VPNNodeState | undefined {
-  let nodes = Array.from(ctx.nodes.values()).filter(n => n.status === 'online');
-  
-  if (countryCode) {
-    nodes = nodes.filter(n => n.countryCode === countryCode.toUpperCase());
-  }
-
-  if (nodes.length === 0) return undefined;
-
-  // Sort by load
-  nodes.sort((a, b) => {
-    const loadA = a.activeConnections / a.maxConnections;
-    const loadB = b.activeConnections / b.maxConnections;
-    return loadA - loadB;
-  });
-
-  return nodes[0];
 }
 

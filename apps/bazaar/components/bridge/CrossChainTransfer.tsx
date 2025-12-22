@@ -1,12 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAccount } from 'wagmi';
 import { type Address } from 'viem';
-import TokenSelector from './TokenSelector';
-import { useProtocolTokens } from '../hooks/useProtocolTokens';
-import { useCrossChainSwap, useEILConfig } from '../hooks/useEIL';
-import { parseTokenAmount, formatUSD, calculateUSDValue } from '../lib/tokenUtils';
-import type { TokenOption } from './TokenSelector';
-import { EXPLORER_URL } from '../config';
+import TokenSelector from '@/components/TokenSelector';
+import { useProtocolTokens } from '@/hooks/useProtocolTokens';
+import { useCrossChainSwap, useEILConfig } from '@/hooks/useEIL';
+import { parseTokenAmount, formatUsd as formatUSD, calculateUSDValue } from '@/lib/tokenUtils';
+import type { TokenOption } from '@/components/TokenSelector';
+import { EXPLORER_URL } from '@/config';
 
 const DESTINATION_CHAINS = [
   { id: 1, name: 'Ethereum', icon: '💎' },
@@ -139,7 +139,7 @@ export default function CrossChainTransfer() {
             <TokenSelector
               tokens={tokens}
               selectedToken={selectedToken?.symbol}
-              onSelect={setSelectedToken}
+              onSelect={(token) => setSelectedToken(typeof token === 'string' ? null : token)}
               label="Token to Transfer"
               placeholder="Select token..."
               disabled={isLoading}

@@ -284,7 +284,8 @@ export class OAuth3StorageService {
 
   async isHealthy(): Promise<boolean> {
     const response = await fetch(`${this.ipfsApi}/id`, { method: 'POST', signal: AbortSignal.timeout(5000) }).catch(() => null);
-    return response?.ok ?? false;
+    if (!response) return false;
+    return response.ok;
   }
 
   setEncryptionKey(key: Hex): void { this.encryptionKey = toBytes(key); }

@@ -5,11 +5,20 @@
  * - Premium VPN tier
  * - Per-request proxy access
  * - Priority routing
+ * 
+ * Uses fail-fast validation patterns
  */
 
 import { Hono } from 'hono';
 import { verifyMessage, getAddress, type Address, type Hex } from 'viem';
 import type { VPNServerConfig, VPNServiceContext } from './types';
+import {
+  X402PaymentPayloadSchema,
+  X402VerifyRequestSchema,
+  X402CreateHeaderRequestSchema,
+  expectValid,
+  expect,
+} from './schemas';
 
 // ============================================================================
 // Types
@@ -47,6 +56,12 @@ const usedNonces = new Set<string>();
 export function createX402Middleware(ctx: VPNServiceContext): Hono {
   const router = new Hono();
 
+  // Error handling middleware
+  router.onError((err, c) => {
+    console.error('x402 API error:', err);
+    return c.json({ error: err.message || 'Internal server error' }, 500);
+  });
+
   /**
    * GET /pricing - Get payment pricing for VPN services
    */
@@ -81,26 +96,33 @@ export function createX402Middleware(ctx: VPNServiceContext): Hono {
    * POST /verify - Verify a payment
    */
   router.post('/verify', async (c) => {
-    const body = await c.req.json() as { paymentHeader: string; resource: string; amount: string };
+    const rawBody = await c.req.json();
+    const body = expectValid(X402VerifyRequestSchema, rawBody, 'verify request');
+    
+    const amount = BigInt(body.amount);
+    expect(amount >= BigInt(0), 'Amount cannot be negative');
     
     const result = await verifyX402Payment(
       body.paymentHeader,
-      BigInt(body.amount),
+      amount,
       body.resource,
       ctx.config,
     );
 
     if (!result.valid) {
-      return c.json({ valid: false, error: result.error }, 400);
+      throw new Error(result.error || 'Payment verification failed');
+    }
+    if (!result.receipt) {
+      throw new Error('Payment receipt missing after verification');
     }
 
     return c.json({
       valid: true,
       receipt: {
-        paymentId: result.receipt?.paymentId,
-        payer: result.receipt?.payer,
-        amount: result.receipt?.amount.toString(),
-        resource: result.receipt?.resource,
+        paymentId: result.receipt.paymentId,
+        payer: result.receipt.payer,
+        amount: result.receipt.amount.toString(),
+        resource: result.receipt.resource,
       },
     });
   });
@@ -109,13 +131,11 @@ export function createX402Middleware(ctx: VPNServiceContext): Hono {
    * POST /create-header - Create a payment header for client use
    */
   router.post('/create-header', async (c) => {
-    const body = await c.req.json() as {
-      resource: string;
-      amount: string;
-      signature: Hex;
-      payer: Address;
-    };
+    const rawBody = await c.req.json();
+    const body = expectValid(X402CreateHeaderRequestSchema, rawBody, 'create header request');
 
+    expect(ctx.config.pricing.supportedTokens.length > 0, 'No supported tokens configured');
+    
     const timestamp = Math.floor(Date.now() / 1000);
     const nonce = `${body.payer}-${timestamp}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -124,11 +144,11 @@ export function createX402Middleware(ctx: VPNServiceContext): Hono {
       network: 'jeju',
       payTo: ctx.config.paymentRecipient,
       amount: body.amount,
-      asset: ctx.config.pricing.supportedTokens[0] || '0x0000000000000000000000000000000000000000',
+      asset: ctx.config.pricing.supportedTokens[0],
       resource: body.resource,
       nonce,
       timestamp,
-      signature: body.signature,
+      signature: body.signature as Hex,
     };
 
     // Encode to base64 header
@@ -161,35 +181,59 @@ export async function verifyX402Payment(
   let payload: X402PaymentPayload;
   try {
     const encoded = paymentHeader.slice(5); // Remove "x402 " prefix
+    if (encoded.length === 0) {
+      throw new Error('Payment header payload is empty');
+    }
+    
     const decoded = Buffer.from(encoded, 'base64').toString('utf-8');
-    payload = JSON.parse(decoded);
-  } catch {
-    return { valid: false, error: 'Invalid payment header format' };
+    const parsed = JSON.parse(decoded);
+    const validated = expectValid(X402PaymentPayloadSchema, parsed, 'x402 payment payload');
+    
+    // Convert validated schema to X402PaymentPayload type
+    payload = {
+      scheme: validated.scheme,
+      network: validated.network,
+      payTo: validated.payTo as Address,
+      amount: validated.amount,
+      asset: validated.asset as Address,
+      resource: validated.resource,
+      nonce: validated.nonce,
+      timestamp: validated.timestamp,
+      signature: validated.signature as Hex,
+    };
+  } catch (err) {
+    return { valid: false, error: err instanceof Error ? err.message : 'Invalid payment header format' };
   }
 
   // Validate timestamp (within 5 minutes)
   const maxAge = 300;
-  if (Math.abs(Date.now() / 1000 - payload.timestamp) > maxAge) {
-    return { valid: false, error: 'Payment expired' };
+  const now = Math.floor(Date.now() / 1000);
+  const age = Math.abs(now - payload.timestamp);
+  if (age > maxAge) {
+    return { valid: false, error: `Payment expired. Age: ${age}s, max: ${maxAge}s` };
   }
 
   // Validate amount
   const paymentAmount = BigInt(payload.amount);
+  expect(paymentAmount >= BigInt(0), 'Payment amount cannot be negative');
+  
   if (payload.scheme === 'exact' && paymentAmount !== expectedAmount) {
-    return { valid: false, error: 'Amount mismatch' };
+    return { valid: false, error: `Amount mismatch. Expected: ${expectedAmount}, got: ${paymentAmount}` };
   }
   if (payload.scheme === 'upto' && paymentAmount < expectedAmount) {
-    return { valid: false, error: 'Insufficient payment amount' };
+    return { valid: false, error: `Insufficient payment amount. Required: ${expectedAmount}, got: ${paymentAmount}` };
   }
 
   // Validate resource
   if (payload.resource !== expectedResource) {
-    return { valid: false, error: 'Resource mismatch' };
+    return { valid: false, error: `Resource mismatch. Expected: ${expectedResource}, got: ${payload.resource}` };
   }
 
   // Validate recipient
-  if (getAddress(payload.payTo) !== getAddress(config.paymentRecipient)) {
-    return { valid: false, error: 'Wrong payment recipient' };
+  const payToAddress = getAddress(payload.payTo);
+  const expectedRecipient = getAddress(config.paymentRecipient);
+  if (payToAddress !== expectedRecipient) {
+    return { valid: false, error: `Wrong payment recipient. Expected: ${expectedRecipient}, got: ${payToAddress}` };
   }
 
   // Check nonce hasn't been used
@@ -203,7 +247,7 @@ export async function verifyX402Payment(
   
   try {
     const valid = await verifyMessage({
-      address: payload.payTo,
+      address: payToAddress,
       message,
       signature: payload.signature,
     });
@@ -211,8 +255,8 @@ export async function verifyX402Payment(
     if (!valid) {
       return { valid: false, error: 'Invalid signature' };
     }
-  } catch {
-    return { valid: false, error: 'Signature verification failed' };
+  } catch (err) {
+    return { valid: false, error: `Signature verification failed: ${err instanceof Error ? err.message : 'Unknown error'}` };
   }
 
   // Mark nonce as used
@@ -222,8 +266,8 @@ export async function verifyX402Payment(
   const receipt: X402Receipt = {
     paymentId: `pay-${payload.nonce}`,
     amount: paymentAmount,
-    payer: payload.payTo,
-    recipient: config.paymentRecipient,
+    payer: payToAddress,
+    recipient: expectedRecipient,
     resource: payload.resource,
     timestamp: payload.timestamp,
     verified: true,

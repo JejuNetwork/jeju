@@ -11,6 +11,7 @@ import {
 } from "@elizaos/core";
 import { type Address, parseEther, formatEther } from "viem";
 import { JEJU_SERVICE_NAME, type JejuService } from "../service";
+import { getMessageText, validateServiceExists } from "../validation";
 
 function parseSwapParams(text: string): {
   amountIn?: bigint;
@@ -41,22 +42,20 @@ export const swapTokensAction: Action = {
   description: "Swap tokens on the network DEX (Uniswap V4)",
   similes: ["swap", "exchange", "trade", "convert", "buy", "sell tokens"],
 
-  validate: async (runtime: IAgentRuntime) => {
-    const service = runtime.getService(JEJU_SERVICE_NAME);
-    return !!service;
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
 
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
+    _options?: Record<string, unknown>,
     callback?: HandlerCallback,
-  ) => {
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
 
-    const params = parseSwapParams(message.content.text ?? "");
+    const params = parseSwapParams(getMessageText(message));
 
     if (!params.amountIn || !params.tokenIn || !params.tokenOut) {
       callback?.({
@@ -72,12 +71,21 @@ export const swapTokensAction: Action = {
       // Would be populated from token registry
     };
 
-    const tokenIn =
-      tokenAddresses[params.tokenIn] ??
-      ("0x0000000000000000000000000000000000000000" as Address);
-    const tokenOut =
-      tokenAddresses[params.tokenOut] ??
-      ("0x0000000000000000000000000000000000000000" as Address);
+    const tokenIn = tokenAddresses[params.tokenIn];
+    const tokenOut = tokenAddresses[params.tokenOut];
+
+    if (!tokenIn) {
+      callback?.({
+        text: `Unknown token: ${params.tokenIn}. Supported tokens: ${Object.keys(tokenAddresses).join(", ")}`,
+      });
+      return;
+    }
+    if (!tokenOut) {
+      callback?.({
+        text: `Unknown token: ${params.tokenOut}. Supported tokens: ${Object.keys(tokenAddresses).join(", ")}`,
+      });
+      return;
+    }
 
     callback?.({
       text: `Getting quote for ${formatEther(params.amountIn)} ${params.tokenIn} → ${params.tokenOut}...`,
@@ -151,22 +159,20 @@ export const addLiquidityAction: Action = {
     "pool liquidity",
   ],
 
-  validate: async (runtime: IAgentRuntime) => {
-    const service = runtime.getService(JEJU_SERVICE_NAME);
-    return !!service;
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
 
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
+    _options?: Record<string, unknown>,
     callback?: HandlerCallback,
-  ) => {
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
 
-    const text = message.content.text ?? "";
+    const text = getMessageText(message);
 
     // Parse amounts and tokens
     const matches = text.matchAll(/(\d+(?:\.\d+)?)\s*(\w+)/gi);

@@ -120,10 +120,12 @@ export async function deployContract(
     throw new Error('WalletClient must have an account');
   }
 
+  // Constructor args typed as unknown[] because each contract has different args
+  // Type safety is enforced by the ABI during encoding
   const deployData = encodeDeployData({
     abi: artifact.abi,
     bytecode: artifact.bytecode.object,
-    args: constructorArgs as unknown[],
+    args: [...constructorArgs],
   });
 
   // Get the nonce for address prediction
@@ -194,10 +196,12 @@ export async function deployContractCreate2(
   }
 
   // Encode the deployment data (bytecode + constructor args)
+  // Constructor args typed as unknown[] because each contract has different args
+  // Type safety is enforced by the ABI during encoding
   const initCode = encodeDeployData({
     abi: artifact.abi,
     bytecode: artifact.bytecode.object,
-    args: constructorArgs as unknown[],
+    args: [...constructorArgs],
   });
 
   // Compute the init code hash
@@ -290,11 +294,11 @@ export async function preloadAllArtifacts(): Promise<void> {
   const results = await Promise.allSettled(contracts.map(loadArtifact));
   const failed = results
     .map((r, i) => (r.status === 'rejected' ? contracts[i] : null))
-    .filter(Boolean);
+    .filter((c): c is ContractName => c !== null);
 
   if (
     failed.length > 0 &&
-    !failed.every((c) => HYPERLANE_CONTRACTS.includes(c!))
+    !failed.every((c) => HYPERLANE_CONTRACTS.includes(c))
   ) {
     throw new Error(`Failed to load artifacts: ${failed.join(', ')}`);
   }

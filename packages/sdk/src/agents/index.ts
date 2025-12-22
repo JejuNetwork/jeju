@@ -12,7 +12,7 @@
 import { type Address, type Hex, encodeFunctionData, parseEther } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
-import { getContract as getContractAddress } from "../config";
+import { requireContract } from "../config";
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -68,7 +68,9 @@ export interface CreateRoomParams {
 
 export interface AgentsModule {
   // Vault Management
-  createVault(params: CreateVaultParams): Promise<{ txHash: Hex; vaultAddress: Address }>;
+  createVault(
+    params: CreateVaultParams,
+  ): Promise<{ txHash: Hex; vaultAddress: Address }>;
   getVault(agentId: bigint): Promise<Vault | null>;
   getVaultAddress(agentId: bigint): Promise<Address | null>;
   getBalance(agentId: bigint): Promise<bigint>;
@@ -355,19 +357,12 @@ const ROOM_REGISTRY_ABI = [
 //                          IMPLEMENTATION
 // ═══════════════════════════════════════════════════════════════════════════
 
-export function createAgentsModule(wallet: JejuWallet, network: NetworkType): AgentsModule {
-  const tryGetContract = (category: string, name: string): Address => {
-    try {
-      // @ts-expect-error - dynamic category lookup
-      const addr = getContractAddress(category, name, network);
-      return addr as Address;
-    } catch {
-      return "0x0000000000000000000000000000000000000000" as Address;
-    }
-  };
-
-  const agentVaultAddress = tryGetContract("agents", "AgentVault");
-  const roomRegistryAddress = tryGetContract("agents", "RoomRegistry");
+export function createAgentsModule(
+  wallet: JejuWallet,
+  network: NetworkType,
+): AgentsModule {
+  const agentVaultAddress = requireContract("agents", "AgentVault", network);
+  const roomRegistryAddress = requireContract("agents", "RoomRegistry", network);
 
   const DEFAULT_SPEND_LIMIT = parseEther("0.01");
   const MIN_VAULT_BALANCE = parseEther("0.001");
@@ -580,7 +575,7 @@ export function createAgentsModule(wallet: JejuWallet, network: NetworkType): Ag
       });
 
       // Room ID would come from event logs
-      return { txHash, roomId: "0x" + "0".repeat(64) as Hex };
+      return { txHash, roomId: ("0x" + "0".repeat(64)) as Hex };
     },
 
     async getRoom(roomId) {
@@ -697,4 +692,3 @@ export function createAgentsModule(wallet: JejuWallet, network: NetworkType): Ag
     },
   };
 }
-

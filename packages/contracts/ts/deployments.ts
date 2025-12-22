@@ -4,100 +4,115 @@
  */
 
 import type { Address } from 'viem';
-import type {
-  NetworkName,
-  ChainId,
-  UniswapV4Deployment,
-  BazaarMarketplaceDeployment,
-  ERC20FactoryDeployment,
-  IdentitySystemDeployment,
-  PaymasterSystemDeployment,
-  XLPDeployment,
-  ContractAddresses,
-  LaunchpadDeployment,
-} from './types';
+import type { NetworkName, ChainId } from './types';
+import {
+  type UniswapV4Deployment,
+  type BazaarMarketplaceDeployment,
+  type ERC20FactoryDeployment,
+  type IdentitySystemDeployment,
+  type PaymasterSystemDeployment,
+  type XLPDeployment,
+  type ContractAddresses,
+  type LaunchpadDeployment,
+  type GameSystemDeployment,
+  UniswapV4DeploymentSchema,
+  BazaarMarketplaceDeploymentSchema,
+  ERC20FactoryDeploymentSchema,
+  IdentitySystemDeploymentSchema,
+  PaymasterSystemDeploymentSchema,
+  XLPDeploymentSchema,
+  GameSystemDeploymentSchema,
+  LaunchpadDeploymentSchema,
+} from './schemas';
 import { CHAIN_IDS, ZERO_ADDRESS, isValidAddress } from './types';
 
-// Import deployment JSONs
-import uniswapV4_1337 from '../deployments/uniswap-v4-1337.json';
-import uniswapV4_420691 from '../deployments/uniswap-v4-420691.json';
-import bazaarMarketplace1337 from '../deployments/bazaar-marketplace-1337.json';
-import erc20Factory1337 from '../deployments/erc20-factory-1337.json';
-import identitySystem1337 from '../deployments/identity-system-1337.json';
-import localnetAddresses from '../deployments/localnet-addresses.json';
-import paymasterSystemLocalnet from '../deployments/paymaster-system-localnet.json';
-import multiTokenSystem1337 from '../deployments/multi-token-system-1337.json';
-import eilLocalnet from '../deployments/eil-localnet.json';
-import eilTestnet from '../deployments/eil-testnet.json';
-import gameSystem1337 from '../deployments/game-system-1337.json';
-import predimarket1337 from '../deployments/predimarket-1337.json';
-import rpgTokens1337 from '../deployments/rpg-tokens-1337.json';
-import elizaToken1337 from '../deployments/eliza-token-1337.json';
-import xlpAmmLocalnet from '../deployments/xlp-amm-localnet.json';
-import launchpadLocalnet from '../deployments/launchpad-localnet.json';
-
 // ============================================================================
-// Types for Game System
+// Helper Functions (Internal)
 // ============================================================================
 
-export interface GameSystemDeployment {
-  goldToken?: string | null;
-  itemsNFT?: string | null;
-  gameIntegration?: string | null;
-  playerTradeEscrow?: string | null;
-  gameAgentId?: string | null;
-  gameSigner?: string | null;
-  mudWorld?: string | null;
-  jejuIntegrationSystem?: string | null;
-  appId?: string | null;
-  gameName?: string | null;
-  baseURI?: string | null;
-  deployedAt?: string | null;
-  chainId?: number;
+/**
+ * Convert a validated address string to Address type, or undefined if invalid
+ */
+function toAddress(address: string | null | undefined): Address | undefined {
+  return isValidAddress(address) ? address : undefined;
 }
+
+// Import deployment JSONs
+import uniswapV4_1337_raw from '../deployments/uniswap-v4-1337.json';
+import uniswapV4_420691_raw from '../deployments/uniswap-v4-420691.json';
+import bazaarMarketplace1337_raw from '../deployments/bazaar-marketplace-1337.json';
+import erc20Factory1337_raw from '../deployments/erc20-factory-1337.json';
+import identitySystem1337_raw from '../deployments/identity-system-1337.json';
+import localnetAddresses_raw from '../deployments/localnet-addresses.json';
+import paymasterSystemLocalnet_raw from '../deployments/paymaster-system-localnet.json';
+import multiTokenSystem1337_raw from '../deployments/multi-token-system-1337.json';
+import eilLocalnet_raw from '../deployments/eil-localnet.json';
+import eilTestnet_raw from '../deployments/eil-testnet.json';
+import gameSystem1337_raw from '../deployments/game-system-1337.json';
+import predimarket1337_raw from '../deployments/predimarket-1337.json';
+import rpgTokens1337_raw from '../deployments/rpg-tokens-1337.json';
+import elizaToken1337_raw from '../deployments/eliza-token-1337.json';
+import xlpAmmLocalnet_raw from '../deployments/xlp-amm-localnet.json';
+import launchpadLocalnet_raw from '../deployments/launchpad-localnet.json';
+
+// ============================================================================
+// Validated Deployment Data
+// ============================================================================
+
+// Parse deployment JSONs with validation at import time
+const uniswapV4_1337 = UniswapV4DeploymentSchema.parse(uniswapV4_1337_raw);
+const uniswapV4_420691 = UniswapV4DeploymentSchema.parse(uniswapV4_420691_raw);
+const bazaarMarketplace1337 = BazaarMarketplaceDeploymentSchema.parse(bazaarMarketplace1337_raw);
+const erc20Factory1337 = ERC20FactoryDeploymentSchema.parse(erc20Factory1337_raw);
+const identitySystem1337 = IdentitySystemDeploymentSchema.parse(identitySystem1337_raw);
+const localnetAddresses = IdentitySystemDeploymentSchema.partial().parse(localnetAddresses_raw);
+const paymasterSystemLocalnet = PaymasterSystemDeploymentSchema.parse(paymasterSystemLocalnet_raw);
+const gameSystem1337 = GameSystemDeploymentSchema.parse(gameSystem1337_raw);
+const xlpAmmLocalnet = XLPDeploymentSchema.parse(xlpAmmLocalnet_raw);
+const launchpadLocalnet = LaunchpadDeploymentSchema.parse(launchpadLocalnet_raw);
 
 // ============================================================================
 // Typed Deployment Exports
 // ============================================================================
 
 export const uniswapV4Deployments: Partial<Record<ChainId, UniswapV4Deployment>> = {
-  1337: uniswapV4_1337 as UniswapV4Deployment,
-  420691: uniswapV4_420691 as UniswapV4Deployment,
+  1337: uniswapV4_1337,
+  420691: uniswapV4_420691,
 };
 
 export const bazaarMarketplaceDeployments: Partial<Record<ChainId, BazaarMarketplaceDeployment>> = {
-  1337: bazaarMarketplace1337 as BazaarMarketplaceDeployment,
-  420691: bazaarMarketplace1337 as BazaarMarketplaceDeployment,
+  1337: bazaarMarketplace1337,
+  420691: bazaarMarketplace1337,
 };
 
 export const erc20FactoryDeployments: Partial<Record<ChainId, ERC20FactoryDeployment>> = {
-  1337: erc20Factory1337 as ERC20FactoryDeployment,
-  420691: erc20Factory1337 as ERC20FactoryDeployment,
+  1337: erc20Factory1337,
+  420691: erc20Factory1337,
 };
 
 export const identitySystemDeployments: Partial<Record<ChainId, IdentitySystemDeployment>> = {
-  1337: { ...identitySystem1337, ...localnetAddresses } as IdentitySystemDeployment,
-  420691: { ...identitySystem1337, ...localnetAddresses } as IdentitySystemDeployment,
+  1337: { ...identitySystem1337, ...localnetAddresses },
+  420691: { ...identitySystem1337, ...localnetAddresses },
 };
 
 export const paymasterDeployments: Partial<Record<ChainId, PaymasterSystemDeployment>> = {
-  1337: paymasterSystemLocalnet as PaymasterSystemDeployment,
-  420691: paymasterSystemLocalnet as PaymasterSystemDeployment,
+  1337: paymasterSystemLocalnet,
+  420691: paymasterSystemLocalnet,
 };
 
 export const xlpDeployments: Partial<Record<ChainId, XLPDeployment>> = {
-  1337: xlpAmmLocalnet as XLPDeployment,
-  420691: xlpAmmLocalnet as XLPDeployment,
+  1337: xlpAmmLocalnet,
+  420691: xlpAmmLocalnet,
 };
 
 export const gameSystemDeployments: Partial<Record<ChainId, GameSystemDeployment>> = {
-  1337: gameSystem1337 as GameSystemDeployment,
-  420691: gameSystem1337 as GameSystemDeployment,
+  1337: gameSystem1337,
+  420691: gameSystem1337,
 };
 
 export const launchpadDeployments: Partial<Record<ChainId, LaunchpadDeployment>> = {
-  1337: launchpadLocalnet as LaunchpadDeployment,
-  420691: launchpadLocalnet as LaunchpadDeployment,
+  1337: launchpadLocalnet,
+  420691: launchpadLocalnet,
 };
 
 // ============================================================================
@@ -106,9 +121,14 @@ export const launchpadDeployments: Partial<Record<ChainId, LaunchpadDeployment>>
 
 /**
  * Get Uniswap V4 contract addresses for a chain
+ * @throws Error if chain is not supported
  */
 export function getUniswapV4(chainId: ChainId): UniswapV4Deployment {
-  return uniswapV4Deployments[chainId] ?? {};
+  const deployment = uniswapV4Deployments[chainId];
+  if (!deployment) {
+    throw new Error(`Uniswap V4 not deployed on chain ${chainId}`);
+  }
+  return deployment;
 }
 
 /**
@@ -140,16 +160,26 @@ export function getIdentityRegistry(chainId: ChainId): Address | undefined {
 
 /**
  * Get XLP AMM deployment for a chain
+ * @throws Error if chain is not supported
  */
 export function getXLPDeployment(chainId: ChainId): XLPDeployment {
-  return xlpDeployments[chainId] ?? {};
+  const deployment = xlpDeployments[chainId];
+  if (!deployment) {
+    throw new Error(`XLP not deployed on chain ${chainId}`);
+  }
+  return deployment;
 }
 
 /**
  * Get Launchpad deployment for a chain
+ * @throws Error if chain is not supported
  */
 export function getLaunchpadDeployment(chainId: ChainId): LaunchpadDeployment {
-  return launchpadDeployments[chainId] ?? {};
+  const deployment = launchpadDeployments[chainId];
+  if (!deployment) {
+    throw new Error(`Launchpad not deployed on chain ${chainId}`);
+  }
+  return deployment;
 }
 
 /**
@@ -163,9 +193,14 @@ export function getTokenLaunchpad(chainId: ChainId): Address | undefined {
 
 /**
  * Get Game System deployment for a chain
+ * @throws Error if chain is not supported
  */
 export function getGameSystem(chainId: ChainId): GameSystemDeployment {
-  return gameSystemDeployments[chainId] ?? {};
+  const deployment = gameSystemDeployments[chainId];
+  if (!deployment) {
+    throw new Error(`Game system not deployed on chain ${chainId}`);
+  }
+  return deployment;
 }
 
 /**
@@ -173,8 +208,7 @@ export function getGameSystem(chainId: ChainId): GameSystemDeployment {
  */
 export function getGameGold(chainId: ChainId): Address | undefined {
   const deployment = gameSystemDeployments[chainId];
-  const address = deployment?.goldToken ?? undefined;
-  return isValidAddress(address) ? address as Address : undefined;
+  return toAddress(deployment?.goldToken);
 }
 
 /**
@@ -182,8 +216,7 @@ export function getGameGold(chainId: ChainId): Address | undefined {
  */
 export function getGameItems(chainId: ChainId): Address | undefined {
   const deployment = gameSystemDeployments[chainId];
-  const address = deployment?.itemsNFT ?? undefined;
-  return isValidAddress(address) ? address as Address : undefined;
+  return toAddress(deployment?.itemsNFT);
 }
 
 /**
@@ -191,15 +224,19 @@ export function getGameItems(chainId: ChainId): Address | undefined {
  */
 export function getGameIntegration(chainId: ChainId): Address | undefined {
   const deployment = gameSystemDeployments[chainId];
-  const address = deployment?.gameIntegration ?? undefined;
-  return isValidAddress(address) ? address as Address : undefined;
+  return toAddress(deployment?.gameIntegration);
 }
 
 /**
  * Get Paymaster System deployment
+ * @throws Error if chain is not supported
  */
 export function getPaymasterSystem(chainId: ChainId): PaymasterSystemDeployment {
-  return paymasterDeployments[chainId] ?? {};
+  const deployment = paymasterDeployments[chainId];
+  if (!deployment) {
+    throw new Error(`Paymaster system not deployed on chain ${chainId}`);
+  }
+  return deployment;
 }
 
 /**
@@ -207,8 +244,7 @@ export function getPaymasterSystem(chainId: ChainId): PaymasterSystemDeployment 
  */
 export function getSponsoredPaymaster(chainId: ChainId): Address | undefined {
   const deployment = paymasterDeployments[chainId];
-  const address = deployment?.sponsoredPaymaster;
-  return isValidAddress(address) ? address as Address : undefined;
+  return toAddress(deployment?.sponsoredPaymaster);
 }
 
 /**
@@ -218,24 +254,23 @@ export function getContractAddresses(chainId: ChainId): ContractAddresses {
   const v4 = getUniswapV4(chainId);
   const identity = identitySystemDeployments[chainId];
   const paymaster = paymasterDeployments[chainId];
-  const game = gameSystemDeployments[chainId];
   const marketplace = bazaarMarketplaceDeployments[chainId];
   const launchpad = launchpadDeployments[chainId];
 
   return {
     // Identity & Registry
     identityRegistry: getIdentityRegistry(chainId),
-    reputationRegistry: identity?.reputationRegistry as Address | undefined,
-    validationRegistry: identity?.validationRegistry as Address | undefined,
-    serviceRegistry: identity?.serviceRegistry as Address | undefined,
+    reputationRegistry: toAddress(identity?.reputationRegistry),
+    validationRegistry: toAddress(identity?.validationRegistry),
+    serviceRegistry: toAddress(identity?.serviceRegistry),
 
     // DeFi
-    poolManager: v4?.poolManager as Address | undefined,
-    swapRouter: v4?.swapRouter as Address | undefined,
-    positionManager: v4?.positionManager as Address | undefined,
-    quoterV4: v4?.quoterV4 as Address | undefined,
-    stateView: v4?.stateView as Address | undefined,
-    weth: v4?.weth as Address | undefined,
+    poolManager: toAddress(v4?.poolManager),
+    swapRouter: toAddress(v4?.swapRouter),
+    positionManager: toAddress(v4?.positionManager),
+    quoterV4: toAddress(v4?.quoterV4),
+    stateView: toAddress(v4?.stateView),
+    weth: toAddress(v4?.weth),
 
     // Marketplace
     marketplace: getBazaarMarketplace(chainId),
@@ -244,19 +279,19 @@ export function getContractAddresses(chainId: ChainId): ContractAddresses {
     erc20Factory: getERC20Factory(chainId),
 
     // Paymaster / AA
-    entryPoint: paymaster?.entryPoint as Address | undefined,
-    paymasterFactory: paymaster?.paymasterFactory as Address | undefined,
-    tokenRegistry: paymaster?.tokenRegistry as Address | undefined,
-    priceOracle: paymaster?.priceOracle as Address | undefined,
+    entryPoint: toAddress(paymaster?.entryPoint),
+    paymasterFactory: toAddress(paymaster?.paymasterFactory),
+    tokenRegistry: toAddress(paymaster?.tokenRegistry),
+    priceOracle: toAddress(paymaster?.priceOracle),
 
     // Tokens
-    usdc: identity?.usdc as Address | undefined,
-    elizaOS: identity?.elizaOS as Address | undefined,
-    goldToken: marketplace?.goldToken as Address | undefined,
+    usdc: toAddress(identity?.usdc),
+    elizaOS: toAddress(identity?.elizaOS),
+    goldToken: toAddress(marketplace?.goldToken),
     
     // Launchpad
     tokenLaunchpad: getTokenLaunchpad(chainId),
-    lpLockerTemplate: launchpad?.lpLockerTemplate as Address | undefined,
+    lpLockerTemplate: toAddress(launchpad?.lpLockerTemplate),
   };
 }
 
@@ -284,21 +319,21 @@ export function getContractAddressesByNetwork(network: NetworkName): ContractAdd
 // ============================================================================
 
 export const rawDeployments = {
-  uniswapV4_1337,
-  uniswapV4_420691,
-  bazaarMarketplace1337,
-  erc20Factory1337,
-  identitySystem1337,
-  localnetAddresses,
-  paymasterSystemLocalnet,
-  eilLocalnet,
-  eilTestnet,
-  gameSystem1337,
-  predimarket1337,
-  rpgTokens1337,
-  elizaToken1337,
-  xlpAmmLocalnet,
-  launchpadLocalnet,
+  uniswapV4_1337: uniswapV4_1337_raw,
+  uniswapV4_420691: uniswapV4_420691_raw,
+  bazaarMarketplace1337: bazaarMarketplace1337_raw,
+  erc20Factory1337: erc20Factory1337_raw,
+  identitySystem1337: identitySystem1337_raw,
+  localnetAddresses: localnetAddresses_raw,
+  paymasterSystemLocalnet: paymasterSystemLocalnet_raw,
+  eilLocalnet: eilLocalnet_raw,
+  eilTestnet: eilTestnet_raw,
+  gameSystem1337: gameSystem1337_raw,
+  predimarket1337: predimarket1337_raw,
+  rpgTokens1337: rpgTokens1337_raw,
+  elizaToken1337: elizaToken1337_raw,
+  xlpAmmLocalnet: xlpAmmLocalnet_raw,
+  launchpadLocalnet: launchpadLocalnet_raw,
 } as const;
 
 // Re-export types
@@ -311,4 +346,5 @@ export type {
   XLPDeployment,
   ContractAddresses,
   LaunchpadDeployment,
-} from './types';
+  GameSystemDeployment,
+} from './schemas';

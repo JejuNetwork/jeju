@@ -210,14 +210,10 @@ export class SolanaArbStrategy extends EventEmitter {
     if (!this.solanaConnection) return;
     
     for (const [symbol, token] of Object.entries(SOLANA_TOKENS)) {
-      try {
-        // Use Jupiter for best price
-        const price = await this.getJupiterPrice(token.mint, symbol);
-        if (price) {
-          this.solanaPrices.set(symbol, price);
-        }
-      } catch (err) {
-        console.error(`Error fetching Solana price for ${symbol}:`, err);
+      // Use Jupiter for best price
+      const price = await this.getJupiterPrice(token.mint, symbol);
+      if (price) {
+        this.solanaPrices.set(symbol, price);
       }
     }
   }
@@ -245,24 +241,20 @@ export class SolanaArbStrategy extends EventEmitter {
       
       // Fetch liquidity by checking tradeable amount without price impact
       let liquidity = 0;
-      try {
-        // Quote a large amount to estimate liquidity (check 1% price impact level)
-        const largeAmount = symbol === 'USDC' || symbol === 'USDT' ? '100000000000' : '1000000000000'; // 100k USDC or 1000 SOL
-        const liquidityUrl = `${JUPITER_API}/quote?inputMint=${mint}&outputMint=${usdcMint}&amount=${largeAmount}&slippageBps=100`;
-        const liqResponse = await fetch(liquidityUrl);
-        if (liqResponse.ok) {
-          const liqData = await liqResponse.json() as { priceImpactPct: string };
-          // If price impact < 5%, use the large amount as liquidity indicator
-          const priceImpact = parseFloat(liqData.priceImpactPct || '100');
-          if (priceImpact < 5) {
-            liquidity = Number(largeAmount) / (10 ** (SOLANA_TOKENS[symbol]?.decimals || 9));
-          } else {
-            // Scale down based on price impact
-            liquidity = (Number(largeAmount) / (10 ** (SOLANA_TOKENS[symbol]?.decimals || 9))) * (5 / priceImpact);
-          }
+      // Quote a large amount to estimate liquidity (check 1% price impact level)
+      const largeAmount = symbol === 'USDC' || symbol === 'USDT' ? '100000000000' : '1000000000000'; // 100k USDC or 1000 SOL
+      const liquidityUrl = `${JUPITER_API}/quote?inputMint=${mint}&outputMint=${usdcMint}&amount=${largeAmount}&slippageBps=100`;
+      const liqResponse = await fetch(liquidityUrl);
+      if (liqResponse.ok) {
+        const liqData = await liqResponse.json() as { priceImpactPct: string };
+        // If price impact < 5%, use the large amount as liquidity indicator
+        const priceImpact = parseFloat(liqData.priceImpactPct || '100');
+        if (priceImpact < 5) {
+          liquidity = Number(largeAmount) / (10 ** (SOLANA_TOKENS[symbol]?.decimals || 9));
+        } else {
+          // Scale down based on price impact
+          liquidity = (Number(largeAmount) / (10 ** (SOLANA_TOKENS[symbol]?.decimals || 9))) * (5 / priceImpact);
         }
-      } catch {
-        // Failed to get liquidity, continue with 0
       }
 
       return {

@@ -1,7 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Search, Download, Package, Shield, Clock, ExternalLink } from 'lucide-react';
+import { useState, useEffect, type ComponentType } from 'react';
+import { Search, Download, Package, Shield, Clock, ExternalLink, type LucideProps } from 'lucide-react';
+
+// Fix for Lucide React 19 type compatibility
+const SearchIcon = Search as ComponentType<LucideProps>;
+const DownloadIcon = Download as ComponentType<LucideProps>;
+const PackageIcon = Package as ComponentType<LucideProps>;
+const ShieldIcon = Shield as ComponentType<LucideProps>;
+const ClockIcon = Clock as ComponentType<LucideProps>;
+const ExternalLinkIcon = ExternalLink as ComponentType<LucideProps>;
 
 interface PackageInfo {
   name: string;
@@ -110,14 +118,14 @@ export default function PackagesPage() {
             className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg font-medium transition-colors flex items-center gap-2"
           >
             Publishing Guide
-            <ExternalLink className="w-4 h-4" />
+            <ExternalLinkIcon className="w-4 h-4" />
           </a>
         </div>
 
         {/* Search */}
         <form onSubmit={handleSearch} className="mb-8">
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
               placeholder="Search packages..."
@@ -156,7 +164,7 @@ export default function PackagesPage() {
               </div>
             ) : packages.length === 0 ? (
               <div className="text-center py-12">
-                <Package className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                <PackageIcon className="w-12 h-12 text-gray-600 mx-auto mb-4" />
                 <p className="text-gray-400">No packages found</p>
                 <p className="text-gray-500 text-sm mt-2">
                   Try searching for something else or publish a new package
@@ -173,7 +181,7 @@ export default function PackagesPage() {
                     <div className="flex items-start justify-between">
                       <div>
                         <div className="flex items-center gap-2">
-                          <Package className="w-5 h-5 text-red-400" />
+                          <PackageIcon className="w-5 h-5 text-red-400" />
                           <span className="font-semibold text-blue-400">
                             {result.package.name}
                           </span>
@@ -202,13 +210,13 @@ export default function PackagesPage() {
             {selectedPackage ? (
               <div className="sticky top-4 p-6 bg-gray-800 rounded-lg border border-gray-700">
                 <div className="flex items-center gap-2 mb-4">
-                  <Package className="w-6 h-6 text-red-400" />
+                  <PackageIcon className="w-6 h-6 text-red-400" />
                   <h2 className="text-xl font-bold">{selectedPackage.name}</h2>
                 </div>
 
                 {selectedPackage.verified && (
                   <div className="flex items-center gap-2 mb-4 text-green-400">
-                    <Shield className="w-4 h-4" />
+                    <ShieldIcon className="w-4 h-4" />
                     <span className="text-sm">Verified Package</span>
                   </div>
                 )}
@@ -229,14 +237,14 @@ export default function PackagesPage() {
                   <div className="flex justify-between">
                     <span className="text-gray-400">Downloads</span>
                     <span className="flex items-center gap-1">
-                      <Download className="w-4 h-4" />
+                      <DownloadIcon className="w-4 h-4" />
                       {selectedPackage.downloadCount.toLocaleString()}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-400">Published</span>
                     <span className="flex items-center gap-1">
-                      <Clock className="w-4 h-4" />
+                      <ClockIcon className="w-4 h-4" />
                       {formatDate(selectedPackage.createdAt)}
                     </span>
                   </div>
@@ -272,7 +280,7 @@ export default function PackagesPage() {
               </div>
             ) : (
               <div className="p-6 bg-gray-800 rounded-lg border border-gray-700 text-center">
-                <Package className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                <PackageIcon className="w-12 h-12 text-gray-600 mx-auto mb-4" />
                 <p className="text-gray-400">Select a package to view details</p>
               </div>
             )}

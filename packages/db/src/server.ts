@@ -6,13 +6,38 @@
  */
 
 import { Database as SQLiteDatabase } from 'bun:sqlite';
-import { mkdir, existsSync } from 'fs';
-import { join, dirname } from 'path';
-import type { Address, Hex } from 'viem';
+import { existsSync, mkdirSync } from 'node:fs';
+import { join } from 'path';
+import { z } from 'zod';
+import { parsePort, parseBoolean } from './utils.js';
+
+// Request body schemas
+const CreateDatabaseRequestSchema = z.object({
+  nodeCount: z.number().int().positive().default(1),
+  schema: z.string().default(''),
+  owner: z.string().regex(/^0x[a-fA-F0-9]{40}$/).default('0x0000000000000000000000000000000000000000'),
+  paymentToken: z.string().optional(),
+});
+
+const QueryRequestSchema = z.object({
+  database: z.string(),
+  type: z.enum(['query', 'exec']),
+  sql: z.string(),
+  params: z.array(z.union([z.string(), z.number(), z.boolean(), z.null()])).optional(),
+});
+
+const ACLGrantRequestSchema = z.object({
+  address: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+  permissions: z.array(z.string()),
+});
+
+const ACLRevokeRequestSchema = z.object({
+  address: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+});
 
 interface DatabaseRecord {
   id: string;
-  owner: Address;
+  owner: string;
   schema: string;
   nodeCount: number;
   createdAt: number;
@@ -35,9 +60,8 @@ export class CQLServer {
   constructor(config: CQLServerConfig) {
     this.config = config;
     
-    // Ensure data directory exists
     if (!existsSync(config.dataDir)) {
-      mkdir(config.dataDir, { recursive: true }, () => {});
+      mkdirSync(config.dataDir, { recursive: true });
     }
 
     // Initialize registry database (tracks all databases)
@@ -76,9 +100,9 @@ export class CQLServer {
       );
     `);
     
-    // Get current block height
-    const result = this.registry.query('SELECT MAX(height) as height FROM blocks').get() as { height: number } | null;
-    this.blockHeight = result?.height || 0;
+    // Get current block height - MAX returns null if no rows
+    const result = this.registry.query('SELECT MAX(height) as height FROM blocks').get() as { height: number | null } | null;
+    this.blockHeight = result?.height ?? 0;
     
     // Add genesis block if needed
     if (this.blockHeight === 0) {
@@ -91,25 +115,23 @@ export class CQLServer {
 
   private loadDatabases(): void {
     const dbs = this.registry.query('SELECT * FROM databases WHERE status = ?').all('active') as DatabaseRecord[];
-    for (const db of dbs) {
-      this.openDatabase(db.id);
-    }
-    if (this.config.debug) {
-      console.log(`[CQL] Loaded ${dbs.length} databases`);
+    for (const record of dbs) {
+      this.openDatabase(record.id);
     }
   }
 
   private openDatabase(id: string): SQLiteDatabase {
-    let db = this.databases.get(id);
-    if (!db) {
-      const dbPath = join(this.config.dataDir, `${id}.sqlite`);
-      db = new SQLiteDatabase(dbPath);
-      this.databases.set(id, db);
+    const existing = this.databases.get(id);
+    if (existing) {
+      return existing;
     }
+    const dbPath = join(this.config.dataDir, `${id}.sqlite`);
+    const db = new SQLiteDatabase(dbPath);
+    this.databases.set(id, db);
     return db;
   }
 
-  private addBlock(txCount = 1): number {
+  private addBlock(txCount: number = 1): number {
     this.blockHeight++;
     const hash = '0x' + Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('hex');
     this.registry.run(
@@ -120,12 +142,10 @@ export class CQLServer {
   }
 
   start(): void {
-    const self = this;
-    
     this.server = Bun.serve({
       port: this.config.port,
       
-      async fetch(req): Promise<Response> {
+      fetch: async (req): Promise<Response> => {
         const url = new URL(req.url);
         const method = req.method;
 
@@ -134,40 +154,36 @@ export class CQLServer {
           return Response.json({
             status: 'ok',
             type: 'sqlite',
-            blockHeight: self.blockHeight,
-            databases: self.databases.size,
-            dataDir: self.config.dataDir,
+            blockHeight: this.blockHeight,
+            databases: this.databases.size,
+            dataDir: this.config.dataDir,
           });
         }
 
         // Block producer status
         if (url.pathname === '/api/v1/status') {
           return Response.json({
-            blockHeight: self.blockHeight,
+            blockHeight: this.blockHeight,
             nodeCount: 1,
             status: 'running',
             type: 'sqlite-dev',
-            databases: self.databases.size,
+            databases: this.databases.size,
           });
         }
 
         // Query/Exec endpoint
         if (url.pathname === '/api/v1/query' && method === 'POST') {
-          const body = await req.json() as {
-            database: string;
-            type: 'query' | 'exec';
-            sql: string;
-            params?: (string | number | boolean | null)[];
-          };
+          const rawBody = await req.json();
+          const body = QueryRequestSchema.parse(rawBody);
 
           const { database: dbId, type, sql, params } = body;
           
           // Get or create database
-          let db = self.databases.get(dbId);
+          let db = this.databases.get(dbId);
           if (!db) {
             // Auto-create database for development convenience
-            db = self.openDatabase(dbId);
-            self.registry.run(
+            db = this.openDatabase(dbId);
+            this.registry.run(
               'INSERT OR IGNORE INTO databases (id, owner, created_at) VALUES (?, ?, ?)',
               [dbId, '0x0000000000000000000000000000000000000000', Date.now()]
             );
@@ -185,12 +201,12 @@ export class CQLServer {
               rowCount: rows.length,
               columns,
               executionTime: Date.now() - startTime,
-              blockHeight: self.blockHeight,
+              blockHeight: this.blockHeight,
             });
           } else {
             const stmt = db.prepare(sql);
             const result = params ? stmt.run(...params) : stmt.run();
-            const height = self.addBlock();
+            const height = this.addBlock();
             const txHash = '0x' + Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('hex');
             
             return Response.json({
@@ -205,21 +221,17 @@ export class CQLServer {
 
         // Create database
         if (url.pathname === '/api/v1/databases' && method === 'POST') {
-          const body = await req.json() as {
-            nodeCount?: number;
-            schema?: string;
-            owner?: string;
-          };
+          const rawBody = await req.json();
+          const body = CreateDatabaseRequestSchema.parse(rawBody);
           
           const id = `db-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-          const owner = body.owner || '0x0000000000000000000000000000000000000000';
           
-          self.registry.run(
+          this.registry.run(
             'INSERT INTO databases (id, owner, schema, node_count, created_at) VALUES (?, ?, ?, ?, ?)',
-            [id, owner, body.schema || '', body.nodeCount || 1, Date.now()]
+            [id, body.owner, body.schema, body.nodeCount, Date.now()]
           );
           
-          const db = self.openDatabase(id);
+          const db = this.openDatabase(id);
           
           // Execute schema if provided
           if (body.schema) {
@@ -229,12 +241,12 @@ export class CQLServer {
             }
           }
           
-          self.addBlock();
+          this.addBlock();
           
           return Response.json({
             id,
-            owner,
-            nodeCount: body.nodeCount || 1,
+            owner: body.owner,
+            nodeCount: body.nodeCount,
             status: 'active',
             createdAt: Date.now(),
           });
@@ -246,11 +258,11 @@ export class CQLServer {
           let dbs: DatabaseRecord[];
           
           if (owner) {
-            dbs = self.registry.query(
+            dbs = this.registry.query(
               'SELECT * FROM databases WHERE owner = ? AND status = ?'
             ).all(owner, 'active') as DatabaseRecord[];
           } else {
-            dbs = self.registry.query(
+            dbs = this.registry.query(
               'SELECT * FROM databases WHERE status = ?'
             ).all('active') as DatabaseRecord[];
           }
@@ -270,7 +282,7 @@ export class CQLServer {
         const dbMatch = url.pathname.match(/^\/api\/v1\/databases\/([^/]+)$/);
         if (dbMatch && method === 'GET') {
           const dbId = dbMatch[1];
-          const db = self.registry.query(
+          const db = this.registry.query(
             'SELECT * FROM databases WHERE id = ?'
           ).get(dbId) as DatabaseRecord | null;
           
@@ -290,10 +302,10 @@ export class CQLServer {
         // Delete database
         if (dbMatch && method === 'DELETE') {
           const dbId = dbMatch[1];
-          self.registry.run('UPDATE databases SET status = ? WHERE id = ?', ['deleted', dbId]);
-          self.databases.get(dbId)?.close();
-          self.databases.delete(dbId);
-          self.addBlock();
+          this.registry.run('UPDATE databases SET status = ? WHERE id = ?', ['deleted', dbId]);
+          this.databases.get(dbId)?.close();
+          this.databases.delete(dbId);
+          this.addBlock();
           return new Response(null, { status: 204 });
         }
 
@@ -301,13 +313,14 @@ export class CQLServer {
         const aclGrantMatch = url.pathname.match(/^\/api\/v1\/databases\/([^/]+)\/acl\/grant$/);
         if (aclGrantMatch && method === 'POST') {
           const dbId = aclGrantMatch[1];
-          const body = await req.json() as { address: string; permissions: string[] };
+          const rawBody = await req.json();
+          const body = ACLGrantRequestSchema.parse(rawBody);
           
-          self.registry.run(
+          this.registry.run(
             'INSERT OR REPLACE INTO acl (database_id, address, permissions, created_at) VALUES (?, ?, ?, ?)',
             [dbId, body.address, JSON.stringify(body.permissions), Date.now()]
           );
-          self.addBlock();
+          this.addBlock();
           
           return Response.json({ success: true });
         }
@@ -316,13 +329,14 @@ export class CQLServer {
         const aclRevokeMatch = url.pathname.match(/^\/api\/v1\/databases\/([^/]+)\/acl\/revoke$/);
         if (aclRevokeMatch && method === 'POST') {
           const dbId = aclRevokeMatch[1];
-          const body = await req.json() as { address: string };
+          const rawBody = await req.json();
+          const body = ACLRevokeRequestSchema.parse(rawBody);
           
-          self.registry.run(
+          this.registry.run(
             'DELETE FROM acl WHERE database_id = ? AND address = ?',
             [dbId, body.address]
           );
-          self.addBlock();
+          this.addBlock();
           
           return Response.json({ success: true });
         }
@@ -331,7 +345,7 @@ export class CQLServer {
         const aclListMatch = url.pathname.match(/^\/api\/v1\/databases\/([^/]+)\/acl$/);
         if (aclListMatch && method === 'GET') {
           const dbId = aclListMatch[1];
-          const rules = self.registry.query(
+          const rules = this.registry.query(
             'SELECT address, permissions, created_at FROM acl WHERE database_id = ?'
           ).all(dbId) as { address: string; permissions: string; created_at: number }[];
           
@@ -360,13 +374,13 @@ export class CQLServer {
           const metrics = [
             '# HELP cql_block_height Current block height',
             '# TYPE cql_block_height gauge',
-            `cql_block_height ${self.blockHeight}`,
+            `cql_block_height ${this.blockHeight}`,
             '# HELP cql_databases_total Total number of databases',
             '# TYPE cql_databases_total gauge',
-            `cql_databases_total ${self.databases.size}`,
+            `cql_databases_total ${this.databases.size}`,
             '# HELP cql_queries_total Total queries executed',
             '# TYPE cql_queries_total counter',
-            `cql_queries_total ${self.blockHeight * 10}`,
+            `cql_queries_total ${this.blockHeight * 10}`,
           ].join('\n');
           return new Response(metrics, { headers: { 'Content-Type': 'text/plain' } });
         }
@@ -375,8 +389,6 @@ export class CQLServer {
       },
     });
 
-    console.log(`[CQL] SQLite-backed server running on port ${this.config.port}`);
-    console.log(`[CQL] Data directory: ${this.config.dataDir}`);
   }
 
   stop(): void {
@@ -393,20 +405,22 @@ export class CQLServer {
   }
 }
 
+const DEFAULT_SERVER_PORT = 4300;
+const DEFAULT_DATA_DIR = '.data/cql';
+
 // Create and export server factory
 export function createCQLServer(config: Partial<CQLServerConfig> = {}): CQLServer {
-  const dataDir = config.dataDir || process.env.CQL_DATA_DIR || '.data/cql';
   return new CQLServer({
-    port: config.port || parseInt(process.env.CQL_PORT || '4300'),
-    dataDir,
-    debug: config.debug ?? process.env.CQL_DEBUG === 'true',
+    port: config.port ?? parsePort(process.env.CQL_PORT, DEFAULT_SERVER_PORT),
+    dataDir: config.dataDir ?? process.env.CQL_DATA_DIR ?? DEFAULT_DATA_DIR,
+    debug: config.debug ?? parseBoolean(process.env.CQL_DEBUG, false),
   });
 }
 
 // CLI entry point
 if (import.meta.main) {
-  const port = parseInt(process.env.PORT || process.env.CQL_PORT || '4300');
-  const dataDir = process.env.CQL_DATA_DIR || '.data/cql';
+  const port = parsePort(process.env.PORT ?? process.env.CQL_PORT, DEFAULT_SERVER_PORT);
+  const dataDir = process.env.CQL_DATA_DIR ?? DEFAULT_DATA_DIR;
   
   const server = createCQLServer({ port, dataDir, debug: true });
   server.start();

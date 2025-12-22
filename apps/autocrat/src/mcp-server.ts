@@ -6,6 +6,9 @@ import { Hono } from 'hono';
 import type { AutocratConfig } from './types';
 import { AutocratBlockchain } from './blockchain';
 import { PROPOSAL_STATUS, PROPOSAL_TYPES, ZERO_ADDRESS, assessClarity, assessCompleteness, assessFeasibility, assessAlignment, assessImpact, assessRisk, assessCostBenefit, calculateQualityScore } from './shared';
+import { MCPResourceReadRequestSchema, MCPToolCallRequestSchema, ProposalIdSchema, HexStringSchema } from './schemas';
+import { validateOrThrow, expect, expectDefined } from './schemas';
+import { z } from 'zod';
 
 interface MCPResource { uri: string; name: string; description: string; mimeType: string }
 interface MCPTool { name: string; description: string; inputSchema: { type: string; properties?: Record<string, { type: string; description?: string; enum?: readonly string[] }>; required?: string[] } }
@@ -50,14 +53,17 @@ export class AutocratMCPServer {
     this.app.post('/initialize', (c) => c.json({ protocolVersion: '2024-11-05', serverInfo: { name: 'jeju-council', version: '1.0.0' }, capabilities: { resources: true, tools: true, prompts: false } }));
     this.app.post('/resources/list', (c) => c.json({ resources: this.getResources() }));
     this.app.post('/resources/read', async (c) => {
-      const { uri } = await c.req.json();
+      const body = validateOrThrow(MCPResourceReadRequestSchema, await c.req.json(), 'MCP resource read request');
+      const uri = body.uri;
       const contents = await this.readResource(uri);
-      if (!contents) return c.json({ error: 'Resource not found' }, 404);
+      expect(contents !== null, `Resource not found: ${uri}`);
       return c.json({ contents: [{ uri, mimeType: 'application/json', text: JSON.stringify(contents, null, 2) }] });
     });
     this.app.post('/tools/list', (c) => c.json({ tools: this.getTools() }));
     this.app.post('/tools/call', async (c) => {
-      const { name, arguments: args } = await c.req.json();
+      const body = validateOrThrow(MCPToolCallRequestSchema, await c.req.json(), 'MCP tool call request');
+      const name = body.name;
+      const args = body.arguments ?? {};
       const { result, isError } = await this.callTool(name, args);
       return c.json({ content: [{ type: 'text', text: JSON.stringify(result, null, 2) }], isError });
     });
@@ -90,6 +96,9 @@ export class AutocratMCPServer {
   }
 
   private assessQuality(args: Record<string, string>): Record<string, unknown> {
+    expectDefined(args.title, 'Title is required');
+    expectDefined(args.summary, 'Summary is required');
+    expectDefined(args.description, 'Description is required');
     const { title, summary, description } = args;
     const criteria = {
       clarity: assessClarity(title, summary, description),
@@ -110,57 +119,85 @@ export class AutocratMCPServer {
   }
 
   private async getProposal(proposalId: string): Promise<{ result: Record<string, unknown>; isError: boolean }> {
-    const result = await this.blockchain.getProposal(proposalId);
-    if (!result) return { result: { error: 'Contract not deployed' }, isError: true };
-    if (result.proposal.createdAt === 0n) return { result: { error: 'Proposal not found' }, isError: true };
+    const validated = validateOrThrow(ProposalIdSchema, proposalId, 'Proposal ID');
+    const result = await this.blockchain.getProposal(validated);
+    expect(result !== null, 'Contract not deployed');
+    expect(result.proposal.createdAt !== 0n, 'Proposal not found');
     return { result: this.blockchain.formatProposal(result.proposal), isError: false };
   }
 
   private async listProposals(args: Record<string, string>): Promise<{ result: Record<string, unknown>; isError: boolean }> {
-    const limit = parseInt(args.limit || '20', 10);
+    const limit = args.limit ? parseInt(args.limit, 10) : 20;
+    expect(!Number.isNaN(limit), `Invalid limit: ${args.limit}`);
+    expect(limit > 0 && limit <= 1000, `Limit must be between 1 and 1000, got ${limit}`);
     const result = await this.blockchain.listProposals(true, limit);
     let proposals = result.proposals;
-    if (args.status) proposals = proposals.filter(p => p.status === args.status);
-    if (args.type) proposals = proposals.filter(p => p.type === args.type);
+    if (args.status) {
+      expect(PROPOSAL_STATUS.includes(args.status as typeof PROPOSAL_STATUS[number]), `Invalid status: ${args.status}`);
+      proposals = proposals.filter(p => p.status === args.status);
+    }
+    if (args.type) {
+      expect(PROPOSAL_TYPES.includes(args.type as typeof PROPOSAL_TYPES[number]), `Invalid type: ${args.type}`);
+      proposals = proposals.filter(p => p.type === args.type);
+    }
     return { result: { proposals }, isError: false };
   }
 
   private async getAutocratVotes(proposalId: string): Promise<{ result: Record<string, unknown>; isError: boolean }> {
-    const result = await this.blockchain.getProposal(proposalId);
+    const validated = validateOrThrow(ProposalIdSchema, proposalId, 'Proposal ID');
+    const result = await this.blockchain.getProposal(validated);
     if (!result) return { result: { error: 'Contract not deployed', votes: [] }, isError: false };
-    return { result: { proposalId, votes: this.blockchain.formatVotes(result.votes) }, isError: false };
+    return { result: { proposalId: validated, votes: this.blockchain.formatVotes(result.votes) }, isError: false };
   }
 
   private async getCEODecision(proposalId: string): Promise<{ result: Record<string, unknown>; isError: boolean }> {
-    const result = await this.blockchain.getDecision(proposalId);
-    if (!result.decided) return { result: { decided: false, proposalId }, isError: false };
+    const validated = validateOrThrow(ProposalIdSchema, proposalId, 'Proposal ID');
+    const result = await this.blockchain.getDecision(validated);
+    if (!result.decided) return { result: { decided: false, proposalId: validated }, isError: false };
+    expect(result.decision !== null && result.decision !== undefined, 'Decision data missing');
     return { result: { decided: true, ...result.decision }, isError: false };
   }
 
   private prepareSubmission(args: Record<string, string>): Record<string, unknown> {
+    expectDefined(args.proposalType, 'Proposal type is required');
+    expectDefined(args.qualityScore, 'Quality score is required');
+    expectDefined(args.contentHash, 'Content hash is required');
+    
     const typeIndex = PROPOSAL_TYPES.indexOf(args.proposalType as typeof PROPOSAL_TYPES[number]);
-    if (typeIndex === -1) return { error: 'Invalid type' };
+    expect(typeIndex !== -1, `Invalid proposal type: ${args.proposalType}`);
+    
+    const qualityScore = parseInt(args.qualityScore, 10);
+    expect(!Number.isNaN(qualityScore), `Invalid quality score: ${args.qualityScore}`);
+    expect(qualityScore >= 0 && qualityScore <= 100, `Quality score must be 0-100, got ${qualityScore}`);
+    
+    const contentHash = validateOrThrow(HexStringSchema, args.contentHash, 'Content hash');
+    const targetContract = args.targetContract ? validateOrThrow(z.string().regex(/^0x[a-fA-F0-9]{40}$/), args.targetContract, 'Target contract') : ZERO_ADDRESS;
+    const callData = args.callData ? validateOrThrow(HexStringSchema, args.callData, 'Call data') : '0x';
+    
     return {
       transaction: {
         to: this.config.contracts?.council ?? ZERO_ADDRESS,
         method: 'submitProposal',
-        params: { proposalType: typeIndex, qualityScore: parseInt(args.qualityScore, 10), contentHash: args.contentHash, targetContract: args.targetContract || ZERO_ADDRESS, callData: args.callData || '0x', value: args.value || '0' },
+        params: { proposalType: typeIndex, qualityScore, contentHash, targetContract, callData, value: args.value || '0' },
         bond: '0.001 ETH'
       }
     };
   }
 
   private requestResearch(proposalId: string): Record<string, unknown> {
-    return { proposalId, service: 'deep-research', model: 'ollama', note: 'Research requires Ollama to be running' };
+    const validated = validateOrThrow(ProposalIdSchema, proposalId, 'Proposal ID');
+    return { proposalId: validated, service: 'deep-research', model: 'ollama', note: 'Research requires Ollama to be running' };
   }
 
   private async checkVetoStatus(proposalId: string): Promise<{ result: Record<string, unknown>; isError: boolean }> {
-    const result = await this.blockchain.getProposal(proposalId);
-    if (!result) return { result: { error: 'Contract not deployed' }, isError: true };
-    if (result.proposal.status !== 5) return { result: { error: 'Not in APPROVED status' }, isError: true };
+    const validated = validateOrThrow(ProposalIdSchema, proposalId, 'Proposal ID');
+    const result = await this.blockchain.getProposal(validated);
+    expect(result !== null, 'Contract not deployed');
+    expect(result.proposal.status === 5, 'Proposal not in APPROVED status');
     const gracePeriodEnd = Number(result.proposal.gracePeriodEnd);
+    expect(!Number.isNaN(gracePeriodEnd), 'Invalid grace period end');
     const now = Math.floor(Date.now() / 1000);
-    return { result: { proposalId, inGracePeriod: now < gracePeriodEnd, gracePeriodEnds: new Date(gracePeriodEnd * 1000).toISOString(), timeRemaining: `${Math.max(0, gracePeriodEnd - now)} seconds` }, isError: false };
+    return { result: { proposalId: validated, inGracePeriod: now < gracePeriodEnd, gracePeriodEnds: new Date(gracePeriodEnd * 1000).toISOString(), timeRemaining: `${Math.max(0, gracePeriodEnd - now)} seconds` }, isError: false };
   }
 
   getRouter(): Hono { return this.app; }

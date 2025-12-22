@@ -1,5 +1,43 @@
 import { z } from 'zod';
-import { AddressSchema } from './contracts';
+import { AddressSchema } from './validation';
+
+// ============================================================================
+// Staking Status Types
+// ============================================================================
+
+/**
+ * Staking operation status
+ * Consolidates staking status definitions
+ */
+export type StakeStatus = 
+  | 'idle'      // Not staked
+  | 'pending'   // Stake transaction pending
+  | 'complete'  // Successfully staked
+  | 'error';    // Staking failed
+
+// ============================================================================
+// DEX Protocol Types
+// ============================================================================
+
+/**
+ * Supported DEX protocols across the Jeju ecosystem
+ * Consolidates all DEX protocol definitions into a single source of truth
+ */
+export type DexProtocol = 
+  | 'uniswap-v2' 
+  | 'uniswap-v3' 
+  | 'sushiswap' 
+  | 'curve' 
+  | 'balancer'
+  | 'pancakeswap-v2'
+  | 'pancakeswap-v3'
+  | 'xlp-v2'
+  | 'xlp-v3'
+  | 'tfmm';
+
+// ============================================================================
+// Token Types
+// ============================================================================
 
 export const TokenSchema = z.object({
   address: AddressSchema,

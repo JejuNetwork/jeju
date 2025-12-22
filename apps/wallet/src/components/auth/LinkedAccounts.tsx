@@ -10,7 +10,7 @@
 
 import { useState } from 'react';
 import { Chrome, Apple, Twitter, Github, MessageCircle, Wallet, Plus, Trash2, Shield, Loader2, Check, AlertTriangle } from 'lucide-react';
-import { useAuth, type AuthProvider, type LinkedProvider } from '../../hooks/useAuth';
+import { useAuth, type AuthProvider } from '../../hooks/useAuth';
 
 const PROVIDER_INFO: Record<AuthProvider, { name: string; icon: React.ComponentType<{ className?: string }>; color: string; description: string }> = {
   wallet: { name: 'Wallet', icon: Wallet, color: 'text-orange-400', description: 'Ethereum wallet' },

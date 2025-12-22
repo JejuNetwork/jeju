@@ -7,7 +7,7 @@
  * FULLY DECENTRALIZED - All compute/storage goes through DWS network
  */
 
-import { getDWSComputeUrl, getKMSUrl, getCurrentNetwork } from '@jejunetwork/config';
+import { getDWSComputeUrl, getKMSUrl } from '@jejunetwork/config';
 import { keccak256, stringToHex, parseEther, formatEther, type Address } from 'viem';
 import {
   BountySeverity,
@@ -22,6 +22,7 @@ import {
   type BountyPoolStats,
   SEVERITY_REWARDS,
 } from './types';
+import { expect, expectDefined } from './schemas';
 
 // ============ Configuration (Network-Aware) ============
 
@@ -112,22 +113,32 @@ async function encryptReport(report: string): Promise<EncryptedReport> {
 
   // Production: MPC KMS is REQUIRED for encryption (decentralized)
   const kmsEndpoint = getKMSEndpoint();
-  const response = await fetch(`${kmsEndpoint}/api/encrypt`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      data: report,
-      keyType: 'mpc',
-      threshold: 3,
-      parties: 5,
-    }),
-  }).catch(() => null);
+  let response: Response;
+  try {
+    response = await fetch(`${kmsEndpoint}/api/encrypt`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        data: report,
+        keyType: 'mpc',
+        threshold: 3,
+        parties: 5,
+      }),
+    });
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    throw new Error(`MPC KMS connection failed: ${errorMessage}`);
+  }
 
-  if (!response?.ok) {
-    throw new Error('MPC KMS unavailable - cannot securely encrypt vulnerability report');
+  if (!response.ok) {
+    const errorBody = await response.text().catch(() => 'unknown error');
+    throw new Error(`MPC KMS encryption failed: ${response.status} ${response.statusText} - ${errorBody}`);
   }
 
   const result = await response.json() as { cid: string; keyId: string; encryptedData: string };
+  if (!result.cid || !result.keyId || !result.encryptedData) {
+    throw new Error('MPC KMS response missing required fields (cid, keyId, encryptedData)');
+  }
   return result;
 }
 
@@ -245,6 +256,15 @@ export async function submitBounty(
   researcher: Address,
   researcherAgentId: bigint
 ): Promise<BountySubmission> {
+  expectDefined(draft.title, 'Title is required');
+  expectDefined(draft.summary, 'Summary is required');
+  expectDefined(draft.description, 'Description is required');
+  expect(draft.title.length >= 10, `Title must be at least 10 characters, got ${draft.title.length}`);
+  expect(draft.summary.length >= 50, `Summary must be at least 50 characters, got ${draft.summary.length}`);
+  expect(draft.description.length >= 200, `Description must be at least 200 characters, got ${draft.description.length}`);
+  expect(draft.affectedComponents.length > 0, 'At least one affected component is required');
+  expect(draft.stepsToReproduce.length >= 2, 'At least 2 steps to reproduce are required');
+  expect(researcherAgentId >= 0n, `Researcher agent ID must be non-negative, got ${researcherAgentId.toString()}`);
   // Rate limiting - prevent spam
   checkRateLimit(researcher);
 
@@ -280,7 +300,7 @@ export async function submitBounty(
     stringToHex(`${submissionCounter++}-${researcher}-${Date.now()}`)
   );
 
-  const stake = parseEther(draft.stake || '0.01');
+  const stake = parseEther('0.01'); // Default stake amount
 
   const submission: BountySubmission = {
     submissionId,
@@ -302,7 +322,7 @@ export async function submitBounty(
     validatedAt: 0,
     resolvedAt: 0,
     status: BountySubmissionStatus.PENDING,
-    validationResult: ValidationResult.PENDING,
+    validationResult: ValidationResult.NEEDS_REVIEW,
     validationNotes: '',
     rewardAmount: 0n,
     guardianApprovals: 0,
@@ -322,9 +342,11 @@ export async function submitBounty(
   const stats = researcherStats.get(researcher) ?? {
     address: researcher,
     totalSubmissions: 0,
-    approvedCount: 0,
+    approvedSubmissions: 0,
+    rejectedSubmissions: 0,
     totalEarned: 0n,
-    reputation: 50,
+    averageReward: 0n,
+    successRate: 0,
   };
   stats.totalSubmissions++;
   researcherStats.set(researcher, stats);
@@ -338,6 +360,8 @@ export async function submitBounty(
 }
 
 export function getSubmission(submissionId: string): BountySubmission | null {
+  expectDefined(submissionId, 'Submission ID is required');
+  expect(submissionId.length > 0, `Submission ID cannot be empty`);
   return submissions.get(submissionId) ?? null;
 }
 
@@ -369,51 +393,68 @@ export function listSubmissions(filter?: {
 // ============ Validation (Decentralized via DWS) ============
 
 export async function triggerValidation(submissionId: string): Promise<void> {
+  expectDefined(submissionId, 'Submission ID is required');
+  expect(submissionId.length > 0, `Submission ID cannot be empty`);
   const submission = submissions.get(submissionId);
-  if (!submission) throw new Error(`Submission ${submissionId} not found`);
+  expect(submission !== null && submission !== undefined, `Submission ${submissionId} not found`);
 
   submission.status = BountySubmissionStatus.VALIDATING;
   submissions.set(submissionId, submission);
 
   // Trigger DWS compute sandbox job (decentralized container execution)
   const dwsEndpoint = getDWSEndpoint();
-  const response = await fetch(`${dwsEndpoint}/api/containers/execute`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      imageRef: 'jeju/security-sandbox:latest',
-      command: ['validate-vulnerability'],
-      env: {
-        SUBMISSION_ID: submissionId,
-        POC_HASH: submission.proofOfConceptHash,
-        SEVERITY: String(submission.severity),
-        VULN_TYPE: String(submission.vulnType),
-      },
-      resources: {
-        cpuCores: 2,
-        memoryMb: 4096,
-        storageMb: 1024,
-      },
-      mode: 'serverless',
-      timeout: 3600, // 1 hour max
-    }),
-  }).catch(() => null);
+  let response: Response | null = null;
+  let connectionError: string | null = null;
+  
+  try {
+    response = await fetch(`${dwsEndpoint}/api/containers/execute`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        imageRef: 'jeju/security-sandbox:latest',
+        command: ['validate-vulnerability'],
+        env: {
+          SUBMISSION_ID: submissionId,
+          POC_HASH: submission.proofOfConceptHash,
+          SEVERITY: String(submission.severity),
+          VULN_TYPE: String(submission.vulnType),
+        },
+        resources: {
+          cpuCores: 2,
+          memoryMb: 4096,
+          storageMb: 1024,
+        },
+        mode: 'serverless',
+        timeout: 3600, // 1 hour max
+      }),
+    });
+  } catch (err) {
+    connectionError = err instanceof Error ? err.message : String(err);
+  }
 
   if (response?.ok) {
     const result = await response.json() as { executionId: string };
+    if (!result.executionId) {
+      console.warn(`[BugBounty] DWS returned success but missing executionId`);
+    }
     console.log(`[BugBounty] Validation job started: ${result.executionId}`);
   } else if (TEST_MODE) {
     // Test mode: move to guardian review for testing
     console.log('[BugBounty] TEST MODE: Skipping DWS validation');
     submission.status = BountySubmissionStatus.GUARDIAN_REVIEW;
-    submission.validationResult = ValidationResult.LIKELY_VALID;
+    submission.validationResult = ValidationResult.VALID;
     submission.validationNotes = 'TEST MODE: Validation skipped';
     submissions.set(submissionId, submission);
   } else {
     // Production: DWS unavailable - keep in VALIDATING status, require manual validation
     // NO automatic approval when infrastructure is down - fail safe
-    console.log('[BugBounty] DWS unavailable - submission pending manual validation');
-    submission.validationNotes = 'Automated validation unavailable - awaiting manual review';
+    const errorDetail = connectionError 
+      ? `Connection error: ${connectionError}` 
+      : response 
+        ? `HTTP ${response.status}: ${response.statusText}` 
+        : 'Unknown error';
+    console.log(`[BugBounty] DWS unavailable (${errorDetail}) - submission pending manual validation`);
+    submission.validationNotes = `Automated validation unavailable (${errorDetail}) - awaiting manual review`;
     submissions.set(submissionId, submission);
   }
 }
@@ -423,23 +464,26 @@ export function completeValidation(
   result: ValidationResult,
   notes: string
 ): BountySubmission {
+  expectDefined(submissionId, 'Submission ID is required');
+  expect(submissionId.length > 0, `Submission ID cannot be empty`);
+  expectDefined(notes, 'Validation notes are required');
   const submission = submissions.get(submissionId);
-  if (!submission) throw new Error(`Submission ${submissionId} not found`);
+  expect(submission !== null && submission !== undefined, `Submission ${submissionId} not found`);
 
   submission.validatedAt = Math.floor(Date.now() / 1000);
   submission.validationResult = result;
   submission.validationNotes = notes;
 
-  if (result === ValidationResult.VERIFIED || result === ValidationResult.LIKELY_VALID) {
+  if (result === ValidationResult.VALID) {
     submission.status = BountySubmissionStatus.GUARDIAN_REVIEW;
     console.log(`[BugBounty] Validation passed, moving to guardian review: ${submissionId.slice(0, 12)}...`);
   } else if (result === ValidationResult.INVALID) {
     submission.status = BountySubmissionStatus.REJECTED;
     submission.resolvedAt = Math.floor(Date.now() / 1000);
     console.log(`[BugBounty] Validation failed, rejected: ${submissionId.slice(0, 12)}...`);
-  } else if (result === ValidationResult.NEEDS_MORE_INFO) {
+  } else if (result === ValidationResult.NEEDS_REVIEW) {
     submission.status = BountySubmissionStatus.PENDING;
-    console.log(`[BugBounty] Needs more info: ${submissionId.slice(0, 12)}...`);
+    console.log(`[BugBounty] Needs more review: ${submissionId.slice(0, 12)}...`);
   }
 
   submissions.set(submissionId, submission);
@@ -456,16 +500,19 @@ export function submitGuardianVote(
   suggestedReward: bigint,
   feedback: string
 ): BountyGuardianVote {
+  expectDefined(submissionId, 'Submission ID is required');
+  expect(submissionId.length > 0, `Submission ID cannot be empty`);
+  expectDefined(feedback, 'Feedback is required');
+  expect(feedback.length >= 10, `Feedback must be at least 10 characters, got ${feedback.length}`);
+  expect(suggestedReward >= 0n, `Suggested reward must be non-negative, got ${suggestedReward.toString()}`);
+  expect(agentId >= 0n, `Agent ID must be non-negative, got ${agentId.toString()}`);
+  
   const submission = submissions.get(submissionId);
-  if (!submission) throw new Error(`Submission ${submissionId} not found`);
-  if (submission.status !== BountySubmissionStatus.GUARDIAN_REVIEW) {
-    throw new Error('Submission not in guardian review');
-  }
+  expect(submission !== null && submission !== undefined, `Submission ${submissionId} not found`);
+  expect(submission.status === BountySubmissionStatus.GUARDIAN_REVIEW, 'Submission not in guardian review');
 
   const existingVotes = guardianVotes.get(submissionId) ?? [];
-  if (existingVotes.some(v => v.guardian.toLowerCase() === guardian.toLowerCase())) {
-    throw new Error('Guardian already voted');
-  }
+  expect(!existingVotes.some(v => v.guardian.toLowerCase() === guardian.toLowerCase()), 'Guardian already voted');
 
   const vote: BountyGuardianVote = {
     submissionId,
@@ -524,6 +571,8 @@ function getRequiredApprovals(severity: BountySeverity): number {
 }
 
 export function getGuardianVotes(submissionId: string): BountyGuardianVote[] {
+  expectDefined(submissionId, 'Submission ID is required');
+  expect(submissionId.length > 0, `Submission ID cannot be empty`);
   return guardianVotes.get(submissionId) ?? [];
 }
 
@@ -535,11 +584,15 @@ export function ceoDecision(
   rewardAmount: bigint,
   notes: string
 ): BountySubmission {
+  expectDefined(submissionId, 'Submission ID is required');
+  expect(submissionId.length > 0, `Submission ID cannot be empty`);
+  expectDefined(notes, 'CEO decision notes are required');
+  expect(notes.length >= 10, `Notes must be at least 10 characters, got ${notes.length}`);
+  expect(rewardAmount >= 0n, `Reward amount must be non-negative, got ${rewardAmount.toString()}`);
+  
   const submission = submissions.get(submissionId);
-  if (!submission) throw new Error(`Submission ${submissionId} not found`);
-  if (submission.status !== BountySubmissionStatus.CEO_REVIEW) {
-    throw new Error('Submission not in CEO review');
-  }
+  expect(submission !== null && submission !== undefined, `Submission ${submissionId} not found`);
+  expect(submission.status === BountySubmissionStatus.CEO_REVIEW, 'Submission not in CEO review');
 
   if (approved) {
     submission.status = BountySubmissionStatus.APPROVED;
@@ -549,8 +602,9 @@ export function ceoDecision(
     // Update researcher stats
     const stats = researcherStats.get(submission.researcher);
     if (stats) {
-      stats.approvedCount++;
-      stats.reputation = Math.min(100, stats.reputation + 10);
+      stats.approvedSubmissions++;
+      stats.totalSubmissions++;
+      stats.successRate = Math.round((stats.approvedSubmissions / stats.totalSubmissions) * 100);
       researcherStats.set(submission.researcher, stats);
     }
 
@@ -569,11 +623,13 @@ export function ceoDecision(
 // ============ Payout ============
 
 export async function payReward(submissionId: string): Promise<{ txHash: string; amount: bigint }> {
+  expectDefined(submissionId, 'Submission ID is required');
+  expect(submissionId.length > 0, `Submission ID cannot be empty`);
+  
   const submission = submissions.get(submissionId);
-  if (!submission) throw new Error(`Submission ${submissionId} not found`);
-  if (submission.status !== BountySubmissionStatus.APPROVED) {
-    throw new Error('Submission not approved');
-  }
+  expect(submission !== null && submission !== undefined, `Submission ${submissionId} not found`);
+  expect(submission.status === BountySubmissionStatus.APPROVED, 'Submission not approved');
+  expect(submission.rewardAmount > 0n, `Reward amount must be positive, got ${submission.rewardAmount.toString()}`);
 
   // In production, this would interact with the smart contract
   // For now, mark as paid
@@ -598,8 +654,13 @@ export async function payReward(submissionId: string): Promise<{ txHash: string;
 // ============ Disclosure ============
 
 export function recordFix(submissionId: string, commitHash: string): BountySubmission {
+  expectDefined(submissionId, 'Submission ID is required');
+  expect(submissionId.length > 0, `Submission ID cannot be empty`);
+  expectDefined(commitHash, 'Commit hash is required');
+  expect(commitHash.match(/^[a-f0-9]{40}$/) !== null, `Invalid commit hash format: ${commitHash}`);
+  
   const submission = submissions.get(submissionId);
-  if (!submission) throw new Error(`Submission ${submissionId} not found`);
+  expect(submission !== null && submission !== undefined, `Submission ${submissionId} not found`);
 
   submission.fixCommitHash = commitHash;
   submission.disclosureDate = Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60; // 7 days grace
@@ -611,11 +672,12 @@ export function recordFix(submissionId: string, commitHash: string): BountySubmi
 }
 
 export function researcherDisclose(submissionId: string, researcher: Address): BountySubmission {
+  expectDefined(submissionId, 'Submission ID is required');
+  expect(submissionId.length > 0, `Submission ID cannot be empty`);
+  
   const submission = submissions.get(submissionId);
-  if (!submission) throw new Error(`Submission ${submissionId} not found`);
-  if (submission.researcher.toLowerCase() !== researcher.toLowerCase()) {
-    throw new Error('Not the researcher');
-  }
+  expect(submission !== null && submission !== undefined, `Submission ${submissionId} not found`);
+  expect(submission.researcher.toLowerCase() === researcher.toLowerCase(), 'Not the researcher');
 
   submission.researcherDisclosed = true;
   if (submission.fixCommitHash) {
@@ -629,12 +691,16 @@ export function researcherDisclose(submissionId: string, researcher: Address): B
 // ============ Stats ============
 
 export function getResearcherStats(address: Address): ResearcherStats {
+  expectDefined(address, 'Researcher address is required');
+  expect(address.match(/^0x[a-fA-F0-9]{40}$/) !== null, `Invalid address format: ${address}`);
   return researcherStats.get(address) ?? {
     address,
     totalSubmissions: 0,
-    approvedCount: 0,
+    approvedSubmissions: 0,
+    rejectedSubmissions: 0,
     totalEarned: 0n,
-    reputation: 50,
+    averageReward: 0n,
+    successRate: 0,
   };
 }
 

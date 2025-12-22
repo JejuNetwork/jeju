@@ -9,7 +9,7 @@
 
 import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
 import type { Address, Hex } from 'viem';
-import { existsSync, readFileSync, writeFileSync, chmodSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, chmodSync, mkdirSync } from 'fs';
 import { join } from 'path';
 
 export interface NodeIdentity {
@@ -147,7 +147,7 @@ export class NodeAuth {
       const mkdirp = (p: string) => {
         if (!existsSync(p)) {
           mkdirp(p.split('/').slice(0, -1).join('/'));
-          require('fs').mkdirSync(p);
+          mkdirSync(p);
         }
       };
       mkdirp(dir);

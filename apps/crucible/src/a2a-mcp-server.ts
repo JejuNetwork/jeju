@@ -9,22 +9,11 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { createAgentCard, getServiceName } from '@jejunetwork/shared';
 import { getCliBranding } from '@jejunetwork/config';
+import { parseOrThrow, expect, A2ARequestSchema, MCPResourceReadRequestSchema, MCPToolCallRequestSchema } from './schemas';
 
 // ============================================================================
 // Types
 // ============================================================================
-
-interface A2ARequest {
-  jsonrpc: string;
-  method: string;
-  params?: {
-    message?: {
-      messageId: string;
-      parts: Array<{ kind: string; text?: string; data?: Record<string, unknown> }>;
-    };
-  };
-  id: number | string;
-}
 
 // ============================================================================
 // Configuration
@@ -147,20 +136,22 @@ export function createCrucibleA2AServer(): Hono {
   app.get('/.well-known/agent-card.json', (c) => c.json(AGENT_CARD));
 
   app.post('/', async (c) => {
-    const body = await c.req.json<A2ARequest>();
+    const rawBody = await c.req.json();
+    const body = parseOrThrow(A2ARequestSchema, rawBody, 'A2A request');
 
     if (body.method !== 'message/send') {
       return c.json({ jsonrpc: '2.0', id: body.id, error: { code: -32601, message: 'Method not found' } });
     }
 
     const message = body.params?.message;
-    const dataPart = message?.parts?.find((p) => p.kind === 'data');
-    if (!dataPart?.data) {
-      return c.json({ jsonrpc: '2.0', id: body.id, error: { code: -32602, message: 'No data part' } });
-    }
+    const validMessage = expect(message, 'Message is required');
+    const dataPart = validMessage.parts.find((p) => p.kind === 'data');
+    const validDataPart = expect(dataPart, 'Data part is required');
+    const validData = expect(validDataPart.data, 'Data part data is required');
+    expect(typeof validData.skillId === 'string', 'Skill ID must be a string');
 
-    const skillId = dataPart.data.skillId as string;
-    const result = await executeA2ASkill(skillId, dataPart.data);
+    const skillId = validData.skillId as string;
+    const result = await executeA2ASkill(skillId, validData);
 
     return c.json({
       jsonrpc: '2.0',
@@ -171,7 +162,7 @@ export function createCrucibleA2AServer(): Hono {
           { kind: 'text', text: result.message },
           { kind: 'data', data: result.data },
         ],
-        messageId: message?.messageId,
+        messageId: validMessage.messageId,
         kind: 'message',
       },
     });
@@ -214,10 +205,19 @@ export function createCrucibleMCPServer(): Hono {
   app.post('/resources/list', (c) => c.json({ resources: MCP_RESOURCES }));
 
   app.post('/resources/read', async (c) => {
-    const { uri } = await c.req.json() as { uri: string };
-    let contents: unknown = {};
+    const rawBody = await c.req.json();
+    const body = parseOrThrow(MCPResourceReadRequestSchema, rawBody, 'MCP resource read request');
 
-    switch (uri) {
+    type ResourceContent = 
+      | { providers: string[] }
+      | { nodes: string[] }
+      | { models: string[] }
+      | { jobs: string[] }
+      | { cpu: number; gpu: number; memory: number };
+
+    let contents: ResourceContent;
+
+    switch (body.uri) {
       case 'crucible://providers': contents = { providers: [] }; break;
       case 'crucible://tee-nodes': contents = { nodes: [] }; break;
       case 'crucible://models': contents = { models: [] }; break;
@@ -226,28 +226,42 @@ export function createCrucibleMCPServer(): Hono {
       default: return c.json({ error: 'Resource not found' }, 404);
     }
 
-    return c.json({ contents: [{ uri, mimeType: 'application/json', text: JSON.stringify(contents) }] });
+    return c.json({ contents: [{ uri: body.uri, mimeType: 'application/json', text: JSON.stringify(contents) }] });
   });
 
   app.post('/tools/list', (c) => c.json({ tools: MCP_TOOLS }));
 
   app.post('/tools/call', async (c) => {
-    const { name, arguments: args } = await c.req.json() as { name: string; arguments: Record<string, unknown> };
-    let result: unknown = {};
+    const rawBody = await c.req.json();
+    const body = parseOrThrow(MCPToolCallRequestSchema, rawBody, 'MCP tool call request');
 
-    switch (name) {
+    type ToolResult = 
+      | { jobId: string; status: string; estimatedCost: number }
+      | { requestId: string; model: string; status: string }
+      | { deploymentId: string; status: string }
+      | { jobId: string; status: string; progress: number };
+
+    let result: ToolResult;
+
+    switch (body.name) {
       case 'request_compute':
         result = { jobId: crypto.randomUUID(), status: 'pending', estimatedCost: 1.50 };
         break;
-      case 'run_inference':
-        result = { requestId: crypto.randomUUID(), model: args.model, status: 'queued' };
+      case 'run_inference': {
+        const args = expect(body.arguments, 'Arguments are required for run_inference');
+        expect(typeof args.model === 'string', 'Model is required for run_inference');
+        result = { requestId: crypto.randomUUID(), model: args.model as string, status: 'queued' };
         break;
+      }
       case 'deploy_to_tee':
         result = { deploymentId: crypto.randomUUID(), status: 'deploying' };
         break;
-      case 'get_job_status':
-        result = { jobId: args.jobId, status: 'running', progress: 50 };
+      case 'get_job_status': {
+        const args = expect(body.arguments, 'Arguments are required for get_job_status');
+        expect(args.jobId, 'Job ID is required for get_job_status');
+        result = { jobId: args.jobId as string, status: 'running', progress: 50 };
         break;
+      }
       default:
         return c.json({ content: [{ type: 'text', text: 'Tool not found' }], isError: true });
     }

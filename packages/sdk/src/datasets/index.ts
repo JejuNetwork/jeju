@@ -163,7 +163,11 @@ export interface DatasetsModule {
   getSchema(datasetId: Hex): Promise<DatasetColumn[]>;
 
   // Download
-  getDownloadUrl(datasetId: Hex, version?: string, split?: string): Promise<string>;
+  getDownloadUrl(
+    datasetId: Hex,
+    version?: string,
+    split?: string,
+  ): Promise<string>;
   downloadDataset(datasetId: Hex, version?: string): Promise<Blob>;
   streamDataset(
     datasetId: Hex,
@@ -178,10 +182,19 @@ export interface DatasetsModule {
   requestAccess(datasetId: Hex): Promise<{ txHash: Hex }>;
 
   // Write Operations
-  createDataset(params: CreateDatasetParams): Promise<{ txHash: Hex; datasetId: Hex }>;
-  publishVersion(params: PublishDatasetVersionParams): Promise<{ txHash: Hex; versionId: Hex }>;
-  uploadDataset(params: UploadDatasetParams): Promise<{ txHash: Hex; datasetId: Hex }>;
-  updateMetadata(datasetId: Hex, updates: Partial<CreateDatasetParams>): Promise<{ txHash: Hex }>;
+  createDataset(
+    params: CreateDatasetParams,
+  ): Promise<{ txHash: Hex; datasetId: Hex }>;
+  publishVersion(
+    params: PublishDatasetVersionParams,
+  ): Promise<{ txHash: Hex; versionId: Hex }>;
+  uploadDataset(
+    params: UploadDatasetParams,
+  ): Promise<{ txHash: Hex; datasetId: Hex }>;
+  updateMetadata(
+    datasetId: Hex,
+    updates: Partial<CreateDatasetParams>,
+  ): Promise<{ txHash: Hex }>;
 
   // Metrics
   recordDownload(datasetId: Hex): Promise<{ txHash: Hex }>;
@@ -192,10 +205,14 @@ export interface DatasetsModule {
   }>;
 
   // Preview
-  preview(datasetId: Hex, version?: string, options?: {
-    rows?: number;
-    split?: string;
-  }): Promise<{
+  preview(
+    datasetId: Hex,
+    version?: string,
+    options?: {
+      rows?: number;
+      split?: string;
+    },
+  ): Promise<{
     columns: DatasetColumn[];
     rows: Record<string, unknown>[];
     totalRows: bigint;
@@ -232,8 +249,10 @@ export function createDatasetsModule(
 ): DatasetsModule {
   const services = getServicesConfig(network);
   const contracts = getContractAddresses(network);
-  const datasetRegistryAddress = (contracts.datasetRegistry ||
-    "0x0000000000000000000000000000000000000000") as Address;
+  if (!contracts.datasetRegistry) {
+    throw new Error(`DatasetRegistry contract not deployed on ${network}`);
+  }
+  const datasetRegistryAddress = contracts.datasetRegistry;
   const baseUrl = `${services.factory.api}/api/datasets`;
 
   async function buildAuthHeaders(): Promise<Record<string, string>> {
@@ -249,7 +268,10 @@ export function createDatasetsModule(
     };
   }
 
-  async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
+  async function apiRequest<T>(
+    path: string,
+    options: RequestInit = {},
+  ): Promise<T> {
     const headers = await buildAuthHeaders();
     const response = await fetch(`${baseUrl}${path}`, {
       ...options,
@@ -266,12 +288,12 @@ export function createDatasetsModule(
 
   return {
     async getDataset(datasetId) {
-      const data = await wallet.publicClient.readContract({
+      const data = (await wallet.publicClient.readContract({
         address: datasetRegistryAddress,
         abi: DATASET_REGISTRY_ABI,
         functionName: "getDataset",
         args: [datasetId],
-      }) as {
+      })) as {
         datasetId: Hex;
         name: string;
         organization: string;
@@ -320,11 +342,14 @@ export function createDatasetsModule(
 
     async listDatasets(options = {}) {
       const params = new URLSearchParams();
-      if (options.format !== undefined) params.set("format", options.format.toString());
+      if (options.format !== undefined)
+        params.set("format", options.format.toString());
       if (options.organization) params.set("org", options.organization);
       if (options.search) params.set("q", options.search);
-      if (options.offset !== undefined) params.set("offset", options.offset.toString());
-      if (options.limit !== undefined) params.set("limit", options.limit.toString());
+      if (options.offset !== undefined)
+        params.set("offset", options.offset.toString());
+      if (options.limit !== undefined)
+        params.set("limit", options.limit.toString());
 
       return apiRequest<Dataset[]>(`?${params}`);
     },
@@ -334,22 +359,22 @@ export function createDatasetsModule(
     },
 
     async getTotalDatasets() {
-      const total = await wallet.publicClient.readContract({
+      const total = (await wallet.publicClient.readContract({
         address: datasetRegistryAddress,
         abi: DATASET_REGISTRY_ABI,
         functionName: "getTotalDatasets",
         args: [],
-      }) as bigint;
+      })) as bigint;
       return Number(total);
     },
 
     async getVersions(datasetId) {
-      const versions = await wallet.publicClient.readContract({
+      const versions = (await wallet.publicClient.readContract({
         address: datasetRegistryAddress,
         abi: DATASET_REGISTRY_ABI,
         functionName: "getVersions",
         args: [datasetId],
-      }) as readonly {
+      })) as readonly {
         versionId: Hex;
         datasetId: Hex;
         version: string;
@@ -377,12 +402,12 @@ export function createDatasetsModule(
     },
 
     async getLatestVersion(datasetId) {
-      const v = await wallet.publicClient.readContract({
+      const v = (await wallet.publicClient.readContract({
         address: datasetRegistryAddress,
         abi: DATASET_REGISTRY_ABI,
         functionName: "getLatestVersion",
         args: [datasetId],
-      }) as {
+      })) as {
         versionId: Hex;
         datasetId: Hex;
         version: string;
@@ -451,14 +476,19 @@ export function createDatasetsModule(
     async *streamDataset(datasetId, version, options = {}) {
       const params = new URLSearchParams();
       if (version) params.set("version", version);
-      if (options.offset !== undefined) params.set("offset", options.offset.toString());
-      if (options.limit !== undefined) params.set("limit", options.limit.toString());
+      if (options.offset !== undefined)
+        params.set("offset", options.offset.toString());
+      if (options.limit !== undefined)
+        params.set("limit", options.limit.toString());
       if (options.split) params.set("split", options.split);
 
       const headers = await buildAuthHeaders();
-      const response = await fetch(`${baseUrl}/id/${datasetId}/stream?${params}`, {
-        headers,
-      });
+      const response = await fetch(
+        `${baseUrl}/id/${datasetId}/stream?${params}`,
+        {
+          headers,
+        },
+      );
 
       if (!response.ok || !response.body) {
         throw new Error(`Failed to stream dataset: ${response.statusText}`);
@@ -595,7 +625,8 @@ export function createDatasetsModule(
 
       if (params.splits) {
         if (params.splits.train) formData.append("train", params.splits.train);
-        if (params.splits.validation) formData.append("validation", params.splits.validation);
+        if (params.splits.validation)
+          formData.append("validation", params.splits.validation);
         if (params.splits.test) formData.append("test", params.splits.test);
       }
 
@@ -612,7 +643,7 @@ export function createDatasetsModule(
         throw new Error(`Failed to upload dataset: ${response.statusText}`);
       }
 
-      const result = await response.json() as { txHash: Hex; datasetId: Hex };
+      const result = (await response.json()) as { txHash: Hex; datasetId: Hex };
       return result;
     },
 
@@ -658,4 +689,3 @@ export function createDatasetsModule(
     },
   };
 }
-

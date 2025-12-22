@@ -5,9 +5,9 @@
  */
 
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
-import { createJejuClient, type JejuClient, PositionSide, OrderType } from "../../src";
+import { createJejuClient, type JejuClient } from "../../src";
 import { privateKeyToAccount } from "viem/accounts";
-import { parseEther, type Hex } from "viem";
+import type { Hex } from "viem";
 import { setupTestEnvironment, teardownTestEnvironment } from "../setup";
 
 describe("Perps Module Integration Tests", () => {
@@ -31,11 +31,11 @@ describe("Perps Module Integration Tests", () => {
       rpcUrl: env.rpcUrl,
       smartAccount: false,
     });
-  }, 90000);
+  });
 
   afterAll(async () => {
     await teardownTestEnvironment();
-  }, 10000);
+  });
 
   describe("Constants", () => {
     test("MAX_LEVERAGE is 50", () => {

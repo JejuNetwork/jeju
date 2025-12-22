@@ -22,7 +22,7 @@ infraCommand
   .command('start')
   .description('Start all local development infrastructure (Docker, services, localnet)')
   .option('--no-localnet', 'Skip starting localnet')
-  .action(async (options: { localnet?: boolean }) => {
+  .action(async (_options: { localnet?: boolean }) => {
     const rootDir = findMonorepoRoot();
     const infra = createInfrastructureService(rootDir);
     

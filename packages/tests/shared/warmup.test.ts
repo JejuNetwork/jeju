@@ -4,7 +4,7 @@
 
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import { discoverAppsForWarmup, warmupApps, quickWarmup } from './warmup';
-import { existsSync, mkdirSync, writeFileSync, rmSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'fs';
 import { join } from 'path';
 
 const TEST_DIR = '/tmp/jeju-warmup-test';
@@ -294,7 +294,7 @@ describe('Warmup - Real World Discovery', () => {
       const pkgPath = join(dir, 'package.json');
       if (existsSync(pkgPath)) {
         try {
-          const pkg = JSON.parse(require('fs').readFileSync(pkgPath, 'utf-8'));
+          const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
           if (pkg.name === 'jeju') return dir;
         } catch {
           // Continue searching

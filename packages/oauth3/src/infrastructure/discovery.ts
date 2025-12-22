@@ -6,8 +6,8 @@ import { createPublicClient, http, keccak256, toBytes, type PublicClient, type A
 import { AuthProvider, TEEProvider, type TEEAttestation } from '../types.js';
 import { OAuth3JNSService, createOAuth3JNSService, type OAuth3AppJNS } from './jns-integration.js';
 import { OAuth3StorageService, createOAuth3StorageService } from './storage-integration.js';
-import { OAuth3ComputeService, createOAuth3ComputeService, type ComputeProvider } from './compute-integration.js';
-import { OAUTH3_APP_REGISTRY_ABI, namehash } from './abis.js';
+import { OAuth3ComputeService, createOAuth3ComputeService } from './compute-integration.js';
+import { OAUTH3_APP_REGISTRY_ABI } from './abis.js';
 import { getContracts, DEFAULT_RPC, CACHE_EXPIRY_MS, ZERO_ADDRESS, CHAIN_IDS } from './config.js';
 
 export interface DecentralizedConfig {
@@ -313,12 +313,8 @@ export class OAuth3DecentralizedDiscovery {
     const storageHealthy = await this.storage.isHealthy();
     const storageLatency = Date.now() - storageStart;
 
-    let nodes: DiscoveredNode[] = [];
-    try {
-      nodes = await this.discoverNodes();
-    } catch {
-      // Node discovery failure shouldn't fail health check
-    }
+    // Node discovery - errors propagate from discoverNodes() which already handles them gracefully
+    const nodes = await this.discoverNodes().catch(() => [] as DiscoveredNode[]);
     
     return {
       chain: { healthy: chainHealthy, blockNumber, error: chainError },

@@ -3,7 +3,7 @@
  * List, buy, sell NFTs with multi-currency support
  */
 
-import { type Address, type Hex, type PublicClient, encodeFunctionData, parseUnits, createPublicClient, http } from 'viem';
+import { type Address, type Hex, type PublicClient, encodeFunctionData, createPublicClient, http } from 'viem';
 import { getChainContracts, getNetworkRpcUrl } from '../../sdk/chains';
 import { rpcService, type SupportedChainId, SUPPORTED_CHAINS } from '../rpc';
 

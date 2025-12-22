@@ -6,20 +6,23 @@
  */
 
 import { getCQL, type CQLClient } from '@jejunetwork/db';
-import { getCacheClient, type CacheClient } from '@jejunetwork/shared';
 import { getCurrentNetwork } from '@jejunetwork/config';
 
-const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'monitoring';
+// Environment config - warn if not set but use default for local dev
+const CQL_DATABASE_ID_ENV = process.env.CQL_DATABASE_ID;
+if (!CQL_DATABASE_ID_ENV) {
+  console.warn('⚠️ CQL_DATABASE_ID not set, defaulting to "monitoring"');
+}
+const databaseId = CQL_DATABASE_ID_ENV ?? 'monitoring';
 
 let cqlClient: CQLClient | null = null;
-let cacheClient: CacheClient | null = null;
 let initialized = false;
 
 async function getCQLClient(): Promise<CQLClient> {
   if (!cqlClient) {
     // CQL URL is automatically resolved from network config
     cqlClient = getCQL({
-      databaseId: CQL_DATABASE_ID,
+      databaseId,
       timeout: 30000,
       debug: process.env.NODE_ENV !== 'production',
     });
@@ -37,13 +40,6 @@ async function getCQLClient(): Promise<CQLClient> {
   }
   
   return cqlClient;
-}
-
-function getCache(): CacheClient {
-  if (!cacheClient) {
-    cacheClient = getCacheClient('monitoring');
-  }
-  return cacheClient;
 }
 
 async function ensureTablesExist(): Promise<void> {
@@ -95,11 +91,17 @@ async function ensureTablesExist(): Promise<void> {
   ];
   
   for (const ddl of tables) {
-    await cqlClient.exec(ddl, [], CQL_DATABASE_ID);
+    await cqlClient.exec(ddl, [], databaseId);
   }
   
   for (const idx of indexes) {
-    await cqlClient.exec(idx, [], CQL_DATABASE_ID).catch(() => {});
+    // Index creation may fail if index already exists - log but continue
+    await cqlClient.exec(idx, [], databaseId).catch((err: Error) => {
+      // Only log non-duplicate index errors
+      if (!err.message.includes('already exists')) {
+        console.warn(`[Monitoring State] Index creation warning: ${err.message}`);
+      }
+    });
   }
   
   console.log('[Monitoring State] CovenantSQL tables ensured');
@@ -184,7 +186,7 @@ export const alertState = {
         row.labels, row.annotations, row.started_at, row.resolved_at,
         row.duration_seconds, row.created_at,
       ],
-      CQL_DATABASE_ID
+      databaseId
     );
   },
   
@@ -212,12 +214,13 @@ export const alertState = {
     }
     
     const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-    values.push(params?.limit ?? 100);
+    const limit = params?.limit ?? 100;
+    values.push(limit);
     
     const result = await client.query<AlertRow>(
       `SELECT * FROM alert_history ${where} ORDER BY started_at DESC LIMIT ?`,
       values,
-      CQL_DATABASE_ID
+      databaseId
     );
     return result.rows;
   },
@@ -285,7 +288,7 @@ export const incidentState = {
         row.incident_id, row.title, row.description, row.severity,
         row.status, row.alert_ids, row.created_at,
       ],
-      CQL_DATABASE_ID
+      databaseId
     );
   },
   
@@ -300,7 +303,7 @@ export const incidentState = {
       `UPDATE incidents SET status = 'resolved', resolved_at = ?, root_cause = ?, resolution = ?, resolved_by = ?
        WHERE incident_id = ?`,
       [now, resolution.rootCause ?? null, resolution.resolution, resolution.resolvedBy, incidentId],
-      CQL_DATABASE_ID
+      databaseId
     );
   },
   
@@ -309,7 +312,7 @@ export const incidentState = {
     const result = await client.query<IncidentRow>(
       'SELECT * FROM incidents WHERE status = ? ORDER BY created_at DESC',
       ['open'],
-      CQL_DATABASE_ID
+      databaseId
     );
     return result.rows;
   },
@@ -338,12 +341,12 @@ export const healthState = {
       `INSERT INTO health_snapshots (id, timestamp, overall_health, service_statuses, metrics_summary, alerts_summary)
        VALUES (?, ?, ?, ?, ?, ?)`,
       [row.id, row.timestamp, row.overall_health, row.service_statuses, row.metrics_summary, row.alerts_summary],
-      CQL_DATABASE_ID
+      databaseId
     );
     
     // Keep only last 7 days of snapshots
     const cutoff = now - (7 * 24 * 60 * 60 * 1000);
-    await client.exec('DELETE FROM health_snapshots WHERE timestamp < ?', [cutoff], CQL_DATABASE_ID);
+    await client.exec('DELETE FROM health_snapshots WHERE timestamp < ?', [cutoff], databaseId);
   },
   
   async getLatest(): Promise<HealthSnapshotRow | null> {
@@ -351,7 +354,7 @@ export const healthState = {
     const result = await client.query<HealthSnapshotRow>(
       'SELECT * FROM health_snapshots ORDER BY timestamp DESC LIMIT 1',
       [],
-      CQL_DATABASE_ID
+      databaseId
     );
     return result.rows[0] ?? null;
   },

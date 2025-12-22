@@ -7,17 +7,22 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { AuthSession, PasskeyCredential } from './types';
 import { isPlatformAuthenticatorAvailable, isWebAuthnSupported } from './passkeys';
+import { parseStoredPasskeys, type StoredPasskeyCredential } from './schemas';
 
 /**
  * Hook to check if passkeys are available
  */
-export function usePasskeyAvailability() {
+export function usePasskeyAvailability(): {
+  isAvailable: boolean;
+  isPlatformAvailable: boolean;
+  isLoading: boolean;
+} {
   const [isAvailable, setIsAvailable] = useState(false);
   const [isPlatformAvailable, setIsPlatformAvailable] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    async function check() {
+    async function check(): Promise<void> {
       const webauthnSupported = isWebAuthnSupported();
       setIsAvailable(webauthnSupported);
       
@@ -28,16 +33,40 @@ export function usePasskeyAvailability() {
       
       setIsLoading(false);
     }
-    check();
+    void check();
   }, []);
 
   return { isAvailable, isPlatformAvailable, isLoading };
 }
 
+// Convert stored credential format to runtime format
+function toRuntimeCredential(stored: StoredPasskeyCredential): PasskeyCredential {
+  return {
+    ...stored,
+    publicKey: Uint8Array.from(atob(stored.publicKey), c => c.charCodeAt(0)),
+    transports: stored.transports as AuthenticatorTransport[] | undefined,
+  };
+}
+
+// Convert runtime credential to storage format
+function toStoredCredential(credential: PasskeyCredential): StoredPasskeyCredential {
+  return {
+    ...credential,
+    publicKey: btoa(String.fromCharCode(...credential.publicKey)),
+    transports: credential.transports,
+  };
+}
+
 /**
  * Hook to manage stored passkeys
  */
-export function usePasskeys() {
+export function usePasskeys(): {
+  credentials: PasskeyCredential[];
+  isLoading: boolean;
+  addCredential: (credential: PasskeyCredential) => void;
+  removeCredential: (id: string) => void;
+  updateCredential: (id: string, updates: Partial<PasskeyCredential>) => void;
+} {
   const [credentials, setCredentials] = useState<PasskeyCredential[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -46,31 +75,35 @@ export function usePasskeys() {
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
-      setCredentials(JSON.parse(stored));
+      const parsed = parseStoredPasskeys(stored);
+      setCredentials(parsed.map(toRuntimeCredential));
     }
     setIsLoading(false);
   }, []);
 
-  const addCredential = useCallback((credential: PasskeyCredential) => {
+  const addCredential = useCallback((credential: PasskeyCredential): void => {
     setCredentials(prev => {
       const updated = [...prev, credential];
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      const storedFormat = updated.map(toStoredCredential);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(storedFormat));
       return updated;
     });
   }, []);
 
-  const removeCredential = useCallback((id: string) => {
+  const removeCredential = useCallback((id: string): void => {
     setCredentials(prev => {
       const updated = prev.filter(c => c.id !== id);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      const storedFormat = updated.map(toStoredCredential);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(storedFormat));
       return updated;
     });
   }, []);
 
-  const updateCredential = useCallback((id: string, updates: Partial<PasskeyCredential>) => {
+  const updateCredential = useCallback((id: string, updates: Partial<PasskeyCredential>): void => {
     setCredentials(prev => {
       const updated = prev.map(c => c.id === id ? { ...c, ...updates } : c);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      const storedFormat = updated.map(toStoredCredential);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(storedFormat));
       return updated;
     });
   }, []);
@@ -87,7 +120,10 @@ export function usePasskeys() {
 /**
  * Hook to track session expiry
  */
-export function useSessionExpiry(session: AuthSession | null) {
+export function useSessionExpiry(session: AuthSession | null): {
+  isExpired: boolean;
+  expiresIn: number | null;
+} {
   const [isExpired, setIsExpired] = useState(false);
   const [expiresIn, setExpiresIn] = useState<number | null>(null);
 
@@ -98,7 +134,7 @@ export function useSessionExpiry(session: AuthSession | null) {
       return;
     }
 
-    const checkExpiry = () => {
+    const checkExpiry = (): void => {
       const remaining = session.expiresAt - Date.now();
       setExpiresIn(remaining);
       setIsExpired(remaining <= 0);
@@ -116,7 +152,11 @@ export function useSessionExpiry(session: AuthSession | null) {
 /**
  * Hook to detect wallet connection changes
  */
-export function useWalletConnectionStatus() {
+export function useWalletConnectionStatus(): {
+  isMetaMaskInstalled: boolean;
+  hasConnectedBefore: boolean;
+  markConnected: () => void;
+} {
   const [isMetaMaskInstalled, setIsMetaMaskInstalled] = useState(false);
   const [hasConnectedBefore, setHasConnectedBefore] = useState(false);
 
@@ -129,7 +169,7 @@ export function useWalletConnectionStatus() {
     setHasConnectedBefore(connected === 'true');
   }, []);
 
-  const markConnected = useCallback(() => {
+  const markConnected = useCallback((): void => {
     localStorage.setItem('jeju_wallet_connected', 'true');
     setHasConnectedBefore(true);
   }, []);
@@ -137,12 +177,18 @@ export function useWalletConnectionStatus() {
   return { isMetaMaskInstalled, hasConnectedBefore, markConnected };
 }
 
+// Ethereum provider types
+interface EthereumRequestParams {
+  method: string;
+  params?: Array<string | number | Record<string, string | number>>;
+}
+
 // Add ethereum type for window
 declare global {
   interface Window {
     ethereum?: {
       isMetaMask?: boolean;
-      request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+      request: (args: EthereumRequestParams) => Promise<string | string[]>;
     };
   }
 }

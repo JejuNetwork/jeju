@@ -227,16 +227,6 @@ releases:
       - ../helm/bundler/values.yaml
       - ../helm/bundler/values-{{ .Environment.Name }}.yaml
 
-  # Crucible (Agent Orchestration + MEV/Arbitrage Bots)
-  - name: crucible
-    namespace: jeju-apps
-    createNamespace: true
-    chart: ../helm/crucible
-    installed: {{ ne .Environment.Name "localnet" }}
-    values:
-      - ../helm/crucible/values.yaml
-      - ../helm/crucible/values-{{ .Environment.Name }}.yaml
-
   # RPC Gateway (Load Balancer + Rate Limiting)
   - name: rpc-gateway
     namespace: rpc
@@ -255,34 +245,6 @@ releases:
       - ../helm/subsquid/values.yaml
       - ../helm/subsquid/values-{{ .Environment.Name }}.yaml
 
-  # Bazaar (DeFi + NFT Marketplace)
-  - name: bazaar
-    namespace: jeju-apps
-    createNamespace: true
-    chart: ../helm/bazaar
-    installed: {{ ne .Environment.Name "localnet" }}
-    values:
-      - ../helm/bazaar/values.yaml
-      - ../helm/bazaar/values-{{ .Environment.Name }}.yaml
-
-  # Gateway (Protocol Infrastructure Hub)
-  - name: gateway
-    namespace: jeju-apps
-    chart: ../helm/gateway
-    installed: {{ ne .Environment.Name "localnet" }}
-    values:
-      - ../helm/gateway/values.yaml
-      - ../helm/gateway/values-{{ .Environment.Name }}.yaml
-
-  # Leaderboard (Analytics and Rankings)
-  - name: leaderboard
-    namespace: jeju-apps
-    chart: ../helm/leaderboard
-    installed: {{ ne .Environment.Name "localnet" }}
-    values:
-      - ../helm/leaderboard/values.yaml
-      - ../helm/leaderboard/values-{{ .Environment.Name }}.yaml
-
   # IPFS (Decentralized Storage)
   - name: ipfs
     namespace: jeju-apps
@@ -299,6 +261,7 @@ releases:
     installed: {{ ne .Environment.Name "localnet" }}
     values:
       - ../helm/op-supervisor/values.yaml
+      - ../helm/op-supervisor/values-{{ .Environment.Name }}.yaml
 
   # OP-Dispute-Mon (Fault Proof Monitoring)
   - name: op-dispute-mon
@@ -307,6 +270,7 @@ releases:
     installed: {{ ne .Environment.Name "localnet" }}
     values:
       - ../helm/op-dispute-mon/values.yaml
+      - ../helm/op-dispute-mon/values-{{ .Environment.Name }}.yaml
 
   # Blockscout (Block Explorer)
   - name: blockscout
@@ -317,14 +281,6 @@ releases:
     values:
       - ../helm/blockscout/values.yaml
       - ../helm/blockscout/values-{{ .Environment.Name }}.yaml
-
-  # Faucet (Testnet only)
-  - name: faucet
-    namespace: jeju-apps
-    chart: ../helm/faucet
-    installed: {{ eq .Environment.Name "testnet" }}
-    values:
-      - ../helm/faucet/values.yaml
 
   # ==========================================================================
   # Compute Services (AI, Workers, MPC)

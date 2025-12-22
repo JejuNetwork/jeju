@@ -4,9 +4,9 @@
  * Signs messages or typed data with security analysis.
  */
 
-import { WalletService } from '../services/wallet.service';
 import { SecurityService } from '../services/security.service';
 import type { ActionContext, ActionResult } from './wallet-info';
+import { expectNonEmpty } from '../../lib/validation';
 
 interface SignParams {
   message?: string;
@@ -41,6 +41,7 @@ export const signMessageAction = {
     }
     
     const messageText = params.message || '';
+    expectNonEmpty(messageText, 'message');
     
     // Security analysis
     if (securityService) {

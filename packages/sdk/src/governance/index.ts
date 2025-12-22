@@ -10,10 +10,7 @@ import type {
   VoteType,
 } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
-import {
-  getContract as getContractAddress,
-  getServicesConfig,
-} from "../config";
+import { requireContract, getServicesConfig } from "../config";
 
 export interface ProposalInfo {
   proposalId: Hex;
@@ -188,16 +185,8 @@ export function createGovernanceModule(
   wallet: JejuWallet,
   network: NetworkType,
 ): GovernanceModule {
-  const councilAddress = getContractAddress(
-    "governance",
-    "council",
-    network,
-  ) as Address;
-  const delegationAddress = getContractAddress(
-    "governance",
-    "delegation",
-    network,
-  ) as Address;
+  const councilAddress = requireContract("governance", "council", network);
+  const delegationAddress = requireContract("governance", "delegation", network);
   const services = getServicesConfig(network);
 
   async function createProposal(params: CreateProposalParams): Promise<Hex> {
@@ -279,7 +268,9 @@ export function createGovernanceModule(
     const response = await fetch(
       `${services.gateway.api}/governance/voting-power/${wallet.address}`,
     );
-    if (!response.ok) return 0n;
+    if (!response.ok) {
+      throw new Error(`Failed to get voting power: ${response.statusText}`);
+    }
     const data = (await response.json()) as { power: string };
     return BigInt(data.power);
   }
@@ -308,7 +299,9 @@ export function createGovernanceModule(
     const response = await fetch(
       `${services.gateway.api}/governance/delegates`,
     );
-    if (!response.ok) return [];
+    if (!response.ok) {
+      throw new Error(`Failed to list delegates: ${response.statusText}`);
+    }
     const data = (await response.json()) as { delegates: DelegateInfo[] };
     return data.delegates;
   }
@@ -317,21 +310,18 @@ export function createGovernanceModule(
     const response = await fetch(
       `${services.gateway.api}/governance/delegation/${wallet.address}`,
     );
-    if (!response.ok) return null;
+    if (response.status === 404) return null;
+    if (!response.ok) {
+      throw new Error(`Failed to get delegation: ${response.statusText}`);
+    }
     return (await response.json()) as DelegateInfo;
   }
 
   async function getStats(): Promise<GovernanceStats> {
     const response = await fetch(`${services.gateway.api}/governance/stats`);
-    if (!response.ok)
-      return {
-        totalProposals: 0,
-        activeProposals: 0,
-        executedProposals: 0,
-        rejectedProposals: 0,
-        totalStaked: 0n,
-        totalDelegated: 0n,
-      };
+    if (!response.ok) {
+      throw new Error(`Failed to get governance stats: ${response.statusText}`);
+    }
 
     const data = (await response.json()) as {
       totalProposals: number;

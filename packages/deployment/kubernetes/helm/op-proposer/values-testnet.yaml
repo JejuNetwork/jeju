@@ -1,7 +1,7 @@
 # OP-Proposer values for testnet
 # Uses internal L1 full node
 
-replicaCount: 1
+replicaCount: 0  # Disabled - L2OutputOracle contract not deployed yet
 
 resources:
   limits:
@@ -13,12 +13,16 @@ resources:
 
 nodeSelector: {}
 
-tolerations: []
+tolerations:
+  - key: workload
+    operator: Equal
+    value: rpc
+    effect: NoSchedule
 
 config:
   l1:
-    # Use internal L1 full node - no rate limits
-    rpcUrl: "http://geth-l1.l1.svc.cluster.local:8545"
+    # Use public Sepolia RPC for testnet (internal L1 node has disk space issues)
+    rpcUrl: "https://ethereum-sepolia-rpc.publicnode.com"
   rollup:
     rpcUrl: "http://op-node.op-stack.svc.cluster.local:9545"
   l2oo:

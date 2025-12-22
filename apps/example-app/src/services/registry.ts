@@ -19,23 +19,25 @@ import {
   type TEENodeInfo,
   type TEEAttestation,
   TEEProvider,
-  ChainId,
 } from '@jejunetwork/oauth3';
 import { getNetworkName } from '@jejunetwork/config';
+import { expectValid } from '../utils/validation';
+import { z } from 'zod';
+import { AddressSchema } from '@jejunetwork/types/validation';
 
-// Chain IDs for different networks
-const CHAIN_IDS: Record<string, number> = {
-  localnet: ChainId.JEJU_LOCALNET,
-  testnet: ChainId.JEJU_TESTNET,
-  mainnet: ChainId.JEJU_MAINNET,
-};
+// Chain IDs for different networks - unused for now but kept for future contract integration
+// const CHAIN_IDS: Record<string, number> = {
+//   localnet: 420691,  // Jeju localnet
+//   testnet: 420690,   // Jeju testnet (Base Sepolia)
+//   mainnet: 8453,     // Jeju mainnet (Base)
+// };
 
-// Default contract addresses (will be overridden by env vars in production)
-const DEFAULT_CONTRACTS: Record<string, Address> = {
-  appRegistry: '0x5FbDB2315678afecb367f032d93F642f64180aa3' as Address,
-  identityRegistry: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512' as Address,
-  teeVerifier: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0' as Address,
-};
+// Default contract addresses - kept for future contract integration
+// const DEFAULT_CONTRACTS: Record<string, Address> = {
+//   appRegistry: '0x5FbDB2315678afecb367f032d93F642f64180aa3' as Address,
+//   identityRegistry: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512' as Address,
+//   teeVerifier: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0' as Address,
+// };
 
 export interface RegistryService {
   registerApp(app: Partial<OAuth3App>): Promise<Hex>;
@@ -54,20 +56,19 @@ function getNetworkType(name: string): NetworkType {
   return 'mainnet';
 }
 
-function getContractAddress(name: keyof typeof DEFAULT_CONTRACTS): Address {
-  const envKey = `OAUTH3_${name.toUpperCase()}_ADDRESS`;
-  return (process.env[envKey] as Address) || DEFAULT_CONTRACTS[name];
-}
+// Future: Contract address resolution for production registry interactions
+// function getContractAddress(name: keyof typeof DEFAULT_CONTRACTS): Address {
+//   const envKey = `OAUTH3_${name.toUpperCase()}_ADDRESS`;
+//   return (process.env[envKey] as Address) || DEFAULT_CONTRACTS[name];
+// }
 
 class RegistryServiceImpl implements RegistryService {
   private publicClient: PublicClient;
   private networkType: NetworkType;
-  private chainId: number;
 
   constructor() {
     const networkName = getNetworkName();
     this.networkType = getNetworkType(networkName);
-    this.chainId = CHAIN_IDS[this.networkType] || ChainId.JEJU_LOCALNET;
 
     this.publicClient = createPublicClient({
       transport: http(process.env.L2_RPC_URL || 'http://localhost:9545'),
@@ -75,37 +76,47 @@ class RegistryServiceImpl implements RegistryService {
   }
 
   async registerApp(app: Partial<OAuth3App>): Promise<Hex> {
+    const validatedApp = expectValid(
+      z.object({
+        name: z.string().optional(),
+        jnsName: z.string().optional(),
+        owner: AddressSchema.optional(),
+        redirectUris: z.array(z.string().url()).optional(),
+        allowedProviders: z.array(z.nativeEnum(AuthProvider)).optional(),
+      }),
+      app,
+      'App registration data'
+    );
+
     // In production, this would submit a transaction signed by the app owner
     // For dev/testing, we log and return a mock tx hash
-    console.log(`[Registry] Registering app: ${app.name || app.jnsName}`);
-    console.log(`  Owner: ${app.owner}`);
-    console.log(`  Redirect URIs: ${app.redirectUris?.join(', ')}`);
-    console.log(`  Allowed Providers: ${app.allowedProviders?.join(', ')}`);
+    console.log(`[Registry] Registering app: ${validatedApp.name || validatedApp.jnsName}`);
+    console.log(`  Owner: ${validatedApp.owner}`);
+    console.log(`  Redirect URIs: ${validatedApp.redirectUris?.join(', ')}`);
+    console.log(`  Allowed Providers: ${validatedApp.allowedProviders?.join(', ')}`);
 
     // Return mock transaction hash
     return `0x${Date.now().toString(16).padStart(64, '0')}` as Hex;
   }
 
   async getApp(appId: Hex | string): Promise<OAuth3App | null> {
+    if (!appId) {
+      throw new Error('App ID is required');
+    }
+
     // For localnet/testing, return a mock app
     if (this.networkType === 'localnet') {
       console.log(`[Registry] Returning mock app for: ${appId}`);
       return this.getMockApp(appId);
     }
 
-    // Try to read from on-chain registry
-    try {
-      const appRegistryAddress = getContractAddress('appRegistry');
-      const blockNumber = await this.publicClient.getBlockNumber();
-      console.log(`[Registry] Chain accessible at block ${blockNumber}`);
+    // Read from on-chain registry
+    const blockNumber = await this.publicClient.getBlockNumber();
+    console.log(`[Registry] Chain accessible at block ${blockNumber}`);
 
-      // In production, would read from actual contract
-      // For now, return mock for non-localnet too
-      return this.getMockApp(appId);
-    } catch (error) {
-      console.error(`[Registry] Error fetching app: ${error}`);
-      return null;
-    }
+    // In production, would read from actual contract
+    // For now, return mock for non-localnet too
+    return this.getMockApp(appId);
   }
 
   private getMockApp(appId: Hex | string): OAuth3App {
@@ -134,15 +145,28 @@ class RegistryServiceImpl implements RegistryService {
   }
 
   async registerTEENode(node: Partial<TEENodeInfo>): Promise<Hex> {
-    console.log(`[Registry] Registering TEE node: ${node.nodeId}`);
-    console.log(`  Endpoint: ${node.endpoint}`);
-    console.log(`  Provider: ${node.provider}`);
-    console.log(`  Stake: ${node.stake}`);
+    const validatedNode = expectValid(
+      z.object({
+        nodeId: AddressSchema.optional(),
+        endpoint: z.string().url().optional(),
+        provider: z.nativeEnum(TEEProvider).optional(),
+        stake: z.bigint().optional(),
+      }),
+      node,
+      'TEE node registration data'
+    );
+
+    console.log(`[Registry] Registering TEE node: ${validatedNode.nodeId}`);
+    console.log(`  Endpoint: ${validatedNode.endpoint}`);
+    console.log(`  Provider: ${validatedNode.provider}`);
+    console.log(`  Stake: ${validatedNode.stake}`);
 
     return `0x${Date.now().toString(16).padStart(64, '0')}` as Hex;
   }
 
   async getTEENode(nodeId: Address): Promise<TEENodeInfo | null> {
+    expectValid(AddressSchema, nodeId, 'Node ID');
+
     // For localnet/testing, return a mock node
     if (this.networkType === 'localnet') {
       console.log(`[Registry] Returning mock TEE node for: ${nodeId}`);

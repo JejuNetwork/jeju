@@ -665,26 +665,33 @@ export class NFTBridgeService extends EventEmitter {
     const isProduction = process.env.NODE_ENV === 'production';
 
     if (proverUrl || apiKey) {
-      // Use remote SP1 prover
-      const { createSP1ProverClient } = await import('../prover/sp1-client.js');
-      const prover = createSP1ProverClient({
-        network: proverUrl ? 'local' : 'mainnet',
-        apiUrl: proverUrl,
-        apiKey,
+      // Use SP1 prover via createSP1Client
+      const { createSP1Client } = await import('../prover/sp1-client.js');
+      const { toHash32 } = await import('../types/index.js');
+      const prover = createSP1Client({
+        programsDir: process.cwd(),
+        useSuccinctNetwork: Boolean(apiKey),
+        succinctApiKey: apiKey,
       });
 
       await prover.initialize();
 
-      const proofResult = await prover.generateProof({
-        type: 'nft_bridge',
-        inputs: {
-          sourceChainId: BigInt(sourceChainId),
-          sourceRequestId,
-          destChainId: BigInt(destChainId),
-          nftContract,
-          tokenId,
-          recipient,
-        },
+      // Create transfer hash as input
+      const transferHash = keccak256(
+        encodePacked(
+          ['uint256', 'bytes32', 'uint256', 'address', 'uint256', 'address'],
+          [BigInt(sourceChainId), sourceRequestId, BigInt(destChainId), nftContract, tokenId, recipient]
+        )
+      );
+
+      const proofResult = await prover.proveTokenTransfer({
+        transferId: toHash32(Buffer.from(transferHash.slice(2), 'hex')),
+        sourceChainId,
+        destChainId,
+        sender: Buffer.from(nftContract.slice(2), 'hex'),
+        recipient: Buffer.from(recipient.slice(2), 'hex'),
+        amount: tokenId,
+        stateRoot: toHash32(new Uint8Array(32)),
       });
 
       if (!proofResult.success) {

@@ -8,10 +8,10 @@
  * - Staking rewards
  */
 
-import { type Address, type Hex, encodeFunctionData, parseEther } from "viem";
+import { type Address, type Hex, encodeFunctionData } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
-import { getContract as getContractAddress, getServicesConfig } from "../config";
+import { requireContract } from "../config";
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -71,15 +71,23 @@ export interface CreateVestingParams {
 
 export interface DistributorModule {
   // Airdrops
-  createAirdrop(params: CreateAirdropParams): Promise<{ airdropId: Hex; txHash: Hex }>;
+  createAirdrop(
+    params: CreateAirdropParams,
+  ): Promise<{ airdropId: Hex; txHash: Hex }>;
   getAirdrop(airdropId: Hex): Promise<Airdrop | null>;
   listActiveAirdrops(): Promise<Airdrop[]>;
-  claimAirdrop(airdropId: Hex, amount: bigint, merkleProof: Hex[]): Promise<Hex>;
+  claimAirdrop(
+    airdropId: Hex,
+    amount: bigint,
+    merkleProof: Hex[],
+  ): Promise<Hex>;
   hasClaimed(airdropId: Hex, address?: Address): Promise<boolean>;
   getClaimableAmount(airdropId: Hex, address?: Address): Promise<bigint>;
 
   // Vesting
-  createVesting(params: CreateVestingParams): Promise<{ scheduleId: Hex; txHash: Hex }>;
+  createVesting(
+    params: CreateVestingParams,
+  ): Promise<{ scheduleId: Hex; txHash: Hex }>;
   getVestingSchedule(scheduleId: Hex): Promise<VestingSchedule | null>;
   listMyVestingSchedules(): Promise<VestingSchedule[]>;
   getVestedAmount(scheduleId: Hex): Promise<bigint>;
@@ -301,19 +309,14 @@ export function createDistributorModule(
   wallet: JejuWallet,
   network: NetworkType,
 ): DistributorModule {
-  const tryGetContract = (category: string, name: string): Address => {
-    try {
-      // @ts-expect-error - category names may vary by deployment
-      return getContractAddress(category, name, network) as Address;
-    } catch {
-      return "0x0000000000000000000000000000000000000000" as Address;
-    }
-  };
-
-  const airdropManagerAddress = tryGetContract("distributor", "AirdropManager");
-  const tokenVestingAddress = tryGetContract("distributor", "TokenVesting");
-  const feeDistributorAddress = tryGetContract("distributor", "FeeDistributor");
-  const stakingRewardAddress = tryGetContract("distributor", "StakingRewardDistributor");
+  const airdropManagerAddress = requireContract("distributor", "AirdropManager", network);
+  const tokenVestingAddress = requireContract("distributor", "TokenVesting", network);
+  const feeDistributorAddress = requireContract("distributor", "FeeDistributor", network);
+  const stakingRewardAddress = requireContract(
+    "distributor",
+    "StakingRewardDistributor",
+    network,
+  );
 
   async function readAirdrop(airdropId: Hex): Promise<Airdrop | null> {
     const result = await wallet.publicClient.readContract({
@@ -338,7 +341,9 @@ export function createDistributorModule(
     };
   }
 
-  async function readVestingSchedule(scheduleId: Hex): Promise<VestingSchedule | null> {
+  async function readVestingSchedule(
+    scheduleId: Hex,
+  ): Promise<VestingSchedule | null> {
     const result = await wallet.publicClient.readContract({
       address: tokenVestingAddress,
       abi: TOKEN_VESTING_ABI,
@@ -367,12 +372,18 @@ export function createDistributorModule(
     async createAirdrop(params) {
       const now = BigInt(Math.floor(Date.now() / 1000));
       const startsAt = params.startsAt ?? now;
-      const endsAt = params.endsAt ?? (now + 30n * 24n * 60n * 60n); // 30 days
+      const endsAt = params.endsAt ?? now + 30n * 24n * 60n * 60n; // 30 days
 
       const data = encodeFunctionData({
         abi: AIRDROP_MANAGER_ABI,
         functionName: "createAirdrop",
-        args: [params.token, params.merkleRoot, params.totalAmount, startsAt, endsAt],
+        args: [
+          params.token,
+          params.merkleRoot,
+          params.totalAmount,
+          startsAt,
+          endsAt,
+        ],
       });
 
       const txHash = await wallet.sendTransaction({
@@ -426,7 +437,8 @@ export function createDistributorModule(
 
     // Vesting
     async createVesting(params) {
-      const startTime = params.startTime ?? BigInt(Math.floor(Date.now() / 1000));
+      const startTime =
+        params.startTime ?? BigInt(Math.floor(Date.now() / 1000));
 
       const data = encodeFunctionData({
         abi: TOKEN_VESTING_ABI,
@@ -447,7 +459,7 @@ export function createDistributorModule(
         data,
       });
 
-      return { scheduleId: "0x" + "0".repeat(64) as Hex, txHash };
+      return { scheduleId: ("0x" + "0".repeat(64)) as Hex, txHash };
     },
 
     getVestingSchedule: readVestingSchedule,
@@ -579,4 +591,3 @@ export function createDistributorModule(
     },
   };
 }
-

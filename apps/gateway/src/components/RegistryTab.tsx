@@ -1,9 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ComponentType } from 'react';
 import { useAccount } from 'wagmi';
-import { Sparkles, Plus, Grid3x3 } from 'lucide-react';
+import { Sparkles, Plus, Grid3x3, type LucideProps } from 'lucide-react';
 import RegisteredAppsList from './RegisteredAppsList';
 import RegisterAppForm from './RegisterAppForm';
 import AppDetailModal from './AppDetailModal';
+
+const SparklesIcon = Sparkles as ComponentType<LucideProps>;
+const PlusIcon = Plus as ComponentType<LucideProps>;
+const Grid3x3Icon = Grid3x3 as ComponentType<LucideProps>;
 
 export default function RegistryTab() {
   const { isConnected } = useAccount();
@@ -20,7 +24,7 @@ export default function RegistryTab() {
   if (!isConnected) {
     return (
       <div className="card hero-card animate-fade-in">
-        <div className="hero-icon"><Sparkles size={36} /></div>
+        <div className="hero-icon"><SparklesIcon size={36} /></div>
         <h2 className="hero-title">Agent Bazaar</h2>
       </div>
     );
@@ -29,8 +33,8 @@ export default function RegistryTab() {
   return (
     <div className="animate-fade-in">
       <div className="nav-tab-container" style={{ gridTemplateColumns: 'repeat(2, 1fr)', maxWidth: '240px', marginBottom: '1.5rem' }}>
-        <button className={`button nav-tab ${activeSection === 'list' ? '' : 'button-secondary'}`} onClick={() => setActiveSection('list')}><Grid3x3 size={16} />Browse</button>
-        <button className={`button nav-tab ${activeSection === 'register' ? '' : 'button-secondary'}`} onClick={() => setActiveSection('register')}><Plus size={16} />Register</button>
+        <button className={`button nav-tab ${activeSection === 'list' ? '' : 'button-secondary'}`} onClick={() => setActiveSection('list')}><Grid3x3Icon size={16} />Browse</button>
+        <button className={`button nav-tab ${activeSection === 'register' ? '' : 'button-secondary'}`} onClick={() => setActiveSection('register')}><PlusIcon size={16} />Register</button>
       </div>
       {activeSection === 'list' && <RegisteredAppsList onSelectApp={setSelectedAppId} />}
       {activeSection === 'register' && <RegisterAppForm />}

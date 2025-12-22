@@ -52,7 +52,11 @@ export function getGPUTypeName(gpuType: GPUType): string {
     [GPUType.APPLE_M2_ULTRA]: 'Apple M2 Ultra',
     [GPUType.APPLE_M3_MAX]: 'Apple M3 Max',
   };
-  return names[gpuType] ?? 'Unknown';
+  const name = names[gpuType];
+  if (name === undefined) {
+    throw new Error(`Unknown GPUType: ${gpuType}`);
+  }
+  return name;
 }
 
 export interface HardwareRequirements {

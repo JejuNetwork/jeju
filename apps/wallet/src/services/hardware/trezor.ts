@@ -205,7 +205,7 @@ export class TrezorKeyring {
     const { v, r, s } = result.payload;
     
     // Build signed transaction
-    return this.buildSignedTx(tx, v, r, s, isEIP1559);
+    return this.buildSignedTx(v, r, s);
   }
   
   async signMessage(address: Address, message: string): Promise<Hex> {
@@ -266,21 +266,9 @@ export class TrezorKeyring {
   }
   
   private buildSignedTx(
-    tx: {
-      to: Address;
-      value: bigint;
-      data: Hex;
-      nonce: number;
-      gasLimit: bigint;
-      maxFeePerGas?: bigint;
-      maxPriorityFeePerGas?: bigint;
-      gasPrice?: bigint;
-      chainId: number;
-    },
     v: string,
     r: string,
-    s: string,
-    isEIP1559: boolean
+    s: string
   ): Hex {
     // Build signed transaction RLP encoding
     // This is a simplified version - in production use @ethereumjs/tx

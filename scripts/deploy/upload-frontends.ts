@@ -172,7 +172,7 @@ class FrontendUploader {
       
       try {
         execSync(buildCommand, { cwd: app.path, stdio: 'inherit' });
-      } catch (err) {
+      } catch {
         console.error(`  Build failed for ${app.name}`);
         return null;
       }

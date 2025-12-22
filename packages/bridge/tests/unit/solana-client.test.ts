@@ -14,7 +14,6 @@ import { Keypair, PublicKey } from "@solana/web3.js";
 import {
 	createSolanaClient,
 	type SolanaClientConfig,
-	ChainId,
 	toHash32,
 } from "../../src/index.js";
 

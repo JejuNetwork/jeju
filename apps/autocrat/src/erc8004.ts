@@ -1,10 +1,17 @@
 /** ERC-8004 Agent Identity & Reputation */
 
+import { z } from 'zod';
 import { createPublicClient, createWalletClient, http, keccak256, stringToHex, zeroAddress, zeroHash, type Address, type PublicClient, type WalletClient } from 'viem';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { readContract, waitForTransactionReceipt } from 'viem/actions';
 import { parseAbi } from 'viem';
 import { base, baseSepolia, localhost } from 'viem/chains';
+
+// Schema for tokenURI JSON
+const TokenURIDataSchema = z.object({
+  name: z.string().optional(),
+  role: z.string().optional(),
+});
 
 function inferChainFromRpcUrl(rpcUrl: string) {
   if (rpcUrl.includes('base-sepolia') || rpcUrl.includes('84532')) {
@@ -54,6 +61,7 @@ export class ERC8004Client {
   private readonly client: PublicClient;
   private readonly walletClient: WalletClient;
   private readonly account: PrivateKeyAccount | null;
+  private readonly chain: ReturnType<typeof inferChainFromRpcUrl>;
   private readonly identityAddress: Address;
   private readonly reputationAddress: Address;
   private readonly validationAddress: Address;
@@ -64,6 +72,7 @@ export class ERC8004Client {
 
   constructor(config: ERC8004Config) {
     const chain = inferChainFromRpcUrl(config.rpcUrl);
+    this.chain = chain;
     // @ts-expect-error viem version type mismatch in monorepo
     this.client = createPublicClient({
       chain,
@@ -126,39 +135,39 @@ export class ERC8004Client {
       throw new Error(`Agent registration failed: Invalid agent ID 0 in tx ${hash}`);
     }
 
-    // @ts-expect-error viem ABI type inference for all writeContract calls
     const [hash1, hash2, hash3, hash4] = await Promise.all([
       this.walletClient.writeContract({
+        chain: this.chain,
         address: this.identityAddress,
         abi: IDENTITY_ABI,
         functionName: 'setA2AEndpoint',
         args: [agentId, a2aEndpoint],
         account: this.account,
-      }),
-      // @ts-expect-error viem ABI type inference
+      }) as Promise<`0x${string}`>,
       this.walletClient.writeContract({
+        chain: this.chain,
         address: this.identityAddress,
         abi: IDENTITY_ABI,
         functionName: 'setMCPEndpoint',
         args: [agentId, mcpEndpoint],
         account: this.account,
-      }),
-      // @ts-expect-error viem ABI type inference
+      }) as Promise<`0x${string}`>,
       this.walletClient.writeContract({
+        chain: this.chain,
         address: this.identityAddress,
         abi: IDENTITY_ABI,
         functionName: 'setServiceType',
         args: [agentId, 'agent'],
         account: this.account,
-      }),
-      // @ts-expect-error viem ABI type inference
+      }) as Promise<`0x${string}`>,
       this.walletClient.writeContract({
+        chain: this.chain,
         address: this.identityAddress,
         abi: IDENTITY_ABI,
         functionName: 'updateTags',
         args: [agentId, ['council', role.toLowerCase(), 'governance']],
         account: this.account,
-      }),
+      }) as Promise<`0x${string}`>,
     ]);
     
     await Promise.all([
@@ -210,7 +219,8 @@ export class ERC8004Client {
 
     let name = `Agent ${agentId}`, role = 'unknown';
     if (tokenURI.startsWith('data:application/json,')) {
-      const j = JSON.parse(decodeURIComponent(tokenURI.slice(22)));
+      const rawParsed = JSON.parse(decodeURIComponent(tokenURI.slice(22)));
+      const j = TokenURIDataSchema.parse(rawParsed);
       name = j.name ?? name;
       role = j.role ?? role;
     }
@@ -229,12 +239,13 @@ export class ERC8004Client {
     const recentFeedback: AgentReputation['recentFeedback'] = [];
 
     if (count > 0n) {
-      const [clients, scores, tag1s] = await readContract(this.client, {
+      const result = await readContract(this.client, {
         address: this.reputationAddress,
         abi: REPUTATION_ABI,
         functionName: 'readAllFeedback',
         args: [agentId, [], ZERO32, ZERO32, false],
-      }) as [Address[], number[], `0x${string}`[]];
+      }) as readonly [readonly `0x${string}`[], readonly number[], readonly `0x${string}`[], readonly `0x${string}`[], readonly boolean[]];
+      const [clients, scores, tag1s] = [result[0], result[1], result[2]];
       for (let i = 0; i < Math.min(clients.length, 10); i++) {
         recentFeedback.push({ client: clients[i], score: scores[i], tag: tag1s[i] });
       }
@@ -277,8 +288,8 @@ export class ERC8004Client {
     if (!requestUri || requestUri.trim().length === 0) throw new Error('Request URI is required');
 
     const requestHash = keccak256(stringToHex(`${agentId}-${validator}-${requestUri}-${Date.now()}`));
-    // @ts-expect-error viem ABI type inference
     const hash = await this.walletClient.writeContract({
+      chain: this.chain,
       address: this.validationAddress,
       abi: VALIDATION_ABI,
       functionName: 'validationRequest',

@@ -12,6 +12,7 @@ import { CrucibleCompute } from './compute';
 import { AgentSDK } from './agent';
 import { RoomSDK } from './room';
 import { createLogger, type Logger } from './logger';
+import { expect } from '../schemas';
 
 const TRIGGER_REGISTRY_ABI = parseAbi([
   'function registerTrigger(string name, uint8 triggerType, string cronExpression, string endpoint, uint256 timeout, uint8 paymentMode, uint256 pricePerExecution) external returns (bytes32 triggerId)',
@@ -81,28 +82,38 @@ export class ExecutorSDK {
   }
 
   async execute(request: ExecutionRequest): Promise<ExecutionResult> {
+    expect(request, 'Execution request is required');
+    expect(request.agentId > 0n, 'Agent ID must be greater than 0');
+    expect(request.input, 'Execution input is required');
+    if (request.options?.maxTokens !== undefined) {
+      expect(request.options.maxTokens > 0 && request.options.maxTokens <= 100000, 'Max tokens must be between 1 and 100000');
+    }
+    if (request.options?.temperature !== undefined) {
+      expect(request.options.temperature >= 0 && request.options.temperature <= 2, 'Temperature must be between 0 and 2');
+    }
+    if (request.options?.timeout !== undefined) {
+      expect(request.options.timeout > 0 && request.options.timeout <= 300, 'Timeout must be between 1 and 300 seconds');
+    }
+
     const startTime = Date.now();
     const executionId = crypto.randomUUID();
 
     this.log.info('Starting execution', { executionId, agentId: request.agentId.toString() });
 
     const agent = await this.agentSdk.getAgent(request.agentId);
-    if (!agent) {
-      this.log.error('Agent not found', { agentId: request.agentId.toString() });
-      return this.failedResult(executionId, request.agentId, startTime);
-    }
+    const validAgent = expect(agent, `Agent not found: ${request.agentId.toString()}`);
 
     // Route to appropriate execution handler based on bot type
-    if (agent.botType === 'trading_bot') {
-      return this.executeTradingBot(request, agent, executionId, startTime);
+    if (validAgent.botType === 'trading_bot') {
+      return this.executeTradingBot(request, validAgent, executionId, startTime);
     }
 
-    if (agent.botType === 'org_tool') {
-      return this.executeOrgTool(request, agent, executionId, startTime);
+    if (validAgent.botType === 'org_tool') {
+      return this.executeOrgTool(request, validAgent, executionId, startTime);
     }
 
     // Default: AI agent execution
-    return this.executeAIAgent(request, agent, executionId, startTime);
+    return this.executeAIAgent(request, validAgent, executionId, startTime);
   }
 
   private async executeAIAgent(
@@ -257,6 +268,9 @@ export class ExecutorSDK {
   }
 
   async executeTrigger(triggerId: string): Promise<ExecutionResult> {
+    expect(triggerId, 'Trigger ID is required');
+    expect(triggerId.length > 0, 'Trigger ID cannot be empty');
+
     this.log.info('Executing trigger', { triggerId });
 
     const [, , , endpoint, active] = await this.publicClient.readContract({
@@ -266,19 +280,14 @@ export class ExecutorSDK {
       args: [triggerId as `0x${string}`],
     }) as [Address, number, string, string, boolean, bigint];
 
-    if (!active) {
-      this.log.error('Trigger not active', { triggerId });
-      throw new Error(`Trigger not active: ${triggerId}`);
-    }
+    expect(active, `Trigger not active: ${triggerId}`);
 
     const match = endpoint.match(/agent:\/\/(\d+)/);
-    if (!match) {
-      this.log.error('Invalid trigger endpoint', { triggerId, endpoint });
-      throw new Error(`Invalid trigger endpoint: ${endpoint}`);
-    }
+    const validMatch = expect(match, `Invalid trigger endpoint: ${endpoint}`);
+    const agentIdStr = expect(validMatch[1], 'Agent ID not found in trigger endpoint');
 
     return this.execute({
-      agentId: BigInt(match[1] ?? '0'),
+      agentId: BigInt(agentIdStr),
       triggerId,
       input: { message: `Trigger fired` },
     });
@@ -290,6 +299,15 @@ export class ExecutorSDK {
     cronExpression: string,
     options?: { pricePerExecution?: bigint }
   ): Promise<string> {
+    expect(agentId > 0n, 'Agent ID must be greater than 0');
+    expect(name, 'Trigger name is required');
+    expect(name.length > 0, 'Trigger name cannot be empty');
+    expect(cronExpression, 'Cron expression is required');
+    expect(cronExpression.length > 0, 'Cron expression cannot be empty');
+    if (options?.pricePerExecution !== undefined) {
+      expect(options.pricePerExecution >= 0n, 'Price per execution must be non-negative');
+    }
+
     this.log.info('Registering cron trigger', { agentId: agentId.toString(), name, cronExpression });
 
     const { request } = await this.publicClient.simulateContract({
@@ -302,13 +320,17 @@ export class ExecutorSDK {
 
     const txHash = await this.walletClient.writeContract(request);
     const receipt = await this.publicClient.waitForTransactionReceipt({ hash: txHash });
-    const triggerId = receipt.logs[0]?.topics[1] ?? '';
+    const triggerId = receipt.logs[0]?.topics[1];
+    if (!triggerId) {
+      throw new Error('Failed to extract trigger ID from transaction receipt');
+    }
 
     this.log.info('Trigger registered', { triggerId, agentId: agentId.toString() });
     return triggerId;
   }
 
   async getAgentTriggers(agentId: bigint): Promise<AgentTrigger[]> {
+    expect(agentId > 0n, 'Agent ID must be greater than 0');
     const triggerIds = await this.publicClient.readContract({
       address: this.config.contracts.triggerRegistry,
       abi: TRIGGER_REGISTRY_ABI,
@@ -318,6 +340,7 @@ export class ExecutorSDK {
 
     const triggers: AgentTrigger[] = [];
     for (const triggerId of triggerIds) {
+      expect(triggerId, 'Trigger ID is required');
       const [, triggerType, , endpoint, active, executionCount] = await this.publicClient.readContract({
         address: this.config.contracts.triggerRegistry,
         abi: TRIGGER_REGISTRY_ABI,
@@ -325,9 +348,13 @@ export class ExecutorSDK {
         args: [triggerId],
       }) as [Address, number, string, string, boolean, bigint];
 
+      const triggerTypes = ['cron', 'webhook', 'event', 'room_message'] as const;
+      if (triggerType < 0 || triggerType >= triggerTypes.length) {
+        throw new Error(`Invalid trigger type number: ${triggerType}. Must be 0-${triggerTypes.length - 1}`);
+      }
       triggers.push({
         triggerId, agentId,
-        type: (['cron', 'webhook', 'event', 'room_message'] as const)[triggerType] ?? 'cron',
+        type: triggerTypes[triggerType],
         config: { endpoint, paymentMode: 'vault' },
         active,
         fireCount: Number(executionCount),
@@ -358,10 +385,12 @@ export class ExecutorSDK {
   }
 
   private parseActions(response: string): AgentAction[] {
+    expect(response, 'Response is required');
     const actions: AgentAction[] = [];
     const regex = /\[ACTION:\s*(\w+)(?:\s*\|\s*(.+?))?\]/g;
     let match;
     while ((match = regex.exec(response)) !== null) {
+      expect(match[1], 'Action type is required');
       const params: Record<string, unknown> = {};
       if (match[2]) {
         for (const pair of match[2].split(',')) {
@@ -369,7 +398,7 @@ export class ExecutorSDK {
           if (key && value) params[key] = value;
         }
       }
-      actions.push({ type: match[1] ?? 'unknown', params: Object.keys(params).length ? params : undefined, success: false });
+      actions.push({ type: match[1], params: Object.keys(params).length > 0 ? params : undefined, success: false });
     }
     return actions;
   }
@@ -392,10 +421,16 @@ export class ExecutorSDK {
   }
 
   private estimateCost(maxTokens: number = 2048): bigint {
+    expect(maxTokens > 0, 'Max tokens must be greater than 0');
+    expect(maxTokens <= 100000, 'Max tokens must be less than or equal to 100000');
     return this.costs.baseCostWei + BigInt(maxTokens) * this.costs.tokenCostWei;
   }
 
   private async payFromVault(agentId: bigint, amount: bigint, reason: string): Promise<void> {
+    expect(agentId > 0n, 'Agent ID must be greater than 0');
+    expect(amount > 0n, 'Amount must be greater than 0');
+    expect(reason, 'Reason is required');
+    expect(reason.length > 0, 'Reason cannot be empty');
     this.log.debug('Paying from vault', { agentId: agentId.toString(), amount: amount.toString() });
     const { request } = await this.publicClient.simulateContract({
       address: this.config.contracts.agentVault,
@@ -408,6 +443,10 @@ export class ExecutorSDK {
   }
 
   private async recordTriggerExecution(triggerId: string, success: boolean, executionId: string): Promise<void> {
+    expect(triggerId, 'Trigger ID is required');
+    expect(triggerId.length > 0, 'Trigger ID cannot be empty');
+    expect(executionId, 'Execution ID is required');
+    expect(executionId.length > 0, 'Execution ID cannot be empty');
     const outputHash = `0x${Buffer.from(executionId).toString('hex').padStart(64, '0')}` as `0x${string}`;
     const { request } = await this.publicClient.simulateContract({
       address: this.config.contracts.triggerRegistry,

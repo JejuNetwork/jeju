@@ -4,22 +4,16 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { useAccount } from 'wagmi';
+import type { Repository, Package } from '@/types';
+import type { DWSNode } from '@/lib/services/dws';
 
 const DWS_API_URL = process.env.NEXT_PUBLIC_DWS_URL || 'http://localhost:4030';
 
-// ============ Types ============
-
-interface DWSNode {
-  agentId: bigint;
-  endpoint: string;
-  latency?: number;
-  isBanned: boolean;
+interface HookDWSNode extends Omit<DWSNode, 'capabilities'> {
   nodeTypes: string[];
-  stake: bigint;
 }
 
-interface DWSHealth {
+interface HookDWSHealth {
   status: 'healthy' | 'degraded' | 'unavailable';
   services: Record<string, boolean>;
   timestamp: number;
@@ -29,29 +23,6 @@ interface DWSHealth {
     frontendCid: string;
     p2pEnabled: boolean;
   };
-}
-
-interface Repository {
-  id: string;
-  name: string;
-  owner: string;
-  description?: string;
-  isPrivate: boolean;
-  defaultBranch: string;
-  stars: number;
-  forks: number;
-  createdAt: number;
-  updatedAt: number;
-}
-
-interface Package {
-  name: string;
-  version: string;
-  description?: string;
-  author: string;
-  license: string;
-  downloads: number;
-  publishedAt: number;
 }
 
 interface Workflow {
@@ -71,99 +42,42 @@ interface WorkflowRun {
   completedAt?: number;
 }
 
-// ============ Base Hook ============
-
-function useDWSFetch<T>(
-  path: string,
-  options?: RequestInit
-): {
-  data: T | null;
-  error: Error | null;
-  isLoading: boolean;
-  refetch: () => void;
-} {
-  const [data, setData] = useState<T | null>(null);
-  const [error, setError] = useState<Error | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      const response = await fetch(`${DWS_API_URL}${path}`, {
-        ...options,
-        headers: {
-          'Content-Type': 'application/json',
-          ...options?.headers,
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error(`DWS request failed: ${response.statusText}`);
-      }
-      
-      const result = await response.json();
-      setData(result);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error('Unknown error'));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [path, options]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  return { data, error, isLoading, refetch: fetchData };
-}
-
-// ============ Main DWS Hook ============
-
 export function useDWS() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [nodes, setNodes] = useState<DWSNode[]>([]);
-  const [health, setHealth] = useState<DWSHealth | null>(null);
+  const [nodes, setNodes] = useState<HookDWSNode[]>([]);
+  const [health, setHealth] = useState<HookDWSHealth | null>(null);
 
   const refresh = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
-    try {
-      const response = await fetch(`${DWS_API_URL}/health`);
-      if (!response.ok) {
-        throw new Error('DWS health check failed');
-      }
-      
-      const healthData: DWSHealth = await response.json();
-      setHealth(healthData);
-      setIsConnected(healthData.status === 'healthy');
-      setIsInitialized(true);
-
-      // Try to fetch nodes
-      try {
-        const nodesResponse = await fetch(`${DWS_API_URL}/api/nodes`);
-        if (nodesResponse.ok) {
-          const nodesData = await nodesResponse.json();
-          setNodes(nodesData.map((n: { agentId: number | string; endpoint: string; latency?: number; isBanned?: boolean; nodeTypes?: string[]; stake?: string | number }) => ({
-            ...n,
-            agentId: BigInt(n.agentId || 0),
-            stake: BigInt(n.stake || 0),
-          })));
-        }
-      } catch {
-        // Nodes endpoint may not exist
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Connection failed');
+    const response = await fetch(`${DWS_API_URL}/health`);
+    if (!response.ok) {
+      setError('DWS health check failed');
       setIsConnected(false);
-    } finally {
       setIsLoading(false);
+      return;
     }
+    
+    const healthData: HookDWSHealth = await response.json();
+    setHealth(healthData);
+    setIsConnected(healthData.status === 'healthy');
+    setIsInitialized(true);
+
+    const nodesResponse = await fetch(`${DWS_API_URL}/api/nodes`);
+    if (nodesResponse.ok) {
+      const nodesData = await nodesResponse.json();
+      setNodes(nodesData.map((n: { agentId: number | string; endpoint: string; latency?: number; isBanned?: boolean; nodeTypes?: string[]; stake?: string | number }) => ({
+        ...n,
+        agentId: BigInt(n.agentId || 0),
+        stake: BigInt(n.stake || 0),
+      })));
+    }
+
+    setIsLoading(false);
   }, []);
 
   useEffect(() => {
@@ -188,11 +102,9 @@ export function useDWS() {
 // ============ Git Hooks ============
 
 export function useDWSGit() {
-  const { address } = useAccount();
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    // Check DWS connectivity
     fetch(`${DWS_API_URL}/health`)
       .then(r => r.ok && setIsReady(true))
       .catch(() => setIsReady(false));

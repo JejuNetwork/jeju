@@ -25,14 +25,6 @@ function isValidContract(address: Address | undefined): address is Address {
   return !!address && address !== ZERO_ADDRESS
 }
 
-async function safeGraphQL<T>(query: string, variables: Record<string, unknown>): Promise<T | null> {
-  try {
-    return await request<T>(INDEXER_URL, query, variables)
-  } catch {
-    return null
-  }
-}
-
 const ITEMS_QUERY = gql`
   query GetItems($contract: String!, $owner: String) {
     erc1155Balances(
@@ -79,10 +71,11 @@ export function useGameItems(contract: Address | undefined, filter?: 'all' | 'my
     queryFn: async () => {
       if (!hasChain) return { erc1155Balances: [] }
       const owner = filter === 'my-items' ? address?.toLowerCase() : undefined
-      return await safeGraphQL<{ erc1155Balances: { id: string; tokenId: string; balance: string; account: { address: string } }[] }>(
+      return await request<{ erc1155Balances: { id: string; tokenId: string; balance: string; account: { address: string } }[] }>(
+        INDEXER_URL,
         ITEMS_QUERY,
         { contract: contract.toLowerCase(), owner }
-      ) ?? { erc1155Balances: [] }
+      )
     },
     refetchInterval: hasChain ? 10000 : false,
   })
@@ -176,9 +169,7 @@ export function useMintItem(contract: Address | undefined, onMint?: (itemId: big
 
       // Use standard wagmi writeContract - it's simple and works
       // In a full AA implementation, we'd use the bundler here
-      // For now, log if sponsorship is available (future: use bundler)
       if (sponsorship.isAvailable) {
-        console.log(`🎮 Gasless available: ${sponsorship.remainingTx} tx remaining`)
         setIsSponsored(true)
       }
 
@@ -240,9 +231,7 @@ export function useBurnItem(contract: Address | undefined, onBurn?: (itemId: big
     setIsSponsored(false)
 
     if (hasChain && address) {
-      // Log sponsorship status
       if (sponsorship.isAvailable) {
-        console.log(`🎮 Gasless burn available: ${sponsorship.remainingTx} tx remaining`)
         setIsSponsored(true)
       }
 

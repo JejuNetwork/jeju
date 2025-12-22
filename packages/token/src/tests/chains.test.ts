@@ -125,17 +125,17 @@ describe('EVM Chains - Specific Validation', () => {
   });
 });
 
-describe('SVM Chains - Specific Validation', () => {
-  const svmChains = ALL_CHAINS.filter((c) => c.chainType === 'svm');
+describe('Solana Chains - Specific Validation', () => {
+  const solanaChains = ALL_CHAINS.filter((c) => c.chainType === 'solana');
 
-  test('SVM chains have string chain IDs', () => {
-    for (const chain of svmChains) {
+  test('Solana chains have string chain IDs', () => {
+    for (const chain of solanaChains) {
       expect(typeof chain.chainId).toBe('string');
     }
   });
 
   test('Solana chains have 9 decimal native currency', () => {
-    for (const chain of svmChains) {
+    for (const chain of solanaChains) {
       expect(chain.nativeCurrency.decimals).toBe(9);
       expect(chain.nativeCurrency.symbol).toBe('SOL');
     }
@@ -183,33 +183,33 @@ describe('getEVMChains - Filtering', () => {
     expect(chains.length).toBe(allEvmCount);
   });
 
-  test('no SVM chains in results', () => {
+  test('no Solana chains in results', () => {
     const mainnetChains = getEVMChains(true);
     const allChains = getEVMChains(false);
     for (const chain of [...mainnetChains, ...allChains]) {
-      expect(chain.chainType).not.toBe('svm');
+      expect(chain.chainType).not.toBe('solana');
     }
   });
 });
 
-describe('getSVMChains - Filtering', () => {
-  test('mainnetOnly=true returns only mainnet SVM chains', () => {
+describe('getSVMChains - Filtering (deprecated, use getSolanaChains)', () => {
+  test('mainnetOnly=true returns only mainnet Solana chains', () => {
     const chains = getSVMChains(true);
     for (const chain of chains) {
-      expect(chain.chainType).toBe('svm');
+      expect(chain.chainType).toBe('solana');
       expect(MAINNET_CHAINS).toContain(chain);
     }
   });
 
-  test('mainnetOnly=false returns all SVM chains', () => {
+  test('mainnetOnly=false returns all Solana chains', () => {
     const chains = getSVMChains(false);
-    const allSvmCount = ALL_CHAINS.filter((c) => c.chainType === 'svm').length;
-    expect(chains.length).toBe(allSvmCount);
+    const allSolanaCount = ALL_CHAINS.filter((c) => c.chainType === 'solana').length;
+    expect(chains.length).toBe(allSolanaCount);
   });
 
   test('includes both mainnet and devnet Solana', () => {
-    const allSvmChains = getSVMChains(false);
-    const chainIds = allSvmChains.map((c) => c.chainId);
+    const allSolanaChains = getSVMChains(false);
+    const chainIds = allSolanaChains.map((c) => c.chainId);
     expect(chainIds).toContain('solana-mainnet');
     expect(chainIds).toContain('solana-devnet');
   });

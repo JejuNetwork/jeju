@@ -6,6 +6,7 @@
 
 import { Hono } from 'hono';
 import type { Address } from 'viem';
+import { validateBody, validateParams, validateQuery, validateHeaders, expectValid, edgeNodeRegistrationSchema, edgeCacheRequestSchema, edgeNodeParamsSchema, edgeNodesQuerySchema, edgeRouteParamsSchema, regionHeaderSchema } from '../../shared';
 
 // ============================================================================
 // Types
@@ -107,13 +108,7 @@ export function createEdgeRouter(): Hono {
   // ============================================================================
 
   router.post('/register', async (c) => {
-    const body = await c.req.json<{
-      nodeType: EdgeNode['nodeType'];
-      platform: string;
-      operator?: Address;
-      capabilities: EdgeNode['capabilities'];
-      region?: string;
-    }>();
+    const body = await validateBody(edgeNodeRegistrationSchema, c);
 
     const nodeId = crypto.randomUUID();
     const node: EdgeNode = {
@@ -149,9 +144,7 @@ export function createEdgeRouter(): Hono {
   // ============================================================================
 
   router.get('/nodes', (c) => {
-    const region = c.req.query('region');
-    const nodeType = c.req.query('type');
-    const status = c.req.query('status') ?? 'online';
+    const { region, type: nodeType, status } = validateQuery(edgeNodesQuerySchema, c);
 
     let nodes = Array.from(edgeNodes.values());
 
@@ -174,19 +167,20 @@ export function createEdgeRouter(): Hono {
   });
 
   router.get('/nodes/:nodeId', (c) => {
-    const node = edgeNodes.get(c.req.param('nodeId'));
+    const { nodeId } = validateParams(edgeNodeParamsSchema, c);
+    const node = edgeNodes.get(nodeId);
     if (!node) {
-      return c.json({ error: 'Node not found' }, 404);
+      throw new Error('Node not found');
     }
 
     return c.json(node);
   });
 
   router.delete('/nodes/:nodeId', (c) => {
-    const nodeId = c.req.param('nodeId');
+    const { nodeId } = validateParams(edgeNodeParamsSchema, c);
     
     if (!edgeNodes.has(nodeId)) {
-      return c.json({ error: 'Node not found' }, 404);
+      throw new Error('Node not found');
     }
 
     edgeNodes.delete(nodeId);
@@ -202,11 +196,7 @@ export function createEdgeRouter(): Hono {
   // ============================================================================
 
   router.post('/cache', async (c) => {
-    const body = await c.req.json<CacheRequest>();
-
-    if (!body.cid) {
-      return c.json({ error: 'CID required' }, 400);
-    }
+    const body = await validateBody(edgeCacheRequestSchema, c);
 
     cacheRequests.set(body.cid, body);
 
@@ -236,7 +226,7 @@ export function createEdgeRouter(): Hono {
   });
 
   router.get('/cache/:cid', (c) => {
-    const cid = c.req.param('cid');
+    const { cid } = validateParams(edgeRouteParamsSchema, c);
     
     // Find CDN-capable nodes (cache inventory not tracked centrally)
     const cachingNodes = Array.from(edgeNodes.values()).filter(n => {
@@ -255,16 +245,17 @@ export function createEdgeRouter(): Hono {
   // ============================================================================
 
   router.get('/route/:cid', (c) => {
-    const cid = c.req.param('cid');
-    const clientRegion = c.req.header('x-jeju-region') ?? 'global';
+    const { cid } = validateParams(edgeRouteParamsSchema, c);
+    const { 'x-jeju-region': clientRegion } = validateHeaders(regionHeaderSchema, c);
+    const region = clientRegion ?? 'global';
     
     // Find best node for this content
     const candidates = Array.from(edgeNodes.values())
       .filter(n => n.status === 'online' && n.capabilities.cdn)
       .sort((a, b) => {
         // Prefer same region
-        const aRegion = a.region === clientRegion ? 0 : 1;
-        const bRegion = b.region === clientRegion ? 0 : 1;
+        const aRegion = a.region === region ? 0 : 1;
+        const bRegion = b.region === region ? 0 : 1;
         if (aRegion !== bRegion) return aRegion - bRegion;
 
         // Then by availability
@@ -272,7 +263,7 @@ export function createEdgeRouter(): Hono {
       });
 
     if (candidates.length === 0) {
-      return c.json({ error: 'No available nodes' }, 503);
+      throw new Error('No available nodes');
     }
 
     const selected = candidates[0];
@@ -290,9 +281,10 @@ export function createEdgeRouter(): Hono {
   // ============================================================================
 
   router.get('/earnings/:nodeId', (c) => {
-    const node = edgeNodes.get(c.req.param('nodeId'));
+    const { nodeId } = validateParams(edgeNodeParamsSchema, c);
+    const node = edgeNodes.get(nodeId);
     if (!node) {
-      return c.json({ error: 'Node not found' }, 404);
+      throw new Error('Node not found');
     }
 
     // Calculate earnings based on stats

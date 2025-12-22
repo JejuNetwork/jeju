@@ -1,9 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ComponentType } from 'react';
 import { useAccount, useReadContract } from 'wagmi';
-import { Upload, Folder, DollarSign, Clock, HardDrive } from 'lucide-react';
+import { Upload, Folder, DollarSign, Clock, HardDrive, type LucideProps } from 'lucide-react';
 import { IPFS_API_URL, CONTRACTS } from '../../config';
+
+// Fix for Lucide React 19 type compatibility
+const UploadIcon = Upload as ComponentType<LucideProps>;
+const FolderIcon = Folder as ComponentType<LucideProps>;
+const DollarSignIcon = DollarSign as ComponentType<LucideProps>;
+const ClockIcon = Clock as ComponentType<LucideProps>;
+const HardDriveIcon = HardDrive as ComponentType<LucideProps>;
 
 // Client-side config from centralized config
 const FILE_STORAGE_MANAGER_ADDRESS = CONTRACTS.fileStorageManager || '0x0B306BF915C4d645ff596e518fAf3F9669b97016' as const;
@@ -71,7 +78,7 @@ export default function StorageManagerPage() {
       <div className="bg-gradient-to-r from-blue-500 to-purple-500 text-white">
         <div className="max-w-7xl mx-auto px-8 py-12">
           <div className="flex items-center gap-3 mb-4">
-            <HardDrive size={40} />
+            <HardDriveIcon size={40} />
             <h1 className="text-4xl font-bold">File Storage Manager</h1>
           </div>
           <p className="text-lg opacity-90">
@@ -85,9 +92,9 @@ export default function StorageManagerPage() {
         <div className="max-w-7xl mx-auto px-8">
           <div className="flex gap-6">
             {[
-              { id: 'upload', label: 'Upload Files', icon: Upload },
-              { id: 'files', label: 'My Files', icon: Folder, count: fileCIDs?.length },
-              { id: 'funding', label: 'Funding & Payments', icon: DollarSign },
+              { id: 'upload', label: 'Upload Files', icon: UploadIcon },
+              { id: 'files', label: 'My Files', icon: FolderIcon, count: fileCIDs?.length },
+              { id: 'funding', label: 'Funding & Payments', icon: DollarSignIcon },
             ].map((tab) => {
               const Icon = tab.icon;
               return (
@@ -167,7 +174,7 @@ function UploadSection() {
         <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center mb-6">
           {!file ? (
             <>
-              <Upload className="mx-auto text-gray-400 mb-4" size={48} />
+              <UploadIcon className="mx-auto text-gray-400 mb-4" size={48} />
               <p className="text-gray-600 mb-4">
                 Drag and drop or click to select file
               </p>
@@ -264,7 +271,7 @@ function FilesSection({ fileCIDs }: { fileCIDs: readonly `0x${string}`[] }) {
   if (fileCIDs.length === 0) {
     return (
       <div className="text-center py-12 bg-white rounded-lg">
-        <Folder className="mx-auto text-gray-300 mb-4" size={48} />
+        <FolderIcon className="mx-auto text-gray-300 mb-4" size={48} />
         <p className="text-gray-600">No files uploaded yet</p>
       </div>
     );
@@ -304,7 +311,7 @@ function FileCard({ cidBytes }: { cidBytes: `0x${string}` }) {
         </div>
         <div className="text-right">
           <div className="flex items-center gap-1 text-sm">
-            <Clock size={14} />
+            <ClockIcon size={14} />
             <span>{daysLeft > 0 ? `${daysLeft} days left` : 'Expired'}</span>
           </div>
         </div>

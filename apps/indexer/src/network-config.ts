@@ -114,7 +114,11 @@ function loadJsonFile<T>(path: string): T | null {
     return null;
   }
   const content = readFileSync(path, 'utf-8');
-  return JSON.parse(content) as T;
+  const parsed = JSON.parse(content) as T;
+  // JSON.parse returns a value - if parsing fails, it throws.
+  // The type assertion is acceptable here since deployment files are internal config,
+  // not external/user input. Schema validation would be excessive for internal files.
+  return parsed;
 }
 
 function getDeploymentsPath(): string {
@@ -151,13 +155,18 @@ export function getNetworkFromEnv(): NetworkType {
     if (networkEnv === 'localnet' || networkEnv === 'testnet' || networkEnv === 'mainnet') {
       return networkEnv;
     }
+    throw new Error(`Invalid NETWORK environment variable: ${networkEnv}. Must be one of: localnet, testnet, mainnet`);
   }
 
   if (chainId) {
     const id = parseInt(chainId);
+    if (isNaN(id)) {
+      throw new Error(`Invalid CHAIN_ID environment variable: ${chainId}. Must be a number.`);
+    }
     if (id === 1337) return 'localnet';
     if (id === 420690) return 'testnet';
     if (id === 420691) return 'mainnet';
+    throw new Error(`Unsupported CHAIN_ID: ${id}. Supported chain IDs: 1337 (localnet), 420690 (testnet), 420691 (mainnet)`);
   }
 
   // Default to localnet

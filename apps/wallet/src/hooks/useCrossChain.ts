@@ -87,7 +87,7 @@ export function useCrossChainTransfer() {
             const fee = await eilClient.getCurrentFee(result.requestId);
             setState((prev) => ({ ...prev, currentFee: fee }));
 
-            if (request.status === 'issued') {
+            if (request.status === 'claimed') {
               setState((prev) => ({ ...prev, status: 'claimed' }));
             } else if (request.status === 'fulfilled') {
               clearInterval(pollInterval);
@@ -100,8 +100,9 @@ export function useCrossChainTransfer() {
                 error: 'Transfer expired',
               }));
             }
-          } catch {
-            // Continue polling
+          } catch (pollError) {
+            // Log poll errors but continue polling - transient network issues are expected
+            console.warn('Cross-chain transfer poll error:', pollError);
           }
         }, 5000);
 

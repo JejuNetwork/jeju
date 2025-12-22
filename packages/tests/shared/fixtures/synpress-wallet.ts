@@ -67,7 +67,8 @@ export async function connectAndVerify(
 
   // Select MetaMask if wallet picker is shown
   const metamaskOption = page.locator(`text="${walletOptionText}"`);
-  if (await metamaskOption.isVisible({ timeout: 2000 }).catch(() => false)) {
+  const metamaskOptionVisible = await metamaskOption.isVisible({ timeout: 2000 });
+  if (metamaskOptionVisible) {
     await metamaskOption.click();
   }
 
@@ -119,7 +120,7 @@ export async function isAuthenticated(page: Page, timeout = 5000): Promise<boole
   const truncatedPrefix = TEST_WALLET_ADDRESS.slice(0, 6);
   const addressLocator = page.getByText(new RegExp(truncatedPrefix, 'i'));
   
-  return addressLocator.isVisible({ timeout }).catch(() => false);
+  return addressLocator.isVisible({ timeout });
 }
 
 /**
@@ -171,7 +172,8 @@ export async function connectWallet(
   await page.waitForTimeout(500);
 
   const metamaskOption = page.locator(`text="${walletOptionText}"`);
-  if (await metamaskOption.isVisible({ timeout: 2000 }).catch(() => false)) {
+  const metamaskOptionVisible = await metamaskOption.isVisible({ timeout: 2000 });
+  if (metamaskOptionVisible) {
     await metamaskOption.click();
   }
 

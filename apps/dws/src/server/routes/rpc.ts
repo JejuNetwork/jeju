@@ -5,6 +5,8 @@
 
 import { Hono } from 'hono';
 import type { Address } from 'viem';
+import { validateBody, validateParams, validateQuery, validateHeaders, expectValid, jejuAddressHeaderSchema, chainParamsSchema, rpcProviderRegistrationSchema, rpcProviderHeartbeatSchema, rpcProviderParamsSchema, rpcChainsQuerySchema, rpcRequestSchema, rpcBatchRequestSchema, z } from '../../shared';
+import { findBestProvider, getSessionFromApiKey, canMakeRequest, extractApiKey } from '../../shared/utils/rpc';
 
 interface ChainConfig {
   id: number;
@@ -205,7 +207,7 @@ export function createRPCRouter(): Hono {
 
   // List supported chains
   router.get('/chains', (c) => {
-    const includeTestnets = c.req.query('testnet') === 'true';
+    const { testnet: includeTestnets } = validateQuery(rpcChainsQuerySchema, c);
     
     const chains = Object.values(CHAINS)
       .filter(chain => chain.enabled && (includeTestnets || !chain.isTestnet))
@@ -232,11 +234,11 @@ export function createRPCRouter(): Hono {
 
   // Get chain info
   router.get('/chains/:chainId', (c) => {
-    const chainId = parseInt(c.req.param('chainId'));
+    const { chainId } = validateParams(chainParamsSchema, c);
     const chain = CHAINS[chainId];
     
     if (!chain || !chain.enabled) {
-      return c.json({ error: 'Chain not supported' }, 404);
+      throw new Error('Chain not supported');
     }
 
     const chainProviders = Array.from(providers.values())
@@ -261,22 +263,11 @@ export function createRPCRouter(): Hono {
 
   // Register provider
   router.post('/providers', async (c) => {
-    const operator = c.req.header('x-jeju-address') as Address;
-    if (!operator) {
-      return c.json({ error: 'Missing x-jeju-address header' }, 401);
-    }
-
-    const body = await c.req.json<{
-      chainId: number;
-      endpoint: string;
-      wsEndpoint?: string;
-      region: string;
-      tier: 'free' | 'standard' | 'premium';
-      maxRps: number;
-    }>();
+    const { 'x-jeju-address': operator } = validateHeaders(jejuAddressHeaderSchema, c);
+    const body = await validateBody(rpcProviderRegistrationSchema, c);
 
     if (!CHAINS[body.chainId]) {
-      return c.json({ error: 'Chain not supported' }, 400);
+      throw new Error('Chain not supported');
     }
 
     const id = crypto.randomUUID();
@@ -307,16 +298,13 @@ export function createRPCRouter(): Hono {
 
   // Provider heartbeat
   router.post('/providers/:id/heartbeat', async (c) => {
-    const provider = providers.get(c.req.param('id'));
+    const { id } = validateParams(rpcProviderParamsSchema, c);
+    const provider = providers.get(id);
     if (!provider) {
-      return c.json({ error: 'Provider not found' }, 404);
+      throw new Error('Provider not found');
     }
 
-    const body = await c.req.json<{
-      latency?: number;
-      currentRps?: number;
-      status?: 'active' | 'degraded' | 'offline';
-    }>();
+    const body = await validateBody(rpcProviderHeartbeatSchema, c);
 
     provider.lastSeen = Date.now();
     if (body.latency !== undefined) provider.latency = body.latency;
@@ -332,15 +320,11 @@ export function createRPCRouter(): Hono {
 
   // Create API key
   router.post('/keys', async (c) => {
-    const user = c.req.header('x-jeju-address') as Address;
-    if (!user) {
-      return c.json({ error: 'Missing x-jeju-address header' }, 401);
-    }
-
-    const body = await c.req.json<{
-      tier?: 'free' | 'standard' | 'premium';
-      chains?: number[];
-    }>();
+    const { 'x-jeju-address': user } = validateHeaders(jejuAddressHeaderSchema, c);
+    const body = await validateBody(z.object({
+      tier: z.enum(['free', 'standard', 'premium']).optional(),
+      chains: z.array(z.number().int().positive()).optional(),
+    }), c);
 
     const tier = body.tier ?? 'free';
     const apiKey = `dws_${crypto.randomUUID().replace(/-/g, '')}`;
@@ -378,14 +362,15 @@ export function createRPCRouter(): Hono {
 
   // Get API key info
   router.get('/keys/:apiKey', (c) => {
-    const sessionId = apiKeyToSession.get(c.req.param('apiKey'));
+    const { apiKey } = validateParams(z.object({ apiKey: z.string().min(1) }), c);
+    const sessionId = apiKeyToSession.get(apiKey);
     if (!sessionId) {
-      return c.json({ error: 'API key not found' }, 404);
+      throw new Error('API key not found');
     }
 
     const session = sessions.get(sessionId);
     if (!session) {
-      return c.json({ error: 'Session not found' }, 404);
+      throw new Error('Session not found');
     }
 
     return c.json({
@@ -400,20 +385,21 @@ export function createRPCRouter(): Hono {
 
   // Revoke API key
   router.delete('/keys/:apiKey', (c) => {
-    const user = c.req.header('x-jeju-address')?.toLowerCase();
-    const sessionId = apiKeyToSession.get(c.req.param('apiKey'));
+    const user = validateHeaders(z.object({ 'x-jeju-address': z.string().optional() }), c)['x-jeju-address']?.toLowerCase();
+    const { apiKey } = validateParams(z.object({ apiKey: z.string().min(1) }), c);
+    const sessionId = apiKeyToSession.get(apiKey);
     
     if (!sessionId) {
-      return c.json({ error: 'API key not found' }, 404);
+      throw new Error('API key not found');
     }
 
     const session = sessions.get(sessionId);
-    if (!session || session.user.toLowerCase() !== user) {
-      return c.json({ error: 'Not authorized' }, 403);
+    if (!session || !user || session.user.toLowerCase() !== user) {
+      throw new Error('Not authorized');
     }
 
     session.status = 'suspended';
-    apiKeyToSession.delete(c.req.param('apiKey'));
+    apiKeyToSession.delete(apiKey);
 
     return c.json({ success: true });
   });
@@ -424,56 +410,42 @@ export function createRPCRouter(): Hono {
 
   // JSON-RPC endpoint
   router.post('/:chainId', async (c) => {
-    const chainId = parseInt(c.req.param('chainId'));
+    const { chainId } = validateParams(chainParamsSchema, c);
     const chain = CHAINS[chainId];
     
     if (!chain || !chain.enabled) {
-      return c.json({ error: 'Chain not supported' }, 404);
+      throw new Error('Chain not supported');
     }
 
     // Get API key from header or query
-    const apiKey = c.req.header('x-api-key') ?? 
-                   c.req.header('authorization')?.replace('Bearer ', '') ??
-                   c.req.query('apiKey');
+    const headers = validateHeaders(z.object({
+      'x-api-key': z.string().optional(),
+      'authorization': z.string().optional(),
+    }), c);
+    const query = validateQuery(z.object({ apiKey: z.string().optional() }), c);
+    const apiKey = extractApiKey(headers['x-api-key'], headers['authorization'], query.apiKey);
 
-    // Validate API key
-    let session: RPCSession | undefined;
-    if (apiKey) {
-      const sessionId = apiKeyToSession.get(apiKey);
-      if (sessionId) {
-        session = sessions.get(sessionId);
-      }
+    // Validate API key and check rate limits
+    const session = getSessionFromApiKey(apiKey, apiKeyToSession, sessions);
+    const canRequest = canMakeRequest(session);
+    if (!canRequest.allowed) {
+      throw new Error(canRequest.reason || 'Request not allowed');
     }
-
-    // Check rate limits
+    
     if (session) {
-      if (session.status !== 'active') {
-        return c.json({ error: 'API key suspended' }, 403);
-      }
-      if (session.requestCount >= session.dailyLimit) {
-        return c.json({ error: 'Daily limit exceeded' }, 429);
-      }
       session.requestCount++;
     }
 
     // Find best provider
-    const availableProviders = Array.from(providers.values())
-      .filter(p => 
-        p.chainId === chainId && 
-        p.status === 'active' &&
-        p.currentRps < p.maxRps
-      )
-      .sort((a, b) => a.latency - b.latency);
-
-    const provider = availableProviders[0];
+    const provider = findBestProvider(providers, chainId);
     if (!provider) {
-      return c.json({ error: 'No available providers' }, 503);
+      throw new Error('No available providers');
     }
 
     // Forward request
+    const body = await validateBody(rpcRequestSchema, c);
+    
     try {
-      const body = await c.req.json();
-      
       const response = await fetch(provider.endpoint, {
         method: 'POST',
         headers: {
@@ -492,59 +464,36 @@ export function createRPCRouter(): Hono {
     } catch (error) {
       // Mark provider as degraded on error
       provider.status = 'degraded';
-      
-      return c.json({
-        jsonrpc: '2.0',
-        error: {
-          code: -32603,
-          message: error instanceof Error ? error.message : 'Internal error',
-        },
-        id: null,
-      }, 500);
+      throw error;
     }
   });
 
   // Batch RPC
   router.post('/:chainId/batch', async (c) => {
-    const chainId = parseInt(c.req.param('chainId'));
+    const { chainId } = validateParams(chainParamsSchema, c);
     const chain = CHAINS[chainId];
     
     if (!chain || !chain.enabled) {
-      return c.json({ error: 'Chain not supported' }, 404);
+      throw new Error('Chain not supported');
     }
 
-    const requests = await c.req.json<Array<{
-      jsonrpc: string;
-      method: string;
-      params: unknown[];
-      id: number | string;
-    }>>();
-
-    if (!Array.isArray(requests)) {
-      return c.json({ error: 'Expected array of requests' }, 400);
-    }
+    const requests = await validateBody(rpcBatchRequestSchema, c);
 
     // Find provider
     const provider = Array.from(providers.values())
       .find(p => p.chainId === chainId && p.status === 'active');
 
     if (!provider) {
-      return c.json({ error: 'No available providers' }, 503);
+      throw new Error('No available providers');
     }
 
-    try {
-      const response = await fetch(provider.endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requests),
-      });
+    const response = await fetch(provider.endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requests),
+    });
 
-      return c.json(await response.json());
-    } catch (error) {
-      return c.json({
-        error: error instanceof Error ? error.message : 'Batch request failed',
-      }, 500);
-    }
+    return c.json(await response.json());
   });
 
   return router;

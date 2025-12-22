@@ -204,7 +204,7 @@ async function main() {
   process.on('SIGTERM', () => { monitor.stop(); process.exit(0); });
 
   await monitor.start();
-  await new Promise(() => {});
+  await new Promise(() => { /* keep process running */ });
 }
 
 main().catch(e => { console.error(e); process.exit(1); });

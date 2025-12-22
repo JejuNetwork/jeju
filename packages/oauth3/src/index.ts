@@ -168,6 +168,62 @@ export {
   type OAuthProfile,
 } from './providers/social.js';
 
+// Email Authentication Provider
+export {
+  EmailProvider,
+  createEmailProvider,
+  type EmailAuthConfig,
+  type EmailUser,
+  type MagicLinkToken,
+  type OTPToken,
+  type EmailAuthResult,
+} from './providers/email.js';
+
+// Phone/SMS Authentication Provider
+export {
+  PhoneProvider,
+  createPhoneProvider,
+  type PhoneAuthConfig,
+  type PhoneUser,
+  type PhoneOTP,
+  type PhoneAuthResult,
+} from './providers/phone.js';
+
+// Multi-Factor Authentication (MFA)
+export {
+  PasskeyManager,
+  createPasskeyManager,
+  type PasskeyCredential,
+  type PasskeyChallenge,
+  type PasskeyAuthResult,
+  type PasskeyRegistrationOptions,
+  type PasskeyAuthenticationOptions,
+} from './mfa/passkeys.js';
+
+export {
+  TOTPManager,
+  createTOTPManager,
+  type TOTPSecret,
+  type TOTPVerifyResult,
+  type TOTPSetupResult,
+} from './mfa/totp.js';
+
+export {
+  BackupCodesManager,
+  createBackupCodesManager,
+  type BackupCode,
+  type BackupCodesSet,
+} from './mfa/backup-codes.js';
+
+export {
+  MFAMethod,
+  type MFAStatus,
+  type MFAChallenge,
+} from './mfa/index.js';
+
+// React SDK (separate entry point for tree-shaking)
+// import { OAuth3Provider, useOAuth3 } from '@jejunetwork/oauth3/react'
+
 // Verifiable Credentials
 export {
   VerifiableCredentialIssuer,
@@ -218,3 +274,55 @@ export {
   type IdentitySyncIntent,
   type CrossChainAuthIntent,
 } from './intents/cross-chain-identity.js';
+
+// Validation (Zod schemas and utilities)
+export {
+  // Core schemas
+  HexSchema,
+  AddressSchema,
+  Bytes32Schema,
+  OAuth3ConfigSchema,
+  OAuth3SessionSchema,
+  TEEAttestationSchema,
+  VerifiableCredentialSchema,
+  CredentialSubjectSchema,
+  CredentialProofSchema,
+  
+  // API response schemas
+  ErrorResponseSchema,
+  TOTPSetupResponseSchema,
+  MFAStatusSchema,
+  PasskeyListItemSchema,
+  OAuthInitResponseSchema,
+  SignResponseSchema,
+  CredentialVerifyResponseSchema,
+  
+  // External API schemas
+  NeynarUserSchema,
+  NeynarCastSchema,
+  OAuthTokenResponseSchema,
+  GoogleUserInfoSchema,
+  GitHubUserSchema,
+  TwitterUserSchema,
+  DiscordUserSchema,
+  IPFSAddResponseSchema,
+  
+  // Validation utilities
+  expect,
+  expectEndpoint,
+  getEndpointWithDevFallback,
+  extractError,
+  validateConfig,
+  validateResponse,
+  safeParseJson,
+  fetchAndValidate,
+  isHex,
+  isAddress,
+  generateOTP,
+  
+  // Types
+  type ValidatedOAuth3Config,
+  type NeynarUser,
+  type NeynarCast,
+  type OAuthTokenResponse,
+} from './validation.js';

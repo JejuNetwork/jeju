@@ -5,7 +5,7 @@
  * are running correctly and producing consistent state across L1 and L2.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
+import { describe, it, expect, beforeAll } from 'bun:test';
 import { createPublicClient, http, getBlockNumber, getBalance, getTransactionReceipt, getChainId, type PublicClient, type TransactionReceipt } from 'viem';
 import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
 
@@ -34,7 +34,7 @@ const L2_CLIENTS: ClientEndpoint[] = [
 ];
 
 // Timeout for connectivity tests
-const CONNECT_TIMEOUT = 5000;
+const _CONNECT_TIMEOUT = 5000;
 
 // ============================================================================
 // Utility Functions
@@ -62,11 +62,22 @@ async function getClientVersion(endpoint: ClientEndpoint): Promise<string> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ jsonrpc: '2.0', method: 'web3_clientVersion', params: [], id: 1 }),
+      signal: AbortSignal.timeout(3000),
     });
-    const data = await response.json() as { result?: string };
-    return data.result ?? 'unknown';
-  } catch {
-    return 'unavailable';
+    const data = await response.json() as { result?: string; error?: { message: string } };
+    if (data.error) {
+      return `error: ${data.error.message}`;
+    }
+    if (!data.result) {
+      return 'unknown (empty response)';
+    }
+    return data.result;
+  } catch (e) {
+    // Connection refused or timeout means client unavailable
+    if (e instanceof Error && (e.name === 'AbortError' || e.message.includes('ECONNREFUSED'))) {
+      return 'unavailable';
+    }
+    return `error: ${e instanceof Error ? e.message : String(e)}`;
   }
 }
 
@@ -261,21 +272,17 @@ describe('Cross-Client State Consistency', () => {
     if (!block1 || block1.transactions.length === 0) return;
 
     const txHash = block1.transactions[0] as `0x${string}`;
-    const receipts: (TransactionReceipt | null)[] = [];
+    const receipts: TransactionReceipt[] = [];
 
     for (const client of availableSequencers) {
       const publicClient = await createProvider(client);
-      try {
-        const receipt = await getTransactionReceipt(publicClient, { hash: txHash });
-        receipts.push(receipt);
-      } catch {
-        receipts.push(null);
-      }
+      const receipt = await getTransactionReceipt(publicClient, { hash: txHash });
+      receipts.push(receipt);
     }
 
     // All receipts should have same status and block number
-    const statuses = receipts.map(r => r?.status);
-    const blocks = receipts.map(r => r?.blockNumber);
+    const statuses = receipts.map(r => r.status);
+    const blocks = receipts.map(r => r.blockNumber);
 
     expect(new Set(statuses).size).toBe(1);
     expect(new Set(blocks).size).toBe(1);

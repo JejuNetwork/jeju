@@ -1,7 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Search, Star, GitFork, Eye, Lock, Globe, GitBranch, Clock } from 'lucide-react';
+import { useState, useEffect, type ComponentType } from 'react';
+import { Search, Star, GitFork, Eye, Lock, Globe, GitBranch, Clock, type LucideProps } from 'lucide-react';
+
+// Fix for Lucide React 19 type compatibility
+const SearchIcon = Search as ComponentType<LucideProps>;
+const StarIcon = Star as ComponentType<LucideProps>;
+const GitForkIcon = GitFork as ComponentType<LucideProps>;
+const EyeIcon = Eye as ComponentType<LucideProps>;
+const LockIcon = Lock as ComponentType<LucideProps>;
+const GlobeIcon = Globe as ComponentType<LucideProps>;
+const GitBranchIcon = GitBranch as ComponentType<LucideProps>;
+const ClockIcon = Clock as ComponentType<LucideProps>;
 
 interface Repository {
   id: string;
@@ -96,7 +106,7 @@ export default function RepositoriesPage() {
         {/* Search and Filters */}
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
               placeholder="Search repositories..."
@@ -154,12 +164,12 @@ export default function RepositoriesPage() {
                       </a>
                       {repo.visibility === 'private' ? (
                         <span className="px-2 py-0.5 text-xs bg-gray-700 text-gray-300 rounded-full flex items-center gap-1">
-                          <Lock className="w-3 h-3" />
+                          <LockIcon className="w-3 h-3" />
                           Private
                         </span>
                       ) : (
                         <span className="px-2 py-0.5 text-xs bg-green-900/50 text-green-400 rounded-full flex items-center gap-1">
-                          <Globe className="w-3 h-3" />
+                          <GlobeIcon className="w-3 h-3" />
                           Public
                         </span>
                       )}
@@ -189,19 +199,19 @@ export default function RepositoriesPage() {
                     
                     <div className="flex items-center gap-6 mt-4 text-sm text-gray-400">
                       <span className="flex items-center gap-1">
-                        <Star className="w-4 h-4" />
+                        <StarIcon className="w-4 h-4" />
                         {repo.stargazers_count}
                       </span>
                       <span className="flex items-center gap-1">
-                        <GitFork className="w-4 h-4" />
+                        <GitForkIcon className="w-4 h-4" />
                         {repo.forks_count}
                       </span>
                       <span className="flex items-center gap-1">
-                        <GitBranch className="w-4 h-4" />
+                        <GitBranchIcon className="w-4 h-4" />
                         {repo.default_branch}
                       </span>
                       <span className="flex items-center gap-1">
-                        <Clock className="w-4 h-4" />
+                        <ClockIcon className="w-4 h-4" />
                         Updated {formatDate(repo.updated_at)}
                       </span>
                     </div>

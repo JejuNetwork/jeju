@@ -4,6 +4,7 @@
 
 import { Hono } from 'hono';
 import type { BackendManager } from '../../storage/backends';
+import { validateParams, validateQuery, validateHeaders, expectValid, downloadParamsSchema, existsParamsSchema, ipfsPinRemoveQuerySchema, cidSchema, z } from '../../shared';
 
 export function createStorageRouter(backendManager: BackendManager): Hono {
   const router = new Hono();
@@ -17,7 +18,9 @@ export function createStorageRouter(backendManager: BackendManager): Hono {
   router.post('/upload', async (c) => {
     const formData = await c.req.formData();
     const file = formData.get('file');
-    if (!(file instanceof File)) return c.json({ error: 'file required' }, 400);
+    if (!(file instanceof File)) {
+      return c.json({ error: 'File is required' }, 400);
+    }
     const content = Buffer.from(await file.arrayBuffer());
     const result = await backendManager.upload(content, { filename: file.name });
     return c.json({ ...result, size: content.length });
@@ -26,15 +29,17 @@ export function createStorageRouter(backendManager: BackendManager): Hono {
   router.post('/upload/raw', async (c) => {
     const body = await c.req.arrayBuffer();
     const content = Buffer.from(body);
-    const filename = c.req.header('x-filename') || 'file';
+    const filename = validateHeaders(z.object({ 'x-filename': z.string().optional() }), c)['x-filename'] || 'file';
     const result = await backendManager.upload(content, { filename });
     return c.json({ ...result, size: content.length });
   });
 
   router.get('/download/:cid', async (c) => {
-    const cid = c.req.param('cid');
-    const result = await backendManager.download(cid).catch((e: Error) => ({ error: e.message }));
-    if ('error' in result) return c.json(result, 404);
+    const { cid } = validateParams(downloadParamsSchema, c);
+    const result = await backendManager.download(cid).catch(() => null);
+    if (!result) {
+      throw new Error('Not found');
+    }
     return new Response(new Uint8Array(result.content), {
       headers: {
         'Content-Type': 'application/octet-stream',
@@ -44,7 +49,7 @@ export function createStorageRouter(backendManager: BackendManager): Hono {
   });
 
   router.get('/exists/:cid', async (c) => {
-    const cid = c.req.param('cid');
+    const { cid } = validateParams(existsParamsSchema, c);
     const exists = await backendManager.exists(cid);
     return c.json({ cid, exists });
   });
@@ -53,7 +58,9 @@ export function createStorageRouter(backendManager: BackendManager): Hono {
   router.post('/api/v0/add', async (c) => {
     const formData = await c.req.formData();
     const file = formData.get('file');
-    if (!(file instanceof File)) return c.json({ error: 'file required' }, 400);
+    if (!(file instanceof File)) {
+      throw new Error('File is required');
+    }
     const content = Buffer.from(await file.arrayBuffer());
     const result = await backendManager.upload(content, { filename: file.name });
     return c.json({ Hash: result.cid, Size: String(content.length), Name: file.name });
@@ -62,20 +69,23 @@ export function createStorageRouter(backendManager: BackendManager): Hono {
   router.post('/api/v0/id', async (c) => {
     const health = await backendManager.healthCheck();
     const allHealthy = Object.values(health).every((h) => h);
-    if (!allHealthy) return c.json({ error: 'Storage backends unhealthy' }, 503);
+    if (!allHealthy) {
+      throw new Error('Storage backends unhealthy');
+    }
     return c.json({ ID: 'dws-storage', AgentVersion: 'dws/1.0.0', Addresses: [] });
   });
 
   router.post('/api/v0/pin/rm', async (c) => {
-    const arg = c.req.query('arg');
-    if (!arg) return c.json({ error: 'arg required' }, 400);
+    const { arg } = validateQuery(ipfsPinRemoveQuerySchema, c);
     return c.json({ Pins: [arg] });
   });
 
   router.get('/ipfs/:cid', async (c) => {
-    const cid = c.req.param('cid');
-    const result = await backendManager.download(cid).catch((e: Error) => ({ error: e.message }));
-    if ('error' in result) return c.json({ error: 'Not found' }, 404);
+    const { cid } = validateParams(downloadParamsSchema, c);
+    const result = await backendManager.download(cid).catch(() => null);
+    if (!result) {
+      throw new Error('Not found');
+    }
     return new Response(new Uint8Array(result.content), {
       headers: { 'Content-Type': 'application/octet-stream', 'X-Ipfs-Path': `/ipfs/${cid}` },
     });

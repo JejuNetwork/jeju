@@ -2,8 +2,10 @@
  * Cross-platform Storage Adapter
  */
 
+import { z } from 'zod';
 import type { StorageAdapter } from './types';
 import { getPlatformInfo } from './detection';
+import { expectJson } from '../lib/validation';
 
 class WebStorageAdapter implements StorageAdapter {
   private prefix = 'jeju_wallet_';
@@ -94,40 +96,32 @@ class TauriStorageAdapter implements StorageAdapter {
   // Tauri runtime will use native storage via invoke
   private prefix = 'jeju_tauri_';
 
+  private isTauri(): boolean {
+    return typeof window !== 'undefined' && '__TAURI__' in window;
+  }
+
   async get(key: string): Promise<string | null> {
-    if (typeof window !== 'undefined' && '__TAURI__' in window) {
-      try {
-        const { invoke } = await import('@tauri-apps/api/core');
-        return invoke('storage_get', { key });
-      } catch {
-        // Fall back to localStorage
-      }
+    if (this.isTauri()) {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return invoke('storage_get', { key });
     }
     return localStorage.getItem(this.prefix + key);
   }
 
   async set(key: string, value: string): Promise<void> {
-    if (typeof window !== 'undefined' && '__TAURI__' in window) {
-      try {
-        const { invoke } = await import('@tauri-apps/api/core');
-        await invoke('storage_set', { key, value });
-        return;
-      } catch {
-        // Fall back to localStorage
-      }
+    if (this.isTauri()) {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('storage_set', { key, value });
+      return;
     }
     localStorage.setItem(this.prefix + key, value);
   }
 
   async remove(key: string): Promise<void> {
-    if (typeof window !== 'undefined' && '__TAURI__' in window) {
-      try {
-        const { invoke } = await import('@tauri-apps/api/core');
-        await invoke('storage_remove', { key });
-        return;
-      } catch {
-        // Fall back to localStorage
-      }
+    if (this.isTauri()) {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('storage_remove', { key });
+      return;
     }
     localStorage.removeItem(this.prefix + key);
   }
@@ -140,13 +134,9 @@ class TauriStorageAdapter implements StorageAdapter {
   }
 
   async keys(): Promise<string[]> {
-    if (typeof window !== 'undefined' && '__TAURI__' in window) {
-      try {
-        const { invoke } = await import('@tauri-apps/api/core');
-        return invoke('storage_keys');
-      } catch {
-        // Fall back to localStorage
-      }
+    if (this.isTauri()) {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return invoke('storage_keys');
     }
     const result: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -161,50 +151,30 @@ class TauriStorageAdapter implements StorageAdapter {
 
 class CapacitorStorageAdapter implements StorageAdapter {
   async get(key: string): Promise<string | null> {
-    try {
-      const { Preferences } = await import('@capacitor/preferences');
-      const { value } = await Preferences.get({ key });
-      return value;
-    } catch {
-      return null;
-    }
+    const { Preferences } = await import('@capacitor/preferences');
+    const { value } = await Preferences.get({ key });
+    return value;
   }
 
   async set(key: string, value: string): Promise<void> {
-    try {
-      const { Preferences } = await import('@capacitor/preferences');
-      await Preferences.set({ key, value });
-    } catch (err) {
-      console.error('Failed to set storage:', err);
-    }
+    const { Preferences } = await import('@capacitor/preferences');
+    await Preferences.set({ key, value });
   }
 
   async remove(key: string): Promise<void> {
-    try {
-      const { Preferences } = await import('@capacitor/preferences');
-      await Preferences.remove({ key });
-    } catch (err) {
-      console.error('Failed to remove from storage:', err);
-    }
+    const { Preferences } = await import('@capacitor/preferences');
+    await Preferences.remove({ key });
   }
 
   async clear(): Promise<void> {
-    try {
-      const { Preferences } = await import('@capacitor/preferences');
-      await Preferences.clear();
-    } catch (err) {
-      console.error('Failed to clear storage:', err);
-    }
+    const { Preferences } = await import('@capacitor/preferences');
+    await Preferences.clear();
   }
 
   async keys(): Promise<string[]> {
-    try {
-      const { Preferences } = await import('@capacitor/preferences');
-      const { keys } = await Preferences.keys();
-      return keys;
-    } catch {
-      return [];
-    }
+    const { Preferences } = await import('@capacitor/preferences');
+    const { keys } = await Preferences.keys();
+    return keys;
   }
 }
 
@@ -239,10 +209,10 @@ export const storage = {
   clear: () => getStorage().clear(),
   keys: () => getStorage().keys(),
 
-  async getJSON<T>(key: string): Promise<T | null> {
+  async getJSON<T>(key: string, schema: z.ZodSchema<T>): Promise<T | null> {
     const value = await getStorage().get(key);
     if (!value) return null;
-    return JSON.parse(value) as T;
+    return expectJson(value, schema, `storage key: ${key}`);
   },
 
   async setJSON<T>(key: string, value: T): Promise<void> {

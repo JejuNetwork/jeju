@@ -2,15 +2,30 @@
  * Oracle service - Real contract integration
  */
 
+import { z } from 'zod';
 import { type Address, keccak256, toBytes } from 'viem';
 import { type NodeClient, getChain } from '../contracts';
 import { ORACLE_STAKING_MANAGER_ABI } from '../abis';
+
+const OracleServiceConfigSchema = z.object({
+  agentId: z.bigint(),
+  stakeAmount: z.bigint(),
+  markets: z.array(z.string().min(1)).min(1),
+});
 
 export interface OracleServiceConfig {
   agentId: bigint;
   stakeAmount: bigint;
   markets: string[]; // Market identifiers to provide prices for
 }
+
+const OracleServiceStateSchema = z.object({
+  isRegistered: z.boolean(),
+  stake: z.bigint(),
+  reputation: z.bigint(),
+  accuracy: z.bigint(),
+  submissionsCount: z.bigint(),
+});
 
 export interface OracleServiceState {
   isRegistered: boolean;
@@ -20,10 +35,28 @@ export interface OracleServiceState {
   submissionsCount: bigint;
 }
 
+const PriceSubmissionSchema = z.object({
+  market: z.string().min(1),
+  price: z.bigint(),
+  timestamp: z.number().int().positive(),
+});
+
 export interface PriceSubmission {
   market: string;
   price: bigint;
   timestamp: number;
+}
+
+export function validateOracleServiceConfig(data: unknown): OracleServiceConfig {
+  return OracleServiceConfigSchema.parse(data);
+}
+
+export function validateOracleServiceState(data: unknown): OracleServiceState {
+  return OracleServiceStateSchema.parse(data);
+}
+
+export function validatePriceSubmission(data: unknown): PriceSubmission {
+  return PriceSubmissionSchema.parse(data);
 }
 
 export class OracleService {
@@ -35,6 +68,10 @@ export class OracleService {
   }
 
   async getState(address: Address): Promise<OracleServiceState> {
+    if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
+      throw new Error(`Invalid address: ${address}`);
+    }
+    
     const info = await this.client.publicClient.readContract({
       address: this.client.addresses.oracleStakingManager,
       abi: ORACLE_STAKING_MANAGER_ABI,
@@ -42,16 +79,20 @@ export class OracleService {
       args: [address],
     });
 
-    return {
+    const rawState = {
       isRegistered: info[0] > 0n,
       stake: info[0],
       reputation: info[1],
       accuracy: info[2],
       submissionsCount: info[3],
     };
+    
+    return validateOracleServiceState(rawState);
   }
 
   async register(config: OracleServiceConfig): Promise<string> {
+    const validatedConfig = validateOracleServiceConfig(config);
+    
     if (!this.client.walletClient?.account) {
       throw new Error('Wallet not connected');
     }
@@ -62,8 +103,8 @@ export class OracleService {
       address: this.client.addresses.oracleStakingManager,
       abi: ORACLE_STAKING_MANAGER_ABI,
       functionName: 'registerOracle',
-      args: [config.agentId],
-      value: config.stakeAmount,
+      args: [validatedConfig.agentId],
+      value: validatedConfig.stakeAmount,
     });
 
     return hash;

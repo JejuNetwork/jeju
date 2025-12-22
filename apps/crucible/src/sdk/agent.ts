@@ -2,7 +2,7 @@
  * Agent SDK - Manages agent lifecycle: creation, state, execution, and funding.
  */
 
-import { type Address, type PublicClient, type WalletClient, parseEther, parseAbi } from 'viem';
+import { type Address, type PublicClient, type WalletClient, parseEther, parseAbi, isAddress } from 'viem';
 import type {
   AgentDefinition,
   AgentCharacter,
@@ -15,6 +15,7 @@ import type {
 import { CrucibleStorage } from './storage';
 import { CrucibleCompute } from './compute';
 import { createLogger, type Logger } from './logger';
+import { expect, AgentCharacterSchema, AgentSearchResponseSchema } from '../schemas';
 
 // ABI matching actual IdentityRegistry.sol contract
 const IDENTITY_REGISTRY_ABI = parseAbi([
@@ -87,7 +88,7 @@ export class AgentSDK {
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'register',
       args: [tokenUri],
-      account: this.walletClient.account,
+      account: expect(this.walletClient.account, 'Wallet client account is required'),
     });
 
     const txHash = await this.walletClient.writeContract(request);
@@ -104,21 +105,25 @@ export class AgentSDK {
   }
 
   async createVault(agentId: bigint, initialFunding?: bigint): Promise<Address> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    expect(this.walletClient, 'Wallet client required');
+    expect(agentId > 0n, 'Agent ID must be greater than 0');
 
     const funding = initialFunding ?? parseEther('0.01');
+    expect(funding >= 0n, 'Funding must be non-negative');
     this.log.info('Creating vault', { agentId: agentId.toString(), funding: funding.toString() });
 
+    const wallet = expect(this.walletClient, 'Wallet client is required');
+    const account = expect(wallet.account, 'Wallet client account is required');
     const { request } = await this.publicClient.simulateContract({
       address: this.config.contracts.agentVault,
       abi: AGENT_VAULT_ABI,
       functionName: 'createVault',
       args: [agentId],
       value: funding,
-      account: this.walletClient.account,
+      account,
     });
 
-    const txHash = await this.walletClient.writeContract(request);
+    const txHash = await wallet.writeContract(request);
     await this.publicClient.waitForTransactionReceipt({ hash: txHash });
 
     const vaultAddress = await this.publicClient.readContract({
@@ -193,15 +198,11 @@ export class AgentSDK {
     // Infer botType from character or default to ai_agent
     let botType: 'ai_agent' | 'trading_bot' | 'org_tool' = 'ai_agent';
     if (characterCid) {
-      try {
-        const character = await this.storage.loadCharacter(characterCid);
-        if (character.topics?.includes('trading') || character.topics?.includes('arbitrage') || character.topics?.includes('mev')) {
-          botType = 'trading_bot';
-        } else if (character.topics?.includes('org') || character.topics?.includes('todo') || character.topics?.includes('team')) {
-          botType = 'org_tool';
-        }
-      } catch {
-        // Character not found, default to ai_agent
+      const character = await this.storage.loadCharacter(characterCid);
+      if (character.topics?.includes('trading') || character.topics?.includes('arbitrage') || character.topics?.includes('mev')) {
+        botType = 'trading_bot';
+      } else if (character.topics?.includes('org') || character.topics?.includes('todo') || character.topics?.includes('team')) {
+        botType = 'org_tool';
       }
     }
 
@@ -221,16 +222,18 @@ export class AgentSDK {
   }
 
   async loadCharacter(agentId: bigint): Promise<AgentCharacter> {
+    expect(agentId > 0n, 'Agent ID must be greater than 0');
     const agent = await this.getAgent(agentId);
-    if (!agent) throw new Error(`Agent not found: ${agentId}`);
-    if (!agent.characterCid) throw new Error(`Agent ${agentId} has no character CID`);
-    return this.storage.loadCharacter(agent.characterCid);
+    const validAgent = expect(agent, `Agent not found: ${agentId}`);
+    const characterCid = expect(validAgent.characterCid, `Agent ${agentId} has no character CID`);
+    return this.storage.loadCharacter(characterCid);
   }
 
   async loadState(agentId: bigint): Promise<AgentState> {
+    expect(agentId > 0n, 'Agent ID must be greater than 0');
     const agent = await this.getAgent(agentId);
-    if (!agent) throw new Error(`Agent not found: ${agentId}`);
-    return this.storage.loadAgentState(agent.stateCid);
+    const validAgent = expect(agent, `Agent not found: ${agentId}`);
+    return this.storage.loadAgentState(validAgent.stateCid);
   }
 
   async updateState(agentId: bigint, updates: Partial<AgentState>): Promise<{ state: AgentState; cid: string }> {
@@ -246,12 +249,14 @@ export class AgentSDK {
 
     const newTokenUri = `ipfs://${agent.characterCid}#state=${cid}`;
 
+    const wallet = expect(this.walletClient, 'Wallet client is required');
+    const account = expect(wallet.account, 'Wallet client account is required');
     const { request } = await this.publicClient.simulateContract({
       address: this.config.contracts.identityRegistry,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'setAgentUri',
       args: [agentId, newTokenUri],
-      account: this.walletClient.account,
+      account,
     });
 
     await this.walletClient.writeContract(request);
@@ -265,6 +270,13 @@ export class AgentSDK {
     content: string,
     options?: { importance?: number; roomId?: string; userId?: string }
   ): Promise<MemoryEntry> {
+    expect(agentId > 0n, 'Agent ID must be greater than 0');
+    expect(content, 'Memory content is required');
+    expect(content.length > 0, 'Memory content cannot be empty');
+    if (options?.importance !== undefined) {
+      expect(options.importance >= 0 && options.importance <= 1, 'Importance must be between 0 and 1');
+    }
+
     const state = await this.loadState(agentId);
     const embedding = await this.compute.generateEmbedding(content);
 
@@ -298,13 +310,15 @@ export class AgentSDK {
 
     this.log.info('Funding vault', { agentId: agentId.toString(), amount: amount.toString() });
 
+    const wallet = expect(this.walletClient, 'Wallet client is required');
+    const account = expect(wallet.account, 'Wallet client account is required');
     const { request } = await this.publicClient.simulateContract({
       address: this.config.contracts.agentVault,
       abi: AGENT_VAULT_ABI,
       functionName: 'deposit',
       args: [agentId],
       value: amount,
-      account: this.walletClient.account,
+      account,
     });
 
     const txHash = await this.walletClient.writeContract(request);
@@ -315,19 +329,23 @@ export class AgentSDK {
   }
 
   async withdrawFromVault(agentId: bigint, amount: bigint): Promise<string> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    expect(this.walletClient, 'Wallet client required');
+    expect(agentId > 0n, 'Agent ID must be greater than 0');
+    expect(amount > 0n, 'Amount must be greater than 0');
 
     this.log.info('Withdrawing from vault', { agentId: agentId.toString(), amount: amount.toString() });
 
+    const wallet = expect(this.walletClient, 'Wallet client is required');
+    const account = expect(wallet.account, 'Wallet client account is required');
     const { request } = await this.publicClient.simulateContract({
       address: this.config.contracts.agentVault,
       abi: AGENT_VAULT_ABI,
       functionName: 'withdraw',
       args: [agentId, amount],
-      account: this.walletClient.account,
+      account,
     });
 
-    const txHash = await this.walletClient.writeContract(request);
+    const txHash = await wallet.writeContract(request);
     await this.publicClient.waitForTransactionReceipt({ hash: txHash });
 
     this.log.info('Withdrawal complete', { agentId: agentId.toString(), txHash });
@@ -342,7 +360,7 @@ export class AgentSDK {
       abi: AGENT_VAULT_ABI,
       functionName: 'setSpendLimit',
       args: [agentId, limit],
-      account: this.walletClient.account,
+      account: expect(this.walletClient.account, 'Wallet client account is required'),
     });
 
     await this.walletClient.writeContract(request);
@@ -350,6 +368,13 @@ export class AgentSDK {
   }
 
   async searchAgents(filter: AgentSearchFilter): Promise<SearchResult<AgentDefinition>> {
+    expect(filter, 'Search filter is required');
+    if (filter.limit !== undefined) {
+      expect(filter.limit > 0 && filter.limit <= 100, 'Limit must be between 1 and 100');
+    }
+    if (filter.owner !== undefined) {
+      expect(isAddress(filter.owner), 'Owner must be a valid address');
+    }
     this.log.debug('Searching agents', { filter });
 
     const query = `
@@ -367,23 +392,26 @@ export class AgentSDK {
       body: JSON.stringify({ query, variables: { filter } }),
     });
 
-    if (!response.ok) {
-      this.log.error('Search failed', { status: response.status, statusText: response.statusText });
-      throw new Error(`Search failed: ${response.statusText}`);
-    }
+    expect(response.ok, `Search failed: ${response.statusText}`);
 
-    const result = await response.json() as { data: { agents: SearchResult<AgentDefinition> } };
-    this.log.debug('Search complete', { total: result.data.agents.total });
+    const rawResult = await response.json();
+    const parsed = AgentSearchResponseSchema.parse(rawResult);
+    this.log.debug('Search complete', { total: parsed.data.agents.total });
 
-    return result.data.agents;
+    return parsed.data.agents as SearchResult<AgentDefinition>;
   }
 
   private parseTokenUri(uri: string): { characterCid: string; stateCid: string } {
+    expect(uri, 'Token URI is required');
+    expect(uri.length > 0, 'Token URI cannot be empty');
     const [base, fragment] = uri.split('#');
-    return {
-      characterCid: base?.replace('ipfs://', '') ?? '',
-      stateCid: fragment?.replace('state=', '') ?? '',
-    };
+    expect(base, 'Token URI must contain base part');
+    expect(fragment, 'Token URI must contain fragment part');
+    const characterCid = base.replace('ipfs://', '');
+    const stateCid = fragment.replace('state=', '');
+    expect(characterCid.length > 0, 'Character CID cannot be empty');
+    expect(stateCid.length > 0, 'State CID cannot be empty');
+    return { characterCid, stateCid };
   }
 }
 

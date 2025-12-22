@@ -10,17 +10,22 @@
  */
 
 import type { Address, Hex } from "viem";
-import { encodeFunctionData, parseEther, formatEther } from "viem";
+import { encodeFunctionData, parseEther } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
-import { getServicesConfig, getContractAddresses } from "../config";
+import { getContractAddresses } from "../config";
 
 // ============================================================================
 // Types
 // ============================================================================
 
 export type LaunchType = "STANDARD" | "BONDING_CURVE" | "PRESALE" | "NFT";
-export type PresaleStatus = "PENDING" | "ACTIVE" | "SUCCEEDED" | "FAILED" | "CANCELLED";
+export type PresaleStatus =
+  | "PENDING"
+  | "ACTIVE"
+  | "SUCCEEDED"
+  | "FAILED"
+  | "CANCELLED";
 
 export interface TokenLaunchParams {
   name: string;
@@ -385,7 +390,9 @@ const LP_LOCKER_ABI = [
 
 export interface LaunchpadModule {
   // Token Creation
-  createToken(params: TokenLaunchParams): Promise<{ hash: Hex; token: Address }>;
+  createToken(
+    params: TokenLaunchParams,
+  ): Promise<{ hash: Hex; token: Address }>;
 
   // Presale Management
   createPresale(params: PresaleParams): Promise<Hex>;
@@ -394,13 +401,20 @@ export interface LaunchpadModule {
   refund(presaleId: Hex): Promise<Hex>;
   finalizePresale(presaleId: Hex): Promise<Hex>;
   getPresale(presaleId: Hex): Promise<Presale>;
-  getUserContribution(presaleId: Hex, user?: Address): Promise<UserContribution>;
+  getUserContribution(
+    presaleId: Hex,
+    user?: Address,
+  ): Promise<UserContribution>;
   listActivePresales(): Promise<Presale[]>;
 
   // Bonding Curve
   createBondingCurve(params: BondingCurveParams): Promise<Hex>;
   buyFromCurve(curveId: Hex, amount: bigint, minTokens?: bigint): Promise<Hex>;
-  sellToCurve(curveId: Hex, tokenAmount: bigint, minOutput?: bigint): Promise<Hex>;
+  sellToCurve(
+    curveId: Hex,
+    tokenAmount: bigint,
+    minOutput?: bigint,
+  ): Promise<Hex>;
   getCurve(curveId: Hex): Promise<BondingCurve>;
   getBuyPrice(curveId: Hex, tokenAmount: bigint): Promise<bigint>;
   getSellPrice(curveId: Hex, tokenAmount: bigint): Promise<bigint>;
@@ -420,7 +434,7 @@ export interface LaunchpadModule {
 
 export function createLaunchpadModule(
   wallet: JejuWallet,
-  network: NetworkType
+  network: NetworkType,
 ): LaunchpadModule {
   const addresses = getContractAddresses(network);
   const launchpadAddress = addresses.tokenLaunchpad as Address;
@@ -436,7 +450,7 @@ export function createLaunchpadModule(
   };
 
   async function createToken(
-    params: TokenLaunchParams
+    params: TokenLaunchParams,
   ): Promise<{ hash: Hex; token: Address }> {
     const metadata = JSON.stringify({
       description: params.description ?? "",
@@ -555,7 +569,7 @@ export function createLaunchpadModule(
 
   async function getUserContribution(
     presaleId: Hex,
-    user?: Address
+    user?: Address,
   ): Promise<UserContribution> {
     const [amount, claimed, claimable, vested] =
       await wallet.publicClient.readContract({
@@ -603,7 +617,7 @@ export function createLaunchpadModule(
   async function buyFromCurve(
     curveId: Hex,
     amount: bigint,
-    minTokens = 0n
+    minTokens = 0n,
   ): Promise<Hex> {
     const data = encodeFunctionData({
       abi: BONDING_CURVE_ABI,
@@ -621,7 +635,7 @@ export function createLaunchpadModule(
   async function sellToCurve(
     curveId: Hex,
     tokenAmount: bigint,
-    minOutput = 0n
+    minOutput = 0n,
   ): Promise<Hex> {
     const data = encodeFunctionData({
       abi: BONDING_CURVE_ABI,
@@ -651,7 +665,7 @@ export function createLaunchpadModule(
 
   async function getBuyPrice(
     curveId: Hex,
-    tokenAmount: bigint
+    tokenAmount: bigint,
   ): Promise<bigint> {
     return wallet.publicClient.readContract({
       address: bondingCurveAddress,
@@ -663,7 +677,7 @@ export function createLaunchpadModule(
 
   async function getSellPrice(
     curveId: Hex,
-    tokenAmount: bigint
+    tokenAmount: bigint,
   ): Promise<bigint> {
     return wallet.publicClient.readContract({
       address: bondingCurveAddress,
@@ -686,7 +700,7 @@ export function createLaunchpadModule(
   async function lockLP(
     lpToken: Address,
     amount: bigint,
-    unlockTime: bigint
+    unlockTime: bigint,
   ): Promise<Hex> {
     const data = encodeFunctionData({
       abi: LP_LOCKER_ABI,
@@ -715,7 +729,7 @@ export function createLaunchpadModule(
 
   async function extendLPLock(
     lockId: Hex,
-    newUnlockTime: bigint
+    newUnlockTime: bigint,
   ): Promise<Hex> {
     const data = encodeFunctionData({
       abi: LP_LOCKER_ABI,
@@ -773,4 +787,3 @@ export function createLaunchpadModule(
     listMyLPLocks,
   };
 }
-

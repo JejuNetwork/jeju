@@ -31,7 +31,6 @@ interface DWSStatusProps {
 
 export function DWSStatus({ compact = false }: DWSStatusProps) {
   const { 
-    isInitialized, 
     isConnected, 
     isLoading, 
     error, 

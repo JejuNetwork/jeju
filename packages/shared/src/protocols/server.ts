@@ -11,6 +11,7 @@
 
 import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
+import { z } from 'zod';
 import { getProviderInfo, getServiceName } from '../chains';
 import {
   erc8004Middleware,
@@ -21,10 +22,49 @@ import {
 } from './middleware';
 import type { Address } from 'viem';
 
-// Helper to safely get context variables
+const A2AMessagePartSchema = z.object({
+  kind: z.string(),
+  text: z.string().optional(),
+  data: z.record(z.string(), z.unknown()).optional(),
+});
+
+const A2ARequestSchema = z.object({
+  jsonrpc: z.string(),
+  method: z.string(),
+  params: z.object({
+    message: z.object({
+      messageId: z.string(),
+      parts: z.array(A2AMessagePartSchema),
+    }).optional(),
+  }).optional(),
+  id: z.union([z.number(), z.string()]),
+});
+
+const MCPResourceReadSchema = z.object({
+  uri: z.string(),
+});
+
+const MCPToolCallSchema = z.object({
+  name: z.string(),
+  arguments: z.record(z.string(), z.unknown()),
+});
+
+const MCPPromptGetSchema = z.object({
+  name: z.string(),
+  arguments: z.record(z.string(), z.string()),
+});
+
+// Helper to safely get context variables using Hono's context type
+interface HonoContextWithVars {
+  get(key: 'userAddress'): Address | undefined;
+  get(key: 'agentInfo'): AgentInfo | undefined;
+  get(key: 'paymentVerified'): boolean | undefined;
+  get(key: string): unknown;
+}
+
 function getContextVar<T>(c: Context, key: string): T | undefined {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (c as unknown as { get: (k: string) => T | undefined }).get(key);
+  const ctx = c as HonoContextWithVars;
+  return ctx.get(key) as T | undefined;
 }
 
 // ============================================================================
@@ -114,17 +154,6 @@ interface MCPPromptResult {
   messages: Array<{ role: string; content: { type: string; text: string } }>;
 }
 
-interface A2ARequest {
-  jsonrpc: string;
-  method: string;
-  params?: {
-    message?: {
-      messageId: string;
-      parts: Array<{ kind: string; text?: string; data?: Record<string, unknown> }>;
-    };
-  };
-  id: number | string;
-}
 
 // ============================================================================
 // Server Factory
@@ -160,7 +189,18 @@ export function createUnifiedServer(config: UnifiedServerConfig): Hono {
   app.get('/a2a/.well-known/agent-card.json', (c) => c.json(agentCard));
 
   app.post('/a2a', erc8004Middleware(), async (c) => {
-    const body = await c.req.json() as A2ARequest;
+    const rawBody = await c.req.json();
+    const parseResult = A2ARequestSchema.safeParse(rawBody);
+    
+    if (!parseResult.success) {
+      return c.json({
+        jsonrpc: '2.0',
+        id: 0,
+        error: { code: -32600, message: 'Invalid request format' },
+      }, 400);
+    }
+
+    const body = parseResult.data;
 
     if (body.method !== 'message/send') {
       return c.json({
@@ -253,7 +293,7 @@ export function createUnifiedServer(config: UnifiedServerConfig): Hono {
   }));
 
   app.post('/mcp/resources/list', (c) => c.json({
-    resources: config.resources || [],
+    resources: config.resources ?? [],
   }));
 
   app.post('/mcp/resources/read', erc8004Middleware(), async (c) => {
@@ -261,7 +301,13 @@ export function createUnifiedServer(config: UnifiedServerConfig): Hono {
       return c.json({ error: 'Resources not supported' }, 404);
     }
 
-    const { uri } = await c.req.json() as { uri: string };
+    const rawBody = await c.req.json();
+    const parseResult = MCPResourceReadSchema.safeParse(rawBody);
+    if (!parseResult.success) {
+      return c.json({ error: 'Invalid request: uri required' }, 400);
+    }
+
+    const { uri } = parseResult.data;
     const context: SkillContext = {
       address: getContextVar<Address>(c, 'userAddress') || null,
       agentInfo: getContextVar<AgentInfo>(c, 'agentInfo') || null,
@@ -282,7 +328,7 @@ export function createUnifiedServer(config: UnifiedServerConfig): Hono {
   });
 
   app.post('/mcp/tools/list', (c) => c.json({
-    tools: config.tools || [],
+    tools: config.tools ?? [],
   }));
 
   app.post('/mcp/tools/call', erc8004Middleware(), async (c) => {
@@ -293,7 +339,16 @@ export function createUnifiedServer(config: UnifiedServerConfig): Hono {
       });
     }
 
-    const { name, arguments: args } = await c.req.json() as { name: string; arguments: Record<string, unknown> };
+    const rawBody = await c.req.json();
+    const parseResult = MCPToolCallSchema.safeParse(rawBody);
+    if (!parseResult.success) {
+      return c.json({
+        content: [{ type: 'text', text: 'Invalid request: name and arguments required' }],
+        isError: true,
+      }, 400);
+    }
+
+    const { name, arguments: args } = parseResult.data;
     const context: SkillContext = {
       address: getContextVar<Address>(c, 'userAddress') || null,
       agentInfo: getContextVar<AgentInfo>(c, 'agentInfo') || null,
@@ -319,7 +374,13 @@ export function createUnifiedServer(config: UnifiedServerConfig): Hono {
         return c.json({ error: 'Prompts not configured' }, 404);
       }
 
-      const { name, arguments: args } = await c.req.json() as { name: string; arguments: Record<string, string> };
+      const rawBody = await c.req.json();
+      const parseResult = MCPPromptGetSchema.safeParse(rawBody);
+      if (!parseResult.success) {
+        return c.json({ error: 'Invalid request: name and arguments required' }, 400);
+      }
+
+      const { name, arguments: args } = parseResult.data;
       const context: SkillContext = {
         address: getContextVar<Address>(c, 'userAddress') || null,
         agentInfo: getContextVar<AgentInfo>(c, 'agentInfo') || null,
@@ -337,9 +398,9 @@ export function createUnifiedServer(config: UnifiedServerConfig): Hono {
     server: mcpServerInfo.name,
     version: mcpServerInfo.version,
     description: mcpServerInfo.description,
-    resources: config.resources || [],
-    tools: config.tools || [],
-    prompts: config.prompts || [],
+    resources: config.resources ?? [],
+    tools: config.tools ?? [],
+    prompts: config.prompts ?? [],
     capabilities: mcpServerInfo.capabilities,
   }));
 
@@ -464,4 +525,4 @@ export function createServerlessHandler(config: UnifiedServerConfig): {
 // ============================================================================
 
 export type { SkillResult, PaymentRequirement };
-export { skillSuccess, skillError, skillRequiresPayment } from './middleware';
+export { skillSuccess, skillError, skillRequiresPayment, configureX402 } from './middleware';

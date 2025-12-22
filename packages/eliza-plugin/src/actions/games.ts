@@ -5,15 +5,19 @@
 import type {
   Action,
   ActionExample,
-  Content,
   HandlerCallback,
   IAgentRuntime,
   Memory,
   State,
 } from "@elizaos/core";
-import { parseEther, formatEther, type Address, type Hex } from "viem";
+import { parseEther, formatEther, type Address } from "viem";
 import { JejuService, JEJU_SERVICE_NAME } from "../service";
 import { getNetworkName } from "@jejunetwork/config";
+import {
+  getMessageText,
+  getOptionalMessageText,
+  validateServiceExists,
+} from "../validation";
 
 const networkName = getNetworkName();
 
@@ -25,24 +29,24 @@ export const getPlayerInfoAction: Action = {
   name: "GET_PLAYER_INFO",
   similes: ["check player", "player info", "player status", "my game status"],
   description: `Get player information from the game integration contract on ${networkName}`,
-  validate: async (runtime: IAgentRuntime, _message: Memory) => {
-    return !!runtime.getService(JEJU_SERVICE_NAME);
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const sdk = service.getClient();
 
     // Extract player address from message or use agent's own address
-    const content = message.content as Content;
-    const text = content?.text || "";
+    const text = getOptionalMessageText(message);
     const addressMatch = text.match(/0x[a-fA-F0-9]{40}/);
-    const playerAddress = (addressMatch ? addressMatch[0] : sdk.address) as Address;
+    const playerAddress = (
+      addressMatch ? addressMatch[0] : sdk.address
+    ) as Address;
 
     const playerInfo = await sdk.games.getPlayerInfo(playerAddress);
     const isAllowed = await sdk.games.isPlayerAllowed(playerAddress);
@@ -77,21 +81,19 @@ export const getGoldBalanceAction: Action = {
   name: "GET_GOLD_BALANCE",
   similes: ["gold balance", "check gold", "my gold", "how much gold"],
   description: `Check gold balance in the game on ${networkName}`,
-  validate: async (runtime: IAgentRuntime, _message: Memory) => {
-    return !!runtime.getService(JEJU_SERVICE_NAME);
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const sdk = service.getClient();
 
-    const content = message.content as Content;
-    const text = content?.text || "";
+    const text = getOptionalMessageText(message); // Address is optional
     const addressMatch = text.match(/0x[a-fA-F0-9]{40}/);
     const account = addressMatch ? (addressMatch[0] as Address) : undefined;
 
@@ -125,21 +127,19 @@ export const transferGoldAction: Action = {
   name: "TRANSFER_GOLD",
   similes: ["send gold", "transfer gold", "give gold"],
   description: `Transfer gold to another player on ${networkName}`,
-  validate: async (runtime: IAgentRuntime, _message: Memory) => {
-    return !!runtime.getService(JEJU_SERVICE_NAME);
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const sdk = service.getClient();
 
-    const content = message.content as Content;
-    const text = content?.text || "";
+    const text = getMessageText(message);
 
     // Parse: "send 100 gold to 0x..."
     const addressMatch = text.match(/0x[a-fA-F0-9]{40}/);
@@ -167,7 +167,9 @@ export const transferGoldAction: Action = {
     [
       {
         name: "user",
-        content: { text: "Send 100 gold to 0x742d35Cc6634C0532925a3b844Bc454e4438f44e" },
+        content: {
+          text: "Send 100 gold to 0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
+        },
       },
       {
         name: "assistant",
@@ -185,24 +187,23 @@ export const getItemBalanceAction: Action = {
   name: "GET_ITEM_BALANCE",
   similes: ["item balance", "check items", "my items", "inventory"],
   description: `Check item balance in the game on ${networkName}`,
-  validate: async (runtime: IAgentRuntime, _message: Memory) => {
-    return !!runtime.getService(JEJU_SERVICE_NAME);
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const sdk = service.getClient();
 
-    const content = message.content as Content;
-    const text = content?.text || "";
+    const text = getOptionalMessageText(message); // Item ID is optional, shows all items if not provided
 
     // Try to parse item ID
-    const itemIdMatch = text.match(/item\s*#?(\d+)/i) || text.match(/id\s*(\d+)/i);
+    const itemIdMatch =
+      text.match(/item\s*#?(\d+)/i) ?? text.match(/id\s*(\d+)/i);
 
     if (itemIdMatch) {
       const itemId = BigInt(itemIdMatch[1]);
@@ -252,21 +253,19 @@ export const transferItemAction: Action = {
   name: "TRANSFER_ITEM",
   similes: ["send item", "transfer item", "give item"],
   description: `Transfer an item to another player on ${networkName}`,
-  validate: async (runtime: IAgentRuntime, _message: Memory) => {
-    return !!runtime.getService(JEJU_SERVICE_NAME);
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const sdk = service.getClient();
 
-    const content = message.content as Content;
-    const text = content?.text || "";
+    const text = getMessageText(message);
 
     // Parse: "send 5 of item #1 to 0x..."
     const addressMatch = text.match(/0x[a-fA-F0-9]{40}/);
@@ -280,9 +279,16 @@ export const transferItemAction: Action = {
       return;
     }
 
+    if (!amountMatch) {
+      await callback?.({
+        text: "Please specify the amount. Example: 'Send 5 of item #1 to 0x1234...'",
+      });
+      return;
+    }
+
     const to = addressMatch[0] as Address;
     const itemId = BigInt(itemMatch[1]);
-    const amount = BigInt(amountMatch?.[1] || "1");
+    const amount = BigInt(amountMatch[1]);
 
     const txHash = await sdk.games.transferItem({ to, itemId, amount });
 
@@ -296,7 +302,9 @@ export const transferItemAction: Action = {
     [
       {
         name: "user",
-        content: { text: "Send 5 of item #1 to 0x742d35Cc6634C0532925a3b844Bc454e4438f44e" },
+        content: {
+          text: "Send 5 of item #1 to 0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
+        },
       },
       {
         name: "assistant",
@@ -314,23 +322,22 @@ export const linkAgentAction: Action = {
   name: "LINK_GAME_AGENT",
   similes: ["link agent", "connect agent", "register with game"],
   description: `Link your agent ID to the game integration contract on ${networkName}`,
-  validate: async (runtime: IAgentRuntime, _message: Memory) => {
-    return !!runtime.getService(JEJU_SERVICE_NAME);
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const sdk = service.getClient();
 
-    const content = message.content as Content;
-    const text = content?.text || "";
+    const text = getMessageText(message);
 
-    const agentIdMatch = text.match(/agent\s*#?(\d+)/i) || text.match(/id\s*(\d+)/i);
+    const agentIdMatch =
+      text.match(/agent\s*#?(\d+)/i) ?? text.match(/id\s*(\d+)/i);
 
     if (!agentIdMatch) {
       await callback?.({
@@ -370,16 +377,15 @@ export const getGameStatsAction: Action = {
   name: "GET_GAME_STATS",
   similes: ["game stats", "game statistics", "game info", "server stats"],
   description: `Get overall game statistics from ${networkName}`,
-  validate: async (runtime: IAgentRuntime, _message: Memory) => {
-    return !!runtime.getService(JEJU_SERVICE_NAME);
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
   handler: async (
     runtime: IAgentRuntime,
     _message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const sdk = service.getClient();
 
@@ -409,9 +415,10 @@ Game Contracts:
       },
       {
         name: "assistant",
-        content: { text: "Game Statistics:\n- Total Players: 1000\n- Total Gold Supply: 1000000 GOLD" },
+        content: {
+          text: "Game Statistics:\n- Total Players: 1000\n- Total Gold Supply: 1000000 GOLD",
+        },
       },
     ],
   ] as ActionExample[][],
 };
-

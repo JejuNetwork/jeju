@@ -12,6 +12,28 @@ import { getNetworkName, getWebsiteUrl } from '@jejunetwork/config';
 import { storeVote, getVotes, generateResearch, getResearch, store, checkOllama, ollamaGenerate, OLLAMA_MODEL } from './local-services';
 import { ZERO_ADDRESS, assessClarity, assessCompleteness, assessFeasibility, assessAlignment, assessImpact, assessRisk, assessCostBenefit, calculateQualityScore, assessProposalWithAI } from './shared';
 import { getTEEMode } from './tee';
+import {
+  A2AMessageSchema,
+  A2AChatParamsSchema,
+  A2AAssessProposalParamsSchema,
+  A2ASubmitProposalParamsSchema,
+  A2ABackProposalParamsSchema,
+  A2ASubmitVoteParamsSchema,
+  A2ADeliberateParamsSchema,
+  A2ARequestResearchParamsSchema,
+  A2ACastVetoParamsSchema,
+  A2AAddCommentaryParamsSchema,
+  ProposalIdSchema,
+} from './schemas';
+import { validateOrThrow, expect, expectDefined, QualityCriteriaSchema } from './schemas';
+import { z } from 'zod';
+
+// Schema for Ollama assessment response
+const OllamaAssessmentResponseSchema = QualityCriteriaSchema.extend({
+  feedback: z.array(z.string()),
+  blockers: z.array(z.string()),
+  suggestions: z.array(z.string()),
+});
 
 interface SkillResult {
   message: string;
@@ -35,18 +57,22 @@ export class AutocratA2AServer {
     this.app.get('/.well-known/agent-card.json', (c) => c.json(this.getAgentCard()));
 
     this.app.post('/', async (c) => {
-      const body = await c.req.json();
-      if (body.method !== 'message/send') {
-        return c.json({ jsonrpc: '2.0', id: body.id, error: { code: -32601, message: 'Method not found' } });
-      }
+      const body = validateOrThrow(A2AMessageSchema, await c.req.json(), 'A2A message');
+      
+      expect(body.method === 'message/send', 'Method must be message/send');
 
-      const message = body.params?.message;
-      const dataPart = message?.parts?.find((p: { kind: string }) => p.kind === 'data');
-      if (!dataPart?.data?.skillId) {
-        return c.json({ jsonrpc: '2.0', id: body.id, error: { code: -32602, message: 'Invalid params' } });
+      const message = body.params.message;
+      const dataPart = message.parts.find((p): p is { kind: 'data'; data: { skillId: string; params?: Record<string, unknown> } } => p.kind === 'data');
+      if (!dataPart) {
+        throw new Error('Missing data part with skillId');
       }
+      const skillId = dataPart.data.skillId;
+      if (!skillId) {
+        throw new Error('Missing skillId in data part');
+      }
+      const params = dataPart.data.params || {};
 
-      const result = await this.executeSkill(dataPart.data.skillId, dataPart.data.params || {});
+      const result = await this.executeSkill(skillId, params);
 
       return c.json({
         jsonrpc: '2.0',
@@ -130,9 +156,9 @@ export class AutocratA2AServer {
   }
 
   private async chat(params: Record<string, unknown>): Promise<SkillResult> {
-    const message = params.message as string;
-    const agent = (params.agent as string) ?? 'ceo';
-    if (!message) return { message: 'Error', data: { error: 'Missing message parameter' } };
+    const validated = validateOrThrow(A2AChatParamsSchema, params, 'Chat params');
+    const message = validated.message;
+    const agent = validated.agent ?? 'ceo';
 
     const ollamaUp = await checkOllama();
     if (!ollamaUp) {
@@ -152,7 +178,8 @@ export class AutocratA2AServer {
   }
 
   private async assessProposal(params: Record<string, unknown>): Promise<SkillResult> {
-    const { title, summary, description } = params as { title?: string; summary?: string; description?: string };
+    const validated = validateOrThrow(A2AAssessProposalParamsSchema, params, 'Assess proposal params');
+    const { title, summary, description } = validated;
 
     // Try AI assessment first
     const ollamaUp = await checkOllama();
@@ -166,31 +193,26 @@ Description: ${description}
 Return ONLY JSON:
 {"clarity":N,"completeness":N,"feasibility":N,"alignment":N,"impact":N,"riskAssessment":N,"costBenefit":N,"feedback":[],"blockers":[],"suggestions":[]}`;
 
-      try {
-        const response = await ollamaGenerate(prompt, 'You are a DAO proposal evaluator. Return only valid JSON.');
-        const parsed = JSON.parse(response) as { clarity: number; completeness: number; feasibility: number; alignment: number; impact: number; riskAssessment: number; costBenefit: number; feedback: string[]; blockers: string[]; suggestions: string[] };
-        const overallScore = calculateQualityScore(parsed);
-        return {
-          message: overallScore >= 90 ? `Ready: ${overallScore}/100` : `Needs work: ${overallScore}/100`,
-          data: { overallScore, criteria: parsed, feedback: parsed.feedback, blockers: parsed.blockers, suggestions: parsed.suggestions, readyToSubmit: overallScore >= 90, assessedBy: 'ollama' }
-        };
-      } catch {
-        // Fall through to heuristic
-      }
+      const response = await ollamaGenerate(prompt, 'You are a DAO proposal evaluator. Return only valid JSON.');
+      const rawParsed = JSON.parse(response);
+      const parsed = OllamaAssessmentResponseSchema.parse(rawParsed);
+      const overallScore = calculateQualityScore(parsed);
+      return {
+        message: overallScore >= 90 ? `Ready: ${overallScore}/100` : `Needs work: ${overallScore}/100`,
+        data: { overallScore, criteria: parsed, feedback: parsed.feedback, blockers: parsed.blockers, suggestions: parsed.suggestions, readyToSubmit: overallScore >= 90, assessedBy: 'ollama' }
+      };
     }
 
     // Try cloud AI if configured
-    const hasCloud = this.config.cloudEndpoint && this.config.cloudEndpoint !== 'local';
+    const cloudEndpoint = this.config.cloudEndpoint;
+    const hasCloud = cloudEndpoint && cloudEndpoint !== 'local';
     if (hasCloud && title && summary && description) {
-      try {
-        const result = await assessProposalWithAI(title, summary, description, this.config.cloudEndpoint, process.env.CLOUD_API_KEY);
-        return {
-          message: result.overallScore >= 90 ? `Ready: ${result.overallScore}/100` : `Needs work: ${result.overallScore}/100`,
-          data: { ...result, readyToSubmit: result.overallScore >= 90, assessedBy: 'cloud' }
-        };
-      } catch {
-        // Fall through to heuristic
-      }
+      expectDefined(cloudEndpoint, 'Cloud endpoint must be defined');
+      const result = await assessProposalWithAI(title, summary, description, cloudEndpoint, process.env.CLOUD_API_KEY);
+      return {
+        message: result.overallScore >= 90 ? `Ready: ${result.overallScore}/100` : `Needs work: ${result.overallScore}/100`,
+        data: { ...result, readyToSubmit: result.overallScore >= 90, assessedBy: 'cloud' }
+      };
     }
 
     // Heuristic fallback (clearly labeled)
@@ -212,25 +234,26 @@ Return ONLY JSON:
   }
 
   private prepareSubmitProposal(params: Record<string, unknown>): SkillResult {
-    const qualityScore = params.qualityScore as number;
-    if (qualityScore < 90) {
-      return { message: 'Quality too low', data: { error: 'Score must be 90+', required: 90, provided: qualityScore } };
-    }
+    const validated = validateOrThrow(A2ASubmitProposalParamsSchema, params, 'Submit proposal params');
+    const qualityScore = validated.qualityScore;
+    expect(qualityScore >= 90, `Quality score must be 90+, got ${qualityScore}`);
+    const councilAddress = this.config.contracts?.council;
+    expectDefined(councilAddress, 'Council contract address must be configured');
     return {
       message: 'Ready to submit',
       data: {
         action: 'submitProposal',
-        contract: this.config.contracts.council,
-        params: { proposalType: params.proposalType, qualityScore, contentHash: params.contentHash, targetContract: params.targetContract || ZERO_ADDRESS, callData: params.callData || '0x', value: params.value || '0' },
+        contract: councilAddress,
+        params: { proposalType: validated.proposalType, qualityScore, contentHash: validated.contentHash, targetContract: validated.targetContract || ZERO_ADDRESS, callData: validated.callData || '0x', value: validated.value || '0' },
         bond: formatEther(parseEther('0.001'))
       }
     };
   }
 
   private async getProposal(proposalId: string): Promise<SkillResult> {
-    if (!proposalId) return { message: 'Error', data: { error: 'Missing proposalId' } };
-    const result = await this.blockchain.getProposal(proposalId);
-    if (!result) return { message: 'Not found', data: { error: 'Proposal not found or contract not deployed', proposalId } };
+    const validated = validateOrThrow(ProposalIdSchema, proposalId, 'Proposal ID');
+    const result = await this.blockchain.getProposal(validated);
+    expect(result !== null, `Proposal not found or contract not deployed: ${validated}`);
     return { message: `Status: ${this.blockchain.formatProposal(result.proposal).status}`, data: { ...this.blockchain.formatProposal(result.proposal), autocratVotes: this.blockchain.formatVotes(result.votes) } };
   }
 
@@ -240,42 +263,36 @@ Return ONLY JSON:
   }
 
   private prepareBackProposal(params: Record<string, unknown>): SkillResult {
+    const validated = validateOrThrow(A2ABackProposalParamsSchema, params, 'Back proposal params');
+    const councilAddress = this.config.contracts?.council;
+    expectDefined(councilAddress, 'Council contract address must be configured');
     return {
       message: 'Ready to back',
-      data: { action: 'backProposal', contract: this.config.contracts.council, params: { proposalId: params.proposalId, stakeAmount: params.stakeAmount || '0', reputationWeight: params.reputationWeight || 0 } }
+      data: { action: 'backProposal', contract: councilAddress, params: { proposalId: validated.proposalId, stakeAmount: validated.stakeAmount || '0', reputationWeight: validated.reputationWeight || 0 } }
     };
   }
 
   private async getAutocratVotes(proposalId: string): Promise<SkillResult> {
-    if (!proposalId) return { message: 'Error', data: { error: 'Missing proposalId' } };
+    const validated = validateOrThrow(ProposalIdSchema, proposalId, 'Proposal ID');
     
     // Get from local storage first
-    const localVotes = await getVotes(proposalId);
+    const localVotes = await getVotes(validated);
     if (localVotes.length > 0) {
-      return { message: `${localVotes.length} votes`, data: { proposalId, votes: localVotes, source: 'local' } };
+      return { message: `${localVotes.length} votes`, data: { proposalId: validated, votes: localVotes, source: 'local' } };
     }
 
     // Try blockchain
-    const result = await this.blockchain.getProposal(proposalId);
-    if (!result) return { message: 'No votes', data: { proposalId, votes: [] } };
-    return { message: `${result.votes.length} votes`, data: { proposalId, votes: this.blockchain.formatVotes(result.votes), source: 'chain' } };
+    const result = await this.blockchain.getProposal(validated);
+    if (!result) return { message: 'No votes', data: { proposalId: validated, votes: [] } };
+    return { message: `${result.votes.length} votes`, data: { proposalId: validated, votes: this.blockchain.formatVotes(result.votes), source: 'chain' } };
   }
 
   private async submitVote(params: Record<string, unknown>): Promise<SkillResult> {
-    const { proposalId, agentId, vote, reasoning, confidence } = params as { proposalId: string; agentId: string; vote: 'APPROVE' | 'REJECT' | 'ABSTAIN'; reasoning: string; confidence: number };
-
-    if (!proposalId || !agentId || !vote) {
-      return { message: 'Error', data: { error: 'Missing: proposalId, agentId, vote' } };
-    }
-
-    if (!['APPROVE', 'REJECT', 'ABSTAIN'].includes(vote)) {
-      return { message: 'Error', data: { error: 'Invalid vote. Must be: APPROVE, REJECT, or ABSTAIN' } };
-    }
+    const validated = validateOrThrow(A2ASubmitVoteParamsSchema, params, 'Submit vote params');
+    const { proposalId, agentId, vote, reasoning, confidence } = validated;
 
     const validAgents = ['treasury', 'code', 'community', 'security', 'legal'];
-    if (!validAgents.includes(agentId.toLowerCase())) {
-      return { message: 'Error', data: { error: `Invalid agent. Must be: ${validAgents.join(', ')}` } };
-    }
+    expect(validAgents.includes(agentId.toLowerCase()), `Invalid agent. Must be: ${validAgents.join(', ')}`);
 
     // Actually store the vote
     await storeVote(proposalId, { role: agentId.toUpperCase(), vote, reasoning: reasoning || 'No reasoning', confidence: confidence || 75 });
@@ -287,8 +304,8 @@ Return ONLY JSON:
   }
 
   private async runDeliberation(params: Record<string, unknown>): Promise<SkillResult> {
-    const { proposalId, title, description, proposalType, submitter } = params as { proposalId: string; title?: string; description?: string; proposalType?: string; submitter?: string };
-    if (!proposalId) return { message: 'Error', data: { error: 'Missing proposalId' } };
+    const validated = validateOrThrow(A2ADeliberateParamsSchema, params, 'Deliberation params');
+    const { proposalId, title, description, proposalType, submitter } = validated;
 
     const ollamaUp = await checkOllama();
     if (!ollamaUp) {
@@ -332,24 +349,26 @@ Return ONLY JSON:
   }
 
   private async getDecision(proposalId: string): Promise<SkillResult> {
-    if (!proposalId) return { message: 'Error', data: { error: 'Missing proposalId' } };
-    const result = await this.blockchain.getDecision(proposalId);
-    if (!result.decided) return { message: 'No decision', data: { proposalId, decided: false } };
-    return { message: `CEO: ${result.decision?.approved ? 'APPROVED' : 'REJECTED'}`, data: { ...result.decision, decided: true } };
+    const validated = validateOrThrow(ProposalIdSchema, proposalId, 'Proposal ID');
+    const result = await this.blockchain.getDecision(validated);
+    if (!result.decided) return { message: 'No decision', data: { proposalId: validated, decided: false } };
+    expect(result.decision !== null && result.decision !== undefined, 'Decision data missing');
+    return { message: `CEO: ${result.decision.approved ? 'APPROVED' : 'REJECTED'}`, data: { ...result.decision, decided: true } };
   }
 
   private async listModels(): Promise<SkillResult> {
     if (!this.blockchain.ceoDeployed) {
-      return { message: 'Contract not deployed', data: { models: [this.config.agents.ceo.model], currentModel: this.config.agents.ceo.model } };
+      const ceoModel = this.config.agents?.ceo?.model ?? 'local';
+      return { message: 'Contract not deployed', data: { models: [ceoModel], currentModel: ceoModel } };
     }
     const modelIds = await this.blockchain.ceoAgent.getAllModels() as string[];
     return { message: `${modelIds.length} models`, data: { models: modelIds } };
   }
 
   private async requestResearch(params: Record<string, unknown>): Promise<SkillResult> {
-    const proposalId = params.proposalId as string;
-    const description = (params.description as string) ?? 'Proposal for DAO governance';
-    if (!proposalId) return { message: 'Error', data: { error: 'Missing proposalId' } };
+    const validated = validateOrThrow(A2ARequestResearchParamsSchema, params, 'Request research params');
+    const proposalId = validated.proposalId;
+    const description = validated.description ?? 'Proposal for DAO governance';
 
     const ollamaUp = await checkOllama();
     if (!ollamaUp) {
@@ -364,22 +383,25 @@ Return ONLY JSON:
   }
 
   private getResearchResult(proposalId: string): SkillResult {
-    if (!proposalId) return { message: 'Error', data: { error: 'Missing proposalId' } };
-    const research = getResearch(proposalId);
-    if (!research) return { message: 'No research', data: { proposalId, hasResearch: false } };
-    return { message: 'Research available', data: { proposalId, hasResearch: true, ...research } };
+    const validated = validateOrThrow(ProposalIdSchema, proposalId, 'Proposal ID');
+    const research = getResearch(validated);
+    if (!research) return { message: 'No research', data: { proposalId: validated, hasResearch: false } };
+    return { message: 'Research available', data: { proposalId: validated, hasResearch: true, ...research } };
   }
 
   private prepareCastVeto(params: Record<string, unknown>): SkillResult {
+    const validated = validateOrThrow(A2ACastVetoParamsSchema, params, 'Cast veto params');
+    const councilAddress = this.config.contracts?.council;
+    expectDefined(councilAddress, 'Council contract address must be configured');
     return {
       message: 'Ready to veto',
-      data: { action: 'castVetoVote', contract: this.config.contracts.council, params: { proposalId: params.proposalId, category: params.category, reasonHash: params.reason }, minStake: '0.01 ETH' }
+      data: { action: 'castVetoVote', contract: councilAddress, params: { proposalId: validated.proposalId, category: validated.category, reasonHash: validated.reason }, minStake: '0.01 ETH' }
     };
   }
 
   private async addCommentary(params: Record<string, unknown>): Promise<SkillResult> {
-    const { proposalId, content, sentiment } = params as { proposalId: string; content: string; sentiment?: string };
-    if (!proposalId || !content) return { message: 'Error', data: { error: 'Missing proposalId or content' } };
+    const validated = validateOrThrow(A2AAddCommentaryParamsSchema, params, 'Add commentary params');
+    const { proposalId, content, sentiment } = validated;
 
     // Store the comment
     const hash = await store({ type: 'commentary', proposalId, content, sentiment: sentiment || 'neutral', timestamp: Date.now() });
@@ -396,14 +418,14 @@ Return ONLY JSON:
   }
 
   private async makeCEODecision(proposalId: string): Promise<SkillResult> {
-    if (!proposalId) return { message: 'Error', data: { error: 'Missing proposalId' } };
+    const validated = validateOrThrow(ProposalIdSchema, proposalId, 'Proposal ID');
 
     const ollamaUp = await checkOllama();
     if (!ollamaUp) {
       return { message: 'LLM unavailable', data: { error: 'CEO decision requires Ollama. Start with: ollama serve' } };
     }
 
-    const votes = await getVotes(proposalId);
+    const votes = await getVotes(validated);
     const approves = votes.filter((v: AutocratVote) => v.vote === 'APPROVE').length;
     const rejects = votes.filter((v: AutocratVote) => v.vote === 'REJECT').length;
     const total = votes.length || 1;
@@ -422,7 +444,7 @@ Provide your decision as: APPROVED or REJECTED, with reasoning.`;
     const approved = response.toLowerCase().includes('approved') && !response.toLowerCase().includes('rejected');
 
     const decision = {
-      proposalId,
+      proposalId: validated,
       approved,
       confidenceScore: Math.round((Math.max(approves, rejects) / total) * 100),
       alignmentScore: Math.round(((approves + rejects) / total) * 100),

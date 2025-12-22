@@ -1,9 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ComponentType } from 'react';
 import { useReadContract, useAccount } from 'wagmi';
-import { Shield, Flag, Clock, CheckCircle, Scale, Users, TrendingUp, AlertTriangle, Gavel, Eye } from 'lucide-react';
+import { Shield, Flag, Clock, CheckCircle, Scale, Users, TrendingUp, AlertTriangle, Gavel, Eye, type LucideProps } from 'lucide-react';
 import ReportSubmissionForm from '../../components/moderation/ReportSubmissionForm';
+
+const ShieldIcon = Shield as ComponentType<LucideProps>;
+const FlagIcon = Flag as ComponentType<LucideProps>;
+const ClockIcon = Clock as ComponentType<LucideProps>;
+const CheckCircleIcon = CheckCircle as ComponentType<LucideProps>;
+const ScaleIcon = Scale as ComponentType<LucideProps>;
+const UsersIcon = Users as ComponentType<LucideProps>;
+const TrendingUpIcon = TrendingUp as ComponentType<LucideProps>;
+const AlertTriangleIcon = AlertTriangle as ComponentType<LucideProps>;
+const GavelIcon = Gavel as ComponentType<LucideProps>;
+const EyeIcon = Eye as ComponentType<LucideProps>;
 import BanVotingInterface from '../../components/moderation/BanVotingInterface';
 import { MODERATION_CONTRACTS } from '../../config/moderation';
 import { IPFS_GATEWAY_URL } from '../../config';
@@ -143,7 +154,7 @@ export default function ModerationDashboard() {
       <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600">
         <div className="max-w-7xl mx-auto px-8 py-8">
           <div className="flex items-center gap-3 mb-4">
-            <Shield className="text-white" size={36} />
+            <ShieldIcon className="text-white" size={36} />
             <h1 className="text-3xl font-bold text-white">Moderation Governance</h1>
           </div>
           <p className="text-blue-100 max-w-2xl">
@@ -181,12 +192,12 @@ export default function ModerationDashboard() {
         <div className="max-w-7xl mx-auto px-8">
           <div className="flex gap-1 overflow-x-auto">
             {[
-              { id: 'overview', label: 'Overview', icon: Eye },
-              { id: 'active', label: 'Active Reports', icon: Clock },
-              { id: 'resolved', label: 'Resolved', icon: CheckCircle },
-              { id: 'labels', label: 'Labels', icon: Scale },
-              { id: 'bans', label: 'Bans', icon: AlertTriangle },
-              { id: 'submit', label: 'Submit Report', icon: Flag },
+              { id: 'overview', label: 'Overview', icon: EyeIcon },
+              { id: 'active', label: 'Active Reports', icon: ClockIcon },
+              { id: 'resolved', label: 'Resolved', icon: CheckCircleIcon },
+              { id: 'labels', label: 'Labels', icon: ScaleIcon },
+              { id: 'bans', label: 'Bans', icon: AlertTriangleIcon },
+              { id: 'submit', label: 'Submit Report', icon: FlagIcon },
             ].map(tab => (
               <button
                 key={tab.id}
@@ -216,7 +227,7 @@ export default function ModerationDashboard() {
             {isConnected && (
               <div className="bg-white rounded-xl shadow-sm p-6">
                 <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                  <Users size={24} className="text-blue-500" />
+                  <UsersIcon size={24} className="text-blue-500" />
                   Your Moderation Status
                 </h2>
                 <div className="grid md:grid-cols-4 gap-4">
@@ -257,7 +268,7 @@ export default function ModerationDashboard() {
             {/* How It Works */}
             <div className="bg-white rounded-xl shadow-sm p-6">
               <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                <Scale size={24} className="text-indigo-500" />
+                <ScaleIcon size={24} className="text-indigo-500" />
                 How Governance Works
               </h2>
               <div className="grid md:grid-cols-3 gap-6">
@@ -285,7 +296,7 @@ export default function ModerationDashboard() {
             {/* Recent Activity */}
             <div className="bg-white rounded-xl shadow-sm p-6">
               <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                <TrendingUp size={24} className="text-green-500" />
+                <TrendingUpIcon size={24} className="text-green-500" />
                 Recent Moderation Activity
               </h2>
               {reportIds && reportIds.length > 0 ? (
@@ -340,7 +351,7 @@ export default function ModerationDashboard() {
               </div>
             ) : (
               <div className="text-center py-12 bg-white rounded-lg">
-                <Flag className="mx-auto text-gray-300 mb-4" size={48} />
+                <FlagIcon className="mx-auto text-gray-300 mb-4" size={48} />
                 <p className="text-gray-600">No active reports</p>
                 <button
                   onClick={() => setActiveTab('submit')}
@@ -369,7 +380,7 @@ export default function ModerationDashboard() {
               </div>
             ) : (
               <div className="text-center py-12 bg-white rounded-lg">
-                <CheckCircle className="mx-auto text-gray-300 mb-4" size={48} />
+                <CheckCircleIcon className="mx-auto text-gray-300 mb-4" size={48} />
                 <p className="text-gray-600">No resolved reports yet</p>
               </div>
             )}
@@ -385,7 +396,7 @@ export default function ModerationDashboard() {
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-white rounded-xl shadow-sm p-6">
                 <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
-                  <AlertTriangle className="text-red-600" size={24} />
+                  <AlertTriangleIcon className="text-red-600" size={24} />
                 </div>
                 <h3 className="font-semibold text-red-600 mb-2">HACKER</h3>
                 <p className="text-sm text-gray-600">
@@ -395,7 +406,7 @@ export default function ModerationDashboard() {
               </div>
               <div className="bg-white rounded-xl shadow-sm p-6">
                 <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mb-4">
-                  <Flag className="text-orange-600" size={24} />
+                  <FlagIcon className="text-orange-600" size={24} />
                 </div>
                 <h3 className="font-semibold text-orange-600 mb-2">SCAMMER</h3>
                 <p className="text-sm text-gray-600">
@@ -405,7 +416,7 @@ export default function ModerationDashboard() {
               </div>
               <div className="bg-white rounded-xl shadow-sm p-6">
                 <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mb-4">
-                  <Users className="text-yellow-600" size={24} />
+                  <UsersIcon className="text-yellow-600" size={24} />
                 </div>
                 <h3 className="font-semibold text-yellow-600 mb-2">SPAM_BOT</h3>
                 <p className="text-sm text-gray-600">
@@ -415,7 +426,7 @@ export default function ModerationDashboard() {
               </div>
               <div className="bg-white rounded-xl shadow-sm p-6">
                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-4">
-                  <Shield className="text-green-600" size={24} />
+                  <ShieldIcon className="text-green-600" size={24} />
                 </div>
                 <h3 className="font-semibold text-green-600 mb-2">TRUSTED</h3>
                 <p className="text-sm text-gray-600">
@@ -437,7 +448,7 @@ export default function ModerationDashboard() {
             <div className="grid md:grid-cols-2 gap-6">
               <div className="bg-white rounded-xl shadow-sm p-6">
                 <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
-                  <Gavel size={20} className="text-red-500" />
+                  <GavelIcon size={20} className="text-red-500" />
                   Network Bans
                 </h3>
                 <p className="text-sm text-gray-600 mb-4">
@@ -445,15 +456,15 @@ export default function ModerationDashboard() {
                 </p>
                 <ul className="space-y-2 text-sm">
                   <li className="flex items-center gap-2 text-gray-700">
-                    <CheckCircle size={16} className="text-green-500" />
+                    <CheckCircleIcon size={16} className="text-green-500" />
                     Requires futarchy vote
                   </li>
                   <li className="flex items-center gap-2 text-gray-700">
-                    <CheckCircle size={16} className="text-green-500" />
+                    <CheckCircleIcon size={16} className="text-green-500" />
                     3-day voting period minimum
                   </li>
                   <li className="flex items-center gap-2 text-gray-700">
-                    <CheckCircle size={16} className="text-green-500" />
+                    <CheckCircleIcon size={16} className="text-green-500" />
                     Can be appealed up to 3 times
                   </li>
                 </ul>
@@ -461,7 +472,7 @@ export default function ModerationDashboard() {
               
               <div className="bg-white rounded-xl shadow-sm p-6">
                 <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
-                  <Flag size={20} className="text-orange-500" />
+                  <FlagIcon size={20} className="text-orange-500" />
                   App-Specific Bans
                 </h3>
                 <p className="text-sm text-gray-600 mb-4">
@@ -469,15 +480,15 @@ export default function ModerationDashboard() {
                 </p>
                 <ul className="space-y-2 text-sm">
                   <li className="flex items-center gap-2 text-gray-700">
-                    <CheckCircle size={16} className="text-green-500" />
+                    <CheckCircleIcon size={16} className="text-green-500" />
                     Lower stake requirement
                   </li>
                   <li className="flex items-center gap-2 text-gray-700">
-                    <CheckCircle size={16} className="text-green-500" />
+                    <CheckCircleIcon size={16} className="text-green-500" />
                     App-specific evidence needed
                   </li>
                   <li className="flex items-center gap-2 text-gray-700">
-                    <CheckCircle size={16} className="text-green-500" />
+                    <CheckCircleIcon size={16} className="text-green-500" />
                     Faster resolution time
                   </li>
                 </ul>

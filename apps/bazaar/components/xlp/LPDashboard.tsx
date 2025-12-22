@@ -1,8 +1,14 @@
-import { useLiquidityVault } from '../hooks/useLiquidityVault';
-import { usePaymasterFactory, usePaymasterDeployment } from '../hooks/usePaymasterFactory';
-import { useTokenConfig } from '../hooks/useTokenRegistry';
-import { formatEther } from 'viem';
+import { useLiquidityVault } from '@/hooks/useLiquidityVault';
+import { usePaymasterDeployment, usePaymasterFactory } from '@/hooks/usePaymasterFactory';
+import { useTokenRegistry } from '@/hooks/useTokenRegistry';
+import { formatEther, type Address } from 'viem';
 import { BarChart3 } from 'lucide-react';
+
+// Adapter for useTokenConfig
+function useTokenConfig(tokenAddress: Address) {
+  const { getTokenInfo } = useTokenRegistry();
+  return { config: getTokenInfo(tokenAddress) };
+}
 
 function PositionCard({ tokenAddress }: { tokenAddress: `0x${string}` }) {
   const { config } = useTokenConfig(tokenAddress);
@@ -30,7 +36,7 @@ function PositionCard({ tokenAddress }: { tokenAddress: `0x${string}` }) {
         <div>
           <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>Current Value</p>
           <p style={{ fontSize: '1.25rem', fontWeight: '600', margin: '0.25rem 0' }}>
-            {formatEther(lpPosition.ethValue)} ETH
+            {lpPosition.ethValue} ETH
           </p>
         </div>
 
@@ -83,7 +89,7 @@ export default function LPDashboard() {
     <div>
       <h2 style={{ fontSize: '1.5rem', marginBottom: '1.5rem' }}>My LP Positions</h2>
       
-      {allDeployments.map((tokenAddress) => (
+      {allDeployments.map((tokenAddress: Address) => (
         <PositionCard key={tokenAddress} tokenAddress={tokenAddress} />
       ))}
     </div>

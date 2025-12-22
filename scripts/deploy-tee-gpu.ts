@@ -11,7 +11,7 @@
 
 import { parseArgs } from 'util';
 import { privateKeyToAccount } from 'viem/accounts';
-import { createPublicClient, createWalletClient, http, type Hex, type Address } from 'viem';
+import { createPublicClient, createWalletClient, http, type Hex } from 'viem';
 import { baseSepolia, localhost } from 'viem/chains';
 import {
   createTEEGPUProvider,
@@ -104,12 +104,12 @@ async function deploy() {
   const chain = config.network === 'localnet' ? localhost : baseSepolia;
   const rpcUrl = process.env.RPC_URL ?? (config.network === 'localnet' ? 'http://localhost:6546' : undefined);
 
-  const publicClient = createPublicClient({
+  createPublicClient({
     chain,
     transport: http(rpcUrl),
   });
 
-  const walletClient = createWalletClient({
+  createWalletClient({
     account,
     chain,
     transport: http(rpcUrl),
@@ -251,7 +251,7 @@ async function deploy() {
   // Keep running to serve requests
   if (config.teeProvider !== TEEProvider.LOCAL) {
     console.log('\nPress Ctrl+C to shutdown...');
-    await new Promise(() => {}); // Keep running
+    await new Promise(() => { /* keep process running */ });
   }
 }
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { request, gql } from 'graphql-request';
+import { expect } from '@/lib/validation';
 import type { Market } from '@/types/markets';
 import { calculateYesPrice, calculateNoPrice } from '@/lib/markets/lmsrPricing';
 import { INDEXER_URL } from '@/config';
@@ -29,7 +30,7 @@ export function useMarkets() {
   useEffect(() => {
     async function fetchMarkets() {
       try {
-        const endpoint = INDEXER_URL;
+        const endpoint = expect(INDEXER_URL, 'INDEXER_URL not configured');
         
         const data = await request(endpoint, MARKETS_QUERY, {
           limit: 100,

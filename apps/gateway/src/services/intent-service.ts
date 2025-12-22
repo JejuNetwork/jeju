@@ -15,32 +15,18 @@ import * as chainService from './chain-service';
 import { quoteService } from './quote-service.js';
 import { ZERO_ADDRESS } from '../lib/contracts.js';
 import { intentState, routeState, solverState, initializeState } from './state.js';
-
-interface CreateIntentParams {
-  sourceChain: number;
-  destinationChain: number;
-  sourceToken: string;
-  destinationToken: string;
-  amount: string;
-  recipient?: string;
-  maxFee?: string;
-}
-
-interface QuoteParams {
-  sourceChain: number;
-  destinationChain: number;
-  sourceToken: string;
-  destinationToken: string;
-  amount: string;
-}
-
-interface ListIntentsParams {
-  user?: string;
-  status?: string;
-  sourceChain?: number;
-  destinationChain?: number;
-  limit?: number;
-}
+import {
+  CreateIntentRequestSchema,
+  GetQuoteRequestSchema,
+  ListIntentsQuerySchema,
+  IntentIdSchema,
+  expect,
+  expectAddress,
+  expectChainId,
+  type CreateIntentRequest,
+  type GetQuoteRequest,
+  type ListIntentsQuery,
+} from '../lib/validation.js';
 
 export class IntentService {
   private chainWatchers: Array<() => void> = [];
@@ -99,15 +85,17 @@ export class IntentService {
     this.statsRefreshTimer = setTimeout(() => this.refreshStats(), 30000);
   }
 
-  async createIntent(params: CreateIntentParams): Promise<Intent> {
+  async createIntent(params: CreateIntentRequest): Promise<Intent> {
+    const validated = expect(params, CreateIntentRequestSchema, 'createIntent params');
     const now = Date.now();
+    const recipient = (validated.recipient || ZERO_ADDRESS) as `0x${string}`;
     const intentId = keccak256(
       encodeAbiParameters(
         parseAbiParameters('address, uint256, uint256, uint256'),
         [
-          params.recipient as `0x${string}` || ZERO_ADDRESS,
-          BigInt(params.sourceChain),
-          BigInt(params.amount),
+          recipient,
+          BigInt(validated.sourceChain),
+          BigInt(validated.amount),
           BigInt(now),
         ]
       )
@@ -115,21 +103,21 @@ export class IntentService {
 
     const intent: Intent = {
       intentId,
-      user: params.recipient || ZERO_ADDRESS,
+      user: recipient,
       nonce: now.toString(),
-      sourceChainId: params.sourceChain as SupportedChainId,
+      sourceChainId: validated.sourceChain,
       openDeadline: Math.floor(now / 1000) + 300,
       fillDeadline: Math.floor(now / 1000) + 3600,
       inputs: [{
-        token: params.sourceToken as `0x${string}`,
-        amount: params.amount,
-        chainId: params.sourceChain as SupportedChainId,
+        token: validated.sourceToken as `0x${string}`,
+        amount: validated.amount,
+        chainId: validated.sourceChain,
       }],
       outputs: [{
-        token: params.destinationToken as `0x${string}`,
-        amount: params.amount,
-        recipient: (params.recipient || params.sourceToken) as `0x${string}`,
-        chainId: params.destinationChain as SupportedChainId,
+        token: validated.destinationToken as `0x${string}`,
+        amount: validated.amount,
+        recipient: (validated.recipient || validated.sourceToken) as `0x${string}`,
+        chainId: validated.destinationChain,
       }],
       signature: '0x',
       status: 'open',
@@ -139,27 +127,33 @@ export class IntentService {
     await intentState.save(intent);
 
     // Update route stats
-    const routeId = `${params.sourceChain}-${params.destinationChain}`;
-    await routeState.incrementVolume(routeId, BigInt(params.amount));
+    const routeId = `${validated.sourceChain}-${validated.destinationChain}`;
+    await routeState.incrementVolume(routeId, BigInt(validated.amount));
 
     return intent;
   }
 
-  async getQuotes(params: QuoteParams): Promise<IntentQuote[]> {
-    return quoteService.getQuotes(params);
+  async getQuotes(params: GetQuoteRequest): Promise<IntentQuote[]> {
+    const validated = expect(params, GetQuoteRequestSchema, 'getQuotes params');
+    return quoteService.getQuotes({
+      ...validated,
+      sourceToken: validated.sourceToken as `0x${string}`,
+      destinationToken: validated.destinationToken as `0x${string}`,
+    });
   }
 
   async getIntent(intentId: string): Promise<Intent | undefined> {
+    const validated = expect(intentId, IntentIdSchema, 'getIntent intentId');
     // Check CQL first
     const intent = await intentState.get(intentId);
     if (intent) return intent;
 
     // Fallback to chain lookup
     for (const chainId of [1, 42161, 10, 11155111]) {
-      const order = await chainService.fetchOrder(chainId, intentId as `0x${string}`);
+      const order = await chainService.fetchOrder(chainId, validated as `0x${string}`);
       if (order && order.user !== ZERO_ADDRESS) {
         const chainIntent: Intent = {
-          intentId: intentId as `0x${string}`,
+          intentId: validated as `0x${string}`,
           user: order.user,
           nonce: '0',
           sourceChainId: chainId as SupportedChainId,
@@ -193,27 +187,30 @@ export class IntentService {
   }
 
   async cancelIntent(intentId: string, user: string): Promise<{ success: boolean; message: string }> {
-    const intent = await intentState.get(intentId);
+    const validatedIntentId = expect(intentId, IntentIdSchema, 'cancelIntent intentId');
+    const validatedUser = expectAddress(user, 'cancelIntent user');
+    const intent = await intentState.get(validatedIntentId);
     if (!intent) {
-      return { success: false, message: 'Intent not found' };
+      throw new Error('Intent not found');
     }
-    if (intent.user.toLowerCase() !== user.toLowerCase()) {
-      return { success: false, message: 'Not authorized' };
+    if (intent.user.toLowerCase() !== validatedUser.toLowerCase()) {
+      throw new Error('Not authorized');
     }
     if (intent.status !== 'open') {
-      return { success: false, message: 'Intent cannot be cancelled' };
+      throw new Error('Intent cannot be cancelled');
     }
     
-    await intentState.updateStatus(intentId, 'expired', { cancelledAt: Date.now() });
+    await intentState.updateStatus(validatedIntentId, 'expired', { cancelledAt: Date.now() });
     return { success: true, message: 'Intent marked for cancellation' };
   }
 
-  async listIntents(params?: ListIntentsParams): Promise<Intent[]> {
+  async listIntents(params?: { user?: string; status?: string; sourceChain?: number; destinationChain?: number; limit?: number }): Promise<Intent[]> {
+    const validated = params ? expect(params, ListIntentsQuerySchema, 'listIntents params') : undefined;
     return intentState.list({
-      user: params?.user,
-      status: params?.status,
-      sourceChain: params?.sourceChain,
-      limit: params?.limit ?? 50,
+      user: validated?.user,
+      status: validated?.status,
+      sourceChain: validated?.sourceChain,
+      limit: validated?.limit ?? 50,
     });
   }
 
@@ -250,7 +247,8 @@ export class IntentService {
     avgFillTime: number;
     successRate: number;
   }> {
-    const intents = await intentState.list({ sourceChain: chainId, limit: 1000 });
+    const validatedChainId = expectChainId(chainId, 'getChainStats chainId');
+    const intents = await intentState.list({ sourceChain: validatedChainId, limit: 1000 });
     
     const totalVolume = intents.reduce(
       (sum, i) => sum + BigInt(i.inputs[0]?.amount || '0'),

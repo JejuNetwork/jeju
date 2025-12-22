@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, mock, afterEach } from 'bun:test';
 import { FarcasterClient } from '../hub/client';
-import type { Address, Hex } from 'viem';
+import type { Hex } from 'viem';
 
 // Mock fetch globally
 const originalFetch = globalThis.fetch;
@@ -52,7 +52,10 @@ describe('FarcasterClient', () => {
         version: '1.0.0',
         isSyncing: false,
         nickname: 'test-hub',
-        dbStats: { numMessages: 1000 },
+        rootHash: '0xabcd',
+        dbStats: { numMessages: 1000, numFidEvents: 100, numFnameEvents: 50 },
+        peerId: 'peer-123',
+        hubOperatorFid: 1,
       };
 
       mockFetch.mockReturnValueOnce(
@@ -86,7 +89,15 @@ describe('FarcasterClient', () => {
       mockFetch.mockReturnValueOnce(
         Promise.resolve({
           ok: true,
-          json: () => Promise.resolve({ isSyncing: true }),
+          json: () => Promise.resolve({
+            version: '1.0.0',
+            isSyncing: true,
+            nickname: 'test-hub',
+            rootHash: '0xabcd',
+            dbStats: { numMessages: 1000, numFidEvents: 100, numFnameEvents: 50 },
+            peerId: 'peer-123',
+            hubOperatorFid: 1,
+          }),
         })
       );
 
@@ -98,7 +109,15 @@ describe('FarcasterClient', () => {
       mockFetch.mockReturnValueOnce(
         Promise.resolve({
           ok: true,
-          json: () => Promise.resolve({ isSyncing: false }),
+          json: () => Promise.resolve({
+            version: '1.0.0',
+            isSyncing: false,
+            nickname: 'test-hub',
+            rootHash: '0xabcd',
+            dbStats: { numMessages: 1000, numFidEvents: 100, numFnameEvents: 50 },
+            peerId: 'peer-123',
+            hubOperatorFid: 1,
+          }),
         })
       );
 
@@ -178,7 +197,7 @@ describe('FarcasterClient', () => {
           ok: true,
           json: () =>
             Promise.resolve({
-              messages: [{ data: { fid: 456, linkBody: { targetFid: 123 } } }],
+              messages: [{ data: { fid: 456, timestamp: 1700000005, linkBody: { type: 'follow', targetFid: 123 } } }],
             }),
         })
       );
@@ -190,8 +209,8 @@ describe('FarcasterClient', () => {
           json: () =>
             Promise.resolve({
               messages: [
-                { data: { fid: 123, linkBody: { targetFid: 789 } } },
-                { data: { fid: 123, linkBody: { targetFid: 790 } } },
+                { data: { fid: 123, timestamp: 1700000006, linkBody: { type: 'follow', targetFid: 789 } } },
+                { data: { fid: 123, timestamp: 1700000007, linkBody: { type: 'follow', targetFid: 790 } } },
               ],
             }),
         })

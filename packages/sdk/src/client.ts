@@ -25,7 +25,11 @@ import { createModerationModule, type ModerationModule } from "./moderation";
 import { createWorkModule, type WorkModule } from "./work";
 import { createStakingModule, type StakingModule } from "./staking";
 import { createDWSModule, type DWSModule } from "./dws";
-import { createFederationClient as createFedClient, type FederationClient, type FederationClientConfig } from "./federation";
+import {
+  createFederationClient as createFedClient,
+  type FederationClient,
+  type FederationClientConfig,
+} from "./federation";
 import { createOTCModule, type OTCModule } from "./otc";
 import { createMessagingModule, type MessagingModule } from "./messaging";
 import { createDistributorModule, type DistributorModule } from "./distributor";
@@ -44,7 +48,11 @@ import { createCICDModule, type CICDModule } from "./cicd";
 import { createFeedModule, type FeedModule } from "./feed";
 import { createMCPModule, type MCPModule } from "./mcp";
 import { createPredictionModule, type PredictionModule } from "./prediction";
-import { getServicesConfig, getChainConfig, getContractAddresses } from "./config";
+import {
+  getServicesConfig,
+  getChainConfig,
+  getContractAddresses,
+} from "./config";
 import { getNetworkName } from "@jejunetwork/config";
 
 export interface JejuClientConfig {
@@ -193,7 +201,11 @@ export async function createJejuClient(
   const governance = createGovernanceModule(wallet, network);
   const names = createNamesModule(wallet, network);
   const identity = createIdentityModule(wallet, network);
-  const validation = createValidationModule(wallet, network, wallet.publicClient);
+  const validation = createValidationModule(
+    wallet,
+    network,
+    wallet.publicClient,
+  );
   const crosschain = createCrossChainModule(wallet, network);
   const nfts = createNFTModule(wallet, network);
   const payments = createPaymentsModule(wallet, network);
@@ -213,20 +225,16 @@ export async function createJejuClient(
   const work = createWorkModule(wallet, network);
   const staking = createStakingModule(wallet, network);
   const dws = createDWSModule(wallet, network);
-  
+
   // Create federation client from config (only if contracts are deployed)
   let federation: FederationClient;
   if (contractAddresses.networkRegistry && contractAddresses.registryHub) {
-    try {
-      const federationConfig: FederationClientConfig = {
-        hubRpc: chainConfig.rpcUrl,
-        networkRegistry: contractAddresses.networkRegistry,
-        registryHub: contractAddresses.registryHub,
-      };
-      federation = await createFedClient(federationConfig);
-    } catch {
-      federation = createStubFederationClient();
-    }
+    const federationConfig: FederationClientConfig = {
+      hubRpc: chainConfig.rpcUrl,
+      networkRegistry: contractAddresses.networkRegistry,
+      registryHub: contractAddresses.registryHub,
+    };
+    federation = await createFedClient(federationConfig);
   } else {
     federation = createStubFederationClient();
   }
@@ -354,10 +362,14 @@ function createStubContainersModule(): ContainersModule {
     recordPull: notAvailable,
     signImage: notAvailable,
     getRepoId: () => {
-      throw new Error("ContainerRegistry contract not deployed on this network");
+      throw new Error(
+        "ContainerRegistry contract not deployed on this network",
+      );
     },
     parseImageReference: () => {
-      throw new Error("ContainerRegistry contract not deployed on this network");
+      throw new Error(
+        "ContainerRegistry contract not deployed on this network",
+      );
     },
   };
 }

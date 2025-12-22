@@ -1,5 +1,6 @@
 /** Web-of-Trust Moderation */
 
+import { z } from 'zod';
 import { keccak256, stringToHex } from 'viem';
 import { writeFile, readFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
@@ -17,6 +18,45 @@ export interface ProposalFlag {
 export interface TrustRelation { from: string; to: string; score: number; context: 'MODERATION' | 'PROPOSAL' | 'VOTING' | 'GENERAL'; updatedAt: number }
 export interface ModerationScore { proposalId: string; visibilityScore: number; flags: ProposalFlag[]; trustWeightedFlags: number; recommendation: 'VISIBLE' | 'REVIEW' | 'HIDDEN' }
 export interface ModeratorStats { address: string; flagsRaised: number; flagsUpheld: number; flagsRejected: number; accuracy: number; reputation: number; trustScore: number }
+
+// Schemas for file parsing
+const ProposalFlagSchema = z.object({
+  flagId: z.string(),
+  proposalId: z.string(),
+  flagger: z.string(),
+  flagType: z.nativeEnum(FlagType),
+  reason: z.string(),
+  evidence: z.string().optional(),
+  stake: z.number(),
+  reputation: z.number(),
+  upvotes: z.number(),
+  downvotes: z.number(),
+  createdAt: z.number(),
+  resolved: z.boolean(),
+  resolution: z.enum(['UPHELD', 'REJECTED']).optional(),
+});
+
+const ModeratorStatsSchema = z.object({
+  address: z.string(),
+  flagsRaised: z.number(),
+  flagsUpheld: z.number(),
+  flagsRejected: z.number(),
+  accuracy: z.number(),
+  reputation: z.number(),
+  trustScore: z.number(),
+});
+
+const TrustRelationSchema = z.object({
+  from: z.string(),
+  to: z.string(),
+  score: z.number(),
+  context: z.enum(['MODERATION', 'PROPOSAL', 'VOTING', 'GENERAL']),
+  updatedAt: z.number(),
+});
+
+const FlagsFileSchema = z.array(z.tuple([z.string(), ProposalFlagSchema]));
+const StatsFileSchema = z.array(z.tuple([z.string(), ModeratorStatsSchema]));
+const TrustFileSchema = z.array(z.tuple([z.string(), z.array(z.tuple([z.string(), TrustRelationSchema]))]));
 
 // Bounded stores with file persistence
 const MAX_FLAGS = 10000, MAX_MODS = 5000;
@@ -50,24 +90,23 @@ async function save(): Promise<void> {
 
 async function load(): Promise<void> {
   await ensureDir();
-  try {
-    const flagsPath = join(storageDir, FILES.flags);
-    if (existsSync(flagsPath)) {
-      const data = JSON.parse(await readFile(flagsPath, 'utf-8')) as [string, ProposalFlag][];
-      for (const [k, v] of data) flags.set(k, v);
-    }
-    const statsPath = join(storageDir, FILES.stats);
-    if (existsSync(statsPath)) {
-      const data = JSON.parse(await readFile(statsPath, 'utf-8')) as [string, ModeratorStats][];
-      for (const [k, v] of data) stats.set(k, v);
-    }
-    const trustPath = join(storageDir, FILES.trust);
-    if (existsSync(trustPath)) {
-      const data = JSON.parse(await readFile(trustPath, 'utf-8')) as [string, [string, TrustRelation][]][];
-      for (const [k, v] of data) trust.set(k, new Map(v));
-    }
-  } catch (e) {
-    console.error('[Moderation] Failed to load persisted data:', e);
+  const flagsPath = join(storageDir, FILES.flags);
+  if (existsSync(flagsPath)) {
+    const rawData = JSON.parse(await readFile(flagsPath, 'utf-8'));
+    const data = FlagsFileSchema.parse(rawData);
+    for (const [k, v] of data) flags.set(k, v);
+  }
+  const statsPath = join(storageDir, FILES.stats);
+  if (existsSync(statsPath)) {
+    const rawData = JSON.parse(await readFile(statsPath, 'utf-8'));
+    const data = StatsFileSchema.parse(rawData);
+    for (const [k, v] of data) stats.set(k, v);
+  }
+  const trustPath = join(storageDir, FILES.trust);
+  if (existsSync(trustPath)) {
+    const rawData = JSON.parse(await readFile(trustPath, 'utf-8'));
+    const data = TrustFileSchema.parse(rawData);
+    for (const [k, v] of data) trust.set(k, new Map(v));
   }
 }
 

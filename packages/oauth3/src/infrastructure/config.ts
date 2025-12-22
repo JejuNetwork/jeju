@@ -14,6 +14,7 @@ export type TEEMode = 'dstack' | 'phala' | 'simulated' | 'auto';
 
 export const CHAIN_IDS = {
   localnet: 420691,
+  localnetAnvil: 1337, // Standard anvil/hardhat chain ID
   testnet: 420690,
   mainnet: 420692,
 } as const;
@@ -91,7 +92,7 @@ export const ATTESTATION_VALIDITY_MS = 24 * 60 * 60 * 1000; // 24 hours
 export const CACHE_EXPIRY_MS = 60000; // 1 minute
 
 export function getNetworkType(chainId: number): NetworkType {
-  if (chainId === CHAIN_IDS.localnet) return 'localnet';
+  if (chainId === CHAIN_IDS.localnet || chainId === CHAIN_IDS.localnetAnvil) return 'localnet';
   if (chainId === CHAIN_IDS.testnet) return 'testnet';
   return 'mainnet';
 }

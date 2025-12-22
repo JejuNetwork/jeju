@@ -5,14 +5,14 @@
  * and validates contract interactions work correctly.
  */
 
-import { describe, test, expect, beforeAll } from 'bun:test';
-import { createPublicClient, http, parseAbi, readContract, getCode, getChainId, getBlockNumber, formatEther, parseEther, zeroAddress, getAddress, type Address, type PublicClient } from 'viem';
+import { describe, test, expect } from 'bun:test';
+import { createPublicClient, http, parseAbi, readContract, getCode, getChainId, getBlockNumber, parseEther, zeroAddress, getAddress, type Address } from 'viem';
 import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
 import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
 
 // Import shared chains
-import { PUBLIC_RPCS, CHAIN_NAMES, chainName, rpcUrl, getChainIds } from '../../../scripts/shared/chains';
+import { chainName, rpcUrl, getChainIds } from '../../../scripts/shared/chains';
 
 // Contract ABIs (minimal for testing)
 const SOLVER_REGISTRY_ABI = [
@@ -286,10 +286,10 @@ describe('Config File Consistency', () => {
   test('all OIF deployed addresses are checksummed', () => {
     const deployments = loadOIFDeployments('testnet');
     
-    for (const [chainId, data] of Object.entries(deployments)) {
+    for (const [_chainId, data] of Object.entries(deployments)) {
       if (!data.contracts) continue;
       
-      for (const [name, address] of Object.entries(data.contracts)) {
+      for (const [_name, address] of Object.entries(data.contracts)) {
         // Skip non-address values (e.g., "oracleType": "simple")
         if (!address || typeof address !== 'string' || !address.startsWith('0x') || address.length !== 42) continue;
         const checksummed = getAddress(address);

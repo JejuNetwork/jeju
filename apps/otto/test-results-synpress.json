@@ -1,0 +1,179 @@
+{
+  "config": {
+    "configFile": "/Users/shawwalters/jeju/apps/otto/synpress.config.ts",
+    "rootDir": "/Users/shawwalters/jeju/apps/otto/tests/synpress",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "html",
+        {
+          "outputFolder": "playwright-report-synpress"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results-synpress.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "/Users/shawwalters/jeju/apps/otto/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/Users/shawwalters/jeju/apps/otto/tests/synpress",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.57.0",
+    "workers": 1,
+    "webServer": {
+      "command": "bun run dev",
+      "url": "http://localhost:4040/health",
+      "reuseExistingServer": true,
+      "timeout": 60000
+    }
+  },
+  "suites": [
+    {
+      "title": "wallet-connect.test.ts",
+      "file": "wallet-connect.test.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Otto Wallet Connection",
+          "file": "wallet-connect.test.ts",
+          "line": 12,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should connect wallet via OAuth3 flow",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 13,
+                      "error": {
+                        "message": "Error: Cache for 598e9d718c68161f43e3 does not exist. Create it first!",
+                        "stack": "Error: Cache for 598e9d718c68161f43e3 does not exist. Create it first!\n    at Object.context (/Users/shawwalters/jeju/node_modules/.bun/@synthetixio+synpress-metamask@0.0.13+c6002b12a4db8c67/node_modules/@synthetixio/synpress-metamask/src/playwright/fixture-actions/getExtensionId.ts:46:1)"
+                      },
+                      "errors": [
+                        {
+                          "message": "Error: Cache for 598e9d718c68161f43e3 does not exist. Create it first!\n    at Object.context (/Users/shawwalters/jeju/node_modules/.bun/@synthetixio+synpress-metamask@0.0.13+c6002b12a4db8c67/node_modules/@synthetixio/synpress-metamask/src/playwright/fixture-actions/getExtensionId.ts:46:1)"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-21T22:26:58.691Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "6731a389cbb434cb8cf0-ef889f323b3771ace274",
+              "file": "wallet-connect.test.ts",
+              "line": 13,
+              "column": 3
+            },
+            {
+              "title": "should sign trading confirmation",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 16,
+                      "error": {
+                        "message": "Error: Cache for 598e9d718c68161f43e3 does not exist. Create it first!",
+                        "stack": "Error: Cache for 598e9d718c68161f43e3 does not exist. Create it first!\n    at Object.context (/Users/shawwalters/jeju/node_modules/.bun/@synthetixio+synpress-metamask@0.0.13+c6002b12a4db8c67/node_modules/@synthetixio/synpress-metamask/src/playwright/fixture-actions/getExtensionId.ts:46:1)"
+                      },
+                      "errors": [
+                        {
+                          "message": "Error: Cache for 598e9d718c68161f43e3 does not exist. Create it first!\n    at Object.context (/Users/shawwalters/jeju/node_modules/.bun/@synthetixio+synpress-metamask@0.0.13+c6002b12a4db8c67/node_modules/@synthetixio/synpress-metamask/src/playwright/fixture-actions/getExtensionId.ts:46:1)"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-21T22:26:59.500Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "6731a389cbb434cb8cf0-e157b5d1cc8da10ca437",
+              "file": "wallet-connect.test.ts",
+              "line": 39,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2025-12-21T22:26:57.037Z",
+    "duration": 2657.768,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 2,
+    "flaky": 0
+  }
+}

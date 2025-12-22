@@ -13,14 +13,8 @@ import { jejuWalletPlugin } from '../plugin/eliza-plugin';
  * Initialize the wallet agent with runtime context
  */
 const initWalletAgent = async ({ runtime }: { runtime: IAgentRuntime }) => {
-  console.log('[JejuWallet] Initializing agent');
-  console.log('[JejuWallet] Character:', jejuWalletCharacter.name);
-  
   // Set wallet-specific settings from environment
-  const walletAddress = process.env.WALLET_ADDRESS || runtime.getSetting('WALLET_ADDRESS');
-  if (walletAddress) {
-    console.log('[JejuWallet] Wallet address configured:', walletAddress);
-  }
+  process.env.WALLET_ADDRESS || runtime.getSetting('WALLET_ADDRESS');
 };
 
 /**

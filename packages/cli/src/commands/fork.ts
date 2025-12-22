@@ -756,10 +756,9 @@ forkCommand
       return;
     }
 
-    const { readdirSync } = require('fs');
     const forks = readdirSync(forksDir, { withFileTypes: true })
-      .filter((d: { isDirectory: () => boolean }) => d.isDirectory())
-      .map((d: { name: string }) => d.name);
+      .filter((d) => d.isDirectory())
+      .map((d) => d.name);
 
     if (forks.length === 0) {
       logger.info('No forks found. Run `fork` to create one.');

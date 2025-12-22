@@ -4,6 +4,8 @@
  */
 
 import { secureStorage } from '../../platform/secure-storage';
+import { LockStateSchema, LockConfigSchema } from '../../plugin/schemas';
+import { expectJson } from '../../lib/validation';
 
 export type LockType = 'password' | 'pin' | 'biometric';
 
@@ -258,7 +260,7 @@ class LockService {
   private async getStoredState(): Promise<LockState | null> {
     const data = await secureStorage.get(STORAGE_KEYS.lockState);
     if (!data) return null;
-    return JSON.parse(data);
+    return expectJson(data, LockStateSchema, 'lock state');
   }
   
   private async saveConfig(): Promise<void> {
@@ -268,7 +270,7 @@ class LockService {
   private async getStoredConfig(): Promise<LockConfig | null> {
     const data = await secureStorage.get(STORAGE_KEYS.lockConfig);
     if (!data) return null;
-    return JSON.parse(data);
+    return expectJson(data, LockConfigSchema, 'lock config');
   }
   
   private notifyLockChange(): void {

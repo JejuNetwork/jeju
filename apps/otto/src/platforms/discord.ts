@@ -2,10 +2,10 @@
  * Discord Platform Adapter
  */
 
-import { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, type Message, type Interaction, type TextChannel, type DMChannel, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, type APIEmbed, type MessageCreateOptions } from 'discord.js';
+import { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, type Message, type Interaction, type TextChannel, type DMChannel, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, type APIEmbed, type MessageCreateOptions, type APIActionRowComponent, type APIMessageActionRowComponent } from 'discord.js';
 import type { PlatformAdapter, MessageHandler, SendMessageOptions, PlatformUserInfo, PlatformChannelInfo } from './types';
 import type { PlatformMessage, MessageEmbed, MessageButton } from '../types';
-import { OTTO_COMMANDS } from '../config';
+import { expectValid, PlatformMessageSchema } from '../schemas';
 
 export class DiscordAdapter implements PlatformAdapter {
   readonly platform = 'discord' as const;
@@ -14,14 +14,18 @@ export class DiscordAdapter implements PlatformAdapter {
   private rest: REST;
   private token: string;
   private applicationId: string;
-  private publicKey: string;
   private messageHandler: MessageHandler | null = null;
   private ready = false;
 
-  constructor(token: string, applicationId: string, publicKey?: string) {
+  constructor(token: string, applicationId: string, _publicKey?: string) {
+    if (!token) {
+      throw new Error('Discord bot token is required');
+    }
+    if (!applicationId) {
+      throw new Error('Discord application ID is required');
+    }
     this.token = token;
     this.applicationId = applicationId;
-    this.publicKey = publicKey ?? '';
     
     this.client = new Client({
       intents: [
@@ -67,6 +71,10 @@ export class DiscordAdapter implements PlatformAdapter {
         const subcommand = interaction.options.getSubcommand(false);
         const args = this.extractSlashCommandArgs(interaction);
         
+        if (!interaction.channelId || !interaction.user?.id) {
+          throw new Error('Invalid Discord interaction: missing required fields');
+        }
+        
         const platformMessage: PlatformMessage = {
           platform: 'discord',
           messageId: interaction.id,
@@ -77,11 +85,13 @@ export class DiscordAdapter implements PlatformAdapter {
           isCommand: true,
         };
         
+        const validatedMessage = expectValid(PlatformMessageSchema, platformMessage, 'Discord interaction message');
+        
         // Defer reply for long-running commands
         await interaction.deferReply();
         
         if (this.messageHandler) {
-          await this.messageHandler(platformMessage);
+          await this.messageHandler(validatedMessage);
         }
       }
     });
@@ -92,13 +102,20 @@ export class DiscordAdapter implements PlatformAdapter {
   }
 
   private convertMessage(message: Message): PlatformMessage {
+    if (!message.id || !message.channelId || !message.author?.id) {
+      throw new Error('Invalid Discord message: missing required fields');
+    }
+    
     // Remove bot mention and /otto prefix
+    if (message.content === undefined || message.content === null) {
+      throw new Error('Discord message content is required');
+    }
     let content = message.content;
     const mentionPattern = new RegExp(`<@!?${this.client.user?.id}>`, 'g');
     content = content.replace(mentionPattern, '').trim();
     content = content.replace(/^\/otto\s*/i, '').replace(/^otto\s*/i, '').trim();
     
-    return {
+    const platformMessage: PlatformMessage = {
       platform: 'discord',
       messageId: message.id,
       channelId: message.channelId,
@@ -114,6 +131,8 @@ export class DiscordAdapter implements PlatformAdapter {
         size: a.size,
       })),
     };
+    
+    return expectValid(PlatformMessageSchema, platformMessage, 'Discord platform message');
   }
 
   private extractSlashCommandArgs(interaction: Interaction): string {
@@ -271,17 +290,21 @@ export class DiscordAdapter implements PlatformAdapter {
     }
     
     if ('name' in channel && 'guild' in channel) {
+      const guildChannel = channel as { id: string; name: string | null; guild?: { id: string; name: string } };
+      if (!guildChannel.name) {
+        throw new Error(`Discord channel ${guildChannel.id} has no name`);
+      }
       return {
-        id: channel.id,
-        name: channel.name ?? 'Unknown',
+        id: guildChannel.id,
+        name: guildChannel.name,
         type: 'guild',
-        guildId: channel.guild?.id,
-        guildName: channel.guild?.name,
+        guildId: guildChannel.guild?.id,
+        guildName: guildChannel.guild?.name,
       };
     }
     
     return {
-      id: channel.id,
+      id: channelId,
       name: 'Unknown',
       type: 'group',
     };
@@ -402,7 +425,7 @@ export class DiscordAdapter implements PlatformAdapter {
     return builder.toJSON();
   }
 
-  private createButtonRow(buttons: MessageButton[]): ActionRowBuilder<ButtonBuilder> {
+  private createButtonRow(buttons: MessageButton[]): APIActionRowComponent<APIMessageActionRowComponent> {
     const row = new ActionRowBuilder<ButtonBuilder>();
     
     for (const button of buttons) {
@@ -426,7 +449,7 @@ export class DiscordAdapter implements PlatformAdapter {
       row.addComponents(builder);
     }
     
-    return row;
+    return row.toJSON() as APIActionRowComponent<APIMessageActionRowComponent>;
   }
 }
 

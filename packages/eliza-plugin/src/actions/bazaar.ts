@@ -10,6 +10,12 @@ import {
   type State,
 } from "@elizaos/core";
 import { JEJU_SERVICE_NAME, type JejuService } from "../service";
+import {
+  getMessageText,
+  expectResponseData,
+  expectArray,
+  validateServiceExists,
+} from "../validation";
 
 export const launchTokenAction: Action = {
   name: "LAUNCH_TOKEN",
@@ -22,21 +28,19 @@ export const launchTokenAction: Action = {
     "token launchpad",
   ],
 
-  validate: async (runtime: IAgentRuntime) => {
-    const service = runtime.getService(JEJU_SERVICE_NAME);
-    return !!service;
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
 
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
-    const text = message.content.text ?? "";
+    const text = getMessageText(message);
 
     // Extract token parameters
     const nameMatch = text.match(/name[:\s]+["']?([^"'\n,]+)["']?/i);
@@ -57,7 +61,9 @@ Example: "Launch token name: My Token, symbol: MTK, supply: 1000000000"`,
 
     const name = nameMatch[1].trim();
     const symbol = symbolMatch[1].toUpperCase();
-    const totalSupply = supplyMatch ? BigInt(supplyMatch[1]) * 10n ** 18n : 10n ** 27n;
+    const totalSupply = supplyMatch
+      ? BigInt(supplyMatch[1]) * 10n ** 18n
+      : 10n ** 27n;
 
     callback?.({ text: `Launching ${name} (${symbol})...` });
 
@@ -81,8 +87,14 @@ Your token is now tradeable on the network bazaar!`,
 
   examples: [
     [
-      { name: "user", content: { text: "Launch token name: AI Agent Token, symbol: AAT" } },
-      { name: "agent", content: { text: "Token launched successfully! Contract: 0x..." } },
+      {
+        name: "user",
+        content: { text: "Launch token name: AI Agent Token, symbol: AAT" },
+      },
+      {
+        name: "agent",
+        content: { text: "Token launched successfully! Contract: 0x..." },
+      },
     ],
   ],
 };
@@ -98,21 +110,19 @@ export const listNftsAction: Action = {
     "find nfts",
   ],
 
-  validate: async (runtime: IAgentRuntime) => {
-    const service = runtime.getService(JEJU_SERVICE_NAME);
-    return !!service;
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
 
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
-    const text = message.content.text ?? "";
+    const text = getMessageText(message);
 
     // Extract optional collection filter
     const collectionMatch = text.match(/collection[:\s]+([^\s]+)/i);
@@ -122,11 +132,19 @@ export const listNftsAction: Action = {
       params: { collection: collectionMatch?.[1] },
     });
 
-    const nfts = (response.data?.nfts ?? []) as Array<{
+    const responseData = expectResponseData(
+      response,
+      "Bazaar API returned no data",
+    );
+    const nfts = expectArray<{
       name: string;
       collection: string;
       price: string;
-    }>;
+    }>(
+      responseData as Record<string, unknown>,
+      "nfts",
+      "Bazaar API response missing nfts array",
+    );
 
     if (nfts.length === 0) {
       callback?.({ text: "No NFTs currently listed on the marketplace." });
@@ -148,7 +166,10 @@ ${nftList}`,
   examples: [
     [
       { name: "user", content: { text: "Show NFTs on marketplace" } },
-      { name: "agent", content: { text: "NFTs on marketplace (25): • Cool NFT #1..." } },
+      {
+        name: "agent",
+        content: { text: "NFTs on marketplace (25): • Cool NFT #1..." },
+      },
     ],
   ],
 };
@@ -164,18 +185,16 @@ export const listNamesForSaleAction: Action = {
     "jns marketplace",
   ],
 
-  validate: async (runtime: IAgentRuntime) => {
-    const service = runtime.getService(JEJU_SERVICE_NAME);
-    return !!service;
-  },
+  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
+    validateServiceExists(runtime),
 
   handler: async (
     runtime: IAgentRuntime,
     _message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback?: HandlerCallback
-  ) => {
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
 
@@ -183,11 +202,19 @@ export const listNamesForSaleAction: Action = {
       skillId: "list-names-for-sale",
     });
 
-    const names = (response.data?.names ?? []) as Array<{
+    const responseData = expectResponseData(
+      response,
+      "Bazaar API returned no data",
+    );
+    const names = expectArray<{
       name: string;
       price: string;
       seller: string;
-    }>;
+    }>(
+      responseData as Record<string, unknown>,
+      "names",
+      "Bazaar API response missing names array",
+    );
 
     if (names.length === 0) {
       callback?.({ text: "No JNS names currently listed for sale." });
@@ -211,8 +238,10 @@ Use 'buy name [name]' to purchase.`,
   examples: [
     [
       { name: "user", content: { text: "Show names for sale" } },
-      { name: "agent", content: { text: "JNS names for sale (8): • cool.jeju - 0.1 ETH..." } },
+      {
+        name: "agent",
+        content: { text: "JNS names for sale (8): • cool.jeju - 0.1 ETH..." },
+      },
     ],
   ],
 };
-

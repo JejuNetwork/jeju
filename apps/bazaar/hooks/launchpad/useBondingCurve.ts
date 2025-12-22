@@ -1,5 +1,7 @@
 import { useAccount, useWriteContract, useReadContract, useWaitForTransactionReceipt, useBalance } from 'wagmi'
 import { parseEther, formatEther, type Address } from 'viem'
+import { AddressSchema } from '@jejunetwork/types/contracts'
+import { expect, expectPositive } from '@/lib/validation'
 import { BondingCurveAbi } from '@jejunetwork/contracts'
 
 export interface BondingCurveStats {
@@ -95,13 +97,13 @@ export function useBondingCurve(bondingCurveAddress: Address | null) {
    * Buy tokens with ETH
    */
   const buy = (ethAmount: string, minTokensOut: string = '0') => {
-    if (!bondingCurveAddress) {
-      throw new Error('No bonding curve address')
-    }
+    const validatedAddress = expect(bondingCurveAddress, 'No bonding curve address');
+    AddressSchema.parse(validatedAddress);
+    expectPositive(parseFloat(ethAmount), 'ETH amount must be positive');
 
     reset()
     writeContract({
-      address: bondingCurveAddress,
+      address: validatedAddress,
       abi: BondingCurveAbi,
       functionName: 'buy',
       args: [parseEther(minTokensOut)],
@@ -113,13 +115,13 @@ export function useBondingCurve(bondingCurveAddress: Address | null) {
    * Sell tokens for ETH
    */
   const sell = (tokenAmount: string, minEthOut: string = '0') => {
-    if (!bondingCurveAddress) {
-      throw new Error('No bonding curve address')
-    }
+    const validatedAddress = expect(bondingCurveAddress, 'No bonding curve address');
+    AddressSchema.parse(validatedAddress);
+    expectPositive(parseFloat(tokenAmount), 'Token amount must be positive');
 
     reset()
     writeContract({
-      address: bondingCurveAddress,
+      address: validatedAddress,
       abi: BondingCurveAbi,
       functionName: 'sell',
       args: [parseEther(tokenAmount), parseEther(minEthOut)],

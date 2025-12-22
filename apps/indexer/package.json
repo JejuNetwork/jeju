@@ -46,6 +46,7 @@
   },
   "dependencies": {
     "@jejunetwork/db": "workspace:*",
+    "@jejunetwork/types": "workspace:*",
     "@subsquid/evm-abi": "0.3.0",
     "@subsquid/evm-codec": "0.3.0",
     "@subsquid/evm-processor": "1.19.1",
@@ -56,10 +57,11 @@
     "@types/express": "5.0.3",
     "cors": "2.8.5",
     "express": "5.0.1",
-    "hono": "4.7.0",
+    "hono": "4.11.1",
     "pg": "8.16.0",
     "typeorm": "0.3.26",
-    "viem": "2.41.2"
+    "viem": "2.43.2",
+    "zod": "^4.1.13"
   },
   "devDependencies": {
     "@playwright/test": "1.57.0",
@@ -67,6 +69,6 @@
     "@types/node": "22.15.30",
     "autocannon": "8.0.0",
     "concurrently": "9.1.0",
-    "typescript": "5.7.3"
+    "typescript": "5.9.3"
   }
 }

@@ -1,8 +1,11 @@
+import { type ComponentType } from 'react';
 import { useLiquidityVault } from '../hooks/useLiquidityVault';
 import { usePaymasterFactory, usePaymasterDeployment } from '../hooks/usePaymasterFactory';
 import { useTokenConfig } from '../hooks/useTokenRegistry';
 import { formatEther } from 'viem';
-import { BarChart3 } from 'lucide-react';
+import { BarChart3, type LucideProps } from 'lucide-react';
+
+const BarChart3Icon = BarChart3 as ComponentType<LucideProps>;
 
 function PositionCard({ tokenAddress }: { tokenAddress: `0x${string}` }) {
   const { config } = useTokenConfig(tokenAddress);
@@ -70,7 +73,7 @@ export default function LPDashboard() {
   if (!allDeployments || allDeployments.length === 0) {
     return (
       <div className="card" style={{ textAlign: 'center', padding: '3rem 1rem' }}>
-        <BarChart3 size={48} style={{ margin: '0 auto 1rem', color: 'var(--text-muted)' }} />
+        <BarChart3Icon size={48} style={{ margin: '0 auto 1rem', color: 'var(--text-muted)' }} />
         <h2 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>No LP Positions</h2>
         <p style={{ color: 'var(--text-secondary)' }}>
           Add liquidity to earn fees from gas sponsorship

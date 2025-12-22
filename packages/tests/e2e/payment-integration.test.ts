@@ -13,7 +13,7 @@
  */
 
 import { describe, test, expect, beforeAll } from 'bun:test';
-import { createPublicClient, createWalletClient, http, parseAbi, readContract, writeContract, waitForTransactionReceipt, getLogs, decodeEventLog, formatEther, parseEther, formatUnits, getBalance, getChainId, type Address } from 'viem';
+import { createPublicClient, createWalletClient, http, parseAbi, readContract, formatEther, parseEther, formatUnits, getChainId, type Address } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
 
@@ -34,7 +34,7 @@ const logger = new Logger({ prefix: 'payment-e2e' });
 // ============ Configuration ============
 
 const RPC_URL = JEJU_LOCALNET.rpcUrl;
-const CHAIN_ID = JEJU_LOCALNET.chainId;
+const _CHAIN_ID = JEJU_LOCALNET.chainId;
 
 // Test accounts (Anvil defaults)
 const DEPLOYER_KEY = TEST_WALLETS.deployer.privateKey as `0x${string}`;
@@ -52,7 +52,7 @@ const ADDRESSES = {
 
 // ============ ABIs ============
 
-const ERC20_ABI = [
+const _ERC20_ABI = [
   'function balanceOf(address) view returns (uint256)',
   'function approve(address, uint256) returns (bool)',
   'function transfer(address, uint256) returns (bool)',
@@ -73,7 +73,7 @@ const CREDIT_MANAGER_ABI = [
   'function elizaOS() view returns (address)',
 ];
 
-const STAKING_ABI = [
+const _STAKING_ABI = [
   'function stake(uint256) payable',
   'function startUnbonding(uint256, uint256)',
   'function claimFees()',
@@ -90,9 +90,9 @@ let publicClient: ReturnType<typeof createPublicClient>;
 let deployerAccount: ReturnType<typeof privateKeyToAccount>;
 let userAccount: ReturnType<typeof privateKeyToAccount>;
 let stakerAccount: ReturnType<typeof privateKeyToAccount>;
-let deployerWalletClient: ReturnType<typeof createWalletClient>;
-let userWalletClient: ReturnType<typeof createWalletClient>;
-let stakerWalletClient: ReturnType<typeof createWalletClient>;
+let _deployerWalletClient: ReturnType<typeof createWalletClient>;
+let _userWalletClient: ReturnType<typeof createWalletClient>;
+let _stakerWalletClient: ReturnType<typeof createWalletClient>;
 let localnetAvailable = false;
 
 // Check localnet availability
@@ -118,9 +118,9 @@ describe.skipIf(!localnetAvailable)('Payment Integration - Setup', () => {
     stakerAccount = privateKeyToAccount(STAKER_KEY);
     
     publicClient = createPublicClient({ chain, transport: http(RPC_URL) });
-    deployerWalletClient = createWalletClient({ chain, transport: http(RPC_URL), account: deployerAccount });
-    userWalletClient = createWalletClient({ chain, transport: http(RPC_URL), account: userAccount });
-    stakerWalletClient = createWalletClient({ chain, transport: http(RPC_URL), account: stakerAccount });
+    _deployerWalletClient = createWalletClient({ chain, transport: http(RPC_URL), account: deployerAccount });
+    _userWalletClient = createWalletClient({ chain, transport: http(RPC_URL), account: userAccount });
+    _stakerWalletClient = createWalletClient({ chain, transport: http(RPC_URL), account: stakerAccount });
     
     logger.success('Test setup complete');
   });
@@ -353,8 +353,8 @@ describe.skipIf(!localnetAvailable)('Payment Integration - Staking', () => {
       totalStaked,
       totalLocked,
       rewardsPerShare,
-      lastUpdateBlock,
-      totalRewardsDistributed,
+      _lastUpdateBlock,
+      _totalRewardsDistributed,
       stakerCount
     ] = await staking.getPoolStats();
     
@@ -377,10 +377,10 @@ describe.skipIf(!localnetAvailable)('Payment Integration - Staking', () => {
     const [
       stakedAmount,
       lockedAmount,
-      rewardDebt,
+      _rewardDebt,
       pendingRewards,
-      lastClaimBlock,
-      unbondingEnd,
+      _lastClaimBlock,
+      _unbondingEnd,
       isUnbonding
     ] = await staking.getPosition(staker.address);
     
@@ -534,7 +534,7 @@ describe.skipIf(!localnetAvailable)('Payment Integration - Cross-App Compatibili
   test('should verify EIP-712 domain consistency', async () => {
     logger.info('Testing EIP-712 domain...');
     
-    const chainId = (await provider.getNetwork()).chainId;
+    const _chainId = (await provider.getNetwork()).chainId;
     
     // Payment domain should match chain
     const payload = createPaymentPayload(

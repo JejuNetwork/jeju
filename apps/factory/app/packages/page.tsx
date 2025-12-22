@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useAccount } from 'wagmi';
 import { 
   Package, 
   Search, 
@@ -9,9 +8,7 @@ import {
   Download,
   Clock,
   Shield,
-  Star,
   TrendingUp,
-  ExternalLink,
   Copy,
   Check
 } from 'lucide-react';
@@ -94,7 +91,6 @@ const mockPackages = [
 ];
 
 export default function PackagesPage() {
-  const { isConnected } = useAccount();
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<PackageSort>('popular');
   const [copiedPkg, setCopiedPkg] = useState<string | null>(null);

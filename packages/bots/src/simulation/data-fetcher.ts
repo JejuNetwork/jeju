@@ -9,6 +9,7 @@
 
 import type { Token } from '../types';
 import type { PriceDataPoint } from './backtester';
+import { CoinGeckoMarketChartSchema, type CoinGeckoMarketChart } from '../schemas';
 
 export interface PriceCandle {
   timestamp: number;
@@ -17,12 +18,6 @@ export interface PriceCandle {
   low: number;
   close: number;
   volume: number;
-}
-
-interface CoinGeckoMarketChart {
-  prices: [number, number][];
-  market_caps: [number, number][];
-  total_volumes: [number, number][];
 }
 
 const COINGECKO_IDS: Record<string, string> = {
@@ -95,15 +90,14 @@ export class HistoricalDataFetcher {
 
     const url = `${this.baseUrl}/coins/${geckoId}/market_chart/range?vs_currency=usd&from=${fromTimestamp}&to=${toTimestamp}`;
 
-    console.log(`Fetching ${geckoId} prices...`);
-
     const response = await fetch(url);
     
     if (!response.ok) {
       throw new Error(`CoinGecko API error: ${response.status}`);
     }
 
-    const data: CoinGeckoMarketChart = await response.json();
+    const rawData: unknown = await response.json();
+    const data = CoinGeckoMarketChartSchema.parse(rawData);
     
     const priceMap = new Map<number, number>();
     for (const [timestamp, price] of data.prices) {
@@ -207,16 +201,25 @@ export class HistoricalDataFetcher {
       const timestamp = startDate.getTime() + i * intervalMs;
       const prices: Record<string, number> = {};
 
-      // Generate correlated random returns
+      // Generate correlated random returns - validate volatilities exist
+      const tokenVolatilities = tokens.map(t => {
+        const vol = params.volatilities[t.symbol];
+        if (vol === undefined) {
+          throw new Error(`Missing volatility for token ${t.symbol}`);
+        }
+        return vol;
+      });
+      
       const returns = this.generateCorrelatedReturns(
-        tokens.map(t => params.volatilities[t.symbol] ?? 0.5),
+        tokenVolatilities,
         params.correlations
       );
 
+      const drift = params.trend !== undefined ? params.trend : 0;
+
       for (let j = 0; j < tokens.length; j++) {
         const token = tokens[j];
-        const dailyVol = (params.volatilities[token.symbol] ?? 0.5) / Math.sqrt(365);
-        const drift = params.trend ?? 0; // Daily drift from trend parameter
+        const dailyVol = tokenVolatilities[j] / Math.sqrt(365);
         
         // Geometric Brownian motion
         currentPrices[token.symbol] *= Math.exp(

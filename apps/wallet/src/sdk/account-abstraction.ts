@@ -12,13 +12,9 @@
 import type { Address, Hex, PublicClient, WalletClient } from 'viem';
 import {
   encodeFunctionData,
-  encodeAbiParameters,
-  keccak256,
   concat,
-  toHex,
-  pad,
 } from 'viem';
-import type { SmartAccount, UserOperation, GasEstimate, GasOption } from './types';
+import type { UserOperation, GasEstimate, GasOption } from './types';
 import { getChainContracts } from './chains';
 
 // ============================================================================
@@ -161,12 +157,10 @@ const SIMPLE_ACCOUNT_ABI = [
 // Constants
 // ============================================================================
 
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
 const ENTRY_POINT_V06 = '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789' as Address;
 
 // Default gas limits
 const DEFAULT_VERIFICATION_GAS_LIMIT = 100000n;
-const DEFAULT_CALL_GAS_LIMIT = 200000n;
 const DEFAULT_PRE_VERIFICATION_GAS = 50000n;
 
 // ============================================================================
@@ -309,35 +303,27 @@ export class AAClient {
     const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas ?? 0n;
 
     // Estimate gas via bundler
-    let gasLimits = {
-      callGasLimit: DEFAULT_CALL_GAS_LIMIT,
-      verificationGasLimit: DEFAULT_VERIFICATION_GAS_LIMIT,
-      preVerificationGas: DEFAULT_PRE_VERIFICATION_GAS,
-    };
+    const response = await fetch(`${this.bundlerUrl}/estimate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'eth_estimateUserOperationGas',
+        params: [userOp, this.entryPoint],
+      }),
+    });
 
-    try {
-      const response = await fetch(`${this.bundlerUrl}/estimate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          id: 1,
-          method: 'eth_estimateUserOperationGas',
-          params: [userOp, this.entryPoint],
-        }),
-      });
-
-      const data = await response.json();
-      if (data.result) {
-        gasLimits = {
-          callGasLimit: BigInt(data.result.callGasLimit),
-          verificationGasLimit: BigInt(data.result.verificationGasLimit),
-          preVerificationGas: BigInt(data.result.preVerificationGas),
-        };
-      }
-    } catch {
-      // Use defaults
+    const data = await response.json();
+    if (data.error) {
+      throw new Error(data.error.message ?? 'Gas estimation failed');
     }
+
+    const gasLimits = {
+      callGasLimit: BigInt(data.result.callGasLimit),
+      verificationGasLimit: BigInt(data.result.verificationGasLimit),
+      preVerificationGas: BigInt(data.result.preVerificationGas),
+    };
 
     const totalGas =
       gasLimits.callGasLimit +
@@ -349,20 +335,19 @@ export class AAClient {
     // Get token options if paymaster available
     let tokenOptions: GasOption[] = [];
     if (this.paymasterUrl && paymentTokens?.length) {
-      try {
-        const response = await fetch(`${this.paymasterUrl}/tokens`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            gasCostEth: totalCostEth.toString(),
-            tokens: paymentTokens,
-          }),
-        });
-        const data = await response.json();
-        tokenOptions = data.options ?? [];
-      } catch {
-        // No token options available
+      const response = await fetch(`${this.paymasterUrl}/tokens`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gasCostEth: totalCostEth.toString(),
+          tokens: paymentTokens,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(`Paymaster token fetch failed: ${response.status}`);
       }
+      const data = await response.json();
+      tokenOptions = data.options ?? [];
     }
 
     return {
@@ -427,7 +412,6 @@ export class AAClient {
       address: this.entryPoint,
       abi: ENTRY_POINT_ABI,
       functionName: 'getUserOpHash',
-      // @ts-expect-error - Complex ABI tuple type
       args,
     });
     return hash as Hex;

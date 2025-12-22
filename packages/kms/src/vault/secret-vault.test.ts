@@ -306,7 +306,7 @@ describe('SecretVault', () => {
       
       try {
         await vault.getSecret(secret.id, otherUser);
-      } catch {}
+      } catch { /* expected - access denied */ }
 
       const logs = vault.getAuditLogs(secret.id);
       expect(logs.some(l => l.action === 'read' && !l.success)).toBe(true);

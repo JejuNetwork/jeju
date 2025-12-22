@@ -6,6 +6,7 @@ export const NETWORK = (import.meta.env.VITE_NETWORK || 'localnet') as 'localnet
 export const CHAIN_ID = parseInt(import.meta.env.VITE_CHAIN_ID || getDefaultChainId());
 export const RPC_URL = import.meta.env.VITE_RPC_URL || getDefaultRpcUrl();
 export const DWS_API_URL = import.meta.env.VITE_DWS_API_URL || getDefaultDwsApiUrl();
+export const OAUTH3_AGENT_URL = import.meta.env.VITE_OAUTH3_AGENT_URL || getDefaultOAuth3AgentUrl();
 export const WALLETCONNECT_PROJECT_ID = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'YOUR_PROJECT_ID';
 
 export const CONTRACTS = {
@@ -41,6 +42,14 @@ function getDefaultDwsApiUrl(): string {
     case 'mainnet': return 'https://dws.jejunetwork.org';
     case 'testnet': return 'https://testnet-dws.jejunetwork.org';
     default: return 'http://127.0.0.1:4030';
+  }
+}
+
+function getDefaultOAuth3AgentUrl(): string {
+  switch (NETWORK) {
+    case 'mainnet': return 'https://auth.jejunetwork.org';
+    case 'testnet': return 'https://testnet-auth.jejunetwork.org';
+    default: return 'http://127.0.0.1:4200';
   }
 }
 

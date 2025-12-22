@@ -16,11 +16,10 @@
  * - Complete user journeys from registration to ban
  */
 
-import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
+import { describe, test, expect, beforeAll } from 'bun:test';
 import { createPublicClient, createWalletClient, http, getContract, toEventSelector, type Address } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { spawn } from 'child_process';
-import fs from 'fs';
 import path from 'path';
 import { Logger } from '../../scripts/shared/logger';
 import { 
@@ -68,7 +67,7 @@ let user1Wallet: ReturnType<typeof createWalletClient>;
 let user2Wallet: ReturnType<typeof createWalletClient>;
 let banApprover1Wallet: ReturnType<typeof createWalletClient>;
 let banApprover2Wallet: ReturnType<typeof createWalletClient>;
-let banApprover3Wallet: ReturnType<typeof createWalletClient>;
+let _banApprover3Wallet: ReturnType<typeof createWalletClient>;
 
 // Cloud integration instance
 let integration: CloudIntegration;
@@ -110,7 +109,7 @@ describe('Cloud Integration E2E - Setup', () => {
     user2Wallet = createWalletClient({ account: user2, transport: http(TEST_CONFIG.rpcUrl) });
     banApprover1Wallet = createWalletClient({ account: banApprover1, transport: http(TEST_CONFIG.rpcUrl) });
     banApprover2Wallet = createWalletClient({ account: banApprover2, transport: http(TEST_CONFIG.rpcUrl) });
-    banApprover3Wallet = createWalletClient({ account: banApprover3, transport: http(TEST_CONFIG.rpcUrl) });
+    _banApprover3Wallet = createWalletClient({ account: banApprover3, transport: http(TEST_CONFIG.rpcUrl) });
     
     logger.info(`Deployer: ${deployer.address}`);
     logger.info(`Cloud Operator: ${cloudOperator.address}`);
@@ -211,7 +210,14 @@ describe('Cloud Integration E2E - Agent Registration', () => {
     });
     const receipt1 = await publicClient.waitForTransactionReceipt({ hash: tx1 });
     const event1 = receipt1.logs.find((log) => log.topics[0] === eventSelector);
-    user1AgentId = BigInt(event1?.topics[1] || 0);
+    if (!event1) {
+      throw new Error('Registered event not found in user1 registration receipt');
+    }
+    const topic1 = event1.topics[1];
+    if (!topic1) {
+      throw new Error('Agent ID topic missing from user1 Registered event');
+    }
+    user1AgentId = BigInt(topic1);
     logger.info(`✓ User1 registered: ${user1AgentId}`);
     
     // Register user2
@@ -223,7 +229,14 @@ describe('Cloud Integration E2E - Agent Registration', () => {
     });
     const receipt2 = await publicClient.waitForTransactionReceipt({ hash: tx2 });
     const event2 = receipt2.logs.find((log) => log.topics[0] === eventSelector);
-    user2AgentId = BigInt(event2?.topics[1] || 0);
+    if (!event2) {
+      throw new Error('Registered event not found in user2 registration receipt');
+    }
+    const topic2 = event2.topics[1];
+    if (!topic2) {
+      throw new Error('Agent ID topic missing from user2 Registered event');
+    }
+    user2AgentId = BigInt(topic2);
     logger.info(`✓ User2 registered: ${user2AgentId}`);
     
     expect(user1AgentId).toBeGreaterThan(0n);
@@ -630,7 +643,7 @@ interface DeploymentAddresses {
 }
 
 async function deployContracts(): Promise<{ success: boolean; addresses: DeploymentAddresses }> {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve, _reject) => {
     logger.info('Deploying contracts with Foundry...');
     
     const deployScript = spawn('forge', [

@@ -16,7 +16,6 @@ import {
   type Hex,
   type Chain,
   formatEther,
-  formatUnits,
 } from 'viem';
 import { mainnet, base, arbitrum, optimism, polygon } from 'viem/chains';
 import { privateKeyToAccount, mnemonicToAccount } from 'viem/accounts';
@@ -28,6 +27,18 @@ import type {
   SimulationResult,
   PortfolioSummary,
 } from '../types';
+import { 
+  expectAddress, 
+  expectHex, 
+  expectChainId, 
+  expectNonEmpty, 
+  expectDefined, 
+  expectSchema,
+  expectBigInt
+} from '../../lib/validation';
+import { 
+  WalletAccountSchema
+} from '../schemas';
 
 // Supported chains with Network RPC integration
 const SUPPORTED_CHAINS: Record<number, Chain> = {
@@ -128,6 +139,7 @@ export class WalletService {
   }
   
   getPublicClient(chainId: number): PublicClient {
+    expectChainId(chainId, 'chainId');
     const client = this._publicClients.get(chainId);
     if (!client) {
       throw new Error(`Chain ${chainId} not supported`);
@@ -136,6 +148,7 @@ export class WalletService {
   }
   
   getWalletClient(chainId: number): WalletClient | null {
+    expectChainId(chainId, 'chainId');
     return this._walletClients.get(chainId) || null;
   }
   
@@ -179,6 +192,9 @@ export class WalletService {
         createdAt: Date.now(),
       };
       
+      // Validate the created account
+      expectSchema(walletAccount, WalletAccountSchema, 'created wallet account');
+      
       this._state.accounts.push(walletAccount);
       this._state.currentAccount = walletAccount;
       this._state.isInitialized = true;
@@ -199,6 +215,7 @@ export class WalletService {
     name?: string;
   }): Promise<WalletAccount> {
     this.runtime?.logger.info(`[WalletService] Importing ${options.type} wallet`);
+    expectNonEmpty(options.secret, 'secret');
     
     if (options.type === 'mnemonic') {
       const account = mnemonicToAccount(options.secret);
@@ -211,6 +228,8 @@ export class WalletService {
         createdAt: Date.now(),
       };
       
+      expectSchema(walletAccount, WalletAccountSchema, 'imported mnemonic account');
+      
       this._state.accounts.push(walletAccount);
       this._state.currentAccount = walletAccount;
       this._state.isInitialized = true;
@@ -222,7 +241,8 @@ export class WalletService {
     }
     
     if (options.type === 'private-key') {
-      const account = privateKeyToAccount(options.secret as Hex);
+      const secret = expectHex(options.secret, 'private key');
+      const account = privateKeyToAccount(secret as Hex);
       
       const walletAccount: WalletAccount = {
         address: account.address,
@@ -231,12 +251,14 @@ export class WalletService {
         createdAt: Date.now(),
       };
       
+      expectSchema(walletAccount, WalletAccountSchema, 'imported private key account');
+      
       this._state.accounts.push(walletAccount);
       this._state.currentAccount = walletAccount;
       this._state.isInitialized = true;
       this._state.isLocked = false;
       
-      await this.initializeWalletClientsFromPrivateKey(options.secret as Hex);
+      await this.initializeWalletClientsFromPrivateKey(secret as Hex);
       
       return walletAccount;
     }
@@ -389,6 +411,12 @@ export class WalletService {
     data?: Hex;
     gasLimit?: bigint;
   }): Promise<Hex> {
+    expectChainId(options.chainId, 'chainId');
+    expectAddress(options.to, 'to');
+    if (options.value) expectBigInt(options.value, 'value');
+    if (options.data) expectHex(options.data, 'data');
+    if (options.gasLimit) expectBigInt(options.gasLimit, 'gasLimit');
+
     const walletClient = this.getWalletClient(options.chainId);
     if (!walletClient) {
       throw new Error('Wallet not unlocked');
@@ -409,10 +437,11 @@ export class WalletService {
     
     this.runtime?.logger.info(`[WalletService] Transaction sent: ${hash}`);
     
-    return hash;
+    return expectHex(hash, 'transaction hash');
   }
   
   async signMessage(message: string): Promise<Hex> {
+    expectNonEmpty(message, 'message');
     const walletClient = this.getWalletClient(this._state.activeChainId);
     if (!walletClient) {
       throw new Error('Wallet not unlocked');
@@ -429,7 +458,7 @@ export class WalletService {
       message,
     });
     
-    return signature;
+    return expectHex(signature, 'signature');
   }
   
   async signTypedData(typedData: {
@@ -443,6 +472,12 @@ export class WalletService {
       throw new Error('Wallet not unlocked');
     }
     
+    expectDefined(typedData, 'typedData');
+    expectDefined(typedData.domain, 'typedData.domain');
+    expectDefined(typedData.types, 'typedData.types');
+    expectDefined(typedData.primaryType, 'typedData.primaryType');
+    expectDefined(typedData.message, 'typedData.message');
+
     this.runtime?.logger.info(`[WalletService] Signing typed data`);
     
     const signature = await walletClient.signTypedData({
@@ -453,7 +488,7 @@ export class WalletService {
       message: typedData.message,
     });
     
-    return signature;
+    return expectHex(signature, 'signature');
   }
   
   // ============================================================================
@@ -467,6 +502,12 @@ export class WalletService {
     data?: Hex;
     from?: Address;
   }): Promise<SimulationResult> {
+    expectChainId(options.chainId, 'chainId');
+    expectAddress(options.to, 'to');
+    if (options.value) expectBigInt(options.value, 'value');
+    if (options.data) expectHex(options.data, 'data');
+    if (options.from) expectAddress(options.from, 'from');
+
     const publicClient = this.getPublicClient(options.chainId);
     const account = this._state.currentAccount;
     

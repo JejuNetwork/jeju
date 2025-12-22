@@ -2,7 +2,6 @@
 
 import { useState, useRef } from 'react';
 import { useAccount } from 'wagmi';
-import { useRouter } from 'next/navigation';
 import { 
   Package, 
   Upload,
@@ -22,8 +21,7 @@ import { dwsClient } from '@/lib/services/dws';
 type PublishMethod = 'cli' | 'upload';
 
 export default function PublishPackagePage() {
-  const { isConnected, address } = useAccount();
-  const router = useRouter();
+  const { isConnected } = useAccount();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [method, setMethod] = useState<PublishMethod>('cli');

@@ -242,20 +242,16 @@ async function fundSolanaAccounts(config: LocalEnvConfig): Promise<void> {
   console.log('💰 Funding Solana test accounts...');
   
   // Use Solana CLI to airdrop to test accounts
-  const testAccounts = [
+  const testAccounts: string[] = [
     // Add any known test pubkeys here
   ];
   
   for (const account of testAccounts) {
-    try {
-      const proc = spawn([
-        'solana', 'airdrop', '100', account,
-        '--url', `http://localhost:${config.solanaRpcPort}`,
-      ]);
-      await proc.exited;
-    } catch (e) {
-      console.warn(`   ⚠️ Failed to airdrop to ${account}`);
-    }
+    const proc = spawn([
+      'solana', 'airdrop', '100', account,
+      '--url', `http://localhost:${config.solanaRpcPort}`,
+    ]);
+    await proc.exited;
   }
   
   console.log('   ✅ Accounts funded');

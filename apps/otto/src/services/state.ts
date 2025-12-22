@@ -4,6 +4,7 @@
  */
 
 import { existsSync, mkdirSync } from 'fs';
+import { z } from 'zod';
 import type { Address, Hex } from 'viem';
 import type {
   OttoUser,
@@ -12,6 +13,7 @@ import type {
   SwapQuote,
   BridgeQuote,
 } from '../types';
+import { expectValid, OttoUserSchema, LimitOrderSchema, validateOrNull } from '../schemas';
 
 const DATA_DIR = process.env.OTTO_DATA_DIR ?? './data';
 
@@ -64,6 +66,12 @@ interface PersistedState {
   limitOrders: Record<string, LimitOrder>;
 }
 
+const PersistedStateSchema = z.object({
+  users: z.record(z.string(), OttoUserSchema).optional().default({}),
+  platformToUser: z.record(z.string(), z.string()).optional().default({}),
+  limitOrders: z.record(z.string(), LimitOrderSchema).optional().default({}),
+});
+
 class StateManager {
   private users = new Map<string, OttoUser>();
   private platformToUser = new Map<string, string>();
@@ -95,17 +103,34 @@ class StateManager {
     const text = file.size > 0 ? require('fs').readFileSync(path, 'utf-8') : null;
     if (!text) return;
 
-    const data = JSON.parse(text) as PersistedState;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('[State] Failed to parse state file:', errorMessage);
+      return;
+    }
+
+    const data = validateOrNull(PersistedStateSchema, parsed, 'persisted state');
+    if (!data) {
+      console.error('[State] Invalid state file format, starting fresh');
+      return;
+    }
 
     for (const [id, user] of Object.entries(data.users)) {
-      this.users.set(id, user);
+      const validatedUser = expectValid(OttoUserSchema, user, `user ${id}`);
+      this.users.set(id, validatedUser);
     }
     for (const [key, userId] of Object.entries(data.platformToUser)) {
-      this.platformToUser.set(key, userId);
+      if (typeof userId === 'string' && userId.length > 0) {
+        this.platformToUser.set(key, userId);
+      }
     }
     for (const [id, order] of Object.entries(data.limitOrders)) {
       if (order.status === 'open') {
-        this.limitOrders.set(id, order);
+        const validatedOrder = expectValid(LimitOrderSchema, order, `limit order ${id}`);
+        this.limitOrders.set(id, validatedOrder);
       }
     }
 
@@ -138,10 +163,11 @@ class StateManager {
   }
 
   setUser(user: OttoUser): void {
-    this.users.set(user.id, user);
-    for (const link of user.platforms) {
+    const validatedUser = expectValid(OttoUserSchema, user, 'setUser');
+    this.users.set(validatedUser.id, validatedUser);
+    for (const link of validatedUser.platforms) {
       const key = `${link.platform}:${link.platformId}`;
-      this.platformToUser.set(key, user.id);
+      this.platformToUser.set(key, validatedUser.id);
     }
     this.save();
   }
@@ -238,7 +264,8 @@ class StateManager {
   // ============================================================================
 
   addLimitOrder(order: LimitOrder): void {
-    this.limitOrders.set(order.orderId, order);
+    const validatedOrder = expectValid(LimitOrderSchema, order, 'addLimitOrder');
+    this.limitOrders.set(validatedOrder.orderId, validatedOrder);
     this.save();
   }
 

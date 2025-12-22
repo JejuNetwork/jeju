@@ -24,6 +24,15 @@ import type { ServiceWithStatus } from '../types';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PrivacyWarning, NonTeeWarningBadge, TeeStatusIndicator } from './PrivacyWarning';
+import { z } from 'zod';
+
+const ComputeConfigSchema = z.object({
+  type: z.enum(['cpu', 'gpu', 'both']),
+  cpuCores: z.number().int().positive(),
+  gpuIds: z.array(z.number().int().nonnegative()),
+  useDocker: z.boolean(),
+  pricePerHour: z.string().regex(/^\d+(\.\d+)?$/, 'Price must be a valid number string'),
+});
 
 const serviceIcons: Record<string, React.ReactNode> = {
   compute: <Cpu size={20} />,
@@ -39,13 +48,7 @@ const serviceIcons: Record<string, React.ReactNode> = {
   sequencer: <Layers size={20} />,
 };
 
-interface ComputeConfig {
-  type: 'cpu' | 'gpu' | 'both';
-  cpuCores: number;
-  gpuIds: number[];
-  useDocker: boolean;
-  pricePerHour: string;
-}
+type ComputeConfig = z.infer<typeof ComputeConfigSchema>;
 
 export function Services() {
   const { services, startService, stopService, hardware, wallet } = useAppStore();

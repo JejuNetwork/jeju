@@ -9,8 +9,6 @@ import {
   GitBranch,
   ChevronDown,
   ArrowRight,
-  Tag,
-  Users,
   Loader2,
   Send,
   AlertCircle,
@@ -24,25 +22,32 @@ import { clsx } from 'clsx';
 
 const branches = ['main', 'develop', 'feature/auth', 'feature/models', 'fix/verification', 'refactor/api'];
 
-const mockDiff = {
+interface DiffFile {
+  path: string;
+  additions: number;
+  deletions: number;
+  status: 'modified' | 'added' | 'deleted';
+}
+
+const mockDiff: { files: DiffFile[], stats: { additions: number, deletions: number, files: number, commits: number } } = {
   files: [
     {
       path: 'src/lib/verify.ts',
       additions: 15,
       deletions: 3,
-      status: 'modified' as const,
+      status: 'modified',
     },
     {
       path: 'src/lib/deploy.ts',
       additions: 8,
       deletions: 2,
-      status: 'modified' as const,
+      status: 'modified',
     },
     {
       path: 'tests/verify.test.ts',
       additions: 45,
       deletions: 0,
-      status: 'added' as const,
+      status: 'added',
     },
   ],
   stats: {

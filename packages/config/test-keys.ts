@@ -21,6 +21,9 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { TestnetKeyFileSchema, type KeyRole, type KeyPair, type NetworkType, type SolanaKeyPair, type TestnetKeyFile } from './schemas';
+
+export type { KeyRole, KeyPair, SolanaKeyPair };
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -31,29 +34,10 @@ const KEYS_DIR = join(__dirname, '../deployment/.keys');
 // Types
 // ============================================================================
 
-export type KeyRole = 
-  | 'deployer'
-  | 'sequencer'
-  | 'batcher'
-  | 'proposer'
-  | 'challenger'
-  | 'admin'
-  | 'guardian'
-  | 'feeRecipient'
-  | 'xlp'
-  | 'multisig1'
-  | 'multisig2'
-  | 'multisig3';
-
-export interface KeyPair {
-  address: string;
-  privateKey: string;
-}
-
 export interface RoleConfig {
   role: KeyRole;
   description: string;
-  hdPath: string; // BIP44 derivation path index
+  hdPath: string;
 }
 
 export interface TestKeySet {
@@ -65,8 +49,6 @@ export interface TestKeySet {
     signers: string[];
   };
 }
-
-export type NetworkType = 'localnet' | 'testnet' | 'mainnet';
 
 // ============================================================================
 // Constants
@@ -216,12 +198,6 @@ export function getMultisigSigners(network: NetworkType): KeyPair[] {
 // Testnet Key Management
 // ============================================================================
 
-interface TestnetKeyFile {
-  mnemonic: string;
-  createdAt: string;
-  keys: Record<KeyRole, KeyPair>;
-}
-
 function getTestnetKeysPath(): string {
   return join(KEYS_DIR, 'testnet-keys.json');
 }
@@ -236,13 +212,13 @@ function loadTestnetKeys(): TestKeySet {
     );
   }
   
-  const data: TestnetKeyFile = JSON.parse(readFileSync(path, 'utf-8'));
+  const data = TestnetKeyFileSchema.parse(JSON.parse(readFileSync(path, 'utf-8')));
   
   return {
     mnemonic: data.mnemonic,
     keys: data.keys,
     multisig: {
-      address: '', // Created separately via Safe
+      address: '',
       threshold: 2,
       signers: [
         data.keys.multisig1.address,
@@ -280,11 +256,6 @@ export function saveTestnetKeys(keySet: TestKeySet): void {
 // ============================================================================
 // Solana Keys
 // ============================================================================
-
-export interface SolanaKeyPair {
-  publicKey: string;
-  secretKey: string; // Base58 encoded
-}
 
 /**
  * Solana derivation paths (using BIP44 with Solana coin type 501)

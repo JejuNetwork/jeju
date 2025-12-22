@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitepress';
+import { getNetworkName } from '@jejunetwork/config';
 
 export default defineConfig({
   title: 'Network',
@@ -32,7 +33,7 @@ export default defineConfig({
     ['meta', { name: 'og:type', content: 'website' }],
     ['meta', { name: 'og:locale', content: 'en' }],
     ['meta', { name: 'og:site_name', content: 'Network' }],
-    ['meta', { name: getNetworkName() - L2 Built for Agents' }],
+    ['meta', { name: 'og:title', content: `${getNetworkName()} - L2 Built for Agents` }],
     ['meta', { name: 'og:description', content: 'OP-Stack L2 with 200ms blocks, gasless transactions, and native agent infrastructure.' }],
   ],
 

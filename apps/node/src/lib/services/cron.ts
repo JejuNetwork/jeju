@@ -2,9 +2,21 @@
  * Cron executor service - Real contract integration
  */
 
+import { z } from 'zod';
 import { type Address } from 'viem';
 import { type NodeClient, getChain } from '../contracts';
 import { TRIGGER_REGISTRY_ABI } from '../abis';
+
+const AddressSchema = z.string().regex(/^0x[a-fA-F0-9]{40}$/).transform((val) => val as Address);
+
+const TriggerSchema = z.object({
+  id: z.bigint(),
+  owner: AddressSchema,
+  triggerType: z.number().int().nonnegative(),
+  endpoint: z.string().url(),
+  schedule: z.string().min(1),
+  pricePerExecution: z.bigint(),
+});
 
 export interface Trigger {
   id: bigint;
@@ -15,10 +27,24 @@ export interface Trigger {
   pricePerExecution: bigint;
 }
 
+const CronServiceStateSchema = z.object({
+  activeTriggers: z.array(TriggerSchema),
+  executionsCompleted: z.number().int().nonnegative(),
+  earningsWei: z.bigint(),
+});
+
 export interface CronServiceState {
   activeTriggers: Trigger[];
   executionsCompleted: number;
   earningsWei: bigint;
+}
+
+export function validateTrigger(data: unknown): Trigger {
+  return TriggerSchema.parse(data);
+}
+
+export function validateCronServiceState(data: unknown): CronServiceState {
+  return CronServiceStateSchema.parse(data);
 }
 
 export class CronService {
@@ -44,14 +70,17 @@ export class CronService {
       endpoint: string;
       schedule: string;
       pricePerExecution: bigint;
-    }) => ({
-      id: t.id,
-      owner: t.owner,
-      triggerType: t.triggerType,
-      endpoint: t.endpoint,
-      schedule: t.schedule,
-      pricePerExecution: t.pricePerExecution,
-    }));
+    }) => {
+      const trigger = {
+        id: t.id,
+        owner: t.owner as `0x${string}`,
+        triggerType: t.triggerType,
+        endpoint: t.endpoint,
+        schedule: t.schedule,
+        pricePerExecution: t.pricePerExecution,
+      };
+      return validateTrigger(trigger);
+    });
   }
 
   async executeTrigger(triggerId: bigint): Promise<{ success: boolean; txHash: string }> {
@@ -67,17 +96,12 @@ export class CronService {
     }
 
     // Execute the trigger endpoint
-    let success = false;
-    try {
-      const response = await fetch(trigger.endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ triggerId: triggerId.toString() }),
-      });
-      success = response.ok;
-    } catch {
-      success = false;
-    }
+    const response = await fetch(trigger.endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ triggerId: triggerId.toString() }),
+    });
+    const success = response.ok;
 
     // Record execution on-chain
     const hash = await this.client.walletClient.writeContract({
@@ -98,12 +122,14 @@ export class CronService {
     return { success, txHash: hash };
   }
 
-  getState(): CronServiceState {
-    return {
-      activeTriggers: [],
+  async getState(): Promise<CronServiceState> {
+    const triggers = await this.getActiveTriggers();
+    const rawState = {
+      activeTriggers: triggers,
       executionsCompleted: this.executionsCompleted,
       earningsWei: this.earningsWei,
     };
+    return validateCronServiceState(rawState);
   }
 }
 

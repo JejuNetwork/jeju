@@ -15,8 +15,7 @@
 
 import { BaseTFMMStrategy, type StrategyContext, type WeightCalculation, type StrategySignal } from './base-strategy';
 import type { OracleAggregator } from '../../oracles';
-
-const WEIGHT_PRECISION = 10n ** 18n;
+import { WEIGHT_PRECISION } from '../../shared';
 
 export interface MeanReversionConfig {
   lookbackPeriodMs: number;       // Default: 14 days
@@ -50,7 +49,7 @@ export class MeanReversionStrategy extends BaseTFMMStrategy {
   }
 
   async calculateWeights(ctx: StrategyContext): Promise<WeightCalculation> {
-    const { tokens, currentWeights, prices, riskParams } = ctx;
+    const { tokens, currentWeights, riskParams } = ctx;
     const signals: StrategySignal[] = [];
     const reversionScores: bigint[] = [];
 

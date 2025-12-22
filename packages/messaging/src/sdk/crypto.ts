@@ -13,6 +13,10 @@ import { randomBytes } from '@noble/ciphers/webcrypto';
 import { sha256 } from '@noble/hashes/sha256';
 import { hkdf } from '@noble/hashes/hkdf';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
+import type { SerializedEncryptedMessage } from '../schemas';
+
+// Re-export for convenience
+export type { SerializedEncryptedMessage } from '../schemas';
 
 // ============ Types ============
 
@@ -25,12 +29,6 @@ export interface EncryptedMessage {
   ciphertext: Uint8Array;
   nonce: Uint8Array;
   ephemeralPublicKey: Uint8Array;
-}
-
-export interface SerializedEncryptedMessage {
-  ciphertext: string;  // hex
-  nonce: string;       // hex
-  ephemeralPublicKey: string; // hex
 }
 
 // ============ Key Generation ============
@@ -201,14 +199,9 @@ export function bytes32ToPublicKey(bytes32: `0x${string}`): Uint8Array {
 
 // ============ Message Envelope ============
 
-export interface MessageEnvelope {
-  id: string;
-  from: string;           // Sender address
-  to: string;             // Recipient address
-  encryptedContent: SerializedEncryptedMessage;
-  timestamp: number;
-  signature?: string;     // Optional: sender signature for authentication
-}
+// MessageEnvelope type is imported from schemas.ts (canonical source)
+import type { MessageEnvelope } from '../schemas';
+export type { MessageEnvelope } from '../schemas';
 
 /**
  * Create a signed message envelope

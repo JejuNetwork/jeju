@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { request, gql } from 'graphql-request';
+import { expect } from '@/lib/validation';
+import { NonEmptyStringSchema } from '@/schemas/common';
 import { INDEXER_URL } from '@/config';
 
 const GAME_FEED_QUERY = gql`
@@ -57,6 +59,7 @@ export interface GameMarketUpdate {
 }
 
 export function useGameFeed(sessionId: string) {
+  const validatedSessionId = NonEmptyStringSchema.parse(sessionId);
   const [posts, setPosts] = useState<GameFeedPost[]>([]);
   const [marketUpdates, setMarketUpdates] = useState<GameMarketUpdate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,18 +67,24 @@ export function useGameFeed(sessionId: string) {
 
   useEffect(() => {
     async function fetchGameFeed() {
-      const endpoint = INDEXER_URL;
+      const endpoint = expect(INDEXER_URL, 'INDEXER_URL not configured');
       
       setLoading(true);
       const data = await request(endpoint, GAME_FEED_QUERY, {
-        sessionId
+        sessionId: validatedSessionId
       }) as {
         gameFeedPosts: GameFeedPost[];
         gameMarketUpdates: GameMarketUpdate[];
       };
 
-      setPosts(data.gameFeedPosts || []);
-      setMarketUpdates(data.gameMarketUpdates || []);
+      if (!data.gameFeedPosts) {
+        throw new Error('Invalid response: gameFeedPosts not found');
+      }
+      if (!data.gameMarketUpdates) {
+        throw new Error('Invalid response: gameMarketUpdates not found');
+      }
+      setPosts(data.gameFeedPosts);
+      setMarketUpdates(data.gameMarketUpdates);
       setLoading(false);
     }
 
@@ -89,7 +98,7 @@ export function useGameFeed(sessionId: string) {
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [sessionId]);
+  }, [validatedSessionId]);
 
   return { posts, marketUpdates, loading, error };
 }

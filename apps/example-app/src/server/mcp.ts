@@ -1,12 +1,28 @@
 /**
  * MCP (Model Context Protocol) Server for tool integrations
+ * 
+ * All endpoints use zod validation with expect/throw patterns.
  */
 
 import { Hono } from 'hono';
-import type { Address } from 'viem';
 import { getTodoService } from '../services/todo';
 import { getCronService } from '../services/cron';
-import type { MCPServerInfo, MCPResource, MCPTool, MCPPrompt } from '../types';
+import {
+  mcpServerInfoSchema,
+  mcpResourceSchema,
+  mcpToolSchema,
+  mcpToolCallSchema,
+  mcpResourceReadSchema,
+  mcpPromptGetSchema,
+  createTodoInputSchema,
+  updateTodoInputSchema,
+  listTodosQuerySchema,
+  bulkCompleteSchema,
+  addressSchema,
+  todoIdSchema,
+} from '../schemas';
+import { expectValid, ValidationError } from '../utils/validation';
+import type { MCPServerInfo, MCPResource, MCPTool, MCPPrompt, Todo, TodoStats } from '../types';
 
 const MCP_SERVER_INFO: MCPServerInfo = {
   name: 'jeju-todo-mcp',
@@ -142,26 +158,62 @@ export function createMCPServer(): Hono {
   const todoService = getTodoService();
   const cronService = getCronService();
 
-  // Initialize
-  app.post('/initialize', (c) => c.json({
-    protocolVersion: '2024-11-05',
-    serverInfo: MCP_SERVER_INFO,
-    capabilities: MCP_SERVER_INFO.capabilities,
-  }));
+  // Error handler
+  app.onError((err, c) => {
+    if (err instanceof ValidationError) {
+      return c.json({
+        content: [{ type: 'text', text: `Validation error: ${err.message}` }],
+        isError: true,
+      });
+    }
+    return c.json({
+      content: [{ type: 'text', text: `Internal error: ${err.message || 'Unknown error'}` }],
+      isError: true,
+    });
+  });
 
-  // List resources
-  app.post('/resources/list', (c) => c.json({ resources: MCP_RESOURCES }));
+  // Initialize with validation
+  app.post('/initialize', (c) => {
+    const validatedInfo = expectValid(mcpServerInfoSchema, MCP_SERVER_INFO, 'MCP server info');
+    return c.json({
+      protocolVersion: '2024-11-05',
+      serverInfo: validatedInfo,
+      capabilities: validatedInfo.capabilities,
+    });
+  });
 
-  // Read resource
+  // List resources with validation
+  app.post('/resources/list', (c) => {
+    const validatedResources = MCP_RESOURCES.map(r => 
+      expectValid(mcpResourceSchema, r, 'MCP resource')
+    );
+    return c.json({ resources: validatedResources });
+  });
+
+  // Read resource with validated input
   app.post('/resources/read', async (c) => {
-    const { uri } = await c.req.json() as { uri: string };
-    const address = c.req.header('x-jeju-address') as Address;
-
-    if (!address) {
-      return c.json({ error: 'Authentication required' }, 401);
+    const body = await c.req.json();
+    const validatedInput = expectValid(mcpResourceReadSchema, body, 'Resource read input');
+    
+    const addressHeader = c.req.header('x-jeju-address');
+    if (!addressHeader) {
+      return c.json({ error: 'Authentication required: x-jeju-address header missing' }, 401);
     }
 
-    let contents: unknown;
+    const address = expectValid(
+      addressSchema,
+      addressHeader,
+      'x-jeju-address header'
+    );
+
+    const uri = validatedInput.uri;
+    
+    // Type for resource contents - union of all possible resource response types
+    type ResourceContents = 
+      | { todos: Todo[]; count: number }
+      | TodoStats;
+    
+    let contents: ResourceContents;
 
     switch (uri) {
       case 'todo://todos': {
@@ -199,85 +251,99 @@ export function createMCPServer(): Hono {
     });
   });
 
-  // List tools
-  app.post('/tools/list', (c) => c.json({ tools: MCP_TOOLS }));
+  // List tools with validation
+  app.post('/tools/list', (c) => {
+    const validatedTools = MCP_TOOLS.map(t => 
+      expectValid(mcpToolSchema, t, 'MCP tool')
+    );
+    return c.json({ tools: validatedTools });
+  });
 
-  // Call tool
+  // Call tool with validated input
   app.post('/tools/call', async (c) => {
-    const { name, arguments: args } = await c.req.json() as { name: string; arguments: Record<string, unknown> };
-    const address = c.req.header('x-jeju-address') as Address;
-
-    if (!address) {
-      return c.json({ content: [{ type: 'text', text: 'Authentication required' }], isError: true });
+    const body = await c.req.json();
+    const validatedInput = expectValid(mcpToolCallSchema, body, 'Tool call input');
+    
+    const addressHeader = c.req.header('x-jeju-address');
+    if (!addressHeader) {
+      return c.json({
+        content: [{ type: 'text', text: 'Authentication required: x-jeju-address header missing' }],
+        isError: true,
+      });
     }
 
-    let result: unknown;
+    const address = expectValid(
+      addressSchema,
+      addressHeader,
+      'x-jeju-address header'
+    );
+
+    // Type for tool call results - union of all possible result types
+    type ToolResult = 
+      | { todos: Todo[]; count: number }
+      | { todo: Todo; created: boolean }
+      | { todo: Todo; updated: boolean }
+      | { deleted: boolean; id: string }
+      | TodoStats
+      | { reminder: { id: string; todoId: string; owner: string; reminderTime: number; sent: boolean; createdAt: number }; scheduled: boolean }
+      | { completed: number; todos: Todo[] };
+    
+    let result: ToolResult;
     let isError = false;
 
-    switch (name) {
+    switch (validatedInput.name) {
       case 'list_todos': {
-        const todos = await todoService.listTodos(address, {
-          completed: args.completed as boolean | undefined,
-          priority: args.priority as 'low' | 'medium' | 'high' | undefined,
-          search: args.search as string | undefined,
-        });
+        const queryParams = {
+          completed: validatedInput.arguments.completed,
+          priority: validatedInput.arguments.priority,
+          search: validatedInput.arguments.search,
+        };
+        const validatedQuery = expectValid(
+          listTodosQuerySchema,
+          queryParams,
+          'List todos query'
+        );
+        const todos = await todoService.listTodos(address, validatedQuery);
         result = { todos, count: todos.length };
         break;
       }
 
       case 'create_todo': {
-        const title = args.title as string;
-        if (!title) {
-          result = { error: 'Title is required' };
-          isError = true;
-          break;
-        }
-        const todo = await todoService.createTodo(address, {
-          title,
-          description: args.description as string | undefined,
-          priority: args.priority as 'low' | 'medium' | 'high' | undefined,
-          dueDate: args.dueDate as number | undefined,
-        });
+        const validatedCreateInput = expectValid(
+          createTodoInputSchema,
+          validatedInput.arguments,
+          'Create todo input'
+        );
+        const todo = await todoService.createTodo(address, validatedCreateInput);
         result = { todo, created: true };
         break;
       }
 
       case 'update_todo': {
-        const id = args.id as string;
-        if (!id) {
-          result = { error: 'ID is required' };
-          isError = true;
-          break;
-        }
-        const todo = await todoService.updateTodo(id, address, {
-          title: args.title as string | undefined,
-          description: args.description as string | undefined,
-          completed: args.completed as boolean | undefined,
-          priority: args.priority as 'low' | 'medium' | 'high' | undefined,
-        });
+        const id = expectValid(todoIdSchema, validatedInput.arguments.id, 'Todo ID');
+        
+        const validatedUpdateInput = expectValid(
+          updateTodoInputSchema,
+          validatedInput.arguments,
+          'Update todo input'
+        );
+        
+        const todo = await todoService.updateTodo(id, address, validatedUpdateInput);
         if (!todo) {
-          result = { error: 'Todo not found' };
-          isError = true;
-        } else {
-          result = { todo, updated: true };
+          throw new ValidationError(`Todo ${id} not found`);
         }
+        result = { todo, updated: true };
         break;
       }
 
       case 'delete_todo': {
-        const id = args.id as string;
-        if (!id) {
-          result = { error: 'ID is required' };
-          isError = true;
-          break;
-        }
+        const id = expectValid(todoIdSchema, validatedInput.arguments.id, 'Todo ID');
+        
         const deleted = await todoService.deleteTodo(id, address);
         if (!deleted) {
-          result = { error: 'Todo not found' };
-          isError = true;
-        } else {
-          result = { deleted: true, id };
+          throw new ValidationError(`Todo ${id} not found`);
         }
+        result = { deleted: true, id };
         break;
       }
 
@@ -287,33 +353,33 @@ export function createMCPServer(): Hono {
       }
 
       case 'schedule_reminder': {
-        const todoId = args.todoId as string;
-        const reminderTime = args.reminderTime as number;
-        if (!todoId || !reminderTime) {
-          result = { error: 'todoId and reminderTime are required' };
-          isError = true;
-          break;
+        const todoId = expectValid(todoIdSchema, validatedInput.arguments.todoId, 'Todo ID');
+        const reminderTime = validatedInput.arguments.reminderTime;
+        
+        if (typeof reminderTime !== 'number' || reminderTime <= 0) {
+          throw new ValidationError('reminderTime must be a positive number');
         }
+        
         const reminder = await cronService.scheduleReminder(todoId, address, reminderTime);
         result = { reminder, scheduled: true };
         break;
       }
 
       case 'bulk_complete': {
-        const ids = args.ids as string[];
-        if (!Array.isArray(ids) || ids.length === 0) {
-          result = { error: 'ids array is required' };
-          isError = true;
-          break;
-        }
-        const completed = await todoService.bulkComplete(ids, address);
+        const validatedBulkInput = expectValid(
+          bulkCompleteSchema,
+          { ids: validatedInput.arguments.ids },
+          'Bulk complete input'
+        );
+        const completed = await todoService.bulkComplete(validatedBulkInput.ids, address);
         result = { completed: completed.length, todos: completed };
         break;
       }
 
       default:
-        result = { error: `Unknown tool: ${name}` };
-        isError = true;
+        throw new ValidationError(
+          `Unknown tool: ${validatedInput.name}. Available: ${MCP_TOOLS.map(t => t.name).join(', ')}`
+        );
     }
 
     return c.json({
@@ -325,22 +391,29 @@ export function createMCPServer(): Hono {
   // List prompts
   app.post('/prompts/list', (c) => c.json({ prompts: MCP_PROMPTS }));
 
-  // Get prompt
+  // Get prompt with validated input
   app.post('/prompts/get', async (c) => {
-    const { name, arguments: args } = await c.req.json() as { name: string; arguments: Record<string, string> };
-    const address = c.req.header('x-jeju-address') as Address;
-
-    if (!address) {
-      return c.json({ error: 'Authentication required' }, 401);
+    const body = await c.req.json();
+    const validatedInput = expectValid(mcpPromptGetSchema, body, 'Prompt get input');
+    
+    const addressHeader = c.req.header('x-jeju-address');
+    if (!addressHeader) {
+      return c.json({ error: 'Authentication required: x-jeju-address header missing' }, 401);
     }
+
+    const address = expectValid(
+      addressSchema,
+      addressHeader,
+      'x-jeju-address header'
+    );
 
     let messages: Array<{ role: string; content: { type: string; text: string } }> = [];
 
-    switch (name) {
+    switch (validatedInput.name) {
       case 'daily_summary': {
         const todos = await todoService.listTodos(address);
         const stats = await todoService.getStats(address);
-        const date = args.date ?? new Date().toISOString().split('T')[0];
+        const date = validatedInput.arguments.date ?? new Date().toISOString().split('T')[0];
         
         messages = [{
           role: 'user',
@@ -354,7 +427,8 @@ export function createMCPServer(): Hono {
 
       case 'prioritize_tasks': {
         const todos = await todoService.listTodos(address, { completed: false });
-        const count = parseInt(args.count || '5', 10);
+        const countArg = validatedInput.arguments.count;
+        const count = countArg !== undefined ? parseInt(countArg, 10) : 5;
         
         messages = [{
           role: 'user',
@@ -367,9 +441,8 @@ export function createMCPServer(): Hono {
       }
 
       case 'weekly_report': {
-        const todos = await todoService.listTodos(address);
         const stats = await todoService.getStats(address);
-        const weekStart = args.weekStart ?? new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const weekStart = validatedInput.arguments.weekStart ?? new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
         
         messages = [{
           role: 'user',
@@ -388,13 +461,23 @@ export function createMCPServer(): Hono {
     return c.json({ messages });
   });
 
-  // Root info
-  app.get('/', (c) => c.json({
-    ...MCP_SERVER_INFO,
-    resources: MCP_RESOURCES,
-    tools: MCP_TOOLS,
-    prompts: MCP_PROMPTS,
-  }));
+  // Root info with validation
+  app.get('/', (c) => {
+    const validatedInfo = expectValid(mcpServerInfoSchema, MCP_SERVER_INFO, 'MCP server info');
+    const validatedResources = MCP_RESOURCES.map(r => 
+      expectValid(mcpResourceSchema, r, 'MCP resource')
+    );
+    const validatedTools = MCP_TOOLS.map(t => 
+      expectValid(mcpToolSchema, t, 'MCP tool')
+    );
+    
+    return c.json({
+      ...validatedInfo,
+      resources: validatedResources,
+      tools: validatedTools,
+      prompts: MCP_PROMPTS,
+    });
+  });
 
   return app;
 }

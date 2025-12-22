@@ -16,3 +16,4 @@ export * from './siwf';
 export * from './passkeys';
 export * from './provider';
 export * from './hooks';
+export * from './schemas';

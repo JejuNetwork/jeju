@@ -6,7 +6,7 @@
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useAccount, useBlockNumber } from 'wagmi';
 import { type Address, parseEther, keccak256, encodePacked } from 'viem';
 import { getContractAddress, getContractAddressSafe } from '@/config/contracts';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
 // Psyche-compatible run states
 export enum RunState {

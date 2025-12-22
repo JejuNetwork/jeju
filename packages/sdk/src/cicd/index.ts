@@ -8,10 +8,9 @@
  * - Deployment to staging/production
  */
 
-import type { Address, Hex } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
-import { getServicesConfig, type ServicesConfig } from "../config";
+import { getServicesConfig } from "../config";
 
 // ============================================================================
 // Types
@@ -136,7 +135,10 @@ export interface CICDModule {
   createWorkflow(params: CreateCICDWorkflowParams): Promise<CICDWorkflow>;
   getWorkflow(workflowId: string): Promise<CICDWorkflow | null>;
   listWorkflows(repoId?: string): Promise<CICDWorkflow[]>;
-  updateWorkflow(workflowId: string, updates: Partial<CreateCICDWorkflowParams>): Promise<CICDWorkflow>;
+  updateWorkflow(
+    workflowId: string,
+    updates: Partial<CreateCICDWorkflowParams>,
+  ): Promise<CICDWorkflow>;
   deleteWorkflow(workflowId: string): Promise<void>;
   enableWorkflow(workflowId: string): Promise<void>;
   disableWorkflow(workflowId: string): Promise<void>;
@@ -144,7 +146,10 @@ export interface CICDModule {
   // Workflow Runs
   triggerWorkflow(params: TriggerWorkflowParams): Promise<WorkflowRun>;
   getRun(runId: string): Promise<WorkflowRun | null>;
-  listRuns(workflowId?: string, status?: CICDWorkflowStatus): Promise<WorkflowRun[]>;
+  listRuns(
+    workflowId?: string,
+    status?: CICDWorkflowStatus,
+  ): Promise<WorkflowRun[]>;
   cancelRun(runId: string): Promise<void>;
   rerunWorkflow(runId: string): Promise<WorkflowRun>;
   getRunLogs(runId: string, jobId?: string): Promise<string>;
@@ -157,25 +162,34 @@ export interface CICDModule {
   // Deployments
   deploy(repoId: string, config: DeploymentConfig): Promise<Deployment>;
   getDeployment(deploymentId: string): Promise<Deployment | null>;
-  listDeployments(repoId?: string, environment?: DeploymentEnvironment): Promise<Deployment[]>;
+  listDeployments(
+    repoId?: string,
+    environment?: DeploymentEnvironment,
+  ): Promise<Deployment[]>;
   rollback(deploymentId: string): Promise<Deployment>;
   promoteToProduction(stagingDeploymentId: string): Promise<Deployment>;
   getDeploymentStatus(deploymentId: string): Promise<Deployment>;
 
   // Releases
-  createRelease(repoId: string, tag: string, options?: {
-    name?: string;
-    description?: string;
-    prerelease?: boolean;
-    draft?: boolean;
-  }): Promise<{ releaseId: string; deploymentId?: string }>;
-  listReleases(repoId: string): Promise<Array<{
-    id: string;
-    tag: string;
-    name: string;
-    createdAt: string;
-    prerelease: boolean;
-  }>>;
+  createRelease(
+    repoId: string,
+    tag: string,
+    options?: {
+      name?: string;
+      description?: string;
+      prerelease?: boolean;
+      draft?: boolean;
+    },
+  ): Promise<{ releaseId: string; deploymentId?: string }>;
+  listReleases(repoId: string): Promise<
+    Array<{
+      id: string;
+      tag: string;
+      name: string;
+      createdAt: string;
+      prerelease: boolean;
+    }>
+  >;
 
   // Queue Management
   getQueueStatus(): Promise<{
@@ -300,7 +314,9 @@ export function createCICDModule(
     },
 
     async getRunLogs(runId, jobId) {
-      const path = jobId ? `/runs/${runId}/jobs/${jobId}/logs` : `/runs/${runId}/logs`;
+      const path = jobId
+        ? `/runs/${runId}/jobs/${jobId}/logs`
+        : `/runs/${runId}/logs`;
       return request<string>(path);
     },
 
@@ -311,9 +327,12 @@ export function createCICDModule(
 
     async downloadArtifact(artifactId) {
       const headers = await buildAuthHeaders();
-      const response = await fetch(`${baseUrl}/artifacts/${artifactId}/download`, {
-        headers,
-      });
+      const response = await fetch(
+        `${baseUrl}/artifacts/${artifactId}/download`,
+        {
+          headers,
+        },
+      );
 
       if (!response.ok) {
         throw new Error(`Failed to download artifact: ${response.statusText}`);
@@ -353,9 +372,12 @@ export function createCICDModule(
     },
 
     async promoteToProduction(stagingDeploymentId) {
-      return request<Deployment>(`/deployments/${stagingDeploymentId}/promote`, {
-        method: "POST",
-      });
+      return request<Deployment>(
+        `/deployments/${stagingDeploymentId}/promote`,
+        {
+          method: "POST",
+        },
+      );
     },
 
     async getDeploymentStatus(deploymentId) {
@@ -364,20 +386,25 @@ export function createCICDModule(
 
     // Releases
     async createRelease(repoId, tag, options = {}) {
-      return request<{ releaseId: string; deploymentId?: string }>(`/repos/${repoId}/releases`, {
-        method: "POST",
-        body: JSON.stringify({ tag, ...options }),
-      });
+      return request<{ releaseId: string; deploymentId?: string }>(
+        `/repos/${repoId}/releases`,
+        {
+          method: "POST",
+          body: JSON.stringify({ tag, ...options }),
+        },
+      );
     },
 
     async listReleases(repoId) {
-      return request<Array<{
-        id: string;
-        tag: string;
-        name: string;
-        createdAt: string;
-        prerelease: boolean;
-      }>>(`/repos/${repoId}/releases`);
+      return request<
+        Array<{
+          id: string;
+          tag: string;
+          name: string;
+          createdAt: string;
+          prerelease: boolean;
+        }>
+      >(`/repos/${repoId}/releases`);
     },
 
     // Queue Management
@@ -400,4 +427,3 @@ export function createCICDModule(
     },
   };
 }
-
