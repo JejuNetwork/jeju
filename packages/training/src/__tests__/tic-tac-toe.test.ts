@@ -4,10 +4,10 @@
  * Tests the training environment for tic-tac-toe games
  */
 
-import { describe, expect, it, beforeEach } from 'bun:test'
+import { beforeEach, describe, expect, it } from 'bun:test'
 import {
   createTicTacToeEnv,
-  TicTacToeEnv,
+  type TicTacToeEnv,
   trajectoryToTrainingFormat,
 } from '../environments/tic-tac-toe'
 
@@ -200,12 +200,18 @@ describe('TicTacToeEnv', () => {
 
   describe('generateTrajectoryBatch', () => {
     it('should generate multiple trajectories', () => {
-      const trajectories = env.generateTrajectoryBatch(5, ['agent-1', 'agent-2'])
+      const trajectories = env.generateTrajectoryBatch(5, [
+        'agent-1',
+        'agent-2',
+      ])
       expect(trajectories).toHaveLength(5)
     })
 
     it('should alternate between agents', () => {
-      const trajectories = env.generateTrajectoryBatch(4, ['agent-1', 'agent-2'])
+      const trajectories = env.generateTrajectoryBatch(4, [
+        'agent-1',
+        'agent-2',
+      ])
       expect(trajectories[0]?.agentId).toBe('agent-1')
       expect(trajectories[1]?.agentId).toBe('agent-2')
       expect(trajectories[2]?.agentId).toBe('agent-1')
@@ -305,4 +311,3 @@ describe('winning line detection', () => {
     expect(env.getState().winner).toBe('X')
   })
 })
-

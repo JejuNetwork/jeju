@@ -1,17 +1,3 @@
-/**
- * Residential Proxy Service - Production Implementation
- *
- * Provides residential proxy capabilities with:
- * - Authenticated proxy requests via signed tokens
- * - HTTP CONNECT tunneling for HTTPS
- * - WebSocket coordination with coordinator
- * - On-chain registration and rewards
- * - Prometheus metrics export
- * - Health check endpoint
- * - Graceful shutdown with connection draining
- * - Circuit breaker for coordinator communication
- */
-
 import { createHash, randomBytes } from 'node:crypto'
 import * as http from 'node:http'
 import * as https from 'node:https'

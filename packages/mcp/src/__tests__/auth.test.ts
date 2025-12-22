@@ -4,7 +4,7 @@
  * Tests agent authentication and API key validation
  */
 
-import { describe, expect, it, beforeEach } from 'bun:test'
+import { beforeEach, describe, expect, it } from 'bun:test'
 import {
   AgentAuthenticator,
   authenticateAgent,
@@ -43,10 +43,14 @@ describe('AgentAuthenticator', () => {
 
       const authenticator = new AgentAuthenticator(customValidator)
 
-      const validResult = await authenticator.authenticate({ apiKey: 'valid-key-123' })
+      const validResult = await authenticator.authenticate({
+        apiKey: 'valid-key-123',
+      })
       expect(validResult).toEqual({ userId: 'user-1', agentId: 'agent-1' })
 
-      const invalidResult = await authenticator.authenticate({ apiKey: 'wrong-key' })
+      const invalidResult = await authenticator.authenticate({
+        apiKey: 'wrong-key',
+      })
       expect(invalidResult).toBeNull()
     })
 
@@ -102,12 +106,17 @@ describe('AgentAuthenticator', () => {
         userId: 'ignored-user',
       })
 
-      expect(result).toEqual({ userId: 'context-user', agentId: 'context-agent' })
+      expect(result).toEqual({
+        userId: 'context-user',
+        agentId: 'context-agent',
+      })
     })
 
     it('should return null for missing API key in context', async () => {
       const authenticator = new AgentAuthenticator()
-      const result = await authenticator.authenticateFromContext({ userId: 'user-1' })
+      const result = await authenticator.authenticateFromContext({
+        userId: 'user-1',
+      })
 
       expect(result).toBeNull()
     })
@@ -138,8 +147,12 @@ describe('configureAuthentication', () => {
       return null
     })
 
-    const result = await defaultAuthenticator.authenticate({ apiKey: 'configured-key' })
-    expect(result).toEqual({ userId: 'configured-user', agentId: 'configured-agent' })
+    const result = await defaultAuthenticator.authenticate({
+      apiKey: 'configured-key',
+    })
+    expect(result).toEqual({
+      userId: 'configured-user',
+      agentId: 'configured-agent',
+    })
   })
 })
-

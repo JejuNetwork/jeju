@@ -25,7 +25,6 @@ export {
   type ContainerSpec,
   createDeployment,
   DEPLOYMENT_TEMPLATES,
-  type DeploymentStatus,
   type DeploymentType,
   deleteDeployment,
   deploy,

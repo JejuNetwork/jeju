@@ -7,25 +7,11 @@
  * - Data access (trajectories, rewards, models)
  */
 
-import { Hono } from 'hono'
+import { Elysia, t } from 'elysia'
 import { createRLAIFCoordinator } from '../../rlaif/coordinator'
 import { createRulerScorer } from '../../rlaif/ruler-scorer'
 import { createTrajectoryStore } from '../../rlaif/trajectory-store'
 import { type RLAIFRunConfig, RLAlgorithm } from '../../rlaif/types'
-import {
-  rlaifCidParamsSchema,
-  rlaifJudgeSchema,
-  rlaifManifestTrajectoriesQuerySchema,
-  rlaifRolloutsSchema,
-  rlaifRunCreationSchema,
-  rlaifRunParamsSchema,
-  rlaifRunStartSchema,
-  validateBody,
-  validateParams,
-  validateQuery,
-} from '../../shared'
-
-const app = new Hono()
 
 // Initialize services with Phala TEE support
 const coordinator = createRLAIFCoordinator({
@@ -48,223 +34,364 @@ const rulerScorer = createRulerScorer({
   computeApiUrl: process.env.COMPUTE_API_URL ?? 'http://localhost:4010',
 })
 
-app.post('/runs', async (c) => {
-  const body = await validateBody(rlaifRunCreationSchema, c)
+export const rlaifRoutes = new Elysia({ name: 'rlaif', prefix: '/rlaif' })
+  .post(
+    '/runs',
+    async ({ body }) => {
+      const runConfig: RLAIFRunConfig = {
+        runId: body.runId ?? `run-${Date.now()}`,
+        creator: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+        environment: body.environment,
+        model: {
+          baseModelCID: body.model.baseModelCID,
+          referenceModelCID: body.model.referenceModelCID,
+          tokenizer: body.model.tokenizer,
+          maxSeqLen: body.model.maxSeqLen ?? 4096,
+          dtype: 'bfloat16',
+        },
+        rl: {
+          algorithm:
+            body.rl?.algorithm === 'ppo'
+              ? RLAlgorithm.PPO
+              : body.rl?.algorithm === 'dpo'
+                ? RLAlgorithm.DPO
+                : RLAlgorithm.GRPO,
+          learningRate: body.rl?.learningRate ?? 1e-5,
+          batchSize: body.rl?.batchSize ?? 4,
+          gradientAccumulationSteps: 8,
+          maxGradNorm: 1.0,
+          klCoefficient: body.rl?.klCoefficient ?? 0.1,
+          entropyCoefficient: 0.01,
+          valueCoefficient: 0.5,
+          gamma: 0.99,
+          gaeλ: 0.95,
+          epochs: body.rl?.epochs ?? 1,
+          clipRange: 0.2,
+        },
+        judge: {
+          modelCID: body.judge?.modelCID ?? 'gpt-5',
+          rubricId: body.judge?.rubricId ?? 'default',
+          temperature: body.judge?.temperature ?? 0.3,
+        },
+        evaluation: {
+          suiteId: 'default',
+          minScore: 0.7,
+          maxRegressionPercent: 5,
+          requiredMetrics: [],
+        },
+        targetIterations: body.targetIterations ?? 10,
+        minTrajectoriesPerIteration: body.minTrajectoriesPerIteration ?? 20,
+        rewardToken: body.rewardToken as `0x${string}` | undefined,
+        rewardPerIteration: body.rewardPerIteration
+          ? BigInt(body.rewardPerIteration)
+          : undefined,
+      }
 
-  const runConfig: RLAIFRunConfig = {
-    runId: body.runId ?? `run-${Date.now()}`,
-    creator: '0x0000000000000000000000000000000000000000' as `0x${string}`,
-    environment: body.environment,
-    model: {
-      baseModelCID: body.model.baseModelCID,
-      referenceModelCID: body.model.referenceModelCID,
-      tokenizer: body.model.tokenizer,
-      maxSeqLen: body.model.maxSeqLen ?? 4096,
-      dtype: 'bfloat16',
+      const runId = await coordinator.createRun(runConfig)
+
+      return { runId, status: 'created' }
     },
-    rl: {
-      algorithm:
-        body.rl?.algorithm === 'ppo'
-          ? RLAlgorithm.PPO
-          : body.rl?.algorithm === 'dpo'
-            ? RLAlgorithm.DPO
-            : RLAlgorithm.GRPO,
-      learningRate: body.rl?.learningRate ?? 1e-5,
-      batchSize: body.rl?.batchSize ?? 4,
-      gradientAccumulationSteps: 8,
-      maxGradNorm: 1.0,
-      klCoefficient: body.rl?.klCoefficient ?? 0.1,
-      entropyCoefficient: 0.01,
-      valueCoefficient: 0.5,
-      gamma: 0.99,
-      gaeλ: 0.95,
-      epochs: body.rl?.epochs ?? 1,
-      clipRange: 0.2,
+    {
+      body: t.Object({
+        runId: t.Optional(t.String()),
+        environment: t.Object({
+          id: t.String(),
+          type: t.String(),
+          config: t.Optional(t.Record(t.String(), t.Unknown())),
+        }),
+        model: t.Object({
+          baseModelCID: t.String(),
+          referenceModelCID: t.Optional(t.String()),
+          tokenizer: t.String(),
+          maxSeqLen: t.Optional(t.Number()),
+        }),
+        rl: t.Optional(
+          t.Object({
+            algorithm: t.Optional(
+              t.Union([t.Literal('ppo'), t.Literal('dpo'), t.Literal('grpo')]),
+            ),
+            learningRate: t.Optional(t.Number()),
+            batchSize: t.Optional(t.Number()),
+            klCoefficient: t.Optional(t.Number()),
+            epochs: t.Optional(t.Number()),
+          }),
+        ),
+        judge: t.Optional(
+          t.Object({
+            modelCID: t.Optional(t.String()),
+            rubricId: t.Optional(t.String()),
+            temperature: t.Optional(t.Number()),
+          }),
+        ),
+        targetIterations: t.Optional(t.Number()),
+        minTrajectoriesPerIteration: t.Optional(t.Number()),
+        rewardToken: t.Optional(t.String()),
+        rewardPerIteration: t.Optional(t.String()),
+      }),
     },
-    judge: {
-      modelCID: body.judge?.modelCID ?? 'gpt-5',
-      rubricId: body.judge?.rubricId ?? 'default',
-      temperature: body.judge?.temperature ?? 0.3,
-    },
-    evaluation: {
-      suiteId: 'default',
-      minScore: 0.7,
-      maxRegressionPercent: 5,
-      requiredMetrics: [],
-    },
-    targetIterations: body.targetIterations ?? 10,
-    minTrajectoriesPerIteration: body.minTrajectoriesPerIteration ?? 20,
-    rewardToken: body.rewardToken as `0x${string}` | undefined,
-    rewardPerIteration: body.rewardPerIteration
-      ? BigInt(body.rewardPerIteration)
-      : undefined,
-  }
-
-  const runId = await coordinator.createRun(runConfig)
-
-  return c.json({ runId, status: 'created' })
-})
-
-app.get('/runs/:runId', (c) => {
-  const { runId } = validateParams(rlaifRunParamsSchema, c)
-  const run = coordinator.getRun(runId)
-
-  if (!run) {
-    throw new Error('Run not found')
-  }
-
-  return c.json(run)
-})
-
-app.post('/runs/:runId/start', async (c) => {
-  const { runId } = validateParams(rlaifRunParamsSchema, c)
-  const body = await validateBody(rlaifRunStartSchema, c)
-
-  // Start in background
-  coordinator.runContinuousTraining(runId, body).catch((err) => {
-    console.error(`[RLAIF] Training failed for ${runId}:`, err)
-  })
-
-  return c.json({ runId, status: 'started' })
-})
-
-app.post('/runs/:runId/iteration', async (c) => {
-  const { runId } = validateParams(rlaifRunParamsSchema, c)
-
-  const iteration = await coordinator.runIteration(runId)
-
-  return c.json(iteration)
-})
-
-app.post('/runs/:runId/pause', async (c) => {
-  const { runId } = validateParams(rlaifRunParamsSchema, c)
-  // On-chain pause requires contract interaction
-  return c.json({
-    runId,
-    status: 'paused',
-    note: 'Local status updated. On-chain pause requires blockchain connection.',
-  })
-})
-
-app.post('/runs/:runId/resume', async (c) => {
-  const { runId } = validateParams(rlaifRunParamsSchema, c)
-  // On-chain resume requires contract interaction
-  return c.json({
-    runId,
-    status: 'resumed',
-    note: 'Local status updated. On-chain resume requires blockchain connection.',
-  })
-})
-
-app.post('/runs/:runId/rollouts', async (c) => {
-  const { runId } = validateParams(rlaifRunParamsSchema, c)
-  const body = await validateBody(rlaifRolloutsSchema, c)
-
-  const run = coordinator.getRun(runId)
-  if (!run) {
-    throw new Error('Run not found')
-  }
-
-  const trajectories = body.trajectories.map((t) => ({
-    id: t.id,
-    environmentId: run.config.environment.id,
-    agentId: 'submitted',
-    policyModelCID: run.currentPolicyCID,
-    steps: t.steps,
-    totalReward: t.totalReward,
-    metadata: {
-      startTime: t.steps[0]?.timestamp ?? Date.now(),
-      endTime: t.steps[t.steps.length - 1]?.timestamp ?? Date.now(),
-      episodeLength: t.steps.length,
-      ...t.metadata,
-    },
-  }))
-
-  const manifest = await trajectoryStore.storeTrajectories(trajectories)
-
-  return c.json({
-    manifestCID: manifest.cid,
-    trajectoryCount: manifest.totalCount,
-    merkleRoot: manifest.merkleRoot,
-  })
-})
-
-app.post('/judge', async (c) => {
-  const body = await validateBody(rlaifJudgeSchema, c)
-
-  const rubric = body.rubric ?? {
-    id: 'default',
-    name: 'Default',
-    description: '',
-    criteria: '',
-    priorityMetrics: [],
-  }
-
-  const scores = await rulerScorer.scoreManifest(
-    body.manifestCID,
-    rubric,
-    body.groupSize ?? 4,
   )
 
-  const rewardsCID = await trajectoryStore.storeRewards(scores)
+  .get(
+    '/runs/:runId',
+    ({ params, set }) => {
+      const run = coordinator.getRun(params.runId)
 
-  return c.json({
-    rewardsCID,
-    scoreCount: scores.length,
-    averageScore: scores.reduce((sum, s) => sum + s.score, 0) / scores.length,
-  })
-})
+      if (!run) {
+        set.status = 404
+        return { error: 'Run not found' }
+      }
 
-app.get('/trajectories/:cid', async (c) => {
-  const { cid } = validateParams(rlaifCidParamsSchema, c)
-
-  const trajectory = await trajectoryStore.loadTrajectory(cid)
-  return c.json(trajectory)
-})
-
-app.get('/manifests/:cid', async (c) => {
-  const { cid } = validateParams(rlaifCidParamsSchema, c)
-
-  const manifest = await trajectoryStore.loadManifest(cid)
-  return c.json(manifest)
-})
-
-app.get('/manifests/:cid/trajectories', async (c) => {
-  const { cid } = validateParams(rlaifCidParamsSchema, c)
-  const { limit, offset } = validateQuery(
-    rlaifManifestTrajectoriesQuerySchema,
-    c,
+      return run
+    },
+    {
+      params: t.Object({
+        runId: t.String(),
+      }),
+    },
   )
 
-  const manifest = await trajectoryStore.loadManifest(cid)
-  const slicedCIDs = manifest.trajectoryCIDs.slice(offset, offset + limit)
+  .post(
+    '/runs/:runId/start',
+    async ({ params, body }) => {
+      // Start in background
+      coordinator.runContinuousTraining(params.runId, body).catch((err) => {
+        console.error(`[RLAIF] Training failed for ${params.runId}:`, err)
+      })
 
-  const trajectories = await Promise.all(
-    slicedCIDs.map((trajCid) => trajectoryStore.loadTrajectory(trajCid)),
+      return { runId: params.runId, status: 'started' }
+    },
+    {
+      params: t.Object({
+        runId: t.String(),
+      }),
+      body: t.Object({
+        checkpointInterval: t.Optional(t.Number()),
+        targetScore: t.Optional(t.Number()),
+      }),
+    },
   )
 
-  return c.json({
-    trajectories,
-    total: manifest.totalCount,
-    offset,
-    limit,
-  })
-})
+  .post(
+    '/runs/:runId/iteration',
+    async ({ params }) => {
+      const iteration = await coordinator.runIteration(params.runId)
+      return iteration
+    },
+    {
+      params: t.Object({
+        runId: t.String(),
+      }),
+    },
+  )
 
-app.get('/rewards/:cid', async (c) => {
-  const { cid } = validateParams(rlaifCidParamsSchema, c)
+  .post(
+    '/runs/:runId/pause',
+    ({ params }) => {
+      // On-chain pause requires contract interaction
+      return {
+        runId: params.runId,
+        status: 'paused',
+        note: 'Local status updated. On-chain pause requires blockchain connection.',
+      }
+    },
+    {
+      params: t.Object({
+        runId: t.String(),
+      }),
+    },
+  )
 
-  const rewards = await trajectoryStore.loadRewards(cid)
-  return c.json({ scores: rewards })
-})
+  .post(
+    '/runs/:runId/resume',
+    ({ params }) => {
+      // On-chain resume requires contract interaction
+      return {
+        runId: params.runId,
+        status: 'resumed',
+        note: 'Local status updated. On-chain resume requires blockchain connection.',
+      }
+    },
+    {
+      params: t.Object({
+        runId: t.String(),
+      }),
+    },
+  )
 
-// Health check
-app.get('/health', (c) => {
-  return c.json({
+  .post(
+    '/runs/:runId/rollouts',
+    async ({ params, body, set }) => {
+      const run = coordinator.getRun(params.runId)
+      if (!run) {
+        set.status = 404
+        return { error: 'Run not found' }
+      }
+
+      const trajectories = body.trajectories.map((tr) => ({
+        id: tr.id,
+        environmentId: run.config.environment.id,
+        agentId: 'submitted',
+        policyModelCID: run.currentPolicyCID,
+        steps: tr.steps,
+        totalReward: tr.totalReward,
+        metadata: {
+          startTime: tr.steps[0]?.timestamp ?? Date.now(),
+          endTime: tr.steps[tr.steps.length - 1]?.timestamp ?? Date.now(),
+          episodeLength: tr.steps.length,
+          ...tr.metadata,
+        },
+      }))
+
+      const manifest = await trajectoryStore.storeTrajectories(trajectories)
+
+      return {
+        manifestCID: manifest.cid,
+        trajectoryCount: manifest.totalCount,
+        merkleRoot: manifest.merkleRoot,
+      }
+    },
+    {
+      params: t.Object({
+        runId: t.String(),
+      }),
+      body: t.Object({
+        trajectories: t.Array(
+          t.Object({
+            id: t.String(),
+            steps: t.Array(
+              t.Object({
+                observation: t.Unknown(),
+                action: t.Unknown(),
+                reward: t.Number(),
+                timestamp: t.Optional(t.Number()),
+              }),
+            ),
+            totalReward: t.Number(),
+            metadata: t.Optional(t.Record(t.String(), t.Unknown())),
+          }),
+        ),
+      }),
+    },
+  )
+
+  .post(
+    '/judge',
+    async ({ body }) => {
+      const rubric = body.rubric ?? {
+        id: 'default',
+        name: 'Default',
+        description: '',
+        criteria: '',
+        priorityMetrics: [],
+      }
+
+      const scores = await rulerScorer.scoreManifest(
+        body.manifestCID,
+        rubric,
+        body.groupSize ?? 4,
+      )
+
+      const rewardsCID = await trajectoryStore.storeRewards(scores)
+
+      return {
+        rewardsCID,
+        scoreCount: scores.length,
+        averageScore:
+          scores.reduce((sum, s) => sum + s.score, 0) / scores.length,
+      }
+    },
+    {
+      body: t.Object({
+        manifestCID: t.String(),
+        rubric: t.Optional(
+          t.Object({
+            id: t.String(),
+            name: t.String(),
+            description: t.String(),
+            criteria: t.String(),
+            priorityMetrics: t.Array(t.String()),
+          }),
+        ),
+        groupSize: t.Optional(t.Number()),
+      }),
+    },
+  )
+
+  .get(
+    '/trajectories/:cid',
+    async ({ params }) => {
+      const trajectory = await trajectoryStore.loadTrajectory(params.cid)
+      return trajectory
+    },
+    {
+      params: t.Object({
+        cid: t.String(),
+      }),
+    },
+  )
+
+  .get(
+    '/manifests/:cid',
+    async ({ params }) => {
+      const manifest = await trajectoryStore.loadManifest(params.cid)
+      return manifest
+    },
+    {
+      params: t.Object({
+        cid: t.String(),
+      }),
+    },
+  )
+
+  .get(
+    '/manifests/:cid/trajectories',
+    async ({ params, query }) => {
+      const limit = parseInt(query.limit ?? '100', 10)
+      const offset = parseInt(query.offset ?? '0', 10)
+
+      const manifest = await trajectoryStore.loadManifest(params.cid)
+      const slicedCIDs = manifest.trajectoryCIDs.slice(offset, offset + limit)
+
+      const trajectories = await Promise.all(
+        slicedCIDs.map((trajCid) => trajectoryStore.loadTrajectory(trajCid)),
+      )
+
+      return {
+        trajectories,
+        total: manifest.totalCount,
+        offset,
+        limit,
+      }
+    },
+    {
+      params: t.Object({
+        cid: t.String(),
+      }),
+      query: t.Object({
+        limit: t.Optional(t.String()),
+        offset: t.Optional(t.String()),
+      }),
+    },
+  )
+
+  .get(
+    '/rewards/:cid',
+    async ({ params }) => {
+      const rewards = await trajectoryStore.loadRewards(params.cid)
+      return { scores: rewards }
+    },
+    {
+      params: t.Object({
+        cid: t.String(),
+      }),
+    },
+  )
+
+  // Health check
+  .get('/health', () => ({
     status: 'healthy',
     service: 'rlaif',
     version: '1.0.0',
-  })
-})
+  }))
 
-export default app
+export type RLAIFRoutes = typeof rlaifRoutes

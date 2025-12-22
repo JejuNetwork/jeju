@@ -3,6 +3,7 @@
  * Client library for accessing Network RPC Gateway
  */
 
+import { getRpcGatewayUrl } from '@jejunetwork/config/ports'
 import { type Chain, createPublicClient, http, type PublicClient } from 'viem'
 import {
   expectValid,
@@ -58,8 +59,7 @@ export interface RateLimitInfo {
   resetAt: number
 }
 
-const DEFAULT_GATEWAY_URL =
-  process.env.JEJU_RPC_GATEWAY_URL || 'http://localhost:4004'
+const DEFAULT_GATEWAY_URL = getRpcGatewayUrl()
 const DEFAULT_TIMEOUT = 30000
 const DEFAULT_MAX_RETRIES = 3
 
@@ -262,7 +262,7 @@ export function getInternalRPCClient(): RPCClient {
 }
 
 export const CLOUD_RPC_CONFIG = {
-  gatewayUrl: process.env.JEJU_RPC_GATEWAY_URL || 'http://localhost:4004',
+  gatewayUrl: getRpcGatewayUrl(),
   internalApiKey: process.env.JEJU_INTERNAL_RPC_KEY || '',
   chains: {
     jeju: 420691,

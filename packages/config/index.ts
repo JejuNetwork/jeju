@@ -11,7 +11,7 @@
  * - contracts.json   All contract addresses (network + external chains)
  * - services.json    API URLs per network
  * - tokens.json      Token metadata
- * - chains.json      Node infrastructure (for deployment)
+ * - infrastructure.json  Node infrastructure (for deployment)
  * - ports.ts         Port allocations (local dev)
  * - branding.json    Network branding (name, colors, URLs)
  *
@@ -55,8 +55,6 @@ import {
   type NetworkType,
   ServicesConfigSchema,
   type ServicesNetworkConfig,
-  type TestnetConfig,
-  TestnetConfigSchema,
   type VendorAppConfig,
   VendorAppsConfigSchema,
 } from './schemas'
@@ -656,7 +654,6 @@ export function getFrontendContracts(network?: NetworkType) {
   return {
     // Tokens
     jeju: getContract('tokens', 'jeju', net),
-    elizaOS: getContract('tokens', 'elizaOS', net),
     usdc: getContract('tokens', 'usdc', net),
     weth: getConstant('weth'),
 
@@ -842,35 +839,6 @@ export function getEILToken(
 
 export function loadVendorAppsConfig(): { apps: VendorAppConfig[] } {
   return VendorAppsConfigSchema.parse(loadJsonRaw('vendor-apps.json'))
-}
-
-// ============================================================================
-// Testnet Config (quick access)
-// ============================================================================
-
-/** Load the full testnet configuration */
-export function getTestnetConfig(): TestnetConfig {
-  return TestnetConfigSchema.parse(loadJsonRaw('testnet.json'))
-}
-
-/** Get the testnet RPC URL */
-export function getTestnetRpc(): string {
-  return getTestnetConfig().jeju.rpc.http
-}
-
-/** Get the testnet chain ID */
-export function getTestnetChainId(): number {
-  return getTestnetConfig().jeju.chainId
-}
-
-/** Get all testnet supported chain IDs */
-export function getTestnetChainIds(): number[] {
-  const config = getTestnetConfig()
-  return [
-    config.jeju.chainId,
-    config.l1.chainId,
-    ...Object.values(config.supportedChains).map(() => 0), // Will need actual chain IDs
-  ].filter(Boolean)
 }
 
 // ============================================================================

@@ -1,18 +1,3 @@
-/**
- * Network Node Services
- *
- * All services for running a Jeju network node:
- * - Compute: GPU/CPU inference serving
- * - Oracle: Price feeds and data oracles
- * - Storage: Decentralized file storage
- * - CDN: Content delivery network
- * - VPN: WireGuard VPN exit node
- * - Proxy: Residential proxy service
- * - Torrent: P2P content distribution
- * - Static Assets: Network default assets (UI, code)
- * - Edge Coordinator: P2P node coordination
- */
-
 export * from './bridge'
 export * from './cdn'
 export * from './compute'

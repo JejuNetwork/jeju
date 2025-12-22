@@ -2,32 +2,31 @@
  * Token-related Zod schemas
  */
 
-import { AddressSchema } from '@jejunetwork/types'
-import { z } from 'zod'
 import {
+  AddressSchema,
   BigIntSchema,
-  ChainTypeSchema,
-  DateSchema,
   EvmChainIdSchema,
   NonEmptyStringSchema,
   NonNegativeNumberSchema,
   PercentageSchema,
   SolanaNetworkIdSchema,
-  URLSchema,
-} from './common'
+  UrlSchema,
+} from '@jejunetwork/types'
+import { z } from 'zod'
+import { ChainTypeSchema, DateSchema } from './common'
 
 export const TokenMetadataSchema = z.object({
   name: NonEmptyStringSchema,
   symbol: NonEmptyStringSchema.max(10, 'Symbol must be 10 characters or less'),
   description: z.string().optional(),
-  imageUrl: URLSchema.optional(),
-  website: URLSchema.optional(),
+  imageUrl: UrlSchema.optional(),
+  website: UrlSchema.optional(),
   twitter: z
     .string()
     .regex(/^[a-zA-Z0-9_]{1,15}$/, 'Invalid Twitter handle')
     .optional(),
   telegram: z.string().optional(),
-  discord: URLSchema.optional(),
+  discord: UrlSchema.optional(),
 })
 
 export type TokenMetadata = z.infer<typeof TokenMetadataSchema>
@@ -49,9 +48,9 @@ export const TokenBaseSchema = z.object({
   name: NonEmptyStringSchema,
   symbol: NonEmptyStringSchema,
   decimals: z.number().int().min(0).max(18),
-  imageUrl: URLSchema.optional(),
+  imageUrl: UrlSchema.optional(),
   description: z.string().optional(),
-  website: URLSchema.optional(),
+  website: UrlSchema.optional(),
   twitter: z.string().optional(),
   telegram: z.string().optional(),
   discord: z.string().optional(),

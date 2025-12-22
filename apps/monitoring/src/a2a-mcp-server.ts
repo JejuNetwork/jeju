@@ -5,8 +5,8 @@
  * system monitoring and alerting.
  */
 
-import { getNetworkName, getWebsiteUrl } from '@jejunetwork/config'
 import { cors } from '@elysiajs/cors'
+import { getNetworkName, getWebsiteUrl } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import {
   MCPPromptGetSchema,
@@ -468,7 +468,12 @@ export function createMonitoringMCPServer() {
           contents = { nodes: 3, databases: 1, storage: '100GB' }
           break
         case 'monitoring://dashboard':
-          contents = { status: 'healthy', services: 10, alerts: 0, uptime: 99.9 }
+          contents = {
+            status: 'healthy',
+            services: 10,
+            alerts: 0,
+            uptime: 99.9,
+          }
           break
         default:
           set.status = 404
@@ -514,7 +519,11 @@ export function createMonitoringMCPServer() {
           result = { logs: [], total: 0, query: args.query }
           break
         case 'create_alert_rule':
-          result = { ruleId: crypto.randomUUID(), name: args.name, active: true }
+          result = {
+            ruleId: crypto.randomUUID(),
+            name: args.name,
+            active: true,
+          }
           break
         case 'acknowledge_alert':
           result = { success: true, alertId: args.alertId }

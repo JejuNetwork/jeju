@@ -1,10 +1,12 @@
 //! Configuration management commands
 
-use crate::config::{NodeConfig, NetworkConfig, WalletConfig, EarningsConfig, ServiceConfig, BotConfig};
+use crate::config::{
+    BotConfig, EarningsConfig, NetworkConfig, NodeConfig, ServiceConfig, WalletConfig,
+};
 use crate::state::AppState;
 use serde::{Deserialize, Serialize};
-use tauri::State;
 use std::collections::HashMap;
+use tauri::State;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
@@ -47,18 +49,16 @@ pub struct NetworkOption {
 }
 
 #[tauri::command]
-pub async fn get_config(
-    state: State<'_, AppState>,
-) -> Result<AppConfig, String> {
+pub async fn get_config(state: State<'_, AppState>) -> Result<AppConfig, String> {
     let inner = state.inner.read();
-    
+
     let wallet_type = match inner.config.wallet.wallet_type {
         crate::config::WalletType::None => "none",
         crate::config::WalletType::Embedded => "embedded",
         crate::config::WalletType::External => "external",
         crate::config::WalletType::JejuWallet => "jeju_wallet",
     };
-    
+
     Ok(AppConfig {
         version: inner.config.version.clone(),
         network: inner.config.network.clone(),
@@ -82,37 +82,37 @@ pub async fn update_config(
     request: UpdateConfigRequest,
 ) -> Result<AppConfig, String> {
     let mut inner = state.inner.write();
-    
+
     if let Some(earnings) = request.earnings {
         inner.config.earnings = earnings;
     }
-    
+
     if let Some(services) = request.services {
         for (id, config) in services {
             inner.config.services.insert(id, config);
         }
     }
-    
+
     if let Some(bots) = request.bots {
         for (id, config) in bots {
             inner.config.bots.insert(id, config);
         }
     }
-    
+
     if let Some(start_minimized) = request.start_minimized {
         inner.config.start_minimized = start_minimized;
     }
-    
+
     if let Some(start_on_boot) = request.start_on_boot {
         inner.config.start_on_boot = start_on_boot;
     }
-    
+
     if let Some(notifications) = request.notifications_enabled {
         inner.config.notifications_enabled = notifications;
     }
-    
+
     inner.config.save().map_err(|e| e.to_string())?;
-    
+
     // Return updated config
     let wallet_type = match inner.config.wallet.wallet_type {
         crate::config::WalletType::None => "none",
@@ -120,7 +120,7 @@ pub async fn update_config(
         crate::config::WalletType::External => "external",
         crate::config::WalletType::JejuWallet => "jeju_wallet",
     };
-    
+
     Ok(AppConfig {
         version: inner.config.version.clone(),
         network: inner.config.network.clone(),
@@ -139,9 +139,7 @@ pub async fn update_config(
 }
 
 #[tauri::command]
-pub async fn get_network_config(
-    state: State<'_, AppState>,
-) -> Result<NetworkConfig, String> {
+pub async fn get_network_config(state: State<'_, AppState>) -> Result<NetworkConfig, String> {
     let inner = state.inner.read();
     Ok(inner.config.network.clone())
 }
@@ -152,7 +150,7 @@ pub async fn set_network(
     network: String,
 ) -> Result<NetworkConfig, String> {
     let mut inner = state.inner.write();
-    
+
     let network_config = match network.as_str() {
         "mainnet" => NetworkConfig {
             network: "mainnet".to_string(),
@@ -177,14 +175,15 @@ pub async fn set_network(
         },
         _ => return Err(format!("Unknown network: {}", network)),
     };
-    
+
     inner.config.network = network_config.clone();
     inner.config.save().map_err(|e| e.to_string())?;
-    
+
     // Re-initialize services with new network
-    inner.service_manager.initialize(&inner.config)
+    inner
+        .service_manager
+        .initialize(&inner.config)
         .map_err(|e| e.to_string())?;
-    
+
     Ok(network_config)
 }
-

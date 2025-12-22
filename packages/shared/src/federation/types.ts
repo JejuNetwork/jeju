@@ -197,9 +197,7 @@ export function toNetworkInfo(raw: RawNetworkInfo): NetworkInfo {
     isActive: raw.isActive,
     isVerified: raw.isVerified,
   }
-}
-
-/**
+} /**
  * Convert raw viem attestation to application CrossNetworkAttestation.
  */
 export function toAttestation(raw: RawAttestation): CrossNetworkAttestation {

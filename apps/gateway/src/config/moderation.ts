@@ -25,7 +25,7 @@ export const MODERATION_CONFIG = {
   treasuryShareBps: 500, // 5% to treasury
   marketMakerShareBps: 500, // 5% to market makers
 
-  // Legacy report bonds
+  // Report bonds by severity
   reportBonds: {
     LOW: '0.001',
     MEDIUM: '0.01',

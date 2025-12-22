@@ -5,7 +5,13 @@
  * ElizaOS characters define agent personalities, DWS provides compute.
  */
 
-import type { Character, IAgentRuntime, Plugin, UUID } from '@elizaos/core'
+import {
+  AgentRuntime,
+  type Character,
+  type IAgentRuntime,
+  type Plugin,
+  type UUID,
+} from '@elizaos/core'
 import { getCurrentNetwork, getDWSComputeUrl } from '@jejunetwork/config'
 import { z } from 'zod'
 import type { CEOPersona, GovernanceParams } from '../types'
@@ -25,15 +31,12 @@ interface AutocratAgentRuntime
   registerPlugin: (plugin: Plugin) => Promise<void>
 }
 
-// ElizaOS AgentRuntime constructor type - loaded dynamically
+// ElizaOS AgentRuntime constructor type
 type AgentRuntimeConstructor = new (opts: {
   character: Character
   agentId?: UUID
   plugins?: Plugin[]
 }) => AutocratAgentRuntime
-
-// Dynamically loaded AgentRuntime class
-let AgentRuntimeClass: AgentRuntimeConstructor | null = null
 
 // ============ Types ============
 
@@ -347,14 +350,6 @@ export class AutocratAgentRuntimeManager {
   private async createRuntime(
     template: AutocratAgentTemplate,
   ): Promise<AutocratAgentRuntime> {
-    // Dynamically import ElizaOS to avoid load-time errors
-    if (!AgentRuntimeClass) {
-      const elizaos = await import('@elizaos/core')
-      AgentRuntimeClass = elizaos.AgentRuntime
-    }
-    if (!AgentRuntimeClass) {
-      throw new Error('ElizaOS AgentRuntime not available')
-    }
     // Template character is already typed as Character from @elizaos/core (see templates.ts)
     const character: Character = { ...template.character }
 
@@ -364,7 +359,7 @@ export class AutocratAgentRuntimeManager {
 
     // Create runtime - ElizaOS generates agentId from character.name via stringToUuid
     // This ensures the agentId is always a valid UUID format
-    const runtime = new AgentRuntimeClass({
+    const runtime = new (AgentRuntime as AgentRuntimeConstructor)({
       character,
       plugins,
     })

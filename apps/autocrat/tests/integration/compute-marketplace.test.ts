@@ -1,6 +1,7 @@
 // Compute Marketplace Integration Tests
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { type Server, serve } from 'bun'
+import { ResearchAgent } from '../../src/research-agent'
 
 let mockServer: Server | null = null
 const MOCK_PORT = 18020
@@ -65,7 +66,6 @@ describe('Compute Marketplace Integration', () => {
     process.env.COMPUTE_ENABLED = 'true'
     process.env.COMPUTE_MODEL = 'claude-3-opus'
 
-    const { ResearchAgent } = await import('../../src/research-agent')
     const report = await new ResearchAgent().conductResearch({
       proposalId: 'test-1',
       title: 'Test',

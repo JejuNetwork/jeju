@@ -16,7 +16,6 @@ import { beforeAll, describe, expect, test } from 'bun:test'
 import {
   type Address,
   createPublicClient,
-  createWalletClient,
   formatEther,
   formatUnits,
   http,
@@ -43,7 +42,6 @@ const logger = new Logger({ prefix: 'payment-e2e' })
 // ============ Configuration ============
 
 const RPC_URL = JEJU_LOCALNET.rpcUrl
-const _CHAIN_ID = JEJU_LOCALNET.chainId
 
 // Test accounts (Anvil defaults)
 const DEPLOYER_KEY = TEST_WALLETS.deployer.privateKey as `0x${string}`
@@ -66,15 +64,6 @@ const ADDRESSES = {
 
 // ============ ABIs ============
 
-const _ERC20_ABI = [
-  'function balanceOf(address) view returns (uint256)',
-  'function approve(address, uint256) returns (bool)',
-  'function transfer(address, uint256) returns (bool)',
-  'function allowance(address, address) view returns (uint256)',
-  'function decimals() view returns (uint8)',
-  'function symbol() view returns (string)',
-]
-
 const CREDIT_MANAGER_ABI = [
   'function depositUSDC(uint256)',
   'function depositETH() payable',
@@ -87,26 +76,12 @@ const CREDIT_MANAGER_ABI = [
   'function elizaOS() view returns (address)',
 ]
 
-const _STAKING_ABI = [
-  'function stake(uint256) payable',
-  'function startUnbonding(uint256, uint256)',
-  'function claimFees()',
-  'function distributeFees(uint256, uint256)',
-  'function getPosition(address) view returns (uint256, uint256, uint256, uint256, uint256, uint256, bool)',
-  'function getPoolStats() view returns (uint256, uint256, uint256, uint256, uint256, uint256)',
-  'function totalStaked() view returns (uint256)',
-  'function minimumStake() view returns (uint256)',
-]
-
 // ============ Test Setup ============
 
 let publicClient: ReturnType<typeof createPublicClient>
 let deployerAccount: ReturnType<typeof privateKeyToAccount>
 let userAccount: ReturnType<typeof privateKeyToAccount>
 let stakerAccount: ReturnType<typeof privateKeyToAccount>
-let _deployerWalletClient: ReturnType<typeof createWalletClient>
-let _userWalletClient: ReturnType<typeof createWalletClient>
-let _stakerWalletClient: ReturnType<typeof createWalletClient>
 let localnetAvailable = false
 
 // Check localnet availability
@@ -139,21 +114,6 @@ describe.skipIf(!localnetAvailable)('Payment Integration - Setup', () => {
     stakerAccount = privateKeyToAccount(STAKER_KEY)
 
     publicClient = createPublicClient({ chain, transport: http(RPC_URL) })
-    _deployerWalletClient = createWalletClient({
-      chain,
-      transport: http(RPC_URL),
-      account: deployerAccount,
-    })
-    _userWalletClient = createWalletClient({
-      chain,
-      transport: http(RPC_URL),
-      account: userAccount,
-    })
-    _stakerWalletClient = createWalletClient({
-      chain,
-      transport: http(RPC_URL),
-      account: stakerAccount,
-    })
 
     logger.success('Test setup complete')
   })

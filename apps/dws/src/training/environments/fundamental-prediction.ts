@@ -17,7 +17,6 @@ import { HfInference } from '@huggingface/inference'
 export interface EnvConfig {
   tokenizerName: string
   groupSize: number
-  useWandb: boolean
   maxNumWorkers: number
   rolloutServerUrl: string
   totalSteps: number
@@ -25,7 +24,6 @@ export interface EnvConfig {
   stepsPerEval: number
   maxTokenLength: number
   inferenceWeight: number
-  wandbName: string
   dataPathToSaveGroups: string | null
   evalLimitRatio: number
 }
@@ -252,7 +250,6 @@ export class FundamentalPredictionEnv {
       // Use microsoft/phi-2 - no auth required
       tokenizerName: 'microsoft/phi-2',
       groupSize: 8,
-      useWandb: false,
       maxNumWorkers: 32,
       rolloutServerUrl: 'http://localhost:8000',
       totalSteps: 100,
@@ -260,7 +257,6 @@ export class FundamentalPredictionEnv {
       stepsPerEval: 10,
       maxTokenLength: 2048,
       inferenceWeight: 1.0,
-      wandbName: 'fundamental_metric_prediction',
       dataPathToSaveGroups: null,
       evalLimitRatio: 0.1,
     }

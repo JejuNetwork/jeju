@@ -84,7 +84,7 @@ export class MCPServer {
   getServerCapabilities(): ServerCapabilities {
     return {
       tools: {
-        listChanged: false, // We don't support dynamic tool list changes yet
+        listChanged: false,
       },
       resources: {
         subscribe: false,

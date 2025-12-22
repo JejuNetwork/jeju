@@ -6,7 +6,10 @@
  */
 
 import { describe, expect, test } from 'bun:test'
+import { GoldAbi, ItemsAbi } from '@jejunetwork/contracts'
 import { ABIFunctionSchema, ABISchema } from '../../schemas/api'
+import NFTMarketplaceAbi from '../abis/NFTMarketplace.json'
+import SimpleERC20FactoryAbi from '../abis/SimpleERC20Factory.json'
 import { getRarityInfo } from '../games'
 
 describe('Game Items', () => {
@@ -48,9 +51,7 @@ describe('Game Items', () => {
   })
 
   describe('Items.sol ABI (from @jejunetwork/contracts)', () => {
-    test('should have required functions', async () => {
-      const { ItemsAbi } = await import('@jejunetwork/contracts')
-
+    test('should have required functions', () => {
       const functionNames = (
         ItemsAbi as readonly { type: string; name?: string }[]
       )
@@ -73,9 +74,7 @@ describe('Game Items', () => {
       expect(functionNames).toContain('gameAgentId')
     })
 
-    test('should have required events', async () => {
-      const { ItemsAbi } = await import('@jejunetwork/contracts')
-
+    test('should have required events', () => {
       const eventNames = (
         ItemsAbi as readonly { type: string; name?: string }[]
       )
@@ -89,9 +88,7 @@ describe('Game Items', () => {
       expect(eventNames).toContain('TransferSingle')
     })
 
-    test('mintItem should have correct signature', async () => {
-      const { ItemsAbi } = await import('@jejunetwork/contracts')
-
+    test('mintItem should have correct signature', () => {
       const mintItem = (
         ItemsAbi as readonly {
           type: string
@@ -112,9 +109,7 @@ describe('Game Items', () => {
       expect(inputNames).toContain('signature')
     })
 
-    test('getItemMetadata should return proper struct', async () => {
-      const { ItemsAbi } = await import('@jejunetwork/contracts')
-
+    test('getItemMetadata should return proper struct', () => {
       const getItemMetadata = (
         ItemsAbi as readonly {
           type: string
@@ -146,9 +141,7 @@ describe('Game Items', () => {
   })
 
   describe('Gold.sol ABI (from @jejunetwork/contracts)', () => {
-    test('should have required functions', async () => {
-      const { GoldAbi } = await import('@jejunetwork/contracts')
-
+    test('should have required functions', () => {
       const functionNames = (
         GoldAbi as readonly { type: string; name?: string }[]
       )
@@ -170,9 +163,7 @@ describe('Game Items', () => {
       expect(functionNames).toContain('getNonce')
     })
 
-    test('should have required events', async () => {
-      const { GoldAbi } = await import('@jejunetwork/contracts')
-
+    test('should have required events', () => {
       const eventNames = (GoldAbi as readonly { type: string; name?: string }[])
         .filter((item) => item.type === 'event')
         .map((item) => item.name)
@@ -183,9 +174,7 @@ describe('Game Items', () => {
       expect(eventNames).toContain('Approval')
     })
 
-    test('claimGold should have correct signature', async () => {
-      const { GoldAbi } = await import('@jejunetwork/contracts')
-
+    test('claimGold should have correct signature', () => {
       const claimGold = (
         GoldAbi as readonly {
           type: string
@@ -205,12 +194,13 @@ describe('Game Items', () => {
   })
 
   describe('NFT Marketplace Integration', () => {
-    test('NFTMarketplace ABI should have listing functions', async () => {
-      const abi = await import('../abis/NFTMarketplace.json')
-
-      const functionNames = abi.default
-        .filter((item: { type: string }) => item.type === 'function')
-        .map((item: { name: string }) => item.name)
+    test('NFTMarketplace ABI should have listing functions', () => {
+      const abi =
+        (NFTMarketplaceAbi as { default?: unknown[] }).default ??
+        NFTMarketplaceAbi
+      const functionNames = (abi as Array<{ type: string; name: string }>)
+        .filter((item) => item.type === 'function')
+        .map((item) => item.name)
 
       // Listing functions
       expect(functionNames).toContain('createListing')
@@ -231,12 +221,13 @@ describe('Game Items', () => {
   })
 
   describe('ERC20 Factory Integration', () => {
-    test('SimpleERC20Factory ABI should have token creation', async () => {
-      const abi = await import('../abis/SimpleERC20Factory.json')
-
-      const functionNames = abi.default
-        .filter((item: { type: string }) => item.type === 'function')
-        .map((item: { name: string }) => item.name)
+    test('SimpleERC20Factory ABI should have token creation', () => {
+      const abi =
+        (SimpleERC20FactoryAbi as { default?: unknown[] }).default ??
+        SimpleERC20FactoryAbi
+      const functionNames = (abi as Array<{ type: string; name: string }>)
+        .filter((item) => item.type === 'function')
+        .map((item) => item.name)
 
       expect(functionNames).toContain('createToken')
       expect(functionNames).toContain('getCreatorTokens')
@@ -244,10 +235,11 @@ describe('Game Items', () => {
       expect(functionNames).toContain('getAllTokens')
     })
 
-    test('createToken should have correct parameters', async () => {
-      const abi = await import('../abis/SimpleERC20Factory.json')
-
-      const parsed = ABISchema.safeParse(abi.default)
+    test('createToken should have correct parameters', () => {
+      const abi =
+        (SimpleERC20FactoryAbi as { default?: unknown[] }).default ??
+        SimpleERC20FactoryAbi
+      const parsed = ABISchema.safeParse(abi)
       expect(parsed.success).toBe(true)
       if (!parsed.success) return
 

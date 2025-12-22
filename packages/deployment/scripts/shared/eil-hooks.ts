@@ -10,7 +10,6 @@
  * - Best gas deal routing
  */
 
-import type { StakeStatus } from '@jejunetwork/types'
 import { type Address, formatEther, parseEther } from 'viem'
 
 // ============ Types ============
@@ -77,9 +76,6 @@ export type SwapStatus =
   | 'waiting'
   | 'complete'
   | 'error'
-
-// Re-export consolidated StakeStatus
-export type { StakeStatus }
 
 // ============ Supported Chains ============
 

@@ -45,10 +45,14 @@ function findMonorepoRoot(): string {
 
 async function waitForService(url: string, maxAttempts = 60): Promise<boolean> {
   for (let i = 0; i < maxAttempts; i++) {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 2000)
     try {
-      const response = await fetch(url, { signal: AbortSignal.timeout(2000) })
+      const response = await fetch(url, { signal: controller.signal })
+      clearTimeout(timeoutId)
       if (response.ok) return true
     } catch {
+      clearTimeout(timeoutId)
       // Keep trying
     }
     await new Promise((r) => setTimeout(r, 1000))
@@ -57,6 +61,8 @@ async function waitForService(url: string, maxAttempts = 60): Promise<boolean> {
 }
 
 async function checkRpc(): Promise<boolean> {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 2000)
   try {
     const response = await fetch(`http://127.0.0.1:${LOCALNET_PORT}`, {
       method: 'POST',
@@ -67,10 +73,12 @@ async function checkRpc(): Promise<boolean> {
         params: [],
         id: 1,
       }),
-      signal: AbortSignal.timeout(2000),
+      signal: controller.signal,
     })
+    clearTimeout(timeoutId)
     return response.ok
   } catch {
+    clearTimeout(timeoutId)
     return false
   }
 }
@@ -129,15 +137,19 @@ async function startDwsBackend(rootDir: string): Promise<ChildProcess | null> {
   const dwsDir = join(rootDir, 'apps', 'dws')
 
   // Check if already running
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 1000)
   try {
     const res = await fetch(`http://127.0.0.1:${DWS_PORT}/health`, {
-      signal: AbortSignal.timeout(1000),
+      signal: controller.signal,
     })
+    clearTimeout(timeoutId)
     if (res.ok) {
       console.log('[E2E] DWS backend already running')
       return null
     }
   } catch {
+    clearTimeout(timeoutId)
     // Not running, start it
   }
 
@@ -168,15 +180,19 @@ async function startFrontend(
   frontendDir: string,
 ): Promise<ChildProcess | null> {
   // Check if already running
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 1000)
   try {
     const res = await fetch(`http://127.0.0.1:${FRONTEND_PORT}`, {
-      signal: AbortSignal.timeout(1000),
+      signal: controller.signal,
     })
+    clearTimeout(timeoutId)
     if (res.ok) {
       console.log('[E2E] Frontend already running')
       return null
     }
   } catch {
+    clearTimeout(timeoutId)
     // Not running, start it
   }
 

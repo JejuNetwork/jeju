@@ -1,5 +1,3 @@
-'use client'
-
 import { useEffect, useState } from 'react'
 import { erc20Abi, maxUint256, parseEther } from 'viem'
 import {

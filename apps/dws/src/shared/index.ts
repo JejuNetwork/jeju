@@ -4,6 +4,7 @@
 
 // Re-export zod for convenience
 export { z } from 'zod'
+
 // Reputation integration
 export {
   type MetricsInput,
@@ -13,7 +14,7 @@ export {
 } from './reputation'
 export * from './schemas'
 export * from './utils/api-marketplace'
-// Re-export utilities
+// Utility modules
 export * from './utils/common'
 export * from './utils/crypto'
 export * from './utils/rpc'
@@ -24,7 +25,6 @@ export {
   cidSchema,
   emailSchema,
   errorResponseSchema,
-  expectValid,
   hexSchema,
   isoDateSchema,
   type JSONArray,
@@ -49,13 +49,13 @@ export {
   validateHeaders,
   validateParams,
   validateQuery,
-  validateRequest,
 } from './validation'
 // x402 Payment handling
 export {
   calculatePrice,
   create402Response,
   createPaymentRequirement,
+  createX402BeforeHandle,
   GIT_PRICING_RULES,
   getTierPrice,
   type PaymentConfig,
@@ -68,5 +68,5 @@ export {
   type TierDefinition,
   tierAllows,
   verifyPayment,
-  x402Middleware,
+  type X402HookResult,
 } from './x402'

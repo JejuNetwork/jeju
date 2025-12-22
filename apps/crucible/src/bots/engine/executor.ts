@@ -20,7 +20,7 @@ import type {
   Opportunity,
   OpportunityExecutionResult,
   SandwichOpportunity,
-} from '../autocrat-types'
+} from '../autocrat-types-source'
 import {
   ERC20_ABI,
   PERPETUAL_MARKET_ABI,

@@ -41,10 +41,14 @@ function findMonorepoRoot(): string {
 
 async function waitForService(url: string, maxAttempts = 60): Promise<boolean> {
   for (let i = 0; i < maxAttempts; i++) {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 2000)
     try {
-      const response = await fetch(url, { signal: AbortSignal.timeout(2000) })
+      const response = await fetch(url, { signal: controller.signal })
+      clearTimeout(timeoutId)
       if (response.ok) return true
     } catch {
+      clearTimeout(timeoutId)
       // Keep trying
     }
     await new Promise((r) => setTimeout(r, 1000))
@@ -53,6 +57,8 @@ async function waitForService(url: string, maxAttempts = 60): Promise<boolean> {
 }
 
 async function checkRpc(): Promise<boolean> {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 2000)
   try {
     const response = await fetch(`http://127.0.0.1:${LOCALNET_PORT}`, {
       method: 'POST',
@@ -63,10 +69,12 @@ async function checkRpc(): Promise<boolean> {
         params: [],
         id: 1,
       }),
-      signal: AbortSignal.timeout(2000),
+      signal: controller.signal,
     })
+    clearTimeout(timeoutId)
     return response.ok
   } catch {
+    clearTimeout(timeoutId)
     return false
   }
 }

@@ -11,20 +11,22 @@ import {
   type Plugin,
   type UUID,
 } from '@elizaos/core'
-import { Hono } from 'hono'
-import { cors } from 'hono/cors'
+import cors from '@elysiajs/cors'
+import {
+  expect,
+  expectDefined,
+  expectValid,
+  validateOrThrow,
+} from '@jejunetwork/types'
+import { Elysia, t } from 'elysia'
 import { z } from 'zod'
 import { ceoPlugin } from './agents/ceo-plugin'
 import { ceoAgent } from './agents/templates'
 import {
   A2AJsonRpcResponseSchema,
   A2AMessageSchema,
-  expect,
-  expectDefined,
-  expectValid,
   extractA2AData,
   ProposalIdSchema,
-  validateOrThrow,
 } from './schemas'
 import { getTEEMode, makeTEEDecision } from './tee'
 
@@ -107,328 +109,363 @@ async function initializeCEORuntime(): Promise<AgentRuntime> {
 // A2A Server
 // ============================================================================
 
-const app = new Hono()
-// SECURITY: Configure CORS based on environment
-const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',').filter(Boolean)
-const isProduction = process.env.NODE_ENV === 'production'
-app.use('/*', cors({
-  origin: isProduction && CORS_ORIGINS?.length ? CORS_ORIGINS : '*',
-  credentials: true,
-}))
+const app = new Elysia().use(cors())
 
 // Agent Card (A2A Discovery)
-app.get('/.well-known/agent-card.json', (c) =>
-  c.json({
-    protocolVersion: '0.3.0',
-    name: 'Eliza - AI CEO',
-    description:
-      'AI CEO of Network DAO. Makes final decisions on proposals with TEE attestation.',
-    url: '/a2a',
-    preferredTransport: 'http',
-    provider: { organization: 'the network', url: 'https://jejunetwork.org' },
-    version: '1.0.0',
-    capabilities: {
-      streaming: false,
-      pushNotifications: false,
-      stateTransitionHistory: true,
+app.get('/.well-known/agent-card.json', () => ({
+  protocolVersion: '0.3.0',
+  name: 'Eliza - AI CEO',
+  description:
+    'AI CEO of Network DAO. Makes final decisions on proposals with TEE attestation.',
+  url: '/a2a',
+  preferredTransport: 'http',
+  provider: { organization: 'the network', url: 'https://jejunetwork.org' },
+  version: '1.0.0',
+  capabilities: {
+    streaming: false,
+    pushNotifications: false,
+    stateTransitionHistory: true,
+  },
+  defaultInputModes: ['text', 'data'],
+  defaultOutputModes: ['text', 'data'],
+  skills: [
+    {
+      id: 'make-decision',
+      name: 'Make Decision',
+      description: 'Make final CEO decision on a proposal',
+      tags: ['decision', 'governance'],
     },
-    defaultInputModes: ['text', 'data'],
-    defaultOutputModes: ['text', 'data'],
-    skills: [
-      {
-        id: 'make-decision',
-        name: 'Make Decision',
-        description: 'Make final CEO decision on a proposal',
-        tags: ['decision', 'governance'],
-      },
-      {
-        id: 'get-dashboard',
-        name: 'Get Dashboard',
-        description: 'Get CEO governance dashboard',
-        tags: ['query', 'governance'],
-      },
-      {
-        id: 'get-active-proposals',
-        name: 'Get Active Proposals',
-        description: 'List proposals awaiting action',
-        tags: ['query', 'proposals'],
-      },
-      {
-        id: 'get-autocrat-votes',
-        name: 'Get Autocrat Votes',
-        description: 'Get autocrat deliberation for a proposal',
-        tags: ['query', 'autocrat'],
-      },
-      {
-        id: 'request-research',
-        name: 'Request Research',
-        description: 'Request deep research on a proposal',
-        tags: ['action', 'research'],
-      },
-      {
-        id: 'chat',
-        name: 'Chat',
-        description: 'Chat with the AI CEO',
-        tags: ['chat'],
-      },
-    ],
-  }),
-)
+    {
+      id: 'get-dashboard',
+      name: 'Get Dashboard',
+      description: 'Get CEO governance dashboard',
+      tags: ['query', 'governance'],
+    },
+    {
+      id: 'get-active-proposals',
+      name: 'Get Active Proposals',
+      description: 'List proposals awaiting action',
+      tags: ['query', 'proposals'],
+    },
+    {
+      id: 'get-autocrat-votes',
+      name: 'Get Autocrat Votes',
+      description: 'Get autocrat deliberation for a proposal',
+      tags: ['query', 'autocrat'],
+    },
+    {
+      id: 'request-research',
+      name: 'Request Research',
+      description: 'Request deep research on a proposal',
+      tags: ['action', 'research'],
+    },
+    {
+      id: 'chat',
+      name: 'Chat',
+      description: 'Chat with the AI CEO',
+      tags: ['chat'],
+    },
+  ],
+}))
 
 // A2A Message Handler
-app.post('/a2a', async (c) => {
-  const body = validateOrThrow(
-    A2AMessageSchema,
-    await c.req.json(),
-    'A2A message',
-  )
+app.post(
+  '/a2a',
+  async ({ body }) => {
+    const validatedBody = validateOrThrow(A2AMessageSchema, body, 'A2A message')
 
-  expect(body.method === 'message/send', 'Method must be message/send')
-
-  const message = body.params.message
-  const textPart = message.parts.find((p) => p.kind === 'text')
-  const dataPart = message.parts.find((p) => p.kind === 'data')
-
-  const runtime = await initializeCEORuntime()
-
-  // Handle skill-based requests
-  if (dataPart?.data?.skillId) {
-    const result = await executeSkill(
-      runtime,
-      dataPart.data.skillId,
-      dataPart.data.params ?? {},
+    expect(
+      validatedBody.method === 'message/send',
+      'Method must be message/send',
     )
-    return c.json({
-      jsonrpc: '2.0',
-      id: body.id,
-      result: {
-        role: 'agent',
-        parts: [
-          { kind: 'text', text: result.text },
-          { kind: 'data', data: result.data },
-        ],
-        messageId: message.messageId,
-        kind: 'message',
-      },
-    })
-  }
 
-  // Handle chat/text requests
-  if (textPart?.text) {
-    const response = await processCEOMessage(runtime, textPart.text)
-    return c.json({
-      jsonrpc: '2.0',
-      id: body.id,
-      result: {
-        role: 'agent',
-        parts: [{ kind: 'text', text: response }],
-        messageId: message.messageId,
-        kind: 'message',
-      },
-    })
-  }
+    const message = validatedBody.params.message
+    const textPart = message.parts.find((p) => p.kind === 'text')
+    const dataPart = message.parts.find((p) => p.kind === 'data')
 
-  return c.json({
-    jsonrpc: '2.0',
-    id: body.id,
-    error: { code: -32602, message: 'Invalid params' },
-  })
-})
+    const runtime = await initializeCEORuntime()
+
+    // Handle skill-based requests
+    if (dataPart?.kind === 'data' && dataPart.data?.skillId) {
+      const result = await executeSkill(
+        runtime,
+        dataPart.data.skillId,
+        dataPart.data.params ?? {},
+      )
+      return {
+        jsonrpc: '2.0',
+        id: validatedBody.id,
+        result: {
+          role: 'agent',
+          parts: [
+            { kind: 'text', text: result.text },
+            { kind: 'data', data: result.data },
+          ],
+          messageId: message.messageId,
+          kind: 'message',
+        },
+      }
+    }
+
+    // Handle chat/text requests
+    if (textPart?.kind === 'text' && textPart.text) {
+      const response = await processCEOMessage(runtime, textPart.text)
+      return {
+        jsonrpc: '2.0',
+        id: validatedBody.id,
+        result: {
+          role: 'agent',
+          parts: [{ kind: 'text', text: response }],
+          messageId: message.messageId,
+          kind: 'message',
+        },
+      }
+    }
+
+    return {
+      jsonrpc: '2.0',
+      id: validatedBody.id,
+      error: { code: -32602, message: 'Invalid params' },
+    }
+  },
+  {
+    body: t.Object({
+      jsonrpc: t.Literal('2.0'),
+      id: t.Number(),
+      method: t.Literal('message/send'),
+      params: t.Object({
+        message: t.Object({
+          messageId: t.String(),
+          parts: t.Array(
+            t.Union([
+              t.Object({
+                kind: t.Literal('text'),
+                text: t.String(),
+              }),
+              t.Object({
+                kind: t.Literal('data'),
+                data: t.Object({
+                  skillId: t.String(),
+                  params: t.Optional(t.Record(t.String(), t.Unknown())),
+                }),
+              }),
+            ]),
+          ),
+        }),
+      }),
+    }),
+  },
+)
 
 // ============================================================================
 // MCP Server
 // ============================================================================
 
 // MCP Discovery
-app.get('/mcp/discover', (c) =>
-  c.json({
-    name: 'Eliza CEO MCP',
-    version: '1.0.0',
-    description: 'MCP interface for AI CEO governance',
-  }),
-)
+app.get('/mcp/discover', () => ({
+  name: 'Eliza CEO MCP',
+  version: '1.0.0',
+  description: 'MCP interface for AI CEO governance',
+}))
 
-app.post('/mcp/initialize', async (c) => {
+app.post('/mcp/initialize', async () => {
   await initializeCEORuntime()
-  return c.json({
+  return {
     protocolVersion: '2024-11-05',
     serverInfo: { name: 'eliza-ceo-mcp', version: '1.0.0' },
     capabilities: {
       tools: { listChanged: false },
       resources: { subscribe: false, listChanged: false },
     },
-  })
+  }
 })
 
 // MCP Tools List
-app.get('/mcp/tools', (c) =>
-  c.json({
-    tools: [
-      {
-        name: 'make_ceo_decision',
-        description: 'Make a final CEO decision on a proposal',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            proposalId: {
-              type: 'string',
-              description: 'The proposal ID (0x...)',
-            },
-            autocratVotes: {
-              type: 'array',
-              description: 'Array of autocrat votes',
-            },
+app.get('/mcp/tools', () => ({
+  tools: [
+    {
+      name: 'make_ceo_decision',
+      description: 'Make a final CEO decision on a proposal',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          proposalId: {
+            type: 'string',
+            description: 'The proposal ID (0x...)',
           },
-          required: ['proposalId'],
-        },
-      },
-      {
-        name: 'get_governance_dashboard',
-        description: 'Get comprehensive CEO governance dashboard',
-        inputSchema: { type: 'object', properties: {} },
-      },
-      {
-        name: 'get_active_proposals',
-        description: 'List active proposals awaiting CEO action',
-        inputSchema: { type: 'object', properties: {} },
-      },
-      {
-        name: 'get_autocrat_deliberation',
-        description: 'Get autocrat votes for a specific proposal',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            proposalId: { type: 'string', description: 'The proposal ID' },
+          autocratVotes: {
+            type: 'array',
+            description: 'Array of autocrat votes',
           },
-          required: ['proposalId'],
         },
+        required: ['proposalId'],
       },
-      {
-        name: 'request_deep_research',
-        description: 'Request comprehensive research on a proposal',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            proposalId: { type: 'string', description: 'The proposal ID' },
-          },
-          required: ['proposalId'],
+    },
+    {
+      name: 'get_governance_dashboard',
+      description: 'Get comprehensive CEO governance dashboard',
+      inputSchema: { type: 'object', properties: {} },
+    },
+    {
+      name: 'get_active_proposals',
+      description: 'List active proposals awaiting CEO action',
+      inputSchema: { type: 'object', properties: {} },
+    },
+    {
+      name: 'get_autocrat_deliberation',
+      description: 'Get autocrat votes for a specific proposal',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          proposalId: { type: 'string', description: 'The proposal ID' },
         },
+        required: ['proposalId'],
       },
-    ],
-  }),
-)
+    },
+    {
+      name: 'request_deep_research',
+      description: 'Request comprehensive research on a proposal',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          proposalId: { type: 'string', description: 'The proposal ID' },
+        },
+        required: ['proposalId'],
+      },
+    },
+  ],
+}))
 
 // MCP Tool Execution
-app.post('/mcp/tools/call', async (c) => {
-  const body = validateOrThrow(
-    z.object({
-      params: z.object({
-        name: z.string().min(1),
-        arguments: z.record(z.string(), z.unknown()).optional(),
+app.post(
+  '/mcp/tools/call',
+  async ({ body }) => {
+    const validatedBody = validateOrThrow(
+      z.object({
+        params: z.object({
+          name: z.string().min(1),
+          arguments: z.record(z.string(), z.unknown()).optional(),
+        }),
+      }),
+      body,
+      'MCP tool call',
+    )
+
+    const runtime = await initializeCEORuntime()
+
+    const toolName = validatedBody.params.name
+    const args = validatedBody.params.arguments ?? {}
+
+    const result = await executeMCPTool(runtime, toolName, args)
+
+    return {
+      content: [{ type: 'text', text: result }],
+    }
+  },
+  {
+    body: t.Object({
+      params: t.Object({
+        name: t.String(),
+        arguments: t.Optional(t.Record(t.String(), t.Unknown())),
       }),
     }),
-    await c.req.json(),
-    'MCP tool call',
-  )
-
-  const runtime = await initializeCEORuntime()
-
-  const toolName = body.params.name
-  const args = body.params.arguments ?? {}
-
-  const result = await executeMCPTool(runtime, toolName, args)
-
-  return c.json({
-    content: [{ type: 'text', text: result }],
-  })
-})
-
-// MCP Resources
-app.get('/mcp/resources', (c) =>
-  c.json({
-    resources: [
-      {
-        uri: 'autocrat://agents',
-        name: 'Autocrat Agents',
-        description: 'List of autocrat agent roles',
-      },
-      {
-        uri: 'autocrat://stats',
-        name: 'Governance Stats',
-        description: 'Current governance statistics',
-      },
-      {
-        uri: 'autocrat://treasury',
-        name: 'Treasury',
-        description: 'Treasury balance and allocations',
-      },
-    ],
-  }),
+  },
 )
 
-app.post('/mcp/resources/read', async (c) => {
-  const body = validateOrThrow(
-    z.object({
-      params: z.object({
-        uri: z.string().min(1),
+// MCP Resources
+app.get('/mcp/resources', () => ({
+  resources: [
+    {
+      uri: 'autocrat://agents',
+      name: 'Autocrat Agents',
+      description: 'List of autocrat agent roles',
+    },
+    {
+      uri: 'autocrat://stats',
+      name: 'Governance Stats',
+      description: 'Current governance statistics',
+    },
+    {
+      uri: 'autocrat://treasury',
+      name: 'Treasury',
+      description: 'Treasury balance and allocations',
+    },
+  ],
+}))
+
+app.post(
+  '/mcp/resources/read',
+  async ({ body }) => {
+    const validatedBody = validateOrThrow(
+      z.object({
+        params: z.object({
+          uri: z.string().min(1),
+        }),
       }),
-    }),
-    await c.req.json(),
-    'MCP resource read',
-  )
-  const uri = body.params.uri
+      body,
+      'MCP resource read',
+    )
+    const uri = validatedBody.params.uri
 
-  let content = ''
+    let content = ''
 
-  if (uri === 'autocrat://agents') {
-    content = `Autocrat Agents:
+    if (uri === 'autocrat://agents') {
+      content = `Autocrat Agents:
 - Treasury Agent: Financial assessment
 - Code Agent: Technical review
 - Community Agent: Stakeholder impact
 - Security Agent: Risk analysis
 - Legal Agent: Compliance review`
-  } else if (uri === 'autocrat://stats') {
-    // Fetch from autocrat A2A
-    const response = await fetch(AUTOCRAT_A2A_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'message/send',
-        params: {
-          message: {
-            messageId: 'mcp',
-            parts: [
-              { kind: 'data', data: { skillId: 'get-governance-stats' } },
-            ],
+    } else if (uri === 'autocrat://stats') {
+      // Fetch from autocrat A2A
+      const response = await fetch(AUTOCRAT_A2A_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'message/send',
+          params: {
+            message: {
+              messageId: 'mcp',
+              parts: [
+                { kind: 'data', data: { skillId: 'get-governance-stats' } },
+              ],
+            },
           },
-        },
-      }),
-    })
-    if (!response.ok) {
-      throw new Error(
-        `Failed to fetch stats: ${response.status} ${response.statusText}`,
+        }),
+      })
+      if (!response.ok) {
+        throw new Error(
+          `Failed to fetch stats: ${response.status} ${response.statusText}`,
+        )
+      }
+      const data = expectValid(
+        A2AJsonRpcResponseSchema,
+        await response.json(),
+        'stats A2A response',
       )
+      const statsData = extractA2AData<Record<string, unknown>>(
+        data,
+        'stats A2A response',
+      )
+      content = JSON.stringify(statsData, null, 2)
+    } else if (uri === 'autocrat://treasury') {
+      content = 'Treasury data available via get_governance_dashboard tool.'
     }
-    const data = expectValid(
-      A2AJsonRpcResponseSchema,
-      await response.json(),
-      'stats A2A response',
-    )
-    const statsData = extractA2AData<Record<string, unknown>>(
-      data,
-      'stats A2A response',
-    )
-    content = JSON.stringify(statsData, null, 2)
-  } else if (uri === 'autocrat://treasury') {
-    content = 'Treasury data available via get_governance_dashboard tool.'
-  }
 
-  return c.json({
-    contents: [{ uri, mimeType: 'text/plain', text: content }],
-  })
-})
+    return {
+      contents: [{ uri, mimeType: 'text/plain', text: content }],
+    }
+  },
+  {
+    body: t.Object({
+      params: t.Object({
+        uri: t.String(),
+      }),
+    }),
+  },
+)
 
 // ============================================================================
 // Skill Execution
@@ -808,9 +845,9 @@ What would you like to do?`
 // Health & Info
 // ============================================================================
 
-app.get('/health', async (c) => {
+app.get('/health', async () => {
   const runtime = ceoRuntime ? 'initialized' : 'not_initialized'
-  return c.json({
+  return {
     status: 'ok',
     service: 'eliza-ceo',
     version: '1.0.0',
@@ -825,22 +862,20 @@ app.get('/health', async (c) => {
       autocrat: AUTOCRAT_A2A_URL,
       autocratMcp: AUTOCRAT_MCP_URL,
     },
-  })
+  }
 })
 
-app.get('/', (c) =>
-  c.json({
-    name: 'Eliza - AI CEO',
-    version: '1.0.0',
-    description: 'AI CEO of Network DAO with ElizaOS runtime',
-    endpoints: {
-      a2a: '/a2a',
-      mcp: '/mcp',
-      agentCard: '/.well-known/agent-card.json',
-      health: '/health',
-    },
-  }),
-)
+app.get('/', () => ({
+  name: 'Eliza - AI CEO',
+  version: '1.0.0',
+  description: 'AI CEO of Network DAO with ElizaOS runtime',
+  endpoints: {
+    a2a: '/a2a',
+    mcp: '/mcp',
+    agentCard: '/.well-known/agent-card.json',
+    health: '/health',
+  },
+}))
 
 // ============================================================================
 // Server Start
@@ -875,5 +910,5 @@ async function start() {
 
 start()
 
-export default { port: CEO_PORT, fetch: app.fetch }
+export default app.listen(CEO_PORT)
 export { app, ceoRuntime }

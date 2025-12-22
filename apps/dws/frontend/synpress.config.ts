@@ -1,50 +1,33 @@
 /**
- * Synpress Configuration for DWS Frontend
- *
- * Wallet-connected E2E tests using MetaMask
+ * DWS Frontend Synpress Configuration
+ * Uses shared config from @jejunetwork/tests
  */
+import {
+  createSynpressConfig,
+  createWalletSetup,
+  PASSWORD,
+} from '@jejunetwork/tests'
 
-import { defineConfig, devices } from '@playwright/test'
+const DWS_FRONTEND_PORT = parseInt(process.env.FRONTEND_PORT || '4031', 10)
 
-const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:4031'
-
-export default defineConfig({
+export default createSynpressConfig({
+  appName: 'dws-frontend',
+  port: DWS_FRONTEND_PORT,
   testDir: './tests',
-  testMatch: ['**/*.spec.ts'],
-  fullyParallel: false,
-  forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 1,
-  workers: 1,
-  reporter: [
-    ['list'],
-    ['html', { outputFolder: 'playwright-report', open: 'never' }],
-  ],
   timeout: 60000,
-  expect: {
-    timeout: 10000,
-  },
-  use: {
-    baseURL: FRONTEND_URL,
-    trace: 'on-first-retry',
-    screenshot: 'only-on-failure',
-    video: 'on-first-retry',
-    actionTimeout: 10000,
-  },
-  projects: [
-    {
-      name: 'chromium',
-      use: {
-        ...devices['Desktop Chrome'],
-        viewport: { width: 1440, height: 900 },
-      },
+  overrides: {
+    testMatch: ['**/*.spec.ts'],
+    expect: {
+      timeout: 10000,
     },
-  ],
-  webServer: {
-    command: 'bun run dev',
-    url: FRONTEND_URL,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120000,
-    stdout: 'pipe',
-    stderr: 'pipe',
+    webServer: {
+      command: 'bun run dev',
+      url: `http://localhost:${DWS_FRONTEND_PORT}`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120000,
+    },
   },
 })
+
+export const basicSetup = createWalletSetup()
+export { PASSWORD }

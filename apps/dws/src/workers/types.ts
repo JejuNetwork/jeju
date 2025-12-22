@@ -3,15 +3,12 @@
  * AWS Lambda / Vercel Functions compatible worker runtime
  */
 
+import type { WorkerStatus } from '@jejunetwork/types'
 import type { SpawnOptions, Subprocess } from 'bun'
 import type { Address } from 'viem'
 import type { JSONValue } from '../shared/validation'
 
 export type WorkerRuntime = 'bun' | 'node' | 'deno'
-
-// Re-export consolidated WorkerStatus
-import type { WorkerStatus } from '@jejunetwork/types'
-export type { WorkerStatus }
 export type InvocationType = 'sync' | 'async' | 'event'
 
 export interface WorkerFunction {

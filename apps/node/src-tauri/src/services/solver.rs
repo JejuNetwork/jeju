@@ -101,7 +101,7 @@ impl Service for SolverService {
                         // 2. Quote best execution path
                         // 3. Fill intents atomically
                         // 4. Settle via OutputSettler
-                        
+
                         if !running.load(Ordering::SeqCst) {
                             break;
                         }
@@ -161,4 +161,3 @@ impl Service for SolverService {
         self.running.load(Ordering::SeqCst)
     }
 }
-

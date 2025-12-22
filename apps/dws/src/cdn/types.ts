@@ -4,32 +4,13 @@
  */
 
 import type {
-  CacheRule,
   CacheStatus,
-  CacheTTLConfig,
   CDNProviderType,
   CDNRegion,
-  CDNRequest,
-  CDNResponse,
-  ContentMetadata,
   EdgeNodeStatus,
   GeoLocation,
 } from '@jejunetwork/types'
 import type { Address } from 'viem'
-
-// Re-export common types
-export type {
-  CDNRegion,
-  CDNProviderType,
-  CacheStatus,
-  CacheRule,
-  CacheTTLConfig,
-  ContentMetadata,
-  GeoLocation,
-  CDNRequest,
-  CDNResponse,
-  EdgeNodeStatus,
-}
 
 // ============================================================================
 // Edge Node Config

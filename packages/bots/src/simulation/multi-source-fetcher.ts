@@ -278,7 +278,10 @@ export class MultiSourceFetcher {
     }
 
     const data = (await response.json()) as {
-      coins: Record<string, { prices: Array<{ timestamp: number; price: number }> }>
+      coins: Record<
+        string,
+        { prices: Array<{ timestamp: number; price: number }> }
+      >
     }
     const priceMap = new Map<number, number>()
 
@@ -446,7 +449,11 @@ export class MultiSourceFetcher {
     const url = `https://${chainName}.g.alchemy.com/v2/${this.config.alchemyApiKey}`
     const gasData: GasDataPoint[] = []
 
-    for (let block = startBlock; block <= endBlock; block += BigInt(sampleInterval)) {
+    for (
+      let block = startBlock;
+      block <= endBlock;
+      block += BigInt(sampleInterval)
+    ) {
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -536,8 +543,8 @@ export class MultiSourceFetcher {
 
     return data.result.map((log) => {
       // Decode Sync event: reserve0, reserve1
-      const reserve0 = BigInt('0x' + log.data.slice(2, 66))
-      const reserve1 = BigInt('0x' + log.data.slice(66, 130))
+      const reserve0 = BigInt(`0x${log.data.slice(2, 66)}`)
+      const reserve1 = BigInt(`0x${log.data.slice(66, 130)}`)
 
       return {
         timestamp: 0, // Would need block timestamp lookup
@@ -629,7 +636,7 @@ export class MultiSourceFetcher {
       type: tx.type as 'arbitrage' | 'sandwich' | 'liquidation',
       profitUsd: tx.profitUsd,
       gasUsed: BigInt(tx.gasUsed),
-      gasPriceGwei: parseInt(tx.gasPrice) / 1e9,
+      gasPriceGwei: parseInt(tx.gasPrice, 10) / 1e9,
       executedBy: tx.searcher,
       txHash: tx.txHash,
       successful: tx.successful,
@@ -677,9 +684,7 @@ export class MultiSourceFetcher {
   /**
    * Scan for arbitrage opportunities across all supported chains
    */
-  async scanCrossChainOpportunities(
-    tokens: string[],
-  ): Promise<
+  async scanCrossChainOpportunities(tokens: string[]): Promise<
     Array<{
       token: string
       sourceChain: number | string
@@ -861,8 +866,8 @@ export class MultiSourceFetcher {
 
     if (remaining && reset) {
       this.rateLimits.set(source, {
-        remaining: parseInt(remaining),
-        reset: parseInt(reset) * 1000,
+        remaining: parseInt(remaining, 10),
+        reset: parseInt(reset, 10) * 1000,
       })
     }
 
@@ -892,4 +897,3 @@ export class MultiSourceFetcher {
     this.cache.clear()
   }
 }
-

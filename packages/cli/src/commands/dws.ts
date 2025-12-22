@@ -9,7 +9,13 @@
  * - User inputs are sanitized before API calls
  */
 
-import { existsSync, readFileSync } from 'node:fs'
+import {
+  existsSync,
+  lstatSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+} from 'node:fs'
 import { join, normalize, resolve } from 'node:path'
 import { Command } from 'commander'
 import type { Address } from 'viem'
@@ -33,8 +39,8 @@ import {
   RepoSchema,
   ServiceHealthResponseSchema,
   UploadResponseSchema,
-  WorkflowListResponseSchema,
   validate,
+  WorkflowListResponseSchema,
 } from '../schemas'
 import { createInfrastructureService } from '../services/infrastructure'
 import { DEFAULT_PORTS } from '../types'
@@ -590,8 +596,6 @@ async function downloadFile(
   const parentDir = join(outputPath, '..')
   const resolvedParent = resolve(parentDir)
   if (existsSync(resolvedParent)) {
-    // Dynamic import: only needed when parent directory exists (conditional check)
-    const { statSync } = await import('node:fs')
     const parentStat = statSync(resolvedParent)
     if (!parentStat.isDirectory()) {
       logger.error('Parent path is not a directory')
@@ -601,8 +605,6 @@ async function downloadFile(
 
   // SECURITY: Check output path is not a symlink pointing outside cwd
   if (existsSync(outputPath)) {
-    // Dynamic import: only needed when output path exists (conditional check)
-    const { lstatSync, realpathSync } = await import('node:fs')
     const lstat = lstatSync(outputPath)
     if (lstat.isSymbolicLink()) {
       const realPath = realpathSync(outputPath)
@@ -1181,7 +1183,11 @@ async function seedDev(): Promise<void> {
         body: file.content,
       })
       if (res.ok) {
-        const { cid } = validate(await res.json(), CidResponseSchema, 'upload response')
+        const { cid } = validate(
+          await res.json(),
+          CidResponseSchema,
+          'upload response',
+        )
         logger.success(`${file.name} -> ${cid.slice(0, 16)}...`)
       }
     } catch {
@@ -1323,7 +1329,11 @@ async function selfHost(): Promise<void> {
     })
 
     if (res.ok) {
-      const { cid } = validate(await res.json(), CidResponseSchema, 'upload response')
+      const { cid } = validate(
+        await res.json(),
+        CidResponseSchema,
+        'upload response',
+      )
       logger.success('Frontend uploaded')
       logger.keyValue('Frontend CID', cid)
       logger.newline()

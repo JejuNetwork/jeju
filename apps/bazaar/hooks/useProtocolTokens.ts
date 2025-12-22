@@ -1,5 +1,3 @@
-'use client'
-
 /**
  * Protocol Tokens Hook
  * Provides token metadata and utilities for the bazaar

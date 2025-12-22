@@ -19,21 +19,7 @@ import {
  * @title BaseInputSettler
  * @author Jeju Network
  * @notice Abstract base contract for OIF InputSettlers
- * @dev Consolidates common logic for order management, nonces, and settlement
- *      Implementations override asset-specific locking/unlocking logic
- *
- * Common functionality:
- * - Order creation (open/openFor)
- * - Signature verification
- * - Nonce management
- * - Claim/settlement flow
- * - Refund handling
- *
- * Implementations must provide:
- * - _lockAssets: Lock user assets on order creation
- * - _releaseAssetsToSolver: Release assets to solver after attestation
- * - _refundAssetsToUser: Return assets on expiry/cancellation
- * - _buildResolvedOrder: Create ResolvedCrossChainOrder for emission
+ * @dev Implementations override asset-specific locking/unlocking logic
  */
 abstract contract BaseInputSettler is IInputSettler, Ownable, ReentrancyGuard {
     using ECDSA for bytes32;

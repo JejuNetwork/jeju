@@ -83,6 +83,8 @@ contract ForcedInclusion is ReentrancyGuard, Pausable, Ownable {
         _;
     }
 
+    error BatchInboxNotContract();
+    
     constructor(
         address _batchInbox, 
         address _sequencerRegistry, 
@@ -90,6 +92,11 @@ contract ForcedInclusion is ReentrancyGuard, Pausable, Ownable {
         address _owner
     ) Ownable(_owner) {
         if (_batchInbox == address(0)) revert ZeroAddress();
+        // SECURITY: Validate batchInbox is a contract, not an EOA
+        uint256 codeSize;
+        assembly { codeSize := extcodesize(_batchInbox) }
+        if (codeSize == 0) revert BatchInboxNotContract();
+        
         batchInbox = _batchInbox;
         sequencerRegistry = _sequencerRegistry;
         securityCouncil = _securityCouncil;

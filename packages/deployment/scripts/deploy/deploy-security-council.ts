@@ -36,7 +36,7 @@ import {
   toBytes,
   zeroAddress,
 } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
+import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { inferChainFromRpcUrl } from '../shared/chain-utils'
 
 const ROOT = join(import.meta.dir, '../..')
@@ -218,8 +218,6 @@ async function main(): Promise<void> {
       }
 
       // Generate deterministic test addresses
-      // Conditional import: only needed for localnet test owners
-      const { generatePrivateKey } = await import('viem/accounts')
       for (let i = 0; i < 5; i++) {
         const account = privateKeyToAccount(generatePrivateKey())
         owners.push(account.address)

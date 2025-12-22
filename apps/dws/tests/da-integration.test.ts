@@ -152,33 +152,30 @@ describe('DA Layer HTTP API', () => {
   })
 })
 
-describe('DA Layer Rollup Integration', () => {
-  it('should import rollup adapters', async () => {
-    const {
-      RollupDAAdapter,
-      createRollupDAAdapter,
-      OPStackDAAdapter,
-      ArbitrumOrbitDAAdapter,
-    } = await import('../src/da')
+import {
+  ArbitrumOrbitDAAdapter,
+  BLS,
+  createRollupDAAdapter,
+  OPStackDAAdapter,
+  RollupDAAdapter,
+} from '../src/da'
 
+describe('DA Layer Rollup Integration', () => {
+  it('should import rollup adapters', () => {
     expect(RollupDAAdapter).toBeDefined()
     expect(createRollupDAAdapter).toBeDefined()
     expect(OPStackDAAdapter).toBeDefined()
     expect(ArbitrumOrbitDAAdapter).toBeDefined()
   })
 
-  it('should import BLS utilities', async () => {
-    const { BLS } = await import('../src/da')
-
+  it('should import BLS utilities', () => {
     expect(BLS.generateKeyPair).toBeDefined()
     expect(BLS.sign).toBeDefined()
     expect(BLS.verify).toBeDefined()
     expect(BLS.aggregateSignatures).toBeDefined()
   })
 
-  it('should generate BLS key pair', async () => {
-    const { BLS } = await import('../src/da')
-
+  it('should generate BLS key pair', () => {
     const keyPair = BLS.generateKeyPair()
     // Secret key is 32 bytes = 64 hex chars
     expect(keyPair.secretKey).toMatch(/^0x[a-f0-9]{64}$/i)

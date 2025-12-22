@@ -9,10 +9,6 @@ env:
   # Group size for GRPO (number of trajectories compared at once)
   group_size: 4
   
-  # Experiment tracking (disabled by default)
-  use_wandb: false
-  wandb_name: "babylon-rlaif"
-  
   # Worker settings
   max_num_workers: 64
   max_num_workers_per_node: 8

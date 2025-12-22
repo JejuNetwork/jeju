@@ -7,18 +7,12 @@
 
 import { resolve } from 'node:path'
 import type { BunPlugin } from 'bun'
+import tw from 'bun-plugin-tailwind'
 
 const ROOT = resolve(import.meta.dir, '..')
 const isProduction = process.env.NODE_ENV === 'production'
 
-// Try to load tailwind plugin
-let tailwindPlugin: BunPlugin | undefined
-try {
-  const { default: tw } = await import('bun-plugin-tailwind')
-  tailwindPlugin = tw
-} catch {
-  console.warn('Warning: bun-plugin-tailwind not found')
-}
+const tailwindPlugin: BunPlugin = tw
 
 console.log('Building wallet web app...')
 
@@ -28,7 +22,7 @@ const result = await Bun.build({
   minify: isProduction,
   sourcemap: isProduction ? 'none' : 'linked',
   target: 'browser',
-  plugins: tailwindPlugin ? [tailwindPlugin] : [],
+  plugins: [tailwindPlugin],
   define: {
     'process.env.NODE_ENV': JSON.stringify(
       isProduction ? 'production' : 'development',

@@ -204,13 +204,10 @@ export class MultiTenantCouncilManager {
   private registry: CouncilRegistry
 
   constructor(
-    identityRegistryAddress: Address,
-    appRegistryAddress: Address,
-    chainId: number,
+    _identityRegistryAddress: Address,
+    _appRegistryAddress: Address,
+    _chainId: number,
   ) {
-    this.identityRegistryAddress = identityRegistryAddress
-    this.appRegistryAddress = appRegistryAddress
-    this.chainId = chainId
     this.registry = {
       councils: new Map(),
       defaultCouncil: 'jeju' as CouncilType,

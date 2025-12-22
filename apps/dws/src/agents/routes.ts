@@ -3,7 +3,7 @@
  * First-class agent management in DWS
  */
 
-import { Hono } from 'hono'
+import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
 import { getExecutor } from './executor'
 import * as registry from './registry'
@@ -14,332 +14,403 @@ import type {
   UpdateAgentRequest,
 } from './types'
 
-export function createAgentRouter(): Hono {
-  const router = new Hono()
+export function createAgentRouter() {
+  return (
+    new Elysia({ name: 'agents', prefix: '/agents' })
+      // ============================================================================
+      // Health & Info
+      // ============================================================================
+      .get('/health', () => {
+        const registryStats = registry.getRegistryStats()
+        const executorStats = getExecutor().getStats()
 
-  // ============================================================================
-  // Health & Info
-  // ============================================================================
-
-  router.get('/health', (c) => {
-    const registryStats = registry.getRegistryStats()
-    const executorStats = getExecutor().getStats()
-
-    return c.json({
-      status: 'healthy',
-      service: 'dws-agents',
-      registry: registryStats,
-      executor: executorStats,
-    })
-  })
-
-  // ============================================================================
-  // Agent CRUD
-  // ============================================================================
-
-  // Register new agent
-  router.post('/', async (c) => {
-    const owner = c.req.header('x-jeju-address') as Address
-    if (!owner) {
-      return c.json({ error: 'Missing x-jeju-address header' }, 401)
-    }
-
-    const body = await c.req.json<RegisterAgentRequest>()
-
-    if (!body.character?.name || !body.character?.system) {
-      return c.json({ error: 'Character name and system prompt required' }, 400)
-    }
-
-    const agent = await registry.registerAgent(owner, body)
-
-    // Deploy immediately
-    try {
-      await getExecutor().deployAgent(agent.id)
-    } catch (e) {
-      console.error('[AgentRoutes] Failed to deploy agent:', e)
-      await registry.updateAgentStatus(agent.id, 'error')
-    }
-
-    return c.json(
-      {
-        id: agent.id,
-        name: agent.character.name,
-        status: agent.status,
-        createdAt: agent.createdAt,
-      },
-      201,
-    )
-  })
-
-  // List agents
-  router.get('/', (c) => {
-    const owner = c.req.header('x-jeju-address') as Address | undefined
-    const status = c.req.query('status') as string | undefined
-
-    const agents = registry.listAgents({
-      owner,
-      status: status as (typeof agents)[number]['status'] | undefined,
-    })
-
-    return c.json({
-      agents: agents.map((a) => ({
-        id: a.id,
-        name: a.character.name,
-        owner: a.owner,
-        status: a.status,
-        createdAt: a.createdAt,
-        updatedAt: a.updatedAt,
-      })),
-    })
-  })
-
-  // Get agent details
-  router.get('/:id', (c) => {
-    const agent = registry.getAgent(c.req.param('id'))
-    if (!agent) {
-      return c.json({ error: 'Agent not found' }, 404)
-    }
-
-    const instances = getExecutor().getAgentInstances(agent.id)
-    const stats = registry.getAgentStats(agent.id)
-
-    return c.json({
-      ...agent,
-      instances: instances.map((i) => ({
-        instanceId: i.instanceId,
-        status: i.status,
-        activeInvocations: i.activeInvocations,
-        totalInvocations: i.totalInvocations,
-        startedAt: i.startedAt,
-        lastActivityAt: i.lastActivityAt,
-      })),
-      stats,
-    })
-  })
-
-  // Update agent
-  router.put('/:id', async (c) => {
-    const owner = c.req.header('x-jeju-address') as Address
-    if (!owner) {
-      return c.json({ error: 'Missing x-jeju-address header' }, 401)
-    }
-
-    const body = await c.req.json<UpdateAgentRequest>()
-
-    try {
-      const agent = await registry.updateAgent(c.req.param('id'), owner, body)
-      if (!agent) {
-        return c.json({ error: 'Agent not found' }, 404)
-      }
-
-      return c.json({
-        id: agent.id,
-        name: agent.character.name,
-        status: agent.status,
-        updatedAt: agent.updatedAt,
+        return {
+          status: 'healthy',
+          service: 'dws-agents',
+          registry: registryStats,
+          executor: executorStats,
+        }
       })
-    } catch (e) {
-      const message = e instanceof Error ? e.message : 'Update failed'
-      return c.json({ error: message }, 403)
-    }
-  })
 
-  // Terminate agent
-  router.delete('/:id', async (c) => {
-    const owner = c.req.header('x-jeju-address') as Address
-    if (!owner) {
-      return c.json({ error: 'Missing x-jeju-address header' }, 401)
-    }
+      // ============================================================================
+      // Agent CRUD
+      // ============================================================================
 
-    try {
-      // Undeploy first
-      await getExecutor().undeployAgent(c.req.param('id'))
+      // Register new agent
+      .post(
+        '/',
+        async ({ body, request, set }) => {
+          const owner = request.headers.get('x-jeju-address') as Address
+          if (!owner) {
+            set.status = 401
+            return { error: 'Missing x-jeju-address header' }
+          }
 
-      const success = await registry.terminateAgent(c.req.param('id'), owner)
-      if (!success) {
-        return c.json({ error: 'Agent not found' }, 404)
-      }
+          const typedBody = body as RegisterAgentRequest
 
-      return c.json({ success: true })
-    } catch (e) {
-      const message = e instanceof Error ? e.message : 'Termination failed'
-      return c.json({ error: message }, 403)
-    }
-  })
+          if (!typedBody.character?.name || !typedBody.character?.system) {
+            set.status = 400
+            return { error: 'Character name and system prompt required' }
+          }
 
-  // ============================================================================
-  // Agent Chat
-  // ============================================================================
+          const agent = await registry.registerAgent(owner, typedBody)
 
-  router.post('/:id/chat', async (c) => {
-    const agentId = c.req.param('id')
-    const body = await c.req.json<ChatRequest>()
+          // Deploy immediately
+          try {
+            await getExecutor().deployAgent(agent.id)
+          } catch (e) {
+            console.error('[AgentRoutes] Failed to deploy agent:', e)
+            await registry.updateAgentStatus(agent.id, 'error')
+          }
 
-    if (!body.text) {
-      return c.json({ error: 'Missing text field' }, 400)
-    }
+          set.status = 201
+          return {
+            id: agent.id,
+            name: agent.character.name,
+            status: agent.status,
+            createdAt: agent.createdAt,
+          }
+        },
+        {
+          body: t.Object({
+            character: t.Object({
+              name: t.String(),
+              system: t.String(),
+            }),
+          }),
+        },
+      )
 
-    const message: AgentMessage = {
-      id: crypto.randomUUID(),
-      userId: body.userId ?? 'anonymous',
-      roomId: body.roomId ?? 'default',
-      content: {
-        text: body.text,
-        source: body.source ?? 'api',
-      },
-      createdAt: Date.now(),
-    }
+      // List agents
+      .get('/', ({ request, query }) => {
+        const owner = request.headers.get('x-jeju-address') as
+          | Address
+          | undefined
+        const status = query.status as string | undefined
 
-    try {
-      const response = await getExecutor().invokeAgent(agentId, message)
+        const agents = registry.listAgents({
+          owner,
+          status: status as (typeof agents)[number]['status'] | undefined,
+        })
 
-      return c.json({
-        id: response.id,
-        text: response.text,
-        actions: response.actions,
-        metadata: response.metadata,
+        return {
+          agents: agents.map((a) => ({
+            id: a.id,
+            name: a.character.name,
+            owner: a.owner,
+            status: a.status,
+            createdAt: a.createdAt,
+            updatedAt: a.updatedAt,
+          })),
+        }
       })
-    } catch (e) {
-      const message = e instanceof Error ? e.message : 'Chat failed'
-      return c.json({ error: message }, 500)
-    }
-  })
 
-  // ============================================================================
-  // Agent Control
-  // ============================================================================
+      // Get agent details
+      .get('/:id', ({ params, set }) => {
+        const agent = registry.getAgent(params.id)
+        if (!agent) {
+          set.status = 404
+          return { error: 'Agent not found' }
+        }
 
-  // Pause agent
-  router.post('/:id/pause', async (c) => {
-    const owner = c.req.header('x-jeju-address') as Address
-    const agent = registry.getAgent(c.req.param('id'))
+        const instances = getExecutor().getAgentInstances(agent.id)
+        const stats = registry.getAgentStats(agent.id)
 
-    if (!agent) {
-      return c.json({ error: 'Agent not found' }, 404)
-    }
-    if (agent.owner.toLowerCase() !== owner?.toLowerCase()) {
-      return c.json({ error: 'Not authorized' }, 403)
-    }
+        return {
+          ...agent,
+          instances: instances.map((i) => ({
+            instanceId: i.instanceId,
+            status: i.status,
+            activeInvocations: i.activeInvocations,
+            totalInvocations: i.totalInvocations,
+            startedAt: i.startedAt,
+            lastActivityAt: i.lastActivityAt,
+          })),
+          stats,
+        }
+      })
 
-    await registry.updateAgentStatus(agent.id, 'paused')
-    return c.json({ status: 'paused' })
-  })
+      // Update agent
+      .put(
+        '/:id',
+        async ({ params, body, request, set }) => {
+          const owner = request.headers.get('x-jeju-address') as Address
+          if (!owner) {
+            set.status = 401
+            return { error: 'Missing x-jeju-address header' }
+          }
 
-  // Resume agent
-  router.post('/:id/resume', async (c) => {
-    const owner = c.req.header('x-jeju-address') as Address
-    const agent = registry.getAgent(c.req.param('id'))
+          const typedBody = body as UpdateAgentRequest
 
-    if (!agent) {
-      return c.json({ error: 'Agent not found' }, 404)
-    }
-    if (agent.owner.toLowerCase() !== owner?.toLowerCase()) {
-      return c.json({ error: 'Not authorized' }, 403)
-    }
+          try {
+            const agent = await registry.updateAgent(
+              params.id,
+              owner,
+              typedBody,
+            )
+            if (!agent) {
+              set.status = 404
+              return { error: 'Agent not found' }
+            }
 
-    await registry.updateAgentStatus(agent.id, 'active')
-    return c.json({ status: 'active' })
-  })
+            return {
+              id: agent.id,
+              name: agent.character.name,
+              status: agent.status,
+              updatedAt: agent.updatedAt,
+            }
+          } catch (e) {
+            const message = e instanceof Error ? e.message : 'Update failed'
+            set.status = 403
+            return { error: message }
+          }
+        },
+        {
+          body: t.Object({}),
+        },
+      )
 
-  // Deploy/redeploy agent
-  router.post('/:id/deploy', async (c) => {
-    const owner = c.req.header('x-jeju-address') as Address
-    const agent = registry.getAgent(c.req.param('id'))
+      // Terminate agent
+      .delete('/:id', async ({ params, request, set }) => {
+        const owner = request.headers.get('x-jeju-address') as Address
+        if (!owner) {
+          set.status = 401
+          return { error: 'Missing x-jeju-address header' }
+        }
 
-    if (!agent) {
-      return c.json({ error: 'Agent not found' }, 404)
-    }
-    if (agent.owner.toLowerCase() !== owner?.toLowerCase()) {
-      return c.json({ error: 'Not authorized' }, 403)
-    }
+        try {
+          // Undeploy first
+          await getExecutor().undeployAgent(params.id)
 
-    try {
-      await getExecutor().deployAgent(agent.id)
-      return c.json({ status: 'deployed' })
-    } catch (e) {
-      const message = e instanceof Error ? e.message : 'Deployment failed'
-      return c.json({ error: message }, 500)
-    }
-  })
+          const success = await registry.terminateAgent(params.id, owner)
+          if (!success) {
+            set.status = 404
+            return { error: 'Agent not found' }
+          }
 
-  // ============================================================================
-  // Cron Triggers
-  // ============================================================================
+          return { success: true }
+        } catch (e) {
+          const message = e instanceof Error ? e.message : 'Termination failed'
+          set.status = 403
+          return { error: message }
+        }
+      })
 
-  // List cron triggers
-  router.get('/:id/cron', (c) => {
-    const triggers = registry.getCronTriggers(c.req.param('id'))
-    return c.json({ triggers })
-  })
+      // ============================================================================
+      // Agent Chat
+      // ============================================================================
 
-  // Add cron trigger
-  router.post('/:id/cron', async (c) => {
-    const owner = c.req.header('x-jeju-address') as Address
-    const agent = registry.getAgent(c.req.param('id'))
+      .post(
+        '/:id/chat',
+        async ({ params, body, set }) => {
+          const agentId = params.id
+          const typedBody = body as ChatRequest
 
-    if (!agent) {
-      return c.json({ error: 'Agent not found' }, 404)
-    }
-    if (agent.owner.toLowerCase() !== owner?.toLowerCase()) {
-      return c.json({ error: 'Not authorized' }, 403)
-    }
+          if (!typedBody.text) {
+            set.status = 400
+            return { error: 'Missing text field' }
+          }
 
-    const body = await c.req.json<{
-      schedule: string
-      action?: 'think' | 'post' | 'check' | 'custom'
-      payload?: Record<string, unknown>
-    }>()
+          const message: AgentMessage = {
+            id: crypto.randomUUID(),
+            userId: typedBody.userId ?? 'anonymous',
+            roomId: typedBody.roomId ?? 'default',
+            content: {
+              text: typedBody.text,
+              source: typedBody.source ?? 'api',
+            },
+            createdAt: Date.now(),
+          }
 
-    if (!body.schedule) {
-      return c.json({ error: 'Schedule required' }, 400)
-    }
+          try {
+            const response = await getExecutor().invokeAgent(agentId, message)
 
-    const trigger = await registry.addCronTrigger(
-      agent.id,
-      body.schedule,
-      body.action ?? 'think',
-      body.payload,
-    )
+            return {
+              id: response.id,
+              text: response.text,
+              actions: response.actions,
+              metadata: response.metadata,
+            }
+          } catch (e) {
+            const errorMessage = e instanceof Error ? e.message : 'Chat failed'
+            set.status = 500
+            return { error: errorMessage }
+          }
+        },
+        {
+          body: t.Object({
+            text: t.String(),
+            userId: t.Optional(t.String()),
+            roomId: t.Optional(t.String()),
+            source: t.Optional(t.String()),
+          }),
+        },
+      )
 
-    return c.json(trigger, 201)
-  })
+      // ============================================================================
+      // Agent Control
+      // ============================================================================
 
-  // ============================================================================
-  // Memories
-  // ============================================================================
+      // Pause agent
+      .post('/:id/pause', async ({ params, request, set }) => {
+        const owner = request.headers.get('x-jeju-address') as Address
+        const agent = registry.getAgent(params.id)
 
-  router.get('/:id/memories', async (c) => {
-    const agentId = c.req.param('id')
-    const agent = registry.getAgent(agentId)
+        if (!agent) {
+          set.status = 404
+          return { error: 'Agent not found' }
+        }
+        if (agent.owner.toLowerCase() !== owner?.toLowerCase()) {
+          set.status = 403
+          return { error: 'Not authorized' }
+        }
 
-    if (!agent) {
-      return c.json({ error: 'Agent not found' }, 404)
-    }
+        await registry.updateAgentStatus(agent.id, 'paused')
+        return { status: 'paused' }
+      })
 
-    // TODO: Query CQL for memories
-    return c.json({
-      memories: [],
-      message: 'Memory retrieval not yet implemented',
-    })
-  })
+      // Resume agent
+      .post('/:id/resume', async ({ params, request, set }) => {
+        const owner = request.headers.get('x-jeju-address') as Address
+        const agent = registry.getAgent(params.id)
 
-  // ============================================================================
-  // Stats
-  // ============================================================================
+        if (!agent) {
+          set.status = 404
+          return { error: 'Agent not found' }
+        }
+        if (agent.owner.toLowerCase() !== owner?.toLowerCase()) {
+          set.status = 403
+          return { error: 'Not authorized' }
+        }
 
-  router.get('/:id/stats', (c) => {
-    const stats = registry.getAgentStats(c.req.param('id'))
-    if (!stats) {
-      return c.json({ error: 'Agent not found' }, 404)
-    }
+        await registry.updateAgentStatus(agent.id, 'active')
+        return { status: 'active' }
+      })
 
-    const instances = getExecutor().getAgentInstances(c.req.param('id'))
-    stats.activeInstances = instances.filter(
-      (i) => i.status === 'ready' || i.status === 'busy',
-    ).length
+      // Deploy/redeploy agent
+      .post('/:id/deploy', async ({ params, request, set }) => {
+        const owner = request.headers.get('x-jeju-address') as Address
+        const agent = registry.getAgent(params.id)
 
-    return c.json(stats)
-  })
+        if (!agent) {
+          set.status = 404
+          return { error: 'Agent not found' }
+        }
+        if (agent.owner.toLowerCase() !== owner?.toLowerCase()) {
+          set.status = 403
+          return { error: 'Not authorized' }
+        }
 
-  return router
+        try {
+          await getExecutor().deployAgent(agent.id)
+          return { status: 'deployed' }
+        } catch (e) {
+          const message = e instanceof Error ? e.message : 'Deployment failed'
+          set.status = 500
+          return { error: message }
+        }
+      })
+
+      // ============================================================================
+      // Cron Triggers
+      // ============================================================================
+
+      // List cron triggers
+      .get('/:id/cron', ({ params }) => {
+        const triggers = registry.getCronTriggers(params.id)
+        return { triggers }
+      })
+
+      // Add cron trigger
+      .post(
+        '/:id/cron',
+        async ({ params, body, request, set }) => {
+          const owner = request.headers.get('x-jeju-address') as Address
+          const agent = registry.getAgent(params.id)
+
+          if (!agent) {
+            set.status = 404
+            return { error: 'Agent not found' }
+          }
+          if (agent.owner.toLowerCase() !== owner?.toLowerCase()) {
+            set.status = 403
+            return { error: 'Not authorized' }
+          }
+
+          const typedBody = body as {
+            schedule: string
+            action?: 'think' | 'post' | 'check' | 'custom'
+            payload?: Record<string, unknown>
+          }
+
+          if (!typedBody.schedule) {
+            set.status = 400
+            return { error: 'Schedule required' }
+          }
+
+          const trigger = await registry.addCronTrigger(
+            agent.id,
+            typedBody.schedule,
+            typedBody.action ?? 'think',
+            typedBody.payload,
+          )
+
+          set.status = 201
+          return trigger
+        },
+        {
+          body: t.Object({
+            schedule: t.String(),
+            action: t.Optional(
+              t.Union([
+                t.Literal('think'),
+                t.Literal('post'),
+                t.Literal('check'),
+                t.Literal('custom'),
+              ]),
+            ),
+            payload: t.Optional(t.Record(t.String(), t.Unknown())),
+          }),
+        },
+      )
+
+      // ============================================================================
+      // Memories
+      // ============================================================================
+
+      .get('/:id/memories', async ({ params, set }) => {
+        const agentId = params.id
+        const agent = registry.getAgent(agentId)
+
+        if (!agent) {
+          set.status = 404
+          return { error: 'Agent not found' }
+        }
+
+        // TODO: Query CQL for memories
+        return {
+          memories: [],
+          message: 'Memory retrieval not yet implemented',
+        }
+      })
+
+      // ============================================================================
+      // Stats
+      // ============================================================================
+
+      .get('/:id/stats', ({ params, set }) => {
+        const stats = registry.getAgentStats(params.id)
+        if (!stats) {
+          set.status = 404
+          return { error: 'Agent not found' }
+        }
+
+        const instances = getExecutor().getAgentInstances(params.id)
+        stats.activeInstances = instances.filter(
+          (i) => i.status === 'ready' || i.status === 'busy',
+        ).length
+
+        return stats
+      })
+  )
 }

@@ -57,7 +57,7 @@ impl Service for StorageService {
         ServiceRequirements {
             min_cpu_cores: 4,
             min_memory_mb: 8 * 1024, // 8 GB
-            min_storage_gb: 1000, // 1 TB
+            min_storage_gb: 1000,    // 1 TB
             requires_gpu: false,
             min_gpu_memory_mb: None,
             requires_tee: false,
@@ -99,7 +99,7 @@ impl Service for StorageService {
                         // 2. Listen for pin requests
                         // 3. Serve retrieval requests
                         // 4. Handle storage deals
-                        
+
                         if !running.load(Ordering::SeqCst) {
                             break;
                         }
@@ -159,4 +159,3 @@ impl Service for StorageService {
         self.running.load(Ordering::SeqCst)
     }
 }
-

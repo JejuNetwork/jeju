@@ -9,7 +9,7 @@ import {
   getChainConfig,
   getEVMChains,
   getHomeChain,
-  getSVMChains,
+  getSolanaChains,
   MAINNET_CHAINS,
   TESTNET_CHAINS,
   validateChainConfig,
@@ -192,9 +192,9 @@ describe('getEVMChains - Filtering', () => {
   })
 })
 
-describe('getSVMChains - Filtering (deprecated, use getSolanaChains)', () => {
+describe('getSolanaChains - Filtering', () => {
   test('mainnetOnly=true returns only mainnet Solana chains', () => {
-    const chains = getSVMChains(true)
+    const chains = getSolanaChains(true)
     for (const chain of chains) {
       expect(chain.chainType).toBe('solana')
       expect(MAINNET_CHAINS).toContain(chain)
@@ -202,7 +202,7 @@ describe('getSVMChains - Filtering (deprecated, use getSolanaChains)', () => {
   })
 
   test('mainnetOnly=false returns all Solana chains', () => {
-    const chains = getSVMChains(false)
+    const chains = getSolanaChains(false)
     const allSolanaCount = ALL_CHAINS.filter(
       (c) => c.chainType === 'solana',
     ).length
@@ -210,7 +210,7 @@ describe('getSVMChains - Filtering (deprecated, use getSolanaChains)', () => {
   })
 
   test('includes both mainnet and devnet Solana', () => {
-    const allSolanaChains = getSVMChains(false)
+    const allSolanaChains = getSolanaChains(false)
     const chainIds = allSolanaChains.map((c) => c.chainId)
     expect(chainIds).toContain('solana-mainnet')
     expect(chainIds).toContain('solana-devnet')

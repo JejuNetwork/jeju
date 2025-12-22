@@ -92,7 +92,6 @@ export interface ContractAddresses {
   // Tokens
   weth: string | null
   usdc: string | null
-  elizaOS: string | null
   jeju: string | null
 
   // OTC
@@ -207,7 +206,7 @@ export function getNetworkFromEnv(): NetworkType {
 }
 
 interface NetworkDeployment {
-  tokens?: { weth?: string; usdc?: string; elizaOS?: string; jeju?: string }
+  tokens?: { weth?: string; usdc?: string; jeju?: string }
   infrastructure?: {
     entryPoint?: string
     priceOracle?: string
@@ -272,7 +271,6 @@ interface IdentitySystemDeployment {
   creditManager?: string
   cloudReputationProvider?: string
   usdc?: string
-  elizaOS?: string
   jeju?: string
 }
 
@@ -290,14 +288,11 @@ interface MultiTokenSystemDeployment {
   vault?: string
   distributor?: string
   paymaster?: string
-  elizaOS?: string
-  CLANKER?: string
-  VIRTUAL?: string
-  CLANKERMON?: string
+  jeju?: string
 }
 
 interface PredimarketDeployment {
-  elizaOSToken?: string
+  jejuToken?: string
   predictionOracle?: string
   predimarket?: string
   marketFactory?: string
@@ -373,7 +368,6 @@ export function loadNetworkConfig(network?: NetworkType): NetworkConfig {
     contest: null,
     weth: '0x4200000000000000000000000000000000000006', // Standard OP Stack WETH
     usdc: null,
-    elizaOS: null,
     jeju: null,
     otc: null,
   }
@@ -458,7 +452,6 @@ export function loadNetworkConfig(network?: NetworkType): NetworkConfig {
     // Tokens
     contracts.weth = mainDeployment.tokens?.weth || contracts.weth
     contracts.usdc = mainDeployment.tokens?.usdc || null
-    contracts.elizaOS = mainDeployment.tokens?.elizaOS || null
     contracts.jeju = mainDeployment.tokens?.jeju || null
   }
 
@@ -481,7 +474,6 @@ export function loadNetworkConfig(network?: NetworkType): NetworkConfig {
       contracts.creditManager =
         identitySystem.creditManager || contracts.creditManager
       contracts.usdc = identitySystem.usdc || contracts.usdc
-      contracts.elizaOS = identitySystem.elizaOS || contracts.elizaOS
       contracts.jeju = identitySystem.jeju || contracts.jeju
     }
 
@@ -502,7 +494,6 @@ export function loadNetworkConfig(network?: NetworkType): NetworkConfig {
       contracts.creditManager =
         localnetAddresses.creditManager || contracts.creditManager
       contracts.usdc = localnetAddresses.usdc || contracts.usdc
-      contracts.elizaOS = localnetAddresses.elizaOS || contracts.elizaOS
       contracts.jeju = localnetAddresses.jeju || contracts.jeju
     }
 
@@ -539,7 +530,7 @@ export function loadNetworkConfig(network?: NetworkType): NetworkConfig {
 
     // Liquidity system (localnet subfolder)
     interface LiquiditySystemDeployment {
-      elizaOS?: string
+      jeju?: string
       entryPoint?: string
       feeDistributor?: string
       identityRegistry?: string
@@ -555,7 +546,7 @@ export function loadNetworkConfig(network?: NetworkType): NetworkConfig {
       'liquidity-system.json',
     )
     if (liquiditySystem) {
-      contracts.elizaOS = liquiditySystem.elizaOS || contracts.elizaOS
+      contracts.jeju = liquiditySystem.jeju || contracts.jeju
       contracts.entryPoint = liquiditySystem.entryPoint || contracts.entryPoint
       contracts.feeDistributor =
         liquiditySystem.feeDistributor || contracts.feeDistributor
@@ -576,23 +567,12 @@ export function loadNetworkConfig(network?: NetworkType): NetworkConfig {
     // Multi-token system (localnet subfolder)
     interface LocalnetMultiTokenDeployment {
       clanker_distributor?: string
-      clanker_paymaster?: string
-      clanker_token?: string
-      clanker_vault?: string
-      clankermon_distributor?: string
-      clankermon_paymaster?: string
-      clankermon_token?: string
-      clankermon_vault?: string
-      elizaOS_distributor?: string
-      elizaOS_paymaster?: string
-      elizaOS_token?: string
-      elizaOS_vault?: string
+      jeju_distributor?: string
+      jeju_paymaster?: string
+      jeju_token?: string
+      jeju_vault?: string
       entryPoint?: string
       oracle?: string
-      virtual_distributor?: string
-      virtual_paymaster?: string
-      virtual_token?: string
-      virtual_vault?: string
     }
     const localnetMultiToken =
       loadNetworkDeployment<LocalnetMultiTokenDeployment>(
@@ -604,8 +584,7 @@ export function loadNetworkConfig(network?: NetworkType): NetworkConfig {
       contracts.entryPoint =
         localnetMultiToken.entryPoint || contracts.entryPoint
       contracts.priceOracle = localnetMultiToken.oracle || contracts.priceOracle
-      contracts.elizaOS = localnetMultiToken.elizaOS_token || contracts.elizaOS
-      // Store multi-token paymasters in a map for reference
+      contracts.jeju = localnetMultiToken.jeju_token || contracts.jeju
     }
 
     // Multi-token system (root level - 1337 chain)
@@ -621,7 +600,7 @@ export function loadNetworkConfig(network?: NetworkType): NetworkConfig {
         multiTokenSystem.distributor || contracts.feeDistributor
       contracts.liquidityPaymaster =
         multiTokenSystem.paymaster || contracts.liquidityPaymaster
-      contracts.elizaOS = multiTokenSystem.elizaOS || contracts.elizaOS
+      contracts.jeju = multiTokenSystem.jeju || contracts.jeju
     }
 
     // Predimarket
@@ -633,7 +612,7 @@ export function loadNetworkConfig(network?: NetworkType): NetworkConfig {
       contracts.predimarket = predimarket.predimarket || contracts.predimarket
       contracts.predictionOracle =
         predimarket.predictionOracle || contracts.predictionOracle
-      contracts.elizaOS = predimarket.elizaOSToken || contracts.elizaOS
+      contracts.jeju = predimarket.jejuToken || contracts.jeju
     }
 
     // Bazaar
@@ -749,7 +728,3 @@ export function getNetworkConfig(): NetworkConfig {
   }
   return _networkConfig
 }
-
-export type { ContractInfo } from './contract-events'
-// Re-export for convenience
-export { getContractInfo, registerContract } from './contract-events'

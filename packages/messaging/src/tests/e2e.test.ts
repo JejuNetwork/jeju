@@ -242,10 +242,12 @@ describe('Relay Server', () => {
 
     // Verify we can decrypt
     const receivedEnvelope = result.messages.find((m) => m.id === envelope.id)
-    expect(receivedEnvelope).toBeDefined()
+    if (!receivedEnvelope) {
+      throw new Error('Expected to find envelope in messages')
+    }
 
     const encryptedData = deserializeEncryptedMessage(
-      receivedEnvelope?.encryptedContent,
+      receivedEnvelope.encryptedContent,
     )
     const decrypted = decryptMessageToString(encryptedData, bob.privateKey)
     expect(decrypted).toBe(message)
@@ -331,13 +333,13 @@ describe('E2E Flow', () => {
 
     // Find our message
     const received = messages.find((m) => m.id === envelope.id)
-    expect(received).toBeDefined()
-    expect(received?.from).toBe(aliceAddress)
+    if (!received) {
+      throw new Error('Expected to find envelope in messages')
+    }
+    expect(received.from).toBe(aliceAddress)
 
     // Bob decrypts
-    const encryptedData = deserializeEncryptedMessage(
-      received?.encryptedContent,
-    )
+    const encryptedData = deserializeEncryptedMessage(received.encryptedContent)
     const decrypted = decryptMessageToString(encryptedData, bob.privateKey)
 
     expect(decrypted).toBe(originalMessage)

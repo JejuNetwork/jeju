@@ -18,9 +18,7 @@ const RPC_URL = process.env.RPC_URL || 'http://localhost:6546'
 function GraphQLResponseSchema<T extends z.ZodTypeAny>(dataSchema: T) {
   return z.object({
     data: dataSchema.optional(),
-    errors: z
-      .array(z.object({ message: z.string() }))
-      .optional(),
+    errors: z.array(z.object({ message: z.string() })).optional(),
   })
 }
 
@@ -46,7 +44,9 @@ async function graphqlQuery<T>(
   const parsed = schema.safeParse(json)
 
   if (!parsed.success) {
-    throw new Error(`Invalid GraphQL response: ${parsed.error.issues[0]?.message}`)
+    throw new Error(
+      `Invalid GraphQL response: ${parsed.error.issues[0]?.message}`,
+    )
   }
   if (parsed.data.errors?.length) {
     throw new Error(parsed.data.errors[0].message)
@@ -86,22 +86,26 @@ async function rpcCall<T>(
 // ============================================================================
 
 const BlocksSchema = z.object({
-  blocks: z.array(z.object({
-    number: z.number(),
-    hash: z.string().optional(),
-    parentHash: z.string().optional(),
-    transactionCount: z.number().optional(),
-  })),
+  blocks: z.array(
+    z.object({
+      number: z.number(),
+      hash: z.string().optional(),
+      parentHash: z.string().optional(),
+      transactionCount: z.number().optional(),
+    }),
+  ),
 })
 
 const TransactionsSchema = z.object({
-  transactions: z.array(z.object({
-    hash: z.string(),
-    from: z.object({ address: z.string() }),
-    to: z.object({ address: z.string() }).optional().nullable(),
-    value: z.string().optional(),
-    nonce: z.number().optional(),
-  })),
+  transactions: z.array(
+    z.object({
+      hash: z.string(),
+      from: z.object({ address: z.string() }),
+      to: z.object({ address: z.string() }).optional().nullable(),
+      value: z.string().optional(),
+      nonce: z.number().optional(),
+    }),
+  ),
 })
 
 const AccountsSchema = z.object({
@@ -113,39 +117,47 @@ const AccountsConnectionSchema = z.object({
 })
 
 const ContractsSchema = z.object({
-  contracts: z.array(z.object({
-    address: z.string(),
-    isERC20: z.boolean(),
-    isERC721: z.boolean(),
-  })),
+  contracts: z.array(
+    z.object({
+      address: z.string(),
+      isERC20: z.boolean(),
+      isERC721: z.boolean(),
+    }),
+  ),
 })
 
 const TokenTransfersSchema = z.object({
-  tokenTransfers: z.array(z.object({
-    from: z.object({ address: z.string() }),
-    to: z.object({ address: z.string() }),
-    token: z.object({ address: z.string() }),
-    value: z.string(),
-    tokenStandard: z.string(),
-  })),
+  tokenTransfers: z.array(
+    z.object({
+      from: z.object({ address: z.string() }),
+      to: z.object({ address: z.string() }),
+      token: z.object({ address: z.string() }),
+      value: z.string(),
+      tokenStandard: z.string(),
+    }),
+  ),
 })
 
 const DecodedEventsSchema = z.object({
-  decodedEvents: z.array(z.object({
-    eventName: z.string(),
-    eventSignature: z.string(),
-    args: z.record(z.string(), z.string()),
-  })),
+  decodedEvents: z.array(
+    z.object({
+      eventName: z.string(),
+      eventSignature: z.string(),
+      args: z.record(z.string(), z.string()),
+    }),
+  ),
 })
 
 const LogsSchema = z.object({
-  logs: z.array(z.object({
-    transaction: z.object({ hash: z.string() }),
-    logIndex: z.number(),
-    address: z.object({ address: z.string() }),
-    topic0: z.string().nullable(),
-    data: z.string(),
-  })),
+  logs: z.array(
+    z.object({
+      transaction: z.object({ hash: z.string() }),
+      logIndex: z.number(),
+      address: z.object({ address: z.string() }),
+      topic0: z.string().nullable(),
+      data: z.string(),
+    }),
+  ),
 })
 
 const RpcStringResultSchema = z.string()
@@ -163,12 +175,14 @@ const RpcTxSchema = z.object({
 })
 
 const RpcReceiptSchema = z.object({
-  logs: z.array(z.object({
-    logIndex: z.string(),
-    address: z.string(),
-    topics: z.array(z.string()),
-    data: z.string(),
-  })),
+  logs: z.array(
+    z.object({
+      logIndex: z.string(),
+      address: z.string(),
+      topics: z.array(z.string()),
+      data: z.string(),
+    }),
+  ),
 })
 
 describe('Block Count Validation', () => {

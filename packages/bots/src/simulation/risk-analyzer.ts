@@ -1,13 +1,5 @@
 /**
- * Risk Analysis Module
- *
- * Calculates comprehensive risk metrics for strategy evaluation:
- * - Value at Risk (VaR)
- * - Conditional VaR / Expected Shortfall
- * - Drawdown analysis
- * - Sharpe, Sortino, Calmar ratios
- *
- * Uses simple-statistics for reliable statistical calculations.
+ * Risk Analyzer
  */
 
 import { mean, quantile, standardDeviation } from 'simple-statistics'
@@ -38,46 +30,32 @@ export class RiskAnalyzer {
    */
   calculateMetrics(snapshots: PortfolioSnapshot[]): RiskMetrics {
     const returns = this.calculateReturns(snapshots)
-    const annualizationFactor = Math.sqrt(365) // Assuming daily data
+    const annualizationFactor = Math.sqrt(365)
 
-    // Basic statistics using simple-statistics
     const meanReturn = returns.length > 0 ? mean(returns) : 0
     const stdDev = returns.length >= 2 ? standardDeviation(returns) : 0
     const annualizedMean = meanReturn * 365
     const annualizedStdDev = stdDev * annualizationFactor
 
-    // Value at Risk using quantile function
     const var95 = returns.length > 0 ? -quantile(returns, 0.05) : 0
     const var99 = returns.length > 0 ? -quantile(returns, 0.01) : 0
-
-    // Conditional VaR (Expected Shortfall)
     const cvar95 = this.calculateCVaR(returns, 0.95)
-
-    // Drawdown
     const maxDrawdown = this.calculateMaxDrawdown(snapshots)
-
-    // Risk-adjusted returns
     const dailyRiskFree = this.riskFreeRate / 365
 
-    // Validate we have enough data for meaningful statistics
     if (stdDev === 0) {
-      throw new Error(
-        'Insufficient variance in returns data - cannot calculate risk metrics',
-      )
+      throw new Error('Insufficient variance in returns data')
     }
 
     const sharpeRatio =
       ((meanReturn - dailyRiskFree) / stdDev) * annualizationFactor
 
-    // Sortino ratio (downside deviation only)
     const negativeReturns = returns.filter((r) => r < 0)
     const downsideDeviation =
-      negativeReturns.length >= 2 ? standardDeviation(negativeReturns) : stdDev // Use total volatility if no downside moves
+      negativeReturns.length >= 2 ? standardDeviation(negativeReturns) : stdDev
     const sortinoRatio =
       ((meanReturn - dailyRiskFree) / downsideDeviation) * annualizationFactor
 
-    // Calmar ratio (return / max drawdown)
-    // If no drawdown, return Infinity to indicate perfect performance
     const calmarRatio =
       maxDrawdown > 0 ? annualizedMean / maxDrawdown : Infinity
 
@@ -94,9 +72,6 @@ export class RiskAnalyzer {
     }
   }
 
-  /**
-   * Analyze drawdowns in detail
-   */
   analyzeDrawdowns(snapshots: PortfolioSnapshot[]): DrawdownAnalysis {
     const drawdownPeriods: DrawdownAnalysis['drawdownPeriods'] = []
     let peak = snapshots[0].valueUsd
@@ -110,9 +85,7 @@ export class RiskAnalyzer {
       const value = snapshots[i].valueUsd
 
       if (value > peak) {
-        // New peak
         if (inDrawdown) {
-          // Record completed drawdown
           const duration = i - drawdownStart
           drawdownPeriods.push({
             start: snapshots[drawdownStart].date,

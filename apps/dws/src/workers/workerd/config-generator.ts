@@ -11,10 +11,8 @@ import type { WorkerdConfig, WorkerdWorkerDefinition } from './types'
 export function generateWorkerConfig(
   worker: WorkerdWorkerDefinition,
   port: number,
-  _config: WorkerdConfig,
 ): string {
   const workerName = sanitizeName(worker.name)
-  const _mainModuleName = worker.mainModule || 'worker.js'
 
   // Generate modules section
   const modules = worker.modules

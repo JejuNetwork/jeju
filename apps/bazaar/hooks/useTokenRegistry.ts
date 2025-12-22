@@ -1,5 +1,3 @@
-'use client'
-
 /**
  * Token Registry Hook
  * Re-exports from @jejunetwork/ui with bazaar-specific config

@@ -16,41 +16,40 @@ This package provides training infrastructure for Jeju agents:
 __version__ = "3.1.0"
 
 # Import and re-export main components
-from .models import (
-    BabylonTrajectory,
-    MarketOutcomes,
-    WindowStatistics,
-    TrainingBatchSummary,
-    AtroposScoredGroup,
-    JudgeResponse,
-)
-
 from .data_bridge import (
-    PostgresTrajectoryReader,
     BabylonToAtroposConverter,
+    PostgresTrajectoryReader,
     ScoredGroupResult,
     calculate_dropout_rate,
+)
+from .models import (
+    AtroposScoredGroup,
+    BabylonTrajectory,
+    JudgeResponse,
+    MarketOutcomes,
+    TrainingBatchSummary,
+    WindowStatistics,
 )
 
 # Import non-torch training components directly
 from .training import (
-    # Reward functions
-    pnl_reward,
-    composite_reward,
-    RewardNormalizer,
-    # Quality utilities
-    calculate_tick_quality_score,
-    calculate_trajectory_quality_score,
+    CallPurpose,
     # Multi-prompt dataset
     MultiPromptDatasetBuilder,
     PromptDataset,
     PromptSample,
+    RewardNormalizer,
     # Tick reward attribution
     TickRewardAttributor,
-    CallPurpose,
+    # Quality utilities
+    calculate_tick_quality_score,
+    calculate_trajectory_quality_score,
+    composite_reward,
+    get_available_archetypes,
     # Archetype utilities (no torch)
     get_rubric,
-    get_available_archetypes,
+    # Reward functions
+    pnl_reward,
 )
 
 
@@ -63,9 +62,10 @@ def __getattr__(name: str):
         "AtroposTrainingConfig",
     ):
         from .training.atropos_trainer import (
-            BabylonAtroposTrainer,
             AtroposTrainingConfig,
+            BabylonAtroposTrainer,
         )
+
         return locals()[name]
 
     if name in (
@@ -73,9 +73,10 @@ def __getattr__(name: str):
         "BabylonEnvConfig",
     ):
         from .training.babylon_env import (
-            BabylonRLAIFEnv,
             BabylonEnvConfig,
+            BabylonRLAIFEnv,
         )
+
         return locals()[name]
 
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
@@ -89,37 +90,30 @@ __all__ = [
     "TrainingBatchSummary",
     "AtroposScoredGroup",
     "JudgeResponse",
-
     # Data Bridge
     "PostgresTrajectoryReader",
     "BabylonToAtroposConverter",
     "ScoredGroupResult",
     "calculate_dropout_rate",
-
     # Atropos Training (lazy - requires torch)
     "BabylonAtroposTrainer",
     "AtroposTrainingConfig",
     "BabylonRLAIFEnv",
     "BabylonEnvConfig",
-
     # Rewards (no torch)
     "pnl_reward",
     "composite_reward",
     "RewardNormalizer",
-
     # Quality utilities (no torch)
     "calculate_tick_quality_score",
     "calculate_trajectory_quality_score",
-
     # Multi-prompt dataset (no torch)
     "MultiPromptDatasetBuilder",
     "PromptDataset",
     "PromptSample",
-
     # Tick reward (no torch)
     "TickRewardAttributor",
     "CallPurpose",
-
     # Archetype utilities (no torch)
     "get_rubric",
     "get_available_archetypes",

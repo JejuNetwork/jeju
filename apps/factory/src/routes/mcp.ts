@@ -204,17 +204,6 @@ const PROMPTS = [
   },
 ]
 
-const _ALLOWED_ENDPOINTS = new Set([
-  'initialize',
-  'info',
-  'resources/list',
-  'resources/read',
-  'tools/list',
-  'tools/call',
-  'prompts/list',
-  'prompts/get',
-])
-
 function handleResourceRead(
   uri: string,
 ): { contents: Array<{ uri: string; mimeType: string; text: string }> } | null {

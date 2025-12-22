@@ -6,6 +6,17 @@
  */
 
 import { expect, test } from '@playwright/test'
+import {
+  cdnStatsResponseSchema,
+  decryptResponseSchema,
+  encryptResponseSchema,
+  healthResponseSchema,
+  jobStatusResponseSchema,
+  rpcChainsResponseSchema,
+  submitJobResponseSchema,
+  uploadResponseSchema,
+  validateResponse,
+} from './api-schemas'
 
 const dwsUrl = process.env.DWS_URL || 'http://127.0.0.1:4030'
 const frontendUrl = process.env.BASE_URL || 'http://127.0.0.1:4033'
@@ -15,10 +26,14 @@ const testWallet = {
     '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
 }
 
-// Helper to make API requests to DWS backend
-async function dwsRequest(path: string, options?: RequestInit) {
+// Helper to make validated API requests to DWS backend
+async function dwsRequest<T>(
+  path: string,
+  options?: RequestInit,
+): Promise<{ response: Response; data: T }> {
   const response = await fetch(`${dwsUrl}${path}`, options)
-  return response
+  const data = (await response.json()) as T
+  return { response, data }
 }
 
 test.describe('DWS E2E - Service Health', () => {
@@ -27,13 +42,10 @@ test.describe('DWS E2E - Service Health', () => {
   })
 
   test('DWS backend is healthy', async () => {
-    const res = await dwsRequest('/health')
-    expect(res.status).toBe(200)
+    const { response, data } = await dwsRequest('/health')
+    expect(response.status).toBe(200)
 
-    const health = (await res.json()) as {
-      status: string
-      services: Record<string, { status: string }>
-    }
+    const health = validateResponse(data, healthResponseSchema, '/health')
     expect(health.status).toBe('healthy')
   })
 
@@ -56,15 +68,15 @@ test.describe('DWS E2E - Service Health', () => {
 
 test.describe('DWS E2E - Storage Service', () => {
   test('storage health endpoint works', async () => {
-    const res = await dwsRequest('/storage/health')
-    expect(res.status).toBe(200)
+    const { response } = await dwsRequest('/storage/health')
+    expect(response.status).toBe(200)
   })
 
   test('can upload and download file via API', async () => {
     const testData = `E2E test data ${Date.now()}`
 
     // Upload
-    const uploadRes = await dwsRequest('/storage/upload/raw', {
+    const uploadRes = await fetch(`${dwsUrl}/storage/upload/raw`, {
       method: 'POST',
       headers: {
         'Content-Type': 'text/plain',
@@ -75,11 +87,13 @@ test.describe('DWS E2E - Storage Service', () => {
     })
     expect(uploadRes.status).toBe(200)
 
-    const { cid } = (await uploadRes.json()) as { cid: string }
+    const uploadData = await uploadRes.json()
+    const { cid } = validateResponse(uploadData, uploadResponseSchema, 'upload')
     expect(cid).toBeDefined()
+    expect(cid.length).toBeGreaterThan(0)
 
     // Download
-    const downloadRes = await dwsRequest(`/storage/download/${cid}`)
+    const downloadRes = await fetch(`${dwsUrl}/storage/download/${cid}`)
     expect(downloadRes.status).toBe(200)
     expect(await downloadRes.text()).toBe(testData)
   })
@@ -93,12 +107,12 @@ test.describe('DWS E2E - Storage Service', () => {
 
 test.describe('DWS E2E - Compute Service', () => {
   test('compute health endpoint works', async () => {
-    const res = await dwsRequest('/compute/health')
-    expect(res.status).toBe(200)
+    const { response } = await dwsRequest('/compute/health')
+    expect(response.status).toBe(200)
   })
 
   test('can submit and complete a job', async () => {
-    const submitRes = await dwsRequest('/compute/jobs', {
+    const submitRes = await fetch(`${dwsUrl}/compute/jobs`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -108,7 +122,12 @@ test.describe('DWS E2E - Compute Service', () => {
     })
     expect(submitRes.status).toBe(201)
 
-    const { jobId } = (await submitRes.json()) as { jobId: string }
+    const submitData = await submitRes.json()
+    const { jobId } = validateResponse(
+      submitData,
+      submitJobResponseSchema,
+      'submit job',
+    )
     expect(jobId).toBeDefined()
 
     // Poll for completion
@@ -118,13 +137,15 @@ test.describe('DWS E2E - Compute Service', () => {
 
     while (status !== 'completed' && status !== 'failed' && attempts < 30) {
       await new Promise((r) => setTimeout(r, 200))
-      const statusRes = await dwsRequest(`/compute/jobs/${jobId}`)
-      const body = (await statusRes.json()) as {
-        status: string
-        output?: string
-      }
-      status = body.status
-      output = body.output ?? ''
+      const statusRes = await fetch(`${dwsUrl}/compute/jobs/${jobId}`)
+      const statusData = await statusRes.json()
+      const job = validateResponse(
+        statusData,
+        jobStatusResponseSchema,
+        'job status',
+      )
+      status = job.status
+      output = job.output ?? ''
       attempts++
     }
 
@@ -153,16 +174,16 @@ test.describe('DWS E2E - Compute Service', () => {
 
 test.describe('DWS E2E - CDN Service', () => {
   test('CDN health endpoint works', async () => {
-    const res = await dwsRequest('/cdn/health')
-    expect(res.status).toBe(200)
+    const { response } = await dwsRequest('/cdn/health')
+    expect(response.status).toBe(200)
   })
 
   test('can get cache stats', async () => {
-    const res = await dwsRequest('/cdn/stats')
-    expect(res.status).toBe(200)
+    const { response, data } = await dwsRequest('/cdn/stats')
+    expect(response.status).toBe(200)
 
-    const stats = (await res.json()) as { entries: number }
-    expect(stats.entries).toBeDefined()
+    const stats = validateResponse(data, cdnStatsResponseSchema, '/cdn/stats')
+    expect(typeof stats.entries).toBe('number')
   })
 
   test('CDN page loads', async ({ page }) => {
@@ -173,35 +194,42 @@ test.describe('DWS E2E - CDN Service', () => {
 
 test.describe('DWS E2E - KMS Service', () => {
   test('KMS health endpoint works', async () => {
-    const res = await dwsRequest('/kms/health')
-    expect(res.status).toBe(200)
+    const { response } = await dwsRequest('/kms/health')
+    expect(response.status).toBe(200)
   })
 
   test('can encrypt and decrypt data', async () => {
     const plaintext = 'e2e secret data'
 
     // Encrypt
-    const encRes = await dwsRequest('/kms/encrypt', {
+    const encRes = await fetch(`${dwsUrl}/kms/encrypt`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ data: plaintext }),
     })
     expect(encRes.status).toBe(200)
 
-    const { encrypted, keyId } = (await encRes.json()) as {
-      encrypted: string
-      keyId: string
-    }
+    const encData = await encRes.json()
+    const { encrypted, keyId } = validateResponse(
+      encData,
+      encryptResponseSchema,
+      'encrypt',
+    )
 
     // Decrypt
-    const decRes = await dwsRequest('/kms/decrypt', {
+    const decRes = await fetch(`${dwsUrl}/kms/decrypt`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ encrypted, keyId }),
     })
     expect(decRes.status).toBe(200)
 
-    const { decrypted } = (await decRes.json()) as { decrypted: string }
+    const decData = await decRes.json()
+    const { decrypted } = validateResponse(
+      decData,
+      decryptResponseSchema,
+      'decrypt',
+    )
     expect(decrypted).toBe(plaintext)
   })
 
@@ -218,8 +246,8 @@ test.describe('DWS E2E - KMS Service', () => {
 
 test.describe('DWS E2E - Git Service', () => {
   test('Git health endpoint works', async () => {
-    const res = await dwsRequest('/git/health')
-    expect(res.status).toBe(200)
+    const { response } = await dwsRequest('/git/health')
+    expect(response.status).toBe(200)
   })
 
   test('repositories page loads', async ({ page }) => {
@@ -230,13 +258,15 @@ test.describe('DWS E2E - Git Service', () => {
 
 test.describe('DWS E2E - Package Registry', () => {
   test('Pkg health endpoint works', async () => {
-    const res = await dwsRequest('/pkg/health')
-    expect(res.status).toBe(200)
+    const { response } = await dwsRequest('/pkg/health')
+    expect(response.status).toBe(200)
   })
 
   test('can search packages', async () => {
-    const res = await dwsRequest('/pkg/-/v1/search?text=test')
-    expect(res.status).toBe(200)
+    const { response, data } = await dwsRequest('/pkg/-/v1/search?text=test')
+    expect(response.status).toBe(200)
+    // Just verify we get valid JSON back - the structure may vary
+    expect(data).toBeDefined()
   })
 
   test('packages page loads', async ({ page }) => {
@@ -247,8 +277,8 @@ test.describe('DWS E2E - Package Registry', () => {
 
 test.describe('DWS E2E - CI/CD Service', () => {
   test('CI health endpoint works', async () => {
-    const res = await dwsRequest('/ci/health')
-    expect(res.status).toBe(200)
+    const { response } = await dwsRequest('/ci/health')
+    expect(response.status).toBe(200)
   })
 
   test('pipelines page loads', async ({ page }) => {
@@ -259,12 +289,14 @@ test.describe('DWS E2E - CI/CD Service', () => {
 
 test.describe('DWS E2E - RPC Gateway', () => {
   test('RPC chains endpoint works', async () => {
-    const res = await dwsRequest('/rpc/chains')
-    expect(res.status).toBe(200)
+    const { response, data } = await dwsRequest('/rpc/chains')
+    expect(response.status).toBe(200)
 
-    const { chains } = (await res.json()) as {
-      chains: Array<{ chainId: number }>
-    }
+    const { chains } = validateResponse(
+      data,
+      rpcChainsResponseSchema,
+      '/rpc/chains',
+    )
     expect(chains.length).toBeGreaterThan(0)
   })
 
@@ -276,8 +308,8 @@ test.describe('DWS E2E - RPC Gateway', () => {
 
 test.describe('DWS E2E - OAuth3 Service', () => {
   test('OAuth3 health endpoint works', async () => {
-    const res = await dwsRequest('/oauth3/health')
-    expect(res.status).toBe(200)
+    const { response } = await dwsRequest('/oauth3/health')
+    expect(response.status).toBe(200)
   })
 
   test('OAuth3 page loads', async ({ page }) => {

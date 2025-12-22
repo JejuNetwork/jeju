@@ -7,6 +7,13 @@
 
 import type { IAgentRuntime } from '@elizaos/core'
 import {
+  expectAddress,
+  expectBigInt,
+  expectChainId,
+  expectHex,
+  expectNonNegative,
+} from '@jejunetwork/types'
+import {
   type Address,
   createPublicClient,
   encodeFunctionData,
@@ -16,13 +23,6 @@ import {
   type PublicClient,
   toHex,
 } from 'viem'
-import {
-  expectAddress,
-  expectBigInt,
-  expectChainId,
-  expectHex,
-  expectNonNegative,
-} from '../../lib/validation'
 import type { EILServiceConfig, Voucher, VoucherRequest } from '../types'
 
 // CrossChainPaymaster ABI (from the network contracts)

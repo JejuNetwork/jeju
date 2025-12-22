@@ -326,24 +326,27 @@ export function createTerraformProviderRouter(): Hono {
     // Create worker via DWS API
     const workerId = `tf-worker-${Date.now()}`
 
-    return c.json({
-      id: workerId,
-      name: body.name,
-      code_cid: body.code_cid,
-      code_hash: body.code_hash ?? '',
-      entrypoint: body.entrypoint ?? 'index.js',
-      runtime: body.runtime ?? 'workerd',
-      memory_mb: body.memory_mb ?? 128,
-      timeout_ms: body.timeout_ms ?? 30000,
-      min_instances: body.min_instances ?? 0,
-      max_instances: body.max_instances ?? 10,
-      scale_to_zero: body.scale_to_zero ?? true,
-      tee_required: body.tee_required ?? false,
-      tee_platform: body.tee_platform ?? 'none',
-      status: 'deploying',
-      endpoints: [],
-      env: body.env ?? {},
-    }, 201)
+    return c.json(
+      {
+        id: workerId,
+        name: body.name,
+        code_cid: body.code_cid,
+        code_hash: body.code_hash ?? '',
+        entrypoint: body.entrypoint ?? 'index.js',
+        runtime: body.runtime ?? 'workerd',
+        memory_mb: body.memory_mb ?? 128,
+        timeout_ms: body.timeout_ms ?? 30000,
+        min_instances: body.min_instances ?? 0,
+        max_instances: body.max_instances ?? 10,
+        scale_to_zero: body.scale_to_zero ?? true,
+        tee_required: body.tee_required ?? false,
+        tee_platform: body.tee_platform ?? 'none',
+        status: 'deploying',
+        endpoints: [],
+        env: body.env ?? {},
+      },
+      201,
+    )
   })
 
   router.get('/v1/resources/dws_worker/:id', async (c) => {
@@ -386,12 +389,15 @@ export function createTerraformProviderRouter(): Hono {
 
     const containerId = `tf-container-${Date.now()}`
 
-    return c.json({
-      id: containerId,
-      ...body,
-      status: 'starting',
-      endpoint: '',
-    }, 201)
+    return c.json(
+      {
+        id: containerId,
+        ...body,
+        status: 'starting',
+        endpoint: '',
+      },
+      201,
+    )
   })
 
   router.get('/v1/resources/dws_container/:id', async (c) => {

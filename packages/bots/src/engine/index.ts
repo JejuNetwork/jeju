@@ -1,10 +1,9 @@
 /**
- * Bot Engine
- *
- * Core orchestration for running multiple bot strategies
+ * Bot Engine - Core orchestration for running multiple strategies
  */
 
 import { EventEmitter } from 'node:events'
+import type { EVMChainId } from '@jejunetwork/types'
 import {
   type CrossChainArbConfig,
   CrossChainArbitrage,
@@ -13,9 +12,7 @@ import {
   TFMMRebalancer,
   type TFMMRebalancerConfig,
 } from '../strategies/tfmm/rebalancer'
-import type { BotStats, EVMChainId, StrategyType, TradeResult } from '../types'
-
-// ============ Types ============
+import type { BotStats, StrategyType, TradeResult } from '../types'
 
 export interface BotEngineConfig {
   chainId: EVMChainId
@@ -38,9 +35,6 @@ export interface StrategyStats {
   lastActivity: number
 }
 
-// ============ Bot Engine ============
-
-// Maximum history entries to prevent memory leaks
 const MAX_TRADE_HISTORY = 10000
 
 export class BotEngine extends EventEmitter {
@@ -95,9 +89,6 @@ export class BotEngine extends EventEmitter {
     }
   }
 
-  /**
-   * Start all enabled strategies
-   */
   async start(): Promise<void> {
     if (this.running) return
     this.running = true
@@ -125,9 +116,6 @@ export class BotEngine extends EventEmitter {
     this.emit('started')
   }
 
-  /**
-   * Stop all strategies
-   */
   async stop(): Promise<void> {
     if (!this.running) return
     this.running = false
@@ -150,9 +138,6 @@ export class BotEngine extends EventEmitter {
     this.emit('stopped')
   }
 
-  /**
-   * Get overall bot stats
-   */
   getStats(): BotStats {
     const lastTrade =
       this.tradeHistory.length > 0
@@ -179,9 +164,6 @@ export class BotEngine extends EventEmitter {
     }
   }
 
-  /**
-   * Get stats for a specific strategy
-   */
   getStrategyStats(strategy: StrategyType): StrategyStats {
     const trades = this.tradeHistory.filter((t) => t.strategy === strategy)
     const successfulTrades = trades.filter((t) => t.success)
@@ -199,9 +181,6 @@ export class BotEngine extends EventEmitter {
     }
   }
 
-  /**
-   * Register a TFMM pool for management
-   */
   async registerTFMMPool(
     poolAddress: `0x${string}`,
     updateIntervalMs?: number,
@@ -212,16 +191,10 @@ export class BotEngine extends EventEmitter {
     await this.tfmmRebalancer.registerPool(poolAddress, updateIntervalMs)
   }
 
-  /**
-   * Get trade history
-   */
   getTradeHistory(limit = 100): TradeResult[] {
     return this.tradeHistory.slice(-limit)
   }
 
-  /**
-   * Health check
-   */
   private healthCheck(): void {
     const stats = this.getStats()
 
@@ -235,9 +208,6 @@ export class BotEngine extends EventEmitter {
     this.emit('health', stats)
   }
 
-  /**
-   * Handle trade completion
-   */
   private onTradeComplete(
     strategy: StrategyType,
     result: TradeResult | { netProfitUsd: string; id: string },
@@ -260,7 +230,6 @@ export class BotEngine extends EventEmitter {
     this.tradeHistory.push(tradeResult)
     this.totalTrades++
 
-    // Prevent unbounded memory growth - trim oldest entries
     if (this.tradeHistory.length > MAX_TRADE_HISTORY) {
       this.tradeHistory = this.tradeHistory.slice(-MAX_TRADE_HISTORY)
     }

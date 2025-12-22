@@ -2,9 +2,8 @@
  * Zod schemas for perpetual trading types
  */
 
-import { AddressSchema, HashSchema } from '@jejunetwork/types'
+import { AddressSchema, BigIntSchema, HashSchema } from '@jejunetwork/types'
 import { z } from 'zod'
-import { BigIntSchema } from './common'
 
 // ============ Enums ============
 

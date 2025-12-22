@@ -4,7 +4,8 @@
 
 import { describe, expect, test } from 'bun:test'
 import type { Address } from 'viem'
-import type { ContributionState, VPNServiceContext } from '../types'
+import type { ContributionState } from '../schemas'
+import type { VPNServiceContext } from '../types'
 import {
   addContribution,
   addUsage,

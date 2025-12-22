@@ -7,6 +7,12 @@
 
 import type { IAgentRuntime } from '@elizaos/core'
 import {
+  expectAddress,
+  expectBigInt,
+  expectChainId,
+  expectHex,
+} from '@jejunetwork/types'
+import {
   type Address,
   createPublicClient,
   formatUnits,
@@ -14,12 +20,6 @@ import {
   http,
   type PublicClient,
 } from 'viem'
-import {
-  expectAddress,
-  expectBigInt,
-  expectChainId,
-  expectHex,
-} from '../../lib/validation'
 import type { GasEstimate, GasOption, GasServiceConfig } from '../types'
 
 export class GasService {

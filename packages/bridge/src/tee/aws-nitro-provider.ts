@@ -14,6 +14,7 @@
  * - AWS credentials for KMS integration (optional)
  */
 
+import { existsSync } from 'node:fs'
 import { keccak256, toBytes } from 'viem'
 import type { TEEAttestation } from '../types/index.js'
 import { toHash32 } from '../types/index.js'
@@ -184,9 +185,7 @@ export class AWSNitroProvider implements ITEEProvider {
 
     // Check for Nitro-specific files/devices
     try {
-      // Check for NSM device
-      // Dynamic import: only needed when checking for NSM device (conditional check)
-      const { existsSync } = await import('node:fs')
+      // Check for NSM device (static import - always needed for TEE detection)
       if (existsSync('/dev/nsm')) {
         return true
       }

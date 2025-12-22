@@ -13,6 +13,7 @@ import {
   deriveKeyForEncryption,
   deriveKeyFromSecret,
   encryptToPayload,
+  extractRecoveryId,
   generateKeyId,
   parseCiphertextPayload,
   sealWithMasterKey,
@@ -62,17 +63,6 @@ interface Session {
   address: Address
   capabilities: string[]
   createdAt: number
-}
-
-/** Safe recovery ID extraction from signature with bounds validation */
-function extractRecoveryId(signature: string): number {
-  if (signature.length < 132) return 0
-  const vHex = signature.slice(130, 132)
-  const v = parseInt(vHex, 16)
-  // Recovery ID must be 0 or 1 (v is 27/28 for legacy, or 0/1 for EIP-155)
-  if (v >= 27 && v <= 28) return v - 27
-  if (v === 0 || v === 1) return v
-  return 0 // Default to 0 for invalid values
 }
 
 export class EncryptionProvider implements KMSProvider {

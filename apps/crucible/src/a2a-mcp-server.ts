@@ -241,10 +241,13 @@ export function createCrucibleA2AServer(): Hono {
   // SECURITY: Configure CORS based on environment
   const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',').filter(Boolean)
   const isProduction = process.env.NODE_ENV === 'production'
-  app.use('/*', cors({
-    origin: isProduction && CORS_ORIGINS?.length ? CORS_ORIGINS : '*',
-    credentials: true,
-  }))
+  app.use(
+    '/*',
+    cors({
+      origin: isProduction && CORS_ORIGINS?.length ? CORS_ORIGINS : '*',
+      credentials: true,
+    }),
+  )
 
   app.get('/.well-known/agent-card.json', (c) => c.json(AGENT_CARD))
 
@@ -326,10 +329,13 @@ export function createCrucibleMCPServer(): Hono {
   // SECURITY: Configure CORS based on environment
   const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',').filter(Boolean)
   const isProduction = process.env.NODE_ENV === 'production'
-  app.use('/*', cors({
-    origin: isProduction && CORS_ORIGINS?.length ? CORS_ORIGINS : '*',
-    credentials: true,
-  }))
+  app.use(
+    '/*',
+    cors({
+      origin: isProduction && CORS_ORIGINS?.length ? CORS_ORIGINS : '*',
+      credentials: true,
+    }),
+  )
 
   app.post('/initialize', (c) =>
     c.json({

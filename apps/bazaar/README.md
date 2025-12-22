@@ -2,6 +2,12 @@
 
 Unified token launchpad, Uniswap V4 DEX, NFT marketplace, and prediction markets.
 
+## Architecture
+
+- **Frontend**: React SPA built with Bun, served from `dist/static/`
+- **API**: Elysia server, deployable as DWS worker from `dist/worker/`
+- **Storage**: IPFS for static assets, CovenantSQL for state
+
 ## Setup
 
 ```bash
@@ -9,41 +15,80 @@ cd apps/bazaar
 bun install
 ```
 
-Create `.env.local`:
+Create `.env`:
 
 ```bash
-NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_project_id
-NEXT_PUBLIC_CHAIN_ID=1337
-NEXT_PUBLIC_RPC_URL=http://localhost:6546
-NEXT_PUBLIC_INDEXER_URL=http://localhost:4350/graphql
-NEXT_PUBLIC_POOL_MANAGER=0x5FbDB2315678afecb367f032d93F642f64180aa3
+# Required
+WALLETCONNECT_PROJECT_ID=your_project_id
+
+# Network (localnet, testnet, mainnet)
+NETWORK=localnet
+
+# Override defaults (optional - uses centralized config by default)
+CHAIN_ID=1337
+RPC_URL=http://localhost:6546
+INDEXER_URL=http://localhost:4350/graphql
 ```
 
-## Run
+## Development
 
 ```bash
-# Development
+# Full development server (frontend + API hot reload)
 bun run dev
 
-# Production
-bun run build
-bun run start
+# API only (for backend development)
+bun run dev:api
+
+# With DWS local stack
+bun run dev:dws
 ```
 
-Server runs on http://localhost:4006
+Development server runs on http://localhost:4006
 
-## Test
+## Production Build
+
+```bash
+# Build frontend + API worker
+bun run build
+
+# Start production server
+bun run start
+
+# Or run API worker directly
+bun run start:worker
+```
+
+## Deployment
+
+```bash
+# Deploy to DWS (localnet)
+bun run deploy
+
+# Deploy to testnet
+bun run deploy:testnet
+
+# Deploy to mainnet
+bun run deploy:mainnet
+```
+
+The deploy script:
+1. Builds frontend and worker bundles
+2. Uploads static assets to IPFS
+3. Deploys worker to DWS network
+4. Configures CDN for edge caching
+
+## Testing
 
 ```bash
 # All tests
 bun run test
 
-# Unit tests
+# Unit tests only
 bun run test:unit
 
-# E2E tests
+# E2E tests (Playwright)
 bun run test:e2e
 
-# Wallet tests (requires headed browser)
+# Wallet integration tests (Synpress)
 bun run test:wallet
 ```

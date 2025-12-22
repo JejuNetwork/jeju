@@ -12,17 +12,12 @@ import { Elysia } from 'elysia'
 import {
   DisconnectEnvSchema,
   type Message,
-  type RegisterEnv,
   RegisterEnvSchema,
-  type Registration,
   RegistrationSchema,
   type ScoredData,
   ScoredDataListSchema,
   ScoredDataSchema,
 } from '../schemas'
-
-// Re-export types for backwards compatibility
-export type { Message, RegisterEnv, Registration, ScoredData }
 
 export interface EnvConfig {
   max_context_len: number

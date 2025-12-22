@@ -1,16 +1,16 @@
 /**
- * Tests for Unified Protocol Server
+ * Tests for Protocol Server
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
 import {
   configureX402,
-  createUnifiedServer,
+  createServer,
+  type ServerConfig,
   type SkillContext,
   skillError,
   skillRequiresPayment,
   skillSuccess,
-  type UnifiedServerConfig,
 } from './server'
 
 beforeAll(() => {
@@ -22,7 +22,7 @@ beforeAll(() => {
 })
 
 // Test configuration
-const testConfig: UnifiedServerConfig = {
+const testConfig: ServerConfig = {
   name: 'Test Service',
   description: 'A test service for unit testing',
   version: '1.0.0',
@@ -110,8 +110,8 @@ const testConfig: UnifiedServerConfig = {
   },
 }
 
-describe('Unified Protocol Server', () => {
-  const app = createUnifiedServer(testConfig)
+describe('Protocol Server', () => {
+  const app = createServer(testConfig)
 
   describe('Health and Info Endpoints', () => {
     test('GET /health returns ok status', async () => {

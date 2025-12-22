@@ -17,7 +17,7 @@ replicas:
   batcher: 2
   proposer: 2
   challenger: 1
-  eigenda: 2
+  jeju_da: 3
   bundler: 3
   crucible: 3      # Agent orchestration + MEV bots - 3 instances for HA
   gateway: 3        # 3 gateway instances with auto-scaling
@@ -82,7 +82,7 @@ resources:
       cpu: 1000m
       memory: 2Gi
   
-  eigenda:
+  jeju_da:
     limits:
       cpu: 1000m
       memory: 2Gi

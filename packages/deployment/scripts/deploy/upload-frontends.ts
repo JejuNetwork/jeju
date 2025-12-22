@@ -13,10 +13,7 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { extname, join, relative } from 'node:path'
 import type { Hex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import {
-  CIDUploadResponseSchema,
-  expectValid,
-} from '../../schemas'
+import { CIDUploadResponseSchema, expectValid } from '../../schemas'
 
 // ============================================================================
 // Configuration
@@ -332,7 +329,11 @@ class FrontendUploader {
     }
 
     const resultRaw = await response.json()
-    const result = expectValid(CIDUploadResponseSchema, resultRaw, 'upload response')
+    const result = expectValid(
+      CIDUploadResponseSchema,
+      resultRaw,
+      'upload response',
+    )
     return result.cid
   }
 

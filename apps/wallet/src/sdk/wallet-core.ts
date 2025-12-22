@@ -8,9 +8,6 @@
  * - Exposes provider interface for dApps
  */
 
-import type { Address, Hex, PublicClient, WalletClient } from 'viem'
-import { createPublicClient, http } from 'viem'
-import { z } from 'zod'
 import {
   expectAddress,
   expectBigInt,
@@ -18,18 +15,20 @@ import {
   expectDefined,
   expectHex,
   expectJson,
-  expectNonEmpty,
-  expectSchema,
-} from '../lib/validation'
+} from '@jejunetwork/types'
+import type { Address, Hex, PublicClient, WalletClient } from 'viem'
+import { createPublicClient, http } from 'viem'
+import { z } from 'zod'
+import { expectNonEmpty, expectSchema } from '../lib/validation'
 import { type AAClient, createAAClient } from './account-abstraction'
 import { chains, getNetworkRpcUrl } from './chains'
 import { createEILClient, type EILClient } from './eil'
 import { createGasService, type GasAbstractionService } from './gas-abstraction'
 import { createOIFClient, type OIFClient } from './oif'
-import { UnifiedAccountSchema } from './schemas'
+import { WalletAccountSchema } from './schemas'
 import type {
   TokenBalance,
-  UnifiedAccount,
+  WalletAccount,
   WalletEvent,
   WalletState,
 } from './types'
@@ -227,11 +226,11 @@ export class WalletCore {
     return this.state.isUnlocked
   }
 
-  getAccounts(): UnifiedAccount[] {
+  getAccounts(): WalletAccount[] {
     return this.state.accounts
   }
 
-  getActiveAccount(): UnifiedAccount | undefined {
+  getActiveAccount(): WalletAccount | undefined {
     return this.state.accounts.find((a) => a.id === this.state.activeAccountId)
   }
 
@@ -240,7 +239,7 @@ export class WalletCore {
     privateKey?: Hex
     mnemonic?: string
     label?: string
-  }): Promise<UnifiedAccount> {
+  }): Promise<WalletAccount> {
     if (params.privateKey) expectHex(params.privateKey, 'privateKey')
     if (params.mnemonic) expectNonEmpty(params.mnemonic, 'mnemonic')
 
@@ -248,7 +247,7 @@ export class WalletCore {
     // This is simplified - real implementation would handle key derivation
     const id = `account-${Date.now()}`
 
-    const newAccount: UnifiedAccount = {
+    const newAccount: WalletAccount = {
       id,
       label: params.label ?? `Account ${this.state.accounts.length + 1}`,
       evmAccounts: [],
@@ -256,7 +255,7 @@ export class WalletCore {
       smartAccounts: [],
     }
 
-    expectSchema(newAccount, UnifiedAccountSchema, 'new account')
+    expectSchema(newAccount, WalletAccountSchema, 'new wallet account')
 
     this.state.accounts.push(newAccount)
 

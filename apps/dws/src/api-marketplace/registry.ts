@@ -4,14 +4,13 @@
  * Manages providers, listings, and user accounts with persistent state
  */
 
-import { expectJson } from '@jejunetwork/types'
+import { expectJson, expectValid } from '@jejunetwork/types'
 import type { Address } from 'viem'
 import { z } from 'zod'
 import {
   AccessControlSchema,
   UsageLimitsSchema,
 } from '../shared/schemas/api-marketplace'
-import { expectValid } from '../shared/validation'
 import {
   apiListingState,
   apiUserAccountState,

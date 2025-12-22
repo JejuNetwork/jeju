@@ -1,8 +1,3 @@
-/**
- * Comprehensive tests for liquidity vault utility functions
- * Includes property-based testing / fuzzing for mathematical calculations
- */
-
 import { describe, expect, test } from 'bun:test'
 import { parseEther } from 'viem'
 import {
@@ -106,9 +101,6 @@ describe('calculateSharePercent', () => {
   })
 
   describe('property-based testing / fuzzing', () => {
-    /**
-     * Generate random bigint within a range
-     */
     function randomBigInt(max: bigint): bigint {
       const randomValue = Math.floor(
         Math.random() *

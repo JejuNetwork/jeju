@@ -4,7 +4,7 @@
   "displayName": "Gateway Portal",
   "version": "1.0.0",
   "type": "core",
-  "description": "Protocol Infrastructure Hub: Bridge tokens, deploy paymasters, provide ETH liquidity, run nodes, earn rewards, cross-chain intents. Supports elizaOS, CLANKER, VIRTUAL, CLANKERMON + any ERC20. Protocol power = paymaster + liquidity.",
+  "description": "Protocol Infrastructure Hub: Bridge tokens, deploy paymasters, provide ETH liquidity, run nodes, earn rewards, cross-chain intents. Supports any ERC20. Protocol power = paymaster + liquidity.",
   "commands": {
     "dev": "bun run dev",
     "build": "bun run build",
@@ -21,7 +21,7 @@
   "optional": false,
   "enabled": true,
   "autoStart": true,
-  "tags": ["protocol", "infrastructure", "paymaster", "nodes", "staking", "liquidity", "elizaOS", "multi-token", "intents", "cross-chain", "oif", "aggregator", "solver"],
+  "tags": ["protocol", "infrastructure", "paymaster", "nodes", "staking", "liquidity", "multi-token", "intents", "cross-chain", "oif", "aggregator", "solver"],
   "jns": {
     "name": "gateway.jeju",
     "description": "Protocol Infrastructure Hub for the Network",

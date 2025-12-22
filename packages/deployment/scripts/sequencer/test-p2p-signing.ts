@@ -25,11 +25,8 @@ import {
   waitForTransactionReceipt,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import { expectValid, SignResponseSchema } from '../../schemas'
 import { inferChainFromRpcUrl } from '../shared/chain-utils'
-import {
-  expectValid,
-  SignResponseSchema,
-} from '../../schemas'
 
 const ACCOUNTS = [
   {

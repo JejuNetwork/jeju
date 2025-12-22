@@ -48,9 +48,6 @@ const LP_LOCKER_ABI = parseAbi([
 // Types
 // ============================================================================
 
-// Re-export consolidated DexProtocol
-export type { DexProtocol }
-
 export interface LiquidityDeploymentParams {
   publicClient: PublicClient
   walletClient: WalletClient

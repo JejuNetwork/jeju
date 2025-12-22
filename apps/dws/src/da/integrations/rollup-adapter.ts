@@ -201,6 +201,7 @@ export class RollupDAAdapter {
   private pendingBatches: BatchData[] = []
   private pendingSize = 0
   private batchTimer: ReturnType<typeof setTimeout> | null = null
+  protected lastBatchTime = 0
 
   // Fallback tracking
   private daFailureCount = 0
@@ -518,7 +519,8 @@ export class RollupDAAdapter {
       abi: CalldataFallbackABI,
       functionName: 'postCalldata',
       args: [toHex(data)],
-      chain: null,
+      chain: this.l1WalletClient.chain ?? null,
+      account: this.l1WalletClient.account ?? null,
     })
 
     // Wait for transaction and get blob ID from logs
@@ -577,7 +579,8 @@ export class RollupDAAdapter {
       ],
       functionName: 'proposeOutput',
       args: [outputRoot, l2BlockNumber, daCommitment, daProof],
-      chain: null,
+      chain: this.l1WalletClient.chain ?? null,
+      account: this.l1WalletClient.account ?? null,
     })
 
     return txHash
@@ -755,6 +758,8 @@ export interface OPStackConfig extends RollupConfig {
 }
 
 export class OPStackDAAdapter extends RollupDAAdapter {
+  protected opConfig: OPStackConfig
+
   constructor(config: OPStackConfig) {
     super(config)
     this.opConfig = config
@@ -813,6 +818,8 @@ export interface ArbitrumOrbitConfig extends RollupConfig {
 }
 
 export class ArbitrumOrbitDAAdapter extends RollupDAAdapter {
+  protected orbitConfig: ArbitrumOrbitConfig
+
   constructor(config: ArbitrumOrbitConfig) {
     super(config)
     this.orbitConfig = config

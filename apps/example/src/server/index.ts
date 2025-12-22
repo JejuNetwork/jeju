@@ -1,25 +1,10 @@
-/**
- * Decentralized App Template - Main Server
- *
- * A production-ready template demonstrating all decentralized services:
- * - REST API for CRUD operations
- * - A2A (Agent-to-Agent) protocol for AI agents
- * - MCP (Model Context Protocol) for tool integrations
- * - x402 payment protocol for monetization
- * - OAuth3 for decentralized authentication
- * - CQL database for persistent storage
- * - Cache layer for performance
- * - KMS for encrypted data
- * - Cron triggers for scheduled tasks
- * - JNS for decentralized naming
- */
-
-import { getNetworkName } from '@jejunetwork/config'
 import { cors } from '@elysiajs/cors'
+import { getNetworkName } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import { z } from 'zod'
 import { getDatabase } from '../db/client'
 import { banCheckHandler } from '../middleware/ban-check'
+import type { HealthResponse, ServiceStatus } from '../schemas'
 import { getOAuth3Service } from '../services/auth'
 import { getCache } from '../services/cache'
 import {
@@ -30,7 +15,6 @@ import {
 import { getKMSService } from '../services/kms'
 import { getRegistryService } from '../services/registry'
 import { getStorageService } from '../services/storage'
-import type { HealthResponse, ServiceStatus } from '../types'
 import { expectValid } from '../utils/validation'
 import { createA2AServer } from './a2a'
 import { createAuthRoutes } from './auth'
@@ -38,14 +22,20 @@ import { createMCPServer } from './mcp'
 import { createRESTRoutes } from './rest'
 import { createX402Routes, getX402Middleware } from './x402'
 
-// Validate environment variables
+// Environment schema with proper defaults
 const envSchema = z.object({
-  PORT: z.string().regex(/^\d+$/).transform(Number).default('4500'),
+  PORT: z.string().regex(/^\d+$/).default('4500').transform(Number),
   APP_NAME: z.string().default('Decentralized App Template'),
   CORS_ORIGINS: z.string().optional(),
 })
 
-const env = expectValid(envSchema, process.env, 'Environment variables')
+type EnvConfig = z.infer<typeof envSchema>
+
+const env: EnvConfig = expectValid(
+  envSchema,
+  process.env,
+  'Environment variables',
+)
 
 const PORT = env.PORT
 const APP_NAME = env.APP_NAME
@@ -98,7 +88,7 @@ if (!WEBHOOK_SECRET && !isLocalnet) {
   console.error('SECURITY ERROR: WEBHOOK_SECRET must be set in production')
   process.exit(1)
 }
-const webhookSecret = WEBHOOK_SECRET || 'dev-webhook-secret'
+const _webhookSecret = WEBHOOK_SECRET || 'dev-webhook-secret'
 
 // Constant-time string comparison using crypto.subtle
 const constantTimeEqual = async (a: string, b: string): Promise<boolean> => {

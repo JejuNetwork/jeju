@@ -6,6 +6,7 @@
  */
 
 import { cors } from '@elysiajs/cors'
+import { CORE_PORTS } from '@jejunetwork/config/ports'
 import { AddressSchema } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import { handleA2ARequest, handleAgentCard } from '../lib/a2a-server'
@@ -39,7 +40,7 @@ import {
   type TFMMUpdateStrategyParams,
 } from '../schemas/api'
 
-const PORT = Number(process.env.API_PORT) || 4007
+const PORT = Number(process.env.API_PORT) || CORE_PORTS.BAZAAR_API.get()
 const isDev = process.env.NODE_ENV !== 'production'
 
 const app = new Elysia().use(
@@ -49,7 +50,7 @@ const app = new Elysia().use(
       : [
           'https://bazaar.jejunetwork.org',
           'https://jeju.network',
-          'http://localhost:4006',
+          `http://localhost:${CORE_PORTS.BAZAAR.get()}`,
         ],
     credentials: true,
   }),

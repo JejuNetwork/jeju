@@ -8,7 +8,8 @@
  */
 
 import { beforeAll, beforeEach, describe, expect, test } from 'bun:test'
-import type { EVMChainId, OraclePrice } from '../types'
+import type { EVMChainId } from '@jejunetwork/types'
+import type { OraclePrice } from '../types'
 import { getTokenSymbol, OracleAggregator, TOKEN_SYMBOLS } from './index'
 
 describe('OracleAggregator Class Tests', () => {

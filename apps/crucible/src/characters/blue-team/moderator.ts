@@ -170,4 +170,3 @@ Analysis:
   mcpServers: ['moderation', 'security-tools'],
   a2aCapabilities: ['moderation', 'threat-detection', 'incident-response'],
 }
-

@@ -2,12 +2,13 @@
  * Gateway E2E Tests
  *
  * Tests the Gateway portal web application.
- * Requires: Gateway running on port 4002
+ * Requires: Gateway running on port 4001
  */
 
+import { getCoreAppUrl } from '@jejunetwork/config/ports'
 import { expect, test } from '@playwright/test'
 
-const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:4002'
+const GATEWAY_URL = process.env.GATEWAY_URL || getCoreAppUrl('GATEWAY')
 
 test.describe('Gateway Portal', () => {
   test.beforeEach(async ({ page: _page }) => {

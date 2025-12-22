@@ -7,6 +7,7 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { keccak256, stringToBytes } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import { ThresholdSignerService } from '../../../packages/deployment/scripts/sequencer/signer-service'
 
 const TEST_PORT = 4199
 /**
@@ -23,10 +24,6 @@ const TEST_PRIVATE_KEY = `0x${'1'.repeat(64)}` // Intentionally predictable for 
 let server: ReturnType<typeof Bun.serve> | null = null
 
 async function startTestServer(): Promise<void> {
-  // Import dynamically to avoid circular deps
-  const { ThresholdSignerService } = await import(
-    '../../../packages/deployment/scripts/sequencer/signer-service.ts'
-  )
   const service = new ThresholdSignerService(TEST_PRIVATE_KEY, TEST_API_KEY, [])
 
   server = Bun.serve({

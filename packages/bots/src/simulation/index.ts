@@ -129,3 +129,17 @@ export {
   type TestPipelineConfig,
   type TestPipelineResult,
 } from './test-runner'
+
+// Multi-chain backtesting
+export {
+  MultiChainBacktester,
+  type MultiChainBacktestResult,
+} from './real-data-backtest'
+
+// Historical MEV analysis
+export {
+  HistoricalMEVAnalyzer,
+  RealOpportunityFetcher,
+  type HistoricalAnalysisResult,
+  type ChainMEVStats,
+} from './historical-mev-analyzer'

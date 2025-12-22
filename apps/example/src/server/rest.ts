@@ -1,10 +1,3 @@
-/**
- * REST API Routes for Todo CRUD operations
- *
- * All routes use zod validation with expect/throw patterns.
- * Invalid data causes immediate errors - no silent failures.
- */
-
 import { getNetworkName } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import type { Address } from 'viem'
@@ -157,7 +150,11 @@ export function createRESTRoutes(): Elysia {
         'Update todo input',
       )
 
-      const todo = await todoService.updateTodo(id, validAddress, validatedInput)
+      const todo = await todoService.updateTodo(
+        id,
+        validAddress,
+        validatedInput,
+      )
       if (!todo) {
         set.status = 404
         return { error: 'Todo not found' }
@@ -268,7 +265,10 @@ export function createRESTRoutes(): Elysia {
         'Bulk complete input',
       )
 
-      const results = await todoService.bulkComplete(validatedInput.ids, validAddress)
+      const results = await todoService.bulkComplete(
+        validatedInput.ids,
+        validAddress,
+      )
       return { completed: results.length, todos: results }
     })
     .post('/todos/bulk/delete', async ({ address, body }) => {
@@ -283,7 +283,10 @@ export function createRESTRoutes(): Elysia {
         'Bulk delete input',
       )
 
-      const count = await todoService.bulkDelete(validatedInput.ids, validAddress)
+      const count = await todoService.bulkDelete(
+        validatedInput.ids,
+        validAddress,
+      )
       return { deleted: count }
     })
 }

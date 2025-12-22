@@ -1,29 +1,4 @@
-/**
- * Validation Utilities with Expect/Throw Patterns
- *
- * Fail-fast validation helpers that throw on invalid data.
- * No defensive programming - we want to expose bugs immediately.
- *
- * Re-exports shared validation helpers and provides app-specific extensions.
- */
-
 import type { ZodError, ZodType, ZodTypeDef } from 'zod'
-
-// Re-export shared validation helpers for convenience
-export {
-  expect,
-  expectAddress,
-  expectBigInt,
-  expectChainId,
-  expectHex,
-  expectJson,
-  expectNonEmpty,
-  expectNonEmptyString,
-  expectNonNegative,
-  expectPositive,
-  expectTrue,
-  validateOrNull,
-} from '@jejunetwork/types'
 
 /**
  * Custom validation error class with Zod error details.

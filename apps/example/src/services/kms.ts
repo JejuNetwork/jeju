@@ -1,10 +1,3 @@
-/**
- * KMS Service for encrypted data
- *
- * Provides encryption/decryption using the network KMS with MPC.
- * No fallbacks - requires KMS to be available for production use.
- */
-
 import type { Address } from 'viem'
 
 const KMS_ENDPOINT = process.env.KMS_ENDPOINT || 'http://localhost:4400'

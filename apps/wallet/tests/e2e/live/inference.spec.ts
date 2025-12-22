@@ -46,10 +46,6 @@ const HealthResponseSchema = z.object({
   providers: z.number().optional(),
 })
 
-type ChatCompletionResponse = z.infer<typeof ChatCompletionResponseSchema>
-type ModelsResponse = z.infer<typeof ModelsResponseSchema>
-type HealthResponse = z.infer<typeof HealthResponseSchema>
-
 test.describe('Inference API', () => {
   const inferenceUrl = 'http://localhost:4100'
 

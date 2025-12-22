@@ -1,3 +1,4 @@
+import { IERC20_ABI, ZERO_ADDRESS } from '@jejunetwork/ui'
 import { useState } from 'react'
 import type { Address } from 'viem'
 import {
@@ -6,7 +7,6 @@ import {
   useWriteContract,
 } from 'wagmi'
 import { CONTRACTS } from '../config'
-import { IERC20_ABI, ZERO_ADDRESS } from '../lib/contracts'
 
 export const IDENTITY_REGISTRY_ADDRESS = CONTRACTS.identityRegistry
 const REGISTRY_ADDRESS = IDENTITY_REGISTRY_ADDRESS

@@ -1,5 +1,3 @@
-'use client'
-
 import { Flag } from 'lucide-react'
 import type { Address } from 'viem'
 import { useAccount, useReadContract } from 'wagmi'

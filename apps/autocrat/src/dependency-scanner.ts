@@ -9,10 +9,10 @@
  * - Integration with ContributorRegistry for maintainer lookup
  */
 
+import { expectValid } from '@jejunetwork/types'
 import {
   CrateDependenciesResponseSchema,
   CrateResponseSchema,
-  expectValid,
   NpmPackageLatestSchema,
   NpmPackageResponseSchema,
   PyPIPackageResponseSchema,

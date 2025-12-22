@@ -1,7 +1,3 @@
-/**
- * Cron executor service - Real contract integration
- */
-
 import type { Address } from 'viem'
 import { z } from 'zod'
 import { TRIGGER_REGISTRY_ABI } from '../abis'

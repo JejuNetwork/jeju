@@ -2,9 +2,11 @@
  * Facilitator Configuration
  */
 
+import { getSecretVault } from '@jejunetwork/kms'
 import { getServiceName } from '@jejunetwork/shared'
 import type { Address } from 'viem'
 import { getPrimaryChainConfig, ZERO_ADDRESS } from '../lib/chains'
+import { clearClientCache } from '../services/settler.js'
 
 export interface FacilitatorConfig {
   port: number
@@ -134,7 +136,6 @@ export async function getPrivateKeyFromKMS(): Promise<`0x${string}` | null> {
     throw new Error(`Invalid FACILITATOR_SERVICE_ADDRESS: ${serviceAddress}`)
   }
 
-  const { getSecretVault } = await import('@jejunetwork/kms')
   const vault = getSecretVault()
 
   if (!kmsInitialized) {
@@ -157,7 +158,6 @@ export async function isKMSAvailable(): Promise<boolean> {
   if (!cfg.kmsEnabled || !cfg.kmsSecretId) return false
 
   try {
-    const { getSecretVault } = await import('@jejunetwork/kms')
     await getSecretVault().initialize()
     return true
   } catch {
@@ -168,7 +168,6 @@ export async function isKMSAvailable(): Promise<boolean> {
 export async function clearKMSKeyCache(): Promise<void> {
   kmsKeyCache = null
   kmsInitialized = false
-  const { clearClientCache } = await import('../services/settler.js')
   clearClientCache()
 }
 

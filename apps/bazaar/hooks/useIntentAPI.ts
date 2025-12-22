@@ -1,5 +1,3 @@
-'use client'
-
 /**
  * Intent API Hook
  * For managing cross-chain intents via OIF

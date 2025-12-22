@@ -29,7 +29,7 @@ describe('Solana Infrastructure', () => {
   })
 })
 
-describe('Unified Deployment Config', () => {
+describe('Token Deployment Config', () => {
   test('config structure is valid', () => {
     const config: TokenDeploymentConfig = {
       name: 'Test Token',

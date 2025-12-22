@@ -356,7 +356,7 @@ export class SMTPServer {
    * Check if server is running
    */
   isRunning(): boolean {
-    return this.server?.listening
+    return this.server?.listening === true
   }
 
   /**

@@ -1,12 +1,10 @@
 # Docker Compose for Jeju Email - Local Development
-# Run: docker-compose -f email-localnet.yaml up -d
+# Run: docker compose -f email-localnet.yaml up -d
 #
 # Services:
 # - email-relay: Core MTA relay service
 # - mailhog: Mock SMTP server for testing
 # - dovecot: IMAP server (optional)
-
-version: "3.8"
 
 services:
   # Email Relay Service
@@ -35,7 +33,7 @@ services:
     depends_on:
       - mailhog
     networks:
-      - jeju-network
+      - jeju
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3300/health"]
       interval: 30s
@@ -52,7 +50,7 @@ services:
       - "1025:1025"  # SMTP
       - "8025:8025"  # Web UI
     networks:
-      - jeju-network
+      - jeju
 
   # Dovecot IMAP Server (Optional - for full IMAP testing)
   dovecot:
@@ -67,7 +65,7 @@ services:
     environment:
       - DOVECOT_USER=mail
     networks:
-      - jeju-network
+      - jeju
     profiles:
       - full  # Only start with --profile full
 
@@ -80,11 +78,11 @@ services:
     volumes:
       - redis-data:/data
     networks:
-      - jeju-network
+      - jeju
     command: redis-server --appendonly yes
 
 networks:
-  jeju-network:
+  jeju:
     external: true
 
 volumes:

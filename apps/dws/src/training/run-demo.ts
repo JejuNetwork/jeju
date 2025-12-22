@@ -187,8 +187,8 @@ async function main() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        wandb_group: 'jeju-demo',
-        wandb_project: 'distributed-training',
+        run_group: 'jeju-demo',
+        run_project: 'distributed-training',
         batch_size: BATCH_SIZE,
         max_token_len: 1024,
         checkpoint_dir: './checkpoints',

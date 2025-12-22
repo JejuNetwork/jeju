@@ -25,11 +25,18 @@ const metrics = {
   requests: 0,
   errors: 0,
   startTime: Date.now(),
-  endpoints: new Map<string, { count: number; totalLatency: number; maxLatency: number }>(),
+  endpoints: new Map<
+    string,
+    { count: number; totalLatency: number; maxLatency: number }
+  >(),
 }
 
 function trackEndpoint(path: string, latency: number) {
-  const existing = metrics.endpoints.get(path) ?? { count: 0, totalLatency: 0, maxLatency: 0 }
+  const existing = metrics.endpoints.get(path) ?? {
+    count: 0,
+    totalLatency: 0,
+    maxLatency: 0,
+  }
   existing.count++
   existing.totalLatency += latency
   existing.maxLatency = Math.max(existing.maxLatency, latency)
@@ -64,24 +71,27 @@ const app = new Elysia()
   // Metrics endpoint with per-endpoint breakdown
   .get('/metrics', () => {
     const uptime = (Date.now() - metrics.startTime) / 1000
-    
+
     // Build endpoint stats sorted by count (most hit first)
     const endpointStats = Array.from(metrics.endpoints.entries())
       .map(([path, stats]) => ({
         path,
         count: stats.count,
-        avgLatency: stats.count > 0 ? (stats.totalLatency / stats.count).toFixed(2) : '0',
+        avgLatency:
+          stats.count > 0 ? (stats.totalLatency / stats.count).toFixed(2) : '0',
         maxLatency: stats.maxLatency.toFixed(2),
         hitRate: ((stats.count / metrics.requests) * 100).toFixed(1),
       }))
       .sort((a, b) => b.count - a.count)
-    
+
     // Find slowest endpoints (by avg latency)
-    const slowest = [...endpointStats].sort((a, b) => parseFloat(b.avgLatency) - parseFloat(a.avgLatency)).slice(0, 5)
-    
+    const slowest = [...endpointStats]
+      .sort((a, b) => parseFloat(b.avgLatency) - parseFloat(a.avgLatency))
+      .slice(0, 5)
+
     // Find hottest endpoints (most requests)
     const hottest = endpointStats.slice(0, 5)
-    
+
     return {
       summary: {
         requests: metrics.requests,
@@ -264,4 +274,3 @@ app.listen(PORT, () => {
 })
 
 export { app }
-

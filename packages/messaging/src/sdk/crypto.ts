@@ -15,9 +15,6 @@ import { sha256 } from '@noble/hashes/sha256'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils'
 import type { SerializedEncryptedMessage } from '../schemas'
 
-// Re-export for convenience
-export type { SerializedEncryptedMessage } from '../schemas'
-
 // ============ Types ============
 
 export interface KeyPair {
@@ -220,10 +217,7 @@ export function bytes32ToPublicKey(bytes32: `0x${string}`): Uint8Array {
 
 // ============ Message Envelope ============
 
-// MessageEnvelope type is imported from schemas.ts (canonical source)
 import type { MessageEnvelope } from '../schemas'
-
-export type { MessageEnvelope } from '../schemas'
 
 /**
  * Create a signed message envelope

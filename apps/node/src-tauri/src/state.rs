@@ -7,9 +7,9 @@ use std::sync::Arc;
 use tauri::AppHandle;
 
 use crate::config::NodeConfig;
+use crate::earnings::EarningsTracker;
 use crate::services::ServiceManager;
 use crate::wallet::WalletManager;
-use crate::earnings::EarningsTracker;
 
 /// Service status
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -99,18 +99,18 @@ impl AppState {
 
     pub fn initialize(&self, _handle: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         let mut state = self.inner.write();
-        
+
         // Load config from disk
         state.config = NodeConfig::load()?;
-        
+
         // Initialize services based on config
         state.service_manager.initialize(&state.config)?;
-        
+
         // Load earnings history
         state.earnings_tracker.load()?;
-        
+
         state.initialized = true;
-        
+
         tracing::info!("Application state initialized");
         Ok(())
     }
@@ -125,4 +125,3 @@ impl Default for AppState {
         Self::new()
     }
 }
-

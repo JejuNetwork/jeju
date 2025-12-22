@@ -6,15 +6,16 @@
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
+import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config/ports'
 import { createJejuClient, type JejuClient } from '@jejunetwork/sdk'
 import { privateKeyToAccount } from 'viem/accounts'
 
 const TEST_PRIVATE_KEY =
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
-const RPC_URL = process.env.RPC_URL || 'http://127.0.0.1:6546'
-const GATEWAY_URL = process.env.GATEWAY_URL || 'http://127.0.0.1:4003'
-const COMPUTE_URL = process.env.COMPUTE_URL || 'http://127.0.0.1:4007'
-const STORAGE_URL = process.env.STORAGE_URL || 'http://127.0.0.1:4010'
+const RPC_URL = process.env.RPC_URL || getL2RpcUrl()
+const GATEWAY_URL = process.env.GATEWAY_URL || getCoreAppUrl('NODE_EXPLORER_UI')
+const COMPUTE_URL = process.env.COMPUTE_URL || getCoreAppUrl('COMPUTE')
+const STORAGE_URL = process.env.STORAGE_URL || getCoreAppUrl('IPFS')
 
 describe('Eliza Plugin Actions Integration', () => {
   let client: JejuClient

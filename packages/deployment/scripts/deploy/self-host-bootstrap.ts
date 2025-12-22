@@ -30,7 +30,9 @@ import {
 import { privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia } from 'viem/chains'
 import {
+  CIDUploadResponseSchema,
   expectJson,
+  expectValid,
   type JejuManifest,
   JejuManifestSchema,
   PackageJsonSchema,
@@ -387,11 +389,7 @@ class SelfHostingBootstrap {
         address: this.config.contracts.repoRegistry,
         abi: REPO_REGISTRY_ABI,
         functionName: 'createRepo',
-        args: [
-          'jeju',
-          'Jeju Network - A modern EVM chain for agents and humans',
-          0,
-        ], // 0 = public
+        args: ['jeju', 'Jeju Network - A network for agents and humans', 0], // 0 = public
       })
 
       await this.publicClient.waitForTransactionReceipt({ hash })
@@ -954,7 +952,12 @@ class SelfHostingBootstrap {
       throw new Error(`Failed to upload ${filename}: ${error}`)
     }
 
-    const result = (await response.json()) as { cid: string }
+    const resultRaw = await response.json()
+    const result = expectValid(
+      CIDUploadResponseSchema,
+      resultRaw,
+      'upload response',
+    )
     return result.cid
   }
 

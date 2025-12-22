@@ -11,10 +11,12 @@
 
 import { existsSync, watch } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
+import { CORE_PORTS, getCoreAppUrl } from '@jejunetwork/config/ports'
+import { createBazaarApp } from '../api/worker'
 
-const FRONTEND_PORT = Number(process.env.PORT) || 4006
-const API_PORT = Number(process.env.API_PORT) || 4007
-const DWS_URL = process.env.DWS_URL || 'http://localhost:4030'
+const FRONTEND_PORT = Number(process.env.PORT) || CORE_PORTS.BAZAAR.get()
+const API_PORT = Number(process.env.API_PORT) || CORE_PORTS.COMPUTE.get()
+const DWS_URL = process.env.DWS_URL || getCoreAppUrl('DWS_API')
 const USE_DWS = process.env.USE_DWS === 'true'
 
 // External packages for browser build
@@ -255,9 +257,6 @@ async function startApiServer(): Promise<void> {
     console.log(`🔌 API proxied through DWS: ${DWS_URL}/workers/bazaar-api`)
     return
   }
-
-  // Import and start the API server
-  const { createBazaarApp } = await import('../api/worker')
 
   const app = createBazaarApp({
     NETWORK: 'localnet',

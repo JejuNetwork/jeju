@@ -356,8 +356,11 @@ describe('TEE Integration Flow', () => {
 
     // 6. Verify attestation
     expect(identityKey.attestation).toBeDefined()
+    if (!identityKey.attestation) {
+      throw new Error('Expected attestation to be defined')
+    }
     const verification = await keyManager.verifyAttestation(
-      identityKey.attestation ?? new Uint8Array(),
+      identityKey.attestation,
     )
 
     expect(verification.valid).toBe(true)

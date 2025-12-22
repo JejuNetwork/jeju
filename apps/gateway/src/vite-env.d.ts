@@ -8,25 +8,10 @@ interface ImportMetaEnv {
   readonly VITE_PRICE_ORACLE_ADDRESS?: string
   readonly VITE_WALLETCONNECT_PROJECT_ID?: string
 
-  // elizaOS Token (Native Token)
-  readonly VITE_ELIZAOS_TOKEN_ADDRESS?: string
-  readonly VITE_ELIZAOS_VAULT_ADDRESS?: string
-  readonly VITE_ELIZAOS_PAYMASTER_ADDRESS?: string
-
-  // CLANKER Token (Bridged from Ethereum)
-  readonly VITE_CLANKER_TOKEN_ADDRESS?: string
-  readonly VITE_CLANKER_VAULT_ADDRESS?: string
-  readonly VITE_CLANKER_PAYMASTER_ADDRESS?: string
-
-  // VIRTUAL Token (Bridged from Ethereum)
-  readonly VITE_VIRTUAL_TOKEN_ADDRESS?: string
-  readonly VITE_VIRTUAL_VAULT_ADDRESS?: string
-  readonly VITE_VIRTUAL_PAYMASTER_ADDRESS?: string
-
-  // CLANKERMON Token (Bridged from Ethereum)
-  readonly VITE_CLANKERMON_TOKEN_ADDRESS?: string
-  readonly VITE_CLANKERMON_VAULT_ADDRESS?: string
-  readonly VITE_CLANKERMON_PAYMASTER_ADDRESS?: string
+  // JEJU Token (Native Token)
+  readonly VITE_JEJU_TOKEN_ADDRESS?: string
+  readonly VITE_JEJU_VAULT_ADDRESS?: string
+  readonly VITE_JEJU_PAYMASTER_ADDRESS?: string
 
   // Node Staking System
   readonly VITE_NODE_STAKING_MANAGER_ADDRESS?: string

@@ -32,10 +32,6 @@ export interface XLPContracts {
 }
 
 export interface NFTContracts {
-  /** @deprecated Use gameItems instead */
-  hyperscapeItems?: Address
-  /** @deprecated Use gameGold instead */
-  hyperscapeGold?: Address
   gameItems?: Address
   gameGold?: Address
   marketplace?: Address
@@ -91,12 +87,8 @@ function buildNFTContracts(chainId: ChainId): NFTContracts {
   const itemsAddr = marketplaceAddr as Address
   return {
     marketplace: marketplaceAddr as Address,
-    // Generic names
     gameGold: goldAddr,
     gameItems: itemsAddr,
-    // Legacy names (deprecated)
-    hyperscapeGold: goldAddr,
-    hyperscapeItems: itemsAddr,
   }
 }
 
@@ -166,10 +158,9 @@ export function hasV4Periphery(chainId: number): boolean {
 
 export function hasNFTMarketplace(chainId: number): boolean {
   const contracts = getNFTContracts(chainId)
-  const items = contracts.gameItems || contracts.hyperscapeItems
   return !!(
     contracts.marketplace &&
-    items &&
+    contracts.gameItems &&
     isValidAddress(contracts.marketplace)
   )
 }
@@ -234,12 +225,12 @@ export function hasXLPRouter(chainId: number): boolean {
   return !!contracts?.router && isValidAddress(contracts.router)
 }
 
-// Game Contracts (Hyperscape etc.)
+// Game Contracts
 function buildGameContracts(chainId: ChainId): GameContracts {
   const nft = buildNFTContracts(chainId)
   return {
-    items: nft.gameItems || nft.hyperscapeItems,
-    gold: nft.gameGold || nft.hyperscapeGold,
+    items: nft.gameItems,
+    gold: nft.gameGold,
     marketplace: nft.marketplace,
     tradeEscrow: nft.tradeEscrow,
     sponsoredPaymaster: ZERO_ADDRESS as Address,

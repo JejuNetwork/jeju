@@ -1,5 +1,6 @@
 import { expectJson } from '@jejunetwork/types'
 import { Keypair } from '@solana/web3.js'
+import bs58 from 'bs58'
 import {
   type Address,
   createPublicClient,
@@ -420,11 +421,9 @@ export class MultiChainLauncher {
       const secretKey = new Uint8Array(parsed)
       payer = Keypair.fromSecretKey(secretKey)
     } else {
-      // Conditional import: only loaded when private key is in base58 format (not JSON array)
-      const bs58 = await import('bs58')
       let secretKey: Uint8Array
       try {
-        secretKey = bs58.default.decode(solanaPrivateKey)
+        secretKey = bs58.decode(solanaPrivateKey)
       } catch {
         throw new Error(
           'SOLANA_PRIVATE_KEY is not valid base58. ' +

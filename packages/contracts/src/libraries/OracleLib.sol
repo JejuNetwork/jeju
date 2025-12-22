@@ -4,8 +4,7 @@ pragma solidity ^0.8.33;
 /**
  * @title OracleLib
  * @author Jeju Network
- * @notice Unified library for oracle price reading (Chainlink, Pyth, TWAP)
- * @dev Consolidates oracle validation logic used across OTC, OracleRegistry, and SimplePoolOracle
+ * @notice Library for oracle price reading (Chainlink, Pyth, TWAP)
  */
 library OracleLib {
     // ============ Structs ============

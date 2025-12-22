@@ -15,7 +15,6 @@ import { jeju } from '../config/chains'
 
 // ============ Types ============
 
-// Re-export shared types
 export { BanType }
 
 export interface BanCheckResult {

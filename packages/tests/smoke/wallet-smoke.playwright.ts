@@ -28,7 +28,7 @@ import {
   JEJU_CHAIN_ID,
   JEJU_RPC_URL,
   TEST_WALLET_ADDRESS,
-} from '../shared/synpress.config.base'
+} from '../shared/utils'
 
 const RPC_URL = JEJU_RPC_URL
 const CHAIN_ID = JEJU_CHAIN_ID

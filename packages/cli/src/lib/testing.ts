@@ -2,12 +2,159 @@
  * Test orchestration utilities
  */
 
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs'
 import { join } from 'node:path'
 import { execa } from 'execa'
-import type { AppManifest, TestPhase, TestResult } from '../types'
+import type {
+  AppManifest,
+  AppTestConfig,
+  TestPhase,
+  TestResult,
+} from '../types'
 import { checkRpcHealth } from './chain'
 import { logger } from './logger'
+
+/**
+ * Generates a playwright or synpress config file from manifest settings.
+ * Allows apps to skip having config files if they follow standard conventions.
+ */
+export function generateConfigFromManifest(
+  appName: string,
+  appDir: string,
+  manifest: AppManifest,
+  type: 'playwright' | 'synpress',
+): string | null {
+  const testing = manifest.testing as AppTestConfig | undefined
+  if (!testing?.e2e) return null
+
+  const port = manifest.ports?.main ?? manifest.ports?.frontend ?? 3000
+  const testDir = type === 'synpress' ? './tests/synpress' : './tests/e2e'
+  const timeout = testing.e2e.timeout ?? 120000
+
+  const configContent =
+    type === 'synpress'
+      ? generateSynpressConfig(appName, port, testDir, timeout, manifest)
+      : generatePlaywrightConfig(appName, port, testDir, timeout, manifest)
+
+  // Write to .jeju directory (ephemeral)
+  const jejuDir = join(appDir, '.jeju')
+  mkdirSync(jejuDir, { recursive: true })
+
+  const configPath = join(jejuDir, `${type}.config.generated.ts`)
+  writeFileSync(configPath, configContent)
+
+  return configPath
+}
+
+function generateSynpressConfig(
+  appName: string,
+  port: number,
+  testDir: string,
+  timeout: number,
+  manifest: AppManifest,
+): string {
+  const devCommand = manifest.commands?.dev ?? 'bun run dev'
+
+  return `/**
+ * Auto-generated Synpress config for ${appName}
+ * Generated from jeju-manifest.json
+ */
+import {
+  createSynpressConfig,
+  createWalletSetup,
+  PASSWORD,
+} from '@jejunetwork/tests'
+
+const PORT = parseInt(process.env.PORT || '${port}', 10)
+
+export default createSynpressConfig({
+  appName: '${appName}',
+  port: PORT,
+  testDir: '${testDir}',
+  timeout: ${timeout},
+  overrides: {
+    webServer: {
+      command: '${devCommand}',
+      url: \`http://localhost:\${PORT}\`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120000,
+    },
+  },
+})
+
+export const basicSetup = createWalletSetup()
+export { PASSWORD }
+`
+}
+
+function generatePlaywrightConfig(
+  appName: string,
+  port: number,
+  testDir: string,
+  timeout: number,
+  manifest: AppManifest,
+): string {
+  const devCommand = manifest.commands?.dev ?? 'bun run dev'
+
+  return `/**
+ * Auto-generated Playwright config for ${appName}
+ * Generated from jeju-manifest.json
+ */
+import { createAppConfig } from '@jejunetwork/tests'
+
+const PORT = parseInt(process.env.PORT || '${port}', 10)
+
+export default createAppConfig({
+  name: '${appName}',
+  port: PORT,
+  testDir: '${testDir}',
+  timeout: ${timeout},
+  webServer: {
+    command: '${devCommand}',
+    timeout: 120000,
+  },
+})
+`
+}
+
+/**
+ * Gets the appropriate test config file for an app.
+ * Returns the app's config if it exists, otherwise generates one from manifest.
+ */
+export function getTestConfig(
+  appName: string,
+  appDir: string,
+  manifest: AppManifest,
+  type: 'playwright' | 'synpress',
+): { configPath: string; generated: boolean } | null {
+  const configFileName =
+    type === 'synpress' ? 'synpress.config.ts' : 'playwright.config.ts'
+  const existingConfig = join(appDir, configFileName)
+
+  // Use existing config if available
+  if (existsSync(existingConfig)) {
+    return { configPath: existingConfig, generated: false }
+  }
+
+  // Generate from manifest
+  const generatedPath = generateConfigFromManifest(
+    appName,
+    appDir,
+    manifest,
+    type,
+  )
+  if (generatedPath) {
+    return { configPath: generatedPath, generated: true }
+  }
+
+  return null
+}
 
 export interface TestOptions {
   phase?: string
@@ -209,7 +356,15 @@ export async function runAppTests(
     throw new Error(`No package.json found in ${appDir}`)
   }
 
-  const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'))
+  const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8')) as {
+    scripts?: Record<string, string>
+  }
+
+  // Load manifest for config generation
+  const manifestPath = join(appDir, 'jeju-manifest.json')
+  const manifest: AppManifest | null = existsSync(manifestPath)
+    ? (JSON.parse(readFileSync(manifestPath, 'utf-8')) as AppManifest)
+    : null
 
   // Run unit tests if available
   if (pkg.scripts?.test) {
@@ -223,24 +378,42 @@ export async function runAppTests(
     results.push(await runTestPhase(phase, rootDir, options))
   }
 
-  // Run playwright tests if available
-  if (existsSync(join(appDir, 'playwright.config.ts'))) {
+  // Run playwright tests (from config file or generated from manifest)
+  const playwrightConfig = manifest
+    ? getTestConfig(appName, appDir, manifest, 'playwright')
+    : existsSync(join(appDir, 'playwright.config.ts'))
+      ? { configPath: join(appDir, 'playwright.config.ts'), generated: false }
+      : null
+
+  if (playwrightConfig) {
+    const configArg = playwrightConfig.generated
+      ? `--config ${playwrightConfig.configPath}`
+      : ''
     const phase: TestPhase = {
       name: `${appName}-e2e`,
-      description: `E2E tests for ${appName}`,
-      command: 'bunx playwright test',
+      description: `E2E tests for ${appName}${playwrightConfig.generated ? ' (manifest-based)' : ''}`,
+      command: `bunx playwright test ${configArg}`.trim(),
       cwd: appDir,
       timeout: 300000,
     }
     results.push(await runTestPhase(phase, rootDir, options))
   }
 
-  // Run synpress tests if available
-  if (existsSync(join(appDir, 'synpress.config.ts'))) {
+  // Run synpress tests (from config file or generated from manifest)
+  const synpressConfig = manifest
+    ? getTestConfig(appName, appDir, manifest, 'synpress')
+    : existsSync(join(appDir, 'synpress.config.ts'))
+      ? { configPath: join(appDir, 'synpress.config.ts'), generated: false }
+      : null
+
+  if (synpressConfig) {
+    const configPath = synpressConfig.generated
+      ? synpressConfig.configPath
+      : 'synpress.config.ts'
     const phase: TestPhase = {
       name: `${appName}-wallet`,
-      description: `Wallet tests for ${appName}`,
-      command: 'bunx playwright test --config synpress.config.ts',
+      description: `Wallet tests for ${appName}${synpressConfig.generated ? ' (manifest-based)' : ''}`,
+      command: `bunx playwright test --config ${configPath}`,
       cwd: appDir,
       timeout: 600000,
     }

@@ -216,8 +216,8 @@ export function securityMiddleware(config: SecurityConfig = {}) {
       ) {
         set.headers['Cache-Control'] =
           'no-store, no-cache, must-revalidate, proxy-revalidate'
-        set.headers['Pragma'] = 'no-cache'
-        set.headers['Expires'] = '0'
+        set.headers.Pragma = 'no-cache'
+        set.headers.Expires = '0'
       }
     },
   )
@@ -250,21 +250,20 @@ const DEFAULT_RATE_LIMIT: RateLimitConfig = {
  *
  * For production with multiple instances, use Redis-based rate limiting.
  */
-export function rateLimitMiddleware(config: RateLimitConfig = DEFAULT_RATE_LIMIT) {
+export function rateLimitMiddleware(
+  config: RateLimitConfig = DEFAULT_RATE_LIMIT,
+) {
   const requests = new Map<string, { count: number; resetAt: number }>()
 
   // Cleanup old entries periodically
-  setInterval(
-    () => {
-      const now = Date.now()
-      for (const [key, value] of requests) {
-        if (value.resetAt < now) {
-          requests.delete(key)
-        }
+  setInterval(() => {
+    const now = Date.now()
+    for (const [key, value] of requests) {
+      if (value.resetAt < now) {
+        requests.delete(key)
       }
-    },
-    config.windowMs * 2,
-  )
+    }
+  }, config.windowMs * 2)
 
   const getKey =
     config.keyGenerator ??
@@ -283,7 +282,13 @@ export function rateLimitMiddleware(config: RateLimitConfig = DEFAULT_RATE_LIMIT
     })
 
   return new Elysia({ name: 'rate-limit-middleware' }).onBeforeHandle(
-    ({ request, set }): void | Response | { error: string; message: string; retryAfter: number } => {
+    ({
+      request,
+      set,
+    }):
+      | undefined
+      | Response
+      | { error: string; message: string; retryAfter: number } => {
       const url = new URL(request.url)
 
       // Skip rate limiting for health checks etc
@@ -313,7 +318,9 @@ export function rateLimitMiddleware(config: RateLimitConfig = DEFAULT_RATE_LIMIT
       set.headers['X-RateLimit-Remaining'] = String(
         Math.max(0, config.max - record.count),
       )
-      set.headers['X-RateLimit-Reset'] = String(Math.ceil(record.resetAt / 1000))
+      set.headers['X-RateLimit-Reset'] = String(
+        Math.ceil(record.resetAt / 1000),
+      )
 
       if (record.count > config.max) {
         set.status = 429
@@ -336,4 +343,3 @@ export function rateLimitMiddleware(config: RateLimitConfig = DEFAULT_RATE_LIMIT
 }
 
 export default securityMiddleware
-

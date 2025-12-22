@@ -4,14 +4,14 @@
  * Comprehensive validation schemas for all wallet plugin types.
  */
 
-import { z } from 'zod'
 import {
   AddressSchema,
   BigIntSchema,
   ChainIdSchema,
   HexSchema,
   TimestampSchema,
-} from '../lib/validation'
+} from '@jejunetwork/types'
+import { z } from 'zod'
 
 // ============================================================================
 // Wallet Account Schemas

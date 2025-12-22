@@ -13,7 +13,6 @@
     "chainId": 1337,
     "tokens": {
       "jeju": "0xCD8a1C3ba11CF5ECfa6267617243239504a98d90",
-      "elizaOS": "0xf5059a5D33d5853360D16C683c16e67980206f36",
       "usdc": "0x851356ae760d987E095750cCeb3bC6014560891C",
       "weth": "0x4200000000000000000000000000000000000006"
     },
@@ -131,7 +130,6 @@
     "chainId": 420690,
     "tokens": {
       "jeju": "",
-      "elizaOS": "0x7af64e6aE21076DE21EFe71F243A75664a17C34b",
       "usdc": "0x953F6516E5d2864cE7f13186B45dE418EA665EB2",
       "weth": "0x4200000000000000000000000000000000000006"
     },
@@ -243,9 +241,15 @@
     "chainId": 420691,
     "tokens": {
       "jeju": "",
-      "elizaOS": "",
       "usdc": "",
       "weth": "0x4200000000000000000000000000000000000006"
+    },
+    "babylon": {
+      "BBLNToken": "",
+      "BabylonTreasury": "",
+      "BabylonAgentVault": "",
+      "BabylonDAO": "",
+      "TrainingOrchestrator": ""
     },
     "registry": {
       "identity": "",
@@ -385,8 +389,7 @@
         "validator": "0xF866a84615c33Fa6a3e97084E67f3E355CBf6De1"
       },
       "tokens": {
-        "usdc": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-        "elizaOS": "0x7af64e6aE21076DE21EFe71F243A75664a17C34b"
+        "usdc": "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
       }
     },
     "arbitrumSepolia": {

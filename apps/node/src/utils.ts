@@ -1,27 +1,9 @@
-/**
- * Node Utility Functions
- * Uses shared formatting utilities from @jejunetwork/shared
- */
-
-import {
-  classNames,
-  delay,
-  formatAddress,
-  formatBytes,
-  formatDuration,
-  formatUsd,
-} from '@jejunetwork/shared'
+import { delay, formatAddress } from '@jejunetwork/shared'
 import {
   formatEther as viemFormatEther,
   parseEther as viemParseEther,
 } from 'viem'
 
-// Re-export from shared
-export { formatBytes, formatDuration, formatAddress, classNames, delay }
-
-/**
- * Format ETH with custom display logic
- */
 export function formatEther(wei: string | bigint): string {
   if (typeof wei === 'string') {
     if (wei === '') {
@@ -42,26 +24,12 @@ export function formatEther(wei: string | bigint): string {
   return num.toFixed(1)
 }
 
-/**
- * Format USD with custom display logic for small amounts
- */
-export { formatUsd }
-
-/**
- * Shorten address alias
- */
 export const shortenAddress = formatAddress
 
-/**
- * Parse ETH to wei string
- */
 export function parseWei(eth: string): string {
   return viemParseEther(eth).toString()
 }
 
-/**
- * Sleep utility
- */
 export function sleep(ms: number): Promise<void> {
   return delay(ms)
 }

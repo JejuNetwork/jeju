@@ -52,7 +52,11 @@ function parseArgs(): ContinuousOptions {
       options.scenario = arg.split('=')[1] ?? 'light'
     } else if (arg.startsWith('--network=')) {
       const network = arg.split('=')[1]
-      if (network === 'localnet' || network === 'testnet' || network === 'mainnet') {
+      if (
+        network === 'localnet' ||
+        network === 'testnet' ||
+        network === 'mainnet'
+      ) {
         options.network = network
       }
     } else if (arg.startsWith('--iterations=')) {
@@ -225,7 +229,7 @@ function printIterationSummary(
   result: CombinedLoadTestResult,
   improvements: ImprovementRecord[],
 ): void {
-  console.log('\n' + '─'.repeat(70))
+  console.log(`\n${'─'.repeat(70)}`)
   console.log(`  ITERATION ${iteration} SUMMARY`)
   console.log('─'.repeat(70))
 
@@ -233,8 +237,12 @@ function printIterationSummary(
   const total = result.apps.length
   console.log(`  Apps: ${healthy}/${total} healthy`)
 
-  const criticals = result.bottlenecks.filter((b) => b.severity === 'critical').length
-  const warnings = result.bottlenecks.filter((b) => b.severity === 'warning').length
+  const criticals = result.bottlenecks.filter(
+    (b) => b.severity === 'critical',
+  ).length
+  const warnings = result.bottlenecks.filter(
+    (b) => b.severity === 'warning',
+  ).length
   console.log(`  Bottlenecks: ${criticals} critical, ${warnings} warnings`)
 
   if (improvements.length > 0) {
@@ -321,14 +329,16 @@ async function runContinuousLoop(options: ContinuousOptions): Promise<void> {
   }
 
   if (!options.outputJson) {
-    console.log('\n' + '═'.repeat(70))
+    console.log(`\n${'═'.repeat(70)}`)
     console.log('  CONTINUOUS IMPROVEMENT LOOP')
     console.log('═'.repeat(70))
     console.log(`  Run ID: ${state.runId}`)
     console.log(`  Network: ${options.network}`)
     console.log(`  Scenario: ${scenario.name}`)
     console.log(`  Apps: ${configs.map((c) => c.name).join(', ')}`)
-    console.log(`  Iterations: ${options.watch ? 'Infinite (--watch)' : options.iterations}`)
+    console.log(
+      `  Iterations: ${options.watch ? 'Infinite (--watch)' : options.iterations}`,
+    )
     console.log(`  Interval: ${options.intervalSeconds}s`)
     console.log('═'.repeat(70))
   }
@@ -343,12 +353,18 @@ async function runContinuousLoop(options: ContinuousOptions): Promise<void> {
     state.iteration++
 
     if (!options.outputJson) {
-      console.log(`\n\n🔄 ITERATION ${state.iteration}/${options.watch ? '∞' : options.iterations}`)
+      console.log(
+        `\n\n🔄 ITERATION ${state.iteration}/${options.watch ? '∞' : options.iterations}`,
+      )
     }
 
     // Run tests
     const results = await runSingleIteration(configs, scenario, options.network)
-    const combinedResult = analyzeResults(results, options.network, scenario.name)
+    const combinedResult = analyzeResults(
+      results,
+      options.network,
+      scenario.name,
+    )
     state.results.push(combinedResult)
 
     // Compare with previous iteration
@@ -380,7 +396,9 @@ async function runContinuousLoop(options: ContinuousOptions): Promise<void> {
     // Wait for next iteration
     if (running && state.iteration < options.iterations) {
       if (!options.outputJson) {
-        console.log(`\n⏳ Waiting ${options.intervalSeconds}s before next iteration...`)
+        console.log(
+          `\n⏳ Waiting ${options.intervalSeconds}s before next iteration...`,
+        )
       }
       await new Promise((resolve) =>
         setTimeout(resolve, options.intervalSeconds * 1000),
@@ -390,7 +408,7 @@ async function runContinuousLoop(options: ContinuousOptions): Promise<void> {
 
   // Final summary
   if (!options.outputJson) {
-    console.log('\n' + '═'.repeat(70))
+    console.log(`\n${'═'.repeat(70)}`)
     console.log('  CONTINUOUS LOOP COMPLETE')
     console.log('═'.repeat(70))
     console.log(`  Total iterations: ${state.iteration}`)
@@ -412,4 +430,3 @@ main().catch((err) => {
 })
 
 export { runContinuousLoop }
-

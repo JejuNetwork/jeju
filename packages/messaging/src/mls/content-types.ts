@@ -38,7 +38,11 @@ const FileContentSchema = z.object({
   type: z.literal('file'),
   url: z.string().url(),
   name: z.string().min(1).max(255),
-  size: z.number().int().positive().max(100 * 1024 * 1024), // Max 100MB
+  size: z
+    .number()
+    .int()
+    .positive()
+    .max(100 * 1024 * 1024), // Max 100MB
   mimeType: z.string(),
 })
 
@@ -54,7 +58,10 @@ const ReplyContentSchema = z.object({
   text: z.string(),
   replyToId: z.string().min(1),
   replyToContent: z.string().optional(),
-  replyToSender: z.string().regex(/^0x[a-fA-F0-9]{40}$/).optional(),
+  replyToSender: z
+    .string()
+    .regex(/^0x[a-fA-F0-9]{40}$/)
+    .optional(),
 })
 
 const TransactionContentSchema = z.object({

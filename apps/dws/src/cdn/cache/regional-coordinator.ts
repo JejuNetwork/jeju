@@ -350,7 +350,7 @@ export class RegionalCacheCoordinator {
 
     return Array.from(nodeIds)
       .map((id) => this.nodes.get(id))
-      .filter((n): n is RegionalNode => n?.healthy)
+      .filter((n): n is RegionalNode => n !== undefined && n.healthy === true)
   }
 
   /**

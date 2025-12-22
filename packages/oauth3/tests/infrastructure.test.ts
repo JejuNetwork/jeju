@@ -339,6 +339,9 @@ describe('OAuth3 JNS Integration', () => {
 
 // ============ Storage Integration Tests ============
 
+// IPFS API port from centralized config (default 5001)
+const IPFS_PORT = process.env.IPFS_API_PORT ?? '5001'
+
 describe('OAuth3 Decentralized Storage', () => {
   let storage: OAuth3StorageService
   const testKey =
@@ -347,7 +350,7 @@ describe('OAuth3 Decentralized Storage', () => {
   beforeEach(() => {
     resetOAuth3StorageService()
     storage = createOAuth3StorageService({
-      ipfsApiEndpoint: 'http://localhost:5001/api/v0',
+      ipfsApiEndpoint: `http://localhost:${IPFS_PORT}/api/v0`,
       encryptionKey: testKey,
     })
   })
@@ -379,7 +382,7 @@ describe('OAuth3 Decentralized Storage', () => {
     it('should throw when storing session without encryption key', async () => {
       resetOAuth3StorageService()
       const noKeyStorage = createOAuth3StorageService({
-        ipfsApiEndpoint: 'http://localhost:5001/api/v0',
+        ipfsApiEndpoint: `http://localhost:${IPFS_PORT}/api/v0`,
       })
 
       await expect(
@@ -617,7 +620,7 @@ describe('OAuth3 Decentralized Discovery', () => {
     discovery = createDecentralizedDiscovery({
       rpcUrl: 'http://localhost:6546',
       chainId: 420691,
-      ipfsApiEndpoint: 'http://localhost:5001/api/v0',
+      ipfsApiEndpoint: `http://localhost:${IPFS_PORT}/api/v0`,
     })
   })
 
@@ -1040,7 +1043,7 @@ describe('Storage Index Operations', () => {
   beforeEach(() => {
     resetOAuth3StorageService()
     storage = createOAuth3StorageService({
-      ipfsApiEndpoint: 'http://localhost:5001/api/v0',
+      ipfsApiEndpoint: `http://localhost:${IPFS_PORT}/api/v0`,
       encryptionKey: testKey,
     })
   })

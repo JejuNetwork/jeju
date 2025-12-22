@@ -2,6 +2,7 @@
  * Runner Manager - Dispatches CI jobs to compute nodes
  */
 
+import { unlink } from 'node:fs/promises'
 import type { Address, Hex } from 'viem'
 import type { JobRun, Runner, RunnerCapabilities, WorkflowJob } from './types'
 
@@ -299,8 +300,6 @@ export class RunnerManager {
 
     // Clean up env file containing secrets
     try {
-      // Dynamic import: only needed during cleanup (conditional - inside try/catch)
-      const { unlink } = await import('node:fs/promises')
       await unlink(envFile)
     } catch {
       // Ignore errors during cleanup

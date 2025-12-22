@@ -1,8 +1,8 @@
+import { ZERO_ADDRESS } from '@jejunetwork/ui'
 import { useCallback, useMemo, useState } from 'react'
 import { formatEther, formatUnits, parseEther } from 'viem'
 import { useAccount, useReadContract, useWriteContract } from 'wagmi'
 import { CONTRACTS, RPC_GATEWAY_URL } from '../config'
-import { ZERO_ADDRESS } from '../lib/contracts'
 
 const STAKING = CONTRACTS.rpcStaking
 const TOKEN = CONTRACTS.jeju

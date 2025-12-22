@@ -1,5 +1,3 @@
-'use client'
-
 import { Clock, type LucideProps, TrendingDown, TrendingUp } from 'lucide-react'
 import { type ComponentType, useState } from 'react'
 import { formatEther, parseEther } from 'viem'

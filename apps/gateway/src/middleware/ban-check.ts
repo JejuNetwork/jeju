@@ -1,6 +1,6 @@
 /**
- * Ban Check Plugin for Gateway (Elysia)
- * Re-exports from @jejunetwork/shared with gateway-specific configuration
+ * Ban Check Middleware for Gateway
+ * Provides middleware for Elysia servers with gateway-specific configuration.
  */
 
 import {
@@ -29,14 +29,14 @@ const gatewayBanConfig: BanCheckConfig = {
 // Create singleton checker
 const checker = new BanChecker(gatewayBanConfig)
 
-// Re-export types and config
-export type { BanCheckConfig, BanCheckResult }
-export { BAN_MANAGER_ADDRESS, MODERATION_MARKETPLACE_ADDRESS }
-
 interface RequestBody {
   address?: string
   from?: string
 }
+
+// ============================================================================
+// Elysia Middleware
+// ============================================================================
 
 /**
  * Elysia plugin that blocks banned users
@@ -120,6 +120,10 @@ export const lenientBanCheckPlugin = () => {
       }
     })
 }
+
+// ============================================================================
+// Generic Functions
+// ============================================================================
 
 /**
  * Check ban status for an address

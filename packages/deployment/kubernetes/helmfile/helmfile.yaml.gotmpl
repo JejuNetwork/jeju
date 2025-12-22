@@ -20,6 +20,10 @@ repositories:
     url: https://charts.jetstack.io
   - name: aws
     url: https://aws.github.io/eks-charts
+  - name: kedacore
+    url: https://kedacore.github.io/charts
+  - name: prometheus-community
+    url: https://prometheus-community.github.io/helm-charts
 
 ---
 
@@ -199,21 +203,12 @@ releases:
       - ../helm/op-challenger/values.yaml
       - ../helm/op-challenger/values-{{ .Environment.Name }}.yaml
 
-  # EigenDA Proxy (Data Availability) - Legacy, prefer JejuDA or blobs
-  - name: eigenda
-    namespace: da
-    createNamespace: true
-    chart: ../helm/eigenda
-    installed: false  # Disabled - using native blobs post-Fusaka
-    values:
-      - ../helm/eigenda/values.yaml
-      - ../helm/eigenda/values-{{ .Environment.Name }}.yaml
-
-  # JejuDA (Native IPFS-based Data Availability)
+  # Jeju DA (Native Data Availability with PeerDAS integration)
   - name: jeju-da
     namespace: da
+    createNamespace: true
     chart: ../helm/jeju-da
-    installed: false  # Enable if using custom DA instead of blobs
+    installed: false  # Enable if using custom DA instead of native blobs
     values:
       - ../helm/jeju-da/values.yaml
 

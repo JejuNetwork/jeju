@@ -27,7 +27,7 @@ export interface SolanaDeploymentConfig {
   decimals?: number
 }
 
-export interface SolanaDeploymentResult {
+export interface SolanaTokenDeployResult {
   mint: PublicKey
   mintAuthority: PublicKey
   warpRouteProgram?: PublicKey
@@ -40,7 +40,7 @@ export interface SolanaDeploymentResult {
 export async function deploySolanaToken(
   config: SolanaDeploymentConfig,
   tokenConfig: DeploymentConfig['token'],
-): Promise<SolanaDeploymentResult> {
+): Promise<SolanaTokenDeployResult> {
   const { connection, payer, mintAuthority, freezeAuthority } = config
   const decimals = config.decimals ?? tokenConfig.decimals
   const txSignatures: string[] = []

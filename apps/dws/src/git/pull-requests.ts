@@ -104,7 +104,11 @@ export class PullRequestsManager {
     const result = await this.backend.download(prRef.cid).catch(() => null)
     if (!result) return null
 
-    const pr = expectJson(result.content.toString(), PullRequestSchema, 'pull request')
+    const pr = expectJson(
+      result.content.toString(),
+      PullRequestSchema,
+      'pull request',
+    )
     this.prCache.set(cacheKey, pr)
     return pr
   }
@@ -659,7 +663,11 @@ export class PullRequestsManager {
   async preloadIndex(repoId: Hex, prIndexCid: string): Promise<void> {
     const result = await this.backend.download(prIndexCid).catch(() => null)
     if (result) {
-      const index = expectJson(result.content.toString(), PRIndexSchema, 'PR index')
+      const index = expectJson(
+        result.content.toString(),
+        PRIndexSchema,
+        'PR index',
+      )
       this.indexCache.set(repoId, index)
     }
   }

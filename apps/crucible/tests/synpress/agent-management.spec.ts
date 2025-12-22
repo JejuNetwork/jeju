@@ -5,9 +5,9 @@
  * Includes smoke tests to verify the UI loads correctly.
  */
 
+import basicSetup from '@jejunetwork/tests/wallet-setup'
 import { testWithSynpress } from '@synthetixio/synpress'
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright'
-import { basicSetup } from '../../synpress.config'
 
 const test = testWithSynpress(metaMaskFixtures(basicSetup))
 const { expect } = test

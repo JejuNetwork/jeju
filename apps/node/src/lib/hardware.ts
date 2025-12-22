@@ -1,8 +1,3 @@
-/**
- * Hardware detection for browser/Node.js environment
- * Profiles CPU, GPU, and Docker capabilities for compute marketplace
- */
-
 import { execSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import os from 'node:os'

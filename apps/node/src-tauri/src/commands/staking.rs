@@ -58,18 +58,16 @@ pub struct ClaimResult {
 }
 
 #[tauri::command]
-pub async fn get_staking_info(
-    state: State<'_, AppState>,
-) -> Result<StakingInfo, String> {
+pub async fn get_staking_info(state: State<'_, AppState>) -> Result<StakingInfo, String> {
     let inner = state.inner.read();
-    
+
     // TODO: Query all staking contracts for current stake amounts
     // 1. NodeStakingManager for RPC nodes
     // 2. ComputeStaking for compute nodes
     // 3. OracleStakingManager for oracle nodes
     // 4. SequencerRegistry for sequencers
     // 5. StorageProviderRegistry for storage
-    
+
     Ok(StakingInfo {
         total_staked_wei: "0".to_string(),
         total_staked_usd: 0.0,
@@ -89,18 +87,18 @@ pub async fn stake(
     request: StakeRequest,
 ) -> Result<StakeResult, String> {
     let inner = state.inner.read();
-    
+
     // Verify wallet
     if inner.wallet_manager.is_none() {
         return Err("Wallet not connected".to_string());
     }
-    
+
     // TODO: Execute stake transaction
     // 1. Parse amount and token
     // 2. Approve token if needed
     // 3. Call appropriate staking contract
     // 4. Wait for confirmation
-    
+
     Err("Staking not yet implemented".to_string())
 }
 
@@ -110,17 +108,17 @@ pub async fn unstake(
     request: UnstakeRequest,
 ) -> Result<StakeResult, String> {
     let inner = state.inner.read();
-    
+
     // Verify wallet
     if inner.wallet_manager.is_none() {
         return Err("Wallet not connected".to_string());
     }
-    
+
     // TODO: Execute unstake transaction
     // 1. Check if unstake is allowed (cooldown period)
     // 2. Call appropriate staking contract
     // 3. Wait for confirmation
-    
+
     Err("Unstaking not yet implemented".to_string())
 }
 
@@ -130,17 +128,17 @@ pub async fn claim_rewards(
     service_id: Option<String>,
 ) -> Result<ClaimResult, String> {
     let inner = state.inner.read();
-    
+
     // Verify wallet
     if inner.wallet_manager.is_none() {
         return Err("Wallet not connected".to_string());
     }
-    
+
     // TODO: Claim rewards from staking contracts
     // 1. If service_id specified, claim from that service
     // 2. Otherwise, claim from all services
     // 3. Return total claimed
-    
+
     Err("Claim rewards not yet implemented".to_string())
 }
 
@@ -152,19 +150,19 @@ pub async fn enable_auto_claim(
     interval_hours: Option<u32>,
 ) -> Result<(), String> {
     let mut inner = state.inner.write();
-    
+
     inner.config.earnings.auto_claim = enabled;
-    
+
     if let Some(threshold) = threshold_wei {
         inner.config.earnings.auto_claim_threshold_wei = threshold;
     }
-    
+
     if let Some(interval) = interval_hours {
         inner.config.earnings.auto_claim_interval_hours = interval;
     }
-    
+
     inner.config.save().map_err(|e| e.to_string())?;
-    
+
     Ok(())
 }
 
@@ -173,9 +171,8 @@ pub async fn get_pending_rewards(
     state: State<'_, AppState>,
 ) -> Result<Vec<ServiceStakeInfo>, String> {
     let inner = state.inner.read();
-    
+
     // TODO: Query all staking contracts for pending rewards
-    
+
     Ok(vec![])
 }
-

@@ -49,7 +49,11 @@ async function checkEndpointAvailability(): Promise<boolean> {
       const parsed = JSON.parse(text)
       const validated = GraphQLResponseSchema.safeParse(parsed)
       // Check if it's a valid GraphQL response (has data or errors)
-      return validated.success && (validated.data.data !== undefined || validated.data.errors !== undefined)
+      return (
+        validated.success &&
+        (validated.data.data !== undefined ||
+          validated.data.errors !== undefined)
+      )
     } catch {
       return false
     }

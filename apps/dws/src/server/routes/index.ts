@@ -3,29 +3,83 @@
  * All routes are Elysia plugins with type exports for Eden
  */
 
-export { a2aRoutes, type A2ARoutes } from './a2a'
-export { cdnRoutes, type CDNRoutes } from './cdn'
-export { computeRoutes, type ComputeRoutes } from './compute'
-export { storageRoutes, type StorageRoutes } from './storage'
+// ============================================================================
+// Static Elysia plugins (already instantiated)
+// ============================================================================
 
-// Legacy Hono routes - to be converted to Elysia
-export { createContainerRouter } from './containers'
-export { createDARouter, shutdownDA } from './da'
+export { type A2ARoutes, a2aRoutes } from './a2a'
+export { type CDNRoutes, cdnRoutes } from './cdn'
+export { type ComputeRoutes, computeRoutes } from './compute'
+export { type RLAIFRoutes, rlaifRoutes } from './rlaif'
+export { type RPCRoutes, rpcRoutes } from './rpc'
+export { type StorageRoutes, storageRoutes } from './storage'
+export { type TrainingRoutes, trainingRoutes } from './training'
+
+// ============================================================================
+// Elysia route factories (with type exports)
+// ============================================================================
+
+// API Marketplace
+export {
+  type APIMarketplaceRoutes,
+  createAPIMarketplaceRouter,
+} from './api-marketplace'
+// CI/CD
+export { type CIRoutes, createCIRouter } from './ci'
+// Containers
+export { type ContainerRoutes, createContainerRouter } from './containers'
+// Data Availability
+export { createDARouter, type DARoutes, shutdownDA } from './da'
+// Datasets
+export { createDatasetsRouter, type DatasetsRoutes } from './datasets'
+// Dependency Scanner
+export {
+  createDependencyScannerRouter,
+  type DependencyScannerRoutes,
+} from './dependency-scanner'
+// Edge Coordination
 export { createEdgeRouter, handleEdgeWebSocket } from './edge'
+// Funding
 export { createFundingRouter } from './funding'
+// Git
 export { createGitRouter } from './git'
-export { createKMSRouter } from './kms'
-export { createMCPRouter } from './mcp'
-export { createModerationRouter } from './moderation'
-export { createOAuth3Router } from './oauth3'
-export { createPkgRouter } from './pkg'
-export { createPkgRegistryProxyRouter } from './pkg-registry-proxy'
-export { createPricesRouter, getPriceService, type SubscribableWebSocket } from './prices'
+// Key Management Service
+export { createKMSRouter, type KMSRoutes } from './kms'
+// MCP (Model Context Protocol)
+export { createMCPRouter, type MCPRoutes } from './mcp'
+// Models
+export { createModelsRouter, type ModelsRoutes } from './models'
+// Moderation
+export { createModerationRouter, type ModerationRoutes } from './moderation'
+// OAuth3 proxy
+export { createOAuth3Router, type OAuth3Routes } from './oauth3'
+// Packages
+export { createPkgRouter, type PkgRoutes } from './pkg'
+export {
+  createPkgRegistryProxyRouter,
+  type PkgRegistryProxyRoutes,
+} from './pkg-registry-proxy'
+// Price Streaming
+export {
+  createPricesRouter,
+  getPriceService,
+  handlePriceWebSocket,
+  type PricesRoutes,
+  type SubscribableWebSocket,
+} from './prices'
+// RPC (legacy factory export)
 export { createRPCRouter } from './rpc'
-export { createS3Router } from './s3'
-export { createScrapingRouter } from './scraping'
-export { createVPNRouter } from './vpn'
-export { createDefaultWorkerdRouter } from './workerd'
-export { createWorkersRouter } from './workers'
-export { createAPIMarketplaceRouter } from './api-marketplace'
-export { createCIRouter } from './ci'
+// S3-compatible storage
+export { createS3Router, type S3Routes } from './s3'
+// Web Scraping
+export { createScrapingRouter, type ScrapingRoutes } from './scraping'
+// VPN/Proxy
+export { createVPNRouter, type VPNRoutes } from './vpn'
+export {
+  createDefaultWorkerdRouter,
+  createWorkerdRouter,
+  type WorkerdRouterOptions,
+  type WorkerdRoutes,
+} from './workerd'
+// Workers
+export { createWorkersRouter, type WorkersRoutes } from './workers'

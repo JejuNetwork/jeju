@@ -22,9 +22,6 @@ import {
 } from '../schemas'
 import type { TrainingJobRequest, TrainingJobResult } from './types'
 
-// Re-export types for external use
-export type { DWSJobStatus, JudgeResult }
-
 // ============================================================================
 // Types
 // ============================================================================
@@ -155,7 +152,7 @@ export class DWSTrainingClient {
     )
 
     if (!response.ok) {
-      return []
+      throw new Error(`Failed to get job allocations: ${response.statusText}`)
     }
 
     const result = expectValid(
@@ -338,7 +335,7 @@ export class DWSTrainingClient {
     const response = await fetch(`${this.config.dwsApiUrl}/training/jobs`)
 
     if (!response.ok) {
-      return []
+      throw new Error(`Failed to list jobs: ${response.statusText}`)
     }
 
     const result = expectValid(

@@ -10,6 +10,14 @@
  */
 
 import { describe, expect, it } from 'bun:test'
+import {
+  createCovenantSQLClient,
+  getHSMClient,
+  getMPCCustodyManager,
+  MigrationManager,
+  resetHSMClient,
+  resetMPCCustodyManager,
+} from '@jejunetwork/shared'
 
 // ============================================================================
 // Test Configuration
@@ -28,9 +36,6 @@ const TEST_CONFIG = {
 
 describe('CovenantSQL Integration', () => {
   it('should connect to CovenantSQL cluster', async () => {
-    // Import dynamically to avoid module resolution issues in test
-    const { createCovenantSQLClient } = await import('@jejunetwork/shared')
-
     const client = createCovenantSQLClient({
       nodes: ['http://localhost:4661'],
       databaseId: 'test-db',
@@ -49,8 +54,6 @@ describe('CovenantSQL Integration', () => {
   })
 
   it('should support strong consistency queries', async () => {
-    const { createCovenantSQLClient } = await import('@jejunetwork/shared')
-
     const _client = createCovenantSQLClient({
       nodes: ['http://localhost:4661'],
       databaseId: 'test-db',
@@ -67,8 +70,6 @@ describe('CovenantSQL Integration', () => {
   })
 
   it('should support eventual consistency queries', async () => {
-    const { createCovenantSQLClient } = await import('@jejunetwork/shared')
-
     const _client = createCovenantSQLClient({
       nodes: ['http://localhost:4661'],
       databaseId: 'test-db',
@@ -84,12 +85,6 @@ describe('CovenantSQL Integration', () => {
   })
 
   it('should run migrations', async () => {
-    const {
-      createCovenantSQLClient,
-      MigrationManager,
-      createTableMigration: _createTableMigration,
-    } = await import('@jejunetwork/shared')
-
     const client = createCovenantSQLClient({
       nodes: ['http://localhost:4661'],
       databaseId: 'test-db',
@@ -163,10 +158,6 @@ describe('Container Registry Integration', () => {
 
 describe('MPC Key Management', () => {
   it('should create distributed keys', async () => {
-    const { getMPCCustodyManager, resetMPCCustodyManager } = await import(
-      '@jejunetwork/shared'
-    )
-
     resetMPCCustodyManager()
     const manager = getMPCCustodyManager({
       totalShares: 5,
@@ -185,10 +176,6 @@ describe('MPC Key Management', () => {
   })
 
   it('should distribute key shares to holders', async () => {
-    const { getMPCCustodyManager, resetMPCCustodyManager } = await import(
-      '@jejunetwork/shared'
-    )
-
     resetMPCCustodyManager()
     const manager = getMPCCustodyManager({
       totalShares: 3,
@@ -212,10 +199,6 @@ describe('MPC Key Management', () => {
   })
 
   it('should rotate keys with new version', async () => {
-    const { getMPCCustodyManager, resetMPCCustodyManager } = await import(
-      '@jejunetwork/shared'
-    )
-
     resetMPCCustodyManager()
     const manager = getMPCCustodyManager({
       totalShares: 3,
@@ -239,8 +222,6 @@ describe('MPC Key Management', () => {
 
 describe('HSM Integration', () => {
   it('should connect to HSM (simulated)', async () => {
-    const { getHSMClient, resetHSMClient } = await import('@jejunetwork/shared')
-
     resetHSMClient()
     const client = getHSMClient({
       provider: 'local-sim',
@@ -253,8 +234,6 @@ describe('HSM Integration', () => {
   })
 
   it('should generate keys in HSM', async () => {
-    const { getHSMClient, resetHSMClient } = await import('@jejunetwork/shared')
-
     resetHSMClient()
     const client = getHSMClient({
       provider: 'local-sim',
@@ -273,8 +252,6 @@ describe('HSM Integration', () => {
   })
 
   it('should sign data with HSM key', async () => {
-    const { getHSMClient, resetHSMClient } = await import('@jejunetwork/shared')
-
     resetHSMClient()
     const client = getHSMClient({
       provider: 'local-sim',

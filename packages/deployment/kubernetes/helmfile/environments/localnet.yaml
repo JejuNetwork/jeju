@@ -16,7 +16,7 @@ replicas:
   archive: 1
   batcher: 1
   proposer: 1
-  eigenda: 1
+  jeju_da: 1
   gateway: 1
 
 # Minimal resources

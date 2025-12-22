@@ -1,24 +1,7 @@
-/**
- * Utility functions for the Decentralized App Template
- *
- * Shared business logic and helpers used across routes and services.
- * Uses @jejunetwork/shared for common utilities.
- */
-
-import {
-  chunk,
-  delay,
-  generateId as sharedGenerateId,
-} from '@jejunetwork/shared'
+import { generateId as sharedGenerateId } from '@jejunetwork/shared'
 import pRetry from 'p-retry'
-import type { Todo, TodoPriority } from './types'
-
-// Re-export from shared
-export { delay, chunk }
-
-// ============================================================================
-// Authentication Utilities
-// ============================================================================
+import type { Todo } from './schemas'
+import type { TodoPriority } from './types'
 
 export const AUTH_MESSAGE_PREFIX = 'jeju-dapp'
 export const TIMESTAMP_WINDOW_MS = 5 * 60 * 1000 // 5 minutes
@@ -55,10 +38,6 @@ export function generateId(prefix?: string): string {
   const id = sharedGenerateId(16)
   return prefix ? `${prefix}-${id}` : id
 }
-
-// ============================================================================
-// Todo Prioritization & Filtering
-// ============================================================================
 
 const PRIORITY_ORDER: Record<TodoPriority, number> = {
   high: 0,
@@ -102,10 +81,6 @@ export function getTopPriorities(todos: Todo[], count = 5): Todo[] {
   return prioritized.slice(0, count)
 }
 
-// ============================================================================
-// Date Helpers
-// ============================================================================
-
 export function getNextMidnight(): number {
   const now = new Date()
   const tomorrow = new Date(now)
@@ -117,10 +92,6 @@ export function getNextMidnight(): number {
 export function isOverdue(dueDate: number): boolean {
   return dueDate < Date.now()
 }
-
-// ============================================================================
-// JNS Utilities
-// ============================================================================
 
 export function normalizeJNSName(name: string): string {
   const lower = name.toLowerCase()
@@ -135,10 +106,6 @@ export function isValidJNSName(name: string): boolean {
   return true
 }
 
-// ============================================================================
-// Address Formatting
-// ============================================================================
-
 export function formatAddress(address: string, chars = 4): string {
   if (!address || address.length === 0) {
     throw new Error('Address is required for formatting')
@@ -148,10 +115,6 @@ export function formatAddress(address: string, chars = 4): string {
   }
   return `${address.slice(0, chars + 2)}...${address.slice(-chars)}`
 }
-
-// ============================================================================
-// Retry with Backoff (using p-retry)
-// ============================================================================
 
 export async function retryWithBackoff<T>(
   fn: () => Promise<T>,

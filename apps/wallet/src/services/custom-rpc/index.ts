@@ -3,10 +3,9 @@
  * Add and manage custom RPC endpoints for supported chains
  */
 
-import { expectValid } from '@jejunetwork/types'
+import { ChainIdSchema, expectValid } from '@jejunetwork/types'
 import { createPublicClient, http, type PublicClient } from 'viem'
 import { z } from 'zod'
-import { ChainIdSchema } from '../../lib/validation'
 import { storage } from '../../platform/storage'
 import { CustomChainSchema, CustomRPCSchema } from '../../plugin/schemas'
 import { RpcChainIdResponseSchema } from '../../schemas/api-responses'

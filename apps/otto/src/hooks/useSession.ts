@@ -3,8 +3,9 @@
  * Shared session business logic
  */
 
+import { expectValid } from '@jejunetwork/types'
 import type { Address } from 'viem'
-import { ChatMessageSchema, expectValid } from '../schemas'
+import { ChatMessageSchema } from '../schemas'
 import { type ChatSession, getStateManager } from '../services/state'
 import type { ChatMessage } from '../types'
 

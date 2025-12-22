@@ -4,17 +4,10 @@
  * Data flows: Blockchain -> PostgreSQL (primary) -> CovenantSQL (decentralized reads)
  */
 
-// Initialize network configuration and register known contracts
 import './init'
 
 import { type Store, TypeormDatabase } from '@subsquid/typeorm-store'
 import { processComputeEvents } from './compute-processor'
-// Federation processor functions available for future use
-// import {
-//     processNetworkRegistryEvent,
-//     processRegistryHubEvent,
-//     processEntryFederatedEvent
-// } from './federation-processor'
 import {
   ERC20_TRANSFER,
   ERC1155_TRANSFER_BATCH,

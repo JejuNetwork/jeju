@@ -60,7 +60,7 @@ export default function AddLiquidity({
           tokens={tokenOptions}
           selectedToken={selectedToken?.symbol}
           onSelect={setSelectedToken}
-          label="Select Token (JEJU, elizaOS, CLANKER, VIRTUAL, etc.)"
+          label="Select Token"
           placeholder="Choose token vault..."
           showBalances={false}
           disabled={isLoading}

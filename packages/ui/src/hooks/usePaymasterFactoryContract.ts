@@ -1,6 +1,5 @@
 /**
  * Paymaster Factory Contract Hook
- * Consolidated from gateway and bazaar
  */
 
 import { useCallback } from 'react'

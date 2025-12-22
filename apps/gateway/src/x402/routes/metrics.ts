@@ -4,8 +4,9 @@ import { getNonceCacheStats } from '../services/nonce-manager'
 
 const serviceStartTime = Date.now()
 
-const metricsRoutes = new Elysia({ prefix: '/metrics' })
-  .get('/metrics', async ({ set }) => {
+const metricsRoutes = new Elysia({ prefix: '/metrics' }).get(
+  '/',
+  async ({ set }) => {
     const cfg = config()
     const nonceStats = await getNonceCacheStats()
     const uptime = Math.floor((Date.now() - serviceStartTime) / 1000)
@@ -42,6 +43,7 @@ const metricsRoutes = new Elysia({ prefix: '/metrics' })
 
     set.headers['Content-Type'] = 'text/plain; version=0.0.4'
     return metrics
-  })
+  },
+)
 
 export default metricsRoutes

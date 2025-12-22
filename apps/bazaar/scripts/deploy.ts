@@ -11,8 +11,11 @@
 import { existsSync } from 'node:fs'
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { getCoreAppUrl, getL1RpcUrl } from '@jejunetwork/config/ports'
+import { $ } from 'bun'
 import { type Address, keccak256 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+
 import {
   DWSWorkerDeployResponseSchema,
   IPFSUploadResponseSchema,
@@ -36,8 +39,8 @@ function getConfig(): DeployConfig {
 
   const configs: Record<DeployConfig['network'], Partial<DeployConfig>> = {
     localnet: {
-      dwsUrl: 'http://localhost:4030',
-      rpcUrl: 'http://localhost:6545',
+      dwsUrl: getCoreAppUrl('DWS_API'),
+      rpcUrl: getL1RpcUrl(),
       workerRegistryAddress:
         '0x5FbDB2315678afecb367f032d93F642f64180aa3' as Address,
     },
@@ -82,7 +85,6 @@ async function checkBuild(): Promise<void> {
   for (const file of requiredFiles) {
     if (!existsSync(file)) {
       console.log('Build not found, running build first...')
-      const { $ } = await import('bun')
       await $`bun run scripts/build.ts`
       return
     }

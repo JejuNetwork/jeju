@@ -219,7 +219,8 @@ function modPow(base: bigint, exp: bigint, mod: bigint): bigint {
   return result
 }
 
-function _modInverse(a: bigint, mod: bigint): bigint {
+/** Compute modular inverse using Fermat's little theorem */
+export function modInverse(a: bigint, mod: bigint): bigint {
   return modPow(a, mod - 2n, mod)
 }
 
@@ -378,7 +379,9 @@ export function verifyProof(
     const C = bls.G1.ProjectivePoint.fromHex(commitmentBytes)
     const pi = bls.G1.ProjectivePoint.fromHex(proofBytes)
     const y = bytesToFieldElement(valueBytes)
-    const _z = BigInt(point)
+    // z is the evaluation point - reserved for full KZG verification
+    const _z: bigint = BigInt(point)
+    void _z // Mark as intentionally unused for now
 
     // C - y*G1
     const yG1 = bls.G1.ProjectivePoint.BASE.multiply(y)

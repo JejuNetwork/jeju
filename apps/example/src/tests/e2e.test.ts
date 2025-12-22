@@ -1,10 +1,3 @@
-/**
- * End-to-End Tests for Example App
- *
- * Tests REST API, A2A Protocol, MCP Protocol, and x402 Payment Protocol.
- * Requires a running server: bun run dev
- */
-
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 

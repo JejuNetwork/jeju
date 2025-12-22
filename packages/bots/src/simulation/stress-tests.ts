@@ -15,15 +15,19 @@
  * - Circuit breaker validation
  */
 
-import type { Token } from '../types'
-import { Backtester, type BacktestConfig, type BacktestResult } from './backtester'
+import type { BacktestResult, Token } from '../types'
+import { type BacktestConfig, Backtester } from './backtester'
 import {
+  type GasDataPoint,
   MultiSourceFetcher,
   STRESS_SCENARIOS,
   type StressTestScenario,
-  type GasDataPoint,
 } from './multi-source-fetcher'
-import { RiskAnalyzer, type RiskMetrics, type DrawdownAnalysis } from './risk-analyzer'
+import {
+  type DrawdownAnalysis,
+  RiskAnalyzer,
+  type RiskMetrics,
+} from './risk-analyzer'
 
 // ============ Types ============
 
@@ -91,7 +95,9 @@ export class StressTestRunner {
     for (const scenario of STRESS_SCENARIOS) {
       console.log(`\n${'='.repeat(60)}`)
       console.log(`Running stress test: ${scenario.name}`)
-      console.log(`Period: ${scenario.startDate.toISOString()} - ${scenario.endDate.toISOString()}`)
+      console.log(
+        `Period: ${scenario.startDate.toISOString()} - ${scenario.endDate.toISOString()}`,
+      )
       console.log(`Peak Drawdown: ${(scenario.peakDrawdown * 100).toFixed(1)}%`)
       console.log(`Max Gas: ${scenario.maxGasGwei} gwei`)
       console.log('$'.repeat(60))
@@ -120,9 +126,10 @@ export class StressTestRunner {
     )
 
     // If no historical data available, generate synthetic crisis data
-    const priceData = prices.length > 0 
-      ? prices 
-      : this.generateCrisisData(scenario, config.tokens)
+    const priceData =
+      prices.length > 0
+        ? prices
+        : this.generateCrisisData(scenario, config.tokens)
 
     // Run backtest with crisis conditions
     const backtestConfig: BacktestConfig = {
@@ -142,7 +149,9 @@ export class StressTestRunner {
 
     // Calculate risk metrics
     const riskMetrics = this.riskAnalyzer.calculateMetrics(backtest.snapshots)
-    const drawdownAnalysis = this.riskAnalyzer.analyzeDrawdowns(backtest.snapshots)
+    const drawdownAnalysis = this.riskAnalyzer.analyzeDrawdowns(
+      backtest.snapshots,
+    )
 
     // Check circuit breaker
     const circuitBreakerTriggered = this.checkCircuitBreaker(
@@ -152,7 +161,7 @@ export class StressTestRunner {
 
     // Calculate gas impact
     const gasData = gas.length > 0 ? gas : this.generateCrisisGasData(scenario)
-    const maxGasSpike = Math.max(...gasData.map(g => Number(g.baseFee) / 1e9))
+    const maxGasSpike = Math.max(...gasData.map((g) => Number(g.baseFee) / 1e9))
 
     // Oracle staleness simulation
     const oracleStalenessPeriods = this.simulateOracleStaleness(scenario)
@@ -220,13 +229,16 @@ export class StressTestRunner {
     // Initialize prices (pre-crisis levels)
     const currentPrices: Record<string, number> = {}
     for (const token of tokens) {
-      currentPrices[token.symbol] = this.getPreCrisisPrice(token.symbol, scenario)
+      currentPrices[token.symbol] = this.getPreCrisisPrice(
+        token.symbol,
+        scenario,
+      )
     }
 
     // Generate hourly data with crisis dynamics
     for (let ts = startTs; ts <= endTs; ts += 3600000) {
       const progress = (ts - startTs) / durationMs
-      
+
       for (const token of tokens) {
         // Crisis price dynamics:
         // - Fast crash in first 30% of period
@@ -236,8 +248,8 @@ export class StressTestRunner {
         const volatility = this.calculateCrisisVolatility(progress, scenario)
         const randomShock = (Math.random() - 0.5) * 2 * volatility
 
-        currentPrices[token.symbol] *= (1 + crashFactor + randomShock)
-        
+        currentPrices[token.symbol] *= 1 + crashFactor + randomShock
+
         // Floor at 1% of original (avoid zero/negative)
         const originalPrice = this.getPreCrisisPrice(token.symbol, scenario)
         currentPrices[token.symbol] = Math.max(
@@ -256,15 +268,18 @@ export class StressTestRunner {
     return dataPoints
   }
 
-  private calculateCrashFactor(progress: number, scenario: StressTestScenario): number {
+  private calculateCrashFactor(
+    progress: number,
+    scenario: StressTestScenario,
+  ): number {
     const peakDrawdown = scenario.peakDrawdown
 
     if (progress < 0.2) {
       // Initial crash phase - rapid decline
-      return -peakDrawdown * 0.7 * (progress / 0.2) / 24
+      return (-peakDrawdown * 0.7 * (progress / 0.2)) / 24
     } else if (progress < 0.5) {
       // Continued decline with volatility
-      return -peakDrawdown * 0.2 * ((progress - 0.2) / 0.3) / 24
+      return (-peakDrawdown * 0.2 * ((progress - 0.2) / 0.3)) / 24
     } else if (progress < 0.7) {
       // Bottom / consolidation
       return (Math.random() - 0.5) * 0.02
@@ -276,11 +291,11 @@ export class StressTestRunner {
 
   private calculateCrisisVolatility(
     progress: number,
-    scenario: StressTestScenario,
+    _scenario: StressTestScenario,
   ): number {
     // Volatility spikes during crisis, peaks at bottom
     const baseVol = 0.02
-    
+
     if (progress < 0.3) {
       return baseVol * 3 // High volatility during crash
     } else if (progress < 0.6) {
@@ -290,7 +305,10 @@ export class StressTestRunner {
     }
   }
 
-  private getPreCrisisPrice(symbol: string, _scenario: StressTestScenario): number {
+  private getPreCrisisPrice(
+    symbol: string,
+    _scenario: StressTestScenario,
+  ): number {
     // Approximate pre-crisis prices
     const prices: Record<string, number> = {
       ETH: 3500,
@@ -322,9 +340,10 @@ export class StressTestRunner {
     const startTs = scenario.startDate.getTime()
     const endTs = scenario.endDate.getTime()
 
-    for (let ts = startTs; ts <= endTs; ts += 60000) { // Per minute
+    for (let ts = startTs; ts <= endTs; ts += 60000) {
+      // Per minute
       const progress = (ts - startTs) / (endTs - startTs)
-      
+
       // Gas spikes during peak crisis
       let baseFee: bigint
       if (progress > 0.2 && progress < 0.5) {
@@ -364,8 +383,8 @@ export class StressTestRunner {
     // Check daily loss trigger
     const snapshots = backtest.snapshots
     for (let i = 1; i < snapshots.length; i++) {
-      const dailyReturn = 
-        (snapshots[i].valueUsd - snapshots[i - 1].valueUsd) / 
+      const dailyReturn =
+        (snapshots[i].valueUsd - snapshots[i - 1].valueUsd) /
         snapshots[i - 1].valueUsd
 
       if (-dailyReturn > riskParams.dailyLossLimitPercent / 100) {
@@ -394,7 +413,7 @@ export class StressTestRunner {
         if (!prevPrice) continue
 
         const change = Math.abs((price - prevPrice) / prevPrice)
-        
+
         // >5% move in one period = liquidity shock
         if (change > 0.05) {
           shocks++
@@ -441,8 +460,10 @@ export class StressTestRunner {
       }
     }
 
-    const peakToTroughMs = snapshots[troughIdx].timestamp - snapshots[peakIdx].timestamp
-    const recoveryMs = snapshots[recoveryIdx].timestamp - snapshots[troughIdx].timestamp
+    const peakToTroughMs =
+      snapshots[troughIdx].timestamp - snapshots[peakIdx].timestamp
+    const recoveryMs =
+      snapshots[recoveryIdx].timestamp - snapshots[troughIdx].timestamp
 
     return {
       survived: capitalPreserved > 0.5, // Lost less than 50%
@@ -455,7 +476,8 @@ export class StressTestRunner {
   // ============ Reporting ============
 
   private printScenarioResult(result: StressTestResult): void {
-    const { scenario, backtest, survivalMetrics, circuitBreakerTriggered } = result
+    const { scenario, backtest, survivalMetrics, circuitBreakerTriggered } =
+      result
 
     console.log(`\n📊 Results for ${scenario.name}:`)
     console.log(`   Total Return: ${(backtest.totalReturn * 100).toFixed(2)}%`)
@@ -466,11 +488,19 @@ export class StressTestRunner {
     console.log(`   Fees Paid: $${backtest.totalFees.toFixed(2)}`)
     console.log(`\n   Survival Analysis:`)
     console.log(`   ${survivalMetrics.survived ? '✅ SURVIVED' : '❌ FAILED'}`)
-    console.log(`   Capital Preserved: ${survivalMetrics.capitalPreserved.toFixed(1)}%`)
-    console.log(`   Peak to Trough: ${survivalMetrics.peakToTroughDays.toFixed(1)} days`)
-    console.log(`   Recovery Time: ${survivalMetrics.recoveryDays.toFixed(1)} days`)
+    console.log(
+      `   Capital Preserved: ${survivalMetrics.capitalPreserved.toFixed(1)}%`,
+    )
+    console.log(
+      `   Peak to Trough: ${survivalMetrics.peakToTroughDays.toFixed(1)} days`,
+    )
+    console.log(
+      `   Recovery Time: ${survivalMetrics.recoveryDays.toFixed(1)} days`,
+    )
     console.log(`\n   Risk Events:`)
-    console.log(`   Circuit Breaker: ${circuitBreakerTriggered ? '🔴 TRIGGERED' : '🟢 Not triggered'}`)
+    console.log(
+      `   Circuit Breaker: ${circuitBreakerTriggered ? '🔴 TRIGGERED' : '🟢 Not triggered'}`,
+    )
     console.log(`   Max Gas Spike: ${result.maxGasSpike.toFixed(0)} gwei`)
     console.log(`   Oracle Staleness Periods: ${result.oracleStalenessPeriods}`)
     console.log(`   Liquidity Shocks: ${result.liquidityShocks}`)
@@ -481,29 +511,29 @@ export class StressTestRunner {
     console.log('STRESS TEST SUMMARY')
     console.log('='.repeat(60))
 
-    const survived = results.filter(r => r.survivalMetrics.survived).length
-    const avgCapitalPreserved = results.reduce(
-      (sum, r) => sum + r.survivalMetrics.capitalPreserved,
-      0,
-    ) / results.length
+    const survived = results.filter((r) => r.survivalMetrics.survived).length
+    const avgCapitalPreserved =
+      results.reduce((sum, r) => sum + r.survivalMetrics.capitalPreserved, 0) /
+      results.length
 
-    const avgMaxDrawdown = results.reduce(
-      (sum, r) => sum + r.backtest.maxDrawdown,
-      0,
-    ) / results.length
+    const avgMaxDrawdown =
+      results.reduce((sum, r) => sum + r.backtest.maxDrawdown, 0) /
+      results.length
 
     console.log(`\nScenarios Survived: ${survived}/${results.length}`)
     console.log(`Avg Capital Preserved: ${avgCapitalPreserved.toFixed(1)}%`)
     console.log(`Avg Max Drawdown: ${(avgMaxDrawdown * 100).toFixed(1)}%`)
-    console.log(`\nCircuit Breakers Triggered: ${results.filter(r => r.circuitBreakerTriggered).length}/${results.length}`)
+    console.log(
+      `\nCircuit Breakers Triggered: ${results.filter((r) => r.circuitBreakerTriggered).length}/${results.length}`,
+    )
 
     console.log(`\nScenario Breakdown:`)
     for (const result of results) {
       const status = result.survivalMetrics.survived ? '✅' : '❌'
       console.log(
         `  ${status} ${result.scenario.name.padEnd(30)} ` +
-        `Return: ${(result.backtest.totalReturn * 100).toFixed(1).padStart(7)}% ` +
-        `DD: ${(result.backtest.maxDrawdown * 100).toFixed(1).padStart(5)}%`,
+          `Return: ${(result.backtest.totalReturn * 100).toFixed(1).padStart(7)}% ` +
+          `DD: ${(result.backtest.maxDrawdown * 100).toFixed(1).padStart(5)}%`,
       )
     }
 
@@ -530,4 +560,3 @@ export async function runStressTests(
   const runner = new StressTestRunner()
   return runner.runAllScenarios(config)
 }
-

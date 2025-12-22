@@ -1,4 +1,4 @@
-import { AddressSchema } from '@jejunetwork/types'
+import { AddressSchema, NonEmptyStringSchema } from '@jejunetwork/types'
 import { toast } from 'sonner'
 import { formatEther, parseEther } from 'viem'
 import {
@@ -10,7 +10,6 @@ import {
 import { CONTRACTS } from '../../config'
 import NFTMarketplaceABI from '../../lib/abis/NFTMarketplace.json'
 import { expect, expectPositive, expectTrue } from '../../lib/validation'
-import { NonEmptyStringSchema } from '../../schemas/common'
 
 const MARKETPLACE_ADDRESS = CONTRACTS.nftMarketplace
 

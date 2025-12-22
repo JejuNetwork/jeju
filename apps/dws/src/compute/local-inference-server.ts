@@ -23,10 +23,13 @@ const app = new Hono()
 // SECURITY: Configure CORS based on environment
 const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',').filter(Boolean)
 const isProduction = process.env.NODE_ENV === 'production'
-app.use('/*', cors({ 
-  origin: isProduction && CORS_ORIGINS?.length ? CORS_ORIGINS : '*',
-  credentials: true,
-}))
+app.use(
+  '/*',
+  cors({
+    origin: isProduction && CORS_ORIGINS?.length ? CORS_ORIGINS : '*',
+    credentials: true,
+  }),
+)
 
 // Provider configurations
 interface ProviderConfig {

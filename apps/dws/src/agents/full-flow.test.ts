@@ -10,7 +10,7 @@
  */
 
 import { afterAll, describe, expect, test } from 'bun:test'
-import { Hono } from 'hono'
+import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import type {
   IWorkerdExecutor,
@@ -147,12 +147,11 @@ class MockWorkerdWithInference implements IWorkerdExecutor {
 
 const TEST_OWNER = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address
 
-const app = new Hono()
 const mockExecutor = new MockWorkerdWithInference()
 
 // Initialize
 initExecutor(mockExecutor)
-app.route('/agents', createAgentRouter())
+const app = new Elysia().use(createAgentRouter())
 
 // Request helper
 async function request(
@@ -168,7 +167,7 @@ async function request(
     },
     body: body ? JSON.stringify(body) : undefined,
   })
-  return app.fetch(req)
+  return app.handle(req)
 }
 
 // ============================================================================
@@ -437,7 +436,7 @@ describe('Error Handling', () => {
     expect(res.status).toBe(404)
   })
 
-  test('returns 400 for chat without text', async () => {
+  test('returns 422 for chat without text', async () => {
     // First create an agent
     const createRes = await request('POST', '/agents', {
       character: { name: 'ErrorTest', system: 'Test', bio: [] },
@@ -447,7 +446,8 @@ describe('Error Handling', () => {
     const res = await request('POST', `/agents/${id}/chat`, {
       userId: 'test',
     })
-    expect(res.status).toBe(400)
+    // Elysia returns 422 for validation errors
+    expect(res.status).toBe(422)
 
     // Cleanup
     await request('DELETE', `/agents/${id}`)
@@ -481,7 +481,7 @@ describe('Error Handling', () => {
       },
       body: JSON.stringify({ character: { name: 'Hacked' } }),
     })
-    const res = await app.fetch(req)
+    const res = await app.handle(req)
     expect(res.status).toBe(403)
 
     // Cleanup

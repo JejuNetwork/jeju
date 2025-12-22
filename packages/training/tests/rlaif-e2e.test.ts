@@ -21,9 +21,14 @@ import {
   expect,
   test,
 } from 'bun:test'
-import type { Server } from 'bun'
 import { expectValid } from '@jejunetwork/types'
-
+import type { Server } from 'bun'
+import { createFundamentalPredictionEnv } from '../src/environments'
+import {
+  createAtroposServer,
+  createGRPOTrainer,
+  type ScoredData,
+} from '../src/grpo'
 // Import only what we need to avoid pulling in viem/tempo
 // (bun has issues with ox subpath exports)
 import {
@@ -36,12 +41,6 @@ import {
   registerOrUpdateRubric,
   registerRubric,
 } from '../src/rubrics'
-import {
-  createAtroposServer,
-  createGRPOTrainer,
-  type ScoredData,
-} from '../src/grpo'
-import { createFundamentalPredictionEnv } from '../src/environments'
 import {
   BatchResponseSchema,
   EnvRegistrationResponseSchema,

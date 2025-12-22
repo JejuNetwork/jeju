@@ -2,8 +2,8 @@
 
 use crate::state::AppState;
 use serde::{Deserialize, Serialize};
-use tauri::State;
 use std::collections::HashMap;
+use tauri::State;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -93,11 +93,9 @@ pub struct StartBotRequest {
 }
 
 #[tauri::command]
-pub async fn get_available_bots(
-    state: State<'_, AppState>,
-) -> Result<Vec<BotWithStatus>, String> {
+pub async fn get_available_bots(state: State<'_, AppState>) -> Result<Vec<BotWithStatus>, String> {
     let inner = state.inner.read();
-    
+
     let bots: Vec<BotWithStatus> = BotType::all()
         .into_iter()
         .map(|bot_type| {
@@ -206,7 +204,7 @@ pub async fn get_available_bots(
             }
         })
         .collect();
-    
+
     Ok(bots)
 }
 
@@ -216,21 +214,23 @@ pub async fn start_bot(
     request: StartBotRequest,
 ) -> Result<BotStatus, String> {
     let mut inner = state.inner.write();
-    
+
     // Verify wallet
     if inner.wallet_manager.is_none() {
         return Err("Wallet not connected".to_string());
     }
-    
+
     // Update bot config
-    let config = inner.config.bots
+    let config = inner
+        .config
+        .bots
         .entry(request.bot_id.clone())
         .or_insert_with(crate::config::BotConfig::default);
-    
+
     config.enabled = true;
     config.auto_start = true;
     config.capital_allocation_wei = request.capital_allocation_wei;
-    
+
     if let Some(min_profit) = request.min_profit_bps {
         config.min_profit_bps = min_profit;
     }
@@ -240,12 +240,12 @@ pub async fn start_bot(
     if let Some(max_slippage) = request.max_slippage_bps {
         config.max_slippage_bps = max_slippage;
     }
-    
+
     inner.config.save().map_err(|e| e.to_string())?;
-    
+
     // TODO: Actually start the trading bot
     // This would integrate with the Crucible trading bot engine
-    
+
     Ok(BotStatus {
         id: request.bot_id,
         running: true,
@@ -262,20 +262,17 @@ pub async fn start_bot(
 }
 
 #[tauri::command]
-pub async fn stop_bot(
-    state: State<'_, AppState>,
-    bot_id: String,
-) -> Result<BotStatus, String> {
+pub async fn stop_bot(state: State<'_, AppState>, bot_id: String) -> Result<BotStatus, String> {
     let mut inner = state.inner.write();
-    
+
     // Update config
     if let Some(config) = inner.config.bots.get_mut(&bot_id) {
         config.enabled = false;
     }
     inner.config.save().map_err(|e| e.to_string())?;
-    
+
     // TODO: Actually stop the trading bot
-    
+
     Ok(BotStatus {
         id: bot_id,
         running: false,
@@ -297,9 +294,9 @@ pub async fn get_bot_status(
     bot_id: String,
 ) -> Result<BotStatus, String> {
     let inner = state.inner.read();
-    
+
     let bot_status = inner.bot_status.get(&bot_id);
-    
+
     if let Some(status) = bot_status {
         Ok(status.clone().into())
     } else {
@@ -326,9 +323,9 @@ pub async fn get_bot_earnings(
     days: Option<u32>,
 ) -> Result<Vec<OpportunityInfo>, String> {
     let inner = state.inner.read();
-    
+
     // TODO: Query bot earnings history
-    
+
     Ok(vec![])
 }
 
@@ -345,8 +342,11 @@ impl From<crate::state::BotStatus> for BotStatus {
             treasury_share_wei: status.treasury_share_wei,
             net_profit_wei: "0".to_string(), // Calculate
             last_opportunity: None,
-            health: if status.running { "healthy".to_string() } else { "stopped".to_string() },
+            health: if status.running {
+                "healthy".to_string()
+            } else {
+                "stopped".to_string()
+            },
         }
     }
 }
-

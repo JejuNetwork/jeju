@@ -2,9 +2,13 @@
  * NFT-related Zod schemas
  */
 
-import { AddressSchema } from '@jejunetwork/types'
+import {
+  AddressSchema,
+  BigIntSchema,
+  NonEmptyStringSchema,
+  UrlSchema,
+} from '@jejunetwork/types'
 import { z } from 'zod'
-import { BigIntSchema, NonEmptyStringSchema, URLSchema } from './common'
 
 export const SolanaCreatorSchema = z.object({
   address: z.string(),
@@ -16,7 +20,7 @@ export const SolanaNFTSchema = z.object({
   owner: z.string(),
   name: NonEmptyStringSchema,
   symbol: z.string(),
-  uri: URLSchema,
+  uri: UrlSchema,
   sellerFeeBasisPoints: z.number().int().min(0).max(10000),
   creators: z.array(SolanaCreatorSchema),
   collection: z
@@ -38,16 +42,16 @@ export const NFTMetadataJsonSchema = z.object({
   name: NonEmptyStringSchema,
   symbol: z.string().optional(),
   description: z.string().optional(),
-  image: URLSchema.optional(),
-  animation_url: URLSchema.optional(),
-  external_url: URLSchema.optional(),
+  image: UrlSchema.optional(),
+  animation_url: UrlSchema.optional(),
+  external_url: UrlSchema.optional(),
   attributes: z.array(NFTMetadataAttributeSchema).optional(),
   properties: z
     .object({
       files: z
         .array(
           z.object({
-            uri: URLSchema,
+            uri: UrlSchema,
             type: z.string(),
           }),
         )
@@ -114,7 +118,7 @@ export type NormalizedNFT = z.infer<typeof NormalizedNFTSchema>
 export const NFTSchema = z.object({
   id: NonEmptyStringSchema,
   name: NonEmptyStringSchema,
-  image: URLSchema.optional(),
+  image: UrlSchema.optional(),
   price: z.string().optional(),
   collection: NonEmptyStringSchema,
 })

@@ -3,14 +3,25 @@
  *
  * Verifies that agents trigger, work, and respond correctly.
  * Tests the unified DWS-based inference shared by Autocrat, Otto, and Crucible.
+ * Requires: DWS and jeju services running (jeju dev)
  */
 
-import { describe, expect, test } from 'bun:test'
+import { beforeAll, describe, expect, test } from 'bun:test'
 import {
   autocratAgentRuntime,
   checkDWSCompute,
   dwsGenerate,
 } from '../src/agents/runtime'
+
+// Verify DWS is available before running tests
+beforeAll(async () => {
+  const available = await checkDWSCompute()
+  if (!available) {
+    throw new Error(
+      'DWS not available. Start jeju services: cd /home/shaw/Documents/jeju && bun run packages/cli/src/index.ts dev',
+    )
+  }
+})
 
 describe('Agent Runtime', () => {
   describe('DWS Compute', () => {
@@ -25,8 +36,7 @@ describe('Agent Runtime', () => {
     test('should check DWS availability', async () => {
       const available = await checkDWSCompute()
       console.log('[Test] DWS availability:', available)
-      // DWS may or may not be running - test should handle both
-      expect(typeof available).toBe('boolean')
+      expect(available).toBe(true)
     })
   })
 
@@ -39,17 +49,12 @@ describe('Agent Runtime', () => {
     test('should report DWS status after init', () => {
       const dwsAvailable = autocratAgentRuntime.isDWSAvailable()
       console.log('[Test] DWS available:', dwsAvailable)
-      expect(typeof dwsAvailable).toBe('boolean')
+      expect(dwsAvailable).toBe(true)
     })
   })
 
-  describe('Agent Deliberation (requires DWS)', () => {
-    test('should deliberate on proposal when DWS available', async () => {
-      if (!autocratAgentRuntime.isDWSAvailable()) {
-        console.log('[Test] Skipping - DWS not available')
-        return
-      }
-
+  describe('Agent Deliberation', () => {
+    test('should deliberate on proposal', async () => {
       const request = {
         proposalId: 'test-prop-001',
         title: 'Test Proposal',
@@ -59,59 +64,23 @@ describe('Agent Runtime', () => {
         submitter: '0x1234567890abcdef1234567890abcdef12345678',
       }
 
-      // Test deliberation with treasury agent - DWS endpoint may not be fully functional
-      try {
-        const vote = await autocratAgentRuntime.deliberate('treasury', request)
+      const vote = await autocratAgentRuntime.deliberate('treasury', request)
 
-        expect(vote).toBeDefined()
-        expect(vote.agentId).toBe('treasury')
-        expect(['APPROVE', 'REJECT', 'ABSTAIN']).toContain(vote.vote)
-        expect(typeof vote.reasoning).toBe('string')
-        expect(vote.reasoning.length).toBeGreaterThan(0)
-        expect(typeof vote.confidence).toBe('number')
-        expect(vote.confidence).toBeGreaterThanOrEqual(0)
-        expect(vote.confidence).toBeLessThanOrEqual(100)
+      expect(vote).toBeDefined()
+      expect(vote.agentId).toBe('treasury')
+      expect(['APPROVE', 'REJECT', 'ABSTAIN']).toContain(vote.vote)
+      expect(typeof vote.reasoning).toBe('string')
+      expect(vote.reasoning.length).toBeGreaterThan(0)
+      expect(typeof vote.confidence).toBe('number')
+      expect(vote.confidence).toBeGreaterThanOrEqual(0)
+      expect(vote.confidence).toBeLessThanOrEqual(100)
 
-        console.log(`[Test] Treasury vote: ${vote.vote} (${vote.confidence}%)`)
-      } catch (error) {
-        // DWS health check passed but compute endpoint may not be available
-        const errorMessage = error instanceof Error ? error.message : String(error)
-        if (errorMessage.includes('DWS compute error') || errorMessage.includes('404')) {
-          console.log('[Test] Skipping - DWS compute endpoint not available:', errorMessage)
-          return
-        }
-        throw error
-      }
+      console.log(`[Test] Treasury vote: ${vote.vote} (${vote.confidence}%)`)
     }, 60000)
-
-    test('should throw error when DWS unavailable', async () => {
-      if (autocratAgentRuntime.isDWSAvailable()) {
-        console.log('[Test] Skipping - DWS is available')
-        return
-      }
-
-      const request = {
-        proposalId: 'test-prop-002',
-        title: 'Test Proposal',
-        summary: 'A test proposal',
-        description: 'Description',
-        proposalType: 'CODE_CHANGE',
-        submitter: '0x1234567890abcdef1234567890abcdef12345678',
-      }
-
-      await expect(
-        autocratAgentRuntime.deliberate('treasury', request),
-      ).rejects.toThrow(/DWS compute is required/)
-    })
   })
 
-  describe('CEO Decision (requires DWS)', () => {
-    test('should make CEO decision when DWS available', async () => {
-      if (!autocratAgentRuntime.isDWSAvailable()) {
-        console.log('[Test] Skipping - DWS not available')
-        return
-      }
-
+  describe('CEO Decision', () => {
+    test('should make CEO decision', async () => {
       const request = {
         proposalId: 'test-prop-003',
         autocratVotes: [
@@ -142,27 +111,18 @@ describe('Agent Runtime', () => {
         ],
       }
 
-      try {
-        const decision = await autocratAgentRuntime.ceoDecision(request)
+      const decision = await autocratAgentRuntime.ceoDecision(request)
 
-        expect(decision).toBeDefined()
-        expect(typeof decision.approved).toBe('boolean')
-        expect(typeof decision.reasoning).toBe('string')
-        expect(decision.reasoning.length).toBeGreaterThan(0)
-        expect(typeof decision.confidence).toBe('number')
-        expect(typeof decision.personaResponse).toBe('string')
+      expect(decision).toBeDefined()
+      expect(typeof decision.approved).toBe('boolean')
+      expect(typeof decision.reasoning).toBe('string')
+      expect(decision.reasoning.length).toBeGreaterThan(0)
+      expect(typeof decision.confidence).toBe('number')
+      expect(typeof decision.personaResponse).toBe('string')
 
-        console.log(
-          `[Test] CEO decision: ${decision.approved ? 'APPROVED' : 'REJECTED'} (${decision.confidence}%)`,
-        )
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error)
-        if (errorMessage.includes('DWS compute error') || errorMessage.includes('404')) {
-          console.log('[Test] Skipping - DWS compute endpoint not available:', errorMessage)
-          return
-        }
-        throw error
-      }
+      console.log(
+        `[Test] CEO decision: ${decision.approved ? 'APPROVED' : 'REJECTED'} (${decision.confidence}%)`,
+      )
     }, 60000)
   })
 
@@ -193,7 +153,6 @@ describe('Agent Runtime', () => {
     test('should get DAO-specific runtime', async () => {
       const daoId = 'test-dao-001'
       const runtime = autocratAgentRuntime.getDAORuntime(daoId, 'treasury')
-      // May or may not exist depending on ElizaOS availability
       console.log(
         `[Test] DAO treasury runtime: ${runtime ? 'found' : 'not found'}`,
       )
@@ -209,40 +168,15 @@ describe('Agent Runtime', () => {
 })
 
 describe('DWS Direct Inference', () => {
-  test('should call DWS when available', async () => {
-    const available = await checkDWSCompute()
-    if (!available) {
-      console.log('[Test] Skipping DWS direct call - not available')
-      return
-    }
+  test('should call DWS', async () => {
+    const response = await dwsGenerate(
+      'What is 2 + 2?',
+      'You are a helpful assistant. Be brief.',
+      100,
+    )
 
-    try {
-      const response = await dwsGenerate(
-        'What is 2 + 2?',
-        'You are a helpful assistant. Be brief.',
-        100,
-      )
-
-      expect(typeof response).toBe('string')
-      expect(response.length).toBeGreaterThan(0)
-      console.log(`[Test] DWS response: ${response.slice(0, 100)}...`)
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      if (errorMessage.includes('DWS compute error') || errorMessage.includes('404')) {
-        console.log('[Test] Skipping - DWS compute endpoint not available:', errorMessage)
-        return
-      }
-      throw error
-    }
+    expect(typeof response).toBe('string')
+    expect(response.length).toBeGreaterThan(0)
+    console.log(`[Test] DWS response: ${response.slice(0, 100)}...`)
   }, 30000)
-
-  test('should throw on DWS failure when unavailable', async () => {
-    const available = await checkDWSCompute()
-    if (available) {
-      console.log('[Test] Skipping - DWS is available')
-      return
-    }
-
-    await expect(dwsGenerate('Hello', 'System', 100)).rejects.toThrow()
-  })
 })

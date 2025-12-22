@@ -1,7 +1,5 @@
-'use client'
-
 import { formatDistanceToNow } from 'date-fns'
-import Link from 'next/link'
+import { Link } from 'react-router-dom'
 import type { Market } from '../../types/markets'
 
 export function MarketCard({ market }: { market: Market }) {
@@ -9,7 +7,7 @@ export function MarketCard({ market }: { market: Market }) {
   const noPercent = Number(market.noPrice) / 1e16
 
   return (
-    <Link href={`/markets/${market.sessionId}`} data-testid="market-card">
+    <Link to={`/markets/${market.sessionId}`} data-testid="market-card">
       <div className="card p-5 md:p-6 h-full flex flex-col group">
         <div className="flex items-center justify-between mb-4">
           {market.resolved ? (

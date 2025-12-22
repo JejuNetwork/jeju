@@ -14,7 +14,7 @@ export type RateTier = keyof typeof RATE_LIMITS
 /**
  * Check if an IP is a private/local address that could be spoofed
  */
-function isPrivateIp(ip: string): boolean {
+export function isPrivateIp(ip: string): boolean {
   if (
     ip.startsWith('10.') ||
     ip.startsWith('192.168.') ||
@@ -266,7 +266,7 @@ export const rateLimiterPlugin = new Elysia({ name: 'rate-limiter' })
       return { rateLimit: undefined }
     }
 
-    const { key, address } = getUserKey(request)
+    const { address } = getUserKey(request)
 
     if (address && WHITELIST.has(address.toLowerCase())) {
       return {

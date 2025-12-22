@@ -199,7 +199,10 @@ const ACTION_HANDLERS: Record<string, ActionHandler> = {
   CALL_AGENT: async (params) => {
     const targetAgent = params.agentId ?? params.target
     const message = String(params.message ?? '')
-    log.info('A2A call initiated', { targetAgent, messageLength: message.length })
+    log.info('A2A call initiated', {
+      targetAgent,
+      messageLength: message.length,
+    })
     return { targetAgent, status: 'pending' }
   },
 
@@ -254,7 +257,11 @@ export class AutonomousTick {
   private availableActions: AvailableAction[] = []
   private verbose: boolean
 
-  constructor(config: AutonomousAgentConfig, runtime: CrucibleAgentRuntime, verbose = false) {
+  constructor(
+    config: AutonomousAgentConfig,
+    runtime: CrucibleAgentRuntime,
+    verbose = false,
+  ) {
     this.config = config
     this.runtime = runtime
     this.verbose = verbose
@@ -378,11 +385,27 @@ export class AutonomousTick {
       charId === 'fuzz-tester'
     ) {
       actions.push(
-        { name: 'PROBE', description: 'Probe for vulnerabilities', category: 'security' },
+        {
+          name: 'PROBE',
+          description: 'Probe for vulnerabilities',
+          category: 'security',
+        },
         { name: 'FUZZ', description: 'Fuzz test inputs', category: 'security' },
-        { name: 'ANALYZE_CONTRACT', description: 'Analyze contract security', category: 'security' },
-        { name: 'SIMULATE_ATTACK', description: 'Simulate an attack vector', category: 'security' },
-        { name: 'REPORT_VULN', description: 'Report a vulnerability finding', category: 'security' },
+        {
+          name: 'ANALYZE_CONTRACT',
+          description: 'Analyze contract security',
+          category: 'security',
+        },
+        {
+          name: 'SIMULATE_ATTACK',
+          description: 'Simulate an attack vector',
+          category: 'security',
+        },
+        {
+          name: 'REPORT_VULN',
+          description: 'Report a vulnerability finding',
+          category: 'security',
+        },
       )
     }
 
@@ -394,14 +417,46 @@ export class AutonomousTick {
       charId === 'contracts-auditor'
     ) {
       actions.push(
-        { name: 'FLAG_CONTENT', description: 'Flag content for moderation', category: 'moderation' },
-        { name: 'REPORT_AGENT', description: 'Report an agent for violation', category: 'moderation' },
-        { name: 'WARN_USERS', description: 'Issue a warning to users', category: 'moderation' },
-        { name: 'CHECK_TRUST', description: 'Check trust score of an entity', category: 'moderation' },
-        { name: 'CREATE_CASE', description: 'Create a moderation case', category: 'moderation' },
-        { name: 'SUBMIT_EVIDENCE', description: 'Submit evidence to a case', category: 'moderation' },
-        { name: 'CHECK_NODE_STATS', description: 'Check infrastructure health', category: 'monitoring' },
-        { name: 'LIST_NODES', description: 'List network nodes', category: 'monitoring' },
+        {
+          name: 'FLAG_CONTENT',
+          description: 'Flag content for moderation',
+          category: 'moderation',
+        },
+        {
+          name: 'REPORT_AGENT',
+          description: 'Report an agent for violation',
+          category: 'moderation',
+        },
+        {
+          name: 'WARN_USERS',
+          description: 'Issue a warning to users',
+          category: 'moderation',
+        },
+        {
+          name: 'CHECK_TRUST',
+          description: 'Check trust score of an entity',
+          category: 'moderation',
+        },
+        {
+          name: 'CREATE_CASE',
+          description: 'Create a moderation case',
+          category: 'moderation',
+        },
+        {
+          name: 'SUBMIT_EVIDENCE',
+          description: 'Submit evidence to a case',
+          category: 'moderation',
+        },
+        {
+          name: 'CHECK_NODE_STATS',
+          description: 'Check infrastructure health',
+          category: 'monitoring',
+        },
+        {
+          name: 'LIST_NODES',
+          description: 'List network nodes',
+          category: 'monitoring',
+        },
         { name: 'ALERT', description: 'Send an alert', category: 'monitoring' },
       )
     }
@@ -409,25 +464,55 @@ export class AutonomousTick {
     // Add common actions based on capabilities
     if (this.config.capabilities.a2a) {
       actions.push(
-        { name: 'DISCOVER_AGENTS', description: 'Discover available agents', category: 'a2a' },
-        { name: 'CALL_AGENT', description: 'Call another agent', category: 'a2a' },
+        {
+          name: 'DISCOVER_AGENTS',
+          description: 'Discover available agents',
+          category: 'a2a',
+        },
+        {
+          name: 'CALL_AGENT',
+          description: 'Call another agent',
+          category: 'a2a',
+        },
       )
     }
 
     if (this.config.capabilities.compute) {
-      actions.push(
-        { name: 'RUN_INFERENCE', description: 'Run AI inference', category: 'compute' },
-      )
+      actions.push({
+        name: 'RUN_INFERENCE',
+        description: 'Run AI inference',
+        category: 'compute',
+      })
     }
 
     this.availableActions = actions
   }
 
   private categorizeAction(name: string): string {
-    if (name.includes('GPU') || name.includes('INFERENCE') || name.includes('TRIGGER')) return 'compute'
-    if (name.includes('UPLOAD') || name.includes('PIN') || name.includes('STORAGE')) return 'storage'
-    if (name.includes('SWAP') || name.includes('LIQUIDITY') || name.includes('POOL')) return 'defi'
-    if (name.includes('REPORT') || name.includes('CASE') || name.includes('EVIDENCE')) return 'moderation'
+    if (
+      name.includes('GPU') ||
+      name.includes('INFERENCE') ||
+      name.includes('TRIGGER')
+    )
+      return 'compute'
+    if (
+      name.includes('UPLOAD') ||
+      name.includes('PIN') ||
+      name.includes('STORAGE')
+    )
+      return 'storage'
+    if (
+      name.includes('SWAP') ||
+      name.includes('LIQUIDITY') ||
+      name.includes('POOL')
+    )
+      return 'defi'
+    if (
+      name.includes('REPORT') ||
+      name.includes('CASE') ||
+      name.includes('EVIDENCE')
+    )
+      return 'moderation'
     if (name.includes('AGENT') || name.includes('DISCOVER')) return 'a2a'
     return 'general'
   }
@@ -487,7 +572,9 @@ export class AutonomousTick {
 
     // Verbose logging of agent thinking
     if (this.verbose && decision) {
-      console.log(`${COLORS.dim}┌─ Agent Thought ─────────────────────────────────────${COLORS.reset}`)
+      console.log(
+        `${COLORS.dim}┌─ Agent Thought ─────────────────────────────────────${COLORS.reset}`,
+      )
       if (decision.thought) {
         // Word wrap the thought for readability
         const wrapped = decision.thought.match(/.{1,70}/g) ?? [decision.thought]
@@ -500,15 +587,26 @@ export class AutonomousTick {
       }
       if (decision.action) {
         console.log(`${COLORS.dim}│${COLORS.reset}`)
-        console.log(`${COLORS.dim}│ ${COLORS.yellow}Decision: ${COLORS.bold}${decision.action}${COLORS.reset}`)
-        if (decision.parameters && Object.keys(decision.parameters).length > 0) {
-          console.log(`${COLORS.dim}│ Params: ${JSON.stringify(decision.parameters).substring(0, 50)}${COLORS.reset}`)
+        console.log(
+          `${COLORS.dim}│ ${COLORS.yellow}Decision: ${COLORS.bold}${decision.action}${COLORS.reset}`,
+        )
+        if (
+          decision.parameters &&
+          Object.keys(decision.parameters).length > 0
+        ) {
+          console.log(
+            `${COLORS.dim}│ Params: ${JSON.stringify(decision.parameters).substring(0, 50)}${COLORS.reset}`,
+          )
         }
       } else if (decision.isFinish) {
         console.log(`${COLORS.dim}│${COLORS.reset}`)
-        console.log(`${COLORS.dim}│ ${COLORS.green}Decision: FINISH (nothing to do)${COLORS.reset}`)
+        console.log(
+          `${COLORS.dim}│ ${COLORS.green}Decision: FINISH (nothing to do)${COLORS.reset}`,
+        )
       }
-      console.log(`${COLORS.dim}└──────────────────────────────────────────────────────${COLORS.reset}`)
+      console.log(
+        `${COLORS.dim}└──────────────────────────────────────────────────────${COLORS.reset}`,
+      )
     }
 
     return decision
@@ -645,7 +743,9 @@ export class AutonomousTick {
     const normalizedAction = actionName.toUpperCase().replace(/\s+/g, '_')
 
     if (this.verbose) {
-      console.log(`${COLORS.cyan}⚡ Executing: ${normalizedAction}${COLORS.reset}`)
+      console.log(
+        `${COLORS.cyan}⚡ Executing: ${normalizedAction}${COLORS.reset}`,
+      )
     }
 
     log.info('Executing autonomous action', {
@@ -675,7 +775,9 @@ export class AutonomousTick {
           console.log(`${COLORS.green}   ✓ Success${COLORS.reset}`)
           if (result.result) {
             const resultStr = JSON.stringify(result.result)
-            console.log(`${COLORS.dim}   → ${resultStr.substring(0, 80)}${resultStr.length > 80 ? '...' : ''}${COLORS.reset}`)
+            console.log(
+              `${COLORS.dim}   → ${resultStr.substring(0, 80)}${resultStr.length > 80 ? '...' : ''}${COLORS.reset}`,
+            )
           }
         }
       } else {
@@ -687,8 +789,7 @@ export class AutonomousTick {
 
         if (isPluginAction) {
           log.info('Routing to jeju plugin action', { action: normalizedAction })
-          
-          // Create a message that triggers the action through normal processing
+
           const actionMessage: RuntimeMessage = {
             id: crypto.randomUUID(),
             userId: 'autonomous-action',
@@ -705,15 +806,21 @@ export class AutonomousTick {
           result.success = true
 
           if (this.verbose) {
-            console.log(`${COLORS.green}   ✓ Plugin action executed${COLORS.reset}`)
+            console.log(
+              `${COLORS.green}   ✓ Plugin action executed${COLORS.reset}`,
+            )
           }
         } else {
-          log.warn(`No handler or plugin action for ${normalizedAction}`, { parameters })
+          log.warn(`No handler or plugin action for ${normalizedAction}`, {
+            parameters,
+          })
           result.error = `Action ${normalizedAction} not available`
           result.success = false
 
           if (this.verbose) {
-            console.log(`${COLORS.yellow}   ⚠ No handler for ${normalizedAction}${COLORS.reset}`)
+            console.log(
+              `${COLORS.yellow}   ⚠ No handler for ${normalizedAction}${COLORS.reset}`,
+            )
           }
         }
       }

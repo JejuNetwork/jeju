@@ -1,52 +1,37 @@
 /**
  * Shared constants for network testing
  *
- * Port assignments aligned with packages/config/ports.ts
+ * Port assignments imported from packages/config/ports.ts (single source of truth)
  * RPC URLs use 127.0.0.1 for consistency across the codebase
  */
 
+// Import ports from central config
+import {
+  INFRA_PORTS as CONFIG_INFRA_PORTS,
+  CORE_PORTS,
+  getCoreAppUrl,
+  getL1RpcUrl,
+  getL2RpcUrl,
+  getL2WsUrl,
+} from '../../config/ports'
 // Import canonical test accounts from utils (single source of truth)
-import { SEED_PHRASE, TEST_ACCOUNTS, TEST_WALLET_ADDRESS } from './utils'
-
-// Re-export for backwards compatibility
-export { TEST_ACCOUNTS, SEED_PHRASE, TEST_WALLET_ADDRESS }
+import { SEED_PHRASE, TEST_ACCOUNTS } from './utils'
 
 // ============================================================================
-// Infrastructure Ports
+// Infrastructure Ports (re-exported for backward compatibility)
 // ============================================================================
 
 export const INFRA_PORTS = {
-  l1Rpc: 6545,
-  l2Rpc: 6546,
-  l2Ws: 6547,
-  prometheus: 9090,
-  grafana: 4010,
+  l1Rpc: CONFIG_INFRA_PORTS.L1_RPC.get(),
+  l2Rpc: CONFIG_INFRA_PORTS.L2_RPC.get(),
+  l2Ws: CONFIG_INFRA_PORTS.L2_WS.get(),
+  prometheus: CONFIG_INFRA_PORTS.PROMETHEUS.get(),
+  grafana: CONFIG_INFRA_PORTS.GRAFANA.get(),
 } as const
 
 // ============================================================================
 // Network Configuration
 // ============================================================================
-
-function getL2RpcUrl(): string {
-  const envUrl = process.env.JEJU_RPC_URL ?? process.env.L2_RPC_URL
-  if (envUrl) return envUrl
-  const port = process.env.L2_RPC_PORT ?? String(INFRA_PORTS.l2Rpc)
-  return `http://127.0.0.1:${port}`
-}
-
-function getL2WsUrl(): string {
-  const envUrl = process.env.L2_WS_URL
-  if (envUrl) return envUrl
-  const port = process.env.L2_WS_PORT ?? String(INFRA_PORTS.l2Ws)
-  return `ws://127.0.0.1:${port}`
-}
-
-function getL1RpcUrl(): string {
-  const envUrl = process.env.L1_RPC_URL
-  if (envUrl) return envUrl
-  const port = process.env.L1_RPC_PORT ?? String(INFRA_PORTS.l1Rpc)
-  return `http://127.0.0.1:${port}`
-}
 
 export const JEJU_LOCALNET = {
   chainId: 1337,
@@ -62,7 +47,7 @@ export const L1_LOCALNET = {
 } as const
 
 // ============================================================================
-// Test Wallets (Anvil defaults) - Re-exported from utils for backwards compat
+// Test Wallets (Anvil defaults) - Using canonical values from utils
 // ============================================================================
 
 export const DEFAULT_TEST_WALLET = {
@@ -78,51 +63,51 @@ export const TEST_WALLETS = {
 } as const
 
 // ============================================================================
-// App Ports (aligned with packages/config/ports.ts)
+// App Ports (derived from central config CORE_PORTS)
 // ============================================================================
 
 export const APP_PORTS = {
-  gateway: 4001,
-  nodeExplorerApi: 4002,
-  nodeExplorerUi: 4003,
-  documentation: 4004,
-  predimarket: 4005,
-  bazaar: 4006,
-  compute: 4007,
-  computeNodeApi: 4008,
-  ipfs: 3100,
-  ipfsNode: 4100,
-  facilitator: 3402,
+  gateway: CORE_PORTS.GATEWAY.get(),
+  nodeExplorerApi: CORE_PORTS.NODE_EXPLORER_API.get(),
+  nodeExplorerUi: CORE_PORTS.NODE_EXPLORER_UI.get(),
+  documentation: CORE_PORTS.DOCUMENTATION.get(),
+  predimarket: CORE_PORTS.PREDIMARKET.get(),
+  bazaar: CORE_PORTS.BAZAAR.get(),
+  compute: CORE_PORTS.COMPUTE.get(),
+  computeNodeApi: CORE_PORTS.COMPUTE_NODE_API.get(),
+  ipfs: CORE_PORTS.IPFS.get(),
+  ipfsNode: CORE_PORTS.IPFS_NODE.get(),
+  facilitator: CORE_PORTS.FACILITATOR.get(),
   // Indexer services (4350-4399 range)
-  indexerGraphQL: 4350,
+  indexerGraphQL: CORE_PORTS.INDEXER_GRAPHQL.get(),
   indexerA2A: 4351,
   indexerRest: 4352,
   indexerMcp: 4353,
-  indexerDatabase: 23798,
+  indexerDatabase: CORE_PORTS.INDEXER_DATABASE.get(),
 } as const
 
 // ============================================================================
-// App URLs
+// App URLs (computed from centralized config)
 // ============================================================================
 
 const HOST = process.env.HOST || '127.0.0.1'
 
 export const APP_URLS = {
-  gateway: `http://${HOST}:${APP_PORTS.gateway}`,
-  nodeExplorerApi: `http://${HOST}:${APP_PORTS.nodeExplorerApi}`,
-  nodeExplorerUi: `http://${HOST}:${APP_PORTS.nodeExplorerUi}`,
-  documentation: `http://${HOST}:${APP_PORTS.documentation}`,
-  predimarket: `http://${HOST}:${APP_PORTS.predimarket}`,
-  bazaar: `http://${HOST}:${APP_PORTS.bazaar}`,
-  compute: `http://${HOST}:${APP_PORTS.compute}`,
-  computeNodeApi: `http://${HOST}:${APP_PORTS.computeNodeApi}`,
-  ipfs: `http://${HOST}:${APP_PORTS.ipfs}`,
-  ipfsNode: `http://${HOST}:${APP_PORTS.ipfsNode}`,
-  facilitator: `http://${HOST}:${APP_PORTS.facilitator}`,
-  // Indexer
+  gateway: getCoreAppUrl('GATEWAY'),
+  nodeExplorerApi: getCoreAppUrl('NODE_EXPLORER_API'),
+  nodeExplorerUi: getCoreAppUrl('NODE_EXPLORER_UI'),
+  documentation: getCoreAppUrl('DOCUMENTATION'),
+  predimarket: getCoreAppUrl('PREDIMARKET'),
+  bazaar: getCoreAppUrl('BAZAAR'),
+  compute: getCoreAppUrl('COMPUTE'),
+  computeNodeApi: getCoreAppUrl('COMPUTE_NODE_API'),
+  ipfs: getCoreAppUrl('IPFS'),
+  ipfsNode: getCoreAppUrl('IPFS_NODE'),
+  facilitator: getCoreAppUrl('FACILITATOR'),
+  // Indexer - use getCoreAppUrl for GraphQL, keep hardcoded for extras
   indexerGraphQL:
     process.env.INDEXER_GRAPHQL_URL ||
-    `http://${HOST}:${process.env.INDEXER_GRAPHQL_PORT || APP_PORTS.indexerGraphQL}/graphql`,
+    `${getCoreAppUrl('INDEXER_GRAPHQL')}/graphql`,
   indexerA2A: `http://${HOST}:${APP_PORTS.indexerA2A}`,
   indexerRest: `http://${HOST}:${APP_PORTS.indexerRest}`,
   indexerMcp: `http://${HOST}:${APP_PORTS.indexerMcp}`,

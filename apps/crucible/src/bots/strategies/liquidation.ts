@@ -4,7 +4,7 @@ import type {
   ChainId,
   LiquidationOpportunity,
   StrategyConfig,
-} from '../autocrat-types'
+} from '../autocrat-types-source'
 import { PERPETUAL_MARKET_ABI } from '../lib/contracts'
 
 interface Position {

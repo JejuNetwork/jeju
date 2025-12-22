@@ -3,10 +3,12 @@
  * Centralized constants for MCP server configuration
  */
 
+import { CORE_PORTS } from '@jejunetwork/config/ports'
+
 // Allowed origins for CORS - restrict to known domains
 const ALLOWED_ORIGINS = [
-  'http://localhost:3000',
-  'http://localhost:4006',
+  'http://localhost:3000', // Generic dev port
+  `http://localhost:${CORE_PORTS.BAZAAR.get()}`,
   'https://bazaar.jejunetwork.org',
   'https://testnet.bazaar.jejunetwork.org',
 ]

@@ -45,7 +45,6 @@ const ZERO = '0x0000000000000000000000000000000000000000' as const
 export const CONTRACTS = {
   // Tokens
   jeju: (process.env.NEXT_PUBLIC_JEJU_TOKEN_ADDRESS || ZERO) as Address,
-  elizaOS: (process.env.NEXT_PUBLIC_ELIZA_OS_ADDRESS || ZERO) as Address,
 
   // Registry
   identityRegistry: (process.env.NEXT_PUBLIC_IDENTITY_REGISTRY_ADDRESS ||

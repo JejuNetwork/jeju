@@ -1,7 +1,7 @@
 /**
  * Jeju Training Package
  *
- * Consolidated training infrastructure for the Jeju Network including:
+ * Training infrastructure for the Jeju Network including:
  * - GRPO/PPO training with Atropos coordination
  * - Psyche distributed training integration
  * - Training environments (Tic-Tac-Toe, Financial Prediction)

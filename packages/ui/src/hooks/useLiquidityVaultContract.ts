@@ -1,6 +1,5 @@
 /**
  * Liquidity Vault Contract Hook
- * Consolidated from gateway and bazaar
  */
 
 import { useCallback } from 'react'
@@ -129,7 +128,6 @@ export function useLiquidityVault(
     })
   }, [vaultAddress, claimWrite])
 
-  // Parse position from tuple or ERC20 balance
   const position = lpPosition as RawPositionTuple | undefined
   const balance = lpBalance as bigint | undefined
   const supply = totalSupply as bigint | undefined

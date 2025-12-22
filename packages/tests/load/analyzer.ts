@@ -37,8 +37,8 @@ export function analyzeResults(
     network,
     scenario,
     apps: results,
-    overallHealthy: bottlenecks.filter((b) => b.severity === 'critical')
-      .length === 0,
+    overallHealthy:
+      bottlenecks.filter((b) => b.severity === 'critical').length === 0,
     bottlenecks,
     recommendations,
   }
@@ -57,7 +57,8 @@ function analyzeAppResult(result: LoadTestResult): BottleneckAnalysis[] {
       metric: 'errorRate',
       value: result.errorRate,
       threshold: 0.1,
-      recommendation: 'Investigate error logs, check service dependencies, verify database connections',
+      recommendation:
+        'Investigate error logs, check service dependencies, verify database connections',
     })
   } else if (result.errorRate > 0.05) {
     bottlenecks.push({
@@ -68,7 +69,8 @@ function analyzeAppResult(result: LoadTestResult): BottleneckAnalysis[] {
       metric: 'errorRate',
       value: result.errorRate,
       threshold: 0.05,
-      recommendation: 'Review error patterns, add retry logic for transient failures',
+      recommendation:
+        'Review error patterns, add retry logic for transient failures',
     })
   }
 
@@ -82,7 +84,8 @@ function analyzeAppResult(result: LoadTestResult): BottleneckAnalysis[] {
       metric: 'p99Latency',
       value: result.latency.p99,
       threshold: 5000,
-      recommendation: 'Profile slow endpoints, check database queries, add caching',
+      recommendation:
+        'Profile slow endpoints, check database queries, add caching',
     })
   } else if (result.latency.p99 > 2000) {
     bottlenecks.push({
@@ -107,7 +110,8 @@ function analyzeAppResult(result: LoadTestResult): BottleneckAnalysis[] {
       metric: 'rps',
       value: result.rps,
       threshold: 10,
-      recommendation: 'Check for blocking operations, add horizontal scaling, optimize hot paths',
+      recommendation:
+        'Check for blocking operations, add horizontal scaling, optimize hot paths',
     })
   } else if (result.rps < 30) {
     bottlenecks.push({
@@ -118,7 +122,8 @@ function analyzeAppResult(result: LoadTestResult): BottleneckAnalysis[] {
       metric: 'rps',
       value: result.rps,
       threshold: 30,
-      recommendation: 'Consider async processing, batch operations where possible',
+      recommendation:
+        'Consider async processing, batch operations where possible',
     })
   }
 
@@ -133,7 +138,8 @@ function analyzeAppResult(result: LoadTestResult): BottleneckAnalysis[] {
       metric: 'latencyVariance',
       value: latencyVariance,
       threshold: result.latency.avg * 10,
-      recommendation: 'Investigate GC pauses, connection pool exhaustion, or resource contention',
+      recommendation:
+        'Investigate GC pauses, connection pool exhaustion, or resource contention',
     })
   }
 
@@ -170,7 +176,9 @@ function analyzeAppResult(result: LoadTestResult): BottleneckAnalysis[] {
 
   // Check threshold failures
   for (const failure of result.failures) {
-    const severity = failure.threshold.includes('error') ? 'critical' : 'warning'
+    const severity = failure.threshold.includes('error')
+      ? 'critical'
+      : 'warning'
     bottlenecks.push({
       app: result.app,
       severity,
@@ -190,9 +198,7 @@ function analyzeAppResult(result: LoadTestResult): BottleneckAnalysis[] {
   return bottlenecks
 }
 
-function generateRecommendations(
-  bottlenecks: BottleneckAnalysis[],
-): string[] {
+function generateRecommendations(bottlenecks: BottleneckAnalysis[]): string[] {
   const recommendations: string[] = []
   const seen = new Set<string>()
 
@@ -257,14 +263,16 @@ function generateRecommendations(
   // General recommendations
   if (bottlenecks.length === 0) {
     recommendations.push('All services performing within thresholds')
-    recommendations.push('Consider running stress tests to find breaking points')
+    recommendations.push(
+      'Consider running stress tests to find breaking points',
+    )
   }
 
   return recommendations
 }
 
 export function printResults(result: CombinedLoadTestResult): void {
-  console.log('\n' + '═'.repeat(70))
+  console.log(`\n${'═'.repeat(70)}`)
   console.log('  LOAD TEST RESULTS')
   console.log('═'.repeat(70))
   console.log(`  Network: ${result.network}`)
@@ -279,7 +287,9 @@ export function printResults(result: CombinedLoadTestResult): void {
   for (const app of result.apps) {
     const status = app.thresholdsPassed ? '✅' : '❌'
     console.log(`\n${status} ${app.app}`)
-    console.log(`   Requests: ${app.totalRequests} | RPS: ${app.rps.toFixed(1)}`)
+    console.log(
+      `   Requests: ${app.totalRequests} | RPS: ${app.rps.toFixed(1)}`,
+    )
     console.log(
       `   Latency P50/P95/P99: ${app.latency.p50.toFixed(0)}/${app.latency.p95.toFixed(0)}/${app.latency.p99.toFixed(0)}ms`,
     )
@@ -299,7 +309,9 @@ export function printResults(result: CombinedLoadTestResult): void {
     console.log('\n\n🔍 BOTTLENECKS IDENTIFIED')
     console.log('─'.repeat(70))
 
-    const criticals = result.bottlenecks.filter((b) => b.severity === 'critical')
+    const criticals = result.bottlenecks.filter(
+      (b) => b.severity === 'critical',
+    )
     const warnings = result.bottlenecks.filter((b) => b.severity === 'warning')
     const infos = result.bottlenecks.filter((b) => b.severity === 'info')
 
@@ -335,13 +347,13 @@ export function printResults(result: CombinedLoadTestResult): void {
   }
 
   // Overall status
-  console.log('\n' + '═'.repeat(70))
+  console.log(`\n${'═'.repeat(70)}`)
   if (result.overallHealthy) {
     console.log('  ✅ OVERALL STATUS: HEALTHY')
   } else {
     console.log('  ❌ OVERALL STATUS: NEEDS ATTENTION')
   }
-  console.log('═'.repeat(70) + '\n')
+  console.log(`${'═'.repeat(70)}\n`)
 }
 
 export function generateReport(result: CombinedLoadTestResult): string {
@@ -374,7 +386,9 @@ export function generateReport(result: CombinedLoadTestResult): string {
     lines.push('## Bottlenecks')
     lines.push('')
 
-    const criticals = result.bottlenecks.filter((b) => b.severity === 'critical')
+    const criticals = result.bottlenecks.filter(
+      (b) => b.severity === 'critical',
+    )
     if (criticals.length > 0) {
       lines.push('### Critical')
       for (const b of criticals) {
@@ -403,4 +417,3 @@ export function generateReport(result: CombinedLoadTestResult): string {
 
   return lines.join('\n')
 }
-

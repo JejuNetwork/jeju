@@ -1,7 +1,7 @@
 /**
- * Unified Bot API Server
+ * MEV Bot API Server
  *
- * Provides REST, A2A, and MCP APIs for the Unified MEV + LP Bot:
+ * Provides REST, A2A, and MCP APIs for the MEV + LP Bot:
  * - REST API for basic operations and monitoring
  * - A2A (Agent-to-Agent) protocol for autonomous agent communication
  * - MCP (Model Context Protocol) for LLM integration
@@ -21,9 +21,8 @@
  * - GET /trades - Trade history
  */
 
-import { serve } from '@hono/node-server'
-import { Hono } from 'hono'
-import { cors } from 'hono/cors'
+import { cors } from '@elysiajs/cors'
+import { Elysia } from 'elysia'
 import { z } from 'zod'
 import {
   AddLiquidityRequestSchema,
@@ -36,8 +35,8 @@ import {
   SwapRequestSchema,
   YieldVerifyParamSchema,
 } from '../schemas'
-import type { ChainId } from './autocrat-types'
-import { UnifiedBot, type UnifiedBotConfig } from './unified-bot'
+import type { ChainId } from './autocrat-types-source'
+import { MevBot, type MevBotConfig } from './mev-bot'
 
 // ============ Security Configuration ============
 
@@ -93,7 +92,7 @@ interface APIConfig {
   restPort: number
   a2aPort: number
   mcpPort: number
-  bot: UnifiedBot
+  bot: MevBot
 }
 
 interface AgentCard {
@@ -128,25 +127,24 @@ interface MCPResource {
 
 // ============ REST API ============
 
-function createRestAPI(bot: UnifiedBot): Hono {
-  const app = new Hono()
+function createRestAPI(bot: MevBot): Elysia {
+  const app = new Elysia()
 
   // CORS - restrict to configured origins in production
   // SECURITY: Wildcard '*' is ONLY honored in localnet to prevent misconfiguration
   app.use(
-    '*',
     cors({
-      origin: (origin) => {
+      origin: (request) => {
+        const origin = request.headers.get('origin')
         // In development (localnet), allow all origins
-        if (NETWORK === 'localnet') return origin
+        if (NETWORK === 'localnet') return true
         // In production/testnet, NEVER allow wildcard - explicit origins only
-        if (!origin) return null
-        if (ALLOWED_ORIGINS.includes(origin)) return origin
-        return null
+        if (!origin) return false
+        if (ALLOWED_ORIGINS.includes(origin)) return true
+        return false
       },
       credentials: true,
-      allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-      allowHeaders: [
+      allowedHeaders: [
         'Content-Type',
         'Authorization',
         'X-API-Key',
@@ -157,15 +155,16 @@ function createRestAPI(bot: UnifiedBot): Hono {
   )
 
   // Rate limiting middleware with atomic increment pattern
-  app.use('*', async (c, next) => {
-    const path = c.req.path
+  app.onBeforeHandle(({ request, set }): { error: string } | undefined => {
+    const url = new URL(request.url)
+    const path = url.pathname
 
     // Skip rate limiting for health check
-    if (path === '/health') return next()
+    if (path === '/health') return undefined
 
     const clientIp =
-      c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ??
-      c.req.header('x-real-ip') ??
+      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+      request.headers.get('x-real-ip') ??
       'unknown'
     const key = `rest:${clientIp}`
 
@@ -190,65 +189,55 @@ function createRestAPI(bot: UnifiedBot): Hono {
     } else {
       record.count++
       if (record.count > RATE_LIMIT_MAX_REQUESTS) {
-        return c.json({ error: 'Rate limit exceeded' }, 429)
+        set.status = 429
+        return { error: 'Rate limit exceeded' }
       }
     }
-
-    return next()
+    return undefined
   })
 
   // API Key authentication middleware (when enabled)
-  app.use('*', async (c, next) => {
-    const path = c.req.path
+  app.onBeforeHandle(({ request, set }): { error: string } | undefined => {
+    const url = new URL(request.url)
+    const path = url.pathname
 
     // Skip auth for health check
-    if (path === '/health') return next()
+    if (path === '/health') return undefined
 
     // Skip auth if not required
-    if (!REQUIRE_AUTH || !BOT_API_KEY) return next()
+    if (!REQUIRE_AUTH || !BOT_API_KEY) return undefined
 
     const providedKey =
-      c.req.header('x-api-key') ??
-      c.req.header('authorization')?.replace('Bearer ', '')
+      request.headers.get('x-api-key') ??
+      request.headers.get('authorization')?.replace('Bearer ', '')
 
     if (!providedKey || !constantTimeCompare(providedKey, BOT_API_KEY)) {
-      return c.json({ error: 'Unauthorized' }, 401)
+      set.status = 401
+      return { error: 'Unauthorized' }
     }
-
-    return next()
+    return undefined
   })
 
   // Health check
-  app.get('/health', (c) => {
-    return c.json({
-      status: 'ok',
-      service: 'unified-bot',
-      timestamp: Date.now(),
-    })
-  })
+  app.get('/health', () => ({
+    status: 'ok',
+    service: 'unified-bot',
+    timestamp: Date.now(),
+  }))
 
   // Bot statistics
-  app.get('/stats', (c) => {
-    const stats = bot.getStats()
-    return c.json(stats)
-  })
+  app.get('/stats', () => bot.getStats())
 
   // Current opportunities
-  app.get('/opportunities', (c) => {
-    const opportunities = bot.getOpportunities()
-    return c.json(opportunities)
-  })
+  app.get('/opportunities', () => bot.getOpportunities())
 
   // Liquidity positions
-  app.get('/positions', (c) => {
-    const positions = bot.getLiquidityPositions()
-    return c.json(positions)
-  })
+  app.get('/positions', () => bot.getLiquidityPositions())
 
   // Pool recommendations
-  app.get('/pools', async (c) => {
-    const minTvlStr = c.req.query('minTvl')
-    const minAprStr = c.req.query('minApr')
+  app.get('/pools', async ({ query }) => {
+    const minTvlStr = query.minTvl
+    const minAprStr = query.minApr
     const minTvl = minTvlStr
       ? parseOrThrow(
           z.number().min(0),
@@ -264,38 +253,33 @@ function createRestAPI(bot: UnifiedBot): Hono {
         )
       : undefined
 
-    const pools = await bot.getPoolRecommendations({ minTvl, minApr })
-    return c.json(pools)
+    return await bot.getPoolRecommendations({ minTvl, minApr })
   })
 
   // Pending rebalance actions
-  app.get('/rebalance', async (c) => {
-    const actions = await bot.getRebalanceActions()
-    return c.json(actions)
-  })
+  app.get('/rebalance', async () => await bot.getRebalanceActions())
 
   // Execute rebalance action
-  app.post('/rebalance/:actionId', async (c) => {
-    const params = parseOrThrow(
+  app.post('/rebalance/:actionId', async ({ params }) => {
+    const parsedParams = parseOrThrow(
       RebalanceActionIdParamSchema,
-      c.req.param(),
+      params,
       'Action ID parameter',
     )
     const actions = await bot.getRebalanceActions()
     const action = expect(
-      actions.find((a) => a.positionId === params.actionId),
-      `Action not found: ${params.actionId}`,
+      actions.find((a) => a.positionId === parsedParams.actionId),
+      `Action not found: ${parsedParams.actionId}`,
     )
 
-    const result = await bot.executeRebalance(action)
-    return c.json(result)
+    return await bot.executeRebalance(action)
   })
 
   // ============ Yield Farming Endpoints ============
 
   // Yield farming opportunities (ranked by risk-adjusted return)
-  app.get('/yield', (c) => {
-    const limitStr = c.req.query('limit')
+  app.get('/yield', ({ query }) => {
+    const limitStr = query.limit
     const limit = limitStr
       ? parseOrThrow(
           z.number().int().min(1).max(100),
@@ -303,81 +287,76 @@ function createRestAPI(bot: UnifiedBot): Hono {
           'Limit query parameter',
         )
       : 20
-    const opportunities = bot.getYieldOpportunities(limit)
-    return c.json(opportunities)
+    return bot.getYieldOpportunities(limit)
   })
 
   // Yield farming stats
-  app.get('/yield/stats', (c) => {
+  app.get('/yield/stats', () => {
     const stats = bot.getYieldStats()
-    return c.json(stats ?? { error: 'Yield farming not enabled' })
+    return stats ?? { error: 'Yield farming not enabled' }
   })
 
   // Verify yield for an opportunity (on-chain verification)
-  app.get('/yield/verify/:id', async (c) => {
-    const params = parseOrThrow(
+  app.get('/yield/verify/:id', async ({ params }) => {
+    const parsedParams = parseOrThrow(
       YieldVerifyParamSchema,
-      c.req.param(),
+      params,
       'Yield verify parameter',
     )
-    const result = await bot.verifyYield(params.id)
-    return c.json(result)
+    return await bot.verifyYield(parsedParams.id)
   })
 
   // Add liquidity
-  app.post('/liquidity/add', async (c) => {
-    const rawBody = await c.req.json()
-    const body = parseOrThrow(
+  app.post('/liquidity/add', async ({ body }) => {
+    const rawBody = body as Record<string, unknown>
+    const parsedBody = parseOrThrow(
       AddLiquidityRequestSchema,
       rawBody,
       'Add liquidity request',
     )
-    const result = await bot.addLiquidity({
-      chain: body.chain as 'evm' | 'solana',
-      dex: body.dex,
-      poolId: body.poolId,
-      amountA: body.amountA,
-      amountB: body.amountB,
+    return await bot.addLiquidity({
+      chain: parsedBody.chain as 'evm' | 'solana',
+      dex: parsedBody.dex,
+      poolId: parsedBody.poolId,
+      amountA: parsedBody.amountA,
+      amountB: parsedBody.amountB,
     })
-    return c.json(result)
   })
 
   // Remove liquidity (simplified - would need position ID and percent)
-  app.post('/liquidity/remove', async (_c) => {
-    // This would call liquidityManager.removeLiquidity
-    return _c.json({ success: false, error: 'Not implemented' })
-  })
+  app.post('/liquidity/remove', () => ({
+    success: false,
+    error: 'Not implemented',
+  }))
 
   // Get Solana swap quotes
-  app.get('/quotes/:inputMint/:outputMint/:amount', async (c) => {
-    const params = parseOrThrow(
+  app.get('/quotes/:inputMint/:outputMint/:amount', async ({ params }) => {
+    const parsedParams = parseOrThrow(
       QuotesParamsSchema,
-      c.req.param(),
+      params,
       'Quotes parameters',
     )
-    const quotes = await bot.getSolanaQuotes(
-      params.inputMint,
-      params.outputMint,
-      params.amount,
+    return await bot.getSolanaQuotes(
+      parsedParams.inputMint,
+      parsedParams.outputMint,
+      parsedParams.amount,
     )
-    return c.json(quotes)
   })
 
   // Execute swap
-  app.post('/swap', async (c) => {
-    const rawBody = await c.req.json()
-    const body = parseOrThrow(SwapRequestSchema, rawBody, 'Swap request')
-    const result = await bot.executeSolanaSwap(
-      body.inputMint,
-      body.outputMint,
-      body.amount,
+  app.post('/swap', async ({ body }) => {
+    const rawBody = body as Record<string, unknown>
+    const parsedBody = parseOrThrow(SwapRequestSchema, rawBody, 'Swap request')
+    return await bot.executeSolanaSwap(
+      parsedBody.inputMint,
+      parsedBody.outputMint,
+      parsedBody.amount,
     )
-    return c.json(result)
   })
 
   // Trade history
-  app.get('/trades', (c) => {
-    const limitStr = c.req.query('limit')
+  app.get('/trades', ({ query }) => {
+    const limitStr = query.limit
     const limit = limitStr
       ? parseOrThrow(
           z.number().int().min(1).max(1000),
@@ -385,19 +364,18 @@ function createRestAPI(bot: UnifiedBot): Hono {
           'Limit query parameter',
         )
       : 100
-    const trades = bot.getTradeHistory(limit)
-    return c.json(trades)
+    return bot.getTradeHistory(limit)
   })
 
   // Bot control
-  app.post('/start', async (c) => {
+  app.post('/start', async () => {
     await bot.start()
-    return c.json({ success: true, message: 'Bot started' })
+    return { success: true, message: 'Bot started' }
   })
 
-  app.post('/stop', async (c) => {
+  app.post('/stop', async () => {
     await bot.stop()
-    return c.json({ success: true, message: 'Bot stopped' })
+    return { success: true, message: 'Bot stopped' }
   })
 
   return app
@@ -405,57 +383,61 @@ function createRestAPI(bot: UnifiedBot): Hono {
 
 // ============ A2A API ============
 
-function createA2AAPI(bot: UnifiedBot, config: APIConfig): Hono {
-  const app = new Hono()
+function createA2AAPI(bot: MevBot, config: APIConfig): Elysia {
+  const app = new Elysia()
 
   // CORS - restrict to configured origins in production
   app.use(
-    '*',
     cors({
-      origin: (origin) => {
-        if (NETWORK === 'localnet') return origin
-        if (
-          !origin ||
-          ALLOWED_ORIGINS.includes(origin) ||
-          ALLOWED_ORIGINS.includes('*')
-        )
-          return origin
-        return null
+      origin: (request) => {
+        const origin = request.headers.get('origin')
+        if (NETWORK === 'localnet') return true
+        if (!origin) return false
+        if (ALLOWED_ORIGINS.includes(origin) || ALLOWED_ORIGINS.includes('*'))
+          return true
+        return false
       },
       credentials: true,
-      allowMethods: ['GET', 'POST', 'OPTIONS'],
-      allowHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
       maxAge: 86400,
     }),
   )
 
   // Rate limiting for A2A
-  app.use('*', async (c, next) => {
-    const path = c.req.path
-    if (path === '/' || path.startsWith('/.well-known')) return next()
+  app.onBeforeHandle(
+    ({
+      request,
+      set,
+    }): { error: { code: number; message: string } } | undefined => {
+      const url = new URL(request.url)
+      const path = url.pathname
+      if (path === '/' || path.startsWith('/.well-known')) return undefined
 
-    const clientIp =
-      c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
-    const key = `a2a:${clientIp}`
+      const clientIp =
+        request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+        'unknown'
+      const key = `a2a:${clientIp}`
 
-    const now = Date.now()
-    const record = rateLimitStore.get(key)
+      const now = Date.now()
+      const record = rateLimitStore.get(key)
 
-    if (!record || record.resetAt < now) {
-      rateLimitStore.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS })
-      return next()
-    }
+      if (!record || record.resetAt < now) {
+        rateLimitStore.set(key, {
+          count: 1,
+          resetAt: now + RATE_LIMIT_WINDOW_MS,
+        })
+        return undefined
+      }
 
-    if (record.count >= RATE_LIMIT_MAX_REQUESTS) {
-      return c.json(
-        { error: { code: -32603, message: 'Rate limit exceeded' } },
-        429,
-      )
-    }
+      if (record.count >= RATE_LIMIT_MAX_REQUESTS) {
+        set.status = 429
+        return { error: { code: -32603, message: 'Rate limit exceeded' } }
+      }
 
-    record.count++
-    return next()
-  })
+      record.count++
+      return undefined
+    },
+  )
 
   // Agent card
   const agentCard: AgentCard = {
@@ -480,34 +462,30 @@ function createA2AAPI(bot: UnifiedBot, config: APIConfig): Hono {
   }
 
   // Well-known agent card
-  app.get('/.well-known/agent-card.json', (c) => {
-    return c.json(agentCard)
-  })
+  app.get('/.well-known/agent-card.json', () => agentCard)
 
   // Root info
-  app.get('/', (c) => {
-    return c.json({
-      service: 'unified-bot-a2a',
-      version: '1.0.0',
-      agentCard: '/.well-known/agent-card.json',
-    })
-  })
+  app.get('/', () => ({
+    service: 'unified-bot-a2a',
+    version: '1.0.0',
+    agentCard: '/.well-known/agent-card.json',
+  }))
 
   // A2A request handler
-  app.post('/a2a', async (c) => {
-    const rawBody = await c.req.json()
-    const body = parseOrThrow(BotA2ARequestSchema, rawBody, 'A2A request')
-    const { method, params } = body
+  app.post('/a2a', async ({ body, set }) => {
+    const rawBody = body as Record<string, unknown>
+    const parsedBody = parseOrThrow(BotA2ARequestSchema, rawBody, 'A2A request')
+    const { method, params } = parsedBody
 
     switch (method) {
       case 'getStats':
-        return c.json({ result: bot.getStats() })
+        return { result: bot.getStats() }
 
       case 'getOpportunities':
-        return c.json({ result: bot.getOpportunities() })
+        return { result: bot.getOpportunities() }
 
       case 'getPositions':
-        return c.json({ result: bot.getLiquidityPositions() })
+        return { result: bot.getLiquidityPositions() }
 
       case 'getPools': {
         const poolParams = params
@@ -523,12 +501,12 @@ function createA2AAPI(bot: UnifiedBot, config: APIConfig): Hono {
             )
           : undefined
         const pools = await bot.getPoolRecommendations(poolParams)
-        return c.json({ result: pools })
+        return { result: pools }
       }
 
       case 'getRebalanceActions': {
         const actions = await bot.getRebalanceActions()
-        return c.json({ result: actions })
+        return { result: actions }
       }
 
       case 'executeRebalance': {
@@ -547,7 +525,7 @@ function createA2AAPI(bot: UnifiedBot, config: APIConfig): Hono {
           `Action not found: ${rebalanceParams.positionId}`,
         )
         const result = await bot.executeRebalance(action)
-        return c.json({ result })
+        return { result }
       }
 
       case 'getQuotes': {
@@ -561,7 +539,7 @@ function createA2AAPI(bot: UnifiedBot, config: APIConfig): Hono {
           quotesParams.outputMint,
           quotesParams.amount,
         )
-        return c.json({ result: quotes })
+        return { result: quotes }
       }
 
       case 'executeSwap': {
@@ -575,14 +553,12 @@ function createA2AAPI(bot: UnifiedBot, config: APIConfig): Hono {
           swapParams.outputMint,
           swapParams.amount,
         )
-        return c.json({ result: swapResult })
+        return { result: swapResult }
       }
 
       default:
-        return c.json(
-          { error: { code: -32601, message: 'Method not found' } },
-          404,
-        )
+        set.status = 404
+        return { error: { code: -32601, message: 'Method not found' } }
     }
   })
 
@@ -591,53 +567,54 @@ function createA2AAPI(bot: UnifiedBot, config: APIConfig): Hono {
 
 // ============ MCP API ============
 
-function createMCPAPI(bot: UnifiedBot): Hono {
-  const app = new Hono()
+function createMCPAPI(bot: MevBot): Elysia {
+  const app = new Elysia()
 
   // CORS - restrict to configured origins in production
   app.use(
-    '*',
     cors({
-      origin: (origin) => {
-        if (NETWORK === 'localnet') return origin
-        if (
-          !origin ||
-          ALLOWED_ORIGINS.includes(origin) ||
-          ALLOWED_ORIGINS.includes('*')
-        )
-          return origin
-        return null
+      origin: (request) => {
+        const origin = request.headers.get('origin')
+        if (NETWORK === 'localnet') return true
+        if (!origin) return false
+        if (ALLOWED_ORIGINS.includes(origin) || ALLOWED_ORIGINS.includes('*'))
+          return true
+        return false
       },
       credentials: true,
-      allowMethods: ['GET', 'POST', 'OPTIONS'],
-      allowHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
       maxAge: 86400,
     }),
   )
 
   // Rate limiting for MCP
-  app.use('*', async (c, next) => {
-    const path = c.req.path
-    if (path === '/') return next()
+  app.onBeforeHandle(({ request, set }): { error: string } | undefined => {
+    const url = new URL(request.url)
+    const path = url.pathname
+    if (path === '/') return undefined
 
     const clientIp =
-      c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
     const key = `mcp:${clientIp}`
 
     const now = Date.now()
     const record = rateLimitStore.get(key)
 
     if (!record || record.resetAt < now) {
-      rateLimitStore.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS })
-      return next()
+      rateLimitStore.set(key, {
+        count: 1,
+        resetAt: now + RATE_LIMIT_WINDOW_MS,
+      })
+      return undefined
     }
 
     if (record.count >= RATE_LIMIT_MAX_REQUESTS) {
-      return c.json({ error: 'Rate limit exceeded' }, 429)
+      set.status = 429
+      return { error: 'Rate limit exceeded' }
     }
 
     record.count++
-    return next()
+    return undefined
   })
 
   const tools: MCPTool[] = [
@@ -817,46 +794,43 @@ function createMCPAPI(bot: UnifiedBot): Hono {
   ]
 
   // Root info
-  app.get('/', (c) => {
-    return c.json({
-      server: 'unified-bot-mcp',
-      version: '1.0.0',
-      description: 'Cross-chain MEV and liquidity management bot',
-      tools,
-      resources,
-      prompts: [
-        {
-          name: 'analyze_portfolio',
-          description:
-            'Analyze the current portfolio and suggest optimizations',
-          arguments: [],
-        },
-        {
-          name: 'find_best_pool',
-          description: 'Find the best pool for a given token pair',
-          arguments: [
-            {
-              name: 'tokenA',
-              description: 'First token symbol',
-              required: true,
-            },
-            {
-              name: 'tokenB',
-              description: 'Second token symbol',
-              required: true,
-            },
-          ],
-        },
-      ],
-      capabilities: { resources: true, tools: true, prompts: true },
-    })
-  })
+  app.get('/', () => ({
+    server: 'unified-bot-mcp',
+    version: '1.0.0',
+    description: 'Cross-chain MEV and liquidity management bot',
+    tools,
+    resources,
+    prompts: [
+      {
+        name: 'analyze_portfolio',
+        description: 'Analyze the current portfolio and suggest optimizations',
+        arguments: [],
+      },
+      {
+        name: 'find_best_pool',
+        description: 'Find the best pool for a given token pair',
+        arguments: [
+          {
+            name: 'tokenA',
+            description: 'First token symbol',
+            required: true,
+          },
+          {
+            name: 'tokenB',
+            description: 'Second token symbol',
+            required: true,
+          },
+        ],
+      },
+    ],
+    capabilities: { resources: true, tools: true, prompts: true },
+  }))
 
   // Tool execution
-  app.post('/tools/:name', async (c) => {
-    const { name } = c.req.param()
-    const rawBody = await c.req.json()
-    const params = parseOrThrow(
+  app.post('/tools/:name', async ({ params, body, set }) => {
+    const { name } = params
+    const rawBody = body as Record<string, unknown>
+    const parsedParams = parseOrThrow(
       JsonObjectSchema.optional().default({}),
       rawBody,
       'MCP tool params',
@@ -864,16 +838,16 @@ function createMCPAPI(bot: UnifiedBot): Hono {
 
     switch (name) {
       case 'get_bot_stats':
-        return c.json({ result: bot.getStats() })
+        return { result: bot.getStats() }
 
       case 'get_opportunities':
-        return c.json({ result: bot.getOpportunities() })
+        return { result: bot.getOpportunities() }
 
       case 'get_positions':
-        return c.json({ result: bot.getLiquidityPositions() })
+        return { result: bot.getLiquidityPositions() }
 
       case 'get_pool_recommendations': {
-        const poolRecParams = params
+        const poolRecParams = parsedParams
           ? parseOrThrow(
               z
                 .object({
@@ -881,35 +855,37 @@ function createMCPAPI(bot: UnifiedBot): Hono {
                   minApr: z.number().min(0).max(10000).optional(),
                 })
                 .strict(),
-              params,
+              parsedParams,
               'Pool recommendations params',
             )
           : undefined
         const pools = await bot.getPoolRecommendations(poolRecParams)
-        return c.json({ result: pools })
+        return { result: pools }
       }
 
       case 'get_rebalance_actions': {
         const actions = await bot.getRebalanceActions()
-        return c.json({ result: actions })
+        return { result: actions }
       }
 
       case 'execute_rebalance': {
-        expect(params, 'Rebalance params are required')
-        expect(params.positionId, 'Position ID is required')
+        expect(parsedParams, 'Rebalance params are required')
+        expect(parsedParams.positionId, 'Position ID is required')
         const rebalanceActions = await bot.getRebalanceActions()
         const action = expect(
-          rebalanceActions.find((a) => a.positionId === params.positionId),
-          `Action not found: ${params.positionId}`,
+          rebalanceActions.find(
+            (a) => a.positionId === parsedParams.positionId,
+          ),
+          `Action not found: ${parsedParams.positionId}`,
         )
         const result = await bot.executeRebalance(action)
-        return c.json({ result })
+        return { result }
       }
 
       case 'get_swap_quotes': {
         const quotesParams = parseOrThrow(
           QuotesParamsSchema,
-          params,
+          parsedParams,
           'Get swap quotes params',
         )
         const quotes = await bot.getSolanaQuotes(
@@ -917,13 +893,13 @@ function createMCPAPI(bot: UnifiedBot): Hono {
           quotesParams.outputMint,
           quotesParams.amount,
         )
-        return c.json({ result: quotes })
+        return { result: quotes }
       }
 
       case 'execute_swap': {
         const swapParams = parseOrThrow(
           SwapRequestSchema,
-          params,
+          parsedParams,
           'Execute swap params',
         )
         const result = await bot.executeSolanaSwap(
@@ -931,38 +907,38 @@ function createMCPAPI(bot: UnifiedBot): Hono {
           swapParams.outputMint,
           swapParams.amount,
         )
-        return c.json({ result })
+        return { result }
       }
 
       case 'get_yield_opportunities': {
         const limit =
-          params?.limit !== undefined
+          parsedParams?.limit !== undefined
             ? parseOrThrow(
                 z.number().int().min(1).max(100),
-                params.limit,
+                parsedParams.limit,
                 'Yield opportunities limit',
               )
             : 20
-        return c.json({ result: bot.getYieldOpportunities(limit) })
+        return { result: bot.getYieldOpportunities(limit) }
       }
 
       case 'get_yield_stats':
-        return c.json({ result: bot.getYieldStats() })
+        return { result: bot.getYieldStats() }
 
       case 'verify_yield': {
         const verifyParams = parseOrThrow(
           YieldVerifyParamSchema,
-          params,
+          parsedParams,
           'Verify yield params',
         )
         const result = await bot.verifyYield(verifyParams.id)
-        return c.json({ result })
+        return { result }
       }
 
       case 'add_liquidity': {
         const liquidityParams = parseOrThrow(
           AddLiquidityRequestSchema,
-          params,
+          parsedParams,
           'Add liquidity params',
         )
         const result = await bot.addLiquidity({
@@ -972,44 +948,46 @@ function createMCPAPI(bot: UnifiedBot): Hono {
           amountA: liquidityParams.amountA,
           amountB: liquidityParams.amountB,
         })
-        return c.json({ result })
+        return { result }
       }
 
       case 'get_trade_history': {
         const limit =
-          params?.limit !== undefined
+          parsedParams?.limit !== undefined
             ? parseOrThrow(
                 z.number().int().min(1).max(1000),
-                params.limit,
+                parsedParams.limit,
                 'Trade history limit',
               )
             : 100
-        return c.json({ result: bot.getTradeHistory(limit) })
+        return { result: bot.getTradeHistory(limit) }
       }
 
       default:
-        return c.json({ error: 'Tool not found' }, 404)
+        set.status = 404
+        return { error: 'Tool not found' }
     }
   })
 
   // Resource access
-  app.get('/resources/:uri', async (c) => {
-    const { uri } = c.req.param()
+  app.get('/resources/:uri', async ({ params, set }) => {
+    const { uri } = params
     const fullUri = `bot://${uri}`
 
     switch (fullUri) {
       case 'bot://stats':
-        return c.json(bot.getStats())
+        return bot.getStats()
       case 'bot://opportunities':
-        return c.json(bot.getOpportunities())
+        return bot.getOpportunities()
       case 'bot://positions':
-        return c.json(bot.getLiquidityPositions())
+        return bot.getLiquidityPositions()
       case 'bot://pools':
-        return c.json(await bot.getPoolRecommendations())
+        return await bot.getPoolRecommendations()
       case 'bot://trades':
-        return c.json(bot.getTradeHistory())
+        return bot.getTradeHistory()
       default:
-        return c.json({ error: 'Resource not found' }, 404)
+        set.status = 404
+        return { error: 'Resource not found' }
     }
   })
 
@@ -1027,18 +1005,18 @@ export async function startBotAPIServer(config: APIConfig): Promise<void> {
   const mcpApp = createMCPAPI(bot)
 
   // Start servers
-  serve({ fetch: restApp.fetch, port: restPort })
+  restApp.listen(restPort)
   console.log(`📡 REST API running on http://localhost:${restPort}`)
 
-  serve({ fetch: a2aApp.fetch, port: a2aPort })
+  a2aApp.listen(a2aPort)
   console.log(`📡 A2A Server running on http://localhost:${a2aPort}`)
 
-  serve({ fetch: mcpApp.fetch, port: mcpPort })
+  mcpApp.listen(mcpPort)
   console.log(`📡 MCP Server running on http://localhost:${mcpPort}`)
 
   console.log(`
 ┌─────────────────────────────────────────┐
-│     Unified Bot API Servers Running     │
+│     MEV Bot API Servers Running         │
 ├─────────────────────────────────────────┤
 │  REST:    http://localhost:${restPort}         │
 │  A2A:     http://localhost:${a2aPort}         │
@@ -1074,7 +1052,7 @@ export async function main(): Promise<void> {
     ? process.env.YIELD_AUTO_REBALANCE === 'true'
     : undefined
 
-  const botConfig: UnifiedBotConfig = {
+  const botConfig: MevBotConfig = {
     evmChains: [1, 42161, 10, 8453] as ChainId[], // Ethereum, Arbitrum, Optimism, Base
     solanaNetwork:
       (process.env.SOLANA_NETWORK as 'mainnet-beta' | 'devnet' | 'localnet') ??
@@ -1117,7 +1095,7 @@ export async function main(): Promise<void> {
       : undefined,
   }
 
-  const bot = new UnifiedBot(botConfig)
+  const bot = new MevBot(botConfig)
   await bot.initialize()
   await bot.start()
 

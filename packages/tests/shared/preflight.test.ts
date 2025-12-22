@@ -4,10 +4,16 @@
 
 import { describe, expect, test } from 'bun:test'
 import { quickHealthCheck, runPreflightChecks, waitForChain } from './preflight'
+import { isRpcAvailable } from './utils'
 
 // Test against non-existent RPC to verify error handling
 const FAKE_RPC = 'http://localhost:59999'
 const REAL_RPC = process.env.L2_RPC_URL || 'http://localhost:6546'
+
+// Auto-detect chain availability
+const CHAIN_AVAILABLE =
+  process.env.CHAIN_AVAILABLE === 'true' ||
+  (await isRpcAvailable(REAL_RPC).catch(() => false))
 
 describe('quickHealthCheck - Fast Health Validation', () => {
   test('should return false for unreachable RPC', async () => {
@@ -176,9 +182,8 @@ describe('Preflight - Error Message Quality', () => {
   })
 })
 
-// Integration tests require running localnet - run with:
-// CHAIN_AVAILABLE=true bun test preflight.test.ts
-describe.skipIf(!process.env.CHAIN_AVAILABLE)(
+// Integration tests require running localnet - auto-detected
+describe.skipIf(!CHAIN_AVAILABLE)(
   'Preflight - Integration with Live Chain',
   () => {
     test('should pass all checks on healthy chain', async () => {

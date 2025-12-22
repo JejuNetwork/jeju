@@ -16,12 +16,6 @@ import {
   type PlaywrightTestConfig,
 } from '@playwright/test'
 
-// Import from canonical source
-import { getTestEnv } from './utils'
-
-// Re-export for backwards compatibility
-export { getTestEnv }
-
 export interface AppConfigOptions {
   name: string
   port: number

@@ -1,7 +1,7 @@
 //! Wallet management commands
 
 use crate::state::AppState;
-use crate::wallet::{WalletInfo, BalanceInfo, TransactionResult, WalletManager};
+use crate::wallet::{BalanceInfo, TransactionResult, WalletInfo, WalletManager};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -35,20 +35,20 @@ pub async fn create_wallet(
     request: CreateWalletRequest,
 ) -> Result<WalletInfo, String> {
     let mut inner = state.inner.write();
-    
+
     let rpc_url = inner.config.network.rpc_url.clone();
     let chain_id = inner.config.network.chain_id;
-    
+
     let mut manager = WalletManager::new(&rpc_url, chain_id);
     let info = manager.create_wallet(&request.password)?;
-    
+
     inner.wallet_manager = Some(manager);
-    
+
     // Update config
     inner.config.wallet.wallet_type = crate::config::WalletType::Embedded;
     inner.config.wallet.address = Some(info.address.clone());
     inner.config.save().map_err(|e| e.to_string())?;
-    
+
     Ok(info)
 }
 
@@ -58,12 +58,12 @@ pub async fn import_wallet(
     request: ImportWalletRequest,
 ) -> Result<WalletInfo, String> {
     let mut inner = state.inner.write();
-    
+
     let rpc_url = inner.config.network.rpc_url.clone();
     let chain_id = inner.config.network.chain_id;
-    
+
     let mut manager = WalletManager::new(&rpc_url, chain_id);
-    
+
     let info = if let Some(pk) = request.private_key {
         manager.import_wallet(&pk, &request.password)?
     } else if let Some(mnemonic) = request.mnemonic {
@@ -71,21 +71,21 @@ pub async fn import_wallet(
     } else {
         return Err("Either private_key or mnemonic required".to_string());
     };
-    
+
     inner.wallet_manager = Some(manager);
-    
+
     // Update config
     inner.config.wallet.wallet_type = crate::config::WalletType::Embedded;
     inner.config.wallet.address = Some(info.address.clone());
     inner.config.save().map_err(|e| e.to_string())?;
-    
+
     Ok(info)
 }
 
 #[tauri::command]
 pub async fn get_wallet_info(state: State<'_, AppState>) -> Result<Option<WalletInfo>, String> {
     let inner = state.inner.read();
-    
+
     if let Some(ref manager) = inner.wallet_manager {
         Ok(manager.get_info())
     } else {
@@ -96,13 +96,15 @@ pub async fn get_wallet_info(state: State<'_, AppState>) -> Result<Option<Wallet
 #[tauri::command]
 pub async fn get_balance(state: State<'_, AppState>) -> Result<BalanceInfo, String> {
     let inner = state.inner.read();
-    
-    let manager = inner.wallet_manager.as_ref()
+
+    let manager = inner
+        .wallet_manager
+        .as_ref()
         .ok_or("Wallet not initialized")?;
-    
+
     // Clone manager for async operation
     drop(inner);
-    
+
     // TODO: Implement actual balance fetching
     Ok(BalanceInfo {
         eth: "0".to_string(),
@@ -118,10 +120,12 @@ pub async fn sign_message(
     request: SignMessageRequest,
 ) -> Result<String, String> {
     let inner = state.inner.read();
-    
-    let manager = inner.wallet_manager.as_ref()
+
+    let manager = inner
+        .wallet_manager
+        .as_ref()
         .ok_or("Wallet not initialized")?;
-    
+
     // TODO: Implement actual signing
     Err("Sign message not yet implemented".to_string())
 }
@@ -132,11 +136,12 @@ pub async fn send_transaction(
     request: SendTransactionRequest,
 ) -> Result<TransactionResult, String> {
     let inner = state.inner.read();
-    
-    let manager = inner.wallet_manager.as_ref()
+
+    let manager = inner
+        .wallet_manager
+        .as_ref()
         .ok_or("Wallet not initialized")?;
-    
+
     // TODO: Implement actual transaction sending
     Err("Send transaction not yet implemented".to_string())
 }
-
