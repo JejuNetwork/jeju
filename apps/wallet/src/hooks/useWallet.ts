@@ -1,3 +1,9 @@
+import {
+  expectAddress,
+  expectBigInt,
+  expectChainId,
+  expectHex,
+} from '@jejunetwork/types'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Address, Hex } from 'viem'
 import {
@@ -10,18 +16,10 @@ import {
   useSwitchChain,
   useWalletClient,
 } from 'wagmi'
-import {
-  expectAddress,
-  expectBigInt,
-  expectChainId,
-  expectHex,
-  expectNonEmpty,
-  expectSchema,
-  requireDefined,
-} from '../lib/validation'
+import { expectNonEmpty, expectSchema, requireDefined } from '../lib/validation'
 import { chains, getChain } from '../sdk/chains'
-import { TransactionSchema, UnifiedAccountSchema } from '../sdk/schemas'
-import type { TokenBalance, Transaction, UnifiedAccount } from '../sdk/types'
+import { TransactionSchema, WalletAccountSchema } from '../sdk/schemas'
+import type { TokenBalance, Transaction, WalletAccount } from '../sdk/types'
 import { oracleService } from '../services'
 
 // Token prices cache (simple in-memory)
@@ -38,7 +36,7 @@ export function useWallet() {
   const publicClient = usePublicClient()
   const { data: balanceData } = useBalance({ address })
 
-  const [accounts, setAccounts] = useState<UnifiedAccount[]>([])
+  const [accounts, setAccounts] = useState<WalletAccount[]>([])
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>(
     [],
   )
@@ -48,7 +46,7 @@ export function useWallet() {
       expectAddress(address, 'address')
       expectChainId(chainId, 'chainId')
 
-      const account: UnifiedAccount = {
+      const account: WalletAccount = {
         id: address,
         label: 'Primary Account',
         evmAccounts: [{ address, type: 'eoa', chainId, isDefault: true }],
@@ -57,7 +55,7 @@ export function useWallet() {
       }
 
       // Validate the account structure
-      expectSchema(account, UnifiedAccountSchema, 'unified account')
+      expectSchema(account, WalletAccountSchema, 'wallet account')
       setAccounts([account])
     } else {
       setAccounts([])

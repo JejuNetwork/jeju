@@ -1,0 +1,41 @@
+{{- if .Values.keda.enabled }}
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ include "dws.fullname" . }}-scaler
+  labels:
+    {{- include "dws.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    name: {{ include "dws.fullname" . }}
+  minReplicaCount: {{ .Values.keda.minReplicaCount }}
+  maxReplicaCount: {{ .Values.keda.maxReplicaCount }}
+  pollingInterval: {{ .Values.keda.pollingInterval }}
+  cooldownPeriod: {{ .Values.keda.cooldownPeriod }}
+  {{- with .Values.keda.advanced }}
+  advanced:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  triggers:
+    {{- range .Values.keda.triggers }}
+    - type: {{ .type }}
+      {{- if .metricType }}
+      metricType: {{ .metricType }}
+      {{- end }}
+      metadata:
+        {{- toYaml .metadata | nindent 8 }}
+    {{- end }}
+---
+# Fallback HPA when KEDA is used (for graceful degradation)
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "dws.fullname" . }}-pdb
+  labels:
+    {{- include "dws.labels" . | nindent 4 }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      {{- include "dws.selectorLabels" . | nindent 6 }}
+{{- end }}

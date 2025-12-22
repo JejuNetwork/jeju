@@ -13,13 +13,11 @@ export function useBalance(): UseBalanceResult {
   const { client } = useNetworkContext()
   const { isLoading, error, execute } = useAsyncState()
   const [balance, setBalance] = useState<bigint | null>(null)
-  // Track if component is still mounted to prevent stale updates
   const isMountedRef = useRef(true)
 
   const refetch = useCallback(async (): Promise<void> => {
     if (!client) return
     const bal = await execute<bigint>(() => client.getBalance())
-    // Only update state if component is still mounted
     if (isMountedRef.current) {
       setBalance(bal)
     }
@@ -29,12 +27,9 @@ export function useBalance(): UseBalanceResult {
     isMountedRef.current = true
 
     if (client) {
-      refetch().catch(() => {
-        // Error already handled by useAsyncState
-      })
+      refetch().catch(() => {})
     }
 
-    // Cleanup to prevent stale updates
     return () => {
       isMountedRef.current = false
     }

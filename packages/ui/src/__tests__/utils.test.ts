@@ -1,6 +1,6 @@
 /**
  * Tests for UI hook utilities
- * 
+ *
  * Note: These tests verify the utility functions work correctly.
  * React hooks cannot be tested in isolation - they require a React component context.
  * Full hook testing should be done with @testing-library/react-hooks or in E2E tests.

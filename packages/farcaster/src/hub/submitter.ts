@@ -4,13 +4,13 @@
  * Submits signed messages to Farcaster hubs via HTTP API.
  */
 
+import { expectValid } from '@jejunetwork/types'
 import type { Hex } from 'viem'
 import type { Message } from './message-builder'
 import { messageBytesToHex, serializeMessage } from './message-builder'
-import { expectValid } from '@jejunetwork/types'
 import {
-  HubInfoSchema,
   type HubInfo,
+  HubInfoSchema,
   ValidateMessageResponseSchema,
 } from './schemas'
 

@@ -8,11 +8,7 @@
 import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { $ } from 'bun'
-import {
-  expectValid,
-  VendorManifestSchema,
-  type VendorManifest,
-} from '../schemas'
+import { expectValid, VendorManifestSchema } from '../schemas'
 
 const ROOT = join(import.meta.dir, '../../..')
 const VENDOR_DIR = join(ROOT, 'vendor')
@@ -40,7 +36,11 @@ async function discoverVendorApps(): Promise<VendorApp[]> {
 
     if (existsSync(manifestPath)) {
       const manifestRaw = await Bun.file(manifestPath).json()
-      const manifest = expectValid(VendorManifestSchema, manifestRaw, `vendor manifest ${entry.name}`)
+      const manifest = expectValid(
+        VendorManifestSchema,
+        manifestRaw,
+        `vendor manifest ${entry.name}`,
+      )
       apps.push({
         name: entry.name,
         path: appPath,

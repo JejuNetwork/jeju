@@ -9,51 +9,49 @@ import type { AgentCharacter } from '../types'
 
 // Original characters
 export { blueTeamCharacter } from './blue-team'
+// Blue Team (Defensive) Characters
+export {
+  contractsAuditorCharacter,
+  moderatorCharacter,
+  networkGuardianCharacter,
+} from './blue-team/index'
 export { communityManagerCharacter } from './community-manager'
 export { devRelCharacter } from './devrel'
 export { liaisonCharacter } from './liaison'
 export { projectManagerCharacter } from './project-manager'
 export { redTeamCharacter } from './red-team'
-export { socialMediaManagerCharacter } from './social-media-manager'
 
 // Red Team (Adversarial) Characters
 export {
-  scammerCharacter,
-  securityResearcherCharacter,
   contractsExpertCharacter,
   fuzzTesterCharacter,
+  scammerCharacter,
+  securityResearcherCharacter,
 } from './red-team/index'
-
-// Blue Team (Defensive) Characters
-export {
-  moderatorCharacter,
-  networkGuardianCharacter,
-  contractsAuditorCharacter,
-} from './blue-team/index'
+export { socialMediaManagerCharacter } from './social-media-manager'
 
 // Import all for character registry
 import { blueTeamCharacter } from './blue-team'
+// Blue team imports
+import {
+  contractsAuditorCharacter,
+  moderatorCharacter,
+  networkGuardianCharacter,
+} from './blue-team/index'
 import { communityManagerCharacter } from './community-manager'
 import { devRelCharacter } from './devrel'
 import { liaisonCharacter } from './liaison'
 import { projectManagerCharacter } from './project-manager'
 import { redTeamCharacter } from './red-team'
-import { socialMediaManagerCharacter } from './social-media-manager'
 
 // Red team imports
 import {
-  scammerCharacter,
-  securityResearcherCharacter,
   contractsExpertCharacter,
   fuzzTesterCharacter,
+  scammerCharacter,
+  securityResearcherCharacter,
 } from './red-team/index'
-
-// Blue team imports
-import {
-  moderatorCharacter,
-  networkGuardianCharacter,
-  contractsAuditorCharacter,
-} from './blue-team/index'
+import { socialMediaManagerCharacter } from './social-media-manager'
 
 /**
  * All available characters by ID

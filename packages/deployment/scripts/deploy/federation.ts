@@ -31,8 +31,8 @@ import {
 } from 'viem'
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { getBalance, waitForTransactionReceipt } from 'viem/actions'
-import type { ConstructorArg } from '../shared/contract-types'
 import { expectJson, RawArtifactJsonSchema } from '../../schemas'
+import type { ConstructorArg } from '../shared/contract-types'
 
 const ROOT = join(import.meta.dir, '../..')
 const CONTRACTS_DIR = join(ROOT, 'packages/contracts')

@@ -448,7 +448,7 @@ export const listCasesAction: Action = {
 
     const content = parseContent(message, caseIdSchema)
 
-    const statusMap: Record<string, number> = {
+    const statusMap: Record<string, 0 | 1 | 2 | 3 | 4> = {
       pending: 0,
       under_review: 1,
       resolved: 2,

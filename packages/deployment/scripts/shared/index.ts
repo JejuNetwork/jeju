@@ -12,19 +12,7 @@ export * from './config-utils'
 export * from './contract-types'
 // EIL exports - export everything, EILConfig is the canonical one
 export * from './eil'
-// EIL Hooks - export everything except conflicting types, then export them with aliases
-// Export conflicting types with aliases
-export type {
-  AppPreference as EILHooksAppPreference,
-  ChainInfo,
-  CrossChainSwapParams,
-  EILConfig as EILHooksConfig,
-  EILStats,
-  GasPaymentOption,
-  StakeStatus,
-  SwapStatus,
-  XLPPosition,
-} from './eil-hooks'
+// EIL Hooks
 export {
   APP_TOKEN_PREFERENCE_ABI,
   buildAppAwarePaymentData,
@@ -48,13 +36,7 @@ export {
   selectBestGasToken,
   validateSwapParams,
 } from './eil-hooks'
-export * from './format'
-// Re-export with explicit names to avoid conflicts
-export type {
-  PaymasterOption as GasIntentPaymasterOption,
-  TokenBalance as GasIntentTokenBalance,
-} from './gas-intent-router'
-// Gas Intent Router - export everything except conflicting types
+// Gas Intent Router
 export {
   createGasRouter,
   createMultiChainGasRouter,
@@ -81,14 +63,7 @@ export {
   stopProxy,
 } from './local-proxy'
 export * from './logger'
-// Re-export with explicit name to avoid conflicts
-export type {
-  ChainConfig,
-  MultiChainBalances,
-  TokenBalance as MultiChainTokenBalance,
-  TokenConfig,
-} from './multi-chain-discovery'
-// Multi-chain Discovery - export everything except conflicting types
+// Multi-chain Discovery
 export {
   createDiscovery,
   getDiscovery,
@@ -96,17 +71,10 @@ export {
 } from './multi-chain-discovery'
 export * from './notifications'
 export * from './oif-integration'
-// Paymaster - export everything, but alias conflicting PaymasterOption
-export type { PaymasterOption as PaymasterPaymasterOption } from './paymaster'
+// Paymaster
 export * from './paymaster'
 export * from './rpc'
-// Re-export with explicit name to avoid conflicts
-export type {
-  AppPreference as TokenPaymentAppPreference,
-  PaymentOption,
-  PaymentRouterConfig,
-} from './token-payment-router'
-// Token Payment Router - export everything except conflicting types
+// Token Payment Router
 export {
   addChain,
   buildPaymasterData,

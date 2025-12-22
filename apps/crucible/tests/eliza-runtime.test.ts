@@ -2,21 +2,28 @@
  * Crucible Agent Runtime Tests
  *
  * Tests character-based runtime with jeju plugin actions.
+ * Requires: DWS and jeju services running (jeju dev)
  */
 
-import { describe, expect, test } from 'bun:test'
+import { beforeAll, describe, expect, test } from 'bun:test'
 import { getCharacter, listCharacters } from '../src/characters'
 import {
-  checkDWSHealth,
   CrucibleAgentRuntime,
+  checkDWSHealth,
   createCrucibleRuntime,
   type RuntimeMessage,
   runtimeManager,
 } from '../src/sdk/eliza-runtime'
 
-// Check DWS availability once at module load
-let dwsAvailable = false
-const initDWSCheck = checkDWSHealth().then(ok => { dwsAvailable = ok })
+// Verify DWS is available before running tests
+beforeAll(async () => {
+  const dwsAvailable = await checkDWSHealth()
+  if (!dwsAvailable) {
+    throw new Error(
+      'DWS not available. Start jeju services: cd /home/shaw/Documents/jeju && bun run packages/cli/src/index.ts dev',
+    )
+  }
+})
 
 describe('Crucible Agent Runtime', () => {
   describe('Runtime Creation', () => {
@@ -35,11 +42,6 @@ describe('Crucible Agent Runtime', () => {
     })
 
     test('should initialize runtime with jejuPlugin actions', async () => {
-      await initDWSCheck
-      if (!dwsAvailable) {
-        console.log('[Test] Skipping - DWS not available')
-        return
-      }
       const character = getCharacter('community-manager')
       expect(character).toBeDefined()
       if (!character) throw new Error('character not found')
@@ -57,11 +59,6 @@ describe('Crucible Agent Runtime', () => {
 
   describe('Message Processing', () => {
     test('should process message through ElizaOS', async () => {
-      await initDWSCheck
-      if (!dwsAvailable) {
-        console.log('[Test] Skipping - DWS not available')
-        return
-      }
       const character = getCharacter('project-manager')
       if (!character) throw new Error('character not found')
       const runtime = createCrucibleRuntime({
@@ -93,11 +90,6 @@ describe('Crucible Agent Runtime', () => {
     }, 60000)
 
     test('should handle action responses', async () => {
-      await initDWSCheck
-      if (!dwsAvailable) {
-        console.log('[Test] Skipping - DWS not available')
-        return
-      }
       const character = getCharacter('project-manager')
       if (!character) throw new Error('character not found')
       const runtime = createCrucibleRuntime({
@@ -127,11 +119,6 @@ describe('Crucible Agent Runtime', () => {
 
   describe('Runtime Manager', () => {
     test('should create and track runtimes', async () => {
-      await initDWSCheck
-      if (!dwsAvailable) {
-        console.log('[Test] Skipping - DWS not available')
-        return
-      }
       const character = getCharacter('devrel')
       expect(character).toBeDefined()
       if (!character) throw new Error('character not found')
@@ -151,11 +138,6 @@ describe('Crucible Agent Runtime', () => {
     })
 
     test('should not duplicate runtimes', async () => {
-      await initDWSCheck
-      if (!dwsAvailable) {
-        console.log('[Test] Skipping - DWS not available')
-        return
-      }
       const character = getCharacter('liaison')
       expect(character).toBeDefined()
       if (!character) throw new Error('character not found')
@@ -215,11 +197,6 @@ describe('Crucible Agent Runtime', () => {
 
   describe('Plugin Integration', () => {
     test('should load jeju plugin actions', async () => {
-      await initDWSCheck
-      if (!dwsAvailable) {
-        console.log('[Test] Skipping - DWS not available')
-        return
-      }
       const character = getCharacter('community-manager')
       if (!character) throw new Error('character not found')
       const runtime = createCrucibleRuntime({

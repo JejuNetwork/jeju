@@ -1,4 +1,8 @@
 import { cors } from '@elysiajs/cors'
+import {
+  checkPayment,
+  type PaymentRequirements,
+} from '@jejunetwork/deployment/scripts/shared/x402'
 import { getProviderInfo } from '@jejunetwork/shared'
 import { Elysia } from 'elysia'
 import { type Address, isAddress } from 'viem'
@@ -72,12 +76,7 @@ import {
   toResponseData,
   validateQuery,
 } from './lib/validation.js'
-import {
-  checkPayment,
-  createPaymentRequirement,
-  PAYMENT_TIERS,
-  type PaymentRequirements,
-} from './lib/x402.js'
+import { createPaymentRequirement, PAYMENT_TIERS } from './lib/x402.js'
 import { banCheckPlugin } from './middleware/ban-check.js'
 import {
   agentRateLimitPlugin,
@@ -966,14 +965,9 @@ async function executeSkill(
   switch (skillId) {
     case 'list-protocol-tokens':
       return {
-        message: 'Protocol tokens: elizaOS, CLANKER, VIRTUAL, CLANKERMON',
+        message: 'Protocol tokens: JEJU',
         data: {
-          tokens: [
-            { symbol: 'elizaOS', hasPaymaster: true },
-            { symbol: 'CLANKER', hasPaymaster: true },
-            { symbol: 'VIRTUAL', hasPaymaster: true },
-            { symbol: 'CLANKERMON', hasPaymaster: true },
-          ],
+          tokens: [{ symbol: 'JEJU', hasPaymaster: true }],
         },
       }
     case 'get-node-stats':

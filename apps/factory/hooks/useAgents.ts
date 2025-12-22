@@ -1,5 +1,3 @@
-'use client'
-
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { usePublicClient } from 'wagmi'
 import { getContractAddressSafe, getDwsUrl } from '../config/contracts'

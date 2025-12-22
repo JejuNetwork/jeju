@@ -65,7 +65,7 @@ impl Service for SequencerService {
         ServiceRequirements {
             min_cpu_cores: 8,
             min_memory_mb: 32 * 1024, // 32 GB
-            min_storage_gb: 2000, // 2 TB for full chain data
+            min_storage_gb: 2000,     // 2 TB for full chain data
             requires_gpu: false,
             min_gpu_memory_mb: None,
             requires_tee: false,
@@ -79,12 +79,13 @@ impl Service for SequencerService {
         }
 
         // Validate stake amount
-        let stake = config.stake_amount.as_ref()
+        let stake = config
+            .stake_amount
+            .as_ref()
             .ok_or("Stake amount required for sequencer")?;
-        
-        let stake_wei: u128 = stake.parse()
-            .map_err(|_| "Invalid stake amount")?;
-        
+
+        let stake_wei: u128 = stake.parse().map_err(|_| "Invalid stake amount")?;
+
         // Minimum 1000 JEJU (assuming 18 decimals)
         let min_stake = 1000u128 * 10u128.pow(18);
         if stake_wei < min_stake {
@@ -128,11 +129,11 @@ impl Service for SequencerService {
                         // 3. Participate in block production rotation
                         // 4. Sign batches for threshold submission
                         // 5. Send heartbeats
-                        
+
                         if !running.load(Ordering::SeqCst) {
                             break;
                         }
-                        
+
                         tracing::debug!("Sequencer heartbeat");
                     }
                 }
@@ -190,4 +191,3 @@ impl Service for SequencerService {
         self.running.load(Ordering::SeqCst)
     }
 }
-

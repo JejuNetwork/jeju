@@ -5,10 +5,10 @@
  * contracts for decentralized work coordination.
  */
 
-import type { NetworkType } from '@jejunetwork/types'
-import { type Address, encodeFunctionData, type Hex } from 'viem'
-import { requireContract } from '../config'
-import type { JejuWallet } from '../wallet'
+import type { NetworkType } from "@jejunetwork/types";
+import { type Address, encodeFunctionData, type Hex } from "viem";
+import { requireContract } from "../config";
+import type { JejuWallet } from "../wallet";
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -21,8 +21,8 @@ export const BountyStatus = {
   COMPLETED: 3,
   CANCELLED: 4,
   DISPUTED: 5,
-} as const
-export type BountyStatus = (typeof BountyStatus)[keyof typeof BountyStatus]
+} as const;
+export type BountyStatus = (typeof BountyStatus)[keyof typeof BountyStatus];
 
 export const ProjectStatus = {
   DRAFT: 0,
@@ -30,101 +30,101 @@ export const ProjectStatus = {
   IN_PROGRESS: 2,
   COMPLETED: 3,
   CANCELLED: 4,
-} as const
-export type ProjectStatus = (typeof ProjectStatus)[keyof typeof ProjectStatus]
+} as const;
+export type ProjectStatus = (typeof ProjectStatus)[keyof typeof ProjectStatus];
 
 export const SubmissionStatus = {
   PENDING: 0,
   APPROVED: 1,
   REJECTED: 2,
   REVISION_REQUESTED: 3,
-} as const
+} as const;
 export type SubmissionStatus =
-  (typeof SubmissionStatus)[keyof typeof SubmissionStatus]
+  (typeof SubmissionStatus)[keyof typeof SubmissionStatus];
 
 export interface Bounty {
-  bountyId: Hex
-  creator: Address
-  title: string
-  description: string
-  reward: bigint
-  deadline: bigint
-  status: BountyStatus
-  hunter: Address | null
-  tags: string[]
-  createdAt: bigint
-  completedAt: bigint
+  bountyId: Hex;
+  creator: Address;
+  title: string;
+  description: string;
+  reward: bigint;
+  deadline: bigint;
+  status: BountyStatus;
+  hunter: Address | null;
+  tags: string[];
+  createdAt: bigint;
+  completedAt: bigint;
 }
 
 export interface BountySubmission {
-  submissionId: Hex
-  bountyId: Hex
-  hunter: Address
-  content: string
-  proofOfWork: string
-  status: SubmissionStatus
-  submittedAt: bigint
-  reviewedAt: bigint
-  feedback: string
+  submissionId: Hex;
+  bountyId: Hex;
+  hunter: Address;
+  content: string;
+  proofOfWork: string;
+  status: SubmissionStatus;
+  submittedAt: bigint;
+  reviewedAt: bigint;
+  feedback: string;
 }
 
 export interface Project {
-  projectId: Hex
-  owner: Address
-  name: string
-  description: string
-  repository: string
-  budget: bigint
-  status: ProjectStatus
-  memberCount: number
-  bountyCount: number
-  createdAt: bigint
+  projectId: Hex;
+  owner: Address;
+  name: string;
+  description: string;
+  repository: string;
+  budget: bigint;
+  status: ProjectStatus;
+  memberCount: number;
+  bountyCount: number;
+  createdAt: bigint;
 }
 
 export interface ProjectTask {
-  taskId: Hex
-  projectId: Hex
-  title: string
-  description: string
-  assignee: Address | null
-  reward: bigint
-  status: BountyStatus
-  priority: number
-  createdAt: bigint
-  dueDate: bigint
+  taskId: Hex;
+  projectId: Hex;
+  title: string;
+  description: string;
+  assignee: Address | null;
+  reward: bigint;
+  status: BountyStatus;
+  priority: number;
+  createdAt: bigint;
+  dueDate: bigint;
 }
 
 export interface Guardian {
-  guardianId: Hex
-  address: Address
-  name: string
-  stake: bigint
-  reputation: bigint
-  reviewCount: bigint
-  approvalRate: number
-  isActive: boolean
-  joinedAt: bigint
+  guardianId: Hex;
+  address: Address;
+  name: string;
+  stake: bigint;
+  reputation: bigint;
+  reviewCount: bigint;
+  approvalRate: number;
+  isActive: boolean;
+  joinedAt: bigint;
 }
 
 export interface CreateBountyParams {
-  title: string
-  description: string
-  reward: bigint
-  deadline: number // Unix timestamp
-  tags?: string[]
+  title: string;
+  description: string;
+  reward: bigint;
+  deadline: number; // Unix timestamp
+  tags?: string[];
 }
 
 export interface CreateProjectParams {
-  name: string
-  description: string
-  repository?: string
-  budget?: bigint
+  name: string;
+  description: string;
+  repository?: string;
+  budget?: bigint;
 }
 
 export interface SubmitWorkParams {
-  bountyId: Hex
-  content: string
-  proofOfWork: string // IPFS hash or URL
+  bountyId: Hex;
+  content: string;
+  proofOfWork: string; // IPFS hash or URL
 }
 
 export interface WorkModule {
@@ -135,43 +135,43 @@ export interface WorkModule {
   /** Create a new bounty */
   createBounty(
     params: CreateBountyParams,
-  ): Promise<{ bountyId: Hex; txHash: Hex }>
+  ): Promise<{ bountyId: Hex; txHash: Hex }>;
 
   /** Get bounty by ID */
-  getBounty(bountyId: Hex): Promise<Bounty | null>
+  getBounty(bountyId: Hex): Promise<Bounty | null>;
 
   /** List open bounties */
-  listBounties(status?: BountyStatus): Promise<Bounty[]>
+  listBounties(status?: BountyStatus): Promise<Bounty[]>;
 
   /** List bounties I created */
-  listMyBounties(): Promise<Bounty[]>
+  listMyBounties(): Promise<Bounty[]>;
 
   /** List bounties I'm hunting */
-  listMyHunts(): Promise<Bounty[]>
+  listMyHunts(): Promise<Bounty[]>;
 
   /** Claim a bounty to work on */
-  claimBounty(bountyId: Hex): Promise<Hex>
+  claimBounty(bountyId: Hex): Promise<Hex>;
 
   /** Submit work for a bounty */
-  submitWork(params: SubmitWorkParams): Promise<Hex>
+  submitWork(params: SubmitWorkParams): Promise<Hex>;
 
   /** Approve a submission (bounty creator only) */
-  approveSubmission(submissionId: Hex): Promise<Hex>
+  approveSubmission(submissionId: Hex): Promise<Hex>;
 
   /** Reject a submission with feedback */
-  rejectSubmission(submissionId: Hex, feedback: string): Promise<Hex>
+  rejectSubmission(submissionId: Hex, feedback: string): Promise<Hex>;
 
   /** Request revision on submission */
-  requestRevision(submissionId: Hex, feedback: string): Promise<Hex>
+  requestRevision(submissionId: Hex, feedback: string): Promise<Hex>;
 
   /** Get submissions for a bounty */
-  getSubmissions(bountyId: Hex): Promise<BountySubmission[]>
+  getSubmissions(bountyId: Hex): Promise<BountySubmission[]>;
 
   /** Cancel a bounty (creator only, refunds reward) */
-  cancelBounty(bountyId: Hex): Promise<Hex>
+  cancelBounty(bountyId: Hex): Promise<Hex>;
 
   /** Add more reward to a bounty */
-  topUpBounty(bountyId: Hex, amount: bigint): Promise<Hex>
+  topUpBounty(bountyId: Hex, amount: bigint): Promise<Hex>;
 
   // ═══════════════════════════════════════════════════════════════════════════
   //                          PROJECTS
@@ -180,22 +180,22 @@ export interface WorkModule {
   /** Create a new project */
   createProject(
     params: CreateProjectParams,
-  ): Promise<{ projectId: Hex; txHash: Hex }>
+  ): Promise<{ projectId: Hex; txHash: Hex }>;
 
   /** Get project by ID */
-  getProject(projectId: Hex): Promise<Project | null>
+  getProject(projectId: Hex): Promise<Project | null>;
 
   /** List all projects */
-  listProjects(): Promise<Project[]>
+  listProjects(): Promise<Project[]>;
 
   /** List my projects */
-  listMyProjects(): Promise<Project[]>
+  listMyProjects(): Promise<Project[]>;
 
   /** Add member to project */
-  addMember(projectId: Hex, member: Address): Promise<Hex>
+  addMember(projectId: Hex, member: Address): Promise<Hex>;
 
   /** Remove member from project */
-  removeMember(projectId: Hex, member: Address): Promise<Hex>
+  removeMember(projectId: Hex, member: Address): Promise<Hex>;
 
   /** Create task within project */
   createTask(
@@ -204,38 +204,38 @@ export interface WorkModule {
     description: string,
     reward: bigint,
     dueDate?: number,
-  ): Promise<Hex>
+  ): Promise<Hex>;
 
   /** Get project tasks */
-  getTasks(projectId: Hex): Promise<ProjectTask[]>
+  getTasks(projectId: Hex): Promise<ProjectTask[]>;
 
   /** Assign task to member */
-  assignTask(taskId: Hex, assignee: Address): Promise<Hex>
+  assignTask(taskId: Hex, assignee: Address): Promise<Hex>;
 
   /** Complete task */
-  completeTask(taskId: Hex): Promise<Hex>
+  completeTask(taskId: Hex): Promise<Hex>;
 
   // ═══════════════════════════════════════════════════════════════════════════
   //                          GUARDIANS
   // ═══════════════════════════════════════════════════════════════════════════
 
   /** Register as a guardian (requires stake) */
-  registerAsGuardian(name: string, stake: bigint): Promise<Hex>
+  registerAsGuardian(name: string, stake: bigint): Promise<Hex>;
 
   /** Get guardian info */
-  getGuardian(address: Address): Promise<Guardian | null>
+  getGuardian(address: Address): Promise<Guardian | null>;
 
   /** List active guardians */
-  listGuardians(): Promise<Guardian[]>
+  listGuardians(): Promise<Guardian[]>;
 
   /** Increase guardian stake */
-  increaseStake(amount: bigint): Promise<Hex>
+  increaseStake(amount: bigint): Promise<Hex>;
 
   /** Withdraw guardian stake (if not active in reviews) */
-  withdrawStake(amount: bigint): Promise<Hex>
+  withdrawStake(amount: bigint): Promise<Hex>;
 
   /** Deactivate guardian status */
-  deactivateGuardian(): Promise<Hex>
+  deactivateGuardian(): Promise<Hex>;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -244,328 +244,328 @@ export interface WorkModule {
 
 const BOUNTY_REGISTRY_ABI = [
   {
-    name: 'createBounty',
-    type: 'function',
-    stateMutability: 'payable',
+    name: "createBounty",
+    type: "function",
+    stateMutability: "payable",
     inputs: [
-      { name: 'title', type: 'string' },
-      { name: 'description', type: 'string' },
-      { name: 'deadline', type: 'uint256' },
-      { name: 'tags', type: 'string[]' },
+      { name: "title", type: "string" },
+      { name: "description", type: "string" },
+      { name: "deadline", type: "uint256" },
+      { name: "tags", type: "string[]" },
     ],
-    outputs: [{ type: 'bytes32' }],
+    outputs: [{ type: "bytes32" }],
   },
   {
-    name: 'getBounty',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'bountyId', type: 'bytes32' }],
+    name: "getBounty",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "bountyId", type: "bytes32" }],
     outputs: [
       {
-        type: 'tuple',
+        type: "tuple",
         components: [
-          { name: 'bountyId', type: 'bytes32' },
-          { name: 'creator', type: 'address' },
-          { name: 'title', type: 'string' },
-          { name: 'description', type: 'string' },
-          { name: 'reward', type: 'uint256' },
-          { name: 'deadline', type: 'uint256' },
-          { name: 'status', type: 'uint8' },
-          { name: 'hunter', type: 'address' },
-          { name: 'tags', type: 'string[]' },
-          { name: 'createdAt', type: 'uint256' },
-          { name: 'completedAt', type: 'uint256' },
+          { name: "bountyId", type: "bytes32" },
+          { name: "creator", type: "address" },
+          { name: "title", type: "string" },
+          { name: "description", type: "string" },
+          { name: "reward", type: "uint256" },
+          { name: "deadline", type: "uint256" },
+          { name: "status", type: "uint8" },
+          { name: "hunter", type: "address" },
+          { name: "tags", type: "string[]" },
+          { name: "createdAt", type: "uint256" },
+          { name: "completedAt", type: "uint256" },
         ],
       },
     ],
   },
   {
-    name: 'getBountiesByStatus',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'status', type: 'uint8' }],
-    outputs: [{ type: 'bytes32[]' }],
+    name: "getBountiesByStatus",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "status", type: "uint8" }],
+    outputs: [{ type: "bytes32[]" }],
   },
   {
-    name: 'getBountiesByCreator',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'creator', type: 'address' }],
-    outputs: [{ type: 'bytes32[]' }],
+    name: "getBountiesByCreator",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "creator", type: "address" }],
+    outputs: [{ type: "bytes32[]" }],
   },
   {
-    name: 'getBountiesByHunter',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'hunter', type: 'address' }],
-    outputs: [{ type: 'bytes32[]' }],
+    name: "getBountiesByHunter",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "hunter", type: "address" }],
+    outputs: [{ type: "bytes32[]" }],
   },
   {
-    name: 'claimBounty',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [{ name: 'bountyId', type: 'bytes32' }],
+    name: "claimBounty",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "bountyId", type: "bytes32" }],
     outputs: [],
   },
   {
-    name: 'submitWork',
-    type: 'function',
-    stateMutability: 'nonpayable',
+    name: "submitWork",
+    type: "function",
+    stateMutability: "nonpayable",
     inputs: [
-      { name: 'bountyId', type: 'bytes32' },
-      { name: 'content', type: 'string' },
-      { name: 'proofOfWork', type: 'string' },
+      { name: "bountyId", type: "bytes32" },
+      { name: "content", type: "string" },
+      { name: "proofOfWork", type: "string" },
     ],
-    outputs: [{ type: 'bytes32' }],
+    outputs: [{ type: "bytes32" }],
   },
   {
-    name: 'approveSubmission',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [{ name: 'submissionId', type: 'bytes32' }],
+    name: "approveSubmission",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "submissionId", type: "bytes32" }],
     outputs: [],
   },
   {
-    name: 'rejectSubmission',
-    type: 'function',
-    stateMutability: 'nonpayable',
+    name: "rejectSubmission",
+    type: "function",
+    stateMutability: "nonpayable",
     inputs: [
-      { name: 'submissionId', type: 'bytes32' },
-      { name: 'feedback', type: 'string' },
-    ],
-    outputs: [],
-  },
-  {
-    name: 'requestRevision',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [
-      { name: 'submissionId', type: 'bytes32' },
-      { name: 'feedback', type: 'string' },
+      { name: "submissionId", type: "bytes32" },
+      { name: "feedback", type: "string" },
     ],
     outputs: [],
   },
   {
-    name: 'getSubmissions',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'bountyId', type: 'bytes32' }],
+    name: "requestRevision",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "submissionId", type: "bytes32" },
+      { name: "feedback", type: "string" },
+    ],
+    outputs: [],
+  },
+  {
+    name: "getSubmissions",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "bountyId", type: "bytes32" }],
     outputs: [
       {
-        type: 'tuple[]',
+        type: "tuple[]",
         components: [
-          { name: 'submissionId', type: 'bytes32' },
-          { name: 'bountyId', type: 'bytes32' },
-          { name: 'hunter', type: 'address' },
-          { name: 'content', type: 'string' },
-          { name: 'proofOfWork', type: 'string' },
-          { name: 'status', type: 'uint8' },
-          { name: 'submittedAt', type: 'uint256' },
-          { name: 'reviewedAt', type: 'uint256' },
-          { name: 'feedback', type: 'string' },
+          { name: "submissionId", type: "bytes32" },
+          { name: "bountyId", type: "bytes32" },
+          { name: "hunter", type: "address" },
+          { name: "content", type: "string" },
+          { name: "proofOfWork", type: "string" },
+          { name: "status", type: "uint8" },
+          { name: "submittedAt", type: "uint256" },
+          { name: "reviewedAt", type: "uint256" },
+          { name: "feedback", type: "string" },
         ],
       },
     ],
   },
   {
-    name: 'cancelBounty',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [{ name: 'bountyId', type: 'bytes32' }],
+    name: "cancelBounty",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "bountyId", type: "bytes32" }],
     outputs: [],
   },
   {
-    name: 'topUpBounty',
-    type: 'function',
-    stateMutability: 'payable',
-    inputs: [{ name: 'bountyId', type: 'bytes32' }],
+    name: "topUpBounty",
+    type: "function",
+    stateMutability: "payable",
+    inputs: [{ name: "bountyId", type: "bytes32" }],
     outputs: [],
   },
-] as const
+] as const;
 
 const PROJECT_BOARD_ABI = [
   {
-    name: 'createProject',
-    type: 'function',
-    stateMutability: 'payable',
+    name: "createProject",
+    type: "function",
+    stateMutability: "payable",
     inputs: [
-      { name: 'name', type: 'string' },
-      { name: 'description', type: 'string' },
-      { name: 'repository', type: 'string' },
+      { name: "name", type: "string" },
+      { name: "description", type: "string" },
+      { name: "repository", type: "string" },
     ],
-    outputs: [{ type: 'bytes32' }],
+    outputs: [{ type: "bytes32" }],
   },
   {
-    name: 'getProject',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'projectId', type: 'bytes32' }],
+    name: "getProject",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "projectId", type: "bytes32" }],
     outputs: [
       {
-        type: 'tuple',
+        type: "tuple",
         components: [
-          { name: 'projectId', type: 'bytes32' },
-          { name: 'owner', type: 'address' },
-          { name: 'name', type: 'string' },
-          { name: 'description', type: 'string' },
-          { name: 'repository', type: 'string' },
-          { name: 'budget', type: 'uint256' },
-          { name: 'status', type: 'uint8' },
-          { name: 'memberCount', type: 'uint256' },
-          { name: 'bountyCount', type: 'uint256' },
-          { name: 'createdAt', type: 'uint256' },
+          { name: "projectId", type: "bytes32" },
+          { name: "owner", type: "address" },
+          { name: "name", type: "string" },
+          { name: "description", type: "string" },
+          { name: "repository", type: "string" },
+          { name: "budget", type: "uint256" },
+          { name: "status", type: "uint8" },
+          { name: "memberCount", type: "uint256" },
+          { name: "bountyCount", type: "uint256" },
+          { name: "createdAt", type: "uint256" },
         ],
       },
     ],
   },
   {
-    name: 'getAllProjects',
-    type: 'function',
-    stateMutability: 'view',
+    name: "getAllProjects",
+    type: "function",
+    stateMutability: "view",
     inputs: [],
-    outputs: [{ type: 'bytes32[]' }],
+    outputs: [{ type: "bytes32[]" }],
   },
   {
-    name: 'getProjectsByOwner',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'owner', type: 'address' }],
-    outputs: [{ type: 'bytes32[]' }],
+    name: "getProjectsByOwner",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "owner", type: "address" }],
+    outputs: [{ type: "bytes32[]" }],
   },
   {
-    name: 'addMember',
-    type: 'function',
-    stateMutability: 'nonpayable',
+    name: "addMember",
+    type: "function",
+    stateMutability: "nonpayable",
     inputs: [
-      { name: 'projectId', type: 'bytes32' },
-      { name: 'member', type: 'address' },
+      { name: "projectId", type: "bytes32" },
+      { name: "member", type: "address" },
     ],
     outputs: [],
   },
   {
-    name: 'removeMember',
-    type: 'function',
-    stateMutability: 'nonpayable',
+    name: "removeMember",
+    type: "function",
+    stateMutability: "nonpayable",
     inputs: [
-      { name: 'projectId', type: 'bytes32' },
-      { name: 'member', type: 'address' },
+      { name: "projectId", type: "bytes32" },
+      { name: "member", type: "address" },
     ],
     outputs: [],
   },
   {
-    name: 'createTask',
-    type: 'function',
-    stateMutability: 'nonpayable',
+    name: "createTask",
+    type: "function",
+    stateMutability: "nonpayable",
     inputs: [
-      { name: 'projectId', type: 'bytes32' },
-      { name: 'title', type: 'string' },
-      { name: 'description', type: 'string' },
-      { name: 'reward', type: 'uint256' },
-      { name: 'dueDate', type: 'uint256' },
+      { name: "projectId", type: "bytes32" },
+      { name: "title", type: "string" },
+      { name: "description", type: "string" },
+      { name: "reward", type: "uint256" },
+      { name: "dueDate", type: "uint256" },
     ],
-    outputs: [{ type: 'bytes32' }],
+    outputs: [{ type: "bytes32" }],
   },
   {
-    name: 'getTasks',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'projectId', type: 'bytes32' }],
+    name: "getTasks",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "projectId", type: "bytes32" }],
     outputs: [
       {
-        type: 'tuple[]',
+        type: "tuple[]",
         components: [
-          { name: 'taskId', type: 'bytes32' },
-          { name: 'projectId', type: 'bytes32' },
-          { name: 'title', type: 'string' },
-          { name: 'description', type: 'string' },
-          { name: 'assignee', type: 'address' },
-          { name: 'reward', type: 'uint256' },
-          { name: 'status', type: 'uint8' },
-          { name: 'priority', type: 'uint8' },
-          { name: 'createdAt', type: 'uint256' },
-          { name: 'dueDate', type: 'uint256' },
+          { name: "taskId", type: "bytes32" },
+          { name: "projectId", type: "bytes32" },
+          { name: "title", type: "string" },
+          { name: "description", type: "string" },
+          { name: "assignee", type: "address" },
+          { name: "reward", type: "uint256" },
+          { name: "status", type: "uint8" },
+          { name: "priority", type: "uint8" },
+          { name: "createdAt", type: "uint256" },
+          { name: "dueDate", type: "uint256" },
         ],
       },
     ],
   },
   {
-    name: 'assignTask',
-    type: 'function',
-    stateMutability: 'nonpayable',
+    name: "assignTask",
+    type: "function",
+    stateMutability: "nonpayable",
     inputs: [
-      { name: 'taskId', type: 'bytes32' },
-      { name: 'assignee', type: 'address' },
+      { name: "taskId", type: "bytes32" },
+      { name: "assignee", type: "address" },
     ],
     outputs: [],
   },
   {
-    name: 'completeTask',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [{ name: 'taskId', type: 'bytes32' }],
+    name: "completeTask",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "taskId", type: "bytes32" }],
     outputs: [],
   },
-] as const
+] as const;
 
 const GUARDIAN_REGISTRY_ABI = [
   {
-    name: 'registerGuardian',
-    type: 'function',
-    stateMutability: 'payable',
-    inputs: [{ name: 'name', type: 'string' }],
-    outputs: [{ type: 'bytes32' }],
+    name: "registerGuardian",
+    type: "function",
+    stateMutability: "payable",
+    inputs: [{ name: "name", type: "string" }],
+    outputs: [{ type: "bytes32" }],
   },
   {
-    name: 'getGuardian',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'guardian', type: 'address' }],
+    name: "getGuardian",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "guardian", type: "address" }],
     outputs: [
       {
-        type: 'tuple',
+        type: "tuple",
         components: [
-          { name: 'guardianId', type: 'bytes32' },
-          { name: 'guardian', type: 'address' },
-          { name: 'name', type: 'string' },
-          { name: 'stake', type: 'uint256' },
-          { name: 'reputation', type: 'uint256' },
-          { name: 'reviewCount', type: 'uint256' },
-          { name: 'approvalRate', type: 'uint256' },
-          { name: 'isActive', type: 'bool' },
-          { name: 'joinedAt', type: 'uint256' },
+          { name: "guardianId", type: "bytes32" },
+          { name: "guardian", type: "address" },
+          { name: "name", type: "string" },
+          { name: "stake", type: "uint256" },
+          { name: "reputation", type: "uint256" },
+          { name: "reviewCount", type: "uint256" },
+          { name: "approvalRate", type: "uint256" },
+          { name: "isActive", type: "bool" },
+          { name: "joinedAt", type: "uint256" },
         ],
       },
     ],
   },
   {
-    name: 'getActiveGuardians',
-    type: 'function',
-    stateMutability: 'view',
+    name: "getActiveGuardians",
+    type: "function",
+    stateMutability: "view",
     inputs: [],
-    outputs: [{ type: 'address[]' }],
+    outputs: [{ type: "address[]" }],
   },
   {
-    name: 'increaseStake',
-    type: 'function',
-    stateMutability: 'payable',
-    inputs: [],
-    outputs: [],
-  },
-  {
-    name: 'withdrawStake',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [{ name: 'amount', type: 'uint256' }],
-    outputs: [],
-  },
-  {
-    name: 'deactivate',
-    type: 'function',
-    stateMutability: 'nonpayable',
+    name: "increaseStake",
+    type: "function",
+    stateMutability: "payable",
     inputs: [],
     outputs: [],
   },
-] as const
+  {
+    name: "withdrawStake",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "amount", type: "uint256" }],
+    outputs: [],
+  },
+  {
+    name: "deactivate",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [],
+    outputs: [],
+  },
+] as const;
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                          IMPLEMENTATION
@@ -576,28 +576,28 @@ export function createWorkModule(
   network: NetworkType,
 ): WorkModule {
   const bountyRegistryAddress = requireContract(
-    'work',
-    'BountyRegistry',
+    "work",
+    "BountyRegistry",
     network,
-  )
-  const projectBoardAddress = requireContract('work', 'ProjectBoard', network)
+  );
+  const projectBoardAddress = requireContract("work", "ProjectBoard", network);
   const guardianRegistryAddress = requireContract(
-    'work',
-    'GuardianRegistry',
+    "work",
+    "GuardianRegistry",
     network,
-  )
+  );
 
   // Helper to read bounty
   async function readBounty(bountyId: Hex): Promise<Bounty | null> {
     const result = await wallet.publicClient.readContract({
       address: bountyRegistryAddress,
       abi: BOUNTY_REGISTRY_ABI,
-      functionName: 'getBounty',
+      functionName: "getBounty",
       args: [bountyId],
-    })
+    });
 
-    if (!result || result.bountyId === `0x${'0'.repeat(64)}`) {
-      return null
+    if (!result || result.bountyId === `0x${"0".repeat(64)}`) {
+      return null;
     }
 
     return {
@@ -609,13 +609,13 @@ export function createWorkModule(
       deadline: result.deadline,
       status: result.status as BountyStatus,
       hunter:
-        result.hunter === '0x0000000000000000000000000000000000000000'
+        result.hunter === "0x0000000000000000000000000000000000000000"
           ? null
           : result.hunter,
       tags: [...result.tags],
       createdAt: result.createdAt,
       completedAt: result.completedAt,
-    }
+    };
   }
 
   // Helper to read project
@@ -623,12 +623,12 @@ export function createWorkModule(
     const result = await wallet.publicClient.readContract({
       address: projectBoardAddress,
       abi: PROJECT_BOARD_ABI,
-      functionName: 'getProject',
+      functionName: "getProject",
       args: [projectId],
-    })
+    });
 
-    if (!result || result.projectId === `0x${'0'.repeat(64)}`) {
-      return null
+    if (!result || result.projectId === `0x${"0".repeat(64)}`) {
+      return null;
     }
 
     return {
@@ -642,7 +642,7 @@ export function createWorkModule(
       memberCount: Number(result.memberCount),
       bountyCount: Number(result.bountyCount),
       createdAt: result.createdAt,
-    }
+    };
   }
 
   return {
@@ -653,151 +653,151 @@ export function createWorkModule(
     async createBounty(params) {
       const data = encodeFunctionData({
         abi: BOUNTY_REGISTRY_ABI,
-        functionName: 'createBounty',
+        functionName: "createBounty",
         args: [
           params.title,
           params.description,
           BigInt(params.deadline),
           params.tags ?? [],
         ],
-      })
+      });
 
       const txHash = await wallet.sendTransaction({
         to: bountyRegistryAddress,
         data,
         value: params.reward,
-      })
+      });
 
       const bountyId =
-        `0x${Buffer.from(params.title).toString('hex').padEnd(64, '0')}` as Hex
+        `0x${Buffer.from(params.title).toString("hex").padEnd(64, "0")}` as Hex;
 
-      return { bountyId, txHash }
+      return { bountyId, txHash };
     },
 
     getBounty: readBounty,
 
     async listBounties(status) {
-      const statusFilter = status ?? BountyStatus.OPEN
+      const statusFilter = status ?? BountyStatus.OPEN;
 
       const ids = await wallet.publicClient.readContract({
         address: bountyRegistryAddress,
         abi: BOUNTY_REGISTRY_ABI,
-        functionName: 'getBountiesByStatus',
+        functionName: "getBountiesByStatus",
         args: [statusFilter],
-      })
+      });
 
-      const bounties: Bounty[] = []
+      const bounties: Bounty[] = [];
       for (const id of ids) {
-        const bounty = await readBounty(id)
-        if (bounty) bounties.push(bounty)
+        const bounty = await readBounty(id);
+        if (bounty) bounties.push(bounty);
       }
-      return bounties
+      return bounties;
     },
 
     async listMyBounties() {
       const ids = await wallet.publicClient.readContract({
         address: bountyRegistryAddress,
         abi: BOUNTY_REGISTRY_ABI,
-        functionName: 'getBountiesByCreator',
+        functionName: "getBountiesByCreator",
         args: [wallet.address],
-      })
+      });
 
-      const bounties: Bounty[] = []
+      const bounties: Bounty[] = [];
       for (const id of ids) {
-        const bounty = await readBounty(id)
-        if (bounty) bounties.push(bounty)
+        const bounty = await readBounty(id);
+        if (bounty) bounties.push(bounty);
       }
-      return bounties
+      return bounties;
     },
 
     async listMyHunts() {
       const ids = await wallet.publicClient.readContract({
         address: bountyRegistryAddress,
         abi: BOUNTY_REGISTRY_ABI,
-        functionName: 'getBountiesByHunter',
+        functionName: "getBountiesByHunter",
         args: [wallet.address],
-      })
+      });
 
-      const bounties: Bounty[] = []
+      const bounties: Bounty[] = [];
       for (const id of ids) {
-        const bounty = await readBounty(id)
-        if (bounty) bounties.push(bounty)
+        const bounty = await readBounty(id);
+        if (bounty) bounties.push(bounty);
       }
-      return bounties
+      return bounties;
     },
 
     async claimBounty(bountyId) {
       const data = encodeFunctionData({
         abi: BOUNTY_REGISTRY_ABI,
-        functionName: 'claimBounty',
+        functionName: "claimBounty",
         args: [bountyId],
-      })
+      });
 
       return wallet.sendTransaction({
         to: bountyRegistryAddress,
         data,
-      })
+      });
     },
 
     async submitWork(params) {
       const data = encodeFunctionData({
         abi: BOUNTY_REGISTRY_ABI,
-        functionName: 'submitWork',
+        functionName: "submitWork",
         args: [params.bountyId, params.content, params.proofOfWork],
-      })
+      });
 
       return wallet.sendTransaction({
         to: bountyRegistryAddress,
         data,
-      })
+      });
     },
 
     async approveSubmission(submissionId) {
       const data = encodeFunctionData({
         abi: BOUNTY_REGISTRY_ABI,
-        functionName: 'approveSubmission',
+        functionName: "approveSubmission",
         args: [submissionId],
-      })
+      });
 
       return wallet.sendTransaction({
         to: bountyRegistryAddress,
         data,
-      })
+      });
     },
 
     async rejectSubmission(submissionId, feedback) {
       const data = encodeFunctionData({
         abi: BOUNTY_REGISTRY_ABI,
-        functionName: 'rejectSubmission',
+        functionName: "rejectSubmission",
         args: [submissionId, feedback],
-      })
+      });
 
       return wallet.sendTransaction({
         to: bountyRegistryAddress,
         data,
-      })
+      });
     },
 
     async requestRevision(submissionId, feedback) {
       const data = encodeFunctionData({
         abi: BOUNTY_REGISTRY_ABI,
-        functionName: 'requestRevision',
+        functionName: "requestRevision",
         args: [submissionId, feedback],
-      })
+      });
 
       return wallet.sendTransaction({
         to: bountyRegistryAddress,
         data,
-      })
+      });
     },
 
     async getSubmissions(bountyId) {
       const result = await wallet.publicClient.readContract({
         address: bountyRegistryAddress,
         abi: BOUNTY_REGISTRY_ABI,
-        functionName: 'getSubmissions',
+        functionName: "getSubmissions",
         args: [bountyId],
-      })
+      });
 
       return result.map((s) => ({
         submissionId: s.submissionId,
@@ -809,34 +809,34 @@ export function createWorkModule(
         submittedAt: s.submittedAt,
         reviewedAt: s.reviewedAt,
         feedback: s.feedback,
-      }))
+      }));
     },
 
     async cancelBounty(bountyId) {
       const data = encodeFunctionData({
         abi: BOUNTY_REGISTRY_ABI,
-        functionName: 'cancelBounty',
+        functionName: "cancelBounty",
         args: [bountyId],
-      })
+      });
 
       return wallet.sendTransaction({
         to: bountyRegistryAddress,
         data,
-      })
+      });
     },
 
     async topUpBounty(bountyId, amount) {
       const data = encodeFunctionData({
         abi: BOUNTY_REGISTRY_ABI,
-        functionName: 'topUpBounty',
+        functionName: "topUpBounty",
         args: [bountyId],
-      })
+      });
 
       return wallet.sendTransaction({
         to: bountyRegistryAddress,
         data,
         value: amount,
-      })
+      });
     },
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -846,20 +846,20 @@ export function createWorkModule(
     async createProject(params) {
       const data = encodeFunctionData({
         abi: PROJECT_BOARD_ABI,
-        functionName: 'createProject',
-        args: [params.name, params.description, params.repository ?? ''],
-      })
+        functionName: "createProject",
+        args: [params.name, params.description, params.repository ?? ""],
+      });
 
       const txHash = await wallet.sendTransaction({
         to: projectBoardAddress,
         data,
         value: params.budget ?? 0n,
-      })
+      });
 
       const projectId =
-        `0x${Buffer.from(params.name).toString('hex').padEnd(64, '0')}` as Hex
+        `0x${Buffer.from(params.name).toString("hex").padEnd(64, "0")}` as Hex;
 
-      return { projectId, txHash }
+      return { projectId, txHash };
     },
 
     getProject: readProject,
@@ -868,64 +868,64 @@ export function createWorkModule(
       const ids = await wallet.publicClient.readContract({
         address: projectBoardAddress,
         abi: PROJECT_BOARD_ABI,
-        functionName: 'getAllProjects',
+        functionName: "getAllProjects",
         args: [],
-      })
+      });
 
-      const projects: Project[] = []
+      const projects: Project[] = [];
       for (const id of ids) {
-        const project = await readProject(id)
-        if (project) projects.push(project)
+        const project = await readProject(id);
+        if (project) projects.push(project);
       }
-      return projects
+      return projects;
     },
 
     async listMyProjects() {
       const ids = await wallet.publicClient.readContract({
         address: projectBoardAddress,
         abi: PROJECT_BOARD_ABI,
-        functionName: 'getProjectsByOwner',
+        functionName: "getProjectsByOwner",
         args: [wallet.address],
-      })
+      });
 
-      const projects: Project[] = []
+      const projects: Project[] = [];
       for (const id of ids) {
-        const project = await readProject(id)
-        if (project) projects.push(project)
+        const project = await readProject(id);
+        if (project) projects.push(project);
       }
-      return projects
+      return projects;
     },
 
     async addMember(projectId, member) {
       const data = encodeFunctionData({
         abi: PROJECT_BOARD_ABI,
-        functionName: 'addMember',
+        functionName: "addMember",
         args: [projectId, member],
-      })
+      });
 
       return wallet.sendTransaction({
         to: projectBoardAddress,
         data,
-      })
+      });
     },
 
     async removeMember(projectId, member) {
       const data = encodeFunctionData({
         abi: PROJECT_BOARD_ABI,
-        functionName: 'removeMember',
+        functionName: "removeMember",
         args: [projectId, member],
-      })
+      });
 
       return wallet.sendTransaction({
         to: projectBoardAddress,
         data,
-      })
+      });
     },
 
     async createTask(projectId, title, description, reward, dueDate) {
       const data = encodeFunctionData({
         abi: PROJECT_BOARD_ABI,
-        functionName: 'createTask',
+        functionName: "createTask",
         args: [
           projectId,
           title,
@@ -933,21 +933,21 @@ export function createWorkModule(
           reward,
           BigInt(dueDate ?? Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60),
         ],
-      })
+      });
 
       return wallet.sendTransaction({
         to: projectBoardAddress,
         data,
-      })
+      });
     },
 
     async getTasks(projectId) {
       const result = await wallet.publicClient.readContract({
         address: projectBoardAddress,
         abi: PROJECT_BOARD_ABI,
-        functionName: 'getTasks',
+        functionName: "getTasks",
         args: [projectId],
-      })
+      });
 
       return result.map((t) => ({
         taskId: t.taskId,
@@ -955,7 +955,7 @@ export function createWorkModule(
         title: t.title,
         description: t.description,
         assignee:
-          t.assignee === '0x0000000000000000000000000000000000000000'
+          t.assignee === "0x0000000000000000000000000000000000000000"
             ? null
             : t.assignee,
         reward: t.reward,
@@ -963,33 +963,33 @@ export function createWorkModule(
         priority: t.priority,
         createdAt: t.createdAt,
         dueDate: t.dueDate,
-      }))
+      }));
     },
 
     async assignTask(taskId, assignee) {
       const data = encodeFunctionData({
         abi: PROJECT_BOARD_ABI,
-        functionName: 'assignTask',
+        functionName: "assignTask",
         args: [taskId, assignee],
-      })
+      });
 
       return wallet.sendTransaction({
         to: projectBoardAddress,
         data,
-      })
+      });
     },
 
     async completeTask(taskId) {
       const data = encodeFunctionData({
         abi: PROJECT_BOARD_ABI,
-        functionName: 'completeTask',
+        functionName: "completeTask",
         args: [taskId],
-      })
+      });
 
       return wallet.sendTransaction({
         to: projectBoardAddress,
         data,
-      })
+      });
     },
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -999,27 +999,27 @@ export function createWorkModule(
     async registerAsGuardian(name, stake) {
       const data = encodeFunctionData({
         abi: GUARDIAN_REGISTRY_ABI,
-        functionName: 'registerGuardian',
+        functionName: "registerGuardian",
         args: [name],
-      })
+      });
 
       return wallet.sendTransaction({
         to: guardianRegistryAddress,
         data,
         value: stake,
-      })
+      });
     },
 
     async getGuardian(address) {
       const result = await wallet.publicClient.readContract({
         address: guardianRegistryAddress,
         abi: GUARDIAN_REGISTRY_ABI,
-        functionName: 'getGuardian',
+        functionName: "getGuardian",
         args: [address],
-      })
+      });
 
-      if (!result || result.guardianId === `0x${'0'.repeat(64)}`) {
-        return null
+      if (!result || result.guardianId === `0x${"0".repeat(64)}`) {
+        return null;
       }
 
       return {
@@ -1032,63 +1032,63 @@ export function createWorkModule(
         approvalRate: Number(result.approvalRate),
         isActive: result.isActive,
         joinedAt: result.joinedAt,
-      }
+      };
     },
 
     async listGuardians() {
       const addresses = await wallet.publicClient.readContract({
         address: guardianRegistryAddress,
         abi: GUARDIAN_REGISTRY_ABI,
-        functionName: 'getActiveGuardians',
+        functionName: "getActiveGuardians",
         args: [],
-      })
+      });
 
-      const guardians: Guardian[] = []
+      const guardians: Guardian[] = [];
       for (const addr of addresses) {
-        const guardian = await this.getGuardian(addr)
-        if (guardian) guardians.push(guardian)
+        const guardian = await this.getGuardian(addr);
+        if (guardian) guardians.push(guardian);
       }
-      return guardians
+      return guardians;
     },
 
     async increaseStake(amount) {
       const data = encodeFunctionData({
         abi: GUARDIAN_REGISTRY_ABI,
-        functionName: 'increaseStake',
+        functionName: "increaseStake",
         args: [],
-      })
+      });
 
       return wallet.sendTransaction({
         to: guardianRegistryAddress,
         data,
         value: amount,
-      })
+      });
     },
 
     async withdrawStake(amount) {
       const data = encodeFunctionData({
         abi: GUARDIAN_REGISTRY_ABI,
-        functionName: 'withdrawStake',
+        functionName: "withdrawStake",
         args: [amount],
-      })
+      });
 
       return wallet.sendTransaction({
         to: guardianRegistryAddress,
         data,
-      })
+      });
     },
 
     async deactivateGuardian() {
       const data = encodeFunctionData({
         abi: GUARDIAN_REGISTRY_ABI,
-        functionName: 'deactivate',
+        functionName: "deactivate",
         args: [],
-      })
+      });
 
       return wallet.sendTransaction({
         to: guardianRegistryAddress,
         data,
-      })
+      });
     },
-  }
+  };
 }

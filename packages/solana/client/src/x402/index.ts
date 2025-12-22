@@ -1,8 +1,8 @@
 // Solana x402 Payment Client
 
 import { expectJson } from '@jejunetwork/types'
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils'
 import { sign, verify } from '@noble/ed25519'
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils'
 import {
   createAssociatedTokenAccountInstruction,
   getAssociatedTokenAddress,

@@ -133,7 +133,10 @@ class CacheServiceImpl implements CacheService {
     const CacheResponseSchema = z.object({ value: z.unknown().nullable() })
     const parseResult = CacheResponseSchema.safeParse(await response.json())
     if (!parseResult.success) {
-      console.error('[Cache] Invalid cache response:', parseResult.error.message)
+      console.error(
+        '[Cache] Invalid cache response:',
+        parseResult.error.message,
+      )
       return null
     }
     return parseResult.data.value as T | null

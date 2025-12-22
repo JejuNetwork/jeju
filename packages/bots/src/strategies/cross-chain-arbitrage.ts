@@ -13,6 +13,7 @@
  */
 
 import { EventEmitter } from 'node:events'
+import type { EVMChainId, SolanaNetwork } from '@jejunetwork/types'
 import { expectValid } from '@jejunetwork/types'
 import { type Commitment, Connection, type PublicKey } from '@solana/web3.js'
 import {
@@ -26,11 +27,7 @@ import {
 } from 'viem'
 import { OracleAggregator, TOKEN_SYMBOLS } from '../oracles'
 import { JupiterQuoteResponseSchema } from '../schemas'
-import type {
-  CrossChainArbOpportunity,
-  EVMChainId,
-  SolanaNetwork,
-} from '../types'
+import type { CrossChainArbOpportunity } from '../types'
 
 // ============ Chain Configuration ============
 
@@ -823,11 +820,6 @@ export interface SolanaArbConfig {
 }
 
 export class SolanaArbitrage {
-  constructor(config: SolanaArbConfig) {
-    this.config = config
-    this.connection = new Connection(config.rpcUrl, config.commitment)
-  }
-
   /**
    * Get quote from Raydium via Jupiter aggregator
    */

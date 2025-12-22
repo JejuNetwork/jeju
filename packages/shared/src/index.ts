@@ -190,14 +190,26 @@ export {
   BanChecker,
   type BanCheckResult,
   type BanStatus as BanCheckStatus,
-  createElysiaBanMiddleware,
-  createExpressBanMiddleware,
-  createHonoBanMiddleware,
+  createElysiaBanPlugin,
   getBanStatus,
   getDefaultChecker,
   initBanChecker,
   isBanned,
 } from './middleware/banCheck'
+// API Cache Middleware
+export {
+  APICache,
+  type CacheConfig as APICacheConfig,
+  type CacheMiddlewareResult,
+  type CacheResult,
+  type CacheStats as APICacheStats,
+  createCacheMiddleware,
+  createComputeCache,
+  createListCache,
+  createSearchCache,
+  createStatsCache,
+  generateCacheKey,
+} from './middleware/cache'
 // Moderation Notifications
 export {
   createBanNotification,
@@ -225,9 +237,9 @@ export {
   // Legacy MCP
   createMCPServer,
   createPaymentRequirement,
+  // Protocol Server
+  createServer,
   createServerlessHandler,
-  // Unified Server
-  createUnifiedServer,
   type ERC8004Config,
   erc8004Middleware,
   getAgentInfo,
@@ -239,6 +251,7 @@ export {
   type PaymentRequirement,
   type ProtocolMiddlewareConfig,
   parseX402Header,
+  type ServerConfig,
   type ServerInstance,
   type SkillContext,
   type SkillResult,
@@ -246,7 +259,6 @@ export {
   skillRequiresPayment,
   skillSuccess,
   startServer,
-  type UnifiedServerConfig,
   verifyX402Payment,
   type X402Config,
   type X402PaymentPayload,
@@ -260,6 +272,13 @@ export {
   retryWithCondition,
   sleep,
 } from './retry'
+// Security Middleware
+export {
+  type RateLimitConfig,
+  rateLimitMiddleware,
+  type SecurityConfig,
+  securityMiddleware,
+} from './security-middleware'
 // Service Worker
 export {
   cacheUrls,
@@ -358,13 +377,6 @@ export {
   isSignificantAmount,
   parseTokenAmount,
 } from './token-utils'
-// Security Middleware
-export {
-  rateLimitMiddleware,
-  type RateLimitConfig,
-  securityMiddleware,
-  type SecurityConfig,
-} from './security-middleware'
 // Shared Types
 export type {
   JsonRpcError,

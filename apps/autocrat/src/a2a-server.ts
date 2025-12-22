@@ -2,9 +2,10 @@
  * Council A2A Server
  */
 
+import cors from '@elysiajs/cors'
 import { getNetworkName, getWebsiteUrl } from '@jejunetwork/config'
-import { Hono } from 'hono'
-import { cors } from 'hono/cors'
+import { expect, expectDefined, validateOrThrow } from '@jejunetwork/types'
+import { Elysia, t } from 'elysia'
 import { formatEther, parseEther } from 'viem'
 import { z } from 'zod'
 import { autocratAgentRuntime, type DeliberationRequest } from './agents'
@@ -30,11 +31,8 @@ import {
   A2ARequestResearchParamsSchema,
   A2ASubmitProposalParamsSchema,
   A2ASubmitVoteParamsSchema,
-  expect,
-  expectDefined,
   ProposalIdSchema,
   QualityCriteriaSchema,
-  validateOrThrow,
 } from './schemas'
 import {
   assessAlignment,
@@ -58,90 +56,111 @@ const OllamaAssessmentResponseSchema = QualityCriteriaSchema.extend({
   suggestions: z.array(z.string()),
 })
 
+// TypeBox schema for A2A message body
+const A2AMessageBodySchema = t.Object({
+  jsonrpc: t.String(),
+  id: t.Union([t.String(), t.Number()]),
+  method: t.String(),
+  params: t.Object({
+    message: t.Object({
+      messageId: t.String(),
+      role: t.String(),
+      parts: t.Array(
+        t.Union([
+          t.Object({
+            kind: t.Literal('text'),
+            text: t.String(),
+          }),
+          t.Object({
+            kind: t.Literal('data'),
+            data: t.Object({
+              skillId: t.Optional(t.String()),
+              params: t.Optional(t.Record(t.String(), t.Unknown())),
+            }),
+          }),
+        ]),
+      ),
+    }),
+  }),
+})
+
 interface SkillResult {
   message: string
   data: Record<string, unknown>
 }
 
 export class AutocratA2AServer {
-  private readonly app: Hono
+  private readonly app: Elysia
   private readonly blockchain: AutocratBlockchain
   private readonly config: AutocratConfig
 
   constructor(config: AutocratConfig, blockchain: AutocratBlockchain) {
     this.config = config
     this.blockchain = blockchain
-    this.app = new Hono()
+    this.app = new Elysia()
     this.setupRoutes()
   }
 
   private setupRoutes(): void {
-    // SECURITY: Configure CORS based on environment
-    const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',').filter(Boolean)
-    const isProduction = process.env.NODE_ENV === 'production'
-    this.app.use('/*', cors({
-      origin: isProduction && CORS_ORIGINS?.length ? CORS_ORIGINS : '*',
-      credentials: true,
+    this.app.use(cors())
+
+    this.app.get('/.well-known/agent-card.json', () => this.getAgentCard())
+
+    this.app.post(
+      '/',
+      async ({ body: rawBody }) => {
+        const body = validateOrThrow(A2AMessageSchema, rawBody, 'A2A message')
+
+        expect(body.method === 'message/send', 'Method must be message/send')
+
+        const message = body.params.message
+        const dataPart = message.parts.find(
+          (
+            p,
+          ): p is {
+            kind: 'data'
+            data: { skillId: string; params?: Record<string, unknown> }
+          } => p.kind === 'data',
+        )
+        if (!dataPart) {
+          throw new Error('Missing data part with skillId')
+        }
+        const skillId = dataPart.data.skillId
+        if (!skillId) {
+          throw new Error('Missing skillId in data part')
+        }
+        const params = dataPart.data.params || {}
+
+        const result = await this.executeSkill(skillId, params)
+
+        return {
+          jsonrpc: '2.0',
+          id: body.id,
+          result: {
+            role: 'agent',
+            parts: [
+              { kind: 'text', text: result.message },
+              { kind: 'data', data: result.data },
+            ],
+            messageId: message.messageId,
+            kind: 'message',
+          },
+        }
+      },
+      {
+        body: A2AMessageBodySchema,
+      },
+    )
+
+    this.app.get('/health', () => ({
+      status: 'ok',
+      service: 'council-a2a',
+      version: '1.0.0',
+      contracts: {
+        council: this.blockchain.councilDeployed,
+        ceoAgent: this.blockchain.ceoDeployed,
+      },
     }))
-    this.app.get('/.well-known/agent-card.json', (c) =>
-      c.json(this.getAgentCard()),
-    )
-
-    this.app.post('/', async (c) => {
-      const body = validateOrThrow(
-        A2AMessageSchema,
-        await c.req.json(),
-        'A2A message',
-      )
-
-      expect(body.method === 'message/send', 'Method must be message/send')
-
-      const message = body.params.message
-      const dataPart = message.parts.find(
-        (
-          p,
-        ): p is {
-          kind: 'data'
-          data: { skillId: string; params?: Record<string, unknown> }
-        } => p.kind === 'data',
-      )
-      if (!dataPart) {
-        throw new Error('Missing data part with skillId')
-      }
-      const skillId = dataPart.data.skillId
-      if (!skillId) {
-        throw new Error('Missing skillId in data part')
-      }
-      const params = dataPart.data.params || {}
-
-      const result = await this.executeSkill(skillId, params)
-
-      return c.json({
-        jsonrpc: '2.0',
-        id: body.id,
-        result: {
-          role: 'agent',
-          parts: [
-            { kind: 'text', text: result.message },
-            { kind: 'data', data: result.data },
-          ],
-          messageId: message.messageId,
-          kind: 'message',
-        },
-      })
-    })
-
-    this.app.get('/health', (c) =>
-      c.json({
-        status: 'ok',
-        service: 'council-a2a',
-        version: '1.0.0',
-        contracts: {
-          council: this.blockchain.councilDeployed,
-          ceoAgent: this.blockchain.ceoDeployed,
-        },
-      }),
-    )
   }
 
   private getAgentCard() {
@@ -905,7 +924,7 @@ Provide your decision as: APPROVED or REJECTED, with reasoning.`
     }
   }
 
-  getRouter(): Hono {
+  getRouter(): Elysia {
     return this.app
   }
 }

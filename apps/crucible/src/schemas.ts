@@ -497,10 +497,7 @@ export function parseOrThrow<T>(
  * Safely parse JSON and validate with schema, returning null on failure
  * Use for external/streaming data that might be malformed
  */
-export function safeParse<T>(
-  schema: z.ZodSchema<T>,
-  data: unknown,
-): T | null {
+export function safeParse<T>(schema: z.ZodSchema<T>, data: unknown): T | null {
   const result = schema.safeParse(data)
   return result.success ? result.data : null
 }
@@ -1591,7 +1588,9 @@ export const L2RawTxResponseSchema = z.object({
 
 /** MEV-Share private transaction response */
 export const MevSharePrivateTxResponseSchema = z.object({
-  result: z.union([z.string(), z.object({ txHash: z.string().optional() })]).optional(),
+  result: z
+    .union([z.string(), z.object({ txHash: z.string().optional() })])
+    .optional(),
   error: z.object({ message: z.string() }).optional(),
 })
 

@@ -192,4 +192,3 @@ Involved addresses:
   mcpServers: ['monitoring', 'infrastructure', 'security-tools'],
   a2aCapabilities: ['monitoring', 'incident-response', 'threat-detection'],
 }
-

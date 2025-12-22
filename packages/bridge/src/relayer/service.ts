@@ -720,9 +720,14 @@ export class RelayerService {
       this.stats.proofsGenerated++
       // Convert JSON response to SP1Proof type
       return {
-        proof: result.proof instanceof Uint8Array ? result.proof : new Uint8Array(result.proof),
+        proof:
+          result.proof instanceof Uint8Array
+            ? result.proof
+            : new Uint8Array(result.proof),
         publicInputs: result.publicInputs
-          ? (result.publicInputs instanceof Uint8Array ? result.publicInputs : new Uint8Array(result.publicInputs))
+          ? result.publicInputs instanceof Uint8Array
+            ? result.publicInputs
+            : new Uint8Array(result.publicInputs)
           : new Uint8Array(0),
         vkeyHash: toHash32(new Uint8Array(32)), // Would be parsed from result.vkeyHash if provided
       }
@@ -920,9 +925,14 @@ export class RelayerService {
       this.stats.proofsGenerated++
       // Convert JSON response to SP1Proof type
       return {
-        proof: result.proof instanceof Uint8Array ? result.proof : new Uint8Array(result.proof),
+        proof:
+          result.proof instanceof Uint8Array
+            ? result.proof
+            : new Uint8Array(result.proof),
         publicInputs: result.publicInputs
-          ? (result.publicInputs instanceof Uint8Array ? result.publicInputs : new Uint8Array(result.publicInputs))
+          ? result.publicInputs instanceof Uint8Array
+            ? result.publicInputs
+            : new Uint8Array(result.publicInputs)
           : new Uint8Array(0),
         vkeyHash: toHash32(new Uint8Array(32)),
       }

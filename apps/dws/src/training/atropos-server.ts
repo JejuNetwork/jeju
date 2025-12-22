@@ -6,10 +6,8 @@
  * with Psyche integration for decentralized model training.
  */
 
-import type { Context } from 'hono'
-import { Hono } from 'hono'
-import { cors } from 'hono/cors'
-import { logger } from 'hono/logger'
+import { cors } from '@elysiajs/cors'
+import { Elysia } from 'elysia'
 import {
   DisconnectEnvSchema,
   RegisterEnvSchema,
@@ -17,7 +15,7 @@ import {
   ScoredDataListSchema,
   ScoredDataSchema,
 } from '../shared/schemas/training'
-import { validateBody } from '../shared/validation'
+import { validateBodyDirect } from '../shared/validation'
 
 // ============================================================================
 // Types
@@ -265,24 +263,23 @@ function processScoredData(
 // Create Atropos Server
 // ============================================================================
 
-export function createAtroposServer(): Hono {
-  const app = new Hono()
+export function createAtroposServer(): Elysia {
+  const app = new Elysia()
   const state = createInitialState()
 
   // Middleware
-  app.use('*', cors())
-  app.use('*', logger())
+  app.use(cors())
 
   // Root endpoint
-  app.get('/', (c: Context) => {
-    return c.json({ message: 'Atropos API Server for Jeju DWS' })
+  app.get('/', () => {
+    return { message: 'Atropos API Server for Jeju DWS' }
   })
 
   // Register trainer
-  app.post('/register', async (c: Context) => {
-    const registration = await validateBody(
+  app.post('/register', async ({ body }) => {
+    const registration = validateBodyDirect(
       RegistrationSchema,
-      c,
+      body,
       'Registration request',
     )
 
@@ -304,19 +301,19 @@ export function createAtroposServer(): Hono {
     const uuid = BigInt(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER))
     state.requesters.push(uuid)
 
-    return c.json({ uuid: uuid.toString() })
+    return { uuid: uuid.toString() }
   })
 
   // Register environment
-  app.post('/register-env', async (c: Context) => {
-    const registerEnv = await validateBody(
+  app.post('/register-env', async ({ body }) => {
+    const registerEnv = validateBodyDirect(
       RegisterEnvSchema,
-      c,
+      body,
       'Register env request',
     )
 
     if (!state.started) {
-      return c.json({ status: 'wait for trainer to start' })
+      return { status: 'wait for trainer to start' }
     }
 
     const realName = `${registerEnv.desired_name}_${
@@ -337,7 +334,7 @@ export function createAtroposServer(): Hono {
       group_size: registerEnv.group_size,
     })
 
-    return c.json({
+    return {
       status: 'success',
       env_id: registeredId,
       wandb_name: realName,
@@ -345,49 +342,49 @@ export function createAtroposServer(): Hono {
       starting_step: state.status_dict.step,
       checkpoint_interval: state.save_checkpoint_interval,
       num_steps: state.num_steps,
-    })
+    }
   })
 
   // Disconnect environment
-  app.post('/disconnect-env', async (c: Context) => {
-    const { env_id } = await validateBody(
+  app.post('/disconnect-env', async ({ body }) => {
+    const { env_id } = validateBodyDirect(
       DisconnectEnvSchema,
-      c,
+      body,
       'Disconnect env request',
     )
 
     if (env_id < state.envs.length) {
       state.envs[env_id].connected = false
-      return c.json({ status: 'success' })
+      return { status: 'success' }
     }
 
-    return c.json({ status: 'failure', error: 'Environment not found' })
+    return { status: 'failure', error: 'Environment not found' }
   })
 
   // Run info
-  app.get('/run_info', (c: Context) => {
-    return c.json({
+  app.get('/run_info', () => {
+    return {
       group: state.group,
       project: state.project,
-    })
+    }
   })
 
   // Server info
-  app.get('/info', (c: Context) => {
-    return c.json({
+  app.get('/info', () => {
+    return {
       batch_size: state.batchsize,
       max_token_len: state.max_token_len,
-    })
+    }
   })
 
   // Get batch for training
-  app.get('/batch', (c: Context) => {
+  app.get('/batch', () => {
     if (!state.started) {
       state.started = true
     }
 
     if (state.curr_batch.length > 0) {
-      return c.json({ batch: state.curr_batch.pop() })
+      return { batch: state.curr_batch.pop() }
     }
 
     const newBatches: ScoredData[][] = []
@@ -428,7 +425,7 @@ export function createAtroposServer(): Hono {
     }
 
     if (newBatches.length === 0) {
-      return c.json({ batch: null })
+      return { batch: null }
     }
 
     state.status_dict.step += newBatches.length
@@ -443,15 +440,15 @@ export function createAtroposServer(): Hono {
       console.log(`[Atropos] Sending batch of ${totalSeqs} sequences`)
     }
 
-    return c.json({ batch: currBatch ?? null })
+    return { batch: currBatch ?? null }
   })
 
   // Latest example
-  app.get('/latest_example', (c: Context) => {
+  app.get('/latest_example', () => {
     if (state.latest) {
-      return c.json(state.latest)
+      return state.latest
     }
-    return c.json({
+    return {
       tokens: [],
       masks: [],
       scores: [],
@@ -461,25 +458,25 @@ export function createAtroposServer(): Hono {
       inference_logprobs: [],
       messages: [],
       images: [],
-    })
+    }
   })
 
   // Submit scored data
-  app.post('/scored_data', async (c: Context) => {
-    const scoredData = await validateBody(
+  app.post('/scored_data', async ({ body }) => {
+    const scoredData = validateBodyDirect(
       ScoredDataSchema,
-      c,
+      body,
       'Scored data submission',
     )
     const result = processScoredData(state, scoredData)
-    return c.json(result)
+    return result
   })
 
   // Submit scored data list
-  app.post('/scored_data_list', async (c: Context) => {
-    const scoredDataList = await validateBody(
+  app.post('/scored_data_list', async ({ body }) => {
+    const scoredDataList = validateBodyDirect(
       ScoredDataListSchema,
-      c,
+      body,
       'Scored data list submission',
     )
 
@@ -506,31 +503,31 @@ export function createAtroposServer(): Hono {
       }
     }
 
-    return c.json(response)
+    return response
   })
 
   // Get status
-  app.get('/status', (c: Context) => {
-    return c.json({
+  app.get('/status', () => {
+    return {
       current_step: state.status_dict.step,
       queue_size: state.queue.length,
-    })
+    }
   })
 
   // Get status for environment
-  app.get('/status-env', async (c: Context) => {
-    const envIdParam = c.req.query('env_id')
-    const envId = envIdParam ? parseInt(envIdParam, 10) : 0
+  app.get('/status-env', async ({ query }) => {
+    const envIdParam = query.env_id
+    const envId = envIdParam ? parseInt(envIdParam as string, 10) : 0
 
     if (state.envs.length === 0) {
-      return c.json({
+      return {
         current_step: 0,
         queue_size: 0,
         unallocated_fraction: 1.0,
         self_queue_size: 0,
         max_group_size: 1,
         env_weight: 1.0,
-      })
+      }
     }
 
     const total = state.envs
@@ -573,31 +570,32 @@ export function createAtroposServer(): Hono {
       state.envs[envId].group_size = envGroupSize
     }
 
-    return c.json({
+    return {
       current_step: state.status_dict.step,
       queue_size: Math.floor(state.queue.length / envGroupSize),
       unallocated_fraction: unallocatedFraction,
       self_queue_size: Math.floor(numSelfSequencesInQueue / envGroupSize),
       max_group_size: maxGroupSize,
       env_weight: envWeight,
-    })
+    }
   })
 
   // Reset data
-  app.get('/reset_data', (c: Context) => {
+  app.get('/reset_data', ({ set }) => {
     Object.assign(state, createInitialState())
-    return c.text('Reset successful', 200)
+    set.status = 200
+    return 'Reset successful'
   })
 
   // Health check
-  app.get('/health', (c: Context) => {
-    return c.json({
+  app.get('/health', () => {
+    return {
       status: 'healthy',
       started: state.started,
       queue_size: state.queue.length,
       envs: state.envs.length,
       step: state.status_dict.step,
-    })
+    }
   })
 
   return app
@@ -612,12 +610,9 @@ export async function startAtroposServer(port = 8000): Promise<void> {
 
   console.log(`[Atropos] Starting server on port ${port}`)
 
-  const server = Bun.serve({
-    port,
-    fetch: app.fetch,
-  })
+  app.listen(port)
 
-  console.log(`[Atropos] Server listening on http://localhost:${server.port}`)
+  console.log(`[Atropos] Server listening on http://localhost:${port}`)
 }
 
 // Run if executed directly

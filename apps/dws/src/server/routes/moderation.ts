@@ -8,7 +8,7 @@
  * - Appeal handling
  */
 
-import { Hono } from 'hono'
+import { Elysia, t } from 'elysia'
 import {
   type Address,
   createPublicClient,
@@ -18,8 +18,6 @@ import {
   parseAbiItem,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { z } from 'zod'
-import { expectValid } from '../../shared/validation'
 
 // ============ Configuration ============
 
@@ -38,73 +36,6 @@ const getConfig = (): ModerationConfig => ({
     '0x0') as Address,
   banManagerAddress: (process.env.BAN_MANAGER_ADDRESS ?? '0x0') as Address,
   operatorPrivateKey: process.env.OPERATOR_PRIVATE_KEY as Hex | undefined,
-})
-
-// ============ Schemas ============
-
-const banRequestSchema = z.object({
-  target: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
-  reason: z.string().min(10).max(1000),
-  service: z.enum(['email', 'messaging', 'content', 'general']),
-  severity: z.enum(['low', 'medium', 'high', 'critical']),
-  autoban: z.boolean().default(false),
-  evidence: z
-    .object({
-      timestamp: z.number(),
-      type: z.string(),
-      contentHashes: z.array(z.string()).optional(),
-      screenshotUrls: z.array(z.string()).optional(),
-    })
-    .optional(),
-})
-
-const reviewRequestSchema = z.object({
-  service: z.string(),
-  target: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
-  review: z.object({
-    reason: z.string(),
-    analysis: z.object({
-      totalEmails: z.number().optional(),
-      flaggedEmails: z.number().optional(),
-      flaggedPercentage: z.number().optional(),
-      violations: z
-        .array(
-          z.object({
-            type: z.string(),
-            count: z.number(),
-            severity: z.string(),
-            description: z.string(),
-          }),
-        )
-        .optional(),
-      overallAssessment: z.string(),
-      llmReasoning: z.string().optional(),
-    }),
-    recommendation: z.enum(['allow', 'warn', 'suspend', 'ban']),
-    confidence: z.number().min(0).max(1),
-    timestamp: z.number(),
-  }),
-  autoAction: z.boolean().default(false),
-})
-
-const appealSchema = z.object({
-  caseId: z.string(),
-  reason: z.string().min(50).max(2000),
-  evidence: z.string().optional(),
-  stakeAmount: z.string().optional(), // BigInt as string
-})
-
-const queueItemSchema = z.object({
-  target: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
-  reason: z.string(),
-  service: z.string(),
-  priority: z.enum(['low', 'normal', 'high', 'urgent']),
-  evidence: z
-    .object({
-      timestamp: z.number(),
-      type: z.string(),
-    })
-    .optional(),
 })
 
 // ============ Contract ABIs ============
@@ -149,8 +80,7 @@ const moderationQueue: QueuedAction[] = []
 
 // ============ Router ============
 
-export function createModerationRouter(): Hono {
-  const app = new Hono()
+export function createModerationRouter() {
   const config = getConfig()
 
   const publicClient = createPublicClient({
@@ -168,332 +98,440 @@ export function createModerationRouter(): Hono {
     })
   }
 
-  // ============ Health Check ============
+  return (
+    new Elysia({ name: 'moderation', prefix: '/moderation' })
+      // ============ Health Check ============
 
-  app.get('/health', (c) => {
-    return c.json({
-      status: 'ok',
-      queueLength: moderationQueue.length,
-      moderationMarketplace: config.moderationMarketplaceAddress,
-      banManager: config.banManagerAddress,
-    })
-  })
+      .get('/health', () => ({
+        status: 'ok',
+        queueLength: moderationQueue.length,
+        moderationMarketplace: config.moderationMarketplaceAddress,
+        banManager: config.banManagerAddress,
+      }))
 
-  // ============ Ban Endpoint ============
+      // ============ Ban Endpoint ============
 
-  app.post('/ban', async (c) => {
-    const body = await c.req.json()
-    const request = expectValid(banRequestSchema, body, 'Ban request')
+      .post(
+        '/ban',
+        async ({ body, set }) => {
+          const target = body.target as Address
 
-    const target = request.target as Address
+          // Check if already banned
+          const isBanned = await publicClient
+            .readContract({
+              address: config.banManagerAddress,
+              abi: BAN_MANAGER_ABI,
+              functionName: 'isAddressBanned',
+              args: [target],
+            })
+            .catch(() => false)
 
-    // Check if already banned
-    const isBanned = await publicClient
-      .readContract({
-        address: config.banManagerAddress,
-        abi: BAN_MANAGER_ABI,
-        functionName: 'isAddressBanned',
-        args: [target],
-      })
-      .catch(() => false)
+          if (isBanned) {
+            return {
+              success: true,
+              alreadyBanned: true,
+              message: 'Target is already banned',
+            }
+          }
 
-    if (isBanned) {
-      return c.json({
-        success: true,
-        alreadyBanned: true,
-        message: 'Target is already banned',
-      })
-    }
+          // For critical severity with autoban, execute immediately
+          if (body.severity === 'critical' && body.autoban) {
+            try {
+              const walletClient = getWalletClient()
 
-    // For critical severity with autoban, execute immediately
-    if (request.severity === 'critical' && request.autoban) {
-      try {
-        const walletClient = getWalletClient()
+              const hash = await walletClient.writeContract({
+                address: config.moderationMarketplaceAddress,
+                abi: MODERATION_MARKETPLACE_ABI,
+                functionName: 'reportAndBan',
+                args: [target, body.reason],
+                chain: null,
+              })
 
-        const hash = await walletClient.writeContract({
-          address: config.moderationMarketplaceAddress,
-          abi: MODERATION_MARKETPLACE_ABI,
-          functionName: 'reportAndBan',
-          args: [target, request.reason],
-          chain: null,
-        })
+              console.log(
+                `[Moderation] Immediate ban executed for ${target}: ${hash}`,
+              )
 
-        console.log(
-          `[Moderation] Immediate ban executed for ${target}: ${hash}`,
-        )
+              return {
+                success: true,
+                transactionHash: hash,
+                message: 'Ban executed immediately due to critical severity',
+              }
+            } catch (e) {
+              console.error('[Moderation] Immediate ban failed:', e)
+              // Fall through to queue
+            }
+          }
 
-        return c.json({
-          success: true,
-          transactionHash: hash,
-          message: 'Ban executed immediately due to critical severity',
-        })
-      } catch (e) {
-        console.error('[Moderation] Immediate ban failed:', e)
-        // Fall through to queue
-      }
-    }
+          // Queue for processing
+          const queueItem: QueuedAction = {
+            id: `ban-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            type: 'ban',
+            target,
+            reason: body.reason,
+            service: body.service,
+            priority:
+              body.severity === 'critical'
+                ? 'urgent'
+                : body.severity === 'high'
+                  ? 'high'
+                  : 'normal',
+            createdAt: Date.now(),
+            attempts: 0,
+            data: { evidence: body.evidence },
+          }
 
-    // Queue for processing
-    const queueItem: QueuedAction = {
-      id: `ban-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      type: 'ban',
-      target,
-      reason: request.reason,
-      service: request.service,
-      priority:
-        request.severity === 'critical'
-          ? 'urgent'
-          : request.severity === 'high'
-            ? 'high'
-            : 'normal',
-      createdAt: Date.now(),
-      attempts: 0,
-      data: { evidence: request.evidence },
-    }
+          moderationQueue.push(queueItem)
 
-    moderationQueue.push(queueItem)
-
-    // Sort by priority
-    moderationQueue.sort((a, b) => {
-      const priorities = { urgent: 0, high: 1, normal: 2, low: 3 }
-      return priorities[a.priority] - priorities[b.priority]
-    })
-
-    console.log(`[Moderation] Ban request queued: ${queueItem.id}`)
-
-    return c.json({
-      success: true,
-      queued: true,
-      queueId: queueItem.id,
-      message: 'Ban request queued for processing',
-    })
-  })
-
-  // ============ Review Submission ============
-
-  app.post('/submit-review', async (c) => {
-    const body = await c.req.json()
-    const request = expectValid(reviewRequestSchema, body, 'Review request')
-
-    const target = request.target as Address
-
-    // If high-confidence ban recommendation with autoAction, execute
-    if (
-      request.review.recommendation === 'ban' &&
-      request.review.confidence > 0.9 &&
-      request.autoAction
-    ) {
-      try {
-        const walletClient = getWalletClient()
-
-        const reasonWithAnalysis = `${request.review.reason} | Analysis: ${request.review.analysis.overallAssessment}`
-
-        const hash = await walletClient.writeContract({
-          address: config.moderationMarketplaceAddress,
-          abi: MODERATION_MARKETPLACE_ABI,
-          functionName: 'reportAndBan',
-          args: [target, reasonWithAnalysis],
-          chain: null,
-        })
-
-        console.log(
-          `[Moderation] Auto-ban from review executed for ${target}: ${hash}`,
-        )
-
-        return c.json({
-          success: true,
-          transactionHash: hash,
-          action: 'banned',
-          message: 'Auto-ban executed based on review recommendation',
-        })
-      } catch (e) {
-        console.error('[Moderation] Auto-ban from review failed:', e)
-        // Fall through to queue
-      }
-    }
-
-    // Queue review for manual/async processing
-    const queueItem: QueuedAction = {
-      id: `review-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      type: 'review',
-      target,
-      reason: request.review.reason,
-      service: request.service,
-      priority: request.review.recommendation === 'ban' ? 'high' : 'normal',
-      createdAt: Date.now(),
-      attempts: 0,
-      data: { review: request.review },
-    }
-
-    moderationQueue.push(queueItem)
-
-    console.log(`[Moderation] Review submitted: ${queueItem.id}`)
-
-    return c.json({
-      success: true,
-      queued: true,
-      queueId: queueItem.id,
-      recommendation: request.review.recommendation,
-      confidence: request.review.confidence,
-    })
-  })
-
-  // ============ Queue Management ============
-
-  app.post('/queue', async (c) => {
-    const body = await c.req.json()
-    const request = expectValid(queueItemSchema, body, 'Queue request')
-
-    const queueItem: QueuedAction = {
-      id: `queue-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      type: 'review',
-      target: request.target as Address,
-      reason: request.reason,
-      service: request.service,
-      priority: request.priority,
-      createdAt: Date.now(),
-      attempts: 0,
-      data: { evidence: request.evidence },
-    }
-
-    moderationQueue.push(queueItem)
-
-    return c.json({ success: true, queueId: queueItem.id })
-  })
-
-  app.get('/queue', (c) => {
-    return c.json({
-      length: moderationQueue.length,
-      items: moderationQueue.slice(0, 100),
-    })
-  })
-
-  // ============ Ban Status ============
-
-  app.get('/status/:address', async (c) => {
-    const address = c.req.param('address') as Address
-
-    const [isBanned, banStatus] = await Promise.all([
-      publicClient
-        .readContract({
-          address: config.banManagerAddress,
-          abi: BAN_MANAGER_ABI,
-          functionName: 'isAddressBanned',
-          args: [address],
-        })
-        .catch(() => false),
-      publicClient
-        .readContract({
-          address: config.moderationMarketplaceAddress,
-          abi: MODERATION_MARKETPLACE_ABI,
-          functionName: 'getBanStatus',
-          args: [address],
-        })
-        .catch(() => 0),
-    ])
-
-    // Status enum: 0=NONE, 1=ON_NOTICE, 2=CHALLENGED, 3=BANNED, 4=CLEARED, 5=APPEALING
-    const statusNames = [
-      'none',
-      'on_notice',
-      'challenged',
-      'banned',
-      'cleared',
-      'appealing',
-    ]
-
-    return c.json({
-      address,
-      isBanned,
-      status: statusNames[banStatus as number] ?? 'unknown',
-      statusCode: banStatus,
-    })
-  })
-
-  // ============ Appeal ============
-
-  app.post('/appeal', async (c) => {
-    const body = await c.req.json()
-    const request = expectValid(appealSchema, body, 'Appeal request')
-
-    const queueItem: QueuedAction = {
-      id: `appeal-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      type: 'appeal',
-      target: '0x0' as Address, // Will be resolved from caseId
-      reason: request.reason,
-      service: 'appeal',
-      priority: 'normal',
-      createdAt: Date.now(),
-      attempts: 0,
-      data: {
-        caseId: request.caseId,
-        evidence: request.evidence,
-        stakeAmount: request.stakeAmount,
-      },
-    }
-
-    moderationQueue.push(queueItem)
-
-    return c.json({
-      success: true,
-      queueId: queueItem.id,
-      message: 'Appeal queued for processing',
-    })
-  })
-
-  // ============ Process Queue (internal) ============
-
-  app.post('/process-queue', async (c) => {
-    // This would typically be called by a cron job or worker
-    const authHeader = c.req.header('Authorization')
-    if (authHeader !== `Bearer ${process.env.INTERNAL_API_KEY}`) {
-      return c.json({ error: 'Unauthorized' }, 401)
-    }
-
-    let processed = 0
-    const errors: string[] = []
-
-    while (moderationQueue.length > 0 && processed < 10) {
-      const item = moderationQueue.shift()
-      if (!item) break
-
-      try {
-        const walletClient = getWalletClient()
-
-        if (item.type === 'ban') {
-          await walletClient.writeContract({
-            address: config.moderationMarketplaceAddress,
-            abi: MODERATION_MARKETPLACE_ABI,
-            functionName: 'reportAndBan',
-            args: [item.target, item.reason],
-            chain: null,
+          // Sort by priority
+          moderationQueue.sort((a, b) => {
+            const priorities = { urgent: 0, high: 1, normal: 2, low: 3 }
+            return priorities[a.priority] - priorities[b.priority]
           })
-        }
-        // Add other type handlers as needed
 
-        processed++
-      } catch (e) {
-        item.attempts++
-        item.lastError = String(e)
+          console.log(`[Moderation] Ban request queued: ${queueItem.id}`)
 
-        if (item.attempts < 3) {
-          // Re-queue with lower priority
-          item.priority = 'low'
-          moderationQueue.push(item)
-        } else {
-          errors.push(`Failed ${item.id}: ${e}`)
-        }
-      }
-    }
+          set.status = 202
+          return {
+            success: true,
+            queued: true,
+            queueId: queueItem.id,
+            message: 'Ban request queued for processing',
+          }
+        },
+        {
+          body: t.Object({
+            target: t.String({ pattern: '^0x[a-fA-F0-9]{40}$' }),
+            reason: t.String({ minLength: 10, maxLength: 1000 }),
+            service: t.Union([
+              t.Literal('email'),
+              t.Literal('messaging'),
+              t.Literal('content'),
+              t.Literal('general'),
+            ]),
+            severity: t.Union([
+              t.Literal('low'),
+              t.Literal('medium'),
+              t.Literal('high'),
+              t.Literal('critical'),
+            ]),
+            autoban: t.Optional(t.Boolean()),
+            evidence: t.Optional(
+              t.Object({
+                timestamp: t.Number(),
+                type: t.String(),
+                contentHashes: t.Optional(t.Array(t.String())),
+                screenshotUrls: t.Optional(t.Array(t.String())),
+              }),
+            ),
+          }),
+        },
+      )
 
-    return c.json({
-      processed,
-      remaining: moderationQueue.length,
-      errors: errors.length > 0 ? errors : undefined,
-    })
-  })
+      // ============ Review Submission ============
 
-  return app
+      .post(
+        '/submit-review',
+        async ({ body, set }) => {
+          const target = body.target as Address
+
+          // If high-confidence ban recommendation with autoAction, execute
+          if (
+            body.review.recommendation === 'ban' &&
+            body.review.confidence > 0.9 &&
+            body.autoAction
+          ) {
+            try {
+              const walletClient = getWalletClient()
+
+              const reasonWithAnalysis = `${body.review.reason} | Analysis: ${body.review.analysis.overallAssessment}`
+
+              const hash = await walletClient.writeContract({
+                address: config.moderationMarketplaceAddress,
+                abi: MODERATION_MARKETPLACE_ABI,
+                functionName: 'reportAndBan',
+                args: [target, reasonWithAnalysis],
+                chain: null,
+              })
+
+              console.log(
+                `[Moderation] Auto-ban from review executed for ${target}: ${hash}`,
+              )
+
+              return {
+                success: true,
+                transactionHash: hash,
+                action: 'banned',
+                message: 'Auto-ban executed based on review recommendation',
+              }
+            } catch (e) {
+              console.error('[Moderation] Auto-ban from review failed:', e)
+              // Fall through to queue
+            }
+          }
+
+          // Queue review for manual/async processing
+          const queueItem: QueuedAction = {
+            id: `review-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            type: 'review',
+            target,
+            reason: body.review.reason,
+            service: body.service,
+            priority: body.review.recommendation === 'ban' ? 'high' : 'normal',
+            createdAt: Date.now(),
+            attempts: 0,
+            data: { review: body.review },
+          }
+
+          moderationQueue.push(queueItem)
+
+          console.log(`[Moderation] Review submitted: ${queueItem.id}`)
+
+          set.status = 202
+          return {
+            success: true,
+            queued: true,
+            queueId: queueItem.id,
+            recommendation: body.review.recommendation,
+            confidence: body.review.confidence,
+          }
+        },
+        {
+          body: t.Object({
+            service: t.String(),
+            target: t.String({ pattern: '^0x[a-fA-F0-9]{40}$' }),
+            review: t.Object({
+              reason: t.String(),
+              analysis: t.Object({
+                totalEmails: t.Optional(t.Number()),
+                flaggedEmails: t.Optional(t.Number()),
+                flaggedPercentage: t.Optional(t.Number()),
+                violations: t.Optional(
+                  t.Array(
+                    t.Object({
+                      type: t.String(),
+                      count: t.Number(),
+                      severity: t.String(),
+                      description: t.String(),
+                    }),
+                  ),
+                ),
+                overallAssessment: t.String(),
+                llmReasoning: t.Optional(t.String()),
+              }),
+              recommendation: t.Union([
+                t.Literal('allow'),
+                t.Literal('warn'),
+                t.Literal('suspend'),
+                t.Literal('ban'),
+              ]),
+              confidence: t.Number({ minimum: 0, maximum: 1 }),
+              timestamp: t.Number(),
+            }),
+            autoAction: t.Optional(t.Boolean()),
+          }),
+        },
+      )
+
+      // ============ Queue Management ============
+
+      .post(
+        '/queue',
+        async ({ body, set }) => {
+          const queueItem: QueuedAction = {
+            id: `queue-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            type: 'review',
+            target: body.target as Address,
+            reason: body.reason,
+            service: body.service,
+            priority: body.priority,
+            createdAt: Date.now(),
+            attempts: 0,
+            data: { evidence: body.evidence },
+          }
+
+          moderationQueue.push(queueItem)
+
+          set.status = 201
+          return { success: true, queueId: queueItem.id }
+        },
+        {
+          body: t.Object({
+            target: t.String({ pattern: '^0x[a-fA-F0-9]{40}$' }),
+            reason: t.String(),
+            service: t.String(),
+            priority: t.Union([
+              t.Literal('low'),
+              t.Literal('normal'),
+              t.Literal('high'),
+              t.Literal('urgent'),
+            ]),
+            evidence: t.Optional(
+              t.Object({
+                timestamp: t.Number(),
+                type: t.String(),
+              }),
+            ),
+          }),
+        },
+      )
+
+      .get('/queue', () => ({
+        length: moderationQueue.length,
+        items: moderationQueue.slice(0, 100),
+      }))
+
+      // ============ Ban Status ============
+
+      .get(
+        '/status/:address',
+        async ({ params }) => {
+          const address = params.address as Address
+
+          const [isBanned, banStatus] = await Promise.all([
+            publicClient
+              .readContract({
+                address: config.banManagerAddress,
+                abi: BAN_MANAGER_ABI,
+                functionName: 'isAddressBanned',
+                args: [address],
+              })
+              .catch(() => false),
+            publicClient
+              .readContract({
+                address: config.moderationMarketplaceAddress,
+                abi: MODERATION_MARKETPLACE_ABI,
+                functionName: 'getBanStatus',
+                args: [address],
+              })
+              .catch(() => 0),
+          ])
+
+          // Status enum: 0=NONE, 1=ON_NOTICE, 2=CHALLENGED, 3=BANNED, 4=CLEARED, 5=APPEALING
+          const statusNames = [
+            'none',
+            'on_notice',
+            'challenged',
+            'banned',
+            'cleared',
+            'appealing',
+          ]
+
+          return {
+            address,
+            isBanned,
+            status: statusNames[banStatus as number] ?? 'unknown',
+            statusCode: banStatus,
+          }
+        },
+        {
+          params: t.Object({
+            address: t.String({ pattern: '^0x[a-fA-F0-9]{40}$' }),
+          }),
+        },
+      )
+
+      // ============ Appeal ============
+
+      .post(
+        '/appeal',
+        async ({ body, set }) => {
+          const queueItem: QueuedAction = {
+            id: `appeal-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            type: 'appeal',
+            target: '0x0' as Address, // Will be resolved from caseId
+            reason: body.reason,
+            service: 'appeal',
+            priority: 'normal',
+            createdAt: Date.now(),
+            attempts: 0,
+            data: {
+              caseId: body.caseId,
+              evidence: body.evidence,
+              stakeAmount: body.stakeAmount,
+            },
+          }
+
+          moderationQueue.push(queueItem)
+
+          set.status = 202
+          return {
+            success: true,
+            queueId: queueItem.id,
+            message: 'Appeal queued for processing',
+          }
+        },
+        {
+          body: t.Object({
+            caseId: t.String(),
+            reason: t.String({ minLength: 50, maxLength: 2000 }),
+            evidence: t.Optional(t.String()),
+            stakeAmount: t.Optional(t.String()),
+          }),
+        },
+      )
+
+      // ============ Process Queue (internal) ============
+
+      .post(
+        '/process-queue',
+        async ({ headers, set }) => {
+          // This would typically be called by a cron job or worker
+          const authHeader = headers.authorization
+          if (authHeader !== `Bearer ${process.env.INTERNAL_API_KEY}`) {
+            set.status = 401
+            return { error: 'Unauthorized' }
+          }
+
+          let processed = 0
+          const errors: string[] = []
+
+          while (moderationQueue.length > 0 && processed < 10) {
+            const item = moderationQueue.shift()
+            if (!item) break
+
+            try {
+              const walletClient = getWalletClient()
+
+              if (item.type === 'ban') {
+                await walletClient.writeContract({
+                  address: config.moderationMarketplaceAddress,
+                  abi: MODERATION_MARKETPLACE_ABI,
+                  functionName: 'reportAndBan',
+                  args: [item.target, item.reason],
+                  chain: null,
+                })
+              }
+              // Add other type handlers as needed
+
+              processed++
+            } catch (e) {
+              item.attempts++
+              item.lastError = String(e)
+
+              if (item.attempts < 3) {
+                // Re-queue with lower priority
+                item.priority = 'low'
+                moderationQueue.push(item)
+              } else {
+                errors.push(`Failed ${item.id}: ${e}`)
+              }
+            }
+          }
+
+          return {
+            processed,
+            remaining: moderationQueue.length,
+            errors: errors.length > 0 ? errors : undefined,
+          }
+        },
+        {
+          headers: t.Object({
+            authorization: t.Optional(t.String()),
+          }),
+        },
+      )
+  )
 }
 
+export type ModerationRoutes = ReturnType<typeof createModerationRouter>
 export default createModerationRouter

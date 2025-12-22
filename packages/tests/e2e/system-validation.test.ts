@@ -13,13 +13,12 @@
 import { beforeAll, describe, expect, test } from 'bun:test'
 import {
   createPublicClient,
-  createWalletClient,
   formatEther,
+  getBalance,
   http,
   type PublicClient,
   parseEther,
   parseUnits,
-  type WalletClient,
 } from 'viem'
 import { type Account, privateKeyToAccount } from 'viem/accounts'
 import { inferChainFromRpcUrl } from '../../../packages/deployment/scripts/shared/chain-utils'
@@ -37,45 +36,10 @@ const TEST_CONFIG = {
   testTimeout: 30000,
 }
 
-// Contract ABIs (minimal)
-const _STAKING_ABI = [
-  'function stake(uint256 ethAmount, uint256 tokenAmount) external payable',
-  'function unstake(uint256 shares) external',
-  'function claimRewards() external',
-  'function getPosition(address user) external view returns (uint256 ethStaked, uint256 tokenStaked, uint256 shares, uint256 pendingRewards)',
-  'function getPoolStats() external view returns (uint256 totalEth, uint256 totalToken, uint256 totalShares, uint256 rewardRate)',
-  'event Staked(address indexed user, uint256 ethAmount, uint256 tokenAmount, uint256 shares)',
-  'event Unstaked(address indexed user, uint256 shares, uint256 ethReturned, uint256 tokenReturned)',
-  'event RewardsClaimed(address indexed user, uint256 amount)',
-]
-
-const _CREDIT_MANAGER_ABI = [
-  'function deposit(uint256 amount) external',
-  'function withdraw(uint256 amount) external',
-  'function spend(address user, uint256 amount) external',
-  'function getBalance(address user) external view returns (uint256)',
-  'event Deposited(address indexed user, uint256 amount)',
-  'event Withdrawn(address indexed user, uint256 amount)',
-  'event Spent(address indexed user, uint256 amount)',
-]
-
-const _ERC20_ABI = [
-  'function balanceOf(address) view returns (uint256)',
-  'function approve(address spender, uint256 amount) returns (bool)',
-  'function transfer(address to, uint256 amount) returns (bool)',
-  'function allowance(address owner, address spender) view returns (uint256)',
-]
-
 // Test state
 let publicClient: PublicClient
-let deployerAccount: Account
-let _deployerWalletClient: WalletClient
+let _deployerAccount: Account
 let user1Account: Account
-let _user1WalletClient: WalletClient
-let _user2Account: Account
-let _user2WalletClient: WalletClient
-let _solverAccount: Account
-let _solverWalletClient: WalletClient
 
 // Validation tracking
 interface ValidationResult {
@@ -109,34 +73,8 @@ beforeAll(async () => {
     transport: http(TEST_CONFIG.rpcUrl),
   })
 
-  // Use test accounts from shared constants (Anvil defaults)
-  deployerAccount = privateKeyToAccount(TEST_ACCOUNTS.deployer.privateKey)
-  _deployerWalletClient = createWalletClient({
-    chain,
-    transport: http(TEST_CONFIG.rpcUrl),
-    account: deployerAccount,
-  })
-
+  _deployerAccount = privateKeyToAccount(TEST_ACCOUNTS.deployer.privateKey)
   user1Account = privateKeyToAccount(TEST_ACCOUNTS.user1.privateKey)
-  _user1WalletClient = createWalletClient({
-    chain,
-    transport: http(TEST_CONFIG.rpcUrl),
-    account: user1Account,
-  })
-
-  _user2Account = privateKeyToAccount(TEST_ACCOUNTS.user2.privateKey)
-  _user2WalletClient = createWalletClient({
-    chain,
-    transport: http(TEST_CONFIG.rpcUrl),
-    account: _user2Account,
-  })
-
-  _solverAccount = privateKeyToAccount(TEST_ACCOUNTS.user3.privateKey)
-  _solverWalletClient = createWalletClient({
-    chain,
-    transport: http(TEST_CONFIG.rpcUrl),
-    account: _solverAccount,
-  })
 })
 
 // ============================================================
@@ -541,7 +479,6 @@ describe('EIL Cross-Chain Validation', () => {
 describe('Balance Change Tracking', () => {
   test('can read balance from provider', async () => {
     // Test that we can read balances
-    const { getBalance } = await import('viem')
     const balance = await getBalance(publicClient, {
       address: user1Account.address,
     })

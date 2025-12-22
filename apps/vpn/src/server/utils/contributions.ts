@@ -5,8 +5,8 @@
  */
 
 import type { Address } from 'viem'
-import { expect } from '../schemas'
-import type { ContributionState, VPNServiceContext } from '../types'
+import { type ContributionState, expect } from '../schemas'
+import type { VPNServiceContext } from '../types'
 
 /**
  * Default contribution cap multiplier (3x usage)

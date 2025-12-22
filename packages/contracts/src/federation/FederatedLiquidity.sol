@@ -5,6 +5,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {IFeeConfig} from "../interfaces/IFeeConfig.sol";
 
 /**
  * @title FederatedLiquidity
@@ -75,7 +76,10 @@ contract FederatedLiquidity is ReentrancyGuard, Ownable {
 
     uint256 public minRequestAmount = 0.001 ether;
     uint256 public requestDeadlineBlocks = 100;
-    uint256 public fulfillmentFeeBps = 50;
+    uint256 public defaultFulfillmentFeeBps = 50;
+    IFeeConfig public feeConfig;
+
+    event FeeConfigUpdated(address indexed oldConfig, address indexed newConfig);
 
     // ============ SECURITY: Proof Verification System ============
     // Prevents XLPs from claiming fulfillment without actually providing liquidity
@@ -243,7 +247,7 @@ contract FederatedLiquidity is ReentrancyGuard, Ownable {
         request.fulfilled = true;
         request.fulfiller = msg.sender;
 
-        uint256 fee = (request.amount * fulfillmentFeeBps) / 10000;
+        uint256 fee = (request.amount * _getFulfillmentFee()) / 10000;
         uint256 payout = request.amount - fee;
 
         xlp.totalProvided += request.amount;
@@ -378,7 +382,26 @@ contract FederatedLiquidity is ReentrancyGuard, Ownable {
 
     function setFulfillmentFeeBps(uint256 feeBps) external onlyOwner {
         require(feeBps <= 1000, "Fee too high");
-        fulfillmentFeeBps = feeBps;
+        defaultFulfillmentFeeBps = feeBps;
+    }
+
+    function setFeeConfig(address _feeConfig) external onlyOwner {
+        address oldConfig = address(feeConfig);
+        feeConfig = IFeeConfig(_feeConfig);
+        emit FeeConfigUpdated(oldConfig, _feeConfig);
+    }
+
+    /**
+     * @notice Get the current fulfillment fee from FeeConfig or fallback to default
+     * @return Fee in basis points
+     */
+    function _getFulfillmentFee() internal view returns (uint256) {
+        if (address(feeConfig) != address(0)) {
+            // Use cross-chain margin from DeFi fees
+            IFeeConfig.DeFiFees memory fees = feeConfig.getDeFiFees();
+            return fees.bridgeFeeBps; // Bridge fee for cross-chain fulfillment
+        }
+        return defaultFulfillmentFeeBps;
     }
 
     function setMinRequestAmount(uint256 amount) external onlyOwner {

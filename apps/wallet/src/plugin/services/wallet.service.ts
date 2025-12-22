@@ -7,6 +7,15 @@
 
 import type { IAgentRuntime } from '@elizaos/core'
 import {
+  expectAddress,
+  expectBigInt,
+  expectChainId,
+  expectDefined,
+  expectHex,
+} from '@jejunetwork/types'
+import { generateMnemonic } from '@scure/bip39'
+import { wordlist } from '@scure/bip39/wordlists/english'
+import {
   type Address,
   type Chain,
   createPublicClient,
@@ -19,15 +28,7 @@ import {
 } from 'viem'
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts'
 import { arbitrum, base, mainnet, optimism, polygon } from 'viem/chains'
-import {
-  expectAddress,
-  expectBigInt,
-  expectChainId,
-  expectDefined,
-  expectHex,
-  expectNonEmpty,
-  expectSchema,
-} from '../../lib/validation'
+import { expectNonEmpty, expectSchema } from '../../lib/validation'
 import { WalletAccountSchema } from '../schemas'
 import type {
   PortfolioSummary,
@@ -181,10 +182,7 @@ export class WalletService {
 
     if (options.type === 'hd') {
       // Generate new mnemonic
-      // Dynamic import: Only needed when creating HD wallets
-      const bip39 = await import('@scure/bip39')
-      const { wordlist } = await import('@scure/bip39/wordlists/english')
-      const mnemonic = bip39.generateMnemonic(wordlist)
+      const mnemonic = generateMnemonic(wordlist)
 
       // Create account from mnemonic
       const account = mnemonicToAccount(mnemonic)

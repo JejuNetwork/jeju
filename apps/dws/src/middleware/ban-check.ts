@@ -8,7 +8,7 @@ import {
   BanChecker,
   type BanCheckResult,
 } from '@jejunetwork/shared'
-import type { Context, Next } from 'hono'
+import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import { z } from 'zod'
 
@@ -58,70 +58,77 @@ if (BAN_MANAGER_ADDRESS) {
 }
 
 /**
- * Hono middleware that checks ban status
+ * Elysia plugin that checks ban status
  */
 export function banCheckMiddleware() {
-  return async (c: Context, next: Next) => {
-    // Skip if no ban manager configured (local dev)
-    if (!checker) {
-      return next()
-    }
+  return new Elysia({ name: 'ban-check' }).onBeforeHandle(
+    async ({ request, set }) => {
+      // Skip if no ban manager configured (local dev)
+      if (!checker) {
+        return
+      }
 
-    // Skip certain paths
-    if (SKIP_PATHS.some((path) => c.req.path.startsWith(path))) {
-      return next()
-    }
+      const url = new URL(request.url)
+      const path = url.pathname
 
-    // Skip GET requests on public read paths
-    if (c.req.method === 'GET' && c.req.path.startsWith('/storage/')) {
-      return next()
-    }
+      // Skip certain paths
+      if (SKIP_PATHS.some((skipPath) => path.startsWith(skipPath))) {
+        return
+      }
 
-    // Extract address from various sources
-    let address = c.req.header('x-wallet-address') || c.req.query('address')
+      // Skip GET requests on public read paths
+      if (request.method === 'GET' && path.startsWith('/storage/')) {
+        return
+      }
 
-    if (!address) {
-      // Try to get from JSON body for POST/PUT/DELETE
-      if (['POST', 'PUT', 'DELETE'].includes(c.req.method)) {
-        const contentType = c.req.header('content-type') || ''
-        if (contentType.includes('application/json')) {
-          const rawBody = await c.req.json().catch(() => ({}))
-          const parsed = AddressFieldsSchema.safeParse(rawBody)
-          if (parsed.success) {
-            const body = parsed.data
-            address = body.address || body.from || body.sender || body.owner
+      // Extract address from various sources
+      let address =
+        request.headers.get('x-wallet-address') ??
+        url.searchParams.get('address')
+
+      if (!address) {
+        // Try to get from JSON body for POST/PUT/DELETE
+        if (['POST', 'PUT', 'DELETE'].includes(request.method)) {
+          const contentType = request.headers.get('content-type') ?? ''
+          if (contentType.includes('application/json')) {
+            const clonedRequest = request.clone()
+            const rawBody = await clonedRequest.json().catch(() => ({}))
+            const parsed = AddressFieldsSchema.safeParse(rawBody)
+            if (parsed.success) {
+              const body = parsed.data
+              address =
+                body.address ?? body.from ?? body.sender ?? body.owner ?? null
+            }
           }
         }
       }
-    }
 
-    // No address to check - allow through
-    if (!address) {
-      return next()
-    }
+      // No address to check - allow through
+      if (!address) {
+        return
+      }
 
-    // Validate address format
-    if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
-      return next()
-    }
+      // Validate address format
+      if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
+        return
+      }
 
-    const result = await checker.checkBan(address as Address)
+      const result = await checker.checkBan(address as Address)
 
-    if (!result.allowed) {
-      return c.json(
-        {
+      if (!result.allowed) {
+        set.status = 403
+        return {
           error: 'BANNED',
           message: result.status?.reason || 'User is banned from DWS services',
           banType: result.status?.banType,
           caseId: result.status?.caseId,
           canAppeal: result.status?.canAppeal,
-        },
-        403,
-      )
-    }
+        }
+      }
 
-    return next()
-  }
+      return undefined
+    },
+  )
 }
 
 /**

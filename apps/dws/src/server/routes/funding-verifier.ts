@@ -9,11 +9,10 @@
  * This is the CRITICAL integration point between OAuth3 and funding.
  */
 
-import type { Context } from 'hono'
-import { Hono } from 'hono'
+import { expectValid } from '@jejunetwork/types'
+import { Elysia } from 'elysia'
 import {
   type Address,
-  createPublicClient,
   createWalletClient,
   type Hex,
   http,
@@ -27,7 +26,6 @@ import {
   verifyRepoRequestSchema,
   verifySocialRequestSchema,
 } from '../../shared/schemas'
-import { expectValid } from '../../shared/validation'
 
 // Schemas for external API responses
 const GitHubRepoPermissionsSchema = z.object({
@@ -40,9 +38,7 @@ const GitHubRepoPermissionsSchema = z.object({
 })
 
 const NpmPackageSchema = z.object({
-  maintainers: z
-    .array(z.object({ name: z.string() }))
-    .optional(),
+  maintainers: z.array(z.object({ name: z.string() })).optional(),
 })
 
 // ============ ABI ============
@@ -296,8 +292,11 @@ async function verifyNpmMaintainer(
 
 // ============ Router ============
 
-export function createFundingVerifierRouter(): Hono {
-  const router = new Hono()
+export function createFundingVerifierRouter() {
+  const router = new Elysia({
+    name: 'funding-verifier',
+    prefix: '/funding-verifier',
+  })
 
   const rpcUrl = process.env.RPC_URL || 'http://127.0.0.1:6546'
   const verifierKey = process.env.VERIFIER_PRIVATE_KEY
@@ -310,8 +309,6 @@ export function createFundingVerifierRouter(): Hono {
     )
   }
 
-  const _publicClient = createPublicClient({ transport: http(rpcUrl) })
-
   const getWalletClient = () => {
     if (!verifierKey) throw new Error('Verifier key not configured')
     const account = privateKeyToAccount(verifierKey as Hex)
@@ -323,16 +320,17 @@ export function createFundingVerifierRouter(): Hono {
 
   // ============ Social Link Verification ============
 
-  router.post('/verify-social', async (c: Context) => {
-    const body = expectValid(
+  router.post('/verify-social', async ({ body, set }) => {
+    const validated = expectValid(
       verifySocialRequestSchema,
-      await c.req.json(),
+      body,
       'Verify social request',
     )
-    const { contributorId, platform, handle, oauthToken } = body
+    const { contributorId, platform, handle, oauthToken } = validated
 
     if (!verifierKey) {
-      return c.json({ error: 'Verification service not configured' }, 503)
+      set.status = 503
+      return { error: 'Verification service not configured' }
     }
 
     let verified = false
@@ -350,11 +348,12 @@ export function createFundingVerifierRouter(): Hono {
       }
       // Add other platforms as needed
       default:
-        return c.json({ error: `Unsupported platform: ${platform}` }, 400)
+        set.status = 400
+        return { error: `Unsupported platform: ${platform}` }
     }
 
     if (!verified) {
-      return c.json({ verified: false, error })
+      return { verified: false, error }
     }
 
     // Call contract to verify
@@ -375,21 +374,22 @@ export function createFundingVerifierRouter(): Hono {
       args: [contributorId as Hex, platformHash, proofHash],
     })
 
-    return c.json({ verified: true, proofHash, txHash: hash })
+    return { verified: true, proofHash, txHash: hash }
   })
 
   // ============ Repository Verification ============
 
-  router.post('/verify-repo', async (c: Context) => {
-    const body = expectValid(
+  router.post('/verify-repo', async ({ body, set }) => {
+    const validated = expectValid(
       verifyRepoRequestSchema,
-      await c.req.json(),
+      body,
       'Verify repository request',
     )
-    const { claimId, owner, repo, oauthToken } = body
+    const { claimId, owner, repo, oauthToken } = validated
 
     if (!verifierKey) {
-      return c.json({ error: 'Verification service not configured' }, 503)
+      set.status = 503
+      return { error: 'Verification service not configured' }
     }
 
     // Get user from token
@@ -401,12 +401,12 @@ export function createFundingVerifierRouter(): Hono {
     })
 
     if (!userResponse.ok) {
-      return c.json({ verified: false, error: 'Invalid GitHub token' })
+      return { verified: false, error: 'Invalid GitHub token' }
     }
 
     const userResult = GitHubUserSchema.safeParse(await userResponse.json())
     if (!userResult.success) {
-      return c.json({ verified: false, error: 'Invalid GitHub response' })
+      return { verified: false, error: 'Invalid GitHub response' }
     }
     const user = userResult.data
 
@@ -418,7 +418,7 @@ export function createFundingVerifierRouter(): Hono {
     )
 
     if (!result.verified) {
-      return c.json({ verified: false, error: result.error })
+      return { verified: false, error: result.error }
     }
 
     const walletClient = getWalletClient()
@@ -429,21 +429,22 @@ export function createFundingVerifierRouter(): Hono {
       args: [claimId as Hex, result.proofHash],
     })
 
-    return c.json({ verified: true, proofHash: result.proofHash, txHash: hash })
+    return { verified: true, proofHash: result.proofHash, txHash: hash }
   })
 
   // ============ Dependency Verification ============
 
-  router.post('/verify-dependency', async (c: Context) => {
-    const body = expectValid(
+  router.post('/verify-dependency', async ({ body, set }) => {
+    const validated = expectValid(
       verifyDependencyRequestSchema,
-      await c.req.json(),
+      body,
       'Verify dependency request',
     )
-    const { claimId, packageName, registryType, oauthToken } = body
+    const { claimId, packageName, registryType, oauthToken } = validated
 
     if (!verifierKey) {
-      return c.json({ error: 'Verification service not configured' }, 503)
+      set.status = 503
+      return { error: 'Verification service not configured' }
     }
 
     let verified = false
@@ -459,12 +460,12 @@ export function createFundingVerifierRouter(): Hono {
     })
 
     if (!userResponse.ok) {
-      return c.json({ verified: false, error: 'Invalid GitHub token' })
+      return { verified: false, error: 'Invalid GitHub token' }
     }
 
     const userResult = GitHubUserSchema.safeParse(await userResponse.json())
     if (!userResult.success) {
-      return c.json({ verified: false, error: 'Invalid GitHub response' })
+      return { verified: false, error: 'Invalid GitHub response' }
     }
     const user = userResult.data
 
@@ -482,11 +483,12 @@ export function createFundingVerifierRouter(): Hono {
       }
       // Add other registries (pypi, cargo, go) as needed
       default:
-        return c.json({ error: `Unsupported registry: ${registryType}` }, 400)
+        set.status = 400
+        return { error: `Unsupported registry: ${registryType}` }
     }
 
     if (!verified) {
-      return c.json({ verified: false, error })
+      return { verified: false, error }
     }
 
     const walletClient = getWalletClient()
@@ -497,17 +499,18 @@ export function createFundingVerifierRouter(): Hono {
       args: [claimId as Hex, proofHash],
     })
 
-    return c.json({ verified: true, proofHash, txHash: hash })
+    return { verified: true, proofHash, txHash: hash }
   })
 
   // ============ OAuth Callback (for GitHub) ============
 
-  router.get('/oauth/github/callback', async (c: Context) => {
-    const code = c.req.query('code')
-    const state = c.req.query('state') // Contains contributorId and platform
+  router.get('/oauth/github/callback', async ({ query, set }) => {
+    const code = query.code
+    const state = query.state // Contains contributorId and platform
 
     if (!code) {
-      return c.json({ error: 'No authorization code' }, 400)
+      set.status = 400
+      return { error: 'No authorization code' }
     }
 
     // Exchange code for token
@@ -515,7 +518,8 @@ export function createFundingVerifierRouter(): Hono {
     const clientSecret = process.env.GITHUB_CLIENT_SECRET
 
     if (!clientId || !clientSecret) {
-      return c.json({ error: 'GitHub OAuth not configured' }, 503)
+      set.status = 503
+      return { error: 'GitHub OAuth not configured' }
     }
 
     const tokenResponse = await fetch(
@@ -538,14 +542,18 @@ export function createFundingVerifierRouter(): Hono {
       access_token: z.string().optional(),
       error: z.string().optional(),
     })
-    const tokenResult = TokenResponseSchema.safeParse(await tokenResponse.json())
+    const tokenResult = TokenResponseSchema.safeParse(
+      await tokenResponse.json(),
+    )
     if (!tokenResult.success) {
-      return c.json({ error: 'Invalid token response' }, 400)
+      set.status = 400
+      return { error: 'Invalid token response' }
     }
     const tokenData = tokenResult.data
 
     if (!tokenData.access_token) {
-      return c.json({ error: tokenData.error || 'Token exchange failed' }, 400)
+      set.status = 400
+      return { error: tokenData.error || 'Token exchange failed' }
     }
 
     // Parse state
@@ -557,7 +565,8 @@ export function createFundingVerifierRouter(): Hono {
     try {
       parsedState = JSON.parse(Buffer.from(state || '', 'base64').toString())
     } catch {
-      return c.json({ error: 'Invalid state' }, 400)
+      set.status = 400
+      return { error: 'Invalid state' }
     }
 
     // Redirect back to frontend with token
@@ -571,17 +580,18 @@ export function createFundingVerifierRouter(): Hono {
     redirectUrl.searchParams.set('platform', parsedState?.platform || '')
     redirectUrl.searchParams.set('type', parsedState?.type || 'social')
 
-    return c.redirect(redirectUrl.toString())
+    set.redirect = redirectUrl.toString()
+    return
   })
 
   // ============ Health Check ============
 
-  router.get('/health', (c: Context) => {
-    return c.json({
+  router.get('/health', () => {
+    return {
       status: verifierKey ? 'ok' : 'degraded',
       verifierConfigured: !!verifierKey,
       registryAddress: contributorRegistryAddress,
-    })
+    }
   })
 
   return router

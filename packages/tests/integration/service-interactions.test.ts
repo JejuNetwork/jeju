@@ -31,16 +31,10 @@
 import { beforeAll, describe, expect, it } from 'bun:test'
 import { createPublicClient, createWalletClient, http, parseEther } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import {
-  APP_URLS,
-  JEJU_LOCALNET,
-  TEST_WALLETS,
-  TIMEOUTS,
-} from '../shared/constants'
+import { APP_URLS, JEJU_LOCALNET, TEST_WALLETS } from '../shared/constants'
 
-const _RPC_URL = JEJU_LOCALNET.rpcUrl
+const RPC_URL = JEJU_LOCALNET.rpcUrl
 const GRAPHQL_URL = APP_URLS.indexerGraphQL
-const _TIMEOUT = TIMEOUTS.indexerSync
 
 /**
  * Helper: Query GraphQL endpoint

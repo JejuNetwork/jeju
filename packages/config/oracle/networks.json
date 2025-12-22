@@ -109,37 +109,8 @@
         "token1Decimals": 6
       }
     },
-    "chainlinkFeeds": {
-      "ethereum": {
-        "ETH-USD": "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419",
-        "BTC-USD": "0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c",
-        "USDC-USD": "0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6",
-        "LINK-USD": "0x2c1d072e956AFFC0D435Cb7AC38EF18d24d9127c",
-        "DAI-USD": "0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9"
-      },
-      "arbitrum": {
-        "ETH-USD": "0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612",
-        "BTC-USD": "0x6ce185860a4963106506C203335A73A3d3fA5F8F",
-        "ARB-USD": "0xb2A824043730FE05F3DA2efaFa1CBbe83fa548D6"
-      },
-      "optimism": {
-        "ETH-USD": "0x13e3Ee699D1909E989722E753853AE30b17e08c5",
-        "OP-USD": "0x0D276FC14719f9292D5C1eA2198673d1f4269246"
-      },
-      "polygon": {
-        "ETH-USD": "0xF9680D99D6C9589e2a93a78A04A279e509205945",
-        "MATIC-USD": "0xAB594600376Ec9fD91F8e885dADF0CE036862dE0"
-      },
-      "bsc": {
-        "ETH-USD": "0x9ef1B8c0E4F7dc8bF5719Ea496883DC6401d5b2e",
-        "BNB-USD": "0x0567F2323251f0Aab15c8dFb1967E4e8A7D42aeE"
-      },
-      "avalanche": {
-        "ETH-USD": "0x976B3D034E162d8bD72D6b9C989d545b839003b0",
-        "AVAX-USD": "0x0A77230d17318075983913bC2145DB16C7366156"
-      }
-    },
     "settings": {
+      "_note": "Chainlink feed addresses are in chainlink/feeds.json",
       "pollIntervalMs": 60000,
       "heartbeatIntervalMs": 300000,
       "metricsPort": 9090,

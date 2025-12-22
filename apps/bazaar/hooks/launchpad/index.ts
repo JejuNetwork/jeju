@@ -1,7 +1,5 @@
-// Hook exports
+// Launchpad hook exports
 
-// Re-export useful utilities and presets from lib
-// Formatting utilities from lib (formatPrice excluded to avoid conflict with tfmm/useTFMMOracles)
 export {
   calculateBuyPriceImpact,
   calculateEthOut,

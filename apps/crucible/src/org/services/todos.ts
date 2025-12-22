@@ -2,7 +2,8 @@
  * Todo Service - Manages todos with IPFS storage.
  */
 
-import type { OrgState, Todo, TodoPriority, TodoStatus } from '../types'
+import type { TodoStatus } from '@jejunetwork/types'
+import type { OrgState, Todo, TodoPriority } from '../types'
 import type { OrgStorage } from './storage'
 
 export interface CreateTodoParams {

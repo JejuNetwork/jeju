@@ -21,7 +21,6 @@ import { formatEther } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
 import { createNodeClient } from '../lib/contracts'
-import { JsonRpcResultResponseSchema } from '../validation'
 import type { ServiceRequirements } from '../lib/hardware'
 import {
   convertHardwareToCamelCase,
@@ -30,6 +29,7 @@ import {
   meetsRequirements,
 } from '../lib/hardware'
 import { createNodeServices } from '../lib/services'
+import { JsonRpcResultResponseSchema } from '../validation'
 
 // ============================================================================
 // Types & Validation
@@ -854,7 +854,6 @@ ${chalk.bold('Quick Start:')}
     }
     const config = loadConfig()
     config.privateKey = normalizedKey
-    const { privateKeyToAccount } = await import('viem/accounts')
     config.walletAddress = privateKeyToAccount(
       normalizedKey as `0x${string}`,
     ).address

@@ -1,5 +1,3 @@
-'use client'
-
 import { AlertTriangle, Award, Shield, Zap } from 'lucide-react'
 import type { Address } from 'viem'
 import { useReadContract } from 'wagmi'

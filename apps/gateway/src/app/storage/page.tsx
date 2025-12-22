@@ -1,5 +1,3 @@
-'use client'
-
 import {
   Clock,
   DollarSign,
@@ -394,7 +392,7 @@ function FundingSection() {
             type="button"
             className="w-full py-3 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200"
           >
-            Deposit elizaOS
+            Deposit JEJU
           </button>
         </div>
       </div>

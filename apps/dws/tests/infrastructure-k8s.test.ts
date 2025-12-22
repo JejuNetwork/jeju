@@ -628,7 +628,7 @@ describe('Service Mesh', () => {
       }),
     })
 
-    expect(res.status).toBe(200)
+    expect(res.status).toBe(201)
   })
 
   test('get service backends', async () => {

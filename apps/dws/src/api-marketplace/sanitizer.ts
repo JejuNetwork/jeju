@@ -213,8 +213,9 @@ export function sanitizeResponse(
   headers: Record<string, string>,
   config: SanitizationConfig,
 ): { body: JSONValue | null; headers: Record<string, string> } {
+  const sanitizedBody = sanitizeObject(body, config)
   return {
-    body: sanitizeObject(body, config),
+    body: sanitizedBody ?? null,
     headers: sanitizeHeaders(headers, config),
   }
 }

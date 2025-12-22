@@ -1,9 +1,5 @@
-import type {
-  JsonValue,
-  PinInfo,
-  UploadOptions,
-  UploadResult,
-} from '@jejunetwork/sdk'
+import type { PinInfo, UploadOptions, UploadResult } from '@jejunetwork/sdk'
+import type { JsonValue } from '@jejunetwork/types'
 import { useCallback } from 'react'
 import type { ZodSchema } from 'zod'
 import { useNetworkContext } from '../context'

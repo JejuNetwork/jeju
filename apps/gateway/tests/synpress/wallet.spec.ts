@@ -102,10 +102,7 @@ test.describe('Token Balance Display', () => {
     await metamask.connectToDapp()
     await page.waitForTimeout(3000)
 
-    await expect(page.getByText('elizaOS')).toBeVisible()
-    await expect(page.getByText('CLANKER')).toBeVisible()
-    await expect(page.getByText('VIRTUAL')).toBeVisible()
-    await expect(page.getByText('CLANKERMON')).toBeVisible()
+    await expect(page.getByText('JEJU')).toBeVisible()
 
     await page.screenshot({
       path: 'test-results/screenshots/token-balances.png',
@@ -156,9 +153,7 @@ test.describe('Token Balance Display', () => {
     await metamask.connectToDapp()
     await page.waitForTimeout(3000)
 
-    const images = page.locator(
-      'img[alt*="elizaOS"], img[alt*="CLANKER"], img[alt*="VIRTUAL"], img[alt*="CLANKERMON"]',
-    )
+    const images = page.locator('img[alt*="JEJU"]')
     const imageCount = await images.count()
     expect(imageCount).toBeGreaterThanOrEqual(1)
   })

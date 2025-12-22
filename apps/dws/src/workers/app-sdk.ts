@@ -1,7 +1,7 @@
 /**
  * DWS App SDK
  *
- * Enables Jeju apps (Elysia/Hono backends) to run as workerd workers
+ * Enables Jeju apps (Elysia backends) to run as workerd workers
  * through the DWS network. Provides:
  *
  * - Unified deployment interface for all apps
@@ -16,16 +16,16 @@
  * const app = new DWSApp({
  *   name: 'autocrat',
  *   port: 8010,
- *   handler: elysiaApp.fetch, // or honoApp.fetch
+ *   handler: elysiaApp.fetch,
  * })
  *
  * await app.start()
  * ```
  */
 
-import type { Hono } from 'hono'
+import { CORE_PORTS } from '@jejunetwork/config/ports'
 import { getRegionConfig } from './tee/regions'
-import { createSecretManager, type TEESecretManager } from './tee/secrets'
+import { createSecretManager, TEESecretManager } from './tee/secrets'
 import type { NetworkEnvironment, RegionId, TEEPlatform } from './tee/types'
 
 // ============================================================================
@@ -39,7 +39,7 @@ export interface DWSAppConfig {
   name: string
   /** Port to listen on locally */
   port: number
-  /** The app's fetch handler (from Elysia or Hono) */
+  /** The app's fetch handler (from Elysia) */
   handler: FetchHandler
   /** App description */
   description?: string
@@ -300,11 +300,8 @@ export class DWSApp {
       const envValue = process.env[secretName]
       if (envValue) {
         // Store encrypted (simulated)
-        // Dynamic import: only needed when secret value exists (conditional check)
         const publicKey = this.secretManager.getEnclavePublicKey()
-        const encrypted = (
-          await import('./tee/secrets')
-        ).TEESecretManager.encryptSecret(envValue, publicKey)
+        const encrypted = TEESecretManager.encryptSecret(envValue, publicKey)
         encrypted.name = secretName
 
         await this.secretManager.storeSecret(
@@ -384,77 +381,75 @@ export function createDWSAppFromElysia(
 }
 
 // ============================================================================
-// Helper: Create DWS App from Hono
-// ============================================================================
-
-export function createDWSAppFromHono(
-  hono: Hono,
-  config: Omit<DWSAppConfig, 'handler'>,
-): DWSApp {
-  return new DWSApp({
-    ...config,
-    handler: hono.fetch,
-  })
-}
-
-// ============================================================================
 // Registry of all Jeju apps
 // ============================================================================
 
 export const JEJU_APPS = {
   autocrat: {
     name: 'autocrat',
-    port: 8010,
+    port: CORE_PORTS.AUTOCRAT_API.get(),
     description: 'AI-powered DAO governance',
     secrets: ['PRIVATE_KEY', 'OPENAI_API_KEY'],
   },
   bazaar: {
     name: 'bazaar',
-    port: 4000,
+    port: CORE_PORTS.BAZAAR.get(),
     description: 'Token marketplace and trading',
     secrets: ['PRIVATE_KEY'],
   },
   crucible: {
     name: 'crucible',
-    port: 4001,
+    port: CORE_PORTS.CRUCIBLE_API.get(),
     description: 'Agent runtime and coordination',
     secrets: ['PRIVATE_KEY', 'OPENAI_API_KEY'],
   },
   factory: {
     name: 'factory',
-    port: 4009,
+    port: CORE_PORTS.FACTORY.get(),
     description: 'Developer hub and bounties',
     secrets: ['GITHUB_TOKEN'],
   },
   gateway: {
     name: 'gateway',
-    port: 4010,
+    port: CORE_PORTS.GATEWAY.get(),
     description: 'RPC gateway and x402 payments',
     secrets: ['PRIVATE_KEY'],
   },
   dws: {
     name: 'dws',
-    port: 4030,
+    port: CORE_PORTS.DWS_API.get(),
     description: 'Decentralized web services',
     secrets: ['PRIVATE_KEY'],
   },
   indexer: {
     name: 'indexer',
-    port: 4020,
+    port: CORE_PORTS.INDEXER_GRAPHQL.get(),
     description: 'Blockchain indexer',
     secrets: ['DATABASE_URL'],
   },
   otto: {
     name: 'otto',
-    port: 4002,
+    port: CORE_PORTS.OTTO_API.get(),
     description: 'Automation service',
     secrets: ['PRIVATE_KEY'],
   },
   monitoring: {
     name: 'monitoring',
-    port: 3002,
+    port: CORE_PORTS.MONITORING.get(),
     description: 'Infrastructure monitoring',
     secrets: [],
+  },
+  'babylon-web': {
+    name: 'babylon-web',
+    port: CORE_PORTS.BABYLON_WEB.get(),
+    description: 'Social prediction platform frontend',
+    secrets: [],
+  },
+  'babylon-api': {
+    name: 'babylon-api',
+    port: CORE_PORTS.BABYLON_API.get(),
+    description: 'Social prediction platform API',
+    secrets: ['DATABASE_URL', 'OPENAI_API_KEY'],
   },
 } as const
 

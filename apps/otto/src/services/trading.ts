@@ -3,6 +3,8 @@
  * Handles all trading operations: swaps, bridges, token launches, etc.
  */
 
+import { getCoreAppUrl } from '@jejunetwork/config/ports'
+import { expectValid } from '@jejunetwork/types'
 import { type Address, formatUnits, type Hex, parseUnits } from 'viem'
 import { DEFAULT_CHAIN_ID, DEFAULT_SLIPPAGE_BPS, getChainName } from '../config'
 import {
@@ -18,7 +20,6 @@ import {
   ExternalTokenInfoResponseSchema,
   ExternalTokenLaunchResponseSchema,
   ExternalTransferResponseSchema,
-  expectValid,
   LimitOrderSchema,
   OttoUserSchema,
   SwapParamsSchema,
@@ -46,15 +47,15 @@ import type {
 import { getRequiredEnv } from '../utils/validation'
 
 function getBazaarApi(): string {
-  return getRequiredEnv('BAZAAR_API_URL', 'http://localhost:3001')
+  return getRequiredEnv('BAZAAR_API_URL', getCoreAppUrl('BAZAAR'))
 }
 
 function getGatewayApi(): string {
-  return getRequiredEnv('GATEWAY_API_URL', 'http://localhost:4003')
+  return getRequiredEnv('GATEWAY_API_URL', getCoreAppUrl('NODE_EXPLORER_UI'))
 }
 
 function getIndexerApi(): string {
-  return getRequiredEnv('INDEXER_API_URL', 'http://localhost:4350')
+  return getRequiredEnv('INDEXER_API_URL', getCoreAppUrl('INDEXER_GRAPHQL'))
 }
 
 // Bounded limits to prevent memory exhaustion

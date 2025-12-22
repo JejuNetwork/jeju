@@ -1400,7 +1400,7 @@ describe('Integration', () => {
 // Metrics Tests
 // ============================================================================
 
-import { PoCMetrics } from '../metrics'
+import { getPoCMetrics, PoCMetrics } from '../metrics'
 
 describe('Metrics', () => {
   test('records verification request', () => {
@@ -2105,9 +2105,7 @@ describe('Metrics Server', () => {
     // No error should be thrown
   })
 
-  test('getPoCMetrics returns singleton', async () => {
-    const { getPoCMetrics } = await import('../metrics')
-
+  test('getPoCMetrics returns singleton', () => {
     const m1 = getPoCMetrics(0)
     const m2 = getPoCMetrics(0)
 

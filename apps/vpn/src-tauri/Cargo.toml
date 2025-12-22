@@ -10,10 +10,10 @@ name = "jeju_vpn_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-tauri-build = { version = "2", features = [] }
+tauri-build = { version = "1", features = [] }
 
 [dependencies]
-tauri = { version = "1.6", features = ["system-tray"] }
+tauri = { version = "1", features = ["system-tray", "os-all", "process-all", "shell-open", "window-all"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["full"] }
@@ -45,8 +45,8 @@ hickory-resolver = "0.24"
 # Crypto
 base64 = "0.22"
 rand = "0.8"
-x25519-dalek = { version = "2", features = ["static_secrets"] }
 hex = "0.4"
+# Note: x25519-dalek is provided by boringtun
 
 # Ethereum
 alloy = { version = "0.1", features = ["full"] }

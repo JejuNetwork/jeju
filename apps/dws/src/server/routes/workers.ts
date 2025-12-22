@@ -4,21 +4,8 @@
  */
 
 import { expectJson } from '@jejunetwork/types'
-import { Hono } from 'hono'
-import {
-  contentTypeHeaderSchema,
-  jejuAddressHeaderSchema,
-  validateBody,
-  validateHeaders,
-  validateParams,
-  validateQuery,
-  z,
-} from '../../shared'
-import {
-  deployWorkerRequestSchema,
-  invokeWorkerRequestSchema,
-  workerParamsSchema,
-} from '../../shared/schemas/workers'
+import { Elysia, t } from 'elysia'
+import { z } from 'zod'
 import type { BackendManager } from '../../storage/backends'
 import { WorkerRuntime } from '../../workers/runtime'
 import type {
@@ -30,348 +17,470 @@ import type {
 
 const EnvRecordSchema = z.record(z.string(), z.string())
 
-export function createWorkersRouter(backend: BackendManager): Hono {
-  const router = new Hono()
+export function createWorkersRouter(backend: BackendManager): Elysia {
   const runtime = new WorkerRuntime(backend)
 
-  // Health check
-  router.get('/health', (c) => {
-    const stats = runtime.getStats()
-    return c.json({
-      status: 'healthy',
-      service: 'dws-workers',
-      ...stats,
-    })
-  })
-
-  // ============================================================================
-  // Function Management
-  // ============================================================================
-
-  // Deploy function
-  router.post('/', async (c) => {
-    const { 'x-jeju-address': owner } = validateHeaders(
-      jejuAddressHeaderSchema,
-      c,
-    )
-    const { 'content-type': contentType } = validateHeaders(
-      contentTypeHeaderSchema,
-      c,
-    )
-    let params: DeployParams
-
-    if (contentType?.includes('multipart/form-data')) {
-      const formData = await c.req.formData()
-      const codeFile = formData.get('code')
-      if (!(codeFile instanceof File)) {
-        return c.json({ error: 'Code file required' }, 400)
+  const router = new Elysia({ name: 'workers', prefix: '/workers' })
+    // Health check
+    .get('/health', () => {
+      const stats = runtime.getStats()
+      return {
+        status: 'healthy',
+        service: 'dws-workers',
+        ...stats,
       }
-
-      params = {
-        name: formData.get('name') as string,
-        runtime: (formData.get('runtime') as RuntimeType) ?? 'bun',
-        handler: (formData.get('handler') as string) ?? 'index.handler',
-        code: Buffer.from(await codeFile.arrayBuffer()),
-        memory: parseInt(formData.get('memory') as string, 10) || 256,
-        timeout: parseInt(formData.get('timeout') as string, 10) || 30000,
-        env: expectJson(
-          (formData.get('env') as string) || '{}',
-          EnvRecordSchema,
-          'worker env',
-        ),
-      }
-    } else {
-      const body = await validateBody(deployWorkerRequestSchema, c)
-      params = {
-        ...body,
-        code:
-          typeof body.code === 'string'
-            ? Buffer.from(body.code, 'base64')
-            : body.code instanceof ArrayBuffer
-              ? Buffer.from(body.code)
-              : (body.code ?? Buffer.alloc(0)),
-      }
-    }
-
-    if (!params.name) {
-      throw new Error('Function name required')
-    }
-
-    // Upload code to storage
-    const codeBuffer =
-      params.code instanceof Buffer ? params.code : Buffer.from(params.code)
-    const uploadResult = await backend.upload(codeBuffer, {
-      filename: `${params.name}.js`,
     })
 
-    const functionId = crypto.randomUUID()
-    const fn: WorkerFunction = {
-      id: functionId,
-      name: params.name,
-      owner,
-      runtime: params.runtime ?? 'bun',
-      handler: params.handler ?? 'index.handler',
-      codeCid: uploadResult.cid,
-      memory: params.memory ?? 256,
-      timeout: params.timeout ?? 30000,
-      env: params.env ?? {},
-      status: 'active',
-      version: 1,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      invocationCount: 0,
-      avgDurationMs: 0,
-      errorCount: 0,
-    }
+    // ============================================================================
+    // Function Management
+    // ============================================================================
 
-    await runtime.deployFunction(fn)
+    // Deploy function
+    .post(
+      '/',
+      async ({ headers, body, set }) => {
+        const owner = headers['x-jeju-address']
+        if (!owner) {
+          set.status = 401
+          return { error: 'x-jeju-address header required' }
+        }
 
-    return c.json(
-      {
-        functionId: fn.id,
-        name: fn.name,
-        codeCid: fn.codeCid,
-        status: fn.status,
+        const contentType = headers['content-type'] || ''
+        let params: DeployParams
+
+        if (contentType.includes('multipart/form-data')) {
+          // Handle form data - but Elysia doesn't auto-parse this yet
+          // For multipart, the body comes as FormData
+          const formData = body as FormData
+          const codeFile = formData.get('code')
+          if (!(codeFile instanceof File)) {
+            set.status = 400
+            return { error: 'Code file required' }
+          }
+
+          params = {
+            name: formData.get('name') as string,
+            runtime: (formData.get('runtime') as RuntimeType) ?? 'bun',
+            handler: (formData.get('handler') as string) ?? 'index.handler',
+            code: Buffer.from(await codeFile.arrayBuffer()),
+            memory: parseInt(formData.get('memory') as string, 10) || 256,
+            timeout: parseInt(formData.get('timeout') as string, 10) || 30000,
+            env: expectJson(
+              (formData.get('env') as string) || '{}',
+              EnvRecordSchema,
+              'worker env',
+            ),
+          }
+        } else {
+          const jsonBody = body as {
+            name?: string
+            runtime?: RuntimeType
+            handler?: string
+            code?: string | ArrayBuffer
+            memory?: number
+            timeout?: number
+            env?: Record<string, string>
+          }
+          params = {
+            name: jsonBody.name,
+            runtime: jsonBody.runtime,
+            handler: jsonBody.handler,
+            code:
+              typeof jsonBody.code === 'string'
+                ? Buffer.from(jsonBody.code, 'base64')
+                : jsonBody.code instanceof ArrayBuffer
+                  ? Buffer.from(jsonBody.code)
+                  : (jsonBody.code ?? Buffer.alloc(0)),
+            memory: jsonBody.memory,
+            timeout: jsonBody.timeout,
+            env: jsonBody.env,
+          }
+        }
+
+        if (!params.name) {
+          set.status = 400
+          return { error: 'Function name required' }
+        }
+
+        // Upload code to storage
+        const codeBuffer =
+          params.code instanceof Buffer ? params.code : Buffer.from(params.code)
+        const uploadResult = await backend.upload(codeBuffer, {
+          filename: `${params.name}.js`,
+        })
+
+        const functionId = crypto.randomUUID()
+        const fn: WorkerFunction = {
+          id: functionId,
+          name: params.name,
+          owner,
+          runtime: params.runtime ?? 'bun',
+          handler: params.handler ?? 'index.handler',
+          codeCid: uploadResult.cid,
+          memory: params.memory ?? 256,
+          timeout: params.timeout ?? 30000,
+          env: params.env ?? {},
+          status: 'active',
+          version: 1,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          invocationCount: 0,
+          avgDurationMs: 0,
+          errorCount: 0,
+        }
+
+        await runtime.deployFunction(fn)
+
+        set.status = 201
+        return {
+          functionId: fn.id,
+          name: fn.name,
+          codeCid: fn.codeCid,
+          status: fn.status,
+        }
       },
-      201,
-    )
-  })
-
-  // List functions
-  router.get('/', (c) => {
-    const owner = c.req.header('x-jeju-address')
-    let functions = runtime.listFunctions()
-
-    if (owner) {
-      functions = functions.filter(
-        (f) => f.owner.toLowerCase() === owner.toLowerCase(),
-      )
-    }
-
-    return c.json({
-      functions: functions.map((f) => ({
-        id: f.id,
-        name: f.name,
-        runtime: f.runtime,
-        memory: f.memory,
-        timeout: f.timeout,
-        status: f.status,
-        version: f.version,
-        invocationCount: f.invocationCount,
-        avgDurationMs: f.avgDurationMs,
-        createdAt: f.createdAt,
-        updatedAt: f.updatedAt,
-      })),
-    })
-  })
-
-  // Get function
-  router.get('/:functionId', (c) => {
-    const { functionId } = validateParams(workerParamsSchema, c)
-    const fn = runtime.getFunction(functionId)
-    if (!fn) {
-      throw new Error('Function not found')
-    }
-
-    return c.json({
-      ...fn,
-      metrics: runtime.getMetrics(fn.id),
-    })
-  })
-
-  // Update function
-  router.put('/:functionId', async (c) => {
-    const { 'x-jeju-address': owner } = validateHeaders(
-      jejuAddressHeaderSchema,
-      c,
-    )
-    const { functionId } = validateParams(workerParamsSchema, c)
-    const fn = runtime.getFunction(functionId)
-
-    if (!fn) {
-      throw new Error('Function not found')
-    }
-
-    if (fn.owner.toLowerCase() !== owner.toLowerCase()) {
-      throw new Error('Not authorized')
-    }
-
-    const updates = await validateBody(deployWorkerRequestSchema.partial(), c)
-
-    // If code is updated, upload new version
-    if (updates.code) {
-      const codeBuffer =
-        typeof updates.code === 'string'
-          ? Buffer.from(updates.code, 'base64')
-          : Buffer.isBuffer(updates.code)
-            ? updates.code
-            : Buffer.from(new Uint8Array(updates.code as ArrayBuffer))
-
-      const uploadResult = await backend.upload(codeBuffer, {
-        filename: `${fn.name}.js`,
-      })
-
-      fn.codeCid = uploadResult.cid
-      fn.version++
-    }
-
-    if (updates.memory) fn.memory = updates.memory
-    if (updates.timeout) fn.timeout = updates.timeout
-    if (updates.env) fn.env = { ...fn.env, ...updates.env }
-    if (updates.handler) fn.handler = updates.handler
-    fn.updatedAt = Date.now()
-
-    // Redeploy
-    await runtime.undeployFunction(fn.id)
-    await runtime.deployFunction(fn)
-
-    return c.json({ success: true, version: fn.version })
-  })
-
-  // Delete function
-  router.delete('/:functionId', async (c) => {
-    const { 'x-jeju-address': owner } = validateHeaders(
-      jejuAddressHeaderSchema,
-      c,
-    )
-    const { functionId } = validateParams(workerParamsSchema, c)
-    const fn = runtime.getFunction(functionId)
-
-    if (!fn) {
-      throw new Error('Function not found')
-    }
-
-    if (fn.owner.toLowerCase() !== owner.toLowerCase()) {
-      throw new Error('Not authorized')
-    }
-
-    await runtime.undeployFunction(fn.id)
-    return c.json({ success: true })
-  })
-
-  // ============================================================================
-  // Invocation
-  // ============================================================================
-
-  // Synchronous invocation
-  router.post('/:functionId/invoke', async (c) => {
-    const { functionId } = validateParams(workerParamsSchema, c)
-    const fn = runtime.getFunction(functionId)
-    if (!fn) {
-      throw new Error('Function not found')
-    }
-
-    const { payload } = await validateBody(invokeWorkerRequestSchema, c)
-
-    const result = await runtime.invoke({
-      functionId: fn.id,
-      payload,
-      type: 'sync',
-    })
-
-    return c.json(result)
-  })
-
-  // Async invocation (fire and forget)
-  router.post('/:functionId/invoke-async', async (c) => {
-    const { functionId } = validateParams(workerParamsSchema, c)
-    const fn = runtime.getFunction(functionId)
-    if (!fn) {
-      throw new Error('Function not found')
-    }
-
-    const { payload } = await validateBody(invokeWorkerRequestSchema, c)
-
-    // Start invocation but don't wait
-    runtime
-      .invoke({
-        functionId: fn.id,
-        payload,
-        type: 'async',
-      })
-      .catch(console.error)
-
-    return c.json(
       {
-        status: 'accepted',
-        functionId: fn.id,
+        headers: t.Object({
+          'x-jeju-address': t.Optional(t.String()),
+          'content-type': t.Optional(t.String()),
+        }),
       },
-      202,
-    )
-  })
-
-  // HTTP handler (for web functions)
-  router.all('/:functionId/http/*', async (c) => {
-    const { functionId } = validateParams(workerParamsSchema, c)
-    const fn = runtime.getFunction(functionId)
-    if (!fn) {
-      throw new Error('Function not found')
-    }
-
-    const url = new URL(c.req.url)
-    const path = url.pathname.replace(`/workers/${fn.id}/http`, '') || '/'
-
-    const requestHeaders: Record<string, string> = {}
-    c.req.raw.headers.forEach((value, key) => {
-      requestHeaders[key] = value
-    })
-
-    const event: HTTPEvent = {
-      method: c.req.method,
-      path,
-      headers: requestHeaders,
-      query: Object.fromEntries(url.searchParams),
-      body:
-        c.req.method !== 'GET' && c.req.method !== 'HEAD'
-          ? await c.req.text()
-          : null,
-    }
-
-    const response = await runtime.invokeHTTP(fn.id, event)
-
-    return new Response(response.body, {
-      status: response.statusCode,
-      headers: response.headers,
-    })
-  })
-
-  // ============================================================================
-  // Logs and Metrics
-  // ============================================================================
-
-  router.get('/:functionId/logs', (c) => {
-    const { functionId } = validateParams(workerParamsSchema, c)
-    const fn = runtime.getFunction(functionId)
-    if (!fn) {
-      throw new Error('Function not found')
-    }
-
-    const { limit, since } = validateQuery(
-      z.object({
-        limit: z.coerce.number().int().positive().max(1000).default(100),
-        since: z.coerce.number().int().nonnegative().default(0),
-      }),
-      c,
     )
 
-    const logs = runtime.getLogs(fn.id, { limit, since })
+    // List functions
+    .get(
+      '/',
+      ({ headers }) => {
+        const owner = headers['x-jeju-address']
+        let functions = runtime.listFunctions()
 
-    return c.json({
-      functionId: fn.id,
-      logs,
-      count: logs.length,
-    })
-  })
+        if (owner) {
+          functions = functions.filter(
+            (f) => f.owner.toLowerCase() === owner.toLowerCase(),
+          )
+        }
 
-  router.get('/:functionId/metrics', (c) => {
-    const { functionId } = validateParams(workerParamsSchema, c)
-    const fn = runtime.getFunction(functionId)
-    if (!fn) {
-      throw new Error('Function not found')
-    }
+        return {
+          functions: functions.map((f) => ({
+            id: f.id,
+            name: f.name,
+            runtime: f.runtime,
+            memory: f.memory,
+            timeout: f.timeout,
+            status: f.status,
+            version: f.version,
+            invocationCount: f.invocationCount,
+            avgDurationMs: f.avgDurationMs,
+            createdAt: f.createdAt,
+            updatedAt: f.updatedAt,
+          })),
+        }
+      },
+      {
+        headers: t.Object({
+          'x-jeju-address': t.Optional(t.String()),
+        }),
+      },
+    )
 
-    return c.json(runtime.getMetrics(fn.id))
-  })
+    // Get function
+    .get(
+      '/:functionId',
+      ({ params, set }) => {
+        const fn = runtime.getFunction(params.functionId)
+        if (!fn) {
+          set.status = 404
+          return { error: 'Function not found' }
+        }
+
+        return {
+          ...fn,
+          metrics: runtime.getMetrics(fn.id),
+        }
+      },
+      {
+        params: t.Object({
+          functionId: t.String(),
+        }),
+      },
+    )
+
+    // Update function
+    .put(
+      '/:functionId',
+      async ({ params, headers, body, set }) => {
+        const owner = headers['x-jeju-address']
+        if (!owner) {
+          set.status = 401
+          return { error: 'x-jeju-address header required' }
+        }
+
+        const fn = runtime.getFunction(params.functionId)
+
+        if (!fn) {
+          set.status = 404
+          return { error: 'Function not found' }
+        }
+
+        if (fn.owner.toLowerCase() !== owner.toLowerCase()) {
+          set.status = 403
+          return { error: 'Not authorized' }
+        }
+
+        const updates = body as {
+          code?: string | ArrayBuffer
+          memory?: number
+          timeout?: number
+          env?: Record<string, string>
+          handler?: string
+        }
+
+        // If code is updated, upload new version
+        if (updates.code) {
+          const codeBuffer =
+            typeof updates.code === 'string'
+              ? Buffer.from(updates.code, 'base64')
+              : Buffer.isBuffer(updates.code)
+                ? updates.code
+                : Buffer.from(new Uint8Array(updates.code as ArrayBuffer))
+
+          const uploadResult = await backend.upload(codeBuffer, {
+            filename: `${fn.name}.js`,
+          })
+
+          fn.codeCid = uploadResult.cid
+          fn.version++
+        }
+
+        if (updates.memory) fn.memory = updates.memory
+        if (updates.timeout) fn.timeout = updates.timeout
+        if (updates.env) fn.env = { ...fn.env, ...updates.env }
+        if (updates.handler) fn.handler = updates.handler
+        fn.updatedAt = Date.now()
+
+        // Redeploy
+        await runtime.undeployFunction(fn.id)
+        await runtime.deployFunction(fn)
+
+        return { success: true, version: fn.version }
+      },
+      {
+        params: t.Object({
+          functionId: t.String(),
+        }),
+        headers: t.Object({
+          'x-jeju-address': t.Optional(t.String()),
+        }),
+        body: t.Object({
+          code: t.Optional(t.String()),
+          memory: t.Optional(t.Number()),
+          timeout: t.Optional(t.Number()),
+          env: t.Optional(t.Record(t.String(), t.String())),
+          handler: t.Optional(t.String()),
+        }),
+      },
+    )
+
+    // Delete function
+    .delete(
+      '/:functionId',
+      async ({ params, headers, set }) => {
+        const owner = headers['x-jeju-address']
+        if (!owner) {
+          set.status = 401
+          return { error: 'x-jeju-address header required' }
+        }
+
+        const fn = runtime.getFunction(params.functionId)
+
+        if (!fn) {
+          set.status = 404
+          return { error: 'Function not found' }
+        }
+
+        if (fn.owner.toLowerCase() !== owner.toLowerCase()) {
+          set.status = 403
+          return { error: 'Not authorized' }
+        }
+
+        await runtime.undeployFunction(fn.id)
+        return { success: true }
+      },
+      {
+        params: t.Object({
+          functionId: t.String(),
+        }),
+        headers: t.Object({
+          'x-jeju-address': t.Optional(t.String()),
+        }),
+      },
+    )
+
+    // ============================================================================
+    // Invocation
+    // ============================================================================
+
+    // Synchronous invocation
+    .post(
+      '/:functionId/invoke',
+      async ({ params, body, set }) => {
+        const fn = runtime.getFunction(params.functionId)
+        if (!fn) {
+          set.status = 404
+          return { error: 'Function not found' }
+        }
+
+        const result = await runtime.invoke({
+          functionId: fn.id,
+          payload: body.payload,
+          type: 'sync',
+        })
+
+        return result
+      },
+      {
+        params: t.Object({
+          functionId: t.String(),
+        }),
+        body: t.Object({
+          payload: t.Unknown(),
+        }),
+      },
+    )
+
+    // Async invocation (fire and forget)
+    .post(
+      '/:functionId/invoke-async',
+      async ({ params, body, set }) => {
+        const fn = runtime.getFunction(params.functionId)
+        if (!fn) {
+          set.status = 404
+          return { error: 'Function not found' }
+        }
+
+        // Start invocation but don't wait
+        runtime
+          .invoke({
+            functionId: fn.id,
+            payload: body.payload,
+            type: 'async',
+          })
+          .catch(console.error)
+
+        set.status = 202
+        return {
+          status: 'accepted',
+          functionId: fn.id,
+        }
+      },
+      {
+        params: t.Object({
+          functionId: t.String(),
+        }),
+        body: t.Object({
+          payload: t.Unknown(),
+        }),
+      },
+    )
+
+    // HTTP handler (for web functions)
+    .all(
+      '/:functionId/http/*',
+      async ({ params, request, set }) => {
+        const fn = runtime.getFunction(params.functionId)
+        if (!fn) {
+          set.status = 404
+          return { error: 'Function not found' }
+        }
+
+        const url = new URL(request.url)
+        const path = url.pathname.replace(`/workers/${fn.id}/http`, '') || '/'
+
+        const requestHeaders: Record<string, string> = {}
+        request.headers.forEach((value, key) => {
+          requestHeaders[key] = value
+        })
+
+        const event: HTTPEvent = {
+          method: request.method,
+          path,
+          headers: requestHeaders,
+          query: Object.fromEntries(url.searchParams),
+          body:
+            request.method !== 'GET' && request.method !== 'HEAD'
+              ? await request.text()
+              : null,
+        }
+
+        const response = await runtime.invokeHTTP(fn.id, event)
+
+        return new Response(response.body, {
+          status: response.statusCode,
+          headers: response.headers,
+        })
+      },
+      {
+        params: t.Object({
+          functionId: t.String(),
+          '*': t.String(),
+        }),
+      },
+    )
+
+    // ============================================================================
+    // Logs and Metrics
+    // ============================================================================
+
+    .get(
+      '/:functionId/logs',
+      ({ params, query, set }) => {
+        const fn = runtime.getFunction(params.functionId)
+        if (!fn) {
+          set.status = 404
+          return { error: 'Function not found' }
+        }
+
+        const limit = parseInt(query.limit ?? '100', 10)
+        const since = parseInt(query.since ?? '0', 10)
+
+        const logs = runtime.getLogs(fn.id, { limit, since })
+
+        return {
+          functionId: fn.id,
+          logs,
+          count: logs.length,
+        }
+      },
+      {
+        params: t.Object({
+          functionId: t.String(),
+        }),
+        query: t.Object({
+          limit: t.Optional(t.String()),
+          since: t.Optional(t.String()),
+        }),
+      },
+    )
+
+    .get(
+      '/:functionId/metrics',
+      ({ params, set }) => {
+        const fn = runtime.getFunction(params.functionId)
+        if (!fn) {
+          set.status = 404
+          return { error: 'Function not found' }
+        }
+
+        return runtime.getMetrics(fn.id)
+      },
+      {
+        params: t.Object({
+          functionId: t.String(),
+        }),
+      },
+    )
 
   return router
 }
+
+export type WorkersRoutes = ReturnType<typeof createWorkersRouter>

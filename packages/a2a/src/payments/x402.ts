@@ -268,8 +268,7 @@ export class X402Manager {
 
     const errors: string[] = []
 
-    // For smart wallets (account abstraction), the tx.from might be the paymaster or smart wallet
-    // We need to be more lenient with sender validation
+    // For smart wallets (account abstraction), tx.from may be a paymaster address
     const fromMatch =
       tx.from.toLowerCase() === pending.request.from.toLowerCase()
 

@@ -7,7 +7,6 @@ import {
   type ConsistencyLevel,
   type CovenantSQLClient,
   createCovenantSQLClient,
-  type QueryResult,
 } from '@jejunetwork/shared'
 import type { Address } from 'viem'
 import { ALL_SCHEMAS } from './schema'
@@ -303,9 +302,3 @@ export interface Pull {
   merged_at: number | null
   closed_at: number | null
 }
-
-// ============================================================================
-// Re-exports
-// ============================================================================
-
-export type { QueryResult, ConsistencyLevel }

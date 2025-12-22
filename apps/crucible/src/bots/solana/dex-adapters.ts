@@ -1035,11 +1035,8 @@ export class MeteoraAdapter implements DexAdapter {
 
 export class SolanaDexAggregator {
   private adapters: Map<DexSource, DexAdapter> = new Map()
-  private connection: Connection
 
   constructor(connection: Connection) {
-    this.connection = connection
-
     // Initialize all adapters
     this.adapters.set('jupiter', new JupiterAdapter(connection))
     this.adapters.set('raydium', new RaydiumAdapter(connection))

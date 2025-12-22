@@ -5,8 +5,8 @@
  * Model deployments require DAO approval.
  */
 
-import type { Address } from 'viem'
 import { expectValid } from '@jejunetwork/types'
+import type { Address } from 'viem'
 import {
   AgentRegistrationResponseSchema,
   ProposalStatusResponseSchema,
@@ -193,7 +193,9 @@ ${proposal.description}
     )
 
     if (!response.ok) {
-      throw new Error(`Failed to submit deployment proposal: ${response.status}`)
+      throw new Error(
+        `Failed to submit deployment proposal: ${response.status}`,
+      )
     }
 
     return proposal

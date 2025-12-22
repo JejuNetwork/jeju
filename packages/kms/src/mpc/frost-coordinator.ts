@@ -8,6 +8,7 @@
  * the same interface as the existing MPCCoordinator.
  */
 
+import { FROSTCoordinator } from '@jejunetwork/oauth3'
 import { type Hex, keccak256, toBytes } from 'viem'
 import {
   getMPCConfig,
@@ -21,64 +22,16 @@ import {
   type MPCSignSession,
 } from './types.js'
 
-// Dynamic import types for oauth3 FROST
-type FROSTCoordinatorType = {
-  new (
-    keyId: string,
-    threshold: number,
-    totalParties: number,
-  ): FROSTCoordinatorInstance
-}
-
-interface FROSTCoordinatorInstance {
-  initializeCluster(): Promise<void>
-  getCluster(): {
-    groupPublicKey: Hex
-    threshold: number
-    totalParties: number
-    parties: Array<{ index: number; publicKey: Hex }>
-  }
-  getAddress(): `0x${string}`
-  sign(
-    messageHash: Hex,
-    participantIndices: number[],
-  ): Promise<{ r: Hex; s: Hex; v: number }>
-}
-
-/** Type guard for FROSTCoordinator constructor from dynamic import */
-function isFROSTCoordinatorType(value: {
-  FROSTCoordinator?: { new (...args: [string, number, number]): object }
-}): value is { FROSTCoordinator: FROSTCoordinatorType } {
-  return (
-    typeof value.FROSTCoordinator === 'function' &&
-    value.FROSTCoordinator.length >= 3
-  )
-}
-
-let FROSTCoordinator: FROSTCoordinatorType | null = null
-
 /** Maximum concurrent signing sessions to prevent resource exhaustion */
 const MAX_SESSIONS = 1000
 
 /** Session expiry time in milliseconds (5 minutes) */
 const SESSION_EXPIRY_MS = 5 * 60 * 1000
 
-async function loadFROST(): Promise<void> {
-  if (!FROSTCoordinator) {
-    const oauth3 = await import('@jejunetwork/oauth3')
-    if (!isFROSTCoordinatorType(oauth3)) {
-      throw new Error(
-        'FROSTCoordinator not found or invalid in @jejunetwork/oauth3',
-      )
-    }
-    FROSTCoordinator = oauth3.FROSTCoordinator
-  }
-}
-
 export class FROSTMPCCoordinator {
   private config: MPCCoordinatorConfig
   private parties = new Map<string, MPCParty>()
-  private frostClusters = new Map<string, FROSTCoordinatorInstance>()
+  private frostClusters = new Map<string, FROSTCoordinator>()
   private keyVersions = new Map<string, KeyVersion[]>()
   private sessions = new Map<string, MPCSignSession>()
 
@@ -120,9 +73,6 @@ export class FROSTMPCCoordinator {
   }
 
   async generateKey(params: MPCKeyGenParams): Promise<MPCKeyGenResult> {
-    await loadFROST()
-    if (!FROSTCoordinator) throw new Error('FROST not loaded')
-
     const { keyId, threshold, totalParties, partyIds } = params
 
     if (threshold < 2) throw new Error('Threshold must be at least 2')
@@ -196,8 +146,6 @@ export class FROSTMPCCoordinator {
   }
 
   async initiateSign(request: MPCSignRequest): Promise<MPCSignSession> {
-    await loadFROST()
-
     const { keyId, messageHash, requester } = request
 
     // Force cleanup if sessions exceed maximum to prevent DoS
@@ -242,8 +190,6 @@ export class FROSTMPCCoordinator {
   }
 
   async completeSign(sessionId: string): Promise<MPCSignatureResult> {
-    await loadFROST()
-
     const session = this.sessions.get(sessionId)
     if (!session) {
       throw new Error(`Session ${sessionId} not found`)

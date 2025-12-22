@@ -62,7 +62,7 @@ remappings = [
 # =============================================================================
 # Override any endpoint with env vars: LOCALNET_RPC_URL, JEJU_TESTNET_RPC_URL, etc.
 # Internal cluster URLs used by default for k8s deployments.
-# See packages/config/chains.json for node configuration details.
+# See packages/config/infrastructure.json for node configuration details.
 
 [rpc_endpoints]
 # -----------------------------------------------------------------------------

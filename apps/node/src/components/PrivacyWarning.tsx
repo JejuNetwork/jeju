@@ -1,7 +1,3 @@
-/**
- * Privacy Warning for Non-TEE Compute
- */
-
 import clsx from 'clsx'
 import { motion } from 'framer-motion'
 import { AlertTriangle, Check, Shield, X } from 'lucide-react'

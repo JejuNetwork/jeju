@@ -13,6 +13,7 @@
 import { existsSync } from 'node:fs'
 import { mkdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { CORE_PORTS } from '@jejunetwork/config/ports'
 import { type Subprocess, spawn } from 'bun'
 import { DWSFunctionDeployResponseSchema } from '../schemas/api'
 
@@ -30,9 +31,9 @@ interface LocalStackConfig {
 }
 
 const DEFAULT_CONFIG: LocalStackConfig = {
-  devnetPort: 8545,
-  dwsPort: 4030,
-  frontendPort: 4006,
+  devnetPort: 8545, // Anvil default port (central config uses 6545/6546 to avoid conflicts)
+  dwsPort: CORE_PORTS.DWS_API.get(),
+  frontendPort: CORE_PORTS.BAZAAR.get(),
   dataDir: './.local-stack',
   verbose: process.env.VERBOSE === 'true',
   skipDevnet: process.env.SKIP_DEVNET === 'true',

@@ -3,31 +3,24 @@
  * Provides HTTP API and integrates with ElizaOS plugins
  */
 
+import { createHmac } from 'node:crypto'
 import { cors } from '@elysiajs/cors'
+import { expectAddress, expectHex, expectValid } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import { z } from 'zod'
 import { getConfig } from './config'
 import {
   DiscordWebhookPayloadSchema,
-  expectValid,
   FarcasterFramePayloadSchema,
   TelegramWebhookPayloadSchema,
   TwilioWebhookPayloadSchema,
   TwitterWebhookPayloadSchema,
 } from './schemas'
 import { getStateManager } from './services/state'
-import {
-  validateAddress,
-  validateHex,
-  validateNonce,
-  validatePlatform,
-} from './utils/validation'
+import { validateNonce, validatePlatform } from './utils/validation'
 import { chatApi } from './web/chat-api'
 import { frameApi } from './web/frame'
 import { miniappApi } from './web/miniapp'
-
-// Re-export for use by ElizaOS agents
-export { ottoCharacter, ottoPlugin } from './eliza'
 
 const config = getConfig()
 const stateManager = getStateManager()
@@ -174,9 +167,7 @@ const app = new Elysia()
       throw new Error('TWITTER_API_SECRET is required for CRC verification')
     }
 
-    // Conditional import: only loaded when Twitter webhook verification is needed
-    const crypto = await import('node:crypto')
-    const hmac = crypto.createHmac('sha256', apiSecret)
+    const hmac = createHmac('sha256', apiSecret)
     hmac.update(crcTokenParam)
     const responseToken = `sha256=${hmac.digest('base64')}`
 
@@ -240,8 +231,8 @@ const app = new Elysia()
     }
 
     // Validate parameters with fail-fast - this ensures address is a valid 0x hex address
-    validateAddress(address)
-    validateHex(signature)
+    expectAddress(address, 'auth callback address')
+    expectHex(signature, 'auth callback signature')
     validatePlatform(platform)
     expectValid(z.string().min(1), platformId, 'auth callback platformId')
     validateNonce(nonce)
@@ -374,10 +365,6 @@ async function main() {
   console.log('         ElizaOS Runtime')
   console.log('========================================')
   console.log('')
-
-  // Limit order monitor will be started when trading service is ready
-
-  // Start HTTP server
   const port = config.port
 
   console.log(`HTTP server: http://localhost:${port}`)

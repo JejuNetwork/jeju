@@ -9,11 +9,9 @@
  * - Integrates with the coordinator for routing
  */
 
+import { cors } from '@elysiajs/cors'
 import type { CacheStatus, EdgeNodeStatus } from '@jejunetwork/types'
-import { type Context, Hono } from 'hono'
-import { compress } from 'hono/compress'
-import { cors } from 'hono/cors'
-import { logger } from 'hono/logger'
+import { Elysia } from 'elysia'
 import {
   type Address,
   type Chain,
@@ -64,7 +62,7 @@ function inferChainFromRpcUrl(rpcUrl: string) {
 // ============================================================================
 
 export class EdgeNodeServer {
-  private app: Hono
+  private app: Elysia
   private config: EdgeNodeConfig
   private cache: EdgeCache
   private originFetcher: OriginFetcher
@@ -96,7 +94,7 @@ export class EdgeNodeServer {
 
   constructor(config: EdgeNodeConfig) {
     this.config = config
-    this.app = new Hono()
+    this.app = new Elysia()
 
     // Initialize components
     this.cache = getEdgeCache({
@@ -139,11 +137,10 @@ export class EdgeNodeServer {
   private setupMiddleware(): void {
     // CORS
     this.app.use(
-      '/*',
       cors({
         origin: '*',
-        allowMethods: ['GET', 'HEAD', 'OPTIONS'],
-        allowHeaders: ['*'],
+        methods: ['GET', 'HEAD', 'OPTIONS'],
+        allowedHeaders: ['*'],
         exposeHeaders: [
           'X-Cache',
           'X-Cache-Status',
@@ -154,22 +151,14 @@ export class EdgeNodeServer {
       }),
     )
 
-    // Compression (if enabled)
-    if (this.config.enableCompression) {
-      this.app.use('/*', compress())
-    }
-
-    // Logger
-    this.app.use('/*', logger())
-
     // Request tracking
-    this.app.use('/*', async (_c, next) => {
+    this.app.onRequest(() => {
       this.activeConnections++
-      const startTime = Date.now()
+    })
 
-      await next()
-
+    this.app.onAfterHandle(({ set }) => {
       this.activeConnections--
+      const startTime = (set as { startTime?: number }).startTime ?? Date.now()
       const latency = Date.now() - startTime
       this.latencies.push(latency)
       if (this.latencies.length > 1000) {
@@ -184,19 +173,19 @@ export class EdgeNodeServer {
 
   private setupRoutes(): void {
     // Health check
-    this.app.get('/health', (c) => {
-      return c.json({
+    this.app.get('/health', () => {
+      return {
         status: this.status,
         nodeId: this.config.nodeId,
         region: this.config.region,
         uptime: Date.now() - this.startTime,
         cacheStats: this.cache.getStats(),
-      })
+      }
     })
 
     // Metrics endpoint
-    this.app.get('/metrics', (c) => {
-      return c.json(this.getMetrics())
+    this.app.get('/metrics', () => {
+      return this.getMetrics()
     })
 
     // Prometheus metrics
@@ -228,44 +217,44 @@ export class EdgeNodeServer {
     })
 
     // Cache invalidation
-    this.app.post('/invalidate', async (c) => {
-      const body = await c.req.json<InvalidationRequest>()
-      const count = this.invalidate(body.paths)
-      return c.json({ success: true, pathsInvalidated: count })
+    this.app.post('/invalidate', ({ body }) => {
+      const { paths } = body as InvalidationRequest
+      const count = this.invalidate(paths)
+      return { success: true, pathsInvalidated: count }
     })
 
     // Purge entire cache
-    this.app.post('/purge', async (c) => {
+    this.app.post('/purge', () => {
       this.cache.clear()
-      return c.json({ success: true })
+      return { success: true }
     })
 
     // Warmup cache
-    this.app.post('/warmup', async (c) => {
-      const body = await c.req.json<{ urls: string[] }>()
-      const results = await this.warmup(body.urls)
-      return c.json(results)
+    this.app.post('/warmup', async ({ body }) => {
+      const { urls } = body as { urls: string[] }
+      const results = await this.warmup(urls)
+      return results
     })
 
     // Cache status for specific key
-    this.app.get('/cache/:key', (c) => {
-      const key = c.req.param('key')
-      const { entry, status } = this.cache.get(decodeURIComponent(key))
+    this.app.get('/cache/:key', ({ params, set }) => {
+      const { entry, status } = this.cache.get(decodeURIComponent(params.key))
       if (!entry) {
-        return c.json({ found: false, status }, 404)
+        set.status = 404
+        return { found: false, status }
       }
-      return c.json({
+      return {
         found: true,
         status,
         metadata: entry.metadata,
         expiresAt: entry.expiresAt,
         accessCount: entry.accessCount,
-      })
+      }
     })
 
     // Main content serving - catch all
-    this.app.all('/*', async (c) => {
-      return this.handleRequest(c)
+    this.app.all('/*', async ({ request, set }) => {
+      return this.handleRequest(request, set)
     })
   }
 
@@ -273,13 +262,17 @@ export class EdgeNodeServer {
   // Request Handling
   // ============================================================================
 
-  private async handleRequest(c: Context): Promise<Response> {
+  private async handleRequest(
+    request: Request,
+    set: { status?: number | string; headers?: unknown },
+  ): Promise<Response> {
     const startTime = Date.now()
-    const request = this.parseRequest(c)
+    const parsedRequest = this.parseRequest(request)
 
     // Only handle GET and HEAD
-    if (request.method !== 'GET' && request.method !== 'HEAD') {
-      return c.text('Method Not Allowed', 405)
+    if (parsedRequest.method !== 'GET' && parsedRequest.method !== 'HEAD') {
+      set.status = 405
+      return new Response('Method Not Allowed', { status: 405 })
     }
 
     this.requestCount++
@@ -287,15 +280,15 @@ export class EdgeNodeServer {
 
     // Generate cache key
     const cacheKey = this.cache.generateKey({
-      path: request.path,
-      query: new URLSearchParams(request.query).toString() || undefined,
-      varyHeaders: this.getVaryHeaders(request.headers),
+      path: parsedRequest.path,
+      query: new URLSearchParams(parsedRequest.query).toString() || undefined,
+      varyHeaders: this.getVaryHeaders(parsedRequest.headers),
     })
 
     // Try cache first
-    const ifNoneMatch = request.headers['if-none-match']
-    const ifModifiedSince = request.headers['if-modified-since']
-      ? new Date(request.headers['if-modified-since']).getTime()
+    const ifNoneMatch = parsedRequest.headers['if-none-match']
+    const ifModifiedSince = parsedRequest.headers['if-modified-since']
+      ? new Date(parsedRequest.headers['if-modified-since']).getTime()
       : undefined
 
     const { entry, status, notModified } = this.cache.getConditional(
@@ -309,7 +302,6 @@ export class EdgeNodeServer {
       this.cacheHits++
       this.periodCacheHits++
       return this.buildResponse(
-        c,
         entry.data,
         entry.metadata.headers,
         304,
@@ -327,11 +319,10 @@ export class EdgeNodeServer {
 
       // Start background revalidation for stale entries
       if (status === 'STALE' && !this.cache.isRevalidating(cacheKey)) {
-        this.revalidateInBackground(cacheKey, request.path)
+        this.revalidateInBackground(cacheKey, parsedRequest.path)
       }
 
       return this.buildResponse(
-        c,
         entry.data,
         entry.metadata.headers,
         200,
@@ -344,7 +335,7 @@ export class EdgeNodeServer {
     this.cacheMisses++
     this.periodCacheMisses++
 
-    const originResult = await this.originFetcher.fetch(request.path)
+    const originResult = await this.originFetcher.fetch(parsedRequest.path)
 
     if (!originResult.success) {
       this.errorCount++
@@ -353,7 +344,6 @@ export class EdgeNodeServer {
       const staleEntry = this.cache.get(cacheKey)
       if (staleEntry.entry) {
         return this.buildResponse(
-          c,
           staleEntry.entry.data,
           staleEntry.entry.metadata.headers,
           200,
@@ -362,9 +352,16 @@ export class EdgeNodeServer {
         )
       }
 
-      return c.json(
-        { error: originResult.error, origin: originResult.origin },
-        (originResult.status || 502) as 400 | 401 | 403 | 404 | 500 | 502 | 503,
+      set.status = originResult.status || 502
+      return new Response(
+        JSON.stringify({
+          error: originResult.error,
+          origin: originResult.origin,
+        }),
+        {
+          status: originResult.status || 502,
+          headers: { 'Content-Type': 'application/json' },
+        },
       )
     }
 
@@ -380,7 +377,7 @@ export class EdgeNodeServer {
         cacheControl: originResult.headers['cache-control'],
         headers: originResult.headers,
         origin: originResult.origin,
-        immutable: this.isImmutable(request.path, originResult.headers),
+        immutable: this.isImmutable(parsedRequest.path, originResult.headers),
       })
     }
 
@@ -389,7 +386,6 @@ export class EdgeNodeServer {
     this.periodBytesIngress += originResult.body.length
 
     return this.buildResponse(
-      c,
       originResult.body,
       originResult.headers,
       originResult.status,
@@ -403,7 +399,6 @@ export class EdgeNodeServer {
    * Build response with CDN headers
    */
   private buildResponse(
-    _c: Context,
     body: Buffer,
     headers: Record<string, string>,
     status: number,
@@ -590,17 +585,17 @@ export class EdgeNodeServer {
   /**
    * Parse incoming request
    */
-  private parseRequest(c: Context): IncomingRequest {
-    const url = new URL(c.req.url)
+  private parseRequest(request: Request): IncomingRequest {
+    const url = new URL(request.url)
     const headers: Record<string, string> = {}
-    c.req.raw.headers.forEach((value, key) => {
+    request.headers.forEach((value, key) => {
       headers[key.toLowerCase()] = value
     })
 
     return {
       id: crypto.randomUUID(),
-      method: c.req.method,
-      url: c.req.url,
+      method: request.method,
+      url: request.url,
       path: url.pathname,
       query: Object.fromEntries(url.searchParams),
       headers,
@@ -802,18 +797,15 @@ export class EdgeNodeServer {
 ╚═══════════════════════════════════════════════════════════════╝
 `)
 
-    Bun.serve({
-      port: this.config.port,
-      fetch: this.app.fetch,
-    })
+    this.app.listen(this.config.port)
 
     console.log(`[EdgeNode] Listening on port ${this.config.port}`)
   }
 
   /**
-   * Get the Hono app (for testing)
+   * Get the Elysia app (for testing)
    */
-  getApp(): Hono {
+  getApp(): Elysia {
     return this.app
   }
 }

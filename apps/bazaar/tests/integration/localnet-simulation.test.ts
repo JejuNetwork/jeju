@@ -95,9 +95,8 @@ interface Deployments {
     factory?: Address
   }
   tokens: {
-    elizaOS?: Address
+    jeju?: Address
     usdc?: Address
-    clanker?: Address
   }
 }
 

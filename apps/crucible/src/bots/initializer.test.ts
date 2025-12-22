@@ -9,6 +9,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config/ports'
 import type { PublicClient, WalletClient } from 'viem'
 import type { AgentSDK } from '../sdk/agent'
 import type { CrucibleConfig } from '../types'
@@ -30,7 +31,7 @@ describe('BotInitializer', () => {
   const mockWalletClient = {} as WalletClient
 
   const baseConfig: CrucibleConfig = {
-    rpcUrl: 'http://localhost:6546',
+    rpcUrl: getL2RpcUrl(),
     privateKey: `0x${'1'.repeat(64)}`,
     contracts: {
       agentVault: `0x${'1'.repeat(40)}` as `0x${string}`,
@@ -40,10 +41,10 @@ describe('BotInitializer', () => {
       serviceRegistry: `0x${'5'.repeat(40)}` as `0x${string}`,
     },
     services: {
-      computeMarketplace: 'http://localhost:4007',
-      storageApi: 'http://localhost:3100',
-      ipfsGateway: 'http://localhost:3100',
-      indexerGraphql: 'http://localhost:4350/graphql',
+      computeMarketplace: getCoreAppUrl('COMPUTE'),
+      storageApi: getCoreAppUrl('IPFS'),
+      ipfsGateway: getCoreAppUrl('IPFS'),
+      indexerGraphql: `${getCoreAppUrl('INDEXER_GRAPHQL')}/graphql`,
     },
     network: 'testnet',
   }

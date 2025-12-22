@@ -6,7 +6,6 @@ pragma solidity ^0.8.33;
  * @author Jeju Network
  * @notice High-precision math library for prediction markets and AMMs
  * @dev Implements exp, ln, sqrt, and LMSR cost functions with 18-decimal precision
- *      Consolidates math from PredictionMarket.sol and TFMM strategies
  */
 library JejuMath {
     // ============ Constants ============

@@ -175,13 +175,13 @@ impl ContributionManager {
     
     /// Set country code (for legal compliance)
     pub fn set_country(&mut self, country_code: String) {
-        self.country_code = country_code;
-        
         // Disable VPN relay in countries where it's not legal
         let blocked_countries = ["CN", "RU", "IR", "BY", "KP", "AE", "OM", "TM"];
         if blocked_countries.contains(&country_code.as_str()) {
             self.settings.share_vpn_relay = false;
         }
+        
+        self.country_code = country_code;
     }
     
     /// Get current contribution status

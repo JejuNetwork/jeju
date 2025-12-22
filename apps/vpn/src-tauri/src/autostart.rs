@@ -23,13 +23,14 @@ impl AutoStartManager {
         let exe_name = exe_path.file_name()?.to_str()?;
 
         // Build the auto-launcher
-        let builder = AutoLaunchBuilder::new()
-            .set_app_name("Jeju VPN")
-            .set_app_path(&exe_path.to_string_lossy());
+        let exe_path_str = exe_path.to_string_lossy().to_string();
+        let mut builder = AutoLaunchBuilder::new();
+        builder.set_app_name("Jeju VPN");
+        builder.set_app_path(&exe_path_str);
 
         // Platform-specific configuration
         #[cfg(target_os = "macos")]
-        let builder = builder.set_use_launch_agent(true);
+        builder.set_use_launch_agent(true);
 
         match builder.build() {
             Ok(launcher) => Some(launcher),

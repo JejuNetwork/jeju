@@ -200,6 +200,7 @@ export const DEFAULT_PORTS = {
   cql: 4300,
   oracle: 4301,
   jns: 4302,
+  ipfs: CONFIG_CORE_PORTS.IPFS_API.DEFAULT,
 } as const
 
 // Note: localnet rpcUrl is dynamically built from INFRA_PORTS

@@ -9,13 +9,11 @@ Integrates 'The Judge' (Reward Functions) to score trajectories during conversio
 import json
 import random
 from dataclasses import dataclass, field
-from typing import List, Optional
 
 from ..models import AtroposScoredGroup as PydanticScoredGroup
-from ..models import BabylonTrajectory, MarketOutcomes, Action
-
+from ..models import BabylonTrajectory, MarketOutcomes
 from ..training.quality_utils import calculate_detailed_tick_quality
-from ..training.rewards import TrajectoryRewardInputs, composite_reward, calculate_risk_reward
+from ..training.rewards import TrajectoryRewardInputs, calculate_risk_reward, composite_reward
 
 
 @dataclass
@@ -34,14 +32,14 @@ class AtroposMessage:
 class AtroposTrajectory:
     """Trajectory in Atropos format."""
 
-    messages: List[AtroposMessage]
-    tokens: List[int] = field(default_factory=list)
-    masks: List[int] = field(default_factory=list)
-    logprobs: List[float] = field(default_factory=list)
+    messages: list[AtroposMessage]
+    tokens: list[int] = field(default_factory=list)
+    masks: list[int] = field(default_factory=list)
+    logprobs: list[float] = field(default_factory=list)
     score: float = 0.0
     metadata: dict = field(default_factory=dict)
 
-    def to_messages_list(self) -> List[dict[str, str]]:
+    def to_messages_list(self) -> list[dict[str, str]]:
         """Convert messages to list of dicts."""
         return [m.to_dict() for m in self.messages]
 
@@ -50,11 +48,11 @@ class AtroposTrajectory:
 class ScoredGroupResult:
     """Scored group for GRPO training."""
 
-    tokens: List[List[int]]
-    masks: List[List[int]]
-    scores: List[float]
-    inference_logprobs: List[List[float]] = field(default_factory=list)
-    messages: List[List[dict[str, str]]] = field(default_factory=list)
+    tokens: list[list[int]]
+    masks: list[list[int]]
+    scores: list[float]
+    inference_logprobs: list[list[float]] = field(default_factory=list)
+    messages: list[list[dict[str, str]]] = field(default_factory=list)
 
     @property
     def group_size(self) -> int:
@@ -89,8 +87,7 @@ class BabylonToAtroposConverter:
         include_messages: bool = True,
     ):
         if not 0.0 <= dropout_rate <= 0.5:
-            raise ValueError(
-                f"dropout_rate must be 0.0-0.5, got {dropout_rate}")
+            raise ValueError(f"dropout_rate must be 0.0-0.5, got {dropout_rate}")
         self.dropout_rate = dropout_rate
         self.max_steps = max_steps
         self.include_messages = include_messages
@@ -98,9 +95,9 @@ class BabylonToAtroposConverter:
     def convert_trajectory(
         self,
         babylon_traj: BabylonTrajectory,
-        market_outcomes: Optional[MarketOutcomes] = None,
+        market_outcomes: MarketOutcomes | None = None,
         tokenizer=None,
-    ) -> Optional[AtroposTrajectory]:
+    ) -> AtroposTrajectory | None:
         """
         Convert a Babylon trajectory to Atropos format.
         Calculates rewards using 'The Judge' logic.
@@ -120,15 +117,18 @@ class BabylonToAtroposConverter:
         if self.dropout_rate > 0 and random.random() < self.dropout_rate:
             return None
 
-        messages: List[AtroposMessage] = []
+        messages: list[AtroposMessage] = []
 
         # System message with context
         system_msg = self._build_system_message(babylon_traj, market_outcomes)
         messages.append(AtroposMessage(role="system", content=system_msg))
 
         # Convert steps to messages
-        steps = babylon_traj.steps[-self.max_steps:] if len(
-            babylon_traj.steps) > self.max_steps else babylon_traj.steps
+        steps = (
+            babylon_traj.steps[-self.max_steps :]
+            if len(babylon_traj.steps) > self.max_steps
+            else babylon_traj.steps
+        )
 
         total_format_score = 0.0
         total_reasoning_score = 0.0
@@ -142,10 +142,8 @@ class BabylonToAtroposConverter:
                     if not llm_call.user_prompt or not llm_call.response:
                         continue
 
-                    messages.append(AtroposMessage(
-                        role="user", content=llm_call.user_prompt))
-                    messages.append(AtroposMessage(
-                        role="assistant", content=llm_call.response))
+                    messages.append(AtroposMessage(role="user", content=llm_call.user_prompt))
+                    messages.append(AtroposMessage(role="assistant", content=llm_call.response))
             else:
                 # Fallback: build from environment state
                 env_state = step.environment_state
@@ -155,16 +153,14 @@ class BabylonToAtroposConverter:
                     f"- P&L: ${env_state.agent_pnl:.2f}\n"
                     f"- Open Positions: {env_state.open_positions}"
                 )
-                messages.append(AtroposMessage(
-                    role="user", content=user_content))
+                messages.append(AtroposMessage(role="user", content=user_content))
 
                 action = step.action
                 if action:
                     assistant_content = f"Action: {action.action_type}"
                     if action.parameters:
                         assistant_content += f"\nParameters: {json.dumps(action.parameters)}"
-                    messages.append(AtroposMessage(
-                        role="assistant", content=assistant_content))
+                    messages.append(AtroposMessage(role="assistant", content=assistant_content))
 
             # 2. Quality & Risk Scoring
             if step.llm_calls:  # Only score ticks with LLM interaction
@@ -175,7 +171,7 @@ class BabylonToAtroposConverter:
                     step.llm_calls,
                     step.action,
                     None,  # No explicit feedback dict in standard steps yet
-                    babylon_traj.archetype
+                    babylon_traj.archetype,
                 )
                 total_format_score += fmt_score
                 total_reasoning_score += rsn_score
@@ -183,8 +179,7 @@ class BabylonToAtroposConverter:
                 # B. Risk Calculation
                 # Use open_positions as a rough proxy for exposure if active_markets is available
                 # Assuming ~10% exposure per position for simulation logic
-                exposure_proxy = min(
-                    1.0, step.environment_state.open_positions * 0.1)
+                exposure_proxy = min(1.0, step.environment_state.open_positions * 0.1)
 
                 act_type = step.action.action_type if step.action else "wait"
                 risk_penalty = calculate_risk_reward(exposure_proxy, act_type)
@@ -194,7 +189,8 @@ class BabylonToAtroposConverter:
         if len(messages) < 3:
             # We assume at least System + User + Assistant
             raise ValueError(
-                f"Trajectory {babylon_traj.trajectory_id} has only {len(messages)} messages (need 3+)")
+                f"Trajectory {babylon_traj.trajectory_id} has only {len(messages)} messages (need 3+)"
+            )
 
         # Calculate averages
         avg_format = total_format_score / max(1, valid_ticks_for_scoring)
@@ -222,22 +218,22 @@ class BabylonToAtroposConverter:
             format_score=max(0.0, min(1.0, avg_format)),
             reasoning_score=max(0.0, min(1.0, avg_reasoning)),
             risky_actions_count=risky_actions_count,
-
             # Legacy stats
             num_steps=len(babylon_traj.steps),
-            trades_executed=babylon_traj.trades_executed or 0
+            trades_executed=babylon_traj.trades_executed or 0,
         )
 
         final_score = composite_reward(reward_inputs)
 
         # Tokenize and create masks if tokenizer provided
-        tokens: List[int] = []
-        masks: List[int] = []
+        tokens: list[int] = []
+        masks: list[int] = []
 
         if tokenizer is not None:
             messages_dict = [m.to_dict() for m in messages]
             tokenized = tokenizer.apply_chat_template(
-                messages_dict, tokenize=True, return_dict=True)
+                messages_dict, tokenize=True, return_dict=True
+            )
             tokens = tokenized.get("input_ids", [])
             masks = self._create_masks(tokens, messages, tokenizer)
 
@@ -257,16 +253,16 @@ class BabylonToAtroposConverter:
                 # Store breakdown for debugging/logging
                 "format_score": avg_format,
                 "reasoning_score": avg_reasoning,
-                "risk_penalties": risky_actions_count
+                "risk_penalties": risky_actions_count,
             },
         )
 
     def _create_masks(
         self,
-        tokens: List[int],
-        messages: List[AtroposMessage],
+        tokens: list[int],
+        messages: list[AtroposMessage],
         tokenizer,
-    ) -> List[int]:
+    ) -> list[int]:
         """
         Create training mask marking assistant tokens as trainable.
 
@@ -285,15 +281,15 @@ class BabylonToAtroposConverter:
 
         # Simple approach: tokenize each message and find assistant segments
         current_pos = 0
-        has_bos = hasattr(
-            tokenizer, "bos_token_id") and tokenizer.bos_token_id is not None
+        has_bos = hasattr(tokenizer, "bos_token_id") and tokenizer.bos_token_id is not None
 
         if has_bos:
             current_pos = 1
 
         for msg in messages:
             msg_tokens = tokenizer.apply_chat_template(
-                [msg.to_dict()], tokenize=True, add_generation_prompt=False)
+                [msg.to_dict()], tokenize=True, add_generation_prompt=False
+            )
             msg_len = len(msg_tokens)
 
             if has_bos and msg_len > 0:
@@ -310,7 +306,7 @@ class BabylonToAtroposConverter:
     def _build_system_message(
         self,
         trajectory: BabylonTrajectory,
-        market_outcomes: Optional[MarketOutcomes],
+        market_outcomes: MarketOutcomes | None,
     ) -> str:
         """Build system message with ground truth context."""
         msg = f"""You are evaluating trading agent decisions.
@@ -335,9 +331,9 @@ TIME WINDOW: {trajectory.window_id}
 
     def convert_window_group(
         self,
-        trajectories: List[BabylonTrajectory],
-        market_outcomes: Optional[MarketOutcomes],
-        scores: Optional[List[float]] = None,
+        trajectories: list[BabylonTrajectory],
+        market_outcomes: MarketOutcomes | None,
+        scores: list[float] | None = None,
         max_per_group: int = 8,
         tokenizer=None,
     ) -> ScoredGroupResult:
@@ -358,8 +354,7 @@ TIME WINDOW: {trajectory.window_id}
             ValueError: If fewer than 2 trajectories
         """
         if len(trajectories) < 2:
-            raise ValueError(
-                f"Need 2+ trajectories for GRPO, got {len(trajectories)}")
+            raise ValueError(f"Need 2+ trajectories for GRPO, got {len(trajectories)}")
 
         # Sample if too many
         if len(trajectories) > max_per_group:
@@ -373,16 +368,16 @@ TIME WINDOW: {trajectory.window_id}
             sampled = trajectories
 
         # Convert all
-        atropos_trajectories: List[AtroposTrajectory] = []
+        atropos_trajectories: list[AtroposTrajectory] = []
         for traj in sampled:
-            converted = self.convert_trajectory(
-                traj, market_outcomes, tokenizer)
+            converted = self.convert_trajectory(traj, market_outcomes, tokenizer)
             if converted:
                 atropos_trajectories.append(converted)
 
         if len(atropos_trajectories) < 2:
             raise ValueError(
-                f"Only {len(atropos_trajectories)} trajectories after conversion (need 2+)")
+                f"Only {len(atropos_trajectories)} trajectories after conversion (need 2+)"
+            )
 
         # Build result
         tokens_list = [t.tokens for t in atropos_trajectories]
@@ -392,10 +387,9 @@ TIME WINDOW: {trajectory.window_id}
         # Use the internally calculated scores from The Judge
         scores_list = [t.score for t in atropos_trajectories]
 
-        messages_list: List[List[dict[str, str]]] = []
+        messages_list: list[list[dict[str, str]]] = []
         if self.include_messages:
-            messages_list = [t.to_messages_list()
-                             for t in atropos_trajectories]
+            messages_list = [t.to_messages_list() for t in atropos_trajectories]
 
         return ScoredGroupResult(
             tokens=tokens_list,
@@ -407,9 +401,7 @@ TIME WINDOW: {trajectory.window_id}
 
 
 def calculate_dropout_rate(
-    current_trajectories: int,
-    target_trajectories: int,
-    max_dropout: float = 0.3
+    current_trajectories: int, target_trajectories: int, max_dropout: float = 0.3
 ) -> float:
     """
     Calculate the dropout rate required to reduce the number of trajectories

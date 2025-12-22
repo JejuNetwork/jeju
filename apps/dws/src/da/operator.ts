@@ -247,8 +247,7 @@ export class DAOperator {
    * Get operator info
    */
   getInfo(): DAOperatorInfo {
-    const _stats = this.verifier.getStats()
-
+    // Stats available for future use: this.verifier.getStats()
     return {
       address: this.account.address,
       agentId: 0n, // Set when registered on-chain

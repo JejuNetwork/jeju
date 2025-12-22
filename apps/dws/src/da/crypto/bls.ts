@@ -284,7 +284,9 @@ export function hashToG2(
   // @noble/curves handles this internally with proper hash-to-curve
   // This is exposed for advanced use cases
   const point = bls.G2.hashToCurve(message, { DST: dst })
-  return point.toRawBytes(true)
+  // Convert H2CPoint to affine point, then serialize
+  const affine = point.toAffine()
+  return bls.G2.ProjectivePoint.fromAffine(affine).toRawBytes(true)
 }
 
 /**
@@ -295,7 +297,9 @@ export function hashToG1(
   dst: string = DST_SIGN,
 ): Uint8Array {
   const point = bls.G1.hashToCurve(message, { DST: dst })
-  return point.toRawBytes(true)
+  // Convert H2CPoint to affine point, then serialize
+  const affine = point.toAffine()
+  return bls.G1.ProjectivePoint.fromAffine(affine).toRawBytes(true)
 }
 
 // ============================================================================
@@ -421,7 +425,9 @@ export function createProofOfPossession(secretKey: BLSSecretKey): BLSSignature {
 
   // Sign the public key itself with a different domain
   const sk = hexToBytes(secretKey.slice(2))
-  const point = bls.G2.hashToCurve(pkBytes, { DST: DST_POP })
+  const h2cPoint = bls.G2.hashToCurve(pkBytes, { DST: DST_POP })
+  // Convert H2CPoint to ProjectivePoint for scalar multiplication
+  const point = bls.G2.ProjectivePoint.fromAffine(h2cPoint.toAffine())
   const signature = point.multiply(BigInt(`0x${bytesToHex(sk)}`))
 
   return `0x${bytesToHex(signature.toRawBytes(true))}` as BLSSignature
@@ -441,7 +447,9 @@ export function verifyProofOfPossession(
     // Verify the PoP with the special domain
     const G1Point = bls.G1.ProjectivePoint.fromHex(pk)
     const G2Point = bls.G2.ProjectivePoint.fromHex(sig)
-    const messagePoint = bls.G2.hashToCurve(pk, { DST: DST_POP })
+    const h2cPoint = bls.G2.hashToCurve(pk, { DST: DST_POP })
+    // Convert H2CPoint to ProjectivePoint for pairing
+    const messagePoint = bls.G2.ProjectivePoint.fromAffine(h2cPoint.toAffine())
 
     // Pairing check: e(pk, H(pk)) = e(G1, sig)
     const pairing1 = bls.pairing(G1Point, messagePoint)

@@ -57,24 +57,11 @@ import {
 import {
   findJejuWorkspaceRoot,
   JEJU_CHAIN,
-  JEJU_CHAIN_ID,
-  JEJU_RPC_URL,
   PASSWORD,
   SEED_PHRASE,
   TEST_ACCOUNTS,
   TEST_WALLET_ADDRESS,
 } from './utils'
-
-// Re-export for backwards compatibility
-export {
-  SEED_PHRASE,
-  PASSWORD,
-  TEST_WALLET_ADDRESS,
-  TEST_ACCOUNTS,
-  JEJU_CHAIN,
-  JEJU_CHAIN_ID,
-  JEJU_RPC_URL,
-}
 
 // ES module compatibility - get __dirname equivalent
 const __filename = fileURLToPath(import.meta.url)
@@ -109,8 +96,11 @@ export interface SynpressConfigOptions {
 }
 
 export interface SmokeTestConfigOptions {
-  appName: string
-  port: number
+  appName?: string
+  port?: number
+  testDir?: string
+  testMatch?: string | string[]
+  timeout?: number
 }
 
 // ============================================================================
@@ -188,15 +178,24 @@ export function createSynpressConfig(
  * Create a minimal smoke test config (no webServer required)
  */
 export function createSmokeTestConfig(
-  options: SmokeTestConfigOptions,
+  options: SmokeTestConfigOptions = {},
 ): PlaywrightTestConfig {
+  const {
+    appName = 'smoke',
+    port = 0,
+    testDir = '.',
+    testMatch,
+    timeout = 120000,
+  } = options
+
   return createSynpressConfig({
-    appName: options.appName,
-    port: options.port,
-    testDir: './tests/smoke',
-    timeout: 120000,
+    appName,
+    port,
+    testDir,
+    timeout,
     overrides: {
       retries: 0,
+      ...(testMatch && { testMatch }),
     },
   })
 }

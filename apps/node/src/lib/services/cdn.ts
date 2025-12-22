@@ -1,10 +1,3 @@
-/**
- * CDN Service - Edge node integration for the desktop app
- *
- * Allows node operators to run CDN edge nodes from the desktop app,
- * serving cached content and earning from the CDN marketplace.
- */
-
 import type { CDNRegion } from '@jejunetwork/types'
 import type { Address } from 'viem'
 import { z } from 'zod'

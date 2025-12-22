@@ -15,6 +15,7 @@ import { execSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
+import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config/ports'
 import {
   type Address,
   createPublicClient,
@@ -27,9 +28,9 @@ import { privateKeyToAccount } from 'viem/accounts'
 // Configuration
 // ============================================================================
 
-const DWS_URL = process.env.DWS_URL || 'http://localhost:4030'
+const DWS_URL = process.env.DWS_URL || getCoreAppUrl('DWS_API')
 const PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY
-const RPC_URL = process.env.RPC_URL || 'http://localhost:6546'
+const RPC_URL = process.env.RPC_URL || getL2RpcUrl()
 
 interface DeployConfig {
   domain: string

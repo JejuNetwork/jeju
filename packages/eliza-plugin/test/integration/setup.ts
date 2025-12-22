@@ -7,6 +7,13 @@
 
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import {
+  CORE_PORTS,
+  getCoreAppUrl,
+  getL1RpcUrl,
+  getL2RpcUrl,
+  INFRA_PORTS,
+} from '@jejunetwork/config/ports'
 import { execa } from 'execa'
 import type { Hex } from 'viem'
 import { z } from 'zod'
@@ -29,16 +36,15 @@ const STARTUP_TIMEOUT = 60000
 const DEPLOYER_KEY: Hex =
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
 
-// Service URLs - L2 defaults to 9545 to match localnet.json config
-export const TEST_RPC_URL = process.env.TEST_RPC_URL || 'http://127.0.0.1:6546'
-export const TEST_L1_RPC_URL =
-  process.env.TEST_L1_RPC_URL || 'http://127.0.0.1:6545'
+// Service URLs - using centralized port config
+export const TEST_RPC_URL = process.env.TEST_RPC_URL || getL2RpcUrl()
+export const TEST_L1_RPC_URL = process.env.TEST_L1_RPC_URL || getL1RpcUrl()
 export const TEST_STORAGE_URL =
-  process.env.TEST_STORAGE_URL || 'http://127.0.0.1:4010'
+  process.env.TEST_STORAGE_URL || getCoreAppUrl('IPFS')
 export const TEST_COMPUTE_URL =
-  process.env.TEST_COMPUTE_URL || 'http://127.0.0.1:4007'
+  process.env.TEST_COMPUTE_URL || getCoreAppUrl('COMPUTE')
 export const TEST_GATEWAY_URL =
-  process.env.TEST_GATEWAY_URL || 'http://127.0.0.1:4003'
+  process.env.TEST_GATEWAY_URL || getCoreAppUrl('NODE_EXPLORER_UI')
 /**
  * SECURITY: Test-only private key. See DEPLOYER_KEY comment above.
  * NEVER use with real funds.
@@ -149,19 +155,20 @@ function releaseLock(): void {
 
 async function startLocalnet(): Promise<void> {
   const root = findRoot()
-  console.log('Starting Anvil localnet on port 9545...')
+  const l2Port = INFRA_PORTS.L2_RPC.DEFAULT.toString()
+  console.log(`Starting Anvil localnet on port ${l2Port}...`)
 
   // Add common foundry paths to PATH
   const homeDir = process.env.HOME || `/home/${process.env.USER}`
   const foundryBin = join(homeDir, '.foundry/bin')
   const path = `${foundryBin}:${process.env.PATH}`
 
-  // Start L2 Anvil on port 9545 (matches localnet.json config)
+  // Start L2 Anvil on configured port
   const proc = execa(
     'anvil',
     [
       '--port',
-      '9545',
+      l2Port,
       '--chain-id',
       '1337',
       '--accounts',
@@ -234,10 +241,15 @@ async function startServices(): Promise<void> {
     {
       name: 'Gateway',
       dir: 'apps/gateway',
-      port: 4003,
+      port: CORE_PORTS.NODE_EXPLORER_UI.DEFAULT,
       cmd: 'bun run dev:a2a',
     },
-    { name: 'DWS', dir: 'apps/dws', port: 4007, cmd: 'bun run dev:server' },
+    {
+      name: 'DWS',
+      dir: 'apps/dws',
+      port: CORE_PORTS.COMPUTE.DEFAULT,
+      cmd: 'bun run dev:server',
+    },
   ]
 
   for (const svc of services) {

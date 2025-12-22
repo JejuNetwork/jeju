@@ -1,13 +1,7 @@
-/**
- * A2A (Agent-to-Agent) Server for AI agent integration
- *
- * All endpoints use zod validation with expect/throw patterns.
- */
-
 import { getNetworkName, getWebsiteUrl } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import type { Address } from 'viem'
-import type { A2ASkillParams } from '../schemas'
+import type { A2AMessage, A2ASkillParams } from '../schemas'
 import {
   a2AAgentCardSchema,
   a2AMessageSchema,
@@ -100,7 +94,7 @@ const AGENT_CARD = {
 const networkName = getNetworkName()
 const isLocalnet = networkName === 'localnet' || networkName === 'Jeju'
 
-export function createA2AServer(): Elysia {
+export function createA2AServer() {
   const todoService = getTodoService()
   const cronService = getCronService()
 
@@ -116,7 +110,9 @@ export function createA2AServer(): Elysia {
         }
       }
 
-      const safeMessage = sanitizeErrorMessage(error, isLocalnet)
+      // Handle Error instances or extract message from other error types
+      const errorObj = error instanceof Error ? error : new Error(String(error))
+      const safeMessage = sanitizeErrorMessage(errorObj, isLocalnet)
       return {
         jsonrpc: '2.0',
         id: null,
@@ -132,7 +128,11 @@ export function createA2AServer(): Elysia {
       return validatedCard
     })
     .post('/', async ({ body, request }) => {
-      const validatedMessage = expectValid(a2AMessageSchema, body, 'A2A message')
+      const validatedMessage: A2AMessage = expectValid(
+        a2AMessageSchema,
+        body,
+        'A2A message',
+      )
 
       const addressHeader = request.headers.get('x-jeju-address')
       if (!addressHeader) {
@@ -175,7 +175,9 @@ export function createA2AServer(): Elysia {
         return response
       }
 
-      const dataPart = message.parts.find((p) => p.kind === 'data')
+      const dataPart = message.parts.find(
+        (p: { kind: string }) => p.kind === 'data',
+      )
       if (!dataPart || dataPart.kind !== 'data') {
         const response: A2AResponse = {
           jsonrpc: '2.0',

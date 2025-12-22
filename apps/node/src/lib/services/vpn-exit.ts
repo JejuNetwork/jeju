@@ -1,19 +1,3 @@
-/**
- * VPN Exit Service - Full Production WireGuard Implementation
- *
- * Complete WireGuard protocol implementation with:
- * - Noise_IKpsk2 handshake
- * - Curve25519 key exchange (X25519)
- * - ChaCha20-Poly1305 AEAD encryption
- * - BLAKE2s for hashing
- * - TUN device integration for IP forwarding
- * - NAT tracking for bidirectional traffic
- * - Per-peer rate limiting
- * - Cookie mechanism for DoS mitigation
- * - Session management and billing
- * - On-chain integration
- */
-
 import { type ChildProcess, spawn } from 'node:child_process'
 import {
   createCipheriv,
@@ -888,7 +872,7 @@ class TUNDevice extends EventEmitter {
         socket.write(Buffer.from(payload))
       }
     })
-    socket.on('data', (data) => {
+    socket.on('data', (data: Buffer) => {
       // Response data would need to be routed back through the tunnel
       this.emit('tcp_response', { dstIP, dstPort, data: new Uint8Array(data) })
     })

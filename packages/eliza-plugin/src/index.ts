@@ -116,13 +116,13 @@ import {
   pinCidAction,
   unpinAction,
 } from './actions/storage-extended'
-import { createTriggerAction } from './actions/triggers'
 // Extended Actions - Training (DWS/Psyche)
 import {
   checkTrainingStatus,
   startTrainingJob,
   submitTrajectory,
 } from './actions/training'
+import { createTriggerAction } from './actions/triggers'
 // Extended Actions - Work (Bounties/Projects)
 import {
   approveSubmissionAction,

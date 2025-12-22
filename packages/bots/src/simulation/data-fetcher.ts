@@ -1,10 +1,5 @@
 /**
  * Historical Data Fetcher
- *
- * Fetches historical price data for backtesting from:
- * - CoinGecko (free tier)
- * - DeFi Llama
- * - Subgraphs
  */
 
 import { expectValid } from '@jejunetwork/types'
@@ -21,7 +16,6 @@ export interface PriceCandle {
   volume: number
 }
 
-// Maximum cache entries to prevent memory leaks
 const MAX_CACHE_ENTRIES = 100
 
 const COINGECKO_IDS: Record<string, string> = {
@@ -45,9 +39,6 @@ export class HistoricalDataFetcher {
   private baseUrl = 'https://api.coingecko.com/api/v3'
   private cache: Map<string, PriceDataPoint[]> = new Map()
 
-  /**
-   * Fetch historical prices for multiple tokens
-   */
   async fetchPrices(
     tokens: Token[],
     startDate: Date,
@@ -61,7 +52,6 @@ export class HistoricalDataFetcher {
       return cached
     }
 
-    // Fetch data for each token
     const tokenPrices = new Map<string, Map<number, number>>()
 
     for (const token of tokens) {
@@ -75,7 +65,6 @@ export class HistoricalDataFetcher {
       tokenPrices.set(token.symbol, prices)
     }
 
-    // Merge into data points
     const dataPoints = this.mergeTokenPrices(
       tokenPrices,
       tokens,
@@ -84,7 +73,6 @@ export class HistoricalDataFetcher {
       intervalMs,
     )
 
-    // Evict oldest cache entries if over limit (simple LRU approximation)
     if (this.cache.size >= MAX_CACHE_ENTRIES) {
       const firstKey = this.cache.keys().next().value
       if (firstKey) this.cache.delete(firstKey)
@@ -94,9 +82,6 @@ export class HistoricalDataFetcher {
     return dataPoints
   }
 
-  /**
-   * Fetch prices for a single token from CoinGecko
-   */
   private async fetchTokenPrices(
     geckoId: string,
     startDate: Date,
@@ -127,9 +112,6 @@ export class HistoricalDataFetcher {
     return priceMap
   }
 
-  /**
-   * Merge prices from multiple tokens into unified data points
-   */
   private mergeTokenPrices(
     tokenPrices: Map<string, Map<number, number>>,
     tokens: Token[],
@@ -154,7 +136,6 @@ export class HistoricalDataFetcher {
           break
         }
 
-        // Find closest price within 24h
         let closestPrice = 0
         let closestDiff = Infinity
 
@@ -186,23 +167,15 @@ export class HistoricalDataFetcher {
     return dataPoints
   }
 
-  /**
-   * Fetch OHLCV candles from DeFi Llama
-   */
   async fetchCandles(
     _protocol: string,
     _pool: string,
     _startDate: Date,
     _endDate: Date,
   ): Promise<PriceCandle[]> {
-    // DeFi Llama integration would go here
-    // For now, return empty
     return []
   }
 
-  /**
-   * Generate synthetic price data for testing
-   */
   generateSyntheticData(
     tokens: Token[],
     startDate: Date,
@@ -219,15 +192,12 @@ export class HistoricalDataFetcher {
     const numPeriods = Math.ceil(
       (endDate.getTime() - startDate.getTime()) / intervalMs,
     )
-
-    // Initialize prices
     const currentPrices = { ...params.initialPrices }
 
     for (let i = 0; i < numPeriods; i++) {
       const timestamp = startDate.getTime() + i * intervalMs
       const prices: Record<string, number> = {}
 
-      // Generate correlated random returns - validate volatilities exist
       const tokenVolatilities = tokens.map((t) => {
         const vol = params.volatilities[t.symbol]
         if (vol === undefined) {
@@ -247,7 +217,6 @@ export class HistoricalDataFetcher {
         const token = tokens[j]
         const dailyVol = tokenVolatilities[j] / Math.sqrt(365)
 
-        // Geometric Brownian motion
         currentPrices[token.symbol] *= Math.exp(
           (drift - dailyVol ** 2 / 2) * (intervalMs / 86400000) +
             dailyVol * Math.sqrt(intervalMs / 86400000) * returns[j],
@@ -266,16 +235,11 @@ export class HistoricalDataFetcher {
     return dataPoints
   }
 
-  /**
-   * Generate correlated random returns using Cholesky decomposition
-   */
   private generateCorrelatedReturns(
     volatilities: number[],
     correlations?: number[][],
   ): number[] {
     const n = volatilities.length
-
-    // Generate independent standard normal returns
     const z: number[] = []
     for (let i = 0; i < n; i++) {
       z.push(this.randomNormal())
@@ -285,10 +249,7 @@ export class HistoricalDataFetcher {
       return z
     }
 
-    // Cholesky decomposition
     const L = this.choleskyDecomposition(correlations)
-
-    // Apply correlation
     const correlated: number[] = []
     for (let i = 0; i < n; i++) {
       let sum = 0
@@ -302,7 +263,6 @@ export class HistoricalDataFetcher {
   }
 
   private randomNormal(): number {
-    // Box-Muller transform
     const u1 = Math.random()
     const u2 = Math.random()
     return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2)
@@ -332,9 +292,6 @@ export class HistoricalDataFetcher {
     return L
   }
 
-  /**
-   * Clear cache
-   */
   clearCache(): void {
     this.cache.clear()
   }

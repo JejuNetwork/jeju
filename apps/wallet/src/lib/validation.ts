@@ -1,7 +1,8 @@
 /**
  * Validation Utilities
  *
- * Re-exports shared validation functions from @jejunetwork/types/validation.
+ * Wallet-specific wrapper functions for validation.
+ * For base validation functions and schemas, import directly from @jejunetwork/types.
  */
 
 import {
@@ -10,30 +11,6 @@ import {
   expectJson as typesExpectJson,
 } from '@jejunetwork/types'
 import type { z } from 'zod'
-
-// ============================================================================
-// Re-exports from @jejunetwork/types/validation
-// ============================================================================
-
-export {
-  AddressSchema,
-  BigIntSchema,
-  ChainIdSchema,
-  expectAddress,
-  expectBigInt,
-  expectChainId,
-  expectDefined,
-  expectHex,
-  expectJson,
-  expectNonNegative,
-  expectPositive,
-  HexSchema,
-  TimestampSchema,
-} from '@jejunetwork/types'
-
-// ============================================================================
-// Wallet-Specific Wrappers (backwards compatibility)
-// ============================================================================
 
 /**
  * Validates a non-empty string
@@ -72,7 +49,19 @@ export function requireDefined<T>(
 
 /**
  * Parse JSON and validate against schema
+ * @param json - JSON string to parse
+ * @param schema - Zod schema to validate against
+ * @param fieldName - Optional field name for error messages
  */
-export function parseJson<T>(json: string, schema: z.ZodSchema<T>): T {
-  return typesExpectJson(json, schema)
+export function parseJson<T>(
+  json: string,
+  schema: z.ZodSchema<T>,
+  fieldName = 'json',
+): T {
+  return typesExpectJson(json, schema, fieldName)
 }
+
+/**
+ * Alias for parseJson for backwards compatibility
+ */
+export const expectJson = parseJson

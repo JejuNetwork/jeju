@@ -1,31 +1,7 @@
-import { parseEther } from 'viem'
-import { ZERO_ADDRESS } from './contracts'
-
-// Re-export all core x402 functionality from shared
-export {
-  CHAIN_IDS,
-  calculatePercentageFee,
-  checkPayment,
-  createPaymentPayload,
-  generate402Headers,
-  getEIP712Domain,
-  getEIP712Types,
-  type PaymentPayload,
-  type PaymentRequirements,
-  type PaymentScheme,
-  parsePaymentHeader,
-  RPC_URLS,
-  type SettlementResponse,
-  signPaymentPayload,
-  USDC_ADDRESSES,
-  verifyPayment,
-  type X402Config,
-  type X402Network,
-} from '@jejunetwork/deployment/scripts/shared/x402'
-
-// Import for re-export with extension
 import { createPaymentRequirement as sharedCreatePaymentRequirement } from '@jejunetwork/deployment/scripts/shared/x402'
+import { ZERO_ADDRESS } from '@jejunetwork/ui'
 import type { Address } from 'viem'
+import { parseEther } from 'viem'
 
 export const PAYMENT_TIERS = {
   // Node Operations

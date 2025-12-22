@@ -1,10 +1,3 @@
-/**
- * Cache Service using Compute-based Redis
- *
- * Provides a decentralized caching layer using the compute network.
- * Falls back to in-memory cache in localnet when compute is unavailable.
- */
-
 const COMPUTE_CACHE_ENDPOINT =
   process.env.COMPUTE_CACHE_ENDPOINT || 'http://localhost:4200/cache'
 const CACHE_TIMEOUT = 5000

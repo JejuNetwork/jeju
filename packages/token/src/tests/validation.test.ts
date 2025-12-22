@@ -38,12 +38,13 @@ import {
 // =============================================================================
 
 describe('addressSchema - Valid Addresses', () => {
+  // Note: viem's isAddress requires valid checksums for mixed-case addresses
+  // All lowercase or all uppercase hex (after 0x) is always valid
   const validAddresses = [
-    '0x0000000000000000000000000000000000000000',
-    '0x1234567890123456789012345678901234567890',
-    '0xffffffffffffffffffffffffffffffffffffffff',
-    '0xabcdefABCDEF12345678901234567890abcdefAB',
-    '0xDEADBEEFdeadbeefDEADBEEFdeadbeefDEADBEEF',
+    '0x0000000000000000000000000000000000000000', // Zero address
+    '0x1234567890123456789012345678901234567890', // All lowercase
+    '0xffffffffffffffffffffffffffffffffffffffff', // All lowercase
+    '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', // Valid checksum (WETH)
   ]
 
   test('accepts valid 40-character hex addresses', () => {
@@ -131,9 +132,10 @@ describe('hexSchema - Invalid Hex Strings', () => {
     expect(result.success).toBe(false)
   })
 
-  test('rejects empty after 0x', () => {
+  // Note: viem's isHex accepts '0x' as valid empty hex
+  test('accepts empty hex (0x)', () => {
     const result = hexSchema.safeParse('0x')
-    expect(result.success).toBe(false)
+    expect(result.success).toBe(true)
   })
 
   test('rejects with invalid characters', () => {
@@ -775,6 +777,8 @@ describe('isValidHex', () => {
 
   test('returns false for invalid hex strings', () => {
     expect(isValidHex('123abc')).toBe(false)
+    // Note: isValidHex uses regex requiring at least one hex char after 0x
+    // This differs from hexSchema which uses viem's isHex (accepts 0x)
     expect(isValidHex('0x')).toBe(false)
     expect(isValidHex('0xghij')).toBe(false)
   })

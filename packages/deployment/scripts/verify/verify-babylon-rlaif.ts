@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+
 /**
  * Babylon RLAIF Integration Verification Script
  *
@@ -12,6 +13,12 @@
  * - PHALA_ENDPOINT: Phala TEE endpoint for remote training
  * - PHALA_API_KEY: API key for Phala TEE
  */
+
+import { createRLAIFCoordinator } from '../../../../apps/dws/src/rlaif/coordinator'
+import { createRulerScorer } from '../../../../apps/dws/src/rlaif/ruler-scorer'
+import { createTrajectoryStore } from '../../../../apps/dws/src/rlaif/trajectory-store'
+import { RLAlgorithm, RLRunState } from '../../../../apps/dws/src/rlaif/types'
+import { trainingCommand } from '../../../../packages/cli/src/commands/training'
 
 const DWS_URL = process.env.DWS_URL || 'http://localhost:4030'
 const PHALA_ENDPOINT = process.env.PHALA_ENDPOINT
@@ -169,47 +176,32 @@ async function main() {
 
   // Test Type Imports
   console.log('\n4. Type System Verification')
-  // Conditional import: only loaded during test execution
   await test('RLAIF types are properly exported', async () => {
-    const { RLAlgorithm, RLRunState } = await import(
-      '../apps/dws/src/rlaif/types'
-    )
     if (RLAlgorithm.GRPO !== 'grpo')
       throw new Error('RLAlgorithm.GRPO incorrect')
     if (RLRunState.CollectingRollouts !== 1)
       throw new Error('RLRunState incorrect')
   })
 
-  // Conditional import: only loaded during test execution
   await test('Coordinator can be imported', async () => {
-    const { createRLAIFCoordinator } = await import(
-      '../apps/dws/src/rlaif/coordinator'
-    )
     if (typeof createRLAIFCoordinator !== 'function')
       throw new Error('Not a function')
   })
 
-  // Conditional import: only loaded during test execution
   await test('TrajectoryStore can be imported', async () => {
-    const { createTrajectoryStore } = await import(
-      '../apps/dws/src/rlaif/trajectory-store'
-    )
     if (typeof createTrajectoryStore !== 'function')
       throw new Error('Not a function')
   })
 
-  // Conditional import: only loaded during test execution
   await test('RulerScorer can be imported', async () => {
-    const { createRulerScorer } = await import(
-      '../apps/dws/src/rlaif/ruler-scorer'
-    )
     if (typeof createRulerScorer !== 'function')
       throw new Error('Not a function')
   })
 
   // Test Babylon Adapter
   console.log('\n5. Babylon Adapter Verification')
-  // Conditional import: only loaded during test execution
+  // Dynamic import for test isolation: verifies importability independently
+  // Tests that vendor module exports are accessible
   await test('Babylon adapter exports are available', async () => {
     const exports = await import(
       '../vendor/babylon/packages/training/src/compute/jeju-rlaif-adapter'
@@ -222,7 +214,7 @@ async function main() {
       throw new Error('trainWithJejuRLAIF not exported')
   })
 
-  // Conditional import: only loaded during test execution
+  // Dynamic import for test isolation: verifies importability independently
   await test('Babylon compute index exports adapter', async () => {
     const exports = await import(
       '../vendor/babylon/packages/training/src/compute/index'
@@ -235,11 +227,7 @@ async function main() {
 
   // Test CLI Commands
   console.log('\n6. CLI Command Verification')
-  // Conditional import: only loaded during test execution
   await test('Training command is exported', async () => {
-    const { trainingCommand } = await import(
-      '../packages/cli/src/commands/training'
-    )
     if (!trainingCommand) throw new Error('trainingCommand not exported')
     if (trainingCommand.name() !== 'training')
       throw new Error('Wrong command name')

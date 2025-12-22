@@ -23,9 +23,6 @@ interface CrossChainIdentityInput {
   smartAccount: Address
 }
 
-// Re-export ChainId from types for convenience
-export { ChainId }
-
 export interface SupportedChain {
   chainId: ChainId
   name: string

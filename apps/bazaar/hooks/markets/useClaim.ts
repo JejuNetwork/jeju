@@ -1,10 +1,9 @@
-import { AddressSchema } from '@jejunetwork/types'
+import { AddressSchema, NonEmptyStringSchema } from '@jejunetwork/types'
 import { useEffect } from 'react'
 import { toast } from 'sonner'
 import { useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
 import { CONTRACTS } from '../../config'
 import { expect } from '../../lib/validation'
-import { NonEmptyStringSchema } from '../../schemas/common'
 
 const PREDIMARKET_ADDRESS = CONTRACTS.predimarket
 

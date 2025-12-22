@@ -4,46 +4,12 @@
  * All API endpoints should use these schemas for input validation.
  * Fail-fast pattern: throw immediately on validation errors.
  *
- * Core validation helpers and schemas are imported from @jejunetwork/types/validation.
+ * Core validation helpers and schemas are available from @jejunetwork/types.
  * Indexer-specific schemas are defined locally.
  */
 
 import { AddressSchema, HashSchema } from '@jejunetwork/types'
 import { z } from 'zod'
-
-// ============================================================================
-// Re-export shared validation from @jejunetwork/types
-// ============================================================================
-
-export {
-  // Core schemas
-  AddressSchema,
-  BigIntSchema,
-  ChainIdSchema,
-  CidSchema,
-  // Validation helpers
-  expect,
-  expectAddress,
-  expectBigInt,
-  expectChainId,
-  expectDefined,
-  expectHex,
-  expectJson,
-  expectNonEmpty,
-  expectNonEmptyString,
-  expectNonNegative,
-  expectPositive,
-  expectTrue,
-  expectValid,
-  HashSchema,
-  HexSchema,
-  NonNegativeBigIntSchema,
-  PositiveBigIntSchema,
-  TimestampSchema,
-  UrlSchema,
-  validateOrNull,
-  validateOrThrow,
-} from '@jejunetwork/types'
 
 // ============================================================================
 // Pagination schema (defined locally as not exported from @jejunetwork/types)
@@ -53,13 +19,6 @@ export const paginationSchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
   offset: z.coerce.number().int().min(0).default(0),
 })
-
-// ============================================================================
-// Backwards-compatible aliases for local names
-// ============================================================================
-
-export const addressSchema = AddressSchema
-export const hashSchema = HashSchema
 
 // ============================================================================
 // Indexer-specific Primitives
@@ -170,7 +129,7 @@ export const blocksQuerySchema = paginationSchema.extend({
 // ============================================================================
 
 export const transactionHashParamSchema = z.object({
-  hash: hashSchema,
+  hash: HashSchema,
 })
 
 export const transactionsQuerySchema = paginationSchema.extend({
@@ -182,7 +141,7 @@ export const transactionsQuerySchema = paginationSchema.extend({
 // ============================================================================
 
 export const accountAddressParamSchema = z.object({
-  address: addressSchema,
+  address: AddressSchema,
 })
 
 // ============================================================================
@@ -214,7 +173,7 @@ export const contractsQuerySchema = paginationSchema.extend({
 // ============================================================================
 
 export const tokenTransfersQuerySchema = paginationSchema.extend({
-  token: addressSchema.optional(),
+  token: AddressSchema.optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 })
 
@@ -303,7 +262,7 @@ export const oracleOperatorsQuerySchema = paginationSchema.extend({
 })
 
 export const oracleOperatorAddressParamSchema = z.object({
-  address: addressSchema,
+  address: AddressSchema,
 })
 
 // ============================================================================
@@ -383,7 +342,7 @@ export const a2aSkillParamsSchema = z.record(z.string(), JsonValueSchema)
 export const getBlockSkillSchema = z
   .object({
     blockNumber: blockNumberSchema.optional(),
-    blockHash: hashSchema.optional(),
+    blockHash: HashSchema.optional(),
   })
   .refine(
     (data) => data.blockNumber !== undefined || data.blockHash !== undefined,
@@ -393,11 +352,11 @@ export const getBlockSkillSchema = z
   )
 
 export const getTransactionSkillSchema = z.object({
-  hash: hashSchema,
+  hash: HashSchema,
 })
 
 export const getLogsSkillSchema = z.object({
-  address: addressSchema.optional(),
+  address: AddressSchema.optional(),
   topics: z.array(z.string()).optional(),
   fromBlock: blockNumberSchema.optional(),
   toBlock: blockNumberSchema.optional(),
@@ -405,11 +364,11 @@ export const getLogsSkillSchema = z.object({
 })
 
 export const getAccountSkillSchema = z.object({
-  address: addressSchema,
+  address: AddressSchema,
 })
 
 export const getTokenBalancesSkillSchema = z.object({
-  address: addressSchema,
+  address: AddressSchema,
 })
 
 export const getAgentSkillSchema = z.object({
@@ -432,7 +391,7 @@ export const getIntentSkillSchema = z.object({
 })
 
 export const getSolverSkillSchema = z.object({
-  address: addressSchema,
+  address: AddressSchema,
 })
 
 export const getProposalSkillSchema = z.object({
@@ -469,7 +428,7 @@ export const mcpToolCallSchema = z.object({
 
 // MCP Prompt argument schemas
 export const analyzeTransactionPromptArgsSchema = z.object({
-  hash: hashSchema,
+  hash: HashSchema,
 })
 
 export const summarizeAgentActivityPromptArgsSchema = z.object({

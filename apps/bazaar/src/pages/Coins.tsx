@@ -8,7 +8,7 @@ import { Link } from 'react-router-dom'
 import { formatUnits } from 'viem'
 import { LoadingSpinner } from '../../components/LoadingSpinner'
 import { JEJU_CHAIN_ID } from '../../config/chains'
-import { fetchTokens, type Token } from '../../lib/data-client'
+import { fetchTokensWithMarketData, type Token } from '../../lib/data-client'
 
 function formatNumber(num: number | bigint): string {
   const n = typeof num === 'bigint' ? Number(num) : num
@@ -92,7 +92,7 @@ export default function CoinsPage() {
   } = useQuery({
     queryKey: ['tokens', filter, orderBy],
     queryFn: () =>
-      fetchTokens({
+      fetchTokensWithMarketData({
         limit: 50,
         verified: filter === 'verified' ? true : undefined,
         orderBy,

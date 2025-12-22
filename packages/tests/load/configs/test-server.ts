@@ -18,11 +18,26 @@ export const testServerConfig: AppLoadTestConfig = {
     { path: '/api/fast', method: 'GET', weight: 0.2, expectedStatus: [200] },
     { path: '/api/medium', method: 'GET', weight: 0.15, expectedStatus: [200] },
     { path: '/api/slow', method: 'GET', weight: 0.05, expectedStatus: [200] },
-    { path: '/api/variable', method: 'GET', weight: 0.15, expectedStatus: [200] },
+    {
+      path: '/api/variable',
+      method: 'GET',
+      weight: 0.15,
+      expectedStatus: [200],
+    },
     { path: '/api/items', method: 'GET', weight: 0.1, expectedStatus: [200] },
-    { path: '/api/search?q=test', method: 'GET', weight: 0.1, expectedStatus: [200] },
+    {
+      path: '/api/search?q=test',
+      method: 'GET',
+      weight: 0.1,
+      expectedStatus: [200],
+    },
     { path: '/api/stats', method: 'GET', weight: 0.05, expectedStatus: [200] },
-    { path: '/api/reliable', method: 'GET', weight: 0.05, expectedStatus: [200] },
+    {
+      path: '/api/reliable',
+      method: 'GET',
+      weight: 0.05,
+      expectedStatus: [200],
+    },
   ],
   thresholds: {
     p50Latency: 50,
@@ -32,4 +47,3 @@ export const testServerConfig: AppLoadTestConfig = {
     minRps: 100,
   },
 }
-

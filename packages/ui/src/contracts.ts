@@ -1,6 +1,5 @@
 /**
  * Shared Contract ABIs for UI hooks
- * Consolidated from gateway and bazaar
  */
 
 import type { Address, Hex } from 'viem'

@@ -10,6 +10,7 @@ import { join } from 'node:path'
 import { cors } from '@elysiajs/cors'
 import { openapi } from '@elysiajs/openapi'
 import { staticPlugin } from '@elysiajs/static'
+import { CORE_PORTS } from '@jejunetwork/config/ports'
 import { type Context, Elysia } from 'elysia'
 import { a2aRoutes } from './routes/a2a'
 import { agentsRoutes } from './routes/agents'
@@ -28,7 +29,7 @@ import { packagesRoutes } from './routes/packages'
 import { projectsRoutes } from './routes/projects'
 import { pullsRoutes } from './routes/pulls'
 
-const PORT = parseInt(process.env.PORT || '4009', 10)
+const PORT = Number(process.env.PORT) || CORE_PORTS.FACTORY.get()
 const isDev = process.env.NODE_ENV !== 'production'
 
 // Determine static files path based on execution context
@@ -51,7 +52,10 @@ function createApp() {
       cors({
         origin: isDev
           ? '*'
-          : ['https://factory.jejunetwork.org', 'https://jeju.local:4009'],
+          : [
+              'https://factory.jejunetwork.org',
+              `https://jeju.local:${CORE_PORTS.FACTORY.get()}`,
+            ],
         credentials: true,
       }),
     )

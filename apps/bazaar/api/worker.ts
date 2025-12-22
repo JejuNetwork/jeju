@@ -7,6 +7,11 @@
 
 import { cors } from '@elysiajs/cors'
 import {
+  CORE_PORTS,
+  getCoreAppUrl,
+  getL2RpcUrl,
+} from '@jejunetwork/config/ports'
+import {
   type ConsistencyLevel,
   type CovenantSQLClient,
   createCovenantSQLClient,
@@ -87,12 +92,17 @@ interface KVNamespace {
 // Database Layer
 // ============================================================================
 
+// CovenantSQL port - not yet in centralized config (@jejunetwork/config/ports)
+const COVENANTSQL_DEFAULT_PORT = 4661
+
 let dbClient: CovenantSQLClient | null = null
 
 function getDatabase(env: BazaarEnv): CovenantSQLClient {
   if (dbClient) return dbClient
 
-  const nodes = env.COVENANTSQL_NODES?.split(',') || ['http://localhost:4661']
+  const nodes = env.COVENANTSQL_NODES?.split(',') || [
+    `http://localhost:${COVENANTSQL_DEFAULT_PORT}`,
+  ]
   const databaseId = env.COVENANTSQL_DATABASE_ID
   const privateKey = env.COVENANTSQL_PRIVATE_KEY
 
@@ -176,7 +186,7 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
         : [
             'https://bazaar.jejunetwork.org',
             'https://jeju.network',
-            'http://localhost:4006',
+            getCoreAppUrl('BAZAAR'),
           ],
       credentials: true,
     }),
@@ -399,7 +409,7 @@ interface ExecutionContext {
 const isMainModule = typeof Bun !== 'undefined' && import.meta.path === Bun.main
 
 if (isMainModule) {
-  const PORT = Number(process.env.API_PORT) || 4007
+  const PORT = Number(process.env.API_PORT) || CORE_PORTS.COMPUTE.get()
 
   const app = createBazaarApp({
     NETWORK:
@@ -407,17 +417,19 @@ if (isMainModule) {
     TEE_MODE: 'simulated',
     TEE_PLATFORM: 'local',
     TEE_REGION: 'local',
-    RPC_URL: process.env.RPC_URL || 'http://localhost:6545',
-    DWS_URL: process.env.DWS_URL || 'http://localhost:4030',
-    GATEWAY_URL: process.env.GATEWAY_URL || 'http://localhost:4002',
-    INDEXER_URL: process.env.INDEXER_URL || 'http://localhost:4003',
-    COVENANTSQL_NODES: process.env.COVENANTSQL_NODES || 'http://localhost:4661',
+    RPC_URL: process.env.RPC_URL || getL2RpcUrl(),
+    DWS_URL: process.env.DWS_URL || getCoreAppUrl('DWS_API'),
+    GATEWAY_URL: process.env.GATEWAY_URL || getCoreAppUrl('NODE_EXPLORER_API'),
+    INDEXER_URL: process.env.INDEXER_URL || getCoreAppUrl('NODE_EXPLORER_UI'),
+    COVENANTSQL_NODES:
+      process.env.COVENANTSQL_NODES ||
+      `http://localhost:${COVENANTSQL_DEFAULT_PORT}`,
     COVENANTSQL_DATABASE_ID: process.env.COVENANTSQL_DATABASE_ID || '',
     COVENANTSQL_PRIVATE_KEY: process.env.COVENANTSQL_PRIVATE_KEY || '',
   })
 
   app.listen(PORT, () => {
-    console.log(`🔌 Bazaar API Worker running at http://localhost:${PORT}`)
+    console.log(`Bazaar API Worker running at http://localhost:${PORT}`)
   })
 }
 

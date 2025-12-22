@@ -110,8 +110,8 @@ export function getSharedState(): {
     daoRegistry: Address
   }
   clients: {
-    publicClient: ReturnType<typeof import('./blockchain').getBlockchain>['publicClient'] | null
-    walletClient: ReturnType<typeof import('./blockchain').getBlockchain>['walletClient'] | null
+    publicClient: AutocratBlockchain['client'] | null
+    walletClient: null // Wallet client requires a private key, set up in services that need it
   }
 } {
   return {
@@ -123,8 +123,8 @@ export function getSharedState(): {
       daoRegistry: config.contracts.daoRegistry as Address,
     },
     clients: {
-      publicClient: blockchain.publicClient,
-      walletClient: blockchain.walletClient,
+      publicClient: blockchain.client,
+      walletClient: null,
     },
   }
 }

@@ -33,6 +33,8 @@
  */
 
 import { beforeAll, describe, expect, it } from 'bun:test'
+import { exec } from 'node:child_process'
+import { promisify } from 'node:util'
 import {
   type Address,
   createPublicClient,
@@ -723,8 +725,6 @@ async function checkGraphQL(name: string, url: string): Promise<boolean> {
  */
 async function checkDatabase(name: string, _url: string): Promise<boolean> {
   try {
-    const { exec } = await import('node:child_process')
-    const { promisify } = await import('node:util')
     const execAsync = promisify(exec)
 
     await execAsync('docker ps | grep squid-db-1', { timeout: 2000 })

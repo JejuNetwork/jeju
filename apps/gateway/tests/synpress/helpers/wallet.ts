@@ -1,7 +1,5 @@
 /**
  * Wallet Helpers for Gateway Synpress Tests
- *
- * Consolidated wallet connection and management utilities.
  */
 
 import type { BrowserContext, Page } from '@playwright/test'

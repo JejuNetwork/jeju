@@ -3,6 +3,7 @@
  * Priority: AWS Nitro > GCP Confidential > Phala > Mock
  */
 
+import { existsSync } from 'node:fs'
 import type { Hex } from 'viem'
 import { keccak256, toBytes } from 'viem'
 import type {
@@ -182,8 +183,7 @@ export class TEEManager {
         env.details.instanceId = await response.text()
         env.details.platform = 'aws'
 
-        // Dynamic import: only needed when AWS environment detected (conditional check)
-        const { existsSync } = await import('node:fs')
+        // Check for NSM device (static import - always needed for TEE detection)
         if (existsSync('/dev/nsm') || process.env.AWS_ENCLAVE_ID) {
           env.inTEE = true
           env.capabilities = ['attestation', 'key_gen', 'persistent']

@@ -19,7 +19,6 @@ import { CompletionResponseSchema } from '../schemas'
 export interface EnvConfig {
   tokenizerName: string
   groupSize: number
-  useWandb: boolean
   maxNumWorkers: number
   rolloutServerUrl: string
   totalSteps: number
@@ -27,7 +26,6 @@ export interface EnvConfig {
   stepsPerEval: number
   maxTokenLength: number
   inferenceWeight: number
-  wandbName: string
   dataPathToSaveGroups: string | null
   evalLimitRatio: number
 }
@@ -214,7 +212,7 @@ function generateSyntheticDataset(count: number): DatasetItem[] {
 
     items.push({
       context: `Company: ${company}
-Q${((i % 4) + 1)} 2024 Revenue: $${baseRevenue.toFixed(1)}B (${revenueGrowth > 0 ? '+' : ''}${revenueGrowth.toFixed(1)}% YoY)
+Q${(i % 4) + 1} 2024 Revenue: $${baseRevenue.toFixed(1)}B (${revenueGrowth > 0 ? '+' : ''}${revenueGrowth.toFixed(1)}% YoY)
 Net Income: $${(baseRevenue * 0.15).toFixed(1)}B
 EPS: $${(1 + Math.random()).toFixed(2)} (${epsBeat > 0 ? 'beat' : 'missed'} estimates by $${Math.abs(epsBeat).toFixed(2)})
 Macro: ${macro}`,
@@ -334,7 +332,6 @@ export class FundamentalPredictionEnv {
     const envConfig: EnvConfig = {
       tokenizerName: 'microsoft/phi-2',
       groupSize: 8,
-      useWandb: false,
       maxNumWorkers: 32,
       rolloutServerUrl: 'http://localhost:8000',
       totalSteps: 100,
@@ -342,7 +339,6 @@ export class FundamentalPredictionEnv {
       stepsPerEval: 10,
       maxTokenLength: 2048,
       inferenceWeight: 1.0,
-      wandbName: 'fundamental_metric_prediction',
       dataPathToSaveGroups: null,
       evalLimitRatio: 0.1,
     }

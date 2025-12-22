@@ -41,9 +41,6 @@ import {
 
 const TEST_ADDRESS = TEST_WALLET_ADDRESS as Address
 
-// Re-export types for backwards compatibility
-export type { PreflightConfig, PreflightResult, PreflightCheck }
-
 const DEFAULT_CONFIG: PreflightConfig = {
   rpcUrl: getRpcUrl(),
   chainId: getChainId(),

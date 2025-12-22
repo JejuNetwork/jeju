@@ -5,7 +5,7 @@
  */
 
 import type { TradingBotChain, TradingBotStrategy } from '../types'
-import type { ChainId } from './autocrat-types'
+import type { ChainId } from './autocrat-types-source'
 import type { TradingBotOptions } from './trading-bot'
 
 export interface DefaultBotConfig {

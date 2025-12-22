@@ -9,8 +9,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 /**
  * @title AssetLib
  * @author Jeju Network
- * @notice Unified library for multi-asset transfers (ETH, ERC20, ERC721, ERC1155)
- * @dev Consolidates asset handling logic used across Marketplace, Paymaster, and Settler contracts
+ * @notice Library for multi-asset transfers (ETH, ERC20, ERC721, ERC1155)
  */
 library AssetLib {
     using SafeERC20 for IERC20;

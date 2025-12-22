@@ -12,12 +12,12 @@
  */
 
 import { type Subprocess, spawn } from 'bun'
+import { SolanaHealthResponseSchema } from '../utils/validation.js'
 import {
   getLocalGenesisState,
   LOCAL_CHAIN_CONFIG,
   TEST_TOKENS,
 } from './config.js'
-import { SolanaHealthResponseSchema } from '../utils/validation.js'
 
 interface ProcessHandle {
   name: string

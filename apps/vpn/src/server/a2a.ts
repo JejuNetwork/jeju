@@ -29,6 +29,8 @@ import {
   filterNodesByStatus,
   findBestNode,
 } from './utils/nodes'
+import { validateProxyUrlWithDNS } from './utils/proxy-validation'
+import { readResponseBody } from './utils/response-reader'
 import {
   createSession,
   deleteSession,
@@ -37,7 +39,6 @@ import {
   getSessionDuration,
   verifySessionOwnership,
 } from './utils/sessions'
-import { validateProxyUrlWithDNS } from './utils/proxy-validation'
 import { verifyX402Payment } from './x402'
 
 // Infer types from Zod schemas
@@ -338,47 +339,9 @@ async function handleProxyRequest(
     signal: controller.signal,
   }).finally(() => clearTimeout(timeoutId))
 
-  // SECURITY: Check response size before reading
-  const responseContentLength = response.headers.get('content-length')
-  if (
-    responseContentLength &&
-    parseInt(responseContentLength, 10) > A2A_MAX_RESPONSE_BODY_SIZE
-  ) {
-    throw new Error(
-      `Response too large. Max size: ${A2A_MAX_RESPONSE_BODY_SIZE} bytes`,
-    )
-  }
-
-  // SECURITY: Read response with size limit
-  const reader = response.body?.getReader()
-  if (!reader) {
-    throw new Error('No response body')
-  }
-
-  const chunks: Uint8Array[] = []
-  let totalSize = 0
-
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-
-    totalSize += value.length
-    if (totalSize > A2A_MAX_RESPONSE_BODY_SIZE) {
-      reader.cancel()
-      throw new Error(
-        `Response too large. Max size: ${A2A_MAX_RESPONSE_BODY_SIZE} bytes`,
-      )
-    }
-    chunks.push(value)
-  }
-
-  const responseBody = new TextDecoder().decode(
-    chunks.reduce((acc, chunk) => {
-      const result = new Uint8Array(acc.length + chunk.length)
-      result.set(acc)
-      result.set(chunk, acc.length)
-      return result
-    }, new Uint8Array(0)),
+  const responseBody = await readResponseBody(
+    response,
+    A2A_MAX_RESPONSE_BODY_SIZE,
   )
 
   return {

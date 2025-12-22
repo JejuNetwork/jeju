@@ -1,26 +1,46 @@
-/**
- * Unit Tests for Utilities, Types, and Validation
- *
- * Tests type exports, utilities, configuration, and validation helpers
- * without requiring running services.
- */
-
 import { describe, expect, test } from 'bun:test'
 import type { Address } from 'viem'
+import { cacheKeys } from '../services/cache'
+import { getStorageService } from '../services/storage'
+import { A2A_SKILLS, MCP_TOOLS, TODO_PRIORITIES, X402_CONFIG } from '../types'
+import {
+  constructAuthMessage,
+  formatAddress,
+  generateId,
+  getNextMidnight,
+  getTopPriorities,
+  isOverdue,
+  isValidJNSName,
+  isValidTimestamp,
+  normalizeJNSName,
+  prioritizeTodos,
+  sortByPriority,
+  TIMESTAMP_WINDOW_MS,
+  validateTimestamp,
+} from '../utils'
+import {
+  expectDefined,
+  expectInRange,
+  expectMatch,
+  expectMaxLength,
+  expectMinLength,
+  expectTruthy,
+  expectValid,
+  isValidationError,
+  ValidationError,
+} from '../utils/validation'
 
 const TEST_ADDRESS = '0x1234567890123456789012345678901234567890' as Address
 
 describe('Types and Interfaces', () => {
-  test('should export TodoPriority enum values', async () => {
-    const { TODO_PRIORITIES } = await import('../types')
+  test('should export TodoPriority enum values', () => {
     expect(TODO_PRIORITIES).toContain('low')
     expect(TODO_PRIORITIES).toContain('medium')
     expect(TODO_PRIORITIES).toContain('high')
     expect(TODO_PRIORITIES.length).toBe(3)
   })
 
-  test('should export A2A skill IDs', async () => {
-    const { A2A_SKILLS } = await import('../types')
+  test('should export A2A skill IDs', () => {
     expect(A2A_SKILLS).toContain('list-todos')
     expect(A2A_SKILLS).toContain('create-todo')
     expect(A2A_SKILLS).toContain('complete-todo')
@@ -29,8 +49,7 @@ describe('Types and Interfaces', () => {
     expect(A2A_SKILLS).toContain('set-reminder')
   })
 
-  test('should export MCP tool names', async () => {
-    const { MCP_TOOLS } = await import('../types')
+  test('should export MCP tool names', () => {
     expect(MCP_TOOLS).toContain('create_todo')
     expect(MCP_TOOLS).toContain('list_todos')
     expect(MCP_TOOLS).toContain('update_todo')
@@ -40,8 +59,7 @@ describe('Types and Interfaces', () => {
 })
 
 describe('x402 Configuration', () => {
-  test('should have valid payment configuration', async () => {
-    const { X402_CONFIG } = await import('../types')
+  test('should have valid payment configuration', () => {
     expect(X402_CONFIG.enabled).toBe(true)
     expect(X402_CONFIG.paymentAddress).toMatch(/^0x[a-fA-F0-9]{40}$/)
     expect(X402_CONFIG.acceptedTokens.length).toBeGreaterThan(0)
@@ -50,8 +68,7 @@ describe('x402 Configuration', () => {
     expect(X402_CONFIG.prices.mcp).toBeDefined()
   })
 
-  test('should have valid pricing tiers', async () => {
-    const { X402_CONFIG } = await import('../types')
+  test('should have valid pricing tiers', () => {
     const restPrice = BigInt(X402_CONFIG.prices.rest)
     const a2aPrice = BigInt(X402_CONFIG.prices.a2a)
     const mcpPrice = BigInt(X402_CONFIG.prices.mcp)
@@ -63,25 +80,19 @@ describe('x402 Configuration', () => {
 })
 
 describe('Cache Keys', () => {
-  test('should generate consistent keys', async () => {
-    const { cacheKeys } = await import('../services/cache')
-
+  test('should generate consistent keys', () => {
     const key1 = cacheKeys.todoList(TEST_ADDRESS)
     const key2 = cacheKeys.todoList(TEST_ADDRESS)
 
     expect(key1).toBe(key2)
   })
 
-  test('should include address in keys', async () => {
-    const { cacheKeys } = await import('../services/cache')
-
+  test('should include address in keys', () => {
     const key = cacheKeys.todoList(TEST_ADDRESS)
     expect(key).toContain(TEST_ADDRESS.toLowerCase())
   })
 
-  test('should generate different keys for different types', async () => {
-    const { cacheKeys } = await import('../services/cache')
-
+  test('should generate different keys for different types', () => {
     const listKey = cacheKeys.todoList(TEST_ADDRESS)
     const statsKey = cacheKeys.todoStats(TEST_ADDRESS)
     const itemKey = cacheKeys.todoItem('todo-123')
@@ -91,9 +102,7 @@ describe('Cache Keys', () => {
     expect(statsKey).not.toBe(itemKey)
   })
 
-  test('should lowercase addresses', async () => {
-    const { cacheKeys } = await import('../services/cache')
-
+  test('should lowercase addresses', () => {
     const mixedCaseAddress =
       '0xAbCdEf1234567890AbCdEf1234567890AbCdEf12' as Address
     const key = cacheKeys.todoList(mixedCaseAddress)
@@ -105,18 +114,14 @@ describe('Cache Keys', () => {
 })
 
 describe('Authentication Message', () => {
-  test('should construct correct message format', async () => {
-    const { constructAuthMessage } = await import('../utils')
-
+  test('should construct correct message format', () => {
     const timestamp = Date.now()
     const message = constructAuthMessage(timestamp)
 
     expect(message).toBe(`jeju-dapp:${timestamp}`)
   })
 
-  test('should validate timestamp within window', async () => {
-    const { isValidTimestamp, TIMESTAMP_WINDOW_MS } = await import('../utils')
-
+  test('should validate timestamp within window', () => {
     const now = Date.now()
     expect(isValidTimestamp(now)).toBe(true)
     expect(isValidTimestamp(now - 1000)).toBe(true)
@@ -128,9 +133,7 @@ describe('Authentication Message', () => {
 })
 
 describe('ID Generation', () => {
-  test('should generate unique IDs', async () => {
-    const { generateId } = await import('../utils')
-
+  test('should generate unique IDs', () => {
     const ids = new Set<string>()
     for (let i = 0; i < 100; i++) {
       ids.add(generateId())
@@ -139,17 +142,13 @@ describe('ID Generation', () => {
     expect(ids.size).toBe(100)
   })
 
-  test('should follow expected format', async () => {
-    const { generateId } = await import('../utils')
-
+  test('should follow expected format', () => {
     const id = generateId()
     expect(id.length).toBeGreaterThan(10)
     expect(id).toMatch(/^[a-zA-Z0-9_-]+$/)
   })
 
-  test('should support prefixes', async () => {
-    const { generateId } = await import('../utils')
-
+  test('should support prefixes', () => {
     const todoId = generateId('todo')
     const reminderId = generateId('reminder')
 
@@ -159,9 +158,7 @@ describe('ID Generation', () => {
 })
 
 describe('Priority Sorting', () => {
-  test('should sort by priority correctly', async () => {
-    const { sortByPriority } = await import('../utils')
-
+  test('should sort by priority correctly', () => {
     const todos = [
       { id: '1', priority: 'low' as const },
       { id: '2', priority: 'medium' as const },
@@ -175,17 +172,14 @@ describe('Priority Sorting', () => {
     expect(sorted[2].priority).toBe('low')
   })
 
-  test('should handle empty arrays', async () => {
-    const { sortByPriority } = await import('../utils')
+  test('should handle empty arrays', () => {
     const sorted = sortByPriority([])
     expect(sorted).toEqual([])
   })
 })
 
 describe('Date Helpers', () => {
-  test('should calculate next midnight correctly', async () => {
-    const { getNextMidnight } = await import('../utils')
-
+  test('should calculate next midnight correctly', () => {
     const nextMidnight = getNextMidnight()
     const now = Date.now()
 
@@ -198,9 +192,7 @@ describe('Date Helpers', () => {
     expect(date.getSeconds()).toBe(0)
   })
 
-  test('should detect overdue items', async () => {
-    const { isOverdue } = await import('../utils')
-
+  test('should detect overdue items', () => {
     const past = Date.now() - 1000
     const future = Date.now() + 60000
 
@@ -210,8 +202,7 @@ describe('Date Helpers', () => {
 })
 
 describe('Storage URL Generation', () => {
-  test('should generate IPFS gateway URLs', async () => {
-    const { getStorageService } = await import('../services/storage')
+  test('should generate IPFS gateway URLs', () => {
     const storage = getStorageService()
 
     const cid = 'QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG'
@@ -221,8 +212,7 @@ describe('Storage URL Generation', () => {
     expect(url).toContain(cid)
   })
 
-  test('should reject invalid CIDs', async () => {
-    const { getStorageService } = await import('../services/storage')
+  test('should reject invalid CIDs', () => {
     const storage = getStorageService()
 
     expect(() => storage.getUrl('../../../etc/passwd')).toThrow('Invalid CID')
@@ -232,18 +222,14 @@ describe('Storage URL Generation', () => {
 })
 
 describe('JNS Name Normalization', () => {
-  test('should normalize names correctly', async () => {
-    const { normalizeJNSName } = await import('../utils')
-
+  test('should normalize names correctly', () => {
     expect(normalizeJNSName('test')).toBe('test.jeju')
     expect(normalizeJNSName('test.jeju')).toBe('test.jeju')
     expect(normalizeJNSName('TEST.JEJU')).toBe('test.jeju')
     expect(normalizeJNSName('Test')).toBe('test.jeju')
   })
 
-  test('should validate JNS names', async () => {
-    const { isValidJNSName } = await import('../utils')
-
+  test('should validate JNS names', () => {
     expect(isValidJNSName('test')).toBe(true)
     expect(isValidJNSName('test123')).toBe(true)
     expect(isValidJNSName('test-name')).toBe(true)
@@ -264,6 +250,9 @@ describe('Configuration', () => {
     expect(parseInt(PORT, 10)).not.toBe(parseInt(FRONTEND_PORT, 10))
   })
 })
+
+import { z } from 'zod'
+import { filterOverdue } from '../utils'
 
 describe('Todo Prioritization', () => {
   const createTodo = (
@@ -291,9 +280,7 @@ describe('Todo Prioritization', () => {
     }
   }
 
-  test('should sort by priority then due date', async () => {
-    const { prioritizeTodos } = await import('../utils')
-
+  test('should sort by priority then due date', () => {
     const now = Date.now()
     const todos = [
       createTodo({
@@ -330,9 +317,7 @@ describe('Todo Prioritization', () => {
     expect(sorted[3].id).toBe('1')
   })
 
-  test('should handle todos without due dates', async () => {
-    const { prioritizeTodos } = await import('../utils')
-
+  test('should handle todos without due dates', () => {
     const now = Date.now()
     const todos = [
       createTodo({
@@ -355,8 +340,7 @@ describe('Todo Prioritization', () => {
     expect(sorted[1].id).toBe('1')
   })
 
-  test('should handle empty array', async () => {
-    const { prioritizeTodos } = await import('../utils')
+  test('should handle empty array', () => {
     expect(prioritizeTodos([])).toEqual([])
   })
 })
@@ -387,9 +371,7 @@ describe('Filter Overdue', () => {
     }
   }
 
-  test('should filter overdue incomplete todos', async () => {
-    const { filterOverdue } = await import('../utils')
-
+  test('should filter overdue incomplete todos', () => {
     const now = Date.now()
     const todos = [
       createTodo({
@@ -425,9 +407,7 @@ describe('Filter Overdue', () => {
     expect(overdue[0].id).toBe('1')
   })
 
-  test('should return empty array when no overdue items', async () => {
-    const { filterOverdue } = await import('../utils')
-
+  test('should return empty array when no overdue items', () => {
     const now = Date.now()
     const todos = [
       createTodo({
@@ -468,9 +448,7 @@ describe('Get Top Priorities', () => {
     }
   }
 
-  test('should return top N incomplete prioritized todos', async () => {
-    const { getTopPriorities } = await import('../utils')
-
+  test('should return top N incomplete prioritized todos', () => {
     const todos = [
       createTodo({ id: '1', priority: 'low', title: 'Low' }),
       createTodo({ id: '2', priority: 'high', title: 'High' }),
@@ -490,9 +468,7 @@ describe('Get Top Priorities', () => {
     expect(top[1].id).toBe('4')
   })
 
-  test('should default to 5 items', async () => {
-    const { getTopPriorities } = await import('../utils')
-
+  test('should default to 5 items', () => {
     const todos = Array.from({ length: 10 }, (_, i) =>
       createTodo({ id: String(i), title: `Todo ${i}` }),
     )
@@ -501,9 +477,7 @@ describe('Get Top Priorities', () => {
     expect(top.length).toBe(5)
   })
 
-  test('should handle fewer items than requested', async () => {
-    const { getTopPriorities } = await import('../utils')
-
+  test('should handle fewer items than requested', () => {
     const todos = [createTodo({ id: '1', priority: 'high', title: 'High' })]
 
     const top = getTopPriorities(todos, 10)
@@ -512,18 +486,14 @@ describe('Get Top Priorities', () => {
 })
 
 describe('Address Formatting', () => {
-  test('should format address with default chars', async () => {
-    const { formatAddress } = await import('../utils')
-
+  test('should format address with default chars', () => {
     const formatted = formatAddress(
       '0x1234567890123456789012345678901234567890',
     )
     expect(formatted).toBe('0x1234...7890')
   })
 
-  test('should format address with custom chars', async () => {
-    const { formatAddress } = await import('../utils')
-
+  test('should format address with custom chars', () => {
     const formatted = formatAddress(
       '0x1234567890123456789012345678901234567890',
       6,
@@ -531,14 +501,11 @@ describe('Address Formatting', () => {
     expect(formatted).toBe('0x123456...567890')
   })
 
-  test('should throw on empty address', async () => {
-    const { formatAddress } = await import('../utils')
+  test('should throw on empty address', () => {
     expect(() => formatAddress('')).toThrow('Address is required')
   })
 
-  test('should throw on invalid address format', async () => {
-    const { formatAddress } = await import('../utils')
-
+  test('should throw on invalid address format', () => {
     expect(() => formatAddress('not-an-address')).toThrow(
       'Invalid address format',
     )
@@ -547,9 +514,7 @@ describe('Address Formatting', () => {
 })
 
 describe('Timestamp Validation Details', () => {
-  test('should return detailed validation info', async () => {
-    const { validateTimestamp, TIMESTAMP_WINDOW_MS } = await import('../utils')
-
+  test('should return detailed validation info', () => {
     const now = Date.now()
     const result = validateTimestamp(now)
 
@@ -558,9 +523,7 @@ describe('Timestamp Validation Details', () => {
     expect(result.maxAge).toBe(TIMESTAMP_WINDOW_MS)
   })
 
-  test('should calculate age correctly for past timestamp', async () => {
-    const { validateTimestamp } = await import('../utils')
-
+  test('should calculate age correctly for past timestamp', () => {
     const now = Date.now()
     const past = now - 60000
     const result = validateTimestamp(past)
@@ -572,19 +535,13 @@ describe('Timestamp Validation Details', () => {
 })
 
 describe('Validation Utilities', () => {
-  test('expectDefined should return value when defined', async () => {
-    const { expectDefined } = await import('../utils/validation')
-
+  test('expectDefined should return value when defined', () => {
     expect(expectDefined('hello')).toBe('hello')
     expect(expectDefined(0)).toBe(0)
     expect(expectDefined(false)).toBe(false)
   })
 
-  test('expectDefined should throw on null or undefined', async () => {
-    const { expectDefined, ValidationError } = await import(
-      '../utils/validation'
-    )
-
+  test('expectDefined should throw on null or undefined', () => {
     expect(() => expectDefined(null)).toThrow(ValidationError)
     expect(() => expectDefined(undefined)).toThrow(ValidationError)
     expect(() => expectDefined(null, 'Custom message')).toThrow(
@@ -592,20 +549,14 @@ describe('Validation Utilities', () => {
     )
   })
 
-  test('expectTruthy should return value when truthy', async () => {
-    const { expectTruthy } = await import('../utils/validation')
-
+  test('expectTruthy should return value when truthy', () => {
     expect(expectTruthy('hello')).toBe('hello')
     expect(expectTruthy(1)).toBe(1)
     expect(expectTruthy(true)).toBe(true)
     expect(expectTruthy([])).toEqual([])
   })
 
-  test('expectTruthy should throw on falsy values', async () => {
-    const { expectTruthy, ValidationError } = await import(
-      '../utils/validation'
-    )
-
+  test('expectTruthy should throw on falsy values', () => {
     expect(() => expectTruthy(null)).toThrow(ValidationError)
     expect(() => expectTruthy(undefined)).toThrow(ValidationError)
     expect(() => expectTruthy(0)).toThrow(ValidationError)
@@ -613,11 +564,7 @@ describe('Validation Utilities', () => {
     expect(() => expectTruthy(false)).toThrow(ValidationError)
   })
 
-  test('expectInRange should validate number ranges', async () => {
-    const { expectInRange, ValidationError } = await import(
-      '../utils/validation'
-    )
-
+  test('expectInRange should validate number ranges', () => {
     expect(expectInRange(5, 0, 10)).toBe(5)
     expect(expectInRange(0, 0, 10)).toBe(0)
     expect(expectInRange(10, 0, 10)).toBe(10)
@@ -628,9 +575,7 @@ describe('Validation Utilities', () => {
     expect(() => expectInRange(-1, 0, 10, 'Value')).toThrow('Value:')
   })
 
-  test('expectMatch should validate string patterns', async () => {
-    const { expectMatch, ValidationError } = await import('../utils/validation')
-
+  test('expectMatch should validate string patterns', () => {
     expect(expectMatch('hello123', /^[a-z0-9]+$/)).toBe('hello123')
     expect(expectMatch('test@example.com', /@/)).toBe('test@example.com')
 
@@ -638,11 +583,7 @@ describe('Validation Utilities', () => {
     expect(() => expectMatch('no-at-sign', /@/)).toThrow(ValidationError)
   })
 
-  test('expectMinLength should validate minimum array length', async () => {
-    const { expectMinLength, ValidationError } = await import(
-      '../utils/validation'
-    )
-
+  test('expectMinLength should validate minimum array length', () => {
     expect(expectMinLength([1, 2, 3], 2)).toEqual([1, 2, 3])
     expect(expectMinLength([1], 1)).toEqual([1])
 
@@ -651,11 +592,7 @@ describe('Validation Utilities', () => {
     expect(() => expectMinLength([], 1, 'Items')).toThrow('Items:')
   })
 
-  test('expectMaxLength should validate maximum array length', async () => {
-    const { expectMaxLength, ValidationError } = await import(
-      '../utils/validation'
-    )
-
+  test('expectMaxLength should validate maximum array length', () => {
     expect(expectMaxLength([1, 2], 3)).toEqual([1, 2])
     expect(expectMaxLength([1, 2, 3], 3)).toEqual([1, 2, 3])
 
@@ -663,10 +600,7 @@ describe('Validation Utilities', () => {
     expect(() => expectMaxLength([1, 2, 3, 4], 3, 'Items')).toThrow('Items:')
   })
 
-  test('expectValid should validate against zod schema', async () => {
-    const { expectValid, ValidationError } = await import('../utils/validation')
-    const { z } = await import('zod')
-
+  test('expectValid should validate against zod schema', () => {
     const schema = z.object({
       name: z.string().min(1),
       age: z.number().positive(),
@@ -686,11 +620,7 @@ describe('Validation Utilities', () => {
     expect(() => expectValid(schema, null)).toThrow(ValidationError)
   })
 
-  test('isValidationError should correctly identify ValidationError', async () => {
-    const { isValidationError, ValidationError } = await import(
-      '../utils/validation'
-    )
-
+  test('isValidationError should correctly identify ValidationError', () => {
     expect(isValidationError(new ValidationError('test'))).toBe(true)
     expect(isValidationError(new Error('test'))).toBe(false)
     expect(isValidationError('test')).toBe(false)

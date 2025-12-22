@@ -18,10 +18,9 @@
  *   }));
  */
 
-// Re-export consolidated HealthStatus
-import type { HealthStatus } from '@jejunetwork/types'
+import type { HealthResponse, HealthStatus } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
-export type { HealthStatus }
+
 type DependencyType =
   | 'database'
   | 'cache'
@@ -60,10 +59,6 @@ interface HealthMiddlewareConfig {
   resources?: ResourceConfig[]
   funding?: FundingConfig
 }
-
-// Re-export consolidated HealthResponse
-import type { HealthResponse } from '@jejunetwork/types'
-export type { HealthResponse }
 
 interface DependencyHealth {
   name: string
@@ -114,178 +109,180 @@ interface ResourceHealthResponse {
 const startTime = Date.now()
 
 export function healthMiddleware(config: HealthMiddlewareConfig) {
-  return new Elysia({ prefix: '/health' })
-    // GET /health - Basic health check
-    .get('/', async ({ set }) => {
-      let status: HealthStatus = 'healthy'
+  return (
+    new Elysia({ prefix: '/health' })
+      // GET /health - Basic health check
+      .get('/', async ({ set }) => {
+        let status: HealthStatus = 'healthy'
 
-      // Quick check of critical dependencies
-      if (config.dependencies) {
-        const criticalDeps = config.dependencies.filter(
-          (d) => d.required !== false,
-        )
-        for (const dep of criticalDeps) {
-          const isHealthy = await dep.check().catch(() => false)
-          if (!isHealthy) {
-            status = 'unhealthy'
-            break
-          }
-        }
-      }
-
-      const response: HealthResponse = {
-        status,
-        service: config.service,
-        version: config.version,
-        timestamp: new Date().toISOString(),
-        uptime: Date.now() - startTime,
-      }
-
-      if (status !== 'healthy') {
-        set.status = 503
-      }
-
-      return response
-    })
-
-    // GET /health/ready - Readiness check with dependency details
-    .get('/ready', async ({ set }) => {
-      const dependencies: DependencyHealth[] = []
-      let overallStatus: HealthStatus = 'healthy'
-      let ready = true
-
-      if (config.dependencies) {
-        for (const dep of config.dependencies) {
-          const start = Date.now()
-          let depStatus: HealthStatus = 'healthy'
-          let error: string | undefined
-
-          const isHealthy = await dep.check().catch((e) => {
-            error = e instanceof Error ? e.message : String(e)
-            return false
-          })
-
-          if (!isHealthy) {
-            depStatus = 'unhealthy'
-            if (dep.required !== false) {
-              overallStatus = 'unhealthy'
-              ready = false
-            } else if (overallStatus === 'healthy') {
-              overallStatus = 'degraded'
+        // Quick check of critical dependencies
+        if (config.dependencies) {
+          const criticalDeps = config.dependencies.filter(
+            (d) => d.required !== false,
+          )
+          for (const dep of criticalDeps) {
+            const isHealthy = await dep.check().catch(() => false)
+            if (!isHealthy) {
+              status = 'unhealthy'
+              break
             }
           }
-
-          dependencies.push({
-            name: dep.name,
-            type: dep.type,
-            status: depStatus,
-            latencyMs: Date.now() - start,
-            error,
-          })
         }
-      }
 
-      const response: ReadinessResponse = {
-        ready,
-        status: overallStatus,
-        dependencies,
-      }
+        const response: HealthResponse = {
+          status,
+          service: config.service,
+          version: config.version,
+          timestamp: new Date().toISOString(),
+          uptime: Date.now() - startTime,
+        }
 
-      if (!ready) {
-        set.status = 503
-      }
+        if (status !== 'healthy') {
+          set.status = 503
+        }
 
-      return response
-    })
+        return response
+      })
 
-    // GET /health/live - Liveness check (is the process alive?)
-    .get('/live', () => {
-      const mem = process.memoryUsage()
+      // GET /health/ready - Readiness check with dependency details
+      .get('/ready', async ({ set }) => {
+        const dependencies: DependencyHealth[] = []
+        let overallStatus: HealthStatus = 'healthy'
+        let ready = true
 
-      const response: LivenessResponse = {
-        alive: true,
-        pid: process.pid,
-        memoryUsage: {
-          heapUsed: mem.heapUsed,
-          heapTotal: mem.heapTotal,
-          rss: mem.rss,
-        },
-      }
+        if (config.dependencies) {
+          for (const dep of config.dependencies) {
+            const start = Date.now()
+            let depStatus: HealthStatus = 'healthy'
+            let error: string | undefined
 
-      return response
-    })
-
-    // GET /health/resources - Resource-level health with funding status
-    .get('/resources', async ({ set }) => {
-      const resources: ResourceHealth[] = []
-      let overallStatus: HealthStatus = 'healthy'
-
-      // Check resources
-      if (config.resources) {
-        for (const res of config.resources) {
-          const start = Date.now()
-          let resStatus: HealthStatus = 'healthy'
-          let error: string | undefined
-
-          if (res.check) {
-            const isHealthy = await res.check().catch((e) => {
+            const isHealthy = await dep.check().catch((e) => {
               error = e instanceof Error ? e.message : String(e)
               return false
             })
 
             if (!isHealthy) {
-              resStatus = 'unhealthy'
-              if (res.required !== false) {
+              depStatus = 'unhealthy'
+              if (dep.required !== false) {
                 overallStatus = 'unhealthy'
+                ready = false
               } else if (overallStatus === 'healthy') {
                 overallStatus = 'degraded'
               }
             }
+
+            dependencies.push({
+              name: dep.name,
+              type: dep.type,
+              status: depStatus,
+              latencyMs: Date.now() - start,
+              error,
+            })
           }
-
-          resources.push({
-            type: res.type,
-            identifier: res.identifier,
-            status: resStatus,
-            required: res.required !== false,
-            lastCheck: new Date().toISOString(),
-            latencyMs: Date.now() - start,
-            error,
-          })
         }
-      }
 
-      // Check funding
-      let balance = 0n
-      let funded = true
-
-      if (config.funding) {
-        balance = await config.funding.getCurrentBalance().catch(() => 0n)
-        funded = balance >= config.funding.minRequired
-
-        if (!funded) {
-          overallStatus = 'unfunded'
+        const response: ReadinessResponse = {
+          ready,
+          status: overallStatus,
+          dependencies,
         }
-      }
 
-      const response: ResourceHealthResponse = {
-        status: overallStatus,
-        resources,
-        funding: {
-          funded,
-          balance: balance.toString(),
-          minRequired: config.funding?.minRequired.toString() ?? '0',
-          vaultAddress: config.funding?.vaultAddress ?? '0x0',
-          autoFundEnabled: config.funding?.autoFundEnabled ?? false,
-        },
-      }
+        if (!ready) {
+          set.status = 503
+        }
 
-      if (overallStatus !== 'healthy') {
-        set.status = 503
-      }
+        return response
+      })
 
-      return response
-    })
+      // GET /health/live - Liveness check (is the process alive?)
+      .get('/live', () => {
+        const mem = process.memoryUsage()
+
+        const response: LivenessResponse = {
+          alive: true,
+          pid: process.pid,
+          memoryUsage: {
+            heapUsed: mem.heapUsed,
+            heapTotal: mem.heapTotal,
+            rss: mem.rss,
+          },
+        }
+
+        return response
+      })
+
+      // GET /health/resources - Resource-level health with funding status
+      .get('/resources', async ({ set }) => {
+        const resources: ResourceHealth[] = []
+        let overallStatus: HealthStatus = 'healthy'
+
+        // Check resources
+        if (config.resources) {
+          for (const res of config.resources) {
+            const start = Date.now()
+            let resStatus: HealthStatus = 'healthy'
+            let error: string | undefined
+
+            if (res.check) {
+              const isHealthy = await res.check().catch((e) => {
+                error = e instanceof Error ? e.message : String(e)
+                return false
+              })
+
+              if (!isHealthy) {
+                resStatus = 'unhealthy'
+                if (res.required !== false) {
+                  overallStatus = 'unhealthy'
+                } else if (overallStatus === 'healthy') {
+                  overallStatus = 'degraded'
+                }
+              }
+            }
+
+            resources.push({
+              type: res.type,
+              identifier: res.identifier,
+              status: resStatus,
+              required: res.required !== false,
+              lastCheck: new Date().toISOString(),
+              latencyMs: Date.now() - start,
+              error,
+            })
+          }
+        }
+
+        // Check funding
+        let balance = 0n
+        let funded = true
+
+        if (config.funding) {
+          balance = await config.funding.getCurrentBalance().catch(() => 0n)
+          funded = balance >= config.funding.minRequired
+
+          if (!funded) {
+            overallStatus = 'unfunded'
+          }
+        }
+
+        const response: ResourceHealthResponse = {
+          status: overallStatus,
+          resources,
+          funding: {
+            funded,
+            balance: balance.toString(),
+            minRequired: config.funding?.minRequired.toString() ?? '0',
+            vaultAddress: config.funding?.vaultAddress ?? '0x0',
+            autoFundEnabled: config.funding?.autoFundEnabled ?? false,
+          },
+        }
+
+        if (overallStatus !== 'healthy') {
+          set.status = 503
+        }
+
+        return response
+      })
+  )
 }
 
 /**

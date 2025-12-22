@@ -386,9 +386,11 @@ export class CISecretsStore {
 
 let secretsStoreInstance: CISecretsStore | null = null
 
-export function getCISecretsStore(config?: SecretsStoreConfig): CISecretsStore {
+export function getCISecretsStore(
+  _config?: SecretsStoreConfig,
+): CISecretsStore {
   if (!secretsStoreInstance) {
-    secretsStoreInstance = new CISecretsStore(config)
+    secretsStoreInstance = new CISecretsStore()
   }
   return secretsStoreInstance
 }

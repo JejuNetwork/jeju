@@ -6,6 +6,7 @@
 import type { DataSource } from 'typeorm'
 import { formatEther } from 'viem'
 import {
+  Account,
   Block,
   ComputeProvider,
   ComputeRental,
@@ -22,7 +23,6 @@ import {
   StorageDeal,
   StorageProvider,
   Transaction,
-  Account,
 } from '../model'
 
 export interface MarketplaceStats {

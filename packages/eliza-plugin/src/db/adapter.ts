@@ -25,22 +25,10 @@ import {
   type World,
 } from '@elizaos/core'
 import { type CQLClient, getCQL, type QueryParam } from '@jejunetwork/db'
+import type { JsonValue } from '@jejunetwork/types'
 import { v4 as uuidv4 } from 'uuid'
-import { type ZodType, z } from 'zod'
+import type { ZodType } from 'zod'
 import { checkMigrationStatus, runCQLMigrations } from './migrations'
-
-type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonValue[]
-  | { [key: string]: JsonValue }
-
-// Internal schemas for database field validation
-const StringArraySchema = z.array(z.string())
-const RecordSchema = z.record(z.unknown())
-const NumberArraySchema = z.array(z.number())
 
 /**
  * CQL Database Adapter Configuration
@@ -137,27 +125,6 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
 
   private toJson(value: JsonValue): string {
     return JSON.stringify(value)
-  }
-
-  /**
-   * Parse JSON from database with schema validation
-   * Use this for all database reads to ensure type safety
-   */
-  private fromJsonValidated<T>(
-    value: string | null,
-    schema: ZodType<T>,
-  ): T | null {
-    if (!value) return null
-    const parsed: unknown = JSON.parse(value)
-    const result = schema.safeParse(parsed)
-    if (!result.success) {
-      logger.warn(
-        { src: 'cql-adapter', error: result.error.message },
-        'JSON validation failed, returning null',
-      )
-      return null
-    }
-    return result.data
   }
 
   /**

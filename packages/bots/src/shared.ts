@@ -1,35 +1,22 @@
 /**
  * Shared Utilities for Jeju Bots
- *
- * Common constants, types, and utilities used across the package
  */
 
 import { WEIGHT_PRECISION } from './schemas'
 
-/**
- * Sleep for specified milliseconds
- */
-export function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
+export { delay as sleep } from '@jejunetwork/shared'
 
-/**
- * Convert weight (bigint with 18 decimals) to basis points (number)
- */
+/** Convert weight (bigint, 18 decimals) to basis points */
 export function weightToBps(weight: bigint): number {
   return Number((weight * 10000n) / WEIGHT_PRECISION)
 }
 
-/**
- * Convert basis points (number) to weight (bigint with 18 decimals)
- */
+/** Convert basis points to weight (bigint, 18 decimals) */
 export function bpsToWeight(bps: number): bigint {
   return (BigInt(bps) * WEIGHT_PRECISION) / 10000n
 }
 
-/**
- * Calculate percentage difference between two values
- */
+/** Calculate percentage difference between two values */
 export function percentageDiff(a: bigint, b: bigint): number {
   if (a === 0n && b === 0n) return 0
   const diff = a > b ? a - b : b - a
@@ -38,65 +25,38 @@ export function percentageDiff(a: bigint, b: bigint): number {
   return Number((diff * 10000n) / avg) / 100 // Returns percentage
 }
 
-/**
- * Clamp a value between min and max
- */
+/** Clamp a value between min and max */
 export function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value))
 }
 
-/**
- * Clamp a bigint value between min and max
- */
+/** Clamp a bigint value between min and max */
 export function clampBigInt(value: bigint, min: bigint, max: bigint): bigint {
   if (value < min) return min
   if (value > max) return max
   return value
 }
 
-/**
- * Format bigint with decimals to string
- */
+/** Format bigint with decimals to string */
 export function formatBigInt(value: bigint, decimals: number): string {
   const divisor = 10n ** BigInt(decimals)
   const wholePart = value / divisor
   const fracPart = value % divisor
   const fracStr = fracPart.toString().padStart(decimals, '0')
-  // Remove trailing zeros
   const trimmedFrac = fracStr.replace(/0+$/, '')
   return trimmedFrac ? `${wholePart}.${trimmedFrac}` : wholePart.toString()
 }
 
-/**
- * Parse string to bigint with decimals
- */
+/** Parse string to bigint with decimals */
 export function parseBigInt(value: string, decimals: number): bigint {
   const [whole, frac = ''] = value.split('.')
   const paddedFrac = frac.padEnd(decimals, '0').slice(0, decimals)
   return BigInt(whole + paddedFrac)
 }
 
-/**
- * Generate a unique ID using cryptographically secure randomness
- */
-export function generateId(): string {
-  return crypto.randomUUID()
-}
+export { generateId } from '@jejunetwork/shared'
 
-/**
- * Simple mutex for preventing race conditions in async operations
- *
- * Usage:
- * ```
- * const mutex = new Mutex();
- * const release = await mutex.acquire();
- * try {
- *   // critical section
- * } finally {
- *   release();
- * }
- * ```
- */
+/** Simple mutex for async operations */
 export class Mutex {
   private locked = false
   private queue: (() => void)[] = []
@@ -129,9 +89,7 @@ export class Mutex {
   }
 }
 
-/**
- * Keyed mutex for protecting per-key resources (e.g., per-pool operations)
- */
+/** Keyed mutex for per-key resource protection */
 export class KeyedMutex {
   private mutexes = new Map<string, Mutex>()
 
@@ -150,22 +108,14 @@ export class KeyedMutex {
   }
 }
 
-/**
- * Nonce manager for preventing transaction failures due to nonce issues
- *
- * Tracks pending nonces locally to allow multiple transactions to be
- * submitted in parallel without waiting for confirmation.
- */
+/** Nonce manager for parallel transaction submission */
 export class NonceManager {
   private pendingNonce: bigint | null = null
   private mutex = new Mutex()
 
   constructor(private getOnChainNonce: () => Promise<bigint>) {}
 
-  /**
-   * Get the next nonce to use
-   * Call release() when the transaction is confirmed or failed
-   */
+  /** Get the next nonce to use */
   async acquire(): Promise<{
     nonce: bigint
     release: (confirmed: boolean) => void
@@ -184,12 +134,7 @@ export class NonceManager {
       return {
         nonce,
         release: (confirmed: boolean) => {
-          // If transaction failed, we might need to reset pending nonce
-          if (!confirmed) {
-            // Reset to force re-fetch on next transaction
-            // This handles the case where a transaction was dropped
-            this.reset()
-          }
+          if (!confirmed) this.reset()
         },
       }
     } finally {
@@ -197,16 +142,10 @@ export class NonceManager {
     }
   }
 
-  /**
-   * Reset the nonce manager (e.g., after a failed transaction)
-   */
   reset(): void {
     this.pendingNonce = null
   }
 
-  /**
-   * Sync with on-chain nonce
-   */
   async sync(): Promise<void> {
     const releaseMutex = await this.mutex.acquire()
     try {

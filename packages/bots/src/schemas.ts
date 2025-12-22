@@ -1,21 +1,15 @@
 /**
  * Zod Schemas for External Input Validation
- *
- * Validates all external data: API responses, configuration, CLI arguments
  */
 
 import { AddressSchema } from '@jejunetwork/types'
 import { z } from 'zod'
-
-// ============ Constants ============
 
 /** Weight precision: 10^18 */
 export const WEIGHT_PRECISION = 10n ** 18n
 
 /** Basis points precision: 10000 */
 export const BPS_PRECISION = 10000n
-
-// ============ Configuration Schemas ============
 
 export const EVMChainIdSchema = z.union([
   z.literal(1),
@@ -133,8 +127,6 @@ export const FeeConfigSchema = z.object({
   governanceAddress: AddressSchema,
 })
 
-// ============ External API Response Schemas ============
-
 export const CoinGeckoMarketChartSchema = z.object({
   prices: z.array(z.tuple([z.number(), z.number()])),
   market_caps: z.array(z.tuple([z.number(), z.number()])),
@@ -172,8 +164,6 @@ export type IndexerPositionsResponse = z.infer<
   typeof IndexerPositionsResponseSchema
 >
 
-// ============ Oracle Response Schemas ============
-
 export const PythPriceSchema = z.object({
   price: z.bigint(),
   conf: z.bigint(),
@@ -189,8 +179,6 @@ export const ChainlinkRoundDataSchema = z.tuple([
   z.bigint(), // answeredInRound
 ])
 
-// ============ Bot Engine Schemas ============
-
 export const StrategyTypeSchema = z.enum([
   'dex-arbitrage',
   'cross-chain-arbitrage',
@@ -204,19 +192,13 @@ export const StrategyTypeSchema = z.enum([
 export const BotEngineConfigSchema = z.object({
   chainId: EVMChainIdSchema,
   rpcUrl: z.string().url(),
-  // Private key must be 0x-prefixed 64 hex chars - NEVER log or expose this value
   privateKey: z
     .string()
-    .regex(
-      /^0x[a-fA-F0-9]{64}$/,
-      'Private key must be 0x-prefixed 64 hex characters',
-    ),
+    .regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid private key format'),
   enabledStrategies: z.array(StrategyTypeSchema),
   healthCheckIntervalMs: z.number().positive(),
   logLevel: z.enum(['debug', 'info', 'warn', 'error']),
 })
-
-// ============ Jupiter API Schemas (Solana) ============
 
 export const JupiterRouteSwapInfoSchema = z.object({
   ammKey: z.string(),
@@ -249,13 +231,11 @@ export const JupiterQuoteResponseSchema = z.object({
 })
 export type JupiterQuoteResponse = z.infer<typeof JupiterQuoteResponseSchema>
 
-// ============ Validation Helpers ============
-
-/**
- * Parse and validate an EVMChainId from a number
- * Throws if the chain ID is not valid
- */
-export function expectEVMChainId(value: number, context?: string): z.infer<typeof EVMChainIdSchema> {
+/** Parse and validate EVMChainId, throws if invalid */
+export function expectEVMChainId(
+  value: number,
+  context?: string,
+): z.infer<typeof EVMChainIdSchema> {
   const result = EVMChainIdSchema.safeParse(value)
   if (!result.success) {
     throw new Error(

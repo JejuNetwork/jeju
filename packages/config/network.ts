@@ -54,7 +54,6 @@ const DEPLOYMENTS_DIR = join(ROOT, 'packages', 'contracts', 'deployments')
 
 export interface DeployedContracts {
   // Tokens
-  elizaOS?: string
   usdc?: string
   weth?: string
 
@@ -233,7 +232,9 @@ export function loadDeployedContracts(network: NetworkType): DeployedContracts {
 
   for (const file of deploymentFiles) {
     if (existsSync(file)) {
-      const data = DeploymentFileDataSchema.parse(JSON.parse(safeReadFile(file)))
+      const data = DeploymentFileDataSchema.parse(
+        JSON.parse(safeReadFile(file)),
+      )
       // Safely merge without Object.assign to avoid prototype pollution
       const flattened = flattenContracts(data)
       for (const [key, value] of Object.entries(flattened)) {

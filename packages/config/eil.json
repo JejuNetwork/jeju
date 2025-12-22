@@ -19,7 +19,7 @@
       "l1-anvil": {
         "chainId": 31337,
         "name": "L1 Anvil",
-        "rpcUrl": "http://localhost:6546",
+        "rpcUrl": "http://localhost:6545",
         "crossChainPaymaster": "",
         "status": "active",
         "tokens": {}

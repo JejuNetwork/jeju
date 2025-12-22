@@ -5,9 +5,9 @@
  * proper module creation, method signatures, and basic functionality
  */
 
-import { describe, expect, test, beforeAll } from 'bun:test'
+import { beforeAll, describe, expect, test } from 'bun:test'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
-import { type JejuClient, createJejuClient } from '../src/client'
+import { createJejuClient, type JejuClient } from '../src/client'
 
 describe('SDK Module Structure', () => {
   let client: JejuClient | null = null
@@ -22,7 +22,9 @@ describe('SDK Module Structure', () => {
         smartAccount: false,
       })
     } catch {
-      console.log('Skipping module tests: contracts not configured for localnet')
+      console.log(
+        'Skipping module tests: contracts not configured for localnet',
+      )
       skipTests = true
     }
   })
@@ -228,7 +230,9 @@ describe('SDK Module Structure', () => {
       if (skipTests || !client) return
       expect(typeof client.federation.getNetwork).toBe('function')
       expect(typeof client.federation.getAllNetworks).toBe('function')
-      expect(typeof client.federation.canParticipateInConsensus).toBe('function')
+      expect(typeof client.federation.canParticipateInConsensus).toBe(
+        'function',
+      )
       expect(typeof client.federation.joinFederation).toBe('function')
       expect(typeof client.federation.getAllRegistries).toBe('function')
     })
@@ -427,7 +431,7 @@ describe('SDK Client Creation', () => {
       createJejuClient({
         network: 'localnet',
         // No privateKey, mnemonic, or account
-      })
+      }),
     ).rejects.toThrow()
   })
 
@@ -462,4 +466,3 @@ describe('SDK Client Creation', () => {
     }
   })
 })
-

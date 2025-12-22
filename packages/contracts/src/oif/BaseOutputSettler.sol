@@ -11,17 +11,7 @@ import {IOutputSettler} from "./IOIF.sol";
  * @title BaseOutputSettler
  * @author Jeju Network
  * @notice Abstract base contract for OIF OutputSettlers
- * @dev Consolidates common solver liquidity management
- *      Implementations override fill-specific logic
- *
- * Common functionality:
- * - Solver liquidity deposits (ERC20 + ETH)
- * - Liquidity withdrawals
- * - Order fill tracking
- * - Fill record storage
- *
- * Implementations must provide:
- * - _executeFill: Execute the actual fill logic
+ * @dev Implementations override fill-specific logic
  */
 abstract contract BaseOutputSettler is IOutputSettler, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;

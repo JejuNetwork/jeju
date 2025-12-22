@@ -53,8 +53,15 @@ scrape_configs:
     static_configs:
       - targets: ['op-proposer:7300']
 
-  # Proxy Network
-  - job_name: 'proxy-coordinator'
+  # Proxy Network - see prometheus-network.yml for detailed proxy metrics
+  # This basic job is for local development; use prometheus-network.yml for production
+  - job_name: 'proxy-coordinator-local'
     static_configs:
       - targets: ['proxy-coordinator:4020']
+    metrics_path: /metrics
+
+  # Farcaster Hubble (when running with --profile monitoring)
+  - job_name: 'farcaster-hubble'
+    static_configs:
+      - targets: ['farcaster-hubble:2281']
     metrics_path: /metrics

@@ -8,15 +8,10 @@
  * - Cross-chain operations via EIL/OIF
  */
 
+import { expectAddress, expectDefined, expectHex } from '@jejunetwork/types'
 import { type Address, type Hex, isAddress, isHex } from 'viem'
 import { z } from 'zod'
-import {
-  expectAddress,
-  expectDefined,
-  expectHex,
-  expectNonEmpty,
-  expectSchema,
-} from '../../lib/validation'
+import { expectNonEmpty, expectSchema } from '../../lib/validation'
 import { storage } from '../../platform/storage'
 import type {
   AddEthereumChainParameter,

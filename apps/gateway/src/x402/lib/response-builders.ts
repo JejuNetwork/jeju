@@ -1,5 +1,4 @@
 import type { Address } from 'viem'
-import { formatError } from '../../lib/validation'
 import { calculateProtocolFee, formatAmount } from '../services/settler'
 import type {
   DecodedPayment,
@@ -7,6 +6,14 @@ import type {
   SettleResponse,
   VerifyResponse,
 } from './types'
+
+/** Format error message for response */
+export function formatError(error: Error | string): string {
+  if (typeof error === 'string') {
+    return error
+  }
+  return error.message
+}
 
 export function buildVerifyErrorResponse(error: string): VerifyResponse {
   return {
@@ -90,6 +97,3 @@ export function buildSettleSuccessResponse(
     timestamp: Date.now(),
   }
 }
-
-// Re-export formatError for backwards compatibility
-export { formatError }

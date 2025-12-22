@@ -252,10 +252,10 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
     }),
   )
   .use(loggerPlugin)
-  .onParse(async ({ request, contentType }) => {
+  .onParse(async ({ request }) => {
     // Check body size limit
     const contentLength = request.headers.get('content-length')
-    if (contentLength && Number.parseInt(contentLength) > MAX_BODY_SIZE) {
+    if (contentLength && Number.parseInt(contentLength, 10) > MAX_BODY_SIZE) {
       throw new Error('Request body too large')
     }
     // Let Elysia handle the parsing
@@ -359,7 +359,7 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
     }
   })
   .post('/mcp/tools/list', () => ({ tools: MCP_TOOLS }))
-  .post('/mcp/tools/call', async ({ body, set }) => {
+  .post('/mcp/tools/call', async ({ body }) => {
     let result: RpcMcpToolResult
     let isError = false
 

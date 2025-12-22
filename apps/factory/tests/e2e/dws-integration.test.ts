@@ -8,11 +8,12 @@
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
+import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config/ports'
 import { z } from 'zod'
 
-const FACTORY_API_URL = process.env.FACTORY_API_URL || 'http://localhost:4009'
-const DWS_URL = process.env.DWS_URL || 'http://localhost:4030'
-const RPC_URL = process.env.RPC_URL || 'http://localhost:6546'
+const FACTORY_API_URL = process.env.FACTORY_API_URL || getCoreAppUrl('FACTORY')
+const DWS_URL = process.env.DWS_URL || getCoreAppUrl('DWS_API')
+const RPC_URL = process.env.RPC_URL || getL2RpcUrl()
 
 // Test wallet (hardhat default)
 const _TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
@@ -107,10 +108,6 @@ const OpenAPIResponseSchema = z.object({
   info: z.object({ title: z.string() }),
   paths: z.record(z.string(), z.unknown()),
 })
-
-type HealthResponse = z.infer<typeof HealthResponseSchema>
-type BountyResponse = z.infer<typeof BountyResponseSchema>
-type A2AResponse = z.infer<typeof A2AResponseSchema>
 
 /** Safely parse JSON response and validate against schema */
 async function expectResponse<T>(

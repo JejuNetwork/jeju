@@ -1,9 +1,8 @@
-'use client'
-
 /**
- * @deprecated This component is vendor-specific and maintained in vendor/hyperscape/components/.
- * This copy remains for backwards compatibility. For new development,
- * use the component from vendor/hyperscape/components/HyperscapeStatsPanel.tsx
+ * Game Stats Panel Component
+ *
+ * Displays player statistics for network-integrated games.
+ * Uses generic player events hook - works with any network-integrated game.
  */
 
 import { useState } from 'react'
@@ -16,8 +15,6 @@ interface HyperscapeStatsPanelProps {
 
 /**
  * Game stats panel component
- *
- * @deprecated Use vendor/hyperscape/components/HyperscapeStatsPanel.tsx for new development
  *
  * Uses generic player events hook - works with any network-integrated game
  */

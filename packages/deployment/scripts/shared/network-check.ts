@@ -67,12 +67,14 @@ async function checkRpc(rpcUrl: string): Promise<{
       signal: controller.signal,
     })
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
-    const data = (await response.json()) as {
-      result?: JsonValue
-      error?: { message: string }
-    }
+    const dataRaw = await response.json()
+    const data = expectValid(
+      JsonRpcResponseSchema,
+      dataRaw,
+      `${method} response`,
+    )
     if (data.error) throw new Error(data.error.message)
-    return data.result ?? null
+    return (data.result as JsonValue) ?? null
   }
 
   try {
@@ -117,7 +119,11 @@ async function checkBalance(rpcUrl: string, address: string): Promise<boolean> {
     if (!response.ok) return false
 
     const dataRaw = await response.json()
-    const data = expectValid(JsonRpcBalanceResponseSchema, dataRaw, 'eth_getBalance')
+    const data = expectValid(
+      JsonRpcBalanceResponseSchema,
+      dataRaw,
+      'eth_getBalance',
+    )
     if (!data.result) return false
 
     return BigInt(data.result) > BigInt(0)

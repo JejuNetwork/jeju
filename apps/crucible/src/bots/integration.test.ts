@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import type { ChainId } from './autocrat-types'
+import type { ChainId } from './autocrat-types-source'
 import {
   createTradingBotOptions,
   DEFAULT_BOTS,

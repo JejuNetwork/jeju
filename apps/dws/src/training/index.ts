@@ -6,23 +6,28 @@
 
 // Core training components
 export { createAtroposServer } from './atropos-server'
-export { GRPOTrainer, createGRPOTrainer, createDistributedTrainer } from './grpo-trainer'
+export type { BridgeConfig, RewardDistribution } from './cross-chain-bridge'
+export { CrossChainTrainingBridge } from './cross-chain-bridge'
+export type {
+  DWSTrainingService,
+  JobStatus,
+  TrainingJob,
+} from './dws-integration'
 export { createDWSTrainingService, NodeProvisioner } from './dws-integration'
-
+export { FundamentalPredictionEnv } from './environments/fundamental-prediction'
 // Environment interfaces
 export {
   createTicTacToeEnv,
   trajectoryToTrainingFormat,
 } from './environments/tic-tac-toe'
-export { FundamentalPredictionEnv } from './environments/fundamental-prediction'
-
-// Cross-chain and Psyche integration
-export { PsycheClient } from './psyche-client'
-export { CrossChainTrainingBridge } from './cross-chain-bridge'
 
 // Types
 export type { TrainingConfig, TrainingJobConfig } from './grpo-trainer'
-export type { TrainingJob, JobStatus, DWSTrainingService } from './dws-integration'
+export {
+  createDistributedTrainer,
+  createGRPOTrainer,
+  GRPOTrainer,
+} from './grpo-trainer'
 export type { PsycheConfig, RunState } from './psyche-client'
-export type { BridgeConfig, RewardDistribution } from './cross-chain-bridge'
-
+// Cross-chain and Psyche integration
+export { PsycheClient } from './psyche-client'

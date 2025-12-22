@@ -95,7 +95,10 @@ function withdraw(uint256 amount) external {
       },
     ],
     [
-      { name: 'user', content: { text: 'Check for flash loan vulnerabilities' } },
+      {
+        name: 'user',
+        content: { text: 'Check for flash loan vulnerabilities' },
+      },
       {
         name: 'Exploit',
         content: {
@@ -186,4 +189,3 @@ uint256 price = pair.getReserves().token0 / pair.getReserves().token1;
   mcpServers: ['contracts', 'security-tools', 'defi'],
   a2aCapabilities: ['contract-analysis', 'vulnerability-research', 'auditing'],
 }
-

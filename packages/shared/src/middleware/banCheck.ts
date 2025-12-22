@@ -2,7 +2,7 @@
  * Ban Check Middleware
  *
  * Universal middleware for checking ban status before processing requests.
- * Can be used with Express, Elysia, or any HTTP framework.
+ * Provides Elysia plugins and generic functions.
  */
 
 import { Elysia } from 'elysia'
@@ -16,6 +16,7 @@ import {
   type Transport,
 } from 'viem'
 import { base, baseSepolia } from 'viem/chains'
+import { BAN_MANAGER_ABI } from '../api/abis'
 
 // ============ Types ============
 
@@ -42,53 +43,6 @@ export interface BanCheckResult {
   status?: BanStatus
   error?: string
 }
-
-// ============ ABIs ============
-
-const BAN_MANAGER_ABI = [
-  {
-    name: 'isAddressBanned',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'target', type: 'address' }],
-    outputs: [{ name: '', type: 'bool' }],
-  },
-  {
-    name: 'isOnNotice',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'target', type: 'address' }],
-    outputs: [{ name: '', type: 'bool' }],
-  },
-  {
-    name: 'isAddressBannedActive',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'target', type: 'address' }],
-    outputs: [{ name: '', type: 'bool' }],
-  },
-  {
-    name: 'getAddressBan',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'target', type: 'address' }],
-    outputs: [
-      {
-        type: 'tuple',
-        components: [
-          { name: 'isBanned', type: 'bool' },
-          { name: 'banType', type: 'uint8' },
-          { name: 'bannedAt', type: 'uint256' },
-          { name: 'expiresAt', type: 'uint256' },
-          { name: 'reason', type: 'string' },
-          { name: 'proposalId', type: 'bytes32' },
-          { name: 'reporter', type: 'address' },
-          { name: 'caseId', type: 'bytes32' },
-        ],
-      },
-    ],
-  },
-] as const
 
 // ============ Cache ============
 
@@ -238,165 +192,53 @@ export class BanChecker {
   }
 }
 
-// ============ Express Middleware ============
-
-export interface ExpressRequest {
-  headers: { [key: string]: string | undefined }
-  body?: { address?: string; from?: string; sender?: string }
-  query?: { address?: string }
-}
-
-export interface ExpressResponse {
-  status(code: number): ExpressResponse
-  json(data: Record<string, unknown>): void
-}
-
-export type ExpressNextFunction = () => void
-
-/**
- * Create Express middleware for ban checking
- */
-export function createExpressBanMiddleware(config: BanCheckConfig) {
-  const checker = new BanChecker(config)
-
-  return async (
-    req: ExpressRequest,
-    res: ExpressResponse,
-    next: ExpressNextFunction,
-  ) => {
-    // Extract address from various sources
-    const address =
-      req.headers['x-wallet-address'] ||
-      req.body?.address ||
-      req.body?.from ||
-      req.body?.sender ||
-      req.query?.address
-
-    if (!address) {
-      // No address to check - allow through
-      return next()
-    }
-
-    const result = await checker.checkBan(address as Address)
-
-    if (!result.allowed) {
-      return res.status(403).json({
-        error: 'BANNED',
-        message: result.status?.reason || 'User is banned from this service',
-        banType: result.status?.banType,
-        caseId: result.status?.caseId,
-        canAppeal: result.status?.canAppeal,
-      })
-    }
-
-    next()
-  }
-}
-
 // ============ Elysia Middleware ============
+
+interface RequestBody {
+  address?: string
+  from?: string
+  sender?: string
+}
 
 /**
  * Create Elysia plugin for ban checking
  */
-export function createElysiaBanMiddleware(config: BanCheckConfig) {
+export function createElysiaBanPlugin(config: BanCheckConfig) {
   const checker = new BanChecker(config)
 
   return new Elysia({ name: 'ban-check' })
-    .derive(async ({ headers, body, query, set }) => {
-      // Extract address from various sources
-      let address = headers['x-wallet-address'] || (query as Record<string, string | undefined>)?.address
+    .derive(({ request: _request, headers, body }) => {
+      const requestBody = body as RequestBody | null
+      const address = (headers['x-wallet-address'] ||
+        requestBody?.address ||
+        requestBody?.from ||
+        requestBody?.sender) as Address | undefined
 
-      if (!address && body && typeof body === 'object') {
-        const bodyObj = body as { address?: string; from?: string; sender?: string }
-        address = bodyObj.address || bodyObj.from || bodyObj.sender
+      return { walletAddress: address }
+    })
+    .onBeforeHandle(async ({ walletAddress, set }) => {
+      if (!walletAddress || !/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
+        return undefined
       }
 
-      if (!address) {
-        return { banCheckResult: null }
-      }
-
-      const result = await checker.checkBan(address as Address)
+      const result = await checker.checkBan(walletAddress)
 
       if (!result.allowed) {
         set.status = 403
         return {
-          banCheckResult: result,
-          banCheckError: {
-            error: 'BANNED',
-            message: result.status?.reason || 'User is banned from this service',
-            banType: result.status?.banType,
-            caseId: result.status?.caseId,
-            canAppeal: result.status?.canAppeal,
-          },
-        }
-      }
-
-      return { banCheckResult: result, banCheckError: null }
-    })
-    .onBeforeHandle(({ banCheckError }) => {
-      if (banCheckError) {
-        return banCheckError
-      }
-      return undefined
-    })
-}
-
-// Legacy Hono middleware type alias for backwards compatibility
-export type HonoContext = {
-  req: {
-    header(name: string): string | undefined
-    json(): Promise<{ address?: string; from?: string; sender?: string }>
-    query(name: string): string | undefined
-  }
-  json(data: Record<string, unknown>, status?: number): Response
-}
-
-export type HonoNextFunction = () => Promise<void>
-
-/**
- * Create Hono middleware for ban checking
- * @deprecated Use createElysiaBanMiddleware instead
- */
-export function createHonoBanMiddleware(config: BanCheckConfig) {
-  const checker = new BanChecker(config)
-
-  return async (c: HonoContext, next: HonoNextFunction) => {
-    // Extract address from various sources
-    let address = c.req.header('x-wallet-address') || c.req.query('address')
-
-    if (!address) {
-      try {
-        const body = await c.req.json()
-        address = body.address || body.from || body.sender
-      } catch {
-        // No JSON body
-      }
-    }
-
-    if (!address) {
-      return next()
-    }
-
-    const result = await checker.checkBan(address as Address)
-
-    if (!result.allowed) {
-      return c.json(
-        {
           error: 'BANNED',
           message: result.status?.reason || 'User is banned from this service',
           banType: result.status?.banType,
           caseId: result.status?.caseId,
           canAppeal: result.status?.canAppeal,
-        },
-        403,
-      )
-    }
+        }
+      }
 
-    return next()
-  }
+      return undefined
+    })
 }
 
-// ============ Generic Function ============
+// ============ Generic Functions ============
 
 /**
  * Simple function to check ban status (for custom integrations)

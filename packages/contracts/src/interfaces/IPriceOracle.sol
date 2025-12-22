@@ -3,7 +3,7 @@ pragma solidity ^0.8.33;
 
 /**
  * @title IPriceOracle
- * @notice Consolidated price oracle interface for all Jeju contracts
+ * @notice Price oracle interface for all Jeju contracts
  * @dev Supports both multi-token oracles (PriceOracle) and specialized oracles (ManualPriceOracle)
  */
 interface IPriceOracle {

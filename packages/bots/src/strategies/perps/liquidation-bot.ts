@@ -4,6 +4,7 @@
  * Monitors positions from indexer and executes profitable liquidations on-chain.
  */
 
+import type { EVMChainId } from '@jejunetwork/types'
 import { expectValid } from '@jejunetwork/types'
 import {
   type Address,
@@ -16,7 +17,6 @@ import {
 import type { OracleAggregator } from '../../oracles'
 import { IndexerPositionsResponseSchema } from '../../schemas'
 import { sleep } from '../../shared'
-import type { EVMChainId } from '../../types'
 
 export interface LiquidationBotConfig {
   chainId: EVMChainId
@@ -69,12 +69,11 @@ export class LiquidationBot {
 
   constructor(
     config: LiquidationBotConfig,
-    oracle: OracleAggregator,
+    _oracle: OracleAggregator,
     publicClient: PublicClient,
     walletClient: WalletClient,
   ) {
     this.config = config
-    this.oracle = oracle
     this.publicClient = publicClient
     this.walletClient = walletClient
   }

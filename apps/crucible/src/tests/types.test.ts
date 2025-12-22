@@ -5,6 +5,11 @@
  */
 
 import { describe, expect, it } from 'bun:test'
+import {
+  getCoreAppUrl,
+  getIndexerGraphqlUrl,
+  getL2RpcUrl,
+} from '@jejunetwork/config/ports'
 import type {
   AgentDefinition,
   AgentRole,
@@ -327,7 +332,7 @@ describe('Type Definitions', () => {
   describe('Config Types', () => {
     it('should create valid CrucibleConfig', () => {
       const config: CrucibleConfig = {
-        rpcUrl: 'http://localhost:6546',
+        rpcUrl: getL2RpcUrl(),
         privateKey: '0x123',
         contracts: {
           agentVault: '0x1234567890123456789012345678901234567890',
@@ -337,10 +342,10 @@ describe('Type Definitions', () => {
           serviceRegistry: '0x1234567890123456789012345678901234567890',
         },
         services: {
-          computeMarketplace: 'http://localhost:4007',
-          storageApi: 'http://localhost:3100',
-          ipfsGateway: 'http://localhost:3100',
-          indexerGraphql: 'http://localhost:4350/graphql',
+          computeMarketplace: getCoreAppUrl('COMPUTE'),
+          storageApi: getCoreAppUrl('IPFS'),
+          ipfsGateway: getCoreAppUrl('IPFS'),
+          indexerGraphql: getIndexerGraphqlUrl(),
         },
         network: 'localnet',
       }

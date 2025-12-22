@@ -15,6 +15,7 @@ import {
   useSystemHealth,
   useTargets,
 } from '../hooks/useMonitoring'
+import { formatNumber } from '../types'
 
 export function Dashboard() {
   const systemHealth = useSystemHealth()
@@ -320,28 +321,4 @@ function QuickLinkCard({
       </div>
     </Link>
   )
-}
-
-// Safely format large token amounts using BigInt to avoid precision loss
-function formatNumber(value: string | number): string {
-  // Handle string inputs (token amounts) with BigInt for precision
-  if (typeof value === 'string') {
-    // Use BigInt division for the integer part, then handle decimals
-    const bigValue = BigInt(value)
-    const divisor = BigInt(1e18)
-    const wholePart = bigValue / divisor
-    const remainder = bigValue % divisor
-
-    // Convert to number only after scaling down (safe after division by 1e18)
-    const num = Number(wholePart) + Number(remainder) / 1e18
-
-    if (num >= 1000000) return `${(num / 1000000).toFixed(2)}M`
-    if (num >= 1000) return `${(num / 1000).toFixed(2)}K`
-    return num.toFixed(2)
-  }
-
-  // Handle already-converted number inputs
-  if (value >= 1000000) return `${(value / 1000000).toFixed(2)}M`
-  if (value >= 1000) return `${(value / 1000).toFixed(2)}K`
-  return value.toFixed(2)
 }

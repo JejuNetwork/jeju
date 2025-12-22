@@ -14,9 +14,6 @@ import { createPublicClient, formatEther, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { TEST_ACCOUNTS, TEST_NETWORKS } from '../fixtures/accounts'
 
-// Re-export for convenience
-export { TEST_ACCOUNTS, TEST_NETWORKS }
-
 // Network default ports (from packages/cli/src/types.ts)
 export const JEJU_PORTS = {
   l1Rpc: 6545,

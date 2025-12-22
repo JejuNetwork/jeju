@@ -110,6 +110,7 @@ export type ContractCategory =
   | 'security'
   | 'agents'
   | 'amm'
+  | 'babylon'
   | 'bridge'
   | 'cdn'
   | 'chainlink'
@@ -150,6 +151,7 @@ const NetworkContractsSchema = z.object({
   security: ContractCategorySchema,
   agents: ContractCategorySchema.optional(),
   amm: ContractCategorySchema.optional(),
+  babylon: ContractCategorySchema.optional(),
   bridge: ContractCategorySchema.optional(),
   cdn: ContractCategorySchema.optional(),
   chainlink: ContractCategorySchema.optional(),
@@ -606,74 +608,6 @@ export const VendorAppsConfigSchema = z.object({
 export type VendorAppsConfig = z.infer<typeof VendorAppsConfigSchema>
 
 // ============================================================================
-// Testnet Config Schema
-// ============================================================================
-
-export const TestnetConfigSchema = z.object({
-  network: z.string(),
-  version: z.string(),
-  jeju: z.object({
-    chainId: z.number(),
-    networkName: z.string(),
-    currency: z.object({
-      name: z.string(),
-      symbol: z.string(),
-      decimals: z.number(),
-    }),
-    rpc: z.object({
-      http: z.string(),
-      ws: z.string(),
-    }),
-    explorer: z.string(),
-    blockTime: z.number(),
-  }),
-  l1: z.object({
-    chainId: z.number(),
-    networkName: z.string(),
-    rpc: z.object({
-      http: z.string(),
-      fallback: z.array(z.string()),
-      beacon: z.string(),
-      internal: z.string(),
-    }),
-  }),
-  api: z.object({
-    gateway: z.string(),
-    bundler: z.string(),
-    indexer: z.string(),
-    faucet: z.string(),
-  }),
-  contracts: z.object({
-    jeju: z.record(z.string(), z.string()),
-    sepolia: z.record(z.string(), z.string()),
-  }),
-  supportedChains: z.record(
-    z.string(),
-    z.object({
-      name: z.string(),
-      rpc: z.string(),
-      explorer: z.string(),
-      crossChainPaymaster: z.string(),
-    }),
-  ),
-  deployer: z.object({
-    address: z.string(),
-  }),
-  infrastructure: z.object({
-    domain: z.string(),
-    aws: z.object({
-      region: z.string(),
-      eksCluster: z.string(),
-      route53Zone: z.string(),
-      acmCertificate: z.string(),
-    }),
-    dns: z.record(z.string(), z.string()),
-    nameservers: z.array(z.string()),
-  }),
-})
-export type TestnetConfig = z.infer<typeof TestnetConfigSchema>
-
-// ============================================================================
 // Test Keys Schema
 // ============================================================================
 
@@ -745,7 +679,10 @@ const DeploymentValueSchema: z.ZodType<DeploymentJsonValue> = z.lazy(() =>
   ]),
 )
 
-export const DeploymentFileDataSchema = z.record(z.string(), DeploymentValueSchema)
+export const DeploymentFileDataSchema = z.record(
+  z.string(),
+  DeploymentValueSchema,
+)
 export type DeploymentFileData = z.infer<typeof DeploymentFileDataSchema>
 
 // ============================================================================

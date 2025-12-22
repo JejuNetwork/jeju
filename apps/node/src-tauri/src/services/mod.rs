@@ -1,24 +1,24 @@
 //! Service management - all node services
 
 mod compute;
-mod storage;
+mod cron;
 mod oracle;
 mod proxy;
-mod cron;
 mod rpc;
-mod xlp;
-mod solver;
 mod sequencer;
+mod solver;
+mod storage;
+mod xlp;
 
 pub use compute::ComputeService;
-pub use storage::StorageService;
+pub use cron::CronService;
 pub use oracle::OracleService;
 pub use proxy::ProxyService;
-pub use cron::CronService;
 pub use rpc::RpcService;
-pub use xlp::XlpService;
-pub use solver::SolverService;
 pub use sequencer::SequencerService;
+pub use solver::SolverService;
+pub use storage::StorageService;
+pub use xlp::XlpService;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -121,7 +121,7 @@ pub trait Service: Send + Sync {
     fn id(&self) -> ServiceId;
     fn metadata(&self) -> ServiceMetadata;
     fn requirements(&self) -> ServiceRequirements;
-    
+
     async fn start(&mut self, config: &ServiceConfig) -> Result<(), String>;
     async fn stop(&mut self) -> Result<(), String>;
     async fn status(&self) -> ServiceState;
@@ -190,21 +190,25 @@ impl ServiceManager {
             .map(|s| {
                 let mut metadata = s.metadata();
                 let reqs = s.requirements();
-                
+
                 // Check if hardware meets requirements
                 let mut detector = crate::hardware::HardwareDetector::new();
                 let (meets, issues) = detector.meets_requirements(hardware, &reqs);
-                
+
                 if !meets {
                     metadata.warnings.extend(issues);
                 }
-                
+
                 metadata
             })
             .collect()
     }
 
-    pub async fn start_service(&mut self, id: ServiceId, config: &ServiceConfig) -> Result<(), String> {
+    pub async fn start_service(
+        &mut self,
+        id: ServiceId,
+        config: &ServiceConfig,
+    ) -> Result<(), String> {
         let service = self.services.get_mut(&id).ok_or("Service not found")?;
         service.start(config).await
     }
@@ -241,4 +245,3 @@ impl Default for ServiceManager {
         Self::new()
     }
 }
-

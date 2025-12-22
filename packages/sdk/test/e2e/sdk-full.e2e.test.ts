@@ -6,6 +6,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config/ports'
 import { type Address, parseEther } from 'viem'
 import { createJejuClient, type JejuClient } from '../../src/index'
 import {
@@ -32,10 +33,10 @@ beforeAll(async () => {
     env = await setupTestEnvironment()
   } catch {
     env = {
-      rpcUrl: 'http://127.0.0.1:6546',
-      storageUrl: 'http://127.0.0.1:4010',
-      computeUrl: 'http://127.0.0.1:4007',
-      gatewayUrl: 'http://127.0.0.1:4003',
+      rpcUrl: getL2RpcUrl(),
+      storageUrl: getCoreAppUrl('IPFS'),
+      computeUrl: getCoreAppUrl('COMPUTE'),
+      gatewayUrl: getCoreAppUrl('NODE_EXPLORER_UI'),
       privateKey: DEPLOYER_KEY,
       chainRunning: false,
       contractsDeployed: false,
@@ -215,12 +216,18 @@ describe('Compute Module', () => {
     }
   })
 
-  test.skip('createRental creates on-chain rental', async () => {
-    if (!env.contractsDeployed) return
+  test('createRental creates on-chain rental', async () => {
+    if (!env?.contractsDeployed || !user) {
+      console.log('⚠ Skipping: contracts not deployed')
+      return
+    }
 
     // First need a provider to be registered
     const providers = await user.compute.listProviders()
-    if (providers.length === 0) return
+    if (providers.length === 0) {
+      console.log('⚠ Skipping: no providers registered')
+      return
+    }
 
     const result = await user.compute.createRental({
       provider: providers[0].address,
@@ -352,8 +359,11 @@ describe('DeFi Module', () => {
     }
   })
 
-  test.skip('swap executes on-chain', async () => {
-    if (!env.contractsDeployed) return
+  test('swap executes on-chain', async () => {
+    if (!env?.contractsDeployed || !user) {
+      console.log('⚠ Skipping: contracts not deployed')
+      return
+    }
 
     const result = await user.defi.swap({
       tokenIn: '0x...' as Address,
@@ -402,8 +412,11 @@ describe('Governance Module', () => {
     }
   })
 
-  test.skip('createProposal submits on-chain', async () => {
-    if (!env.contractsDeployed) return
+  test('createProposal submits on-chain', async () => {
+    if (!env?.contractsDeployed || !user) {
+      console.log('⚠ Skipping: contracts not deployed')
+      return
+    }
 
     const result = await user.governance.createProposal({
       title: `Test Proposal ${Date.now()}`,
@@ -471,8 +484,11 @@ describe('Names (JNS) Module', () => {
     }
   })
 
-  test.skip('register creates on-chain name', async () => {
-    if (!env.contractsDeployed) return
+  test('register creates on-chain name', async () => {
+    if (!env?.contractsDeployed || !user) {
+      console.log('⚠ Skipping: contracts not deployed')
+      return
+    }
 
     const name = `e2etest${Date.now()}`
     const result = await user.names.register(name, 1)
@@ -530,8 +546,11 @@ describe('Identity Module', () => {
     }
   })
 
-  test.skip('register creates on-chain agent', async () => {
-    if (!env.contractsDeployed) return
+  test('register creates on-chain agent', async () => {
+    if (!env?.contractsDeployed || !user) {
+      console.log('⚠ Skipping: contracts not deployed')
+      return
+    }
 
     const result = await user.identity.register({
       name: `E2E Test Agent ${Date.now()}`,
@@ -707,7 +726,7 @@ describe('A2A Module', () => {
     if (!env.servicesRunning) return
 
     try {
-      const card = await user.a2a.discover('http://localhost:4000')
+      const card = await user.a2a.discover(getCoreAppUrl('EXPLORER'))
       expect(card).toBeDefined()
       expect(card.name).toBeDefined()
     } catch {
@@ -719,7 +738,7 @@ describe('A2A Module', () => {
     if (!env.servicesRunning) return
 
     try {
-      const card = await user.a2a.discover('http://localhost:4004')
+      const card = await user.a2a.discover(getCoreAppUrl('DOCUMENTATION'))
       expect(card).toBeDefined()
     } catch {
       // Expected if services not running
@@ -730,7 +749,7 @@ describe('A2A Module', () => {
     if (!env.servicesRunning) return
 
     try {
-      const card = await user.a2a.discover('http://localhost:4003')
+      const card = await user.a2a.discover(getCoreAppUrl('NODE_EXPLORER_UI'))
       expect(card).toBeDefined()
     } catch {
       // Expected if services not running
@@ -741,7 +760,7 @@ describe('A2A Module', () => {
     if (!env.servicesRunning) return
 
     try {
-      const result = await user.a2a.call('http://localhost:4000', {
+      const result = await user.a2a.call(getCoreAppUrl('EXPLORER'), {
         skill: 'list-protocol-tokens',
         params: {},
       })
@@ -1009,8 +1028,11 @@ describe('Work Module', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('On-Chain Write Operations', () => {
-  test.skip('full bounty workflow', async () => {
-    if (!env.contractsDeployed) return
+  test('full bounty workflow', async () => {
+    if (!env?.contractsDeployed || !user || !user2) {
+      console.log('⚠ Skipping: contracts not deployed')
+      return
+    }
 
     // Create bounty
     const createResult = await user.work.createBounty({
@@ -1042,8 +1064,11 @@ describe('On-Chain Write Operations', () => {
     expect(bounty?.hunter).toBe(user2.address)
   })
 
-  test.skip('full moderation workflow', async () => {
-    if (!env.contractsDeployed) return
+  test('full moderation workflow', async () => {
+    if (!env?.contractsDeployed || !user || !user2 || !deployer) {
+      console.log('⚠ Skipping: contracts not deployed')
+      return
+    }
 
     // Create case
     const createResult = await user.moderation.createCase({
@@ -1075,8 +1100,11 @@ describe('On-Chain Write Operations', () => {
     expect(supportTx).toMatch(/^0x[a-fA-F0-9]{64}$/)
   })
 
-  test.skip('full project workflow', async () => {
-    if (!env.contractsDeployed) return
+  test('full project workflow', async () => {
+    if (!env?.contractsDeployed || !user) {
+      console.log('⚠ Skipping: contracts not deployed')
+      return
+    }
 
     // Create project
     const projectResult = await user.work.createProject({

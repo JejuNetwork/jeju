@@ -1,14 +1,3 @@
-/**
- * Static Asset Service - Production Implementation
- *
- * Serves network default assets (UI, code, frontend) via:
- * - Local HTTP server for direct serving
- * - Integration with HybridTorrentService for P2P delivery
- * - CDN fallback for popular assets
- * - Content hash verification
- * - Automatic asset discovery from on-chain registry
- */
-
 import { createHash } from 'node:crypto'
 import * as fs from 'node:fs'
 import * as http from 'node:http'

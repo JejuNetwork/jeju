@@ -3,46 +3,37 @@
  */
 
 import { describe, expect, test } from 'bun:test'
+import { z } from 'zod'
 import {
-  MAX_JSON_DEPTH,
-  MAX_JSON_SIZE,
-  MAX_MESSAGE_LENGTH,
-  appealContentSchema,
   bountyContentSchema,
-  bountyIdSchema,
   caseContentSchema,
-  caseIdSchema,
   evidenceContentSchema,
-  evidenceSupportSchema,
-  expect as expectValue,
   expectArray,
   expectResponseData,
+  expect as expectValue,
   extractAddress,
   formatNumberedList,
   getMessageText,
   getMessageTextSecure,
   getOptionalMessageText,
-  guardianContentSchema,
   isUrlSafeToFetch,
   isValidAddress,
   isValidHex,
   labelContentSchema,
-  projectContentSchema,
+  MAX_JSON_DEPTH,
+  MAX_JSON_SIZE,
+  MAX_MESSAGE_LENGTH,
   safeJsonParse,
   safeJsonParseUnknown,
   sanitizeAgentResponse,
   sanitizeText,
-  submissionActionSchema,
-  taskContentSchema,
   truncateOutput,
   validateIntentInfo,
   validateIntentQuote,
   validateNodeStats,
   validatePoolStats,
   validateProvider,
-  workSubmissionSchema,
 } from '../validation'
-import { z } from 'zod'
 
 // ============ Message Extraction Tests ============
 
@@ -73,7 +64,9 @@ describe('getOptionalMessageText', () => {
 
   test('should return empty string for missing text', () => {
     expect(getOptionalMessageText({ content: {} } as never)).toBe('')
-    expect(getOptionalMessageText({ content: { text: undefined } } as never)).toBe('')
+    expect(
+      getOptionalMessageText({ content: { text: undefined } } as never),
+    ).toBe('')
   })
 })
 
@@ -95,9 +88,9 @@ describe('expectResponseData', () => {
   })
 
   test('should use custom error message', () => {
-    expect(() =>
-      expectResponseData({ data: null }, 'Custom error'),
-    ).toThrow('Custom error')
+    expect(() => expectResponseData({ data: null }, 'Custom error')).toThrow(
+      'Custom error',
+    )
   })
 })
 
@@ -122,7 +115,9 @@ describe('expect function', () => {
   })
 
   test('should throw for null', () => {
-    expect(() => expectValue(null, 'value')).toThrow('Expected value to be defined')
+    expect(() => expectValue(null, 'value')).toThrow(
+      'Expected value to be defined',
+    )
   })
 
   test('should throw for undefined', () => {
@@ -196,9 +191,7 @@ describe('labelContentSchema', () => {
   })
 
   test('should reject score out of range', () => {
-    expect(() =>
-      labelContentSchema.parse({ score: 20000 }),
-    ).toThrow()
+    expect(() => labelContentSchema.parse({ score: 20000 })).toThrow()
   })
 })
 
@@ -357,8 +350,10 @@ describe('safeJsonParse', () => {
 
   test('should throw for oversized JSON', () => {
     const schema = z.object({ data: z.string() })
-    const hugeJson = '{"data": "' + 'x'.repeat(MAX_JSON_SIZE + 1) + '"}'
-    expect(() => safeJsonParse(hugeJson, schema)).toThrow('exceeds maximum size')
+    const hugeJson = `{"data": "${'x'.repeat(MAX_JSON_SIZE + 1)}"}`
+    expect(() => safeJsonParse(hugeJson, schema)).toThrow(
+      'exceeds maximum size',
+    )
   })
 
   test('should throw for deeply nested JSON', () => {
@@ -367,7 +362,7 @@ describe('safeJsonParse', () => {
     for (let i = 0; i < MAX_JSON_DEPTH + 5; i++) {
       nested += '{"b":'
     }
-    nested += '1' + '}'.repeat(MAX_JSON_DEPTH + 6)
+    nested += `1${'}'.repeat(MAX_JSON_DEPTH + 6)}`
     expect(() => safeJsonParse(nested, schema)).toThrow('nesting depth')
   })
 })
@@ -379,7 +374,7 @@ describe('safeJsonParseUnknown', () => {
   })
 
   test('should throw for oversized JSON', () => {
-    const hugeJson = '{"data": "' + 'x'.repeat(MAX_JSON_SIZE + 1) + '"}'
+    const hugeJson = `{"data": "${'x'.repeat(MAX_JSON_SIZE + 1)}"}`
     expect(() => safeJsonParseUnknown(hugeJson)).toThrow('exceeds maximum size')
   })
 })
@@ -411,7 +406,7 @@ describe('sanitizeText', () => {
 
 describe('sanitizeAgentResponse', () => {
   test('should sanitize and truncate response', () => {
-    const response = 'Hello\0world' + 'x'.repeat(20000)
+    const response = `Hello\0world${'x'.repeat(20000)}`
     const result = sanitizeAgentResponse(response)
     expect(result).not.toContain('\0')
     expect(result.length).toBeLessThanOrEqual(10020)
@@ -420,7 +415,9 @@ describe('sanitizeAgentResponse', () => {
 
 describe('isValidAddress', () => {
   test('should accept valid addresses', () => {
-    expect(isValidAddress('0x1234567890123456789012345678901234567890')).toBe(true)
+    expect(isValidAddress('0x1234567890123456789012345678901234567890')).toBe(
+      true,
+    )
   })
 
   test('should reject invalid addresses', () => {
@@ -436,7 +433,9 @@ describe('isValidHex', () => {
   })
 
   test('should validate expected length', () => {
-    expect(isValidHex('0x1234567890123456789012345678901234567890', 40)).toBe(true)
+    expect(isValidHex('0x1234567890123456789012345678901234567890', 40)).toBe(
+      true,
+    )
     expect(isValidHex('0x1234', 40)).toBe(false)
   })
 })
@@ -444,7 +443,9 @@ describe('isValidHex', () => {
 describe('extractAddress', () => {
   test('should extract address from text', () => {
     const text = 'Send to 0x1234567890123456789012345678901234567890 please'
-    expect(extractAddress(text)).toBe('0x1234567890123456789012345678901234567890')
+    expect(extractAddress(text)).toBe(
+      '0x1234567890123456789012345678901234567890',
+    )
   })
 
   test('should return null for no address', () => {

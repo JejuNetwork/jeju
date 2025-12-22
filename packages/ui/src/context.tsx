@@ -16,7 +16,8 @@ import {
   useEffect,
   useState,
 } from 'react'
-import type { Account, Hex } from 'viem'
+import type { Hex } from 'viem'
+import type { LocalAccount } from 'viem/accounts'
 import { z } from 'zod'
 
 export interface NetworkContextValue {
@@ -44,7 +45,7 @@ export interface NetworkProviderProps {
   network?: z.infer<typeof NetworkSchema>
   privateKey?: Hex
   mnemonic?: string
-  account?: Account
+  account?: LocalAccount
   smartAccount?: boolean
   rpcUrl?: string
 }
@@ -74,7 +75,6 @@ export function NetworkProvider({
       'NetworkProvider config',
     )
 
-    // Track if effect is still active to prevent stale state updates
     let isCancelled = false
 
     const init = async (): Promise<void> => {
@@ -92,7 +92,6 @@ export function NetworkProvider({
 
       const jejuClient = await createJejuClient(config)
 
-      // Only update state if effect is still active
       if (!isCancelled) {
         setClient(jejuClient)
         setIsLoading(false)
@@ -100,14 +99,12 @@ export function NetworkProvider({
     }
 
     init().catch((err) => {
-      // Only update state if effect is still active
       if (!isCancelled) {
         setError(toError(err))
         setIsLoading(false)
       }
     })
 
-    // Cleanup function to prevent stale updates
     return () => {
       isCancelled = true
     }

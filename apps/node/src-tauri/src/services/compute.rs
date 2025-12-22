@@ -103,7 +103,7 @@ impl Service for ComputeService {
                         // 1. Listen for inference requests via A2A/MCP protocol
                         // 2. Process requests through local Ollama/vLLM
                         // 3. Return results and settle payments
-                        
+
                         if !running.load(Ordering::SeqCst) {
                             break;
                         }
@@ -165,4 +165,3 @@ impl Service for ComputeService {
         self.running.load(Ordering::SeqCst)
     }
 }
-

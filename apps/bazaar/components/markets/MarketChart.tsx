@@ -1,5 +1,3 @@
-'use client'
-
 import { formatDistanceToNow } from 'date-fns'
 import { gql, request } from 'graphql-request'
 import { useEffect, useState } from 'react'

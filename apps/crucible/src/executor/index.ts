@@ -2,6 +2,11 @@
  * Crucible Executor Daemon - Watches TriggerRegistry and executes agent triggers.
  */
 
+import {
+  getCoreAppUrl,
+  getIndexerGraphqlUrl,
+  getL2RpcUrl,
+} from '@jejunetwork/config/ports'
 import { createPublicClient, createWalletClient, http, parseAbi } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { localhost, mainnet, sepolia } from 'viem/chains'
@@ -16,7 +21,7 @@ import type { CrucibleConfig } from '../types'
 const log = createLogger('Executor')
 
 const config: CrucibleConfig = {
-  rpcUrl: process.env.RPC_URL ?? 'http://127.0.0.1:6546',
+  rpcUrl: process.env.RPC_URL ?? getL2RpcUrl(),
   privateKey: process.env.PRIVATE_KEY,
   contracts: {
     agentVault: (process.env.AGENT_VAULT_ADDRESS ?? '0x0') as `0x${string}`,
@@ -30,11 +35,10 @@ const config: CrucibleConfig = {
   },
   services: {
     computeMarketplace:
-      process.env.COMPUTE_MARKETPLACE_URL ?? 'http://127.0.0.1:4007',
-    storageApi: process.env.STORAGE_API_URL ?? 'http://127.0.0.1:3100',
-    ipfsGateway: process.env.IPFS_GATEWAY ?? 'http://127.0.0.1:3100',
-    indexerGraphql:
-      process.env.INDEXER_GRAPHQL_URL ?? 'http://127.0.0.1:4350/graphql',
+      process.env.COMPUTE_MARKETPLACE_URL ?? getCoreAppUrl('COMPUTE'),
+    storageApi: process.env.STORAGE_API_URL ?? getCoreAppUrl('IPFS'),
+    ipfsGateway: process.env.IPFS_GATEWAY ?? getCoreAppUrl('IPFS'),
+    indexerGraphql: process.env.INDEXER_GRAPHQL_URL ?? getIndexerGraphqlUrl(),
   },
   network:
     (process.env.NETWORK as 'localnet' | 'testnet' | 'mainnet') ?? 'localnet',

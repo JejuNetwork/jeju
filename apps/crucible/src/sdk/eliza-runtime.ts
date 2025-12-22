@@ -9,8 +9,8 @@
  *   cd apps/dws && bun run inference
  */
 
-import { getDWSComputeUrl } from '@jejunetwork/config'
 import type { Action, Plugin } from '@elizaos/core'
+import { getDWSComputeUrl } from '@jejunetwork/config'
 import {
   DWSChatResponseSchema,
   DWSNodeStatsSchema,
@@ -146,7 +146,7 @@ async function generateResponse(
   if (!response.ok) {
     const text = await response.text()
     let errorMessage = text
-    
+
     // Try to parse as JSON for better error messages
     try {
       const data = JSON.parse(text)
@@ -169,7 +169,7 @@ async function generateResponse(
       if (e instanceof Error && e.message.includes('DWS')) throw e
       // Text is not JSON, use as-is
     }
-    
+
     throw new Error(`DWS inference failed: ${response.status} ${errorMessage}`)
   }
 
@@ -384,9 +384,11 @@ export class CrucibleAgentRuntime {
   /**
    * Extract action from response if present
    */
-  private extractAction(
-    text: string,
-  ): { action?: string; params: Record<string, string>; cleanText: string } {
+  private extractAction(text: string): {
+    action?: string
+    params: Record<string, string>
+    cleanText: string
+  } {
     const actionMatch = text.match(
       /\[ACTION:\s*([A-Z_]+)(?:\s*\|\s*([^\]]*))?\]/i,
     )
@@ -434,8 +436,8 @@ export class CrucibleAgentRuntime {
     const modelPrefs = this.config.character.modelPreferences
     const model =
       network === 'testnet' || network === 'mainnet'
-        ? modelPrefs?.large ?? 'llama-3.3-70b-versatile'
-        : modelPrefs?.small ?? 'llama-3.1-8b-instant'
+        ? (modelPrefs?.large ?? 'llama-3.3-70b-versatile')
+        : (modelPrefs?.small ?? 'llama-3.1-8b-instant')
 
     // Generate response
     const rawResponse = await generateResponse(systemPrompt, userText, {

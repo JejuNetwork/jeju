@@ -56,16 +56,12 @@ jobs:
           echo "## Package Version Verification" >> $GITHUB_STEP_SUMMARY
           # Verify that overridden packages are at safe versions
           QS_VERSION=$(npm ls qs --json 2>/dev/null | jq -r '.dependencies.qs.version // empty' || echo "")
-          EXPRESS_VERSION=$(npm ls express --json 2>/dev/null | jq -r '.dependencies.express.version // empty' || echo "")
           
           echo "Checking package versions..." >> $GITHUB_STEP_SUMMARY
           
           # These are informational - the overrides in package.json should handle it
           if [ -n "$QS_VERSION" ]; then
             echo "  qs: $QS_VERSION" >> $GITHUB_STEP_SUMMARY
-          fi
-          if [ -n "$EXPRESS_VERSION" ]; then
-            echo "  express: $EXPRESS_VERSION" >> $GITHUB_STEP_SUMMARY
           fi
           
           echo "✅ Package version check completed" >> $GITHUB_STEP_SUMMARY

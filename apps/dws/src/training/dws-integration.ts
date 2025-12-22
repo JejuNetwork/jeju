@@ -6,10 +6,10 @@
  * with DWS container deployment and API exposure.
  */
 
-import { spawn } from 'bun'
+import { cors } from '@elysiajs/cors'
 import { Keypair } from '@solana/web3.js'
-import { Hono } from 'hono'
-import { cors } from 'hono/cors'
+import { spawn } from 'bun'
+import { Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
 import {
   AtroposStartRequestSchema,
@@ -18,7 +18,7 @@ import {
   MerkleRootRequestSchema,
   TrainingJobRequestSchema,
 } from '../shared/schemas/training'
-import { validateBody } from '../shared/validation'
+import { validateBodyDirect } from '../shared/validation'
 import { startAtroposServer } from './atropos-server'
 import { createCrossChainBridge } from './cross-chain-bridge'
 import { createDistributedGRPOTrainer } from './grpo-trainer'
@@ -453,71 +453,72 @@ class PsycheJobListener {
 export function createTrainingRoutes(
   jobQueue: TrainingJobQueue,
   psycheListener?: PsycheJobListener,
-): Hono {
-  const app = new Hono()
+): Elysia {
+  const app = new Elysia()
 
-  app.use('*', cors())
+  app.use(cors())
 
   // Health check
-  app.get('/health', (c) => {
-    return c.json({ status: 'healthy', service: 'dws-training' })
+  app.get('/health', () => {
+    return { status: 'healthy', service: 'dws-training' }
   })
 
   // Submit training job
-  app.post('/jobs', async (c) => {
-    const body = await validateBody(
+  app.post('/jobs', async ({ body, set }) => {
+    const validatedBody = validateBodyDirect(
       TrainingJobRequestSchema,
-      c,
+      body,
       'Training job request',
     )
     const jobId = `job-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
     const request: TrainingJobRequest = {
-      ...body,
+      ...validatedBody,
       jobId,
-      priority: body.priority ?? 'normal',
-      nodeCount: body.nodeCount ?? 1,
+      priority: validatedBody.priority ?? 'normal',
+      nodeCount: validatedBody.nodeCount ?? 1,
     }
 
     const status = jobQueue.addJob(request)
-    return c.json(status, 201)
+    set.status = 201
+    return status
   })
 
   // Get job status
-  app.get('/jobs/:jobId', (c) => {
-    const jobId = c.req.param('jobId')
-    const status = jobQueue.getJob(jobId)
+  app.get('/jobs/:jobId', ({ params, set }) => {
+    const status = jobQueue.getJob(params.jobId)
 
     if (!status) {
-      return c.json({ error: 'Job not found' }, 404)
+      set.status = 404
+      return { error: 'Job not found' }
     }
 
-    return c.json(status)
+    return status
   })
 
   // List all jobs
-  app.get('/jobs', (c) => {
+  app.get('/jobs', () => {
     const jobs = jobQueue.getAllJobs()
-    return c.json({ jobs })
+    return { jobs }
   })
 
   // Get job allocations
-  app.get('/jobs/:jobId/allocations', (c) => {
-    const jobId = c.req.param('jobId')
-    const allocations = jobQueue.getAllocations(jobId)
-    return c.json({ allocations })
+  app.get('/jobs/:jobId/allocations', ({ params }) => {
+    const allocations = jobQueue.getAllocations(params.jobId)
+    return { allocations }
   })
 
   // Judge rollout bundles (LLM-as-judge)
-  app.post('/judge', async (c) => {
-    const body = await validateBody(
+  app.post('/judge', async ({ body, set }) => {
+    const validatedBody = validateBodyDirect(
       JudgeBundlesRequestSchema,
-      c,
+      body,
       'Judge bundles request',
     )
 
     if (!psycheListener) {
-      return c.json({ error: 'Psyche integration not configured' }, 503)
+      set.status = 503
+      return { error: 'Psyche integration not configured' }
     }
 
     // Create temporary client for judging
@@ -528,31 +529,31 @@ export function createTrainingRoutes(
     })
 
     const results = await psycheClient.judgeMultipleBundles(
-      body.bundles as RolloutBundle[],
+      validatedBody.bundles as RolloutBundle[],
     )
-    return c.json({ results })
+    return { results }
   })
 
   // Start Atropos server for a job
-  app.post('/jobs/:jobId/atropos', async (c) => {
-    const body = await validateBody(
+  app.post('/jobs/:jobId/atropos', async ({ body }) => {
+    const validatedBody = validateBodyDirect(
       AtroposStartRequestSchema,
-      c,
+      body,
       'Atropos start request',
     )
-    const port = body.port ?? 8000 + Math.floor(Math.random() * 1000)
+    const port = validatedBody.port ?? 8000 + Math.floor(Math.random() * 1000)
 
     // Start Atropos server in background
     startAtroposServer(port)
 
-    return c.json({ port, url: `http://localhost:${port}` })
+    return { port, url: `http://localhost:${port}` }
   })
 
   // Bridge Merkle root computation
-  app.post('/bridge/merkle/root', async (c) => {
-    const body = await validateBody(
+  app.post('/bridge/merkle/root', async ({ body }) => {
+    const validatedBody = validateBodyDirect(
       MerkleRootRequestSchema,
-      c,
+      body,
       'Merkle root request',
     )
 
@@ -562,20 +563,20 @@ export function createTrainingRoutes(
       bridgeContractAddress: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
     })
 
-    const rewards = body.rewards.map((r) => ({
+    const rewards = validatedBody.rewards.map((r) => ({
       client: r.client as `0x${string}`,
       amount: BigInt(r.amount),
     }))
 
     const root = bridge.computeRewardsMerkleRoot(rewards)
-    return c.json({ root })
+    return { root }
   })
 
   // Bridge Merkle proof generation
-  app.post('/bridge/merkle/proof', async (c) => {
-    const body = await validateBody(
+  app.post('/bridge/merkle/proof', async ({ body }) => {
+    const validatedBody = validateBodyDirect(
       MerkleProofRequestSchema,
-      c,
+      body,
       'Merkle proof request',
     )
 
@@ -585,32 +586,32 @@ export function createTrainingRoutes(
       bridgeContractAddress: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
     })
 
-    const rewards = body.rewards.map((r) => ({
+    const rewards = validatedBody.rewards.map((r) => ({
       client: r.client as `0x${string}`,
       amount: BigInt(r.amount),
     }))
 
-    const proof = bridge.generateMerkleProof(rewards, body.index)
-    return c.json({ proof })
+    const proof = bridge.generateMerkleProof(rewards, validatedBody.index)
+    return { proof }
   })
 
   // Cancel a job
-  app.post('/jobs/:jobId/cancel', (c) => {
-    const jobId = c.req.param('jobId')
-    const job = jobQueue.getJob(jobId)
+  app.post('/jobs/:jobId/cancel', ({ params, set }) => {
+    const job = jobQueue.getJob(params.jobId)
 
     if (!job) {
-      return c.json({ error: 'Job not found' }, 404)
+      set.status = 404
+      return { error: 'Job not found' }
     }
 
-    jobQueue.releaseAllocations(jobId)
-    return c.json({ success: true, jobId })
+    jobQueue.releaseAllocations(params.jobId)
+    return { success: true, jobId: params.jobId }
   })
 
   // Get total job count
-  app.get('/jobs/count', (c) => {
+  app.get('/jobs/count', () => {
     const jobs = jobQueue.getAllJobs()
-    return c.json({ count: jobs.length })
+    return { count: jobs.length }
   })
 
   return app
@@ -624,7 +625,7 @@ export class DWSTrainingService {
   private jobQueue: TrainingJobQueue
   private provisioner: NodeProvisioner
   private psycheListener: PsycheJobListener | null = null
-  private app: Hono
+  private app: Elysia
 
   constructor(localMode = true) {
     this.jobQueue = new TrainingJobQueue()
@@ -632,7 +633,7 @@ export class DWSTrainingService {
     this.app = createTrainingRoutes(this.jobQueue)
   }
 
-  getApp(): Hono {
+  getApp(): Elysia {
     return this.app
   }
 
@@ -688,10 +689,7 @@ if (import.meta.main) {
 
   console.log(`[DWS Training] Starting API server on port ${port}`)
 
-  Bun.serve({
-    port,
-    fetch: app.fetch,
-  })
+  app.listen(port)
 
   // Optional: Configure Psyche integration
   if (process.env.SOLANA_RPC_URL && process.env.SOLANA_PRIVATE_KEY) {

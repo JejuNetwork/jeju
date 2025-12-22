@@ -6,7 +6,6 @@ import { describe, expect, setDefaultTimeout, test } from 'bun:test'
 setDefaultTimeout(30000)
 
 const API_URL = process.env.API_URL ?? 'http://localhost:8010'
-const REQUIRE_API = process.env.REQUIRE_API === 'true'
 
 async function checkApi(): Promise<boolean> {
   try {
@@ -53,20 +52,14 @@ async function concurrent(fn: () => Promise<Response>, count: number) {
 // Check API availability once at module load
 const apiAvailable = await checkApi()
 
-// Skip all tests if API is not available (unless REQUIRE_API=true)
-const testFn = apiAvailable ? test : test.skip
-
 if (!apiAvailable) {
-  if (REQUIRE_API) {
-    throw new Error(`API not running at ${API_URL}. Start with: bun run dev`)
-  }
-  console.log(
-    `⚠️  API not running at ${API_URL} - load tests skipped (set REQUIRE_API=true to fail)`,
+  throw new Error(
+    `API not running at ${API_URL}. Start the server with: bun run dev`,
   )
 }
 
 describe('Load Tests', () => {
-  testFn('health endpoint latency', async () => {
+  test('health endpoint latency', async () => {
     const result = await benchmark(
       'health',
       () => fetch(`${API_URL}/health`),
@@ -79,7 +72,7 @@ describe('Load Tests', () => {
     expect(result.p95).toBeLessThan(200)
   })
 
-  testFn('metrics endpoint latency', async () => {
+  test('metrics endpoint latency', async () => {
     const result = await benchmark(
       'metrics',
       () => fetch(`${API_URL}/metrics`),
@@ -91,7 +84,7 @@ describe('Load Tests', () => {
     expect(result.avg).toBeLessThan(100)
   })
 
-  testFn('assess endpoint latency', async () => {
+  test('assess endpoint latency', async () => {
     const check = await fetch(`${API_URL}/api/v1/proposals/assess`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -128,7 +121,7 @@ describe('Load Tests', () => {
     expect(result.avg).toBeLessThan(10000)
   })
 
-  testFn('concurrent requests (100)', async () => {
+  test('concurrent requests (100)', async () => {
     const result = await concurrent(() => fetch(`${API_URL}/health`), 100)
     console.log(
       `✅ Concurrent: ${result.success}/100 in ${result.durationMs.toFixed(0)}ms`,
@@ -136,14 +129,14 @@ describe('Load Tests', () => {
     expect(result.success).toBeGreaterThanOrEqual(95)
   })
 
-  testFn('burst load (2x100 waves)', async () => {
+  test('burst load (2x100 waves)', async () => {
     const w1 = await concurrent(() => fetch(`${API_URL}/health`), 100)
     const w2 = await concurrent(() => fetch(`${API_URL}/health`), 100)
     console.log(`✅ Burst: wave1=${w1.success} wave2=${w2.success}`)
     expect(w1.success + w2.success).toBeGreaterThanOrEqual(190)
   })
 
-  testFn('sustained load (50 req @ 10/s)', async () => {
+  test('sustained load (50 req @ 10/s)', async () => {
     let success = 0
     for (let i = 0; i < 50; i++) {
       const r = await fetch(`${API_URL}/health`)

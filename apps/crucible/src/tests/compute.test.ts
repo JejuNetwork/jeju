@@ -3,6 +3,7 @@
  */
 
 import { beforeEach, describe, expect, it, mock } from 'bun:test'
+import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config/ports'
 import { type CrucibleCompute, createCompute } from '../sdk/compute'
 import type { AgentCharacter } from '../types'
 
@@ -12,8 +13,8 @@ describe('CrucibleCompute', () => {
 
   beforeEach(() => {
     compute = createCompute({
-      marketplaceUrl: 'http://localhost:4007',
-      rpcUrl: 'http://localhost:6546',
+      marketplaceUrl: getCoreAppUrl('COMPUTE'),
+      rpcUrl: getL2RpcUrl(),
       defaultModel: 'llama-3.1-8b',
     })
     mockFetch = mock(() => Promise.resolve(new Response()))

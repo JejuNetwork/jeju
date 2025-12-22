@@ -7,10 +7,9 @@ This eliminates duplication between TypeScript and Python.
 
 import json
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator
-
 
 # Find the config directory relative to this file
 _CURRENT_DIR = Path(__file__).parent
@@ -20,23 +19,20 @@ _RUBRICS_FILE = _CONFIG_DIR / "rubrics.json"
 
 class RubricFileSchema(BaseModel):
     """Schema for validating rubrics.json configuration file."""
-    
+
     model_config = {"extra": "ignore"}
-    
-    rubrics: Dict[str, str] = Field(default_factory=dict, description="Archetype rubrics")
-    priorityMetrics: Dict[str, List[str]] = Field(
-        default_factory=dict,
-        alias="priorityMetrics",
-        description="Priority metrics per archetype"
+
+    rubrics: dict[str, str] = Field(default_factory=dict, description="Archetype rubrics")
+    priorityMetrics: dict[str, list[str]] = Field(
+        default_factory=dict, alias="priorityMetrics", description="Priority metrics per archetype"
     )
-    defaults: Dict[str, str | List[str]] = Field(
-        default_factory=dict,
-        description="Default rubric and metrics"
+    defaults: dict[str, str | list[str]] = Field(
+        default_factory=dict, description="Default rubric and metrics"
     )
-    availableArchetypes: List[str] = Field(
+    availableArchetypes: list[str] = Field(
         default_factory=list,
         alias="availableArchetypes",
-        description="List of available archetype names"
+        description="List of available archetype names",
     )
 
     @field_validator("rubrics", mode="before")
@@ -52,20 +48,20 @@ class RubricFileSchema(BaseModel):
 
 class RubricConfig:
     """Singleton for rubric configuration loaded from JSON."""
-    
-    _instance: Optional['RubricConfig'] = None
-    _rubrics: Dict[str, str]
-    _priority_metrics: Dict[str, List[str]]
+
+    _instance: Optional["RubricConfig"] = None
+    _rubrics: dict[str, str]
+    _priority_metrics: dict[str, list[str]]
     _default_rubric: str
-    _default_metrics: List[str]
-    _available_archetypes: List[str]
-    
-    def __new__(cls) -> 'RubricConfig':
+    _default_metrics: list[str]
+    _available_archetypes: list[str]
+
+    def __new__(cls) -> "RubricConfig":
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._load_config()
         return cls._instance
-    
+
     def _load_config(self) -> None:
         """Load rubrics from JSON config file with Pydantic validation."""
         if not _RUBRICS_FILE.exists():
@@ -81,40 +77,42 @@ class RubricConfig:
             ]
             self._available_archetypes = []
             return
-        
-        with open(_RUBRICS_FILE, 'r', encoding='utf-8') as f:
+
+        with open(_RUBRICS_FILE, encoding="utf-8") as f:
             raw_config = json.load(f)
-        
+
         # Validate with Pydantic
         config = RubricFileSchema.model_validate(raw_config)
-        
+
         self._rubrics = config.rubrics
         self._priority_metrics = config.priorityMetrics
         defaults = config.defaults
         self._default_rubric = str(defaults.get("rubric", _get_fallback_default_rubric()))
         default_metrics = defaults.get("priorityMetrics", [])
         self._default_metrics = default_metrics if isinstance(default_metrics, list) else []
-        self._available_archetypes = config.availableArchetypes if config.availableArchetypes else list(self._rubrics.keys())
-    
+        self._available_archetypes = (
+            config.availableArchetypes if config.availableArchetypes else list(self._rubrics.keys())
+        )
+
     def get_rubric(self, archetype: str) -> str:
         """Get rubric for an archetype."""
         normalized = archetype.lower().strip().replace("_", "-")
         return self._rubrics.get(normalized, self._default_rubric)
-    
-    def get_priority_metrics(self, archetype: str) -> List[str]:
+
+    def get_priority_metrics(self, archetype: str) -> list[str]:
         """Get priority metrics for an archetype."""
         normalized = archetype.lower().strip().replace("_", "-")
         return self._priority_metrics.get(normalized, self._default_metrics)
-    
-    def get_available_archetypes(self) -> List[str]:
+
+    def get_available_archetypes(self) -> list[str]:
         """Get list of all available archetypes."""
         return self._available_archetypes.copy()
-    
+
     def has_custom_rubric(self, archetype: str) -> bool:
         """Check if archetype has a custom rubric."""
         normalized = archetype.lower().strip().replace("_", "-")
         return normalized in self._rubrics
-    
+
     def reload(self) -> None:
         """Reload configuration from file."""
         self._load_config()
@@ -154,12 +152,12 @@ def get_rubric(archetype: str) -> str:
     return _config.get_rubric(archetype)
 
 
-def get_priority_metrics(archetype: str) -> List[str]:
+def get_priority_metrics(archetype: str) -> list[str]:
     """Get priority metrics for an archetype."""
     return _config.get_priority_metrics(archetype)
 
 
-def get_available_archetypes() -> List[str]:
+def get_available_archetypes() -> list[str]:
     """Get list of all available archetypes."""
     return _config.get_available_archetypes()
 
@@ -176,4 +174,3 @@ def reload_rubrics() -> None:
 
 # For backwards compatibility, expose DEFAULT_RUBRIC
 DEFAULT_RUBRIC = _get_fallback_default_rubric()
-

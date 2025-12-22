@@ -14,10 +14,6 @@ export {
   TokenDeployer,
   type TokenDeploymentConfig,
   type TokenDeploymentResult,
-  // Legacy aliases
-  UnifiedTokenDeployer,
-  type UnifiedTokenDeploymentConfig,
-  type UnifiedTokenDeploymentResult,
 } from './deployer'
 // Jeju Registry Integration
 export {

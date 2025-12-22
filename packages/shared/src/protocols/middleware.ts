@@ -13,6 +13,7 @@ import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import { createPublicClient, getAddress, http, verifyMessage } from 'viem'
 import { z } from 'zod'
+import { NETWORK_BAN_MANAGER_ABI } from '../api/abis'
 import { getChain } from '../chains'
 
 /**
@@ -136,33 +137,6 @@ const IDENTITY_REGISTRY_ABI = [
   },
 ] as const
 
-const BAN_MANAGER_ABI = [
-  {
-    name: 'isNetworkBanned',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'agentId', type: 'uint256' }],
-    outputs: [{ name: '', type: 'bool' }],
-  },
-  {
-    name: 'getNetworkBan',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'agentId', type: 'uint256' }],
-    outputs: [
-      {
-        type: 'tuple',
-        components: [
-          { name: 'isBanned', type: 'bool' },
-          { name: 'bannedAt', type: 'uint256' },
-          { name: 'reason', type: 'string' },
-          { name: 'proposalId', type: 'bytes32' },
-        ],
-      },
-    ],
-  },
-] as const
-
 // ============================================================================
 // ERC-8004 Identity Verification
 // ============================================================================
@@ -219,7 +193,7 @@ export async function getAgentInfo(
   if (erc8004Config.banManagerAddress) {
     const banInfo = await erc8004Client.readContract({
       address: erc8004Config.banManagerAddress,
-      abi: BAN_MANAGER_ABI,
+      abi: NETWORK_BAN_MANAGER_ABI,
       functionName: 'getNetworkBan',
       args: [agent.agentId],
     })
@@ -512,7 +486,11 @@ export async function verifyX402Payment(
 export interface X402Context {
   paymentVerified: boolean
   paymentSigner: Address | null
-  x402Error: { error: string; x402?: PaymentRequirement; details?: string } | null
+  x402Error: {
+    error: string
+    x402?: PaymentRequirement
+    details?: string
+  } | null
 }
 
 /**

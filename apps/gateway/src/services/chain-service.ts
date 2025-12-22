@@ -1,3 +1,4 @@
+import { ZERO_ADDRESS } from '@jejunetwork/ui'
 import {
   type Abi,
   type Address,
@@ -10,9 +11,8 @@ import {
   OUTPUT_SETTLER_ADDRESS,
   SOLVER_REGISTRY_ADDRESS,
 } from '../config/contracts.js'
-import { getRpcUrl } from '../config/networks.js'
+import { getRpcUrl, JEJU_CHAIN_ID } from '../config/networks.js'
 import { getChain } from '../lib/chains.js'
-import { ZERO_ADDRESS } from '../lib/contracts.js'
 
 // ABIs for reading contract state and watching events
 const INPUT_SETTLER_ABI = [
@@ -228,7 +228,6 @@ export async function fetchSolverInfo(
   }
 
   // Registry lives on the network testnet (420690) or mainnet (420691)
-  const { JEJU_CHAIN_ID } = await import('../config/networks.js')
   const client = getClient(JEJU_CHAIN_ID)
 
   const info = await client
@@ -254,7 +253,6 @@ export async function fetchRegistryStats(): Promise<{
   }
 
   // Registry lives on the network testnet (420690) or mainnet (420691)
-  const { JEJU_CHAIN_ID } = await import('../config/networks.js')
   const client = getClient(JEJU_CHAIN_ID)
 
   // Return null if contract isn't deployed or call fails

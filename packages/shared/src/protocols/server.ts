@@ -1,5 +1,5 @@
 /**
- * Unified Protocol Server - REST, A2A, and MCP
+ * Protocol Server - REST, A2A, and MCP
  *
  * Creates a single Elysia app that exposes:
  * - REST API at /api/*
@@ -19,11 +19,17 @@ import type { ProtocolData, ProtocolValue } from '../types'
 import {
   type AgentInfo,
   configureProtocolMiddleware,
-  type PaymentRequirement,
+  configureX402,
   type ProtocolMiddlewareConfig,
   type SkillResult,
+  skillError,
+  skillRequiresPayment,
+  skillSuccess,
   verifyERC8004Identity,
 } from './middleware'
+
+// Re-export helpers for convenience
+export { configureX402, skillError, skillRequiresPayment, skillSuccess }
 
 // Default allowed origins for CORS
 const DEFAULT_ALLOWED_ORIGINS = [
@@ -131,7 +137,7 @@ export interface MCPPrompt {
   arguments: Array<{ name: string; description: string; required?: boolean }>
 }
 
-export interface UnifiedServerConfig {
+export interface ServerConfig {
   name: string
   description: string
   version?: string
@@ -196,7 +202,7 @@ interface MCPPromptResult {
 // Server Factory
 // ============================================================================
 
-export function createUnifiedServer(config: UnifiedServerConfig) {
+export function createServer(config: ServerConfig) {
   // Configure middleware if provided
   if (config.middleware) {
     configureProtocolMiddleware(config.middleware)
@@ -571,7 +577,7 @@ interface GeneratedAgentCard {
   skills: A2ASkill[]
 }
 
-function createAgentCard(config: UnifiedServerConfig): GeneratedAgentCard {
+function createAgentCard(config: ServerConfig): GeneratedAgentCard {
   const provider = getProviderInfo()
 
   return {
@@ -598,16 +604,16 @@ function createAgentCard(config: UnifiedServerConfig): GeneratedAgentCard {
 // ============================================================================
 
 export interface ServerInstance {
-  app: ReturnType<typeof createUnifiedServer>
+  app: ReturnType<typeof createServer>
   port: number
   url: string
   stop: () => void
 }
 
 export async function startServer(
-  config: UnifiedServerConfig,
+  config: ServerConfig,
 ): Promise<ServerInstance> {
-  const app = createUnifiedServer(config)
+  const app = createServer(config)
   const port = config.port || 4000
 
   const server = app.listen(port)
@@ -637,21 +643,9 @@ export async function startServer(
 // Serverless Export Helper
 // ============================================================================
 
-export function createServerlessHandler(config: UnifiedServerConfig): {
+export function createServerlessHandler(config: ServerConfig): {
   fetch: (request: Request) => Response | Promise<Response>
 } {
-  const app = createUnifiedServer(config)
+  const app = createServer(config)
   return { fetch: app.fetch }
 }
-
-// ============================================================================
-// Re-exports for convenience
-// ============================================================================
-
-export type { SkillResult, PaymentRequirement }
-export {
-  configureX402,
-  skillError,
-  skillRequiresPayment,
-  skillSuccess,
-} from './middleware'

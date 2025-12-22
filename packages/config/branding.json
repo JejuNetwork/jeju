@@ -5,7 +5,7 @@
   "network": {
     "name": "Jeju",
     "displayName": "Jeju Network",
-    "tagline": "The modern EVM chain for agents and humans",
+    "tagline": "The network for agents and humans",
     "description": "A decentralized L2 network built on the OP Stack, designed for AI agents and human users to transact seamlessly.",
     "shortDescription": "AI-native L2 network",
     "keywords": ["L2", "AI", "agents", "EVM", "OP Stack", "blockchain"]

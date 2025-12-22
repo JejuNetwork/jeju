@@ -1,10 +1,8 @@
-'use client'
-
+import { ZERO_BYTES32 } from '@jejunetwork/ui'
 import { AlertTriangle, type LucideProps, Shield } from 'lucide-react'
 import { type ComponentType, useEffect, useState } from 'react'
 import { useReadContract } from 'wagmi'
 import { MODERATION_CONTRACTS } from '../../config/moderation'
-import { ZERO_BYTES32 } from '../../lib/contracts'
 
 const ShieldIcon = Shield as ComponentType<LucideProps>
 const AlertTriangleIcon = AlertTriangle as ComponentType<LucideProps>

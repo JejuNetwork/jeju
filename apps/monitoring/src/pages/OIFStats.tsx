@@ -12,29 +12,13 @@ import { useState } from 'react'
 import { HealthRing } from '../components/HealthRing'
 import { StatCard } from '../components/StatCard'
 import { useOIFStats } from '../hooks/useMonitoring'
+import { formatVolume } from '../types'
 
 type Tab = 'overview' | 'solvers' | 'routes'
 
 export function OIFStats() {
   const { stats, solvers, routes, loading, error, refetch } = useOIFStats()
   const [activeTab, setActiveTab] = useState<Tab>('overview')
-
-  // Safely format large token amounts using BigInt to avoid precision loss
-  const formatVolume = (amount: string | undefined) => {
-    if (!amount) return '-'
-    // Use BigInt division for precision with large token amounts
-    const bigValue = BigInt(amount)
-    const divisor = BigInt(1e18)
-    const wholePart = bigValue / divisor
-    const remainder = bigValue % divisor
-
-    // Convert to number only after scaling down (safe after division by 1e18)
-    const value = Number(wholePart) + Number(remainder) / 1e18
-
-    if (value >= 1000000) return `${(value / 1000000).toFixed(2)}M`
-    if (value >= 1000) return `${(value / 1000).toFixed(2)}K`
-    return value.toFixed(4)
-  }
 
   const avgSuccessRate =
     solvers.length > 0

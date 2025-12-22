@@ -88,13 +88,16 @@ export function useSubmitJob() {
       shell?: string
       timeout?: number
     }) => {
-      const { data, error } = await api.compute.jobs.post({
-        command: params.command,
-        shell: params.shell,
-        timeout: params.timeout,
-      }, {
-        headers: { 'x-jeju-address': address || '' },
-      })
+      const { data, error } = await api.compute.jobs.post(
+        {
+          command: params.command,
+          shell: params.shell,
+          timeout: params.timeout,
+        },
+        {
+          headers: { 'x-jeju-address': address || '' },
+        },
+      )
       if (error) throw new Error(String(error))
       return data
     },
@@ -110,7 +113,7 @@ export function useInference() {
       model?: string
       messages: Array<{ role: string; content: string }>
     }) => {
-      const { data, error } = await api.compute['chat']['completions'].post(params)
+      const { data, error } = await api.compute.chat.completions.post(params)
       if (error) throw new Error(String(error))
       return data as {
         id: string
@@ -124,7 +127,10 @@ export function useInference() {
 
 export function useEmbeddings() {
   return useMutation({
-    mutationFn: async (params: { input: string | string[]; model?: string }) => {
+    mutationFn: async (params: {
+      input: string | string[]
+      model?: string
+    }) => {
       const { data, error } = await api.compute.embeddings.post(params)
       if (error) throw new Error(String(error))
       return data as {

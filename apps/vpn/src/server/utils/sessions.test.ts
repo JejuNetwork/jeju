@@ -4,7 +4,8 @@
 
 import { describe, expect, test } from 'bun:test'
 import type { Address } from 'viem'
-import type { VPNNodeState, VPNServiceContext, VPNSessionState } from '../types'
+import type { VPNNodeState, VPNSessionState } from '../schemas'
+import type { VPNServiceContext } from '../types'
 import {
   createSession,
   deleteSession,

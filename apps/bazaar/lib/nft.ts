@@ -4,10 +4,13 @@
  * Extracted from hooks and pages for testability and reuse.
  */
 
-import { AddressSchema } from '@jejunetwork/types'
+import {
+  AddressSchema,
+  BigIntSchema,
+  NonEmptyStringSchema,
+} from '@jejunetwork/types'
 import { formatEther, parseEther } from 'viem'
 import { z } from 'zod'
-import { BigIntSchema, NonEmptyStringSchema } from '../schemas/common'
 import type { NormalizedNFT } from '../schemas/nft'
 
 // ============================================================================

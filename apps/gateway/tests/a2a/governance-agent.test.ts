@@ -5,9 +5,9 @@
 
 import { describe, expect, test } from 'bun:test'
 import { getNetworkName } from '@jejunetwork/config'
+import { getCoreAppUrl } from '@jejunetwork/config/ports'
 
-const GOVERNANCE_CARD_URL =
-  'http://localhost:4003/.well-known/governance-agent-card.json'
+const GOVERNANCE_CARD_URL = `${getCoreAppUrl('NODE_EXPLORER_UI')}/.well-known/governance-agent-card.json`
 
 describe('Governance Agent Card', () => {
   test('should serve governance agent card', async () => {

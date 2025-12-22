@@ -211,8 +211,8 @@ superchainCommand
     console.log('  DisputeGameFactory: Deployed')
 
     console.log(chalk.bold('\nData Availability:'))
-    console.log('  Primary: EigenDA')
-    console.log('  Fallback: Ethereum calldata')
+    console.log('  Primary: Jeju DA (PeerDAS-integrated)')
+    console.log('  Fallback: Ethereum blobs / calldata')
 
     console.log()
     console.log(

@@ -88,7 +88,11 @@ async function main(): Promise<DeployResult> {
   }
 
   const uploadJson: unknown = await uploadResponse.json()
-  const uploadResult = expectValid(UploadResponseSchema, uploadJson, 'upload response')
+  const uploadResult = expectValid(
+    UploadResponseSchema,
+    uploadJson,
+    'upload response',
+  )
   const frontendCid = uploadResult.cid
   console.log(`✅ Frontend uploaded: ${frontendCid}`)
 
@@ -128,7 +132,11 @@ async function main(): Promise<DeployResult> {
   }
 
   const workerUploadJson: unknown = await workerUploadResponse.json()
-  const workerUploadResult = expectValid(UploadResponseSchema, workerUploadJson, 'worker upload response')
+  const workerUploadResult = expectValid(
+    UploadResponseSchema,
+    workerUploadJson,
+    'worker upload response',
+  )
   const workerCid = workerUploadResult.cid
   console.log(`✅ Worker uploaded: ${workerCid}`)
 
@@ -159,7 +167,11 @@ async function main(): Promise<DeployResult> {
   }
 
   const deployJson: unknown = await deployResponse.json()
-  const deployResult = expectValid(DeployResponseSchema, deployJson, 'deploy response')
+  const deployResult = expectValid(
+    DeployResponseSchema,
+    deployJson,
+    'deploy response',
+  )
   console.log(`✅ Worker deployed: ${deployResult.id}`)
 
   // Step 5: Return deployment info

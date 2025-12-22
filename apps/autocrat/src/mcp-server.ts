@@ -2,17 +2,16 @@
  * Autocrat MCP Server
  */
 
-import { Hono } from 'hono'
+import cors from '@elysiajs/cors'
+import { expect, expectDefined, validateOrThrow } from '@jejunetwork/types'
+import { Elysia, t } from 'elysia'
 import { z } from 'zod'
 import type { AutocratBlockchain } from './blockchain'
 import {
-  expect,
-  expectDefined,
   HexStringSchema,
   MCPResourceReadRequestSchema,
   MCPToolCallRequestSchema,
   ProposalIdSchema,
-  validateOrThrow,
 } from './schemas'
 import {
   assessAlignment,
@@ -49,14 +48,14 @@ interface MCPTool {
 }
 
 export class AutocratMCPServer {
-  private readonly app: Hono
+  private readonly app: Elysia
   private readonly blockchain: AutocratBlockchain
   private readonly config: AutocratConfig
 
   constructor(config: AutocratConfig, blockchain: AutocratBlockchain) {
     this.config = config
     this.blockchain = blockchain
-    this.app = new Hono()
+    this.app = new Elysia().use(cors())
     this.setupRoutes()
   }
 
@@ -188,70 +187,85 @@ export class AutocratMCPServer {
   }
 
   private setupRoutes(): void {
-    this.app.get('/', (c) =>
-      c.json({
-        server: 'jeju-council',
-        version: '1.0.0',
-        protocolVersion: '2024-11-05',
-        resources: this.getResources(),
-        tools: this.getTools(),
-      }),
+    this.app.get('/', () => ({
+      server: 'jeju-council',
+      version: '1.0.0',
+      protocolVersion: '2024-11-05',
+      resources: this.getResources(),
+      tools: this.getTools(),
+    }))
+
+    this.app.post('/initialize', () => ({
+      protocolVersion: '2024-11-05',
+      serverInfo: { name: 'jeju-council', version: '1.0.0' },
+      capabilities: { resources: true, tools: true, prompts: false },
+    }))
+
+    this.app.post('/resources/list', () => ({ resources: this.getResources() }))
+
+    this.app.post(
+      '/resources/read',
+      async ({ body }) => {
+        const validated = validateOrThrow(
+          MCPResourceReadRequestSchema,
+          body,
+          'MCP resource read request',
+        )
+        const uri = validated.uri
+        const contents = await this.readResource(uri)
+        expect(contents !== null, `Resource not found: ${uri}`)
+        return {
+          contents: [
+            {
+              uri,
+              mimeType: 'application/json',
+              text: JSON.stringify(contents, null, 2),
+            },
+          ],
+        }
+      },
+      {
+        body: t.Object({
+          uri: t.String(),
+        }),
+      },
     )
-    this.app.post('/initialize', (c) =>
-      c.json({
-        protocolVersion: '2024-11-05',
-        serverInfo: { name: 'jeju-council', version: '1.0.0' },
-        capabilities: { resources: true, tools: true, prompts: false },
-      }),
+
+    this.app.post('/tools/list', () => ({ tools: this.getTools() }))
+
+    this.app.post(
+      '/tools/call',
+      async ({ body }) => {
+        const validated = validateOrThrow(
+          MCPToolCallRequestSchema,
+          body,
+          'MCP tool call request',
+        )
+        const name = validated.name
+        const args = validated.arguments ?? {}
+        const { result, isError } = await this.callTool(name, args)
+        return {
+          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+          isError,
+        }
+      },
+      {
+        body: t.Object({
+          name: t.String(),
+          arguments: t.Optional(t.Record(t.String(), t.String())),
+        }),
+      },
     )
-    this.app.post('/resources/list', (c) =>
-      c.json({ resources: this.getResources() }),
-    )
-    this.app.post('/resources/read', async (c) => {
-      const body = validateOrThrow(
-        MCPResourceReadRequestSchema,
-        await c.req.json(),
-        'MCP resource read request',
-      )
-      const uri = body.uri
-      const contents = await this.readResource(uri)
-      expect(contents !== null, `Resource not found: ${uri}`)
-      return c.json({
-        contents: [
-          {
-            uri,
-            mimeType: 'application/json',
-            text: JSON.stringify(contents, null, 2),
-          },
-        ],
-      })
-    })
-    this.app.post('/tools/list', (c) => c.json({ tools: this.getTools() }))
-    this.app.post('/tools/call', async (c) => {
-      const body = validateOrThrow(
-        MCPToolCallRequestSchema,
-        await c.req.json(),
-        'MCP tool call request',
-      )
-      const name = body.name
-      const args = body.arguments ?? {}
-      const { result, isError } = await this.callTool(name, args)
-      return c.json({
-        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-        isError,
-      })
-    })
-    this.app.get('/health', (c) =>
-      c.json({
-        status: 'ok',
-        server: 'council-mcp',
-        version: '1.0.0',
-        contracts: {
-          council: this.blockchain.councilDeployed,
-          ceoAgent: this.blockchain.ceoDeployed,
-        },
-      }),
-    )
+
+    this.app.get('/health', () => ({
+      status: 'ok',
+      server: 'council-mcp',
+      version: '1.0.0',
+      contracts: {
+        council: this.blockchain.councilDeployed,
+        ceoAgent: this.blockchain.ceoDeployed,
+      },
+    }))
   }
 
   private async readResource(
@@ -524,7 +538,7 @@ export class AutocratMCPServer {
     }
   }
 
-  getRouter(): Hono {
+  getRouter(): Elysia {
     return this.app
   }
 }

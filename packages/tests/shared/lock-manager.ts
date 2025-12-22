@@ -35,9 +35,6 @@ import {
 } from './schemas'
 import { findJejuWorkspaceRoot } from './utils'
 
-// Re-export types for backwards compatibility
-export type { LockMetadata, LockManagerOptions }
-
 const DEFAULT_TTL_MS = 30 * 60 * 1000 // 30 minutes - adjust if tests take longer
 const LOCK_FILE = '.jeju/.jeju-e2e-test.lock'
 const MAX_ACQUIRE_ATTEMPTS = 3

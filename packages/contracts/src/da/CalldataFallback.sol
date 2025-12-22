@@ -6,7 +6,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
  * @title CalldataFallback
- * @notice Fallback storage for when EigenDA is unavailable
+ * @notice Fallback storage for when Jeju DA is unavailable
  * 
  * When the DA layer is down or unresponsive, batch data can be posted
  * directly to L1 calldata through this contract. This ensures liveness

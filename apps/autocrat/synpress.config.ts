@@ -14,7 +14,8 @@ const CEO_PORT = parseInt(process.env.CEO_PORT || '8004', 10)
 export default createSynpressConfig({
   appName: 'autocrat',
   port: AUTOCRAT_PORT,
-  testDir: './tests/synpress',
+  testDir: './synpress-tests',
+  testMatch: '**/*.synpress.ts',
   timeout: 120000,
   overrides: {
     // Autocrat needs both API and CEO servers

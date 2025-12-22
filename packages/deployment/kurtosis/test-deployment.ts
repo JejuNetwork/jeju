@@ -15,6 +15,8 @@
  * ```
  */
 
+import { exec } from 'node:child_process'
+import { promisify } from 'node:util'
 import {
   createPublicClient,
   createWalletClient,
@@ -25,7 +27,7 @@ import {
   waitForTransactionReceipt,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { inferChainFromRpcUrl } from '../../../packages/deployment/packages/deployment/scripts/shared/chain-utils'
+import { inferChainFromRpcUrl } from '../scripts/shared/chain-utils'
 import { TEST_ACCOUNTS } from '../tests/setup'
 
 interface TestResultDetails {

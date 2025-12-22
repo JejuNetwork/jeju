@@ -16,9 +16,6 @@ import {
 } from './schemas'
 import { findJejuWorkspaceRoot } from './utils'
 
-// Re-export types for backwards compatibility
-export type { AppConfig, WarmupOptions, WarmupResult, AppWarmupResult }
-
 const DEFAULT_ROUTES = ['/', '/about', '/settings']
 
 export function discoverAppsForWarmup(rootDir = process.cwd()): AppConfig[] {
@@ -49,7 +46,6 @@ export function discoverAppsForWarmup(rootDir = process.cwd()): AppConfig[] {
       const manifestRaw = JSON.parse(readFileSync(manifestPath, 'utf-8'))
       manifest = parseAppManifest(manifestRaw)
     } catch {
-      // Skip apps with invalid/incomplete manifests
       continue
     }
     const mainPort = manifest.ports.main

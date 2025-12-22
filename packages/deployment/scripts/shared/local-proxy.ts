@@ -8,11 +8,7 @@
  * - Hosts file entries (with sudo prompt if needed)
  * - Caddy reverse proxy for clean URLs without ports
  *
- * Available services:
- * - gateway.local.jejunetwork.org -> localhost:4001
- * - bazaar.local.jejunetwork.org -> localhost:4006
- * - docs.local.jejunetwork.org -> localhost:4004
- * - rpc.local.jejunetwork.org -> localhost:6546
+ * Port mappings are loaded from @jejunetwork/config/ports
  */
 
 import {
@@ -22,6 +18,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'node:fs'
+import { CORE_PORTS, INFRA_PORTS } from '@jejunetwork/config/ports'
 import { $ } from 'bun'
 
 const DOMAIN = 'local.jejunetwork.org'
@@ -33,22 +30,22 @@ const PID_FILE = `${CADDY_DIR}/caddy.pid`
 const HOSTS_BLOCK_START = '# JEJU LOCAL DEV START'
 const HOSTS_BLOCK_END = '# JEJU LOCAL DEV END'
 
-// Service port mappings
+// Service port mappings (from centralized config)
 const SERVICES: Record<string, number> = {
-  gateway: 4001,
-  bazaar: 4006,
-  docs: 4004,
-  indexer: 4350,
-  rpc: 9545,
-  ws: 6547,
-  crucible: 4003,
-  compute: 4007,
-  storage: 4010,
-  monitoring: 4002,
-  autocrat: 4008,
-  factory: 4009,
-  wallet: 4011,
-  dws: 4012,
+  gateway: CORE_PORTS.GATEWAY.get(),
+  bazaar: CORE_PORTS.BAZAAR.get(),
+  docs: CORE_PORTS.DOCUMENTATION.get(),
+  indexer: CORE_PORTS.INDEXER_GRAPHQL.get(),
+  rpc: INFRA_PORTS.L2_RPC.get(),
+  ws: INFRA_PORTS.L2_WS.get(),
+  crucible: CORE_PORTS.CRUCIBLE_API.get(),
+  compute: CORE_PORTS.COMPUTE.get(),
+  ipfs: CORE_PORTS.IPFS.get(),
+  monitoring: CORE_PORTS.NODE_EXPLORER_API.get(),
+  autocrat: CORE_PORTS.AUTOCRAT_API.get(),
+  factory: CORE_PORTS.FACTORY.get(),
+  oif: CORE_PORTS.OIF_AGGREGATOR.get(),
+  dws: CORE_PORTS.DWS_API.get(),
 }
 
 interface ProxyConfig {

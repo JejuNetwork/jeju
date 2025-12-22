@@ -1,17 +1,3 @@
-/**
- * Hybrid Torrent Service - Production Implementation
- *
- * P2P content distribution with:
- * - WebTorrent for browser/WebRTC peers
- * - DHT for TCP peer discovery
- * - Content hash verification
- * - On-chain seeding registration
- * - Oracle-verified bandwidth attestation (no self-signing)
- * - Prometheus metrics
- * - LRU cache with eviction
- * - Graceful shutdown
- */
-
 import type WebTorrentModule from 'webtorrent'
 
 // Use the types from @types/webtorrent
@@ -43,7 +29,10 @@ import { Counter, Gauge, Registry } from 'prom-client'
 import { createPublicClient, createWalletClient, http as viemHttp } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
-import { OracleAttestationSchema, type OracleAttestation } from '../../validation'
+import {
+  type OracleAttestation,
+  OracleAttestationSchema,
+} from '../../validation'
 
 // ============================================================================
 // Configuration Schema
@@ -739,7 +728,9 @@ export class HybridTorrentService {
     const parsed = OracleAttestationSchema.safeParse(json)
     if (!parsed.success) {
       torrentOracleAttestations.inc({ status: 'error' })
-      throw new Error(`Invalid oracle attestation response: ${parsed.error.issues[0]?.message}`)
+      throw new Error(
+        `Invalid oracle attestation response: ${parsed.error.issues[0]?.message}`,
+      )
     }
     torrentOracleAttestations.inc({ status: 'success' })
 

@@ -4,7 +4,8 @@
  * Coordinates wallet edge nodes for distributed CDN/caching/proxy services.
  */
 
-import { Hono } from 'hono'
+import { expectValid } from '@jejunetwork/types'
+import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import {
   edgeCacheRequestSchema,
@@ -13,10 +14,6 @@ import {
   edgeNodesQuerySchema,
   edgeRouteParamsSchema,
   regionHeaderSchema,
-  validateBody,
-  validateHeaders,
-  validateParams,
-  validateQuery,
 } from '../../shared'
 
 // ============================================================================
@@ -108,14 +105,14 @@ const REGIONS = [
 // Router
 // ============================================================================
 
-export function createEdgeRouter(): Hono {
-  const router = new Hono()
+export function createEdgeRouter() {
+  const router = new Elysia({ name: 'edge', prefix: '/edge' })
 
   // ============================================================================
   // Health & Stats
   // ============================================================================
 
-  router.get('/health', (c) => {
+  router.get('/health', () => {
     const onlineNodes = Array.from(edgeNodes.values()).filter(
       (n) => n.status === 'online',
     )
@@ -132,7 +129,7 @@ export function createEdgeRouter(): Hono {
       totalCache += node.capabilities.maxCacheBytes
     }
 
-    return c.json({
+    return {
       status: 'healthy',
       service: 'dws-edge-coordinator',
       nodes: {
@@ -146,25 +143,29 @@ export function createEdgeRouter(): Hono {
         totalCacheBytes: totalCache,
       },
       regions: REGIONS,
-    })
+    }
   })
 
   // ============================================================================
   // Node Registration (HTTP fallback)
   // ============================================================================
 
-  router.post('/register', async (c) => {
-    const body = await validateBody(edgeNodeRegistrationSchema, c)
+  router.post('/register', async ({ body, set }) => {
+    const validated = expectValid(
+      edgeNodeRegistrationSchema,
+      body,
+      'Edge node registration',
+    )
 
     const nodeId = crypto.randomUUID()
     const node: EdgeNode = {
       id: nodeId,
-      nodeType: body.nodeType,
-      platform: body.platform,
-      operator: body.operator,
-      endpoint: body.endpoint,
-      capabilities: body.capabilities,
-      region: body.region ?? 'global',
+      nodeType: validated.nodeType,
+      platform: validated.platform,
+      operator: validated.operator,
+      endpoint: validated.endpoint,
+      capabilities: validated.capabilities,
+      region: validated.region ?? 'global',
       status: 'online',
       lastSeen: Date.now(),
       stats: {
@@ -178,29 +179,28 @@ export function createEdgeRouter(): Hono {
 
     edgeNodes.set(nodeId, node)
     console.log(
-      `[EdgeCoordinator] Node registered: ${nodeId} (${body.nodeType})`,
+      `[EdgeCoordinator] Node registered: ${nodeId} (${validated.nodeType})`,
     )
 
-    return c.json(
-      {
-        nodeId,
-        status: 'registered',
-        coordinator: '/edge/coordinate',
-      },
-      201,
-    )
+    set.status = 201
+    return {
+      nodeId,
+      status: 'registered',
+      coordinator: '/edge/coordinate',
+    }
   })
 
   // ============================================================================
   // Node Management
   // ============================================================================
 
-  router.get('/nodes', (c) => {
-    const {
-      region,
-      type: nodeType,
-      status,
-    } = validateQuery(edgeNodesQuerySchema, c)
+  router.get('/nodes', ({ query }) => {
+    const validated = expectValid(
+      edgeNodesQuerySchema,
+      query,
+      'Edge nodes query',
+    )
+    const { region, type: nodeType, status } = validated
 
     let nodes = Array.from(edgeNodes.values())
 
@@ -208,7 +208,7 @@ export function createEdgeRouter(): Hono {
     if (nodeType) nodes = nodes.filter((n) => n.nodeType === nodeType)
     if (status) nodes = nodes.filter((n) => n.status === status)
 
-    return c.json({
+    return {
       nodes: nodes.map((n) => ({
         id: n.id,
         nodeType: n.nodeType,
@@ -219,21 +219,29 @@ export function createEdgeRouter(): Hono {
         stats: n.stats,
         lastSeen: n.lastSeen,
       })),
-    })
+    }
   })
 
-  router.get('/nodes/:nodeId', (c) => {
-    const { nodeId } = validateParams(edgeNodeParamsSchema, c)
+  router.get('/nodes/:nodeId', ({ params }) => {
+    const { nodeId } = expectValid(
+      edgeNodeParamsSchema,
+      params,
+      'Edge node params',
+    )
     const node = edgeNodes.get(nodeId)
     if (!node) {
       throw new Error('Node not found')
     }
 
-    return c.json(node)
+    return node
   })
 
-  router.delete('/nodes/:nodeId', (c) => {
-    const { nodeId } = validateParams(edgeNodeParamsSchema, c)
+  router.delete('/nodes/:nodeId', ({ params }) => {
+    const { nodeId } = expectValid(
+      edgeNodeParamsSchema,
+      params,
+      'Edge node params',
+    )
 
     if (!edgeNodes.has(nodeId)) {
       throw new Error('Node not found')
@@ -244,26 +252,30 @@ export function createEdgeRouter(): Hono {
     websockets.delete(nodeId)
 
     console.log(`[EdgeCoordinator] Node unregistered: ${nodeId}`)
-    return c.json({ success: true })
+    return { success: true }
   })
 
   // ============================================================================
   // Cache Management
   // ============================================================================
 
-  router.post('/cache', async (c) => {
-    const body = await validateBody(edgeCacheRequestSchema, c)
+  router.post('/cache', async ({ body, set }) => {
+    const validated = expectValid(
+      edgeCacheRequestSchema,
+      body,
+      'Edge cache request',
+    )
 
-    cacheRequests.set(body.cid, body)
+    cacheRequests.set(validated.cid, validated)
 
     // Find nodes to cache
-    const targetRegions = body.regions ?? ['global']
-    const minReplicas = body.minReplicas ?? 3
+    const targetRegions = validated.regions ?? ['global']
+    const minReplicas = validated.minReplicas ?? 3
 
     const targetNodes = findCacheNodes(
       targetRegions,
       minReplicas,
-      body.priority,
+      validated.priority,
     )
 
     // Send cache requests
@@ -273,47 +285,57 @@ export function createEdgeRouter(): Hono {
         ws.send(
           JSON.stringify({
             type: 'cache_request',
-            cid: body.cid,
-            priority: body.priority,
+            cid: validated.cid,
+            priority: validated.priority,
           }),
         )
       }
     }
 
-    return c.json(
-      {
-        cid: body.cid,
-        targetNodes: targetNodes.length,
-        regions: targetRegions,
-      },
-      202,
-    )
+    set.status = 202
+    return {
+      cid: validated.cid,
+      targetNodes: targetNodes.length,
+      regions: targetRegions,
+    }
   })
 
-  router.get('/cache/:cid', (c) => {
-    const { cid } = validateParams(edgeRouteParamsSchema, c)
+  router.get('/cache/:cid', ({ params }) => {
+    const { cid } = expectValid(
+      edgeRouteParamsSchema,
+      params,
+      'Edge route params',
+    )
 
     // Find CDN-capable nodes (cache inventory not tracked centrally)
     const cachingNodes = Array.from(edgeNodes.values()).filter((n) => {
       return n.status === 'online' && n.capabilities.cdn
     })
 
-    return c.json({
+    return {
       cid,
       nodes: cachingNodes.length,
       regions: [...new Set(cachingNodes.map((n) => n.region))],
-    })
+    }
   })
 
   // ============================================================================
   // Content Routing
   // ============================================================================
 
-  router.get('/route/:cid', (c) => {
-    const { cid } = validateParams(edgeRouteParamsSchema, c)
-    const { 'x-jeju-region': clientRegion } = validateHeaders(
+  router.get('/route/:cid', ({ params, request }) => {
+    const { cid } = expectValid(
+      edgeRouteParamsSchema,
+      params,
+      'Edge route params',
+    )
+    const headersObj = {
+      'x-jeju-region': request.headers.get('x-jeju-region') ?? undefined,
+    }
+    const { 'x-jeju-region': clientRegion } = expectValid(
       regionHeaderSchema,
-      c,
+      headersObj,
+      'Region header',
     )
     const region = clientRegion ?? 'global'
 
@@ -336,22 +358,26 @@ export function createEdgeRouter(): Hono {
 
     const selected = candidates[0]
 
-    return c.json({
+    return {
       cid,
       nodeId: selected.id,
       region: selected.region,
       endpoint: selected.endpoint
         ? `${selected.endpoint}/storage/download/${cid}`
         : `/storage/download/${cid}`,
-    })
+    }
   })
 
   // ============================================================================
   // Earnings
   // ============================================================================
 
-  router.get('/earnings/:nodeId', (c) => {
-    const { nodeId } = validateParams(edgeNodeParamsSchema, c)
+  router.get('/earnings/:nodeId', ({ params }) => {
+    const { nodeId } = expectValid(
+      edgeNodeParamsSchema,
+      params,
+      'Edge node params',
+    )
     const node = edgeNodes.get(nodeId)
     if (!node) {
       throw new Error('Node not found')
@@ -363,14 +389,14 @@ export function createEdgeRouter(): Hono {
     const estimatedEarnings =
       BigInt(Math.floor(bytesServedGB * 100)) * BigInt(10 ** 15) // 0.0001 ETH per GB
 
-    return c.json({
+    return {
       nodeId: node.id,
       bytesServed: node.stats.bytesServed,
       requestsServed: node.stats.requestsServed,
       uptime: node.stats.uptime,
       estimatedEarnings: estimatedEarnings.toString(),
       pendingClaim: '0', // On-chain balance query not available without blockchain connection
-    })
+    }
   })
 
   return router

@@ -24,11 +24,11 @@ import {
   parseAbi,
 } from 'viem'
 import {
-  safeParse,
   SolanaDexPoolsResponseSchema,
   SolanaLendingMarketsResponseSchema,
+  safeParse,
 } from '../../schemas'
-import type { ChainId, StrategyConfig } from '../autocrat-types'
+import type { ChainId, StrategyConfig } from '../autocrat-types-source'
 
 // ============ Types ============
 
@@ -880,7 +880,10 @@ export class YieldFarmingStrategy extends EventEmitter {
       const response = await fetch(`${protocol.apiEndpoint}/pools?limit=20`)
       if (!response.ok) return opportunities
 
-      const data = safeParse(SolanaDexPoolsResponseSchema, await response.json())
+      const data = safeParse(
+        SolanaDexPoolsResponseSchema,
+        await response.json(),
+      )
 
       for (const pool of data?.data ?? []) {
         const tradingApr = pool.apr?.trading ?? 0
@@ -961,7 +964,10 @@ export class YieldFarmingStrategy extends EventEmitter {
       const response = await fetch(`${protocol.apiEndpoint}/markets`)
       if (!response.ok) return opportunities
 
-      const data = safeParse(SolanaLendingMarketsResponseSchema, await response.json())
+      const data = safeParse(
+        SolanaLendingMarketsResponseSchema,
+        await response.json(),
+      )
 
       for (const market of data?.markets ?? []) {
         opportunities.push({

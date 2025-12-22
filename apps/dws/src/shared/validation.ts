@@ -3,17 +3,17 @@
  * Provides Zod-based validation with fail-fast error handling
  *
  * Base schemas imported from @jejunetwork/types/validation
- * Hono-specific helpers defined here
+ * Elysia-specific helpers defined here
  */
 
 import {
   AddressSchema,
-  expectValid as baseExpectValid,
-  NonEmptyStringSchema as baseNonEmptyStringSchema,
   CidSchema,
   EmailSchema,
+  expectValid,
   HexSchema,
   IsoDateSchema,
+  NonEmptyStringSchema,
   NonNegativeIntSchema,
   PaginationSchema,
   PositiveBigIntSchema,
@@ -21,9 +21,20 @@ import {
   TimestampSchema,
   UrlSchema,
 } from '@jejunetwork/types'
-import type { Context } from 'hono'
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
+
+/**
+ * Elysia context type for validation helpers
+ */
+export interface ElysiaContext {
+  request: Request
+  body: unknown
+  query: Record<string, string | undefined>
+  params: Record<string, string>
+  headers: Record<string, string | undefined>
+  set: { status: number; headers: Record<string, string> }
+}
 
 // ============ JSON Value Types ============
 
@@ -76,25 +87,50 @@ const ErrorResponseSchema = z.object({
   details: z.record(z.string(), jsonValueSchema).optional(),
 })
 
-// Re-export from base
-export const expectValid = baseExpectValid
-export const NonEmptyStringSchema = baseNonEmptyStringSchema
+/**
+ * Validate body directly with fail-fast (no context required)
+ * Use when you already have the body parsed
+ */
+export function validateBodyDirect<T>(
+  schema: z.ZodSchema<T>,
+  body: unknown,
+  context?: string,
+): T {
+  return expectValid(schema, body ?? {}, context || 'Request body')
+}
+
+/**
+ * Hono context type for validation helpers
+ */
+interface HonoContext {
+  req: {
+    json: () => Promise<unknown>
+    param: (name: string) => string
+  }
+}
 
 /**
  * Validate request body with fail-fast
+ * Supports both Elysia (body already parsed) and Hono (async json parsing)
  */
 export async function validateBody<T>(
   schema: z.ZodSchema<T>,
-  c: Context,
+  ctx: ElysiaContext | HonoContext,
   context?: string,
 ): Promise<T> {
   let body: unknown
-  try {
-    body = await c.req.json()
-  } catch {
-    body = {}
+  // Hono context has req.json as a function to parse request body
+  // Elysia context has body as a property (not a function)
+  if ('req' in ctx && typeof ctx.req.json === 'function') {
+    // Hono context - parse JSON from request
+    body = await ctx.req.json()
+  } else if ('body' in ctx && typeof ctx.body !== 'function') {
+    // Elysia context - body is already parsed as property
+    body = ctx.body
+  } else {
+    throw new Error('Invalid context: expected Elysia or Hono context')
   }
-  return expectValid(schema, body, context || 'Request body')
+  return expectValid(schema, body ?? {}, context || 'Request body')
 }
 
 /**
@@ -102,28 +138,60 @@ export async function validateBody<T>(
  */
 export function validateQuery<T>(
   schema: z.ZodSchema<T>,
-  c: Context,
+  ctx: ElysiaContext,
   context?: string,
 ): T {
   const query: Record<string, string> = {}
-  const url = new URL(c.req.url)
-  for (const [key, value] of url.searchParams.entries()) {
-    query[key] = value
+  for (const [key, value] of Object.entries(ctx.query)) {
+    if (value !== undefined) query[key] = value
+  }
+  return expectValid(schema, query, context || 'Query parameters')
+}
+
+/**
+ * Validate query parameters from object directly (for Elysia routes)
+ */
+export function validateQueryFromObj<T>(
+  schema: z.ZodSchema<T>,
+  queryObj: Record<string, string | undefined>,
+  context?: string,
+): T {
+  const query: Record<string, string> = {}
+  for (const [key, value] of Object.entries(queryObj)) {
+    if (value !== undefined) query[key] = value
   }
   return expectValid(schema, query, context || 'Query parameters')
 }
 
 /**
  * Validate path parameters with fail-fast
+ * Supports both Elysia and Hono contexts
  */
 export function validateParams<T>(
   schema: z.ZodSchema<T>,
-  c: Context,
+  ctx: ElysiaContext | HonoContext,
   context?: string,
 ): T {
-  const params: Record<string, string> = {}
-  for (const [key, value] of Object.entries(c.req.param())) {
-    params[key] = value
+  // Check if it's an Elysia context (has .params object) or Hono context
+  let params: Record<string, string>
+  if ('params' in ctx && typeof ctx.params === 'object') {
+    // Elysia context - params is an object
+    params = ctx.params
+  } else if ('req' in ctx && typeof ctx.req.param === 'function') {
+    // Hono context - need to extract params from route
+    // For Hono, we use schema keys to get the param values
+    params = {}
+    const shape = schema._def.shape
+    if (shape) {
+      for (const key of Object.keys(shape)) {
+        const value = ctx.req.param(key)
+        if (value !== undefined) {
+          params[key] = value
+        }
+      }
+    }
+  } else {
+    throw new Error('Invalid context: expected Elysia or Hono context')
   }
   return expectValid(schema, params, context || 'Path parameters')
 }
@@ -133,23 +201,22 @@ export function validateParams<T>(
  */
 export function validateHeaders<T>(
   schema: z.ZodSchema<T>,
-  c: Context,
+  ctx: ElysiaContext,
   context?: string,
 ): T {
   const headers: Record<string, string> = {}
-  const rawHeaders = c.req.header()
-  for (const [key, value] of Object.entries(rawHeaders)) {
+  for (const [key, value] of Object.entries(ctx.headers)) {
     if (value) headers[key.toLowerCase()] = value
   }
   return expectValid(schema, headers, context || 'Headers')
 }
 
 /**
- * Hono middleware for request validation
+ * Elysia derive hook for request validation
  * Validates body, query, params, and headers based on provided schemas
  * Throws immediately on validation failure (fail-fast)
  */
-export function validateRequest<
+export function createValidationDerive<
   TBody = never,
   TQuery = never,
   TParams = never,
@@ -160,49 +227,48 @@ export function validateRequest<
   params?: z.ZodSchema<TParams>
   headers?: z.ZodSchema<THeaders>
 }) {
-  return async (c: Context, next: () => Promise<void>) => {
+  return (ctx: ElysiaContext) => {
+    const result: {
+      validatedBody?: TBody
+      validatedQuery?: TQuery
+      validatedParams?: TParams
+      validatedHeaders?: THeaders
+    } = {}
+
     if (options.body) {
-      let body: unknown
-      try {
-        body = await c.req.json()
-      } catch {
-        body = {}
-      }
-      c.set('validatedBody', expectValid(options.body, body, 'Request body'))
+      result.validatedBody = expectValid(
+        options.body,
+        ctx.body ?? {},
+        'Request body',
+      )
     }
     if (options.query) {
       const query: Record<string, string> = {}
-      const url = new URL(c.req.url)
-      for (const [key, value] of url.searchParams.entries()) {
-        query[key] = value
+      for (const [key, value] of Object.entries(ctx.query)) {
+        if (value !== undefined) query[key] = value
       }
-      c.set(
-        'validatedQuery',
-        expectValid(options.query, query, 'Query parameters'),
+      result.validatedQuery = expectValid(
+        options.query,
+        query,
+        'Query parameters',
       )
     }
     if (options.params) {
-      const params: Record<string, string> = {}
-      for (const [key, value] of Object.entries(c.req.param())) {
-        params[key] = value
-      }
-      c.set(
-        'validatedParams',
-        expectValid(options.params, params, 'Path parameters'),
+      result.validatedParams = expectValid(
+        options.params,
+        ctx.params,
+        'Path parameters',
       )
     }
     if (options.headers) {
       const headers: Record<string, string> = {}
-      const rawHeaders = c.req.header()
-      for (const [key, value] of Object.entries(rawHeaders)) {
+      for (const [key, value] of Object.entries(ctx.headers)) {
         if (value) headers[key.toLowerCase()] = value
       }
-      c.set(
-        'validatedHeaders',
-        expectValid(options.headers, headers, 'Headers'),
-      )
+      result.validatedHeaders = expectValid(options.headers, headers, 'Headers')
     }
-    await next()
+
+    return result
   }
 }
 
@@ -215,7 +281,7 @@ export const strictHexSchema = HexSchema as z.ZodType<Hex> // HexSchema already 
 export const cidSchema = CidSchema
 export const positiveIntSchema = PositiveIntSchema
 export const nonNegativeIntSchema = NonNegativeIntSchema
-export const nonEmptyStringSchema = baseNonEmptyStringSchema
+export const nonEmptyStringSchema = NonEmptyStringSchema
 export const urlSchema = UrlSchema
 export const emailSchema = EmailSchema
 export const isoDateSchema = IsoDateSchema
@@ -225,7 +291,7 @@ export const positiveBigIntSchema = PositiveBigIntSchema
 export const errorResponseSchema = ErrorResponseSchema
 
 /**
- * Common header schemas (Hono/DWS-specific)
+ * Common header schemas (Elysia/DWS-specific)
  */
 export const jejuAddressHeaderSchema = z.object({
   'x-jeju-address': addressSchema,

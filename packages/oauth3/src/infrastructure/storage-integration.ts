@@ -15,8 +15,8 @@ import {
   IPFSAddResponseSchema,
   OAuth3SessionSchema,
   SessionIndexSchema,
-  validateResponse,
   VerifiableCredentialSchema,
+  validateResponse,
 } from '../validation.js'
 import { DEFAULT_IPFS_API, DEFAULT_IPFS_GATEWAY } from './config.js'
 

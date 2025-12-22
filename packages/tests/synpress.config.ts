@@ -14,8 +14,6 @@
 import {
   createSynpressConfig,
   createWalletSetup,
-  PASSWORD,
-  SEED_PHRASE,
 } from './shared/synpress.config.base'
 
 // Default port for smoke tests (no specific app)
@@ -35,9 +33,3 @@ export default createSynpressConfig({
 
 // Export wallet setup for Synpress
 export const basicSetup = createWalletSetup()
-
-// Re-export constants
-export { PASSWORD, SEED_PHRASE }
-
-// Re-export everything from config base for convenience
-export * from './shared/synpress.config.base'

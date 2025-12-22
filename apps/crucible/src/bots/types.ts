@@ -18,7 +18,7 @@ import type {
   Opportunity,
   ProfitSource,
   StrategyConfig,
-} from './autocrat-types'
+} from './autocrat-types-source'
 
 export type {
   ChainId,

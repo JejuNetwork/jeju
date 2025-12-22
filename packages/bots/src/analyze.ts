@@ -2,13 +2,6 @@
 
 /**
  * Comprehensive Analysis & Optimization Script
- *
- * Runs all simulations, backtests, and analyzes:
- * - Strategy performance
- * - Cross-chain arbitrage opportunities
- * - Oracle integration
- * - Risk metrics
- * - Profit potential
  */
 
 import { OracleAggregator } from './oracles'
@@ -17,8 +10,6 @@ import { HistoricalDataFetcher } from './simulation/data-fetcher'
 import { RiskAnalyzer } from './simulation/risk-analyzer'
 import { CrossChainArbitrage } from './strategies/cross-chain-arbitrage'
 import type { BacktestResult, PortfolioSnapshot, Token } from './types'
-
-// ============ Configuration ============
 
 const TOKENS: Token[] = [
   {
@@ -48,8 +39,6 @@ const STRATEGIES = [
   'composite',
 ] as const
 
-// ============ Main Analysis ============
-
 async function main(): Promise<void> {
   console.log(
     '╔══════════════════════════════════════════════════════════════╗',
@@ -68,8 +57,6 @@ async function main(): Promise<void> {
   await analyzeRiskMetrics()
   await generateOptimizationReport()
 }
-
-// ============ Oracle Analysis ============
 
 async function analyzeOracles(): Promise<void> {
   console.log(
@@ -127,8 +114,6 @@ async function analyzeOracles(): Promise<void> {
 
   console.log('Oracle Integration: VERIFIED ✓\n')
 }
-
-// ============ Strategy Backtesting ============
 
 async function analyzeStrategies(): Promise<void> {
   console.log(
@@ -258,8 +243,6 @@ async function analyzeStrategies(): Promise<void> {
   )
 }
 
-// ============ Cross-Chain Arbitrage Analysis ============
-
 async function analyzeCrossChainArbitrage(): Promise<void> {
   console.log(
     '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
@@ -354,8 +337,6 @@ async function analyzeCrossChainArbitrage(): Promise<void> {
 
   arb.stop()
 }
-
-// ============ Risk Metrics Analysis ============
 
 async function analyzeRiskMetrics(): Promise<void> {
   console.log(
@@ -456,8 +437,6 @@ async function analyzeRiskMetrics(): Promise<void> {
   console.log('\n')
 }
 
-// ============ Optimization Report ============
-
 async function generateOptimizationReport(): Promise<void> {
   console.log(
     '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
@@ -537,5 +516,4 @@ async function generateOptimizationReport(): Promise<void> {
   )
 }
 
-// Run
 main().catch(console.error)

@@ -14,7 +14,7 @@ import { type Address, formatUnits, type Hex, parseUnits } from 'viem'
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address
 
-import { isSolanaChain } from '../xlp/xlp-service.js'
+import { type ChainId, isSolanaChain } from '../types/index.js'
 import { CCIPAdapter, type CCIPTransferRequest } from './ccip-adapter.js'
 import { CrossChainRouter, type RouterConfig } from './cross-chain-router.js'
 import { WormholeAdapter, type WormholeConfig } from './wormhole-adapter.js'
@@ -176,8 +176,8 @@ export class MultiBridgeRouter extends EventEmitter {
   async findRoutes(params: TransferParams): Promise<BridgeRoute[]> {
     const routes: BridgeRoute[] = []
 
-    const isSolanaSrc = isSolanaChain(params.sourceChainId)
-    const isSolanaDst = isSolanaChain(params.destChainId)
+    const isSolanaSrc = isSolanaChain(params.sourceChainId as ChainId)
+    const isSolanaDst = isSolanaChain(params.destChainId as ChainId)
 
     for (const provider of this.config.enabledProviders) {
       const support = BRIDGE_CHAIN_SUPPORT[provider]
@@ -307,8 +307,8 @@ export class MultiBridgeRouter extends EventEmitter {
 
     // CCIP doesn't support Solana
     if (
-      isSolanaChain(params.sourceChainId) ||
-      isSolanaChain(params.destChainId)
+      isSolanaChain(params.sourceChainId as ChainId) ||
+      isSolanaChain(params.destChainId as ChainId)
     ) {
       return null
     }
@@ -588,7 +588,7 @@ export class MultiBridgeRouter extends EventEmitter {
     // Known Solana chain IDs
     const knownSolanaChains = new Set([101, 102, 103, 104])
 
-    if (isSolanaChain(chainId)) {
+    if (isSolanaChain(chainId as ChainId)) {
       if (!knownSolanaChains.has(chainId)) {
         throw new Error(`Unknown Solana chain ID: ${chainId}`)
       }
@@ -617,8 +617,8 @@ export class MultiBridgeRouter extends EventEmitter {
       }
     }
 
-    const isSolanaSrc = isSolanaChain(params.sourceChainId)
-    const isSolanaDst = isSolanaChain(params.destChainId)
+    const isSolanaSrc = isSolanaChain(params.sourceChainId as ChainId)
+    const isSolanaDst = isSolanaChain(params.destChainId as ChainId)
 
     if (isSolanaSrc && !isSolanaDst) {
       const result = await this.wormhole.transferSolanaToEVM({

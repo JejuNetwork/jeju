@@ -4,6 +4,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
+import { getL2RpcUrl, INFRA_PORTS } from '@jejunetwork/config/ports'
 import type { Address } from 'viem'
 
 // Expected localnet addresses (deterministic from anvil)
@@ -104,18 +105,19 @@ describe('Chain ID Parsing', () => {
 
 describe('RPC URL Configuration', () => {
   test('default localhost RPC URL format is valid', () => {
-    const defaultRpc = 'http://localhost:6545'
+    const defaultRpc = getL2RpcUrl()
     expect(defaultRpc.startsWith('http://')).toBe(true)
     // Accept both localhost and 127.0.0.1 as valid local URLs
     expect(
       defaultRpc.includes('localhost') || defaultRpc.includes('127.0.0.1'),
     ).toBe(true)
-    expect(defaultRpc.includes('8545')).toBe(true)
+    // Uses centralized port from config
+    expect(defaultRpc.includes(String(INFRA_PORTS.L2_RPC.get()))).toBe(true)
   })
 
   test('URL parsing works for RPC endpoints', () => {
     const rpcUrls = [
-      'http://localhost:6545',
+      getL2RpcUrl(),
       'https://mainnet.base.org',
       'https://sepolia.base.org',
     ]

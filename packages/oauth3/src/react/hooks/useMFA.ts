@@ -213,14 +213,14 @@ export function useMFA(options: UseMFAOptions = {}): UseMFAReturn {
         return false
       }
 
-      const { challengeId, publicKey } = validateResponse(
+      const optionsData = validateResponse(
         PasskeyOptionsResponseSchema,
         await optionsResponse.json(),
         'passkey registration options',
-      ) as {
-        challengeId: string
-        publicKey: PublicKeyCredentialCreationOptions
-      }
+      )
+      const challengeId = optionsData.challengeId
+      const publicKey =
+        optionsData.publicKey as unknown as PublicKeyCredentialCreationOptions
 
       // Create credential using WebAuthn
       const credential = (await navigator.credentials.create({
@@ -294,11 +294,14 @@ export function useMFA(options: UseMFAOptions = {}): UseMFAReturn {
       return false
     }
 
-    const { challengeId, publicKey } = validateResponse(
+    const authOptionsData = validateResponse(
       PasskeyOptionsResponseSchema,
       await optionsResponse.json(),
       'passkey authentication options',
-    ) as { challengeId: string; publicKey: PublicKeyCredentialRequestOptions }
+    )
+    const challengeId = authOptionsData.challengeId
+    const publicKey =
+      authOptionsData.publicKey as unknown as PublicKeyCredentialRequestOptions
 
     // Get credential using WebAuthn
     const credential = (await navigator.credentials.get({

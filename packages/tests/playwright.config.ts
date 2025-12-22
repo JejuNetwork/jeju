@@ -1,30 +1,15 @@
-import { defineConfig, devices } from '@playwright/test'
+/**
+ * Root Playwright Configuration for packages/tests E2E tests
+ * Uses shared config from @jejunetwork/tests
+ */
+import { createAppConfig } from './shared/playwright.config.base'
 
-export default defineConfig({
+// Default port - tests are infrastructure-level, not app-specific
+const DEFAULT_PORT = parseInt(process.env.TEST_PORT || '4001', 10)
+
+export default createAppConfig({
+  name: 'tests',
+  port: DEFAULT_PORT,
   testDir: './e2e',
-  testMatch: '**/*.playwright.ts',
-  fullyParallel: true,
-  forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
-  reporter: [
-    ['list'],
-    ['html', { outputFolder: 'playwright-report' }],
-    ['json', { outputFile: 'test-results.json' }],
-  ],
   timeout: 60000,
-
-  use: {
-    baseURL: 'http://localhost:4002',
-    trace: 'retain-on-failure',
-    screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
-  },
-
-  projects: [
-    {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
-    },
-  ],
 })

@@ -5,8 +5,8 @@
 # No API keys required - fully permissionless.
 #
 # Usage:
-#   docker-compose up -d
-#   docker-compose logs -f hubble
+#   docker compose up -d
+#   docker compose logs -f hubble
 #
 # Access:
 #   HTTP API: http://localhost:2281
@@ -15,8 +15,6 @@
 #
 # Initial sync takes ~24-48 hours for full Farcaster data.
 # =============================================================================
-
-version: '3.8'
 
 services:
   hubble:
@@ -87,7 +85,7 @@ services:
       - "9090:9090"
     volumes:
       - prometheus-data:/prometheus
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../../monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus

@@ -5,7 +5,8 @@
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { type ChildProcess, spawn } from 'node:child_process'
-import { dirname } from 'node:path'
+import { existsSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { A2AResponseSchema, AgentCardSchema } from '../src/types'
 
@@ -49,8 +50,8 @@ beforeAll(async () => {
   }
 
   // Start the server - use absolute path to avoid issues
-  const { join } = await import('node:path')
-  const { existsSync } = await import('node:fs')
+  // Note: join and existsSync are only used when server needs to be started
+  // (when serverAvailable is false), but we use static imports for consistency
   const monitoringDir = join(__dirname, '..')
   const serverPath = join(monitoringDir, 'server', 'a2a.ts')
 

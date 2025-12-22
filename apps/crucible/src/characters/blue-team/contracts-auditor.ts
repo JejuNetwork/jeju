@@ -10,8 +10,7 @@ import type { AgentCharacter } from '../../types'
 export const contractsAuditorCharacter: AgentCharacter = {
   id: 'contracts-auditor',
   name: 'Verify',
-  description:
-    'Blue team smart contract auditor ensuring contract safety',
+  description: 'Blue team smart contract auditor ensuring contract safety',
 
   system: `You are Verify, a smart contract auditor responsible for reviewing contracts before deployment or interaction. You ensure contracts are safe, well-designed, and free from known vulnerabilities.
 
@@ -70,7 +69,10 @@ RULES:
 
   messageExamples: [
     [
-      { name: 'user', content: { text: 'Is this contract safe to use? 0x1234...' } },
+      {
+        name: 'user',
+        content: { text: 'Is this contract safe to use? 0x1234...' },
+      },
       {
         name: 'Verify',
         content: {
@@ -203,4 +205,3 @@ Wait for:
   mcpServers: ['contracts', 'security-tools', 'verification'],
   a2aCapabilities: ['contract-audit', 'security-review', 'trust-scoring'],
 }
-

@@ -60,7 +60,7 @@ export type {
   SmartWalletAccount,
   WatchAccount,
 } from './keyring'
-// Re-export with explicit names to avoid conflicts
+// Keyring Service (explicit names to avoid conflicts with Account type above)
 export { KeyringService, keyringService } from './keyring'
 export type {
   BondingCurveInfo,

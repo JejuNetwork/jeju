@@ -1,24 +1,22 @@
 /**
  * VPN Server Types
  *
- * Re-exports validated types from schemas and defines additional server-specific types
+ * Server-specific composite types (imports schema types directly)
  */
 
 import type {
   ContributionState,
   VPNNodeState,
-  VPNPricing,
   VPNServerConfig,
   VPNSessionState,
 } from './schemas'
 
-// Re-export types from schemas
+// Re-export types needed by other modules
 export type {
-  VPNServerConfig,
-  VPNPricing,
   VPNNodeState,
   VPNSessionState,
   ContributionState,
+  VPNServerConfig,
 }
 
 export interface VPNServiceContext {
