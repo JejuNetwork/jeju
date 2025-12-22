@@ -54,7 +54,7 @@ contract DecentralizationIntegrationTest is Test {
         timelock = new GovernanceTimelock(governance, securityCouncil, owner, 2 hours);
 
         disputeFactory = new DisputeGameFactory(treasury, owner);
-        disputeFactory.setProverImplementation(DisputeGameFactory.ProverType.CANNON, address(prover), true);
+        disputeFactory.initializeProver(DisputeGameFactory.ProverType.CANNON, address(prover), true);
 
         disputeFactory.transferOwnership(address(timelock));
         sequencerRegistry.transferOwnership(address(timelock));
@@ -87,24 +87,12 @@ contract DecentralizationIntegrationTest is Test {
         (address[] memory addressesBefore,) = sequencerRegistry.getActiveSequencers();
         assertEq(addressesBefore.length, 2);
 
-        // Slash sequencer1 via timelock (since ownership was transferred)
-        // SECURITY: Slash now requires proof - create a valid double sign proof (130 bytes min)
-        bytes memory doubleSignProof = abi.encodePacked(
-            bytes32(uint256(1)), // Block hash 1
-            bytes32(uint256(2)), // Block hash 2
-            bytes32(uint256(3)), // Signature r1
-            bytes32(uint256(4)), // Signature s1
-            bytes1(uint8(27)),   // Signature v1
-            bytes32(uint256(5)), // Signature r2
-            bytes32(uint256(6)), // Signature s2
-            bytes1(uint8(28))    // Signature v2
-        );
-        
+        // Slash sequencer1 via timelock governance ban (since ownership was transferred)
+        // Note: slashDoubleSign is now permissionless with cryptographic proof
+        // This test uses slashGovernanceBan which requires governance/owner
         bytes memory slashData = abi.encodeWithSelector(
-            SequencerRegistry.slash.selector,
-            sequencer1,
-            SequencerRegistry.SlashingReason.DOUBLE_SIGNING,
-            doubleSignProof
+            SequencerRegistry.slashGovernanceBan.selector,
+            sequencer1
         );
 
         vm.prank(governance);
@@ -144,21 +132,23 @@ contract DecentralizationIntegrationTest is Test {
     }
 
     function testEmergencyBugfixViaTimelock() public {
-        // Emergency bugfix has shorter delay
-        address newTreasury = makeAddr("newTreasury");
-        bytes memory data = abi.encodeWithSelector(DisputeGameFactory.setTreasury.selector, newTreasury);
+        // Emergency bugfix has shorter delay - test emergency pause
+        // Note: Treasury changes now require 30-day internal timelock for security
+        bytes memory data = abi.encodeWithSelector(DisputeGameFactory.pause.selector);
         bytes32 bugProof = keccak256("bug exists");
 
+        assertFalse(disputeFactory.paused());
+
         vm.prank(securityCouncil);
-        bytes32 proposalId = timelock.proposeEmergencyBugfix(address(disputeFactory), data, "Fix bug", bugProof);
+        bytes32 proposalId = timelock.proposeEmergencyBugfix(address(disputeFactory), data, "Emergency pause", bugProof);
 
         uint256 emergencyDelay = timelock.EMERGENCY_MIN_DELAY();
         vm.warp(block.timestamp + emergencyDelay + 1);
 
         timelock.execute(proposalId);
 
-        // Verify the treasury was updated
-        assertEq(disputeFactory.treasury(), newTreasury);
+        // Verify the contract was paused
+        assertTrue(disputeFactory.paused());
     }
 
     // ============ Dispute + Sequencer Integration ============

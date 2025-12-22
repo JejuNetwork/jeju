@@ -247,3 +247,79 @@ describe('compute command', () => {
     expect(stdout).toContain('--port');
   });
 });
+
+describe('decentralize command', () => {
+  test('--help shows required options', async () => {
+    const { stdout, exitCode } = await runCLI(['decentralize', '--help']);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('Transfer contract ownership to GovernanceTimelock');
+    expect(stdout).toContain('IRREVERSIBLE');
+    expect(stdout).toContain('--network');
+    expect(stdout).toContain('--timelock');
+    expect(stdout).toContain('--contract');
+    expect(stdout).toContain('--dry-run');
+  });
+
+  test('verify subcommand exists', async () => {
+    const { stdout, exitCode } = await runCLI(['decentralize', 'verify', '--help']);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('Verify contract ownership');
+    expect(stdout).toContain('--network');
+    expect(stdout).toContain('--timelock');
+  });
+
+  test('status subcommand exists', async () => {
+    const { stdout, exitCode } = await runCLI(['decentralize', 'status', '--help']);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('Show current contract ownership');
+    expect(stdout).toContain('--network');
+  });
+});
+
+describe('deploy-mips command', () => {
+  test('--help shows options', async () => {
+    const { stdout, exitCode } = await runCLI(['deploy-mips', '--help']);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('Deploy or configure real MIPS infrastructure');
+    expect(stdout).toContain('Stage 2');
+    expect(stdout).toContain('--network');
+    expect(stdout).toContain('--use-optimism');
+    expect(stdout).toContain('--deploy-fresh');
+    expect(stdout).toContain('--dry-run');
+  });
+
+  test('status subcommand exists', async () => {
+    const { stdout, exitCode } = await runCLI(['deploy-mips', 'status', '--help']);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('Check MIPS configuration status');
+    expect(stdout).toContain('--network');
+  });
+});
+
+describe('verify-stage2 command', () => {
+  test('--help shows subcommands', async () => {
+    const { stdout, exitCode } = await runCLI(['verify-stage2', '--help']);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('Verify Stage 2');
+    expect(stdout).toContain('readiness');
+    expect(stdout).toContain('check');
+    expect(stdout).toContain('stages');
+  });
+
+  test('check subcommand has options', async () => {
+    const { stdout, exitCode } = await runCLI(['verify-stage2', 'check', '--help']);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('--network');
+    expect(stdout).toContain('--verbose');
+  });
+
+  test('stages subcommand shows definitions', async () => {
+    const { stdout, exitCode } = await runCLI(['verify-stage2', 'stages']);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('Stage 0');
+    expect(stdout).toContain('Stage 1');
+    expect(stdout).toContain('Stage 2');
+    expect(stdout).toContain('Fraud proofs');
+    expect(stdout).toContain('Training Wheels');
+  });
+});

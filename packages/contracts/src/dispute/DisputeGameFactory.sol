@@ -21,6 +21,20 @@ contract DisputeGameFactory is Ownable, ReentrancyGuard, Pausable {
         address winner;
     }
 
+    struct PendingProverChange {
+        ProverType proverType;
+        address implementation;
+        bool enabled;
+        uint256 executeAfter;
+        bool executed;
+    }
+
+    struct PendingTreasuryChange {
+        address newTreasury;
+        uint256 executeAfter;
+        bool executed;
+    }
+
     enum GameType {
         FAULT_DISPUTE,
         VALIDITY_DISPUTE
@@ -40,6 +54,9 @@ contract DisputeGameFactory is Ownable, ReentrancyGuard, Pausable {
     uint256 public constant MIN_BOND = 1 ether;
     uint256 public constant MAX_BOND = 100 ether;
     uint256 public constant GAME_TIMEOUT = 7 days;
+    uint256 public constant PROVER_CHANGE_DELAY = 30 days;
+    uint256 public constant TREASURY_CHANGE_DELAY = 30 days;
+
     address public treasury;
     mapping(bytes32 => DisputeGame) public games;
     bytes32[] public gameIds;
@@ -47,6 +64,9 @@ contract DisputeGameFactory is Ownable, ReentrancyGuard, Pausable {
     mapping(ProverType => address) public proverImplementations;
     mapping(ProverType => bool) public proverEnabled;
     uint256 public totalBondsLocked;
+
+    mapping(bytes32 => PendingProverChange) public pendingProverChanges;
+    mapping(bytes32 => PendingTreasuryChange) public pendingTreasuryChanges;
 
     event GameCreated(
         bytes32 indexed gameId,
@@ -60,6 +80,12 @@ contract DisputeGameFactory is Ownable, ReentrancyGuard, Pausable {
     event GameResolved(bytes32 indexed gameId, GameStatus status, address indexed winner, uint256 bondAmount);
     event ProverImplementationUpdated(ProverType indexed proverType, address implementation, bool enabled);
     event TreasuryUpdated(address oldTreasury, address newTreasury);
+    event ProverChangeProposed(
+        bytes32 indexed changeId, ProverType proverType, address implementation, bool enabled, uint256 executeAfter
+    );
+    event ProverChangeCancelled(bytes32 indexed changeId);
+    event TreasuryChangeProposed(bytes32 indexed changeId, address newTreasury, uint256 executeAfter);
+    event TreasuryChangeCancelled(bytes32 indexed changeId);
 
     error GameNotFound();
     error GameAlreadyResolved();
@@ -72,10 +98,26 @@ contract DisputeGameFactory is Ownable, ReentrancyGuard, Pausable {
     error InsufficientBond();
     error InvalidProposer();
     error ProverValidationFailed();
+    error ChangeNotFound();
+    error ChangeAlreadyExecuted();
+    error TimelockNotExpired();
+    error InitializationLocked();
 
     constructor(address _treasury, address _owner) Ownable(_owner) {
         if (_treasury == address(0)) revert InvalidTreasury();
         treasury = _treasury;
+    }
+
+    /// @notice Initialize a prover during initial deployment (before any games are created)
+    /// @dev Can only be called by owner and only when no games exist yet
+    /// @param _proverType The type of prover to initialize
+    /// @param _implementation The prover implementation address
+    /// @param _enabled Whether the prover should be enabled
+    function initializeProver(ProverType _proverType, address _implementation, bool _enabled) external onlyOwner {
+        if (gameIds.length > 0) revert InitializationLocked();
+        proverImplementations[_proverType] = _implementation;
+        proverEnabled[_proverType] = _enabled;
+        emit ProverImplementationUpdated(_proverType, _implementation, _enabled);
     }
 
     function createGame(
@@ -241,20 +283,71 @@ contract DisputeGameFactory is Ownable, ReentrancyGuard, Pausable {
         }
     }
 
-    function setProverImplementation(ProverType _proverType, address _implementation, bool _enabled)
+    function proposeProverChange(ProverType _proverType, address _implementation, bool _enabled)
         external
         onlyOwner
+        returns (bytes32 changeId)
     {
-        proverImplementations[_proverType] = _implementation;
-        proverEnabled[_proverType] = _enabled;
-        emit ProverImplementationUpdated(_proverType, _implementation, _enabled);
+        changeId = keccak256(abi.encodePacked(_proverType, _implementation, _enabled, block.timestamp));
+        uint256 executeAfter = block.timestamp + PROVER_CHANGE_DELAY;
+        pendingProverChanges[changeId] = PendingProverChange({
+            proverType: _proverType,
+            implementation: _implementation,
+            enabled: _enabled,
+            executeAfter: executeAfter,
+            executed: false
+        });
+        emit ProverChangeProposed(changeId, _proverType, _implementation, _enabled, executeAfter);
     }
 
-    function setTreasury(address _treasury) external onlyOwner {
+    function executeProverChange(bytes32 changeId) external {
+        PendingProverChange storage change = pendingProverChanges[changeId];
+        if (change.executeAfter == 0) revert ChangeNotFound();
+        if (change.executed) revert ChangeAlreadyExecuted();
+        if (block.timestamp < change.executeAfter) revert TimelockNotExpired();
+
+        change.executed = true;
+        proverImplementations[change.proverType] = change.implementation;
+        proverEnabled[change.proverType] = change.enabled;
+
+        emit ProverImplementationUpdated(change.proverType, change.implementation, change.enabled);
+    }
+
+    function cancelProverChange(bytes32 changeId) external onlyOwner {
+        if (pendingProverChanges[changeId].executeAfter == 0) revert ChangeNotFound();
+        delete pendingProverChanges[changeId];
+        emit ProverChangeCancelled(changeId);
+    }
+
+    function proposeTreasuryChange(address _treasury) external onlyOwner returns (bytes32 changeId) {
         if (_treasury == address(0)) revert InvalidTreasury();
+        changeId = keccak256(abi.encodePacked(_treasury, block.timestamp));
+        uint256 executeAfter = block.timestamp + TREASURY_CHANGE_DELAY;
+        pendingTreasuryChanges[changeId] = PendingTreasuryChange({
+            newTreasury: _treasury,
+            executeAfter: executeAfter,
+            executed: false
+        });
+        emit TreasuryChangeProposed(changeId, _treasury, executeAfter);
+    }
+
+    function executeTreasuryChange(bytes32 changeId) external {
+        PendingTreasuryChange storage change = pendingTreasuryChanges[changeId];
+        if (change.executeAfter == 0) revert ChangeNotFound();
+        if (change.executed) revert ChangeAlreadyExecuted();
+        if (block.timestamp < change.executeAfter) revert TimelockNotExpired();
+
+        change.executed = true;
         address oldTreasury = treasury;
-        treasury = _treasury;
-        emit TreasuryUpdated(oldTreasury, _treasury);
+        treasury = change.newTreasury;
+
+        emit TreasuryUpdated(oldTreasury, change.newTreasury);
+    }
+
+    function cancelTreasuryChange(bytes32 changeId) external onlyOwner {
+        if (pendingTreasuryChanges[changeId].executeAfter == 0) revert ChangeNotFound();
+        delete pendingTreasuryChanges[changeId];
+        emit TreasuryChangeCancelled(changeId);
     }
 
     function pause() external onlyOwner {

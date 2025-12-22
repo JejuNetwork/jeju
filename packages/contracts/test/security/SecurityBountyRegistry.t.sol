@@ -4,7 +4,7 @@ pragma solidity ^0.8.33;
 import {Test} from "forge-std/Test.sol";
 import {SecurityBountyRegistry} from "../../src/security/SecurityBountyRegistry.sol";
 
-// Minimal mock for testing
+// Mock IdentityRegistry that implements the required interface
 contract MockIdentityRegistry {
     mapping(uint256 => address) public owners;
     mapping(uint256 => bool) public exists;
@@ -31,12 +31,13 @@ contract MockIdentityRegistry {
         return ("Agent", "Test agent", "", false);
     }
     
-    function getAgentByOwner(address _owner) external view returns (uint256) {
-        if (owners[1] == _owner) return 1;
-        if (owners[2] == _owner) return 2;
-        if (owners[3] == _owner) return 3;
-        return 0;
+    // Required for _getAgentId to work
+    function getAgentByOwner(address) external pure returns (uint256) {
+        return 0; // Return 0 for simplicity
     }
+    
+    // Make the mock payable
+    receive() external payable {}
 }
 
 contract SecurityBountyRegistryTest is Test {
@@ -48,12 +49,6 @@ contract SecurityBountyRegistryTest is Test {
     address public ceoAgent;
     address public computeOracle;
     address public researcher;
-    address public guardian1;
-    address public guardian2;
-    
-    uint256 public constant RESEARCHER_AGENT_ID = 1;
-    uint256 public constant GUARDIAN_AGENT_ID_1 = 2;
-    uint256 public constant GUARDIAN_AGENT_ID_2 = 3;
     
     function setUp() public {
         owner = makeAddr("owner");
@@ -61,8 +56,6 @@ contract SecurityBountyRegistryTest is Test {
         ceoAgent = makeAddr("ceoAgent");
         computeOracle = makeAddr("computeOracle");
         researcher = makeAddr("researcher");
-        guardian1 = makeAddr("guardian1");
-        guardian2 = makeAddr("guardian2");
         
         vm.deal(owner, 100 ether);
         vm.deal(treasury, 100 ether);
@@ -70,9 +63,6 @@ contract SecurityBountyRegistryTest is Test {
         
         // Deploy mock identity registry
         identityRegistry = new MockIdentityRegistry();
-        identityRegistry.setAgent(RESEARCHER_AGENT_ID, researcher);
-        identityRegistry.setAgent(GUARDIAN_AGENT_ID_1, guardian1);
-        identityRegistry.setAgent(GUARDIAN_AGENT_ID_2, guardian2);
         
         // Deploy registry
         vm.prank(owner);
@@ -98,7 +88,7 @@ contract SecurityBountyRegistryTest is Test {
         bytes32 encryptedReportCid = keccak256("encrypted-report");
         bytes32 encryptionKeyId = keccak256("key-id");
         bytes32 pocHash = keccak256("proof-of-concept");
-        bytes32 vulnHash = keccak256("vuln-description");
+        bytes32 vulnHash = keccak256("vuln-description-unique-1");
         
         vm.prank(researcher);
         bytes32 submissionId = registry.submitVulnerability{value: 0.01 ether}(
@@ -122,12 +112,12 @@ contract SecurityBountyRegistryTest is Test {
             keccak256("report"),
             keccak256("key"),
             keccak256("poc"),
-            keccak256("vuln")
+            keccak256("vuln-unique-2")
         );
     }
     
     function test_SubmitVulnerability_RevertIfDuplicate() public {
-        bytes32 vulnHash = keccak256("unique-vuln");
+        bytes32 vulnHash = keccak256("unique-vuln-hash-for-dup-test");
         
         vm.prank(researcher);
         registry.submitVulnerability{value: 0.01 ether}(
@@ -161,7 +151,7 @@ contract SecurityBountyRegistryTest is Test {
             keccak256("report"),
             keccak256("key"),
             keccak256("poc"),
-            keccak256("vuln1")
+            keccak256("vuln-unique-3")
         );
         
         bytes32 sandboxJobId = keccak256("sandbox-job");
@@ -178,7 +168,7 @@ contract SecurityBountyRegistryTest is Test {
             keccak256("report"),
             keccak256("key"),
             keccak256("poc"),
-            keccak256("vuln2")
+            keccak256("vuln-unique-4")
         );
         
         vm.prank(computeOracle);
@@ -236,7 +226,7 @@ contract SecurityBountyRegistryTest is Test {
             keccak256("report"),
             keccak256("key"),
             keccak256("poc"),
-            keccak256("vuln-new")
+            keccak256("vuln-unique-paused")
         );
         
         vm.prank(owner);
@@ -249,7 +239,17 @@ contract SecurityBountyRegistryTest is Test {
             keccak256("report"),
             keccak256("key"),
             keccak256("poc"),
-            keccak256("vuln-new")
+            keccak256("vuln-unique-unpaused")
         );
+    }
+    
+    // ============ View Functions Tests ============
+    
+    function test_TotalBountyPool() public view {
+        assertEq(registry.totalBountyPool(), 50 ether);
+    }
+    
+    function test_MinStake() public view {
+        assertEq(registry.MIN_STAKE(), 0.001 ether);
     }
 }

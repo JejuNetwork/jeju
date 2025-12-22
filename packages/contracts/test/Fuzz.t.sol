@@ -44,7 +44,7 @@ contract DecentralizationFuzzTest is Test {
         vm.stopPrank();
 
         vm.prank(owner);
-        disputeFactory.setProverImplementation(DisputeGameFactory.ProverType.CANNON, makeAddr("prover"), true);
+        disputeFactory.initializeProver(DisputeGameFactory.ProverType.CANNON, makeAddr("prover"), true);
     }
 
     function _getSequencerStake(address seq) internal view returns (uint256) {

@@ -5,20 +5,42 @@
  * Monitors L2 outputs and challenges invalid state roots with REAL fraud proofs.
  * Anyone can run this and earn rewards for successful challenges.
  * 
+ * Features:
+ * - Real L2 state verification via eth_getProof
+ * - Cannon MIPS proof generation
+ * - Output root computation per OP Stack spec
+ * - Automatic proof submission
+ * 
  * Required Environment:
  *   L1_RPC_URL - L1 RPC endpoint
  *   CHALLENGER_PRIVATE_KEY or CHALLENGER_PRIVATE_KEY_FILE - Challenger wallet
  *   DISPUTE_GAME_FACTORY_ADDRESS - DisputeGameFactory contract
  *   L2_OUTPUT_ORACLE_ADDRESS - L2OutputOracle contract (optional)
- *   L2_RPC_URL - L2 RPC endpoint for state verification (optional)
+ *   L2_RPC_URL - L2 RPC endpoint for state verification
  */
 
-import { createPublicClient, createWalletClient, http, formatEther, getBalance, getBlock, readContract, waitForTransactionReceipt, getLogs, decodeEventLog, keccak256, stringToBytes, concat, zeroPadValue, zeroAddress, zeroHash, type Address, type PublicClient, type WalletClient } from 'viem';
+import {
+  createPublicClient,
+  createWalletClient,
+  http,
+  formatEther,
+  getBalance,
+  readContract,
+  waitForTransactionReceipt,
+  getLogs,
+  decodeEventLog,
+  parseAbi,
+  zeroAddress,
+  type Address,
+  type PublicClient,
+  type WalletClient,
+  type Hex,
+} from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { parseAbi } from 'viem';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { FraudProofGenerator, type CannonProof } from './proof-generator';
+import { StateFetcher, type L2StateSnapshot } from './state-fetcher';
 import { inferChainFromRpcUrl } from '../shared/chain-utils';
 
 const ROOT = join(import.meta.dir, '../..');
@@ -36,13 +58,13 @@ const DISPUTE_GAME_FACTORY_ABI = parseAbi([
   'function MIN_BOND() external view returns (uint256)',
   'function DISPUTE_TIMEOUT() external view returns (uint256)',
   'event GameCreated(bytes32 indexed gameId, address indexed challenger, address indexed proposer, bytes32 stateRoot, uint8 gameType, uint8 proverType, uint256 bond)',
-  'event GameResolved(bytes32 indexed gameId, uint8 outcome, address winner)'
+  'event GameResolved(bytes32 indexed gameId, uint8 outcome, address winner)',
 ]);
 
 const L2_OUTPUT_ORACLE_ABI = parseAbi([
   'function latestOutputIndex() external view returns (uint256)',
   'function getL2Output(uint256 outputIndex) external view returns (tuple(bytes32 outputRoot, uint128 timestamp, uint128 l2BlockNumber))',
-  'event OutputProposed(bytes32 indexed outputRoot, uint256 indexed l2OutputIndex, uint256 indexed l2BlockNumber, uint256 l1Timestamp)'
+  'event OutputProposed(bytes32 indexed outputRoot, uint256 indexed l2OutputIndex, uint256 indexed l2BlockNumber, uint256 l1Timestamp)',
 ]);
 
 interface ChallengerConfig {
@@ -54,22 +76,33 @@ interface ChallengerConfig {
   minBond: bigint;
   checkInterval: number;
   proofGenerator: FraudProofGenerator;
+  stateFetcher: StateFetcher | null;
 }
 
 interface PendingGame {
-  gameId: string;
+  gameId: Hex;
   createdAt: number;
-  stateRoot: string;
-  claimRoot: string;
+  stateRoot: Hex;
+  claimRoot: Hex;
   l2BlockNumber: bigint;
-  proof?: CannonProof;
+  preSnapshot: L2StateSnapshot | null;
+  proof: CannonProof | null;
+}
+
+interface OutputVerification {
+  isValid: boolean;
+  l2BlockNumber: bigint;
+  claimedRoot: Hex;
+  correctRoot: Hex;
+  snapshot: L2StateSnapshot | null;
 }
 
 class ChallengerService {
   private config: ChallengerConfig;
   private isRunning = false;
-  private pendingGames = new Map<string, PendingGame>();
-  private verifiedStates = new Map<string, string>(); // blockNumber -> correct state root
+  private pendingGames = new Map<Hex, PendingGame>();
+  private verifiedOutputs = new Map<string, OutputVerification>();
+  private lastCheckedOutputIndex = 0n;
 
   constructor(config: ChallengerConfig) {
     this.config = config;
@@ -80,9 +113,10 @@ class ChallengerService {
     this.isRunning = true;
 
     console.log('⚔️  Permissionless Challenger Started');
-    console.log(`   Address: ${this.config.walletClient.account.address}`);
+    console.log(`   Address: ${this.config.walletClient.account!.address}`);
     console.log(`   Factory: ${this.config.disputeGameFactoryAddress}`);
     console.log(`   Min Bond: ${formatEther(this.config.minBond)} ETH`);
+    console.log(`   L2 State Fetcher: ${this.config.stateFetcher ? 'enabled' : 'disabled'}`);
     console.log('');
 
     // Monitor for new outputs (polling)
@@ -110,21 +144,101 @@ class ChallengerService {
 
   private async pollOutputs(): Promise<void> {
     if (!this.config.l2OutputOracleAddress) return;
+
     try {
       const latest = await readContract(this.config.l1PublicClient, {
         address: this.config.l2OutputOracleAddress,
         abi: L2_OUTPUT_ORACLE_ABI,
         functionName: 'latestOutputIndex',
-      });
-      const output = await readContract(this.config.l1PublicClient, {
-        address: this.config.l2OutputOracleAddress,
-        abi: L2_OUTPUT_ORACLE_ABI,
-        functionName: 'getL2Output',
-        args: [latest],
-      });
-      await this.handleOutputProposed(output[0] as `0x${string}`, latest, output[2] as bigint);
+      }) as bigint;
+
+      // Only check new outputs
+      if (latest <= this.lastCheckedOutputIndex) return;
+
+      for (let i = this.lastCheckedOutputIndex + 1n; i <= latest; i++) {
+        const output = await readContract(this.config.l1PublicClient, {
+          address: this.config.l2OutputOracleAddress,
+          abi: L2_OUTPUT_ORACLE_ABI,
+          functionName: 'getL2Output',
+          args: [i],
+        }) as [Hex, bigint, bigint];
+
+        await this.verifyAndHandleOutput(output[0], i, output[2]);
+      }
+
+      this.lastCheckedOutputIndex = latest;
     } catch {
-      // Ignore polling errors - will retry on next poll
+      // Ignore polling errors - will retry
+    }
+  }
+
+  private async verifyAndHandleOutput(
+    claimedOutputRoot: Hex,
+    l2OutputIndex: bigint,
+    l2BlockNumber: bigint
+  ): Promise<void> {
+    console.log(`\n📥 Output Proposed: index=${l2OutputIndex}, block=${l2BlockNumber}`);
+
+    const verification = await this.verifyOutputRoot(l2BlockNumber, claimedOutputRoot);
+    this.verifiedOutputs.set(l2BlockNumber.toString(), verification);
+
+    if (!verification.isValid) {
+      console.log(`❌ Invalid output detected at block ${l2BlockNumber}`);
+      console.log(`   Claimed: ${claimedOutputRoot.slice(0, 20)}...`);
+      console.log(`   Correct: ${verification.correctRoot.slice(0, 20)}...`);
+
+      await this.createChallenge(
+        claimedOutputRoot,
+        verification.correctRoot,
+        l2BlockNumber,
+        verification.snapshot
+      );
+    } else {
+      console.log(`✓ Output verified as valid`);
+    }
+  }
+
+  private async verifyOutputRoot(
+    l2BlockNumber: bigint,
+    claimedOutputRoot: Hex
+  ): Promise<OutputVerification> {
+    if (!this.config.stateFetcher) {
+      return {
+        isValid: true,
+        l2BlockNumber,
+        claimedRoot: claimedOutputRoot,
+        correctRoot: claimedOutputRoot,
+        snapshot: null,
+      };
+    }
+
+    try {
+      const result = await this.config.stateFetcher.verifyOutputRoot(
+        l2BlockNumber,
+        claimedOutputRoot
+      );
+
+      console.log(`   L2 block: ${l2BlockNumber}`);
+      console.log(`   State root: ${result.snapshot.stateRoot.slice(0, 20)}...`);
+      console.log(`   Computed output: ${result.actualOutputRoot.slice(0, 20)}...`);
+      console.log(`   Claimed output:  ${claimedOutputRoot.slice(0, 20)}...`);
+
+      return {
+        isValid: result.valid,
+        l2BlockNumber,
+        claimedRoot: claimedOutputRoot,
+        correctRoot: result.actualOutputRoot,
+        snapshot: result.snapshot,
+      };
+    } catch (error) {
+      console.log(`   Could not verify: ${error}`);
+      return {
+        isValid: true,
+        l2BlockNumber,
+        claimedRoot: claimedOutputRoot,
+        correctRoot: claimedOutputRoot,
+        snapshot: null,
+      };
     }
   }
 
@@ -134,61 +248,41 @@ class ChallengerService {
         address: this.config.disputeGameFactoryAddress,
         abi: DISPUTE_GAME_FACTORY_ABI,
         functionName: 'getActiveGames',
-      }) as `0x${string}`[];
+      }) as Hex[];
+
       for (const gameId of activeGames) {
+        if (this.pendingGames.has(gameId)) continue;
+
         const game = await readContract(this.config.l1PublicClient, {
           address: this.config.disputeGameFactoryAddress,
           abi: DISPUTE_GAME_FACTORY_ABI,
           functionName: 'getGame',
           args: [gameId],
-        });
+        }) as [Address, Address, Hex, Hex, number, number, number, bigint, bigint, bigint];
+
         await this.handleGameCreated(
           gameId,
-          game[0] as Address,
-          game[1] as Address,
-          game[2] as `0x${string}`,
-          Number(game[4]),
-          Number(game[5]),
-          game[7] as bigint
+          game[0],
+          game[1],
+          game[2],
+          game[3],
+          game[4],
+          game[5],
+          game[7]
         );
       }
     } catch {
-      // Ignore polling errors - will retry on next poll
-    }
-  }
-
-  private async handleOutputProposed(
-    outputRoot: `0x${string}`,
-    l2OutputIndex: bigint,
-    l2BlockNumber: bigint
-  ): Promise<void> {
-    console.log(`\n📥 Output Proposed: index=${l2OutputIndex}, block=${l2BlockNumber}`);
-
-    // Verify state root against L2 node
-    const verification = await this.verifyStateRoot(l2BlockNumber, outputRoot);
-    
-    if (!verification.isValid) {
-      console.log(`❌ Invalid output detected at block ${l2BlockNumber}`);
-      console.log(`   Claimed: ${outputRoot.slice(0, 20)}...`);
-      console.log(`   Correct: ${verification.correctRoot?.slice(0, 20)}...`);
-      
-      // Store correct state for later proof generation
-      if (verification.correctRoot) {
-        this.verifiedStates.set(l2BlockNumber.toString(), verification.correctRoot);
-      }
-      
-      await this.createChallenge(outputRoot, verification.correctRoot || zeroHash, l2BlockNumber);
-    } else {
-      console.log(`✓ Output verified as valid`);
+      // Ignore polling errors
     }
   }
 
   private async handleGameCreated(
-    gameId: `0x${string}`,
+    gameId: Hex,
     challenger: Address,
     proposer: Address,
-    stateRoot: `0x${string}`,
-    gameType: number,
+    stateRoot: Hex,
+    claimRoot: Hex,
+    _gameType: number,
     _proverType: number,
     bond: bigint
   ): Promise<void> {
@@ -197,81 +291,32 @@ class ChallengerService {
     console.log(`   Proposer: ${proposer}`);
     console.log(`   Bond: ${formatEther(bond)} ETH`);
 
-    // Get the game details
-    const game = await readContract(this.config.l1PublicClient, {
-      address: this.config.disputeGameFactoryAddress,
-      abi: DISPUTE_GAME_FACTORY_ABI,
-      functionName: 'getGame',
-      args: [gameId],
-    });
-    
     // Track the game
-    this.pendingGames.set(gameId, {
+    const pendingGame: PendingGame = {
       gameId,
       createdAt: Date.now(),
       stateRoot,
-      claimRoot: game[3] as `0x${string}`,
-      l2BlockNumber: 0n, // Would be extracted from stateRoot in production
-    });
+      claimRoot,
+      l2BlockNumber: 0n,
+      preSnapshot: null,
+      proof: null,
+    };
+    this.pendingGames.set(gameId, pendingGame);
 
     // If we're the challenger, generate the fraud proof
-    if (challenger.toLowerCase() === this.config.walletClient.account.address.toLowerCase()) {
+    if (challenger.toLowerCase() === this.config.walletClient.account!.address.toLowerCase()) {
       console.log(`   We are the challenger - generating fraud proof...`);
       await this.generateAndStoreProof(gameId);
     }
   }
 
-  private async verifyStateRoot(
-    l2BlockNumber: bigint,
-    claimedOutputRoot: `0x${string}`
-  ): Promise<{ isValid: boolean; correctRoot?: `0x${string}` }> {
-    if (!this.config.l2PublicClient) {
-      return { isValid: true };
-    }
-
-    try {
-      // Get the actual block from L2
-      const block = await getBlock(this.config.l2PublicClient, { blockNumber: l2BlockNumber });
-      if (!block) {
-        console.log(`   Block ${l2BlockNumber} not found on L2 node`);
-        return { isValid: true };
-      }
-
-      // Compute the correct output root
-      // OP Stack output root = keccak256(version ++ stateRoot ++ messagePasserRoot ++ blockHash)
-      const version = zeroPadValue('0x00', 32);
-      
-      // Get the state root from the block
-      const stateRoot = block.stateRoot || zeroHash;
-      
-      // Message passer storage root (simplified - would need to query storage)
-      const messagePasserRoot = keccak256(stringToBytes(`mpr_${l2BlockNumber}`));
-      
-      const correctOutputRoot = keccak256(
-        concat([version, stateRoot, messagePasserRoot, block.hash || zeroHash])
-      );
-
-      console.log(`   L2 block: ${block.number}, hash: ${block.hash?.slice(0, 20)}...`);
-      console.log(`   Computed output: ${correctOutputRoot.slice(0, 20)}...`);
-      console.log(`   Claimed output:  ${claimedOutputRoot.slice(0, 20)}...`);
-
-      const isValid = correctOutputRoot.toLowerCase() === claimedOutputRoot.toLowerCase();
-      return {
-        isValid,
-        correctRoot: isValid ? undefined : correctOutputRoot,
-      };
-    } catch (error) {
-      console.log(`   Could not verify: ${error}`);
-      return { isValid: true };
-    }
-  }
-
   private async createChallenge(
-    claimedOutputRoot: `0x${string}`,
-    correctOutputRoot: `0x${string}`,
-    l2BlockNumber: bigint
+    claimedOutputRoot: Hex,
+    correctOutputRoot: Hex,
+    l2BlockNumber: bigint,
+    snapshot: L2StateSnapshot | null
   ): Promise<void> {
-    const myAddress = this.config.walletClient.account.address;
+    const myAddress = this.config.walletClient.account!.address;
     const balance = await getBalance(this.config.l1PublicClient, { address: myAddress });
 
     if (balance < this.config.minBond) {
@@ -287,9 +332,9 @@ class ChallengerService {
         abi: DISPUTE_GAME_FACTORY_ABI,
         functionName: 'createGame',
         args: [
-          zeroAddress, // proposer - filled in by contract
+          zeroAddress, // proposer - filled by contract
           claimedOutputRoot,
-          correctOutputRoot || keccak256(stringToBytes(`correct_${l2BlockNumber}`)),
+          correctOutputRoot,
           0, // FAULT_DISPUTE
           0, // CANNON prover
         ],
@@ -299,33 +344,37 @@ class ChallengerService {
       console.log(`📤 Challenge submitted: ${hash}`);
       const receipt = await waitForTransactionReceipt(this.config.l1PublicClient, { hash });
       console.log(`✓ Challenge confirmed in block ${receipt.blockNumber}`);
-      
-      // Parse the GameCreated event to get gameId
+
+      // Parse GameCreated event
       const logs = await getLogs(this.config.l1PublicClient, {
         address: this.config.disputeGameFactoryAddress,
-        event: parseAbi(['event GameCreated(bytes32 indexed gameId, address indexed challenger, address indexed proposer, bytes32 stateRoot, uint8 gameType, uint8 proverType, uint256 bond)'])[0],
+        event: parseAbi([
+          'event GameCreated(bytes32 indexed gameId, address indexed challenger, address indexed proposer, bytes32 stateRoot, uint8 gameType, uint8 proverType, uint256 bond)',
+        ])[0],
         fromBlock: receipt.blockNumber,
         toBlock: receipt.blockNumber,
       });
-      
+
       if (logs.length > 0) {
         const decoded = decodeEventLog({
           abi: DISPUTE_GAME_FACTORY_ABI,
           data: logs[0].data,
           topics: logs[0].topics,
         });
-        const gameId = decoded.args.gameId as `0x${string}`;
+        const gameId = (decoded.args as { gameId: Hex }).gameId;
         console.log(`   Game ID: ${gameId}`);
-        
-        // Store for proof generation
+
+        // Store game with snapshot for proof generation
         this.pendingGames.set(gameId, {
           gameId,
           createdAt: Date.now(),
           stateRoot: claimedOutputRoot,
           claimRoot: correctOutputRoot,
           l2BlockNumber,
+          preSnapshot: snapshot,
+          proof: null,
         });
-        
+
         // Generate proof immediately
         await this.generateAndStoreProof(gameId);
       }
@@ -334,28 +383,43 @@ class ChallengerService {
     }
   }
 
-  private async generateAndStoreProof(gameId: `0x${string}`): Promise<void> {
+  private async generateAndStoreProof(gameId: Hex): Promise<void> {
     const game = this.pendingGames.get(gameId);
     if (!game) return;
 
     try {
       console.log(`\n🔐 Generating fraud proof for game ${gameId.slice(0, 10)}...`);
-      
-      // Get pre-state from L2 (previous block's state)
-      const preState = keccak256(stringToBytes(`pre_${game.l2BlockNumber - 1n}`));
-      
+
+      // Fetch pre-state if we have L2 access
+      let preStateRoot: Hex;
+      if (this.config.stateFetcher && game.l2BlockNumber > 0n) {
+        try {
+          const preSnapshot = await this.config.stateFetcher.fetchStateSnapshot(
+            game.l2BlockNumber - 1n
+          );
+          preStateRoot = preSnapshot.stateRoot;
+          game.preSnapshot = preSnapshot;
+          console.log(`   Fetched pre-state from L2 block ${game.l2BlockNumber - 1n}`);
+        } catch {
+          preStateRoot = game.stateRoot;
+        }
+      } else {
+        preStateRoot = game.stateRoot;
+      }
+
       const proof = await this.config.proofGenerator.generateFraudProof(
-        preState,
-        game.stateRoot, // claimed (wrong) state
+        preStateRoot,
+        game.stateRoot, // claimed (potentially wrong)
         game.claimRoot, // correct state
         game.l2BlockNumber,
-        this.config.walletClient.account
+        this.config.walletClient.account!
       );
 
       game.proof = proof;
       this.pendingGames.set(gameId, game);
-      
+
       console.log(`✅ Proof generated (${proof.encoded.length / 2 - 1} bytes)`);
+      console.log(`   Divergence step: ${proof.step}`);
     } catch (error) {
       console.error(`Failed to generate proof:`, error);
     }
@@ -363,41 +427,45 @@ class ChallengerService {
 
   private startTimeoutChecker(): void {
     setInterval(async () => {
-      const activeGames = await readContract(this.config.l1PublicClient, {
-        address: this.config.disputeGameFactoryAddress,
-        abi: DISPUTE_GAME_FACTORY_ABI,
-        functionName: 'getActiveGames',
-      }) as `0x${string}`[];
-      
-      for (const gameId of activeGames) {
-        try {
-          const canResolve = await readContract(this.config.l1PublicClient, {
-            address: this.config.disputeGameFactoryAddress,
-            abi: DISPUTE_GAME_FACTORY_ABI,
-            functionName: 'canResolveTimeout',
-            args: [gameId],
-          });
-          if (canResolve) {
-            console.log(`\n⏰ Resolving timed-out game: ${gameId.slice(0, 10)}...`);
-            const hash = await this.config.walletClient.writeContract({
+      try {
+        const activeGames = await readContract(this.config.l1PublicClient, {
+          address: this.config.disputeGameFactoryAddress,
+          abi: DISPUTE_GAME_FACTORY_ABI,
+          functionName: 'getActiveGames',
+        }) as Hex[];
+
+        for (const gameId of activeGames) {
+          try {
+            const canResolve = await readContract(this.config.l1PublicClient, {
               address: this.config.disputeGameFactoryAddress,
               abi: DISPUTE_GAME_FACTORY_ABI,
-              functionName: 'resolveTimeout',
+              functionName: 'canResolveTimeout',
               args: [gameId],
             });
-            await waitForTransactionReceipt(this.config.l1PublicClient, { hash });
-            console.log(`✓ Game resolved via timeout`);
-            this.pendingGames.delete(gameId);
+
+            if (canResolve) {
+              console.log(`\n⏰ Resolving timed-out game: ${gameId.slice(0, 10)}...`);
+              const hash = await this.config.walletClient.writeContract({
+                address: this.config.disputeGameFactoryAddress,
+                abi: DISPUTE_GAME_FACTORY_ABI,
+                functionName: 'resolveTimeout',
+                args: [gameId],
+              });
+              await waitForTransactionReceipt(this.config.l1PublicClient, { hash });
+              console.log(`✓ Game resolved via timeout`);
+              this.pendingGames.delete(gameId);
+            }
+          } catch {
+            // Game not resolvable yet
           }
-        } catch {
-          // Game might not be resolvable yet
         }
+      } catch {
+        // Ignore errors
       }
     }, this.config.checkInterval);
   }
 
   private startProofSubmitter(): void {
-    // Periodically try to submit proofs for games we've challenged
     setInterval(async () => {
       for (const [gameId, game] of this.pendingGames) {
         if (!game.proof) continue;
@@ -408,40 +476,42 @@ class ChallengerService {
             abi: DISPUTE_GAME_FACTORY_ABI,
             functionName: 'getGame',
             args: [gameId],
-          });
-          
+          }) as [Address, Address, Hex, Hex, number, number, number, bigint, bigint, bigint];
+
           // Only submit if game is still active (status = 0)
-          if (Number(onChainGame[6]) !== 0) {
+          if (onChainGame[6] !== 0) {
             this.pendingGames.delete(gameId);
             continue;
           }
 
           // Check if we're the challenger
-          if ((onChainGame[0] as Address).toLowerCase() !== this.config.walletClient.account.address.toLowerCase()) {
+          if (onChainGame[0].toLowerCase() !== this.config.walletClient.account!.address.toLowerCase()) {
             continue;
           }
 
           console.log(`\n📤 Submitting fraud proof for game ${gameId.slice(0, 10)}...`);
-          
+
+          // Get contract-ready proof data
+          const contractProof = this.config.proofGenerator.getContractProofData(game.proof);
+
           const hash = await this.config.walletClient.writeContract({
             address: this.config.disputeGameFactoryAddress,
             abi: DISPUTE_GAME_FACTORY_ABI,
             functionName: 'resolveChallengerWins',
-            args: [gameId, game.proof.encoded as `0x${string}`],
+            args: [gameId, contractProof],
           });
           const receipt = await waitForTransactionReceipt(this.config.l1PublicClient, { hash });
-          
+
           console.log(`✅ Proof submitted, game resolved in block ${receipt.blockNumber}`);
           this.pendingGames.delete(gameId);
         } catch (error) {
-          // Proof submission might fail if game is already resolved or proof is invalid
           const errorMsg = error instanceof Error ? error.message : String(error);
-          if (!errorMsg.includes('GameNotActive')) {
+          if (!errorMsg.includes('GameNotActive') && !errorMsg.includes('TestModeCannotVerify')) {
             console.log(`   Proof submission: ${errorMsg.slice(0, 50)}`);
           }
         }
       }
-    }, 15000); // Every 15 seconds
+    }, 15000);
   }
 }
 
@@ -483,18 +553,26 @@ async function main(): Promise<void> {
   const l1PublicClient = createPublicClient({ chain: l1Chain, transport: http(l1RpcUrl) });
   const l2PublicClient = l2RpcUrl ? createPublicClient({ chain: l2Chain!, transport: http(l2RpcUrl) }) : null;
   const privateKey = loadPrivateKey();
-  const account = privateKeyToAccount(privateKey as `0x${string}`);
+  const account = privateKeyToAccount(privateKey as Hex);
   const walletClient = createWalletClient({ chain: l1Chain, transport: http(l1RpcUrl), account });
 
   const disputeGameFactoryAddress = disputeGameFactoryAddr as Address;
   const l2OutputOracleAddress = l2OutputOracleAddr as Address | null;
 
+  // Initialize state fetcher if L2 RPC available
+  const stateFetcher = l2RpcUrl ? new StateFetcher(l2RpcUrl) : null;
+
   const minBond = await readContract(l1PublicClient, {
     address: disputeGameFactoryAddress,
     abi: DISPUTE_GAME_FACTORY_ABI,
     functionName: 'MIN_BOND',
-  });
+  }) as bigint;
+
   const proofGenerator = new FraudProofGenerator(l1RpcUrl, l2RpcUrl);
+
+  console.log(`Network: ${network}`);
+  console.log(`L1 RPC: ${l1RpcUrl}`);
+  console.log(`L2 RPC: ${l2RpcUrl || 'not configured (state verification disabled)'}`);
 
   const challenger = new ChallengerService({
     l1PublicClient,
@@ -505,6 +583,7 @@ async function main(): Promise<void> {
     minBond,
     checkInterval: 30000,
     proofGenerator,
+    stateFetcher,
   });
 
   process.on('SIGINT', () => { challenger.stop(); process.exit(0); });
@@ -513,7 +592,7 @@ async function main(): Promise<void> {
   await challenger.start();
 }
 
-main().catch(e => {
+main().catch((e) => {
   console.error('Fatal error:', e);
   process.exit(1);
 });

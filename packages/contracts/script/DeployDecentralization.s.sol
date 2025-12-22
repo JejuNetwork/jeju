@@ -216,9 +216,9 @@ contract DeployDecentralization is Script {
         console.log("DisputeGameFactory deployed:", address(disputeFactory));
         console.log("  - Dispute timeout:", DISPUTE_TIMEOUT / 1 days, "days");
 
-        // Enable CannonProver (real MIPS fraud proofs)
-        disputeFactory.setProverImplementation(DisputeGameFactory.ProverType.CANNON, address(cannonProver), true);
-        console.log("  - CannonProver enabled");
+        // Enable CannonProver during initial setup (before any games are created)
+        disputeFactory.initializeProver(DisputeGameFactory.ProverType.CANNON, address(cannonProver), true);
+        console.log("  - CannonProver initialized (future changes require 30-day timelock)");
         console.log("");
 
         // ============================================================
@@ -227,9 +227,11 @@ contract DeployDecentralization is Script {
         console.log("--- Forced Inclusion ---");
         
         // Deploy ForcedInclusion contract
+        // Security Council is set to deployer initially, should be updated to multisig
         ForcedInclusion forcedInclusion = new ForcedInclusion(
             batchInbox,
             address(sequencerRegistry),
+            deployer, // securityCouncil - update to multisig after deployment
             deployer
         );
         console.log("ForcedInclusion deployed:", address(forcedInclusion));
