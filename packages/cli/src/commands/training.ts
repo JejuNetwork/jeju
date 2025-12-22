@@ -5,8 +5,12 @@
  */
 
 import { Command } from 'commander';
+import { execa } from 'execa';
+import { existsSync } from 'fs';
+import { join } from 'path';
 import { logger } from '../lib/logger';
 import { getChainStatus } from '../lib/chain';
+import { findMonorepoRoot } from '../lib/system';
 import { createPublicClient, createWalletClient, http, parseEther, formatEther, keccak256, encodePacked } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
@@ -260,6 +264,15 @@ export const trainingCommand = new Command('training')
       .description('List available base models')
       .action(async () => {
         await listModels();
+      })
+  )
+  .addCommand(
+    new Command('verify')
+      .description('Verify training integration and configuration')
+      .option('--network <network>', 'Network: localnet, testnet, mainnet', 'localnet')
+      .option('--babylon', 'Verify Babylon RLAIF integration')
+      .action(async (options) => {
+        await verifyTraining(options);
       })
   )
   // RLAIF commands for Babylon/environment training
@@ -1373,5 +1386,44 @@ async function listArchetypes(): Promise<void> {
   logger.newline();
   logger.info('Generate data: jeju training babylon generate --archetype trader');
   logger.info('Train model:   jeju training babylon train --archetype trader');
+}
+
+async function verifyTraining(options: { network: string; babylon?: boolean }): Promise<void> {
+  const rootDir = findMonorepoRoot();
+  
+  const scriptName = options.babylon ? 'verify-babylon-rlaif.ts' : 'verify-training.ts';
+  const scriptPath = join(rootDir, 'scripts', scriptName);
+  
+  if (!existsSync(scriptPath)) {
+    logger.error(`Verification script not found: ${scriptPath}`);
+    process.exit(1);
+  }
+
+  const title = options.babylon ? 'BABYLON RLAIF VERIFICATION' : 'TRAINING VERIFICATION';
+  logger.header(title);
+  logger.keyValue('Network', options.network);
+  logger.newline();
+
+  const env: Record<string, string> = { ...process.env as Record<string, string> };
+  
+  if (options.network === 'localnet') {
+    env.RPC_URL = `http://localhost:${DEFAULT_PORTS.l2Rpc}`;
+    env.DWS_URL = getDwsUrl();
+  } else if (options.network === 'testnet') {
+    env.RPC_URL = 'https://testnet-rpc.jejunetwork.org';
+  } else if (options.network === 'mainnet') {
+    env.RPC_URL = 'https://rpc.jejunetwork.org';
+  }
+
+  const result = await execa('bun', ['run', scriptPath], {
+    cwd: rootDir,
+    stdio: 'inherit',
+    env,
+    reject: false,
+  });
+
+  if (result.exitCode !== 0) {
+    process.exit(result.exitCode ?? 1);
+  }
 }
 

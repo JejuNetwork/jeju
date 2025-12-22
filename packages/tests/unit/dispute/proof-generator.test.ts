@@ -14,8 +14,8 @@
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
 import { keccak256, encodeAbiParameters, pad, concat, type Hex, type Address } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { FraudProofGenerator } from './proof-generator';
-import { StateFetcher, L2_TO_L1_MESSAGE_PASSER, type L2StateSnapshot, type AccountProof } from './state-fetcher';
+import { FraudProofGenerator } from '../../../../scripts/dispute/proof-generator';
+import { StateFetcher, L2_TO_L1_MESSAGE_PASSER, type L2StateSnapshot, type AccountProof } from '../../../../scripts/dispute/state-fetcher';
 import {
   CannonInterface,
   MIPS_REGISTERS,
@@ -24,7 +24,7 @@ import {
   HEAP_START,
   PREIMAGE_KEY_KECCAK256,
   type MIPSState,
-} from './cannon-interface';
+} from '../../../../scripts/dispute/cannon-interface';
 
 // Test account
 const TEST_PRIVATE_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
