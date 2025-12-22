@@ -1,8 +1,8 @@
 /**
- * @deprecated This file is deprecated. Import from '@jeju-vendor/cloud' or 'vendor/cloud/src' instead.
+ * Cloud Reputation Signing Utilities
  *
- * This file remains for backwards compatibility but new code should import
- * from the vendor/cloud package directly.
+ * Creates signed feedback authorizations for CloudReputationProvider.
+ * Uses EIP-191 personal sign for EOA wallets and ERC-1271 for smart contract wallets.
  */
 
 import {
@@ -19,9 +19,6 @@ import {
 import { signMessage } from 'viem/accounts'
 
 /**
- * @deprecated Use from '@jeju-vendor/cloud'
- * Cloud Reputation Signing Utilities
- *
  * Creates properly signed feedback authorizations for CloudReputationProvider.
  * Uses EIP-191 personal sign for EOA wallets and ERC-1271 for smart contract wallets.
  */

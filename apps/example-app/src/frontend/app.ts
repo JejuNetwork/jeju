@@ -258,7 +258,6 @@ async function encryptTodo(id: string): Promise<void> {
   await fetchTodos()
 }
 
-// Wallet connection with validation
 async function connectWallet(): Promise<void> {
   if (!window.ethereum) {
     state.error = 'Please install MetaMask or another Web3 wallet'
@@ -289,7 +288,6 @@ function disconnectWallet(): void {
   render()
 }
 
-// Render functions
 function render(): void {
   const app = document.getElementById('app')
   if (!app) return
@@ -586,7 +584,6 @@ function attachEventListeners(): void {
   })
 }
 
-// Initialize
 if (window.ethereum) {
   window.ethereum.on('accountsChanged', (accounts: string[]) => {
     if (accounts.length > 0) {
