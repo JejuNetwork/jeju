@@ -469,9 +469,8 @@ export class WorkerdExecutor implements IWorkerdExecutor {
     const deadline = Date.now() + timeoutMs
 
     while (Date.now() < deadline) {
-      const healthy = await fetch(`http://localhost:${port}/health`)
-        .then((r) => r.ok || r.status === 404) // 404 is ok, means server is up
-        .catch(() => false)
+      const response = await fetch(`http://localhost:${port}/health`)
+      const healthy = response.ok || response.status === 404 // 404 is ok, means server is up
 
       if (healthy) return true
       await new Promise((r) => setTimeout(r, 200))

@@ -8,8 +8,14 @@ import {
 import { requireAdmin, requireRole, validateAdmin } from './core.js'
 import type { AdminConfig, AdminRole, AdminUser } from './types.js'
 
-/** Context derived by admin plugin - extends Record for Elysia compatibility */
-export interface AdminContext extends Record<string, unknown> {
+// ============ Types ============
+
+/** Context with address from auth plugin */
+interface AuthDerivedContext {
+  address?: string
+}
+
+export interface AdminContext {
   admin?: AdminUser
   isAdmin: boolean
 }
@@ -24,7 +30,9 @@ export function adminPlugin(config: AdminPluginConfig) {
 
   return new Elysia({ name: 'admin' })
     .derive((ctx): AdminContext => {
-      const address = (ctx as { address?: string }).address
+      // Auth plugin adds address to context
+      const authCtx = ctx as Context & AuthDerivedContext
+      const address = authCtx.address
       if (!address) {
         return { isAdmin: false }
       }
@@ -45,7 +53,9 @@ export function adminPlugin(config: AdminPluginConfig) {
     })
     .onBeforeHandle((ctx) => {
       const { path, set } = ctx
-      const isAdmin = (ctx as AdminContext).isAdmin
+      // AdminContext is added by derive above
+      const adminCtx = ctx as Context & AdminContext
+      const isAdmin = adminCtx.isAdmin
 
       if (skipRoutes.has(path)) {
         return undefined

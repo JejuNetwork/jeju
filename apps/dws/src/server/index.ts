@@ -274,9 +274,7 @@ app
   .get('/health', async () => {
     const backends = backendManager.listBackends()
     const backendHealth = await backendManager.healthCheck()
-    const nodeCount = await decentralized.discovery
-      .getNodeCount()
-      .catch(() => 0)
+    const nodeCount = await decentralized.discovery.getNodeCount()
     const peerCount = p2pCoordinator?.getPeers().length ?? 0
     const frontendCid = await decentralized.frontend.getFrontendCid()
 

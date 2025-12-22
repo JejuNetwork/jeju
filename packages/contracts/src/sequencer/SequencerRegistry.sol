@@ -372,12 +372,15 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
         emit CensorshipSlashed(_sequencer, _forcedTxId);
     }
     
+    /// @notice Maximum blocks to check in a single downtime slash call (DoS protection)
+    uint256 public constant MAX_DOWNTIME_CHECK_RANGE = 500;
+    
     /**
      * @notice Slash a sequencer for downtime
      * @dev Anyone can call this if sequencer missed too many blocks
      * @param _sequencer The sequencer to slash
      * @param _startBlock Start of the range to check
-     * @param _endBlock End of the range to check
+     * @param _endBlock End of the range to check (max 500 blocks from start)
      */
     function slashDowntime(
         address _sequencer,
@@ -387,8 +390,14 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
         Sequencer storage seq = sequencers[_sequencer];
         if (!seq.isActive) revert NotActive();
         
-        // Count blocks in range where sequencer should have produced but didn't
+        // SECURITY: Limit range to prevent O(n) DoS attack
         uint256 blocksInRange = _endBlock - _startBlock;
+        if (blocksInRange > MAX_DOWNTIME_CHECK_RANGE) {
+            _endBlock = _startBlock + MAX_DOWNTIME_CHECK_RANGE;
+            blocksInRange = MAX_DOWNTIME_CHECK_RANGE;
+        }
+        
+        // Count blocks in range where sequencer should have produced but didn't
         uint256 missedBlocks = 0;
         
         for (uint256 i = _startBlock; i <= _endBlock; i++) {

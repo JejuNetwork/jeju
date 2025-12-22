@@ -62,8 +62,10 @@ contract VRFCoordinatorTest is Test {
             governance
         );
 
-        // Register proving key and oracle
-        coordinator.registerProvingKey(keyHash, oracle);
+        // Register proving key and oracle (with timelock)
+        bytes32 changeId = coordinator.proposeRegisterProvingKey(keyHash, oracle);
+        vm.warp(block.timestamp + 24 hours + 1);
+        coordinator.executeRegisterProvingKey(changeId);
         
         vm.stopPrank();
 

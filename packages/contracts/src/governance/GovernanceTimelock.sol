@@ -12,10 +12,14 @@ contract GovernanceTimelock is Ownable, ReentrancyGuard, Pausable {
         uint256 value;
         uint256 proposedAt;
         uint256 executeAfter;
+        uint256 expiresAt; // SECURITY: Proposals expire after grace period
         bool executed;
         bool cancelled;
         ProposalType proposalType;
     }
+    
+    /// @notice Grace period after timelock expires during which proposal can be executed
+    uint256 public constant GRACE_PERIOD = 14 days;
 
     enum ProposalType {
         UPGRADE,
@@ -54,6 +58,7 @@ contract GovernanceTimelock is Ownable, ReentrancyGuard, Pausable {
     error InvalidTarget();
     error InvalidDelay();
     error ExecutionFailed();
+    error ProposalExpired();
 
     modifier onlyGovernance() {
         if (msg.sender != governance) revert NotGovernance();
@@ -89,6 +94,7 @@ contract GovernanceTimelock is Ownable, ReentrancyGuard, Pausable {
             value: 0,
             proposedAt: block.timestamp,
             executeAfter: _executeAfter,
+            expiresAt: _executeAfter + GRACE_PERIOD, // SECURITY: Expires after grace period
             executed: false,
             cancelled: false,
             proposalType: ProposalType.UPGRADE
@@ -116,6 +122,7 @@ contract GovernanceTimelock is Ownable, ReentrancyGuard, Pausable {
             value: 0,
             proposedAt: block.timestamp,
             executeAfter: _executeAfter,
+            expiresAt: _executeAfter + GRACE_PERIOD, // SECURITY: Expires after grace period
             executed: false,
             cancelled: false,
             proposalType: ProposalType.EMERGENCY_BUGFIX
@@ -132,6 +139,8 @@ contract GovernanceTimelock is Ownable, ReentrancyGuard, Pausable {
         if (proposal.executed) revert ProposalAlreadyExecuted();
         if (proposal.cancelled) revert ProposalAlreadyCancelled();
         if (block.timestamp < proposal.executeAfter) revert TimelockNotExpired();
+        // SECURITY: Proposals expire to prevent stale execution
+        if (block.timestamp > proposal.expiresAt) revert ProposalExpired();
 
         proposal.executed = true;
 
@@ -166,6 +175,7 @@ contract GovernanceTimelock is Ownable, ReentrancyGuard, Pausable {
         if (proposal.target == address(0)) return false;
         if (proposal.executed) return false;
         if (proposal.cancelled) return false;
+        if (block.timestamp > proposal.expiresAt) return false; // Expired
         return block.timestamp >= proposal.executeAfter;
     }
 

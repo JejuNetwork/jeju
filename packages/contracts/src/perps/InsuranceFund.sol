@@ -80,8 +80,33 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuard, Ownable {
         authorizedContracts[contractAddr] = authorized;
     }
     
+    /// @notice Propose a new oracle - requires 24-hour delay
+    /// @dev SECURITY: Prevents instant oracle manipulation
+    function proposePriceOracle(address _priceOracle) public onlyOwner {
+        require(_priceOracle != address(0), "Invalid oracle");
+        if (pendingOracle != address(0)) revert OracleChangePending();
+        
+        pendingOracle = _priceOracle;
+        oracleChangeTime = block.timestamp + ORACLE_CHANGE_DELAY;
+        emit OracleChangeProposed(_priceOracle, oracleChangeTime);
+    }
+    
+    /// @notice Execute oracle change after timelock
+    function executePriceOracleChange() external onlyOwner {
+        if (pendingOracle == address(0)) revert NoOracleChangePending();
+        if (block.timestamp < oracleChangeTime) revert OracleChangeNotReady();
+        
+        address oldOracle = address(priceOracle);
+        priceOracle = IPriceOracle(pendingOracle);
+        emit OracleChangeExecuted(oldOracle, pendingOracle);
+        
+        pendingOracle = address(0);
+        oracleChangeTime = 0;
+    }
+    
+    /// @notice Legacy setPriceOracle - now requires timelock
     function setPriceOracle(address _priceOracle) external onlyOwner {
-        priceOracle = IPriceOracle(_priceOracle);
+        proposePriceOracle(_priceOracle);
     }
     
     function addSupportedToken(address token) external onlyOwner {
@@ -115,19 +140,72 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuard, Ownable {
     }
     
     /**
-     * @notice Withdraw funds from insurance fund (admin only)
+     * @notice Propose withdrawing funds - requires 48-hour delay + daily limit
+     * @dev SECURITY: Prevents instant fund drainage
+     * @param token Token to withdraw
+     * @param amount Amount to withdraw
+     */
+    function proposeWithdraw(address token, uint256 amount) public onlyOwner returns (bytes32 withdrawalId) {
+        require(tokenBalances[token] >= amount, "Insufficient balance");
+        
+        // Check daily limit (10% of total balance per day)
+        uint256 dailyLimit = (tokenBalances[token] * DAILY_WITHDRAWAL_LIMIT_BPS) / 10000;
+        uint256 today = block.timestamp / 1 days;
+        if (dailyWithdrawals[today] + amount > dailyLimit) revert ExceedsDailyLimit();
+        
+        withdrawalId = keccak256(abi.encodePacked(token, amount, block.timestamp));
+        pendingWithdrawals[withdrawalId] = PendingWithdrawal({
+            token: token,
+            amount: amount,
+            executeAfter: block.timestamp + WITHDRAWAL_DELAY,
+            executed: false
+        });
+        
+        emit WithdrawalProposed(withdrawalId, token, amount, block.timestamp + WITHDRAWAL_DELAY);
+    }
+    
+    /// @notice Execute pending withdrawal after timelock
+    function executeWithdraw(bytes32 withdrawalId) external onlyOwner nonReentrant {
+        PendingWithdrawal storage w = pendingWithdrawals[withdrawalId];
+        if (w.executeAfter == 0) revert WithdrawalNotFound();
+        if (w.executed) revert WithdrawalAlreadyExecuted();
+        if (block.timestamp < w.executeAfter) revert WithdrawalNotReady();
+        
+        w.executed = true;
+        
+        // Re-check balance and daily limit
+        require(tokenBalances[w.token] >= w.amount, "Insufficient balance");
+        uint256 today = block.timestamp / 1 days;
+        uint256 dailyLimit = (tokenBalances[w.token] * DAILY_WITHDRAWAL_LIMIT_BPS) / 10000;
+        if (dailyWithdrawals[today] + w.amount > dailyLimit) revert ExceedsDailyLimit();
+        
+        tokenBalances[w.token] -= w.amount;
+        totalWithdrawals += w.amount;
+        dailyWithdrawals[today] += w.amount;
+        
+        IERC20(w.token).safeTransfer(msg.sender, w.amount);
+        
+        emit WithdrawalExecuted(withdrawalId, w.token, w.amount);
+        emit FundWithdraw(w.token, w.amount);
+    }
+    
+    /// @notice Cancel pending withdrawal
+    function cancelWithdraw(bytes32 withdrawalId) external onlyOwner {
+        PendingWithdrawal storage w = pendingWithdrawals[withdrawalId];
+        if (w.executeAfter == 0) revert WithdrawalNotFound();
+        if (w.executed) revert WithdrawalAlreadyExecuted();
+        
+        delete pendingWithdrawals[withdrawalId];
+        emit WithdrawalCancelled(withdrawalId);
+    }
+    
+    /**
+     * @notice Legacy withdraw - now requires timelock + daily limit
      * @param token Token to withdraw
      * @param amount Amount to withdraw
      */
     function withdraw(address token, uint256 amount) external onlyOwner nonReentrant {
-        require(tokenBalances[token] >= amount, "Insufficient balance");
-        
-        tokenBalances[token] -= amount;
-        totalWithdrawals += amount;
-        
-        IERC20(token).safeTransfer(msg.sender, amount);
-        
-        emit FundWithdraw(token, amount);
+        proposeWithdraw(token, amount);
     }
     
     /**

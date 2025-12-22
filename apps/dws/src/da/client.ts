@@ -235,7 +235,7 @@ export class DAClient {
    * Check if blob is available
    */
   async isAvailable(blobId: Hex): Promise<boolean> {
-    const status = await this.getBlobStatus(blobId).catch(() => null)
+    const status = await this.getBlobStatus(blobId)
 
     if (!status) return false
     if (status.status !== 'available') return false

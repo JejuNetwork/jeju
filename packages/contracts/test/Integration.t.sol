@@ -98,7 +98,8 @@ contract DecentralizationIntegrationTest is Test {
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(sequencerRegistry), slashData, "Slash double signer");
 
-        vm.warp(block.timestamp + 30 days + 1); // Use correct 30-day timelock
+        // Warp past 2-hour timelock but within 14-day grace period
+        vm.warp(block.timestamp + 2 hours + 1);
         timelock.execute(proposalId);
 
         (address[] memory addressesAfter,) = sequencerRegistry.getActiveSequencers();

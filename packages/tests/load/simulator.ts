@@ -395,5 +395,13 @@ export const SCENARIOS: Record<string, LoadTestScenario> = {
     rampUpSeconds: 1,
     thinkTimeMs: 0,
   },
+  ULTRA: {
+    name: 'ultra',
+    description: 'Ultra load - maximum throughput test',
+    concurrentUsers: 1000,
+    durationSeconds: 30,
+    rampUpSeconds: 5,
+    thinkTimeMs: 0,
+  },
 }
 

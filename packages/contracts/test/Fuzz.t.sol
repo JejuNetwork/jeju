@@ -141,6 +141,7 @@ contract DecentralizationFuzzTest is Test {
     }
 
     function testFuzzExecuteAfterDelay(uint256 delay) public {
+        // Note: GRACE_PERIOD is 14 days, so proposals expire after executeAfter + 14 days
         vm.assume(delay >= 60 && delay <= 365 days);
 
         bytes memory data = abi.encodeWithSelector(bytes4(0x12345678));
@@ -149,7 +150,13 @@ contract DecentralizationFuzzTest is Test {
 
         vm.warp(block.timestamp + delay);
         bool canExec = timelock.canExecute(proposalId);
-        assertEq(canExec, delay >= 60);
+        
+        // timelock delay is 60 seconds, GRACE_PERIOD is 14 days
+        // canExecute is true if delay >= 60 AND delay <= 60 + 14 days
+        uint256 executeAfter = 60;
+        uint256 expiresAt = executeAfter + 14 days;
+        bool expected = delay >= executeAfter && delay <= expiresAt;
+        assertEq(canExec, expected);
     }
 
     function testFuzzCreateGame(uint256 bond, bytes32 stateRoot, bytes32 claimRoot) public {

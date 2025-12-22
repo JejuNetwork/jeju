@@ -417,29 +417,32 @@ contract FederationGovernance is Ownable, ReentrancyGuard, Pausable {
     }
 
     /**
-     * @dev Get market voting result with TWAP protection
-     * @notice SECURITY: Uses TWAP to prevent flash loan price manipulation
+     * @dev Get market voting result - uses TWAP when available, falls back to instant price
      */
     function _getMarketResult(bytes32 marketId) internal view returns (uint256) {
         if (predictionMarket == address(0)) {
-            // Fallback for testing only - production MUST set predictionMarket
-            // Returns 70% to pass threshold in test environments
+            // Fallback for testing only
             return 7000;
         }
         
-        // Query the prediction market for TWAP data
-        // Interface: getTWAPData returns (yesRatioBps, observations, finalized)
+        // Try TWAP first: getTWAPData(bytes32) returns (count, avgYes, avgNo, start, end, ready)
         (bool success, bytes memory data) = predictionMarket.staticcall(
-            abi.encodeWithSignature("getTWAPRatio(bytes32)", marketId)
+            abi.encodeWithSignature("getTWAPData(bytes32)", marketId)
         );
         
-        if (success && data.length >= 32) {
-            // TWAP available - use time-weighted average
-            uint256 yesRatioBps = abi.decode(data, (uint256));
-            return yesRatioBps;
+        if (success && data.length >= 192) {
+            (uint256 count, uint256 avgYes, uint256 avgNo,, , bool ready) = 
+                abi.decode(data, (uint256, uint256, uint256, uint256, uint256, bool));
+            
+            if (ready && count >= 2) {
+                uint256 total = avgYes + avgNo;
+                if (total > 0) {
+                    return (avgYes * 10000) / total;
+                }
+            }
         }
         
-        // Fallback to instant price (less secure, but allows backwards compatibility)
+        // Fallback: instant price via getMarketPrices(bytes32)
         (success, data) = predictionMarket.staticcall(
             abi.encodeWithSignature("getMarketPrices(bytes32)", marketId)
         );
@@ -452,7 +455,7 @@ contract FederationGovernance is Ownable, ReentrancyGuard, Pausable {
             }
         }
         
-        return 5000; // Default neutral if no market data
+        return 5000; // Neutral if no market data
     }
 
     // ============ Autocrat Decision ============

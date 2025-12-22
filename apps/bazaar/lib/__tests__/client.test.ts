@@ -10,9 +10,8 @@ const originalFetch = globalThis.fetch
 
 // Helper to create a properly typed mock fetch
 function createMockFetch(response: Response): typeof fetch {
-  const mockFn = mock(async () => response) as unknown as typeof fetch
-  ;(mockFn as unknown as { preconnect: typeof fetch.preconnect }).preconnect =
-    () => {}
+  const mockFn = mock(async () => response) as unknown as typeof fetch & { preconnect: () => void }
+  mockFn.preconnect = () => {}
   return mockFn
 }
 

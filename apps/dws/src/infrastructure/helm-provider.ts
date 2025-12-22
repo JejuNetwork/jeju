@@ -34,7 +34,11 @@ interface KubeManifest {
     labels?: Record<string, string>
     annotations?: Record<string, string>
   }
-  spec: Record<string, unknown>
+  spec?: Record<string, unknown>
+  // ConfigMap and Secret have data directly on manifest
+  data?: Record<string, string>
+  // Secret type field
+  type?: string
 }
 
 interface DeploymentSpec {
@@ -266,8 +270,8 @@ class ManifestParser {
 
   private parseConfigMap(manifest: KubeManifest): DWSConfigMap {
     // ConfigMaps have data directly, not in spec
-    const manifestData = manifest as unknown as { data?: Record<string, string>; spec?: { data?: Record<string, string> } }
-    const data = manifestData.data ?? manifestData.spec?.data ?? {}
+    const specData = manifest.spec?.data as Record<string, string> | undefined
+    const data = manifest.data ?? specData ?? {}
     return {
       id: `cm-${manifest.metadata.name}-${Date.now()}`,
       name: manifest.metadata.name,
@@ -277,8 +281,8 @@ class ManifestParser {
 
   private parseSecret(manifest: KubeManifest): DWSSecret {
     // Secrets have data directly, not in spec
-    const manifestData = manifest as unknown as { data?: Record<string, string>; spec?: { data?: Record<string, string> } }
-    const data = manifestData.data ?? manifestData.spec?.data ?? {}
+    const specData = manifest.spec?.data as Record<string, string> | undefined
+    const data = manifest.data ?? specData ?? {}
     // Decode base64 values
     const decoded: Record<string, string> = {}
     for (const [key, value] of Object.entries(data)) {

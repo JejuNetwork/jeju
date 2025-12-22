@@ -149,7 +149,7 @@
       "hosting": "ipfs",
       "gateway": "jns",
       "caching": "dws-cdn",
-      "buildOutput": ".next",
+      "buildOutput": "dist",
       "staticExport": true
     },
     "backend": {
@@ -191,16 +191,16 @@
   },
   "env": {
     "required": [
-      "NEXT_PUBLIC_CHAIN_ID",
-      "NEXT_PUBLIC_RPC_URL"
+      "CHAIN_ID",
+      "RPC_URL"
     ],
     "optional": [
-      "NEXT_PUBLIC_DWS_URL",
-      "NEXT_PUBLIC_IDENTITY_REGISTRY_ADDRESS",
-      "NEXT_PUBLIC_CRUCIBLE_URL",
-      "NEXT_PUBLIC_AUTOCRAT_URL",
-      "NEXT_PUBLIC_KMS_ENDPOINT",
-      "NEXT_PUBLIC_MESSAGING_URL",
+      "DWS_URL",
+      "IDENTITY_REGISTRY_ADDRESS",
+      "CRUCIBLE_URL",
+      "AUTOCRAT_URL",
+      "KMS_ENDPOINT",
+      "MESSAGING_URL",
       "NEYNAR_API_KEY",
       "FARCASTER_CHANNEL_ID"
     ]

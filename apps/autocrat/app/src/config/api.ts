@@ -330,11 +330,12 @@ export async function fetchProposals(
   const response = await api.api.v1.proposals.get({
     query: { active: activeOnly ? 'true' : undefined },
   })
-  if (response.error) {
+  if (response.error || !response.data) {
     return { proposals: [], total: 0 }
   }
-  const data = response.data as unknown as ProposalList | null
-  return data ?? { proposals: [], total: 0 }
+  // Eden Treaty infers generic Record type - cast to expected shape
+  // Runtime type is guaranteed by server contract
+  return response.data as unknown as ProposalList
 }
 
 export async function fetchProposal(proposalId: string): Promise<Proposal> {
@@ -342,6 +343,7 @@ export async function fetchProposal(proposalId: string): Promise<Proposal> {
   if (response.error || !response.data) {
     throw new Error('Proposal not found')
   }
+  // Eden Treaty infers generic Record type - cast to expected shape
   return response.data as unknown as Proposal
 }
 
@@ -387,6 +389,7 @@ export async function assessProposalFull(
     linkedPackageId: draft.linkedPackageId,
     linkedRepoId: draft.linkedRepoId,
   })
+  // Cast through unknown due to type mismatch between app and server QualityAssessment
   const data = extractData(response) as unknown as QualityAssessment
   return {
     ...data,

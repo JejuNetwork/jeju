@@ -153,6 +153,9 @@ export class UnifiedBot extends EventEmitter {
   private liquidityManager: LiquidityManager | null = null
   private yieldFarming: YieldFarmingStrategy | null = null
 
+  // Engine
+  private riskManager: RiskManager | null = null
+
   // Cross-chain integrations (EIL/XLP/OIF)
   private xlpManagers: Map<ChainId, XLPManager> = new Map()
   private oifSolver: OIFSolver | null = null

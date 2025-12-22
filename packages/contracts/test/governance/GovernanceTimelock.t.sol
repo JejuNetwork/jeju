@@ -379,7 +379,8 @@ contract GovernanceTimelockTest is Test {
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(timelock), callData, "Update delay");
         
-        vm.warp(block.timestamp + 30 days + 1);
+        // Warp past timelock but within grace period (14 days)
+        vm.warp(block.timestamp + LOCALNET_DELAY + 1);
         timelock.execute(proposalId);
 
         assertEq(timelock.timelockDelay(), newDelay);
@@ -392,9 +393,10 @@ contract GovernanceTimelockTest is Test {
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(timelock), callData, "Update delay");
         
-        vm.warp(block.timestamp + 30 days + 1);
+        // Warp past timelock but within grace period (14 days)
+        vm.warp(block.timestamp + LOCALNET_DELAY + 1);
         
-        // Execute should fail with InvalidDelay
+        // Execute should fail with InvalidDelay (wrapped in ExecutionFailed)
         vm.expectRevert(GovernanceTimelock.ExecutionFailed.selector);
         timelock.execute(proposalId);
     }
@@ -408,7 +410,8 @@ contract GovernanceTimelockTest is Test {
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(timelock), callData, "Change governance");
         
-        vm.warp(block.timestamp + 30 days + 1);
+        // Warp past timelock but within grace period (14 days)
+        vm.warp(block.timestamp + LOCALNET_DELAY + 1);
         timelock.execute(proposalId);
 
         assertEq(timelock.governance(), newGov);
@@ -423,7 +426,8 @@ contract GovernanceTimelockTest is Test {
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(timelock), callData, "Change security council");
         
-        vm.warp(block.timestamp + 30 days + 1);
+        // Warp past timelock but within grace period (14 days)
+        vm.warp(block.timestamp + LOCALNET_DELAY + 1);
         timelock.execute(proposalId);
 
         assertEq(timelock.securityCouncil(), newCouncil);

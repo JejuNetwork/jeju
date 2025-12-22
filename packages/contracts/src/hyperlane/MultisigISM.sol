@@ -60,7 +60,7 @@ contract MultisigISM is Ownable2Step {
      * @notice Propose adding a validator - requires 24-hour delay
      * @dev SECURITY: Prevents instant validator set manipulation
      */
-    function proposeAddValidator(address _validator) external onlyOwner returns (bytes32 changeId) {
+    function proposeAddValidator(address _validator) public onlyOwner returns (bytes32 changeId) {
         require(!isValidator[_validator], "Already validator");
         
         changeId = keccak256(abi.encodePacked(_validator, true, block.timestamp));
@@ -106,7 +106,7 @@ contract MultisigISM is Ownable2Step {
      * @notice Propose removing a validator - requires 24-hour delay
      * @dev SECURITY: Prevents instant validator removal attacks
      */
-    function proposeRemoveValidator(address _validator) external onlyOwner returns (bytes32 changeId) {
+    function proposeRemoveValidator(address _validator) public onlyOwner returns (bytes32 changeId) {
         require(isValidator[_validator], "Not validator");
         
         changeId = keccak256(abi.encodePacked(_validator, false, block.timestamp));

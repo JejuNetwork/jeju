@@ -73,7 +73,8 @@ export function rateLimitPlugin(config: RateLimitPluginConfig) {
       const tier = config.getTier?.(ctx as Context) ?? config.defaultTier
       const result = await limiter.check(key, tier)
 
-      const rateLimitCtx = ctx as RateLimitContext
+      // Update context - RateLimitContext is added by derive above
+      const rateLimitCtx = ctx as Context & RateLimitContext
       rateLimitCtx.rateLimit = result
       rateLimitCtx.rateLimitKey = key
 
@@ -122,8 +123,12 @@ export function tieredRateLimit(options?: {
     skipPaths: options?.skipPaths ?? ['/health', '/', '/docs'],
     includeHeaders: options?.includeHeaders ?? true,
     getTier: (ctx) => {
-      const { authUser } = ctx as ContextWithAuth
-      const permissions = authUser?.permissions ?? []
+      // Check for authUser in context (set by auth plugin)
+      interface AuthUserContext {
+        authUser?: { permissions?: string[] }
+      }
+      const authContext = ctx as Context & AuthUserContext
+      const permissions = authContext.authUser?.permissions ?? []
 
       if (permissions.includes('unlimited')) {
         return RateLimitTiers.UNLIMITED

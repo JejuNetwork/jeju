@@ -141,7 +141,7 @@ export class ExecutionSimulator {
       args: [amountIn, path],
     })
 
-    return result
+    return [...result]
   }
 
   /**
