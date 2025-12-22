@@ -33,8 +33,21 @@ const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL || 'http://localhost:8899'
 const EVM_RPC_URL = process.env.EVM_RPC_URL || 'http://localhost:6545'
 const EVM_PRIVATE_KEY = (process.env.EVM_PRIVATE_KEY ||
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80') as Hex // Anvil default
-const MOCK_BRIDGE_ADDRESS =
-  '0x5FbDB2315678afecb367f032d93F642f64180aa3' as Address
+
+// Load bridge address from deployed contracts or env
+async function getBridgeAddress(): Promise<Address> {
+  const deployedPath = './training_output/deployed-contracts.json'
+  const file = Bun.file(deployedPath)
+  if (await file.exists()) {
+    const deployed = await file.json()
+    return deployed.coordinator as Address
+  }
+  if (process.env.COORDINATOR_ADDRESS) {
+    return process.env.COORDINATOR_ADDRESS as Address
+  }
+  // Return a placeholder for tests that don't actually call the bridge
+  return '0x0000000000000000000000000000000000000001' as Address
+}
 
 // Psyche Coordinator Program ID
 const PSYCHE_PROGRAM_ID = new PublicKey(
@@ -222,7 +235,7 @@ async function testBridgeInitialization(): Promise<void> {
   const config: BridgeConfig = {
     evmRpcUrl: EVM_RPC_URL,
     evmPrivateKey: EVM_PRIVATE_KEY,
-    bridgeContractAddress: MOCK_BRIDGE_ADDRESS,
+    bridgeContractAddress: await getBridgeAddress(),
     solanaRpcUrl: SOLANA_RPC_URL,
     solanaKeypair: keypair,
   }
@@ -239,7 +252,7 @@ async function testMerkleRootComputation(): Promise<void> {
 
   const config: BridgeConfig = {
     evmRpcUrl: EVM_RPC_URL,
-    bridgeContractAddress: MOCK_BRIDGE_ADDRESS,
+    bridgeContractAddress: await getBridgeAddress(),
     solanaRpcUrl: SOLANA_RPC_URL,
     solanaKeypair: keypair,
   }
@@ -282,7 +295,7 @@ async function testMerkleProofGeneration(): Promise<void> {
 
   const config: BridgeConfig = {
     evmRpcUrl: EVM_RPC_URL,
-    bridgeContractAddress: MOCK_BRIDGE_ADDRESS,
+    bridgeContractAddress: await getBridgeAddress(),
     solanaRpcUrl: SOLANA_RPC_URL,
     solanaKeypair: keypair,
   }
@@ -358,7 +371,7 @@ async function testBridgeRunStateTracking(): Promise<void> {
   const bridgeConfig: BridgeConfig = {
     evmRpcUrl: EVM_RPC_URL,
     evmPrivateKey: EVM_PRIVATE_KEY,
-    bridgeContractAddress: MOCK_BRIDGE_ADDRESS,
+    bridgeContractAddress: await getBridgeAddress(),
     solanaRpcUrl: SOLANA_RPC_URL,
     solanaKeypair: keypair,
   }

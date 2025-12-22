@@ -17,6 +17,7 @@
  */
 
 import { spawn } from 'bun'
+import { Keypair } from '@solana/web3.js'
 import {
   createPublicClient,
   createWalletClient,
@@ -27,6 +28,7 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
+import { sign } from 'tweetnacl'
 import { createAtroposServer } from './atropos-server'
 import {
   type DeployedContracts,
@@ -36,6 +38,27 @@ import {
   createTicTacToeEnv,
   trajectoryToTrainingFormat,
 } from './environments/tic-tac-toe'
+
+// Generate a Solana keypair for signing bridge messages
+const BRIDGE_SOLANA_KEYPAIR = Keypair.generate()
+
+/**
+ * Create a real Ed25519 signature for bridge messages
+ */
+function createBridgeSignature(
+  runId: string,
+  epoch: number,
+  steps: bigint,
+  clientCount: number
+): Uint8Array {
+  const message = new Uint8Array(32 + 4 + 8 + 4)
+  Buffer.from(runId.slice(2, 66).padEnd(64, '0'), 'hex').copy(Buffer.from(message.buffer), 0)
+  const view = new DataView(message.buffer)
+  view.setUint32(32, epoch, true)
+  view.setBigUint64(36, steps, true)
+  view.setUint32(44, clientCount, true)
+  return sign.detached(message, BRIDGE_SOLANA_KEYPAIR.secretKey)
+}
 
 // ============================================================================
 // Configuration
@@ -485,7 +508,7 @@ print("TRAINING_COMPLETE")
 
   for (let epoch = 1; epoch <= CONFIG.trainingEpochs; epoch++) {
     const modelHash = keccak256(toHex(`model-epoch-${epoch}`))
-    const signature = new Uint8Array(64) // Placeholder for Solana signature
+    const signature = createBridgeSignature(runId, epoch, BigInt(epoch * 10), 1)
 
     const progressHash = await walletClient.writeContract({
       address: contracts.coordinator,

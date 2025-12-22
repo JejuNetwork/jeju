@@ -28,8 +28,10 @@ const PSYCHE_COORDINATOR_PROGRAM_ID = new PublicKey(
   '4SHugWqSXwKE5fqDchkJcPEqnoZE22VYKtSTVm7axbT7',
 )
 
+// Mining pool program ID - requires Psyche network deployment
+// When Psyche is deployed, update with actual program ID from: https://github.com/NousResearch/psyche
 const PSYCHE_MINING_POOL_PROGRAM_ID = new PublicKey(
-  '4SHugWqSXwKE5fqDchkJcPEqnoZE22VYKtSTVm7axbT7', // Placeholder
+  '4SHugWqSXwKE5fqDchkJcPEqnoZE22VYKtSTVm7axbT7',
 )
 
 // ============================================================================

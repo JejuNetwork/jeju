@@ -47,22 +47,21 @@ async function trackRequest(path: string): Promise<void> {
 // ============================================================================
 
 const app = new Elysia()
-  // Health check
-  .get('/health', async () => {
-    // Check cache connectivity
-    let cacheStatus = 'unknown'
-    try {
-      await cache.set('health-check', Date.now().toString(), 60)
-      const val = await cache.get('health-check')
-      cacheStatus = val ? 'connected' : 'error'
-    } catch {
-      cacheStatus = 'disconnected'
+  // Health check - fails if cache is unavailable
+  .get('/health', async ({ set }) => {
+    // Check cache connectivity - fail fast if unavailable
+    await cache.set('health-check', Date.now().toString(), 60)
+    const val = await cache.get('health-check')
+    
+    if (!val) {
+      set.status = 503
+      throw new Error('Cache service not responding correctly')
     }
 
     return {
-      status: cacheStatus === 'connected' ? 'healthy' : 'degraded',
+      status: 'healthy',
       service: 'worker-test-server',
-      cache: cacheStatus,
+      cache: 'connected',
       timestamp: new Date().toISOString(),
       mode: 'distributed',
     }
