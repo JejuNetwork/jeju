@@ -70,6 +70,36 @@ contract RiskSleeve is Ownable, ReentrancyGuard {
     IERC20 public rewardToken;
     uint256 public totalDeposits;
     uint256 public totalYieldDistributed;
+    
+    // SECURITY: Timelocks for critical admin changes
+    uint256 public constant RISK_SCORE_CHANGE_DELAY = 24 hours;
+    uint256 public constant CONSUMER_CHANGE_DELAY = 12 hours;
+    
+    struct PendingRiskScoreChange {
+        address token;
+        uint256 newScore;
+        uint256 executeAfter;
+        bool executed;
+    }
+    mapping(bytes32 => PendingRiskScoreChange) public pendingRiskScoreChanges;
+    
+    struct PendingConsumerChange {
+        address consumer;
+        bool approved;
+        RiskTier maxTier;
+        uint256 executeAfter;
+        bool executed;
+    }
+    mapping(bytes32 => PendingConsumerChange) public pendingConsumerChanges;
+    
+    event RiskScoreChangeProposed(bytes32 indexed changeId, address token, uint256 newScore, uint256 executeAfter);
+    event RiskScoreChangeExecuted(bytes32 indexed changeId, address token, uint256 newScore);
+    event ConsumerChangeProposed(bytes32 indexed changeId, address consumer, bool approved, uint256 executeAfter);
+    event ConsumerChangeExecuted(bytes32 indexed changeId, address consumer, bool approved);
+    
+    error ChangeNotFound();
+    error ChangeNotReady();
+    error ChangeAlreadyExecuted();
 
     event Deposited(address indexed user, RiskTier tier, uint256 amount);
     event Withdrawn(address indexed user, RiskTier tier, uint256 amount, uint256 yield_);
@@ -327,15 +357,73 @@ contract RiskSleeve is Ownable, ReentrancyGuard {
 
     // ============ Admin ============
 
-    function setTokenRiskScore(address token, uint256 score) external onlyOwner {
+    /// @notice Propose changing a token's risk score - requires 24-hour delay
+    /// @dev SECURITY: Prevents instant risk score manipulation to drain liquidity
+    function proposeTokenRiskScore(address token, uint256 score) public onlyOwner returns (bytes32 changeId) {
         require(score <= 100, "Score must be 0-100");
-        tokenRiskScores[token] = score;
-        emit TokenRiskScoreSet(token, score);
+        
+        changeId = keccak256(abi.encodePacked(token, score, block.timestamp));
+        pendingRiskScoreChanges[changeId] = PendingRiskScoreChange({
+            token: token,
+            newScore: score,
+            executeAfter: block.timestamp + RISK_SCORE_CHANGE_DELAY,
+            executed: false
+        });
+        
+        emit RiskScoreChangeProposed(changeId, token, score, block.timestamp + RISK_SCORE_CHANGE_DELAY);
+    }
+    
+    /// @notice Execute pending risk score change
+    function executeTokenRiskScore(bytes32 changeId) external {
+        PendingRiskScoreChange storage change = pendingRiskScoreChanges[changeId];
+        if (change.executeAfter == 0) revert ChangeNotFound();
+        if (change.executed) revert ChangeAlreadyExecuted();
+        if (block.timestamp < change.executeAfter) revert ChangeNotReady();
+        
+        change.executed = true;
+        tokenRiskScores[change.token] = change.newScore;
+        
+        emit RiskScoreChangeExecuted(changeId, change.token, change.newScore);
+        emit TokenRiskScoreSet(change.token, change.newScore);
+    }
+    
+    /// @notice Legacy setTokenRiskScore - now requires timelock
+    function setTokenRiskScore(address token, uint256 score) external onlyOwner {
+        proposeTokenRiskScore(token, score);
     }
 
+    /// @notice Propose approving/revoking a consumer - requires 12-hour delay
+    /// @dev SECURITY: Prevents instant unauthorized access to liquidity
+    function proposeApprovedConsumer(address consumer, bool approved, RiskTier maxTier) public onlyOwner returns (bytes32 changeId) {
+        changeId = keccak256(abi.encodePacked(consumer, approved, maxTier, block.timestamp));
+        pendingConsumerChanges[changeId] = PendingConsumerChange({
+            consumer: consumer,
+            approved: approved,
+            maxTier: maxTier,
+            executeAfter: block.timestamp + CONSUMER_CHANGE_DELAY,
+            executed: false
+        });
+        
+        emit ConsumerChangeProposed(changeId, consumer, approved, block.timestamp + CONSUMER_CHANGE_DELAY);
+    }
+    
+    /// @notice Execute pending consumer change
+    function executeApprovedConsumer(bytes32 changeId) external {
+        PendingConsumerChange storage change = pendingConsumerChanges[changeId];
+        if (change.executeAfter == 0) revert ChangeNotFound();
+        if (change.executed) revert ChangeAlreadyExecuted();
+        if (block.timestamp < change.executeAfter) revert ChangeNotReady();
+        
+        change.executed = true;
+        approvedConsumers[change.consumer] = change.approved;
+        consumerMaxTier[change.consumer] = change.maxTier;
+        
+        emit ConsumerChangeExecuted(changeId, change.consumer, change.approved);
+    }
+    
+    /// @notice Legacy setApprovedConsumer - now requires timelock
     function setApprovedConsumer(address consumer, bool approved, RiskTier maxTier) external onlyOwner {
-        approvedConsumers[consumer] = approved;
-        consumerMaxTier[consumer] = maxTier;
+        proposeApprovedConsumer(consumer, approved, maxTier);
     }
 
     function updateSleeveConfig(

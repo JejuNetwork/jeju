@@ -15,5 +15,9 @@ export type { FundingArbConfig, LiquidationBotConfig } from './perps'
 
 // Perpetuals Strategies
 export { FundingArbitrageBot, LiquidationBot } from './perps'
+
 // TFMM Strategies
 export * from './tfmm'
+
+// MEV Strategies
+export * from './mev'

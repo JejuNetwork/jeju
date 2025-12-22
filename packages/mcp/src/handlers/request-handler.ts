@@ -33,11 +33,15 @@ const JsonRpcRequestSchema = z.object({
 
 type ValidatedJsonRpcRequest = z.infer<typeof JsonRpcRequestSchema>
 
+// MCP Protocol versions as a const tuple for Zod enum
+const PROTOCOL_VERSIONS_TUPLE = MCP_PROTOCOL_VERSIONS as readonly [
+  string,
+  ...string[],
+]
+
 // Initialize Params Validation Schema
 const InitializeParamsSchema = z.object({
-  protocolVersion: z.enum(
-    MCP_PROTOCOL_VERSIONS as unknown as [string, ...string[]],
-  ),
+  protocolVersion: z.enum(PROTOCOL_VERSIONS_TUPLE),
   capabilities: z.object({
     roots: z.object({ listChanged: z.boolean().optional() }).optional(),
     sampling: z.record(z.string(), JsonValueSchema).optional(),
@@ -203,10 +207,11 @@ export class MCPRequestHandler {
       params.protocolVersion as MCPProtocolVersion,
     )
 
+    // InitializeResult is JSON-serializable and compatible with JsonRpcResult
     return {
       jsonrpc: '2.0',
       id: request.id,
-      result: result as unknown as JsonRpcResult,
+      result: result as JsonRpcResult,
     }
   }
 
@@ -228,6 +233,7 @@ export class MCPRequestHandler {
     const tools = this.getTools()
     const result: ToolsListResult = { tools }
 
+    // ToolsListResult needs cast through unknown as types don't overlap structurally
     return {
       jsonrpc: '2.0',
       id: request.id,
@@ -322,15 +328,15 @@ export class MCPRequestHandler {
     const toolResult = await toolDef.handler(validatedArgs, agent)
 
     // Convert tool result to MCP content format
-    const content = this.convertToolResultToContent(
-      toolResult as unknown as JsonValue,
-    )
+    // Tool results should be JSON-serializable by contract
+    const content = this.convertToolResultToContent(toolResult as JsonValue)
 
     const result: ToolCallResult = {
       content,
       isError: false,
     }
 
+    // ToolCallResult needs cast through unknown as types don't overlap structurally
     return {
       jsonrpc: '2.0',
       id: request.id,

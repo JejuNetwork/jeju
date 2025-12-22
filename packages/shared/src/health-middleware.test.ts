@@ -140,7 +140,8 @@ describe('healthMiddleware', () => {
       const data = await response.json()
       expect(data.ready).toBe(true)
       expect(data.status).toBe('healthy')
-      expect((data.dependencies as unknown[]).length).toBe(2)
+      expect(Array.isArray(data.dependencies)).toBe(true)
+      expect(data.dependencies.length).toBe(2)
     })
 
     test('should return ready=false when required dependency fails', async () => {
@@ -621,8 +622,8 @@ describe('edge cases', () => {
     const data = await response.json()
 
     expect(data.ready).toBe(true)
-    const deps = data.dependencies as unknown[]
-    expect(deps.length).toBe(0)
+    expect(Array.isArray(data.dependencies)).toBe(true)
+    expect(data.dependencies.length).toBe(0)
   })
 
   test('should handle empty resources array', async () => {
@@ -636,9 +637,9 @@ describe('edge cases', () => {
 
     const response = await request(app, '/health/resources')
     const data = await response.json()
-    const resources = data.resources as unknown[]
 
-    expect(resources.length).toBe(0)
+    expect(Array.isArray(data.resources)).toBe(true)
+    expect(data.resources.length).toBe(0)
   })
 
   test('should handle concurrent requests', async () => {

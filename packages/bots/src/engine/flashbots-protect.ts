@@ -358,7 +358,8 @@ export class FlashbotsProtect extends EventEmitter {
    * Create Flashbots auth header
    */
   private async createAuthHeader(body: string | Hex): Promise<string> {
-    const { keccak256, toBytes, signMessage } = await import('viem')
+    const { keccak256, toBytes } = await import('viem')
+    const { signMessage } = await import('viem/accounts')
 
     const bodyBytes = typeof body === 'string' ? toBytes(body) : toBytes(body)
     const hash = keccak256(bodyBytes)

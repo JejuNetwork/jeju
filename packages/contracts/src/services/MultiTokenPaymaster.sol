@@ -8,7 +8,6 @@ import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
 import {BasePaymaster} from "account-abstraction/core/BasePaymaster.sol";
 import {IPriceOracle} from "../interfaces/IPriceOracle.sol";
 import {ICreditManager, IServiceRegistry, ICloudServiceRegistry} from "../interfaces/IServices.sol";
-import {IFeeConfig} from "../interfaces/IFeeConfig.sol";
 
 /**
  * @title MultiTokenPaymaster
@@ -79,14 +78,11 @@ contract MultiTokenPaymaster is BasePaymaster {
     /// @notice Maximum gas cost allowed
     uint256 public maxGasCost = 0.1 ether;
 
-    /// @notice Fee margin for price volatility protection (basis points) - fallback value
-    uint256 public defaultFeeMargin = 1000; // 10%
+    /// @notice Fee margin for price volatility protection (basis points)
+    uint256 public feeMargin = 1000; // 10%
 
     /// @notice Basis points denominator
     uint256 public constant BASIS_POINTS = 10000;
-
-    /// @notice Central fee configuration (governance-controlled)
-    IFeeConfig public feeConfig;
 
     /// @notice Payment token selector
     enum PaymentToken {
@@ -263,7 +259,7 @@ contract MultiTokenPaymaster is BasePaymaster {
         view
         returns (uint256 totalCost)
     {
-        uint256 gasCostWithMargin = (gasCost * (BASIS_POINTS + _getFeeMargin())) / BASIS_POINTS;
+        uint256 gasCostWithMargin = (gasCost * (BASIS_POINTS + feeMargin)) / BASIS_POINTS;
 
         if (tokenAddr == ETH_ADDRESS) {
             uint256 serviceCostInETH = priceOracle.convertAmount(address(elizaOS), ETH_ADDRESS, serviceCost);
@@ -313,26 +309,9 @@ contract MultiTokenPaymaster is BasePaymaster {
 
     function setFeeMargin(uint256 newMargin) external onlyOwner {
         require(newMargin <= 5000, "Margin too high");
-        uint256 oldMargin = defaultFeeMargin;
-        defaultFeeMargin = newMargin;
+        uint256 oldMargin = feeMargin;
+        feeMargin = newMargin;
         emit FeeMarginUpdated(oldMargin, newMargin);
-    }
-
-    function setFeeConfig(address _feeConfig) external onlyOwner {
-        feeConfig = IFeeConfig(_feeConfig);
-    }
-
-    /**
-     * @notice Get the current fee margin from FeeConfig or fallback to default
-     * @return Fee margin in basis points
-     */
-    function _getFeeMargin() internal view returns (uint256) {
-        if (address(feeConfig) != address(0)) {
-            // Use cross-chain margin from DeFi fees for paymaster margin
-            IFeeConfig.DeFiFees memory fees = feeConfig.getDeFiFees();
-            return fees.crossChainMarginBps;
-        }
-        return defaultFeeMargin;
     }
 
     function setMaxGasCost(uint256 newMaxGasCost) external onlyOwner {

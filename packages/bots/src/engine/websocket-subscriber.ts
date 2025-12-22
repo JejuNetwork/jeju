@@ -142,7 +142,7 @@ export class WebSocketBlockSubscriber extends EventEmitter {
 
     const urls = this.config.rpcUrls[chainId]
     const wsUrl = urls?.ws ?? DEFAULT_WS_URLS[chainId]
-    const httpUrl = urls?.http ?? `https://rpc.ankr.com/${chain.network ?? 'eth'}`
+    const httpUrl = urls?.http ?? `https://rpc.ankr.com/eth`
 
     // Create client with WebSocket transport if available
     let client: PublicClient

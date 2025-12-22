@@ -174,20 +174,30 @@ let walletClient: ReturnType<typeof createWalletClient> | null = null
 export function initializeFeeActions(
   _feeConfigAddress: Address,
   _publicClient: ReturnType<typeof createPublicClient>,
-  _walletClient: ReturnType<typeof createWalletClient>,
+  _walletClient: ReturnType<typeof createWalletClient> | null,
 ): void {
   feeConfigAddress = _feeConfigAddress
   publicClient = _publicClient
   walletClient = _walletClient
 }
 
-function ensureInitialized(): {
+function ensureReadOnly(): {
+  address: Address
+  public: ReturnType<typeof createPublicClient>
+} {
+  if (!feeConfigAddress || !publicClient) {
+    throw new Error('Fee actions not initialized. Call initializeFeeActions first.')
+  }
+  return { address: feeConfigAddress, public: publicClient }
+}
+
+function ensureWrite(): {
   address: Address
   public: ReturnType<typeof createPublicClient>
   wallet: ReturnType<typeof createWalletClient>
 } {
   if (!feeConfigAddress || !publicClient || !walletClient) {
-    throw new Error('Fee actions not initialized. Call initializeFeeActions first.')
+    throw new Error('Fee actions not initialized with wallet client. Write operations unavailable.')
   }
   return { address: feeConfigAddress, public: publicClient, wallet: walletClient }
 }
@@ -195,7 +205,7 @@ function ensureInitialized(): {
 // ============ View Functions ============
 
 export async function getFeeConfigState(): Promise<FeeConfigState> {
-  const { address, public: client } = ensureInitialized()
+  const { address, public: client } = ensureReadOnly()
 
   const [
     distribution,
@@ -245,7 +255,7 @@ export async function getFeeConfigState(): Promise<FeeConfigState> {
  * The change must have been proposed by council and passed its timelock
  */
 export async function ceoExecuteFeeChange(changeId: Hex): Promise<Hash> {
-  const { address, wallet } = ensureInitialized()
+  const { address, wallet } = ensureWrite()
 
   const hash = await wallet.writeContract({
     chain: wallet.chain,
@@ -264,7 +274,7 @@ export async function ceoExecuteFeeChange(changeId: Hex): Promise<Hash> {
  * Cancel a pending fee change (CEO or Council)
  */
 export async function ceoCancelFeeChange(changeId: Hex): Promise<Hash> {
-  const { address, wallet } = ensureInitialized()
+  const { address, wallet } = ensureWrite()
 
   const hash = await wallet.writeContract({
     chain: wallet.chain,
@@ -282,7 +292,7 @@ export async function ceoCancelFeeChange(changeId: Hex): Promise<Hash> {
 // ============ Direct Fee Setters (when CEO is owner) ============
 
 export async function ceoSetDistributionFees(fees: DistributionFees): Promise<Hash> {
-  const { address, wallet } = ensureInitialized()
+  const { address, wallet } = ensureWrite()
 
   const hash = await wallet.writeContract({
     chain: wallet.chain,
@@ -304,7 +314,7 @@ export async function ceoSetDistributionFees(fees: DistributionFees): Promise<Ha
 }
 
 export async function ceoSetComputeFees(fees: ComputeFees): Promise<Hash> {
-  const { address, wallet } = ensureInitialized()
+  const { address, wallet } = ensureWrite()
 
   const hash = await wallet.writeContract({
     chain: wallet.chain,
@@ -320,7 +330,7 @@ export async function ceoSetComputeFees(fees: ComputeFees): Promise<Hash> {
 }
 
 export async function ceoSetStorageFees(fees: StorageFees): Promise<Hash> {
-  const { address, wallet } = ensureInitialized()
+  const { address, wallet } = ensureWrite()
 
   const hash = await wallet.writeContract({
     chain: wallet.chain,
@@ -336,7 +346,7 @@ export async function ceoSetStorageFees(fees: StorageFees): Promise<Hash> {
 }
 
 export async function ceoSetDeFiFees(fees: DeFiFees): Promise<Hash> {
-  const { address, wallet } = ensureInitialized()
+  const { address, wallet } = ensureWrite()
 
   const hash = await wallet.writeContract({
     chain: wallet.chain,
@@ -352,7 +362,7 @@ export async function ceoSetDeFiFees(fees: DeFiFees): Promise<Hash> {
 }
 
 export async function ceoSetInfrastructureFees(fees: InfrastructureFees): Promise<Hash> {
-  const { address, wallet } = ensureInitialized()
+  const { address, wallet } = ensureWrite()
 
   const hash = await wallet.writeContract({
     chain: wallet.chain,
@@ -373,7 +383,7 @@ export async function ceoSetInfrastructureFees(fees: InfrastructureFees): Promis
 }
 
 export async function ceoSetMarketplaceFees(fees: MarketplaceFees): Promise<Hash> {
-  const { address, wallet } = ensureInitialized()
+  const { address, wallet } = ensureWrite()
 
   const hash = await wallet.writeContract({
     chain: wallet.chain,
@@ -394,7 +404,7 @@ export async function ceoSetMarketplaceFees(fees: MarketplaceFees): Promise<Hash
 }
 
 export async function ceoSetNamesFees(fees: NamesFees): Promise<Hash> {
-  const { address, wallet } = ensureInitialized()
+  const { address, wallet } = ensureWrite()
 
   const hash = await wallet.writeContract({
     chain: wallet.chain,
@@ -410,7 +420,7 @@ export async function ceoSetNamesFees(fees: NamesFees): Promise<Hash> {
 }
 
 export async function ceoSetTokenFees(fees: TokenFees): Promise<Hash> {
-  const { address, wallet } = ensureInitialized()
+  const { address, wallet } = ensureWrite()
 
   const hash = await wallet.writeContract({
     chain: wallet.chain,
@@ -438,7 +448,7 @@ export async function ceoSetTokenOverride(
   token: Address,
   fees: TokenFees,
 ): Promise<Hash> {
-  const { address, wallet } = ensureInitialized()
+  const { address, wallet } = ensureWrite()
 
   const hash = await wallet.writeContract({
     chain: wallet.chain,
@@ -464,7 +474,7 @@ export async function ceoSetTokenOverride(
 }
 
 export async function ceoRemoveTokenOverride(token: Address): Promise<Hash> {
-  const { address, wallet } = ensureInitialized()
+  const { address, wallet } = ensureWrite()
 
   const hash = await wallet.writeContract({
     chain: wallet.chain,
@@ -482,7 +492,7 @@ export async function ceoRemoveTokenOverride(token: Address): Promise<Hash> {
 // ============ Governance Management ============
 
 export async function ceoSetTreasury(newTreasury: Address): Promise<Hash> {
-  const { address, wallet } = ensureInitialized()
+  const { address, wallet } = ensureWrite()
 
   const hash = await wallet.writeContract({
     chain: wallet.chain,

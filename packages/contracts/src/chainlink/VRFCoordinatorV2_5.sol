@@ -49,6 +49,26 @@ contract VRFCoordinatorV2_5 is Ownable2Step, ReentrancyGuard {
     FeeConfig public feeConfig;
     address public feeRecipient;
     address public governance;
+    
+    // SECURITY: Timelocks for oracle changes
+    uint256 public constant ORACLE_CHANGE_DELAY = 24 hours;
+    
+    struct PendingOracleChange {
+        address oracle;
+        bytes32 keyHash;
+        bool isRegister; // true = register, false = deregister
+        uint256 executeAfter;
+        bool executed;
+    }
+    mapping(bytes32 => PendingOracleChange) public pendingOracleChanges;
+    
+    event OracleChangeProposed(bytes32 indexed changeId, address oracle, bytes32 keyHash, bool isRegister, uint256 executeAfter);
+    event OracleChangeExecuted(bytes32 indexed changeId);
+    event OracleChangeCancelled(bytes32 indexed changeId);
+    
+    error OracleChangeNotFound();
+    error OracleChangeNotReady();
+    error OracleChangeAlreadyExecuted();
 
     event SubscriptionCreated(uint64 indexed subId, address owner);
     event SubscriptionFunded(uint64 indexed subId, uint256 oldBalance, uint256 newBalance);
@@ -245,20 +265,115 @@ contract VRFCoordinatorV2_5 is Ownable2Step, ReentrancyGuard {
         emit ConfigSet(_minimumRequestConfirmations, _maxGasLimit, _feeConfig);
     }
 
+    /// @notice Propose registering a proving key - requires 24-hour delay
+    /// @dev SECURITY: Prevents instant oracle manipulation for VRF
+    function proposeRegisterProvingKey(bytes32 keyHash, address oracle) public onlyOwner returns (bytes32 changeId) {
+        changeId = keccak256(abi.encodePacked(keyHash, oracle, true, block.timestamp));
+        pendingOracleChanges[changeId] = PendingOracleChange({
+            oracle: oracle,
+            keyHash: keyHash,
+            isRegister: true,
+            executeAfter: block.timestamp + ORACLE_CHANGE_DELAY,
+            executed: false
+        });
+        emit OracleChangeProposed(changeId, oracle, keyHash, true, block.timestamp + ORACLE_CHANGE_DELAY);
+    }
+    
+    /// @notice Execute pending proving key registration
+    function executeRegisterProvingKey(bytes32 changeId) external {
+        PendingOracleChange storage change = pendingOracleChanges[changeId];
+        if (change.executeAfter == 0) revert OracleChangeNotFound();
+        if (change.executed) revert OracleChangeAlreadyExecuted();
+        if (block.timestamp < change.executeAfter) revert OracleChangeNotReady();
+        if (!change.isRegister) revert OracleChangeNotFound();
+        
+        change.executed = true;
+        provingKeyHashes[change.keyHash] = true;
+        oracles[change.oracle] = true;
+        
+        emit OracleChangeExecuted(changeId);
+        emit ProvingKeyRegistered(change.keyHash, change.oracle);
+    }
+    
+    /// @notice Legacy registerProvingKey - now requires timelock
     function registerProvingKey(bytes32 keyHash, address oracle) external onlyOwner {
-        provingKeyHashes[keyHash] = true;
-        oracles[oracle] = true;
-        emit ProvingKeyRegistered(keyHash, oracle);
+        proposeRegisterProvingKey(keyHash, oracle);
     }
 
+    /// @notice Propose deregistering a proving key - requires 24-hour delay
+    function proposeDeregisterProvingKey(bytes32 keyHash, address oracle) public onlyOwner returns (bytes32 changeId) {
+        changeId = keccak256(abi.encodePacked(keyHash, oracle, false, block.timestamp));
+        pendingOracleChanges[changeId] = PendingOracleChange({
+            oracle: oracle,
+            keyHash: keyHash,
+            isRegister: false,
+            executeAfter: block.timestamp + ORACLE_CHANGE_DELAY,
+            executed: false
+        });
+        emit OracleChangeProposed(changeId, oracle, keyHash, false, block.timestamp + ORACLE_CHANGE_DELAY);
+    }
+    
+    /// @notice Execute pending proving key deregistration
+    function executeDeregisterProvingKey(bytes32 changeId) external {
+        PendingOracleChange storage change = pendingOracleChanges[changeId];
+        if (change.executeAfter == 0) revert OracleChangeNotFound();
+        if (change.executed) revert OracleChangeAlreadyExecuted();
+        if (block.timestamp < change.executeAfter) revert OracleChangeNotReady();
+        if (change.isRegister) revert OracleChangeNotFound();
+        
+        change.executed = true;
+        delete provingKeyHashes[change.keyHash];
+        
+        emit OracleChangeExecuted(changeId);
+        emit ProvingKeyDeregistered(change.keyHash, change.oracle);
+    }
+    
+    /// @notice Cancel pending oracle change
+    function cancelOracleChange(bytes32 changeId) external onlyOwner {
+        PendingOracleChange storage change = pendingOracleChanges[changeId];
+        if (change.executeAfter == 0) revert OracleChangeNotFound();
+        if (change.executed) revert OracleChangeAlreadyExecuted();
+        
+        delete pendingOracleChanges[changeId];
+        emit OracleChangeCancelled(changeId);
+    }
+    
+    /// @notice Legacy deregisterProvingKey - now requires timelock
     function deregisterProvingKey(bytes32 keyHash, address oracle) external onlyOwner {
-        delete provingKeyHashes[keyHash];
-        emit ProvingKeyDeregistered(keyHash, oracle);
+        proposeDeregisterProvingKey(keyHash, oracle);
     }
 
+    /// @notice Propose setting oracle authorization - requires 24-hour delay  
+    function proposeSetOracle(address oracle, bool authorized) public onlyOwner returns (bytes32 changeId) {
+        changeId = keccak256(abi.encodePacked(oracle, authorized, block.timestamp));
+        pendingOracleChanges[changeId] = PendingOracleChange({
+            oracle: oracle,
+            keyHash: bytes32(0),
+            isRegister: authorized,
+            executeAfter: block.timestamp + ORACLE_CHANGE_DELAY,
+            executed: false
+        });
+        emit OracleChangeProposed(changeId, oracle, bytes32(0), authorized, block.timestamp + ORACLE_CHANGE_DELAY);
+    }
+    
+    /// @notice Execute pending oracle authorization
+    function executeSetOracle(bytes32 changeId) external {
+        PendingOracleChange storage change = pendingOracleChanges[changeId];
+        if (change.executeAfter == 0) revert OracleChangeNotFound();
+        if (change.executed) revert OracleChangeAlreadyExecuted();
+        if (block.timestamp < change.executeAfter) revert OracleChangeNotReady();
+        if (change.keyHash != bytes32(0)) revert OracleChangeNotFound();
+        
+        change.executed = true;
+        oracles[change.oracle] = change.isRegister;
+        
+        emit OracleChangeExecuted(changeId);
+        emit OracleSet(change.oracle, change.isRegister);
+    }
+    
+    /// @notice Legacy setOracle - now requires timelock
     function setOracle(address oracle, bool authorized) external onlyOwner {
-        oracles[oracle] = authorized;
-        emit OracleSet(oracle, authorized);
+        proposeSetOracle(oracle, authorized);
     }
 
     function setFeeRecipient(address recipient) external onlyGovernance {

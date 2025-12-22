@@ -92,9 +92,10 @@ export function rateLimitPlugin(config: RateLimitPluginConfig) {
       // Check rate limit
       const result = await limiter.check(key, tier)
 
-      // Update context
-      ;(ctx as unknown as { rateLimit: RateLimitResult }).rateLimit = result
-      ;(ctx as unknown as { rateLimitKey: string }).rateLimitKey = key
+      // Update context - RateLimitContext is added by derive above
+      const rateLimitCtx = ctx as Context & RateLimitContext
+      rateLimitCtx.rateLimit = result
+      rateLimitCtx.rateLimitKey = key
 
       // Add headers if enabled
       if (includeHeaders) {
@@ -150,9 +151,10 @@ export function tieredRateLimit(options?: {
     includeHeaders: options?.includeHeaders ?? true,
     getTier: (ctx) => {
       // Check for authUser in context (set by auth plugin)
-      const authContext = ctx as unknown as {
+      interface AuthUserContext {
         authUser?: { permissions?: string[] }
       }
+      const authContext = ctx as Context & AuthUserContext
       const permissions = authContext.authUser?.permissions ?? []
 
       if (permissions.includes('unlimited')) {
