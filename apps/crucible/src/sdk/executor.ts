@@ -551,6 +551,7 @@ export class ExecutorSDK {
         params: Object.keys(params).length > 0 ? params : undefined,
         success: false,
       })
+      match = regex.exec(safeResponse)
     }
     return actions
   }

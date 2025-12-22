@@ -11,7 +11,6 @@ import { getNetworkName } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import { autocratAgentRuntime } from './agents'
-import { getBlockchain } from './blockchain'
 import {
   getComputeTriggerClient,
   registerAutocratTriggers,
@@ -19,7 +18,7 @@ import {
 } from './compute-trigger'
 import { initLocalServices } from './local-services'
 import { initModeration } from './moderation'
-import { type AutocratOrchestrator, createOrchestrator } from './orchestrator'
+import { createOrchestrator } from './orchestrator'
 import { a2aRoutes } from './routes/a2a'
 import { agentsRoutes } from './routes/agents'
 import { casualRoutes } from './routes/casual'
@@ -34,108 +33,17 @@ import { proposalsRoutes } from './routes/proposals'
 import { registryRoutes } from './routes/registry'
 import { researchRoutes } from './routes/research'
 import { triggersRoutes } from './routes/triggers'
+import {
+  blockchain,
+  config,
+  metricsData,
+  runOrchestratorCycle,
+  setOrchestrator,
+} from './shared-state'
 import { getTEEMode } from './tee'
-import type { CouncilConfig } from './types'
 
 const PORT = parseInt(process.env.PORT || '8010', 10)
 const isDev = process.env.NODE_ENV !== 'production'
-const ZERO_ADDR = '0x0000000000000000000000000000000000000000' as `0x${string}`
-
-const addr = (key: string) => (process.env[key] ?? ZERO_ADDR) as `0x${string}`
-const agent = (id: string, name: string, prompt: string) => ({
-  id,
-  name,
-  model: 'local',
-  endpoint: 'local',
-  systemPrompt: prompt,
-})
-
-export function getConfig(): CouncilConfig {
-  return {
-    rpcUrl:
-      process.env.RPC_URL ??
-      process.env.JEJU_RPC_URL ??
-      'http://localhost:9545',
-    daoId: process.env.DEFAULT_DAO ?? 'jeju',
-    contracts: {
-      council: addr('COUNCIL_ADDRESS'),
-      ceoAgent: addr('CEO_AGENT_ADDRESS'),
-      treasury: addr('TREASURY_ADDRESS'),
-      feeConfig: addr('FEE_CONFIG_ADDRESS'),
-      daoRegistry: addr('DAO_REGISTRY_ADDRESS'),
-      daoFunding: addr('DAO_FUNDING_ADDRESS'),
-      identityRegistry: addr('IDENTITY_REGISTRY_ADDRESS'),
-      reputationRegistry: addr('REPUTATION_REGISTRY_ADDRESS'),
-      packageRegistry: addr('PACKAGE_REGISTRY_ADDRESS'),
-      repoRegistry: addr('REPO_REGISTRY_ADDRESS'),
-      modelRegistry: addr('MODEL_REGISTRY_ADDRESS'),
-    },
-    agents: {
-      ceo: agent('eliza-ceo', 'Eliza', 'AI CEO of Network DAO'),
-      council: [
-        agent('council-treasury', 'Treasury', 'Financial review'),
-        agent('council-code', 'Code', 'Technical review'),
-        agent('council-community', 'Community', 'Community impact'),
-        agent('council-security', 'Security', 'Security review'),
-      ],
-      proposalAgent: agent(
-        'proposal-agent',
-        'Proposal Assistant',
-        'Help craft proposals',
-      ),
-      researchAgent: agent('research-agent', 'Researcher', 'Deep research'),
-      fundingAgent: agent(
-        'funding-agent',
-        'Funding Oracle',
-        'Deep funding analysis',
-      ),
-    },
-    parameters: {
-      minQualityScore: 70,
-      councilVotingPeriod: 259200,
-      gracePeriod: 86400,
-      minProposalStake: BigInt('10000000000000000'),
-      quorumBps: 5000,
-    },
-    ceoPersona: {
-      name: 'CEO',
-      pfpCid: '',
-      description: 'AI governance leader',
-      personality: 'Professional and analytical',
-      traits: ['decisive', 'fair', 'strategic'],
-      voiceStyle: 'Clear and professional',
-      communicationTone: 'professional',
-      specialties: ['governance', 'strategy'],
-    },
-    fundingConfig: {
-      minStake: BigInt('1000000000000000'),
-      maxStake: BigInt('100000000000000000000'),
-      epochDuration: 2592000,
-      cooldownPeriod: 604800,
-      matchingMultiplier: 10000,
-      quadraticEnabled: true,
-      ceoWeightCap: 5000,
-    },
-    cloudEndpoint: 'local',
-    computeEndpoint: 'local',
-    storageEndpoint: 'local',
-  }
-}
-
-export const config = getConfig()
-export const blockchain = getBlockchain(config)
-export let orchestrator: AutocratOrchestrator | null = null
-
-export function setOrchestrator(o: AutocratOrchestrator | null): void {
-  orchestrator = o
-}
-
-export function getOrchestrator(): AutocratOrchestrator | null {
-  return orchestrator
-}
-
-// Metrics for Prometheus
-export const metricsData = { requests: 0, errors: 0, startTime: Date.now() }
 
 const app = new Elysia()
   .use(cors({ origin: isDev ? '*' : 'https://autocrat.jejunetwork.org' }))
@@ -212,7 +120,7 @@ const app = new Elysia()
       health: '/health',
     },
   }))
-  // Metrics middleware (count requests, skip /metrics and /health)
+  // Metrics middleware
   .onBeforeHandle(({ path }) => {
     if (path !== '/metrics' && path !== '/health') {
       metricsData.requests++
@@ -226,29 +134,6 @@ const app = new Elysia()
 
 const autoStart = process.env.AUTO_START_ORCHESTRATOR !== 'false'
 const useCompute = process.env.USE_COMPUTE_TRIGGER !== 'false'
-
-async function runOrchestratorCycle() {
-  const start = Date.now()
-  if (!orchestrator) {
-    const orchestratorConfig = {
-      rpcUrl: config.rpcUrl,
-      daoRegistry: config.contracts.daoRegistry as Address,
-      daoFunding: config.contracts.daoFunding as Address,
-      contracts: {
-        daoRegistry: config.contracts.daoRegistry as Address,
-        daoFunding: config.contracts.daoFunding as Address,
-      },
-    }
-    orchestrator = createOrchestrator(orchestratorConfig, blockchain)
-    await orchestrator.start()
-  }
-  const status = orchestrator.getStatus()
-  return {
-    cycleCount: status.cycleCount,
-    processedProposals: status.totalProcessed,
-    duration: Date.now() - start,
-  }
-}
 
 async function start() {
   await initLocalServices()
@@ -284,13 +169,24 @@ async function start() {
         daoFunding: config.contracts.daoFunding as Address,
       },
     }
-    orchestrator = createOrchestrator(orchestratorConfig, blockchain)
+    const orchestrator = createOrchestrator(orchestratorConfig, blockchain)
     await orchestrator.start()
+    setOrchestrator(orchestrator)
     if (triggerMode === 'local') startLocalCron(runOrchestratorCycle)
   }
 }
 
 start()
 
-export { app, runOrchestratorCycle }
+export { app }
 export type App = typeof app
+
+// Re-export shared state for backwards compatibility
+export {
+  blockchain,
+  config,
+  getOrchestrator,
+  metricsData,
+  runOrchestratorCycle,
+  setOrchestrator,
+} from './shared-state'

@@ -4,7 +4,7 @@
 
 import { Elysia, t } from 'elysia'
 import { getComputeTriggerClient } from '../compute-trigger'
-import { runOrchestratorCycle } from '../server'
+import { runOrchestratorCycle } from '../shared-state'
 
 export const triggersRoutes = new Elysia({ prefix: '/api/v1/triggers' })
   .get(

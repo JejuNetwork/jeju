@@ -8,6 +8,7 @@ import {
   RefreshCw,
   Shield,
 } from 'lucide-react'
+import Image from 'next/image'
 import { type ComponentType, useEffect, useState } from 'react'
 import { useAccount } from 'wagmi'
 import {
@@ -234,10 +235,13 @@ export default function GitHubReputationPanel({
           <div className="p-4 bg-gradient-to-r from-gray-900 to-gray-700 text-white">
             <div className="flex items-center gap-3">
               {leaderboardData.avatarUrl && (
-                <img
+                <Image
                   src={leaderboardData.avatarUrl}
                   alt={leaderboardData.username}
+                  width={48}
+                  height={48}
                   className="w-12 h-12 rounded-full border-2 border-white"
+                  unoptimized
                 />
               )}
               <div>

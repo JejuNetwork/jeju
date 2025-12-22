@@ -989,12 +989,12 @@ function RegisteredAppsCard() {
               color: 'inherit',
               transition: 'background 0.2s',
             }}
-            onMouseOver={(e) =>
-              (e.currentTarget.style.background = 'var(--surface-active)')
-            }
-            onMouseOut={(e) =>
-              (e.currentTarget.style.background = 'var(--surface-hover)')
-            }
+            onMouseOver={(e) => {
+              e.currentTarget.style.background = 'var(--surface-active)'
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.background = 'var(--surface-hover)'
+            }}
           >
             <div style={{ fontWeight: '600', color: 'var(--accent-primary)' }}>
               {app.name}.jeju

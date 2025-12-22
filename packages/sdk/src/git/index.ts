@@ -288,7 +288,6 @@ const GIT_REGISTRY_ABI = [
 
 export class JejuGitSDK {
   private config: GitSDKConfig
-  private publicClient: ReturnType<typeof createPublicClient>
   private walletClient: ReturnType<typeof createWalletClient> | null = null
   private account: PrivateKeyAccount | null = null
 

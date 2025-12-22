@@ -367,7 +367,9 @@ export class EdgeCoordinator {
         if (req.url === '/gossip' && req.method === 'POST') {
           // Handle HTTP gossip fallback
           let body = ''
-          req.on('data', (chunk: string) => (body += chunk))
+          req.on('data', (chunk: string) => {
+            body += chunk
+          })
           req.on('end', async () => {
             const parseResult = GossipMessageSchema.safeParse(JSON.parse(body))
             if (!parseResult.success) {

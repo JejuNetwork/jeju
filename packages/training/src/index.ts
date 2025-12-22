@@ -16,80 +16,80 @@
 // ============================================================================
 
 export {
+  type AtroposState,
+  type BatchData,
   // Atropos Server
   createAtroposServer,
-  startAtroposServer,
-  type AtroposState,
-  type EnvConfig as AtroposEnvConfig,
-  type Message as AtroposMessage,
-  type Registration,
-  type RegisterEnv,
-  type ScoredData,
   // GRPO Trainer
   createDistributedGRPOTrainer,
   createGRPOTrainer,
   DistributedGRPOTrainer,
+  type EnvConfig as AtroposEnvConfig,
   GRPOTrainer,
-  type BatchData,
+  type Message as AtroposMessage,
+  type RegisterEnv,
+  type Registration,
+  type ScoredData,
+  startAtroposServer,
   type TrainerStatus,
   type TrainingConfig,
   type TrainingMetrics,
-} from './grpo';
+} from './grpo'
 
 // ============================================================================
 // Psyche Distributed Training
 // ============================================================================
 
 export {
-  // Psyche Client
-  createPsycheClient,
-  PsycheClient,
-  type ClientInfo,
-  type CoordinatorConfig,
-  type CoordinatorProgress,
-  type CoordinatorState,
-  type Model,
-  type PsycheConfig,
-  type PsycheTrainingMetrics,
-  type RunMetadata,
-  type WitnessProof,
-  // Cross-Chain Bridge
-  createCrossChainBridge,
-  CrossChainTrainingBridge,
   type BridgeConfig,
   type BridgedRunState,
   type CheckpointData,
+  type ClientInfo,
   type ClientRegistration,
+  type CoordinatorConfig,
+  type CoordinatorProgress,
+  type CoordinatorState,
+  CrossChainTrainingBridge,
+  // Cross-Chain Bridge
+  createCrossChainBridge,
+  // Psyche Client
+  createPsycheClient,
+  type Model,
+  PsycheClient,
+  type PsycheConfig,
+  type PsycheTrainingMetrics,
   type RewardDistribution,
-} from './psyche';
+  type RunMetadata,
+  type WitnessProof,
+} from './psyche'
 
 // ============================================================================
 // Training Environments
 // ============================================================================
 
 export {
-  // Tic-Tac-Toe Environment
-  createTicTacToeEnv,
-  TicTacToeEnv,
-  trajectoryToTrainingFormat,
+  type APIServerConfig,
   type Board,
   type Cell,
+  type Completion,
+  type CompletionResult,
+  // Fundamental Prediction Environment
+  createFundamentalPredictionEnv,
+  // Tic-Tac-Toe Environment
+  createTicTacToeEnv,
+  type FundamentalEnvConfig,
+  type FundamentalMessage,
+  FundamentalPredictionEnv,
   type GameState,
   type GameStep,
   type GameTrajectory,
   type Move,
   type Player,
-  // Fundamental Prediction Environment
-  createFundamentalPredictionEnv,
-  FundamentalPredictionEnv,
-  type APIServerConfig,
-  type Completion,
-  type CompletionResult,
-  type FundamentalEnvConfig,
-  type FundamentalMessage,
   type ScoredDataGroup,
+  TicTacToeEnv,
   type TrainingItem,
-} from './environments';
+  trajectoryToTrainingFormat,
+} from './environments'
 
 // ============================================================================
 // Compute Integration
@@ -97,36 +97,35 @@ export {
 
 export {
   createDWSClient,
+  type DWSClientConfig,
+  type DWSJobStatus,
   DWSTrainingClient,
   getDefaultDWSConfig,
   isDWSAvailable,
-  type DWSClientConfig,
-  type DWSJobStatus,
   type JudgeResult,
   type RolloutData,
   type TrainingJobRequest,
   type TrainingJobResult,
   type TrainingJobStatus,
-} from './compute';
+} from './compute'
 
 // ============================================================================
 // Integrations
 // ============================================================================
 
 export {
-  // Crucible Integration
-  createCrucibleTrainingClient,
-  CrucibleTrainingClient,
   type AgentTrajectory,
+  AutocratTrainingClient,
+  CrucibleTrainingClient,
   type CrucibleTrainingMetrics,
-  type TrainingAgentConfig,
-  type TrainingEnvironment,
-  type TrainingRun,
-  type TrajectoryStep,
   // Autocrat Integration
   createAutocratTrainingClient,
-  AutocratTrainingClient,
+  // Crucible Integration
+  createCrucibleTrainingClient,
   type ModelDeploymentProposal,
+  type TrainingAgentConfig,
+  type TrainingEnvironment,
   type TrainingProposal,
-} from './integrations';
-
+  type TrainingRun,
+  type TrajectoryStep,
+} from './integrations'

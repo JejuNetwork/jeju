@@ -72,7 +72,8 @@ const NETWORKS: Record<string, NetworkConfig> = {
     explorerUrl: '',
   },
   testnet: {
-    rpcUrl: process.env.JEJU_TESTNET_RPC_URL ?? 'https://testnet-rpc.jejunetwork.org',
+    rpcUrl:
+      process.env.JEJU_TESTNET_RPC_URL ?? 'https://testnet-rpc.jejunetwork.org',
     chainId: 420690,
     safeFactory: '0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2',
     safeSingleton: '0x3E5c63644E683549055b9Be8653de26E0B4CD36E',

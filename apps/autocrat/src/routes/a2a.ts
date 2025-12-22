@@ -4,7 +4,7 @@
 
 import { Elysia, t } from 'elysia'
 import { createAutocratA2AServer } from '../a2a-server'
-import { blockchain, config } from '../server'
+import { blockchain, config } from '../shared-state'
 
 const a2aServer = createAutocratA2AServer(config, blockchain)
 

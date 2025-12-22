@@ -1,41 +1,41 @@
 /**
  * Autocrat Training Integration
- * 
+ *
  * Connects DWS training to Autocrat governance.
  * Model deployments require DAO approval.
  */
 
-import type { Address } from 'viem';
+import type { Address } from 'viem'
 
 // ============================================================================
 // Types
 // ============================================================================
 
 export interface ModelDeploymentProposal {
-  proposalId: string;
-  modelName: string;
-  modelVersion: string;
-  checkpointCid: string;
+  proposalId: string
+  modelName: string
+  modelVersion: string
+  checkpointCid: string
   trainingMetrics: {
-    steps: number;
-    finalLoss: number;
-    averageReward: number;
-  };
-  submitter: Address;
-  status: 'pending' | 'approved' | 'rejected' | 'executed';
-  createdAt: number;
+    steps: number
+    finalLoss: number
+    averageReward: number
+  }
+  submitter: Address
+  status: 'pending' | 'approved' | 'rejected' | 'executed'
+  createdAt: number
 }
 
 export interface TrainingProposal {
-  proposalId: string;
-  title: string;
-  description: string;
-  environment: string;
-  modelName: string;
-  estimatedCost: bigint;
-  estimatedDuration: number;
-  submitter: Address;
-  status: 'draft' | 'submitted' | 'approved' | 'rejected';
+  proposalId: string
+  title: string
+  description: string
+  environment: string
+  modelName: string
+  estimatedCost: bigint
+  estimatedDuration: number
+  submitter: Address
+  status: 'draft' | 'submitted' | 'approved' | 'rejected'
 }
 
 // ============================================================================
@@ -43,29 +43,31 @@ export interface TrainingProposal {
 // ============================================================================
 
 export class AutocratTrainingClient {
-  private autocratApiUrl: string;
-  private dwsApiUrl: string;
+  private autocratApiUrl: string
+  private dwsApiUrl: string
 
-  constructor(config: {
-    autocratApiUrl?: string;
-    dwsApiUrl?: string;
-  } = {}) {
-    this.autocratApiUrl = config.autocratApiUrl ?? 'http://localhost:8010';
-    this.dwsApiUrl = config.dwsApiUrl ?? 'http://localhost:4030';
+  constructor(
+    config: {
+      autocratApiUrl?: string
+      dwsApiUrl?: string
+    } = {},
+  ) {
+    this.autocratApiUrl = config.autocratApiUrl ?? 'http://localhost:8010'
+    this.dwsApiUrl = config.dwsApiUrl ?? 'http://localhost:4030'
   }
 
   /**
    * Submit a training proposal to the DAO
    */
   async submitTrainingProposal(proposal: {
-    title: string;
-    description: string;
-    environment: string;
-    modelName: string;
-    trainingSteps: number;
-    estimatedCost: bigint;
+    title: string
+    description: string
+    environment: string
+    modelName: string
+    trainingSteps: number
+    estimatedCost: bigint
   }): Promise<TrainingProposal> {
-    const proposalId = `tp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const proposalId = `tp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
     // Generate full proposal text
     const fullDescription = `
@@ -87,17 +89,20 @@ ${proposal.description}
 ## Risk Assessment
 - Training may not converge if data quality is poor
 - Compute costs are pre-approved in this proposal
-`;
+`
 
     // Submit to Autocrat
-    const response = await fetch(`${this.autocratApiUrl}/api/v1/proposals/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        idea: fullDescription,
-        proposalType: 0, // Standard proposal
-      }),
-    });
+    const response = await fetch(
+      `${this.autocratApiUrl}/api/v1/proposals/generate`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          idea: fullDescription,
+          proposalType: 0, // Standard proposal
+        }),
+      },
+    )
 
     const result: TrainingProposal = {
       proposalId,
@@ -109,29 +114,29 @@ ${proposal.description}
       estimatedDuration: proposal.trainingSteps * 100, // Rough estimate in ms
       submitter: '0x0000000000000000000000000000000000000000' as Address,
       status: response.ok ? 'submitted' : 'draft',
-    };
+    }
 
-    return result;
+    return result
   }
 
   /**
    * Submit a model deployment proposal
    */
   async submitModelDeployment(deployment: {
-    modelName: string;
-    modelVersion: string;
-    checkpointPath: string;
+    modelName: string
+    modelVersion: string
+    checkpointPath: string
     trainingMetrics: {
-      steps: number;
-      finalLoss: number;
-      averageReward: number;
-    };
+      steps: number
+      finalLoss: number
+      averageReward: number
+    }
   }): Promise<ModelDeploymentProposal> {
-    const proposalId = `md-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const proposalId = `md-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
     // Store checkpoint to IPFS via DWS
     // In production, this would upload to DWS storage
-    const checkpointCid = `Qm${Math.random().toString(36).slice(2, 48)}`;
+    const checkpointCid = `Qm${Math.random().toString(36).slice(2, 48)}`
 
     const proposal: ModelDeploymentProposal = {
       proposalId,
@@ -142,7 +147,7 @@ ${proposal.description}
       submitter: '0x0000000000000000000000000000000000000000' as Address,
       status: 'pending',
       createdAt: Date.now(),
-    };
+    }
 
     // Submit to Autocrat for CEO review
     await fetch(`${this.autocratApiUrl}/api/v1/proposals/assess`, {
@@ -173,49 +178,54 @@ ${proposal.description}
 `,
         proposalType: 0,
       }),
-    });
+    })
 
-    return proposal;
+    return proposal
   }
 
   /**
    * Get proposal status
    */
   async getProposalStatus(proposalId: string): Promise<string> {
-    const response = await fetch(`${this.autocratApiUrl}/api/v1/proposals/${proposalId}`);
+    const response = await fetch(
+      `${this.autocratApiUrl}/api/v1/proposals/${proposalId}`,
+    )
     if (response.ok) {
-      const data = await response.json() as { status?: string };
-      return data.status ?? 'unknown';
+      const data = (await response.json()) as { status?: string }
+      return data.status ?? 'unknown'
     }
-    return 'not_found';
+    return 'not_found'
   }
 
   /**
    * Register trained model in ERC8004 agent registry
    */
   async registerTrainedModel(model: {
-    name: string;
-    version: string;
-    checkpointCid: string;
-    capabilities: string[];
+    name: string
+    version: string
+    checkpointCid: string
+    capabilities: string[]
   }): Promise<{ agentId: string }> {
-    const response = await fetch(`${this.autocratApiUrl}/api/v1/agents/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: `${model.name}-${model.version}`,
-        role: 'trained_model',
-        a2aEndpoint: `ipfs://${model.checkpointCid}`,
-        mcpEndpoint: '',
-      }),
-    });
+    const response = await fetch(
+      `${this.autocratApiUrl}/api/v1/agents/register`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: `${model.name}-${model.version}`,
+          role: 'trained_model',
+          a2aEndpoint: `ipfs://${model.checkpointCid}`,
+          mcpEndpoint: '',
+        }),
+      },
+    )
 
     if (response.ok) {
-      const data = await response.json() as { agentId: string };
-      return data;
+      const data = (await response.json()) as { agentId: string }
+      return data
     }
 
-    return { agentId: '' };
+    return { agentId: '' }
   }
 }
 
@@ -224,9 +234,8 @@ ${proposal.description}
 // ============================================================================
 
 export function createAutocratTrainingClient(config?: {
-  autocratApiUrl?: string;
-  dwsApiUrl?: string;
+  autocratApiUrl?: string
+  dwsApiUrl?: string
 }): AutocratTrainingClient {
-  return new AutocratTrainingClient(config);
+  return new AutocratTrainingClient(config)
 }
-

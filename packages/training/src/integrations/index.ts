@@ -7,20 +7,18 @@
  */
 
 export {
-  createCrucibleTrainingClient,
-  CrucibleTrainingClient,
+  AutocratTrainingClient,
+  createAutocratTrainingClient,
+  type ModelDeploymentProposal,
+  type TrainingProposal,
+} from './autocrat'
+export {
   type AgentTrajectory,
+  CrucibleTrainingClient,
+  createCrucibleTrainingClient,
   type TrainingAgentConfig,
   type TrainingEnvironment,
   type TrainingMetrics as CrucibleTrainingMetrics,
   type TrainingRun,
   type TrajectoryStep,
-} from './crucible';
-
-export {
-  createAutocratTrainingClient,
-  AutocratTrainingClient,
-  type ModelDeploymentProposal,
-  type TrainingProposal,
-} from './autocrat';
-
+} from './crucible'

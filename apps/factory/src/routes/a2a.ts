@@ -365,7 +365,7 @@ export const a2aRoutes = new Elysia({ prefix: '/api/a2a' })
 
       const dataPart = message.parts.find(
         (p: { kind: string }) => p.kind === 'data',
-      )
+      ) as { kind: string; data?: Record<string, unknown> } | undefined
       if (!dataPart?.data) {
         return {
           jsonrpc: '2.0',
@@ -374,7 +374,8 @@ export const a2aRoutes = new Elysia({ prefix: '/api/a2a' })
         }
       }
 
-      const skillId = dataPart.data.skillId as string
+      const dataObj = dataPart.data as Record<string, unknown>
+      const skillId = dataObj.skillId as string
       if (!skillId) {
         return {
           jsonrpc: '2.0',

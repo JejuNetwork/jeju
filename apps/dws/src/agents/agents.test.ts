@@ -331,7 +331,8 @@ Also scheduling a meeting. [ACTION: SCHEDULE_MEETING | time=9:00, attendees=team
     const actionRegex = /\[ACTION:\s*(\w+)\s*\|([^\]]+)\]/g
 
     let match: RegExpExecArray | null
-    while ((match = actionRegex.exec(text)) !== null) {
+    match = actionRegex.exec(text)
+    while (match !== null) {
       const name = match[1]
       const paramsStr = match[2]
       const params: Record<string, string> = {}
@@ -345,6 +346,7 @@ Also scheduling a meeting. [ACTION: SCHEDULE_MEETING | time=9:00, attendees=team
       }
 
       actions.push({ name, params })
+      match = actionRegex.exec(text)
     }
 
     expect(actions).toHaveLength(2)

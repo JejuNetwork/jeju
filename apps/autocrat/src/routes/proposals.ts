@@ -4,7 +4,7 @@
 
 import { Elysia, t } from 'elysia'
 import { getProposalAssistant, type ProposalDraft } from '../proposal-assistant'
-import { blockchain, config } from '../server'
+import { blockchain, config } from '../shared-state'
 import type { CasualProposalCategory, ProposalType } from '../types'
 
 const proposalAssistant = getProposalAssistant()

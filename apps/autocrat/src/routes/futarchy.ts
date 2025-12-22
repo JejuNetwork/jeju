@@ -4,7 +4,7 @@
 
 import { Elysia, t } from 'elysia'
 import { type FutarchyConfig, getFutarchyClient } from '../futarchy'
-import { config } from '../server'
+import { config } from '../shared-state'
 
 const ZERO_ADDR = '0x0000000000000000000000000000000000000000' as `0x${string}`
 

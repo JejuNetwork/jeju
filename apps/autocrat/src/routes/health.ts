@@ -6,7 +6,7 @@ import { Elysia } from 'elysia'
 import { type ERC8004Config, getERC8004Client } from '../erc8004'
 import { type FutarchyConfig, getFutarchyClient } from '../futarchy'
 import { getModerationSystem } from '../moderation'
-import { config, getOrchestrator, metricsData } from '../server'
+import { config, getOrchestrator, metricsData } from '../shared-state'
 import { getTEEMode } from '../tee'
 
 const ZERO_ADDR = '0x0000000000000000000000000000000000000000' as `0x${string}`

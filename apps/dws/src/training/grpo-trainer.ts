@@ -437,7 +437,9 @@ print(f"METRICS:{avg_loss},{pos_logp},{neg_logp},{total_logp},{grad_norm},{confi
     }
 
     // Parse metrics from Python output
-    const match = output.match(/METRICS:([\d.e+-]+),([\d.e+-]+),([\d.e+-]+),([\d.e+-]+),([\d.e+-]+),([\d.e+-]+)/)
+    const match = output.match(
+      /METRICS:([\d.e+-]+),([\d.e+-]+),([\d.e+-]+),([\d.e+-]+),([\d.e+-]+),([\d.e+-]+)/,
+    )
     if (!match) {
       throw new Error(`Failed to parse training metrics: ${output}`)
     }

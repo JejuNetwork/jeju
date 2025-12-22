@@ -13,76 +13,92 @@
 import {
   type Address,
   type Hash,
-  type PublicClient,
-  type WalletClient,
-  parseAbi,
   type Hex,
-} from 'viem';
+  type PublicClient,
+  parseAbi,
+  type WalletClient,
+} from 'viem'
 
 // ============ Types ============
 
-export type AgreementType = 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'BOUNTY_BASED' | 'RETAINER';
-export type AgreementStatus = 'DRAFT' | 'PENDING_SIGNATURE' | 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'TERMINATED' | 'DISPUTED';
-export type DisputeStatus = 'NONE' | 'COUNCIL_REVIEW' | 'FUTARCHY_PENDING' | 'RESOLVED';
+export type AgreementType =
+  | 'FULL_TIME'
+  | 'PART_TIME'
+  | 'CONTRACT'
+  | 'BOUNTY_BASED'
+  | 'RETAINER'
+export type AgreementStatus =
+  | 'DRAFT'
+  | 'PENDING_SIGNATURE'
+  | 'ACTIVE'
+  | 'PAUSED'
+  | 'COMPLETED'
+  | 'TERMINATED'
+  | 'DISPUTED'
+export type DisputeStatus =
+  | 'NONE'
+  | 'COUNCIL_REVIEW'
+  | 'FUTARCHY_PENDING'
+  | 'RESOLVED'
 
 export interface TokenAmount {
-  token: Address;
-  amount: bigint;
+  token: Address
+  amount: bigint
 }
 
 export interface Agreement {
-  agreementId: string;
-  daoId: string;
-  contributor: Address;
-  contributorId: string;
-  agreementType: AgreementType;
-  title: string;
-  scopeUri: string;
-  compensation: TokenAmount;
-  paymentPeriod: number;
-  duration: number;
-  startDate: number;
-  endDate: number;
-  status: AgreementStatus;
-  lastPaymentAt: number;
-  totalPaid: bigint;
-  paymentsCompleted: number;
-  createdAt: number;
-  signedAt: number;
+  agreementId: string
+  daoId: string
+  contributor: Address
+  contributorId: string
+  agreementType: AgreementType
+  title: string
+  scopeUri: string
+  compensation: TokenAmount
+  paymentPeriod: number
+  duration: number
+  startDate: number
+  endDate: number
+  status: AgreementStatus
+  lastPaymentAt: number
+  totalPaid: bigint
+  paymentsCompleted: number
+  createdAt: number
+  signedAt: number
 }
 
 export interface Milestone {
-  milestoneId: string;
-  agreementId: string;
-  title: string;
-  description: string;
-  dueDate: number;
-  payment: bigint;
-  completed: boolean;
-  completedAt: number;
-  deliverableUri: string;
+  milestoneId: string
+  agreementId: string
+  title: string
+  description: string
+  dueDate: number
+  payment: bigint
+  completed: boolean
+  completedAt: number
+  deliverableUri: string
 }
 
 export interface Dispute {
-  disputeId: string;
-  agreementId: string;
-  initiator: Address;
-  reason: string;
-  evidenceUri: string;
-  status: DisputeStatus;
-  councilDeadline: number;
-  councilApprovals: number;
-  councilRejections: number;
-  futarchyCaseId: string;
-  createdAt: number;
-  resolvedAt: number;
-  inFavorOfContributor: boolean;
+  disputeId: string
+  agreementId: string
+  initiator: Address
+  reason: string
+  evidenceUri: string
+  status: DisputeStatus
+  councilDeadline: number
+  councilApprovals: number
+  councilRejections: number
+  futarchyCaseId: string
+  createdAt: number
+  resolvedAt: number
+  inFavorOfContributor: boolean
 }
 
 export interface WorkAgreementServiceConfig {
-  publicClient: PublicClient;
-  walletClient?: WalletClient;
-  registryAddress: Address;
+  publicClient: PublicClient
+  walletClient?: WalletClient
+  registryAddress: Address
 }
 
 // ============ Contract ABI ============
@@ -122,7 +138,7 @@ const WORK_AGREEMENT_REGISTRY_ABI = parseAbi([
   'function getDAOAgreements(bytes32 daoId) external view returns (bytes32[])',
   'function getContributorAgreements(address contributor) external view returns (bytes32[])',
   'function getActiveAgreements(bytes32 daoId) external view returns (tuple(bytes32, bytes32, address, bytes32, uint8, string, string, address, uint256, uint256, uint256, uint256, uint256, uint8, uint256, uint256, uint256, uint256, uint256)[])',
-]);
+])
 
 // ============ Status Mappings ============
 
@@ -132,7 +148,7 @@ const AGREEMENT_TYPE_MAP: Record<number, AgreementType> = {
   2: 'CONTRACT',
   3: 'BOUNTY_BASED',
   4: 'RETAINER',
-};
+}
 
 const AGREEMENT_STATUS_MAP: Record<number, AgreementStatus> = {
   0: 'DRAFT',
@@ -142,26 +158,26 @@ const AGREEMENT_STATUS_MAP: Record<number, AgreementStatus> = {
   4: 'COMPLETED',
   5: 'TERMINATED',
   6: 'DISPUTED',
-};
+}
 
 const DISPUTE_STATUS_MAP: Record<number, DisputeStatus> = {
   0: 'NONE',
   1: 'COUNCIL_REVIEW',
   2: 'FUTARCHY_PENDING',
   3: 'RESOLVED',
-};
+}
 
 // ============ Service Class ============
 
 export class WorkAgreementService {
-  private publicClient: PublicClient;
-  private walletClient: WalletClient | null;
-  private registryAddress: Address;
+  private publicClient: PublicClient
+  private walletClient: WalletClient | null
+  private registryAddress: Address
 
   constructor(config: WorkAgreementServiceConfig) {
-    this.publicClient = config.publicClient;
-    this.walletClient = config.walletClient || null;
-    this.registryAddress = config.registryAddress;
+    this.publicClient = config.publicClient
+    this.walletClient = config.walletClient || null
+    this.registryAddress = config.registryAddress
   }
 
   // ============ Agreement Creation ============
@@ -177,11 +193,14 @@ export class WorkAgreementService {
     compensationAmount: bigint,
     paymentPeriod: number,
     duration: number,
-    startDate?: number
+    startDate?: number,
   ): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    if (!this.walletClient) throw new Error('Wallet client required')
 
-    const typeIndex = Object.entries(AGREEMENT_TYPE_MAP).find(([_, v]) => v === agreementType)?.[0] || '0';
+    const typeIndex =
+      Object.entries(AGREEMENT_TYPE_MAP).find(
+        ([_, v]) => v === agreementType,
+      )?.[0] || '0'
 
     return await this.walletClient.writeContract({
       address: this.registryAddress,
@@ -200,51 +219,51 @@ export class WorkAgreementService {
         BigInt(duration),
         BigInt(startDate || 0),
       ],
-    });
+    })
   }
 
   async signAgreement(agreementId: string): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    if (!this.walletClient) throw new Error('Wallet client required')
 
     return await this.walletClient.writeContract({
       address: this.registryAddress,
       abi: WORK_AGREEMENT_REGISTRY_ABI,
       functionName: 'signAgreement',
       args: [agreementId as Hex],
-    });
+    })
   }
 
   async pauseAgreement(agreementId: string): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    if (!this.walletClient) throw new Error('Wallet client required')
 
     return await this.walletClient.writeContract({
       address: this.registryAddress,
       abi: WORK_AGREEMENT_REGISTRY_ABI,
       functionName: 'pauseAgreement',
       args: [agreementId as Hex],
-    });
+    })
   }
 
   async resumeAgreement(agreementId: string): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    if (!this.walletClient) throw new Error('Wallet client required')
 
     return await this.walletClient.writeContract({
       address: this.registryAddress,
       abi: WORK_AGREEMENT_REGISTRY_ABI,
       functionName: 'resumeAgreement',
       args: [agreementId as Hex],
-    });
+    })
   }
 
   async terminateAgreement(agreementId: string, reason: string): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    if (!this.walletClient) throw new Error('Wallet client required')
 
     return await this.walletClient.writeContract({
       address: this.registryAddress,
       abi: WORK_AGREEMENT_REGISTRY_ABI,
       functionName: 'terminateAgreement',
       args: [agreementId as Hex, reason],
-    });
+    })
   }
 
   // ============ Milestones ============
@@ -254,55 +273,58 @@ export class WorkAgreementService {
     title: string,
     description: string,
     dueDate: number,
-    payment: bigint
+    payment: bigint,
   ): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    if (!this.walletClient) throw new Error('Wallet client required')
 
     return await this.walletClient.writeContract({
       address: this.registryAddress,
       abi: WORK_AGREEMENT_REGISTRY_ABI,
       functionName: 'addMilestone',
       args: [agreementId as Hex, title, description, BigInt(dueDate), payment],
-    });
+    })
   }
 
   async completeMilestone(
     agreementId: string,
     milestoneIndex: number,
-    deliverableUri: string
+    deliverableUri: string,
   ): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    if (!this.walletClient) throw new Error('Wallet client required')
 
     return await this.walletClient.writeContract({
       address: this.registryAddress,
       abi: WORK_AGREEMENT_REGISTRY_ABI,
       functionName: 'completeMilestone',
       args: [agreementId as Hex, BigInt(milestoneIndex), deliverableUri],
-    });
+    })
   }
 
-  async approveMilestone(agreementId: string, milestoneIndex: number): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+  async approveMilestone(
+    agreementId: string,
+    milestoneIndex: number,
+  ): Promise<Hash> {
+    if (!this.walletClient) throw new Error('Wallet client required')
 
     return await this.walletClient.writeContract({
       address: this.registryAddress,
       abi: WORK_AGREEMENT_REGISTRY_ABI,
       functionName: 'approveMilestone',
       args: [agreementId as Hex, BigInt(milestoneIndex)],
-    });
+    })
   }
 
   // ============ Payments ============
 
   async processPayment(agreementId: string): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    if (!this.walletClient) throw new Error('Wallet client required')
 
     return await this.walletClient.writeContract({
       address: this.registryAddress,
       abi: WORK_AGREEMENT_REGISTRY_ABI,
       functionName: 'processPayment',
       args: [agreementId as Hex],
-    });
+    })
   }
 
   // ============ Disputes ============
@@ -310,51 +332,74 @@ export class WorkAgreementService {
   async raiseDispute(
     agreementId: string,
     reason: string,
-    evidenceUri: string
+    evidenceUri: string,
   ): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    if (!this.walletClient) throw new Error('Wallet client required')
 
     return await this.walletClient.writeContract({
       address: this.registryAddress,
       abi: WORK_AGREEMENT_REGISTRY_ABI,
       functionName: 'raiseDispute',
       args: [agreementId as Hex, reason, evidenceUri],
-    });
+    })
   }
 
-  async voteOnDispute(disputeId: string, inFavorOfContributor: boolean): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+  async voteOnDispute(
+    disputeId: string,
+    inFavorOfContributor: boolean,
+  ): Promise<Hash> {
+    if (!this.walletClient) throw new Error('Wallet client required')
 
     return await this.walletClient.writeContract({
       address: this.registryAddress,
       abi: WORK_AGREEMENT_REGISTRY_ABI,
       functionName: 'voteOnDispute',
       args: [disputeId as Hex, inFavorOfContributor],
-    });
+    })
   }
 
   async escalateToFutarchy(disputeId: string): Promise<Hash> {
-    if (!this.walletClient) throw new Error('Wallet client required');
+    if (!this.walletClient) throw new Error('Wallet client required')
 
     return await this.walletClient.writeContract({
       address: this.registryAddress,
       abi: WORK_AGREEMENT_REGISTRY_ABI,
       functionName: 'escalateToFutarchy',
       args: [disputeId as Hex],
-    });
+    })
   }
 
   // ============ View Functions ============
 
   async getAgreement(agreementId: string): Promise<Agreement | null> {
-    const result = await this.publicClient.readContract({
+    const result = (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: WORK_AGREEMENT_REGISTRY_ABI,
       functionName: 'getAgreement',
       args: [agreementId as Hex],
-    }) as [Hex, Hex, Address, Hex, number, string, string, Address, bigint, bigint, bigint, bigint, bigint, number, bigint, bigint, bigint, bigint, bigint];
+    })) as [
+      Hex,
+      Hex,
+      Address,
+      Hex,
+      number,
+      string,
+      string,
+      Address,
+      bigint,
+      bigint,
+      bigint,
+      bigint,
+      bigint,
+      number,
+      bigint,
+      bigint,
+      bigint,
+      bigint,
+      bigint,
+    ]
 
-    if (result[17] === 0n) return null; // createdAt == 0 means not found
+    if (result[17] === 0n) return null // createdAt == 0 means not found
 
     return {
       agreementId: result[0],
@@ -375,28 +420,28 @@ export class WorkAgreementService {
       paymentsCompleted: Number(result[16]),
       createdAt: Number(result[17]),
       signedAt: Number(result[18]),
-    };
+    }
   }
 
   async getMilestones(agreementId: string): Promise<Milestone[]> {
-    const result = await this.publicClient.readContract({
+    const result = (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: WORK_AGREEMENT_REGISTRY_ABI,
       functionName: 'getMilestones',
       args: [agreementId as Hex],
-    }) as Array<{
-      milestoneId: Hex;
-      agreementId: Hex;
-      title: string;
-      description: string;
-      dueDate: bigint;
-      payment: bigint;
-      completed: boolean;
-      completedAt: bigint;
-      deliverableUri: string;
-    }>;
+    })) as Array<{
+      milestoneId: Hex
+      agreementId: Hex
+      title: string
+      description: string
+      dueDate: bigint
+      payment: bigint
+      completed: boolean
+      completedAt: bigint
+      deliverableUri: string
+    }>
 
-    return result.map(m => ({
+    return result.map((m) => ({
       milestoneId: m.milestoneId,
       agreementId: m.agreementId,
       title: m.title,
@@ -406,18 +451,32 @@ export class WorkAgreementService {
       completed: m.completed,
       completedAt: Number(m.completedAt),
       deliverableUri: m.deliverableUri,
-    }));
+    }))
   }
 
   async getDispute(disputeId: string): Promise<Dispute | null> {
-    const result = await this.publicClient.readContract({
+    const result = (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: WORK_AGREEMENT_REGISTRY_ABI,
       functionName: 'getDispute',
       args: [disputeId as Hex],
-    }) as [Hex, Hex, Address, string, string, number, bigint, bigint, bigint, Hex, bigint, bigint, boolean];
+    })) as [
+      Hex,
+      Hex,
+      Address,
+      string,
+      string,
+      number,
+      bigint,
+      bigint,
+      bigint,
+      Hex,
+      bigint,
+      bigint,
+      boolean,
+    ]
 
-    if (result[10] === 0n) return null; // createdAt == 0
+    if (result[10] === 0n) return null // createdAt == 0
 
     return {
       disputeId: result[0],
@@ -433,61 +492,62 @@ export class WorkAgreementService {
       createdAt: Number(result[10]),
       resolvedAt: Number(result[11]),
       inFavorOfContributor: result[12],
-    };
+    }
   }
 
   async getDAOAgreements(daoId: string): Promise<string[]> {
-    return await this.publicClient.readContract({
+    return (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: WORK_AGREEMENT_REGISTRY_ABI,
       functionName: 'getDAOAgreements',
       args: [daoId as Hex],
-    }) as string[];
+    })) as string[]
   }
 
   async getContributorAgreements(contributor: Address): Promise<string[]> {
-    return await this.publicClient.readContract({
+    return (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: WORK_AGREEMENT_REGISTRY_ABI,
       functionName: 'getContributorAgreements',
       args: [contributor],
-    }) as string[];
+    })) as string[]
   }
 
   async getLinkedBounties(agreementId: string): Promise<string[]> {
-    return await this.publicClient.readContract({
+    return (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: WORK_AGREEMENT_REGISTRY_ABI,
       functionName: 'getLinkedBounties',
       args: [agreementId as Hex],
-    }) as string[];
+    })) as string[]
   }
 
   async getLinkedPaymentRequests(agreementId: string): Promise<string[]> {
-    return await this.publicClient.readContract({
+    return (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: WORK_AGREEMENT_REGISTRY_ABI,
       functionName: 'getLinkedPaymentRequests',
       args: [agreementId as Hex],
-    }) as string[];
+    })) as string[]
   }
 }
 
 // ============ Singleton ============
 
-let service: WorkAgreementService | null = null;
+let service: WorkAgreementService | null = null
 
-export function getWorkAgreementService(config?: WorkAgreementServiceConfig): WorkAgreementService {
+export function getWorkAgreementService(
+  config?: WorkAgreementServiceConfig,
+): WorkAgreementService {
   if (!service && config) {
-    service = new WorkAgreementService(config);
+    service = new WorkAgreementService(config)
   }
   if (!service) {
-    throw new Error('WorkAgreementService not initialized');
+    throw new Error('WorkAgreementService not initialized')
   }
-  return service;
+  return service
 }
 
 export function resetWorkAgreementService(): void {
-  service = null;
+  service = null
 }
-

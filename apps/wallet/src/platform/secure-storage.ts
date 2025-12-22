@@ -113,10 +113,16 @@ class WebSecureStorage implements SecureStorageAdapter {
       )
     }
 
+    // Create new ArrayBuffer views to ensure proper typing for SubtleCrypto
+    const ivBuffer = new ArrayBuffer(ivBytes.length)
+    new Uint8Array(ivBuffer).set(ivBytes)
+    const dataBuffer = new ArrayBuffer(dataBytes.length)
+    new Uint8Array(dataBuffer).set(dataBytes)
+
     const decrypted = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: ivBytes as Uint8Array },
+      { name: 'AES-GCM', iv: new Uint8Array(ivBuffer) },
       cryptoKey,
-      dataBytes as Uint8Array,
+      new Uint8Array(dataBuffer),
     )
 
     return new TextDecoder().decode(decrypted)

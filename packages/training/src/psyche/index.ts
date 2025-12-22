@@ -6,26 +6,24 @@
  */
 
 export {
-  createPsycheClient,
-  PsycheClient,
-  type ClientInfo,
-  type CoordinatorConfig,
-  type CoordinatorProgress,
-  type CoordinatorState,
-  type Model,
-  type PsycheConfig,
-  type RunMetadata,
-  type TrainingMetrics as PsycheTrainingMetrics,
-  type WitnessProof,
-} from './psyche-client';
-
-export {
-  createCrossChainBridge,
-  CrossChainTrainingBridge,
   type BridgeConfig,
   type BridgedRunState,
   type CheckpointData,
   type ClientRegistration,
+  CrossChainTrainingBridge,
+  createCrossChainBridge,
   type RewardDistribution,
-} from './cross-chain-bridge';
-
+} from './cross-chain-bridge'
+export {
+  type ClientInfo,
+  type CoordinatorConfig,
+  type CoordinatorProgress,
+  type CoordinatorState,
+  createPsycheClient,
+  type Model,
+  PsycheClient,
+  type PsycheConfig,
+  type RunMetadata,
+  type TrainingMetrics as PsycheTrainingMetrics,
+  type WitnessProof,
+} from './psyche-client'

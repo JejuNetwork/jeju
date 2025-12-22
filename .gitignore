@@ -134,3 +134,7 @@ test-ledger/
 
 # CQL local development data
 .cql-data/
+
+# Tauri build artifacts
+**/src-tauri/gen/
+**/src-tauri/target/
