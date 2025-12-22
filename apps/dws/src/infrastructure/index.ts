@@ -69,6 +69,19 @@
  */
 
 export { createHelmProviderRouter } from './helm-provider'
+// K3s/K3d cluster management
+export {
+  createK3sRouter,
+  createCluster as createK3sCluster,
+  deleteCluster as deleteK3sCluster,
+  getCluster as getK3sCluster,
+  listClusters as listK3sClusters,
+  installHelmChart,
+  applyManifest as applyK8sManifest,
+  installDWSAgent,
+} from './k3s-provider'
+export type { K3sCluster, K3sClusterConfig, ClusterProvider, K3sNode } from './k3s-provider'
+
 // Ingress Controller
 export {
   type BackendConfig,
@@ -276,6 +289,27 @@ export async function deployWorker(
     env: params.env ?? {},
     secrets: [],
   })
+}
+
+// ============================================================================
+// Deployment Context (for Helm/Terraform)
+// ============================================================================
+
+export interface DeploymentContext {
+  localDockerEnabled?: boolean
+  nodeEndpoints?: string[]
+  k3sCluster?: string
+}
+
+let currentDeploymentContext: DeploymentContext = {}
+
+export function setDeploymentContext(ctx: DeploymentContext): void {
+  currentDeploymentContext = ctx
+  console.log('[Infrastructure] Deployment context set:', ctx)
+}
+
+export function getDeploymentContext(): DeploymentContext {
+  return currentDeploymentContext
 }
 
 // ============================================================================

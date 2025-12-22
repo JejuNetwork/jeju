@@ -688,6 +688,11 @@ const installChartSchema = z.object({
 export function createK3sRouter(): Hono {
   const router = new Hono();
   
+  // Health check
+  router.get('/health', (c) => {
+    return c.json({ status: 'healthy', provider: 'dws-k3s' });
+  });
+  
   // List clusters
   router.get('/clusters', (c) => {
     const clusterList = listClusters().map(cl => ({

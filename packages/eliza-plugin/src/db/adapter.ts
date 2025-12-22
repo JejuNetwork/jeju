@@ -7,7 +7,6 @@
  * NO SQLITE. NO POSTGRES. CQL ONLY.
  */
 
-// @ts-nocheck - ElizaOS types are complex, enable strict checking incrementally
 import {
   type Agent,
   type Component,
@@ -265,7 +264,7 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
           entity.id ?? uuidv4(),
           entity.agentId ?? this.agentId,
           this.toJson(entity.names as JsonValue),
-          this.toJson(entity.metadata as JsonValue ?? {}),
+          this.toJson((entity.metadata ?? {}) as JsonValue),
         ]
       );
     }
@@ -273,11 +272,12 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
   }
 
   async updateEntity(entity: Entity): Promise<void> {
+    if (!entity.id) throw new Error('Entity ID required for update');
     await this.exec(
       'UPDATE entities SET names = ?, metadata = ?, updated_at = ? WHERE id = ?',
       [
         this.toJson(entity.names as JsonValue),
-        this.toJson(entity.metadata as JsonValue ?? {}),
+        this.toJson((entity.metadata ?? {}) as JsonValue),
         Date.now(),
         entity.id,
       ]
@@ -697,8 +697,8 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
         id,
         world.agentId ?? this.agentId,
         world.name ?? 'Default World',
-        world.serverId ?? null,
-        this.toJson(world.metadata as JsonValue ?? {}),
+        world.serverId ?? '',
+        this.toJson((world.metadata ?? {}) as JsonValue),
       ]
     );
     return id;
@@ -748,11 +748,12 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
   }
 
   async updateWorld(world: World): Promise<void> {
+    if (!world.id) throw new Error('World ID required for update');
     await this.exec(
       'UPDATE worlds SET name = ?, metadata = ?, updated_at = ? WHERE id = ?',
       [
-        world.name,
-        this.toJson(world.metadata as JsonValue ?? {}),
+        world.name ?? '',
+        this.toJson((world.metadata ?? {}) as JsonValue),
         Date.now(),
         world.id,
       ]
@@ -797,12 +798,12 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
         'INSERT INTO rooms (id, world_id, name, source, type, channel_id, metadata) VALUES (?, ?, ?, ?, ?, ?, ?)',
         [
           id,
-          room.worldId ?? null,
+          room.worldId ?? '',
           room.name ?? 'Default Room',
           room.source ?? 'api',
           room.type ?? 'DM',
-          room.channelId ?? null,
-          this.toJson(room.metadata as JsonValue ?? {}),
+          room.channelId ?? '',
+          this.toJson((room.metadata ?? {}) as JsonValue),
         ]
       );
       ids.push(id);
@@ -820,11 +821,12 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
   }
 
   async updateRoom(room: Room): Promise<void> {
+    if (!room.id) throw new Error('Room ID required for update');
     await this.exec(
       'UPDATE rooms SET name = ?, metadata = ?, updated_at = ? WHERE id = ?',
       [
-        room.name,
-        this.toJson(room.metadata as JsonValue ?? {}),
+        room.name ?? '',
+        this.toJson((room.metadata ?? {}) as JsonValue),
         Date.now(),
         room.id,
       ]
@@ -926,7 +928,7 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
       agentId: row.agent_id as UUID,
       tags: [],
       metadata: this.fromJson<Record<string, unknown>>(row.metadata) ?? {},
-      createdAt: row.created_at,
+      createdAt: new Date(row.created_at).toISOString(),
     } as Relationship;
   }
 
@@ -951,7 +953,7 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
       agentId: row.agent_id as UUID,
       tags: [],
       metadata: this.fromJson<Record<string, unknown>>(row.metadata) ?? {},
-      createdAt: row.created_at,
+      createdAt: new Date(row.created_at).toISOString(),
     })) as Relationship[];
   }
 
@@ -1242,7 +1244,150 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
     to?: number;
     entityId?: UUID;
   }): Promise<AgentRunSummaryResult> {
-    return { runs: [] };
+    return { runs: [], total: 0, hasMore: false };
+  }
+
+  // Additional required methods for DatabaseAdapter
+
+  async runPluginMigrations(
+    _plugins: { name: string; schema?: Record<string, string | number | boolean | Record<string, unknown> | null> }[],
+    _options?: { verbose?: boolean; force?: boolean; dryRun?: boolean }
+  ): Promise<void> {
+    // Plugin-specific migrations not needed for CQL
+  }
+
+  async getRoomsByWorld(worldId: UUID): Promise<Room[]> {
+    const rows = await this.query<{
+      id: string;
+      world_id: string | null;
+      name: string;
+      source: string;
+      type: string;
+      channel_id: string | null;
+      metadata: string;
+    }>('SELECT * FROM rooms WHERE world_id = ?', [worldId]);
+
+    return rows.map(row => ({
+      id: row.id as UUID,
+      worldId: row.world_id as UUID | undefined,
+      name: row.name,
+      source: row.source,
+      type: row.type,
+      channelId: row.channel_id ?? undefined,
+      metadata: this.fromJson<Record<string, unknown>>(row.metadata) ?? {},
+    })) as Room[];
+  }
+
+  async addParticipantsRoom(entityIds: UUID[], roomId: UUID): Promise<boolean> {
+    for (const entityId of entityIds) {
+      await this.addParticipant(entityId, roomId);
+    }
+    return true;
+  }
+
+  async getParticipantsForEntity(entityId: UUID): Promise<{ id: UUID; roomId: UUID; entity: Entity }[]> {
+    const rows = await this.query<{ id: string; room_id: string; entity_id: string }>(
+      'SELECT p.id, p.room_id, p.entity_id FROM participants p WHERE p.entity_id = ?',
+      [entityId]
+    );
+
+    const entityData = await this.getEntityById(entityId);
+    const entity: Entity = entityData ?? {
+      id: entityId,
+      agentId: this.agentId,
+      names: [],
+      metadata: {},
+    } as Entity;
+
+    return rows.map(row => ({
+      id: row.id as UUID,
+      roomId: row.room_id as UUID,
+      entity,
+    }));
+  }
+
+  async isRoomParticipant(entityId: UUID, roomId: UUID): Promise<boolean> {
+    const rows = await this.query<{ count: number }>(
+      'SELECT COUNT(*) as count FROM participants WHERE entity_id = ? AND room_id = ?',
+      [entityId, roomId]
+    );
+    return (rows[0]?.count ?? 0) > 0;
+  }
+
+  async getTasksByName(name: string): Promise<Task[]> {
+    const rows = await this.query<{
+      id: string;
+      room_id: string | null;
+      world_id: string | null;
+      name: string;
+      description: string | null;
+      tags: string | null;
+      metadata: string | null;
+      status: string;
+      priority: number;
+      created_at: number;
+    }>('SELECT * FROM tasks WHERE name = ?', [name]);
+
+    return rows.map(row => ({
+      id: row.id as UUID,
+      roomId: row.room_id as UUID | undefined,
+      worldId: row.world_id as UUID | undefined,
+      name: row.name,
+      description: row.description ?? '',
+      tags: row.tags ? this.fromJson<string[]>(row.tags) ?? [] : [],
+      metadata: row.metadata ? this.fromJson<Record<string, unknown>>(row.metadata) ?? {} : {},
+    })) as Task[];
+  }
+
+  async getParticipantsByEntityIds(entityIds: UUID[]): Promise<Map<UUID, UUID[]>> {
+    const result = new Map<UUID, UUID[]>();
+    if (entityIds.length === 0) return result;
+
+    const placeholders = entityIds.map(() => '?').join(', ');
+    const rows = await this.query<{ entity_id: string; room_id: string }>(
+      `SELECT entity_id, room_id FROM participants WHERE entity_id IN (${placeholders})`,
+      entityIds
+    );
+
+    for (const row of rows) {
+      const entityId = row.entity_id as UUID;
+      const roomIds = result.get(entityId) ?? [];
+      roomIds.push(row.room_id as UUID);
+      result.set(entityId, roomIds);
+    }
+
+    return result;
+  }
+
+  async getMemoriesByWorldId(params: { worldId: UUID; tableName?: string; limit?: number }): Promise<Memory[]> {
+    let sql = 'SELECT * FROM memories WHERE world_id = ? ORDER BY created_at DESC';
+    const sqlParams: QueryParam[] = [params.worldId];
+
+    if (params.limit) {
+      sql += ' LIMIT ?';
+      sqlParams.push(params.limit);
+    }
+
+    const rows = await this.query<{
+      id: string;
+      entity_id: string;
+      room_id: string;
+      content: string;
+      created_at: number;
+    }>(sql, sqlParams);
+
+    return rows.map(row => ({
+      id: row.id as UUID,
+      entityId: row.entity_id as UUID,
+      roomId: row.room_id as UUID,
+      content: this.fromJson(row.content) ?? { text: '' },
+      createdAt: row.created_at,
+    })) as Memory[];
+  }
+
+  async getEntityById(entityId: UUID): Promise<Entity | null> {
+    const entities = await this.getEntitiesByIds([entityId]);
+    return entities?.[0] ?? null;
   }
 
   // ============================================================================

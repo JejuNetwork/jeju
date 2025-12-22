@@ -1,0 +1,63 @@
+{
+  "name": "@jejunetwork/training",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Jeju Training Infrastructure - GRPO, Psyche, RLAIF, Benchmarking, and HuggingFace integration",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "require": "./src/index.ts"
+    },
+    "./grpo": {
+      "types": "./src/grpo/index.ts",
+      "import": "./src/grpo/index.ts"
+    },
+    "./psyche": {
+      "types": "./src/psyche/index.ts",
+      "import": "./src/psyche/index.ts"
+    },
+    "./environments": {
+      "types": "./src/environments/index.ts",
+      "import": "./src/environments/index.ts"
+    },
+    "./compute": {
+      "types": "./src/compute/index.ts",
+      "import": "./src/compute/index.ts"
+    },
+    "./integrations": {
+      "types": "./src/integrations/index.ts",
+      "import": "./src/integrations/index.ts"
+    }
+  },
+  "scripts": {
+    "lint": "biome lint src/",
+    "typecheck": "tsc --noEmit",
+    "train": "bun run scripts/train.ts",
+    "test": "bun test",
+    "benchmark": "bun run scripts/benchmark.ts"
+  },
+  "dependencies": {
+    "@huggingface/inference": "^3.3.3",
+    "@jejunetwork/config": "workspace:*",
+    "@jejunetwork/kms": "workspace:*",
+    "@jejunetwork/sdk": "workspace:*",
+    "@jejunetwork/shared": "workspace:*",
+    "@solana/web3.js": "^1.98.0",
+    "borsh": "^2.0.0",
+    "ethers": "^6.14.4",
+    "hono": "^4.6.0",
+    "uuid": "^13.0.0",
+    "viem": "^2.31.3",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "@types/uuid": "^10.0.0",
+    "bun-types": "^1.3.2",
+    "typescript": "^5.9.3"
+  }
+}
+

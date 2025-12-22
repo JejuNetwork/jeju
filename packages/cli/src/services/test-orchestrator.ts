@@ -100,19 +100,18 @@ export class TestOrchestrator {
 
     // Step 1: Acquire lock
     if (!this.options.skipLock) {
-      try {
-        logger.step('Acquiring test lock...')
-        // @ts-expect-error - optional peer dependency
-        const lockModule = (await import(
-          '@jejunetwork/tests/lock-manager'
-        )) as {
-          LockManager: new (opts: {
-            force?: boolean
-          }) => {
-            acquireLock: () => { acquired: boolean; message?: string }
-            releaseLock: () => boolean
-          }
+      logger.step('Acquiring test lock...')
+      type LockManagerModule = {
+        LockManager: new (opts: { force?: boolean }) => {
+          acquireLock: () => { acquired: boolean; message?: string }
+          releaseLock: () => boolean
         }
+      }
+      const lockModule = await import('@jejunetwork/tests/lock-manager').catch(
+        () => null,
+      ) as LockManagerModule | null
+
+      if (lockModule) {
         this.lockManager = new lockModule.LockManager({
           force: this.options.force,
         })
@@ -122,10 +121,8 @@ export class TestOrchestrator {
           throw new Error(lockResult.message || 'Failed to acquire test lock')
         }
         logger.success('Lock acquired')
-      } catch (error) {
-        logger.warn(
-          `Lock manager not available: ${error instanceof Error ? error.message : String(error)}`,
-        )
+      } else {
+        logger.warn('Lock manager not available')
         logger.warn(
           'Continuing without lock - concurrent test runs may conflict',
         )
@@ -186,28 +183,29 @@ export class TestOrchestrator {
 
     // Step 5: Run preflight checks
     if (!this.options.skipPreflight && MODE_NEEDS_LOCALNET[this.options.mode]) {
-      try {
-        logger.step('Running preflight checks...')
-        const envVars = this.getEnvVars()
-        const rpcUrl = envVars.L2_RPC_URL ?? envVars.JEJU_RPC_URL
-        if (!rpcUrl) {
-          throw new Error(
-            'No RPC URL available for preflight checks. Localnet may not have started properly.',
-          )
-        }
-        const chainId = envVars.CHAIN_ID
-        if (!chainId) {
-          throw new Error('No CHAIN_ID available for preflight checks.')
-        }
-        // @ts-expect-error - optional peer dependency
-        const preflightModule = (await import(
-          '@jejunetwork/tests/preflight'
-        )) as {
-          runPreflightChecks: (opts: {
-            rpcUrl: string
-            chainId: number
-          }) => Promise<{ success: boolean }>
-        }
+      logger.step('Running preflight checks...')
+      const envVars = this.getEnvVars()
+      const rpcUrl = envVars.L2_RPC_URL ?? envVars.JEJU_RPC_URL
+      if (!rpcUrl) {
+        throw new Error(
+          'No RPC URL available for preflight checks. Localnet may not have started properly.',
+        )
+      }
+      const chainId = envVars.CHAIN_ID
+      if (!chainId) {
+        throw new Error('No CHAIN_ID available for preflight checks.')
+      }
+      type PreflightModule = {
+        runPreflightChecks: (opts: {
+          rpcUrl: string
+          chainId: number
+        }) => Promise<{ success: boolean }>
+      }
+      const preflightModule = await import('@jejunetwork/tests/preflight').catch(
+        () => null,
+      ) as PreflightModule | null
+
+      if (preflightModule) {
         const preflightResult = await preflightModule.runPreflightChecks({
           rpcUrl,
           chainId: parseInt(chainId, 10),
@@ -216,17 +214,9 @@ export class TestOrchestrator {
         if (!preflightResult.success) {
           throw new Error('Preflight checks failed')
         }
-      } catch (error) {
-        if (
-          error instanceof Error &&
-          error.message === 'Preflight checks failed'
-        ) {
-          throw error
-        }
-        logger.warn(
-          `Preflight module not available: ${error instanceof Error ? error.message : String(error)}`,
-        )
-        logger.warn('Continuing without preflight checks')
+        logger.success('Preflight checks passed')
+      } else {
+        logger.warn('Preflight module not available, skipping checks')
       }
     }
 

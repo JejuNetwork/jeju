@@ -21,6 +21,7 @@
     "@jejunetwork/db": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/sdk": "workspace:*",
+    "@jejunetwork/training": "workspace:*",
     "@jejunetwork/types": "workspace:*",
     "@jejunetwork/eliza-plugin": "workspace:*",
     "ai": "^5.0.52",

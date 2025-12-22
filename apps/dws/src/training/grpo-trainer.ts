@@ -337,47 +337,118 @@ export class GRPOTrainer {
   async trainStep(
     batches: ReturnType<typeof padToGoodOffset>,
   ): Promise<TrainingMetrics> {
-    // This is a placeholder for the actual training step
-    // In production, this would use PyTorch/JAX for actual gradient computation
-
-    let totalLoss = 0
-    let totalPosLogp = 0
-    let totalNegLogp = 0
-    let totalPos = 0
-    let totalNeg = 0
-
-    for (let i = 0; i < batches.tokenBatches.length; i++) {
-      const _tokens = batches.tokenBatches[i]
-      const _labels = batches.labelBatches[i]
-      const advantages = batches.advantageBatches[i]
-      const _temperatures = batches.temperatureBatches[i]
-
-      // Simulate loss computation
-      const batchLoss = Math.random() * 0.5
-      totalLoss += batchLoss / this.config.gradientAccumulationSteps
-
-      // Simulate logprob tracking
-      for (let j = 0; j < advantages.length; j++) {
-        const logp = -Math.random() * 2
-        if (advantages[j] > 0) {
-          totalPosLogp += logp
-          totalPos++
-        } else {
-          totalNegLogp += logp
-          totalNeg++
-        }
-      }
+    // Serialize batches to JSON for Python subprocess
+    const batchData = {
+      tokenBatches: batches.tokenBatches,
+      labelBatches: batches.labelBatches,
+      advantageBatches: batches.advantageBatches,
+      temperatureBatches: batches.temperatureBatches,
+      config: {
+        learningRate: this.config.learningRate,
+        modelName: this.config.modelName,
+        device: this.config.device,
+        savePath: this.config.savePath,
+        currentStep: this.status.currentStep,
+      },
     }
 
-    const gradNorm = Math.random() * 2
+    // Run actual PyTorch training via subprocess
+    const pythonScript = `
+import torch
+import json
+import sys
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from torch.optim import AdamW
+
+data = json.loads('''${JSON.stringify(batchData)}''')
+config = data['config']
+
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+# Load or get cached model
+model = AutoModelForCausalLM.from_pretrained(config['modelName'])
+model = model.to(device)
+model.train()
+
+optimizer = AdamW(model.parameters(), lr=config['learningRate'])
+
+total_loss = 0.0
+total_pos_logp = 0.0
+total_neg_logp = 0.0
+total_pos = 0
+total_neg = 0
+total_batches = 0
+
+for batch_idx in range(len(data['tokenBatches'])):
+    tokens = torch.tensor(data['tokenBatches'][batch_idx], dtype=torch.long).to(device)
+    labels = torch.tensor(data['labelBatches'][batch_idx], dtype=torch.long).to(device)
+    advantages = data['advantageBatches'][batch_idx]
+    
+    outputs = model(input_ids=tokens, labels=labels)
+    loss = outputs.loss
+    
+    # Apply advantage weighting for GRPO
+    advantage_weight = sum(advantages) / len(advantages) if advantages else 1.0
+    weighted_loss = loss * (1.0 + advantage_weight * 0.1)
+    
+    weighted_loss.backward()
+    
+    # Track metrics
+    with torch.no_grad():
+        logits = outputs.logits
+        log_probs = torch.log_softmax(logits, dim=-1)
+        for i, adv in enumerate(advantages):
+            lp = log_probs[i].mean().item()
+            if adv > 0:
+                total_pos_logp += lp
+                total_pos += 1
+            else:
+                total_neg_logp += lp
+                total_neg += 1
+    
+    total_loss += loss.item()
+    total_batches += 1
+
+# Gradient step
+grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0).item()
+optimizer.step()
+optimizer.zero_grad()
+
+# Output metrics
+avg_loss = total_loss / max(total_batches, 1)
+pos_logp = total_pos_logp / max(total_pos, 1)
+neg_logp = total_neg_logp / max(total_neg, 1)
+total_logp = (total_pos_logp + total_neg_logp) / max(total_pos + total_neg, 1)
+
+print(f"METRICS:{avg_loss},{pos_logp},{neg_logp},{total_logp},{grad_norm},{config['learningRate']}")
+`
+
+    const proc = spawn(['python3', '-c', pythonScript], {
+      stdout: 'pipe',
+      stderr: 'pipe',
+    })
+
+    const output = await new Response(proc.stdout).text()
+    const stderr = await new Response(proc.stderr).text()
+    await proc.exited
+
+    if (stderr) {
+      console.error('[GRPO] Python stderr:', stderr)
+    }
+
+    // Parse metrics from Python output
+    const match = output.match(/METRICS:([\d.e+-]+),([\d.e+-]+),([\d.e+-]+),([\d.e+-]+),([\d.e+-]+),([\d.e+-]+)/)
+    if (!match) {
+      throw new Error(`Failed to parse training metrics: ${output}`)
+    }
 
     return {
-      loss: totalLoss,
-      posLogp: totalPos > 0 ? totalPosLogp / totalPos : 0,
-      negLogp: totalNeg > 0 ? totalNegLogp / totalNeg : 0,
-      logp: (totalPosLogp + totalNegLogp) / Math.max(totalPos + totalNeg, 1),
-      gradNorm,
-      learningRate: this.config.learningRate,
+      loss: parseFloat(match[1]),
+      posLogp: parseFloat(match[2]),
+      negLogp: parseFloat(match[3]),
+      logp: parseFloat(match[4]),
+      gradNorm: parseFloat(match[5]),
+      learningRate: parseFloat(match[6]),
     }
   }
 
