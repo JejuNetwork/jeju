@@ -46,7 +46,9 @@ export function createEdenClient(
 
     if (!response.ok) {
       const error = await response.text().catch(() => '')
-      throw new Error(`HTTP ${response.status}: ${error || response.statusText}`)
+      throw new Error(
+        `HTTP ${response.status}: ${error || response.statusText}`,
+      )
     }
 
     const data: unknown = await response.json()
@@ -66,7 +68,11 @@ export function createEdenClient(
       body: Record<string, unknown>,
       schema?: z.ZodType<T>,
     ): Promise<T> {
-      return request(path, { method: 'POST', body: JSON.stringify(body) }, schema)
+      return request(
+        path,
+        { method: 'POST', body: JSON.stringify(body) },
+        schema,
+      )
     },
 
     checkHealth(): Promise<boolean> {

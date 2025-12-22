@@ -12,7 +12,7 @@ describe('Indexer Client', () => {
   beforeAll(async () => {
     // Try to connect to indexer
     const indexerUrl =
-      process.env.NEXT_PUBLIC_INDEXER_URL || 'http://localhost:4350/graphql'
+      process.env.PUBLIC_INDEXER_URL || 'http://localhost:4350/graphql'
     try {
       const response = await fetch(indexerUrl, {
         method: 'POST',

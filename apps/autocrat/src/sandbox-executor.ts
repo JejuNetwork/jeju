@@ -299,7 +299,7 @@ export async function executeInSandbox(
   }
 
   if (!response.ok) {
-    const errorBody = await response.text().catch(() => 'unknown error')
+    const errorBody = await response.text()
     job.status = 'failed'
     job.completedAt = Date.now()
     job.result = {

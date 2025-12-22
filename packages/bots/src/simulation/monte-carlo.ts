@@ -9,10 +9,6 @@
  * - Out-of-sample validation
  */
 
-import type { Token } from '../types'
-import type { BacktestResult } from './backtester'
-import { createEconomicsCalculator, type TradeEconomics } from './economics'
-
 // ============ Types ============
 
 export interface MonteCarloConfig {
@@ -107,7 +103,8 @@ class SeededRandom {
 
   // Mulberry32 PRNG
   next(): number {
-    let t = (this.seed += 0x6d2b79f5)
+    this.seed += 0x6d2b79f5
+    let t = this.seed
     t = Math.imul(t ^ (t >>> 15), t | 1)
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296
@@ -213,8 +210,10 @@ export class MonteCarloSimulator {
     const ciHigh = 1 - ciLow
 
     // Probability calculations
-    const probabilityOfProfit = simResults.filter((r) => r > 0).length / simResults.length
-    const probabilityOfRuin = drawdownResults.filter((d) => d > 0.5).length / drawdownResults.length
+    const probabilityOfProfit =
+      simResults.filter((r) => r > 0).length / simResults.length
+    const probabilityOfRuin =
+      drawdownResults.filter((d) => d > 0.5).length / drawdownResults.length
 
     // Kelly criterion
     const kelly = this.calculateKelly(returns)
@@ -271,8 +270,14 @@ export class MonteCarloSimulator {
     const numBlocks = Math.ceil(data.length / this.config.blockSize)
 
     for (let i = 0; i < numBlocks; i++) {
-      const startIdx = Math.floor(this.rng.next() * (data.length - this.config.blockSize))
-      for (let j = 0; j < this.config.blockSize && result.length < data.length; j++) {
+      const startIdx = Math.floor(
+        this.rng.next() * (data.length - this.config.blockSize),
+      )
+      for (
+        let j = 0;
+        j < this.config.blockSize && result.length < data.length;
+        j++
+      ) {
         result.push(data[startIdx + j])
       }
     }
@@ -304,7 +309,9 @@ export class MonteCarloSimulator {
 
   private calculateProfitFactor(returns: number[]): number {
     const gains = returns.filter((r) => r > 0).reduce((a, b) => a + b, 0)
-    const losses = Math.abs(returns.filter((r) => r < 0).reduce((a, b) => a + b, 0))
+    const losses = Math.abs(
+      returns.filter((r) => r < 0).reduce((a, b) => a + b, 0),
+    )
     if (losses === 0) return gains > 0 ? Infinity : 0
     return gains / losses
   }
@@ -326,7 +333,7 @@ export class MonteCarloSimulator {
 
   private stdDev(arr: number[]): number {
     const avg = this.mean(arr)
-    const squareDiffs = arr.map((x) => Math.pow(x - avg, 2))
+    const squareDiffs = arr.map((x) => (x - avg) ** 2)
     return Math.sqrt(this.mean(squareDiffs))
   }
 
@@ -335,7 +342,9 @@ export class MonteCarloSimulator {
     const lower = Math.floor(idx)
     const upper = Math.ceil(idx)
     if (lower === upper) return sortedArr[lower]
-    return sortedArr[lower] + (sortedArr[upper] - sortedArr[lower]) * (idx - lower)
+    return (
+      sortedArr[lower] + (sortedArr[upper] - sortedArr[lower]) * (idx - lower)
+    )
   }
 
   private skewness(arr: number[]): number {
@@ -344,7 +353,7 @@ export class MonteCarloSimulator {
     const std = this.stdDev(arr)
     if (std === 0) return 0
 
-    const m3 = arr.reduce((acc, x) => acc + Math.pow((x - mean) / std, 3), 0) / n
+    const m3 = arr.reduce((acc, x) => acc + ((x - mean) / std) ** 3, 0) / n
     return m3
   }
 
@@ -354,7 +363,7 @@ export class MonteCarloSimulator {
     const std = this.stdDev(arr)
     if (std === 0) return 0
 
-    const m4 = arr.reduce((acc, x) => acc + Math.pow((x - mean) / std, 4), 0) / n
+    const m4 = arr.reduce((acc, x) => acc + ((x - mean) / std) ** 4, 0) / n
     return m4 - 3 // Excess kurtosis
   }
 }
@@ -398,8 +407,8 @@ export class StatisticalValidator {
     const mean1 = sample1.reduce((a, b) => a + b, 0) / n1
     const mean2 = sample2.reduce((a, b) => a + b, 0) / n2
 
-    const var1 = sample1.reduce((a, x) => a + Math.pow(x - mean1, 2), 0) / (n1 - 1)
-    const var2 = sample2.reduce((a, x) => a + Math.pow(x - mean2, 2), 0) / (n2 - 1)
+    const var1 = sample1.reduce((a, x) => a + (x - mean1) ** 2, 0) / (n1 - 1)
+    const var2 = sample2.reduce((a, x) => a + (x - mean2) ** 2, 0) / (n2 - 1)
 
     const pooledSE = Math.sqrt(var1 / n1 + var2 / n2)
     const t = (mean1 - mean2) / pooledSE
@@ -412,9 +421,10 @@ export class StatisticalValidator {
       testStatistic: t,
       pValue,
       significant: pValue < 0.05,
-      interpretation: pValue < 0.05
-        ? 'Significant difference between in-sample and out-of-sample returns (potential overfit)'
-        : 'No significant difference (good generalization)',
+      interpretation:
+        pValue < 0.05
+          ? 'Significant difference between in-sample and out-of-sample returns (potential overfit)'
+          : 'No significant difference (good generalization)',
     }
   }
 
@@ -435,17 +445,20 @@ export class StatisticalValidator {
     }
 
     // Approximate p-value
-    const n = Math.sqrt((sample1.length * sample2.length) / (sample1.length + sample2.length))
-    const pValue = 2 * Math.exp(-2 * Math.pow(maxD * n, 2))
+    const n = Math.sqrt(
+      (sample1.length * sample2.length) / (sample1.length + sample2.length),
+    )
+    const pValue = 2 * Math.exp(-2 * (maxD * n) ** 2)
 
     return {
       name: 'Kolmogorov-Smirnov Test',
       testStatistic: maxD,
       pValue,
       significant: pValue < 0.05,
-      interpretation: pValue < 0.05
-        ? 'Return distributions differ significantly (regime change or overfit)'
-        : 'Similar return distributions (consistent strategy)',
+      interpretation:
+        pValue < 0.05
+          ? 'Return distributions differ significantly (regime change or overfit)'
+          : 'Similar return distributions (consistent strategy)',
     }
   }
 
@@ -455,7 +468,7 @@ export class StatisticalValidator {
   private jarqueBeraTest(returns: number[]): StatisticalTest {
     const n = returns.length
     const mean = returns.reduce((a, b) => a + b, 0) / n
-    const std = Math.sqrt(returns.reduce((a, x) => a + Math.pow(x - mean, 2), 0) / n)
+    const std = Math.sqrt(returns.reduce((a, x) => a + (x - mean) ** 2, 0) / n)
 
     if (std === 0) {
       return {
@@ -468,10 +481,10 @@ export class StatisticalValidator {
     }
 
     // Skewness and kurtosis
-    const m3 = returns.reduce((a, x) => a + Math.pow((x - mean) / std, 3), 0) / n
-    const m4 = returns.reduce((a, x) => a + Math.pow((x - mean) / std, 4), 0) / n - 3
+    const m3 = returns.reduce((a, x) => a + ((x - mean) / std) ** 3, 0) / n
+    const m4 = returns.reduce((a, x) => a + ((x - mean) / std) ** 4, 0) / n - 3
 
-    const jb = (n / 6) * (Math.pow(m3, 2) + Math.pow(m4, 2) / 4)
+    const jb = (n / 6) * (m3 ** 2 + m4 ** 2 / 4)
 
     // Chi-squared distribution with 2 df
     const pValue = 1 - this.chi2CDF(jb, 2)
@@ -481,9 +494,10 @@ export class StatisticalValidator {
       testStatistic: jb,
       pValue,
       significant: pValue < 0.05,
-      interpretation: pValue < 0.05
-        ? 'Returns are non-normal (fat tails or skew - good for MEV)'
-        : 'Returns approximately normal',
+      interpretation:
+        pValue < 0.05
+          ? 'Returns are non-normal (fat tails or skew - good for MEV)'
+          : 'Returns approximately normal',
     }
   }
 
@@ -495,7 +509,7 @@ export class StatisticalValidator {
     const mean = returns.reduce((a, b) => a + b, 0) / n
 
     // Calculate autocorrelations
-    const gamma0 = returns.reduce((a, x) => a + Math.pow(x - mean, 2), 0) / n
+    const gamma0 = returns.reduce((a, x) => a + (x - mean) ** 2, 0) / n
     let Q = 0
 
     for (let k = 1; k <= lags; k++) {
@@ -506,7 +520,7 @@ export class StatisticalValidator {
       gammaK /= n
 
       const rhoK = gammaK / gamma0
-      Q += Math.pow(rhoK, 2) / (n - k)
+      Q += rhoK ** 2 / (n - k)
     }
     Q *= n * (n + 2)
 
@@ -517,9 +531,10 @@ export class StatisticalValidator {
       testStatistic: Q,
       pValue,
       significant: pValue < 0.05,
-      interpretation: pValue < 0.05
-        ? 'Significant autocorrelation (momentum or reversion patterns)'
-        : 'No significant autocorrelation (efficient market behavior)',
+      interpretation:
+        pValue < 0.05
+          ? 'Significant autocorrelation (momentum or reversion patterns)'
+          : 'No significant autocorrelation (efficient market behavior)',
     }
   }
 
@@ -527,7 +542,9 @@ export class StatisticalValidator {
    * Runs test for randomness
    */
   private runsTest(returns: number[]): StatisticalTest {
-    const median = [...returns].sort((a, b) => a - b)[Math.floor(returns.length / 2)]
+    const median = [...returns].sort((a, b) => a - b)[
+      Math.floor(returns.length / 2)
+    ]
     const signs = returns.map((r) => (r >= median ? 1 : 0))
 
     let runs = 1
@@ -540,8 +557,7 @@ export class StatisticalValidator {
     const n = n1 + n2
 
     const expectedRuns = (2 * n1 * n2) / n + 1
-    const varianceRuns =
-      (2 * n1 * n2 * (2 * n1 * n2 - n)) / (Math.pow(n, 2) * (n - 1))
+    const varianceRuns = (2 * n1 * n2 * (2 * n1 * n2 - n)) / (n ** 2 * (n - 1))
 
     const z = (runs - expectedRuns) / Math.sqrt(varianceRuns)
     const pValue = 2 * (1 - this.normalCDF(Math.abs(z)))
@@ -551,9 +567,10 @@ export class StatisticalValidator {
       testStatistic: z,
       pValue,
       significant: pValue < 0.05,
-      interpretation: pValue < 0.05
-        ? 'Non-random patterns detected (exploitable structure)'
-        : 'Returns appear random',
+      interpretation:
+        pValue < 0.05
+          ? 'Non-random patterns detected (exploitable structure)'
+          : 'Returns appear random',
     }
   }
 
@@ -569,14 +586,15 @@ export class StatisticalValidator {
     const sign = x < 0 ? -1 : 1
     x = Math.abs(x) / Math.sqrt(2)
     const t = 1 / (1 + p * x)
-    const y = 1 - ((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t * Math.exp(-x * x)
+    const y =
+      1 - ((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t * Math.exp(-x * x)
     return 0.5 * (1 + sign * y)
   }
 
   private chi2CDF(x: number, k: number): number {
     // Approximation using Wilson-Hilferty transformation
     if (x <= 0) return 0
-    const z = Math.pow(x / k, 1 / 3) - (1 - 2 / (9 * k))
+    const z = (x / k) ** (1 / 3) - (1 - 2 / (9 * k))
     const se = Math.sqrt(2 / (9 * k))
     return this.normalCDF(z / se)
   }
@@ -595,14 +613,17 @@ export class WalkForwardAnalyzer {
   ): WalkForwardResult {
     const periodLength = Math.floor(data.length / periods)
     const trainLength = Math.floor(periodLength * trainRatio)
-    const testLength = periodLength - trainLength
+    const _testLength = periodLength - trainLength
 
     const periodResults: WalkForwardPeriod[] = []
 
     for (let i = 0; i < periods; i++) {
       const periodStart = i * periodLength
       const trainData = data.slice(periodStart, periodStart + trainLength)
-      const testData = data.slice(periodStart + trainLength, periodStart + periodLength)
+      const testData = data.slice(
+        periodStart + trainLength,
+        periodStart + periodLength,
+      )
 
       if (trainData.length < 10 || testData.length < 5) continue
 
@@ -621,12 +642,17 @@ export class WalkForwardAnalyzer {
 
     // Aggregate test results
     const allTestReturns = periodResults.flatMap((p) =>
-      Array.from({ length: p.testMetrics.trades }, () => p.testMetrics.totalReturn / p.testMetrics.trades)
+      Array.from(
+        { length: p.testMetrics.trades },
+        () => p.testMetrics.totalReturn / p.testMetrics.trades,
+      ),
     )
     const aggregateMetrics = this.calculateMetrics(allTestReturns)
 
     // Consistency: % of periods with positive test returns
-    const profitablePeriods = periodResults.filter((p) => p.testMetrics.totalReturn > 0).length
+    const profitablePeriods = periodResults.filter(
+      (p) => p.testMetrics.totalReturn > 0,
+    ).length
     const consistency = profitablePeriods / periodResults.length
 
     // Robustness: how well does out-of-sample track in-sample
@@ -663,7 +689,7 @@ export class WalkForwardAnalyzer {
 
     const totalReturn = returns.reduce((acc, r) => acc * (1 + r), 1) - 1
     const mean = returns.reduce((a, b) => a + b, 0) / n
-    const std = Math.sqrt(returns.reduce((a, x) => a + Math.pow(x - mean, 2), 0) / n)
+    const std = Math.sqrt(returns.reduce((a, x) => a + (x - mean) ** 2, 0) / n)
     const sharpeRatio = std > 0 ? (mean * Math.sqrt(252)) / std : 0
 
     let peak = 1
@@ -678,7 +704,9 @@ export class WalkForwardAnalyzer {
 
     const winRate = returns.filter((r) => r > 0).length / n
     const gains = returns.filter((r) => r > 0).reduce((a, b) => a + b, 0)
-    const losses = Math.abs(returns.filter((r) => r < 0).reduce((a, b) => a + b, 0))
+    const losses = Math.abs(
+      returns.filter((r) => r < 0).reduce((a, b) => a + b, 0),
+    )
     const profitFactor = losses > 0 ? gains / losses : gains > 0 ? Infinity : 0
 
     return {
@@ -708,10 +736,7 @@ export class ValidationSuite {
   /**
    * Run full validation suite
    */
-  validate(
-    returns: number[],
-    splitRatio: number = 0.7,
-  ): ValidationResult {
+  validate(returns: number[], splitRatio: number = 0.7): ValidationResult {
     const splitIdx = Math.floor(returns.length * splitRatio)
     const inSampleReturns = returns.slice(0, splitIdx)
     const outOfSampleReturns = returns.slice(splitIdx)
@@ -721,28 +746,40 @@ export class ValidationSuite {
     const outOfSample = this.calculateMetrics(outOfSampleReturns)
 
     // Run statistical tests
-    const statisticalTests = this.statValidator.runTests(inSampleReturns, outOfSampleReturns)
+    const statisticalTests = this.statValidator.runTests(
+      inSampleReturns,
+      outOfSampleReturns,
+    )
 
     // Calculate overfit score
-    const sharpeDegradation = inSample.sharpeRatio > 0
-      ? Math.max(0, 1 - outOfSample.sharpeRatio / inSample.sharpeRatio)
-      : 0
-    const returnDegradation = inSample.totalReturn > 0
-      ? Math.max(0, 1 - outOfSample.totalReturn / inSample.totalReturn)
-      : 0
+    const sharpeDegradation =
+      inSample.sharpeRatio > 0
+        ? Math.max(0, 1 - outOfSample.sharpeRatio / inSample.sharpeRatio)
+        : 0
+    const returnDegradation =
+      inSample.totalReturn > 0
+        ? Math.max(0, 1 - outOfSample.totalReturn / inSample.totalReturn)
+        : 0
     const overfitScore = (sharpeDegradation + returnDegradation) / 2
 
-    const overfit = overfitScore > 0.3 || statisticalTests.filter((t) => t.significant).length >= 2
+    const overfit =
+      overfitScore > 0.3 ||
+      statisticalTests.filter((t) => t.significant).length >= 2
 
     // Performance degradation
-    const degradation = inSample.sharpeRatio > 0
-      ? ((inSample.sharpeRatio - outOfSample.sharpeRatio) / inSample.sharpeRatio) * 100
-      : 0
+    const degradation =
+      inSample.sharpeRatio > 0
+        ? ((inSample.sharpeRatio - outOfSample.sharpeRatio) /
+            inSample.sharpeRatio) *
+          100
+        : 0
 
     // Recommendations
     const recommendations: string[] = []
     if (overfit) {
-      recommendations.push('Strategy shows signs of overfitting - simplify parameters')
+      recommendations.push(
+        'Strategy shows signs of overfitting - simplify parameters',
+      )
     }
     if (outOfSample.maxDrawdown > 0.3) {
       recommendations.push('High out-of-sample drawdown - add risk management')
@@ -754,7 +791,9 @@ export class ValidationSuite {
       recommendations.push('Low profit factor - improve risk/reward ratio')
     }
     if (degradation > 30) {
-      recommendations.push('Significant performance degradation - check for regime sensitivity')
+      recommendations.push(
+        'Significant performance degradation - check for regime sensitivity',
+      )
     }
 
     return {
@@ -778,7 +817,9 @@ export class ValidationSuite {
   /**
    * Run walk-forward analysis
    */
-  runWalkForward(data: Array<{ timestamp: number; return: number }>): WalkForwardResult {
+  runWalkForward(
+    data: Array<{ timestamp: number; return: number }>,
+  ): WalkForwardResult {
     return this.walkForward.analyze(data)
   }
 
@@ -797,7 +838,7 @@ export class ValidationSuite {
 
     const totalReturn = returns.reduce((acc, r) => acc * (1 + r), 1) - 1
     const mean = returns.reduce((a, b) => a + b, 0) / n
-    const std = Math.sqrt(returns.reduce((a, x) => a + Math.pow(x - mean, 2), 0) / n)
+    const std = Math.sqrt(returns.reduce((a, x) => a + (x - mean) ** 2, 0) / n)
     const sharpeRatio = std > 0 ? (mean * Math.sqrt(252)) / std : 0
 
     let peak = 1
@@ -812,7 +853,9 @@ export class ValidationSuite {
 
     const winRate = returns.filter((r) => r > 0).length / n
     const gains = returns.filter((r) => r > 0).reduce((a, b) => a + b, 0)
-    const losses = Math.abs(returns.filter((r) => r < 0).reduce((a, b) => a + b, 0))
+    const losses = Math.abs(
+      returns.filter((r) => r < 0).reduce((a, b) => a + b, 0),
+    )
     const profitFactor = losses > 0 ? gains / losses : gains > 0 ? Infinity : 0
 
     return {
@@ -828,7 +871,8 @@ export class ValidationSuite {
 
 // ============ Exports ============
 
-export function createValidationSuite(config?: Partial<MonteCarloConfig>): ValidationSuite {
+export function createValidationSuite(
+  config?: Partial<MonteCarloConfig>,
+): ValidationSuite {
   return new ValidationSuite(config)
 }
-

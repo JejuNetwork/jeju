@@ -227,7 +227,7 @@ export interface CacheConfig {
 }
 
 export const DEFAULT_CACHE_RULES: CacheRule[] = [
-  // Immutable assets (Next.js, Vite, etc.)
+  // Immutable assets (Vite, Elysia static, etc.)
   { pattern: '/assets/**', strategy: 'immutable', ttl: 31536000 },
   { pattern: '/**/*.{js,css}', strategy: 'immutable', ttl: 31536000 },
 

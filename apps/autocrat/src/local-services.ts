@@ -84,8 +84,8 @@ async function checkDWSCompute(): Promise<boolean> {
   const endpoint = getDWSEndpoint()
   const r = await fetch(`${endpoint}/health`, {
     signal: AbortSignal.timeout(2000),
-  }).catch(() => null)
-  return r?.ok ?? false
+  })
+  return r.ok
 }
 
 interface InferenceRequest {
@@ -247,8 +247,8 @@ export const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? 'llama3.2'
 export async function checkOllama(): Promise<boolean> {
   const r = await fetch(`${OLLAMA_URL}/api/tags`, {
     signal: AbortSignal.timeout(2000),
-  }).catch(() => null)
-  return r?.ok ?? false
+  })
+  return r.ok
 }
 
 export async function ollamaGenerate(

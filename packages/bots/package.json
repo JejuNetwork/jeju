@@ -10,60 +10,24 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    },
-    "./strategies": {
-      "types": "./dist/strategies/index.d.ts",
-      "import": "./dist/strategies/index.js"
-    },
-    "./engine": {
-      "types": "./dist/engine/index.d.ts",
-      "import": "./dist/engine/index.js"
-    },
-    "./simulation": {
-      "types": "./dist/simulation/index.d.ts",
-      "import": "./dist/simulation/index.js"
     }
   },
-  "files": [
-    "dist",
-    "src"
-  ],
+  "files": ["dist", "src"],
   "sideEffects": false,
   "scripts": {
     "build": "tsc",
     "dev": "bun run src/cli.ts",
     "test": "bun test src/",
-    "test:watch": "bun test --watch src/",
-    "test:simulation": "bun test src/simulation/",
-    "backtest": "bun run src/cli.ts backtest",
-    "simulate": "bun run src/cli.ts simulate",
-    "analyze": "bun run src/analyze.ts",
-    "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist",
-    "prepublishOnly": "bun run build"
+    "typecheck": "tsc --noEmit"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/elizaos/jeju.git",
-    "directory": "packages/bots"
-  },
-  "keywords": [
-    "jeju",
-    "mev",
-    "arbitrage",
-    "liquidity",
-    "trading",
-    "bots",
-    "defi"
-  ],
   "dependencies": {
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/contracts": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/types": "workspace:*",
     "@solana/web3.js": "1.98.4",
-    "viem": "2.43.2",
-    "zod": "3.25.42",
+    "viem": "2.43.3",
+    "zod": "4.2.1",
     "simple-statistics": "^7.8.8",
     "technicalindicators": "^3.1.0",
     "lru-cache": "^11.0.0"

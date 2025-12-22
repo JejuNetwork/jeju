@@ -1,12 +1,10 @@
 {
   "name": "@jejunetwork/monitoring",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "PORT=5173 bun index.html",
     "build": "bun build index.html --outdir=dist --minify",
-    "server": "bun server/a2a.ts",
-    "heartbeat": "bun server/heartbeat.ts",
     "test": "bun test test/",
     "typecheck": "tsc --noEmit"
   },
@@ -25,7 +23,7 @@
     "react-router-dom": "6.30.0",
     "recharts": "3.6.0",
     "sonner": "1.7.2",
-    "zod": "3.25.51"
+    "zod": "4.2.1"
   },
   "devDependencies": {
     "@types/pg": "8.11.13",

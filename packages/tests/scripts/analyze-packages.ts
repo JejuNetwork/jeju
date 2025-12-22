@@ -111,10 +111,12 @@ function analyzeComplexity(content: string): 'low' | 'medium' | 'high' {
   // Callbacks and promises
   score += (content.match(/\.then\(|\.catch\(|Promise\./g) || []).length
 
-  // External API calls
+  // External API calls (viem patterns)
   score +=
-    (content.match(/fetch\(|axios\.|createPublicClient|ethers\./g) || [])
-      .length * 3
+    (
+      content.match(/fetch\(|axios\.|createPublicClient|createWalletClient/g) ||
+      []
+    ).length * 3
 
   // Crypto operations
   score +=

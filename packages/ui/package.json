@@ -10,42 +10,21 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "default": "./dist/index.js"
+      "import": "./dist/index.js"
     }
   },
-  "files": [
-    "dist",
-    "src"
-  ],
+  "files": ["dist", "src"],
   "sideEffects": false,
   "scripts": {
     "build": "bun build.ts",
-    "dev": "bun --watch build.ts",
     "test": "bun test",
-    "lint": "prettier --write ./src",
-    "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist",
-    "prepublishOnly": "bun run build"
+    "typecheck": "tsc --noEmit"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/elizaos/jeju.git",
-    "directory": "packages/ui"
-  },
-  "keywords": [
-    "jeju",
-    "ui",
-    "react",
-    "hooks",
-    "components",
-    "web3"
-  ],
   "dependencies": {
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/sdk": "workspace:*",
     "@jejunetwork/types": "workspace:*",
-    "viem": "2.43.2"
+    "viem": "2.43.3"
   },
   "peerDependencies": {
     "react": ">=18.0.0",

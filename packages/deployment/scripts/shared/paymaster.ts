@@ -356,11 +356,11 @@ export function getApprovalTxData(
 export function loadPaymasterConfig(): PaymasterConfig {
   return {
     factoryAddress: (process.env.PAYMASTER_FACTORY_ADDRESS ||
-      process.env.NEXT_PUBLIC_PAYMASTER_FACTORY_ADDRESS ||
+      process.env.PUBLIC_PAYMASTER_FACTORY_ADDRESS ||
       '0x0000000000000000000000000000000000000000') as Address,
     minStakedEth: parseEther(
       process.env.MIN_PAYMASTER_STAKE ||
-        process.env.NEXT_PUBLIC_PAYMASTER_MIN_STAKE ||
+        process.env.PUBLIC_PAYMASTER_MIN_STAKE ||
         '1.0',
     ),
     rpcUrl: process.env.JEJU_RPC_URL || 'http://127.0.0.1:6546',

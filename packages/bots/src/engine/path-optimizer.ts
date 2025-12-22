@@ -69,7 +69,10 @@ export class PathOptimizer {
   /**
    * Find all arbitrage cycles from a source token
    */
-  findArbitragePaths(sourceToken: Address, maxHops: number = 4): ArbitragePath[] {
+  findArbitragePaths(
+    sourceToken: Address,
+    maxHops: number = 4,
+  ): ArbitragePath[] {
     const paths: ArbitragePath[] = []
 
     // BFS to find all paths back to source
@@ -78,7 +81,9 @@ export class PathOptimizer {
       path: Address[]
       pools: Pool[]
       totalReturn: number
-    }> = [{ current: sourceToken, path: [sourceToken], pools: [], totalReturn: 1 }]
+    }> = [
+      { current: sourceToken, path: [sourceToken], pools: [], totalReturn: 1 },
+    ]
 
     while (queue.length > 0) {
       const state = queue.shift()
@@ -241,7 +246,7 @@ export class PathOptimizer {
 
   private reconstructCycle(
     cycleNode: Address,
-    prev: Map<Address, { token: Address; pool: Pool } | null>
+    prev: Map<Address, { token: Address; pool: Pool } | null>,
   ): ArbitragePath {
     const path: Address[] = []
     const pools: Pool[] = []
@@ -289,4 +294,3 @@ export function createPathOptimizer(): PathOptimizer {
 }
 
 export type { Pool, ArbitragePath }
-

@@ -7,8 +7,7 @@
 
 import { expect, test } from '@playwright/test'
 
-const AUTOCRAT_API =
-  process.env.NEXT_PUBLIC_AUTOCRAT_API || 'http://localhost:8010'
+const AUTOCRAT_API = process.env.PUBLIC_AUTOCRAT_API || 'http://localhost:8010'
 
 // Check if backend is available
 test.beforeAll(async () => {

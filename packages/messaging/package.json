@@ -10,45 +10,15 @@
     ".": {
       "types": "./dist/sdk/index.d.ts",
       "import": "./dist/sdk/index.js"
-    },
-    "./sdk": {
-      "types": "./dist/sdk/index.d.ts",
-      "import": "./dist/sdk/index.js"
-    },
-    "./node": {
-      "node": {
-        "types": "./dist/node/index.d.ts",
-        "import": "./dist/node/index.js"
-      }
     }
   },
-  "files": [
-    "dist",
-    "src"
-  ],
+  "files": ["dist", "src"],
   "sideEffects": false,
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch",
     "test": "bun test",
-    "test:e2e": "bun test src/tests/e2e.test.ts",
-    "node": "bun run src/node/index.ts",
-    "demo": "bun run src/demo/run-demo.ts",
-    "typecheck": "tsc --noEmit",
-    "prepublishOnly": "bun run build"
+    "typecheck": "tsc --noEmit"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/elizaos/jeju.git",
-    "directory": "packages/messaging"
-  },
-  "keywords": [
-    "jeju",
-    "messaging",
-    "encrypted",
-    "decentralized",
-    "privacy"
-  ],
   "dependencies": {
     "@elysiajs/cors": "^1.4.0",
     "@jejunetwork/types": "workspace:*",
@@ -56,9 +26,9 @@
     "@noble/ciphers": "1.2.1",
     "@noble/hashes": "1.7.1",
     "elysia": "^1.4.19",
-    "viem": "2.43.2",
+    "viem": "2.43.3",
     "ws": "8.18.3",
-    "zod": "3.25.49"
+    "zod": "4.2.1"
   },
   "devDependencies": {
     "@types/bun": "latest",

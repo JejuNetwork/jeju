@@ -100,7 +100,7 @@ pub async fn get_available_bots(state: State<'_, AppState>) -> Result<Vec<BotWit
         .into_iter()
         .map(|bot_type| {
             let id = bot_type.id();
-            
+
             let metadata = match bot_type {
                 BotType::DexArb => BotMetadata {
                     id: id.to_string(),
@@ -179,12 +179,12 @@ pub async fn get_available_bots(state: State<'_, AppState>) -> Result<Vec<BotWit
                     ],
                 },
             };
-            
+
             let config = inner.config.bots
                 .get(id)
                 .cloned()
                 .unwrap_or_default();
-            
+
             BotWithStatus {
                 metadata,
                 status: BotStatus {

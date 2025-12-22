@@ -304,14 +304,12 @@ export class JNSService {
     })
 
     // Get the name from the resolver
-    const name = await client
-      .readContract({
-        address: resolver,
-        abi: JNS_RESOLVER_ABI,
-        functionName: 'text',
-        args: [reverseNode, 'name'],
-      })
-      .catch(() => null)
+    const name = await client.readContract({
+      address: resolver,
+      abi: JNS_RESOLVER_ABI,
+      functionName: 'text',
+      args: [reverseNode, 'name'],
+    })
 
     return name || null
   }
@@ -327,14 +325,12 @@ export class JNSService {
     const node = namehash(fullName) as Hex
 
     const client = this.getClient()
-    return client
-      .readContract({
-        address: resolver,
-        abi: JNS_RESOLVER_ABI,
-        functionName: 'text',
-        args: [node, key],
-      })
-      .catch(() => null)
+    return client.readContract({
+      address: resolver,
+      abi: JNS_RESOLVER_ABI,
+      functionName: 'text',
+      args: [node, key],
+    })
   }
 
   /**
@@ -353,16 +349,14 @@ export class JNSService {
 
     const [address, description, avatar, expiresAt] = await Promise.all([
       this.resolve(name),
-      this.getText(name, 'description').catch(() => null),
-      this.getText(name, 'avatar').catch(() => null),
-      client
-        .readContract({
-          address: registrar,
-          abi: JNS_REGISTRAR_ABI,
-          functionName: 'nameExpires',
-          args: [labelHash as Hex],
-        })
-        .catch(() => 0n),
+      this.getText(name, 'description'),
+      this.getText(name, 'avatar'),
+      client.readContract({
+        address: registrar,
+        abi: JNS_REGISTRAR_ABI,
+        functionName: 'nameExpires',
+        args: [labelHash as Hex],
+      }),
     ])
 
     if (!address) return null

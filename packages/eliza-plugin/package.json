@@ -2,25 +2,20 @@
   "name": "@jejunetwork/eliza-plugin",
   "version": "0.1.0",
   "type": "module",
-  "description": "ElizaOS plugin for Jeju Network - fully decentralized compute, storage, DeFi, governance, and cross-chain",
+  "description": "ElizaOS plugin for Jeju Network",
   "main": "dist/index.js",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "default": "./dist/index.js"
+      "import": "./dist/index.js"
     }
   },
   "files": ["dist"],
   "scripts": {
     "build": "rm -rf dist && tsc",
-    "dev": "tsc --watch",
     "test": "bun test",
-    "test:unit": "bun test test/plugin.test.ts",
-    "test:integration": "JEJU_NETWORK=localnet bun test test/integration",
-    "lint": "prettier --write ./src",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -30,7 +25,7 @@
     "@jejunetwork/sdk": "workspace:*",
     "@jejunetwork/types": "workspace:*",
     "uuid": "^10.0.0",
-    "viem": "2.43.2"
+    "viem": "2.43.3"
   },
   "devDependencies": {
     "@types/bun": "latest",
@@ -42,36 +37,5 @@
   },
   "publishConfig": {
     "access": "public"
-  },
-  "agentConfig": {
-    "pluginType": "elizaos:plugin:1.0.0",
-    "pluginParameters": {
-      "JEJU_PRIVATE_KEY": {
-        "type": "string",
-        "description": "Private key for Jeju wallet (hex string starting with 0x)",
-        "required": true,
-        "sensitive": true
-      },
-      "JEJU_MNEMONIC": {
-        "type": "string",
-        "description": "Mnemonic phrase for Jeju wallet (alternative to private key)",
-        "required": false,
-        "sensitive": true
-      },
-      "JEJU_NETWORK": {
-        "type": "string",
-        "description": "Network to connect to: localnet, testnet, or mainnet",
-        "required": false,
-        "default": "testnet",
-        "sensitive": false
-      },
-      "JEJU_SMART_ACCOUNT": {
-        "type": "boolean",
-        "description": "Enable ERC-4337 smart account (default: true)",
-        "required": false,
-        "default": true,
-        "sensitive": false
-      }
-    }
   }
 }

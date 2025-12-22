@@ -121,37 +121,31 @@ class DecentralizedDWSClient {
       return
     }
 
-    const agentIds = await this.publicClient
-      .readContract({
-        address: this.registryAddress,
-        abi: IDENTITY_REGISTRY_ABI,
-        functionName: 'getAgentsByTag',
-        args: [DWS_TAG],
-      })
-      .catch(() => [] as bigint[])
+    const agentIds = await this.publicClient.readContract({
+      address: this.registryAddress,
+      abi: IDENTITY_REGISTRY_ABI,
+      functionName: 'getAgentsByTag',
+      args: [DWS_TAG],
+    })
 
     this.nodes.clear()
 
     for (const agentId of agentIds) {
       const [agent, endpoint] = (await Promise.all([
-        this.publicClient
-          .readContract({
-            address: this.registryAddress,
-            abi: IDENTITY_REGISTRY_ABI,
-            functionName: 'getAgent',
-            args: [agentId],
-          })
-          .catch(() => null),
-        this.publicClient
-          .readContract({
-            address: this.registryAddress,
-            abi: IDENTITY_REGISTRY_ABI,
-            functionName: 'getA2AEndpoint',
-            args: [agentId],
-          })
-          .catch(() => ''),
+        this.publicClient.readContract({
+          address: this.registryAddress,
+          abi: IDENTITY_REGISTRY_ABI,
+          functionName: 'getAgent',
+          args: [agentId],
+        }),
+        this.publicClient.readContract({
+          address: this.registryAddress,
+          abi: IDENTITY_REGISTRY_ABI,
+          functionName: 'getA2AEndpoint',
+          args: [agentId],
+        }),
       ])) as [
-        { agentId: bigint; stakedAmount: bigint; isBanned: boolean } | null,
+        { agentId: bigint; stakedAmount: bigint; isBanned: boolean },
         string,
       ]
 
@@ -178,8 +172,8 @@ class DecentralizedDWSClient {
   private async pingNode(endpoint: string): Promise<boolean> {
     const response = await fetch(`${endpoint}/health`, {
       signal: AbortSignal.timeout(5000),
-    }).catch(() => null)
-    return response?.ok ?? false
+    })
+    return response.ok
   }
 
   async getBestNode(): Promise<string> {
@@ -209,19 +203,9 @@ class DecentralizedDWSClient {
     const baseUrl = await this.getBestNode()
     const url = `${baseUrl}${path}`
 
-    let response = await fetch(url, options).catch(() => null)
+    const response = await fetch(url, options)
 
-    if (!response?.ok && this.nodes.size > 1) {
-      const nodes = Array.from(this.nodes.values())
-      for (const node of nodes) {
-        if (node.endpoint === baseUrl) continue
-        const failoverUrl = `${node.endpoint}${path}`
-        response = await fetch(failoverUrl, options).catch(() => null)
-        if (response?.ok) break
-      }
-    }
-
-    if (!response?.ok) {
+    if (!response.ok) {
       throw new Error(`DWS request failed: ${path}`)
     }
 

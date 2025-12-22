@@ -150,7 +150,7 @@ export const LARP_AUDIT = {
 
     // MEV Competition - from Flashbots data
     MEV_COMPETITION: {
-      current: { winRate: 0.10 }, // 10% assumed
+      current: { winRate: 0.1 }, // 10% assumed
       research: {
         // From Flashbots MEV-Explore and EigenPhi:
         // - Top 5 searchers capture 80%+ of opportunities
@@ -190,7 +190,8 @@ export const LARP_AUDIT = {
     {
       feature: 'Position tracking database',
       importance: 'CRITICAL',
-      description: 'Need persistent storage for tracking borrower positions for liquidations',
+      description:
+        'Need persistent storage for tracking borrower positions for liquidations',
     },
     {
       feature: 'Subgraph/indexer integration',
@@ -200,7 +201,8 @@ export const LARP_AUDIT = {
     {
       feature: 'Transaction simulation before submission',
       importance: 'HIGH',
-      description: 'eth_call simulation to verify profitability before spending gas',
+      description:
+        'eth_call simulation to verify profitability before spending gas',
     },
     {
       feature: 'Nonce management',
@@ -273,32 +275,38 @@ export const VALIDATED_GAS_COSTS = {
  * Research-backed chain gas prices (Dec 2024 averages)
  */
 export const VALIDATED_GAS_PRICES = {
-  1: { // Ethereum mainnet
+  1: {
+    // Ethereum mainnet
     avgBaseFee: 15, // gwei, been 8-25 recently
     priorityFee: 1, // gwei, 1-2 typical
     maxBaseFee: 100, // During congestion
   },
-  8453: { // Base
+  8453: {
+    // Base
     avgBaseFee: 0.001,
     priorityFee: 0.001,
     maxBaseFee: 0.01,
   },
-  42161: { // Arbitrum
+  42161: {
+    // Arbitrum
     avgBaseFee: 0.01,
     priorityFee: 0.001,
     maxBaseFee: 0.1,
   },
-  10: { // Optimism
+  10: {
+    // Optimism
     avgBaseFee: 0.001,
     priorityFee: 0.001,
     maxBaseFee: 0.01,
   },
-  56: { // BSC
+  56: {
+    // BSC
     avgBaseFee: 1,
     priorityFee: 0,
     maxBaseFee: 5,
   },
-  137: { // Polygon
+  137: {
+    // Polygon
     avgBaseFee: 30,
     priorityFee: 30,
     maxBaseFee: 200,
@@ -350,9 +358,9 @@ export const VALIDATED_MEV_PARAMS = {
   winRates: {
     newSearcher: 0.02, // 2% - new entrants
     smallSearcher: 0.05, // 5% - small operators
-    mediumSearcher: 0.10, // 10% - established
+    mediumSearcher: 0.1, // 10% - established
     topSearcher: 0.35, // 35% - top 5
-    eliteSearcher: 0.50, // 50% - top 2 (Wintermute, etc)
+    eliteSearcher: 0.5, // 50% - top 2 (Wintermute, etc)
   },
 
   // Latency tiers (ms)
@@ -409,9 +417,9 @@ export const VALIDATED_MARKET_IMPACT = {
 // ============ PRINT AUDIT REPORT ============
 
 export function printAuditReport(): void {
-  console.log('\n' + '='.repeat(80))
+  console.log(`\n${'='.repeat(80)}`)
   console.log('                    CRITICAL LARP AUDIT REPORT')
-  console.log('='.repeat(80) + '\n')
+  console.log(`${'='.repeat(80)}\n`)
 
   console.log('🚨 PLACEHOLDER CODE (Must Fix Before Production):')
   console.log('-'.repeat(60))
@@ -429,7 +437,9 @@ export function printAuditReport(): void {
   console.log('  Key updates needed:')
   console.log('  - Gas costs: Update to Dec 2024 values')
   console.log('  - MEV win rates: Adjust to realistic 2-10%')
-  console.log('  - Latency assumptions: Account for <15ms competitive requirement')
+  console.log(
+    '  - Latency assumptions: Account for <15ms competitive requirement',
+  )
   console.log('  - Bridge fees: Verify against current bridge UIs')
 
   console.log('\n📋 MISSING PROFESSIONAL FEATURES:')
@@ -439,7 +449,7 @@ export function printAuditReport(): void {
     console.log(`           ${feature.description}`)
   }
 
-  console.log('\n' + '='.repeat(80))
+  console.log(`\n${'='.repeat(80)}`)
   console.log('                    RECOMMENDATIONS')
   console.log('='.repeat(80))
   console.log(`
@@ -456,4 +466,3 @@ export function printAuditReport(): void {
 if (import.meta.main) {
   printAuditReport()
 }
-

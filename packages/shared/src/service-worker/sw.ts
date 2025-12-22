@@ -3,6 +3,44 @@
  * Provides offline support, caching, and decentralized fallbacks
  */
 
+/// <reference lib="webworker" />
+/// <reference lib="webworker.importscripts" />
+
+// ServiceWorker types
+interface ExtendableEvent extends Event {
+  waitUntil(fn: Promise<unknown>): void
+}
+
+interface FetchEvent extends ExtendableEvent {
+  request: Request
+  respondWith(response: Promise<Response> | Response): void
+}
+
+interface ExtendableMessageEvent extends ExtendableEvent {
+  data: unknown
+  source: Client | ServiceWorker | MessagePort | null
+}
+
+declare const self: {
+  skipWaiting(): void
+  clients: Clients
+  addEventListener(
+    type: 'install',
+    listener: (event: ExtendableEvent) => void,
+  ): void
+  addEventListener(
+    type: 'activate',
+    listener: (event: ExtendableEvent) => void,
+  ): void
+  addEventListener(type: 'fetch', listener: (event: FetchEvent) => void): void
+  addEventListener(
+    type: 'message',
+    listener: (event: ExtendableMessageEvent) => void,
+  ): void
+}
+
+export type {} // Make this a module
+
 // Cache names
 const STATIC_CACHE = 'jeju-static-v1'
 const DYNAMIC_CACHE = 'jeju-dynamic-v1'
@@ -35,27 +73,23 @@ interface CacheConfig {
 const defaultConfig: CacheConfig = {
   staticAssets: ['/', '/index.html', '/offline.html'],
   apiPatterns: [/\/api\//],
-  immutablePatterns: [
-    /\/_next\/static\//,
-    /\/assets\/[a-f0-9]{8,}\./,
-    /\.immutable\./,
-  ],
+  immutablePatterns: [/\/assets\/[a-f0-9]{8,}\./, /\.immutable\./],
   offlinePages: ['/offline.html'],
 }
 
 // Install event - cache static assets
-self.addEventListener('install', (event: ExtendableEvent) => {
+self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(STATIC_CACHE).then((cache) => {
       return cache.addAll(defaultConfig.staticAssets)
     }),
   )
   // Activate immediately
-  ;(self as ServiceWorkerGlobalScope).skipWaiting()
+  self.skipWaiting()
 })
 
 // Activate event - clean old caches
-self.addEventListener('activate', (event: ExtendableEvent) => {
+self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
@@ -66,11 +100,11 @@ self.addEventListener('activate', (event: ExtendableEvent) => {
     }),
   )
   // Take control of all clients
-  ;(self as ServiceWorkerGlobalScope).clients.claim()
+  self.clients.claim()
 })
 
 // Fetch event - serve from cache or network
-self.addEventListener('fetch', (event: FetchEvent) => {
+self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url)
 
   // Skip non-GET requests
@@ -240,27 +274,28 @@ async function handleStaleWhileRevalidate(request: Request): Promise<Response> {
       }
       return response
     })
-    .catch(() => cached)
+    .catch(() => cached ?? new Response('Offline', { status: 503 }))
 
   // Return cached immediately if available, otherwise wait for network
-  return cached || fetchPromise || new Response('Offline', { status: 503 })
+  return cached ?? (await fetchPromise)
 }
 
 // Message handler for cache control
-self.addEventListener('message', (event: MessageEvent) => {
-  if (event.data.type === 'SKIP_WAITING') {
-    ;(self as ServiceWorkerGlobalScope).skipWaiting()
+self.addEventListener('message', (event) => {
+  const data = event.data as { type: string; urls?: string[] }
+  if (data.type === 'SKIP_WAITING') {
+    self.skipWaiting()
   }
 
-  if (event.data.type === 'CACHE_URLS') {
+  if (data.type === 'CACHE_URLS' && data.urls) {
     event.waitUntil(
       caches.open(STATIC_CACHE).then((cache) => {
-        return cache.addAll(event.data.urls)
+        return cache.addAll(data.urls as string[])
       }),
     )
   }
 
-  if (event.data.type === 'CLEAR_CACHE') {
+  if (data.type === 'CLEAR_CACHE') {
     event.waitUntil(
       caches.keys().then((keys) => {
         return Promise.all(keys.map((key) => caches.delete(key)))
@@ -268,24 +303,3 @@ self.addEventListener('message', (event: MessageEvent) => {
     )
   }
 })
-
-// Type definitions for service worker
-declare const self: ServiceWorkerGlobalScope
-
-interface ExtendableEvent extends Event {
-  waitUntil(promise: Promise<unknown>): void
-}
-
-interface FetchEvent extends ExtendableEvent {
-  request: Request
-  respondWith(response: Response | Promise<Response>): void
-}
-
-interface ServiceWorkerGlobalScope {
-  skipWaiting(): Promise<void>
-  clients: Clients
-}
-
-interface Clients {
-  claim(): Promise<void>
-}

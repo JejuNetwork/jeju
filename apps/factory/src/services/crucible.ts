@@ -3,7 +3,6 @@
  * Connects Factory to the agent orchestration platform
  */
 
-import type { Address } from 'viem'
 import { z } from 'zod'
 import { AddressSchema } from '../schemas'
 
@@ -92,45 +91,28 @@ class CrucibleService {
       {
         headers: this.headers,
       },
-    ).catch(() => null)
+    )
 
-    if (!response?.ok) {
-      // Return mock data if service is unavailable
-      return [
-        {
-          agentId: BigInt(1),
-          owner: '0x0000000000000000000000000000000000000000' as Address,
-          name: 'Code Reviewer',
-          botType: 'review',
-          characterCid: null,
-          stateCid: 'ipfs://...',
-          vaultAddress: '0x0000000000000000000000000000000000000000' as Address,
-          active: true,
-          registeredAt: Date.now(),
-          lastExecutedAt: 0,
-          executionCount: 0,
-          capabilities: ['code_review', 'security_audit'],
-          specializations: ['solidity'],
-          reputation: 85,
-        },
-      ]
+    if (!response.ok) {
+      throw new Error(`Failed to list agents: ${response.status}`)
     }
 
     const json: unknown = await response.json()
-    const result = AgentsResponseSchema.safeParse(json)
-    if (!result.success) return []
-    return result.data.agents
+    const result = AgentsResponseSchema.parse(json)
+    return result.agents
   }
 
-  async getAgent(agentId: bigint): Promise<Agent | null> {
+  async getAgent(agentId: bigint): Promise<Agent> {
     const response = await fetch(`${CRUCIBLE_API}/api/v1/agents/${agentId}`, {
       headers: this.headers,
-    }).catch(() => null)
+    })
 
-    if (!response?.ok) return null
+    if (!response.ok) {
+      throw new Error(`Failed to get agent ${agentId}: ${response.status}`)
+    }
+
     const json: unknown = await response.json()
-    const result = AgentSchema.safeParse(json)
-    return result.success ? result.data : null
+    return AgentSchema.parse(json)
   }
 
   async assignBountyToAgent(
@@ -193,15 +175,17 @@ class CrucibleService {
     return result.data
   }
 
-  async getTask(taskId: string): Promise<AgentTask | null> {
+  async getTask(taskId: string): Promise<AgentTask> {
     const response = await fetch(`${CRUCIBLE_API}/api/v1/tasks/${taskId}`, {
       headers: this.headers,
-    }).catch(() => null)
+    })
 
-    if (!response?.ok) return null
+    if (!response.ok) {
+      throw new Error(`Failed to get task ${taskId}: ${response.status}`)
+    }
+
     const json: unknown = await response.json()
-    const result = AgentTaskSchema.safeParse(json)
-    return result.success ? result.data : null
+    return AgentTaskSchema.parse(json)
   }
 }
 

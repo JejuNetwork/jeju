@@ -10,9 +10,9 @@ import {
 } from '@jejunetwork/ui'
 import type { Address } from 'viem'
 
-// Paymaster factory address from env: NEXT_PUBLIC_PAYMASTER_FACTORY_ADDRESS
+// Paymaster factory address from env: PUBLIC_PAYMASTER_FACTORY_ADDRESS
 const PAYMASTER_FACTORY_ADDRESS = (process.env
-  .NEXT_PUBLIC_PAYMASTER_FACTORY_ADDRESS ??
+  .PUBLIC_PAYMASTER_FACTORY_ADDRESS ??
   '0x0000000000000000000000000000000000000000') as Address
 
 export type { PaymasterDeployment }

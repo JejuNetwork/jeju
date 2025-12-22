@@ -12,10 +12,10 @@
 
 import { EventEmitter } from 'node:events'
 import {
-  type PublicClient,
-  type WalletClient,
   type Address,
+  type PublicClient,
   parseAbi,
+  type WalletClient,
 } from 'viem'
 
 export interface MorphoConfig {
@@ -63,19 +63,17 @@ const MORPHO_BLUE_ABI = parseAbi([
 export class MorphoIntegration extends EventEmitter {
   private config: MorphoConfig
   private client: PublicClient
-  private wallet: WalletClient
   private running = false
   private marketStates: Map<string, MarketState> = new Map()
 
   constructor(
     config: MorphoConfig,
     client: PublicClient,
-    wallet: WalletClient
+    _wallet: WalletClient,
   ) {
     super()
     this.config = config
     this.client = client
-    this.wallet = wallet
   }
 
   async start(): Promise<void> {
@@ -136,7 +134,8 @@ export class MorphoIntegration extends EventEmitter {
   calculateSupplyApy(state: MarketState): number {
     if (state.totalSupplyAssets === 0n) return 0
 
-    const utilization = Number(state.totalBorrowAssets) / Number(state.totalSupplyAssets)
+    const utilization =
+      Number(state.totalBorrowAssets) / Number(state.totalSupplyAssets)
 
     // Simplified rate model (real implementation uses IRM contract)
     const baseRate = 0.02 // 2%
@@ -151,12 +150,14 @@ export class MorphoIntegration extends EventEmitter {
   /**
    * Find rate arbitrage opportunities
    */
-  async findRateArbitrage(): Promise<Array<{
-    market: MorphoMarket
-    morphoRate: number
-    aaveRate: number
-    spread: number
-  }>> {
+  async findRateArbitrage(): Promise<
+    Array<{
+      market: MorphoMarket
+      morphoRate: number
+      aaveRate: number
+      spread: number
+    }>
+  > {
     const opportunities = []
 
     for (const market of this.config.markets) {
@@ -184,12 +185,14 @@ export class MorphoIntegration extends EventEmitter {
   /**
    * Find liquidatable positions
    */
-  async findLiquidations(): Promise<Array<{
-    market: MorphoMarket
-    borrower: Address
-    seizable: bigint
-    profit: bigint
-  }>> {
+  async findLiquidations(): Promise<
+    Array<{
+      market: MorphoMarket
+      borrower: Address
+      seizable: bigint
+      profit: bigint
+    }>
+  > {
     // Would need to track borrowers and check health factors
     // Morpho has simpler liquidation mechanics than Aave
     return []
@@ -209,4 +212,3 @@ export class MorphoIntegration extends EventEmitter {
     }
   }
 }
-

@@ -67,13 +67,11 @@ async function verifyAuthentication(
   }
 
   // Verify the signature matches the expected message
-  const isValid = await verifyMessage({
+  return verifyMessage({
     address: auth.address,
     message: expectedMessage,
     signature: auth.signature as `0x${string}`,
-  }).catch(() => false)
-
-  return isValid
+  })
 }
 
 type RequireAuthResult =

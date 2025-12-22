@@ -12,7 +12,9 @@ export interface EdenRequestOptions {
 export function unwrapEden<T>(result: { data: T | null; error: unknown }): T {
   if (result.error) {
     throw new Error(
-      result.error instanceof Error ? result.error.message : String(result.error),
+      result.error instanceof Error
+        ? result.error.message
+        : String(result.error),
     )
   }
   return result.data as T
@@ -52,7 +54,10 @@ export type DWSJobStatus = z.infer<typeof DWSJobStatusSchema>
 export type DWSJobResponse = z.infer<typeof DWSJobResponseSchema>
 export type DWSSubmitResponse = z.infer<typeof DWSSubmitResponseSchema>
 
-export function createDWSClient(dwsUrl: string, options: EdenRequestOptions = {}) {
+export function createDWSClient(
+  dwsUrl: string,
+  options: EdenRequestOptions = {},
+) {
   const normalizedUrl = dwsUrl.replace(/\/$/, '')
   const timeout = options.timeout ?? 120000
 
@@ -69,7 +74,9 @@ export function createDWSClient(dwsUrl: string, options: EdenRequestOptions = {}
       })
       if (!response.ok) {
         const error = await response.text().catch(() => '')
-        throw new Error(`HTTP ${response.status}: ${error || response.statusText}`)
+        throw new Error(
+          `HTTP ${response.status}: ${error || response.statusText}`,
+        )
       }
       return DWSSubmitResponseSchema.parse(await response.json())
     },
@@ -81,20 +88,27 @@ export function createDWSClient(dwsUrl: string, options: EdenRequestOptions = {}
       })
       if (!response.ok) {
         const error = await response.text().catch(() => '')
-        throw new Error(`HTTP ${response.status}: ${error || response.statusText}`)
+        throw new Error(
+          `HTTP ${response.status}: ${error || response.statusText}`,
+        )
       }
       return DWSJobResponseSchema.parse(await response.json())
     },
 
     async cancelJob(jobId: string): Promise<void> {
-      const response = await fetch(`${normalizedUrl}/api/jobs/${jobId}/cancel`, {
-        method: 'POST',
-        headers: options.headers,
-        signal: AbortSignal.timeout(timeout),
-      })
+      const response = await fetch(
+        `${normalizedUrl}/api/jobs/${jobId}/cancel`,
+        {
+          method: 'POST',
+          headers: options.headers,
+          signal: AbortSignal.timeout(timeout),
+        },
+      )
       if (!response.ok) {
         const error = await response.text().catch(() => '')
-        throw new Error(`HTTP ${response.status}: ${error || response.statusText}`)
+        throw new Error(
+          `HTTP ${response.status}: ${error || response.statusText}`,
+        )
       }
     },
 

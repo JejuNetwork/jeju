@@ -78,8 +78,8 @@ async function fetchLeaderboard(
 
   const response = await fetch(
     `${leaderboardUrl}/api/leaderboard?limit=${limit}`,
-  ).catch(() => null)
-  if (!response?.ok) return []
+  )
+  if (!response.ok) return []
 
   const data = (await response.json()) as { contributors: LeaderboardEntry[] }
   return data.contributors || []
@@ -122,18 +122,22 @@ async function syncLeaderboardToFunding(
   for (const entry of leaderboard) {
     if (!entry.wallet) continue
 
-    const contributorData = (await publicClient
-      .readContract({
-        address: contributorRegistryAddress,
-        abi: CONTRIBUTOR_REGISTRY_ABI,
-        functionName: 'getContributorByWallet',
-        args: [entry.wallet as Address],
-      })
-      .catch(() => null)) as
-      | [Hex, Address, bigint, number, string, bigint, bigint, bigint, boolean]
-      | null
-
-    if (!contributorData) continue
+    const contributorData = (await publicClient.readContract({
+      address: contributorRegistryAddress,
+      abi: CONTRIBUTOR_REGISTRY_ABI,
+      functionName: 'getContributorByWallet',
+      args: [entry.wallet as Address],
+    })) as [
+      Hex,
+      Address,
+      bigint,
+      number,
+      string,
+      bigint,
+      bigint,
+      bigint,
+      boolean,
+    ]
 
     const contributorId = contributorData[0]
     if (contributorId === `0x${'0'.repeat(64)}`) continue
@@ -214,9 +218,8 @@ export function createLeaderboardFundingRouter() {
       const leaderboardUrl =
         process.env.LEADERBOARD_URL || 'http://127.0.0.1:3002'
 
-      let leaderboardUp = false
-      const response = await fetch(`${leaderboardUrl}/health`).catch(() => null)
-      leaderboardUp = response?.ok ?? false
+      const response = await fetch(`${leaderboardUrl}/health`)
+      const leaderboardUp = response.ok
 
       return {
         leaderboardUrl,

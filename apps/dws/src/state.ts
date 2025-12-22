@@ -392,9 +392,7 @@ async function ensureTablesExist(): Promise<void> {
   }
 
   for (const idx of indexes) {
-    await cqlClient.exec(idx, [], CQL_DATABASE_ID).catch(() => {
-      /* no-op */
-    })
+    await cqlClient.exec(idx, [], CQL_DATABASE_ID)
   }
 
   console.log('[DWS State] CovenantSQL tables ensured')
@@ -536,11 +534,7 @@ export const computeJobState = {
       CQL_DATABASE_ID,
     )
 
-    getCache()
-      .delete(`job:${row.job_id}`)
-      .catch(() => {
-        /* no-op */
-      })
+    await getCache().delete(`job:${row.job_id}`)
   },
 
   async get(jobId: string): Promise<ComputeJobRow | null> {

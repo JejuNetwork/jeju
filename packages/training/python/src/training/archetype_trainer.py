@@ -30,6 +30,7 @@ from .rubric_loader import (
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class ArchetypeTrainingConfig:
     """Configuration for archetype-specific training"""

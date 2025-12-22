@@ -261,7 +261,9 @@ const getDeliberationAction: Action = {
       await response.json(),
       'autocrat votes A2A response',
     )
-    const dataPart = result.result?.parts?.find((p: { kind: string }) => p.kind === 'data')
+    const dataPart = result.result?.parts?.find(
+      (p: { kind: string }) => p.kind === 'data',
+    )
     const votesData =
       dataPart?.kind === 'data' && dataPart.data ? dataPart.data : {}
     const votes =
@@ -408,9 +410,9 @@ const modifyFeesAction: Action = {
             category: 'distribution',
             skillId: 'set-distribution-fees',
             params: {
-              appShareBps: parseInt(appMatch[1]) * 100,
-              lpShareBps: parseInt(lpMatch[1]) * 100,
-              contributorShareBps: parseInt(contribMatch[1]) * 100,
+              appShareBps: parseInt(appMatch[1], 10) * 100,
+              lpShareBps: parseInt(lpMatch[1], 10) * 100,
+              contributorShareBps: parseInt(contribMatch[1], 10) * 100,
               ethLpShareBps: 7000,
               tokenLpShareBps: 3000,
             },
@@ -438,7 +440,7 @@ const modifyFeesAction: Action = {
             category: 'defi',
             skillId: 'set-defi-fees',
             params: {
-              swapProtocolFeeBps: parseInt(bpsMatch[1]),
+              swapProtocolFeeBps: parseInt(bpsMatch[1], 10),
               bridgeFeeBps: 10,
               crossChainMarginBps: 1000,
             },
@@ -575,7 +577,13 @@ The fee changes are now active across the network. All contracts reading from Fe
 const viewFeesAction: Action = {
   name: 'VIEW_FEES',
   description: 'View current network fee configuration',
-  similes: ['show fees', 'get fees', 'current fees', 'fee config', 'fee settings'],
+  similes: [
+    'show fees',
+    'get fees',
+    'current fees',
+    'fee config',
+    'fee settings',
+  ],
   examples: [
     [
       {

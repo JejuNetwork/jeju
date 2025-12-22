@@ -15,131 +15,126 @@
  */
 
 // Core simulation
-export { type BacktestConfig, type BacktestResult, Backtester } from './backtester'
+export {
+  type BacktestConfig,
+  Backtester,
+  type BacktestResult,
+} from './backtester'
 export { HistoricalDataFetcher, type PriceCandle } from './data-fetcher'
+// Economic modeling
+export {
+  BridgeEconomics,
+  createEconomicsCalculator,
+  type EconomicConfig,
+  GAS_COSTS,
+  type GasCostEstimate,
+  GasCostModel,
+  ImpermanentLossCalculator,
+  type LiquidityPool,
+  MarketImpactModel,
+  type MarketImpactResult,
+  MEVRiskModel,
+  type OrderBookDepth,
+  SlippageModel,
+  type SlippageResult,
+  type TradeEconomics,
+  TradeEconomicsCalculator,
+} from './economics'
+// Flash loan testing
+export {
+  type FlashLoanTestConfig,
+  FlashLoanTester,
+  type FlashLoanTestResult,
+  runFlashLoanTests,
+} from './flashloan-tests'
+// Full validation pipeline
+export {
+  type FullValidationConfig,
+  type FullValidationResult,
+  FullValidationRunner,
+} from './full-validation'
+// Historical MEV analysis
+export {
+  type ChainMEVStats,
+  type HistoricalAnalysisResult,
+  HistoricalMEVAnalyzer,
+  RealOpportunityFetcher,
+} from './historical-mev-analyzer'
+// MEV competition simulation
+export {
+  type BlockBuilder,
+  type CompetitionSimResult,
+  MEVCompetitionSimulator,
+  type MEVSearcher,
+  type MEVStrategy,
+  runMEVCompetitionSim,
+} from './mev-competition'
+// Monte Carlo & Statistical Validation
+export {
+  createValidationSuite,
+  type MonteCarloConfig,
+  type MonteCarloResult,
+  MonteCarloSimulator,
+  type StatisticalTest,
+  StatisticalValidator,
+  type ValidationResult,
+  ValidationSuite,
+  WalkForwardAnalyzer,
+  type WalkForwardResult,
+} from './monte-carlo'
+
+// Multi-chain scanning
+export {
+  type ChainPrice,
+  type CrossChainOpportunity,
+  createScanner,
+  MultiChainScanner,
+  type SameChainOpportunity,
+  type ScannerConfig,
+  type ScanResult,
+} from './multi-chain-scanner'
+// Multi-source data fetching
+export {
+  type DataSourceConfig,
+  type GasDataPoint,
+  type MEVOpportunity,
+  MultiSourceFetcher,
+  type PoolStateSnapshot,
+  STRESS_SCENARIOS,
+  type StressTestScenario,
+  SUPPORTED_CHAINS,
+} from './multi-source-fetcher'
 export { PortfolioSimulator } from './portfolio-simulator'
+// Multi-chain backtesting
+export {
+  MultiChainBacktester,
+  type MultiChainBacktestResult,
+} from './real-data-backtest'
+// Realistic backtesting
+export { RealisticBacktester } from './realistic-backtest'
 export {
   type DrawdownAnalysis,
   RiskAnalyzer,
   type RiskMetrics,
 } from './risk-analyzer'
-
-// Multi-source data fetching
-export {
-  MultiSourceFetcher,
-  SUPPORTED_CHAINS,
-  STRESS_SCENARIOS,
-  type DataSourceConfig,
-  type GasDataPoint,
-  type MEVOpportunity,
-  type PoolStateSnapshot,
-  type StressTestScenario,
-} from './multi-source-fetcher'
-
 // Stress testing
 export {
-  StressTestRunner,
   runStressTests,
   type StressTestConfig,
   type StressTestResult,
+  StressTestRunner,
 } from './stress-tests'
-
-// Flash loan testing
-export {
-  FlashLoanTester,
-  runFlashLoanTests,
-  type FlashLoanTestConfig,
-  type FlashLoanTestResult,
-} from './flashloan-tests'
-
-// MEV competition simulation
-export {
-  MEVCompetitionSimulator,
-  runMEVCompetitionSim,
-  type MEVSearcher,
-  type MEVStrategy,
-  type BlockBuilder,
-  type CompetitionSimResult,
-} from './mev-competition'
-
-// Multi-chain scanning
-export {
-  MultiChainScanner,
-  createScanner,
-  type ChainPrice,
-  type CrossChainOpportunity,
-  type SameChainOpportunity,
-  type ScanResult,
-  type ScannerConfig,
-} from './multi-chain-scanner'
-
-// Economic modeling
-export {
-  SlippageModel,
-  MarketImpactModel,
-  GasCostModel,
-  BridgeEconomics,
-  MEVRiskModel,
-  TradeEconomicsCalculator,
-  ImpermanentLossCalculator,
-  createEconomicsCalculator,
-  GAS_COSTS,
-  type LiquidityPool,
-  type OrderBookDepth,
-  type SlippageResult,
-  type MarketImpactResult,
-  type GasCostEstimate,
-  type TradeEconomics,
-  type EconomicConfig,
-} from './economics'
-
-// Monte Carlo & Statistical Validation
-export {
-  MonteCarloSimulator,
-  StatisticalValidator,
-  WalkForwardAnalyzer,
-  ValidationSuite,
-  createValidationSuite,
-  type MonteCarloConfig,
-  type MonteCarloResult,
-  type StatisticalTest,
-  type ValidationResult,
-  type WalkForwardResult,
-} from './monte-carlo'
-
-// Visualization
-export {
-  ASCIICharts,
-  TerminalReport,
-  HTMLReportGenerator,
-  type ChartConfig,
-  type ReportConfig,
-} from './visualizer'
-
-// Full validation pipeline
-export {
-  FullValidationRunner,
-  type FullValidationConfig,
-  type FullValidationResult,
-} from './full-validation'
-
 // Legacy test pipeline
 export {
   TestPipeline,
   type TestPipelineConfig,
   type TestPipelineResult,
 } from './test-runner'
-
-// Multi-chain backtesting
+// Visualization
 export {
-  MultiChainBacktester,
-  type MultiChainBacktestResult,
-} from './real-data-backtest'
-
-// Historical MEV analysis
-export {
-  HistoricalMEVAnalyzer,
-  RealOpportunityFetcher,
-  type HistoricalAnalysisResult,
-  type ChainMEVStats,
-} from './historical-mev-analyzer'
+  ASCIICharts,
+  type ChartConfig,
+  HTMLReportGenerator,
+  type ReportConfig,
+  TerminalReport,
+} from './visualizer'

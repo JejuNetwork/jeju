@@ -9,9 +9,12 @@
  * - Builder partnerships
  */
 
-export { MorphoIntegration, type MorphoConfig } from './morpho'
+export {
+  BuilderClient,
+  type BuilderConfig,
+  createBuilderClient,
+} from './builder-client'
 export { IntentSolver, type IntentSolverConfig } from './intent-solver'
-export { RateArbitrage, type RateArbConfig } from './rate-arbitrage'
 export { MEVShareClient, type MEVShareConfig } from './mev-share'
-export { BuilderClient, type BuilderConfig } from './builder-client'
-
+export { type MorphoConfig, MorphoIntegration } from './morpho'
+export { type RateArbConfig, RateArbitrage } from './rate-arbitrage'

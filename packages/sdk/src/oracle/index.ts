@@ -8,45 +8,45 @@
  * - Oracle registry
  */
 
-import type { NetworkType } from "@jejunetwork/types";
-import { type Address, encodeFunctionData, type Hex } from "viem";
-import { requireContract } from "../config";
-import type { JejuWallet } from "../wallet";
+import type { NetworkType } from '@jejunetwork/types'
+import { type Address, encodeFunctionData, type Hex } from 'viem'
+import { requireContract } from '../config'
+import type { JejuWallet } from '../wallet'
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
 // ═══════════════════════════════════════════════════════════════════════════
 
 export interface PriceFeed {
-  feedAddress: Address;
-  description: string;
-  decimals: number;
-  latestRoundId: bigint;
-  latestPrice: bigint;
-  latestTimestamp: bigint;
-  isActive: boolean;
+  feedAddress: Address
+  description: string
+  decimals: number
+  latestRoundId: bigint
+  latestPrice: bigint
+  latestTimestamp: bigint
+  isActive: boolean
 }
 
 export interface RoundData {
-  roundId: bigint;
-  answer: bigint;
-  startedAt: bigint;
-  updatedAt: bigint;
-  answeredInRound: bigint;
+  roundId: bigint
+  answer: bigint
+  startedAt: bigint
+  updatedAt: bigint
+  answeredInRound: bigint
 }
 
 export interface TWAPObservation {
-  timestamp: bigint;
-  price: bigint;
-  cumulativePrice: bigint;
+  timestamp: bigint
+  price: bigint
+  cumulativePrice: bigint
 }
 
 export interface OracleConfig {
-  oracleAddress: Address;
-  oracleType: OracleType;
-  heartbeat: bigint;
-  deviationThreshold: number;
-  description: string;
+  oracleAddress: Address
+  oracleType: OracleType
+  heartbeat: bigint
+  deviationThreshold: number
+  description: string
 }
 
 export const OracleType = {
@@ -54,84 +54,81 @@ export const OracleType = {
   TWAP: 1,
   CUSTOM: 2,
   PYTH: 3,
-} as const;
-export type OracleType = (typeof OracleType)[keyof typeof OracleType];
+} as const
+export type OracleType = (typeof OracleType)[keyof typeof OracleType]
 
 export interface RegisterOracleParams {
-  feedAddress: Address;
-  oracleType: OracleType;
-  description: string;
-  heartbeat: bigint;
-  deviationThreshold: number;
+  feedAddress: Address
+  oracleType: OracleType
+  description: string
+  heartbeat: bigint
+  deviationThreshold: number
 }
 
 export interface OracleModule {
   // Price Queries
-  getLatestPrice(feedAddress: Address): Promise<bigint>;
-  getLatestRoundData(feedAddress: Address): Promise<RoundData>;
-  getRoundData(feedAddress: Address, roundId: bigint): Promise<RoundData>;
-  getDecimals(feedAddress: Address): Promise<number>;
-  getDescription(feedAddress: Address): Promise<string>;
+  getLatestPrice(feedAddress: Address): Promise<bigint>
+  getLatestRoundData(feedAddress: Address): Promise<RoundData>
+  getRoundData(feedAddress: Address, roundId: bigint): Promise<RoundData>
+  getDecimals(feedAddress: Address): Promise<number>
+  getDescription(feedAddress: Address): Promise<string>
 
   // Historical Data
   getHistoricalPrices(
     feedAddress: Address,
     startRound: bigint,
     count: number,
-  ): Promise<RoundData[]>;
+  ): Promise<RoundData[]>
 
   // TWAP
-  getTWAP(poolAddress: Address, period: bigint): Promise<bigint>;
+  getTWAP(poolAddress: Address, period: bigint): Promise<bigint>
   getTWAPObservations(
     poolAddress: Address,
     count: number,
-  ): Promise<TWAPObservation[]>;
+  ): Promise<TWAPObservation[]>
   consultTWAP(
     poolAddress: Address,
     tokenIn: Address,
     amountIn: bigint,
     period: bigint,
-  ): Promise<bigint>;
+  ): Promise<bigint>
 
   // Feed Info
-  getFeedInfo(feedAddress: Address): Promise<PriceFeed | null>;
-  listFeeds(): Promise<PriceFeed[]>;
+  getFeedInfo(feedAddress: Address): Promise<PriceFeed | null>
+  listFeeds(): Promise<PriceFeed[]>
   getFeedByPair(
     baseToken: Address,
     quoteToken: Address,
-  ): Promise<Address | null>;
+  ): Promise<Address | null>
 
   // Oracle Registry
-  registerOracle(params: RegisterOracleParams): Promise<Hex>;
-  getOracleConfig(oracleAddress: Address): Promise<OracleConfig | null>;
-  listOracles(): Promise<OracleConfig[]>;
-  updateOracleHeartbeat(
-    oracleAddress: Address,
-    heartbeat: bigint,
-  ): Promise<Hex>;
+  registerOracle(params: RegisterOracleParams): Promise<Hex>
+  getOracleConfig(oracleAddress: Address): Promise<OracleConfig | null>
+  listOracles(): Promise<OracleConfig[]>
+  updateOracleHeartbeat(oracleAddress: Address, heartbeat: bigint): Promise<Hex>
 
   // Data Submission (for custom oracles)
-  submitPrice(feedId: Hex, price: bigint, timestamp: bigint): Promise<Hex>;
+  submitPrice(feedId: Hex, price: bigint, timestamp: bigint): Promise<Hex>
   submitBatchPrices(
     updates: { feedId: Hex; price: bigint; timestamp: bigint }[],
-  ): Promise<Hex>;
+  ): Promise<Hex>
 
   // Validation
-  isPriceStale(feedAddress: Address): Promise<boolean>;
-  isPriceValid(feedAddress: Address, maxAge: bigint): Promise<boolean>;
-  getLastUpdateTime(feedAddress: Address): Promise<bigint>;
+  isPriceStale(feedAddress: Address): Promise<boolean>
+  isPriceValid(feedAddress: Address, maxAge: bigint): Promise<boolean>
+  getLastUpdateTime(feedAddress: Address): Promise<bigint>
 
   // Price Conversion
   convertPrice(
     amount: bigint,
     fromFeed: Address,
     toFeed: Address,
-  ): Promise<bigint>;
-  getUSDPrice(tokenAddress: Address): Promise<bigint>;
+  ): Promise<bigint>
+  getUSDPrice(tokenAddress: Address): Promise<bigint>
 
   // Constants
-  readonly MAX_PRICE_AGE: bigint;
-  readonly MIN_OBSERVATIONS: number;
+  readonly MAX_PRICE_AGE: bigint
+  readonly MIN_OBSERVATIONS: number
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -140,141 +137,141 @@ export interface OracleModule {
 
 const CHAINLINK_AGGREGATOR_ABI = [
   {
-    name: "latestRoundData",
-    type: "function",
-    stateMutability: "view",
+    name: 'latestRoundData',
+    type: 'function',
+    stateMutability: 'view',
     inputs: [],
     outputs: [
-      { name: "roundId", type: "uint80" },
-      { name: "answer", type: "int256" },
-      { name: "startedAt", type: "uint256" },
-      { name: "updatedAt", type: "uint256" },
-      { name: "answeredInRound", type: "uint80" },
+      { name: 'roundId', type: 'uint80' },
+      { name: 'answer', type: 'int256' },
+      { name: 'startedAt', type: 'uint256' },
+      { name: 'updatedAt', type: 'uint256' },
+      { name: 'answeredInRound', type: 'uint80' },
     ],
   },
   {
-    name: "getRoundData",
-    type: "function",
-    stateMutability: "view",
-    inputs: [{ name: "_roundId", type: "uint80" }],
+    name: 'getRoundData',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: '_roundId', type: 'uint80' }],
     outputs: [
-      { name: "roundId", type: "uint80" },
-      { name: "answer", type: "int256" },
-      { name: "startedAt", type: "uint256" },
-      { name: "updatedAt", type: "uint256" },
-      { name: "answeredInRound", type: "uint80" },
+      { name: 'roundId', type: 'uint80' },
+      { name: 'answer', type: 'int256' },
+      { name: 'startedAt', type: 'uint256' },
+      { name: 'updatedAt', type: 'uint256' },
+      { name: 'answeredInRound', type: 'uint80' },
     ],
   },
   {
-    name: "decimals",
-    type: "function",
-    stateMutability: "view",
+    name: 'decimals',
+    type: 'function',
+    stateMutability: 'view',
     inputs: [],
-    outputs: [{ type: "uint8" }],
+    outputs: [{ type: 'uint8' }],
   },
   {
-    name: "description",
-    type: "function",
-    stateMutability: "view",
+    name: 'description',
+    type: 'function',
+    stateMutability: 'view',
     inputs: [],
-    outputs: [{ type: "string" }],
+    outputs: [{ type: 'string' }],
   },
   {
-    name: "latestAnswer",
-    type: "function",
-    stateMutability: "view",
+    name: 'latestAnswer',
+    type: 'function',
+    stateMutability: 'view',
     inputs: [],
-    outputs: [{ type: "int256" }],
+    outputs: [{ type: 'int256' }],
   },
   {
-    name: "latestTimestamp",
-    type: "function",
-    stateMutability: "view",
+    name: 'latestTimestamp',
+    type: 'function',
+    stateMutability: 'view',
     inputs: [],
-    outputs: [{ type: "uint256" }],
+    outputs: [{ type: 'uint256' }],
   },
-] as const;
+] as const
 
 const TWAP_ORACLE_ABI = [
   {
-    name: "consult",
-    type: "function",
-    stateMutability: "view",
+    name: 'consult',
+    type: 'function',
+    stateMutability: 'view',
     inputs: [
-      { name: "tokenIn", type: "address" },
-      { name: "amountIn", type: "uint256" },
-      { name: "period", type: "uint32" },
+      { name: 'tokenIn', type: 'address' },
+      { name: 'amountIn', type: 'uint256' },
+      { name: 'period', type: 'uint32' },
     ],
-    outputs: [{ type: "uint256" }],
+    outputs: [{ type: 'uint256' }],
   },
   {
-    name: "getObservations",
-    type: "function",
-    stateMutability: "view",
-    inputs: [{ name: "count", type: "uint256" }],
+    name: 'getObservations',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'count', type: 'uint256' }],
     outputs: [
       {
-        type: "tuple[]",
+        type: 'tuple[]',
         components: [
-          { name: "timestamp", type: "uint256" },
-          { name: "price", type: "uint256" },
-          { name: "cumulativePrice", type: "uint256" },
+          { name: 'timestamp', type: 'uint256' },
+          { name: 'price', type: 'uint256' },
+          { name: 'cumulativePrice', type: 'uint256' },
         ],
       },
     ],
   },
-] as const;
+] as const
 
 const ORACLE_REGISTRY_ABI = [
   {
-    name: "registerOracle",
-    type: "function",
-    stateMutability: "nonpayable",
+    name: 'registerOracle',
+    type: 'function',
+    stateMutability: 'nonpayable',
     inputs: [
-      { name: "feedAddress", type: "address" },
-      { name: "oracleType", type: "uint8" },
-      { name: "description", type: "string" },
-      { name: "heartbeat", type: "uint256" },
-      { name: "deviationThreshold", type: "uint256" },
+      { name: 'feedAddress', type: 'address' },
+      { name: 'oracleType', type: 'uint8' },
+      { name: 'description', type: 'string' },
+      { name: 'heartbeat', type: 'uint256' },
+      { name: 'deviationThreshold', type: 'uint256' },
     ],
     outputs: [],
   },
   {
-    name: "getOracleConfig",
-    type: "function",
-    stateMutability: "view",
-    inputs: [{ name: "oracleAddress", type: "address" }],
+    name: 'getOracleConfig',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'oracleAddress', type: 'address' }],
     outputs: [
       {
-        type: "tuple",
+        type: 'tuple',
         components: [
-          { name: "oracleAddress", type: "address" },
-          { name: "oracleType", type: "uint8" },
-          { name: "heartbeat", type: "uint256" },
-          { name: "deviationThreshold", type: "uint256" },
-          { name: "description", type: "string" },
+          { name: 'oracleAddress', type: 'address' },
+          { name: 'oracleType', type: 'uint8' },
+          { name: 'heartbeat', type: 'uint256' },
+          { name: 'deviationThreshold', type: 'uint256' },
+          { name: 'description', type: 'string' },
         ],
       },
     ],
   },
   {
-    name: "getFeedByPair",
-    type: "function",
-    stateMutability: "view",
+    name: 'getFeedByPair',
+    type: 'function',
+    stateMutability: 'view',
     inputs: [
-      { name: "baseToken", type: "address" },
-      { name: "quoteToken", type: "address" },
+      { name: 'baseToken', type: 'address' },
+      { name: 'quoteToken', type: 'address' },
     ],
-    outputs: [{ type: "address" }],
+    outputs: [{ type: 'address' }],
   },
   {
-    name: "getAllOracles",
-    type: "function",
-    stateMutability: "view",
+    name: 'getAllOracles',
+    type: 'function',
+    stateMutability: 'view',
     inputs: [],
-    outputs: [{ type: "address[]" }],
+    outputs: [{ type: 'address[]' }],
   },
-] as const;
+] as const
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                          IMPLEMENTATION
@@ -285,13 +282,13 @@ export function createOracleModule(
   network: NetworkType,
 ): OracleModule {
   const oracleRegistryAddress = requireContract(
-    "oracle",
-    "OracleRegistry",
+    'oracle',
+    'OracleRegistry',
     network,
-  );
+  )
 
-  const MAX_PRICE_AGE = 3600n; // 1 hour
-  const MIN_OBSERVATIONS = 10;
+  const MAX_PRICE_AGE = 3600n // 1 hour
+  const MIN_OBSERVATIONS = 10
 
   return {
     MAX_PRICE_AGE,
@@ -301,21 +298,21 @@ export function createOracleModule(
       const result = await wallet.publicClient.readContract({
         address: feedAddress,
         abi: CHAINLINK_AGGREGATOR_ABI,
-        functionName: "latestAnswer",
-      });
+        functionName: 'latestAnswer',
+      })
 
-      return BigInt(result as bigint);
+      return BigInt(result as bigint)
     },
 
     async getLatestRoundData(feedAddress) {
       const result = await wallet.publicClient.readContract({
         address: feedAddress,
         abi: CHAINLINK_AGGREGATOR_ABI,
-        functionName: "latestRoundData",
-      });
+        functionName: 'latestRoundData',
+      })
 
       const [roundId, answer, startedAt, updatedAt, answeredInRound] =
-        result as [bigint, bigint, bigint, bigint, bigint];
+        result as [bigint, bigint, bigint, bigint, bigint]
 
       return {
         roundId,
@@ -323,19 +320,19 @@ export function createOracleModule(
         startedAt,
         updatedAt,
         answeredInRound,
-      };
+      }
     },
 
     async getRoundData(feedAddress, roundId) {
       const result = await wallet.publicClient.readContract({
         address: feedAddress,
         abi: CHAINLINK_AGGREGATOR_ABI,
-        functionName: "getRoundData",
+        functionName: 'getRoundData',
         args: [roundId],
-      });
+      })
 
       const [retRoundId, answer, startedAt, updatedAt, answeredInRound] =
-        result as [bigint, bigint, bigint, bigint, bigint];
+        result as [bigint, bigint, bigint, bigint, bigint]
 
       return {
         roundId: retRoundId,
@@ -343,60 +340,60 @@ export function createOracleModule(
         startedAt,
         updatedAt,
         answeredInRound,
-      };
+      }
     },
 
     async getDecimals(feedAddress) {
       return (await wallet.publicClient.readContract({
         address: feedAddress,
         abi: CHAINLINK_AGGREGATOR_ABI,
-        functionName: "decimals",
-      })) as number;
+        functionName: 'decimals',
+      })) as number
     },
 
     async getDescription(feedAddress) {
       return (await wallet.publicClient.readContract({
         address: feedAddress,
         abi: CHAINLINK_AGGREGATOR_ABI,
-        functionName: "description",
-      })) as string;
+        functionName: 'description',
+      })) as string
     },
 
     async getHistoricalPrices(feedAddress, startRound, count) {
-      const rounds: RoundData[] = [];
+      const rounds: RoundData[] = []
       for (let i = 0; i < count; i++) {
-        const roundId = startRound + BigInt(i);
-        const data = await this.getRoundData(feedAddress, roundId);
+        const roundId = startRound + BigInt(i)
+        const data = await this.getRoundData(feedAddress, roundId)
         // Break if we get invalid data (answer = 0 indicates no data)
-        if (data.answer === 0n) break;
-        rounds.push(data);
+        if (data.answer === 0n) break
+        rounds.push(data)
       }
-      return rounds;
+      return rounds
     },
 
     async getTWAP(_poolAddress, _period) {
       // Would need to query TWAP oracle
-      return 0n;
+      return 0n
     },
 
     async getTWAPObservations(poolAddress, count) {
       const result = await wallet.publicClient.readContract({
         address: poolAddress,
         abi: TWAP_ORACLE_ABI,
-        functionName: "getObservations",
+        functionName: 'getObservations',
         args: [BigInt(count)],
-      });
+      })
 
-      return result as TWAPObservation[];
+      return result as TWAPObservation[]
     },
 
     async consultTWAP(poolAddress, tokenIn, amountIn, period) {
       return (await wallet.publicClient.readContract({
         address: poolAddress,
         abi: TWAP_ORACLE_ABI,
-        functionName: "consult",
+        functionName: 'consult',
         args: [tokenIn, amountIn, Number(period)],
-      })) as bigint;
+      })) as bigint
     },
 
     async getFeedInfo(feedAddress) {
@@ -404,10 +401,10 @@ export function createOracleModule(
         this.getLatestRoundData(feedAddress),
         this.getDecimals(feedAddress),
         this.getDescription(feedAddress),
-      ]);
+      ])
 
       // Return null if feed has no data (roundId = 0 indicates uninitialized)
-      if (roundData.roundId === 0n) return null;
+      if (roundData.roundId === 0n) return null
 
       return {
         feedAddress,
@@ -417,42 +414,42 @@ export function createOracleModule(
         latestPrice: roundData.answer,
         latestTimestamp: roundData.updatedAt,
         isActive: true,
-      };
+      }
     },
 
     async listFeeds() {
       const addresses = (await wallet.publicClient.readContract({
         address: oracleRegistryAddress,
         abi: ORACLE_REGISTRY_ABI,
-        functionName: "getAllOracles",
-      })) as Address[];
+        functionName: 'getAllOracles',
+      })) as Address[]
 
-      const feeds: PriceFeed[] = [];
+      const feeds: PriceFeed[] = []
       for (const addr of addresses) {
-        const feed = await this.getFeedInfo(addr);
-        if (feed) feeds.push(feed);
+        const feed = await this.getFeedInfo(addr)
+        if (feed) feeds.push(feed)
       }
-      return feeds;
+      return feeds
     },
 
     async getFeedByPair(baseToken, quoteToken) {
       const address = (await wallet.publicClient.readContract({
         address: oracleRegistryAddress,
         abi: ORACLE_REGISTRY_ABI,
-        functionName: "getFeedByPair",
+        functionName: 'getFeedByPair',
         args: [baseToken, quoteToken],
-      })) as Address;
+      })) as Address
 
-      if (address === "0x0000000000000000000000000000000000000000") {
-        return null;
+      if (address === '0x0000000000000000000000000000000000000000') {
+        return null
       }
-      return address;
+      return address
     },
 
     async registerOracle(params) {
       const data = encodeFunctionData({
         abi: ORACLE_REGISTRY_ABI,
-        functionName: "registerOracle",
+        functionName: 'registerOracle',
         args: [
           params.feedAddress,
           params.oracleType,
@@ -460,85 +457,85 @@ export function createOracleModule(
           params.heartbeat,
           BigInt(params.deviationThreshold),
         ],
-      });
+      })
 
       return wallet.sendTransaction({
         to: oracleRegistryAddress,
         data,
-      });
+      })
     },
 
     async getOracleConfig(oracleAddress) {
       const result = await wallet.publicClient.readContract({
         address: oracleRegistryAddress,
         abi: ORACLE_REGISTRY_ABI,
-        functionName: "getOracleConfig",
+        functionName: 'getOracleConfig',
         args: [oracleAddress],
-      });
+      })
 
       const config = result as {
-        oracleAddress: Address;
-        oracleType: number;
-        heartbeat: bigint;
-        deviationThreshold: bigint;
-        description: string;
-      };
+        oracleAddress: Address
+        oracleType: number
+        heartbeat: bigint
+        deviationThreshold: bigint
+        description: string
+      }
 
       if (
-        config.oracleAddress === "0x0000000000000000000000000000000000000000"
+        config.oracleAddress === '0x0000000000000000000000000000000000000000'
       ) {
-        return null;
+        return null
       }
 
       return {
         ...config,
         oracleType: config.oracleType as OracleType,
         deviationThreshold: Number(config.deviationThreshold),
-      };
+      }
     },
 
     async listOracles() {
       const addresses = (await wallet.publicClient.readContract({
         address: oracleRegistryAddress,
         abi: ORACLE_REGISTRY_ABI,
-        functionName: "getAllOracles",
-      })) as Address[];
+        functionName: 'getAllOracles',
+      })) as Address[]
 
-      const configs: OracleConfig[] = [];
+      const configs: OracleConfig[] = []
       for (const addr of addresses) {
-        const config = await this.getOracleConfig(addr);
-        if (config) configs.push(config);
+        const config = await this.getOracleConfig(addr)
+        if (config) configs.push(config)
       }
-      return configs;
+      return configs
     },
 
     async updateOracleHeartbeat(_oracleAddress, _heartbeat) {
-      throw new Error("Not implemented");
+      throw new Error('Not implemented')
     },
 
     async submitPrice(_feedId, _price, _timestamp) {
-      throw new Error("Not implemented - use authorized submitter");
+      throw new Error('Not implemented - use authorized submitter')
     },
 
     async submitBatchPrices(_updates) {
-      throw new Error("Not implemented - use authorized submitter");
+      throw new Error('Not implemented - use authorized submitter')
     },
 
     async isPriceStale(feedAddress) {
-      const roundData = await this.getLatestRoundData(feedAddress);
-      const now = BigInt(Math.floor(Date.now() / 1000));
-      return now - roundData.updatedAt > MAX_PRICE_AGE;
+      const roundData = await this.getLatestRoundData(feedAddress)
+      const now = BigInt(Math.floor(Date.now() / 1000))
+      return now - roundData.updatedAt > MAX_PRICE_AGE
     },
 
     async isPriceValid(feedAddress, maxAge) {
-      const roundData = await this.getLatestRoundData(feedAddress);
-      const now = BigInt(Math.floor(Date.now() / 1000));
-      return now - roundData.updatedAt <= maxAge && roundData.answer > 0n;
+      const roundData = await this.getLatestRoundData(feedAddress)
+      const now = BigInt(Math.floor(Date.now() / 1000))
+      return now - roundData.updatedAt <= maxAge && roundData.answer > 0n
     },
 
     async getLastUpdateTime(feedAddress) {
-      const roundData = await this.getLatestRoundData(feedAddress);
-      return roundData.updatedAt;
+      const roundData = await this.getLatestRoundData(feedAddress)
+      return roundData.updatedAt
     },
 
     async convertPrice(amount, fromFeed, toFeed) {
@@ -547,27 +544,26 @@ export function createOracleModule(
         this.getLatestRoundData(toFeed),
         this.getDecimals(fromFeed),
         this.getDecimals(toFeed),
-      ]);
+      ])
 
       // Convert: amount * fromPrice / toPrice, adjusted for decimals
-      const fromPrice = fromData.answer;
-      const toPrice = toData.answer;
+      const fromPrice = fromData.answer
+      const toPrice = toData.answer
 
-      const decimalAdjustment = 10n ** BigInt(toDecimals - fromDecimals);
-      return (amount * fromPrice * decimalAdjustment) / toPrice;
+      const decimalAdjustment = 10n ** BigInt(toDecimals - fromDecimals)
+      return (amount * fromPrice * decimalAdjustment) / toPrice
     },
 
     async getUSDPrice(tokenAddress) {
       // Would need token -> USD feed mapping
-      const usdAddress =
-        "0x0000000000000000000000000000000000000000" as Address;
-      const feed = await this.getFeedByPair(tokenAddress, usdAddress);
+      const usdAddress = '0x0000000000000000000000000000000000000000' as Address
+      const feed = await this.getFeedByPair(tokenAddress, usdAddress)
 
       if (!feed) {
-        throw new Error("No USD feed found for token");
+        throw new Error('No USD feed found for token')
       }
 
-      return this.getLatestPrice(feed);
+      return this.getLatestPrice(feed)
     },
-  };
+  }
 }

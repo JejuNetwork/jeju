@@ -84,7 +84,8 @@ class JNSServiceImpl implements JNSService {
     const { data, error } = await this.client.jns
       .available({ name: normalized })
       .get()
-    if (error) throw new JNSError(`JNS availability check failed: ${error}`, 500)
+    if (error)
+      throw new JNSError(`JNS availability check failed: ${error}`, 500)
     expectValid(jnsAvailableResponseSchema, data, 'JNS available response')
     return data?.available ?? false
   }
@@ -127,7 +128,10 @@ class JNSServiceImpl implements JNSService {
     )
 
     if (!response.ok) {
-      throw new JNSError(`JNS set records failed: ${response.status}`, response.status)
+      throw new JNSError(
+        `JNS set records failed: ${response.status}`,
+        response.status,
+      )
     }
 
     const data = (await response.json()) as { txHash: string }

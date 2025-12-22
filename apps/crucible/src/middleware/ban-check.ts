@@ -92,7 +92,7 @@ export function banCheckMiddleware() {
       const contentType = request.headers.get('content-type') ?? ''
       if (contentType.includes('application/json')) {
         const clonedRequest = request.clone()
-        const rawBody = await clonedRequest.json().catch(() => null)
+        const rawBody = await clonedRequest.json()
         if (rawBody !== null) {
           const parsed = AddressBodySchema.safeParse(rawBody)
           if (parsed.success) {

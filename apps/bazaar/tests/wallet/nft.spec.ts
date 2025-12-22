@@ -113,7 +113,7 @@ test.describe('Items Page with Wallet', () => {
 
 test.describe('Marketplace Contract Verification', () => {
   test('verifies marketplace listing state', async () => {
-    const marketplaceAddress = process.env.NEXT_PUBLIC_NFT_MARKETPLACE_ADDRESS
+    const marketplaceAddress = process.env.PUBLIC_NFT_MARKETPLACE_ADDRESS
     if (!marketplaceAddress || marketplaceAddress === '0x0') {
       console.log('Skipping: Marketplace not deployed')
       return
@@ -130,7 +130,7 @@ test.describe('Marketplace Contract Verification', () => {
   })
 
   test('verifies marketplace auction state', async () => {
-    const marketplaceAddress = process.env.NEXT_PUBLIC_NFT_MARKETPLACE_ADDRESS
+    const marketplaceAddress = process.env.PUBLIC_NFT_MARKETPLACE_ADDRESS
     if (!marketplaceAddress || marketplaceAddress === '0x0') {
       console.log('Skipping: Marketplace not deployed')
       return

@@ -11,7 +11,6 @@ import type {
   InitializeResult,
   JsonRpcError,
   JsonRpcResponse,
-  JsonRpcResult,
   JsonValue,
   MCPAuthContext,
   MCPProtocolVersion,
@@ -221,11 +220,10 @@ export class MCPRequestHandler {
       params.protocolVersion as MCPProtocolVersion,
     )
 
-    // InitializeResult is JSON-serializable and compatible with JsonRpcResult
     return {
       jsonrpc: '2.0',
       id: request.id,
-      result: result as unknown as JsonRpcResult,
+      result,
     }
   }
 
@@ -236,7 +234,7 @@ export class MCPRequestHandler {
     return {
       jsonrpc: '2.0',
       id: request.id,
-      result: {} as JsonValue,
+      result: {},
     }
   }
 
@@ -247,11 +245,10 @@ export class MCPRequestHandler {
     const tools = this.getTools()
     const result: ToolsListResult = { tools }
 
-    // ToolsListResult needs cast through unknown as types don't overlap structurally
     return {
       jsonrpc: '2.0',
       id: request.id,
-      result: result as unknown as JsonRpcResult,
+      result,
     }
   }
 
@@ -352,11 +349,10 @@ export class MCPRequestHandler {
       isError: false,
     }
 
-    // ToolCallResult needs cast through unknown as types don't overlap structurally
     return {
       jsonrpc: '2.0',
       id: request.id,
-      result: result as unknown as JsonRpcResult,
+      result,
     }
   }
 

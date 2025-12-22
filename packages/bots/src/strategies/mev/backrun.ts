@@ -11,12 +11,12 @@
 
 import { EventEmitter } from 'node:events'
 import {
-  type PublicClient,
-  type WalletClient,
   type Address,
-  type Hash,
-  parseAbi,
   encodeFunctionData,
+  type Hash,
+  type PublicClient,
+  parseAbi,
+  type WalletClient,
 } from 'viem'
 
 export interface BackrunConfig {
@@ -64,12 +64,11 @@ export class BackrunStrategy extends EventEmitter {
   private wallet: WalletClient
   private running = false
   private recentTrades: TradeEvent[] = []
-  private lastBlockProcessed = 0n
 
   constructor(
     config: BackrunConfig,
     client: PublicClient,
-    wallet: WalletClient
+    wallet: WalletClient,
   ) {
     super()
     this.config = config
@@ -80,7 +79,9 @@ export class BackrunStrategy extends EventEmitter {
   async start(): Promise<void> {
     if (this.running) return
     this.running = true
-    console.log(`🔙 Backrun: monitoring ${this.config.targetDexes.length} DEXes`)
+    console.log(
+      `🔙 Backrun: monitoring ${this.config.targetDexes.length} DEXes`,
+    )
 
     // Watch for swap events
     this.watchSwaps()
@@ -106,7 +107,14 @@ export class BackrunStrategy extends EventEmitter {
     }
   }
 
-  private async onSwap(pool: Address, log: { args: Record<string, bigint | Address>; transactionHash: Hash; blockNumber: bigint }): Promise<void> {
+  private async onSwap(
+    pool: Address,
+    log: {
+      args: Record<string, bigint | Address>
+      transactionHash: Hash
+      blockNumber: bigint
+    },
+  ): Promise<void> {
     if (!this.running) return
 
     const { amount0In, amount1In, amount0Out, amount1Out } = log.args as {
@@ -118,8 +126,16 @@ export class BackrunStrategy extends EventEmitter {
 
     // Get pool tokens
     const [token0, token1] = await Promise.all([
-      this.client.readContract({ address: pool, abi: UNISWAP_V2_PAIR_ABI, functionName: 'token0' }),
-      this.client.readContract({ address: pool, abi: UNISWAP_V2_PAIR_ABI, functionName: 'token1' }),
+      this.client.readContract({
+        address: pool,
+        abi: UNISWAP_V2_PAIR_ABI,
+        functionName: 'token0',
+      }),
+      this.client.readContract({
+        address: pool,
+        abi: UNISWAP_V2_PAIR_ABI,
+        functionName: 'token1',
+      }),
     ])
 
     const isToken0In = amount0In > 0n
@@ -151,16 +167,30 @@ export class BackrunStrategy extends EventEmitter {
     }
   }
 
-  private async findOpportunity(trade: TradeEvent): Promise<BackrunOpportunity | null> {
+  private async findOpportunity(
+    trade: TradeEvent,
+  ): Promise<BackrunOpportunity | null> {
     // Find pools with the opposite token pair
     for (const targetPool of this.config.targetDexes) {
       if (targetPool === trade.pool) continue
 
       try {
         const [token0, token1, reserves] = await Promise.all([
-          this.client.readContract({ address: targetPool, abi: UNISWAP_V2_PAIR_ABI, functionName: 'token0' }),
-          this.client.readContract({ address: targetPool, abi: UNISWAP_V2_PAIR_ABI, functionName: 'token1' }),
-          this.client.readContract({ address: targetPool, abi: UNISWAP_V2_PAIR_ABI, functionName: 'getReserves' }),
+          this.client.readContract({
+            address: targetPool,
+            abi: UNISWAP_V2_PAIR_ABI,
+            functionName: 'token0',
+          }),
+          this.client.readContract({
+            address: targetPool,
+            abi: UNISWAP_V2_PAIR_ABI,
+            functionName: 'token1',
+          }),
+          this.client.readContract({
+            address: targetPool,
+            abi: UNISWAP_V2_PAIR_ABI,
+            functionName: 'getReserves',
+          }),
         ])
 
         // Check if this pool has the tokens we need
@@ -190,18 +220,23 @@ export class BackrunStrategy extends EventEmitter {
 
           const priceDiff = Math.abs(sourcePrice - targetPrice) / sourcePrice
 
-          if (priceDiff > 0.001) { // 0.1% minimum spread
+          if (priceDiff > 0.001) {
+            // 0.1% minimum spread
             // Estimate optimal trade size
             const optimalAmount = this.calculateOptimalAmount(
               sourceReserves[0],
               sourceReserves[1],
               reserve0,
-              reserve1
+              reserve1,
             )
 
-            const expectedProfit = optimalAmount * BigInt(Math.floor(priceDiff * 10000)) / 10000n
+            const expectedProfit =
+              (optimalAmount * BigInt(Math.floor(priceDiff * 10000))) / 10000n
 
-            if (Number(expectedProfit) / 1e18 * 3500 > this.config.minProfitUsd) {
+            if (
+              (Number(expectedProfit) / 1e18) * 3500 >
+              this.config.minProfitUsd
+            ) {
               return {
                 sourcePool: trade.pool,
                 targetPool,
@@ -214,10 +249,7 @@ export class BackrunStrategy extends EventEmitter {
             }
           }
         }
-      } catch {
-        // Pool might not exist or be incompatible
-        continue
-      }
+      } catch {}
     }
 
     return null
@@ -225,9 +257,9 @@ export class BackrunStrategy extends EventEmitter {
 
   private calculateOptimalAmount(
     sourceR0: bigint,
-    sourceR1: bigint,
+    _sourceR1: bigint,
     targetR0: bigint,
-    targetR1: bigint
+    _targetR1: bigint,
   ): bigint {
     // Simplified optimal amount calculation
     // In production, would use more sophisticated optimization
@@ -236,17 +268,27 @@ export class BackrunStrategy extends EventEmitter {
   }
 
   private async execute(opportunity: BackrunOpportunity): Promise<void> {
-    const [account] = await this.wallet.getAddresses()
+    const [_account] = await this.wallet.getAddresses()
 
-    const path = [opportunity.tokenIn, opportunity.tokenMid, opportunity.tokenOut]
+    const path = [
+      opportunity.tokenIn,
+      opportunity.tokenMid,
+      opportunity.tokenOut,
+    ]
 
-    const callData = encodeFunctionData({
+    const _callData = encodeFunctionData({
       abi: ARB_CONTRACT_ABI,
       functionName: 'executeArbitrage',
-      args: [path, opportunity.expectedProfit / 10n, opportunity.expectedProfit / 2n],
+      args: [
+        path,
+        opportunity.expectedProfit / 10n,
+        opportunity.expectedProfit / 2n,
+      ],
     })
 
-    console.log(`🔙 Backrun opportunity: ${Number(opportunity.expectedProfit) / 1e18} ETH profit`)
+    console.log(
+      `🔙 Backrun opportunity: ${Number(opportunity.expectedProfit) / 1e18} ETH profit`,
+    )
 
     this.emit('backrun-executed', {
       sourcePool: opportunity.sourcePool,
@@ -261,4 +303,3 @@ export class BackrunStrategy extends EventEmitter {
     }
   }
 }
-

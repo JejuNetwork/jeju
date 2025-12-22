@@ -136,9 +136,9 @@ export class FarcasterAdapter implements PlatformAdapter {
     const response = await fetch(
       `${this.apiUrl}/farcaster/notifications?fid=${this.botFid}&type=mentions`,
       { headers: this.getHeaders() },
-    ).catch(() => null)
+    )
 
-    if (!response?.ok) return
+    if (!response.ok) return
 
     const rawData = await response.json()
 
@@ -228,9 +228,9 @@ export class FarcasterAdapter implements PlatformAdapter {
     const response = await fetch(
       `${this.apiUrl}/farcaster/direct_cast/conversations?fid=${this.botFid}`,
       { headers: this.getHeaders() },
-    ).catch(() => null)
+    )
 
-    if (!response?.ok) return
+    if (!response.ok) return
 
     const rawData = await response.json()
     const ConversationsResponseSchema = z.object({
@@ -396,9 +396,9 @@ export class FarcasterAdapter implements PlatformAdapter {
     const response = await fetch(
       `${this.apiUrl}/farcaster/user/bulk?fids=${fid}`,
       { headers: this.getHeaders() },
-    ).catch(() => null)
+    )
 
-    if (!response?.ok) return null
+    if (!response.ok) return null
 
     const rawData = await response.json()
     const UsersResponseSchema = z.object({
@@ -455,9 +455,9 @@ export class FarcasterAdapter implements PlatformAdapter {
     const response = await fetch(
       `${this.apiUrl}/farcaster/channel?id=${channelId}`,
       { headers: this.getHeaders() },
-    ).catch(() => null)
+    )
 
-    if (!response?.ok) {
+    if (!response.ok) {
       return {
         id: channelId,
         name: channelId,

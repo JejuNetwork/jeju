@@ -288,7 +288,7 @@ class SimulationService {
           value: tx.value,
         }),
       tx.gasPrice || client.getGasPrice(),
-      client.estimateFeesPerGas().catch(() => null),
+      client.estimateFeesPerGas(),
     ])
 
     const effectiveGasPrice = tx.maxFeePerGas || gasPrice

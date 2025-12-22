@@ -19,8 +19,8 @@ export const healthRoutes = new Elysia({ prefix: '/api/health' }).get(
     // Check DWS health
     const dwsResponse = await fetch(`${DWS_API_URL}/health`, {
       signal: AbortSignal.timeout(5000),
-    }).catch(() => null)
-    services.dws = dwsResponse?.ok ?? false
+    })
+    services.dws = dwsResponse.ok
 
     // Check RPC connectivity
     const rpcResponse = await fetch(RPC_URL, {
@@ -33,8 +33,8 @@ export const healthRoutes = new Elysia({ prefix: '/api/health' }).get(
         id: 1,
       }),
       signal: AbortSignal.timeout(5000),
-    }).catch(() => null)
-    services.rpc = rpcResponse?.ok ?? false
+    })
+    services.rpc = rpcResponse.ok
 
     const allHealthy = Object.values(services).every(Boolean)
 

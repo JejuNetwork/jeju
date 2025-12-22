@@ -645,7 +645,7 @@ export async function getSubmission(
 ): Promise<BountySubmission | null> {
   // Check cache
   const cache = getCache()
-  const cached = await cache.get(`submission:${submissionId}`).catch(() => null)
+  const cached = await cache.get(`submission:${submissionId}`)
   if (cached) {
     // Validate schema then cast - enum values are validated by schema
     const validated = expectValid(

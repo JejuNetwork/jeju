@@ -20,23 +20,26 @@
  *   - solana-test-validator on port 8899 (optional, uses mock if unavailable)
  */
 
+import { Connection, Keypair } from '@solana/web3.js'
 import { spawn } from 'bun'
-import { Keypair, Connection, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
+import { sign } from 'tweetnacl'
 import {
+  type Address,
   createPublicClient,
   createWalletClient,
-  http,
-  keccak256,
-  toHex,
-  parseEther,
   encodeAbiParameters,
   type Hex,
-  type Address,
+  http,
+  keccak256,
+  parseEther,
+  toHex,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
-import { sign } from 'tweetnacl'
-import { deployTrainingContracts, type DeployedContracts } from './deploy-contracts'
+import {
+  type DeployedContracts,
+  deployTrainingContracts,
+} from './deploy-contracts'
 import {
   createTicTacToeEnv,
   trajectoryToTrainingFormat,
@@ -49,9 +52,11 @@ import {
 const CONFIG = {
   evmRpcUrl: 'http://127.0.0.1:9545',
   solanaRpcUrl: 'http://127.0.0.1:8899',
-  deployerKey: '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as Hex,
+  deployerKey:
+    '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as Hex,
   // Secondary keys for cross-chain workers
-  evmWorkerKey: '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as Hex,
+  evmWorkerKey:
+    '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as Hex,
   modelName: 'distilgpt2',
   trainingEpochs: 2,
   batchSize: 4,
@@ -257,7 +262,7 @@ function createSignedMessage(
   epoch: number,
   steps: bigint,
   clientCount: number,
-  solanaKeypair: Keypair
+  solanaKeypair: Keypair,
 ): Uint8Array {
   const message = new Uint8Array(32 + 4 + 8 + 4)
   Buffer.from(runId.slice(0, 32)).copy(Buffer.from(message.buffer), 0)
@@ -276,9 +281,9 @@ async function testEVMToSolanaFlow(
   contracts: DeployedContracts,
   publicClient: ReturnType<typeof createPublicClient>,
   evmOwnerWallet: ReturnType<typeof createWalletClient>,
-  solanaKeypair: Keypair
+  solanaKeypair: Keypair,
 ): Promise<CrossChainJobResult> {
-  console.log('\n' + '═'.repeat(70))
+  console.log(`\n${'═'.repeat(70)}`)
   console.log('FLOW 1: EVM → Solana Worker → EVM')
   console.log('═'.repeat(70))
 
@@ -303,14 +308,21 @@ async function testEVMToSolanaFlow(
     address: contracts.coordinator,
     abi: COORDINATOR_ABI,
     functionName: 'createRun',
-    args: [runId, 'tic-tac-toe', `ipfs://${CONFIG.modelName}`, CONFIG.trainingEpochs, trainingConfig],
+    args: [
+      runId,
+      'tic-tac-toe',
+      `ipfs://${CONFIG.modelName}`,
+      CONFIG.trainingEpochs,
+      trainingConfig,
+    ],
   })
   console.log(`       Run ID: ${runId.slice(0, 20)}...`)
   console.log('       Job created on Jeju EVM')
 
   // Step 2: Register Solana worker on EVM
   console.log('\n[2/6] Registering Solana-based worker on EVM...')
-  const solanaKeyBytes = `0x${Buffer.from(solanaKeypair.publicKey.toBytes()).toString('hex')}` as Hex
+  const solanaKeyBytes =
+    `0x${Buffer.from(solanaKeypair.publicKey.toBytes()).toString('hex')}` as Hex
 
   const existingClientId = await publicClient.readContract({
     address: contracts.coordinator,
@@ -326,7 +338,9 @@ async function testEVMToSolanaFlow(
       functionName: 'registerClient',
       args: [account.address, solanaKeyBytes, 'Solana Cloud GPU', 1, 16],
     })
-    console.log(`       Registered Solana worker with pubkey: ${solanaKeypair.publicKey.toBase58().slice(0, 16)}...`)
+    console.log(
+      `       Registered Solana worker with pubkey: ${solanaKeypair.publicKey.toBase58().slice(0, 16)}...`,
+    )
   } else {
     console.log(`       Worker already registered (ID: ${existingClientId})`)
   }
@@ -351,19 +365,31 @@ async function testEVMToSolanaFlow(
   // Step 4: Simulate Solana worker executing training
   console.log('\n[4/6] Solana worker executing training (simulated)...')
   const env = createTicTacToeEnv()
-  const trajectories = env.generateTrajectoryBatch(CONFIG.trajectoryCount, ['solana-worker'])
+  const trajectories = env.generateTrajectoryBatch(CONFIG.trajectoryCount, [
+    'solana-worker',
+  ])
   const trainingData = trajectories.map((t) => trajectoryToTrainingFormat(t))
-  console.log(`       Generated ${trainingData.length} trajectories on Solana node`)
+  console.log(
+    `       Generated ${trainingData.length} trajectories on Solana node`,
+  )
 
   // Step 5: Sign results with Solana keypair and bridge back to EVM
-  console.log('\n[5/6] Signing results with Solana keypair and bridging to EVM...')
+  console.log(
+    '\n[5/6] Signing results with Solana keypair and bridging to EVM...',
+  )
 
   let finalSteps = 0n
   const modelHash = keccak256(toHex(`trained-model-${Date.now()}`))
 
   for (let epoch = 1; epoch <= CONFIG.trainingEpochs; epoch++) {
     const steps = BigInt(epoch * 10)
-    const signature = createSignedMessage(runId.slice(2), epoch, steps, 1, solanaKeypair)
+    const signature = createSignedMessage(
+      runId.slice(2),
+      epoch,
+      steps,
+      1,
+      solanaKeypair,
+    )
 
     await evmOwnerWallet.writeContract({
       address: contracts.coordinator,
@@ -372,7 +398,9 @@ async function testEVMToSolanaFlow(
       args: [runId, epoch, steps, 1, modelHash, toHex(signature)],
     })
 
-    console.log(`       Epoch ${epoch}: bridged with Solana sig (${signature.slice(0, 8).join('')}...)`)
+    console.log(
+      `       Epoch ${epoch}: bridged with Solana sig (${signature.slice(0, 8).join('')}...)`,
+    )
     finalSteps = steps
   }
 
@@ -411,8 +439,16 @@ async function testEVMToSolanaFlow(
     epochs: Number(runState[0]),
     steps: runState[1],
     modelHash,
-    bridgeSignature: createSignedMessage(runId.slice(2), CONFIG.trainingEpochs, finalSteps, 1, solanaKeypair),
-    verified: runState[0] === CONFIG.trainingEpochs && progressCount === BigInt(CONFIG.trainingEpochs),
+    bridgeSignature: createSignedMessage(
+      runId.slice(2),
+      CONFIG.trainingEpochs,
+      finalSteps,
+      1,
+      solanaKeypair,
+    ),
+    verified:
+      runState[0] === CONFIG.trainingEpochs &&
+      progressCount === BigInt(CONFIG.trainingEpochs),
   }
 }
 
@@ -431,13 +467,13 @@ interface MockSolanaRun {
 }
 
 async function testSolanaToEVMFlow(
-  contracts: DeployedContracts,
-  publicClient: ReturnType<typeof createPublicClient>,
+  _contracts: DeployedContracts,
+  _publicClient: ReturnType<typeof createPublicClient>,
   evmWorkerWallet: ReturnType<typeof createWalletClient>,
   solanaKeypair: Keypair,
-  solanaAvailable: boolean
+  solanaAvailable: boolean,
 ): Promise<CrossChainJobResult> {
-  console.log('\n' + '═'.repeat(70))
+  console.log(`\n${'═'.repeat(70)}`)
   console.log('FLOW 2: Solana → EVM Worker → Solana')
   console.log('═'.repeat(70))
 
@@ -477,15 +513,24 @@ async function testSolanaToEVMFlow(
   console.log('\n[3/6] EVM worker executing training...')
 
   const env = createTicTacToeEnv()
-  const trajectories = env.generateTrajectoryBatch(CONFIG.trajectoryCount, ['evm-worker'])
+  const trajectories = env.generateTrajectoryBatch(CONFIG.trajectoryCount, [
+    'evm-worker',
+  ])
   const trainingData = trajectories.map((t) => trajectoryToTrainingFormat(t))
-  console.log(`       Generated ${trainingData.length} trajectories on EVM node`)
+  console.log(
+    `       Generated ${trainingData.length} trajectories on EVM node`,
+  )
 
   // Run quick training
-  const trainingTexts = trainingData.map(
-    (t) => `${t.prompt} ${t.response}`.replace(/[\n\r]/g, ' ').replace(/\s+/g, ' ').trim()
+  const trainingTexts = trainingData.map((t) =>
+    `${t.prompt} ${t.response}`
+      .replace(/[\n\r]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim(),
   )
-  const trainingDataB64 = Buffer.from(JSON.stringify(trainingTexts.slice(0, 10))).toString('base64')
+  const trainingDataB64 = Buffer.from(
+    JSON.stringify(trainingTexts.slice(0, 10)),
+  ).toString('base64')
 
   const pythonScript = `
 import torch
@@ -523,7 +568,10 @@ print("EVM_TRAINING_COMPLETE")
 `
 
   await Bun.spawn(['mkdir', '-p', './training_output/cross-chain']).exited
-  const proc = spawn(['python3', '-c', pythonScript], { stdout: 'pipe', stderr: 'pipe' })
+  const proc = spawn(['python3', '-c', pythonScript], {
+    stdout: 'pipe',
+    stderr: 'pipe',
+  })
   const exitCode = await proc.exited
 
   if (exitCode === 0) {
@@ -536,7 +584,7 @@ print("EVM_TRAINING_COMPLETE")
   console.log('\n[4/6] EVM worker signing results...')
 
   const modelHash = keccak256(toHex(`evm-trained-model-${Date.now()}`))
-  const evmRunIdBytes = keccak256(toHex(solanaRunId))
+  const _evmRunIdBytes = keccak256(toHex(solanaRunId))
 
   for (let epoch = 1; epoch <= CONFIG.trainingEpochs; epoch++) {
     const steps = epoch * 10
@@ -547,7 +595,9 @@ print("EVM_TRAINING_COMPLETE")
     })
     mockSolanaRun.currentEpoch = epoch
     mockSolanaRun.totalSteps = steps
-    console.log(`       Epoch ${epoch}: recorded EVM hash ${modelHash.slice(0, 16)}...`)
+    console.log(
+      `       Epoch ${epoch}: recorded EVM hash ${modelHash.slice(0, 16)}...`,
+    )
   }
 
   // Step 5: Bridge results back to Solana
@@ -621,8 +671,16 @@ print("EVM_TRAINING_COMPLETE")
     epochs: mockSolanaRun.currentEpoch,
     steps: BigInt(mockSolanaRun.totalSteps),
     modelHash,
-    bridgeSignature: createSignedMessage(solanaRunId, CONFIG.trainingEpochs, BigInt(mockSolanaRun.totalSteps), 1, solanaKeypair),
-    verified: mockSolanaRun.state === 'finished' && mockSolanaRun.currentEpoch === CONFIG.trainingEpochs,
+    bridgeSignature: createSignedMessage(
+      solanaRunId,
+      CONFIG.trainingEpochs,
+      BigInt(mockSolanaRun.totalSteps),
+      1,
+      solanaKeypair,
+    ),
+    verified:
+      mockSolanaRun.state === 'finished' &&
+      mockSolanaRun.currentEpoch === CONFIG.trainingEpochs,
   }
 }
 
@@ -631,12 +689,12 @@ print("EVM_TRAINING_COMPLETE")
 // ============================================================================
 
 async function testCrossChainRewards(
-  contracts: DeployedContracts,
-  publicClient: ReturnType<typeof createPublicClient>,
+  _contracts: DeployedContracts,
+  _publicClient: ReturnType<typeof createPublicClient>,
   evmWorkerAddress: Address,
-  solanaKeypair: Keypair
+  solanaKeypair: Keypair,
 ): Promise<boolean> {
-  console.log('\n' + '═'.repeat(70))
+  console.log(`\n${'═'.repeat(70)}`)
   console.log('CROSS-CHAIN REWARD VERIFICATION')
   console.log('═'.repeat(70))
 
@@ -650,8 +708,16 @@ async function testCrossChainRewards(
 
   const rewards: Reward[] = [
     { client: evmWorkerAddress, amount: parseEther('100'), chain: 'EVM' },
-    { client: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as Address, amount: parseEther('75'), chain: 'Solana' },
-    { client: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC' as Address, amount: parseEther('50'), chain: 'EVM' },
+    {
+      client: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as Address,
+      amount: parseEther('75'),
+      chain: 'Solana',
+    },
+    {
+      client: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC' as Address,
+      amount: parseEther('50'),
+      chain: 'EVM',
+    },
   ]
 
   // Compute leaves
@@ -659,14 +725,16 @@ async function testCrossChainRewards(
     keccak256(
       encodeAbiParameters(
         [{ type: 'address' }, { type: 'uint256' }],
-        [r.client, r.amount]
-      )
-    )
+        [r.client, r.amount],
+      ),
+    ),
   )
 
   console.log('       Leaves computed:')
   rewards.forEach((r, i) => {
-    console.log(`         ${i}: ${r.client.slice(0, 10)}... (${r.chain}) - ${Number(r.amount) / 1e18} tokens`)
+    console.log(
+      `         ${i}: ${r.client.slice(0, 10)}... (${r.chain}) - ${Number(r.amount) / 1e18} tokens`,
+    )
   })
 
   // Compute Merkle root
@@ -674,32 +742,50 @@ async function testCrossChainRewards(
   while (level.length > 1) {
     const nextLevel: Hex[] = []
     for (let i = 0; i < level.length; i += 2) {
-      if (i + 1 < level.length) {
-        const [left, right] = level[i]! < level[i + 1]! ? [level[i]!, level[i + 1]!] : [level[i + 1]!, level[i]!]
+      const current = level[i]
+      const next = level[i + 1]
+      if (current && next) {
+        const [left, right] = current < next ? [current, next] : [next, current]
         nextLevel.push(
-          keccak256(encodeAbiParameters([{ type: 'bytes32' }, { type: 'bytes32' }], [left, right]))
+          keccak256(
+            encodeAbiParameters(
+              [{ type: 'bytes32' }, { type: 'bytes32' }],
+              [left, right],
+            ),
+          ),
         )
-      } else {
-        nextLevel.push(level[i]!)
+      } else if (current) {
+        nextLevel.push(current)
       }
     }
     level = nextLevel
   }
-  const merkleRoot = level[0]!
+  const merkleRoot = level[0]
+  if (!merkleRoot) {
+    throw new Error('Failed to compute Merkle root')
+  }
 
   console.log(`\n[2/3] Merkle root: ${merkleRoot.slice(0, 32)}...`)
 
   // Sign Merkle root with Solana keypair for cross-chain verification
-  console.log('\n[3/3] Signing Merkle root with Solana keypair for cross-chain attestation...')
+  console.log(
+    '\n[3/3] Signing Merkle root with Solana keypair for cross-chain attestation...',
+  )
 
   const rootBytes = Buffer.from(merkleRoot.slice(2), 'hex')
   const signature = sign.detached(rootBytes, solanaKeypair.secretKey)
 
-  console.log(`       Solana signature: ${Buffer.from(signature.slice(0, 16)).toString('hex')}...`)
+  console.log(
+    `       Solana signature: ${Buffer.from(signature.slice(0, 16)).toString('hex')}...`,
+  )
   console.log(`       Signature length: ${signature.length} bytes`)
 
   // Verify signature
-  const isValid = sign.detached.verify(rootBytes, signature, solanaKeypair.publicKey.toBytes())
+  const isValid = sign.detached.verify(
+    rootBytes,
+    signature,
+    solanaKeypair.publicKey.toBytes(),
+  )
   console.log(`       Signature valid: ${isValid ? '✅' : '❌'}`)
 
   console.log('\n       Cross-chain reward distribution verified:')
@@ -715,14 +801,30 @@ async function testCrossChainRewards(
 // ============================================================================
 
 async function main() {
-  console.log('╔══════════════════════════════════════════════════════════════════╗')
-  console.log('║     CROSS-CHAIN BIDIRECTIONAL TRAINING TEST                       ║')
-  console.log('╠══════════════════════════════════════════════════════════════════╣')
-  console.log('║  Testing TRUE cross-chain capability:                             ║')
-  console.log('║  • EVM (Jeju) → Solana Worker → EVM                               ║')
-  console.log('║  • Solana (Psyche) → EVM Worker → Solana                          ║')
-  console.log('║  • Cross-chain reward verification                                ║')
-  console.log('╚══════════════════════════════════════════════════════════════════╝')
+  console.log(
+    '╔══════════════════════════════════════════════════════════════════╗',
+  )
+  console.log(
+    '║     CROSS-CHAIN BIDIRECTIONAL TRAINING TEST                       ║',
+  )
+  console.log(
+    '╠══════════════════════════════════════════════════════════════════╣',
+  )
+  console.log(
+    '║  Testing TRUE cross-chain capability:                             ║',
+  )
+  console.log(
+    '║  • EVM (Jeju) → Solana Worker → EVM                               ║',
+  )
+  console.log(
+    '║  • Solana (Psyche) → EVM Worker → Solana                          ║',
+  )
+  console.log(
+    '║  • Cross-chain reward verification                                ║',
+  )
+  console.log(
+    '╚══════════════════════════════════════════════════════════════════╝',
+  )
   console.log()
 
   // Check infrastructure
@@ -730,8 +832,12 @@ async function main() {
   const evmAvailable = await checkEVM()
   const solanaAvailable = await checkSolana()
 
-  console.log(`  EVM (Anvil):     ${evmAvailable ? '✅ Running' : '❌ Not running'}`)
-  console.log(`  Solana:          ${solanaAvailable ? '✅ Running' : '⚠️ Using mock'}`)
+  console.log(
+    `  EVM (Anvil):     ${evmAvailable ? '✅ Running' : '❌ Not running'}`,
+  )
+  console.log(
+    `  Solana:          ${solanaAvailable ? '✅ Running' : '⚠️ Using mock'}`,
+  )
 
   if (!evmAvailable) {
     console.error('\nERROR: Anvil required. Start with: anvil --port 9545')
@@ -760,7 +866,9 @@ async function main() {
 
   // Create Solana keypair (for signing)
   const solanaKeypair = Keypair.generate()
-  console.log(`  Solana pubkey:   ${solanaKeypair.publicKey.toBase58().slice(0, 24)}...`)
+  console.log(
+    `  Solana pubkey:   ${solanaKeypair.publicKey.toBase58().slice(0, 24)}...`,
+  )
   console.log(`  EVM owner:       ${evmOwnerAccount.address}`)
   console.log(`  EVM worker:      ${evmWorkerAccount.address}`)
 
@@ -792,7 +900,12 @@ async function main() {
   const results: CrossChainJobResult[] = []
 
   // Flow 1: EVM → Solana → EVM
-  const flow1Result = await testEVMToSolanaFlow(contracts, publicClient, evmOwnerWallet, solanaKeypair)
+  const flow1Result = await testEVMToSolanaFlow(
+    contracts,
+    publicClient,
+    evmOwnerWallet,
+    solanaKeypair,
+  )
   results.push(flow1Result)
 
   // Flow 2: Solana → EVM → Solana
@@ -801,7 +914,7 @@ async function main() {
     publicClient,
     evmWorkerWallet,
     solanaKeypair,
-    solanaAvailable
+    solanaAvailable,
   )
   results.push(flow2Result)
 
@@ -810,18 +923,20 @@ async function main() {
     contracts,
     publicClient,
     evmWorkerAccount.address,
-    solanaKeypair
+    solanaKeypair,
   )
 
   // Summary
-  console.log('\n' + '═'.repeat(70))
+  console.log(`\n${'═'.repeat(70)}`)
   console.log('CROSS-CHAIN TEST SUMMARY')
   console.log('═'.repeat(70))
   console.log()
 
   console.log('Flow Results:')
   results.forEach((r, i) => {
-    console.log(`  Flow ${i + 1}: ${r.originChain} → ${r.executionChain} → ${r.originChain}`)
+    console.log(
+      `  Flow ${i + 1}: ${r.originChain} → ${r.executionChain} → ${r.originChain}`,
+    )
     console.log(`    Run ID:  ${r.runId.slice(0, 24)}...`)
     console.log(`    Epochs:  ${r.epochs}`)
     console.log(`    Steps:   ${r.steps}`)
@@ -832,7 +947,9 @@ async function main() {
   console.log('Cross-Chain Capabilities Verified:')
   console.log(`  ✅ EVM job → Solana execution → EVM settlement`)
   console.log(`  ✅ Solana job → EVM execution → Solana settlement`)
-  console.log(`  ${rewardsVerified ? '✅' : '❌'} Cross-chain reward Merkle proofs`)
+  console.log(
+    `  ${rewardsVerified ? '✅' : '❌'} Cross-chain reward Merkle proofs`,
+  )
   console.log(`  ✅ Ed25519 signature attestation for bridge messages`)
   console.log(`  ✅ Progress reports with cross-chain signatures`)
   console.log()
@@ -844,11 +961,19 @@ async function main() {
     console.log('✅ ALL CROSS-CHAIN TESTS PASSED')
     console.log('═'.repeat(70))
     console.log()
-    console.log('The training infrastructure supports true bidirectional cross-chain:')
-    console.log('  • Training jobs can originate on either Jeju EVM or Solana Psyche')
+    console.log(
+      'The training infrastructure supports true bidirectional cross-chain:',
+    )
+    console.log(
+      '  • Training jobs can originate on either Jeju EVM or Solana Psyche',
+    )
     console.log('  • Workers on either chain can execute training')
-    console.log('  • Results are cryptographically bridged back to origin chain')
-    console.log('  • Rewards are distributed via Merkle proofs with cross-chain attestation')
+    console.log(
+      '  • Results are cryptographically bridged back to origin chain',
+    )
+    console.log(
+      '  • Rewards are distributed via Merkle proofs with cross-chain attestation',
+    )
   } else {
     console.log('═'.repeat(70))
     console.log('❌ SOME TESTS FAILED')
@@ -861,4 +986,3 @@ main().catch((err) => {
   console.error('ERROR:', err)
   process.exit(1)
 })
-

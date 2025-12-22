@@ -9,7 +9,10 @@ pub fn get_autostart_enabled(manager: State<'_, AutoStartManager>) -> bool {
 }
 
 #[tauri::command]
-pub fn set_autostart_enabled(enabled: bool, manager: State<'_, AutoStartManager>) -> Result<(), String> {
+pub fn set_autostart_enabled(
+    enabled: bool,
+    manager: State<'_, AutoStartManager>,
+) -> Result<(), String> {
     if enabled {
         manager.enable()
     } else {
@@ -21,4 +24,3 @@ pub fn set_autostart_enabled(enabled: bool, manager: State<'_, AutoStartManager>
 pub fn toggle_autostart(manager: State<'_, AutoStartManager>) -> Result<bool, String> {
     manager.toggle()
 }
-

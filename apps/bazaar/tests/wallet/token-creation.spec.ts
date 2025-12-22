@@ -154,7 +154,7 @@ test.describe('Token Creation', () => {
       extensionId,
     )
 
-    const factoryAddress = process.env.NEXT_PUBLIC_ERC20_FACTORY_ADDRESS
+    const factoryAddress = process.env.PUBLIC_ERC20_FACTORY_ADDRESS
     if (!factoryAddress || factoryAddress === '0x0') {
       console.log('Skipping: Factory not deployed')
       return

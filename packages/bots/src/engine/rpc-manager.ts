@@ -7,8 +7,8 @@
  * - Load balancing based on latency
  */
 
-import { createPublicClient, http, type PublicClient, type Chain } from 'viem'
-import { mainnet, base, arbitrum, optimism, bsc } from 'viem/chains'
+import { type Chain, createPublicClient, http, type PublicClient } from 'viem'
+import { arbitrum, base, bsc, mainnet, optimism } from 'viem/chains'
 
 interface RPCEndpoint {
   url: string
@@ -100,7 +100,10 @@ export class RPCManager {
   async start(): Promise<void> {
     console.log('🔌 Starting RPC Manager with latency routing...')
     await this.checkAllEndpoints()
-    this.healthCheckInterval = setInterval(() => this.checkAllEndpoints(), 30000)
+    this.healthCheckInterval = setInterval(
+      () => this.checkAllEndpoints(),
+      30000,
+    )
     console.log(`✓ Managing ${this.configs.size} chains`)
   }
 
@@ -117,7 +120,10 @@ export class RPCManager {
     return config.client
   }
 
-  async call<T>(chainId: number, fn: (client: PublicClient) => Promise<T>): Promise<T> {
+  async call<T>(
+    chainId: number,
+    fn: (client: PublicClient) => Promise<T>,
+  ): Promise<T> {
     const config = this.configs.get(chainId)
     if (!config) throw new Error(`No RPC config for chain ${chainId}`)
 
@@ -132,7 +138,7 @@ export class RPCManager {
         endpoint.successRate = Math.min(1, endpoint.successRate + 0.01)
         endpoint.failures = 0
         return result
-      } catch (error) {
+      } catch (_error) {
         endpoint.failures++
         endpoint.successRate = Math.max(0, endpoint.successRate - 0.1)
 
@@ -173,11 +179,13 @@ export class RPCManager {
       transport: http(config.endpoints[config.activeIndex].url),
     })
 
-    console.log(`Switched chain ${chainId} to ${config.endpoints[config.activeIndex].url}`)
+    console.log(
+      `Switched chain ${chainId} to ${config.endpoints[config.activeIndex].url}`,
+    )
   }
 
   private async checkAllEndpoints(): Promise<void> {
-    for (const [chainId, config] of this.configs) {
+    for (const [_chainId, config] of this.configs) {
       for (const endpoint of config.endpoints) {
         const startTime = Date.now()
         const client = createPublicClient({
@@ -211,8 +219,14 @@ export class RPCManager {
     }
   }
 
-  getStatus(): Record<number, { active: string; latency: number; healthy: number }> {
-    const status: Record<number, { active: string; latency: number; healthy: number }> = {}
+  getStatus(): Record<
+    number,
+    { active: string; latency: number; healthy: number }
+  > {
+    const status: Record<
+      number,
+      { active: string; latency: number; healthy: number }
+    > = {}
 
     for (const [chainId, config] of this.configs) {
       const active = config.endpoints[config.activeIndex]
@@ -227,7 +241,8 @@ export class RPCManager {
   }
 }
 
-export function createRPCManager(endpoints?: Record<number, string[]>): RPCManager {
+export function createRPCManager(
+  endpoints?: Record<number, string[]>,
+): RPCManager {
   return new RPCManager(endpoints)
 }
-

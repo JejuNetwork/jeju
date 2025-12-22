@@ -3,7 +3,6 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
-import { JNSRegistrationResponseSchema, validate } from '../schemas'
 import { createInferenceServer, type LocalInferenceServer } from './inference'
 import { createOrchestrator, type ServicesOrchestrator } from './orchestrator'
 
@@ -112,7 +111,9 @@ describe('ServicesOrchestrator', () => {
     // Check health of services
     const oracleUrl = orchestrator.getServiceUrl('oracle')
     oracleHealthy = oracleUrl
-      ? await fetch(`${oracleUrl}/health`, { signal: AbortSignal.timeout(1000) })
+      ? await fetch(`${oracleUrl}/health`, {
+          signal: AbortSignal.timeout(1000),
+        })
           .then((r) => r.ok)
           .catch(() => false)
       : false

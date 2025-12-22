@@ -45,7 +45,7 @@ interface SearchResult {
 }
 
 const REGISTRY_URL =
-  process.env.NEXT_PUBLIC_JEJUPKG_URL ?? 'http://localhost:4030/pkg'
+  process.env.PUBLIC_JEJUPKG_URL ?? 'http://localhost:4030/pkg'
 
 async function searchPackages(query: string): Promise<SearchResult[]> {
   const response = await fetch(
@@ -155,16 +155,14 @@ export default function PackagesPage() {
               <span className="text-gray-400">npm:</span>
               <code className="ml-2 px-2 py-1 bg-gray-900 rounded text-green-400">
                 npm config set registry{' '}
-                {process.env.NEXT_PUBLIC_JEJUPKG_URL ??
-                  'http://localhost:4030/pkg'}
+                {process.env.PUBLIC_JEJUPKG_URL ?? 'http://localhost:4030/pkg'}
               </code>
             </div>
             <div>
               <span className="text-gray-400">bun:</span>
               <code className="ml-2 px-2 py-1 bg-gray-900 rounded text-green-400">
                 bun config set registry{' '}
-                {process.env.NEXT_PUBLIC_JEJUPKG_URL ??
-                  'http://localhost:4030/pkg'}
+                {process.env.PUBLIC_JEJUPKG_URL ?? 'http://localhost:4030/pkg'}
               </code>
             </div>
           </div>

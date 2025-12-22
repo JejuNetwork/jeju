@@ -82,7 +82,7 @@ export interface UsePriceStreamReturn {
 
 const DEFAULT_ENDPOINT =
   typeof window !== 'undefined'
-    ? (process.env.NEXT_PUBLIC_DWS_URL ?? 'http://localhost:4030')
+    ? (process.env.PUBLIC_DWS_URL ?? 'http://localhost:4030')
     : 'http://localhost:4030'
 
 const DEFAULT_OPTIONS: Required<UsePriceStreamOptions> = {
@@ -408,7 +408,7 @@ export function useETHPrice(chainId: number = 1): {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
 
-  const endpoint = process.env.NEXT_PUBLIC_DWS_URL ?? 'http://localhost:4030'
+  const endpoint = process.env.PUBLIC_DWS_URL ?? 'http://localhost:4030'
 
   useEffect(() => {
     let mounted = true
@@ -451,8 +451,7 @@ export async function fetchTokenPrices(
   tokens: Array<{ chainId: number; address: string }>,
   endpoint?: string,
 ): Promise<Record<string, TokenPrice>> {
-  const url =
-    endpoint ?? process.env.NEXT_PUBLIC_DWS_URL ?? 'http://localhost:4030'
+  const url = endpoint ?? process.env.PUBLIC_DWS_URL ?? 'http://localhost:4030'
 
   const response = await fetch(`${url}/prices/batch`, {
     method: 'POST',
@@ -476,8 +475,7 @@ export async function trackToken(
   address: string,
   endpoint?: string,
 ): Promise<void> {
-  const url =
-    endpoint ?? process.env.NEXT_PUBLIC_DWS_URL ?? 'http://localhost:4030'
+  const url = endpoint ?? process.env.PUBLIC_DWS_URL ?? 'http://localhost:4030'
 
   await fetch(`${url}/prices/track`, {
     method: 'POST',

@@ -152,7 +152,10 @@ async function fetchWithRetry(
             delay,
           })
           await new Promise((r) => setTimeout(r, delay))
-          delay = Math.min(delay * RETRY_CONFIG.backoffMultiplier, RETRY_CONFIG.maxDelayMs)
+          delay = Math.min(
+            delay * RETRY_CONFIG.backoffMultiplier,
+            RETRY_CONFIG.maxDelayMs,
+          )
           continue
         }
       }
@@ -161,7 +164,10 @@ async function fetchWithRetry(
     } catch (error) {
       lastError = error as Error
 
-      if (!isRetryableError(error) || attempt === RETRY_CONFIG.maxAttempts - 1) {
+      if (
+        !isRetryableError(error) ||
+        attempt === RETRY_CONFIG.maxAttempts - 1
+      ) {
         throw error
       }
 
@@ -172,7 +178,10 @@ async function fetchWithRetry(
         delay,
       })
       await new Promise((r) => setTimeout(r, delay))
-      delay = Math.min(delay * RETRY_CONFIG.backoffMultiplier, RETRY_CONFIG.maxDelayMs)
+      delay = Math.min(
+        delay * RETRY_CONFIG.backoffMultiplier,
+        RETRY_CONFIG.maxDelayMs,
+      )
     }
   }
 
@@ -476,7 +485,10 @@ export class ArbitrageDetector {
         timestamp: Date.now(),
       }
     } catch (error) {
-      log.warn('Failed to get Jupiter price', { token, error: (error as Error).message })
+      log.warn('Failed to get Jupiter price', {
+        token,
+        error: (error as Error).message,
+      })
       return null
     }
   }
@@ -669,7 +681,10 @@ export class ArbitrageDetector {
 
       return parseFloat(priceStr)
     } catch (error) {
-      log.warn('Failed to get Hyperliquid price', { pair, error: (error as Error).message })
+      log.warn('Failed to get Hyperliquid price', {
+        pair,
+        error: (error as Error).message,
+      })
       return null
     }
   }

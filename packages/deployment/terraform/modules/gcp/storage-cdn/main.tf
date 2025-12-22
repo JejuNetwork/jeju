@@ -382,7 +382,7 @@ resource "google_compute_url_map" "storage_cdn" {
 
     # Static assets with hash - immutable
     path_rule {
-      paths   = ["/assets/*", "/_next/static/*"]
+      paths   = ["/assets/*", "/static/*"]
       service = google_compute_backend_service.storage_gateway[0].id
       route_action {
         cdn_policy {

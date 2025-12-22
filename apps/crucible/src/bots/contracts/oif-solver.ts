@@ -124,7 +124,6 @@ export class OIFSolver {
     ChainId,
     { public: PublicClient; wallet: WalletClient }
   > = new Map()
-  private isRegistered = false
 
   constructor(config: OIFSolverConfig) {
     this.config = config
@@ -201,7 +200,6 @@ export class OIFSolver {
       })
     }
 
-    this.isRegistered = true
     return registerHash
   }
 

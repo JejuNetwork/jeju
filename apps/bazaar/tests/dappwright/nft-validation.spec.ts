@@ -38,7 +38,7 @@ const MARKETPLACE_ABI = parseAbi([
 
 test.describe('NFT On-Chain Validation', () => {
   test('verifies marketplace contract is deployed', async () => {
-    const marketplaceAddress = process.env.NEXT_PUBLIC_NFT_MARKETPLACE_ADDRESS
+    const marketplaceAddress = process.env.PUBLIC_NFT_MARKETPLACE_ADDRESS
 
     if (!marketplaceAddress || marketplaceAddress === '0x0') {
       console.log('Skipping: Marketplace not deployed')
@@ -58,7 +58,7 @@ test.describe('NFT On-Chain Validation', () => {
   })
 
   test('queries contract state directly', async () => {
-    const marketplaceAddress = process.env.NEXT_PUBLIC_NFT_MARKETPLACE_ADDRESS
+    const marketplaceAddress = process.env.PUBLIC_NFT_MARKETPLACE_ADDRESS
 
     if (!marketplaceAddress || marketplaceAddress === '0x0') {
       console.log('Skipping: Marketplace not deployed')

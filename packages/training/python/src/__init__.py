@@ -83,38 +83,30 @@ def __getattr__(name: str):
 
 
 __all__ = [
-    # Models
-    "BabylonTrajectory",
-    "MarketOutcomes",
-    "WindowStatistics",
-    "TrainingBatchSummary",
     "AtroposScoredGroup",
-    "JudgeResponse",
-    # Data Bridge
-    "PostgresTrajectoryReader",
-    "BabylonToAtroposConverter",
-    "ScoredGroupResult",
-    "calculate_dropout_rate",
-    # Atropos Training (lazy - requires torch)
-    "BabylonAtroposTrainer",
     "AtroposTrainingConfig",
-    "BabylonRLAIFEnv",
+    "BabylonAtroposTrainer",
     "BabylonEnvConfig",
-    # Rewards (no torch)
-    "pnl_reward",
-    "composite_reward",
-    "RewardNormalizer",
-    # Quality utilities (no torch)
-    "calculate_tick_quality_score",
-    "calculate_trajectory_quality_score",
-    # Multi-prompt dataset (no torch)
+    "BabylonRLAIFEnv",
+    "BabylonToAtroposConverter",
+    "BabylonTrajectory",
+    "CallPurpose",
+    "JudgeResponse",
+    "MarketOutcomes",
     "MultiPromptDatasetBuilder",
+    "PostgresTrajectoryReader",
     "PromptDataset",
     "PromptSample",
-    # Tick reward (no torch)
+    "RewardNormalizer",
+    "ScoredGroupResult",
     "TickRewardAttributor",
-    "CallPurpose",
-    # Archetype utilities (no torch)
-    "get_rubric",
+    "TrainingBatchSummary",
+    "WindowStatistics",
+    "calculate_dropout_rate",
+    "calculate_tick_quality_score",
+    "calculate_trajectory_quality_score",
+    "composite_reward",
     "get_available_archetypes",
+    "get_rubric",
+    "pnl_reward",
 ]

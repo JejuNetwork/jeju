@@ -1,18 +1,13 @@
 {
   "name": "@jejunetwork/documentation",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Network documentation site powered by Vocs",
   "type": "module",
   "scripts": {
     "dev": "vocs dev --port ${DOCUMENTATION_PORT:-4004}",
-    "a2a": "bun run server/a2a-server.ts",
     "build": "vocs build",
-    "preview": "vocs preview --port ${DOCUMENTATION_PORT:-4004}",
-    "test": "bun run test:unit",
-    "test:full": "bun run test:e2e && bun run test:unit",
-    "test:unit": "bun test tests/unit/",
-    "test:e2e": "playwright test",
-    "test:e2e:headed": "playwright test --headed"
+    "test": "bun test tests/",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@elysiajs/cors": "^1.4.0",
@@ -23,7 +18,7 @@
     "remark-stringify": "11.0.0",
     "unified": "11.0.5",
     "vocs": "1.4.0",
-    "zod": "3.24.4"
+    "zod": "4.2.1"
   },
   "devDependencies": {
     "@jejunetwork/tests": "workspace:*",

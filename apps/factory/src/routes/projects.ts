@@ -137,7 +137,7 @@ export const projectsRoutes = new Elysia({ prefix: '/api/projects' })
   )
   .post(
     '/:projectId/tasks',
-    async ({ params, body, headers, set }) => {
+    async ({ body, headers, set }) => {
       const authResult = await requireAuth(headers)
       if (!authResult.success) {
         set.status = 401

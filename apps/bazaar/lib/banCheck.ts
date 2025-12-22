@@ -248,24 +248,20 @@ export async function checkTransferAllowed(
 ): Promise<boolean> {
   if (!JEJU_TOKEN_ADDRESS) return true
 
-  const enforcementEnabled = await publicClient
-    .readContract({
-      address: JEJU_TOKEN_ADDRESS,
-      abi: JEJU_TOKEN_ABI,
-      functionName: 'banEnforcementEnabled',
-    })
-    .catch(() => false)
+  const enforcementEnabled = await publicClient.readContract({
+    address: JEJU_TOKEN_ADDRESS,
+    abi: JEJU_TOKEN_ABI,
+    functionName: 'banEnforcementEnabled',
+  })
 
   if (!enforcementEnabled) return true
 
-  const isBanned = await publicClient
-    .readContract({
-      address: JEJU_TOKEN_ADDRESS,
-      abi: JEJU_TOKEN_ABI,
-      functionName: 'isBanned',
-      args: [userAddress],
-    })
-    .catch(() => false)
+  const isBanned = await publicClient.readContract({
+    address: JEJU_TOKEN_ADDRESS,
+    abi: JEJU_TOKEN_ABI,
+    functionName: 'isBanned',
+    args: [userAddress],
+  })
 
   return !isBanned
 }

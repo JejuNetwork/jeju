@@ -159,7 +159,7 @@ export const pullsRoutes = new Elysia({ prefix: '/api/pulls' })
   )
   .post(
     '/:prNumber/reviews',
-    async ({ params, body, headers, set }) => {
+    async ({ body, headers, set }) => {
       const authResult = await requireAuth(headers)
       if (!authResult.success) {
         set.status = 401

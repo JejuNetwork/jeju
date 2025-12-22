@@ -9,393 +9,393 @@
  * - Image signing and verification
  */
 
-import type { NetworkType } from "@jejunetwork/types";
-import type { Address, Hex } from "viem";
-import { encodeFunctionData, keccak256, toHex } from "viem";
-import { getContractAddresses } from "../config";
-import type { JejuWallet } from "../wallet";
+import type { NetworkType } from '@jejunetwork/types'
+import type { Address, Hex } from 'viem'
+import { encodeFunctionData, keccak256, toHex } from 'viem'
+import { getContractAddresses } from '../config'
+import type { JejuWallet } from '../wallet'
 
 // ============================================================================
 // Types
 // ============================================================================
 
-export type ContainerVisibility = "PUBLIC" | "PRIVATE" | "ORGANIZATION";
+export type ContainerVisibility = 'PUBLIC' | 'PRIVATE' | 'ORGANIZATION'
 
 export interface ContainerRepository {
-  repoId: Hex;
-  name: string;
-  namespace: string;
-  owner: Address;
-  ownerAgentId: bigint;
-  description: string;
-  visibility: ContainerVisibility;
-  tags: string[];
-  createdAt: bigint;
-  updatedAt: bigint;
-  pullCount: bigint;
-  starCount: bigint;
-  isVerified: boolean;
+  repoId: Hex
+  name: string
+  namespace: string
+  owner: Address
+  ownerAgentId: bigint
+  description: string
+  visibility: ContainerVisibility
+  tags: string[]
+  createdAt: bigint
+  updatedAt: bigint
+  pullCount: bigint
+  starCount: bigint
+  isVerified: boolean
 }
 
 export interface ImageManifest {
-  manifestId: Hex;
-  repoId: Hex;
-  tag: string;
-  digest: string;
-  manifestUri: string;
-  manifestHash: Hex;
-  size: bigint;
-  architectures: string[];
-  layers: string[];
-  publishedAt: bigint;
-  publisher: Address;
-  buildInfo: string;
+  manifestId: Hex
+  repoId: Hex
+  tag: string
+  digest: string
+  manifestUri: string
+  manifestHash: Hex
+  size: bigint
+  architectures: string[]
+  layers: string[]
+  publishedAt: bigint
+  publisher: Address
+  buildInfo: string
 }
 
 export interface LayerBlob {
-  digest: string;
-  cid: string;
-  size: bigint;
-  mediaType: string;
-  uploadedAt: bigint;
+  digest: string
+  cid: string
+  size: bigint
+  mediaType: string
+  uploadedAt: bigint
 }
 
 export interface ImageSignature {
-  signatureId: Hex;
-  manifestId: Hex;
-  signer: Address;
-  signerAgentId: bigint;
-  signature: Hex;
-  publicKeyUri: string;
-  signedAt: bigint;
-  isValid: boolean;
+  signatureId: Hex
+  manifestId: Hex
+  signer: Address
+  signerAgentId: bigint
+  signature: Hex
+  publicKeyUri: string
+  signedAt: bigint
+  isValid: boolean
 }
 
 export interface CreateRepositoryParams {
-  name: string;
-  namespace: string;
-  description?: string;
-  visibility?: ContainerVisibility;
-  tags?: string[];
+  name: string
+  namespace: string
+  description?: string
+  visibility?: ContainerVisibility
+  tags?: string[]
 }
 
 export interface PublishImageParams {
-  repoId: Hex;
-  tag: string;
-  manifestUri: string;
-  layers: string[];
-  architectures?: string[];
-  buildInfo?: string;
+  repoId: Hex
+  tag: string
+  manifestUri: string
+  layers: string[]
+  architectures?: string[]
+  buildInfo?: string
 }
 
 export interface SignImageParams {
-  manifestId: Hex;
-  signature: Hex;
-  publicKeyUri: string;
+  manifestId: Hex
+  signature: Hex
+  publicKeyUri: string
 }
 
 const CONTAINER_REGISTRY_ABI = [
   {
-    type: "function",
-    name: "createRepository",
+    type: 'function',
+    name: 'createRepository',
     inputs: [
-      { name: "name", type: "string" },
-      { name: "namespace", type: "string" },
-      { name: "description", type: "string" },
-      { name: "visibility", type: "uint8" },
-      { name: "tags", type: "string[]" },
+      { name: 'name', type: 'string' },
+      { name: 'namespace', type: 'string' },
+      { name: 'description', type: 'string' },
+      { name: 'visibility', type: 'uint8' },
+      { name: 'tags', type: 'string[]' },
     ],
-    outputs: [{ type: "bytes32" }],
-    stateMutability: "nonpayable",
+    outputs: [{ type: 'bytes32' }],
+    stateMutability: 'nonpayable',
   },
   {
-    type: "function",
-    name: "publishImage",
+    type: 'function',
+    name: 'publishImage',
     inputs: [
-      { name: "repoId", type: "bytes32" },
-      { name: "tag", type: "string" },
-      { name: "manifestUri", type: "string" },
-      { name: "manifestHash", type: "bytes32" },
-      { name: "size", type: "uint256" },
-      { name: "architectures", type: "string[]" },
-      { name: "layers", type: "string[]" },
-      { name: "buildInfo", type: "string" },
+      { name: 'repoId', type: 'bytes32' },
+      { name: 'tag', type: 'string' },
+      { name: 'manifestUri', type: 'string' },
+      { name: 'manifestHash', type: 'bytes32' },
+      { name: 'size', type: 'uint256' },
+      { name: 'architectures', type: 'string[]' },
+      { name: 'layers', type: 'string[]' },
+      { name: 'buildInfo', type: 'string' },
     ],
-    outputs: [{ type: "bytes32" }],
-    stateMutability: "nonpayable",
+    outputs: [{ type: 'bytes32' }],
+    stateMutability: 'nonpayable',
   },
   {
-    type: "function",
-    name: "signImage",
+    type: 'function',
+    name: 'signImage',
     inputs: [
-      { name: "manifestId", type: "bytes32" },
-      { name: "signature", type: "bytes" },
-      { name: "publicKeyUri", type: "string" },
+      { name: 'manifestId', type: 'bytes32' },
+      { name: 'signature', type: 'bytes' },
+      { name: 'publicKeyUri', type: 'string' },
     ],
-    outputs: [{ type: "bytes32" }],
-    stateMutability: "nonpayable",
+    outputs: [{ type: 'bytes32' }],
+    stateMutability: 'nonpayable',
   },
   {
-    type: "function",
-    name: "recordPull",
-    inputs: [{ name: "repoId", type: "bytes32" }],
+    type: 'function',
+    name: 'recordPull',
+    inputs: [{ name: 'repoId', type: 'bytes32' }],
     outputs: [],
-    stateMutability: "nonpayable",
+    stateMutability: 'nonpayable',
   },
   {
-    type: "function",
-    name: "starRepository",
-    inputs: [{ name: "repoId", type: "bytes32" }],
+    type: 'function',
+    name: 'starRepository',
+    inputs: [{ name: 'repoId', type: 'bytes32' }],
     outputs: [],
-    stateMutability: "nonpayable",
+    stateMutability: 'nonpayable',
   },
   {
-    type: "function",
-    name: "unstarRepository",
-    inputs: [{ name: "repoId", type: "bytes32" }],
+    type: 'function',
+    name: 'unstarRepository',
+    inputs: [{ name: 'repoId', type: 'bytes32' }],
     outputs: [],
-    stateMutability: "nonpayable",
+    stateMutability: 'nonpayable',
   },
   {
-    type: "function",
-    name: "grantAccess",
+    type: 'function',
+    name: 'grantAccess',
     inputs: [
-      { name: "repoId", type: "bytes32" },
-      { name: "user", type: "address" },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "revokeAccess",
-    inputs: [
-      { name: "repoId", type: "bytes32" },
-      { name: "user", type: "address" },
+      { name: 'repoId', type: 'bytes32' },
+      { name: 'user', type: 'address' },
     ],
     outputs: [],
-    stateMutability: "nonpayable",
+    stateMutability: 'nonpayable',
   },
   {
-    type: "function",
-    name: "getRepository",
-    inputs: [{ name: "repoId", type: "bytes32" }],
+    type: 'function',
+    name: 'revokeAccess',
+    inputs: [
+      { name: 'repoId', type: 'bytes32' },
+      { name: 'user', type: 'address' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'getRepository',
+    inputs: [{ name: 'repoId', type: 'bytes32' }],
     outputs: [
       {
-        type: "tuple",
+        type: 'tuple',
         components: [
-          { name: "repoId", type: "bytes32" },
-          { name: "name", type: "string" },
-          { name: "namespace", type: "string" },
-          { name: "owner", type: "address" },
-          { name: "ownerAgentId", type: "uint256" },
-          { name: "description", type: "string" },
-          { name: "visibility", type: "uint8" },
-          { name: "tags", type: "string[]" },
-          { name: "createdAt", type: "uint256" },
-          { name: "updatedAt", type: "uint256" },
-          { name: "pullCount", type: "uint256" },
-          { name: "starCount", type: "uint256" },
-          { name: "isVerified", type: "bool" },
+          { name: 'repoId', type: 'bytes32' },
+          { name: 'name', type: 'string' },
+          { name: 'namespace', type: 'string' },
+          { name: 'owner', type: 'address' },
+          { name: 'ownerAgentId', type: 'uint256' },
+          { name: 'description', type: 'string' },
+          { name: 'visibility', type: 'uint8' },
+          { name: 'tags', type: 'string[]' },
+          { name: 'createdAt', type: 'uint256' },
+          { name: 'updatedAt', type: 'uint256' },
+          { name: 'pullCount', type: 'uint256' },
+          { name: 'starCount', type: 'uint256' },
+          { name: 'isVerified', type: 'bool' },
         ],
       },
     ],
-    stateMutability: "view",
+    stateMutability: 'view',
   },
   {
-    type: "function",
-    name: "getRepositoryByName",
-    inputs: [{ name: "fullName", type: "string" }],
+    type: 'function',
+    name: 'getRepositoryByName',
+    inputs: [{ name: 'fullName', type: 'string' }],
     outputs: [
       {
-        type: "tuple",
+        type: 'tuple',
         components: [
-          { name: "repoId", type: "bytes32" },
-          { name: "name", type: "string" },
-          { name: "namespace", type: "string" },
-          { name: "owner", type: "address" },
-          { name: "ownerAgentId", type: "uint256" },
-          { name: "description", type: "string" },
-          { name: "visibility", type: "uint8" },
-          { name: "tags", type: "string[]" },
-          { name: "createdAt", type: "uint256" },
-          { name: "updatedAt", type: "uint256" },
-          { name: "pullCount", type: "uint256" },
-          { name: "starCount", type: "uint256" },
-          { name: "isVerified", type: "bool" },
+          { name: 'repoId', type: 'bytes32' },
+          { name: 'name', type: 'string' },
+          { name: 'namespace', type: 'string' },
+          { name: 'owner', type: 'address' },
+          { name: 'ownerAgentId', type: 'uint256' },
+          { name: 'description', type: 'string' },
+          { name: 'visibility', type: 'uint8' },
+          { name: 'tags', type: 'string[]' },
+          { name: 'createdAt', type: 'uint256' },
+          { name: 'updatedAt', type: 'uint256' },
+          { name: 'pullCount', type: 'uint256' },
+          { name: 'starCount', type: 'uint256' },
+          { name: 'isVerified', type: 'bool' },
         ],
       },
     ],
-    stateMutability: "view",
+    stateMutability: 'view',
   },
   {
-    type: "function",
-    name: "getManifest",
-    inputs: [{ name: "manifestId", type: "bytes32" }],
+    type: 'function',
+    name: 'getManifest',
+    inputs: [{ name: 'manifestId', type: 'bytes32' }],
     outputs: [
       {
-        type: "tuple",
+        type: 'tuple',
         components: [
-          { name: "manifestId", type: "bytes32" },
-          { name: "repoId", type: "bytes32" },
-          { name: "tag", type: "string" },
-          { name: "digest", type: "string" },
-          { name: "manifestUri", type: "string" },
-          { name: "manifestHash", type: "bytes32" },
-          { name: "size", type: "uint256" },
-          { name: "architectures", type: "string[]" },
-          { name: "layers", type: "string[]" },
-          { name: "publishedAt", type: "uint256" },
-          { name: "publisher", type: "address" },
-          { name: "buildInfo", type: "string" },
+          { name: 'manifestId', type: 'bytes32' },
+          { name: 'repoId', type: 'bytes32' },
+          { name: 'tag', type: 'string' },
+          { name: 'digest', type: 'string' },
+          { name: 'manifestUri', type: 'string' },
+          { name: 'manifestHash', type: 'bytes32' },
+          { name: 'size', type: 'uint256' },
+          { name: 'architectures', type: 'string[]' },
+          { name: 'layers', type: 'string[]' },
+          { name: 'publishedAt', type: 'uint256' },
+          { name: 'publisher', type: 'address' },
+          { name: 'buildInfo', type: 'string' },
         ],
       },
     ],
-    stateMutability: "view",
+    stateMutability: 'view',
   },
   {
-    type: "function",
-    name: "getManifestByTag",
+    type: 'function',
+    name: 'getManifestByTag',
     inputs: [
-      { name: "repoId", type: "bytes32" },
-      { name: "tag", type: "string" },
+      { name: 'repoId', type: 'bytes32' },
+      { name: 'tag', type: 'string' },
     ],
     outputs: [
       {
-        type: "tuple",
+        type: 'tuple',
         components: [
-          { name: "manifestId", type: "bytes32" },
-          { name: "repoId", type: "bytes32" },
-          { name: "tag", type: "string" },
-          { name: "digest", type: "string" },
-          { name: "manifestUri", type: "string" },
-          { name: "manifestHash", type: "bytes32" },
-          { name: "size", type: "uint256" },
-          { name: "architectures", type: "string[]" },
-          { name: "layers", type: "string[]" },
-          { name: "publishedAt", type: "uint256" },
-          { name: "publisher", type: "address" },
-          { name: "buildInfo", type: "string" },
+          { name: 'manifestId', type: 'bytes32' },
+          { name: 'repoId', type: 'bytes32' },
+          { name: 'tag', type: 'string' },
+          { name: 'digest', type: 'string' },
+          { name: 'manifestUri', type: 'string' },
+          { name: 'manifestHash', type: 'bytes32' },
+          { name: 'size', type: 'uint256' },
+          { name: 'architectures', type: 'string[]' },
+          { name: 'layers', type: 'string[]' },
+          { name: 'publishedAt', type: 'uint256' },
+          { name: 'publisher', type: 'address' },
+          { name: 'buildInfo', type: 'string' },
         ],
       },
     ],
-    stateMutability: "view",
+    stateMutability: 'view',
   },
   {
-    type: "function",
-    name: "hasAccess",
+    type: 'function',
+    name: 'hasAccess',
     inputs: [
-      { name: "repoId", type: "bytes32" },
-      { name: "user", type: "address" },
+      { name: 'repoId', type: 'bytes32' },
+      { name: 'user', type: 'address' },
     ],
-    outputs: [{ type: "bool" }],
-    stateMutability: "view",
+    outputs: [{ type: 'bool' }],
+    stateMutability: 'view',
   },
   {
-    type: "function",
-    name: "getUserRepositories",
-    inputs: [{ name: "user", type: "address" }],
-    outputs: [{ type: "bytes32[]" }],
-    stateMutability: "view",
+    type: 'function',
+    name: 'getUserRepositories',
+    inputs: [{ name: 'user', type: 'address' }],
+    outputs: [{ type: 'bytes32[]' }],
+    stateMutability: 'view',
   },
-] as const;
+] as const
 
 export interface ContainersModule {
   // Repository Management
-  createRepository(params: CreateRepositoryParams): Promise<Hex>;
-  getRepository(repoId: Hex): Promise<ContainerRepository>;
-  getRepositoryByName(fullName: string): Promise<ContainerRepository>;
-  listMyRepositories(): Promise<ContainerRepository[]>;
-  starRepository(repoId: Hex): Promise<Hex>;
-  unstarRepository(repoId: Hex): Promise<Hex>;
+  createRepository(params: CreateRepositoryParams): Promise<Hex>
+  getRepository(repoId: Hex): Promise<ContainerRepository>
+  getRepositoryByName(fullName: string): Promise<ContainerRepository>
+  listMyRepositories(): Promise<ContainerRepository[]>
+  starRepository(repoId: Hex): Promise<Hex>
+  unstarRepository(repoId: Hex): Promise<Hex>
 
   // Access Control
-  grantAccess(repoId: Hex, user: Address): Promise<Hex>;
-  revokeAccess(repoId: Hex, user: Address): Promise<Hex>;
-  hasAccess(repoId: Hex, user?: Address): Promise<boolean>;
+  grantAccess(repoId: Hex, user: Address): Promise<Hex>
+  revokeAccess(repoId: Hex, user: Address): Promise<Hex>
+  hasAccess(repoId: Hex, user?: Address): Promise<boolean>
 
   // Image Operations
-  publishImage(params: PublishImageParams): Promise<Hex>;
-  getManifest(manifestId: Hex): Promise<ImageManifest>;
-  getManifestByTag(repoId: Hex, tag: string): Promise<ImageManifest>;
-  recordPull(repoId: Hex): Promise<Hex>;
+  publishImage(params: PublishImageParams): Promise<Hex>
+  getManifest(manifestId: Hex): Promise<ImageManifest>
+  getManifestByTag(repoId: Hex, tag: string): Promise<ImageManifest>
+  recordPull(repoId: Hex): Promise<Hex>
 
   // Signing
-  signImage(params: SignImageParams): Promise<Hex>;
+  signImage(params: SignImageParams): Promise<Hex>
 
   // Utilities
-  getRepoId(namespace: string, name: string): Hex;
+  getRepoId(namespace: string, name: string): Hex
   parseImageReference(ref: string): {
-    namespace: string;
-    name: string;
-    tag: string;
-  };
+    namespace: string
+    name: string
+    tag: string
+  }
 }
 
 export function createContainersModule(
   wallet: JejuWallet,
   network: NetworkType,
 ): ContainersModule {
-  const addresses = getContractAddresses(network);
-  const registryAddress = addresses.containerRegistry as Address;
+  const addresses = getContractAddresses(network)
+  const registryAddress = addresses.containerRegistry as Address
 
   const visibilityMap: Record<ContainerVisibility, number> = {
     PUBLIC: 0,
     PRIVATE: 1,
     ORGANIZATION: 2,
-  };
+  }
 
   const visibilityReverseMap: Record<number, ContainerVisibility> = {
-    0: "PUBLIC",
-    1: "PRIVATE",
-    2: "ORGANIZATION",
-  };
+    0: 'PUBLIC',
+    1: 'PRIVATE',
+    2: 'ORGANIZATION',
+  }
 
   function parseRepository(raw: {
-    repoId: Hex;
-    name: string;
-    namespace: string;
-    owner: Address;
-    ownerAgentId: bigint;
-    description: string;
-    visibility: number;
-    tags: readonly string[];
-    createdAt: bigint;
-    updatedAt: bigint;
-    pullCount: bigint;
-    starCount: bigint;
-    isVerified: boolean;
+    repoId: Hex
+    name: string
+    namespace: string
+    owner: Address
+    ownerAgentId: bigint
+    description: string
+    visibility: number
+    tags: readonly string[]
+    createdAt: bigint
+    updatedAt: bigint
+    pullCount: bigint
+    starCount: bigint
+    isVerified: boolean
   }): ContainerRepository {
-    const visibility = visibilityReverseMap[raw.visibility];
+    const visibility = visibilityReverseMap[raw.visibility]
     if (!visibility) {
-      throw new Error(`Invalid visibility value: ${raw.visibility}`);
+      throw new Error(`Invalid visibility value: ${raw.visibility}`)
     }
     return {
       ...raw,
       visibility,
       tags: [...raw.tags],
-    };
+    }
   }
 
   function parseManifest(raw: {
-    manifestId: Hex;
-    repoId: Hex;
-    tag: string;
-    digest: string;
-    manifestUri: string;
-    manifestHash: Hex;
-    size: bigint;
-    architectures: readonly string[];
-    layers: readonly string[];
-    publishedAt: bigint;
-    publisher: Address;
-    buildInfo: string;
+    manifestId: Hex
+    repoId: Hex
+    tag: string
+    digest: string
+    manifestUri: string
+    manifestHash: Hex
+    size: bigint
+    architectures: readonly string[]
+    layers: readonly string[]
+    publishedAt: bigint
+    publisher: Address
+    buildInfo: string
   }): ImageManifest {
     return {
       ...raw,
       architectures: [...raw.architectures],
       layers: [...raw.layers],
-    };
+    }
   }
 
   async function createRepository(
@@ -403,31 +403,31 @@ export function createContainersModule(
   ): Promise<Hex> {
     const data = encodeFunctionData({
       abi: CONTAINER_REGISTRY_ABI,
-      functionName: "createRepository",
+      functionName: 'createRepository',
       args: [
         params.name,
         params.namespace,
-        params.description ?? "",
-        visibilityMap[params.visibility ?? "PUBLIC"],
+        params.description ?? '',
+        visibilityMap[params.visibility ?? 'PUBLIC'],
         params.tags ?? [],
       ],
-    });
+    })
 
     return wallet.sendTransaction({
       to: registryAddress,
       data,
-    });
+    })
   }
 
   async function getRepository(repoId: Hex): Promise<ContainerRepository> {
     const result = await wallet.publicClient.readContract({
       address: registryAddress,
       abi: CONTAINER_REGISTRY_ABI,
-      functionName: "getRepository",
+      functionName: 'getRepository',
       args: [repoId],
-    });
+    })
 
-    return parseRepository(result);
+    return parseRepository(result)
   }
 
   async function getRepositoryByName(
@@ -436,122 +436,122 @@ export function createContainersModule(
     const result = await wallet.publicClient.readContract({
       address: registryAddress,
       abi: CONTAINER_REGISTRY_ABI,
-      functionName: "getRepositoryByName",
+      functionName: 'getRepositoryByName',
       args: [fullName],
-    });
+    })
 
-    return parseRepository(result);
+    return parseRepository(result)
   }
 
   async function listMyRepositories(): Promise<ContainerRepository[]> {
     const repoIds = await wallet.publicClient.readContract({
       address: registryAddress,
       abi: CONTAINER_REGISTRY_ABI,
-      functionName: "getUserRepositories",
+      functionName: 'getUserRepositories',
       args: [wallet.address],
-    });
+    })
 
-    return Promise.all(repoIds.map((id) => getRepository(id)));
+    return Promise.all(repoIds.map((id) => getRepository(id)))
   }
 
   async function starRepository(repoId: Hex): Promise<Hex> {
     const data = encodeFunctionData({
       abi: CONTAINER_REGISTRY_ABI,
-      functionName: "starRepository",
+      functionName: 'starRepository',
       args: [repoId],
-    });
+    })
 
     return wallet.sendTransaction({
       to: registryAddress,
       data,
-    });
+    })
   }
 
   async function unstarRepository(repoId: Hex): Promise<Hex> {
     const data = encodeFunctionData({
       abi: CONTAINER_REGISTRY_ABI,
-      functionName: "unstarRepository",
+      functionName: 'unstarRepository',
       args: [repoId],
-    });
+    })
 
     return wallet.sendTransaction({
       to: registryAddress,
       data,
-    });
+    })
   }
 
   async function grantAccess(repoId: Hex, user: Address): Promise<Hex> {
     const data = encodeFunctionData({
       abi: CONTAINER_REGISTRY_ABI,
-      functionName: "grantAccess",
+      functionName: 'grantAccess',
       args: [repoId, user],
-    });
+    })
 
     return wallet.sendTransaction({
       to: registryAddress,
       data,
-    });
+    })
   }
 
   async function revokeAccess(repoId: Hex, user: Address): Promise<Hex> {
     const data = encodeFunctionData({
       abi: CONTAINER_REGISTRY_ABI,
-      functionName: "revokeAccess",
+      functionName: 'revokeAccess',
       args: [repoId, user],
-    });
+    })
 
     return wallet.sendTransaction({
       to: registryAddress,
       data,
-    });
+    })
   }
 
   async function hasAccess(repoId: Hex, user?: Address): Promise<boolean> {
     return wallet.publicClient.readContract({
       address: registryAddress,
       abi: CONTAINER_REGISTRY_ABI,
-      functionName: "hasAccess",
+      functionName: 'hasAccess',
       args: [repoId, user ?? wallet.address],
-    });
+    })
   }
 
   async function publishImage(params: PublishImageParams): Promise<Hex> {
     // Calculate manifest hash from URI (simplified - in practice would hash actual content)
-    const manifestHash = keccak256(toHex(params.manifestUri));
+    const manifestHash = keccak256(toHex(params.manifestUri))
 
     // Calculate size from layers (simplified)
-    const size = BigInt(params.layers.length * 1024 * 1024);
+    const size = BigInt(params.layers.length * 1024 * 1024)
 
     const data = encodeFunctionData({
       abi: CONTAINER_REGISTRY_ABI,
-      functionName: "publishImage",
+      functionName: 'publishImage',
       args: [
         params.repoId,
         params.tag,
         params.manifestUri,
         manifestHash,
         size,
-        params.architectures ?? ["amd64"],
+        params.architectures ?? ['amd64'],
         params.layers,
-        params.buildInfo ?? "",
+        params.buildInfo ?? '',
       ],
-    });
+    })
 
     return wallet.sendTransaction({
       to: registryAddress,
       data,
-    });
+    })
   }
 
   async function getManifest(manifestId: Hex): Promise<ImageManifest> {
     const result = await wallet.publicClient.readContract({
       address: registryAddress,
       abi: CONTAINER_REGISTRY_ABI,
-      functionName: "getManifest",
+      functionName: 'getManifest',
       args: [manifestId],
-    });
+    })
 
-    return parseManifest(result);
+    return parseManifest(result)
   }
 
   async function getManifestByTag(
@@ -561,61 +561,61 @@ export function createContainersModule(
     const result = await wallet.publicClient.readContract({
       address: registryAddress,
       abi: CONTAINER_REGISTRY_ABI,
-      functionName: "getManifestByTag",
+      functionName: 'getManifestByTag',
       args: [repoId, tag],
-    });
+    })
 
-    return parseManifest(result);
+    return parseManifest(result)
   }
 
   async function recordPull(repoId: Hex): Promise<Hex> {
     const data = encodeFunctionData({
       abi: CONTAINER_REGISTRY_ABI,
-      functionName: "recordPull",
+      functionName: 'recordPull',
       args: [repoId],
-    });
+    })
 
     return wallet.sendTransaction({
       to: registryAddress,
       data,
-    });
+    })
   }
 
   async function signImage(params: SignImageParams): Promise<Hex> {
     const data = encodeFunctionData({
       abi: CONTAINER_REGISTRY_ABI,
-      functionName: "signImage",
+      functionName: 'signImage',
       args: [params.manifestId, params.signature, params.publicKeyUri],
-    });
+    })
 
     return wallet.sendTransaction({
       to: registryAddress,
       data,
-    });
+    })
   }
 
   function getRepoId(namespace: string, name: string): Hex {
-    return keccak256(toHex(`${namespace}/${name}`));
+    return keccak256(toHex(`${namespace}/${name}`))
   }
 
   function parseImageReference(ref: string): {
-    namespace: string;
-    name: string;
-    tag: string;
+    namespace: string
+    name: string
+    tag: string
   } {
     // Format: namespace/name:tag or namespace/name (defaults to :latest)
-    const [namePath, tag = "latest"] = ref.split(":");
-    const parts = namePath.split("/");
+    const [namePath, tag = 'latest'] = ref.split(':')
+    const parts = namePath.split('/')
 
     if (parts.length === 1) {
-      return { namespace: "library", name: parts[0], tag };
+      return { namespace: 'library', name: parts[0], tag }
     }
 
     return {
-      namespace: parts.slice(0, -1).join("/"),
+      namespace: parts.slice(0, -1).join('/'),
       name: parts[parts.length - 1],
       tag,
-    };
+    }
   }
 
   return {
@@ -635,5 +635,5 @@ export function createContainersModule(
     signImage,
     getRepoId,
     parseImageReference,
-  };
+  }
 }

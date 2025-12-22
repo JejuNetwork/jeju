@@ -100,8 +100,8 @@ export async function checkDWSCompute(): Promise<boolean> {
   const endpoint = getDWSEndpoint()
   const r = await fetch(`${endpoint}/health`, {
     signal: AbortSignal.timeout(2000),
-  }).catch(() => null)
-  return r?.ok ?? false
+  })
+  return r.ok
 }
 
 export async function dwsGenerate(

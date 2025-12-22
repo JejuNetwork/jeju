@@ -3,14 +3,14 @@
  * Tests infrastructure modules using Elysia
  */
 
-import { describe, test, expect } from 'bun:test'
+import { describe, expect, test } from 'bun:test'
 import { Elysia } from 'elysia'
 import {
-  createK3sRouter,
   createHelmProviderRouter,
-  createTerraformProviderRouter,
   createIngressRouter,
+  createK3sRouter,
   createServiceMeshRouter,
+  createTerraformProviderRouter,
   getIngressController,
   getServiceMesh,
 } from '../src/infrastructure'
@@ -22,9 +22,19 @@ function createInfrastructureApp() {
   return new Elysia()
     .use(new Elysia({ prefix: '/k3s' }).use(createK3sRouter()))
     .use(new Elysia({ prefix: '/helm' }).use(createHelmProviderRouter()))
-    .use(new Elysia({ prefix: '/terraform' }).use(createTerraformProviderRouter()))
-    .use(new Elysia({ prefix: '/ingress' }).use(createIngressRouter(getIngressController())))
-    .use(new Elysia({ prefix: '/mesh' }).use(createServiceMeshRouter(getServiceMesh())))
+    .use(
+      new Elysia({ prefix: '/terraform' }).use(createTerraformProviderRouter()),
+    )
+    .use(
+      new Elysia({ prefix: '/ingress' }).use(
+        createIngressRouter(getIngressController()),
+      ),
+    )
+    .use(
+      new Elysia({ prefix: '/mesh' }).use(
+        createServiceMeshRouter(getServiceMesh()),
+      ),
+    )
 }
 
 const app = createInfrastructureApp()
@@ -281,7 +291,7 @@ describe('Service Mesh Direct', () => {
       body: JSON.stringify({
         name: 'test-service',
         namespace: 'default',
-        publicKey: '0x' + '00'.repeat(32),
+        publicKey: `0x${'00'.repeat(32)}`,
         endpoints: ['http://localhost:3001'],
         tags: ['api'],
       }),

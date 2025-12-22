@@ -4,7 +4,7 @@
  */
 
 import { expectValid } from '@jejunetwork/types'
-import { z } from 'zod'
+import type { z } from 'zod'
 import { IPFSPinCountResponseSchema, IPFSUploadResponseSchema } from './schemas'
 import type { ProtocolValue } from './types'
 

@@ -507,7 +507,7 @@ export class WalletEdgeService {
       const { invoke } = await import('@tauri-apps/api/core')
       const data = await invoke<number[] | null>('edge_cache_read', {
         key,
-      }).catch(() => null)
+      })
       return data ? new Uint8Array(data) : null
     } else if (typeof indexedDB !== 'undefined') {
       const db = await this.getIndexedDB()
@@ -533,7 +533,7 @@ export class WalletEdgeService {
 
     if (platform.category === 'desktop' && '__TAURI__' in globalThis) {
       const { invoke } = await import('@tauri-apps/api/core')
-      await invoke('edge_cache_delete', { key }).catch(() => {})
+      await invoke('edge_cache_delete', { key })
     } else if (typeof indexedDB !== 'undefined') {
       const db = await this.getIndexedDB()
       const tx = db.transaction('cache', 'readwrite')

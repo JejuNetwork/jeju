@@ -40,7 +40,6 @@ import {
   type OIFSolverConfig,
   type OpenIntent,
 } from './contracts/oif-solver'
-import { RiskManager } from './engine/risk-manager'
 import { SolanaDexAggregator } from './solana/dex-adapters'
 import { CrossChainArbStrategy } from './strategies/cross-chain-arb'
 // Strategy imports
@@ -152,9 +151,6 @@ export class UnifiedBot extends EventEmitter {
   private solanaArb: SolanaArbStrategy | null = null
   private liquidityManager: LiquidityManager | null = null
   private yieldFarming: YieldFarmingStrategy | null = null
-
-  // Engine
-  private riskManager: RiskManager | null = null
 
   // Cross-chain integrations (EIL/XLP/OIF)
   private xlpManagers: Map<ChainId, XLPManager> = new Map()
@@ -441,21 +437,6 @@ export class UnifiedBot extends EventEmitter {
   }
 
   private async initializeEngine(): Promise<void> {
-    // Risk manager
-    this.riskManager = new RiskManager({
-      maxPositionSizeWei: this.config.maxPositionSize,
-      maxDailyLossWei: BigInt(1e18), // 1 ETH
-      maxWeeklyLossWei: BigInt(5e18),
-      maxConcurrentExposureWei: BigInt(50e18),
-      minProfitBps: this.config.minProfitBps,
-      minNetProfitWei: 0n,
-      minBuilderInclusionRate: 0.5,
-      maxSlippageBps: this.config.maxSlippageBps,
-      reorgRiskMultiplier: 0.9,
-      maxConsecutiveFails: 5,
-      cooldownAfterFailMs: 60_000,
-    })
-
     log.info('Engine initialized')
   }
 

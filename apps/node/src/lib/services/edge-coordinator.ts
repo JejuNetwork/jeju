@@ -487,24 +487,22 @@ export class EdgeCoordinator {
 
     if (!this.publicClient || !this.nodeRegistryAddress) return true // Skip if no registry configured
 
-    try {
-      const isRegistered = (await this.publicClient.readContract({
-        address: this.nodeRegistryAddress as `0x${string}`,
-        abi: [
-          {
-            name: 'isRegistered',
-            type: 'function',
-            stateMutability: 'view',
-            inputs: [{ name: 'operator', type: 'address' }],
-            outputs: [{ type: 'bool' }],
-          },
-        ],
-        functionName: 'isRegistered',
-        args: [operator as `0x${string}`],
-      })) as boolean
-      this.registeredOperators.set(operator, isRegistered)
-      return isRegistered
-    }
+    const isRegistered = (await this.publicClient.readContract({
+      address: this.nodeRegistryAddress as `0x${string}`,
+      abi: [
+        {
+          name: 'isRegistered',
+          type: 'function',
+          stateMutability: 'view',
+          inputs: [{ name: 'operator', type: 'address' }],
+          outputs: [{ type: 'bool' }],
+        },
+      ],
+      functionName: 'isRegistered',
+      args: [operator as `0x${string}`],
+    })) as boolean
+    this.registeredOperators.set(operator, isRegistered)
+    return isRegistered
   }
 
   private async signMessage(

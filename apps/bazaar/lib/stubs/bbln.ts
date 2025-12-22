@@ -11,8 +11,8 @@ export {
   BBLN_PRESALE_ABI,
   BBLN_TOKEN,
   BBLN_TOKEN_ABI,
+  type BBLNContractAddresses,
   getBBLNAddresses,
   getBBLNHomeChainId,
   isBBLNDeployed,
-  type BBLNContractAddresses,
 } from '../../../../vendor/babylon/packages/shared/src/contracts/bbln'

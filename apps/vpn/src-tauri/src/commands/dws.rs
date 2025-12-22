@@ -1,7 +1,7 @@
 //! DWS integration commands
 
-use crate::state::AppState;
 use crate::dws::DWSState;
+use crate::state::AppState;
 use tauri::State;
 
 /// Get current DWS state
@@ -22,6 +22,3 @@ pub async fn set_dws_enabled(state: State<'_, AppState>, enabled: bool) -> Resul
     }
     Ok(())
 }
-
-
-

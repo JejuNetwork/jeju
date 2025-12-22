@@ -15,8 +15,6 @@ import {
   PasskeyListItemSchema,
   PasskeyOptionsResponseSchema,
   TOTPSetupResponseSchema,
-  toWebAuthnCreationOptions,
-  toWebAuthnRequestOptions,
   validateResponse,
 } from '../../validation.js'
 import { useOAuth3 } from '../provider.js'
@@ -222,7 +220,8 @@ export function useMFA(options: UseMFAOptions = {}): UseMFAReturn {
       )
       const challengeId = optionsData.challengeId
       // Server returns WebAuthn-compatible options - cast through unknown due to Record type
-      const publicKey = optionsData.publicKey as unknown as PublicKeyCredentialCreationOptions
+      const publicKey =
+        optionsData.publicKey as unknown as PublicKeyCredentialCreationOptions
 
       // Create credential using WebAuthn
       const credential = (await navigator.credentials.create({
@@ -303,7 +302,8 @@ export function useMFA(options: UseMFAOptions = {}): UseMFAReturn {
     )
     const challengeId = authOptionsData.challengeId
     // Server returns WebAuthn-compatible options - cast through unknown due to Record type
-    const publicKey = authOptionsData.publicKey as unknown as PublicKeyCredentialRequestOptions
+    const publicKey =
+      authOptionsData.publicKey as unknown as PublicKeyCredentialRequestOptions
 
     // Get credential using WebAuthn
     const credential = (await navigator.credentials.get({
