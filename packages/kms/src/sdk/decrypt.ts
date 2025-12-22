@@ -3,7 +3,7 @@
  */
 
 import { type Address, type Hex, keccak256, toBytes } from 'viem'
-import { z } from 'zod'
+import type { z } from 'zod'
 import { getKMS } from '../kms.js'
 import type { AuthSignature, EncryptedPayload } from '../types.js'
 

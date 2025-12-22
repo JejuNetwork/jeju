@@ -357,9 +357,9 @@ export class ArweaveBackend {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query }),
-    }).catch(() => null)
+    })
 
-    if (!response?.ok) return null
+    if (!response.ok) return null
 
     const result = (await response.json()) as {
       data?: {
@@ -448,7 +448,7 @@ export class ArweaveBackend {
       fetch(`${this.gateway}/price/${sizeBytes}`),
       fetch(
         'https://api.coingecko.com/api/v3/simple/price?ids=arweave&vs_currencies=usd',
-      ).catch(() => null),
+      ),
     ])
 
     if (!priceResponse.ok) {
@@ -459,7 +459,7 @@ export class ArweaveBackend {
     const arPrice = (parseInt(winstonPrice, 10) / 1e12).toFixed(12)
 
     let usdPrice = '0'
-    if (rateResponse?.ok) {
+    if (rateResponse.ok) {
       const rates = (await rateResponse.json()) as {
         arweave?: { usd?: number }
       }
@@ -474,8 +474,8 @@ export class ArweaveBackend {
    * Health check
    */
   async healthCheck(): Promise<boolean> {
-    const response = await fetch(`${this.gateway}/info`).catch(() => null)
-    return response?.ok ?? false
+    const response = await fetch(`${this.gateway}/info`)
+    return response.ok
   }
 
   // ============================================================================

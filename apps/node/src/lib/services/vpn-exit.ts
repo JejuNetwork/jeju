@@ -580,103 +580,87 @@ class TUNDevice extends EventEmitter {
     this.serverIP = baseIP.replace(/\.0$/, '.1')
 
     // Create TUN interface using ip command (requires root)
-    try {
-      // First try to delete any existing interface
-      await this.execCommand('ip', [
-        'link',
-        'delete',
-        this.interfaceName,
-      ]).catch(() => {})
+    // First try to delete any existing interface (ignore errors)
+    await this.execCommand('ip', ['link', 'delete', this.interfaceName]).catch(
+      () => {},
+    )
 
-      // Create the TUN interface
-      await this.execCommand('ip', [
-        'tuntap',
-        'add',
-        'dev',
-        this.interfaceName,
-        'mode',
-        'tun',
-      ])
-      await this.execCommand('ip', [
-        'addr',
-        'add',
-        `${this.serverIP}/${mask}`,
-        'dev',
-        this.interfaceName,
-      ])
-      await this.execCommand('ip', [
-        'link',
-        'set',
-        'dev',
-        this.interfaceName,
-        'mtu',
-        this.mtu.toString(),
-      ])
-      await this.execCommand('ip', [
-        'link',
-        'set',
-        'dev',
-        this.interfaceName,
-        'up',
-      ])
+    // Create the TUN interface
+    await this.execCommand('ip', [
+      'tuntap',
+      'add',
+      'dev',
+      this.interfaceName,
+      'mode',
+      'tun',
+    ])
+    await this.execCommand('ip', [
+      'addr',
+      'add',
+      `${this.serverIP}/${mask}`,
+      'dev',
+      this.interfaceName,
+    ])
+    await this.execCommand('ip', [
+      'link',
+      'set',
+      'dev',
+      this.interfaceName,
+      'mtu',
+      this.mtu.toString(),
+    ])
+    await this.execCommand('ip', [
+      'link',
+      'set',
+      'dev',
+      this.interfaceName,
+      'up',
+    ])
 
-      // Enable IP forwarding
-      await this.execCommand('sysctl', ['-w', 'net.ipv4.ip_forward=1'])
+    // Enable IP forwarding
+    await this.execCommand('sysctl', ['-w', 'net.ipv4.ip_forward=1'])
 
-      // Setup NAT with iptables
-      await this.execCommand('iptables', [
-        '-t',
-        'nat',
-        '-A',
-        'POSTROUTING',
-        '-s',
-        this.subnet,
-        '-o',
-        'eth0',
-        '-j',
-        'MASQUERADE',
-      ]).catch(() => {
-        // Try without specifying output interface
-        return this.execCommand('iptables', [
-          '-t',
-          'nat',
-          '-A',
-          'POSTROUTING',
-          '-s',
-          this.subnet,
-          '-j',
-          'MASQUERADE',
-        ])
-      })
-      await this.execCommand('iptables', [
-        '-A',
-        'FORWARD',
-        '-i',
-        this.interfaceName,
-        '-j',
-        'ACCEPT',
-      ])
-      await this.execCommand('iptables', [
-        '-A',
-        'FORWARD',
-        '-o',
-        this.interfaceName,
-        '-m',
-        'state',
-        '--state',
-        'RELATED,ESTABLISHED',
-        '-j',
-        'ACCEPT',
-      ])
+    // Setup NAT with iptables
+    await this.execCommand('iptables', [
+      '-t',
+      'nat',
+      '-A',
+      'POSTROUTING',
+      '-s',
+      this.subnet,
+      '-o',
+      'eth0',
+      '-j',
+      'MASQUERADE',
+    ])
+    await this.execCommand('iptables', [
+      '-A',
+      'FORWARD',
+      '-i',
+      this.interfaceName,
+      '-j',
+      'ACCEPT',
+    ])
+    await this.execCommand('iptables', [
+      '-A',
+      'FORWARD',
+      '-o',
+      this.interfaceName,
+      '-m',
+      'state',
+      '--state',
+      'RELATED,ESTABLISHED',
+      '-j',
+      'ACCEPT',
+    ])
 
-      this.running = true
-      console.log(
-        `[TUN] Interface ${this.interfaceName} created with IP ${this.serverIP}/${mask}`,
-      )
+    this.running = true
+    console.log(
+      `[TUN] Interface ${this.interfaceName} created with IP ${this.serverIP}/${mask}`,
+    )
 
-      // Open TUN device for reading/writing
-      await this.openTunDevice()
-    }
+    // Open TUN device for reading/writing
+    await this.openTunDevice()
   }
 
   private async openTunDevice(): Promise<void> {

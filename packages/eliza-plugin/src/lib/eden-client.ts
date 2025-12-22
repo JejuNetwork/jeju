@@ -12,7 +12,9 @@ export interface EdenRequestOptions {
 export function unwrapEden<T>(result: { data: T | null; error: unknown }): T {
   if (result.error) {
     throw new Error(
-      result.error instanceof Error ? result.error.message : String(result.error),
+      result.error instanceof Error
+        ? result.error.message
+        : String(result.error),
     )
   }
   return result.data as T

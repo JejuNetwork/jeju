@@ -25,7 +25,7 @@ export const TOKENS: Record<string, TokenInfo> = {
   },
   WETH: {
     address:
-      process.env.NEXT_PUBLIC_WETH_ADDRESS ||
+      process.env.PUBLIC_WETH_ADDRESS ||
       '0x4200000000000000000000000000000000000006',
     name: 'Wrapped Ether',
     symbol: 'WETH',
@@ -34,7 +34,7 @@ export const TOKENS: Record<string, TokenInfo> = {
   },
   JEJU: {
     address:
-      process.env.NEXT_PUBLIC_JEJU_TOKEN_ADDRESS ||
+      process.env.PUBLIC_JEJU_TOKEN_ADDRESS ||
       '0x0000000000000000000000000000000000000000',
     name: 'Jeju',
     symbol: 'JEJU',
@@ -44,7 +44,7 @@ export const TOKENS: Record<string, TokenInfo> = {
   },
   USDC: {
     address:
-      process.env.NEXT_PUBLIC_USDC_ADDRESS ||
+      process.env.PUBLIC_USDC_ADDRESS ||
       '0x0000000000000000000000000000000000000000',
     name: 'USD Coin',
     symbol: 'USDC',

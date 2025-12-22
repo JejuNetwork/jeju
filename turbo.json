@@ -5,6 +5,7 @@
       "dependsOn": ["^build"],
       "inputs": [
         "src/**",
+        "client/src/**",
         "tsconfig.json",
         "tsconfig.*.json",
         "package.json",
@@ -12,6 +13,10 @@
         "!**/*.test.tsx"
       ],
       "outputs": ["dist/**", "build/**", "out/**", "lib/**"]
+    },
+    "prepublishOnly": {
+      "dependsOn": ["build"],
+      "cache": false
     },
     "typecheck": {
       "dependsOn": ["^typecheck"],

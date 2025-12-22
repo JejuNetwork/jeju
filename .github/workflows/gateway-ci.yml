@@ -90,5 +90,4 @@ jobs:
       - name: Build
         run: bun run build
         env:
-          NEXT_TELEMETRY_DISABLED: 1
           CI: true

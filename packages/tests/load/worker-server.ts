@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+
 /**
  * Worker-Compatible Test Server
  *
@@ -15,8 +16,8 @@
  * - Start cache service: bun packages/tests/load/cache-service.ts
  */
 
+import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import { Elysia } from 'elysia'
-import { getCacheClient, type CacheClient } from '@jejunetwork/shared'
 
 const PORT = parseInt(process.env.PORT ?? '4097', 10)
 const CACHE_NAMESPACE = 'worker-test'
@@ -102,7 +103,11 @@ const app = new Elysia()
     }
 
     await simulateDbQuery(randomDelay(1, 5))
-    const result = { data: 'fast response', latency: 'low', timestamp: Date.now() }
+    const result = {
+      data: 'fast response',
+      latency: 'low',
+      timestamp: Date.now(),
+    }
     await cache.set(cacheKey, JSON.stringify(result), 30)
     await trackRequest('/api/fast')
     return { ...result, cached: false, source: 'origin' }
@@ -119,7 +124,11 @@ const app = new Elysia()
     }
 
     await simulateDbQuery(randomDelay(10, 50))
-    const result = { data: 'medium response', latency: 'medium', timestamp: Date.now() }
+    const result = {
+      data: 'medium response',
+      latency: 'medium',
+      timestamp: Date.now(),
+    }
     await cache.set(cacheKey, JSON.stringify(result), 60)
     await trackRequest('/api/medium')
     return { ...result, cached: false, source: 'origin' }
@@ -136,7 +145,11 @@ const app = new Elysia()
     }
 
     await simulateDbQuery(randomDelay(50, 200))
-    const result = { data: 'slow response', latency: 'high', timestamp: Date.now() }
+    const result = {
+      data: 'slow response',
+      latency: 'high',
+      timestamp: Date.now(),
+    }
     await cache.set(cacheKey, JSON.stringify(result), 120)
     await trackRequest('/api/slow')
     return { ...result, cached: false, source: 'origin' }
@@ -344,4 +357,3 @@ console.log(`
 app.listen(PORT, () => {
   console.log(`🚀 Worker server running at http://localhost:${PORT}`)
 })
-

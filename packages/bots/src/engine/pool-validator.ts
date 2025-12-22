@@ -8,7 +8,7 @@
  * - Suspicious contracts
  */
 
-import { type PublicClient, type Address, parseAbi, getContract } from 'viem'
+import { type Address, type PublicClient, parseAbi } from 'viem'
 
 interface PoolValidation {
   isValid: boolean
@@ -46,7 +46,7 @@ const PAIR_ABI = parseAbi([
   'function factory() view returns (address)',
 ])
 
-const FACTORY_ABI = parseAbi([
+const _FACTORY_ABI = parseAbi([
   'function getPair(address, address) view returns (address)',
   'function allPairsLength() view returns (uint256)',
 ])
@@ -82,7 +82,7 @@ export class PoolValidator {
   constructor(
     private client: PublicClient,
     private chainId: number,
-    private ethPriceUsd: number = 3500
+    private ethPriceUsd: number = 3500,
   ) {}
 
   /**
@@ -94,9 +94,21 @@ export class PoolValidator {
 
     // Get pool data
     const [token0, token1, reserves, currentBlock] = await Promise.all([
-      this.client.readContract({ address: poolAddress, abi: PAIR_ABI, functionName: 'token0' }),
-      this.client.readContract({ address: poolAddress, abi: PAIR_ABI, functionName: 'token1' }),
-      this.client.readContract({ address: poolAddress, abi: PAIR_ABI, functionName: 'getReserves' }),
+      this.client.readContract({
+        address: poolAddress,
+        abi: PAIR_ABI,
+        functionName: 'token0',
+      }),
+      this.client.readContract({
+        address: poolAddress,
+        abi: PAIR_ABI,
+        functionName: 'token1',
+      }),
+      this.client.readContract({
+        address: poolAddress,
+        abi: PAIR_ABI,
+        functionName: 'getReserves',
+      }),
       this.client.getBlockNumber(),
     ])
 
@@ -104,7 +116,7 @@ export class PoolValidator {
 
     // Estimate creation block from first trade timestamp
     const ageBlocks = Number(currentBlock) - Number(blockTimestampLast) / 12
-    const ageDays = ageBlocks * 12 / 86400
+    const ageDays = (ageBlocks * 12) / 86400
 
     // Check pool age
     const minAge = MIN_AGE_BLOCKS[this.chainId] ?? 50000
@@ -178,10 +190,22 @@ export class PoolValidator {
     let totalSupply = 0n
 
     try {
-      [name, symbol, totalSupply] = await Promise.all([
-        this.client.readContract({ address: tokenAddress, abi: ERC20_ABI, functionName: 'name' }),
-        this.client.readContract({ address: tokenAddress, abi: ERC20_ABI, functionName: 'symbol' }),
-        this.client.readContract({ address: tokenAddress, abi: ERC20_ABI, functionName: 'totalSupply' }),
+      ;[name, symbol, totalSupply] = await Promise.all([
+        this.client.readContract({
+          address: tokenAddress,
+          abi: ERC20_ABI,
+          functionName: 'name',
+        }),
+        this.client.readContract({
+          address: tokenAddress,
+          abi: ERC20_ABI,
+          functionName: 'symbol',
+        }),
+        this.client.readContract({
+          address: tokenAddress,
+          abi: ERC20_ABI,
+          functionName: 'totalSupply',
+        }),
       ])
     } catch {
       risks.push('Failed to read token metadata')
@@ -237,9 +261,9 @@ export class PoolValidator {
     const estimatedBuyTax = risks.includes('Possible fee-on-transfer') ? 5 : 0
     const estimatedSellTax = risks.includes('Possible fee-on-transfer') ? 5 : 0
 
-    const isHoneypot = risks.length >= 3 || risks.some((r) =>
-      r.includes('blacklist') || r.includes('No contract')
-    )
+    const isHoneypot =
+      risks.length >= 3 ||
+      risks.some((r) => r.includes('blacklist') || r.includes('No contract'))
 
     return {
       isHoneypot,
@@ -258,14 +282,18 @@ export class PoolValidator {
     const results = new Map<Address, PoolValidation>()
 
     const validations = await Promise.all(
-      pools.map((pool) => this.validatePool(pool).catch((e) => ({
-        isValid: false,
-        tvlUsd: 0,
-        ageBlocks: 0,
-        ageDays: 0,
-        risks: [`Validation error: ${e instanceof Error ? e.message : 'Unknown'}`],
-        score: 0,
-      })))
+      pools.map((pool) =>
+        this.validatePool(pool).catch((e) => ({
+          isValid: false,
+          tvlUsd: 0,
+          ageBlocks: 0,
+          ageDays: 0,
+          risks: [
+            `Validation error: ${e instanceof Error ? e.message : 'Unknown'}`,
+          ],
+          score: 0,
+        })),
+      ),
     )
 
     for (let i = 0; i < pools.length; i++) {
@@ -279,7 +307,7 @@ export class PoolValidator {
     token0: Address,
     token1: Address,
     reserve0: bigint,
-    reserve1: bigint
+    reserve1: bigint,
   ): Promise<number> {
     // Simplified TVL estimation
     // In production, would use oracle prices
@@ -295,13 +323,13 @@ export class PoolValidator {
     let tvl = 0
 
     if (token0Lower === WETH) {
-      tvl = Number(reserve0) / 1e18 * this.ethPriceUsd * 2
+      tvl = (Number(reserve0) / 1e18) * this.ethPriceUsd * 2
     } else if (token1Lower === WETH) {
-      tvl = Number(reserve1) / 1e18 * this.ethPriceUsd * 2
+      tvl = (Number(reserve1) / 1e18) * this.ethPriceUsd * 2
     } else if (token0Lower === USDC || token0Lower === USDT) {
-      tvl = Number(reserve0) / 1e6 * 2
+      tvl = (Number(reserve0) / 1e6) * 2
     } else if (token1Lower === USDC || token1Lower === USDT) {
-      tvl = Number(reserve1) / 1e6 * 2
+      tvl = (Number(reserve1) / 1e6) * 2
     } else {
       // Unknown tokens - estimate conservatively
       tvl = 10000 // $10k default
@@ -317,7 +345,11 @@ export class PoolValidator {
     try {
       // Basic checks
       const [totalSupply, bytecode] = await Promise.all([
-        this.client.readContract({ address: tokenAddress, abi: ERC20_ABI, functionName: 'totalSupply' }),
+        this.client.readContract({
+          address: tokenAddress,
+          abi: ERC20_ABI,
+          functionName: 'totalSupply',
+        }),
         this.client.getCode({ address: tokenAddress }),
       ])
 
@@ -335,10 +367,9 @@ export class PoolValidator {
 export function createPoolValidator(
   client: PublicClient,
   chainId: number,
-  ethPriceUsd?: number
+  ethPriceUsd?: number,
 ): PoolValidator {
   return new PoolValidator(client, chainId, ethPriceUsd)
 }
 
 export type { PoolValidation, TokenValidation }
-

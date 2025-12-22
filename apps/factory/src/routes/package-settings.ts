@@ -147,7 +147,7 @@ export const packageSettingsRoutes = new Elysia({
   )
   .delete(
     '/maintainers/:login',
-    async ({ params, headers, set }) => {
+    async ({ headers, set }) => {
       const authResult = await requireAuth(headers)
       if (!authResult.success) {
         set.status = 401

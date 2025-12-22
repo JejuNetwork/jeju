@@ -223,7 +223,15 @@ export type GovernanceAddresses = z.infer<typeof GovernanceAddressesSchema>
 /**
  * ABI parameter schema (for function/event inputs/outputs)
  */
-export const AbiParameterSchema = z.object({
+interface AbiParameterBase {
+  name: string
+  type: string
+  indexed?: boolean
+  internalType?: string
+  components?: AbiParameterBase[]
+}
+
+export const AbiParameterSchema: z.ZodType<AbiParameterBase> = z.object({
   name: z.string(),
   type: z.string(),
   indexed: z.boolean().optional(),

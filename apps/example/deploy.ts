@@ -89,8 +89,8 @@ function createComputeClient(baseUrl: string): ComputeClient {
     async health(): Promise<boolean> {
       const response = await fetch(`${url}/health`, {
         signal: AbortSignal.timeout(5000),
-      }).catch(() => null)
-      return response?.ok ?? false
+      })
+      return response.ok
     },
   }
 }
@@ -241,19 +241,15 @@ async function deployBackendToCompute(
   const backendEndpoint = process.env.BACKEND_URL || 'http://localhost:4500'
 
   // Register with compute network (if available)
-  const result = await computeClient
-    .registerService({
-      name: 'todo-dapp-backend',
-      endpoint: backendEndpoint,
-      type: 'http',
-      ports: { main: 4500 },
-    })
-    .catch(() => ({ success: false }))
+  const result = await computeClient.registerService({
+    name: 'todo-dapp-backend',
+    endpoint: backendEndpoint,
+    type: 'http',
+    ports: { main: 4500 },
+  })
 
   if (result.success) {
     console.log('   Backend registered with compute network')
-  } else {
-    console.log('   Using local backend (compute registration skipped)')
   }
 
   return backendEndpoint
@@ -270,7 +266,7 @@ async function registerJNS(
   console.log('🌐 Registering JNS name...')
 
   // Check availability and get existing records
-  const isAvailable = await jnsClient.isAvailable(config.name).catch(() => true)
+  const isAvailable = await jnsClient.isAvailable(config.name)
 
   const records: JNSRecords = {
     address: account.address,
@@ -283,20 +279,14 @@ async function registerJNS(
 
   if (isAvailable) {
     // Register name
-    const price = await jnsClient.getPrice(config.name, 1).catch(() => 0n)
+    const price = await jnsClient.getPrice(config.name, 1)
     if (price > 0n) {
-      await jnsClient
-        .register(config.name, account.address, 1, price)
-        .catch((err) => {
-          console.log(`   Name registration skipped: ${err.message}`)
-        })
+      await jnsClient.register(config.name, account.address, 1, price)
     }
   }
 
   // Set records
-  await jnsClient.setRecords(config.name, records).catch((err) => {
-    console.log(`   JNS records update skipped: ${err.message}`)
-  })
+  await jnsClient.setRecords(config.name, records)
 
   console.log(`   Registered ${config.name}`)
 }
@@ -311,22 +301,15 @@ async function setupCronTriggers(
 ): Promise<Hex | null> {
   console.log('⏰ Setting up cron triggers...')
 
-  const result = await computeClient
-    .registerCron({
-      name: 'todo-cleanup',
-      type: 'cron',
-      expression: '0 0 * * *', // Daily at midnight
-      webhook: `${backendUrl}/webhooks/cleanup`,
-    })
-    .catch(() => null)
+  const result = await computeClient.registerCron({
+    name: 'todo-cleanup',
+    type: 'cron',
+    expression: '0 0 * * *', // Daily at midnight
+    webhook: `${backendUrl}/webhooks/cleanup`,
+  })
 
-  if (result) {
-    console.log(`   Trigger ID: ${result.triggerId}`)
-    return result.triggerId
-  }
-
-  console.log('   Cron triggers skipped (compute not available)')
-  return null
+  console.log(`   Trigger ID: ${result.triggerId}`)
+  return result.triggerId
 }
 
 // ============================================================================

@@ -5,7 +5,7 @@
  * Use these validators at system boundaries (user input, API responses, config files).
  */
 
-import { type ZodError, z } from 'zod'
+import type { ZodError, z } from 'zod'
 import {
   addressSchema,
   bridgeRequestSchema,

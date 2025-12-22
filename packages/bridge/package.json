@@ -3,51 +3,19 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Production-grade Solana↔EVM bridge with ZK Light Client verification - trustless, no intermediaries",
+  "description": "Production-grade Solana↔EVM bridge with ZK Light Client verification",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc",
-    "build:contracts": "forge build --root contracts",
-    "build:circuits": "cd circuits && cargo build --release",
-    "build:programs": "cd programs && anchor build",
-    "build:geyser": "cd geyser/consensus-plugin && cargo build --release",
-    "build:all": "bun run build && bun run build:contracts",
     "test": "bun test tests/",
-    "test:unit": "bun test tests/unit/",
-    "test:integration": "bun test tests/integration/",
-    "test:e2e": "bun test tests/e2e/",
-    "test:contracts": "forge test --root contracts -vvv",
-    "test:all": "bun run test:unit && bun run test:integration && bun run test:e2e",
-    "benchmark": "bun run tests/benchmarks/benchmark-suite.ts",
-    "security": "bun run tests/security/security-suite.ts",
-    "gas": "bun run tests/gas/gas-analysis.ts",
-    "validate": "bun run test:unit && bun run benchmark && bun run security && bun run gas",
-    "local:start": "bun run src/local-dev/start-local-env.ts",
-    "local:stop": "bun run src/local-dev/stop-local-env.ts",
-    "local:reset": "bun run src/local-dev/reset-local-env.ts",
-    "orchestrator": "bun run scripts/orchestrator.ts",
-    "orchestrator:local": "bun run scripts/orchestrator.ts --mode local",
-    "orchestrator:testnet": "bun run scripts/orchestrator.ts --mode testnet",
-    "orchestrator:mainnet": "bun run scripts/orchestrator.ts --mode mainnet",
-    "relayer": "bun run src/relayer/service.ts",
-    "prover": "bun run prover/services/prover.ts",
-    "beacon-watcher": "bun run geyser/ethereum-watcher/src/watcher.ts",
-    "deploy:local": "jeju deploy zkbridge --network localnet",
-    "deploy:testnet": "jeju deploy zkbridge --network testnet",
-    "deploy:mainnet": "jeju deploy zkbridge --network mainnet --dry-run",
-    "deploy:mainnet:force": "jeju deploy zkbridge --network mainnet",
-    "setup:sp1": "jeju deploy zkbridge-setup --sp1",
-    "setup:phala": "jeju deploy zkbridge-setup --phala",
-    "build:sp1": "cd circuits/token-transfer && ~/.sp1/bin/cargo-prove prove build && cd ../solana-consensus && ~/.sp1/bin/cargo-prove prove build",
-    "demo": "bun run scripts/demo-bridge.ts",
-    "typecheck": "tsc --noEmit",
-    "lint": "biome check src/ tests/ scripts/",
-    "check": "biome check --write src/ tests/ scripts/",
-    "clean": "rm -rf dist",
-    "audit": "bun pm audit",
-    "preflight": "bun run typecheck && bun run lint && bun run audit && bun run test:unit",
-    "preflight:prod": "NODE_ENV=production bun run preflight"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@coral-xyz/anchor": "0.30.1",
@@ -59,15 +27,12 @@
     "@solana/web3.js": "1.98.4",
     "commander": "12.1.0",
     "elysia": "1.3.9",
-    "viem": "2.43.2",
-    "zod": "3.24.4",
+    "viem": "2.43.3",
+    "zod": "4.2.1",
     "p-retry": "^7.1.1"
   },
   "devDependencies": {
     "@types/bun": "latest",
     "typescript": "5.9.3"
-  },
-  "engines": {
-    "bun": ">=1.0.0"
   }
 }

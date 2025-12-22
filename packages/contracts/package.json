@@ -1,7 +1,7 @@
 {
   "name": "@jejunetwork/contracts",
-  "version": "0.2.0",
-  "description": "Network smart contract ABIs, types, deployment addresses, and CAIP cross-chain utilities. Includes game contracts (Gold, Items, GameIntegration) for Hyperscape and forkable games.",
+  "version": "0.1.0",
+  "description": "Network smart contract ABIs, types, deployment addresses, and CAIP cross-chain utilities",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
@@ -10,74 +10,18 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
-    },
-    "./abis": {
-      "import": "./dist/abis/index.js",
-      "types": "./dist/abis/index.d.ts"
-    },
-    "./abis/*": "./abis/*.json",
-    "./deployments": {
-      "import": "./dist/deployments.js",
-      "types": "./dist/deployments.d.ts"
-    },
-    "./deployments/*": "./deployments/*.json",
-    "./caip": {
-      "import": "./dist/caip/index.js",
-      "types": "./dist/caip/index.d.ts"
-    },
-    "./caip/chains": {
-      "import": "./dist/caip/chains.js",
-      "types": "./dist/caip/chains.d.ts"
-    },
-    "./caip/addresses": {
-      "import": "./dist/caip/addresses.js",
-      "types": "./dist/caip/addresses.d.ts"
-    },
-    "./caip/assets": {
-      "import": "./dist/caip/assets.js",
-      "types": "./dist/caip/assets.d.ts"
     }
   },
-  "files": [
-    "dist",
-    "abis",
-    "deployments"
-  ],
+  "files": ["dist", "abis", "deployments"],
   "sideEffects": false,
   "scripts": {
     "build": "node ../../node_modules/typescript/bin/tsc",
-    "build:contracts": "forge build",
-    "build:abis": "forge build",
     "test": "forge test",
-    "test:registry": "forge test --match-contract '.*Registry.*'",
-    "test:oif": "forge test --match-path 'test/OIF*.sol'",
-    "slither": "slither . --config-file slither.config.json",
-    "slither:report": "slither . --config-file slither.config.json --json slither-report.json",
-    "clean": "rm -rf dist out cache",
-    "prepublishOnly": "bun run build"
+    "typecheck": "tsc --noEmit"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/elizaos/jeju.git",
-    "directory": "packages/contracts"
-  },
-  "keywords": [
-    "jeju",
-    "ethereum",
-    "smart-contracts",
-    "abi",
-    "solidity",
-    "erc-8004",
-    "oif",
-    "intents",
-    "games",
-    "nft",
-    "erc-1155",
-    "hyperscape"
-  ],
   "dependencies": {
     "@jejunetwork/types": "workspace:*",
-    "zod": "^3.24.0"
+    "zod": "4.2.1"
   },
   "devDependencies": {
     "@types/node": "22.15.30",

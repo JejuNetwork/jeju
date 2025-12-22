@@ -1,21 +1,16 @@
 {
   "name": "@jejunetwork/crucible",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Decentralized agent orchestration platform - autonomous AI agents with serverless compute, storage, and coordination",
+  "description": "Decentralized agent orchestration platform",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc",
     "dev": "bun run src/server.ts",
-    "executor": "bun run src/executor/index.ts",
-    "autonomous": "bun run src/autonomous/daemon.ts",
-    "bot": "bun run src/bots/api-server.ts",
+    "build": "tsc",
     "test": "bun test",
-    "test:e2e": "npx playwright test --config synpress.config.ts",
-    "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist out cache test-results"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@elizaos/core": "^1.6.6",
@@ -29,8 +24,8 @@
     "@jejunetwork/eliza-plugin": "workspace:*",
     "@solana/web3.js": "1.98.4",
     "elysia": "^1.3.4",
-    "viem": "2.43.2",
-    "zod": "^4.1.13"
+    "viem": "2.43.3",
+    "zod": "4.2.1"
   },
   "devDependencies": {
     "@jejunetwork/tests": "workspace:*",

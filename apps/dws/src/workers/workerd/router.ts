@@ -212,7 +212,7 @@ export class DecentralizedWorkerRouter {
 
       const response = await fetch(`${health.node.endpoint}/health`, {
         signal: AbortSignal.timeout(5000),
-      }).catch(() => null)
+      })
 
       health.latencyMs = Date.now() - start
       health.lastChecked = now
@@ -262,9 +262,9 @@ export class DecentralizedWorkerRouter {
   ): Promise<boolean> {
     const response = await fetch(`${node.endpoint}/workers/${workerId}`, {
       signal: AbortSignal.timeout(5000),
-    }).catch(() => null)
+    })
 
-    return response?.ok ?? false
+    return response.ok
   }
 
   private sortNodesByHealth(nodes: WorkerNode[]): WorkerNode[] {
@@ -308,9 +308,9 @@ export class DecentralizedWorkerRouter {
       {
         signal: AbortSignal.timeout(1000),
       },
-    ).catch(() => null)
+    )
 
-    return response?.ok ?? false
+    return response.ok
   }
 
   private async invokeLocal(

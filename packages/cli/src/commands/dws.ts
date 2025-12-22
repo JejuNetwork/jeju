@@ -238,6 +238,23 @@ export const dwsCommand = new Command('dws')
         await verifyTeeGpu(options)
       }),
   )
+  // Regional node seeding
+  .addCommand(
+    new Command('seed-nodes')
+      .description('Seed regional TEE worker nodes')
+      .option(
+        '--env <env>',
+        'Environment: localnet, testnet, mainnet',
+        'localnet',
+      )
+      .option('--region <region>', 'Region ID (e.g., aws:us-east-1)')
+      .option('--endpoint <url>', 'Node endpoint URL')
+      .option('--tee <platform>', 'TEE platform: intel-sgx, amd-sev, simulator')
+      .option('--list-regions', 'List available regions')
+      .action(async (options) => {
+        await seedRegionalNodes(options)
+      }),
+  )
 
 async function checkStatus(): Promise<void> {
   logger.header('DWS STATUS')
@@ -1541,6 +1558,144 @@ async function setupWorkerd(): Promise<void> {
   logger.success('workerd installed successfully')
   logger.keyValue('Path', installedPath)
   logger.keyValue('Version', versionOutput.trim())
+}
+
+/**
+ * Seed regional TEE worker nodes
+ */
+async function seedRegionalNodes(options: {
+  env: string
+  region?: string
+  endpoint?: string
+  tee?: string
+  listRegions?: boolean
+}): Promise<void> {
+  logger.header('REGIONAL TEE NODE SEEDING')
+
+  // Known regions for listing
+  const KNOWN_REGIONS = [
+    { id: 'local', provider: 'local', name: 'Local Development' },
+    { id: 'aws:us-east-1', provider: 'aws', name: 'US East (N. Virginia)' },
+    { id: 'aws:us-west-2', provider: 'aws', name: 'US West (Oregon)' },
+    { id: 'aws:eu-west-1', provider: 'aws', name: 'EU (Ireland)' },
+    { id: 'gcp:us-central1', provider: 'gcp', name: 'US Central (Iowa)' },
+    { id: 'gcp:europe-west1', provider: 'gcp', name: 'Europe West (Belgium)' },
+  ]
+
+  if (options.listRegions) {
+    logger.subheader('Available Regions')
+    logger.newline()
+
+    const byProvider = new Map<string, typeof KNOWN_REGIONS>()
+    for (const region of KNOWN_REGIONS) {
+      const list = byProvider.get(region.provider) ?? []
+      list.push(region)
+      byProvider.set(region.provider, list)
+    }
+
+    for (const [provider, regions] of byProvider) {
+      logger.info(`${provider.toUpperCase()}:`)
+      for (const r of regions) {
+        logger.info(`  ${r.id.padEnd(25)} ${r.name}`)
+      }
+      logger.newline()
+    }
+    return
+  }
+
+  const environment = options.env
+  logger.keyValue('Environment', environment)
+
+  if (environment === 'localnet') {
+    // Simple localnet seeding
+    const dwsUrl = getDwsUrl()
+    const testAddress = getDefaultAddress()
+
+    logger.step('Seeding local TEE worker node...')
+
+    const endpoint = options.endpoint ?? 'http://localhost:4040'
+    const teePlatform = options.tee ?? 'simulator'
+
+    logger.keyValue('Endpoint', endpoint)
+    logger.keyValue('TEE Platform', teePlatform)
+    logger.newline()
+
+    // Register node via DWS API
+    const nodeData = {
+      endpoint,
+      teePlatform,
+      region: 'local',
+      capabilities: ['compute', 'storage'],
+      specs: {
+        cpuCores: 4,
+        memoryMb: 8192,
+        storageMb: 102400,
+        bandwidthMbps: 1000,
+      },
+    }
+
+    const res = await fetch(`${dwsUrl}/edge/nodes/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-jeju-address': testAddress,
+      },
+      body: JSON.stringify(nodeData),
+      signal: AbortSignal.timeout(30000),
+    }).catch(() => null)
+
+    if (res?.ok) {
+      logger.success('Local TEE node registered')
+    } else {
+      logger.warn('Node registration skipped (may already exist or DWS not ready)')
+    }
+  } else if (environment === 'testnet') {
+    if (!options.region) {
+      logger.error('Please specify a region with --region <region>')
+      logger.info('Available: aws:us-east-1, aws:eu-west-1')
+      logger.info('List all: jeju dws seed-nodes --list-regions')
+      process.exit(1)
+    }
+
+    if (!options.endpoint) {
+      logger.error('Please specify an endpoint with --endpoint <url>')
+      process.exit(1)
+    }
+
+    logger.keyValue('Region', options.region)
+    logger.keyValue('Endpoint', options.endpoint)
+    logger.keyValue('TEE Platform', options.tee ?? 'simulator')
+    logger.newline()
+
+    logger.step('Registering testnet node...')
+
+    // Use deployment script for testnet
+    const rootDir = findMonorepoRoot()
+    const scriptPath = join(
+      rootDir,
+      'apps/dws/scripts/seed-regional-nodes.ts',
+    )
+
+    if (existsSync(scriptPath)) {
+      const args = ['run', scriptPath, '--env', 'testnet']
+      if (options.region) args.push('--region', options.region)
+      if (options.endpoint) args.push('--endpoint', options.endpoint)
+      if (options.tee) args.push('--tee', options.tee)
+
+      const proc = Bun.spawn(['bun', ...args], {
+        cwd: join(rootDir, 'apps/dws'),
+        stdout: 'inherit',
+        stderr: 'inherit',
+        env: process.env,
+      })
+      await proc.exited
+    } else {
+      logger.error('Seed script not found. DWS app may not be installed.')
+    }
+  } else {
+    logger.error(`Unknown environment: ${environment}`)
+    logger.info('Use: localnet, testnet, or mainnet')
+  }
 }
 
 /**

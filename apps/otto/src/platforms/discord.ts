@@ -328,8 +328,7 @@ export class DiscordAdapter implements PlatformAdapter {
   }
 
   async getUser(userId: string): Promise<PlatformUserInfo | null> {
-    const user = await this.client.users.fetch(userId).catch(() => null)
-    if (!user) return null
+    const user = await this.client.users.fetch(userId)
 
     return {
       id: user.id,
@@ -341,9 +340,7 @@ export class DiscordAdapter implements PlatformAdapter {
   }
 
   async getChannel(channelId: string): Promise<PlatformChannelInfo | null> {
-    const channel = await this.client.channels
-      .fetch(channelId)
-      .catch(() => null)
+    const channel = await this.client.channels.fetch(channelId)
     if (!channel) return null
 
     if (channel.isDMBased()) {

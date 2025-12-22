@@ -27,8 +27,7 @@ const localnet = defineChain({
   testnet: true,
 })
 
-const activeChain =
-  process.env.NEXT_PUBLIC_CHAIN_ID === '1337' ? localnet : jeju
+const activeChain = process.env.PUBLIC_CHAIN_ID === '1337' ? localnet : jeju
 
 export const wagmiConfig = createConfig({
   chains: [activeChain],

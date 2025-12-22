@@ -41,7 +41,7 @@ interface Repository {
 }
 
 const GIT_SERVER_URL =
-  process.env.NEXT_PUBLIC_JEJUGIT_URL ?? 'http://localhost:4030/git'
+  process.env.PUBLIC_JEJUGIT_URL ?? 'http://localhost:4030/git'
 
 async function fetchRepositories(
   sort: string,

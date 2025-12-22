@@ -222,8 +222,12 @@ const templateFuncs: Record<string, (...args: unknown[]) => unknown> = {
   toBool: (v: unknown) => v === true || v === 'true' || v === '1',
   toJson: (v: unknown) => JSON.stringify(v),
   toYaml: (v: unknown) => yaml.stringify(v),
-  fromJson: (s: unknown): Record<string, unknown> | unknown[] => JSON.parse(String(s)),
-  fromYaml: (s: unknown): Record<string, unknown> | unknown[] | string | number | boolean | null => yaml.parse(String(s)),
+  fromJson: (s: unknown): Record<string, unknown> | unknown[] =>
+    JSON.parse(String(s)),
+  fromYaml: (
+    s: unknown,
+  ): Record<string, unknown> | unknown[] | string | number | boolean | null =>
+    yaml.parse(String(s)),
 
   // List/Dict functions
   list: (...args: unknown[]) => args,

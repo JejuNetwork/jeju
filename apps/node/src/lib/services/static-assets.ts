@@ -397,33 +397,31 @@ export class StaticAssetService {
 
     // Try torrent first if available
     if (this.config.enableTorrent && this.torrent && manifestAsset?.magnetUri) {
-      try {
-        const stats = await this.torrent.addTorrent(
-          manifestAsset.magnetUri,
-          contentHash,
-        )
-        const data = await this.torrent.getContent(stats.infohash)
+      const stats = await this.torrent.addTorrent(
+        manifestAsset.magnetUri,
+        contentHash,
+      )
+      const data = await this.torrent.getContent(stats.infohash)
 
-        // Verify content hash
-        const hash = createHash('sha256').update(data).digest('hex')
-        if (hash !== contentHash && `0x${hash}` !== contentHash) {
-          console.warn(`[StaticAssets] Content hash mismatch for ${assetPath}`)
-          return null
-        }
-
-        const asset: CachedAsset = {
-          contentHash,
-          data,
-          mimeType: manifestAsset.mimeType,
-          size: data.length,
-          lastAccessed: Date.now(),
-          accessCount: 1,
-        }
-
-        // Cache to disk and memory
-        await this.cacheAsset(contentHash, asset)
-        return asset
+      // Verify content hash
+      const hash = createHash('sha256').update(data).digest('hex')
+      if (hash !== contentHash && `0x${hash}` !== contentHash) {
+        console.warn(`[StaticAssets] Content hash mismatch for ${assetPath}`)
+        return null
       }
+
+      const asset: CachedAsset = {
+        contentHash,
+        data,
+        mimeType: manifestAsset.mimeType,
+        size: data.length,
+        lastAccessed: Date.now(),
+        accessCount: 1,
+      }
+
+      // Cache to disk and memory
+      await this.cacheAsset(contentHash, asset)
+      return asset
     }
 
     return null

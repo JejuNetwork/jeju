@@ -10,9 +10,8 @@
     "declarationMap": true,
     "sourceMap": true,
     "outDir": "./dist",
-    "rootDir": "./src",
-    "types": ["bun-types"],
-    "baseUrl": ".",
+    "rootDir": "./client/src",
+    "types": ["@types/bun"],
     "lib": ["ESNext"],
     "resolveJsonModule": true,
     "isolatedModules": true,
@@ -21,6 +20,6 @@
     "noImplicitReturns": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+  "include": ["client/src/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "programs", "target"]
 }

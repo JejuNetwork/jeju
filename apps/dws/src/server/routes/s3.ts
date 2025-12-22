@@ -482,8 +482,7 @@ export function createS3Router(backend: BackendManager) {
     .post(
       '/presign',
       async ({ body }) => {
-        const operation =
-          body.operation === 'GET' ? 'getObject' : 'putObject'
+        const operation = body.operation === 'GET' ? 'getObject' : 'putObject'
         const result = s3.generatePresignedUrl({
           bucket: body.bucket,
           key: body.key,

@@ -177,8 +177,8 @@ export class MultiBackendManager {
         async healthCheck(): Promise<boolean> {
           const response = await fetch(`${ipfsApiUrl}/api/v0/id`, {
             method: 'POST',
-          }).catch(() => null)
-          return response?.ok ?? false
+          })
+          return response.ok
         },
       })
     }
@@ -717,7 +717,7 @@ export class MultiBackendManager {
     const results: Record<string, boolean> = {}
 
     for (const [type, backend] of this.backends) {
-      results[type] = await backend.healthCheck().catch(() => false)
+      results[type] = await backend.healthCheck()
     }
 
     return results as Record<StorageBackendType, boolean>

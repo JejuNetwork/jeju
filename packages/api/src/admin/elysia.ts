@@ -18,6 +18,7 @@ interface AuthDerivedContext {
 export interface AdminContext {
   admin?: AdminUser
   isAdmin: boolean
+  [key: string]: AdminUser | boolean | undefined
 }
 
 export interface AdminPluginConfig extends AdminConfig {

@@ -397,6 +397,8 @@ export class OracleKeeperStrategy {
         source: 'pyth',
         timestamp: Number(publishTime),
       }
+    } catch {
+      return null
     }
   }
 
@@ -436,6 +438,8 @@ export class OracleKeeperStrategy {
         source: 'redstone',
         timestamp: Math.floor(priceData.timestamp / 1000),
       }
+    } catch {
+      return null
     }
   }
 
@@ -663,6 +667,8 @@ export class OracleKeeperStrategy {
         source: 'chainlink',
         timestamp: Number(updatedAt),
       }
+    } catch {
+      return null
     }
   }
 

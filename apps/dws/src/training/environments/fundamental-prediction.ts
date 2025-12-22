@@ -236,7 +236,6 @@ export class FundamentalPredictionEnv {
   private iter = 0
   private percentCorrectBuffer: number[] = []
   private magnitudeAccuracyBuffer: number[] = []
-  private _hfReserved: HfInference | null = null
 
   constructor(config: EnvConfig, serverConfigs: APIServerConfig[]) {
     this.config = config

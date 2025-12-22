@@ -173,7 +173,7 @@ export function createStorageRouter(backend?: BackendManager) {
 
         // Use simple backend if provided
         if (backend) {
-          const result = await backend.download(cid).catch(() => null)
+          const result = await backend.download(cid)
           if (!result) {
             set.status = 404
             return { error: 'Not found' }
@@ -214,9 +214,7 @@ export function createStorageRouter(backend?: BackendManager) {
         const cid = params.cid
         const region = request.headers.get('x-region') ?? 'unknown'
 
-        const result = await storageManager
-          .download(cid, { region })
-          .catch(() => null)
+        const result = await storageManager.download(cid, { region })
 
         if (!result) {
           set.status = 404
@@ -268,7 +266,7 @@ export function createStorageRouter(backend?: BackendManager) {
 
         // Use simple backend if provided
         if (backend) {
-          const result = await backend.download(cid).catch(() => null)
+          const result = await backend.download(cid)
           return { cid, exists: !!result }
         }
 

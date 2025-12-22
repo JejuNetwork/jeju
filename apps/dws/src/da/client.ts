@@ -12,7 +12,7 @@ import { expectJson } from '@jejunetwork/types'
 import type { Address, Hex, PublicClient } from 'viem'
 import { createPublicClient, http, toBytes, toHex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { z } from 'zod'
+import type { z } from 'zod'
 import { computeBlobId } from './commitment'
 import type {
   AvailabilityAttestation,
@@ -363,38 +363,28 @@ export class DAClient {
     }
 
     // Read from on-chain blob registry
-    const result = await this.publicClient
-      .readContract({
-        address: contractAddress,
-        abi: [
-          {
-            type: 'function',
-            name: 'getBlob',
-            inputs: [{ name: 'blobId', type: 'bytes32' }],
-            outputs: [
-              { name: 'commitment', type: 'bytes32' },
-              { name: 'merkleRoot', type: 'bytes32' },
-              { name: 'totalChunks', type: 'uint256' },
-              { name: 'timestamp', type: 'uint256' },
-              { name: 'submitter', type: 'address' },
-            ],
-            stateMutability: 'view',
-          },
-        ],
-        functionName: 'getBlob',
-        args: [blobId],
-      })
-      .catch(() => null)
+    const result = (await this.publicClient.readContract({
+      address: contractAddress,
+      abi: [
+        {
+          type: 'function',
+          name: 'getBlob',
+          inputs: [{ name: 'blobId', type: 'bytes32' }],
+          outputs: [
+            { name: 'commitment', type: 'bytes32' },
+            { name: 'merkleRoot', type: 'bytes32' },
+            { name: 'totalChunks', type: 'uint256' },
+            { name: 'timestamp', type: 'uint256' },
+            { name: 'submitter', type: 'address' },
+          ],
+          stateMutability: 'view',
+        },
+      ],
+      functionName: 'getBlob',
+      args: [blobId],
+    })) as [Hex, Hex, bigint, bigint, Address]
 
-    if (!result) return false
-
-    const [storedCommitment, storedMerkleRoot, storedTotalChunks] = result as [
-      Hex,
-      Hex,
-      bigint,
-      bigint,
-      Address,
-    ]
+    const [storedCommitment, storedMerkleRoot, storedTotalChunks] = result
 
     // Verify commitment matches
     if (
@@ -436,32 +426,27 @@ export class DAClient {
     }
 
     // Verify attestation exists on-chain
-    const result = await this.publicClient
-      .readContract({
-        address: contractAddress,
-        abi: [
-          {
-            type: 'function',
-            name: 'getAttestation',
-            inputs: [{ name: 'blobId', type: 'bytes32' }],
-            outputs: [
-              { name: 'commitment', type: 'bytes32' },
-              { name: 'quorumReached', type: 'bool' },
-              { name: 'signerCount', type: 'uint256' },
-              { name: 'timestamp', type: 'uint256' },
-            ],
-            stateMutability: 'view',
-          },
-        ],
-        functionName: 'getAttestation',
-        args: [attestation.blobId],
-      })
-      .catch(() => null)
+    const result = (await this.publicClient.readContract({
+      address: contractAddress,
+      abi: [
+        {
+          type: 'function',
+          name: 'getAttestation',
+          inputs: [{ name: 'blobId', type: 'bytes32' }],
+          outputs: [
+            { name: 'commitment', type: 'bytes32' },
+            { name: 'quorumReached', type: 'bool' },
+            { name: 'signerCount', type: 'uint256' },
+            { name: 'timestamp', type: 'uint256' },
+          ],
+          stateMutability: 'view',
+        },
+      ],
+      functionName: 'getAttestation',
+      args: [attestation.blobId],
+    })) as [Hex, boolean, bigint, bigint]
 
-    if (!result) return false
-
-    const [storedCommitment, storedQuorumReached, storedSignerCount] =
-      result as [Hex, boolean, bigint, bigint]
+    const [storedCommitment, storedQuorumReached, storedSignerCount] = result
 
     // Verify commitment matches
     if (

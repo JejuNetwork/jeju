@@ -1,12 +1,12 @@
 //! VPN core functionality
 
-mod wireguard;
-mod tunnel;
 mod node_discovery;
+mod tunnel;
+mod wireguard;
 
-pub use wireguard::*;
-pub use tunnel::*;
 pub use node_discovery::*;
+pub use tunnel::*;
+pub use wireguard::*;
 
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -75,16 +75,16 @@ pub struct ConnectionStats {
 pub struct VPNManager {
     /// Current connection (if any)
     connection: Option<VPNConnection>,
-    
+
     /// WireGuard tunnel
     tunnel: Option<WireGuardTunnel>,
-    
+
     /// Node discovery
     discovery: NodeDiscovery,
-    
+
     /// Available nodes cache
     nodes: Vec<VPNNode>,
-    
+
     /// Selected node ID
     selected_node_id: Option<String>,
 }
@@ -99,7 +99,7 @@ impl VPNManager {
             selected_node_id: None,
         }
     }
-    
+
     /// Connect to VPN
     pub async fn connect(&mut self, node: Option<VPNNode>) -> Result<VPNConnection, VPNError> {
         // Get node to connect to
@@ -108,7 +108,9 @@ impl VPNManager {
             None => {
                 // Use selected node or find best one
                 if let Some(ref id) = self.selected_node_id {
-                    self.nodes.iter().find(|n| n.node_id == *id)
+                    self.nodes
+                        .iter()
+                        .find(|n| n.node_id == *id)
                         .cloned()
                         .ok_or(VPNError::NoNodeSelected)?
                 } else {
@@ -116,9 +118,13 @@ impl VPNManager {
                 }
             }
         };
-        
-        tracing::info!("Connecting to VPN node: {} ({})", target_node.node_id, target_node.country_code);
-        
+
+        tracing::info!(
+            "Connecting to VPN node: {} ({})",
+            target_node.node_id,
+            target_node.country_code
+        );
+
         // Create WireGuard config
         let wg_config = WireGuardConfig {
             private_key: generate_private_key(),
@@ -128,75 +134,82 @@ impl VPNManager {
             dns: vec!["1.1.1.1".to_string(), "8.8.8.8".to_string()],
             keepalive: 25,
         };
-        
+
         // Create and start tunnel
         let tunnel = WireGuardTunnel::new(wg_config).await?;
         tunnel.start().await?;
-        
+
         // Get assigned IP
         let local_ip = tunnel.get_local_ip().await?;
-        
+
         // Create connection
         let connection = VPNConnection {
             connection_id: uuid::Uuid::new_v4().to_string(),
             status: ConnectionStatus::Connected,
             node: target_node,
-            connected_at: Some(std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs()),
+            connected_at: Some(
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs(),
+            ),
             local_ip: Some(local_ip),
             public_ip: None, // Will be fetched async
             bytes_up: 0,
             bytes_down: 0,
             latency_ms: 0,
         };
-        
+
         self.tunnel = Some(tunnel);
         self.connection = Some(connection.clone());
-        
+
         tracing::info!("VPN connected successfully");
         Ok(connection)
     }
-    
+
     /// Disconnect from VPN
     pub async fn disconnect(&mut self) -> Result<(), VPNError> {
         if let Some(mut tunnel) = self.tunnel.take() {
             tunnel.stop().await?;
         }
-        
+
         self.connection = None;
         tracing::info!("VPN disconnected");
         Ok(())
     }
-    
+
     /// Get current connection status
     pub fn get_status(&self) -> ConnectionStatus {
-        self.connection.as_ref()
+        self.connection
+            .as_ref()
             .map(|c| c.status)
             .unwrap_or(ConnectionStatus::Disconnected)
     }
-    
+
     /// Get current connection
     pub fn get_connection(&self) -> Option<&VPNConnection> {
         self.connection.as_ref()
     }
-    
+
     /// Get connection statistics
     pub async fn get_stats(&self) -> Option<ConnectionStats> {
         let conn = self.connection.as_ref()?;
         let tunnel = self.tunnel.as_ref()?;
-        
+
         let (bytes_up, bytes_down) = tunnel.get_transfer_stats().await.ok()?;
         let (packets_up, packets_down) = tunnel.get_packet_stats().await.ok()?;
-        
-        let connected_seconds = conn.connected_at.map(|t| {
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs() - t
-        }).unwrap_or(0);
-        
+
+        let connected_seconds = conn
+            .connected_at
+            .map(|t| {
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs()
+                    - t
+            })
+            .unwrap_or(0);
+
         Some(ConnectionStats {
             bytes_up,
             bytes_down,
@@ -206,26 +219,33 @@ impl VPNManager {
             latency_ms: conn.latency_ms,
         })
     }
-    
+
     /// Select a specific node
     pub fn select_node(&mut self, node_id: String) {
         self.selected_node_id = Some(node_id);
     }
-    
+
     /// Get available nodes
-    pub async fn get_nodes(&mut self, country_code: Option<String>) -> Result<Vec<VPNNode>, VPNError> {
+    pub async fn get_nodes(
+        &mut self,
+        country_code: Option<String>,
+    ) -> Result<Vec<VPNNode>, VPNError> {
         // Refresh nodes from discovery
-        self.nodes = self.discovery.discover_nodes(country_code.as_deref()).await?;
+        self.nodes = self
+            .discovery
+            .discover_nodes(country_code.as_deref())
+            .await?;
         Ok(self.nodes.clone())
     }
-    
+
     /// Find best node based on latency and load
     async fn find_best_node(&mut self) -> Result<VPNNode, VPNError> {
         if self.nodes.is_empty() {
             self.nodes = self.discovery.discover_nodes(None).await?;
         }
-        
-        self.nodes.iter()
+
+        self.nodes
+            .iter()
             .filter(|n| n.capabilities.is_vpn_exit)
             .min_by_key(|n| n.latency_ms as u32 + n.load as u32 * 10)
             .cloned()
@@ -244,22 +264,22 @@ impl Default for VPNManager {
 pub enum VPNError {
     #[error("No VPN node selected")]
     NoNodeSelected,
-    
+
     #[error("No VPN nodes available")]
     NoNodesAvailable,
-    
+
     #[error("Failed to create tunnel: {0}")]
     TunnelError(String),
-    
+
     #[error("Connection failed: {0}")]
     ConnectionFailed(String),
-    
+
     #[error("Discovery failed: {0}")]
     DiscoveryError(String),
-    
+
     #[error("Not connected")]
     NotConnected,
-    
+
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
 }
@@ -271,4 +291,3 @@ fn generate_private_key() -> String {
     rand::thread_rng().fill_bytes(&mut key);
     base64::Engine::encode(&base64::engine::general_purpose::STANDARD, key)
 }
-

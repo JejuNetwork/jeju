@@ -56,9 +56,9 @@ interface GitOrg {
 }
 
 const GIT_SERVER_URL =
-  process.env.NEXT_PUBLIC_GIT_SERVER_URL || 'http://localhost:4600'
+  process.env.PUBLIC_GIT_SERVER_URL || 'http://localhost:4600'
 const NPM_REGISTRY_URL =
-  process.env.NEXT_PUBLIC_NPM_REGISTRY_URL || 'http://localhost:4700'
+  process.env.PUBLIC_NPM_REGISTRY_URL || 'http://localhost:4700'
 
 async function fetchOrganizations(): Promise<Organization[]> {
   const gitResponse = await fetch(`${GIT_SERVER_URL}/api/organizations`, {

@@ -38,10 +38,10 @@ export interface BanCheckConfig {
 // Get RPC URL with network-aware defaults
 function getDefaultRpcUrl(): string {
   const network =
-    process.env.NEXT_PUBLIC_NETWORK || process.env.VITE_NETWORK || 'localnet'
+    process.env.PUBLIC_NETWORK || process.env.VITE_NETWORK || 'localnet'
   const envRpc =
-    process.env.NEXT_PUBLIC_RPC_URL ||
-    process.env.NEXT_PUBLIC_JEJU_RPC_URL ||
+    process.env.PUBLIC_RPC_URL ||
+    process.env.PUBLIC_JEJU_RPC_URL ||
     process.env.VITE_RPC_URL
   if (envRpc) return envRpc
 
@@ -56,12 +56,12 @@ function getDefaultRpcUrl(): string {
 }
 
 const DEFAULT_CONFIG: BanCheckConfig = {
-  banManagerAddress: (process.env.NEXT_PUBLIC_BAN_MANAGER_ADDRESS ||
+  banManagerAddress: (process.env.PUBLIC_BAN_MANAGER_ADDRESS ||
     process.env.VITE_BAN_MANAGER_ADDRESS) as Address | undefined,
   moderationMarketplaceAddress: (process.env
-    .NEXT_PUBLIC_MODERATION_MARKETPLACE_ADDRESS ||
+    .PUBLIC_MODERATION_MARKETPLACE_ADDRESS ||
     process.env.VITE_MODERATION_MARKETPLACE_ADDRESS) as Address | undefined,
-  identityRegistryAddress: (process.env.NEXT_PUBLIC_IDENTITY_REGISTRY_ADDRESS ||
+  identityRegistryAddress: (process.env.PUBLIC_IDENTITY_REGISTRY_ADDRESS ||
     process.env.VITE_IDENTITY_REGISTRY_ADDRESS) as Address | undefined,
   rpcUrl: getDefaultRpcUrl(),
 }

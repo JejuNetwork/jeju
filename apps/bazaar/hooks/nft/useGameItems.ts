@@ -28,7 +28,7 @@ import { useSponsorshipStatus } from '../useGasless'
 export { getRarityInfo } from '../../lib/games'
 
 const INDEXER_URL =
-  process.env.NEXT_PUBLIC_INDEXER_URL || 'http://localhost:4350/graphql'
+  process.env.PUBLIC_INDEXER_URL || 'http://localhost:4350/graphql'
 
 import type { GameItem } from '../../schemas/games'
 

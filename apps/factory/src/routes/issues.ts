@@ -152,7 +152,7 @@ export const issuesRoutes = new Elysia({ prefix: '/api/issues' })
   )
   .post(
     '/:issueNumber/comments',
-    async ({ params, body, headers, set }) => {
+    async ({ body, headers, set }) => {
       const authResult = await requireAuth(headers)
       if (!authResult.success) {
         set.status = 401

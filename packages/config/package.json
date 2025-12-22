@@ -8,41 +8,9 @@
   "types": "./index.ts",
   "exports": {
     ".": "./index.ts",
-    "./branding": "./branding.ts",
-    "./network": "./network.ts",
-    "./ports": "./ports.ts",
-    "./secrets": "./secrets.ts",
-    "./api-keys": "./api-keys.ts",
-    "./test-keys": "./test-keys.ts",
-    "./update": "./update.ts",
-    "./chain/mainnet.json": "./chain/mainnet.json",
-    "./chain/testnet.json": "./chain/testnet.json",
-    "./chain/localnet.json": "./chain/localnet.json",
-    "./tokens": "./tokens.json",
-    "./contracts": "./contracts.json",
-    "./services": "./services.json",
-    "./eil": "./eil.json",
-    "./branding.json": "./branding.json"
+    "./ports": "./ports.ts"
   },
-  "files": [
-    "*.ts",
-    "*.json",
-    "chain"
-  ],
-  "engines": {
-    "node": ">=18.0.0"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/elizaos/jeju.git",
-    "directory": "packages/config"
-  },
-  "keywords": [
-    "jeju",
-    "config",
-    "network",
-    "node"
-  ],
+  "files": ["*.ts", "*.json", "chain"],
   "publishConfig": {
     "access": "public"
   }

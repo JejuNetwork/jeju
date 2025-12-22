@@ -12,29 +12,17 @@
  * - Real gas prices
  */
 
-import { createPublicClient, http, parseAbi, formatUnits, formatEther } from 'viem'
-import { mainnet, base, arbitrum, optimism, bsc } from 'viem/chains'
+import {
+  type Chain,
+  createPublicClient,
+  type HttpTransport,
+  http,
+  type PublicClient,
+  parseAbi,
+} from 'viem'
+import { arbitrum, base, bsc, mainnet, optimism } from 'viem/chains'
 
 // ============ Types ============
-
-interface TokenPrice {
-  symbol: string
-  address: string
-  chainId: number
-  price: number
-  source: string
-}
-
-interface DEXPair {
-  dex: string
-  chainId: number
-  pairAddress: string
-  token0: string
-  token1: string
-  reserve0: bigint
-  reserve1: bigint
-  price: number
-}
 
 interface LiveOpportunity {
   type: 'arb' | 'cross-chain' | 'mev'
@@ -68,32 +56,89 @@ interface ChainScanResult {
 
 // ============ Constants ============
 
-const CHAINS = [
-  { chainId: 1, name: 'Ethereum', chain: mainnet, rpc: 'https://eth.llamarpc.com', gasMultiplier: 1 },
-  { chainId: 8453, name: 'Base', chain: base, rpc: 'https://mainnet.base.org', gasMultiplier: 0.01 },
-  { chainId: 42161, name: 'Arbitrum', chain: arbitrum, rpc: 'https://arb1.arbitrum.io/rpc', gasMultiplier: 0.02 },
-  { chainId: 10, name: 'Optimism', chain: optimism, rpc: 'https://mainnet.optimism.io', gasMultiplier: 0.01 },
-  { chainId: 56, name: 'BSC', chain: bsc, rpc: 'https://bsc-dataseed.binance.org', gasMultiplier: 0.1 },
-] as const
+const CHAINS: Array<{
+  chainId: number
+  name: string
+  chain: Chain
+  rpc: string
+  gasMultiplier: number
+}> = [
+  {
+    chainId: 1,
+    name: 'Ethereum',
+    chain: mainnet,
+    rpc: 'https://eth.llamarpc.com',
+    gasMultiplier: 1,
+  },
+  {
+    chainId: 8453,
+    name: 'Base',
+    chain: base,
+    rpc: 'https://mainnet.base.org',
+    gasMultiplier: 0.01,
+  },
+  {
+    chainId: 42161,
+    name: 'Arbitrum',
+    chain: arbitrum,
+    rpc: 'https://arb1.arbitrum.io/rpc',
+    gasMultiplier: 0.02,
+  },
+  {
+    chainId: 10,
+    name: 'Optimism',
+    chain: optimism,
+    rpc: 'https://mainnet.optimism.io',
+    gasMultiplier: 0.01,
+  },
+  {
+    chainId: 56,
+    name: 'BSC',
+    chain: bsc,
+    rpc: 'https://bsc-dataseed.binance.org',
+    gasMultiplier: 0.1,
+  },
+]
 
 // Major DEX factory addresses
-const DEX_FACTORIES: Record<number, Record<string, { address: string; fee: number }>> = {
+const DEX_FACTORIES: Record<
+  number,
+  Record<string, { address: string; fee: number }>
+> = {
   1: {
-    'Uniswap V2': { address: '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f', fee: 30 },
-    'Sushiswap': { address: '0xC0AEe478e3658e2610c5F7A4A2E1777cE9e4f2Ac', fee: 30 },
+    'Uniswap V2': {
+      address: '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f',
+      fee: 30,
+    },
+    Sushiswap: {
+      address: '0xC0AEe478e3658e2610c5F7A4A2E1777cE9e4f2Ac',
+      fee: 30,
+    },
   },
   8453: {
-    'Aerodrome': { address: '0x420DD381b31aEf6683db6B902084cB0FFECe40Da', fee: 30 },
+    Aerodrome: {
+      address: '0x420DD381b31aEf6683db6B902084cB0FFECe40Da',
+      fee: 30,
+    },
   },
   42161: {
-    'Sushiswap': { address: '0xc35DADB65012eC5796536bD9864eD8773aBc74C4', fee: 30 },
-    'Camelot': { address: '0x6EcCab422D763aC031210895C81787E87B43A652', fee: 30 },
+    Sushiswap: {
+      address: '0xc35DADB65012eC5796536bD9864eD8773aBc74C4',
+      fee: 30,
+    },
+    Camelot: { address: '0x6EcCab422D763aC031210895C81787E87B43A652', fee: 30 },
   },
   10: {
-    'Velodrome': { address: '0x25CbdDb98b35ab1FF77413456B31EC81A6B6B746', fee: 30 },
+    Velodrome: {
+      address: '0x25CbdDb98b35ab1FF77413456B31EC81A6B6B746',
+      fee: 30,
+    },
   },
   56: {
-    'PancakeSwap': { address: '0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73', fee: 25 },
+    PancakeSwap: {
+      address: '0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73',
+      fee: 25,
+    },
   },
 }
 
@@ -142,7 +187,7 @@ const FACTORY_ABI = parseAbi([
 // ============ Live Scanner ============
 
 export class LiveOpportunityScanner {
-  private clients: Map<number, ReturnType<typeof createPublicClient>> = new Map()
+  private clients: Map<number, PublicClient<HttpTransport, Chain>> = new Map()
   private ethPrice = 3500
 
   constructor() {
@@ -150,7 +195,7 @@ export class LiveOpportunityScanner {
       const client = createPublicClient({
         chain: chain.chain,
         transport: http(chain.rpc, { timeout: 10000 }),
-      })
+      }) as PublicClient<HttpTransport, Chain>
       this.clients.set(chain.chainId, client)
     }
   }
@@ -160,11 +205,11 @@ export class LiveOpportunityScanner {
    */
   async scan(): Promise<ScanResult> {
     const timestamp = Date.now()
-    console.log('\n' + '═'.repeat(70))
+    console.log(`\n${'═'.repeat(70)}`)
     console.log('  LIVE OPPORTUNITY SCANNER')
     console.log('═'.repeat(70))
-    console.log(`  Scanning: ${CHAINS.map(c => c.name).join(', ')}`)
-    console.log('═'.repeat(70) + '\n')
+    console.log(`  Scanning: ${CHAINS.map((c) => c.name).join(', ')}`)
+    console.log(`${'═'.repeat(70)}\n`)
 
     // Fetch current ETH price
     await this.fetchEthPrice()
@@ -179,7 +224,9 @@ export class LiveOpportunityScanner {
         chainScans.push(result)
         console.log(`  ✓ Found ${result.opportunities.length} opportunities`)
       } catch (error) {
-        console.log(`  ✗ Error: ${error instanceof Error ? error.message : 'Unknown'}`)
+        console.log(
+          `  ✗ Error: ${error instanceof Error ? error.message : 'Unknown'}`,
+        )
         chainScans.push({
           chainId: chain.chainId,
           chainName: chain.name,
@@ -192,9 +239,13 @@ export class LiveOpportunityScanner {
     }
 
     // Find best opportunity
-    const allOpportunities = chainScans.flatMap(c => c.opportunities)
-    const profitableOpportunities = allOpportunities.filter(o => o.netProfit > 0)
-    const bestOpportunity = profitableOpportunities.sort((a, b) => b.netProfit - a.netProfit)[0] ?? null
+    const allOpportunities = chainScans.flatMap((c) => c.opportunities)
+    const profitableOpportunities = allOpportunities.filter(
+      (o) => o.netProfit > 0,
+    )
+    const bestOpportunity =
+      profitableOpportunities.sort((a, b) => b.netProfit - a.netProfit)[0] ??
+      null
 
     // Print summary
     this.printSummary(chainScans, profitableOpportunities, bestOpportunity)
@@ -215,7 +266,7 @@ export class LiveOpportunityScanner {
     const client = this.clients.get(chainId)
     if (!client) throw new Error(`No client for chain ${chainId}`)
 
-    const chainConfig = CHAINS.find(c => c.chainId === chainId)
+    const chainConfig = CHAINS.find((c) => c.chainId === chainId)
     if (!chainConfig) throw new Error(`No config for chain ${chainId}`)
 
     // Get current gas price
@@ -262,14 +313,15 @@ export class LiveOpportunityScanner {
               args: [token0 as `0x${string}`, token1 as `0x${string}`],
             })
 
-            if (pairAddress === '0x0000000000000000000000000000000000000000') continue
+            if (pairAddress === '0x0000000000000000000000000000000000000000')
+              continue
 
             // Get reserves
-            const [reserve0, reserve1] = await client.readContract({
+            const [reserve0, reserve1] = (await client.readContract({
               address: pairAddress,
               abi: PAIR_ABI,
               functionName: 'getReserves',
-            }) as [bigint, bigint, number]
+            })) as [bigint, bigint, number]
 
             if (reserve0 > 0n && reserve1 > 0n) {
               const price = Number(reserve1) / Number(reserve0)
@@ -287,12 +339,19 @@ export class LiveOpportunityScanner {
           const lowest = sorted[0]
           const highest = sorted[sorted.length - 1]
 
-          const spreadBps = ((highest.price - lowest.price) / lowest.price) * 10000
+          const spreadBps =
+            ((highest.price - lowest.price) / lowest.price) * 10000
 
-          if (spreadBps > 5) { // > 0.05% spread
-            const tradeSize = 1e18 // 1 ETH equivalent
+          if (spreadBps > 5) {
+            // > 0.05% spread
+            const _tradeSize = 1e18 // 1 ETH equivalent
             const grossProfit = (spreadBps / 10000) * this.ethPrice
-            const gasCost = gasPriceGwei * 300000 * 1e-9 * this.ethPrice * chainConfig.gasMultiplier
+            const gasCost =
+              gasPriceGwei *
+              300000 *
+              1e-9 *
+              this.ethPrice *
+              chainConfig.gasMultiplier
             const netProfit = grossProfit - gasCost
 
             opportunities.push({
@@ -327,9 +386,13 @@ export class LiveOpportunityScanner {
    */
   private async fetchEthPrice(): Promise<void> {
     try {
-      const response = await fetch('https://coins.llama.fi/prices/current/coingecko:ethereum')
+      const response = await fetch(
+        'https://coins.llama.fi/prices/current/coingecko:ethereum',
+      )
       if (response.ok) {
-        const data = await response.json() as { coins: Record<string, { price: number }> }
+        const data = (await response.json()) as {
+          coins: Record<string, { price: number }>
+        }
         this.ethPrice = data.coins['coingecko:ethereum']?.price ?? 3500
       }
     } catch {
@@ -345,39 +408,63 @@ export class LiveOpportunityScanner {
     profitable: LiveOpportunity[],
     best: LiveOpportunity | null,
   ): void {
-    console.log('\n' + '═'.repeat(70))
+    console.log(`\n${'═'.repeat(70)}`)
     console.log('  SCAN RESULTS')
     console.log('═'.repeat(70))
 
     // Chain summary table
     console.log('\n  Chain Summary:')
-    console.log('  ┌─────────────────┬─────────────────┬─────────────────┬─────────────────┐')
-    console.log('  │ Chain           │ Gas Price       │ Pairs Scanned   │ Opportunities   │')
-    console.log('  ├─────────────────┼─────────────────┼─────────────────┼─────────────────┤')
+    console.log(
+      '  ┌─────────────────┬─────────────────┬─────────────────┬─────────────────┐',
+    )
+    console.log(
+      '  │ Chain           │ Gas Price       │ Pairs Scanned   │ Opportunities   │',
+    )
+    console.log(
+      '  ├─────────────────┼─────────────────┼─────────────────┼─────────────────┤',
+    )
 
     for (const chain of chains) {
-      const profitable = chain.opportunities.filter(o => o.netProfit > 0).length
-      console.log(`  │ ${chain.chainName.padEnd(15)} │ ${chain.gasPrice.toFixed(4).padStart(12)} gwei │ ${chain.pairsScanned.toString().padStart(15)} │ ${profitable.toString().padStart(15)} │`)
+      const profitable = chain.opportunities.filter(
+        (o) => o.netProfit > 0,
+      ).length
+      console.log(
+        `  │ ${chain.chainName.padEnd(15)} │ ${chain.gasPrice.toFixed(4).padStart(12)} gwei │ ${chain.pairsScanned.toString().padStart(15)} │ ${profitable.toString().padStart(15)} │`,
+      )
     }
-    console.log('  └─────────────────┴─────────────────┴─────────────────┴─────────────────┘')
+    console.log(
+      '  └─────────────────┴─────────────────┴─────────────────┴─────────────────┘',
+    )
 
     // Profitable opportunities
     if (profitable.length > 0) {
       console.log('\n  Top Opportunities:')
-      console.log('  ┌─────────────────┬─────────────────────┬─────────────────┬─────────────────┐')
-      console.log('  │ Chain           │ Pair                │ Spread (bps)    │ Net Profit      │')
-      console.log('  ├─────────────────┼─────────────────────┼─────────────────┼─────────────────┤')
+      console.log(
+        '  ┌─────────────────┬─────────────────────┬─────────────────┬─────────────────┐',
+      )
+      console.log(
+        '  │ Chain           │ Pair                │ Spread (bps)    │ Net Profit      │',
+      )
+      console.log(
+        '  ├─────────────────┼─────────────────────┼─────────────────┼─────────────────┤',
+      )
 
       for (const opp of profitable.slice(0, 10)) {
-        const chainName = CHAINS.find(c => c.chainId === opp.chainId)?.name ?? 'Unknown'
-        console.log(`  │ ${chainName.padEnd(15)} │ ${opp.token.padEnd(19)} │ ${opp.spreadBps.toFixed(2).padStart(15)} │ $${opp.netProfit.toFixed(2).padStart(14)} │`)
+        const chainName =
+          CHAINS.find((c) => c.chainId === opp.chainId)?.name ?? 'Unknown'
+        console.log(
+          `  │ ${chainName.padEnd(15)} │ ${opp.token.padEnd(19)} │ ${opp.spreadBps.toFixed(2).padStart(15)} │ $${opp.netProfit.toFixed(2).padStart(14)} │`,
+        )
       }
-      console.log('  └─────────────────┴─────────────────────┴─────────────────┴─────────────────┘')
+      console.log(
+        '  └─────────────────┴─────────────────────┴─────────────────┴─────────────────┘',
+      )
     }
 
     // Best opportunity
     if (best) {
-      const chainName = CHAINS.find(c => c.chainId === best.chainId)?.name ?? 'Unknown'
+      const chainName =
+        CHAINS.find((c) => c.chainId === best.chainId)?.name ?? 'Unknown'
       console.log('\n  🎯 BEST OPPORTUNITY:')
       console.log(`     Chain: ${chainName}`)
       console.log(`     Pair: ${best.token}`)
@@ -387,10 +474,12 @@ export class LiveOpportunityScanner {
       console.log(`     Gas Cost: $${best.gasCost.toFixed(2)}`)
       console.log(`     Net Profit: $${best.netProfit.toFixed(2)}`)
     } else {
-      console.log('\n  ⚠️  No profitable opportunities found at current gas prices')
+      console.log(
+        '\n  ⚠️  No profitable opportunities found at current gas prices',
+      )
     }
 
-    console.log('\n' + '═'.repeat(70))
+    console.log(`\n${'═'.repeat(70)}`)
   }
 }
 
@@ -400,12 +489,13 @@ async function main() {
   const scanner = new LiveOpportunityScanner()
   const result = await scanner.scan()
 
-  console.log(`\nScan completed. Found ${result.profitableOpportunities} profitable opportunities.\n`)
+  console.log(
+    `\nScan completed. Found ${result.profitableOpportunities} profitable opportunities.\n`,
+  )
 }
 
 if (import.meta.main) {
   main().catch(console.error)
 }
 
-export { type ScanResult, type LiveOpportunity }
-
+export type { ScanResult, LiveOpportunity }

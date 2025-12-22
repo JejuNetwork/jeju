@@ -319,10 +319,8 @@ export class TelegramAdapter implements PlatformAdapter {
   }
 
   async getUser(userId: string): Promise<PlatformUserInfo | null> {
-    const chat = await this.bot.telegram
-      .getChat(parseInt(userId, 10))
-      .catch(() => null)
-    if (!chat || chat.type !== 'private') return null
+    const chat = await this.bot.telegram.getChat(parseInt(userId, 10))
+    if (chat.type !== 'private') return null
 
     return {
       id: String(chat.id),
@@ -333,10 +331,7 @@ export class TelegramAdapter implements PlatformAdapter {
   }
 
   async getChannel(channelId: string): Promise<PlatformChannelInfo | null> {
-    const chat = await this.bot.telegram
-      .getChat(parseInt(channelId, 10))
-      .catch(() => null)
-    if (!chat) return null
+    const chat = await this.bot.telegram.getChat(parseInt(channelId, 10))
 
     let type: 'dm' | 'group' | 'guild'
     switch (chat.type) {

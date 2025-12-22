@@ -191,16 +191,16 @@
   },
   "env": {
     "required": [
-      "CHAIN_ID",
-      "RPC_URL"
+      "PUBLIC_CHAIN_ID",
+      "PUBLIC_RPC_URL"
     ],
     "optional": [
-      "DWS_URL",
-      "IDENTITY_REGISTRY_ADDRESS",
-      "CRUCIBLE_URL",
-      "AUTOCRAT_URL",
-      "KMS_ENDPOINT",
-      "MESSAGING_URL",
+      "PUBLIC_DWS_URL",
+      "PUBLIC_IDENTITY_REGISTRY_ADDRESS",
+      "PUBLIC_CRUCIBLE_URL",
+      "PUBLIC_AUTOCRAT_URL",
+      "PUBLIC_KMS_ENDPOINT",
+      "PUBLIC_MESSAGING_URL",
       "NEYNAR_API_KEY",
       "FARCASTER_CHANNEL_ID"
     ]

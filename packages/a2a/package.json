@@ -2,42 +2,15 @@
   "name": "@jejunetwork/a2a",
   "version": "0.1.0",
   "description": "A2A Protocol - Agent-to-Agent communication for Jeju Network",
+  "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
-    ".": {
-      "types": "./src/index.ts",
-      "import": "./src/index.ts",
-      "require": "./src/index.ts"
-    },
-    "./types": {
-      "types": "./src/types/index.ts",
-      "import": "./src/types/index.ts"
-    },
-    "./core": {
-      "types": "./src/core/index.ts",
-      "import": "./src/core/index.ts"
-    },
-    "./blockchain": {
-      "types": "./src/blockchain/index.ts",
-      "import": "./src/blockchain/index.ts"
-    },
-    "./payments": {
-      "types": "./src/payments/index.ts",
-      "import": "./src/payments/index.ts"
-    },
-    "./sdk": {
-      "types": "./src/sdk/index.ts",
-      "import": "./src/sdk/index.ts"
-    },
-    "./utils": {
-      "types": "./src/utils/index.ts",
-      "import": "./src/utils/index.ts"
-    }
+    ".": "./src/index.ts"
   },
   "scripts": {
-    "lint": "biome lint .",
-    "typecheck": "tsc -b ."
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@jejunetwork/contracts": "workspace:*",

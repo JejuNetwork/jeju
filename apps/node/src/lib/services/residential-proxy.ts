@@ -424,50 +424,46 @@ export class ResidentialProxyService {
       return false
     }
 
-    try {
-      const token = AuthTokenSchema.parse(
-        JSON.parse(Buffer.from(authHeader, 'base64').toString()),
+    const tokenData = JSON.parse(Buffer.from(authHeader, 'base64').toString())
+    const token = AuthTokenSchema.parse(tokenData)
+
+    // Check token hasn't expired
+    if (Date.now() - token.timestamp > this.config.authTokenTtlMs) {
+      return false
+    }
+
+    // Check not already used (replay protection)
+    if (this.validTokens.has(token.requestId)) {
+      return false
+    }
+
+    // Verify signature from coordinator
+    const message = `${token.nodeId}:${token.requestId}:${token.timestamp}`
+    const coordinatorAddress = process.env.PROXY_COORDINATOR_ADDRESS as Address
+
+    if (!coordinatorAddress) {
+      console.warn('[Proxy] No coordinator address configured')
+      return false
+    }
+
+    const isValid = await verifyMessage({
+      address: coordinatorAddress,
+      message,
+      signature: token.signature as `0x${string}`,
+    })
+
+    if (isValid) {
+      // Mark token as used
+      this.validTokens.set(
+        token.requestId,
+        Date.now() + this.config.authTokenTtlMs,
       )
 
-      // Check token hasn't expired
-      if (Date.now() - token.timestamp > this.config.authTokenTtlMs) {
-        return false
-      }
-
-      // Check not already used (replay protection)
-      if (this.validTokens.has(token.requestId)) {
-        return false
-      }
-
-      // Verify signature from coordinator
-      const message = `${token.nodeId}:${token.requestId}:${token.timestamp}`
-      const coordinatorAddress = process.env
-        .PROXY_COORDINATOR_ADDRESS as Address
-
-      if (!coordinatorAddress) {
-        console.warn('[Proxy] No coordinator address configured')
-        return false
-      }
-
-      const isValid = await verifyMessage({
-        address: coordinatorAddress,
-        message,
-        signature: token.signature as `0x${string}`,
-      })
-
-      if (isValid) {
-        // Mark token as used
-        this.validTokens.set(
-          token.requestId,
-          Date.now() + this.config.authTokenTtlMs,
-        )
-
-        // Cleanup expired tokens
-        this.cleanupExpiredTokens()
-      }
-
-      return isValid
+      // Cleanup expired tokens
+      this.cleanupExpiredTokens()
     }
+
+    return isValid
   }
 
   private cleanupExpiredTokens(): void {

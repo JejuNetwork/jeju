@@ -32,7 +32,7 @@ describe('Messaging Module Integration Tests', () => {
         rpcUrl: env.rpcUrl,
         smartAccount: false,
       })
-    } catch (e) {
+    } catch (_e) {
       console.log('⚠ Contracts not configured - skipping messaging tests')
       skipTests = true
     }

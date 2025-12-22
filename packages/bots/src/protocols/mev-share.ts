@@ -5,7 +5,7 @@
  */
 
 import { EventEmitter } from 'node:events'
-import { type Address, type Hash, type Hex } from 'viem'
+import type { Hash, Hex } from 'viem'
 
 export interface MEVShareConfig {
   chainId: number
@@ -20,15 +20,7 @@ interface MEVShareBundle {
   revertingTxHashes?: Hash[]
 }
 
-interface MEVShareHint {
-  txHash: Hash
-  logs: Array<{ address: Address; topics: Hex[] }>
-  mevGasPrice?: bigint
-  toAddress?: Address
-  functionSelector?: Hex
-}
-
-const MEVSHARE_SSE = 'https://mev-share.flashbots.net'
+const _MEVSHARE_SSE = 'https://mev-share.flashbots.net'
 const MEVSHARE_BUNDLE = 'https://relay.flashbots.net'
 
 export class MEVShareClient extends EventEmitter {
@@ -62,7 +54,10 @@ export class MEVShareClient extends EventEmitter {
     // Would listen for hints and backrun opportunities
   }
 
-  async submitBundle(bundle: MEVShareBundle, builderHints?: string[]): Promise<string> {
+  async submitBundle(
+    bundle: MEVShareBundle,
+    _builderHints?: string[],
+  ): Promise<string> {
     const response = await fetch(MEVSHARE_BUNDLE, {
       method: 'POST',
       headers: {
@@ -76,11 +71,13 @@ export class MEVShareClient extends EventEmitter {
         id: 1,
       }),
     })
-    const result = await response.json() as { result?: { bundleHash: string } }
+    const result = (await response.json()) as {
+      result?: { bundleHash: string }
+    }
     return result.result?.bundleHash ?? ''
   }
 
-  private async signPayload(payload: string): Promise<string> {
+  private async signPayload(_payload: string): Promise<string> {
     // Sign with auth key
     return `${this.config.authKey}:0x...`
   }
@@ -89,4 +86,3 @@ export class MEVShareClient extends EventEmitter {
     return { connected: this.running }
   }
 }
-

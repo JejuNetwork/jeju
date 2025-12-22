@@ -106,7 +106,7 @@ export class CrucibleAgentRuntime {
     const dwsOk = await checkDWSHealth()
     if (!dwsOk) {
       throw new Error(
-        `DWS not available at ${getDWSBaseUrl()}. Start DWS: cd apps/dws && bun run dev`,
+        `DWS not available at ${getDWSEndpoint()}. Start DWS: cd apps/dws && bun run dev`,
       )
     }
 

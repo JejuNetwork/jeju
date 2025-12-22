@@ -1,5 +1,4 @@
 import { type Context, Elysia } from 'elysia'
-import type { AuthUser } from '../auth/types.js'
 import {
   createRateLimitHeaders,
   createRateLimitKey,
@@ -12,11 +11,6 @@ import {
   type RateLimitTier,
   RateLimitTiers,
 } from './types.js'
-
-/** Context with auth user - used by rate limiting to determine tier */
-interface ContextWithAuth {
-  authUser?: AuthUser
-}
 
 export interface RateLimitPluginConfig extends RateLimiterConfig {
   /** Function to extract user identifier from context */

@@ -135,7 +135,7 @@ test.describe('Transaction Verification', () => {
 
 test.describe('Contract Deployment Check', () => {
   test('Can verify ERC20 Factory deployment', async () => {
-    const factoryAddress = process.env.NEXT_PUBLIC_ERC20_FACTORY_ADDRESS as
+    const factoryAddress = process.env.PUBLIC_ERC20_FACTORY_ADDRESS as
       | Address
       | undefined
 
@@ -150,8 +150,9 @@ test.describe('Contract Deployment Check', () => {
   })
 
   test('Can verify NFT Marketplace deployment', async () => {
-    const marketplaceAddress = process.env
-      .NEXT_PUBLIC_NFT_MARKETPLACE_ADDRESS as Address | undefined
+    const marketplaceAddress = process.env.PUBLIC_NFT_MARKETPLACE_ADDRESS as
+      | Address
+      | undefined
 
     if (!marketplaceAddress || marketplaceAddress === '0x0') {
       test.skip()

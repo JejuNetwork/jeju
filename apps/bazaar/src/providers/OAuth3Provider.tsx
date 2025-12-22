@@ -5,12 +5,11 @@
  * authentication across the network.
  */
 
+export type { OAuth3Config, OAuth3Session } from '@jejunetwork/oauth3'
 // Re-export from the canonical OAuth3 package
 export {
-  OAuth3Provider,
-  useOAuth3,
   type OAuth3ContextValue,
+  OAuth3Provider,
   type OAuth3ProviderProps,
+  useOAuth3,
 } from '@jejunetwork/oauth3/react'
-
-export type { OAuth3Config, OAuth3Session } from '@jejunetwork/oauth3'

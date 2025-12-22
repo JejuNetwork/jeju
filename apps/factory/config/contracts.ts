@@ -4,10 +4,7 @@
 
 import type { Address } from 'viem'
 
-const DWS_URL =
-  process.env.DWS_URL ||
-  process.env.NEXT_PUBLIC_DWS_URL ||
-  'http://localhost:4000'
+const DWS_URL = process.env.PUBLIC_DWS_URL || 'http://localhost:4000'
 
 /**
  * Get the DWS API URL

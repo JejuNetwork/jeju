@@ -113,7 +113,7 @@ export class DWSClient {
     })
 
     if (!response.ok) {
-      const errorText = await response.text().catch(() => 'Unknown error')
+      const errorText = await response.text()
       throw new Error(`DWS request failed: ${response.status} - ${errorText}`)
     }
 
@@ -129,8 +129,8 @@ export class DWSClient {
   }
 
   async isHealthy(): Promise<boolean> {
-    const result = await this.health().catch(() => null)
-    return result?.status === 'healthy'
+    const result = await this.health()
+    return result.status === 'healthy'
   }
 
   // ============================================================================

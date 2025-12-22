@@ -11,13 +11,11 @@
 
 import { EventEmitter } from 'node:events'
 import {
-  type PublicClient,
-  type WalletClient,
   type Address,
   type Hash,
+  type PublicClient,
   parseAbi,
-  encodeFunctionData,
-  decodeEventLog,
+  type WalletClient,
 } from 'viem'
 
 export interface OracleArbConfig {
@@ -56,7 +54,7 @@ const CHAINLINK_AGGREGATOR_ABI = parseAbi([
 ])
 
 // Major Chainlink price feeds
-const CHAINLINK_FEEDS: Record<number, Record<string, Address>> = {
+const _CHAINLINK_FEEDS: Record<number, Record<string, Address>> = {
   1: {
     'ETH/USD': '0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419',
     'BTC/USD': '0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c',
@@ -75,7 +73,6 @@ const CHAINLINK_FEEDS: Record<number, Record<string, Address>> = {
 export class OracleArbStrategy extends EventEmitter {
   private config: OracleArbConfig
   private client: PublicClient
-  private wallet: WalletClient
   private running = false
   private lastPrices: Map<Address, bigint> = new Map()
   private recentUpdates: OracleUpdate[] = []
@@ -83,19 +80,20 @@ export class OracleArbStrategy extends EventEmitter {
   constructor(
     config: OracleArbConfig,
     client: PublicClient,
-    wallet: WalletClient
+    _wallet: WalletClient,
   ) {
     super()
     this.config = config
     this.client = client
-    this.wallet = wallet
   }
 
   async start(): Promise<void> {
     if (this.running) return
     this.running = true
 
-    console.log(`📊 Oracle Arb: monitoring ${this.config.oracleAddresses.length} Chainlink feeds`)
+    console.log(
+      `📊 Oracle Arb: monitoring ${this.config.oracleAddresses.length} Chainlink feeds`,
+    )
 
     // Initialize last prices
     await this.initializePrices()
@@ -139,7 +137,14 @@ export class OracleArbStrategy extends EventEmitter {
     }
   }
 
-  private async onOracleUpdate(oracle: Address, log: { args: Record<string, bigint>; transactionHash: Hash; blockNumber: bigint }): Promise<void> {
+  private async onOracleUpdate(
+    oracle: Address,
+    log: {
+      args: Record<string, bigint>
+      transactionHash: Hash
+      blockNumber: bigint
+    },
+  ): Promise<void> {
     if (!this.running) return
 
     const { current: newPrice } = log.args as { current: bigint }
@@ -189,7 +194,7 @@ export class OracleArbStrategy extends EventEmitter {
 
   private async findOpportunity(
     update: OracleUpdate,
-    priceDelta: number
+    priceDelta: number,
   ): Promise<OracleArbOpportunity | null> {
     // Determine direction
     const direction = priceDelta > 0 ? 'long' : 'short'
@@ -224,7 +229,9 @@ export class OracleArbStrategy extends EventEmitter {
   }
 
   private async execute(opportunity: OracleArbOpportunity): Promise<void> {
-    console.log(`📊 Oracle arb: ${opportunity.direction} ${opportunity.asset}, ${opportunity.expectedProfitBps}bps expected`)
+    console.log(
+      `📊 Oracle arb: ${opportunity.direction} ${opportunity.asset}, ${opportunity.expectedProfitBps}bps expected`,
+    )
 
     // In production, would execute the trade
     // Would need to be fast - within same block as oracle update
@@ -239,4 +246,3 @@ export class OracleArbStrategy extends EventEmitter {
     }
   }
 }
-

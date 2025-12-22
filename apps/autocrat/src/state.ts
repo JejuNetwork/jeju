@@ -279,7 +279,7 @@ export const proposalState = {
   async get(id: string): Promise<Proposal | null> {
     // Check cache first
     const cache = getCache()
-    const cached = await cache.get(`proposal:${id}`).catch(() => null)
+    const cached = await cache.get(`proposal:${id}`)
     if (cached) {
       const parsed = JSON.parse(cached)
       return ProposalSchema.parse(parsed)
@@ -713,7 +713,7 @@ export const storageState = {
   async retrieve(hash: string): Promise<StoredObject | null> {
     // Check cache first
     const cache = getCache()
-    const cached = await cache.get(`storage:${hash}`).catch(() => null)
+    const cached = await cache.get(`storage:${hash}`)
     if (cached) {
       return StoredObjectSchema.parse(JSON.parse(cached))
     }

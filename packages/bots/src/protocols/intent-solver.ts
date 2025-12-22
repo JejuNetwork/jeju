@@ -6,7 +6,7 @@
  */
 
 import { EventEmitter } from 'node:events'
-import { type PublicClient, type Address, parseAbi, encodeFunctionData } from 'viem'
+import { type Address, type PublicClient, parseAbi } from 'viem'
 
 export interface IntentSolverConfig {
   chainId: number
@@ -91,7 +91,9 @@ export class IntentSolver extends EventEmitter {
   async start(): Promise<void> {
     if (this.running) return
     this.running = true
-    console.log(`🎯 Intent Solver: ${this.config.protocols.join(', ')} on chain ${this.config.chainId}`)
+    console.log(
+      `🎯 Intent Solver: ${this.config.protocols.join(', ')} on chain ${this.config.chainId}`,
+    )
     this.pollIntents()
   }
 
@@ -112,7 +114,9 @@ export class IntentSolver extends EventEmitter {
 
           const solution = await this.solve(intent)
           if (solution && solution.profit > 0n) {
-            const profitBps = Number(solution.profit * 10000n / solution.intent.amountIn)
+            const profitBps = Number(
+              (solution.profit * 10000n) / solution.intent.amountIn,
+            )
             if (profitBps >= this.config.minProfitBps) {
               await this.submitSolution(solution)
             }
@@ -125,7 +129,9 @@ export class IntentSolver extends EventEmitter {
     }
   }
 
-  private async fetchIntents(protocol: 'cowswap' | 'uniswapx'): Promise<Intent[]> {
+  private async fetchIntents(
+    protocol: 'cowswap' | 'uniswapx',
+  ): Promise<Intent[]> {
     if (protocol === 'cowswap') {
       return this.fetchCowswapOrders()
     } else {
@@ -142,7 +148,7 @@ export class IntentSolver extends EventEmitter {
       const response = await fetch(`${apiUrl}/orders?status=open&limit=50`)
       if (!response.ok) return []
 
-      const orders = await response.json() as CowswapOrder[]
+      const orders = (await response.json()) as CowswapOrder[]
 
       return orders.map((order) => ({
         id: order.uid,
@@ -164,12 +170,15 @@ export class IntentSolver extends EventEmitter {
   private async fetchUniswapXOrders(): Promise<Intent[]> {
     try {
       // UniswapX Dutch auction orders
-      const response = await fetch(`${UNISWAPX_API}/orders?chainId=${this.config.chainId}&status=open&limit=50`, {
-        headers: { 'Content-Type': 'application/json' },
-      })
+      const response = await fetch(
+        `${UNISWAPX_API}/orders?chainId=${this.config.chainId}&status=open&limit=50`,
+        {
+          headers: { 'Content-Type': 'application/json' },
+        },
+      )
       if (!response.ok) return []
 
-      const data = await response.json() as { orders: UniswapXOrder[] }
+      const data = (await response.json()) as { orders: UniswapXOrder[] }
 
       return data.orders.map((order) => ({
         id: order.orderHash,
@@ -198,7 +207,9 @@ export class IntentSolver extends EventEmitter {
     if (quotes.length === 0) return null
 
     // Find best quote that beats minAmountOut
-    const bestQuote = quotes.reduce((best, q) => (q.amountOut > best.amountOut ? q : best))
+    const bestQuote = quotes.reduce((best, q) =>
+      q.amountOut > best.amountOut ? q : best,
+    )
 
     if (bestQuote.amountOut <= intent.minAmountOut) {
       return null // Can't beat user's minimum
@@ -219,13 +230,22 @@ export class IntentSolver extends EventEmitter {
     }
   }
 
-  private async getQuotes(intent: Intent): Promise<Array<{ path: Address[]; amountOut: bigint }>> {
+  private async getQuotes(
+    intent: Intent,
+  ): Promise<Array<{ path: Address[]; amountOut: bigint }>> {
     const quotes: Array<{ path: Address[]; amountOut: bigint }> = []
 
     // Direct path
-    const directQuote = await this.getDirectQuote(intent.tokenIn, intent.tokenOut, intent.amountIn)
+    const directQuote = await this.getDirectQuote(
+      intent.tokenIn,
+      intent.tokenOut,
+      intent.amountIn,
+    )
     if (directQuote > 0n) {
-      quotes.push({ path: [intent.tokenIn, intent.tokenOut], amountOut: directQuote })
+      quotes.push({
+        path: [intent.tokenIn, intent.tokenOut],
+        amountOut: directQuote,
+      })
     }
 
     // Common intermediaries (WETH, USDC)
@@ -235,16 +255,28 @@ export class IntentSolver extends EventEmitter {
     for (const mid of [WETH, USDC]) {
       if (mid === intent.tokenIn || mid === intent.tokenOut) continue
 
-      const hopQuote = await this.getMultiHopQuote(intent.tokenIn, mid, intent.tokenOut, intent.amountIn)
+      const hopQuote = await this.getMultiHopQuote(
+        intent.tokenIn,
+        mid,
+        intent.tokenOut,
+        intent.amountIn,
+      )
       if (hopQuote > 0n) {
-        quotes.push({ path: [intent.tokenIn, mid, intent.tokenOut], amountOut: hopQuote })
+        quotes.push({
+          path: [intent.tokenIn, mid, intent.tokenOut],
+          amountOut: hopQuote,
+        })
       }
     }
 
     return quotes
   }
 
-  private async getDirectQuote(tokenIn: Address, tokenOut: Address, amountIn: bigint): Promise<bigint> {
+  private async getDirectQuote(
+    tokenIn: Address,
+    tokenOut: Address,
+    amountIn: bigint,
+  ): Promise<bigint> {
     // Try multiple fee tiers
     const feeTiers = [500, 3000, 10000]
     const quoterV3 = '0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6' as Address
@@ -258,9 +290,7 @@ export class IntentSolver extends EventEmitter {
           args: [tokenIn, tokenOut, fee, amountIn, 0n],
         })
         return result.result
-      } catch {
-        continue
-      }
+      } catch {}
     }
     return 0n
   }
@@ -269,7 +299,7 @@ export class IntentSolver extends EventEmitter {
     tokenIn: Address,
     tokenMid: Address,
     tokenOut: Address,
-    amountIn: bigint
+    amountIn: bigint,
   ): Promise<bigint> {
     // Get first hop quote
     const midAmount = await this.getDirectQuote(tokenIn, tokenMid, amountIn)

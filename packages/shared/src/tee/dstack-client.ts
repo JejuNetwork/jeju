@@ -7,7 +7,7 @@
 
 import { existsSync } from 'node:fs'
 import { expectValid } from '@jejunetwork/types'
-import { z } from 'zod'
+import type { z } from 'zod'
 import {
   TappdDeriveKeyResponseSchema,
   TappdInfoResponseSchema,

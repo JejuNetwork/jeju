@@ -137,7 +137,7 @@ export const GAS_COSTS = {
  * Bridge costs and times
  * VALIDATED: Dec 2024 from bridge UI verification
  */
-const BRIDGE_ECONOMICS: Record<
+const BRIDGE_ECONOMICS_DATA: Record<
   string,
   { fixedCostUsd: number; percentageFee: number; timeMinutes: number }
 > = {
@@ -164,12 +164,12 @@ const BRIDGE_ECONOMICS: Record<
 
 // ============ Slippage Model ============
 
-export class SlippageModel {
+export namespace SlippageModel {
   /**
    * Calculate slippage for AMM (constant product) swap
    * Uses the x*y=k invariant
    */
-  static calculateAMMSlippage(
+  export function calculateAMMSlippage(
     pool: LiquidityPool,
     amountIn: bigint,
     isBuyToken0: boolean,
@@ -221,7 +221,7 @@ export class SlippageModel {
   /**
    * Calculate slippage from order book depth
    */
-  static calculateOrderBookSlippage(
+  export function calculateOrderBookSlippage(
     orderBook: OrderBookDepth,
     amountUsd: number,
     isBuy: boolean,
@@ -285,7 +285,7 @@ export class SlippageModel {
    * Estimate slippage based on trade size and typical pool liquidity
    * For when we don't have exact pool data
    */
-  static estimateSlippage(
+  export function estimateSlippage(
     tradeSizeUsd: number,
     poolTvlUsd: number,
     feeBps: number = 30,
@@ -307,12 +307,12 @@ export class SlippageModel {
 
 // ============ Market Impact Model ============
 
-export class MarketImpactModel {
+export namespace MarketImpactModel {
   /**
    * Almgren-Chriss market impact model
    * Used by institutional traders for optimal execution
    */
-  static calculateImpact(
+  export function calculateImpact(
     tradeSizeUsd: number,
     dailyVolumeUsd: number,
     volatility: number, // Daily volatility as decimal
@@ -349,7 +349,7 @@ export class MarketImpactModel {
   /**
    * Quick estimate for typical DeFi trades
    */
-  static quickEstimate(
+  export function quickEstimate(
     tradeSizeUsd: number,
     marketCapUsd: number,
   ): MarketImpactResult {
@@ -368,11 +368,11 @@ export class MarketImpactModel {
 
 // ============ Gas Cost Model ============
 
-export class GasCostModel {
+export namespace GasCostModel {
   /**
    * Estimate gas costs for a trade
    */
-  static estimate(
+  export function estimate(
     operation: keyof typeof GAS_COSTS,
     chainId: number,
     config: EconomicConfig,
@@ -424,25 +424,25 @@ export class GasCostModel {
   /**
    * Calculate gas cost for multi-hop swap
    */
-  static multiHopCost(
+  export function multiHopCost(
     hops: number,
     chainId: number,
     config: EconomicConfig,
   ): GasCostEstimate {
     const operation =
       hops <= 2 ? 'multiHop2' : hops <= 3 ? 'multiHop3' : 'multiHop4'
-    return GasCostModel.estimate(operation, chainId, config)
+    return estimate(operation, chainId, config)
   }
 }
 
 // ============ Bridge Economics ============
 
-export class BridgeEconomics {
+export namespace BridgeEconomics {
   /**
    * Calculate total bridge cost including time value
    */
-  static calculateCost(
-    bridge: keyof typeof BRIDGE_ECONOMICS,
+  export function calculateCost(
+    bridge: keyof typeof BRIDGE_ECONOMICS_DATA,
     amountUsd: number,
     hourlyOpportunityCost: number = 0.01, // 1% per hour opportunity cost
   ): {
@@ -450,7 +450,7 @@ export class BridgeEconomics {
     timeMinutes: number
     breakdown: Record<string, number>
   } {
-    const params = BRIDGE_ECONOMICS[bridge]
+    const params = BRIDGE_ECONOMICS_DATA[bridge]
     if (!params) {
       return {
         totalCostUsd: amountUsd * 0.01, // 1% default
@@ -478,21 +478,17 @@ export class BridgeEconomics {
   /**
    * Find cheapest bridge for a given route
    */
-  static findCheapest(
+  export function findCheapest(
     amountUsd: number,
     maxTimeMinutes: number = 60,
     hourlyOpportunityCost: number = 0.01,
   ): { bridge: string; cost: number; time: number } {
     let cheapest = { bridge: '', cost: Infinity, time: 0 }
 
-    for (const [bridge, params] of Object.entries(BRIDGE_ECONOMICS)) {
+    for (const [bridge, params] of Object.entries(BRIDGE_ECONOMICS_DATA)) {
       if (params.timeMinutes > maxTimeMinutes) continue
 
-      const cost = BridgeEconomics.calculateCost(
-        bridge,
-        amountUsd,
-        hourlyOpportunityCost,
-      )
+      const cost = calculateCost(bridge, amountUsd, hourlyOpportunityCost)
       if (cost.totalCostUsd < cheapest.cost) {
         cheapest = { bridge, cost: cost.totalCostUsd, time: params.timeMinutes }
       }
@@ -504,11 +500,11 @@ export class BridgeEconomics {
 
 // ============ MEV Risk Model ============
 
-export class MEVRiskModel {
+export namespace MEVRiskModel {
   /**
    * Estimate MEV extraction risk for a trade
    */
-  static estimateRisk(
+  export function estimateRisk(
     tradeSizeUsd: number,
     expectedProfitBps: number,
     isPrivateMempool: boolean,
@@ -553,7 +549,100 @@ export class MEVRiskModel {
   }
 }
 
+// ============ Impermanent Loss Calculator ============
+
+export namespace ImpermanentLossCalculator {
+  /**
+   * Calculate impermanent loss for a 50/50 LP position
+   */
+  export function calculate(priceRatio: number): {
+    ilPercent: number
+    ilBps: number
+  } {
+    // IL formula: 2 * sqrt(priceRatio) / (1 + priceRatio) - 1
+    const sqrtRatio = Math.sqrt(priceRatio)
+    const il = (2 * sqrtRatio) / (1 + priceRatio) - 1
+
+    return {
+      ilPercent: il * 100,
+      ilBps: il * 10000,
+    }
+  }
+
+  /**
+   * Calculate IL for weighted pool (e.g., 80/20)
+   */
+  export function calculateWeighted(
+    priceRatio: number,
+    weight: number, // Weight of first token (0-1)
+  ): { ilPercent: number; ilBps: number } {
+    // Generalized IL formula for weighted pools
+    const ratio = priceRatio
+    const w = weight
+
+    // Value if held: w * 1 + (1-w) * ratio
+    const holdValue = w + (1 - w) * ratio
+
+    // Value in pool: (ratio^(1-w)) for normalized pool
+    const poolValue = ratio ** (1 - w)
+
+    const il = poolValue / holdValue - 1
+
+    return {
+      ilPercent: il * 100,
+      ilBps: il * 10000,
+    }
+  }
+
+  /**
+   * Estimate IL over time given volatility
+   */
+  export function estimateExpectedIL(
+    volatility: number, // Annual volatility
+    days: number,
+  ): { expectedIlBps: number; p95IlBps: number } {
+    // Expected price ratio after time t with volatility sigma
+    // ln(S_t/S_0) ~ N(0, sigma^2 * t)
+    const timeYears = days / 365
+    const expectedLogRatio = volatility * Math.sqrt(timeYears)
+
+    // Mean of |ln(ratio)| for normal distribution
+    const expectedAbsLogRatio = expectedLogRatio * Math.sqrt(2 / Math.PI)
+    const expectedRatio = Math.exp(expectedAbsLogRatio)
+
+    const expectedIl = calculate(expectedRatio)
+
+    // 95th percentile
+    const p95LogRatio = expectedLogRatio * 1.96
+    const p95Ratio = Math.exp(p95LogRatio)
+    const p95Il = calculate(p95Ratio)
+
+    return {
+      expectedIlBps: Math.abs(expectedIl.ilBps),
+      p95IlBps: Math.abs(p95Il.ilBps),
+    }
+  }
+}
+
 // ============ Complete Trade Economics ============
+
+// Error function approximation
+function erf(x: number): number {
+  const a1 = 0.254829592
+  const a2 = -0.284496736
+  const a3 = 1.421413741
+  const a4 = -1.453152027
+  const a5 = 1.061405429
+  const p = 0.3275911
+
+  const sign = x < 0 ? -1 : 1
+  const absX = Math.abs(x)
+  const t = 1 / (1 + p * absX)
+  const y =
+    1 -
+    ((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t * Math.exp(-absX * absX)
+  return sign * y
+}
 
 export class TradeEconomicsCalculator {
   private config: EconomicConfig
@@ -571,7 +660,7 @@ export class TradeEconomicsCalculator {
     poolTvlUsd: number
     chainId: number
     hops: number
-    bridge?: keyof typeof BRIDGE_ECONOMICS
+    bridge?: keyof typeof BRIDGE_ECONOMICS_DATA
     isPrivateMempool: boolean
     executionTimeHours?: number
     dailyVolumeUsd?: number
@@ -645,7 +734,7 @@ export class TradeEconomicsCalculator {
     const expectedReturn = netProfitUsd
     const volatilityUsd = tradeSizeUsd * (slippage.worstCaseSlippageBps / 10000)
     const zScore = expectedReturn / volatilityUsd
-    const breakEvenProbability = 0.5 * (1 + this.erf(zScore / Math.sqrt(2)))
+    const breakEvenProbability = 0.5 * (1 + erf(zScore / Math.sqrt(2)))
 
     return {
       grossProfitUsd,
@@ -693,95 +782,6 @@ export class TradeEconomicsCalculator {
     }
 
     return { optimalSize, maxProfit }
-  }
-
-  // Error function approximation
-  private erf(x: number): number {
-    const a1 = 0.254829592
-    const a2 = -0.284496736
-    const a3 = 1.421413741
-    const a4 = -1.453152027
-    const a5 = 1.061405429
-    const p = 0.3275911
-
-    const sign = x < 0 ? -1 : 1
-    x = Math.abs(x)
-    const t = 1 / (1 + p * x)
-    const y =
-      1 - ((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t * Math.exp(-x * x)
-    return sign * y
-  }
-}
-
-// ============ Impermanent Loss Calculator ============
-
-export class ImpermanentLossCalculator {
-  /**
-   * Calculate impermanent loss for a 50/50 LP position
-   */
-  static calculate(priceRatio: number): { ilPercent: number; ilBps: number } {
-    // IL formula: 2 * sqrt(priceRatio) / (1 + priceRatio) - 1
-    const sqrtRatio = Math.sqrt(priceRatio)
-    const il = (2 * sqrtRatio) / (1 + priceRatio) - 1
-
-    return {
-      ilPercent: il * 100,
-      ilBps: il * 10000,
-    }
-  }
-
-  /**
-   * Calculate IL for weighted pool (e.g., 80/20)
-   */
-  static calculateWeighted(
-    priceRatio: number,
-    weight: number, // Weight of first token (0-1)
-  ): { ilPercent: number; ilBps: number } {
-    // Generalized IL formula for weighted pools
-    const ratio = priceRatio
-    const w = weight
-
-    // Value if held: w * 1 + (1-w) * ratio
-    const holdValue = w + (1 - w) * ratio
-
-    // Value in pool: (ratio^(1-w)) for normalized pool
-    const poolValue = ratio ** (1 - w)
-
-    const il = poolValue / holdValue - 1
-
-    return {
-      ilPercent: il * 100,
-      ilBps: il * 10000,
-    }
-  }
-
-  /**
-   * Estimate IL over time given volatility
-   */
-  static estimateExpectedIL(
-    volatility: number, // Annual volatility
-    days: number,
-  ): { expectedIlBps: number; p95IlBps: number } {
-    // Expected price ratio after time t with volatility sigma
-    // ln(S_t/S_0) ~ N(0, sigma^2 * t)
-    const timeYears = days / 365
-    const expectedLogRatio = volatility * Math.sqrt(timeYears)
-
-    // Mean of |ln(ratio)| for normal distribution
-    const expectedAbsLogRatio = expectedLogRatio * Math.sqrt(2 / Math.PI)
-    const expectedRatio = Math.exp(expectedAbsLogRatio)
-
-    const expectedIl = ImpermanentLossCalculator.calculate(expectedRatio)
-
-    // 95th percentile
-    const p95LogRatio = expectedLogRatio * 1.96
-    const p95Ratio = Math.exp(p95LogRatio)
-    const p95Il = ImpermanentLossCalculator.calculate(p95Ratio)
-
-    return {
-      expectedIlBps: Math.abs(expectedIl.ilBps),
-      p95IlBps: Math.abs(p95Il.ilBps),
-    }
   }
 }
 

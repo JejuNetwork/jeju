@@ -10,12 +10,7 @@
  * Outputs deployed addresses for use in E2E tests.
  */
 
-import {
-  createPublicClient,
-  createWalletClient,
-  type Hex,
-  http,
-} from 'viem'
+import { createPublicClient, createWalletClient, type Hex, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
 
@@ -26,11 +21,15 @@ const ANVIL_RPC = 'http://127.0.0.1:9545'
 const CONTRACTS_PATH = '/home/shaw/Documents/jeju/packages/contracts'
 
 // Read compiled artifact
-async function loadArtifact(name: string): Promise<{ abi: readonly object[]; bytecode: Hex }> {
+async function loadArtifact(
+  name: string,
+): Promise<{ abi: readonly object[]; bytecode: Hex }> {
   const artifactPath = `${CONTRACTS_PATH}/out/${name}.sol/${name}.json`
   const file = Bun.file(artifactPath)
   if (!(await file.exists())) {
-    throw new Error(`Artifact not found: ${artifactPath}. Run: cd packages/contracts && forge build`)
+    throw new Error(
+      `Artifact not found: ${artifactPath}. Run: cd packages/contracts && forge build`,
+    )
   }
   const artifact = await file.json()
   return {
@@ -133,7 +132,10 @@ export async function deployTrainingContracts(): Promise<DeployedContracts> {
   }
 
   await Bun.spawn(['mkdir', '-p', './training_output']).exited
-  await Bun.write('./training_output/deployed-contracts.json', JSON.stringify(contracts, null, 2))
+  await Bun.write(
+    './training_output/deployed-contracts.json',
+    JSON.stringify(contracts, null, 2),
+  )
   console.log('\nConfig written to: ./training_output/deployed-contracts.json')
 
   return contracts

@@ -6,7 +6,7 @@
 import { createIPFSClient, type IPFSUploadResult } from '@jejunetwork/shared'
 
 const IPFS_API_URL =
-  process.env.NEXT_PUBLIC_IPFS_API_URL || 'http://localhost:4030/storage/api/v0'
+  process.env.PUBLIC_IPFS_API_URL || 'http://localhost:4030/storage/api/v0'
 const IPFS_GATEWAY_URL = IPFS_API_URL.replace('/api/v0', '/ipfs')
 
 // Create singleton client with autocrat config

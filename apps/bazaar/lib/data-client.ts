@@ -129,10 +129,10 @@ export async function checkIndexerHealth(): Promise<boolean> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query: '{ __typename }' }),
     signal: controller.signal,
-  }).catch(() => null)
+  })
 
   clearTimeout(timeoutId)
-  indexerHealthy = response?.ok ?? false
+  indexerHealthy = response.ok
   healthCheckTime = Date.now()
   return indexerHealthy
 }
@@ -345,7 +345,7 @@ export async function fetchTokenDetails(address: Address): Promise<Token> {
       }
     `,
       { address: address.toLowerCase() },
-    ).catch(() => null)
+    )
 
     if (data?.contracts[0]) {
       const c = data.contracts[0]
@@ -483,7 +483,7 @@ export async function fetchPriceHistory(
     }
   `,
     { tokenId, interval: graphqlInterval, limit },
-  ).catch(() => null)
+  )
 
   if (!data?.tokenCandles?.length) {
     return []
@@ -560,7 +560,7 @@ export async function fetchToken24hStats(address: Address): Promise<{
     }
   `,
     { tokenId },
-  ).catch(() => null)
+  )
 
   if (tokenData?.tokens?.[0]) {
     const t = tokenData.tokens[0]
@@ -576,7 +576,7 @@ export async function fetchToken24hStats(address: Address): Promise<{
       }
     `,
       { tokenId },
-    ).catch(() => null)
+    )
 
     const candle = candleData?.tokenCandles?.[0]
     return {
@@ -631,7 +631,7 @@ export async function fetchTopGainers(options: {
     }
   `,
     { limit: options.limit ?? 10 },
-  ).catch(() => null)
+  )
 
   return data?.tokens?.map(mapToken) ?? []
 }
@@ -659,7 +659,7 @@ export async function fetchTopLosers(options: {
     }
   `,
     { limit: options.limit ?? 10 },
-  ).catch(() => null)
+  )
 
   return data?.tokens?.map(mapToken) ?? []
 }
@@ -691,7 +691,7 @@ export async function fetchNewTokens(options: {
     }
   `,
     { limit: options.limit ?? 20 },
-  ).catch(() => null)
+  )
 
   return data?.tokens?.map(mapToken) ?? []
 }
@@ -755,7 +755,7 @@ export async function fetchTokenPools(
     }
   `,
     { tokenId, limit: options?.limit ?? 20 },
-  ).catch(() => null)
+  )
 
   return (
     data?.dexPools?.map((p) => ({
@@ -813,7 +813,7 @@ export async function fetchMarketStats(chainId?: number): Promise<{
         totalVolumeUSD24h totalLiquidityUSD totalSwaps24h
       }
     }
-  `).catch(() => null)
+  `)
 
   const stats = data?.tokenMarketStats?.[0]
   return {

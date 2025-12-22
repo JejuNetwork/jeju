@@ -76,7 +76,24 @@ export function createAgentRouter() {
             character: t.Object({
               name: t.String(),
               system: t.String(),
+              bio: t.Optional(t.Array(t.String())),
             }),
+            runtime: t.Optional(
+              t.Object({
+                keepWarm: t.Optional(t.Boolean()),
+                maxMemoryMb: t.Optional(t.Number()),
+                timeoutMs: t.Optional(t.Number()),
+                cronSchedule: t.Optional(t.String()),
+                plugins: t.Optional(t.Array(t.String())),
+              }),
+            ),
+            models: t.Optional(
+              t.Object({
+                chat: t.Optional(t.String()),
+                embedding: t.Optional(t.String()),
+              }),
+            ),
+            metadata: t.Optional(t.Record(t.String(), t.String())),
           }),
         },
       )
@@ -166,7 +183,25 @@ export function createAgentRouter() {
           }
         },
         {
-          body: t.Object({}),
+          body: t.Object({
+            character: t.Optional(
+              t.Object({
+                name: t.Optional(t.String()),
+                system: t.Optional(t.String()),
+                bio: t.Optional(t.Array(t.String())),
+              }),
+            ),
+            runtime: t.Optional(
+              t.Object({
+                keepWarm: t.Optional(t.Boolean()),
+                maxMemoryMb: t.Optional(t.Number()),
+                timeoutMs: t.Optional(t.Number()),
+                cronSchedule: t.Optional(t.String()),
+                plugins: t.Optional(t.Array(t.String())),
+              }),
+            ),
+            metadata: t.Optional(t.Record(t.String(), t.String())),
+          }),
         },
       )
 

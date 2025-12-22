@@ -411,6 +411,12 @@ class InferenceClient {
 
       this.conversationHistory.push({ role: 'assistant', content: fullContent })
       yield { id: crypto.randomUUID(), content: '', done: true }
+    } catch (error) {
+      yield {
+        id: crypto.randomUUID(),
+        content: error instanceof Error ? error.message : 'Stream failed',
+        done: true,
+      }
     }
   }
 

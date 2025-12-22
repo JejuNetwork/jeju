@@ -29,7 +29,6 @@ const log = createLogger('AutonomousTick')
 /** JSON value types for LLM parameters */
 type JsonPrimitive = string | number | boolean | null
 type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue }
-type JsonObject = { [key: string]: JsonValue }
 
 /** JSON value schema for LLM parameters */
 const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
@@ -797,11 +796,13 @@ export class AutonomousTick {
         // Check if this is a jeju plugin action
         const availableActions = this.runtime.getAvailableActions()
         const isPluginAction = availableActions.some(
-          (name) => name.toUpperCase() === normalizedAction
+          (name) => name.toUpperCase() === normalizedAction,
         )
 
         if (isPluginAction) {
-          log.info('Routing to jeju plugin action', { action: normalizedAction })
+          log.info('Routing to jeju plugin action', {
+            action: normalizedAction,
+          })
 
           const actionMessage: RuntimeMessage = {
             id: crypto.randomUUID(),
@@ -815,7 +816,10 @@ export class AutonomousTick {
           }
 
           const response = await this.runtime.processMessage(actionMessage)
-          result.result = { response: response.text, action: response.action ?? null }
+          result.result = {
+            response: response.text,
+            action: response.action ?? null,
+          }
           result.success = true
 
           if (this.verbose) {

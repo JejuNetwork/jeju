@@ -115,4 +115,3 @@ impl Default for NotificationManager {
         Self::new()
     }
 }
-
