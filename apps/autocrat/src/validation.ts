@@ -208,6 +208,7 @@ export function expectStringLength(
 
 /**
  * Validate URL
+ * TODO(try-catch-review): This try-catch is VALID - URL constructor throws on invalid input from users
  */
 export function expectUrl(value: string | undefined, context: string): string {
   expectDefined(value, `${context}: URL is required`)
