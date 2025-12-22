@@ -102,14 +102,16 @@ export class TestOrchestrator {
     if (!this.options.skipLock) {
       logger.step('Acquiring test lock...')
       type LockManagerModule = {
-        LockManager: new (opts: { force?: boolean }) => {
+        LockManager: new (opts: {
+          force?: boolean
+        }) => {
           acquireLock: () => { acquired: boolean; message?: string }
           releaseLock: () => boolean
         }
       }
-      const lockModule = await import('@jejunetwork/tests/lock-manager').catch(
+      const lockModule = (await import('@jejunetwork/tests/lock-manager').catch(
         () => null,
-      ) as LockManagerModule | null
+      )) as LockManagerModule | null
 
       if (lockModule) {
         this.lockManager = new lockModule.LockManager({
@@ -201,9 +203,9 @@ export class TestOrchestrator {
           chainId: number
         }) => Promise<{ success: boolean }>
       }
-      const preflightModule = await import('@jejunetwork/tests/preflight').catch(
-        () => null,
-      ) as PreflightModule | null
+      const preflightModule = (await import(
+        '@jejunetwork/tests/preflight'
+      ).catch(() => null)) as PreflightModule | null
 
       if (preflightModule) {
         const preflightResult = await preflightModule.runPreflightChecks({

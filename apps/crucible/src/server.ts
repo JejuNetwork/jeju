@@ -931,98 +931,105 @@ app.post('/api/v1/bots/:agentId/start', async (c) => {
 // Autonomous Agents API
 // ============================================================================
 
-import { createAgentRunner, type AutonomousAgentRunner } from './autonomous';
+import { type AutonomousAgentRunner, createAgentRunner } from './autonomous'
 
 // Global autonomous runner (started if AUTONOMOUS_ENABLED=true)
-let autonomousRunner: AutonomousAgentRunner | null = null;
+let autonomousRunner: AutonomousAgentRunner | null = null
 
 if (process.env.AUTONOMOUS_ENABLED === 'true') {
   autonomousRunner = createAgentRunner({
     enableBuiltinCharacters: process.env.ENABLE_BUILTIN_CHARACTERS !== 'false',
     defaultTickIntervalMs: Number(process.env.TICK_INTERVAL_MS ?? 60_000),
     maxConcurrentAgents: Number(process.env.MAX_CONCURRENT_AGENTS ?? 10),
-  });
-  autonomousRunner.start().then(() => {
-    log.info('Autonomous agent runner started');
-  }).catch(err => {
-    log.error('Failed to start autonomous runner', { error: String(err) });
-  });
+  })
+  autonomousRunner
+    .start()
+    .then(() => {
+      log.info('Autonomous agent runner started')
+    })
+    .catch((err) => {
+      log.error('Failed to start autonomous runner', { error: String(err) })
+    })
 }
 
 // Get autonomous runner status
 app.get('/api/v1/autonomous/status', (c) => {
   if (!autonomousRunner) {
-    return c.json({ 
-      enabled: false, 
-      message: 'Autonomous mode not enabled. Set AUTONOMOUS_ENABLED=true to enable.' 
-    });
+    return c.json({
+      enabled: false,
+      message:
+        'Autonomous mode not enabled. Set AUTONOMOUS_ENABLED=true to enable.',
+    })
   }
-  return c.json({ 
+  return c.json({
     enabled: true,
     ...autonomousRunner.getStatus(),
-  });
-});
+  })
+})
 
 // Start autonomous runner (if not already running)
 app.post('/api/v1/autonomous/start', async (c) => {
   if (!autonomousRunner) {
-    autonomousRunner = createAgentRunner();
+    autonomousRunner = createAgentRunner()
   }
-  await autonomousRunner.start();
-  return c.json({ success: true, status: autonomousRunner.getStatus() });
-});
+  await autonomousRunner.start()
+  return c.json({ success: true, status: autonomousRunner.getStatus() })
+})
 
 // Stop autonomous runner
 app.post('/api/v1/autonomous/stop', async (c) => {
   if (!autonomousRunner) {
-    return c.json({ success: false, message: 'Runner not started' }, 400);
+    return c.json({ success: false, message: 'Runner not started' }, 400)
   }
-  await autonomousRunner.stop();
-  return c.json({ success: true });
-});
+  await autonomousRunner.stop()
+  return c.json({ success: true })
+})
 
 // Register an agent for autonomous mode
 app.post('/api/v1/autonomous/agents', async (c) => {
   if (!autonomousRunner) {
-    return c.json({ error: 'Autonomous runner not started' }, 400);
+    return c.json({ error: 'Autonomous runner not started' }, 400)
   }
-  
-  const body = await c.req.json() as { 
-    characterId: string; 
-    tickIntervalMs?: number;
-    capabilities?: Record<string, boolean>;
-  };
-  
-  const character = getCharacter(body.characterId);
+
+  const body = (await c.req.json()) as {
+    characterId: string
+    tickIntervalMs?: number
+    capabilities?: Record<string, boolean>
+  }
+
+  const character = getCharacter(body.characterId)
   if (!character) {
-    return c.json({ error: `Character not found: ${body.characterId}` }, 404);
+    return c.json({ error: `Character not found: ${body.characterId}` }, 404)
   }
-  
-  const { DEFAULT_AUTONOMOUS_CONFIG } = await import('./autonomous/types');
-  
+
+  const { DEFAULT_AUTONOMOUS_CONFIG } = await import('./autonomous/types')
+
   await autonomousRunner.registerAgent({
     ...DEFAULT_AUTONOMOUS_CONFIG,
     agentId: `autonomous-${body.characterId}`,
     character,
-    tickIntervalMs: body.tickIntervalMs ?? DEFAULT_AUTONOMOUS_CONFIG.tickIntervalMs,
-    capabilities: body.capabilities ? {
-      ...DEFAULT_AUTONOMOUS_CONFIG.capabilities,
-      ...body.capabilities,
-    } : DEFAULT_AUTONOMOUS_CONFIG.capabilities,
-  });
-  
-  return c.json({ success: true, agentId: `autonomous-${body.characterId}` });
-});
+    tickIntervalMs:
+      body.tickIntervalMs ?? DEFAULT_AUTONOMOUS_CONFIG.tickIntervalMs,
+    capabilities: body.capabilities
+      ? {
+          ...DEFAULT_AUTONOMOUS_CONFIG.capabilities,
+          ...body.capabilities,
+        }
+      : DEFAULT_AUTONOMOUS_CONFIG.capabilities,
+  })
+
+  return c.json({ success: true, agentId: `autonomous-${body.characterId}` })
+})
 
 // Remove an agent from autonomous mode
 app.delete('/api/v1/autonomous/agents/:agentId', (c) => {
   if (!autonomousRunner) {
-    return c.json({ error: 'Autonomous runner not started' }, 400);
+    return c.json({ error: 'Autonomous runner not started' }, 400)
   }
-  const agentId = c.req.param('agentId');
-  autonomousRunner.unregisterAgent(agentId);
-  return c.json({ success: true });
-});
+  const agentId = c.req.param('agentId')
+  autonomousRunner.unregisterAgent(agentId)
+  return c.json({ success: true })
+})
 
 // Search
 app.get('/api/v1/search/agents', async (c) => {

@@ -7,7 +7,10 @@
  * NO SQLITE. NO POSTGRES. CQL ONLY.
  */
 
-export { CQLDatabaseAdapter } from './adapter';
-export { cqlDatabasePlugin } from './plugin';
-export { runCQLMigrations, checkMigrationStatus, CQL_SCHEMA } from './migrations';
-
+export { CQLDatabaseAdapter } from './adapter'
+export {
+  CQL_SCHEMA,
+  checkMigrationStatus,
+  runCQLMigrations,
+} from './migrations'
+export { cqlDatabasePlugin } from './plugin'

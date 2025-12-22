@@ -16,19 +16,17 @@ import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import {
   type Address,
-  createPublicClient,
   createWalletClient,
   type Hex,
   http,
   keccak256,
   toBytes,
-  type WalletClient,
 } from 'viem'
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia, localhost } from 'viem/chains'
 import type { BackendManager } from '../../storage/backends'
 import { getRegion, getRegionConfig } from './regions'
-import { TEESecretManager } from './secrets'
+import type { TEESecretManager } from './secrets'
 import type {
   NetworkEnvironment,
   RegionId,
@@ -98,7 +96,6 @@ export class TEEWorkerRunner {
   private config: RunnerConfig
   private backendManager: BackendManager
   private secretManager: TEESecretManager
-  private walletClient: WalletClient
   private account: PrivateKeyAccount
 
   // Running workloads
@@ -146,7 +143,7 @@ export class TEEWorkerRunner {
     await mkdir(this.config.workDir, { recursive: true })
 
     // Verify region is valid for environment
-    const regionConfig = getRegionConfig(this.config.environment)
+    const _regionConfig = getRegionConfig(this.config.environment)
     const region = getRegion(this.config.region)
 
     if (!region && this.config.region !== 'local') {
@@ -223,7 +220,7 @@ export class TEEWorkerRunner {
     }
 
     // Write code to disk
-    const mainFile = params.entrypoint.split('.')[0] + '.js'
+    const mainFile = `${params.entrypoint.split('.')[0]}.js`
     let code = Buffer.from(codeResult.content).toString('utf-8')
 
     // Wrap code for workerd if needed
@@ -330,7 +327,9 @@ export class TEEWorkerRunner {
 
     // Handle process exit
     process.exited.then((exitCode) => {
-      console.log(`[TEERunner] Workload ${params.workloadId} exited with code ${exitCode}`)
+      console.log(
+        `[TEERunner] Workload ${params.workloadId} exited with code ${exitCode}`,
+      )
       const workload = this.workloads.get(params.workloadId)
       if (workload) {
         workload.instance.status = 'stopped'
@@ -341,9 +340,7 @@ export class TEEWorkerRunner {
     // Wait for worker to be ready
     await this.waitForReady(port)
 
-    console.log(
-      `[TEERunner] Deployed ${params.name} on port ${port}`,
-    )
+    console.log(`[TEERunner] Deployed ${params.name} on port ${port}`)
 
     return { instanceId, attestation }
   }
@@ -414,7 +411,7 @@ export default {
     port: number
     resources: WorkloadResources
   }): Promise<{ kill: () => void; exited: Promise<number> }> {
-    const { runtime, codeDir, mainFile, env, port, resources } = params
+    const { runtime, codeDir, mainFile, env, port } = params
 
     if (runtime === 'workerd') {
       return this.startWorkerdWorker(params)
@@ -489,7 +486,7 @@ export default {
     memoryMb: number
     cpuTimeMs: number
   }): string {
-    const { name, mainModule, port, env, memoryMb, cpuTimeMs } = params
+    const { mainModule, port, env } = params
 
     const bindings = Object.entries(env)
       .map(([key, value]) => `      (name = "${key}", text = "${value}")`)
@@ -575,7 +572,10 @@ ${bindings}
       })
     }
 
-    if (workload.instance.status !== 'warm' && workload.instance.status !== 'busy') {
+    if (
+      workload.instance.status !== 'warm' &&
+      workload.instance.status !== 'busy'
+    ) {
       return new Response(JSON.stringify({ error: 'Workload not ready' }), {
         status: 503,
         headers: { 'Content-Type': 'application/json' },
@@ -587,12 +587,15 @@ ${bindings}
 
     try {
       const url = new URL(request.url)
-      const response = await fetch(`http://localhost:${workload.port}${url.pathname}${url.search}`, {
-        method: request.method,
-        headers: request.headers,
-        body: request.body,
-        signal: AbortSignal.timeout(workload.config.resources.timeoutMs),
-      })
+      const response = await fetch(
+        `http://localhost:${workload.port}${url.pathname}${url.search}`,
+        {
+          method: request.method,
+          headers: request.headers,
+          body: request.body,
+          signal: AbortSignal.timeout(workload.config.resources.timeoutMs),
+        },
+      )
 
       workload.instance.totalRequests++
       workload.instance.lastRequestAt = Date.now()
@@ -643,7 +646,12 @@ ${bindings}
     return this.workloads.get(workloadId)
   }
 
-  listWorkloads(): { id: string; name: string; status: string; region: string }[] {
+  listWorkloads(): {
+    id: string
+    name: string
+    status: string
+    region: string
+  }[] {
     return Array.from(this.workloads.values()).map((w) => ({
       id: w.config.id,
       name: w.config.name,
@@ -774,7 +782,8 @@ ${bindings}
       availableCpuMillis: Math.max(0, 4000 - usedCpu),
       availableMemoryMb: Math.max(
         0,
-        this.config.maxWorkloads * this.config.maxMemoryPerWorkload - usedMemory,
+        this.config.maxWorkloads * this.config.maxMemoryPerWorkload -
+          usedMemory,
       ),
       gpuAvailable: false, // TODO: GPU detection
     }
@@ -794,8 +803,7 @@ export function createRunner(
   backendManager: BackendManager,
   secretManager: TEESecretManager,
 ): TEEWorkerRunner {
-  const environment =
-    (process.env.NETWORK as NetworkEnvironment) ?? 'localnet'
+  const environment = (process.env.NETWORK as NetworkEnvironment) ?? 'localnet'
   const rpcUrl =
     config.rpcUrl ??
     process.env.RPC_URL ??

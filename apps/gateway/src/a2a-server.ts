@@ -2102,13 +2102,11 @@ app.use(agentRateLimitPlugin()).post('/a2a', async ({ body, headers, set }) => {
 })
 
 // MCP endpoints
-app
-  .use(agentRateLimitPlugin())
-  .post('/mcp/initialize', () => ({
-    protocolVersion: '2024-11-05',
-    serverInfo: MCP_SERVER_INFO,
-    capabilities: MCP_SERVER_INFO.capabilities,
-  }))
+app.use(agentRateLimitPlugin()).post('/mcp/initialize', () => ({
+  protocolVersion: '2024-11-05',
+  serverInfo: MCP_SERVER_INFO,
+  capabilities: MCP_SERVER_INFO.capabilities,
+}))
 app
   .use(agentRateLimitPlugin())
   .post('/mcp/resources/list', () => ({ resources: MCP_RESOURCES }))
@@ -2241,16 +2239,14 @@ app
     }
   })
 
-app
-  .use(agentRateLimitPlugin())
-  .get('/mcp', () => ({
-    server: MCP_SERVER_INFO.name,
-    version: MCP_SERVER_INFO.version,
-    description: MCP_SERVER_INFO.description,
-    resources: MCP_RESOURCES,
-    tools: MCP_TOOLS,
-    capabilities: MCP_SERVER_INFO.capabilities,
-  }))
+app.use(agentRateLimitPlugin()).get('/mcp', () => ({
+  server: MCP_SERVER_INFO.name,
+  version: MCP_SERVER_INFO.version,
+  description: MCP_SERVER_INFO.description,
+  resources: MCP_RESOURCES,
+  tools: MCP_TOOLS,
+  capabilities: MCP_SERVER_INFO.capabilities,
+}))
 
 // REST API endpoints
 app.use(strictRateLimitPlugin()).post('/api/intents', async ({ body, set }) => {
@@ -2396,16 +2392,14 @@ app.get('/api/config/chains', () => routeService.getChains())
 app.get('/api/config/tokens', ({ query }) => {
   const chainId = query.chainId
   if (chainId) return routeService.getTokens(Number(chainId))
-  return routeService
-    .getChains()
-    .map((c) => ({
-      chainId: c.chainId,
-      chainName: c.name,
-      tokens: routeService.getTokens(c.chainId),
-    }))
+  return routeService.getChains().map((c) => ({
+    chainId: c.chainId,
+    chainName: c.name,
+    tokens: routeService.getTokens(c.chainId),
+  }))
 })
 
-app.get('/api/pools', async ({ query, set }) => {
+app.get('/api/pools', async ({ query, set: _set }) => {
   const validated = validateQuery(ListPoolsQuerySchema, query, 'list pools')
   if (validated.token0 && validated.token1) {
     const pools = await poolService.listPoolsForPair(

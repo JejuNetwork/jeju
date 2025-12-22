@@ -1,62 +1,60 @@
 /**
  * Crucible Training Integration
- * 
+ *
  * Connects DWS training infrastructure to Crucible's agent runtime.
  * Enables RLAIF (Reinforcement Learning from AI Feedback) for Eliza agents.
  */
-
-import type { Address } from 'viem';
 
 // ============================================================================
 // Types
 // ============================================================================
 
 export interface TrainingAgentConfig {
-  agentId: string;
-  name: string;
-  role: 'player' | 'evaluator' | 'trainer';
-  modelEndpoint?: string;
+  agentId: string
+  name: string
+  role: 'player' | 'evaluator' | 'trainer'
+  modelEndpoint?: string
 }
 
 export interface TrainingEnvironment {
-  envId: string;
-  name: string;
-  description: string;
-  agentCount: number;
+  envId: string
+  name: string
+  description: string
+  agentCount: number
 }
 
 export interface TrainingRun {
-  runId: string;
-  environment: string;
-  agents: TrainingAgentConfig[];
-  status: 'pending' | 'running' | 'completed' | 'failed';
-  startedAt: number;
-  completedAt?: number;
-  metrics: TrainingMetrics;
+  runId: string
+  environment: string
+  agents: TrainingAgentConfig[]
+  status: 'pending' | 'running' | 'completed' | 'failed'
+  startedAt: number
+  completedAt?: number
+  metrics: TrainingMetrics
 }
 
 export interface TrainingMetrics {
-  totalEpisodes: number;
-  totalSteps: number;
-  averageReward: number;
-  bestReward: number;
-  lossHistory: number[];
+  totalEpisodes: number
+  totalSteps: number
+  averageReward: number
+  bestReward: number
+  lossHistory: number[]
 }
 
 export interface AgentTrajectory {
-  agentId: string;
-  episodeId: string;
-  steps: TrajectoryStep[];
-  totalReward: number;
-  metadata: Record<string, string | number | boolean>;
+  agentId: string
+  episodeId: string
+  steps: TrajectoryStep[]
+  totalReward: number
+  metadata: Record<string, string | number | boolean>
 }
 
 export interface TrajectoryStep {
-  stepNumber: number;
-  observation: string;
-  action: string;
-  reward: number;
-  done: boolean;
+  stepNumber: number
+  observation: string
+  action: string
+  reward: number
+  done: boolean
 }
 
 // ============================================================================
@@ -64,16 +62,18 @@ export interface TrajectoryStep {
 // ============================================================================
 
 export class CrucibleTrainingClient {
-  private dwsApiUrl: string;
-  private crucibleApiUrl: string;
-  private activeRuns: Map<string, TrainingRun> = new Map();
+  private dwsApiUrl: string
+  private crucibleApiUrl: string
+  private activeRuns: Map<string, TrainingRun> = new Map()
 
-  constructor(config: {
-    dwsApiUrl?: string;
-    crucibleApiUrl?: string;
-  } = {}) {
-    this.dwsApiUrl = config.dwsApiUrl ?? 'http://localhost:4030';
-    this.crucibleApiUrl = config.crucibleApiUrl ?? 'http://localhost:8080';
+  constructor(
+    config: {
+      dwsApiUrl?: string
+      crucibleApiUrl?: string
+    } = {},
+  ) {
+    this.dwsApiUrl = config.dwsApiUrl ?? 'http://localhost:4030'
+    this.crucibleApiUrl = config.crucibleApiUrl ?? 'http://localhost:8080'
   }
 
   /**
@@ -92,7 +92,7 @@ export class CrucibleTrainingClient {
             personality: 'Analytical and strategic',
           },
         }),
-      });
+      })
     }
   }
 
@@ -100,13 +100,13 @@ export class CrucibleTrainingClient {
    * Start a training run
    */
   async startTrainingRun(config: {
-    environment: string;
-    agents: TrainingAgentConfig[];
-    modelName: string;
-    trainingSteps: number;
-    batchSize: number;
+    environment: string
+    agents: TrainingAgentConfig[]
+    modelName: string
+    trainingSteps: number
+    batchSize: number
   }): Promise<TrainingRun> {
-    const runId = `run-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const runId = `run-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
     const run: TrainingRun = {
       runId,
@@ -121,7 +121,7 @@ export class CrucibleTrainingClient {
         bestReward: 0,
         lossHistory: [],
       },
-    };
+    }
 
     // Submit job to DWS
     const response = await fetch(`${this.dwsApiUrl}/training/jobs`, {
@@ -132,16 +132,16 @@ export class CrucibleTrainingClient {
         batchSize: config.batchSize,
         trainingSteps: config.trainingSteps,
         environment: config.environment,
-        agents: config.agents.map(a => a.agentId),
+        agents: config.agents.map((a) => a.agentId),
       }),
-    });
+    })
 
     if (response.ok) {
-      run.status = 'running';
+      run.status = 'running'
     }
 
-    this.activeRuns.set(runId, run);
-    return run;
+    this.activeRuns.set(runId, run)
+    return run
   }
 
   /**
@@ -149,11 +149,11 @@ export class CrucibleTrainingClient {
    */
   async submitTrajectory(trajectory: AgentTrajectory): Promise<void> {
     // Convert to Atropos format
-    const prompt = trajectory.steps.map(s => s.observation).join('\n');
-    const response = trajectory.steps.map(s => s.action).join('\n');
-    
+    const prompt = trajectory.steps.map((s) => s.observation).join('\n')
+    const response = trajectory.steps.map((s) => s.action).join('\n')
+
     // Simulate tokenization
-    const tokens = prompt.split(' ').map((_, i) => i + 1);
+    const tokens = prompt.split(' ').map((_, i) => i + 1)
 
     await fetch(`${this.dwsApiUrl}/training/atropos/scored_data`, {
       method: 'POST',
@@ -162,45 +162,51 @@ export class CrucibleTrainingClient {
         tokens: [tokens],
         masks: [tokens.map(() => 1)],
         scores: [trajectory.totalReward],
-        messages: [[
-          { role: 'user', content: prompt },
-          { role: 'assistant', content: response },
-        ]],
+        messages: [
+          [
+            { role: 'user', content: prompt },
+            { role: 'assistant', content: response },
+          ],
+        ],
       }),
-    });
+    })
   }
 
   /**
    * Get training run status
    */
   async getRunStatus(runId: string): Promise<TrainingRun | null> {
-    const run = this.activeRuns.get(runId);
-    if (!run) return null;
+    const run = this.activeRuns.get(runId)
+    if (!run) return null
 
     // Check DWS for latest status
-    const response = await fetch(`${this.dwsApiUrl}/training/jobs`);
+    const response = await fetch(`${this.dwsApiUrl}/training/jobs`)
     if (response.ok) {
-      const data = await response.json() as { jobs: Array<{ status: string; metrics?: TrainingMetrics }> };
-      const job = data.jobs.find(j => j.status === 'running' || j.status === 'completed');
+      const data = (await response.json()) as {
+        jobs: Array<{ status: string; metrics?: TrainingMetrics }>
+      }
+      const job = data.jobs.find(
+        (j) => j.status === 'running' || j.status === 'completed',
+      )
       if (job) {
-        run.status = job.status as TrainingRun['status'];
+        run.status = job.status as TrainingRun['status']
         if (job.metrics) {
-          run.metrics = job.metrics;
+          run.metrics = job.metrics
         }
       }
     }
 
-    return run;
+    return run
   }
 
   /**
    * Stop a training run
    */
   async stopRun(runId: string): Promise<void> {
-    const run = this.activeRuns.get(runId);
+    const run = this.activeRuns.get(runId)
     if (run) {
-      run.status = 'completed';
-      run.completedAt = Date.now();
+      run.status = 'completed'
+      run.completedAt = Date.now()
     }
   }
 
@@ -208,7 +214,9 @@ export class CrucibleTrainingClient {
    * Get all active runs
    */
   getActiveRuns(): TrainingRun[] {
-    return Array.from(this.activeRuns.values()).filter(r => r.status === 'running');
+    return Array.from(this.activeRuns.values()).filter(
+      (r) => r.status === 'running',
+    )
   }
 }
 
@@ -217,9 +225,8 @@ export class CrucibleTrainingClient {
 // ============================================================================
 
 export function createCrucibleTrainingClient(config?: {
-  dwsApiUrl?: string;
-  crucibleApiUrl?: string;
+  dwsApiUrl?: string
+  crucibleApiUrl?: string
 }): CrucibleTrainingClient {
-  return new CrucibleTrainingClient(config);
+  return new CrucibleTrainingClient(config)
 }
-

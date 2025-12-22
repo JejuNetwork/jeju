@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import { useMemo, useState } from 'react'
 import { useTokenBalances } from '../hooks/useTokenBalances'
 import { formatTokenAmount } from '../lib/tokenUtils'
@@ -76,13 +77,16 @@ export default function TokenSelector({
             style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}
           >
             {selected.logoUrl && (
-              <img
+              <Image
                 src={selected.logoUrl}
                 alt={selected.symbol}
+                width={24}
+                height={24}
                 style={{ width: '24px', height: '24px', borderRadius: '50%' }}
                 onError={(e) => {
                   e.currentTarget.style.display = 'none'
                 }}
+                unoptimized
               />
             )}
             <div>
@@ -170,9 +174,11 @@ export default function TokenSelector({
                   }}
                 >
                   {token.logoUrl && (
-                    <img
+                    <Image
                       src={token.logoUrl}
                       alt={token.symbol}
+                      width={32}
+                      height={32}
                       style={{
                         width: '32px',
                         height: '32px',
@@ -181,6 +187,7 @@ export default function TokenSelector({
                       onError={(e) => {
                         e.currentTarget.style.display = 'none'
                       }}
+                      unoptimized
                     />
                   )}
                   <div style={{ flex: 1 }}>

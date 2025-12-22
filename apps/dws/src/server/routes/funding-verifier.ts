@@ -1,18 +1,25 @@
 /**
  * Funding Verifier Routes
- * 
+ *
  * Handles OAuth3 verification callbacks for the ContributorRegistry:
  * - GitHub repository ownership verification
  * - Social link verification (GitHub, Discord, Twitter)
  * - Dependency maintainer verification
- * 
+ *
  * This is the CRITICAL integration point between OAuth3 and funding.
  */
 
-import { Hono } from 'hono';
-import { createPublicClient, createWalletClient, http, keccak256, type Address, type Hex } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import type { Context } from 'hono';
+import type { Context } from 'hono'
+import { Hono } from 'hono'
+import {
+  type Address,
+  createPublicClient,
+  createWalletClient,
+  type Hex,
+  http,
+  keccak256,
+} from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
 
 // ============ ABI ============
 
@@ -52,61 +59,73 @@ const CONTRIBUTOR_REGISTRY_ABI = [
     type: 'function',
     name: 'getSocialLinks',
     inputs: [{ name: 'contributorId', type: 'bytes32' }],
-    outputs: [{ name: '', type: 'tuple[]', components: [
-      { name: 'platform', type: 'bytes32' },
-      { name: 'handle', type: 'string' },
-      { name: 'proofHash', type: 'bytes32' },
-      { name: 'status', type: 'uint8' },
-      { name: 'verifiedAt', type: 'uint256' },
-      { name: 'expiresAt', type: 'uint256' },
-    ]}],
+    outputs: [
+      {
+        name: '',
+        type: 'tuple[]',
+        components: [
+          { name: 'platform', type: 'bytes32' },
+          { name: 'handle', type: 'string' },
+          { name: 'proofHash', type: 'bytes32' },
+          { name: 'status', type: 'uint8' },
+          { name: 'verifiedAt', type: 'uint256' },
+          { name: 'expiresAt', type: 'uint256' },
+        ],
+      },
+    ],
     stateMutability: 'view',
   },
   {
     type: 'function',
     name: 'getRepositoryClaims',
     inputs: [{ name: 'contributorId', type: 'bytes32' }],
-    outputs: [{ name: '', type: 'tuple[]', components: [
-      { name: 'claimId', type: 'bytes32' },
-      { name: 'contributorId', type: 'bytes32' },
-      { name: 'owner', type: 'string' },
-      { name: 'repo', type: 'string' },
-      { name: 'proofHash', type: 'bytes32' },
-      { name: 'status', type: 'uint8' },
-      { name: 'claimedAt', type: 'uint256' },
-      { name: 'verifiedAt', type: 'uint256' },
-    ]}],
+    outputs: [
+      {
+        name: '',
+        type: 'tuple[]',
+        components: [
+          { name: 'claimId', type: 'bytes32' },
+          { name: 'contributorId', type: 'bytes32' },
+          { name: 'owner', type: 'string' },
+          { name: 'repo', type: 'string' },
+          { name: 'proofHash', type: 'bytes32' },
+          { name: 'status', type: 'uint8' },
+          { name: 'claimedAt', type: 'uint256' },
+          { name: 'verifiedAt', type: 'uint256' },
+        ],
+      },
+    ],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 // Platform hashes matching Solidity
-const PLATFORM_GITHUB = keccak256(Buffer.from('github'));
-const PLATFORM_DISCORD = keccak256(Buffer.from('discord'));
-const PLATFORM_TWITTER = keccak256(Buffer.from('twitter'));
-const PLATFORM_FARCASTER = keccak256(Buffer.from('farcaster'));
+const PLATFORM_GITHUB = keccak256(Buffer.from('github'))
+const PLATFORM_DISCORD = keccak256(Buffer.from('discord'))
+const PLATFORM_TWITTER = keccak256(Buffer.from('twitter'))
+const PLATFORM_FARCASTER = keccak256(Buffer.from('farcaster'))
 
 // ============ Types ============
 
 interface VerificationRequest {
-  contributorId: string;
-  platform: 'github' | 'discord' | 'twitter' | 'farcaster';
-  handle: string;
-  oauthToken: string;
+  contributorId: string
+  platform: 'github' | 'discord' | 'twitter' | 'farcaster'
+  handle: string
+  oauthToken: string
 }
 
 interface RepoVerificationRequest {
-  claimId: string;
-  owner: string;
-  repo: string;
-  oauthToken: string;
+  claimId: string
+  owner: string
+  repo: string
+  oauthToken: string
 }
 
 interface DependencyVerificationRequest {
-  claimId: string;
-  packageName: string;
-  registryType: 'npm' | 'pypi' | 'cargo' | 'go';
-  oauthToken: string;
+  claimId: string
+  packageName: string
+  registryType: 'npm' | 'pypi' | 'cargo' | 'go'
+  oauthToken: string
 }
 
 // ============ GitHub Verification ============
@@ -115,7 +134,7 @@ async function verifyGitHubOwnership(
   token: string,
   expectedUsername: string,
   repoOwner?: string,
-  repoName?: string
+  repoName?: string,
 ): Promise<{ verified: boolean; proofHash: Hex; error?: string }> {
   // Verify the token belongs to the expected user
   const userResponse = await fetch('https://api.github.com/user', {
@@ -123,16 +142,24 @@ async function verifyGitHubOwnership(
       Authorization: `Bearer ${token}`,
       Accept: 'application/vnd.github+json',
     },
-  });
+  })
 
   if (!userResponse.ok) {
-    return { verified: false, proofHash: '0x' as Hex, error: 'Invalid GitHub token' };
+    return {
+      verified: false,
+      proofHash: '0x' as Hex,
+      error: 'Invalid GitHub token',
+    }
   }
 
-  const user = await userResponse.json() as { login: string; id: number };
-  
+  const user = (await userResponse.json()) as { login: string; id: number }
+
   if (user.login.toLowerCase() !== expectedUsername.toLowerCase()) {
-    return { verified: false, proofHash: '0x' as Hex, error: 'GitHub username mismatch' };
+    return {
+      verified: false,
+      proofHash: '0x' as Hex,
+      error: 'GitHub username mismatch',
+    }
   }
 
   // If verifying repo ownership
@@ -144,25 +171,35 @@ async function verifyGitHubOwnership(
           Authorization: `Bearer ${token}`,
           Accept: 'application/vnd.github+json',
         },
-      }
-    );
+      },
+    )
 
     if (!repoResponse.ok) {
-      return { verified: false, proofHash: '0x' as Hex, error: 'Repository not found' };
+      return {
+        verified: false,
+        proofHash: '0x' as Hex,
+        error: 'Repository not found',
+      }
     }
 
-    const repo = await repoResponse.json() as { permissions?: { admin?: boolean; push?: boolean } };
-    
+    const repo = (await repoResponse.json()) as {
+      permissions?: { admin?: boolean; push?: boolean }
+    }
+
     if (!repo.permissions?.admin && !repo.permissions?.push) {
-      return { verified: false, proofHash: '0x' as Hex, error: 'No write access to repository' };
+      return {
+        verified: false,
+        proofHash: '0x' as Hex,
+        error: 'No write access to repository',
+      }
     }
   }
 
   // Generate proof hash
-  const proofData = `github:${user.id}:${user.login}:${Date.now()}`;
-  const proofHash = keccak256(Buffer.from(proofData));
+  const proofData = `github:${user.id}:${user.login}:${Date.now()}`
+  const proofHash = keccak256(Buffer.from(proofData))
 
-  return { verified: true, proofHash };
+  return { verified: true, proofHash }
 }
 
 // ============ NPM Maintainer Verification ============
@@ -170,22 +207,32 @@ async function verifyGitHubOwnership(
 async function verifyNpmMaintainer(
   token: string,
   packageName: string,
-  expectedUsername: string
+  expectedUsername: string,
 ): Promise<{ verified: boolean; proofHash: Hex; error?: string }> {
   // Get package info
-  const pkgResponse = await fetch(`https://registry.npmjs.org/${packageName}`);
+  const pkgResponse = await fetch(`https://registry.npmjs.org/${packageName}`)
   if (!pkgResponse.ok) {
-    return { verified: false, proofHash: '0x' as Hex, error: 'Package not found' };
+    return {
+      verified: false,
+      proofHash: '0x' as Hex,
+      error: 'Package not found',
+    }
   }
 
-  const pkg = await pkgResponse.json() as { maintainers?: Array<{ name: string }> };
-  
+  const pkg = (await pkgResponse.json()) as {
+    maintainers?: Array<{ name: string }>
+  }
+
   const isMaintainer = pkg.maintainers?.some(
-    m => m.name.toLowerCase() === expectedUsername.toLowerCase()
-  );
+    (m) => m.name.toLowerCase() === expectedUsername.toLowerCase(),
+  )
 
   if (!isMaintainer) {
-    return { verified: false, proofHash: '0x' as Hex, error: 'Not a package maintainer' };
+    return {
+      verified: false,
+      proofHash: '0x' as Hex,
+      error: 'Not a package maintainer',
+    }
   }
 
   // Verify via GitHub that they control the npm-linked GitHub
@@ -194,100 +241,112 @@ async function verifyNpmMaintainer(
       Authorization: `Bearer ${token}`,
       Accept: 'application/vnd.github+json',
     },
-  });
+  })
 
   if (!userResponse.ok) {
-    return { verified: false, proofHash: '0x' as Hex, error: 'GitHub token invalid' };
+    return {
+      verified: false,
+      proofHash: '0x' as Hex,
+      error: 'GitHub token invalid',
+    }
   }
 
-  const user = await userResponse.json() as { login: string; id: number };
+  const user = (await userResponse.json()) as { login: string; id: number }
 
-  const proofData = `npm:${packageName}:${user.login}:${Date.now()}`;
-  const proofHash = keccak256(Buffer.from(proofData));
+  const proofData = `npm:${packageName}:${user.login}:${Date.now()}`
+  const proofHash = keccak256(Buffer.from(proofData))
 
-  return { verified: true, proofHash };
+  return { verified: true, proofHash }
 }
 
 // ============ Router ============
 
 export function createFundingVerifierRouter(): Hono {
-  const router = new Hono();
+  const router = new Hono()
 
-  const rpcUrl = process.env.RPC_URL || 'http://127.0.0.1:6546';
-  const verifierKey = process.env.VERIFIER_PRIVATE_KEY;
-  const contributorRegistryAddress = process.env.CONTRIBUTOR_REGISTRY_ADDRESS as Address;
+  const rpcUrl = process.env.RPC_URL || 'http://127.0.0.1:6546'
+  const verifierKey = process.env.VERIFIER_PRIVATE_KEY
+  const contributorRegistryAddress = process.env
+    .CONTRIBUTOR_REGISTRY_ADDRESS as Address
 
   if (!verifierKey) {
-    console.warn('[FundingVerifier] VERIFIER_PRIVATE_KEY not set - verification disabled');
+    console.warn(
+      '[FundingVerifier] VERIFIER_PRIVATE_KEY not set - verification disabled',
+    )
   }
 
-  const publicClient = createPublicClient({ transport: http(rpcUrl) });
-  
+  const _publicClient = createPublicClient({ transport: http(rpcUrl) })
+
   const getWalletClient = () => {
-    if (!verifierKey) throw new Error('Verifier key not configured');
-    const account = privateKeyToAccount(verifierKey as Hex);
+    if (!verifierKey) throw new Error('Verifier key not configured')
+    const account = privateKeyToAccount(verifierKey as Hex)
     return createWalletClient({
       account,
       transport: http(rpcUrl),
-    });
-  };
+    })
+  }
 
   // ============ Social Link Verification ============
 
   router.post('/verify-social', async (c: Context) => {
-    const body = await c.req.json() as VerificationRequest;
-    const { contributorId, platform, handle, oauthToken } = body;
+    const body = (await c.req.json()) as VerificationRequest
+    const { contributorId, platform, handle, oauthToken } = body
 
     if (!verifierKey) {
-      return c.json({ error: 'Verification service not configured' }, 503);
+      return c.json({ error: 'Verification service not configured' }, 503)
     }
 
-    let verified = false;
-    let proofHash: Hex = '0x' + '0'.repeat(64) as Hex;
-    let error: string | undefined;
+    let verified = false
+    let proofHash: Hex = `0x${'0'.repeat(64)}` as Hex
+    let error: string | undefined
 
     // Verify based on platform
     switch (platform) {
-      case 'github':
-        const result = await verifyGitHubOwnership(oauthToken, handle);
-        verified = result.verified;
-        proofHash = result.proofHash;
-        error = result.error;
-        break;
+      case 'github': {
+        const result = await verifyGitHubOwnership(oauthToken, handle)
+        verified = result.verified
+        proofHash = result.proofHash
+        error = result.error
+        break
+      }
       // Add other platforms as needed
       default:
-        return c.json({ error: `Unsupported platform: ${platform}` }, 400);
+        return c.json({ error: `Unsupported platform: ${platform}` }, 400)
     }
 
     if (!verified) {
-      return c.json({ verified: false, error });
+      return c.json({ verified: false, error })
     }
 
     // Call contract to verify
-    const platformHash = platform === 'github' ? PLATFORM_GITHUB :
-                        platform === 'discord' ? PLATFORM_DISCORD :
-                        platform === 'twitter' ? PLATFORM_TWITTER :
-                        PLATFORM_FARCASTER;
+    const platformHash =
+      platform === 'github'
+        ? PLATFORM_GITHUB
+        : platform === 'discord'
+          ? PLATFORM_DISCORD
+          : platform === 'twitter'
+            ? PLATFORM_TWITTER
+            : PLATFORM_FARCASTER
 
-    const walletClient = getWalletClient();
+    const walletClient = getWalletClient()
     const hash = await walletClient.writeContract({
       address: contributorRegistryAddress,
       abi: CONTRIBUTOR_REGISTRY_ABI,
       functionName: 'verifySocialLink',
       args: [contributorId as Hex, platformHash, proofHash],
-    });
+    })
 
-    return c.json({ verified: true, proofHash, txHash: hash });
-  });
+    return c.json({ verified: true, proofHash, txHash: hash })
+  })
 
   // ============ Repository Verification ============
 
   router.post('/verify-repo', async (c: Context) => {
-    const body = await c.req.json() as RepoVerificationRequest;
-    const { claimId, owner, repo, oauthToken } = body;
+    const body = (await c.req.json()) as RepoVerificationRequest
+    const { claimId, owner, repo, oauthToken } = body
 
     if (!verifierKey) {
-      return c.json({ error: 'Verification service not configured' }, 503);
+      return c.json({ error: 'Verification service not configured' }, 503)
     }
 
     // Get user from token
@@ -296,44 +355,49 @@ export function createFundingVerifierRouter(): Hono {
         Authorization: `Bearer ${oauthToken}`,
         Accept: 'application/vnd.github+json',
       },
-    });
+    })
 
     if (!userResponse.ok) {
-      return c.json({ verified: false, error: 'Invalid GitHub token' });
+      return c.json({ verified: false, error: 'Invalid GitHub token' })
     }
 
-    const user = await userResponse.json() as { login: string };
-    
-    const result = await verifyGitHubOwnership(oauthToken, user.login, owner, repo);
+    const user = (await userResponse.json()) as { login: string }
+
+    const result = await verifyGitHubOwnership(
+      oauthToken,
+      user.login,
+      owner,
+      repo,
+    )
 
     if (!result.verified) {
-      return c.json({ verified: false, error: result.error });
+      return c.json({ verified: false, error: result.error })
     }
 
-    const walletClient = getWalletClient();
+    const walletClient = getWalletClient()
     const hash = await walletClient.writeContract({
       address: contributorRegistryAddress,
       abi: CONTRIBUTOR_REGISTRY_ABI,
       functionName: 'verifyRepository',
       args: [claimId as Hex, result.proofHash],
-    });
+    })
 
-    return c.json({ verified: true, proofHash: result.proofHash, txHash: hash });
-  });
+    return c.json({ verified: true, proofHash: result.proofHash, txHash: hash })
+  })
 
   // ============ Dependency Verification ============
 
   router.post('/verify-dependency', async (c: Context) => {
-    const body = await c.req.json() as DependencyVerificationRequest;
-    const { claimId, packageName, registryType, oauthToken } = body;
+    const body = (await c.req.json()) as DependencyVerificationRequest
+    const { claimId, packageName, registryType, oauthToken } = body
 
     if (!verifierKey) {
-      return c.json({ error: 'Verification service not configured' }, 503);
+      return c.json({ error: 'Verification service not configured' }, 503)
     }
 
-    let verified = false;
-    let proofHash: Hex = '0x' + '0'.repeat(64) as Hex;
-    let error: string | undefined;
+    let verified = false
+    let proofHash: Hex = `0x${'0'.repeat(64)}` as Hex
+    let error: string | undefined
 
     // Get GitHub username from token
     const userResponse = await fetch('https://api.github.com/user', {
@@ -341,96 +405,114 @@ export function createFundingVerifierRouter(): Hono {
         Authorization: `Bearer ${oauthToken}`,
         Accept: 'application/vnd.github+json',
       },
-    });
+    })
 
     if (!userResponse.ok) {
-      return c.json({ verified: false, error: 'Invalid GitHub token' });
+      return c.json({ verified: false, error: 'Invalid GitHub token' })
     }
 
-    const user = await userResponse.json() as { login: string };
+    const user = (await userResponse.json()) as { login: string }
 
     switch (registryType) {
-      case 'npm':
-        const npmResult = await verifyNpmMaintainer(oauthToken, packageName, user.login);
-        verified = npmResult.verified;
-        proofHash = npmResult.proofHash;
-        error = npmResult.error;
-        break;
+      case 'npm': {
+        const npmResult = await verifyNpmMaintainer(
+          oauthToken,
+          packageName,
+          user.login,
+        )
+        verified = npmResult.verified
+        proofHash = npmResult.proofHash
+        error = npmResult.error
+        break
+      }
       // Add other registries (pypi, cargo, go) as needed
       default:
-        return c.json({ error: `Unsupported registry: ${registryType}` }, 400);
+        return c.json({ error: `Unsupported registry: ${registryType}` }, 400)
     }
 
     if (!verified) {
-      return c.json({ verified: false, error });
+      return c.json({ verified: false, error })
     }
 
-    const walletClient = getWalletClient();
+    const walletClient = getWalletClient()
     const hash = await walletClient.writeContract({
       address: contributorRegistryAddress,
       abi: CONTRIBUTOR_REGISTRY_ABI,
       functionName: 'verifyDependency',
       args: [claimId as Hex, proofHash],
-    });
+    })
 
-    return c.json({ verified: true, proofHash, txHash: hash });
-  });
+    return c.json({ verified: true, proofHash, txHash: hash })
+  })
 
   // ============ OAuth Callback (for GitHub) ============
 
   router.get('/oauth/github/callback', async (c: Context) => {
-    const code = c.req.query('code');
-    const state = c.req.query('state'); // Contains contributorId and platform
+    const code = c.req.query('code')
+    const state = c.req.query('state') // Contains contributorId and platform
 
     if (!code) {
-      return c.json({ error: 'No authorization code' }, 400);
+      return c.json({ error: 'No authorization code' }, 400)
     }
 
     // Exchange code for token
-    const clientId = process.env.GITHUB_CLIENT_ID;
-    const clientSecret = process.env.GITHUB_CLIENT_SECRET;
+    const clientId = process.env.GITHUB_CLIENT_ID
+    const clientSecret = process.env.GITHUB_CLIENT_SECRET
 
     if (!clientId || !clientSecret) {
-      return c.json({ error: 'GitHub OAuth not configured' }, 503);
+      return c.json({ error: 'GitHub OAuth not configured' }, 503)
     }
 
-    const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        Accept: 'application/json',
+    const tokenResponse = await fetch(
+      'https://github.com/login/oauth/access_token',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          Accept: 'application/json',
+        },
+        body: new URLSearchParams({
+          client_id: clientId,
+          client_secret: clientSecret,
+          code,
+        }),
       },
-      body: new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
-        code,
-      }),
-    });
+    )
 
-    const tokenData = await tokenResponse.json() as { access_token?: string; error?: string };
+    const tokenData = (await tokenResponse.json()) as {
+      access_token?: string
+      error?: string
+    }
 
     if (!tokenData.access_token) {
-      return c.json({ error: tokenData.error || 'Token exchange failed' }, 400);
+      return c.json({ error: tokenData.error || 'Token exchange failed' }, 400)
     }
 
     // Parse state
-    let parsedState: { contributorId: string; platform: string; type: string } | null = null;
+    let parsedState: {
+      contributorId: string
+      platform: string
+      type: string
+    } | null = null
     try {
-      parsedState = JSON.parse(Buffer.from(state || '', 'base64').toString());
+      parsedState = JSON.parse(Buffer.from(state || '', 'base64').toString())
     } catch {
-      return c.json({ error: 'Invalid state' }, 400);
+      return c.json({ error: 'Invalid state' }, 400)
     }
 
     // Redirect back to frontend with token
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    const redirectUrl = new URL(`${frontendUrl}/funding/verify-complete`);
-    redirectUrl.searchParams.set('token', tokenData.access_token);
-    redirectUrl.searchParams.set('contributorId', parsedState?.contributorId || '');
-    redirectUrl.searchParams.set('platform', parsedState?.platform || '');
-    redirectUrl.searchParams.set('type', parsedState?.type || 'social');
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
+    const redirectUrl = new URL(`${frontendUrl}/funding/verify-complete`)
+    redirectUrl.searchParams.set('token', tokenData.access_token)
+    redirectUrl.searchParams.set(
+      'contributorId',
+      parsedState?.contributorId || '',
+    )
+    redirectUrl.searchParams.set('platform', parsedState?.platform || '')
+    redirectUrl.searchParams.set('type', parsedState?.type || 'social')
 
-    return c.redirect(redirectUrl.toString());
-  });
+    return c.redirect(redirectUrl.toString())
+  })
 
   // ============ Health Check ============
 
@@ -439,9 +521,8 @@ export function createFundingVerifierRouter(): Hono {
       status: verifierKey ? 'ok' : 'degraded',
       verifierConfigured: !!verifierKey,
       registryAddress: contributorRegistryAddress,
-    });
-  });
+    })
+  })
 
-  return router;
+  return router
 }
-

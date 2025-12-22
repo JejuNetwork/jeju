@@ -69,19 +69,6 @@
  */
 
 export { createHelmProviderRouter } from './helm-provider'
-// K3s/K3d cluster management
-export {
-  createK3sRouter,
-  createCluster as createK3sCluster,
-  deleteCluster as deleteK3sCluster,
-  getCluster as getK3sCluster,
-  listClusters as listK3sClusters,
-  installHelmChart,
-  applyManifest as applyK8sManifest,
-  installDWSAgent,
-} from './k3s-provider'
-export type { K3sCluster, K3sClusterConfig, ClusterProvider, K3sNode } from './k3s-provider'
-
 // Ingress Controller
 export {
   type BackendConfig,
@@ -91,6 +78,23 @@ export {
   type IngressRule,
   type PathRule,
 } from './ingress'
+export type {
+  ClusterProvider,
+  K3sCluster,
+  K3sClusterConfig,
+  K3sNode,
+} from './k3s-provider'
+// K3s/K3d cluster management
+export {
+  applyManifest as applyK8sManifest,
+  createCluster as createK3sCluster,
+  createK3sRouter,
+  deleteCluster as deleteK3sCluster,
+  getCluster as getK3sCluster,
+  installDWSAgent,
+  installHelmChart,
+  listClusters as listK3sClusters,
+} from './k3s-provider'
 export { DecentralizedNodeRegistry } from './node-registry'
 // Service Mesh
 export {

@@ -4,8 +4,8 @@
  */
 
 import type { Address } from 'viem'
-import { getBlockchain, type AutocratBlockchain } from './blockchain'
-import { createOrchestrator, type AutocratOrchestrator } from './orchestrator'
+import { type AutocratBlockchain, getBlockchain } from './blockchain'
+import { type AutocratOrchestrator, createOrchestrator } from './orchestrator'
 import type { CouncilConfig } from './types'
 
 // ============ Configuration ============

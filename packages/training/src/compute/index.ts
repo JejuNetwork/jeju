@@ -11,18 +11,17 @@
 
 export {
   createDWSClient,
+  type DWSClientConfig,
+  type DWSJobStatus,
   DWSTrainingClient,
   getDefaultDWSConfig,
   isDWSAvailable,
-  type DWSClientConfig,
-  type DWSJobStatus,
   type JudgeResult,
   type RolloutData,
-} from './dws-client';
+} from './dws-client'
 
 export type {
   TrainingJobRequest,
   TrainingJobResult,
   TrainingJobStatus,
-} from './types';
-
+} from './types'

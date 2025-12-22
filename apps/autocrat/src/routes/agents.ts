@@ -4,7 +4,7 @@
 
 import { Elysia, t } from 'elysia'
 import { type ERC8004Config, getERC8004Client } from '../erc8004'
-import { blockchain, config } from '../server'
+import { blockchain, config } from '../shared-state'
 
 const erc8004Config: ERC8004Config = {
   rpcUrl: config.rpcUrl,

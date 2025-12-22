@@ -126,9 +126,9 @@ export class AppOrchestrator {
 
     // Optional dependency - warmup is non-critical, skip if unavailable
     type WarmupModule = { quickWarmup: (apps: string[]) => Promise<void> }
-    const warmupModule = await import('@jejunetwork/tests/warmup').catch(
+    const warmupModule = (await import('@jejunetwork/tests/warmup').catch(
       () => null,
-    ) as WarmupModule | null
+    )) as WarmupModule | null
 
     if (warmupModule) {
       await warmupModule.quickWarmup(options.apps ?? [])

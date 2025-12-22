@@ -4,7 +4,7 @@
 
 import { Elysia, t } from 'elysia'
 import { createAutocratMCPServer } from '../mcp-server'
-import { blockchain, config } from '../server'
+import { blockchain, config } from '../shared-state'
 
 const mcpServer = createAutocratMCPServer(config, blockchain)
 const honoRouter = mcpServer.getRouter()

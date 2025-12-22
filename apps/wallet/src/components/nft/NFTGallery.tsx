@@ -197,12 +197,15 @@ function NFTCard({ nft, viewMode, onTransfer }: NFTCardProps) {
     return (
       <div className="flex items-center gap-4 p-4 bg-card border border-border rounded-xl hover:border-primary/50 transition-colors">
         {/* Image */}
-        <div className="w-16 h-16 rounded-lg bg-secondary flex-shrink-0 overflow-hidden">
+        <div className="w-16 h-16 rounded-lg bg-secondary flex-shrink-0 overflow-hidden relative">
           {!imageError && nft.imageUrl ? (
-            <img
+            <Image
               src={nft.imageUrl}
               alt={nft.name}
+              width={64}
+              height={64}
               className="w-full h-full object-cover"
+              unoptimized
               onError={() => setImageError(true)}
             />
           ) : (
@@ -253,10 +256,12 @@ function NFTCard({ nft, viewMode, onTransfer }: NFTCardProps) {
       {/* Image */}
       <div className="aspect-square bg-secondary relative">
         {!imageError && nft.imageUrl ? (
-          <img
+          <Image
             src={nft.imageUrl}
             alt={nft.name}
-            className="w-full h-full object-cover"
+            fill
+            className="object-cover"
+            unoptimized
             onError={() => setImageError(true)}
           />
         ) : (

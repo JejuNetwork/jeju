@@ -242,8 +242,6 @@ class CheckpointInstruction {
 
 export class PsycheClient {
   private connection: Connection
-  private config: PsycheConfig
-  private evmPublicClient: ReturnType<typeof createPublicClient> | null = null
   private evmWalletClient: ReturnType<typeof createWalletClient> | null = null
   private evmAccount: ReturnType<typeof privateKeyToAccount> | null = null
   private solanaKeypair: Keypair | null = null

@@ -394,7 +394,12 @@ export const KNOWN_REGIONS: Region[] = [
  */
 export const LOCALNET_CONFIG: RegionConfig = {
   environment: 'localnet',
-  regions: [KNOWN_REGIONS.find((r) => r.id === 'local')!],
+  regions: [
+    KNOWN_REGIONS.find((r) => r.id === 'local') ??
+      (() => {
+        throw new Error('Local region not found')
+      })(),
+  ],
   defaultRegion: 'local',
 }
 
@@ -404,8 +409,14 @@ export const LOCALNET_CONFIG: RegionConfig = {
 export const TESTNET_CONFIG: RegionConfig = {
   environment: 'testnet',
   regions: [
-    KNOWN_REGIONS.find((r) => r.id === 'aws:us-east-1')!,
-    KNOWN_REGIONS.find((r) => r.id === 'aws:eu-west-1')!,
+    KNOWN_REGIONS.find((r) => r.id === 'aws:us-east-1') ??
+      (() => {
+        throw new Error('AWS us-east-1 region not found')
+      })(),
+    KNOWN_REGIONS.find((r) => r.id === 'aws:eu-west-1') ??
+      (() => {
+        throw new Error('AWS eu-west-1 region not found')
+      })(),
   ],
   defaultRegion: 'aws:us-east-1',
 }
@@ -568,9 +579,8 @@ export function findNearestRegions(
     regions = regions.filter((r) => r.teeCapable)
   }
   if (options?.teePlatform) {
-    regions = regions.filter((r) =>
-      r.teePlatforms.includes(options.teePlatform!),
-    )
+    const platform = options.teePlatform
+    regions = regions.filter((r) => r.teePlatforms.includes(platform))
   }
   if (options?.providers?.length) {
     regions = regions.filter((r) => options.providers?.includes(r.provider))

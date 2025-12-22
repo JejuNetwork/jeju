@@ -5,37 +5,37 @@
  * Model deployments require DAO approval.
  */
 
-import type { Address } from 'viem';
+import type { Address } from 'viem'
 
 // ============================================================================
 // Types
 // ============================================================================
 
 export interface ModelDeploymentProposal {
-  proposalId: string;
-  modelName: string;
-  modelVersion: string;
-  checkpointCid: string;
+  proposalId: string
+  modelName: string
+  modelVersion: string
+  checkpointCid: string
   trainingMetrics: {
-    steps: number;
-    finalLoss: number;
-    averageReward: number;
-  };
-  submitter: Address;
-  status: 'pending' | 'approved' | 'rejected' | 'executed';
-  createdAt: number;
+    steps: number
+    finalLoss: number
+    averageReward: number
+  }
+  submitter: Address
+  status: 'pending' | 'approved' | 'rejected' | 'executed'
+  createdAt: number
 }
 
 export interface TrainingProposal {
-  proposalId: string;
-  title: string;
-  description: string;
-  environment: string;
-  modelName: string;
-  estimatedCost: bigint;
-  estimatedDuration: number;
-  submitter: Address;
-  status: 'draft' | 'submitted' | 'approved' | 'rejected';
+  proposalId: string
+  title: string
+  description: string
+  environment: string
+  modelName: string
+  estimatedCost: bigint
+  estimatedDuration: number
+  submitter: Address
+  status: 'draft' | 'submitted' | 'approved' | 'rejected'
 }
 
 // ============================================================================
@@ -43,26 +43,26 @@ export interface TrainingProposal {
 // ============================================================================
 
 export class AutocratTrainingClient {
-  private autocratApiUrl: string;
+  private autocratApiUrl: string
 
   constructor(
     config: {
-      autocratApiUrl?: string;
-      dwsApiUrl?: string;
-    } = {}
+      autocratApiUrl?: string
+      dwsApiUrl?: string
+    } = {},
   ) {
-    this.autocratApiUrl = config.autocratApiUrl ?? 'http://localhost:8010';
+    this.autocratApiUrl = config.autocratApiUrl ?? 'http://localhost:8010'
   }
 
   async submitTrainingProposal(proposal: {
-    title: string;
-    description: string;
-    environment: string;
-    modelName: string;
-    trainingSteps: number;
-    estimatedCost: bigint;
+    title: string
+    description: string
+    environment: string
+    modelName: string
+    trainingSteps: number
+    estimatedCost: bigint
   }): Promise<TrainingProposal> {
-    const proposalId = `tp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const proposalId = `tp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
     const fullDescription = `
 # Training Proposal: ${proposal.title}
@@ -83,7 +83,7 @@ ${proposal.description}
 ## Risk Assessment
 - Training may not converge if data quality is poor
 - Compute costs are pre-approved in this proposal
-`;
+`
 
     const response = await fetch(
       `${this.autocratApiUrl}/api/v1/proposals/generate`,
@@ -94,8 +94,8 @@ ${proposal.description}
           idea: fullDescription,
           proposalType: 0,
         }),
-      }
-    );
+      },
+    )
 
     const result: TrainingProposal = {
       proposalId,
@@ -107,24 +107,24 @@ ${proposal.description}
       estimatedDuration: proposal.trainingSteps * 100,
       submitter: '0x0000000000000000000000000000000000000000' as Address,
       status: response.ok ? 'submitted' : 'draft',
-    };
+    }
 
-    return result;
+    return result
   }
 
   async submitModelDeployment(deployment: {
-    modelName: string;
-    modelVersion: string;
-    checkpointPath: string;
+    modelName: string
+    modelVersion: string
+    checkpointPath: string
     trainingMetrics: {
-      steps: number;
-      finalLoss: number;
-      averageReward: number;
-    };
+      steps: number
+      finalLoss: number
+      averageReward: number
+    }
   }): Promise<ModelDeploymentProposal> {
-    const proposalId = `md-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const proposalId = `md-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
-    const checkpointCid = `Qm${Math.random().toString(36).slice(2, 48)}`;
+    const checkpointCid = `Qm${Math.random().toString(36).slice(2, 48)}`
 
     const proposal: ModelDeploymentProposal = {
       proposalId,
@@ -135,7 +135,7 @@ ${proposal.description}
       submitter: '0x0000000000000000000000000000000000000000' as Address,
       status: 'pending',
       createdAt: Date.now(),
-    };
+    }
 
     await fetch(`${this.autocratApiUrl}/api/v1/proposals/assess`, {
       method: 'POST',
@@ -165,27 +165,27 @@ ${proposal.description}
 `,
         proposalType: 0,
       }),
-    });
+    })
 
-    return proposal;
+    return proposal
   }
 
   async getProposalStatus(proposalId: string): Promise<string> {
     const response = await fetch(
-      `${this.autocratApiUrl}/api/v1/proposals/${proposalId}`
-    );
+      `${this.autocratApiUrl}/api/v1/proposals/${proposalId}`,
+    )
     if (response.ok) {
-      const data = (await response.json()) as { status?: string };
-      return data.status ?? 'unknown';
+      const data = (await response.json()) as { status?: string }
+      return data.status ?? 'unknown'
     }
-    return 'not_found';
+    return 'not_found'
   }
 
   async registerTrainedModel(model: {
-    name: string;
-    version: string;
-    checkpointCid: string;
-    capabilities: string[];
+    name: string
+    version: string
+    checkpointCid: string
+    capabilities: string[]
   }): Promise<{ agentId: string }> {
     const response = await fetch(
       `${this.autocratApiUrl}/api/v1/agents/register`,
@@ -198,15 +198,15 @@ ${proposal.description}
           a2aEndpoint: `ipfs://${model.checkpointCid}`,
           mcpEndpoint: '',
         }),
-      }
-    );
+      },
+    )
 
     if (response.ok) {
-      const data = (await response.json()) as { agentId: string };
-      return data;
+      const data = (await response.json()) as { agentId: string }
+      return data
     }
 
-    return { agentId: '' };
+    return { agentId: '' }
   }
 }
 
@@ -215,9 +215,8 @@ ${proposal.description}
 // ============================================================================
 
 export function createAutocratTrainingClient(config?: {
-  autocratApiUrl?: string;
-  dwsApiUrl?: string;
+  autocratApiUrl?: string
+  dwsApiUrl?: string
 }): AutocratTrainingClient {
-  return new AutocratTrainingClient(config);
+  return new AutocratTrainingClient(config)
 }
-

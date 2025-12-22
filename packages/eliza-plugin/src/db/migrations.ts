@@ -5,8 +5,8 @@
  * This is CQL-compatible SQL (standard SQL with some limitations).
  */
 
-import { getCQL, type CQLClient } from '@jejunetwork/db';
-import { logger } from '@elizaos/core';
+import { logger } from '@elizaos/core'
+import { type CQLClient, getCQL } from '@jejunetwork/db'
 
 /**
  * Core ElizaOS tables in CQL-compatible SQL
@@ -186,16 +186,22 @@ export const CQL_SCHEMA = {
     'CREATE INDEX IF NOT EXISTS idx_cache_agent ON cache(agent_id)',
     'CREATE INDEX IF NOT EXISTS idx_cache_expires ON cache(expires_at)',
   ],
-};
+}
 
 /**
  * Run all migrations to create the ElizaOS schema
  */
-export async function runCQLMigrations(client?: CQLClient, databaseId?: string): Promise<void> {
-  const cql = client ?? getCQL();
-  const dbId = databaseId ?? process.env.CQL_DATABASE_ID ?? 'eliza';
+export async function runCQLMigrations(
+  client?: CQLClient,
+  databaseId?: string,
+): Promise<void> {
+  const cql = client ?? getCQL()
+  const dbId = databaseId ?? process.env.CQL_DATABASE_ID ?? 'eliza'
 
-  logger.info({ src: 'cql-migrations', databaseId: dbId }, 'Running CQL migrations');
+  logger.info(
+    { src: 'cql-migrations', databaseId: dbId },
+    'Running CQL migrations',
+  )
 
   // Create tables in order (respecting foreign keys)
   const tableOrder = [
@@ -210,36 +216,40 @@ export async function runCQLMigrations(client?: CQLClient, databaseId?: string):
     'cache',
     'logs',
     'tasks',
-  ] as const;
+  ] as const
 
   for (const tableName of tableOrder) {
-    const sql = CQL_SCHEMA[tableName];
-    logger.debug({ src: 'cql-migrations', table: tableName }, 'Creating table');
-    await cql.exec(sql, [], dbId);
+    const sql = CQL_SCHEMA[tableName]
+    logger.debug({ src: 'cql-migrations', table: tableName }, 'Creating table')
+    await cql.exec(sql, [], dbId)
   }
 
   // Create indexes
   for (const indexSql of CQL_SCHEMA.indexes) {
-    await cql.exec(indexSql, [], dbId);
+    await cql.exec(indexSql, [], dbId)
   }
 
-  logger.info({ src: 'cql-migrations', databaseId: dbId }, 'CQL migrations completed');
+  logger.info(
+    { src: 'cql-migrations', databaseId: dbId },
+    'CQL migrations completed',
+  )
 }
 
 /**
  * Check if migrations have been run
  */
-export async function checkMigrationStatus(client?: CQLClient, databaseId?: string): Promise<boolean> {
-  const cql = client ?? getCQL();
-  const dbId = databaseId ?? process.env.CQL_DATABASE_ID ?? 'eliza';
+export async function checkMigrationStatus(
+  client?: CQLClient,
+  databaseId?: string,
+): Promise<boolean> {
+  const cql = client ?? getCQL()
+  const dbId = databaseId ?? process.env.CQL_DATABASE_ID ?? 'eliza'
 
   const result = await cql.query<{ name: string }>(
     "SELECT name FROM sqlite_master WHERE type='table' AND name='agents'",
     [],
-    dbId
-  );
+    dbId,
+  )
 
-  return result.rows.length > 0;
+  return result.rows.length > 0
 }
-
-

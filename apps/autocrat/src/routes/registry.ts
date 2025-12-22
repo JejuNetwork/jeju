@@ -7,7 +7,7 @@ import {
   getRegistryIntegrationClient,
   type RegistryIntegrationConfig,
 } from '../registry-integration'
-import { config } from '../server'
+import { config } from '../shared-state'
 
 const registryConfig: RegistryIntegrationConfig = {
   rpcUrl: config.rpcUrl,

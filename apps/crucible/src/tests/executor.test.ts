@@ -15,7 +15,8 @@ describe('Executor Logic', () => {
       const actionRegex = /\[ACTION:\s*(\w+)(?:\s*\|\s*(.+?))?\]/g
 
       let match: RegExpExecArray | null
-      while ((match = actionRegex.exec(response)) !== null) {
+      match = actionRegex.exec(response)
+      while (match !== null) {
         const params: Record<string, unknown> = {}
         if (match[2]) {
           const pairs = match[2].split(',')
@@ -30,6 +31,7 @@ describe('Executor Logic', () => {
           type: match[1] ?? 'unknown',
           params: Object.keys(params).length > 0 ? params : undefined,
         })
+        match = actionRegex.exec(response)
       }
 
       return actions

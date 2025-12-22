@@ -5,7 +5,12 @@
 import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
 import { createOrchestrator } from '../orchestrator'
-import { blockchain, config, getOrchestrator, setOrchestrator } from '../server'
+import {
+  blockchain,
+  config,
+  getOrchestrator,
+  setOrchestrator,
+} from '../shared-state'
 
 export const orchestratorRoutes = new Elysia({ prefix: '/api/v1/orchestrator' })
   .post(
