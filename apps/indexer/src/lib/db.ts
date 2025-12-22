@@ -1,4 +1,5 @@
 import { DataSource, DefaultNamingStrategy } from 'typeorm'
+import * as models from '../model'
 
 function requireEnv(name: string): string {
   const value = process.env[name]
@@ -111,7 +112,6 @@ let dataSource: DataSource | null = null
 export async function getDataSource(): Promise<DataSource> {
   if (dataSource?.isInitialized) return dataSource
 
-  const models = await import('../model')
   const entities = Object.values(models).filter(
     (v): boolean =>
       typeof v === 'function' && v.prototype?.constructor !== undefined,

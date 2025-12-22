@@ -45,10 +45,14 @@ export default function TrainingPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="btn btn-secondary" onClick={() => refetch()}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => refetch()}
+          >
             <RefreshCw size={16} /> Refresh
           </button>
-          <button className="btn btn-primary" disabled>
+          <button type="button" className="btn btn-primary" disabled>
             <Play size={16} /> Start Training
           </button>
         </div>
@@ -230,6 +234,7 @@ export default function TrainingPage() {
                 <Activity size={18} /> Run Details
               </h3>
               <button
+                type="button"
                 className="btn btn-ghost btn-sm"
                 onClick={() => setSelectedRun(null)}
               >

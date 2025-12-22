@@ -4,6 +4,7 @@
  */
 
 import { createHash } from 'node:crypto'
+import { expectJson } from '@jejunetwork/types'
 import {
   type Address,
   createPublicClient,
@@ -18,6 +19,7 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
+import { PackageManifestSchema } from '../shared/schemas/internal-storage'
 import type { BackendManager } from '../storage/backends'
 import { decodeBytes32ToCidKey, encodeCidToBytes32 } from './cid-utils'
 import type {
@@ -753,9 +755,11 @@ export class PkgRegistryManager {
               return null
             })
           if (result) {
-            const manifest = JSON.parse(
+            const manifest = expectJson(
               result.content.toString(),
-            ) as PackageManifest
+              PackageManifestSchema,
+              'package manifest',
+            )
             this.manifestCache.set(cid, manifest)
             return manifest
           }
@@ -778,7 +782,11 @@ export class PkgRegistryManager {
       })
     if (!result) return null
 
-    const manifest = JSON.parse(result.content.toString()) as PackageManifest
+    const manifest = expectJson(
+      result.content.toString(),
+      PackageManifestSchema,
+      'package manifest',
+    )
     this.manifestCache.set(cidString, manifest)
     return manifest
   }

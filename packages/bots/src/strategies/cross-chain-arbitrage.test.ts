@@ -120,7 +120,7 @@ describe('CrossChainArbitrage chain configuration', () => {
     arb.addChain({
       chainId: 420690,
       name: 'Jeju Testnet',
-      rpcUrl: 'http://localhost:9545',
+      rpcUrl: 'http://localhost:6546',
       type: 'evm',
       blockTimeMs: 1000,
       nativeSymbol: 'JEJU',

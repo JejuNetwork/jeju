@@ -30,7 +30,7 @@ import type {
 
 const SKIP_INTEGRATION = process.env.INTEGRATION_TESTS !== '1'
 
-const RPC_URL = 'http://localhost:9545'
+const RPC_URL = 'http://localhost:6546'
 const TEST_PRIVATE_KEY =
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as Hex
 const WORKER_PRIVATE_KEY =

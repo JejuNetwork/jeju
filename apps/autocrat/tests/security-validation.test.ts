@@ -8,31 +8,35 @@ import { describe, expect, test } from 'bun:test'
 
 // ============ Type Definitions (from security-validation-agent.ts) ============
 
-enum BountySeverity {
-  LOW = 0,
-  MEDIUM = 1,
-  HIGH = 2,
-  CRITICAL = 3,
-}
+const BountySeverity = {
+  LOW: 0,
+  MEDIUM: 1,
+  HIGH: 2,
+  CRITICAL: 3,
+} as const
+type BountySeverity = (typeof BountySeverity)[keyof typeof BountySeverity]
 
-enum VulnerabilityType {
-  REMOTE_CODE_EXECUTION = 0,
-  PRIVILEGE_ESCALATION = 1,
-  FUNDS_AT_RISK = 2,
-  WALLET_DRAIN = 3,
-  TEE_BYPASS = 4,
-  MPC_KEY_EXPOSURE = 5,
-  CONSENSUS_ATTACK = 6,
-  DATA_LEAK = 7,
-  DOS = 8,
-  OTHER = 9,
-}
+const VulnerabilityType = {
+  REMOTE_CODE_EXECUTION: 0,
+  PRIVILEGE_ESCALATION: 1,
+  FUNDS_AT_RISK: 2,
+  WALLET_DRAIN: 3,
+  TEE_BYPASS: 4,
+  MPC_KEY_EXPOSURE: 5,
+  CONSENSUS_ATTACK: 6,
+  DATA_LEAK: 7,
+  DOS: 8,
+  OTHER: 9,
+} as const
+type VulnerabilityType =
+  (typeof VulnerabilityType)[keyof typeof VulnerabilityType]
 
-enum ValidationResult {
-  VALID = 'VALID',
-  INVALID = 'INVALID',
-  NEEDS_REVIEW = 'NEEDS_REVIEW',
-}
+const ValidationResult = {
+  VALID: 'VALID',
+  INVALID: 'INVALID',
+  NEEDS_REVIEW: 'NEEDS_REVIEW',
+} as const
+type ValidationResult = (typeof ValidationResult)[keyof typeof ValidationResult]
 
 interface StaticAnalysis {
   isLikelyValid: boolean

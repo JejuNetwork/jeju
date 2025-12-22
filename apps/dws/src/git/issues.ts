@@ -3,7 +3,13 @@
  * Manages issues with on-chain CID references stored in RepoRegistry metadata
  */
 
+import { expectJson } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
+import {
+  IssueIndexSchema,
+  IssueSchema,
+  RepoMetadataSchema,
+} from '../shared/schemas/internal-storage'
 import type { BackendManager } from '../storage/backends'
 import type {
   ContributionEvent,
@@ -38,17 +44,21 @@ export class IssuesManager {
     if (metadataCid) {
       const result = await this.backend.download(metadataCid).catch(() => null)
       if (result) {
-        const metadata = JSON.parse(result.content.toString()) as {
-          issueIndexCid?: string
-        }
+        const metadata = expectJson(
+          result.content.toString(),
+          RepoMetadataSchema,
+          'repo metadata',
+        )
         if (metadata.issueIndexCid) {
           const indexResult = await this.backend
             .download(metadata.issueIndexCid)
             .catch(() => null)
           if (indexResult) {
-            const index = JSON.parse(
+            const index = expectJson(
               indexResult.content.toString(),
-            ) as IssueIndex
+              IssueIndexSchema,
+              'issue index',
+            )
             this.indexCache.set(repoId, index)
             return index
           }
@@ -85,7 +95,7 @@ export class IssuesManager {
     const result = await this.backend.download(issueRef.cid).catch(() => null)
     if (!result) return null
 
-    const issue = JSON.parse(result.content.toString()) as Issue
+    const issue = expectJson(result.content.toString(), IssueSchema, 'issue')
     this.issueCache.set(cacheKey, issue)
     return issue
   }
@@ -446,7 +456,11 @@ export class IssuesManager {
   async preloadIndex(repoId: Hex, issueIndexCid: string): Promise<void> {
     const result = await this.backend.download(issueIndexCid).catch(() => null)
     if (result) {
-      const index = JSON.parse(result.content.toString()) as IssueIndex
+      const index = expectJson(
+        result.content.toString(),
+        IssueIndexSchema,
+        'issue index',
+      )
       this.indexCache.set(repoId, index)
     }
   }

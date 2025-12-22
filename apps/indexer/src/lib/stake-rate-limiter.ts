@@ -1,5 +1,6 @@
-import type { NextFunction, Request, Response } from 'express'
+import { Elysia } from 'elysia'
 import {
+  type Abi,
   type Address,
   type Chain,
   createPublicClient,
@@ -15,14 +16,19 @@ import { addressSchema, validateOrThrow } from './validation'
 
 type ViemPublicClient = PublicClient<Transport, Chain>
 
+/** Constrained type for contract call arguments */
+type ContractArg = Address | bigint | string | number | boolean
+
+interface ReadContractParams {
+  address: Address
+  abi: Abi
+  functionName: string
+  args?: readonly ContractArg[]
+}
+
 async function readContract<T>(
   client: ViemPublicClient,
-  params: {
-    address: Address
-    abi: readonly unknown[]
-    functionName: string
-    args?: readonly unknown[]
-  },
+  params: ReadContractParams,
 ): Promise<T> {
   return client.readContract(params) as Promise<T>
 }
@@ -138,23 +144,31 @@ async function getStakeTier(address: string): Promise<RateTier> {
   return tier
 }
 
-function getClientKey(req: Request): { key: string; address: string | null } {
-  const apiKey = req.headers['x-api-key'] as string | undefined
+interface HeadersMap {
+  'x-api-key'?: string
+  'x-wallet-address'?: string
+  'x-agent-id'?: string
+  'x-forwarded-for'?: string
+  'x-real-ip'?: string
+}
+
+function getClientKeyFromHeaders(headers: HeadersMap): {
+  key: string
+  address: string | null
+} {
+  const apiKey = headers['x-api-key']
   if (apiKey) return { key: `apikey:${apiKey}`, address: null }
 
-  const walletAddr = req.headers['x-wallet-address'] as string | undefined
+  const walletAddr = headers['x-wallet-address']
   if (walletAddr && isAddress(walletAddr)) {
     return { key: `addr:${walletAddr.toLowerCase()}`, address: walletAddr }
   }
 
-  const agentId = req.headers['x-agent-id'] as string | undefined
+  const agentId = headers['x-agent-id']
   if (agentId) return { key: `agent:${agentId}`, address: null }
 
-  const forwarded = (req.headers['x-forwarded-for'] as string)
-    ?.split(',')[0]
-    ?.trim()
-  const ip = forwarded || (req.headers['x-real-ip'] as string) || req.ip
-  if (!ip) throw new Error('Unable to determine client IP address')
+  const forwarded = headers['x-forwarded-for']?.split(',')[0]?.trim()
+  const ip = forwarded || headers['x-real-ip'] || 'unknown'
   return { key: `ip:${ip}`, address: null }
 }
 
@@ -164,71 +178,106 @@ setInterval(() => {
   for (const [key, { resetAt }] of rateLimitStore) {
     if (now > resetAt) rateLimitStore.delete(key)
   }
-}, 60_000).unref() // unref() prevents this from keeping the process alive
+}, 60_000).unref()
 
 export interface RateLimitOptions {
   skipPaths?: string[]
   tierOverride?: RateTier
 }
 
+/**
+ * Elysia plugin for stake-based rate limiting
+ */
 export function stakeRateLimiter(options: RateLimitOptions = {}) {
   const skipPaths = options.skipPaths || ['/health', '/.well-known']
 
-  return async (
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> => {
-    if (skipPaths.some((p) => req.path.startsWith(p))) return next()
-
-    const { key, address } = getClientKey(req)
-    const now = Date.now()
-    const tier =
-      options.tierOverride || (address ? await getStakeTier(address) : 'FREE')
-
-    if (tier === 'BANNED') {
-      res.status(403).json({
-        error: 'Access denied',
-        message: 'Address banned from network',
+  return new Elysia({ name: 'stake-rate-limiter' })
+    .derive({ as: 'global' }, ({ request, headers }) => {
+      const url = new URL(request.url)
+      const { key, address } = getClientKeyFromHeaders({
+        'x-api-key': headers['x-api-key'],
+        'x-wallet-address': headers['x-wallet-address'],
+        'x-agent-id': headers['x-agent-id'],
+        'x-forwarded-for': headers['x-forwarded-for'],
+        'x-real-ip': headers['x-real-ip'],
       })
-      return
-    }
+      return {
+        rateLimitPath: url.pathname,
+        rateLimitClientKey: key,
+        rateLimitWalletAddress: address,
+      }
+    })
+    .onBeforeHandle(
+      { as: 'global' },
+      async ({
+        rateLimitPath,
+        rateLimitClientKey,
+        rateLimitWalletAddress,
+        set,
+      }): Promise<
+        | { error: string; message: string }
+        | {
+            error: string
+            tier: RateTier
+            limit: number
+            resetAt: number
+            upgrade: string
+          }
+        | undefined
+      > => {
+        if (skipPaths.some((p) => rateLimitPath.startsWith(p))) {
+          return undefined
+        }
 
-    let record = rateLimitStore.get(key)
-    if (!record || now > record.resetAt) {
-      record = { count: 0, resetAt: now + WINDOW_MS, tier }
-      rateLimitStore.set(key, record)
-    }
-    record.count++
+        const now = Date.now()
+        const tier =
+          options.tierOverride ||
+          (rateLimitWalletAddress
+            ? await getStakeTier(rateLimitWalletAddress)
+            : 'FREE')
 
-    const limit = RATE_LIMITS[tier]
-    const remaining = limit === 0 ? -1 : Math.max(0, limit - record.count)
+        if (tier === 'BANNED') {
+          set.status = 403
+          return {
+            error: 'Access denied',
+            message: 'Address banned from network',
+          }
+        }
 
-    res.setHeader(
-      'X-RateLimit-Limit',
-      limit === 0 ? 'unlimited' : String(limit),
+        let record = rateLimitStore.get(rateLimitClientKey)
+        if (!record || now > record.resetAt) {
+          record = { count: 0, resetAt: now + WINDOW_MS, tier }
+          rateLimitStore.set(rateLimitClientKey, record)
+        }
+        record.count++
+
+        const limit = RATE_LIMITS[tier]
+        const remaining = limit === 0 ? -1 : Math.max(0, limit - record.count)
+
+        set.headers['X-RateLimit-Limit'] =
+          limit === 0 ? 'unlimited' : String(limit)
+        set.headers['X-RateLimit-Remaining'] =
+          remaining === -1 ? 'unlimited' : String(remaining)
+        set.headers['X-RateLimit-Reset'] = String(
+          Math.ceil(record.resetAt / 1000),
+        )
+        set.headers['X-RateLimit-Tier'] = tier
+
+        if (limit > 0 && record.count > limit) {
+          set.status = 429
+          return {
+            error: 'Rate limit exceeded',
+            tier,
+            limit,
+            resetAt: record.resetAt,
+            upgrade: 'Stake tokens to increase your rate limit',
+          }
+        }
+
+        // Continue to handler
+        return undefined
+      },
     )
-    res.setHeader(
-      'X-RateLimit-Remaining',
-      remaining === -1 ? 'unlimited' : String(remaining),
-    )
-    res.setHeader('X-RateLimit-Reset', String(Math.ceil(record.resetAt / 1000)))
-    res.setHeader('X-RateLimit-Tier', tier)
-
-    if (limit > 0 && record.count > limit) {
-      res.status(429).json({
-        error: 'Rate limit exceeded',
-        tier,
-        limit,
-        resetAt: record.resetAt,
-        upgrade: 'Stake tokens to increase your rate limit',
-      })
-      return
-    }
-
-    ;(req as Request & { rateLimitTier: RateTier }).rateLimitTier = tier
-    next()
-  }
 }
 
 export function getRateLimitStats() {
@@ -243,4 +292,4 @@ export function getRateLimitStats() {
   return { totalTracked: rateLimitStore.size, byTier }
 }
 
-export { getStakeTier, stakeCache, rateLimitStore }
+export { getStakeTier, stakeCache, rateLimitStore, getClientKeyFromHeaders }

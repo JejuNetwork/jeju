@@ -7,6 +7,7 @@
 
 import { getPlatformInfo, isDesktop } from '../../platform/detection'
 import type { PlatformType } from '../../platform/types'
+import { UpdateManifestResponseSchema } from '../../schemas/api-responses'
 
 // ============================================================================
 // Types
@@ -243,7 +244,13 @@ export class UpdateService {
       return this.fetchFromRegistry()
     }
 
-    return response.json()
+    const result = UpdateManifestResponseSchema.safeParse(await response.json())
+    if (!result.success) {
+      console.warn('Invalid update manifest format:', result.error)
+      return this.fetchFromRegistry()
+    }
+
+    return result.data
   }
 
   private async fetchFromRegistry(): Promise<{
@@ -441,6 +448,7 @@ export class UpdateService {
     if (platform.category === 'desktop' && '__TAURI__' in globalThis) {
       // Tauri v2: Use invoke to call a custom command that handles file writing
       // BaseDirectory.AppData = 14 in Tauri v2
+      // Dynamic import: Conditional - only loaded on Tauri desktop platform
       const { invoke } = await import('@tauri-apps/api/core')
       await invoke('save_pending_update', { data: Array.from(data) })
     } else if (typeof indexedDB !== 'undefined') {
@@ -490,6 +498,7 @@ export class UpdateService {
 
     try {
       // Tauri v2: invoke is in @tauri-apps/api/core
+      // Dynamic import: Conditional - only loaded on Tauri desktop platform
       const { invoke } = await import('@tauri-apps/api/core')
       await invoke('install_update')
 

@@ -20,6 +20,7 @@ import type {
   State,
 } from '@elizaos/core'
 import { getAutocratA2AUrl } from '@jejunetwork/config'
+import { A2AJsonRpcResponseSchema, expectValid } from '../schemas'
 import { makeTEEDecision } from '../tee'
 import { ceoProviders } from './ceo-providers'
 
@@ -258,18 +259,20 @@ const getDeliberationAction: Action = {
       }),
     })
 
-    const result = (await response.json()) as {
-      result?: {
-        parts?: Array<{
-          kind: string
-          data?: {
-            votes?: Array<{ role: string; vote: string; reasoning: string }>
-          }
-        }>
-      }
-    }
+    const result = expectValid(
+      A2AJsonRpcResponseSchema,
+      await response.json(),
+      'autocrat votes A2A response',
+    )
+    const dataPart = result.result?.parts?.find((p) => p.kind === 'data')
+    const votesData =
+      dataPart?.kind === 'data' && dataPart.data ? dataPart.data : {}
     const votes =
-      result.result?.parts?.find((p) => p.kind === 'data')?.data?.votes ?? []
+      (
+        votesData as {
+          votes?: Array<{ role: string; vote: string; reasoning: string }>
+        }
+      ).votes ?? []
 
     if (votes.length === 0) {
       if (callback) {

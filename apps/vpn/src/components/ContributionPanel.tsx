@@ -191,6 +191,7 @@ export function ContributionPanel() {
 
         {/* Enable Contribution */}
         <button
+          type="button"
           onClick={toggleContribution}
           className="w-full flex items-center justify-between py-3 border-b border-[#2a2a35]"
         >
@@ -209,6 +210,7 @@ export function ContributionPanel() {
 
         {/* Earning Mode */}
         <button
+          type="button"
           onClick={toggleEarningMode}
           className="w-full flex items-center justify-between py-3"
         >

@@ -10,8 +10,14 @@
 
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
-import type { Address, Hex } from 'viem'
+import type { Hex } from 'viem'
 import { toBytes, toHex } from 'viem'
+import {
+  blobSampleRequestSchema,
+  blobSubmitRequestSchema,
+  daOperatorInfoSchema,
+} from '../shared/schemas'
+import { expectValid } from '../shared/validation'
 import { createDisperser, type Disperser } from './disperser'
 import type {
   BlobRetrievalRequest,
@@ -101,57 +107,11 @@ export class DAGateway {
 
     // Submit blob
     this.app.post(`${basePath}/blob`, async (c) => {
-      const body = (await c.req.json()) as {
-        data: string // hex or base64
-        submitter: Address
-        namespace?: Hex
-        quorumPercent?: number
-        retentionPeriod?: number
-      }
-
-      // Validate required fields
-      if (!body.data || typeof body.data !== 'string') {
-        return c.json({ error: 'Missing or invalid "data" field' }, 400)
-      }
-      if (!body.submitter || typeof body.submitter !== 'string') {
-        return c.json({ error: 'Missing or invalid "submitter" field' }, 400)
-      }
-      // Validate address format
-      if (!/^0x[a-fA-F0-9]{40}$/.test(body.submitter)) {
-        return c.json({ error: 'Invalid submitter address format' }, 400)
-      }
-      // Validate namespace if provided
-      if (
-        body.namespace !== undefined &&
-        (typeof body.namespace !== 'string' || !body.namespace.startsWith('0x'))
-      ) {
-        return c.json(
-          { error: 'Invalid namespace format - must be hex string' },
-          400,
-        )
-      }
-      // Validate quorumPercent
-      if (
-        body.quorumPercent !== undefined &&
-        (typeof body.quorumPercent !== 'number' ||
-          body.quorumPercent < 0 ||
-          body.quorumPercent > 100)
-      ) {
-        return c.json(
-          { error: 'quorumPercent must be a number between 0 and 100' },
-          400,
-        )
-      }
-      // Validate retentionPeriod
-      if (
-        body.retentionPeriod !== undefined &&
-        (typeof body.retentionPeriod !== 'number' || body.retentionPeriod <= 0)
-      ) {
-        return c.json(
-          { error: 'retentionPeriod must be a positive number' },
-          400,
-        )
-      }
+      const body = expectValid(
+        blobSubmitRequestSchema,
+        await c.req.json(),
+        'Blob submit request',
+      )
 
       // Decode data
       let data: Uint8Array
@@ -270,10 +230,11 @@ export class DAGateway {
 
     // Sample blob
     this.app.post(`${basePath}/sample`, async (c) => {
-      const body = (await c.req.json()) as {
-        blobId: Hex
-        requester: Address
-      }
+      const body = expectValid(
+        blobSampleRequestSchema,
+        await c.req.json(),
+        'Blob sample request',
+      )
 
       const metadata = this.disperser.getBlobManager().getMetadata(body.blobId)
       if (!metadata) {
@@ -305,8 +266,12 @@ export class DAGateway {
 
     // Register operator
     this.app.post(`${basePath}/operators`, async (c) => {
-      const body = (await c.req.json()) as DAOperatorInfo
-      this.disperser.registerOperator(body)
+      const body = expectValid(
+        daOperatorInfoSchema,
+        await c.req.json(),
+        'Register operator request',
+      )
+      this.disperser.registerOperator(body as DAOperatorInfo)
       return c.json({ success: true })
     })
 

@@ -500,10 +500,11 @@ Return ONLY JSON:
       'Proposal ID',
     )
     const result = await this.blockchain.getProposal(validated)
-    expect(
-      result !== null,
-      `Proposal not found or contract not deployed: ${validated}`,
-    )
+    if (result === null) {
+      throw new Error(
+        `Proposal not found or contract not deployed: ${validated}`,
+      )
+    }
     return {
       message: `Status: ${this.blockchain.formatProposal(result.proposal).status}`,
       data: {
@@ -692,15 +693,15 @@ Return ONLY JSON:
       'Proposal ID',
     )
     const result = await this.blockchain.getDecision(validated)
-    if (!result.decided)
+    if (!result.decided) {
       return {
         message: 'No decision',
         data: { proposalId: validated, decided: false },
       }
-    expect(
-      result.decision !== null && result.decision !== undefined,
-      'Decision data missing',
-    )
+    }
+    if (result.decision === undefined) {
+      throw new Error(`Decision data missing for proposal: ${validated}`)
+    }
     return {
       message: `CEO: ${result.decision.approved ? 'APPROVED' : 'REJECTED'}`,
       data: { ...result.decision, decided: true },

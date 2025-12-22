@@ -3,7 +3,14 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+import { expectValid } from '@jejunetwork/types'
 import { createRelayServer } from '../node'
+import {
+  RelayHealthResponseSchema,
+  RelayMessagesResponseSchema,
+  RelayStatsResponseSchema,
+  SendMessageResponseSchema,
+} from '../schemas'
 import {
   bytes32ToPublicKey,
   decryptMessageToString,
@@ -158,10 +165,8 @@ describe('Relay Server', () => {
     const response = await fetch(`${BASE_URL}/health`)
     expect(response.ok).toBe(true)
 
-    const data = (await response.json()) as {
-      status: string
-      nodeId: string
-    }
+    const rawData: unknown = await response.json()
+    const data = expectValid(RelayHealthResponseSchema, rawData, 'health check')
     expect(data.status).toBe('healthy')
     expect(data.nodeId).toBe('test-node')
   })
@@ -192,14 +197,10 @@ describe('Relay Server', () => {
 
     expect(response.ok).toBe(true)
 
-    const result = (await response.json()) as {
-      success: boolean
-      messageId: string
-      cid: string
-    }
+    const rawResult: unknown = await response.json()
+    const result = expectValid(SendMessageResponseSchema, rawResult, 'send')
     expect(result.success).toBe(true)
     expect(result.messageId).toBe(envelope.id)
-    expect(result.cid).toBeDefined()
   })
 
   test('retrieves pending messages for recipient', async () => {
@@ -231,10 +232,12 @@ describe('Relay Server', () => {
     const response = await fetch(`${BASE_URL}/messages/${bobAddress}`)
     expect(response.ok).toBe(true)
 
-    const result = (await response.json()) as {
-      messages: MessageEnvelope[]
-      count: number
-    }
+    const rawResult: unknown = await response.json()
+    const result = expectValid(
+      RelayMessagesResponseSchema,
+      rawResult,
+      'messages',
+    )
     expect(result.count).toBeGreaterThan(0)
 
     // Verify we can decrypt
@@ -242,7 +245,7 @@ describe('Relay Server', () => {
     expect(receivedEnvelope).toBeDefined()
 
     const encryptedData = deserializeEncryptedMessage(
-      receivedEnvelope!.encryptedContent,
+      receivedEnvelope?.encryptedContent,
     )
     const decrypted = decryptMessageToString(encryptedData, bob.privateKey)
     expect(decrypted).toBe(message)
@@ -262,10 +265,8 @@ describe('Relay Server', () => {
     const response = await fetch(`${BASE_URL}/stats`)
     expect(response.ok).toBe(true)
 
-    const stats = (await response.json()) as {
-      nodeId: string
-      totalMessagesRelayed: number
-    }
+    const rawStats: unknown = await response.json()
+    const stats = expectValid(RelayStatsResponseSchema, rawStats, 'stats')
     expect(stats.nodeId).toBe('test-node')
     expect(typeof stats.totalMessagesRelayed).toBe('number')
   })
@@ -321,18 +322,21 @@ describe('E2E Flow', () => {
 
     // Bob retrieves messages
     const fetchResponse = await fetch(`${BASE_URL}/messages/${bobAddress}`)
-    const { messages } = (await fetchResponse.json()) as {
-      messages: MessageEnvelope[]
-    }
+    const rawFetchResult: unknown = await fetchResponse.json()
+    const { messages } = expectValid(
+      RelayMessagesResponseSchema,
+      rawFetchResult,
+      'fetch messages',
+    )
 
     // Find our message
     const received = messages.find((m) => m.id === envelope.id)
     expect(received).toBeDefined()
-    expect(received!.from).toBe(aliceAddress)
+    expect(received?.from).toBe(aliceAddress)
 
     // Bob decrypts
     const encryptedData = deserializeEncryptedMessage(
-      received!.encryptedContent,
+      received?.encryptedContent,
     )
     const decrypted = decryptMessageToString(encryptedData, bob.privateKey)
 
@@ -368,10 +372,12 @@ describe('E2E Flow', () => {
 
     // Fetch all
     const response = await fetch(`${BASE_URL}/messages/${bobAddress}`)
-    const { messages, count } = (await response.json()) as {
-      messages: MessageEnvelope[]
-      count: number
-    }
+    const rawMultiResult: unknown = await response.json()
+    const { messages, count } = expectValid(
+      RelayMessagesResponseSchema,
+      rawMultiResult,
+      'fetch multiple messages',
+    )
 
     expect(count).toBeGreaterThanOrEqual(messagesToSend.length)
 

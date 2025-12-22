@@ -5,6 +5,12 @@
  */
 
 import { getAutocratUrl, getDWSComputeUrl } from '@jejunetwork/config'
+import {
+  expectValid,
+  TriggerHistoryResponseSchema,
+  TriggerListResponseSchema,
+  TriggerRegisterResponseSchema,
+} from './schemas'
 
 export type TriggerSource = 'cloud' | 'compute' | 'onchain'
 
@@ -123,8 +129,12 @@ export async function registerAutocratTriggers(): Promise<void> {
       body: JSON.stringify(trigger),
     }).catch(() => null)
     if (r?.ok) {
-      const { id } = (await r.json()) as { id: string }
-      console.log(`[Trigger] Registered: ${trigger.name} (${id})`)
+      const data = expectValid(
+        TriggerRegisterResponseSchema,
+        await r.json(),
+        `Trigger registration ${trigger.name}`,
+      )
+      console.log(`[Trigger] Registered: ${trigger.name} (${data.id})`)
     } else {
       console.warn(
         `[Trigger] Failed: ${trigger.name} (${r?.status ?? 'unreachable'})`,
@@ -163,7 +173,12 @@ export class ComputeTriggerClient {
       body: JSON.stringify(trigger),
     })
     if (!r.ok) throw new Error(`Register failed: ${r.status}`)
-    return ((await r.json()) as { id: string }).id
+    const data = expectValid(
+      TriggerRegisterResponseSchema,
+      await r.json(),
+      'Trigger registration',
+    )
+    return data.id
   }
 
   async execute(
@@ -179,6 +194,7 @@ export class ComputeTriggerClient {
       },
     )
     if (!r.ok) throw new Error(`Execute failed: ${r.status}`)
+    // TriggerExecutionResult is a local type, response structure matches
     return r.json() as Promise<TriggerExecutionResult>
   }
 
@@ -192,7 +208,12 @@ export class ComputeTriggerClient {
       params.set('active', String(filter.active))
     const r = await fetch(`${this.computeUrl}/api/triggers?${params}`)
     if (!r.ok) throw new Error(`List failed: ${r.status}`)
-    return ((await r.json()) as { triggers: UnifiedTrigger[] }).triggers
+    const data = expectValid(
+      TriggerListResponseSchema,
+      await r.json(),
+      'Trigger list',
+    )
+    return data.triggers as UnifiedTrigger[]
   }
 
   async getHistory(
@@ -203,8 +224,20 @@ export class ComputeTriggerClient {
     if (triggerId) params.set('triggerId', triggerId)
     const r = await fetch(`${this.computeUrl}/api/triggers/history?${params}`)
     if (!r.ok) throw new Error(`History failed: ${r.status}`)
-    return ((await r.json()) as { executions: TriggerExecutionResult[] })
-      .executions
+    const data = expectValid(
+      TriggerHistoryResponseSchema,
+      await r.json(),
+      'Trigger history',
+    )
+    return data.executions.map((exec) => ({
+      executionId: exec.executionId,
+      triggerId: exec.triggerId,
+      status: exec.status as TriggerExecutionResult['status'],
+      startedAt: exec.startedAt ? new Date(exec.startedAt) : new Date(),
+      finishedAt: exec.finishedAt ? new Date(exec.finishedAt) : undefined,
+      output: exec.output,
+      error: exec.error,
+    }))
   }
 
   async isAvailable(): Promise<boolean> {
@@ -218,5 +251,8 @@ export class ComputeTriggerClient {
 
 let triggerClient: ComputeTriggerClient | null = null
 export function getComputeTriggerClient(): ComputeTriggerClient {
-  return (triggerClient ??= new ComputeTriggerClient())
+  if (!triggerClient) {
+    triggerClient = new ComputeTriggerClient()
+  }
+  return triggerClient
 }

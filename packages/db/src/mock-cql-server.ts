@@ -8,9 +8,8 @@
  */
 
 import { Database } from 'bun:sqlite'
-import type { Context } from 'hono'
-import { Hono } from 'hono'
-import { cors } from 'hono/cors'
+import { cors } from '@elysiajs/cors'
+import { Elysia } from 'elysia'
 import { z } from 'zod'
 import { parsePort, sanitizeRows } from './utils.js'
 
@@ -39,11 +38,13 @@ const CQLRequestSchema = z
     message: 'Either sql or query is required',
   })
 
+// Create database schema
+const CreateDbSchema = z.object({
+  database_id: z.string().min(1),
+})
+
 // Ensure data directory exists
 await Bun.write(`${DATA_DIR}/.gitkeep`, '')
-
-const app = new Hono()
-app.use('/*', cors({ origin: '*' }))
 
 // Database instances per database ID
 const databases = new Map<string, Database>()
@@ -62,33 +63,100 @@ function getDb(databaseId: string): Database {
   return db
 }
 
-// Health check
-function handleHealth(c: Context): Response {
-  return c.json({ status: 'healthy', mode: 'mock-sqlite' })
+// Health response type
+interface HealthResponse {
+  status: string
+  mode: string
 }
-app.get('/v1/health', handleHealth)
-app.get('/api/v1/health', handleHealth)
-app.get('/health', handleHealth)
 
-// Status endpoint
-function handleStatus(c: Context): Response {
-  return c.json({
+// Status response type
+interface StatusResponse {
+  status: string
+  mode: string
+  blockHeight: number
+  version: string
+}
+
+// Query success response for exec operations
+interface ExecSuccessResponse {
+  success: true
+  rowsAffected: number
+  lastInsertRowid: number
+  executionTime: number
+  blockHeight: number
+}
+
+// Query success response for select operations
+interface SelectSuccessResponse {
+  success: true
+  rows: Record<string, string | number | boolean | null>[]
+  rowCount: number
+  columns: string[]
+  executionTime: number
+  blockHeight: number
+}
+
+// Query error response
+interface QueryErrorResponse {
+  success: false
+  error: string
+}
+
+// Database info response
+interface DbInfoResponse {
+  databaseId: string
+  status: string
+  tables: number
+  mode: string
+}
+
+// Database list item
+interface DbListItem {
+  databaseId: string
+  status: string
+}
+
+// Database list response
+interface DbListResponse {
+  databases: DbListItem[]
+}
+
+// Create database response
+interface CreateDbResponse {
+  success: boolean
+  databaseId: string
+}
+
+// Health check handler
+function handleHealth(): HealthResponse {
+  return { status: 'healthy', mode: 'mock-sqlite' }
+}
+
+// Status handler
+function handleStatus(): StatusResponse {
+  return {
     status: 'healthy',
     mode: 'mock-sqlite',
     blockHeight: 0,
     version: '1.0.0-mock',
-  })
+  }
 }
-app.get('/v1/status', handleStatus)
-app.get('/api/v1/status', handleStatus)
+
+// Elysia set type for route handlers
+interface ElysiaSet {
+  status?: number | string
+}
 
 // Combined query/exec handler - CQL client sends both to same endpoint
-async function handleCQLQuery(c: Context): Promise<Response> {
-  const rawBody = await c.req.json()
+function handleCQLQuery(
+  rawBody: Record<string, string | number | boolean | null | (string | number | boolean | null)[]>,
+  set: ElysiaSet,
+): ExecSuccessResponse | SelectSuccessResponse | QueryErrorResponse {
   const parseResult = CQLRequestSchema.safeParse(rawBody)
 
   if (!parseResult.success) {
-    return c.json({ success: false, error: parseResult.error.message }, 400)
+    set.status = 400
+    return { success: false, error: parseResult.error.message }
   }
 
   const body = parseResult.data
@@ -112,40 +180,33 @@ async function handleCQLQuery(c: Context): Promise<Response> {
     const result = stmt.run(...params)
     const executionTime = Math.round(performance.now() - start)
 
-    return c.json({
+    return {
       success: true,
       rowsAffected: result.changes,
       lastInsertRowid: Number(result.lastInsertRowid),
       executionTime,
       blockHeight: 0,
-    })
+    }
   } else {
     const rawRows = stmt.all(...params)
     // Sanitize rows to prevent prototype pollution attacks
-    const rows = sanitizeRows(rawRows as Record<string, unknown>[])
+    const rows = sanitizeRows(rawRows as Record<string, string | number | boolean | null>[])
     const executionTime = Math.round(performance.now() - start)
 
-    return c.json({
+    return {
       success: true,
       rows,
       rowCount: rows.length,
       columns:
-        rows.length > 0 ? Object.keys(rows[0] as Record<string, unknown>) : [],
+        rows.length > 0 ? Object.keys(rows[0] as Record<string, string | number | boolean | null>) : [],
       executionTime,
       blockHeight: 0,
-    })
+    }
   }
 }
 
-// Mount on all possible endpoints
-app.post('/v1/query', handleCQLQuery)
-app.post('/api/v1/query', handleCQLQuery)
-app.post('/v1/exec', handleCQLQuery)
-app.post('/api/v1/exec', handleCQLQuery)
-
-// Database info
-function handleDbInfo(c: Context): Response {
-  const id = c.req.param('id')
+// Database info handler
+function handleDbInfo(id: string): DbInfoResponse {
   const db = getDb(id)
 
   // Get table count
@@ -153,40 +214,63 @@ function handleDbInfo(c: Context): Response {
     .prepare("SELECT name FROM sqlite_master WHERE type='table'")
     .all()
 
-  return c.json({
+  return {
     databaseId: id,
     status: 'active',
     tables: tables.length,
     mode: 'mock-sqlite',
-  })
+  }
 }
-app.get('/v1/databases/:id', handleDbInfo)
-app.get('/api/v1/databases/:id', handleDbInfo)
 
-// List databases
-function handleListDbs(c: Context): Response {
+// List databases handler
+function handleListDbs(): DbListResponse {
   const dbs = Array.from(databases.keys()).map((id) => ({
     databaseId: id,
     status: 'active',
   }))
-  return c.json({ databases: dbs })
+  return { databases: dbs }
 }
-app.get('/v1/databases', handleListDbs)
-app.get('/api/v1/databases', handleListDbs)
 
-// Create database (no-op in SQLite mode, just ensures it exists)
-const CreateDbSchema = z.object({
-  database_id: z.string().min(1),
-})
-
-async function handleCreateDb(c: Context): Promise<Response> {
-  const rawBody = await c.req.json()
+// Create database handler
+function handleCreateDb(
+  rawBody: Record<string, string>,
+): CreateDbResponse {
   const body = CreateDbSchema.parse(rawBody)
   getDb(body.database_id)
-  return c.json({ success: true, databaseId: body.database_id })
+  return { success: true, databaseId: body.database_id }
 }
-app.post('/v1/databases', handleCreateDb)
-app.post('/api/v1/databases', handleCreateDb)
+
+const app = new Elysia()
+  .use(cors({ origin: '*' }))
+  // Health check routes
+  .get('/v1/health', handleHealth)
+  .get('/api/v1/health', handleHealth)
+  .get('/health', handleHealth)
+  // Status routes
+  .get('/v1/status', handleStatus)
+  .get('/api/v1/status', handleStatus)
+  // Query/exec routes
+  .post('/v1/query', ({ body, set }) =>
+    handleCQLQuery(body as Record<string, string | number | boolean | null | (string | number | boolean | null)[]>, set),
+  )
+  .post('/api/v1/query', ({ body, set }) =>
+    handleCQLQuery(body as Record<string, string | number | boolean | null | (string | number | boolean | null)[]>, set),
+  )
+  .post('/v1/exec', ({ body, set }) =>
+    handleCQLQuery(body as Record<string, string | number | boolean | null | (string | number | boolean | null)[]>, set),
+  )
+  .post('/api/v1/exec', ({ body, set }) =>
+    handleCQLQuery(body as Record<string, string | number | boolean | null | (string | number | boolean | null)[]>, set),
+  )
+  // Database info routes
+  .get('/v1/databases/:id', ({ params }) => handleDbInfo(params.id))
+  .get('/api/v1/databases/:id', ({ params }) => handleDbInfo(params.id))
+  // List databases routes
+  .get('/v1/databases', handleListDbs)
+  .get('/api/v1/databases', handleListDbs)
+  // Create database routes
+  .post('/v1/databases', ({ body }) => handleCreateDb(body as Record<string, string>))
+  .post('/api/v1/databases', ({ body }) => handleCreateDb(body as Record<string, string>))
 
 console.log(`
 ╔════════════════════════════════════════════════════════════╗
@@ -201,7 +285,6 @@ console.log(`
 ╚════════════════════════════════════════════════════════════╝
 `)
 
-export default {
-  port: PORT,
-  fetch: app.fetch,
-}
+app.listen(PORT)
+
+export { app }

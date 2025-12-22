@@ -181,7 +181,8 @@ export default function StakingUI({
 
             return (
               <button
-                key={index}
+                key={tier.name}
+                type="button"
                 onClick={() => canUpgrade && setSelectedTier(index)}
                 disabled={
                   isCurrentTier || isLowerTier || isPending || isConfirming
@@ -254,6 +255,7 @@ export default function StakingUI({
             </div>
           </div>
           <button
+            type="button"
             onClick={handleUpgrade}
             disabled={isPending || isConfirming}
             className="w-full py-3 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 disabled:bg-gray-300"

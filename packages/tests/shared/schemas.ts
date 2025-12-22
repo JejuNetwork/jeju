@@ -8,107 +8,51 @@
  * - Lock file metadata
  */
 
+import {
+  AddressSchema,
+  BlockNumberResponseSchema,
+  ChainIdResponseSchema,
+  GetBalanceResponseSchema,
+  GetCodeResponseSchema,
+  HashSchema,
+  HexSchema,
+  JsonRpcErrorResponseSchema,
+  JsonRpcRequestSchema,
+  JsonRpcResponseSchema,
+  JsonRpcSuccessResponseSchema,
+  JsonValueSchema,
+  parseBlockNumberResponse,
+  parseChainIdResponse,
+  parseGetCodeResponse,
+} from '@jejunetwork/types'
 import { z } from 'zod'
 
-// ============================================================================
-// JSON Value Schema (replaces z.unknown() for JSON-RPC)
-// ============================================================================
-
-/**
- * Represents any valid JSON value - used for JSON-RPC params/results
- * This is a recursive type that covers all JSON primitives and structures
- */
-export type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonValue[]
-  | { [key: string]: JsonValue }
-
-// JSON primitive values (non-recursive)
-const JsonPrimitiveSchema = z.union([
-  z.string(),
-  z.number(),
-  z.boolean(),
-  z.null(),
-])
-
-// Full JSON value schema with proper recursion handling for Zod v4
-export const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() => {
-  const jsonValueUnion: z.ZodType<JsonValue> = z.union([
-    JsonPrimitiveSchema,
-    z.array(JsonValueSchema),
-    z.record(z.string(), JsonValueSchema),
-  ])
-  return jsonValueUnion
-})
+// Re-export shared schemas for convenience
+export {
+  AddressSchema,
+  BlockNumberResponseSchema,
+  ChainIdResponseSchema,
+  GetBalanceResponseSchema,
+  GetCodeResponseSchema,
+  HexSchema,
+  JsonRpcErrorResponseSchema,
+  JsonRpcRequestSchema,
+  JsonRpcResponseSchema,
+  JsonRpcSuccessResponseSchema,
+  JsonValueSchema,
+  parseBlockNumberResponse,
+  parseChainIdResponse,
+  parseGetCodeResponse,
+}
 
 // ============================================================================
-// Address & Hash Schemas
+// Additional Address & Hash Schemas (extend shared schemas)
 // ============================================================================
 
-export const AddressSchema = z
-  .string()
-  .regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid Ethereum address')
-export const HexSchema = z
-  .string()
-  .regex(/^0x[a-fA-F0-9]*$/, 'Invalid hex string')
 export const PrivateKeySchema = z
   .string()
   .regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid private key')
-export const TxHashSchema = z
-  .string()
-  .regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid transaction hash')
-
-// ============================================================================
-// JSON-RPC Schemas
-// ============================================================================
-
-export const JsonRpcRequestSchema = z.object({
-  jsonrpc: z.literal('2.0'),
-  method: z.string(),
-  params: z.array(JsonValueSchema).default([]),
-  id: z.union([z.number(), z.string()]),
-})
-
-export const JsonRpcSuccessResponseSchema = z.object({
-  jsonrpc: z.literal('2.0'),
-  result: JsonValueSchema,
-  id: z.union([z.number(), z.string()]),
-})
-
-export const JsonRpcErrorResponseSchema = z.object({
-  jsonrpc: z.literal('2.0'),
-  error: z.object({
-    code: z.number(),
-    message: z.string(),
-    data: JsonValueSchema.optional(),
-  }),
-  id: z.union([z.number(), z.string(), z.null()]),
-})
-
-export const JsonRpcResponseSchema = z.union([
-  JsonRpcSuccessResponseSchema,
-  JsonRpcErrorResponseSchema,
-])
-
-// Chain-specific responses
-export const ChainIdResponseSchema = JsonRpcSuccessResponseSchema.extend({
-  result: HexSchema,
-})
-
-export const BlockNumberResponseSchema = JsonRpcSuccessResponseSchema.extend({
-  result: HexSchema,
-})
-
-export const GetCodeResponseSchema = JsonRpcSuccessResponseSchema.extend({
-  result: HexSchema,
-})
-
-export const GetBalanceResponseSchema = JsonRpcSuccessResponseSchema.extend({
-  result: HexSchema,
-})
+export const TxHashSchema = HashSchema
 
 // ============================================================================
 // Infrastructure Schemas
@@ -305,17 +249,19 @@ export const SetupInfoSchema = z.object({
 // Type Exports
 // ============================================================================
 
+// Re-export JSON-RPC types from @jejunetwork/types
+export type {
+  JsonRpcErrorResponse,
+  JsonRpcRequest,
+  JsonRpcResponse,
+  JsonRpcSuccessResponse,
+} from '@jejunetwork/types'
+
+// Local types
 export type Address = z.infer<typeof AddressSchema>
 export type Hex = z.infer<typeof HexSchema>
 export type PrivateKey = z.infer<typeof PrivateKeySchema>
 export type TxHash = z.infer<typeof TxHashSchema>
-
-export type JsonRpcRequest = z.infer<typeof JsonRpcRequestSchema>
-export type JsonRpcSuccessResponse = z.infer<
-  typeof JsonRpcSuccessResponseSchema
->
-export type JsonRpcErrorResponse = z.infer<typeof JsonRpcErrorResponseSchema>
-export type JsonRpcResponse = z.infer<typeof JsonRpcResponseSchema>
 
 export type InfraStatus = z.infer<typeof InfraStatusSchema>
 export type LockMetadata = z.infer<typeof LockMetadataSchema>
@@ -347,30 +293,6 @@ export type SetupInfo = z.infer<typeof SetupInfoSchema>
 // ============================================================================
 // Validation Helpers
 // ============================================================================
-
-/**
- * Parse and validate JSON-RPC chain ID response
- */
-export function parseChainIdResponse(data: unknown): number {
-  const parsed = ChainIdResponseSchema.parse(data)
-  return parseInt(parsed.result, 16)
-}
-
-/**
- * Parse and validate JSON-RPC block number response
- */
-export function parseBlockNumberResponse(data: unknown): number {
-  const parsed = BlockNumberResponseSchema.parse(data)
-  return parseInt(parsed.result, 16)
-}
-
-/**
- * Parse and validate JSON-RPC get code response
- */
-export function parseGetCodeResponse(data: unknown): string {
-  const parsed = GetCodeResponseSchema.parse(data)
-  return parsed.result
-}
 
 /**
  * Parse and validate lock file metadata

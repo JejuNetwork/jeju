@@ -18,12 +18,15 @@ import {
   createPublicClient,
   createWalletClient,
   decodeEventLog,
+  encodePacked,
   formatEther,
   formatUnits,
   http,
+  keccak256,
   type PublicClient,
   parseAbi,
   parseUnits,
+  recoverMessageAddress,
   type WalletClient,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
@@ -51,7 +54,7 @@ const SERVICE_REGISTRY_ADDRESS =
   '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9'
 
 // Check if localnet is available
-const rpcUrl = process.env.RPC_URL || 'http://localhost:9545'
+const rpcUrl = process.env.RPC_URL || 'http://localhost:6546'
 let localnetAvailable = false
 try {
   const response = await fetch(rpcUrl, {
@@ -493,8 +496,6 @@ describe.skipIf(!localnetAvailable)(
     test('should validate payment signature', async () => {
       logger.info('Testing payment signature validation...')
 
-      const { keccak256, encodePacked } = await import('viem')
-
       const message = {
         from: userAccount.address,
         to: deployerAccount.address,
@@ -524,7 +525,6 @@ describe.skipIf(!localnetAvailable)(
       expect(signature.length).toBe(132)
 
       // Verify we can recover the signer
-      const { recoverMessageAddress } = await import('viem')
       const recoveredAddress = await recoverMessageAddress({
         message: { raw: messageHash as `0x${string}` },
         signature: signature as `0x${string}`,

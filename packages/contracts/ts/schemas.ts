@@ -3,13 +3,11 @@
  * @module @jejunetwork/contracts/schemas
  */
 
+import { AddressSchema as TypesAddressSchema } from '@jejunetwork/types'
 import { z } from 'zod'
 
-// Address validation (0x followed by 40 hex characters)
-export const AddressSchema = z
-  .string()
-  .regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid address format')
-// Note: Use `Address` from 'viem' for type-safe addresses. This schema validates the format.
+// Re-export the canonical AddressSchema from types package
+export const AddressSchema = TypesAddressSchema
 
 // Optional address that can be null/undefined/empty
 export const OptionalAddressSchema = AddressSchema.optional().nullable()

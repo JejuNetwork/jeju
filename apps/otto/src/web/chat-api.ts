@@ -3,8 +3,8 @@
  * REST API for web-based chat - uses ElizaOS runtime via plugin actions
  */
 
-import { Hono } from 'hono'
-import { cors } from 'hono/cors'
+import { cors } from '@elysiajs/cors'
+import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import { isAddress, verifyMessage } from 'viem'
 import { z } from 'zod'
@@ -204,180 +204,189 @@ function validateSessionId(sessionId: string): string {
 // API Routes
 // ============================================================================
 
-export const chatApi = new Hono()
-
 // CORS Configuration - inherits from parent server configuration
 // In production, set OTTO_ALLOWED_ORIGINS to restrict cross-origin access
 const chatAllowedOrigins = process.env.OTTO_ALLOWED_ORIGINS?.split(',') ?? []
-const chatCorsOrigin =
-  chatAllowedOrigins.length > 0
-    ? (origin: string) =>
-        chatAllowedOrigins.includes(origin) ? origin : chatAllowedOrigins[0]
-    : '*' // Development: allow all origins
 
-chatApi.use(
-  '/*',
-  cors({
-    origin: chatCorsOrigin,
-    allowMethods: ['GET', 'POST', 'OPTIONS'],
-    allowHeaders: [
-      'Content-Type',
-      'Authorization',
-      'X-Session-Id',
-      'X-Wallet-Address',
-    ],
-  }),
-)
+export const chatApi = new Elysia({ prefix: '/api/chat' })
+  .use(
+    cors({
+      origin:
+        chatAllowedOrigins.length > 0
+          ? (request) => {
+              const origin = request.headers.get('origin') ?? ''
+              return chatAllowedOrigins.includes(origin)
+            }
+          : true, // Development: allow all origins
+      methods: ['GET', 'POST', 'OPTIONS'],
+      allowedHeaders: [
+        'Content-Type',
+        'Authorization',
+        'X-Session-Id',
+        'X-Wallet-Address',
+      ],
+    }),
+  )
 
-// Create session
-chatApi.post('/session', async (c) => {
-  const rawBody = await c.req.json().catch(() => ({}))
-  const SessionCreateSchema = z.object({
-    walletAddress: z
-      .string()
-      .refine((val) => !val || isAddress(val), { message: 'Invalid address' })
-      .optional(),
+  // Create session
+  .post('/session', ({ body }) => {
+    const rawBody = body ?? {}
+    const SessionCreateSchema = z.object({
+      walletAddress: z
+        .string()
+        .refine((val) => !val || isAddress(val), { message: 'Invalid address' })
+        .optional(),
+    })
+    const parsedBody = expectValid(
+      SessionCreateSchema,
+      rawBody,
+      'create session',
+    )
+
+    const walletAddress = parsedBody.walletAddress
+      ? (validateAddress(parsedBody.walletAddress) as Address)
+      : undefined
+    const { sessionId, messages } = createChatSession(walletAddress)
+
+    return { sessionId, messages }
   })
-  const body = expectValid(SessionCreateSchema, rawBody, 'create session')
 
-  const walletAddress = body.walletAddress
-    ? (validateAddress(body.walletAddress) as Address)
-    : undefined
-  const { sessionId, messages } = createChatSession(walletAddress)
+  // Get session
+  .get('/session/:id', ({ params, set }) => {
+    const sessionIdParam = params.id
+    const sessionId = validateSessionId(sessionIdParam)
 
-  return c.json({ sessionId, messages })
-})
+    const session = stateManager.getSession(sessionId)
 
-// Get session
-chatApi.get('/session/:id', (c) => {
-  const sessionIdParam = c.req.param('id')
-  const sessionId = validateSessionId(sessionIdParam)
+    if (!session) {
+      set.status = 404
+      return { error: 'Session not found' }
+    }
 
-  const session = stateManager.getSession(sessionId)
+    const messages = getSessionMessages(sessionId)
 
-  if (!session) {
-    return c.json({ error: 'Session not found' }, 404)
-  }
-
-  const messages = getSessionMessages(sessionId)
-
-  return c.json({
-    sessionId: session.sessionId,
-    messages,
-    userId: session.userId,
+    return {
+      sessionId: session.sessionId,
+      messages,
+      userId: session.userId,
+    }
   })
-})
 
-// Send message
-chatApi.post('/chat', async (c) => {
-  const rawBody = await c.req.json()
-  const body = expectValid(ChatRequestSchema, rawBody, 'chat request')
+  // Send message
+  .post('/chat', async ({ body, request }) => {
+    const rawBody = body
+    const parsedBody = expectValid(ChatRequestSchema, rawBody, 'chat request')
 
-  const walletAddressHeader = c.req.header('X-Wallet-Address')
-  const walletAddress = walletAddressHeader
-    ? (validateAddress(walletAddressHeader) as Address)
-    : undefined
+    const walletAddressHeader = request.headers.get('X-Wallet-Address')
+    const walletAddress = walletAddressHeader
+      ? (validateAddress(walletAddressHeader) as Address)
+      : undefined
 
-  const { sessionId, session } = getOrCreateSession(
-    body.sessionId ?? c.req.header('X-Session-Id'),
-    walletAddress,
-  )
+    const { sessionId, session } = getOrCreateSession(
+      parsedBody.sessionId ?? request.headers.get('X-Session-Id') ?? undefined,
+      walletAddress,
+    )
 
-  // Add user message
-  const userMsg = {
-    id: crypto.randomUUID(),
-    role: 'user' as const,
-    content: body.message,
-    timestamp: Date.now(),
-  }
-  const validatedUserMsg = expectValid(
-    ChatMessageSchema,
-    userMsg,
-    'user message',
-  )
-  addSessionMessage(sessionId, validatedUserMsg)
+    // Add user message
+    const userMsg = {
+      id: crypto.randomUUID(),
+      role: 'user' as const,
+      content: parsedBody.message,
+      timestamp: Date.now(),
+    }
+    const validatedUserMsg = expectValid(
+      ChatMessageSchema,
+      userMsg,
+      'user message',
+    )
+    addSessionMessage(sessionId, validatedUserMsg)
 
-  stateManager.updateSession(sessionId, {})
+    stateManager.updateSession(sessionId, {})
 
-  // Process message
-  const platformMessage: PlatformMessage = {
-    platform: 'web',
-    messageId: validatedUserMsg.id,
-    channelId: sessionId,
-    userId: session.userId,
-    content: body.message.trim(),
-    timestamp: Date.now(),
-    isCommand: true,
-  }
+    // Process message
+    const platformMessage: PlatformMessage = {
+      platform: 'web',
+      messageId: validatedUserMsg.id,
+      channelId: sessionId,
+      userId: session.userId,
+      content: parsedBody.message.trim(),
+      timestamp: Date.now(),
+      isCommand: true,
+    }
 
-  const result = await processMessage(platformMessage)
+    const result = await processMessage(platformMessage)
 
-  // Create response
-  const assistantMsg = {
-    id: crypto.randomUUID(),
-    role: 'assistant' as const,
-    content: result.message,
-    timestamp: Date.now(),
-  }
-  const validatedAssistantMsg = expectValid(
-    ChatMessageSchema,
-    assistantMsg,
-    'assistant message',
-  )
-  addSessionMessage(sessionId, validatedAssistantMsg)
+    // Create response
+    const assistantMsg = {
+      id: crypto.randomUUID(),
+      role: 'assistant' as const,
+      content: result.message,
+      timestamp: Date.now(),
+    }
+    const validatedAssistantMsg = expectValid(
+      ChatMessageSchema,
+      assistantMsg,
+      'assistant message',
+    )
+    addSessionMessage(sessionId, validatedAssistantMsg)
 
-  const requiresAuth =
-    !walletAddress && result.message.toLowerCase().includes('connect')
-  const config = getConfig()
+    const requiresAuth =
+      !walletAddress && result.message.toLowerCase().includes('connect')
+    const config = getConfig()
 
-  const response = {
-    sessionId,
-    message: validatedAssistantMsg,
-    requiresAuth,
-    authUrl: requiresAuth ? `${config.baseUrl}/auth/connect` : undefined,
-  }
+    const response = {
+      sessionId,
+      message: validatedAssistantMsg,
+      requiresAuth,
+      authUrl: requiresAuth ? `${config.baseUrl}/auth/connect` : undefined,
+    }
 
-  return c.json(expectValid(ChatResponseSchema, response, 'chat response'))
-})
+    return expectValid(ChatResponseSchema, response, 'chat response')
+  })
 
-// Auth message for signing
-chatApi.get('/auth/message', (c) => {
-  const addressParam = c.req.query('address')
-  if (!addressParam) {
-    return c.json({ error: 'Address required' }, 400)
-  }
+  // Auth message for signing
+  .get('/auth/message', ({ query, set }) => {
+    const addressParam = query.address
+    if (!addressParam) {
+      set.status = 400
+      return { error: 'Address required' }
+    }
 
-  const address = validateAddress(addressParam) as Address
-  const { message, nonce } = generateAuthMessage(address)
-  const response = { message, nonce }
+    const address = validateAddress(addressParam) as Address
+    const { message, nonce } = generateAuthMessage(address)
+    const response = { message, nonce }
 
-  return c.json(
-    expectValid(AuthMessageResponseSchema, response, 'auth message response'),
-  )
-})
+    return expectValid(
+      AuthMessageResponseSchema,
+      response,
+      'auth message response',
+    )
+  })
 
-// Verify signature
-chatApi.post('/auth/verify', async (c) => {
-  const rawBody = await c.req.json()
-  const body = expectValid(
-    AuthVerifyRequestSchema,
-    rawBody,
-    'auth verify request',
-  )
+  // Verify signature
+  .post('/auth/verify', async ({ body, set }) => {
+    const rawBody = body
+    const parsedBody = expectValid(
+      AuthVerifyRequestSchema,
+      rawBody,
+      'auth verify request',
+    )
 
-  const result = await verifyAndConnectWallet(
-    body.address,
-    body.message,
-    body.signature,
-    body.sessionId,
-    'web',
-  )
+    const result = await verifyAndConnectWallet(
+      parsedBody.address,
+      parsedBody.message,
+      parsedBody.signature,
+      parsedBody.sessionId,
+      'web',
+    )
 
-  if (!result.success) {
-    return c.json({ error: result.error ?? 'Verification failed' }, 401)
-  }
+    if (!result.success) {
+      set.status = 401
+      return { error: result.error ?? 'Verification failed' }
+    }
 
-  return c.json({ success: true, address: body.address })
-})
+    return { success: true, address: parsedBody.address }
+  })
 
 export default chatApi
+

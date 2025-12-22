@@ -4,13 +4,8 @@
  * Zod schemas for validating auth-related data from external sources.
  */
 
+import { AddressSchema, HexSchema } from '@jejunetwork/types'
 import { z } from 'zod'
-
-// Address validation (ethereum address pattern)
-const AddressSchema = z.string().regex(/^0x[a-fA-F0-9]{40}$/)
-
-// Hex validation
-const HexSchema = z.string().regex(/^0x[a-fA-F0-9]*$/)
 
 // Auth method enum
 const AuthMethodSchema = z.enum(['siwe', 'siwf', 'passkey', 'oauth3', 'social'])

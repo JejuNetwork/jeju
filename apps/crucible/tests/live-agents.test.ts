@@ -7,6 +7,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { getCharacter } from '../src/characters'
+import { ChatApiResponseSchema, parseOrThrow } from '../src/schemas'
 import {
   createCrucibleRuntime,
   type RuntimeMessage,
@@ -99,9 +100,10 @@ describe('Live Agent E2E Tests', () => {
   describe('Runtime Initialization', () => {
     test('should initialize runtime with jejuPlugin actions', async () => {
       const character = getCharacter('project-manager')
+      if (!character) throw new Error('character not found')
       const runtime = createCrucibleRuntime({
         agentId: 'init-test',
-        character: character!,
+        character: character,
       })
 
       await runtime.initialize()
@@ -117,9 +119,10 @@ describe('Live Agent E2E Tests', () => {
   describe('Project Manager Agent', () => {
     test('should respond with project management advice', async () => {
       const character = getCharacter('project-manager')
+      if (!character) throw new Error('character not found')
       const runtime = createCrucibleRuntime({
         agentId: 'pm-real-test',
-        character: character!,
+        character: character,
       })
 
       await runtime.initialize()
@@ -155,9 +158,10 @@ describe('Live Agent E2E Tests', () => {
   describe('Community Manager Agent', () => {
     test('should respond with community engagement advice', async () => {
       const character = getCharacter('community-manager')
+      if (!character) throw new Error('character not found')
       const runtime = createCrucibleRuntime({
         agentId: 'cm-real-test',
-        character: character!,
+        character: character,
       })
 
       await runtime.initialize()
@@ -193,9 +197,10 @@ describe('Live Agent E2E Tests', () => {
   describe('Red Team Agent', () => {
     test('should respond with security analysis', async () => {
       const character = getCharacter('red-team')
+      if (!character) throw new Error('character not found')
       const runtime = createCrucibleRuntime({
         agentId: 'rt-real-test',
-        character: character!,
+        character: character,
       })
 
       await runtime.initialize()
@@ -242,9 +247,10 @@ describe('Live Agent E2E Tests', () => {
 
       for (const agentId of agentIds) {
         const character = getCharacter(agentId)
+        if (!character) throw new Error(`character ${agentId} not found`)
         const runtime = await runtimeManager.createRuntime({
           agentId: `multi-${agentId}`,
-          character: character!,
+          character: character,
         })
 
         const message = createUniqueMessage(prompt)
@@ -273,9 +279,10 @@ describe('Live Agent E2E Tests', () => {
   describe('Response Uniqueness', () => {
     test('should give different responses to same question at different times', async () => {
       const character = getCharacter('project-manager')
+      if (!character) throw new Error('character not found')
       const runtime = await runtimeManager.createRuntime({
         agentId: 'uniqueness-test',
-        character: character!,
+        character: character,
       })
 
       const responses: string[] = []
@@ -334,8 +341,8 @@ describe('Live Agent E2E Tests', () => {
 
       expect(response.ok).toBe(true)
 
-      const data = (await response.json()) as { text: string }
-      console.log('[Server Test] Response:', data.text?.slice(0, 200))
+      const data = parseOrThrow(ChatApiResponseSchema, await response.json(), 'Chat response')
+      console.log('[Server Test] Response:', data.text.slice(0, 200))
 
       expect(data.text.length).toBeGreaterThan(50)
     }, 30000)

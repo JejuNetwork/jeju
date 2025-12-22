@@ -3,11 +3,13 @@
  * Add and manage custom RPC endpoints for supported chains
  */
 
+import { expectValid } from '@jejunetwork/types'
 import { createPublicClient, http, type PublicClient } from 'viem'
 import { z } from 'zod'
 import { ChainIdSchema } from '../../lib/validation'
 import { storage } from '../../platform/storage'
 import { CustomChainSchema, CustomRPCSchema } from '../../plugin/schemas'
+import { RpcChainIdResponseSchema } from '../../schemas/api-responses'
 
 export interface CustomRPC {
   id: string
@@ -328,11 +330,15 @@ class CustomRPCService {
 
     if (!response.ok) return false
 
-    const data = await response.json()
+    const data = expectValid(
+      RpcChainIdResponseSchema,
+      await response.json(),
+      'RPC eth_chainId response',
+    )
     if (data.error) return false
 
     // Verify chain ID if expected
-    if (expectedChainId !== undefined) {
+    if (expectedChainId !== undefined && data.result) {
       const chainId = parseInt(data.result, 16)
       if (chainId !== expectedChainId) return false
     }

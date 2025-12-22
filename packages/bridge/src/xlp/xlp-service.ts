@@ -23,7 +23,9 @@ import {
   formatUnits,
   type Hex,
   http,
+  keccak256,
   parseAbi,
+  toHex,
 } from 'viem'
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { arbitrum, base, mainnet, optimism } from 'viem/chains'
@@ -474,7 +476,6 @@ export class XLPService extends EventEmitter {
 
       if (addressMatch && logEntry.topics[0]) {
         // Use keccak256 for event signature matching
-        const { keccak256, toHex } = await import('viem')
         const expectedSig = keccak256(
           toHex('OrderFilled(bytes32,address,address,uint256,uint256)'),
         )

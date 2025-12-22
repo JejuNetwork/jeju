@@ -8,10 +8,10 @@ import {
   useWaitForTransactionReceipt,
   useWriteContract,
 } from 'wagmi'
-import { CONTRACTS } from '@/config'
-import { checkUserBan } from '@/lib/erc8004'
-import { calculateExpectedShares } from '@/lib/markets/lmsrPricing'
-import type { Market } from '@/types/markets'
+import { CONTRACTS } from '../../config'
+import { checkUserBan } from '../../lib/erc8004'
+import { calculateExpectedShares } from '../../lib/markets/lmsrPricing'
+import type { Market } from '../../types/markets'
 
 const PREDIMARKET_ADDRESS = CONTRACTS.predimarket
 const ELIZAOS_TOKEN_ADDRESS = CONTRACTS.elizaOS
@@ -109,6 +109,7 @@ export function TradingInterface({ market }: { market: Market }) {
 
       <div className="grid grid-cols-2 gap-3 mb-6">
         <button
+          type="button"
           onClick={() => setOutcome(true)}
           className={`px-4 py-3 rounded-xl font-medium transition ${
             outcome
@@ -128,6 +129,7 @@ export function TradingInterface({ market }: { market: Market }) {
           YES {yesPercent.toFixed(1)}%
         </button>
         <button
+          type="button"
           onClick={() => setOutcome(false)}
           className={`px-4 py-3 rounded-xl font-medium transition ${
             !outcome
@@ -150,12 +152,14 @@ export function TradingInterface({ market }: { market: Market }) {
 
       <div className="mb-6">
         <label
+          htmlFor="trading-amount"
           className="block text-sm font-medium mb-2"
           style={{ color: 'var(--text-secondary)' }}
         >
           Amount
         </label>
         <input
+          id="trading-amount"
           type="number"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
@@ -166,6 +170,7 @@ export function TradingInterface({ market }: { market: Market }) {
       </div>
 
       <button
+        type="button"
         onClick={handleBuy}
         disabled={!isConnected || isPending || isConfirming}
         className="btn-accent w-full py-4 text-lg disabled:opacity-50 disabled:cursor-not-allowed"

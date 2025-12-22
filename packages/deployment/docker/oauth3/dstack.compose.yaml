@@ -23,7 +23,7 @@ services:
       - OAUTH3_CLUSTER_ID=oauth3-local-cluster
       - OAUTH3_PORT=4200
       - MPC_ENDPOINT=http://mpc-coordinator:4100
-      - JEJU_RPC_URL=http://host.docker.internal:9545
+      - JEJU_RPC_URL=http://host.docker.internal:6546
       - CHAIN_ID=420691
       - TEE_MODE=simulated
       # DWS Storage (IPFS-compatible API)

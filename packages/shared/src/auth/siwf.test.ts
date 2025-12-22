@@ -49,9 +49,10 @@ describe('createSIWFMessage', () => {
     })
 
     expect(message.expirationTime).toBeDefined()
+    if (!message.expirationTime) throw new Error('expirationTime not set')
 
     const issuedAt = new Date(message.issuedAt).getTime()
-    const expirationTime = new Date(message.expirationTime!).getTime()
+    const expirationTime = new Date(message.expirationTime).getTime()
     const diffMinutes = (expirationTime - issuedAt) / (60 * 1000)
 
     expect(diffMinutes).toBeCloseTo(10, 0)

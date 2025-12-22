@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { CheckCircle, Clock, Loader, RefreshCw, XCircle } from 'lucide-react'
 import { useAccount } from 'wagmi'
-import { INDEXER_URL } from '@/config'
-import { useProtocolTokens } from '@/hooks/useProtocolTokens'
-import { formatTokenAmount } from '@/lib/tokenUtils'
+import { INDEXER_URL } from '../../config'
+import { useProtocolTokens } from '../../hooks/useProtocolTokens'
+import { formatTokenAmount } from '../../lib/tokenUtils'
 
 interface BridgeTransfer {
   id: string
@@ -171,6 +171,7 @@ export default function BridgeHistory() {
         >
           <p>Failed to load bridge history</p>
           <button
+            type="button"
             onClick={() => refetch()}
             style={{
               marginTop: '0.5rem',
@@ -221,6 +222,7 @@ export default function BridgeHistory() {
           Bridge History ({transfers.length})
         </h3>
         <button
+          type="button"
           onClick={() => refetch()}
           style={{
             background: 'none',

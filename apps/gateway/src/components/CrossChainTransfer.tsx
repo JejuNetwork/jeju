@@ -130,7 +130,7 @@ export default function CrossChainTransfer() {
       {step === 'input' && (
         <form onSubmit={handleTransfer}>
           <div style={{ marginBottom: '1.5rem' }}>
-            <label
+            <span
               style={{
                 display: 'block',
                 marginBottom: '0.5rem',
@@ -138,7 +138,7 @@ export default function CrossChainTransfer() {
               }}
             >
               Destination Chain
-            </label>
+            </span>
             <div
               style={{
                 display: 'grid',
@@ -198,6 +198,7 @@ export default function CrossChainTransfer() {
 
           <div style={{ marginBottom: '1rem' }}>
             <label
+              htmlFor="transfer-amount"
               style={{
                 display: 'block',
                 marginBottom: '0.5rem',
@@ -207,6 +208,7 @@ export default function CrossChainTransfer() {
               Amount
             </label>
             <input
+              id="transfer-amount"
               className="input"
               type="number"
               step="any"
@@ -231,6 +233,7 @@ export default function CrossChainTransfer() {
 
           <div style={{ marginBottom: '1.5rem' }}>
             <label
+              htmlFor="transfer-recipient"
               style={{
                 display: 'block',
                 marginBottom: '0.5rem',
@@ -240,6 +243,7 @@ export default function CrossChainTransfer() {
               Recipient (optional)
             </label>
             <input
+              id="transfer-recipient"
               className="input"
               type="text"
               placeholder={userAddress || '0x...'}
@@ -432,6 +436,7 @@ export default function CrossChainTransfer() {
           )}
 
           <button
+            type="button"
             className="button"
             onClick={resetForm}
             style={{ width: '100%' }}
@@ -472,6 +477,7 @@ export default function CrossChainTransfer() {
           </p>
 
           <button
+            type="button"
             className="button"
             onClick={resetForm}
             style={{ width: '100%' }}

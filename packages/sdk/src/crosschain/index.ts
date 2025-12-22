@@ -5,7 +5,16 @@
 import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex } from 'viem'
 import { getServicesConfig, requireContract } from '../config'
-import { IntentStatusSchema, IntentsListSchema } from '../shared/schemas'
+import {
+  CancelIntentResponseSchema,
+  CrossChainQuotesResponseSchema,
+  EILVoucherResponseSchema,
+  IntentCreationResponseSchema,
+  IntentStatusSchema,
+  IntentsListSchema,
+  SolversListSchema,
+  XLPsListSchema,
+} from '../shared/schemas'
 import type { JejuWallet } from '../wallet'
 
 export type SupportedChain =
@@ -178,24 +187,8 @@ export function createCrossChainModule(
     if (!response.ok)
       throw new Error(`Failed to get quotes: ${response.statusText}`)
 
-    const data = (await response.json()) as {
-      quotes: Array<{
-        quoteId: string
-        sourceChain: SupportedChain
-        destinationChain: SupportedChain
-        sourceToken: Address
-        destinationToken: Address
-        amountIn: string
-        amountOut: string
-        fee: string
-        feePercent: number
-        estimatedTimeSeconds: number
-        route: 'eil' | 'oif'
-        solver?: Address
-        xlp?: Address
-        validUntil: number
-      }>
-    }
+    const rawData: unknown = await response.json()
+    const data = CrossChainQuotesResponseSchema.parse(rawData)
 
     return data.quotes.map((q) => ({
       ...q,
@@ -225,11 +218,8 @@ export function createCrossChainModule(
         `Failed to create voucher request: ${response.statusText}`,
       )
 
-    const data = (await response.json()) as {
-      txData: Hex
-      to: Address
-      value: string
-    }
+    const rawData: unknown = await response.json()
+    const data = EILVoucherResponseSchema.parse(rawData)
 
     return wallet.sendTransaction({
       to: data.to,
@@ -269,11 +259,8 @@ export function createCrossChainModule(
     if (!response.ok)
       throw new Error(`Failed to create intent: ${response.statusText}`)
 
-    const data = (await response.json()) as {
-      txData: Hex
-      to: Address
-      value: string
-    }
+    const rawData: unknown = await response.json()
+    const data = IntentCreationResponseSchema.parse(rawData)
 
     return wallet.sendTransaction({
       to: data.to,
@@ -333,7 +320,8 @@ export function createCrossChainModule(
 
     if (!response.ok) throw new Error('Failed to cancel intent')
 
-    const data = (await response.json()) as { txData: Hex; to: Address }
+    const rawData: unknown = await response.json()
+    const data = CancelIntentResponseSchema.parse(rawData)
     return wallet.sendTransaction({ to: data.to, data: data.txData })
   }
 
@@ -341,7 +329,8 @@ export function createCrossChainModule(
     const response = await fetch(`${services.oif.aggregator}/eil/xlps`)
     if (!response.ok) return []
 
-    const data = (await response.json()) as { xlps: XLPInfo[] }
+    const rawData: unknown = await response.json()
+    const data = XLPsListSchema.parse(rawData)
     return data.xlps
   }
 
@@ -384,7 +373,8 @@ export function createCrossChainModule(
       throw new Error(`Failed to list solvers: ${response.statusText}`)
     }
 
-    const data = (await response.json()) as { solvers: SolverInfo[] }
+    const rawData: unknown = await response.json()
+    const data = SolversListSchema.parse(rawData)
     return data.solvers
   }
 

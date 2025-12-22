@@ -95,6 +95,7 @@ export default function SettingsPage() {
             {tabs.map((tab) => (
               <button
                 key={tab.id}
+                type="button"
                 onClick={() => setActiveTab(tab.id)}
                 style={{
                   display: 'flex',
@@ -161,6 +162,7 @@ export default function SettingsPage() {
                     </code>
                     {address && (
                       <button
+                        type="button"
                         className="btn btn-ghost btn-icon"
                         style={{ padding: '0.25rem' }}
                         onClick={() => handleCopy(address, 'address')}
@@ -391,7 +393,7 @@ export default function SettingsPage() {
                       View and manage your active sessions
                     </div>
                   </div>
-                  <button className="btn btn-secondary btn-sm">
+                  <button type="button" className="btn btn-secondary btn-sm">
                     <RefreshCw size={14} /> Revoke All
                   </button>
                 </div>
@@ -519,6 +521,7 @@ export default function SettingsPage() {
                   Provider Nodes
                 </h3>
                 <button
+                  type="button"
                   className="btn btn-primary btn-sm"
                   onClick={() => setShowNodeModal(true)}
                   disabled={!isConnected}
@@ -532,6 +535,7 @@ export default function SettingsPage() {
                 <h3>No nodes registered</h3>
                 <p>Register a compute node to start earning as a provider</p>
                 <button
+                  type="button"
                   className="btn btn-primary"
                   onClick={() => setShowNodeModal(true)}
                   disabled={!isConnected}
@@ -545,15 +549,30 @@ export default function SettingsPage() {
       </div>
 
       {showNodeModal && (
-        <div className="modal-overlay" onClick={() => setShowNodeModal(false)}>
+        <div className="modal-overlay">
+          <button
+            type="button"
+            className="absolute inset-0 cursor-default"
+            onClick={() => setShowNodeModal(false)}
+            aria-label="Close modal"
+          />
           <div
             className="modal"
             style={{ maxWidth: '550px' }}
             onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              e.stopPropagation()
+              if (e.key === 'Escape') {
+                setShowNodeModal(false)
+              }
+            }}
+            role="dialog"
+            aria-modal="true"
           >
             <div className="modal-header">
               <h3 className="modal-title">Register Compute Node</h3>
               <button
+                type="button"
                 className="btn btn-ghost btn-icon"
                 onClick={() => setShowNodeModal(false)}
               >
@@ -563,8 +582,11 @@ export default function SettingsPage() {
             <form onSubmit={handleRegisterNode}>
               <div className="modal-body">
                 <div className="form-group">
-                  <label className="form-label">Node ID *</label>
+                  <label htmlFor="node-id" className="form-label">
+                    Node ID *
+                  </label>
                   <input
+                    id="node-id"
                     className="input"
                     placeholder="my-compute-node-1"
                     value={nodeFormData.nodeId}
@@ -578,8 +600,11 @@ export default function SettingsPage() {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Endpoint URL *</label>
+                  <label htmlFor="endpoint-url" className="form-label">
+                    Endpoint URL *
+                  </label>
                   <input
+                    id="endpoint-url"
                     className="input"
                     placeholder="https://node.example.com:8080"
                     value={nodeFormData.endpoint}
@@ -600,8 +625,11 @@ export default function SettingsPage() {
                   }}
                 >
                   <div className="form-group">
-                    <label className="form-label">Region</label>
+                    <label htmlFor="node-region" className="form-label">
+                      Region
+                    </label>
                     <select
+                      id="node-region"
                       className="input"
                       value={nodeFormData.region}
                       onChange={(e) =>
@@ -619,8 +647,11 @@ export default function SettingsPage() {
                     </select>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Zone</label>
+                    <label htmlFor="node-zone" className="form-label">
+                      Zone
+                    </label>
                     <input
+                      id="node-zone"
                       className="input"
                       value={nodeFormData.zone}
                       onChange={(e) =>
@@ -640,8 +671,11 @@ export default function SettingsPage() {
                   }}
                 >
                   <div className="form-group">
-                    <label className="form-label">CPU Cores</label>
+                    <label htmlFor="node-cpu" className="form-label">
+                      CPU Cores
+                    </label>
                     <input
+                      id="node-cpu"
                       className="input"
                       type="number"
                       value={nodeFormData.totalCpu}
@@ -654,8 +688,11 @@ export default function SettingsPage() {
                     />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Memory (MB)</label>
+                    <label htmlFor="node-memory" className="form-label">
+                      Memory (MB)
+                    </label>
                     <input
+                      id="node-memory"
                       className="input"
                       type="number"
                       value={nodeFormData.totalMemoryMb}
@@ -668,8 +705,11 @@ export default function SettingsPage() {
                     />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Storage (MB)</label>
+                    <label htmlFor="node-storage" className="form-label">
+                      Storage (MB)
+                    </label>
                     <input
+                      id="node-storage"
                       className="input"
                       type="number"
                       value={nodeFormData.totalStorageMb}

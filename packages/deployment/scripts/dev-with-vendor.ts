@@ -8,6 +8,11 @@
 import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { $ } from 'bun'
+import {
+  expectValid,
+  VendorManifestSchema,
+  type VendorManifest,
+} from '../schemas'
 
 const ROOT = join(import.meta.dir, '../../..')
 const VENDOR_DIR = join(ROOT, 'vendor')
@@ -17,13 +22,6 @@ interface VendorApp {
   path: string
   devCommand?: string
   port?: number
-}
-
-interface JejuManifest {
-  devCommand?: string
-  ports?: {
-    main?: number
-  }
 }
 
 async function discoverVendorApps(): Promise<VendorApp[]> {
@@ -41,7 +39,8 @@ async function discoverVendorApps(): Promise<VendorApp[]> {
     const manifestPath = join(appPath, 'jeju-manifest.json')
 
     if (existsSync(manifestPath)) {
-      const manifest = (await Bun.file(manifestPath).json()) as JejuManifest
+      const manifestRaw = await Bun.file(manifestPath).json()
+      const manifest = expectValid(VendorManifestSchema, manifestRaw, `vendor manifest ${entry.name}`)
       apps.push({
         name: entry.name,
         path: appPath,

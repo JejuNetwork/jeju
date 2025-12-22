@@ -29,7 +29,7 @@ const app = new Hono()
 
 // Initialize services with Phala TEE support
 const coordinator = createRLAIFCoordinator({
-  rpcUrl: process.env.RPC_URL ?? 'http://localhost:9545',
+  rpcUrl: process.env.RPC_URL ?? 'http://localhost:6546',
   coordinatorAddress: (process.env.RLAIF_COORDINATOR_ADDRESS ??
     '0x0') as `0x${string}`,
   computeApiUrl: process.env.COMPUTE_API_URL ?? 'http://localhost:4010',

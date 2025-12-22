@@ -6,6 +6,7 @@
 import { describe, expect, test } from 'bun:test'
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { ABISchema } from '../schemas/api'
 
 // Get the directory where this test file is located
 const TEST_DIR = dirname(__filename)
@@ -112,11 +113,12 @@ describe('NFT Validation - Code Analysis', () => {
       console.log('⏭️  Skipping: NFT Marketplace ABI not found')
       return
     }
-    const abi = JSON.parse(readFileSync(abiPath, 'utf-8')) as {
-      name?: string
-    }[]
+    const rawAbi: unknown = JSON.parse(readFileSync(abiPath, 'utf-8'))
+    const parsed = ABISchema.safeParse(rawAbi)
+    expect(parsed.success).toBe(true)
+    if (!parsed.success) return
 
-    const functionNames = abi.map((item) => item.name)
+    const functionNames = parsed.data.map((item) => item.name)
 
     // Check for required read functions
     expect(functionNames).toContain('getListing')

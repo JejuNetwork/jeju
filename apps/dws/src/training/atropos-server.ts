@@ -8,9 +8,16 @@
 
 import type { Context } from 'hono'
 import { Hono } from 'hono'
-import { compress } from 'hono/compress'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
+import {
+  DisconnectEnvSchema,
+  RegisterEnvSchema,
+  RegistrationSchema,
+  ScoredDataListSchema,
+  ScoredDataSchema,
+} from '../shared/schemas/training'
+import { validateBody } from '../shared/validation'
 
 // ============================================================================
 // Types
@@ -38,8 +45,8 @@ export interface Message {
 }
 
 export interface Registration {
-  wandb_group: string
-  wandb_project: string
+  run_group: string
+  run_project: string
   batch_size: number
   max_token_len: number
   checkpoint_dir: string
@@ -265,7 +272,6 @@ export function createAtroposServer(): Hono {
   // Middleware
   app.use('*', cors())
   app.use('*', logger())
-  app.use('*', compress())
 
   // Root endpoint
   app.get('/', (c: Context) => {
@@ -274,11 +280,15 @@ export function createAtroposServer(): Hono {
 
   // Register trainer
   app.post('/register', async (c: Context) => {
-    const registration = (await c.req.json()) as Registration
+    const registration = await validateBody(
+      RegistrationSchema,
+      c,
+      'Registration request',
+    )
 
     if (state.queue.length === 0) {
-      state.group = registration.wandb_group
-      state.project = registration.wandb_project
+      state.group = registration.run_group
+      state.project = registration.run_project
       state.batchsize = registration.batch_size
       state.max_token_len = registration.max_token_len
       state.status_dict = { step: registration.starting_step }
@@ -299,7 +309,11 @@ export function createAtroposServer(): Hono {
 
   // Register environment
   app.post('/register-env', async (c: Context) => {
-    const registerEnv = (await c.req.json()) as RegisterEnv
+    const registerEnv = await validateBody(
+      RegisterEnvSchema,
+      c,
+      'Register env request',
+    )
 
     if (!state.started) {
       return c.json({ status: 'wait for trainer to start' })
@@ -336,7 +350,11 @@ export function createAtroposServer(): Hono {
 
   // Disconnect environment
   app.post('/disconnect-env', async (c: Context) => {
-    const { env_id } = (await c.req.json()) as { env_id: number }
+    const { env_id } = await validateBody(
+      DisconnectEnvSchema,
+      c,
+      'Disconnect env request',
+    )
 
     if (env_id < state.envs.length) {
       state.envs[env_id].connected = false
@@ -346,8 +364,8 @@ export function createAtroposServer(): Hono {
     return c.json({ status: 'failure', error: 'Environment not found' })
   })
 
-  // Wandb info
-  app.get('/wandb_info', (c: Context) => {
+  // Run info
+  app.get('/run_info', (c: Context) => {
     return c.json({
       group: state.group,
       project: state.project,
@@ -448,14 +466,22 @@ export function createAtroposServer(): Hono {
 
   // Submit scored data
   app.post('/scored_data', async (c: Context) => {
-    const scoredData = (await c.req.json()) as ScoredData
+    const scoredData = await validateBody(
+      ScoredDataSchema,
+      c,
+      'Scored data submission',
+    )
     const result = processScoredData(state, scoredData)
     return c.json(result)
   })
 
   // Submit scored data list
   app.post('/scored_data_list', async (c: Context) => {
-    const scoredDataList = (await c.req.json()) as ScoredData[]
+    const scoredDataList = await validateBody(
+      ScoredDataListSchema,
+      c,
+      'Scored data list submission',
+    )
 
     let bufferedCount = 0
     let lastBufferSize: number | null = null

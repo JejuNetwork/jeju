@@ -3,7 +3,16 @@
  * Token swaps via the network solver network
  */
 
+import { expectValid } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
+import {
+  CrossChainSwapQuotesResponseSchema,
+  CrossChainSwapResponseSchema,
+  SwapQuotesResponseSchema,
+  SwapSubmitResponseSchema,
+  SwapTxDataResponseSchema,
+  TokenListResponseSchema,
+} from '../../schemas/api-responses'
 import type { Token } from '../../sdk/types'
 import type { SupportedChainId } from '../rpc'
 
@@ -97,7 +106,11 @@ class SwapService {
       })
 
       if (!response.ok) throw new Error(`Quote error: ${response.status}`)
-      const quotes = (await response.json()) as SwapQuote[]
+      const quotes = expectValid(
+        SwapQuotesResponseSchema,
+        await response.json(),
+        'swap quotes',
+      )
       return quotes.map((q) => ({
         ...q,
         inputAmount: BigInt(q.inputAmount),
@@ -147,7 +160,21 @@ class SwapService {
 
       if (!response.ok)
         throw new Error(`Cross-chain quote error: ${response.status}`)
-      return response.json()
+      const validated = expectValid(
+        CrossChainSwapQuotesResponseSchema,
+        await response.json(),
+        'cross-chain swap quotes',
+      )
+      return validated.map((q) => ({
+        ...q,
+        inputAmount: BigInt(q.inputAmount),
+        outputAmount: BigInt(q.outputAmount),
+        estimatedGas: BigInt(q.estimatedGas),
+        fee: { ...q.fee, amount: BigInt(q.fee.amount) },
+        bridgeFee: BigInt(q.bridgeFee),
+        sourceChainId: q.sourceChainId as SupportedChainId,
+        destinationChainId: q.destinationChainId as SupportedChainId,
+      }))
     } catch {
       throw new Error('Cross-chain quotes unavailable')
     }
@@ -165,12 +192,11 @@ class SwapService {
     })
 
     if (!txResponse.ok) throw new Error(`Swap error: ${txResponse.status}`)
-    const txData = (await txResponse.json()) as {
-      to: Address
-      data: Hex
-      value: string
-      gasLimit: string
-    }
+    const txData = expectValid(
+      SwapTxDataResponseSchema,
+      await txResponse.json(),
+      'swap transaction data',
+    )
 
     // Sign and send transaction
     const signedTx = await signer.signTransaction({
@@ -192,7 +218,11 @@ class SwapService {
 
     if (!submitResponse.ok)
       throw new Error(`Submit error: ${submitResponse.status}`)
-    const result = (await submitResponse.json()) as { txHash: Hex }
+    const result = expectValid(
+      SwapSubmitResponseSchema,
+      await submitResponse.json(),
+      'swap submit response',
+    )
 
     // Track recent tokens
     this.addRecentToken(quote.outputToken)
@@ -220,7 +250,11 @@ class SwapService {
 
     if (!response.ok)
       throw new Error(`Cross-chain swap error: ${response.status}`)
-    const { intentData, intentId } = await response.json()
+    const { intentData, intentId } = expectValid(
+      CrossChainSwapResponseSchema,
+      await response.json(),
+      'cross-chain swap response',
+    )
 
     // Sign intent
     const signedTx = await signer.signTransaction(intentData)
@@ -248,7 +282,11 @@ class SwapService {
         `Failed to fetch popular tokens: ${response.status} ${response.statusText}`,
       )
     }
-    return response.json()
+    return expectValid(
+      TokenListResponseSchema,
+      await response.json(),
+      'popular tokens',
+    )
   }
 
   async searchTokens(
@@ -263,7 +301,11 @@ class SwapService {
         `Failed to search tokens: ${response.status} ${response.statusText}`,
       )
     }
-    return response.json()
+    return expectValid(
+      TokenListResponseSchema,
+      await response.json(),
+      'token search results',
+    )
   }
 
   getRecentTokens(): Token[] {

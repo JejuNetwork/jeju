@@ -16,6 +16,8 @@ export type {
   VolatilityStrategyConfig,
 } from '../schemas'
 
+import { expectEVMChainId } from '../schemas'
+
 // ============ Environment Loading ============
 
 function getEnvWithDefault(key: string, defaultValue: string): string {
@@ -289,7 +291,7 @@ export interface FullBotConfig {
 }
 
 export function loadFullConfig(): FullBotConfig {
-  const chainId = getEnvNumber('CHAIN_ID', 8453) as EVMChainId
+  const chainId = expectEVMChainId(getEnvNumber('CHAIN_ID', 8453), 'CHAIN_ID')
   const chainConfig = getChainConfig(chainId)
   const privateKey = process.env.PRIVATE_KEY
 

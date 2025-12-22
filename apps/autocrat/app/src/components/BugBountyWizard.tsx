@@ -1,5 +1,3 @@
-'use client'
-
 import {
   AlertCircle,
   AlertTriangle,
@@ -17,7 +15,13 @@ import {
   Zap,
 } from 'lucide-react'
 import { useCallback, useState } from 'react'
-import { parseEther } from 'viem'
+import { useAccount } from 'wagmi'
+import {
+  assessBugBounty,
+  type BountyAssessment,
+  type BountySubmissionDraft,
+  submitBugBounty,
+} from '../config/api'
 
 // ============ Types ============
 
@@ -34,7 +38,7 @@ interface BountyDraft {
   stake: string
 }
 
-interface BountyAssessment {
+interface WizardAssessment {
   severityScore: number
   impactScore: number
   exploitabilityScore: number
@@ -153,12 +157,59 @@ interface BugBountyWizardProps {
   onCancel?: () => void
 }
 
+// ============ Helpers ============
+
+function draftToSubmission(draft: BountyDraft): BountySubmissionDraft {
+  return {
+    title: draft.title,
+    summary: draft.summary,
+    description: draft.description,
+    severity: draft.severity,
+    vulnType: draft.vulnType,
+    affectedComponents: draft.affectedComponents,
+    stepsToReproduce: draft.stepsToReproduce.filter((s) => s.trim()),
+    proofOfConcept: draft.proofOfConcept || undefined,
+    suggestedFix: draft.suggestedFix || undefined,
+  }
+}
+
+function assessmentToWizard(
+  assessment: BountyAssessment,
+  draft: BountyDraft,
+): WizardAssessment {
+  const severityScore = Math.min(
+    100,
+    assessment.qualityScore + draft.severity * 10,
+  )
+  const impactScore = draft.severity >= 2 ? 80 : draft.severity >= 1 ? 60 : 40
+  const exploitabilityScore = draft.proofOfConcept ? 70 : 30
+
+  return {
+    severityScore,
+    impactScore,
+    exploitabilityScore,
+    isImmediateThreat: draft.severity === 3 && draft.vulnType <= 2,
+    estimatedReward: `$${assessment.estimatedReward.min.toLocaleString()} - $${assessment.estimatedReward.max.toLocaleString()}`,
+    validationPriority:
+      draft.severity >= 3
+        ? 'critical'
+        : draft.severity >= 2
+          ? 'high'
+          : draft.severity >= 1
+            ? 'medium'
+            : 'low',
+    feedback: assessment.issues,
+    readyToSubmit: assessment.readyToSubmit,
+  }
+}
+
 // ============ Component ============
 
 export function BugBountyWizard({
   onComplete,
   onCancel,
 }: BugBountyWizardProps) {
+  const { address } = useAccount()
   const [step, setStep] = useState<WizardStep>('type')
   const [draft, setDraft] = useState<BountyDraft>({
     severity: 1,
@@ -173,7 +224,7 @@ export function BugBountyWizard({
     stake: '0.01',
   })
 
-  const [assessment, setAssessment] = useState<BountyAssessment | null>(null)
+  const [assessment, setAssessment] = useState<WizardAssessment | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -191,22 +242,15 @@ export function BugBountyWizard({
     submit: true,
   }
 
-  // Assess submission
+  // Assess submission using Eden
   const handleAssess = useCallback(async () => {
     setLoading(true)
     setError('')
 
     try {
-      const response = await fetch('/api/bug-bounty/assess', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(draft),
-      })
-
-      if (!response.ok) throw new Error('Assessment failed')
-
-      const result = await response.json()
-      setAssessment(result)
+      const submissionDraft = draftToSubmission(draft)
+      const result = await assessBugBounty(submissionDraft)
+      setAssessment(assessmentToWizard(result, draft))
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Assessment failed')
       // Create fallback assessment
@@ -225,28 +269,21 @@ export function BugBountyWizard({
     setLoading(false)
   }, [draft, canProceed.details, canProceed.poc])
 
-  // Submit vulnerability
+  // Submit vulnerability using Eden
   const handleSubmit = async () => {
+    if (!address) {
+      setError('Please connect your wallet to submit')
+      return
+    }
+
     setSubmitting(true)
     setError('')
 
     try {
-      const response = await fetch('/api/bug-bounty/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...draft,
-          stake: parseEther(draft.stake).toString(),
-        }),
-      })
-
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error ?? 'Submission failed')
-      }
-
-      const result = await response.json()
-      onComplete?.(result.submissionId)
+      const submissionDraft = draftToSubmission(draft)
+      const result = await submitBugBounty(submissionDraft, address)
+      const submissionId = (result as { submissionId: string }).submissionId
+      onComplete?.(submissionId)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Submission failed')
     }
@@ -337,13 +374,14 @@ export function BugBountyWizard({
 
             {/* Severity */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-3">
+              <div className="block text-sm font-medium text-gray-300 mb-3">
                 Severity Level
-              </label>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 {SEVERITY_OPTIONS.map((opt) => (
                   <button
                     key={opt.value}
+                    type="button"
                     onClick={() => setDraft({ ...draft, severity: opt.value })}
                     className={`p-4 rounded-lg border text-left transition-all ${
                       draft.severity === opt.value
@@ -369,13 +407,14 @@ export function BugBountyWizard({
 
             {/* Vulnerability Type */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-3">
+              <div className="block text-sm font-medium text-gray-300 mb-3">
                 Vulnerability Type
-              </label>
+              </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {VULN_TYPE_OPTIONS.map((opt) => (
                   <button
                     key={opt.value}
+                    type="button"
                     onClick={() => setDraft({ ...draft, vulnType: opt.value })}
                     className={`p-3 rounded-lg border text-left transition-all ${
                       draft.vulnType === opt.value
@@ -418,10 +457,14 @@ export function BugBountyWizard({
 
             {/* Title */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
+              <label
+                htmlFor="bounty-title"
+                className="block text-sm font-medium text-gray-300 mb-1"
+              >
                 Title
               </label>
               <input
+                id="bounty-title"
                 type="text"
                 value={draft.title}
                 onChange={(e) => setDraft({ ...draft, title: e.target.value })}
@@ -436,10 +479,14 @@ export function BugBountyWizard({
 
             {/* Summary */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
+              <label
+                htmlFor="bounty-summary"
+                className="block text-sm font-medium text-gray-300 mb-1"
+              >
                 Summary
               </label>
               <textarea
+                id="bounty-summary"
                 value={draft.summary}
                 onChange={(e) =>
                   setDraft({ ...draft, summary: e.target.value })
@@ -456,10 +503,14 @@ export function BugBountyWizard({
 
             {/* Description */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
+              <label
+                htmlFor="bounty-description"
+                className="block text-sm font-medium text-gray-300 mb-1"
+              >
                 Full Description
               </label>
               <textarea
+                id="bounty-description"
                 value={draft.description}
                 onChange={(e) =>
                   setDraft({ ...draft, description: e.target.value })
@@ -479,13 +530,14 @@ export function BugBountyWizard({
 
             {/* Affected Components */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <div className="block text-sm font-medium text-gray-300 mb-2">
                 Affected Components
-              </label>
+              </div>
               <div className="flex flex-wrap gap-2">
                 {COMPONENT_OPTIONS.map((comp) => (
                   <button
                     key={comp}
+                    type="button"
                     onClick={() => toggleComponent(comp)}
                     className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
                       draft.affectedComponents.includes(comp)
@@ -511,24 +563,29 @@ export function BugBountyWizard({
 
             {/* Steps to Reproduce */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <div className="block text-sm font-medium text-gray-300 mb-2">
                 Steps to Reproduce
-              </label>
+              </div>
               <div className="space-y-2">
-                {draft.stepsToReproduce.map((step, i) => (
-                  <div key={i} className="flex gap-2">
+                {draft.stepsToReproduce.map((stepText, i) => (
+                  <div
+                    key={`step-${i}-${stepText.slice(0, 10)}`}
+                    className="flex gap-2"
+                  >
                     <span className="w-8 h-10 flex items-center justify-center text-sm text-gray-400 bg-gray-700 rounded">
                       {i + 1}
                     </span>
                     <input
                       type="text"
-                      value={step}
+                      value={stepText}
                       onChange={(e) => updateStep(i, e.target.value)}
                       placeholder={`Step ${i + 1}`}
+                      aria-label={`Step ${i + 1}`}
                       className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-red-500"
                     />
                     {draft.stepsToReproduce.length > 1 && (
                       <button
+                        type="button"
                         onClick={() => removeStep(i)}
                         className="px-3 py-2 text-gray-400 hover:text-red-400 transition-colors"
                       >
@@ -538,6 +595,7 @@ export function BugBountyWizard({
                   </div>
                 ))}
                 <button
+                  type="button"
                   onClick={addStep}
                   className="text-sm text-red-400 hover:text-red-300"
                 >
@@ -548,13 +606,17 @@ export function BugBountyWizard({
 
             {/* Proof of Concept Code */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
+              <label
+                htmlFor="bounty-poc"
+                className="block text-sm font-medium text-gray-300 mb-1"
+              >
                 Proof of Concept Code
                 <span className="text-gray-500 font-normal ml-2">
                   (Recommended)
                 </span>
               </label>
               <textarea
+                id="bounty-poc"
                 value={draft.proofOfConcept}
                 onChange={(e) =>
                   setDraft({ ...draft, proofOfConcept: e.target.value })
@@ -577,13 +639,17 @@ async function exploit() {
 
             {/* Suggested Fix */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
+              <label
+                htmlFor="bounty-fix"
+                className="block text-sm font-medium text-gray-300 mb-1"
+              >
                 Suggested Fix
                 <span className="text-gray-500 font-normal ml-2">
                   (Optional, increases reward)
                 </span>
               </label>
               <textarea
+                id="bounty-fix"
                 value={draft.suggestedFix}
                 onChange={(e) =>
                   setDraft({ ...draft, suggestedFix: e.target.value })
@@ -605,6 +671,7 @@ async function exploit() {
                 Review & Assessment
               </h2>
               <button
+                type="button"
                 onClick={handleAssess}
                 disabled={loading}
                 className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
@@ -696,9 +763,9 @@ async function exploit() {
                   <div className="p-4 bg-gray-700/50 rounded-lg">
                     <h3 className="font-medium text-white mb-2">Feedback</h3>
                     <ul className="space-y-1">
-                      {assessment.feedback.map((f, i) => (
+                      {assessment.feedback.map((f) => (
                         <li
-                          key={i}
+                          key={f}
                           className="text-sm text-gray-300 flex items-start gap-2"
                         >
                           <span className="text-gray-500">•</span>
@@ -775,18 +842,29 @@ async function exploit() {
               Submit Vulnerability
             </h2>
 
+            {/* Wallet Connection Check */}
+            {!address && (
+              <div className="p-4 bg-yellow-900/30 border border-yellow-700 rounded-lg flex items-center gap-3">
+                <AlertTriangle className="w-5 h-5 text-yellow-400" />
+                <span className="text-yellow-300">
+                  Please connect your wallet to submit
+                </span>
+              </div>
+            )}
+
             {/* Stake Selection */}
             <div className="p-4 bg-gray-700/50 rounded-lg">
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <div className="block text-sm font-medium text-gray-300 mb-2">
                 Stake Amount
                 <span className="text-gray-500 font-normal ml-2">
                   (Higher stake = faster review)
                 </span>
-              </label>
+              </div>
               <div className="flex gap-2">
                 {['0.01', '0.05', '0.1', '0.5'].map((amount) => (
                   <button
                     key={amount}
+                    type="button"
                     onClick={() => setDraft({ ...draft, stake: amount })}
                     className={`px-4 py-2 rounded-lg transition-colors ${
                       draft.stake === amount
@@ -864,6 +942,7 @@ async function exploit() {
       {/* Navigation */}
       <div className="flex justify-between mt-6">
         <button
+          type="button"
           onClick={() => {
             if (step === 'type') {
               onCancel?.()
@@ -886,6 +965,7 @@ async function exploit() {
         </button>
 
         <button
+          type="button"
           onClick={() => {
             if (step === 'type' && canProceed.type) setStep('details')
             else if (step === 'details' && canProceed.details) setStep('poc')
@@ -895,7 +975,9 @@ async function exploit() {
             } else if (step === 'review' && canProceed.review) setStep('submit')
             else if (step === 'submit') handleSubmit()
           }}
-          disabled={!canProceed[step] || submitting}
+          disabled={
+            !canProceed[step] || submitting || (step === 'submit' && !address)
+          }
           className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {step === 'submit'

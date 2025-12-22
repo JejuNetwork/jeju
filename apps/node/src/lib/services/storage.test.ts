@@ -105,6 +105,7 @@ describe('Storage ABIs', () => {
 
 describe('Contract Addresses', () => {
   it('exports ContractAddresses interface with contentRegistry', async () => {
+    // Dynamic import: Test may run before module is fully initialized
     const contracts = await import('../contracts')
 
     // Localnet should have all addresses

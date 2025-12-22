@@ -21,7 +21,7 @@ const _TEST_PRIVATE_KEY =
 
 // Check environment
 const isLocalnet = process.env.NETWORK === 'localnet' || !process.env.NETWORK
-const hasAnvil = process.env.RPC_URL?.includes('localhost:8545') || isLocalnet
+const hasAnvil = process.env.RPC_URL?.includes('localhost:6545') || isLocalnet
 
 describe('Decentralized Infrastructure', () => {
   // ============================================================================

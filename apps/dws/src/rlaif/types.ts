@@ -58,23 +58,25 @@ export interface RLTrajectoryMetadata {
  */
 export type RLEnvConfig = JSONObject
 
-export enum RLAlgorithm {
-  GRPO = 'grpo',
-  PPO = 'ppo',
-  DPO = 'dpo',
-  REINFORCE = 'reinforce',
-}
+export const RLAlgorithm = {
+  GRPO: 'grpo',
+  PPO: 'ppo',
+  DPO: 'dpo',
+  REINFORCE: 'reinforce',
+} as const
+export type RLAlgorithm = (typeof RLAlgorithm)[keyof typeof RLAlgorithm]
 
-export enum RLRunState {
-  Uninitialized = 0,
-  CollectingRollouts = 1,
-  Judging = 2,
-  Training = 3,
-  Evaluating = 4,
-  Promoting = 5,
-  Paused = 6,
-  Finished = 7,
-}
+export const RLRunState = {
+  Uninitialized: 0,
+  CollectingRollouts: 1,
+  Judging: 2,
+  Training: 3,
+  Evaluating: 4,
+  Promoting: 5,
+  Paused: 6,
+  Finished: 7,
+} as const
+export type RLRunState = (typeof RLRunState)[keyof typeof RLRunState]
 
 export interface TrajectoryStep {
   stepNumber: number

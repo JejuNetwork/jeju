@@ -1,8 +1,8 @@
 import { gql, request } from 'graphql-request'
 import { useEffect, useState } from 'react'
-import { INDEXER_URL } from '@/config'
-import { expect } from '@/lib/validation'
-import { NonEmptyStringSchema } from '@/schemas/common'
+import { INDEXER_URL } from '../../config'
+import { expect } from '../../lib/validation'
+import { NonEmptyStringSchema } from '../../schemas/common'
 
 const GAME_FEED_QUERY = gql`
   query GetGameFeed($sessionId: String!) {

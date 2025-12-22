@@ -150,6 +150,7 @@ export {
   type TEEProviderConfig,
 } from './tee/index.js'
 export * from './types/index.js'
+export { SolanaHealthResponseSchema } from './utils/validation.js'
 export {
   createXLPService,
   type FillRequest,

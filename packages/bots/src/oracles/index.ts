@@ -5,6 +5,7 @@ import {
   type PublicClient,
   parseAbi,
 } from 'viem'
+import { expectEVMChainId } from '../schemas'
 import type { EVMChainId, OraclePrice } from '../types'
 
 const PYTH_ABI = parseAbi([
@@ -106,7 +107,7 @@ export class OracleAggregator {
 
   constructor(rpcUrls: Partial<Record<EVMChainId, string>>) {
     for (const [chainIdStr, rpcUrl] of Object.entries(rpcUrls)) {
-      const chainId = Number(chainIdStr) as EVMChainId
+      const chainId = expectEVMChainId(Number(chainIdStr), 'rpcUrls key')
       this.clients.set(chainId, createPublicClient({ transport: http(rpcUrl) }))
     }
   }

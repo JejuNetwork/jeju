@@ -4,7 +4,9 @@
  * Manages providers, listings, and user accounts with persistent state
  */
 
+import { expectJson } from '@jejunetwork/types'
 import type { Address } from 'viem'
+import { z } from 'zod'
 import {
   AccessControlSchema,
   UsageLimitsSchema,
@@ -25,6 +27,9 @@ import type {
   UsageLimits,
   UserAccount,
 } from './types'
+
+// Schema for listing IDs array parsed from JSON
+const ListingIdsSchema = z.array(z.string())
 
 // Initialize state on module load (skip in test to avoid connection errors)
 if (process.env.NODE_ENV !== 'test') {
@@ -329,7 +334,11 @@ export async function getAccount(
   address: Address,
 ): Promise<UserAccount | undefined> {
   const row = await apiUserAccountState.getOrCreate(address)
-  const listingIds = JSON.parse(row.active_listings) as string[]
+  const listingIds = expectJson(
+    row.active_listings,
+    ListingIdsSchema,
+    'active listings',
+  )
   return {
     address: row.address as Address,
     balance: BigInt(row.balance),
@@ -364,7 +373,11 @@ export async function getOrCreateAccount(
   address: Address,
 ): Promise<UserAccount> {
   const row = await apiUserAccountState.getOrCreate(address)
-  const listingIds = JSON.parse(row.active_listings) as string[]
+  const listingIds = expectJson(
+    row.active_listings,
+    ListingIdsSchema,
+    'active listings',
+  )
   return {
     address: row.address as Address,
     balance: BigInt(row.balance),

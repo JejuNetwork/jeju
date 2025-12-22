@@ -5,7 +5,7 @@
  */
 
 import { getNetworkName, getWebsiteUrl } from '@jejunetwork/config'
-import { Hono } from 'hono'
+import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import type { A2ASkillParams } from '../schemas'
 import {
@@ -97,145 +97,134 @@ const AGENT_CARD = {
   ],
 }
 
-export function createA2AServer(): Hono {
-  const app = new Hono()
+const networkName = getNetworkName()
+const isLocalnet = networkName === 'localnet' || networkName === 'Jeju'
+
+export function createA2AServer(): Elysia {
   const todoService = getTodoService()
   const cronService = getCronService()
 
-  // Determine if we're in localnet for error message detail level
-  const networkName = getNetworkName()
-  const isLocalnet = networkName === 'localnet' || networkName === 'Jeju'
+  return new Elysia({ prefix: '/a2a' })
+    .onError(({ error }) => {
+      console.error('[A2A Error]', error)
 
-  // Error handler with sanitized messages
-  app.onError((err, c) => {
-    // Log full error for debugging (server-side only)
-    console.error('[A2A Error]', err)
+      if (error instanceof ValidationError) {
+        return {
+          jsonrpc: '2.0',
+          id: null,
+          error: { code: -32602, message: error.message },
+        }
+      }
 
-    if (err instanceof ValidationError) {
-      return c.json({
+      const safeMessage = sanitizeErrorMessage(error, isLocalnet)
+      return {
         jsonrpc: '2.0',
         id: null,
-        error: { code: -32602, message: err.message },
-      })
-    }
-
-    // Return sanitized message to client
-    const safeMessage = sanitizeErrorMessage(err, isLocalnet)
-    return c.json({
-      jsonrpc: '2.0',
-      id: null,
-      error: { code: -32603, message: safeMessage },
+        error: { code: -32603, message: safeMessage },
+      }
     })
-  })
+    .get('/.well-known/agent-card.json', () => {
+      const validatedCard = expectValid(
+        a2AAgentCardSchema,
+        AGENT_CARD,
+        'Agent card',
+      )
+      return validatedCard
+    })
+    .post('/', async ({ body, request }) => {
+      const validatedMessage = expectValid(a2AMessageSchema, body, 'A2A message')
 
-  // Agent card discovery with validation
-  app.get('/.well-known/agent-card.json', (c) => {
-    const validatedCard = expectValid(
-      a2AAgentCardSchema,
-      AGENT_CARD,
-      'Agent card',
-    )
-    return c.json(validatedCard)
-  })
+      const addressHeader = request.headers.get('x-jeju-address')
+      if (!addressHeader) {
+        const response: A2AResponse = {
+          jsonrpc: '2.0',
+          id: validatedMessage.id,
+          error: {
+            code: 401,
+            message: 'Authentication required: x-jeju-address header missing',
+          },
+        }
+        return response
+      }
 
-  // Main A2A endpoint with strict validation
-  app.post('/', async (c) => {
-    const body = await c.req.json()
-    const validatedMessage = expectValid(a2AMessageSchema, body, 'A2A message')
+      const address = expectValid(
+        addressSchema,
+        addressHeader,
+        'x-jeju-address header',
+      )
 
-    const addressHeader = c.req.header('x-jeju-address')
-    if (!addressHeader) {
+      if (validatedMessage.method !== 'message/send') {
+        const response: A2AResponse = {
+          jsonrpc: '2.0',
+          id: validatedMessage.id,
+          error: {
+            code: -32601,
+            message: `Method not found: ${validatedMessage.method}`,
+          },
+        }
+        return response
+      }
+
+      const message = validatedMessage.params?.message
+      if (!message) {
+        const response: A2AResponse = {
+          jsonrpc: '2.0',
+          id: validatedMessage.id,
+          error: { code: -32602, message: 'Message params required' },
+        }
+        return response
+      }
+
+      const dataPart = message.parts.find((p) => p.kind === 'data')
+      if (!dataPart || dataPart.kind !== 'data') {
+        const response: A2AResponse = {
+          jsonrpc: '2.0',
+          id: validatedMessage.id,
+          error: { code: -32602, message: 'Data part required in message' },
+        }
+        return response
+      }
+
+      const skillId = dataPart.data?.skillId
+      if (!skillId || typeof skillId !== 'string') {
+        const response: A2AResponse = {
+          jsonrpc: '2.0',
+          id: validatedMessage.id,
+          error: { code: -32602, message: 'skillId required in data part' },
+        }
+        return response
+      }
+
+      const params = expectValid(
+        a2ASkillParamsSchema,
+        dataPart.data,
+        `Skill params for ${skillId}`,
+      )
+
+      const result = await executeSkill(
+        skillId,
+        params,
+        address,
+        todoService,
+        cronService,
+      )
+
       const response: A2AResponse = {
         jsonrpc: '2.0',
         id: validatedMessage.id,
-        error: {
-          code: 401,
-          message: 'Authentication required: x-jeju-address header missing',
+        result: {
+          role: 'agent',
+          parts: [
+            { kind: 'text', text: result.message },
+            { kind: 'data', data: result.data },
+          ],
+          messageId: message.messageId,
+          kind: 'message',
         },
       }
-      return c.json(response)
-    }
 
-    const address = expectValid(
-      addressSchema,
-      addressHeader,
-      'x-jeju-address header',
-    )
-
-    if (validatedMessage.method !== 'message/send') {
-      const response: A2AResponse = {
-        jsonrpc: '2.0',
-        id: validatedMessage.id,
-        error: {
-          code: -32601,
-          message: `Method not found: ${validatedMessage.method}`,
-        },
-      }
-      return c.json(response)
-    }
-
-    const message = validatedMessage.params?.message
-    if (!message) {
-      const response: A2AResponse = {
-        jsonrpc: '2.0',
-        id: validatedMessage.id,
-        error: { code: -32602, message: 'Message params required' },
-      }
-      return c.json(response)
-    }
-
-    const dataPart = message.parts.find((p) => p.kind === 'data')
-    if (!dataPart || dataPart.kind !== 'data') {
-      const response: A2AResponse = {
-        jsonrpc: '2.0',
-        id: validatedMessage.id,
-        error: { code: -32602, message: 'Data part required in message' },
-      }
-      return c.json(response)
-    }
-
-    const skillId = dataPart.data?.skillId
-    if (!skillId || typeof skillId !== 'string') {
-      const response: A2AResponse = {
-        jsonrpc: '2.0',
-        id: validatedMessage.id,
-        error: { code: -32602, message: 'skillId required in data part' },
-      }
-      return c.json(response)
-    }
-
-    const params = expectValid(
-      a2ASkillParamsSchema,
-      dataPart.data,
-      `Skill params for ${skillId}`,
-    )
-
-    const result = await executeSkill(
-      skillId,
-      params,
-      address,
-      todoService,
-      cronService,
-    )
-
-    const response: A2AResponse = {
-      jsonrpc: '2.0',
-      id: validatedMessage.id,
-      result: {
-        role: 'agent',
-        parts: [
-          { kind: 'text', text: result.message },
-          { kind: 'data', data: result.data },
-        ],
-        messageId: message.messageId,
-        kind: 'message',
-      },
-    }
-
-    return c.json(response)
-  })
-
-  return app
+      return response
+    })
 }
 
 interface SkillResult {

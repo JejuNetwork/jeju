@@ -9,8 +9,19 @@ import { useQuery } from '@tanstack/react-query'
 import { useCallback, useState } from 'react'
 import type { Address } from 'viem'
 import { useAccount } from 'wagmi'
-import { OIF_AGGREGATOR_URL } from '@/config'
-import { OIF_SUPPORTED_CHAINS } from '@/config/chains'
+import { OIF_AGGREGATOR_URL } from '../config'
+import { OIF_SUPPORTED_CHAINS } from '../config/chains'
+import {
+  AllIntentsResponseSchema,
+  CreateIntentResponseSchema,
+  expectValid,
+  IntentQuotesResponseSchema,
+  IntentsResponseSchema,
+  LeaderboardResponseSchema,
+  OIFStatsSchema,
+  RoutesResponseSchema,
+  SolversResponseSchema,
+} from '../lib/validation'
 
 export interface Intent {
   id: string
@@ -99,7 +110,11 @@ export function useIntentQuote(params: {
           `Failed to fetch quotes: ${response.status} ${response.statusText}`,
         )
       }
-      const data = (await response.json()) as { quotes?: IntentQuote[] }
+      const data = expectValid(
+        IntentQuotesResponseSchema,
+        await response.json(),
+        'intent quotes response',
+      )
       if (!data.quotes) {
         throw new Error('Invalid response: quotes not found')
       }
@@ -120,7 +135,11 @@ export function useOIFStats() {
           `Failed to fetch OIF stats: ${response.status} ${response.statusText}`,
         )
       }
-      return response.json() as Promise<OIFStats>
+      return expectValid(
+        OIFStatsSchema,
+        await response.json(),
+        'OIF stats response',
+      )
     },
     staleTime: 1000 * 30, // 30 seconds
   })
@@ -158,8 +177,12 @@ export function useIntentAPI() {
           throw new Error('Failed to create intent')
         }
 
-        const data = await response.json()
-        return data.intent as Intent
+        const data = expectValid(
+          CreateIntentResponseSchema,
+          await response.json(),
+          'create intent response',
+        )
+        return data.intent ?? null
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Unknown error')
         return null
@@ -183,7 +206,11 @@ export function useIntentAPI() {
         `Failed to fetch intents: ${response.status} ${response.statusText}`,
       )
     }
-    const data = (await response.json()) as { intents?: Intent[] }
+    const data = expectValid(
+      IntentsResponseSchema,
+      await response.json(),
+      'intents response',
+    )
     if (!data.intents) {
       throw new Error('Invalid response: intents not found')
     }
@@ -280,7 +307,11 @@ export function useAllIntents(params: AllIntentsParams = {}) {
           `Failed to fetch intents: ${response.status} ${response.statusText}`,
         )
       }
-      const data = (await response.json()) as { intents?: AllIntentsIntent[] }
+      const data = expectValid(
+        AllIntentsResponseSchema,
+        await response.json(),
+        'all intents response',
+      )
       if (!data.intents) {
         throw new Error('Invalid response: intents not found')
       }
@@ -311,7 +342,11 @@ export function useRoutes() {
           `Failed to fetch routes: ${response.status} ${response.statusText}`,
         )
       }
-      const data = (await response.json()) as { routes?: Route[] }
+      const data = expectValid(
+        RoutesResponseSchema,
+        await response.json(),
+        'routes response',
+      )
       if (!data.routes) {
         throw new Error('Invalid response: routes not found')
       }
@@ -342,7 +377,11 @@ export function useSolvers() {
           `Failed to fetch solvers: ${response.status} ${response.statusText}`,
         )
       }
-      const data = (await response.json()) as { solvers?: Solver[] }
+      const data = expectValid(
+        SolversResponseSchema,
+        await response.json(),
+        'solvers response',
+      )
       if (!data.solvers) {
         throw new Error('Invalid response: solvers not found')
       }
@@ -371,9 +410,11 @@ export function useSolverLeaderboard() {
           `Failed to fetch leaderboard: ${response.status} ${response.statusText}`,
         )
       }
-      const data = (await response.json()) as {
-        leaderboard?: LeaderboardEntry[]
-      }
+      const data = expectValid(
+        LeaderboardResponseSchema,
+        await response.json(),
+        'leaderboard response',
+      )
       if (!data.leaderboard) {
         throw new Error('Invalid response: leaderboard not found')
       }

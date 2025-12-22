@@ -120,6 +120,7 @@ export default function Dashboard() {
             <nav className="nav-tab-container">
               {TABS.map(({ id, icon: Icon, label }) => (
                 <button
+                  type="button"
                   key={id}
                   className={`button nav-tab ${activeTab === id ? '' : 'button-secondary'}`}
                   onClick={() => setActiveTab(id)}

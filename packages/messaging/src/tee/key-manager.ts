@@ -8,9 +8,14 @@
 import {
   createCipheriv,
   createDecipheriv,
+  createHash,
+  createHmac,
   randomBytes,
   scrypt,
 } from 'node:crypto'
+import { ed25519, x25519 } from '@noble/curves/ed25519'
+import { hkdf } from '@noble/hashes/hkdf'
+import { sha256 } from '@noble/hashes/sha256'
 import type { Address, Hex } from 'viem'
 import type {
   AttestationVerificationResult,
@@ -306,7 +311,6 @@ export class TEEXMTPKeyManager {
     const theirPub = Buffer.from(theirPublicKey.slice(2), 'hex')
 
     // For mock, just hash the concatenation
-    const { createHash } = await import('node:crypto')
     const shared = createHash('sha256')
       .update(keyStore.privateKey)
       .update(theirPub)
@@ -399,7 +403,6 @@ export class TEEXMTPKeyManager {
     ])
 
     // Generate public key from private key
-    const { ed25519 } = await import('@noble/curves/ed25519')
     const publicKey = ed25519.getPublicKey(privateKey)
 
     // Check keys limit
@@ -480,9 +483,6 @@ export class TEEXMTPKeyManager {
   private async generateKeyInTEE(
     request: GenerateKeyRequest,
   ): Promise<GenerateKeyResult> {
-    const { ed25519 } = await import('@noble/curves/ed25519')
-    const { x25519 } = await import('@noble/curves/ed25519')
-
     let privateKey: Uint8Array
     let publicKey: Uint8Array
 
@@ -519,7 +519,6 @@ export class TEEXMTPKeyManager {
       throw new Error(`Ed25519 key not found: ${request.keyId}`)
     }
 
-    const { ed25519 } = await import('@noble/curves/ed25519')
     const signature = ed25519.sign(request.message, keyStore.privateKey)
 
     return {
@@ -543,9 +542,6 @@ export class TEEXMTPKeyManager {
     }
 
     // HKDF derivation
-    const { hkdf } = await import('@noble/hashes/hkdf')
-    const { sha256 } = await import('@noble/hashes/sha256')
-
     const derived = hkdf(
       sha256,
       parentKey.privateKey,
@@ -555,7 +551,6 @@ export class TEEXMTPKeyManager {
     )
 
     // Generate public key
-    const { x25519 } = await import('@noble/curves/ed25519')
     const publicKey = x25519.getPublicKey(derived)
 
     this.mockKeyStore.set(newKeyId, {
@@ -595,7 +590,6 @@ export class TEEXMTPKeyManager {
     const keyStore = this.mockKeyStore.get(keyId)
     const hmacKey = keyStore ? keyStore.privateKey : randomBytes(32) // Ephemeral key if no stored key
 
-    const { createHmac } = await import('node:crypto')
     const signature = createHmac('sha256', hmacKey)
       .update(attestationData)
       .digest()

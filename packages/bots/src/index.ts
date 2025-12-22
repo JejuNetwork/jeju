@@ -29,18 +29,5 @@ export {
 export * from './simulation'
 // Strategies
 export * from './strategies'
-// Re-export key types for convenience
-export type {
-  ArbitrageOpportunity,
-  BacktestResult,
-  BotStats,
-  CrossChainArbOpportunity,
-  EVMChainId,
-  Pool,
-  RiskMetrics,
-  TFMMPool,
-  Token,
-  TradeResult,
-} from './types'
 // Types
 export * from './types'

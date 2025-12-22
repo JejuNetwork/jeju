@@ -111,7 +111,7 @@ describe('GeoRouter', () => {
       })
 
       expect(decision).not.toBeNull()
-      expect(decision!.region).toBe('us-east-1')
+      expect(decision?.region).toBe('us-east-1')
     })
 
     it('should route to nearest region when preferred not available', () => {
@@ -123,7 +123,7 @@ describe('GeoRouter', () => {
 
       expect(decision).not.toBeNull()
       // Should fallback to us-east-1 (same geography)
-      expect(['us-east-1', 'us-west-1']).toContain(decision!.region)
+      expect(['us-east-1', 'us-west-1']).toContain(decision?.region)
     })
 
     it('should return null when no nodes available', () => {
@@ -169,7 +169,7 @@ describe('GeoRouter', () => {
       })
 
       expect(decision).not.toBeNull()
-      expect(decision!.nodeId).toBe('healthy')
+      expect(decision?.nodeId).toBe('healthy')
     })
 
     it('should prefer nodes with higher cache hit rate', () => {
@@ -199,7 +199,7 @@ describe('GeoRouter', () => {
       })
 
       expect(decision).not.toBeNull()
-      expect(decision!.nodeId).toBe('high-cache')
+      expect(decision?.nodeId).toBe('high-cache')
     })
 
     it('should prefer nodes with lower load', () => {
@@ -229,7 +229,7 @@ describe('GeoRouter', () => {
       })
 
       expect(decision).not.toBeNull()
-      expect(decision!.nodeId).toBe('low-load')
+      expect(decision?.nodeId).toBe('low-load')
     })
   })
 
@@ -304,9 +304,9 @@ describe('GeoRouter', () => {
       const updatedNode = nodes.find((n) => n.nodeId === 'node-1')
 
       expect(updatedNode).toBeDefined()
-      expect(updatedNode!.metrics.currentLoad).toBe(80)
-      expect(updatedNode!.metrics.cacheHitRate).toBe(95)
-      expect(updatedNode!.metrics.avgLatencyMs).toBe(10)
+      expect(updatedNode?.metrics.currentLoad).toBe(80)
+      expect(updatedNode?.metrics.cacheHitRate).toBe(95)
+      expect(updatedNode?.metrics.avgLatencyMs).toBe(10)
     })
   })
 })

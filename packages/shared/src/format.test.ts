@@ -281,7 +281,7 @@ describe('generatePrefixedId', () => {
   })
 })
 
-describe('classNames / cn', () => {
+describe('classNames', () => {
   test('merges class names', () => {
     expect(classNames('btn', 'btn-primary')).toBe('btn btn-primary')
   })
@@ -298,16 +298,56 @@ describe('classNames / cn', () => {
     expect(classNames('btn', null, undefined, '', 'active')).toBe('btn active')
   })
 
-  test('cn is an alias for classNames', () => {
-    expect(cn('a', 'b')).toBe(classNames('a', 'b'))
-  })
-
   test('handles objects', () => {
     expect(classNames({ active: true, disabled: false })).toBe('active')
   })
 
   test('handles arrays', () => {
     expect(classNames(['a', 'b'], 'c')).toBe('a b c')
+  })
+})
+
+describe('cn (with tailwind-merge)', () => {
+  test('merges class names', () => {
+    expect(cn('btn', 'btn-primary')).toBe('btn btn-primary')
+  })
+
+  test('handles conditional classes', () => {
+    const isActive = true
+    const isDisabled = false
+    expect(cn('btn', isActive && 'active', isDisabled && 'disabled')).toBe(
+      'btn active',
+    )
+  })
+
+  test('filters falsy values', () => {
+    expect(cn('btn', null, undefined, '', 'active')).toBe('btn active')
+  })
+
+  test('handles objects', () => {
+    expect(cn({ active: true, disabled: false })).toBe('active')
+  })
+
+  test('handles arrays', () => {
+    expect(cn(['a', 'b'], 'c')).toBe('a b c')
+  })
+
+  test('merges conflicting Tailwind padding classes', () => {
+    // p-4 and px-2: px-2 should override horizontal padding from p-4
+    expect(cn('p-4', 'px-2')).toBe('p-4 px-2')
+  })
+
+  test('merges conflicting Tailwind text color classes', () => {
+    // Later color should override earlier
+    expect(cn('text-red-500', 'text-blue-500')).toBe('text-blue-500')
+  })
+
+  test('merges conflicting Tailwind background classes', () => {
+    expect(cn('bg-red-500', 'bg-blue-500')).toBe('bg-blue-500')
+  })
+
+  test('keeps non-conflicting Tailwind classes', () => {
+    expect(cn('p-4', 'm-2', 'text-red-500')).toBe('p-4 m-2 text-red-500')
   })
 })
 

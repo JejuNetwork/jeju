@@ -72,6 +72,7 @@ export function PerpsView({ address }: PerpsViewProps) {
             </p>
           </div>
           <button
+            type="button"
             onClick={fetchData}
             disabled={isLoading}
             className="flex items-center gap-2 px-4 py-2 bg-secondary hover:bg-secondary/80 rounded-xl disabled:opacity-50"
@@ -122,6 +123,7 @@ export function PerpsView({ address }: PerpsViewProps) {
             { id: 'markets' as const, label: 'Markets', icon: DollarSign },
           ].map(({ id, label, icon: Icon }) => (
             <button
+              type="button"
               key={id}
               onClick={() => setTab(id)}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -145,12 +147,13 @@ export function PerpsView({ address }: PerpsViewProps) {
 
               {/* Market Selection */}
               <div className="mb-4">
-                <label className="text-sm text-muted-foreground mb-2 block">
+                <span className="text-sm text-muted-foreground mb-2 block">
                   Market
-                </label>
+                </span>
                 <div className="flex gap-2">
                   {['ETH-PERP', 'BTC-PERP'].map((m) => (
                     <button
+                      type="button"
                       key={m}
                       onClick={() => setSelectedMarket(m)}
                       className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
@@ -167,11 +170,15 @@ export function PerpsView({ address }: PerpsViewProps) {
 
               {/* Side Selection */}
               <div className="mb-4">
-                <label className="text-sm text-muted-foreground mb-2 block">
+                <label
+                  htmlFor="side-select"
+                  className="text-sm text-muted-foreground mb-2 block"
+                >
                   Direction
                 </label>
                 <div className="flex gap-2">
                   <button
+                    type="button"
                     onClick={() => setSide('long')}
                     className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors ${
                       side === 'long'
@@ -183,6 +190,7 @@ export function PerpsView({ address }: PerpsViewProps) {
                     Long
                   </button>
                   <button
+                    type="button"
                     onClick={() => setSide('short')}
                     className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors ${
                       side === 'short'
@@ -198,10 +206,14 @@ export function PerpsView({ address }: PerpsViewProps) {
 
               {/* Leverage */}
               <div className="mb-4">
-                <label className="text-sm text-muted-foreground mb-2 block">
+                <label
+                  htmlFor="leverage-slider"
+                  className="text-sm text-muted-foreground mb-2 block"
+                >
                   Leverage: {leverage}x
                 </label>
                 <input
+                  id="leverage-slider"
                   type="range"
                   min={1}
                   max={20}
@@ -218,10 +230,14 @@ export function PerpsView({ address }: PerpsViewProps) {
 
               {/* Margin */}
               <div className="mb-6">
-                <label className="text-sm text-muted-foreground mb-2 block">
+                <label
+                  htmlFor="margin-input"
+                  className="text-sm text-muted-foreground mb-2 block"
+                >
                   Margin (USDC)
                 </label>
                 <input
+                  id="margin-input"
                   type="text"
                   placeholder="0.0"
                   className="w-full px-4 py-3 bg-secondary rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-primary"
@@ -229,6 +245,7 @@ export function PerpsView({ address }: PerpsViewProps) {
               </div>
 
               <button
+                type="button"
                 className={`w-full px-6 py-3 rounded-xl font-medium transition-colors ${
                   side === 'long'
                     ? 'bg-emerald-500 hover:bg-emerald-600 text-white'
@@ -316,6 +333,7 @@ export function PerpsView({ address }: PerpsViewProps) {
                   Open a position to start trading
                 </p>
                 <button
+                  type="button"
                   onClick={() => setTab('trade')}
                   className="mt-4 px-6 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl"
                 >
@@ -394,10 +412,16 @@ export function PerpsView({ address }: PerpsViewProps) {
                     </div>
 
                     <div className="flex gap-2 mt-4">
-                      <button className="flex-1 px-4 py-2 bg-secondary hover:bg-secondary/80 rounded-lg text-sm">
+                      <button
+                        type="button"
+                        className="flex-1 px-4 py-2 bg-secondary hover:bg-secondary/80 rounded-lg text-sm"
+                      >
                         Add Margin
                       </button>
-                      <button className="flex-1 px-4 py-2 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded-lg text-sm">
+                      <button
+                        type="button"
+                        className="flex-1 px-4 py-2 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded-lg text-sm"
+                      >
                         Close Position
                       </button>
                     </div>

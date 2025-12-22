@@ -23,18 +23,15 @@ import {
 } from 'node:fs'
 import { join } from 'node:path'
 import { logger } from '../shared/logger'
+import {
+  type DeploymentState,
+  DeploymentStateSchema,
+  expectJson,
+} from '../../schemas'
 
 const ROOT = join(import.meta.dir, '..')
 const DEPLOYMENTS_DIR = join(ROOT, 'packages/contracts/deployments')
 const BACKUPS_DIR = join(ROOT, 'packages/contracts/deployments/backups')
-
-interface DeploymentState {
-  network: string
-  chainId: number
-  timestamp: number
-  deployer: string
-  [key: string]: string | number
-}
 
 function parseArgs(): { network: string; backup: string } {
   const networkArg = process.argv.find((arg) => arg.startsWith('--network='))
@@ -117,13 +114,8 @@ function loadDeploymentState(backupPath: string): DeploymentState {
     throw new Error(`Deployment file not found in backup: ${deploymentFile}`)
   }
 
-  try {
-    const content = readFileSync(deploymentFile, 'utf-8')
-    return JSON.parse(content) as DeploymentState
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    throw new Error(`Failed to parse deployment file: ${errorMessage}`)
-  }
+  const content = readFileSync(deploymentFile, 'utf-8')
+  return expectJson(content, DeploymentStateSchema, `backup deployment state`)
 }
 
 function updateEnvFile(_network: string, state: DeploymentState): void {
@@ -180,17 +172,19 @@ async function verifyRollback(
     return false
   }
 
-  const currentState = JSON.parse(
+  const currentState = expectJson(
     readFileSync(deploymentFile, 'utf-8'),
-  ) as DeploymentState
+    DeploymentStateSchema,
+    `current deployment state`,
+  )
 
   // Verify key addresses match
-  const keyFields = ['sequencerRegistry', 'disputeGameFactory', 'prover']
+  const keyFields = ['sequencerRegistry', 'disputeGameFactory', 'prover'] as const
   let allMatch = true
 
   for (const field of keyFields) {
-    const current = currentState[field] as string
-    const expected = state[field] as string
+    const current = currentState[field]
+    const expected = state[field]
 
     if (current !== expected) {
       logger.warn(

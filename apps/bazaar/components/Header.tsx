@@ -1,13 +1,10 @@
-'use client'
-
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import { useAccount, useDisconnect } from 'wagmi'
 import { AuthButton } from './auth/AuthButton'
 
 export function Header() {
-  const pathname = usePathname()
+  const { pathname } = useLocation()
   const { address, isConnected } = useAccount()
   const { disconnect } = useDisconnect()
   const [showMobileMenu, setShowMobileMenu] = useState(false)
@@ -79,7 +76,7 @@ export function Header() {
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16 md:h-20">
             {/* Logo */}
-            <Link href="/" className="flex items-center gap-2 md:gap-3 group">
+            <Link to="/" className="flex items-center gap-2 md:gap-3 group">
               <div className="text-2xl md:text-3xl group-hover:animate-bounce-subtle">
                 🏝️
               </div>
@@ -93,7 +90,7 @@ export function Header() {
               {navItems.map((item) => (
                 <Link
                   key={item.href}
-                  href={item.href}
+                  to={item.href}
                   className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
                     isActive(item.href)
                       ? 'bg-bazaar-primary/10 text-bazaar-primary'
@@ -114,6 +111,7 @@ export function Header() {
             <div className="flex items-center gap-2 md:gap-3">
               {/* Theme Toggle */}
               <button
+                type="button"
                 onClick={toggleTheme}
                 className="p-2 md:p-2.5 rounded-xl transition-all duration-200 hover:scale-105"
                 style={{ backgroundColor: 'var(--bg-secondary)' }}
@@ -131,6 +129,7 @@ export function Header() {
                 ) : (
                   <>
                     <button
+                      type="button"
                       onClick={() =>
                         setShowPortfolioDropdown(!showPortfolioDropdown)
                       }
@@ -151,6 +150,7 @@ export function Header() {
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
+                        aria-hidden="true"
                       >
                         <path
                           strokeLinecap="round"
@@ -164,9 +164,11 @@ export function Header() {
                     {/* Dropdown Menu */}
                     {showPortfolioDropdown && (
                       <>
-                        <div
-                          className="fixed inset-0 z-40"
+                        <button
+                          type="button"
+                          className="fixed inset-0 z-40 cursor-default"
                           onClick={() => setShowPortfolioDropdown(false)}
+                          aria-label="Close dropdown"
                         />
                         <div
                           className="absolute right-0 top-full mt-2 w-56 rounded-xl border shadow-lg z-50 overflow-hidden"
@@ -176,7 +178,7 @@ export function Header() {
                           }}
                         >
                           <Link
-                            href="/portfolio"
+                            to="/portfolio"
                             className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--bg-secondary)]"
                             onClick={() => setShowPortfolioDropdown(false)}
                           >
@@ -184,6 +186,7 @@ export function Header() {
                             <span className="font-medium">View Portfolio</span>
                           </Link>
                           <button
+                            type="button"
                             onClick={() => {
                               disconnect()
                               setShowPortfolioDropdown(false)
@@ -203,6 +206,7 @@ export function Header() {
 
               {/* Mobile Menu Button */}
               <button
+                type="button"
                 onClick={() => setShowMobileMenu(!showMobileMenu)}
                 className="lg:hidden p-2.5 rounded-xl transition-all"
                 style={{ backgroundColor: 'var(--bg-secondary)' }}
@@ -213,6 +217,7 @@ export function Header() {
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
+                  aria-hidden="true"
                 >
                   {showMobileMenu ? (
                     <path
@@ -242,8 +247,14 @@ export function Header() {
           showMobileMenu ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
-        onClick={() => setShowMobileMenu(false)}
-      />
+      >
+        <button
+          type="button"
+          className="absolute inset-0 cursor-default"
+          onClick={() => setShowMobileMenu(false)}
+          aria-label="Close mobile menu"
+        />
+      </div>
 
       {/* Mobile Menu Panel */}
       <nav
@@ -260,6 +271,7 @@ export function Header() {
           >
             <span className="text-lg font-bold text-gradient">Menu</span>
             <button
+              type="button"
               onClick={() => setShowMobileMenu(false)}
               className="p-2 rounded-xl"
               style={{ backgroundColor: 'var(--bg-secondary)' }}
@@ -269,6 +281,7 @@ export function Header() {
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
+                aria-hidden="true"
               >
                 <path
                   strokeLinecap="round"
@@ -285,7 +298,8 @@ export function Header() {
             {navItems.map((item) => (
               <Link
                 key={item.href}
-                href={item.href}
+                to={item.href}
+                onClick={() => setShowMobileMenu(false)}
                 className={`flex items-center gap-3 px-6 py-4 text-base font-medium transition-colors ${
                   isActive(item.href)
                     ? 'bg-bazaar-primary/10 border-r-4 border-bazaar-primary'
@@ -333,13 +347,14 @@ export function Header() {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <Link
-                    href="/portfolio"
+                    to="/portfolio"
                     onClick={() => setShowMobileMenu(false)}
                     className="btn-secondary text-center text-sm py-2.5"
                   >
                     Portfolio
                   </Link>
                   <button
+                    type="button"
                     onClick={() => {
                       disconnect()
                       setShowMobileMenu(false)

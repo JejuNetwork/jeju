@@ -18,8 +18,11 @@ import { fileURLToPath } from 'node:url'
 import {
   type ChainConfig,
   ChainConfigSchema,
+  type DeploymentFileData,
+  DeploymentFileDataSchema,
   NetworkSchema,
   type NetworkType,
+  RpcHexResultSchema,
 } from './schemas'
 
 /** Maximum config file size (10MB) - prevents DoS via large files */
@@ -230,7 +233,7 @@ export function loadDeployedContracts(network: NetworkType): DeployedContracts {
 
   for (const file of deploymentFiles) {
     if (existsSync(file)) {
-      const data = JSON.parse(safeReadFile(file)) as DeploymentFileData
+      const data = DeploymentFileDataSchema.parse(JSON.parse(safeReadFile(file)))
       // Safely merge without Object.assign to avoid prototype pollution
       const flattened = flattenContracts(data)
       for (const [key, value] of Object.entries(flattened)) {
@@ -244,9 +247,7 @@ export function loadDeployedContracts(network: NetworkType): DeployedContracts {
   return contracts
 }
 
-interface DeploymentFileData {
-  [key: string]: string | { contracts: DeploymentFileData } | DeploymentFileData
-}
+// DeploymentFileData type is imported from schemas.ts
 
 /**
  * Check if a key is safe from prototype pollution attacks
@@ -272,14 +273,24 @@ function flattenContracts(data: DeploymentFileData): DeployedContracts {
     } else if (
       typeof value === 'object' &&
       value !== null &&
+      !Array.isArray(value) &&
       'contracts' in value
     ) {
-      const nested = value as { contracts: DeploymentFileData }
-      const nestedResult = flattenContracts(nested.contracts)
-      // Safely merge without Object.assign to avoid prototype pollution
-      for (const [nestedKey, nestedValue] of Object.entries(nestedResult)) {
-        if (isSafeKey(nestedKey)) {
-          result[nestedKey] = nestedValue
+      // Type-safe: schema already validated this structure
+      const contractsValue = value.contracts
+      if (
+        typeof contractsValue === 'object' &&
+        contractsValue !== null &&
+        !Array.isArray(contractsValue)
+      ) {
+        const nestedResult = flattenContracts(
+          contractsValue as DeploymentFileData,
+        )
+        // Safely merge without Object.assign to avoid prototype pollution
+        for (const [nestedKey, nestedValue] of Object.entries(nestedResult)) {
+          if (isSafeKey(nestedKey)) {
+            result[nestedKey] = nestedValue
+          }
         }
       }
     }
@@ -337,8 +348,9 @@ export async function checkRpcReachable(rpcUrl: string): Promise<boolean> {
 
     if (!response.ok) return false
 
-    const data = (await response.json()) as { result?: string }
-    return data.result !== undefined
+    const parseResult = RpcHexResultSchema.safeParse(await response.json())
+    if (!parseResult.success) return false
+    return parseResult.data.result !== undefined
   } catch {
     return false
   }
@@ -365,10 +377,10 @@ export async function checkHasBalance(
 
     if (!response.ok) return false
 
-    const data = (await response.json()) as { result?: string }
-    if (!data.result) return false
+    const parseResult = RpcHexResultSchema.safeParse(await response.json())
+    if (!parseResult.success || !parseResult.data.result) return false
 
-    const balance = BigInt(data.result)
+    const balance = BigInt(parseResult.data.result)
     return balance > BigInt(0)
   } catch {
     return false

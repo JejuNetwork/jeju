@@ -8,15 +8,16 @@ import { describe, expect, test } from 'bun:test'
 
 // ============ Type Definitions ============
 
-enum FlagType {
-  DUPLICATE = 'DUPLICATE',
-  SPAM = 'SPAM',
-  HARMFUL = 'HARMFUL',
-  INFEASIBLE = 'INFEASIBLE',
-  MISALIGNED = 'MISALIGNED',
-  LOW_QUALITY = 'LOW_QUALITY',
-  NEEDS_WORK = 'NEEDS_WORK',
-}
+const FlagType = {
+  DUPLICATE: 'DUPLICATE',
+  SPAM: 'SPAM',
+  HARMFUL: 'HARMFUL',
+  INFEASIBLE: 'INFEASIBLE',
+  MISALIGNED: 'MISALIGNED',
+  LOW_QUALITY: 'LOW_QUALITY',
+  NEEDS_WORK: 'NEEDS_WORK',
+} as const
+type FlagType = (typeof FlagType)[keyof typeof FlagType]
 
 interface ProposalFlag {
   flagId: string

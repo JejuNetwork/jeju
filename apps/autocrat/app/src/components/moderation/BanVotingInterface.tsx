@@ -203,10 +203,14 @@ export default function BanVotingInterface({
       {isActive ? (
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-2">
+            <label
+              htmlFor="ban-vote-amount"
+              className="block text-sm font-medium mb-2"
+            >
               Vote Amount (ETH)
             </label>
             <input
+              id="ban-vote-amount"
               type="number"
               value={voteAmount}
               onChange={(e) => setVoteAmount(e.target.value)}
@@ -218,6 +222,7 @@ export default function BanVotingInterface({
 
           <div className="grid grid-cols-2 gap-4">
             <button
+              type="button"
               onClick={() => handleVote(true)}
               disabled={isPending || isConfirming}
               className="py-4 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 disabled:bg-gray-300 flex items-center justify-center gap-2"
@@ -227,6 +232,7 @@ export default function BanVotingInterface({
             </button>
 
             <button
+              type="button"
               onClick={() => handleVote(false)}
               disabled={isPending || isConfirming}
               className="py-4 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 disabled:bg-gray-300 flex items-center justify-center gap-2"

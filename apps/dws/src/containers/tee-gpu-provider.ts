@@ -24,21 +24,23 @@ import type { ComputeNode, ContainerResources } from './types'
 // Types
 // ============================================================================
 
-export enum GPUType {
-  H200 = 'nvidia-h200',
-  H100 = 'nvidia-h100',
-  A100 = 'nvidia-a100',
-  A10G = 'nvidia-a10g',
-  L4 = 'nvidia-l4',
-  T4 = 'nvidia-t4',
-}
+export const GPUType = {
+  H200: 'nvidia-h200',
+  H100: 'nvidia-h100',
+  A100: 'nvidia-a100',
+  A10G: 'nvidia-a10g',
+  L4: 'nvidia-l4',
+  T4: 'nvidia-t4',
+} as const
+export type GPUType = (typeof GPUType)[keyof typeof GPUType]
 
-export enum TEEProvider {
-  PHALA = 'phala',
-  INTEL_TDX = 'intel-tdx',
-  AMD_SEV = 'amd-sev',
-  LOCAL = 'local', // For development
-}
+export const TEEProvider = {
+  PHALA: 'phala',
+  INTEL_TDX: 'intel-tdx',
+  AMD_SEV: 'amd-sev',
+  LOCAL: 'local', // For development
+} as const
+export type TEEProvider = (typeof TEEProvider)[keyof typeof TEEProvider]
 
 export interface GPUCapabilities {
   gpuType: GPUType

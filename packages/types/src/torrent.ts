@@ -8,34 +8,44 @@ import { AddressSchema, HexSchema } from './validation'
 
 // ============ Content Types ============
 
-export enum ContentStatus {
-  UNKNOWN = 0,
-  APPROVED = 1,
-  FLAGGED = 2,
-  BANNED = 3,
-}
+export const ContentStatus = {
+  UNKNOWN: 0,
+  APPROVED: 1,
+  FLAGGED: 2,
+  BANNED: 3,
+} as const
+export type ContentStatus = (typeof ContentStatus)[keyof typeof ContentStatus]
 
-export const ContentStatusSchema = z.nativeEnum(ContentStatus)
+export const ContentStatusSchema = z.enum([
+  ...Object.values(ContentStatus).map(String),
+] as [string, ...string[]])
 
-export enum ContentViolationType {
-  NONE = 0,
-  CSAM = 1,
-  ILLEGAL_MATERIAL = 2,
-  COPYRIGHT = 3,
-  SPAM = 4,
-}
+export const ContentViolationType = {
+  NONE: 0,
+  CSAM: 1,
+  ILLEGAL_MATERIAL: 2,
+  COPYRIGHT: 3,
+  SPAM: 4,
+} as const
+export type ContentViolationType =
+  (typeof ContentViolationType)[keyof typeof ContentViolationType]
 
-export const ContentViolationTypeSchema = z.nativeEnum(ContentViolationType)
+export const ContentViolationTypeSchema = z.enum([
+  ...Object.values(ContentViolationType).map(String),
+] as [string, ...string[]])
 
-export enum ContentTier {
-  NETWORK_FREE = 0,
-  COMMUNITY = 1,
-  STANDARD = 2,
-  PRIVATE_ENCRYPTED = 3,
-  PREMIUM_HOT = 4,
-}
+export const ContentTier = {
+  NETWORK_FREE: 0,
+  COMMUNITY: 1,
+  STANDARD: 2,
+  PRIVATE_ENCRYPTED: 3,
+  PREMIUM_HOT: 4,
+} as const
+export type ContentTier = (typeof ContentTier)[keyof typeof ContentTier]
 
-export const ContentTierSchema = z.nativeEnum(ContentTier)
+export const ContentTierSchema = z.enum([
+  ...Object.values(ContentTier).map(String),
+] as [string, ...string[]])
 
 export const ContentRecordSchema = z.object({
   contentHash: HexSchema,

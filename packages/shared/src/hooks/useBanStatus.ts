@@ -9,12 +9,13 @@ import { baseSepolia } from 'viem/chains'
 
 // ============ Types ============
 
-export enum BanType {
-  NONE = 0,
-  ON_NOTICE = 1,
-  CHALLENGED = 2,
-  PERMANENT = 3,
-}
+export const BanType = {
+  NONE: 0,
+  ON_NOTICE: 1,
+  CHALLENGED: 2,
+  PERMANENT: 3,
+} as const
+export type BanType = (typeof BanType)[keyof typeof BanType]
 
 export interface BanStatus {
   isBanned: boolean
@@ -103,7 +104,7 @@ function getDefaultRpcUrl(): string {
     case 'testnet':
       return 'https://testnet-rpc.jejunetwork.org'
     default:
-      return 'http://localhost:9545'
+      return 'http://localhost:6546'
   }
 }
 

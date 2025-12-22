@@ -12,6 +12,7 @@ import {
   CoordinatorMessageSchema,
   EdgeConfigSchema,
 } from '../../plugin/schemas'
+import { AppManifestResponseSchema } from '../../schemas/api-responses'
 
 // ============================================================================
 // WebTorrent Types (dynamic import - package may not be installed)
@@ -512,7 +513,9 @@ export class WalletEdgeService {
       `${this.dwsEndpoint}/cdn/manifest/${appName}`,
     ).catch(() => null)
     if (!response?.ok) return null
-    return response.json()
+    const result = AppManifestResponseSchema.safeParse(await response.json())
+    if (!result.success) return null
+    return result.data
   }
 
   private async fetchFromDWS(cid: string): Promise<Uint8Array | null> {
@@ -535,6 +538,7 @@ export class WalletEdgeService {
 
     if (platform.category === 'desktop' && '__TAURI__' in globalThis) {
       // Use Tauri invoke command for file storage
+      // Dynamic import: Conditional - only loaded on Tauri desktop platform
       const { invoke } = await import('@tauri-apps/api/core')
       await invoke('edge_cache_write', {
         key,
@@ -552,6 +556,7 @@ export class WalletEdgeService {
     const platform = getPlatformInfo()
 
     if (platform.category === 'desktop' && '__TAURI__' in globalThis) {
+      // Dynamic import: Conditional - only loaded on Tauri desktop platform
       const { invoke } = await import('@tauri-apps/api/core')
       const data = await invoke<number[] | null>('edge_cache_read', {
         key,
@@ -580,6 +585,7 @@ export class WalletEdgeService {
     const platform = getPlatformInfo()
 
     if (platform.category === 'desktop' && '__TAURI__' in globalThis) {
+      // Dynamic import: Conditional - only loaded on Tauri desktop platform
       const { invoke } = await import('@tauri-apps/api/core')
       await invoke('edge_cache_delete', { key }).catch(() => {
         /* Error handled silently */
@@ -624,6 +630,7 @@ export class WalletEdgeService {
 
   private async initTorrent(): Promise<void> {
     // Dynamically import WebTorrent for platforms that support it
+    // Dynamic import: Conditional - only loaded when torrent is enabled and platform supports it
     // Using Function constructor to prevent TypeScript from analyzing the import path
     const importFn = new Function('specifier', 'return import(specifier)') as (
       specifier: string,
@@ -679,6 +686,7 @@ export class WalletEdgeService {
     if (!('__TAURI__' in globalThis)) return
 
     // Proxy runs in Rust backend, we just control it
+    // Dynamic import: Conditional - only loaded on Tauri desktop platform
     const { invoke } = await import('@tauri-apps/api/core')
 
     this.proxyService = {

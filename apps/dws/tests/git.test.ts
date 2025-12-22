@@ -493,7 +493,7 @@ Reviewed-by: Alice <alice@example.com>`
         parentOid = lastCommit.oid
       }
 
-      const history = await store.walkCommits(lastCommit!.oid, 3)
+      const history = await store.walkCommits(lastCommit?.oid, 3)
       expect(history).toHaveLength(3)
     })
 
@@ -603,9 +603,9 @@ describe.skipIf(SKIP)('Packfile', () => {
     const treeObj = await store.getObject(tree.oid)
     const commitObj = await store.getObject(commit.oid)
 
-    writer.addObject(blobObj!.type, blobObj!.content, blob.oid)
-    writer.addObject(treeObj!.type, treeObj!.content, tree.oid)
-    writer.addObject(commitObj!.type, commitObj!.content, commit.oid)
+    writer.addObject(blobObj?.type, blobObj?.content, blob.oid)
+    writer.addObject(treeObj?.type, treeObj?.content, tree.oid)
+    writer.addObject(commitObj?.type, commitObj?.content, commit.oid)
 
     const packData = await writer.build()
 
@@ -650,7 +650,7 @@ describe.skipIf(SKIP)('Packfile', () => {
     const blobObj = await store.getObject(blob.oid)
     expect(blobObj).not.toBeNull()
 
-    writer.addObject(blobObj!.type, blobObj!.content, blob.oid)
+    writer.addObject(blobObj?.type, blobObj?.content, blob.oid)
 
     const packData = await writer.build()
 

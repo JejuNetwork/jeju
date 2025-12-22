@@ -6,10 +6,13 @@
 import type { DataSource } from 'typeorm'
 import { formatEther } from 'viem'
 import {
+  Block,
   ComputeProvider,
   ComputeRental,
   ContainerImage,
+  Contract,
   CrossServiceRequest,
+  NodeStake,
   OracleDispute,
   OracleFeed,
   OracleOperator,
@@ -18,6 +21,8 @@ import {
   RegisteredAgent,
   StorageDeal,
   StorageProvider,
+  Transaction,
+  Account,
 } from '../model'
 
 export interface MarketplaceStats {
@@ -306,9 +311,6 @@ export async function getNetworkStats(
   if (!dataSource) {
     throw new Error('DataSource is required')
   }
-
-  const { Block, Transaction, Account, Contract, RegisteredAgent, NodeStake } =
-    await import('../model')
 
   const [
     blockCount,

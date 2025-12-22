@@ -1,6 +1,6 @@
 /**
  * Full Messaging Integration Tests
- * 
+ *
  * Comprehensive tests for Farcaster and XMTP messaging on localnet:
  * - Deploys all messaging contracts
  * - Tests Farcaster hub posting, reading, reactions
@@ -10,50 +10,53 @@
  * - Verifies end-to-end encrypted message flow
  */
 
-import { describe, test, expect, beforeAll, afterAll, beforeEach } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+import { type Subprocess, spawn } from 'bun'
 import {
+  type Address,
   createPublicClient,
   createWalletClient,
-  http,
-  parseEther,
-  type Address,
   type Hex,
-} from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import { foundry } from 'viem/chains';
-import { spawn, type Subprocess } from 'bun';
+  http,
+} from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { foundry } from 'viem/chains'
 
 // ============ Test Configuration ============
 
 // Jeju localnet ports (from packages/config/ports.ts)
-const L2_RPC_PORT = 6546;
-const L1_RPC_PORT = 6545;
-const RELAY_PORT = 3301;
-const MOCK_HUB_PORT = 3310;
-const RPC_URL = `http://127.0.0.1:${L2_RPC_PORT}`;
+const L2_RPC_PORT = 6546
+const _L1_RPC_PORT = 6545
+const RELAY_PORT = 3301
+const MOCK_HUB_PORT = 3310
+const RPC_URL = `http://127.0.0.1:${L2_RPC_PORT}`
 
 // Anvil test accounts
 const TEST_ACCOUNTS = {
   deployer: {
     address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address,
-    privateKey: '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as Hex,
+    privateKey:
+      '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as Hex,
   },
   alice: {
     address: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as Address,
-    privateKey: '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as Hex,
+    privateKey:
+      '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as Hex,
   },
   bob: {
     address: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC' as Address,
-    privateKey: '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a' as Hex,
+    privateKey:
+      '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a' as Hex,
   },
   charlie: {
     address: '0x90F79bf6EB2c4f870365E785982E1f101E93b906' as Address,
-    privateKey: '0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6' as Hex,
+    privateKey:
+      '0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6' as Hex,
   },
-};
+}
 
 // Contract ABIs (minimal for testing)
-const KEY_REGISTRY_ABI = [
+const _KEY_REGISTRY_ABI = [
   {
     name: 'registerKeyBundle',
     type: 'function',
@@ -93,109 +96,116 @@ const KEY_REGISTRY_ABI = [
     outputs: [{ name: 'hasKey', type: 'bool' }],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 // ============ Global State ============
 
-let anvilProcess: Subprocess | null = null;
-let relayProcess: Subprocess | null = null;
-let mockHubProcess: Subprocess | null = null;
-let keyRegistryAddress: Address;
-let nodeRegistryAddress: Address;
+let anvilProcess: Subprocess | null = null
+const _relayProcess: Subprocess | null = null
+const _mockHubProcess: Subprocess | null = null
+let _keyRegistryAddress: Address
+let _nodeRegistryAddress: Address
 
 // ============ Helpers ============
 
-async function waitForPort(port: number, timeout = 30000): Promise<boolean> {
-  const start = Date.now();
+async function _waitForPort(port: number, timeout = 30000): Promise<boolean> {
+  const start = Date.now()
   while (Date.now() - start < timeout) {
     try {
-      const response = await fetch(`http://127.0.0.1:${port}`);
-      if (response.ok || response.status < 500) return true;
+      const response = await fetch(`http://127.0.0.1:${port}`)
+      if (response.ok || response.status < 500) return true
     } catch {
       // Port not ready
     }
-    await Bun.sleep(200);
+    await Bun.sleep(200)
   }
-  return false;
+  return false
 }
 
 async function waitForRpc(port: number, timeout = 30000): Promise<boolean> {
-  const start = Date.now();
+  const start = Date.now()
   while (Date.now() - start < timeout) {
     try {
       const response = await fetch(`http://127.0.0.1:${port}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),
-      });
-      if (response.ok) return true;
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'eth_blockNumber',
+          params: [],
+          id: 1,
+        }),
+      })
+      if (response.ok) return true
     } catch {
       // RPC not ready
     }
-    await Bun.sleep(200);
+    await Bun.sleep(200)
   }
-  return false;
+  return false
 }
 
 function generateKeyPair(): { publicKey: Uint8Array; privateKey: Uint8Array } {
-  const privateKey = crypto.getRandomValues(new Uint8Array(32));
+  const privateKey = crypto.getRandomValues(new Uint8Array(32))
   // In production, use proper X25519 key derivation
   // For testing, just use random bytes as mock public key
-  const publicKey = crypto.getRandomValues(new Uint8Array(32));
-  return { publicKey, privateKey };
+  const publicKey = crypto.getRandomValues(new Uint8Array(32))
+  return { publicKey, privateKey }
 }
 
 function bytesToHex(bytes: Uint8Array): Hex {
-  return `0x${Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')}` as Hex;
+  return `0x${Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')}` as Hex
 }
 
-function hexToBytes(hex: Hex): Uint8Array {
-  const cleanHex = hex.startsWith('0x') ? hex.slice(2) : hex;
-  const bytes = new Uint8Array(cleanHex.length / 2);
+function _hexToBytes(hex: Hex): Uint8Array {
+  const cleanHex = hex.startsWith('0x') ? hex.slice(2) : hex
+  const bytes = new Uint8Array(cleanHex.length / 2)
   for (let i = 0; i < bytes.length; i++) {
-    bytes[i] = parseInt(cleanHex.slice(i * 2, i * 2 + 2), 16);
+    bytes[i] = parseInt(cleanHex.slice(i * 2, i * 2 + 2), 16)
   }
-  return bytes;
+  return bytes
 }
 
 // ============ Contract Deployment ============
 
 async function deployMessagingContracts(): Promise<{
-  keyRegistry: Address;
-  nodeRegistry: Address;
+  keyRegistry: Address
+  nodeRegistry: Address
 }> {
-  const publicClient = createPublicClient({
+  const _publicClient = createPublicClient({
     chain: foundry,
     transport: http(RPC_URL),
-  });
-  
-  const walletClient = createWalletClient({
+  })
+
+  const _walletClient = createWalletClient({
     chain: foundry,
     transport: http(RPC_URL),
     account: privateKeyToAccount(TEST_ACCOUNTS.deployer.privateKey),
-  });
+  })
 
   // For integration testing, we'll use mock addresses
   // In real test, this would compile and deploy the contracts
   // Using deterministic CREATE2 addresses for testing
-  const keyRegistry = '0x5FbDB2315678afecb367f032d93F642f64180aa3' as Address;
-  const nodeRegistry = '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512' as Address;
+  const keyRegistry = '0x5FbDB2315678afecb367f032d93F642f64180aa3' as Address
+  const nodeRegistry = '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512' as Address
 
-  console.log(`[Deploy] Key Registry: ${keyRegistry}`);
-  console.log(`[Deploy] Node Registry: ${nodeRegistry}`);
+  console.log(`[Deploy] Key Registry: ${keyRegistry}`)
+  console.log(`[Deploy] Node Registry: ${nodeRegistry}`)
 
-  return { keyRegistry, nodeRegistry };
+  return { keyRegistry, nodeRegistry }
 }
 
 // ============ Mock Hub Server ============
 
 async function startMockHub(): Promise<void> {
   // Create a simple mock hub for testing
-  const server = Bun.serve({
+  const _server = Bun.serve({
     port: MOCK_HUB_PORT,
     fetch(req) {
-      const url = new URL(req.url);
-      
+      const url = new URL(req.url)
+
       // Hub info
       if (url.pathname === '/v1/info') {
         return Response.json({
@@ -203,9 +213,9 @@ async function startMockHub(): Promise<void> {
           isSyncing: false,
           nickname: 'test-hub',
           dbStats: { numMessages: 100 },
-        });
+        })
       }
-      
+
       // User data
       if (url.pathname === '/v1/userDataByFid') {
         return Response.json({
@@ -214,13 +224,16 @@ async function startMockHub(): Promise<void> {
               data: {
                 fid: 12345,
                 timestamp: Date.now(),
-                userDataBody: { type: 'USER_DATA_TYPE_USERNAME', value: 'testuser' },
+                userDataBody: {
+                  type: 'USER_DATA_TYPE_USERNAME',
+                  value: 'testuser',
+                },
               },
             },
           ],
-        });
+        })
       }
-      
+
       // Casts
       if (url.pathname === '/v1/castsByFid') {
         return Response.json({
@@ -240,159 +253,196 @@ async function startMockHub(): Promise<void> {
             },
           ],
           nextPageToken: null,
-        });
+        })
       }
-      
+
       // Submit message
       if (url.pathname === '/v1/submitMessage' && req.method === 'POST') {
         return Response.json({
-          hash: '0x' + crypto.randomUUID().replace(/-/g, '').slice(0, 40),
-        });
+          hash: `0x${crypto.randomUUID().replace(/-/g, '').slice(0, 40)}`,
+        })
       }
-      
+
       // Health check
       if (url.pathname === '/health') {
-        return Response.json({ status: 'healthy' });
+        return Response.json({ status: 'healthy' })
       }
-      
-      return new Response('Not Found', { status: 404 });
+
+      return new Response('Not Found', { status: 404 })
     },
-  });
-  
-  console.log(`[Mock Hub] Running on port ${MOCK_HUB_PORT}`);
+  })
+
+  console.log(`[Mock Hub] Running on port ${MOCK_HUB_PORT}`)
 }
 
 // ============ Mock Relay Server ============
 
 async function startMockRelay(): Promise<void> {
-  const messages: Map<string, Array<{ id: string; from: string; to: string; content: string; timestamp: number }>> = new Map();
-  
-  const server = Bun.serve({
+  const messages: Map<
+    string,
+    Array<{
+      id: string
+      from: string
+      to: string
+      content: string
+      timestamp: number
+    }>
+  > = new Map()
+
+  const _server = Bun.serve({
     port: RELAY_PORT,
     fetch(req) {
-      const url = new URL(req.url);
-      
+      const url = new URL(req.url)
+
       if (url.pathname === '/health') {
-        return Response.json({ status: 'healthy', nodeId: 'test-relay' });
+        return Response.json({ status: 'healthy', nodeId: 'test-relay' })
       }
-      
+
       if (url.pathname === '/send' && req.method === 'POST') {
-        return req.json().then((envelope: { id: string; from: string; to: string; encryptedContent: string }) => {
-          const recipientMessages = messages.get(envelope.to) ?? [];
-          recipientMessages.push({
-            id: envelope.id,
-            from: envelope.from,
-            to: envelope.to,
-            content: envelope.encryptedContent,
-            timestamp: Date.now(),
-          });
-          messages.set(envelope.to, recipientMessages);
-          
-          return Response.json({
-            success: true,
-            messageId: envelope.id,
-            cid: `bafybeig${crypto.randomUUID().replace(/-/g, '').slice(0, 40)}`,
-          });
-        });
+        return req
+          .json()
+          .then(
+            (envelope: {
+              id: string
+              from: string
+              to: string
+              encryptedContent: string
+            }) => {
+              const recipientMessages = messages.get(envelope.to) ?? []
+              recipientMessages.push({
+                id: envelope.id,
+                from: envelope.from,
+                to: envelope.to,
+                content: envelope.encryptedContent,
+                timestamp: Date.now(),
+              })
+              messages.set(envelope.to, recipientMessages)
+
+              return Response.json({
+                success: true,
+                messageId: envelope.id,
+                cid: `bafybeig${crypto.randomUUID().replace(/-/g, '').slice(0, 40)}`,
+              })
+            },
+          )
       }
-      
+
       if (url.pathname.startsWith('/messages/')) {
-        const address = url.pathname.split('/')[2];
-        const recipientMessages = messages.get(address) ?? [];
+        const address = url.pathname.split('/')[2]
+        const recipientMessages = messages.get(address) ?? []
         return Response.json({
           messages: recipientMessages,
           count: recipientMessages.length,
-        });
+        })
       }
-      
+
       if (url.pathname === '/stats') {
         return Response.json({
           nodeId: 'test-relay',
-          totalMessagesRelayed: Array.from(messages.values()).reduce((sum, msgs) => sum + msgs.length, 0),
-        });
+          totalMessagesRelayed: Array.from(messages.values()).reduce(
+            (sum, msgs) => sum + msgs.length,
+            0,
+          ),
+        })
       }
-      
-      return new Response('Not Found', { status: 404 });
+
+      return new Response('Not Found', { status: 404 })
     },
-  });
-  
-  console.log(`[Mock Relay] Running on port ${RELAY_PORT}`);
+  })
+
+  console.log(`[Mock Relay] Running on port ${RELAY_PORT}`)
 }
 
 // ============ Test Setup ============
 
 beforeAll(async () => {
-  console.log('\n=== Starting Full Messaging Integration Tests ===\n');
-  
+  console.log('\n=== Starting Full Messaging Integration Tests ===\n')
+
   // Start Anvil on Jeju L2 port
-  console.log('[Setup] Starting Anvil on Jeju L2 port...');
-  anvilProcess = spawn(['anvil', '--port', String(L2_RPC_PORT), '--block-time', '1'], {
-    stdout: 'pipe',
-    stderr: 'pipe',
-  });
-  
-  const anvilReady = await waitForRpc(L2_RPC_PORT);
+  console.log('[Setup] Starting Anvil on Jeju L2 port...')
+  anvilProcess = spawn(
+    ['anvil', '--port', String(L2_RPC_PORT), '--block-time', '1'],
+    {
+      stdout: 'pipe',
+      stderr: 'pipe',
+    },
+  )
+
+  const anvilReady = await waitForRpc(L2_RPC_PORT)
   if (!anvilReady) {
-    throw new Error('Anvil failed to start on L2 port');
+    throw new Error('Anvil failed to start on L2 port')
   }
-  console.log(`[Setup] Anvil ready on port ${L2_RPC_PORT}`);
-  
+  console.log(`[Setup] Anvil ready on port ${L2_RPC_PORT}`)
+
   // Start mock services
-  await startMockHub();
-  await startMockRelay();
-  
+  await startMockHub()
+  await startMockRelay()
+
   // Deploy contracts
-  console.log('[Setup] Deploying contracts...');
-  const contracts = await deployMessagingContracts();
-  keyRegistryAddress = contracts.keyRegistry;
-  nodeRegistryAddress = contracts.nodeRegistry;
-  
-  console.log('[Setup] Ready\n');
-}, 60000);
+  console.log('[Setup] Deploying contracts...')
+  const contracts = await deployMessagingContracts()
+  _keyRegistryAddress = contracts.keyRegistry
+  _nodeRegistryAddress = contracts.nodeRegistry
+
+  console.log('[Setup] Ready\n')
+}, 60000)
 
 afterAll(async () => {
-  console.log('\n[Teardown] Stopping services...');
-  
+  console.log('\n[Teardown] Stopping services...')
+
   if (anvilProcess) {
-    anvilProcess.kill();
+    anvilProcess.kill()
   }
-  
-  console.log('[Teardown] Done\n');
-});
+
+  console.log('[Teardown] Done\n')
+})
 
 // ============ Farcaster Tests ============
 
 describe('Farcaster Integration', () => {
-  
   describe('Hub Connectivity', () => {
     test('connects to hub and gets info', async () => {
-      const response = await fetch(`http://127.0.0.1:${MOCK_HUB_PORT}/v1/info`);
-      expect(response.ok).toBe(true);
-      
-      const info = await response.json() as { version: string; isSyncing: boolean };
-      expect(info.version).toBeDefined();
-      expect(info.isSyncing).toBe(false);
-    });
-    
+      const response = await fetch(`http://127.0.0.1:${MOCK_HUB_PORT}/v1/info`)
+      expect(response.ok).toBe(true)
+
+      const info = (await response.json()) as {
+        version: string
+        isSyncing: boolean
+      }
+      expect(info.version).toBeDefined()
+      expect(info.isSyncing).toBe(false)
+    })
+
     test('fetches user data by FID', async () => {
-      const response = await fetch(`http://127.0.0.1:${MOCK_HUB_PORT}/v1/userDataByFid?fid=12345`);
-      expect(response.ok).toBe(true);
-      
-      const data = await response.json() as { messages: Array<{ data: { fid: number } }> };
-      expect(data.messages).toBeArray();
-      expect(data.messages.length).toBeGreaterThan(0);
-    });
-    
+      const response = await fetch(
+        `http://127.0.0.1:${MOCK_HUB_PORT}/v1/userDataByFid?fid=12345`,
+      )
+      expect(response.ok).toBe(true)
+
+      const data = (await response.json()) as {
+        messages: Array<{ data: { fid: number } }>
+      }
+      expect(data.messages).toBeArray()
+      expect(data.messages.length).toBeGreaterThan(0)
+    })
+
     test('fetches casts by FID', async () => {
-      const response = await fetch(`http://127.0.0.1:${MOCK_HUB_PORT}/v1/castsByFid?fid=12345`);
-      expect(response.ok).toBe(true);
-      
-      const data = await response.json() as { messages: Array<{ hash: string; data: { castAddBody: { text: string } } }> };
-      expect(data.messages).toBeArray();
-      expect(data.messages[0].data.castAddBody.text).toBeDefined();
-    });
-  });
-  
+      const response = await fetch(
+        `http://127.0.0.1:${MOCK_HUB_PORT}/v1/castsByFid?fid=12345`,
+      )
+      expect(response.ok).toBe(true)
+
+      const data = (await response.json()) as {
+        messages: Array<{
+          hash: string
+          data: { castAddBody: { text: string } }
+        }>
+      }
+      expect(data.messages).toBeArray()
+      expect(data.messages[0].data.castAddBody.text).toBeDefined()
+    })
+  })
+
   describe('Hub Posting', () => {
     test('submits a cast', async () => {
       const message = {
@@ -407,65 +457,75 @@ describe('Farcaster Integration', () => {
             mentionsPositions: [],
           },
         },
-        hash: '0x' + crypto.randomUUID().replace(/-/g, ''),
-        signature: '0x' + '00'.repeat(64),
-        signer: '0x' + '00'.repeat(32),
-      };
-      
-      const response = await fetch(`http://127.0.0.1:${MOCK_HUB_PORT}/v1/submitMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(message),
-      });
-      
-      expect(response.ok).toBe(true);
-      const result = await response.json() as { hash: string };
-      expect(result.hash).toBeDefined();
-      expect(result.hash).toMatch(/^0x[a-f0-9]+$/);
-    });
-    
+        hash: `0x${crypto.randomUUID().replace(/-/g, '')}`,
+        signature: `0x${'00'.repeat(64)}`,
+        signer: `0x${'00'.repeat(32)}`,
+      }
+
+      const response = await fetch(
+        `http://127.0.0.1:${MOCK_HUB_PORT}/v1/submitMessage`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(message),
+        },
+      )
+
+      expect(response.ok).toBe(true)
+      const result = (await response.json()) as { hash: string }
+      expect(result.hash).toBeDefined()
+      expect(result.hash).toMatch(/^0x[a-f0-9]+$/)
+    })
+
     test('posts and retrieves a cast', async () => {
       // Post
-      const postResponse = await fetch(`http://127.0.0.1:${MOCK_HUB_PORT}/v1/submitMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          data: {
-            type: 'CAST_ADD',
-            fid: 54321,
-            timestamp: Date.now(),
-            castAddBody: {
-              text: 'Roundtrip test cast',
-              embeds: [],
-              mentions: [],
-              mentionsPositions: [],
+      const postResponse = await fetch(
+        `http://127.0.0.1:${MOCK_HUB_PORT}/v1/submitMessage`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            data: {
+              type: 'CAST_ADD',
+              fid: 54321,
+              timestamp: Date.now(),
+              castAddBody: {
+                text: 'Roundtrip test cast',
+                embeds: [],
+                mentions: [],
+                mentionsPositions: [],
+              },
             },
-          },
-          hash: '0x' + crypto.randomUUID().replace(/-/g, ''),
-        }),
-      });
-      
-      expect(postResponse.ok).toBe(true);
-      
+            hash: `0x${crypto.randomUUID().replace(/-/g, '')}`,
+          }),
+        },
+      )
+
+      expect(postResponse.ok).toBe(true)
+
       // Retrieve
-      const getResponse = await fetch(`http://127.0.0.1:${MOCK_HUB_PORT}/v1/castsByFid?fid=12345`);
-      expect(getResponse.ok).toBe(true);
-      
-      const casts = await getResponse.json() as { messages: Array<{ data: { castAddBody: { text: string } } }> };
-      expect(casts.messages.length).toBeGreaterThan(0);
-    });
-  });
-  
+      const getResponse = await fetch(
+        `http://127.0.0.1:${MOCK_HUB_PORT}/v1/castsByFid?fid=12345`,
+      )
+      expect(getResponse.ok).toBe(true)
+
+      const casts = (await getResponse.json()) as {
+        messages: Array<{ data: { castAddBody: { text: string } } }>
+      }
+      expect(casts.messages.length).toBeGreaterThan(0)
+    })
+  })
+
   describe('Direct Casts', () => {
     test('encrypts and sends a direct message', async () => {
       // Generate keys
-      const aliceKeys = generateKeyPair();
-      const bobKeys = generateKeyPair();
-      
+      const _aliceKeys = generateKeyPair()
+      const _bobKeys = generateKeyPair()
+
       // Simulate encryption (in real test, use actual crypto)
-      const message = 'Hello Bob, this is a secret message';
-      const encryptedContent = Buffer.from(message).toString('base64');
-      
+      const message = 'Hello Bob, this is a secret message'
+      const encryptedContent = Buffer.from(message).toString('base64')
+
       // Send via relay
       const envelope = {
         id: crypto.randomUUID(),
@@ -473,20 +533,23 @@ describe('Farcaster Integration', () => {
         to: TEST_ACCOUNTS.bob.address,
         encryptedContent,
         timestamp: Date.now(),
-      };
-      
+      }
+
       const response = await fetch(`http://127.0.0.1:${RELAY_PORT}/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(envelope),
-      });
-      
-      expect(response.ok).toBe(true);
-      const result = await response.json() as { success: boolean; messageId: string };
-      expect(result.success).toBe(true);
-      expect(result.messageId).toBe(envelope.id);
-    });
-    
+      })
+
+      expect(response.ok).toBe(true)
+      const result = (await response.json()) as {
+        success: boolean
+        messageId: string
+      }
+      expect(result.success).toBe(true)
+      expect(result.messageId).toBe(envelope.id)
+    })
+
     test('retrieves pending direct messages', async () => {
       // First send a message
       const envelope = {
@@ -495,65 +558,69 @@ describe('Farcaster Integration', () => {
         to: TEST_ACCOUNTS.alice.address,
         encryptedContent: 'encrypted-content-placeholder',
         timestamp: Date.now(),
-      };
-      
+      }
+
       await fetch(`http://127.0.0.1:${RELAY_PORT}/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(envelope),
-      });
-      
+      })
+
       // Retrieve
-      const response = await fetch(`http://127.0.0.1:${RELAY_PORT}/messages/${TEST_ACCOUNTS.alice.address}`);
-      expect(response.ok).toBe(true);
-      
-      const result = await response.json() as { messages: Array<{ id: string }>; count: number };
-      expect(result.count).toBeGreaterThan(0);
-      expect(result.messages.some(m => m.id === envelope.id)).toBe(true);
-    });
-  });
-});
+      const response = await fetch(
+        `http://127.0.0.1:${RELAY_PORT}/messages/${TEST_ACCOUNTS.alice.address}`,
+      )
+      expect(response.ok).toBe(true)
+
+      const result = (await response.json()) as {
+        messages: Array<{ id: string }>
+        count: number
+      }
+      expect(result.count).toBeGreaterThan(0)
+      expect(result.messages.some((m) => m.id === envelope.id)).toBe(true)
+    })
+  })
+})
 
 // ============ XMTP/MLS Tests ============
 
 describe('XMTP/MLS Integration', () => {
-  
   describe('Key Management', () => {
     test('generates valid MLS key pairs', () => {
-      const keyPair = generateKeyPair();
-      
-      expect(keyPair.publicKey).toBeInstanceOf(Uint8Array);
-      expect(keyPair.privateKey).toBeInstanceOf(Uint8Array);
-      expect(keyPair.publicKey.length).toBe(32);
-      expect(keyPair.privateKey.length).toBe(32);
-    });
-    
+      const keyPair = generateKeyPair()
+
+      expect(keyPair.publicKey).toBeInstanceOf(Uint8Array)
+      expect(keyPair.privateKey).toBeInstanceOf(Uint8Array)
+      expect(keyPair.publicKey.length).toBe(32)
+      expect(keyPair.privateKey.length).toBe(32)
+    })
+
     test('derives deterministic keys from signature', () => {
-      const signature1 = '0xabcdef1234567890';
-      const signature2 = '0xabcdef1234567890';
-      const signature3 = '0xdifferentsig999';
-      
+      const signature1 = '0xabcdef1234567890'
+      const signature2 = '0xabcdef1234567890'
+      const signature3 = '0xdifferentsig999'
+
       // Mock deterministic derivation
       const deriveKey = (sig: string) => {
-        const bytes = new Uint8Array(32);
+        const bytes = new Uint8Array(32)
         for (let i = 0; i < 32; i++) {
-          bytes[i] = sig.charCodeAt(i % sig.length) ^ (i * 7);
+          bytes[i] = sig.charCodeAt(i % sig.length) ^ (i * 7)
         }
-        return bytes;
-      };
-      
-      const key1 = deriveKey(signature1);
-      const key2 = deriveKey(signature2);
-      const key3 = deriveKey(signature3);
-      
+        return bytes
+      }
+
+      const key1 = deriveKey(signature1)
+      const key2 = deriveKey(signature2)
+      const key3 = deriveKey(signature3)
+
       // Same signature should produce same key
-      expect(bytesToHex(key1)).toBe(bytesToHex(key2));
-      
+      expect(bytesToHex(key1)).toBe(bytesToHex(key2))
+
       // Different signature should produce different key
-      expect(bytesToHex(key1)).not.toBe(bytesToHex(key3));
-    });
-  });
-  
+      expect(bytesToHex(key1)).not.toBe(bytesToHex(key3))
+    })
+  })
+
   describe('Group Messaging', () => {
     test('creates a group with multiple members', async () => {
       const group = {
@@ -561,16 +628,22 @@ describe('XMTP/MLS Integration', () => {
         name: 'Test Group',
         members: [TEST_ACCOUNTS.alice.address, TEST_ACCOUNTS.bob.address],
         createdAt: Date.now(),
-      };
-      
-      expect(group.id).toBeDefined();
-      expect(group.members).toHaveLength(2);
-    });
-    
+      }
+
+      expect(group.id).toBeDefined()
+      expect(group.members).toHaveLength(2)
+    })
+
     test('sends messages to group', async () => {
-      const groupId = crypto.randomUUID();
-      const messages: Array<{ id: string; groupId: string; sender: Address; content: string; timestamp: number }> = [];
-      
+      const groupId = crypto.randomUUID()
+      const messages: Array<{
+        id: string
+        groupId: string
+        sender: Address
+        content: string
+        timestamp: number
+      }> = []
+
       // Simulate sending
       const send = (sender: Address, content: string) => {
         messages.push({
@@ -579,118 +652,121 @@ describe('XMTP/MLS Integration', () => {
           sender,
           content,
           timestamp: Date.now(),
-        });
-      };
-      
-      send(TEST_ACCOUNTS.alice.address, 'Hello group');
-      send(TEST_ACCOUNTS.bob.address, 'Hi Alice');
-      send(TEST_ACCOUNTS.alice.address, 'How are you?');
-      
-      expect(messages).toHaveLength(3);
-      expect(messages[0].sender).toBe(TEST_ACCOUNTS.alice.address);
-      expect(messages[1].content).toBe('Hi Alice');
-    });
-    
+        })
+      }
+
+      send(TEST_ACCOUNTS.alice.address, 'Hello group')
+      send(TEST_ACCOUNTS.bob.address, 'Hi Alice')
+      send(TEST_ACCOUNTS.alice.address, 'How are you?')
+
+      expect(messages).toHaveLength(3)
+      expect(messages[0].sender).toBe(TEST_ACCOUNTS.alice.address)
+      expect(messages[1].content).toBe('Hi Alice')
+    })
+
     test('handles member join and leave', async () => {
-      const members = new Set([TEST_ACCOUNTS.alice.address, TEST_ACCOUNTS.bob.address]);
-      
+      const members = new Set([
+        TEST_ACCOUNTS.alice.address,
+        TEST_ACCOUNTS.bob.address,
+      ])
+
       // Add member
-      members.add(TEST_ACCOUNTS.charlie.address);
-      expect(members.size).toBe(3);
-      expect(members.has(TEST_ACCOUNTS.charlie.address)).toBe(true);
-      
+      members.add(TEST_ACCOUNTS.charlie.address)
+      expect(members.size).toBe(3)
+      expect(members.has(TEST_ACCOUNTS.charlie.address)).toBe(true)
+
       // Remove member
-      members.delete(TEST_ACCOUNTS.bob.address);
-      expect(members.size).toBe(2);
-      expect(members.has(TEST_ACCOUNTS.bob.address)).toBe(false);
-    });
-  });
-  
+      members.delete(TEST_ACCOUNTS.bob.address)
+      expect(members.size).toBe(2)
+      expect(members.has(TEST_ACCOUNTS.bob.address)).toBe(false)
+    })
+  })
+
   describe('Encryption', () => {
     test('encrypts and decrypts messages', () => {
       // Simple XOR encryption for testing (in production, use proper crypto)
       const encrypt = (plaintext: string, key: Uint8Array): Uint8Array => {
-        const bytes = new TextEncoder().encode(plaintext);
-        return bytes.map((b, i) => b ^ key[i % key.length]);
-      };
-      
-      const decrypt = (ciphertext: Uint8Array, key: Uint8Array): string => {
-        const bytes = ciphertext.map((b, i) => b ^ key[i % key.length]);
-        return new TextDecoder().decode(bytes);
-      };
-      
-      const key = crypto.getRandomValues(new Uint8Array(32));
-      const message = 'Secret message for testing';
-      
-      const encrypted = encrypt(message, key);
-      const decrypted = decrypt(encrypted, key);
-      
-      expect(decrypted).toBe(message);
-      expect(bytesToHex(encrypted)).not.toBe(bytesToHex(new TextEncoder().encode(message)));
-    });
-    
-    test('handles unicode and emoji', () => {
-      const messages = [
-        '你好世界',
-        '🔐🎉🚀',
-        'Héllo Wörld',
-        'مرحبا',
-      ];
-      
-      const key = crypto.getRandomValues(new Uint8Array(32));
-      
-      for (const msg of messages) {
-        const bytes = new TextEncoder().encode(msg);
-        const encrypted = bytes.map((b, i) => b ^ key[i % key.length]);
-        const decrypted = new TextDecoder().decode(
-          encrypted.map((b, i) => b ^ key[i % key.length])
-        );
-        
-        expect(decrypted).toBe(msg);
+        const bytes = new TextEncoder().encode(plaintext)
+        return bytes.map((b, i) => b ^ key[i % key.length])
       }
-    });
-  });
-});
+
+      const decrypt = (ciphertext: Uint8Array, key: Uint8Array): string => {
+        const bytes = ciphertext.map((b, i) => b ^ key[i % key.length])
+        return new TextDecoder().decode(bytes)
+      }
+
+      const key = crypto.getRandomValues(new Uint8Array(32))
+      const message = 'Secret message for testing'
+
+      const encrypted = encrypt(message, key)
+      const decrypted = decrypt(encrypted, key)
+
+      expect(decrypted).toBe(message)
+      expect(bytesToHex(encrypted)).not.toBe(
+        bytesToHex(new TextEncoder().encode(message)),
+      )
+    })
+
+    test('handles unicode and emoji', () => {
+      const messages = ['你好世界', '🔐🎉🚀', 'Héllo Wörld', 'مرحبا']
+
+      const key = crypto.getRandomValues(new Uint8Array(32))
+
+      for (const msg of messages) {
+        const bytes = new TextEncoder().encode(msg)
+        const encrypted = bytes.map((b, i) => b ^ key[i % key.length])
+        const decrypted = new TextDecoder().decode(
+          encrypted.map((b, i) => b ^ key[i % key.length]),
+        )
+
+        expect(decrypted).toBe(msg)
+      }
+    })
+  })
+})
 
 // ============ Messaging SDK Tests ============
 
 describe('Messaging SDK Integration', () => {
-  
   describe('Relay Node', () => {
     test('health check returns node info', async () => {
-      const response = await fetch(`http://127.0.0.1:${RELAY_PORT}/health`);
-      expect(response.ok).toBe(true);
-      
-      const data = await response.json() as { status: string; nodeId: string };
-      expect(data.status).toBe('healthy');
-      expect(data.nodeId).toBeDefined();
-    });
-    
+      const response = await fetch(`http://127.0.0.1:${RELAY_PORT}/health`)
+      expect(response.ok).toBe(true)
+
+      const data = (await response.json()) as { status: string; nodeId: string }
+      expect(data.status).toBe('healthy')
+      expect(data.nodeId).toBeDefined()
+    })
+
     test('returns stats', async () => {
-      const response = await fetch(`http://127.0.0.1:${RELAY_PORT}/stats`);
-      expect(response.ok).toBe(true);
-      
-      const stats = await response.json() as { nodeId: string; totalMessagesRelayed: number };
-      expect(stats.nodeId).toBeDefined();
-      expect(typeof stats.totalMessagesRelayed).toBe('number');
-    });
-  });
-  
+      const response = await fetch(`http://127.0.0.1:${RELAY_PORT}/stats`)
+      expect(response.ok).toBe(true)
+
+      const stats = (await response.json()) as {
+        nodeId: string
+        totalMessagesRelayed: number
+      }
+      expect(stats.nodeId).toBeDefined()
+      expect(typeof stats.totalMessagesRelayed).toBe('number')
+    })
+  })
+
   describe('Message Flow', () => {
     test('complete message flow: encrypt -> send -> receive -> decrypt', async () => {
       // Setup
-      const aliceKeys = generateKeyPair();
-      const bobKeys = generateKeyPair();
-      
-      const aliceAddress = TEST_ACCOUNTS.alice.address;
-      const bobAddress = TEST_ACCOUNTS.bob.address;
-      
+      const _aliceKeys = generateKeyPair()
+      const _bobKeys = generateKeyPair()
+
+      const aliceAddress = TEST_ACCOUNTS.alice.address
+      const bobAddress = TEST_ACCOUNTS.bob.address
+
       // Alice creates encrypted message for Bob
-      const originalMessage = 'Hello Bob, encrypted via XMTP';
-      const key = crypto.getRandomValues(new Uint8Array(32));
-      const encrypted = new TextEncoder().encode(originalMessage)
-        .map((b, i) => b ^ key[i % key.length]);
-      
+      const originalMessage = 'Hello Bob, encrypted via XMTP'
+      const key = crypto.getRandomValues(new Uint8Array(32))
+      const encrypted = new TextEncoder()
+        .encode(originalMessage)
+        .map((b, i) => b ^ key[i % key.length])
+
       // Create envelope
       const envelope = {
         id: crypto.randomUUID(),
@@ -698,43 +774,49 @@ describe('Messaging SDK Integration', () => {
         to: bobAddress,
         encryptedContent: Buffer.from(encrypted).toString('base64'),
         timestamp: Date.now(),
-      };
-      
+      }
+
       // Send
       const sendResponse = await fetch(`http://127.0.0.1:${RELAY_PORT}/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(envelope),
-      });
-      expect(sendResponse.ok).toBe(true);
-      
+      })
+      expect(sendResponse.ok).toBe(true)
+
       // Bob retrieves messages
-      const fetchResponse = await fetch(`http://127.0.0.1:${RELAY_PORT}/messages/${bobAddress}`);
-      expect(fetchResponse.ok).toBe(true);
-      
-      const result = await fetchResponse.json() as { messages: Array<{ id: string; content: string }> };
-      const received = result.messages.find(m => m.id === envelope.id);
-      expect(received).toBeDefined();
-      
+      const fetchResponse = await fetch(
+        `http://127.0.0.1:${RELAY_PORT}/messages/${bobAddress}`,
+      )
+      expect(fetchResponse.ok).toBe(true)
+
+      const result = (await fetchResponse.json()) as {
+        messages: Array<{ id: string; content: string }>
+      }
+      const received = result.messages.find((m) => m.id === envelope.id)
+      expect(received).toBeDefined()
+
       // Bob decrypts
-      const encryptedBytes = new Uint8Array(Buffer.from(received!.content, 'base64'));
+      const encryptedBytes = new Uint8Array(
+        Buffer.from(received?.content, 'base64'),
+      )
       const decrypted = new TextDecoder().decode(
-        encryptedBytes.map((b, i) => b ^ key[i % key.length])
-      );
-      
-      expect(decrypted).toBe(originalMessage);
-    });
-    
+        encryptedBytes.map((b, i) => b ^ key[i % key.length]),
+      )
+
+      expect(decrypted).toBe(originalMessage)
+    })
+
     test('multiple messages between users', async () => {
-      const userA = '0xUserA' + crypto.randomUUID().replace(/-/g, '').slice(0, 32);
-      const userB = '0xUserB' + crypto.randomUUID().replace(/-/g, '').slice(0, 32);
-      
+      const userA = `0xUserA${crypto.randomUUID().replace(/-/g, '').slice(0, 32)}`
+      const userB = `0xUserB${crypto.randomUUID().replace(/-/g, '').slice(0, 32)}`
+
       const messagesToSend = [
         'First message from A to B',
         'Second message from A to B',
         'Third message from A to B',
-      ];
-      
+      ]
+
       // Send all messages
       for (const msg of messagesToSend) {
         const envelope = {
@@ -743,33 +825,37 @@ describe('Messaging SDK Integration', () => {
           to: userB,
           encryptedContent: Buffer.from(msg).toString('base64'),
           timestamp: Date.now(),
-        };
-        
+        }
+
         await fetch(`http://127.0.0.1:${RELAY_PORT}/send`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(envelope),
-        });
+        })
       }
-      
+
       // Fetch all
-      const response = await fetch(`http://127.0.0.1:${RELAY_PORT}/messages/${userB}`);
-      const result = await response.json() as { messages: Array<{ from: string }>; count: number };
-      
-      const fromA = result.messages.filter(m => m.from === userA);
-      expect(fromA.length).toBe(messagesToSend.length);
-    });
-  });
-});
+      const response = await fetch(
+        `http://127.0.0.1:${RELAY_PORT}/messages/${userB}`,
+      )
+      const result = (await response.json()) as {
+        messages: Array<{ from: string }>
+        count: number
+      }
+
+      const fromA = result.messages.filter((m) => m.from === userA)
+      expect(fromA.length).toBe(messagesToSend.length)
+    })
+  })
+})
 
 // ============ End-to-End Tests ============
 
 describe('End-to-End Messaging Flow', () => {
-  
   test('Farcaster public cast -> reply -> reaction flow', async () => {
-    const fid = 12345;
-    const hubUrl = `http://127.0.0.1:${MOCK_HUB_PORT}`;
-    
+    const fid = 12345
+    const hubUrl = `http://127.0.0.1:${MOCK_HUB_PORT}`
+
     // 1. Post a cast
     const castResponse = await fetch(`${hubUrl}/v1/submitMessage`, {
       method: 'POST',
@@ -778,14 +864,19 @@ describe('End-to-End Messaging Flow', () => {
         data: {
           type: 'CAST_ADD',
           fid,
-          castAddBody: { text: 'Original cast for E2E test', embeds: [], mentions: [], mentionsPositions: [] },
+          castAddBody: {
+            text: 'Original cast for E2E test',
+            embeds: [],
+            mentions: [],
+            mentionsPositions: [],
+          },
         },
-        hash: '0xoriginal' + crypto.randomUUID().replace(/-/g, '').slice(0, 30),
+        hash: `0xoriginal${crypto.randomUUID().replace(/-/g, '').slice(0, 30)}`,
       }),
-    });
-    expect(castResponse.ok).toBe(true);
-    const cast = await castResponse.json() as { hash: string };
-    
+    })
+    expect(castResponse.ok).toBe(true)
+    const cast = (await castResponse.json()) as { hash: string }
+
     // 2. Reply to the cast
     const replyResponse = await fetch(`${hubUrl}/v1/submitMessage`, {
       method: 'POST',
@@ -802,11 +893,11 @@ describe('End-to-End Messaging Flow', () => {
             parentCastId: { fid, hash: cast.hash },
           },
         },
-        hash: '0xreply' + crypto.randomUUID().replace(/-/g, '').slice(0, 32),
+        hash: `0xreply${crypto.randomUUID().replace(/-/g, '').slice(0, 32)}`,
       }),
-    });
-    expect(replyResponse.ok).toBe(true);
-    
+    })
+    expect(replyResponse.ok).toBe(true)
+
     // 3. Add reaction (like)
     const likeResponse = await fetch(`${hubUrl}/v1/submitMessage`, {
       method: 'POST',
@@ -820,79 +911,83 @@ describe('End-to-End Messaging Flow', () => {
             targetCastId: { fid, hash: cast.hash },
           },
         },
-        hash: '0xlike' + crypto.randomUUID().replace(/-/g, '').slice(0, 34),
+        hash: `0xlike${crypto.randomUUID().replace(/-/g, '').slice(0, 34)}`,
       }),
-    });
-    expect(likeResponse.ok).toBe(true);
-  });
-  
+    })
+    expect(likeResponse.ok).toBe(true)
+  })
+
   test('XMTP private messaging -> group creation -> message exchange', async () => {
-    const relayUrl = `http://127.0.0.1:${RELAY_PORT}`;
-    
+    const relayUrl = `http://127.0.0.1:${RELAY_PORT}`
+
     // Setup users
-    const alice = TEST_ACCOUNTS.alice.address;
-    const bob = TEST_ACCOUNTS.bob.address;
-    const charlie = TEST_ACCOUNTS.charlie.address;
-    
+    const alice = TEST_ACCOUNTS.alice.address
+    const bob = TEST_ACCOUNTS.bob.address
+    const charlie = TEST_ACCOUNTS.charlie.address
+
     // 1. Alice sends DM to Bob
     const dm1 = {
       id: crypto.randomUUID(),
       from: alice,
       to: bob,
-      encryptedContent: Buffer.from('Hey Bob, want to start a group?').toString('base64'),
+      encryptedContent: Buffer.from('Hey Bob, want to start a group?').toString(
+        'base64',
+      ),
       timestamp: Date.now(),
-    };
-    
+    }
+
     const dmResponse = await fetch(`${relayUrl}/send`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(dm1),
-    });
-    expect(dmResponse.ok).toBe(true);
-    
+    })
+    expect(dmResponse.ok).toBe(true)
+
     // 2. Bob retrieves DM
-    const bobMessages = await fetch(`${relayUrl}/messages/${bob}`);
-    const bobResult = await bobMessages.json() as { count: number };
-    expect(bobResult.count).toBeGreaterThan(0);
-    
+    const bobMessages = await fetch(`${relayUrl}/messages/${bob}`)
+    const bobResult = (await bobMessages.json()) as { count: number }
+    expect(bobResult.count).toBeGreaterThan(0)
+
     // 3. Simulate group creation (would be MLS in production)
-    const groupId = crypto.randomUUID();
-    const group = {
+    const groupId = crypto.randomUUID()
+    const _group = {
       id: groupId,
       name: 'Integration Test Group',
       members: [alice, bob, charlie],
       createdAt: Date.now(),
-    };
-    
+    }
+
     // 4. Send group message
     const groupMessage = {
       id: crypto.randomUUID(),
       from: alice,
       to: groupId,
-      encryptedContent: Buffer.from('Welcome to our test group.').toString('base64'),
+      encryptedContent: Buffer.from('Welcome to our test group.').toString(
+        'base64',
+      ),
       timestamp: Date.now(),
-    };
-    
+    }
+
     const groupResponse = await fetch(`${relayUrl}/send`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(groupMessage),
-    });
-    expect(groupResponse.ok).toBe(true);
-    
+    })
+    expect(groupResponse.ok).toBe(true)
+
     // 5. Verify group receives message
-    const groupMessages = await fetch(`${relayUrl}/messages/${groupId}`);
-    const groupResult = await groupMessages.json() as { count: number };
-    expect(groupResult.count).toBeGreaterThan(0);
-  });
-  
+    const groupMessages = await fetch(`${relayUrl}/messages/${groupId}`)
+    const groupResult = (await groupMessages.json()) as { count: number }
+    expect(groupResult.count).toBeGreaterThan(0)
+  })
+
   test('Combined Farcaster public + XMTP private messaging scenario', async () => {
-    const hubUrl = `http://127.0.0.1:${MOCK_HUB_PORT}`;
-    const relayUrl = `http://127.0.0.1:${RELAY_PORT}`;
-    
-    const userFid = 12345;
-    const userAddress = TEST_ACCOUNTS.alice.address;
-    
+    const hubUrl = `http://127.0.0.1:${MOCK_HUB_PORT}`
+    const relayUrl = `http://127.0.0.1:${RELAY_PORT}`
+
+    const userFid = 12345
+    const userAddress = TEST_ACCOUNTS.alice.address
+
     // 1. User posts public cast on Farcaster
     const publicCast = await fetch(`${hubUrl}/v1/submitMessage`, {
       method: 'POST',
@@ -901,54 +996,60 @@ describe('End-to-End Messaging Flow', () => {
         data: {
           type: 'CAST_ADD',
           fid: userFid,
-          castAddBody: { text: 'DM me for details.', embeds: [], mentions: [], mentionsPositions: [] },
+          castAddBody: {
+            text: 'DM me for details.',
+            embeds: [],
+            mentions: [],
+            mentionsPositions: [],
+          },
         },
-        hash: '0xpublic' + crypto.randomUUID().replace(/-/g, '').slice(0, 32),
+        hash: `0xpublic${crypto.randomUUID().replace(/-/g, '').slice(0, 32)}`,
       }),
-    });
-    expect(publicCast.ok).toBe(true);
-    
+    })
+    expect(publicCast.ok).toBe(true)
+
     // 2. Another user sends private DM via XMTP
     const privateDm = {
       id: crypto.randomUUID(),
       from: TEST_ACCOUNTS.bob.address,
       to: userAddress,
-      encryptedContent: Buffer.from('Hey, interested in details from your cast.').toString('base64'),
+      encryptedContent: Buffer.from(
+        'Hey, interested in details from your cast.',
+      ).toString('base64'),
       timestamp: Date.now(),
-    };
-    
+    }
+
     const dmResponse = await fetch(`${relayUrl}/send`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(privateDm),
-    });
-    expect(dmResponse.ok).toBe(true);
-    
+    })
+    expect(dmResponse.ok).toBe(true)
+
     // 3. User checks both public cast (via hub) and private DM (via relay)
     const [hubCheck, relayCheck] = await Promise.all([
       fetch(`${hubUrl}/health`),
       fetch(`${relayUrl}/messages/${userAddress}`),
-    ]);
-    
-    expect(hubCheck.ok).toBe(true);
-    expect(relayCheck.ok).toBe(true);
-    
-    const dms = await relayCheck.json() as { messages: Array<{ id: string }> };
-    expect(dms.messages.some(m => m.id === privateDm.id)).toBe(true);
-  });
-});
+    ])
+
+    expect(hubCheck.ok).toBe(true)
+    expect(relayCheck.ok).toBe(true)
+
+    const dms = (await relayCheck.json()) as { messages: Array<{ id: string }> }
+    expect(dms.messages.some((m) => m.id === privateDm.id)).toBe(true)
+  })
+})
 
 // ============ Performance Tests ============
 
 describe('Performance', () => {
-  
   test('handles 100 messages quickly', async () => {
-    const relayUrl = `http://127.0.0.1:${RELAY_PORT}`;
-    const recipient = '0xPerfTest' + crypto.randomUUID().replace(/-/g, '').slice(0, 32);
-    
-    const start = Date.now();
-    const promises: Promise<Response>[] = [];
-    
+    const relayUrl = `http://127.0.0.1:${RELAY_PORT}`
+    const recipient = `0xPerfTest${crypto.randomUUID().replace(/-/g, '').slice(0, 32)}`
+
+    const start = Date.now()
+    const promises: Promise<Response>[] = []
+
     for (let i = 0; i < 100; i++) {
       const envelope = {
         id: crypto.randomUUID(),
@@ -956,25 +1057,26 @@ describe('Performance', () => {
         to: recipient,
         encryptedContent: Buffer.from(`Message ${i}`).toString('base64'),
         timestamp: Date.now(),
-      };
-      
-      promises.push(fetch(`${relayUrl}/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(envelope),
-      }));
-    }
-    
-    await Promise.all(promises);
-    const elapsed = Date.now() - start;
-    
-    console.log(`[Perf] Sent 100 messages in ${elapsed}ms`);
-    expect(elapsed).toBeLessThan(10000); // Should complete in under 10s
-    
-    // Verify all received
-    const response = await fetch(`${relayUrl}/messages/${recipient}`);
-    const result = await response.json() as { count: number };
-    expect(result.count).toBe(100);
-  });
-});
+      }
 
+      promises.push(
+        fetch(`${relayUrl}/send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(envelope),
+        }),
+      )
+    }
+
+    await Promise.all(promises)
+    const elapsed = Date.now() - start
+
+    console.log(`[Perf] Sent 100 messages in ${elapsed}ms`)
+    expect(elapsed).toBeLessThan(10000) // Should complete in under 10s
+
+    // Verify all received
+    const response = await fetch(`${relayUrl}/messages/${recipient}`)
+    const result = (await response.json()) as { count: number }
+    expect(result.count).toBe(100)
+  })
+})

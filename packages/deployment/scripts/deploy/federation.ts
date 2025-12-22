@@ -31,7 +31,8 @@ import {
 } from 'viem'
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { getBalance, waitForTransactionReceipt } from 'viem/actions'
-import type { ConstructorArg, RawArtifactJson } from '../shared/contract-types'
+import type { ConstructorArg } from '../shared/contract-types'
+import { expectJson, RawArtifactJsonSchema } from '../../schemas'
 
 const ROOT = join(import.meta.dir, '../..')
 const CONTRACTS_DIR = join(ROOT, 'packages/contracts')
@@ -67,8 +68,8 @@ const CHAIN_CONFIGS: Record<
   { local: ChainConfig; hub: ChainConfig }
 > = {
   localnet: {
-    local: { chainId: 1337, rpcUrl: 'http://localhost:9545' },
-    hub: { chainId: 31337, rpcUrl: 'http://localhost:9545' },
+    local: { chainId: 1337, rpcUrl: 'http://localhost:6546' },
+    hub: { chainId: 31337, rpcUrl: 'http://localhost:6546' },
   },
   testnet: {
     local: { chainId: 420690, rpcUrl: 'https://testnet-rpc.jejunetwork.org' },
@@ -108,7 +109,11 @@ async function deployContract(
     await $`cd ${CONTRACTS_DIR} && forge build`.quiet()
   }
 
-  const artifact = JSON.parse(readFileSync(abiPath, 'utf-8')) as RawArtifactJson
+  const artifact = expectJson(
+    readFileSync(abiPath, 'utf-8'),
+    RawArtifactJsonSchema,
+    `artifact ${name}`,
+  )
 
   const deployData = encodeDeployData({
     abi: artifact.abi,

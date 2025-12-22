@@ -22,14 +22,11 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia, localhost } from 'viem/chains'
-
-// ============ Types ============
-
-interface DeploymentConfig {
-  network: string
-  rpcUrl: string
-  contracts: Record<string, Address>
-}
+import {
+  DAODeploymentConfigSchema,
+  expectJson,
+  type DAODeploymentConfig,
+} from '../../schemas'
 
 interface DAOCreateParams {
   name: string
@@ -176,14 +173,14 @@ function getChainConfig(network: string) {
     default:
       return {
         chain: localhost,
-        rpcUrl: process.env.LOCAL_RPC_URL ?? 'http://localhost:9545',
+        rpcUrl: process.env.LOCAL_RPC_URL ?? 'http://localhost:6546',
       }
   }
 }
 
 async function loadDeployment(
   network: string,
-): Promise<DeploymentConfig | null> {
+): Promise<DAODeploymentConfig | null> {
   const path = join(
     __dirname,
     '..',
@@ -193,7 +190,9 @@ async function loadDeployment(
     `${network}.json`,
   )
   const content = await readFile(path, 'utf-8').catch(() => null)
-  return content ? (JSON.parse(content) as DeploymentConfig) : null
+  return content
+    ? expectJson(content, DAODeploymentConfigSchema, `deployment config ${network}`)
+    : null
 }
 
 function printHelp(): void {

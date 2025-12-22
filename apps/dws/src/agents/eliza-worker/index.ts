@@ -302,7 +302,8 @@ Generate a brief internal thought or reflection about your recent experiences.`
     const actionRegex = /\[ACTION:\s*(\w+)\s*\|([^\]]+)\]/g
 
     let match: RegExpExecArray | null
-    while ((match = actionRegex.exec(text)) !== null) {
+    match = actionRegex.exec(text)
+    while (match !== null) {
       const name = match[1]
       const paramsStr = match[2]
       const params: Record<string, string> = {}
@@ -316,6 +317,7 @@ Generate a brief internal thought or reflection about your recent experiences.`
       }
 
       actions.push({ name, params })
+      match = actionRegex.exec(text)
     }
 
     return actions

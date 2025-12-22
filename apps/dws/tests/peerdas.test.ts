@@ -302,7 +302,7 @@ describe('PeerDAS Blob Manager', () => {
     for (const column of columns) {
       const retrieved = manager.getColumn(blob.commitment, column.index)
       expect(retrieved).not.toBeNull()
-      expect(retrieved!.index).toBe(column.index)
+      expect(retrieved?.index).toBe(column.index)
     }
   })
 

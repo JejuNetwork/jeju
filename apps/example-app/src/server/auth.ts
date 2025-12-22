@@ -10,8 +10,9 @@
  */
 
 import { getNetworkName } from '@jejunetwork/config'
-import { type Context, Hono, type Next } from 'hono'
+import { Elysia, type Context } from 'elysia'
 import { verifyMessage } from 'viem'
+import type { Address } from 'viem'
 import {
   authCallbackQuerySchema,
   authProviderSchema,
@@ -27,16 +28,16 @@ import {
 } from '../utils/validation'
 
 /**
- * Middleware for OAuth3 authentication.
- * Checks for 'x-oauth3-session' header and validates the session.
- * Falls back to legacy wallet signature auth if no OAuth3 session.
+ * OAuth3 authentication derive function for Elysia
+ * Adds address and auth method to context
  */
-export async function OAuth3AuthMiddleware(
-  c: Context,
-  next: Next,
-): Promise<Response | undefined> {
+export async function oauth3AuthDerive({ request, set }: Context): Promise<{
+  address?: Address
+  oauth3SessionId?: string
+  authMethod?: 'oauth3' | 'wallet-signature'
+}> {
   const oauth3Service = getOAuth3Service()
-  const sessionId = c.req.header('x-oauth3-session')
+  const sessionId = request.headers.get('x-oauth3-session')
 
   // Try OAuth3 session authentication
   if (sessionId) {
@@ -52,10 +53,11 @@ export async function OAuth3AuthMiddleware(
       session.sessionId === validatedHeaders['x-oauth3-session'] &&
       oauth3Service.isLoggedIn()
     ) {
-      c.set('address', session.smartAccount)
-      c.set('oauth3SessionId', session.sessionId)
-      c.set('authMethod', 'oauth3')
-      return next()
+      return {
+        address: session.smartAccount as Address,
+        oauth3SessionId: session.sessionId,
+        authMethod: 'oauth3',
+      }
     }
 
     // Session ID provided but invalid - try to refresh
@@ -65,17 +67,18 @@ export async function OAuth3AuthMiddleware(
       refreshedSession &&
       refreshedSession.sessionId === validatedHeaders['x-oauth3-session']
     ) {
-      c.set('address', refreshedSession.smartAccount)
-      c.set('oauth3SessionId', refreshedSession.sessionId)
-      c.set('authMethod', 'oauth3')
-      return next()
+      return {
+        address: refreshedSession.smartAccount as Address,
+        oauth3SessionId: refreshedSession.sessionId,
+        authMethod: 'oauth3',
+      }
     }
   }
 
   // Try legacy wallet signature authentication
-  const addressHeader = c.req.header('x-jeju-address')
-  const timestampHeader = c.req.header('x-jeju-timestamp')
-  const signatureHeader = c.req.header('x-jeju-signature')
+  const addressHeader = request.headers.get('x-jeju-address')
+  const timestampHeader = request.headers.get('x-jeju-timestamp')
+  const signatureHeader = request.headers.get('x-jeju-signature')
 
   if (addressHeader && timestampHeader && signatureHeader) {
     const validatedHeaders = expectValid(
@@ -103,15 +106,28 @@ export async function OAuth3AuthMiddleware(
       })
 
       if (valid) {
-        c.set('address', validatedHeaders['x-jeju-address'])
-        c.set('authMethod', 'wallet-signature')
-        return next()
+        return {
+          address: validatedHeaders['x-jeju-address'] as Address,
+          authMethod: 'wallet-signature',
+        }
       }
     }
   }
 
-  return c.json(
-    {
+  return {}
+}
+
+/**
+ * Guard that requires authentication - use in onBeforeHandle
+ */
+export function requireAuth({ address, set }: { address?: Address; set: Context['set'] }): {
+  error: string
+  details: string
+  methods: Record<string, unknown>
+} | undefined {
+  if (!address) {
+    set.status = 401
+    return {
       error: 'Authentication required',
       details:
         'Provide x-oauth3-session header or legacy wallet signature headers',
@@ -122,260 +138,236 @@ export async function OAuth3AuthMiddleware(
           message: 'jeju-dapp:{timestamp}',
         },
       },
-    },
-    401,
-  )
+    }
+  }
+  return undefined
 }
 
 /**
  * Creates routes for OAuth3 authentication flows.
  */
-export function createAuthRoutes(): Hono {
-  const app = new Hono()
-
-  // Determine if we're in localnet for error message detail level
+export function createAuthRoutes(): Elysia {
   const networkName = getNetworkName()
   const isLocalnet = networkName === 'localnet' || networkName === 'Jeju'
 
-  // Error handler with sanitized messages
-  app.onError((err, c) => {
-    // Log full error for debugging (server-side only)
-    console.error('[Auth Error]', err)
+  return new Elysia({ prefix: '/auth' })
+    .onError(({ error, set }) => {
+      console.error('[Auth Error]', error)
 
-    if (err instanceof ValidationError) {
-      return c.json({ error: err.message, code: 'VALIDATION_ERROR' }, 400)
-    }
+      if (error instanceof ValidationError) {
+        set.status = 400
+        return { error: error.message, code: 'VALIDATION_ERROR' }
+      }
 
-    // Return sanitized message to client
-    const safeMessage = sanitizeErrorMessage(err, isLocalnet)
-    return c.json({ error: safeMessage, code: 'INTERNAL_ERROR' }, 500)
-  })
-
-  // Initialize OAuth3 and get available providers
-  app.get('/providers', async (c) => {
-    const oauth3Service = getOAuth3Service()
-
-    await oauth3Service.initialize()
-    const health = await oauth3Service.checkInfrastructureHealth()
-
-    return c.json({
-      providers: [
-        { id: AuthProvider.WALLET, name: 'Wallet', available: true },
-        {
-          id: AuthProvider.FARCASTER,
-          name: 'Farcaster',
-          available: health.teeNode,
-        },
-        { id: AuthProvider.GITHUB, name: 'GitHub', available: health.teeNode },
-        { id: AuthProvider.GOOGLE, name: 'Google', available: health.teeNode },
-        {
-          id: AuthProvider.TWITTER,
-          name: 'Twitter',
-          available: health.teeNode,
-        },
-        {
-          id: AuthProvider.DISCORD,
-          name: 'Discord',
-          available: health.teeNode,
-        },
-      ],
-      infrastructure: health,
+      const safeMessage = sanitizeErrorMessage(error, isLocalnet)
+      set.status = 500
+      return { error: safeMessage, code: 'INTERNAL_ERROR' }
     })
-  })
+    .get('/providers', async () => {
+      const oauth3Service = getOAuth3Service()
 
-  // Wallet login (primary method)
-  app.post('/login/wallet', async (c) => {
-    const oauth3Service = getOAuth3Service()
+      await oauth3Service.initialize()
+      const health = await oauth3Service.checkInfrastructureHealth()
 
-    await oauth3Service.initialize()
-    const session = await oauth3Service.loginWithWallet()
-
-    return c.json({
-      success: true,
-      session: {
-        sessionId: session.sessionId,
-        smartAccount: session.smartAccount,
-        expiresAt: session.expiresAt,
-      },
+      return {
+        providers: [
+          { id: AuthProvider.WALLET, name: 'Wallet', available: true },
+          {
+            id: AuthProvider.FARCASTER,
+            name: 'Farcaster',
+            available: health.teeNode,
+          },
+          { id: AuthProvider.GITHUB, name: 'GitHub', available: health.teeNode },
+          { id: AuthProvider.GOOGLE, name: 'Google', available: health.teeNode },
+          {
+            id: AuthProvider.TWITTER,
+            name: 'Twitter',
+            available: health.teeNode,
+          },
+          {
+            id: AuthProvider.DISCORD,
+            name: 'Discord',
+            available: health.teeNode,
+          },
+        ],
+        infrastructure: health,
+      }
     })
-  })
+    .post('/login/wallet', async () => {
+      const oauth3Service = getOAuth3Service()
 
-  // OAuth provider login (initiates flow) with validated provider
-  app.get('/login/:provider', async (c) => {
-    const providerStr = expectDefined(
-      c.req.param('provider'),
-      'Provider parameter is required',
-    )
-    const validatedProvider = expectValid(
-      authProviderSchema,
-      providerStr,
-      'Auth provider',
-    )
+      await oauth3Service.initialize()
+      const session = await oauth3Service.loginWithWallet()
 
-    if (validatedProvider === AuthProvider.WALLET) {
-      return c.json(
-        {
-          error: 'Wallet login must be initiated from client',
-          hint: 'Use POST /auth/login/wallet',
-        },
-        400,
-      )
-    }
-
-    // For OAuth providers, return the auth URL to redirect to
-    const oauth3Service = getOAuth3Service()
-    const appId = oauth3Service.getAppId()
-    const teeAgentUrl = oauth3Service.getTeeAgentUrl()
-
-    return c.json({
-      method: 'redirect',
-      url: `${teeAgentUrl}/auth/init`,
-      params: {
-        provider: validatedProvider,
-        appId,
-        redirectUri:
-          process.env.OAUTH3_REDIRECT_URI ||
-          'http://localhost:4501/auth/callback',
-      },
-    })
-  })
-
-  // OAuth callback handler (receives code from provider) with validated query
-  app.get('/callback', async (c) => {
-    const queryParams = {
-      code: c.req.query('code'),
-      state: c.req.query('state'),
-      error: c.req.query('error'),
-    }
-
-    const validatedQuery = expectValid(
-      authCallbackQuerySchema,
-      queryParams,
-      'OAuth callback query',
-    )
-
-    // Escape values for safe JSON embedding in HTML
-    const escapeForJson = (str: string): string => {
-      return str
-        .replace(/\\/g, '\\\\')
-        .replace(/'/g, "\\'")
-        .replace(/"/g, '\\"')
-        .replace(/</g, '\\u003c')
-        .replace(/>/g, '\\u003e')
-        .replace(/&/g, '\\u0026')
-        .replace(/\n/g, '\\n')
-        .replace(/\r/g, '\\r')
-    }
-
-    // Get the expected origin from environment or same-origin
-    const expectedOrigin =
-      process.env.OAUTH3_REDIRECT_ORIGIN ||
-      process.env.OAUTH3_REDIRECT_URI?.replace(/\/[^/]*$/, '') ||
-      ''
-
-    // Security: Use strict origin validation for postMessage
-    // If no origin is configured, use same-origin (safer default)
-    const postMessageOriginScript = expectedOrigin
-      ? `'${escapeForJson(expectedOrigin)}'`
-      : 'window.location.origin'
-
-    if (validatedQuery.error) {
-      const safeError = escapeForJson(validatedQuery.error)
-      // Return error page that posts to opener with validated origin
-      return c.html(`
-        <!DOCTYPE html>
-        <html>
-          <head><title>OAuth3 Error</title></head>
-          <body>
-            <script>
-              // Security: Only post to expected origin
-              if (window.opener) {
-                const targetOrigin = ${postMessageOriginScript};
-                window.opener.postMessage({ error: '${safeError}', type: 'oauth3-callback' }, targetOrigin);
-              }
-              window.close();
-            </script>
-            <p>Authentication failed. This window will close automatically.</p>
-          </body>
-        </html>
-      `)
-    }
-
-    if (!validatedQuery.code || !validatedQuery.state) {
-      throw new ValidationError('Missing code or state in callback')
-    }
-
-    const safeCode = escapeForJson(validatedQuery.code)
-    const safeState = escapeForJson(validatedQuery.state)
-
-    // Post code/state to opener window for SDK to process with validated origin
-    return c.html(`
-      <!DOCTYPE html>
-      <html>
-        <head><title>OAuth3 Callback</title></head>
-        <body>
-          <script>
-            // Security: Only post to expected origin
-            if (window.opener) {
-              const targetOrigin = ${postMessageOriginScript};
-              window.opener.postMessage({ 
-                code: '${safeCode}', 
-                state: '${safeState}',
-                type: 'oauth3-callback'
-              }, targetOrigin);
-            }
-            window.close();
-          </script>
-          <p>Completing authentication. This window will close automatically.</p>
-        </body>
-      </html>
-    `)
-  })
-
-  // Logout
-  app.post('/logout', async (c) => {
-    const oauth3Service = getOAuth3Service()
-    await oauth3Service.logout()
-    return c.json({ success: true, message: 'Logged out' })
-  })
-
-  // Get current session info
-  app.get('/session', async (c) => {
-    const oauth3Service = getOAuth3Service()
-    const session = oauth3Service.getSession()
-
-    if (session && oauth3Service.isLoggedIn()) {
-      return c.json({
-        isLoggedIn: true,
+      return {
+        success: true,
         session: {
           sessionId: session.sessionId,
           smartAccount: session.smartAccount,
           expiresAt: session.expiresAt,
-          capabilities: session.capabilities,
         },
-        identity: oauth3Service.getIdentity(),
-      })
-    }
+      }
+    })
+    .get('/login/:provider', async ({ params, set }) => {
+      const providerStr = expectDefined(
+        params.provider,
+        'Provider parameter is required',
+      )
+      const validatedProvider = expectValid(
+        authProviderSchema,
+        providerStr,
+        'Auth provider',
+      )
 
-    return c.json({ isLoggedIn: false, message: 'No active session' })
-  })
+      if (validatedProvider === AuthProvider.WALLET) {
+        set.status = 400
+        return {
+          error: 'Wallet login must be initiated from client',
+          hint: 'Use POST /auth/login/wallet',
+        }
+      }
 
-  // Infrastructure health
-  app.get('/health', async (c) => {
-    const oauth3Service = getOAuth3Service()
-    const health = await oauth3Service.checkInfrastructureHealth()
-    const allHealthy = health.jns && health.storage && health.teeNode
+      const oauth3Service = getOAuth3Service()
+      const appId = oauth3Service.getAppId()
+      const teeAgentUrl = oauth3Service.getTeeAgentUrl()
 
-    return c.json(
-      {
+      return {
+        method: 'redirect',
+        url: `${teeAgentUrl}/auth/init`,
+        params: {
+          provider: validatedProvider,
+          appId,
+          redirectUri:
+            process.env.OAUTH3_REDIRECT_URI ||
+            'http://localhost:4501/auth/callback',
+        },
+      }
+    })
+    .get('/callback', async ({ query, set }) => {
+      const queryParams = {
+        code: query.code,
+        state: query.state,
+        error: query.error,
+      }
+
+      const validatedQuery = expectValid(
+        authCallbackQuerySchema,
+        queryParams,
+        'OAuth callback query',
+      )
+
+      // Escape values for safe JSON embedding in HTML
+      const escapeForJson = (str: string): string => {
+        return str
+          .replace(/\\/g, '\\\\')
+          .replace(/'/g, "\\'")
+          .replace(/"/g, '\\"')
+          .replace(/</g, '\\u003c')
+          .replace(/>/g, '\\u003e')
+          .replace(/&/g, '\\u0026')
+          .replace(/\n/g, '\\n')
+          .replace(/\r/g, '\\r')
+      }
+
+      // Get the expected origin from environment or same-origin
+      const expectedOrigin =
+        process.env.OAUTH3_REDIRECT_ORIGIN ||
+        process.env.OAUTH3_REDIRECT_URI?.replace(/\/[^/]*$/, '') ||
+        ''
+
+      // Security: Use strict origin validation for postMessage
+      const postMessageOriginScript = expectedOrigin
+        ? `'${escapeForJson(expectedOrigin)}'`
+        : 'window.location.origin'
+
+      set.headers['content-type'] = 'text/html'
+
+      if (validatedQuery.error) {
+        const safeError = escapeForJson(validatedQuery.error)
+        return `
+          <!DOCTYPE html>
+          <html>
+            <head><title>OAuth3 Error</title></head>
+            <body>
+              <script>
+                if (window.opener) {
+                  const targetOrigin = ${postMessageOriginScript};
+                  window.opener.postMessage({ error: '${safeError}', type: 'oauth3-callback' }, targetOrigin);
+                }
+                window.close();
+              </script>
+              <p>Authentication failed. This window will close automatically.</p>
+            </body>
+          </html>
+        `
+      }
+
+      if (!validatedQuery.code || !validatedQuery.state) {
+        throw new ValidationError('Missing code or state in callback')
+      }
+
+      const safeCode = escapeForJson(validatedQuery.code)
+      const safeState = escapeForJson(validatedQuery.state)
+
+      return `
+        <!DOCTYPE html>
+        <html>
+          <head><title>OAuth3 Callback</title></head>
+          <body>
+            <script>
+              if (window.opener) {
+                const targetOrigin = ${postMessageOriginScript};
+                window.opener.postMessage({ 
+                  code: '${safeCode}', 
+                  state: '${safeState}',
+                  type: 'oauth3-callback'
+                }, targetOrigin);
+              }
+              window.close();
+            </script>
+            <p>Completing authentication. This window will close automatically.</p>
+          </body>
+        </html>
+      `
+    })
+    .post('/logout', async () => {
+      const oauth3Service = getOAuth3Service()
+      await oauth3Service.logout()
+      return { success: true, message: 'Logged out' }
+    })
+    .get('/session', async () => {
+      const oauth3Service = getOAuth3Service()
+      const session = oauth3Service.getSession()
+
+      if (session && oauth3Service.isLoggedIn()) {
+        return {
+          isLoggedIn: true,
+          session: {
+            sessionId: session.sessionId,
+            smartAccount: session.smartAccount,
+            expiresAt: session.expiresAt,
+            capabilities: session.capabilities,
+          },
+          identity: oauth3Service.getIdentity(),
+        }
+      }
+
+      return { isLoggedIn: false, message: 'No active session' }
+    })
+    .get('/health', async ({ set }) => {
+      const oauth3Service = getOAuth3Service()
+      const health = await oauth3Service.checkInfrastructureHealth()
+      const allHealthy = health.jns && health.storage && health.teeNode
+
+      if (!allHealthy) {
+        set.status = 503
+      }
+
+      return {
         status: allHealthy ? 'healthy' : 'degraded',
         components: health,
-      },
-      allHealthy ? 200 : 503,
-    )
-  })
-
-  return app
+      }
+    })
 }
 
 // Alias for backward compatibility

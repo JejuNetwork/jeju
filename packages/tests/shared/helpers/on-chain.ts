@@ -25,14 +25,16 @@ import {
   formatEther,
   type Hash,
   http,
+  keccak256,
   type Log,
   type PublicClient,
   parseAbi,
+  toBytes,
   type TransactionReceipt,
 } from 'viem'
 
 const DEFAULT_RPC_URL =
-  process.env.L2_RPC_URL || process.env.JEJU_RPC_URL || 'http://localhost:9545'
+  process.env.L2_RPC_URL || process.env.JEJU_RPC_URL || 'http://localhost:6546'
 const DEFAULT_CHAIN_ID = parseInt(process.env.CHAIN_ID || '1337', 10)
 const CLIENT_TTL_MS = 30_000 // Cached client TTL - balance staleness vs connection overhead
 
@@ -203,7 +205,6 @@ export async function verifyContractEvent(
   }
 
   if (eventSignature) {
-    const { keccak256, toBytes } = await import('viem')
     const topic = keccak256(toBytes(eventSignature))
     logs = logs.filter(
       (l) => l.topics[0]?.toLowerCase() === topic.toLowerCase(),

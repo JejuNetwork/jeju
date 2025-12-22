@@ -5,6 +5,7 @@
  */
 
 import type { Address, Hex } from 'viem'
+import { z } from 'zod'
 import type {
   AgentActionContent,
   FileContent,
@@ -15,6 +16,75 @@ import type {
   TextContent,
   TransactionContent,
 } from './types'
+
+// ============ Content Zod Schemas ============
+
+const TextContentSchema = z.object({
+  type: z.literal('text'),
+  text: z.string(),
+})
+
+const ImageContentSchema = z.object({
+  type: z.literal('image'),
+  url: z.string().url(),
+  width: z.number().int().positive().max(10000),
+  height: z.number().int().positive().max(10000),
+  mimeType: z.enum(['image/jpeg', 'image/png', 'image/gif', 'image/webp']),
+  blurhash: z.string().optional(),
+  alt: z.string().optional(),
+})
+
+const FileContentSchema = z.object({
+  type: z.literal('file'),
+  url: z.string().url(),
+  name: z.string().min(1).max(255),
+  size: z.number().int().positive().max(100 * 1024 * 1024), // Max 100MB
+  mimeType: z.string(),
+})
+
+const ReactionContentSchema = z.object({
+  type: z.literal('reaction'),
+  emoji: z.string().min(1),
+  messageId: z.string().min(1),
+  action: z.enum(['add', 'remove']),
+})
+
+const ReplyContentSchema = z.object({
+  type: z.literal('reply'),
+  text: z.string(),
+  replyToId: z.string().min(1),
+  replyToContent: z.string().optional(),
+  replyToSender: z.string().regex(/^0x[a-fA-F0-9]{40}$/).optional(),
+})
+
+const TransactionContentSchema = z.object({
+  type: z.literal('transaction'),
+  chainId: z.number().int().positive(),
+  txHash: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
+  status: z.enum(['pending', 'confirmed', 'failed']),
+  description: z.string().optional(),
+  amount: z.string().optional(),
+  token: z.string().optional(),
+})
+
+const AgentActionContentSchema = z.object({
+  type: z.literal('agent_action'),
+  agentId: z.number().int(),
+  action: z.string().min(1),
+  params: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])),
+  status: z.enum(['pending', 'completed', 'failed']),
+  result: z.string().optional(),
+})
+
+export const MessageContentSchema = z.discriminatedUnion('type', [
+  TextContentSchema,
+  ImageContentSchema,
+  FileContentSchema,
+  ReactionContentSchema,
+  ReplyContentSchema,
+  TransactionContentSchema,
+  AgentActionContentSchema,
+])
 
 // ============ Content Type IDs ============
 
@@ -155,23 +225,20 @@ export function serializeContent(content: MessageContent): string {
 }
 
 /**
- * Deserialize content from string
+ * Deserialize content from string with Zod validation
  */
 export function deserializeContent(json: string): MessageContent {
-  const parsed = JSON.parse(json)
+  const parsed: unknown = JSON.parse(json)
+  const result = MessageContentSchema.safeParse(parsed)
 
-  switch (parsed.type) {
-    case 'text':
-    case 'image':
-    case 'file':
-    case 'reaction':
-    case 'reply':
-    case 'transaction':
-    case 'agent_action':
-      return parsed as MessageContent
-    default:
-      throw new Error(`Unknown content type: ${parsed.type}`)
+  if (!result.success) {
+    const errors = result.error.issues
+      .map((e) => `${e.path.join('.')}: ${e.message}`)
+      .join(', ')
+    throw new Error(`Invalid message content: ${errors}`)
   }
+
+  return result.data as MessageContent
 }
 
 /**

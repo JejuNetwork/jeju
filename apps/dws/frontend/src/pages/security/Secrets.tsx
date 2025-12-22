@@ -77,10 +77,15 @@ export default function SecretsPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="btn btn-secondary" onClick={() => refetch()}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => refetch()}
+          >
             <RefreshCw size={16} /> Refresh
           </button>
           <button
+            type="button"
             className="btn btn-primary"
             onClick={() => setShowModal(true)}
             disabled={!isConnected}
@@ -142,6 +147,7 @@ export default function SecretsPage() {
             <h3>No secrets stored</h3>
             <p>Add your first encrypted secret</p>
             <button
+              type="button"
               className="btn btn-primary"
               onClick={() => setShowModal(true)}
               disabled={!isConnected}
@@ -198,6 +204,7 @@ export default function SecretsPage() {
                 </div>
                 <div style={{ display: 'flex', gap: '0.25rem' }}>
                   <button
+                    type="button"
                     className="btn btn-ghost btn-sm"
                     onClick={() => toggleReveal(secret.id)}
                     title={revealedSecrets.has(secret.id) ? 'Hide' : 'Reveal'}
@@ -209,6 +216,7 @@ export default function SecretsPage() {
                     )}
                   </button>
                   <button
+                    type="button"
                     className="btn btn-ghost btn-sm"
                     onClick={() =>
                       handleCopy(`\${secrets.${secret.name}}`, secret.id)
@@ -221,7 +229,11 @@ export default function SecretsPage() {
                       <Copy size={14} />
                     )}
                   </button>
-                  <button className="btn btn-ghost btn-sm" title="Delete">
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    title="Delete"
+                  >
                     <Trash2 size={14} />
                   </button>
                 </div>
@@ -286,11 +298,29 @@ export default function SecretsPage() {
       </div>
 
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay">
+          <button
+            type="button"
+            className="absolute inset-0 cursor-default"
+            onClick={() => setShowModal(false)}
+            aria-label="Close modal"
+          />
+          <div
+            className="modal"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              e.stopPropagation()
+              if (e.key === 'Escape') {
+                setShowModal(false)
+              }
+            }}
+            role="dialog"
+            aria-modal="true"
+          >
             <div className="modal-header">
               <h3 className="modal-title">Add Secret</h3>
               <button
+                type="button"
                 className="btn btn-ghost btn-icon"
                 onClick={() => setShowModal(false)}
               >
@@ -300,8 +330,11 @@ export default function SecretsPage() {
             <form onSubmit={handleCreate}>
               <div className="modal-body">
                 <div className="form-group">
-                  <label className="form-label">Secret Name *</label>
+                  <label htmlFor="secret-name" className="form-label">
+                    Secret Name *
+                  </label>
                   <input
+                    id="secret-name"
                     className="input"
                     placeholder="API_KEY"
                     value={formData.name}
@@ -318,8 +351,11 @@ export default function SecretsPage() {
                   <div className="form-hint">Use UPPER_SNAKE_CASE</div>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Secret Value *</label>
+                  <label htmlFor="secret-value" className="form-label">
+                    Secret Value *
+                  </label>
                   <input
+                    id="secret-value"
                     className="input"
                     type="password"
                     placeholder="Enter secret value"
@@ -331,8 +367,11 @@ export default function SecretsPage() {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Expires In</label>
+                  <label htmlFor="secret-expires" className="form-label">
+                    Expires In
+                  </label>
                   <select
+                    id="secret-expires"
                     className="input"
                     value={formData.expiresIn}
                     onChange={(e) =>

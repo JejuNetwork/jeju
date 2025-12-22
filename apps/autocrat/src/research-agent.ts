@@ -8,6 +8,7 @@
 import { getDWSComputeUrl } from '@jejunetwork/config'
 import { keccak256, stringToHex } from 'viem'
 import { checkDWSCompute, dwsGenerate } from './agents/runtime'
+import { ComputeInferenceResponseSchema, expectValid } from './schemas'
 import { parseJson } from './shared'
 
 // DWS endpoint is resolved dynamically based on the current network
@@ -93,14 +94,6 @@ interface ComputeInferenceRequest {
   }
 }
 
-interface ComputeInferenceResult {
-  requestId: string
-  content?: string
-  tokensUsed?: { input: number; output: number }
-  cost: { amount: string; currency: string; paid: boolean }
-  latencyMs: number
-}
-
 async function computeMarketplaceInference(
   prompt: string,
   systemPrompt: string,
@@ -133,7 +126,11 @@ async function computeMarketplaceInference(
     )
   }
 
-  const result = (await response.json()) as ComputeInferenceResult
+  const result = expectValid(
+    ComputeInferenceResponseSchema,
+    await response.json(),
+    'Compute marketplace inference',
+  )
   console.log(
     `[ResearchAgent] Compute inference: ${result.tokensUsed?.input ?? 0}/${result.tokensUsed?.output ?? 0} tokens, ${result.latencyMs}ms, ${result.cost.amount} ${result.cost.currency}`,
   )
@@ -598,7 +595,10 @@ Return JSON: {"verified":true/false,"confidence":0-100,"explanation":"...","sour
 let instance: ResearchAgent | null = null
 
 export function getResearchAgent(): ResearchAgent {
-  return (instance ??= new ResearchAgent())
+  if (!instance) {
+    instance = new ResearchAgent()
+  }
+  return instance
 }
 
 export async function generateResearchReport(

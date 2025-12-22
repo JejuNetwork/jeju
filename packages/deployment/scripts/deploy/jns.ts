@@ -44,7 +44,7 @@ const RPC_URL = isMainnet
   ? process.env.BASE_RPC_URL || 'https://mainnet.base.org'
   : isTestnet
     ? process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org'
-    : process.env.RPC_URL || 'http://127.0.0.1:9545'
+    : process.env.RPC_URL || 'http://127.0.0.1:6546'
 
 // SECURITY: Get private key from environment
 // Anvil default key is ONLY used for localnet

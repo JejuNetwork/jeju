@@ -4,8 +4,18 @@
  * Provides decentralized naming for dApps.
  */
 
+import { expectValid } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
+import {
+  JNSAvailabilityResponseSchema,
+  JNSPriceResponseSchema,
+  JNSRecordsResponseSchema,
+  JNSRegisterResponseSchema,
+  JNSResolveResponseSchema,
+  JNSReverseResolveResponseSchema,
+  JNSSetRecordsResponseSchema,
+} from '../schemas'
 
 const JNSConfigSchema = z.object({
   gatewayEndpoint: z.string().url(),
@@ -53,7 +63,11 @@ class JNSServiceImpl implements JNSService {
     if (!response.ok) {
       throw new Error(`Failed to check name availability: ${response.status}`)
     }
-    const data = (await response.json()) as { available: boolean }
+    const data = expectValid(
+      JNSAvailabilityResponseSchema,
+      await response.json(),
+      'JNS availability response',
+    )
     return data.available
   }
 
@@ -80,7 +94,11 @@ class JNSServiceImpl implements JNSService {
       throw new Error(`Failed to register name: ${await response.text()}`)
     }
 
-    const data = (await response.json()) as { txHash: Hex }
+    const data = expectValid(
+      JNSRegisterResponseSchema,
+      await response.json(),
+      'JNS register response',
+    )
     return { txHash: data.txHash, name: normalized }
   }
 
@@ -91,7 +109,11 @@ class JNSServiceImpl implements JNSService {
       if (response.status === 404) return null
       throw new Error(`Failed to resolve name: ${response.status}`)
     }
-    const data = (await response.json()) as { address: Address }
+    const data = expectValid(
+      JNSResolveResponseSchema,
+      await response.json(),
+      'JNS resolve response',
+    )
     return data.address
   }
 
@@ -101,7 +123,11 @@ class JNSServiceImpl implements JNSService {
       if (response.status === 404) return null
       throw new Error(`Failed to reverse resolve: ${response.status}`)
     }
-    const data = (await response.json()) as { name: string }
+    const data = expectValid(
+      JNSReverseResolveResponseSchema,
+      await response.json(),
+      'JNS reverse resolve response',
+    )
     return data.name
   }
 
@@ -112,7 +138,11 @@ class JNSServiceImpl implements JNSService {
       if (response.status === 404) return {}
       throw new Error(`Failed to get records: ${response.status}`)
     }
-    return (await response.json()) as JNSRecords
+    return expectValid(
+      JNSRecordsResponseSchema,
+      await response.json(),
+      'JNS records response',
+    )
   }
 
   async setRecords(
@@ -131,7 +161,11 @@ class JNSServiceImpl implements JNSService {
       throw new Error(`Failed to set records: ${await response.text()}`)
     }
 
-    return (await response.json()) as { txHash: Hex }
+    return expectValid(
+      JNSSetRecordsResponseSchema,
+      await response.json(),
+      'JNS set records response',
+    )
   }
 
   async getPrice(name: string, durationYears: number): Promise<bigint> {
@@ -144,7 +178,11 @@ class JNSServiceImpl implements JNSService {
       throw new Error(`Failed to get price: ${response.status}`)
     }
 
-    const data = (await response.json()) as { price: string }
+    const data = expectValid(
+      JNSPriceResponseSchema,
+      await response.json(),
+      'JNS price response',
+    )
     return BigInt(data.price)
   }
 

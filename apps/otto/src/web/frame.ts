@@ -3,11 +3,10 @@
  * Minimal interactive Frame for trading
  */
 
-import { Hono } from 'hono'
+import { Elysia } from 'elysia'
 import { getConfig } from '../config'
 import { expectValid, FarcasterFramePayloadSchema } from '../schemas'
 
-export const frameApi = new Hono()
 const BASE_URL = getConfig().baseUrl
 
 /**
@@ -64,93 +63,86 @@ const frame = (p: {
 </html>`
 }
 
-// Home
-frameApi.get('/', (c) =>
-  c.html(
-    frame({
+export const frameApi = new Elysia({ prefix: '/frame' })
+  // Home
+  .get('/', ({ set }) => {
+    set.headers['Content-Type'] = 'text/html'
+    return frame({
       title: 'Otto',
       text: 'Otto Trading Agent',
       buttons: ['Swap', 'Bridge', 'Balance'],
       postUrl: `${BASE_URL}/frame/action`,
-    }),
-  ),
-)
+    })
+  })
 
-// Action handler
-frameApi.post('/action', async (c) => {
-  const rawPayload = await c.req.json()
-  const payload = expectValid(
-    FarcasterFramePayloadSchema,
-    rawPayload,
-    'Farcaster frame action',
-  )
-  const btn = payload.untrustedData.buttonIndex
-  const input = payload.untrustedData.inputText
+  // Action handler
+  .post('/action', ({ body, set }) => {
+    const payload = expectValid(
+      FarcasterFramePayloadSchema,
+      body,
+      'Farcaster frame action',
+    )
+    const btn = payload.untrustedData.buttonIndex
+    const input = payload.untrustedData.inputText
 
-  if (btn === 1) {
-    // Swap
-    if (input) {
-      return c.html(
-        frame({
+    set.headers['Content-Type'] = 'text/html'
+
+    if (btn === 1) {
+      // Swap
+      if (input) {
+        return frame({
           title: 'Swap',
           text: `Swap: ${input}`,
           buttons: ['Confirm', 'Cancel'],
           postUrl: `${BASE_URL}/frame/confirm`,
-        }),
-      )
-    }
-    return c.html(
-      frame({
+        })
+      }
+      return frame({
         title: 'Swap',
         text: 'Enter: amount FROM to TO',
         input: '1 ETH to USDC',
         buttons: ['Get Quote'],
         postUrl: `${BASE_URL}/frame/action`,
-      }),
-    )
-  }
+      })
+    }
 
-  if (btn === 2) {
-    // Bridge
-    return c.html(
-      frame({
+    if (btn === 2) {
+      // Bridge
+      return frame({
         title: 'Bridge',
         text: 'Enter: amount TOKEN from CHAIN to CHAIN',
         input: '1 ETH from ethereum to base',
         buttons: ['Get Quote'],
         postUrl: `${BASE_URL}/frame/action`,
-      }),
-    )
-  }
+      })
+    }
 
-  // Balance
-  const fid = payload.untrustedData.fid
-  return c.html(
-    frame({
+    // Balance
+    const fid = payload.untrustedData.fid
+    return frame({
       title: 'Balance',
       text: `FID ${fid}\n\nConnect wallet to view balance`,
       buttons: ['Connect', 'Home'],
       postUrl: `${BASE_URL}/frame/action`,
-    }),
-  )
-})
+    })
+  })
 
-// Image generator
-frameApi.get('/img', (c) => {
-  const text = c.req.query('t') ?? 'Otto'
-  // Limit text length to prevent abuse
-  const safeText = text.length > 200 ? `${text.slice(0, 200)}...` : text
-  const lines = safeText.split('\n')
-  const firstLine = escapeXml(lines[0] ?? 'Otto')
-  const otherLines = escapeXml(lines.slice(1).join(' | '))
+  // Image generator
+  .get('/img', ({ query, set }) => {
+    const text = query.t ?? 'Otto'
+    // Limit text length to prevent abuse
+    const safeText = text.length > 200 ? `${text.slice(0, 200)}...` : text
+    const lines = safeText.split('\n')
+    const firstLine = escapeXml(lines[0] ?? 'Otto')
+    const otherLines = escapeXml(lines.slice(1).join(' | '))
 
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="628">
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="628">
     <rect width="1200" height="628" fill="#111"/>
     <text x="600" y="300" text-anchor="middle" font-family="system-ui" font-size="48" fill="#0af">${firstLine}</text>
     <text x="600" y="360" text-anchor="middle" font-family="system-ui" font-size="24" fill="#666">${otherLines}</text>
   </svg>`
-  c.header('Content-Type', 'image/svg+xml')
-  return c.body(svg)
-})
+    set.headers['Content-Type'] = 'image/svg+xml'
+    return svg
+  })
 
 export default frameApi

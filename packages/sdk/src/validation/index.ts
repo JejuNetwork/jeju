@@ -376,6 +376,3 @@ export function createValidationModule(
     requestExists,
   }
 }
-
-// Re-export for convenience
-export { VALIDATION_REGISTRY_ABI }

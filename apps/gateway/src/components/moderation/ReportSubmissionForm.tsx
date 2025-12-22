@@ -180,10 +180,14 @@ export default function ReportSubmissionForm({
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Target Agent ID */}
       <div>
-        <label className="block text-sm font-medium mb-2">
+        <label
+          htmlFor="target-agent-id"
+          className="block text-sm font-medium mb-2"
+        >
           Target Agent ID *
         </label>
         <input
+          id="target-agent-id"
           type="number"
           value={formData.targetAgentId}
           onChange={(e) =>
@@ -197,7 +201,7 @@ export default function ReportSubmissionForm({
 
       {/* Report Type */}
       <div>
-        <label className="block text-sm font-medium mb-2">Report Type *</label>
+        <span className="block text-sm font-medium mb-2">Report Type *</span>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {REPORT_TYPES.map((type) => (
             <button
@@ -224,8 +228,14 @@ export default function ReportSubmissionForm({
       {/* App ID (for APP_BAN type) */}
       {formData.reportType === 1 && (
         <div>
-          <label className="block text-sm font-medium mb-2">Source App *</label>
+          <label
+            htmlFor="source-app"
+            className="block text-sm font-medium mb-2"
+          >
+            Source App *
+          </label>
           <select
+            id="source-app"
             value={formData.sourceAppId}
             onChange={(e) =>
               setFormData({ ...formData, sourceAppId: e.target.value })
@@ -243,7 +253,7 @@ export default function ReportSubmissionForm({
 
       {/* Severity */}
       <div>
-        <label className="block text-sm font-medium mb-2">Severity *</label>
+        <span className="block text-sm font-medium mb-2">Severity *</span>
         <div className="space-y-2">
           {SEVERITY_LEVELS.map((level) => (
             <button
@@ -275,9 +285,9 @@ export default function ReportSubmissionForm({
 
       {/* Evidence Upload */}
       <div>
-        <label className="block text-sm font-medium mb-2">
+        <span className="block text-sm font-medium mb-2">
           Evidence * (IPFS Upload)
-        </label>
+        </span>
         <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
           {!evidenceFile ? (
             <>
@@ -317,10 +327,14 @@ export default function ReportSubmissionForm({
 
       {/* Details */}
       <div>
-        <label className="block text-sm font-medium mb-2">
+        <label
+          htmlFor="report-details"
+          className="block text-sm font-medium mb-2"
+        >
           Additional Details *
         </label>
         <textarea
+          id="report-details"
           value={formData.details}
           onChange={(e) =>
             setFormData({ ...formData, details: e.target.value })

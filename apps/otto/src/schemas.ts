@@ -818,3 +818,6 @@ export const ExternalResolveResponseSchema = z.object({
 export const ExternalReverseResolveResponseSchema = z.object({
   name: z.string().optional(),
 })
+
+// Bridge quotes array response (gateway returns array of quotes)
+export const ExternalBridgeQuotesResponseSchema = z.array(BridgeQuoteSchema)

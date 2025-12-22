@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { LoadingSkeleton } from './LoadingSpinner'
 
 interface NFT {
@@ -17,17 +18,20 @@ interface NFTCardProps {
 
 export function NFTCard({ nft, onClick }: NFTCardProps) {
   return (
-    <div
+    <button
+      type="button"
       onClick={onClick}
-      className="rounded-xl bg-white/5 border border-white/10 overflow-hidden hover:scale-105 transition-all cursor-pointer group"
+      className="rounded-xl bg-white/5 border border-white/10 overflow-hidden hover:scale-105 transition-all cursor-pointer group text-left w-full"
     >
       {/* Image */}
       <div className="aspect-square bg-gradient-to-br from-purple-500/20 to-pink-500/20 relative overflow-hidden">
         {nft.image ? (
-          <img
+          <Image
             src={nft.image}
             alt={nft.name}
-            className="w-full h-full object-cover"
+            fill
+            className="object-cover"
+            unoptimized
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-6xl">
@@ -48,7 +52,7 @@ export function NFTCard({ nft, onClick }: NFTCardProps) {
           </div>
         )}
       </div>
-    </div>
+    </button>
   )
 }
 

@@ -302,9 +302,9 @@ class TodoServiceImpl implements TodoService {
     }
     expectValid(addressSchema, owner, 'Owner address')
     // Validate all IDs
-    ids.forEach((id, i) =>
-      expectValid(todoIdSchema, id, `Todo ID at index ${i}`),
-    )
+    for (let i = 0; i < ids.length; i++) {
+      expectValid(todoIdSchema, ids[i], `Todo ID at index ${i}`)
+    }
 
     const completed = await this.repository.bulkComplete(ids, owner)
     const validatedTodos = completed.map((todo) =>
@@ -324,9 +324,9 @@ class TodoServiceImpl implements TodoService {
     }
     expectValid(addressSchema, owner, 'Owner address')
     // Validate all IDs
-    ids.forEach((id, i) =>
-      expectValid(todoIdSchema, id, `Todo ID at index ${i}`),
-    )
+    for (let i = 0; i < ids.length; i++) {
+      expectValid(todoIdSchema, ids[i], `Todo ID at index ${i}`)
+    }
 
     const count = await this.repository.bulkDelete(ids, owner)
     await this.invalidateOwnerCache(owner)

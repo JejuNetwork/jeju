@@ -20,6 +20,7 @@ import type {
   PlatformUserInfo,
   SendMessageOptions,
 } from './types'
+import twilio from 'twilio'
 
 /** Minimal interface for Twilio client - only the methods we use */
 interface TwilioClient {
@@ -65,9 +66,7 @@ export class WhatsAppAdapter implements PlatformAdapter {
   async initialize(): Promise<void> {
     console.log('[WhatsApp] Initializing Twilio client...')
 
-    // Dynamic import to avoid requiring twilio when not used
-    const twilio = await import('twilio')
-    const sdkClient = twilio.default(this.accountSid, this.authToken)
+    const sdkClient = twilio(this.accountSid, this.authToken)
     this.twilioClient = createTwilioClient(sdkClient)
 
     this.ready = true

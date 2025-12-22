@@ -73,7 +73,7 @@ async function deploy(
 async function main() {
   console.log('\n=== JEJU DAO DEPLOYMENT ===\n')
 
-  const rpcUrl = 'http://127.0.0.1:9545'
+  const rpcUrl = 'http://127.0.0.1:6546'
   const chain = { id: 31337, name: 'local' } as Chain
 
   const client = createPublicClient({
@@ -249,7 +249,7 @@ async function main() {
   const deployment = {
     network: 'localnet',
     chainId: 31337,
-    rpcUrl: 'http://127.0.0.1:9545',
+    rpcUrl: 'http://127.0.0.1:6546',
     timestamp: new Date().toISOString(),
     deployer: deployerAccount.address,
     contracts: {
@@ -271,7 +271,7 @@ async function main() {
   )
   console.log('✓ Saved deployment-localnet.json')
 
-  const env = `RPC_URL=http://127.0.0.1:9545
+  const env = `RPC_URL=http://127.0.0.1:6546
 CHAIN_ID=31337
 COUNCIL_ADDRESS=${councilAddr}
 CEO_AGENT_ADDRESS=${ceoAddr}

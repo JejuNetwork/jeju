@@ -7,7 +7,7 @@ import {
   useWaitForTransactionReceipt,
   useWriteContract,
 } from 'wagmi'
-import { useOIFConfig } from '@/hooks/useOIF'
+import { useOIFConfig } from '../../hooks/useOIF'
 
 const CHAINS = [
   { id: 1, name: 'Ethereum', color: 'var(--chain-ethereum)' },
@@ -187,7 +187,7 @@ export function CrossChainIntent() {
       <form onSubmit={handleSubmit}>
         {/* From Chain */}
         <div style={{ marginBottom: '16px' }}>
-          <label
+          <div
             style={{
               display: 'block',
               fontSize: '12px',
@@ -196,7 +196,7 @@ export function CrossChainIntent() {
             }}
           >
             From
-          </label>
+          </div>
           <div
             style={{
               display: 'flex',
@@ -223,6 +223,7 @@ export function CrossChainIntent() {
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0.0"
+                aria-label="Amount"
                 style={{
                   background: 'transparent',
                   border: 'none',
@@ -266,6 +267,7 @@ export function CrossChainIntent() {
         {/* To Chain */}
         <div style={{ marginBottom: '16px' }}>
           <label
+            htmlFor="crosschain-dest-chain"
             style={{
               display: 'block',
               fontSize: '12px',
@@ -276,6 +278,7 @@ export function CrossChainIntent() {
             To
           </label>
           <select
+            id="crosschain-dest-chain"
             value={destChain}
             onChange={(e) => setDestChain(Number(e.target.value))}
             style={{
@@ -299,6 +302,7 @@ export function CrossChainIntent() {
         {/* Fee */}
         <div style={{ marginBottom: '20px' }}>
           <label
+            htmlFor="crosschain-max-fee"
             style={{
               display: 'block',
               fontSize: '12px',
@@ -320,6 +324,7 @@ export function CrossChainIntent() {
             }}
           >
             <input
+              id="crosschain-max-fee"
               type="text"
               value={maxFee}
               onChange={(e) => setMaxFee(e.target.value)}

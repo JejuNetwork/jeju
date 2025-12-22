@@ -1,6 +1,9 @@
 'use client'
 
-import { type AllocationKey, JEJU_TOKENOMICS } from '@/config/jeju-tokenomics'
+import {
+  type AllocationKey,
+  JEJU_TOKENOMICS,
+} from '../../config/jeju-tokenomics'
 
 const COLORS: Record<AllocationKey, string> = {
   presale: '#22c55e',
@@ -45,6 +48,7 @@ export function JejuTokenomics() {
         <div className="flex justify-center">
           <div className="relative w-64 h-64 md:w-72 md:h-72">
             <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+              <title>Token Allocation Chart</title>
               {segments.map((segment) => {
                 const startAngle = (segment.startAngle * Math.PI) / 180
                 const endAngle = (segment.endAngle * Math.PI) / 180

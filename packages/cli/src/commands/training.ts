@@ -22,6 +22,20 @@ import { foundry } from 'viem/chains'
 import { getChainStatus } from '../lib/chain'
 import { logger } from '../lib/logger'
 import { findMonorepoRoot } from '../lib/system'
+import {
+  BenchmarkResponseSchema,
+  DWSHealthResponseSchema,
+  DWSModelsResponseSchema,
+  DWSNodesResponseSchema,
+  ManifestResponseSchema,
+  RLAIFRunCreateResponseSchema,
+  RLAIFRunsListResponseSchema,
+  RLAIFStatusResponseSchema,
+  ScoreResponseSchema,
+  TrainingRunsResponseSchema,
+  TrajectorySubmitResponseSchema,
+  validate,
+} from '../schemas'
 import { DEFAULT_PORTS } from '../types'
 
 const DWS_PORT = parseInt(process.env.DWS_PORT || '4030', 10)
@@ -455,6 +469,65 @@ export const trainingCommand = new Command('training')
         await verifyTraining(options)
       }),
   )
+  // Full RLAIF pipeline command
+  .addCommand(
+    new Command('run')
+      .description('Run full RLAIF training pipeline')
+      .requiredOption(
+        '--env <environment>',
+        'Environment: babylon, tictactoe, fundamental',
+      )
+      .option('--archetype <archetype>', 'Archetype for Babylon environment')
+      .option(
+        '--model <model>',
+        'Base model CID or HuggingFace ID',
+        'Qwen/Qwen2.5-3B-Instruct',
+      )
+      .option('--iterations <n>', 'Training iterations', '5')
+      .option('--use-dws', 'Use DWS for distributed training', true)
+      .option(
+        '--network <network>',
+        'Network: localnet, testnet, mainnet',
+        'localnet',
+      )
+      .action(async (options) => {
+        await runFullRLAIFPipeline(options)
+      }),
+  )
+  // Label GRPO bundles
+  .addCommand(
+    new Command('label')
+      .description('Label GRPO bundles with LLM judge')
+      .argument('<manifest-cid>', 'Trajectory manifest CID')
+      .option('--rubric <id>', 'Rubric ID for scoring')
+      .option('--judge-model <model>', 'Judge model', 'gpt-4o-mini')
+      .option('--group-size <n>', 'Group size for relative scoring', '4')
+      .option(
+        '--network <network>',
+        'Network: localnet, testnet, mainnet',
+        'localnet',
+      )
+      .action(async (manifestCid, options) => {
+        await labelBundles(manifestCid, options)
+      }),
+  )
+  // Benchmark trained models
+  .addCommand(
+    new Command('benchmark')
+      .description('Benchmark a trained model')
+      .argument('<model-cid>', 'Model CID to benchmark')
+      .option('--suite <suite>', 'Benchmark suite ID')
+      .option('--baseline <baseline>', 'Baseline model for comparison')
+      .option('--env <environment>', 'Environment for benchmarking')
+      .option(
+        '--network <network>',
+        'Network: localnet, testnet, mainnet',
+        'localnet',
+      )
+      .action(async (modelCid, options) => {
+        await runBenchmark(modelCid, options)
+      }),
+  )
   // RLAIF commands for Babylon/environment training
   .addCommand(
     new Command('rlaif')
@@ -591,10 +664,12 @@ async function checkStatus(network: string): Promise<void> {
     })
     if (response.ok) {
       dwsOk = true
-      const health = (await response.json()) as {
-        status: string
-        services: Record<string, boolean>
-      }
+      const rawHealth = await response.json()
+      const health = validate(
+        rawHealth,
+        DWSHealthResponseSchema,
+        'DWS health response',
+      )
 
       logger.newline()
       logger.subheader('DWS Services')
@@ -672,15 +747,12 @@ async function listRuns(options: {
 
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
 
-    const runs = (await response.json()) as Array<{
-      runId: string
-      model: string
-      state: number
-      clients: number
-      step: number
-      totalSteps: number
-      createdAt: number
-    }>
+    const rawRuns = await response.json()
+    const runs = validate(
+      rawRuns,
+      TrainingRunsResponseSchema,
+      'training runs response',
+    )
 
     if (runs.length === 0) {
       logger.info('No training runs found')
@@ -1219,11 +1291,12 @@ async function listNodes(options: {
         signal: AbortSignal.timeout(5000),
       })
       if (response.ok) {
-        const nodes = (await response.json()) as Array<{
-          address: string
-          gpuTier: string
-          score: number
-        }>
+        const rawNodes = await response.json()
+        const nodes = validate(
+          rawNodes,
+          DWSNodesResponseSchema,
+          'DWS nodes response',
+        )
         logger.info(`Found ${nodes.length} nodes via DWS`)
         for (const node of nodes) {
           console.log(
@@ -1276,11 +1349,12 @@ async function listModels(): Promise<void> {
       signal: AbortSignal.timeout(5000),
     })
     if (response.ok) {
-      const dwsModels = (await response.json()) as Array<{
-        name: string
-        organization: string
-        type: string
-      }>
+      const rawDwsModels = await response.json()
+      const dwsModels = validate(
+        rawDwsModels,
+        DWSModelsResponseSchema,
+        'DWS models response',
+      )
       for (const m of dwsModels) {
         if (
           !models.find(
@@ -1371,7 +1445,12 @@ async function createRLAIFRun(options: {
       throw new Error(`HTTP ${response.status}: ${await response.text()}`)
     }
 
-    const result = (await response.json()) as { runId: string; status: string }
+    const rawResult = await response.json()
+    const result = validate(
+      rawResult,
+      RLAIFRunCreateResponseSchema,
+      'RLAIF run create response',
+    )
 
     logger.success('RLAIF run created')
     logger.keyValue('Run ID', result.runId)
@@ -1404,24 +1483,12 @@ async function getRLAIFStatus(runId: string, _network: string): Promise<void> {
       throw new Error(`HTTP ${response.status}`)
     }
 
-    const run = (await response.json()) as {
-      config: {
-        runId: string
-        environment: { id: string }
-        targetIterations: number
-      }
-      state: number
-      currentIteration: number
-      currentPolicyCID: string
-      bestPolicyCID?: string
-      bestEvalScore?: number
-      iterations: Array<{
-        iteration: number
-        state: number
-        evalPassed?: boolean
-        metrics?: { evalScore?: number }
-      }>
-    }
+    const rawRun = await response.json()
+    const run = validate(
+      rawRun,
+      RLAIFStatusResponseSchema,
+      'RLAIF status response',
+    )
 
     const stateLabel = RLAIF_STATES[run.state] || 'Unknown'
     const progress =
@@ -1508,15 +1575,14 @@ async function listRLAIFRuns(options: {
 
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
 
-    const runs = (await response.json()) as Array<{
-      runId: string
-      environment: string
-      state: number
-      currentIteration: number
-      targetIterations: number
-    }>
+    const rawRuns = await response.json()
+    const runs = validate(
+      rawRuns,
+      RLAIFRunsListResponseSchema,
+      'RLAIF runs list response',
+    )
 
-    if (!Array.isArray(runs) || runs.length === 0) {
+    if (runs.length === 0) {
       logger.info('No RLAIF runs found')
       logger.newline()
       logger.info(
@@ -1571,10 +1637,12 @@ async function submitRLAIFTrajectories(
     if (!manifestRes.ok) {
       throw new Error(`Failed to load manifest: ${manifestRes.status}`)
     }
-    const manifest = (await manifestRes.json()) as {
-      trajectoryCIDs: string[]
-      totalCount: number
-    }
+    const rawManifest = await manifestRes.json()
+    const manifest = validate(
+      rawManifest,
+      ManifestResponseSchema,
+      'manifest response',
+    )
 
     logger.keyValue('Trajectories', String(manifest.totalCount))
     logger.newline()
@@ -1594,7 +1662,12 @@ async function submitRLAIFTrajectories(
       throw new Error(`HTTP ${response.status}: ${await response.text()}`)
     }
 
-    const result = (await response.json()) as { trajectoryCount: number }
+    const rawResult = await response.json()
+    const result = validate(
+      rawResult,
+      TrajectorySubmitResponseSchema,
+      'trajectory submit response',
+    )
 
     logger.success(`Submitted ${result.trajectoryCount} trajectories`)
   } catch (error) {
@@ -1708,7 +1781,12 @@ async function babylonTrain(options: {
         throw new Error(`HTTP ${response.status}`)
       }
 
-      const result = (await response.json()) as { runId: string }
+      const rawResult = await response.json()
+      const result = validate(
+        rawResult,
+        RLAIFRunCreateResponseSchema,
+        'RLAIF run create response',
+      )
       logger.success(`Created RLAIF run: ${result.runId}`)
 
       logger.newline()
@@ -1868,5 +1946,314 @@ async function verifyTraining(options: {
 
   if (result.exitCode !== 0) {
     process.exit(result.exitCode ?? 1)
+  }
+}
+
+// ============================================================================
+// Full RLAIF Pipeline
+// ============================================================================
+
+async function runFullRLAIFPipeline(options: {
+  env: string
+  archetype?: string
+  model: string
+  iterations: string
+  useDws: boolean
+  network: string
+}): Promise<void> {
+  logger.header('RLAIF TRAINING PIPELINE')
+
+  logger.keyValue('Environment', options.env)
+  logger.keyValue('Model', options.model)
+  logger.keyValue('Iterations', options.iterations)
+  if (options.archetype) {
+    logger.keyValue('Archetype', options.archetype)
+  }
+  logger.keyValue('Use DWS', options.useDws ? 'Yes' : 'No')
+  logger.newline()
+
+  const dwsUrl = getDwsUrl()
+
+  // Check DWS availability
+  if (options.useDws) {
+    try {
+      const healthResponse = await fetch(`${dwsUrl}/health`, {
+        signal: AbortSignal.timeout(3000),
+      })
+      if (!healthResponse.ok) {
+        throw new Error('DWS not healthy')
+      }
+    } catch {
+      logger.warn('DWS not available. Start with: jeju compute start')
+      process.exit(1)
+    }
+  }
+
+  // Determine rubric ID based on environment and archetype
+  const rubricId =
+    options.env === 'babylon' && options.archetype
+      ? `babylon-${options.archetype}`
+      : `${options.env}-default`
+
+  logger.step('Creating RLAIF run...')
+
+  try {
+    const createResponse = await fetch(`${dwsUrl}/rlaif/runs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        environment: {
+          id: options.env,
+          type: options.env === 'babylon' ? 'game' : 'simulation',
+          configCID: options.archetype
+            ? `${options.env}-${options.archetype}`
+            : options.env,
+        },
+        model: {
+          baseModelCID: options.model,
+          tokenizer: options.model,
+        },
+        judge: {
+          rubricId,
+        },
+        targetIterations: parseInt(options.iterations, 10),
+        minTrajectoriesPerIteration: 20,
+      }),
+    })
+
+    if (!createResponse.ok) {
+      const error = await createResponse.text()
+      throw new Error(`Failed to create run: ${error}`)
+    }
+
+    const createResult = validate(
+      await createResponse.json(),
+      RLAIFRunCreateResponseSchema,
+      'RLAIF run creation response',
+    )
+
+    logger.success(`Created RLAIF run: ${createResult.runId}`)
+    logger.newline()
+
+    logger.info('Next steps:')
+    logger.info('1. Generate trajectories:')
+    if (options.env === 'babylon' && options.archetype) {
+      console.log(
+        `   jeju training babylon generate --archetype ${options.archetype}`,
+      )
+    } else {
+      console.log('   # Submit trajectories via your environment')
+    }
+
+    logger.info('2. Submit to the run:')
+    console.log(
+      `   jeju training rlaif submit-trajectories ${createResult.runId} --manifest <cid>`,
+    )
+
+    logger.info('3. Start training:')
+    console.log(
+      `   curl -X POST ${dwsUrl}/rlaif/runs/${createResult.runId}/start`,
+    )
+
+    logger.info('4. Monitor:')
+    console.log(`   jeju training rlaif status ${createResult.runId}`)
+  } catch (error) {
+    logger.error(`Failed to create RLAIF run: ${error}`)
+    process.exit(1)
+  }
+}
+
+// ============================================================================
+// Label GRPO Bundles
+// ============================================================================
+
+async function labelBundles(
+  manifestCid: string,
+  options: {
+    rubric?: string
+    judgeModel: string
+    groupSize: string
+    network: string
+  },
+): Promise<void> {
+  logger.header('LABEL GRPO BUNDLES')
+
+  logger.keyValue('Manifest CID', manifestCid)
+  logger.keyValue('Rubric', options.rubric ?? 'default')
+  logger.keyValue('Judge Model', options.judgeModel)
+  logger.keyValue('Group Size', options.groupSize)
+  logger.newline()
+
+  const dwsUrl = getDwsUrl()
+
+  // Check DWS availability
+  try {
+    const healthResponse = await fetch(`${dwsUrl}/health`, {
+      signal: AbortSignal.timeout(3000),
+    })
+    if (!healthResponse.ok) {
+      throw new Error('DWS not healthy')
+    }
+  } catch {
+    logger.warn('DWS not available. Start with: jeju compute start')
+    process.exit(1)
+  }
+
+  logger.step('Fetching trajectory manifest...')
+
+  try {
+    // Fetch manifest to see how many trajectories
+    const manifestResponse = await fetch(
+      `${dwsUrl}/rlaif/manifests/${manifestCid}`,
+    )
+
+    if (!manifestResponse.ok) {
+      throw new Error(`Failed to fetch manifest: ${manifestResponse.status}`)
+    }
+
+    const manifest = validate(
+      await manifestResponse.json(),
+      ManifestResponseSchema,
+      'Trajectory manifest response',
+    )
+
+    logger.keyValue('Trajectories', String(manifest.totalCount))
+    logger.newline()
+
+    logger.step('Scoring with LLM judge...')
+
+    const scoreResponse = await fetch(`${dwsUrl}/rlaif/judge`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        manifestCID: manifestCid,
+        rubricId: options.rubric ?? 'default',
+        judgeModel: options.judgeModel,
+        groupSize: parseInt(options.groupSize, 10),
+      }),
+    })
+
+    if (!scoreResponse.ok) {
+      const error = await scoreResponse.text()
+      throw new Error(`Scoring failed: ${error}`)
+    }
+
+    const scoreResult = validate(
+      await scoreResponse.json(),
+      ScoreResponseSchema,
+      'score response',
+    )
+
+    logger.success('Scoring complete')
+    logger.keyValue('Rewards CID', scoreResult.rewardsCID)
+    logger.keyValue('Scored', String(scoreResult.count))
+    logger.keyValue('Average Score', scoreResult.averageScore.toFixed(3))
+    logger.newline()
+
+    logger.info('Use the rewards CID for training:')
+    console.log(`  Rewards CID: ${scoreResult.rewardsCID}`)
+  } catch (error) {
+    logger.error(`Failed to label bundles: ${error}`)
+    process.exit(1)
+  }
+}
+
+// ============================================================================
+// Benchmark Trained Model
+// ============================================================================
+
+async function runBenchmark(
+  modelCid: string,
+  options: {
+    suite?: string
+    baseline?: string
+    env?: string
+    network: string
+  },
+): Promise<void> {
+  logger.header('BENCHMARK MODEL')
+
+  logger.keyValue('Model CID', modelCid)
+  logger.keyValue('Suite', options.suite ?? 'default')
+  if (options.baseline) {
+    logger.keyValue('Baseline', options.baseline)
+  }
+  if (options.env) {
+    logger.keyValue('Environment', options.env)
+  }
+  logger.newline()
+
+  const dwsUrl = getDwsUrl()
+
+  // Check DWS availability
+  try {
+    const healthResponse = await fetch(`${dwsUrl}/health`, {
+      signal: AbortSignal.timeout(3000),
+    })
+    if (!healthResponse.ok) {
+      throw new Error('DWS not healthy')
+    }
+  } catch {
+    logger.warn('DWS not available. Start with: jeju compute start')
+    process.exit(1)
+  }
+
+  logger.step('Starting benchmark...')
+
+  try {
+    const benchResponse = await fetch(`${dwsUrl}/rlaif/benchmark`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        modelCID: modelCid,
+        suiteId: options.suite ?? 'default',
+        baselineCID: options.baseline,
+        environmentId: options.env,
+      }),
+    })
+
+    if (!benchResponse.ok) {
+      const error = await benchResponse.text()
+      throw new Error(`Benchmark failed: ${error}`)
+    }
+
+    const benchResult = validate(
+      await benchResponse.json(),
+      BenchmarkResponseSchema,
+      'benchmark response',
+    )
+
+    if (benchResult.status === 'completed' && benchResult.results) {
+      logger.success('Benchmark complete')
+      logger.keyValue('Score', benchResult.results.score.toFixed(3))
+      if (benchResult.results.baselineScore !== undefined) {
+        logger.keyValue(
+          'Baseline Score',
+          benchResult.results.baselineScore.toFixed(3),
+        )
+      }
+      if (benchResult.results.improvement !== undefined) {
+        const improvementStr =
+          benchResult.results.improvement >= 0
+            ? `+${(benchResult.results.improvement * 100).toFixed(1)}%`
+            : `${(benchResult.results.improvement * 100).toFixed(1)}%`
+        logger.keyValue('Improvement', improvementStr)
+      }
+
+      logger.newline()
+      logger.subheader('Metrics')
+      for (const [key, value] of Object.entries(benchResult.results.metrics)) {
+        logger.keyValue(key, value.toFixed(3))
+      }
+    } else {
+      logger.info(`Benchmark job started: ${benchResult.jobId}`)
+      logger.info(`Status: ${benchResult.status}`)
+      logger.newline()
+      logger.info('Check status with:')
+      console.log(`  curl ${dwsUrl}/rlaif/benchmark/${benchResult.jobId}`)
+    }
+  } catch (error) {
+    logger.error(`Benchmark failed: ${error}`)
+    process.exit(1)
   }
 }

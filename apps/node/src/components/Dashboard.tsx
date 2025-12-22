@@ -98,9 +98,15 @@ export function Dashboard() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold">Earnings Over Time</h2>
             <div className="flex gap-2">
-              <button className="btn-ghost text-sm">24h</button>
-              <button className="btn-secondary text-sm">7d</button>
-              <button className="btn-ghost text-sm">30d</button>
+              <button type="button" className="btn-ghost text-sm">
+                24h
+              </button>
+              <button type="button" className="btn-secondary text-sm">
+                7d
+              </button>
+              <button type="button" className="btn-ghost text-sm">
+                30d
+              </button>
             </div>
           </div>
           <EarningsChart />

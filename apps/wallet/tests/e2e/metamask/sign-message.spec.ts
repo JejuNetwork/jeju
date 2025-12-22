@@ -1,7 +1,7 @@
 /**
  * MetaMask Message Signing E2E Tests
  *
- * Tests personal_sign and eth_signTypedData functionality
+ * Tests personal_sign and eth_signTypedData functionality.
  */
 
 import { expect } from '@playwright/test'
@@ -35,23 +35,19 @@ test.describe('Message Signing', () => {
   }) => {
     const metamask = new MetaMask(context, metamaskPage, PASSWORD, extensionId)
 
-    // Find sign message button/link (depends on the network Wallet UI)
     const signButton = page.locator('button, [role="button"]').filter({
       hasText: /sign.*message/i,
     })
 
     if (await signButton.isVisible()) {
       await signButton.click()
-
-      // Sign in MetaMask
       await metamask.confirmSignature()
 
-      // Verify signature result displayed
+      // Verify signature result displayed (65 bytes = 130 hex chars + 0x prefix)
       await expect(page.locator('text=/0x[a-fA-F0-9]{130}/i')).toBeVisible({
         timeout: 15000,
       })
     } else {
-      // Skip if feature not visible in UI
       test.skip()
     }
   })
@@ -70,11 +66,9 @@ test.describe('Message Signing', () => {
 
     if (await signButton.isVisible()) {
       await signButton.click()
-
-      // Reject in MetaMask
       await metamask.rejectSignature()
 
-      // Should show error or rejection message
+      // Should handle rejection gracefully
       await page.waitForTimeout(2000)
     } else {
       test.skip()

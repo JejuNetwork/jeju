@@ -9,8 +9,8 @@
  * Examples: "gpt-4o", "anthropic/claude-3", "groq/llama-3.3-70b-versatile"
  */
 
-import { Hono } from 'hono'
-import { cors } from 'hono/cors'
+import { cors } from '@elysiajs/cors'
+import { Elysia } from 'elysia'
 import { logger } from '../lib/logger'
 
 export type ProviderType = string // Any provider name - not restricted
@@ -29,7 +29,35 @@ export interface InferenceProvider {
   knownModels?: string[] // Optional hints, not restrictions
 }
 
-import type { ChatRequest } from '../schemas'
+import { z } from 'zod'
+import {
+  AnthropicResponseSchema,
+  type ChatRequest,
+  ChatRequestSchema,
+  CohereResponseSchema,
+  GeminiResponseSchema,
+  OpenAIResponseSchema,
+  validate,
+} from '../schemas'
+
+// Schema for InferenceProvider registration
+const InferenceProviderRegistrationSchema = z.object({
+  name: z
+    .string()
+    .min(1)
+    .max(100)
+    .regex(
+      /^[a-zA-Z][a-zA-Z0-9_-]*$/,
+      'Provider name must be alphanumeric (starting with letter)',
+    ),
+  type: z.string().default('openai'),
+  apiKey: z.string().optional(),
+  baseUrl: z
+    .string()
+    .url()
+    .regex(/^https?:\/\/.+/, 'Must be valid HTTP/HTTPS URL'),
+  knownModels: z.array(z.string()).optional(),
+})
 
 // DWS endpoint for decentralized inference
 const DWS_ENDPOINT = process.env.DWS_URL || 'http://localhost:4030'
@@ -93,10 +121,9 @@ const API_KEY_VARS: Record<string, string> = {
 }
 
 class LocalInferenceServer {
-  private app: Hono
+  private app: Elysia
   private customProviders: InferenceProvider[]
   private port: number
-  private server: ReturnType<typeof Bun.serve> | null = null
   private defaultProvider: string
 
   constructor(config: Partial<InferenceConfig> = {}) {
@@ -104,7 +131,7 @@ class LocalInferenceServer {
     this.customProviders = config.providers ?? []
     this.defaultProvider =
       config.defaultProvider ?? this.detectDefaultProvider()
-    this.app = new Hono()
+    this.app = new Elysia().use(cors())
     this.setupRoutes()
   }
 
@@ -156,23 +183,21 @@ class LocalInferenceServer {
   }
 
   private setupRoutes(): void {
-    this.app.use('*', cors())
-
     // Health check
-    this.app.get('/health', (c) => {
+    this.app.get('/health', () => {
       const configuredProviders = Object.keys(API_KEY_VARS).filter((p) =>
         this.getApiKey(p),
       )
-      return c.json({
+      return {
         status: 'ok',
         defaultProvider: this.defaultProvider,
         configuredProviders,
         customProviders: this.customProviders.map((p) => p.name),
-      })
+      }
     })
 
     // Models list - returns available providers, not a fixed model list
-    this.app.get('/v1/models', (c) => {
+    this.app.get('/v1/models', () => {
       const models: Array<{
         id: string
         object: string
@@ -212,33 +237,37 @@ class LocalInferenceServer {
         owned_by: 'jeju',
       })
 
-      return c.json({ object: 'list', data: models })
+      return { object: 'list', data: models }
     })
 
     // Chat completions - routes to any provider
-    this.app.post('/v1/chat/completions', async (c) => {
-      const body = await c.req.json<ChatRequest>()
+    this.app.post('/v1/chat/completions', async ({ body }) => {
+      const validatedBody = validate(
+        body,
+        ChatRequestSchema,
+        'chat completions request',
+      )
 
-      if (!body.model || body.model === 'local-fallback') {
-        return c.json(this.localFallback(body))
+      if (!validatedBody.model || validatedBody.model === 'local-fallback') {
+        return this.localFallback(validatedBody)
       }
 
       const { provider, model } = this.resolveModelProvider(
-        body.model,
-        body.provider,
+        validatedBody.model,
+        validatedBody.provider,
       )
       const endpoint = this.getProviderEndpoint(provider)
 
       if (!endpoint) {
         logger.warn(`Unknown provider: ${provider}`)
-        return c.json(this.localFallback(body, provider))
+        return this.localFallback(validatedBody, provider)
       }
 
       // DWS doesn't require API key - it handles auth internally
       const apiKey = provider === 'dws' ? 'dws' : this.getApiKey(provider)
       if (!apiKey) {
         logger.warn(`No API key for provider: ${provider}`)
-        return c.json(this.localFallback(body, provider))
+        return this.localFallback(validatedBody, provider)
       }
 
       const providerConfig: InferenceProvider = {
@@ -248,24 +277,33 @@ class LocalInferenceServer {
         baseUrl: endpoint.baseUrl,
       }
 
-      const requestWithModel = { ...body, model }
+      const requestWithModel = { ...validatedBody, model }
 
       const response = await this.proxyToProvider(
         providerConfig,
         requestWithModel,
       )
-      return c.json(response)
+      return response
     })
 
     // Provider registration endpoint - let users add custom providers at runtime
-    this.app.post('/v1/providers', async (c) => {
-      const body = await c.req.json<InferenceProvider>()
-      if (!body.name || !body.baseUrl) {
-        return c.json({ error: 'name and baseUrl required' }, 400)
+    this.app.post('/v1/providers', ({ body, set }) => {
+      // SECURITY: Validate with schema - this handles:
+      // - Required fields (name, baseUrl)
+      // - Name format validation (alphanumeric, starting with letter)
+      // - URL format validation (valid HTTP/HTTPS)
+      // - Type coercion and sanitization
+      const parseResult = InferenceProviderRegistrationSchema.safeParse(body)
+      if (!parseResult.success) {
+        const errors = parseResult.error.issues
+          .map((e) => `${e.path.join('.')}: ${e.message}`)
+          .join(', ')
+        set.status = 400
+        return { error: errors }
       }
+      const validatedBody = parseResult.data
 
-      // SECURITY: Validate provider name to prevent prototype pollution
-      // Names like __proto__, constructor, prototype could pollute object prototypes
+      // SECURITY: Additional check for prototype pollution via reserved names
       const forbiddenNames = [
         '__proto__',
         'constructor',
@@ -273,46 +311,28 @@ class LocalInferenceServer {
         'toString',
         'hasOwnProperty',
       ]
-      if (forbiddenNames.includes(body.name)) {
-        return c.json({ error: 'Invalid provider name' }, 400)
-      }
-
-      // Validate name format - alphanumeric with hyphens/underscores only
-      if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(body.name)) {
-        return c.json(
-          {
-            error: 'Provider name must be alphanumeric (starting with letter)',
-          },
-          400,
-        )
-      }
-
-      // Validate URL format
-      if (!/^https?:\/\/.+/.test(body.baseUrl)) {
-        return c.json({ error: 'baseUrl must be a valid HTTP/HTTPS URL' }, 400)
+      if (forbiddenNames.includes(validatedBody.name)) {
+        set.status = 400
+        return { error: 'Invalid provider name' }
       }
 
       // SECURITY: Create a clean object with only allowed properties
       // This prevents prototype pollution from spreading untrusted input
       const safeProvider: InferenceProvider = {
-        name: String(body.name),
-        type: String(body.type || 'openai'),
-        baseUrl: String(body.baseUrl),
-        apiKey: body.apiKey ? String(body.apiKey) : undefined,
-        knownModels: Array.isArray(body.knownModels)
-          ? body.knownModels
-              .filter((m): m is string => typeof m === 'string')
-              .map(String)
-          : undefined,
+        name: validatedBody.name,
+        type: validatedBody.type,
+        baseUrl: validatedBody.baseUrl,
+        apiKey: validatedBody.apiKey,
+        knownModels: validatedBody.knownModels,
       }
 
       this.customProviders.push(safeProvider)
       logger.info(`Added custom provider: ${safeProvider.name}`)
-      return c.json({ success: true, provider: safeProvider.name })
+      return { success: true, provider: safeProvider.name }
     })
 
     // List providers
-    this.app.get('/v1/providers', (c) => {
+    this.app.get('/v1/providers', () => {
       const providers: Array<{
         name: string
         configured: boolean
@@ -335,7 +355,7 @@ class LocalInferenceServer {
         })
       }
 
-      return c.json({ providers })
+      return { providers }
     })
   }
 
@@ -363,8 +383,8 @@ class LocalInferenceServer {
       )
     }
 
-    const data = (await response.json()) as Record<string, unknown>
-    return this.normalizeResponse(provider, data, request.model)
+    const rawData: unknown = await response.json()
+    return this.normalizeResponse(provider, rawData, request.model)
   }
 
   private buildProviderRequest(
@@ -467,98 +487,112 @@ class LocalInferenceServer {
 
   private normalizeResponse(
     provider: InferenceProvider,
-    data: Record<string, unknown>,
+    rawData: unknown,
     model: string,
   ): object {
+    // Use safeParse for external API responses (may be malformed)
     // Anthropic format
-    if (provider.type === 'anthropic' && data.content) {
-      const content = data.content as Array<{ text: string }>
-      const usage = data.usage as {
-        input_tokens: number
-        output_tokens: number
-      }
-      return {
-        id: data.id,
-        object: 'chat.completion',
-        model: data.model,
-        choices: [
-          {
-            message: { role: 'assistant', content: content[0]?.text || '' },
-            finish_reason:
-              data.stop_reason === 'end_turn' ? 'stop' : data.stop_reason,
+    if (provider.type === 'anthropic') {
+      const result = AnthropicResponseSchema.safeParse(rawData)
+      if (result.success) {
+        const data = result.data
+        return {
+          id: data.id,
+          object: 'chat.completion',
+          model: data.model,
+          choices: [
+            {
+              message: {
+                role: 'assistant',
+                content: data.content[0]?.text || '',
+              },
+              finish_reason:
+                data.stop_reason === 'end_turn' ? 'stop' : data.stop_reason,
+            },
+          ],
+          usage: {
+            prompt_tokens: data.usage.input_tokens,
+            completion_tokens: data.usage.output_tokens,
+            total_tokens: data.usage.input_tokens + data.usage.output_tokens,
           },
-        ],
-        usage: {
-          prompt_tokens: usage?.input_tokens || 0,
-          completion_tokens: usage?.output_tokens || 0,
-          total_tokens:
-            (usage?.input_tokens || 0) + (usage?.output_tokens || 0),
-        },
+        }
       }
+      logger.warn(
+        `Anthropic response validation failed: ${result.error.message}`,
+      )
     }
 
     // Google Gemini format
-    if (provider.type === 'google' && data.candidates) {
-      const candidates = data.candidates as Array<{
-        content: { parts: Array<{ text: string }> }
-        finishReason: string
-      }>
-      const usageMetadata = data.usageMetadata as
-        | {
-            promptTokenCount?: number
-            candidatesTokenCount?: number
-            totalTokenCount?: number
-          }
-        | undefined
-      return {
-        id: `gemini-${Date.now()}`,
-        object: 'chat.completion',
-        model,
-        choices: [
-          {
-            message: {
-              role: 'assistant',
-              content: candidates[0]?.content?.parts[0]?.text || '',
+    if (provider.type === 'google') {
+      const result = GeminiResponseSchema.safeParse(rawData)
+      if (result.success) {
+        const data = result.data
+        const candidate = data.candidates?.[0]
+        const usage = data.usageMetadata
+        return {
+          id: `gemini-${Date.now()}`,
+          object: 'chat.completion',
+          model,
+          choices: [
+            {
+              message: {
+                role: 'assistant',
+                content: candidate?.content?.parts[0]?.text || '',
+              },
+              finish_reason:
+                candidate?.finishReason === 'STOP' ? 'stop' : 'length',
             },
-            finish_reason:
-              candidates[0]?.finishReason === 'STOP' ? 'stop' : 'length',
+          ],
+          usage: {
+            prompt_tokens: usage?.promptTokenCount || 0,
+            completion_tokens: usage?.candidatesTokenCount || 0,
+            total_tokens: usage?.totalTokenCount || 0,
           },
-        ],
-        usage: {
-          prompt_tokens: usageMetadata?.promptTokenCount || 0,
-          completion_tokens: usageMetadata?.candidatesTokenCount || 0,
-          total_tokens: usageMetadata?.totalTokenCount || 0,
-        },
+        }
       }
+      logger.warn(`Gemini response validation failed: ${result.error.message}`)
     }
 
     // Cohere format
-    if (provider.type === 'cohere' && data.text !== undefined) {
-      const meta = data.meta as
-        | { tokens?: { input_tokens: number; output_tokens: number } }
-        | undefined
-      return {
-        id: data.generation_id || `cohere-${Date.now()}`,
-        object: 'chat.completion',
-        model,
-        choices: [
-          {
-            message: { role: 'assistant', content: data.text as string },
-            finish_reason: 'stop',
+    if (provider.type === 'cohere') {
+      const result = CohereResponseSchema.safeParse(rawData)
+      if (result.success) {
+        const data = result.data
+        const tokens = data.meta?.billed_units
+        return {
+          id: data.generation_id || `cohere-${Date.now()}`,
+          object: 'chat.completion',
+          model,
+          choices: [
+            {
+              message: { role: 'assistant', content: data.text || '' },
+              finish_reason: 'stop',
+            },
+          ],
+          usage: {
+            prompt_tokens: tokens?.input_tokens || 0,
+            completion_tokens: tokens?.output_tokens || 0,
+            total_tokens:
+              (tokens?.input_tokens || 0) + (tokens?.output_tokens || 0),
           },
-        ],
-        usage: {
-          prompt_tokens: meta?.tokens?.input_tokens || 0,
-          completion_tokens: meta?.tokens?.output_tokens || 0,
-          total_tokens:
-            (meta?.tokens?.input_tokens || 0) +
-            (meta?.tokens?.output_tokens || 0),
-        },
+        }
       }
+      logger.warn(`Cohere response validation failed: ${result.error.message}`)
     }
 
-    // OpenAI-compatible - pass through
-    return data
+    // OpenAI-compatible - validate and pass through
+    const result = OpenAIResponseSchema.safeParse(rawData)
+    if (result.success) {
+      return result.data
+    }
+    logger.warn(`OpenAI response validation failed: ${result.error.message}`)
+
+    // Last resort: return raw data if it's an object (allows for unknown provider formats)
+    if (rawData && typeof rawData === 'object') {
+      return rawData as object
+    }
+
+    throw new Error(`Invalid provider response format`)
   }
 
   private localFallback(
@@ -629,10 +663,7 @@ Any model works - the system routes by pattern or explicit prefix.`
   }
 
   async start(): Promise<void> {
-    this.server = Bun.serve({
-      port: this.port,
-      fetch: this.app.fetch,
-    })
+    this.app.listen(this.port)
 
     const configured = Object.entries(API_KEY_VARS)
       .filter(([_, v]) => process.env[v])
@@ -650,11 +681,8 @@ Any model works - the system routes by pattern or explicit prefix.`
     }
   }
 
-  async stop(): Promise<void> {
-    if (this.server) {
-      this.server.stop()
-      this.server = null
-    }
+  stop(): void {
+    this.app.stop()
   }
 
   getPort(): number {

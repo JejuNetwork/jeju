@@ -49,10 +49,14 @@ export default function MLTrainingPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="btn btn-secondary" onClick={() => refetch()}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => refetch()}
+          >
             <RefreshCw size={16} /> Refresh
           </button>
-          <button className="btn btn-primary">
+          <button type="button" className="btn btn-primary">
             <Plus size={16} /> New Training Job
           </button>
         </div>
@@ -132,7 +136,7 @@ export default function MLTrainingPage() {
               <Sparkles size={48} />
               <h3>No training jobs</h3>
               <p>Start training a model on the decentralized compute network</p>
-              <button className="btn btn-primary">
+              <button type="button" className="btn btn-primary">
                 <Plus size={16} /> New Training Job
               </button>
             </div>
@@ -243,7 +247,7 @@ export default function MLTrainingPage() {
                 Fine-tune a language model with your custom dataset using LoRA
                 or full fine-tuning.
               </div>
-              <button className="btn btn-secondary btn-sm">
+              <button type="button" className="btn btn-secondary btn-sm">
                 <Play size={14} /> Start
               </button>
             </div>
@@ -268,7 +272,7 @@ export default function MLTrainingPage() {
                 Train custom embedding models for your specific domain or use
                 case.
               </div>
-              <button className="btn btn-secondary btn-sm">
+              <button type="button" className="btn btn-secondary btn-sm">
                 <Play size={14} /> Start
               </button>
             </div>
@@ -293,7 +297,7 @@ export default function MLTrainingPage() {
                 Align models using Reinforcement Learning from Human Feedback or
                 DPO.
               </div>
-              <button className="btn btn-secondary btn-sm">
+              <button type="button" className="btn btn-secondary btn-sm">
                 <Play size={14} /> Start
               </button>
             </div>

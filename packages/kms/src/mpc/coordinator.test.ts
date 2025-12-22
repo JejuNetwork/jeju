@@ -124,7 +124,7 @@ describe('MPC Coordinator', () => {
 
       const key = coordinator.getKey('test-key-2')
       expect(key).not.toBeNull()
-      expect(key!.keyId).toBe('test-key-2')
+      expect(key?.keyId).toBe('test-key-2')
     })
 
     it('should get key versions', async () => {
@@ -259,7 +259,7 @@ describe('MPC Coordinator', () => {
 
       expect(finalResult.complete).toBe(true)
       expect(finalResult.signature).toBeDefined()
-      expect(finalResult.signature!.signature).toMatch(/^0x[a-fA-F0-9]+$/)
+      expect(finalResult.signature?.signature).toMatch(/^0x[a-fA-F0-9]+$/)
     })
 
     it('should reject signature from non-participant', async () => {
@@ -309,7 +309,7 @@ describe('MPC Coordinator', () => {
 
     it('should rotate key shares while preserving address', async () => {
       const keyBefore = coordinator.getKey('rotate-key')
-      const addressBefore = keyBefore!.address
+      const addressBefore = keyBefore?.address
 
       const result = await coordinator.rotateKey({
         keyId: 'rotate-key',

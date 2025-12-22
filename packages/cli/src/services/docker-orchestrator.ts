@@ -291,9 +291,9 @@ export class DockerOrchestrator {
 
   getEnvVars(): Record<string, string> {
     const env: Record<string, string> = {
-      L1_RPC_URL: 'http://127.0.0.1:8545',
-      L2_RPC_URL: 'http://127.0.0.1:9545',
-      JEJU_RPC_URL: 'http://127.0.0.1:9545',
+      L1_RPC_URL: 'http://127.0.0.1:6545',
+      L2_RPC_URL: 'http://127.0.0.1:6546',
+      JEJU_RPC_URL: 'http://127.0.0.1:6546',
       CHAIN_ID: '1337',
       DATABASE_URL: 'postgresql://jeju:jeju@127.0.0.1:5432/jeju',
       REDIS_URL: 'redis://127.0.0.1:6379',

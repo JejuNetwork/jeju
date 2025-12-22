@@ -17,6 +17,7 @@ import {
   LOCAL_CHAIN_CONFIG,
   TEST_TOKENS,
 } from './config.js'
+import { SolanaHealthResponseSchema } from '../utils/validation.js'
 
 interface ProcessHandle {
   name: string
@@ -57,7 +58,8 @@ async function waitForSolana(port: number, maxAttempts = 30): Promise<boolean> {
         body: JSON.stringify({ jsonrpc: '2.0', method: 'getHealth', id: 1 }),
       })
       if (response.ok) {
-        const data = (await response.json()) as { result?: string }
+        const rawData: unknown = await response.json()
+        const data = SolanaHealthResponseSchema.parse(rawData)
         if (data.result === 'ok') return true
       }
     } catch {

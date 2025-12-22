@@ -289,7 +289,7 @@ describe('RPC URL Helpers', () => {
   describe('getRpcUrl', () => {
     it('should get RPC from config for each network', () => {
       const localnet = getRpcUrl('localnet')
-      expect(localnet).toBe('http://127.0.0.1:9545')
+      expect(localnet).toBe('http://127.0.0.1:6546')
 
       const testnet = getRpcUrl('testnet')
       expect(testnet).toContain('jejunetwork')

@@ -15,9 +15,9 @@
     "test:e2e:headed": "playwright test --headed"
   },
   "dependencies": {
+    "@elysiajs/cors": "^1.4.0",
     "@jejunetwork/config": "workspace:*",
-    "cors": "2.8.5",
-    "express": "5.0.1",
+    "elysia": "^1.4.19",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "remark-stringify": "11.0.0",
@@ -28,8 +28,6 @@
   "devDependencies": {
     "@jejunetwork/tests": "workspace:*",
     "@playwright/test": "1.57.0",
-    "@types/cors": "2.8.17",
-    "@types/express": "5.0.3",
     "@types/react": "18.3.23",
     "@types/react-dom": "18.3.7"
   }

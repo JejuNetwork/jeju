@@ -17,12 +17,14 @@ import type { JejuWallet } from '../wallet'
 //                              TYPES
 // ═══════════════════════════════════════════════════════════════════════════
 
-export enum SequencerStatus {
-  INACTIVE = 0,
-  ACTIVE = 1,
-  JAILED = 2,
-  EXITING = 3,
-}
+export const SequencerStatus = {
+  INACTIVE: 0,
+  ACTIVE: 1,
+  JAILED: 2,
+  EXITING: 3,
+} as const
+export type SequencerStatus =
+  (typeof SequencerStatus)[keyof typeof SequencerStatus]
 
 export interface Sequencer {
   sequencerAddress: Address

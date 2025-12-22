@@ -137,7 +137,9 @@ export class EventMonitor extends EventEmitter {
 
   async stop(): Promise<void> {
     this.running = false
-    this.unwatchers.forEach((fn) => fn())
+    for (const fn of this.unwatchers) {
+      fn()
+    }
     this.unwatchers = []
   }
 

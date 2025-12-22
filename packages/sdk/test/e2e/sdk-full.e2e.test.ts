@@ -32,7 +32,7 @@ beforeAll(async () => {
     env = await setupTestEnvironment()
   } catch {
     env = {
-      rpcUrl: 'http://127.0.0.1:9545',
+      rpcUrl: 'http://127.0.0.1:6546',
       storageUrl: 'http://127.0.0.1:4010',
       computeUrl: 'http://127.0.0.1:4007',
       gatewayUrl: 'http://127.0.0.1:4003',

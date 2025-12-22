@@ -33,7 +33,7 @@ function getArchitecture(processArch: string): Architecture {
 
 /**
  * Parse port from RPC URL string
- * Expected format: "http://localhost:8545" or similar
+ * Expected format: "http://localhost:6545" or similar
  */
 function parsePortFromUrl(url: string): number {
   const match = url.match(/:(\d+)$/)
@@ -109,8 +109,8 @@ describe('getArchitecture', () => {
 
 describe('parsePortFromUrl', () => {
   it('should parse port from standard URLs', () => {
-    expect(parsePortFromUrl('http://localhost:8545')).toBe(8545)
-    expect(parsePortFromUrl('http://localhost:9545')).toBe(9545)
+    expect(parsePortFromUrl('http://localhost:6545')).toBe(8545)
+    expect(parsePortFromUrl('http://localhost:6546')).toBe(9545)
     expect(parsePortFromUrl('http://0.0.0.0:9545')).toBe(9545)
   })
 
@@ -142,14 +142,14 @@ describe('parsePortFromUrl', () => {
 
   it('should handle ports in path (take last port)', () => {
     // The regex matches the last occurrence of :port
-    expect(parsePortFromUrl('http://localhost:8545/something:9000')).toBe(9000)
+    expect(parsePortFromUrl('http://localhost:6545/something:9000')).toBe(9000)
   })
 })
 
 describe('constructRpcUrl', () => {
   it('should construct valid URLs', () => {
-    expect(constructRpcUrl('127.0.0.1', 8545)).toBe('http://127.0.0.1:8545')
-    expect(constructRpcUrl('localhost', 9545)).toBe('http://localhost:9545')
+    expect(constructRpcUrl('127.0.0.1', 8545)).toBe('http://127.0.0.1:6545')
+    expect(constructRpcUrl('localhost', 9545)).toBe('http://localhost:6546')
   })
 
   it('should handle different hosts', () => {
@@ -169,8 +169,8 @@ describe('constructRpcUrl', () => {
 describe('PortsConfigSchema', () => {
   it('should validate correct config', () => {
     const config: PortsConfig = {
-      l1Rpc: 'http://localhost:8545',
-      l2Rpc: 'http://127.0.0.1:9545',
+      l1Rpc: 'http://localhost:6545',
+      l2Rpc: 'http://127.0.0.1:6546',
       chainId: 1337,
       timestamp: new Date().toISOString(),
     }
@@ -181,7 +181,7 @@ describe('PortsConfigSchema', () => {
     expect(() =>
       validatePortsConfig({
         l1Rpc: 'not-a-url',
-        l2Rpc: 'http://127.0.0.1:9545',
+        l2Rpc: 'http://127.0.0.1:6546',
         chainId: 1337,
         timestamp: new Date().toISOString(),
       }),
@@ -191,8 +191,8 @@ describe('PortsConfigSchema', () => {
   it('should reject negative chain IDs', () => {
     expect(() =>
       validatePortsConfig({
-        l1Rpc: 'http://localhost:8545',
-        l2Rpc: 'http://127.0.0.1:9545',
+        l1Rpc: 'http://localhost:6545',
+        l2Rpc: 'http://127.0.0.1:6546',
         chainId: -1,
         timestamp: new Date().toISOString(),
       }),
@@ -202,8 +202,8 @@ describe('PortsConfigSchema', () => {
   it('should reject zero chain ID', () => {
     expect(() =>
       validatePortsConfig({
-        l1Rpc: 'http://localhost:8545',
-        l2Rpc: 'http://127.0.0.1:9545',
+        l1Rpc: 'http://localhost:6545',
+        l2Rpc: 'http://127.0.0.1:6546',
         chainId: 0,
         timestamp: new Date().toISOString(),
       }),
@@ -213,8 +213,8 @@ describe('PortsConfigSchema', () => {
   it('should reject invalid timestamps', () => {
     expect(() =>
       validatePortsConfig({
-        l1Rpc: 'http://localhost:8545',
-        l2Rpc: 'http://127.0.0.1:9545',
+        l1Rpc: 'http://localhost:6545',
+        l2Rpc: 'http://127.0.0.1:6546',
         chainId: 1337,
         timestamp: 'not-a-timestamp',
       }),
@@ -224,7 +224,7 @@ describe('PortsConfigSchema', () => {
   it('should reject missing fields', () => {
     expect(() =>
       validatePortsConfig({
-        l1Rpc: 'http://localhost:8545',
+        l1Rpc: 'http://localhost:6545',
         chainId: 1337,
       }),
     ).toThrow()

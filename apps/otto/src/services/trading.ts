@@ -8,11 +8,11 @@ import { DEFAULT_CHAIN_ID, DEFAULT_SLIPPAGE_BPS, getChainName } from '../config'
 import {
   BalanceSchema,
   BridgeParamsSchema,
-  BridgeQuoteSchema,
   BridgeResultSchema,
   CreateLimitOrderParamsSchema,
   ExternalBalancesResponseSchema,
   ExternalBridgeExecuteResponseSchema,
+  ExternalBridgeQuotesResponseSchema,
   ExternalBridgeStatusResponseSchema,
   ExternalSwapExecuteResponseSchema,
   ExternalTokenInfoResponseSchema,
@@ -212,8 +212,7 @@ export class TradingService {
       return null
     }
 
-    const quote = (await response.json()) as SwapQuote
-    return expectValid(SwapQuoteSchema, quote, 'swap quote')
+    return expectValid(SwapQuoteSchema, await response.json(), 'swap quote')
   }
 
   async executeSwap(user: OttoUser, params: SwapParams): Promise<SwapResult> {
@@ -319,14 +318,18 @@ export class TradingService {
       return null
     }
 
-    const quotes = (await response.json()) as BridgeQuote[]
+    const quotes = expectValid(
+      ExternalBridgeQuotesResponseSchema,
+      await response.json(),
+      'bridge quotes response',
+    )
     const bestQuote = quotes[0]
 
     if (!bestQuote) {
       return null
     }
 
-    return expectValid(BridgeQuoteSchema, bestQuote, 'bridge quote')
+    return bestQuote
   }
 
   async executeBridge(

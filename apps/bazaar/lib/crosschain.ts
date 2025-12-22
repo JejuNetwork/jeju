@@ -4,7 +4,7 @@
  */
 
 import type { Address } from 'viem'
-import { expect, expectTrue } from '@/lib/validation'
+import { expect, expectTrue } from './validation'
 
 // ============ Types ============
 

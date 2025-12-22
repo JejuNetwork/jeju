@@ -76,6 +76,7 @@ export function SettingsPanel() {
               </div>
             </div>
             <button
+              type="button"
               onClick={() => setKillSwitch(!killSwitch)}
               className={`w-12 h-6 rounded-full transition-colors ${
                 killSwitch ? 'bg-[#00ff88]' : 'bg-[#2a2a35]'
@@ -98,6 +99,7 @@ export function SettingsPanel() {
               </div>
             </div>
             <button
+              type="button"
               onClick={() => {
                 setAutoConnect(!autoConnect)
                 updateSetting('auto_connect', !autoConnect)
@@ -132,6 +134,7 @@ export function SettingsPanel() {
               </div>
             </div>
             <button
+              type="button"
               onClick={async () => {
                 const result = await invoke(
                   'toggle_autostart',
@@ -160,6 +163,7 @@ export function SettingsPanel() {
               </div>
             </div>
             <button
+              type="button"
               onClick={() => {
                 setMinimizeToTray(!minimizeToTray)
                 updateSetting('minimize_to_tray', !minimizeToTray)
@@ -186,14 +190,20 @@ export function SettingsPanel() {
         </h3>
 
         <div className="space-y-2">
-          <button className="w-full flex items-center justify-between p-3 bg-[#00ff88]/10 border border-[#00ff88]/30 rounded-xl">
+          <button
+            type="button"
+            className="w-full flex items-center justify-between p-3 bg-[#00ff88]/10 border border-[#00ff88]/30 rounded-xl"
+          >
             <div className="flex items-center gap-3">
               <div className="w-2 h-2 bg-[#00ff88] rounded-full" />
               <span>WireGuard</span>
             </div>
             <span className="text-xs text-[#00ff88]">Recommended</span>
           </button>
-          <button className="w-full flex items-center justify-between p-3 bg-[#1a1a25] rounded-xl opacity-50">
+          <button
+            type="button"
+            className="w-full flex items-center justify-between p-3 bg-[#1a1a25] rounded-xl opacity-50"
+          >
             <div className="flex items-center gap-3">
               <div className="w-2 h-2 bg-[#606070] rounded-full" />
               <span>SOCKS5 Proxy</span>
@@ -219,6 +229,7 @@ export function SettingsPanel() {
               </div>
             </div>
             <button
+              type="button"
               onClick={toggleAdaptive}
               className={`w-12 h-6 rounded-full transition-colors ${
                 adaptiveMode ? 'bg-[#00ff88]' : 'bg-[#2a2a35]'
@@ -240,6 +251,7 @@ export function SettingsPanel() {
               </div>
             </div>
             <button
+              type="button"
               onClick={toggleDws}
               className={`w-12 h-6 rounded-full transition-colors ${
                 dwsEnabled ? 'bg-[#00ff88]' : 'bg-[#2a2a35]'
@@ -263,14 +275,23 @@ export function SettingsPanel() {
         </h3>
 
         <div className="space-y-2">
-          <button className="w-full flex items-center justify-between p-3 bg-[#00ff88]/10 border border-[#00ff88]/30 rounded-xl">
+          <button
+            type="button"
+            className="w-full flex items-center justify-between p-3 bg-[#00ff88]/10 border border-[#00ff88]/30 rounded-xl"
+          >
             <span>Cloudflare (1.1.1.1)</span>
             <div className="w-2 h-2 bg-[#00ff88] rounded-full" />
           </button>
-          <button className="w-full flex items-center justify-between p-3 bg-[#1a1a25] rounded-xl">
+          <button
+            type="button"
+            className="w-full flex items-center justify-between p-3 bg-[#1a1a25] rounded-xl"
+          >
             <span>Google (8.8.8.8)</span>
           </button>
-          <button className="w-full flex items-center justify-between p-3 bg-[#1a1a25] rounded-xl">
+          <button
+            type="button"
+            className="w-full flex items-center justify-between p-3 bg-[#1a1a25] rounded-xl"
+          >
             <span>Custom</span>
             <ChevronRight className="w-4 h-4 text-[#606070]" />
           </button>

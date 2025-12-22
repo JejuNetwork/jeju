@@ -7,27 +7,25 @@
  */
 
 export {
-  createTicTacToeEnv,
-  TicTacToeEnv,
-  trajectoryToTrainingFormat,
+  type APIServerConfig,
+  type Completion,
+  type CompletionResult,
+  createFundamentalPredictionEnv,
+  type EnvConfig as FundamentalEnvConfig,
+  FundamentalPredictionEnv,
+  type Message as FundamentalMessage,
+  type ScoredDataGroup,
+  type TrainingItem,
+} from './fundamental-prediction'
+export {
   type Board,
   type Cell,
+  createTicTacToeEnv,
   type GameState,
   type GameStep,
   type GameTrajectory,
   type Move,
   type Player,
-} from './tic-tac-toe';
-
-export {
-  createFundamentalPredictionEnv,
-  FundamentalPredictionEnv,
-  type APIServerConfig,
-  type Completion,
-  type CompletionResult,
-  type EnvConfig as FundamentalEnvConfig,
-  type Message as FundamentalMessage,
-  type ScoredDataGroup,
-  type TrainingItem,
-} from './fundamental-prediction';
-
+  TicTacToeEnv,
+  trajectoryToTrainingFormat,
+} from './tic-tac-toe'

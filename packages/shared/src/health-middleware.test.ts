@@ -5,27 +5,38 @@
  */
 
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { Hono } from 'hono'
+import { Elysia } from 'elysia'
 import { healthChecks, healthMiddleware } from './health-middleware'
 
+// Helper to make requests to Elysia app
+async function request(
+  app: Elysia,
+  path: string,
+): Promise<{ status: number; json: () => Promise<Record<string, unknown>> }> {
+  const response = await app.handle(new Request(`http://localhost${path}`))
+  return {
+    status: response.status,
+    json: () => response.json() as Promise<Record<string, unknown>>,
+  }
+}
+
 describe('healthMiddleware', () => {
-  let app: Hono
+  let app: Elysia
 
   beforeEach(() => {
-    app = new Hono()
+    app = new Elysia()
   })
 
   describe('GET /health', () => {
     test('should return 200 with healthy status when no dependencies', async () => {
-      app.route(
-        '/health',
+      app.use(
         healthMiddleware({
           service: 'test-service',
           version: '1.0.0',
         }),
       )
 
-      const response = await app.request('/health')
+      const response = await request(app, '/health')
       expect(response.status).toBe(200)
 
       const data = await response.json()
@@ -37,8 +48,7 @@ describe('healthMiddleware', () => {
     })
 
     test('should return 503 when critical dependency fails', async () => {
-      app.route(
-        '/health',
+      app.use(
         healthMiddleware({
           service: 'test-service',
           version: '1.0.0',
@@ -53,7 +63,7 @@ describe('healthMiddleware', () => {
         }),
       )
 
-      const response = await app.request('/health')
+      const response = await request(app, '/health')
       expect(response.status).toBe(503)
 
       const data = await response.json()
@@ -61,8 +71,7 @@ describe('healthMiddleware', () => {
     })
 
     test('should return 200 when optional dependency fails', async () => {
-      app.route(
-        '/health',
+      app.use(
         healthMiddleware({
           service: 'test-service',
           version: '1.0.0',
@@ -77,13 +86,12 @@ describe('healthMiddleware', () => {
         }),
       )
 
-      const response = await app.request('/health')
+      const response = await request(app, '/health')
       expect(response.status).toBe(200)
     })
 
     test('should handle dependency check throwing error', async () => {
-      app.route(
-        '/health',
+      app.use(
         healthMiddleware({
           service: 'test-service',
           version: '1.0.0',
@@ -100,15 +108,14 @@ describe('healthMiddleware', () => {
         }),
       )
 
-      const response = await app.request('/health')
+      const response = await request(app, '/health')
       expect(response.status).toBe(503)
     })
   })
 
   describe('GET /health/ready', () => {
     test('should return ready=true when all dependencies healthy', async () => {
-      app.route(
-        '/health',
+      app.use(
         healthMiddleware({
           service: 'test-service',
           version: '1.0.0',
@@ -127,18 +134,17 @@ describe('healthMiddleware', () => {
         }),
       )
 
-      const response = await app.request('/health/ready')
+      const response = await request(app, '/health/ready')
       expect(response.status).toBe(200)
 
       const data = await response.json()
       expect(data.ready).toBe(true)
       expect(data.status).toBe('healthy')
-      expect(data.dependencies).toHaveLength(2)
+      expect((data.dependencies as unknown[]).length).toBe(2)
     })
 
     test('should return ready=false when required dependency fails', async () => {
-      app.route(
-        '/health',
+      app.use(
         healthMiddleware({
           service: 'test-service',
           version: '1.0.0',
@@ -153,7 +159,7 @@ describe('healthMiddleware', () => {
         }),
       )
 
-      const response = await app.request('/health/ready')
+      const response = await request(app, '/health/ready')
       expect(response.status).toBe(503)
 
       const data = await response.json()
@@ -162,8 +168,7 @@ describe('healthMiddleware', () => {
     })
 
     test('should show degraded when optional dependency fails', async () => {
-      app.route(
-        '/health',
+      app.use(
         healthMiddleware({
           service: 'test-service',
           version: '1.0.0',
@@ -184,18 +189,18 @@ describe('healthMiddleware', () => {
         }),
       )
 
-      const response = await app.request('/health/ready')
+      const response = await request(app, '/health/ready')
       expect(response.status).toBe(200)
 
       const data = await response.json()
       expect(data.ready).toBe(true)
       expect(data.status).toBe('degraded')
-      expect(data.dependencies[1].status).toBe('unhealthy')
+      const deps = data.dependencies as { status: string }[]
+      expect(deps[1].status).toBe('unhealthy')
     })
 
     test('should include latency measurements', async () => {
-      app.route(
-        '/health',
+      app.use(
         healthMiddleware({
           service: 'test-service',
           version: '1.0.0',
@@ -212,15 +217,15 @@ describe('healthMiddleware', () => {
         }),
       )
 
-      const response = await app.request('/health/ready')
+      const response = await request(app, '/health/ready')
       const data = await response.json()
+      const deps = data.dependencies as { latencyMs: number }[]
 
-      expect(data.dependencies[0].latencyMs).toBeGreaterThanOrEqual(50)
+      expect(deps[0].latencyMs).toBeGreaterThanOrEqual(50)
     })
 
     test('should include error messages', async () => {
-      app.route(
-        '/health',
+      app.use(
         healthMiddleware({
           service: 'test-service',
           version: '1.0.0',
@@ -236,40 +241,44 @@ describe('healthMiddleware', () => {
         }),
       )
 
-      const response = await app.request('/health/ready')
+      const response = await request(app, '/health/ready')
       const data = await response.json()
+      const deps = data.dependencies as { error: string }[]
 
-      expect(data.dependencies[0].error).toBe('Connection timeout')
+      expect(deps[0].error).toBe('Connection timeout')
     })
   })
 
   describe('GET /health/live', () => {
     test('should return liveness information', async () => {
-      app.route(
-        '/health',
+      app.use(
         healthMiddleware({
           service: 'test-service',
           version: '1.0.0',
         }),
       )
 
-      const response = await app.request('/health/live')
+      const response = await request(app, '/health/live')
       expect(response.status).toBe(200)
 
       const data = await response.json()
       expect(data.alive).toBe(true)
       expect(data.pid).toBeGreaterThan(0)
       expect(data.memoryUsage).toBeDefined()
-      expect(data.memoryUsage.heapUsed).toBeGreaterThan(0)
-      expect(data.memoryUsage.heapTotal).toBeGreaterThan(0)
-      expect(data.memoryUsage.rss).toBeGreaterThan(0)
+      const memUsage = data.memoryUsage as {
+        heapUsed: number
+        heapTotal: number
+        rss: number
+      }
+      expect(memUsage.heapUsed).toBeGreaterThan(0)
+      expect(memUsage.heapTotal).toBeGreaterThan(0)
+      expect(memUsage.rss).toBeGreaterThan(0)
     })
   })
 
   describe('GET /health/resources', () => {
     test('should return resource health with funding', async () => {
-      app.route(
-        '/health',
+      app.use(
         healthMiddleware({
           service: 'test-service',
           version: '1.0.0',
@@ -290,23 +299,29 @@ describe('healthMiddleware', () => {
         }),
       )
 
-      const response = await app.request('/health/resources')
+      const response = await request(app, '/health/resources')
       expect(response.status).toBe(200)
 
       const data = await response.json()
       expect(data.status).toBe('healthy')
-      expect(data.resources).toHaveLength(1)
-      expect(data.resources[0].type).toBe('ipfs_content')
-      expect(data.resources[0].status).toBe('healthy')
-      expect(data.funding.funded).toBe(true)
-      expect(data.funding.balance).toBe('200000000000000000')
-      expect(data.funding.minRequired).toBe('100000000000000000')
-      expect(data.funding.autoFundEnabled).toBe(true)
+      const resources = data.resources as { type: string; status: string }[]
+      expect(resources.length).toBe(1)
+      expect(resources[0].type).toBe('ipfs_content')
+      expect(resources[0].status).toBe('healthy')
+      const funding = data.funding as {
+        funded: boolean
+        balance: string
+        minRequired: string
+        autoFundEnabled: boolean
+      }
+      expect(funding.funded).toBe(true)
+      expect(funding.balance).toBe('200000000000000000')
+      expect(funding.minRequired).toBe('100000000000000000')
+      expect(funding.autoFundEnabled).toBe(true)
     })
 
     test('should return unfunded status when balance too low', async () => {
-      app.route(
-        '/health',
+      app.use(
         healthMiddleware({
           service: 'test-service',
           version: '1.0.0',
@@ -318,17 +333,17 @@ describe('healthMiddleware', () => {
         }),
       )
 
-      const response = await app.request('/health/resources')
+      const response = await request(app, '/health/resources')
       expect(response.status).toBe(503)
 
       const data = await response.json()
       expect(data.status).toBe('unfunded')
-      expect(data.funding.funded).toBe(false)
+      const funding = data.funding as { funded: boolean }
+      expect(funding.funded).toBe(false)
     })
 
     test('should handle balance check failure', async () => {
-      app.route(
-        '/health',
+      app.use(
         healthMiddleware({
           service: 'test-service',
           version: '1.0.0',
@@ -342,17 +357,17 @@ describe('healthMiddleware', () => {
         }),
       )
 
-      const response = await app.request('/health/resources')
+      const response = await request(app, '/health/resources')
       const data = await response.json()
 
       // Should default to 0n and show unfunded
-      expect(data.funding.funded).toBe(false)
-      expect(data.funding.balance).toBe('0')
+      const funding = data.funding as { funded: boolean; balance: string }
+      expect(funding.funded).toBe(false)
+      expect(funding.balance).toBe('0')
     })
 
     test('should mark resource unhealthy when check fails', async () => {
-      app.route(
-        '/health',
+      app.use(
         healthMiddleware({
           service: 'test-service',
           version: '1.0.0',
@@ -367,17 +382,17 @@ describe('healthMiddleware', () => {
         }),
       )
 
-      const response = await app.request('/health/resources')
+      const response = await request(app, '/health/resources')
       expect(response.status).toBe(503)
 
       const data = await response.json()
       expect(data.status).toBe('unhealthy')
-      expect(data.resources[0].status).toBe('unhealthy')
+      const resources = data.resources as { status: string }[]
+      expect(resources[0].status).toBe('unhealthy')
     })
 
     test('should show degraded for optional resource failure', async () => {
-      app.route(
-        '/health',
+      app.use(
         healthMiddleware({
           service: 'test-service',
           version: '1.0.0',
@@ -398,7 +413,7 @@ describe('healthMiddleware', () => {
         }),
       )
 
-      const response = await app.request('/health/resources')
+      const response = await request(app, '/health/resources')
       expect(response.status).toBe(503) // 503 because status is degraded
 
       const data = await response.json()
@@ -406,8 +421,7 @@ describe('healthMiddleware', () => {
     })
 
     test('should handle resource without check function', async () => {
-      app.route(
-        '/health',
+      app.use(
         healthMiddleware({
           service: 'test-service',
           version: '1.0.0',
@@ -422,15 +436,15 @@ describe('healthMiddleware', () => {
         }),
       )
 
-      const response = await app.request('/health/resources')
+      const response = await request(app, '/health/resources')
       const data = await response.json()
+      const resources = data.resources as { status: string }[]
 
-      expect(data.resources[0].status).toBe('healthy')
+      expect(resources[0].status).toBe('healthy')
     })
 
     test('should include lastCheck timestamp', async () => {
-      app.route(
-        '/health',
+      app.use(
         healthMiddleware({
           service: 'test-service',
           version: '1.0.0',
@@ -444,11 +458,12 @@ describe('healthMiddleware', () => {
         }),
       )
 
-      const response = await app.request('/health/resources')
+      const response = await request(app, '/health/resources')
       const data = await response.json()
+      const resources = data.resources as { lastCheck: string }[]
 
-      expect(data.resources[0].lastCheck).toBeDefined()
-      expect(new Date(data.resources[0].lastCheck).getTime()).toBeGreaterThan(0)
+      expect(resources[0].lastCheck).toBeDefined()
+      expect(new Date(resources[0].lastCheck).getTime()).toBeGreaterThan(0)
     })
   })
 })
@@ -594,9 +609,7 @@ describe('healthChecks helpers', () => {
 
 describe('edge cases', () => {
   test('should handle empty dependencies array', async () => {
-    const app = new Hono()
-    app.route(
-      '/health',
+    const app = new Elysia().use(
       healthMiddleware({
         service: 'test',
         version: '1.0.0',
@@ -604,17 +617,16 @@ describe('edge cases', () => {
       }),
     )
 
-    const response = await app.request('/health/ready')
+    const response = await request(app, '/health/ready')
     const data = await response.json()
 
     expect(data.ready).toBe(true)
-    expect(data.dependencies).toHaveLength(0)
+    const deps = data.dependencies as unknown[]
+    expect(deps.length).toBe(0)
   })
 
   test('should handle empty resources array', async () => {
-    const app = new Hono()
-    app.route(
-      '/health',
+    const app = new Elysia().use(
       healthMiddleware({
         service: 'test',
         version: '1.0.0',
@@ -622,17 +634,16 @@ describe('edge cases', () => {
       }),
     )
 
-    const response = await app.request('/health/resources')
+    const response = await request(app, '/health/resources')
     const data = await response.json()
+    const resources = data.resources as unknown[]
 
-    expect(data.resources).toHaveLength(0)
+    expect(resources.length).toBe(0)
   })
 
   test('should handle concurrent requests', async () => {
     let checkCount = 0
-    const app = new Hono()
-    app.route(
-      '/health',
+    const app = new Elysia().use(
       healthMiddleware({
         service: 'test',
         version: '1.0.0',
@@ -653,7 +664,7 @@ describe('edge cases', () => {
     // Make 10 concurrent requests
     const requests = Array(10)
       .fill(null)
-      .map(() => app.request('/health/ready'))
+      .map(() => request(app, '/health/ready'))
     const responses = await Promise.all(requests)
 
     // All should succeed
@@ -666,9 +677,7 @@ describe('edge cases', () => {
   })
 
   test('should measure uptime correctly', async () => {
-    const app = new Hono()
-    app.route(
-      '/health',
+    const app = new Elysia().use(
       healthMiddleware({
         service: 'test',
         version: '1.0.0',
@@ -677,7 +686,7 @@ describe('edge cases', () => {
 
     await new Promise((resolve) => setTimeout(resolve, 100))
 
-    const response = await app.request('/health')
+    const response = await request(app, '/health')
     const data = await response.json()
 
     expect(data.uptime).toBeGreaterThanOrEqual(100)

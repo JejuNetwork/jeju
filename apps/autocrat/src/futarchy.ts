@@ -323,5 +323,9 @@ export class FutarchyClient {
 }
 
 let instance: FutarchyClient | null = null
-export const getFutarchyClient = (config: FutarchyConfig) =>
-  (instance ??= new FutarchyClient(config))
+export const getFutarchyClient = (config: FutarchyConfig) => {
+  if (!instance) {
+    instance = new FutarchyClient(config)
+  }
+  return instance
+}

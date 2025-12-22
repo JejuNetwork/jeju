@@ -3,11 +3,11 @@ import { CheckCircle, Clock, XCircle } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { type Address, formatEther, parseEther } from 'viem'
 import { useAccount } from 'wagmi'
-import type { TokenOption } from '@/components/TokenSelector'
-import TokenSelector from '@/components/TokenSelector'
-import { INDEXER_URL } from '@/config'
-import { useEILConfig } from '@/hooks/useEIL'
-import { useProtocolTokens } from '@/hooks/useProtocolTokens'
+import { INDEXER_URL } from '../../config'
+import { useEILConfig } from '../../hooks/useEIL'
+import { useProtocolTokens } from '../../hooks/useProtocolTokens'
+import type { TokenOption } from '../TokenSelector'
+import TokenSelector from '../TokenSelector'
 
 // Stub hooks that need to be implemented
 function useXLPLiquidity(_paymasterAddress: Address | undefined) {
@@ -342,6 +342,7 @@ export default function XLPDashboard() {
             (tab) => (
               <button
                 key={tab}
+                type="button"
                 onClick={() => setActiveTab(tab)}
                 style={{
                   padding: '0.5rem 0.75rem',
@@ -535,6 +536,7 @@ export default function XLPDashboard() {
 
               {xlpETH && Boolean(xlpETH > 0n) && (
                 <button
+                  type="button"
                   className="button button-secondary"
                   style={{ width: '100%', marginTop: '0.5rem' }}
                   onClick={handleWithdrawETH}
@@ -620,7 +622,7 @@ export default function XLPDashboard() {
                 </div>
 
                 <div style={{ marginBottom: '1.5rem' }}>
-                  <label
+                  <span
                     style={{
                       display: 'block',
                       marginBottom: '0.5rem',
@@ -628,7 +630,7 @@ export default function XLPDashboard() {
                     }}
                   >
                     Supported Chains
-                  </label>
+                  </span>
                   <div
                     style={{
                       display: 'grid',
@@ -664,6 +666,7 @@ export default function XLPDashboard() {
 
                 <form onSubmit={handleRegister}>
                   <label
+                    htmlFor="initial-stake"
                     style={{
                       display: 'block',
                       marginBottom: '0.5rem',
@@ -673,6 +676,7 @@ export default function XLPDashboard() {
                     Initial Stake (min 1 ETH)
                   </label>
                   <input
+                    id="initial-stake"
                     className="input"
                     type="number"
                     step="0.1"
@@ -780,6 +784,7 @@ export default function XLPDashboard() {
                   style={{ marginBottom: '1.5rem' }}
                 >
                   <label
+                    htmlFor="add-stake"
                     style={{
                       display: 'block',
                       marginBottom: '0.5rem',
@@ -790,6 +795,7 @@ export default function XLPDashboard() {
                   </label>
                   <div style={{ display: 'flex', gap: '0.5rem' }}>
                     <input
+                      id="add-stake"
                       className="input"
                       type="number"
                       step="0.1"
@@ -821,6 +827,7 @@ export default function XLPDashboard() {
                   }}
                 >
                   <button
+                    type="button"
                     className="button button-secondary"
                     onClick={() => stake && startUnbonding(stake.stakedAmount)}
                     disabled={isLoading || stake.unbondingAmount > 0n}
@@ -830,6 +837,7 @@ export default function XLPDashboard() {
                   {stake.unbondingAmount > 0n &&
                     unbondingTimeRemaining === 0n && (
                       <button
+                        type="button"
                         className="button"
                         onClick={() => completeUnbonding()}
                         disabled={isLoading}

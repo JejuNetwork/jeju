@@ -2,6 +2,7 @@
 
 import { expectJson } from '@jejunetwork/types'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils'
+import { sign, verify } from '@noble/ed25519'
 import {
   createAssociatedTokenAccountInstruction,
   getAssociatedTokenAddress,
@@ -115,8 +116,7 @@ export class SolanaX402Client {
       nonce,
       timestamp,
     })
-    const ed25519 = await import('@noble/ed25519')
-    const signature = await ed25519.sign(message, payer.secretKey.slice(0, 32))
+    const signature = await sign(message, payer.secretKey.slice(0, 32))
 
     const encoded = this.encode({
       payer: payer.publicKey,
@@ -144,7 +144,6 @@ export class SolanaX402Client {
 
   async verifyPayment(payment: X402Payment): Promise<boolean> {
     const message = this.buildMessage(payment)
-    const { verify } = await import('@noble/ed25519')
     return verify(payment.signature, message, payment.payer.toBytes())
   }
 

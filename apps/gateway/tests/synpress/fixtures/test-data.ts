@@ -3,7 +3,7 @@
  */
 
 export const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:4001'
-export const RPC_URL = 'http://127.0.0.1:9545'
+export const RPC_URL = 'http://127.0.0.1:6546'
 
 /**
  * Test wallet (Anvil default account #0)
@@ -12,7 +12,7 @@ export const TEST_WALLET = {
   address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
   privateKey:
     '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
-}
+} as const
 
 /**
  * Secondary test wallet (Anvil account #1)
@@ -21,7 +21,7 @@ export const TEST_WALLET_2 = {
   address: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
   privateKey:
     '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d',
-}
+} as const
 
 /**
  * Protocol tokens
@@ -58,7 +58,7 @@ export const PROTOCOL_TOKENS = {
     bridgeable: true,
     l1Address: '0x1cDbB57b12f732cFb4DC06f690ACeF476485B2a5',
   },
-}
+} as const
 
 /**
  * Test amounts
@@ -74,8 +74,8 @@ export const TEST_AMOUNTS = {
     MEDIUM: '1000',
     LARGE: '10000',
   },
-  NODE_STAKE_USD: '1000', // Minimum stake in USD
-}
+  NODE_STAKE_USD: '1000',
+} as const
 
 /**
  * Geographic regions
@@ -87,21 +87,15 @@ export const REGIONS = {
   ASIA: 3,
   AFRICA: 4,
   OCEANIA: 5,
-}
+} as const
 
 /**
  * Underserved regions (get +50% bonus)
  */
-export const UNDERSERVED_REGIONS = [REGIONS.AFRICA, REGIONS.SOUTH_AMERICA]
-
-/**
- * Test RPC URLs for node registration
- */
-export const TEST_RPC_URLS = {
-  VALID: 'https://node.example.com:8545',
-  INVALID: 'not-a-url',
-  UNREACHABLE: 'https://unreachable.example.com:8545',
-}
+export const UNDERSERVED_REGIONS = [
+  REGIONS.AFRICA,
+  REGIONS.SOUTH_AMERICA,
+] as const
 
 /**
  * App registry tags
@@ -114,78 +108,7 @@ export const REGISTRY_TAGS = {
   SOCIAL: 'social',
   INFO_PROVIDER: 'info-provider',
   SERVICE: 'service',
-}
-
-/**
- * Test app data
- */
-export const TEST_APP = {
-  name: 'E2E Test App',
-  description: 'Test application for E2E testing',
-  a2aEndpoint: 'http://localhost:4003/a2a',
-  tags: [REGISTRY_TAGS.GAME, REGISTRY_TAGS.SOCIAL],
-}
-
-/**
- * Moderation report types
- */
-export const REPORT_TYPES = {
-  NETWORK_BAN: 0,
-  APP_BAN: 1,
-  LABEL_HACKER: 2,
-  LABEL_SCAMMER: 3,
-}
-
-/**
- * Severity levels
- */
-export const SEVERITY = {
-  LOW: 0,
-  MEDIUM: 1,
-  HIGH: 2,
-  CRITICAL: 3,
-}
-
-/**
- * Report bonds (in ETH)
- */
-export const REPORT_BONDS = {
-  [SEVERITY.LOW]: '0.001',
-  [SEVERITY.MEDIUM]: '0.01',
-  [SEVERITY.HIGH]: '0.05',
-  [SEVERITY.CRITICAL]: '0.1',
-}
-
-/**
- * Reputation tiers
- */
-export const REPUTATION_TIERS = {
-  NONE: 0,
-  SMALL: 1,
-  MEDIUM: 2,
-  HIGH: 3,
-}
-
-/**
- * Tier stakes (in ETH)
- */
-export const TIER_STAKES = {
-  [REPUTATION_TIERS.NONE]: '0',
-  [REPUTATION_TIERS.SMALL]: '0.001',
-  [REPUTATION_TIERS.MEDIUM]: '0.01',
-  [REPUTATION_TIERS.HIGH]: '0.1',
-}
-
-/**
- * Time constants
- */
-export const TIME = {
-  ONE_MINUTE: 60,
-  ONE_HOUR: 3600,
-  ONE_DAY: 86400,
-  ONE_WEEK: 604800,
-  ONE_MONTH: 2592000,
-}
+} as const
 
 /**
  * Fee margins (in basis points)
@@ -194,35 +117,7 @@ export const FEE_MARGINS = {
   MIN: 0,
   DEFAULT: 100, // 1%
   MAX: 500, // 5%
-}
-
-/**
- * Storage duration options (in months)
- */
-export const STORAGE_DURATIONS = {
-  ONE_MONTH: 1,
-  SIX_MONTHS: 6,
-  ONE_YEAR: 12,
-}
-
-/**
- * Test file for upload
- */
-export const TEST_FILE = {
-  name: 'test-evidence.txt',
-  content: 'This is test evidence for E2E testing',
-  size: 37, // bytes
-}
-
-/**
- * Gas limits
- */
-export const GAS_LIMITS = {
-  SIMPLE_TX: 100000,
-  TOKEN_APPROVAL: 50000,
-  PAYMASTER_DEPLOY: 3000000,
-  BRIDGE: 200000,
-}
+} as const
 
 /**
  * Timeouts for different operations
@@ -233,46 +128,7 @@ export const TIMEOUTS = {
   TRANSACTION: 30000,
   DEPLOYMENT: 90000,
   BRIDGE: 120000,
-}
-
-/**
- * Screenshot paths
- */
-export function getScreenshotPath(testName: string, step: string): string {
-  return `test-results/screenshots/${testName}/${step}.png`
-}
-
-/**
- * Calculate required stake in token for $1000 USD
- */
-export function calculateStakeAmount(
-  tokenPriceUSD: number,
-  targetUSD: number = 1000,
-): string {
-  const amount = targetUSD / tokenPriceUSD
-  return amount.toFixed(2)
-}
-
-/**
- * Calculate required app registry stake (0.001 ETH worth ≈ $3.50)
- */
-export function calculateRegistryStake(
-  tokenPriceUSD: number,
-  ethPrice: number = 3500,
-): string {
-  const targetUSD = 0.001 * ethPrice // 0.001 ETH worth
-  const amount = targetUSD / tokenPriceUSD
-  return amount.toFixed(6)
-}
-
-/**
- * Test node data
- */
-export const TEST_NODE = {
-  stakeAmount: calculateStakeAmount(PROTOCOL_TOKENS.ELIZAOS.priceUSD), // $1000 worth
-  rpcUrl: TEST_RPC_URLS.VALID,
-  region: REGIONS.AFRICA, // +50% bonus
-}
+} as const
 
 /**
  * Validate address format
@@ -284,11 +140,11 @@ export function isValidAddress(address: string): boolean {
 /**
  * Generate random address (for testing)
  */
-export function randomAddress(): string {
+export function randomAddress(): `0x${string}` {
   const hex = Array.from({ length: 40 }, () =>
     Math.floor(Math.random() * 16).toString(16),
   ).join('')
-  return `0x${hex}`
+  return `0x${hex}` as `0x${string}`
 }
 
 /**
@@ -305,5 +161,12 @@ export function formatWei(wei: bigint): string {
 export function parseEth(eth: string): bigint {
   const [whole, decimal = ''] = eth.split('.')
   const paddedDecimal = decimal.padEnd(18, '0').slice(0, 18)
-  return BigInt(whole) * BigInt(1e18) + BigInt(paddedDecimal.padEnd(18, '0'))
+  return BigInt(whole) * BigInt(1e18) + BigInt(paddedDecimal)
+}
+
+/**
+ * Screenshot path helper
+ */
+export function getScreenshotPath(testName: string, step: string): string {
+  return `test-results/screenshots/${testName}/${step}.png`
 }

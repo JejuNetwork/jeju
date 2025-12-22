@@ -2,7 +2,7 @@
 
 import { clsx } from 'clsx'
 import { useMemo, useState } from 'react'
-import { getAllTokens, isTokenDeployed } from '@/config/tokens'
+import { getAllTokens, isTokenDeployed } from '../config/tokens'
 
 export interface TokenOption {
   symbol: string
@@ -54,6 +54,7 @@ export function TokenSelector({
   return (
     <div className="relative">
       <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
       >
@@ -68,6 +69,7 @@ export function TokenSelector({
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
+          aria-hidden="true"
         >
           <path
             strokeLinecap="round"
@@ -80,9 +82,11 @@ export function TokenSelector({
 
       {isOpen && (
         <>
-          <div
-            className="fixed inset-0 z-40"
+          <button
+            type="button"
+            className="fixed inset-0 z-40 cursor-default"
             onClick={() => setIsOpen(false)}
+            aria-label="Close selector"
           />
           <div className="absolute top-full mt-2 w-64 rounded-lg bg-slate-800 border border-white/10 shadow-xl z-50 max-h-80 overflow-y-auto">
             {tokens.map((token) => {
@@ -90,6 +94,7 @@ export function TokenSelector({
               return (
                 <button
                   key={token.symbol}
+                  type="button"
                   onClick={() => {
                     // Support both token object and symbol string callbacks
                     onSelect(token)

@@ -8,14 +8,15 @@
 import { type TokenClaims, verifyToken } from '@jejunetwork/kms'
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes, verifyMessage } from 'viem'
+import { GitHubUserResponseSchema } from '../lib/validation.js'
 import { LEADERBOARD_CONFIG } from './config.js'
 import { query } from './db.js'
 
-interface GitHubUserResponse {
+type GitHubUserResponse = {
   id: number
   login: string
-  name: string
-  email: string
+  name?: string | null
+  email?: string | null
   avatar_url: string
 }
 
@@ -255,7 +256,16 @@ async function authenticateGitHub(token: string): Promise<AuthOutcome> {
       return { success: false, error: 'Invalid GitHub token', status: 401 }
     }
 
-    profile = (await response.json()) as GitHubUserResponse
+    const rawProfile = await response.json()
+    const parseResult = GitHubUserResponseSchema.safeParse(rawProfile)
+    if (!parseResult.success) {
+      return {
+        success: false,
+        error: 'Invalid GitHub API response',
+        status: 401,
+      }
+    }
+    profile = parseResult.data
   } catch {
     return { success: false, error: 'GitHub API error', status: 401 }
   }

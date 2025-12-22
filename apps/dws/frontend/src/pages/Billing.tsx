@@ -70,11 +70,16 @@ export default function BillingPage({ viewMode }: BillingProps) {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="btn btn-secondary" onClick={() => refetch()}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => refetch()}
+          >
             <RefreshCw size={16} /> Refresh
           </button>
           {viewMode === 'consumer' && (
             <button
+              type="button"
               className="btn btn-primary"
               onClick={() => setShowDepositModal(true)}
               disabled={!isConnected}
@@ -83,7 +88,11 @@ export default function BillingPage({ viewMode }: BillingProps) {
             </button>
           )}
           {viewMode === 'provider' && (
-            <button className="btn btn-primary" disabled={!isConnected}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={!isConnected}
+            >
               <ArrowUpRight size={16} /> Withdraw
             </button>
           )}
@@ -214,7 +223,7 @@ export default function BillingPage({ viewMode }: BillingProps) {
                 ? 'Recent Earnings'
                 : 'Recent Transactions'}
             </h3>
-            <button className="btn btn-ghost btn-sm">
+            <button type="button" className="btn btn-ghost btn-sm">
               <Download size={14} /> Export
             </button>
           </div>
@@ -382,14 +391,29 @@ export default function BillingPage({ viewMode }: BillingProps) {
       </div>
 
       {showDepositModal && (
-        <div
-          className="modal-overlay"
-          onClick={() => setShowDepositModal(false)}
-        >
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay">
+          <button
+            type="button"
+            className="absolute inset-0 cursor-default"
+            onClick={() => setShowDepositModal(false)}
+            aria-label="Close modal"
+          />
+          <div
+            className="modal"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              e.stopPropagation()
+              if (e.key === 'Escape') {
+                setShowDepositModal(false)
+              }
+            }}
+            role="dialog"
+            aria-modal="true"
+          >
             <div className="modal-header">
               <h3 className="modal-title">Add x402 Credits</h3>
               <button
+                type="button"
                 className="btn btn-ghost btn-icon"
                 onClick={() => setShowDepositModal(false)}
               >
@@ -399,8 +423,11 @@ export default function BillingPage({ viewMode }: BillingProps) {
             <form onSubmit={handleDeposit}>
               <div className="modal-body">
                 <div className="form-group">
-                  <label className="form-label">Amount (ETH)</label>
+                  <label htmlFor="deposit-amount" className="form-label">
+                    Amount (ETH)
+                  </label>
                   <input
+                    id="deposit-amount"
                     className="input"
                     type="number"
                     step="0.001"

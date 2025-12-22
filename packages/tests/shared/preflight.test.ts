@@ -7,7 +7,7 @@ import { quickHealthCheck, runPreflightChecks, waitForChain } from './preflight'
 
 // Test against non-existent RPC to verify error handling
 const FAKE_RPC = 'http://localhost:59999'
-const REAL_RPC = process.env.L2_RPC_URL || 'http://localhost:9545'
+const REAL_RPC = process.env.L2_RPC_URL || 'http://localhost:6546'
 
 describe('quickHealthCheck - Fast Health Validation', () => {
   test('should return false for unreachable RPC', async () => {

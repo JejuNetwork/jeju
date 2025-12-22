@@ -58,6 +58,7 @@ export function PrivacyWarning({
             </p>
           </div>
           <button
+            type="button"
             onClick={onCancel}
             className="p-1 hover:bg-zinc-800 rounded-lg transition-colors"
           >
@@ -149,12 +150,14 @@ export function PrivacyWarning({
         {/* Actions */}
         <div className="flex gap-3 p-4 border-t border-zinc-800">
           <button
+            type="button"
             onClick={onCancel}
             className="flex-1 px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg transition-colors font-medium"
           >
             Cancel
           </button>
           <button
+            type="button"
             onClick={onAccept}
             disabled={!acknowledged}
             className={clsx(

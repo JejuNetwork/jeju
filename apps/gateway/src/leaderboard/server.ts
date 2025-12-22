@@ -1,14 +1,13 @@
 /**
  * Leaderboard API Server
  *
- * Exposes all leaderboard APIs via Hono.
+ * Exposes all leaderboard APIs via Elysia.
  * Mount at /leaderboard/api in main gateway.
  */
 
 import { timingSafeEqual } from 'node:crypto'
-import { type Context, Hono } from 'hono'
-import { bodyLimit } from 'hono/body-limit'
-import { cors } from 'hono/cors'
+import { cors } from '@elysiajs/cors'
+import { Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { isAddress } from 'viem'
 import {
@@ -24,6 +23,7 @@ import {
   validateQuery,
   WalletVerifyQuerySchema,
   WalletVerifyRequestSchema,
+  A2ARequestSchema,
 } from '../lib/validation.js'
 import {
   authenticateRequest,
@@ -45,70 +45,87 @@ import {
   storeAttestation,
 } from './reputation.js'
 
-const app = new Hono()
-
-// SECURITY: Configure CORS based on environment
 const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',').filter(Boolean)
 const isProduction = process.env.NODE_ENV === 'production'
-
-app.use(
-  '*',
-  cors({
-    // SECURITY: In production, require explicit origin whitelist
-    origin: isProduction && CORS_ORIGINS?.length ? CORS_ORIGINS : '*',
-    allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-    credentials: true,
-    maxAge: 86400,
-  }),
-)
-
-// SECURITY: Limit request body size to prevent DoS attacks
 const MAX_BODY_SIZE = 1024 * 1024 // 1MB
-app.use(
-  '*',
-  bodyLimit({
-    maxSize: MAX_BODY_SIZE,
-    onError: (c: Context) => {
-      return c.json(
-        { error: 'Request body too large', maxSize: MAX_BODY_SIZE },
-        413,
-      )
-    },
-  }),
-)
-
-// Health check
-app.get('/health', (c) => c.json({ status: 'ok', service: 'leaderboard' }))
-
-// ============================================================================
-// Attestation Endpoints
-// ============================================================================
 
 /**
- * GET /api/attestation?wallet=0x...&chainId=eip155:1
- * Returns reputation data for a wallet address (public)
+ * SECURITY: Constant-time string comparison to prevent timing attacks
  */
-app.get('/api/attestation', async (c) => {
-  const clientId = getClientId(c.req.raw)
-  const limit = checkRateLimit(
-    `attestation-get:${clientId}`,
-    LEADERBOARD_CONFIG.rateLimits.attestation,
+function timingSafeCompare(a: string | undefined | null, b: string): boolean {
+  if (!a) return false
+  const aLen = Buffer.from(a).length
+  const bLen = Buffer.from(b).length
+  const aBuf = Buffer.alloc(Math.max(aLen, bLen))
+  const bBuf = Buffer.alloc(Math.max(aLen, bLen))
+  Buffer.from(a).copy(aBuf)
+  Buffer.from(b).copy(bBuf)
+  return aLen === bLen && timingSafeEqual(aBuf, bBuf)
+}
+
+// Database initialization middleware
+let dbInitialized = false
+async function ensureDbInitialized() {
+  if (!dbInitialized) {
+    await initLeaderboardDB()
+    dbInitialized = true
+  }
+}
+
+const app = new Elysia()
+  .use(
+    cors(
+      isProduction && CORS_ORIGINS?.length
+        ? {
+            origin: CORS_ORIGINS,
+            methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+            allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+            credentials: true,
+            maxAge: 86400,
+          }
+        : {},
+    ),
   )
-  if (!limit.allowed) {
-    return c.json(
-      {
+  .onBeforeHandle(async () => {
+    await ensureDbInitialized()
+  })
+  .onParse(async ({ request, contentType }) => {
+    if (contentType === 'application/json') {
+      const text = await request.text()
+      if (text.length > MAX_BODY_SIZE) {
+        throw new Error('Request body too large')
+      }
+      return JSON.parse(text)
+    }
+  })
+  // Health check
+  .get('/health', () => ({ status: 'ok', service: 'leaderboard' }))
+
+  // ============================================================================
+  // Attestation Endpoints
+  // ============================================================================
+
+  /**
+   * GET /api/attestation?wallet=0x...&chainId=eip155:1
+   * Returns reputation data for a wallet address (public)
+   */
+  .get('/api/attestation', async ({ query: queryParams, request, set }) => {
+    const clientId = getClientId(request)
+    const limit = checkRateLimit(
+      `attestation-get:${clientId}`,
+      LEADERBOARD_CONFIG.rateLimits.attestation,
+    )
+    if (!limit.allowed) {
+      set.status = 429
+      return {
         error: 'Rate limit exceeded',
         retryAfter: Math.ceil((limit.resetAt - Date.now()) / 1000),
-      },
-      429,
-    )
-  }
+      }
+    }
 
-  try {
     const validated = validateQuery(
       GetAttestationQuerySchema,
-      c.req.query(),
+      queryParams,
       'get attestation',
     )
     const walletAddress = validated.wallet
@@ -116,10 +133,10 @@ app.get('/api/attestation', async (c) => {
     const username = validated.username
 
     if (!walletAddress && !username) {
-      return c.json({ error: 'wallet or username parameter required' }, 400)
+      set.status = 400
+      return { error: 'wallet or username parameter required' }
     }
 
-    // Find user by wallet or username
     let user: { username: string; avatar_url: string } | undefined
     let wallet:
       | {
@@ -146,7 +163,8 @@ app.get('/api/attestation', async (c) => {
       )
 
       if (walletResult.length === 0) {
-        return c.json({ error: 'Wallet not linked to any GitHub account' }, 404)
+        set.status = 404
+        return { error: 'Wallet not linked to any GitHub account' }
       }
 
       wallet = walletResult[0]
@@ -162,11 +180,11 @@ app.get('/api/attestation', async (c) => {
       )
 
       if (users.length === 0) {
-        return c.json({ error: 'User not found' }, 404)
+        set.status = 404
+        return { error: 'User not found' }
       }
       user = users[0]
 
-      // Find primary wallet
       const wallets = await query<{
         user_id: string
         account_address: string
@@ -183,7 +201,8 @@ app.get('/api/attestation', async (c) => {
     }
 
     if (!user) {
-      return c.json({ error: 'User not found' }, 404)
+      set.status = 404
+      return { error: 'User not found' }
     }
 
     const reputation = await calculateUserReputation(user.username)
@@ -195,7 +214,7 @@ app.get('/api/attestation', async (c) => {
         )
       : null
 
-    return c.json({
+    return {
       username: user.username,
       avatarUrl: user.avatar_url,
       wallet: wallet
@@ -210,49 +229,43 @@ app.get('/api/attestation', async (c) => {
       attestation,
       oracleConfigured: Boolean(LEADERBOARD_CONFIG.oracle.privateKey),
       onChainEnabled: LEADERBOARD_CONFIG.oracle.isEnabled,
-    })
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid request'
-    return c.json({ error: message }, 400)
-  }
-})
+    }
+  })
 
-/**
- * POST /api/attestation
- * Request a new signed reputation attestation (authenticated)
- */
-app.post('/api/attestation', async (c) => {
-  const clientId = getClientId(c.req.raw)
-  const limit = checkRateLimit(
-    `attestation-post:${clientId}`,
-    LEADERBOARD_CONFIG.rateLimits.attestation,
-  )
-  if (!limit.allowed) {
-    return c.json({ error: 'Rate limit exceeded' }, 429)
-  }
+  /**
+   * POST /api/attestation
+   * Request a new signed reputation attestation (authenticated)
+   */
+  .post('/api/attestation', async ({ body, request, set }) => {
+    const clientId = getClientId(request)
+    const limit = checkRateLimit(
+      `attestation-post:${clientId}`,
+      LEADERBOARD_CONFIG.rateLimits.attestation,
+    )
+    if (!limit.allowed) {
+      set.status = 429
+      return { error: 'Rate limit exceeded' }
+    }
 
-  const authResult = await authenticateRequest(c.req.raw)
-  if (!authResult.success) {
-    return c.json({ error: authResult.error }, authResult.status)
-  }
+    const authResult = await authenticateRequest(request)
+    if (!authResult.success) {
+      set.status = authResult.status
+      return { error: authResult.error }
+    }
 
-  try {
     const validated = validateBody(
       CreateAttestationRequestSchema,
-      await c.req.json(),
+      body,
       'create attestation',
     )
     const { username, walletAddress, agentId } = validated
     const chainId = validated.chainId || LEADERBOARD_CONFIG.chain.caip2ChainId
 
     if (!verifyUserOwnership(authResult.user, username)) {
-      return c.json(
-        { error: 'You can only request attestations for your own account' },
-        403,
-      )
+      set.status = 403
+      return { error: 'You can only request attestations for your own account' }
     }
 
-    // Verify wallet is linked and verified
     const wallets = await query<{ is_verified: number }>(
       `SELECT is_verified FROM wallet_addresses
        WHERE user_id = ? AND account_address = ? AND is_active = 1`,
@@ -260,17 +273,16 @@ app.post('/api/attestation', async (c) => {
     )
 
     if (wallets.length === 0) {
-      return c.json({ error: 'Wallet not linked to this GitHub account' }, 403)
+      set.status = 403
+      return { error: 'Wallet not linked to this GitHub account' }
     }
 
     if (!wallets[0].is_verified) {
-      return c.json(
-        {
-          error: 'Wallet must be verified before requesting attestation',
-          action: 'verify_wallet',
-        },
-        403,
-      )
+      set.status = 403
+      return {
+        error: 'Wallet must be verified before requesting attestation',
+        action: 'verify_wallet',
+      }
     }
 
     const reputation = await calculateUserReputation(username)
@@ -296,7 +308,7 @@ app.post('/api/attestation', async (c) => {
         ? `Signed attestation created for ${username}. Score: ${reputation.normalizedScore}/100`
         : `Reputation recorded for ${username}. Score: ${reputation.normalizedScore}/100`
 
-    return c.json({
+    return {
       success: true,
       onChainEnabled: LEADERBOARD_CONFIG.oracle.isEnabled,
       attestation: {
@@ -308,46 +320,42 @@ app.post('/api/attestation', async (c) => {
         onChainParams: attestation.onChainParams,
       },
       message,
-    })
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid request'
-    return c.json({ error: message }, 400)
-  }
-})
+    }
+  })
 
-// ============================================================================
-// Attestation Confirm
-// ============================================================================
+  // ============================================================================
+  // Attestation Confirm
+  // ============================================================================
 
-/**
- * POST /api/attestation/confirm
- * Confirm on-chain attestation submission
- */
-app.post('/api/attestation/confirm', async (c) => {
-  const clientId = getClientId(c.req.raw)
-  const limit = checkRateLimit(
-    `attestation-confirm:${clientId}`,
-    LEADERBOARD_CONFIG.rateLimits.attestation,
-  )
-  if (!limit.allowed) {
-    return c.json({ error: 'Rate limit exceeded' }, 429)
-  }
+  /**
+   * POST /api/attestation/confirm
+   * Confirm on-chain attestation submission
+   */
+  .post('/api/attestation/confirm', async ({ body, request, set }) => {
+    const clientId = getClientId(request)
+    const limit = checkRateLimit(
+      `attestation-confirm:${clientId}`,
+      LEADERBOARD_CONFIG.rateLimits.attestation,
+    )
+    if (!limit.allowed) {
+      set.status = 429
+      return { error: 'Rate limit exceeded' }
+    }
 
-  const authResult = await authenticateRequest(c.req.raw)
-  if (!authResult.success) {
-    return c.json({ error: authResult.error }, authResult.status)
-  }
+    const authResult = await authenticateRequest(request)
+    if (!authResult.success) {
+      set.status = authResult.status
+      return { error: authResult.error }
+    }
 
-  try {
     const validated = validateBody(
       ConfirmAttestationRequestSchema,
-      await c.req.json(),
+      body,
       'confirm attestation',
     )
     const { attestationHash, txHash, walletAddress } = validated
     const chainId = validated.chainId || LEADERBOARD_CONFIG.chain.caip2ChainId
 
-    // Find attestation and verify ownership
     const attestations = await query<{ user_id: string }>(
       `SELECT user_id FROM reputation_attestations
        WHERE attestation_hash = ? AND wallet_address = ? AND chain_id = ?`,
@@ -355,14 +363,13 @@ app.post('/api/attestation/confirm', async (c) => {
     )
 
     if (attestations.length === 0) {
-      return c.json({ error: 'Attestation not found' }, 404)
+      set.status = 404
+      return { error: 'Attestation not found' }
     }
 
     if (!verifyUserOwnership(authResult.user, attestations[0].user_id)) {
-      return c.json(
-        { error: 'You can only confirm attestations for your own account' },
-        403,
-      )
+      set.status = 403
+      return { error: 'You can only confirm attestations for your own account' }
     }
 
     const success = await confirmAttestation(
@@ -372,72 +379,65 @@ app.post('/api/attestation/confirm', async (c) => {
       txHash,
     )
     if (!success) {
-      return c.json({ error: 'Failed to update attestation' }, 500)
+      set.status = 500
+      return { error: 'Failed to update attestation' }
     }
 
-    return c.json({
+    return {
       success: true,
       attestation: {
         hash: attestationHash,
         txHash,
         submittedAt: new Date().toISOString(),
       },
-    })
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid request'
-    return c.json({ error: message }, 400)
-  }
-})
+    }
+  })
 
-// ============================================================================
-// Wallet Verification
-// ============================================================================
+  // ============================================================================
+  // Wallet Verification
+  // ============================================================================
 
-/**
- * GET /api/wallet/verify?username=...&wallet=...
- * Get verification message to sign (authenticated)
- */
-app.get('/api/wallet/verify', async (c) => {
-  const clientId = getClientId(c.req.raw)
-  const limit = checkRateLimit(
-    `wallet-verify-get:${clientId}`,
-    LEADERBOARD_CONFIG.rateLimits.walletVerify,
-  )
-  if (!limit.allowed) {
-    return c.json({ error: 'Rate limit exceeded' }, 429)
-  }
+  /**
+   * GET /api/wallet/verify?username=...&wallet=...
+   * Get verification message to sign (authenticated)
+   */
+  .get('/api/wallet/verify', async ({ query: queryParams, request, set }) => {
+    const clientId = getClientId(request)
+    const limit = checkRateLimit(
+      `wallet-verify-get:${clientId}`,
+      LEADERBOARD_CONFIG.rateLimits.walletVerify,
+    )
+    if (!limit.allowed) {
+      set.status = 429
+      return { error: 'Rate limit exceeded' }
+    }
 
-  const authResult = await authenticateRequest(c.req.raw)
-  if (!authResult.success) {
-    return c.json({ error: authResult.error }, authResult.status)
-  }
+    const authResult = await authenticateRequest(request)
+    if (!authResult.success) {
+      set.status = authResult.status
+      return { error: authResult.error }
+    }
 
-  try {
     const validated = validateQuery(
       WalletVerifyQuerySchema,
-      c.req.query(),
+      queryParams,
       'wallet verify',
     )
     const username = validated.username
     const walletAddress = validated.wallet
 
     if (!verifyUserOwnership(authResult.user, username)) {
-      return c.json(
-        { error: 'You can only request verification for your own account' },
-        403,
-      )
+      set.status = 403
+      return { error: 'You can only request verification for your own account' }
     }
 
-    // Verify user exists
     const users = await query<{ username: string }>(
       'SELECT username FROM users WHERE username = ?',
       [username],
     )
     if (users.length === 0) {
-      return c.json(
-        { error: 'User not found. Please ensure your GitHub is synced first.' },
-        404,
-      )
+      set.status = 404
+      return { error: 'User not found. Please ensure your GitHub is synced first.' }
     }
 
     const timestamp = Date.now()
@@ -449,89 +449,81 @@ app.get('/api/wallet/verify', async (c) => {
       nonce,
     )
 
-    return c.json({
+    return {
       message,
       timestamp,
       nonce,
       expiresAt: timestamp + LEADERBOARD_CONFIG.tokens.maxMessageAgeMs,
       instructions:
         'Sign this message with your wallet to verify ownership. Message expires in 10 minutes.',
-    })
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid request'
-    return c.json({ error: message }, 400)
-  }
-})
+    }
+  })
 
-/**
- * POST /api/wallet/verify
- * Verify signed message and link wallet (authenticated)
- */
-app.post('/api/wallet/verify', async (c) => {
-  const clientId = getClientId(c.req.raw)
-  const limit = checkRateLimit(
-    `wallet-verify-post:${clientId}`,
-    LEADERBOARD_CONFIG.rateLimits.walletVerify,
-  )
-  if (!limit.allowed) {
-    return c.json({ error: 'Rate limit exceeded' }, 429)
-  }
+  /**
+   * POST /api/wallet/verify
+   * Verify signed message and link wallet (authenticated)
+   */
+  .post('/api/wallet/verify', async ({ body, request, set }) => {
+    const clientId = getClientId(request)
+    const limit = checkRateLimit(
+      `wallet-verify-post:${clientId}`,
+      LEADERBOARD_CONFIG.rateLimits.walletVerify,
+    )
+    if (!limit.allowed) {
+      set.status = 429
+      return { error: 'Rate limit exceeded' }
+    }
 
-  const authResult = await authenticateRequest(c.req.raw)
-  if (!authResult.success) {
-    return c.json({ error: authResult.error }, authResult.status)
-  }
+    const authResult = await authenticateRequest(request)
+    if (!authResult.success) {
+      set.status = authResult.status
+      return { error: authResult.error }
+    }
 
-  try {
     const validated = validateBody(
       WalletVerifyRequestSchema,
-      await c.req.json(),
+      body,
       'wallet verify',
     )
     const { username, walletAddress, signature, message, timestamp } = validated
     const chainId = validated.chainId || LEADERBOARD_CONFIG.chain.caip2ChainId
 
     if (!verifyUserOwnership(authResult.user, username)) {
-      return c.json(
-        { error: 'You can only verify wallets for your own account' },
-        403,
-      )
+      set.status = 403
+      return { error: 'You can only verify wallets for your own account' }
     }
 
-    // Validate timestamp
     const messageAge = Date.now() - timestamp
     if (messageAge > LEADERBOARD_CONFIG.tokens.maxMessageAgeMs) {
-      return c.json(
-        { error: 'Verification message expired. Please request a new one.' },
-        400,
-      )
+      set.status = 400
+      return { error: 'Verification message expired. Please request a new one.' }
     }
     if (messageAge < 0) {
-      return c.json({ error: 'Invalid timestamp (future date)' }, 400)
+      set.status = 400
+      return { error: 'Invalid timestamp (future date)' }
     }
 
-    // Verify signature
     const isValid = await verifyWalletSignature(
       walletAddress as Address,
       message,
       signature as Hex,
     )
     if (!isValid) {
-      return c.json({ error: 'Invalid signature' }, 400)
+      set.status = 400
+      return { error: 'Invalid signature' }
     }
 
-    // Validate message content
     if (
       !message.includes(username) ||
       !message.includes(LEADERBOARD_CONFIG.domain.domain)
     ) {
-      return c.json({ error: 'Invalid message content' }, 400)
+      set.status = 400
+      return { error: 'Invalid message content' }
     }
 
     const now = new Date().toISOString()
     const normalizedAddress = walletAddress.toLowerCase()
 
-    // Check if wallet exists
     const existing = await query<{ id: number }>(
       `SELECT id FROM wallet_addresses
        WHERE user_id = ? AND account_address = ? AND chain_id = ?`,
@@ -564,7 +556,7 @@ app.post('/api/wallet/verify', async (c) => {
       )
     }
 
-    return c.json({
+    return {
       success: true,
       wallet: {
         address: normalizedAddress,
@@ -573,35 +565,31 @@ app.post('/api/wallet/verify', async (c) => {
         verifiedAt: now,
       },
       message: `Wallet ${normalizedAddress} verified for ${username}`,
-    })
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid request'
-    return c.json({ error: message }, 400)
-  }
-})
+    }
+  })
 
-// ============================================================================
-// Agent Link
-// ============================================================================
+  // ============================================================================
+  // Agent Link
+  // ============================================================================
 
-/**
- * GET /api/agent/link?wallet=...&agentId=...
- * Get agent links (public)
- */
-app.get('/api/agent/link', async (c) => {
-  const clientId = getClientId(c.req.raw)
-  const limit = checkRateLimit(
-    `agent-link-get:${clientId}`,
-    LEADERBOARD_CONFIG.rateLimits.agentLink,
-  )
-  if (!limit.allowed) {
-    return c.json({ error: 'Rate limit exceeded' }, 429)
-  }
+  /**
+   * GET /api/agent/link?wallet=...&agentId=...
+   * Get agent links (public)
+   */
+  .get('/api/agent/link', async ({ query: queryParams, request, set }) => {
+    const clientId = getClientId(request)
+    const limit = checkRateLimit(
+      `agent-link-get:${clientId}`,
+      LEADERBOARD_CONFIG.rateLimits.agentLink,
+    )
+    if (!limit.allowed) {
+      set.status = 429
+      return { error: 'Rate limit exceeded' }
+    }
 
-  try {
     const validated = validateQuery(
       AgentLinkQuerySchema,
-      c.req.query(),
+      queryParams,
       'agent link',
     )
     const walletAddress = validated.wallet
@@ -609,10 +597,8 @@ app.get('/api/agent/link', async (c) => {
     const agentId = validated.agentId
 
     if (!walletAddress && !username && !agentId) {
-      return c.json(
-        { error: 'wallet, username, or agentId parameter required' },
-        400,
-      )
+      set.status = 400
+      return { error: 'wallet, username, or agentId parameter required' }
     }
 
     let links: Array<{
@@ -643,7 +629,6 @@ app.get('/api/agent/link', async (c) => {
       )
     }
 
-    // Get user info for each link
     const enrichedLinks = await Promise.all(
       links.map(async (link) => {
         const users = await query<{ username: string; avatar_url: string }>(
@@ -667,36 +652,33 @@ app.get('/api/agent/link', async (c) => {
       }),
     )
 
-    return c.json({ links: enrichedLinks })
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid request'
-    return c.json({ error: message }, 400)
-  }
-})
+    return { links: enrichedLinks }
+  })
 
-/**
- * POST /api/agent/link
- * Create agent link (authenticated)
- */
-app.post('/api/agent/link', async (c) => {
-  const clientId = getClientId(c.req.raw)
-  const limit = checkRateLimit(
-    `agent-link-post:${clientId}`,
-    LEADERBOARD_CONFIG.rateLimits.agentLink,
-  )
-  if (!limit.allowed) {
-    return c.json({ error: 'Rate limit exceeded' }, 429)
-  }
+  /**
+   * POST /api/agent/link
+   * Create agent link (authenticated)
+   */
+  .post('/api/agent/link', async ({ body, request, set }) => {
+    const clientId = getClientId(request)
+    const limit = checkRateLimit(
+      `agent-link-post:${clientId}`,
+      LEADERBOARD_CONFIG.rateLimits.agentLink,
+    )
+    if (!limit.allowed) {
+      set.status = 429
+      return { error: 'Rate limit exceeded' }
+    }
 
-  const authResult = await authenticateRequest(c.req.raw)
-  if (!authResult.success) {
-    return c.json({ error: authResult.error }, authResult.status)
-  }
+    const authResult = await authenticateRequest(request)
+    if (!authResult.success) {
+      set.status = authResult.status
+      return { error: authResult.error }
+    }
 
-  try {
     const validated = validateBody(
       CreateAgentLinkRequestSchema,
-      await c.req.json(),
+      body,
       'create agent link',
     )
     const { username, walletAddress, agentId, registryAddress, txHash } =
@@ -704,13 +686,10 @@ app.post('/api/agent/link', async (c) => {
     const chainId = validated.chainId || LEADERBOARD_CONFIG.chain.caip2ChainId
 
     if (!verifyUserOwnership(authResult.user, username)) {
-      return c.json(
-        { error: 'You can only create agent links for your own account' },
-        403,
-      )
+      set.status = 403
+      return { error: 'You can only create agent links for your own account' }
     }
 
-    // Verify wallet is linked and verified
     const wallets = await query<{ is_verified: number }>(
       `SELECT is_verified FROM wallet_addresses
      WHERE user_id = ? AND account_address = ? AND is_active = 1`,
@@ -718,24 +697,22 @@ app.post('/api/agent/link', async (c) => {
     )
 
     if (wallets.length === 0) {
-      return c.json({ error: 'Wallet not linked to this GitHub account' }, 403)
+      set.status = 403
+      return { error: 'Wallet not linked to this GitHub account' }
     }
 
     if (!wallets[0].is_verified) {
-      return c.json(
-        {
-          error: 'Wallet must be verified before creating agent links',
-          action: 'verify_wallet',
-        },
-        403,
-      )
+      set.status = 403
+      return {
+        error: 'Wallet must be verified before creating agent links',
+        action: 'verify_wallet',
+      }
     }
 
     const now = new Date().toISOString()
     const normalizedWallet = walletAddress.toLowerCase()
     const normalizedRegistry = registryAddress.toLowerCase()
 
-    // Check existing link
     const existing = await query<{ id: number; user_id: string }>(
       `SELECT id, user_id FROM agent_identity_links
      WHERE wallet_address = ? AND chain_id = ? AND agent_id = ?`,
@@ -744,10 +721,8 @@ app.post('/api/agent/link', async (c) => {
 
     if (existing.length > 0) {
       if (existing[0].user_id !== username) {
-        return c.json(
-          { error: 'This agent is already linked to a different user' },
-          403,
-        )
+        set.status = 403
+        return { error: 'This agent is already linked to a different user' }
       }
 
       await exec(
@@ -764,7 +739,7 @@ app.post('/api/agent/link', async (c) => {
         ],
       )
 
-      return c.json({
+      return {
         success: true,
         link: {
           id: existing[0].id,
@@ -776,7 +751,7 @@ app.post('/api/agent/link', async (c) => {
           isVerified: Boolean(wallets[0].is_verified),
         },
         message: 'Agent link updated',
-      })
+      }
     }
 
     const result = await exec(
@@ -798,77 +773,67 @@ app.post('/api/agent/link', async (c) => {
       ],
     )
 
-    return c.json(
-      {
-        success: true,
-        link: {
-          id: result.rowsAffected,
-          username,
-          walletAddress: normalizedWallet,
-          chainId,
-          agentId,
-          registryAddress: normalizedRegistry,
-          isVerified: Boolean(wallets[0].is_verified),
-        },
-        message: `Agent #${agentId} linked to ${username}`,
+    set.status = 201
+    return {
+      success: true,
+      link: {
+        id: result.rowsAffected,
+        username,
+        walletAddress: normalizedWallet,
+        chainId,
+        agentId,
+        registryAddress: normalizedRegistry,
+        isVerified: Boolean(wallets[0].is_verified),
       },
-      201,
+      message: `Agent #${agentId} linked to ${username}`,
+    }
+  })
+
+  // ============================================================================
+  // Leaderboard Data
+  // ============================================================================
+
+  /**
+   * GET /api/leaderboard?limit=10
+   * Get top contributors (public)
+   */
+  .get('/api/leaderboard', async ({ query: queryParams, request, set }) => {
+    const clientId = getClientId(request)
+    const limit = checkRateLimit(
+      `leaderboard:${clientId}`,
+      LEADERBOARD_CONFIG.rateLimits.general,
     )
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid request'
-    return c.json({ error: message }, 400)
-  }
-})
+    if (!limit.allowed) {
+      set.status = 429
+      return { error: 'Rate limit exceeded' }
+    }
 
-// ============================================================================
-// Leaderboard Data
-// ============================================================================
-
-/**
- * GET /api/leaderboard?limit=10
- * Get top contributors (public)
- */
-app.get('/api/leaderboard', async (c) => {
-  const clientId = getClientId(c.req.raw)
-  const limit = checkRateLimit(
-    `leaderboard:${clientId}`,
-    LEADERBOARD_CONFIG.rateLimits.general,
-  )
-  if (!limit.allowed) {
-    return c.json({ error: 'Rate limit exceeded' }, 429)
-  }
-
-  try {
     const validated = validateQuery(
       LeaderboardQuerySchema,
-      c.req.query(),
+      queryParams,
       'leaderboard',
     )
     const contributors = await getTopContributors(validated.limit)
 
-    return c.json({ contributors, totalContributors: contributors.length })
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid request'
-    return c.json({ error: message }, 400)
-  }
-})
+    return { contributors, totalContributors: contributors.length }
+  })
 
-/**
- * GET /api/profile/:username
- * Get contributor profile (public)
- */
-app.get('/api/profile/:username', async (c) => {
-  const clientId = getClientId(c.req.raw)
-  const limit = checkRateLimit(
-    `profile:${clientId}`,
-    LEADERBOARD_CONFIG.rateLimits.general,
-  )
-  if (!limit.allowed) {
-    return c.json({ error: 'Rate limit exceeded' }, 429)
-  }
+  /**
+   * GET /api/profile/:username
+   * Get contributor profile (public)
+   */
+  .get('/api/profile/:username', async ({ params, request, set }) => {
+    const clientId = getClientId(request)
+    const limit = checkRateLimit(
+      `profile:${clientId}`,
+      LEADERBOARD_CONFIG.rateLimits.general,
+    )
+    if (!limit.allowed) {
+      set.status = 429
+      return { error: 'Rate limit exceeded' }
+    }
 
-  try {
-    const username = expect(c.req.param('username'), UsernameSchema, 'username')
+    const username = expect(params.username, UsernameSchema, 'username')
 
     const users = await query<{ username: string; avatar_url: string }>(
       'SELECT username, avatar_url FROM users WHERE username = ?',
@@ -876,13 +841,14 @@ app.get('/api/profile/:username', async (c) => {
     )
 
     if (users.length === 0) {
-      return c.json({ error: 'User not found' }, 404)
+      set.status = 404
+      return { error: 'User not found' }
     }
 
     const user = users[0]
     const reputation = await calculateUserReputation(username)
 
-    return c.json({
+    return {
       profile: {
         username: user.username,
         avatarUrl: user.avatar_url,
@@ -900,40 +866,34 @@ app.get('/api/profile/:username', async (c) => {
           totalCommits: reputation.totalCommits,
         },
       },
-    })
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid request'
-    return c.json({ error: message }, 400)
-  }
-})
+    }
+  })
 
-// ============================================================================
-// A2A Endpoint
-// ============================================================================
+  // ============================================================================
+  // A2A Endpoint
+  // ============================================================================
 
-import { A2ARequestSchema } from '../lib/validation.js'
+  /**
+   * POST /api/a2a
+   * Agent-to-Agent protocol endpoint
+   */
+  .post('/api/a2a', async ({ body, request, set }) => {
+    const clientId = getClientId(request)
+    const limit = checkRateLimit(
+      `a2a:${clientId}`,
+      LEADERBOARD_CONFIG.rateLimits.a2a,
+    )
+    if (!limit.allowed) {
+      set.status = 429
+      return { error: 'Rate limit exceeded' }
+    }
 
-/**
- * POST /api/a2a
- * Agent-to-Agent protocol endpoint
- */
-app.post('/api/a2a', async (c) => {
-  const clientId = getClientId(c.req.raw)
-  const limit = checkRateLimit(
-    `a2a:${clientId}`,
-    LEADERBOARD_CONFIG.rateLimits.a2a,
-  )
-  if (!limit.allowed) {
-    return c.json({ error: 'Rate limit exceeded' }, 429)
-  }
-
-  try {
-    const body = validateBody(
+    const validated = validateBody(
       A2ARequestSchema,
-      await c.req.json(),
+      body,
       'A2A request',
     )
-    const message = body.params.message
+    const message = validated.params.message
     const dataPart = message.parts.find((p) => p.kind === 'data')
     const skillId = dataPart?.data?.skillId
     const params = dataPart?.data || {}
@@ -1001,9 +961,9 @@ app.post('/api/a2a', async (c) => {
         }
     }
 
-    return c.json({
+    return {
       jsonrpc: '2.0',
-      id: body.id,
+      id: validated.id,
       result: {
         role: 'agent',
         parts: [
@@ -1013,51 +973,25 @@ app.post('/api/a2a', async (c) => {
         messageId: message.messageId,
         kind: 'message',
       },
-    })
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid request'
-    return c.json({
-      jsonrpc: '2.0',
-      id: null,
-      error: { code: -32600, message },
-    })
-  }
-})
+    }
+  })
 
-// ============================================================================
-// DWS Integration Endpoints (Git and NPM contributions)
-// ============================================================================
+  // ============================================================================
+  // DWS Integration Endpoints (Git and NPM contributions)
+  // ============================================================================
 
-/**
- * SECURITY: Constant-time string comparison to prevent timing attacks
- */
-function timingSafeCompare(a: string | undefined | null, b: string): boolean {
-  if (!a) return false
-  // Pad to same length to ensure constant-time comparison
-  const aLen = Buffer.from(a).length
-  const bLen = Buffer.from(b).length
-  const aBuf = Buffer.alloc(Math.max(aLen, bLen))
-  const bBuf = Buffer.alloc(Math.max(aLen, bLen))
-  Buffer.from(a).copy(aBuf)
-  Buffer.from(b).copy(bBuf)
+  /**
+   * POST /api/contributions/jeju-git
+   * Record Git activity from DWS Git service
+   */
+  .post('/api/contributions/jeju-git', async ({ body, request, set }) => {
+    const service = request.headers.get('x-jeju-service')
+    if (!timingSafeCompare(service, 'dws-git')) {
+      set.status = 401
+      return { error: 'Invalid service header' }
+    }
 
-  // Use timing-safe comparison - lengths must match for true result
-  return aLen === bLen && timingSafeEqual(aBuf, bBuf)
-}
-
-/**
- * POST /api/contributions/jeju-git
- * Record Git activity from DWS Git service
- */
-app.post('/api/contributions/jeju-git', async (c) => {
-  const service = c.req.header('x-jeju-service')
-  // SECURITY: Use timing-safe comparison to prevent header enumeration
-  if (!timingSafeCompare(service, 'dws-git')) {
-    return c.json({ error: 'Invalid service header' }, 401)
-  }
-
-  try {
-    const body = await c.req.json<{
+    const typedBody = body as {
       username?: string
       walletAddress?: Address
       source: string
@@ -1069,27 +1003,30 @@ app.post('/api/contributions/jeju-git', async (c) => {
         metadata: Record<string, unknown>
       }>
       timestamp: number
-    }>()
-
-    if (!body.source || typeof body.source !== 'string') {
-      throw new Error('source is required')
-    }
-    if (!body.scores || typeof body.scores !== 'object') {
-      throw new Error('scores is required')
-    }
-    if (!Array.isArray(body.contributions)) {
-      throw new Error('contributions must be an array')
-    }
-    if (typeof body.timestamp !== 'number') {
-      throw new Error('timestamp is required')
     }
 
-    // Get username from wallet if not provided
-    let username = body.username
-    if (!username && body.walletAddress) {
+    if (!typedBody.source || typeof typedBody.source !== 'string') {
+      set.status = 400
+      return { error: 'source is required' }
+    }
+    if (!typedBody.scores || typeof typedBody.scores !== 'object') {
+      set.status = 400
+      return { error: 'scores is required' }
+    }
+    if (!Array.isArray(typedBody.contributions)) {
+      set.status = 400
+      return { error: 'contributions must be an array' }
+    }
+    if (typeof typedBody.timestamp !== 'number') {
+      set.status = 400
+      return { error: 'timestamp is required' }
+    }
+
+    let username = typedBody.username
+    if (!username && typedBody.walletAddress) {
       const mapping = await query<{ username: string }>(
         'SELECT username FROM wallet_mappings WHERE wallet_address = ?',
-        [body.walletAddress.toLowerCase()],
+        [typedBody.walletAddress.toLowerCase()],
       )
       if (mapping.length > 0) {
         username = mapping[0].username
@@ -1097,10 +1034,10 @@ app.post('/api/contributions/jeju-git', async (c) => {
     }
 
     if (!username) {
-      return c.json({ error: 'No username mapping found for wallet' }, 400)
+      set.status = 400
+      return { error: 'No username mapping found for wallet' }
     }
 
-    // Calculate score from contributions
     const WEIGHTS = {
       commit: 5,
       pr_open: 50,
@@ -1112,12 +1049,11 @@ app.post('/api/contributions/jeju-git', async (c) => {
     }
 
     let totalScore = 0
-    for (const contribution of body.contributions) {
+    for (const contribution of typedBody.contributions) {
       const weight = WEIGHTS[contribution.type as keyof typeof WEIGHTS] || 5
       totalScore += weight
     }
 
-    // Store in daily scores
     const date = new Date().toISOString().split('T')[0]
     const scoreId = `${username}_${date}_jeju-git`
 
@@ -1135,12 +1071,12 @@ app.post('/api/contributions/jeju-git', async (c) => {
         username,
         date,
         totalScore,
-        (body.scores?.prs || 0) * 50,
-        (body.scores?.issues || 0) * 20,
-        (body.scores?.reviews || 0) * 30,
-        (body.scores?.commits || 0) * 5,
+        (typedBody.scores?.prs || 0) * 50,
+        (typedBody.scores?.issues || 0) * 20,
+        (typedBody.scores?.reviews || 0) * 30,
+        (typedBody.scores?.commits || 0) * 5,
         JSON.stringify({
-          contributions: body.contributions.length,
+          contributions: typedBody.contributions.length,
           source: 'jeju-git',
         }),
         new Date().toISOString(),
@@ -1148,26 +1084,21 @@ app.post('/api/contributions/jeju-git', async (c) => {
       ],
     )
 
-    return c.json({ success: true, scoreAdded: totalScore })
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid request'
-    return c.json({ error: message }, 400)
-  }
-})
+    return { success: true, scoreAdded: totalScore }
+  })
 
-/**
- * POST /api/contributions/jeju-npm
- * Record NPM activity from DWS NPM service
- */
-app.post('/api/contributions/jeju-npm', async (c) => {
-  const service = c.req.header('x-jeju-service')
-  // SECURITY: Use timing-safe comparison to prevent header enumeration
-  if (!timingSafeCompare(service, 'dws-npm')) {
-    return c.json({ error: 'Invalid service header' }, 401)
-  }
+  /**
+   * POST /api/contributions/jeju-npm
+   * Record NPM activity from DWS NPM service
+   */
+  .post('/api/contributions/jeju-npm', async ({ body, request, set }) => {
+    const service = request.headers.get('x-jeju-service')
+    if (!timingSafeCompare(service, 'dws-npm')) {
+      set.status = 401
+      return { error: 'Invalid service header' }
+    }
 
-  try {
-    const body = await c.req.json<{
+    const typedBody = body as {
       walletAddress: Address
       source: string
       score: number
@@ -1178,25 +1109,28 @@ app.post('/api/contributions/jeju-npm', async (c) => {
         timestamp: number
         metadata: Record<string, unknown>
       }
-    }>()
-
-    if (!body.walletAddress || !isAddress(body.walletAddress)) {
-      throw new Error('Invalid walletAddress')
-    }
-    if (!body.source || typeof body.source !== 'string') {
-      throw new Error('source is required')
-    }
-    if (typeof body.score !== 'number') {
-      throw new Error('score is required')
-    }
-    if (!body.contribution || typeof body.contribution !== 'object') {
-      throw new Error('contribution is required')
     }
 
-    // Get username from wallet
+    if (!typedBody.walletAddress || !isAddress(typedBody.walletAddress)) {
+      set.status = 400
+      return { error: 'Invalid walletAddress' }
+    }
+    if (!typedBody.source || typeof typedBody.source !== 'string') {
+      set.status = 400
+      return { error: 'source is required' }
+    }
+    if (typeof typedBody.score !== 'number') {
+      set.status = 400
+      return { error: 'score is required' }
+    }
+    if (!typedBody.contribution || typeof typedBody.contribution !== 'object') {
+      set.status = 400
+      return { error: 'contribution is required' }
+    }
+
     const mapping = await query<{ username: string }>(
       'SELECT username FROM wallet_mappings WHERE wallet_address = ?',
-      [body.walletAddress.toLowerCase()],
+      [typedBody.walletAddress.toLowerCase()],
     )
 
     let username = 'anonymous'
@@ -1204,7 +1138,6 @@ app.post('/api/contributions/jeju-npm', async (c) => {
       username = mapping[0].username
     }
 
-    // Store NPM contribution score
     const date = new Date().toISOString().split('T')[0]
     const scoreId = `${username}_${date}_jeju-npm`
 
@@ -1218,56 +1151,54 @@ app.post('/api/contributions/jeju-npm', async (c) => {
         scoreId,
         username,
         date,
-        body.score,
+        typedBody.score,
         JSON.stringify({
-          packageName: body.contribution.packageName,
-          type: body.contribution.type,
+          packageName: typedBody.contribution.packageName,
+          type: typedBody.contribution.type,
         }),
         new Date().toISOString(),
         new Date().toISOString(),
       ],
     )
 
-    return c.json({ success: true, scoreAdded: body.score })
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid request'
-    return c.json({ error: message }, 400)
-  }
-})
+    return { success: true, scoreAdded: typedBody.score }
+  })
 
-/**
- * POST /api/packages/downloads
- * Record package download counts (for popularity tracking)
- */
-app.post('/api/packages/downloads', async (c) => {
-  const service = c.req.header('x-jeju-service')
-  // SECURITY: Use timing-safe comparison to prevent header enumeration
-  if (!timingSafeCompare(service, 'dws-npm')) {
-    return c.json({ error: 'Invalid service header' }, 401)
-  }
+  /**
+   * POST /api/packages/downloads
+   * Record package download counts (for popularity tracking)
+   */
+  .post('/api/packages/downloads', async ({ body, request, set }) => {
+    const service = request.headers.get('x-jeju-service')
+    if (!timingSafeCompare(service, 'dws-npm')) {
+      set.status = 401
+      return { error: 'Invalid service header' }
+    }
 
-  try {
-    const body = await c.req.json<{
+    const typedBody = body as {
       packageId: string
       packageName: string
       downloadCount: number
       timestamp: number
-    }>()
-
-    if (!body.packageId || typeof body.packageId !== 'string') {
-      throw new Error('packageId is required')
-    }
-    if (!body.packageName || typeof body.packageName !== 'string') {
-      throw new Error('packageName is required')
-    }
-    if (typeof body.downloadCount !== 'number') {
-      throw new Error('downloadCount is required')
-    }
-    if (typeof body.timestamp !== 'number') {
-      throw new Error('timestamp is required')
     }
 
-    // Store package download stats (could be used for trending packages)
+    if (!typedBody.packageId || typeof typedBody.packageId !== 'string') {
+      set.status = 400
+      return { error: 'packageId is required' }
+    }
+    if (!typedBody.packageName || typeof typedBody.packageName !== 'string') {
+      set.status = 400
+      return { error: 'packageName is required' }
+    }
+    if (typeof typedBody.downloadCount !== 'number') {
+      set.status = 400
+      return { error: 'downloadCount is required' }
+    }
+    if (typeof typedBody.timestamp !== 'number') {
+      set.status = 400
+      return { error: 'timestamp is required' }
+    }
+
     await exec(
       `INSERT INTO package_stats (package_id, package_name, download_count, last_updated)
      VALUES (?, ?, ?, ?)
@@ -1275,46 +1206,37 @@ app.post('/api/packages/downloads', async (c) => {
        download_count = download_count + excluded.download_count,
        last_updated = excluded.last_updated`,
       [
-        body.packageId,
-        body.packageName,
-        body.downloadCount,
+        typedBody.packageId,
+        typedBody.packageName,
+        typedBody.downloadCount,
         new Date().toISOString(),
       ],
     )
 
-    return c.json({ success: true })
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid request'
-    return c.json({ error: message }, 400)
-  }
-})
+    return { success: true }
+  })
+
+  /**
+   * GET /api/wallet-mappings
+   * Get all wallet to username mappings (for DWS integration)
+   */
+  .get('/api/wallet-mappings', async () => {
+    const mappings = await query<{ wallet_address: string; username: string }>(
+      'SELECT wallet_address, username FROM wallet_mappings',
+    )
+
+    return {
+      mappings: mappings.map((m) => ({
+        walletAddress: m.wallet_address,
+        username: m.username,
+      })),
+    }
+  })
 
 /**
- * GET /api/wallet-mappings
- * Get all wallet to username mappings (for DWS integration)
+ * Export the app type for Eden Treaty client type inference.
  */
-app.get('/api/wallet-mappings', async (c) => {
-  const mappings = await query<{ wallet_address: string; username: string }>(
-    'SELECT wallet_address, username FROM wallet_mappings',
-  )
-
-  return c.json({
-    mappings: mappings.map((m) => ({
-      walletAddress: m.wallet_address,
-      username: m.username,
-    })),
-  })
-})
-
-// Initialize database on first request
-let dbInitialized = false
-app.use('*', async (_c, next) => {
-  if (!dbInitialized) {
-    await initLeaderboardDB()
-    dbInitialized = true
-  }
-  return next()
-})
+export type LeaderboardApp = typeof app
 
 export { app as leaderboardApp }
 export default app

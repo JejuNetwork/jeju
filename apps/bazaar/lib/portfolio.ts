@@ -4,8 +4,8 @@
  */
 
 import { z } from 'zod'
-import { PositionSchema } from '@/schemas/markets'
-import type { Position } from '@/types/markets'
+import { PositionSchema } from '../schemas/markets'
+import type { Position } from '../types/markets'
 
 // Input schema for position array
 export const PositionsArraySchema = z.array(PositionSchema)

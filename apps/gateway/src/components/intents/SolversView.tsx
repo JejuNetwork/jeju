@@ -1,4 +1,3 @@
-import type { Solver } from '@jejunetwork/types'
 import {
   Activity,
   Clock,
@@ -8,7 +7,11 @@ import {
   TrendingUp,
 } from 'lucide-react'
 import type { ComponentType } from 'react'
-import { useSolverLeaderboard, useSolvers } from '../../hooks/useIntentAPI'
+import {
+  type Solver,
+  useSolverLeaderboard,
+  useSolvers,
+} from '../../hooks/useIntentAPI'
 
 const TrendingUpIcon = TrendingUp as ComponentType<LucideProps>
 const StarIcon = Star as ComponentType<LucideProps>
@@ -77,7 +80,7 @@ export function SolversView() {
           ) : (
             leaderboard?.slice(0, 5).map((entry, index) => (
               <div
-                key={entry.solver}
+                key={entry.solver ?? entry.address}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -112,13 +115,13 @@ export function SolversView() {
                       color: index === 0 ? 'white' : 'var(--text-secondary)',
                     }}
                   >
-                    {entry.rank}
+                    {entry.rank ?? index + 1}
                   </div>
                   <div>
                     <div
                       style={{ fontWeight: 500, color: 'var(--text-primary)' }}
                     >
-                      {entry.name}
+                      {entry.name ?? `Solver ${index + 1}`}
                     </div>
                     <div
                       style={{
@@ -127,7 +130,7 @@ export function SolversView() {
                         color: 'var(--text-secondary)',
                       }}
                     >
-                      {entry.solver.slice(0, 10)}...
+                      {(entry.solver ?? entry.address).slice(0, 10)}...
                     </div>
                   </div>
                 </div>
@@ -285,7 +288,7 @@ function SolverCard({ solver }: { solver: Solver }) {
                 color: 'var(--text-primary)',
               }}
             >
-              {solver.name}
+              {solver.name ?? `Solver ${solver.address.slice(0, 6)}`}
             </div>
             <div
               style={{
@@ -318,16 +321,16 @@ function SolverCard({ solver }: { solver: Solver }) {
         <StatBox
           icon={<ClockIcon size={14} />}
           label="Avg Time"
-          value={`${(solver.avgFillTimeMs / 1000).toFixed(1)}s`}
+          value={`${((solver.avgFillTimeMs ?? 0) / 1000).toFixed(1)}s`}
         />
         <StatBox
           label="Success Rate"
-          value={`${solver.successRate}%`}
+          value={`${solver.successRate ?? Math.round((solver.successfulFills / Math.max(solver.totalFills, 1)) * 100)}%`}
           positive
         />
         <StatBox
           label="Total Volume"
-          value={`$${formatNumber(parseFloat(solver.totalVolumeUsd))}`}
+          value={`$${formatNumber(parseFloat(solver.totalVolumeUsd ?? '0'))}`}
         />
       </div>
 

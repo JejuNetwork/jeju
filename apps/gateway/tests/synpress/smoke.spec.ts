@@ -138,7 +138,7 @@ test.describe('Gateway Smoke Tests', () => {
   })
 
   test('RPC endpoint is accessible', async ({ page }) => {
-    const response = await page.request.post('http://127.0.0.1:9545', {
+    const response = await page.request.post('http://127.0.0.1:6546', {
       data: {
         jsonrpc: '2.0',
         method: 'eth_blockNumber',

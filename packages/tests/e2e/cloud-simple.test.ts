@@ -4,7 +4,7 @@
  * Tests actual deployed contracts on localnet
  *
  * NOTE: These tests require contracts to be deployed first.
- * Run `forge script script/DeployCloudIntegration.s.sol --rpc-url http://localhost:9545 --broadcast`
+ * Run `forge script script/DeployCloudIntegration.s.sol --rpc-url http://localhost:6546 --broadcast`
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
@@ -91,7 +91,7 @@ beforeAll(async () => {
     localnetAvailable = true
   } catch {
     console.warn(
-      '⚠️ Localnet not available at http://localhost:9545. Tests will be skipped.',
+      '⚠️ Localnet not available at http://localhost:6546. Tests will be skipped.',
     )
     localnetAvailable = false
   }

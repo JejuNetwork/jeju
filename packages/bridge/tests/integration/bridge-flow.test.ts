@@ -26,6 +26,7 @@ import {
   createSolanaClient,
   createTEEBatcher,
   LOCAL_TEE_CONFIG,
+  SolanaHealthResponseSchema,
   toHash32,
 } from '../../src/index.js'
 
@@ -34,7 +35,7 @@ setDefaultTimeout(60000)
 
 // Test configuration
 const TEST_CONFIG = {
-  evmRpc: 'http://127.0.0.1:8545',
+  evmRpc: 'http://127.0.0.1:6545',
   solanaRpc: 'http://127.0.0.1:8899',
 }
 
@@ -301,8 +302,10 @@ async function isSolanaRunning(): Promise<boolean> {
       }),
     })
     if (!response.ok) return false
-    const data = (await response.json()) as { result?: string }
-    return data.result === 'ok'
+    const rawData: unknown = await response.json()
+    const parseResult = SolanaHealthResponseSchema.safeParse(rawData)
+    if (!parseResult.success) return false
+    return parseResult.data.result === 'ok'
   } catch {
     return false
   }

@@ -548,7 +548,7 @@ describe('TOTP - Code Generation and Verification', () => {
     const code = await totp.getCurrentCode('user789')
 
     expect(code).not.toBeNull()
-    expect(code!.length).toBe(6)
+    expect(code?.length).toBe(6)
     expect(code).toMatch(/^\d{6}$/)
   })
 
@@ -566,8 +566,9 @@ describe('TOTP - Code Generation and Verification', () => {
   test('verifies valid code', async () => {
     await totp.generateSecret('verifytest', 'verify@test.com')
     const code = await totp.getCurrentCode('verifytest')
+    if (!code) throw new Error('Code not generated')
 
-    const result = await totp.verify('verifytest', code!)
+    const result = await totp.verify('verifytest', code)
     expect(result.valid).toBe(true)
     expect(result.drift).toBe(0)
   })
@@ -610,7 +611,7 @@ describe('TOTP - Code Generation and Verification', () => {
     const code = await totp.getCurrentCode('spacetest')
 
     // Add spaces
-    const spacedCode = `${code!.slice(0, 3)} ${code!.slice(3)}`
+    const spacedCode = `${code?.slice(0, 3)} ${code?.slice(3)}`
     const result = await totp.verify('spacetest', spacedCode)
     expect(result.valid).toBe(true)
   })
@@ -620,7 +621,8 @@ describe('TOTP - Code Generation and Verification', () => {
     expect(totp.isEnabled('enabletest')).toBe(false)
 
     const code = await totp.getCurrentCode('enabletest')
-    await totp.verify('enabletest', code!, true)
+    if (!code) throw new Error('Code not generated')
+    await totp.verify('enabletest', code, true)
 
     expect(totp.isEnabled('enabletest')).toBe(true)
   })
@@ -903,7 +905,7 @@ describe('Backup Codes - Status and Management', () => {
 
     const exported = manager.exportCodes('exportuser')
     expect(exported).not.toBeNull()
-    expect(exported!.length).toBe(3)
+    expect(exported?.length).toBe(3)
     expect(exported).not.toContain(codes[0])
     expect(exported).not.toContain(codes[2])
   })

@@ -5,6 +5,16 @@
  */
 
 import type { Address, Hex } from 'viem'
+import {
+  EmailDetailResponseSchema,
+  EmailSearchResponseSchema,
+  FilterRulesResponseSchema,
+  FolderContentsSchema,
+  MailboxResponseSchema,
+  SendEmailErrorSchema,
+  SendEmailResponseSchema,
+  WebSocketEmailEventSchema,
+} from '../shared/schemas'
 import type {
   Email,
   EmailClientConfig,
@@ -86,14 +96,8 @@ export class EmailClient {
       throw new Error(`Failed to get mailbox: ${response.status}`)
     }
 
-    const data = (await response.json()) as {
-      mailbox: {
-        quotaUsedBytes: number
-        quotaLimitBytes: number
-        folders: string[]
-      }
-      unreadCount: number
-    }
+    const rawData: unknown = await response.json()
+    const data = MailboxResponseSchema.parse(rawData)
 
     return {
       unreadCount: data.unreadCount,
@@ -125,7 +129,8 @@ export class EmailClient {
       throw new Error(`Failed to get folder: ${response.status}`)
     }
 
-    return response.json() as Promise<FolderContents>
+    const rawData: unknown = await response.json()
+    return FolderContentsSchema.parse(rawData) as FolderContents
   }
 
   /**
@@ -173,12 +178,14 @@ export class EmailClient {
     })
 
     if (!response.ok) {
-      const error = (await response.json()) as { error: string }
+      const rawError: unknown = await response.json()
+      const error = SendEmailErrorSchema.parse(rawError)
       throw new Error(error.error || `Failed to send email: ${response.status}`)
     }
 
-    const data = (await response.json()) as { messageId: Hex }
-    return data
+    const rawData: unknown = await response.json()
+    const data = SendEmailResponseSchema.parse(rawData)
+    return { messageId: data.messageId as Hex }
   }
 
   /**
@@ -196,29 +203,11 @@ export class EmailClient {
       throw new Error(`Failed to get email: ${response.status}`)
     }
 
-    const data = (await response.json()) as {
-      envelope: {
-        id: Hex
-        from: { full: string }
-        to: { full: string }[]
-        timestamp: number
-      }
-      content: {
-        subject: string
-        bodyText: string
-        bodyHtml?: string
-        attachments: {
-          filename: string
-          mimeType: string
-          size: number
-          cid: string
-        }[]
-      }
-      flags: Email['flags']
-    }
+    const rawData: unknown = await response.json()
+    const data = EmailDetailResponseSchema.parse(rawData)
 
     return {
-      id: data.envelope.id,
+      id: data.envelope.id as Hex,
       from: data.envelope.from.full,
       to: data.envelope.to.map((t) => t.full),
       subject: data.content.subject,
@@ -344,11 +333,13 @@ export class EmailClient {
       throw new Error(`Search failed: ${response.status}`)
     }
 
-    return response.json() as Promise<{
-      results: EmailSummary[]
-      total: number
-      hasMore: boolean
-    }>
+    const rawData: unknown = await response.json()
+    const data = EmailSearchResponseSchema.parse(rawData)
+    return {
+      results: data.results as EmailSummary[],
+      total: data.total,
+      hasMore: data.hasMore,
+    }
   }
 
   // ============ Filter Rules ============
@@ -365,8 +356,9 @@ export class EmailClient {
       throw new Error(`Failed to get rules: ${response.status}`)
     }
 
-    const data = (await response.json()) as { rules: FilterRule[] }
-    return data.rules
+    const rawData: unknown = await response.json()
+    const data = FilterRulesResponseSchema.parse(rawData)
+    return data.rules as FilterRule[]
   }
 
   /**
@@ -468,30 +460,24 @@ export class EmailClient {
         }
 
         // Safely parse JSON with validation
-        let parsed: { type?: string; data?: Email | EmailSummary }
+        let parsed: unknown
         try {
-          parsed = JSON.parse(messageData) as {
-            type?: string
-            data?: Email | EmailSummary
-          }
+          parsed = JSON.parse(messageData)
         } catch {
           console.error('Invalid JSON in WebSocket message')
           return
         }
 
-        // Validate required fields exist
-        if (
-          typeof parsed.type !== 'string' ||
-          parsed.data === undefined ||
-          parsed.data === null
-        ) {
+        // Validate with schema - use safeParse since individual messages may be malformed
+        const result = WebSocketEmailEventSchema.safeParse(parsed)
+        if (!result.success) {
           console.error('Invalid WebSocket message format')
           return
         }
 
         this.emit({
-          type: parsed.type as EmailEvent['type'],
-          data: parsed.data,
+          type: result.data.type as EmailEvent['type'],
+          data: result.data.data as Email | EmailSummary,
         })
       }
 

@@ -13,6 +13,7 @@ import { getCliBranding, getNetworkName } from '@jejunetwork/config'
 import chalk from 'chalk'
 import { Command } from 'commander'
 import { z } from 'zod'
+import { spawn } from 'node:child_process'
 import { createNodeClient } from './lib/contracts'
 import {
   detectHardware,
@@ -204,7 +205,7 @@ program
     }
 
     // Configure network
-    let rpcUrl = 'http://127.0.0.1:9545'
+    let rpcUrl = 'http://127.0.0.1:6546'
 
     switch (options.network) {
       case 'mainnet':
@@ -252,8 +253,7 @@ program
     console.log(`  CPU Compute: ${options.cpu ? 'Enabled' : 'Disabled'}`)
     console.log(`  GPU Compute: ${options.gpu ? 'Enabled' : 'Disabled'}`)
 
-    // Import and run daemon
-    const { spawn } = await import('node:child_process')
+    // Run daemon
     const args = ['run', 'src/daemon/index.ts']
 
     if (options.all) args.push('--all')
@@ -439,7 +439,7 @@ program
     }
 
     // Configure network
-    let rpcUrl = 'http://127.0.0.1:9545'
+    let rpcUrl = 'http://127.0.0.1:6546'
     let chainId = 1337
 
     switch (options.network) {

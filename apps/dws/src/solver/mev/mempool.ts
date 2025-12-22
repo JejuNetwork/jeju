@@ -9,6 +9,7 @@
 
 import { EventEmitter } from 'node:events'
 import type { Address, Hash, Hex } from 'viem'
+import { MempoolTxMessageSchema } from '../../shared/schemas/internal-storage'
 
 // Mempool data providers
 export const MEMPOOL_PROVIDERS = {
@@ -201,7 +202,12 @@ export class MempoolMonitor extends EventEmitter {
       }
 
       ws.onmessage = (event) => {
-        this.handlePendingTx(chainId, JSON.parse(event.data as string))
+        const parsed = MempoolTxMessageSchema.safeParse(
+          JSON.parse(String(event.data)),
+        )
+        if (parsed.success) {
+          this.handlePendingTx(chainId, parsed.data)
+        }
       }
 
       ws.onerror = (error) => {

@@ -4,12 +4,12 @@
  */
 
 import { AddressSchema } from '@jejunetwork/types'
-import { expect } from '@/lib/validation'
 import type {
   TFMMCreatePoolParams,
   TFMMTriggerRebalanceParams,
   TFMMUpdateStrategyParams,
-} from '@/schemas/api'
+} from '../../schemas/api'
+import { expect } from '../validation'
 
 export interface TFMMPool {
   address: string
@@ -226,7 +226,9 @@ export function getOracleStatus(): Record<string, OracleStatus> {
 export async function createTFMMPool(
   params: TFMMCreatePoolParams,
 ): Promise<{ poolAddress: string; message: string }> {
-  params.tokens.forEach((token) => AddressSchema.parse(token))
+  for (const token of params.tokens) {
+    AddressSchema.parse(token)
+  }
   expect(params.tokens.length >= 2, 'At least 2 tokens required')
 
   // In production, deploy contract here

@@ -35,7 +35,7 @@ const NETWORK_RPC_CONFIGS: Record<NetworkType, NetworkRpcConfig> = {
     rpcUrlEnvVar: 'JEJU_LOCALNET_RPC_URL',
     chainId: 31337,
     name: 'Localnet',
-    defaultLocalnet: 'http://localhost:9545',
+    defaultLocalnet: 'http://localhost:6546',
   },
 }
 
@@ -247,7 +247,7 @@ describe('getNetworkRpcUrl', () => {
 
   it('should return default localhost for localnet when env not set', () => {
     const url = getNetworkRpcUrl('localnet', {})
-    expect(url).toBe('http://localhost:9545')
+    expect(url).toBe('http://localhost:6546')
   })
 
   it('should prefer env var over default for localnet', () => {
@@ -362,7 +362,7 @@ describe('Edge cases', () => {
   it('should handle empty env object', () => {
     expect(() => getRequiredNetwork({})).toThrow()
     expect(() => getNetworkRpcUrl('testnet', {})).toThrow()
-    expect(getNetworkRpcUrl('localnet', {})).toBe('http://localhost:9545')
+    expect(getNetworkRpcUrl('localnet', {})).toBe('http://localhost:6546')
   })
 
   it('should handle env with unrelated keys', () => {

@@ -111,10 +111,10 @@ export class FarcasterClient {
     return `${protocol}://${host}:2281`
   }
 
-  private async fetch<T>(
+  private async fetch(
     path: string,
     params: Record<string, string> = {},
-  ): Promise<T> {
+  ): Promise<unknown> {
     const url = new URL(path, this.httpUrl)
     for (const [key, value] of Object.entries(params)) {
       if (value !== undefined) {
@@ -134,7 +134,7 @@ export class FarcasterClient {
       throw HubError.fromResponse(response.status, response.statusText)
     }
 
-    return response.json() as Promise<T>
+    return response.json()
   }
 
   async getHubInfo(): Promise<HubInfoResponse> {

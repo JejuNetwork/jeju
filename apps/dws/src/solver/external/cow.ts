@@ -33,6 +33,50 @@ import {
   toHex,
   type WalletClient,
 } from 'viem'
+import { z } from 'zod'
+
+// Zod schemas for CoW API responses
+const CowApiQuoteSchema = z.object({
+  quote: z.object({
+    sellToken: z.string(),
+    buyToken: z.string(),
+    sellAmount: z.string(),
+    buyAmount: z.string(),
+    feeAmount: z.string(),
+    validTo: z.number(),
+    kind: z.string(),
+  }),
+  id: z.number().optional(),
+})
+
+const CowApiOrderSchema = z.object({
+  uid: z.string(),
+  owner: z.string(),
+  sellToken: z.string(),
+  buyToken: z.string(),
+  sellAmount: z.string(),
+  buyAmount: z.string(),
+  validTo: z.number(),
+  appData: z.string(),
+  feeAmount: z.string(),
+  kind: z.string(),
+  partiallyFillable: z.boolean(),
+  receiver: z.string(),
+  signature: z.string(),
+  signingScheme: z.string(),
+  status: z.string(),
+  creationDate: z.string().optional(),
+  executedSellAmount: z.string().optional(),
+  executedBuyAmount: z.string().optional(),
+})
+
+const CowApiAuctionSchema = z.object({
+  id: z.number(),
+  orders: z.array(CowApiOrderSchema),
+})
+
+// Type from schema for consistency
+type CowApiOrderParsed = z.infer<typeof CowApiOrderSchema>
 
 // CoW Protocol Settlement addresses (same on all chains via CREATE2)
 export const COW_SETTLEMENT: Record<number, Address> = {
@@ -135,44 +179,8 @@ export interface CowSolution {
   prices: Record<string, bigint>
 }
 
-interface CowApiOrder {
-  uid: string
-  owner: string
-  sellToken: string
-  buyToken: string
-  sellAmount: string
-  buyAmount: string
-  validTo: number
-  appData: string
-  feeAmount: string
-  kind: string
-  partiallyFillable: boolean
-  receiver: string
-  signature: string
-  signingScheme: string
-  status: string
-  creationDate: string
-  executedSellAmount: string
-  executedBuyAmount: string
-}
-
-interface CowApiAuction {
-  id: number
-  orders: CowApiOrder[]
-}
-
-interface CowApiQuote {
-  quote: {
-    sellToken: string
-    buyToken: string
-    sellAmount: string
-    buyAmount: string
-    feeAmount: string
-    validTo: number
-    kind: string
-  }
-  id: number
-}
+// Types derived from Zod schemas for type safety
+type CowApiAuctionParsed = z.infer<typeof CowApiAuctionSchema>
 
 export class CowProtocolSolver extends EventEmitter {
   private clients: Map<number, { public: PublicClient; wallet?: WalletClient }>
@@ -249,7 +257,9 @@ export class CowProtocolSolver extends EventEmitter {
 
     if (!response.ok) return null
 
-    const data = (await response.json()) as CowApiQuote
+    const result = CowApiQuoteSchema.safeParse(await response.json())
+    if (!result.success) return null
+    const data = result.data
 
     return {
       sellToken: data.quote.sellToken as Address,
@@ -332,7 +342,11 @@ export class CowProtocolSolver extends EventEmitter {
       return { success: false, error }
     }
 
-    const uid = (await response.json()) as string
+    const uidResult = z.string().safeParse(await response.json())
+    if (!uidResult.success) {
+      return { success: false, error: 'Invalid order UID response' }
+    }
+    const uid = uidResult.data
     console.log(`   ✅ CoW order created: ${uid.slice(0, 20)}...`)
 
     return { success: true, orderUid: uid as `0x${string}` }
@@ -475,8 +489,9 @@ export class CowProtocolSolver extends EventEmitter {
 
     if (!response.ok) return []
 
-    const data = (await response.json()) as CowApiOrder[]
-    return this.parseOrders(data, chainId)
+    const result = z.array(CowApiOrderSchema).safeParse(await response.json())
+    if (!result.success) return []
+    return this.parseOrders(result.data, chainId)
   }
 
   /**
@@ -497,8 +512,9 @@ export class CowProtocolSolver extends EventEmitter {
 
     if (!response.ok) return []
 
-    const data = (await response.json()) as CowApiOrder[]
-    return this.parseOrders(data, chainId)
+    const result = z.array(CowApiOrderSchema).safeParse(await response.json())
+    if (!result.success) return []
+    return this.parseOrders(result.data, chainId)
   }
 
   /**
@@ -697,7 +713,9 @@ export class CowProtocolSolver extends EventEmitter {
 
     if (!response.ok) return null
 
-    const data = (await response.json()) as CowApiAuction
+    const result = CowApiAuctionSchema.safeParse(await response.json())
+    if (!result.success) return null
+    const data = result.data
 
     const tokenSet = new Set<Address>()
     const orders = this.parseOrders(data.orders, chainId)
@@ -716,7 +734,7 @@ export class CowProtocolSolver extends EventEmitter {
     }
   }
 
-  private parseOrders(apiOrders: CowApiOrder[], chainId: number): CowOrder[] {
+  private parseOrders(apiOrders: CowApiOrderParsed[], chainId: number): CowOrder[] {
     return apiOrders.map((o) => ({
       uid: o.uid as `0x${string}`,
       chainId,

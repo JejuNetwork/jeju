@@ -51,6 +51,7 @@ export function QueryExplorer() {
               className="input font-mono pr-12"
             />
             <button
+              type="button"
               onClick={handleCopy}
               className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg hover:bg-[var(--bg-tertiary)]"
             >
@@ -69,6 +70,7 @@ export function QueryExplorer() {
           </div>
 
           <button
+            type="button"
             onClick={handleExecute}
             disabled={loading || !query.trim()}
             className="btn-primary flex items-center justify-center gap-2"
@@ -83,6 +85,7 @@ export function QueryExplorer() {
       <div className="flex flex-wrap gap-2">
         {examples.map((ex) => (
           <button
+            type="button"
             key={ex.query}
             onClick={() => {
               setQuery(ex.query)
@@ -110,9 +113,9 @@ export function QueryExplorer() {
 
         {loading ? (
           <div className="space-y-3">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="shimmer h-12 rounded-lg" />
-            ))}
+            <div key="skeleton-0" className="shimmer h-12 rounded-lg" />
+            <div key="skeleton-1" className="shimmer h-12 rounded-lg" />
+            <div key="skeleton-2" className="shimmer h-12 rounded-lg" />
           </div>
         ) : error ? (
           <div
@@ -132,9 +135,10 @@ export function QueryExplorer() {
           </div>
         ) : (
           <div className="space-y-3 max-h-[500px] overflow-y-auto">
-            {data.map((result, i) => (
-              <ResultRow key={i} result={result} />
-            ))}
+            {data.map((result) => {
+              const resultKey = `${result.metric.__name__ || 'value'}-${JSON.stringify(result.metric)}-${result.value[0]}`
+              return <ResultRow key={resultKey} result={result} />
+            })}
           </div>
         )}
       </div>

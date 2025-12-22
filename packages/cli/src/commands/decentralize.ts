@@ -10,9 +10,19 @@ import * as readline from 'node:readline'
 import { Command } from 'commander'
 import { createPublicClient, createWalletClient, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import { z } from 'zod'
 import { logger } from '../lib/logger'
 import { findMonorepoRoot } from '../lib/system'
+import { validate } from '../schemas'
 import { CHAIN_CONFIG, type NetworkType } from '../types'
+
+// Schema for deployment data validation
+const DeploymentDataSchema = z.object({
+  network: z.string(),
+  chainId: z.number(),
+  stage2: z.record(z.string(), z.string()).optional(),
+  deployer: z.string().optional(),
+})
 
 const CONTRACTS_TO_TRANSFER = [
   'DisputeGameFactory',
@@ -23,13 +33,6 @@ const CONTRACTS_TO_TRANSFER = [
 ] as const
 
 type TransferableContract = (typeof CONTRACTS_TO_TRANSFER)[number]
-
-interface DeploymentData {
-  network: string
-  chainId: number
-  stage2?: Record<string, string>
-  deployer?: string
-}
 
 interface TransferOptions {
   network: NetworkType
@@ -50,9 +53,12 @@ function loadDeployment(network: NetworkType): Record<string, string> {
     throw new Error(`Deployment file not found: ${deploymentPath}`)
   }
 
-  const deployment = JSON.parse(
-    readFileSync(deploymentPath, 'utf-8'),
-  ) as DeploymentData
+  const rawData = JSON.parse(readFileSync(deploymentPath, 'utf-8'))
+  const deployment = validate(
+    rawData,
+    DeploymentDataSchema,
+    `deployment file at ${deploymentPath}`,
+  )
 
   if (!deployment.stage2) {
     throw new Error('No stage2 contracts found in deployment')

@@ -17,6 +17,13 @@
 import { EventEmitter } from 'node:events'
 import { Connection, Keypair } from '@solana/web3.js'
 import { type Address, createPublicClient, http, type PublicClient } from 'viem'
+import {
+  JupiterQuoteApiResponseSchema,
+  JupiterSwapApiResponseSchema,
+  parseOrThrow,
+  safeParse,
+  ZKBridgeTxResponseSchema,
+} from '../../schemas'
 import type {
   ChainId,
   CrossChainArbOpportunity,
@@ -271,12 +278,9 @@ export class SolanaArbStrategy extends EventEmitter {
       const response = await fetch(url)
       if (!response.ok) return null
 
-      const data = (await response.json()) as {
-        outAmount: string
-        priceImpactPct: string
-      }
+      const data = safeParse(JupiterQuoteApiResponseSchema, await response.json())
 
-      const outAmount = Number(data.outAmount) / 1e6 // USDC has 6 decimals
+      const outAmount = Number(data?.outAmount ?? 0) / 1e6 // USDC has 6 decimals
       const tokenDecimals = SOLANA_TOKENS[symbol]?.decimals || 9
       const inAmount = Number(amount) / 10 ** tokenDecimals
 
@@ -292,9 +296,9 @@ export class SolanaArbStrategy extends EventEmitter {
       const liquidityUrl = `${JUPITER_API}/quote?inputMint=${mint}&outputMint=${usdcMint}&amount=${largeAmount}&slippageBps=100`
       const liqResponse = await fetch(liquidityUrl)
       if (liqResponse.ok) {
-        const liqData = (await liqResponse.json()) as { priceImpactPct: string }
+        const liqData = safeParse(JupiterQuoteApiResponseSchema, await liqResponse.json())
         // If price impact < 5%, use the large amount as liquidity indicator
-        const priceImpact = parseFloat(liqData.priceImpactPct || '100')
+        const priceImpact = parseFloat(liqData?.priceImpactPct || '100')
         if (priceImpact < 5) {
           liquidity =
             Number(largeAmount) / 10 ** (SOLANA_TOKENS[symbol]?.decimals || 9)
@@ -607,11 +611,11 @@ export class SolanaArbStrategy extends EventEmitter {
       throw new Error(`Jupiter swap API failed: ${response.statusText}`)
     }
 
-    const { swapTransaction } = (await response.json()) as {
-      swapTransaction: string
-    }
+    const swapData = parseOrThrow(JupiterSwapApiResponseSchema, await response.json(), 'Jupiter swap')
+    const { swapTransaction } = swapData
 
     // Deserialize and sign the transaction
+    // Conditional dynamic import: @solana/web3.js only needed when executing Solana swaps
     const { VersionedTransaction } = await import('@solana/web3.js')
     const txBuffer = Buffer.from(swapTransaction, 'base64')
     const tx = VersionedTransaction.deserialize(txBuffer)
@@ -671,8 +675,8 @@ export class SolanaArbStrategy extends EventEmitter {
       throw new Error(`Bridge API failed: ${response.statusText}`)
     }
 
-    const { txHash } = (await response.json()) as { txHash: string }
-    return txHash
+    const result = parseOrThrow(ZKBridgeTxResponseSchema, await response.json(), 'ZK bridge response')
+    return result.txHash
   }
 
   /**
@@ -706,8 +710,8 @@ export class SolanaArbStrategy extends EventEmitter {
       throw new Error(`Bridge API failed: ${response.statusText}`)
     }
 
-    const { txHash } = (await response.json()) as { txHash: string }
-    return txHash
+    const result = parseOrThrow(ZKBridgeTxResponseSchema, await response.json(), 'ZK bridge response')
+    return result.txHash
   }
 
   /**

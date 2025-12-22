@@ -7,18 +7,19 @@ import {
   useWriteContract,
 } from 'wagmi'
 
-export enum GPUType {
-  NONE = 0,
-  NVIDIA_RTX_4090 = 1,
-  NVIDIA_A100_40GB = 2,
-  NVIDIA_A100_80GB = 3,
-  NVIDIA_H100 = 4,
-  NVIDIA_H200 = 5,
-  AMD_MI300X = 6,
-  APPLE_M1_MAX = 7,
-  APPLE_M2_ULTRA = 8,
-  APPLE_M3_MAX = 9,
-}
+export const GPUType = {
+  NONE: 0,
+  NVIDIA_RTX_4090: 1,
+  NVIDIA_A100_40GB: 2,
+  NVIDIA_A100_80GB: 3,
+  NVIDIA_H100: 4,
+  NVIDIA_H200: 5,
+  AMD_MI300X: 6,
+  APPLE_M1_MAX: 7,
+  APPLE_M2_ULTRA: 8,
+  APPLE_M3_MAX: 9,
+} as const
+export type GPUType = (typeof GPUType)[keyof typeof GPUType]
 
 export const GPU_NAMES: Record<GPUType, string> = {
   [GPUType.NONE]: 'No GPU',
@@ -33,15 +34,16 @@ export const GPU_NAMES: Record<GPUType, string> = {
   [GPUType.APPLE_M3_MAX]: 'Apple M3 Max',
 }
 
-export enum RentalStatus {
-  PENDING = 0,
-  ACTIVE = 1,
-  PAUSED = 2,
-  COMPLETED = 3,
-  CANCELLED = 4,
-  EXPIRED = 5,
-  DISPUTED = 6,
-}
+export const RentalStatus = {
+  PENDING: 0,
+  ACTIVE: 1,
+  PAUSED: 2,
+  COMPLETED: 3,
+  CANCELLED: 4,
+  EXPIRED: 5,
+  DISPUTED: 6,
+} as const
+export type RentalStatus = (typeof RentalStatus)[keyof typeof RentalStatus]
 
 export const STATUS_LABELS: Record<RentalStatus, string> = {
   [RentalStatus.PENDING]: 'Pending',

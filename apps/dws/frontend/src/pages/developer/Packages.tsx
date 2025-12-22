@@ -52,10 +52,14 @@ export default function PackagesPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="btn btn-secondary" onClick={() => refetch()}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => refetch()}
+          >
             <RefreshCw size={16} /> Refresh
           </button>
-          <button className="btn btn-primary">
+          <button type="button" className="btn btn-primary">
             <Plus size={16} /> Publish Package
           </button>
         </div>
@@ -140,10 +144,12 @@ export default function PackagesPage() {
           ) : (
             <div style={{ display: 'grid', gap: '0.5rem' }}>
               {filteredPackages.map((pkg) => (
-                <div
+                <button
+                  type="button"
                   key={pkg.id}
                   onClick={() => setSelectedPackage(pkg.id)}
                   style={{
+                    cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '1rem',
@@ -154,8 +160,9 @@ export default function PackagesPage() {
                         : 'var(--bg-tertiary)',
                     borderRadius: 'var(--radius-md)',
                     border: `1px solid ${selectedPackage === pkg.id ? 'var(--accent)' : 'var(--border)'}`,
-                    cursor: 'pointer',
                     transition: 'all var(--transition-fast)',
+                    textAlign: 'left' as const,
+                    width: '100%',
                   }}
                 >
                   <Package size={24} style={{ color: 'var(--accent)' }} />
@@ -195,7 +202,7 @@ export default function PackagesPage() {
                   >
                     <Download size={14} /> {pkg.downloads.toLocaleString()}
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           )}
@@ -206,6 +213,7 @@ export default function PackagesPage() {
             <div className="card-header">
               <h3 className="card-title">Package Details</h3>
               <button
+                type="button"
                 className="btn btn-ghost btn-sm"
                 onClick={() => setSelectedPackage(null)}
               >
@@ -267,6 +275,7 @@ export default function PackagesPage() {
                     bun add {selectedPkg.name}
                   </code>
                   <button
+                    type="button"
                     className="btn btn-ghost btn-icon"
                     style={{ padding: '0.25rem' }}
                     onClick={() =>
@@ -352,6 +361,7 @@ export default function PackagesPage() {
                     {selectedPkg.cid}
                   </code>
                   <button
+                    type="button"
                     className="btn btn-ghost btn-icon"
                     style={{ padding: '0.25rem' }}
                     onClick={() => handleCopy(selectedPkg.cid, 'cid')}

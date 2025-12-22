@@ -273,12 +273,4 @@ export const jejuPlugin: Plugin = {
 
 export default jejuPlugin
 
-// Re-export SDK for direct use
-export {
-  createJejuClient,
-  type JejuClient,
-  type JejuClientConfig,
-} from '@jejunetwork/sdk'
-
-// Re-export service
 export { JejuService } from './service'

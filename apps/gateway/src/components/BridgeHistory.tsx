@@ -187,6 +187,7 @@ export default function BridgeHistory() {
         >
           <p>Failed to load bridge history</p>
           <button
+            type="button"
             onClick={() => refetch()}
             style={{
               marginTop: '0.5rem',
@@ -237,6 +238,7 @@ export default function BridgeHistory() {
           Bridge History ({transfers.length})
         </h3>
         <button
+          type="button"
           onClick={() => refetch()}
           style={{
             background: 'none',

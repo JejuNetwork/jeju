@@ -6,6 +6,7 @@
  */
 
 import type { IAgentRuntime } from '@elizaos/core'
+import { expectValid } from '@jejunetwork/types'
 import {
   type Address,
   concat,
@@ -17,6 +18,10 @@ import {
   type PublicClient,
   toHex,
 } from 'viem'
+import {
+  BundlerReceiptResponseSchema,
+  BundlerSendUserOpResponseSchema,
+} from '../../schemas/api-responses'
 import type {
   AAServiceConfig,
   SessionKey,
@@ -375,16 +380,21 @@ export class AccountAbstractionService {
       }),
     })
 
-    const result = (await response.json()) as {
-      result?: Hex
-      error?: { message: string }
-    }
+    const result = expectValid(
+      BundlerSendUserOpResponseSchema,
+      await response.json(),
+      'submitUserOperation bundler response',
+    )
 
     if (result.error) {
       throw new Error(`Bundler error: ${result.error.message}`)
     }
 
-    return result.result as Hex
+    if (!result.result) {
+      throw new Error('No result in submitUserOperation response')
+    }
+
+    return result.result
   }
 
   /**
@@ -409,9 +419,11 @@ export class AccountAbstractionService {
         }),
       })
 
-      const result = (await response.json()) as {
-        result?: { receipt: { transactionHash: Hex }; success: boolean }
-      }
+      const result = expectValid(
+        BundlerReceiptResponseSchema,
+        await response.json(),
+        'waitForUserOperation receipt',
+      )
 
       if (result.result) {
         return {
@@ -469,6 +481,7 @@ export class AccountAbstractionService {
     }>
     validUntil: number
   }): Promise<SessionKey> {
+    // Dynamic import: Only needed when creating session keys
     const { privateKeyToAccount } = await import('viem/accounts')
     const sessionPrivateKey = keccak256(
       toHex(crypto.getRandomValues(new Uint8Array(32))),

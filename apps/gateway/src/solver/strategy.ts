@@ -129,9 +129,12 @@ export class StrategyEngine {
     })
 
     if (res?.ok) {
-      const data = (await res.json()) as { ethereum: { usd: number } }
-      this.ethPriceUsd = data.ethereum.usd
-      this.priceUpdatedAt = now
+      const data = await res.json()
+      const price = data?.ethereum?.usd
+      if (typeof price === 'number' && price > 0) {
+        this.ethPriceUsd = price
+        this.priceUpdatedAt = now
+      }
     } else if (res?.status === 429) {
       this.lastCoinGecko429At = now
       console.warn(

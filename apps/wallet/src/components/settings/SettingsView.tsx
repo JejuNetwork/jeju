@@ -197,6 +197,7 @@ export function SettingsView() {
                       </div>
                     </div>
                     <button
+                      type="button"
                       onClick={disconnectHardwareWallet}
                       className="px-4 py-2 text-sm bg-secondary hover:bg-secondary/80 rounded-lg"
                     >
@@ -213,6 +214,7 @@ export function SettingsView() {
             ) : (
               <div className="space-y-3">
                 <button
+                  type="button"
                   onClick={() => connectHardwareWallet('ledger')}
                   disabled={
                     hwConnecting || !hardwareWalletService.isSupported()
@@ -238,6 +240,7 @@ export function SettingsView() {
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => connectHardwareWallet('trezor')}
                   disabled={hwConnecting}
                   className="w-full flex items-center justify-between p-4 bg-card border border-border rounded-xl hover:border-primary/50 transition-colors disabled:opacity-50"
@@ -347,12 +350,16 @@ export function SettingsView() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-2">
+                <label
+                  htmlFor="slippage-select"
+                  className="block text-sm font-medium mb-2"
+                >
                   Default Slippage
                 </label>
                 <div className="flex gap-2">
                   {[0.1, 0.5, 1.0, 3.0].map((val) => (
                     <button
+                      type="button"
                       key={val}
                       onClick={() => updateSetting('slippage', val)}
                       className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -390,6 +397,7 @@ export function SettingsView() {
     return (
       <div className="h-full overflow-auto p-6">
         <button
+          type="button"
           onClick={() => setActiveSection(null)}
           className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6"
         >
@@ -413,6 +421,7 @@ export function SettingsView() {
           const Icon = section.icon
           return (
             <button
+              type="button"
               key={section.id}
               onClick={() => setActiveSection(section.id)}
               className="w-full flex items-center justify-between p-4 bg-card border border-border rounded-xl hover:border-primary/50 transition-colors"
@@ -462,6 +471,7 @@ function SettingToggle({
         <div className="text-sm text-muted-foreground">{description}</div>
       </div>
       <button
+        type="button"
         onClick={() => onChange(!enabled)}
         className={`relative w-12 h-6 rounded-full transition-colors ${
           enabled ? 'bg-emerald-500' : 'bg-secondary'

@@ -22,7 +22,11 @@ function inferChainFromRpcUrl(rpcUrl: string) {
   return localhost
 }
 
-import { expect, ProposalIdSchema, validateOrThrow } from './schemas'
+import {
+  expectTrue as expect,
+  expectValid as validateOrThrow,
+} from '@jejunetwork/types'
+import { ProposalIdSchema } from './schemas'
 import {
   type AutocratVoteFromContract,
   CEO_AGENT_ABI,
@@ -485,5 +489,8 @@ export class AutocratBlockchain {
 let instance: AutocratBlockchain | null = null
 
 export function getBlockchain(config: AutocratConfig): AutocratBlockchain {
-  return (instance ??= new AutocratBlockchain(config))
+  if (!instance) {
+    instance = new AutocratBlockchain(config)
+  }
+  return instance
 }

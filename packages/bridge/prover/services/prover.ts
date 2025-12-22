@@ -26,13 +26,14 @@ import { toHash32 } from '../../src/types/index.js'
 // PROOF TYPES
 // =============================================================================
 
-export enum ProofType {
-  SOLANA_CONSENSUS = 'solana_consensus',
-  ETHEREUM_CONSENSUS = 'ethereum_consensus',
-  TOKEN_TRANSFER = 'token_transfer',
-  ED25519_AGGREGATION = 'ed25519_aggregation',
-  BATCH_TRANSFER = 'batch_transfer',
-}
+export const ProofType = {
+  SOLANA_CONSENSUS: 'solana_consensus',
+  ETHEREUM_CONSENSUS: 'ethereum_consensus',
+  TOKEN_TRANSFER: 'token_transfer',
+  ED25519_AGGREGATION: 'ed25519_aggregation',
+  BATCH_TRANSFER: 'batch_transfer',
+} as const
+export type ProofType = (typeof ProofType)[keyof typeof ProofType]
 
 interface ProofRequest<T> {
   id: string
@@ -474,6 +475,7 @@ export function createProverService(config: ProverConfig): ProverService {
 // =============================================================================
 
 if (import.meta.main) {
+  // Conditional dynamic import: only load config when running as main module
   const { LOCAL_PROVER_CONFIG } = await import('../../src/local-dev/config.js')
 
   const prover = createProverService(LOCAL_PROVER_CONFIG)

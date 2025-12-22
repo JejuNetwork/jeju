@@ -1,11 +1,3 @@
-import type {
-  Intent,
-  IntentQuote,
-  IntentRoute,
-  OIFStats,
-  Solver,
-  SolverLeaderboardEntry,
-} from '@jejunetwork/types'
 import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 import { OIF_AGGREGATOR_URL } from '../config'
@@ -66,24 +58,38 @@ const IntentRouteSchema = z.object({
   isActive: z.boolean(),
   totalVolume: z.string(),
   totalIntents: z.number(),
+  avgFillTimeSeconds: z.number().optional(),
+  successRate: z.number().optional(),
+  oracle: z.string().optional(),
+  activeSolvers: z.number().optional(),
+  avgFeePercent: z.number().optional(),
 })
 
 const SolverSchema = z.object({
   address: z.string(),
+  name: z.string().optional(),
   stakedAmount: z.string(),
   totalFills: z.number(),
   successfulFills: z.number(),
   supportedChains: z.array(z.number()),
   isActive: z.boolean(),
   reputation: z.number(),
+  avgFillTimeMs: z.number().optional(),
+  successRate: z.number().optional(),
+  totalVolumeUsd: z.string().optional(),
 })
 
 const SolverLeaderboardEntrySchema = z.object({
   address: z.string(),
+  solver: z.string().optional(),
+  rank: z.number().optional(),
+  name: z.string().optional(),
   totalVolume: z.string(),
   totalFills: z.number(),
   successRate: z.number(),
   reputation: z.number(),
+  avgFillTimeMs: z.number().optional(),
+  totalFeesEarned: z.string().optional(),
 })
 
 const ChainStatsSchema = z.object({
@@ -100,11 +106,39 @@ const SupportedTokenSchema = z.object({
   decimals: z.number(),
 })
 
-async function fetchJSON<T>(path: string, schema: z.ZodSchema<T>): Promise<T> {
+const OIFStatsSchema = z.object({
+  totalIntents: z.number(),
+  totalVolume: z.string(),
+  totalVolumeUsd: z.string().optional(),
+  totalSolvers: z.number(),
+  activeSolvers: z.number().optional(),
+  totalRoutes: z.number(),
+  activeRoutes: z.number().optional(),
+  last24hIntents: z.number(),
+  last24hVolume: z.string(),
+  successRate: z.number().optional(),
+  totalFeesUsd: z.string().optional(),
+  avgFillTimeSeconds: z.number().optional(),
+  totalSolverStake: z.string().optional(),
+})
+
+// Infer types from schemas
+export type Intent = z.infer<typeof IntentSchema>
+export type IntentQuote = z.infer<typeof IntentQuoteSchema>
+export type IntentRoute = z.infer<typeof IntentRouteSchema>
+export type Solver = z.infer<typeof SolverSchema>
+export type SolverLeaderboardEntry = z.infer<
+  typeof SolverLeaderboardEntrySchema
+>
+export type ChainStats = z.infer<typeof ChainStatsSchema>
+export type OIFStats = z.infer<typeof OIFStatsSchema>
+
+async function fetchJSON<T>(path: string, schema?: z.ZodSchema<T>): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`)
   if (!res.ok)
     throw new Error(`Failed to fetch ${path}: ${res.status} ${res.statusText}`)
   const data = await res.json()
+  if (!schema) return data as T
   const result = schema.safeParse(data)
   if (!result.success) {
     const errors = result.error.issues
@@ -237,9 +271,7 @@ export function useSolvers(filters?: {
         params.set('minReputation', filters.minReputation.toString())
       if (filters?.active !== undefined)
         params.set('active', filters.active.toString())
-      return fetchJSON(`/solvers?${params}`, z.array(SolverSchema)) as Promise<
-        Solver[]
-      >
+      return fetchJSON(`/solvers?${params}`, z.array(SolverSchema))
     },
   })
 }
@@ -247,8 +279,7 @@ export function useSolvers(filters?: {
 export function useSolver(address: string) {
   return useQuery({
     queryKey: ['solver', address],
-    queryFn: () =>
-      fetchJSON(`/solvers/${address}`, SolverSchema) as Promise<Solver>,
+    queryFn: () => fetchJSON(`/solvers/${address}`, SolverSchema),
     enabled: !!address,
   })
 }
@@ -262,14 +293,14 @@ export function useSolverLeaderboard(
       fetchJSON(
         `/solvers/leaderboard?sortBy=${sortBy}`,
         z.array(SolverLeaderboardEntrySchema),
-      ) as Promise<SolverLeaderboardEntry[]>,
+      ),
   })
 }
 
 export function useOIFStats() {
   return useQuery({
     queryKey: ['oif-stats'],
-    queryFn: () => fetchJSON<OIFStats>('/stats'),
+    queryFn: () => fetchJSON('/stats', OIFStatsSchema),
     refetchInterval: 30000,
   })
 }

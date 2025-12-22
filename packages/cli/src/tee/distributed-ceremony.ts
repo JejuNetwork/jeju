@@ -352,6 +352,7 @@ async function getTeeAttestation(
   }
 
   // Real implementation would use dstack SDK
+  // Dynamic import: dstack SDK is optional and may not be installed (conditional)
   try {
     const dstackModule = await import('@phala/dstack-sdk')
     const mod = dstackModule as Record<string, unknown>

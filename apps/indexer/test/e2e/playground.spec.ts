@@ -76,7 +76,8 @@ test.describe('Theme Toggle', () => {
     expect(storedTheme).toBe(newTheme)
     await page.reload()
     await page.waitForSelector('.jeju-header')
-    await expect(body).toHaveAttribute('data-theme', newTheme!)
+    expect(newTheme).toBeDefined()
+    await expect(body).toHaveAttribute('data-theme', newTheme ?? '')
   })
 })
 

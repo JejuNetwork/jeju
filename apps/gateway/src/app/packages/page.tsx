@@ -63,8 +63,9 @@ export default function PackagesPage() {
         `${registryUrl}/-/v1/search?text=${encodeURIComponent(query)}&size=50`,
       )
       if (response.ok) {
-        const data = (await response.json()) as { objects: SearchResult[] }
-        setPackages(data.objects ?? [])
+        const data = await response.json()
+        const objects = Array.isArray(data?.objects) ? data.objects : []
+        setPackages(objects as SearchResult[])
       }
     } catch (error) {
       console.error('Failed to search packages:', error)
@@ -200,6 +201,7 @@ export default function PackagesPage() {
               <div className="space-y-4">
                 {packages.map((result) => (
                   <button
+                    type="button"
                     key={result.package.name}
                     onClick={() => fetchPackageDetails(result.package.name)}
                     className="w-full text-left p-4 bg-gray-800 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors"

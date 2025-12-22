@@ -16,11 +16,12 @@ import type { JejuWallet } from '../wallet'
 //                              TYPES
 // ═══════════════════════════════════════════════════════════════════════════
 
-export enum RiskTier {
-  CONSERVATIVE = 0,
-  BALANCED = 1,
-  AGGRESSIVE = 2,
-}
+export const RiskTier = {
+  CONSERVATIVE: 0,
+  BALANCED: 1,
+  AGGRESSIVE: 2,
+} as const
+export type RiskTier = (typeof RiskTier)[keyof typeof RiskTier]
 
 export interface SleeveStats {
   deposited: bigint

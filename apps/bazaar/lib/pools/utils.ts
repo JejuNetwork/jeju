@@ -1,6 +1,6 @@
 import { AddressSchema } from '@jejunetwork/types'
 import { type Address, encodePacked, keccak256 } from 'viem'
-import { expectPositive, expectTrue } from '@/lib/validation'
+import { expectPositive, expectTrue } from '../validation'
 import type { PoolKey } from './types'
 
 export function computePoolId(key: PoolKey): `0x${string}` {

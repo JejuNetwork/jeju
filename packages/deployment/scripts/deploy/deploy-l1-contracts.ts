@@ -22,6 +22,15 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { $ } from 'bun'
+import {
+  type ChainConfigValidation,
+  ChainConfigValidationSchema,
+  DeployConfigSchema,
+  expectJson,
+  type OpDeployerState,
+  OpDeployerStateSchema,
+  OperatorKeysArraySchema,
+} from '../../schemas'
 
 const ROOT = join(import.meta.dir, '../..')
 const KEYS_DIR = join(ROOT, 'packages/deployment/.keys')
@@ -78,7 +87,8 @@ async function checkPrerequisites(): Promise<boolean> {
     return false
   }
 
-  const config = JSON.parse(readFileSync(configFile, 'utf-8'))
+  const content = readFileSync(configFile, 'utf-8')
+  const config = expectJson(content, DeployConfigSchema, 'deploy config')
   if (
     config.p2pSequencerAddress === '0x0000000000000000000000000000000000000000'
   ) {
@@ -93,9 +103,10 @@ async function checkPrerequisites(): Promise<boolean> {
 
 async function deployWithOpDeployer(): Promise<DeploymentResult> {
   const keysFile = join(KEYS_DIR, 'testnet-operators.json')
+  const content = readFileSync(keysFile, 'utf-8')
+  const keys = expectJson(content, OperatorKeysArraySchema, 'operator keys')
 
-  const keys = JSON.parse(readFileSync(keysFile, 'utf-8'))
-  const adminKey = keys.find((k: { name: string }) => k.name === 'admin')
+  const adminKey = keys.find((k) => k.name === 'admin')
 
   if (!adminKey) {
     throw new Error('Admin key not found')
@@ -116,8 +127,7 @@ async function deployWithOpDeployer(): Promise<DeploymentResult> {
     superchainRoles: {
       proxyAdminOwner: adminKey.address,
       protocolVersionsOwner: adminKey.address,
-      guardian: keys.find((k: { name: string }) => k.name === 'guardian')
-        ?.address,
+      guardian: keys.find((k) => k.name === 'guardian')?.address,
     },
     chains: [
       {
@@ -126,16 +136,10 @@ async function deployWithOpDeployer(): Promise<DeploymentResult> {
           l1ProxyAdminOwner: adminKey.address,
           l2ProxyAdminOwner: adminKey.address,
           systemConfigOwner: adminKey.address,
-          unsafeBlockSigner: keys.find(
-            (k: { name: string }) => k.name === 'sequencer',
-          )?.address,
-          batcher: keys.find((k: { name: string }) => k.name === 'batcher')
-            ?.address,
-          proposer: keys.find((k: { name: string }) => k.name === 'proposer')
-            ?.address,
-          challenger: keys.find(
-            (k: { name: string }) => k.name === 'challenger',
-          )?.address,
+          unsafeBlockSigner: keys.find((k) => k.name === 'sequencer')?.address,
+          batcher: keys.find((k) => k.name === 'batcher')?.address,
+          proposer: keys.find((k) => k.name === 'proposer')?.address,
+          challenger: keys.find((k) => k.name === 'challenger')?.address,
         },
       },
     ],
@@ -159,7 +163,12 @@ async function deployWithOpDeployer(): Promise<DeploymentResult> {
   // Parse deployment output
   const stateFile = join(DEPLOYMENTS_DIR, 'state.json')
   if (existsSync(stateFile)) {
-    const state = JSON.parse(readFileSync(stateFile, 'utf-8'))
+    const stateContent = readFileSync(stateFile, 'utf-8')
+    const state = expectJson(
+      stateContent,
+      OpDeployerStateSchema,
+      'op-deployer state',
+    )
     return extractAddresses(state)
   }
 
@@ -176,9 +185,9 @@ async function deployManually(_privateKey: string): Promise<DeploymentResult> {
   throw new Error('Manual deployment required')
 }
 
-function extractAddresses(state: Record<string, unknown>): DeploymentResult {
+function extractAddresses(state: OpDeployerState): DeploymentResult {
   // Extract addresses from op-deployer state
-  const addresses = (state.addresses as Record<string, string>) || {}
+  const addresses = state.addresses || {}
 
   return {
     OptimismPortal: addresses.OptimismPortalProxy || '',
@@ -196,9 +205,20 @@ function extractAddresses(state: Record<string, unknown>): DeploymentResult {
 
 async function updateChainConfig(addresses: DeploymentResult) {
   const configFile = join(CHAIN_CONFIG_DIR, 'testnet.json')
-  const config = JSON.parse(readFileSync(configFile, 'utf-8'))
+  const content = readFileSync(configFile, 'utf-8')
+  const config = expectJson(
+    content,
+    ChainConfigValidationSchema,
+    'chain config',
+  )
 
-  config.contracts.l1 = {
+  // Cast to mutable for update
+  const mutableConfig = config as ChainConfigValidation & {
+    contracts: { l1: Record<string, string> }
+  }
+
+  mutableConfig.contracts = mutableConfig.contracts || { l1: {}, l2: {} }
+  mutableConfig.contracts.l1 = {
     OptimismPortal: addresses.OptimismPortal,
     L2OutputOracle: addresses.L2OutputOracle,
     L1CrossDomainMessenger: addresses.L1CrossDomainMessenger,
@@ -210,7 +230,7 @@ async function updateChainConfig(addresses: DeploymentResult) {
     OptimismMintableERC20Factory: addresses.OptimismMintableERC20Factory,
   }
 
-  writeFileSync(configFile, JSON.stringify(config, null, 2))
+  writeFileSync(configFile, JSON.stringify(mutableConfig, null, 2))
   console.log(`✅ Updated chain config: ${configFile}`)
 }
 
@@ -242,34 +262,33 @@ async function main() {
     process.exit(1)
   }
 
-  try {
-    const addresses = await deployWithOpDeployer()
+  const addresses = await deployWithOpDeployer()
 
-    console.log('\n✅ L1 Contracts Deployed:')
-    console.log(
-      '┌────────────────────────────────┬────────────────────────────────────────────┐',
-    )
-    console.log(
-      '│ Contract                       │ Address                                    │',
-    )
-    console.log(
-      '├────────────────────────────────┼────────────────────────────────────────────┤',
-    )
+  console.log('\n✅ L1 Contracts Deployed:')
+  console.log(
+    '┌────────────────────────────────┬────────────────────────────────────────────┐',
+  )
+  console.log(
+    '│ Contract                       │ Address                                    │',
+  )
+  console.log(
+    '├────────────────────────────────┼────────────────────────────────────────────┤',
+  )
 
-    for (const [name, address] of Object.entries(addresses)) {
-      if (address) {
-        console.log(`│ ${name.padEnd(30)} │ ${address} │`)
-      }
+  for (const [name, address] of Object.entries(addresses)) {
+    if (address) {
+      console.log(`│ ${name.padEnd(30)} │ ${address} │`)
     }
+  }
 
-    console.log(
-      '└────────────────────────────────┴────────────────────────────────────────────┘',
-    )
+  console.log(
+    '└────────────────────────────────┴────────────────────────────────────────────┘',
+  )
 
-    await updateChainConfig(addresses)
-    await saveDeployment(addresses)
+  await updateChainConfig(addresses)
+  await saveDeployment(addresses)
 
-    console.log(`
+  console.log(`
 ═══════════════════════════════════════════════════════════════════════
 NEXT STEPS
 ═══════════════════════════════════════════════════════════════════════
@@ -285,10 +304,6 @@ NEXT STEPS
 
 ═══════════════════════════════════════════════════════════════════════
 `)
-  } catch (err) {
-    console.error(`\n❌ Deployment failed: ${(err as Error).message}`)
-    process.exit(1)
-  }
 }
 
 main()

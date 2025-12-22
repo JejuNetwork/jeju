@@ -63,8 +63,8 @@
   "dependencies": {
     "@jejunetwork/kms": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
+    "@jejunetwork/types": "workspace:*",
     "@tenkeylabs/dappwright": "2.11.3",
-    "hono": "4.11.1",
     "pg": "8.16.0",
     "viem": "2.43.2",
     "zod": "4.2.1"

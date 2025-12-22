@@ -40,6 +40,7 @@ import {
   getLogs,
   waitForTransactionReceipt,
 } from 'viem/actions'
+import { expectJson, GovernanceAddressesSchema } from '../../schemas'
 
 // Configuration
 interface NetworkConfig {
@@ -64,7 +65,7 @@ interface DeployedAddresses {
 
 const NETWORKS: Record<string, NetworkConfig> = {
   localnet: {
-    rpcUrl: process.env.LOCALNET_RPC_URL ?? 'http://localhost:9545',
+    rpcUrl: process.env.LOCALNET_RPC_URL ?? 'http://localhost:6546',
     chainId: 31337,
     safeFactory: '0x0000000000000000000000000000000000000000',
     safeSingleton: '0x0000000000000000000000000000000000000000',
@@ -72,7 +73,8 @@ const NETWORKS: Record<string, NetworkConfig> = {
     explorerUrl: '',
   },
   testnet: {
-    rpcUrl: process.env.JEJU_TESTNET_RPC_URL ?? 'https://testnet-rpc.jejunetwork.org',
+    rpcUrl:
+      process.env.JEJU_TESTNET_RPC_URL ?? 'https://testnet-rpc.jejunetwork.org',
     chainId: 420690,
     safeFactory: '0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2',
     safeSingleton: '0x3E5c63644E683549055b9Be8653de26E0B4CD36E',
@@ -177,9 +179,12 @@ async function main() {
   let existingAddresses: Partial<DeployedAddresses> = {}
 
   if (existsSync(addressesPath)) {
-    existingAddresses = JSON.parse(
-      readFileSync(addressesPath, 'utf-8'),
-    ) as Partial<DeployedAddresses>
+    const addressesContent = readFileSync(addressesPath, 'utf-8')
+    existingAddresses = expectJson(
+      addressesContent,
+      GovernanceAddressesSchema,
+      `${networkArg} addresses`,
+    )
     console.log('\nLoaded existing addresses:')
     console.log(JSON.stringify(existingAddresses, null, 2))
   }
@@ -498,9 +503,12 @@ async function loadBytecode(contractName: string): Promise<string> {
 
   for (const path of artifactPaths) {
     if (existsSync(path)) {
-      const artifact = JSON.parse(readFileSync(path, 'utf-8')) as {
-        bytecode: { object: string }
-      }
+      const artifactContent = readFileSync(path, 'utf-8')
+      const artifact = expectJson(
+        artifactContent,
+        ForgeArtifactSchema,
+        `${contractName} artifact`,
+      )
       return artifact.bytecode.object
     }
   }

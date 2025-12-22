@@ -18,6 +18,28 @@
 import { EventEmitter } from 'node:events'
 import { type Address, type Hash, type Hex, keccak256, toHex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import { z } from 'zod'
+
+// Schema for MEV-Share SSE event validation
+const MevShareEventDataSchema = z.object({
+  hash: z.string(),
+  logs: z.array(
+    z.object({
+      address: z.string(),
+      topics: z.array(z.string()),
+      data: z.string(),
+    }),
+  ),
+  txs: z.array(
+    z.object({
+      to: z.string(),
+      functionSelector: z.string(),
+      callData: z.string().optional(),
+    }),
+  ),
+  mevGasPrice: z.string().optional(),
+  gasUsed: z.string().optional(),
+})
 
 // ============================================================================
 // FLASHBOTS ENDPOINTS
@@ -596,13 +618,14 @@ export class MevBoostProvider extends EventEmitter {
     )
 
     eventSource.onmessage = (event) => {
-      const data = JSON.parse(event.data) as {
-        hash: string
-        logs: Array<{ address: string; topics: string[]; data: string }>
-        txs: Array<{ to: string; functionSelector: string; callData?: string }>
-        mevGasPrice?: string
-        gasUsed?: string
+      const parseResult = MevShareEventDataSchema.safeParse(
+        JSON.parse(event.data),
+      )
+      if (!parseResult.success) {
+        console.warn('[MEV-Share] Invalid event data:', parseResult.error)
+        return
       }
+      const data = parseResult.data
 
       callback({
         hash: data.hash as Hash,

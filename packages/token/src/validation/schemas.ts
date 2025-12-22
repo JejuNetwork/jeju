@@ -8,26 +8,26 @@
  * - User-provided parameters
  */
 
+import {
+  AddressSchema,
+  HashSchema,
+  HexSchema,
+  PercentageSchema,
+} from '@jejunetwork/types'
 import { z } from 'zod'
 
 // =============================================================================
-// PRIMITIVE VALIDATORS
+// PRIMITIVE VALIDATORS (re-exports with token package naming convention)
 // =============================================================================
 
 /** Ethereum address validator */
-export const addressSchema = z
-  .string()
-  .regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid Ethereum address')
+export const addressSchema = AddressSchema
 
 /** Hex string validator */
-export const hexSchema = z
-  .string()
-  .regex(/^0x[a-fA-F0-9]+$/, 'Invalid hex string')
+export const hexSchema = HexSchema
 
 /** Hex bytes32 validator */
-export const bytes32Schema = z
-  .string()
-  .regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid bytes32')
+export const bytes32Schema = HashSchema
 
 /** Solana public key validator (base58) */
 export const solanaPublicKeySchema = z
@@ -41,7 +41,7 @@ export const positiveBigintSchema = z.bigint().positive()
 export const nonNegativeBigintSchema = z.bigint().nonnegative()
 
 /** Percentage validator (0-100) */
-export const percentageSchema = z.number().min(0).max(100)
+export const percentageSchema = PercentageSchema
 
 /** Basis points validator (0-10000) */
 export const bpsSchema = z.number().int().min(0).max(10000)
@@ -391,6 +391,45 @@ export const tokenDeploymentConfigSchema = z.object({
   includeSolana: z.boolean().optional(),
   oracleAddress: addressSchema.optional(),
 })
+
+// =============================================================================
+// SOLANA PRIVATE KEY SCHEMAS
+// =============================================================================
+
+/**
+ * Validates a Solana private key as a JSON array of 64 bytes (0-255)
+ */
+export const solanaPrivateKeyBytesSchema = z
+  .array(z.number().int().min(0).max(255))
+  .length(64, 'Solana private key must be exactly 64 bytes')
+
+// =============================================================================
+// FOUNDRY ARTIFACT SCHEMA
+// =============================================================================
+
+const foundryLinkReferenceSchema = z.object({
+  start: z.number().int().nonnegative(),
+  length: z.number().int().positive(),
+})
+
+/**
+ * Validates a Foundry build artifact (from forge build output)
+ */
+export const foundryArtifactSchema = z.object({
+  abi: z.array(z.record(z.string(), z.unknown())),
+  bytecode: z.object({
+    object: hexSchema,
+    linkReferences: z.record(
+      z.string(),
+      z.record(z.string(), z.array(foundryLinkReferenceSchema)),
+    ),
+  }),
+  deployedBytecode: z.object({
+    object: hexSchema,
+  }),
+})
+
+export type FoundryArtifact = z.infer<typeof foundryArtifactSchema>
 
 // =============================================================================
 // TYPE EXPORTS (inferred from schemas)

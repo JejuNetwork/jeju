@@ -4,6 +4,14 @@
  */
 
 import type { Address, Hex } from 'viem'
+import {
+  createPublicClient,
+  createWalletClient,
+  encodeFunctionData,
+  http,
+} from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { base } from 'viem/chains'
 
 export interface ReputationScore {
   totalScore: number
@@ -226,12 +234,6 @@ export class ReputationManager {
       return
     }
 
-    const { createWalletClient, http, encodeFunctionData } = await import(
-      'viem'
-    )
-    const { privateKeyToAccount } = await import('viem/accounts')
-    const { base } = await import('viem/chains')
-
     const account = privateKeyToAccount(this.config.privateKey)
     const client = createWalletClient({
       account,
@@ -272,9 +274,6 @@ export class ReputationManager {
     if (!this.config.reputationRegistryAddress) {
       return null
     }
-
-    const { createPublicClient, http } = await import('viem')
-    const { base } = await import('viem/chains')
 
     const client = createPublicClient({
       chain: base,

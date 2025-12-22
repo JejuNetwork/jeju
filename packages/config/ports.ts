@@ -140,6 +140,132 @@ export const CORE_PORTS = {
     ENV_VAR: 'FACILITATOR_PORT',
     get: () => safeParsePort(process.env.FACILITATOR_PORT, 3402),
   },
+
+  /** Factory - Agent and app factory platform */
+  FACTORY: {
+    DEFAULT: 4009,
+    ENV_VAR: 'FACTORY_PORT',
+    get: () => safeParsePort(process.env.FACTORY_PORT, 4009),
+  },
+
+  /** OIF Aggregator - Open Intents Framework aggregator */
+  OIF_AGGREGATOR: {
+    DEFAULT: 4011,
+    ENV_VAR: 'OIF_AGGREGATOR_PORT',
+    get: () => safeParsePort(process.env.OIF_AGGREGATOR_PORT, 4011),
+  },
+
+  /** Crucible API - Bot execution and strategy platform */
+  CRUCIBLE_API: {
+    DEFAULT: 4020,
+    ENV_VAR: 'CRUCIBLE_PORT',
+    get: () => safeParsePort(process.env.CRUCIBLE_PORT, 4020),
+  },
+
+  /** Crucible Executor - Bot execution worker */
+  CRUCIBLE_EXECUTOR: {
+    DEFAULT: 4021,
+    ENV_VAR: 'CRUCIBLE_EXECUTOR_PORT',
+    get: () => safeParsePort(process.env.CRUCIBLE_EXECUTOR_PORT, 4021),
+  },
+
+  /** Crucible Bots API - Bot REST/A2A/MCP endpoints */
+  CRUCIBLE_BOTS: {
+    DEFAULT: 4022,
+    ENV_VAR: 'CRUCIBLE_BOTS_PORT',
+    get: () => safeParsePort(process.env.CRUCIBLE_BOTS_PORT, 4022),
+  },
+
+  /** DWS API - Decentralized Web Services main API */
+  DWS_API: {
+    DEFAULT: 4030,
+    ENV_VAR: 'DWS_PORT',
+    get: () => safeParsePort(process.env.DWS_PORT, 4030),
+  },
+
+  /** DWS Inference - Local inference server */
+  DWS_INFERENCE: {
+    DEFAULT: 4031,
+    ENV_VAR: 'INFERENCE_PORT',
+    get: () => safeParsePort(process.env.INFERENCE_PORT, 4031),
+  },
+
+  /** DWS Gateway - CDN and edge gateway */
+  DWS_GATEWAY: {
+    DEFAULT: 4032,
+    ENV_VAR: 'DWS_GATEWAY_PORT',
+    get: () => safeParsePort(process.env.DWS_GATEWAY_PORT, 4032),
+  },
+
+  /** DWS Triggers - Compute trigger service */
+  DWS_TRIGGERS: {
+    DEFAULT: 4016,
+    ENV_VAR: 'TRIGGER_PORT',
+    get: () => safeParsePort(process.env.TRIGGER_PORT, 4016),
+  },
+
+  /** Autocrat API - DAO governance API */
+  AUTOCRAT_API: {
+    DEFAULT: 4040,
+    ENV_VAR: 'AUTOCRAT_PORT',
+    get: () => safeParsePort(process.env.AUTOCRAT_PORT, 4040),
+  },
+
+  /** Autocrat CEO - CEO agent server */
+  AUTOCRAT_CEO: {
+    DEFAULT: 4041,
+    ENV_VAR: 'CEO_PORT',
+    get: () => safeParsePort(process.env.CEO_PORT, 4041),
+  },
+
+  /** Otto API - Multi-platform agent bot */
+  OTTO_API: {
+    DEFAULT: 4042,
+    ENV_VAR: 'OTTO_PORT',
+    get: () => safeParsePort(process.env.OTTO_PORT, 4042),
+  },
+
+  /** Otto Webhook - Webhook receiver for platforms */
+  OTTO_WEBHOOK: {
+    DEFAULT: 4043,
+    ENV_VAR: 'OTTO_WEBHOOK_PORT',
+    get: () => safeParsePort(process.env.OTTO_WEBHOOK_PORT, 4043),
+  },
+
+  /** KMS API - Key Management Service */
+  KMS_API: {
+    DEFAULT: 4050,
+    ENV_VAR: 'KMS_PORT',
+    get: () => safeParsePort(process.env.KMS_PORT, 4050),
+  },
+
+  /** OAuth3 API - Decentralized identity service */
+  OAUTH3_API: {
+    DEFAULT: 4060,
+    ENV_VAR: 'OAUTH3_PORT',
+    get: () => safeParsePort(process.env.OAUTH3_PORT, 4060),
+  },
+
+  /** Oracle API - Price feed oracle */
+  ORACLE_API: {
+    DEFAULT: 4070,
+    ENV_VAR: 'ORACLE_PORT',
+    get: () => safeParsePort(process.env.ORACLE_PORT, 4070),
+  },
+
+  /** Node API - Network node management */
+  NODE_API: {
+    DEFAULT: 4080,
+    ENV_VAR: 'NODE_PORT',
+    get: () => safeParsePort(process.env.NODE_PORT, 4080),
+  },
+
+  /** Leaderboard API - Agent leaderboard */
+  LEADERBOARD_API: {
+    DEFAULT: 4090,
+    ENV_VAR: 'LEADERBOARD_PORT',
+    get: () => safeParsePort(process.env.LEADERBOARD_PORT, 4090),
+  },
 } as const
 
 // ============================================================================
@@ -259,18 +385,18 @@ export const VENDOR_PORTS = {
 // ============================================================================
 
 export const INFRA_PORTS = {
-  /** L1 RPC - Jeju localnet L1 (8545 to avoid conflicts with standard anvil 8545) */
+  /** L1 RPC - Jeju localnet L1. Port 6545 avoids conflicts with Anvil/Hardhat default (8545) */
   L1_RPC: {
-    DEFAULT: 8545,
+    DEFAULT: 6545,
     ENV_VAR: 'L1_RPC_PORT',
-    get: () => safeParsePort(process.env.L1_RPC_PORT, 8545),
+    get: () => safeParsePort(process.env.L1_RPC_PORT, 6545),
   },
 
-  /** L2 RPC - Jeju localnet L2 (main chain) */
+  /** L2 RPC - Jeju localnet L2 (main chain). Port 6546 avoids conflicts with standard Anvil (8545) */
   L2_RPC: {
-    DEFAULT: 9545,
+    DEFAULT: 6546,
     ENV_VAR: 'L2_RPC_PORT',
-    get: () => safeParsePort(process.env.L2_RPC_PORT, 9545),
+    get: () => safeParsePort(process.env.L2_RPC_PORT, 6546),
   },
 
   /** L2 WebSocket */

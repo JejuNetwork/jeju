@@ -39,40 +39,118 @@ export type SecretName =
   // Deployment keys
   | 'DEPLOYER_PRIVATE_KEY'
   | 'PRIVATE_KEY'
+  | 'OPERATOR_PRIVATE_KEY'
+  | 'WORKER_PRIVATE_KEY'
+  | 'FAUCET_PRIVATE_KEY'
+  | 'SOLVER_PRIVATE_KEY'
+  | 'XLP_PRIVATE_KEY'
+  | 'EVM_PRIVATE_KEY'
+  | 'SOLANA_PRIVATE_KEY'
   // Operator keys
   | 'SEQUENCER_PRIVATE_KEY'
   | 'BATCHER_PRIVATE_KEY'
   | 'PROPOSER_PRIVATE_KEY'
   | 'CHALLENGER_PRIVATE_KEY'
   | 'COORDINATOR_PRIVATE_KEY'
-  // API keys
+  | 'ORACLE_PRIVATE_KEY'
+  | 'FACILITATOR_PRIVATE_KEY'
+  // Node signing keys
+  | 'JEJU_PRIVATE_KEY'
+  | 'OAUTH3_NODE_PRIVATE_KEY'
+  | 'DAO_ADMIN_PRIVATE_KEY'
+  // API keys - Block Explorers
   | 'ETHERSCAN_API_KEY'
   | 'BASESCAN_API_KEY'
   | 'ARBISCAN_API_KEY'
   | 'OPSCAN_API_KEY'
+  // API keys - Frontend
   | 'WALLETCONNECT_PROJECT_ID'
+  // API keys - Storage
   | 'PINATA_JWT'
+  // API keys - Social
   | 'NEYNAR_API_KEY'
+  | 'GITHUB_TOKEN'
+  // API keys - AI/ML
   | 'OPENROUTER_API_KEY'
   | 'OPENAI_API_KEY'
   | 'ANTHROPIC_API_KEY'
+  | 'GROQ_API_KEY'
+  | 'HF_TOKEN'
+  // API keys - Enhanced RPC
   | 'ALCHEMY_API_KEY'
+  | 'HELIUS_API_KEY'
+  // API keys - Infrastructure
   | 'CLOUDFLARE_API_TOKEN'
   | 'CLOUDFLARE_ZONE_ID'
+  // API keys - ZK Proving
   | 'SUCCINCT_API_KEY'
+  // API keys - TEE
   | 'PHALA_API_KEY'
+  // API keys - DEX
   | 'ONEINCH_API_KEY'
+  // API keys - MPC
+  | 'SIGNER_API_KEY'
+  | 'CLOUD_API_KEY'
+  // Platform tokens - Discord
+  | 'DISCORD_BOT_TOKEN'
+  | 'DISCORD_WEBHOOK'
+  // Platform tokens - Telegram
+  | 'TELEGRAM_BOT_TOKEN'
+  | 'TELEGRAM_WEBHOOK_SECRET'
+  // Platform tokens - Twitter
+  | 'TWITTER_API_KEY'
+  | 'TWITTER_API_SECRET'
+  | 'TWITTER_ACCESS_TOKEN'
+  | 'TWITTER_ACCESS_SECRET'
+  | 'TWITTER_BEARER_TOKEN'
+  // Platform tokens - Farcaster
+  | 'FARCASTER_SIGNER_UUID'
+  // Communication - Twilio
+  | 'TWILIO_ACCOUNT_SID'
+  | 'TWILIO_AUTH_TOKEN'
+  | 'TWILIO_PHONE_NUMBER'
+  // Communication - Email
+  | 'SMTP_USER'
+  | 'SMTP_PASSWORD'
   // AWS
   | 'AWS_ACCESS_KEY_ID'
   | 'AWS_SECRET_ACCESS_KEY'
   | 'AWS_REGION'
   | 'AWS_ROUTE53_ZONE_ID'
+  | 'AWS_S3_ACCESS_KEY'
+  | 'AWS_S3_SECRET_KEY'
   // GCP
   | 'GCP_PROJECT_ID'
   | 'GCP_DNS_ZONE_NAME'
+  // Cloudflare R2
+  | 'R2_ACCESS_KEY_ID'
+  | 'R2_SECRET_ACCESS_KEY'
+  | 'BLOB_READ_WRITE_TOKEN'
   // Database
   | 'DB_PASSWORD'
+  | 'DB_USER'
   | 'REDIS_PASSWORD'
+  | 'REDIS_ENCRYPTION_KEY'
+  | 'CQL_PRIVATE_KEY'
+  | 'COVENANTSQL_PRIVATE_KEY'
+  | 'FACTORY_DB_PRIVATE_KEY'
+  // Encryption
+  | 'VAULT_ENCRYPTION_SECRET'
+  | 'TEE_ENCRYPTION_SECRET'
+  | 'MPC_ENCRYPTION_SECRET'
+  | 'KMS_FALLBACK_SECRET'
+  // HSM
+  | 'HSM_API_KEY'
+  | 'HSM_USERNAME'
+  | 'HSM_PASSWORD'
+  // Webhook secrets
+  | 'WEBHOOK_SECRET'
+  | 'ALERT_WEBHOOK'
+  // Internal API keys
+  | 'JEJU_INTERNAL_RPC_KEY'
+  | 'BOT_API_KEY'
+  | 'API_KEY'
+  | 'FACILITATOR_KMS_SECRET_ID'
   // Test mnemonic
   | 'TEST_MNEMONIC'
 

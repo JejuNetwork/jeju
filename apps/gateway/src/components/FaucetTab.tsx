@@ -188,6 +188,7 @@ export default function FaucetTab() {
           <DropletIcon size={20} />
           <h3>{info?.name || 'JEJU Testnet Faucet'}</h3>
           <button
+            type="button"
             className="button button-secondary"
             onClick={refresh}
             disabled={loading}
@@ -292,6 +293,7 @@ export default function FaucetTab() {
                   This prevents bots and ensures tokens go to real developers.
                 </p>
                 <button
+                  type="button"
                   onClick={() => {
                     // Navigate to Bazaar tab and trigger registration view
                     window.dispatchEvent(
@@ -326,6 +328,7 @@ export default function FaucetTab() {
 
         {/* Claim Button */}
         <button
+          type="button"
           className="button w-full"
           onClick={claim}
           disabled={!status?.eligible || claiming || loading}
@@ -399,6 +402,7 @@ export default function FaucetTab() {
       {/* Collapsible API Documentation */}
       <div className="card">
         <button
+          type="button"
           className="card-header w-full cursor-pointer"
           onClick={() => setShowApiDocs(!showApiDocs)}
         >

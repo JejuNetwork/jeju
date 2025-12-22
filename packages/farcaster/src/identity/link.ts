@@ -1,4 +1,4 @@
-import type { Address, Hex } from 'viem'
+import { verifyMessage, type Address, type Hex } from 'viem'
 import { FarcasterClient } from '../hub/client'
 
 export interface LinkVerificationResult {
@@ -164,7 +164,6 @@ export async function verifyLinkProof(
   }
 
   // Recover signer and verify ownership
-  const { verifyMessage } = await import('viem')
   const profile = await client.getProfile(expectedFid)
 
   // Try custody address first

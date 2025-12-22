@@ -7,10 +7,14 @@ import {
   useWaitForTransactionReceipt,
   useWriteContract,
 } from 'wagmi'
-import { JEJU_CHAIN_ID } from '@/config/chains'
-import { getLaunchpadContracts, hasLaunchpad } from '@/config/contracts'
-import type { BondingCurveConfig, ICOConfig, LaunchInfo } from '@/lib/launchpad'
-import { expect, expectPositive, expectTrue } from '@/lib/validation'
+import { JEJU_CHAIN_ID } from '../../config/chains'
+import { getLaunchpadContracts, hasLaunchpad } from '../../config/contracts'
+import type {
+  BondingCurveConfig,
+  ICOConfig,
+  LaunchInfo,
+} from '../../lib/launchpad'
+import { expect, expectPositive, expectTrue } from '../../lib/validation'
 
 export type { BondingCurveConfig, ICOConfig, LaunchInfo }
 

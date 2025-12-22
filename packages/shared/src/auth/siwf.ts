@@ -5,7 +5,13 @@
  * Supports both custody address signing and delegated signers.
  */
 
+import { expectValid } from '@jejunetwork/types'
 import { type Address, type Hex, verifyMessage } from 'viem'
+import {
+  FarcasterChannelResponseSchema,
+  FarcasterChannelStatusResponseSchema,
+  FarcasterUserDataResponseSchema,
+} from '../schemas'
 import { generateNonce } from './siwe'
 import type { SIWFMessage } from './types'
 
@@ -238,7 +244,11 @@ export async function createAuthChannel(params: {
     throw new Error(`Failed to create auth channel: ${response.status}`)
   }
 
-  const data = (await response.json()) as { channelToken: string }
+  const data = expectValid(
+    FarcasterChannelResponseSchema,
+    await response.json(),
+    'Farcaster auth channel response',
+  )
 
   return {
     channelToken: data.channelToken,
@@ -274,17 +284,20 @@ export async function pollAuthChannel(params: {
       throw new Error(`Failed to poll auth channel: ${response.status}`)
     }
 
-    const data = (await response.json()) as {
-      state: 'pending' | 'completed'
-      message?: string
-      signature?: Hex
-      fid?: number
-      username?: string
-      displayName?: string
-      pfpUrl?: string
-      custodyAddress?: Address
-      nonce?: string
+    // Use safeParse for external Farcaster relay API - may return unexpected formats during polling
+    const parseResult = FarcasterChannelStatusResponseSchema.safeParse(
+      await response.json(),
+    )
+    if (!parseResult.success) {
+      console.warn(
+        '[SIWF] Invalid channel status response:',
+        parseResult.error.message,
+      )
+      await new Promise((resolve) => setTimeout(resolve, pollIntervalMs))
+      continue
     }
+
+    const data = parseResult.data
 
     if (
       data.state === 'completed' &&
@@ -326,15 +339,18 @@ export async function getFarcasterUser(params: {
   ).catch(() => null)
   if (!response?.ok) return null
 
-  const data = (await response.json()) as {
-    messages?: Array<{
-      data: {
-        type: string
-        userDataBody?: { type: string; value: string }
-        verificationAddEthAddressBody?: { address: string }
-      }
-    }>
+  // Use safeParse for external Farcaster Hub API - may return unexpected formats
+  const parseResult = FarcasterUserDataResponseSchema.safeParse(
+    await response.json(),
+  )
+  if (!parseResult.success) {
+    console.warn(
+      '[SIWF] Invalid Farcaster user data response:',
+      parseResult.error.message,
+    )
+    return null
   }
+  const data = parseResult.data
 
   if (!data.messages?.length) return null
 

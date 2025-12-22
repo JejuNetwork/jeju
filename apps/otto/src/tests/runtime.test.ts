@@ -1,8 +1,3 @@
-/**
- * Otto Runtime Tests
- * Tests AI response parsing and action detection logic
- */
-
 import { describe, expect, test } from 'bun:test'
 import { extractEntities, selectAction } from '../eliza/runtime'
 

@@ -4,7 +4,7 @@
  */
 
 import type { DataSource } from 'typeorm'
-import { ComputeProvider, StorageProvider } from '../model'
+import { ComputeProvider, StorageProvider, ContainerImage } from '../model'
 import { NotFoundError } from './types'
 
 export interface FullStackProvider {
@@ -135,7 +135,6 @@ export async function getContainerDetail(
     throw new Error('cid is required and must be a non-empty string')
   }
 
-  const { ContainerImage } = await import('../model')
   const repo = dataSource.getRepository(ContainerImage)
   const container = await repo.findOne({
     where: { cid },

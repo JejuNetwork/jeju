@@ -13,6 +13,7 @@
  */
 
 import { EventEmitter } from 'node:events'
+import { expectValid } from '@jejunetwork/types'
 import { type Commitment, Connection, type PublicKey } from '@solana/web3.js'
 import {
   type Address,
@@ -872,8 +873,11 @@ export class SolanaArbitrage {
       throw new Error(`Jupiter API error: ${response.statusText}`)
     }
 
-    const rawData: unknown = await response.json()
-    const data = JupiterQuoteResponseSchema.parse(rawData)
+    const data = expectValid(
+      JupiterQuoteResponseSchema,
+      await response.json(),
+      `Jupiter quote ${inputMint.toBase58()} -> ${outputMint.toBase58()}`,
+    )
     return BigInt(data.outAmount)
   }
 

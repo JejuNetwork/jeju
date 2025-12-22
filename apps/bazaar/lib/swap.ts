@@ -10,7 +10,7 @@ import type {
   SwapQuote,
   SwapToken,
   SwapValidationResult,
-} from '@/schemas/swap'
+} from '../schemas/swap'
 
 // ============ Constants ============
 

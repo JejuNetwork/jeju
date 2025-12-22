@@ -51,34 +51,37 @@ const nativeModelsQuerySchema = z.object({
 // Types
 // ============================================================================
 
-export enum ModelType {
-  LLM = 0,
-  VISION = 1,
-  AUDIO = 2,
-  MULTIMODAL = 3,
-  EMBEDDING = 4,
-  CLASSIFIER = 5,
-  REGRESSION = 6,
-  RL = 7,
-  OTHER = 8,
-}
+export const ModelType = {
+  LLM: 0,
+  VISION: 1,
+  AUDIO: 2,
+  MULTIMODAL: 3,
+  EMBEDDING: 4,
+  CLASSIFIER: 5,
+  REGRESSION: 6,
+  RL: 7,
+  OTHER: 8,
+} as const
+export type ModelType = (typeof ModelType)[keyof typeof ModelType]
 
-export enum LicenseType {
-  MIT = 0,
-  APACHE_2 = 1,
-  GPL_3 = 2,
-  CC_BY_4 = 3,
-  CC_BY_NC_4 = 4,
-  LLAMA_2 = 5,
-  CUSTOM = 6,
-  PROPRIETARY = 7,
-}
+export const LicenseType = {
+  MIT: 0,
+  APACHE_2: 1,
+  GPL_3: 2,
+  CC_BY_4: 3,
+  CC_BY_NC_4: 4,
+  LLAMA_2: 5,
+  CUSTOM: 6,
+  PROPRIETARY: 7,
+} as const
+export type LicenseType = (typeof LicenseType)[keyof typeof LicenseType]
 
-export enum AccessLevel {
-  PUBLIC = 0,
-  GATED = 1,
-  ENCRYPTED = 2,
-}
+export const AccessLevel = {
+  PUBLIC: 0,
+  GATED: 1,
+  ENCRYPTED: 2,
+} as const
+export type AccessLevel = (typeof AccessLevel)[keyof typeof AccessLevel]
 
 export interface Model {
   modelId: string
@@ -673,7 +676,9 @@ export function createModelsRouter(ctx: ModelsContext): Hono {
 
     // Mark previous versions as not latest
     const existingVersions = versionsStore.get(model.modelId) || []
-    existingVersions.forEach((v) => (v.isLatest = false))
+    existingVersions.forEach((v) => {
+      v.isLatest = false
+    })
 
     const version: ModelVersion = {
       versionId,

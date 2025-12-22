@@ -126,6 +126,7 @@ export function CrossChainIntent() {
         {/* From Chain */}
         <div style={{ marginBottom: '16px' }}>
           <label
+            htmlFor="intent-amount"
             style={{
               display: 'block',
               fontSize: '12px',
@@ -157,6 +158,7 @@ export function CrossChainIntent() {
             <span style={{ flex: 1 }}>{sourceChain?.name || 'Unknown'}</span>
             <div style={{ textAlign: 'right' }}>
               <input
+                id="intent-amount"
                 type="text"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
@@ -204,6 +206,7 @@ export function CrossChainIntent() {
         {/* To Chain */}
         <div style={{ marginBottom: '16px' }}>
           <label
+            htmlFor="dest-chain-select"
             style={{
               display: 'block',
               fontSize: '12px',
@@ -214,6 +217,7 @@ export function CrossChainIntent() {
             To
           </label>
           <select
+            id="dest-chain-select"
             value={destChain}
             onChange={(e) => setDestChain(Number(e.target.value))}
             style={{
@@ -236,7 +240,7 @@ export function CrossChainIntent() {
 
         {/* Fee */}
         <div style={{ marginBottom: '20px' }}>
-          <label
+          <span
             style={{
               display: 'block',
               fontSize: '12px',
@@ -245,7 +249,7 @@ export function CrossChainIntent() {
             }}
           >
             Max Solver Fee
-          </label>
+          </span>
           <div
             style={{
               display: 'flex',

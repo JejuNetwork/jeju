@@ -239,20 +239,20 @@ describe('OAuth3 JNS Integration', () => {
   beforeEach(() => {
     resetOAuth3JNSService()
     jns = createOAuth3JNSService({
-      rpcUrl: 'http://localhost:9545',
+      rpcUrl: 'http://localhost:6546',
       chainId: 420691,
     })
   })
 
   describe('singleton behavior', () => {
     it('should return same instance on repeated calls', () => {
-      const jns2 = createOAuth3JNSService({ rpcUrl: 'http://localhost:9545' })
+      const jns2 = createOAuth3JNSService({ rpcUrl: 'http://localhost:6546' })
       expect(jns).toBe(jns2)
     })
 
     it('should create new instance after reset', () => {
       resetOAuth3JNSService()
-      const jns2 = createOAuth3JNSService({ rpcUrl: 'http://localhost:9545' })
+      const jns2 = createOAuth3JNSService({ rpcUrl: 'http://localhost:6546' })
       expect(jns).not.toBe(jns2)
     })
   })
@@ -512,7 +512,7 @@ describe('OAuth3 Compute Integration', () => {
   beforeEach(() => {
     resetOAuth3ComputeService()
     compute = createOAuth3ComputeService({
-      rpcUrl: 'http://localhost:9545',
+      rpcUrl: 'http://localhost:6546',
       chainId: 420691,
     })
   })
@@ -615,7 +615,7 @@ describe('OAuth3 Decentralized Discovery', () => {
     resetOAuth3StorageService()
     resetOAuth3ComputeService()
     discovery = createDecentralizedDiscovery({
-      rpcUrl: 'http://localhost:9545',
+      rpcUrl: 'http://localhost:6546',
       chainId: 420691,
       ipfsApiEndpoint: 'http://localhost:5001/api/v0',
     })
@@ -925,7 +925,7 @@ describe('Concurrent Operations', () => {
 
   it('should handle parallel JNS lookups', async () => {
     const jns = createOAuth3JNSService({
-      rpcUrl: 'http://localhost:9545',
+      rpcUrl: 'http://localhost:6546',
       chainId: 420691,
     })
 
@@ -950,7 +950,9 @@ describe('Concurrent Operations', () => {
 
     const results = await checks
     expect(results.length).toBe(3)
-    results.forEach((r) => expect(typeof r).toBe('boolean'))
+    results.forEach((r) => {
+      expect(typeof r).toBe('boolean')
+    })
   })
 
   it('should handle parallel compute health checks', async () => {
@@ -965,7 +967,9 @@ describe('Concurrent Operations', () => {
 
     const results = await checks
     expect(results.length).toBe(3)
-    results.forEach((r) => expect(typeof r).toBe('boolean'))
+    results.forEach((r) => {
+      expect(typeof r).toBe('boolean')
+    })
   })
 })
 
@@ -1083,7 +1087,7 @@ describe('Compute Node Resources', () => {
   beforeEach(() => {
     resetOAuth3ComputeService()
     compute = createOAuth3ComputeService({
-      rpcUrl: 'http://localhost:9545',
+      rpcUrl: 'http://localhost:6546',
       chainId: 420691,
     })
   })

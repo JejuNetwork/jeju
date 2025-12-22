@@ -57,6 +57,7 @@ export async function openInExternalBrowser(url: string): Promise<boolean> {
   const platform = getPlatformInfo()
 
   if (platform.category === 'mobile') {
+    // Dynamic import: Conditional - only loaded on mobile platforms
     const { Browser } = await import('@capacitor/browser')
     await Browser.open({ url, presentationStyle: 'fullscreen' })
     return true

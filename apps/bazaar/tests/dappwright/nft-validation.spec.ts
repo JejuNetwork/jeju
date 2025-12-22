@@ -12,7 +12,7 @@ import { basicSetup } from '../../synpress.config'
 const test = testWithSynpress(metaMaskFixtures(basicSetup))
 const { expect } = test
 
-const RPC_URL = process.env.L2_RPC_URL ?? 'http://localhost:9545'
+const RPC_URL = process.env.L2_RPC_URL ?? 'http://localhost:6546'
 const CHAIN_ID = parseInt(process.env.CHAIN_ID ?? '1337', 10)
 
 const publicClient = createPublicClient({
@@ -149,7 +149,7 @@ test.describe('NFT Validation Matrix', () => {
     console.log('Validation Matrix:')
     validationMatrix.forEach(({ feature, checks, status }) => {
       console.log(`${feature}: ${status}`)
-      checks.forEach((check) => console.log(`  - ${check}`))
+      for (const check of checks) console.log(`  - ${check}`)
     })
 
     expect(validationMatrix.every((v) => v.status === 'IMPLEMENTED')).toBe(true)

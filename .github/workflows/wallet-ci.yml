@@ -85,17 +85,17 @@ jobs:
       - name: Install Playwright browsers
         run: bunx playwright install chromium --with-deps
 
-      - name: Start Jeju localnet (anvil)
+      - name: Start Jeju localnet (anvil on port 6546)
         run: |
-          anvil --chain-id 1337 --port 9545 --block-time 1 --accounts 10 --balance 10000 &
+          anvil --chain-id 1337 --port 6546 --block-time 1 --accounts 10 --balance 10000 &
           sleep 3
-          curl -s -X POST http://localhost:9545 -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' | grep -q "0x539" && echo "Localnet running"
+          curl -s -X POST http://localhost:6546 -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' | grep -q "0x539" && echo "Localnet running"
         working-directory: .
 
       - name: Run E2E tests (live)
         run: bun run test:e2e
         env:
-          JEJU_RPC_URL: http://localhost:9545
+          JEJU_RPC_URL: http://localhost:6546
 
       - name: Upload test artifacts
         uses: actions/upload-artifact@v4
@@ -174,11 +174,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y xvfb libnss3 libatk1.0-0 libatk-bridge2.0-0 libdrm2 libxkbcommon0 libgbm1
 
-      - name: Start Jeju localnet (anvil)
+      - name: Start Jeju localnet (anvil on port 6546)
         run: |
-          anvil --chain-id 1337 --port 9545 --block-time 1 --accounts 10 --balance 10000 &
+          anvil --chain-id 1337 --port 6546 --block-time 1 --accounts 10 --balance 10000 &
           sleep 3
-          curl -s -X POST http://localhost:9545 -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' | grep -q "0x539" && echo "Localnet running"
+          curl -s -X POST http://localhost:6546 -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' | grep -q "0x539" && echo "Localnet running"
         working-directory: .
 
       - name: Create Synpress cache
@@ -191,7 +191,7 @@ jobs:
         run: xvfb-run --auto-servernum -- bun run test:e2e:metamask
         env:
           DISPLAY: :99
-          JEJU_RPC_URL: http://localhost:9545
+          JEJU_RPC_URL: http://localhost:6546
 
       - name: Upload test artifacts
         uses: actions/upload-artifact@v4

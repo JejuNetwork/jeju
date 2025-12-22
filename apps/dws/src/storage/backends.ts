@@ -3,8 +3,16 @@
  * Supports local storage and IPFS with extensible backend system
  */
 
+import { expectJson } from '@jejunetwork/types'
 import { keccak256 } from 'viem'
+import { z } from 'zod'
 import type { BackendType } from '../types'
+
+const IpfsAddResponseSchema = z.object({
+  Hash: z.string().min(1),
+  Name: z.string().optional(),
+  Size: z.string().optional(),
+})
 
 interface StorageBackend {
   name: string
@@ -80,7 +88,11 @@ class IPFSBackend implements StorageBackend {
     // IPFS can return multiple lines if filename has slashes; take first line
     const text = await response.text()
     const firstLine = text.trim().split('\n')[0]
-    const data = JSON.parse(firstLine) as { Hash: string }
+    const data = expectJson(
+      firstLine,
+      IpfsAddResponseSchema,
+      'IPFS add response',
+    )
     return { cid: data.Hash, url: `${this.gatewayUrl}/ipfs/${data.Hash}` }
   }
 

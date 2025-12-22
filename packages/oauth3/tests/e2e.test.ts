@@ -310,7 +310,8 @@ describe('Multi-tenant Council', () => {
   })
 
   test('validates council access', async () => {
-    const jeju = manager.getCouncil('jeju' as const)!
+    const jeju = manager.getCouncil('jeju' as const)
+    if (!jeju) throw new Error('Jeju council not found')
 
     const ceoAccess = await manager.validateCouncilAccess(
       'jeju' as const,
@@ -334,7 +335,8 @@ describe('Multi-tenant Council', () => {
       modelId: 'claude-sonnet-4-20250514',
     })
 
-    const jeju = manager.getCouncil('jeju' as const)!
+    const jeju = manager.getCouncil('jeju' as const)
+    if (!jeju) throw new Error('Jeju council not found')
     expect(jeju.ceo.modelId).toBe('claude-sonnet-4-20250514')
   })
 

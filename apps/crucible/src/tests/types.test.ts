@@ -327,7 +327,7 @@ describe('Type Definitions', () => {
   describe('Config Types', () => {
     it('should create valid CrucibleConfig', () => {
       const config: CrucibleConfig = {
-        rpcUrl: 'http://localhost:9545',
+        rpcUrl: 'http://localhost:6546',
         privateKey: '0x123',
         contracts: {
           agentVault: '0x1234567890123456789012345678901234567890',

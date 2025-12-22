@@ -62,7 +62,7 @@ describe('OIF Solver Metrics', () => {
       )
 
       expect(profitable).toBeDefined()
-      expect(profitable!.value).toBeGreaterThan(0)
+      expect(profitable?.value).toBeGreaterThan(0)
     })
 
     it('should track unprofitable evaluations', () => {
@@ -74,7 +74,7 @@ describe('OIF Solver Metrics', () => {
       )
 
       expect(unprofitable).toBeDefined()
-      expect(unprofitable!.value).toBeGreaterThan(0)
+      expect(unprofitable?.value).toBeGreaterThan(0)
     })
   })
 
@@ -108,7 +108,7 @@ describe('OIF Solver Metrics', () => {
       )
 
       expect(gasMetric).toBeDefined()
-      expect(gasMetric!.value).toBeGreaterThan(0)
+      expect(gasMetric?.value).toBeGreaterThan(0)
     })
 
     it('should record duration histogram', () => {
@@ -120,8 +120,8 @@ describe('OIF Solver Metrics', () => {
       )
 
       expect(histogram).toBeDefined()
-      expect(histogram!.count).toBeGreaterThan(0)
-      expect(histogram!.sum).toBeGreaterThan(0)
+      expect(histogram?.count).toBeGreaterThan(0)
+      expect(histogram?.sum).toBeGreaterThan(0)
     })
   })
 
@@ -139,7 +139,7 @@ describe('OIF Solver Metrics', () => {
       )
 
       expect(liquiditySkips).toBeDefined()
-      expect(liquiditySkips!.value).toBeGreaterThanOrEqual(2)
+      expect(liquiditySkips?.value).toBeGreaterThanOrEqual(2)
     })
   })
 
@@ -153,7 +153,7 @@ describe('OIF Solver Metrics', () => {
       )
 
       expect(claims).toBeDefined()
-      expect(claims!.value).toBeGreaterThan(0)
+      expect(claims?.value).toBeGreaterThan(0)
     })
 
     it('should accumulate profit', () => {
@@ -185,7 +185,7 @@ describe('OIF Solver Metrics', () => {
       )
 
       expect(failures).toBeDefined()
-      expect(failures!.value).toBeGreaterThan(0)
+      expect(failures?.value).toBeGreaterThan(0)
     })
   })
 
@@ -325,7 +325,7 @@ describe('OIF Solver Metrics', () => {
         (m) => m.labels.source_chain === '1' && m.labels.dest_chain === '10',
       )
       expect(histogram).toBeDefined()
-      expect(histogram!.sum).toBeGreaterThan(0)
+      expect(histogram?.sum).toBeGreaterThan(0)
     })
 
     it('should handle 0 gas used', () => {

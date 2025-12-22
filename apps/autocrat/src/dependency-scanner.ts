@@ -9,6 +9,15 @@
  * - Integration with ContributorRegistry for maintainer lookup
  */
 
+import {
+  CrateDependenciesResponseSchema,
+  CrateResponseSchema,
+  expectValid,
+  NpmPackageLatestSchema,
+  NpmPackageResponseSchema,
+  PyPIPackageResponseSchema,
+} from './schemas'
+
 // GitHub API types for content responses
 interface GitHubFileContent {
   type: 'file'
@@ -114,7 +123,11 @@ async function fetchNpmPackage(packageName: string): Promise<PackageMetadata> {
     throw new Error(`NPM package not found: ${packageName}`)
   }
 
-  const data = await response.json()
+  const data = expectValid(
+    NpmPackageResponseSchema,
+    await response.json(),
+    `npm package ${packageName}`,
+  )
   const latest = data['dist-tags']?.latest
   const latestVersion = latest ? data.versions?.[latest] : null
 
@@ -126,9 +139,9 @@ async function fetchNpmPackage(packageName: string): Promise<PackageMetadata> {
         ? data.repository
         : data.repository?.url,
     maintainers:
-      data.maintainers?.map(
-        (m: { name?: string; email?: string }) => m.name || m.email,
-      ) || [],
+      (data.maintainers
+        ?.map((m) => m.name || m.email)
+        .filter(Boolean) as string[]) || [],
     license: latestVersion?.license || data.license,
   }
 }
@@ -139,15 +152,19 @@ async function fetchPyPIPackage(packageName: string): Promise<PackageMetadata> {
     throw new Error(`PyPI package not found: ${packageName}`)
   }
 
-  const data = await response.json()
+  const data = expectValid(
+    PyPIPackageResponseSchema,
+    await response.json(),
+    `PyPI package ${packageName}`,
+  )
   const info = data.info
 
   return {
-    description: info.summary,
-    homepage: info.home_page || info.project_url,
-    repository: info.project_urls?.Source || info.project_urls?.Repository,
-    maintainers: [info.author, info.maintainer].filter(Boolean) as string[],
-    license: info.license,
+    description: info?.summary,
+    homepage: info?.home_page || info?.project_url,
+    repository: info?.project_urls?.Source || info?.project_urls?.Repository,
+    maintainers: [info?.author, info?.maintainer].filter(Boolean) as string[],
+    license: info?.license,
   }
 }
 
@@ -159,16 +176,20 @@ async function fetchCargoPackage(
     throw new Error(`Cargo package not found: ${packageName}`)
   }
 
-  const data = await response.json()
+  const data = expectValid(
+    CrateResponseSchema,
+    await response.json(),
+    `Cargo crate ${packageName}`,
+  )
   const crate = data.crate
 
   return {
-    description: crate.description,
-    homepage: crate.homepage,
-    repository: crate.repository,
+    description: crate?.description,
+    homepage: crate?.homepage,
+    repository: crate?.repository,
     maintainers: [], // Would need additional API call for owners
     license: data.versions?.[0]?.license,
-    downloads: crate.downloads,
+    downloads: crate?.downloads,
   }
 }
 
@@ -675,7 +696,11 @@ export class DependencyScanner {
       return { dependencies: {} }
     }
 
-    const data = await response.json()
+    const data = expectValid(
+      NpmPackageLatestSchema,
+      await response.json(),
+      `npm package deps ${packageName}`,
+    )
     return { dependencies: data.dependencies || {} }
   }
 
@@ -688,7 +713,11 @@ export class DependencyScanner {
       return []
     }
 
-    const data = await response.json()
+    const data = expectValid(
+      PyPIPackageResponseSchema,
+      await response.json(),
+      `PyPI package deps ${packageName}`,
+    )
     const requires = data.info?.requires_dist || []
 
     // Parse requirement strings like "numpy>=1.0" to just "numpy"
@@ -711,7 +740,11 @@ export class DependencyScanner {
       return []
     }
 
-    const data = await response.json()
+    const data = expectValid(
+      CrateResponseSchema,
+      await response.json(),
+      `Cargo crate ${packageName}`,
+    )
     const latestVersion = data.versions?.[0]?.num
     if (!latestVersion) return []
 
@@ -723,10 +756,14 @@ export class DependencyScanner {
       return []
     }
 
-    const depsData = await depsResponse.json()
+    const depsData = expectValid(
+      CrateDependenciesResponseSchema,
+      await depsResponse.json(),
+      `Cargo deps ${packageName}`,
+    )
     return (depsData.dependencies || [])
-      .filter((d: { kind: string }) => d.kind === 'normal')
-      .map((d: { crate_id: string }) => d.crate_id)
+      .filter((d) => d.kind === 'normal')
+      .map((d) => d.crate_id)
   }
 
   /**

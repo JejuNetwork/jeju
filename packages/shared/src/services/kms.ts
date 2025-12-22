@@ -4,8 +4,14 @@
  * Provides encryption/decryption via the network KMS with MPC.
  */
 
-import type { Address } from 'viem'
+import { expectValid } from '@jejunetwork/types'
+import { hashMessage, recoverAddress, type Address } from 'viem'
 import { z } from 'zod'
+import {
+  KMSDecryptResponseSchema,
+  KMSEncryptResponseSchema,
+  KMSSignResponseSchema,
+} from '../schemas'
 
 const KMSConfigSchema = z.object({
   endpoint: z.string().url(),
@@ -102,7 +108,6 @@ class KMSServiceImpl implements KMSServiceClient {
     signature: string,
     expectedAddress: Address,
   ): Promise<boolean> {
-    const { recoverAddress, hashMessage } = await import('viem')
     const recovered = await recoverAddress({
       hash: hashMessage({ raw: message as `0x${string}` }),
       signature: signature as `0x${string}`,
@@ -147,7 +152,11 @@ class KMSServiceImpl implements KMSServiceClient {
       console.error(`[KMS] Encrypt failed: ${response.status}`)
       return null
     }
-    const result = (await response.json()) as { encrypted: string }
+    const result = expectValid(
+      KMSEncryptResponseSchema,
+      await response.json(),
+      'KMS encrypt response',
+    )
     return result.encrypted
   }
 
@@ -174,7 +183,11 @@ class KMSServiceImpl implements KMSServiceClient {
       console.error(`[KMS] Decrypt failed: ${response.status}`)
       return null
     }
-    const result = (await response.json()) as { decrypted: string }
+    const result = expectValid(
+      KMSDecryptResponseSchema,
+      await response.json(),
+      'KMS decrypt response',
+    )
     return result.decrypted
   }
 
@@ -196,7 +209,11 @@ class KMSServiceImpl implements KMSServiceClient {
       console.error(`[KMS] Sign failed: ${response.status}`)
       return null
     }
-    const result = (await response.json()) as { signature: string }
+    const result = expectValid(
+      KMSSignResponseSchema,
+      await response.json(),
+      'KMS sign response',
+    )
     return result.signature
   }
 

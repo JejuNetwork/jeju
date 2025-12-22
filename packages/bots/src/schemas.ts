@@ -142,28 +142,6 @@ export const CoinGeckoMarketChartSchema = z.object({
 })
 export type CoinGeckoMarketChart = z.infer<typeof CoinGeckoMarketChartSchema>
 
-export const JupiterQuoteResponseSchema = z
-  .object({
-    outAmount: z.string(),
-    inAmount: z.string().optional(),
-    priceImpactPct: z.string().optional(),
-    routePlan: z
-      .array(
-        z.object({
-          swapInfo: z
-            .object({
-              ammKey: z.string(),
-              label: z.string().optional(),
-            })
-            .passthrough(),
-          percent: z.number(),
-        }),
-      )
-      .optional(),
-  })
-  .passthrough()
-export type JupiterQuoteResponse = z.infer<typeof JupiterQuoteResponseSchema>
-
 export const IndexerPositionSchema = z.object({
   positionId: z.string(),
   trader: z.string(),
@@ -237,3 +215,52 @@ export const BotEngineConfigSchema = z.object({
   healthCheckIntervalMs: z.number().positive(),
   logLevel: z.enum(['debug', 'info', 'warn', 'error']),
 })
+
+// ============ Jupiter API Schemas (Solana) ============
+
+export const JupiterRouteSwapInfoSchema = z.object({
+  ammKey: z.string(),
+  label: z.string(),
+  inputMint: z.string(),
+  outputMint: z.string(),
+  inAmount: z.string(),
+  outAmount: z.string(),
+  feeAmount: z.string(),
+  feeMint: z.string(),
+})
+
+export const JupiterRoutePlanSchema = z.object({
+  swapInfo: JupiterRouteSwapInfoSchema,
+  percent: z.number(),
+})
+
+export const JupiterQuoteResponseSchema = z.object({
+  inputMint: z.string(),
+  outputMint: z.string(),
+  inAmount: z.string(),
+  outAmount: z.string(),
+  otherAmountThreshold: z.string(),
+  swapMode: z.string(),
+  slippageBps: z.number(),
+  priceImpactPct: z.string(),
+  routePlan: z.array(JupiterRoutePlanSchema),
+  contextSlot: z.number(),
+  timeTaken: z.number(),
+})
+export type JupiterQuoteResponse = z.infer<typeof JupiterQuoteResponseSchema>
+
+// ============ Validation Helpers ============
+
+/**
+ * Parse and validate an EVMChainId from a number
+ * Throws if the chain ID is not valid
+ */
+export function expectEVMChainId(value: number, context?: string): z.infer<typeof EVMChainIdSchema> {
+  const result = EVMChainIdSchema.safeParse(value)
+  if (!result.success) {
+    throw new Error(
+      `Invalid EVMChainId${context ? ` in ${context}` : ''}: ${value} is not a supported chain`,
+    )
+  }
+  return result.data
+}

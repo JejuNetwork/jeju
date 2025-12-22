@@ -40,7 +40,7 @@ import { base, baseSepolia, foundry } from 'viem/chains'
 const NETWORKS = {
   localnet: {
     chain: foundry,
-    rpcUrl: 'http://localhost:9545',
+    rpcUrl: 'http://localhost:6546',
     chainId: 1337,
     enableFaucet: true,
     requireMultiSig: false,

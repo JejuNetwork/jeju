@@ -214,10 +214,11 @@ export default function RegisterAppForm() {
         <form onSubmit={handleSubmit}>
           {/* Name */}
           <div style={{ marginBottom: '1.5rem' }}>
-            <label className="input-label">
+            <label htmlFor="app-name" className="input-label">
               Name <span style={{ color: 'var(--error)' }}>*</span>
             </label>
             <input
+              id="app-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -238,7 +239,7 @@ export default function RegisterAppForm() {
 
           {/* Description */}
           <div style={{ marginBottom: '1.5rem' }}>
-            <label className="input-label">
+            <label htmlFor="app-description-display" className="input-label">
               Description{' '}
               <span
                 style={{
@@ -251,6 +252,7 @@ export default function RegisterAppForm() {
               </span>
             </label>
             <textarea
+              id="app-description-display"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="What you're building or working on..."
@@ -262,7 +264,7 @@ export default function RegisterAppForm() {
 
           {/* A2A Endpoint */}
           <div style={{ marginBottom: '1.5rem' }}>
-            <label className="input-label">
+            <label htmlFor="app-a2a-endpoint-display" className="input-label">
               A2A Endpoint URL
               <span
                 style={{
@@ -275,6 +277,7 @@ export default function RegisterAppForm() {
               </span>
             </label>
             <input
+              id="app-a2a-endpoint-display"
               type="url"
               value={a2aEndpoint}
               onChange={(e) => setA2aEndpoint(e.target.value)}
@@ -284,9 +287,9 @@ export default function RegisterAppForm() {
           </div>
 
           <div style={{ marginBottom: '1.5rem' }}>
-            <label className="input-label">
+            <span className="input-label">
               Category <span style={{ color: 'var(--error)' }}>*</span>
-            </label>
+            </span>
             <p
               style={{
                 fontSize: '0.75rem',
@@ -312,9 +315,9 @@ export default function RegisterAppForm() {
 
           {/* Stake Token Selection */}
           <div style={{ marginBottom: '1.5rem' }}>
-            <label className="input-label">
+            <span className="input-label">
               Stake Token <span style={{ color: 'var(--error)' }}>*</span>
-            </label>
+            </span>
             <TokenSelector
               tokens={tokens.map((t) => ({
                 symbol: t.symbol,

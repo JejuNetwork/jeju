@@ -20,6 +20,14 @@ import {
   toBytes,
   type WalletClient,
 } from 'viem'
+import {
+  expectValid,
+  expectValidResponse,
+  GitHubRepoPermissionsSchema,
+  GitHubTokenResponseSchema,
+  GitHubUserProfileSchema,
+  NpmPackageResponseSchema,
+} from './schemas'
 
 // ============ GitHub OAuth Types (local implementation) ============
 
@@ -76,20 +84,16 @@ class GitHubOAuthProvider {
       }),
     })
 
-    if (!response.ok) {
-      throw new Error(`GitHub token exchange failed: ${response.status}`)
-    }
-
-    const data = (await response.json()) as {
-      access_token: string
-      token_type: string
-      scope: string
-    }
+    const data = await expectValidResponse(
+      response,
+      GitHubTokenResponseSchema,
+      'GitHub token exchange',
+    )
 
     return {
       accessToken: data.access_token,
       tokenType: data.token_type,
-      scope: data.scope,
+      scope: data.scope ?? '',
     }
   }
 
@@ -101,11 +105,11 @@ class GitHubOAuthProvider {
       },
     })
 
-    if (!response.ok) {
-      throw new Error(`GitHub profile fetch failed: ${response.status}`)
-    }
-
-    return response.json() as Promise<GitHubUserProfile>
+    return expectValidResponse(
+      response,
+      GitHubUserProfileSchema,
+      'GitHub profile fetch',
+    )
   }
 }
 
@@ -438,9 +442,11 @@ export class ContributorService {
       return { verified: false, proofHash: '' }
     }
 
-    const data = (await response.json()) as {
-      permissions?: { admin?: boolean; push?: boolean; maintain?: boolean }
-    }
+    const data = expectValid(
+      GitHubRepoPermissionsSchema,
+      await response.json(),
+      'GitHub repo permissions',
+    )
 
     const hasPermission =
       data.permissions?.admin ||
@@ -497,10 +503,15 @@ export class ContributorService {
         return { verified: false, proofHash: '' }
       }
 
-      const npmData = (await npmResponse.json()) as {
-        repository?: { url?: string }
-      }
-      const repoUrl = npmData.repository?.url
+      const npmData = expectValid(
+        NpmPackageResponseSchema,
+        await npmResponse.json(),
+        'npm package data',
+      )
+      const repoUrl =
+        typeof npmData.repository === 'string'
+          ? npmData.repository
+          : npmData.repository?.url
 
       if (!repoUrl) {
         return { verified: false, proofHash: '' }

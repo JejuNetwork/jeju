@@ -105,12 +105,12 @@ describe('ABI Definitions', () => {
       (item) => item.type === 'function' && item.name === 'fillDirect',
     )
     expect(fillDirect).toBeDefined()
-    expect(fillDirect!.inputs).toHaveLength(4)
-    expect(fillDirect!.inputs[0].name).toBe('orderId')
-    expect(fillDirect!.inputs[0].type).toBe('bytes32')
-    expect(fillDirect!.inputs[1].name).toBe('token')
-    expect(fillDirect!.inputs[2].name).toBe('amount')
-    expect(fillDirect!.inputs[3].name).toBe('recipient')
+    expect(fillDirect?.inputs).toHaveLength(4)
+    expect(fillDirect?.inputs[0].name).toBe('orderId')
+    expect(fillDirect?.inputs[0].type).toBe('bytes32')
+    expect(fillDirect?.inputs[1].name).toBe('token')
+    expect(fillDirect?.inputs[2].name).toBe('amount')
+    expect(fillDirect?.inputs[3].name).toBe('recipient')
   })
 
   test('OUTPUT_SETTLER_ABI has isFilled function', () => {
@@ -118,9 +118,9 @@ describe('ABI Definitions', () => {
       (item) => item.type === 'function' && item.name === 'isFilled',
     )
     expect(isFilled).toBeDefined()
-    expect(isFilled!.inputs).toHaveLength(1)
-    expect(isFilled!.outputs).toHaveLength(1)
-    expect(isFilled!.outputs![0].type).toBe('bool')
+    expect(isFilled?.inputs).toHaveLength(1)
+    expect(isFilled?.outputs).toHaveLength(1)
+    expect(isFilled?.outputs?.[0].type).toBe('bool')
   })
 
   test('ERC20_APPROVE_ABI has approve function', () => {
@@ -425,8 +425,8 @@ describe('INPUT_SETTLER_ABI Coverage', () => {
       (f) => f.type === 'function' && f.name === 'settle',
     )
     expect(settle).toBeDefined()
-    expect(settle!.inputs.length).toBe(1)
-    expect(settle!.inputs[0].type).toBe('bytes32')
+    expect(settle?.inputs.length).toBe(1)
+    expect(settle?.inputs[0].type).toBe('bytes32')
   })
 
   test('canSettle function exists with correct signature', () => {
@@ -434,9 +434,9 @@ describe('INPUT_SETTLER_ABI Coverage', () => {
       (f) => f.type === 'function' && f.name === 'canSettle',
     )
     expect(canSettle).toBeDefined()
-    expect(canSettle!.inputs.length).toBe(1)
-    expect(canSettle!.outputs?.length).toBe(1)
-    expect(canSettle!.outputs?.[0].type).toBe('bool')
+    expect(canSettle?.inputs.length).toBe(1)
+    expect(canSettle?.outputs?.length).toBe(1)
+    expect(canSettle?.outputs?.[0].type).toBe('bool')
   })
 
   test('getOrder function returns tuple with expected fields', () => {
@@ -444,8 +444,8 @@ describe('INPUT_SETTLER_ABI Coverage', () => {
       (f) => f.type === 'function' && f.name === 'getOrder',
     )
     expect(getOrder).toBeDefined()
-    expect(getOrder!.outputs?.length).toBe(1)
-    expect(getOrder!.outputs?.[0].type).toBe('tuple')
+    expect(getOrder?.outputs?.length).toBe(1)
+    expect(getOrder?.outputs?.[0].type).toBe('tuple')
   })
 })
 
@@ -455,8 +455,8 @@ describe('ORACLE_ABI Coverage', () => {
       (f) => f.type === 'function' && f.name === 'hasAttested',
     )
     expect(fn).toBeDefined()
-    expect(fn!.inputs[0].type).toBe('bytes32')
-    expect(fn!.outputs?.[0].type).toBe('bool')
+    expect(fn?.inputs[0].type).toBe('bytes32')
+    expect(fn?.outputs?.[0].type).toBe('bool')
   })
 
   test('submitAttestation function exists', () => {
@@ -464,8 +464,8 @@ describe('ORACLE_ABI Coverage', () => {
       (f) => f.type === 'function' && f.name === 'submitAttestation',
     )
     expect(fn).toBeDefined()
-    expect(fn!.inputs.length).toBe(2)
-    expect(fn!.inputs[0].type).toBe('bytes32')
-    expect(fn!.inputs[1].type).toBe('bytes')
+    expect(fn?.inputs.length).toBe(2)
+    expect(fn?.inputs[0].type).toBe('bytes32')
+    expect(fn?.inputs[1].type).toBe('bytes')
   })
 })

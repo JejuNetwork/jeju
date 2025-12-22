@@ -139,21 +139,22 @@ export * from './types'
 // Initialize
 // ============================================================================
 
+import { initializeDWSState } from '../state.js'
+import * as keyVault from './key-vault.js'
+import * as registry from './registry.js'
+
 /**
  * Initialize the API marketplace
  * Must be called before using any marketplace functions
  */
 export async function initializeMarketplace(): Promise<void> {
   // Initialize state first (ensures CQL is ready)
-  const { initializeDWSState } = await import('../state.js')
   await initializeDWSState()
 
   // Load system keys from environment
-  const keyVault = await import('./key-vault.js')
   keyVault.loadSystemKeys()
 
   // Create system listings for configured providers
-  const registry = await import('./registry.js')
   await registry.initializeSystemListings()
 
   console.log('[API Marketplace] Initialized')

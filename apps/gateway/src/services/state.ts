@@ -14,6 +14,7 @@ import type {
   Solver,
   SupportedChainId,
 } from '@jejunetwork/types'
+import { CachedIntentSchema, CachedSolverSchema } from '../lib/validation'
 
 const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'gateway'
 
@@ -330,7 +331,10 @@ export const intentState = {
   async get(intentId: string): Promise<Intent | null> {
     const cache = getCache()
     const cached = await cache.get(`intent:${intentId}`).catch(() => null)
-    if (cached) return JSON.parse(cached) as Intent
+    if (cached) {
+      const parsed = CachedIntentSchema.safeParse(JSON.parse(cached))
+      if (parsed.success) return parsed.data as Intent
+    }
 
     const client = await getCQLClient()
     const result = await client.query<IntentRow>(
@@ -491,7 +495,10 @@ export const solverState = {
     const addr = address.toLowerCase()
     const cache = getCache()
     const cached = await cache.get(`solver:${addr}`).catch(() => null)
-    if (cached) return JSON.parse(cached) as Solver
+    if (cached) {
+      const parsed = CachedSolverSchema.safeParse(JSON.parse(cached))
+      if (parsed.success) return parsed.data as Solver
+    }
 
     const client = await getCQLClient()
     const result = await client.query<SolverRow>(

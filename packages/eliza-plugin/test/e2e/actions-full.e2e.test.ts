@@ -81,11 +81,11 @@ describe('Plugin Structure', () => {
 
   test('plugin has actions', () => {
     expect(jejuPlugin.actions).toBeDefined()
-    expect(jejuPlugin.actions!.length).toBeGreaterThan(0)
+    expect(jejuPlugin.actions?.length).toBeGreaterThan(0)
   })
 
   test('all actions have unique names', () => {
-    const names = jejuPlugin.actions!.map((a) => a.name)
+    const names = jejuPlugin.actions?.map((a) => a.name)
     const uniqueNames = new Set(names)
     if (uniqueNames.size !== names.length) {
       const duplicates = names.filter(
@@ -175,7 +175,7 @@ describe('Action Categories', () => {
     describe(`${category} actions`, () => {
       for (const actionName of expectedActions) {
         test(`has ${actionName}`, () => {
-          const action = jejuPlugin.actions!.find((a) => a.name === actionName)
+          const action = jejuPlugin.actions?.find((a) => a.name === actionName)
           expect(action).toBeDefined()
         })
       }

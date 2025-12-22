@@ -24,34 +24,36 @@ export type JsonRecord = { [key: string]: JsonValue }
 
 // ============ Provider Types ============
 
-export enum AuthProvider {
-  WALLET = 'wallet',
-  FARCASTER = 'farcaster',
-  GOOGLE = 'google',
-  APPLE = 'apple',
-  TWITTER = 'twitter',
-  GITHUB = 'github',
-  DISCORD = 'discord',
-  EMAIL = 'email',
-  PHONE = 'phone',
-}
+export const AuthProvider = {
+  WALLET: 'wallet',
+  FARCASTER: 'farcaster',
+  GOOGLE: 'google',
+  APPLE: 'apple',
+  TWITTER: 'twitter',
+  GITHUB: 'github',
+  DISCORD: 'discord',
+  EMAIL: 'email',
+  PHONE: 'phone',
+} as const
+export type AuthProvider = (typeof AuthProvider)[keyof typeof AuthProvider]
 
-export enum ChainId {
+export const ChainId = {
   // Jeju Network
-  JEJU_LOCALNET = 420691,
-  JEJU_TESTNET = 420690,
-  JEJU_MAINNET = 420692,
+  JEJU_LOCALNET: 420691,
+  JEJU_TESTNET: 420690,
+  JEJU_MAINNET: 420692,
   // Ethereum & L2s
-  ETHEREUM = 1,
-  OPTIMISM = 10,
-  ARBITRUM = 42161,
-  BASE = 8453,
-  BASE_SEPOLIA = 84532,
+  ETHEREUM: 1,
+  OPTIMISM: 10,
+  ARBITRUM: 42161,
+  BASE: 8453,
+  BASE_SEPOLIA: 84532,
   // Other EVM chains
-  BSC = 56,
-  POLYGON = 137,
-  AVALANCHE = 43114,
-}
+  BSC: 56,
+  POLYGON: 137,
+  AVALANCHE: 43114,
+} as const
+export type ChainId = (typeof ChainId)[keyof typeof ChainId]
 
 // ============ Identity Types ============
 
@@ -110,12 +112,14 @@ export interface OAuth3InternalSession extends OAuth3Session {
   signingKey: Hex
 }
 
-export enum SessionCapability {
-  SIGN_TRANSACTION = 'sign_transaction',
-  SIGN_MESSAGE = 'sign_message',
-  MANAGE_IDENTITY = 'manage_identity',
-  DELEGATE = 'delegate',
-}
+export const SessionCapability = {
+  SIGN_TRANSACTION: 'sign_transaction',
+  SIGN_MESSAGE: 'sign_message',
+  MANAGE_IDENTITY: 'manage_identity',
+  DELEGATE: 'delegate',
+} as const
+export type SessionCapability =
+  (typeof SessionCapability)[keyof typeof SessionCapability]
 
 // ============ TEE Types ============
 
@@ -128,11 +132,12 @@ export interface TEEAttestation {
   verified: boolean
 }
 
-export enum TEEProvider {
-  DSTACK = 'dstack',
-  PHALA = 'phala',
-  SIMULATED = 'simulated',
-}
+export const TEEProvider = {
+  DSTACK: 'dstack',
+  PHALA: 'phala',
+  SIMULATED: 'simulated',
+} as const
+export type TEEProvider = (typeof TEEProvider)[keyof typeof TEEProvider]
 
 export interface TEENodeInfo {
   nodeId: string
@@ -177,13 +182,15 @@ export interface MPCSignatureRequest {
   expiresAt: number
 }
 
-export enum MPCSignatureStatus {
-  PENDING = 'pending',
-  SIGNING = 'signing',
-  COMPLETE = 'complete',
-  FAILED = 'failed',
-  EXPIRED = 'expired',
-}
+export const MPCSignatureStatus = {
+  PENDING: 'pending',
+  SIGNING: 'signing',
+  COMPLETE: 'complete',
+  FAILED: 'failed',
+  EXPIRED: 'expired',
+} as const
+export type MPCSignatureStatus =
+  (typeof MPCSignatureStatus)[keyof typeof MPCSignatureStatus]
 
 export interface MPCSignatureResult {
   signature: Hex
@@ -280,13 +287,15 @@ export interface CredentialProof {
   jws?: string
 }
 
-export enum CredentialType {
-  OAUTH3_IDENTITY = 'OAuth3Identity',
-  FARCASTER_ACCOUNT = 'FarcasterAccount',
-  GOOGLE_ACCOUNT = 'GoogleAccount',
-  TWITTER_ACCOUNT = 'TwitterAccount',
-  GITHUB_ACCOUNT = 'GitHubAccount',
-}
+export const CredentialType = {
+  OAUTH3_IDENTITY: 'OAuth3Identity',
+  FARCASTER_ACCOUNT: 'FarcasterAccount',
+  GOOGLE_ACCOUNT: 'GoogleAccount',
+  TWITTER_ACCOUNT: 'TwitterAccount',
+  GITHUB_ACCOUNT: 'GitHubAccount',
+} as const
+export type CredentialType =
+  (typeof CredentialType)[keyof typeof CredentialType]
 
 // ============ Smart Account Types ============
 
@@ -334,11 +343,12 @@ export interface CouncilConfig {
   jnsName: string
 }
 
-export enum CouncilType {
-  JEJU = 'jeju',
-  BABYLON = 'babylon',
-  ELIZA = 'eliza',
-}
+export const CouncilType = {
+  JEJU: 'jeju',
+  BABYLON: 'babylon',
+  ELIZA: 'eliza',
+} as const
+export type CouncilType = (typeof CouncilType)[keyof typeof CouncilType]
 
 // ============ Open Intent Types ============
 
@@ -361,21 +371,24 @@ export interface IdentityIntent {
   status: IntentStatus
 }
 
-export enum IdentityIntentAction {
-  DEPLOY_ACCOUNT = 'deploy_account',
-  LINK_PROVIDER = 'link_provider',
-  UNLINK_PROVIDER = 'unlink_provider',
-  UPDATE_METADATA = 'update_metadata',
-  ROTATE_KEY = 'rotate_key',
-}
+export const IdentityIntentAction = {
+  DEPLOY_ACCOUNT: 'deploy_account',
+  LINK_PROVIDER: 'link_provider',
+  UNLINK_PROVIDER: 'unlink_provider',
+  UPDATE_METADATA: 'update_metadata',
+  ROTATE_KEY: 'rotate_key',
+} as const
+export type IdentityIntentAction =
+  (typeof IdentityIntentAction)[keyof typeof IdentityIntentAction]
 
-export enum IntentStatus {
-  PENDING = 'pending',
-  SUBMITTED = 'submitted',
-  FILLED = 'filled',
-  EXPIRED = 'expired',
-  FAILED = 'failed',
-}
+export const IntentStatus = {
+  PENDING: 'pending',
+  SUBMITTED: 'submitted',
+  FILLED: 'filled',
+  EXPIRED: 'expired',
+  FAILED: 'failed',
+} as const
+export type IntentStatus = (typeof IntentStatus)[keyof typeof IntentStatus]
 
 export interface CrossChainIntent {
   intentId: Hex
@@ -436,19 +449,21 @@ export class OAuth3Error extends Error {
   }
 }
 
-export enum OAuth3ErrorCode {
-  INVALID_PROVIDER = 'INVALID_PROVIDER',
-  PROVIDER_NOT_LINKED = 'PROVIDER_NOT_LINKED',
-  PROVIDER_ALREADY_LINKED = 'PROVIDER_ALREADY_LINKED',
-  INVALID_SIGNATURE = 'INVALID_SIGNATURE',
-  SESSION_EXPIRED = 'SESSION_EXPIRED',
-  INSUFFICIENT_THRESHOLD = 'INSUFFICIENT_THRESHOLD',
-  TEE_ATTESTATION_FAILED = 'TEE_ATTESTATION_FAILED',
-  MPC_SIGNING_FAILED = 'MPC_SIGNING_FAILED',
-  IDENTITY_NOT_FOUND = 'IDENTITY_NOT_FOUND',
-  ACCOUNT_NOT_DEPLOYED = 'ACCOUNT_NOT_DEPLOYED',
-  CREDENTIAL_INVALID = 'CREDENTIAL_INVALID',
-  CREDENTIAL_EXPIRED = 'CREDENTIAL_EXPIRED',
-  APP_NOT_FOUND = 'APP_NOT_FOUND',
-  UNAUTHORIZED = 'UNAUTHORIZED',
-}
+export const OAuth3ErrorCode = {
+  INVALID_PROVIDER: 'INVALID_PROVIDER',
+  PROVIDER_NOT_LINKED: 'PROVIDER_NOT_LINKED',
+  PROVIDER_ALREADY_LINKED: 'PROVIDER_ALREADY_LINKED',
+  INVALID_SIGNATURE: 'INVALID_SIGNATURE',
+  SESSION_EXPIRED: 'SESSION_EXPIRED',
+  INSUFFICIENT_THRESHOLD: 'INSUFFICIENT_THRESHOLD',
+  TEE_ATTESTATION_FAILED: 'TEE_ATTESTATION_FAILED',
+  MPC_SIGNING_FAILED: 'MPC_SIGNING_FAILED',
+  IDENTITY_NOT_FOUND: 'IDENTITY_NOT_FOUND',
+  ACCOUNT_NOT_DEPLOYED: 'ACCOUNT_NOT_DEPLOYED',
+  CREDENTIAL_INVALID: 'CREDENTIAL_INVALID',
+  CREDENTIAL_EXPIRED: 'CREDENTIAL_EXPIRED',
+  APP_NOT_FOUND: 'APP_NOT_FOUND',
+  UNAUTHORIZED: 'UNAUTHORIZED',
+} as const
+export type OAuth3ErrorCode =
+  (typeof OAuth3ErrorCode)[keyof typeof OAuth3ErrorCode]

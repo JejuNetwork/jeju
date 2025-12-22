@@ -46,10 +46,12 @@ describe('schemas.ts - Zod Schema Validation', () => {
       ).not.toThrow()
     })
 
-    test('accepts valid uppercase address', () => {
+    test('rejects invalid uppercase address (non-checksummed)', () => {
+      // All uppercase (except 0x prefix) is NOT a valid Ethereum address format
+      // Addresses must be either lowercase or EIP-55 checksummed
       expect(() =>
         AddressSchema.parse(VALID_ADDRESS.toUpperCase().replace('0X', '0x')),
-      ).not.toThrow()
+      ).toThrow()
     })
 
     test('rejects address without 0x prefix', () => {

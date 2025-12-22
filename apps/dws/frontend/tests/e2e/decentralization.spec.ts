@@ -14,7 +14,7 @@ import { expect, test } from '@playwright/test'
 
 const dwsUrl = process.env.DWS_URL || 'http://127.0.0.1:4030'
 const frontendUrl = process.env.BASE_URL || 'http://127.0.0.1:4033'
-const rpcUrl = process.env.RPC_URL || 'http://127.0.0.1:9545'
+const rpcUrl = process.env.RPC_URL || 'http://127.0.0.1:6546'
 const testWallet = {
   address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
   privateKey:

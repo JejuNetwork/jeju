@@ -16,8 +16,8 @@ import {
   getGameItems,
   ItemsAbi,
 } from '@jejunetwork/contracts'
+import { getRarityInfo } from '../../../lib/games'
 import * as useGameItemsModule from '../useGameItems'
-import { getRarityInfo } from '../useGameItems'
 
 describe('useGameItems Hooks', () => {
   describe('exports', () => {

@@ -80,7 +80,9 @@ export function BanWarning() {
 
           <div className="flex gap-3 mt-4">
             {canAppeal && !banStatus.appeal_status && (
-              <button className="btn-primary text-sm">Submit Appeal</button>
+              <button type="button" className="btn-primary text-sm">
+                Submit Appeal
+              </button>
             )}
 
             <a

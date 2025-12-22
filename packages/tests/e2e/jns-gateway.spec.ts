@@ -20,7 +20,7 @@ const basicSetup = createWalletSetup()
 const test = testWithSynpress(metaMaskFixtures(basicSetup))
 const { expect } = test
 
-const RPC_URL = process.env.JEJU_RPC_URL || 'http://localhost:9545'
+const RPC_URL = process.env.JEJU_RPC_URL || 'http://localhost:6546'
 const JNS_GATEWAY_PORT = parseInt(process.env.JNS_GATEWAY_PORT || '4005', 10)
 const JNS_GATEWAY_URL = `http://localhost:${JNS_GATEWAY_PORT}`
 

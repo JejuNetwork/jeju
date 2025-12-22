@@ -13,6 +13,7 @@ import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { execa, type ResultPromise } from 'execa'
 import type { Hex } from 'viem'
+import { RPCGetCodeResponseSchema } from '../src/shared/schemas'
 
 // Configuration
 const TEST_LOCK_FILE = '/tmp/jeju-test-services.lock'
@@ -21,9 +22,9 @@ const DEPLOYER_KEY: Hex =
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
 
 // Service URLs - L2 defaults to 9545 to match localnet.json config
-export const TEST_RPC_URL = process.env.TEST_RPC_URL || 'http://127.0.0.1:9545'
+export const TEST_RPC_URL = process.env.TEST_RPC_URL || 'http://127.0.0.1:6546'
 export const TEST_L1_RPC_URL =
-  process.env.TEST_L1_RPC_URL || 'http://127.0.0.1:8545'
+  process.env.TEST_L1_RPC_URL || 'http://127.0.0.1:6545'
 export const TEST_STORAGE_URL =
   process.env.TEST_STORAGE_URL || 'http://127.0.0.1:4010'
 export const TEST_COMPUTE_URL =
@@ -341,7 +342,8 @@ async function checkContractsDeployed(): Promise<boolean> {
       }),
       signal: AbortSignal.timeout(3000),
     })
-    const result = (await response.json()) as { result?: string }
+    const rawData: unknown = await response.json()
+    const result = RPCGetCodeResponseSchema.parse(rawData)
     // If there's code at this address, contracts might be deployed
     return (
       result.result !== '0x' &&

@@ -29,6 +29,12 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia } from 'viem/chains'
+import {
+  expectJson,
+  type JejuManifest,
+  JejuManifestSchema,
+  PackageJsonSchema,
+} from '../../schemas'
 
 // ============================================================================
 // Configuration
@@ -483,7 +489,12 @@ class SelfHostingBootstrap {
 
     for (const dir of packageDirs) {
       const pkgPath = join(packagesDir, dir, 'package.json')
-      const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'))
+      const pkgContent = readFileSync(pkgPath, 'utf-8')
+      const pkg = expectJson(
+        pkgContent,
+        PackageJsonSchema,
+        `package.json for ${dir}`,
+      )
 
       if (!pkg.name || pkg.private) continue
 
@@ -566,11 +577,16 @@ class SelfHostingBootstrap {
       const appPath = join(appsDir, app)
       const manifestPath = join(appPath, 'jeju-manifest.json')
 
-      let manifest: { name: string; description?: string; tags?: string[] } = {
+      let manifest: JejuManifest = {
         name: app,
       }
       if (existsSync(manifestPath)) {
-        manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'))
+        const manifestContent = readFileSync(manifestPath, 'utf-8')
+        manifest = expectJson(
+          manifestContent,
+          JejuManifestSchema,
+          `manifest for ${app}`,
+        )
       }
 
       console.log(`Building ${app}...`)
@@ -690,7 +706,12 @@ class SelfHostingBootstrap {
       const manifestPath = join(appsDir, app, 'jeju-manifest.json')
       if (!existsSync(manifestPath)) continue
 
-      const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'))
+      const manifestContent = readFileSync(manifestPath, 'utf-8')
+      const manifest = expectJson(
+        manifestContent,
+        JejuManifestSchema,
+        `manifest for ${app}`,
+      )
       const frontendConfig = manifest.decentralization?.frontend
 
       if (!frontendConfig) continue
@@ -729,11 +750,11 @@ class SelfHostingBootstrap {
         commit: this.result.git.commitHash,
       }
 
-      const manifestContent = Buffer.from(
+      const directoryManifestContent = Buffer.from(
         JSON.stringify(directoryManifest, null, 2),
       )
       const directoryCid = await this.uploadToDWS(
-        manifestContent,
+        directoryManifestContent,
         `${app}-manifest.json`,
         'application/json',
       )
@@ -805,7 +826,12 @@ class SelfHostingBootstrap {
       const manifestPath = join(appsDir, app, 'jeju-manifest.json')
       if (!existsSync(manifestPath)) continue
 
-      const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'))
+      const jnsManifestContent = readFileSync(manifestPath, 'utf-8')
+      const manifest = expectJson(
+        jnsManifestContent,
+        JejuManifestSchema,
+        `JNS manifest for ${app}`,
+      )
       if (manifest.jns?.name) {
         // Extract the label (e.g., "gateway" from "gateway.jeju")
         const label = manifest.jns.name.replace('.jeju', '')
@@ -1006,30 +1032,6 @@ class SelfHostingBootstrap {
 async function main() {
   const network = (process.argv[2] || 'testnet') as 'testnet' | 'mainnet'
 
-  type DwsAddressesFile = {
-    identityRegistry: Address
-    repoRegistry: Address
-    packageRegistry: Address
-    containerRegistry: Address
-    modelRegistry: Address
-    jnsRegistry: Address
-    jnsRegistrar: Address
-    storageManager: Address
-  }
-
-  type DwsDeploymentFile = {
-    contracts: {
-      identityRegistry: { address: Address }
-      repoRegistry: { address: Address }
-      packageRegistry: { address: Address }
-      containerRegistry: { address: Address }
-      modelRegistry: { address: Address }
-      jnsRegistry: { address: Address }
-      jnsRegistrar: { address: Address }
-      storageManager: { address: Address }
-    }
-  }
-
   // Load configuration from environment
   const privateKey = process.env.DEPLOYER_PRIVATE_KEY
   if (!privateKey) {
@@ -1048,14 +1050,20 @@ async function main() {
   const addressesFile = join(deploymentsPath, 'addresses.json')
   const deploymentFile = join(deploymentsPath, 'deployment.json')
   if (existsSync(addressesFile)) {
-    const addresses = JSON.parse(
-      readFileSync(addressesFile, 'utf-8'),
-    ) as DwsAddressesFile
+    const addressesContent = readFileSync(addressesFile, 'utf-8')
+    const addresses = expectJson(
+      addressesContent,
+      DwsAddressesSchema,
+      'DWS addresses',
+    )
     contracts = addresses
   } else if (existsSync(deploymentFile)) {
-    const deployment = JSON.parse(
-      readFileSync(deploymentFile, 'utf-8'),
-    ) as DwsDeploymentFile
+    const deploymentContent = readFileSync(deploymentFile, 'utf-8')
+    const deployment = expectJson(
+      deploymentContent,
+      DwsDeploymentSchema,
+      'DWS deployment',
+    )
     contracts = {
       identityRegistry: deployment.contracts.identityRegistry.address,
       repoRegistry: deployment.contracts.repoRegistry.address,

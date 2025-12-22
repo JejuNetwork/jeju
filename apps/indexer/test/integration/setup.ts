@@ -1,6 +1,7 @@
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
 import { DataSource } from 'typeorm'
+import * as models from '../../src/model'
 
 const execAsync = promisify(exec)
 
@@ -16,8 +17,6 @@ let testDataSource: DataSource | null = null
 
 export async function getTestDataSource(): Promise<DataSource> {
   if (testDataSource?.isInitialized) return testDataSource
-
-  const models = await import('../../src/model')
   /**
    * TypeORM entity class constructor type.
    * TypeORM entities typically have constructors that accept:

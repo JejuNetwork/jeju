@@ -140,8 +140,8 @@ export class SearchManager {
     }
 
     try {
-      // Dynamic import to avoid bundling meilisearch if not used
-      // Cast the module to our local interface that mirrors the meilisearch API
+      // Conditional dynamic import: only load meilisearch if MEILISEARCH_URL is configured
+      // This avoids bundling the optional dependency when using in-memory search
       const meilisearchModule = (await import(
         'meilisearch'
       )) as MeilisearchModule
@@ -281,9 +281,11 @@ export class SearchManager {
         let idx = 0
         const highlights: [number, number][] = []
 
-        while ((idx = lowerLine.indexOf(searchTerms, idx)) !== -1) {
+        idx = lowerLine.indexOf(searchTerms, idx)
+        while (idx !== -1) {
           highlights.push([idx, idx + searchTerms.length])
           idx += searchTerms.length
+          idx = lowerLine.indexOf(searchTerms, idx)
         }
 
         if (highlights.length > 0) {
@@ -457,9 +459,11 @@ export class SearchManager {
     const qualifierRegex = /(\w+):(\S+)/g
     let match: RegExpExecArray | null
 
-    while ((match = qualifierRegex.exec(query)) !== null) {
+    match = qualifierRegex.exec(query)
+    while (match !== null) {
       qualifiers[match[1]] = match[2]
       text = text.replace(match[0], '').trim()
+      match = qualifierRegex.exec(query)
     }
 
     return {

@@ -35,13 +35,15 @@ export interface QuorumStatus {
   requiredCount: bigint
 }
 
-export enum ReputationTier {
-  UNTRUSTED = 0,
-  LOW = 1,
-  MEDIUM = 2,
-  HIGH = 3,
-  TRUSTED = 4,
-}
+export const ReputationTier = {
+  UNTRUSTED: 0,
+  LOW: 1,
+  MEDIUM: 2,
+  HIGH: 3,
+  TRUSTED: 4,
+} as const
+export type ReputationTier =
+  (typeof ReputationTier)[keyof typeof ReputationTier]
 
 export interface ModeratorReputation {
   successfulBans: bigint

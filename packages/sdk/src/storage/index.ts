@@ -2,32 +2,6 @@
  * Storage Module - IPFS, multi-provider storage
  */
 
-import type { ZodSchema } from 'zod'
-
-// Re-export enhanced storage module
-export {
-  type AccessPolicy,
-  agentOwnerPolicy,
-  type ContentCategory,
-  type ContentInfo,
-  type ContentTier,
-  createEnhancedStorageModule,
-  type DownloadOptions,
-  decryptFromStorage,
-  type EnhancedStorageModule,
-  type EnhancedStorageStats,
-  type EnhancedUploadOptions,
-  type EnhancedUploadResult,
-  // Encryption helpers
-  encryptForStorage,
-  // Policy builders
-  publicPolicy,
-  roleGatedPolicy,
-  type StorageBackend,
-  stakeGatedPolicy,
-  tokenGatedPolicy,
-} from './enhanced'
-
 import type { NetworkType } from '@jejunetwork/types'
 import { parseEther } from 'viem'
 import { getServicesConfig } from '../config'
@@ -41,8 +15,7 @@ import {
 import type { JsonValue } from '../shared/types'
 import type { JejuWallet } from '../wallet'
 
-// Re-export JsonValue from shared types for convenience
-export type { JsonRecord, JsonValue } from '../shared/types'
+export * from './enhanced'
 
 export type StorageTier = 'hot' | 'warm' | 'cold' | 'permanent'
 

@@ -29,7 +29,7 @@ import { privateKeyToAccount } from 'viem/accounts'
 
 const DWS_URL = process.env.DWS_URL || 'http://localhost:4030'
 const PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY
-const RPC_URL = process.env.RPC_URL || 'http://localhost:9545'
+const RPC_URL = process.env.RPC_URL || 'http://localhost:6546'
 
 interface DeployConfig {
   domain: string
@@ -44,15 +44,12 @@ interface DeployConfig {
 // ============================================================================
 
 async function build(): Promise<void> {
-  console.log('[Factory Deploy] Building Next.js app...')
+  console.log('[Factory Deploy] Building app with Bun...')
 
-  // Build with static export for IPFS hosting
+  // Build for static deployment
   execSync('bun run build', {
     stdio: 'inherit',
-    env: {
-      ...process.env,
-      NEXT_TELEMETRY_DISABLED: '1',
-    },
+    env: process.env,
   })
 
   console.log('[Factory Deploy] Build complete')
@@ -94,7 +91,7 @@ async function deployToCDN(config: DeployConfig): Promise<{
       domain: config.domain,
       buildDir: config.buildDir,
       jnsName: config.jnsName,
-      framework: 'next',
+      framework: 'bun',
       warmup: config.warmup,
       invalidate: config.invalidate,
     }),
@@ -220,7 +217,7 @@ async function main() {
   const config: DeployConfig = {
     domain: values.domain as string,
     jnsName: values.jns as string,
-    buildDir: join(process.cwd(), 'out'), // Next.js static export dir
+    buildDir: join(process.cwd(), 'dist'), // Bun build output dir
     warmup: !values['skip-warmup'],
     invalidate: true,
   }
@@ -240,11 +237,7 @@ async function main() {
 
   // Verify build output exists
   if (!existsSync(config.buildDir)) {
-    // Fallback to .next for non-static export
-    config.buildDir = join(process.cwd(), '.next')
-    if (!existsSync(config.buildDir)) {
-      throw new Error('Build output not found. Run build first.')
-    }
+    throw new Error('Build output not found at dist/. Run build first.')
   }
 
   // Step 2: Deploy to CDN

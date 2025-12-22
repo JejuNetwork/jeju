@@ -337,20 +337,25 @@ describe('Settlement Integration', () => {
       return
     }
 
+    if (!EIP3009_TOKEN_ADDRESS || !FACILITATOR_ADDRESS) {
+      console.log('Skipping gasless test - env vars not set')
+      return
+    }
+
     const app = createServer()
     const amount = '1000000' // 1 USDC
     const { header, payload } = await createSignedPayment({
       amount,
-      asset: EIP3009_TOKEN_ADDRESS!,
+      asset: EIP3009_TOKEN_ADDRESS,
     })
 
     // Create EIP-3009 authorization
     const authParams = await createEIP3009Authorization(
-      EIP3009_TOKEN_ADDRESS!,
+      EIP3009_TOKEN_ADDRESS,
       'USD Coin', // Token name for domain
       420691, // Chain ID
       payer.address,
-      FACILITATOR_ADDRESS!, // Transfer to facilitator
+      FACILITATOR_ADDRESS, // Transfer to facilitator
       BigInt(amount),
     )
 

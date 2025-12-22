@@ -24,6 +24,7 @@ import type {
   LinkedProvider,
 } from '../types.js'
 import {
+  CastSubmitResponseSchema,
   FrameValidationResponseSchema,
   HubUserDataResponseSchema,
   HubUsernameProofSchema,
@@ -32,6 +33,7 @@ import {
   NeynarCastSchema,
   type NeynarUser,
   NeynarUserSchema,
+  SIWFResultSchema,
   validateResponse,
 } from '../validation.js'
 
@@ -202,20 +204,20 @@ export class FarcasterProvider {
       return null
     }
 
-    const data = (await response.json()) as { result?: { fid?: number } }
-
-    if (!data.result?.fid) {
+    const result = SIWFResultSchema.safeParse(await response.json())
+    if (!result.success || !result.data.result?.fid) {
       return null
     }
+    const fid = result.data.result.fid
 
-    const profile = await this.getProfileByFid(data.result.fid)
+    const profile = await this.getProfileByFid(fid)
 
     const session: FarcasterSession = {
-      fid: data.result.fid,
+      fid,
       profile,
     }
 
-    this.sessions.set(data.result.fid, session)
+    this.sessions.set(fid, session)
 
     return session
   }
@@ -457,7 +459,11 @@ export class FarcasterProvider {
       throw new Error(`Hub submission failed: ${response.status}`)
     }
 
-    const result = (await response.json()) as { hash: string }
+    const result = validateResponse(
+      CastSubmitResponseSchema,
+      await response.json(),
+      'hub submission response',
+    )
     return result.hash as Hex
   }
 

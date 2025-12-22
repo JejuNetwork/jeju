@@ -1,5 +1,3 @@
-'use client'
-
 import {
   AlertCircle,
   AlertTriangle,
@@ -24,7 +22,7 @@ import {
   type QuickScoreResult,
   quickScore,
   type SimilarProposal,
-} from '@/config/api'
+} from '../config/api'
 
 const PROPOSAL_TYPES = [
   {
@@ -289,6 +287,7 @@ export function ProposalWizard({ onComplete, onCancel }: WizardProps) {
       {/* Navigation */}
       <div className="flex justify-between mt-6">
         <button
+          type="button"
           onClick={() => {
             if (step === 'draft') {
               onCancel?.()
@@ -310,6 +309,7 @@ export function ProposalWizard({ onComplete, onCancel }: WizardProps) {
         </button>
 
         <button
+          type="button"
           onClick={() => {
             if (step === 'draft' && canProceed.draft) {
               setStep('quality')
@@ -362,6 +362,7 @@ function DraftStep({
           Draft Your Proposal
         </h2>
         <button
+          type="button"
           onClick={() => setShowGenerator(!showGenerator)}
           className="text-sm text-accent hover:underline flex items-center gap-1"
         >
@@ -383,6 +384,7 @@ function DraftStep({
             rows={3}
           />
           <button
+            type="button"
             onClick={() => onGenerate(idea)}
             disabled={generating || !idea}
             className="btn-accent text-sm flex items-center gap-2"
@@ -395,11 +397,12 @@ function DraftStep({
 
       {/* Proposal Type */}
       <div>
-        <label className="block text-sm font-medium mb-2">Proposal Type</label>
+        <div className="block text-sm font-medium mb-2">Proposal Type</div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {PROPOSAL_TYPES.map((type) => (
             <button
               key={type.value}
+              type="button"
               onClick={() => setDraft({ ...draft, proposalType: type.value })}
               className={`p-3 rounded-lg border text-left transition-colors ${
                 draft.proposalType === type.value
@@ -417,8 +420,14 @@ function DraftStep({
 
       {/* Title */}
       <div>
-        <label className="block text-sm font-medium mb-1">Title</label>
+        <label
+          htmlFor="proposal-title"
+          className="block text-sm font-medium mb-1"
+        >
+          Title
+        </label>
         <input
+          id="proposal-title"
           type="text"
           value={draft.title}
           onChange={(e) => setDraft({ ...draft, title: e.target.value })}
@@ -434,8 +443,14 @@ function DraftStep({
 
       {/* Summary */}
       <div>
-        <label className="block text-sm font-medium mb-1">Summary</label>
+        <label
+          htmlFor="proposal-summary"
+          className="block text-sm font-medium mb-1"
+        >
+          Summary
+        </label>
         <textarea
+          id="proposal-summary"
           value={draft.summary}
           onChange={(e) => setDraft({ ...draft, summary: e.target.value })}
           onBlur={onQuickScore}
@@ -451,10 +466,14 @@ function DraftStep({
 
       {/* Description */}
       <div>
-        <label className="block text-sm font-medium mb-1">
+        <label
+          htmlFor="proposal-description"
+          className="block text-sm font-medium mb-1"
+        >
           Full Description
         </label>
         <textarea
+          id="proposal-description"
           value={draft.description}
           onChange={(e) => setDraft({ ...draft, description: e.target.value })}
           onBlur={onQuickScore}
@@ -521,6 +540,7 @@ function QualityStep({
           Quality Assessment
         </h2>
         <button
+          type="button"
           onClick={onAssess}
           disabled={loading}
           className="btn-accent text-sm flex items-center gap-2"
@@ -597,6 +617,7 @@ function QualityStep({
                   <div className="w-12 text-sm text-right">{value}%</div>
                   {value < 90 && (
                     <button
+                      type="button"
                       onClick={() => onImprove(key)}
                       disabled={improving === key}
                       className="text-xs text-accent hover:underline"
@@ -617,9 +638,9 @@ function QualityStep({
                 Must Fix Before Submission
               </h3>
               <ul className="space-y-1">
-                {assessment.blockers.map((b, i) => (
+                {assessment.blockers.map((b) => (
                   <li
-                    key={i}
+                    key={b}
                     className="text-sm text-red-600 dark:text-red-400"
                   >
                     • {b}
@@ -636,9 +657,9 @@ function QualityStep({
                 Suggestions for Improvement
               </h3>
               <ul className="space-y-1">
-                {assessment.suggestions.map((s, i) => (
+                {assessment.suggestions.map((s) => (
                   <li
-                    key={i}
+                    key={s}
                     className="text-sm text-yellow-700 dark:text-yellow-400"
                   >
                     • {s}
@@ -653,8 +674,8 @@ function QualityStep({
             <div>
               <h3 className="text-sm font-medium mb-2">Detailed Feedback</h3>
               <ul className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
-                {assessment.feedback.map((f, i) => (
-                  <li key={i}>• {f}</li>
+                {assessment.feedback.map((f) => (
+                  <li key={f}>• {f}</li>
                 ))}
               </ul>
             </div>
@@ -684,6 +705,7 @@ function DuplicatesStep({
           Duplicate Check
         </h2>
         <button
+          type="button"
           onClick={onCheck}
           disabled={loading}
           className="btn-secondary text-sm flex items-center gap-2"

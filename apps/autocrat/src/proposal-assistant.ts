@@ -13,15 +13,11 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { checkDWSCompute, dwsGenerate } from './agents/runtime'
 import { findSimilarProposals, indexProposal } from './local-services'
 import { parseJson, type QualityCriteria } from './shared'
-import {
+import type {
   CasualProposalCategory,
-  type CEOPersona,
-  type GovernanceParams,
+  CEOPersona,
+  GovernanceParams,
 } from './types'
-
-// Re-export the enum and QualityCriteria for convenience
-export { CasualProposalCategory }
-export type { QualityCriteria }
 
 // ============ Types ============
 
@@ -828,5 +824,8 @@ Return JSON: {"title":"...","summary":"...","description":"..."}`
 let instance: ProposalAssistant | null = null
 
 export function getProposalAssistant(): ProposalAssistant {
-  return (instance ??= new ProposalAssistant())
+  if (!instance) {
+    instance = new ProposalAssistant()
+  }
+  return instance
 }

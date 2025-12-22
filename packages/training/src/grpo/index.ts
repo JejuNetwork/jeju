@@ -8,24 +8,23 @@
  */
 
 export {
-  createAtroposServer,
-  startAtroposServer,
   type AtroposState,
+  createAtroposServer,
   type EnvConfig,
   type Message,
-  type Registration,
   type RegisterEnv,
+  type Registration,
   type ScoredData,
-} from './atropos-server';
+  startAtroposServer,
+} from './atropos-server'
 
 export {
-  createGRPOTrainer,
+  type BatchData,
   createDistributedGRPOTrainer,
+  createGRPOTrainer,
   DistributedGRPOTrainer,
   GRPOTrainer,
-  type BatchData,
   type TrainerStatus,
   type TrainingConfig,
   type TrainingMetrics,
-} from './grpo-trainer';
-
+} from './grpo-trainer'

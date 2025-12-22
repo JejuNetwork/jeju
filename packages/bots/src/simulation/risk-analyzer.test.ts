@@ -115,8 +115,9 @@ describe('RiskAnalyzer', () => {
     expect(rollingMetrics.has('volatility')).toBe(true)
     expect(rollingMetrics.has('return')).toBe(true)
 
-    const rollingSharpe = rollingMetrics.get('sharpe')!
-    expect(rollingSharpe.length).toBe(40) // 50 - 10 = 40 windows
+    const rollingSharpe = rollingMetrics.get('sharpe')
+    expect(rollingSharpe).toBeDefined()
+    expect(rollingSharpe?.length).toBe(40) // 50 - 10 = 40 windows
   })
 
   test('should perform stress test', () => {
@@ -137,7 +138,11 @@ describe('RiskAnalyzer', () => {
     expect(results.has('3 Std Dev')).toBe(true)
 
     // Higher shock = lower stressed value
-    expect(results.get('3 Std Dev')!).toBeLessThan(results.get('1 Std Dev')!)
+    const threeStdDev = results.get('3 Std Dev')
+    const oneStdDev = results.get('1 Std Dev')
+    expect(threeStdDev).toBeDefined()
+    expect(oneStdDev).toBeDefined()
+    expect(threeStdDev).toBeLessThan(oneStdDev ?? 0)
   })
 
   test('should handle edge case with minimal data (non-zero variance)', () => {

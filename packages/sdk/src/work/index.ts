@@ -14,29 +14,33 @@ import type { JejuWallet } from '../wallet'
 //                              TYPES
 // ═══════════════════════════════════════════════════════════════════════════
 
-export enum BountyStatus {
-  OPEN = 0,
-  IN_PROGRESS = 1,
-  REVIEW = 2,
-  COMPLETED = 3,
-  CANCELLED = 4,
-  DISPUTED = 5,
-}
+export const BountyStatus = {
+  OPEN: 0,
+  IN_PROGRESS: 1,
+  REVIEW: 2,
+  COMPLETED: 3,
+  CANCELLED: 4,
+  DISPUTED: 5,
+} as const
+export type BountyStatus = (typeof BountyStatus)[keyof typeof BountyStatus]
 
-export enum ProjectStatus {
-  DRAFT = 0,
-  OPEN = 1,
-  IN_PROGRESS = 2,
-  COMPLETED = 3,
-  CANCELLED = 4,
-}
+export const ProjectStatus = {
+  DRAFT: 0,
+  OPEN: 1,
+  IN_PROGRESS: 2,
+  COMPLETED: 3,
+  CANCELLED: 4,
+} as const
+export type ProjectStatus = (typeof ProjectStatus)[keyof typeof ProjectStatus]
 
-export enum SubmissionStatus {
-  PENDING = 0,
-  APPROVED = 1,
-  REJECTED = 2,
-  REVISION_REQUESTED = 3,
-}
+export const SubmissionStatus = {
+  PENDING: 0,
+  APPROVED: 1,
+  REJECTED: 2,
+  REVISION_REQUESTED: 3,
+} as const
+export type SubmissionStatus =
+  (typeof SubmissionStatus)[keyof typeof SubmissionStatus]
 
 export interface Bounty {
   bountyId: Hex

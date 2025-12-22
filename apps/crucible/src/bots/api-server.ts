@@ -27,7 +27,9 @@ import { cors } from 'hono/cors'
 import { z } from 'zod'
 import {
   AddLiquidityRequestSchema,
+  BotA2ARequestSchema,
   expect,
+  JsonObjectSchema,
   parseOrThrow,
   QuotesParamsSchema,
   RebalanceActionIdParamSchema,
@@ -493,7 +495,8 @@ function createA2AAPI(bot: UnifiedBot, config: APIConfig): Hono {
 
   // A2A request handler
   app.post('/a2a', async (c) => {
-    const body = await c.req.json()
+    const rawBody = await c.req.json()
+    const body = parseOrThrow(BotA2ARequestSchema, rawBody, 'A2A request')
     const { method, params } = body
 
     switch (method) {
@@ -529,12 +532,19 @@ function createA2AAPI(bot: UnifiedBot, config: APIConfig): Hono {
       }
 
       case 'executeRebalance': {
-        expect(params, 'Rebalance action params are required')
-        expect(params.positionId, 'Position ID is required')
+        const rebalanceParams = parseOrThrow(
+          z.object({
+            positionId: z.string().min(1, 'Position ID is required'),
+          }),
+          params,
+          'Rebalance params',
+        )
         const rebalanceActions = await bot.getRebalanceActions()
         const action = expect(
-          rebalanceActions.find((a) => a.positionId === params.positionId),
-          `Action not found: ${params.positionId}`,
+          rebalanceActions.find(
+            (a) => a.positionId === rebalanceParams.positionId,
+          ),
+          `Action not found: ${rebalanceParams.positionId}`,
         )
         const result = await bot.executeRebalance(action)
         return c.json({ result })
@@ -845,7 +855,12 @@ function createMCPAPI(bot: UnifiedBot): Hono {
   // Tool execution
   app.post('/tools/:name', async (c) => {
     const { name } = c.req.param()
-    const params = await c.req.json().catch(() => ({}))
+    const rawBody = await c.req.json()
+    const params = parseOrThrow(
+      JsonObjectSchema.optional().default({}),
+      rawBody,
+      'MCP tool params',
+    )
 
     switch (name) {
       case 'get_bot_stats':

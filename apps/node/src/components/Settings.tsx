@@ -98,6 +98,7 @@ export function Settings() {
         <div className="grid grid-cols-3 gap-4">
           {networks.map((network) => (
             <button
+              type="button"
               key={network.id}
               onClick={() => setNetwork(network.id)}
               className={clsx(
@@ -188,6 +189,7 @@ export function Settings() {
               </p>
             </div>
             <button
+              type="button"
               onClick={() =>
                 setLocalConfig({
                   ...localConfig,
@@ -211,8 +213,11 @@ export function Settings() {
           {localConfig.auto_claim && (
             <>
               <div>
-                <label className="label">Claim Threshold (ETH)</label>
+                <label htmlFor="claim-threshold" className="label">
+                  Claim Threshold (ETH)
+                </label>
                 <input
+                  id="claim-threshold"
                   type="number"
                   value={localConfig.auto_claim_threshold}
                   onChange={(e) => {
@@ -236,8 +241,11 @@ export function Settings() {
               </div>
 
               <div>
-                <label className="label">Check Interval (hours)</label>
+                <label htmlFor="check-interval" className="label">
+                  Check Interval (hours)
+                </label>
                 <input
+                  id="check-interval"
                   type="number"
                   value={localConfig.auto_claim_interval}
                   onChange={(e) => {
@@ -277,6 +285,7 @@ export function Settings() {
               </p>
             </div>
             <button
+              type="button"
               onClick={() =>
                 setLocalConfig({
                   ...localConfig,
@@ -305,6 +314,7 @@ export function Settings() {
               </p>
             </div>
             <button
+              type="button"
               onClick={() =>
                 setLocalConfig({
                   ...localConfig,
@@ -333,6 +343,7 @@ export function Settings() {
               </p>
             </div>
             <button
+              type="button"
               onClick={() =>
                 setLocalConfig({
                   ...localConfig,
@@ -365,15 +376,24 @@ export function Settings() {
         </h2>
 
         <div className="flex flex-wrap gap-3">
-          <button className="btn-secondary flex items-center gap-2">
+          <button
+            type="button"
+            className="btn-secondary flex items-center gap-2"
+          >
             <Download size={16} />
             Export Config
           </button>
-          <button className="btn-secondary flex items-center gap-2">
+          <button
+            type="button"
+            className="btn-secondary flex items-center gap-2"
+          >
             <Upload size={16} />
             Import Config
           </button>
-          <button className="btn-ghost flex items-center gap-2 text-red-400 hover:text-red-300">
+          <button
+            type="button"
+            className="btn-ghost flex items-center gap-2 text-red-400 hover:text-red-300"
+          >
             <RotateCcw size={16} />
             Reset to Defaults
           </button>
@@ -383,7 +403,7 @@ export function Settings() {
       {/* Save Button */}
       <div className="flex flex-col items-end gap-2">
         {error && <p className="text-sm text-red-400">{error}</p>}
-        <button onClick={handleSave} className="btn-primary px-8">
+        <button type="button" onClick={handleSave} className="btn-primary px-8">
           Save Settings
         </button>
       </div>

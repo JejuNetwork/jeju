@@ -11,6 +11,7 @@ import {
   toHex,
 } from 'viem'
 import { type TEEAttestation, TEEProvider } from '../types.js'
+import { NodeResourcesSchema, validateResponse } from '../validation.js'
 import { OAUTH3_TEE_VERIFIER_ABI } from './abis.js'
 import {
   ATTESTATION_VALIDITY_MS,
@@ -190,11 +191,11 @@ export class OAuth3ComputeService {
     }).catch(() => null)
     if (!response?.ok) return null
 
-    const data = (await response.json()) as {
-      cpuCores?: number
-      memoryGb?: number
-      storageGb?: number
-    }
+    const data = validateResponse(
+      NodeResourcesSchema,
+      await response.json(),
+      'node resources response',
+    )
     return {
       cpuCores: data.cpuCores ?? 0,
       memoryGb: data.memoryGb ?? 0,

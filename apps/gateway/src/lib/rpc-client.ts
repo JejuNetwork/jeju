@@ -4,7 +4,12 @@
  */
 
 import { type Chain, createPublicClient, http, type PublicClient } from 'viem'
-import type { JsonValue, RpcParamValue } from './validation.js'
+import {
+  expectValid,
+  type JsonValue,
+  RpcChainsResponseSchema,
+  type RpcParamValue,
+} from './validation.js'
 
 export interface RPCClientConfig {
   gatewayUrl?: string
@@ -144,7 +149,8 @@ export class RPCClient {
       throw new Error(`Gateway error: ${response.status}`)
     }
 
-    return response.json() as Promise<JsonRpcResponse<T>>
+    const data = await response.json()
+    return data as JsonRpcResponse<T>
   }
 
   private async requestViaFallback<T>(
@@ -173,7 +179,10 @@ export class RPCClient {
 
       clearTimeout(timeoutId)
 
-      if (response.ok) return response.json() as Promise<JsonRpcResponse<T>>
+      if (response.ok) {
+        const data = await response.json()
+        return data as JsonRpcResponse<T>
+      }
       lastError = new Error(`Fallback ${rpcUrl} failed: ${response.status}`)
     }
 
@@ -202,7 +211,11 @@ export class RPCClient {
   async getChains(): Promise<ChainInfo[]> {
     const response = await fetch(`${this.config.gatewayUrl}/v1/chains`)
     if (!response.ok) throw new Error('Failed to fetch chains')
-    const data = (await response.json()) as { chains: ChainInfo[] }
+    const data = expectValid(
+      RpcChainsResponseSchema,
+      await response.json(),
+      'chains response',
+    )
     return data.chains
   }
 
@@ -216,7 +229,8 @@ export class RPCClient {
       headers,
     })
     if (!response.ok) throw new Error('Failed to fetch rate limits')
-    return response.json() as Promise<RateLimitInfo>
+    const data = await response.json()
+    return data as RateLimitInfo
   }
 
   createClient(chainId: number): PublicClient {
@@ -233,7 +247,7 @@ export function createRPCClient(config?: RPCClientConfig): RPCClient {
   return new RPCClient(config)
 }
 
-export function createGatewayClient(
+export function createRpcGatewayClient(
   chainId: number,
   config?: RPCClientConfig,
 ): PublicClient {

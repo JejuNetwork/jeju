@@ -36,7 +36,7 @@ const NETWORKS: Record<string, NetworkConfig[]> = {
     {
       chainId: 1337,
       name: 'Anvil',
-      rpcUrl: 'http://localhost:9545',
+      rpcUrl: 'http://localhost:6546',
       oracleType: 'simple',
     },
   ],

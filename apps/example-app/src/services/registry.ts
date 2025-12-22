@@ -71,7 +71,7 @@ class RegistryServiceImpl implements RegistryService {
     this.networkType = getNetworkType(networkName)
 
     this.publicClient = createPublicClient({
-      transport: http(process.env.L2_RPC_URL || 'http://localhost:9545'),
+      transport: http(process.env.L2_RPC_URL || 'http://localhost:6546'),
     })
   }
 

@@ -21,7 +21,7 @@ export const RPC_URLS = {
   420691: process.env.JEJU_RPC_URL || 'https://rpc.jejunetwork.org',
   420690:
     process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jejunetwork.org',
-  1337: process.env.LOCALNET_RPC_URL || 'http://localhost:9545',
+  1337: process.env.LOCALNET_RPC_URL || 'http://localhost:6546',
   // Mainnets
   1: process.env.ETHEREUM_RPC_URL || 'https://eth.llamarpc.com',
   42161: process.env.ARBITRUM_RPC_URL || 'https://arb1.arbitrum.io/rpc',

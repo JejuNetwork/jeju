@@ -50,7 +50,7 @@ async function main() {
   console.log('='.repeat(60))
   console.log('')
 
-  const rpcUrl = process.env.L1_RPC_URL || 'http://127.0.0.1:8545'
+  const rpcUrl = process.env.L1_RPC_URL || 'http://127.0.0.1:6545'
   const deployerKey =
     process.env.DEPLOYER_PRIVATE_KEY || process.env.PRIVATE_KEY
   const network = process.env.NETWORK || 'localnet'

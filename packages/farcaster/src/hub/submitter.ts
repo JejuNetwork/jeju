@@ -7,6 +7,12 @@
 import type { Hex } from 'viem'
 import type { Message } from './message-builder'
 import { messageBytesToHex, serializeMessage } from './message-builder'
+import { expectValid } from '@jejunetwork/types'
+import {
+  HubInfoSchema,
+  type HubInfo,
+  ValidateMessageResponseSchema,
+} from './schemas'
 
 // ============ Types ============
 
@@ -29,17 +35,8 @@ export interface SubmitResult {
   retries?: number
 }
 
-export interface HubInfo {
-  version: string
-  isSyncing: boolean
-  nickname: string
-  rootHash: string
-  dbStats: {
-    numMessages: number
-    numFids: number
-  }
-  peerId: string
-}
+// HubInfo type is now imported from ./schemas
+export type { HubInfo } from './schemas'
 
 // ============ Hub Submitter Class ============
 
@@ -68,7 +65,8 @@ export class HubSubmitter {
       )
     }
 
-    return response.json() as Promise<HubInfo>
+    const data = await response.json()
+    return expectValid(HubInfoSchema, data, 'hub info')
   }
 
   /**
@@ -219,7 +217,12 @@ export class HubSubmitter {
       return { valid: false, error }
     }
 
-    const result = (await response.json()) as { valid: boolean }
+    const data = await response.json()
+    const result = expectValid(
+      ValidateMessageResponseSchema,
+      data,
+      'validate message response',
+    )
     return { valid: result.valid }
   }
 

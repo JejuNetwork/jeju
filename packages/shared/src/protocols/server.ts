@@ -1,7 +1,7 @@
 /**
  * Unified Protocol Server - REST, A2A, and MCP
  *
- * Creates a single Hono app that exposes:
+ * Creates a single Elysia app that exposes:
  * - REST API at /api/*
  * - A2A protocol at /a2a
  * - MCP protocol at /mcp
@@ -9,18 +9,19 @@
  * Supports both server mode (Bun.serve) and serverless mode (export fetch handler).
  */
 
-import { type Context, Hono } from 'hono'
-import { cors } from 'hono/cors'
+import { cors } from '@elysiajs/cors'
+import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import { z } from 'zod'
 import { getProviderInfo, getServiceName } from '../chains'
 import type { ProtocolData, ProtocolValue } from '../types'
 import {
+  type AgentInfo,
   configureProtocolMiddleware,
-  erc8004Middleware,
   type PaymentRequirement,
   type ProtocolMiddlewareConfig,
   type SkillResult,
+  verifyERC8004Identity,
 } from './middleware'
 
 // Zod schema for recursive ProtocolValue type
@@ -70,25 +71,6 @@ const MCPPromptGetSchema = z.object({
   name: z.string(),
   arguments: z.record(z.string(), z.string()),
 })
-
-// Type-safe context variable mapping for Hono context
-// Defines the specific keys and their types that we use in middleware
-type ContextVarTypes = {
-  userAddress: Address
-  agentInfo: AgentInfo
-  paymentVerified: boolean
-}
-
-type ContextKey = keyof ContextVarTypes
-
-function getContextVar<K extends ContextKey>(
-  c: Context,
-  key: K,
-): ContextVarTypes[K] | undefined {
-  // Hono's context.get returns the value or undefined
-  // We cast to the specific type based on the key
-  return c.get(key as string) as ContextVarTypes[K] | undefined
-}
 
 // ============================================================================
 // Types
@@ -169,7 +151,7 @@ export interface UnifiedServerConfig {
   ) => Promise<MCPPromptResult>
 
   // REST routes (optional)
-  setupREST?: (app: Hono) => void
+  setupREST?: (app: Elysia) => void
 
   // Middleware configuration
   middleware?: ProtocolMiddlewareConfig
@@ -185,14 +167,6 @@ export interface SkillContext {
   paymentVerified: boolean
 }
 
-interface AgentInfo {
-  agentId: bigint
-  owner: Address
-  name: string
-  active: boolean
-  banned: boolean
-}
-
 interface MCPPromptResult {
   messages: Array<{ role: string; content: { type: string; text: string } }>
 }
@@ -201,130 +175,13 @@ interface MCPPromptResult {
 // Server Factory
 // ============================================================================
 
-export function createUnifiedServer(config: UnifiedServerConfig): Hono {
-  const app = new Hono()
-
+export function createUnifiedServer(config: UnifiedServerConfig) {
   // Configure middleware if provided
   if (config.middleware) {
     configureProtocolMiddleware(config.middleware)
   }
 
-  // CORS
-  app.use(
-    '/*',
-    cors({
-      origin: '*',
-      allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowHeaders: [
-        'Content-Type',
-        'Authorization',
-        'X-Payment',
-        'x-jeju-address',
-        'x-jeju-timestamp',
-        'x-jeju-signature',
-      ],
-    }),
-  )
-
-  // ========== A2A Protocol ==========
-
   const agentCard = createAgentCard(config)
-
-  app.get('/.well-known/agent-card.json', (c) => c.json(agentCard))
-  app.get('/a2a/.well-known/agent-card.json', (c) => c.json(agentCard))
-
-  app.post('/a2a', erc8004Middleware(), async (c) => {
-    const rawBody = await c.req.json()
-    const parseResult = A2ARequestSchema.safeParse(rawBody)
-
-    if (!parseResult.success) {
-      return c.json(
-        {
-          jsonrpc: '2.0',
-          id: 0,
-          error: { code: -32600, message: 'Invalid request format' },
-        },
-        400,
-      )
-    }
-
-    const body = parseResult.data
-
-    if (body.method !== 'message/send') {
-      return c.json({
-        jsonrpc: '2.0',
-        id: body.id,
-        error: { code: -32601, message: 'Method not found' },
-      })
-    }
-
-    const message = body.params?.message
-    if (!message?.parts) {
-      return c.json({
-        jsonrpc: '2.0',
-        id: body.id,
-        error: { code: -32602, message: 'Invalid params' },
-      })
-    }
-
-    const dataPart = message.parts.find((p) => p.kind === 'data')
-    if (!dataPart?.data) {
-      return c.json({
-        jsonrpc: '2.0',
-        id: body.id,
-        error: { code: -32602, message: 'No data part found' },
-      })
-    }
-
-    const skillId = dataPart.data.skillId as string
-    if (!skillId) {
-      return c.json({
-        jsonrpc: '2.0',
-        id: body.id,
-        error: { code: -32602, message: 'No skillId specified' },
-      })
-    }
-
-    const context: SkillContext = {
-      address: getContextVar(c, 'userAddress') ?? null,
-      agentInfo: getContextVar(c, 'agentInfo') ?? null,
-      paymentHeader: c.req.header('x-payment') || null,
-      paymentVerified: Boolean(getContextVar(c, 'paymentVerified')),
-    }
-
-    const result = await config.executeSkill(skillId, dataPart.data, context)
-
-    if (result.requiresPayment) {
-      return c.json(
-        {
-          jsonrpc: '2.0',
-          id: body.id,
-          error: {
-            code: 402,
-            message: 'Payment Required',
-            data: result.requiresPayment,
-          },
-        },
-        402,
-      )
-    }
-
-    return c.json({
-      jsonrpc: '2.0',
-      id: body.id,
-      result: {
-        role: 'agent',
-        parts: [
-          { kind: 'text', text: result.message },
-          { kind: 'data', data: result.data },
-        ],
-        messageId: message.messageId,
-        kind: 'message',
-      },
-    })
-  })
-
-  // ========== MCP Protocol ==========
 
   const mcpServerInfo = {
     name: config.name,
@@ -337,72 +194,198 @@ export function createUnifiedServer(config: UnifiedServerConfig): Hono {
     },
   }
 
-  app.post('/mcp/initialize', (c) =>
-    c.json({
+  const app = new Elysia()
+    .use(
+      cors({
+        origin: '*',
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+        allowedHeaders: [
+          'Content-Type',
+          'Authorization',
+          'X-Payment',
+          'x-jeju-address',
+          'x-jeju-timestamp',
+          'x-jeju-signature',
+        ],
+      }),
+    )
+
+    // ========== A2A Protocol ==========
+    .get('/.well-known/agent-card.json', () => agentCard)
+    .get('/a2a/.well-known/agent-card.json', () => agentCard)
+
+    // A2A endpoint
+    .post('/a2a', async ({ body, headers, set }) => {
+      // Verify ERC-8004 identity
+      const identityContext = await verifyERC8004Identity(headers)
+
+      if (identityContext.erc8004Error) {
+        set.status = identityContext.userAddress ? 403 : 401
+        return identityContext.erc8004Error
+      }
+
+      const parseResult = A2ARequestSchema.safeParse(body)
+
+      if (!parseResult.success) {
+        set.status = 400
+        return {
+          jsonrpc: '2.0',
+          id: 0,
+          error: { code: -32600, message: 'Invalid request format' },
+        }
+      }
+
+      const requestBody = parseResult.data
+
+      if (requestBody.method !== 'message/send') {
+        return {
+          jsonrpc: '2.0',
+          id: requestBody.id,
+          error: { code: -32601, message: 'Method not found' },
+        }
+      }
+
+      const message = requestBody.params?.message
+      if (!message?.parts) {
+        return {
+          jsonrpc: '2.0',
+          id: requestBody.id,
+          error: { code: -32602, message: 'Invalid params' },
+        }
+      }
+
+      const dataPart = message.parts.find((p) => p.kind === 'data')
+      if (!dataPart?.data) {
+        return {
+          jsonrpc: '2.0',
+          id: requestBody.id,
+          error: { code: -32602, message: 'No data part found' },
+        }
+      }
+
+      const skillId = dataPart.data.skillId as string
+      if (!skillId) {
+        return {
+          jsonrpc: '2.0',
+          id: requestBody.id,
+          error: { code: -32602, message: 'No skillId specified' },
+        }
+      }
+
+      const context: SkillContext = {
+        address: identityContext.userAddress,
+        agentInfo: identityContext.agentInfo,
+        paymentHeader: headers['x-payment'] || null,
+        paymentVerified: false,
+      }
+
+      const result = await config.executeSkill(skillId, dataPart.data, context)
+
+      if (result.requiresPayment) {
+        set.status = 402
+        return {
+          jsonrpc: '2.0',
+          id: requestBody.id,
+          error: {
+            code: 402,
+            message: 'Payment Required',
+            data: result.requiresPayment,
+          },
+        }
+      }
+
+      return {
+        jsonrpc: '2.0',
+        id: requestBody.id,
+        result: {
+          role: 'agent',
+          parts: [
+            { kind: 'text', text: result.message },
+            { kind: 'data', data: result.data },
+          ],
+          messageId: message.messageId,
+          kind: 'message',
+        },
+      }
+    })
+
+    // ========== MCP Protocol ==========
+    .post('/mcp/initialize', () => ({
       protocolVersion: '2024-11-05',
       serverInfo: mcpServerInfo,
       capabilities: mcpServerInfo.capabilities,
-    }),
-  )
+    }))
 
-  app.post('/mcp/resources/list', (c) =>
-    c.json({
+    .post('/mcp/resources/list', () => ({
       resources: config.resources ?? [],
-    }),
-  )
+    }))
 
-  app.post('/mcp/resources/read', erc8004Middleware(), async (c) => {
-    if (!config.readResource) {
-      return c.json({ error: 'Resources not supported' }, 404)
-    }
+    .post('/mcp/resources/read', async ({ body, headers, set }) => {
+      // Verify ERC-8004 identity
+      const identityContext = await verifyERC8004Identity(headers)
 
-    const rawBody = await c.req.json()
-    const parseResult = MCPResourceReadSchema.safeParse(rawBody)
-    if (!parseResult.success) {
-      return c.json({ error: 'Invalid request: uri required' }, 400)
-    }
+      if (identityContext.erc8004Error) {
+        set.status = identityContext.userAddress ? 403 : 401
+        return identityContext.erc8004Error
+      }
 
-    const { uri } = parseResult.data
-    const context: SkillContext = {
-      address: getContextVar(c, 'userAddress') ?? null,
-      agentInfo: getContextVar(c, 'agentInfo') ?? null,
-      paymentHeader: c.req.header('x-payment') || null,
-      paymentVerified: Boolean(getContextVar(c, 'paymentVerified')),
-    }
+      if (!config.readResource) {
+        set.status = 404
+        return { error: 'Resources not supported' }
+      }
 
-    const contents = await config.readResource(uri, context)
-    const resource = config.resources?.find((r) => r.uri === uri)
+      const parseResult = MCPResourceReadSchema.safeParse(body)
+      if (!parseResult.success) {
+        set.status = 400
+        return { error: 'Invalid request: uri required' }
+      }
 
-    return c.json({
-      contents: [
-        {
-          uri,
-          mimeType: resource?.mimeType || 'application/json',
-          text: JSON.stringify(contents, null, 2),
-        },
-      ],
+      const { uri } = parseResult.data
+      const context: SkillContext = {
+        address: identityContext.userAddress,
+        agentInfo: identityContext.agentInfo,
+        paymentHeader: headers['x-payment'] || null,
+        paymentVerified: false,
+      }
+
+      const contents = await config.readResource(uri, context)
+      const resource = config.resources?.find((r) => r.uri === uri)
+
+      return {
+        contents: [
+          {
+            uri,
+            mimeType: resource?.mimeType || 'application/json',
+            text: JSON.stringify(contents, null, 2),
+          },
+        ],
+      }
     })
-  })
 
-  app.post('/mcp/tools/list', (c) =>
-    c.json({
+    .post('/mcp/tools/list', () => ({
       tools: config.tools ?? [],
-    }),
-  )
+    }))
 
-  app.post('/mcp/tools/call', erc8004Middleware(), async (c) => {
-    if (!config.callTool) {
-      return c.json({
-        content: [{ type: 'text', text: 'Tools not supported' }],
-        isError: true,
-      })
-    }
+    .post('/mcp/tools/call', async ({ body, headers, set }) => {
+      // Verify ERC-8004 identity
+      const identityContext = await verifyERC8004Identity(headers)
 
-    const rawBody = await c.req.json()
-    const parseResult = MCPToolCallSchema.safeParse(rawBody)
-    if (!parseResult.success) {
-      return c.json(
-        {
+      if (identityContext.erc8004Error) {
+        set.status = identityContext.userAddress ? 403 : 401
+        return identityContext.erc8004Error
+      }
+
+      if (!config.callTool) {
+        return {
+          content: [{ type: 'text', text: 'Tools not supported' }],
+          isError: true,
+        }
+      }
+
+      const parseResult = MCPToolCallSchema.safeParse(body)
+      if (!parseResult.success) {
+        set.status = 400
+        return {
           content: [
             {
               type: 'text',
@@ -410,64 +393,65 @@ export function createUnifiedServer(config: UnifiedServerConfig): Hono {
             },
           ],
           isError: true,
-        },
-        400,
-      )
-    }
-
-    const { name, arguments: args } = parseResult.data
-    const context: SkillContext = {
-      address: getContextVar(c, 'userAddress') ?? null,
-      agentInfo: getContextVar(c, 'agentInfo') ?? null,
-      paymentHeader: c.req.header('x-payment') || null,
-      paymentVerified: Boolean(getContextVar(c, 'paymentVerified')),
-    }
-
-    const { result, isError } = await config.callTool(name, args, context)
-
-    return c.json({
-      content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-      isError,
-    })
-  })
-
-  if (config.prompts?.length) {
-    app.post('/mcp/prompts/list', (c) =>
-      c.json({
-        prompts: config.prompts,
-      }),
-    )
-
-    app.post('/mcp/prompts/get', erc8004Middleware(), async (c) => {
-      if (!config.getPrompt) {
-        return c.json({ error: 'Prompts not configured' }, 404)
-      }
-
-      const rawBody = await c.req.json()
-      const parseResult = MCPPromptGetSchema.safeParse(rawBody)
-      if (!parseResult.success) {
-        return c.json(
-          { error: 'Invalid request: name and arguments required' },
-          400,
-        )
+        }
       }
 
       const { name, arguments: args } = parseResult.data
       const context: SkillContext = {
-        address: getContextVar(c, 'userAddress') ?? null,
-        agentInfo: getContextVar(c, 'agentInfo') ?? null,
-        paymentHeader: c.req.header('x-payment') || null,
-        paymentVerified: Boolean(getContextVar(c, 'paymentVerified')),
+        address: identityContext.userAddress,
+        agentInfo: identityContext.agentInfo,
+        paymentHeader: headers['x-payment'] || null,
+        paymentVerified: false,
+      }
+
+      const { result, isError } = await config.callTool(name, args, context)
+
+      return {
+        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+        isError,
+      }
+    })
+
+    .post('/mcp/prompts/list', () => ({
+      prompts: config.prompts ?? [],
+    }))
+
+    .post('/mcp/prompts/get', async ({ body, headers, set }) => {
+      // Verify ERC-8004 identity
+      const identityContext = await verifyERC8004Identity(headers)
+
+      if (identityContext.erc8004Error) {
+        set.status = identityContext.userAddress ? 403 : 401
+        return identityContext.erc8004Error
+      }
+
+      if (!config.getPrompt) {
+        set.status = 404
+        return { error: 'Prompts not configured' }
+      }
+
+      const parseResult = MCPPromptGetSchema.safeParse(body)
+      if (!parseResult.success) {
+        set.status = 400
+        return {
+          error: 'Invalid request: name and arguments required',
+        }
+      }
+
+      const { name, arguments: args } = parseResult.data
+      const context: SkillContext = {
+        address: identityContext.userAddress,
+        agentInfo: identityContext.agentInfo,
+        paymentHeader: headers['x-payment'] || null,
+        paymentVerified: false,
       }
 
       const result = await config.getPrompt(name, args, context)
-      return c.json(result)
+      return result
     })
-  }
 
-  // MCP info endpoint
-  app.get('/mcp', (c) =>
-    c.json({
+    // MCP info endpoint
+    .get('/mcp', () => ({
       server: mcpServerInfo.name,
       version: mcpServerInfo.version,
       description: mcpServerInfo.description,
@@ -475,30 +459,17 @@ export function createUnifiedServer(config: UnifiedServerConfig): Hono {
       tools: config.tools ?? [],
       prompts: config.prompts ?? [],
       capabilities: mcpServerInfo.capabilities,
-    }),
-  )
+    }))
 
-  // ========== REST API ==========
-
-  if (config.setupREST) {
-    const apiRouter = new Hono()
-    config.setupREST(apiRouter)
-    app.route('/api', apiRouter)
-  }
-
-  // ========== Health & Info ==========
-
-  app.get('/health', (c) =>
-    c.json({
+    // ========== Health & Info ==========
+    .get('/health', () => ({
       status: 'ok',
       service: config.name,
       version: config.version || '1.0.0',
       timestamp: Date.now(),
-    }),
-  )
+    }))
 
-  app.get('/', (c) =>
-    c.json({
+    .get('/', () => ({
       name: getServiceName(config.name),
       description: config.description,
       version: config.version || '1.0.0',
@@ -512,8 +483,14 @@ export function createUnifiedServer(config: UnifiedServerConfig): Hono {
       skills: config.skills.map((s) => s.id),
       resources: config.resources?.map((r) => r.uri),
       tools: config.tools?.map((t) => t.name),
-    }),
-  )
+    }))
+
+  // ========== REST API ==========
+  if (config.setupREST) {
+    const apiRouter = new Elysia()
+    config.setupREST(apiRouter)
+    app.group('/api', () => apiRouter)
+  }
 
   return app
 }
@@ -567,7 +544,7 @@ function createAgentCard(config: UnifiedServerConfig): GeneratedAgentCard {
 // ============================================================================
 
 export interface ServerInstance {
-  app: Hono
+  app: ReturnType<typeof createUnifiedServer>
   port: number
   url: string
   stop: () => void
@@ -579,10 +556,7 @@ export async function startServer(
   const app = createUnifiedServer(config)
   const port = config.port || 4000
 
-  const server = Bun.serve({
-    port,
-    fetch: app.fetch,
-  })
+  const server = app.listen(port)
 
   const url = `http://localhost:${port}`
 

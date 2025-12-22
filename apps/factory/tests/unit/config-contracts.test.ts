@@ -104,7 +104,7 @@ describe('Chain ID Parsing', () => {
 
 describe('RPC URL Configuration', () => {
   test('default localhost RPC URL format is valid', () => {
-    const defaultRpc = 'http://localhost:8545'
+    const defaultRpc = 'http://localhost:6545'
     expect(defaultRpc.startsWith('http://')).toBe(true)
     // Accept both localhost and 127.0.0.1 as valid local URLs
     expect(
@@ -115,7 +115,7 @@ describe('RPC URL Configuration', () => {
 
   test('URL parsing works for RPC endpoints', () => {
     const rpcUrls = [
-      'http://localhost:8545',
+      'http://localhost:6545',
       'https://mainnet.base.org',
       'https://sepolia.base.org',
     ]

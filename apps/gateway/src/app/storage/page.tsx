@@ -120,6 +120,7 @@ export default function StorageManagerPage() {
               const Icon = tab.icon
               return (
                 <button
+                  type="button"
                   key={tab.id}
                   onClick={() =>
                     setActiveTab(tab.id as 'upload' | 'files' | 'funding')
@@ -221,6 +222,7 @@ function UploadSection() {
                 {(file.size / 1024 ** 2).toFixed(2)} MB
               </div>
               <button
+                type="button"
                 onClick={() => setFile(null)}
                 className="mt-2 text-sm text-red-500 hover:underline"
               >
@@ -233,9 +235,9 @@ function UploadSection() {
         {/* Duration Selection */}
         {file && (
           <div className="mb-6">
-            <label className="block text-sm font-medium mb-2">
+            <span className="block text-sm font-medium mb-2">
               Storage Duration
-            </label>
+            </span>
             <div className="grid grid-cols-3 gap-3">
               {[
                 { months: 1, label: '1 Month' },
@@ -243,6 +245,7 @@ function UploadSection() {
                 { months: 12, label: '1 Year' },
               ].map((option) => (
                 <button
+                  type="button"
                   key={option.months}
                   onClick={() => setDuration(option.months)}
                   className={`p-3 border-2 rounded-lg ${
@@ -265,6 +268,7 @@ function UploadSection() {
         {/* Upload Button */}
         {file && (
           <button
+            type="button"
             onClick={handleUpload}
             disabled={uploading}
             className="w-full py-3 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 disabled:bg-gray-300"
@@ -356,7 +360,10 @@ function FileCard({ cidBytes }: { cidBytes: `0x${string}` }) {
         >
           View File
         </a>
-        <button className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm">
+        <button
+          type="button"
+          className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm"
+        >
           Renew
         </button>
       </div>
@@ -377,10 +384,16 @@ function FundingSection() {
         </div>
 
         <div className="space-y-4">
-          <button className="w-full py-3 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600">
+          <button
+            type="button"
+            className="w-full py-3 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600"
+          >
             Deposit USDC
           </button>
-          <button className="w-full py-3 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200">
+          <button
+            type="button"
+            className="w-full py-3 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200"
+          >
             Deposit elizaOS
           </button>
         </div>

@@ -5,10 +5,10 @@
  * messaging network.
  */
 
+import { cors } from '@elysiajs/cors'
 import { sha256 } from '@noble/hashes/sha256'
 import { bytesToHex } from '@noble/hashes/utils'
-import { Hono } from 'hono'
-import { cors } from 'hono/cors'
+import { Elysia } from 'elysia'
 import {
   IPFSAddResponseSchema,
   type MessageEnvelope,
@@ -190,30 +190,34 @@ const MAX_MESSAGE_AGE_MS = 5 * 60 * 1000
 // Max clock skew allowed (future messages, 30 seconds)
 const MAX_CLOCK_SKEW_MS = 30 * 1000
 
+// ============ Request Header Type ============
+
+interface RequestHeaders {
+  get(name: string): string | null
+}
+
 // ============ Create Server ============
 
-export function createRelayServer(config: NodeConfig): Hono {
-  const app = new Hono()
-
+export function createRelayServer(config: NodeConfig) {
   // Start periodic rate limit cleanup
   startRateLimitCleanup()
 
   // CORS - restrict to known origins in production
   const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') ?? ['*']
-  app.use(
-    '/*',
-    cors({
-      origin: allowedOrigins.includes('*') ? '*' : allowedOrigins,
-      allowMethods: ['GET', 'POST', 'OPTIONS'],
-      allowHeaders: ['Content-Type', 'Authorization'],
-      maxAge: 86400,
-    }),
-  )
 
-  // ============ Health Check ============
+  const app = new Elysia()
+    .use(
+      cors({
+        origin: allowedOrigins.includes('*') ? true : allowedOrigins,
+        methods: ['GET', 'POST', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization'],
+        maxAge: 86400,
+      }),
+    )
 
-  app.get('/health', (c) => {
-    return c.json({
+    // ============ Health Check ============
+
+    .get('/health', () => ({
       status: 'healthy',
       nodeId: config.nodeId,
       uptime: process.uptime(),
@@ -224,230 +228,227 @@ export function createRelayServer(config: NodeConfig): Hono {
         pendingMessages: messages.size,
       },
       timestamp: Date.now(),
-    })
-  })
+    }))
 
-  // ============ Send Message ============
+    // ============ Send Message ============
 
-  app.post('/send', async (c) => {
-    // Rate limiting by IP or address
-    const clientIp =
-      c.req.header('x-forwarded-for') ?? c.req.header('x-real-ip') ?? 'unknown'
-    if (!checkRateLimit(clientIp)) {
-      return c.json({ success: false, error: 'Rate limit exceeded' }, 429)
-    }
+    .post('/send', ({ body, request, set }) => {
+      // Rate limiting by IP or address
+      const headers = request.headers as RequestHeaders
+      const clientIp =
+        headers.get('x-forwarded-for') ?? headers.get('x-real-ip') ?? 'unknown'
+      if (!checkRateLimit(clientIp)) {
+        set.status = 429
+        return { success: false, error: 'Rate limit exceeded' }
+      }
 
-    const body = await c.req.json()
-
-    // Validate envelope with Zod schema
-    const parseResult = MessageEnvelopeSchema.safeParse(body)
-    if (!parseResult.success) {
-      return c.json(
-        {
+      // Validate envelope with Zod schema
+      const parseResult = MessageEnvelopeSchema.safeParse(body)
+      if (!parseResult.success) {
+        set.status = 400
+        return {
           success: false,
           error: 'Invalid envelope',
           details: parseResult.error.issues,
-        },
-        400,
-      )
-    }
+        }
+      }
 
-    const envelope = parseResult.data
+      const envelope = parseResult.data
 
-    // Replay attack protection: validate timestamp freshness
-    const now = Date.now()
-    if (envelope.timestamp < now - MAX_MESSAGE_AGE_MS) {
-      return c.json(
-        {
+      // Replay attack protection: validate timestamp freshness
+      const now = Date.now()
+      if (envelope.timestamp < now - MAX_MESSAGE_AGE_MS) {
+        set.status = 400
+        return {
           success: false,
           error: 'Message timestamp too old - possible replay attack',
-        },
-        400,
-      )
-    }
-    if (envelope.timestamp > now + MAX_CLOCK_SKEW_MS) {
-      return c.json(
-        { success: false, error: 'Message timestamp in the future' },
-        400,
-      )
-    }
+        }
+      }
+      if (envelope.timestamp > now + MAX_CLOCK_SKEW_MS) {
+        set.status = 400
+        return { success: false, error: 'Message timestamp in the future' }
+      }
 
-    // Check if this message ID was already processed (dedupe)
-    if (messages.has(envelope.id)) {
-      return c.json(
-        {
+      // Check if this message ID was already processed (dedupe)
+      if (messages.has(envelope.id)) {
+        set.status = 400
+        return {
           success: false,
           error: 'Duplicate message ID - possible replay attack',
-        },
-        400,
-      )
-    }
+        }
+      }
 
-    // Check message size
-    const messageSize = JSON.stringify(envelope).length
-    if (config.maxMessageSize && messageSize > config.maxMessageSize) {
-      return c.json({ success: false, error: 'Message too large' }, 413)
-    }
+      // Check message size
+      const messageSize = JSON.stringify(envelope).length
+      if (config.maxMessageSize && messageSize > config.maxMessageSize) {
+        set.status = 413
+        return { success: false, error: 'Message too large' }
+      }
 
-    // Generate CID
-    const cid = generateCID(JSON.stringify(envelope))
+      // Generate CID
+      const cid = generateCID(JSON.stringify(envelope))
 
-    // Store message
-    const storedMessage: StoredMessage = {
-      envelope,
-      cid,
-      receivedAt: Date.now(),
-      storedOnIPFS: false,
-    }
+      // Store message
+      const storedMessage: StoredMessage = {
+        envelope,
+        cid,
+        receivedAt: Date.now(),
+        storedOnIPFS: false,
+      }
 
-    messages.set(envelope.id, storedMessage)
-    addPendingMessage(envelope.to, envelope.id)
+      messages.set(envelope.id, storedMessage)
+      addPendingMessage(envelope.to, envelope.id)
 
-    // Update stats
-    totalMessagesRelayed++
-    totalBytesRelayed += messageSize
+      // Update stats
+      totalMessagesRelayed++
+      totalBytesRelayed += messageSize
 
-    // Store on IPFS if configured (async, log failures)
-    if (config.ipfsUrl) {
-      storeOnIPFS(JSON.stringify(envelope), config.ipfsUrl)
-        .then(() => {
-          storedMessage.storedOnIPFS = true
-        })
-        .catch((err: Error) => {
-          console.error(
-            `IPFS storage failed for message ${envelope.id}:`,
-            err.message,
-          )
-        })
-    }
+      // Store on IPFS if configured (async, log failures)
+      if (config.ipfsUrl) {
+        storeOnIPFS(JSON.stringify(envelope), config.ipfsUrl)
+          .then(() => {
+            storedMessage.storedOnIPFS = true
+          })
+          .catch((err: Error) => {
+            console.error(
+              `IPFS storage failed for message ${envelope.id}:`,
+              err.message,
+            )
+          })
+      }
 
-    // Try to deliver immediately via WebSocket
-    const delivered = notifySubscriber(envelope.to, {
-      type: 'message',
-      data: envelope,
-    })
-
-    if (delivered) {
-      markDelivered(envelope.id)
-
-      // Notify sender of delivery
-      notifySubscriber(envelope.from, {
-        type: 'delivery_receipt',
-        data: { messageId: envelope.id },
+      // Try to deliver immediately via WebSocket
+      const delivered = notifySubscriber(envelope.to, {
+        type: 'message',
+        data: envelope,
       })
-    }
 
-    return c.json({
-      success: true,
-      messageId: envelope.id,
-      cid,
-      timestamp: storedMessage.receivedAt,
-      delivered,
-    })
-  })
+      if (delivered) {
+        markDelivered(envelope.id)
 
-  // ============ Get Pending Messages ============
+        // Notify sender of delivery
+        notifySubscriber(envelope.from, {
+          type: 'delivery_receipt',
+          data: { messageId: envelope.id },
+        })
+      }
 
-  app.get('/messages/:address', (c) => {
-    // Rate limiting
-    const clientIp =
-      c.req.header('x-forwarded-for') ?? c.req.header('x-real-ip') ?? 'unknown'
-    if (!checkRateLimit(clientIp)) {
-      return c.json({ error: 'Rate limit exceeded' }, 429)
-    }
-
-    const address = c.req.param('address')
-
-    // Validate address format (prevent injection)
-    if (
-      !/^0x[a-fA-F0-9]{40}$/i.test(address) &&
-      !/^[a-zA-Z0-9._-]+$/.test(address)
-    ) {
-      return c.json({ error: 'Invalid address format' }, 400)
-    }
-
-    const pending = getPendingMessages(address)
-
-    return c.json({
-      address,
-      messages: pending.map((m) => ({
-        ...m.envelope,
-        cid: m.cid,
-        receivedAt: m.receivedAt,
-      })),
-      count: pending.length,
-    })
-  })
-
-  // ============ Get Message by ID ============
-
-  app.get('/message/:id', (c) => {
-    const id = c.req.param('id')
-
-    // Validate UUID format to prevent injection
-    if (
-      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-        id,
-      )
-    ) {
-      return c.json({ error: 'Invalid message ID format' }, 400)
-    }
-
-    const message = messages.get(id)
-
-    if (!message) {
-      return c.json({ error: 'Message not found' }, 404)
-    }
-
-    return c.json({
-      ...message.envelope,
-      cid: message.cid,
-      receivedAt: message.receivedAt,
-      deliveredAt: message.deliveredAt,
-    })
-  })
-
-  // ============ Mark Message as Read ============
-
-  app.post('/read/:id', (c) => {
-    const id = c.req.param('id')
-
-    // Validate UUID format
-    if (
-      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-        id,
-      )
-    ) {
-      return c.json({ error: 'Invalid message ID format' }, 400)
-    }
-
-    const message = messages.get(id)
-
-    if (!message) {
-      return c.json({ error: 'Message not found' }, 404)
-    }
-
-    // Notify sender of read receipt
-    notifySubscriber(message.envelope.from, {
-      type: 'read_receipt',
-      data: { messageId: id, readAt: Date.now() },
+      return {
+        success: true,
+        messageId: envelope.id,
+        cid,
+        timestamp: storedMessage.receivedAt,
+        delivered,
+      }
     })
 
-    return c.json({ success: true })
-  })
+    // ============ Get Pending Messages ============
 
-  // ============ Stats ============
+    .get('/messages/:address', ({ params, request, set }) => {
+      // Rate limiting
+      const headers = request.headers as RequestHeaders
+      const clientIp =
+        headers.get('x-forwarded-for') ?? headers.get('x-real-ip') ?? 'unknown'
+      if (!checkRateLimit(clientIp)) {
+        set.status = 429
+        return { error: 'Rate limit exceeded' }
+      }
 
-  app.get('/stats', (c) => {
-    return c.json({
+      const { address } = params
+
+      // Validate address format (prevent injection)
+      if (
+        !/^0x[a-fA-F0-9]{40}$/i.test(address) &&
+        !/^[a-zA-Z0-9._-]+$/.test(address)
+      ) {
+        set.status = 400
+        return { error: 'Invalid address format' }
+      }
+
+      const pending = getPendingMessages(address)
+
+      return {
+        address,
+        messages: pending.map((m) => ({
+          ...m.envelope,
+          cid: m.cid,
+          receivedAt: m.receivedAt,
+        })),
+        count: pending.length,
+      }
+    })
+
+    // ============ Get Message by ID ============
+
+    .get('/message/:id', ({ params, set }) => {
+      const { id } = params
+
+      // Validate UUID format to prevent injection
+      if (
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          id,
+        )
+      ) {
+        set.status = 400
+        return { error: 'Invalid message ID format' }
+      }
+
+      const message = messages.get(id)
+
+      if (!message) {
+        set.status = 404
+        return { error: 'Message not found' }
+      }
+
+      return {
+        ...message.envelope,
+        cid: message.cid,
+        receivedAt: message.receivedAt,
+        deliveredAt: message.deliveredAt,
+      }
+    })
+
+    // ============ Mark Message as Read ============
+
+    .post('/read/:id', ({ params, set }) => {
+      const { id } = params
+
+      // Validate UUID format
+      if (
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          id,
+        )
+      ) {
+        set.status = 400
+        return { error: 'Invalid message ID format' }
+      }
+
+      const message = messages.get(id)
+
+      if (!message) {
+        set.status = 404
+        return { error: 'Message not found' }
+      }
+
+      // Notify sender of read receipt
+      notifySubscriber(message.envelope.from, {
+        type: 'read_receipt',
+        data: { messageId: id, readAt: Date.now() },
+      })
+
+      return { success: true }
+    })
+
+    // ============ Stats ============
+
+    .get('/stats', () => ({
       nodeId: config.nodeId,
       totalMessagesRelayed,
       totalBytesRelayed,
       activeSubscribers: subscribers.size,
       pendingMessages: messages.size,
       uptime: process.uptime(),
-    })
-  })
+    }))
 
   return app
 }
@@ -480,7 +481,7 @@ function processSubscription(
     return null
   }
 
-  // Safe JSON parsing
+  // Safe JSON parsing - unknown is correct here, Zod validates below
   let parsed: unknown
   try {
     parsed = JSON.parse(rawMessage)

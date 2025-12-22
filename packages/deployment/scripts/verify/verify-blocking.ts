@@ -96,7 +96,7 @@ const CHAINS: Record<string, ChainConfig> = {
   localnet: {
     chainId: 31337,
     name: 'Anvil',
-    rpcUrl: process.env.ANVIL_RPC_URL || 'http://localhost:8545',
+    rpcUrl: process.env.ANVIL_RPC_URL || 'http://localhost:6545',
   },
   base: {
     chainId: 8453,

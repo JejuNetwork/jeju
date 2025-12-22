@@ -389,8 +389,9 @@ describe('Retry Logic', () => {
     pendingMessages.set(envelope.id, { attempts: 8 })
 
     // Simulate another failed retry
-    const pending = pendingMessages.get(envelope.id)!
-    pending.attempts++
+    const pending = pendingMessages.get(envelope.id)
+    expect(pending).toBeDefined()
+    if (pending) pending.attempts++
 
     if (pending.attempts >= maxTotalAttempts) {
       pendingMessages.delete(envelope.id)

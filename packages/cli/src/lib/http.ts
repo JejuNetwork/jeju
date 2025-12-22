@@ -61,46 +61,6 @@ export async function fetchJson<T>(
 }
 
 /**
- * Fetch JSON without schema validation (for responses with variable structure).
- * Throws on network errors or non-OK responses.
- */
-export async function fetchJsonRaw<T>(
-  url: string,
-  options: {
-    method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
-    headers?: Record<string, string>
-    body?: JsonValue
-    timeout?: number
-  } = {},
-): Promise<T> {
-  const { method = 'GET', headers = {}, body, timeout = 10000 } = options
-
-  const requestInit: RequestInit = {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      ...headers,
-    },
-    signal: AbortSignal.timeout(timeout),
-  }
-
-  if (body !== undefined) {
-    requestInit.body = JSON.stringify(body)
-  }
-
-  const response = await fetch(url, requestInit)
-
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => '')
-    throw new Error(
-      `HTTP ${response.status}: ${errorText || response.statusText}`,
-    )
-  }
-
-  return response.json() as Promise<T>
-}
-
-/**
  * Check if a URL responds successfully to a health check.
  * Returns false on any error (network, timeout, non-OK status).
  */

@@ -259,7 +259,7 @@ describe.skipIf(SKIP)('BackendManager', () => {
       )
 
       const results = await Promise.all(downloads)
-      results.forEach((r) => expect(r.content.length).toBe(100))
+      for (const r of results) expect(r.content.length).toBe(100)
     })
   })
 

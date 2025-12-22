@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAccount } from 'wagmi'
 import { DWS_API_URL } from '../config'
+import { api } from '../lib/eden'
 import type {
   APIListing,
   APIProvider,
@@ -19,6 +20,147 @@ import type {
   VPNSession,
   WorkerFunction,
 } from '../types'
+
+// Eden-based hooks with type safety
+
+export function useHealth() {
+  return useQuery({
+    queryKey: ['health'],
+    queryFn: async () => {
+      const { data, error } = await api.health.get()
+      if (error) throw new Error(String(error))
+      return data as DWSHealth
+    },
+    refetchInterval: 30000,
+  })
+}
+
+export function useStorageHealth() {
+  return useQuery({
+    queryKey: ['storage-health'],
+    queryFn: async () => {
+      const { data, error } = await api.storage.health.get()
+      if (error) throw new Error(String(error))
+      return data
+    },
+  })
+}
+
+export function useCDNStats() {
+  return useQuery({
+    queryKey: ['cdn-stats'],
+    queryFn: async () => {
+      const { data, error } = await api.cdn.stats.get()
+      if (error) throw new Error(String(error))
+      return data as {
+        entries: number
+        sizeBytes: number
+        maxSizeBytes: number
+        hitRate: number
+      }
+    },
+  })
+}
+
+export function useJobs() {
+  const { address } = useAccount()
+  return useQuery({
+    queryKey: ['jobs', address],
+    queryFn: async () => {
+      const { data, error } = await api.compute.jobs.get({
+        headers: { 'x-jeju-address': address || '' },
+      })
+      if (error) throw new Error(String(error))
+      return data as { jobs: ComputeJob[]; total: number }
+    },
+    enabled: !!address,
+    refetchInterval: 5000,
+  })
+}
+
+export function useSubmitJob() {
+  const { address } = useAccount()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (params: {
+      command: string
+      shell?: string
+      timeout?: number
+    }) => {
+      const { data, error } = await api.compute.jobs.post({
+        command: params.command,
+        shell: params.shell,
+        timeout: params.timeout,
+      }, {
+        headers: { 'x-jeju-address': address || '' },
+      })
+      if (error) throw new Error(String(error))
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['jobs'] })
+    },
+  })
+}
+
+export function useInference() {
+  return useMutation({
+    mutationFn: async (params: {
+      model?: string
+      messages: Array<{ role: string; content: string }>
+    }) => {
+      const { data, error } = await api.compute['chat']['completions'].post(params)
+      if (error) throw new Error(String(error))
+      return data as {
+        id: string
+        model: string
+        choices: Array<{ message: { content: string } }>
+        usage: { total_tokens: number }
+      }
+    },
+  })
+}
+
+export function useEmbeddings() {
+  return useMutation({
+    mutationFn: async (params: { input: string | string[]; model?: string }) => {
+      const { data, error } = await api.compute.embeddings.post(params)
+      if (error) throw new Error(String(error))
+      return data as {
+        data: Array<{ embedding: number[] }>
+        model: string
+        usage: { total_tokens: number }
+      }
+    },
+  })
+}
+
+export function useTrainingRuns() {
+  return useQuery({
+    queryKey: ['training-runs'],
+    queryFn: async () => {
+      const { data, error } = await api.compute.training.runs.get()
+      if (error) throw new Error(String(error))
+      return data as TrainingRun[]
+    },
+    refetchInterval: 10000,
+  })
+}
+
+export function useComputeNodes() {
+  return useQuery({
+    queryKey: ['compute-nodes'],
+    queryFn: async () => {
+      const { data, error } = await api.compute.nodes.get()
+      if (error) throw new Error(String(error))
+      return { nodes: data as ComputeNode[] }
+    },
+    refetchInterval: 30000,
+  })
+}
+
+// Legacy fetch-based hooks for routes not yet converted to Elysia
 
 async function fetchApi<T>(
   endpoint: string,
@@ -46,14 +188,6 @@ async function fetchApi<T>(
   }
 
   return response.json()
-}
-
-export function useHealth() {
-  return useQuery({
-    queryKey: ['health'],
-    queryFn: () => fetchApi<DWSHealth>('/health'),
-    refetchInterval: 30000,
-  })
 }
 
 export function useContainers() {
@@ -141,48 +275,6 @@ export function useInvokeWorker() {
   })
 }
 
-export function useJobs() {
-  const { address } = useAccount()
-  return useQuery({
-    queryKey: ['jobs', address],
-    queryFn: () =>
-      fetchApi<{ jobs: ComputeJob[] }>('/compute/jobs', { address }),
-    enabled: !!address,
-    refetchInterval: 5000,
-  })
-}
-
-export function useSubmitJob() {
-  const { address } = useAccount()
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: (params: {
-      command: string
-      shell?: string
-      timeout?: number
-    }) =>
-      fetchApi<{ jobId: string; status: string }>('/compute/jobs', {
-        method: 'POST',
-        body: JSON.stringify(params),
-        address,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['jobs'] })
-    },
-  })
-}
-
-export function useStorageHealth() {
-  return useQuery({
-    queryKey: ['storage-health'],
-    queryFn: () =>
-      fetchApi<{ service: string; status: string; backends: string[] }>(
-        '/storage/health',
-      ),
-  })
-}
-
 export function useUploadFile() {
   const { address } = useAccount()
 
@@ -200,19 +292,6 @@ export function useUploadFile() {
       if (!response.ok) throw new Error('Upload failed')
       return response.json()
     },
-  })
-}
-
-export function useCDNStats() {
-  return useQuery({
-    queryKey: ['cdn-stats'],
-    queryFn: () =>
-      fetchApi<{
-        entries: number
-        sizeBytes: number
-        maxSizeBytes: number
-        hitRate: number
-      }>('/cdn/stats'),
   })
 }
 
@@ -264,46 +343,6 @@ export function usePipelines() {
     queryFn: () =>
       fetchApi<{ pipelines: CIPipeline[] }>('/ci/pipelines', { address }),
     enabled: !!address,
-    refetchInterval: 10000,
-  })
-}
-
-export function useInference() {
-  return useMutation({
-    mutationFn: (params: {
-      model?: string
-      messages: Array<{ role: string; content: string }>
-    }) =>
-      fetchApi<{
-        id: string
-        model: string
-        choices: Array<{ message: { content: string } }>
-        usage: { total_tokens: number }
-      }>('/compute/chat/completions', {
-        method: 'POST',
-        body: JSON.stringify(params),
-      }),
-  })
-}
-
-export function useEmbeddings() {
-  return useMutation({
-    mutationFn: (params: { input: string | string[]; model?: string }) =>
-      fetchApi<{
-        data: Array<{ embedding: number[] }>
-        model: string
-        usage: { total_tokens: number }
-      }>('/compute/embeddings', {
-        method: 'POST',
-        body: JSON.stringify(params),
-      }),
-  })
-}
-
-export function useTrainingRuns() {
-  return useQuery({
-    queryKey: ['training-runs'],
-    queryFn: () => fetchApi<TrainingRun[]>('/compute/training/runs'),
     refetchInterval: 10000,
   })
 }
@@ -485,20 +524,12 @@ export function useDeposit() {
   })
 }
 
-export function useComputeNodes() {
-  return useQuery({
-    queryKey: ['compute-nodes'],
-    queryFn: () => fetchApi<{ nodes: ComputeNode[] }>('/containers/nodes'),
-    refetchInterval: 30000,
-  })
-}
-
 export function useRegisterNode() {
   const { address } = useAccount()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (params: {
+    mutationFn: async (params: {
       nodeId: string
       endpoint: string
       region: string
@@ -506,12 +537,16 @@ export function useRegisterNode() {
       totalCpu: number
       totalMemoryMb: number
       totalStorageMb: number
-    }) =>
-      fetchApi<{ nodeId: string; status: string }>('/containers/nodes', {
-        method: 'POST',
-        body: JSON.stringify({ ...params, address }),
-        address,
-      }),
+    }) => {
+      const { data, error } = await api.compute.nodes.register.post({
+        address: params.nodeId,
+        gpuTier: 'cpu',
+        endpoint: params.endpoint,
+        region: params.region,
+      })
+      if (error) throw new Error(String(error))
+      return data
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['compute-nodes'] })
     },

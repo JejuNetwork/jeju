@@ -164,7 +164,9 @@ export class AcrossAdapter extends EventEmitter {
 
   stop(): void {
     this.running = false
-    this.unwatchers.forEach((fn) => fn())
+    this.unwatchers.forEach((fn) => {
+      fn()
+    })
     this.unwatchers = []
   }
 

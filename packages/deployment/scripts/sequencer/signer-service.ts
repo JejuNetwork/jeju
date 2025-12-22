@@ -9,7 +9,7 @@
  */
 
 import { createHash, randomBytes } from 'node:crypto'
-import { Hono } from 'hono'
+import { Elysia } from 'elysia'
 import { signMessage, signTypedData } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 
@@ -51,7 +51,7 @@ const MAX_PROCESSED_REQUESTS = 10_000
 
 class ThresholdSignerService {
   private account: ReturnType<typeof privateKeyToAccount>
-  private app: Hono
+  private app: Elysia
   private apiKeyHash: string
   private allowedOrigins: Set<string>
   private rateLimits = new Map<string, { count: number; resetAt: number }>()
@@ -69,7 +69,7 @@ class ThresholdSignerService {
     allowedOrigins: string[] = [],
   ) {
     this.account = privateKeyToAccount(privateKey as `0x${string}`)
-    this.app = new Hono()
+    this.app = new Elysia()
     this.apiKeyHash = createHash('sha256').update(apiKey).digest('hex')
     this.allowedOrigins = new Set(allowedOrigins)
     this.setupRoutes()
@@ -137,107 +137,102 @@ class ThresholdSignerService {
   }
 
   private setupRoutes(): void {
-    // Auth middleware (skip /health)
-    this.app.use('/*', async (c, next) => {
-      if (c.req.path === '/health') return next()
-      if (!this.checkAuth(c.req.header('Authorization')))
-        return c.json({ error: 'Unauthorized' }, 401)
-      if (!this.checkRateLimit(c.req.header('X-Forwarded-For') || 'unknown'))
-        return c.json({ error: 'Rate limited' }, 429)
-      const origin = c.req.header('Origin') || c.req.header('X-Origin')
-      if (
-        this.allowedOrigins.size > 0 &&
-        origin &&
-        !this.allowedOrigins.has(origin)
-      )
-        return c.json({ error: 'Origin blocked' }, 403)
-      return next()
-    })
+    // Health check - no auth required
+    this.app.get('/health', () => ({
+      status: 'ok',
+      address: this.account.address,
+      uptime: Date.now() - this.stats.startTime,
+    }))
 
-    this.app.get('/health', (c) =>
-      c.json({
-        status: 'ok',
-        address: this.account.address,
-        uptime: Date.now() - this.stats.startTime,
-      }),
-    )
-    this.app.get('/info', (c) =>
-      c.json({
+    // Protected routes with auth middleware
+    const protectedRoutes = new Elysia()
+      .onBeforeHandle(({ request, set }) => {
+        const authHeader = request.headers.get('Authorization')
+        if (!this.checkAuth(authHeader ?? undefined)) {
+          set.status = 401
+          return { error: 'Unauthorized' }
+        }
+        const clientId = request.headers.get('X-Forwarded-For') ?? 'unknown'
+        if (!this.checkRateLimit(clientId)) {
+          set.status = 429
+          return { error: 'Rate limited' }
+        }
+        const origin = request.headers.get('Origin') ?? request.headers.get('X-Origin')
+        if (this.allowedOrigins.size > 0 && origin && !this.allowedOrigins.has(origin)) {
+          set.status = 403
+          return { error: 'Origin blocked' }
+        }
+      })
+      .get('/info', () => ({
         address: this.account.address,
         signaturesIssued: this.stats.signaturesIssued,
         uptime: Date.now() - this.stats.startTime,
-      }),
-    )
-    this.app.get('/stats', (c) =>
-      c.json({
+      }))
+      .get('/stats', () => ({
         signaturesIssued: this.stats.signaturesIssued,
         uptime: Date.now() - this.stats.startTime,
-      }),
-    )
+      }))
+      .post('/sign-digest', async ({ body, set }) => {
+        this.stats.requestsReceived++
+        const typedBody = body as SignRequest
+        const err = this.validateRequest(typedBody)
+        if (err) {
+          set.status = 400
+          return this.errorResponse(typedBody.requestId ?? '', err, 400).json
+        }
+        this.processedRequests.add(typedBody.requestId)
 
-    this.app.post('/sign-digest', async (c) => {
-      this.stats.requestsReceived++
-      const body = await c.req.json<SignRequest>()
-      const err = this.validateRequest(body)
-      if (err)
-        return c.json(
-          this.errorResponse(body.requestId || '', err, 400).json,
-          400,
-        )
-      this.processedRequests.add(body.requestId)
+        const signature = await signMessage({
+          account: this.account,
+          message: { raw: typedBody.digest as `0x${string}` },
+        })
+        this.stats.signaturesIssued++
+        console.log(`[Signer] Signed ${typedBody.requestId.slice(0, 8)}...`)
+        return {
+          requestId: typedBody.requestId,
+          signature,
+          signer: this.account.address,
+        } satisfies SignResponse
+      })
+      .post('/sign-typed', async ({ body, set }) => {
+        this.stats.requestsReceived++
+        const typedBody = body as TypedSignRequest
+        if (!typedBody.domain || !typedBody.types || !typedBody.message) {
+          set.status = 400
+          return this.errorResponse(typedBody.requestId ?? '', 'Missing typed data fields', 400).json
+        }
+        const err = this.validateRequest(typedBody)
+        if (err) {
+          set.status = 400
+          return this.errorResponse(typedBody.requestId, err, 400).json
+        }
+        this.processedRequests.add(typedBody.requestId)
 
-      const signature = await signMessage({
-        account: this.account,
-        message: { raw: body.digest as `0x${string}` },
+        const signature = await signTypedData({
+          account: this.account,
+          domain: typedBody.domain,
+          types: typedBody.types,
+          primaryType: Object.keys(typedBody.types)[0],
+          message: typedBody.message,
+        })
+        this.stats.signaturesIssued++
+        console.log(`[Signer] Signed typed ${typedBody.requestId.slice(0, 8)}...`)
+        return {
+          requestId: typedBody.requestId,
+          signature,
+          signer: this.account.address,
+        } satisfies SignResponse
       })
-      this.stats.signaturesIssued++
-      console.log(`[Signer] Signed ${body.requestId.slice(0, 8)}...`)
-      return c.json<SignResponse>({
-        requestId: body.requestId,
-        signature,
-        signer: this.account.address,
-      })
-    })
 
-    this.app.post('/sign-typed', async (c) => {
-      this.stats.requestsReceived++
-      const body = await c.req.json<TypedSignRequest>()
-      if (!body.domain || !body.types || !body.message)
-        return c.json(
-          this.errorResponse(
-            body.requestId || '',
-            'Missing typed data fields',
-            400,
-          ).json,
-          400,
-        )
-      const err = this.validateRequest(body)
-      if (err)
-        return c.json(this.errorResponse(body.requestId, err, 400).json, 400)
-      this.processedRequests.add(body.requestId)
-
-      const signature = await signTypedData({
-        account: this.account,
-        domain: body.domain,
-        types: body.types,
-        primaryType: Object.keys(body.types)[0],
-        message: body.message,
-      })
-      this.stats.signaturesIssued++
-      console.log(`[Signer] Signed typed ${body.requestId.slice(0, 8)}...`)
-      return c.json<SignResponse>({
-        requestId: body.requestId,
-        signature,
-        signer: this.account.address,
-      })
-    })
+    this.app.use(protectedRoutes)
   }
 
-  getApp() {
+  getApp(): Elysia {
     return this.app
   }
-  getAddress() {
-    return this.wallet.address
+
+  getAddress(): `0x${string}` {
+    return this.account.address
   }
 }
 
@@ -312,7 +307,7 @@ export class SignatureCollector {
 
 // ============ Main ============
 
-async function main() {
+async function main(): Promise<void> {
   const {
     SIGNER_PRIVATE_KEY: pk,
     SIGNER_API_KEY: key,
@@ -324,12 +319,23 @@ async function main() {
     process.exit(1)
   }
 
-  const port = parseInt(SIGNER_PORT || '4100', 10)
-  const origins = (SIGNER_ALLOWED_ORIGINS || '').split(',').filter(Boolean)
+  const port = parseInt(SIGNER_PORT ?? '4100', 10)
+  const origins = (SIGNER_ALLOWED_ORIGINS ?? '').split(',').filter(Boolean)
   const svc = new ThresholdSignerService(pk, key, origins)
 
   console.log(`🔐 Signer v2.0.0 | ${svc.getAddress()} | :${port}`)
-  Bun.serve({ port, fetch: svc.getApp().fetch })
+  svc.getApp().listen(port)
+
+  process.on('SIGINT', () => {
+    svc.stop()
+    svc.getApp().stop()
+    process.exit(0)
+  })
+  process.on('SIGTERM', () => {
+    svc.stop()
+    svc.getApp().stop()
+    process.exit(0)
+  })
 }
 
 // Only run main when executed directly

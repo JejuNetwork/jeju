@@ -6,62 +6,69 @@ import type { Address } from 'viem'
 
 // ============ Enums ============
 
-export enum DAOStatus {
-  PENDING = 0,
-  ACTIVE = 1,
-  PAUSED = 2,
-  ARCHIVED = 3,
-}
+export const DAOStatus = {
+  PENDING: 0,
+  ACTIVE: 1,
+  PAUSED: 2,
+  ARCHIVED: 3,
+} as const
+export type DAOStatus = (typeof DAOStatus)[keyof typeof DAOStatus]
 
-export enum ProposalStatus {
-  DRAFT = 0,
-  PENDING_QUALITY = 1,
-  SUBMITTED = 2,
-  COUNCIL_REVIEW = 3,
-  RESEARCH = 4,
-  COUNCIL_FINAL = 5,
-  CEO_QUEUE = 6,
-  APPROVED = 7,
-  EXECUTING = 8,
-  COMPLETED = 9,
-  REJECTED = 10,
-  VETOED = 11,
-  DUPLICATE = 12,
-  SPAM = 13,
-}
+export const ProposalStatus = {
+  DRAFT: 0,
+  PENDING_QUALITY: 1,
+  SUBMITTED: 2,
+  COUNCIL_REVIEW: 3,
+  RESEARCH: 4,
+  COUNCIL_FINAL: 5,
+  CEO_QUEUE: 6,
+  APPROVED: 7,
+  EXECUTING: 8,
+  COMPLETED: 9,
+  REJECTED: 10,
+  VETOED: 11,
+  DUPLICATE: 12,
+  SPAM: 13,
+} as const
+export type ProposalStatus =
+  (typeof ProposalStatus)[keyof typeof ProposalStatus]
 
-export enum ProposalType {
-  PARAMETER_CHANGE = 0,
-  TREASURY_ALLOCATION = 1,
-  CODE_UPGRADE = 2,
-  HIRE_CONTRACTOR = 3,
-  FIRE_CONTRACTOR = 4,
-  BOUNTY = 5,
-  GRANT = 6,
-  PARTNERSHIP = 7,
-  POLICY = 8,
-  EMERGENCY = 9,
-}
+export const ProposalType = {
+  PARAMETER_CHANGE: 0,
+  TREASURY_ALLOCATION: 1,
+  CODE_UPGRADE: 2,
+  HIRE_CONTRACTOR: 3,
+  FIRE_CONTRACTOR: 4,
+  BOUNTY: 5,
+  GRANT: 6,
+  PARTNERSHIP: 7,
+  POLICY: 8,
+  EMERGENCY: 9,
+} as const
+export type ProposalType = (typeof ProposalType)[keyof typeof ProposalType]
 
-export enum CasualProposalCategory {
-  OPINION = 'opinion',
-  SUGGESTION = 'suggestion',
-  PROPOSAL = 'proposal',
-  MEMBER_APPLICATION = 'member_application',
-  PACKAGE_FUNDING = 'package_funding',
-  REPO_FUNDING = 'repo_funding',
-  PARAMETER_CHANGE = 'parameter_change',
-  CEO_MODEL_CHANGE = 'ceo_model_change',
-}
+export const CasualProposalCategory = {
+  OPINION: 'opinion',
+  SUGGESTION: 'suggestion',
+  PROPOSAL: 'proposal',
+  MEMBER_APPLICATION: 'member_application',
+  PACKAGE_FUNDING: 'package_funding',
+  REPO_FUNDING: 'repo_funding',
+  PARAMETER_CHANGE: 'parameter_change',
+  CEO_MODEL_CHANGE: 'ceo_model_change',
+} as const
+export type CasualProposalCategory =
+  (typeof CasualProposalCategory)[keyof typeof CasualProposalCategory]
 
-export enum FundingStatus {
-  PROPOSED = 0,
-  ACCEPTED = 1,
-  ACTIVE = 2,
-  PAUSED = 3,
-  COMPLETED = 4,
-  REJECTED = 5,
-}
+export const FundingStatus = {
+  PROPOSED: 0,
+  ACCEPTED: 1,
+  ACTIVE: 2,
+  PAUSED: 3,
+  COMPLETED: 4,
+  REJECTED: 5,
+} as const
+export type FundingStatus = (typeof FundingStatus)[keyof typeof FundingStatus]
 
 // ============ DAO Types ============
 
@@ -342,12 +349,13 @@ export interface QualityAssessment {
 
 // ============ Council Types ============
 
-export enum CouncilRole {
-  TREASURY = 0,
-  CODE = 1,
-  COMMUNITY = 2,
-  SECURITY = 3,
-}
+export const CouncilRole = {
+  TREASURY: 0,
+  CODE: 1,
+  COMMUNITY: 2,
+  SECURITY: 3,
+} as const
+export type CouncilRole = (typeof CouncilRole)[keyof typeof CouncilRole]
 
 export interface CouncilAgent {
   id: string
@@ -364,12 +372,13 @@ export interface CouncilAgent {
   lastActive: number
 }
 
-export enum VoteType {
-  APPROVE = 0,
-  REJECT = 1,
-  ABSTAIN = 2,
-  REQUEST_CHANGES = 3,
-}
+export const VoteType = {
+  APPROVE: 0,
+  REJECT: 1,
+  ABSTAIN: 2,
+  REQUEST_CHANGES: 3,
+} as const
+export type VoteType = (typeof VoteType)[keyof typeof VoteType]
 
 export interface CouncilVote {
   proposalId: string
@@ -508,15 +517,16 @@ export interface VetoVote {
   votedAt: number
 }
 
-export enum VetoCategory {
-  ALREADY_DONE = 0,
-  DUPLICATE = 1,
-  IMPOSSIBLE = 2,
-  HARMFUL = 3,
-  MISALIGNED = 4,
-  INSUFFICIENT_INFO = 5,
-  OTHER = 6,
-}
+export const VetoCategory = {
+  ALREADY_DONE: 0,
+  DUPLICATE: 1,
+  IMPOSSIBLE: 2,
+  HARMFUL: 3,
+  MISALIGNED: 4,
+  INSUFFICIENT_INFO: 5,
+  OTHER: 6,
+} as const
+export type VetoCategory = (typeof VetoCategory)[keyof typeof VetoCategory]
 
 export interface ProposalComment {
   proposalId: string
@@ -1008,45 +1018,53 @@ export interface FundingStats {
 
 // ============ Bug Bounty Types ============
 
-export enum BountySeverity {
-  LOW = 0,
-  MEDIUM = 1,
-  HIGH = 2,
-  CRITICAL = 3,
-}
+export const BountySeverity = {
+  LOW: 0,
+  MEDIUM: 1,
+  HIGH: 2,
+  CRITICAL: 3,
+} as const
+export type BountySeverity =
+  (typeof BountySeverity)[keyof typeof BountySeverity]
 
-export enum VulnerabilityType {
-  FUNDS_AT_RISK = 0,
-  WALLET_DRAIN = 1,
-  REMOTE_CODE_EXECUTION = 2,
-  TEE_BYPASS = 3,
-  CONSENSUS_ATTACK = 4,
-  MPC_KEY_EXPOSURE = 5,
-  PRIVILEGE_ESCALATION = 6,
-  DENIAL_OF_SERVICE = 7,
-  INFORMATION_DISCLOSURE = 8,
-  OTHER = 9,
-}
+export const VulnerabilityType = {
+  FUNDS_AT_RISK: 0,
+  WALLET_DRAIN: 1,
+  REMOTE_CODE_EXECUTION: 2,
+  TEE_BYPASS: 3,
+  CONSENSUS_ATTACK: 4,
+  MPC_KEY_EXPOSURE: 5,
+  PRIVILEGE_ESCALATION: 6,
+  DENIAL_OF_SERVICE: 7,
+  INFORMATION_DISCLOSURE: 8,
+  OTHER: 9,
+} as const
+export type VulnerabilityType =
+  (typeof VulnerabilityType)[keyof typeof VulnerabilityType]
 
-export enum BountySubmissionStatus {
-  PENDING = 0,
-  VALIDATING = 1,
-  GUARDIAN_REVIEW = 2,
-  CEO_REVIEW = 3,
-  APPROVED = 4,
-  REJECTED = 5,
-  PAID = 6,
-  WITHDRAWN = 7,
-}
+export const BountySubmissionStatus = {
+  PENDING: 0,
+  VALIDATING: 1,
+  GUARDIAN_REVIEW: 2,
+  CEO_REVIEW: 3,
+  APPROVED: 4,
+  REJECTED: 5,
+  PAID: 6,
+  WITHDRAWN: 7,
+} as const
+export type BountySubmissionStatus =
+  (typeof BountySubmissionStatus)[keyof typeof BountySubmissionStatus]
 
-export enum ValidationResult {
-  PENDING = 0,
-  VERIFIED = 1,
-  LIKELY_VALID = 2,
-  NEEDS_MORE_INFO = 3,
-  INVALID = 4,
-  SANDBOX_ERROR = 5,
-}
+export const ValidationResult = {
+  PENDING: 0,
+  VERIFIED: 1,
+  LIKELY_VALID: 2,
+  NEEDS_MORE_INFO: 3,
+  INVALID: 4,
+  SANDBOX_ERROR: 5,
+} as const
+export type ValidationResult =
+  (typeof ValidationResult)[keyof typeof ValidationResult]
 
 export interface BountySubmissionDraft {
   title: string
@@ -1130,4 +1148,34 @@ export const SEVERITY_REWARDS: Record<
   [BountySeverity.MEDIUM]: { minReward: 2500, maxReward: 10000 },
   [BountySeverity.HIGH]: { minReward: 10000, maxReward: 25000 },
   [BountySeverity.CRITICAL]: { minReward: 25000, maxReward: 50000 },
+}
+
+// Reverse lookup maps for enum names
+export const BountySeverityName: Record<BountySeverity, string> = {
+  [BountySeverity.LOW]: 'LOW',
+  [BountySeverity.MEDIUM]: 'MEDIUM',
+  [BountySeverity.HIGH]: 'HIGH',
+  [BountySeverity.CRITICAL]: 'CRITICAL',
+}
+
+export const VulnerabilityTypeName: Record<VulnerabilityType, string> = {
+  [VulnerabilityType.FUNDS_AT_RISK]: 'FUNDS_AT_RISK',
+  [VulnerabilityType.WALLET_DRAIN]: 'WALLET_DRAIN',
+  [VulnerabilityType.REMOTE_CODE_EXECUTION]: 'REMOTE_CODE_EXECUTION',
+  [VulnerabilityType.TEE_BYPASS]: 'TEE_BYPASS',
+  [VulnerabilityType.CONSENSUS_ATTACK]: 'CONSENSUS_ATTACK',
+  [VulnerabilityType.MPC_KEY_EXPOSURE]: 'MPC_KEY_EXPOSURE',
+  [VulnerabilityType.PRIVILEGE_ESCALATION]: 'PRIVILEGE_ESCALATION',
+  [VulnerabilityType.DENIAL_OF_SERVICE]: 'DENIAL_OF_SERVICE',
+  [VulnerabilityType.INFORMATION_DISCLOSURE]: 'INFORMATION_DISCLOSURE',
+  [VulnerabilityType.OTHER]: 'OTHER',
+}
+
+export const ValidationResultName: Record<ValidationResult, string> = {
+  [ValidationResult.PENDING]: 'PENDING',
+  [ValidationResult.VERIFIED]: 'VERIFIED',
+  [ValidationResult.LIKELY_VALID]: 'LIKELY_VALID',
+  [ValidationResult.NEEDS_MORE_INFO]: 'NEEDS_MORE_INFO',
+  [ValidationResult.INVALID]: 'INVALID',
+  [ValidationResult.SANDBOX_ERROR]: 'SANDBOX_ERROR',
 }

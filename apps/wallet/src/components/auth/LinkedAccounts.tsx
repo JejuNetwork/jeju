@@ -231,6 +231,7 @@ export function LinkedAccounts() {
                       </span>
                     )}
                     <button
+                      type="button"
                       onClick={() => handleUnlink(linked.provider)}
                       disabled={isLoading || linkedProviders.length <= 1}
                       className="p-2 rounded-lg hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -270,6 +271,7 @@ export function LinkedAccounts() {
 
               return (
                 <button
+                  type="button"
                   key={provider}
                   onClick={() => handleLink(provider)}
                   disabled={isLoading}

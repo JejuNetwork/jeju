@@ -238,6 +238,7 @@ function NodeCard({ nodeId }: NodeCardProps) {
       {/* Actions */}
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
         <button
+          type="button"
           className="button"
           onClick={() => claimRewards(nodeId)}
           disabled={!canClaim || isClaiming || !node.isActive}
@@ -248,6 +249,7 @@ function NodeCard({ nodeId }: NodeCardProps) {
             : `Claim ${rewardTokenInfo?.symbol || 'Rewards'}`}
         </button>
         <button
+          type="button"
           className="button button-secondary"
           onClick={() => deregisterNode(nodeId)}
           disabled={!canDeregister || isDeregistering}

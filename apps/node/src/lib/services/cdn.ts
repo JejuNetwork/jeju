@@ -290,7 +290,7 @@ export class CDNService {
         PRIVATE_KEY: privateKey,
         CDN_REGISTRY_ADDRESS: this.client.addresses.cdnRegistry,
         CDN_BILLING_ADDRESS: this.client.addresses.cdnBilling,
-        RPC_URL: process.env.RPC_URL ?? 'http://localhost:9545',
+        RPC_URL: process.env.RPC_URL ?? 'http://localhost:6546',
       },
       stdio: ['inherit', 'inherit', 'inherit'],
     })

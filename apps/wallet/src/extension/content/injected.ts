@@ -104,6 +104,8 @@ interface PendingRequest {
 class NetworkProvider {
   private events: Map<ProviderEventName, Set<EventCallback>> = new Map()
   private pendingRequests: Map<string, PendingRequest> = new Map()
+  private cleanupIntervalId: ReturnType<typeof setInterval> | undefined =
+    undefined
 
   readonly isJeju = true
   readonly isMetaMask = true // For compatibility
@@ -315,6 +317,16 @@ class NetworkProvider {
     this.events.get(event)?.forEach((callback) => {
       ;(callback as TypedEventCallback<T>)(...args)
     })
+  }
+
+  // Cleanup method for testing/hot reload
+  destroy(): void {
+    if (this.cleanupIntervalId) {
+      clearInterval(this.cleanupIntervalId)
+      this.cleanupIntervalId = undefined
+    }
+    this.events.clear()
+    this.pendingRequests.clear()
   }
 
   // EIP-6963 support

@@ -1,5 +1,7 @@
+import { expectJson } from '@jejunetwork/types'
 import type { Address } from 'viem'
 import { hashMessage, recoverAddress } from 'viem'
+import { z } from 'zod'
 import { x402State } from '../../state.js'
 
 // State initialization is handled by main server startup
@@ -36,14 +38,14 @@ export interface X402PaymentHeader {
   amount: string
 }
 
-interface X402PaymentProof {
-  payTo: Address
-  amount: string
-  nonce: string
-  timestamp: number
-  network: string
-  signature: string
-}
+const X402PaymentProofSchema = z.object({
+  payTo: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+  amount: z.string(),
+  nonce: z.string(),
+  timestamp: z.number(),
+  network: z.string(),
+  signature: z.string(),
+})
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address
 const PAYMENT_RECIPIENT = (process.env.RPC_PAYMENT_RECIPIENT ||
@@ -104,7 +106,11 @@ export async function verifyX402Payment(
   if (BigInt(payment.amount) < expectedAmount)
     return { valid: false, error: 'Insufficient payment' }
 
-  const proof = JSON.parse(payment.payload) as X402PaymentProof
+  const proof = expectJson(
+    payment.payload,
+    X402PaymentProofSchema,
+    'X402 payment proof',
+  )
   const nonceKey = `${userAddress}:${proof.nonce}`
 
   if (proof.payTo.toLowerCase() !== PAYMENT_RECIPIENT.toLowerCase())

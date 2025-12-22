@@ -24,11 +24,12 @@ interface Wire {
   peerId: string
 }
 
-// WebTorrent is loaded dynamically to handle async module loading
+// WebTorrent is loaded dynamically to handle optional native module dependencies
 let WebTorrent: WebTorrentConstructor | null = null
 
 async function loadWebTorrent(): Promise<WebTorrentConstructor> {
   if (WebTorrent) return WebTorrent
+  // Dynamic import: WebTorrent has native dependencies that may not be available in all environments
   const mod = await import('webtorrent')
   // WebTorrent default export is the constructor
   WebTorrent = mod.default
@@ -39,10 +40,10 @@ import { createHash, randomBytes } from 'node:crypto'
 import * as nodeHttp from 'node:http'
 import { LRUCache } from 'lru-cache'
 import { Counter, Gauge, Registry } from 'prom-client'
-import type { Address } from 'viem'
 import { createPublicClient, createWalletClient, http as viemHttp } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
+import { OracleAttestationSchema, type OracleAttestation } from '../../validation'
 
 // ============================================================================
 // Configuration Schema
@@ -98,14 +99,7 @@ interface TorrentRecord {
   verified: boolean
 }
 
-interface OracleAttestation {
-  seeder: Address
-  infohash: string
-  bytesUploaded: number
-  timestamp: number
-  nonce: string
-  signature: string
-}
+// OracleAttestation type imported from validation.ts via schema
 
 // ============================================================================
 // Prometheus Metrics
@@ -741,10 +735,15 @@ export class HybridTorrentService {
       throw new Error(`Oracle attestation failed: ${response.status}`)
     }
 
-    const attestation = (await response.json()) as OracleAttestation
+    const json: unknown = await response.json()
+    const parsed = OracleAttestationSchema.safeParse(json)
+    if (!parsed.success) {
+      torrentOracleAttestations.inc({ status: 'error' })
+      throw new Error(`Invalid oracle attestation response: ${parsed.error.issues[0]?.message}`)
+    }
     torrentOracleAttestations.inc({ status: 'success' })
 
-    return attestation
+    return parsed.data
   }
 
   private async reportAllSeeding(): Promise<void> {

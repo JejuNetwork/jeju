@@ -92,6 +92,7 @@ export function ConnectedAccount({
       className={`oauth3-connected-account ${className}`}
     >
       <button
+        type="button"
         style={buttonStyle}
         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
       >
@@ -138,6 +139,7 @@ export function ConnectedAccount({
 
           {showLogout && (
             <button
+              type="button"
               onClick={handleLogout}
               style={{
                 ...dropdownItemStyle,

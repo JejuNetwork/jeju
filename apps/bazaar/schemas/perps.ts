@@ -14,9 +14,9 @@ export const PositionSideSchema = z.union([
 ])
 export type PositionSideValue = z.infer<typeof PositionSideSchema>
 
-// ============ Market Schema ============
+// ============ Perps Market Schema ============
 
-export const MarketSchema = z.object({
+export const PerpsMarketSchema = z.object({
   marketId: HashSchema,
   symbol: z.string().min(1),
   baseAsset: AddressSchema,
@@ -28,11 +28,11 @@ export const MarketSchema = z.object({
   currentOpenInterest: BigIntSchema,
   isActive: z.boolean(),
 })
-export type Market = z.infer<typeof MarketSchema>
+export type PerpsMarket = z.infer<typeof PerpsMarketSchema>
 
-// ============ Position Schema ============
+// ============ Perps Position Schema ============
 
-export const PositionSchema = z.object({
+export const PerpsPositionSchema = z.object({
   positionId: HashSchema,
   trader: AddressSchema,
   marketId: HashSchema,
@@ -46,11 +46,11 @@ export const PositionSchema = z.object({
   lastUpdateTime: BigIntSchema,
   isOpen: z.boolean(),
 })
-export type Position = z.infer<typeof PositionSchema>
+export type PerpsPosition = z.infer<typeof PerpsPositionSchema>
 
 // ============ Position with PnL Schema ============
 
-export const PositionWithPnLSchema = PositionSchema.extend({
+export const PositionWithPnLSchema = PerpsPositionSchema.extend({
   unrealizedPnl: BigIntSchema,
   fundingPnl: BigIntSchema,
   liquidationPrice: BigIntSchema,

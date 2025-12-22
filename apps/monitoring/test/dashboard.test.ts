@@ -20,7 +20,13 @@ const GRAFANA_PORT = parseInt(process.env.GRAFANA_PORT || '4010', 10)
 const GRAFANA_URL = `http://localhost:${GRAFANA_PORT}`
 const AUTH = Buffer.from('admin:admin').toString('base64')
 
-const DASHBOARD_DIR = path.join(__dirname, '..', 'config', 'grafana', 'dashboards')
+const DASHBOARD_DIR = path.join(
+  __dirname,
+  '..',
+  'config',
+  'grafana',
+  'dashboards',
+)
 
 async function grafanaRequest(endpoint: string): Promise<Response> {
   return fetch(`${GRAFANA_URL}${endpoint}`, {
@@ -79,8 +85,9 @@ describe('Dashboard File Validation', () => {
     for (const file of dashboardFiles) {
       const dashboard = loadDashboard(file)
       expect(dashboard.uid).toBeDefined()
-      expect(uids.has(dashboard.uid!)).toBe(false)
-      uids.add(dashboard.uid!)
+      if (!dashboard.uid) throw new Error('dashboard.uid should be defined')
+      expect(uids.has(dashboard.uid)).toBe(false)
+      uids.add(dashboard.uid)
     }
   })
 
@@ -777,7 +784,7 @@ describe('Dashboard Query Validation', () => {
           for (const target of panel.targets) {
             if (target.expr) {
               const hasValidPrefix = knownMetricPrefixes.some((prefix) =>
-                target.expr!.includes(prefix),
+                target.expr?.includes(prefix),
               )
               expect(hasValidPrefix).toBe(true)
             }

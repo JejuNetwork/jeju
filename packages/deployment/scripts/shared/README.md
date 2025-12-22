@@ -49,7 +49,7 @@ const provider = new FailoverProvider([
   'https://backup.jejunetwork.org'
 ], 'Jeju');
 
-const isHealthy = await checkRPC('http://localhost:9545');
+const isHealthy = await checkRPC('http://localhost:6546');
 ```
 
 ### Notifications (`notifications.ts`)

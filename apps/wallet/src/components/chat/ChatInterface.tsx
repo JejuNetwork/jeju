@@ -446,6 +446,7 @@ Groq offers a free tier at https://console.groq.com/keys`
         </div>
         {messages.length > 0 && (
           <button
+            type="button"
             onClick={clearChat}
             className="text-xs text-muted-foreground hover:text-foreground"
           >
@@ -474,6 +475,7 @@ Groq offers a free tier at https://console.groq.com/keys`
               <div className="grid grid-cols-2 gap-3 max-w-sm">
                 {QUICK_ACTIONS.map(({ label, prompt, icon: Icon, color }) => (
                   <button
+                    type="button"
                     key={label}
                     onClick={() => {
                       setInputValue(prompt)
@@ -533,12 +535,14 @@ Groq offers a free tier at https://console.groq.com/keys`
                   </div>
                   <div className="flex gap-2">
                     <button
+                      type="button"
                       onClick={() => handleConfirm(msg)}
                       className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-medium text-sm transition-colors"
                     >
                       <Check className="w-4 h-4" /> Confirm
                     </button>
                     <button
+                      type="button"
                       onClick={() => handleReject(msg)}
                       className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-secondary hover:bg-secondary/80 font-medium text-sm transition-colors"
                     >
@@ -625,6 +629,7 @@ Groq offers a free tier at https://console.groq.com/keys`
             className="flex-1 resize-none rounded-2xl border border-border bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 disabled:opacity-50 transition-all"
           />
           <button
+            type="button"
             onClick={handleSend}
             disabled={!inputValue.trim() || isTyping || !walletConnected}
             className="w-12 h-12 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white disabled:opacity-50 hover:shadow-lg hover:shadow-emerald-500/20 flex items-center justify-center transition-all"

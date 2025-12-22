@@ -14,36 +14,40 @@ import {
   zeroHash,
 } from 'viem'
 
-export enum RunState {
-  Uninitialized = 0,
-  WaitingForMembers = 1,
-  Warmup = 2,
-  RoundTrain = 3,
-  RoundWitness = 4,
-  Cooldown = 5,
-  Finished = 6,
-  Paused = 7,
-}
+export const RunState = {
+  Uninitialized: 0,
+  WaitingForMembers: 1,
+  Warmup: 2,
+  RoundTrain: 3,
+  RoundWitness: 4,
+  Cooldown: 5,
+  Finished: 6,
+  Paused: 7,
+} as const
+export type RunState = (typeof RunState)[keyof typeof RunState]
 
-export enum ClientState {
-  Healthy = 0,
-  Dropped = 1,
-  Withdrawn = 2,
-  Ejected = 3,
-}
+export const ClientState = {
+  Healthy: 0,
+  Dropped: 1,
+  Withdrawn: 2,
+  Ejected: 3,
+} as const
+export type ClientState = (typeof ClientState)[keyof typeof ClientState]
 
-export enum PrivacyMode {
-  Public = 0,
-  Private = 1,
-}
+export const PrivacyMode = {
+  Public: 0,
+  Private: 1,
+} as const
+export type PrivacyMode = (typeof PrivacyMode)[keyof typeof PrivacyMode]
 
-export enum GPUTier {
-  Unknown = 0,
-  Consumer = 1,
-  Prosumer = 2,
-  Datacenter = 3,
-  HighEnd = 4,
-}
+export const GPUTier = {
+  Unknown: 0,
+  Consumer: 1,
+  Prosumer: 2,
+  Datacenter: 3,
+  HighEnd: 4,
+} as const
+export type GPUTier = (typeof GPUTier)[keyof typeof GPUTier]
 
 export interface CoordinatorConfig {
   warmupTime: bigint

@@ -182,6 +182,7 @@ export class TEEManager {
         env.details.instanceId = await response.text()
         env.details.platform = 'aws'
 
+        // Dynamic import: only needed when AWS environment detected (conditional check)
         const { existsSync } = await import('node:fs')
         if (existsSync('/dev/nsm') || process.env.AWS_ENCLAVE_ID) {
           env.inTEE = true

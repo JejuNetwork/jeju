@@ -403,7 +403,7 @@ async function main() {
     return
   }
 
-  // Import deployment dependencies
+  // Conditional imports: only loaded when not in dry-run mode to avoid loading heavy dependencies unnecessarily
   const { createWalletClient, http } = await import('viem')
   const {
     arbitrum,

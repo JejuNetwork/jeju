@@ -8,6 +8,7 @@
 import { randomBytes } from 'node:crypto'
 import type { Address } from 'viem'
 import { z } from 'zod'
+import { IPFSAddResponseSchema } from '../schemas'
 import type {
   SyncState,
   XMTPEnvelope,
@@ -329,7 +330,8 @@ export class JejuXMTPNode {
       return null
     }
 
-    const result = (await response.json()) as { Hash: string }
+    const rawResult: unknown = await response.json()
+    const result = IPFSAddResponseSchema.parse(rawResult)
     return result.Hash
   }
 

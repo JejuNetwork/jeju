@@ -1,16 +1,11 @@
 import type { Config } from 'tailwindcss'
 
 const config: Config = {
-  content: [
-    './pages/**/*.{js,ts,jsx,tsx,mdx}',
-    './components/**/*.{js,ts,jsx,tsx,mdx}',
-    './app/**/*.{js,ts,jsx,tsx,mdx}',
-  ],
+  content: ['./src/client/**/*.{ts,tsx,html}'],
   darkMode: 'class',
   theme: {
     extend: {
       colors: {
-        // Factory brand - industrial, developer-focused
         factory: {
           50: '#f7f7f8',
           100: '#eeeef0',
@@ -24,7 +19,6 @@ const config: Config = {
           900: '#3a3a41',
           950: '#18181b',
         },
-        // Accent - electric blue for actions
         accent: {
           50: '#eff6ff',
           100: '#dbeafe',
@@ -37,7 +31,6 @@ const config: Config = {
           800: '#1e40af',
           900: '#1e3a8a',
         },
-        // Status colors
         success: '#10b981',
         warning: '#f59e0b',
         error: '#ef4444',
@@ -47,29 +40,6 @@ const config: Config = {
         sans: ['JetBrains Mono', 'Fira Code', 'monospace'],
         mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
         display: ['Geist', 'system-ui', 'sans-serif'],
-      },
-      boxShadow: {
-        'inner-sm': 'inset 0 1px 2px 0 rgb(0 0 0 / 0.05)',
-        glow: '0 0 20px rgba(59, 130, 246, 0.3)',
-      },
-      animation: {
-        'fade-in': 'fadeIn 0.2s ease-out',
-        'slide-up': 'slideUp 0.3s ease-out',
-        'pulse-subtle': 'pulseSubtle 2s infinite',
-      },
-      keyframes: {
-        fadeIn: {
-          '0%': { opacity: '0' },
-          '100%': { opacity: '1' },
-        },
-        slideUp: {
-          '0%': { opacity: '0', transform: 'translateY(10px)' },
-          '100%': { opacity: '1', transform: 'translateY(0)' },
-        },
-        pulseSubtle: {
-          '0%, 100%': { opacity: '1' },
-          '50%': { opacity: '0.8' },
-        },
       },
     },
   },

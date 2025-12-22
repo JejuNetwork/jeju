@@ -3,7 +3,9 @@
  * Wraps the storage service for common IPFS use cases
  */
 
+import { expectValid } from '@jejunetwork/types'
 import type { ZodSchema } from 'zod'
+import { IPFSPinCountResponseSchema, IPFSUploadResponseSchema } from './schemas'
 import type { ProtocolValue } from './types'
 
 export interface IPFSConfig {
@@ -67,7 +69,11 @@ export async function uploadToIPFS(
     throw new Error(`Upload failed: ${response.status} ${response.statusText}`)
   }
 
-  const result = (await response.json()) as { cid?: string; Hash?: string }
+  const result = expectValid(
+    IPFSUploadResponseSchema,
+    await response.json(),
+    'IPFS upload response',
+  )
   // Support both DWS style (cid) and IPFS API style (Hash)
   return result.cid ?? result.Hash ?? ''
 }
@@ -156,7 +162,11 @@ export async function fileExistsOnIPFS(
 ): Promise<boolean> {
   const response = await fetch(`${apiUrl}/pins?cid=${cid}`)
   if (!response.ok) return false
-  const data = (await response.json()) as { count?: number }
+  const data = expectValid(
+    IPFSPinCountResponseSchema,
+    await response.json(),
+    'IPFS pin count response',
+  )
   return (data.count ?? 0) > 0
 }
 

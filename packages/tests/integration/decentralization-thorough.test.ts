@@ -752,7 +752,7 @@ describe('MPC Custody - Threshold Signing', () => {
     const isValid = await verifyMessage({
       address: key.address,
       message: { raw: toBytes(messageHash) },
-      signature: finalSignature!.signature,
+      signature: finalSignature?.signature,
     })
 
     expect(isValid).toBe(true)

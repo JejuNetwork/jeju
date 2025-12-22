@@ -21,7 +21,7 @@ import { privateKeyToAccount } from 'viem/accounts'
 // ============ Constants ============
 
 export const TEST_CHAIN_ID = 31337
-export const TEST_RPC_URL = 'http://127.0.0.1:9545'
+export const TEST_RPC_URL = 'http://127.0.0.1:6546'
 
 // Anvil default accounts
 export const TEST_ACCOUNTS = {

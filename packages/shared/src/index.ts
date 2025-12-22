@@ -190,6 +190,7 @@ export {
   BanChecker,
   type BanCheckResult,
   type BanStatus as BanCheckStatus,
+  createElysiaBanMiddleware,
   createExpressBanMiddleware,
   createHonoBanMiddleware,
   getBanStatus,
@@ -251,6 +252,14 @@ export {
   type X402PaymentPayload,
   x402Middleware,
 } from './protocols'
+// Retry Utilities
+export {
+  isRetryableError,
+  type RetryOptions,
+  retryIfRetryable,
+  retryWithCondition,
+  sleep,
+} from './retry'
 // Service Worker
 export {
   cacheUrls,
@@ -324,6 +333,22 @@ export {
   type UploadOptions,
   type UploadResult,
 } from './services'
+// Singleton Utilities
+export {
+  createGlobalSingleton,
+  createPortSingleton,
+  createSingleton,
+  type PortSingletonAccessor,
+  type SingletonAccessor,
+} from './singleton'
+// Snowflake ID Generator
+export {
+  generateSnowflakeId,
+  isValidSnowflakeId,
+  parseSnowflakeId,
+  SnowflakeGenerator,
+  type SnowflakeParsed,
+} from './snowflake'
 // Token Utilities
 export {
   calculateUsdValue,

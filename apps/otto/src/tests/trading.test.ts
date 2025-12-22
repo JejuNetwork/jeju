@@ -1,7 +1,3 @@
-/**
- * Otto Trading Service Tests
- */
-
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { TradingService } from '../services/trading'
 

@@ -2,12 +2,8 @@
  * x402 Facilitator HTTP Server
  */
 
-import { type Context, Hono } from 'hono'
-import { bodyLimit } from 'hono/body-limit'
-import { cors } from 'hono/cors'
-import { logger } from 'hono/logger'
-import { prettyJSON } from 'hono/pretty-json'
-import { secureHeaders } from 'hono/secure-headers'
+import { cors } from '@elysiajs/cors'
+import { Elysia } from 'elysia'
 import { config, getPrivateKeyFromKMS, validateConfig } from './config'
 import healthRoutes from './routes/health'
 import metricsRoutes from './routes/metrics'
@@ -20,81 +16,91 @@ import {
   stopNonceCleanup,
 } from './services/nonce-manager'
 
-const app = new Hono()
-
 // SECURITY: Limit request body size to prevent DoS attacks
 const MAX_BODY_SIZE = 256 * 1024 // 256KB for x402 payment data
-app.use(
-  '*',
-  bodyLimit({
-    maxSize: MAX_BODY_SIZE,
-    onError: (c: Context) => {
-      return c.json(
-        { error: 'Request body too large', maxSize: MAX_BODY_SIZE },
-        413,
-      )
-    },
-  }),
-)
 
 // SECURITY: Configure CORS based on environment
-// In production, restrict to configured origins
 const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',').filter(Boolean)
 const isProduction = process.env.NODE_ENV === 'production'
 
-app.use(
-  '*',
-  cors({
-    // In production, require explicit origin whitelist; in dev allow any
-    origin: isProduction && CORS_ORIGINS?.length ? CORS_ORIGINS : '*',
-    allowMethods: ['GET', 'POST', 'OPTIONS'],
-    allowHeaders: [
-      'Content-Type',
-      'X-Payment',
-      'X-Payment-Proof',
-      'Authorization',
-    ],
-    exposeHeaders: ['X-Payment-Requirement', 'WWW-Authenticate'],
-  }),
-)
-app.use('*', secureHeaders())
-app.use('*', logger())
-app.use('*', prettyJSON())
+const app = new Elysia({ name: 'x402-facilitator' })
+  .use(
+    cors({
+      origin: isProduction && CORS_ORIGINS?.length ? CORS_ORIGINS : true,
+      methods: ['GET', 'POST', 'OPTIONS'],
+      allowedHeaders: [
+        'Content-Type',
+        'X-Payment',
+        'X-Payment-Proof',
+        'Authorization',
+      ],
+      exposeHeaders: ['X-Payment-Requirement', 'WWW-Authenticate'],
+    }),
+  )
+  .onBeforeHandle(({ request, set }) => {
+    // Body size limit check
+    const contentLength = request.headers.get('content-length')
+    if (contentLength && Number.parseInt(contentLength) > MAX_BODY_SIZE) {
+      set.status = 413
+      return { error: 'Request body too large', maxSize: MAX_BODY_SIZE }
+    }
 
-app.route('/', healthRoutes)
-app.route('/verify', verifyRoutes)
-app.route('/settle', settleRoutes)
-app.route('/supported', supportedRoutes)
-app.route('/metrics', metricsRoutes)
+    // Security headers
+    set.headers['X-Content-Type-Options'] = 'nosniff'
+    set.headers['X-Frame-Options'] = 'DENY'
+    set.headers['X-XSS-Protection'] = '1; mode=block'
+    set.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+  })
+  .use(healthRoutes)
+  .use(verifyRoutes)
+  .use(settleRoutes)
+  .use(supportedRoutes)
+  .use(metricsRoutes)
+  .onError(({ code, error, set, request }) => {
+    // Handle 404s
+    if (code === 'NOT_FOUND') {
+      set.status = 404
+      return {
+        error: 'Not found',
+        path: new URL(request.url).pathname,
+        timestamp: Date.now(),
+      }
+    }
 
-app.onError((err, c) => {
-  // Log full error details server-side only
-  console.error('[Facilitator] Error:', err)
+    // Log full error details server-side only
+    console.error('[Facilitator] Error:', error)
 
-  // SECURITY: Never expose internal error details to clients in production
-  // Only return generic error message to prevent information leakage
-  const isProduction = process.env.NODE_ENV === 'production'
-  const safeMessage = isProduction ? 'Internal server error' : err.message
+    // SECURITY: Never expose internal error details to clients in production
+    const isProduction = process.env.NODE_ENV === 'production'
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    const safeMessage = isProduction ? 'Internal server error' : errorMessage
 
-  return c.json(
-    {
+    set.status = 500
+    return {
       error: 'Internal server error',
       message: safeMessage,
       timestamp: Date.now(),
-    },
-    500,
-  )
-})
+    }
+  })
 
-app.notFound((c) => {
-  return c.json(
-    { error: 'Not found', path: c.req.path, timestamp: Date.now() },
-    404,
-  )
-})
+export type X402App = typeof app
+
+// Helper for testing - mimics Hono's request() API
+function createTestableApp(elysiaApp: typeof app) {
+  return Object.assign(elysiaApp, {
+    request: async (
+      path: string,
+      init?: RequestInit,
+    ): Promise<Response> => {
+      const url = path.startsWith('http') ? path : `http://localhost${path}`
+      const request = new Request(url, init)
+      return elysiaApp.handle(request)
+    },
+  })
+}
 
 export function createServer() {
-  return app
+  return createTestableApp(app)
 }
 
 export async function startServer(): Promise<void> {

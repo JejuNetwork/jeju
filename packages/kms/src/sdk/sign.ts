@@ -2,7 +2,7 @@
  * KMS SDK - Signing utilities
  */
 
-import type { Address, Hex } from 'viem'
+import { concat, toBytes, type Address, type Hex } from 'viem'
 import { getKMS } from '../kms.js'
 import type {
   AccessControlPolicy,
@@ -63,7 +63,6 @@ export async function signTypedData(
   structHash: Hex,
   keyId: string,
 ): Promise<SignedMessage> {
-  const { concat, toBytes } = await import('viem')
   const message = concat([
     toBytes('0x1901'),
     toBytes(domainSeparator),
@@ -97,7 +96,6 @@ export async function thresholdSignTransaction(
   threshold: number,
   totalParties: number,
 ): Promise<ThresholdSignature> {
-  const { toBytes } = await import('viem')
   const kms = getKMS()
   await kms.initialize()
   return kms.thresholdSign({

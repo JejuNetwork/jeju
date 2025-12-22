@@ -20,7 +20,7 @@ export async function invoke<T>(
   let result: T
 
   if (isTauri()) {
-    // Dynamic import to avoid bundling issues in web
+    // Conditional dynamic import: Tauri API only available in Tauri runtime, not in web bundles
     const { invoke: tauriInvoke } = await import('@tauri-apps/api/tauri')
     result = await tauriInvoke<T>(cmd, args)
   } else {

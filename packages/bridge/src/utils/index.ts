@@ -12,6 +12,8 @@ export { createLogger, type Logger, type LogLevel } from './logger.js'
 export {
   type AWSNitroConfig as ValidationAWSNitroConfig,
   AWSNitroConfigSchema,
+  type BatchProofResponse,
+  BatchProofResponseSchema,
   ConsensusSnapshotSchema,
   CrossChainTransferSchema,
   computeMerkleRoot,
@@ -59,6 +61,8 @@ export {
   SolanaHealthResponseSchema,
   type SP1Config as ValidationSP1Config,
   SP1ConfigSchema,
+  type SP1ProofResponse,
+  SP1ProofResponseSchema,
   type SuccinctProveResponse,
   SuccinctProveResponseSchema,
   TransferSubmissionSchema,

@@ -188,8 +188,8 @@ describe('Global Setup - RPC URL Resolution', () => {
     const rpcUrl =
       process.env.L2_RPC_URL ||
       process.env.JEJU_RPC_URL ||
-      'http://localhost:9545'
-    expect(rpcUrl).toBe('http://localhost:9545')
+      'http://localhost:6546'
+    expect(rpcUrl).toBe('http://localhost:6546')
   })
 })
 

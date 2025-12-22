@@ -1,5 +1,5 @@
 """
-RL Training orchestration for Babylon
+RL Training orchestration for Jeju
 
 This package provides training infrastructure:
 
@@ -37,6 +37,7 @@ from .rewards import (
 from .quality_utils import (
     calculate_tick_quality_score,
     calculate_trajectory_quality_score,
+    calculate_detailed_tick_quality,
     build_trajectory_from_ticks,
     state_to_observation,
     state_to_env_state,
@@ -82,15 +83,15 @@ from .rubric_loader import (
     DEFAULT_RUBRIC,
 )
 
+
 # Lazy imports for torch-dependent modules
-# These imports are dynamically returned via __getattr__ - not unused  # noqa: F401
 def __getattr__(name: str):
     """Lazy import for torch-dependent modules."""
     if name in (
         "BabylonAtroposTrainer",
         "AtroposTrainingConfig",
     ):
-        from .atropos_trainer import (  # noqa: F401
+        from .atropos_trainer import (
             BabylonAtroposTrainer,
             AtroposTrainingConfig,
         )
@@ -100,7 +101,7 @@ def __getattr__(name: str):
         "BabylonRLAIFEnv",
         "BabylonEnvConfig",
     ):
-        from .babylon_env import (  # noqa: F401
+        from .babylon_env import (
             BabylonRLAIFEnv,
             BabylonEnvConfig,
         )
@@ -114,7 +115,7 @@ def __getattr__(name: str):
         "RolloutQualityValidator",
         "AgentRunner",
     ):
-        from .rollout_generator import (  # noqa: F401
+        from .rollout_generator import (
             FastRolloutGenerator,
             RolloutConfig,
             RolloutResult,
@@ -130,42 +131,11 @@ def __getattr__(name: str):
         "SimulatorMetrics",
         "GameState",
     ):
-        from .fast_simulator import (  # noqa: F401
+        from .fast_simulator import (
             FastSimulator,
             SimulatorConfig,
             SimulatorMetrics,
             GameState,
-        )
-        return locals()[name]
-    
-    # Tinker integration (lazy - requires tinker package)
-    if name in (
-        "BabylonTinkerClient",
-        "TinkerConfig",
-        "TinkerDatum",
-        "TrainStepResult",
-        "SampleResult",
-        "TINKER_AVAILABLE",
-    ):
-        from .tinker_client import (  # noqa: F401
-            BabylonTinkerClient,
-            TinkerConfig,
-            TinkerDatum,
-            TrainStepResult,
-            SampleResult,
-            TINKER_AVAILABLE,
-        )
-        return locals()[name]
-    
-    if name in (
-        "BabylonTinkerTrainer",
-        "TinkerTrainingConfig",
-        "TrainingMetrics",
-    ):
-        from .tinker_trainer import (  # noqa: F401
-            BabylonTinkerTrainer,
-            TinkerTrainingConfig,
-            TrainingMetrics,
         )
         return locals()[name]
     
@@ -178,16 +148,6 @@ __all__ = [
     "AtroposTrainingConfig",
     "BabylonRLAIFEnv",
     "BabylonEnvConfig",
-    # Tinker trainer (lazy - requires tinker)
-    "BabylonTinkerClient",
-    "TinkerConfig",
-    "TinkerDatum",
-    "TrainStepResult",
-    "SampleResult",
-    "TINKER_AVAILABLE",
-    "BabylonTinkerTrainer",
-    "TinkerTrainingConfig",
-    "TrainingMetrics",
     # Reward functions
     "pnl_reward",
     "risk_adjusted_reward",
@@ -227,6 +187,7 @@ __all__ = [
     # Quality utilities
     "calculate_tick_quality_score",
     "calculate_trajectory_quality_score",
+    "calculate_detailed_tick_quality",
     "build_trajectory_from_ticks",
     "state_to_observation",
     "state_to_env_state",

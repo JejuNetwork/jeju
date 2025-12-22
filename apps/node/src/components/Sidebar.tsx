@@ -81,6 +81,7 @@ export function Sidebar() {
       <nav className="flex-1 p-4 space-y-1">
         {navItems.map((item) => (
           <button
+            type="button"
             key={item.id}
             onClick={() => setCurrentView(item.id)}
             className={clsx(
@@ -99,8 +100,9 @@ export function Sidebar() {
       {/* Wallet Status */}
       <div className="p-4 border-t border-volcanic-800">
         {wallet ? (
-          <div
-            className="card-hover p-3 cursor-pointer"
+          <button
+            type="button"
+            className="card-hover p-3 cursor-pointer w-full text-left"
             onClick={() => setCurrentView('wallet')}
           >
             <div className="flex items-center gap-3">
@@ -116,9 +118,10 @@ export function Sidebar() {
                 </p>
               </div>
             </div>
-          </div>
+          </button>
         ) : (
           <button
+            type="button"
             onClick={() => setCurrentView('wallet')}
             className="btn-primary w-full"
           >

@@ -6,7 +6,11 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import type { AuthProvider, VerifiableCredential } from '../../index.js'
-import { getEndpointWithDevFallback } from '../../validation.js'
+import {
+  CredentialVerifyResponseSchema,
+  getEndpointWithDevFallback,
+  validateResponse,
+} from '../../validation.js'
 import { useOAuth3 } from '../provider.js'
 
 export interface UseCredentialsReturn {
@@ -99,8 +103,12 @@ export function useCredentials(): UseCredentialsReturn {
         return false
       }
 
-      const { valid } = (await response.json()) as { valid: boolean }
-      return valid
+      const result = validateResponse(
+        CredentialVerifyResponseSchema,
+        await response.json(),
+        'credential verify response',
+      )
+      return result.valid
     },
     [client],
   )

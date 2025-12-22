@@ -44,24 +44,52 @@ const _AGENT_REGISTERED = toEventSelector(
 )
 
 // Trust tiers
-enum TrustTier {
-  UNSTAKED = 0,
-  STAKED = 1,
-  VERIFIED = 2,
+const TrustTier = {
+  UNSTAKED: 0,
+  STAKED: 1,
+  VERIFIED: 2,
+} as const
+type TrustTier = (typeof TrustTier)[keyof typeof TrustTier]
+
+// Reverse mapping for TrustTier names
+const TrustTierNames: Record<TrustTier, string> = {
+  [TrustTier.UNSTAKED]: 'UNSTAKED',
+  [TrustTier.STAKED]: 'STAKED',
+  [TrustTier.VERIFIED]: 'VERIFIED',
 }
 
 // Registry types
-enum RegistryType {
-  IDENTITY = 0,
-  COMPUTE = 1,
-  STORAGE = 2,
-  SOLVER = 3,
-  PACKAGE = 4,
-  CONTAINER = 5,
-  MODEL = 6,
-  NAME_SERVICE = 7,
-  REPUTATION = 8,
-  OTHER = 9,
+const RegistryType = {
+  IDENTITY: 0,
+  COMPUTE: 1,
+  STORAGE: 2,
+  SOLVER: 3,
+  PACKAGE: 4,
+  CONTAINER: 5,
+  MODEL: 6,
+  NAME_SERVICE: 7,
+  REPUTATION: 8,
+  OTHER: 9,
+} as const
+type RegistryType = (typeof RegistryType)[keyof typeof RegistryType]
+
+// Reverse mapping for RegistryType names
+const RegistryTypeNames: Record<RegistryType, string> = {
+  [RegistryType.IDENTITY]: 'IDENTITY',
+  [RegistryType.COMPUTE]: 'COMPUTE',
+  [RegistryType.STORAGE]: 'STORAGE',
+  [RegistryType.SOLVER]: 'SOLVER',
+  [RegistryType.PACKAGE]: 'PACKAGE',
+  [RegistryType.CONTAINER]: 'CONTAINER',
+  [RegistryType.MODEL]: 'MODEL',
+  [RegistryType.NAME_SERVICE]: 'NAME_SERVICE',
+  [RegistryType.REPUTATION]: 'REPUTATION',
+  [RegistryType.OTHER]: 'OTHER',
+}
+
+// Type guard for RegistryType
+function isRegistryType(value: number): value is RegistryType {
+  return value >= 0 && value <= 9
 }
 
 interface FederatedNetwork {
@@ -175,7 +203,7 @@ export function processNetworkRegistryEvent(
 
   federatedNetworks.set(chainId, network)
   console.log(
-    `[Federation] Network registered: ${name} (${chainId}) - ${TrustTier[trustTier]}`,
+    `[Federation] Network registered: ${name} (${chainId}) - ${TrustTierNames[trustTier]}`,
   )
 
   return network
@@ -198,9 +226,16 @@ export function processRegistryHubEvent(
     log.data as `0x${string}`,
   )
 
-  const registryType = Number(decoded[0])
+  const registryTypeNum = Number(decoded[0])
   const contractAddress = decoded[1] as string
   const name = decoded[2] as string
+
+  // Validate and cast registry type
+  if (!isRegistryType(registryTypeNum)) {
+    console.warn(`[Federation] Unknown registry type: ${registryTypeNum}`)
+    return null
+  }
+  const registryType: RegistryType = registryTypeNum
 
   const registry: FederatedRegistry = {
     registryId,
@@ -216,7 +251,7 @@ export function processRegistryHubEvent(
 
   federatedRegistries.set(registryId, registry)
   console.log(
-    `[Federation] Registry registered: ${name} (${RegistryType[registryType]}) on chain ${chainId}`,
+    `[Federation] Registry registered: ${name} (${RegistryTypeNames[registryType]}) on chain ${chainId}`,
   )
 
   return registry
@@ -484,8 +519,12 @@ export const federationResolvers = {
       { type }: { type?: string },
     ) => {
       if (type) {
-        const typeIndex = Object.keys(RegistryType).indexOf(type.toUpperCase())
-        return getRegistriesByType(typeIndex)
+        const upperType = type.toUpperCase() as keyof typeof RegistryType
+        const typeValue = RegistryType[upperType]
+        if (typeValue === undefined) {
+          return []
+        }
+        return getRegistriesByType(typeValue)
       }
       return getAllFederatedRegistries()
     },
@@ -493,10 +532,12 @@ export const federationResolvers = {
       _parent: QueryParent,
       { registryType }: { registryType: string },
     ) => {
-      const typeIndex = Object.keys(RegistryType).indexOf(
-        registryType.toUpperCase(),
-      )
-      return getEntriesByRegistryType(typeIndex)
+      const upperType = registryType.toUpperCase() as keyof typeof RegistryType
+      const typeValue = RegistryType[upperType]
+      if (typeValue === undefined) {
+        return []
+      }
+      return getEntriesByRegistryType(typeValue)
     },
     stakedNetworks: () => getStakedNetworks(),
   },

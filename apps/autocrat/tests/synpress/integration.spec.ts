@@ -5,7 +5,7 @@
 import { expect, test } from '@playwright/test'
 
 const AUTOCRAT_URL = 'http://localhost:8010'
-const RPC_URL = process.env.RPC_URL ?? 'http://localhost:9545'
+const RPC_URL = process.env.RPC_URL ?? 'http://localhost:6546'
 
 interface A2ADataPart {
   kind: 'data'

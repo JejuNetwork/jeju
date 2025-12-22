@@ -11,6 +11,7 @@
  */
 
 import type { Address } from 'viem'
+import { VPNA2AResultSchema } from '../shared/schemas'
 
 // ============================================================================
 // x402 Payment Integration
@@ -192,11 +193,8 @@ export function createVPNAgentClient(
       body: JSON.stringify(body),
     })
 
-    const result = (await response.json()) as {
-      jsonrpc: string
-      result?: { parts: Array<{ kind: string; data?: T }> }
-      error?: { code: number; message: string }
-    }
+    const rawData: unknown = await response.json()
+    const result = VPNA2AResultSchema.parse(rawData)
 
     if (result.error) {
       throw new Error(`A2A error ${result.error.code}: ${result.error.message}`)

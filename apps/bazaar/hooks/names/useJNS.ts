@@ -11,13 +11,19 @@ import { AddressSchema } from '@jejunetwork/types'
 import { useCallback, useEffect, useState } from 'react'
 import { type Address, type Hash, parseEther } from 'viem'
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi'
-import { CONTRACTS } from '@/config'
+import { CONTRACTS } from '../../config'
 import {
   computeNameIdentifiers,
   listingDurationToSeconds,
   validateListingInput,
-} from '@/lib/jns'
-import { expect, expectPositive, expectTrue } from '@/lib/validation'
+} from '../../lib/jns'
+import {
+  expect,
+  expectPositive,
+  expectTrue,
+  expectValid,
+  JNSListingsGraphQLResponseSchema,
+} from '../../lib/validation'
 
 // Contract addresses from centralized config
 const JNS_REGISTRAR = CONTRACTS.jnsRegistrar
@@ -381,26 +387,13 @@ export function useJNSListings() {
 
       expectTrue(response.ok, `Indexer error: ${response.status}`)
 
-      const { data } = (await response.json()) as {
-        data: {
-          jnsListings: Array<{
-            id: string
-            price: string
-            currency: string
-            status: string
-            expiresAt: string
-            name: {
-              id: string
-              name: string
-              labelhash: string
-              expiresAt: string
-            }
-            seller: { id: string }
-          }>
-        }
-      }
+      const validated = expectValid(
+        JNSListingsGraphQLResponseSchema,
+        await response.json(),
+        'JNS listings response',
+      )
 
-      const fetchedListings: JNSNameListing[] = data.jnsListings.map(
+      const fetchedListings: JNSNameListing[] = validated.data.jnsListings.map(
         (listing, index) => ({
           listingId: BigInt(index + 1),
           name: listing.name.name,
@@ -480,4 +473,4 @@ export {
   computeLabelhash,
   formatListingPrice as formatNamePrice,
   formatTimeRemaining as getTimeRemaining,
-} from '@/lib/jns'
+} from '../../lib/jns'

@@ -114,7 +114,9 @@ test.describe('Hardware TEE Flow (Mocked)', () => {
     return new Promise((resolve, reject) => {
       const server = createServer((req, res) => {
         let body = ''
-        req.on('data', (chunk) => (body += chunk))
+        req.on('data', (chunk) => {
+          body += chunk
+        })
         req.on('end', () => {
           mockCalls.push({
             method: req.method ?? 'GET',
