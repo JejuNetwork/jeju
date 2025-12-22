@@ -1,6 +1,6 @@
 'use client'
 
-import { Users, Shield, Code, Coins, Heart } from 'lucide-react'
+import { Code, Coins, Heart, Shield, Users } from 'lucide-react'
 import type { AutocratStatus as AutocratStatusType } from '@/config/api'
 
 const ROLE_ICONS: Record<string, typeof Shield> = {
@@ -55,19 +55,26 @@ export function AutocratStatus({ status, loading }: AutocratStatusProps) {
         {status.agents.map((agent) => {
           const Icon = ROLE_ICONS[agent.role] || Shield
           return (
-            <div 
+            <div
               key={agent.role}
               className="flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded text-xs sm:text-sm"
               style={{ backgroundColor: 'var(--bg-secondary)' }}
             >
-              <Icon size={12} className="sm:w-3.5 sm:h-3.5 shrink-0" style={{ color: 'var(--text-tertiary)' }} />
+              <Icon
+                size={12}
+                className="sm:w-3.5 sm:h-3.5 shrink-0"
+                style={{ color: 'var(--text-tertiary)' }}
+              />
               <span className="truncate">{agent.role}</span>
             </div>
           )
         })}
       </div>
 
-      <div className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t text-xs" style={{ borderColor: 'var(--border)' }}>
+      <div
+        className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t text-xs"
+        style={{ borderColor: 'var(--border)' }}
+      >
         <div className="flex justify-between">
           <span style={{ color: 'var(--text-tertiary)' }}>Voting</span>
           <span>{status.votingPeriod}</span>

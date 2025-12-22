@@ -1,73 +1,78 @@
 /**
  * Services Integration Tests
- * 
+ *
  * Tests infrastructure services (postgres, redis, ipfs).
  * Requires: docker compose --profile services up
  */
 
-import { describe, test, expect, beforeAll } from 'bun:test';
+import { beforeAll, describe, expect, test } from 'bun:test'
 
-const POSTGRES_URL = process.env.DATABASE_URL || 'postgresql://jeju:jeju@127.0.0.1:5432/jeju';
-const IPFS_API = process.env.IPFS_API_URL || 'http://127.0.0.1:5001';
+const POSTGRES_URL =
+  process.env.DATABASE_URL || 'postgresql://jeju:jeju@127.0.0.1:5432/jeju'
+const IPFS_API = process.env.IPFS_API_URL || 'http://127.0.0.1:5001'
 
-async function isServiceRunning(check: () => Promise<boolean>): Promise<boolean> {
+async function isServiceRunning(
+  check: () => Promise<boolean>,
+): Promise<boolean> {
   try {
-    return await check();
+    return await check()
   } catch {
-    return false;
+    return false
   }
 }
 
 describe('Infrastructure Services', () => {
-  let postgresAvailable = false;
-  let ipfsAvailable = false;
+  let postgresAvailable = false
+  let ipfsAvailable = false
 
   beforeAll(async () => {
     postgresAvailable = await isServiceRunning(async () => {
-      const { Client } = await import('pg');
-      const client = new Client({ connectionString: POSTGRES_URL });
-      await client.connect();
-      await client.end();
-      return true;
-    });
+      const { Client } = await import('pg')
+      const client = new Client({ connectionString: POSTGRES_URL })
+      await client.connect()
+      await client.end()
+      return true
+    })
 
     ipfsAvailable = await isServiceRunning(async () => {
       const response = await fetch(`${IPFS_API}/api/v0/id`, {
         method: 'POST',
         signal: AbortSignal.timeout(3000),
-      });
-      return response.ok;
-    });
+      })
+      return response.ok
+    })
 
     if (!postgresAvailable && !ipfsAvailable) {
-      console.log('Services not running. Start with: docker compose -f packages/tests/docker-compose.test.yml --profile services up -d');
+      console.log(
+        'Services not running. Start with: docker compose -f packages/tests/docker-compose.test.yml --profile services up -d',
+      )
     }
-  });
+  })
 
   describe('PostgreSQL', () => {
     test('should connect and query', async () => {
       if (!postgresAvailable) {
-        console.log('PostgreSQL not available, skipping');
-        return;
+        console.log('PostgreSQL not available, skipping')
+        return
       }
 
-      const { Client } = await import('pg');
-      const client = new Client({ connectionString: POSTGRES_URL });
-      await client.connect();
+      const { Client } = await import('pg')
+      const client = new Client({ connectionString: POSTGRES_URL })
+      await client.connect()
 
-      const result = await client.query('SELECT NOW()');
-      expect(result.rows).toHaveLength(1);
-      expect(result.rows[0].now).toBeDefined();
+      const result = await client.query('SELECT NOW()')
+      expect(result.rows).toHaveLength(1)
+      expect(result.rows[0].now).toBeDefined()
 
-      await client.end();
-    });
+      await client.end()
+    })
 
     test('should create and query tables', async () => {
-      if (!postgresAvailable) return;
+      if (!postgresAvailable) return
 
-      const { Client } = await import('pg');
-      const client = new Client({ connectionString: POSTGRES_URL });
-      await client.connect();
+      const { Client } = await import('pg')
+      const client = new Client({ connectionString: POSTGRES_URL })
+      await client.connect()
 
       // Create test table
       await client.query(`
@@ -76,63 +81,68 @@ describe('Infrastructure Services', () => {
           name VARCHAR(255),
           created_at TIMESTAMP DEFAULT NOW()
         )
-      `);
+      `)
 
       // Insert
-      await client.query("INSERT INTO test_integration (name) VALUES ('test')");
+      await client.query("INSERT INTO test_integration (name) VALUES ('test')")
 
       // Query
-      const result = await client.query('SELECT * FROM test_integration WHERE name = $1', ['test']);
-      expect(result.rows.length).toBeGreaterThan(0);
+      const result = await client.query(
+        'SELECT * FROM test_integration WHERE name = $1',
+        ['test'],
+      )
+      expect(result.rows.length).toBeGreaterThan(0)
 
       // Cleanup
-      await client.query('DROP TABLE test_integration');
-      await client.end();
-    });
-  });
+      await client.query('DROP TABLE test_integration')
+      await client.end()
+    })
+  })
 
   describe('IPFS', () => {
     test('should respond to id endpoint', async () => {
       if (!ipfsAvailable) {
-        console.log('IPFS not available, skipping');
-        return;
+        console.log('IPFS not available, skipping')
+        return
       }
 
       const response = await fetch(`${IPFS_API}/api/v0/id`, {
         method: 'POST',
-      });
+      })
 
-      expect(response.ok).toBe(true);
-      const data = await response.json() as { ID: string };
-      expect(data.ID).toBeDefined();
-    });
+      expect(response.ok).toBe(true)
+      const data = (await response.json()) as { ID: string }
+      expect(data.ID).toBeDefined()
+    })
 
     test('should add and retrieve content', async () => {
-      if (!ipfsAvailable) return;
+      if (!ipfsAvailable) return
 
-      const testContent = 'Hello from Jeju integration test!';
-      const formData = new FormData();
-      formData.append('file', new Blob([testContent]));
+      const testContent = 'Hello from Jeju integration test!'
+      const formData = new FormData()
+      formData.append('file', new Blob([testContent]))
 
       // Add content
       const addResponse = await fetch(`${IPFS_API}/api/v0/add`, {
         method: 'POST',
         body: formData,
-      });
+      })
 
-      expect(addResponse.ok).toBe(true);
-      const addData = await addResponse.json() as { Hash: string };
-      expect(addData.Hash).toBeDefined();
+      expect(addResponse.ok).toBe(true)
+      const addData = (await addResponse.json()) as { Hash: string }
+      expect(addData.Hash).toBeDefined()
 
       // Retrieve content
-      const catResponse = await fetch(`${IPFS_API}/api/v0/cat?arg=${addData.Hash}`, {
-        method: 'POST',
-      });
+      const catResponse = await fetch(
+        `${IPFS_API}/api/v0/cat?arg=${addData.Hash}`,
+        {
+          method: 'POST',
+        },
+      )
 
-      expect(catResponse.ok).toBe(true);
-      const content = await catResponse.text();
-      expect(content).toBe(testContent);
-    });
-  });
-});
-
+      expect(catResponse.ok).toBe(true)
+      const content = await catResponse.text()
+      expect(content).toBe(testContent)
+    })
+  })
+})

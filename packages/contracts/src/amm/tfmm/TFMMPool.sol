@@ -242,19 +242,20 @@ contract TFMMPool is ITFMMPool, ERC20, ReentrancyGuard, Ownable {
         require(amountOut >= minAmountOut, "Slippage exceeded");
         require(amountOut < _balances[tokenOut] - MIN_BALANCE, "Insufficient liquidity");
 
-        // Transfer tokens
-        IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), amountIn);
-        IERC20(tokenOut).safeTransfer(msg.sender, amountOut);
-
-        // Update balances
+        // CEI: Update balances BEFORE external calls to prevent reentrancy
         _balances[tokenIn] += amountIn;
         _balances[tokenOut] -= amountOut;
 
         // Track protocol fee
         uint256 protocolFee = (feeAmount * protocolFeeBps) / BPS_PRECISION;
         _protocolFees[tokenIn] += protocolFee;
-
+        
+        // Emit event before external calls
         emit Swap(msg.sender, tokenIn, tokenOut, amountIn, amountOut, feeAmount);
+
+        // External calls AFTER state updates (CEI pattern)
+        IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), amountIn);
+        IERC20(tokenOut).safeTransfer(msg.sender, amountOut);
     }
 
     /**

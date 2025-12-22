@@ -138,6 +138,20 @@ contract XLPV2Pair is IXLPV2Pair, ReentrancyGuard {
         override
     {
         if (deadline < block.timestamp) revert Expired();
+        
+        // Signature malleability protection: normalize v value
+        // Valid v values are 27 or 28. If v is 0 or 1, add 27
+        if (v < 27) {
+            v += 27;
+        }
+        if (v != 27 && v != 28) revert InvalidSignature();
+        
+        // Protect against signature malleability by checking s is in lower half
+        // secp256k1n / 2 = 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0
+        if (uint256(s) > 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0) {
+            revert InvalidSignature();
+        }
+        
         bytes32 digest = keccak256(
             abi.encodePacked(
                 "\x19\x01",

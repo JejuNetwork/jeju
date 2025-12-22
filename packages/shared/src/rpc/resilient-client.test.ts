@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import { ResilientRPCClient, type RPCEndpoint } from './resilient-client'
 
 describe('ResilientRPCClient', () => {
@@ -34,7 +34,7 @@ describe('ResilientRPCClient', () => {
   it('should report initial health status', () => {
     const status = client.getStatus()
     // Initially all endpoints are assumed healthy
-    expect(status.every(s => s.healthy)).toBe(true)
+    expect(status.every((s) => s.healthy)).toBe(true)
   })
 
   it('should cleanup on destroy', () => {
@@ -61,11 +61,11 @@ describe('ResilientRPCClient - Error Handling', () => {
       { url: 'https://nonexistent2.invalid', priority: 2, type: 'direct' },
     ]
     const client = new ResilientRPCClient(badEndpoints)
-    
-    await expect(client.call('eth_blockNumber', [])).rejects.toThrow('All RPC endpoints failed')
-    
+
+    await expect(client.call('eth_blockNumber', [])).rejects.toThrow(
+      'All RPC endpoints failed',
+    )
+
     client.destroy()
   })
 })
-
-

@@ -2,30 +2,30 @@
  * Node Actions - Node registration, staking, management
  */
 
+import type {
+  Action,
+  HandlerCallback,
+  IAgentRuntime,
+  Memory,
+  State,
+} from '@elizaos/core'
+import { JEJU_SERVICE_NAME, type JejuService } from '../service'
 import {
-  type Action,
-  type HandlerCallback,
-  type IAgentRuntime,
-  type Memory,
-  type State,
-} from "@elizaos/core";
-import { JEJU_SERVICE_NAME, type JejuService } from "../service";
-import {
-  expectResponseData,
   expectArray,
+  expectResponseData,
   validateNodeStats,
   validateServiceExists,
-} from "../validation";
+} from '../validation'
 
 export const listNodesAction: Action = {
-  name: "LIST_NODES",
-  description: "List registered nodes in the network",
+  name: 'LIST_NODES',
+  description: 'List registered nodes in the network',
   similes: [
-    "list nodes",
-    "show nodes",
-    "network nodes",
-    "registered nodes",
-    "node operators",
+    'list nodes',
+    'show nodes',
+    'network nodes',
+    'registered nodes',
+    'node operators',
   ],
 
   validate: async (runtime: IAgentRuntime): Promise<boolean> =>
@@ -38,31 +38,31 @@ export const listNodesAction: Action = {
     _options?: Record<string, unknown>,
     callback?: HandlerCallback,
   ): Promise<void> => {
-    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
-    const client = service.getClient();
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
+    const client = service.getClient()
 
     const response = await client.a2a.callGateway({
-      skillId: "list-nodes",
-    });
+      skillId: 'list-nodes',
+    })
 
     const responseData = expectResponseData(
       response,
-      "Nodes API returned no data",
-    );
+      'Nodes API returned no data',
+    )
     const nodes = expectArray<{
-      address: string;
-      name: string;
-      stake: string;
-      status: string;
+      address: string
+      name: string
+      stake: string
+      status: string
     }>(
       responseData as Record<string, unknown>,
-      "nodes",
-      "Nodes API response missing nodes array",
-    );
+      'nodes',
+      'Nodes API response missing nodes array',
+    )
 
     if (nodes.length === 0) {
-      callback?.({ text: "No nodes registered yet." });
-      return;
+      callback?.({ text: 'No nodes registered yet.' })
+      return
     }
 
     const nodeList = nodes
@@ -71,35 +71,35 @@ export const listNodesAction: Action = {
         (n) =>
           `• ${n.name} (${n.address.slice(0, 10)}...) - Stake: ${n.stake} ETH - ${n.status}`,
       )
-      .join("\n");
+      .join('\n')
 
     callback?.({
       text: `Registered nodes (${nodes.length}):
 ${nodeList}`,
       content: { nodes },
-    });
+    })
   },
 
   examples: [
     [
-      { name: "user", content: { text: "List network nodes" } },
+      { name: 'user', content: { text: 'List network nodes' } },
       {
-        name: "agent",
-        content: { text: "Registered nodes (12): • Node-1..." },
+        name: 'agent',
+        content: { text: 'Registered nodes (12): • Node-1...' },
       },
     ],
   ],
-};
+}
 
 export const getNodeStatsAction: Action = {
-  name: "GET_NODE_STATS",
-  description: "Get network node statistics",
+  name: 'GET_NODE_STATS',
+  description: 'Get network node statistics',
   similes: [
-    "node stats",
-    "network stats",
-    "node statistics",
-    "network health",
-    "infrastructure stats",
+    'node stats',
+    'network stats',
+    'node statistics',
+    'network health',
+    'infrastructure stats',
   ],
 
   validate: async (runtime: IAgentRuntime): Promise<boolean> =>
@@ -112,18 +112,18 @@ export const getNodeStatsAction: Action = {
     _options?: Record<string, unknown>,
     callback?: HandlerCallback,
   ): Promise<void> => {
-    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
-    const client = service.getClient();
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
+    const client = service.getClient()
 
     const response = await client.a2a.callGateway({
-      skillId: "get-node-stats",
-    });
+      skillId: 'get-node-stats',
+    })
 
     const responseData = expectResponseData(
       response,
-      "Node stats API returned no data",
-    );
-    const stats = validateNodeStats(responseData as Record<string, unknown>);
+      'Node stats API returned no data',
+    )
+    const stats = validateNodeStats(responseData as Record<string, unknown>)
 
     callback?.({
       text: `Network Node Statistics:
@@ -133,16 +133,16 @@ export const getNodeStatsAction: Action = {
 • Average Uptime: ${stats.averageUptime}%
 • Network Capacity: ${stats.capacity}`,
       content: stats,
-    });
+    })
   },
 
   examples: [
     [
-      { name: "user", content: { text: "Show node stats" } },
+      { name: 'user', content: { text: 'Show node stats' } },
       {
-        name: "agent",
-        content: { text: "Network Node Statistics: • Total Nodes: 15..." },
+        name: 'agent',
+        content: { text: 'Network Node Statistics: • Total Nodes: 15...' },
       },
     ],
   ],
-};
+}

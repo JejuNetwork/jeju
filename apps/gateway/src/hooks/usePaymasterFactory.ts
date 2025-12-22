@@ -4,19 +4,20 @@
  */
 
 import {
-  usePaymasterFactory as usePaymasterFactoryBase,
-  usePaymasterDeployment as usePaymasterDeploymentBase,
   type PaymasterDeployment,
-} from '@jejunetwork/ui';
-import { CONTRACTS } from '../config';
+  usePaymasterDeployment as usePaymasterDeploymentBase,
+  usePaymasterFactory as usePaymasterFactoryBase,
+} from '@jejunetwork/ui'
+import { CONTRACTS } from '../config'
 
-export type { PaymasterDeployment };
+export type { PaymasterDeployment }
 
 export function usePaymasterFactory() {
-  return usePaymasterFactoryBase(CONTRACTS.paymasterFactory);
+  return usePaymasterFactoryBase(CONTRACTS.paymasterFactory)
 }
 
-export function usePaymasterDeployment(tokenAddress: `0x${string}` | undefined) {
-  return usePaymasterDeploymentBase(CONTRACTS.paymasterFactory, tokenAddress);
+export function usePaymasterDeployment(
+  tokenAddress: `0x${string}` | undefined,
+) {
+  return usePaymasterDeploymentBase(CONTRACTS.paymasterFactory, tokenAddress)
 }
-

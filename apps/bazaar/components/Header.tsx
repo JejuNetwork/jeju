@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import { useAccount, useDisconnect } from 'wagmi'
 import { AuthButton } from './auth/AuthButton'
 
@@ -30,7 +30,9 @@ export function Header() {
   useEffect(() => {
     setMounted(true)
     const savedTheme = localStorage.getItem('bazaar-theme')
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    const prefersDark = window.matchMedia(
+      '(prefers-color-scheme: dark)',
+    ).matches
     const shouldBeDark = savedTheme ? savedTheme === 'dark' : prefersDark
     setIsDark(shouldBeDark)
     document.documentElement.classList.toggle('dark', shouldBeDark)
@@ -52,19 +54,22 @@ export function Header() {
   // Close mobile menu on route change
   useEffect(() => {
     setShowMobileMenu(false)
-  }, [pathname])
+  }, [])
 
   // Prevent scroll when mobile menu is open
   useEffect(() => {
     document.body.style.overflow = showMobileMenu ? 'hidden' : ''
-    return () => { document.body.style.overflow = '' }
+    return () => {
+      document.body.style.overflow = ''
+    }
   }, [showMobileMenu])
 
   if (!mounted) return null
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-50 border-b transition-colors duration-300"
+      <header
+        className="fixed top-0 left-0 right-0 z-50 border-b transition-colors duration-300"
         style={{
           backgroundColor: 'var(--surface)',
           borderColor: 'var(--border)',
@@ -75,7 +80,9 @@ export function Header() {
           <div className="flex items-center justify-between h-16 md:h-20">
             {/* Logo */}
             <Link href="/" className="flex items-center gap-2 md:gap-3 group">
-              <div className="text-2xl md:text-3xl group-hover:animate-bounce-subtle">🏝️</div>
+              <div className="text-2xl md:text-3xl group-hover:animate-bounce-subtle">
+                🏝️
+              </div>
               <span className="text-xl md:text-2xl font-bold text-gradient">
                 Bazaar
               </span>
@@ -92,7 +99,11 @@ export function Header() {
                       ? 'bg-bazaar-primary/10 text-bazaar-primary'
                       : 'hover:bg-[var(--bg-secondary)]'
                   }`}
-                  style={{ color: isActive(item.href) ? 'var(--color-primary)' : 'var(--text-secondary)' }}
+                  style={{
+                    color: isActive(item.href)
+                      ? 'var(--color-primary)'
+                      : 'var(--text-secondary)',
+                  }}
                 >
                   {item.label}
                 </Link>
@@ -106,7 +117,9 @@ export function Header() {
                 onClick={toggleTheme}
                 className="p-2 md:p-2.5 rounded-xl transition-all duration-200 hover:scale-105"
                 style={{ backgroundColor: 'var(--bg-secondary)' }}
-                aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+                aria-label={
+                  isDark ? 'Switch to light mode' : 'Switch to dark mode'
+                }
               >
                 {isDark ? '☀️' : '🌙'}
               </button>
@@ -118,9 +131,14 @@ export function Header() {
                 ) : (
                   <>
                     <button
-                      onClick={() => setShowPortfolioDropdown(!showPortfolioDropdown)}
+                      onClick={() =>
+                        setShowPortfolioDropdown(!showPortfolioDropdown)
+                      }
                       className="flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all duration-200"
-                      style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                      style={{
+                        backgroundColor: 'var(--bg-secondary)',
+                        color: 'var(--text-primary)',
+                      }}
                     >
                       <div className="w-6 h-6 rounded-full bg-gradient-to-r from-bazaar-primary to-bazaar-accent flex items-center justify-center text-xs font-bold text-white">
                         {address?.slice(2, 4).toUpperCase()}
@@ -128,21 +146,34 @@ export function Header() {
                       <span className="text-sm font-medium">
                         {address?.slice(0, 6)}...{address?.slice(-4)}
                       </span>
-                      <svg className={`w-4 h-4 transition-transform ${showPortfolioDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      <svg
+                        className={`w-4 h-4 transition-transform ${showPortfolioDropdown ? 'rotate-180' : ''}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
                       </svg>
                     </button>
-                    
+
                     {/* Dropdown Menu */}
                     {showPortfolioDropdown && (
                       <>
-                        <div 
-                          className="fixed inset-0 z-40" 
+                        <div
+                          className="fixed inset-0 z-40"
                           onClick={() => setShowPortfolioDropdown(false)}
                         />
-                        <div 
+                        <div
                           className="absolute right-0 top-full mt-2 w-56 rounded-xl border shadow-lg z-50 overflow-hidden"
-                          style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}
+                          style={{
+                            backgroundColor: 'var(--surface)',
+                            borderColor: 'var(--border)',
+                          }}
                         >
                           <Link
                             href="/portfolio"
@@ -177,11 +208,26 @@ export function Header() {
                 style={{ backgroundColor: 'var(--bg-secondary)' }}
                 aria-label="Toggle menu"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
                   {showMobileMenu ? (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
                   ) : (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 6h16M4 12h16M4 18h16"
+                    />
                   )}
                 </svg>
               </button>
@@ -191,7 +237,7 @@ export function Header() {
       </header>
 
       {/* Mobile Menu Overlay */}
-      <div 
+      <div
         className={`fixed inset-0 z-40 lg:hidden transition-opacity duration-300 ${
           showMobileMenu ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
@@ -208,15 +254,28 @@ export function Header() {
       >
         <div className="flex flex-col h-full">
           {/* Mobile Menu Header */}
-          <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: 'var(--border)' }}>
+          <div
+            className="flex items-center justify-between p-4 border-b"
+            style={{ borderColor: 'var(--border)' }}
+          >
             <span className="text-lg font-bold text-gradient">Menu</span>
             <button
               onClick={() => setShowMobileMenu(false)}
               className="p-2 rounded-xl"
               style={{ backgroundColor: 'var(--bg-secondary)' }}
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           </div>
@@ -232,7 +291,11 @@ export function Header() {
                     ? 'bg-bazaar-primary/10 border-r-4 border-bazaar-primary'
                     : 'hover:bg-[var(--bg-secondary)]'
                 }`}
-                style={{ color: isActive(item.href) ? 'var(--color-primary)' : 'var(--text-primary)' }}
+                style={{
+                  color: isActive(item.href)
+                    ? 'var(--color-primary)'
+                    : 'var(--text-primary)',
+                }}
               >
                 <span className="text-xl">{item.icon}</span>
                 {item.label}
@@ -241,12 +304,15 @@ export function Header() {
           </div>
 
           {/* Mobile Wallet Section */}
-          <div className="p-4 border-t" style={{ borderColor: 'var(--border)' }}>
+          <div
+            className="p-4 border-t"
+            style={{ borderColor: 'var(--border)' }}
+          >
             {!isConnected ? (
               <AuthButton className="w-full" />
             ) : (
               <div className="space-y-3">
-                <div 
+                <div
                   className="flex items-center gap-3 p-3 rounded-xl"
                   style={{ backgroundColor: 'var(--bg-secondary)' }}
                 >
@@ -257,7 +323,12 @@ export function Header() {
                     <p className="text-sm font-medium truncate">
                       {address?.slice(0, 10)}...{address?.slice(-6)}
                     </p>
-                    <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Connected</p>
+                    <p
+                      className="text-xs"
+                      style={{ color: 'var(--text-tertiary)' }}
+                    >
+                      Connected
+                    </p>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">

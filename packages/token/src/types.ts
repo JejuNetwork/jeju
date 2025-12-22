@@ -3,43 +3,43 @@
  * Covers token economics, cross-chain deployment, CCA ICO, vesting, and fee distribution
  */
 
-import type { Address, Hex } from 'viem';
-import type { ChainType, EVMChainId, SolanaNetwork } from '@jejunetwork/types';
+import type { ChainType, EVMChainId, SolanaNetwork } from '@jejunetwork/types'
+import type { Address, Hex } from 'viem'
 
 // =============================================================================
 // CHAIN TYPES
 // =============================================================================
 
 /** Supported chain identifiers - combines EVM and Solana */
-export type ChainId = EVMChainId | SolanaNetwork;
+export type ChainId = EVMChainId | SolanaNetwork
 
 // Re-export consolidated chain types
-export type { ChainType, EVMChainId, SolanaNetwork };
+export type { ChainType, EVMChainId, SolanaNetwork }
 
 /** Chain configuration for deployment */
 export interface ChainConfig {
-  chainId: ChainId;
-  chainType: ChainType;
-  name: string;
-  rpcUrl: string;
-  blockExplorerUrl: string;
+  chainId: ChainId
+  chainType: ChainType
+  name: string
+  rpcUrl: string
+  blockExplorerUrl: string
   nativeCurrency: {
-    name: string;
-    symbol: string;
-    decimals: number;
-  };
+    name: string
+    symbol: string
+    decimals: number
+  }
   /** Hyperlane mailbox address (or program ID for Solana) */
-  hyperlaneMailbox: string;
+  hyperlaneMailbox: string
   /** Hyperlane Interchain Gas Paymaster */
-  hyperlaneIgp: string;
+  hyperlaneIgp: string
   /** Is this the home chain? Only one should be true */
-  isHomeChain: boolean;
+  isHomeChain: boolean
   /** Average block time in seconds */
-  avgBlockTime: number;
+  avgBlockTime: number
   /** Uniswap V4 pool manager address (EVM only) */
-  uniswapV4PoolManager?: Address;
+  uniswapV4PoolManager?: Address
   /** DEX router for liquidity deployment (EVM address or Solana program ID) */
-  dexRouter?: Address | string;
+  dexRouter?: Address | string
 }
 
 // =============================================================================
@@ -49,93 +49,93 @@ export interface ChainConfig {
 /** Token allocation percentages (must sum to 100) */
 export interface TokenAllocation {
   /** Percentage for public sale (CCA auction) */
-  publicSale: number;
+  publicSale: number
   /** Percentage for presale participants */
-  presale: number;
+  presale: number
   /** Percentage for team/creators */
-  team: number;
+  team: number
   /** Percentage for advisors */
-  advisors: number;
+  advisors: number
   /** Percentage for ecosystem/treasury */
-  ecosystem: number;
+  ecosystem: number
   /** Percentage for liquidity bootstrapping */
-  liquidity: number;
+  liquidity: number
   /** Percentage for staking rewards */
-  stakingRewards: number;
+  stakingRewards: number
 }
 
 /** Vesting schedule configuration */
 export interface VestingSchedule {
   /** Cliff period in seconds (no tokens released) */
-  cliffDuration: number;
+  cliffDuration: number
   /** Total vesting duration in seconds (after cliff) */
-  vestingDuration: number;
+  vestingDuration: number
   /** Percentage released at TGE (before cliff) */
-  tgeUnlockPercent: number;
+  tgeUnlockPercent: number
   /** Whether vesting is linear or discrete */
-  vestingType: 'linear' | 'discrete';
+  vestingType: 'linear' | 'discrete'
   /** If discrete, number of unlock periods */
-  discretePeriods?: number;
+  discretePeriods?: number
 }
 
 /** Per-category vesting configuration */
 export interface VestingConfig {
-  team: VestingSchedule;
-  advisors: VestingSchedule;
-  presale: VestingSchedule;
-  ecosystem: VestingSchedule;
+  team: VestingSchedule
+  advisors: VestingSchedule
+  presale: VestingSchedule
+  ecosystem: VestingSchedule
   /** Public sale typically no vesting */
-  publicSale?: VestingSchedule;
+  publicSale?: VestingSchedule
 }
 
 /** Fee distribution configuration */
 export interface FeeDistribution {
   /** Percentage of fees to token holders (stakers) */
-  holders: number;
+  holders: number
   /** Percentage of fees to creators/team */
-  creators: number;
+  creators: number
   /** Percentage of fees to treasury/DAO */
-  treasury: number;
+  treasury: number
   /** Percentage of fees to liquidity providers */
-  liquidityProviders: number;
+  liquidityProviders: number
   /** Percentage of fees burned (deflationary) */
-  burn: number;
+  burn: number
 }
 
 /** Fee configuration for different operations */
 export interface FeeConfig {
   /** Transfer fee in basis points (100 = 1%) */
-  transferFeeBps: number;
+  transferFeeBps: number
   /** Bridge fee in basis points */
-  bridgeFeeBps: number;
+  bridgeFeeBps: number
   /** Swap/DEX fee in basis points (typically set by DEX) */
-  swapFeeBps: number;
+  swapFeeBps: number
   /** How fees are distributed */
-  distribution: FeeDistribution;
+  distribution: FeeDistribution
   /** Addresses exempt from fees (e.g., DEX pools, vesting contracts) */
-  feeExemptAddresses: Address[];
+  feeExemptAddresses: Address[]
 }
 
 /** Complete token economics configuration */
 export interface TokenEconomics {
   /** Token name (e.g., "Jeju Token") */
-  name: string;
+  name: string
   /** Token symbol (e.g., "JEJU") */
-  symbol: string;
+  symbol: string
   /** Token decimals (typically 18 for EVM, 9 for Solana) */
-  decimals: number;
+  decimals: number
   /** Total supply in human-readable units (not wei) */
-  totalSupply: bigint;
+  totalSupply: bigint
   /** How supply is allocated */
-  allocation: TokenAllocation;
+  allocation: TokenAllocation
   /** Vesting schedules per allocation category */
-  vesting: VestingConfig;
+  vesting: VestingConfig
   /** Fee configuration */
-  fees: FeeConfig;
+  fees: FeeConfig
   /** Maximum wallet holding (0 = no limit) as percentage of total supply */
-  maxWalletPercent: number;
+  maxWalletPercent: number
   /** Anti-whale: max transaction as percentage of total supply (0 = no limit) */
-  maxTxPercent: number;
+  maxTxPercent: number
 }
 
 // =============================================================================
@@ -152,29 +152,29 @@ export type LiquidityDex =
   | 'sushiswap'
   | 'raydium'
   | 'orca'
-  | 'jupiter';
+  | 'jupiter'
 
 /** Liquidity distribution per chain */
 export interface LiquidityAllocation {
-  chainId: ChainId;
+  chainId: ChainId
   /** Percentage of liquidity tokens for this chain (sum across all chains = 100) */
-  percentage: number;
+  percentage: number
   /** Initial price in USD for this chain's pool */
-  initialPriceUsd: number;
+  initialPriceUsd: number
   /** Paired asset (e.g., WETH, USDC) */
-  pairedAsset: Address | 'SOL';
+  pairedAsset: Address | 'SOL'
   /** DEX to deploy on (e.g., 'uniswap-v4', 'raydium', 'orca') */
-  dex: LiquidityDex;
+  dex: LiquidityDex
 }
 
 /** Complete liquidity deployment configuration */
 export interface LiquidityConfig {
   /** Liquidity lock duration in seconds (0 = no lock) */
-  lockDuration: number;
+  lockDuration: number
   /** Address to receive LP tokens (if not locked) */
-  lpTokenRecipient: Address;
+  lpTokenRecipient: Address
   /** Per-chain liquidity allocation */
-  allocations: LiquidityAllocation[];
+  allocations: LiquidityAllocation[]
 }
 
 // =============================================================================
@@ -183,39 +183,39 @@ export interface LiquidityConfig {
 
 /** Presale tier for different investor levels */
 export interface PresaleTier {
-  name: string;
+  name: string
   /** Minimum contribution in USD */
-  minContribution: number;
+  minContribution: number
   /** Maximum contribution in USD */
-  maxContribution: number;
+  maxContribution: number
   /** Discount percentage from public sale price */
-  discountPercent: number;
+  discountPercent: number
   /** Vesting override for this tier (if different from default) */
-  vestingOverride?: VestingSchedule;
+  vestingOverride?: VestingSchedule
   /** Merkle root for whitelist (null = no whitelist) */
-  whitelistMerkleRoot?: Hex;
+  whitelistMerkleRoot?: Hex
 }
 
 /** Complete presale configuration */
 export interface PresaleConfig {
   /** Whether presale is enabled */
-  enabled: boolean;
+  enabled: boolean
   /** Presale start timestamp */
-  startTime: number;
+  startTime: number
   /** Presale end timestamp */
-  endTime: number;
+  endTime: number
   /** Soft cap in USD (minimum raise to proceed) */
-  softCapUsd: number;
+  softCapUsd: number
   /** Hard cap in USD (maximum raise) */
-  hardCapUsd: number;
+  hardCapUsd: number
   /** Price per token in USD during presale */
-  priceUsd: number;
+  priceUsd: number
   /** Available presale tiers */
-  tiers: PresaleTier[];
+  tiers: PresaleTier[]
   /** Accepted payment tokens per chain */
-  acceptedTokens: Record<ChainId, Address[]>;
+  acceptedTokens: Record<ChainId, Address[]>
   /** Refund policy if soft cap not met */
-  refundIfSoftCapMissed: boolean;
+  refundIfSoftCapMissed: boolean
 }
 
 // =============================================================================
@@ -243,35 +243,35 @@ export interface PresaleConfig {
  * RECOMMENDATION: Start with Uniswap platform for credibility,
  * but deploy Vesting contracts separately to control fee splits.
  */
-export type CCADeploymentMode = 'uniswap-platform' | 'self-deployed';
+export type CCADeploymentMode = 'uniswap-platform' | 'self-deployed'
 
 /** CCA auction configuration */
 export interface CCAConfig {
   /** Whether to use Uniswap's platform or self-deploy */
-  deploymentMode: CCADeploymentMode;
+  deploymentMode: CCADeploymentMode
   /** Auction start timestamp */
-  startTime: number;
+  startTime: number
   /** Auction duration in seconds */
-  duration: number;
+  duration: number
   /** Starting price in USD (Dutch auction starts high) */
-  startPriceUsd: number;
+  startPriceUsd: number
   /** Reserve/floor price in USD */
-  reservePriceUsd: number;
+  reservePriceUsd: number
   /** Block-by-block supply release curve */
-  supplyReleaseCurve: 'linear' | 'exponential' | 'step';
+  supplyReleaseCurve: 'linear' | 'exponential' | 'step'
   /** Maximum bid size as percentage of total auction supply */
-  maxBidPercent: number;
+  maxBidPercent: number
   /** Minimum bid size in USD */
-  minBidUsd: number;
+  minBidUsd: number
   /** Whether to auto-migrate to Uniswap V4 pool after auction */
-  autoMigrateLiquidity: boolean;
+  autoMigrateLiquidity: boolean
   /** Fee configuration for auction (if self-deployed) */
   auctionFees?: {
     /** Platform fee in basis points (our protocol fee) */
-    platformFeeBps: number;
+    platformFeeBps: number
     /** Referral fee in basis points */
-    referralFeeBps: number;
-  };
+    referralFeeBps: number
+  }
 }
 
 // =============================================================================
@@ -285,59 +285,59 @@ export type ISMType =
   | 'aggregation' // Combines multiple ISMs
   | 'routing' // Routes to different ISMs per origin
   | 'pausable' // Can be paused by owner
-  | 'trusted-relayer'; // Single trusted relayer
+  | 'trusted-relayer' // Single trusted relayer
 
 /** Multisig ISM configuration */
 export interface MultisigISMConfig {
-  type: 'multisig';
+  type: 'multisig'
   /** Validator addresses (your own nodes) */
-  validators: string[];
+  validators: string[]
   /** Threshold for signature verification */
-  threshold: number;
+  threshold: number
 }
 
 /** Optimistic ISM configuration */
 export interface OptimisticISMConfig {
-  type: 'optimistic';
+  type: 'optimistic'
   /** Challenge period in seconds */
-  challengePeriod: number;
+  challengePeriod: number
   /** Address that can challenge fraudulent messages */
-  watchers: string[];
+  watchers: string[]
 }
 
-export type ISMConfig = MultisigISMConfig | OptimisticISMConfig;
+export type ISMConfig = MultisigISMConfig | OptimisticISMConfig
 
 /** Warp Route configuration for a chain */
 export interface WarpRouteConfig {
-  chainId: ChainId;
+  chainId: ChainId
   /** Token type on this chain */
-  tokenType: 'native' | 'synthetic' | 'collateral';
+  tokenType: 'native' | 'synthetic' | 'collateral'
   /** For collateral type, the underlying token address */
-  collateralAddress?: string;
+  collateralAddress?: string
   /** ISM configuration for this chain */
-  ism: ISMConfig;
+  ism: ISMConfig
   /** Owner of the warp route contracts */
-  owner: string;
+  owner: string
   /** Rate limit per 24 hours (in token units) */
-  rateLimitPerDay: bigint;
+  rateLimitPerDay: bigint
 }
 
 /** Complete Hyperlane deployment configuration */
 export interface HyperlaneConfig {
   /** Routes configuration per chain */
-  routes: WarpRouteConfig[];
+  routes: WarpRouteConfig[]
   /** Your validator addresses (for running your own) */
   validators: {
-    address: string;
-    chains: ChainId[];
-  }[];
+    address: string
+    chains: ChainId[]
+  }[]
   /** Interchain gas payment configuration */
   gasConfig: {
     /** Default gas limit for cross-chain messages */
-    defaultGasLimit: bigint;
+    defaultGasLimit: bigint
     /** Gas overhead for message processing */
-    gasOverhead: bigint;
-  };
+    gasOverhead: bigint
+  }
 }
 
 // =============================================================================
@@ -347,23 +347,23 @@ export interface HyperlaneConfig {
 /** Complete deployment configuration */
 export interface DeploymentConfig {
   /** Token economics */
-  token: TokenEconomics;
+  token: TokenEconomics
   /** Liquidity deployment */
-  liquidity: LiquidityConfig;
+  liquidity: LiquidityConfig
   /** Presale configuration */
-  presale: PresaleConfig;
+  presale: PresaleConfig
   /** CCA auction configuration */
-  cca: CCAConfig;
+  cca: CCAConfig
   /** Hyperlane warp routes */
-  hyperlane: HyperlaneConfig;
+  hyperlane: HyperlaneConfig
   /** Chains to deploy on */
-  chains: ChainConfig[];
+  chains: ChainConfig[]
   /** Deployment owner/admin address */
-  owner: Address;
+  owner: Address
   /** Timelock delay for admin actions (in seconds) */
-  timelockDelay: number;
+  timelockDelay: number
   /** Salt for CREATE2 deterministic deployment */
-  deploymentSalt: Hex;
+  deploymentSalt: Hex
 }
 
 // =============================================================================
@@ -372,41 +372,41 @@ export interface DeploymentConfig {
 
 /** Deployed contract addresses per chain */
 export interface ChainDeployment {
-  chainId: ChainId;
+  chainId: ChainId
   /** Token contract address */
-  token: string;
+  token: string
   /** Vesting contract address */
-  vesting: string;
+  vesting: string
   /** Fee distributor contract address */
-  feeDistributor: string;
+  feeDistributor: string
   /** Warp route contract address */
-  warpRoute: string;
+  warpRoute: string
   /** ISM contract address */
-  ism: string;
+  ism: string
   /** Liquidity pool address */
-  liquidityPool?: string;
+  liquidityPool?: string
   /** Presale contract address */
-  presale?: string;
+  presale?: string
   /** CCA auction contract address (if self-deployed) */
-  ccaAuction?: string;
+  ccaAuction?: string
   /** Transaction hashes for verification */
-  deploymentTxHashes: Hex[];
+  deploymentTxHashes: Hex[]
   /** Block number at deployment */
-  deployedAtBlock: bigint;
+  deployedAtBlock: bigint
 }
 
 /** Complete deployment result */
 export interface DeploymentResult {
   /** Timestamp of deployment */
-  deployedAt: number;
+  deployedAt: number
   /** Configuration used */
-  config: DeploymentConfig;
+  config: DeploymentConfig
   /** Deployments per chain */
-  deployments: ChainDeployment[];
+  deployments: ChainDeployment[]
   /** CREATE2 salt used */
-  salt: Hex;
+  salt: Hex
   /** Computed deterministic addresses (for verification) */
-  deterministicAddresses: Record<ChainId, string>;
+  deterministicAddresses: Record<ChainId, string>
 }
 
 // =============================================================================
@@ -415,42 +415,42 @@ export interface DeploymentResult {
 
 /** Bridge transfer request */
 export interface BridgeRequest {
-  sourceChain: ChainId;
-  destinationChain: ChainId;
-  sender: string;
-  recipient: string;
-  amount: bigint;
+  sourceChain: ChainId
+  destinationChain: ChainId
+  sender: string
+  recipient: string
+  amount: bigint
   /** Optional data for destination chain call */
-  callData?: Hex;
+  callData?: Hex
 }
 
 /** Bridge transfer status */
 export interface BridgeStatus {
-  requestId: Hex;
-  status: 'pending' | 'dispatched' | 'delivered' | 'failed';
-  sourceChain: ChainId;
-  destinationChain: ChainId;
-  amount: bigint;
+  requestId: Hex
+  status: 'pending' | 'dispatched' | 'delivered' | 'failed'
+  sourceChain: ChainId
+  destinationChain: ChainId
+  amount: bigint
   /** Source transaction hash */
-  sourceTxHash?: Hex;
+  sourceTxHash?: Hex
   /** Destination transaction hash */
-  destTxHash?: Hex;
+  destTxHash?: Hex
   /** Error message if failed */
-  error?: string;
+  error?: string
 }
 
 /** Fee claim request */
 export interface FeeClaimRequest {
-  chainId: ChainId;
-  claimant: Address;
+  chainId: ChainId
+  claimant: Address
   /** Token to claim fees in (if multiple options) */
-  claimToken?: Address;
+  claimToken?: Address
 }
 
 /** Vesting claim request */
 export interface VestingClaimRequest {
-  chainId: ChainId;
-  beneficiary: Address;
+  chainId: ChainId
+  beneficiary: Address
   /** Claim all available or specific amount */
-  amount?: bigint;
+  amount?: bigint
 }

@@ -1,5 +1,5 @@
 export enum OracleDisputeOutcome {
-    VALID = "VALID",
-    INVALID = "INVALID",
-    PENDING = "PENDING",
+  VALID = 'VALID',
+  INVALID = 'INVALID',
+  PENDING = 'PENDING',
 }

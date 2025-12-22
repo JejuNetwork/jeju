@@ -12,11 +12,11 @@ datasources:
     type: postgres
     uid: postgres-indexer
     access: proxy
-    url: squid-db-1:5432
-    database: indexer
-    user: postgres
+    url: ${POSTGRES_HOST:-squid-db-1}:${POSTGRES_PORT:-5432}
+    database: ${POSTGRES_DB:-indexer}
+    user: ${POSTGRES_USER:-postgres}
     secureJsonData:
-      password: 'postgres'
+      password: ${POSTGRES_PASSWORD}
     jsonData:
-      sslmode: 'disable'
+      sslmode: ${POSTGRES_SSLMODE:-require}
       postgresVersion: 1500

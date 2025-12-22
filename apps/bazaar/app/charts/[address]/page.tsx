@@ -1,12 +1,16 @@
 'use client'
 
-import { useState, useEffect, use } from 'react'
-import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { fetchTokenDetails, fetchPriceHistory, fetchToken24hStats, type Token } from '@/lib/data-client'
-import { PriceChart, type Candle } from '@/components/charts/PriceChart'
+import Link from 'next/link'
+import { use, useEffect, useState } from 'react'
+import { type Address, formatUnits } from 'viem'
+import { type Candle, PriceChart } from '@/components/charts/PriceChart'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
-import { formatUnits, type Address } from 'viem'
+import {
+  fetchPriceHistory,
+  fetchToken24hStats,
+  fetchTokenDetails,
+} from '@/lib/data-client'
 
 type TimeInterval = '1m' | '5m' | '15m' | '1h' | '4h' | '1d'
 
@@ -26,7 +30,12 @@ function formatNumber(num: number): string {
   return num.toFixed(2)
 }
 
-function StatCard({ label, value, subtext, color }: { 
+function StatCard({
+  label,
+  value,
+  subtext,
+  color,
+}: {
   label: string
   value: string
   subtext?: string
@@ -34,15 +43,27 @@ function StatCard({ label, value, subtext, color }: {
 }) {
   return (
     <div className="card p-4">
-      <div className="text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>{label}</div>
-      <div className={`text-lg font-bold ${
-        color === 'green' ? 'text-green-400' : 
-        color === 'red' ? 'text-red-400' : ''
-      }`} style={color === 'default' ? { color: 'var(--text-primary)' } : undefined}>
+      <div className="text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>
+        {label}
+      </div>
+      <div
+        className={`text-lg font-bold ${
+          color === 'green'
+            ? 'text-green-400'
+            : color === 'red'
+              ? 'text-red-400'
+              : ''
+        }`}
+        style={
+          color === 'default' ? { color: 'var(--text-primary)' } : undefined
+        }
+      >
         {value}
       </div>
       {subtext && (
-        <div className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>{subtext}</div>
+        <div className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+          {subtext}
+        </div>
       )}
     </div>
   )
@@ -60,15 +81,26 @@ function TradesList() {
 
   return (
     <div className="card p-4">
-      <h3 className="font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Recent Trades</h3>
+      <h3
+        className="font-semibold mb-3"
+        style={{ color: 'var(--text-primary)' }}
+      >
+        Recent Trades
+      </h3>
       <div className="space-y-2 text-sm">
         {trades.map((trade, i) => (
           <div key={i} className="flex items-center justify-between">
-            <span className={trade.type === 'buy' ? 'text-green-400' : 'text-red-400'}>
+            <span
+              className={
+                trade.type === 'buy' ? 'text-green-400' : 'text-red-400'
+              }
+            >
               {trade.type.toUpperCase()}
             </span>
             <span style={{ color: 'var(--text-primary)' }}>{trade.amount}</span>
-            <span style={{ color: 'var(--text-secondary)' }}>${trade.price}</span>
+            <span style={{ color: 'var(--text-secondary)' }}>
+              ${trade.price}
+            </span>
             <span style={{ color: 'var(--text-tertiary)' }}>{trade.time}</span>
           </div>
         ))}
@@ -89,20 +121,32 @@ function HoldersList() {
 
   return (
     <div className="card p-4">
-      <h3 className="font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Top Holders</h3>
+      <h3
+        className="font-semibold mb-3"
+        style={{ color: 'var(--text-primary)' }}
+      >
+        Top Holders
+      </h3>
       <div className="space-y-2 text-sm">
         {holders.map((holder, i) => (
           <div key={i} className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span style={{ color: 'var(--text-tertiary)' }}>{i + 1}</span>
-              <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{holder.address}</span>
+              <span
+                className="font-mono"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                {holder.address}
+              </span>
               {holder.label && (
                 <span className="px-1.5 py-0.5 rounded text-xs bg-bazaar-primary/20 text-bazaar-primary">
                   {holder.label}
                 </span>
               )}
             </div>
-            <span style={{ color: 'var(--text-secondary)' }}>{holder.balance}</span>
+            <span style={{ color: 'var(--text-secondary)' }}>
+              {holder.balance}
+            </span>
           </div>
         ))}
       </div>
@@ -110,7 +154,11 @@ function HoldersList() {
   )
 }
 
-export default function TokenChartPage({ params }: { params: Promise<{ address: string }> }) {
+export default function TokenChartPage({
+  params,
+}: {
+  params: Promise<{ address: string }>
+}) {
   const { address } = use(params)
   const [interval, setInterval] = useState<TimeInterval>('1h')
   const [chartWidth, setChartWidth] = useState(800)
@@ -146,7 +194,8 @@ export default function TokenChartPage({ params }: { params: Promise<{ address: 
   })
 
   const candles: Candle[] = priceHistory ?? []
-  const currentPrice = candles.length > 0 ? candles[candles.length - 1].close : 0
+  const currentPrice =
+    candles.length > 0 ? candles[candles.length - 1].close : 0
   const priceChange = stats?.priceChange ?? 0
   const isUp = priceChange >= 0
 
@@ -162,11 +211,15 @@ export default function TokenChartPage({ params }: { params: Promise<{ address: 
     return (
       <div className="text-center py-20">
         <div className="text-5xl mb-4">🔍</div>
-        <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+        <h2
+          className="text-xl font-semibold mb-2"
+          style={{ color: 'var(--text-primary)' }}
+        >
           Token Not Found
         </h2>
         <p className="mb-4" style={{ color: 'var(--text-tertiary)' }}>
-          The token at {address.slice(0, 10)}...{address.slice(-8)} could not be found
+          The token at {address.slice(0, 10)}...{address.slice(-8)} could not be
+          found
         </p>
         <Link href="/charts" className="btn-primary">
           Back to Charts
@@ -180,7 +233,11 @@ export default function TokenChartPage({ params }: { params: Promise<{ address: 
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-4">
-          <Link href="/charts" className="p-2 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+          <Link
+            href="/charts"
+            className="p-2 rounded-xl"
+            style={{ backgroundColor: 'var(--bg-secondary)' }}
+          >
             ←
           </Link>
           <div className="flex items-center gap-3">
@@ -189,12 +246,18 @@ export default function TokenChartPage({ params }: { params: Promise<{ address: 
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                <h1
+                  className="text-xl font-bold"
+                  style={{ color: 'var(--text-primary)' }}
+                >
                   {token.name}
                 </h1>
                 {token.verified && <span className="text-blue-400">✓</span>}
               </div>
-              <div className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+              <div
+                className="text-sm"
+                style={{ color: 'var(--text-tertiary)' }}
+              >
                 ${token.symbol}
               </div>
             </div>
@@ -203,11 +266,17 @@ export default function TokenChartPage({ params }: { params: Promise<{ address: 
 
         <div className="flex items-center gap-4">
           <div className="text-right">
-            <div className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+            <div
+              className="text-2xl font-bold"
+              style={{ color: 'var(--text-primary)' }}
+            >
               ${currentPrice.toFixed(currentPrice < 1 ? 6 : 2)}
             </div>
-            <div className={`text-sm font-semibold ${isUp ? 'text-green-400' : 'text-red-400'}`}>
-              {isUp ? '+' : ''}{priceChange.toFixed(2)}%
+            <div
+              className={`text-sm font-semibold ${isUp ? 'text-green-400' : 'text-red-400'}`}
+            >
+              {isUp ? '+' : ''}
+              {priceChange.toFixed(2)}%
             </div>
           </div>
           <Link href={`/swap?output=${address}`} className="btn-primary">
@@ -218,33 +287,33 @@ export default function TokenChartPage({ params }: { params: Promise<{ address: 
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-6">
-        <StatCard 
-          label="Market Cap" 
+        <StatCard
+          label="Market Cap"
           value={`$${formatNumber(currentPrice * Number(formatUnits(token.totalSupply, token.decimals)))}`}
           color="default"
         />
-        <StatCard 
-          label="24h Volume" 
+        <StatCard
+          label="24h Volume"
           value={`$${formatNumber(Number(stats?.volume ?? 0n))}`}
           color="default"
         />
-        <StatCard 
-          label="24h High" 
+        <StatCard
+          label="24h High"
           value={`$${(stats?.high ?? 0).toFixed(4)}`}
           color="green"
         />
-        <StatCard 
-          label="24h Low" 
+        <StatCard
+          label="24h Low"
           value={`$${(stats?.low ?? 0).toFixed(4)}`}
           color="red"
         />
-        <StatCard 
-          label="Trades (24h)" 
+        <StatCard
+          label="Trades (24h)"
           value={formatNumber(stats?.trades ?? 0)}
           color="default"
         />
-        <StatCard 
-          label="Holders" 
+        <StatCard
+          label="Holders"
           value={formatNumber(token.holders ?? 0)}
           color="default"
         />
@@ -264,10 +333,14 @@ export default function TokenChartPage({ params }: { params: Promise<{ address: 
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                     interval === int.value ? 'bg-bazaar-primary text-white' : ''
                   }`}
-                  style={interval !== int.value ? {
-                    backgroundColor: 'var(--bg-secondary)',
-                    color: 'var(--text-secondary)'
-                  } : undefined}
+                  style={
+                    interval !== int.value
+                      ? {
+                          backgroundColor: 'var(--bg-secondary)',
+                          color: 'var(--text-secondary)',
+                        }
+                      : undefined
+                  }
                 >
                   {int.label}
                 </button>
@@ -281,9 +354,9 @@ export default function TokenChartPage({ params }: { params: Promise<{ address: 
                   <LoadingSpinner />
                 </div>
               ) : (
-                <PriceChart 
-                  candles={candles} 
-                  width={chartWidth - 32} 
+                <PriceChart
+                  candles={candles}
+                  width={chartWidth - 32}
                   height={400}
                   showVolume={true}
                 />
@@ -299,22 +372,36 @@ export default function TokenChartPage({ params }: { params: Promise<{ address: 
 
           {/* Token Info */}
           <div className="card p-4">
-            <h3 className="font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Token Info</h3>
+            <h3
+              className="font-semibold mb-3"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              Token Info
+            </h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span style={{ color: 'var(--text-tertiary)' }}>Contract</span>
-                <span className="font-mono" style={{ color: 'var(--text-secondary)' }}>
+                <span
+                  className="font-mono"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
                   {address.slice(0, 6)}...{address.slice(-4)}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span style={{ color: 'var(--text-tertiary)' }}>Decimals</span>
-                <span style={{ color: 'var(--text-primary)' }}>{token.decimals}</span>
+                <span style={{ color: 'var(--text-primary)' }}>
+                  {token.decimals}
+                </span>
               </div>
               <div className="flex justify-between">
-                <span style={{ color: 'var(--text-tertiary)' }}>Total Supply</span>
+                <span style={{ color: 'var(--text-tertiary)' }}>
+                  Total Supply
+                </span>
                 <span style={{ color: 'var(--text-primary)' }}>
-                  {formatNumber(Number(formatUnits(token.totalSupply, token.decimals)))}
+                  {formatNumber(
+                    Number(formatUnits(token.totalSupply, token.decimals)),
+                  )}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -330,4 +417,3 @@ export default function TokenChartPage({ params }: { params: Promise<{ address: 
     </div>
   )
 }
-

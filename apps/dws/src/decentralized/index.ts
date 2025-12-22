@@ -1,20 +1,20 @@
 /**
  * DWS Decentralized Bootstrap
- * 
+ *
  * Enables fully decentralized operation:
  * - Frontend served from IPFS/CDN
  * - Node discovery via ERC-8004 IdentityRegistry (same registry for all agents/nodes)
  * - P2P coordination between DWS nodes
  * - Self-hosting of DWS code through DWS
- * 
+ *
  * DWS nodes register as agents in the IdentityRegistry with:
  * - Tags: "dws", "dws-storage", "dws-compute", "dws-cdn", "dws-git", "dws-pkg"
  * - Metadata: "dwsEndpoint" = node HTTP endpoint
  * - A2A Endpoint: same as dwsEndpoint
  */
 
-import { createPublicClient, http, type Address, type Hex } from 'viem';
-import type { BackendManager } from '../storage/backends';
+import { type Address, createPublicClient, type Hex, http } from 'viem'
+import type { BackendManager } from '../storage/backends'
 
 // ============================================================================
 // ERC-8004 IdentityRegistry ABI - Unified agent/node registry
@@ -101,41 +101,41 @@ const IDENTITY_REGISTRY_ABI = [
     outputs: [{ name: 'owner', type: 'address' }],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 // ============================================================================
 // Types
 // ============================================================================
 
 // DWS node types - correspond to tags in IdentityRegistry
-export type DWSNodeType = 'storage' | 'compute' | 'cdn' | 'git' | 'pkg' | 'full';
+export type DWSNodeType = 'storage' | 'compute' | 'cdn' | 'git' | 'pkg' | 'full'
 
 // DWS-specific tag prefix
-const DWS_TAG_PREFIX = 'dws-';
-const DWS_BASE_TAG = 'dws';
+const DWS_TAG_PREFIX = 'dws-'
+const DWS_BASE_TAG = 'dws'
 
 // Metadata keys for DWS nodes
-const DWS_ENDPOINT_KEY = 'dwsEndpoint';
+const DWS_ENDPOINT_KEY = 'dwsEndpoint'
 // Reserved for future metadata
-void 'dwsNodeType';
-void 'dwsVersion';
+void 'dwsNodeType'
+void 'dwsVersion'
 
 export interface DWSNode {
-  agentId: bigint;
-  owner: Address;
-  endpoint: string;
-  nodeTypes: DWSNodeType[];
-  stake: bigint;
-  isBanned: boolean;
-  lastSeen?: number;
-  latency?: number;
+  agentId: bigint
+  owner: Address
+  endpoint: string
+  nodeTypes: DWSNodeType[]
+  stake: bigint
+  isBanned: boolean
+  lastSeen?: number
+  latency?: number
 }
 
 export interface DecentralizedConfig {
-  rpcUrl: string;
-  identityRegistryAddress: Address;  // ERC-8004 IdentityRegistry
-  frontendCid?: string;
-  selfAgentId?: bigint;
+  rpcUrl: string
+  identityRegistryAddress: Address // ERC-8004 IdentityRegistry
+  frontendCid?: string
+  selfAgentId?: bigint
 }
 
 // ============================================================================
@@ -143,17 +143,17 @@ export interface DecentralizedConfig {
 // ============================================================================
 
 export class NodeDiscovery {
-  private publicClient: ReturnType<typeof createPublicClient>;
-  private registryAddress: Address;
-  private nodeCache: Map<string, DWSNode> = new Map();
-  private cacheExpiry = 60000; // 1 minute
-  private lastCacheUpdate = 0;
+  private publicClient: ReturnType<typeof createPublicClient>
+  private registryAddress: Address
+  private nodeCache: Map<string, DWSNode> = new Map()
+  private cacheExpiry = 60000 // 1 minute
+  private lastCacheUpdate = 0
 
   constructor(config: DecentralizedConfig) {
     this.publicClient = createPublicClient({
       transport: http(config.rpcUrl),
-    });
-    this.registryAddress = config.identityRegistryAddress;
+    })
+    this.registryAddress = config.identityRegistryAddress
   }
 
   /**
@@ -161,96 +161,107 @@ export class NodeDiscovery {
    * Queries agents with tag "dws-{nodeType}" or "dws" for all nodes
    */
   async getActiveNodes(nodeType: DWSNodeType): Promise<DWSNode[]> {
-    const now = Date.now();
+    const now = Date.now()
     if (now - this.lastCacheUpdate < this.cacheExpiry) {
-      return Array.from(this.nodeCache.values())
-        .filter(n => n.nodeTypes.includes(nodeType) || n.nodeTypes.includes('full'));
+      return Array.from(this.nodeCache.values()).filter(
+        (n) => n.nodeTypes.includes(nodeType) || n.nodeTypes.includes('full'),
+      )
     }
 
     // Query by DWS tag
-    const tag = nodeType === 'full' ? DWS_BASE_TAG : `${DWS_TAG_PREFIX}${nodeType}`;
-    const agentIds = await this.publicClient.readContract({
+    const tag =
+      nodeType === 'full' ? DWS_BASE_TAG : `${DWS_TAG_PREFIX}${nodeType}`
+    const agentIds = (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'getAgentsByTag',
       args: [tag],
-    }) as bigint[];
+    })) as bigint[]
 
-    const nodes: DWSNode[] = [];
+    const nodes: DWSNode[] = []
     for (const agentId of agentIds) {
-      const node = await this.getNode(agentId);
+      const node = await this.getNode(agentId)
       if (node && !node.isBanned) {
-        nodes.push(node);
-        this.nodeCache.set(agentId.toString(), node);
+        nodes.push(node)
+        this.nodeCache.set(agentId.toString(), node)
       }
     }
 
-    this.lastCacheUpdate = now;
-    return nodes;
+    this.lastCacheUpdate = now
+    return nodes
   }
 
   /**
    * Get a specific DWS node by agent ID
    */
   async getNode(agentId: bigint): Promise<DWSNode | null> {
-    const cacheKey = agentId.toString();
-    const cached = this.nodeCache.get(cacheKey);
+    const cacheKey = agentId.toString()
+    const cached = this.nodeCache.get(cacheKey)
     if (cached && Date.now() - (cached.lastSeen ?? 0) < this.cacheExpiry) {
-      return cached;
+      return cached
     }
 
     // Get agent info
-    const agent = await this.publicClient.readContract({
+    const agent = (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'getAgent',
       args: [agentId],
-    }) as { agentId: bigint; owner: Address; tier: number; stakedAmount: bigint; isBanned: boolean };
+    })) as {
+      agentId: bigint
+      owner: Address
+      tier: number
+      stakedAmount: bigint
+      isBanned: boolean
+    }
 
-    if (!agent.owner || agent.owner === '0x0000000000000000000000000000000000000000') {
-      return null;
+    if (
+      !agent.owner ||
+      agent.owner === '0x0000000000000000000000000000000000000000'
+    ) {
+      return null
     }
 
     // Get endpoint from A2A endpoint or dwsEndpoint metadata
-    let endpoint = await this.publicClient.readContract({
+    let endpoint = (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'getA2AEndpoint',
       args: [agentId],
-    }) as string;
+    })) as string
 
     if (!endpoint) {
-      const endpointBytes = await this.publicClient.readContract({
+      const endpointBytes = (await this.publicClient.readContract({
         address: this.registryAddress,
         abi: IDENTITY_REGISTRY_ABI,
         functionName: 'getMetadata',
         args: [agentId, DWS_ENDPOINT_KEY],
-      }) as Hex;
+      })) as Hex
       if (endpointBytes && endpointBytes !== '0x') {
-        endpoint = Buffer.from(endpointBytes.slice(2), 'hex').toString();
+        endpoint = Buffer.from(endpointBytes.slice(2), 'hex').toString()
       }
     }
 
     if (!endpoint) {
-      return null; // No endpoint = not a valid DWS node
+      return null // No endpoint = not a valid DWS node
     }
 
     // Get node types from tags
-    const tags = await this.publicClient.readContract({
+    const tags = (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'getAgentTags',
       args: [agentId],
-    }) as string[];
+    })) as string[]
 
-    const nodeTypes: DWSNodeType[] = [];
+    const nodeTypes: DWSNodeType[] = []
     for (const tag of tags) {
       if (tag === DWS_BASE_TAG) {
-        nodeTypes.push('full');
+        nodeTypes.push('full')
       } else if (tag.startsWith(DWS_TAG_PREFIX)) {
-        const type = tag.slice(DWS_TAG_PREFIX.length) as DWSNodeType;
+        const type = tag.slice(DWS_TAG_PREFIX.length) as DWSNodeType
         if (['storage', 'compute', 'cdn', 'git', 'pkg'].includes(type)) {
-          nodeTypes.push(type);
+          nodeTypes.push(type)
         }
       }
     }
@@ -263,55 +274,59 @@ export class NodeDiscovery {
       stake: agent.stakedAmount,
       isBanned: agent.isBanned,
       lastSeen: Date.now(),
-    };
+    }
 
-    this.nodeCache.set(cacheKey, node);
-    return node;
+    this.nodeCache.set(cacheKey, node)
+    return node
   }
 
   /**
    * Find the best (lowest latency) node for a given type
    */
   async findBestNode(nodeType: DWSNodeType): Promise<DWSNode | null> {
-    const nodes = await this.getActiveNodes(nodeType);
-    if (nodes.length === 0) return null;
+    const nodes = await this.getActiveNodes(nodeType)
+    if (nodes.length === 0) return null
 
     // Ping nodes to find best latency
     const withLatency = await Promise.all(
       nodes.map(async (node) => {
-        const start = Date.now();
-        const healthy = await this.pingNode(node.endpoint);
+        const start = Date.now()
+        const healthy = await this.pingNode(node.endpoint)
         return {
           ...node,
           latency: healthy ? Date.now() - start : Infinity,
-        };
-      })
-    );
+        }
+      }),
+    )
 
     // Sort by latency, return best
-    withLatency.sort((a, b) => (a.latency ?? Infinity) - (b.latency ?? Infinity));
-    return withLatency[0] ?? null;
+    withLatency.sort(
+      (a, b) => (a.latency ?? Infinity) - (b.latency ?? Infinity),
+    )
+    return withLatency[0] ?? null
   }
 
   private async pingNode(endpoint: string): Promise<boolean> {
     const response = await fetch(`${endpoint}/health`).catch((err: Error) => {
-      console.debug(`[NodeDiscovery] Node ${endpoint} unreachable: ${err.message}`);
-      return null;
-    });
-    return response?.ok ?? false;
+      console.debug(
+        `[NodeDiscovery] Node ${endpoint} unreachable: ${err.message}`,
+      )
+      return null
+    })
+    return response?.ok ?? false
   }
 
   /**
    * Get count of all DWS nodes (agents with "dws" tag)
    */
   async getNodeCount(): Promise<number> {
-    const agentIds = await this.publicClient.readContract({
+    const agentIds = (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'getAgentsByTag',
       args: [DWS_BASE_TAG],
-    }) as bigint[];
-    return agentIds.length;
+    })) as bigint[]
+    return agentIds.length
   }
 }
 
@@ -320,35 +335,37 @@ export class NodeDiscovery {
 // ============================================================================
 
 export class DecentralizedFrontend {
-  private backendManager: BackendManager;
-  private frontendCid: string | null = null;
-  private cachedAssets: Map<string, { content: Buffer; contentType: string }> = new Map();
+  private backendManager: BackendManager
+  private frontendCid: string | null = null
+  private cachedAssets: Map<string, { content: Buffer; contentType: string }> =
+    new Map()
 
   constructor(backendManager: BackendManager) {
-    this.backendManager = backendManager;
+    this.backendManager = backendManager
   }
 
   async setFrontendCid(cid: string): Promise<void> {
-    this.frontendCid = cid;
-    this.cachedAssets.clear();
-    console.log(`[DWS] Frontend CID set to: ${cid}`);
+    this.frontendCid = cid
+    this.cachedAssets.clear()
+    console.log(`[DWS] Frontend CID set to: ${cid}`)
   }
 
   async getFrontendCid(): Promise<string | null> {
-    return this.frontendCid;
+    return this.frontendCid
   }
 
   async serveAsset(path: string): Promise<Response | null> {
     if (!this.frontendCid) {
-      return null;
+      return null
     }
 
     // Normalize path
-    const assetPath = path === '/' || path === '' ? 'index.html' : path.replace(/^\//, '');
-    const cacheKey = `${this.frontendCid}/${assetPath}`;
+    const assetPath =
+      path === '/' || path === '' ? 'index.html' : path.replace(/^\//, '')
+    const cacheKey = `${this.frontendCid}/${assetPath}`
 
     // Check cache
-    const cached = this.cachedAssets.get(cacheKey);
+    const cached = this.cachedAssets.get(cacheKey)
     if (cached) {
       return new Response(new Uint8Array(cached.content), {
         headers: {
@@ -357,26 +374,30 @@ export class DecentralizedFrontend {
           'X-DWS-Source': 'ipfs',
           'X-DWS-CID': this.frontendCid,
         },
-      });
+      })
     }
 
     // Fetch from IPFS
-    const assetCid = `${this.frontendCid}/${assetPath}`;
-    const result = await this.backendManager.download(assetCid).catch((err: Error) => {
-      console.debug(`[DWS Frontend] Asset not found: ${assetPath} - ${err.message}`);
-      return null;
-    });
+    const assetCid = `${this.frontendCid}/${assetPath}`
+    const result = await this.backendManager
+      .download(assetCid)
+      .catch((err: Error) => {
+        console.debug(
+          `[DWS Frontend] Asset not found: ${assetPath} - ${err.message}`,
+        )
+        return null
+      })
 
     if (!result) {
       // Try index.html for SPA routing
       if (!assetPath.includes('.')) {
-        return this.serveAsset('index.html');
+        return this.serveAsset('index.html')
       }
-      return null;
+      return null
     }
 
-    const contentType = this.getContentType(assetPath);
-    this.cachedAssets.set(cacheKey, { content: result.content, contentType });
+    const contentType = this.getContentType(assetPath)
+    this.cachedAssets.set(cacheKey, { content: result.content, contentType })
 
     return new Response(new Uint8Array(result.content), {
       headers: {
@@ -385,11 +406,11 @@ export class DecentralizedFrontend {
         'X-DWS-Source': 'ipfs',
         'X-DWS-CID': this.frontendCid,
       },
-    });
+    })
   }
 
   private getContentType(path: string): string {
-    const ext = path.split('.').pop()?.toLowerCase();
+    const ext = path.split('.').pop()?.toLowerCase()
     const types: Record<string, string> = {
       html: 'text/html; charset=utf-8',
       css: 'text/css; charset=utf-8',
@@ -405,8 +426,8 @@ export class DecentralizedFrontend {
       woff2: 'font/woff2',
       ttf: 'font/ttf',
       eot: 'application/vnd.ms-fontobject',
-    };
-    return types[ext ?? ''] ?? 'application/octet-stream';
+    }
+    return types[ext ?? ''] ?? 'application/octet-stream'
   }
 }
 
@@ -415,98 +436,101 @@ export class DecentralizedFrontend {
 // ============================================================================
 
 export class P2PCoordinator {
-  private discovery: NodeDiscovery;
-  private selfEndpoint: string;
-  private peers: Map<string, { node: DWSNode; lastPing: number }> = new Map();
-  private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+  private discovery: NodeDiscovery
+  private selfEndpoint: string
+  private peers: Map<string, { node: DWSNode; lastPing: number }> = new Map()
+  private heartbeatInterval: ReturnType<typeof setInterval> | null = null
 
   constructor(discovery: NodeDiscovery, selfEndpoint: string) {
-    this.discovery = discovery;
-    this.selfEndpoint = selfEndpoint;
+    this.discovery = discovery
+    this.selfEndpoint = selfEndpoint
   }
 
   async start(): Promise<void> {
-    console.log('[DWS P2P] Starting peer coordination...');
-    await this.discoverPeers();
-    
+    console.log('[DWS P2P] Starting peer coordination...')
+    await this.discoverPeers()
+
     // Heartbeat every 30 seconds
     this.heartbeatInterval = setInterval(() => {
-      this.heartbeat().catch(console.error);
-    }, 30000);
+      this.heartbeat().catch(console.error)
+    }, 30000)
   }
 
   stop(): void {
     if (this.heartbeatInterval) {
-      clearInterval(this.heartbeatInterval);
-      this.heartbeatInterval = null;
+      clearInterval(this.heartbeatInterval)
+      this.heartbeatInterval = null
     }
   }
 
   async discoverPeers(): Promise<void> {
     // Discover all DWS nodes (full nodes)
-    const nodes = await this.discovery.getActiveNodes('full');
-    
+    const nodes = await this.discovery.getActiveNodes('full')
+
     for (const node of nodes) {
-      if (node.endpoint === this.selfEndpoint) continue;
-      
-      const healthy = await this.pingPeer(node);
+      if (node.endpoint === this.selfEndpoint) continue
+
+      const healthy = await this.pingPeer(node)
       if (healthy) {
-        this.peers.set(node.agentId.toString(), { node, lastPing: Date.now() });
+        this.peers.set(node.agentId.toString(), { node, lastPing: Date.now() })
       }
     }
 
-    console.log(`[DWS P2P] Discovered ${this.peers.size} active peers`);
+    console.log(`[DWS P2P] Discovered ${this.peers.size} active peers`)
   }
 
   private async pingPeer(node: DWSNode): Promise<boolean> {
-    const response = await fetch(`${node.endpoint}/health`).catch(() => null);
-    return response?.ok ?? false;
+    const response = await fetch(`${node.endpoint}/health`).catch(() => null)
+    return response?.ok ?? false
   }
 
   private async heartbeat(): Promise<void> {
-    const now = Date.now();
-    const staleThreshold = 120000; // 2 minutes
+    const now = Date.now()
+    const staleThreshold = 120000 // 2 minutes
 
     for (const [agentId, peer] of this.peers) {
       if (now - peer.lastPing > staleThreshold) {
-        const healthy = await this.pingPeer(peer.node);
+        const healthy = await this.pingPeer(peer.node)
         if (healthy) {
-          peer.lastPing = now;
+          peer.lastPing = now
         } else {
-          this.peers.delete(agentId);
-          console.log(`[DWS P2P] Peer ${agentId} went offline`);
+          this.peers.delete(agentId)
+          console.log(`[DWS P2P] Peer ${agentId} went offline`)
         }
       }
     }
 
     // Discover new peers periodically
     if (this.peers.size < 5) {
-      await this.discoverPeers();
+      await this.discoverPeers()
     }
   }
 
   getPeers(): DWSNode[] {
-    return Array.from(this.peers.values()).map(p => p.node);
+    return Array.from(this.peers.values()).map((p) => p.node)
   }
 
-  async broadcastToAll<T>(path: string, data: T): Promise<Map<string, Response>> {
-    const results = new Map<string, Response>();
-    
+  async broadcastToAll<T>(
+    path: string,
+    data: T,
+  ): Promise<Map<string, Response>> {
+    const results = new Map<string, Response>()
+
     await Promise.all(
       Array.from(this.peers.values()).map(async ({ node }) => {
         const response = await fetch(`${node.endpoint}${path}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data),
-        }).catch(() => null);
-        
-        if (response) {
-          results.set(node.agentId.toString(), response);
-        }
-      })
-    );
+        }).catch(() => null)
 
-    return results;
+        if (response) {
+          results.set(node.agentId.toString(), response)
+        }
+      }),
+    )
+
+    return results
   }
 }
 
@@ -515,67 +539,74 @@ export class P2PCoordinator {
 // ============================================================================
 
 export class DistributedRateLimiter {
-  private p2p: P2PCoordinator;
-  private localCounts: Map<string, { count: number; resetAt: number }> = new Map();
-  private windowMs = 60000;
-  private maxRequests = 1000;
+  private p2p: P2PCoordinator
+  private localCounts: Map<string, { count: number; resetAt: number }> =
+    new Map()
+  private windowMs = 60000
+  private maxRequests = 1000
 
   constructor(p2p: P2PCoordinator, windowMs = 60000, maxRequests = 1000) {
-    this.p2p = p2p;
-    this.windowMs = windowMs;
-    this.maxRequests = maxRequests;
+    this.p2p = p2p
+    this.windowMs = windowMs
+    this.maxRequests = maxRequests
   }
 
-  async checkLimit(clientKey: string): Promise<{ allowed: boolean; remaining: number; resetAt: number }> {
-    const now = Date.now();
-    
+  async checkLimit(
+    clientKey: string,
+  ): Promise<{ allowed: boolean; remaining: number; resetAt: number }> {
+    const now = Date.now()
+
     // Get local count
-    let entry = this.localCounts.get(clientKey);
+    let entry = this.localCounts.get(clientKey)
     if (!entry || now > entry.resetAt) {
-      entry = { count: 0, resetAt: now + this.windowMs };
-      this.localCounts.set(clientKey, entry);
+      entry = { count: 0, resetAt: now + this.windowMs }
+      this.localCounts.set(clientKey, entry)
     }
 
     // Get counts from peers (best effort, async)
-    const peerCounts = await this.getPeerCounts(clientKey);
-    const totalCount = entry.count + peerCounts;
+    const peerCounts = await this.getPeerCounts(clientKey)
+    const totalCount = entry.count + peerCounts
 
-    entry.count++;
+    entry.count++
 
-    const allowed = totalCount < this.maxRequests;
-    const remaining = Math.max(0, this.maxRequests - totalCount - 1);
+    const allowed = totalCount < this.maxRequests
+    const remaining = Math.max(0, this.maxRequests - totalCount - 1)
 
-    return { allowed, remaining, resetAt: entry.resetAt };
+    return { allowed, remaining, resetAt: entry.resetAt }
   }
 
   private async getPeerCounts(clientKey: string): Promise<number> {
     // Query peers for their counts (with timeout)
-    const peers = this.p2p.getPeers();
-    if (peers.length === 0) return 0;
+    const peers = this.p2p.getPeers()
+    if (peers.length === 0) return 0
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 100); // 100ms timeout
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 100) // 100ms timeout
 
-    let totalPeerCount = 0;
+    let totalPeerCount = 0
     await Promise.all(
-      peers.slice(0, 3).map(async (peer) => { // Only query 3 peers max
-        const response = await fetch(`${peer.endpoint}/_internal/ratelimit/${clientKey}`, {
-          signal: controller.signal,
-        }).catch(() => null);
-        
-        if (response?.ok) {
-          const data = await response.json() as { count: number };
-          totalPeerCount += data.count ?? 0;
-        }
-      })
-    );
+      peers.slice(0, 3).map(async (peer) => {
+        // Only query 3 peers max
+        const response = await fetch(
+          `${peer.endpoint}/_internal/ratelimit/${clientKey}`,
+          {
+            signal: controller.signal,
+          },
+        ).catch(() => null)
 
-    clearTimeout(timeout);
-    return totalPeerCount;
+        if (response?.ok) {
+          const data = (await response.json()) as { count: number }
+          totalPeerCount += data.count ?? 0
+        }
+      }),
+    )
+
+    clearTimeout(timeout)
+    return totalPeerCount
   }
 
   getLocalCount(clientKey: string): number {
-    return this.localCounts.get(clientKey)?.count ?? 0;
+    return this.localCounts.get(clientKey)?.count ?? 0
   }
 }
 
@@ -583,19 +614,22 @@ export class DistributedRateLimiter {
 // Export factory
 // ============================================================================
 
-export function createDecentralizedServices(config: DecentralizedConfig, backendManager: BackendManager) {
-  const discovery = new NodeDiscovery(config);
-  const frontend = new DecentralizedFrontend(backendManager);
-  
+export function createDecentralizedServices(
+  config: DecentralizedConfig,
+  backendManager: BackendManager,
+) {
+  const discovery = new NodeDiscovery(config)
+  const frontend = new DecentralizedFrontend(backendManager)
+
   if (config.frontendCid) {
-    frontend.setFrontendCid(config.frontendCid);
+    frontend.setFrontendCid(config.frontendCid)
   }
 
   return {
     discovery,
     frontend,
-    createP2P: (selfEndpoint: string) => new P2PCoordinator(discovery, selfEndpoint),
+    createP2P: (selfEndpoint: string) =>
+      new P2PCoordinator(discovery, selfEndpoint),
     createRateLimiter: (p2p: P2PCoordinator) => new DistributedRateLimiter(p2p),
-  };
+  }
 }
-

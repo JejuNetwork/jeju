@@ -6,14 +6,15 @@
  */
 
 import {
-  usePaymasterFactory as usePaymasterFactoryBase,
-  usePaymasterDeployment as usePaymasterDeploymentBase,
   type PaymasterDeployment,
+  usePaymasterDeployment as usePaymasterDeploymentBase,
+  usePaymasterFactory as usePaymasterFactoryBase,
 } from '@jejunetwork/ui'
-import { type Address } from 'viem'
+import type { Address } from 'viem'
 
 // TODO: Get from bazaar config when available
-const PAYMASTER_FACTORY_ADDRESS = '0x0000000000000000000000000000000000000000' as Address
+const PAYMASTER_FACTORY_ADDRESS =
+  '0x0000000000000000000000000000000000000000' as Address
 
 export type { PaymasterDeployment }
 

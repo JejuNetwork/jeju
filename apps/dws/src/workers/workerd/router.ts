@@ -3,8 +3,12 @@
  * Routes worker invocations across distributed nodes
  */
 
-import type { WorkerdRequest, WorkerdResponse } from './types';
-import { DecentralizedWorkerRegistry, type WorkerNode, type WorkerRegistration } from './registry';
+import type {
+  DecentralizedWorkerRegistry,
+  WorkerNode,
+  WorkerRegistration,
+} from './registry'
+import type { WorkerdRequest, WorkerdResponse } from './types'
 
 // ============================================================================
 // Types
@@ -12,17 +16,17 @@ import { DecentralizedWorkerRegistry, type WorkerNode, type WorkerRegistration }
 
 export interface RouterConfig {
   /** Local node endpoint */
-  localEndpoint: string;
+  localEndpoint: string
   /** Enable geographic routing */
-  geoRouting: boolean;
+  geoRouting: boolean
   /** Preferred region for this node */
-  region: string;
+  region: string
   /** Max retries for failed requests */
-  maxRetries: number;
+  maxRetries: number
   /** Request timeout in ms */
-  timeoutMs: number;
+  timeoutMs: number
   /** Health check interval in ms */
-  healthCheckIntervalMs: number;
+  healthCheckIntervalMs: number
 }
 
 export const DEFAULT_ROUTER_CONFIG: RouterConfig = {
@@ -32,14 +36,14 @@ export const DEFAULT_ROUTER_CONFIG: RouterConfig = {
   maxRetries: 2,
   timeoutMs: 30000,
   healthCheckIntervalMs: 30000,
-};
+}
 
 interface NodeHealth {
-  node: WorkerNode;
-  healthy: boolean;
-  latencyMs: number;
-  lastChecked: number;
-  errorCount: number;
+  node: WorkerNode
+  healthy: boolean
+  latencyMs: number
+  lastChecked: number
+  errorCount: number
 }
 
 // ============================================================================
@@ -47,32 +51,35 @@ interface NodeHealth {
 // ============================================================================
 
 export class DecentralizedWorkerRouter {
-  private registry: DecentralizedWorkerRegistry;
-  private config: RouterConfig;
-  private nodeHealth = new Map<string, NodeHealth>();
-  private workerLocations = new Map<string, Set<string>>(); // workerId -> nodeAgentIds
-  private healthCheckInterval: ReturnType<typeof setInterval> | null = null;
+  private registry: DecentralizedWorkerRegistry
+  private config: RouterConfig
+  private nodeHealth = new Map<string, NodeHealth>()
+  private workerLocations = new Map<string, Set<string>>() // workerId -> nodeAgentIds
+  private healthCheckInterval: ReturnType<typeof setInterval> | null = null
 
-  constructor(registry: DecentralizedWorkerRegistry, config: Partial<RouterConfig> = {}) {
-    this.registry = registry;
-    this.config = { ...DEFAULT_ROUTER_CONFIG, ...config };
+  constructor(
+    registry: DecentralizedWorkerRegistry,
+    config: Partial<RouterConfig> = {},
+  ) {
+    this.registry = registry
+    this.config = { ...DEFAULT_ROUTER_CONFIG, ...config }
   }
 
   async start(): Promise<void> {
-    await this.refreshNodes();
-    
+    await this.refreshNodes()
+
     this.healthCheckInterval = setInterval(
       () => this.healthCheck(),
-      this.config.healthCheckIntervalMs
-    );
-    
-    console.log('[WorkerRouter] Started');
+      this.config.healthCheckIntervalMs,
+    )
+
+    console.log('[WorkerRouter] Started')
   }
 
   stop(): void {
     if (this.healthCheckInterval) {
-      clearInterval(this.healthCheckInterval);
-      this.healthCheckInterval = null;
+      clearInterval(this.healthCheckInterval)
+      this.healthCheckInterval = null
     }
   }
 
@@ -85,37 +92,37 @@ export class DecentralizedWorkerRouter {
    */
   async route(
     workerId: string,
-    request: WorkerdRequest
+    request: WorkerdRequest,
   ): Promise<WorkerdResponse> {
     // Check if worker is deployed locally first
     if (await this.isDeployedLocally(workerId)) {
-      return this.invokeLocal(workerId, request);
+      return this.invokeLocal(workerId, request)
     }
 
     // Find nodes that have this worker
-    const nodes = await this.findNodesForWorker(workerId);
+    const nodes = await this.findNodesForWorker(workerId)
     if (nodes.length === 0) {
-      throw new Error(`No nodes found for worker ${workerId}`);
+      throw new Error(`No nodes found for worker ${workerId}`)
     }
 
     // Sort by health and latency
-    const sortedNodes = this.sortNodesByHealth(nodes);
+    const sortedNodes = this.sortNodesByHealth(nodes)
 
     // Try each node until success
-    let lastError: Error | null = null;
+    let lastError: Error | null = null
     for (let attempt = 0; attempt <= this.config.maxRetries; attempt++) {
-      const node = sortedNodes[attempt % sortedNodes.length];
-      if (!node) break;
+      const node = sortedNodes[attempt % sortedNodes.length]
+      if (!node) break
 
       try {
-        return await this.invokeRemote(node, workerId, request);
+        return await this.invokeRemote(node, workerId, request)
       } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
-        this.recordNodeError(node.agentId.toString());
+        lastError = error instanceof Error ? error : new Error(String(error))
+        this.recordNodeError(node.agentId.toString())
       }
     }
 
-    throw lastError || new Error('All nodes failed');
+    throw lastError || new Error('All nodes failed')
   }
 
   /**
@@ -124,22 +131,22 @@ export class DecentralizedWorkerRouter {
   async routeWithRegion(
     workerId: string,
     request: WorkerdRequest,
-    preferredRegion: string
+    preferredRegion: string,
   ): Promise<WorkerdResponse> {
-    const nodes = await this.findNodesForWorker(workerId);
-    
+    const nodes = await this.findNodesForWorker(workerId)
+
     // Prefer nodes in the same region
-    const regionalNodes = nodes.filter(n => n.region === preferredRegion);
+    const regionalNodes = nodes.filter((n) => n.region === preferredRegion)
     if (regionalNodes.length > 0) {
-      const sortedNodes = this.sortNodesByHealth(regionalNodes);
+      const sortedNodes = this.sortNodesByHealth(regionalNodes)
       try {
-        return await this.invokeRemote(sortedNodes[0], workerId, request);
+        return await this.invokeRemote(sortedNodes[0], workerId, request)
       } catch {
         // Fall back to other nodes
       }
     }
 
-    return this.route(workerId, request);
+    return this.route(workerId, request)
   }
 
   // ============================================================================
@@ -148,11 +155,11 @@ export class DecentralizedWorkerRouter {
 
   private async refreshNodes(): Promise<void> {
     try {
-      const nodes = await this.registry.getNodes();
-      
+      const nodes = await this.registry.getNodes()
+
       for (const node of nodes) {
-        const nodeId = node.agentId.toString();
-        
+        const nodeId = node.agentId.toString()
+
         if (!this.nodeHealth.has(nodeId)) {
           this.nodeHealth.set(nodeId, {
             node,
@@ -160,106 +167,112 @@ export class DecentralizedWorkerRouter {
             latencyMs: 0,
             lastChecked: 0,
             errorCount: 0,
-          });
+          })
         } else {
-          const health = this.nodeHealth.get(nodeId);
+          const health = this.nodeHealth.get(nodeId)
           if (health) {
-            health.node = node;
+            health.node = node
           }
         }
       }
     } catch (e) {
-      console.warn('[WorkerRouter] Failed to refresh nodes from registry:', e instanceof Error ? e.message : String(e));
+      console.warn(
+        '[WorkerRouter] Failed to refresh nodes from registry:',
+        e instanceof Error ? e.message : String(e),
+      )
     }
   }
 
   private async healthCheck(): Promise<void> {
-    const now = Date.now();
-    
+    const now = Date.now()
+
     for (const [_nodeId, health] of this.nodeHealth) {
-      const start = Date.now();
-      
+      const start = Date.now()
+
       const response = await fetch(`${health.node.endpoint}/health`, {
         signal: AbortSignal.timeout(5000),
-      }).catch(() => null);
-      
-      health.latencyMs = Date.now() - start;
-      health.lastChecked = now;
-      health.healthy = response?.ok ?? false;
-      
+      }).catch(() => null)
+
+      health.latencyMs = Date.now() - start
+      health.lastChecked = now
+      health.healthy = response?.ok ?? false
+
       if (health.healthy) {
-        health.errorCount = 0;
+        health.errorCount = 0
       }
     }
   }
 
   private async findNodesForWorker(workerId: string): Promise<WorkerNode[]> {
     // Check cache first
-    const cachedNodes = this.workerLocations.get(workerId);
+    const cachedNodes = this.workerLocations.get(workerId)
     if (cachedNodes && cachedNodes.size > 0) {
-      const nodes: WorkerNode[] = [];
+      const nodes: WorkerNode[] = []
       for (const nodeId of cachedNodes) {
-        const health = this.nodeHealth.get(nodeId);
+        const health = this.nodeHealth.get(nodeId)
         if (health?.healthy) {
-          nodes.push(health.node);
+          nodes.push(health.node)
         }
       }
-      if (nodes.length > 0) return nodes;
+      if (nodes.length > 0) return nodes
     }
 
     // Query all healthy nodes for this worker
-    const nodes: WorkerNode[] = [];
-    const nodeSet = new Set<string>();
+    const nodes: WorkerNode[] = []
+    const nodeSet = new Set<string>()
 
     for (const [nodeId, health] of this.nodeHealth) {
-      if (!health.healthy) continue;
+      if (!health.healthy) continue
 
-      const hasWorker = await this.checkNodeHasWorker(health.node, workerId);
+      const hasWorker = await this.checkNodeHasWorker(health.node, workerId)
       if (hasWorker) {
-        nodes.push(health.node);
-        nodeSet.add(nodeId);
+        nodes.push(health.node)
+        nodeSet.add(nodeId)
       }
     }
 
-    this.workerLocations.set(workerId, nodeSet);
-    return nodes;
+    this.workerLocations.set(workerId, nodeSet)
+    return nodes
   }
 
-  private async checkNodeHasWorker(node: WorkerNode, workerId: string): Promise<boolean> {
+  private async checkNodeHasWorker(
+    node: WorkerNode,
+    workerId: string,
+  ): Promise<boolean> {
     const response = await fetch(`${node.endpoint}/workers/${workerId}`, {
       signal: AbortSignal.timeout(5000),
-    }).catch(() => null);
-    
-    return response?.ok ?? false;
+    }).catch(() => null)
+
+    return response?.ok ?? false
   }
 
   private sortNodesByHealth(nodes: WorkerNode[]): WorkerNode[] {
     return [...nodes].sort((a, b) => {
-      const healthA = this.nodeHealth.get(a.agentId.toString());
-      const healthB = this.nodeHealth.get(b.agentId.toString());
-      
-      if (!healthA || !healthB) return 0;
-      
+      const healthA = this.nodeHealth.get(a.agentId.toString())
+      const healthB = this.nodeHealth.get(b.agentId.toString())
+
+      if (!healthA || !healthB) return 0
+
       // Prefer healthy nodes
-      if (healthA.healthy && !healthB.healthy) return -1;
-      if (!healthA.healthy && healthB.healthy) return 1;
-      
+      if (healthA.healthy && !healthB.healthy) return -1
+      if (!healthA.healthy && healthB.healthy) return 1
+
       // Prefer lower latency
       if (healthA.latencyMs !== healthB.latencyMs) {
-        return healthA.latencyMs - healthB.latencyMs;
+        return healthA.latencyMs - healthB.latencyMs
       }
-      
+
       // Prefer fewer errors
-      return healthA.errorCount - healthB.errorCount;
-    });
+      return healthA.errorCount - healthB.errorCount
+    })
   }
 
   private recordNodeError(nodeId: string): void {
-    const health = this.nodeHealth.get(nodeId);
+    const health = this.nodeHealth.get(nodeId)
     if (health) {
-      health.errorCount++;
+      health.errorCount++
       if (health.errorCount >= 3) {
-        health.healthy = false;
+        health.healthy = false
       }
     }
   }
@@ -269,61 +282,64 @@ export class DecentralizedWorkerRouter {
   // ============================================================================
 
   private async isDeployedLocally(workerId: string): Promise<boolean> {
-    const response = await fetch(`${this.config.localEndpoint}/workers/${workerId}`, {
-      signal: AbortSignal.timeout(1000),
-    }).catch(() => null);
-    
-    return response?.ok ?? false;
+    const response = await fetch(
+      `${this.config.localEndpoint}/workers/${workerId}`,
+      {
+        signal: AbortSignal.timeout(1000),
+      },
+    ).catch(() => null)
+
+    return response?.ok ?? false
   }
 
   private async invokeLocal(
     workerId: string,
-    request: WorkerdRequest
+    request: WorkerdRequest,
   ): Promise<WorkerdResponse> {
-    const url = `${this.config.localEndpoint}/workers/${workerId}/invoke`;
-    
+    const url = `${this.config.localEndpoint}/workers/${workerId}/invoke`
+
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ request }),
       signal: AbortSignal.timeout(this.config.timeoutMs),
-    });
+    })
 
     if (!response.ok) {
-      throw new Error(`Local invocation failed: ${response.status}`);
+      throw new Error(`Local invocation failed: ${response.status}`)
     }
 
-    const result = await response.json() as { response: WorkerdResponse };
-    return result.response;
+    const result = (await response.json()) as { response: WorkerdResponse }
+    return result.response
   }
 
   private async invokeRemote(
     node: WorkerNode,
     workerId: string,
-    request: WorkerdRequest
+    request: WorkerdRequest,
   ): Promise<WorkerdResponse> {
-    const url = `${node.endpoint}/workers/${workerId}/invoke`;
-    
-    const start = Date.now();
+    const url = `${node.endpoint}/workers/${workerId}/invoke`
+
+    const start = Date.now()
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ request }),
       signal: AbortSignal.timeout(this.config.timeoutMs),
-    });
+    })
 
     // Update latency
-    const health = this.nodeHealth.get(node.agentId.toString());
+    const health = this.nodeHealth.get(node.agentId.toString())
     if (health) {
-      health.latencyMs = Date.now() - start;
+      health.latencyMs = Date.now() - start
     }
 
     if (!response.ok) {
-      throw new Error(`Remote invocation failed: ${response.status}`);
+      throw new Error(`Remote invocation failed: ${response.status}`)
     }
 
-    const result = await response.json() as { response: WorkerdResponse };
-    return result.response;
+    const result = (await response.json()) as { response: WorkerdResponse }
+    return result.response
   }
 
   // ============================================================================
@@ -335,72 +351,80 @@ export class DecentralizedWorkerRouter {
    */
   async replicateWorker(
     worker: WorkerRegistration,
-    targetCount: number = 3
+    targetCount: number = 3,
   ): Promise<string[]> {
-    const nodes = await this.registry.getNodes();
+    const nodes = await this.registry.getNodes()
     if (nodes.length === 0) {
-      throw new Error('No nodes available for replication');
+      throw new Error('No nodes available for replication')
     }
 
     // Find nodes that don't have this worker yet
-    const currentNodes = this.workerLocations.get(worker.workerId) || new Set();
-    const availableNodes = nodes.filter(n => !currentNodes.has(n.agentId.toString()));
+    const currentNodes = this.workerLocations.get(worker.workerId) || new Set()
+    const availableNodes = nodes.filter(
+      (n) => !currentNodes.has(n.agentId.toString()),
+    )
 
     // Select nodes for replication (prefer diverse regions)
-    const selectedNodes = this.selectNodesForReplication(availableNodes, targetCount - currentNodes.size);
+    const selectedNodes = this.selectNodesForReplication(
+      availableNodes,
+      targetCount - currentNodes.size,
+    )
 
-    const replicatedTo: string[] = [];
+    const replicatedTo: string[] = []
     for (const node of selectedNodes) {
-      const success = await this.deployToNode(node, worker);
+      const success = await this.deployToNode(node, worker)
       if (success) {
-        replicatedTo.push(node.agentId.toString());
-        currentNodes.add(node.agentId.toString());
+        replicatedTo.push(node.agentId.toString())
+        currentNodes.add(node.agentId.toString())
       }
     }
 
-    this.workerLocations.set(worker.workerId, currentNodes);
-    return replicatedTo;
+    this.workerLocations.set(worker.workerId, currentNodes)
+    return replicatedTo
   }
 
-  private selectNodesForReplication(nodes: WorkerNode[], count: number): WorkerNode[] {
-    if (nodes.length <= count) return nodes;
+  private selectNodesForReplication(
+    nodes: WorkerNode[],
+    count: number,
+  ): WorkerNode[] {
+    if (nodes.length <= count) return nodes
 
     // Group by region
-    const byRegion = new Map<string, WorkerNode[]>();
+    const byRegion = new Map<string, WorkerNode[]>()
     for (const node of nodes) {
-      const regionNodes = byRegion.get(node.region) || [];
-      regionNodes.push(node);
-      byRegion.set(node.region, regionNodes);
+      const regionNodes = byRegion.get(node.region) || []
+      regionNodes.push(node)
+      byRegion.set(node.region, regionNodes)
     }
 
     // Select one from each region, then fill remaining
-    const selected: WorkerNode[] = [];
-    const regions = Array.from(byRegion.keys());
+    const selected: WorkerNode[] = []
+    const regions = Array.from(byRegion.keys())
 
     for (const region of regions) {
-      if (selected.length >= count) break;
-      const regionNodes = byRegion.get(region) || [];
+      if (selected.length >= count) break
+      const regionNodes = byRegion.get(region) || []
       if (regionNodes.length > 0) {
-        selected.push(regionNodes[0]);
+        selected.push(regionNodes[0])
       }
     }
 
     // Fill remaining with highest stake nodes
     const remaining = nodes
-      .filter(n => !selected.includes(n))
-      .sort((a, b) => Number(b.stake - a.stake));
+      .filter((n) => !selected.includes(n))
+      .sort((a, b) => Number(b.stake - a.stake))
 
     while (selected.length < count && remaining.length > 0) {
-      const node = remaining.shift();
-      if (node) selected.push(node);
+      const node = remaining.shift()
+      if (node) selected.push(node)
     }
 
-    return selected;
+    return selected
   }
 
   private async deployToNode(
     node: WorkerNode,
-    worker: WorkerRegistration
+    worker: WorkerRegistration,
   ): Promise<boolean> {
     const response = await fetch(`${node.endpoint}/workers/deploy`, {
       method: 'POST',
@@ -412,9 +436,9 @@ export class DecentralizedWorkerRouter {
         timeoutMs: worker.timeoutMs,
       }),
       signal: AbortSignal.timeout(60000),
-    }).catch(() => null);
+    }).catch(() => null)
 
-    return response?.ok ?? false;
+    return response?.ok ?? false
   }
 
   // ============================================================================
@@ -422,18 +446,20 @@ export class DecentralizedWorkerRouter {
   // ============================================================================
 
   getStats() {
-    const healthyNodes = Array.from(this.nodeHealth.values()).filter(h => h.healthy).length;
-    const totalNodes = this.nodeHealth.size;
-    const avgLatency = Array.from(this.nodeHealth.values())
-      .filter(h => h.healthy)
-      .reduce((sum, h) => sum + h.latencyMs, 0) / (healthyNodes || 1);
+    const healthyNodes = Array.from(this.nodeHealth.values()).filter(
+      (h) => h.healthy,
+    ).length
+    const totalNodes = this.nodeHealth.size
+    const avgLatency =
+      Array.from(this.nodeHealth.values())
+        .filter((h) => h.healthy)
+        .reduce((sum, h) => sum + h.latencyMs, 0) / (healthyNodes || 1)
 
     return {
       totalNodes,
       healthyNodes,
       avgLatencyMs: Math.round(avgLatency),
       workersTracked: this.workerLocations.size,
-    };
+    }
   }
 }
-

@@ -5,23 +5,23 @@
  * Enhanced with Proof-of-Cloud verification for high-risk operations
  */
 
-import type { Address, Hex } from 'viem';
-import type { TEEPlatform, PoCVerificationLevel, PoCStatus } from '../poc/types';
-import type { JSONValue, JSONObject } from '../shared/validation';
+import type { Address, Hex } from 'viem'
+import type { PoCStatus, PoCVerificationLevel, TEEPlatform } from '../poc/types'
+import type { JSONObject, JSONValue } from '../shared/validation'
 
 // ============================================================================
 // Authentication Types
 // ============================================================================
 
-export type AuthType = 'bearer' | 'header' | 'query' | 'basic';
+export type AuthType = 'bearer' | 'header' | 'query' | 'basic'
 
 export interface AuthConfig {
   /** Header name for auth (e.g., 'Authorization', 'X-API-Key') */
-  headerName?: string;
+  headerName?: string
   /** Query parameter name (e.g., 'api-key', 'key') */
-  queryParam?: string;
+  queryParam?: string
   /** Prefix before the key (e.g., 'Bearer ', 'Key ') */
-  prefix?: string;
+  prefix?: string
 }
 
 // ============================================================================
@@ -34,26 +34,26 @@ export type ProviderCategory =
   | 'data' // Analytics, market data
   | 'media' // Image/video generation
   | 'search' // Web search, scraping
-  | 'storage'; // IPFS, Arweave
+  | 'storage' // IPFS, Arweave
 
 export interface APIProvider {
-  id: string;
-  name: string;
-  description: string;
-  baseUrl: string;
-  authType: AuthType;
-  authConfig: AuthConfig;
-  schemaType: 'openapi' | 'graphql' | 'rest';
-  schemaUrl?: string;
-  categories: ProviderCategory[];
+  id: string
+  name: string
+  description: string
+  baseUrl: string
+  authType: AuthType
+  authConfig: AuthConfig
+  schemaType: 'openapi' | 'graphql' | 'rest'
+  schemaUrl?: string
+  categories: ProviderCategory[]
   /** Environment variable name for API key */
-  envVar: string;
+  envVar: string
   /** Default price per request in wei */
-  defaultPricePerRequest: bigint;
+  defaultPricePerRequest: bigint
   /** Known endpoints for this provider */
-  knownEndpoints?: string[];
+  knownEndpoints?: string[]
   /** Whether this provider supports streaming */
-  supportsStreaming?: boolean;
+  supportsStreaming?: boolean
 }
 
 // ============================================================================
@@ -61,23 +61,23 @@ export interface APIProvider {
 // ============================================================================
 
 export interface UsageLimits {
-  requestsPerSecond: number;
-  requestsPerMinute: number;
-  requestsPerDay: number;
-  requestsPerMonth: number;
+  requestsPerSecond: number
+  requestsPerMinute: number
+  requestsPerDay: number
+  requestsPerMonth: number
 }
 
 export interface AccessControl {
   /** Allowed domain patterns (glob-style) */
-  allowedDomains: string[];
+  allowedDomains: string[]
   /** Blocked domain patterns */
-  blockedDomains: string[];
+  blockedDomains: string[]
   /** Allowed endpoint patterns (glob-style) */
-  allowedEndpoints: string[];
+  allowedEndpoints: string[]
   /** Blocked endpoint patterns */
-  blockedEndpoints: string[];
+  blockedEndpoints: string[]
   /** Allowed HTTP methods */
-  allowedMethods: Array<'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'>;
+  allowedMethods: Array<'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'>
 }
 
 /**
@@ -86,34 +86,34 @@ export interface AccessControl {
  * - medium: Prefer PoC-verified nodes but allow unverified
  * - high: Require PoC-verified nodes (TEE attestation + cloud verification)
  */
-export type APIRiskLevel = 'low' | 'medium' | 'high';
+export type APIRiskLevel = 'low' | 'medium' | 'high'
 
 export interface APIListing {
-  id: string;
-  providerId: string;
-  seller: Address;
+  id: string
+  providerId: string
+  seller: Address
   /** Reference to encrypted key in TEE vault */
-  keyVaultId: string;
+  keyVaultId: string
   /** Price per request in wei */
-  pricePerRequest: bigint;
+  pricePerRequest: bigint
   /** Usage limits */
-  limits: UsageLimits;
+  limits: UsageLimits
   /** Access control rules */
-  accessControl: AccessControl;
+  accessControl: AccessControl
   /** Whether listing is active */
-  active: boolean;
+  active: boolean
   /** Creation timestamp */
-  createdAt: number;
+  createdAt: number
   /** Total requests served */
-  totalRequests: bigint;
+  totalRequests: bigint
   /** Total revenue in wei */
-  totalRevenue: bigint;
+  totalRevenue: bigint
   /** Risk level (determines PoC requirements) */
-  riskLevel: APIRiskLevel;
+  riskLevel: APIRiskLevel
   /** Required minimum PoC verification level (for medium/high risk) */
-  requiredPoCLevel?: PoCVerificationLevel;
+  requiredPoCLevel?: PoCVerificationLevel
   /** Agent ID in ERC-8004 registry (for PoC verification) */
-  agentId?: bigint;
+  agentId?: bigint
 }
 
 // ============================================================================
@@ -121,23 +121,23 @@ export interface APIListing {
 // ============================================================================
 
 export interface UserAccount {
-  address: Address;
+  address: Address
   /** Balance in wei */
-  balance: bigint;
+  balance: bigint
   /** Total spent in wei */
-  totalSpent: bigint;
+  totalSpent: bigint
   /** Total requests made */
-  totalRequests: bigint;
+  totalRequests: bigint
   /** Active subscriptions */
-  subscriptions: UserSubscription[];
+  subscriptions: UserSubscription[]
 }
 
 export interface UserSubscription {
-  listingId: string;
+  listingId: string
   /** Requests remaining in current period */
-  remainingRequests: bigint;
+  remainingRequests: bigint
   /** Period end timestamp */
-  periodEnd: number;
+  periodEnd: number
 }
 
 // ============================================================================
@@ -146,32 +146,32 @@ export interface UserSubscription {
 
 export interface ProxyRequest {
   /** Listing ID to use */
-  listingId: string;
+  listingId: string
   /** Target endpoint path */
-  endpoint: string;
+  endpoint: string
   /** HTTP method */
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
   /** Request headers (auth headers will be stripped) */
-  headers?: Record<string, string>;
+  headers?: Record<string, string>
   /** Request body - JSON-serializable data or raw string */
-  body?: string | JSONObject;
+  body?: string | JSONObject
   /** Query parameters */
-  queryParams?: Record<string, string>;
+  queryParams?: Record<string, string>
 }
 
 export interface ProxyResponse {
   /** HTTP status code */
-  status: number;
+  status: number
   /** Response headers (sanitized) */
-  headers: Record<string, string>;
+  headers: Record<string, string>
   /** Response body (sanitized) - JSON data or string from upstream API */
-  body: JSONValue | string;
+  body: JSONValue | string
   /** Request cost in wei */
-  cost: bigint;
+  cost: bigint
   /** Latency in ms */
-  latencyMs: number;
+  latencyMs: number
   /** Request ID for tracking */
-  requestId: string;
+  requestId: string
 }
 
 // ============================================================================
@@ -179,17 +179,17 @@ export interface ProxyResponse {
 // ============================================================================
 
 export interface VaultKey {
-  id: string;
-  providerId: string;
-  owner: Address;
+  id: string
+  providerId: string
+  owner: Address
   /** Encrypted key data (only decryptable in TEE) */
-  encryptedKey: string;
+  encryptedKey: string
   /** TEE attestation of key storage */
-  attestation?: string;
+  attestation?: string
   /** Proof-of-Cloud verification status */
-  pocVerification?: PoCVerificationInfo;
+  pocVerification?: PoCVerificationInfo
   /** Creation timestamp */
-  createdAt: number;
+  createdAt: number
 }
 
 /**
@@ -197,35 +197,35 @@ export interface VaultKey {
  */
 export interface PoCVerificationInfo {
   /** PoC verification status */
-  status: PoCStatus;
+  status: PoCStatus
   /** Verification level (1, 2, or 3) */
-  level: PoCVerificationLevel | null;
+  level: PoCVerificationLevel | null
   /** TEE platform type */
-  platform: TEEPlatform | null;
+  platform: TEEPlatform | null
   /** Hardware ID hash (salted) */
-  hardwareIdHash: Hex | null;
+  hardwareIdHash: Hex | null
   /** Cloud provider (e.g., "aws", "gcp", "azure") */
-  cloudProvider: string | null;
+  cloudProvider: string | null
   /** Data center region */
-  region: string | null;
+  region: string | null
   /** Last verification timestamp */
-  verifiedAt: number | null;
+  verifiedAt: number | null
   /** Verification expiry timestamp */
-  expiresAt: number | null;
+  expiresAt: number | null
 }
 
 export interface VaultDecryptRequest {
-  keyId: string;
+  keyId: string
   /** Requester must have valid listing access */
-  requester: Address;
+  requester: Address
   /** Request context for audit */
   requestContext: {
-    listingId: string;
-    endpoint: string;
-    requestId: string;
-  };
+    listingId: string
+    endpoint: string
+    requestId: string
+  }
   /** Whether PoC verification is required for this request */
-  requirePoC?: boolean;
+  requirePoC?: boolean
 }
 
 // ============================================================================
@@ -233,20 +233,20 @@ export interface VaultDecryptRequest {
 // ============================================================================
 
 export interface PaymentProof {
-  txHash: string;
-  amount: bigint;
-  payer: Address;
-  timestamp: number;
+  txHash: string
+  amount: bigint
+  payer: Address
+  timestamp: number
 }
 
 export interface DepositRequest {
-  amount: bigint;
-  payer: Address;
+  amount: bigint
+  payer: Address
 }
 
 export interface WithdrawRequest {
-  amount: bigint;
-  recipient: Address;
+  amount: bigint
+  recipient: Address
 }
 
 // ============================================================================
@@ -255,13 +255,13 @@ export interface WithdrawRequest {
 
 export interface SanitizationConfig {
   /** Regex patterns to scrub from responses */
-  patterns: RegExp[];
+  patterns: RegExp[]
   /** Specific key values to scrub */
-  knownKeys: string[];
+  knownKeys: string[]
   /** Headers to strip from proxied response */
-  stripHeaders: string[];
+  stripHeaders: string[]
   /** JSON paths to redact */
-  redactPaths: string[];
+  redactPaths: string[]
 }
 
 // ============================================================================
@@ -270,45 +270,45 @@ export interface SanitizationConfig {
 
 /** Event data for listing creation */
 export interface ListingCreatedEventData {
-  listingId: string;
-  providerId: string;
-  seller: Address;
-  pricePerRequest: string;
+  listingId: string
+  providerId: string
+  seller: Address
+  pricePerRequest: string
 }
 
 /** Event data for listing updates */
 export interface ListingUpdatedEventData {
-  listingId: string;
+  listingId: string
   changes: {
-    pricePerRequest?: string;
-    active?: boolean;
-    limits?: Partial<UsageLimits>;
-  };
+    pricePerRequest?: string
+    active?: boolean
+    limits?: Partial<UsageLimits>
+  }
 }
 
 /** Event data for served requests */
 export interface RequestServedEventData {
-  listingId: string;
-  requestId: string;
-  userAddress: Address;
-  cost: string;
-  latencyMs: number;
-  statusCode: number;
+  listingId: string
+  requestId: string
+  userAddress: Address
+  cost: string
+  latencyMs: number
+  statusCode: number
 }
 
 /** Event data for deposits */
 export interface DepositEventData {
-  userAddress: Address;
-  amount: string;
-  txHash?: string;
+  userAddress: Address
+  amount: string
+  txHash?: string
 }
 
 /** Event data for withdrawals */
 export interface WithdrawalEventData {
-  userAddress: Address;
-  amount: string;
-  recipient: Address;
-  txHash?: string;
+  userAddress: Address
+  amount: string
+  recipient: Address
+  txHash?: string
 }
 
 /** Union type for all marketplace event data */
@@ -317,12 +317,17 @@ export type MarketplaceEventData =
   | { type: 'listing_updated'; data: ListingUpdatedEventData }
   | { type: 'request_served'; data: RequestServedEventData }
   | { type: 'deposit'; data: DepositEventData }
-  | { type: 'withdrawal'; data: WithdrawalEventData };
+  | { type: 'withdrawal'; data: WithdrawalEventData }
 
 export interface MarketplaceEvent {
-  type: MarketplaceEventData['type'];
-  timestamp: number;
-  data: ListingCreatedEventData | ListingUpdatedEventData | RequestServedEventData | DepositEventData | WithdrawalEventData;
+  type: MarketplaceEventData['type']
+  timestamp: number
+  data:
+    | ListingCreatedEventData
+    | ListingUpdatedEventData
+    | RequestServedEventData
+    | DepositEventData
+    | WithdrawalEventData
 }
 
 // ============================================================================
@@ -330,29 +335,29 @@ export interface MarketplaceEvent {
 // ============================================================================
 
 export interface MarketplaceStats {
-  totalProviders: number;
-  totalListings: number;
-  activeListings: number;
-  totalUsers: number;
-  totalRequests: bigint;
-  totalVolume: bigint;
-  last24hRequests: bigint;
-  last24hVolume: bigint;
+  totalProviders: number
+  totalListings: number
+  activeListings: number
+  totalUsers: number
+  totalRequests: bigint
+  totalVolume: bigint
+  last24hRequests: bigint
+  last24hVolume: bigint
   /** PoC statistics */
   pocStats: {
     /** Number of listings requiring PoC */
-    pocRequiredListings: number;
+    pocRequiredListings: number
     /** Number of verified vault keys */
-    verifiedVaultKeys: number;
+    verifiedVaultKeys: number
     /** Requests served via PoC-verified nodes */
-    pocVerifiedRequests: bigint;
-  };
+    pocVerifiedRequests: bigint
+  }
 }
 
 export interface ProviderHealth {
-  providerId: string;
-  healthy: boolean;
-  latencyMs: number;
-  lastCheck: number;
-  errorRate: number;
+  providerId: string
+  healthy: boolean
+  latencyMs: number
+  lastCheck: number
+  errorRate: number
 }

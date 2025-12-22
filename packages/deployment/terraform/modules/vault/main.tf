@@ -181,7 +181,13 @@ locals {
               tcp = {
                 address         = "[::]:8200"
                 cluster_address = "[::]:8201"
-                tls_disable     = 1
+                # SECURITY: TLS should be enabled in production
+                # For internal cluster communication with mTLS via service mesh, 
+                # TLS can be terminated at the ingress/load balancer level
+                # Set to 0 only if using Istio/Linkerd service mesh with mTLS
+                tls_disable     = 0
+                tls_cert_file   = "/vault/tls/tls.crt"
+                tls_key_file    = "/vault/tls/tls.key"
               }
             }
             storage = {

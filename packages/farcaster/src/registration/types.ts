@@ -1,183 +1,182 @@
 /**
  * Farcaster FID Registration Types
- * 
+ *
  * Type definitions for FID registration and onboarding.
  */
 
-import type { Address, Hex } from 'viem';
+import type { Address, Hex } from 'viem'
 
 // ============ FID Types ============
 
 export interface FIDInfo {
   /** Farcaster ID */
-  fid: number;
+  fid: number
   /** Custody address */
-  custodyAddress: Address;
+  custodyAddress: Address
   /** Recovery address */
-  recoveryAddress?: Address;
+  recoveryAddress?: Address
   /** Registration timestamp */
-  registeredAt: number;
+  registeredAt: number
   /** Registration transaction hash */
-  txHash: Hex;
+  txHash: Hex
 }
 
 export interface FIDAvailability {
   /** Is the FID available */
-  available: boolean;
+  available: boolean
   /** Current owner if not available */
-  owner?: Address;
+  owner?: Address
   /** Reason if not available */
-  reason?: 'taken' | 'reserved' | 'invalid';
+  reason?: 'taken' | 'reserved' | 'invalid'
 }
 
 // ============ Storage Types ============
 
 export interface StorageUnit {
   /** Number of storage units */
-  units: number;
+  units: number
   /** Expiration timestamp */
-  expiresAt: number;
+  expiresAt: number
   /** Price paid in wei */
-  price: bigint;
+  price: bigint
 }
 
 export interface StorageInfo {
   /** FID */
-  fid: number;
+  fid: number
   /** Total units */
-  totalUnits: number;
+  totalUnits: number
   /** Used units */
-  usedUnits: number;
+  usedUnits: number
   /** Storage units */
-  units: StorageUnit[];
+  units: StorageUnit[]
 }
 
 // ============ Registration Config ============
 
 export interface RegistrationConfig {
   /** Optimism RPC URL */
-  rpcUrl: string;
+  rpcUrl: string
   /** ID Gateway contract address */
-  idGatewayAddress?: Address;
+  idGatewayAddress?: Address
   /** Storage Registry address */
-  storageRegistryAddress?: Address;
+  storageRegistryAddress?: Address
   /** Key Registry address */
-  keyRegistryAddress?: Address;
+  keyRegistryAddress?: Address
   /** Bundler address */
-  bundlerAddress?: Address;
+  bundlerAddress?: Address
 }
 
 // ============ Registration Request ============
 
 export interface RegisterFIDRequest {
   /** Custody address (wallet that will own the FID) */
-  custodyAddress: Address;
+  custodyAddress: Address
   /** Recovery address (optional) */
-  recoveryAddress?: Address;
+  recoveryAddress?: Address
   /** Initial storage units to purchase (default: 1) */
-  storageUnits?: number;
+  storageUnits?: number
   /** Initial signer key to register */
-  signerPublicKey?: Hex;
+  signerPublicKey?: Hex
   /** Referrer FID for rewards */
-  referrerFid?: number;
+  referrerFid?: number
 }
 
 export interface RegisterFIDResult {
   /** Assigned FID */
-  fid: number;
+  fid: number
   /** Transaction hash */
-  txHash: Hex;
+  txHash: Hex
   /** Gas used */
-  gasUsed: bigint;
+  gasUsed: bigint
   /** Total cost in ETH */
-  totalCost: bigint;
+  totalCost: bigint
   /** Storage units purchased */
-  storageUnits: number;
+  storageUnits: number
 }
 
 // ============ Bundled Registration ============
 
 export interface BundledRegistrationRequest {
   /** Custody address */
-  custodyAddress: Address;
+  custodyAddress: Address
   /** Recovery address */
-  recoveryAddress?: Address;
+  recoveryAddress?: Address
   /** Username to register */
-  username?: string;
+  username?: string
   /** Storage units */
-  storageUnits: number;
+  storageUnits: number
   /** Signer public key */
-  signerPublicKey: Hex;
+  signerPublicKey: Hex
   /** Signer key type (1 = Ed25519) */
-  signerKeyType?: number;
+  signerKeyType?: number
   /** Signer metadata */
-  signerMetadata?: Hex;
+  signerMetadata?: Hex
   /** Extra ETH to send for gas */
-  extraEth?: bigint;
+  extraEth?: bigint
 }
 
 export interface BundledRegistrationResult {
   /** Assigned FID */
-  fid: number;
+  fid: number
   /** Transaction hash */
-  txHash: Hex;
+  txHash: Hex
   /** Username (if registered) */
-  username?: string;
+  username?: string
   /** Storage expiration */
-  storageExpiresAt: number;
+  storageExpiresAt: number
   /** Signer registered */
-  signerRegistered: boolean;
+  signerRegistered: boolean
 }
 
 // ============ Username Types ============
 
 export interface UsernameInfo {
   /** Username */
-  username: string;
+  username: string
   /** Owner FID */
-  ownerFid: number;
+  ownerFid: number
   /** Custody address */
-  custodyAddress: Address;
+  custodyAddress: Address
   /** Timestamp */
-  timestamp: number;
+  timestamp: number
   /** Proof signature */
-  signature: Hex;
+  signature: Hex
 }
 
 export interface UsernameAvailability {
   /** Is available */
-  available: boolean;
+  available: boolean
   /** Reason if not available */
-  reason?: 'taken' | 'reserved' | 'invalid' | 'too_short';
+  reason?: 'taken' | 'reserved' | 'invalid' | 'too_short'
 }
 
 // ============ Price Types ============
 
 export interface RegistrationPrice {
   /** Base price for FID registration */
-  fidPrice: bigint;
+  fidPrice: bigint
   /** Price per storage unit */
-  storageUnitPrice: bigint;
+  storageUnitPrice: bigint
   /** Total price */
-  totalPrice: bigint;
+  totalPrice: bigint
   /** Price in USD (if available) */
-  priceUsd?: number;
+  priceUsd?: number
 }
 
 // ============ Event Types ============
 
-export type RegistrationEventType = 
+export type RegistrationEventType =
   | 'fid_registered'
   | 'signer_added'
   | 'storage_purchased'
   | 'username_registered'
-  | 'recovery_set';
+  | 'recovery_set'
 
 export interface RegistrationEvent {
-  type: RegistrationEventType;
-  fid: number;
-  txHash: Hex;
-  timestamp: number;
-  data: Record<string, unknown>;
+  type: RegistrationEventType
+  fid: number
+  txHash: Hex
+  timestamp: number
+  data: Record<string, unknown>
 }
-

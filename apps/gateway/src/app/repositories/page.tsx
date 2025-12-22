@@ -1,88 +1,98 @@
-'use client';
+'use client'
 
-import { useState, useEffect, type ComponentType } from 'react';
-import { Search, Star, GitFork, Eye, Lock, Globe, GitBranch, Clock, type LucideProps } from 'lucide-react';
+import {
+  Clock,
+  GitBranch,
+  GitFork,
+  Globe,
+  Lock,
+  type LucideProps,
+  Search,
+  Star,
+} from 'lucide-react'
+import { type ComponentType, useCallback, useEffect, useState } from 'react'
 
 // Fix for Lucide React 19 type compatibility
-const SearchIcon = Search as ComponentType<LucideProps>;
-const StarIcon = Star as ComponentType<LucideProps>;
-const GitForkIcon = GitFork as ComponentType<LucideProps>;
-const EyeIcon = Eye as ComponentType<LucideProps>;
-const LockIcon = Lock as ComponentType<LucideProps>;
-const GlobeIcon = Globe as ComponentType<LucideProps>;
-const GitBranchIcon = GitBranch as ComponentType<LucideProps>;
-const ClockIcon = Clock as ComponentType<LucideProps>;
+const SearchIcon = Search as ComponentType<LucideProps>
+const StarIcon = Star as ComponentType<LucideProps>
+const GitForkIcon = GitFork as ComponentType<LucideProps>
+const LockIcon = Lock as ComponentType<LucideProps>
+const GlobeIcon = Globe as ComponentType<LucideProps>
+const GitBranchIcon = GitBranch as ComponentType<LucideProps>
+const ClockIcon = Clock as ComponentType<LucideProps>
 
 interface Repository {
-  id: string;
-  name: string;
-  full_name: string;
-  owner: { login: string };
-  description: string | null;
-  visibility: 'public' | 'private' | 'internal';
-  stargazers_count: number;
-  forks_count: number;
-  default_branch: string;
-  topics: string[];
-  created_at: string;
-  updated_at: string;
-  pushed_at: string | null;
-  reputation_score: number;
-  verified: boolean;
-  head_cid: string;
-  storage_backend: string;
+  id: string
+  name: string
+  full_name: string
+  owner: { login: string }
+  description: string | null
+  visibility: 'public' | 'private' | 'internal'
+  stargazers_count: number
+  forks_count: number
+  default_branch: string
+  topics: string[]
+  created_at: string
+  updated_at: string
+  pushed_at: string | null
+  reputation_score: number
+  verified: boolean
+  head_cid: string
+  storage_backend: string
 }
 
 export default function RepositoriesPage() {
-  const [repositories, setRepositories] = useState<Repository[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filter, setFilter] = useState<'all' | 'public' | 'private'>('all');
-  const [sort, setSort] = useState<'updated' | 'stars' | 'created'>('updated');
+  const [repositories, setRepositories] = useState<Repository[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filter, setFilter] = useState<'all' | 'public' | 'private'>('all')
+  const [sort, setSort] = useState<'updated' | 'stars' | 'created'>('updated')
 
-  useEffect(() => {
-    fetchRepositories();
-  }, [filter, sort]);
-
-  async function fetchRepositories() {
-    setLoading(true);
-    const gitServerUrl = process.env.NEXT_PUBLIC_JEJUGIT_URL ?? 'http://localhost:4030/git';
-    const params = new URLSearchParams();
-    params.set('sort', sort);
-    if (filter !== 'all') params.set('visibility', filter);
+  const fetchRepositories = useCallback(async () => {
+    setLoading(true)
+    const gitServerUrl =
+      process.env.NEXT_PUBLIC_JEJUGIT_URL ?? 'http://localhost:4030/git'
+    const params = new URLSearchParams()
+    params.set('sort', sort)
+    if (filter !== 'all') params.set('visibility', filter)
 
     try {
-      const response = await fetch(`${gitServerUrl}/api/v1/repos?${params}`);
+      const response = await fetch(`${gitServerUrl}/api/v1/repos?${params}`)
       if (response.ok) {
-        const data = await response.json() as { items: Repository[] };
-        setRepositories(data.items ?? []);
+        const data = (await response.json()) as { items: Repository[] }
+        setRepositories(data.items ?? [])
       }
     } catch (error) {
-      console.error('Failed to fetch repositories:', error);
+      console.error('Failed to fetch repositories:', error)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  }
+  }, [sort, filter])
 
-  const filteredRepos = repositories.filter(repo =>
-    repo.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    repo.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    repo.owner.login.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  useEffect(() => {
+    fetchRepositories()
+  }, [fetchRepositories])
+
+  const filteredRepos = repositories.filter(
+    (repo) =>
+      repo.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      repo.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      repo.owner.login.toLowerCase().includes(searchQuery.toLowerCase()),
+  )
 
   function formatDate(dateString: string | null): string {
-    if (!dateString) return 'Never';
-    const date = new Date(dateString);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    
-    if (days === 0) return 'Today';
-    if (days === 1) return 'Yesterday';
-    if (days < 7) return `${days} days ago`;
-    if (days < 30) return `${Math.floor(days / 7)} weeks ago`;
-    if (days < 365) return `${Math.floor(days / 30)} months ago`;
-    return `${Math.floor(days / 365)} years ago`;
+    if (!dateString) return 'Never'
+    const date = new Date(dateString)
+    const now = new Date()
+    const diff = now.getTime() - date.getTime()
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+
+    if (days === 0) return 'Today'
+    if (days === 1) return 'Yesterday'
+    if (days < 7) return `${days} days ago`
+    if (days < 30) return `${Math.floor(days / 7)} weeks ago`
+    if (days < 365) return `${Math.floor(days / 30)} months ago`
+    return `${Math.floor(days / 365)} years ago`
   }
 
   return (
@@ -115,7 +125,7 @@ export default function RepositoriesPage() {
               className="w-full pl-10 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-blue-500"
             />
           </div>
-          
+
           <select
             value={filter}
             onChange={(e) => setFilter(e.target.value as typeof filter)}
@@ -125,7 +135,7 @@ export default function RepositoriesPage() {
             <option value="public">Public</option>
             <option value="private">Private</option>
           </select>
-          
+
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as typeof sort)}
@@ -179,11 +189,11 @@ export default function RepositoriesPage() {
                         </span>
                       )}
                     </div>
-                    
+
                     {repo.description && (
                       <p className="text-gray-400 mt-2">{repo.description}</p>
                     )}
-                    
+
                     {repo.topics.length > 0 && (
                       <div className="flex flex-wrap gap-2 mt-3">
                         {repo.topics.map((topic) => (
@@ -196,7 +206,7 @@ export default function RepositoriesPage() {
                         ))}
                       </div>
                     )}
-                    
+
                     <div className="flex items-center gap-6 mt-4 text-sm text-gray-400">
                       <span className="flex items-center gap-1">
                         <StarIcon className="w-4 h-4" />
@@ -216,14 +226,20 @@ export default function RepositoriesPage() {
                       </span>
                     </div>
                   </div>
-                  
+
                   <div className="text-right text-sm">
                     <div className="text-gray-400">
-                      Storage: <span className="text-gray-300">{repo.storage_backend}</span>
+                      Storage:{' '}
+                      <span className="text-gray-300">
+                        {repo.storage_backend}
+                      </span>
                     </div>
                     {repo.reputation_score > 0 && (
                       <div className="text-gray-400 mt-1">
-                        Reputation: <span className="text-green-400">{repo.reputation_score.toFixed(1)}</span>
+                        Reputation:{' '}
+                        <span className="text-green-400">
+                          {repo.reputation_score.toFixed(1)}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -234,8 +250,5 @@ export default function RepositoriesPage() {
         )}
       </div>
     </div>
-  );
+  )
 }
-
-
-

@@ -1,30 +1,37 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, ManyToOne as ManyToOne_, Index as Index_, StringColumn as StringColumn_, DateTimeColumn as DateTimeColumn_} from "@subsquid/typeorm-store"
-import {JNSName} from "./jnsName.model"
+import {
+  DateTimeColumn as DateTimeColumn_,
+  Entity as Entity_,
+  Index as Index_,
+  ManyToOne as ManyToOne_,
+  PrimaryColumn as PrimaryColumn_,
+  StringColumn as StringColumn_,
+} from '@subsquid/typeorm-store'
+import { JNSName } from './jnsName.model'
 
 @Entity_()
 export class JNSResolverRecord {
-    constructor(props?: Partial<JNSResolverRecord>) {
-        Object.assign(this, props)
-    }
+  constructor(props?: Partial<JNSResolverRecord>) {
+    Object.assign(this, props)
+  }
 
-    @PrimaryColumn_()
-    id!: string
+  @PrimaryColumn_()
+  id!: string
 
-    @Index_()
-    @ManyToOne_(() => JNSName, {nullable: true})
-    name!: JNSName
+  @Index_()
+  @ManyToOne_(() => JNSName, { nullable: true })
+  name!: JNSName
 
-    @Index_()
-    @StringColumn_({nullable: false})
-    key!: string
+  @Index_()
+  @StringColumn_({ nullable: false })
+  key!: string
 
-    @StringColumn_({nullable: false})
-    value!: string
+  @StringColumn_({ nullable: false })
+  value!: string
 
-    @Index_()
-    @DateTimeColumn_({nullable: false})
-    timestamp!: Date
+  @Index_()
+  @DateTimeColumn_({ nullable: false })
+  timestamp!: Date
 
-    @StringColumn_({nullable: false})
-    txHash!: string
+  @StringColumn_({ nullable: false })
+  txHash!: string
 }

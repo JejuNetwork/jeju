@@ -1,2 +1,1 @@
-export { NamesView, default } from './NamesView';
-
+export { default, NamesView } from './NamesView'

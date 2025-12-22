@@ -1,36 +1,40 @@
-import { ArrowDown, ArrowUp, Clock, Wifi } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { invoke } from '../api';
+import { ArrowDown, ArrowUp, Clock, Wifi } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { invoke } from '../api'
 import {
   ConnectionStatsSchema,
-  VPNConnectionSchema,
   type ConnectionStats as ConnectionStatsType,
   type VPNConnection,
-} from '../api/schemas';
-import { formatBytes, formatDuration } from '../shared/utils';
+  VPNConnectionSchema,
+} from '../api/schemas'
+import { formatBytes, formatDuration } from '../shared/utils'
 
 interface ConnectionStatsProps {
-  connection: VPNConnection;
+  connection: VPNConnection
 }
 
 export function ConnectionStats({ connection }: ConnectionStatsProps) {
   // Validate connection prop
-  const validatedConnection = VPNConnectionSchema.parse(connection);
-  
-  const [stats, setStats] = useState<ConnectionStatsType | null>(null);
+  const validatedConnection = VPNConnectionSchema.parse(connection)
+
+  const [stats, setStats] = useState<ConnectionStatsType | null>(null)
 
   useEffect(() => {
     const fetchStats = async () => {
-      const result = await invoke('get_connection_stats', {}, ConnectionStatsSchema.nullable());
+      const result = await invoke(
+        'get_connection_stats',
+        {},
+        ConnectionStatsSchema.nullable(),
+      )
       if (result) {
-        setStats(result);
+        setStats(result)
       }
-    };
+    }
 
-    fetchStats();
-    const interval = setInterval(fetchStats, 1000);
-    return () => clearInterval(interval);
-  }, []);
+    fetchStats()
+    const interval = setInterval(fetchStats, 1000)
+    return () => clearInterval(interval)
+  }, [])
 
   return (
     <div className="card">
@@ -97,6 +101,5 @@ export function ConnectionStats({ connection }: ConnectionStatsProps) {
         </div>
       )}
     </div>
-  );
+  )
 }
-

@@ -11,24 +11,28 @@
  * 4. Submit via bundler or direct execution
  */
 
-import { useState, useCallback, useEffect } from 'react'
-import { useAccount, usePublicClient, useWalletClient } from 'wagmi'
-import {
-  encodeFunctionData,
-  type Address,
-  type Abi,
-  parseEther,
-  encodePacked,
-} from 'viem'
 import { AddressSchema } from '@jejunetwork/types'
-import { expect } from '@/lib/validation'
-import { getGameContracts } from '@/config/contracts'
+import { useCallback, useEffect, useState } from 'react'
+import {
+  type Abi,
+  type Address,
+  encodeFunctionData,
+  encodePacked,
+  parseEther,
+} from 'viem'
+import { useAccount, usePublicClient, useWalletClient } from 'wagmi'
 import { JEJU_CHAIN_ID } from '@/config/chains'
+import { getGameContracts } from '@/config/contracts'
+import { expect } from '@/lib/validation'
 
 // ============ Constants ============
 
 const ENTRYPOINT_V07 = '0x0000000071727De22E5E9d8BAf0edAc6f37da032' as const
 const BUNDLER_URL = process.env.NEXT_PUBLIC_BUNDLER_URL || null
+
+// Client-side rate limiting to prevent abuse
+const MIN_TX_INTERVAL_MS = 3000 // Minimum 3 seconds between transactions
+const lastTxTimestamp = { value: 0 }
 
 // ============ ABIs ============
 
@@ -107,7 +111,10 @@ export interface GaslessWriteResult {
 
 // ============ Hook: Check Sponsorship Status ============
 
-export function useSponsorshipStatus(): SponsorshipStatus & { isLoading: boolean; refetch: () => void } {
+export function useSponsorshipStatus(): SponsorshipStatus & {
+  isLoading: boolean
+  refetch: () => void
+} {
   const { address } = useAccount()
   const publicClient = usePublicClient()
   const [status, setStatus] = useState<SponsorshipStatus>({
@@ -132,31 +139,43 @@ export function useSponsorshipStatus(): SponsorshipStatus & { isLoading: boolean
       setIsLoading(false)
       return
     }
-    
-    const validatedAddress = expect(address, 'Address is required');
-    const validatedPublicClient = expect(publicClient, 'Public client is required');
-    const validatedPaymasterAddress = expect(paymasterAddress, 'Paymaster address is required');
+
+    const validatedAddress = expect(address, 'Address is required')
+    const validatedPublicClient = expect(
+      publicClient,
+      'Public client is required',
+    )
+    const validatedPaymasterAddress = expect(
+      paymasterAddress,
+      'Paymaster address is required',
+    )
 
     setIsLoading(true)
 
     // Check paymaster status
     const [paymasterStatus, remaining, maxTx] = await Promise.all([
-      validatedPublicClient.readContract({
-        address: validatedPaymasterAddress,
-        abi: SPONSORED_PAYMASTER_ABI,
-        functionName: 'getStatus',
-      }).catch(() => null),
-      validatedPublicClient.readContract({
-        address: validatedPaymasterAddress,
-        abi: SPONSORED_PAYMASTER_ABI,
-        functionName: 'getRemainingTx',
-        args: [validatedAddress],
-      }).catch(() => 0n),
-      validatedPublicClient.readContract({
-        address: validatedPaymasterAddress,
-        abi: SPONSORED_PAYMASTER_ABI,
-        functionName: 'maxTxPerUserPerHour',
-      }).catch(() => 100n),
+      validatedPublicClient
+        .readContract({
+          address: validatedPaymasterAddress,
+          abi: SPONSORED_PAYMASTER_ABI,
+          functionName: 'getStatus',
+        })
+        .catch(() => null),
+      validatedPublicClient
+        .readContract({
+          address: validatedPaymasterAddress,
+          abi: SPONSORED_PAYMASTER_ABI,
+          functionName: 'getRemainingTx',
+          args: [validatedAddress],
+        })
+        .catch(() => 0n),
+      validatedPublicClient
+        .readContract({
+          address: validatedPaymasterAddress,
+          abi: SPONSORED_PAYMASTER_ABI,
+          functionName: 'maxTxPerUserPerHour',
+        })
+        .catch(() => 100n),
     ])
 
     if (!paymasterStatus) {
@@ -171,7 +190,12 @@ export function useSponsorshipStatus(): SponsorshipStatus & { isLoading: boolean
       return
     }
 
-    const [deposit, isPaused] = paymasterStatus as [bigint, boolean, bigint, bigint]
+    const [deposit, isPaused] = paymasterStatus as [
+      bigint,
+      boolean,
+      bigint,
+      bigint,
+    ]
 
     if (isPaused) {
       setStatus({
@@ -251,10 +275,34 @@ export function useGaslessWrite<TAbi extends Abi>(): {
       functionName: string
       args?: readonly unknown[]
     }): Promise<`0x${string}` | null> => {
-      const validatedAddress = expect(address, 'Wallet not connected');
-      const validatedPublicClient = expect(publicClient, 'Public client not available');
-      const validatedWalletClient = expect(walletClient, 'Wallet client not available');
-      AddressSchema.parse(params.address);
+      // Client-side rate limiting to prevent abuse
+      const now = Date.now()
+      const timeSinceLastTx = now - lastTxTimestamp.value
+      if (timeSinceLastTx < MIN_TX_INTERVAL_MS) {
+        const waitTime = Math.ceil(
+          (MIN_TX_INTERVAL_MS - timeSinceLastTx) / 1000,
+        )
+        setResult({
+          hash: undefined,
+          isPending: false,
+          isSuccess: false,
+          error: new Error(`Please wait ${waitTime}s before next transaction`),
+          isSponsored: false,
+        })
+        return null
+      }
+      lastTxTimestamp.value = now
+
+      const validatedAddress = expect(address, 'Wallet not connected')
+      const validatedPublicClient = expect(
+        publicClient,
+        'Public client not available',
+      )
+      const validatedWalletClient = expect(
+        walletClient,
+        'Wallet client not available',
+      )
+      AddressSchema.parse(params.address)
 
       setResult({
         hash: undefined,
@@ -274,26 +322,34 @@ export function useGaslessWrite<TAbi extends Abi>(): {
       // Check if we can use gasless
       let canUseGasless = false
       if (sponsorship.isAvailable && paymasterAddress) {
-        const validatedPaymasterAddress = expect(paymasterAddress, 'Paymaster address is required');
-        const [canSponsor] = await validatedPublicClient.readContract({
-          address: validatedPaymasterAddress,
-          abi: SPONSORED_PAYMASTER_ABI,
-          functionName: 'canSponsor',
-          args: [validatedAddress, params.address, parseEther('0.005')], // Estimate ~0.005 ETH gas
-        }).catch(() => [false, 'Error checking sponsorship'])
+        const validatedPaymasterAddress = expect(
+          paymasterAddress,
+          'Paymaster address is required',
+        )
+        const [canSponsor] = await validatedPublicClient
+          .readContract({
+            address: validatedPaymasterAddress,
+            abi: SPONSORED_PAYMASTER_ABI,
+            functionName: 'canSponsor',
+            args: [validatedAddress, params.address, parseEther('0.005')], // Estimate ~0.005 ETH gas
+          })
+          .catch(() => [false, 'Error checking sponsorship'])
 
         canUseGasless = canSponsor as boolean
       }
 
       // If bundler is available and sponsorship works, use ERC-4337
       if (canUseGasless && BUNDLER_URL && paymasterAddress) {
-        const validatedPaymasterAddress = expect(paymasterAddress, 'Paymaster address is required');
+        const validatedPaymasterAddress = expect(
+          paymasterAddress,
+          'Paymaster address is required',
+        )
         const hash = await submitViaUserOperation(
           validatedAddress,
           params.address,
           callData,
           validatedPaymasterAddress,
-          validatedPublicClient
+          validatedPublicClient,
         )
 
         if (hash) {
@@ -317,19 +373,28 @@ export function useGaslessWrite<TAbi extends Abi>(): {
       })
 
       // Wait for confirmation
-      const receipt = await validatedPublicClient.waitForTransactionReceipt({ hash })
+      const receipt = await validatedPublicClient.waitForTransactionReceipt({
+        hash,
+      })
 
       setResult({
         hash,
         isPending: false,
         isSuccess: receipt.status === 'success',
-        error: receipt.status !== 'success' ? new Error('Transaction failed') : null,
+        error:
+          receipt.status !== 'success' ? new Error('Transaction failed') : null,
         isSponsored: false,
       })
 
       return hash
     },
-    [address, publicClient, walletClient, sponsorship.isAvailable, paymasterAddress]
+    [
+      address,
+      publicClient,
+      walletClient,
+      sponsorship.isAvailable,
+      paymasterAddress,
+    ],
   )
 
   return { writeGasless, result, sponsorship }
@@ -339,10 +404,10 @@ export function useGaslessWrite<TAbi extends Abi>(): {
 
 async function submitViaUserOperation(
   sender: Address,
-  target: Address,
+  _target: Address,
   callData: `0x${string}`,
   paymaster: Address,
-  _publicClient: ReturnType<typeof usePublicClient>
+  _publicClient: ReturnType<typeof usePublicClient>,
 ): Promise<`0x${string}` | null> {
   if (!BUNDLER_URL) return null
 
@@ -373,7 +438,10 @@ async function submitViaUserOperation(
     }),
   })
 
-  const result = await response.json() as { result?: string; error?: { message: string } }
+  const result = (await response.json()) as {
+    result?: string
+    error?: { message: string }
+  }
 
   if (result.error) {
     console.error('Bundler error:', result.error.message)
@@ -394,11 +462,13 @@ function buildPaymasterData(paymaster: Address): `0x${string}` {
   // paymaster (20 bytes) + verificationGasLimit (16 bytes) + postOpGasLimit (16 bytes)
   return encodePacked(
     ['address', 'uint128', 'uint128'],
-    [paymaster, 100000n, 50000n]
+    [paymaster, 100000n, 50000n],
   )
 }
 
-async function waitForUserOpReceipt(userOpHash: string): Promise<`0x${string}` | null> {
+async function waitForUserOpReceipt(
+  userOpHash: string,
+): Promise<`0x${string}` | null> {
   if (!BUNDLER_URL) return null
 
   const maxAttempts = 30
@@ -414,8 +484,8 @@ async function waitForUserOpReceipt(userOpHash: string): Promise<`0x${string}` |
       }),
     })
 
-    const result = await response.json() as { 
-      result?: { receipt?: { transactionHash: `0x${string}` } } 
+    const result = (await response.json()) as {
+      result?: { receipt?: { transactionHash: `0x${string}` } }
     }
 
     if (result.result?.receipt?.transactionHash) {

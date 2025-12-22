@@ -3,100 +3,154 @@
  * Comprehensive tests for HD path derivation, RLP encoding, and transaction serialization
  */
 
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { LedgerKeyring, type LedgerHDPathType } from './ledger';
-import type { Address, Hex } from 'viem';
+import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
+import type { Address, Hex } from 'viem'
+import { type LedgerHDPathType, LedgerKeyring } from './ledger'
+
+// Mock functions for LedgerEth
+const mockGetAddress = mock(() =>
+  Promise.resolve({
+    address: '0x1234567890abcdef1234567890abcdef12345678',
+    publicKey:
+      '04abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
+  }),
+)
+
+const mockSignTransaction = mock(() =>
+  Promise.resolve({
+    v: '1b',
+    r: '0000000000000000000000000000000000000000000000000000000000000001',
+    s: '0000000000000000000000000000000000000000000000000000000000000002',
+  }),
+)
+
+const mockSignPersonalMessage = mock(() =>
+  Promise.resolve({
+    v: 27,
+    r: '0000000000000000000000000000000000000000000000000000000000000001',
+    s: '0000000000000000000000000000000000000000000000000000000000000002',
+  }),
+)
+
+const mockSignEIP712Message = mock(() =>
+  Promise.resolve({
+    v: 27,
+    r: '0000000000000000000000000000000000000000000000000000000000000001',
+    s: '0000000000000000000000000000000000000000000000000000000000000002',
+  }),
+)
+
+const mockSignEIP712HashedMessage = mock(() =>
+  Promise.resolve({
+    v: 27,
+    r: '0000000000000000000000000000000000000000000000000000000000000001',
+    s: '0000000000000000000000000000000000000000000000000000000000000002',
+  }),
+)
+
+const mockClose = mock(() => Promise.resolve())
 
 // Mock TransportWebHID
-vi.mock('@ledgerhq/hw-transport-webhid', () => ({
+mock.module('@ledgerhq/hw-transport-webhid', () => ({
   default: {
-    isSupported: vi.fn(() => Promise.resolve(true)),
-    create: vi.fn(() => Promise.resolve({
-      close: vi.fn(() => Promise.resolve()),
-    })),
+    isSupported: mock(() => Promise.resolve(true)),
+    create: mock(() =>
+      Promise.resolve({
+        close: mockClose,
+      }),
+    ),
   },
-}));
+}))
 
-// Mock LedgerEth with configurable responses
-const mockGetAddress = vi.fn();
-const mockSignTransaction = vi.fn();
-const mockSignPersonalMessage = vi.fn();
-const mockSignEIP712Message = vi.fn();
-const mockSignEIP712HashedMessage = vi.fn();
-
-vi.mock('@ledgerhq/hw-app-eth', () => ({
-  default: vi.fn(() => ({
+// Mock LedgerEth
+mock.module('@ledgerhq/hw-app-eth', () => ({
+  default: mock(() => ({
     getAddress: mockGetAddress,
     signTransaction: mockSignTransaction,
     signPersonalMessage: mockSignPersonalMessage,
     signEIP712Message: mockSignEIP712Message,
     signEIP712HashedMessage: mockSignEIP712HashedMessage,
   })),
-}));
+}))
 
 describe('LedgerKeyring', () => {
-  let keyring: LedgerKeyring;
+  let keyring: LedgerKeyring
 
   beforeEach(() => {
-    keyring = new LedgerKeyring();
-    
+    keyring = new LedgerKeyring()
+
     // Reset mocks with default implementations
-    mockGetAddress.mockReset();
-    mockSignTransaction.mockReset();
-    mockSignPersonalMessage.mockReset();
-    mockSignEIP712Message.mockReset();
-    mockSignEIP712HashedMessage.mockReset();
-    
-    mockGetAddress.mockImplementation(() => Promise.resolve({
-      address: '0x1234567890abcdef1234567890abcdef12345678',
-      publicKey: '04abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
-    }));
-    
-    mockSignTransaction.mockImplementation(() => Promise.resolve({
-      v: '1b',
-      r: '0000000000000000000000000000000000000000000000000000000000000001',
-      s: '0000000000000000000000000000000000000000000000000000000000000002',
-    }));
-    
-    mockSignPersonalMessage.mockImplementation(() => Promise.resolve({
-      v: 27,
-      r: '0000000000000000000000000000000000000000000000000000000000000001',
-      s: '0000000000000000000000000000000000000000000000000000000000000002',
-    }));
-  });
+    mockGetAddress.mockReset()
+    mockSignTransaction.mockReset()
+    mockSignPersonalMessage.mockReset()
+    mockSignEIP712Message.mockReset()
+    mockSignEIP712HashedMessage.mockReset()
+
+    mockGetAddress.mockImplementation(() =>
+      Promise.resolve({
+        address: '0x1234567890abcdef1234567890abcdef12345678',
+        publicKey:
+          '04abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
+      }),
+    )
+
+    mockSignTransaction.mockImplementation(() =>
+      Promise.resolve({
+        v: '1b',
+        r: '0000000000000000000000000000000000000000000000000000000000000001',
+        s: '0000000000000000000000000000000000000000000000000000000000000002',
+      }),
+    )
+
+    mockSignPersonalMessage.mockImplementation(() =>
+      Promise.resolve({
+        v: 27,
+        r: '0000000000000000000000000000000000000000000000000000000000000001',
+        s: '0000000000000000000000000000000000000000000000000000000000000002',
+      }),
+    )
+  })
 
   afterEach(() => {
-    vi.clearAllMocks();
-  });
+    mockGetAddress.mockReset()
+    mockSignTransaction.mockReset()
+    mockSignPersonalMessage.mockReset()
+    mockSignEIP712Message.mockReset()
+    mockSignEIP712HashedMessage.mockReset()
+    mockClose.mockReset()
+  })
 
   describe('WebHID Support', () => {
     it('should check WebHID support', async () => {
-      const supported = await keyring.isSupported();
-      expect(typeof supported).toBe('boolean');
-    });
-  });
+      const supported = await keyring.isSupported()
+      expect(typeof supported).toBe('boolean')
+    })
+  })
 
   describe('Connection State', () => {
     it('should return false when not connected', () => {
-      expect(keyring.isUnlocked()).toBe(false);
-    });
+      expect(keyring.isUnlocked()).toBe(false)
+    })
 
     it('should connect and set unlocked state', async () => {
-      await keyring.connect();
-      expect(keyring.isUnlocked()).toBe(true);
-    });
+      await keyring.connect()
+      expect(keyring.isUnlocked()).toBe(true)
+    })
 
     it('should disconnect and clear state', async () => {
-      await keyring.connect();
-      expect(keyring.isUnlocked()).toBe(true);
-      
-      await keyring.disconnect();
-      expect(keyring.isUnlocked()).toBe(false);
-    });
-  });
+      await keyring.connect()
+      expect(keyring.isUnlocked()).toBe(true)
+
+      await keyring.disconnect()
+      expect(keyring.isUnlocked()).toBe(false)
+    })
+  })
 
   describe('HD Path Derivation', () => {
-    const pathTests: Array<{ type: LedgerHDPathType; expectedPaths: string[] }> = [
+    const pathTests: Array<{
+      type: LedgerHDPathType
+      expectedPaths: string[]
+    }> = [
       {
         type: 'LedgerLive',
         expectedPaths: [
@@ -115,87 +169,101 @@ describe('LedgerKeyring', () => {
       },
       {
         type: 'Legacy',
-        expectedPaths: [
-          "m/44'/60'/0'/0",
-          "m/44'/60'/0'/1",
-          "m/44'/60'/0'/2",
-        ],
+        expectedPaths: ["m/44'/60'/0'/0", "m/44'/60'/0'/1", "m/44'/60'/0'/2"],
       },
-    ];
+    ]
 
     pathTests.forEach(({ type, expectedPaths }) => {
       it(`should derive correct paths for ${type} derivation`, async () => {
-        await keyring.connect();
-        keyring.setHdPath(type);
-        
+        await keyring.connect()
+        keyring.setHdPath(type)
+
         // Get 3 accounts starting at index 0
-        await keyring.getAccounts(0, 3);
-        
+        await keyring.getAccounts(0, 3)
+
         // Verify getAddress was called with correct paths
-        expect(mockGetAddress).toHaveBeenCalledTimes(3);
+        expect(mockGetAddress).toHaveBeenCalledTimes(3)
         expectedPaths.forEach((expectedPath, index) => {
-          expect(mockGetAddress).toHaveBeenNthCalledWith(index + 1, expectedPath, false, true);
-        });
-      });
-    });
+          expect(mockGetAddress).toHaveBeenNthCalledWith(
+            index + 1,
+            expectedPath,
+            false,
+            true,
+          )
+        })
+      })
+    })
 
     it('should throw when getting accounts without connection', async () => {
-      await expect(keyring.getAccounts())
-        .rejects.toThrow('Ledger not connected');
-    });
+      await expect(keyring.getAccounts()).rejects.toThrow(
+        'Ledger not connected',
+      )
+    })
 
     it('should paginate account derivation correctly', async () => {
-      await keyring.connect();
-      keyring.setHdPath('BIP44');
-      
+      await keyring.connect()
+      keyring.setHdPath('BIP44')
+
       // Get accounts starting at index 5
-      await keyring.getAccounts(5, 3);
-      
-      expect(mockGetAddress).toHaveBeenCalledWith("m/44'/60'/0'/0/5", false, true);
-      expect(mockGetAddress).toHaveBeenCalledWith("m/44'/60'/0'/0/6", false, true);
-      expect(mockGetAddress).toHaveBeenCalledWith("m/44'/60'/0'/0/7", false, true);
-    });
-  });
+      await keyring.getAccounts(5, 3)
+
+      expect(mockGetAddress).toHaveBeenCalledWith(
+        "m/44'/60'/0'/0/5",
+        false,
+        true,
+      )
+      expect(mockGetAddress).toHaveBeenCalledWith(
+        "m/44'/60'/0'/0/6",
+        false,
+        true,
+      )
+      expect(mockGetAddress).toHaveBeenCalledWith(
+        "m/44'/60'/0'/0/7",
+        false,
+        true,
+      )
+    })
+  })
 
   describe('Account Management', () => {
     it('should add accounts to internal list', async () => {
       // Mock different addresses for each call
-      let callCount = 0;
+      let callCount = 0
       mockGetAddress.mockImplementation(() => {
-        callCount++;
+        callCount++
         return Promise.resolve({
           address: `0x000000000000000000000000000000000000000${callCount}`,
           publicKey: `04pubkey${callCount}`,
-        });
-      });
-      
-      await keyring.connect();
-      const accounts = await keyring.getAccounts(0, 2);
-      
-      await keyring.addAccounts(accounts.map(a => a.address));
-      
-      const addresses = keyring.getAddresses();
-      expect(addresses).toHaveLength(2);
-    });
+        })
+      })
+
+      await keyring.connect()
+      const accounts = await keyring.getAccounts(0, 2)
+
+      await keyring.addAccounts(accounts.map((a) => a.address))
+
+      const addresses = keyring.getAddresses()
+      expect(addresses).toHaveLength(2)
+    })
 
     it('should not duplicate accounts when adding', async () => {
-      const address = '0x1234567890abcdef1234567890abcdef12345678' as Address;
-      
-      await keyring.addAccounts([address]);
-      await keyring.addAccounts([address]);
-      
-      expect(keyring.getAddresses()).toHaveLength(1);
-    });
-  });
+      const address = '0x1234567890abcdef1234567890abcdef12345678' as Address
+
+      await keyring.addAccounts([address])
+      await keyring.addAccounts([address])
+
+      expect(keyring.getAddresses()).toHaveLength(1)
+    })
+  })
 
   describe('Transaction Signing', () => {
-    const testAddress = '0x1234567890abcdef1234567890abcdef12345678' as Address;
+    const testAddress = '0x1234567890abcdef1234567890abcdef12345678' as Address
 
     beforeEach(async () => {
-      await keyring.connect();
-      await keyring.getAccounts(0, 1);
-      await keyring.addAccounts([testAddress]);
-    });
+      await keyring.connect()
+      await keyring.getAccounts(0, 1)
+      await keyring.addAccounts([testAddress])
+    })
 
     it('should sign EIP-1559 transaction', async () => {
       const tx = {
@@ -207,17 +275,17 @@ describe('LedgerKeyring', () => {
         maxFeePerGas: 20000000000n,
         maxPriorityFeePerGas: 1000000000n,
         chainId: 1,
-      };
+      }
 
-      const signedTx = await keyring.signTransaction(testAddress, tx);
-      
-      expect(signedTx).toMatch(/^0x/);
-      expect(mockSignTransaction).toHaveBeenCalled();
-      
+      const signedTx = await keyring.signTransaction(testAddress, tx)
+
+      expect(signedTx).toMatch(/^0x/)
+      expect(mockSignTransaction).toHaveBeenCalled()
+
       // Verify the raw transaction passed to Ledger doesn't have 0x prefix
-      const rawTxArg = mockSignTransaction.mock.calls[0][1];
-      expect(rawTxArg.startsWith('0x')).toBe(false);
-    });
+      const rawTxArg = mockSignTransaction.mock.calls[0][1]
+      expect(rawTxArg.startsWith('0x')).toBe(false)
+    })
 
     it('should sign legacy transaction', async () => {
       const tx = {
@@ -228,16 +296,17 @@ describe('LedgerKeyring', () => {
         gasLimit: 21000n,
         gasPrice: 20000000000n,
         chainId: 1,
-      };
+      }
 
-      const signedTx = await keyring.signTransaction(testAddress, tx);
-      
-      expect(signedTx).toMatch(/^0x/);
-      expect(mockSignTransaction).toHaveBeenCalled();
-    });
+      const signedTx = await keyring.signTransaction(testAddress, tx)
+
+      expect(signedTx).toMatch(/^0x/)
+      expect(mockSignTransaction).toHaveBeenCalled()
+    })
 
     it('should throw for unknown address', async () => {
-      const unknownAddress = '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' as Address;
+      const unknownAddress =
+        '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' as Address
       const tx = {
         to: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd' as Address,
         value: 1n,
@@ -246,145 +315,158 @@ describe('LedgerKeyring', () => {
         gasLimit: 21000n,
         gasPrice: 1n,
         chainId: 1,
-      };
+      }
 
-      await expect(keyring.signTransaction(unknownAddress, tx))
-        .rejects.toThrow('Address not found in Ledger accounts');
-    });
-  });
+      await expect(keyring.signTransaction(unknownAddress, tx)).rejects.toThrow(
+        'Address not found in Ledger accounts',
+      )
+    })
+  })
 
   describe('Message Signing', () => {
-    const testAddress = '0x1234567890abcdef1234567890abcdef12345678' as Address;
+    const testAddress = '0x1234567890abcdef1234567890abcdef12345678' as Address
 
     beforeEach(async () => {
-      await keyring.connect();
-      await keyring.getAccounts(0, 1);
-      await keyring.addAccounts([testAddress]);
-    });
+      await keyring.connect()
+      await keyring.getAccounts(0, 1)
+      await keyring.addAccounts([testAddress])
+    })
 
     it('should sign personal message', async () => {
-      const message = 'Hello, Ledger!';
-      
-      const signature = await keyring.signMessage(testAddress, message);
-      
+      const message = 'Hello, Ledger!'
+
+      const signature = await keyring.signMessage(testAddress, message)
+
       // Signature should be 65 bytes (r: 32, s: 32, v: 1)
-      expect(signature).toMatch(/^0x[a-fA-F0-9]{130}$/);
-      expect(mockSignPersonalMessage).toHaveBeenCalled();
-      
+      expect(signature).toMatch(/^0x[a-fA-F0-9]{130}$/)
+      expect(mockSignPersonalMessage).toHaveBeenCalled()
+
       // Verify message was hex encoded
-      const msgHexArg = mockSignPersonalMessage.mock.calls[0][1];
-      expect(msgHexArg).toBe(Buffer.from(message).toString('hex'));
-    });
+      const msgHexArg = mockSignPersonalMessage.mock.calls[0][1]
+      expect(msgHexArg).toBe(Buffer.from(message).toString('hex'))
+    })
 
     it('should handle v value less than 27', async () => {
-      mockSignPersonalMessage.mockResolvedValueOnce({
-        v: 0, // Some Ledger versions return 0 or 1
-        r: '0000000000000000000000000000000000000000000000000000000000000001',
-        s: '0000000000000000000000000000000000000000000000000000000000000002',
-      });
+      mockSignPersonalMessage.mockImplementation(() =>
+        Promise.resolve({
+          v: 0, // Some Ledger versions return 0 or 1
+          r: '0000000000000000000000000000000000000000000000000000000000000001',
+          s: '0000000000000000000000000000000000000000000000000000000000000002',
+        }),
+      )
 
-      const signature = await keyring.signMessage(testAddress, 'test');
-      
+      const signature = await keyring.signMessage(testAddress, 'test')
+
       // v should be normalized to 27+
-      const vHex = signature.slice(-2);
-      const vNum = parseInt(vHex, 16);
-      expect(vNum).toBeGreaterThanOrEqual(27);
-    });
+      const vHex = signature.slice(-2)
+      const vNum = parseInt(vHex, 16)
+      expect(vNum).toBeGreaterThanOrEqual(27)
+    })
 
     it('should handle v as hex string', async () => {
-      mockSignPersonalMessage.mockResolvedValueOnce({
-        v: '1b', // Hex string (27)
-        r: '0000000000000000000000000000000000000000000000000000000000000001',
-        s: '0000000000000000000000000000000000000000000000000000000000000002',
-      });
+      mockSignPersonalMessage.mockImplementation(() =>
+        Promise.resolve({
+          v: '1b', // Hex string (27)
+          r: '0000000000000000000000000000000000000000000000000000000000000001',
+          s: '0000000000000000000000000000000000000000000000000000000000000002',
+        }),
+      )
 
-      const signature = await keyring.signMessage(testAddress, 'test');
-      expect(signature).toMatch(/^0x[a-fA-F0-9]{130}$/);
-    });
-  });
+      const signature = await keyring.signMessage(testAddress, 'test')
+      expect(signature).toMatch(/^0x[a-fA-F0-9]{130}$/)
+    })
+  })
 
   describe('EIP-712 Typed Data Signing', () => {
-    const testAddress = '0x1234567890abcdef1234567890abcdef12345678' as Address;
+    const testAddress = '0x1234567890abcdef1234567890abcdef12345678' as Address
     const domain = {
       name: 'Test App',
       version: '1',
       chainId: 1,
       verifyingContract: '0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC',
-    };
+    }
     const types = {
       Person: [
         { name: 'name', type: 'string' },
         { name: 'wallet', type: 'address' },
       ],
-    };
+    }
     const message = {
       name: 'Alice',
       wallet: '0xCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826',
-    };
+    }
 
     beforeEach(async () => {
-      await keyring.connect();
-      await keyring.getAccounts(0, 1);
-      await keyring.addAccounts([testAddress]);
-    });
+      await keyring.connect()
+      await keyring.getAccounts(0, 1)
+      await keyring.addAccounts([testAddress])
+    })
 
     it('should try native EIP-712 signing first', async () => {
-      mockSignEIP712Message.mockResolvedValueOnce({
-        v: 27,
-        r: '0000000000000000000000000000000000000000000000000000000000000001',
-        s: '0000000000000000000000000000000000000000000000000000000000000002',
-      });
+      mockSignEIP712Message.mockImplementation(() =>
+        Promise.resolve({
+          v: 27,
+          r: '0000000000000000000000000000000000000000000000000000000000000001',
+          s: '0000000000000000000000000000000000000000000000000000000000000002',
+        }),
+      )
 
       const signature = await keyring.signTypedData(
         testAddress,
         domain,
         types,
         message,
-        'Person'
-      );
+        'Person',
+      )
 
-      expect(signature).toMatch(/^0x[a-fA-F0-9]{130}$/);
-      expect(mockSignEIP712Message).toHaveBeenCalled();
-      expect(mockSignEIP712HashedMessage).not.toHaveBeenCalled();
-    });
+      expect(signature).toMatch(/^0x[a-fA-F0-9]{130}$/)
+      expect(mockSignEIP712Message).toHaveBeenCalled()
+      expect(mockSignEIP712HashedMessage).not.toHaveBeenCalled()
+    })
 
     it('should fallback to hashed signing for older firmware', async () => {
-      const notSupportedError = new Error('INS_NOT_SUPPORTED');
-      (notSupportedError as Error & { statusText: string }).statusText = 'INS_NOT_SUPPORTED';
-      
-      mockSignEIP712Message.mockRejectedValueOnce(notSupportedError);
-      mockSignEIP712HashedMessage.mockResolvedValueOnce({
-        v: 27,
-        r: '0000000000000000000000000000000000000000000000000000000000000001',
-        s: '0000000000000000000000000000000000000000000000000000000000000002',
-      });
+      const notSupportedError = new Error('INS_NOT_SUPPORTED')
+      ;(notSupportedError as Error & { statusText: string }).statusText =
+        'INS_NOT_SUPPORTED'
+
+      mockSignEIP712Message.mockImplementation(() =>
+        Promise.reject(notSupportedError),
+      )
+      mockSignEIP712HashedMessage.mockImplementation(() =>
+        Promise.resolve({
+          v: 27,
+          r: '0000000000000000000000000000000000000000000000000000000000000001',
+          s: '0000000000000000000000000000000000000000000000000000000000000002',
+        }),
+      )
 
       const signature = await keyring.signTypedData(
         testAddress,
         domain,
         types,
         message,
-        'Person'
-      );
+        'Person',
+      )
 
-      expect(signature).toMatch(/^0x[a-fA-F0-9]{130}$/);
-      expect(mockSignEIP712HashedMessage).toHaveBeenCalled();
-    });
-  });
+      expect(signature).toMatch(/^0x[a-fA-F0-9]{130}$/)
+      expect(mockSignEIP712HashedMessage).toHaveBeenCalled()
+    })
+  })
 
   describe('Serialization', () => {
     it('should serialize complete state', () => {
-      const serialized = keyring.serialize();
-      
-      expect(serialized).toHaveProperty('accounts');
-      expect(serialized).toHaveProperty('accountDetails');
-      expect(serialized).toHaveProperty('hdPath');
-      expect(serialized).toHaveProperty('hdPathType');
-      expect(Array.isArray(serialized.accounts)).toBe(true);
-    });
+      const serialized = keyring.serialize()
+
+      expect(serialized).toHaveProperty('accounts')
+      expect(serialized).toHaveProperty('accountDetails')
+      expect(serialized).toHaveProperty('hdPath')
+      expect(serialized).toHaveProperty('hdPathType')
+      expect(Array.isArray(serialized.accounts)).toBe(true)
+    })
 
     it('should deserialize and restore accounts', () => {
-      const testAddress = '0x1234567890abcdef1234567890abcdef12345678' as Address;
+      const testAddress =
+        '0x1234567890abcdef1234567890abcdef12345678' as Address
       const data = {
         accounts: [testAddress],
         accountDetails: {
@@ -396,51 +478,50 @@ describe('LedgerKeyring', () => {
         },
         hdPath: "m/44'/60'/0'/0",
         hdPathType: 'BIP44' as LedgerHDPathType,
-      };
-      
-      keyring.deserialize(data);
-      
-      const addresses = keyring.getAddresses();
-      expect(addresses).toHaveLength(1);
-      expect(addresses[0]).toBe(testAddress);
-    });
+      }
+
+      keyring.deserialize(data)
+
+      const addresses = keyring.getAddresses()
+      expect(addresses).toHaveLength(1)
+      expect(addresses[0]).toBe(testAddress)
+    })
 
     it('should handle partial deserialization', () => {
-      keyring.deserialize({ hdPathType: 'LedgerLive' });
-      
-      const serialized = keyring.serialize();
-      expect(serialized.hdPathType).toBe('LedgerLive');
-    });
+      keyring.deserialize({ hdPathType: 'LedgerLive' })
+
+      const serialized = keyring.serialize()
+      expect(serialized.hdPathType).toBe('LedgerLive')
+    })
 
     it('should preserve state through serialize/deserialize cycle', async () => {
-      await keyring.connect();
-      keyring.setHdPath('LedgerLive');
-      await keyring.getAccounts(0, 2);
-      
+      await keyring.connect()
+      keyring.setHdPath('LedgerLive')
+      await keyring.getAccounts(0, 2)
+
       const testAddresses = [
         '0x1234567890abcdef1234567890abcdef12345678' as Address,
         '0x1234567890abcdef1234567890abcdef12345679' as Address,
-      ];
-      await keyring.addAccounts(testAddresses);
-      
-      const serialized = keyring.serialize();
-      
-      const newKeyring = new LedgerKeyring();
-      newKeyring.deserialize(serialized);
-      
-      expect(newKeyring.getAddresses()).toEqual(testAddresses);
-      expect(newKeyring.serialize().hdPathType).toBe('LedgerLive');
-    });
-  });
+      ]
+      await keyring.addAccounts(testAddresses)
+
+      const serialized = keyring.serialize()
+
+      const newKeyring = new LedgerKeyring()
+      newKeyring.deserialize(serialized)
+
+      expect(newKeyring.getAddresses()).toEqual(testAddresses)
+      expect(newKeyring.serialize().hdPathType).toBe('LedgerLive')
+    })
+  })
 
   describe('Type Property', () => {
     it('should have correct static type', () => {
-      expect(LedgerKeyring.type).toBe('Ledger Hardware');
-    });
+      expect(LedgerKeyring.type).toBe('Ledger Hardware')
+    })
 
     it('should have correct instance type', () => {
-      expect(keyring.type).toBe('Ledger Hardware');
-    });
-  });
-});
-
+      expect(keyring.type).toBe('Ledger Hardware')
+    })
+  })
+})

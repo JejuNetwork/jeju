@@ -1,18 +1,18 @@
 /**
  * superchain command - OP Superchain integration
- * 
+ *
  * Commands:
  *   jeju superchain check    - Check Superchain compatibility
  *   jeju superchain register - Register with Superchain registry
  *   jeju superchain status   - Show Superchain status
  */
 
-import { Command } from 'commander';
-import chalk from 'chalk';
-import { logger } from '../lib/logger';
-import { getNetworkDisplayName } from '@jejunetwork/config';
+import { getNetworkDisplayName } from '@jejunetwork/config'
+import chalk from 'chalk'
+import { Command } from 'commander'
+import { logger } from '../lib/logger'
 
-const displayName = getNetworkDisplayName();
+const displayName = getNetworkDisplayName()
 
 // Superchain requirements
 const SUPERCHAIN_REQUIREMENTS = {
@@ -56,10 +56,11 @@ const SUPERCHAIN_REQUIREMENTS = {
     description: 'Active bug bounty with adequate funding',
     required: true,
   },
-};
+}
 
-export const superchainCommand = new Command('superchain')
-  .description('OP Superchain integration');
+export const superchainCommand = new Command('superchain').description(
+  'OP Superchain integration',
+)
 
 // ============================================================================
 // check - Check Superchain compatibility
@@ -70,55 +71,64 @@ superchainCommand
   .description('Check Superchain compatibility')
   .option('--verbose', 'Show detailed output')
   .action(async (options) => {
-    logger.header('SUPERCHAIN COMPATIBILITY CHECK');
+    logger.header('SUPERCHAIN COMPATIBILITY CHECK')
 
-    console.log(chalk.cyan(`\nChecking ${displayName} for Superchain compatibility...\n`));
+    console.log(
+      chalk.cyan(`\nChecking ${displayName} for Superchain compatibility...\n`),
+    )
 
-    let passed = 0;
-    let failed = 0;
-    let optional = 0;
+    let passed = 0
+    let failed = 0
+    let optional = 0
 
     for (const [key, req] of Object.entries(SUPERCHAIN_REQUIREMENTS)) {
       // In production, would actually check contract deployments, configs, etc.
-      const status = checkRequirement(key);
-      
-      const icon = status === 'pass' ? chalk.green('✓') :
-                   status === 'warn' ? chalk.yellow('⚠') :
-                   chalk.red('✗');
-      
-      const reqText = req.required ? '' : chalk.dim(' (optional)');
-      
-      console.log(`${icon} ${req.name}${reqText}`);
+      const status = checkRequirement(key)
+
+      const icon =
+        status === 'pass'
+          ? chalk.green('✓')
+          : status === 'warn'
+            ? chalk.yellow('⚠')
+            : chalk.red('✗')
+
+      const reqText = req.required ? '' : chalk.dim(' (optional)')
+
+      console.log(`${icon} ${req.name}${reqText}`)
       if (options.verbose) {
-        console.log(chalk.dim(`   ${req.description}`));
+        console.log(chalk.dim(`   ${req.description}`))
       }
 
       if (status === 'pass') {
-        passed++;
+        passed++
       } else if (!req.required) {
-        optional++;
+        optional++
       } else {
-        failed++;
+        failed++
       }
     }
 
-    console.log();
-    console.log(chalk.bold('Summary:'));
-    console.log(`  ${chalk.green('Passed:')} ${passed}`);
-    console.log(`  ${chalk.red('Failed:')} ${failed}`);
-    console.log(`  ${chalk.yellow('Optional warnings:')} ${optional}`);
+    console.log()
+    console.log(chalk.bold('Summary:'))
+    console.log(`  ${chalk.green('Passed:')} ${passed}`)
+    console.log(`  ${chalk.red('Failed:')} ${failed}`)
+    console.log(`  ${chalk.yellow('Optional warnings:')} ${optional}`)
 
     if (failed === 0) {
-      console.log(chalk.green('\n✓ Ready for Superchain submission!'));
-      console.log('\nNext steps:');
-      console.log('  1. Submit application at https://optimism.io/superchain');
-      console.log('  2. Complete security audit');
-      console.log('  3. Join governance calls');
+      console.log(chalk.green('\n✓ Ready for Superchain submission!'))
+      console.log('\nNext steps:')
+      console.log('  1. Submit application at https://optimism.io/superchain')
+      console.log('  2. Complete security audit')
+      console.log('  3. Join governance calls')
     } else {
-      console.log(chalk.yellow(`\n⚠ ${failed} requirements need attention before Superchain submission.`));
-      console.log('\nRun with --verbose for more details.');
+      console.log(
+        chalk.yellow(
+          `\n⚠ ${failed} requirements need attention before Superchain submission.`,
+        ),
+      )
+      console.log('\nRun with --verbose for more details.')
     }
-  });
+  })
 
 // ============================================================================
 // register - Register with Superchain registry
@@ -132,31 +142,37 @@ superchainCommand
   .option('--rpc <url>', 'RPC URL')
   .option('--explorer <url>', 'Explorer URL')
   .action(async (options) => {
-    logger.header('REGISTER WITH SUPERCHAIN');
+    logger.header('REGISTER WITH SUPERCHAIN')
 
-    console.log(chalk.cyan('\nSuperchain Registry Submission\n'));
+    console.log(chalk.cyan('\nSuperchain Registry Submission\n'))
 
-    console.log('This command helps prepare your submission to the Superchain Registry.');
-    console.log('The actual submission is done via GitHub PR to:');
-    console.log(chalk.blue('  https://github.com/ethereum-optimism/superchain-registry\n'));
+    console.log(
+      'This command helps prepare your submission to the Superchain Registry.',
+    )
+    console.log('The actual submission is done via GitHub PR to:')
+    console.log(
+      chalk.blue(
+        '  https://github.com/ethereum-optimism/superchain-registry\n',
+      ),
+    )
 
-    console.log(chalk.bold('Your Chain Details:'));
-    console.log(`  Name: ${options.name || displayName}`);
-    console.log(`  Chain ID: ${options.chainId || 'Not specified'}`);
-    console.log(`  RPC: ${options.rpc || 'Not specified'}`);
-    console.log(`  Explorer: ${options.explorer || 'Not specified'}`);
+    console.log(chalk.bold('Your Chain Details:'))
+    console.log(`  Name: ${options.name || displayName}`)
+    console.log(`  Chain ID: ${options.chainId || 'Not specified'}`)
+    console.log(`  RPC: ${options.rpc || 'Not specified'}`)
+    console.log(`  Explorer: ${options.explorer || 'Not specified'}`)
 
-    console.log(chalk.bold('\nRequired Files:'));
-    console.log('  1. chain.toml - Chain configuration');
-    console.log('  2. rollup.json - Rollup configuration');
-    console.log('  3. genesis.json - Genesis state');
+    console.log(chalk.bold('\nRequired Files:'))
+    console.log('  1. chain.toml - Chain configuration')
+    console.log('  2. rollup.json - Rollup configuration')
+    console.log('  3. genesis.json - Genesis state')
 
-    console.log(chalk.bold('\nNext Steps:'));
-    console.log('  1. Run `jeju superchain check` to verify compatibility');
-    console.log('  2. Generate required files with `jeju superchain export`');
-    console.log('  3. Fork superchain-registry and create PR');
-    console.log('  4. Wait for Optimism Foundation review');
-  });
+    console.log(chalk.bold('\nNext Steps:'))
+    console.log('  1. Run `jeju superchain check` to verify compatibility')
+    console.log('  2. Generate required files with `jeju superchain export`')
+    console.log('  3. Fork superchain-registry and create PR')
+    console.log('  4. Wait for Optimism Foundation review')
+  })
 
 // ============================================================================
 // status - Show Superchain status
@@ -166,39 +182,45 @@ superchainCommand
   .command('status')
   .description('Show Superchain integration status')
   .action(async () => {
-    logger.header('SUPERCHAIN STATUS');
+    logger.header('SUPERCHAIN STATUS')
 
-    console.log(chalk.cyan(`\n${displayName} Superchain Status\n`));
+    console.log(chalk.cyan(`\n${displayName} Superchain Status\n`))
 
-    console.log(chalk.bold('OP Stack Components:'));
-    console.log('  op-reth:     Running on port 6546');
-    console.log('  op-node:     Running');
-    console.log('  op-batcher:  Running');
-    console.log('  op-proposer: Running');
+    console.log(chalk.bold('OP Stack Components:'))
+    console.log('  op-reth:     Running on port 9545')
+    console.log('  op-node:     Running')
+    console.log('  op-batcher:  Running')
+    console.log('  op-proposer: Running')
 
-    console.log(chalk.bold('\nCross-Chain Messaging:'));
-    console.log('  L2ToL2CrossDomainMessenger: 0x4200000000000000000000000000000000000023');
-    console.log('  Hyperlane Mailbox: Configured');
-    console.log('  Wormhole: Optional');
+    console.log(chalk.bold('\nCross-Chain Messaging:'))
+    console.log(
+      '  L2ToL2CrossDomainMessenger: 0x4200000000000000000000000000000000000023',
+    )
+    console.log('  Hyperlane Mailbox: Configured')
+    console.log('  Wormhole: Optional')
 
-    console.log(chalk.bold('\nJeju Federation:'));
-    console.log('  NetworkRegistry: Registered');
-    console.log('  Trust Tier: STAKED');
-    console.log('  Federated Chains: 1');
+    console.log(chalk.bold('\nJeju Federation:'))
+    console.log('  NetworkRegistry: Registered')
+    console.log('  Trust Tier: STAKED')
+    console.log('  Federated Chains: 1')
 
-    console.log(chalk.bold('\nL1 Contracts (Ethereum):'));
-    console.log('  OptimismPortal: Deployed');
-    console.log('  L2OutputOracle: Deployed');
-    console.log('  SystemConfig: Deployed');
-    console.log('  DisputeGameFactory: Deployed');
+    console.log(chalk.bold('\nL1 Contracts (Ethereum):'))
+    console.log('  OptimismPortal: Deployed')
+    console.log('  L2OutputOracle: Deployed')
+    console.log('  SystemConfig: Deployed')
+    console.log('  DisputeGameFactory: Deployed')
 
-    console.log(chalk.bold('\nData Availability:'));
-    console.log('  Primary: EigenDA');
-    console.log('  Fallback: Ethereum calldata');
+    console.log(chalk.bold('\nData Availability:'))
+    console.log('  Primary: EigenDA')
+    console.log('  Fallback: Ethereum calldata')
 
-    console.log();
-    console.log(chalk.dim('Run `jeju superchain check` for detailed compatibility analysis.'));
-  });
+    console.log()
+    console.log(
+      chalk.dim(
+        'Run `jeju superchain check` for detailed compatibility analysis.',
+      ),
+    )
+  })
 
 // ============================================================================
 // Helper Functions
@@ -211,19 +233,18 @@ function checkRequirement(key: string): 'pass' | 'warn' | 'fail' {
     case 'opStack':
     case 'l2ToL2Messenger':
     case 'faultProofs':
-      return 'pass';
+      return 'pass'
     case 'sharedSequencer':
     case 'upgradeTimelock':
     case 'securityCouncil':
-      return 'warn'; // Need configuration
+      return 'warn' // Need configuration
     case 'governance':
-      return 'pass';
+      return 'pass'
     case 'bugBounty':
-      return 'warn';
+      return 'warn'
     default:
-      return 'warn';
+      return 'warn'
   }
 }
 
-export default superchainCommand;
-
+export default superchainCommand

@@ -51,6 +51,7 @@
     "governance"
   ],
   "dependencies": {
+    "@noble/curves": "^1.8.0",
     "viem": "2.43.2",
     "permissionless": "0.2.34",
     "@jejunetwork/types": "workspace:*",

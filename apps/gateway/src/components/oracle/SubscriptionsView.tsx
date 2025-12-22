@@ -1,26 +1,35 @@
-import { useState, type ComponentType } from 'react';
-import { DollarSign, Plus, Clock, CheckCircle, XCircle, Loader2, type LucideProps } from 'lucide-react';
-import { formatEther } from 'viem';
-import { useAccount } from 'wagmi';
 import {
+  CheckCircle,
+  Clock,
+  DollarSign,
+  Loader2,
+  type LucideProps,
+  Plus,
+  XCircle,
+} from 'lucide-react'
+import { type ComponentType, useState } from 'react'
+import { formatEther } from 'viem'
+import { useAccount } from 'wagmi'
+import {
+  useFeedRegistry,
   useOracleSubscriptions,
   useSubscriptionDetails,
-  useFeedRegistry,
   useSubscriptionPrice,
-} from '../../hooks/useOracleNetwork';
-import { formatTimestamp } from '../../lib/oracleNetwork';
+} from '../../hooks/useOracleNetwork'
+import { formatTimestamp } from '../../lib/oracleNetwork'
 
-const DollarSignIcon = DollarSign as ComponentType<LucideProps>;
-const PlusIcon = Plus as ComponentType<LucideProps>;
-const ClockIcon = Clock as ComponentType<LucideProps>;
-const CheckCircleIcon = CheckCircle as ComponentType<LucideProps>;
-const XCircleIcon = XCircle as ComponentType<LucideProps>;
-const Loader2Icon = Loader2 as ComponentType<LucideProps>;
+const DollarSignIcon = DollarSign as ComponentType<LucideProps>
+const PlusIcon = Plus as ComponentType<LucideProps>
+const ClockIcon = Clock as ComponentType<LucideProps>
+const CheckCircleIcon = CheckCircle as ComponentType<LucideProps>
+const XCircleIcon = XCircle as ComponentType<LucideProps>
+const Loader2Icon = Loader2 as ComponentType<LucideProps>
 
 export function SubscriptionsView() {
-  const { isConnected } = useAccount();
-  const { subscriptionIds, feeConfig, isSubscribing, subscribe } = useOracleSubscriptions();
-  const [showNewSubscription, setShowNewSubscription] = useState(false);
+  const { isConnected } = useAccount()
+  const { subscriptionIds, feeConfig, isSubscribing, subscribe } =
+    useOracleSubscriptions()
+  const [showNewSubscription, setShowNewSubscription] = useState(false)
 
   if (!isConnected) {
     return (
@@ -31,7 +40,7 @@ export function SubscriptionsView() {
           Connect your wallet to view and manage your oracle subscriptions.
         </p>
       </div>
-    );
+    )
   }
 
   return (
@@ -43,7 +52,8 @@ export function SubscriptionsView() {
             <div>
               <div className="text-sm font-semibold">Subscription Pricing</div>
               <div className="text-xs text-gray-500">
-                {formatEther(feeConfig.subscriptionFeePerMonth)} ETH/month per feed
+                {formatEther(feeConfig.subscriptionFeePerMonth)} ETH/month per
+                feed
               </div>
             </div>
             <button
@@ -70,7 +80,9 @@ export function SubscriptionsView() {
       {subscriptionIds.length === 0 ? (
         <div className="card p-8 text-center">
           <DollarSignIcon size={48} className="mx-auto text-gray-400 mb-4" />
-          <h3 className="text-lg font-semibold mb-2">No Active Subscriptions</h3>
+          <h3 className="text-lg font-semibold mb-2">
+            No Active Subscriptions
+          </h3>
           <p className="text-gray-500 mb-4">
             Subscribe to oracle feeds to access real-time price data.
           </p>
@@ -89,15 +101,15 @@ export function SubscriptionsView() {
         </div>
       )}
     </div>
-  );
+  )
 }
 
 interface SubscriptionCardProps {
-  subscriptionId: `0x${string}`;
+  subscriptionId: `0x${string}`
 }
 
 function SubscriptionCard({ subscriptionId }: SubscriptionCardProps) {
-  const { subscription } = useSubscriptionDetails(subscriptionId);
+  const { subscription } = useSubscriptionDetails(subscriptionId)
 
   if (!subscription) {
     return (
@@ -105,11 +117,11 @@ function SubscriptionCard({ subscriptionId }: SubscriptionCardProps) {
         <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-32 mb-2" />
         <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-48" />
       </div>
-    );
+    )
   }
 
-  const isExpired = BigInt(Math.floor(Date.now() / 1000)) > subscription.endTime;
-  const isActive = subscription.isActive && !isExpired;
+  const isExpired = BigInt(Math.floor(Date.now() / 1000)) > subscription.endTime
+  const isActive = subscription.isActive && !isExpired
 
   return (
     <div className="card p-4">
@@ -122,13 +134,16 @@ function SubscriptionCard({ subscriptionId }: SubscriptionCardProps) {
               <XCircleIcon size={16} className="text-red-500" />
             )}
             <span className="font-semibold">
-              {subscription.feedIds.length} Feed{subscription.feedIds.length !== 1 ? 's' : ''}
+              {subscription.feedIds.length} Feed
+              {subscription.feedIds.length !== 1 ? 's' : ''}
             </span>
-            <span className={`text-xs px-2 py-0.5 rounded ${
-              isActive
-                ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
-                : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
-            }`}>
+            <span
+              className={`text-xs px-2 py-0.5 rounded ${
+                isActive
+                  ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                  : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+              }`}
+            >
               {isActive ? 'Active' : isExpired ? 'Expired' : 'Inactive'}
             </span>
           </div>
@@ -163,34 +178,42 @@ function SubscriptionCard({ subscriptionId }: SubscriptionCardProps) {
         </div>
       </div>
     </div>
-  );
+  )
 }
 
 interface NewSubscriptionFormProps {
-  onClose: () => void;
-  onSubscribe: (feedIds: `0x${string}`[], durationMonths: number, value: bigint) => void;
-  isSubscribing: boolean;
+  onClose: () => void
+  onSubscribe: (
+    feedIds: `0x${string}`[],
+    durationMonths: number,
+    value: bigint,
+  ) => void
+  isSubscribing: boolean
 }
 
-function NewSubscriptionForm({ onClose, onSubscribe, isSubscribing }: NewSubscriptionFormProps) {
-  const { activeFeedIds } = useFeedRegistry();
-  const [selectedFeeds, setSelectedFeeds] = useState<`0x${string}`[]>([]);
-  const [duration, setDuration] = useState(1);
+function NewSubscriptionForm({
+  onClose,
+  onSubscribe,
+  isSubscribing,
+}: NewSubscriptionFormProps) {
+  const { activeFeedIds } = useFeedRegistry()
+  const [selectedFeeds, setSelectedFeeds] = useState<`0x${string}`[]>([])
+  const [duration, setDuration] = useState(1)
 
-  const { price } = useSubscriptionPrice(selectedFeeds, duration);
+  const { price } = useSubscriptionPrice(selectedFeeds, duration)
 
   const toggleFeed = (feedId: `0x${string}`) => {
     setSelectedFeeds((prev) =>
       prev.includes(feedId)
         ? prev.filter((id) => id !== feedId)
-        : [...prev, feedId]
-    );
-  };
+        : [...prev, feedId],
+    )
+  }
 
   const handleSubscribe = () => {
-    if (selectedFeeds.length === 0 || !price) return;
-    onSubscribe(selectedFeeds, duration, price);
-  };
+    if (selectedFeeds.length === 0 || !price) return
+    onSubscribe(selectedFeeds, duration, price)
+  }
 
   return (
     <div className="card p-6">
@@ -224,26 +247,33 @@ function NewSubscriptionForm({ onClose, onSubscribe, isSubscribing }: NewSubscri
                   onChange={() => toggleFeed(feedId)}
                   className="rounded"
                 />
-                <span className="font-mono text-sm">{feedId.slice(0, 18)}...</span>
+                <span className="font-mono text-sm">
+                  {feedId.slice(0, 18)}...
+                </span>
               </label>
             ))
           )}
         </div>
         <div className="text-xs text-gray-500 mt-1">
-          {selectedFeeds.length} feed{selectedFeeds.length !== 1 ? 's' : ''} selected
+          {selectedFeeds.length} feed{selectedFeeds.length !== 1 ? 's' : ''}{' '}
+          selected
         </div>
       </div>
 
       {/* Duration */}
       <div className="mb-4">
-        <label className="block text-sm font-medium mb-2">Duration (months)</label>
+        <label className="block text-sm font-medium mb-2">
+          Duration (months)
+        </label>
         <select
           value={duration}
           onChange={(e) => setDuration(Number(e.target.value))}
           className="input w-full"
         >
           {[1, 3, 6, 12].map((m) => (
-            <option key={m} value={m}>{m} month{m !== 1 ? 's' : ''}</option>
+            <option key={m} value={m}>
+              {m} month{m !== 1 ? 's' : ''}
+            </option>
           ))}
         </select>
       </div>
@@ -282,7 +312,7 @@ function NewSubscriptionForm({ onClose, onSubscribe, isSubscribing }: NewSubscri
         </button>
       </div>
     </div>
-  );
+  )
 }
 
-export default SubscriptionsView;
+export default SubscriptionsView

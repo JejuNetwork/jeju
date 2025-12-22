@@ -2,18 +2,18 @@
  * Token-related Zod schemas
  */
 
-import { z } from 'zod'
 import { AddressSchema } from '@jejunetwork/types'
+import { z } from 'zod'
 import {
-  ChainTypeSchema,
-  EvmChainIdSchema,
-  SolanaNetworkIdSchema,
   BigIntSchema,
+  ChainTypeSchema,
   DateSchema,
-  URLSchema,
+  EvmChainIdSchema,
   NonEmptyStringSchema,
-  PercentageSchema,
   NonNegativeNumberSchema,
+  PercentageSchema,
+  SolanaNetworkIdSchema,
+  URLSchema,
 } from './common'
 
 export const TokenMetadataSchema = z.object({
@@ -22,7 +22,10 @@ export const TokenMetadataSchema = z.object({
   description: z.string().optional(),
   imageUrl: URLSchema.optional(),
   website: URLSchema.optional(),
-  twitter: z.string().regex(/^[a-zA-Z0-9_]{1,15}$/, 'Invalid Twitter handle').optional(),
+  twitter: z
+    .string()
+    .regex(/^[a-zA-Z0-9_]{1,15}$/, 'Invalid Twitter handle')
+    .optional(),
   telegram: z.string().optional(),
   discord: URLSchema.optional(),
 })

@@ -4,6 +4,6 @@
  */
 
 export interface Timestamps {
-  createdAt: number;
-  updatedAt: number;
+  createdAt: number
+  updatedAt: number
 }

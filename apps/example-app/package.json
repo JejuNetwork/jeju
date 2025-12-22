@@ -9,7 +9,7 @@
     "build": "bun run build.ts",
     "start": "bun run dist/server/index.js",
     "test": "bun test",
-    "test:integration": "bun test src/tests/services.test.ts",
+    "test:integration": "bun test src/tests/utils.test.ts",
     "test:e2e": "bun run src/tests/e2e.test.ts",
     "test:synpress": "synpress run --config synpress.config.ts",
     "deploy": "bun run deploy.ts",

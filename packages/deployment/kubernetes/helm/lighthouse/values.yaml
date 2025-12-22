@@ -74,7 +74,7 @@ config:
   # Execution layer connection (for engine API)
   execution:
     endpoint: ""  # Not needed for blob-only use, but can sync with L1 geth
-    jwtSecret: ""
+    jwtSecret: ""  # Must be provided via --set or external secret manager - never hardcode
   
   # Checkpoint sync for fast startup
   checkpoint:
@@ -113,5 +113,10 @@ config:
     port: 9000
     discoveryPort: 9000
     targetPeers: 80
+
+# Secrets configuration
+secrets:
+  # Use an existing secret instead of creating one
+  existingJwtSecret: ""
 
 

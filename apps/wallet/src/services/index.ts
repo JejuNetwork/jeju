@@ -3,79 +3,130 @@
  * Core services using the network infrastructure
  */
 
-// Network infrastructure (indexer, bundler, graphql)
-export * as jeju from './jeju';
-
-// Core services
-export * from './rpc';
-export * from './oracle';
-export * from './security';
-export * from './swap';
-export * from './approval';
-export * from './history';
-
-// Re-export with explicit names to avoid conflicts
-export { keyringService, KeyringService } from './keyring';
-export type { Account, HDAccount, ImportedAccount, WatchAccount, HardwareAccount, SmartWalletAccount, AccountType } from './keyring';
-
-export { aaService, AccountAbstractionService } from './account-abstraction';
-export type { UserOperation, GasEstimate, PaymasterData, SmartAccount } from './account-abstraction';
-
-export { nftService, NFTService } from './nft';
-export type { NFT, NFTCollection } from './nft';
+export type {
+  GasEstimate,
+  PaymasterData,
+  SmartAccount,
+  UserOperation,
+} from './account-abstraction'
+export { AccountAbstractionService, aaService } from './account-abstraction'
+export * from './approval'
+// Seed Phrase Backup
+export { BackupService, backupService } from './backup'
+export type { CollectionInfo, CreateListingParams, Listing } from './bazaar'
+// Bazaar NFT Marketplace
+export {
+  AssetType,
+  BazaarService,
+  bazaarService,
+  ListingStatus,
+} from './bazaar'
+export type { Contact } from './contacts'
+// Contact Book
+export { ContactsService, contactsService } from './contacts'
+export type { CustomChain, CustomRPC } from './custom-rpc'
+// Custom RPC Management
+export { CustomRPCService, customRPCService } from './custom-rpc'
+export type { CachedAsset, EdgeConfig, EdgeStats } from './edge'
+// Wallet Edge (micro edge node)
+export { getEdgeService, resetEdgeService, WalletEdgeService } from './edge'
+export type {
+  HardwareAccount as HWAccount,
+  HardwareDevice,
+  HardwareWalletType,
+  LedgerAccount,
+  TrezorAccount,
+} from './hardware'
 
 // Hardware Wallets (Ledger, Trezor)
-export { hardwareWalletService, HardwareWalletService, ledgerKeyring, trezorKeyring } from './hardware';
-export type { HardwareDevice, HardwareAccount as HWAccount, HardwareWalletType, LedgerAccount, TrezorAccount } from './hardware';
-
-// Transaction Simulation
-export { simulationService, SimulationService } from './simulation';
-export type { SimulationResult, TokenChange, NFTChange, ContractInteraction, TransactionToSimulate } from './simulation';
-
-// Wallet Lock & Security
-export { lockService, LockService } from './lock';
-export type { LockType } from './lock';
-
-// Seed Phrase Backup
-export { backupService, BackupService } from './backup';
-
-// Contact Book
-export { contactsService, ContactsService } from './contacts';
-export type { Contact } from './contacts';
-
-// Gnosis Safe / Multisig
-export { safeService, SafeService } from './safe';
-export type { SafeInfo, SafeTransaction, SafeTransactionData, SafeConfirmation } from './safe';
-
-// Custom RPC Management
-export { customRPCService, CustomRPCService } from './custom-rpc';
-export type { CustomRPC, CustomChain } from './custom-rpc';
-
+export {
+  HardwareWalletService,
+  hardwareWalletService,
+  ledgerKeyring,
+  trezorKeyring,
+} from './hardware'
+export * from './history'
+// Network infrastructure (indexer, bundler, graphql)
+export * as jeju from './jeju'
+export type { JNSName, JNSPricing, JNSRegistrationParams } from './jns'
 // JNS Name Service
-export { jnsService, JNSService } from './jns';
-export type { JNSName, JNSRegistrationParams, JNSPricing } from './jns';
-
-// Bazaar NFT Marketplace
-export { bazaarService, BazaarService, AssetType, ListingStatus } from './bazaar';
-export type { Listing, CreateListingParams, CollectionInfo } from './bazaar';
+export { JNSService, jnsService } from './jns'
+export type {
+  Account,
+  AccountType,
+  HardwareAccount,
+  HDAccount,
+  ImportedAccount,
+  SmartWalletAccount,
+  WatchAccount,
+} from './keyring'
+// Re-export with explicit names to avoid conflicts
+export { KeyringService, keyringService } from './keyring'
+export type {
+  BondingCurveInfo,
+  Launch,
+  LaunchBondingCurveParams,
+  LaunchICOParams,
+  PresaleInfo,
+} from './launchpad'
+// Token Launchpad
+export { LaunchpadService, LaunchType, launchpadService } from './launchpad'
+export type { LockType } from './lock'
+// Wallet Lock & Security
+export { LockService, lockService } from './lock'
+export type { NFT, NFTCollection } from './nft'
+export { NFTService, nftService } from './nft'
+export * from './oracle'
+export type {
+  ClosePositionParams,
+  OpenPositionParams,
+  PerpMarket,
+  PerpPosition,
+} from './perps'
+// Perpetual Futures Trading
+export {
+  MARKET_IDS,
+  MarginType,
+  PerpsService,
+  PositionSide,
+  perpsService,
+} from './perps'
+export type {
+  AddLiquidityV2Params,
+  RemoveLiquidityV2Params,
+  V2Pool,
+  V2Position,
+  V3Position,
+} from './pools'
 
 // Liquidity Pools (XLP V2/V3)
-export { poolsService, PoolsService } from './pools';
-export type { V2Pool, V2Position, V3Position, AddLiquidityV2Params, RemoveLiquidityV2Params } from './pools';
-
-// Perpetual Futures Trading
-export { perpsService, PerpsService, PositionSide, MarginType, MARKET_IDS } from './perps';
-export type { PerpMarket, PerpPosition, OpenPositionParams, ClosePositionParams } from './perps';
-
-// Token Launchpad
-export { launchpadService, LaunchpadService, LaunchType } from './launchpad';
-export type { Launch, BondingCurveInfo, PresaleInfo, LaunchBondingCurveParams, LaunchICOParams } from './launchpad';
-
-// Wallet Edge (micro edge node)
-export { WalletEdgeService, getEdgeService, resetEdgeService } from './edge';
-export type { EdgeConfig, EdgeStats, CachedAsset } from './edge';
-
+export { PoolsService, poolsService } from './pools'
+// Core services
+export * from './rpc'
+export type {
+  SafeConfirmation,
+  SafeInfo,
+  SafeTransaction,
+  SafeTransactionData,
+} from './safe'
+// Gnosis Safe / Multisig
+export { SafeService, safeService } from './safe'
+export * from './security'
+export type {
+  ContractInteraction,
+  NFTChange,
+  SimulationResult,
+  TokenChange,
+  TransactionToSimulate,
+} from './simulation'
+// Transaction Simulation
+export { SimulationService, simulationService } from './simulation'
+export * from './swap'
+export type {
+  UpdateConfig,
+  UpdateInfo,
+  UpdateListener,
+  UpdateState,
+} from './updater'
 // Auto-Updater
-export { UpdateService, getUpdateService, resetUpdateService } from './updater';
-export type { UpdateConfig, UpdateInfo, UpdateState, UpdateListener } from './updater';
-
+export { getUpdateService, resetUpdateService, UpdateService } from './updater'

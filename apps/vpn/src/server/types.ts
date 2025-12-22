@@ -1,16 +1,16 @@
 /**
  * VPN Server Types
- * 
+ *
  * Re-exports validated types from schemas and defines additional server-specific types
  */
 
 import type {
-  VPNServerConfig,
-  VPNPricing,
-  VPNNodeState,
-  VPNSessionState,
   ContributionState,
-} from './schemas';
+  VPNNodeState,
+  VPNPricing,
+  VPNServerConfig,
+  VPNSessionState,
+} from './schemas'
 
 // Re-export types from schemas
 export type {
@@ -19,12 +19,11 @@ export type {
   VPNNodeState,
   VPNSessionState,
   ContributionState,
-};
-
-export interface VPNServiceContext {
-  config: VPNServerConfig;
-  nodes: Map<string, VPNNodeState>;
-  sessions: Map<string, VPNSessionState>;
-  contributions: Map<string, ContributionState>;
 }
 
+export interface VPNServiceContext {
+  config: VPNServerConfig
+  nodes: Map<string, VPNNodeState>
+  sessions: Map<string, VPNSessionState>
+  contributions: Map<string, ContributionState>
+}

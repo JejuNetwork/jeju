@@ -12,7 +12,8 @@ declare_id!("6q2T4SEeE2U4XsFNa5piNy6Vzv2qvdZXmAHhQH7BYVJd");
 
 pub const BONDING_CURVE_SEED: &[u8] = b"bonding-curve";
 pub const PRESALE_SEED: &[u8] = b"presale";
-pub const VAULT_SEED: &[u8] = b"vault";
+pub const VAULT_SEED: &[u8] = b"vault";  // For bonding curve SOL vault
+pub const PRESALE_VAULT_SEED: &[u8] = b"presale-vault";  // Separate seed for presale vault
 pub const LP_LOCK_SEED: &[u8] = b"lp-lock";
 
 // Default bonding curve parameters
@@ -461,6 +462,22 @@ pub mod jeju_launchpad {
         Ok(())
     }
 
+    /// Create a contribution account for a new contributor
+    /// SECURITY: Separate instruction prevents init_if_needed front-running attacks
+    pub fn create_contribution(ctx: Context<CreateContribution>) -> Result<()> {
+        let contribution = &mut ctx.accounts.contribution;
+        contribution.contributor = ctx.accounts.contributor.key();
+        contribution.presale = ctx.accounts.presale.key();
+        contribution.amount = 0;
+        contribution.tokens_claimed = 0;
+        contribution.claimed = false;
+        contribution.bump = ctx.bumps.contribution;
+
+        ctx.accounts.presale.total_contributors += 1;
+
+        Ok(())
+    }
+
     /// Contribute to a presale
     pub fn contribute(
         ctx: Context<Contribute>,
@@ -482,6 +499,12 @@ pub mod jeju_launchpad {
 
         // Check user's total contribution
         let contribution = &mut ctx.accounts.contribution;
+        // SECURITY: Verify the contribution account belongs to this contributor
+        require!(
+            contribution.contributor == ctx.accounts.contributor.key(),
+            LaunchpadError::InvalidContributionOwner
+        );
+        
         let new_user_total = contribution.amount
             .checked_add(amount)
             .ok_or(LaunchpadError::MathOverflow)?;
@@ -499,14 +522,6 @@ pub mod jeju_launchpad {
             amount,
         )?;
 
-        // Update contribution
-        if contribution.amount == 0 {
-            presale.total_contributors += 1;
-            contribution.contributor = ctx.accounts.contributor.key();
-            contribution.presale = presale.key();
-            contribution.claimed = false;
-            contribution.bump = ctx.bumps.contribution;
-        }
         contribution.amount = new_user_total;
 
         // Update presale
@@ -653,7 +668,7 @@ pub mod jeju_launchpad {
 
         // Transfer SOL back
         let seeds = &[
-            VAULT_SEED,
+            PRESALE_VAULT_SEED,
             token_mint.as_ref(),
             &[vault_bump],
         ];
@@ -947,13 +962,37 @@ pub struct CreatePresale<'info> {
     )]
     pub presale: Account<'info, Presale>,
 
-    /// CHECK: Presale vault PDA - initialized here
+    /// CHECK: Presale vault PDA - uses separate seed to avoid collision with bonding curve vault
     #[account(
         mut,
-        seeds = [VAULT_SEED, token_mint.key().as_ref()],
+        seeds = [PRESALE_VAULT_SEED, token_mint.key().as_ref()],
         bump
     )]
     pub presale_vault: SystemAccount<'info>,
+
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct CreateContribution<'info> {
+    #[account(mut)]
+    pub contributor: Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [PRESALE_SEED, presale.token_mint.as_ref()],
+        bump = presale.bump
+    )]
+    pub presale: Account<'info, Presale>,
+
+    #[account(
+        init,
+        payer = contributor,
+        space = 8 + 32 + 32 + 8 + 8 + 1 + 1,
+        seeds = [b"contribution", presale.key().as_ref(), contributor.key().as_ref()],
+        bump
+    )]
+    pub contribution: Account<'info, Contribution>,
 
     pub system_program: Program<'info, System>,
 }
@@ -970,19 +1009,19 @@ pub struct Contribute<'info> {
     )]
     pub presale: Account<'info, Presale>,
 
+    /// SECURITY: Use init constraint with a check instead of init_if_needed
+    /// to prevent front-running attacks. First-time contributors use create_contribution first.
     #[account(
-        init_if_needed,
-        payer = contributor,
-        space = 8 + 32 + 32 + 8 + 8 + 1 + 1,
+        mut,
         seeds = [b"contribution", presale.key().as_ref(), contributor.key().as_ref()],
-        bump
+        bump = contribution.bump
     )]
     pub contribution: Account<'info, Contribution>,
 
-    /// CHECK: Presale vault PDA
+    /// CHECK: Presale vault PDA - uses different seed prefix to avoid collision with bonding curve
     #[account(
         mut,
-        seeds = [VAULT_SEED, presale.token_mint.as_ref()],
+        seeds = [PRESALE_VAULT_SEED, presale.token_mint.as_ref()],
         bump = presale.vault_bump
     )]
     pub presale_vault: SystemAccount<'info>,
@@ -1225,5 +1264,7 @@ pub enum LaunchpadError {
     NothingToClaim,
     #[msg("Refunds not enabled")]
     RefundsNotEnabled,
+    #[msg("Invalid contribution owner")]
+    InvalidContributionOwner,
 }
 

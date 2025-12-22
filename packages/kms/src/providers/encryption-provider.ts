@@ -1,19 +1,32 @@
 /**
  * Encryption Provider - AES-256-GCM with policy-based access control
- * 
+ *
  * Access conditions: 'timestamp' works locally; others require on-chain KeyRegistry
  */
 
-import { keccak256, toBytes, toHex } from 'viem';
-import type { Address, Hex } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import { encLogger as log } from '../logger.js';
+import type { Address, Hex } from 'viem'
+import { keccak256, toBytes, toHex } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import {
+  constantTimeCompare,
+  decryptFromPayload,
+  deriveKeyForEncryption,
+  deriveKeyFromSecret,
+  encryptToPayload,
+  generateKeyId,
+  parseCiphertextPayload,
+  sealWithMasterKey,
+  unsealWithMasterKey,
+} from '../crypto.js'
+import { encLogger as log } from '../logger.js'
 import {
   type AccessCondition,
   type AccessControlPolicy,
   type AuthSignature,
+  ConditionOperator,
   type DecryptRequest,
   type EncryptedPayload,
+  type EncryptionConfig,
   type EncryptRequest,
   type GeneratedKey,
   type KeyCurve,
@@ -21,337 +34,463 @@ import {
   type KeyType,
   type KMSProvider,
   KMSProviderType,
-  type EncryptionConfig,
   type SessionKey,
   type SignedMessage,
   type SignRequest,
-  ConditionOperator,
-} from '../types.js';
-import {
-  generateKeyId,
-  deriveKeyFromSecret,
-  sealWithMasterKey,
-  unsealWithMasterKey,
-  encryptToPayload,
-  decryptFromPayload,
-  deriveKeyForEncryption,
-  parseCiphertextPayload,
-} from '../crypto.js';
+} from '../types.js'
 
 interface EncryptionKey {
-  id: string;
-  metadata: KeyMetadata;
-  encryptedKey: Uint8Array;
-  publicKey: Hex;
-  address: Address;
-  version: number;
-  createdAt: number;
+  id: string
+  metadata: KeyMetadata
+  encryptedKey: Uint8Array
+  publicKey: Hex
+  address: Address
+  version: number
+  createdAt: number
 }
 
 interface KeyVersionRecord {
-  version: number;
-  encryptedKey: Uint8Array;
-  createdAt: number;
-  rotatedAt?: number;
-  status: 'active' | 'rotated' | 'revoked';
+  version: number
+  encryptedKey: Uint8Array
+  createdAt: number
+  rotatedAt?: number
+  status: 'active' | 'rotated' | 'revoked'
 }
 
 interface Session {
-  sessionKey: SessionKey;
-  address: Address;
-  capabilities: string[];
-  createdAt: number;
+  sessionKey: SessionKey
+  address: Address
+  capabilities: string[]
+  createdAt: number
+}
+
+/** Safe recovery ID extraction from signature with bounds validation */
+function extractRecoveryId(signature: string): number {
+  if (signature.length < 132) return 0
+  const vHex = signature.slice(130, 132)
+  const v = parseInt(vHex, 16)
+  // Recovery ID must be 0 or 1 (v is 27/28 for legacy, or 0/1 for EIP-155)
+  if (v >= 27 && v <= 28) return v - 27
+  if (v === 0 || v === 1) return v
+  return 0 // Default to 0 for invalid values
 }
 
 export class EncryptionProvider implements KMSProvider {
-  type = KMSProviderType.ENCRYPTION;
-  private connected = false;
-  private masterKey: Uint8Array;
-  private keys = new Map<string, EncryptionKey>();
-  private keyVersions = new Map<string, KeyVersionRecord[]>();
-  private sessions = new Map<string, Session>();
+  type = KMSProviderType.ENCRYPTION
+  private connected = false
+  private masterKey: Uint8Array
+  private keys = new Map<string, EncryptionKey>()
+  private keyVersions = new Map<string, KeyVersionRecord[]>()
+  private sessions = new Map<string, Session>()
 
   constructor(_config: EncryptionConfig) {
-    const secret = process.env.KMS_FALLBACK_SECRET ?? process.env.TEE_ENCRYPTION_SECRET;
+    const secret =
+      process.env.KMS_FALLBACK_SECRET ?? process.env.TEE_ENCRYPTION_SECRET
     if (secret) {
-      this.masterKey = deriveKeyFromSecret(secret);
+      this.masterKey = deriveKeyFromSecret(secret)
     } else {
-      this.masterKey = crypto.getRandomValues(new Uint8Array(32));
-      log.warn('No KMS_FALLBACK_SECRET set, using ephemeral key');
+      this.masterKey = crypto.getRandomValues(new Uint8Array(32))
+      log.warn('No KMS_FALLBACK_SECRET set, using ephemeral key')
     }
   }
 
   async isAvailable(): Promise<boolean> {
-    return true;
+    return true
   }
 
   async connect(): Promise<void> {
-    if (this.connected) return;
-    this.connected = true;
-    log.info('Encryption provider initialized');
+    if (this.connected) return
+    this.connected = true
+    log.info('Encryption provider initialized')
   }
 
   async disconnect(): Promise<void> {
-    this.masterKey.fill(0);
-    for (const key of this.keys.values()) key.encryptedKey.fill(0);
+    this.masterKey.fill(0)
+    for (const key of this.keys.values()) key.encryptedKey.fill(0)
     for (const versions of this.keyVersions.values()) {
-      for (const v of versions) v.encryptedKey.fill(0);
+      for (const v of versions) v.encryptedKey.fill(0)
     }
-    this.keys.clear();
-    this.keyVersions.clear();
-    this.sessions.clear();
-    this.connected = false;
+    this.keys.clear()
+    this.keyVersions.clear()
+    this.sessions.clear()
+    this.connected = false
   }
 
-  async generateKey(owner: Address, keyType: KeyType, curve: KeyCurve, policy: AccessControlPolicy): Promise<GeneratedKey> {
-    await this.ensureConnected();
+  async generateKey(
+    owner: Address,
+    keyType: KeyType,
+    curve: KeyCurve,
+    policy: AccessControlPolicy,
+  ): Promise<GeneratedKey> {
+    await this.ensureConnected()
 
-    const keyId = generateKeyId('enc');
-    const keyBytes = crypto.getRandomValues(new Uint8Array(32));
-    const keyHex = toHex(keyBytes) as `0x${string}`;
-    const account = privateKeyToAccount(keyHex);
-    const encryptedKey = await sealWithMasterKey(keyBytes, this.masterKey);
-    keyBytes.fill(0);
+    const keyId = generateKeyId('enc')
+    const keyBytes = crypto.getRandomValues(new Uint8Array(32))
+    const keyHex = toHex(keyBytes) as `0x${string}`
+    const account = privateKeyToAccount(keyHex)
+    const encryptedKey = await sealWithMasterKey(keyBytes, this.masterKey)
+    keyBytes.fill(0)
 
-    const metadata: KeyMetadata = { id: keyId, type: keyType, curve, createdAt: Date.now(), owner, policy, providerType: KMSProviderType.ENCRYPTION };
+    const metadata: KeyMetadata = {
+      id: keyId,
+      type: keyType,
+      curve,
+      createdAt: Date.now(),
+      owner,
+      policy,
+      providerType: KMSProviderType.ENCRYPTION,
+    }
 
-    const encKey: EncryptionKey = { id: keyId, metadata, encryptedKey, publicKey: toHex(account.publicKey), address: account.address, version: 1, createdAt: Date.now() };
+    const encKey: EncryptionKey = {
+      id: keyId,
+      metadata,
+      encryptedKey,
+      publicKey: toHex(account.publicKey),
+      address: account.address,
+      version: 1,
+      createdAt: Date.now(),
+    }
 
-    this.keys.set(keyId, encKey);
-    this.keyVersions.set(keyId, [{ version: 1, encryptedKey: new Uint8Array(encryptedKey), createdAt: Date.now(), status: 'active' }]);
+    this.keys.set(keyId, encKey)
+    this.keyVersions.set(keyId, [
+      {
+        version: 1,
+        encryptedKey: new Uint8Array(encryptedKey),
+        createdAt: Date.now(),
+        status: 'active',
+      },
+    ])
 
-    return { metadata, publicKey: encKey.publicKey };
+    return { metadata, publicKey: encKey.publicKey }
   }
 
   getKey(keyId: string): KeyMetadata | null {
-    return this.keys.get(keyId)?.metadata ?? null;
+    return this.keys.get(keyId)?.metadata ?? null
   }
 
   getKeyVersions(keyId: string): KeyVersionRecord[] {
-    const versions = this.keyVersions.get(keyId);
-    if (!versions) throw new Error(`Key versions not found for ${keyId}`);
-    return versions;
+    const versions = this.keyVersions.get(keyId)
+    if (!versions) throw new Error(`Key versions not found for ${keyId}`)
+    return versions
   }
 
   async revokeKey(keyId: string): Promise<void> {
-    const key = this.keys.get(keyId);
+    const key = this.keys.get(keyId)
     if (key) {
-      key.encryptedKey.fill(0);
-      this.keys.delete(keyId);
-      const versions = this.keyVersions.get(keyId);
-      if (versions) for (const v of versions) v.status = 'revoked';
+      key.encryptedKey.fill(0)
+      this.keys.delete(keyId)
+      const versions = this.keyVersions.get(keyId)
+      if (versions) for (const v of versions) v.status = 'revoked'
     }
   }
 
   async encrypt(request: EncryptRequest): Promise<EncryptedPayload> {
-    await this.ensureConnected();
+    await this.ensureConnected()
 
-    const dataStr = typeof request.data === 'string' ? request.data : new TextDecoder().decode(request.data);
-    const keyId = request.keyId ?? generateKeyId('enc');
+    const dataStr =
+      typeof request.data === 'string'
+        ? request.data
+        : new TextDecoder().decode(request.data)
+    const keyId = request.keyId ?? generateKeyId('enc')
 
-    let encryptionKey: Uint8Array;
-    let version = 1;
-    
-    const existingKey = this.keys.get(keyId);
+    let encryptionKey: Uint8Array
+    let version = 1
+
+    const existingKey = this.keys.get(keyId)
     if (existingKey) {
-      encryptionKey = await unsealWithMasterKey(existingKey.encryptedKey, this.masterKey);
-      version = existingKey.version;
+      encryptionKey = await unsealWithMasterKey(
+        existingKey.encryptedKey,
+        this.masterKey,
+      )
+      version = existingKey.version
     } else {
-      encryptionKey = await deriveKeyForEncryption(this.masterKey, keyId, JSON.stringify(request.policy));
+      encryptionKey = await deriveKeyForEncryption(
+        this.masterKey,
+        keyId,
+        JSON.stringify(request.policy),
+      )
     }
 
-    const ciphertext = await encryptToPayload(dataStr, encryptionKey, { version });
-    encryptionKey.fill(0);
+    const ciphertext = await encryptToPayload(dataStr, encryptionKey, {
+      version,
+    })
+    encryptionKey.fill(0)
 
     return {
       ciphertext,
       dataHash: keccak256(toBytes(dataStr)),
-      accessControlHash: keccak256(toBytes(JSON.stringify(request.policy.conditions))),
+      accessControlHash: keccak256(
+        toBytes(JSON.stringify(request.policy.conditions)),
+      ),
       policy: request.policy,
       providerType: KMSProviderType.ENCRYPTION,
       encryptedAt: Math.floor(Date.now() / 1000),
       keyId,
       metadata: request.metadata,
-    };
+    }
   }
 
   async decrypt(request: DecryptRequest): Promise<string> {
-    await this.ensureConnected();
+    await this.ensureConnected()
 
-    const { payload, authSig } = request;
-    
-    if (authSig) {
-      const allowed = await this.checkAccessControl(payload.policy, authSig);
-      if (!allowed) throw new Error('Access denied: policy conditions not met');
-    }
+    const { payload } = request
 
-    const parsed = parseCiphertextPayload(payload.ciphertext);
-    const version = parsed.version ?? 1;
+    const allowed = await this.checkAccessControl(payload.policy)
+    if (!allowed) throw new Error('Access denied: policy conditions not met')
 
-    let decryptionKey: Uint8Array;
-    const existingKey = this.keys.get(payload.keyId);
-    
+    const parsed = parseCiphertextPayload(payload.ciphertext)
+    const version = parsed.version ?? 1
+
+    let decryptionKey: Uint8Array
+    const existingKey = this.keys.get(payload.keyId)
+
     if (existingKey) {
       if (version !== existingKey.version) {
-        const versions = this.keyVersions.get(payload.keyId);
-        if (!versions) throw new Error(`Key versions not found for ${payload.keyId}`);
-        const versionRecord = versions.find(v => v.version === version);
-        if (!versionRecord) throw new Error(`Key version ${version} not found`);
-        if (versionRecord.status === 'revoked') throw new Error(`Key version ${version} has been revoked`);
-        decryptionKey = await unsealWithMasterKey(versionRecord.encryptedKey, this.masterKey);
+        const versions = this.keyVersions.get(payload.keyId)
+        if (!versions)
+          throw new Error(`Key versions not found for ${payload.keyId}`)
+        const versionRecord = versions.find((v) => v.version === version)
+        if (!versionRecord) throw new Error(`Key version ${version} not found`)
+        if (versionRecord.status === 'revoked')
+          throw new Error(`Key version ${version} has been revoked`)
+        decryptionKey = await unsealWithMasterKey(
+          versionRecord.encryptedKey,
+          this.masterKey,
+        )
       } else {
-        decryptionKey = await unsealWithMasterKey(existingKey.encryptedKey, this.masterKey);
+        decryptionKey = await unsealWithMasterKey(
+          existingKey.encryptedKey,
+          this.masterKey,
+        )
       }
     } else {
-      decryptionKey = await deriveKeyForEncryption(this.masterKey, payload.keyId, JSON.stringify(payload.policy));
+      decryptionKey = await deriveKeyForEncryption(
+        this.masterKey,
+        payload.keyId,
+        JSON.stringify(payload.policy),
+      )
     }
 
-    const result = await decryptFromPayload(payload.ciphertext, decryptionKey);
-    decryptionKey.fill(0);
+    const result = await decryptFromPayload(payload.ciphertext, decryptionKey)
+    decryptionKey.fill(0)
 
-    return result;
+    return result
   }
 
   async sign(request: SignRequest): Promise<SignedMessage> {
-    await this.ensureConnected();
+    await this.ensureConnected()
 
-    const key = this.keys.get(request.keyId);
-    if (!key) throw new Error(`Key ${request.keyId} not found`);
+    const key = this.keys.get(request.keyId)
+    if (!key) throw new Error(`Key ${request.keyId} not found`)
 
-    const keyBytes = await unsealWithMasterKey(key.encryptedKey, this.masterKey);
-    const account = privateKeyToAccount(toHex(keyBytes) as `0x${string}`);
-    keyBytes.fill(0);
+    const keyBytes = await unsealWithMasterKey(key.encryptedKey, this.masterKey)
+    const account = privateKeyToAccount(toHex(keyBytes) as `0x${string}`)
+    keyBytes.fill(0)
 
-    const messageBytes = typeof request.message === 'string' ? toBytes(request.message as Hex) : request.message;
-    const hash = request.hashAlgorithm === 'none' ? messageBytes : toBytes(keccak256(messageBytes));
-    const signature = await account.signMessage({ message: { raw: hash } });
+    const messageBytes =
+      typeof request.message === 'string'
+        ? toBytes(request.message as Hex)
+        : request.message
+    const hash =
+      request.hashAlgorithm === 'none'
+        ? messageBytes
+        : toBytes(keccak256(messageBytes))
+    const signature = await account.signMessage({ message: { raw: hash } })
 
-    return { message: toHex(messageBytes), signature, recoveryId: parseInt(signature.slice(130, 132), 16) - 27, keyId: request.keyId, signedAt: Date.now() };
+    return {
+      message: toHex(messageBytes),
+      signature,
+      recoveryId: extractRecoveryId(signature),
+      keyId: request.keyId,
+      signedAt: Date.now(),
+    }
   }
 
-  async createSession(authSig: AuthSignature, capabilities: string[], expirationHours = 24): Promise<SessionKey> {
-    await this.ensureConnected();
+  async createSession(
+    authSig: AuthSignature,
+    capabilities: string[],
+    expirationHours = 24,
+  ): Promise<SessionKey> {
+    await this.ensureConnected()
 
-    const expiration = Date.now() + expirationHours * 60 * 60 * 1000;
-    const sessionId = generateKeyId('session');
-    const publicKey = keccak256(toBytes(`${sessionId}:${authSig.address}:${expiration}`));
+    const expiration = Date.now() + expirationHours * 60 * 60 * 1000
+    const sessionId = generateKeyId('session')
+    const publicKey = keccak256(
+      toBytes(`${sessionId}:${authSig.address}:${expiration}`),
+    )
 
-    const sessionKey: SessionKey = { publicKey, expiration, capabilities, authSig };
-    this.sessions.set(sessionId, { sessionKey, address: authSig.address, capabilities, createdAt: Date.now() });
+    const sessionKey: SessionKey = {
+      publicKey,
+      expiration,
+      capabilities,
+      authSig,
+    }
+    this.sessions.set(sessionId, {
+      sessionKey,
+      address: authSig.address,
+      capabilities,
+      createdAt: Date.now(),
+    })
 
-    return sessionKey;
+    return sessionKey
   }
 
   validateSession(session: SessionKey): boolean {
-    if (session.expiration <= Date.now()) return false;
+    if (session.expiration <= Date.now()) return false
+
+    // Iterate over ALL sessions to prevent timing-based session enumeration
+    let found = false
+    let valid = false
+
     for (const s of this.sessions.values()) {
-      if (s.sessionKey.publicKey === session.publicKey) return s.sessionKey.expiration > Date.now();
+      // Use constant-time comparison to prevent timing attacks
+      const matches = constantTimeCompare(
+        s.sessionKey.publicKey,
+        session.publicKey,
+      )
+      // Only set found/valid on first match, but continue iterating
+      if (matches && !found) {
+        found = true
+        valid = s.sessionKey.expiration > Date.now()
+      }
     }
-    return false;
+
+    return found && valid
   }
 
   async rotateKey(keyId: string): Promise<EncryptionKey> {
-    await this.ensureConnected();
+    await this.ensureConnected()
 
-    const existingKey = this.keys.get(keyId);
-    if (!existingKey) throw new Error(`Key ${keyId} not found`);
+    const existingKey = this.keys.get(keyId)
+    if (!existingKey) throw new Error(`Key ${keyId} not found`)
 
-    const newKeyBytes = crypto.getRandomValues(new Uint8Array(32));
-    const account = privateKeyToAccount(toHex(newKeyBytes) as `0x${string}`);
-    const encryptedNewKey = await sealWithMasterKey(newKeyBytes, this.masterKey);
-    newKeyBytes.fill(0);
+    const newKeyBytes = crypto.getRandomValues(new Uint8Array(32))
+    const account = privateKeyToAccount(toHex(newKeyBytes) as `0x${string}`)
+    const encryptedNewKey = await sealWithMasterKey(newKeyBytes, this.masterKey)
+    newKeyBytes.fill(0)
 
-    const newVersion = existingKey.version + 1;
-    const versions = this.keyVersions.get(keyId);
-    if (!versions) throw new Error(`Key versions not found for ${keyId}`);
-    
-    const currentVersion = versions.find(v => v.status === 'active');
+    const newVersion = existingKey.version + 1
+    const versions = this.keyVersions.get(keyId)
+    if (!versions) throw new Error(`Key versions not found for ${keyId}`)
+
+    const currentVersion = versions.find((v) => v.status === 'active')
     if (currentVersion) {
-      currentVersion.status = 'rotated';
-      currentVersion.rotatedAt = Date.now();
+      currentVersion.status = 'rotated'
+      currentVersion.rotatedAt = Date.now()
     }
 
-    versions.push({ version: newVersion, encryptedKey: new Uint8Array(encryptedNewKey), createdAt: Date.now(), status: 'active' });
-    this.keyVersions.set(keyId, versions);
+    versions.push({
+      version: newVersion,
+      encryptedKey: new Uint8Array(encryptedNewKey),
+      createdAt: Date.now(),
+      status: 'active',
+    })
+    this.keyVersions.set(keyId, versions)
 
-    existingKey.encryptedKey = encryptedNewKey;
-    existingKey.publicKey = toHex(account.publicKey);
-    existingKey.address = account.address;
-    existingKey.version = newVersion;
+    existingKey.encryptedKey = encryptedNewKey
+    existingKey.publicKey = toHex(account.publicKey)
+    existingKey.address = account.address
+    existingKey.version = newVersion
 
-    return existingKey;
+    return existingKey
   }
 
-  private async checkAccessControl(policy: AccessControlPolicy, authSig: AuthSignature): Promise<boolean> {
+  private async checkAccessControl(
+    policy: AccessControlPolicy,
+  ): Promise<boolean> {
     for (const condition of policy.conditions) {
-      const result = await this.evaluateCondition(condition, authSig);
-      if (policy.operator === 'and' && !result) return false;
-      if (policy.operator === 'or' && result) return true;
+      const result = await this.evaluateCondition(condition)
+      if (policy.operator === 'and' && !result) return false
+      if (policy.operator === 'or' && result) return true
     }
-    return policy.operator === 'and';
+    return policy.operator === 'and'
   }
 
-  private async evaluateCondition(condition: AccessCondition, authSig: AuthSignature): Promise<boolean> {
+  private async evaluateCondition(
+    condition: AccessCondition,
+  ): Promise<boolean> {
     switch (condition.type) {
       case 'timestamp':
-        return this.compare(Math.floor(Date.now() / 1000), condition.comparator, condition.value);
+        return this.compare(
+          Math.floor(Date.now() / 1000),
+          condition.comparator,
+          condition.value,
+        )
       case 'balance':
-        if (condition.value === '0') return true;
-        log.warn('Balance condition requires on-chain check', { address: authSig.address });
-        return false;
+        if (condition.value === '0') return true
+        log.debug('Balance condition requires on-chain check')
+        return false
       case 'stake':
-        if (condition.minStakeUSD === 0) return true;
-        log.warn('Stake condition requires on-chain check');
-        return false;
+        if (condition.minStakeUSD === 0) return true
+        log.debug('Stake condition requires on-chain check')
+        return false
       case 'role':
-        log.warn('Role condition requires on-chain check', { role: condition.role });
-        return false;
+        log.debug('Role condition requires on-chain check')
+        return false
       case 'agent':
-        log.warn('Agent condition requires on-chain check', { agentId: condition.agentId });
-        return false;
+        log.debug('Agent condition requires on-chain check')
+        return false
       case 'contract':
-        log.warn('Contract condition requires on-chain check');
-        return false;
+        log.debug('Contract condition requires on-chain check')
+        return false
       default:
-        return false;
+        return false
     }
   }
 
   private compare(a: number, op: ConditionOperator, b: number): boolean {
     switch (op) {
-      case ConditionOperator.EQUALS: return a === b;
-      case ConditionOperator.NOT_EQUALS: return a !== b;
-      case ConditionOperator.GREATER_THAN: return a > b;
-      case ConditionOperator.LESS_THAN: return a < b;
-      case ConditionOperator.GREATER_THAN_OR_EQUAL: return a >= b;
-      case ConditionOperator.LESS_THAN_OR_EQUAL: return a <= b;
-      case ConditionOperator.CONTAINS: return false;
-      default: return false;
+      case ConditionOperator.EQUALS:
+        return a === b
+      case ConditionOperator.NOT_EQUALS:
+        return a !== b
+      case ConditionOperator.GREATER_THAN:
+        return a > b
+      case ConditionOperator.LESS_THAN:
+        return a < b
+      case ConditionOperator.GREATER_THAN_OR_EQUAL:
+        return a >= b
+      case ConditionOperator.LESS_THAN_OR_EQUAL:
+        return a <= b
+      case ConditionOperator.CONTAINS:
+        return false
+      default:
+        return false
     }
   }
 
   private async ensureConnected(): Promise<void> {
-    if (!this.connected) await this.connect();
+    if (!this.connected) await this.connect()
   }
 
   getStatus(): { connected: boolean; keyCount: number; sessionCount: number } {
-    return { connected: this.connected, keyCount: this.keys.size, sessionCount: this.sessions.size };
+    return {
+      connected: this.connected,
+      keyCount: this.keys.size,
+      sessionCount: this.sessions.size,
+    }
   }
 }
 
-let encryptionProvider: EncryptionProvider | null = null;
+let encryptionProvider: EncryptionProvider | null = null
 
-export function getEncryptionProvider(config?: Partial<EncryptionConfig>): EncryptionProvider {
+export function getEncryptionProvider(
+  config?: Partial<EncryptionConfig>,
+): EncryptionProvider {
   if (!encryptionProvider) {
-    const debug = config?.debug ?? process.env.KMS_DEBUG === 'true';
-    encryptionProvider = new EncryptionProvider({ debug });
+    const debug = config?.debug ?? process.env.KMS_DEBUG === 'true'
+    encryptionProvider = new EncryptionProvider({ debug })
   }
-  return encryptionProvider;
+  return encryptionProvider
 }
 
 export function resetEncryptionProvider(): void {
   if (encryptionProvider) {
-    encryptionProvider.disconnect().catch((e: Error) => log.warn('Encryption provider disconnect failed', { error: e.message }));
-    encryptionProvider = null;
+    encryptionProvider
+      .disconnect()
+      .catch((e: Error) =>
+        log.warn('Encryption provider disconnect failed', { error: e.message }),
+      )
+    encryptionProvider = null
   }
 }

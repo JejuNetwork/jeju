@@ -180,7 +180,7 @@ Genesis:
     plan.print("=" * 70)
     plan.print("")
     plan.print("Endpoints:")
-    plan.print("  L1 RPC:     http://127.0.0.1:6545")
+    plan.print("  L1 RPC:     http://127.0.0.1:8545")
     plan.print("  L2 RPC:     http://127.0.0.1:9545  (use port forwarding)")
     if enable_cql:
         plan.print("  CQL API:    http://127.0.0.1:4300  (use port forwarding)")

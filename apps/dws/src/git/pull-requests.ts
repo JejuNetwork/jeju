@@ -3,56 +3,60 @@
  * Manages PRs with on-chain CID references stored in RepoRegistry metadata
  */
 
-import type { Address, Hex } from 'viem';
-import type { BackendManager } from '../storage/backends';
+import type { Address, Hex } from 'viem'
+import type { BackendManager } from '../storage/backends'
+import { decodeBytes32ToOid } from './oid-utils'
+import type { GitRepoManager } from './repo-manager'
 import type {
-  PullRequest,
+  ContributionEvent,
+  CreatePRRequest,
+  MergePRRequest,
+  PRIndex,
   PRReview,
   PRReviewComment,
-  PRIndex,
   PRState,
+  PullRequest,
   ReviewState,
-  CreatePRRequest,
   UpdatePRRequest,
-  MergePRRequest,
-  ContributionEvent,
-} from './types';
-import type { GitRepoManager } from './repo-manager';
-import { decodeBytes32ToOid } from './oid-utils';
+} from './types'
 
 export interface PRManagerConfig {
-  backend: BackendManager;
-  repoManager: GitRepoManager;
+  backend: BackendManager
+  repoManager: GitRepoManager
 }
 
 export class PullRequestsManager {
-  private backend: BackendManager;
-  private repoManager: GitRepoManager;
-  private prCache: Map<string, PullRequest> = new Map(); // `${repoId}!${number}` -> PR
-  private indexCache: Map<Hex, PRIndex> = new Map(); // repoId -> PRIndex
+  private backend: BackendManager
+  private repoManager: GitRepoManager
+  private prCache: Map<string, PullRequest> = new Map() // `${repoId}!${number}` -> PR
+  private indexCache: Map<Hex, PRIndex> = new Map() // repoId -> PRIndex
 
   constructor(config: PRManagerConfig) {
-    this.backend = config.backend;
-    this.repoManager = config.repoManager;
+    this.backend = config.backend
+    this.repoManager = config.repoManager
   }
 
   /**
    * Get or create PR index for a repository
    */
   async getPRIndex(repoId: Hex, metadataCid?: string): Promise<PRIndex> {
-    const cached = this.indexCache.get(repoId);
-    if (cached) return cached;
+    const cached = this.indexCache.get(repoId)
+    if (cached) return cached
 
     if (metadataCid) {
-      const result = await this.backend.download(metadataCid).catch(() => null);
+      const result = await this.backend.download(metadataCid).catch(() => null)
       if (result) {
-        const metadata = JSON.parse(result.content.toString()) as { prIndexCid?: string };
+        const metadata = JSON.parse(result.content.toString()) as {
+          prIndexCid?: string
+        }
         if (metadata.prIndexCid) {
-          const indexResult = await this.backend.download(metadata.prIndexCid).catch(() => null);
+          const indexResult = await this.backend
+            .download(metadata.prIndexCid)
+            .catch(() => null)
           if (indexResult) {
-            const index = JSON.parse(indexResult.content.toString()) as PRIndex;
-            this.indexCache.set(repoId, index);
-            return index;
+            const index = JSON.parse(indexResult.content.toString()) as PRIndex
+            this.indexCache.set(repoId, index)
+            return index
           }
         }
       }
@@ -66,31 +70,31 @@ export class PullRequestsManager {
       closedCount: 0,
       mergedCount: 0,
       prs: [],
-    };
-    this.indexCache.set(repoId, emptyIndex);
-    return emptyIndex;
+    }
+    this.indexCache.set(repoId, emptyIndex)
+    return emptyIndex
   }
 
   /**
    * Get a PR by repo and number
    */
   async getPR(repoId: Hex, prNumber: number): Promise<PullRequest | null> {
-    const cacheKey = `${repoId}!${prNumber}`;
-    const cached = this.prCache.get(cacheKey);
-    if (cached) return cached;
+    const cacheKey = `${repoId}!${prNumber}`
+    const cached = this.prCache.get(cacheKey)
+    if (cached) return cached
 
-    const index = this.indexCache.get(repoId);
-    if (!index) return null;
+    const index = this.indexCache.get(repoId)
+    if (!index) return null
 
-    const prRef = index.prs.find(p => p.number === prNumber);
-    if (!prRef) return null;
+    const prRef = index.prs.find((p) => p.number === prNumber)
+    if (!prRef) return null
 
-    const result = await this.backend.download(prRef.cid).catch(() => null);
-    if (!result) return null;
+    const result = await this.backend.download(prRef.cid).catch(() => null)
+    if (!result) return null
 
-    const pr = JSON.parse(result.content.toString()) as PullRequest;
-    this.prCache.set(cacheKey, pr);
-    return pr;
+    const pr = JSON.parse(result.content.toString()) as PullRequest
+    this.prCache.set(cacheKey, pr)
+    return pr
   }
 
   /**
@@ -99,62 +103,64 @@ export class PullRequestsManager {
   async listPRs(
     repoId: Hex,
     options: {
-      state?: PRState | 'all';
-      author?: Address;
-      sourceBranch?: string;
-      targetBranch?: string;
-      page?: number;
-      perPage?: number;
-      sort?: 'created' | 'updated';
-      direction?: 'asc' | 'desc';
-    } = {}
+      state?: PRState | 'all'
+      author?: Address
+      sourceBranch?: string
+      targetBranch?: string
+      page?: number
+      perPage?: number
+      sort?: 'created' | 'updated'
+      direction?: 'asc' | 'desc'
+    } = {},
   ): Promise<{ prs: PullRequest[]; total: number }> {
-    const index = this.indexCache.get(repoId);
-    if (!index) return { prs: [], total: 0 };
+    const index = this.indexCache.get(repoId)
+    if (!index) return { prs: [], total: 0 }
 
-    let prRefs = [...index.prs];
+    let prRefs = [...index.prs]
 
     // Filter by state
     if (options.state && options.state !== 'all') {
-      prRefs = prRefs.filter(p => p.state === options.state);
+      prRefs = prRefs.filter((p) => p.state === options.state)
     }
 
     // Filter by author
     if (options.author) {
-      prRefs = prRefs.filter(p => p.author.toLowerCase() === options.author?.toLowerCase());
+      prRefs = prRefs.filter(
+        (p) => p.author.toLowerCase() === options.author?.toLowerCase(),
+      )
     }
 
     // Filter by branches
     if (options.sourceBranch) {
-      prRefs = prRefs.filter(p => p.sourceBranch === options.sourceBranch);
+      prRefs = prRefs.filter((p) => p.sourceBranch === options.sourceBranch)
     }
     if (options.targetBranch) {
-      prRefs = prRefs.filter(p => p.targetBranch === options.targetBranch);
+      prRefs = prRefs.filter((p) => p.targetBranch === options.targetBranch)
     }
 
     // Sort
-    const sortField = options.sort || 'created';
-    const direction = options.direction || 'desc';
+    const sortField = options.sort || 'created'
+    const direction = options.direction || 'desc'
     prRefs.sort((a, b) => {
-      const aVal = sortField === 'updated' ? a.updatedAt : a.createdAt;
-      const bVal = sortField === 'updated' ? b.updatedAt : b.createdAt;
-      return direction === 'desc' ? bVal - aVal : aVal - bVal;
-    });
+      const aVal = sortField === 'updated' ? a.updatedAt : a.createdAt
+      const bVal = sortField === 'updated' ? b.updatedAt : b.createdAt
+      return direction === 'desc' ? bVal - aVal : aVal - bVal
+    })
 
     // Paginate
-    const page = options.page || 1;
-    const perPage = options.perPage || 30;
-    const start = (page - 1) * perPage;
-    const paginatedRefs = prRefs.slice(start, start + perPage);
+    const page = options.page || 1
+    const perPage = options.perPage || 30
+    const start = (page - 1) * perPage
+    const paginatedRefs = prRefs.slice(start, start + perPage)
 
     // Fetch full PRs
-    const prs: PullRequest[] = [];
+    const prs: PullRequest[] = []
     for (const ref of paginatedRefs) {
-      const pr = await this.getPR(repoId, ref.number);
-      if (pr) prs.push(pr);
+      const pr = await this.getPR(repoId, ref.number)
+      if (pr) prs.push(pr)
     }
 
-    return { prs, total: prRefs.length };
+    return { prs, total: prRefs.length }
   }
 
   /**
@@ -163,35 +169,47 @@ export class PullRequestsManager {
   async createPR(
     repoId: Hex,
     author: Address,
-    request: CreatePRRequest
-  ): Promise<{ pr: PullRequest; indexCid: string; contributionEvent: ContributionEvent }> {
-    const index = await this.getPRIndex(repoId);
-    const prNumber = index.totalCount + 1;
-    const now = Date.now();
+    request: CreatePRRequest,
+  ): Promise<{
+    pr: PullRequest
+    indexCid: string
+    contributionEvent: ContributionEvent
+  }> {
+    const index = await this.getPRIndex(repoId)
+    const prNumber = index.totalCount + 1
+    const now = Date.now()
 
     // Get the source and target branch info
-    const repo = await this.repoManager.getRepository(repoId);
+    const repo = await this.repoManager.getRepository(repoId)
     if (!repo) {
-      throw new Error('Repository not found');
+      throw new Error('Repository not found')
     }
 
-    const sourceBranch = await this.repoManager.getBranch(repoId, request.sourceBranch);
-    const targetBranchName = request.targetBranch || 'main';
-    const targetBranch = await this.repoManager.getBranch(repoId, targetBranchName);
+    const sourceBranch = await this.repoManager.getBranch(
+      repoId,
+      request.sourceBranch,
+    )
+    const targetBranchName = request.targetBranch || 'main'
+    const targetBranch = await this.repoManager.getBranch(
+      repoId,
+      targetBranchName,
+    )
 
     if (!sourceBranch) {
-      throw new Error(`Source branch '${request.sourceBranch}' not found`);
+      throw new Error(`Source branch '${request.sourceBranch}' not found`)
     }
     if (!targetBranch) {
-      throw new Error(`Target branch '${targetBranchName}' not found`);
+      throw new Error(`Target branch '${targetBranchName}' not found`)
     }
 
     // Get commits between base and head
-    const objectStore = this.repoManager.getObjectStore(repoId);
-    const headCommit = decodeBytes32ToOid(sourceBranch.tipCommitCid);
-    const baseCommit = decodeBytes32ToOid(targetBranch.tipCommitCid);
-    const commits = await objectStore.walkCommits(headCommit, 100);
-    const commitOids = commits.map(c => c.oid).filter(oid => oid !== baseCommit);
+    const objectStore = this.repoManager.getObjectStore(repoId)
+    const headCommit = decodeBytes32ToOid(sourceBranch.tipCommitCid)
+    const baseCommit = decodeBytes32ToOid(targetBranch.tipCommitCid)
+    const commits = await objectStore.walkCommits(headCommit, 100)
+    const commitOids = commits
+      .map((c) => c.oid)
+      .filter((oid) => oid !== baseCommit)
 
     const pr: PullRequest = {
       id: `${repoId}!${prNumber}`,
@@ -216,18 +234,18 @@ export class PullRequestsManager {
       draft: request.draft || false,
       mergeable: true, // Will be computed when checking
       linkedIssues: [],
-    };
+    }
 
     // Upload PR to storage
-    const prBuffer = Buffer.from(JSON.stringify(pr));
+    const prBuffer = Buffer.from(JSON.stringify(pr))
     const uploadResult = await this.backend.upload(prBuffer, {
       filename: `pr-${repoId}-${prNumber}.json`,
-    });
-    pr.cid = uploadResult.cid;
+    })
+    pr.cid = uploadResult.cid
 
     // Update index
-    index.totalCount++;
-    index.openCount++;
+    index.totalCount++
+    index.openCount++
     index.prs.push({
       number: prNumber,
       cid: pr.cid,
@@ -238,17 +256,17 @@ export class PullRequestsManager {
       targetBranch: pr.targetBranch,
       createdAt: now,
       updatedAt: now,
-    });
+    })
 
     // Upload updated index
-    const indexBuffer = Buffer.from(JSON.stringify(index));
+    const indexBuffer = Buffer.from(JSON.stringify(index))
     const indexResult = await this.backend.upload(indexBuffer, {
       filename: `pr-index-${repoId}.json`,
-    });
+    })
 
     // Update caches
-    this.prCache.set(`${repoId}!${prNumber}`, pr);
-    this.indexCache.set(repoId, index);
+    this.prCache.set(`${repoId}!${prNumber}`, pr)
+    this.indexCache.set(repoId, index)
 
     // Create contribution event
     const contributionEvent: ContributionEvent = {
@@ -258,9 +276,9 @@ export class PullRequestsManager {
       author,
       timestamp: now,
       metadata: { prNumber },
-    };
+    }
 
-    return { pr, indexCid: indexResult.cid, contributionEvent };
+    return { pr, indexCid: indexResult.cid, contributionEvent }
   }
 
   /**
@@ -270,68 +288,68 @@ export class PullRequestsManager {
     repoId: Hex,
     prNumber: number,
     updater: Address,
-    request: UpdatePRRequest
+    request: UpdatePRRequest,
   ): Promise<{ pr: PullRequest; indexCid: string }> {
-    const pr = await this.getPR(repoId, prNumber);
+    const pr = await this.getPR(repoId, prNumber)
     if (!pr) {
-      throw new Error(`PR #${prNumber} not found`);
+      throw new Error(`PR #${prNumber} not found`)
     }
 
-    const now = Date.now();
+    const now = Date.now()
 
     // Update fields
-    if (request.title !== undefined) pr.title = request.title;
-    if (request.body !== undefined) pr.body = request.body;
-    if (request.draft !== undefined) pr.draft = request.draft;
-    if (request.reviewers !== undefined) pr.reviewers = request.reviewers;
-    if (request.labels !== undefined) pr.labels = request.labels;
+    if (request.title !== undefined) pr.title = request.title
+    if (request.body !== undefined) pr.body = request.body
+    if (request.draft !== undefined) pr.draft = request.draft
+    if (request.reviewers !== undefined) pr.reviewers = request.reviewers
+    if (request.labels !== undefined) pr.labels = request.labels
     if (request.state !== undefined) {
-      pr.state = request.state;
+      pr.state = request.state
       if (request.state === 'closed' && !pr.closedAt) {
-        pr.closedAt = now;
-        pr.closedBy = updater;
+        pr.closedAt = now
+        pr.closedBy = updater
       }
     }
-    pr.updatedAt = now;
+    pr.updatedAt = now
 
     // Upload updated PR
-    const prBuffer = Buffer.from(JSON.stringify(pr));
+    const prBuffer = Buffer.from(JSON.stringify(pr))
     const uploadResult = await this.backend.upload(prBuffer, {
       filename: `pr-${repoId}-${prNumber}.json`,
-    });
-    pr.cid = uploadResult.cid;
+    })
+    pr.cid = uploadResult.cid
 
     // Update index
-    const index = this.indexCache.get(repoId);
+    const index = this.indexCache.get(repoId)
     if (index) {
-      const indexEntry = index.prs.find(p => p.number === prNumber);
+      const indexEntry = index.prs.find((p) => p.number === prNumber)
       if (indexEntry) {
-        indexEntry.cid = pr.cid;
-        indexEntry.state = pr.state;
-        indexEntry.title = pr.title;
-        indexEntry.updatedAt = now;
+        indexEntry.cid = pr.cid
+        indexEntry.state = pr.state
+        indexEntry.title = pr.title
+        indexEntry.updatedAt = now
       }
 
       // Update counts if state changed
       if (request.state === 'closed') {
-        index.openCount--;
-        index.closedCount++;
+        index.openCount--
+        index.closedCount++
       } else if (request.state === 'open') {
-        index.openCount++;
-        index.closedCount--;
+        index.openCount++
+        index.closedCount--
       }
     }
 
     // Upload updated index
-    const indexBuffer = Buffer.from(JSON.stringify(index));
+    const indexBuffer = Buffer.from(JSON.stringify(index))
     const indexResult = await this.backend.upload(indexBuffer, {
       filename: `pr-index-${repoId}.json`,
-    });
+    })
 
     // Update cache
-    this.prCache.set(`${repoId}!${prNumber}`, pr);
+    this.prCache.set(`${repoId}!${prNumber}`, pr)
 
-    return { pr, indexCid: indexResult.cid };
+    return { pr, indexCid: indexResult.cid }
   }
 
   /**
@@ -343,15 +361,25 @@ export class PullRequestsManager {
     reviewer: Address,
     state: ReviewState,
     body?: string,
-    comments?: Array<{ path: string; line: number; side: 'LEFT' | 'RIGHT'; body: string }>
-  ): Promise<{ pr: PullRequest; review: PRReview; indexCid: string; contributionEvent: ContributionEvent }> {
-    const pr = await this.getPR(repoId, prNumber);
+    comments?: Array<{
+      path: string
+      line: number
+      side: 'LEFT' | 'RIGHT'
+      body: string
+    }>,
+  ): Promise<{
+    pr: PullRequest
+    review: PRReview
+    indexCid: string
+    contributionEvent: ContributionEvent
+  }> {
+    const pr = await this.getPR(repoId, prNumber)
     if (!pr) {
-      throw new Error(`PR #${prNumber} not found`);
+      throw new Error(`PR #${prNumber} not found`)
     }
 
-    const now = Date.now();
-    const reviewId = `${repoId}!${prNumber}-review-${pr.reviews.length + 1}`;
+    const now = Date.now()
+    const reviewId = `${repoId}!${prNumber}-review-${pr.reviews.length + 1}`
 
     const reviewComments: PRReviewComment[] = (comments || []).map((c, i) => ({
       id: `${reviewId}-comment-${i + 1}`,
@@ -361,7 +389,7 @@ export class PullRequestsManager {
       line: c.line,
       side: c.side,
       createdAt: now,
-    }));
+    }))
 
     const review: PRReview = {
       id: reviewId,
@@ -371,36 +399,36 @@ export class PullRequestsManager {
       createdAt: now,
       commitOid: pr.headCommit,
       comments: reviewComments,
-    };
+    }
 
-    pr.reviews.push(review);
-    pr.updatedAt = now;
+    pr.reviews.push(review)
+    pr.updatedAt = now
 
     // Upload updated PR
-    const prBuffer = Buffer.from(JSON.stringify(pr));
+    const prBuffer = Buffer.from(JSON.stringify(pr))
     const uploadResult = await this.backend.upload(prBuffer, {
       filename: `pr-${repoId}-${prNumber}.json`,
-    });
-    pr.cid = uploadResult.cid;
+    })
+    pr.cid = uploadResult.cid
 
     // Update index
-    const index = this.indexCache.get(repoId);
+    const index = this.indexCache.get(repoId)
     if (index) {
-      const indexEntry = index.prs.find(p => p.number === prNumber);
+      const indexEntry = index.prs.find((p) => p.number === prNumber)
       if (indexEntry) {
-        indexEntry.cid = pr.cid;
-        indexEntry.updatedAt = now;
+        indexEntry.cid = pr.cid
+        indexEntry.updatedAt = now
       }
     }
 
     // Upload updated index
-    const indexBuffer = Buffer.from(JSON.stringify(index));
+    const indexBuffer = Buffer.from(JSON.stringify(index))
     const indexResult = await this.backend.upload(indexBuffer, {
       filename: `pr-index-${repoId}.json`,
-    });
+    })
 
     // Update cache
-    this.prCache.set(`${repoId}!${prNumber}`, pr);
+    this.prCache.set(`${repoId}!${prNumber}`, pr)
 
     // Create contribution event
     const contributionEvent: ContributionEvent = {
@@ -410,9 +438,9 @@ export class PullRequestsManager {
       author: reviewer,
       timestamp: now,
       metadata: { prNumber },
-    };
+    }
 
-    return { pr, review, indexCid: indexResult.cid, contributionEvent };
+    return { pr, review, indexCid: indexResult.cid, contributionEvent }
   }
 
   /**
@@ -422,24 +450,30 @@ export class PullRequestsManager {
     repoId: Hex,
     prNumber: number,
     merger: Address,
-    _request: MergePRRequest = {}
-  ): Promise<{ pr: PullRequest; indexCid: string; contributionEvent: ContributionEvent }> {
-    const pr = await this.getPR(repoId, prNumber);
+    _request: MergePRRequest = {},
+  ): Promise<{
+    pr: PullRequest
+    indexCid: string
+    contributionEvent: ContributionEvent
+  }> {
+    const pr = await this.getPR(repoId, prNumber)
     if (!pr) {
-      throw new Error(`PR #${prNumber} not found`);
+      throw new Error(`PR #${prNumber} not found`)
     }
 
     if (pr.state !== 'open') {
-      throw new Error('Can only merge open PRs');
+      throw new Error('Can only merge open PRs')
     }
 
-    const now = Date.now();
+    const now = Date.now()
 
     // Check if all reviews are approved (or no reviews required)
-    void pr.reviews.filter(r => r.state === 'approved'); // approvedReviews available if needed
-    const changesRequestedReviews = pr.reviews.filter(r => r.state === 'changes_requested');
+    void pr.reviews.filter((r) => r.state === 'approved') // approvedReviews available if needed
+    const changesRequestedReviews = pr.reviews.filter(
+      (r) => r.state === 'changes_requested',
+    )
     if (changesRequestedReviews.length > 0) {
-      throw new Error('Cannot merge: changes requested');
+      throw new Error('Cannot merge: changes requested')
     }
 
     // Perform the merge via repo manager
@@ -450,43 +484,43 @@ export class PullRequestsManager {
       pr.headCommit,
       pr.baseCommit,
       pr.commits.length,
-      merger
-    );
+      merger,
+    )
 
     // Update PR state
-    pr.state = 'merged';
-    pr.mergedAt = now;
-    pr.mergedBy = merger;
-    pr.updatedAt = now;
+    pr.state = 'merged'
+    pr.mergedAt = now
+    pr.mergedBy = merger
+    pr.updatedAt = now
 
     // Upload updated PR
-    const prBuffer = Buffer.from(JSON.stringify(pr));
+    const prBuffer = Buffer.from(JSON.stringify(pr))
     const uploadResult = await this.backend.upload(prBuffer, {
       filename: `pr-${repoId}-${prNumber}.json`,
-    });
-    pr.cid = uploadResult.cid;
+    })
+    pr.cid = uploadResult.cid
 
     // Update index
-    const index = this.indexCache.get(repoId);
+    const index = this.indexCache.get(repoId)
     if (index) {
-      const indexEntry = index.prs.find(p => p.number === prNumber);
+      const indexEntry = index.prs.find((p) => p.number === prNumber)
       if (indexEntry) {
-        indexEntry.cid = pr.cid;
-        indexEntry.state = 'merged';
-        indexEntry.updatedAt = now;
+        indexEntry.cid = pr.cid
+        indexEntry.state = 'merged'
+        indexEntry.updatedAt = now
       }
-      index.openCount--;
-      index.mergedCount++;
+      index.openCount--
+      index.mergedCount++
     }
 
     // Upload updated index
-    const indexBuffer = Buffer.from(JSON.stringify(index));
+    const indexBuffer = Buffer.from(JSON.stringify(index))
     const indexResult = await this.backend.upload(indexBuffer, {
       filename: `pr-index-${repoId}.json`,
-    });
+    })
 
     // Update cache
-    this.prCache.set(`${repoId}!${prNumber}`, pr);
+    this.prCache.set(`${repoId}!${prNumber}`, pr)
 
     // Create contribution event
     const contributionEvent: ContributionEvent = {
@@ -496,26 +530,29 @@ export class PullRequestsManager {
       author: merger,
       timestamp: now,
       metadata: { prNumber },
-    };
+    }
 
-    return { pr, indexCid: indexResult.cid, contributionEvent };
+    return { pr, indexCid: indexResult.cid, contributionEvent }
   }
 
   /**
    * Check if PR is mergeable
    */
   async checkMergeable(repoId: Hex, prNumber: number): Promise<boolean> {
-    const pr = await this.getPR(repoId, prNumber);
-    if (!pr || pr.state !== 'open') return false;
+    const pr = await this.getPR(repoId, prNumber)
+    if (!pr || pr.state !== 'open') return false
 
     // Check if target branch has moved
-    const targetBranch = await this.repoManager.getBranch(repoId, pr.targetBranch);
-    if (!targetBranch) return false;
+    const targetBranch = await this.repoManager.getBranch(
+      repoId,
+      pr.targetBranch,
+    )
+    if (!targetBranch) return false
 
     // Simple check: if base commit still matches target branch tip, it's mergeable
     // Real implementation would check for conflicts
-    const currentBase = decodeBytes32ToOid(targetBranch.tipCommitCid);
-    return pr.baseCommit === currentBase;
+    const currentBase = decodeBytes32ToOid(targetBranch.tipCommitCid)
+    return pr.baseCommit === currentBase
   }
 
   /**
@@ -523,56 +560,83 @@ export class PullRequestsManager {
    */
   async getChangedFiles(
     repoId: Hex,
-    prNumber: number
-  ): Promise<Array<{ path: string; additions: number; deletions: number; status: 'added' | 'modified' | 'deleted' }>> {
-    const pr = await this.getPR(repoId, prNumber);
-    if (!pr) return [];
+    prNumber: number,
+  ): Promise<
+    Array<{
+      path: string
+      additions: number
+      deletions: number
+      status: 'added' | 'modified' | 'deleted'
+    }>
+  > {
+    const pr = await this.getPR(repoId, prNumber)
+    if (!pr) return []
 
-    const objectStore = this.repoManager.getObjectStore(repoId);
+    const objectStore = this.repoManager.getObjectStore(repoId)
 
     // Get tree for head and base commits
-    const headCommit = await objectStore.getCommit(pr.headCommit);
-    const baseCommit = await objectStore.getCommit(pr.baseCommit);
-    if (!headCommit || !baseCommit) return [];
+    const headCommit = await objectStore.getCommit(pr.headCommit)
+    const baseCommit = await objectStore.getCommit(pr.baseCommit)
+    if (!headCommit || !baseCommit) return []
 
-    const headTree = await objectStore.getTree(headCommit.tree);
-    const baseTree = await objectStore.getTree(baseCommit.tree);
-    if (!headTree || !baseTree) return [];
+    const headTree = await objectStore.getTree(headCommit.tree)
+    const baseTree = await objectStore.getTree(baseCommit.tree)
+    if (!headTree || !baseTree) return []
 
     // Simple comparison (doesn't handle nested directories well)
-    const changedFiles: Array<{ path: string; additions: number; deletions: number; status: 'added' | 'modified' | 'deleted' }> = [];
+    const changedFiles: Array<{
+      path: string
+      additions: number
+      deletions: number
+      status: 'added' | 'modified' | 'deleted'
+    }> = []
 
-    const baseFiles = new Map(baseTree.entries.map(e => [e.name, e.oid]));
-    const headFiles = new Map(headTree.entries.map(e => [e.name, e.oid]));
+    const baseFiles = new Map(baseTree.entries.map((e) => [e.name, e.oid]))
+    const headFiles = new Map(headTree.entries.map((e) => [e.name, e.oid]))
 
     // Find added and modified files
     for (const [name, oid] of headFiles) {
-      const baseOid = baseFiles.get(name);
+      const baseOid = baseFiles.get(name)
       if (!baseOid) {
-        changedFiles.push({ path: name, additions: 0, deletions: 0, status: 'added' });
+        changedFiles.push({
+          path: name,
+          additions: 0,
+          deletions: 0,
+          status: 'added',
+        })
       } else if (baseOid !== oid) {
-        changedFiles.push({ path: name, additions: 0, deletions: 0, status: 'modified' });
+        changedFiles.push({
+          path: name,
+          additions: 0,
+          deletions: 0,
+          status: 'modified',
+        })
       }
     }
 
     // Find deleted files
     for (const name of baseFiles.keys()) {
       if (!headFiles.has(name)) {
-        changedFiles.push({ path: name, additions: 0, deletions: 0, status: 'deleted' });
+        changedFiles.push({
+          path: name,
+          additions: 0,
+          deletions: 0,
+          status: 'deleted',
+        })
       }
     }
 
-    return changedFiles;
+    return changedFiles
   }
 
   /**
    * Clear caches for a repository
    */
   clearCache(repoId: Hex): void {
-    this.indexCache.delete(repoId);
+    this.indexCache.delete(repoId)
     for (const key of this.prCache.keys()) {
       if (key.startsWith(repoId)) {
-        this.prCache.delete(key);
+        this.prCache.delete(key)
       }
     }
   }
@@ -581,11 +645,10 @@ export class PullRequestsManager {
    * Preload index into cache
    */
   async preloadIndex(repoId: Hex, prIndexCid: string): Promise<void> {
-    const result = await this.backend.download(prIndexCid).catch(() => null);
+    const result = await this.backend.download(prIndexCid).catch(() => null)
     if (result) {
-      const index = JSON.parse(result.content.toString()) as PRIndex;
-      this.indexCache.set(repoId, index);
+      const index = JSON.parse(result.content.toString()) as PRIndex
+      this.indexCache.set(repoId, index)
     }
   }
 }
-

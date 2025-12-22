@@ -1,89 +1,98 @@
-import { useState } from 'react';
-import { 
-  Wallet, 
-  Plus, 
-  Import, 
-  ExternalLink, 
-  Copy, 
+import { invoke } from '@tauri-apps/api/core'
+import clsx from 'clsx'
+import { AnimatePresence, motion } from 'framer-motion'
+import {
   Check,
-  Shield,
+  Copy,
+  ExternalLink,
+  Import,
   Key,
-  RefreshCw
-} from 'lucide-react';
-import { useAppStore } from '../store';
-import { formatEther } from '../utils';
-import { invoke } from '@tauri-apps/api/core';
-import clsx from 'clsx';
-import { motion, AnimatePresence } from 'framer-motion';
-import { z } from 'zod';
+  Plus,
+  RefreshCw,
+  Shield,
+  Wallet,
+} from 'lucide-react'
+import { useState } from 'react'
+import { z } from 'zod'
+import { useAppStore } from '../store'
+import { formatEther } from '../utils'
 
 const CreateWalletRequestSchema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters'),
-});
+})
 
-const ImportWalletRequestSchema = z.object({
-  private_key: z.string().regex(/^0x[a-fA-F0-9]{64}$/).nullable(),
-  mnemonic: z.string().min(1).nullable(),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
-}).refine(
-  (data) => (data.private_key !== null) !== (data.mnemonic !== null),
-  { message: 'Must provide either private_key or mnemonic, not both' }
-);
+const ImportWalletRequestSchema = z
+  .object({
+    private_key: z
+      .string()
+      .regex(/^0x[a-fA-F0-9]{64}$/)
+      .nullable(),
+    mnemonic: z.string().min(1).nullable(),
+    password: z.string().min(8, 'Password must be at least 8 characters'),
+  })
+  .refine((data) => (data.private_key !== null) !== (data.mnemonic !== null), {
+    message: 'Must provide either private_key or mnemonic, not both',
+  })
 
-type WalletAction = 'create' | 'import' | 'external' | 'jeju' | null;
+type WalletAction = 'create' | 'import' | 'external' | 'jeju' | null
 
 export function WalletView() {
-  const { wallet, balance, agent, fetchWallet, fetchBalance } = useAppStore();
-  const [action, setAction] = useState<WalletAction>(null);
-  const [password, setPassword] = useState('');
-  const [privateKey, setPrivateKey] = useState('');
-  const [mnemonic, setMnemonic] = useState('');
-  const [importType, setImportType] = useState<'key' | 'mnemonic'>('mnemonic');
-  const [copied, setCopied] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { wallet, balance, agent, fetchWallet, fetchBalance } = useAppStore()
+  const [action, setAction] = useState<WalletAction>(null)
+  const [password, setPassword] = useState('')
+  const [privateKey, setPrivateKey] = useState('')
+  const [mnemonic, setMnemonic] = useState('')
+  const [importType, setImportType] = useState<'key' | 'mnemonic'>('mnemonic')
+  const [copied, setCopied] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleCreate = async () => {
-    const request = CreateWalletRequestSchema.parse({ password });
-    
-    setLoading(true);
-    setError(null);
-    
-    await invoke('create_wallet', { request });
-    await fetchWallet();
-    await fetchBalance();
-    setAction(null);
-    setPassword('');
-    setLoading(false);
-  };
+    const request = CreateWalletRequestSchema.parse({ password })
+
+    setLoading(true)
+    setError(null)
+
+    await invoke('create_wallet', { request })
+    await fetchWallet()
+    await fetchBalance()
+    setAction(null)
+    setPassword('')
+    setLoading(false)
+  }
 
   const handleImport = async () => {
     const request = ImportWalletRequestSchema.parse({
-      private_key: importType === 'key' ? (privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`) : null,
+      private_key:
+        importType === 'key'
+          ? privateKey.startsWith('0x')
+            ? privateKey
+            : `0x${privateKey}`
+          : null,
       mnemonic: importType === 'mnemonic' ? mnemonic : null,
       password,
-    });
-    
-    setLoading(true);
-    setError(null);
-    
-    await invoke('import_wallet', { request });
-    await fetchWallet();
-    await fetchBalance();
-    setAction(null);
-    setPassword('');
-    setPrivateKey('');
-    setMnemonic('');
-    setLoading(false);
-  };
+    })
+
+    setLoading(true)
+    setError(null)
+
+    await invoke('import_wallet', { request })
+    await fetchWallet()
+    await fetchBalance()
+    setAction(null)
+    setPassword('')
+    setPrivateKey('')
+    setMnemonic('')
+    setLoading(false)
+  }
 
   const copyAddress = () => {
     if (wallet?.address) {
-      navigator.clipboard.writeText(wallet.address);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      navigator.clipboard.writeText(wallet.address)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
     }
-  };
+  }
 
   if (!wallet) {
     return (
@@ -108,11 +117,13 @@ export function WalletView() {
               </div>
               <div>
                 <h3 className="font-semibold">Create New Wallet</h3>
-                <p className="text-sm text-volcanic-400">Generate a new embedded wallet</p>
+                <p className="text-sm text-volcanic-400">
+                  Generate a new embedded wallet
+                </p>
               </div>
             </div>
           </button>
-          
+
           <button
             onClick={() => setAction('import')}
             className="card-hover p-6 text-left group"
@@ -123,11 +134,13 @@ export function WalletView() {
               </div>
               <div>
                 <h3 className="font-semibold">Import Wallet</h3>
-                <p className="text-sm text-volcanic-400">Import from seed phrase or private key</p>
+                <p className="text-sm text-volcanic-400">
+                  Import from seed phrase or private key
+                </p>
               </div>
             </div>
           </button>
-          
+
           <button
             onClick={() => setAction('external')}
             className="card-hover p-6 text-left group"
@@ -138,11 +151,13 @@ export function WalletView() {
               </div>
               <div>
                 <h3 className="font-semibold">Connect External Wallet</h3>
-                <p className="text-sm text-volcanic-400">MetaMask, Rabby, or other browser wallet</p>
+                <p className="text-sm text-volcanic-400">
+                  MetaMask, Rabby, or other browser wallet
+                </p>
               </div>
             </div>
           </button>
-          
+
           <button
             onClick={() => setAction('jeju')}
             className="card-hover p-6 text-left group border-jeju-500/30"
@@ -152,8 +167,12 @@ export function WalletView() {
                 <Shield size={24} />
               </div>
               <div>
-                <h3 className="font-semibold gradient-text">Connect Network Wallet</h3>
-                <p className="text-sm text-volcanic-400">Use your Network Wallet with full integration</p>
+                <h3 className="font-semibold gradient-text">
+                  Connect Network Wallet
+                </h3>
+                <p className="text-sm text-volcanic-400">
+                  Use your Network Wallet with full integration
+                </p>
               </div>
             </div>
           </button>
@@ -178,14 +197,16 @@ export function WalletView() {
               >
                 {action === 'create' && (
                   <>
-                    <h2 className="text-xl font-bold mb-4">Create New Wallet</h2>
-                    
+                    <h2 className="text-xl font-bold mb-4">
+                      Create New Wallet
+                    </h2>
+
                     {error && (
                       <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-4 text-sm text-red-400">
                         {error}
                       </div>
                     )}
-                    
+
                     <div className="space-y-4">
                       <div>
                         <label className="label">Password</label>
@@ -201,13 +222,16 @@ export function WalletView() {
                         </p>
                       </div>
                     </div>
-                    
+
                     <div className="flex gap-3 mt-6">
-                      <button onClick={() => setAction(null)} className="btn-secondary flex-1">
+                      <button
+                        onClick={() => setAction(null)}
+                        className="btn-secondary flex-1"
+                      >
                         Cancel
                       </button>
-                      <button 
-                        onClick={handleCreate} 
+                      <button
+                        onClick={handleCreate}
                         disabled={loading}
                         className="btn-primary flex-1"
                       >
@@ -216,17 +240,17 @@ export function WalletView() {
                     </div>
                   </>
                 )}
-                
+
                 {action === 'import' && (
                   <>
                     <h2 className="text-xl font-bold mb-4">Import Wallet</h2>
-                    
+
                     {error && (
                       <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-4 text-sm text-red-400">
                         {error}
                       </div>
                     )}
-                    
+
                     <div className="space-y-4">
                       <div className="flex gap-2 bg-volcanic-800 rounded-lg p-1">
                         <button
@@ -235,7 +259,7 @@ export function WalletView() {
                             'flex-1 py-2 rounded-md text-sm transition-all',
                             importType === 'mnemonic'
                               ? 'bg-volcanic-700 text-white'
-                              : 'text-volcanic-400'
+                              : 'text-volcanic-400',
                           )}
                         >
                           Seed Phrase
@@ -246,13 +270,13 @@ export function WalletView() {
                             'flex-1 py-2 rounded-md text-sm transition-all',
                             importType === 'key'
                               ? 'bg-volcanic-700 text-white'
-                              : 'text-volcanic-400'
+                              : 'text-volcanic-400',
                           )}
                         >
                           Private Key
                         </button>
                       </div>
-                      
+
                       {importType === 'mnemonic' ? (
                         <div>
                           <label className="label">Seed Phrase</label>
@@ -275,7 +299,7 @@ export function WalletView() {
                           />
                         </div>
                       )}
-                      
+
                       <div>
                         <label className="label">Password</label>
                         <input
@@ -287,13 +311,16 @@ export function WalletView() {
                         />
                       </div>
                     </div>
-                    
+
                     <div className="flex gap-3 mt-6">
-                      <button onClick={() => setAction(null)} className="btn-secondary flex-1">
+                      <button
+                        onClick={() => setAction(null)}
+                        className="btn-secondary flex-1"
+                      >
                         Cancel
                       </button>
-                      <button 
-                        onClick={handleImport} 
+                      <button
+                        onClick={handleImport}
                         disabled={loading}
                         className="btn-primary flex-1"
                       >
@@ -302,18 +329,24 @@ export function WalletView() {
                     </div>
                   </>
                 )}
-                
+
                 {(action === 'external' || action === 'jeju') && (
                   <>
                     <h2 className="text-xl font-bold mb-4">
-                      {action === 'external' ? 'Connect External Wallet' : 'Connect Network Wallet'}
+                      {action === 'external'
+                        ? 'Connect External Wallet'
+                        : 'Connect Network Wallet'}
                     </h2>
-                    
+
                     <p className="text-volcanic-400 mb-4">
-                      This feature requires browser wallet extension support. Coming soon.
+                      This feature requires browser wallet extension support.
+                      Coming soon.
                     </p>
-                    
-                    <button onClick={() => setAction(null)} className="btn-secondary w-full">
+
+                    <button
+                      onClick={() => setAction(null)}
+                      className="btn-secondary w-full"
+                    >
                       Close
                     </button>
                   </>
@@ -323,7 +356,7 @@ export function WalletView() {
           )}
         </AnimatePresence>
       </div>
-    );
+    )
   }
 
   return (
@@ -344,7 +377,9 @@ export function WalletView() {
               <Wallet size={28} className="text-white" />
             </div>
             <div>
-              <p className="text-sm text-volcanic-400 capitalize">{wallet.wallet_type} Wallet</p>
+              <p className="text-sm text-volcanic-400 capitalize">
+                {wallet.wallet_type} Wallet
+              </p>
               <div className="flex items-center gap-2 mt-1">
                 <code className="text-lg font-mono">
                   {wallet.address.slice(0, 10)}...{wallet.address.slice(-8)}
@@ -353,29 +388,45 @@ export function WalletView() {
                   onClick={copyAddress}
                   className="p-1.5 rounded-lg hover:bg-volcanic-800 transition-colors"
                 >
-                  {copied ? <Check size={16} className="text-jeju-400" /> : <Copy size={16} />}
+                  {copied ? (
+                    <Check size={16} className="text-jeju-400" />
+                  ) : (
+                    <Copy size={16} />
+                  )}
                 </button>
               </div>
             </div>
           </div>
-          
-          <button onClick={() => { fetchWallet(); fetchBalance(); }} className="btn-ghost p-2">
+
+          <button
+            onClick={() => {
+              fetchWallet()
+              fetchBalance()
+            }}
+            className="btn-ghost p-2"
+          >
             <RefreshCw size={18} />
           </button>
         </div>
-        
+
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
           <div>
             <p className="text-sm text-volcanic-400">ETH Balance</p>
-            <p className="text-xl font-bold">{formatEther(balance?.eth || '0')}</p>
+            <p className="text-xl font-bold">
+              {formatEther(balance?.eth || '0')}
+            </p>
           </div>
           <div>
             <p className="text-sm text-volcanic-400">JEJU Balance</p>
-            <p className="text-xl font-bold">{formatEther(balance?.jeju || '0')}</p>
+            <p className="text-xl font-bold">
+              {formatEther(balance?.jeju || '0')}
+            </p>
           </div>
           <div>
             <p className="text-sm text-volcanic-400">Staked</p>
-            <p className="text-xl font-bold">{formatEther(balance?.staked || '0')}</p>
+            <p className="text-xl font-bold">
+              {formatEther(balance?.staked || '0')}
+            </p>
           </div>
           <div>
             <p className="text-sm text-volcanic-400">Pending Rewards</p>
@@ -392,7 +443,7 @@ export function WalletView() {
           <Shield size={18} className="text-volcanic-400" />
           Agent Identity (ERC-8004)
         </h2>
-        
+
         {agent ? (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -418,9 +469,7 @@ export function WalletView() {
             <p className="text-volcanic-400 mb-4">
               Register an ERC-8004 agent to participate in the network
             </p>
-            <button className="btn-primary">
-              Register Agent
-            </button>
+            <button className="btn-primary">Register Agent</button>
           </div>
         )}
       </div>
@@ -431,7 +480,7 @@ export function WalletView() {
           <Key size={18} className="text-volcanic-400" />
           Security
         </h2>
-        
+
         <div className="space-y-3">
           <button className="btn-secondary w-full text-left flex items-center justify-between">
             <span>Export Private Key</span>
@@ -447,6 +496,5 @@ export function WalletView() {
         </div>
       </div>
     </div>
-  );
+  )
 }
-

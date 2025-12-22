@@ -1,12 +1,11 @@
 export {
-  SolanaNetworkRegistry,
   createSolanaNetworkRegistry,
-  registerSolanaNetworks,
   establishSolanaTrust,
-  type NetworkRegistryConfig,
-  type SolanaNetworkConfig,
   type NetworkContracts,
+  type NetworkRegistryConfig,
+  registerSolanaNetworks,
+  type SolanaNetworkConfig,
   type SolanaNetworkInfo,
+  SolanaNetworkRegistry,
   TrustTier,
-} from './solana-network.js';
-
+} from './solana-network.js'

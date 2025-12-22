@@ -1,29 +1,29 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { useAccount } from 'wagmi';
+import { clsx } from 'clsx'
 import {
   AlertCircle,
   ArrowLeft,
-  Tag,
-  Users,
-  Milestone,
-  Loader2,
-  Send,
   Bold,
-  Italic,
   Code,
+  Edit3,
+  Eye,
+  Image as ImageIcon,
+  Italic,
   Link as LinkIcon,
   List,
   ListOrdered,
-  Image as ImageIcon,
-  Eye,
-  Edit3,
-} from 'lucide-react';
-import Link from 'next/link';
-import { clsx } from 'clsx';
-import ReactMarkdown from 'react-markdown';
+  Loader2,
+  Milestone,
+  Send,
+  Tag,
+  Users,
+} from 'lucide-react'
+import Link from 'next/link'
+import { useParams, useRouter } from 'next/navigation'
+import { useState } from 'react'
+import ReactMarkdown from 'react-markdown'
+import { useAccount } from 'wagmi'
 
 const labels = [
   { name: 'bug', color: 'bg-red-500' },
@@ -32,76 +32,89 @@ const labels = [
   { name: 'good first issue', color: 'bg-green-500' },
   { name: 'help wanted', color: 'bg-yellow-500' },
   { name: 'question', color: 'bg-pink-500' },
-];
+]
 
 const assignees = [
-  { id: '1', name: 'alice.eth', avatar: 'https://avatars.githubusercontent.com/u/1?v=4' },
-  { id: '2', name: 'bob.eth', avatar: 'https://avatars.githubusercontent.com/u/2?v=4' },
-  { id: '3', name: 'charlie.eth', avatar: 'https://avatars.githubusercontent.com/u/3?v=4' },
-];
+  {
+    id: '1',
+    name: 'alice.eth',
+    avatar: 'https://avatars.githubusercontent.com/u/1?v=4',
+  },
+  {
+    id: '2',
+    name: 'bob.eth',
+    avatar: 'https://avatars.githubusercontent.com/u/2?v=4',
+  },
+  {
+    id: '3',
+    name: 'charlie.eth',
+    avatar: 'https://avatars.githubusercontent.com/u/3?v=4',
+  },
+]
 
 export default function NewIssuePage() {
-  const params = useParams();
-  const router = useRouter();
-  const { isConnected } = useAccount();
-  const owner = params.owner as string;
-  const repo = params.repo as string;
+  const params = useParams()
+  const router = useRouter()
+  const { isConnected } = useAccount()
+  const owner = params.owner as string
+  const repo = params.repo as string
 
-  const [title, setTitle] = useState('');
-  const [body, setBody] = useState('');
-  const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
-  const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
-  const [isPreview, setIsPreview] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showLabels, setShowLabels] = useState(false);
-  const [showAssignees, setShowAssignees] = useState(false);
+  const [title, setTitle] = useState('')
+  const [body, setBody] = useState('')
+  const [selectedLabels, setSelectedLabels] = useState<string[]>([])
+  const [selectedAssignees, setSelectedAssignees] = useState<string[]>([])
+  const [isPreview, setIsPreview] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showLabels, setShowLabels] = useState(false)
+  const [showAssignees, setShowAssignees] = useState(false)
 
   const toggleLabel = (label: string) => {
-    setSelectedLabels(prev =>
-      prev.includes(label)
-        ? prev.filter(l => l !== label)
-        : [...prev, label]
-    );
-  };
+    setSelectedLabels((prev) =>
+      prev.includes(label) ? prev.filter((l) => l !== label) : [...prev, label],
+    )
+  }
 
   const toggleAssignee = (id: string) => {
-    setSelectedAssignees(prev =>
-      prev.includes(id)
-        ? prev.filter(a => a !== id)
-        : [...prev, id]
-    );
-  };
+    setSelectedAssignees((prev) =>
+      prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id],
+    )
+  }
 
   const insertMarkdown = (syntax: string, wrap = false) => {
-    const textarea = document.querySelector('textarea');
-    if (!textarea) return;
+    const textarea = document.querySelector('textarea')
+    if (!textarea) return
 
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selected = body.substring(start, end);
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const selected = body.substring(start, end)
 
-    let newText: string;
+    let newText: string
     if (wrap && selected) {
-      newText = body.substring(0, start) + syntax + selected + syntax + body.substring(end);
+      newText =
+        body.substring(0, start) +
+        syntax +
+        selected +
+        syntax +
+        body.substring(end)
     } else {
-      newText = body.substring(0, start) + syntax + body.substring(end);
+      newText = body.substring(0, start) + syntax + body.substring(end)
     }
 
-    setBody(newText);
-  };
+    setBody(newText)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim()) return;
+    e.preventDefault()
+    if (!title.trim()) return
 
-    setIsSubmitting(true);
+    setIsSubmitting(true)
 
     // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000))
 
     // Redirect to issues list
-    router.push(`/git/${owner}/${repo}`);
-  };
+    router.push(`/git/${owner}/${repo}`)
+  }
 
   return (
     <div className="min-h-screen p-8">
@@ -144,7 +157,9 @@ export default function NewIssuePage() {
                   onClick={() => setIsPreview(false)}
                   className={clsx(
                     'px-3 py-1 text-sm rounded',
-                    !isPreview ? 'bg-factory-700 text-factory-100' : 'text-factory-400 hover:text-factory-200'
+                    !isPreview
+                      ? 'bg-factory-700 text-factory-100'
+                      : 'text-factory-400 hover:text-factory-200',
                   )}
                 >
                   <Edit3 className="w-4 h-4 inline mr-1" />
@@ -155,7 +170,9 @@ export default function NewIssuePage() {
                   onClick={() => setIsPreview(true)}
                   className={clsx(
                     'px-3 py-1 text-sm rounded',
-                    isPreview ? 'bg-factory-700 text-factory-100' : 'text-factory-400 hover:text-factory-200'
+                    isPreview
+                      ? 'bg-factory-700 text-factory-100'
+                      : 'text-factory-400 hover:text-factory-200',
                   )}
                 >
                   <Eye className="w-4 h-4 inline mr-1" />
@@ -164,25 +181,60 @@ export default function NewIssuePage() {
                 <div className="flex-1" />
                 {!isPreview && (
                   <div className="flex items-center gap-1">
-                    <button type="button" onClick={() => insertMarkdown('**', true)} className="p-1.5 hover:bg-factory-700 rounded" title="Bold">
+                    <button
+                      type="button"
+                      onClick={() => insertMarkdown('**', true)}
+                      className="p-1.5 hover:bg-factory-700 rounded"
+                      title="Bold"
+                    >
                       <Bold className="w-4 h-4 text-factory-400" />
                     </button>
-                    <button type="button" onClick={() => insertMarkdown('_', true)} className="p-1.5 hover:bg-factory-700 rounded" title="Italic">
+                    <button
+                      type="button"
+                      onClick={() => insertMarkdown('_', true)}
+                      className="p-1.5 hover:bg-factory-700 rounded"
+                      title="Italic"
+                    >
                       <Italic className="w-4 h-4 text-factory-400" />
                     </button>
-                    <button type="button" onClick={() => insertMarkdown('`', true)} className="p-1.5 hover:bg-factory-700 rounded" title="Code">
+                    <button
+                      type="button"
+                      onClick={() => insertMarkdown('`', true)}
+                      className="p-1.5 hover:bg-factory-700 rounded"
+                      title="Code"
+                    >
                       <Code className="w-4 h-4 text-factory-400" />
                     </button>
-                    <button type="button" onClick={() => insertMarkdown('[text](url)')} className="p-1.5 hover:bg-factory-700 rounded" title="Link">
+                    <button
+                      type="button"
+                      onClick={() => insertMarkdown('[text](url)')}
+                      className="p-1.5 hover:bg-factory-700 rounded"
+                      title="Link"
+                    >
                       <LinkIcon className="w-4 h-4 text-factory-400" />
                     </button>
-                    <button type="button" onClick={() => insertMarkdown('\n- ')} className="p-1.5 hover:bg-factory-700 rounded" title="List">
+                    <button
+                      type="button"
+                      onClick={() => insertMarkdown('\n- ')}
+                      className="p-1.5 hover:bg-factory-700 rounded"
+                      title="List"
+                    >
                       <List className="w-4 h-4 text-factory-400" />
                     </button>
-                    <button type="button" onClick={() => insertMarkdown('\n1. ')} className="p-1.5 hover:bg-factory-700 rounded" title="Numbered list">
+                    <button
+                      type="button"
+                      onClick={() => insertMarkdown('\n1. ')}
+                      className="p-1.5 hover:bg-factory-700 rounded"
+                      title="Numbered list"
+                    >
                       <ListOrdered className="w-4 h-4 text-factory-400" />
                     </button>
-                    <button type="button" onClick={() => insertMarkdown('![alt](url)')} className="p-1.5 hover:bg-factory-700 rounded" title="Image">
+                    <button
+                      type="button"
+                      onClick={() => insertMarkdown('![alt](url)')}
+                      className="p-1.5 hover:bg-factory-700 rounded"
+                      title="Image"
+                    >
                       <ImageIcon className="w-4 h-4 text-factory-400" />
                     </button>
                   </div>
@@ -195,7 +247,9 @@ export default function NewIssuePage() {
                   {body ? (
                     <ReactMarkdown>{body}</ReactMarkdown>
                   ) : (
-                    <p className="text-factory-500 italic">Nothing to preview</p>
+                    <p className="text-factory-500 italic">
+                      Nothing to preview
+                    </p>
                   )}
                 </div>
               ) : (
@@ -210,7 +264,10 @@ export default function NewIssuePage() {
 
               {/* Submit */}
               <div className="flex justify-end mt-4 gap-3">
-                <Link href={`/git/${owner}/${repo}`} className="btn btn-secondary">
+                <Link
+                  href={`/git/${owner}/${repo}`}
+                  className="btn btn-secondary"
+                >
                   Cancel
                 </Link>
                 <button
@@ -247,20 +304,29 @@ export default function NewIssuePage() {
                   <Tag className="w-4 h-4" />
                   Labels
                 </span>
-                <span className="text-factory-500">{selectedLabels.length || 'None'}</span>
+                <span className="text-factory-500">
+                  {selectedLabels.length || 'None'}
+                </span>
               </button>
               {showLabels && (
                 <div className="space-y-2 mt-3">
                   {labels.map((label) => (
-                    <label key={label.name} className="flex items-center gap-2 cursor-pointer">
+                    <label
+                      key={label.name}
+                      className="flex items-center gap-2 cursor-pointer"
+                    >
                       <input
                         type="checkbox"
                         checked={selectedLabels.includes(label.name)}
                         onChange={() => toggleLabel(label.name)}
                         className="rounded border-factory-600 bg-factory-800 text-accent-500"
                       />
-                      <span className={clsx('w-3 h-3 rounded-full', label.color)} />
-                      <span className="text-sm text-factory-300">{label.name}</span>
+                      <span
+                        className={clsx('w-3 h-3 rounded-full', label.color)}
+                      />
+                      <span className="text-sm text-factory-300">
+                        {label.name}
+                      </span>
                     </label>
                   ))}
                 </div>
@@ -268,12 +334,19 @@ export default function NewIssuePage() {
               {selectedLabels.length > 0 && !showLabels && (
                 <div className="flex flex-wrap gap-1 mt-2">
                   {selectedLabels.map((label) => {
-                    const labelData = labels.find(l => l.name === label);
+                    const labelData = labels.find((l) => l.name === label)
                     return (
-                      <span key={label} className={clsx('badge text-xs', labelData?.color, 'text-white')}>
+                      <span
+                        key={label}
+                        className={clsx(
+                          'badge text-xs',
+                          labelData?.color,
+                          'text-white',
+                        )}
+                      >
                         {label}
                       </span>
-                    );
+                    )
                   })}
                 </div>
               )}
@@ -290,20 +363,31 @@ export default function NewIssuePage() {
                   <Users className="w-4 h-4" />
                   Assignees
                 </span>
-                <span className="text-factory-500">{selectedAssignees.length || 'None'}</span>
+                <span className="text-factory-500">
+                  {selectedAssignees.length || 'None'}
+                </span>
               </button>
               {showAssignees && (
                 <div className="space-y-2 mt-3">
                   {assignees.map((user) => (
-                    <label key={user.id} className="flex items-center gap-2 cursor-pointer">
+                    <label
+                      key={user.id}
+                      className="flex items-center gap-2 cursor-pointer"
+                    >
                       <input
                         type="checkbox"
                         checked={selectedAssignees.includes(user.id)}
                         onChange={() => toggleAssignee(user.id)}
                         className="rounded border-factory-600 bg-factory-800 text-accent-500"
                       />
-                      <img src={user.avatar} alt="" className="w-5 h-5 rounded-full" />
-                      <span className="text-sm text-factory-300">{user.name}</span>
+                      <img
+                        src={user.avatar}
+                        alt=""
+                        className="w-5 h-5 rounded-full"
+                      />
+                      <span className="text-sm text-factory-300">
+                        {user.name}
+                      </span>
                     </label>
                   ))}
                 </div>
@@ -326,15 +410,14 @@ export default function NewIssuePage() {
             {/* Tips */}
             <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
               <p className="text-sm text-factory-300">
-                <strong className="text-blue-400">Pro tip:</strong> Use Markdown to format your issue. 
-                Reference other issues with #number and users with @username.
+                <strong className="text-blue-400">Pro tip:</strong> Use Markdown
+                to format your issue. Reference other issues with #number and
+                users with @username.
               </p>
             </div>
           </div>
         </form>
       </div>
     </div>
-  );
+  )
 }
-
-

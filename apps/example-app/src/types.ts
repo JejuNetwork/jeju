@@ -1,102 +1,110 @@
 /**
  * Type definitions for the Decentralized App Template
- * 
+ *
  * Types are exported from zod schemas for runtime validation consistency.
  */
 
-import type { Address, Hex } from 'viem';
+import type { Address, Hex } from 'viem'
 
 // Re-export types from schemas
 export type {
-  CreateTodoInput,
-  UpdateTodoInput,
-  Todo,
-  ListTodosQuery,
-  BulkCompleteInput,
-  BulkDeleteInput,
-  WalletAuthHeaders,
-  OAuth3AuthHeaders,
   A2AAgentCard,
   A2AMessage,
   A2ASkillParams,
-  MCPServerInfo,
+  AuthCallbackQuery,
+  AuthLoginProvider,
+  AuthProvider,
+  BulkCompleteInput,
+  BulkDeleteInput,
+  CreateTodoInput,
+  HealthResponse,
+  JNSAvailableResponse,
+  JNSPriceResponse,
+  JNSRecords,
+  JNSRegisterResponse,
+  JNSResolveResponse,
+  ListTodosQuery,
+  MCPPromptGet,
   MCPResource,
+  MCPResourceRead,
+  MCPServerInfo,
   MCPTool,
   MCPToolCall,
-  MCPResourceRead,
-  MCPPromptGet,
+  OAuth3AuthHeaders,
+  ServiceStatus,
+  Todo,
+  TodoStats,
+  UpdateTodoInput,
+  WalletAuthHeaders,
   X402Config,
   X402PaymentHeader,
   X402VerifyInput,
-  AuthProvider,
-  AuthLoginProvider,
-  AuthCallbackQuery,
-  TodoStats,
-  ServiceStatus,
-  HealthResponse,
-  JNSRecords,
-  JNSAvailableResponse,
-  JNSRegisterResponse,
-  JNSResolveResponse,
-  JNSPriceResponse,
-} from './schemas';
+} from './schemas'
 
 // Additional types not in schemas (or partials/specific usage)
 
 export interface A2AResponse {
-  jsonrpc: string;
-  id: string | number;
+  jsonrpc: string
+  id: string | number
   result?: {
-    role: string;
-    parts: Array<{ kind: string; text?: string; data?: Record<string, unknown> }>;
-    messageId: string;
-    kind: string;
-  };
-  error?: { code: number; message: string };
+    role: string
+    parts: Array<{
+      kind: string
+      text?: string
+      data?: Record<string, unknown>
+    }>
+    messageId: string
+    kind: string
+  }
+  error?: { code: number; message: string }
 }
 
 export interface MCPPrompt {
-  name: string;
-  description: string;
-  arguments: Array<{ name: string; description: string; required?: boolean }>;
+  name: string
+  description: string
+  arguments: Array<{ name: string; description: string; required?: boolean }>
 }
 
 export interface X402Token {
-  symbol: string;
-  address: Address;
-  decimals: number;
-  minAmount: bigint;
+  symbol: string
+  address: Address
+  decimals: number
+  minAmount: bigint
 }
 
 export interface X402PaymentResult {
-  valid: boolean;
-  txHash?: Hex;
-  error?: string;
+  valid: boolean
+  txHash?: Hex
+  error?: string
 }
 
 export interface CronJob {
-  id: string;
-  name: string;
-  schedule: string;
-  endpoint: string;
-  enabled: boolean;
-  lastRun: number | null;
-  nextRun: number;
+  id: string
+  name: string
+  schedule: string
+  endpoint: string
+  enabled: boolean
+  lastRun: number | null
+  nextRun: number
 }
 
 export interface DeployResult {
-  jnsName: string;
-  frontendCid: string;
-  backendEndpoint: string;
-  a2aEndpoint: string;
-  mcpEndpoint: string;
-  databaseId: string;
-  triggerId: Hex;
+  jnsName: string
+  frontendCid: string
+  backendEndpoint: string
+  a2aEndpoint: string
+  mcpEndpoint: string
+  databaseId: string
+  triggerId: Hex
 }
 
-export type TodoPriority = 'low' | 'medium' | 'high';
+export type TodoPriority = 'low' | 'medium' | 'high'
 
-export const TODO_PRIORITIES: readonly TodoPriority[] = ['low', 'medium', 'high'] as const;
+export const TODO_PRIORITIES: readonly TodoPriority[] = [
+  'low',
+  'medium',
+  'high',
+] as const
 
 export const A2A_SKILLS = [
   'list-todos',
@@ -106,7 +114,7 @@ export const A2A_SKILLS = [
   'get-summary',
   'set-reminder',
   'prioritize',
-] as const;
+] as const
 
 export const MCP_TOOLS = [
   'create_todo',
@@ -116,7 +124,7 @@ export const MCP_TOOLS = [
   'get_stats',
   'schedule_reminder',
   'bulk_complete',
-] as const;
+] as const
 
 // Default x402 configuration
 export const X402_CONFIG = {
@@ -142,4 +150,4 @@ export const X402_CONFIG = {
     mcp: '50000000000000000', // 0.05 JEJU per MCP call
   },
   network: 'base-sepolia' as const,
-} as const;
+} as const

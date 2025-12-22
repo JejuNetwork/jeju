@@ -1,104 +1,126 @@
-'use client';
+'use client'
 
-import { useState, useEffect, type ComponentType } from 'react';
-import { Search, Download, Package, Shield, Clock, ExternalLink, type LucideProps } from 'lucide-react';
+import {
+  Clock,
+  Download,
+  ExternalLink,
+  type LucideProps,
+  Package,
+  Search,
+  Shield,
+} from 'lucide-react'
+import { type ComponentType, useCallback, useEffect, useState } from 'react'
 
 // Fix for Lucide React 19 type compatibility
-const SearchIcon = Search as ComponentType<LucideProps>;
-const DownloadIcon = Download as ComponentType<LucideProps>;
-const PackageIcon = Package as ComponentType<LucideProps>;
-const ShieldIcon = Shield as ComponentType<LucideProps>;
-const ClockIcon = Clock as ComponentType<LucideProps>;
-const ExternalLinkIcon = ExternalLink as ComponentType<LucideProps>;
+const SearchIcon = Search as ComponentType<LucideProps>
+const DownloadIcon = Download as ComponentType<LucideProps>
+const PackageIcon = Package as ComponentType<LucideProps>
+const ShieldIcon = Shield as ComponentType<LucideProps>
+const ClockIcon = Clock as ComponentType<LucideProps>
+const ExternalLinkIcon = ExternalLink as ComponentType<LucideProps>
 
 interface PackageInfo {
-  name: string;
-  scope?: string;
-  description?: string;
-  latestVersion: string;
-  versions: string[];
-  maintainers: string[];
-  downloadCount: number;
-  reputationScore: number;
-  verified: boolean;
-  deprecated: boolean;
-  createdAt: string;
-  updatedAt: string;
+  name: string
+  scope?: string
+  description?: string
+  latestVersion: string
+  versions: string[]
+  maintainers: string[]
+  downloadCount: number
+  reputationScore: number
+  verified: boolean
+  deprecated: boolean
+  createdAt: string
+  updatedAt: string
 }
 
 interface SearchResult {
   package: {
-    name: string;
-    version: string;
-    description?: string;
-  };
+    name: string
+    version: string
+    description?: string
+  }
   score: {
-    final: number;
-  };
+    final: number
+  }
 }
 
 export default function PackagesPage() {
-  const [packages, setPackages] = useState<SearchResult[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPackage, setSelectedPackage] = useState<PackageInfo | null>(null);
+  const [packages, setPackages] = useState<SearchResult[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedPackage, setSelectedPackage] = useState<PackageInfo | null>(
+    null,
+  )
 
-  useEffect(() => {
-    searchPackages(searchQuery || '*');
-  }, []);
-
-  async function searchPackages(query: string) {
-    setLoading(true);
-    const registryUrl = process.env.NEXT_PUBLIC_JEJUPKG_URL ?? 'http://localhost:4030/pkg';
+  const searchPackages = useCallback(async (query: string) => {
+    setLoading(true)
+    const registryUrl =
+      process.env.NEXT_PUBLIC_JEJUPKG_URL ?? 'http://localhost:4030/pkg'
 
     try {
-      const response = await fetch(`${registryUrl}/-/v1/search?text=${encodeURIComponent(query)}&size=50`);
+      const response = await fetch(
+        `${registryUrl}/-/v1/search?text=${encodeURIComponent(query)}&size=50`,
+      )
       if (response.ok) {
-        const data = await response.json() as { objects: SearchResult[] };
-        setPackages(data.objects ?? []);
+        const data = (await response.json()) as { objects: SearchResult[] }
+        setPackages(data.objects ?? [])
       }
     } catch (error) {
-      console.error('Failed to search packages:', error);
+      console.error('Failed to search packages:', error)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    searchPackages(searchQuery || '*')
+  }, [searchPackages, searchQuery])
 
   async function fetchPackageDetails(name: string) {
-    const registryUrl = process.env.NEXT_PUBLIC_JEJUPKG_URL ?? 'http://localhost:4030/pkg';
-    
+    const registryUrl =
+      process.env.NEXT_PUBLIC_JEJUPKG_URL ?? 'http://localhost:4030/pkg'
+
     try {
-      const response = await fetch(`${registryUrl}/${encodeURIComponent(name)}`);
+      const response = await fetch(`${registryUrl}/${encodeURIComponent(name)}`)
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json()
         setSelectedPackage({
           name: data.name,
-          scope: data.name.startsWith('@') ? data.name.split('/')[0] : undefined,
+          scope: data.name.startsWith('@')
+            ? data.name.split('/')[0]
+            : undefined,
           description: data.description,
-          latestVersion: data['dist-tags']?.latest ?? Object.keys(data.versions ?? {})[0],
+          latestVersion:
+            data['dist-tags']?.latest ?? Object.keys(data.versions ?? {})[0],
           versions: Object.keys(data.versions ?? {}),
-          maintainers: data.maintainers?.map((m: { name: string }) => m.name) ?? [],
+          maintainers:
+            data.maintainers?.map((m: { name: string }) => m.name) ?? [],
           downloadCount: 0,
           reputationScore: 0,
           verified: false,
           deprecated: false,
           createdAt: data.time?.created ?? new Date().toISOString(),
           updatedAt: data.time?.modified ?? new Date().toISOString(),
-        });
+        })
       }
     } catch (error) {
-      console.error('Failed to fetch package details:', error);
+      console.error('Failed to fetch package details:', error)
     }
   }
 
   function handleSearch(e: React.FormEvent) {
-    e.preventDefault();
-    searchPackages(searchQuery || '*');
+    e.preventDefault()
+    searchPackages(searchQuery || '*')
   }
 
   function formatDate(dateString: string): string {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    const date = new Date(dateString)
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    })
   }
 
   return (
@@ -143,13 +165,17 @@ export default function PackagesPage() {
             <div>
               <span className="text-gray-400">npm:</span>
               <code className="ml-2 px-2 py-1 bg-gray-900 rounded text-green-400">
-                npm config set registry {process.env.NEXT_PUBLIC_JEJUPKG_URL ?? 'http://localhost:4030/pkg'}
+                npm config set registry{' '}
+                {process.env.NEXT_PUBLIC_JEJUPKG_URL ??
+                  'http://localhost:4030/pkg'}
               </code>
             </div>
             <div>
               <span className="text-gray-400">bun:</span>
               <code className="ml-2 px-2 py-1 bg-gray-900 rounded text-green-400">
-                bun config set registry {process.env.NEXT_PUBLIC_JEJUPKG_URL ?? 'http://localhost:4030/pkg'}
+                bun config set registry{' '}
+                {process.env.NEXT_PUBLIC_JEJUPKG_URL ??
+                  'http://localhost:4030/pkg'}
               </code>
             </div>
           </div>
@@ -222,13 +248,17 @@ export default function PackagesPage() {
                 )}
 
                 {selectedPackage.description && (
-                  <p className="text-gray-400 mb-4">{selectedPackage.description}</p>
+                  <p className="text-gray-400 mb-4">
+                    {selectedPackage.description}
+                  </p>
                 )}
 
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-400">Latest Version</span>
-                    <span className="font-mono">{selectedPackage.latestVersion}</span>
+                    <span className="font-mono">
+                      {selectedPackage.latestVersion}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-400">Versions</span>
@@ -281,15 +311,14 @@ export default function PackagesPage() {
             ) : (
               <div className="p-6 bg-gray-800 rounded-lg border border-gray-700 text-center">
                 <PackageIcon className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-                <p className="text-gray-400">Select a package to view details</p>
+                <p className="text-gray-400">
+                  Select a package to view details
+                </p>
               </div>
             )}
           </div>
         </div>
       </div>
     </div>
-  );
+  )
 }
-
-
-

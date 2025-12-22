@@ -1,6 +1,6 @@
 /**
  * DWS Storage Module
- * 
+ *
  * Multi-backend decentralized storage with:
  * - WebTorrent P2P CDN
  * - Arweave permanent storage
@@ -9,46 +9,39 @@
  * - KMS encryption for private content
  */
 
-// Types
-export * from './types';
-
 // Backends
 export {
   ArweaveBackend,
   getArweaveBackend,
   resetArweaveBackend,
-} from './arweave-backend';
-
+} from './arweave-backend'
 export {
-  WebTorrentBackend,
+  type BackendManager,
+  createBackendManager,
+  type DownloadResponse,
+  type UploadOptions as LegacyUploadOptions,
+  type UploadResponse,
+} from './backends'
+// Multi-backend manager
+export {
+  getMultiBackendManager,
+  MultiBackendManager,
+  resetMultiBackendManager,
+} from './multi-backend'
+// System content manifest
+export {
+  buildSystemManifest,
+  packageSystemContent,
+  SystemContentSeeder,
+  SystemManifestBuilder,
+} from './system-manifest'
+// Types
+export * from './types'
+export {
   getWebTorrentBackend,
   resetWebTorrentBackend,
   type TorrentInfo,
   type TorrentStats,
+  WebTorrentBackend,
   type WebTorrentConfig,
-} from './webtorrent-backend';
-
-export {
-  createBackendManager,
-  type BackendManager,
-  type UploadOptions as LegacyUploadOptions,
-  type UploadResponse,
-  type DownloadResponse,
-} from './backends';
-
-// Multi-backend manager
-export {
-  MultiBackendManager,
-  getMultiBackendManager,
-  resetMultiBackendManager,
-} from './multi-backend';
-
-// System content manifest
-export {
-  SystemManifestBuilder,
-  SystemContentSeeder,
-  buildSystemManifest,
-  packageSystemContent,
-} from './system-manifest';
-
-
+} from './webtorrent-backend'

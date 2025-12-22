@@ -593,13 +593,39 @@ contract OTC is IOTC, Ownable, Pausable, ReentrancyGuard {
         // Emit event before potential ETH refund
         emit OfferPaid(offerId, msg.sender, o.amountPaid);
 
-        // ETH refund at the very end
+        // ETH refund at the very end - use pull pattern for failed refunds
         if (refundAmount > 0) {
             (bool refunded,) = payable(msg.sender).call{value: refundAmount}("");
             if (!refunded) {
+                // Store failed refund for later withdrawal instead of losing it
+                pendingRefunds[msg.sender] += refundAmount;
                 emit RefundFailed(msg.sender, refundAmount);
             }
         }
+    }
+    
+    /// @notice Track pending refunds for users whose direct refund failed
+    mapping(address => uint256) public pendingRefunds;
+    
+    /// @notice Event emitted when a user withdraws their pending refund
+    event RefundWithdrawn(address indexed user, uint256 amount);
+    
+    /// @notice Withdraw any pending refunds (pull pattern for failed refunds)
+    function withdrawPendingRefund() external nonReentrant {
+        uint256 amount = pendingRefunds[msg.sender];
+        require(amount > 0, "no pending refund");
+        
+        // CEI: Clear before transfer
+        pendingRefunds[msg.sender] = 0;
+        
+        (bool success,) = payable(msg.sender).call{value: amount}("");
+        if (!success) {
+            // Re-credit on failure so user can try again
+            pendingRefunds[msg.sender] = amount;
+            revert("refund failed");
+        }
+        
+        emit RefundWithdrawn(msg.sender, amount);
     }
 
     function claim(uint256 offerId) external nonReentrant whenNotPaused {

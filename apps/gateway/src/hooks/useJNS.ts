@@ -1,14 +1,14 @@
-import { useState, useCallback } from 'react';
-import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
-import { type Address, type Hash, namehash } from 'viem';
-import { CONTRACTS, INDEXER_URL } from '../config';
-import { ZERO_ADDRESS } from '../lib/contracts';
+import { useCallback, useState } from 'react'
+import { type Address, type Hash, namehash } from 'viem'
+import { useAccount, usePublicClient, useWalletClient } from 'wagmi'
+import { CONTRACTS, INDEXER_URL } from '../config'
+import { ZERO_ADDRESS } from '../lib/contracts'
 
 // Contract addresses from centralized config
-const JNS_REGISTRY = CONTRACTS.jnsRegistry;
-const JNS_RESOLVER = CONTRACTS.jnsResolver;
-const JNS_REGISTRAR = CONTRACTS.jnsRegistrar;
-const JNS_REVERSE_REGISTRAR = CONTRACTS.jnsReverseRegistrar;
+const JNS_REGISTRY = CONTRACTS.jnsRegistry
+const JNS_RESOLVER = CONTRACTS.jnsResolver
+const JNS_REGISTRAR = CONTRACTS.jnsRegistrar
+const JNS_REVERSE_REGISTRAR = CONTRACTS.jnsReverseRegistrar
 
 // Contract ABIs
 const JNS_REGISTRAR_ABI = [
@@ -82,7 +82,7 @@ const JNS_REGISTRAR_ABI = [
     outputs: [{ name: '', type: 'bool' }],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 const JNS_RESOLVER_ABI = [
   {
@@ -175,7 +175,7 @@ const JNS_RESOLVER_ABI = [
     outputs: [{ name: '', type: 'string' }],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 const JNS_REVERSE_REGISTRAR_ABI = [
   {
@@ -199,138 +199,148 @@ const JNS_REVERSE_REGISTRAR_ABI = [
     outputs: [{ name: '', type: 'string' }],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 export interface JNSRegistration {
-  name: string;
-  owner: Address;
-  expiresAt: number;
-  inGracePeriod: boolean;
-  isAvailable: boolean;
+  name: string
+  owner: Address
+  expiresAt: number
+  inGracePeriod: boolean
+  isAvailable: boolean
 }
 
 export interface JNSPriceQuote {
-  name: string;
-  duration: number;
-  price: bigint;
-  priceWithDiscount: bigint;
-  hasDiscount: boolean;
+  name: string
+  duration: number
+  price: bigint
+  priceWithDiscount: bigint
+  hasDiscount: boolean
 }
 
 export interface JNSAppInfo {
-  appContract: Address;
-  appId: string;
-  agentId: bigint;
-  endpoint: string;
-  a2aEndpoint: string;
-  contenthash: `0x${string}`;
+  appContract: Address
+  appId: string
+  agentId: bigint
+  endpoint: string
+  a2aEndpoint: string
+  contenthash: `0x${string}`
 }
 
 export interface JNSResolverData {
-  address: Address;
-  texts: Record<string, string>;
-  appInfo: JNSAppInfo;
+  address: Address
+  texts: Record<string, string>
+  appInfo: JNSAppInfo
 }
 
 export function useJNSLookup() {
-  const publicClient = usePublicClient();
-  const { address } = useAccount();
+  const publicClient = usePublicClient()
+  const { address } = useAccount()
 
-  const checkAvailability = useCallback(async (name: string): Promise<boolean> => {
-    if (!publicClient || JNS_REGISTRAR === ZERO_ADDRESS) {
-      return false;
-    }
+  const checkAvailability = useCallback(
+    async (name: string): Promise<boolean> => {
+      if (!publicClient || JNS_REGISTRAR === ZERO_ADDRESS) {
+        return false
+      }
 
-    const result = await publicClient.readContract({
-      address: JNS_REGISTRAR,
-      abi: JNS_REGISTRAR_ABI,
-      functionName: 'available',
-      args: [name],
-    });
-
-    return result;
-  }, [publicClient]);
-
-  const getPrice = useCallback(async (name: string, durationYears: number = 1): Promise<JNSPriceQuote> => {
-    if (!publicClient || JNS_REGISTRAR === ZERO_ADDRESS) {
-      throw new Error('JNS not configured');
-    }
-
-    const duration = BigInt(durationYears * 365 * 24 * 60 * 60);
-
-    const [price, priceWithDiscount] = await Promise.all([
-      publicClient.readContract({
-        address: JNS_REGISTRAR,
-        abi: JNS_REGISTRAR_ABI,
-        functionName: 'rentPrice',
-        args: [name, duration],
-      }),
-      address
-        ? publicClient.readContract({
-            address: JNS_REGISTRAR,
-            abi: JNS_REGISTRAR_ABI,
-            functionName: 'rentPriceWithDiscount',
-            args: [name, duration, address],
-          })
-        : Promise.resolve(0n),
-    ]);
-
-    return {
-      name,
-      duration: durationYears,
-      price,
-      priceWithDiscount,
-      hasDiscount: priceWithDiscount < price,
-    };
-  }, [publicClient, address]);
-
-  const getRegistration = useCallback(async (name: string): Promise<JNSRegistration> => {
-    if (!publicClient || JNS_REGISTRAR === ZERO_ADDRESS) {
-      throw new Error('JNS not configured');
-    }
-
-    const [isAvailable, owner, expires, inGracePeriod] = await Promise.all([
-      publicClient.readContract({
+      const result = await publicClient.readContract({
         address: JNS_REGISTRAR,
         abi: JNS_REGISTRAR_ABI,
         functionName: 'available',
         args: [name],
-      }),
-      publicClient.readContract({
-        address: JNS_REGISTRAR,
-        abi: JNS_REGISTRAR_ABI,
-        functionName: 'ownerOf',
-        args: [name],
-      }),
-      publicClient.readContract({
-        address: JNS_REGISTRAR,
-        abi: JNS_REGISTRAR_ABI,
-        functionName: 'nameExpires',
-        args: [name],
-      }),
-      publicClient.readContract({
-        address: JNS_REGISTRAR,
-        abi: JNS_REGISTRAR_ABI,
-        functionName: 'inGracePeriod',
-        args: [name],
-      }),
-    ]);
+      })
 
-    return {
-      name,
-      owner,
-      expiresAt: Number(expires),
-      inGracePeriod,
-      isAvailable,
-    };
-  }, [publicClient]);
+      return result
+    },
+    [publicClient],
+  )
 
-  const getOwnerNames = useCallback(async (ownerAddress: Address): Promise<JNSRegistration[]> => {
-    if (JNS_REGISTRAR === ZERO_ADDRESS) {
-      return [];
-    }
+  const getPrice = useCallback(
+    async (name: string, durationYears: number = 1): Promise<JNSPriceQuote> => {
+      if (!publicClient || JNS_REGISTRAR === ZERO_ADDRESS) {
+        throw new Error('JNS not configured')
+      }
 
-    const query = `
+      const duration = BigInt(durationYears * 365 * 24 * 60 * 60)
+
+      const [price, priceWithDiscount] = await Promise.all([
+        publicClient.readContract({
+          address: JNS_REGISTRAR,
+          abi: JNS_REGISTRAR_ABI,
+          functionName: 'rentPrice',
+          args: [name, duration],
+        }),
+        address
+          ? publicClient.readContract({
+              address: JNS_REGISTRAR,
+              abi: JNS_REGISTRAR_ABI,
+              functionName: 'rentPriceWithDiscount',
+              args: [name, duration, address],
+            })
+          : Promise.resolve(0n),
+      ])
+
+      return {
+        name,
+        duration: durationYears,
+        price,
+        priceWithDiscount,
+        hasDiscount: priceWithDiscount < price,
+      }
+    },
+    [publicClient, address],
+  )
+
+  const getRegistration = useCallback(
+    async (name: string): Promise<JNSRegistration> => {
+      if (!publicClient || JNS_REGISTRAR === ZERO_ADDRESS) {
+        throw new Error('JNS not configured')
+      }
+
+      const [isAvailable, owner, expires, inGracePeriod] = await Promise.all([
+        publicClient.readContract({
+          address: JNS_REGISTRAR,
+          abi: JNS_REGISTRAR_ABI,
+          functionName: 'available',
+          args: [name],
+        }),
+        publicClient.readContract({
+          address: JNS_REGISTRAR,
+          abi: JNS_REGISTRAR_ABI,
+          functionName: 'ownerOf',
+          args: [name],
+        }),
+        publicClient.readContract({
+          address: JNS_REGISTRAR,
+          abi: JNS_REGISTRAR_ABI,
+          functionName: 'nameExpires',
+          args: [name],
+        }),
+        publicClient.readContract({
+          address: JNS_REGISTRAR,
+          abi: JNS_REGISTRAR_ABI,
+          functionName: 'inGracePeriod',
+          args: [name],
+        }),
+      ])
+
+      return {
+        name,
+        owner,
+        expiresAt: Number(expires),
+        inGracePeriod,
+        isAvailable,
+      }
+    },
+    [publicClient],
+  )
+
+  const getOwnerNames = useCallback(
+    async (ownerAddress: Address): Promise<JNSRegistration[]> => {
+      if (JNS_REGISTRAR === ZERO_ADDRESS) {
+        return []
+      }
+
+      const query = `
       query OwnerNames($owner: String!) {
         jnsNames(where: { owner_eq: $owner }) {
           name
@@ -338,244 +348,272 @@ export function useJNSLookup() {
           expiresAt
         }
       }
-    `;
+    `
 
-    const response = await fetch(INDEXER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, variables: { owner: ownerAddress.toLowerCase() } }),
-    });
+      const response = await fetch(INDEXER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query,
+          variables: { owner: ownerAddress.toLowerCase() },
+        }),
+      })
 
-    if (!response.ok) {
-      return [];
-    }
+      if (!response.ok) {
+        return []
+      }
 
-    const { data } = await response.json();
-    const names = data?.jnsNames || [];
+      const { data } = await response.json()
+      const names = data?.jnsNames || []
 
-    return names.map((n: { name: string; owner: string; expiresAt: string }) => ({
-      name: n.name,
-      owner: n.owner as Address,
-      expiresAt: parseInt(n.expiresAt),
-      inGracePeriod: false,
-      isAvailable: false,
-    }));
-  }, []);
+      return names.map(
+        (n: { name: string; owner: string; expiresAt: string }) => ({
+          name: n.name,
+          owner: n.owner as Address,
+          expiresAt: parseInt(n.expiresAt, 10),
+          inGracePeriod: false,
+          isAvailable: false,
+        }),
+      )
+    },
+    [],
+  )
 
   return {
     checkAvailability,
     getPrice,
     getRegistration,
     getOwnerNames,
-  };
+  }
 }
 
 export function useJNSRegister() {
-  const publicClient = usePublicClient();
-  const { data: walletClient } = useWalletClient();
-  const { address } = useAccount();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const publicClient = usePublicClient()
+  const { data: walletClient } = useWalletClient()
+  const { address } = useAccount()
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const register = useCallback(async (
-    name: string,
-    durationYears: number = 1,
-    owner?: Address
-  ): Promise<Hash> => {
-    if (!walletClient || !address) {
-      throw new Error('Wallet not connected');
-    }
-    if (JNS_REGISTRAR === ZERO_ADDRESS) {
-      throw new Error('JNS not configured');
-    }
+  const register = useCallback(
+    async (
+      name: string,
+      durationYears: number = 1,
+      owner?: Address,
+    ): Promise<Hash> => {
+      if (!walletClient || !address) {
+        throw new Error('Wallet not connected')
+      }
+      if (JNS_REGISTRAR === ZERO_ADDRESS) {
+        throw new Error('JNS not configured')
+      }
 
-    setLoading(true);
-    setError(null);
+      setLoading(true)
+      setError(null)
 
-    const duration = BigInt(durationYears * 365 * 24 * 60 * 60);
-    const ownerAddress = owner || address;
+      const duration = BigInt(durationYears * 365 * 24 * 60 * 60)
+      const ownerAddress = owner || address
 
-    // Get price
-    const price = await publicClient?.readContract({
-      address: JNS_REGISTRAR,
-      abi: JNS_REGISTRAR_ABI,
-      functionName: 'rentPriceWithDiscount',
-      args: [name, duration, address],
-    });
+      // Get price
+      const price = await publicClient?.readContract({
+        address: JNS_REGISTRAR,
+        abi: JNS_REGISTRAR_ABI,
+        functionName: 'rentPriceWithDiscount',
+        args: [name, duration, address],
+      })
 
-    const hash = await walletClient.writeContract({
-      address: JNS_REGISTRAR,
-      abi: JNS_REGISTRAR_ABI,
-      functionName: 'register',
-      args: [name, ownerAddress, duration],
-      value: price,
-    });
+      const hash = await walletClient.writeContract({
+        address: JNS_REGISTRAR,
+        abi: JNS_REGISTRAR_ABI,
+        functionName: 'register',
+        args: [name, ownerAddress, duration],
+        value: price,
+      })
 
-    setLoading(false);
-    return hash;
-  }, [walletClient, address, publicClient]);
+      setLoading(false)
+      return hash
+    },
+    [walletClient, address, publicClient],
+  )
 
-  const renew = useCallback(async (
-    name: string,
-    durationYears: number = 1
-  ): Promise<Hash> => {
-    if (!walletClient || !address) {
-      throw new Error('Wallet not connected');
-    }
-    if (JNS_REGISTRAR === ZERO_ADDRESS) {
-      throw new Error('JNS not configured');
-    }
+  const renew = useCallback(
+    async (name: string, durationYears: number = 1): Promise<Hash> => {
+      if (!walletClient || !address) {
+        throw new Error('Wallet not connected')
+      }
+      if (JNS_REGISTRAR === ZERO_ADDRESS) {
+        throw new Error('JNS not configured')
+      }
 
-    setLoading(true);
-    setError(null);
+      setLoading(true)
+      setError(null)
 
-    const duration = BigInt(durationYears * 365 * 24 * 60 * 60);
+      const duration = BigInt(durationYears * 365 * 24 * 60 * 60)
 
-    // Get price
-    const price = await publicClient?.readContract({
-      address: JNS_REGISTRAR,
-      abi: JNS_REGISTRAR_ABI,
-      functionName: 'rentPrice',
-      args: [name, duration],
-    });
+      // Get price
+      const price = await publicClient?.readContract({
+        address: JNS_REGISTRAR,
+        abi: JNS_REGISTRAR_ABI,
+        functionName: 'rentPrice',
+        args: [name, duration],
+      })
 
-    const hash = await walletClient.writeContract({
-      address: JNS_REGISTRAR,
-      abi: JNS_REGISTRAR_ABI,
-      functionName: 'renew',
-      args: [name, duration],
-      value: price,
-    });
+      const hash = await walletClient.writeContract({
+        address: JNS_REGISTRAR,
+        abi: JNS_REGISTRAR_ABI,
+        functionName: 'renew',
+        args: [name, duration],
+        value: price,
+      })
 
-    setLoading(false);
-    return hash;
-  }, [walletClient, address, publicClient]);
+      setLoading(false)
+      return hash
+    },
+    [walletClient, address, publicClient],
+  )
 
   return {
     register,
     renew,
     loading,
     error,
-  };
+  }
 }
 
 export function useJNSResolver() {
-  const publicClient = usePublicClient();
-  const { data: walletClient } = useWalletClient();
+  const publicClient = usePublicClient()
+  const { data: walletClient } = useWalletClient()
 
-  const resolve = useCallback(async (name: string): Promise<Address | null> => {
-    if (!publicClient || JNS_RESOLVER === ZERO_ADDRESS) {
-      return null;
-    }
+  const resolve = useCallback(
+    async (name: string): Promise<Address | null> => {
+      if (!publicClient || JNS_RESOLVER === ZERO_ADDRESS) {
+        return null
+      }
 
-    const fullName = name.endsWith('.jeju') ? name : `${name}.jeju`;
-    const node = namehash(fullName) as `0x${string}`;
+      const fullName = name.endsWith('.jeju') ? name : `${name}.jeju`
+      const node = namehash(fullName) as `0x${string}`
 
-    const addr = await publicClient.readContract({
-      address: JNS_RESOLVER,
-      abi: JNS_RESOLVER_ABI,
-      functionName: 'addr',
-      args: [node],
-    });
+      const addr = await publicClient.readContract({
+        address: JNS_RESOLVER,
+        abi: JNS_RESOLVER_ABI,
+        functionName: 'addr',
+        args: [node],
+      })
 
-    return addr === ZERO_ADDRESS ? null : addr;
-  }, [publicClient]);
+      return addr === ZERO_ADDRESS ? null : addr
+    },
+    [publicClient],
+  )
 
-  const getText = useCallback(async (name: string, key: string): Promise<string> => {
-    if (!publicClient || JNS_RESOLVER === ZERO_ADDRESS) {
-      return '';
-    }
+  const getText = useCallback(
+    async (name: string, key: string): Promise<string> => {
+      if (!publicClient || JNS_RESOLVER === ZERO_ADDRESS) {
+        return ''
+      }
 
-    const fullName = name.endsWith('.jeju') ? name : `${name}.jeju`;
-    const node = namehash(fullName) as `0x${string}`;
+      const fullName = name.endsWith('.jeju') ? name : `${name}.jeju`
+      const node = namehash(fullName) as `0x${string}`
 
-    return await publicClient.readContract({
-      address: JNS_RESOLVER,
-      abi: JNS_RESOLVER_ABI,
-      functionName: 'text',
-      args: [node, key],
-    });
-  }, [publicClient]);
+      return await publicClient.readContract({
+        address: JNS_RESOLVER,
+        abi: JNS_RESOLVER_ABI,
+        functionName: 'text',
+        args: [node, key],
+      })
+    },
+    [publicClient],
+  )
 
-  const getAppInfo = useCallback(async (name: string): Promise<JNSAppInfo | null> => {
-    if (!publicClient || JNS_RESOLVER === ZERO_ADDRESS) {
-      return null;
-    }
+  const getAppInfo = useCallback(
+    async (name: string): Promise<JNSAppInfo | null> => {
+      if (!publicClient || JNS_RESOLVER === ZERO_ADDRESS) {
+        return null
+      }
 
-    const fullName = name.endsWith('.jeju') ? name : `${name}.jeju`;
-    const node = namehash(fullName) as `0x${string}`;
+      const fullName = name.endsWith('.jeju') ? name : `${name}.jeju`
+      const node = namehash(fullName) as `0x${string}`
 
-    const result = await publicClient.readContract({
-      address: JNS_RESOLVER,
-      abi: JNS_RESOLVER_ABI,
-      functionName: 'getAppInfo',
-      args: [node],
-    });
+      const result = await publicClient.readContract({
+        address: JNS_RESOLVER,
+        abi: JNS_RESOLVER_ABI,
+        functionName: 'getAppInfo',
+        args: [node],
+      })
 
-    return {
-      appContract: result[0],
-      appId: result[1],
-      agentId: result[2],
-      endpoint: result[3],
-      a2aEndpoint: result[4],
-      contenthash: result[5],
-    };
-  }, [publicClient]);
+      return {
+        appContract: result[0],
+        appId: result[1],
+        agentId: result[2],
+        endpoint: result[3],
+        a2aEndpoint: result[4],
+        contenthash: result[5],
+      }
+    },
+    [publicClient],
+  )
 
-  const setAddr = useCallback(async (name: string, addr: Address): Promise<Hash> => {
-    if (!walletClient) {
-      throw new Error('Wallet not connected');
-    }
+  const setAddr = useCallback(
+    async (name: string, addr: Address): Promise<Hash> => {
+      if (!walletClient) {
+        throw new Error('Wallet not connected')
+      }
 
-    const fullName = name.endsWith('.jeju') ? name : `${name}.jeju`;
-    const node = namehash(fullName) as `0x${string}`;
+      const fullName = name.endsWith('.jeju') ? name : `${name}.jeju`
+      const node = namehash(fullName) as `0x${string}`
 
-    return await walletClient.writeContract({
-      address: JNS_RESOLVER,
-      abi: JNS_RESOLVER_ABI,
-      functionName: 'setAddr',
-      args: [node, addr],
-    });
-  }, [walletClient]);
+      return await walletClient.writeContract({
+        address: JNS_RESOLVER,
+        abi: JNS_RESOLVER_ABI,
+        functionName: 'setAddr',
+        args: [node, addr],
+      })
+    },
+    [walletClient],
+  )
 
-  const setText = useCallback(async (name: string, key: string, value: string): Promise<Hash> => {
-    if (!walletClient) {
-      throw new Error('Wallet not connected');
-    }
+  const setText = useCallback(
+    async (name: string, key: string, value: string): Promise<Hash> => {
+      if (!walletClient) {
+        throw new Error('Wallet not connected')
+      }
 
-    const fullName = name.endsWith('.jeju') ? name : `${name}.jeju`;
-    const node = namehash(fullName) as `0x${string}`;
+      const fullName = name.endsWith('.jeju') ? name : `${name}.jeju`
+      const node = namehash(fullName) as `0x${string}`
 
-    return await walletClient.writeContract({
-      address: JNS_RESOLVER,
-      abi: JNS_RESOLVER_ABI,
-      functionName: 'setText',
-      args: [node, key, value],
-    });
-  }, [walletClient]);
+      return await walletClient.writeContract({
+        address: JNS_RESOLVER,
+        abi: JNS_RESOLVER_ABI,
+        functionName: 'setText',
+        args: [node, key, value],
+      })
+    },
+    [walletClient],
+  )
 
-  const setAppConfig = useCallback(async (
-    name: string,
-    appContract: Address,
-    appId: `0x${string}`,
-    agentId: bigint,
-    endpoint: string,
-    a2aEndpoint: string
-  ): Promise<Hash> => {
-    if (!walletClient) {
-      throw new Error('Wallet not connected');
-    }
+  const setAppConfig = useCallback(
+    async (
+      name: string,
+      appContract: Address,
+      appId: `0x${string}`,
+      agentId: bigint,
+      endpoint: string,
+      a2aEndpoint: string,
+    ): Promise<Hash> => {
+      if (!walletClient) {
+        throw new Error('Wallet not connected')
+      }
 
-    const fullName = name.endsWith('.jeju') ? name : `${name}.jeju`;
-    const node = namehash(fullName) as `0x${string}`;
+      const fullName = name.endsWith('.jeju') ? name : `${name}.jeju`
+      const node = namehash(fullName) as `0x${string}`
 
-    return await walletClient.writeContract({
-      address: JNS_RESOLVER,
-      abi: JNS_RESOLVER_ABI,
-      functionName: 'setAppConfig',
-      args: [node, appContract, appId, agentId, endpoint, a2aEndpoint],
-    });
-  }, [walletClient]);
+      return await walletClient.writeContract({
+        address: JNS_RESOLVER,
+        abi: JNS_RESOLVER_ABI,
+        functionName: 'setAppConfig',
+        args: [node, appContract, appId, agentId, endpoint, a2aEndpoint],
+      })
+    },
+    [walletClient],
+  )
 
   return {
     resolve,
@@ -584,52 +622,61 @@ export function useJNSResolver() {
     setAddr,
     setText,
     setAppConfig,
-  };
+  }
 }
 
 export function useJNSReverse() {
-  const publicClient = usePublicClient();
-  const { data: walletClient } = useWalletClient();
+  const publicClient = usePublicClient()
+  const { data: walletClient } = useWalletClient()
 
-  const reverseLookup = useCallback(async (addr: Address): Promise<string | null> => {
-    if (!publicClient || JNS_REVERSE_REGISTRAR === ZERO_ADDRESS) {
-      return null;
-    }
+  const reverseLookup = useCallback(
+    async (addr: Address): Promise<string | null> => {
+      if (!publicClient || JNS_REVERSE_REGISTRAR === ZERO_ADDRESS) {
+        return null
+      }
 
-    const name = await publicClient.readContract({
-      address: JNS_REVERSE_REGISTRAR,
-      abi: JNS_REVERSE_REGISTRAR_ABI,
-      functionName: 'nameOf',
-      args: [addr],
-    });
+      const name = await publicClient.readContract({
+        address: JNS_REVERSE_REGISTRAR,
+        abi: JNS_REVERSE_REGISTRAR_ABI,
+        functionName: 'nameOf',
+        args: [addr],
+      })
 
-    return name || null;
-  }, [publicClient]);
+      return name || null
+    },
+    [publicClient],
+  )
 
-  const setPrimaryName = useCallback(async (name: string): Promise<Hash> => {
-    if (!walletClient) {
-      throw new Error('Wallet not connected');
-    }
+  const setPrimaryName = useCallback(
+    async (name: string): Promise<Hash> => {
+      if (!walletClient) {
+        throw new Error('Wallet not connected')
+      }
 
-    const fullName = name.endsWith('.jeju') ? name : `${name}.jeju`;
+      const fullName = name.endsWith('.jeju') ? name : `${name}.jeju`
 
-    return await walletClient.writeContract({
-      address: JNS_REVERSE_REGISTRAR,
-      abi: JNS_REVERSE_REGISTRAR_ABI,
-      functionName: 'setName',
-      args: [fullName],
-    });
-  }, [walletClient]);
+      return await walletClient.writeContract({
+        address: JNS_REVERSE_REGISTRAR,
+        abi: JNS_REVERSE_REGISTRAR_ABI,
+        functionName: 'setName',
+        args: [fullName],
+      })
+    },
+    [walletClient],
+  )
 
-  const getPrimaryName = useCallback(async (addr: Address): Promise<string | null> => {
-    return reverseLookup(addr);
-  }, [reverseLookup]);
+  const getPrimaryName = useCallback(
+    async (addr: Address): Promise<string | null> => {
+      return reverseLookup(addr)
+    },
+    [reverseLookup],
+  )
 
   return {
     reverseLookup,
     setPrimaryName,
     getPrimaryName,
-  };
+  }
 }
 
 // Export contract addresses for other components
@@ -638,5 +685,4 @@ export const JNS_ADDRESSES = {
   resolver: JNS_RESOLVER,
   registrar: JNS_REGISTRAR,
   reverseRegistrar: JNS_REVERSE_REGISTRAR,
-};
-
+}

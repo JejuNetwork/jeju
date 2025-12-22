@@ -1,7 +1,7 @@
-import { createPlaywrightConfig } from '@jejunetwork/tests/playwright-only';
-import { devices } from '@playwright/test';
+import { createPlaywrightConfig } from '@jejunetwork/tests/playwright-only'
+import { devices } from '@playwright/test'
 
-const WALLET_PORT = parseInt(process.env.WALLET_PORT || '4015');
+const WALLET_PORT = parseInt(process.env.WALLET_PORT || '4015', 10)
 
 export default createPlaywrightConfig({
   name: 'wallet',
@@ -45,4 +45,4 @@ export default createPlaywrightConfig({
       },
     ],
   },
-});
+})

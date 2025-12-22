@@ -30,6 +30,14 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
     uint256 public constant MAX_UTILIZATION = 80;
     uint256 public minETHLiquidity = 10 ether;
     uint256 private constant PRECISION = 1e18;
+    
+    /// @notice Minimum initial deposit to prevent share inflation attacks
+    uint256 public constant MIN_INITIAL_DEPOSIT = 0.001 ether;
+    
+    /// @notice Virtual shares offset to prevent share inflation attacks
+    /// @dev Using virtual shares means the first depositor cannot manipulate share price
+    uint256 private constant VIRTUAL_SHARES = 1e6;
+    uint256 private constant VIRTUAL_BALANCE = 1e6;
 
     event ETHAdded(address indexed provider, uint256 amount, uint256 shares);
     event ETHRemoved(address indexed provider, uint256 amount, uint256 shares);
@@ -81,10 +89,16 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
 
         uint256 shares;
         if (totalETHLiquidity == 0) {
+            // First deposit: require minimum to prevent donation attacks
+            if (msg.value < MIN_INITIAL_DEPOSIT) revert InvalidAmount();
             shares = msg.value;
         } else {
+            // Use virtual shares/balance to prevent share inflation attacks
+            // This ensures the first depositor cannot manipulate the share price
+            uint256 virtualTotalShares = totalETHLiquidity + VIRTUAL_SHARES;
             uint256 balanceBeforeDeposit = address(this).balance - msg.value;
-            shares = (msg.value * totalETHLiquidity) / balanceBeforeDeposit;
+            uint256 virtualBalance = balanceBeforeDeposit + VIRTUAL_BALANCE;
+            shares = (msg.value * virtualTotalShares) / virtualBalance;
         }
 
         if (shares < minShares) revert InsufficientShares(shares, minShares);
@@ -103,12 +117,21 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
         if (shares == 0) revert InvalidAmount();
         if (ethShares[msg.sender] < shares) revert InsufficientLiquidity();
 
-        uint256 ethAmount = (shares * address(this).balance) / totalETHLiquidity;
+        // Use virtual shares/balance for consistent pricing
+        uint256 virtualTotalShares = totalETHLiquidity + VIRTUAL_SHARES;
+        uint256 virtualBalance = address(this).balance + VIRTUAL_BALANCE;
+        uint256 ethAmount = (shares * virtualBalance) / virtualTotalShares;
+        
+        // Ensure we don't withdraw more than actual balance (safety check)
+        if (ethAmount > address(this).balance) {
+            ethAmount = address(this).balance;
+        }
 
         if (address(this).balance - ethAmount < minETHLiquidity) {
             revert BelowMinimumLiquidity();
         }
 
+        // CEI: Update state before external call
         ethShares[msg.sender] -= shares;
         totalETHLiquidity -= shares;
 
@@ -144,9 +167,14 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
 
         uint256 shares;
         if (totalElizaLiquidity == 0 || balanceBeforeDeposit == 0) {
+            // First deposit: require minimum to prevent donation attacks
+            if (amount < MIN_INITIAL_DEPOSIT) revert InvalidAmount();
             shares = amount;
         } else {
-            shares = (amount * totalElizaLiquidity) / balanceBeforeDeposit;
+            // Use virtual shares/balance to prevent share inflation attacks
+            uint256 virtualTotalShares = totalElizaLiquidity + VIRTUAL_SHARES;
+            uint256 virtualBalance = balanceBeforeDeposit + VIRTUAL_BALANCE;
+            shares = (amount * virtualTotalShares) / virtualBalance;
         }
 
         if (shares < minShares) revert InsufficientShares(shares, minShares);
@@ -165,9 +193,18 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
         if (shares == 0) revert InvalidAmount();
         if (elizaShares[msg.sender] < shares) revert InsufficientLiquidity();
 
+        // Use virtual shares/balance for consistent pricing
         uint256 currentBalance = rewardToken.balanceOf(address(this));
-        uint256 elizaAmount = (shares * currentBalance) / totalElizaLiquidity;
+        uint256 virtualTotalShares = totalElizaLiquidity + VIRTUAL_SHARES;
+        uint256 virtualBalance = currentBalance + VIRTUAL_BALANCE;
+        uint256 elizaAmount = (shares * virtualBalance) / virtualTotalShares;
+        
+        // Ensure we don't withdraw more than actual balance (safety check)
+        if (elizaAmount > currentBalance) {
+            elizaAmount = currentBalance;
+        }
 
+        // CEI: Update state before external call
         elizaShares[msg.sender] -= shares;
         totalElizaLiquidity -= shares;
 

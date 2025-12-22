@@ -1,9 +1,9 @@
-'use client';
+'use client'
 
-import { Flag } from 'lucide-react';
-import { Address } from 'viem';
-import { useAccount, useReadContract } from 'wagmi';
-import { MODERATION_CONTRACTS } from '../lib/moderation-contracts';
+import { Flag } from 'lucide-react'
+import type { Address } from 'viem'
+import { useAccount, useReadContract } from 'wagmi'
+import { MODERATION_CONTRACTS } from '../lib/moderation-contracts'
 
 interface ReportButtonProps {
   targetAddress: Address
@@ -19,10 +19,14 @@ const IDENTITY_REGISTRY_ABI = [
     inputs: [{ name: 'entity', type: 'address' }],
     outputs: [{ name: '', type: 'uint256' }],
   },
-] as const;
+] as const
 
-export default function ReportButton({ targetAddress, context, variant = 'icon' }: ReportButtonProps) {
-  const { address: userAddress } = useAccount();
+export default function ReportButton({
+  targetAddress,
+  context,
+  variant = 'icon',
+}: ReportButtonProps) {
+  const { address: userAddress } = useAccount()
 
   // Get target agent ID
   const { data: targetAgentId } = useReadContract({
@@ -30,17 +34,17 @@ export default function ReportButton({ targetAddress, context, variant = 'icon' 
     abi: IDENTITY_REGISTRY_ABI,
     functionName: 'addressToAgentId',
     args: [targetAddress],
-  });
+  })
 
   const handleReport = () => {
     if (!userAddress) {
-      alert('Please connect your wallet to report users');
-      return;
+      alert('Please connect your wallet to report users')
+      return
     }
 
     if (!targetAgentId || targetAgentId === 0n) {
-      alert('Target user is not registered in the Identity Registry');
-      return;
+      alert('Target user is not registered in the Identity Registry')
+      return
     }
 
     // Redirect to Gateway moderation page with pre-filled data
@@ -48,10 +52,13 @@ export default function ReportButton({ targetAddress, context, variant = 'icon' 
       targetAgentId: targetAgentId.toString(),
       sourceApp: 'bazaar',
       context: context || 'Reported from Bazaar',
-    });
+    })
 
-    window.open(`https://gateway.jejunetwork.org/moderation/report?${params.toString()}`, '_blank');
-  };
+    window.open(
+      `https://gateway.jejunetwork.org/moderation/report?${params.toString()}`,
+      '_blank',
+    )
+  }
 
   if (variant === 'icon') {
     return (
@@ -62,7 +69,7 @@ export default function ReportButton({ targetAddress, context, variant = 'icon' 
       >
         <Flag size={18} />
       </button>
-    );
+    )
   }
 
   if (variant === 'text') {
@@ -74,7 +81,7 @@ export default function ReportButton({ targetAddress, context, variant = 'icon' 
         <Flag size={14} />
         Report
       </button>
-    );
+    )
   }
 
   return (
@@ -85,6 +92,5 @@ export default function ReportButton({ targetAddress, context, variant = 'icon' 
       <Flag size={16} />
       Report User
     </button>
-  );
+  )
 }
-

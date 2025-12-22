@@ -3,10 +3,7 @@
  * Generates Cap'n Proto configuration files for workerd
  */
 
-import type {
-  WorkerdWorkerDefinition,
-  WorkerdConfig,
-} from './types';
+import type { WorkerdConfig, WorkerdWorkerDefinition } from './types'
 
 /**
  * Generate a workerd Cap'n Proto configuration for a single worker
@@ -14,42 +11,54 @@ import type {
 export function generateWorkerConfig(
   worker: WorkerdWorkerDefinition,
   port: number,
-  config: WorkerdConfig
+  config: WorkerdConfig,
 ): string {
-  const workerName = sanitizeName(worker.name);
+  const workerName = sanitizeName(worker.name)
+  const _mainModuleName = worker.mainModule || 'worker.js'
 
   // Generate modules section
-  const modules = worker.modules.map((mod) => {
-    const moduleType = mod.type === 'esModule' ? 'esModule' : 
-                       mod.type === 'commonJs' ? 'commonJs' :
-                       mod.type === 'text' ? 'text' :
-                       mod.type === 'json' ? 'json' :
-                       mod.type === 'wasm' ? 'wasm' : 'data';
-    
-    // For embedded content, we use embed directive
-    return `      (name = "${mod.name}", ${moduleType} = embed "${mod.name}")`;
-  }).join(',\n');
+  const modules = worker.modules
+    .map((mod) => {
+      const moduleType =
+        mod.type === 'esModule'
+          ? 'esModule'
+          : mod.type === 'commonJs'
+            ? 'commonJs'
+            : mod.type === 'text'
+              ? 'text'
+              : mod.type === 'json'
+                ? 'json'
+                : mod.type === 'wasm'
+                  ? 'wasm'
+                  : 'data'
+
+      // For embedded content, we use embed directive
+      return `      (name = "${mod.name}", ${moduleType} = embed "${mod.name}")`
+    })
+    .join(',\n')
 
   // Generate bindings section
-  const bindings = worker.bindings.map((binding) => {
-    switch (binding.type) {
-      case 'text':
-        return `      (name = "${binding.name}", text = "${escapeString(String(binding.value))}")`;
-      case 'json':
-        return `      (name = "${binding.name}", json = "${escapeString(JSON.stringify(binding.value))}")`;
-      case 'data':
-        return `      (name = "${binding.name}", data = embed "${binding.name}.bin")`;
-      case 'service':
-        return `      (name = "${binding.name}", service = "${binding.service}")`;
-      default:
-        return `      (name = "${binding.name}", text = "")`;
-    }
-  }).join(',\n');
+  const bindings = worker.bindings
+    .map((binding) => {
+      switch (binding.type) {
+        case 'text':
+          return `      (name = "${binding.name}", text = "${escapeString(String(binding.value))}")`
+        case 'json':
+          return `      (name = "${binding.name}", json = "${escapeString(JSON.stringify(binding.value))}")`
+        case 'data':
+          return `      (name = "${binding.name}", data = embed "${binding.name}.bin")`
+        case 'service':
+          return `      (name = "${binding.name}", service = "${binding.service}")`
+        default:
+          return `      (name = "${binding.name}", text = "")`
+      }
+    })
+    .join(',\n')
 
   // Generate compatibility flags
   const compatFlags = worker.compatibilityFlags?.length
-    ? `\n    compatibilityFlags = [${worker.compatibilityFlags.map(f => `"${f}"`).join(', ')}],`
-    : '';
+    ? `\n    compatibilityFlags = [${worker.compatibilityFlags.map((f) => `"${f}"`).join(', ')}],`
+    : ''
 
   const capnpConfig = `# Auto-generated workerd configuration for ${worker.name}
 # Worker ID: ${worker.id}
@@ -89,9 +98,9 @@ const limits :Workerd.Limit = (
   requestTimeoutMs = ${worker.timeoutMs || config.requestTimeoutMs},
   subrequests = ${config.subrequestLimit},
 );
-`;
+`
 
-  return capnpConfig;
+  return capnpConfig
 }
 
 /**
@@ -100,14 +109,25 @@ const limits :Workerd.Limit = (
 export function generatePoolConfig(
   workers: WorkerdWorkerDefinition[],
   port: number,
-  config: WorkerdConfig
+  config: WorkerdConfig,
 ): string {
-  const services = workers.map((w) => {
-    const name = sanitizeName(w.name);
-    return `    (name = "${name}", worker = .${name}Worker)`;
-  }).join(',\n');
+  const services = workers
+    .map((w, _i) => {
+      const name = sanitizeName(w.name)
+      return `    (name = "${name}", worker = .${name}Worker)`
+    })
+    .join(',\n')
 
-  const workerDefs = workers.map((w) => generateInlineWorkerDef(w, config)).join('\n\n');
+  const _routes = workers
+    .map((w) => {
+      const name = sanitizeName(w.name)
+      return `      ("/${w.id}/*", "${name}")`
+    })
+    .join(',\n')
+
+  const workerDefs = workers
+    .map((w) => generateInlineWorkerDef(w, config))
+    .join('\n\n')
 
   return `# Auto-generated workerd pool configuration
 # Workers: ${workers.length}
@@ -136,13 +156,13 @@ const routerWorker :Workerd.Worker = (
     (name = "router.js", esModule = embed "router.js")
   ],
   bindings = [
-${workers.map(w => `    (name = "${sanitizeName(w.name)}", service = "${sanitizeName(w.name)}")`).join(',\n')}
+${workers.map((w) => `    (name = "${sanitizeName(w.name)}", service = "${sanitizeName(w.name)}")`).join(',\n')}
   ],
   compatibilityDate = "2024-01-01",
 );
 
 ${workerDefs}
-`;
+`
 }
 
 /**
@@ -150,29 +170,40 @@ ${workerDefs}
  */
 function generateInlineWorkerDef(
   worker: WorkerdWorkerDefinition,
-  _config: WorkerdConfig
+  _config: WorkerdConfig,
 ): string {
-  const name = sanitizeName(worker.name);
-  
-  const modules = worker.modules.map((mod) => {
-    const moduleType = mod.type === 'esModule' ? 'esModule' : 
-                       mod.type === 'commonJs' ? 'commonJs' :
-                       mod.type === 'text' ? 'text' :
-                       mod.type === 'json' ? 'json' :
-                       mod.type === 'wasm' ? 'wasm' : 'data';
-    return `    (name = "${mod.name}", ${moduleType} = embed "${worker.id}/${mod.name}")`;
-  }).join(',\n');
+  const name = sanitizeName(worker.name)
 
-  const bindings = worker.bindings.map((binding) => {
-    switch (binding.type) {
-      case 'text':
-        return `    (name = "${binding.name}", text = "${escapeString(String(binding.value))}")`;
-      case 'json':
-        return `    (name = "${binding.name}", json = "${escapeString(JSON.stringify(binding.value))}")`;
-      default:
-        return `    (name = "${binding.name}", text = "")`;
-    }
-  }).join(',\n');
+  const modules = worker.modules
+    .map((mod) => {
+      const moduleType =
+        mod.type === 'esModule'
+          ? 'esModule'
+          : mod.type === 'commonJs'
+            ? 'commonJs'
+            : mod.type === 'text'
+              ? 'text'
+              : mod.type === 'json'
+                ? 'json'
+                : mod.type === 'wasm'
+                  ? 'wasm'
+                  : 'data'
+      return `    (name = "${mod.name}", ${moduleType} = embed "${worker.id}/${mod.name}")`
+    })
+    .join(',\n')
+
+  const bindings = worker.bindings
+    .map((binding) => {
+      switch (binding.type) {
+        case 'text':
+          return `    (name = "${binding.name}", text = "${escapeString(String(binding.value))}")`
+        case 'json':
+          return `    (name = "${binding.name}", json = "${escapeString(JSON.stringify(binding.value))}")`
+        default:
+          return `    (name = "${binding.name}", text = "")`
+      }
+    })
+    .join(',\n')
 
   return `const ${name}Worker :Workerd.Worker = (
   modules = [
@@ -182,17 +213,19 @@ ${modules}
 ${bindings}
   ],
   compatibilityDate = "${worker.compatibilityDate}",
-);`;
+);`
 }
 
 /**
  * Generate router worker code that dispatches to appropriate service
  */
 export function generateRouterCode(workers: WorkerdWorkerDefinition[]): string {
-  const routes = workers.map((w) => {
-    const name = sanitizeName(w.name);
-    return `  '${w.id}': env.${name}`;
-  }).join(',\n');
+  const routes = workers
+    .map((w) => {
+      const name = sanitizeName(w.name)
+      return `  '${w.id}': env.${name}`
+    })
+    .join(',\n')
 
   return `// Auto-generated router worker
 export default {
@@ -227,7 +260,7 @@ ${routes}
     return service.fetch(newRequest);
   }
 };
-`;
+`
 }
 
 /**
@@ -237,7 +270,7 @@ function sanitizeName(name: string): string {
   return name
     .replace(/[^a-zA-Z0-9]/g, '_')
     .replace(/^[0-9]/, '_$&')
-    .replace(/__+/g, '_');
+    .replace(/__+/g, '_')
 }
 
 /**
@@ -249,16 +282,19 @@ function escapeString(str: string): string {
     .replace(/"/g, '\\"')
     .replace(/\n/g, '\\n')
     .replace(/\r/g, '\\r')
-    .replace(/\t/g, '\\t');
+    .replace(/\t/g, '\\t')
 }
 
 /**
  * Create a minimal worker wrapper for functions that export a handler
  */
-export function wrapHandlerAsWorker(code: string, handlerName: string = 'handler'): string {
+export function wrapHandlerAsWorker(
+  code: string,
+  handlerName: string = 'handler',
+): string {
   // Check if code already exports a fetch handler
   if (code.includes('export default') && code.includes('fetch')) {
-    return code;
+    return code
   }
 
   // Wrap traditional handler function as Cloudflare Workers format
@@ -305,6 +341,5 @@ export default {
     return new Response(responseBody, { status: statusCode, headers });
   }
 };
-`;
+`
 }
-

@@ -1,24 +1,36 @@
-import { useState, type ComponentType } from 'react';
-import { Activity, TrendingUp, Users, Clock, DollarSign, type LucideProps } from 'lucide-react';
-import { formatEther } from 'viem';
-import { useFeedRegistry, useOracleNetworkStats, useOracleSubscriptions } from '../../hooks/useOracleNetwork';
-import { FeedsView } from './FeedsView';
-import { SubscriptionsView } from './SubscriptionsView';
-import { OperatorsView } from './OperatorsView';
+import {
+  Activity,
+  Clock,
+  DollarSign,
+  type LucideProps,
+  TrendingUp,
+  Users,
+} from 'lucide-react'
+import { type ComponentType, useState } from 'react'
+import { formatEther } from 'viem'
+import {
+  useFeedRegistry,
+  useOracleNetworkStats,
+  useOracleSubscriptions,
+} from '../../hooks/useOracleNetwork'
+import { FeedsView } from './FeedsView'
+import { OperatorsView } from './OperatorsView'
+import { SubscriptionsView } from './SubscriptionsView'
 
-const ActivityIcon = Activity as ComponentType<LucideProps>;
-const TrendingUpIcon = TrendingUp as ComponentType<LucideProps>;
-const UsersIcon = Users as ComponentType<LucideProps>;
-const ClockIcon = Clock as ComponentType<LucideProps>;
-const DollarSignIcon = DollarSign as ComponentType<LucideProps>;
+const ActivityIcon = Activity as ComponentType<LucideProps>
+const TrendingUpIcon = TrendingUp as ComponentType<LucideProps>
+const UsersIcon = Users as ComponentType<LucideProps>
+const ClockIcon = Clock as ComponentType<LucideProps>
+const DollarSignIcon = DollarSign as ComponentType<LucideProps>
 
-type SubTab = 'feeds' | 'subscriptions' | 'operators';
+type SubTab = 'feeds' | 'subscriptions' | 'operators'
 
 export function OracleTab() {
-  const [activeSubTab, setActiveSubTab] = useState<SubTab>('feeds');
-  const { totalFeeds, activeFeeds, totalFeesCollected, currentEpoch } = useOracleNetworkStats();
-  const { activeFeedIds } = useFeedRegistry();
-  const { subscriptionIds } = useOracleSubscriptions();
+  const [activeSubTab, setActiveSubTab] = useState<SubTab>('feeds')
+  const { totalFeeds, activeFeeds, totalFeesCollected, currentEpoch } =
+    useOracleNetworkStats()
+  const { activeFeedIds } = useFeedRegistry()
+  const { subscriptionIds } = useOracleSubscriptions()
 
   return (
     <div className="space-y-6">
@@ -41,9 +53,7 @@ export function OracleTab() {
             Your Subscriptions
           </div>
           <div className="text-2xl font-bold">{subscriptionIds.length}</div>
-          <div className="text-xs text-gray-400">
-            active subscriptions
-          </div>
+          <div className="text-xs text-gray-400">active subscriptions</div>
         </div>
 
         <div className="card p-4">
@@ -52,11 +62,11 @@ export function OracleTab() {
             Total Fees
           </div>
           <div className="text-2xl font-bold">
-            {totalFeesCollected ? `${Number(formatEther(totalFeesCollected)).toFixed(2)} ETH` : '0 ETH'}
+            {totalFeesCollected
+              ? `${Number(formatEther(totalFeesCollected)).toFixed(2)} ETH`
+              : '0 ETH'}
           </div>
-          <div className="text-xs text-gray-400">
-            collected all-time
-          </div>
+          <div className="text-xs text-gray-400">collected all-time</div>
         </div>
 
         <div className="card p-4">
@@ -64,10 +74,10 @@ export function OracleTab() {
             <ClockIcon size={14} />
             Current Epoch
           </div>
-          <div className="text-2xl font-bold">{currentEpoch?.toString() ?? '1'}</div>
-          <div className="text-xs text-gray-400">
-            rewards cycle
+          <div className="text-2xl font-bold">
+            {currentEpoch?.toString() ?? '1'}
           </div>
+          <div className="text-xs text-gray-400">rewards cycle</div>
         </div>
       </div>
 
@@ -121,7 +131,7 @@ export function OracleTab() {
         {activeSubTab === 'operators' && <OperatorsView />}
       </div>
     </div>
-  );
+  )
 }
 
-export default OracleTab;
+export default OracleTab

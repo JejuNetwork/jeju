@@ -8,47 +8,47 @@
  * - Works across all supported chains
  */
 
-import type { Address, Hex, PublicClient, WalletClient } from 'viem';
-import type { TokenBalance, GasOption } from './types';
-import { EILClient } from './eil';
-import { AAClient } from './account-abstraction';
+import type { Address, Hex, PublicClient, WalletClient } from 'viem'
+import { AAClient } from './account-abstraction'
+import { EILClient } from './eil'
+import type { GasOption, TokenBalance } from './types'
 
 // ============================================================================
 // Types
 // ============================================================================
 
-export type GasPaymentMode = 'native' | 'token' | 'sponsored' | 'cross-chain';
+export type GasPaymentMode = 'native' | 'token' | 'sponsored' | 'cross-chain'
 
 export interface GasConfig {
-  preferredMode: GasPaymentMode;
-  preferredToken?: Address;
-  maxGasPriceGwei?: number;
-  autoBridge?: boolean; // Auto-bridge gas token if needed
+  preferredMode: GasPaymentMode
+  preferredToken?: Address
+  maxGasPriceGwei?: number
+  autoBridge?: boolean // Auto-bridge gas token if needed
 }
 
 export interface GasPaymentResult {
-  mode: GasPaymentMode;
-  token: Address;
-  tokenSymbol: string;
-  amountPaid: bigint;
-  ethEquivalent: bigint;
-  usdValue?: number;
-  txHash?: Hex;
+  mode: GasPaymentMode
+  token: Address
+  tokenSymbol: string
+  amountPaid: bigint
+  ethEquivalent: bigint
+  usdValue?: number
+  txHash?: Hex
 }
 
 export interface GasStatus {
-  chainId: number;
-  hasNativeBalance: boolean;
-  nativeBalance: bigint;
-  canPayWithTokens: boolean;
-  availableTokens: GasOption[];
-  recommendedToken?: GasOption;
-  needsBridge: boolean;
+  chainId: number
+  hasNativeBalance: boolean
+  nativeBalance: bigint
+  canPayWithTokens: boolean
+  availableTokens: GasOption[]
+  recommendedToken?: GasOption
+  needsBridge: boolean
   bridgeEstimate?: {
-    sourceChain: number;
-    amount: bigint;
-    fee: bigint;
-  };
+    sourceChain: number
+    amount: bigint
+    fee: bigint
+  }
 }
 
 // ============================================================================
@@ -56,34 +56,34 @@ export interface GasStatus {
 // ============================================================================
 
 export interface GasServiceConfig {
-  publicClients: Map<number, PublicClient>;
-  walletClient?: WalletClient;
-  supportedChains: number[];
-  defaultConfig?: Partial<GasConfig>;
+  publicClients: Map<number, PublicClient>
+  walletClient?: WalletClient
+  supportedChains: number[]
+  defaultConfig?: Partial<GasConfig>
 }
 
 export class GasAbstractionService {
-  private publicClients: Map<number, PublicClient>;
-  private walletClient?: WalletClient;
-  private supportedChains: number[];
-  private config: GasConfig;
-  private eilClients: Map<number, EILClient> = new Map();
-  private aaClients: Map<number, AAClient> = new Map();
+  private publicClients: Map<number, PublicClient>
+  private walletClient?: WalletClient
+  private supportedChains: number[]
+  private config: GasConfig
+  private eilClients: Map<number, EILClient> = new Map()
+  private aaClients: Map<number, AAClient> = new Map()
 
   constructor(serviceConfig: GasServiceConfig) {
-    this.publicClients = serviceConfig.publicClients;
-    this.walletClient = serviceConfig.walletClient;
-    this.supportedChains = serviceConfig.supportedChains;
+    this.publicClients = serviceConfig.publicClients
+    this.walletClient = serviceConfig.walletClient
+    this.supportedChains = serviceConfig.supportedChains
     this.config = {
       preferredMode: 'token',
       maxGasPriceGwei: 100,
       autoBridge: true,
       ...serviceConfig.defaultConfig,
-    };
+    }
 
     // Initialize clients for each chain
     for (const chainId of serviceConfig.supportedChains) {
-      const publicClient = this.publicClients.get(chainId);
+      const publicClient = this.publicClients.get(chainId)
       if (publicClient) {
         this.eilClients.set(
           chainId,
@@ -91,16 +91,16 @@ export class GasAbstractionService {
             chainId,
             publicClient,
             walletClient: this.walletClient,
-          })
-        );
+          }),
+        )
         this.aaClients.set(
           chainId,
           new AAClient({
             chainId,
             publicClient,
             walletClient: this.walletClient,
-          })
-        );
+          }),
+        )
       }
     }
   }
@@ -112,34 +112,38 @@ export class GasAbstractionService {
   async getGasStatus(
     chainId: number,
     userAddress: Address,
-    tokenBalances: TokenBalance[]
+    tokenBalances: TokenBalance[],
   ): Promise<GasStatus> {
-    const publicClient = this.publicClients.get(chainId);
+    const publicClient = this.publicClients.get(chainId)
     if (!publicClient) {
-      throw new Error(`Chain ${chainId} not supported`);
+      throw new Error(`Chain ${chainId} not supported`)
     }
 
     // Get native balance
-    const nativeBalance = await publicClient.getBalance({ address: userAddress });
-    const hasNativeBalance = nativeBalance > 0n;
+    const nativeBalance = await publicClient.getBalance({
+      address: userAddress,
+    })
+    const hasNativeBalance = nativeBalance > 0n
 
     // Get estimated gas cost (use a standard transfer as baseline)
-    const gasPrice = await publicClient.getGasPrice();
-    const estimatedGasCost = gasPrice * 21000n; // Standard ETH transfer
+    const gasPrice = await publicClient.getGasPrice()
+    const estimatedGasCost = gasPrice * 21000n // Standard ETH transfer
 
     // Check token options via EIL
-    const eilClient = this.eilClients.get(chainId);
-    let availableTokens: GasOption[] = [];
+    const eilClient = this.eilClients.get(chainId)
+    const availableTokens: GasOption[] = []
 
     if (eilClient && tokenBalances.length > 0) {
-      const chainBalances = tokenBalances.filter((tb) => tb.token.chainId === chainId);
+      const chainBalances = tokenBalances.filter(
+        (tb) => tb.token.chainId === chainId,
+      )
 
       for (const tb of chainBalances) {
         const sponsorCheck = await eilClient.canSponsor(
           estimatedGasCost,
           tb.token.address,
-          userAddress
-        );
+          userAddress,
+        )
 
         if (sponsorCheck.canSponsor) {
           availableTokens.push({
@@ -147,37 +151,39 @@ export class GasAbstractionService {
             tokenAmount: sponsorCheck.tokenCost,
             ethEquivalent: estimatedGasCost,
             usdValue: tb.usdValue ?? 0,
-          });
+          })
         }
       }
     }
 
     // Sort by USD value (cheapest first)
-    availableTokens.sort((a, b) => a.usdValue - b.usdValue);
+    availableTokens.sort((a, b) => a.usdValue - b.usdValue)
 
-    const canPayWithTokens = availableTokens.length > 0;
-    const recommendedToken = availableTokens[0];
+    const canPayWithTokens = availableTokens.length > 0
+    const recommendedToken = availableTokens[0]
 
     // Check if we need to bridge gas from another chain
-    let needsBridge = false;
-    let bridgeEstimate: GasStatus['bridgeEstimate'];
+    let needsBridge = false
+    let bridgeEstimate: GasStatus['bridgeEstimate']
 
     if (!hasNativeBalance && !canPayWithTokens) {
       // Look for balances on other chains
       for (const otherChainId of this.supportedChains) {
-        if (otherChainId === chainId) continue;
+        if (otherChainId === chainId) continue
 
-        const otherBalances = tokenBalances.filter((tb) => tb.token.chainId === otherChainId);
-        const hasOtherBalance = otherBalances.some((tb) => tb.balance > 0n);
+        const otherBalances = tokenBalances.filter(
+          (tb) => tb.token.chainId === otherChainId,
+        )
+        const hasOtherBalance = otherBalances.some((tb) => tb.balance > 0n)
 
         if (hasOtherBalance) {
-          needsBridge = true;
+          needsBridge = true
           bridgeEstimate = {
             sourceChain: otherChainId,
             amount: estimatedGasCost * 2n, // 2x for buffer
             fee: estimatedGasCost / 10n, // Estimated bridge fee
-          };
-          break;
+          }
+          break
         }
       }
     }
@@ -191,7 +197,7 @@ export class GasAbstractionService {
       recommendedToken,
       needsBridge,
       bridgeEstimate,
-    };
+    }
   }
 
   /**
@@ -201,33 +207,37 @@ export class GasAbstractionService {
     chainId: number,
     userAddress: Address,
     tokenBalances: TokenBalance[],
-    estimatedGas: bigint
+    estimatedGas: bigint,
   ): Promise<GasOption | null> {
-    const eilClient = this.eilClients.get(chainId);
-    if (!eilClient) return null;
+    const eilClient = this.eilClients.get(chainId)
+    if (!eilClient) return null
 
-    const chainBalances = tokenBalances.filter((tb) => tb.token.chainId === chainId);
-    if (chainBalances.length === 0) return null;
+    const chainBalances = tokenBalances.filter(
+      (tb) => tb.token.chainId === chainId,
+    )
+    if (chainBalances.length === 0) return null
 
-    const publicClient = this.publicClients.get(chainId);
-    if (!publicClient) return null;
+    const publicClient = this.publicClients.get(chainId)
+    if (!publicClient) return null
 
-    const gasPrice = await publicClient.getGasPrice();
-    const gasCostETH = estimatedGas * gasPrice;
+    const gasPrice = await publicClient.getGasPrice()
+    const gasCostETH = estimatedGas * gasPrice
 
     const result = await eilClient.getBestPaymentTokenForApp(
       '0x0000000000000000000000000000000000000000' as Address, // No specific app
       userAddress,
       gasCostETH,
-      chainBalances
-    );
+      chainBalances,
+    )
 
     if (result.bestToken === '0x0000000000000000000000000000000000000000') {
-      return null;
+      return null
     }
 
-    const tokenBalance = chainBalances.find((tb) => tb.token.address === result.bestToken);
-    if (!tokenBalance) return null;
+    const tokenBalance = chainBalances.find(
+      (tb) => tb.token.address === result.bestToken,
+    )
+    if (!tokenBalance) return null
 
     return {
       token: tokenBalance.token,
@@ -235,7 +245,7 @@ export class GasAbstractionService {
       ethEquivalent: gasCostETH,
       usdValue: tokenBalance.usdValue ?? 0,
       reason: result.reason,
-    };
+    }
   }
 
   /**
@@ -244,18 +254,18 @@ export class GasAbstractionService {
   buildPaymasterData(
     chainId: number,
     paymentToken: Address,
-    appAddress?: Address
+    appAddress?: Address,
   ): Hex {
-    const eilClient = this.eilClients.get(chainId);
+    const eilClient = this.eilClients.get(chainId)
     if (!eilClient) {
-      return '0x';
+      return '0x'
     }
 
     return eilClient.buildPaymasterData(
       0, // Token payment mode
       paymentToken,
-      appAddress ?? ('0x0000000000000000000000000000000000000000' as Address)
-    );
+      appAddress ?? ('0x0000000000000000000000000000000000000000' as Address),
+    )
   }
 
   /**
@@ -266,48 +276,53 @@ export class GasAbstractionService {
     targetChainId: number,
     userAddress: Address,
     tokenBalances: TokenBalance[],
-    minAmount: bigint
+    minAmount: bigint,
   ): Promise<{
-    ready: boolean;
-    action?: 'none' | 'bridge' | 'swap';
-    txHash?: Hex;
+    ready: boolean
+    action?: 'none' | 'bridge' | 'swap'
+    txHash?: Hex
   }> {
-    const status = await this.getGasStatus(targetChainId, userAddress, tokenBalances);
+    const status = await this.getGasStatus(
+      targetChainId,
+      userAddress,
+      tokenBalances,
+    )
 
     // Already have native balance
     if (status.nativeBalance >= minAmount) {
-      return { ready: true, action: 'none' };
+      return { ready: true, action: 'none' }
     }
 
     // Can pay with tokens
     if (status.canPayWithTokens) {
-      return { ready: true, action: 'none' };
+      return { ready: true, action: 'none' }
     }
 
     // Need to bridge
     if (status.needsBridge && this.config.autoBridge && status.bridgeEstimate) {
-      const eilClient = this.eilClients.get(status.bridgeEstimate.sourceChain);
+      const eilClient = this.eilClients.get(status.bridgeEstimate.sourceChain)
       if (eilClient && this.walletClient) {
         const result = await eilClient.createCrossChainTransfer({
           sourceToken: '0x0000000000000000000000000000000000000000' as Address,
           amount: status.bridgeEstimate.amount,
-          destinationToken: '0x0000000000000000000000000000000000000000' as Address,
+          destinationToken:
+            '0x0000000000000000000000000000000000000000' as Address,
           destinationChainId: targetChainId,
           recipient: userAddress,
-        });
+        })
 
-        return { ready: false, action: 'bridge', txHash: result.txHash };
+        return { ready: false, action: 'bridge', txHash: result.txHash }
       }
     }
 
-    return { ready: false };
+    return { ready: false }
   }
 
   /**
    * Update configuration
    */
   setConfig(config: Partial<GasConfig>): void {
-    this.config = { ...this.config, ...config };
+    this.config = { ...this.config, ...config }
   }
 
   /**
@@ -329,9 +344,9 @@ export class GasAbstractionService {
         '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9', // USDT
       ],
       1337: [], // Localnet - dynamically determined
-    };
+    }
 
-    return (tokensByChain[chainId] ?? []) as Address[];
+    return (tokensByChain[chainId] ?? []) as Address[]
   }
 }
 
@@ -339,7 +354,8 @@ export class GasAbstractionService {
 // Factory Function
 // ============================================================================
 
-export function createGasService(config: GasServiceConfig): GasAbstractionService {
-  return new GasAbstractionService(config);
+export function createGasService(
+  config: GasServiceConfig,
+): GasAbstractionService {
+  return new GasAbstractionService(config)
 }
-

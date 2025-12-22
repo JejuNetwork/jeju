@@ -1,8 +1,11 @@
-import { type Page } from '@playwright/test';
-import { testWithSynpress } from '@synthetixio/synpress';
-import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
-import jejuWalletSetup, { PASSWORD } from '../wallet-setup/jeju.setup';
-import { TEST_WALLET_ADDRESS } from '../synpress.config.base';
+import type { Page } from '@playwright/test'
+import { testWithSynpress } from '@synthetixio/synpress'
+import {
+  type MetaMask,
+  metaMaskFixtures,
+} from '@synthetixio/synpress/playwright'
+import { TEST_WALLET_ADDRESS } from '../synpress.config.base'
+import jejuWalletSetup, { PASSWORD } from '../wallet-setup/jeju.setup'
 
 /**
  * Synpress wallet fixtures for network testing
@@ -14,7 +17,7 @@ import { TEST_WALLET_ADDRESS } from '../synpress.config.base';
  * test('should connect wallet and trade', async ({ context, page, metamaskPage, extensionId }) => {
  *   const metamask = new MetaMask(context, metamaskPage, walletPassword, extensionId);
  *   await connectAndVerify(page, metamask);
- *   
+ *
  *   // Interact with dApp
  *   await page.click('button:has-text("Swap")');
  *   await metamask.confirmTransaction();
@@ -23,16 +26,16 @@ import { TEST_WALLET_ADDRESS } from '../synpress.config.base';
  */
 
 // Export test with properly configured MetaMask fixtures
-export const test = testWithSynpress(metaMaskFixtures(jejuWalletSetup));
+export const test = testWithSynpress(metaMaskFixtures(jejuWalletSetup))
 
 // Re-export expect for convenience
-export { expect } from '@playwright/test';
+export { expect } from '@playwright/test'
 
 // Export wallet password for MetaMask initialization
-export const walletPassword = PASSWORD;
+export const walletPassword = PASSWORD
 
 // Export the basic setup for apps that need it
-export const basicSetup = jejuWalletSetup;
+export const basicSetup = jejuWalletSetup
 
 /**
  * Connect wallet and verify connection in one step
@@ -42,42 +45,45 @@ export async function connectAndVerify(
   page: Page,
   metamask: MetaMask,
   options?: {
-    connectButtonText?: string | RegExp;
-    walletOptionText?: string;
-    expectedAddress?: string;
-    timeout?: number;
-  }
+    connectButtonText?: string | RegExp
+    walletOptionText?: string
+    expectedAddress?: string
+    timeout?: number
+  },
 ): Promise<string> {
   const {
     connectButtonText = /Connect/i,
     walletOptionText = 'MetaMask',
     expectedAddress = TEST_WALLET_ADDRESS,
     timeout = 15000,
-  } = options || {};
+  } = options || {}
 
   // Find and click connect button
-  const connectButton = typeof connectButtonText === 'string' 
-    ? page.getByRole('button', { name: connectButtonText })
-    : page.getByRole('button', { name: connectButtonText });
-  
-  await connectButton.click({ timeout });
-  await page.waitForTimeout(500);
+  const connectButton =
+    typeof connectButtonText === 'string'
+      ? page.getByRole('button', { name: connectButtonText })
+      : page.getByRole('button', { name: connectButtonText })
+
+  await connectButton.click({ timeout })
+  await page.waitForTimeout(500)
 
   // Select MetaMask if wallet picker is shown
-  const metamaskOption = page.locator(`text="${walletOptionText}"`);
-  const metamaskOptionVisible = await metamaskOption.isVisible({ timeout: 2000 });
+  const metamaskOption = page.locator(`text="${walletOptionText}"`)
+  const metamaskOptionVisible = await metamaskOption.isVisible({
+    timeout: 2000,
+  })
   if (metamaskOptionVisible) {
-    await metamaskOption.click();
+    await metamaskOption.click()
   }
 
   // Connect in MetaMask popup
-  await metamask.connectToDapp();
+  await metamask.connectToDapp()
 
   // Verify connection
-  const address = await verifyAuth(page, { expectedAddress, timeout });
-  console.log(`✅ Wallet connected and verified: ${address}`);
-  
-  return address;
+  const address = await verifyAuth(page, { expectedAddress, timeout })
+  console.log(`✅ Wallet connected and verified: ${address}`)
+
+  return address
 }
 
 /**
@@ -87,38 +93,41 @@ export async function connectAndVerify(
 export async function verifyAuth(
   page: Page,
   options?: {
-    expectedAddress?: string;
-    timeout?: number;
-  }
+    expectedAddress?: string
+    timeout?: number
+  },
 ): Promise<string> {
-  const {
-    expectedAddress = TEST_WALLET_ADDRESS,
-    timeout = 15000,
-  } = options || {};
+  const { expectedAddress = TEST_WALLET_ADDRESS, timeout = 15000 } =
+    options || {}
 
   // Look for truncated wallet address (common pattern: 0xf39F...2266)
-  const truncatedPrefix = expectedAddress.slice(0, 6);
-  const addressLocator = page.getByText(new RegExp(truncatedPrefix, 'i'));
-  
-  await addressLocator.waitFor({ state: 'visible', timeout });
-  
+  const truncatedPrefix = expectedAddress.slice(0, 6)
+  const addressLocator = page.getByText(new RegExp(truncatedPrefix, 'i'))
+
+  await addressLocator.waitFor({ state: 'visible', timeout })
+
   // Verify the address matches expected
-  const displayedText = await addressLocator.textContent();
+  const displayedText = await addressLocator.textContent()
   if (!displayedText?.toLowerCase().includes(truncatedPrefix.toLowerCase())) {
-    throw new Error(`Auth validation failed: Expected address starting with ${truncatedPrefix}`);
+    throw new Error(
+      `Auth validation failed: Expected address starting with ${truncatedPrefix}`,
+    )
   }
 
-  return expectedAddress;
+  return expectedAddress
 }
 
 /**
  * Checks if wallet is connected without throwing
  */
-export async function isAuthenticated(page: Page, timeout = 5000): Promise<boolean> {
-  const truncatedPrefix = TEST_WALLET_ADDRESS.slice(0, 6);
-  const addressLocator = page.getByText(new RegExp(truncatedPrefix, 'i'));
-  
-  return addressLocator.isVisible({ timeout });
+export async function isAuthenticated(
+  page: Page,
+  timeout = 5000,
+): Promise<boolean> {
+  const truncatedPrefix = TEST_WALLET_ADDRESS.slice(0, 6)
+  const addressLocator = page.getByText(new RegExp(truncatedPrefix, 'i'))
+
+  return addressLocator.isVisible({ timeout })
 }
 
 /**
@@ -128,22 +137,21 @@ export async function isAuthenticated(page: Page, timeout = 5000): Promise<boole
 export async function verifyDisconnected(
   page: Page,
   options?: {
-    connectButtonText?: string | RegExp;
-    timeout?: number;
-  }
+    connectButtonText?: string | RegExp
+    timeout?: number
+  },
 ): Promise<void> {
-  const {
-    connectButtonText = /Connect/i,
-    timeout = 10000,
-  } = options || {};
+  const { connectButtonText = /Connect/i, timeout = 10000 } = options || {}
 
-  const connectButton = page.getByRole('button', { name: connectButtonText });
-  await connectButton.waitFor({ state: 'visible', timeout });
-  
+  const connectButton = page.getByRole('button', { name: connectButtonText })
+  await connectButton.waitFor({ state: 'visible', timeout })
+
   // Ensure no wallet address is visible
-  const isConnected = await isAuthenticated(page, 2000);
+  const isConnected = await isAuthenticated(page, 2000)
   if (isConnected) {
-    throw new Error('Expected wallet to be disconnected but found connected state');
+    throw new Error(
+      'Expected wallet to be disconnected but found connected state',
+    )
   }
 }
 
@@ -154,56 +162,61 @@ export async function connectWallet(
   page: Page,
   metamask: MetaMask,
   options?: {
-    connectButtonText?: string | RegExp;
-    walletOptionText?: string;
-    timeout?: number;
-  }
+    connectButtonText?: string | RegExp
+    walletOptionText?: string
+    timeout?: number
+  },
 ): Promise<void> {
   const {
     connectButtonText = /Connect/i,
     walletOptionText = 'MetaMask',
     timeout = 10000,
-  } = options || {};
+  } = options || {}
 
-  const connectButton = page.getByRole('button', { name: connectButtonText });
-  await connectButton.click({ timeout });
-  await page.waitForTimeout(500);
+  const connectButton = page.getByRole('button', { name: connectButtonText })
+  await connectButton.click({ timeout })
+  await page.waitForTimeout(500)
 
-  const metamaskOption = page.locator(`text="${walletOptionText}"`);
-  const metamaskOptionVisible = await metamaskOption.isVisible({ timeout: 2000 });
+  const metamaskOption = page.locator(`text="${walletOptionText}"`)
+  const metamaskOptionVisible = await metamaskOption.isVisible({
+    timeout: 2000,
+  })
   if (metamaskOptionVisible) {
-    await metamaskOption.click();
+    await metamaskOption.click()
   }
 
-  await metamask.connectToDapp();
+  await metamask.connectToDapp()
 }
 
 /**
  * Approve transaction in MetaMask
  */
 export async function approveTransaction(metamask: MetaMask): Promise<void> {
-  await metamask.confirmTransaction();
+  await metamask.confirmTransaction()
 }
 
 /**
  * Sign message in MetaMask
  */
 export async function signMessage(metamask: MetaMask): Promise<void> {
-  await metamask.confirmSignature();
+  await metamask.confirmSignature()
 }
 
 /**
  * Reject transaction in MetaMask
  */
 export async function rejectTransaction(metamask: MetaMask): Promise<void> {
-  await metamask.rejectTransaction();
+  await metamask.rejectTransaction()
 }
 
 /**
  * Switch network in MetaMask
  */
-export async function switchNetwork(metamask: MetaMask, networkName: string): Promise<void> {
-  await metamask.switchNetwork(networkName);
+export async function switchNetwork(
+  metamask: MetaMask,
+  networkName: string,
+): Promise<void> {
+  await metamask.switchNetwork(networkName)
 }
 
 /**
@@ -215,23 +228,26 @@ export async function getWalletAddress(page: Page): Promise<string> {
     'button:has-text(/0x[a-fA-F0-9]{4,}/)',
     'span:has-text(/0x[a-fA-F0-9]{4,}/)',
     'div:has-text(/0x[a-fA-F0-9]{4,}/)',
-  ].join(', ');
+  ].join(', ')
 
-  const addressElement = page.locator(addressSelector).first();
-  const text = await addressElement.textContent({ timeout: 5000 });
+  const addressElement = page.locator(addressSelector).first()
+  const text = await addressElement.textContent({ timeout: 5000 })
 
-  const match = text?.match(/0x[a-fA-F0-9]{4,}/);
+  const match = text?.match(/0x[a-fA-F0-9]{4,}/)
   if (!match) {
-    throw new Error('Could not find wallet address in page');
+    throw new Error('Could not find wallet address in page')
   }
 
-  return match[0];
+  return match[0]
 }
 
 /**
  * Verify wallet is connected (legacy - use verifyAuth instead)
  * @deprecated Use verifyAuth instead
  */
-export async function verifyWalletConnected(page: Page, expectedAddress?: string): Promise<string> {
-  return verifyAuth(page, { expectedAddress });
+export async function verifyWalletConnected(
+  page: Page,
+  expectedAddress?: string,
+): Promise<string> {
+  return verifyAuth(page, { expectedAddress })
 }

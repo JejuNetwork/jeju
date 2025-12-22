@@ -1,10 +1,9 @@
 export {
-  NFTBridgeService,
+  type BridgeRequest,
+  BridgeStatus,
+  type CrossChainNFT,
   createNFTBridgeService,
   type NFTBridgeConfig,
-  type BridgeRequest,
+  NFTBridgeService,
   type SolanaNFTMetadata,
-  type CrossChainNFT,
-  BridgeStatus,
-} from './nft-bridge-service.js';
-
+} from './nft-bridge-service.js'

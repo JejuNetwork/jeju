@@ -1,45 +1,73 @@
-import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi';
-import { NODE_STAKING_MANAGER_ABI, getNodeStakingAddress, type NodeStake, type PerformanceMetrics, type OperatorStats, Region } from '../lib/nodeStaking';
-import { Address } from 'viem';
+import type { Address } from 'viem'
+import {
+  useAccount,
+  useReadContract,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from 'wagmi'
+import {
+  getNodeStakingAddress,
+  NODE_STAKING_MANAGER_ABI,
+  type NodeStake,
+  type OperatorStats,
+  type PerformanceMetrics,
+  type Region,
+} from '../lib/nodeStaking'
 
 export function useNodeStaking() {
-  const stakingManager = getNodeStakingAddress();
-  const { address: userAddress } = useAccount();
+  const stakingManager = getNodeStakingAddress()
+  const { address: userAddress } = useAccount()
 
   const { data: operatorNodeIds, refetch: refetchNodes } = useReadContract({
     address: stakingManager,
     abi: NODE_STAKING_MANAGER_ABI,
     functionName: 'getOperatorNodes',
     args: userAddress ? [userAddress] : undefined,
-  });
+  })
 
   const { data: operatorStats } = useReadContract({
     address: stakingManager,
     abi: NODE_STAKING_MANAGER_ABI,
     functionName: 'getOperatorStats',
     args: userAddress ? [userAddress] : undefined,
-  });
+  })
 
   const { data: networkStats } = useReadContract({
     address: stakingManager,
     abi: NODE_STAKING_MANAGER_ABI,
     functionName: 'getNetworkStats',
-  });
+  })
 
-  const { writeContract: register, data: registerHash, isPending: isRegistering } = useWriteContract();
-  const { isLoading: isConfirmingRegister, isSuccess: isRegisterSuccess } = useWaitForTransactionReceipt({ hash: registerHash });
+  const {
+    writeContract: register,
+    data: registerHash,
+    isPending: isRegistering,
+  } = useWriteContract()
+  const { isLoading: isConfirmingRegister, isSuccess: isRegisterSuccess } =
+    useWaitForTransactionReceipt({ hash: registerHash })
 
-  const registerNode = async (stakingToken: Address, stakeAmount: bigint, rewardToken: Address, rpcUrl: string, region: Region) => {
+  const registerNode = async (
+    stakingToken: Address,
+    stakeAmount: bigint,
+    rewardToken: Address,
+    rpcUrl: string,
+    region: Region,
+  ) => {
     register({
       address: stakingManager,
       abi: NODE_STAKING_MANAGER_ABI,
       functionName: 'registerNode',
       args: [stakingToken, stakeAmount, rewardToken, rpcUrl, region],
-    });
-  };
+    })
+  }
 
-  const { writeContract: deregister, data: deregisterHash, isPending: isDeregistering } = useWriteContract();
-  const { isLoading: isConfirmingDeregister, isSuccess: isDeregisterSuccess } = useWaitForTransactionReceipt({ hash: deregisterHash });
+  const {
+    writeContract: deregister,
+    data: deregisterHash,
+    isPending: isDeregistering,
+  } = useWriteContract()
+  const { isLoading: isConfirmingDeregister, isSuccess: isDeregisterSuccess } =
+    useWaitForTransactionReceipt({ hash: deregisterHash })
 
   const deregisterNode = async (nodeId: string) => {
     deregister({
@@ -47,8 +75,8 @@ export function useNodeStaking() {
       abi: NODE_STAKING_MANAGER_ABI,
       functionName: 'deregisterNode',
       args: [nodeId as `0x${string}`],
-    });
-  };
+    })
+  }
 
   return {
     operatorNodeIds: operatorNodeIds ? (operatorNodeIds as string[]) : [],
@@ -61,34 +89,42 @@ export function useNodeStaking() {
     isRegisterSuccess,
     isDeregisterSuccess,
     refetchNodes,
-  };
+  }
 }
 
 export function useNodeInfo(nodeId: string | undefined) {
-  const stakingManager = getNodeStakingAddress();
+  const stakingManager = getNodeStakingAddress()
 
   const { data: nodeInfo, refetch } = useReadContract({
     address: stakingManager,
     abi: NODE_STAKING_MANAGER_ABI,
     functionName: 'getNodeInfo',
     args: nodeId ? [nodeId as `0x${string}`] : undefined,
-  });
+  })
 
-  return { nodeInfo: nodeInfo as [NodeStake, PerformanceMetrics, bigint] | undefined, refetch };
+  return {
+    nodeInfo: nodeInfo as [NodeStake, PerformanceMetrics, bigint] | undefined,
+    refetch,
+  }
 }
 
 export function useNodeRewards(nodeId: string | undefined) {
-  const stakingManager = getNodeStakingAddress();
+  const stakingManager = getNodeStakingAddress()
 
   const { data: pendingRewardsUSD } = useReadContract({
     address: stakingManager,
     abi: NODE_STAKING_MANAGER_ABI,
     functionName: 'calculatePendingRewards',
     args: nodeId ? [nodeId as `0x${string}`] : undefined,
-  });
+  })
 
-  const { writeContract: claim, data: claimHash, isPending: isClaiming } = useWriteContract();
-  const { isLoading: isConfirmingClaim, isSuccess: isClaimSuccess } = useWaitForTransactionReceipt({ hash: claimHash });
+  const {
+    writeContract: claim,
+    data: claimHash,
+    isPending: isClaiming,
+  } = useWriteContract()
+  const { isLoading: isConfirmingClaim, isSuccess: isClaimSuccess } =
+    useWaitForTransactionReceipt({ hash: claimHash })
 
   const claimRewards = async (nodeIdToClaim: string) => {
     claim({
@@ -96,13 +132,13 @@ export function useNodeRewards(nodeId: string | undefined) {
       abi: NODE_STAKING_MANAGER_ABI,
       functionName: 'claimRewards',
       args: [nodeIdToClaim as `0x${string}`],
-    });
-  };
+    })
+  }
 
   return {
     pendingRewardsUSD: pendingRewardsUSD as bigint | undefined,
     claimRewards,
     isClaiming: isClaiming || isConfirmingClaim,
     isClaimSuccess,
-  };
+  }
 }

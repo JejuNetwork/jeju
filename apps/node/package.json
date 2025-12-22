@@ -15,7 +15,7 @@
     "app": "bun run src/app/index.ts",
     "test": "bun test",
     "test:e2e": "playwright test --config tests/synpress/synpress.config.ts",
-    "lint": "eslint src --ext .ts,.tsx",
+    "lint": "biome check .",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -53,7 +53,7 @@
     "@tauri-apps/plugin-shell": "2.0.0",
     "@tauri-apps/plugin-store": "2.0.0",
     "@types/bun": "latest",
-    "@types/react": "^19.0.0",
+    "@types/react": "19.2.3",
     "@types/react-dom": "^19.0.0",
     "@types/webtorrent": "0.109.5",
     "@types/ws": "^8.18.1",

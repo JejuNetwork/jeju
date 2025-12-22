@@ -1,55 +1,55 @@
 /**
  * Sign Message Action
- * 
+ *
  * Signs messages or typed data with security analysis.
  */
 
-import { SecurityService } from '../services/security.service';
-import type { ActionContext, ActionResult } from './wallet-info';
-import { expectNonEmpty } from '../../lib/validation';
+import { expectNonEmpty } from '../../lib/validation'
+import type { SecurityService } from '../services/security.service'
+import type { ActionContext, ActionResult } from './wallet-info'
 
 interface SignParams {
-  message?: string;
+  message?: string
 }
 
 export const signMessageAction = {
   name: 'SIGN_MESSAGE',
   description: 'Sign a message or typed data with the wallet',
   similes: ['SIGN', 'SIGNATURE', 'APPROVE_SIGNATURE'],
-  
+
   parseParams(text: string): SignParams {
     // Extract message content after "sign" keyword
-    const match = text.match(/sign[:\s]+(.+)/i);
-    return { message: match?.[1] || text };
+    const match = text.match(/sign[:\s]+(.+)/i)
+    return { message: match?.[1] || text }
   },
-  
+
   async execute(
     context: ActionContext & { securityService?: SecurityService },
-    params: SignParams
+    params: SignParams,
   ): Promise<ActionResult> {
-    context.logger.info('[SignMessage] Processing signature request');
-    
-    const { walletService, securityService } = context;
-    
+    context.logger.info('[SignMessage] Processing signature request')
+
+    const { walletService, securityService } = context
+
     if (!walletService) {
-      return { success: false, message: 'Wallet service not available' };
+      return { success: false, message: 'Wallet service not available' }
     }
-    
-    const state = walletService.getState();
+
+    const state = walletService.getState()
     if (state.isLocked || !state.currentAccount) {
-      return { success: false, message: 'Please unlock your wallet first' };
+      return { success: false, message: 'Please unlock your wallet first' }
     }
-    
-    const messageText = params.message || '';
-    expectNonEmpty(messageText, 'message');
-    
+
+    const messageText = params.message || ''
+    expectNonEmpty(messageText, 'message')
+
     // Security analysis
     if (securityService) {
       const analysis = await securityService.analyzeSignature({
         message: messageText,
         signerAddress: state.currentAccount.address,
-      });
-      
+      })
+
       if (analysis.riskLevel === 'critical' || analysis.riskLevel === 'high') {
         return {
           success: true,
@@ -61,10 +61,10 @@ Risk Level: ${analysis.riskLevel.toUpperCase()}
 
 Please review carefully before signing.`,
           data: { requiresConfirmation: true, riskLevel: analysis.riskLevel },
-        };
+        }
       }
     }
-    
+
     return {
       success: true,
       message: `**Signature Request**
@@ -74,8 +74,8 @@ Signer: ${state.currentAccount.address.slice(0, 6)}...${state.currentAccount.add
 
 Please confirm to sign.`,
       data: { requiresConfirmation: true, message: messageText },
-    };
+    }
   },
-};
+}
 
-export default signMessageAction;
+export default signMessageAction

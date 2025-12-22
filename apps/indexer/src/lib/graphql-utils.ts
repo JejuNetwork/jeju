@@ -4,11 +4,14 @@
  */
 
 export interface GraphQLQuery {
-  query: string;
-  variables?: Record<string, unknown>;
+  query: string
+  variables?: Record<string, unknown>
 }
 
-export function buildBlockQuery(blockNumber?: number, blockHash?: string): GraphQLQuery {
+export function buildBlockQuery(
+  blockNumber?: number,
+  blockHash?: string,
+): GraphQLQuery {
   if (blockNumber !== undefined) {
     return {
       query: `query GetBlock($number: Int) {
@@ -22,7 +25,7 @@ export function buildBlockQuery(blockNumber?: number, blockHash?: string): Graph
         }
       }`,
       variables: { number: blockNumber },
-    };
+    }
   }
   if (blockHash) {
     return {
@@ -37,9 +40,9 @@ export function buildBlockQuery(blockNumber?: number, blockHash?: string): Graph
         }
       }`,
       variables: { hash: blockHash },
-    };
+    }
   }
-  throw new Error('Either blockNumber or blockHash must be provided');
+  throw new Error('Either blockNumber or blockHash must be provided')
 }
 
 export function buildTransactionQuery(hash: string): GraphQLQuery {
@@ -57,7 +60,7 @@ export function buildTransactionQuery(hash: string): GraphQLQuery {
       }
     }`,
     variables: { hash },
-  };
+  }
 }
 
 export function buildAccountQuery(address: string): GraphQLQuery {
@@ -71,7 +74,7 @@ export function buildAccountQuery(address: string): GraphQLQuery {
       }
     }`,
     variables: { address: address.toLowerCase() },
-  };
+  }
 }
 
 export function buildTokenBalancesQuery(address: string): GraphQLQuery {
@@ -83,11 +86,11 @@ export function buildTokenBalancesQuery(address: string): GraphQLQuery {
       }
     }`,
     variables: { address: address.toLowerCase() },
-  };
+  }
 }
 
 export function buildAgentQuery(agentId: string | number): GraphQLQuery {
-  const agentIdStr = typeof agentId === 'string' ? agentId : agentId.toString();
+  const agentIdStr = typeof agentId === 'string' ? agentId : agentId.toString()
   return {
     query: `query GetAgent($agentId: BigInt!) {
       registeredAgents(where: { agentId_eq: $agentId }, limit: 1) {
@@ -103,14 +106,14 @@ export function buildAgentQuery(agentId: string | number): GraphQLQuery {
       }
     }`,
     variables: { agentId: agentIdStr },
-  };
+  }
 }
 
 export function buildAgentsQuery(params: {
-  role?: string;
-  active?: boolean;
-  limit?: number;
-  offset?: number;
+  role?: string
+  active?: boolean
+  limit?: number
+  offset?: number
 }): GraphQLQuery {
   return {
     query: `query GetAgents($role: String, $active: Boolean, $limit: Int, $offset: Int) {
@@ -133,15 +136,15 @@ export function buildAgentsQuery(params: {
       limit: params.limit ?? 50,
       offset: params.offset ?? 0,
     },
-  };
+  }
 }
 
 export function buildLogsQuery(params: {
-  address?: string;
-  topic0?: string;
-  fromBlock?: number;
-  toBlock?: number;
-  limit?: number;
+  address?: string
+  topic0?: string
+  fromBlock?: number
+  toBlock?: number
+  limit?: number
 }): GraphQLQuery {
   return {
     query: `query GetLogs($address: String, $topic0: String, $fromBlock: Int, $toBlock: Int, $limit: Int) {
@@ -164,7 +167,7 @@ export function buildLogsQuery(params: {
       toBlock: params.toBlock,
       limit: params.limit ?? 100,
     },
-  };
+  }
 }
 
 export function buildIntentQuery(intentId: string): GraphQLQuery {
@@ -185,7 +188,7 @@ export function buildIntentQuery(intentId: string): GraphQLQuery {
       }
     }`,
     variables: { intentId },
-  };
+  }
 }
 
 export function buildSolverQuery(address: string): GraphQLQuery {
@@ -202,7 +205,7 @@ export function buildSolverQuery(address: string): GraphQLQuery {
       }
     }`,
     variables: { address: address.toLowerCase() },
-  };
+  }
 }
 
 export function buildProposalQuery(proposalId: string): GraphQLQuery {
@@ -221,12 +224,12 @@ export function buildProposalQuery(proposalId: string): GraphQLQuery {
       }
     }`,
     variables: { proposalId },
-  };
+  }
 }
 
 export function buildProposalsQuery(params: {
-  status?: string;
-  limit?: number;
+  status?: string
+  limit?: number
 }): GraphQLQuery {
   return {
     query: `query GetProposals($status: String, $limit: Int) {
@@ -247,7 +250,7 @@ export function buildProposalsQuery(params: {
       status: params.status,
       limit: params.limit ?? 20,
     },
-  };
+  }
 }
 
 export function buildNetworkStatsQuery(): GraphQLQuery {
@@ -262,7 +265,7 @@ export function buildNetworkStatsQuery(): GraphQLQuery {
         timestamp
       }
     }`,
-  };
+  }
 }
 
 export function buildTokenStatsQuery(): GraphQLQuery {
@@ -275,11 +278,13 @@ export function buildTokenStatsQuery(): GraphQLQuery {
         transfers24h
       }
     }`,
-  };
+  }
 }
 
-export function buildAgentReputationQuery(agentId: string | number): GraphQLQuery {
-  const agentIdStr = typeof agentId === 'string' ? agentId : agentId.toString();
+export function buildAgentReputationQuery(
+  agentId: string | number,
+): GraphQLQuery {
+  const agentIdStr = typeof agentId === 'string' ? agentId : agentId.toString()
   return {
     query: `query GetReputation($agentId: BigInt!) {
       agentFeedback(where: { agentId_eq: $agentId }) {
@@ -296,5 +301,5 @@ export function buildAgentReputationQuery(agentId: string | number): GraphQLQuer
       }
     }`,
     variables: { agentId: agentIdStr },
-  };
+  }
 }

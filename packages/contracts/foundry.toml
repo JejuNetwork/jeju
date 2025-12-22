@@ -69,7 +69,7 @@ remappings = [
 # Local Development (ports from packages/config/chain/localnet.json)
 # -----------------------------------------------------------------------------
 local = "${LOCALNET_RPC_URL-http://127.0.0.1:9545}"
-local_l1 = "${LOCALNET_L1_RPC_URL-http://127.0.0.1:6545}"
+local_l1 = "${LOCALNET_L1_RPC_URL-http://127.0.0.1:8545}"
 
 # -----------------------------------------------------------------------------
 # Testnet - Jeju L2 (chainId: 420690)

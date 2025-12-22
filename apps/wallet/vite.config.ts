@@ -1,12 +1,12 @@
-import { defineConfig, Plugin } from 'vite';
-import react from '@vitejs/plugin-react';
-import { resolve } from 'path';
+import { resolve } from 'node:path'
+import react from '@vitejs/plugin-react'
+import { defineConfig, type Plugin } from 'vite'
 
 // Plugin to stub platform-specific modules that use dynamic imports
 function stubPlatformModules(): Plugin {
   const stubbedModules = [
     '@tauri-apps/api/fs',
-    '@tauri-apps/api/tauri', 
+    '@tauri-apps/api/tauri',
     '@tauri-apps/api/path',
     '@tauri-apps/api/shell',
     '@tauri-apps/api/window',
@@ -21,15 +21,15 @@ function stubPlatformModules(): Plugin {
     '@tauri-apps/api/globalShortcut',
     '@tauri-apps/api',
     'webtorrent',
-  ];
-  
+  ]
+
   return {
     name: 'stub-platform-modules',
     resolveId(id) {
-      if (stubbedModules.some(m => id === m || id.startsWith(m + '/'))) {
-        return `\0stub:${id}`;
+      if (stubbedModules.some((m) => id === m || id.startsWith(`${m}/`))) {
+        return `\0stub:${id}`
       }
-      return null;
+      return null
     },
     load(id) {
       if (id.startsWith('\0stub:')) {
@@ -50,11 +50,11 @@ function stubPlatformModules(): Plugin {
           export const renameFile = () => Promise.reject(new Error('Tauri not available'));
           export const copyFile = () => Promise.reject(new Error('Tauri not available'));
           export const BaseDirectory = { AppData: 0, AppConfig: 1, AppCache: 2, Temp: 3 };
-        `;
+        `
       }
-      return null;
+      return null
     },
-  };
+  }
 }
 
 export default defineConfig({
@@ -90,5 +90,4 @@ export default defineConfig({
     include: ['react', 'react-dom', 'viem', 'wagmi'],
     exclude: ['@tauri-apps/api', 'webtorrent'],
   },
-});
-
+})

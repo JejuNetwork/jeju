@@ -82,17 +82,30 @@ resource "kubernetes_namespace" "crucible" {
   }
 }
 
-# Secrets for private key (should be managed via Vault in production)
+# Secrets for private key - MUST be managed via Vault/External Secrets in production
+# For localnet, use --set or environment variable injection
 resource "kubernetes_secret" "crucible_secrets" {
   metadata {
     name      = "crucible-secrets"
     namespace = kubernetes_namespace.crucible.metadata[0].name
+    annotations = {
+      # Production should use External Secrets Operator or Vault
+      "managed-by" = var.environment == "localnet" ? "terraform-localnet" : "external-secrets"
+    }
   }
 
   data = {
-    # In production, inject via Vault
-    PRIVATE_KEY = var.environment == "localnet" ? "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" : ""
+    # SECURITY: For non-localnet, this must be empty and injected via Vault/ESO
+    # Localnet can optionally use CRUCIBLE_PRIVATE_KEY env var
+    PRIVATE_KEY = var.environment == "localnet" ? var.localnet_private_key : ""
   }
+}
+
+variable "localnet_private_key" {
+  description = "Private key for localnet only - set via TF_VAR_localnet_private_key or -var"
+  type        = string
+  default     = ""
+  sensitive   = true
 }
 
 # ConfigMap for service configuration

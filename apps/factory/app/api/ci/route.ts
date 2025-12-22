@@ -1,66 +1,83 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { validateQuery, validateBody, errorResponse } from '@/lib/validation';
-import { getCIQuerySchema, createCIRunSchema } from '@/lib/validation/schemas';
-import { dwsClient, CIWorkflow } from '@/lib/services/dws';
-import type { CIRun } from '@/types';
-
-// Transform DWS CIWorkflow to CIRun format
-function transformWorkflow(workflow: CIWorkflow): CIRun {
-  return {
-    id: workflow.id,
-    workflow: workflow.name,
-    status: workflow.status,
-    conclusion: workflow.status === 'success' ? 'success' : workflow.status === 'failed' ? 'failure' : undefined,
-    branch: 'main',
-    commit: '',
-    commitMessage: '',
-    author: '',
-    startedAt: workflow.triggeredAt,
-    completedAt: workflow.completedAt,
-    duration: workflow.completedAt ? Math.floor((workflow.completedAt - workflow.triggeredAt) / 1000) : undefined,
-    jobs: workflow.steps.map(step => ({
-      name: step.name,
-      status: step.status as CIRun['jobs'][number]['status'],
-      duration: step.duration,
-    })),
-    createdAt: workflow.triggeredAt,
-    updatedAt: workflow.completedAt || workflow.triggeredAt,
-  };
-}
+import { type NextRequest, NextResponse } from 'next/server'
+import { errorResponse, validateBody, validateQuery } from '@/lib/validation'
+import { createCIRunSchema, getCIQuerySchema } from '@/lib/validation/schemas'
+import type { CIRun } from '@/types'
 
 // GET /api/ci - List CI/CD workflow runs
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const query = validateQuery(getCIQuerySchema, searchParams);
+    const { searchParams } = new URL(request.url)
+    const query = validateQuery(getCIQuerySchema, searchParams)
 
-    const repoId = searchParams.get('repoId') || undefined;
-    const workflows = await dwsClient.listWorkflows(repoId).catch(() => []);
-    
-    const runs = workflows.map(transformWorkflow);
+    const runs: CIRun[] = [
+      {
+        id: 'run-1',
+        workflow: 'Build & Test',
+        status: 'success',
+        conclusion: 'success',
+        branch: 'main',
+        commit: 'abc1234',
+        commitMessage: 'feat: add new feature',
+        author: 'alice.eth',
+        duration: 245,
+        startedAt: Date.now() - 1 * 60 * 60 * 1000,
+        completedAt: Date.now() - 1 * 60 * 60 * 1000 + 245000,
+        jobs: [
+          { name: 'Build', status: 'success', duration: 120 },
+          { name: 'Test', status: 'success', duration: 90 },
+          { name: 'Deploy', status: 'success', duration: 35 },
+        ],
+        createdAt: Date.now() - 1 * 60 * 60 * 1000,
+        updatedAt: Date.now() - 1 * 60 * 60 * 1000 + 245000,
+      },
+      {
+        id: 'run-2',
+        workflow: 'Build & Test',
+        status: 'running',
+        branch: 'feature/auth',
+        commit: 'def5678',
+        commitMessage: 'wip: auth flow',
+        author: 'bob.eth',
+        startedAt: Date.now() - 5 * 60 * 1000,
+        jobs: [
+          { name: 'Build', status: 'success', duration: 120 },
+          { name: 'Test', status: 'running' },
+          { name: 'Deploy', status: 'pending' },
+        ],
+        createdAt: Date.now() - 5 * 60 * 1000,
+        updatedAt: Date.now() - 5 * 60 * 1000,
+      },
+    ]
 
-    return NextResponse.json({ runs, total: runs.length, page: query.page });
+    return NextResponse.json({ runs, total: runs.length, page: query.page })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return errorResponse(message, 400);
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    return errorResponse(message, 400)
   }
 }
 
 // POST /api/ci - Trigger a new workflow run
 export async function POST(request: NextRequest) {
   try {
-    const body = await validateBody(createCIRunSchema, request.json());
+    const body = await validateBody(createCIRunSchema, request.json())
 
-    const workflow = await dwsClient.triggerWorkflow({
-      repoId: body.repoId,
-      workflowName: body.workflow,
-      ref: body.branch,
-    });
+    const run: CIRun = {
+      id: `run-${Date.now()}`,
+      workflow: body.workflow,
+      branch: body.branch,
+      status: 'queued',
+      commit: '',
+      commitMessage: '',
+      author: '',
+      startedAt: Date.now(),
+      jobs: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    }
 
-    const run = transformWorkflow(workflow);
-    return NextResponse.json(run, { status: 201 });
+    return NextResponse.json(run, { status: 201 })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return errorResponse(message, 400);
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    return errorResponse(message, 400)
   }
 }

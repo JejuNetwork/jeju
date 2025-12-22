@@ -1,6 +1,6 @@
 /**
  * Federation Processor - Multi-chain registry aggregation
- * 
+ *
  * Watches:
  * - NetworkRegistry events on L1 hub
  * - RegistryHub events on L1 hub
@@ -8,40 +8,46 @@
  * - ComputeRegistry events on all federated chains
  * - StorageProviderRegistry events on all federated chains
  * - SolverRegistry events on all federated chains
- * 
+ *
  * Aggregates:
  * - All federated networks
  * - All registries across networks
  * - Deduplicated entries (by federated ID)
  */
 
-import { Store } from '@subsquid/typeorm-store';
-import { 
-  createPublicClient, 
-  http, 
-  decodeAbiParameters, 
-  parseEther, 
-  keccak256, 
-  encodePacked, 
-  pad, 
-  toHex,
+import {
+  createPublicClient,
+  decodeAbiParameters,
+  encodePacked,
+  getContract,
+  http,
+  keccak256,
+  type PublicClient,
+  pad,
+  parseEther,
   toEventSelector,
   zeroAddress,
-  getContract,
-  type PublicClient,
-} from 'viem';
+} from 'viem'
 
 // Event signatures (keccak256 hash of event signature)
-const NETWORK_REGISTERED = toEventSelector('NetworkRegistered(uint256,string,address,uint256)');
-const REGISTRY_REGISTERED = toEventSelector('RegistryRegistered(bytes32,uint256,uint8,bytes32,string)');
-const ENTRY_FEDERATED = toEventSelector('EntryFederated(bytes32,bytes32,bytes32,string)');
-const AGENT_REGISTERED = toEventSelector('Registered(uint256,address,uint8,uint256,string)');
+const NETWORK_REGISTERED = toEventSelector(
+  'NetworkRegistered(uint256,string,address,uint256)',
+)
+const REGISTRY_REGISTERED = toEventSelector(
+  'RegistryRegistered(bytes32,uint256,uint8,bytes32,string)',
+)
+const ENTRY_FEDERATED = toEventSelector(
+  'EntryFederated(bytes32,bytes32,bytes32,string)',
+)
+const _AGENT_REGISTERED = toEventSelector(
+  'Registered(uint256,address,uint8,uint256,string)',
+)
 
 // Trust tiers
 enum TrustTier {
   UNSTAKED = 0,
   STAKED = 1,
-  VERIFIED = 2
+  VERIFIED = 2,
 }
 
 // Registry types
@@ -55,69 +61,71 @@ enum RegistryType {
   MODEL = 6,
   NAME_SERVICE = 7,
   REPUTATION = 8,
-  OTHER = 9
+  OTHER = 9,
 }
 
 interface FederatedNetwork {
-  chainId: number;
-  name: string;
-  rpcUrl: string;
-  operator: string;
-  stake: bigint;
-  trustTier: TrustTier;
-  isActive: boolean;
-  isSuperchain: boolean;
-  registeredAt: Date;
+  chainId: number
+  name: string
+  rpcUrl: string
+  operator: string
+  stake: bigint
+  trustTier: TrustTier
+  isActive: boolean
+  isSuperchain: boolean
+  registeredAt: Date
   contracts: {
-    identityRegistry: string;
-    solverRegistry: string;
-    inputSettler: string;
-    outputSettler: string;
-  };
+    identityRegistry: string
+    solverRegistry: string
+    inputSettler: string
+    outputSettler: string
+  }
 }
 
 interface FederatedRegistry {
-  registryId: string;
-  chainId: number;
-  registryType: RegistryType;
-  contractAddress: string;
-  name: string;
-  version: string;
-  entryCount: number;
-  lastSyncBlock: number;
-  isActive: boolean;
+  registryId: string
+  chainId: number
+  registryType: RegistryType
+  contractAddress: string
+  name: string
+  version: string
+  entryCount: number
+  lastSyncBlock: number
+  isActive: boolean
 }
 
 interface FederatedEntry {
-  entryId: string;
-  registryId: string;
-  originId: string;
-  name: string;
-  metadataUri: string;
-  originChainId: number;
-  syncedAt: Date;
+  entryId: string
+  registryId: string
+  originId: string
+  name: string
+  metadataUri: string
+  originChainId: number
+  syncedAt: Date
 }
 
 // In-memory cache (would be stored in DB in production)
-const federatedNetworks = new Map<number, FederatedNetwork>();
-const federatedRegistries = new Map<string, FederatedRegistry>();
-const federatedEntries = new Map<string, FederatedEntry>();
+const federatedNetworks = new Map<number, FederatedNetwork>()
+const federatedRegistries = new Map<string, FederatedRegistry>()
+const federatedEntries = new Map<string, FederatedEntry>()
 
 // Chain providers for multi-chain queries
-const chainProviders = new Map<number, PublicClient>();
+const chainProviders = new Map<number, PublicClient>()
 
 /**
  * Initialize providers for all federated networks
  */
-export async function initializeFederationProviders(hubRpc: string): Promise<void> {
-  const hubProvider = createPublicClient({ transport: http(hubRpc) });
-  
+export async function initializeFederationProviders(
+  hubRpc: string,
+): Promise<void> {
+  const hubProvider = createPublicClient({ transport: http(hubRpc) })
+
   // Query NetworkRegistry for all networks
   // In production, this would be event-driven
-  console.log('[Federation] Initializing multi-chain providers...');
-  
+  console.log('[Federation] Initializing multi-chain providers...')
+
   // Add hub chain
-  chainProviders.set(1, hubProvider);
+  chainProviders.set(1, hubProvider)
 }
 
 /**
@@ -125,24 +133,27 @@ export async function initializeFederationProviders(hubRpc: string): Promise<voi
  */
 export function processNetworkRegistryEvent(
   log: { topics: string[]; data: string },
-  block: { timestamp: number }
+  block: { timestamp: number },
 ): FederatedNetwork | null {
-  if (log.topics[0] !== NETWORK_REGISTERED) return null;
+  if (log.topics[0] !== NETWORK_REGISTERED) return null
 
-  const chainId = parseInt(log.topics[1], 16);
-  const operator = '0x' + log.topics[2].slice(26);
-  
+  const chainId = parseInt(log.topics[1], 16)
+  const operator = `0x${log.topics[2].slice(26)}`
+
   const decoded = decodeAbiParameters(
     [{ type: 'string' }, { type: 'uint256' }],
-    log.data as `0x${string}`
-  );
-  
-  const name = decoded[0] as string;
-  const stake = decoded[1] as bigint;
+    log.data as `0x${string}`,
+  )
 
-  const trustTier = stake >= parseEther('10') ? TrustTier.VERIFIED :
-                    stake >= parseEther('1') ? TrustTier.STAKED :
-                    TrustTier.UNSTAKED;
+  const name = decoded[0] as string
+  const stake = decoded[1] as bigint
+
+  const trustTier =
+    stake >= parseEther('10')
+      ? TrustTier.VERIFIED
+      : stake >= parseEther('1')
+        ? TrustTier.STAKED
+        : TrustTier.UNSTAKED
 
   const network: FederatedNetwork = {
     chainId,
@@ -159,13 +170,15 @@ export function processNetworkRegistryEvent(
       solverRegistry: zeroAddress,
       inputSettler: zeroAddress,
       outputSettler: zeroAddress,
-    }
-  };
+    },
+  }
 
-  federatedNetworks.set(chainId, network);
-  console.log(`[Federation] Network registered: ${name} (${chainId}) - ${TrustTier[trustTier]}`);
+  federatedNetworks.set(chainId, network)
+  console.log(
+    `[Federation] Network registered: ${name} (${chainId}) - ${TrustTier[trustTier]}`,
+  )
 
-  return network;
+  return network
 }
 
 /**
@@ -173,21 +186,21 @@ export function processNetworkRegistryEvent(
  */
 export function processRegistryHubEvent(
   log: { topics: string[]; data: string },
-  block: { timestamp: number }
+  _block: { timestamp: number },
 ): FederatedRegistry | null {
-  if (log.topics[0] !== REGISTRY_REGISTERED) return null;
+  if (log.topics[0] !== REGISTRY_REGISTERED) return null
 
-  const registryId = log.topics[1];
-  const chainId = parseInt(log.topics[2], 16);
-  
+  const registryId = log.topics[1]
+  const chainId = parseInt(log.topics[2], 16)
+
   const decoded = decodeAbiParameters(
     [{ type: 'uint8' }, { type: 'bytes32' }, { type: 'string' }],
-    log.data as `0x${string}`
-  );
-  
-  const registryType = Number(decoded[0]);
-  const contractAddress = decoded[1] as string;
-  const name = decoded[2] as string;
+    log.data as `0x${string}`,
+  )
+
+  const registryType = Number(decoded[0])
+  const contractAddress = decoded[1] as string
+  const name = decoded[2] as string
 
   const registry: FederatedRegistry = {
     registryId,
@@ -199,12 +212,14 @@ export function processRegistryHubEvent(
     entryCount: 0,
     lastSyncBlock: 0,
     isActive: true,
-  };
+  }
 
-  federatedRegistries.set(registryId, registry);
-  console.log(`[Federation] Registry registered: ${name} (${RegistryType[registryType]}) on chain ${chainId}`);
+  federatedRegistries.set(registryId, registry)
+  console.log(
+    `[Federation] Registry registered: ${name} (${RegistryType[registryType]}) on chain ${chainId}`,
+  )
 
-  return registry;
+  return registry
 }
 
 /**
@@ -212,23 +227,23 @@ export function processRegistryHubEvent(
  */
 export function processEntryFederatedEvent(
   log: { topics: string[]; data: string },
-  block: { timestamp: number }
+  block: { timestamp: number },
 ): FederatedEntry | null {
-  if (log.topics[0] !== ENTRY_FEDERATED) return null;
+  if (log.topics[0] !== ENTRY_FEDERATED) return null
 
-  const entryId = log.topics[1];
-  const registryId = log.topics[2];
-  
+  const entryId = log.topics[1]
+  const registryId = log.topics[2]
+
   const decoded = decodeAbiParameters(
     [{ type: 'bytes32' }, { type: 'string' }],
-    log.data as `0x${string}`
-  );
-  
-  const originId = decoded[0] as string;
-  const name = decoded[1] as string;
+    log.data as `0x${string}`,
+  )
 
-  const registry = federatedRegistries.get(registryId);
-  
+  const originId = decoded[0] as string
+  const name = decoded[1] as string
+
+  const registry = federatedRegistries.get(registryId)
+
   const entry: FederatedEntry = {
     entryId,
     registryId,
@@ -237,45 +252,55 @@ export function processEntryFederatedEvent(
     metadataUri: '',
     originChainId: registry?.chainId || 0,
     syncedAt: new Date(block.timestamp * 1000),
-  };
+  }
 
-  federatedEntries.set(entryId, entry);
-  console.log(`[Federation] Entry federated: ${name} from chain ${entry.originChainId}`);
+  federatedEntries.set(entryId, entry)
+  console.log(
+    `[Federation] Entry federated: ${name} from chain ${entry.originChainId}`,
+  )
 
-  return entry;
+  return entry
 }
 
 /**
  * Sync registries from a specific chain
  */
 export async function syncChainRegistries(chainId: number): Promise<void> {
-  const network = federatedNetworks.get(chainId);
+  const network = federatedNetworks.get(chainId)
   if (!network) {
-    console.log(`[Federation] Chain ${chainId} not in federation`);
-    return;
+    console.log(`[Federation] Chain ${chainId} not in federation`)
+    return
   }
 
   if (!network.rpcUrl) {
-    console.log(`[Federation] No RPC URL for chain ${chainId}`);
-    return;
+    console.log(`[Federation] No RPC URL for chain ${chainId}`)
+    return
   }
 
-  let provider = chainProviders.get(chainId);
+  let provider = chainProviders.get(chainId)
   if (!provider) {
-    provider = createPublicClient({ transport: http(network.rpcUrl) });
-    chainProviders.set(chainId, provider);
+    provider = createPublicClient({ transport: http(network.rpcUrl) })
+    chainProviders.set(chainId, provider)
   }
 
-  console.log(`[Federation] Syncing registries from ${network.name}...`);
+  console.log(`[Federation] Syncing registries from ${network.name}...`)
 
   // Sync IdentityRegistry
   if (network.contracts.identityRegistry !== zeroAddress) {
-    await syncIdentityRegistry(chainId, network.contracts.identityRegistry, provider);
+    await syncIdentityRegistry(
+      chainId,
+      network.contracts.identityRegistry,
+      provider,
+    )
   }
 
   // Sync SolverRegistry
   if (network.contracts.solverRegistry !== zeroAddress) {
-    await syncSolverRegistry(chainId, network.contracts.solverRegistry, provider);
+    await syncSolverRegistry(
+      chainId,
+      network.contracts.solverRegistry,
+      provider,
+    )
   }
 }
 
@@ -285,23 +310,35 @@ export async function syncChainRegistries(chainId: number): Promise<void> {
 async function syncIdentityRegistry(
   chainId: number,
   address: string,
-  provider: PublicClient
+  provider: PublicClient,
 ): Promise<void> {
   const abi = [
-    { name: 'totalAgents', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
-  ] as const;
+    {
+      name: 'totalAgents',
+      type: 'function',
+      stateMutability: 'view',
+      inputs: [],
+      outputs: [{ type: 'uint256' }],
+    },
+  ] as const
 
-  const contract = getContract({ address: address as `0x${string}`, abi, client: provider });
+  const contract = getContract({
+    address: address as `0x${string}`,
+    abi,
+    client: provider,
+  })
 
-  const totalAgents = await contract.read.totalAgents();
-  console.log(`[Federation] Chain ${chainId} IdentityRegistry: ${totalAgents} agents`);
+  const totalAgents = await contract.read.totalAgents()
+  console.log(
+    `[Federation] Chain ${chainId} IdentityRegistry: ${totalAgents} agents`,
+  )
 
   // Update registry entry count
-  const registryId = computeRegistryId(chainId, RegistryType.IDENTITY, address);
-  const registry = federatedRegistries.get(registryId);
+  const registryId = computeRegistryId(chainId, RegistryType.IDENTITY, address)
+  const registry = federatedRegistries.get(registryId)
   if (registry) {
-    registry.entryCount = Number(totalAgents);
-    registry.lastSyncBlock = Number(await provider.getBlockNumber());
+    registry.entryCount = Number(totalAgents)
+    registry.lastSyncBlock = Number(await provider.getBlockNumber())
   }
 }
 
@@ -311,57 +348,82 @@ async function syncIdentityRegistry(
 async function syncSolverRegistry(
   chainId: number,
   address: string,
-  provider: PublicClient
+  provider: PublicClient,
 ): Promise<void> {
   const abi = [
-    { name: 'getSolvers', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'address[]' }] },
-  ] as const;
+    {
+      name: 'getSolvers',
+      type: 'function',
+      stateMutability: 'view',
+      inputs: [],
+      outputs: [{ type: 'address[]' }],
+    },
+  ] as const
 
-  const contract = getContract({ address: address as `0x${string}`, abi, client: provider });
+  const contract = getContract({
+    address: address as `0x${string}`,
+    abi,
+    client: provider,
+  })
 
-  const solvers = await contract.read.getSolvers();
-  console.log(`[Federation] Chain ${chainId} SolverRegistry: ${solvers.length} solvers`);
+  const solvers = await contract.read.getSolvers()
+  console.log(
+    `[Federation] Chain ${chainId} SolverRegistry: ${solvers.length} solvers`,
+  )
 
   // Update registry entry count
-  const registryId = computeRegistryId(chainId, RegistryType.SOLVER, address);
-  const registry = federatedRegistries.get(registryId);
+  const registryId = computeRegistryId(chainId, RegistryType.SOLVER, address)
+  const registry = federatedRegistries.get(registryId)
   if (registry) {
-    registry.entryCount = solvers.length;
-    registry.lastSyncBlock = Number(await provider.getBlockNumber());
+    registry.entryCount = solvers.length
+    registry.lastSyncBlock = Number(await provider.getBlockNumber())
   }
 }
 
 /**
  * Compute registry ID (matches contract)
  */
-function computeRegistryId(chainId: number, registryType: RegistryType, address: string): string {
+function computeRegistryId(
+  chainId: number,
+  registryType: RegistryType,
+  address: string,
+): string {
   return keccak256(
     encodePacked(
       ['string', 'uint256', 'string', 'uint8', 'string', 'bytes32'],
-      ['jeju:registry:', BigInt(chainId), ':', registryType, ':', pad(address as `0x${string}`, { size: 32 })]
-    )
-  );
+      [
+        'jeju:registry:',
+        BigInt(chainId),
+        ':',
+        registryType,
+        ':',
+        pad(address as `0x${string}`, { size: 32 }),
+      ],
+    ),
+  )
 }
 
 /**
  * Get all federated networks
  */
 export function getAllFederatedNetworks(): FederatedNetwork[] {
-  return Array.from(federatedNetworks.values());
+  return Array.from(federatedNetworks.values())
 }
 
 /**
  * Get all federated registries
  */
 export function getAllFederatedRegistries(): FederatedRegistry[] {
-  return Array.from(federatedRegistries.values());
+  return Array.from(federatedRegistries.values())
 }
 
 /**
  * Get registries by type across all chains
  */
 export function getRegistriesByType(type: RegistryType): FederatedRegistry[] {
-  return Array.from(federatedRegistries.values()).filter(r => r.registryType === type);
+  return Array.from(federatedRegistries.values()).filter(
+    (r) => r.registryType === type,
+  )
 }
 
 /**
@@ -370,27 +432,42 @@ export function getRegistriesByType(type: RegistryType): FederatedRegistry[] {
 export function getEntriesByRegistryType(type: RegistryType): FederatedEntry[] {
   const registryIds = new Set(
     Array.from(federatedRegistries.values())
-      .filter(r => r.registryType === type)
-      .map(r => r.registryId)
-  );
-  
-  return Array.from(federatedEntries.values()).filter(e => registryIds.has(e.registryId));
+      .filter((r) => r.registryType === type)
+      .map((r) => r.registryId),
+  )
+
+  return Array.from(federatedEntries.values()).filter((e) =>
+    registryIds.has(e.registryId),
+  )
 }
 
 /**
  * Get staked networks only
  */
 export function getStakedNetworks(): FederatedNetwork[] {
-  return Array.from(federatedNetworks.values()).filter(n => n.trustTier >= TrustTier.STAKED);
+  return Array.from(federatedNetworks.values()).filter(
+    (n) => n.trustTier >= TrustTier.STAKED,
+  )
 }
 
 /**
  * Check if network can participate in consensus
  */
 export function canParticipateInConsensus(chainId: number): boolean {
-  const network = federatedNetworks.get(chainId);
-  return network ? network.isActive && network.trustTier >= TrustTier.STAKED : false;
+  const network = federatedNetworks.get(chainId)
+  return network
+    ? network.isActive && network.trustTier >= TrustTier.STAKED
+    : false
 }
+
+/**
+ * GraphQL resolvers for federation queries
+ */
+/**
+ * GraphQL resolver parent type for root Query resolvers.
+ * Root query resolvers receive null as the parent since there's no parent object.
+ */
+type QueryParent = null
 
 /**
  * GraphQL resolvers for federation queries
@@ -398,21 +475,32 @@ export function canParticipateInConsensus(chainId: number): boolean {
 export const federationResolvers = {
   Query: {
     federatedNetworks: () => getAllFederatedNetworks(),
-    federatedNetwork: (_: unknown, { chainId }: { chainId: number }) => federatedNetworks.get(chainId),
-    federatedRegistries: (_: unknown, { type }: { type?: string }) => {
+    federatedNetwork: (
+      _parent: QueryParent,
+      { chainId }: { chainId: number },
+    ) => federatedNetworks.get(chainId),
+    federatedRegistries: (
+      _parent: QueryParent,
+      { type }: { type?: string },
+    ) => {
       if (type) {
-        const typeIndex = Object.keys(RegistryType).indexOf(type.toUpperCase());
-        return getRegistriesByType(typeIndex);
+        const typeIndex = Object.keys(RegistryType).indexOf(type.toUpperCase())
+        return getRegistriesByType(typeIndex)
       }
-      return getAllFederatedRegistries();
+      return getAllFederatedRegistries()
     },
-    federatedEntries: (_: unknown, { registryType }: { registryType: string }) => {
-      const typeIndex = Object.keys(RegistryType).indexOf(registryType.toUpperCase());
-      return getEntriesByRegistryType(typeIndex);
+    federatedEntries: (
+      _parent: QueryParent,
+      { registryType }: { registryType: string },
+    ) => {
+      const typeIndex = Object.keys(RegistryType).indexOf(
+        registryType.toUpperCase(),
+      )
+      return getEntriesByRegistryType(typeIndex)
     },
     stakedNetworks: () => getStakedNetworks(),
-  }
-};
+  },
+}
 
 export default {
   processNetworkRegistryEvent,
@@ -424,5 +512,4 @@ export default {
   getStakedNetworks,
   canParticipateInConsensus,
   federationResolvers,
-};
-
+}

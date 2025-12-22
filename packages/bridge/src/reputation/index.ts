@@ -1,10 +1,9 @@
 export {
-  ReputationSyncService,
-  createReputationSyncService,
-  type ReputationSyncConfig,
-  type EVMReputation,
-  type SolanaReputation,
   type CrossChainReputation,
+  createReputationSyncService,
+  type EVMReputation,
+  type ReputationSyncConfig,
   type ReputationSyncResult,
-} from './reputation-sync.js';
-
+  ReputationSyncService,
+  type SolanaReputation,
+} from './reputation-sync.js'

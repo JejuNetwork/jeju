@@ -1,6 +1,6 @@
 /**
  * Decentralized Inference Client
- * 
+ *
  * Connects to the network compute network for AI inference.
  * - Discovers models from on-chain registry
  * - Routes requests to decentralized providers
@@ -8,74 +8,86 @@
  * - Supports TEE for private inference
  */
 
-import type { Address } from 'viem';
-import { z } from 'zod';
-import { expectJson } from './validation';
+import type { Address } from 'viem'
+import { z } from 'zod'
+import { expectJson } from './validation'
 
 // ============================================================================
 // Types
 // ============================================================================
 
 export interface Message {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
+  role: 'system' | 'user' | 'assistant'
+  content: string
 }
 
 export interface ChatRequest {
-  messages: Message[];
-  model?: string;
-  temperature?: number;
-  maxTokens?: number;
-  stream?: boolean;
-  requireTEE?: boolean;
+  messages: Message[]
+  model?: string
+  temperature?: number
+  maxTokens?: number
+  stream?: boolean
+  requireTEE?: boolean
 }
 
 export interface ChatResponse {
-  id: string;
-  model: string;
-  content: string;
+  id: string
+  model: string
+  content: string
   tokensUsed: {
-    input: number;
-    output: number;
-    total: number;
-  };
+    input: number
+    output: number
+    total: number
+  }
   cost?: {
-    amount: string;
-    currency: string;
-    txHash?: string;
-  };
-  provider: string;
-  latencyMs: number;
-  teeAttestation?: string;
+    amount: string
+    currency: string
+    txHash?: string
+  }
+  provider: string
+  latencyMs: number
+  teeAttestation?: string
 }
 
 export interface StreamChunk {
-  id: string;
-  content: string;
-  done: boolean;
+  id: string
+  content: string
+  done: boolean
 }
 
 export interface InferenceConfig {
-  gatewayUrl: string;
-  rpcUrl?: string;
-  walletAddress?: Address;
-  preferredModel?: string;
-  requireTEE?: boolean;
-  maxRetries?: number;
-  timeoutMs?: number;
-  retryDelayMs?: number;
+  gatewayUrl: string
+  rpcUrl?: string
+  walletAddress?: Address
+  preferredModel?: string
+  requireTEE?: boolean
+  maxRetries?: number
+  timeoutMs?: number
+  retryDelayMs?: number
+}
+
+/** Internal resolved config with defaults applied - walletAddress remains optional */
+interface ResolvedInferenceConfig {
+  gatewayUrl: string
+  rpcUrl: string
+  walletAddress: Address | undefined
+  preferredModel: string
+  requireTEE: boolean
+  maxRetries: number
+  timeoutMs: number
+  retryDelayMs: number
 }
 
 export interface AvailableModel {
-  id: string;
-  name: string;
-  description: string;
-  contextWindow: number;
-  pricePerInputToken: string;
-  pricePerOutputToken: string;
-  provider: string;
-  teeType: 'none' | 'sgx' | 'tdx' | 'sev' | 'nitro' | 'simulated';
-  active: boolean;
+  id: string
+  name: string
+  description: string
+  contextWindow: number
+  pricePerInputToken: string
+  pricePerOutputToken: string
+  provider: string
+  teeType: 'none' | 'sgx' | 'tdx' | 'sev' | 'nitro' | 'simulated'
+  active: boolean
 }
 
 // ============================================================================
@@ -83,10 +95,12 @@ export interface AvailableModel {
 // ============================================================================
 
 // Auto-detect local gateway for development
-const isLocalDev = typeof window !== 'undefined' && window.location.hostname === 'localhost';
-const DEFAULT_GATEWAY = import.meta.env.VITE_JEJU_GATEWAY_URL || 
-  (isLocalDev ? 'http://localhost:4100' : 'https://compute.jejunetwork.org');
-const DEFAULT_MODEL = 'jeju/llama-3.1-70b';
+const isLocalDev =
+  typeof window !== 'undefined' && window.location.hostname === 'localhost'
+const DEFAULT_GATEWAY =
+  import.meta.env.VITE_JEJU_GATEWAY_URL ||
+  (isLocalDev ? 'http://localhost:4100' : 'https://compute.jejunetwork.org')
+const DEFAULT_MODEL = 'jeju/llama-3.1-70b'
 
 const SYSTEM_PROMPT = `You are Network Wallet, an advanced AI assistant for decentralized finance.
 
@@ -108,49 +122,47 @@ For any action involving money:
 3. Identify any risks
 4. Always require explicit confirmation
 
-Be helpful, clear, and security-conscious. Never execute transactions without user confirmation.`;
+Be helpful, clear, and security-conscious. Never execute transactions without user confirmation.`
 
 // ============================================================================
 // Inference Client
 // ============================================================================
 
 class InferenceClient {
-  private config: Required<InferenceConfig>;
-  private conversationHistory: Message[] = [];
-  private availableModels: AvailableModel[] = [];
-  private lastModelFetch = 0;
-  private modelCacheTTL = 5 * 60 * 1000; // 5 minutes
+  private config: ResolvedInferenceConfig
+  private conversationHistory: Message[] = []
+  private availableModels: AvailableModel[] = []
+  private lastModelFetch = 0
+  private modelCacheTTL = 5 * 60 * 1000 // 5 minutes
 
   constructor(config?: Partial<InferenceConfig>) {
     this.config = {
       gatewayUrl: config?.gatewayUrl || DEFAULT_GATEWAY,
       rpcUrl: config?.rpcUrl || 'https://rpc.jejunetwork.org',
-      walletAddress: config?.walletAddress || undefined as unknown as Address,
+      walletAddress: config?.walletAddress,
       preferredModel: config?.preferredModel || DEFAULT_MODEL,
       requireTEE: config?.requireTEE ?? false,
       maxRetries: config?.maxRetries ?? 3,
       timeoutMs: config?.timeoutMs ?? 30000,
       retryDelayMs: config?.retryDelayMs ?? 1000,
-    };
+    }
 
     // Initialize with system prompt
-    this.conversationHistory = [
-      { role: 'system', content: SYSTEM_PROMPT },
-    ];
+    this.conversationHistory = [{ role: 'system', content: SYSTEM_PROMPT }]
   }
 
   /**
    * Update configuration
    */
   configure(config: Partial<InferenceConfig>): void {
-    Object.assign(this.config, config);
+    Object.assign(this.config, config)
   }
 
   /**
    * Set the wallet address for payment context
    */
   setWalletAddress(address: Address): void {
-    this.config.walletAddress = address;
+    this.config.walletAddress = address
   }
 
   /**
@@ -190,39 +202,46 @@ class InferenceClient {
       teeType: 'sgx',
       active: true,
     },
-  ];
+  ]
 
   /**
    * Fetch available models from the compute network
    * Falls back to default models if gateway is unavailable (non-critical UI feature)
    */
   async getModels(forceRefresh = false): Promise<AvailableModel[]> {
-    const now = Date.now();
-    if (!forceRefresh && this.availableModels.length > 0 && now - this.lastModelFetch < this.modelCacheTTL) {
-      return this.availableModels;
+    const now = Date.now()
+    if (
+      !forceRefresh &&
+      this.availableModels.length > 0 &&
+      now - this.lastModelFetch < this.modelCacheTTL
+    ) {
+      return this.availableModels
     }
 
     try {
       const response = await fetch(`${this.config.gatewayUrl}/v1/models`, {
         headers: this.getHeaders(),
-      });
+      })
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch models: ${response.status}`);
+        throw new Error(`Failed to fetch models: ${response.status}`)
       }
 
-      const data = await response.json();
-      const models = data.models || data.data;
+      const data = await response.json()
+      const models = data.models || data.data
       if (!Array.isArray(models)) {
-        throw new Error('Invalid models response: expected array');
+        throw new Error('Invalid models response: expected array')
       }
-      this.availableModels = models;
-      this.lastModelFetch = now;
-      return this.availableModels;
+      this.availableModels = models
+      this.lastModelFetch = now
+      return this.availableModels
     } catch (fetchError) {
       // Log error and return defaults - model listing is non-critical UI feature
-      console.warn('Failed to fetch models from gateway, using defaults:', fetchError);
-      return InferenceClient.DEFAULT_MODELS;
+      console.warn(
+        'Failed to fetch models from gateway, using defaults:',
+        fetchError,
+      )
+      return InferenceClient.DEFAULT_MODELS
     }
   }
 
@@ -230,23 +249,26 @@ class InferenceClient {
    * Send a chat message and get a response
    */
   async chat(request: ChatRequest): Promise<ChatResponse> {
-    const startTime = Date.now();
-    const model = request.model || this.config.preferredModel;
+    const startTime = Date.now()
+    const model = request.model || this.config.preferredModel
 
     // Add user message to history
-    const userMessage: Message = { role: 'user', content: request.messages[request.messages.length - 1].content };
-    this.conversationHistory.push(userMessage);
+    const userMessage: Message = {
+      role: 'user',
+      content: request.messages[request.messages.length - 1].content,
+    }
+    this.conversationHistory.push(userMessage)
 
     // Build full message list with history
-    const messages = [...this.conversationHistory];
+    const messages = [...this.conversationHistory]
 
     // Add wallet context if available
     if (this.config.walletAddress) {
       const contextMessage: Message = {
         role: 'system',
         content: `Current user wallet address: ${this.config.walletAddress}`,
-      };
-      messages.splice(1, 0, contextMessage); // Insert after system prompt
+      }
+      messages.splice(1, 0, contextMessage) // Insert after system prompt
     }
 
     const requestBody = {
@@ -255,45 +277,55 @@ class InferenceClient {
       temperature: request.temperature ?? 0.7,
       max_tokens: request.maxTokens ?? 2048,
       stream: false,
-    };
+    }
 
     for (let attempt = 0; attempt < this.config.maxRetries; attempt++) {
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), this.config.timeoutMs);
+        const controller = new AbortController()
+        const timeoutId = setTimeout(
+          () => controller.abort(),
+          this.config.timeoutMs,
+        )
 
-        const response = await fetch(`${this.config.gatewayUrl}/v1/chat/completions`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...this.getHeaders(),
+        const response = await fetch(
+          `${this.config.gatewayUrl}/v1/chat/completions`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...this.getHeaders(),
+            },
+            body: JSON.stringify(requestBody),
+            signal: controller.signal,
           },
-          body: JSON.stringify(requestBody),
-          signal: controller.signal,
-        });
+        )
 
-        clearTimeout(timeoutId);
+        clearTimeout(timeoutId)
 
         if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Inference failed: ${response.status} ${errorText}`);
+          const errorText = await response.text()
+          throw new Error(`Inference failed: ${response.status} ${errorText}`)
         }
 
-        const data = await response.json();
-        const latencyMs = Date.now() - startTime;
+        const data = await response.json()
+        const latencyMs = Date.now() - startTime
 
         // Extract response content
-        const assistantContent = data.choices?.[0]?.message?.content || '';
+        const assistantContent = data.choices?.[0]?.message?.content || ''
 
         // Add assistant response to history
-        this.conversationHistory.push({ role: 'assistant', content: assistantContent });
+        this.conversationHistory.push({
+          role: 'assistant',
+          content: assistantContent,
+        })
 
         // Keep history reasonable (last 20 exchanges)
-        if (this.conversationHistory.length > 41) { // system + 20 pairs
+        if (this.conversationHistory.length > 41) {
+          // system + 20 pairs
           this.conversationHistory = [
             this.conversationHistory[0], // Keep system prompt
             ...this.conversationHistory.slice(-40),
-          ];
+          ]
         }
 
         return {
@@ -305,103 +337,126 @@ class InferenceClient {
             output: data.usage?.completion_tokens || 0,
             total: data.usage?.total_tokens || 0,
           },
-          cost: data.cost ? {
-            amount: data.cost.amount,
-            currency: data.cost.currency || 'JEJU',
-            txHash: data.cost.txHash,
-          } : undefined,
+          cost: data.cost
+            ? {
+                amount: data.cost.amount,
+                currency: data.cost.currency || 'JEJU',
+                txHash: data.cost.txHash,
+              }
+            : undefined,
           provider: data.provider || 'jeju-network',
           latencyMs,
           teeAttestation: data.tee_attestation,
-        };
+        }
       } catch (error) {
-        console.warn(`[Inference] Attempt ${attempt + 1} failed:`, error);
-        
+        console.warn(`[Inference] Attempt ${attempt + 1} failed:`, error)
+
         if (attempt < this.config.maxRetries - 1) {
-          await new Promise(resolve => setTimeout(resolve, this.config.retryDelayMs * (attempt + 1)));
+          await new Promise((resolve) =>
+            setTimeout(resolve, this.config.retryDelayMs * (attempt + 1)),
+          )
         }
       }
     }
 
     // If all retries fail, use local fallback
-    return this.localFallback(userMessage.content, Date.now() - startTime);
+    return this.localFallback(userMessage.content, Date.now() - startTime)
   }
 
   /**
    * Stream a chat response (for real-time display)
    */
   async *chatStream(request: ChatRequest): AsyncGenerator<StreamChunk> {
-    const model = request.model || this.config.preferredModel;
+    const model = request.model || this.config.preferredModel
 
-    const userMessage: Message = { role: 'user', content: request.messages[request.messages.length - 1].content };
-    this.conversationHistory.push(userMessage);
+    const userMessage: Message = {
+      role: 'user',
+      content: request.messages[request.messages.length - 1].content,
+    }
+    this.conversationHistory.push(userMessage)
 
-    const messages = [...this.conversationHistory];
+    const messages = [...this.conversationHistory]
 
     if (this.config.walletAddress) {
       messages.splice(1, 0, {
         role: 'system',
         content: `Current user wallet address: ${this.config.walletAddress}`,
-      });
+      })
     }
 
     try {
-      const response = await fetch(`${this.config.gatewayUrl}/v1/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...this.getHeaders(),
+      const response = await fetch(
+        `${this.config.gatewayUrl}/v1/chat/completions`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...this.getHeaders(),
+          },
+          body: JSON.stringify({
+            model,
+            messages,
+            temperature: request.temperature ?? 0.7,
+            max_tokens: request.maxTokens ?? 2048,
+            stream: true,
+          }),
         },
-        body: JSON.stringify({
-          model,
-          messages,
-          temperature: request.temperature ?? 0.7,
-          max_tokens: request.maxTokens ?? 2048,
-          stream: true,
-        }),
-      });
+      )
 
       if (!response.ok || !response.body) {
-        throw new Error(`Stream request failed: ${response.status}`);
+        throw new Error(`Stream request failed: ${response.status}`)
       }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let fullContent = '';
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let fullContent = ''
 
       while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        const { done, value } = await reader.read()
+        if (done) break
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
 
         for (const line of lines) {
           if (line.startsWith('data: ')) {
-            const data = line.slice(6);
+            const data = line.slice(6)
             if (data === '[DONE]') {
-              this.conversationHistory.push({ role: 'assistant', content: fullContent });
-              yield { id: crypto.randomUUID(), content: '', done: true };
-              return;
+              this.conversationHistory.push({
+                role: 'assistant',
+                content: fullContent,
+              })
+              yield { id: crypto.randomUUID(), content: '', done: true }
+              return
             }
 
             try {
               const ChunkSchema = z.object({
                 id: z.string().optional(),
-                choices: z.array(z.object({
-                  delta: z.object({
-                    content: z.string().optional(),
-                  }).optional(),
-                })).optional(),
-              });
-              
-              const parsed = expectJson(data, ChunkSchema, 'stream chunk');
-              const content = parsed.choices?.[0]?.delta?.content || '';
+                choices: z
+                  .array(
+                    z.object({
+                      delta: z
+                        .object({
+                          content: z.string().optional(),
+                        })
+                        .optional(),
+                    }),
+                  )
+                  .optional(),
+              })
+
+              const parsed = expectJson(data, ChunkSchema, 'stream chunk')
+              const content = parsed.choices?.[0]?.delta?.content || ''
               if (content) {
-                fullContent += content;
-                yield { id: parsed.id || crypto.randomUUID(), content, done: false };
+                fullContent += content
+                yield {
+                  id: parsed.id || crypto.randomUUID(),
+                  content,
+                  done: false,
+                }
               }
             } catch {
               // Skip malformed chunks
@@ -410,12 +465,12 @@ class InferenceClient {
         }
       }
 
-      this.conversationHistory.push({ role: 'assistant', content: fullContent });
-      yield { id: crypto.randomUUID(), content: '', done: true };
+      this.conversationHistory.push({ role: 'assistant', content: fullContent })
+      yield { id: crypto.randomUUID(), content: '', done: true }
     } catch (error) {
-      console.error('[Inference] Stream error:', error);
-      const fallback = await this.localFallback(userMessage.content, 0);
-      yield { id: fallback.id, content: fallback.content, done: true };
+      console.error('[Inference] Stream error:', error)
+      const fallback = await this.localFallback(userMessage.content, 0)
+      yield { id: fallback.id, content: fallback.content, done: true }
     }
   }
 
@@ -423,23 +478,24 @@ class InferenceClient {
    * Clear conversation history
    */
   clearHistory(): void {
-    this.conversationHistory = [
-      { role: 'system', content: SYSTEM_PROMPT },
-    ];
+    this.conversationHistory = [{ role: 'system', content: SYSTEM_PROMPT }]
   }
 
   /**
    * Get current conversation history
    */
   getHistory(): Message[] {
-    return [...this.conversationHistory];
+    return [...this.conversationHistory]
   }
 
   /**
    * Local fallback when inference network unavailable
    * No fake AI responses - be honest about the limitation
    */
-  private async localFallback(_input: string, latencyMs: number): Promise<ChatResponse> {
+  private async localFallback(
+    _input: string,
+    latencyMs: number,
+  ): Promise<ChatResponse> {
     const content = `**AI Service Unavailable**
 
 The inference service is not responding. This could mean:
@@ -455,9 +511,9 @@ Use the sidebar to access all features directly - Portfolio, Pools, Perps, Launc
 2. Set the environment variable
 3. Restart the inference server
 
-Groq offers a free tier and is the fastest option.`;
+Groq offers a free tier and is the fastest option.`
 
-    this.conversationHistory.push({ role: 'assistant', content });
+    this.conversationHistory.push({ role: 'assistant', content })
 
     return {
       id: `local-${Date.now()}`,
@@ -466,7 +522,7 @@ Groq offers a free tier and is the fastest option.`;
       tokensUsed: { input: 0, output: 0, total: 0 },
       provider: 'offline',
       latencyMs,
-    };
+    }
   }
 
   /**
@@ -474,14 +530,14 @@ Groq offers a free tier and is the fastest option.`;
    */
   private getHeaders(): Record<string, string> {
     const headers: Record<string, string> = {
-      'Accept': 'application/json',
-    };
-
-    if (this.config.walletAddress) {
-      headers['X-Network-Address'] = this.config.walletAddress;
+      Accept: 'application/json',
     }
 
-    return headers;
+    if (this.config.walletAddress) {
+      headers['X-Network-Address'] = this.config.walletAddress
+    }
+
+    return headers
   }
 }
 
@@ -489,7 +545,6 @@ Groq offers a free tier and is the fastest option.`;
 // Singleton Export
 // ============================================================================
 
-export const inferenceClient = new InferenceClient();
+export const inferenceClient = new InferenceClient()
 
-export { InferenceClient };
-
+export { InferenceClient }

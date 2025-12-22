@@ -1,12 +1,15 @@
-import { Address } from 'viem';
-import { CHAIN_ID } from '../config';
+import type { Address } from 'viem'
+import { CHAIN_ID } from '../config'
 
-const ORACLE_ADDRESSES: Record<number, {
-  feedRegistry: Address;
-  reportVerifier: Address;
-  committeeManager: Address;
-  feeRouter: Address;
-}> = {
+const ORACLE_ADDRESSES: Record<
+  number,
+  {
+    feedRegistry: Address
+    reportVerifier: Address
+    committeeManager: Address
+    feeRouter: Address
+  }
+> = {
   // Base Sepolia
   84532: {
     feedRegistry: '0x0000000000000000000000000000000000000000',
@@ -21,14 +24,14 @@ const ORACLE_ADDRESSES: Record<number, {
     committeeManager: '0x0000000000000000000000000000000000000000',
     feeRouter: '0x0000000000000000000000000000000000000000',
   },
-};
+}
 
 export function getOracleAddresses() {
-  const addresses = ORACLE_ADDRESSES[CHAIN_ID];
+  const addresses = ORACLE_ADDRESSES[CHAIN_ID]
   if (!addresses) {
-    throw new Error(`Oracle addresses not configured for chain ${CHAIN_ID}`);
+    throw new Error(`Oracle addresses not configured for chain ${CHAIN_ID}`)
   }
-  return addresses;
+  return addresses
 }
 
 export const FEED_REGISTRY_ABI = [
@@ -149,7 +152,7 @@ export const FEED_REGISTRY_ABI = [
     outputs: [{ name: '', type: 'bool' }],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 // ============ Report Verifier ABI ============
 
@@ -230,7 +233,7 @@ export const REPORT_VERIFIER_ABI = [
     ],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 // ============ Committee Manager ABI ============
 
@@ -287,7 +290,7 @@ export const COMMITTEE_MANAGER_ABI = [
     outputs: [{ name: '', type: 'uint256' }],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 // ============ Fee Router ABI ============
 
@@ -383,25 +386,25 @@ export const FEE_ROUTER_ABI = [
     outputs: [{ name: '', type: 'uint256' }],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 // ============ Types ============
 
 export interface FeedSpec {
-  feedId: `0x${string}`;
-  symbol: string;
-  baseToken: Address;
-  quoteToken: Address;
-  decimals: number;
-  heartbeatSeconds: number;
-  twapWindowSeconds: number;
-  minLiquidityUSD: bigint;
-  maxDeviationBps: number;
-  minOracles: number;
-  quorumThreshold: number;
-  isActive: boolean;
-  requiresConfidence: boolean;
-  category: FeedCategory;
+  feedId: `0x${string}`
+  symbol: string
+  baseToken: Address
+  quoteToken: Address
+  decimals: number
+  heartbeatSeconds: number
+  twapWindowSeconds: number
+  minLiquidityUSD: bigint
+  maxDeviationBps: number
+  minOracles: number
+  quorumThreshold: number
+  isActive: boolean
+  requiresConfidence: boolean
+  category: FeedCategory
 }
 
 export enum FeedCategory {
@@ -424,75 +427,78 @@ export const FEED_CATEGORY_LABELS: Record<FeedCategory, string> = {
   [FeedCategory.GAS_PRICE]: 'Gas Price',
   [FeedCategory.SEQUENCER_STATUS]: 'Sequencer Status',
   [FeedCategory.MARKET_STATUS]: 'Market Status',
-};
+}
 
 export interface ConsensusPrice {
-  price: bigint;
-  confidence: bigint;
-  timestamp: bigint;
-  round: bigint;
-  oracleCount: bigint;
-  reportHash: `0x${string}`;
+  price: bigint
+  confidence: bigint
+  timestamp: bigint
+  round: bigint
+  oracleCount: bigint
+  reportHash: `0x${string}`
 }
 
 export interface Committee {
-  feedId: `0x${string}`;
-  round: bigint;
-  members: Address[];
-  threshold: number;
-  activeUntil: bigint;
-  leader: Address;
-  isActive: boolean;
+  feedId: `0x${string}`
+  round: bigint
+  members: Address[]
+  threshold: number
+  activeUntil: bigint
+  leader: Address
+  isActive: boolean
 }
 
 export interface Subscription {
-  subscriber: Address;
-  feedIds: `0x${string}`[];
-  startTime: bigint;
-  endTime: bigint;
-  amountPaid: bigint;
-  isActive: boolean;
+  subscriber: Address
+  feedIds: `0x${string}`[]
+  startTime: bigint
+  endTime: bigint
+  amountPaid: bigint
+  isActive: boolean
 }
 
 export interface FeeConfig {
-  subscriptionFeePerMonth: bigint;
-  perReadFee: bigint;
-  treasuryShareBps: number;
-  operatorShareBps: number;
-  delegatorShareBps: number;
-  disputerRewardBps: number;
+  subscriptionFeePerMonth: bigint
+  perReadFee: bigint
+  treasuryShareBps: number
+  operatorShareBps: number
+  delegatorShareBps: number
+  disputerRewardBps: number
 }
 
 // ============ Utility Functions ============
 
 export function formatPrice(price: bigint, decimals: number): string {
-  const divisor = 10n ** BigInt(decimals);
-  const wholePart = price / divisor;
-  const fracPart = price % divisor;
-  const fracStr = fracPart.toString().padStart(decimals, '0').slice(0, 4);
-  return `${wholePart}.${fracStr}`;
+  const divisor = 10n ** BigInt(decimals)
+  const wholePart = price / divisor
+  const fracPart = price % divisor
+  const fracStr = fracPart.toString().padStart(decimals, '0').slice(0, 4)
+  return `${wholePart}.${fracStr}`
 }
 
 export function formatConfidence(confidence: bigint): string {
   // Confidence is in BPS (0-10000)
-  return `${(Number(confidence) / 100).toFixed(1)}%`;
+  return `${(Number(confidence) / 100).toFixed(1)}%`
 }
 
-export function isPriceStale(timestamp: bigint, heartbeatSeconds: number): boolean {
-  const now = BigInt(Math.floor(Date.now() / 1000));
-  return now - timestamp > BigInt(heartbeatSeconds);
+export function isPriceStale(
+  timestamp: bigint,
+  heartbeatSeconds: number,
+): boolean {
+  const now = BigInt(Math.floor(Date.now() / 1000))
+  return now - timestamp > BigInt(heartbeatSeconds)
 }
 
 export function formatTimestamp(timestamp: bigint): string {
-  return new Date(Number(timestamp) * 1000).toLocaleString();
+  return new Date(Number(timestamp) * 1000).toLocaleString()
 }
 
 export function formatTimeAgo(timestamp: bigint): string {
-  const now = Math.floor(Date.now() / 1000);
-  const diff = now - Number(timestamp);
+  const now = Math.floor(Date.now() / 1000)
+  const diff = now - Number(timestamp)
 
-  if (diff < 60) return `${diff}s ago`;
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return `${Math.floor(diff / 86400)}d ago`;
+  if (diff < 60) return `${diff}s ago`
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+  return `${Math.floor(diff / 86400)}d ago`
 }

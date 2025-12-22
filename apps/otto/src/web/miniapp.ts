@@ -3,11 +3,11 @@
  * Minimal chat interface for Telegram, Farcaster, and Web
  */
 
-import { Hono } from 'hono';
-import { getConfig } from '../config';
+import { Hono } from 'hono'
+import { getConfig } from '../config'
 
-export const miniappApi = new Hono();
-const config = getConfig();
+export const miniappApi = new Hono()
+const config = getConfig()
 
 const html = (platform: 'telegram' | 'farcaster' | 'web') => `<!DOCTYPE html>
 <html>
@@ -51,10 +51,18 @@ const html = (platform: 'telegram' | 'farcaster' | 'web') => `<!DOCTYPE html>
       d.messages.forEach(m => addMsg(m.content, m.role === 'user'));
     }
     
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+    
     function addMsg(text, isUser) {
       const div = document.createElement('div');
       div.className = 'msg ' + (isUser ? 'user' : 'bot');
-      div.innerHTML = text.replace(/\`([^\`]+)\`/g, '<code>$1</code>');
+      // Escape HTML first, then apply safe formatting for code blocks
+      const escaped = escapeHtml(text);
+      div.innerHTML = escaped.replace(/\`([^\`]+)\`/g, '<code>$1</code>');
       chat.appendChild(div);
       chat.scrollTop = chat.scrollHeight;
     }
@@ -81,10 +89,10 @@ const html = (platform: 'telegram' | 'farcaster' | 'web') => `<!DOCTYPE html>
     init();
   </script>
 </body>
-</html>`;
+</html>`
 
-miniappApi.get('/', (c) => c.html(html('web')));
-miniappApi.get('/telegram', (c) => c.html(html('telegram')));
-miniappApi.get('/farcaster', (c) => c.html(html('farcaster')));
+miniappApi.get('/', (c) => c.html(html('web')))
+miniappApi.get('/telegram', (c) => c.html(html('telegram')))
+miniappApi.get('/farcaster', (c) => c.html(html('farcaster')))
 
-export default miniappApi;
+export default miniappApi

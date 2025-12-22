@@ -1,69 +1,84 @@
 /**
  * Lock Manager - Prevents concurrent E2E test runs
- * 
+ *
  * ASSUMPTIONS:
  * - Lock file at workspace root (.jeju/.jeju-e2e-test.lock)
  * - 30-minute TTL is sufficient for test runs
  * - PID 0 signal can detect dead processes (Unix-like systems)
- * 
+ *
  * LIMITATIONS:
  * - SIGKILL (kill -9) won't trigger cleanup - lock becomes stale
  * - Cross-machine locking requires shared filesystem
  * - Clock skew affects TTL accuracy in distributed setups
- * 
+ *
  * ATOMIC GUARANTEES:
  * - Uses 'wx' flag for exclusive file creation
  * - Uses rename for atomic stale lock replacement
  * - Verifies ownership after replacement to handle races
  */
 
-import { existsSync, unlinkSync, writeFileSync, readFileSync, renameSync, mkdirSync } from 'fs';
-import { hostname } from 'os';
-import { join } from 'path';
-import { randomBytes } from 'crypto';
-import { findJejuWorkspaceRoot } from './utils';
-import { parseLockMetadata, type LockMetadata, type LockManagerOptions } from './schemas';
+import { randomBytes } from 'node:crypto'
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs'
+import { hostname } from 'node:os'
+import { join } from 'node:path'
+import {
+  type LockManagerOptions,
+  type LockMetadata,
+  parseLockMetadata,
+} from './schemas'
+import { findJejuWorkspaceRoot } from './utils'
 
 // Re-export types for backwards compatibility
-export type { LockMetadata, LockManagerOptions };
+export type { LockMetadata, LockManagerOptions }
 
-const DEFAULT_TTL_MS = 30 * 60 * 1000; // 30 minutes - adjust if tests take longer
-const LOCK_FILE = '.jeju/.jeju-e2e-test.lock';
-const MAX_ACQUIRE_ATTEMPTS = 3;
+const DEFAULT_TTL_MS = 30 * 60 * 1000 // 30 minutes - adjust if tests take longer
+const LOCK_FILE = '.jeju/.jeju-e2e-test.lock'
+const MAX_ACQUIRE_ATTEMPTS = 3
 
 export class LockManager {
-  private readonly lockPath: string;
-  private readonly ttlMs: number;
-  private readonly force: boolean;
-  private isLockOwner = false;
-  private cleanupRegistered = false;
+  private readonly lockPath: string
+  private readonly ttlMs: number
+  private readonly force: boolean
+  private isLockOwner = false
+  private cleanupRegistered = false
 
   constructor(options: LockManagerOptions = {}) {
-    const lockDir = options.lockDir ?? findJejuWorkspaceRoot();
-    this.lockPath = join(lockDir, LOCK_FILE);
+    const lockDir = options.lockDir ?? findJejuWorkspaceRoot()
+    this.lockPath = join(lockDir, LOCK_FILE)
     // Ensure .jeju directory exists
-    const jejuDir = join(lockDir, '.jeju');
+    const jejuDir = join(lockDir, '.jeju')
     if (!existsSync(jejuDir)) {
-      mkdirSync(jejuDir, { recursive: true });
+      mkdirSync(jejuDir, { recursive: true })
     }
-    this.ttlMs = options.ttlMs ?? DEFAULT_TTL_MS;
-    this.force = options.force ?? false;
+    this.ttlMs = options.ttlMs ?? DEFAULT_TTL_MS
+    this.force = options.force ?? false
   }
 
   isLocked(): { locked: boolean; metadata?: LockMetadata; stale?: boolean } {
     if (!existsSync(this.lockPath)) {
-      return { locked: false };
+      return { locked: false }
     }
 
-    const raw = JSON.parse(readFileSync(this.lockPath, 'utf-8'));
-    const metadata = parseLockMetadata(raw);
-    const age = Date.now() - metadata.timestamp;
-    const stale = age > this.ttlMs || !this.isProcessRunning(metadata.pid);
+    const raw = JSON.parse(readFileSync(this.lockPath, 'utf-8'))
+    const metadata = parseLockMetadata(raw)
+    const age = Date.now() - metadata.timestamp
+    const stale = age > this.ttlMs || !this.isProcessRunning(metadata.pid)
 
-    return { locked: true, metadata, stale };
+    return { locked: true, metadata, stale }
   }
 
-  acquireLock(): { acquired: boolean; blockedBy?: LockMetadata; message?: string } {
+  acquireLock(): {
+    acquired: boolean
+    blockedBy?: LockMetadata
+    message?: string
+  } {
     for (let attempt = 0; attempt < MAX_ACQUIRE_ATTEMPTS; attempt++) {
       // Try atomic create first
       const metadata: LockMetadata = {
@@ -71,175 +86,192 @@ export class LockManager {
         timestamp: Date.now(),
         hostname: hostname(),
         command: process.argv.join(' '),
-      };
+      }
 
       if (this.tryAtomicCreate(metadata)) {
-        this.isLockOwner = true;
-        this.registerCleanupHandlers();
-        console.log(`[LockManager] Lock acquired (PID: ${process.pid})`);
-        return { acquired: true };
+        this.isLockOwner = true
+        this.registerCleanupHandlers()
+        console.log(`[LockManager] Lock acquired (PID: ${process.pid})`)
+        return { acquired: true }
       }
 
       // Lock exists - check if stale or active
-      const status = this.isLocked();
+      const status = this.isLocked()
       if (!status.locked) {
         // Race: lock disappeared, retry
-        continue;
+        continue
       }
 
       if (!status.stale && !this.force) {
-        const meta = status.metadata;
+        const meta = status.metadata
         if (!meta) {
-          throw new Error('Lock status indicated locked but metadata is missing');
+          throw new Error(
+            'Lock status indicated locked but metadata is missing',
+          )
         }
-        const ageMinutes = Math.floor((Date.now() - meta.timestamp) / 60000);
+        const ageMinutes = Math.floor((Date.now() - meta.timestamp) / 60000)
         return {
           acquired: false,
           blockedBy: meta,
           message: `E2E tests already running (PID: ${meta.pid}, ${ageMinutes}m ago). Use --force to override.`,
-        };
+        }
       }
 
       // Stale or force - try to claim it atomically
-      const staleMeta = status.metadata;
+      const staleMeta = status.metadata
       if (!staleMeta) {
-        throw new Error('Lock status indicated locked but metadata is missing');
+        throw new Error('Lock status indicated locked but metadata is missing')
       }
-      console.log(`[LockManager] Cleaning stale lock from PID ${staleMeta.pid}`);
+      console.log(`[LockManager] Cleaning stale lock from PID ${staleMeta.pid}`)
       if (this.tryAtomicReplace(metadata)) {
-        this.isLockOwner = true;
-        this.registerCleanupHandlers();
-        console.log(`[LockManager] Lock acquired after cleanup (PID: ${process.pid})`);
-        return { acquired: true };
+        this.isLockOwner = true
+        this.registerCleanupHandlers()
+        console.log(
+          `[LockManager] Lock acquired after cleanup (PID: ${process.pid})`,
+        )
+        return { acquired: true }
       }
 
       // Another process beat us - small synchronous delay and retry
       if (attempt < MAX_ACQUIRE_ATTEMPTS - 1) {
-        const delay = 50 + Math.random() * 100;
-        Bun.sleepSync(delay);
+        const delay = 50 + Math.random() * 100
+        Bun.sleepSync(delay)
       }
     }
 
-    return { acquired: false, message: 'Failed to acquire lock after retries' };
+    return { acquired: false, message: 'Failed to acquire lock after retries' }
   }
 
   private tryAtomicCreate(metadata: LockMetadata): boolean {
     try {
       // Ensure directory exists (lockPath might be just filename or full path)
-      const lockDir = join(this.lockPath, '..');
+      const lockDir = join(this.lockPath, '..')
       if (lockDir !== this.lockPath && !existsSync(lockDir)) {
-        mkdirSync(lockDir, { recursive: true });
+        mkdirSync(lockDir, { recursive: true })
       }
-      writeFileSync(this.lockPath, JSON.stringify(metadata, null, 2), { flag: 'wx' });
-      return true;
+      writeFileSync(this.lockPath, JSON.stringify(metadata, null, 2), {
+        flag: 'wx',
+      })
+      return true
     } catch (e) {
-      if ((e as NodeJS.ErrnoException).code === 'EEXIST') return false;
-      throw e;
+      if ((e as NodeJS.ErrnoException).code === 'EEXIST') return false
+      throw e
     }
   }
 
   private tryAtomicReplace(metadata: LockMetadata): boolean {
-    const tempPath = `${this.lockPath}.${randomBytes(8).toString('hex')}`;
-    
+    const tempPath = `${this.lockPath}.${randomBytes(8).toString('hex')}`
+
     // Ensure directory exists
-    const lockDir = join(this.lockPath, '..');
+    const lockDir = join(this.lockPath, '..')
     if (lockDir !== this.lockPath && !existsSync(lockDir)) {
-      mkdirSync(lockDir, { recursive: true });
+      mkdirSync(lockDir, { recursive: true })
     }
-    
-    writeFileSync(tempPath, JSON.stringify(metadata, null, 2));
-    
+
+    writeFileSync(tempPath, JSON.stringify(metadata, null, 2))
+
     try {
       // Atomic rename - if lock was modified by another process, this still works
       // but we verify ownership after
-      renameSync(tempPath, this.lockPath);
+      renameSync(tempPath, this.lockPath)
     } catch (e) {
       // Clean up temp file on rename failure
       if (existsSync(tempPath)) {
-        unlinkSync(tempPath);
+        unlinkSync(tempPath)
       }
       // ENOENT means another process already replaced the lock - that's a race we lost
       if ((e as NodeJS.ErrnoException).code === 'ENOENT') {
-        return false;
+        return false
       }
-      throw e;
+      throw e
     }
-    
+
     // Verify we own it (another process could have done same thing)
-    const raw = JSON.parse(readFileSync(this.lockPath, 'utf-8'));
-    const current = parseLockMetadata(raw);
-    return current.pid === process.pid && current.timestamp === metadata.timestamp;
+    const raw = JSON.parse(readFileSync(this.lockPath, 'utf-8'))
+    const current = parseLockMetadata(raw)
+    return (
+      current.pid === process.pid && current.timestamp === metadata.timestamp
+    )
   }
 
   releaseLock(): boolean {
     if (!this.isLockOwner || !existsSync(this.lockPath)) {
-      return false;
+      return false
     }
 
-    const raw = JSON.parse(readFileSync(this.lockPath, 'utf-8'));
-    const metadata = parseLockMetadata(raw);
+    const raw = JSON.parse(readFileSync(this.lockPath, 'utf-8'))
+    const metadata = parseLockMetadata(raw)
     if (metadata.pid !== process.pid) {
-      return false;
+      return false
     }
 
-    unlinkSync(this.lockPath);
-    console.log(`[LockManager] Lock released (PID: ${process.pid})`);
-    this.isLockOwner = false;
-    return true;
+    unlinkSync(this.lockPath)
+    console.log(`[LockManager] Lock released (PID: ${process.pid})`)
+    this.isLockOwner = false
+    return true
   }
 
   forceReleaseLock(): void {
     if (existsSync(this.lockPath)) {
-      unlinkSync(this.lockPath);
+      unlinkSync(this.lockPath)
     }
   }
 
   getLockPath(): string {
-    return this.lockPath;
+    return this.lockPath
   }
 
   private isProcessRunning(pid: number): boolean {
     try {
-      process.kill(pid, 0);
-      return true;
+      process.kill(pid, 0)
+      return true
     } catch {
-      return false;
+      return false
     }
   }
 
   private registerCleanupHandlers(): void {
-    if (this.cleanupRegistered) return;
-    this.cleanupRegistered = true;
+    if (this.cleanupRegistered) return
+    this.cleanupRegistered = true
 
-    const cleanup = () => this.releaseLock();
+    const cleanup = () => this.releaseLock()
 
-    process.on('SIGINT', () => { cleanup(); process.exit(130); });
-    process.on('SIGTERM', () => { cleanup(); process.exit(143); });
-    process.on('exit', cleanup);
+    process.on('SIGINT', () => {
+      cleanup()
+      process.exit(130)
+    })
+    process.on('SIGTERM', () => {
+      cleanup()
+      process.exit(143)
+    })
+    process.on('exit', cleanup)
     process.on('uncaughtException', (err) => {
-      console.error('[LockManager] Uncaught exception:', err.message);
-      cleanup();
-      process.exit(1);
-    });
+      console.error('[LockManager] Uncaught exception:', err.message)
+      cleanup()
+      process.exit(1)
+    })
     process.on('unhandledRejection', (reason) => {
-      console.error('[LockManager] Unhandled rejection:', reason);
-      cleanup();
-      process.exit(1);
-    });
+      console.error('[LockManager] Unhandled rejection:', reason)
+      cleanup()
+      process.exit(1)
+    })
   }
 }
 
-export async function withTestLock<T>(fn: () => Promise<T>, options?: LockManagerOptions): Promise<T> {
-  const lock = new LockManager(options);
-  const result = lock.acquireLock();
+export async function withTestLock<T>(
+  fn: () => Promise<T>,
+  options?: LockManagerOptions,
+): Promise<T> {
+  const lock = new LockManager(options)
+  const result = lock.acquireLock()
 
   if (!result.acquired) {
-    throw new Error(result.message || 'Lock not acquired');
+    throw new Error(result.message || 'Lock not acquired')
   }
 
   try {
-    return await fn();
+    return await fn()
   } finally {
-    lock.releaseLock();
+    lock.releaseLock()
   }
 }

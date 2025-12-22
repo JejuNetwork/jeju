@@ -1,121 +1,139 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { useAccount } from 'wagmi';
+import { clsx } from 'clsx'
 import {
-  Settings,
-  ArrowLeft,
-  Package,
-  Users,
-  Key,
   AlertTriangle,
-  Trash2,
-  Loader2,
-  Save,
-  Plus,
-  X,
-  Shield,
-  Clock,
-  Tag,
   Archive,
-} from 'lucide-react';
-import Link from 'next/link';
-import { clsx } from 'clsx';
-import { 
-  usePackageSettings, 
-  useUpdatePackageSettings, 
-  useAddMaintainer, 
-  useRemoveMaintainer,
-  useCreateAccessToken,
-  useRevokeAccessToken,
-  useDeprecatePackage,
-  useUndeprecatePackage,
-  useUnpublishPackage,
-} from '../../../../../hooks';
+  ArrowLeft,
+  Clock,
+  Key,
+  Loader2,
+  Package,
+  Plus,
+  Save,
+  Settings,
+  Shield,
+  Tag,
+  Trash2,
+  Users,
+  X,
+} from 'lucide-react'
+import Link from 'next/link'
+import { useParams, useRouter } from 'next/navigation'
+import { useState } from 'react'
+import { useAccount } from 'wagmi'
 
-type SettingsTab = 'general' | 'maintainers' | 'tokens' | 'danger';
+type SettingsTab = 'general' | 'maintainers' | 'tokens' | 'versions' | 'danger'
+
+const mockMaintainers = [
+  {
+    id: '1',
+    name: 'alice.eth',
+    avatar: 'https://avatars.githubusercontent.com/u/1?v=4',
+    role: 'owner',
+    addedAt: Date.now() - 30 * 24 * 60 * 60 * 1000,
+  },
+  {
+    id: '2',
+    name: 'bob.eth',
+    avatar: 'https://avatars.githubusercontent.com/u/2?v=4',
+    role: 'maintainer',
+    addedAt: Date.now() - 7 * 24 * 60 * 60 * 1000,
+  },
+]
+
+const mockVersions = [
+  {
+    version: '1.5.2',
+    publishedAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
+    deprecated: false,
+    downloads: 3240,
+  },
+  {
+    version: '1.5.1',
+    publishedAt: Date.now() - 7 * 24 * 60 * 60 * 1000,
+    deprecated: false,
+    downloads: 8450,
+  },
+  {
+    version: '1.5.0',
+    publishedAt: Date.now() - 14 * 24 * 60 * 60 * 1000,
+    deprecated: false,
+    downloads: 12300,
+  },
+  {
+    version: '1.4.0',
+    publishedAt: Date.now() - 30 * 24 * 60 * 60 * 1000,
+    deprecated: true,
+    downloads: 21500,
+  },
+]
+
+const mockTokens = [
+  {
+    id: '1',
+    name: 'CI/CD Token',
+    lastUsed: Date.now() - 2 * 60 * 60 * 1000,
+    permissions: ['publish'],
+  },
+  {
+    id: '2',
+    name: 'Development',
+    lastUsed: Date.now() - 24 * 60 * 60 * 1000,
+    permissions: ['publish', 'deprecate'],
+  },
+]
 
 export default function PackageSettingsPage() {
-  const params = useParams();
-  const router = useRouter();
-  const { isConnected } = useAccount();
-  const rawScope = params.scope as string;
-  const name = params.name as string;
-  const scope = decodeURIComponent(rawScope);
-  const fullName = scope.startsWith('@') ? `${scope}/${name}` : name;
+  const params = useParams()
+  const router = useRouter()
+  void router // Suppress unused
+  const { isConnected: _isConnected } = useAccount()
+  const rawScope = params.scope as string
+  const name = params.name as string
+  const scope = decodeURIComponent(rawScope)
+  const fullName = scope.startsWith('@') ? `${scope}/${name}` : name
 
-  const { settings, isLoading } = usePackageSettings(scope, name);
-  const updateSettings = useUpdatePackageSettings(scope, name);
-  const addMaintainer = useAddMaintainer(scope, name);
-  const removeMaintainer = useRemoveMaintainer(scope, name);
-  const createToken = useCreateAccessToken(scope, name);
-  const revokeToken = useRevokeAccessToken(scope, name);
-  const deprecatePackage = useDeprecatePackage(scope, name);
-  const undeprecatePackage = useUndeprecatePackage(scope, name);
-  const unpublishPackage = useUnpublishPackage(scope, name);
-
-  const [tab, setTab] = useState<SettingsTab>('general');
-  const [description, setDescription] = useState('');
-  const [deleteConfirm, setDeleteConfirm] = useState('');
-  const [newMaintainer, setNewMaintainer] = useState('');
-  const [newMaintainerRole, setNewMaintainerRole] = useState<'owner' | 'maintainer'>('maintainer');
-  const [newTokenName, setNewTokenName] = useState('');
-  const [deprecationMessage, setDeprecationMessage] = useState('');
-
-  // Initialize form values when settings load
-  useState(() => {
-    if (settings) {
-      setDescription(settings.description);
-    }
-  });
+  const [tab, setTab] = useState<SettingsTab>('general')
+  const [description, setDescription] = useState(
+    'Official Jeju Network SDK for building dApps with bounties, guardians, and AI models.',
+  )
+  const [keywords, setKeywords] = useState([
+    'jeju',
+    'web3',
+    'sdk',
+    'ethereum',
+    'bounties',
+  ])
+  const [newKeyword, setNewKeyword] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState('')
+  const [newMaintainer, setNewMaintainer] = useState('')
 
   const handleSave = async () => {
-    await updateSettings.mutateAsync({ description });
-  };
+    setIsSaving(true)
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+    setIsSaving(false)
+  }
 
-  const handleAddMaintainer = async () => {
-    if (!newMaintainer) return;
-    await addMaintainer.mutateAsync({ login: newMaintainer, role: newMaintainerRole });
-    setNewMaintainer('');
-  };
+  const addKeyword = () => {
+    if (newKeyword.trim() && !keywords.includes(newKeyword.trim())) {
+      setKeywords([...keywords, newKeyword.trim()])
+      setNewKeyword('')
+    }
+  }
 
-  const handleCreateToken = async () => {
-    if (!newTokenName) return;
-    await createToken.mutateAsync({ name: newTokenName, permissions: ['read', 'write'] });
-    setNewTokenName('');
-  };
-
-  const handleDeprecate = async () => {
-    if (!deprecationMessage) return;
-    await deprecatePackage.mutateAsync(deprecationMessage);
-    setDeprecationMessage('');
-  };
-
-  const handleUndeprecate = async () => {
-    await undeprecatePackage.mutateAsync();
-  };
-
-  const handleUnpublish = async () => {
-    if (deleteConfirm !== fullName) return;
-    await unpublishPackage.mutateAsync();
-    router.push('/packages');
-  };
+  const removeKeyword = (kw: string) => {
+    setKeywords(keywords.filter((k) => k !== kw))
+  }
 
   const tabs = [
     { id: 'general' as const, label: 'General', icon: Settings },
     { id: 'maintainers' as const, label: 'Maintainers', icon: Users },
     { id: 'tokens' as const, label: 'Access Tokens', icon: Key },
+    { id: 'versions' as const, label: 'Versions', icon: Tag },
     { id: 'danger' as const, label: 'Danger Zone', icon: AlertTriangle },
-  ];
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen p-8 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-accent-400" />
-      </div>
-    );
-  }
+  ]
 
   return (
     <div className="min-h-screen p-8">
@@ -149,7 +167,7 @@ export default function PackageSettingsPage() {
                     ? 'bg-accent-600 text-white'
                     : id === 'danger'
                       ? 'text-red-400 hover:bg-red-500/10'
-                      : 'text-factory-400 hover:bg-factory-800 hover:text-factory-100'
+                      : 'text-factory-400 hover:bg-factory-800 hover:text-factory-100',
                 )}
               >
                 <Icon className="w-4 h-4" />
@@ -162,22 +180,16 @@ export default function PackageSettingsPage() {
           <div className="flex-1">
             {tab === 'general' && (
               <div className="card p-6 space-y-6">
-                <h2 className="text-lg font-semibold text-factory-100">Package Information</h2>
+                <h2 className="text-lg font-semibold text-factory-100">
+                  Package Information
+                </h2>
 
                 <div>
-                  <label className="block text-sm font-medium text-factory-300 mb-2">Package Name</label>
-                  <input
-                    type="text"
-                    value={settings?.name || fullName}
-                    disabled
-                    className="input opacity-50"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-factory-300 mb-2">Description</label>
+                  <label className="block text-sm font-medium text-factory-300 mb-2">
+                    Description
+                  </label>
                   <textarea
-                    value={description || settings?.description || ''}
+                    value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     rows={3}
                     className="input resize-none"
@@ -185,26 +197,82 @@ export default function PackageSettingsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-factory-300 mb-2">Visibility</label>
-                  <div className="text-factory-400">
-                    {settings?.visibility === 'private' ? 'Private' : 'Public'}
+                  <label className="block text-sm font-medium text-factory-300 mb-2">
+                    Keywords
+                  </label>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {keywords.map((kw) => (
+                      <span
+                        key={kw}
+                        className="badge badge-info flex items-center gap-1"
+                      >
+                        {kw}
+                        <button
+                          onClick={() => removeKeyword(kw)}
+                          className="hover:text-white"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newKeyword}
+                      onChange={(e) => setNewKeyword(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          addKeyword()
+                        }
+                      }}
+                      placeholder="Add keyword..."
+                      className="input flex-1"
+                    />
+                    <button
+                      type="button"
+                      onClick={addKeyword}
+                      className="btn btn-secondary"
+                    >
+                      Add
+                    </button>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-factory-300 mb-2">Downloads</label>
-                  <div className="text-factory-400">
-                    {(settings?.downloadCount || 0).toLocaleString()} total downloads
-                  </div>
+                  <label className="block text-sm font-medium text-factory-300 mb-2">
+                    Homepage URL
+                  </label>
+                  <input
+                    type="url"
+                    defaultValue="https://jejunetwork.org"
+                    className="input"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-factory-300 mb-2">
+                    Repository URL
+                  </label>
+                  <input
+                    type="url"
+                    defaultValue="https://git.jejunetwork.org/jeju/sdk"
+                    className="input"
+                  />
                 </div>
 
                 <div className="pt-4 border-t border-factory-800">
-                  <button 
-                    onClick={handleSave} 
-                    disabled={updateSettings.isPending || !isConnected} 
+                  <button
+                    onClick={handleSave}
+                    disabled={isSaving}
                     className="btn btn-primary"
                   >
-                    {updateSettings.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    {isSaving ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4" />
+                    )}
                     Save changes
                   </button>
                 </div>
@@ -213,7 +281,9 @@ export default function PackageSettingsPage() {
 
             {tab === 'maintainers' && (
               <div className="card p-6 space-y-6">
-                <h2 className="text-lg font-semibold text-factory-100">Package Maintainers</h2>
+                <h2 className="text-lg font-semibold text-factory-100">
+                  Package Maintainers
+                </h2>
 
                 <div className="flex gap-2">
                   <input
@@ -223,44 +293,44 @@ export default function PackageSettingsPage() {
                     placeholder="Add maintainer by address or ENS..."
                     className="input flex-1"
                   />
-                  <select
-                    value={newMaintainerRole}
-                    onChange={(e) => setNewMaintainerRole(e.target.value as 'owner' | 'maintainer')}
-                    className="input w-32"
-                  >
-                    <option value="maintainer">Maintainer</option>
-                    <option value="owner">Owner</option>
-                  </select>
-                  <button 
-                    onClick={handleAddMaintainer}
-                    disabled={addMaintainer.isPending || !isConnected}
-                    className="btn btn-primary"
-                  >
-                    {addMaintainer.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  <button className="btn btn-primary">
+                    <Plus className="w-4 h-4" />
                     Add
                   </button>
                 </div>
 
                 <div className="space-y-3">
-                  {settings?.maintainers.map(m => (
-                    <div key={m.login} className="flex items-center justify-between p-4 bg-factory-800/50 rounded-lg">
+                  {mockMaintainers.map((m) => (
+                    <div
+                      key={m.id}
+                      className="flex items-center justify-between p-4 bg-factory-800/50 rounded-lg"
+                    >
                       <div className="flex items-center gap-3">
-                        <img src={m.avatar} alt="" className="w-8 h-8 rounded-full" />
+                        <img
+                          src={m.avatar}
+                          alt=""
+                          className="w-8 h-8 rounded-full"
+                        />
                         <div>
-                          <span className="text-factory-200">{m.login}</span>
+                          <span className="text-factory-200">{m.name}</span>
                           {m.role === 'owner' && (
-                            <span className="ml-2 badge bg-purple-500/20 text-purple-400 text-xs">Owner</span>
+                            <span className="ml-2 badge bg-purple-500/20 text-purple-400 text-xs">
+                              Owner
+                            </span>
                           )}
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="badge bg-factory-700 text-factory-300 capitalize">{m.role}</span>
+                        <select
+                          defaultValue={m.role}
+                          className="input text-sm py-1"
+                          disabled={m.role === 'owner'}
+                        >
+                          <option value="maintainer">Maintainer</option>
+                          <option value="owner">Owner</option>
+                        </select>
                         {m.role !== 'owner' && (
-                          <button 
-                            onClick={() => removeMaintainer.mutate(m.login)}
-                            disabled={removeMaintainer.isPending}
-                            className="text-red-400 hover:text-red-300 p-1"
-                          >
+                          <button className="text-red-400 hover:text-red-300 p-1">
                             <X className="w-4 h-4" />
                           </button>
                         )}
@@ -274,56 +344,96 @@ export default function PackageSettingsPage() {
             {tab === 'tokens' && (
               <div className="card p-6 space-y-6">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-factory-100">Access Tokens</h2>
-                </div>
-
-                <p className="text-factory-400 text-sm">
-                  Tokens allow CI/CD systems and tools to publish on your behalf.
-                </p>
-
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newTokenName}
-                    onChange={(e) => setNewTokenName(e.target.value)}
-                    placeholder="Token name (e.g. CI/CD Token)"
-                    className="input flex-1"
-                  />
-                  <button 
-                    onClick={handleCreateToken}
-                    disabled={createToken.isPending || !isConnected}
-                    className="btn btn-primary text-sm"
-                  >
-                    {createToken.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  <h2 className="text-lg font-semibold text-factory-100">
+                    Access Tokens
+                  </h2>
+                  <button className="btn btn-primary text-sm">
+                    <Plus className="w-4 h-4" />
                     Create token
                   </button>
                 </div>
 
+                <p className="text-factory-400 text-sm">
+                  Tokens allow CI/CD systems and tools to publish on your
+                  behalf.
+                </p>
+
                 <div className="space-y-3">
-                  {settings?.webhooks.map(webhook => (
-                    <div key={webhook.id} className="p-4 bg-factory-800/50 rounded-lg">
+                  {mockTokens.map((token) => (
+                    <div
+                      key={token.id}
+                      className="p-4 bg-factory-800/50 rounded-lg"
+                    >
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <Key className="w-4 h-4 text-factory-400" />
-                          <span className="text-factory-200 font-medium">Token #{webhook.id}</span>
+                          <span className="text-factory-200 font-medium">
+                            {token.name}
+                          </span>
                         </div>
-                        <button 
-                          onClick={() => revokeToken.mutate(webhook.id)}
-                          disabled={revokeToken.isPending}
-                          className="text-red-400 hover:text-red-300 text-sm"
-                        >
+                        <button className="text-red-400 hover:text-red-300 text-sm">
                           Revoke
                         </button>
                       </div>
                       <div className="flex items-center gap-4 text-sm text-factory-500">
                         <span className="flex items-center gap-1">
                           <Clock className="w-3 h-3" />
-                          Created: {new Date(webhook.createdAt).toLocaleDateString()}
+                          Last used:{' '}
+                          {new Date(token.lastUsed).toLocaleDateString()}
                         </span>
                         <span className="flex items-center gap-1">
                           <Shield className="w-3 h-3" />
-                          {webhook.events.join(', ')}
+                          {token.permissions.join(', ')}
                         </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {tab === 'versions' && (
+              <div className="card p-6 space-y-6">
+                <h2 className="text-lg font-semibold text-factory-100">
+                  Version Management
+                </h2>
+
+                <div className="space-y-3">
+                  {mockVersions.map((v) => (
+                    <div
+                      key={v.version}
+                      className="flex items-center justify-between p-4 bg-factory-800/50 rounded-lg"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Tag className="w-4 h-4 text-factory-400" />
+                        <span className="font-mono text-factory-200">
+                          {v.version}
+                        </span>
+                        {v.deprecated && (
+                          <span className="badge bg-yellow-500/20 text-yellow-400 text-xs">
+                            Deprecated
+                          </span>
+                        )}
+                        {v === mockVersions[0] && (
+                          <span className="badge bg-green-500/20 text-green-400 text-xs">
+                            Latest
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className="text-factory-500 text-sm">
+                          {v.downloads.toLocaleString()} downloads
+                        </span>
+                        <button
+                          className={clsx(
+                            'text-sm px-2 py-1 rounded',
+                            v.deprecated
+                              ? 'text-green-400 hover:bg-green-500/10'
+                              : 'text-yellow-400 hover:bg-yellow-500/10',
+                          )}
+                        >
+                          {v.deprecated ? 'Undeprecate' : 'Deprecate'}
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -333,42 +443,18 @@ export default function PackageSettingsPage() {
 
             {tab === 'danger' && (
               <div className="space-y-6">
-                <div className="card p-6 border-yellow-500/30">
-                  <h3 className="text-lg font-semibold text-yellow-400 mb-4 flex items-center gap-2">
+                <div className="card p-6 border-red-500/30">
+                  <h3 className="text-lg font-semibold text-red-400 mb-4 flex items-center gap-2">
                     <Archive className="w-5 h-5" />
                     Deprecate Package
                   </h3>
                   <p className="text-factory-400 text-sm mb-4">
-                    Mark this package as deprecated. Users will see a warning when installing.
+                    Mark this package as deprecated. Users will see a warning
+                    when installing.
                   </p>
-                  {settings?.deprecated ? (
-                    <button 
-                      onClick={handleUndeprecate}
-                      disabled={undeprecatePackage.isPending}
-                      className="btn bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/30"
-                    >
-                      {undeprecatePackage.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                      Remove deprecation
-                    </button>
-                  ) : (
-                    <div className="space-y-3">
-                      <input
-                        type="text"
-                        value={deprecationMessage}
-                        onChange={(e) => setDeprecationMessage(e.target.value)}
-                        placeholder="Deprecation message (e.g. Use @new/package instead)"
-                        className="input"
-                      />
-                      <button 
-                        onClick={handleDeprecate}
-                        disabled={deprecatePackage.isPending || !deprecationMessage}
-                        className="btn bg-yellow-500/20 text-yellow-400 border-yellow-500/30 hover:bg-yellow-500/30"
-                      >
-                        {deprecatePackage.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                        Deprecate all versions
-                      </button>
-                    </div>
-                  )}
+                  <button className="btn bg-yellow-500/20 text-yellow-400 border-yellow-500/30 hover:bg-yellow-500/30">
+                    Deprecate all versions
+                  </button>
                 </div>
 
                 <div className="card p-6 border-red-500/30">
@@ -377,7 +463,8 @@ export default function PackageSettingsPage() {
                     Unpublish Package
                   </h3>
                   <p className="text-factory-400 text-sm mb-4">
-                    Remove this package from the registry. This action cannot be undone.
+                    Remove this package from the registry. This action cannot be
+                    undone.
                   </p>
                   <div className="space-y-3">
                     <input
@@ -388,11 +475,10 @@ export default function PackageSettingsPage() {
                       className="input"
                     />
                     <button
-                      onClick={handleUnpublish}
-                      disabled={deleteConfirm !== fullName || unpublishPackage.isPending}
+                      disabled={deleteConfirm !== fullName}
                       className="btn bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
                     >
-                      {unpublishPackage.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                      <Trash2 className="w-4 h-4" />
                       Unpublish package
                     </button>
                   </div>
@@ -403,5 +489,5 @@ export default function PackageSettingsPage() {
         </div>
       </div>
     </div>
-  );
+  )
 }

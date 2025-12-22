@@ -1,27 +1,46 @@
-import { useAccount } from 'wagmi';
-import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { ConnectButton } from '@rainbow-me/rainbowkit'
 import {
-  Box, Zap, Database, Brain, TrendingUp,
-  Activity, Server, HardDrive, Cpu, Clock, DollarSign,
-  Users, ArrowRight, Plus, AlertCircle
-} from 'lucide-react';
-import { useHealth, useContainers, useWorkers, useJobs, useComputeNodes, useUserAccount } from '../hooks';
-import { useBanStatus } from '../hooks/useBanStatus';
-import type { ViewMode } from '../types';
+  Activity,
+  AlertCircle,
+  ArrowRight,
+  Box,
+  Brain,
+  Clock,
+  Cpu,
+  Database,
+  DollarSign,
+  HardDrive,
+  Plus,
+  Server,
+  TrendingUp,
+  Users,
+  Zap,
+} from 'lucide-react'
+import { useAccount } from 'wagmi'
+import {
+  useComputeNodes,
+  useContainers,
+  useHealth,
+  useJobs,
+  useUserAccount,
+  useWorkers,
+} from '../hooks'
+import { useBanStatus } from '../hooks/useBanStatus'
+import type { ViewMode } from '../types'
 
 interface DashboardProps {
-  viewMode: ViewMode;
+  viewMode: ViewMode
 }
 
 export default function Dashboard({ viewMode }: DashboardProps) {
-  const { isConnected } = useAccount();
-  const { isBanned, banRecord } = useBanStatus();
-  const { data: health, isLoading: healthLoading } = useHealth();
-  const { data: containersData } = useContainers();
-  const { data: workersData } = useWorkers();
-  const { data: jobsData } = useJobs();
-  const { data: nodesData } = useComputeNodes();
-  const { data: account } = useUserAccount();
+  const { isConnected } = useAccount()
+  const { isBanned, banRecord } = useBanStatus()
+  const { data: health, isLoading: healthLoading } = useHealth()
+  const { data: containersData } = useContainers()
+  const { data: workersData } = useWorkers()
+  const { data: jobsData } = useJobs()
+  const { data: nodesData } = useComputeNodes()
+  const { data: account } = useUserAccount()
 
   if (!isConnected) {
     return (
@@ -31,13 +50,23 @@ export default function Dashboard({ viewMode }: DashboardProps) {
         <p>Connect your wallet to access Decentralized Web Services</p>
         <ConnectButton />
       </div>
-    );
+    )
   }
 
   if (isBanned) {
     return (
-      <div className="card" style={{ borderColor: 'var(--error)', background: 'var(--error-soft)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+      <div
+        className="card"
+        style={{ borderColor: 'var(--error)', background: 'var(--error-soft)' }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '1rem',
+            marginBottom: '1rem',
+          }}
+        >
           <AlertCircle size={24} style={{ color: 'var(--error)' }} />
           <h2 style={{ color: 'var(--error)' }}>Account Suspended</h2>
         </div>
@@ -46,20 +75,31 @@ export default function Dashboard({ viewMode }: DashboardProps) {
         </p>
         {banRecord && (
           <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-            <p><strong>Reason:</strong> {banRecord.reason || 'No reason provided'}</p>
+            <p>
+              <strong>Reason:</strong>{' '}
+              {banRecord.reason || 'No reason provided'}
+            </p>
             {banRecord.expiresAt > 0n && (
-              <p><strong>Expires:</strong> {new Date(Number(banRecord.expiresAt) * 1000).toLocaleString()}</p>
+              <p>
+                <strong>Expires:</strong>{' '}
+                {new Date(Number(banRecord.expiresAt) * 1000).toLocaleString()}
+              </p>
             )}
           </div>
         )}
       </div>
-    );
+    )
   }
 
-  const runningContainers = containersData?.executions?.filter(e => e.status === 'running').length ?? 0;
-  const activeWorkers = workersData?.functions?.filter(f => f.status === 'active').length ?? 0;
-  const runningJobs = jobsData?.jobs?.filter(j => j.status === 'running').length ?? 0;
-  const onlineNodes = nodesData?.nodes?.filter(n => n.status === 'online').length ?? 0;
+  const runningContainers =
+    containersData?.executions?.filter((e) => e.status === 'running').length ??
+    0
+  const activeWorkers =
+    workersData?.functions?.filter((f) => f.status === 'active').length ?? 0
+  const runningJobs =
+    jobsData?.jobs?.filter((j) => j.status === 'running').length ?? 0
+  const onlineNodes =
+    nodesData?.nodes?.filter((n) => n.status === 'online').length ?? 0
 
   return (
     <div>
@@ -68,10 +108,9 @@ export default function Dashboard({ viewMode }: DashboardProps) {
           {viewMode === 'provider' ? 'Provider Dashboard' : 'Dashboard'}
         </h1>
         <p className="page-subtitle">
-          {viewMode === 'provider' 
+          {viewMode === 'provider'
             ? 'Monitor your nodes, earnings, and resources'
-            : 'Overview of your DWS usage and resources'
-          }
+            : 'Overview of your DWS usage and resources'}
         </p>
       </div>
 
@@ -85,25 +124,29 @@ export default function Dashboard({ viewMode }: DashboardProps) {
           account={account}
         />
       ) : (
-        <ProviderDashboard
-          onlineNodes={onlineNodes}
-          nodesData={nodesData}
-        />
+        <ProviderDashboard onlineNodes={onlineNodes} nodesData={nodesData} />
       )}
     </div>
-  );
+  )
 }
 
 interface ConsumerDashboardProps {
-  health: ReturnType<typeof useHealth>['data'];
-  healthLoading: boolean;
-  runningContainers: number;
-  activeWorkers: number;
-  runningJobs: number;
-  account: ReturnType<typeof useUserAccount>['data'];
+  health: ReturnType<typeof useHealth>['data']
+  healthLoading: boolean
+  runningContainers: number
+  activeWorkers: number
+  runningJobs: number
+  account: ReturnType<typeof useUserAccount>['data']
 }
 
-function ConsumerDashboard({ health, healthLoading, runningContainers, activeWorkers, runningJobs, account }: ConsumerDashboardProps) {
+function ConsumerDashboard({
+  health,
+  healthLoading,
+  runningContainers,
+  activeWorkers,
+  runningJobs,
+  account,
+}: ConsumerDashboardProps) {
   return (
     <>
       <div className="stats-grid">
@@ -147,63 +190,118 @@ function ConsumerDashboard({ health, healthLoading, runningContainers, activeWor
           <div className="stat-content">
             <div className="stat-label">Balance</div>
             <div className="stat-value" style={{ fontSize: '1.25rem' }}>
-              {account ? `${(Number(account.balance) / 1e18).toFixed(4)} ETH` : '—'}
+              {account
+                ? `${(Number(account.balance) / 1e18).toFixed(4)} ETH`
+                : '—'}
             </div>
             <div className="stat-change">x402 Credits</div>
           </div>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '1.5rem' }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+          gap: '1.5rem',
+        }}
+      >
         <div className="card">
           <div className="card-header">
-            <h3 className="card-title"><Activity size={18} /> Service Status</h3>
+            <h3 className="card-title">
+              <Activity size={18} /> Service Status
+            </h3>
           </div>
           {healthLoading ? (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'center',
+                padding: '2rem',
+              }}
+            >
               <div className="spinner" />
             </div>
           ) : health ? (
             <div style={{ display: 'grid', gap: '0.75rem' }}>
               {Object.entries(health.services).map(([name, service]) => (
-                <div key={name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid var(--border)' }}>
+                <div
+                  key={name}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '0.5rem 0',
+                    borderBottom: '1px solid var(--border)',
+                  }}
+                >
                   <span style={{ textTransform: 'capitalize' }}>{name}</span>
-                  <span className={`badge ${service.status === 'healthy' ? 'badge-success' : service.status === 'degraded' ? 'badge-warning' : 'badge-error'}`}>
+                  <span
+                    className={`badge ${service.status === 'healthy' ? 'badge-success' : service.status === 'degraded' ? 'badge-warning' : 'badge-error'}`}
+                  >
                     {service.status}
                   </span>
                 </div>
               ))}
             </div>
           ) : (
-            <p style={{ color: 'var(--text-muted)' }}>Unable to load service status</p>
+            <p style={{ color: 'var(--text-muted)' }}>
+              Unable to load service status
+            </p>
           )}
         </div>
 
         <div className="card">
           <div className="card-header">
-            <h3 className="card-title"><Plus size={18} /> Quick Actions</h3>
+            <h3 className="card-title">
+              <Plus size={18} /> Quick Actions
+            </h3>
           </div>
           <div style={{ display: 'grid', gap: '0.75rem' }}>
-            <a href="/compute/containers" className="btn btn-secondary" style={{ justifyContent: 'space-between' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <a
+              href="/compute/containers"
+              className="btn btn-secondary"
+              style={{ justifyContent: 'space-between' }}
+            >
+              <span
+                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+              >
                 <Box size={18} /> Run Container
               </span>
               <ArrowRight size={16} />
             </a>
-            <a href="/compute/workers" className="btn btn-secondary" style={{ justifyContent: 'space-between' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <a
+              href="/compute/workers"
+              className="btn btn-secondary"
+              style={{ justifyContent: 'space-between' }}
+            >
+              <span
+                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+              >
                 <Zap size={18} /> Deploy Worker
               </span>
               <ArrowRight size={16} />
             </a>
-            <a href="/storage/buckets" className="btn btn-secondary" style={{ justifyContent: 'space-between' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <a
+              href="/storage/buckets"
+              className="btn btn-secondary"
+              style={{ justifyContent: 'space-between' }}
+            >
+              <span
+                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+              >
                 <Database size={18} /> Upload Files
               </span>
               <ArrowRight size={16} />
             </a>
-            <a href="/ai/inference" className="btn btn-secondary" style={{ justifyContent: 'space-between' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <a
+              href="/ai/inference"
+              className="btn btn-secondary"
+              style={{ justifyContent: 'space-between' }}
+            >
+              <span
+                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+              >
                 <Brain size={18} /> AI Inference
               </span>
               <ArrowRight size={16} />
@@ -213,27 +311,49 @@ function ConsumerDashboard({ health, healthLoading, runningContainers, activeWor
 
         <div className="card">
           <div className="card-header">
-            <h3 className="card-title"><Server size={18} /> Network Stats</h3>
+            <h3 className="card-title">
+              <Server size={18} /> Network Stats
+            </h3>
           </div>
           {health ? (
             <div style={{ display: 'grid', gap: '1rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>Registered Nodes</span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{health.decentralized.registeredNodes}</span>
+                <span style={{ color: 'var(--text-secondary)' }}>
+                  Registered Nodes
+                </span>
+                <span
+                  style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}
+                >
+                  {health.decentralized.registeredNodes}
+                </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>Connected Peers</span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{health.decentralized.connectedPeers}</span>
+                <span style={{ color: 'var(--text-secondary)' }}>
+                  Connected Peers
+                </span>
+                <span
+                  style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}
+                >
+                  {health.decentralized.connectedPeers}
+                </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>P2P Enabled</span>
-                <span className={`badge ${health.decentralized.p2pEnabled ? 'badge-success' : 'badge-neutral'}`}>
+                <span style={{ color: 'var(--text-secondary)' }}>
+                  P2P Enabled
+                </span>
+                <span
+                  className={`badge ${health.decentralized.p2pEnabled ? 'badge-success' : 'badge-neutral'}`}
+                >
                   {health.decentralized.p2pEnabled ? 'Yes' : 'No'}
                 </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>Storage Backends</span>
-                <span style={{ fontFamily: 'var(--font-mono)' }}>{health.backends.available.length}</span>
+                <span style={{ color: 'var(--text-secondary)' }}>
+                  Storage Backends
+                </span>
+                <span style={{ fontFamily: 'var(--font-mono)' }}>
+                  {health.backends.available.length}
+                </span>
               </div>
             </div>
           ) : (
@@ -243,7 +363,9 @@ function ConsumerDashboard({ health, healthLoading, runningContainers, activeWor
 
         <div className="card">
           <div className="card-header">
-            <h3 className="card-title"><Clock size={18} /> Recent Activity</h3>
+            <h3 className="card-title">
+              <Clock size={18} /> Recent Activity
+            </h3>
           </div>
           <div className="empty-state" style={{ padding: '1.5rem' }}>
             <Activity size={32} />
@@ -252,19 +374,27 @@ function ConsumerDashboard({ health, healthLoading, runningContainers, activeWor
         </div>
       </div>
     </>
-  );
+  )
 }
 
 interface ProviderDashboardProps {
-  onlineNodes: number;
-  nodesData: ReturnType<typeof useComputeNodes>['data'];
+  onlineNodes: number
+  nodesData: ReturnType<typeof useComputeNodes>['data']
 }
 
 function ProviderDashboard({ onlineNodes, nodesData }: ProviderDashboardProps) {
-  const totalCpu = nodesData?.nodes?.reduce((sum, n) => sum + n.resources.totalCpu, 0) ?? 0;
-  const availableCpu = nodesData?.nodes?.reduce((sum, n) => sum + n.resources.availableCpu, 0) ?? 0;
-  const totalMemory = nodesData?.nodes?.reduce((sum, n) => sum + n.resources.totalMemoryMb, 0) ?? 0;
-  const availableMemory = nodesData?.nodes?.reduce((sum, n) => sum + n.resources.availableMemoryMb, 0) ?? 0;
+  const totalCpu =
+    nodesData?.nodes?.reduce((sum, n) => sum + n.resources.totalCpu, 0) ?? 0
+  const availableCpu =
+    nodesData?.nodes?.reduce((sum, n) => sum + n.resources.availableCpu, 0) ?? 0
+  const totalMemory =
+    nodesData?.nodes?.reduce((sum, n) => sum + n.resources.totalMemoryMb, 0) ??
+    0
+  const availableMemory =
+    nodesData?.nodes?.reduce(
+      (sum, n) => sum + n.resources.availableMemoryMb,
+      0,
+    ) ?? 0
 
   return (
     <>
@@ -317,40 +447,85 @@ function ProviderDashboard({ onlineNodes, nodesData }: ProviderDashboardProps) {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '1.5rem' }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+          gap: '1.5rem',
+        }}
+      >
         <div className="card">
           <div className="card-header">
-            <h3 className="card-title"><Cpu size={18} /> Resource Utilization</h3>
+            <h3 className="card-title">
+              <Cpu size={18} /> Resource Utilization
+            </h3>
           </div>
           <div style={{ display: 'grid', gap: '1.5rem' }}>
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>CPU Cores</span>
-                <span style={{ fontFamily: 'var(--font-mono)' }}>{totalCpu - availableCpu} / {totalCpu}</span>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  marginBottom: '0.5rem',
+                }}
+              >
+                <span style={{ color: 'var(--text-secondary)' }}>
+                  CPU Cores
+                </span>
+                <span style={{ fontFamily: 'var(--font-mono)' }}>
+                  {totalCpu - availableCpu} / {totalCpu}
+                </span>
               </div>
-              <div style={{ height: '8px', background: 'var(--bg-tertiary)', borderRadius: '4px', overflow: 'hidden' }}>
-                <div style={{ 
-                  height: '100%', 
-                  width: `${totalCpu > 0 ? ((totalCpu - availableCpu) / totalCpu) * 100 : 0}%`,
-                  background: 'var(--accent)',
+              <div
+                style={{
+                  height: '8px',
+                  background: 'var(--bg-tertiary)',
                   borderRadius: '4px',
-                  transition: 'width 0.3s ease'
-                }} />
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  style={{
+                    height: '100%',
+                    width: `${totalCpu > 0 ? ((totalCpu - availableCpu) / totalCpu) * 100 : 0}%`,
+                    background: 'var(--accent)',
+                    borderRadius: '4px',
+                    transition: 'width 0.3s ease',
+                  }}
+                />
               </div>
             </div>
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  marginBottom: '0.5rem',
+                }}
+              >
                 <span style={{ color: 'var(--text-secondary)' }}>Memory</span>
-                <span style={{ fontFamily: 'var(--font-mono)' }}>{Math.round((totalMemory - availableMemory) / 1024)} / {Math.round(totalMemory / 1024)} GB</span>
+                <span style={{ fontFamily: 'var(--font-mono)' }}>
+                  {Math.round((totalMemory - availableMemory) / 1024)} /{' '}
+                  {Math.round(totalMemory / 1024)} GB
+                </span>
               </div>
-              <div style={{ height: '8px', background: 'var(--bg-tertiary)', borderRadius: '4px', overflow: 'hidden' }}>
-                <div style={{ 
-                  height: '100%', 
-                  width: `${totalMemory > 0 ? ((totalMemory - availableMemory) / totalMemory) * 100 : 0}%`,
-                  background: 'var(--success)',
+              <div
+                style={{
+                  height: '8px',
+                  background: 'var(--bg-tertiary)',
                   borderRadius: '4px',
-                  transition: 'width 0.3s ease'
-                }} />
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  style={{
+                    height: '100%',
+                    width: `${totalMemory > 0 ? ((totalMemory - availableMemory) / totalMemory) * 100 : 0}%`,
+                    background: 'var(--success)',
+                    borderRadius: '4px',
+                    transition: 'width 0.3s ease',
+                  }}
+                />
               </div>
             </div>
           </div>
@@ -358,7 +533,9 @@ function ProviderDashboard({ onlineNodes, nodesData }: ProviderDashboardProps) {
 
         <div className="card">
           <div className="card-header">
-            <h3 className="card-title"><HardDrive size={18} /> Your Nodes</h3>
+            <h3 className="card-title">
+              <HardDrive size={18} /> Your Nodes
+            </h3>
             <a href="/settings" className="btn btn-sm btn-secondary">
               <Plus size={14} /> Add Node
             </a>
@@ -377,12 +554,19 @@ function ProviderDashboard({ onlineNodes, nodesData }: ProviderDashboardProps) {
                 <tbody>
                   {nodesData.nodes.slice(0, 5).map((node) => (
                     <tr key={node.id}>
-                      <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem' }}>
+                      <td
+                        style={{
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: '0.85rem',
+                        }}
+                      >
                         {node.id.slice(0, 8)}...
                       </td>
                       <td>{node.region}</td>
                       <td>
-                        <span className={`badge ${node.status === 'online' ? 'badge-success' : node.status === 'maintenance' ? 'badge-warning' : 'badge-error'}`}>
+                        <span
+                          className={`badge ${node.status === 'online' ? 'badge-success' : node.status === 'maintenance' ? 'badge-warning' : 'badge-error'}`}
+                        >
                           {node.status}
                         </span>
                       </td>
@@ -396,7 +580,11 @@ function ProviderDashboard({ onlineNodes, nodesData }: ProviderDashboardProps) {
             <div className="empty-state" style={{ padding: '2rem' }}>
               <Server size={32} />
               <p>No nodes registered yet</p>
-              <a href="/settings" className="btn btn-primary btn-sm" style={{ marginTop: '0.5rem' }}>
+              <a
+                href="/settings"
+                className="btn btn-primary btn-sm"
+                style={{ marginTop: '0.5rem' }}
+              >
                 Register a Node
               </a>
             </div>
@@ -405,27 +593,61 @@ function ProviderDashboard({ onlineNodes, nodesData }: ProviderDashboardProps) {
 
         <div className="card">
           <div className="card-header">
-            <h3 className="card-title"><DollarSign size={18} /> Earnings</h3>
+            <h3 className="card-title">
+              <DollarSign size={18} /> Earnings
+            </h3>
           </div>
           <div style={{ display: 'grid', gap: '1rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                padding: '0.75rem',
+                background: 'var(--bg-tertiary)',
+                borderRadius: 'var(--radius-md)',
+              }}
+            >
               <span>Pending Payout</span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>0.00 ETH</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
+                0.00 ETH
+              </span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                padding: '0.75rem',
+                background: 'var(--bg-tertiary)',
+                borderRadius: 'var(--radius-md)',
+              }}
+            >
               <span>Total Earned</span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>0.00 ETH</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
+                0.00 ETH
+              </span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                padding: '0.75rem',
+                background: 'var(--bg-tertiary)',
+                borderRadius: 'var(--radius-md)',
+              }}
+            >
               <span>This Month</span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>0.00 ETH</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
+                0.00 ETH
+              </span>
             </div>
           </div>
         </div>
 
         <div className="card">
           <div className="card-header">
-            <h3 className="card-title"><Activity size={18} /> Recent Jobs</h3>
+            <h3 className="card-title">
+              <Activity size={18} /> Recent Jobs
+            </h3>
           </div>
           <div className="empty-state" style={{ padding: '1.5rem' }}>
             <Activity size={32} />
@@ -434,7 +656,5 @@ function ProviderDashboard({ onlineNodes, nodesData }: ProviderDashboardProps) {
         </div>
       </div>
     </>
-  );
+  )
 }
-
-

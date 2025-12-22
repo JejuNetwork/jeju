@@ -2,80 +2,86 @@
  * OAuth3 Callback Handler for Gateway
  */
 
-import { useEffect, useState, type ComponentType } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Loader2, CheckCircle, XCircle, type LucideProps } from 'lucide-react';
+import { CheckCircle, Loader2, type LucideProps, XCircle } from 'lucide-react'
+import { type ComponentType, useEffect, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 
-const Loader2Icon = Loader2 as ComponentType<LucideProps>;
-const CheckCircleIcon = CheckCircle as ComponentType<LucideProps>;
-const XCircleIcon = XCircle as ComponentType<LucideProps>;
+const Loader2Icon = Loader2 as ComponentType<LucideProps>
+const CheckCircleIcon = CheckCircle as ComponentType<LucideProps>
+const XCircleIcon = XCircle as ComponentType<LucideProps>
 
 export function AuthCallback() {
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
-  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const [status, setStatus] = useState<'loading' | 'success' | 'error'>(
+    'loading',
+  )
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     async function handleCallback() {
-      const code = searchParams.get('code');
-      const state = searchParams.get('state');
-      const errorParam = searchParams.get('error');
+      const code = searchParams.get('code')
+      const state = searchParams.get('state')
+      const errorParam = searchParams.get('error')
 
       if (errorParam) {
-        setStatus('error');
-        setError(errorParam);
-        return;
+        setStatus('error')
+        setError(errorParam)
+        return
       }
 
       if (!code || !state) {
-        setStatus('error');
-        setError('Missing code or state parameter');
-        return;
+        setStatus('error')
+        setError('Missing code or state parameter')
+        return
       }
 
       // Verify state
-      const storedState = sessionStorage.getItem('oauth3_state');
+      const storedState = sessionStorage.getItem('oauth3_state')
       if (state !== storedState) {
-        setStatus('error');
-        setError('Invalid state - possible CSRF attack');
-        return;
+        setStatus('error')
+        setError('Invalid state - possible CSRF attack')
+        return
       }
 
       try {
-        const oauth3Url = import.meta.env.VITE_OAUTH3_AGENT_URL || 'http://localhost:4200';
-        
+        const oauth3Url =
+          import.meta.env.VITE_OAUTH3_AGENT_URL || 'http://localhost:4200'
+
         const response = await fetch(`${oauth3Url}/auth/callback`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ code, state }),
-        });
+        })
 
         if (!response.ok) {
-          throw new Error(`Auth callback failed: ${response.status}`);
+          throw new Error(`Auth callback failed: ${response.status}`)
         }
 
-        const session = await response.json();
+        const session = await response.json()
 
-        localStorage.setItem('gateway_auth_session', JSON.stringify({
-          ...session,
-          expiresAt: Date.now() + 24 * 60 * 60 * 1000,
-        }));
+        localStorage.setItem(
+          'gateway_auth_session',
+          JSON.stringify({
+            ...session,
+            expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+          }),
+        )
 
-        sessionStorage.removeItem('oauth3_state');
-        sessionStorage.removeItem('oauth3_provider');
+        sessionStorage.removeItem('oauth3_state')
+        sessionStorage.removeItem('oauth3_provider')
 
-        setStatus('success');
-        
-        setTimeout(() => navigate('/'), 1500);
+        setStatus('success')
+
+        setTimeout(() => navigate('/'), 1500)
       } catch (err) {
-        setStatus('error');
-        setError((err as Error).message);
+        setStatus('error')
+        setError((err as Error).message)
       }
     }
 
-    handleCallback();
-  }, [searchParams, navigate]);
+    handleCallback()
+  }, [searchParams, navigate])
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
@@ -83,8 +89,12 @@ export function AuthCallback() {
         {status === 'loading' && (
           <>
             <Loader2Icon className="w-16 h-16 animate-spin mx-auto text-violet-500" />
-            <h1 className="text-2xl font-bold text-foreground">Signing you in...</h1>
-            <p className="text-muted-foreground">Please wait while we complete authentication</p>
+            <h1 className="text-2xl font-bold text-foreground">
+              Signing you in...
+            </h1>
+            <p className="text-muted-foreground">
+              Please wait while we complete authentication
+            </p>
           </>
         )}
 
@@ -99,7 +109,9 @@ export function AuthCallback() {
         {status === 'error' && (
           <>
             <XCircleIcon className="w-16 h-16 mx-auto text-red-500" />
-            <h1 className="text-2xl font-bold text-red-400">Authentication Failed</h1>
+            <h1 className="text-2xl font-bold text-red-400">
+              Authentication Failed
+            </h1>
             <p className="text-muted-foreground">{error}</p>
             <button
               onClick={() => navigate('/')}
@@ -111,7 +123,7 @@ export function AuthCallback() {
         )}
       </div>
     </div>
-  );
+  )
 }
 
-export default AuthCallback;
+export default AuthCallback

@@ -1,85 +1,123 @@
-import { DataSource, DefaultNamingStrategy } from 'typeorm';
+import { DataSource, DefaultNamingStrategy } from 'typeorm'
 
 function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing required environment variable: ${name}`);
-  return value;
+  const value = process.env[name]
+  if (!value) throw new Error(`Missing required environment variable: ${name}`)
+  return value
 }
 
-const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+const IS_PRODUCTION = process.env.NODE_ENV === 'production'
 
-function parsePort(portStr: string, defaultPort: number): number {
-  const port = parseInt(portStr);
-  if (isNaN(port) || port <= 0 || port > 65535) {
-    throw new Error(`Invalid port: ${portStr}. Must be between 1 and 65535.`);
+function parsePort(portStr: string, _defaultPort: number): number {
+  const port = parseInt(portStr, 10)
+  if (Number.isNaN(port) || port <= 0 || port > 65535) {
+    throw new Error(`Invalid port: ${portStr}. Must be between 1 and 65535.`)
   }
-  return port;
+  return port
 }
 
-function parsePositiveInt(value: string, defaultValue: number, name: string): number {
-  const parsed = parseInt(value);
-  if (isNaN(parsed) || parsed <= 0) {
+function parsePositiveInt(
+  value: string,
+  defaultValue: number,
+  name: string,
+): number {
+  const parsed = parseInt(value, 10)
+  if (Number.isNaN(parsed) || parsed <= 0) {
     if (value !== undefined && value !== '') {
-      throw new Error(`Invalid ${name}: ${value}. Must be a positive integer.`);
+      throw new Error(`Invalid ${name}: ${value}. Must be a positive integer.`)
     }
-    return defaultValue;
+    return defaultValue
   }
-  return parsed;
+  return parsed
 }
 
 const DB_CONFIG = {
-  host: IS_PRODUCTION ? requireEnv('DB_HOST') : (process.env.DB_HOST || 'localhost'),
-  port: IS_PRODUCTION 
+  host: IS_PRODUCTION
+    ? requireEnv('DB_HOST')
+    : process.env.DB_HOST || 'localhost',
+  port: IS_PRODUCTION
     ? parsePort(requireEnv('DB_PORT'), 23798)
     : parsePort(process.env.DB_PORT || '23798', 23798),
-  database: IS_PRODUCTION ? requireEnv('DB_NAME') : (process.env.DB_NAME || 'indexer'),
-  username: IS_PRODUCTION ? requireEnv('DB_USER') : (process.env.DB_USER || 'postgres'),
-  password: IS_PRODUCTION ? requireEnv('DB_PASS') : (process.env.DB_PASS || 'postgres'),
-};
+  database: IS_PRODUCTION
+    ? requireEnv('DB_NAME')
+    : process.env.DB_NAME || 'indexer',
+  username: IS_PRODUCTION
+    ? requireEnv('DB_USER')
+    : process.env.DB_USER || 'postgres',
+  password: IS_PRODUCTION
+    ? requireEnv('DB_PASS')
+    : process.env.DB_PASS || 'postgres',
+}
 
 const POOL_CONFIG = {
-  poolSize: parsePositiveInt(process.env.DB_POOL_SIZE || '10', 10, 'DB_POOL_SIZE'),
-  connectionTimeoutMillis: parsePositiveInt(process.env.DB_CONNECT_TIMEOUT || '10000', 10000, 'DB_CONNECT_TIMEOUT'),
-  idleTimeoutMillis: parsePositiveInt(process.env.DB_IDLE_TIMEOUT || '30000', 30000, 'DB_IDLE_TIMEOUT'),
-};
+  poolSize: parsePositiveInt(
+    process.env.DB_POOL_SIZE || '10',
+    10,
+    'DB_POOL_SIZE',
+  ),
+  connectionTimeoutMillis: parsePositiveInt(
+    process.env.DB_CONNECT_TIMEOUT || '10000',
+    10000,
+    'DB_CONNECT_TIMEOUT',
+  ),
+  idleTimeoutMillis: parsePositiveInt(
+    process.env.DB_IDLE_TIMEOUT || '30000',
+    30000,
+    'DB_IDLE_TIMEOUT',
+  ),
+}
 
 function toSnakeCase(str: string): string {
   return str
     .replace(/([a-z\d])([A-Z])/g, '$1_$2')
     .replace(/([A-Z]+)([A-Z][a-z])/g, '$1_$2')
-    .toLowerCase();
+    .toLowerCase()
 }
 
 class SnakeNamingStrategy extends DefaultNamingStrategy {
   tableName(className: string, customName?: string) {
-    return customName || toSnakeCase(className);
+    return customName || toSnakeCase(className)
   }
-  columnName(propertyName: string, customName?: string, prefixes: string[] = []) {
-    return toSnakeCase(prefixes.join('_')) + (customName || toSnakeCase(propertyName));
+  columnName(
+    propertyName: string,
+    customName?: string,
+    prefixes: string[] = [],
+  ) {
+    return (
+      toSnakeCase(prefixes.join('_')) +
+      (customName || toSnakeCase(propertyName))
+    )
   }
   relationName(propertyName: string) {
-    return toSnakeCase(propertyName);
+    return toSnakeCase(propertyName)
   }
   joinColumnName(relationName: string, referencedColumnName: string) {
-    return toSnakeCase(`${relationName}_${referencedColumnName}`);
+    return toSnakeCase(`${relationName}_${referencedColumnName}`)
   }
   joinTableName(firstTableName: string, secondTableName: string) {
-    return toSnakeCase(`${firstTableName}_${secondTableName}`);
+    return toSnakeCase(`${firstTableName}_${secondTableName}`)
   }
-  joinTableColumnName(tableName: string, propertyName: string, columnName?: string) {
-    return `${toSnakeCase(tableName)}_${columnName || toSnakeCase(propertyName)}`;
+  joinTableColumnName(
+    tableName: string,
+    propertyName: string,
+    columnName?: string,
+  ) {
+    return `${toSnakeCase(tableName)}_${columnName || toSnakeCase(propertyName)}`
   }
 }
 
-let dataSource: DataSource | null = null;
+let dataSource: DataSource | null = null
 
 export async function getDataSource(): Promise<DataSource> {
-  if (dataSource?.isInitialized) return dataSource;
+  if (dataSource?.isInitialized) return dataSource
 
-  const models = await import('../model');
+  const models = await import('../model')
   const entities = Object.values(models).filter(
-    (v): boolean => typeof v === 'function' && v.prototype?.constructor !== undefined
-  ) as Function[];
+    (v): boolean =>
+      typeof v === 'function' && v.prototype?.constructor !== undefined,
+  ) as (new (
+    ...args: never[]
+  ) => object)[]
 
   dataSource = new DataSource({
     type: 'postgres',
@@ -93,18 +131,20 @@ export async function getDataSource(): Promise<DataSource> {
       connectionTimeoutMillis: POOL_CONFIG.connectionTimeoutMillis,
       idleTimeoutMillis: POOL_CONFIG.idleTimeoutMillis,
     },
-  });
+  })
 
-  await dataSource.initialize();
-  console.log(`Database connected: ${DB_CONFIG.host}:${DB_CONFIG.port}/${DB_CONFIG.database} (pool: ${POOL_CONFIG.poolSize})`);
-  return dataSource;
+  await dataSource.initialize()
+  console.log(
+    `Database connected: ${DB_CONFIG.host}:${DB_CONFIG.port}/${DB_CONFIG.database} (pool: ${POOL_CONFIG.poolSize})`,
+  )
+  return dataSource
 }
 
 export async function closeDataSource(): Promise<void> {
   if (dataSource?.isInitialized) {
-    await dataSource.destroy();
-    dataSource = null;
+    await dataSource.destroy()
+    dataSource = null
   }
 }
 
-export { DataSource };
+export { DataSource }

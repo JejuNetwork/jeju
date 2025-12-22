@@ -3,9 +3,9 @@
  * Verify that all security checks are implemented in hooks
  */
 
-import { describe, test, expect } from 'bun:test'
-import { readFileSync, existsSync } from 'fs'
-import { join, dirname } from 'path'
+import { describe, expect, test } from 'bun:test'
+import { existsSync, readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 
 // Get the directory where this test file is located
 const TEST_DIR = dirname(__filename)
@@ -14,7 +14,6 @@ const BAZAAR_DIR = join(TEST_DIR, '..')
 const HOOKS_DIR = join(BAZAAR_DIR, 'hooks/nft')
 
 describe('NFT Validation - Code Analysis', () => {
-  
   test('useNFTListing has ownership validation', () => {
     const filePath = join(HOOKS_DIR, 'useNFTListing.ts')
     if (!existsSync(filePath)) {
@@ -22,7 +21,7 @@ describe('NFT Validation - Code Analysis', () => {
       return
     }
     const code = readFileSync(filePath, 'utf-8')
-    
+
     expect(code).toContain('ownerOf')
     expect(code).toContain('owner')
     console.log('✅ useNFTListing: Ownership check IMPLEMENTED')
@@ -30,7 +29,7 @@ describe('NFT Validation - Code Analysis', () => {
 
   test('useNFTListing has approval validation', () => {
     const code = readFileSync(join(HOOKS_DIR, 'useNFTListing.ts'), 'utf-8')
-    
+
     expect(code).toContain('getApproved')
     expect(code).toContain('needsApproval')
     console.log('✅ useNFTListing: Approval check IMPLEMENTED')
@@ -43,7 +42,7 @@ describe('NFT Validation - Code Analysis', () => {
       return
     }
     const code = readFileSync(filePath, 'utf-8')
-    
+
     expect(code).toContain('0.001')
     console.log('✅ useNFTListing: Minimum price check IMPLEMENTED')
   })
@@ -55,7 +54,7 @@ describe('NFT Validation - Code Analysis', () => {
       return
     }
     const code = readFileSync(filePath, 'utf-8')
-    
+
     expect(code).toContain('getListing')
     expect(code).toContain('active')
     console.log('✅ useNFTBuy: State validation IMPLEMENTED')
@@ -68,7 +67,7 @@ describe('NFT Validation - Code Analysis', () => {
       return
     }
     const code = readFileSync(filePath, 'utf-8')
-    
+
     expect(code).toContain('endTime')
     console.log('✅ useNFTBuy: Expiration check IMPLEMENTED')
   })
@@ -80,14 +79,14 @@ describe('NFT Validation - Code Analysis', () => {
       return
     }
     const code = readFileSync(filePath, 'utf-8')
-    
+
     expect(code).toContain('price')
     console.log('✅ useNFTBuy: Price validation IMPLEMENTED')
   })
 
   test('useNFTAuction has minimum bid enforcement', () => {
     const code = readFileSync(join(HOOKS_DIR, 'useNFTAuction.ts'), 'utf-8')
-    
+
     expect(code).toContain('getAuction')
     expect(code).toContain('/ BigInt(20)') // 5% increment (1/20 = 0.05)
     expect(code).toContain('minBid')
@@ -101,7 +100,7 @@ describe('NFT Validation - Code Analysis', () => {
       return
     }
     const code = readFileSync(filePath, 'utf-8')
-    
+
     expect(code).toContain('getAuction')
     expect(code).toContain('endTime')
     console.log('✅ useNFTAuction: State validation IMPLEMENTED')
@@ -113,15 +112,17 @@ describe('NFT Validation - Code Analysis', () => {
       console.log('⏭️  Skipping: NFT Marketplace ABI not found')
       return
     }
-    const abi = JSON.parse(readFileSync(abiPath, 'utf-8')) as { name?: string }[];
-    
+    const abi = JSON.parse(readFileSync(abiPath, 'utf-8')) as {
+      name?: string
+    }[]
+
     const functionNames = abi.map((item) => item.name)
-    
+
     // Check for required read functions
     expect(functionNames).toContain('getListing')
     expect(functionNames).toContain('getAuction')
     expect(functionNames).toContain('getBids')
-    
+
     console.log('✅ NFT Marketplace ABI: All query functions PRESENT')
     console.log(`   Total functions: ${functionNames.length}`)
   })
@@ -143,8 +144,7 @@ describe('NFT Validation - Code Analysis', () => {
     console.log('')
     console.log('STATUS: ALL 8 CRITICAL VALIDATIONS VERIFIED IN CODE')
     console.log('═══════════════════════════════════════════════════════')
-    
+
     expect(true).toBe(true) // Always pass after logging
   })
 })
-

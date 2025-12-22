@@ -9,9 +9,9 @@ export function LoadingSpinner({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
     <div className="flex items-center justify-center">
       <div
         className={`${sizeClasses[size]} border-4 rounded-full animate-spin`}
-        style={{ 
+        style={{
           borderColor: 'var(--border)',
-          borderTopColor: 'var(--color-primary)'
+          borderTopColor: 'var(--color-primary)',
         }}
       />
     </div>
@@ -20,7 +20,7 @@ export function LoadingSpinner({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
 
 export function LoadingSkeleton({ className }: { className?: string }) {
   return (
-    <div 
+    <div
       className={`animate-pulse rounded ${className}`}
       style={{ backgroundColor: 'var(--bg-tertiary)' }}
     />

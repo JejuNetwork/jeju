@@ -1,12 +1,12 @@
-import { useReadContracts, useWriteContract } from 'wagmi'
 import { AddressSchema } from '@jejunetwork/types'
-import { expect } from '@/lib/validation'
-import { getV4Contracts } from '@/config/contracts'
-import { JEJU_CHAIN_ID } from '@/config/chains'
-import PoolManagerABI from '../abis/PoolManager.json'
-import { Pool, PoolKey, CreatePoolParams } from './types'
-import { computePoolId, validatePoolKey } from './utils'
 import type { Abi } from 'viem'
+import { useReadContracts, useWriteContract } from 'wagmi'
+import { JEJU_CHAIN_ID } from '@/config/chains'
+import { getV4Contracts } from '@/config/contracts'
+import { expect } from '@/lib/validation'
+import PoolManagerABI from '../abis/PoolManager.json'
+import type { CreatePoolParams, Pool, PoolKey } from './types'
+import { computePoolId, validatePoolKey } from './utils'
 
 const POOL_MANAGER_ABI = PoolManagerABI as Abi
 
@@ -40,14 +40,29 @@ export function usePool(poolKey: PoolKey | null) {
 
   const [slot0Data, liquidityData] = data
 
-  if (!slot0Data || !liquidityData || slot0Data.status !== 'success' || liquidityData.status !== 'success') {
-    return { pool: null, isLoading, error: error || new Error('Failed to fetch pool data'), refetch }
+  if (
+    !slot0Data ||
+    !liquidityData ||
+    slot0Data.status !== 'success' ||
+    liquidityData.status !== 'success'
+  ) {
+    return {
+      pool: null,
+      isLoading,
+      error: error || new Error('Failed to fetch pool data'),
+      refetch,
+    }
   }
-  
-  const validatedPoolKey = expect(poolKey, 'Pool key is required');
-  const validatedPoolId = expect(poolId, 'Pool ID is required');
 
-  const [sqrtPriceX96, tick, protocolFee, lpFee] = slot0Data.result as [bigint, number, number, number]
+  const validatedPoolKey = expect(poolKey, 'Pool key is required')
+  const validatedPoolId = expect(poolId, 'Pool ID is required')
+
+  const [sqrtPriceX96, tick, protocolFee, lpFee] = slot0Data.result as [
+    bigint,
+    number,
+    number,
+    number,
+  ]
   const liquidity = liquidityData.result as bigint
 
   const pool: Pool = {
@@ -76,7 +91,9 @@ export function useCreatePool() {
     error,
   } = useWriteContract()
 
-  const createPool = async (params: CreatePoolParams): Promise<`0x${string}`> => {
+  const createPool = async (
+    params: CreatePoolParams,
+  ): Promise<`0x${string}`> => {
     const poolKey: PoolKey = {
       currency0: params.token0,
       currency1: params.token1,
@@ -87,8 +104,11 @@ export function useCreatePool() {
 
     validatePoolKey(poolKey)
 
-    const validatedPoolManager = expect(contracts.poolManager, 'Pool manager contract not deployed');
-    AddressSchema.parse(validatedPoolManager);
+    const validatedPoolManager = expect(
+      contracts.poolManager,
+      'Pool manager contract not deployed',
+    )
+    AddressSchema.parse(validatedPoolManager)
 
     const hash = await initializePool({
       address: validatedPoolManager,
@@ -96,7 +116,10 @@ export function useCreatePool() {
       functionName: 'initialize',
       args: [poolKey, params.sqrtPriceX96, '0x'],
     })
-    return expect(hash, 'Transaction failed - no hash returned') as `0x${string}`
+    return expect(
+      hash,
+      'Transaction failed - no hash returned',
+    ) as `0x${string}`
   }
 
   return {
@@ -108,7 +131,9 @@ export function useCreatePool() {
   }
 }
 
-export function useWatchPoolCreated(_onPoolCreated?: (poolId: string, key: PoolKey) => void) {
+export function useWatchPoolCreated(
+  _onPoolCreated?: (poolId: string, key: PoolKey) => void,
+) {
   return {}
 }
 
@@ -147,11 +172,21 @@ export function usePools(poolKeys: PoolKey[]) {
       const slot0Data = data[index * 2]
       const liquidityData = data[index * 2 + 1]
 
-      if (!slot0Data || !liquidityData || slot0Data.status !== 'success' || liquidityData.status !== 'success') {
+      if (
+        !slot0Data ||
+        !liquidityData ||
+        slot0Data.status !== 'success' ||
+        liquidityData.status !== 'success'
+      ) {
         return null
       }
 
-      const [sqrtPriceX96, tick, protocolFee, lpFee] = slot0Data.result as [bigint, number, number, number]
+      const [sqrtPriceX96, tick, protocolFee, lpFee] = slot0Data.result as [
+        bigint,
+        number,
+        number,
+        number,
+      ]
       const liquidity = liquidityData.result as bigint
 
       const pool: Pool = {
@@ -171,4 +206,3 @@ export function usePools(poolKeys: PoolKey[]) {
 
   return { pools, isLoading, error, refetch }
 }
-

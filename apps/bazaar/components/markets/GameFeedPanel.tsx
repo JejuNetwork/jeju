@@ -1,16 +1,18 @@
-'use client';
+'use client'
 
-import { useState, useEffect } from 'react';
-import { useGameFeed } from '@/hooks/markets/useGameFeed';
-import { EXPLORER_URL } from '@/config';
+import { EXPLORER_URL } from '@/config'
+import { useGameFeed } from '@/hooks/markets/useGameFeed'
 
 interface GameFeedPanelProps {
-  sessionId: string;
-  className?: string;
+  sessionId: string
+  className?: string
 }
 
-export function GameFeedPanel({ sessionId, className = '' }: GameFeedPanelProps) {
-  const { posts, marketUpdates, loading, error } = useGameFeed(sessionId);
+export function GameFeedPanel({
+  sessionId,
+  className = '',
+}: GameFeedPanelProps) {
+  const { posts, marketUpdates, loading, error } = useGameFeed(sessionId)
 
   if (loading) {
     return (
@@ -22,15 +24,19 @@ export function GameFeedPanel({ sessionId, className = '' }: GameFeedPanelProps)
           ))}
         </div>
       </div>
-    );
+    )
   }
 
   if (error) {
     return (
-      <div className={`bg-red-900/20 border border-red-700 rounded-lg p-4 ${className}`}>
-        <p className="text-red-400">Failed to load game feed: {error.message}</p>
+      <div
+        className={`bg-red-900/20 border border-red-700 rounded-lg p-4 ${className}`}
+      >
+        <p className="text-red-400">
+          Failed to load game feed: {error.message}
+        </p>
       </div>
-    );
+    )
   }
 
   return (
@@ -60,7 +66,8 @@ export function GameFeedPanel({ sessionId, className = '' }: GameFeedPanelProps)
             </div>
           </div>
           <div className="mt-2 text-center text-xs text-slate-500">
-            Day {marketUpdates[0].gameDay} • Volume: {Number(marketUpdates[0].totalVolume) / 1e18} ETH
+            Day {marketUpdates[0].gameDay} • Volume:{' '}
+            {Number(marketUpdates[0].totalVolume) / 1e18} ETH
           </div>
         </div>
       )}
@@ -90,7 +97,8 @@ export function GameFeedPanel({ sessionId, className = '' }: GameFeedPanelProps)
                     {post.author.slice(0, 6)}...{post.author.slice(-4)}
                   </div>
                   <div className="text-xs text-slate-400">
-                    Day {post.gameDay} • {new Date(post.timestamp).toLocaleTimeString()}
+                    Day {post.gameDay} •{' '}
+                    {new Date(post.timestamp).toLocaleTimeString()}
                   </div>
                 </div>
                 {post.isSystemMessage && (
@@ -123,6 +131,5 @@ export function GameFeedPanel({ sessionId, className = '' }: GameFeedPanelProps)
         On-chain feed powered by GameFeedOracle • Updates in real-time
       </div>
     </div>
-  );
+  )
 }
-

@@ -1,11 +1,11 @@
-import { AlertTriangle, X } from 'lucide-react';
-import { useAppStore } from '../store';
-import { motion } from 'framer-motion';
+import { motion } from 'framer-motion'
+import { AlertTriangle, X } from 'lucide-react'
+import { useAppStore } from '../store'
 
 export function ErrorBanner() {
-  const { error, clearError } = useAppStore();
+  const { error, clearError } = useAppStore()
 
-  if (!error) return null;
+  if (!error) return null
 
   return (
     <motion.div
@@ -26,6 +26,5 @@ export function ErrorBanner() {
         <X size={18} className="text-red-400" />
       </button>
     </motion.div>
-  );
+  )
 }
-

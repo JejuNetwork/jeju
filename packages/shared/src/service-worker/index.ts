@@ -3,13 +3,12 @@
  */
 
 export {
-  registerServiceWorker,
-  unregisterServiceWorker,
+  cacheUrls,
   checkForUpdates,
+  clearCache,
+  registerServiceWorker,
+  type SWRegistrationOptions,
   sendMessageToSW,
   skipWaiting,
-  cacheUrls,
-  clearCache,
-  type SWRegistrationOptions,
-} from './register';
-
+  unregisterServiceWorker,
+} from './register'

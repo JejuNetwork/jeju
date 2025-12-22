@@ -3,32 +3,32 @@
  * Utilities for wallet connection and management
  */
 
-import { MetaMask } from '@synthetixio/synpress/playwright';
-import { Page, BrowserContext } from '@playwright/test';
-import { basicSetup } from '../../../synpress.config';
+import type { BrowserContext, Page } from '@playwright/test'
+import { MetaMask } from '@synthetixio/synpress/playwright'
+import { basicSetup } from '../../../synpress.config'
 
 /**
  * Connect wallet to dApp using MetaMask
  */
 export async function connectWallet(
   page: Page,
-  metamask: MetaMask
+  metamask: MetaMask,
 ): Promise<void> {
   // Wait for page to be ready
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState('networkidle')
 
   // Find and click connect button
-  const connectButton = page.locator('button:has-text("Connect")').first();
-  await connectButton.click();
-  await page.waitForTimeout(1000);
+  const connectButton = page.locator('button:has-text("Connect")').first()
+  await connectButton.click()
+  await page.waitForTimeout(1000)
 
   // Handle MetaMask connection popup
-  await metamask.connectToDapp();
+  await metamask.connectToDapp()
 
   // Wait for wallet address to appear (confirms connection)
-  await page.waitForSelector('button:has-text(/0x/)', { timeout: 15000 });
+  await page.waitForSelector('button:has-text(/0x/)', { timeout: 15000 })
 
-  console.log('✅ Wallet connected');
+  console.log('✅ Wallet connected')
 }
 
 /**
@@ -37,26 +37,31 @@ export async function connectWallet(
 export function createMetaMask(
   context: BrowserContext,
   metamaskPage: Page,
-  extensionId: string
+  extensionId: string,
 ): MetaMask {
-  return new MetaMask(context, metamaskPage, basicSetup.walletPassword, extensionId);
+  return new MetaMask(
+    context,
+    metamaskPage,
+    basicSetup.walletPassword,
+    extensionId,
+  )
 }
 
 /**
  * Disconnect wallet (if UI supports it)
  */
 export async function disconnectWallet(page: Page): Promise<void> {
-  const walletButton = page.locator('button:has-text(/0x/)').first();
-  
-  if (await walletButton.isVisible()) {
-    await walletButton.click();
-    await page.waitForTimeout(500);
+  const walletButton = page.locator('button:has-text(/0x/)').first()
 
-    const disconnectOption = page.getByText(/Disconnect/i);
+  if (await walletButton.isVisible()) {
+    await walletButton.click()
+    await page.waitForTimeout(500)
+
+    const disconnectOption = page.getByText(/Disconnect/i)
     if (await disconnectOption.isVisible()) {
-      await disconnectOption.click();
-      await page.waitForTimeout(1000);
-      console.log('✅ Wallet disconnected');
+      await disconnectOption.click()
+      await page.waitForTimeout(1000)
+      console.log('✅ Wallet disconnected')
     }
   }
 }
@@ -66,10 +71,10 @@ export async function disconnectWallet(page: Page): Promise<void> {
  */
 export async function switchNetwork(
   metamask: MetaMask,
-  networkName: string
+  networkName: string,
 ): Promise<void> {
-  await metamask.switchNetwork(networkName);
-  console.log(`✅ Switched to network: ${networkName}`);
+  await metamask.switchNetwork(networkName)
+  console.log(`✅ Switched to network: ${networkName}`)
 }
 
 /**
@@ -81,33 +86,33 @@ export async function setupNetworkChain(metamask: MetaMask): Promise<void> {
     rpcUrl: 'http://127.0.0.1:6546',
     chainId: 1337,
     symbol: 'ETH',
-  });
+  })
 
-  await metamask.switchNetwork('Jeju Localnet');
-  console.log('✅ Network Localnet configured');
+  await metamask.switchNetwork('Jeju Localnet')
+  console.log('✅ Network Localnet configured')
 }
 
 /**
  * Get connected wallet address from UI
  */
 export async function getConnectedAddress(page: Page): Promise<string | null> {
-  const walletButton = page.locator('button:has-text(/0x/)').first();
-  
+  const walletButton = page.locator('button:has-text(/0x/)').first()
+
   if (await walletButton.isVisible()) {
-    const text = await walletButton.textContent();
-    const match = text?.match(/(0x[a-fA-F0-9]{4,})|(0x\.\.\.[a-fA-F0-9]{4})/);
-    return match ? match[1] : null;
+    const text = await walletButton.textContent()
+    const match = text?.match(/(0x[a-fA-F0-9]{4,})|(0x\.\.\.[a-fA-F0-9]{4})/)
+    return match ? match[1] : null
   }
-  
-  return null;
+
+  return null
 }
 
 /**
  * Check if wallet is connected
  */
 export async function isWalletConnected(page: Page): Promise<boolean> {
-  const walletButton = page.locator('button:has-text(/0x/)');
-  return walletButton.isVisible();
+  const walletButton = page.locator('button:has-text(/0x/)')
+  return walletButton.isVisible()
 }
 
 /**
@@ -115,9 +120,9 @@ export async function isWalletConnected(page: Page): Promise<boolean> {
  */
 export async function waitForConnection(
   page: Page,
-  timeout: number = 15000
+  timeout: number = 15000,
 ): Promise<void> {
-  await page.waitForSelector('button:has-text(/0x/)', { timeout });
+  await page.waitForSelector('button:has-text(/0x/)', { timeout })
 }
 
 /**
@@ -125,14 +130,14 @@ export async function waitForConnection(
  */
 export async function reconnectWallet(
   page: Page,
-  metamask: MetaMask
+  metamask: MetaMask,
 ): Promise<void> {
-  const alreadyConnected = await isWalletConnected(page);
+  const alreadyConnected = await isWalletConnected(page)
 
   if (!alreadyConnected) {
-    await connectWallet(page, metamask);
+    await connectWallet(page, metamask)
   } else {
-    console.log('ℹ️  Wallet already connected');
+    console.log('ℹ️  Wallet already connected')
   }
 }
 
@@ -141,7 +146,7 @@ export async function reconnectWallet(
  */
 export async function getWalletBalance(
   page: Page,
-  address: string
+  address: string,
 ): Promise<bigint> {
   const response = await page.request.post('http://127.0.0.1:6546', {
     data: {
@@ -150,10 +155,10 @@ export async function getWalletBalance(
       params: [address, 'latest'],
       id: 1,
     },
-  });
+  })
 
-  const result = await response.json();
-  return BigInt(result.result);
+  const result = await response.json()
+  return BigInt(result.result)
 }
 
 /**
@@ -162,9 +167,9 @@ export async function getWalletBalance(
 export async function getTokenBalance(
   page: Page,
   tokenAddress: string,
-  walletAddress: string
+  walletAddress: string,
 ): Promise<bigint> {
-  const data = `0x70a08231000000000000000000000000${walletAddress.slice(2)}`;
+  const data = `0x70a08231000000000000000000000000${walletAddress.slice(2)}`
 
   const response = await page.request.post('http://127.0.0.1:6546', {
     data: {
@@ -173,10 +178,10 @@ export async function getTokenBalance(
       params: [{ to: tokenAddress, data }, 'latest'],
       id: 1,
     },
-  });
+  })
 
-  const result = await response.json();
-  return BigInt(result.result);
+  const result = await response.json()
+  return BigInt(result.result)
 }
 
 /**
@@ -186,21 +191,20 @@ export async function waitForBalanceChange(
   page: Page,
   address: string,
   previousBalance: bigint,
-  timeout: number = 30000
+  timeout: number = 30000,
 ): Promise<bigint> {
-  const startTime = Date.now();
+  const startTime = Date.now()
 
   while (Date.now() - startTime < timeout) {
-    const currentBalance = await getWalletBalance(page, address);
+    const currentBalance = await getWalletBalance(page, address)
 
     if (currentBalance !== previousBalance) {
-      console.log('✅ Balance changed');
-      return currentBalance;
+      console.log('✅ Balance changed')
+      return currentBalance
     }
 
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(1000)
   }
 
-  throw new Error('Timeout waiting for balance change');
+  throw new Error('Timeout waiting for balance change')
 }
-

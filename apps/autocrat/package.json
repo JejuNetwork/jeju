@@ -10,12 +10,13 @@
     "build": "bun build src/index.ts --outdir dist --target node",
     "test": "bun test tests/",
     "test:e2e": "npx playwright test --config synpress.config.ts",
-    "lint": "eslint src --ext .ts,.tsx",
+    "lint": "biome check .",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@elizaos/core": "^1.6.4",
     "@anthropic-ai/sdk": "^0.30.0",
+    "@modelcontextprotocol/sdk": "^1.0.0",
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/db": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
@@ -24,7 +25,7 @@
     "@jejunetwork/eliza-plugin": "workspace:*",
     "ai": "^5.0.52",
     "hono": "4.11.1",
-    "viem": "2.43.2",
+    "viem": "2.43.3",
     "zod": "^4.1.13"
   },
   "devDependencies": {

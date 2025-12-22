@@ -1,4 +1,4 @@
-import type { ChainId } from '../types';
+import type { ChainId } from '../types'
 
 /**
  * Hyperlane domain IDs for supported chains
@@ -26,12 +26,12 @@ export const CHAIN_TO_DOMAIN: Partial<Record<ChainId, number>> = {
   // SVM
   'solana-mainnet': 1399811149,
   'solana-devnet': 1399811150,
-};
+}
 
 export function getDomainId(chainId: ChainId): number {
-  const domain = CHAIN_TO_DOMAIN[chainId];
+  const domain = CHAIN_TO_DOMAIN[chainId]
   if (domain === undefined) {
-    throw new Error(`Unknown domain for chain ${chainId}`);
+    throw new Error(`Unknown domain for chain ${chainId}`)
   }
-  return domain;
+  return domain
 }

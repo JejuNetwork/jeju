@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 
 test.describe('CEO Dashboard', () => {
   test.beforeEach(async ({ page }) => {
@@ -52,10 +52,10 @@ test.describe('CEO Dashboard', () => {
   test('refresh button works', async ({ page }) => {
     const refreshButton = page.locator('button').filter({ hasText: 'Refresh' })
     await expect(refreshButton).toBeVisible()
-    
+
     // Click refresh
     await refreshButton.click()
-    
+
     // Should still show the dashboard (data reloads)
     await expect(page.getByText('Current AI CEO')).toBeVisible()
   })
@@ -63,7 +63,7 @@ test.describe('CEO Dashboard', () => {
   test('back navigation works', async ({ page }) => {
     // Click back arrow
     await page.locator('a[href="/"]').first().click()
-    
+
     // Should go to home
     await expect(page).toHaveURL('/')
   })
@@ -72,7 +72,7 @@ test.describe('CEO Dashboard', () => {
 test.describe('CEO Dashboard - Navigation', () => {
   test('can navigate to CEO page from header', async ({ page }) => {
     await page.goto('/')
-    
+
     // Check if CEO link is visible (desktop)
     const viewport = page.viewportSize()
     if (viewport && viewport.width >= 768) {
@@ -93,10 +93,19 @@ test.describe('CEO Dashboard - Model Staking', () => {
     await page.waitForLoadState('networkidle')
   })
 
-  test('shows staking information or empty state for models', async ({ page }) => {
+  test('shows staking information or empty state for models', async ({
+    page,
+  }) => {
     // Either ETH staked should be visible (if models exist) or empty state
-    const hasModels = await page.getByText(/ETH/).first().isVisible().catch(() => false)
-    const hasEmptyState = await page.getByText('No model candidates registered').isVisible().catch(() => false)
+    const hasModels = await page
+      .getByText(/ETH/)
+      .first()
+      .isVisible()
+      .catch(() => false)
+    const hasEmptyState = await page
+      .getByText('No model candidates registered')
+      .isVisible()
+      .catch(() => false)
     expect(hasModels || hasEmptyState).toBeTruthy()
   })
 
@@ -132,7 +141,11 @@ test.describe('CEO Dashboard - Decision History', () => {
   test('shows time indicators when decisions exist', async ({ page }) => {
     // If decisions exist, time ago should be visible
     // This is a soft check since mock data may or may not have decisions
-    const hasDecisions = await page.getByText(/ago/).first().isVisible().catch(() => false)
+    const hasDecisions = await page
+      .getByText(/ago/)
+      .first()
+      .isVisible()
+      .catch(() => false)
     const hasSection = await page.getByText('Recent Decisions').isVisible()
     // Either decisions with time or just the section header is acceptable
     expect(hasDecisions || hasSection).toBeTruthy()

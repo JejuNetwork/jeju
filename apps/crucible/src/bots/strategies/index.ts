@@ -1,6 +1,6 @@
 /**
  * @fileoverview Strategy Exports
- * 
+ *
  * MEV/Arbitrage strategies for profit generation:
  * - DEX Arbitrage: Cross-pool arbitrage on single chain
  * - Sandwich: MEV extraction from pending transactions
@@ -13,21 +13,29 @@
  * - DEX Aggregator Arb: Cross-aggregator price arbitrage
  */
 
-export { DexArbitrageStrategy } from './dex-arbitrage';
-export { SandwichStrategy } from './sandwich';
-export { CrossChainArbStrategy } from './cross-chain-arb';
-export { SolanaArbStrategy, SOLANA_CHAIN_ID, SOLANA_TOKENS } from './solana-arb';
-export { LiquidationStrategy } from './liquidation';
-export { SolverStrategy } from './solver';
-export { OracleKeeperStrategy } from './oracle-keeper';
-export { LiquidityManager, type UnifiedPosition, type RebalanceAction, type PoolAnalysis } from './liquidity-manager';
-export { 
-  YieldFarmingStrategy, 
-  type YieldOpportunity, 
-  type FarmPosition, 
-  type YieldFarmingConfig,
-  type YieldSource,
+export { CrossChainArbStrategy } from './cross-chain-arb'
+export {
+  createDexAggregatorArbStrategy,
+  DexAggregatorArbStrategy,
+} from './dex-aggregator-arb'
+export { DexArbitrageStrategy } from './dex-arbitrage'
+export { createFundingArbStrategy, FundingArbStrategy } from './funding-arb'
+export { LiquidationStrategy } from './liquidation'
+export {
+  LiquidityManager,
+  type PoolAnalysis,
+  type RebalanceAction,
+  type UnifiedPosition,
+} from './liquidity-manager'
+export { OracleKeeperStrategy } from './oracle-keeper'
+export { SandwichStrategy } from './sandwich'
+export { SOLANA_CHAIN_ID, SOLANA_TOKENS, SolanaArbStrategy } from './solana-arb'
+export { SolverStrategy } from './solver'
+export {
+  type FarmPosition,
   type RiskLevel,
-} from './yield-farming';
-export { FundingArbStrategy, createFundingArbStrategy } from './funding-arb';
-export { DexAggregatorArbStrategy, createDexAggregatorArbStrategy } from './dex-aggregator-arb';
+  type YieldFarmingConfig,
+  YieldFarmingStrategy,
+  type YieldOpportunity,
+  type YieldSource,
+} from './yield-farming'

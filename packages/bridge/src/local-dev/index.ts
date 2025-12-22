@@ -2,4 +2,4 @@
  * Local Development Module Exports
  */
 
-export * from "./config.js";
+export * from './config.js'

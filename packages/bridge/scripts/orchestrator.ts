@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+
 /**
  * EVMSol Orchestrator
  *
@@ -11,50 +12,50 @@
  * For Solana consensus, use the Geyser plugin which runs inside the validator.
  */
 
-import { type Subprocess, spawn } from 'bun';
-import { parseArgs } from 'util';
+import { parseArgs } from 'node:util'
+import { type Subprocess, spawn } from 'bun'
 import {
   createHealthChecker,
   type HealthCheckConfig,
-} from '../src/monitoring/health.js';
+} from '../src/monitoring/health.js'
 import {
   createRelayerService,
   type RelayerConfig,
-} from '../src/relayer/service.js';
-import { ChainId } from '../src/types/index.js';
+} from '../src/relayer/service.js'
+import { ChainId } from '../src/types/index.js'
 
 // =============================================================================
 // CONFIGURATION
 // =============================================================================
 
 interface OrchestratorConfig {
-  mode: 'local' | 'testnet' | 'mainnet';
+  mode: 'local' | 'testnet' | 'mainnet'
   components: {
-    relayer: boolean;
-    prover: boolean;
-    beaconWatcher: boolean;
-    healthMonitor: boolean;
-  };
+    relayer: boolean
+    prover: boolean
+    beaconWatcher: boolean
+    healthMonitor: boolean
+  }
   ports: {
-    relayer: number;
-    prover: number;
-    health: number;
-  };
+    relayer: number
+    prover: number
+    health: number
+  }
   chains: {
     evm: Array<{
-      chainId: ChainId;
-      name: string;
-      rpcUrl: string;
-      beaconUrl?: string;
-      bridgeAddress: string;
-      lightClientAddress: string;
-    }>;
+      chainId: ChainId
+      name: string
+      rpcUrl: string
+      beaconUrl?: string
+      bridgeAddress: string
+      lightClientAddress: string
+    }>
     solana: {
-      rpcUrl: string;
-      bridgeProgramId: string;
-      evmLightClientProgramId: string;
-    };
-  };
+      rpcUrl: string
+      bridgeProgramId: string
+      evmLightClientProgramId: string
+    }
+  }
 }
 
 // Default configurations
@@ -77,7 +78,7 @@ const CONFIGS: Record<string, OrchestratorConfig> = {
         {
           chainId: ChainId.LOCAL_EVM,
           name: 'Local EVM',
-          rpcUrl: 'http://127.0.0.1:6545',
+          rpcUrl: 'http://127.0.0.1:8545',
           bridgeAddress: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
           lightClientAddress: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
         },
@@ -159,98 +160,98 @@ const CONFIGS: Record<string, OrchestratorConfig> = {
       },
     },
   },
-};
+}
 
 // =============================================================================
 // ORCHESTRATOR
 // =============================================================================
 
 class Orchestrator {
-  private config: OrchestratorConfig;
-  private processes: Map<string, Subprocess> = new Map();
-  private relayer: ReturnType<typeof createRelayerService> | null = null;
-  private healthChecker: ReturnType<typeof createHealthChecker> | null = null;
+  private config: OrchestratorConfig
+  private processes: Map<string, Subprocess> = new Map()
+  private relayer: ReturnType<typeof createRelayerService> | null = null
+  private healthChecker: ReturnType<typeof createHealthChecker> | null = null
 
   constructor(config: OrchestratorConfig) {
-    this.config = config;
+    this.config = config
   }
 
   async start(): Promise<void> {
     console.log(
-      `\n🚀 Starting EVMSol Orchestrator (${this.config.mode} mode)\n`
-    );
-    console.log('='.repeat(60) + '\n');
+      `\n🚀 Starting EVMSol Orchestrator (${this.config.mode} mode)\n`,
+    )
+    console.log(`${'='.repeat(60)}\n`)
 
     // Start health monitor first
     if (this.config.components.healthMonitor) {
-      await this.startHealthMonitor();
+      await this.startHealthMonitor()
     }
 
     // Start prover service
     if (this.config.components.prover) {
-      await this.startProver();
+      await this.startProver()
     }
 
     // Start relayer service
     if (this.config.components.relayer) {
-      await this.startRelayer();
+      await this.startRelayer()
     }
 
     // Start beacon watcher
     if (this.config.components.beaconWatcher) {
-      await this.startBeaconWatcher();
+      await this.startBeaconWatcher()
     }
 
-    console.log('\n' + '='.repeat(60));
-    console.log('\n✅ All components started\n');
-    this.printStatus();
+    console.log(`\n${'='.repeat(60)}`)
+    console.log('\n✅ All components started\n')
+    this.printStatus()
   }
 
   async stop(): Promise<void> {
-    console.log('\n🛑 Stopping EVMSol Orchestrator...\n');
+    console.log('\n🛑 Stopping EVMSol Orchestrator...\n')
 
     // Stop processes
     for (const [name, proc] of this.processes) {
-      console.log(`  Stopping ${name}...`);
-      proc.kill();
+      console.log(`  Stopping ${name}...`)
+      proc.kill()
     }
 
     // Stop services
     if (this.relayer) {
-      this.relayer.stop();
+      this.relayer.stop()
     }
 
     if (this.healthChecker) {
-      this.healthChecker.stop();
+      this.healthChecker.stop()
     }
 
-    console.log('\n✅ All components stopped\n');
+    console.log('\n✅ All components stopped\n')
   }
 
   private async startHealthMonitor(): Promise<void> {
-    console.log('📊 Starting health monitor...');
+    console.log('📊 Starting health monitor...')
 
     const healthConfig: HealthCheckConfig = {
       evmRpcUrls: new Map(
-        this.config.chains.evm.map((c) => [c.chainId, c.rpcUrl])
+        this.config.chains.evm.map((c) => [c.chainId, c.rpcUrl]),
       ),
       solanaRpcUrl: this.config.chains.solana.rpcUrl,
       beaconRpcUrl: this.config.chains.evm[0]?.beaconUrl ?? '',
       proverEndpoint: `http://127.0.0.1:${this.config.ports.prover}`,
       relayerEndpoint: `http://127.0.0.1:${this.config.ports.relayer}`,
       checkIntervalMs: 30000,
-    };
+    }
 
-    this.healthChecker = createHealthChecker(healthConfig);
-    this.healthChecker.start();
+    this.healthChecker = createHealthChecker(healthConfig)
+    this.healthChecker.start()
 
     console.log(
-      `   ✅ Health monitor started on port ${this.config.ports.health}`
-    );
+      `   ✅ Health monitor started on port ${this.config.ports.health}`,
+    )
   }
 
   private async startProver(): Promise<void> {
-    console.log('🔐 Starting prover service...');
+    console.log('🔐 Starting prover service...')
 
     // For production, this would start the SP1 prover
     // For now, we spawn our prover service
@@ -263,23 +264,27 @@ class Orchestrator {
       },
       stdout: 'pipe',
       stderr: 'pipe',
-    });
+    })
 
-    this.processes.set('prover', proc);
+    this.processes.set('prover', proc)
 
     // Wait for prover to be ready
     await this.waitForService(
       `http://127.0.0.1:${this.config.ports.prover}/health`,
-      10
-    );
+      10,
+    )
 
     console.log(
-      `   ✅ Prover service started on port ${this.config.ports.prover}`
-    );
+      `   ✅ Prover service started on port ${this.config.ports.prover}`,
+    )
   }
 
   private async startRelayer(): Promise<void> {
-    console.log('🔗 Starting relayer service...');
+    console.log('🔗 Starting relayer service...')
+
+    // SECURITY: Private key is required - no hardcoded fallbacks allowed
+    // The only exception is local mode which uses well-known Anvil test keys
+    const privateKey = this.getPrivateKey()
 
     const relayerConfig: RelayerConfig = {
       port: this.config.ports.relayer,
@@ -288,9 +293,7 @@ class Orchestrator {
         rpcUrl: c.rpcUrl,
         bridgeAddress: c.bridgeAddress,
         lightClientAddress: c.lightClientAddress,
-        privateKey:
-          process.env.PRIVATE_KEY ??
-          '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
+        privateKey,
       })),
       solanaConfig: {
         rpcUrl: this.config.chains.solana.rpcUrl,
@@ -305,24 +308,24 @@ class Orchestrator {
       batchTimeoutMs: 30000,
       retryAttempts: 3,
       retryDelayMs: 5000,
-    };
+    }
 
-    this.relayer = createRelayerService(relayerConfig);
-    await this.relayer.start();
+    this.relayer = createRelayerService(relayerConfig)
+    await this.relayer.start()
 
     console.log(
-      `   ✅ Relayer service started on port ${this.config.ports.relayer}`
-    );
+      `   ✅ Relayer service started on port ${this.config.ports.relayer}`,
+    )
   }
 
   private async startBeaconWatcher(): Promise<void> {
-    const beaconUrl = this.config.chains.evm[0]?.beaconUrl;
+    const beaconUrl = this.config.chains.evm[0]?.beaconUrl
     if (!beaconUrl) {
-      console.log('⚠️  No beacon URL configured, skipping beacon watcher');
-      return;
+      console.log('⚠️  No beacon URL configured, skipping beacon watcher')
+      return
     }
 
-    console.log('👀 Starting beacon watcher...');
+    console.log('👀 Starting beacon watcher...')
 
     const proc = spawn({
       cmd: ['bun', 'run', 'geyser/ethereum-watcher/src/watcher.ts'],
@@ -335,48 +338,76 @@ class Orchestrator {
       },
       stdout: 'pipe',
       stderr: 'pipe',
-    });
+    })
 
-    this.processes.set('beacon-watcher', proc);
-    console.log('   ✅ Beacon watcher started');
+    this.processes.set('beacon-watcher', proc)
+    console.log('   ✅ Beacon watcher started')
   }
 
   private async waitForService(
     url: string,
-    maxAttempts: number
+    maxAttempts: number,
   ): Promise<boolean> {
     for (let i = 0; i < maxAttempts; i++) {
       try {
-        const response = await fetch(url);
-        if (response.ok) return true;
+        const response = await fetch(url)
+        if (response.ok) return true
       } catch {
         // Service not ready yet
       }
-      await Bun.sleep(1000);
+      await Bun.sleep(1000)
     }
-    return false;
+    return false
   }
 
   private printStatus(): void {
-    console.log('Components:');
+    console.log('Components:')
     console.log(
-      `  Relayer:        http://127.0.0.1:${this.config.ports.relayer}`
-    );
+      `  Relayer:        http://127.0.0.1:${this.config.ports.relayer}`,
+    )
     console.log(
-      `  Prover:         http://127.0.0.1:${this.config.ports.prover}`
-    );
+      `  Prover:         http://127.0.0.1:${this.config.ports.prover}`,
+    )
     console.log(
-      `  Health:         http://127.0.0.1:${this.config.ports.health}/monitoring/health`
-    );
-    console.log('');
-    console.log('Chains:');
+      `  Health:         http://127.0.0.1:${this.config.ports.health}/monitoring/health`,
+    )
+    console.log('')
+    console.log('Chains:')
     for (const chain of this.config.chains.evm) {
-      console.log(`  ${chain.name}: ${chain.rpcUrl}`);
+      console.log(`  ${chain.name}: ${chain.rpcUrl}`)
     }
-    console.log(`  Solana: ${this.config.chains.solana.rpcUrl}`);
-    console.log('');
-    console.log('Press Ctrl+C to stop');
-    console.log('');
+    console.log(`  Solana: ${this.config.chains.solana.rpcUrl}`)
+    console.log('')
+    console.log('Press Ctrl+C to stop')
+    console.log('')
+  }
+
+  /**
+   * Get private key for the current mode.
+   * - Local mode: Uses well-known Anvil test key (safe for local development only)
+   * - Testnet/Mainnet: Requires PRIVATE_KEY environment variable
+   */
+  private getPrivateKey(): string {
+    const envKey = process.env.PRIVATE_KEY
+
+    if (envKey) {
+      return envKey
+    }
+
+    // SECURITY: Only allow default test key in local mode
+    if (this.config.mode === 'local') {
+      console.log('⚠️  Using default Anvil test key (LOCAL MODE ONLY)')
+      // This is the well-known first Anvil/Hardhat test key
+      // NEVER use this in testnet or mainnet
+      return '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
+    }
+
+    // For testnet and mainnet, require explicit configuration
+    throw new Error(
+      `PRIVATE_KEY environment variable is required for ${this.config.mode} mode. ` +
+        `Set it in your .env file or environment. ` +
+        `NEVER commit private keys to source control.`,
+    )
   }
 }
 
@@ -401,7 +432,7 @@ async function main(): Promise<void> {
     },
     strict: true,
     allowPositionals: false,
-  });
+  })
 
   if (values.help) {
     console.log(`
@@ -422,39 +453,41 @@ Environment Variables:
   SOLANA_RPC               Solana RPC URL
   BRIDGE_PROGRAM_ID        Solana bridge program ID
   EVM_LIGHT_CLIENT_PROGRAM_ID  Solana EVM light client program ID
-`);
-    process.exit(0);
+`)
+    process.exit(0)
   }
 
-  const mode = values.mode as keyof typeof CONFIGS;
-  const config = CONFIGS[mode];
+  const mode = values.mode as keyof typeof CONFIGS
+  const config = CONFIGS[mode]
 
   if (!config) {
-    console.error(`Unknown mode: ${mode}`);
-    console.error('Available modes: local, testnet, mainnet');
-    process.exit(1);
+    console.error(`Unknown mode: ${mode}`)
+    console.error('Available modes: local, testnet, mainnet')
+    process.exit(1)
   }
 
-  const orchestrator = new Orchestrator(config);
+  const orchestrator = new Orchestrator(config)
 
   // Handle shutdown
   process.on('SIGINT', async () => {
-    await orchestrator.stop();
-    process.exit(0);
-  });
+    await orchestrator.stop()
+    process.exit(0)
+  })
 
   process.on('SIGTERM', async () => {
-    await orchestrator.stop();
-    process.exit(0);
-  });
+    await orchestrator.stop()
+    process.exit(0)
+  })
 
-  await orchestrator.start();
+  await orchestrator.start()
 
   // Keep process alive
-  await new Promise(() => { /* noop - keep process running */ });
+  await new Promise(() => {
+    /* noop - keep process running */
+  })
 }
 
 main().catch((error) => {
-  console.error('Fatal error:', error);
-  process.exit(1);
-});
+  console.error('Fatal error:', error)
+  process.exit(1)
+})

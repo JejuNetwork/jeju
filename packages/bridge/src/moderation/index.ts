@@ -1,12 +1,11 @@
 export {
-  ModerationSyncService,
+  type BanStatus,
+  type CrossChainBanStatus,
   createModerationSyncService,
   type ModerationSyncConfig,
-  type BanStatus,
-  type Report,
-  type CrossChainBanStatus,
   type ModerationSyncResult,
+  ModerationSyncService,
+  type Report,
   ReportCategory,
   ReportStatus,
-} from './moderation-sync.js';
-
+} from './moderation-sync.js'

@@ -1,6 +1,19 @@
-import type { Chain } from 'viem';
-import { mainnet, arbitrum, optimism, sepolia, arbitrumSepolia, optimismSepolia, base, baseSepolia } from 'viem/chains';
-import { RPC_URLS, EXPLORER_URLS, CHAINS as CHAIN_META } from '../config/networks.js';
+import type { Chain } from 'viem'
+import {
+  arbitrum,
+  arbitrumSepolia,
+  base,
+  baseSepolia,
+  mainnet,
+  optimism,
+  optimismSepolia,
+  sepolia,
+} from 'viem/chains'
+import {
+  CHAINS as CHAIN_META,
+  EXPLORER_URLS,
+  RPC_URLS,
+} from '../config/networks.js'
 
 // network chain definitions
 export const jejuTestnet: Chain = {
@@ -8,24 +21,30 @@ export const jejuTestnet: Chain = {
   name: CHAIN_META[420690].name,
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: { default: { http: [RPC_URLS[420690]] } },
-  blockExplorers: { default: { name: 'Network Explorer', url: EXPLORER_URLS[420690] } },
-};
+  blockExplorers: {
+    default: { name: 'Network Explorer', url: EXPLORER_URLS[420690] },
+  },
+}
 
 export const jejuMainnet: Chain = {
   id: 420691,
   name: CHAIN_META[420691].name,
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: { default: { http: [RPC_URLS[420691]] } },
-  blockExplorers: { default: { name: 'Network Explorer', url: EXPLORER_URLS[420691] } },
-};
+  blockExplorers: {
+    default: { name: 'Network Explorer', url: EXPLORER_URLS[420691] },
+  },
+}
 
 export const localnet: Chain = {
   id: 1337,
   name: CHAIN_META[1337].name,
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: { default: { http: [RPC_URLS[1337]] } },
-  blockExplorers: { default: { name: 'Local Explorer', url: EXPLORER_URLS[1337] } },
-};
+  blockExplorers: {
+    default: { name: 'Local Explorer', url: EXPLORER_URLS[1337] },
+  },
+}
 
 // All chains indexed by chain ID
 export const CHAINS: Record<number, Chain> = {
@@ -40,10 +59,10 @@ export const CHAINS: Record<number, Chain> = {
   420690: jejuTestnet,
   420691: jejuMainnet,
   1337: localnet,
-};
+}
 
 export function getChain(chainId: number): Chain {
-  const chain = CHAINS[chainId];
-  if (!chain) throw new Error(`Unsupported chain: ${chainId}`);
-  return chain;
+  const chain = CHAINS[chainId]
+  if (!chain) throw new Error(`Unsupported chain: ${chainId}`)
+  return chain
 }

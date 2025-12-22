@@ -2,152 +2,159 @@
  * Cross-Chain Relayer Service - orchestrates bridge flow between Solana and EVM
  */
 
-import { cors } from '@elysiajs/cors';
-import { Keypair, PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
-import { Elysia } from 'elysia';
-import { createEVMClient } from '../clients/evm-client.js';
-import { createSolanaClient } from '../clients/solana-client.js';
-import { createTEEBatcher } from '../tee/batcher.js';
+import { cors } from '@elysiajs/cors'
+import {
+  Keypair,
+  PublicKey,
+  Transaction,
+  TransactionInstruction,
+} from '@solana/web3.js'
+import { Elysia } from 'elysia'
+import { createEVMClient } from '../clients/evm-client.js'
+import { createSolanaClient } from '../clients/solana-client.js'
+import { createTEEBatcher } from '../tee/batcher.js'
 import type {
   ChainId,
   CrossChainTransfer,
   EthereumStateCommitment,
   SolanaStateCommitment,
   SP1Proof,
-} from '../types/index.js';
-import { TransferStatus, toHash32 } from '../types/index.js';
+} from '../types/index.js'
+import { TransferStatus, toHash32 } from '../types/index.js'
 import {
-  createLogger,
-  hashToHex,
   ConsensusSnapshotSchema,
   CrossChainTransferSchema,
+  createLogger,
   EthereumUpdateSchema,
+  hashToHex,
   TransferSubmissionSchema,
-} from '../utils/index.js';
+} from '../utils/index.js'
 
 // ============ Logger ============
 
-const log = createLogger('relayer');
+const log = createLogger('relayer')
 
 // ============ Environment Validation ============
 
 // Strict check: NODE_ENV must be exactly 'production', not empty/undefined/typo
-const nodeEnv = (process.env.NODE_ENV ?? '').trim().toLowerCase();
-const isProduction = nodeEnv === 'production';
-const isLocalDev = nodeEnv === 'development' || nodeEnv === '';
+const nodeEnv = (process.env.NODE_ENV ?? '').trim().toLowerCase()
+const isProduction = nodeEnv === 'production'
+const isLocalDev = nodeEnv === 'development' || nodeEnv === ''
 
 if (isProduction) {
-  log.info('Starting in PRODUCTION mode');
+  log.info('Starting in PRODUCTION mode')
 } else {
-  log.warn('Starting in DEVELOPMENT mode - some defaults will be used', { nodeEnv });
+  log.warn('Starting in DEVELOPMENT mode - some defaults will be used', {
+    nodeEnv,
+  })
 }
 
 /**
  * Require an environment variable, with optional default for local dev
  */
 function requireEnv(key: string, devDefault?: string): string {
-  const value = process.env[key];
-  if (value) return value;
-  
+  const value = process.env[key]
+  if (value) return value
+
   if (isLocalDev && devDefault !== undefined) {
-    log.warn(`Using dev default for ${key}`);
-    return devDefault;
+    log.warn(`Using dev default for ${key}`)
+    return devDefault
   }
-  
+
   throw new Error(
     `Missing required environment variable: ${key}. ` +
-    `Set it in your .env file or environment.`
-  );
+      `Set it in your .env file or environment.`,
+  )
 }
 
 /**
  * Require a secret environment variable (no defaults allowed)
  */
 function requireEnvSecret(key: string): string {
-  const value = process.env[key];
+  const value = process.env[key]
   if (!value) {
     throw new Error(
       `Missing required secret: ${key}. ` +
-      `Secrets must be provided via environment variables - no defaults allowed.`
-    );
+        `Secrets must be provided via environment variables - no defaults allowed.`,
+    )
   }
-  return value;
+  return value
 }
 
 export interface RelayerConfig {
-  port: number;
-  evmChains: EVMChainConfig[];
-  solanaConfig: SolanaChainConfig;
-  proverEndpoint: string;
-  teeEndpoint: string;
-  batchSize: number;
-  batchTimeoutMs: number;
-  retryAttempts: number;
-  retryDelayMs: number;
+  port: number
+  evmChains: EVMChainConfig[]
+  solanaConfig: SolanaChainConfig
+  proverEndpoint: string
+  teeEndpoint: string
+  batchSize: number
+  batchTimeoutMs: number
+  retryAttempts: number
+  retryDelayMs: number
 }
 
 export interface EVMChainConfig {
-  chainId: ChainId;
-  rpcUrl: string;
-  bridgeAddress: string;
-  lightClientAddress: string;
-  privateKey: string;
+  chainId: ChainId
+  rpcUrl: string
+  bridgeAddress: string
+  lightClientAddress: string
+  privateKey: string
 }
 
 export interface SolanaChainConfig {
-  rpcUrl: string;
-  bridgeProgramId: string;
-  evmLightClientProgramId: string;
-  keypairPath: string;
+  rpcUrl: string
+  bridgeProgramId: string
+  evmLightClientProgramId: string
+  keypairPath: string
 }
 
 interface ConsensusSnapshot {
-  slot: bigint;
-  bankHash: Uint8Array;
-  parentHash: Uint8Array;
-  blockTime: number;
-  votes: ValidatorVote[];
-  transactionsRoot: Uint8Array;
-  epoch: bigint;
-  epochStakesRoot: Uint8Array;
+  slot: bigint
+  bankHash: Uint8Array
+  parentHash: Uint8Array
+  blockTime: number
+  votes: ValidatorVote[]
+  transactionsRoot: Uint8Array
+  epoch: bigint
+  epochStakesRoot: Uint8Array
 }
 
 interface ValidatorVote {
-  validator: Uint8Array;
-  voteAccount: Uint8Array;
-  slot: bigint;
-  hash: Uint8Array;
-  signature: Uint8Array;
-  timestamp: number;
+  validator: Uint8Array
+  voteAccount: Uint8Array
+  slot: bigint
+  hash: Uint8Array
+  signature: Uint8Array
+  timestamp: number
 }
 
 interface EthereumUpdate {
-  slot: bigint;
-  blockRoot: Uint8Array;
-  stateRoot: Uint8Array;
-  executionStateRoot: Uint8Array;
-  executionBlockNumber: bigint;
-  executionBlockHash: Uint8Array;
+  slot: bigint
+  blockRoot: Uint8Array
+  stateRoot: Uint8Array
+  executionStateRoot: Uint8Array
+  executionBlockNumber: bigint
+  executionBlockHash: Uint8Array
 }
 
 interface PendingTransfer {
-  transfer: CrossChainTransfer;
-  sourceCommitment: SolanaStateCommitment | EthereumStateCommitment | null;
-  receivedAt: number;
-  attempts: number;
-  status: (typeof TransferStatus)[keyof typeof TransferStatus];
-  error: string | null;
+  transfer: CrossChainTransfer
+  sourceCommitment: SolanaStateCommitment | EthereumStateCommitment | null
+  receivedAt: number
+  attempts: number
+  status: (typeof TransferStatus)[keyof typeof TransferStatus]
+  error: string | null
 }
 
 interface RelayerStats {
-  uptime: number;
-  transfersProcessed: number;
-  transfersFailed: number;
-  proofsGenerated: number;
-  lastSolanaSlot: bigint;
-  lastEthereumSlot: bigint;
-  pendingTransfers: number;
-  pendingBatches: number;
+  uptime: number
+  transfersProcessed: number
+  transfersFailed: number
+  proofsGenerated: number
+  lastSolanaSlot: bigint
+  lastEthereumSlot: bigint
+  pendingTransfers: number
+  pendingBatches: number
 }
 
 // =============================================================================
@@ -155,29 +162,34 @@ interface RelayerStats {
 // =============================================================================
 
 export class RelayerService {
-  private config: RelayerConfig;
-  private app: Elysia;
-  private batcher: ReturnType<typeof createTEEBatcher>;
+  private config: RelayerConfig
+  private app: Elysia
+  private batcher: ReturnType<typeof createTEEBatcher>
   private evmClients: Map<ChainId, ReturnType<typeof createEVMClient>> =
-    new Map();
-  private solanaClient: ReturnType<typeof createSolanaClient> | null = null;
+    new Map()
+  private solanaClient: ReturnType<typeof createSolanaClient> | null = null
 
   // State
-  private pendingTransfers: Map<string, PendingTransfer> = new Map();
-  private solanaCommitments: Map<string, SolanaStateCommitment> = new Map();
-  private ethereumCommitments: Map<string, EthereumStateCommitment> = new Map();
-  private lastSolanaSlot = BigInt(0);
-  private lastEthereumSlot = BigInt(0);
-  private startTime = Date.now();
+  private pendingTransfers: Map<string, PendingTransfer> = new Map()
+  private solanaCommitments: Map<string, SolanaStateCommitment> = new Map()
+  private ethereumCommitments: Map<string, EthereumStateCommitment> = new Map()
+  private lastSolanaSlot = BigInt(0)
+  private lastEthereumSlot = BigInt(0)
+  private startTime = Date.now()
   private stats = {
     transfersProcessed: 0,
     transfersFailed: 0,
     proofsGenerated: 0,
     lightClientUpdates: 0,
-  };
+  }
+
+  // Nonce tracking for replay protection - tracks per sender+chain combination
+  private processedNonces: Map<string, Set<bigint>> = new Map()
+  // Track processed transfer IDs to prevent double-spend
+  private processedTransferIds: Set<string> = new Set()
 
   constructor(config: RelayerConfig) {
-    this.config = config;
+    this.config = config
 
     this.batcher = createTEEBatcher({
       maxBatchSize: config.batchSize,
@@ -185,16 +197,16 @@ export class RelayerService {
       minBatchSize: 1,
       targetCostPerItem: BigInt(1000000000000000),
       teeEndpoint: config.teeEndpoint,
-    });
+    })
 
-    this.app = new Elysia().use(cors()) as Elysia;
-    this.setupRoutes();
+    this.app = new Elysia().use(cors()) as Elysia
+    this.setupRoutes()
   }
 
   async start(): Promise<void> {
-    log.info('Starting relayer service');
+    log.info('Starting relayer service')
 
-    await this.batcher.initialize();
+    await this.batcher.initialize()
 
     for (const chainConfig of this.config.evmChains) {
       const client = createEVMClient({
@@ -203,12 +215,12 @@ export class RelayerService {
         privateKey: chainConfig.privateKey as `0x${string}`,
         bridgeAddress: chainConfig.bridgeAddress as `0x${string}`,
         lightClientAddress: chainConfig.lightClientAddress as `0x${string}`,
-      });
-      this.evmClients.set(chainConfig.chainId, client);
-      log.info('EVM client initialized', { chainId: chainConfig.chainId });
+      })
+      this.evmClients.set(chainConfig.chainId, client)
+      log.info('EVM client initialized', { chainId: chainConfig.chainId })
     }
 
-    const keypair = await this.loadSolanaKeypair();
+    const keypair = await this.loadSolanaKeypair()
     this.solanaClient = createSolanaClient({
       rpcUrl: this.config.solanaConfig.rpcUrl,
       commitment: 'confirmed',
@@ -217,17 +229,17 @@ export class RelayerService {
       evmLightClientProgramId: new PublicKey(
         this.config.solanaConfig.evmLightClientProgramId,
       ),
-    });
-    log.info('Solana client initialized');
+    })
+    log.info('Solana client initialized')
 
-    this.startProcessingLoop();
-    this.app.listen(this.config.port);
-    log.info('Relayer listening', { port: this.config.port });
+    this.startProcessingLoop()
+    this.app.listen(this.config.port)
+    log.info('Relayer listening', { port: this.config.port })
   }
 
   stop(): void {
-    log.info('Stopping relayer');
-    this.app.stop();
+    log.info('Stopping relayer')
+    this.app.stop()
   }
 
   private setupRoutes(): void {
@@ -235,71 +247,71 @@ export class RelayerService {
     this.app.get('/health', () => ({
       status: 'ok',
       uptime: Date.now() - this.startTime,
-    }));
+    }))
 
     // Stats endpoint
-    this.app.get('/stats', () => this.getStats());
+    this.app.get('/stats', () => this.getStats())
 
     // Solana consensus snapshot from Geyser plugin
     this.app.post('/consensus', async ({ body }) => {
-      const parsed = ConsensusSnapshotSchema.parse(body);
-      const snapshot = this.parseConsensusSnapshot(parsed);
-      await this.handleSolanaConsensus(snapshot);
-      return { status: 'accepted' };
-    });
+      const parsed = ConsensusSnapshotSchema.parse(body)
+      const snapshot = this.parseConsensusSnapshot(parsed)
+      await this.handleSolanaConsensus(snapshot)
+      return { status: 'accepted' }
+    })
 
     // Solana bridge transfer from Geyser plugin
     this.app.post('/transfer', async ({ body }) => {
-      const parsed = CrossChainTransferSchema.parse(body);
-      const transfer = this.parseCrossChainTransfer(parsed);
-      await this.handleIncomingTransfer(transfer, 'solana');
-      return { status: 'accepted' };
-    });
+      const parsed = CrossChainTransferSchema.parse(body)
+      const transfer = this.parseCrossChainTransfer(parsed)
+      await this.handleIncomingTransfer(transfer, 'solana')
+      return { status: 'accepted' }
+    })
 
     // Ethereum finality update from beacon watcher
     this.app.post('/ethereum/finality', async ({ body }) => {
-      const parsed = EthereumUpdateSchema.parse(body);
-      const update = this.parseEthereumUpdate(parsed);
-      await this.handleEthereumFinality(update);
-      return { status: 'accepted' };
-    });
+      const parsed = EthereumUpdateSchema.parse(body)
+      const update = this.parseEthereumUpdate(parsed)
+      await this.handleEthereumFinality(update)
+      return { status: 'accepted' }
+    })
 
     // Ethereum sync committee update
     this.app.post('/ethereum/sync-committee', async () => {
-      log.debug('Received sync committee update');
-      return { status: 'accepted' };
-    });
+      log.debug('Received sync committee update')
+      return { status: 'accepted' }
+    })
 
     // Ethereum light client update
     this.app.post('/ethereum/update', async () => {
-      log.debug('Received Ethereum light client update');
-      return { status: 'accepted' };
-    });
+      log.debug('Received Ethereum light client update')
+      return { status: 'accepted' }
+    })
 
     // Manual transfer submission
     this.app.post('/submit-transfer', async ({ body }) => {
-      const parsed = TransferSubmissionSchema.parse(body);
-      const transfer = this.parseCrossChainTransfer(parsed);
-      await this.handleIncomingTransfer(transfer, parsed.source);
+      const parsed = TransferSubmissionSchema.parse(body)
+      const transfer = this.parseCrossChainTransfer(parsed)
+      await this.handleIncomingTransfer(transfer, parsed.source)
       return {
         status: 'accepted',
         transferId: hashToHex(transfer.transferId),
-      };
-    });
+      }
+    })
 
     // Get transfer status
     this.app.get('/transfer/:id', ({ params }) => {
-      const pending = this.pendingTransfers.get(params.id);
+      const pending = this.pendingTransfers.get(params.id)
       if (!pending) {
-        return { error: 'Transfer not found' };
+        return { error: 'Transfer not found' }
       }
       return {
         transferId: params.id,
         status: pending.status,
         attempts: pending.attempts,
         error: pending.error,
-      };
-    });
+      }
+    })
   }
 
   // =============================================================================
@@ -307,32 +319,32 @@ export class RelayerService {
   // =============================================================================
 
   private toUint8Array(data: Uint8Array | number[]): Uint8Array {
-    return data instanceof Uint8Array ? data : new Uint8Array(data);
+    return data instanceof Uint8Array ? data : new Uint8Array(data)
   }
 
   private parseConsensusSnapshot(parsed: {
-    slot: bigint;
-    bankHash: Uint8Array | number[];
-    parentHash: Uint8Array | number[];
-    blockTime: number;
+    slot: bigint
+    bankHash: Uint8Array | number[]
+    parentHash: Uint8Array | number[]
+    blockTime: number
     votes: Array<{
-      validator: Uint8Array | number[];
-      voteAccount: Uint8Array | number[];
-      slot: bigint;
-      hash: Uint8Array | number[];
-      signature: Uint8Array | number[];
-      timestamp: number;
-    }>;
-    transactionsRoot: Uint8Array | number[];
-    epoch: bigint;
-    epochStakesRoot: Uint8Array | number[];
+      validator: Uint8Array | number[]
+      voteAccount: Uint8Array | number[]
+      slot: bigint
+      hash: Uint8Array | number[]
+      signature: Uint8Array | number[]
+      timestamp: number
+    }>
+    transactionsRoot: Uint8Array | number[]
+    epoch: bigint
+    epochStakesRoot: Uint8Array | number[]
   }): ConsensusSnapshot {
     return {
       slot: parsed.slot,
       bankHash: this.toUint8Array(parsed.bankHash),
       parentHash: this.toUint8Array(parsed.parentHash),
       blockTime: parsed.blockTime,
-      votes: parsed.votes.map(v => ({
+      votes: parsed.votes.map((v) => ({
         validator: this.toUint8Array(v.validator),
         voteAccount: this.toUint8Array(v.voteAccount),
         slot: v.slot,
@@ -343,20 +355,20 @@ export class RelayerService {
       transactionsRoot: this.toUint8Array(parsed.transactionsRoot),
       epoch: parsed.epoch,
       epochStakesRoot: this.toUint8Array(parsed.epochStakesRoot),
-    };
+    }
   }
 
   private parseCrossChainTransfer(parsed: {
-    transferId: Uint8Array | number[];
-    sourceChain: number;
-    destChain: number;
-    token: Uint8Array | number[];
-    sender: Uint8Array | number[];
-    recipient: Uint8Array | number[];
-    amount: bigint;
-    nonce: bigint;
-    timestamp: bigint;
-    payload: Uint8Array | number[];
+    transferId: Uint8Array | number[]
+    sourceChain: number
+    destChain: number
+    token: Uint8Array | number[]
+    sender: Uint8Array | number[]
+    recipient: Uint8Array | number[]
+    amount: bigint
+    nonce: bigint
+    timestamp: bigint
+    payload: Uint8Array | number[]
   }): CrossChainTransfer {
     return {
       transferId: toHash32(this.toUint8Array(parsed.transferId)),
@@ -369,16 +381,16 @@ export class RelayerService {
       nonce: parsed.nonce,
       timestamp: parsed.timestamp,
       payload: this.toUint8Array(parsed.payload),
-    };
+    }
   }
 
   private parseEthereumUpdate(parsed: {
-    slot: bigint;
-    blockRoot: Uint8Array | number[];
-    stateRoot: Uint8Array | number[];
-    executionStateRoot: Uint8Array | number[];
-    executionBlockNumber: bigint;
-    executionBlockHash: Uint8Array | number[];
+    slot: bigint
+    blockRoot: Uint8Array | number[]
+    stateRoot: Uint8Array | number[]
+    executionStateRoot: Uint8Array | number[]
+    executionBlockNumber: bigint
+    executionBlockHash: Uint8Array | number[]
   }): EthereumUpdate {
     return {
       slot: parsed.slot,
@@ -387,7 +399,7 @@ export class RelayerService {
       executionStateRoot: this.toUint8Array(parsed.executionStateRoot),
       executionBlockNumber: parsed.executionBlockNumber,
       executionBlockHash: this.toUint8Array(parsed.executionBlockHash),
-    };
+    }
   }
 
   // =============================================================================
@@ -397,10 +409,10 @@ export class RelayerService {
   private async handleSolanaConsensus(
     snapshot: ConsensusSnapshot,
   ): Promise<void> {
-    log.info('Received Solana consensus', { slot: snapshot.slot.toString() });
+    log.info('Received Solana consensus', { slot: snapshot.slot.toString() })
 
     if (snapshot.slot <= this.lastSolanaSlot) {
-      return; // Already processed
+      return // Already processed
     }
 
     // Store for later proof generation
@@ -410,20 +422,57 @@ export class RelayerService {
       epochStakes: toHash32(new Uint8Array(snapshot.epochStakesRoot)),
       proof: null,
       provenAt: BigInt(0),
-    };
+    }
 
-    this.solanaCommitments.set(snapshot.slot.toString(), commitment);
-    this.lastSolanaSlot = snapshot.slot;
+    this.solanaCommitments.set(snapshot.slot.toString(), commitment)
+    this.lastSolanaSlot = snapshot.slot
 
     // Update EVM light clients
-    await this.updateEVMLightClients(snapshot);
+    await this.updateEVMLightClients(snapshot)
   }
 
   private async handleEthereumFinality(update: EthereumUpdate): Promise<void> {
-    log.info('Received Ethereum finality', { slot: update.slot.toString() });
+    log.info('Received Ethereum finality', { slot: update.slot.toString() })
+
+    // SECURITY: Validate slot is not absurdly in the future (anti-DoS)
+    // Ethereum has ~12s slots, so 1 hour = 300 slots ahead max
+    const maxFutureSlots = 300n
+    if (update.slot > this.lastEthereumSlot + maxFutureSlots) {
+      log.warn('Ethereum slot too far in future - potential manipulation', {
+        slot: update.slot.toString(),
+        lastSlot: this.lastEthereumSlot.toString(),
+      })
+      return
+    }
+
+    // SECURITY: Reject slots that go backwards by more than finality depth
+    // Ethereum finality is ~2 epochs = 64 slots
+    const maxReorgDepth = 64n
+    if (
+      update.slot < this.lastEthereumSlot - maxReorgDepth &&
+      this.lastEthereumSlot > maxReorgDepth
+    ) {
+      log.warn('Ethereum slot too far in past - ignoring', {
+        slot: update.slot.toString(),
+        lastSlot: this.lastEthereumSlot.toString(),
+      })
+      return
+    }
 
     if (update.slot <= this.lastEthereumSlot) {
-      return;
+      return
+    }
+
+    // SECURITY: Validate block root is not empty
+    if (update.blockRoot.every((b) => b === 0)) {
+      log.warn('Empty block root received - invalid finality data')
+      return
+    }
+
+    // SECURITY: Validate execution state root is not empty
+    if (update.executionStateRoot.every((b) => b === 0)) {
+      log.warn('Empty execution state root - invalid finality data')
+      return
     }
 
     // Store for later proof generation
@@ -433,34 +482,89 @@ export class RelayerService {
       executionStateRoot: toHash32(new Uint8Array(update.executionStateRoot)),
       proof: null,
       provenAt: BigInt(0),
-    };
+    }
 
-    this.ethereumCommitments.set(update.slot.toString(), commitment);
-    this.lastEthereumSlot = update.slot;
+    this.ethereumCommitments.set(update.slot.toString(), commitment)
+    this.lastEthereumSlot = update.slot
 
     // Update Solana light client
-    await this.updateSolanaLightClient(update);
+    await this.updateSolanaLightClient(update)
   }
 
   private async handleIncomingTransfer(
     transfer: CrossChainTransfer,
     source: 'evm' | 'solana',
   ): Promise<void> {
-    const transferId = hashToHex(transfer.transferId);
-    log.info('Received transfer', { transferId, source });
+    const transferId = hashToHex(transfer.transferId)
+    log.info('Received transfer', { transferId, source })
+
+    // SECURITY: Check for replay attack - prevent double-spend
+    if (this.processedTransferIds.has(transferId)) {
+      log.warn('Duplicate transfer ID detected - potential replay attack', {
+        transferId,
+      })
+      throw new Error(`Transfer ${transferId} has already been processed`)
+    }
+
+    // SECURITY: Nonce replay protection - per sender+chain
+    const nonceKey = `${source}-${hashToHex(toHash32(transfer.sender))}`
+    let senderNonces = this.processedNonces.get(nonceKey)
+    if (!senderNonces) {
+      senderNonces = new Set<bigint>()
+      this.processedNonces.set(nonceKey, senderNonces)
+    }
+
+    if (senderNonces.has(transfer.nonce)) {
+      log.warn('Duplicate nonce detected - potential replay attack', {
+        transferId,
+        nonce: transfer.nonce.toString(),
+        sender: nonceKey,
+      })
+      throw new Error(`Nonce ${transfer.nonce} already used by sender`)
+    }
+
+    // SECURITY: Validate nonce is not too far in the future (anti-DoS)
+    const maxNonce = this.getMaxNonceForSender(senderNonces)
+    if (transfer.nonce > maxNonce + 1000n) {
+      log.warn('Nonce too far in future - potential DoS attack', {
+        transferId,
+        nonce: transfer.nonce.toString(),
+        maxNonce: maxNonce.toString(),
+      })
+      throw new Error(`Nonce ${transfer.nonce} is too far in the future`)
+    }
+
+    // SECURITY: Validate transfer amount is positive
+    if (transfer.amount <= 0n) {
+      log.warn('Invalid transfer amount', {
+        transferId,
+        amount: transfer.amount.toString(),
+      })
+      throw new Error('Transfer amount must be positive')
+    }
+
+    // SECURITY: Validate chain IDs are valid
+    if (transfer.sourceChain === transfer.destChain) {
+      log.warn('Same chain transfer not allowed through bridge', { transferId })
+      throw new Error('Source and destination chains must be different')
+    }
+
+    // Mark nonce and transfer ID as processed
+    senderNonces.add(transfer.nonce)
+    this.processedTransferIds.add(transferId)
 
     // Get source commitment
     let sourceCommitment:
       | SolanaStateCommitment
       | EthereumStateCommitment
-      | null = null;
+      | null = null
 
     if (source === 'solana') {
       sourceCommitment =
-        this.solanaCommitments.get(this.lastSolanaSlot.toString()) ?? null;
+        this.solanaCommitments.get(this.lastSolanaSlot.toString()) ?? null
     } else {
       sourceCommitment =
-        this.ethereumCommitments.get(this.lastEthereumSlot.toString()) ?? null;
+        this.ethereumCommitments.get(this.lastEthereumSlot.toString()) ?? null
     }
 
     // Store pending transfer
@@ -471,20 +575,28 @@ export class RelayerService {
       attempts: 0,
       status: TransferStatus.PENDING,
       error: null,
-    });
+    })
 
     // Add to TEE batch
-    await this.batcher.addTransfer(transfer);
+    await this.batcher.addTransfer(transfer)
+  }
+
+  private getMaxNonceForSender(nonces: Set<bigint>): bigint {
+    let max = 0n
+    for (const nonce of nonces) {
+      if (nonce > max) max = nonce
+    }
+    return max
   }
 
   private async updateEVMLightClients(
     snapshot: ConsensusSnapshot,
   ): Promise<void> {
     // Generate proof for this consensus
-    const proof = await this.generateSolanaConsensusProof(snapshot);
+    const proof = await this.generateSolanaConsensusProof(snapshot)
     if (!proof) {
-      log.error('Failed to generate Solana consensus proof');
-      return;
+      log.error('Failed to generate Solana consensus proof')
+      return
     }
 
     // Submit to each EVM chain
@@ -498,77 +610,82 @@ export class RelayerService {
             `0x${Buffer.from(snapshot.epochStakesRoot).toString('hex')}` as `0x${string}`,
           proof: proof.map((p) => BigInt(p)),
           publicInputs: [],
-        });
-        log.info('Updated light client on EVM chain', { chainId, txHash });
+        })
+        log.info('Updated light client on EVM chain', { chainId, txHash })
       } catch (error) {
-        log.error('Failed to update light client', { chainId, error: String(error) });
+        log.error('Failed to update light client', {
+          chainId,
+          error: String(error),
+        })
       }
     }
   }
 
   private async updateSolanaLightClient(update: EthereumUpdate): Promise<void> {
     if (!this.solanaClient) {
-      log.error('Solana client not initialized');
-      return;
+      log.error('Solana client not initialized')
+      return
     }
 
     try {
       // Generate ZK proof of Ethereum consensus using SP1 prover
-      const proof = await this.generateSP1ProofForEthereumUpdate(update);
+      const proof = await this.generateSP1ProofForEthereumUpdate(update)
       if (!proof) {
-        log.error('Failed to generate Ethereum consensus proof');
-        return;
+        log.error('Failed to generate Ethereum consensus proof')
+        return
       }
 
       // Encode public inputs for the light client update
-      const publicInputs = this.encodeEthereumUpdateInputs(update);
+      const publicInputs = this.encodeEthereumUpdateInputs(update)
 
       // Build the update instruction
       const instruction = this.buildEvmLightClientUpdateInstruction(
         update,
         proof,
         publicInputs,
-      );
+      )
 
       // Submit to Solana
-      const payer = this.solanaClient.getPublicKey();
+      const payer = this.solanaClient.getPublicKey()
 
       if (!payer) {
-        log.error('No keypair configured for Solana');
-        return;
+        log.error('No keypair configured for Solana')
+        return
       }
 
-      const tx = new Transaction().add(instruction);
-      tx.feePayer = payer;
+      const tx = new Transaction().add(instruction)
+      tx.feePayer = payer
 
-      const connection = this.solanaClient.getConnection();
-      const { blockhash } = await connection.getLatestBlockhash();
-      tx.recentBlockhash = blockhash;
+      const connection = this.solanaClient.getConnection()
+      const { blockhash } = await connection.getLatestBlockhash()
+      tx.recentBlockhash = blockhash
 
       // Sign and submit the transaction
-      const keypair = this.solanaClient.getKeypair();
+      const keypair = this.solanaClient.getKeypair()
       if (!keypair) {
-        log.error('No keypair available for signing');
-        return;
+        log.error('No keypair available for signing')
+        return
       }
 
-      const { sendAndConfirmTransaction } = await import('@solana/web3.js');
+      const { sendAndConfirmTransaction } = await import('@solana/web3.js')
       const signature = await sendAndConfirmTransaction(
         connection,
         tx,
         [keypair],
-        { commitment: 'confirmed' }
-      );
+        { commitment: 'confirmed' },
+      )
 
       log.info('Submitted EVM light client update to Solana', {
         slot: update.slot.toString(),
         block: update.executionBlockNumber.toString(),
         signature,
-      });
+      })
 
-      this.stats.lightClientUpdates++;
+      this.stats.lightClientUpdates++
     } catch (error) {
-      log.error('Failed to update Solana EVM light client', { error: String(error) });
+      log.error('Failed to update Solana EVM light client', {
+        error: String(error),
+      })
     }
   }
 
@@ -589,32 +706,34 @@ export class RelayerService {
             executionBlockHash: Array.from(update.executionBlockHash),
           }),
         },
-      );
+      )
 
       if (!response.ok) {
-        log.error('Prover returned error', { status: response.status });
-        return null;
+        log.error('Prover returned error', { status: response.status })
+        return null
       }
 
-      const result = (await response.json()) as SP1Proof;
-      this.stats.proofsGenerated++;
-      return result;
+      const result = (await response.json()) as SP1Proof
+      this.stats.proofsGenerated++
+      return result
     } catch (error) {
-      log.error('Failed to generate Ethereum consensus proof', { error: String(error) });
-      return null;
+      log.error('Failed to generate Ethereum consensus proof', {
+        error: String(error),
+      })
+      return null
     }
   }
 
   private encodeEthereumUpdateInputs(update: EthereumUpdate): Uint8Array {
-    const buffer = new Uint8Array(80);
-    const view = new DataView(buffer.buffer);
+    const buffer = new Uint8Array(80)
+    const view = new DataView(buffer.buffer)
 
-    view.setBigUint64(0, update.slot, true);
-    buffer.set(update.blockRoot, 8);
-    buffer.set(update.stateRoot, 40);
-    view.setBigUint64(72, update.executionBlockNumber, true);
+    view.setBigUint64(0, update.slot, true)
+    buffer.set(update.blockRoot, 8)
+    buffer.set(update.stateRoot, 40)
+    view.setBigUint64(72, update.executionBlockNumber, true)
 
-    return buffer;
+    return buffer
   }
 
   private buildEvmLightClientUpdateInstruction(
@@ -624,19 +743,19 @@ export class RelayerService {
   ): TransactionInstruction {
     const discriminator = Buffer.from([
       0x1a, 0x3b, 0x5c, 0x7d, 0x9e, 0xaf, 0xc0, 0xd1,
-    ]);
+    ])
 
-    const slotBuffer = Buffer.alloc(8);
-    slotBuffer.writeBigUInt64LE(update.slot);
+    const slotBuffer = Buffer.alloc(8)
+    slotBuffer.writeBigUInt64LE(update.slot)
 
-    const blockBuffer = Buffer.alloc(8);
-    blockBuffer.writeBigUInt64LE(update.executionBlockNumber);
+    const blockBuffer = Buffer.alloc(8)
+    blockBuffer.writeBigUInt64LE(update.executionBlockNumber)
 
-    const proofLenBuffer = Buffer.alloc(4);
-    proofLenBuffer.writeUInt32LE(proof.proof.length);
+    const proofLenBuffer = Buffer.alloc(4)
+    proofLenBuffer.writeUInt32LE(proof.proof.length)
 
-    const inputsLenBuffer = Buffer.alloc(4);
-    inputsLenBuffer.writeUInt32LE(publicInputs.length);
+    const inputsLenBuffer = Buffer.alloc(4)
+    inputsLenBuffer.writeUInt32LE(publicInputs.length)
 
     const data = Buffer.concat([
       discriminator,
@@ -648,19 +767,19 @@ export class RelayerService {
       Buffer.from(proof.proof),
       inputsLenBuffer,
       Buffer.from(publicInputs),
-    ]);
+    ])
 
     const evmLightClientProgramId = new PublicKey(
       this.config.solanaConfig.evmLightClientProgramId,
-    );
+    )
     const [lightClientState] = PublicKey.findProgramAddressSync(
       [Buffer.from('light_client_state')],
       evmLightClientProgramId,
-    );
+    )
 
-    const payerPubkey = this.solanaClient?.getPublicKey();
+    const payerPubkey = this.solanaClient?.getPublicKey()
     if (!payerPubkey) {
-      throw new Error('Solana client not initialized or no keypair');
+      throw new Error('Solana client not initialized or no keypair')
     }
 
     return new TransactionInstruction({
@@ -674,7 +793,7 @@ export class RelayerService {
         },
       ],
       data,
-    });
+    })
   }
 
   private async generateSolanaConsensusProof(
@@ -689,80 +808,79 @@ export class RelayerService {
           type: 'solana_consensus',
           inputs: _snapshot,
         }),
-      });
+      })
 
       if (!response.ok) {
-        return null;
+        return null
       }
 
-      const result = (await response.json()) as { proof: number[] };
-      this.stats.proofsGenerated++;
-      return result.proof;
+      const result = (await response.json()) as { proof: number[] }
+      this.stats.proofsGenerated++
+      return result.proof
     } catch (error) {
-      log.error('Solana consensus proof generation failed', { error: String(error) });
-      return null;
+      log.error('Solana consensus proof generation failed', {
+        error: String(error),
+      })
+      return null
     }
   }
 
   private startProcessingLoop(): void {
     // Process pending transfers every 5 seconds
     setInterval(async () => {
-      await this.processPendingTransfers();
-    }, 5000);
+      await this.processPendingTransfers()
+    }, 5000)
 
     // Process ready batches every 10 seconds
     setInterval(async () => {
-      await this.processReadyBatches();
-    }, 10000);
+      await this.processReadyBatches()
+    }, 10000)
 
     // Cleanup old data every minute
     setInterval(() => {
-      this.cleanupOldData();
-    }, 60000);
+      this.cleanupOldData()
+    }, 60000)
   }
 
   private async processPendingTransfers(): Promise<void> {
     for (const [_id, pending] of this.pendingTransfers) {
       if (pending.status !== TransferStatus.PENDING) {
-        continue;
+        continue
       }
 
       if (pending.attempts >= this.config.retryAttempts) {
-        pending.status = TransferStatus.FAILED;
-        pending.error = 'Max retry attempts exceeded';
-        this.stats.transfersFailed++;
-        continue;
+        pending.status = TransferStatus.FAILED
+        pending.error = 'Max retry attempts exceeded'
+        this.stats.transfersFailed++
+        continue
       }
 
-      pending.attempts++;
+      pending.attempts++
       // Would complete transfer on destination chain
     }
   }
 
   private async processReadyBatches(): Promise<void> {
-    const batch = this.batcher.getNextBatchForProving();
+    const batch = this.batcher.getNextBatchForProving()
     if (!batch) {
-      return;
+      return
     }
 
-    log.info('Processing batch', { transferCount: batch.transfers.length });
+    log.info('Processing batch', { transferCount: batch.transfers.length })
 
     // Generate batch proof
-    const proof = await this.generateBatchProof(batch.transfers);
+    const proof = await this.generateBatchProof(batch.transfers)
     if (!proof) {
-      log.error('Failed to generate batch proof');
-      return;
+      log.error('Failed to generate batch proof')
+      return
     }
 
     // Mark batch as proven
-    const proofBatch = this.batcher.markBatchProven(
-      hashToHex(batch.id),
-      proof,
-    );
+    const proofBatch = this.batcher.markBatchProven(hashToHex(batch.id), proof)
 
     // Complete transfers on destination chains
     for (const transfer of proofBatch.items) {
-      await this.completeTransferOnDestination(transfer, proof);
+      await this.completeTransferOnDestination(transfer, proof)
     }
   }
 
@@ -780,18 +898,18 @@ export class RelayerService {
             transfers: transfers.map((t) => t.transfer),
           }),
         },
-      );
+      )
 
       if (!response.ok) {
-        return null;
+        return null
       }
 
-      const result = (await response.json()) as SP1Proof;
-      this.stats.proofsGenerated++;
-      return result;
+      const result = (await response.json()) as SP1Proof
+      this.stats.proofsGenerated++
+      return result
     } catch (error) {
-      log.error('Batch proof generation failed', { error: String(error) });
-      return null;
+      log.error('Batch proof generation failed', { error: String(error) })
+      return null
     }
   }
 
@@ -799,11 +917,11 @@ export class RelayerService {
     transfer: CrossChainTransfer,
     proof: SP1Proof,
   ): Promise<void> {
-    const txId = hashToHex(transfer.transferId);
-    const pending = this.pendingTransfers.get(txId);
+    const txId = hashToHex(transfer.transferId)
+    const pending = this.pendingTransfers.get(txId)
 
     if (!pending) {
-      return;
+      return
     }
 
     // Determine destination and complete
@@ -811,20 +929,23 @@ export class RelayerService {
       transfer.destChain !== 101 &&
       transfer.destChain !== 102 &&
       transfer.destChain !== 103 &&
-      transfer.destChain !== 104;
+      transfer.destChain !== 104
 
     if (isDestEVM) {
-      const client = this.evmClients.get(transfer.destChain as ChainId);
+      const client = this.evmClients.get(transfer.destChain as ChainId)
       if (!client) {
-        throw new Error(`No EVM client for chain ${transfer.destChain}`);
+        throw new Error(`No EVM client for chain ${transfer.destChain}`)
       }
 
       const sourceSlot =
         pending.sourceCommitment && 'slot' in pending.sourceCommitment
           ? BigInt(pending.sourceCommitment.slot)
-          : BigInt(0);
+          : BigInt(0)
 
-      log.info('Completing transfer on EVM chain', { txId, chainId: transfer.destChain });
+      log.info('Completing transfer on EVM chain', {
+        txId,
+        chainId: transfer.destChain,
+      })
       const txHash = await client.completeTransfer({
         transferId: transfer.transferId,
         token:
@@ -836,17 +957,17 @@ export class RelayerService {
         slot: sourceSlot,
         proof: Array.from(proof.proof).map((b) => BigInt(b)),
         publicInputs: Array.from(proof.publicInputs).map((b) => BigInt(b)),
-      });
-      log.info('EVM transfer completed', { txHash });
+      })
+      log.info('EVM transfer completed', { txHash })
 
-      pending.status = TransferStatus.COMPLETED;
-      this.stats.transfersProcessed++;
+      pending.status = TransferStatus.COMPLETED
+      this.stats.transfersProcessed++
     } else if (this.solanaClient) {
-      log.info('Completing transfer on Solana', { txId });
+      log.info('Completing transfer on Solana', { txId })
       const sourceSlot =
         pending.sourceCommitment && 'slot' in pending.sourceCommitment
           ? BigInt(pending.sourceCommitment.slot)
-          : BigInt(0);
+          : BigInt(0)
 
       const signature = await this.solanaClient.completeTransfer({
         transferId: transfer.transferId,
@@ -857,20 +978,20 @@ export class RelayerService {
         evmBlockNumber: sourceSlot,
         proof: proof.proof,
         publicInputs: proof.publicInputs,
-      });
-      log.info('Solana transfer completed', { signature });
+      })
+      log.info('Solana transfer completed', { signature })
 
-      pending.status = TransferStatus.COMPLETED;
-      this.stats.transfersProcessed++;
+      pending.status = TransferStatus.COMPLETED
+      this.stats.transfersProcessed++
     } else {
       throw new Error(
         `No client available for destination chain ${transfer.destChain}`,
-      );
+      )
     }
   }
 
   private cleanupOldData(): void {
-    const cutoff = Date.now() - 3600000; // 1 hour
+    const cutoff = Date.now() - 3600000 // 1 hour
 
     // Remove old completed/failed transfers
     for (const [id, pending] of this.pendingTransfers) {
@@ -879,17 +1000,41 @@ export class RelayerService {
         (pending.status === TransferStatus.COMPLETED ||
           pending.status === TransferStatus.FAILED)
       ) {
-        this.pendingTransfers.delete(id);
+        this.pendingTransfers.delete(id)
+        // Also clean up from processed set after grace period
+        this.processedTransferIds.delete(id)
       }
     }
 
     // Keep only recent commitments
-    const maxCommitments = 1000;
+    const maxCommitments = 1000
     if (this.solanaCommitments.size > maxCommitments) {
-      const entries = Array.from(this.solanaCommitments.entries());
-      entries.sort((a, b) => Number(a[0]) - Number(b[0]));
+      const entries = Array.from(this.solanaCommitments.entries())
+      entries.sort((a, b) => Number(a[0]) - Number(b[0]))
       for (let i = 0; i < entries.length - maxCommitments; i++) {
-        this.solanaCommitments.delete(entries[i][0]);
+        this.solanaCommitments.delete(entries[i][0])
+      }
+    }
+
+    // SECURITY: Clean up Ethereum commitments too
+    if (this.ethereumCommitments.size > maxCommitments) {
+      const entries = Array.from(this.ethereumCommitments.entries())
+      entries.sort((a, b) => Number(a[0]) - Number(b[0]))
+      for (let i = 0; i < entries.length - maxCommitments; i++) {
+        this.ethereumCommitments.delete(entries[i][0])
+      }
+    }
+
+    // SECURITY: Clean up old nonces to prevent memory growth
+    for (const [key, nonces] of this.processedNonces) {
+      if (nonces.size > 10000) {
+        // If a sender has too many nonces, trim old ones
+        const noncesArray = Array.from(nonces).sort((a, b) => Number(a - b))
+        const trimCount = nonces.size - 5000
+        for (let i = 0; i < trimCount; i++) {
+          nonces.delete(noncesArray[i])
+        }
+        log.debug('Trimmed old nonces for sender', { key, trimmed: trimCount })
       }
     }
   }
@@ -898,27 +1043,30 @@ export class RelayerService {
     const keypairPath = this.config.solanaConfig.keypairPath.replace(
       '~',
       process.env.HOME ?? '',
-    );
+    )
 
     // Check file exists first
-    const file = Bun.file(keypairPath);
-    const exists = await file.exists();
-    
+    const file = Bun.file(keypairPath)
+    const exists = await file.exists()
+
     if (!exists) {
       // Only allow ephemeral keypair in local development
       if (isLocalDev || keypairPath.includes('localnet')) {
-        log.warn('Keypair file not found, using ephemeral keypair for local dev', { keypairPath });
-        return Keypair.generate();
+        log.warn(
+          'Keypair file not found, using ephemeral keypair for local dev',
+          { keypairPath },
+        )
+        return Keypair.generate()
       }
       throw new Error(
         `Solana keypair file not found: ${keypairPath}. ` +
-        `Create a keypair with 'solana-keygen new' or set SOLANA_KEYPAIR to a valid path.`
-      );
+          `Create a keypair with 'solana-keygen new' or set SOLANA_KEYPAIR to a valid path.`,
+      )
     }
 
-    const keypairData = await file.json();
-    log.info('Loaded Solana keypair', { keypairPath });
-    return Keypair.fromSecretKey(new Uint8Array(keypairData));
+    const keypairData = await file.json()
+    log.info('Loaded Solana keypair', { keypairPath })
+    return Keypair.fromSecretKey(new Uint8Array(keypairData))
   }
 
   private getStats(): RelayerStats {
@@ -931,7 +1079,7 @@ export class RelayerService {
       lastEthereumSlot: this.lastEthereumSlot,
       pendingTransfers: this.pendingTransfers.size,
       pendingBatches: 0, // Would get from batcher
-    };
+    }
   }
 }
 
@@ -940,7 +1088,7 @@ export class RelayerService {
 // =============================================================================
 
 export function createRelayerService(config: RelayerConfig): RelayerService {
-  return new RelayerService(config);
+  return new RelayerService(config)
 }
 
 // =============================================================================
@@ -952,8 +1100,8 @@ if (import.meta.main) {
     port: parseInt(process.env.RELAYER_PORT ?? '8081', 10),
     evmChains: [
       {
-        chainId: (parseInt(process.env.EVM_CHAIN_ID ?? '31337', 10)) as ChainId,
-        rpcUrl: requireEnv('EVM_RPC_URL', 'http://127.0.0.1:6545'),
+        chainId: parseInt(process.env.EVM_CHAIN_ID ?? '31337', 10) as ChainId,
+        rpcUrl: requireEnv('EVM_RPC_URL', 'http://127.0.0.1:8545'),
         bridgeAddress: requireEnv('BRIDGE_ADDRESS'),
         lightClientAddress: requireEnv('LIGHT_CLIENT_ADDRESS'),
         privateKey: requireEnvSecret('PRIVATE_KEY'),
@@ -971,14 +1119,18 @@ if (import.meta.main) {
     batchTimeoutMs: 30000,
     retryAttempts: 3,
     retryDelayMs: 5000,
-  };
+  }
 
-  const relayer = createRelayerService(config);
+  const relayer = createRelayerService(config)
 
   process.on('SIGINT', () => {
-    relayer.stop();
-    process.exit(0);
-  });
+    relayer.stop()
+    process.exit(0)
+  })
 
-  relayer.start().catch((error) => log.error('Relayer startup failed', { error: String(error) }));
+  relayer
+    .start()
+    .catch((error) =>
+      log.error('Relayer startup failed', { error: String(error) }),
+    )
 }

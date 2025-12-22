@@ -21,7 +21,7 @@ services:
   # IPFS - Decentralized Storage
   # ============================================================================
   ipfs:
-    image: ipfs/kubo:latest
+    image: ipfs/kubo:v0.32.1
     container_name: jeju-ipfs
     hostname: ipfs
     ports:
@@ -55,7 +55,8 @@ services:
       - "5434:5432"  # Use 5434 to avoid conflicts with local postgres
     environment:
       - POSTGRES_USER=jeju
-      - POSTGRES_PASSWORD=jeju_dev_password
+      # LOCALNET ONLY: Use env var or default. NEVER use defaults in production
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-localnet_dev_only}
       - POSTGRES_DB=jeju
     volumes:
       - postgres-data:/var/lib/postgresql/data
@@ -169,7 +170,9 @@ services:
       - IPFS_API_URL=http://ipfs:5001
       - IPFS_GATEWAY_URL=http://ipfs:8080
       - DATA_DIR=/data
-      - VAULT_ENCRYPTION_SECRET=${VAULT_ENCRYPTION_SECRET:-dev-vault-secret-change-in-production}
+      # SECURITY: Vault secret MUST be set via environment variable
+      # Generate a secure secret: openssl rand -hex 32
+      - VAULT_ENCRYPTION_SECRET=${VAULT_ENCRYPTION_SECRET:?VAULT_ENCRYPTION_SECRET required - run: export VAULT_ENCRYPTION_SECRET=$(openssl rand -hex 32)}
       - LOG_LEVEL=info
     depends_on:
       ipfs:
@@ -250,7 +253,7 @@ services:
   # ERC-4337 Bundler - Gasless Transactions
   # ============================================================================
   bundler:
-    image: ghcr.io/pimlicolabs/alto:latest
+    image: ghcr.io/pimlicolabs/alto:v0.14.0
     container_name: jeju-bundler
     profiles:
       - full
@@ -260,7 +263,9 @@ services:
       - ALTO_RPC_URL=${JEJU_RPC_URL:-http://host.docker.internal:9545}
       - ALTO_CHAIN_ID=${CHAIN_ID:-420691}
       - ALTO_ENTRYPOINT=0x0000000071727De22E5E9d8BAf0edAc6f37da032
-      - ALTO_PRIVATE_KEY=${BUNDLER_PRIVATE_KEY:-0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d}
+      # SECURITY: Private key required - set BUNDLER_PRIVATE_KEY env var
+      # For localnet only, you can use Anvil account #1
+      - ALTO_PRIVATE_KEY=${BUNDLER_PRIVATE_KEY:?BUNDLER_PRIVATE_KEY required}
       - ALTO_PORT=4337
       - ALTO_LOG_LEVEL=${LOG_LEVEL:-info}
       - ALTO_MAX_BUNDLE_SIZE=10

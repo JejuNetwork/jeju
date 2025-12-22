@@ -1,67 +1,78 @@
 /**
  * Org Types
- * 
+ *
  * Type definitions for decentralized organization management.
  */
 
 // Re-export consolidated TodoStatus
-import type { TodoStatus } from '@jejunetwork/types';
-export type { TodoStatus };
+import type { TodoStatus } from '@jejunetwork/types'
+export type { TodoStatus }
 
-import type { Address } from 'viem';
+import type { Address } from 'viem'
+import type { JsonObject } from '../types'
 
 // =============================================================================
 // Todo Types
 // =============================================================================
 
-export type TodoPriority = 'low' | 'medium' | 'high' | 'urgent';
+export type TodoPriority = 'low' | 'medium' | 'high' | 'urgent'
 // TodoStatus is imported from @jejunetwork/types above
 
 export interface Todo {
-  id: string;
-  title: string;
-  description?: string;
-  priority: TodoPriority;
-  status: TodoStatus;
-  dueDate?: number;
-  assigneeAgentId?: string;
-  assigneeName?: string;
-  tags: string[];
-  createdBy: string;
-  createdAt: number;
-  updatedAt: number;
-  completedAt?: number;
+  id: string
+  title: string
+  description?: string
+  priority: TodoPriority
+  status: TodoStatus
+  dueDate?: number
+  assigneeAgentId?: string
+  assigneeName?: string
+  tags: string[]
+  createdBy: string
+  createdAt: number
+  updatedAt: number
+  completedAt?: number
 }
 
 // =============================================================================
 // Check-in Types
 // =============================================================================
 
-export type CheckinType = 'standup' | 'sprint' | 'mental_health' | 'project_status' | 'retrospective';
-export type CheckinFrequency = 'daily' | 'weekdays' | 'weekly' | 'bi_weekly' | 'monthly';
+export type CheckinType =
+  | 'standup'
+  | 'sprint'
+  | 'mental_health'
+  | 'project_status'
+  | 'retrospective'
+export type CheckinFrequency =
+  | 'daily'
+  | 'weekdays'
+  | 'weekly'
+  | 'bi_weekly'
+  | 'monthly'
 
 export interface CheckinSchedule {
-  id: string;
-  roomId: string;
-  name: string;
-  checkinType: CheckinType;
-  frequency: CheckinFrequency;
-  timeUtc: string;
-  questions: string[];
-  enabled: boolean;
-  nextRunAt: number;
-  createdBy: string;
-  createdAt: number;
+  id: string
+  roomId: string
+  name: string
+  checkinType: CheckinType
+  frequency: CheckinFrequency
+  timeUtc: string
+  questions: string[]
+  enabled: boolean
+  nextRunAt: number
+  createdBy: string
+  createdAt: number
 }
 
 export interface CheckinResponse {
-  id: string;
-  scheduleId: string;
-  responderAgentId: string;
-  responderName?: string;
-  answers: Record<string, string>;
-  blockers?: string[];
-  submittedAt: number;
+  id: string
+  scheduleId: string
+  responderAgentId: string
+  responderName?: string
+  answers: Record<string, string>
+  blockers?: string[]
+  submittedAt: number
 }
 
 // =============================================================================
@@ -69,18 +80,18 @@ export interface CheckinResponse {
 // =============================================================================
 
 export interface TeamMember {
-  id: string;
-  agentId: string;
-  displayName: string;
-  role?: string;
-  isAdmin: boolean;
-  joinedAt: number;
-  lastActiveAt: number;
+  id: string
+  agentId: string
+  displayName: string
+  role?: string
+  isAdmin: boolean
+  joinedAt: number
+  lastActiveAt: number
   stats: {
-    totalCheckins: number;
-    checkinStreak: number;
-    todosCompleted: number;
-  };
+    totalCheckins: number
+    checkinStreak: number
+    todosCompleted: number
+  }
 }
 
 // =============================================================================
@@ -88,14 +99,14 @@ export interface TeamMember {
 // =============================================================================
 
 export interface OrgState {
-  orgId: string;
-  version: number;
-  todos: Todo[];
-  checkinSchedules: CheckinSchedule[];
-  checkinResponses: CheckinResponse[];
-  teamMembers: TeamMember[];
-  metadata: Record<string, unknown>;
-  updatedAt: number;
+  orgId: string
+  version: number
+  todos: Todo[]
+  checkinSchedules: CheckinSchedule[]
+  checkinResponses: CheckinResponse[]
+  teamMembers: TeamMember[]
+  metadata: JsonObject
+  updatedAt: number
 }
 
 // =============================================================================
@@ -103,22 +114,22 @@ export interface OrgState {
 // =============================================================================
 
 export interface CheckinReport {
-  scheduleName: string;
-  checkinType: CheckinType;
-  period: { start: number; end: number };
-  totalResponses: number;
-  participationRate: number;
+  scheduleName: string
+  checkinType: CheckinType
+  period: { start: number; end: number }
+  totalResponses: number
+  participationRate: number
   members: Array<{
-    name: string;
-    responseCount: number;
-    streak: number;
-    blockerCount: number;
-  }>;
+    name: string
+    responseCount: number
+    streak: number
+    blockerCount: number
+  }>
   blockers: Array<{
-    memberName: string;
-    blocker: string;
-    date: number;
-  }>;
+    memberName: string
+    blocker: string
+    date: number
+  }>
 }
 
 // =============================================================================
@@ -126,10 +137,10 @@ export interface CheckinReport {
 // =============================================================================
 
 export interface MCPContext {
-  orgId: string;
-  roomId: string;
-  agentId?: string;
-  platform?: 'discord' | 'telegram' | 'web';
+  orgId: string
+  roomId: string
+  agentId?: string
+  platform?: 'discord' | 'telegram' | 'web'
 }
 
 // =============================================================================
@@ -137,16 +148,16 @@ export interface MCPContext {
 // =============================================================================
 
 export interface OrgConfig {
-  rpcUrl: string;
-  privateKey?: string;
+  rpcUrl: string
+  privateKey?: string
   contracts: {
-    roomRegistry: Address;
-    identityRegistry: Address;
-  };
+    roomRegistry: Address
+    identityRegistry: Address
+  }
   services: {
-    storageApi: string;
-    ipfsGateway: string;
-    crucibleApi: string;
-  };
-  network: 'localnet' | 'testnet' | 'mainnet';
+    storageApi: string
+    ipfsGateway: string
+    crucibleApi: string
+  }
+  network: 'localnet' | 'testnet' | 'mainnet'
 }

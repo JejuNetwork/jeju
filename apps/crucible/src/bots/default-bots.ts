@@ -1,20 +1,20 @@
 /**
  * Default Trading Bots Configuration
- * 
+ *
  * Pre-configured MEV/arbitrage bots that initialize automatically
  */
 
-import type { TradingBotStrategy, TradingBotChain } from '../types';
-import type { ChainId } from './autocrat-types';
-import type { TradingBotOptions } from './trading-bot';
+import type { TradingBotChain, TradingBotStrategy } from '../types'
+import type { ChainId } from './autocrat-types'
+import type { TradingBotOptions } from './trading-bot'
 
 export interface DefaultBotConfig {
-  name: string;
-  description: string;
-  strategies: TradingBotStrategy[];
-  chains: ChainId[];
-  initialFunding: string; // in ETH
-  treasuryAddress?: string;
+  name: string
+  description: string
+  strategies: TradingBotStrategy[]
+  chains: ChainId[]
+  initialFunding: string // in ETH
+  treasuryAddress?: string
 }
 
 // Default chain configurations
@@ -76,19 +76,21 @@ export const DEFAULT_CHAINS: Record<string, TradingBotChain> = {
   jejuTestnet: {
     chainId: 420690,
     name: 'Testnet',
-    rpcUrl: process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jejunetwork.org',
+    rpcUrl:
+      process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jejunetwork.org',
     blockTime: 200,
     isL2: true,
     nativeSymbol: 'ETH',
     explorerUrl: 'https://testnet-explorer.jejunetwork.org',
   },
-};
+}
 
 // Default bot configurations
 export const DEFAULT_BOTS: DefaultBotConfig[] = [
   {
     name: 'DEX Arbitrage Bot',
-    description: 'Detects and executes DEX arbitrage opportunities across pools',
+    description:
+      'Detects and executes DEX arbitrage opportunities across pools',
     strategies: [
       {
         type: 'DEX_ARBITRAGE',
@@ -176,24 +178,30 @@ export const DEFAULT_BOTS: DefaultBotConfig[] = [
     chains: [1, 42161, 10, 8453, 420691],
     initialFunding: '0.2',
   },
-];
+]
 
-const TESTNET_CHAINS = new Set([420690, 11155111, 84532, 421614]);
+const TESTNET_CHAINS = new Set([420690, 11155111, 84532, 421614])
 
-export function getDefaultBotsForNetwork(network: 'localnet' | 'testnet' | 'mainnet'): DefaultBotConfig[] {
+export function getDefaultBotsForNetwork(
+  network: 'localnet' | 'testnet' | 'mainnet',
+): DefaultBotConfig[] {
   if (network === 'localnet') {
-    return DEFAULT_BOTS.map(bot => ({ ...bot, chains: [1337], initialFunding: '0.01' }));
+    return DEFAULT_BOTS.map((bot) => ({
+      ...bot,
+      chains: [1337],
+      initialFunding: '0.01',
+    }))
   }
 
   if (network === 'testnet') {
-    return DEFAULT_BOTS.map(bot => ({
+    return DEFAULT_BOTS.map((bot) => ({
       ...bot,
-      chains: bot.chains.filter(c => TESTNET_CHAINS.has(c)),
+      chains: bot.chains.filter((c) => TESTNET_CHAINS.has(c)),
       initialFunding: (parseFloat(bot.initialFunding) * 0.1).toString(),
-    }));
+    }))
   }
 
-  return DEFAULT_BOTS;
+  return DEFAULT_BOTS
 }
 
 const CHAIN_ID_TO_KEY: Record<number, string> = {
@@ -204,18 +212,18 @@ const CHAIN_ID_TO_KEY: Record<number, string> = {
   56: 'bsc',
   420691: 'jeju',
   420690: 'jejuTestnet',
-};
+}
 
 export function createTradingBotOptions(
   config: DefaultBotConfig,
   agentId: bigint,
   privateKey: string,
   network: 'localnet' | 'testnet' | 'mainnet',
-  treasuryAddress?: string
+  treasuryAddress?: string,
 ): TradingBotOptions {
   const chains = config.chains
-    .map(chainId => DEFAULT_CHAINS[CHAIN_ID_TO_KEY[chainId]])
-    .filter(Boolean) as TradingBotChain[];
+    .map((chainId) => DEFAULT_CHAINS[CHAIN_ID_TO_KEY[chainId]])
+    .filter(Boolean) as TradingBotChain[]
 
   return {
     agentId,
@@ -227,6 +235,5 @@ export function createTradingBotOptions(
     maxConcurrentExecutions: 5,
     useFlashbots: network !== 'localnet',
     contractAddresses: {},
-  };
+  }
 }
-

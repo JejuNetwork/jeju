@@ -20,8 +20,20 @@ spec:
     spec:
       {{- include "compute.imagePullSecrets" . | nindent 6 }}
       serviceAccountName: {{ include "compute.serviceAccountName" . }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: mpc-node
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
           image: "{{ .Values.global.imageRegistry }}{{ .Values.mpcNode.image.repository }}:{{ .Values.mpcNode.image.tag }}"
           imagePullPolicy: {{ .Values.mpcNode.image.pullPolicy }}
           ports:

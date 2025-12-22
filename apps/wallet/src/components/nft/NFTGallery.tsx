@@ -3,48 +3,54 @@
  * Displays user's NFTs across all chains
  */
 
-import { useState, useEffect, useCallback } from 'react';
-import { RefreshCw, ExternalLink, Send, Grid, List } from 'lucide-react';
-import { nftService, type NFT, type NFTCollection } from '../../services/nft';
-import { SUPPORTED_CHAINS, type SupportedChainId } from '../../services/rpc';
-import type { Address } from 'viem';
+import { ExternalLink, Grid, List, RefreshCw, Send } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import type { Address } from 'viem'
+import { type NFT, type NFTCollection, nftService } from '../../services/nft'
+import { SUPPORTED_CHAINS, type SupportedChainId } from '../../services/rpc'
 
 interface NFTGalleryProps {
-  address: Address;
-  onTransfer?: (nft: NFT) => void;
+  address: Address
+  onTransfer?: (nft: NFT) => void
 }
 
-type ViewMode = 'grid' | 'list';
+type ViewMode = 'grid' | 'list'
 
 export function NFTGallery({ address, onTransfer }: NFTGalleryProps) {
-  const [collections, setCollections] = useState<NFTCollection[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
-  const [selectedChain, setSelectedChain] = useState<SupportedChainId | 'all'>('all');
+  const [collections, setCollections] = useState<NFTCollection[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [viewMode, setViewMode] = useState<ViewMode>('grid')
+  const [selectedChain, setSelectedChain] = useState<SupportedChainId | 'all'>(
+    'all',
+  )
 
   const fetchNFTs = useCallback(async () => {
-    setIsLoading(true);
-    const data = await nftService.getCollections(address);
-    setCollections(data);
-    setIsLoading(false);
-  }, [address]);
+    setIsLoading(true)
+    const data = await nftService.getCollections(address)
+    setCollections(data)
+    setIsLoading(false)
+  }, [address])
 
   useEffect(() => {
-    fetchNFTs();
-  }, [fetchNFTs]);
+    fetchNFTs()
+  }, [fetchNFTs])
 
-  const filteredCollections = selectedChain === 'all' 
-    ? collections 
-    : collections.filter(c => c.chainId === selectedChain);
+  const filteredCollections =
+    selectedChain === 'all'
+      ? collections
+      : collections.filter((c) => c.chainId === selectedChain)
 
-  const totalNFTs = filteredCollections.reduce((sum, c) => sum + c.nfts.length, 0);
+  const totalNFTs = filteredCollections.reduce(
+    (sum, c) => sum + c.nfts.length,
+    0,
+  )
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
-    );
+    )
   }
 
   return (
@@ -53,7 +59,11 @@ export function NFTGallery({ address, onTransfer }: NFTGalleryProps) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-semibold">NFT Gallery</h2>
-          <p className="text-muted-foreground">{totalNFTs} NFT{totalNFTs !== 1 ? 's' : ''} across {filteredCollections.length} collection{filteredCollections.length !== 1 ? 's' : ''}</p>
+          <p className="text-muted-foreground">
+            {totalNFTs} NFT{totalNFTs !== 1 ? 's' : ''} across{' '}
+            {filteredCollections.length} collection
+            {filteredCollections.length !== 1 ? 's' : ''}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           {/* View Toggle */}
@@ -71,7 +81,7 @@ export function NFTGallery({ address, onTransfer }: NFTGalleryProps) {
               <List className="w-4 h-4" />
             </button>
           </div>
-          
+
           {/* Refresh */}
           <button
             onClick={fetchNFTs}
@@ -88,7 +98,9 @@ export function NFTGallery({ address, onTransfer }: NFTGalleryProps) {
         <button
           onClick={() => setSelectedChain('all')}
           className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap ${
-            selectedChain === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary hover:bg-secondary/80'
+            selectedChain === 'all'
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-secondary hover:bg-secondary/80'
           }`}
         >
           All Chains
@@ -98,7 +110,9 @@ export function NFTGallery({ address, onTransfer }: NFTGalleryProps) {
             key={id}
             onClick={() => setSelectedChain(Number(id) as SupportedChainId)}
             className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap ${
-              selectedChain === Number(id) ? 'bg-primary text-primary-foreground' : 'bg-secondary hover:bg-secondary/80'
+              selectedChain === Number(id)
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-secondary hover:bg-secondary/80'
             }`}
           >
             {chain.name}
@@ -119,7 +133,10 @@ export function NFTGallery({ address, onTransfer }: NFTGalleryProps) {
 
       {/* Collections */}
       {filteredCollections.map((collection) => (
-        <div key={`${collection.chainId}:${collection.address}`} className="space-y-4">
+        <div
+          key={`${collection.chainId}:${collection.address}`}
+          className="space-y-4"
+        >
           {/* Collection Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -128,7 +145,8 @@ export function NFTGallery({ address, onTransfer }: NFTGalleryProps) {
                 {SUPPORTED_CHAINS[collection.chainId].name}
               </span>
               <span className="text-xs text-muted-foreground">
-                {collection.nfts.length} item{collection.nfts.length !== 1 ? 's' : ''}
+                {collection.nfts.length} item
+                {collection.nfts.length !== 1 ? 's' : ''}
               </span>
             </div>
             <a
@@ -142,12 +160,15 @@ export function NFTGallery({ address, onTransfer }: NFTGalleryProps) {
           </div>
 
           {/* NFTs Grid/List */}
-          <div className={viewMode === 'grid' 
-            ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4'
-            : 'space-y-3'
-          }>
+          <div
+            className={
+              viewMode === 'grid'
+                ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4'
+                : 'space-y-3'
+            }
+          >
             {collection.nfts.map((nft) => (
-              <NFTCard 
+              <NFTCard
                 key={`${nft.contractAddress}:${nft.tokenId}`}
                 nft={nft}
                 viewMode={viewMode}
@@ -158,19 +179,19 @@ export function NFTGallery({ address, onTransfer }: NFTGalleryProps) {
         </div>
       ))}
     </div>
-  );
+  )
 }
 
 // NFT Card Component
 interface NFTCardProps {
-  nft: NFT;
-  viewMode: ViewMode;
-  onTransfer?: (nft: NFT) => void;
+  nft: NFT
+  viewMode: ViewMode
+  onTransfer?: (nft: NFT) => void
 }
 
 function NFTCard({ nft, viewMode, onTransfer }: NFTCardProps) {
-  const [imageError, setImageError] = useState(false);
-  const chain = SUPPORTED_CHAINS[nft.chainId];
+  const [imageError, setImageError] = useState(false)
+  const chain = SUPPORTED_CHAINS[nft.chainId]
 
   if (viewMode === 'list') {
     return (
@@ -185,7 +206,9 @@ function NFTCard({ nft, viewMode, onTransfer }: NFTCardProps) {
               onError={() => setImageError(true)}
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-2xl">🖼️</div>
+            <div className="w-full h-full flex items-center justify-center text-2xl">
+              🖼️
+            </div>
           )}
         </div>
 
@@ -222,7 +245,7 @@ function NFTCard({ nft, viewMode, onTransfer }: NFTCardProps) {
           </a>
         </div>
       </div>
-    );
+    )
   }
 
   return (
@@ -237,9 +260,11 @@ function NFTCard({ nft, viewMode, onTransfer }: NFTCardProps) {
             onError={() => setImageError(true)}
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-4xl">🖼️</div>
+          <div className="w-full h-full flex items-center justify-center text-4xl">
+            🖼️
+          </div>
         )}
-        
+
         {/* Hover Actions */}
         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
           {onTransfer && (
@@ -272,8 +297,7 @@ function NFTCard({ nft, viewMode, onTransfer }: NFTCardProps) {
         <div className="text-xs text-muted-foreground mt-1">{chain.name}</div>
       </div>
     </div>
-  );
+  )
 }
 
-export default NFTGallery;
-
+export default NFTGallery

@@ -1,57 +1,64 @@
-import { useEffect } from 'react';
-import { useAppStore } from './store';
-import { Sidebar } from './components/Sidebar';
-import { Dashboard } from './components/Dashboard';
-import { Services } from './components/Services';
-import { Bots } from './components/Bots';
-import { Earnings } from './components/Earnings';
-import { Staking } from './components/Staking';
-import { Settings } from './components/Settings';
-import { WalletView } from './components/WalletView';
-import { LoadingScreen } from './components/LoadingScreen';
-import { ErrorBanner } from './components/ErrorBanner';
-import { BanWarning } from './components/BanWarning';
+import { useEffect } from 'react'
+import { BanWarning } from './components/BanWarning'
+import { Bots } from './components/Bots'
+import { Dashboard } from './components/Dashboard'
+import { Earnings } from './components/Earnings'
+import { ErrorBanner } from './components/ErrorBanner'
+import { LoadingScreen } from './components/LoadingScreen'
+import { Services } from './components/Services'
+import { Settings } from './components/Settings'
+import { Sidebar } from './components/Sidebar'
+import { Staking } from './components/Staking'
+import { WalletView } from './components/WalletView'
+import { useAppStore } from './store'
 
 export function App() {
-  const { currentView, isLoading, loadingMessage, error, banStatus, initialize } = useAppStore();
+  const {
+    currentView,
+    isLoading,
+    loadingMessage,
+    error,
+    banStatus,
+    initialize,
+  } = useAppStore()
 
   useEffect(() => {
-    initialize();
-  }, [initialize]);
+    initialize()
+  }, [initialize])
 
   if (isLoading && !currentView) {
-    return <LoadingScreen message={loadingMessage} />;
+    return <LoadingScreen message={loadingMessage} />
   }
 
   const renderView = () => {
     switch (currentView) {
       case 'dashboard':
-        return <Dashboard />;
+        return <Dashboard />
       case 'services':
-        return <Services />;
+        return <Services />
       case 'bots':
-        return <Bots />;
+        return <Bots />
       case 'earnings':
-        return <Earnings />;
+        return <Earnings />
       case 'staking':
-        return <Staking />;
+        return <Staking />
       case 'settings':
-        return <Settings />;
+        return <Settings />
       case 'wallet':
-        return <WalletView />;
+        return <WalletView />
       default:
-        return <Dashboard />;
+        return <Dashboard />
     }
-  };
+  }
 
   return (
     <div className="flex h-screen bg-volcanic-950">
       <Sidebar />
-      
+
       <main className="flex-1 overflow-auto">
         {error && <ErrorBanner />}
         {banStatus?.is_banned && <BanWarning />}
-        
+
         <div className="p-6">
           {isLoading && (
             <div className="fixed inset-0 bg-volcanic-950/80 backdrop-blur-sm z-50 flex items-center justify-center">
@@ -61,11 +68,10 @@ export function App() {
               </div>
             </div>
           )}
-          
+
           {renderView()}
         </div>
       </main>
     </div>
-  );
+  )
 }
-

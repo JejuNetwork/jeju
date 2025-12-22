@@ -1,5 +1,5 @@
-import type { ChainConfig, ChainId } from '../types';
-import { chainConfigSchema, ValidationError } from '../validation';
+import type { ChainConfig, ChainId } from '../types'
+import { chainConfigSchema, ValidationError } from '../validation'
 
 // Default RPC URLs - can be overridden by environment variables
 const DEFAULT_RPC_URLS = {
@@ -16,12 +16,15 @@ const DEFAULT_RPC_URLS = {
   arbitrumSepolia: 'https://sepolia-rollup.arbitrum.io/rpc',
   solanaDevnet: 'https://api.devnet.solana.com',
   jejuTestnet: 'https://testnet-rpc.jejunetwork.org',
-} as const;
+} as const
 
-function getRpcUrl(chainName: keyof typeof DEFAULT_RPC_URLS, envVarName: string): string {
-  const envValue = process.env[envVarName];
-  if (envValue) return envValue;
-  return DEFAULT_RPC_URLS[chainName];
+function getRpcUrl(
+  chainName: keyof typeof DEFAULT_RPC_URLS,
+  envVarName: string,
+): string {
+  const envValue = process.env[envVarName]
+  if (envValue) return envValue
+  return DEFAULT_RPC_URLS[chainName]
 }
 
 // Mainnet chains
@@ -42,7 +45,7 @@ export const ethereumMainnet: ChainConfig = {
   avgBlockTime: 12,
   uniswapV4PoolManager: '0x000000000004444c5dc75cB358380D2e3dE08A90',
   dexRouter: '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45',
-};
+}
 
 export const optimism: ChainConfig = {
   chainId: 10,
@@ -61,7 +64,7 @@ export const optimism: ChainConfig = {
   avgBlockTime: 2,
   uniswapV4PoolManager: '0x9a13F98Cb987694C9F086b1F5eB990EeA8264Ec3',
   dexRouter: '0xCb1355ff08Ab38bBCE60111F1bb2B784bE25D7e8',
-};
+}
 
 export const bsc: ChainConfig = {
   chainId: 56,
@@ -79,7 +82,7 @@ export const bsc: ChainConfig = {
   isHomeChain: false,
   avgBlockTime: 3,
   dexRouter: '0x10ED43C718714eb63d5aA57B78B54704E256024E',
-};
+}
 
 export const base: ChainConfig = {
   chainId: 8453,
@@ -98,7 +101,7 @@ export const base: ChainConfig = {
   avgBlockTime: 2,
   uniswapV4PoolManager: '0x498581fF718922c3f8e6A244956aF099B2652b2b',
   dexRouter: '0x2626664c2603336E57B271c5C0b26F421741e481',
-};
+}
 
 export const arbitrum: ChainConfig = {
   chainId: 42161,
@@ -117,7 +120,7 @@ export const arbitrum: ChainConfig = {
   avgBlockTime: 0.25,
   uniswapV4PoolManager: '0x360E68faCcca8cA495c1B759Fd9EEe466db9FB32',
   dexRouter: '0x5E325eDA8064b456f4781070C0738d849c824258',
-};
+}
 
 export const polygon: ChainConfig = {
   chainId: 137,
@@ -135,7 +138,7 @@ export const polygon: ChainConfig = {
   isHomeChain: false,
   avgBlockTime: 2,
   dexRouter: '0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff',
-};
+}
 
 export const avalanche: ChainConfig = {
   chainId: 43114,
@@ -153,7 +156,7 @@ export const avalanche: ChainConfig = {
   isHomeChain: false,
   avgBlockTime: 2,
   dexRouter: '0x60aE616a2155Ee3d9A68541Ba4544862310933d4',
-};
+}
 
 export const solanaMainnet: ChainConfig = {
   chainId: 'solana-mainnet',
@@ -167,7 +170,7 @@ export const solanaMainnet: ChainConfig = {
   isHomeChain: false,
   avgBlockTime: 0.4,
   dexRouter: 'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4',
-};
+}
 
 // Testnet chains
 export const sepolia: ChainConfig = {
@@ -186,7 +189,7 @@ export const sepolia: ChainConfig = {
   isHomeChain: true,
   avgBlockTime: 12,
   uniswapV4PoolManager: '0x8C4BcBE6b9eF47855f97E675296FA3F6fafa5F1A',
-};
+}
 
 export const baseSepolia: ChainConfig = {
   chainId: 84532,
@@ -203,7 +206,7 @@ export const baseSepolia: ChainConfig = {
   hyperlaneIgp: '0x28B02B97a850872C4D33C3E024fab6499ad96564',
   isHomeChain: false,
   avgBlockTime: 2,
-};
+}
 
 export const arbitrumSepolia: ChainConfig = {
   chainId: 421614,
@@ -220,7 +223,7 @@ export const arbitrumSepolia: ChainConfig = {
   hyperlaneIgp: '0x940F84B4a87F5c6b0F6b2Db2F8C83aa1dE64B22d',
   isHomeChain: false,
   avgBlockTime: 0.25,
-};
+}
 
 export const solanaDevnet: ChainConfig = {
   chainId: 'solana-devnet',
@@ -234,7 +237,7 @@ export const solanaDevnet: ChainConfig = {
   isHomeChain: false,
   avgBlockTime: 0.4,
   dexRouter: 'JUP4Fb2cqiRUcaTHdrPC8h2gNsA2ETXiPDD33WcGuJB',
-};
+}
 
 export const MAINNET_CHAINS: ChainConfig[] = [
   ethereumMainnet,
@@ -245,7 +248,7 @@ export const MAINNET_CHAINS: ChainConfig[] = [
   polygon,
   avalanche,
   solanaMainnet,
-];
+]
 
 // Jeju Testnet (L2 on Sepolia) - For integration with Jeju Network
 // Run `jeju token deploy:hyperlane --network testnet` to deploy Hyperlane
@@ -267,7 +270,7 @@ export const jejuTestnet: ChainConfig = {
   avgBlockTime: 2,
   // Jeju uses Uniswap V4 (addresses from Jeju's config)
   uniswapV4PoolManager: '0x000000000004444c5dc75cB358380D2e3dE08A90',
-};
+}
 
 export const TESTNET_CHAINS: ChainConfig[] = [
   sepolia,
@@ -275,50 +278,50 @@ export const TESTNET_CHAINS: ChainConfig[] = [
   arbitrumSepolia,
   jejuTestnet,
   solanaDevnet,
-];
+]
 
-export const ALL_CHAINS: ChainConfig[] = [...MAINNET_CHAINS, ...TESTNET_CHAINS];
+export const ALL_CHAINS: ChainConfig[] = [...MAINNET_CHAINS, ...TESTNET_CHAINS]
 
 export function getChainConfig(chainId: ChainId): ChainConfig {
-  const chain = ALL_CHAINS.find((c) => c.chainId === chainId);
+  const chain = ALL_CHAINS.find((c) => c.chainId === chainId)
   if (!chain) {
-    throw new Error(`Unknown chain ID: ${chainId}`);
+    throw new Error(`Unknown chain ID: ${chainId}`)
   }
-  return chain;
+  return chain
 }
 
 export function getEVMChains(mainnetOnly = true): ChainConfig[] {
-  const chains = mainnetOnly ? MAINNET_CHAINS : ALL_CHAINS;
-  return chains.filter((c) => c.chainType === 'evm');
+  const chains = mainnetOnly ? MAINNET_CHAINS : ALL_CHAINS
+  return chains.filter((c) => c.chainType === 'evm')
 }
 
 export function getSolanaChains(mainnetOnly = true): ChainConfig[] {
-  const chains = mainnetOnly ? MAINNET_CHAINS : ALL_CHAINS;
-  return chains.filter((c) => c.chainType === 'solana');
+  const chains = mainnetOnly ? MAINNET_CHAINS : ALL_CHAINS
+  return chains.filter((c) => c.chainType === 'solana')
 }
 
 // Deprecated: Use getSolanaChains instead
-export const getSVMChains = getSolanaChains;
+export const getSVMChains = getSolanaChains
 
 export function getHomeChain(mainnetOnly = true): ChainConfig {
-  const chains = mainnetOnly ? MAINNET_CHAINS : ALL_CHAINS;
-  const home = chains.find((c) => c.isHomeChain);
+  const chains = mainnetOnly ? MAINNET_CHAINS : ALL_CHAINS
+  const home = chains.find((c) => c.isHomeChain)
   if (!home) {
-    throw new Error('No home chain configured');
+    throw new Error('No home chain configured')
   }
-  return home;
+  return home
 }
 
 export function validateChainConfig(config: ChainConfig): ChainConfig {
-  const result = chainConfigSchema.safeParse(config);
+  const result = chainConfigSchema.safeParse(config)
   if (!result.success) {
     const errorMessages = result.error.issues
       .map((e) => `${e.path.join('.')}: ${e.message}`)
-      .join('; ');
+      .join('; ')
     throw new ValidationError(
       `Invalid chain config for ${config.name}: ${errorMessages}`,
-      result.error.issues
-    );
+      result.error.issues,
+    )
   }
-  return result.data as ChainConfig;
+  return result.data as ChainConfig
 }

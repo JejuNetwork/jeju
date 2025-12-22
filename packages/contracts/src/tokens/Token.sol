@@ -271,23 +271,43 @@ contract Token is ERC20, ERC20Burnable, ERC20Permit, Ownable2Step, ReentrancyGua
         emit CrossChainTransfer(messageId, msg.sender, destination, amount);
     }
 
+    /// @notice Minimum message body length: 32 bytes recipient + 32 bytes amount
+    uint256 private constant MIN_MESSAGE_LENGTH = 64;
+    
+    /// @notice Error for invalid message format
+    error InvalidMessageFormat();
+    
     function handle(uint32 origin, bytes32 sender, bytes calldata body) external {
         if (msg.sender != address(mailbox)) revert OnlyMailbox();
         if (remoteRouters[origin] != sender) revert UnsupportedDomain(origin);
+        
+        // Validate message body length to prevent parsing errors
+        if (body.length < MIN_MESSAGE_LENGTH) revert InvalidMessageFormat();
 
         bytes32 messageId = keccak256(abi.encodePacked(origin, sender, body, block.number));
         if (processedMessages[messageId]) revert MessageAlreadyProcessed();
         processedMessages[messageId] = true;
 
+        // Safe parsing with explicit length checks
         bytes32 recipientBytes = bytes32(body[:32]);
-        uint256 amount = abi.decode(body[32:], (uint256));
+        uint256 amount = abi.decode(body[32:64], (uint256));
         address recipient = address(uint160(uint256(recipientBytes)));
+        
+        // Validate recipient is not zero address
+        if (recipient == address(0)) revert InvalidMessageFormat();
+        
+        // Validate amount is not zero
+        if (amount == 0) revert InvalidMessageFormat();
 
         if (config.isHomeChain) {
             if (totalLocked < amount) revert InsufficientBalance();
             totalLocked -= amount;
             _transfer(address(this), recipient, amount);
         } else {
+            // Check max supply constraint for minting
+            if (config.maxSupply > 0 && totalSupply() + amount > config.maxSupply) {
+                revert ExceedsMaxSupply();
+            }
             _mint(recipient, amount);
         }
 

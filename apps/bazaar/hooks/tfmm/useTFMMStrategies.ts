@@ -1,34 +1,12 @@
 'use client'
 
-import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
-import { type Address } from 'viem'
 import { useCallback } from 'react'
-
-// Strategy Rule ABI
-const STRATEGY_RULE_ABI = [
-  {
-    name: 'getStrategyConfig',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [],
-    outputs: [
-      { name: 'lookbackPeriod', type: 'uint256' },
-      { name: 'updateInterval', type: 'uint256' },
-      { name: 'maxWeightChange', type: 'uint256' },
-      { name: 'enabled', type: 'bool' },
-    ],
-  },
-  {
-    name: 'getLastUpdate',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [],
-    outputs: [
-      { name: 'timestamp', type: 'uint256' },
-      { name: 'weights', type: 'uint256[]' },
-    ],
-  },
-] as const
+import type { Address } from 'viem'
+import {
+  useReadContract,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from 'wagmi'
 
 // Weight Update Runner ABI
 const WEIGHT_UPDATE_RUNNER_ABI = [
@@ -60,7 +38,11 @@ const WEIGHT_UPDATE_RUNNER_ABI = [
   },
 ] as const
 
-export type StrategyType = 'momentum' | 'mean-reversion' | 'volatility' | 'composite'
+export type StrategyType =
+  | 'momentum'
+  | 'mean-reversion'
+  | 'volatility'
+  | 'composite'
 
 export interface StrategyConfig {
   type: StrategyType
@@ -80,30 +62,40 @@ export interface StrategyPerformance {
   rebalanceCount: number
 }
 
-export const STRATEGY_CONFIGS: Record<StrategyType, Omit<StrategyConfig, 'lookbackPeriod' | 'updateInterval' | 'maxWeightChange' | 'enabled'>> = {
+export const STRATEGY_CONFIGS: Record<
+  StrategyType,
+  Omit<
+    StrategyConfig,
+    'lookbackPeriod' | 'updateInterval' | 'maxWeightChange' | 'enabled'
+  >
+> = {
   momentum: {
     type: 'momentum',
     name: 'Momentum Strategy',
-    description: 'Increases allocation to assets with positive price momentum, decreases for negative momentum.',
+    description:
+      'Increases allocation to assets with positive price momentum, decreases for negative momentum.',
   },
   'mean-reversion': {
     type: 'mean-reversion',
     name: 'Mean Reversion Strategy',
-    description: 'Buys assets that are below their historical average, sells those above.',
+    description:
+      'Buys assets that are below their historical average, sells those above.',
   },
   volatility: {
     type: 'volatility',
     name: 'Volatility Strategy',
-    description: 'Reduces exposure to high volatility assets, increases to stable assets.',
+    description:
+      'Reduces exposure to high volatility assets, increases to stable assets.',
   },
   composite: {
     type: 'composite',
     name: 'Composite Strategy',
-    description: 'Combines multiple strategies with configurable weights for balanced performance.',
+    description:
+      'Combines multiple strategies with configurable weights for balanced performance.',
   },
 }
 
-export function useTFMMStrategies(weightUpdateRunnerAddress: Address | null) {
+export function useTFMMStrategies(_weightUpdateRunnerAddress: Address | null) {
   // Mock data for development - will be replaced with on-chain queries
   const strategies: StrategyConfig[] = [
     {
@@ -142,7 +134,9 @@ export function useTFMMStrategies(weightUpdateRunnerAddress: Address | null) {
   }
 }
 
-export function useStrategyPerformance(strategyType: StrategyType): StrategyPerformance {
+export function useStrategyPerformance(
+  strategyType: StrategyType,
+): StrategyPerformance {
   // Mock performance data - will be replaced with actual backtesting results
   const performances: Record<StrategyType, StrategyPerformance> = {
     momentum: {
@@ -180,7 +174,9 @@ export function useStrategyPerformance(strategyType: StrategyType): StrategyPerf
 
 export function useUpdateWeights(weightUpdateRunnerAddress: Address | null) {
   const { writeContract, data: hash, isPending, error } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
   const updateWeights = useCallback(
     async (poolAddress: Address) => {
@@ -193,7 +189,7 @@ export function useUpdateWeights(weightUpdateRunnerAddress: Address | null) {
         args: [poolAddress],
       })
     },
-    [weightUpdateRunnerAddress, writeContract]
+    [weightUpdateRunnerAddress, writeContract],
   )
 
   return {
@@ -205,7 +201,10 @@ export function useUpdateWeights(weightUpdateRunnerAddress: Address | null) {
   }
 }
 
-export function useCanUpdate(weightUpdateRunnerAddress: Address | null, poolAddress: Address | null) {
+export function useCanUpdate(
+  weightUpdateRunnerAddress: Address | null,
+  poolAddress: Address | null,
+) {
   const { data: canUpdate, isLoading } = useReadContract({
     address: weightUpdateRunnerAddress ?? undefined,
     abi: WEIGHT_UPDATE_RUNNER_ABI,
@@ -222,7 +221,10 @@ export function useCanUpdate(weightUpdateRunnerAddress: Address | null, poolAddr
   }
 }
 
-export function formatStrategyParam(value: number, type: 'time' | 'bps' | 'days'): string {
+export function formatStrategyParam(
+  value: number,
+  type: 'time' | 'bps' | 'days',
+): string {
   switch (type) {
     case 'time':
       if (value >= 86400) return `${Math.floor(value / 86400)}d`
@@ -237,4 +239,3 @@ export function formatStrategyParam(value: number, type: 'time' | 'bps' | 'days'
       return String(value)
   }
 }
-

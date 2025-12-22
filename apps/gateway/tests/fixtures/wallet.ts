@@ -4,12 +4,11 @@
  */
 
 // Re-export shared fixtures
-export { 
-  testWithWallet,
-  testWithConnectedWallet,
+export {
+  JEJU_NETWORK,
   JEJU_TEST_WALLET as TEST_WALLET,
-  JEJU_NETWORK
-} from '@jejunetwork/tests';
+  testWithConnectedWallet,
+  testWithWallet,
+} from '@jejunetwork/tests'
 
-export { expect } from '@playwright/test';
-
+export { expect } from '@playwright/test'

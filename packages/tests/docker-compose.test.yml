@@ -53,7 +53,7 @@ services:
       - --maxpeers=0
     healthcheck:
       <<: *healthcheck-defaults
-      test: ["CMD-SHELL", "wget -qO- http://localhost:6546 || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9545 || exit 1"]
     networks:
       - jeju-test
 
@@ -98,6 +98,8 @@ services:
     profiles: [services, full]
     container_name: jeju-postgres
     environment:
+      # WARNING: Test-only credentials - DO NOT use in production
+      # Production should use environment variables from a secure secret store
       POSTGRES_USER: jeju
       POSTGRES_PASSWORD: jeju
       POSTGRES_DB: jeju
@@ -164,6 +166,9 @@ services:
     depends_on:
       - prometheus
     environment:
+      # ⚠️  SECURITY WARNING ⚠️
+      # Test-only credentials - NEVER use in production!
+      # Production MUST use strong passwords from a secure secret store.
       GF_SECURITY_ADMIN_PASSWORD: admin
       GF_USERS_ALLOW_SIGN_UP: "false"
     ports:

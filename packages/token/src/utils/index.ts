@@ -4,4 +4,10 @@
  * Common utility functions used across the package.
  */
 
-export * from './address';
+// Address utilities
+export {
+  addressToBytes32,
+  bytes32ToAddress,
+  isValidBytes32,
+  isValidEvmAddress,
+} from './address'

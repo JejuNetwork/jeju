@@ -1,49 +1,55 @@
 /**
  * CEO Agent Data Providers
- * 
+ *
  * ElizaOS providers that give the AI CEO access to:
  * - On-chain governance data (proposals, votes, treasury)
  * - Council deliberation results
  * - Research reports
  * - Historical decisions
  * - Network state (via A2A/MCP)
- * 
+ *
  * FULLY DECENTRALIZED - Endpoints resolved from network config
  */
 
-import { getAutocratA2AUrl, getAutocratUrl } from '@jejunetwork/config';
-import type { Provider, IAgentRuntime, Memory, State, ProviderResult } from '@elizaos/core';
-import type { AutocratVote } from '../types';
+import type {
+  IAgentRuntime,
+  Memory,
+  Provider,
+  ProviderResult,
+  State,
+} from '@elizaos/core'
+import { getAutocratA2AUrl, getAutocratUrl } from '@jejunetwork/config'
+import type { AutocratVote } from '../types'
 
 // ============================================================================
 // Types (local-only interfaces not in types.ts)
 // ============================================================================
 
 interface ProposalData {
-  id: string;
-  status: string;
-  proposer: string;
-  proposalType: number;
-  qualityScore: number;
-  autocratVoteEnd: number;
-  gracePeriodEnd: number;
-  hasResearch: boolean;
-  researchHash?: string;
-  contentHash: string;
+  id: string
+  status: string
+  proposer: string
+  proposalType: number
+  qualityScore: number
+  autocratVoteEnd: number
+  gracePeriodEnd: number
+  hasResearch: boolean
+  researchHash?: string
+  contentHash: string
 }
 
 interface TreasuryState {
-  balance: string;
-  totalAllocated: string;
-  pendingProposals: number;
+  balance: string
+  totalAllocated: string
+  pendingProposals: number
 }
 
 interface GovernanceStats {
-  totalProposals: number;
-  approvedCount: number;
-  rejectedCount: number;
-  pendingCount: number;
-  avgQualityScore: number;
+  totalProposals: number
+  approvedCount: number
+  rejectedCount: number
+  pendingCount: number
+  avgQualityScore: number
 }
 
 // ============================================================================
@@ -51,11 +57,23 @@ interface GovernanceStats {
 // ============================================================================
 
 function getAutocratA2A(): string {
-  return process.env.AUTOCRAT_A2A_URL ?? getAutocratA2AUrl();
+  return process.env.AUTOCRAT_A2A_URL ?? getAutocratA2AUrl()
 }
 
-async function callAutocratA2A(skillId: string, params: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
-  const a2aUrl = getAutocratA2A();
+interface A2AResponseResult {
+  parts?: Array<{ kind: string; data?: Record<string, unknown> }>
+}
+
+interface A2AJsonRpcResponse {
+  result?: A2AResponseResult
+  error?: { message: string }
+}
+
+async function callAutocratA2A<T>(
+  skillId: string,
+  params: Record<string, unknown> = {},
+): Promise<T> {
+  const a2aUrl = getAutocratA2A()
   const response = await fetch(a2aUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -66,32 +84,36 @@ async function callAutocratA2A(skillId: string, params: Record<string, unknown> 
       params: {
         message: {
           messageId: `ceo-${Date.now()}`,
-          parts: [{ kind: 'data', data: { skillId, params } }]
-        }
-      }
+          parts: [{ kind: 'data', data: { skillId, params } }],
+        },
+      },
     }),
-  });
+  })
 
   if (!response.ok) {
-    throw new Error(`Autocrat A2A call failed for '${skillId}': ${response.status} ${response.statusText}`);
+    throw new Error(
+      `Autocrat A2A call failed for '${skillId}': ${response.status} ${response.statusText}`,
+    )
   }
 
-  const result = await response.json() as { result?: { parts?: Array<{ kind: string; data?: Record<string, unknown> }> }; error?: { message: string } };
+  const result = (await response.json()) as A2AJsonRpcResponse
   if (result.error) {
-    throw new Error(`Autocrat A2A call for '${skillId}' returned error: ${result.error.message}`);
+    throw new Error(
+      `Autocrat A2A call for '${skillId}' returned error: ${result.error.message}`,
+    )
   }
-  
-  const parts = result.result?.parts;
+
+  const parts = result.result?.parts
   if (!parts || parts.length === 0) {
-    throw new Error(`Autocrat A2A call for '${skillId}' returned no parts`);
+    throw new Error(`Autocrat A2A call for '${skillId}' returned no parts`)
   }
-  
-  const dataPart = parts.find((p) => p.kind === 'data');
+
+  const dataPart = parts.find((p) => p.kind === 'data')
   if (!dataPart || !dataPart.data) {
-    throw new Error(`Autocrat A2A call for '${skillId}' returned no data part`);
+    throw new Error(`Autocrat A2A call for '${skillId}' returned no data part`)
   }
-  
-  return dataPart.data;
+
+  return dataPart.data as T
 }
 
 // ============================================================================
@@ -104,22 +126,31 @@ async function callAutocratA2A(skillId: string, params: Record<string, unknown> 
  */
 export const governanceDashboardProvider: Provider = {
   name: 'CEO_GOVERNANCE_DASHBOARD',
-  description: 'Get comprehensive governance dashboard with proposals, treasury, and autocrat status',
+  description:
+    'Get comprehensive governance dashboard with proposals, treasury, and autocrat status',
 
   get: async (
     _runtime: IAgentRuntime,
     _message: Memory,
-    _state: State
+    _state: State,
   ): Promise<ProviderResult> => {
-    const [statsData, ceoData, proposalsData] = await Promise.all([
-      callAutocratA2A('get-governance-stats'),
-      callAutocratA2A('get-ceo-status'),
-      callAutocratA2A('list-proposals', { activeOnly: false }),
-    ]);
+    interface CEOStatusResponse {
+      currentModel?: { name: string }
+      decisionsThisPeriod?: number
+    }
 
-    const stats = statsData as unknown as GovernanceStats;
-    const ceo = ceoData as { currentModel?: { name: string }; decisionsThisPeriod?: number };
-    const proposals = proposalsData as { proposals?: ProposalData[]; total?: number };
+    interface ProposalsListResponse {
+      proposals?: ProposalData[]
+      total?: number
+    }
+
+    const [stats, ceo, proposals] = await Promise.all([
+      callAutocratA2A<GovernanceStats>('get-governance-stats'),
+      callAutocratA2A<CEOStatusResponse>('get-ceo-status'),
+      callAutocratA2A<ProposalsListResponse>('list-proposals', {
+        activeOnly: false,
+      }),
+    ])
 
     const result = `📊 CEO GOVERNANCE DASHBOARD
 
@@ -135,18 +166,24 @@ Current Model: ${ceo.currentModel?.name ?? 'Not set'}
 Decisions This Period: ${ceo.decisionsThisPeriod ?? 0}
 
 📋 RECENT PROPOSALS (${proposals.total ?? 0} total)
-${proposals.proposals?.slice(0, 5).map(p => 
-  `- [${p.id.slice(0, 8)}] ${p.status} (Quality: ${p.qualityScore}/100)`
-).join('\n') || 'No proposals'}
+${
+  proposals.proposals
+    ?.slice(0, 5)
+    .map(
+      (p) =>
+        `- [${p.id.slice(0, 8)}] ${p.status} (Quality: ${p.qualityScore}/100)`,
+    )
+    .join('\n') || 'No proposals'
+}
 
 💡 NEXT ACTIONS
 - Review pending proposals in CEO_QUEUE
 - Analyze council voting patterns
-- Check treasury health for budget proposals`;
+- Check treasury health for budget proposals`
 
-    return { text: result };
+    return { text: result }
   },
-};
+}
 
 // ============================================================================
 // Active Proposals Provider
@@ -158,55 +195,62 @@ ${proposals.proposals?.slice(0, 5).map(p =>
  */
 export const activeProposalsProvider: Provider = {
   name: 'CEO_ACTIVE_PROPOSALS',
-  description: 'Get active proposals awaiting CEO decision or in autocrat review',
+  description:
+    'Get active proposals awaiting CEO decision or in autocrat review',
 
   get: async (
     _runtime: IAgentRuntime,
     _message: Memory,
-    _state: State
+    _state: State,
   ): Promise<ProviderResult> => {
-    const data = await callAutocratA2A('list-proposals', { activeOnly: true });
-    const proposalsData = data as { proposals?: ProposalData[]; total?: number };
-    const proposals = proposalsData.proposals ?? [];
+    const data = await callAutocratA2A('list-proposals', { activeOnly: true })
+    const proposalsData = data as { proposals?: ProposalData[]; total?: number }
+    const proposals = proposalsData.proposals ?? []
 
     if (proposals.length === 0) {
-      return { text: '📋 No active proposals requiring attention.' };
+      return { text: '📋 No active proposals requiring attention.' }
     }
 
     const statusGroups = {
-      'CEO_QUEUE': proposals.filter(p => p.status === 'CEO_QUEUE'),
-      'AUTOCRAT_REVIEW': proposals.filter(p => p.status === 'AUTOCRAT_REVIEW'),
-      'AUTOCRAT_FINAL': proposals.filter(p => p.status === 'AUTOCRAT_FINAL'),
-      'RESEARCH_PENDING': proposals.filter(p => p.status === 'RESEARCH_PENDING'),
-    };
-
-    let result = `📋 ACTIVE PROPOSALS (${proposals.length} total)\n\n`;
-
-    if (statusGroups['CEO_QUEUE'].length > 0) {
-      result += `⚡ AWAITING CEO DECISION (${statusGroups['CEO_QUEUE'].length}):\n`;
-      result += statusGroups['CEO_QUEUE'].map(p => 
-        `  • [${p.id.slice(0, 10)}] Quality: ${p.qualityScore}/100, Research: ${p.hasResearch ? 'Yes' : 'No'}`
-      ).join('\n') + '\n\n';
+      CEO_QUEUE: proposals.filter((p) => p.status === 'CEO_QUEUE'),
+      AUTOCRAT_REVIEW: proposals.filter((p) => p.status === 'AUTOCRAT_REVIEW'),
+      AUTOCRAT_FINAL: proposals.filter((p) => p.status === 'AUTOCRAT_FINAL'),
+      RESEARCH_PENDING: proposals.filter(
+        (p) => p.status === 'RESEARCH_PENDING',
+      ),
     }
 
-    if (statusGroups['AUTOCRAT_REVIEW'].length > 0) {
-      result += `🗳️ IN COUNCIL REVIEW (${statusGroups['AUTOCRAT_REVIEW'].length}):\n`;
-      result += statusGroups['AUTOCRAT_REVIEW'].map(p => {
-        const timeLeft = Math.max(0, p.autocratVoteEnd - Math.floor(Date.now() / 1000));
-        return `  • [${p.id.slice(0, 10)}] ${Math.floor(timeLeft / 3600)}h remaining`;
-      }).join('\n') + '\n\n';
+    let result = `📋 ACTIVE PROPOSALS (${proposals.length} total)\n\n`
+
+    if (statusGroups.CEO_QUEUE.length > 0) {
+      result += `⚡ AWAITING CEO DECISION (${statusGroups.CEO_QUEUE.length}):\n`
+      result += `${statusGroups.CEO_QUEUE.map(
+        (p) =>
+          `  • [${p.id.slice(0, 10)}] Quality: ${p.qualityScore}/100, Research: ${p.hasResearch ? 'Yes' : 'No'}`,
+      ).join('\n')}\n\n`
     }
 
-    if (statusGroups['RESEARCH_PENDING'].length > 0) {
-      result += `🔬 RESEARCH PENDING (${statusGroups['RESEARCH_PENDING'].length}):\n`;
-      result += statusGroups['RESEARCH_PENDING'].map(p => 
-        `  • [${p.id.slice(0, 10)}] Awaiting deep research`
-      ).join('\n') + '\n';
+    if (statusGroups.AUTOCRAT_REVIEW.length > 0) {
+      result += `🗳️ IN COUNCIL REVIEW (${statusGroups.AUTOCRAT_REVIEW.length}):\n`
+      result += `${statusGroups.AUTOCRAT_REVIEW.map((p) => {
+        const timeLeft = Math.max(
+          0,
+          p.autocratVoteEnd - Math.floor(Date.now() / 1000),
+        )
+        return `  • [${p.id.slice(0, 10)}] ${Math.floor(timeLeft / 3600)}h remaining`
+      }).join('\n')}\n\n`
     }
 
-    return { text: result };
+    if (statusGroups.RESEARCH_PENDING.length > 0) {
+      result += `🔬 RESEARCH PENDING (${statusGroups.RESEARCH_PENDING.length}):\n`
+      result += `${statusGroups.RESEARCH_PENDING.map(
+        (p) => `  • [${p.id.slice(0, 10)}] Awaiting deep research`,
+      ).join('\n')}\n`
+    }
+
+    return { text: result }
   },
-};
+}
 
 // ============================================================================
 // Proposal Detail Provider
@@ -218,32 +262,39 @@ export const activeProposalsProvider: Provider = {
  */
 export const proposalDetailProvider: Provider = {
   name: 'CEO_PROPOSAL_DETAIL',
-  description: 'Get full proposal details including autocrat votes and research',
+  description:
+    'Get full proposal details including autocrat votes and research',
 
   get: async (
     _runtime: IAgentRuntime,
     message: Memory,
-    _state: State
+    _state: State,
   ): Promise<ProviderResult> => {
     // Extract proposal ID from message content
-    const content = message.content?.text ?? '';
-    const proposalIdMatch = content.match(/0x[a-fA-F0-9]{64}/);
-    
+    const content = message.content?.text ?? ''
+    const proposalIdMatch = content.match(/0x[a-fA-F0-9]{64}/)
+
     if (!proposalIdMatch) {
-      return { text: 'Please specify a proposal ID (0x...) to get details.' };
+      return { text: 'Please specify a proposal ID (0x...) to get details.' }
     }
 
-    const proposalId = proposalIdMatch[0];
-    const [proposalData, votesData] = await Promise.all([
-      callAutocratA2A('get-proposal', { proposalId }),
-      callAutocratA2A('get-autocrat-votes', { proposalId }),
-    ]);
+    const proposalId = proposalIdMatch[0]
 
-    const proposal = proposalData as unknown as ProposalData & { autocratVotes?: AutocratVote[] };
-    const votes = votesData as { votes?: AutocratVote[] };
+    type ProposalDetailResponse = ProposalData & {
+      autocratVotes?: AutocratVote[]
+    }
+    interface VotesResponse {
+      votes?: AutocratVote[]
+    }
+
+    const [proposal, votesData] = await Promise.all([
+      callAutocratA2A<ProposalDetailResponse>('get-proposal', { proposalId }),
+      callAutocratA2A<VotesResponse>('get-autocrat-votes', { proposalId }),
+    ])
+    const votes = votesData
 
     if (!proposal.id) {
-      return { text: `Proposal ${proposalId.slice(0, 10)}... not found.` };
+      return { text: `Proposal ${proposalId.slice(0, 10)}... not found.` }
     }
 
     let result = `📄 PROPOSAL DETAILS: ${proposalId.slice(0, 10)}...
@@ -255,26 +306,27 @@ Proposer: ${proposal.proposer.slice(0, 10)}...
 Type: ${proposal.proposalType}
 
 🗳️ AUTOCRAT VOTES (${votes.votes?.length ?? 0}):
-`;
+`
 
     if (votes.votes && votes.votes.length > 0) {
       for (const vote of votes.votes) {
-        const emoji = vote.vote === 'APPROVE' ? '✅' : vote.vote === 'REJECT' ? '❌' : '⚪';
-        result += `${emoji} ${vote.role}: ${vote.vote}\n`;
-        result += `   Reasoning: ${vote.reasoning.slice(0, 100)}...\n`;
-        result += `   Confidence: ${vote.confidence}%\n\n`;
+        const emoji =
+          vote.vote === 'APPROVE' ? '✅' : vote.vote === 'REJECT' ? '❌' : '⚪'
+        result += `${emoji} ${vote.role}: ${vote.vote}\n`
+        result += `   Reasoning: ${vote.reasoning.slice(0, 100)}...\n`
+        result += `   Confidence: ${vote.confidence}%\n\n`
       }
     } else {
-      result += '  No autocrat votes recorded yet.\n';
+      result += '  No autocrat votes recorded yet.\n'
     }
 
     if (proposal.hasResearch) {
-      result += `\n🔬 RESEARCH: Available (hash: ${proposal.researchHash?.slice(0, 12)}...)`;
+      result += `\n🔬 RESEARCH: Available (hash: ${proposal.researchHash?.slice(0, 12)}...)`
     }
 
-    return { text: result };
+    return { text: result }
   },
-};
+}
 
 // ============================================================================
 // Autocrat Status Provider
@@ -286,23 +338,24 @@ Type: ${proposal.proposalType}
  */
 export const autocratStatusProvider: Provider = {
   name: 'CEO_AUTOCRAT_STATUS',
-  description: 'Get status of all autocrat agents and their recent voting patterns',
+  description:
+    'Get status of all autocrat agents and their recent voting patterns',
 
   get: async (
     _runtime: IAgentRuntime,
     _message: Memory,
-    _state: State
+    _state: State,
   ): Promise<ProviderResult> => {
-    const data = await callAutocratA2A('get-autocrat-status');
+    const data = await callAutocratA2A('get-autocrat-status')
     const autocrat = data as {
-      roles?: Array<{ id: string; name: string; role: string }>;
-      totalMembers?: number;
-    };
+      roles?: Array<{ id: string; name: string; role: string }>
+      totalMembers?: number
+    }
 
     const result = `🏛️ AUTOCRAT STATUS
 
 👥 AUTOCRAT MEMBERS (${autocrat.totalMembers ?? 0}):
-${autocrat.roles?.map(r => `• ${r.name} (${r.role})`).join('\n') || 'No autocrat members'}
+${autocrat.roles?.map((r) => `• ${r.name} (${r.role})`).join('\n') || 'No autocrat members'}
 
 📊 VOTING PATTERNS
 - Treasury: Conservative, budget-focused
@@ -316,11 +369,11 @@ The autocrat typically achieves consensus when:
 - Quality score > 90
 - Clear technical specification
 - Community benefit demonstrated
-- Security concerns addressed`;
+- Security concerns addressed`
 
-    return { text: result };
+    return { text: result }
   },
-};
+}
 
 // ============================================================================
 // Treasury Provider
@@ -337,20 +390,21 @@ export const treasuryProvider: Provider = {
   get: async (
     _runtime: IAgentRuntime,
     _message: Memory,
-    _state: State
+    _state: State,
   ): Promise<ProviderResult> => {
     // Treasury data would come from on-chain in production
     // For now, use governance stats as proxy
-    const data = await callAutocratA2A('get-governance-stats');
+    const data = await callAutocratA2A('get-governance-stats')
     const stats = data as {
-      treasury?: TreasuryState;
-      ceo?: { treasuryBalance?: string };
-    };
+      treasury?: TreasuryState
+      ceo?: { treasuryBalance?: string }
+    }
 
     // Treasury data is optional - display what's available
-    const balance = stats.treasury?.balance ?? stats.ceo?.treasuryBalance ?? 'unavailable';
-    const totalAllocated = stats.treasury?.totalAllocated ?? 'unavailable';
-    const pendingProposals = stats.treasury?.pendingProposals ?? 0;
+    const balance =
+      stats.treasury?.balance ?? stats.ceo?.treasuryBalance ?? 'unavailable'
+    const totalAllocated = stats.treasury?.totalAllocated ?? 'unavailable'
+    const pendingProposals = stats.treasury?.pendingProposals ?? 0
 
     return {
       text: `💰 TREASURY STATUS
@@ -368,10 +422,10 @@ Pending Proposals: ${pendingProposals}
 ⚠️ CONSIDERATIONS
 - Runway preservation priority
 - ROI expectations by proposal type
-- Risk diversification across initiatives`
-    };
+- Risk diversification across initiatives`,
+    }
   },
-};
+}
 
 // ============================================================================
 // Historical Decisions Provider
@@ -388,23 +442,29 @@ export const historicalDecisionsProvider: Provider = {
   get: async (
     _runtime: IAgentRuntime,
     _message: Memory,
-    _state: State
+    _state: State,
   ): Promise<ProviderResult> => {
-    const data = await callAutocratA2A('get-governance-stats');
+    const data = await callAutocratA2A('get-governance-stats')
     const stats = data as {
-      approvedCount?: number;
-      rejectedCount?: number;
+      approvedCount?: number
+      rejectedCount?: number
       recentDecisions?: Array<{
-        proposalId: string;
-        approved: boolean;
-        reason: string;
-        date: string;
-      }>;
-    };
+        proposalId: string
+        approved: boolean
+        reason: string
+        date: string
+      }>
+    }
 
-    const approvalRate = stats.approvedCount && (stats.approvedCount + (stats.rejectedCount ?? 0)) > 0
-      ? Math.round((stats.approvedCount / (stats.approvedCount + (stats.rejectedCount ?? 0))) * 100)
-      : 0;
+    const approvalRate =
+      stats.approvedCount &&
+      stats.approvedCount + (stats.rejectedCount ?? 0) > 0
+        ? Math.round(
+            (stats.approvedCount /
+              (stats.approvedCount + (stats.rejectedCount ?? 0))) *
+              100,
+          )
+        : 0
 
     return {
       text: `📜 HISTORICAL DECISIONS
@@ -426,10 +486,10 @@ Approval Rate: ${approvalRate}%
 - Technical proposals: Defer to Code Agent expertise
 - Budget proposals: Treasury Agent assessment key
 - Community initiatives: Community Agent feedback critical
-- Security-sensitive: Security Agent can veto`
-    };
+- Security-sensitive: Security Agent can veto`,
+    }
   },
-};
+}
 
 // ============================================================================
 // MCP Resources Provider
@@ -446,24 +506,28 @@ export const mcpResourcesProvider: Provider = {
   get: async (
     _runtime: IAgentRuntime,
     _message: Memory,
-    _state: State
+    _state: State,
   ): Promise<ProviderResult> => {
-    const mcpUrl = process.env.AUTOCRAT_MCP_URL ?? `${getAutocratUrl()}/mcp`;
-    
-    const response = await fetch(`${mcpUrl}/tools`);
-    const data = await response.json() as { tools?: Array<{ name: string; description: string }> };
-    const tools = data.tools ?? [];
+    const mcpUrl = process.env.AUTOCRAT_MCP_URL ?? `${getAutocratUrl()}/mcp`
+
+    const response = await fetch(`${mcpUrl}/tools`)
+    const data = (await response.json()) as {
+      tools?: Array<{ name: string; description: string }>
+    }
+    const tools = data.tools ?? []
 
     return {
       text: `🔧 AVAILABLE MCP TOOLS
 
-${tools.length > 0 
-  ? tools.map(t => `• ${t.name}: ${t.description}`).join('\n')
-  : `• assess_proposal_quality: Evaluate proposal before submission
+${
+  tools.length > 0
+    ? tools.map((t) => `• ${t.name}: ${t.description}`).join('\n')
+    : `• assess_proposal_quality: Evaluate proposal before submission
 • prepare_proposal_submission: Prepare on-chain transaction
 • get_proposal_status: Check proposal state
 • request_deep_research: Request comprehensive research
-• get_council_deliberation: Get council agent votes`}
+• get_council_deliberation: Get council agent votes`
+}
 
 🔗 ENDPOINTS
 - A2A: ${process.env.AUTOCRAT_A2A_URL ?? 'http://localhost:8010/a2a'}
@@ -471,10 +535,10 @@ ${tools.length > 0
 
 💡 USAGE
 Use these tools to gather information and prepare actions.
-All decisions are recorded with TEE attestation.`
-    };
+All decisions are recorded with TEE attestation.`,
+    }
   },
-};
+}
 
 // ============================================================================
 // Export All Providers
@@ -488,4 +552,4 @@ export const ceoProviders: Provider[] = [
   treasuryProvider,
   historicalDecisionsProvider,
   mcpResourcesProvider,
-];
+]

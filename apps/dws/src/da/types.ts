@@ -2,7 +2,7 @@
  * Data Availability Layer Types
  */
 
-import type { Address, Hex } from 'viem';
+import type { Address, Hex } from 'viem'
 
 // ============================================================================
 // Core Data Types
@@ -11,39 +11,39 @@ import type { Address, Hex } from 'viem';
 /** Raw blob data before encoding */
 export interface Blob {
   /** Unique identifier (hash of content) */
-  id: Hex;
+  id: Hex
   /** Raw blob data */
-  data: Uint8Array;
+  data: Uint8Array
   /** Size in bytes */
-  size: number;
+  size: number
   /** Submitter address */
-  submitter: Address;
+  submitter: Address
   /** Submission timestamp */
-  submittedAt: number;
+  submittedAt: number
   /** Optional namespace for rollup separation */
-  namespace?: Hex;
+  namespace?: Hex
 }
 
 /** Encoded chunk after erasure coding */
 export interface Chunk {
   /** Chunk index in the encoded blob */
-  index: number;
+  index: number
   /** Chunk data */
-  data: Uint8Array;
+  data: Uint8Array
   /** Parent blob ID */
-  blobId: Hex;
+  blobId: Hex
   /** Proof for this chunk */
-  proof: ChunkProof;
+  proof: ChunkProof
 }
 
 /** Proof that a chunk belongs to a blob */
 export interface ChunkProof {
   /** Merkle proof path */
-  merkleProof: Hex[];
+  merkleProof: Hex[]
   /** Opening proof for polynomial commitment */
-  openingProof: Hex;
+  openingProof: Hex
   /** Index in the polynomial */
-  polynomialIndex: number;
+  polynomialIndex: number
 }
 
 // ============================================================================
@@ -53,45 +53,45 @@ export interface ChunkProof {
 /** Polynomial commitment to blob data */
 export interface BlobCommitment {
   /** Commitment hash */
-  commitment: Hex;
+  commitment: Hex
   /** Number of original data chunks */
-  dataChunkCount: number;
+  dataChunkCount: number
   /** Number of parity chunks */
-  parityChunkCount: number;
+  parityChunkCount: number
   /** Total chunks after encoding */
-  totalChunkCount: number;
+  totalChunkCount: number
   /** Chunk size in bytes */
-  chunkSize: number;
+  chunkSize: number
   /** Merkle root of all chunks */
-  merkleRoot: Hex;
+  merkleRoot: Hex
   /** Timestamp */
-  timestamp: number;
+  timestamp: number
 }
 
 /** Availability attestation from operators */
 export interface AvailabilityAttestation {
   /** Blob ID */
-  blobId: Hex;
+  blobId: Hex
   /** Attestation commitment */
-  commitment: Hex;
+  commitment: Hex
   /** Operator signatures */
-  signatures: OperatorSignature[];
+  signatures: OperatorSignature[]
   /** Aggregate signature (if using BLS) */
-  aggregateSignature?: Hex;
+  aggregateSignature?: Hex
   /** Quorum reached */
-  quorumReached: boolean;
+  quorumReached: boolean
   /** Timestamp */
-  timestamp: number;
+  timestamp: number
 }
 
 /** Individual operator signature */
 export interface OperatorSignature {
   /** Operator address */
-  operator: Address;
+  operator: Address
   /** Signature */
-  signature: Hex;
+  signature: Hex
   /** Operator's chunk indices */
-  chunkIndices: number[];
+  chunkIndices: number[]
 }
 
 // ============================================================================
@@ -101,50 +101,50 @@ export interface OperatorSignature {
 /** DA operator registration */
 export interface DAOperatorInfo {
   /** Operator address */
-  address: Address;
+  address: Address
   /** ERC-8004 agent ID */
-  agentId: bigint;
+  agentId: bigint
   /** Staked amount */
-  stake: bigint;
+  stake: bigint
   /** Operator endpoint */
-  endpoint: string;
+  endpoint: string
   /** TEE attestation hash */
-  teeAttestation: Hex;
+  teeAttestation: Hex
   /** Geographic region */
-  region: string;
+  region: string
   /** Storage capacity in GB */
-  capacityGB: number;
+  capacityGB: number
   /** Used capacity in GB */
-  usedGB: number;
+  usedGB: number
   /** Operator status */
-  status: OperatorRegistrationStatus;
+  status: OperatorRegistrationStatus
   /** Registration timestamp */
-  registeredAt: number;
+  registeredAt: number
   /** Last heartbeat */
-  lastHeartbeat: number;
+  lastHeartbeat: number
 }
 
-export type OperatorRegistrationStatus = 
+export type OperatorRegistrationStatus =
   | 'pending'
   | 'active'
   | 'inactive'
   | 'slashed'
-  | 'exiting';
+  | 'exiting'
 
 /** Operator performance metrics */
 export interface OperatorMetrics {
   /** Total samples responded */
-  samplesResponded: number;
+  samplesResponded: number
   /** Samples failed */
-  samplesFailed: number;
+  samplesFailed: number
   /** Uptime percentage */
-  uptimePercent: number;
+  uptimePercent: number
   /** Average response latency (ms) */
-  avgLatencyMs: number;
+  avgLatencyMs: number
   /** Total data stored (bytes) */
-  totalDataStored: bigint;
+  totalDataStored: bigint
   /** Blobs currently holding */
-  activeBlobCount: number;
+  activeBlobCount: number
 }
 
 // ============================================================================
@@ -154,41 +154,41 @@ export interface OperatorMetrics {
 /** Sampling request */
 export interface SampleRequest {
   /** Blob ID to sample */
-  blobId: Hex;
+  blobId: Hex
   /** Chunk indices to sample */
-  chunkIndices: number[];
+  chunkIndices: number[]
   /** Requester address */
-  requester: Address;
+  requester: Address
   /** Request nonce for uniqueness */
-  nonce: Hex;
+  nonce: Hex
   /** Timestamp */
-  timestamp: number;
+  timestamp: number
 }
 
 /** Sampling response */
 export interface SampleResponse {
   /** Original request */
-  request: SampleRequest;
+  request: SampleRequest
   /** Chunks returned */
-  chunks: Chunk[];
+  chunks: Chunk[]
   /** Operator signature */
-  signature: Hex;
+  signature: Hex
   /** Response timestamp */
-  timestamp: number;
+  timestamp: number
 }
 
 /** Sampling verification result */
 export interface SampleVerificationResult {
   /** Whether sampling succeeded */
-  success: boolean;
+  success: boolean
   /** Number of samples verified */
-  samplesVerified: number;
+  samplesVerified: number
   /** Number of samples failed */
-  samplesFailed: number;
+  samplesFailed: number
   /** Availability confidence (0-1) */
-  confidence: number;
+  confidence: number
   /** Error if any */
-  error?: string;
+  error?: string
 }
 
 // ============================================================================
@@ -198,41 +198,41 @@ export interface SampleVerificationResult {
 /** Blob submission request */
 export interface BlobSubmissionRequest {
   /** Raw blob data */
-  data: Uint8Array;
+  data: Uint8Array
   /** Submitter address */
-  submitter: Address;
+  submitter: Address
   /** Optional namespace */
-  namespace?: Hex;
+  namespace?: Hex
   /** Quorum percentage required */
-  quorumPercent?: number;
+  quorumPercent?: number
   /** Retention period in seconds */
-  retentionPeriod?: number;
+  retentionPeriod?: number
 }
 
 /** Blob submission result */
 export interface BlobSubmissionResult {
   /** Blob ID */
-  blobId: Hex;
+  blobId: Hex
   /** Commitment */
-  commitment: BlobCommitment;
+  commitment: BlobCommitment
   /** Availability attestation */
-  attestation: AvailabilityAttestation;
+  attestation: AvailabilityAttestation
   /** Operators storing the blob */
-  operators: Address[];
+  operators: Address[]
   /** Chunk assignments */
-  chunkAssignments: ChunkAssignment[];
+  chunkAssignments: ChunkAssignment[]
   /** Total cost (if applicable) */
-  cost?: bigint;
+  cost?: bigint
   /** Transaction hash (if on-chain) */
-  txHash?: Hex;
+  txHash?: Hex
 }
 
 /** Chunk to operator assignment */
 export interface ChunkAssignment {
   /** Chunk index */
-  chunkIndex: number;
+  chunkIndex: number
   /** Assigned operators */
-  operators: Address[];
+  operators: Address[]
 }
 
 // ============================================================================
@@ -242,21 +242,21 @@ export interface ChunkAssignment {
 /** Blob retrieval request */
 export interface BlobRetrievalRequest {
   /** Blob ID */
-  blobId: Hex;
+  blobId: Hex
   /** Commitment for verification */
-  commitment: BlobCommitment;
+  commitment: BlobCommitment
 }
 
 /** Blob retrieval result */
 export interface BlobRetrievalResult {
   /** Reconstructed blob data */
-  data: Uint8Array;
+  data: Uint8Array
   /** Chunks used for reconstruction */
-  chunksUsed: number;
+  chunksUsed: number
   /** Verification passed */
-  verified: boolean;
+  verified: boolean
   /** Retrieval latency (ms) */
-  latencyMs: number;
+  latencyMs: number
 }
 
 // ============================================================================
@@ -266,45 +266,45 @@ export interface BlobRetrievalResult {
 /** Erasure coding configuration */
 export interface ErasureConfig {
   /** Number of data shards */
-  dataShards: number;
+  dataShards: number
   /** Number of parity shards */
-  parityShards: number;
+  parityShards: number
   /** Chunk size in bytes */
-  chunkSize: number;
+  chunkSize: number
 }
 
 /** Sampling configuration */
 export interface SamplingConfig {
   /** Number of samples per verification */
-  sampleCount: number;
+  sampleCount: number
   /** Target availability confidence */
-  targetConfidence: number;
+  targetConfidence: number
   /** Timeout for sample responses (ms) */
-  timeoutMs: number;
+  timeoutMs: number
   /** Retry count */
-  retries: number;
+  retries: number
 }
 
 /** DA layer configuration */
 export interface DAConfig {
   /** Erasure coding config */
-  erasure: ErasureConfig;
+  erasure: ErasureConfig
   /** Sampling config */
-  sampling: SamplingConfig;
+  sampling: SamplingConfig
   /** Minimum operator stake */
-  minOperatorStake: bigint;
+  minOperatorStake: bigint
   /** Minimum quorum percentage */
-  minQuorumPercent: number;
+  minQuorumPercent: number
   /** Default retention period (seconds) */
-  defaultRetentionPeriod: number;
+  defaultRetentionPeriod: number
   /** Contract addresses */
   contracts: {
-    operatorRegistry: Address;
-    blobRegistry: Address;
-    attestationManager: Address;
-  };
+    operatorRegistry: Address
+    blobRegistry: Address
+    attestationManager: Address
+  }
   /** RPC URL */
-  rpcUrl: string;
+  rpcUrl: string
 }
 
 // ============================================================================
@@ -318,15 +318,15 @@ export type DAEventType =
   | 'operator_registered'
   | 'operator_slashed'
   | 'sample_request'
-  | 'sample_response';
+  | 'sample_response'
 
 export interface DAEvent {
-  type: DAEventType;
-  timestamp: number;
-  data: Record<string, unknown>;
+  type: DAEventType
+  timestamp: number
+  data: Record<string, unknown>
 }
 
-export type DAEventListener = (event: DAEvent) => void;
+export type DAEventListener = (event: DAEvent) => void
 
 // ============================================================================
 // Error Types
@@ -350,10 +350,9 @@ export class DAError extends Error {
   constructor(
     public readonly code: DAErrorCode,
     message: string,
-    public readonly details?: Record<string, unknown>
+    public readonly details?: Record<string, unknown>,
   ) {
-    super(message);
-    this.name = 'DAError';
+    super(message)
+    this.name = 'DAError'
   }
 }
-

@@ -4,95 +4,95 @@
  * Tests Distributed Workflow System against live localnet.
  */
 
-import { describe, test, expect, beforeAll, afterAll } from "bun:test";
-import { createJejuClient, type JejuClient, JobStatus } from "../../src";
-import { privateKeyToAccount } from "viem/accounts";
-import type { Hex } from "viem";
-import { setupTestEnvironment, teardownTestEnvironment } from "../setup";
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+import type { Hex } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { createJejuClient, type JejuClient, JobStatus } from '../../src'
+import { setupTestEnvironment, teardownTestEnvironment } from '../setup'
 
-describe("DWS Module Integration Tests", () => {
-  let client: JejuClient;
-  let env: Awaited<ReturnType<typeof setupTestEnvironment>>;
-  let skipTests = false;
+describe('DWS Module Integration Tests', () => {
+  let client: JejuClient
+  let env: Awaited<ReturnType<typeof setupTestEnvironment>>
+  let skipTests = false
 
   beforeAll(async () => {
-    env = await setupTestEnvironment();
+    env = await setupTestEnvironment()
 
     if (!env.chainRunning) {
-      console.log("⚠ Chain not running - skipping DWS tests");
-      skipTests = true;
-      return;
+      console.log('⚠ Chain not running - skipping DWS tests')
+      skipTests = true
+      return
     }
 
-    const account = privateKeyToAccount(env.privateKey);
+    const account = privateKeyToAccount(env.privateKey)
     client = await createJejuClient({
       account,
-      network: "localnet",
+      network: 'localnet',
       rpcUrl: env.rpcUrl,
       smartAccount: false,
-    });
-  });
+    })
+  })
 
   afterAll(async () => {
-    await teardownTestEnvironment();
-  });
+    await teardownTestEnvironment()
+  })
 
-  describe("Trigger Management", () => {
-    test("listTriggers returns array", async () => {
-      if (skipTests || !env.contractsDeployed) return;
-      const triggers = await client.dws.listTriggers();
-      expect(Array.isArray(triggers)).toBe(true);
-    });
+  describe('Trigger Management', () => {
+    test('listTriggers returns array', async () => {
+      if (skipTests || !env.contractsDeployed) return
+      const triggers = await client.dws.listTriggers()
+      expect(Array.isArray(triggers)).toBe(true)
+    })
 
-    test("getTrigger returns null for non-existent", async () => {
-      if (skipTests || !env.contractsDeployed) return;
-      const trigger = await client.dws.getTrigger("0x" + "00".repeat(32) as Hex);
-      expect(trigger).toBeNull();
-    });
-  });
+    test('getTrigger returns null for non-existent', async () => {
+      if (skipTests || !env.contractsDeployed) return
+      const trigger = await client.dws.getTrigger(`0x${'00'.repeat(32)}` as Hex)
+      expect(trigger).toBeNull()
+    })
+  })
 
-  describe("Workflow Management", () => {
-    test("listWorkflows returns array", async () => {
-      if (skipTests || !env.contractsDeployed) return;
-      const workflows = await client.dws.listWorkflows();
-      expect(Array.isArray(workflows)).toBe(true);
-    });
+  describe('Workflow Management', () => {
+    test('listWorkflows returns array', async () => {
+      if (skipTests || !env.contractsDeployed) return
+      const workflows = await client.dws.listWorkflows()
+      expect(Array.isArray(workflows)).toBe(true)
+    })
 
-    test("getWorkflow returns null for non-existent", async () => {
-      if (skipTests || !env.contractsDeployed) return;
-      const workflow = await client.dws.getWorkflow("0x" + "00".repeat(32) as Hex);
-      expect(workflow).toBeNull();
-    });
-  });
+    test('getWorkflow returns null for non-existent', async () => {
+      if (skipTests || !env.contractsDeployed) return
+      const workflow = await client.dws.getWorkflow(
+        `0x${'00'.repeat(32)}` as Hex,
+      )
+      expect(workflow).toBeNull()
+    })
+  })
 
-  describe("Job Management", () => {
-    test("listMyJobs returns array", async () => {
-      if (skipTests || !env.contractsDeployed) return;
-      const jobs = await client.dws.listMyJobs();
-      expect(Array.isArray(jobs)).toBe(true);
-    });
+  describe('Job Management', () => {
+    test('listMyJobs returns array', async () => {
+      if (skipTests || !env.contractsDeployed) return
+      const jobs = await client.dws.listMyJobs()
+      expect(Array.isArray(jobs)).toBe(true)
+    })
 
-    test("listJobs with filter returns array", async () => {
-      if (skipTests || !env.contractsDeployed) return;
-      const jobs = await client.dws.listJobs({ status: JobStatus.COMPLETED });
-      expect(Array.isArray(jobs)).toBe(true);
-    });
+    test('listJobs with filter returns array', async () => {
+      if (skipTests || !env.contractsDeployed) return
+      const jobs = await client.dws.listJobs({ status: JobStatus.COMPLETED })
+      expect(Array.isArray(jobs)).toBe(true)
+    })
 
-    test("getJob returns null for non-existent", async () => {
-      if (skipTests || !env.contractsDeployed) return;
-      const job = await client.dws.getJob("0x" + "00".repeat(32) as Hex);
-      expect(job).toBeNull();
-    });
-  });
+    test('getJob returns null for non-existent', async () => {
+      if (skipTests || !env.contractsDeployed) return
+      const job = await client.dws.getJob(`0x${'00'.repeat(32)}` as Hex)
+      expect(job).toBeNull()
+    })
+  })
 
-  describe("Statistics", () => {
-    test("getStats returns statistics object", async () => {
-      if (skipTests || !env.contractsDeployed) return;
-      const stats = await client.dws.getStats();
-      expect(stats).toBeDefined();
-      expect(typeof stats.totalJobs).toBe("number");
-    });
-  });
-});
-
-
+  describe('Statistics', () => {
+    test('getStats returns statistics object', async () => {
+      if (skipTests || !env.contractsDeployed) return
+      const stats = await client.dws.getStats()
+      expect(stats).toBeDefined()
+      expect(typeof stats.totalJobs).toBe('number')
+    })
+  })
+})

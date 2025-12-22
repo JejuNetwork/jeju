@@ -46,6 +46,7 @@ hickory-resolver = "0.24"
 base64 = "0.22"
 rand = "0.8"
 x25519-dalek = { version = "2", features = ["static_secrets"] }
+hex = "0.4"
 
 # Ethereum
 alloy = { version = "0.1", features = ["full"] }

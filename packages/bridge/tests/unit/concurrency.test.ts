@@ -9,327 +9,331 @@
  * - Resource contention
  */
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from 'bun:test'
 import {
-	createTEEBatcher,
-	ChainId,
-	type CrossChainTransfer,
-	toHash32,
-	LOCAL_TEE_CONFIG,
-} from "../../src/index.js";
+  ChainId,
+  type CrossChainTransfer,
+  createTEEBatcher,
+  LOCAL_TEE_CONFIG,
+  toHash32,
+} from '../../src/index.js'
 
-describe("Concurrent Transfer Processing", () => {
-	it("should handle multiple concurrent addTransfer calls", async () => {
-		const batcher = createTEEBatcher({
-			...LOCAL_TEE_CONFIG,
-			maxBatchSize: 100,
-			minBatchSize: 1,
-		});
-		await batcher.initialize();
+describe('Concurrent Transfer Processing', () => {
+  it('should handle multiple concurrent addTransfer calls', async () => {
+    const batcher = createTEEBatcher({
+      ...LOCAL_TEE_CONFIG,
+      maxBatchSize: 100,
+      minBatchSize: 1,
+    })
+    await batcher.initialize()
 
-		const numTransfers = 50;
-		const transfers = Array.from({ length: numTransfers }, (_, i) => createTransfer(i));
+    const numTransfers = 50
+    const transfers = Array.from({ length: numTransfers }, (_, i) =>
+      createTransfer(i),
+    )
 
-		const results = await Promise.all(
-			transfers.map(t => batcher.addTransfer(t))
-		);
+    const results = await Promise.all(
+      transfers.map((t) => batcher.addTransfer(t)),
+    )
 
-		// All should succeed
-		expect(results.length).toBe(numTransfers);
-		
-		// All should have valid batch IDs
-		for (const result of results) {
-			expect(result.batchId).toBeDefined();
-			expect(typeof result.batchId).toBe("string");
-		}
+    // All should succeed
+    expect(results.length).toBe(numTransfers)
 
-		// Positions should be unique
-		const positions = results.map(r => r.position);
-		const uniquePositions = new Set(positions);
-		expect(uniquePositions.size).toBe(numTransfers);
-	});
+    // All should have valid batch IDs
+    for (const result of results) {
+      expect(result.batchId).toBeDefined()
+      expect(typeof result.batchId).toBe('string')
+    }
 
-	it("should maintain transfer order within batch", async () => {
-		const batcher = createTEEBatcher({
-			...LOCAL_TEE_CONFIG,
-			maxBatchSize: 100,
-			minBatchSize: 1,
-		});
-		await batcher.initialize();
+    // Positions should be unique
+    const positions = results.map((r) => r.position)
+    const uniquePositions = new Set(positions)
+    expect(uniquePositions.size).toBe(numTransfers)
+  })
 
-		const transfers = Array.from({ length: 10 }, (_, i) => createTransfer(i));
-		
-		// Add sequentially to ensure order
-		const results = [];
-		for (const t of transfers) {
-			results.push(await batcher.addTransfer(t));
-		}
+  it('should maintain transfer order within batch', async () => {
+    const batcher = createTEEBatcher({
+      ...LOCAL_TEE_CONFIG,
+      maxBatchSize: 100,
+      minBatchSize: 1,
+    })
+    await batcher.initialize()
 
-		// Verify sequential positions in order of insertion
-		for (let i = 0; i < results.length; i++) {
-			expect(results[i].position).toBe(i);
-		}
-	});
+    const transfers = Array.from({ length: 10 }, (_, i) => createTransfer(i))
 
-	it("should handle rapid sequential adds", async () => {
-		const batcher = createTEEBatcher({
-			...LOCAL_TEE_CONFIG,
-			maxBatchSize: 1000,
-			minBatchSize: 1,
-		});
-		await batcher.initialize();
+    // Add sequentially to ensure order
+    const results = []
+    for (const t of transfers) {
+      results.push(await batcher.addTransfer(t))
+    }
 
-		const startTime = Date.now();
-		const numTransfers = 100;
+    // Verify sequential positions in order of insertion
+    for (let i = 0; i < results.length; i++) {
+      expect(results[i].position).toBe(i)
+    }
+  })
 
-		for (let i = 0; i < numTransfers; i++) {
-			await batcher.addTransfer(createTransfer(i));
-		}
+  it('should handle rapid sequential adds', async () => {
+    const batcher = createTEEBatcher({
+      ...LOCAL_TEE_CONFIG,
+      maxBatchSize: 1000,
+      minBatchSize: 1,
+    })
+    await batcher.initialize()
 
-		const elapsed = Date.now() - startTime;
-		
-		// Should complete within reasonable time
-		expect(elapsed).toBeLessThan(5000);
-	});
+    const startTime = Date.now()
+    const numTransfers = 100
 
-	it("should handle interleaved reads and writes", async () => {
-		const batcher = createTEEBatcher({
-			...LOCAL_TEE_CONFIG,
-			maxBatchSize: 50,
-			minBatchSize: 1,
-		});
-		await batcher.initialize();
+    for (let i = 0; i < numTransfers; i++) {
+      await batcher.addTransfer(createTransfer(i))
+    }
 
-		const results: Array<{ batchId: string; position: number }> = [];
-		const attestations: Array<ReturnType<typeof batcher.getAttestation>> = [];
+    const elapsed = Date.now() - startTime
 
-		// Interleave adds and attestation reads
-		for (let i = 0; i < 20; i++) {
-			results.push(await batcher.addTransfer(createTransfer(i)));
-			attestations.push(batcher.getAttestation());
-		}
+    // Should complete within reasonable time
+    expect(elapsed).toBeLessThan(5000)
+  })
 
-		// All results should be valid
-		expect(results.length).toBe(20);
-		expect(attestations.length).toBe(20);
+  it('should handle interleaved reads and writes', async () => {
+    const batcher = createTEEBatcher({
+      ...LOCAL_TEE_CONFIG,
+      maxBatchSize: 50,
+      minBatchSize: 1,
+    })
+    await batcher.initialize()
 
-		// All attestations should be the same (immutable after init)
-		const firstAttestation = attestations[0];
-		for (const att of attestations) {
-			expect(att?.measurement).toEqual(firstAttestation?.measurement);
-		}
-	});
-});
+    const results: Array<{ batchId: string; position: number }> = []
+    const attestations: Array<ReturnType<typeof batcher.getAttestation>> = []
 
-describe("Batch Boundary Conditions", () => {
-	it("should create new batch when max size reached", async () => {
-		const maxBatchSize = 5;
-		const batcher = createTEEBatcher({
-			...LOCAL_TEE_CONFIG,
-			maxBatchSize,
-			minBatchSize: 1,
-		});
-		await batcher.initialize();
+    // Interleave adds and attestation reads
+    for (let i = 0; i < 20; i++) {
+      results.push(await batcher.addTransfer(createTransfer(i)))
+      attestations.push(batcher.getAttestation())
+    }
 
-		const results = [];
-		for (let i = 0; i < maxBatchSize + 2; i++) {
-			results.push(await batcher.addTransfer(createTransfer(i)));
-		}
+    // All results should be valid
+    expect(results.length).toBe(20)
+    expect(attestations.length).toBe(20)
 
-		// Should have multiple batches
-		const batchIds = new Set(results.map(r => r.batchId));
-		expect(batchIds.size).toBeGreaterThanOrEqual(1);
-	});
+    // All attestations should be the same (immutable after init)
+    const firstAttestation = attestations[0]
+    for (const att of attestations) {
+      expect(att?.measurement).toEqual(firstAttestation?.measurement)
+    }
+  })
+})
 
-	it("should handle exactly max batch size", async () => {
-		const maxBatchSize = 10;
-		const batcher = createTEEBatcher({
-			...LOCAL_TEE_CONFIG,
-			maxBatchSize,
-			minBatchSize: 1,
-		});
-		await batcher.initialize();
+describe('Batch Boundary Conditions', () => {
+  it('should create new batch when max size reached', async () => {
+    const maxBatchSize = 5
+    const batcher = createTEEBatcher({
+      ...LOCAL_TEE_CONFIG,
+      maxBatchSize,
+      minBatchSize: 1,
+    })
+    await batcher.initialize()
 
-		const results = [];
-		for (let i = 0; i < maxBatchSize; i++) {
-			results.push(await batcher.addTransfer(createTransfer(i)));
-		}
+    const results = []
+    for (let i = 0; i < maxBatchSize + 2; i++) {
+      results.push(await batcher.addTransfer(createTransfer(i)))
+    }
 
-		// All should be in the same batch
-		const batchIds = new Set(results.map(r => r.batchId));
-		expect(batchIds.size).toBe(1);
+    // Should have multiple batches
+    const batchIds = new Set(results.map((r) => r.batchId))
+    expect(batchIds.size).toBeGreaterThanOrEqual(1)
+  })
 
-		// Positions should be 0 to maxBatchSize-1
-		const positions = results.map(r => r.position).sort((a, b) => a - b);
-		expect(positions).toEqual(Array.from({ length: maxBatchSize }, (_, i) => i));
-	});
+  it('should handle exactly max batch size', async () => {
+    const maxBatchSize = 10
+    const batcher = createTEEBatcher({
+      ...LOCAL_TEE_CONFIG,
+      maxBatchSize,
+      minBatchSize: 1,
+    })
+    await batcher.initialize()
 
-	it("should handle single transfer batch", async () => {
-		const batcher = createTEEBatcher({
-			...LOCAL_TEE_CONFIG,
-			maxBatchSize: 100,
-			minBatchSize: 1,
-		});
-		await batcher.initialize();
+    const results = []
+    for (let i = 0; i < maxBatchSize; i++) {
+      results.push(await batcher.addTransfer(createTransfer(i)))
+    }
 
-		const result = await batcher.addTransfer(createTransfer(0));
+    // All should be in the same batch
+    const batchIds = new Set(results.map((r) => r.batchId))
+    expect(batchIds.size).toBe(1)
 
-		expect(result.batchId).toBeDefined();
-		expect(result.position).toBe(0);
-	});
-});
+    // Positions should be 0 to maxBatchSize-1
+    const positions = results.map((r) => r.position).sort((a, b) => a - b)
+    expect(positions).toEqual(Array.from({ length: maxBatchSize }, (_, i) => i))
+  })
 
-describe("Async Operation Ordering", () => {
-	it("should process transfers in FIFO order under load", async () => {
-		const batcher = createTEEBatcher({
-			...LOCAL_TEE_CONFIG,
-			maxBatchSize: 1000,
-			minBatchSize: 1,
-		});
-		await batcher.initialize();
+  it('should handle single transfer batch', async () => {
+    const batcher = createTEEBatcher({
+      ...LOCAL_TEE_CONFIG,
+      maxBatchSize: 100,
+      minBatchSize: 1,
+    })
+    await batcher.initialize()
 
-		const numTransfers = 100;
-		const insertionOrder: number[] = [];
-		const results: Array<{ batchId: string; position: number; nonce: number }> = [];
+    const result = await batcher.addTransfer(createTransfer(0))
 
-		// Use Promise.all to maximize concurrency
-		const promises = Array.from({ length: numTransfers }, async (_, i) => {
-			insertionOrder.push(i);
-			const result = await batcher.addTransfer(createTransfer(i));
-			return { ...result, nonce: i };
-		});
+    expect(result.batchId).toBeDefined()
+    expect(result.position).toBe(0)
+  })
+})
 
-		const allResults = await Promise.all(promises);
-		results.push(...allResults);
+describe('Async Operation Ordering', () => {
+  it('should process transfers in FIFO order under load', async () => {
+    const batcher = createTEEBatcher({
+      ...LOCAL_TEE_CONFIG,
+      maxBatchSize: 1000,
+      minBatchSize: 1,
+    })
+    await batcher.initialize()
 
-		// Verify all completed
-		expect(results.length).toBe(numTransfers);
-	});
+    const numTransfers = 100
+    const insertionOrder: number[] = []
+    const results: Array<{ batchId: string; position: number; nonce: number }> =
+      []
 
-	it("should handle Promise.race patterns", async () => {
-		const batcher = createTEEBatcher({
-			...LOCAL_TEE_CONFIG,
-			maxBatchSize: 10,
-			minBatchSize: 1,
-		});
-		await batcher.initialize();
+    // Use Promise.all to maximize concurrency
+    const promises = Array.from({ length: numTransfers }, async (_, i) => {
+      insertionOrder.push(i)
+      const result = await batcher.addTransfer(createTransfer(i))
+      return { ...result, nonce: i }
+    })
 
-		const transfer1 = batcher.addTransfer(createTransfer(1));
-		const transfer2 = batcher.addTransfer(createTransfer(2));
-		const transfer3 = batcher.addTransfer(createTransfer(3));
+    const allResults = await Promise.all(promises)
+    results.push(...allResults)
 
-		const firstComplete = await Promise.race([transfer1, transfer2, transfer3]);
-		expect(firstComplete.batchId).toBeDefined();
+    // Verify all completed
+    expect(results.length).toBe(numTransfers)
+  })
 
-		// All should still complete
-		const [r1, r2, r3] = await Promise.all([transfer1, transfer2, transfer3]);
-		expect(r1.batchId).toBeDefined();
-		expect(r2.batchId).toBeDefined();
-		expect(r3.batchId).toBeDefined();
-	});
-});
+  it('should handle Promise.race patterns', async () => {
+    const batcher = createTEEBatcher({
+      ...LOCAL_TEE_CONFIG,
+      maxBatchSize: 10,
+      minBatchSize: 1,
+    })
+    await batcher.initialize()
 
-describe("Resource Contention", () => {
-	it("should handle multiple batcher instances", async () => {
-		const batcher1 = createTEEBatcher({
-			...LOCAL_TEE_CONFIG,
-			maxBatchSize: 10,
-			minBatchSize: 1,
-		});
-		const batcher2 = createTEEBatcher({
-			...LOCAL_TEE_CONFIG,
-			maxBatchSize: 10,
-			minBatchSize: 1,
-		});
+    const transfer1 = batcher.addTransfer(createTransfer(1))
+    const transfer2 = batcher.addTransfer(createTransfer(2))
+    const transfer3 = batcher.addTransfer(createTransfer(3))
 
-		await Promise.all([batcher1.initialize(), batcher2.initialize()]);
+    const firstComplete = await Promise.race([transfer1, transfer2, transfer3])
+    expect(firstComplete.batchId).toBeDefined()
 
-		const [result1, result2] = await Promise.all([
-			batcher1.addTransfer(createTransfer(1)),
-			batcher2.addTransfer(createTransfer(2)),
-		]);
+    // All should still complete
+    const [r1, r2, r3] = await Promise.all([transfer1, transfer2, transfer3])
+    expect(r1.batchId).toBeDefined()
+    expect(r2.batchId).toBeDefined()
+    expect(r3.batchId).toBeDefined()
+  })
+})
 
-		// Each batcher should have its own batch
-		expect(result1.batchId).toBeDefined();
-		expect(result2.batchId).toBeDefined();
-		// Batch IDs should be different (from different instances)
-		expect(result1.batchId).not.toBe(result2.batchId);
-	});
+describe('Resource Contention', () => {
+  it('should handle multiple batcher instances', async () => {
+    const batcher1 = createTEEBatcher({
+      ...LOCAL_TEE_CONFIG,
+      maxBatchSize: 10,
+      minBatchSize: 1,
+    })
+    const batcher2 = createTEEBatcher({
+      ...LOCAL_TEE_CONFIG,
+      maxBatchSize: 10,
+      minBatchSize: 1,
+    })
 
-	it("should maintain isolation between batchers", async () => {
-		const batcher1 = createTEEBatcher({
-			...LOCAL_TEE_CONFIG,
-			maxBatchSize: 5,
-			minBatchSize: 1,
-		});
-		const batcher2 = createTEEBatcher({
-			...LOCAL_TEE_CONFIG,
-			maxBatchSize: 5,
-			minBatchSize: 1,
-		});
+    await Promise.all([batcher1.initialize(), batcher2.initialize()])
 
-		await Promise.all([batcher1.initialize(), batcher2.initialize()]);
+    const [result1, result2] = await Promise.all([
+      batcher1.addTransfer(createTransfer(1)),
+      batcher2.addTransfer(createTransfer(2)),
+    ])
 
-		// Add to batcher1
-		const results1 = [];
-		for (let i = 0; i < 3; i++) {
-			results1.push(await batcher1.addTransfer(createTransfer(i)));
-		}
+    // Each batcher should have its own batch
+    expect(result1.batchId).toBeDefined()
+    expect(result2.batchId).toBeDefined()
+    // Batch IDs should be different (from different instances)
+    expect(result1.batchId).not.toBe(result2.batchId)
+  })
 
-		// Add to batcher2
-		const results2 = [];
-		for (let i = 0; i < 3; i++) {
-			results2.push(await batcher2.addTransfer(createTransfer(100 + i)));
-		}
+  it('should maintain isolation between batchers', async () => {
+    const batcher1 = createTEEBatcher({
+      ...LOCAL_TEE_CONFIG,
+      maxBatchSize: 5,
+      minBatchSize: 1,
+    })
+    const batcher2 = createTEEBatcher({
+      ...LOCAL_TEE_CONFIG,
+      maxBatchSize: 5,
+      minBatchSize: 1,
+    })
 
-		// Each batcher should have independent positions
-		expect(results1.map(r => r.position)).toEqual([0, 1, 2]);
-		expect(results2.map(r => r.position)).toEqual([0, 1, 2]);
-	});
-});
+    await Promise.all([batcher1.initialize(), batcher2.initialize()])
 
-describe("Error Recovery Under Concurrency", () => {
-	it("should continue processing after invalid transfer", async () => {
-		const batcher = createTEEBatcher({
-			...LOCAL_TEE_CONFIG,
-			maxBatchSize: 10,
-			minBatchSize: 1,
-		});
-		await batcher.initialize();
+    // Add to batcher1
+    const results1 = []
+    for (let i = 0; i < 3; i++) {
+      results1.push(await batcher1.addTransfer(createTransfer(i)))
+    }
 
-		// Add valid transfer
-		const result1 = await batcher.addTransfer(createTransfer(1));
-		expect(result1.batchId).toBeDefined();
+    // Add to batcher2
+    const results2 = []
+    for (let i = 0; i < 3; i++) {
+      results2.push(await batcher2.addTransfer(createTransfer(100 + i)))
+    }
 
-		// Add invalid transfer (zero amount) - should throw
-		const invalidTransfer = createTransfer(2);
-		invalidTransfer.amount = BigInt(0);
+    // Each batcher should have independent positions
+    expect(results1.map((r) => r.position)).toEqual([0, 1, 2])
+    expect(results2.map((r) => r.position)).toEqual([0, 1, 2])
+  })
+})
 
-		// Invalid transfers are rejected immediately with validation error
-		await expect(batcher.addTransfer(invalidTransfer)).rejects.toThrow('Transfer amount must be positive');
+describe('Error Recovery Under Concurrency', () => {
+  it('should continue processing after invalid transfer', async () => {
+    const batcher = createTEEBatcher({
+      ...LOCAL_TEE_CONFIG,
+      maxBatchSize: 10,
+      minBatchSize: 1,
+    })
+    await batcher.initialize()
 
-		// Add another valid transfer - should still work after rejection
-		const result3 = await batcher.addTransfer(createTransfer(3));
-		expect(result3.batchId).toBeDefined();
+    // Add valid transfer
+    const result1 = await batcher.addTransfer(createTransfer(1))
+    expect(result1.batchId).toBeDefined()
 
-		// Both valid transfers should be in same batch
-		expect(result1.batchId).toBe(result3.batchId);
-	});
-});
+    // Add invalid transfer (zero amount) - should throw
+    const invalidTransfer = createTransfer(2)
+    invalidTransfer.amount = BigInt(0)
+
+    // Invalid transfers are rejected immediately with validation error
+    await expect(batcher.addTransfer(invalidTransfer)).rejects.toThrow(
+      'Transfer amount must be positive',
+    )
+
+    // Add another valid transfer - should still work after rejection
+    const result3 = await batcher.addTransfer(createTransfer(3))
+    expect(result3.batchId).toBeDefined()
+
+    // Both valid transfers should be in same batch
+    expect(result1.batchId).toBe(result3.batchId)
+  })
+})
 
 // Helper to create test transfers
 function createTransfer(nonce: number): CrossChainTransfer {
-	return {
-		transferId: toHash32(new Uint8Array(32).map((_, i) => (nonce + i) % 256)),
-		sourceChain: ChainId.LOCAL_EVM,
-		destChain: ChainId.LOCAL_SOLANA,
-		token: toHash32(new Uint8Array(32).fill(0x01)),
-		sender: new Uint8Array(32).fill(0x02),
-		recipient: new Uint8Array(32).fill(0x03),
-		amount: BigInt(1000000 * (nonce + 1)),
-		nonce: BigInt(nonce),
-		timestamp: BigInt(Date.now()),
-		payload: new Uint8Array(0),
-	};
+  return {
+    transferId: toHash32(new Uint8Array(32).map((_, i) => (nonce + i) % 256)),
+    sourceChain: ChainId.LOCAL_EVM,
+    destChain: ChainId.LOCAL_SOLANA,
+    token: toHash32(new Uint8Array(32).fill(0x01)),
+    sender: new Uint8Array(32).fill(0x02),
+    recipient: new Uint8Array(32).fill(0x03),
+    amount: BigInt(1000000 * (nonce + 1)),
+    nonce: BigInt(nonce),
+    timestamp: BigInt(Date.now()),
+    payload: new Uint8Array(0),
+  }
 }
-

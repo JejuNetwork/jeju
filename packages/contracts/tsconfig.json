@@ -18,6 +18,6 @@
     "types": ["node"]
   },
   "include": ["ts/**/*.ts"],
-  "exclude": ["node_modules", "dist", "lib", "out", "cache", "broadcast"]
+  "exclude": ["node_modules", "dist", "lib", "out", "cache", "broadcast", "ts/__tests__"]
 }
 

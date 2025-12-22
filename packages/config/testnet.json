@@ -11,8 +11,7 @@
     },
     "rpc": {
       "http": "https://testnet-rpc.jejunetwork.org",
-      "ws": "wss://testnet-ws.jejunetwork.org",
-      "internal": "http://reth-sequencer.execution.svc.cluster.local:8545"
+      "ws": "wss://testnet-ws.jejunetwork.org"
     },
     "explorer": "https://explorer.testnet.jejunetwork.org",
     "blockTime": 2
@@ -26,8 +25,7 @@
         "https://ethereum-sepolia-rpc.publicnode.com",
         "https://sepolia.drpc.org"
       ],
-      "beacon": "https://ethereum-sepolia-beacon-api.publicnode.com",
-      "internal": "http://geth-l1.l1.svc.cluster.local:8545"
+      "beacon": "https://ethereum-sepolia-beacon-api.publicnode.com"
     }
   },
   "api": {

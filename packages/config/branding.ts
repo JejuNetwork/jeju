@@ -1,25 +1,25 @@
 /**
  * Branding Configuration
- * 
+ *
  * Centralized branding for the entire network.
  * Fork this and edit branding.json to customize your network.
  */
 
-import { readFileSync, existsSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { existsSync, readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import {
-  BrandingConfigSchema,
   type BrandingConfig,
+  BrandingConfigSchema,
   type ChainBranding,
-  type TokenBranding,
-  type UrlsBranding,
-  type VisualBranding,
+  type CliBranding,
   type FeaturesBranding,
   type LegalBranding,
   type SupportBranding,
-  type CliBranding,
-} from './schemas';
+  type TokenBranding,
+  type UrlsBranding,
+  type VisualBranding,
+} from './schemas'
 
 export type {
   BrandingConfig,
@@ -31,7 +31,7 @@ export type {
   LegalBranding,
   SupportBranding,
   CliBranding,
-};
+}
 
 // ============================================================================
 // Default Config (for documentation/template purposes)
@@ -65,10 +65,22 @@ export const DEFAULT_BRANDING: BrandingConfig = {
   urls: {
     website: 'https://example.com',
     docs: 'https://docs.example.com',
-    explorer: { testnet: 'https://testnet-explorer.example.com', mainnet: 'https://explorer.example.com' },
-    rpc: { testnet: 'https://testnet-rpc.example.com', mainnet: 'https://rpc.example.com' },
-    api: { testnet: 'https://testnet-api.example.com', mainnet: 'https://api.example.com' },
-    gateway: { testnet: 'https://testnet.example.com', mainnet: 'https://app.example.com' },
+    explorer: {
+      testnet: 'https://testnet-explorer.example.com',
+      mainnet: 'https://explorer.example.com',
+    },
+    rpc: {
+      testnet: 'https://testnet-rpc.example.com',
+      mainnet: 'https://rpc.example.com',
+    },
+    api: {
+      testnet: 'https://testnet-api.example.com',
+      mainnet: 'https://api.example.com',
+    },
+    gateway: {
+      testnet: 'https://testnet.example.com',
+      mainnet: 'https://app.example.com',
+    },
     github: 'https://github.com/example/network',
     twitter: 'https://twitter.com/example',
     discord: 'https://discord.gg/example',
@@ -84,7 +96,11 @@ export const DEFAULT_BRANDING: BrandingConfig = {
     accentColor: '#06b6d4',
     backgroundColor: '#0f172a',
     textColor: '#f8fafc',
-    logo: { light: '/assets/logo-light.svg', dark: '/assets/logo-dark.svg', icon: '/assets/icon.svg' },
+    logo: {
+      light: '/assets/logo-light.svg',
+      dark: '/assets/logo-dark.svg',
+      icon: '/assets/icon.svg',
+    },
     favicon: '/favicon.ico',
   },
   features: {
@@ -112,14 +128,14 @@ export const DEFAULT_BRANDING: BrandingConfig = {
     displayName: 'Network CLI',
     banner: ['  MY NETWORK  '],
   },
-};
+}
 
 // ============================================================================
 // Loader
 // ============================================================================
 
-let brandingCache: BrandingConfig | null = null;
-let configPath: string | null = null;
+let brandingCache: BrandingConfig | null = null
+let configPath: string | null = null
 
 function findConfigDir(): string {
   // Try multiple locations
@@ -130,40 +146,50 @@ function findConfigDir(): string {
     join(process.cwd(), 'packages', 'config'),
     // From any package
     join(process.cwd(), '..', '..', 'packages', 'config'),
-  ];
+  ]
 
   for (const loc of locations) {
-    const brandingPath = join(loc, 'branding.json');
+    const brandingPath = join(loc, 'branding.json')
     if (existsSync(brandingPath)) {
-      return loc;
+      return loc
     }
   }
 
   // Return first location for error message in loadBrandingFile
-  return locations[0];
+  // The array is always populated, so first element is guaranteed
+  const firstLocation = locations[0]
+  if (!firstLocation) {
+    throw new Error('No config locations defined')
+  }
+  return firstLocation
+}
+
+/** Safely read a file with error handling */
+function safeReadFile(path: string): string {
+  return readFileSync(path, 'utf-8')
 }
 
 function loadBrandingFile(): BrandingConfig {
-  const dir = configPath ?? findConfigDir();
-  const brandingPath = join(dir, 'branding.json');
+  const dir = configPath ?? findConfigDir()
+  const brandingPath = join(dir, 'branding.json')
 
   if (!existsSync(brandingPath)) {
     throw new Error(
       `branding.json not found at ${brandingPath}. ` +
-      `Create it from the template or set config path with setConfigPath().`
-    );
+        `Create it from the template or set config path with setConfigPath().`,
+    )
   }
 
-  const content = readFileSync(brandingPath, 'utf-8');
-  return BrandingConfigSchema.parse(JSON.parse(content));
+  const content = safeReadFile(brandingPath)
+  return BrandingConfigSchema.parse(JSON.parse(content))
 }
 
 /**
  * Set custom config path (useful for forks)
  */
 export function setConfigPath(path: string): void {
-  configPath = path;
-  brandingCache = null;
+  configPath = path
+  brandingCache = null
 }
 
 /**
@@ -171,16 +197,16 @@ export function setConfigPath(path: string): void {
  */
 export function getBranding(): BrandingConfig {
   if (!brandingCache) {
-    brandingCache = loadBrandingFile();
+    brandingCache = loadBrandingFile()
   }
-  return brandingCache;
+  return brandingCache
 }
 
 /**
  * Clear the branding cache (useful for testing)
  */
 export function clearBrandingCache(): void {
-  brandingCache = null;
+  brandingCache = null
 }
 
 // ============================================================================
@@ -189,92 +215,94 @@ export function clearBrandingCache(): void {
 
 /** Get network name (e.g., "Network") */
 export function getNetworkName(): string {
-  return getBranding().network.name;
+  return getBranding().network.name
 }
 
 /** Get network display name (e.g., "the network") */
 export function getNetworkDisplayName(): string {
-  return getBranding().network.displayName;
+  return getBranding().network.displayName
 }
 
 /** Get network tagline */
 export function getNetworkTagline(): string {
-  return getBranding().network.tagline;
+  return getBranding().network.tagline
 }
 
 /** Get network description */
 export function getNetworkDescription(): string {
-  return getBranding().network.description;
+  return getBranding().network.description
 }
 
 /** Get chain config for testnet or mainnet */
-export function getChainBranding(network: 'testnet' | 'mainnet'): ChainBranding {
-  return getBranding().chains[network];
+export function getChainBranding(
+  network: 'testnet' | 'mainnet',
+): ChainBranding {
+  return getBranding().chains[network]
 }
 
 /** Get URL config */
 export function getUrls(): UrlsBranding {
-  return getBranding().urls;
+  return getBranding().urls
 }
 
 /** Get visual branding (colors, logo) */
 export function getVisualBranding(): VisualBranding {
-  return getBranding().branding;
+  return getBranding().branding
 }
 
 /** Get feature flags */
 export function getFeatures(): FeaturesBranding {
-  return getBranding().features;
+  return getBranding().features
 }
 
 /** Get CLI branding */
 export function getCliBranding(): CliBranding {
-  return getBranding().cli;
+  return getBranding().cli
 }
 
 /** Get legal info */
 export function getLegal(): LegalBranding {
-  return getBranding().legal;
+  return getBranding().legal
 }
 
 /** Get support info */
 export function getSupport(): SupportBranding {
-  return getBranding().support;
+  return getBranding().support
 }
 
 /** Get native token info */
 export function getNativeToken(): TokenBranding {
-  return getBranding().tokens.native;
+  return getBranding().tokens.native
 }
 
 /** Get governance token info */
 export function getGovernanceToken(): TokenBranding {
-  return getBranding().tokens.governance;
+  return getBranding().tokens.governance
 }
 
 /** Get website URL */
 export function getWebsiteUrl(): string {
-  return getBranding().urls.website;
+  return getBranding().urls.website
 }
 
 /** Get explorer URL for a specific network */
 export function getExplorerUrl(network: 'testnet' | 'mainnet'): string {
-  return getBranding().urls.explorer[network];
+  return getBranding().urls.explorer[network]
 }
 
 /** Get RPC URL for a specific network */
 export function getRpcUrl(network: 'testnet' | 'mainnet'): string {
-  return getBranding().urls.rpc[network];
+  return getBranding().urls.rpc[network]
 }
 
 /** Get API URL for a specific network */
 export function getApiUrl(network: 'testnet' | 'mainnet'): string {
-  return getBranding().urls.api[network];
+  return getBranding().urls.api[network]
 }
 
 /** Get gateway URL for a specific network */
 export function getGatewayUrl(network: 'testnet' | 'mainnet'): string {
-  return getBranding().urls.gateway[network];
+  return getBranding().urls.gateway[network]
 }
 
 // ============================================================================
@@ -285,8 +313,8 @@ export function getGatewayUrl(network: 'testnet' | 'mainnet'): string {
  * Replace {placeholders} in a string with branding values
  */
 export function interpolate(template: string): string {
-  const branding = getBranding();
-  
+  const branding = getBranding()
+
   return template
     .replace(/\{networkName\}/g, branding.network.name)
     .replace(/\{networkDisplayName\}/g, branding.network.displayName)
@@ -305,28 +333,30 @@ export function interpolate(template: string): string {
     .replace(/\{governanceSymbol\}/g, branding.tokens.governance.symbol)
     .replace(/\{cliName\}/g, branding.cli.name)
     .replace(/\{companyName\}/g, branding.legal.companyName)
-    .replace(/\{year\}/g, branding.legal.copyrightYear.toString());
+    .replace(/\{year\}/g, branding.legal.copyrightYear.toString())
 }
 
 /**
  * Generate branding.json for a forked network
  */
 export function generateForkBranding(options: {
-  name: string;
-  displayName?: string;
-  tagline?: string;
-  chainId: number;
-  domain?: string;
-  tokenSymbol?: string;
-  governanceTokenName?: string;
-  governanceTokenSymbol?: string;
+  name: string
+  displayName?: string
+  tagline?: string
+  chainId: number
+  domain?: string
+  tokenSymbol?: string
+  governanceTokenName?: string
+  governanceTokenSymbol?: string
 }): BrandingConfig {
-  const name = options.name;
-  const displayName = options.displayName || `${name} Network`;
-  const domain = options.domain || `${name.toLowerCase().replace(/\s+/g, '')}.network`;
-  const tokenSymbol = options.tokenSymbol || 'ETH';
-  const govName = options.governanceTokenName || `${name} Token`;
-  const govSymbol = options.governanceTokenSymbol || name.toUpperCase().slice(0, 4);
+  const name = options.name
+  const displayName = options.displayName || `${name} Network`
+  const domain =
+    options.domain || `${name.toLowerCase().replace(/\s+/g, '')}.network`
+  const tokenSymbol = options.tokenSymbol || 'ETH'
+  const govName = options.governanceTokenName || `${name} Token`
+  const govSymbol =
+    options.governanceTokenSymbol || name.toUpperCase().slice(0, 4)
 
   return {
     version: '1.0.0',
@@ -386,7 +416,11 @@ export function generateForkBranding(options: {
       accentColor: '#06b6d4',
       backgroundColor: '#0f172a',
       textColor: '#f8fafc',
-      logo: { light: '/assets/logo-light.svg', dark: '/assets/logo-dark.svg', icon: '/assets/icon.svg' },
+      logo: {
+        light: '/assets/logo-light.svg',
+        dark: '/assets/logo-dark.svg',
+        icon: '/assets/icon.svg',
+      },
       favicon: '/favicon.ico',
     },
     features: {
@@ -414,18 +448,18 @@ export function generateForkBranding(options: {
       displayName: `${name} CLI`,
       banner: generateAsciiBanner(name),
     },
-  };
+  }
 }
 
 /**
  * Generate a simple ASCII banner for the CLI
  */
 function generateAsciiBanner(name: string): string[] {
-  const upper = name.toUpperCase();
-  const pad = ' '.repeat(Math.max(0, (40 - upper.length) / 2));
+  const upper = name.toUpperCase()
+  const pad = ' '.repeat(Math.max(0, (40 - upper.length) / 2))
   return [
-    '╔' + '═'.repeat(42) + '╗',
-    '║' + pad + upper + pad + (upper.length % 2 === 0 ? '' : ' ') + '║',
-    '╚' + '═'.repeat(42) + '╝',
-  ];
+    `╔${'═'.repeat(42)}╗`,
+    `║${pad}${upper}${pad}${upper.length % 2 === 0 ? '' : ' '}║`,
+    `╚${'═'.repeat(42)}╝`,
+  ]
 }

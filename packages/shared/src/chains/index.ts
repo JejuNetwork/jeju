@@ -1,29 +1,29 @@
 /**
  * Chain Definitions using Branding Config
- * 
+ *
  * Provides viem/wagmi-compatible chain objects that use the branding config.
  * This ensures all apps use consistent, configurable chain names.
  */
 
-import { getBranding, type BrandingConfig } from '@jejunetwork/config';
-import type { Chain } from 'viem';
+import { type BrandingConfig, getBranding } from '@jejunetwork/config'
+import type { Chain } from 'viem'
 
-let brandingCache: BrandingConfig | null = null;
+let brandingCache: BrandingConfig | null = null
 
 function getBrandingConfig(): BrandingConfig {
   if (!brandingCache) {
-    brandingCache = getBranding();
+    brandingCache = getBranding()
   }
-  return brandingCache;
+  return brandingCache
 }
 
 /**
  * Get the localnet chain definition
  */
 export function getLocalnetChain(): Chain {
-  const branding = getBrandingConfig();
-  const name = branding.network.name;
-  
+  const branding = getBrandingConfig()
+  const name = branding.network.name
+
   return {
     id: 1337,
     name: `${name} Localnet`,
@@ -38,17 +38,17 @@ export function getLocalnetChain(): Chain {
     blockExplorers: {
       default: { name: 'Local Explorer', url: 'http://localhost:4000' },
     },
-  };
+  }
 }
 
 /**
  * Get the testnet chain definition
  */
 export function getTestnetChain(): Chain {
-  const branding = getBrandingConfig();
-  const testnet = branding.chains.testnet;
-  const urls = branding.urls;
-  
+  const branding = getBrandingConfig()
+  const testnet = branding.chains.testnet
+  const urls = branding.urls
+
   return {
     id: testnet.chainId,
     name: testnet.name,
@@ -63,17 +63,17 @@ export function getTestnetChain(): Chain {
     blockExplorers: {
       default: { name: testnet.explorerName, url: urls.explorer.testnet },
     },
-  };
+  }
 }
 
 /**
  * Get the mainnet chain definition
  */
 export function getMainnetChain(): Chain {
-  const branding = getBrandingConfig();
-  const mainnet = branding.chains.mainnet;
-  const urls = branding.urls;
-  
+  const branding = getBrandingConfig()
+  const mainnet = branding.chains.mainnet
+  const urls = branding.urls
+
   return {
     id: mainnet.chainId,
     name: mainnet.name,
@@ -88,14 +88,14 @@ export function getMainnetChain(): Chain {
     blockExplorers: {
       default: { name: mainnet.explorerName, url: urls.explorer.mainnet },
     },
-  };
+  }
 }
 
 /**
  * Get all network chains (localnet, testnet, mainnet)
  */
 export function getNetworkChains(): [Chain, Chain, Chain] {
-  return [getLocalnetChain(), getTestnetChain(), getMainnetChain()];
+  return [getLocalnetChain(), getTestnetChain(), getMainnetChain()]
 }
 
 /**
@@ -104,11 +104,11 @@ export function getNetworkChains(): [Chain, Chain, Chain] {
 export function getChain(network: 'localnet' | 'testnet' | 'mainnet'): Chain {
   switch (network) {
     case 'localnet':
-      return getLocalnetChain();
+      return getLocalnetChain()
     case 'testnet':
-      return getTestnetChain();
+      return getTestnetChain()
     case 'mainnet':
-      return getMainnetChain();
+      return getMainnetChain()
   }
 }
 
@@ -116,45 +116,59 @@ export function getChain(network: 'localnet' | 'testnet' | 'mainnet'): Chain {
  * Provider/service info for A2A cards
  */
 export function getProviderInfo(): { organization: string; url: string } {
-  const branding = getBrandingConfig();
+  const branding = getBrandingConfig()
   return {
     organization: branding.legal.companyName,
     url: branding.urls.website,
-  };
+  }
 }
 
 /**
  * Get service name for a given service
  */
 export function getServiceName(service: string): string {
-  const branding = getBrandingConfig();
-  return `${branding.network.name} ${service}`;
+  const branding = getBrandingConfig()
+  return `${branding.network.name} ${service}`
 }
 
 /**
  * Generate an A2A agent card with branding
  */
 export function createAgentCard(options: {
-  name: string;
-  description: string;
-  url?: string;
-  version?: string;
-  skills?: Array<{ id: string; name: string; description: string; tags?: string[] }>;
+  name: string
+  description: string
+  url?: string
+  version?: string
+  skills?: Array<{
+    id: string
+    name: string
+    description: string
+    tags?: string[]
+  }>
 }): {
-  protocolVersion: string;
-  name: string;
-  description: string;
-  url: string;
-  preferredTransport: string;
-  provider: { organization: string; url: string };
-  version: string;
-  capabilities: { streaming: boolean; pushNotifications: boolean; stateTransitionHistory: boolean };
-  defaultInputModes: string[];
-  defaultOutputModes: string[];
-  skills: Array<{ id: string; name: string; description: string; tags?: string[] }>;
+  protocolVersion: string
+  name: string
+  description: string
+  url: string
+  preferredTransport: string
+  provider: { organization: string; url: string }
+  version: string
+  capabilities: {
+    streaming: boolean
+    pushNotifications: boolean
+    stateTransitionHistory: boolean
+  }
+  defaultInputModes: string[]
+  defaultOutputModes: string[]
+  skills: Array<{
+    id: string
+    name: string
+    description: string
+    tags?: string[]
+  }>
 } {
-  const branding = getBrandingConfig();
-  
+  const branding = getBrandingConfig()
+
   return {
     protocolVersion: '0.3.0',
     name: `${branding.network.name} ${options.name}`,
@@ -166,10 +180,13 @@ export function createAgentCard(options: {
       url: branding.urls.website,
     },
     version: options.version || '1.0.0',
-    capabilities: { streaming: false, pushNotifications: false, stateTransitionHistory: false },
+    capabilities: {
+      streaming: false,
+      pushNotifications: false,
+      stateTransitionHistory: false,
+    },
     defaultInputModes: ['text', 'data'],
     defaultOutputModes: ['text', 'data'],
     skills: options.skills ?? [],
-  };
+  }
 }
-

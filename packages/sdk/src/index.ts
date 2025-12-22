@@ -25,106 +25,84 @@
  * ```
  */
 
-export { createJejuClient } from "./client";
-export type { JejuClient, JejuClientConfig } from "./client";
-
-// Module exports
-export * from "./compute";
-export * from "./storage";
-export * from "./defi";
-export * from "./governance";
-export * from "./names";
-export * from "./identity";
-export * from "./validation";
-export * from "./crosschain";
-export * from "./nfts";
-export * from "./payments";
-export * from "./a2a";
-
-// Extended modules
-export * from "./games";
-export * from "./containers";
-export * from "./launchpad";
-export * from "./federation";
-export * from "./moderation";
-export * from "./work";
-export * from "./staking";
-export * from "./liquidity";
-export * from "./dws";
-export * from "./otc";
-export * from "./messaging";
-export * from "./distributor";
-export * from "./training";
-export * from "./perps";
-export * from "./amm";
-export * from "./agents";
-export * from "./bridge";
-export * from "./oracle";
-export * from "./sequencer";
-export * from "./cdn";
-export * from "./prediction";
-
-// Developer tools
-export * from "./git";
-export * from "./packages";
-
-// VPN
-export * from "./vpn";
-export * from "./vpn-module";
-
-// Models (HuggingFace-like)
-export * from "./models";
-
-// Datasets (training data)
-export * from "./datasets";
-
-// CI/CD
-export * from "./cicd";
-
-// Social Feed (Farcaster)
-export * from "./feed";
-
-// MCP (Model Context Protocol)
-export * from "./mcp";
-
-// Wallet utilities
-export * from "./wallet";
-
-// Contract utilities
-export * from "./contracts";
-
-// Email client
-export * from "./email";
-
 // Re-export types
 export type {
   ComputeProvider,
   ComputeRental,
-  InferenceRequest,
-  InferenceResponse,
   ComputeResources,
-} from "@jejunetwork/types";
-
-export type {
-  Intent,
-  IntentQuote,
-  Solver,
-  VoucherRequest,
-  Voucher,
-} from "@jejunetwork/types";
-
-export type {
-  Proposal,
-  ProposalStatus,
-  ProposalType,
-  VoteType,
-} from "@jejunetwork/types";
-
-export type {
-  VPNNode,
-  VPNConnection,
-  VPNProtocol,
   ContributionQuota,
   ContributionSettings,
   CountryCode,
-} from "@jejunetwork/types";
+  InferenceRequest,
+  InferenceResponse,
+  Intent,
+  IntentQuote,
+  Proposal,
+  ProposalStatus,
+  ProposalType,
+  Solver,
+  VoteType,
+  Voucher,
+  VoucherRequest,
+  VPNConnection,
+  VPNNode,
+  VPNProtocol,
+} from '@jejunetwork/types'
+export * from './a2a'
+export * from './agents'
+export * from './amm'
+export * from './bridge'
+export * from './cdn'
+// CI/CD
+export * from './cicd'
+export type { JejuClient, JejuClientConfig } from './client'
+export { createJejuClient } from './client'
+// Module exports
+export * from './compute'
+export * from './containers'
+// Contract utilities
+export * from './contracts'
+export * from './crosschain'
+// Datasets (training data)
+export * from './datasets'
+export * from './defi'
+export * from './distributor'
+export * from './dws'
+// Email client
+export * from './email'
+export * from './federation'
+// Social Feed (Farcaster)
+export * from './feed'
+// Extended modules
+export * from './games'
+// Developer tools
+export * from './git'
+export * from './governance'
+export * from './identity'
+export * from './launchpad'
+export * from './liquidity'
+// MCP (Model Context Protocol)
+export * from './mcp'
+export * from './messaging'
+// Models (HuggingFace-like)
+export * from './models'
+export * from './moderation'
+export * from './names'
+export * from './nfts'
+export * from './oracle'
+export * from './otc'
+export * from './packages'
+export * from './payments'
+export * from './perps'
+export * from './prediction'
+export * from './sequencer'
+export * from './staking'
+export * from './storage'
+export * from './training'
+export * from './validation'
+// VPN
+export * from './vpn'
+export * from './vpn-module'
+// Wallet utilities
+export * from './wallet'
+export * from './work'

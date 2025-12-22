@@ -9,23 +9,26 @@
  * - Claim rewards
  */
 
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { Server } from '@modelcontextprotocol/sdk/server/index.js'
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import {
+  type CallToolRequest,
   CallToolRequestSchema,
-  ListToolsRequestSchema,
   ListResourcesRequestSchema,
+  ListToolsRequestSchema,
+  type ReadResourceRequest,
   ReadResourceRequestSchema,
-} from '@modelcontextprotocol/sdk/types.js';
-import { fundingApi } from './funding-api';
-import type { Address } from 'viem';
+} from '@modelcontextprotocol/sdk/types.js'
+import type { Address } from 'viem'
+import { fundingApi } from './funding-api'
 
 // ============ Tool Definitions ============
 
 const FUNDING_TOOLS = [
   {
     name: 'get_dao_pool',
-    description: 'Get the current funding pool status for a DAO including accumulated fees and distribution pools',
+    description:
+      'Get the current funding pool status for a DAO including accumulated fees and distribution pools',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -36,7 +39,8 @@ const FUNDING_TOOLS = [
   },
   {
     name: 'get_current_epoch',
-    description: 'Get the current funding epoch for a DAO with distribution status',
+    description:
+      'Get the current funding epoch for a DAO with distribution status',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -51,8 +55,15 @@ const FUNDING_TOOLS = [
     inputSchema: {
       type: 'object' as const,
       properties: {
-        contributorId: { type: 'string', description: 'The contributor ID (optional if wallet provided)' },
-        wallet: { type: 'string', description: 'The wallet address (optional if contributorId provided)' },
+        contributorId: {
+          type: 'string',
+          description: 'The contributor ID (optional if wallet provided)',
+        },
+        wallet: {
+          type: 'string',
+          description:
+            'The wallet address (optional if contributorId provided)',
+        },
       },
     },
   },
@@ -70,7 +81,8 @@ const FUNDING_TOOLS = [
   },
   {
     name: 'scan_repository_dependencies',
-    description: 'Scan a GitHub repository for dependencies and calculate funding weights',
+    description:
+      'Scan a GitHub repository for dependencies and calculate funding weights',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -95,7 +107,8 @@ const FUNDING_TOOLS = [
   },
   {
     name: 'get_contributor_recommendations',
-    description: 'Get funding weight recommendations for contributors based on activity',
+    description:
+      'Get funding weight recommendations for contributors based on activity',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -106,13 +119,20 @@ const FUNDING_TOOLS = [
   },
   {
     name: 'vote_on_weight',
-    description: 'Vote to adjust a contributor or dependency weight during deliberation',
+    description:
+      'Vote to adjust a contributor or dependency weight during deliberation',
     inputSchema: {
       type: 'object' as const,
       properties: {
         daoId: { type: 'string', description: 'The DAO identifier' },
-        targetId: { type: 'string', description: 'Contributor or dependency ID' },
-        adjustment: { type: 'number', description: 'Weight adjustment (positive or negative)' },
+        targetId: {
+          type: 'string',
+          description: 'Contributor or dependency ID',
+        },
+        adjustment: {
+          type: 'number',
+          description: 'Weight adjustment (positive or negative)',
+        },
         reason: { type: 'string', description: 'Reason for the adjustment' },
         reputation: { type: 'number', description: 'Voter reputation weight' },
       },
@@ -144,7 +164,10 @@ const FUNDING_TOOLS = [
           description: 'Review action',
         },
         reason: { type: 'string', description: 'Reason for the decision' },
-        modifiedAmount: { type: 'number', description: 'Modified amount (for CEO only)' },
+        modifiedAmount: {
+          type: 'number',
+          description: 'Modified amount (for CEO only)',
+        },
       },
       required: ['requestId', 'action', 'reason'],
     },
@@ -172,7 +195,7 @@ const FUNDING_TOOLS = [
       required: ['daoId'],
     },
   },
-];
+]
 
 // ============ Resource Definitions ============
 
@@ -213,112 +236,164 @@ const FUNDING_RESOURCES = [
     description: 'Payment requests for a DAO',
     mimeType: 'application/json',
   },
-];
+]
 
 // ============ Server Implementation ============
 
 export class MCPFundingServer {
-  private server: Server;
+  private server: Server
 
   constructor() {
     this.server = new Server(
       { name: 'jeju-deep-funding', version: '1.0.0' },
-      { capabilities: { tools: {}, resources: {} } }
-    );
+      { capabilities: { tools: {}, resources: {} } },
+    )
 
-    this.setupHandlers();
+    this.setupHandlers()
   }
 
   private setupHandlers(): void {
     // List tools
     this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
       tools: FUNDING_TOOLS,
-    }));
+    }))
 
     // List resources
     this.server.setRequestHandler(ListResourcesRequestSchema, async () => ({
       resources: FUNDING_RESOURCES,
-    }));
+    }))
 
     // Call tool
-    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
-      const { name, arguments: args } = request.params;
-      return this.handleToolCall(name, args as Record<string, unknown>);
-    });
+    this.server.setRequestHandler(
+      CallToolRequestSchema,
+      async (request: CallToolRequest) => {
+        const { name, arguments: args } = request.params
+        return this.handleToolCall(name, args as Record<string, unknown>)
+      },
+    )
 
     // Read resource
-    this.server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-      const { uri } = request.params;
-      return this.handleResourceRead(uri);
-    });
+    this.server.setRequestHandler(
+      ReadResourceRequestSchema,
+      async (request: ReadResourceRequest) => {
+        const { uri } = request.params
+        return this.handleResourceRead(uri)
+      },
+    )
   }
 
   private async handleToolCall(
     name: string,
-    args: Record<string, unknown>
+    args: Record<string, unknown>,
   ): Promise<{ content: Array<{ type: string; text: string }> }> {
     switch (name) {
       case 'get_dao_pool': {
-        const result = await fundingApi.getDAOPool(args.daoId as string);
+        const result = await fundingApi.getDAOPool(args.daoId as string)
         return {
-          content: [{ type: 'text', text: JSON.stringify(result.data ?? result.error, null, 2) }],
-        };
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result.data ?? result.error, null, 2),
+            },
+          ],
+        }
       }
 
       case 'get_current_epoch': {
-        const result = await fundingApi.getCurrentEpoch(args.daoId as string);
+        const result = await fundingApi.getCurrentEpoch(args.daoId as string)
         return {
-          content: [{ type: 'text', text: JSON.stringify(result.data ?? result.error, null, 2) }],
-        };
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result.data ?? result.error, null, 2),
+            },
+          ],
+        }
       }
 
       case 'get_contributor_profile': {
-        let result;
+        let result: { success: boolean; data?: unknown; error?: string }
         if (args.contributorId) {
-          result = await fundingApi.getContributor(args.contributorId as string);
+          result = await fundingApi.getContributor(args.contributorId as string)
         } else if (args.wallet) {
-          result = await fundingApi.getContributorByWallet(args.wallet as Address);
+          result = await fundingApi.getContributorByWallet(
+            args.wallet as Address,
+          )
         } else {
-          result = { success: false, error: 'Provide contributorId or wallet' };
+          result = { success: false, error: 'Provide contributorId or wallet' }
         }
         return {
-          content: [{ type: 'text', text: JSON.stringify(result.data ?? result.error, null, 2) }],
-        };
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result.data ?? result.error, null, 2),
+            },
+          ],
+        }
       }
 
       case 'get_contributor_rewards': {
         const result = await fundingApi.getPendingContributorRewards(
           args.daoId as string,
-          args.contributorId as string
-        );
+          args.contributorId as string,
+        )
         return {
-          content: [{ type: 'text', text: JSON.stringify({ pendingRewards: result.data?.toString() }, null, 2) }],
-        };
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                { pendingRewards: result.data?.toString() },
+                null,
+                2,
+              ),
+            },
+          ],
+        }
       }
 
       case 'scan_repository_dependencies': {
-        const result = await fundingApi.scanRepository(args.owner as string, args.repo as string);
+        const result = await fundingApi.scanRepository(
+          args.owner as string,
+          args.repo as string,
+        )
         return {
-          content: [{ type: 'text', text: JSON.stringify(result.data ?? result.error, null, 2) }],
-        };
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result.data ?? result.error, null, 2),
+            },
+          ],
+        }
       }
 
       case 'get_dependency_recommendations': {
         const result = await fundingApi.generateDependencyRecommendations(
           args.daoId as string,
           args.owner as string,
-          args.repo as string
-        );
+          args.repo as string,
+        )
         return {
-          content: [{ type: 'text', text: JSON.stringify(result.data ?? result.error, null, 2) }],
-        };
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result.data ?? result.error, null, 2),
+            },
+          ],
+        }
       }
 
       case 'get_contributor_recommendations': {
-        const result = await fundingApi.generateContributorRecommendations(args.daoId as string);
+        const result = await fundingApi.generateContributorRecommendations(
+          args.daoId as string,
+        )
         return {
-          content: [{ type: 'text', text: JSON.stringify(result.data ?? result.error, null, 2) }],
-        };
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result.data ?? result.error, null, 2),
+            },
+          ],
+        }
       }
 
       case 'vote_on_weight': {
@@ -327,95 +402,163 @@ export class MCPFundingServer {
           args.targetId as string,
           args.adjustment as number,
           args.reason as string,
-          args.reputation as number
-        );
+          args.reputation as number,
+        )
         if (!result.success) {
-          return { content: [{ type: 'text', text: JSON.stringify({ error: result.error }, null, 2) }] };
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify({ error: result.error }, null, 2),
+              },
+            ],
+          }
         }
         return {
-          content: [{ type: 'text', text: JSON.stringify({ transactionHash: result.data }, null, 2) }],
-        };
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({ transactionHash: result.data }, null, 2),
+            },
+          ],
+        }
       }
 
       case 'get_payment_requests': {
-        const result = await fundingApi.getPendingPaymentRequests(args.daoId as string);
+        const result = await fundingApi.getPendingPaymentRequests(
+          args.daoId as string,
+        )
         return {
-          content: [{ type: 'text', text: JSON.stringify(result.data ?? result.error, null, 2) }],
-        };
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result.data ?? result.error, null, 2),
+            },
+          ],
+        }
       }
 
       case 'review_payment_request': {
-        const action = args.action as string;
-        const voteType = action.toUpperCase() as 'APPROVE' | 'REJECT' | 'ABSTAIN';
-        
+        const action = args.action as string
+        const voteType = action.toUpperCase() as
+          | 'APPROVE'
+          | 'REJECT'
+          | 'ABSTAIN'
+
         if (!['APPROVE', 'REJECT', 'ABSTAIN'].includes(voteType)) {
-          return { content: [{ type: 'text', text: JSON.stringify({ error: `Unknown action: ${action}` }, null, 2) }] };
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(
+                  { error: `Unknown action: ${action}` },
+                  null,
+                  2,
+                ),
+              },
+            ],
+          }
         }
 
         const result = await fundingApi.councilVote(
           args.requestId as string,
           voteType,
-          args.reason as string
-        );
-        
+          args.reason as string,
+        )
+
         if (!result.success) {
-          return { content: [{ type: 'text', text: JSON.stringify({ error: result.error }, null, 2) }] };
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify({ error: result.error }, null, 2),
+              },
+            ],
+          }
         }
         return {
-          content: [{ type: 'text', text: JSON.stringify({ transactionHash: result.data }, null, 2) }],
-        };
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({ transactionHash: result.data }, null, 2),
+            },
+          ],
+        }
       }
 
       case 'get_epoch_votes': {
-        const result = await fundingApi.getEpochVotes(args.daoId as string, args.epochId as number);
+        const result = await fundingApi.getEpochVotes(
+          args.daoId as string,
+          args.epochId as number,
+        )
         return {
-          content: [{ type: 'text', text: JSON.stringify(result.data ?? result.error, null, 2) }],
-        };
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result.data ?? result.error, null, 2),
+            },
+          ],
+        }
       }
 
       case 'get_fee_distribution_config': {
-        const result = await fundingApi.getDAOFundingConfig(args.daoId as string);
+        const result = await fundingApi.getDAOFundingConfig(
+          args.daoId as string,
+        )
         return {
-          content: [{ type: 'text', text: JSON.stringify(result.data ?? result.error, null, 2) }],
-        };
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result.data ?? result.error, null, 2),
+            },
+          ],
+        }
       }
 
       default:
-        throw new Error(`Unknown tool: ${name}`);
+        throw new Error(`Unknown tool: ${name}`)
     }
   }
 
-  private async handleResourceRead(
-    uri: string
-  ): Promise<{ contents: Array<{ uri: string; mimeType: string; text: string }> }> {
+  private async handleResourceRead(uri: string): Promise<{
+    contents: Array<{ uri: string; mimeType: string; text: string }>
+  }> {
     // Parse URI
-    const parts = uri.replace('funding://', '').split('/');
+    const parts = uri.replace('funding://', '').split('/')
 
     if (parts[0] === 'daos' && parts.length >= 3) {
-      const daoId = parts[1];
-      const resource = parts[2];
+      const daoId = parts[1]
+      const resource = parts[2]
 
       switch (resource) {
         case 'pool': {
-          const result = await fundingApi.getDAOPool(daoId);
+          const result = await fundingApi.getDAOPool(daoId)
           return {
             contents: [
-              { uri, mimeType: 'application/json', text: JSON.stringify(result.data ?? result.error, null, 2) },
+              {
+                uri,
+                mimeType: 'application/json',
+                text: JSON.stringify(result.data ?? result.error, null, 2),
+              },
             ],
-          };
+          }
         }
 
         case 'epoch': {
-          const result = await fundingApi.getCurrentEpoch(daoId);
+          const result = await fundingApi.getCurrentEpoch(daoId)
           return {
             contents: [
-              { uri, mimeType: 'application/json', text: JSON.stringify(result.data ?? result.error, null, 2) },
+              {
+                uri,
+                mimeType: 'application/json',
+                text: JSON.stringify(result.data ?? result.error, null, 2),
+              },
             ],
-          };
+          }
         }
 
         case 'contributors': {
-          const result = await fundingApi.getAllContributors();
+          const result = await fundingApi.getAllContributors()
           return {
             contents: [
               {
@@ -424,23 +567,27 @@ export class MCPFundingServer {
                 text: JSON.stringify({ contributors: result.data }, null, 2),
               },
             ],
-          };
+          }
         }
 
         case 'payment-requests': {
-          const result = await fundingApi.getPendingPaymentRequests(daoId);
+          const result = await fundingApi.getPendingPaymentRequests(daoId)
           return {
             contents: [
-              { uri, mimeType: 'application/json', text: JSON.stringify(result.data ?? result.error, null, 2) },
+              {
+                uri,
+                mimeType: 'application/json',
+                text: JSON.stringify(result.data ?? result.error, null, 2),
+              },
             ],
-          };
+          }
         }
       }
     }
 
     if (parts[0] === 'contributors' && parts.length >= 2) {
-      const contributorId = parts[1];
-      const result = await fundingApi.getContributorProfile(contributorId);
+      const contributorId = parts[1]
+      const result = await fundingApi.getContributorProfile(contributorId)
       return {
         contents: [
           {
@@ -449,22 +596,21 @@ export class MCPFundingServer {
             text: JSON.stringify(result.data, null, 2),
           },
         ],
-      };
+      }
     }
 
-    throw new Error(`Unknown resource: ${uri}`);
+    throw new Error(`Unknown resource: ${uri}`)
   }
 
   async start(): Promise<void> {
-    const transport = new StdioServerTransport();
-    await this.server.connect(transport);
-    console.error('MCP Funding Server started');
+    const transport = new StdioServerTransport()
+    await this.server.connect(transport)
+    console.error('MCP Funding Server started')
   }
 }
 
 // Start server if run directly
 if (import.meta.main) {
-  const server = new MCPFundingServer();
-  server.start();
+  const server = new MCPFundingServer()
+  server.start()
 }
-

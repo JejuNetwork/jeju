@@ -1,52 +1,58 @@
 /**
  * DEX Registry Configuration
- * 
+ *
  * Defines all DEX factory/router addresses across supported chains.
  * Used by indexer for pool discovery and by price aggregator for quotes.
- * 
+ *
  * No external APIs - all data comes from on-chain reads via our RPC nodes.
  */
 
-import type { Address } from 'viem';
+import type { Address } from 'viem'
 
-export type DEXType = 'uniswap_v2' | 'uniswap_v3' | 'balancer_v2' | 'curve' | 'aerodrome' | 'camelot';
+export type DEXType =
+  | 'uniswap_v2'
+  | 'uniswap_v3'
+  | 'balancer_v2'
+  | 'curve'
+  | 'aerodrome'
+  | 'camelot'
 
 export interface DEXConfig {
-  name: string;
-  type: DEXType;
-  chainId: number;
-  factory: Address;
-  router?: Address;
-  quoter?: Address;
-  positionManager?: Address;
-  initCodeHash?: string;
-  defaultFee?: number;
+  name: string
+  type: DEXType
+  chainId: number
+  factory: Address
+  router?: Address
+  quoter?: Address
+  positionManager?: Address
+  initCodeHash?: string
+  defaultFee?: number
 }
 
 export interface PoolCreatedEvent {
-  signature: string;
-  tokenIndexes: [number, number];
-  poolIndex: number;
+  signature: string
+  tokenIndexes: [number, number]
+  poolIndex: number
 }
 
 export interface SwapEvent {
-  signature: string;
+  signature: string
   amountIndexes: {
-    amount0In?: number;
-    amount1In?: number;
-    amount0Out?: number;
-    amount1Out?: number;
-    amount0?: number;
-    amount1?: number;
-  };
+    amount0In?: number
+    amount1In?: number
+    amount0Out?: number
+    amount1Out?: number
+    amount0?: number
+    amount1?: number
+  }
 }
 
 export interface DEXEventConfig {
-  poolCreated: PoolCreatedEvent;
-  swap: SwapEvent;
-  sync?: string;
-  mint?: string;
-  burn?: string;
+  poolCreated: PoolCreatedEvent
+  swap: SwapEvent
+  sync?: string
+  mint?: string
+  burn?: string
 }
 
 // Event signatures for DEX event processing
@@ -59,7 +65,12 @@ export const DEX_EVENTS: Record<DEXType, DEXEventConfig> = {
     },
     swap: {
       signature: 'Swap(address,uint256,uint256,uint256,uint256,address)',
-      amountIndexes: { amount0In: 1, amount1In: 2, amount0Out: 3, amount1Out: 4 },
+      amountIndexes: {
+        amount0In: 1,
+        amount1In: 2,
+        amount0Out: 3,
+        amount1Out: 4,
+      },
     },
     sync: 'Sync(uint112,uint112)',
     mint: 'Mint(address,uint256,uint256)',
@@ -108,7 +119,12 @@ export const DEX_EVENTS: Record<DEXType, DEXEventConfig> = {
     },
     swap: {
       signature: 'Swap(address,uint256,uint256,uint256,uint256,address)',
-      amountIndexes: { amount0In: 1, amount1In: 2, amount0Out: 3, amount1Out: 4 },
+      amountIndexes: {
+        amount0In: 1,
+        amount1In: 2,
+        amount0Out: 3,
+        amount1Out: 4,
+      },
     },
     sync: 'Sync(uint256,uint256)',
   },
@@ -120,11 +136,16 @@ export const DEX_EVENTS: Record<DEXType, DEXEventConfig> = {
     },
     swap: {
       signature: 'Swap(address,uint256,uint256,uint256,uint256,address)',
-      amountIndexes: { amount0In: 1, amount1In: 2, amount0Out: 3, amount1Out: 4 },
+      amountIndexes: {
+        amount0In: 1,
+        amount1In: 2,
+        amount0Out: 3,
+        amount1Out: 4,
+      },
     },
     sync: 'Sync(uint112,uint112)',
   },
-};
+}
 
 // DEX configurations per chain
 export const DEX_REGISTRY: Record<number, DEXConfig[]> = {
@@ -136,7 +157,8 @@ export const DEX_REGISTRY: Record<number, DEXConfig[]> = {
       chainId: 1,
       factory: '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f',
       router: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D',
-      initCodeHash: '0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f',
+      initCodeHash:
+        '0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f',
     },
     {
       name: 'Uniswap V3',
@@ -153,7 +175,8 @@ export const DEX_REGISTRY: Record<number, DEXConfig[]> = {
       chainId: 1,
       factory: '0xC0AEe478e3658e2610c5F7A4A2E1777cE9e4f2Ac',
       router: '0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F',
-      initCodeHash: '0xe18a34eb0e04b04f7a0ac29a6e80748dca96319b42c54d679cb821dca90c6303',
+      initCodeHash:
+        '0xe18a34eb0e04b04f7a0ac29a6e80748dca96319b42c54d679cb821dca90c6303',
     },
     {
       name: 'Balancer V2',
@@ -256,7 +279,7 @@ export const DEX_REGISTRY: Record<number, DEXConfig[]> = {
   420690: [
     // Add testnet DEX configurations
   ],
-};
+}
 
 // Stablecoin addresses per chain for USD price calculation
 export const STABLECOINS: Record<number, Address[]> = {
@@ -279,16 +302,16 @@ export const STABLECOINS: Record<number, Address[]> = {
     '0x94b008aA00579c1307B0EF2c499aD98a8ce58e58', // USDT
     '0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1', // DAI
   ],
-};
+}
 
 // Wrapped native token addresses per chain
 export const WRAPPED_NATIVE: Record<number, Address> = {
-  1: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',     // WETH
+  1: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', // WETH
   42161: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1', // WETH
-  8453: '0x4200000000000000000000000000000000000006',  // WETH
-  10: '0x4200000000000000000000000000000000000006',    // WETH
+  8453: '0x4200000000000000000000000000000000000006', // WETH
+  10: '0x4200000000000000000000000000000000000006', // WETH
   420691: '0x4200000000000000000000000000000000000006', // WETH (Jeju)
-};
+}
 
 // Price routing tokens (commonly used intermediaries)
 export const ROUTING_TOKENS: Record<number, Address[]> = {
@@ -310,28 +333,27 @@ export const ROUTING_TOKENS: Record<number, Address[]> = {
     '0x4200000000000000000000000000000000000006', // WETH
     '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85', // USDC
   ],
-};
+}
 
 // Helper functions
 export function getDEXsForChain(chainId: number): DEXConfig[] {
-  return DEX_REGISTRY[chainId] ?? [];
+  return DEX_REGISTRY[chainId] ?? []
 }
 
 export function getStablecoinsForChain(chainId: number): Address[] {
-  return STABLECOINS[chainId] ?? [];
+  return STABLECOINS[chainId] ?? []
 }
 
 export function getWrappedNative(chainId: number): Address | undefined {
-  return WRAPPED_NATIVE[chainId];
+  return WRAPPED_NATIVE[chainId]
 }
 
 export function isStablecoin(chainId: number, address: Address): boolean {
-  const stables = STABLECOINS[chainId];
-  if (!stables) return false;
-  return stables.some(s => s.toLowerCase() === address.toLowerCase());
+  const stables = STABLECOINS[chainId]
+  if (!stables) return false
+  return stables.some((s) => s.toLowerCase() === address.toLowerCase())
 }
 
 export function getEventConfig(dexType: DEXType): DEXEventConfig {
-  return DEX_EVENTS[dexType];
+  return DEX_EVENTS[dexType]
 }
-

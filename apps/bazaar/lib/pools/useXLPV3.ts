@@ -1,9 +1,14 @@
-import { useReadContract, useWriteContract, useAccount, useReadContracts } from 'wagmi'
 import { AddressSchema } from '@jejunetwork/types'
-import { expect, expectTrue } from '@/lib/validation'
-import { getXLPContracts } from '@/config/contracts'
+import type { Abi, Address } from 'viem'
+import {
+  useAccount,
+  useReadContract,
+  useReadContracts,
+  useWriteContract,
+} from 'wagmi'
 import { JEJU_CHAIN_ID } from '@/config/chains'
-import type { Address, Abi } from 'viem'
+import { getXLPContracts } from '@/config/contracts'
+import { expect, expectTrue } from '@/lib/validation'
 
 // XLP V3 Factory ABI (minimal)
 const V3_FACTORY_ABI: Abi = [
@@ -149,9 +154,9 @@ const POSITION_MANAGER_ABI: Abi = [
 
 // Fee tiers available in V3
 export const V3_FEE_TIERS = {
-  LOWEST: 500,   // 0.05%
-  LOW: 3000,     // 0.3%
-  HIGH: 10000,   // 1%
+  LOWEST: 500, // 0.05%
+  LOW: 3000, // 0.3%
+  HIGH: 10000, // 1%
 } as const
 
 export interface V3Pool {
@@ -178,15 +183,26 @@ export interface V3Position {
 }
 
 // Get pool address for token pair and fee
-export function useV3Pool(token0: Address | null, token1: Address | null, fee: number | null) {
+export function useV3Pool(
+  token0: Address | null,
+  token1: Address | null,
+  fee: number | null,
+) {
   const contracts = getXLPContracts(JEJU_CHAIN_ID)
 
-  const { data: poolAddress, isLoading, error, refetch } = useReadContract({
+  const {
+    data: poolAddress,
+    isLoading,
+    error,
+    refetch,
+  } = useReadContract({
     address: contracts?.v3Factory,
     abi: V3_FACTORY_ABI,
     functionName: 'getPool',
     args: token0 && token1 && fee ? [token0, token1, fee] : undefined,
-    query: { enabled: !!token0 && !!token1 && fee !== null && !!contracts?.v3Factory },
+    query: {
+      enabled: !!token0 && !!token1 && fee !== null && !!contracts?.v3Factory,
+    },
   })
 
   return {
@@ -207,7 +223,11 @@ export function useV3PoolData(poolAddress: Address | null) {
           { address: poolAddress, abi: V3_POOL_ABI, functionName: 'token0' },
           { address: poolAddress, abi: V3_POOL_ABI, functionName: 'token1' },
           { address: poolAddress, abi: V3_POOL_ABI, functionName: 'fee' },
-          { address: poolAddress, abi: V3_POOL_ABI, functionName: 'tickSpacing' },
+          {
+            address: poolAddress,
+            abi: V3_POOL_ABI,
+            functionName: 'tickSpacing',
+          },
         ]
       : [],
     query: { enabled: !!poolAddress },
@@ -216,8 +236,8 @@ export function useV3PoolData(poolAddress: Address | null) {
   if (!data || !poolAddress) {
     return { pool: null, isLoading, error, refetch }
   }
-  
-  const validatedPoolAddress = expect(poolAddress, 'Pool address is required');
+
+  const validatedPoolAddress = expect(poolAddress, 'Pool address is required')
 
   const slot0Result = data[0]
   const liquidityResult = data[1]
@@ -227,17 +247,31 @@ export function useV3PoolData(poolAddress: Address | null) {
   const tickSpacingResult = data[5]
 
   if (
-    !slot0Result || slot0Result.status !== 'success' ||
-    !liquidityResult || liquidityResult.status !== 'success' ||
-    !token0Result || token0Result.status !== 'success' ||
-    !token1Result || token1Result.status !== 'success' ||
-    !feeResult || feeResult.status !== 'success' ||
-    !tickSpacingResult || tickSpacingResult.status !== 'success'
+    !slot0Result ||
+    slot0Result.status !== 'success' ||
+    !liquidityResult ||
+    liquidityResult.status !== 'success' ||
+    !token0Result ||
+    token0Result.status !== 'success' ||
+    !token1Result ||
+    token1Result.status !== 'success' ||
+    !feeResult ||
+    feeResult.status !== 'success' ||
+    !tickSpacingResult ||
+    tickSpacingResult.status !== 'success'
   ) {
     return { pool: null, isLoading, error, refetch }
   }
 
-  const [sqrtPriceX96, tick] = slot0Result.result as [bigint, number, number, number, number, number, boolean]
+  const [sqrtPriceX96, tick] = slot0Result.result as [
+    bigint,
+    number,
+    number,
+    number,
+    number,
+    number,
+    boolean,
+  ]
 
   const pool: V3Pool = {
     address: validatedPoolAddress,
@@ -257,16 +291,25 @@ export function useV3PoolData(poolAddress: Address | null) {
 export function useCreateV3Pool() {
   const contracts = getXLPContracts(JEJU_CHAIN_ID)
 
-  const { writeContractAsync, isPending, isSuccess, error, data: txHash } = useWriteContract()
+  const {
+    writeContractAsync,
+    isPending,
+    isSuccess,
+    error,
+    data: txHash,
+  } = useWriteContract()
 
   const createPool = async (token0: Address, token1: Address, fee: number) => {
-    const validatedToken0 = AddressSchema.parse(token0);
-    const validatedToken1 = AddressSchema.parse(token1);
-    expectTrue(validatedToken0 !== validatedToken1, 'Token0 and Token1 must be different');
-    expectTrue(fee >= 0 && fee <= 1000000, 'Fee must be between 0 and 1000000');
-    
-    const factory = expect(contracts?.v3Factory, 'V3 Factory not deployed');
-    AddressSchema.parse(factory);
+    const validatedToken0 = AddressSchema.parse(token0)
+    const validatedToken1 = AddressSchema.parse(token1)
+    expectTrue(
+      validatedToken0 !== validatedToken1,
+      'Token0 and Token1 must be different',
+    )
+    expectTrue(fee >= 0 && fee <= 1000000, 'Fee must be between 0 and 1000000')
+
+    const factory = expect(contracts?.v3Factory, 'V3 Factory not deployed')
+    AddressSchema.parse(factory)
 
     const hash = await writeContractAsync({
       address: factory,
@@ -282,11 +325,17 @@ export function useCreateV3Pool() {
 
 // Initialize V3 pool with starting price
 export function useInitializeV3Pool() {
-  const { writeContractAsync, isPending, isSuccess, error, data: txHash } = useWriteContract()
+  const {
+    writeContractAsync,
+    isPending,
+    isSuccess,
+    error,
+    data: txHash,
+  } = useWriteContract()
 
   const initialize = async (poolAddress: Address, sqrtPriceX96: bigint) => {
-    const validatedPoolAddress = AddressSchema.parse(poolAddress);
-    expectTrue(sqrtPriceX96 > 0n, 'SqrtPriceX96 must be positive');
+    const validatedPoolAddress = AddressSchema.parse(poolAddress)
+    expectTrue(sqrtPriceX96 > 0n, 'SqrtPriceX96 must be positive')
 
     const hash = await writeContractAsync({
       address: validatedPoolAddress,
@@ -333,32 +382,54 @@ export function useV3Positions() {
     .map((r) => r.result as bigint)
 
   // Get position data for each token ID
-  const { data: positionsData, isLoading, error, refetch } = useReadContracts({
+  const {
+    data: positionsData,
+    isLoading,
+    error,
+    refetch,
+  } = useReadContracts({
     contracts: validTokenIds.map((tokenId) => ({
       address: contracts?.positionManager,
       abi: POSITION_MANAGER_ABI,
       functionName: 'positions',
       args: [tokenId],
     })),
-    query: { enabled: validTokenIds.length > 0 && !!contracts?.positionManager },
+    query: {
+      enabled: validTokenIds.length > 0 && !!contracts?.positionManager,
+    },
   })
 
   const positions: V3Position[] = (positionsData || [])
     .map((result, i) => {
       if (result.status !== 'success') return null
       const [
-        ,, // nonce, operator
+        ,
+        ,
+        // nonce, operator
         token0,
         token1,
         fee,
         tickLower,
         tickUpper,
         liquidity,
-        ,, // feeGrowthInside0LastX128, feeGrowthInside1LastX128
+        ,
+        ,
+        // feeGrowthInside0LastX128, feeGrowthInside1LastX128
         tokensOwed0,
         tokensOwed1,
       ] = result.result as [
-        bigint, Address, Address, Address, number, number, number, bigint, bigint, bigint, bigint, bigint
+        bigint,
+        Address,
+        Address,
+        Address,
+        number,
+        number,
+        number,
+        bigint,
+        bigint,
+        bigint,
+        bigint,
+        bigint,
       ]
 
       return {

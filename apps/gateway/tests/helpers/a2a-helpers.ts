@@ -3,43 +3,43 @@
  * @module gateway/tests/helpers/a2a-helpers
  */
 
-const A2A_BASE_URL = 'http://localhost:4003';
+const A2A_BASE_URL = 'http://localhost:4003'
 
 export interface A2AMessage {
-  messageId: string;
+  messageId: string
   parts: Array<{
-    kind: 'text' | 'data';
-    text?: string;
-    data?: Record<string, unknown>;
-  }>;
+    kind: 'text' | 'data'
+    text?: string
+    data?: Record<string, unknown>
+  }>
 }
 
 export interface A2ARequest {
-  jsonrpc: string;
-  method: string;
+  jsonrpc: string
+  method: string
   params?: {
-    message?: A2AMessage;
-  };
-  id: number | string;
+    message?: A2AMessage
+  }
+  id: number | string
 }
 
 export interface A2AResponse {
-  jsonrpc: string;
-  id: number | string;
+  jsonrpc: string
+  id: number | string
   result?: {
-    role: string;
+    role: string
     parts: Array<{
-      kind: string;
-      text?: string;
-      data?: Record<string, unknown>;
-    }>;
-    messageId: string;
-    kind: string;
-  };
+      kind: string
+      text?: string
+      data?: Record<string, unknown>
+    }>
+    messageId: string
+    kind: string
+  }
   error?: {
-    code: number;
-    message: string;
-  };
+    code: number
+    message: string
+  }
 }
 
 /**
@@ -48,7 +48,7 @@ export interface A2AResponse {
 export function createA2ARequest(
   skillId: string,
   data: Record<string, unknown> = {},
-  messageId: string = `test-${Date.now()}`
+  messageId: string = `test-${Date.now()}`,
 ): A2ARequest {
   return {
     jsonrpc: '2.0',
@@ -56,30 +56,32 @@ export function createA2ARequest(
     params: {
       message: {
         messageId,
-        parts: [
-          { kind: 'data', data: { skillId, ...data } }
-        ]
-      }
+        parts: [{ kind: 'data', data: { skillId, ...data } }],
+      },
     },
-    id: Math.floor(Math.random() * 10000)
-  };
+    id: Math.floor(Math.random() * 10000),
+  }
 }
 
 /**
  * Send A2A request to gateway
  */
-export async function sendA2ARequest(request: A2ARequest): Promise<A2AResponse> {
+export async function sendA2ARequest(
+  request: A2ARequest,
+): Promise<A2AResponse> {
   const response = await fetch(`${A2A_BASE_URL}/a2a`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(request),
-  });
-  
+  })
+
   if (!response.ok) {
-    throw new Error(`A2A request failed: ${response.status} ${response.statusText}`);
+    throw new Error(
+      `A2A request failed: ${response.status} ${response.statusText}`,
+    )
   }
-  
-  return await response.json();
+
+  return await response.json()
 }
 
 /**
@@ -87,23 +89,23 @@ export async function sendA2ARequest(request: A2ARequest): Promise<A2AResponse> 
  */
 export async function executeSkill(
   skillId: string,
-  params: Record<string, unknown> = {}
+  params: Record<string, unknown> = {},
 ): Promise<A2AResponse> {
-  const request = createA2ARequest(skillId, params);
-  return await sendA2ARequest(request);
+  const request = createA2ARequest(skillId, params)
+  return await sendA2ARequest(request)
 }
 
 /**
  * Fetch agent card
  */
 export async function fetchAgentCard(baseUrl: string = A2A_BASE_URL) {
-  const response = await fetch(`${baseUrl}/.well-known/agent-card.json`);
-  
+  const response = await fetch(`${baseUrl}/.well-known/agent-card.json`)
+
   if (!response.ok) {
-    throw new Error(`Failed to fetch agent card: ${response.status}`);
+    throw new Error(`Failed to fetch agent card: ${response.status}`)
   }
-  
-  return await response.json();
+
+  return await response.json()
 }
 
 /**
@@ -119,12 +121,12 @@ export function verifyAgentCardStructure(card: Record<string, unknown>): void {
     'provider',
     'version',
     'capabilities',
-    'skills'
-  ];
-  
+    'skills',
+  ]
+
   for (const field of required) {
     if (!(field in card)) {
-      throw new Error(`Agent card missing required field: ${field}`);
+      throw new Error(`Agent card missing required field: ${field}`)
     }
   }
 }
@@ -132,29 +134,33 @@ export function verifyAgentCardStructure(card: Record<string, unknown>): void {
 /**
  * Extract data from A2A response
  */
-export function extractResponseData(response: A2AResponse): Record<string, unknown> | null {
-  if (!response.result?.parts) return null;
-  
-  const dataPart = response.result.parts.find(p => p.kind === 'data');
-  return dataPart?.data || null;
+export function extractResponseData(
+  response: A2AResponse,
+): Record<string, unknown> | null {
+  if (!response.result?.parts) return null
+
+  const dataPart = response.result.parts.find((p) => p.kind === 'data')
+  return dataPart?.data || null
 }
 
 /**
  * Extract text from A2A response
  */
 export function extractResponseText(response: A2AResponse): string | null {
-  if (!response.result?.parts) return null;
-  
-  const textPart = response.result.parts.find(p => p.kind === 'text');
-  return textPart?.text || null;
+  if (!response.result?.parts) return null
+
+  const textPart = response.result.parts.find((p) => p.kind === 'text')
+  return textPart?.text || null
 }
 
 /**
  * Check if A2A server is running
  */
-export async function isA2AServerRunning(baseUrl: string = A2A_BASE_URL): Promise<boolean> {
-  const response = await fetch(`${baseUrl}/.well-known/agent-card.json`);
-  return response.ok;
+export async function isA2AServerRunning(
+  baseUrl: string = A2A_BASE_URL,
+): Promise<boolean> {
+  const response = await fetch(`${baseUrl}/.well-known/agent-card.json`)
+  return response.ok
 }
 
 /**
@@ -162,25 +168,23 @@ export async function isA2AServerRunning(baseUrl: string = A2A_BASE_URL): Promis
  */
 export async function validateSkillExecution(
   skillId: string,
-  expectedDataKeys: string[]
+  expectedDataKeys: string[],
 ): Promise<void> {
-  const response = await executeSkill(skillId);
-  
+  const response = await executeSkill(skillId)
+
   if (response.error) {
-    throw new Error(`Skill execution failed: ${response.error.message}`);
+    throw new Error(`Skill execution failed: ${response.error.message}`)
   }
-  
-  const data = extractResponseData(response);
-  
+
+  const data = extractResponseData(response)
+
   if (!data) {
-    throw new Error('No data in response');
+    throw new Error('No data in response')
   }
-  
+
   for (const key of expectedDataKeys) {
     if (!(key in data)) {
-      throw new Error(`Missing expected key in response data: ${key}`);
+      throw new Error(`Missing expected key in response data: ${key}`)
     }
   }
 }
-
-

@@ -1,9 +1,95 @@
-export * from './erc8004';
-export { checkTradeAllowed } from './banCheck';
-export * from './x402';
-export * from './paymaster';
-export * from './markets/lmsrPricing';
-export * from './indexer-client';
-export * from './moderation-contracts';
-export * from './randomColor';
-export * from './crosschain';
+export { checkTradeAllowed } from './banCheck'
+export * from './crosschain'
+export * from './erc8004'
+export * from './faucet'
+export * from './games'
+export * from './indexer-client'
+// Re-export launchpad with renamed formatPrice to avoid conflict with markets
+export {
+  type BondingCurveConfig,
+  BondingCurveConfigSchema,
+  type BondingCurveStats,
+  BondingCurveStatsSchema,
+  calculateBuyPriceImpact,
+  calculateEthOut,
+  calculateGraduationMarketCap,
+  calculateGraduationProgress,
+  calculateInitialMarketCap,
+  calculateInitialPrice,
+  calculateLPAllocation,
+  calculatePresaleTokens,
+  calculateTokenAllocation,
+  calculateTokensOut,
+  canClaimRefund,
+  canClaimTokens,
+  DEFAULT_BONDING_CONFIG,
+  DEFAULT_ICO_CONFIG,
+  DEGEN_ICO_CONFIG,
+  formatBasisPoints,
+  formatDuration,
+  formatEthAmount,
+  formatPrice as formatLaunchpadPrice,
+  type ICOConfig,
+  ICOConfigSchema,
+  type LaunchInfo,
+  LaunchInfoSchema,
+  type LaunchType,
+  LaunchTypeSchema,
+  type PresaleStatus,
+  PresaleStatusSchema,
+  parseBondingCurveStats,
+  parsePresaleStatus,
+  parseUserContribution,
+  type UserContribution,
+  UserContributionSchema,
+  validateBondingCurveLaunch,
+  validateICOLaunch,
+} from './launchpad'
+export * from './markets'
+export * from './moderation-contracts'
+export * from './paymaster'
+// Perps exports with explicit names to avoid collision with markets module
+export {
+  calculateCurrentLeverage,
+  calculateFee,
+  calculateLiquidationPrice,
+  calculateNotional,
+  calculateRequiredMargin,
+  calculateUnrealizedPnL as calculatePerpUnrealizedPnL,
+  DEFAULT_TAKER_FEE_BPS,
+  FUNDING_RATE_DECIMALS,
+  FUNDING_RATE_SCALE,
+  formatFundingRate,
+  formatLeverage,
+  formatPnL,
+  formatPrice as formatPerpPrice,
+  formatSize,
+  getBaseAsset,
+  getTradeButtonText,
+  isAtLiquidationRisk,
+  isTradeButtonDisabled,
+  LEVERAGE_DECIMALS,
+  LEVERAGE_SCALE,
+  leverageToBigInt,
+  leverageToNumber,
+  MAINTENANCE_MARGIN_FACTOR,
+  MARKET_IDS as PERP_MARKET_IDS,
+  MAX_LEVERAGE,
+  PNL_DECIMALS,
+  PNL_SCALE,
+  PositionSide,
+  PRICE_DECIMALS,
+  PRICE_SCALE,
+  priceToBigInt,
+  priceToNumber,
+  SIZE_DECIMALS,
+  SIZE_SCALE,
+  sizeToBigInt,
+  sizeToNumber,
+  validateMargin,
+  validatePositionParams,
+} from './perps'
+export * from './portfolio'
+export * from './randomColor'
+export * from './swap'
+export * from './x402'

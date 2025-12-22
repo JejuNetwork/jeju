@@ -3,74 +3,70 @@
  */
 
 // Re-export zod for convenience
-export { z } from 'zod';
-
-// Re-export utilities
-export * from './utils/common';
-export * from './utils/rpc';
-export * from './utils/api-marketplace';
-
-// x402 Payment handling
-export {
-  x402Middleware,
-  calculatePrice,
-  create402Response,
-  createPaymentRequirement,
-  verifyPayment,
-  parsePaymentProof,
-  GIT_PRICING_RULES,
-  PKG_PRICING_RULES,
-  TIERS,
-  getTierPrice,
-  tierAllows,
-  type PaymentConfig,
-  type PaymentRequirement,
-  type PaymentProof,
-  type PricingRule,
-  type TierDefinition,
-} from './x402';
-
+export { z } from 'zod'
 // Reputation integration
 export {
+  type MetricsInput,
   ReputationManager,
   type ReputationManagerConfig,
   type ReputationScore,
-  type MetricsInput,
-} from './reputation';
+} from './reputation'
+export * from './schemas'
+export * from './utils/api-marketplace'
+// Re-export utilities
+export * from './utils/common'
+export * from './utils/crypto'
+export * from './utils/rpc'
 
 // Validation utilities and schemas
 export {
-  expectValid,
-  validateBody,
-  validateQuery,
-  validateParams,
-  validateHeaders,
-  validateRequest,
   addressSchema,
-  hexSchema,
-  strictHexSchema,
   cidSchema,
-  positiveIntSchema,
-  nonNegativeIntSchema,
-  positiveBigIntSchema,
-  nonEmptyStringSchema,
-  urlSchema,
   emailSchema,
-  isoDateSchema,
-  timestampSchema,
-  paginationSchema,
-  jejuAddressHeaderSchema,
-  jejuAuthHeadersSchema,
   errorResponseSchema,
+  expectValid,
+  hexSchema,
+  isoDateSchema,
+  type JSONArray,
+  JSONArraySchema,
+  type JSONObject,
+  JSONObjectSchema,
   // JSON types
   type JSONPrimitive,
-  type JSONArray,
-  type JSONObject,
   type JSONValue,
   JSONValueSchema,
-  JSONObjectSchema,
-  JSONArraySchema,
-} from './validation';
-
-export * from './schemas';
-
+  jejuAddressHeaderSchema,
+  jejuAuthHeadersSchema,
+  nonEmptyStringSchema,
+  nonNegativeIntSchema,
+  paginationSchema,
+  positiveBigIntSchema,
+  positiveIntSchema,
+  strictHexSchema,
+  timestampSchema,
+  urlSchema,
+  validateBody,
+  validateHeaders,
+  validateParams,
+  validateQuery,
+  validateRequest,
+} from './validation'
+// x402 Payment handling
+export {
+  calculatePrice,
+  create402Response,
+  createPaymentRequirement,
+  GIT_PRICING_RULES,
+  getTierPrice,
+  type PaymentConfig,
+  type PaymentProof,
+  type PaymentRequirement,
+  PKG_PRICING_RULES,
+  type PricingRule,
+  parsePaymentProof,
+  TIERS,
+  type TierDefinition,
+  tierAllows,
+  verifyPayment,
+  x402Middleware,
+} from './x402'

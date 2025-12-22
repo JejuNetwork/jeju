@@ -8,7 +8,7 @@ export const MODERATION_CONTRACTS = {
   Predimarket: '0x0000000000000000000000000000000000000000',
   RegistryGovernance: '0x0000000000000000000000000000000000000000',
   IdentityRegistry: '0x0000000000000000000000000000000000000000',
-} as const;
+} as const
 
 export const MODERATION_CONFIG = {
   reportBonds: {
@@ -23,5 +23,4 @@ export const MODERATION_CONFIG = {
     HIGH: 24 * 3600,
     CRITICAL: 24 * 3600,
   },
-} as const;
-
+} as const

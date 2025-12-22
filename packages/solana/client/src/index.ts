@@ -12,20 +12,17 @@
  * - x402 Facilitator - Micropayments using SPL tokens (USDC)
  */
 
-// OIF Client - barrel export
-export * from './oif';
-
-// Launchpad Client - barrel export
-export * from './launchpad';
-
+// Token Bridge - barrel export
+export * from './bridge'
 // DEX Aggregator - barrel export (includes all adapters and types)
-export * from './dex';
+export * from './dex'
+// Launchpad Client - barrel export
+export * from './launchpad'
 
 // EVM Light Client - barrel export
-export * from './light-client';
-
-// Token Bridge - barrel export
-export * from './bridge';
+export * from './light-client'
+// OIF Client - barrel export
+export * from './oif'
 
 // x402 Payment Facilitator - barrel export
-export * from './x402';
+export * from './x402'

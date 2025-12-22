@@ -1,29 +1,57 @@
-import { useState, useCallback } from 'react';
-import { useWallet, useMultiChainBalances, formatUsd, formatTokenAmount } from './hooks/useWallet';
-import { ChatInterface } from './components/chat';
-import { ApprovalsView } from './components/approvals';
-import { SettingsView } from './components/settings';
-import { NFTGallery } from './components/nft';
-import { PoolsView } from './components/pools';
-import { PerpsView } from './components/perps';
-import { LaunchpadView } from './components/launchpad';
-import { NamesView } from './components/names';
-import { 
-  MessageSquare, Settings, Menu, X, Wallet, RefreshCw, Shield, Image, 
-  Copy, Check, Send, ArrowDownToLine, Droplets, Activity, Rocket, AtSign,
-  type LucideIcon 
-} from 'lucide-react';
-import type { Address } from 'viem';
-import { getNetworkName } from './config/branding';
+import {
+  Activity,
+  ArrowDownToLine,
+  AtSign,
+  Check,
+  Copy,
+  Droplets,
+  Image,
+  type LucideIcon,
+  Menu,
+  MessageSquare,
+  RefreshCw,
+  Rocket,
+  Send,
+  Settings,
+  Shield,
+  Wallet,
+  X,
+} from 'lucide-react'
+import { useCallback, useState } from 'react'
+import type { Address } from 'viem'
+import { ApprovalsView } from './components/approvals'
+import { ChatInterface } from './components/chat'
+import { LaunchpadView } from './components/launchpad'
+import { NamesView } from './components/names'
+import { NFTGallery } from './components/nft'
+import { PerpsView } from './components/perps'
+import { PoolsView } from './components/pools'
+import { SettingsView } from './components/settings'
+import { getNetworkName } from './config/branding'
+import {
+  formatTokenAmount,
+  formatUsd,
+  useMultiChainBalances,
+  useWallet,
+} from './hooks/useWallet'
 
-const networkName = getNetworkName();
+const networkName = getNetworkName()
 
-type ViewMode = 'chat' | 'portfolio' | 'nfts' | 'approvals' | 'settings' | 'pools' | 'perps' | 'launchpad' | 'names';
+type ViewMode =
+  | 'chat'
+  | 'portfolio'
+  | 'nfts'
+  | 'approvals'
+  | 'settings'
+  | 'pools'
+  | 'perps'
+  | 'launchpad'
+  | 'names'
 
 interface NavItem {
-  id: ViewMode;
-  label: string;
-  icon: LucideIcon;
+  id: ViewMode
+  label: string
+  icon: LucideIcon
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -35,31 +63,44 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'nfts', label: 'NFTs', icon: Image },
   { id: 'names', label: 'Names', icon: AtSign },
   { id: 'approvals', label: 'Security', icon: Shield },
-];
+]
 
 function App() {
-  const [viewMode, setViewMode] = useState<ViewMode>('chat');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
-  
-  const { isConnected, isConnecting, address, chain, connect, disconnect, connectors } = useWallet();
-  const { aggregatedBalances, totalUsdValue, isLoading: balancesLoading, refetch } = useMultiChainBalances(address);
+  const [viewMode, setViewMode] = useState<ViewMode>('chat')
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const {
+    isConnected,
+    isConnecting,
+    address,
+    chain,
+    connect,
+    disconnect,
+    connectors,
+  } = useWallet()
+  const {
+    aggregatedBalances,
+    totalUsdValue,
+    isLoading: balancesLoading,
+    refetch,
+  } = useMultiChainBalances(address)
 
   const handleActionCompleted = useCallback(() => {
-    refetch();
-  }, [refetch]);
+    refetch()
+  }, [refetch])
 
   const copyAddress = useCallback(() => {
-    if (!address) return;
-    navigator.clipboard.writeText(address);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }, [address]);
+    if (!address) return
+    navigator.clipboard.writeText(address)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }, [address])
 
   const renderView = () => {
     switch (viewMode) {
       case 'chat':
-        return <ChatInterface onActionCompleted={handleActionCompleted} />;
+        return <ChatInterface onActionCompleted={handleActionCompleted} />
       case 'portfolio':
         return (
           <PortfolioView
@@ -70,59 +111,61 @@ function App() {
             balancesLoading={balancesLoading}
             onRefresh={refetch}
           />
-        );
+        )
       case 'pools':
         return address ? (
           <PoolsView address={address as Address} />
         ) : (
           <ConnectPrompt message="Connect your wallet to manage liquidity pools" />
-        );
+        )
       case 'perps':
         return address ? (
           <PerpsView address={address as Address} />
         ) : (
           <ConnectPrompt message="Connect your wallet to trade perpetuals" />
-        );
+        )
       case 'launchpad':
         return address ? (
           <LaunchpadView address={address as Address} />
         ) : (
           <ConnectPrompt message="Connect your wallet to launch or buy tokens" />
-        );
+        )
       case 'nfts':
         return address ? (
           <NFTGallery address={address as Address} />
         ) : (
           <ConnectPrompt message="Connect your wallet to view your NFTs" />
-        );
+        )
       case 'names':
         return address ? (
           <NamesView address={address as Address} />
         ) : (
           <ConnectPrompt message="Connect your wallet to register .jeju names" />
-        );
+        )
       case 'approvals':
         return address ? (
           <ApprovalsView address={address as Address} />
         ) : (
           <ConnectPrompt message="Connect your wallet to manage security" />
-        );
+        )
       case 'settings':
-        return <SettingsView />;
+        return <SettingsView />
       default:
-        return null;
+        return null
     }
-  };
+  }
 
   return (
     <div className="flex h-screen bg-background text-foreground">
       {/* Sidebar */}
-      <aside className={`
+      <aside
+        className={`
         fixed inset-y-0 left-0 z-50 w-64 bg-card border-r border-border
         transform transition-transform duration-200 ease-in-out
         lg:relative lg:translate-x-0
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-      `}>
+      `}
+      >
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center justify-between p-4 border-b border-border">
@@ -135,7 +178,10 @@ function App() {
                 <p className="text-xs text-muted-foreground">Agentic Wallet</p>
               </div>
             </div>
-            <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-2 rounded-lg hover:bg-accent">
+            <button
+              onClick={() => setIsSidebarOpen(false)}
+              className="lg:hidden p-2 rounded-lg hover:bg-accent"
+            >
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -145,10 +191,13 @@ function App() {
             {NAV_ITEMS.map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
-                onClick={() => { setViewMode(id); setIsSidebarOpen(false); }}
+                onClick={() => {
+                  setViewMode(id)
+                  setIsSidebarOpen(false)
+                }}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-                  viewMode === id 
-                    ? 'bg-primary text-primary-foreground shadow-md' 
+                  viewMode === id
+                    ? 'bg-primary text-primary-foreground shadow-md'
                     : 'hover:bg-accent text-muted-foreground hover:text-foreground'
                 }`}
               >
@@ -163,16 +212,25 @@ function App() {
             <div className="p-4 border-t border-border">
               <div className="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 rounded-xl p-4 border border-emerald-500/20">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-muted-foreground">Portfolio Value</span>
-                  <button onClick={() => refetch()} className="p-1 hover:bg-accent rounded" title="Refresh">
-                    <RefreshCw className={`w-3 h-3 ${balancesLoading ? 'animate-spin' : ''}`} />
+                  <span className="text-xs text-muted-foreground">
+                    Portfolio Value
+                  </span>
+                  <button
+                    onClick={() => refetch()}
+                    className="p-1 hover:bg-accent rounded"
+                    title="Refresh"
+                  >
+                    <RefreshCw
+                      className={`w-3 h-3 ${balancesLoading ? 'animate-spin' : ''}`}
+                    />
                   </button>
                 </div>
                 <div className="text-2xl font-bold text-emerald-400">
                   {balancesLoading ? '...' : formatUsd(totalUsdValue)}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
-                  {aggregatedBalances.length} token{aggregatedBalances.length !== 1 ? 's' : ''} • All chains
+                  {aggregatedBalances.length} token
+                  {aggregatedBalances.length !== 1 ? 's' : ''} • All chains
                 </div>
               </div>
             </div>
@@ -184,8 +242,10 @@ function App() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium">{chain?.name ?? 'Multi-Chain'}</p>
-                    <button 
+                    <p className="text-sm font-medium">
+                      {chain?.name ?? 'Multi-Chain'}
+                    </p>
+                    <button
                       onClick={copyAddress}
                       className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground font-mono group"
                     >
@@ -199,23 +259,23 @@ function App() {
                   </div>
                   <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                 </div>
-                
+
                 {/* Quick Actions */}
                 <div className="flex gap-2">
-                  <button 
+                  <button
                     onClick={() => setViewMode('chat')}
                     className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
                   >
                     <Send className="w-3 h-3" /> Send
                   </button>
-                  <button 
+                  <button
                     onClick={copyAddress}
                     className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs rounded-lg bg-secondary hover:bg-secondary/80"
                   >
                     <ArrowDownToLine className="w-3 h-3" /> Receive
                   </button>
                 </div>
-                
+
                 <button
                   onClick={() => disconnect()}
                   className="w-full px-4 py-2 text-xs rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
@@ -241,8 +301,11 @@ function App() {
 
           {/* Settings */}
           <div className="p-4 border-t border-border">
-            <button 
-              onClick={() => { setViewMode('settings'); setIsSidebarOpen(false); }}
+            <button
+              onClick={() => {
+                setViewMode('settings')
+                setIsSidebarOpen(false)
+              }}
               className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${
                 viewMode === 'settings'
                   ? 'bg-accent text-foreground'
@@ -258,14 +321,20 @@ function App() {
 
       {/* Mobile overlay */}
       {isSidebarOpen && (
-        <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={() => setIsSidebarOpen(false)} />
+        <div
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
       )}
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0">
         {/* Mobile Header */}
         <header className="lg:hidden flex items-center justify-between p-4 border-b border-border bg-card">
-          <button onClick={() => setIsSidebarOpen(true)} className="p-2 rounded-lg hover:bg-accent">
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="p-2 rounded-lg hover:bg-accent"
+          >
             <Menu className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-2">
@@ -275,18 +344,18 @@ function App() {
             <span className="font-semibold">{networkName}</span>
           </div>
           {isConnected && (
-            <span className="text-xs font-medium text-emerald-400">{formatUsd(totalUsdValue)}</span>
+            <span className="text-xs font-medium text-emerald-400">
+              {formatUsd(totalUsdValue)}
+            </span>
           )}
           {!isConnected && <div className="w-10" />}
         </header>
 
         {/* Content */}
-        <div className="flex-1 overflow-hidden">
-          {renderView()}
-        </div>
+        <div className="flex-1 overflow-hidden">{renderView()}</div>
       </main>
     </div>
-  );
+  )
 }
 
 function ConnectPrompt({ message }: { message: string }) {
@@ -298,28 +367,41 @@ function ConnectPrompt({ message }: { message: string }) {
       <h2 className="text-2xl font-semibold mb-2">Connect Your Wallet</h2>
       <p className="text-muted-foreground text-center max-w-md">{message}</p>
     </div>
-  );
+  )
 }
 
 interface AggregatedBalance {
-  symbol: string;
-  totalBalance: bigint;
-  totalUsdValue: number;
-  chains: Array<{ token: { chainId: number; name: string }; balance: bigint; usdValue: number }>;
+  symbol: string
+  totalBalance: bigint
+  totalUsdValue: number
+  chains: Array<{
+    token: { chainId: number; name: string }
+    balance: bigint
+    usdValue: number
+  }>
 }
 
 interface PortfolioViewProps {
-  isConnected: boolean;
-  address?: string;
-  aggregatedBalances: AggregatedBalance[];
-  totalUsdValue: number;
-  balancesLoading: boolean;
-  onRefresh: () => void;
+  isConnected: boolean
+  address?: string
+  aggregatedBalances: AggregatedBalance[]
+  totalUsdValue: number
+  balancesLoading: boolean
+  onRefresh: () => void
 }
 
-function PortfolioView({ isConnected, address, aggregatedBalances, totalUsdValue, balancesLoading, onRefresh }: PortfolioViewProps) {
+function PortfolioView({
+  isConnected,
+  address,
+  aggregatedBalances,
+  totalUsdValue,
+  balancesLoading,
+  onRefresh,
+}: PortfolioViewProps) {
   if (!isConnected) {
-    return <ConnectPrompt message="View your unified portfolio across all chains. No chain switching required." />;
+    return (
+      <ConnectPrompt message="View your unified portfolio across all chains. No chain switching required." />
+    )
   }
 
   return (
@@ -329,26 +411,39 @@ function PortfolioView({ isConnected, address, aggregatedBalances, totalUsdValue
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold">Portfolio</h2>
-            <p className="text-muted-foreground">{address?.slice(0, 6)}...{address?.slice(-4)} • All chains</p>
+            <p className="text-muted-foreground">
+              {address?.slice(0, 6)}...{address?.slice(-4)} • All chains
+            </p>
           </div>
           <button
             onClick={onRefresh}
             disabled={balancesLoading}
             className="flex items-center gap-2 px-4 py-2 bg-secondary hover:bg-secondary/80 rounded-xl disabled:opacity-50 transition-colors"
           >
-            <RefreshCw className={`w-4 h-4 ${balancesLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              className={`w-4 h-4 ${balancesLoading ? 'animate-spin' : ''}`}
+            />
             Refresh
           </button>
         </div>
 
         {/* Total Value */}
         <div className="rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 p-8">
-          <p className="text-sm text-muted-foreground mb-2">Total Portfolio Value</p>
+          <p className="text-sm text-muted-foreground mb-2">
+            Total Portfolio Value
+          </p>
           <div className="text-5xl font-bold bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">
             {formatUsd(totalUsdValue)}
           </div>
           <p className="text-sm text-muted-foreground mt-3">
-            {aggregatedBalances.length} token{aggregatedBalances.length !== 1 ? 's' : ''} across {aggregatedBalances.reduce((sum, a) => sum + a.chains.length, 0)} chain{aggregatedBalances.reduce((sum, a) => sum + a.chains.length, 0) !== 1 ? 's' : ''}
+            {aggregatedBalances.length} token
+            {aggregatedBalances.length !== 1 ? 's' : ''} across{' '}
+            {aggregatedBalances.reduce((sum, a) => sum + a.chains.length, 0)}{' '}
+            chain
+            {aggregatedBalances.reduce((sum, a) => sum + a.chains.length, 0) !==
+            1
+              ? 's'
+              : ''}
           </p>
         </div>
 
@@ -357,39 +452,65 @@ function PortfolioView({ isConnected, address, aggregatedBalances, totalUsdValue
           <div className="p-4 border-b border-border">
             <h3 className="font-semibold">Assets</h3>
           </div>
-          
+
           {balancesLoading ? (
             <div className="p-4 space-y-3">
-              {[1, 2, 3].map((i) => <div key={i} className="h-20 bg-secondary/50 rounded-xl animate-pulse" />)}
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="h-20 bg-secondary/50 rounded-xl animate-pulse"
+                />
+              ))}
             </div>
           ) : aggregatedBalances.length > 0 ? (
             <div className="divide-y divide-border">
               {aggregatedBalances.map((agg) => (
-                <div key={agg.symbol} className="p-4 hover:bg-secondary/30 transition-colors">
+                <div
+                  key={agg.symbol}
+                  className="p-4 hover:bg-secondary/30 transition-colors"
+                >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="h-10 w-10 rounded-full bg-gradient-to-br from-emerald-500/20 to-teal-500/20 flex items-center justify-center">
-                        <span className="text-sm font-bold text-emerald-400">{agg.symbol.slice(0, 2)}</span>
+                        <span className="text-sm font-bold text-emerald-400">
+                          {agg.symbol.slice(0, 2)}
+                        </span>
                       </div>
                       <div>
                         <p className="font-semibold">{agg.symbol}</p>
-                        <p className="text-xs text-muted-foreground">{agg.chains.length} chain{agg.chains.length > 1 ? 's' : ''}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {agg.chains.length} chain
+                          {agg.chains.length > 1 ? 's' : ''}
+                        </p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold">{formatUsd(agg.totalUsdValue)}</p>
-                      <p className="text-xs text-muted-foreground font-mono">{formatTokenAmount(agg.totalBalance)} {agg.symbol}</p>
+                      <p className="font-semibold">
+                        {formatUsd(agg.totalUsdValue)}
+                      </p>
+                      <p className="text-xs text-muted-foreground font-mono">
+                        {formatTokenAmount(agg.totalBalance)} {agg.symbol}
+                      </p>
                     </div>
                   </div>
-                  
+
                   {agg.chains.length > 1 && (
                     <div className="mt-3 pl-13 space-y-2">
                       {agg.chains.map((c, i) => (
-                        <div key={i} className="flex items-center justify-between text-sm py-1">
-                          <span className="text-muted-foreground">{c.token.name}</span>
+                        <div
+                          key={i}
+                          className="flex items-center justify-between text-sm py-1"
+                        >
+                          <span className="text-muted-foreground">
+                            {c.token.name}
+                          </span>
                           <div className="text-right">
-                            <span className="text-muted-foreground">{formatUsd(c.usdValue)}</span>
-                            <span className="ml-2 font-mono text-xs">{formatTokenAmount(c.balance)}</span>
+                            <span className="text-muted-foreground">
+                              {formatUsd(c.usdValue)}
+                            </span>
+                            <span className="ml-2 font-mono text-xs">
+                              {formatTokenAmount(c.balance)}
+                            </span>
                           </div>
                         </div>
                       ))}
@@ -400,8 +521,12 @@ function PortfolioView({ isConnected, address, aggregatedBalances, totalUsdValue
             </div>
           ) : (
             <div className="p-8 text-center">
-              <p className="text-muted-foreground">No assets found across any chain.</p>
-              <p className="text-sm text-muted-foreground mt-1">Deposit tokens to get started.</p>
+              <p className="text-muted-foreground">
+                No assets found across any chain.
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Deposit tokens to get started.
+              </p>
             </div>
           )}
         </div>
@@ -416,7 +541,10 @@ function PortfolioView({ isConnected, address, aggregatedBalances, totalUsdValue
               { emoji: '🤖', title: 'AI Agent', desc: 'Chat to transact' },
               { emoji: '🛡️', title: 'Secure', desc: 'Transaction preview' },
             ].map(({ emoji, title, desc }) => (
-              <div key={title} className="text-center p-4 rounded-xl bg-secondary/30">
+              <div
+                key={title}
+                className="text-center p-4 rounded-xl bg-secondary/30"
+              >
                 <div className="text-2xl mb-2">{emoji}</div>
                 <p className="text-sm font-medium">{title}</p>
                 <p className="text-xs text-muted-foreground">{desc}</p>
@@ -426,7 +554,7 @@ function PortfolioView({ isConnected, address, aggregatedBalances, totalUsdValue
         </div>
       </div>
     </div>
-  );
+  )
 }
 
-export default App;
+export default App

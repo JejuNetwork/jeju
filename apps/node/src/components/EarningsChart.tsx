@@ -9,19 +9,22 @@ const mockData = [
   { date: 'Fri', earnings: 0.65 },
   { date: 'Sat', earnings: 0.89 },
   { date: 'Sun', earnings: 0.78 },
-];
+]
 
 export function EarningsChart() {
-  const maxEarnings = Math.max(...mockData.map(d => d.earnings));
-  
+  const maxEarnings = Math.max(...mockData.map((d) => d.earnings))
+
   return (
     <div className="h-full flex flex-col">
       <div className="flex-1 flex items-end gap-2 pb-8">
         {mockData.map((item) => {
-          const height = (item.earnings / maxEarnings) * 100;
+          const height = (item.earnings / maxEarnings) * 100
           return (
-            <div key={item.date} className="flex-1 flex flex-col items-center gap-2">
-              <div 
+            <div
+              key={item.date}
+              className="flex-1 flex flex-col items-center gap-2"
+            >
+              <div
                 className="w-full bg-gradient-to-t from-jeju-600 to-jeju-400 rounded-t-md transition-all duration-300 hover:from-jeju-500 hover:to-jeju-300"
                 style={{ height: `${height}%` }}
               >
@@ -30,17 +33,20 @@ export function EarningsChart() {
                 </div>
               </div>
             </div>
-          );
+          )
         })}
       </div>
-      
+
       <div className="flex gap-2 border-t border-volcanic-800 pt-2">
         {mockData.map((item) => (
-          <div key={item.date} className="flex-1 text-center text-xs text-volcanic-500">
+          <div
+            key={item.date}
+            className="flex-1 text-center text-xs text-volcanic-500"
+          >
             {item.date}
           </div>
         ))}
       </div>
     </div>
-  );
+  )
 }

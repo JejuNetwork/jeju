@@ -1,24 +1,30 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { 
-  Brain, 
-  Search, 
-  Download, 
-  Star, 
-  Plus,
-  Clock,
+import { clsx } from 'clsx'
+import {
+  Brain,
   CheckCircle,
+  Clock,
+  Download,
+  Loader2,
+  Plus,
+  Search,
   Shield,
+  Star,
   Zap,
-  Loader2
-} from 'lucide-react';
-import Link from 'next/link';
-import { clsx } from 'clsx';
-import { useModels } from '@/lib/hooks/useModels';
-import type { ModelType } from '@/types';
+} from 'lucide-react'
+import Link from 'next/link'
+import { useState } from 'react'
+import { useModels } from '@/lib/hooks/useModels'
+import type { ModelType } from '@/types'
 
-type FilterType = 'all' | 'llm' | 'vision' | 'audio' | 'embedding' | 'multimodal';
+type FilterType =
+  | 'all'
+  | 'llm'
+  | 'vision'
+  | 'audio'
+  | 'embedding'
+  | 'multimodal'
 
 const typeColors: Record<string, string> = {
   llm: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
@@ -29,7 +35,7 @@ const typeColors: Record<string, string> = {
   code: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
   image: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
   other: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
-};
+}
 
 function getModelTypeLabel(type: ModelType | string): string {
   const labels: Record<string, string> = {
@@ -40,48 +46,50 @@ function getModelTypeLabel(type: ModelType | string): string {
     multimodal: 'Multimodal',
     code: 'Code',
     image: 'Image',
-  };
-  return labels[type] || 'Other';
+  }
+  return labels[type] || 'Other'
 }
 
 export default function ModelsPage() {
-  const [filter, setFilter] = useState<FilterType>('all');
-  const [search, setSearch] = useState('');
-  const [sortBy, setSortBy] = useState<'downloads' | 'stars' | 'updated'>('downloads');
-  
+  const [filter, setFilter] = useState<FilterType>('all')
+  const [search, setSearch] = useState('')
+  const [sortBy, setSortBy] = useState<'downloads' | 'stars' | 'updated'>(
+    'downloads',
+  )
+
   const { models, isLoading, error, refresh } = useModels({
     type: filter === 'all' ? undefined : filter,
     search: search || undefined,
-  });
+  })
 
   // Calculate stats from actual data
   const stats = {
     totalModels: models.length,
     totalDownloads: models.reduce((sum, m) => sum + (m.downloads || 0), 0),
     totalInference: 0, // Not available in new type yet
-    verifiedModels: models.filter(m => m.isVerified).length,
-  };
+    verifiedModels: models.filter((m) => m.isVerified).length,
+  }
 
   // Sort models
   const sortedModels = [...models].sort((a, b) => {
-    if (sortBy === 'downloads') return b.downloads - a.downloads;
-    if (sortBy === 'stars') return b.stars - a.stars;
-    return b.updatedAt - a.updatedAt;
-  });
+    if (sortBy === 'downloads') return b.downloads - a.downloads
+    if (sortBy === 'stars') return b.stars - a.stars
+    return b.updatedAt - a.updatedAt
+  })
 
   const formatNumber = (num: number) => {
-    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
-    if (num >= 1000) return `${(num / 1000).toFixed(1)}k`;
-    return num.toString();
-  };
+    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}k`
+    return num.toString()
+  }
 
   const formatDate = (timestamp: number) => {
-    const days = Math.floor((Date.now() - timestamp) / (1000 * 60 * 60 * 24));
-    if (days === 0) return 'Today';
-    if (days === 1) return 'Yesterday';
-    if (days < 7) return `${days} days ago`;
-    return `${Math.floor(days / 7)} weeks ago`;
-  };
+    const days = Math.floor((Date.now() - timestamp) / (1000 * 60 * 60 * 24))
+    if (days === 0) return 'Today'
+    if (days === 1) return 'Yesterday'
+    if (days < 7) return `${days} days ago`
+    return `${Math.floor(days / 7)} weeks ago`
+  }
 
   return (
     <div className="min-h-screen p-8">
@@ -92,7 +100,9 @@ export default function ModelsPage() {
             <Brain className="w-7 h-7 text-amber-400" />
             Model Hub
           </h1>
-          <p className="text-factory-400 mt-1">Discover, share, and deploy ML models on-chain</p>
+          <p className="text-factory-400 mt-1">
+            Discover, share, and deploy ML models on-chain
+          </p>
         </div>
         <Link href="/models/upload" className="btn btn-primary">
           <Plus className="w-4 h-4" />
@@ -115,7 +125,16 @@ export default function ModelsPage() {
           </div>
 
           <div className="flex gap-2 overflow-x-auto">
-            {(['all', 'llm', 'vision', 'audio', 'embedding', 'multimodal'] as const).map((type) => (
+            {(
+              [
+                'all',
+                'llm',
+                'vision',
+                'audio',
+                'embedding',
+                'multimodal',
+              ] as const
+            ).map((type) => (
               <button
                 key={type}
                 onClick={() => setFilter(type)}
@@ -123,7 +142,7 @@ export default function ModelsPage() {
                   'px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap',
                   filter === type
                     ? 'bg-accent-600 text-white'
-                    : 'bg-factory-800 text-factory-400 hover:text-factory-100'
+                    : 'bg-factory-800 text-factory-400 hover:text-factory-100',
                 )}
               >
                 {type === 'all' ? 'All Models' : getModelTypeLabel(type)}
@@ -146,16 +165,38 @@ export default function ModelsPage() {
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4 mb-8">
         {[
-          { label: 'Total Models', value: formatNumber(stats.totalModels), icon: Brain, color: 'text-amber-400' },
-          { label: 'Total Downloads', value: formatNumber(stats.totalDownloads), icon: Download, color: 'text-green-400' },
-          { label: 'Inference Endpoints', value: formatNumber(stats.totalInference), icon: Zap, color: 'text-blue-400' },
-          { label: 'Verified Models', value: formatNumber(stats.verifiedModels), icon: Shield, color: 'text-purple-400' },
+          {
+            label: 'Total Models',
+            value: formatNumber(stats.totalModels),
+            icon: Brain,
+            color: 'text-amber-400',
+          },
+          {
+            label: 'Total Downloads',
+            value: formatNumber(stats.totalDownloads),
+            icon: Download,
+            color: 'text-green-400',
+          },
+          {
+            label: 'Inference Endpoints',
+            value: formatNumber(stats.totalInference),
+            icon: Zap,
+            color: 'text-blue-400',
+          },
+          {
+            label: 'Verified Models',
+            value: formatNumber(stats.verifiedModels),
+            icon: Shield,
+            color: 'text-purple-400',
+          },
         ].map((stat) => (
           <div key={stat.label} className="card p-4">
             <div className="flex items-center gap-3">
               <stat.icon className={clsx('w-8 h-8', stat.color)} />
               <div>
-                <p className="text-2xl font-bold text-factory-100">{stat.value}</p>
+                <p className="text-2xl font-bold text-factory-100">
+                  {stat.value}
+                </p>
                 <p className="text-factory-500 text-sm">{stat.label}</p>
               </div>
             </div>
@@ -167,7 +208,9 @@ export default function ModelsPage() {
       {isLoading && (
         <div className="card p-12 text-center">
           <Loader2 className="w-12 h-12 mx-auto mb-4 text-factory-600 animate-spin" />
-          <h3 className="text-lg font-medium text-factory-300 mb-2">Loading models...</h3>
+          <h3 className="text-lg font-medium text-factory-300 mb-2">
+            Loading models...
+          </h3>
         </div>
       )}
 
@@ -175,7 +218,9 @@ export default function ModelsPage() {
       {error && !isLoading && (
         <div className="card p-12 text-center">
           <Brain className="w-12 h-12 mx-auto mb-4 text-red-500" />
-          <h3 className="text-lg font-medium text-factory-300 mb-2">Error loading models</h3>
+          <h3 className="text-lg font-medium text-factory-300 mb-2">
+            Error loading models
+          </h3>
           <p className="text-factory-500 mb-4">{error.message}</p>
           <button onClick={refresh} className="btn btn-primary">
             Try Again
@@ -188,7 +233,7 @@ export default function ModelsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {sortedModels.map((model) => {
             return (
-              <Link 
+              <Link
                 key={model.id}
                 href={`/models/${model.organization}/${model.name}`}
                 className="card p-6 card-hover"
@@ -196,16 +241,22 @@ export default function ModelsPage() {
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-factory-400 text-sm">{model.organization}/</span>
-                      <span className="font-semibold text-factory-100">{model.name}</span>
+                      <span className="text-factory-400 text-sm">
+                        {model.organization}/
+                      </span>
+                      <span className="font-semibold text-factory-100">
+                        {model.name}
+                      </span>
                       {model.isVerified && (
                         <CheckCircle className="w-4 h-4 text-green-400" />
                       )}
                     </div>
-                    <span className={clsx(
-                      'badge border',
-                      typeColors[model.type] || typeColors.other
-                    )}>
+                    <span
+                      className={clsx(
+                        'badge border',
+                        typeColors[model.type] || typeColors.other,
+                      )}
+                    >
                       {getModelTypeLabel(model.type)}
                     </span>
                   </div>
@@ -243,7 +294,7 @@ export default function ModelsPage() {
                   </div>
                 </div>
               </Link>
-            );
+            )
           })}
         </div>
       )}
@@ -252,13 +303,17 @@ export default function ModelsPage() {
       {!isLoading && !error && sortedModels.length === 0 && (
         <div className="card p-12 text-center">
           <Brain className="w-12 h-12 mx-auto mb-4 text-factory-600" />
-          <h3 className="text-lg font-medium text-factory-300 mb-2">No models found</h3>
-          <p className="text-factory-500 mb-4">Try adjusting your filters or upload a new model</p>
+          <h3 className="text-lg font-medium text-factory-300 mb-2">
+            No models found
+          </h3>
+          <p className="text-factory-500 mb-4">
+            Try adjusting your filters or upload a new model
+          </p>
           <Link href="/models/upload" className="btn btn-primary">
             Upload Model
           </Link>
         </div>
       )}
     </div>
-  );
+  )
 }

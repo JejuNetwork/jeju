@@ -2,50 +2,71 @@
  * Action Resolver - Maps GitHub Actions to Jeju equivalents
  */
 
-import type { Action } from './types';
+import type { Action } from './types'
 
 interface ActionMapping {
-  jejuAction: string;
-  inputMapping?: Record<string, string>;
-  outputMapping?: Record<string, string>;
+  jejuAction: string
+  inputMapping?: Record<string, string>
+  outputMapping?: Record<string, string>
 }
 
 const ACTION_MAPPINGS: Record<string, ActionMapping> = {
   'actions/checkout': { jejuAction: 'jeju/checkout' },
-  'actions/setup-node': { jejuAction: 'jeju/setup-node', inputMapping: { 'node-version': 'version' } },
-  'actions/setup-python': { jejuAction: 'jeju/setup-python', inputMapping: { 'python-version': 'version' } },
-  'actions/setup-go': { jejuAction: 'jeju/setup-go', inputMapping: { 'go-version': 'version' } },
+  'actions/setup-node': {
+    jejuAction: 'jeju/setup-node',
+    inputMapping: { 'node-version': 'version' },
+  },
+  'actions/setup-python': {
+    jejuAction: 'jeju/setup-python',
+    inputMapping: { 'python-version': 'version' },
+  },
+  'actions/setup-go': {
+    jejuAction: 'jeju/setup-go',
+    inputMapping: { 'go-version': 'version' },
+  },
   'actions/cache': { jejuAction: 'jeju/cache' },
   'actions/upload-artifact': { jejuAction: 'jeju/artifact-upload' },
   'actions/download-artifact': { jejuAction: 'jeju/artifact-download' },
   'docker/setup-buildx-action': { jejuAction: 'jeju/setup-buildx' },
   'docker/login-action': { jejuAction: 'jeju/docker-login' },
   'docker/build-push-action': { jejuAction: 'jeju/docker-build' },
-};
+}
 
-export function resolveAction(uses: string): { action: Action; isNative: boolean } | null {
-  const [actionRef, _version] = uses.split('@');
-  const mapping = ACTION_MAPPINGS[actionRef];
+export function resolveAction(
+  uses: string,
+): { action: Action; isNative: boolean } | null {
+  const [actionRef, _version] = uses.split('@')
+  const mapping = ACTION_MAPPINGS[actionRef]
 
   if (mapping) {
-    const nativeAction = NATIVE_ACTIONS[mapping.jejuAction];
+    const nativeAction = NATIVE_ACTIONS[mapping.jejuAction]
     if (nativeAction) {
-      return { action: nativeAction, isNative: true };
+      return { action: nativeAction, isNative: true }
     }
   }
 
-  return null;
+  return null
 }
 
-export function parseActionRef(uses: string): { owner: string; repo: string; path?: string; ref: string } {
-  const [actionPath, ref] = uses.split('@');
-  const parts = actionPath.split('/');
+export function parseActionRef(uses: string): {
+  owner: string
+  repo: string
+  path?: string
+  ref: string
+} {
+  const [actionPath, ref] = uses.split('@')
+  const parts = actionPath.split('/')
 
   if (parts.length === 2) {
-    return { owner: parts[0], repo: parts[1], ref: ref || 'main' };
+    return { owner: parts[0], repo: parts[1], ref: ref || 'main' }
   }
 
-  return { owner: parts[0], repo: parts[1], path: parts.slice(2).join('/'), ref: ref || 'main' };
+  return {
+    owner: parts[0],
+    repo: parts[1],
+    path: parts.slice(2).join('/'),
+    ref: ref || 'main',
+  }
 }
 
 export const NATIVE_ACTIONS: Record<string, Action> = {
@@ -56,7 +77,10 @@ export const NATIVE_ACTIONS: Record<string, Action> = {
       ref: { description: 'Branch/tag/commit to checkout' },
       path: { description: 'Relative path under workspace' },
       repository: { description: 'Repository to checkout (owner/repo)' },
-      'fetch-depth': { description: 'Number of commits to fetch. 0 = all history', default: '1' },
+      'fetch-depth': {
+        description: 'Number of commits to fetch. 0 = all history',
+        default: '1',
+      },
     },
     runs: {
       using: 'composite',
@@ -291,7 +315,10 @@ fi
       name: { description: 'Artifact name', required: true },
       path: { description: 'Path to upload', required: true },
       'retention-days': { description: 'Days to retain', default: '7' },
-      'if-no-files-found': { description: 'Behavior if no files found', default: 'warn' },
+      'if-no-files-found': {
+        description: 'Behavior if no files found',
+        default: 'warn',
+      },
     },
     runs: {
       using: 'composite',
@@ -488,18 +515,16 @@ echo "digest=$(docker images --no-trunc --quiet \${TAG_LIST[0]} 2>/dev/null || e
       ],
     },
   },
-};
+}
 
 export function mapGitHubInputs(
   githubInputs: Record<string, string>,
-  mapping: Record<string, string>
+  mapping: Record<string, string>,
 ): Record<string, string> {
-  const result: Record<string, string> = {};
+  const result: Record<string, string> = {}
   for (const [key, value] of Object.entries(githubInputs)) {
-    const mappedKey = mapping[key] || key;
-    result[mappedKey] = value;
+    const mappedKey = mapping[key] || key
+    result[mappedKey] = value
   }
-  return result;
+  return result
 }
-
-

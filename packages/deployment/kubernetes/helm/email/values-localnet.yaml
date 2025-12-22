@@ -27,7 +27,9 @@ bridge:
 
 secrets:
   create: true
-  operatorPrivateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+  # LOCALNET ONLY: Anvil default account 0 - DO NOT USE IN TESTNET/MAINNET
+  # This is a well-known insecure key for local development only
+  operatorPrivateKey: ""  # Set via --set for localnet testing
 
 ingress:
   enabled: false

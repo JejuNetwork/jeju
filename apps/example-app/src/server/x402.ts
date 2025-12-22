@@ -1,23 +1,29 @@
 /**
  * x402 Payment Protocol Middleware
- * 
+ *
  * Implements HTTP 402 Payment Required for paid API access.
  * Supports JEJU and USDC payments on Base/Jeju networks.
- * 
+ *
  * All validation uses zod with expect/throw patterns.
  */
 
-import { Hono } from 'hono';
-import type { Context, Next } from 'hono';
-import { createPublicClient, http, parseAbi, verifyMessage } from 'viem';
-import { base, baseSepolia } from 'viem/chains';
-import type { Address, Hex } from 'viem';
+import type { Context, Next } from 'hono'
+import { Hono } from 'hono'
+import type { Address, Hex } from 'viem'
+import { createPublicClient, http, parseAbi, verifyMessage } from 'viem'
+import { base, baseSepolia } from 'viem/chains'
+import { x402PaymentHeaderSchema, x402VerifySchema } from '../schemas'
+import type {
+  X402Config,
+  X402PaymentHeader,
+  X402PaymentResult,
+  X402Token,
+} from '../types'
 import {
-  x402PaymentHeaderSchema,
-  x402VerifySchema,
-} from '../schemas';
-import { expectValid, ValidationError } from '../utils/validation';
-import type { X402Config, X402PaymentHeader, X402PaymentResult, X402Token } from '../types';
+  expectValid,
+  sanitizeErrorMessage,
+  ValidationError,
+} from '../utils/validation'
 
 // Default token configurations
 const TOKENS: Record<string, X402Token> = {
@@ -33,12 +39,36 @@ const TOKENS: Record<string, X402Token> = {
     decimals: 6,
     minAmount: BigInt(1e4), // 0.01 USDC
   },
-};
+}
 
 // Environment configuration
-const PAYMENT_ADDRESS = (process.env.X402_PAYMENT_ADDRESS || '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266') as Address;
-const X402_ENABLED = process.env.X402_ENABLED !== 'false';
-const NETWORK = process.env.NETWORK || 'localnet';
+const NETWORK = process.env.NETWORK || 'localnet'
+const IS_LOCALNET = NETWORK === 'localnet' || NETWORK === 'Jeju'
+
+// Default dev address (Anvil account #0) - ONLY for localnet
+const DEV_PAYMENT_ADDRESS =
+  '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address
+
+// In production, X402_PAYMENT_ADDRESS is required
+const getPaymentAddress = (): Address => {
+  const configuredAddress = process.env.X402_PAYMENT_ADDRESS
+  if (configuredAddress) {
+    return configuredAddress as Address
+  }
+  if (IS_LOCALNET) {
+    return DEV_PAYMENT_ADDRESS
+  }
+  // In production without configured address, disable x402 payments
+  console.warn(
+    '[x402] X402_PAYMENT_ADDRESS not configured - payments will fail',
+  )
+  return '0x0000000000000000000000000000000000000000' as Address
+}
+
+const PAYMENT_ADDRESS = getPaymentAddress()
+const X402_ENABLED =
+  process.env.X402_ENABLED !== 'false' &&
+  PAYMENT_ADDRESS !== '0x0000000000000000000000000000000000000000'
 
 // Price per request in USDC micro-units (1 = $0.000001)
 const PRICES = {
@@ -46,119 +76,128 @@ const PRICES = {
   basic: BigInt(1000), // $0.001
   premium: BigInt(10000), // $0.01
   ai: BigInt(100000), // $0.1
-};
+}
 
 export interface X402Middleware {
-  config: X402Config;
-  requirePayment: (price?: keyof typeof PRICES) => (c: Context, next: Next) => Promise<Response | void>;
-  verifyPayment: (header: string) => Promise<X402PaymentResult>;
-  getPaymentInfo: () => { address: Address; tokens: X402Token[]; prices: typeof PRICES };
+  config: X402Config
+  requirePayment: (
+    price?: keyof typeof PRICES,
+  ) => (c: Context, next: Next) => Promise<Response | undefined>
+  verifyPayment: (header: string) => Promise<X402PaymentResult>
+  getPaymentInfo: () => {
+    address: Address
+    tokens: X402Token[]
+    prices: typeof PRICES
+  }
 }
 
 class X402MiddlewareImpl implements X402Middleware {
-  config: X402Config;
-  private client;
+  config: X402Config
+  private client
 
   constructor() {
-    const chain = NETWORK === 'mainnet' ? base : baseSepolia;
-    
+    const chain = !IS_LOCALNET && NETWORK === 'mainnet' ? base : baseSepolia
+
     this.config = {
       enabled: X402_ENABLED,
       acceptedTokens: [TOKENS.JEJU, TOKENS.USDC],
       paymentAddress: PAYMENT_ADDRESS,
       pricePerRequest: PRICES.basic,
       network: NETWORK === 'mainnet' ? 'base' : 'base-sepolia',
-    };
+    }
 
     this.client = createPublicClient({
       chain,
       transport: http(),
-    });
+    })
   }
 
   requirePayment(price: keyof typeof PRICES = 'basic') {
-    return async (c: Context, next: Next): Promise<Response | void> => {
+    return async (c: Context, next: Next): Promise<Response | undefined> => {
       // Skip payment check if disabled
       if (!this.config.enabled) {
-        return next();
+        return next()
       }
 
       // Free tier doesn't require payment
       if (price === 'free') {
-        return next();
+        return next()
       }
 
-      const paymentHeader = c.req.header('X-Payment');
-      
+      const paymentHeader = c.req.header('X-Payment')
+
       if (!paymentHeader) {
-        return this.sendPaymentRequired(c, price);
+        return this.sendPaymentRequired(c, price)
       }
 
-      const result = await this.verifyPayment(paymentHeader);
-      
+      const result = await this.verifyPayment(paymentHeader)
+
       if (!result.valid) {
         return c.json(
           { error: 'Payment verification failed', details: result.error },
-          402
-        );
+          402,
+        )
       }
 
       // Payment verified, continue
-      c.set('x402TxHash', result.txHash);
-      return next();
-    };
+      c.set('x402TxHash', result.txHash)
+      return next()
+    }
   }
 
   async verifyPayment(header: string): Promise<X402PaymentResult> {
-    const payment = this.parsePaymentHeader(header);
+    const payment = this.parsePaymentHeader(header)
     if (!payment) {
-      throw new ValidationError('Invalid payment header format');
+      throw new ValidationError('Invalid payment header format')
     }
 
     // Validate payment structure with zod
     const validatedPayment = expectValid(
       x402PaymentHeaderSchema,
       payment,
-      'Payment header'
-    );
+      'Payment header',
+    )
 
     // Check deadline
-    const now = Date.now();
-    const deadlineMs = validatedPayment.deadline * 1000;
+    const now = Date.now()
+    const deadlineMs = validatedPayment.deadline * 1000
     if (now > deadlineMs) {
       throw new ValidationError(
-        `Payment deadline expired: ${deadlineMs} is in the past (now: ${now})`
-      );
+        `Payment deadline expired: ${deadlineMs} is in the past (now: ${now})`,
+      )
     }
 
     // Check payee matches
-    if (validatedPayment.payee.toLowerCase() !== this.config.paymentAddress.toLowerCase()) {
+    if (
+      validatedPayment.payee.toLowerCase() !==
+      this.config.paymentAddress.toLowerCase()
+    ) {
       throw new ValidationError(
-        `Invalid payment recipient: ${validatedPayment.payee} != ${this.config.paymentAddress}`
-      );
+        `Invalid payment recipient: ${validatedPayment.payee} != ${this.config.paymentAddress}`,
+      )
     }
 
     // Verify signature
-    const message = this.constructPaymentMessage(validatedPayment);
+    const message = this.constructPaymentMessage(validatedPayment)
     const isValid = await this.verifySignature(
       message,
       validatedPayment.signature,
-      validatedPayment.payer
-    );
-    
+      validatedPayment.payer,
+    )
+
     if (!isValid) {
-      throw new ValidationError('Invalid signature');
+      throw new ValidationError('Invalid signature')
     }
 
     // Verify on-chain payment (for production)
-    if (NETWORK !== 'localnet') {
-      const onChainValid = await this.verifyOnChainPayment(validatedPayment);
+    if (!IS_LOCALNET) {
+      const onChainValid = await this.verifyOnChainPayment(validatedPayment)
       if (!onChainValid.valid) {
-        return onChainValid;
+        return onChainValid
       }
     }
 
-    return { valid: true, txHash: validatedPayment.signature }; // Use signature as receipt in dev
+    return { valid: true, txHash: validatedPayment.signature } // Use signature as receipt in dev
   }
 
   getPaymentInfo() {
@@ -166,19 +205,21 @@ class X402MiddlewareImpl implements X402Middleware {
       address: this.config.paymentAddress,
       tokens: this.config.acceptedTokens,
       prices: PRICES,
-    };
+    }
   }
 
-  private parsePaymentHeader(header: string): Record<string, string | number> | null {
+  private parsePaymentHeader(
+    header: string,
+  ): Record<string, string | number> | null {
     // Format: token:amount:payer:payee:nonce:deadline:signature
-    const parts = header.split(':');
+    const parts = header.split(':')
     if (parts.length !== 7) {
-      return null;
+      return null
     }
 
-    const deadline = parseInt(parts[5], 10);
-    if (isNaN(deadline) || deadline <= 0) {
-      return null;
+    const deadline = parseInt(parts[5], 10)
+    if (Number.isNaN(deadline) || deadline <= 0) {
+      return null
     }
 
     return {
@@ -189,37 +230,44 @@ class X402MiddlewareImpl implements X402Middleware {
       nonce: parts[4],
       deadline,
       signature: parts[6],
-    };
+    }
   }
 
   private constructPaymentMessage(payment: X402PaymentHeader): string {
-    return `x402-payment:${payment.token}:${payment.amount}:${payment.payer}:${payment.payee}:${payment.nonce}:${payment.deadline}`;
+    return `x402-payment:${payment.token}:${payment.amount}:${payment.payer}:${payment.payee}:${payment.nonce}:${payment.deadline}`
   }
 
-  private async verifySignature(message: string, signature: Hex, expectedSigner: Address): Promise<boolean> {
+  private async verifySignature(
+    message: string,
+    signature: Hex,
+    expectedSigner: Address,
+  ): Promise<boolean> {
     const recovered = await verifyMessage({
       address: expectedSigner,
       message,
       signature,
-    });
-    return recovered;
+    })
+    return recovered
   }
 
-  private async verifyOnChainPayment(payment: X402PaymentHeader): Promise<X402PaymentResult> {
+  private async verifyOnChainPayment(
+    payment: X402PaymentHeader,
+  ): Promise<X402PaymentResult> {
     // Check if token is native or ERC20
-    const isNative = payment.token === '0x0000000000000000000000000000000000000000';
-    
+    const isNative =
+      payment.token === '0x0000000000000000000000000000000000000000'
+
     if (isNative) {
       // For native token, we'd check a payment escrow contract
       // For now, signature-based verification is sufficient
-      return { valid: true };
+      return { valid: true }
     }
 
     // Check ERC20 allowance/balance
     const erc20Abi = parseAbi([
       'function allowance(address owner, address spender) view returns (uint256)',
       'function balanceOf(address account) view returns (uint256)',
-    ]);
+    ])
 
     const [allowance, balance] = await Promise.all([
       this.client.readContract({
@@ -234,23 +282,25 @@ class X402MiddlewareImpl implements X402Middleware {
         functionName: 'balanceOf',
         args: [payment.payer],
       }),
-    ]);
+    ])
 
-    const amount = BigInt(payment.amount);
+    const amount = BigInt(payment.amount)
     if (balance < amount) {
-      return { valid: false, error: 'Insufficient token balance' };
+      return { valid: false, error: 'Insufficient token balance' }
     }
     if (allowance < amount) {
-      return { valid: false, error: 'Insufficient token allowance' };
+      return { valid: false, error: 'Insufficient token allowance' }
     }
 
-    return { valid: true };
+    return { valid: true }
   }
 
   private sendPaymentRequired(c: Context, tier: keyof typeof PRICES): Response {
-    const price = PRICES[tier];
-    const acceptedTokens = this.config.acceptedTokens.map(t => t.symbol).join(', ');
-    
+    const price = PRICES[tier]
+    const acceptedTokens = this.config.acceptedTokens
+      .map((t) => t.symbol)
+      .join(', ')
+
     return c.json(
       {
         error: 'Payment Required',
@@ -265,60 +315,69 @@ class X402MiddlewareImpl implements X402Middleware {
           headerFormat: 'token:amount:payer:payee:nonce:deadline:signature',
         },
       },
-      402
-    );
+      402,
+    )
   }
 }
 
-let x402Middleware: X402Middleware | null = null;
+let x402Middleware: X402Middleware | null = null
 
 export function getX402Middleware(): X402Middleware {
   if (!x402Middleware) {
-    x402Middleware = new X402MiddlewareImpl();
+    x402Middleware = new X402MiddlewareImpl()
   }
-  return x402Middleware;
+  return x402Middleware
 }
 
 // Helper to create x402 routes
 export function createX402Routes(): Hono {
-  const app = new Hono();
-  const x402 = getX402Middleware();
+  const app = new Hono()
+  const x402 = getX402Middleware()
 
   // Payment info endpoint
   app.get('/info', (c) => {
-    const info = x402.getPaymentInfo();
+    const info = x402.getPaymentInfo()
     return c.json({
       enabled: x402.config.enabled,
       paymentAddress: info.address,
-      acceptedTokens: info.tokens.map(t => ({
+      acceptedTokens: info.tokens.map((t) => ({
         symbol: t.symbol,
         address: t.address,
         decimals: t.decimals,
       })),
       prices: Object.fromEntries(
-        Object.entries(info.prices).map(([k, v]) => [k, v.toString()])
+        Object.entries(info.prices).map(([k, v]) => [k, v.toString()]),
       ),
       network: x402.config.network,
-    });
-  });
+    })
+  })
 
-  // Error handler
+  // Error handler with sanitized messages
   app.onError((err, c) => {
+    // Log full error for debugging (server-side only)
+    console.error('[x402 Error]', err)
+
     if (err instanceof ValidationError) {
-      return c.json({ valid: false, error: err.message }, 400);
+      return c.json({ valid: false, error: err.message }, 400)
     }
-    return c.json({ valid: false, error: err.message || 'Internal error' }, 500);
-  });
+
+    // Return sanitized message to client
+    const safeMessage = sanitizeErrorMessage(err, IS_LOCALNET)
+    return c.json({ valid: false, error: safeMessage }, 500)
+  })
 
   // Verify payment endpoint with validated input
   app.post('/verify', async (c) => {
-    const body = await c.req.json();
-    const validatedInput = expectValid(x402VerifySchema, body, 'Verify payment input');
-    
-    const result = await x402.verifyPayment(validatedInput.header);
-    return c.json(result, result.valid ? 200 : 400);
-  });
+    const body = await c.req.json()
+    const validatedInput = expectValid(
+      x402VerifySchema,
+      body,
+      'Verify payment input',
+    )
 
-  return app;
+    const result = await x402.verifyPayment(validatedInput.header)
+    return c.json(result, result.valid ? 200 : 400)
+  })
+
+  return app
 }
-

@@ -1,0 +1,79 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.3.10/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "includes": [
+      "packages/**/*.ts",
+      "packages/**/*.tsx",
+      "apps/**/*.ts",
+      "apps/**/*.tsx"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "suspicious": {
+        "noExplicitAny": "error",
+        "noDebugger": "warn",
+        "noArrayIndexKey": "error",
+        "useIterableCallbackReturn": "error",
+        "noAssignInExpressions": "error"
+      },
+      "correctness": {
+        "noUnusedVariables": "error",
+        "noUnusedImports": "error",
+        "useExhaustiveDependencies": "error"
+      },
+      "performance": {
+        "noImgElement": "error"
+      },
+      "style": {
+        "useConst": "error",
+        "noNonNullAssertion": "error",
+        "noEnum": "off"
+      },
+      "a11y": {
+        "recommended": true
+      },
+      "security": {
+        "noDangerouslySetInnerHtml": "error"
+      },
+      "complexity": {
+        "noStaticOnlyClass": "error",
+        "noCommaOperator": "error",
+        "noBannedTypes": "error"
+      }
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "semicolons": "asNeeded"
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["**/*.test.ts", "**/*.test.tsx", "**/tests/**/*.ts", "**/test/**/*.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noExplicitAny": "warn"
+          },
+          "style": {
+            "noNonNullAssertion": "off"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,25 +1,34 @@
-'use client';
+'use client'
 
-import { use, type ComponentProps } from 'react';
-import { useReadContract } from 'wagmi';
-import { Shield, AlertTriangle, Flag, Clock, TrendingUp, Github, type LucideIcon } from 'lucide-react';
+import {
+  AlertTriangle,
+  Clock,
+  Flag,
+  Github,
+  type LucideIcon,
+  Shield,
+  TrendingUp,
+} from 'lucide-react'
+import { type ComponentProps, use } from 'react'
+import { useReadContract } from 'wagmi'
 
 // Type-safe wrapper for Lucide icons (React 19 compatible)
-type IconProps = ComponentProps<LucideIcon>;
-const ShieldIcon = (props: IconProps) => <Shield {...props} />;
-const AlertTriangleIcon = (props: IconProps) => <AlertTriangle {...props} />;
-const FlagIcon = (props: IconProps) => <Flag {...props} />;
-const ClockIcon = (props: IconProps) => <Clock {...props} />;
-const TrendingUpIcon = (props: IconProps) => <TrendingUp {...props} />;
-const GithubIcon = (props: IconProps) => <Github {...props} />;
-import ReputationViewer from '../../../components/moderation/ReputationViewer';
-import GitHubReputationPanel from '../../../components/GitHubReputationPanel';
-import { MODERATION_CONTRACTS } from '../../../config/moderation';
+type IconProps = ComponentProps<LucideIcon>
+const ShieldIcon = (props: IconProps) => <Shield {...props} />
+const AlertTriangleIcon = (props: IconProps) => <AlertTriangle {...props} />
+const FlagIcon = (props: IconProps) => <Flag {...props} />
+const ClockIcon = (props: IconProps) => <Clock {...props} />
+const TrendingUpIcon = (props: IconProps) => <TrendingUp {...props} />
+const GithubIcon = (props: IconProps) => <Github {...props} />
+
+import GitHubReputationPanel from '../../../components/GitHubReputationPanel'
+import ReputationViewer from '../../../components/moderation/ReputationViewer'
+import { MODERATION_CONTRACTS } from '../../../config/moderation'
 
 interface PageProps {
   params: Promise<{
-    id: string;
-  }>;
+    id: string
+  }>
 }
 
 const IDENTITY_REGISTRY_ABI = [
@@ -52,7 +61,7 @@ const IDENTITY_REGISTRY_ABI = [
     inputs: [{ name: 'agentId', type: 'uint256' }],
     outputs: [{ name: '', type: 'string[]' }],
   },
-] as const;
+] as const
 
 const REPORTING_SYSTEM_ABI = [
   {
@@ -62,11 +71,11 @@ const REPORTING_SYSTEM_ABI = [
     inputs: [{ name: 'agentId', type: 'uint256' }],
     outputs: [{ name: '', type: 'uint256[]' }],
   },
-] as const;
+] as const
 
 export default function AgentProfilePage({ params }: PageProps) {
-  const { id } = use(params);
-  const agentId = BigInt(id);
+  const { id } = use(params)
+  const agentId = BigInt(id)
 
   // Query agent data
   const { data: agentData, isLoading: loadingAgent } = useReadContract({
@@ -74,7 +83,7 @@ export default function AgentProfilePage({ params }: PageProps) {
     abi: IDENTITY_REGISTRY_ABI,
     functionName: 'getAgent',
     args: [agentId],
-  });
+  })
 
   // Query tags
   const { data: tags } = useReadContract({
@@ -82,7 +91,7 @@ export default function AgentProfilePage({ params }: PageProps) {
     abi: IDENTITY_REGISTRY_ABI,
     functionName: 'getTags',
     args: [agentId],
-  });
+  })
 
   // Query reports
   const { data: reportIds } = useReadContract({
@@ -90,7 +99,7 @@ export default function AgentProfilePage({ params }: PageProps) {
     abi: REPORTING_SYSTEM_ABI,
     functionName: 'getReportsByTarget',
     args: [agentId],
-  });
+  })
 
   if (loadingAgent) {
     return (
@@ -102,7 +111,7 @@ export default function AgentProfilePage({ params }: PageProps) {
           </div>
         </div>
       </div>
-    );
+    )
   }
 
   if (!agentData) {
@@ -110,15 +119,19 @@ export default function AgentProfilePage({ params }: PageProps) {
       <div className="min-h-screen bg-gray-50 p-8">
         <div className="max-w-4xl mx-auto text-center">
           <AlertTriangleIcon className="mx-auto text-red-500 mb-4" size={48} />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Agent Not Found</h1>
-          <p className="text-gray-600">Agent ID {id} does not exist in the registry.</p>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">
+            Agent Not Found
+          </h1>
+          <p className="text-gray-600">
+            Agent ID {id} does not exist in the registry.
+          </p>
         </div>
       </div>
-    );
+    )
   }
 
-  const registeredDate = new Date(Number(agentData.registeredAt) * 1000);
-  const lastActive = new Date(Number(agentData.lastActivityAt) * 1000);
+  const registeredDate = new Date(Number(agentData.registeredAt) * 1000)
+  const lastActive = new Date(Number(agentData.lastActivityAt) * 1000)
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
@@ -127,7 +140,9 @@ export default function AgentProfilePage({ params }: PageProps) {
         <div className="bg-white rounded-lg shadow-sm p-6">
           <div className="flex items-start justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Agent #{id}</h1>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                Agent #{id}
+              </h1>
               <div className="flex items-center gap-3 text-sm text-gray-600">
                 <span className="flex items-center gap-1">
                   <ClockIcon size={16} />
@@ -152,7 +167,10 @@ export default function AgentProfilePage({ params }: PageProps) {
           {tags && tags.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-2">
               {tags.map((tag) => (
-                <span key={tag} className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">
+                <span
+                  key={tag}
+                  className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm"
+                >
                   {tag}
                 </span>
               ))}
@@ -210,10 +228,16 @@ export default function AgentProfilePage({ params }: PageProps) {
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="font-semibold">Report #{reportId.toString()}</div>
-                      <div className="text-sm text-gray-600">Click to view details</div>
+                      <div className="font-semibold">
+                        Report #{reportId.toString()}
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        Click to view details
+                      </div>
                     </div>
-                    <button className="text-blue-500 hover:text-blue-600">View →</button>
+                    <button className="text-blue-500 hover:text-blue-600">
+                      View →
+                    </button>
                   </div>
                 </div>
               ))}
@@ -233,19 +257,26 @@ export default function AgentProfilePage({ params }: PageProps) {
             <div>
               <div className="text-sm text-gray-600">Account Age</div>
               <div className="text-2xl font-bold">
-                {Math.floor((Date.now() - Number(agentData.registeredAt) * 1000) / (1000 * 60 * 60 * 24))} days
+                {Math.floor(
+                  (Date.now() - Number(agentData.registeredAt) * 1000) /
+                    (1000 * 60 * 60 * 24),
+                )}{' '}
+                days
               </div>
             </div>
             <div>
               <div className="text-sm text-gray-600">Last Active</div>
               <div className="text-2xl font-bold">
-                {Math.floor((Date.now() - Number(agentData.lastActivityAt) * 1000) / (1000 * 60 * 60))}h ago
+                {Math.floor(
+                  (Date.now() - Number(agentData.lastActivityAt) * 1000) /
+                    (1000 * 60 * 60),
+                )}
+                h ago
               </div>
             </div>
           </div>
         </div>
       </div>
     </div>
-  );
+  )
 }
-

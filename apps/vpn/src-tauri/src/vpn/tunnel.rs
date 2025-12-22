@@ -1,6 +1,42 @@
 //! TUN interface management
 
 use super::VPNError;
+use std::net::Ipv4Addr;
+
+/// SECURITY: Validate interface name to prevent command injection
+/// Only allows alphanumeric characters and underscores, max 15 chars
+fn validate_interface_name(name: &str) -> Result<(), VPNError> {
+    if name.is_empty() || name.len() > 15 {
+        return Err(VPNError::TunnelError(
+            "Interface name must be 1-15 characters".to_string()
+        ));
+    }
+    
+    // Only allow alphanumeric, underscore, and hyphen (no shell metacharacters)
+    if !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') {
+        return Err(VPNError::TunnelError(
+            "Interface name contains invalid characters. Only alphanumeric, underscore, and hyphen allowed.".to_string()
+        ));
+    }
+    
+    Ok(())
+}
+
+/// SECURITY: Validate IPv4 address format to prevent injection
+fn validate_ipv4_address(ip: &str) -> Result<Ipv4Addr, VPNError> {
+    ip.parse::<Ipv4Addr>()
+        .map_err(|_| VPNError::TunnelError(format!("Invalid IPv4 address: {}", ip)))
+}
+
+/// SECURITY: Validate subnet mask (must be 0-32)
+fn validate_subnet(subnet: u8) -> Result<(), VPNError> {
+    if subnet > 32 {
+        return Err(VPNError::TunnelError(
+            format!("Invalid subnet mask: {}. Must be 0-32.", subnet)
+        ));
+    }
+    Ok(())
+}
 
 /// Platform-specific TUN interface
 pub struct TunInterface {
@@ -13,6 +49,9 @@ impl TunInterface {
     /// Create a new TUN interface
     #[cfg(target_os = "linux")]
     pub fn create(name: &str, mtu: u16) -> Result<Self, VPNError> {
+        // SECURITY: Validate interface name before use
+        validate_interface_name(name)?;
+        
         tracing::info!("Creating TUN interface: {}", name);
         
         // TODO: Use tun crate to create actual interface
@@ -30,6 +69,9 @@ impl TunInterface {
     
     #[cfg(target_os = "macos")]
     pub fn create(name: &str, mtu: u16) -> Result<Self, VPNError> {
+        // SECURITY: Validate interface name before use
+        validate_interface_name(name)?;
+        
         tracing::info!("Creating TUN interface on macOS: {}", name);
         
         // macOS uses utun interfaces
@@ -43,6 +85,9 @@ impl TunInterface {
     
     #[cfg(target_os = "windows")]
     pub fn create(name: &str, mtu: u16) -> Result<Self, VPNError> {
+        // SECURITY: Validate interface name before use
+        validate_interface_name(name)?;
+        
         tracing::info!("Creating TUN interface on Windows: {}", name);
         
         // Windows requires WinTun driver
@@ -55,7 +100,7 @@ impl TunInterface {
     }
     
     #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
-    pub fn create(name: &str, mtu: u16) -> Result<Self, VPNError> {
+    pub fn create(_name: &str, _mtu: u16) -> Result<Self, VPNError> {
         Err(VPNError::TunnelError("Unsupported platform".to_string()))
     }
     
@@ -66,22 +111,28 @@ impl TunInterface {
     
     /// Configure IP address on interface
     pub fn set_ip(&self, ip: &str, subnet: u8) -> Result<(), VPNError> {
-        tracing::info!("Setting IP {}/{} on {}", ip, subnet, self.name);
+        // SECURITY: Validate inputs before passing to shell commands
+        let validated_ip = validate_ipv4_address(ip)?;
+        validate_subnet(subnet)?;
+        
+        tracing::info!("Setting IP {}/{} on {}", validated_ip, subnet, self.name);
         
         #[cfg(target_os = "linux")]
         {
-            // Use ip command
+            // Use ip command with validated inputs
+            let ip_cidr = format!("{}/{}", validated_ip, subnet);
             std::process::Command::new("ip")
-                .args(["addr", "add", &format!("{}/{}", ip, subnet), "dev", &self.name])
+                .args(["addr", "add", &ip_cidr, "dev", &self.name])
                 .output()
                 .map_err(|e| VPNError::TunnelError(e.to_string()))?;
         }
         
         #[cfg(target_os = "macos")]
         {
-            // Use ifconfig
+            // Use ifconfig with validated inputs
+            let ip_str = validated_ip.to_string();
             std::process::Command::new("ifconfig")
-                .args([&self.name, ip, ip, "netmask", "255.255.255.0"])
+                .args([&self.name, &ip_str, &ip_str, "netmask", "255.255.255.0"])
                 .output()
                 .map_err(|e| VPNError::TunnelError(e.to_string()))?;
         }

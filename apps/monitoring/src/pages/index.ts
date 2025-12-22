@@ -1,6 +1,5 @@
-export { Dashboard } from './Dashboard'
 export { Alerts } from './Alerts'
-export { Targets } from './Targets'
+export { Dashboard } from './Dashboard'
 export { OIFStats } from './OIFStats'
 export { QueryExplorer } from './QueryExplorer'
-
+export { Targets } from './Targets'

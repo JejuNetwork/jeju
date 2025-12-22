@@ -1,7 +1,14 @@
-import { test as base } from '@playwright/test';
-import { BrowserContext } from 'playwright-core';
-import { bootstrap, Dappwright, getWallet } from '@tenkeylabs/dappwright';
-import { SEED_PHRASE, PASSWORD, TEST_ACCOUNTS, JEJU_CHAIN, JEJU_RPC_URL, JEJU_CHAIN_ID } from '../utils';
+import { test as base } from '@playwright/test'
+import { bootstrap, type Dappwright, getWallet } from '@tenkeylabs/dappwright'
+import type { BrowserContext } from 'playwright-core'
+import {
+  JEJU_CHAIN,
+  JEJU_CHAIN_ID,
+  JEJU_RPC_URL,
+  PASSWORD,
+  SEED_PHRASE,
+  TEST_ACCOUNTS,
+} from '../utils'
 
 /**
  * Shared wallet fixture configuration for network
@@ -15,15 +22,15 @@ export const JEJU_TEST_WALLET = {
   password: PASSWORD,
   address: TEST_ACCOUNTS.deployer.address,
   privateKey: TEST_ACCOUNTS.deployer.privateKey,
-} as const;
+} as const
 
 export const JEJU_NETWORK = {
   name: JEJU_CHAIN.name,
   networkName: JEJU_CHAIN.name,
   rpcUrl: process.env.L2_RPC_URL || process.env.JEJU_RPC_URL || JEJU_RPC_URL,
-  chainId: parseInt(process.env.CHAIN_ID || String(JEJU_CHAIN_ID)),
+  chainId: parseInt(process.env.CHAIN_ID || String(JEJU_CHAIN_ID), 10),
   symbol: JEJU_CHAIN.symbol,
-} as const;
+} as const
 
 /**
  * Extended Playwright test with wallet fixture
@@ -47,12 +54,12 @@ export const testWithWallet = base.extend<
   walletContext: [
     async (_fixtures, use, _info) => {
       // Bootstrap wallet with MetaMask extension
-      const [wallet, _, context] = await bootstrap("", {
-        wallet: "metamask",
-        version: "11.16.17",
+      const [wallet, _, context] = await bootstrap('', {
+        wallet: 'metamask',
+        version: '11.16.17',
         seed: JEJU_TEST_WALLET.seed,
         headless: false, // MetaMask requires headful mode
-      });
+      })
 
       // Add network to MetaMask
       await wallet.addNetwork({
@@ -60,26 +67,26 @@ export const testWithWallet = base.extend<
         rpc: JEJU_NETWORK.rpcUrl,
         chainId: JEJU_NETWORK.chainId,
         symbol: JEJU_NETWORK.symbol,
-      });
+      })
 
       // Switch to the network network
-      await wallet.switchNetwork(JEJU_NETWORK.networkName);
+      await wallet.switchNetwork(JEJU_NETWORK.networkName)
 
-      await use(context);
-      await context.close();
+      await use(context)
+      await context.close()
     },
     { scope: 'worker' }, // Reuse wallet across all tests in worker
   ],
 
   context: async ({ walletContext }, use) => {
-    await use(walletContext);
+    await use(walletContext)
   },
 
   wallet: async ({ walletContext }, use) => {
-    const wallet = await getWallet("metamask", walletContext);
-    await use(wallet);
+    const wallet = await getWallet('metamask', walletContext)
+    await use(wallet)
   },
-});
+})
 
 /**
  * Test with wallet that auto-connects to the app
@@ -101,38 +108,45 @@ export const testWithConnectedWallet = testWithWallet.extend({
   page: async ({ page, wallet }, use) => {
     // Auto-connect wallet to app
     // This assumes a "Connect" button exists
-    const connectButton = page.locator('button:has-text("Connect")');
-    const isVisible = await connectButton.isVisible({ timeout: 5000 });
+    const connectButton = page.locator('button:has-text("Connect")')
+    const isVisible = await connectButton.isVisible({ timeout: 5000 })
 
     if (isVisible) {
-      await connectButton.click();
+      await connectButton.click()
 
       // Wait for MetaMask option
-      await page.waitForSelector('text="MetaMask"', { timeout: 3000 });
-      await page.click('text="MetaMask"');
+      await page.waitForSelector('text="MetaMask"', { timeout: 3000 })
+      await page.click('text="MetaMask"')
 
       // Approve in MetaMask
-      await wallet.approve();
+      await wallet.approve()
 
       // Wait for connection success
       // Look for connected indicator (address, balance, etc.)
-      await page.waitForSelector('[data-connected="true"], button:has-text(/0x/)', {
-        timeout: 10000,
-      });
+      await page.waitForSelector(
+        '[data-connected="true"], button:has-text(/0x/)',
+        {
+          timeout: 10000,
+        },
+      )
 
-      console.log('✅ Wallet auto-connected successfully');
+      console.log('✅ Wallet auto-connected successfully')
     } else {
       // Check if wallet is already connected (no connect button visible)
-      const alreadyConnected = await page.locator('[data-connected="true"], button:has-text(/0x/)').isVisible({ timeout: 2000 });
+      const alreadyConnected = await page
+        .locator('[data-connected="true"], button:has-text(/0x/)')
+        .isVisible({ timeout: 2000 })
       if (!alreadyConnected) {
-        throw new Error('No connect button found and wallet does not appear connected');
+        throw new Error(
+          'No connect button found and wallet does not appear connected',
+        )
       }
-      console.log('✅ Wallet already connected');
+      console.log('✅ Wallet already connected')
     }
 
-    await use(page);
+    await use(page)
   },
-});
+})
 
 /**
  * Test fixture with custom wallet (non-default account)
@@ -153,17 +167,17 @@ export const testWithCustomWallet = base.extend<
 >({
   customPrivateKey: async (_fixtures, use) => {
     // Override this in your test file
-    await use('');
+    await use('')
   },
 
   walletContext: [
     async (_fixtures, use) => {
-      const [wallet, _, context] = await bootstrap("", {
-        wallet: "metamask",
-        version: "11.16.17",
+      const [wallet, _, context] = await bootstrap('', {
+        wallet: 'metamask',
+        version: '11.16.17',
         seed: JEJU_TEST_WALLET.seed,
         headless: false,
-      });
+      })
 
       // Add network
       await wallet.addNetwork({
@@ -171,28 +185,37 @@ export const testWithCustomWallet = base.extend<
         rpc: JEJU_NETWORK.rpcUrl,
         chainId: JEJU_NETWORK.chainId,
         symbol: JEJU_NETWORK.symbol,
-      });
+      })
 
-      await wallet.switchNetwork(JEJU_NETWORK.networkName);
+      await wallet.switchNetwork(JEJU_NETWORK.networkName)
 
-      await use(context);
-      await context.close();
+      await use(context)
+      await context.close()
     },
     { scope: 'worker' },
   ],
 
-  context: async ({ walletContext }: { walletContext: BrowserContext }, use) => {
-    await use(walletContext);
+  context: async (
+    { walletContext }: { walletContext: BrowserContext },
+    use,
+  ) => {
+    await use(walletContext)
   },
 
-  wallet: async ({ walletContext, customPrivateKey }: { walletContext: BrowserContext; customPrivateKey: string }, use) => {
-    const wallet = await getWallet("metamask", walletContext);
-    
+  wallet: async (
+    {
+      walletContext,
+      customPrivateKey,
+    }: { walletContext: BrowserContext; customPrivateKey: string },
+    use,
+  ) => {
+    const wallet = await getWallet('metamask', walletContext)
+
     // Import custom account if provided
     if (customPrivateKey) {
-      await wallet.importPK(customPrivateKey);
+      await wallet.importPK(customPrivateKey)
     }
-    
-    await use(wallet);
+
+    await use(wallet)
   },
-});
+})
