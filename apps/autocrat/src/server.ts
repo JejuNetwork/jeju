@@ -23,6 +23,7 @@ import { agentsRoutes } from './routes/agents'
 import { bugBountyRoutes } from './routes/bug-bounty'
 import { casualRoutes } from './routes/casual'
 import { daoRoutes } from './routes/dao'
+import { feesRoutes } from './routes/fees'
 import { fundingRoutes } from './routes/funding'
 import { futarchyRoutes } from './routes/futarchy'
 import { healthRoutes } from './routes/health'
@@ -61,6 +62,7 @@ const app = new Elysia()
   .use(triggersRoutes)
   .use(casualRoutes)
   .use(fundingRoutes)
+  .use(feesRoutes)
   .use(a2aRoutes)
   .use(mcpRoutes)
   .use(rlaifRoutes)
@@ -86,6 +88,7 @@ const app = new Elysia()
       proposals: '/api/v1/proposals',
       casual: '/api/v1/dao/:daoId/casual',
       funding: '/api/v1/dao/:daoId/funding',
+      fees: '/fees',
       research: '/api/v1/research',
       agents: '/api/v1/agents',
       futarchy: '/api/v1/futarchy',

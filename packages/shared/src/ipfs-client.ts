@@ -4,7 +4,7 @@
  */
 
 import { expectValid } from '@jejunetwork/types'
-import type { ZodSchema } from 'zod'
+import { z } from 'zod'
 import { IPFSPinCountResponseSchema, IPFSUploadResponseSchema } from './schemas'
 import type { ProtocolValue } from './types'
 
@@ -123,7 +123,7 @@ export async function retrieveFromIPFS(
 export async function retrieveJSONFromIPFS<T>(
   gatewayUrl: string,
   cid: string,
-  schema?: ZodSchema<T>,
+  schema?: z.ZodType<T>,
 ): Promise<T> {
   const blob = await retrieveFromIPFS(gatewayUrl, cid)
   const text = await blob.text()
@@ -185,7 +185,7 @@ export function createIPFSClient(config: IPFSConfig) {
      * @param cid - Content identifier
      * @param schema - Optional Zod schema for validation (recommended for security)
      */
-    retrieveJSON: <T>(cid: string, schema?: ZodSchema<T>) =>
+    retrieveJSON: <T>(cid: string, schema?: z.ZodType<T>) =>
       retrieveJSONFromIPFS<T>(config.gatewayUrl, cid, schema),
     getUrl: (cid: string) => getIPFSUrl(config.gatewayUrl, cid),
     exists: (cid: string) => fileExistsOnIPFS(config.apiUrl, cid),

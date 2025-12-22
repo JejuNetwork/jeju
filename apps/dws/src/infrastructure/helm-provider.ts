@@ -266,10 +266,7 @@ class ManifestParser {
 
   private parseConfigMap(manifest: KubeManifest): DWSConfigMap {
     // ConfigMaps have data directly, not in spec
-    const manifestData = manifest as unknown as {
-      data?: Record<string, string>
-      spec?: { data?: Record<string, string> }
-    }
+    const manifestData = manifest as unknown as { data?: Record<string, string>; spec?: { data?: Record<string, string> } }
     const data = manifestData.data ?? manifestData.spec?.data ?? {}
     return {
       id: `cm-${manifest.metadata.name}-${Date.now()}`,
@@ -280,10 +277,7 @@ class ManifestParser {
 
   private parseSecret(manifest: KubeManifest): DWSSecret {
     // Secrets have data directly, not in spec
-    const manifestData = manifest as unknown as {
-      data?: Record<string, string>
-      spec?: { data?: Record<string, string> }
-    }
+    const manifestData = manifest as unknown as { data?: Record<string, string>; spec?: { data?: Record<string, string> } }
     const data = manifestData.data ?? manifestData.spec?.data ?? {}
     // Decode base64 values
     const decoded: Record<string, string> = {}
@@ -471,6 +465,7 @@ const ManifestsBody = t.Object({
         labels: t.Optional(t.Record(t.String(), t.String())),
         annotations: t.Optional(t.Record(t.String(), t.String())),
       }),
+      // spec is optional - ConfigMaps/Secrets use data, other resources use spec
       spec: t.Optional(t.Record(t.String(), t.Unknown())),
       data: t.Optional(t.Record(t.String(), t.String())),
       stringData: t.Optional(t.Record(t.String(), t.String())),

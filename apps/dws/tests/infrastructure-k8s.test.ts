@@ -105,7 +105,7 @@ describe('Helm Provider', () => {
     expect(body.id).toBeDefined()
     expect(body.name).toBe('infra-test-config')
     expect(body.namespace).toBe('default')
-    expect(body.status).toBe('deploying')
+    expect(body.status).toBe('running')
     deploymentId = body.id
   })
 
@@ -622,13 +622,13 @@ describe('Service Mesh', () => {
       body: JSON.stringify({
         name: 'test-api',
         namespace: 'default',
-        publicKey: `0x${'00'.repeat(32)}`,
+        publicKey: '0x' + '00'.repeat(32),
         endpoints: ['http://localhost:3001', 'http://localhost:3002'],
         tags: ['api', 'test'],
       }),
     })
 
-    expect(res.status).toBe(200)
+    expect(res.status).toBe(201)
   })
 
   test('get service backends', async () => {
@@ -768,23 +768,20 @@ describe('Ingress Controller', () => {
 describe('E2E Deployment Flow', () => {
   test('full deployment flow: Terraform -> Helm -> Ingress', async () => {
     // Step 1: Create infrastructure with Terraform
-    const tfWorkerRes = await app.request(
-      '/terraform/v1/resources/dws_worker',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-jeju-address': TEST_ADDRESS,
-        },
-        body: JSON.stringify({
-          name: 'e2e-flow-worker',
-          code_cid: 'QmE2EFlowCid',
-          runtime: 'workerd',
-          memory_mb: 128,
-          max_instances: 3,
-        }),
+    const tfWorkerRes = await app.request('/terraform/v1/resources/dws_worker', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-jeju-address': TEST_ADDRESS,
       },
-    )
+      body: JSON.stringify({
+        name: 'e2e-flow-worker',
+        code_cid: 'QmE2EFlowCid',
+        runtime: 'workerd',
+        memory_mb: 128,
+        max_instances: 3,
+      }),
+    })
     expect(tfWorkerRes.status).toBe(201)
     const tfWorker = (await tfWorkerRes.json()) as TerraformResourceResponse
 

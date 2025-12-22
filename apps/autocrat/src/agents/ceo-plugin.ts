@@ -19,7 +19,7 @@ import type {
   Plugin,
   State,
 } from '@elizaos/core'
-import { getAutocratA2AUrl } from '@jejunetwork/config'
+import { getAutocratA2AUrl, getAutocratUrl } from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
 import { A2AJsonRpcResponseSchema } from '../schemas'
 import { makeTEEDecision } from '../tee'
@@ -261,7 +261,7 @@ const getDeliberationAction: Action = {
       await response.json(),
       'autocrat votes A2A response',
     )
-    const dataPart = result.result?.parts?.find((p) => p.kind === 'data')
+    const dataPart = result.result?.parts?.find((p: { kind: string }) => p.kind === 'data')
     const votesData =
       dataPart?.kind === 'data' && dataPart.data ? dataPart.data : {}
     const votes =
@@ -307,6 +307,377 @@ ${voteText}`,
   },
 }
 
+// ============================================================================
+// Fee Management Actions
+// ============================================================================
+
+/**
+ * Action: Modify Fees
+ * CEO can modify network-wide fee configuration
+ */
+const modifyFeesAction: Action = {
+  name: 'MODIFY_FEES',
+  description: 'Modify network-wide fee configuration as CEO',
+  similes: [
+    'change fees',
+    'update fees',
+    'set fees',
+    'adjust fees',
+    'modify fee',
+    'change distribution',
+    'set compute fees',
+    'adjust swap fee',
+  ],
+  examples: [
+    [
+      {
+        name: 'user',
+        content: { text: 'Set the swap protocol fee to 0.1%' },
+      },
+      {
+        name: 'ceo',
+        content: {
+          text: 'I will update the swap protocol fee from 0.05% to 0.1%. This change affects all DEX trades on the network.',
+        },
+      },
+    ],
+    [
+      {
+        name: 'user',
+        content: {
+          text: 'Change the distribution to 50% apps, 40% LPs, 10% contributors',
+        },
+      },
+      {
+        name: 'ceo',
+        content: {
+          text: 'Updating revenue distribution: App share 50%, LP share 40%, Contributor pool 10%. This rebalances incentives toward app developers.',
+        },
+      },
+    ],
+  ],
+
+  validate: async (
+    _runtime: IAgentRuntime,
+    message: Memory,
+  ): Promise<boolean> => {
+    const content = message.content?.text?.toLowerCase() ?? ''
+    const feeKeywords = [
+      'fee',
+      'fees',
+      'distribution',
+      'share',
+      'percentage',
+      '%',
+      'bps',
+      'basis points',
+      'swap',
+      'bridge',
+      'compute',
+      'storage',
+      'marketplace',
+    ]
+    return feeKeywords.some((k) => content.includes(k))
+  },
+
+  handler: async (
+    _runtime: IAgentRuntime,
+    message: Memory,
+    _state?: State,
+    _options?: HandlerOptions,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
+    const content = message.content?.text?.toLowerCase() ?? ''
+
+    // Parse the fee change request
+    interface FeeChangeRequest {
+      category: string
+      skillId: string
+      params: Record<string, number>
+    }
+
+    const parseRequest = (): FeeChangeRequest | null => {
+      // Distribution fees
+      if (content.includes('distribution') || content.includes('app share')) {
+        const appMatch = content.match(/(\d+)%?\s*(app|developer)/i)
+        const lpMatch = content.match(/(\d+)%?\s*(lp|liquidity)/i)
+        const contribMatch = content.match(/(\d+)%?\s*(contrib|pool)/i)
+
+        if (appMatch && lpMatch && contribMatch) {
+          return {
+            category: 'distribution',
+            skillId: 'set-distribution-fees',
+            params: {
+              appShareBps: parseInt(appMatch[1]) * 100,
+              lpShareBps: parseInt(lpMatch[1]) * 100,
+              contributorShareBps: parseInt(contribMatch[1]) * 100,
+              ethLpShareBps: 7000,
+              tokenLpShareBps: 3000,
+            },
+          }
+        }
+      }
+
+      // DeFi fees
+      if (content.includes('swap') && content.includes('fee')) {
+        const percentMatch = content.match(/(\d+\.?\d*)%/)
+        const bpsMatch = content.match(/(\d+)\s*bps/)
+        if (percentMatch) {
+          return {
+            category: 'defi',
+            skillId: 'set-defi-fees',
+            params: {
+              swapProtocolFeeBps: Math.round(parseFloat(percentMatch[1]) * 100),
+              bridgeFeeBps: 10,
+              crossChainMarginBps: 1000,
+            },
+          }
+        }
+        if (bpsMatch) {
+          return {
+            category: 'defi',
+            skillId: 'set-defi-fees',
+            params: {
+              swapProtocolFeeBps: parseInt(bpsMatch[1]),
+              bridgeFeeBps: 10,
+              crossChainMarginBps: 1000,
+            },
+          }
+        }
+      }
+
+      if (content.includes('bridge') && content.includes('fee')) {
+        const percentMatch = content.match(/(\d+\.?\d*)%/)
+        if (percentMatch) {
+          return {
+            category: 'defi',
+            skillId: 'set-defi-fees',
+            params: {
+              swapProtocolFeeBps: 5,
+              bridgeFeeBps: Math.round(parseFloat(percentMatch[1]) * 100),
+              crossChainMarginBps: 1000,
+            },
+          }
+        }
+      }
+
+      // Marketplace fees
+      if (content.includes('bazaar') || content.includes('marketplace')) {
+        const percentMatch = content.match(/(\d+\.?\d*)%/)
+        if (percentMatch) {
+          return {
+            category: 'marketplace',
+            skillId: 'set-marketplace-fees',
+            params: {
+              bazaarPlatformFeeBps: Math.round(
+                parseFloat(percentMatch[1]) * 100,
+              ),
+              launchpadCreatorFeeBps: 8000,
+              launchpadCommunityFeeBps: 2000,
+              x402ProtocolFeeBps: 50,
+            },
+          }
+        }
+      }
+
+      // Compute fees
+      if (content.includes('inference') || content.includes('compute')) {
+        const percentMatch = content.match(/(\d+\.?\d*)%/)
+        if (percentMatch) {
+          return {
+            category: 'compute',
+            skillId: 'set-compute-fees',
+            params: {
+              inferencePlatformFeeBps: Math.round(
+                parseFloat(percentMatch[1]) * 100,
+              ),
+              rentalPlatformFeeBps: 300,
+              triggerPlatformFeeBps: 200,
+            },
+          }
+        }
+      }
+
+      return null
+    }
+
+    const request = parseRequest()
+
+    if (!request) {
+      if (callback) {
+        await callback({
+          text: `I couldn't parse your fee change request. Please specify:
+          
+• **Distribution**: "Set distribution to X% apps, Y% LPs, Z% contributors"
+• **Swap Fee**: "Set swap fee to X%" or "Set swap fee to X bps"
+• **Bridge Fee**: "Set bridge fee to X%"
+• **Marketplace**: "Set bazaar fee to X%"
+• **Compute**: "Set inference fee to X%"
+
+Current fees can be viewed using the fee configuration provider.`,
+          action: 'MODIFY_FEES',
+        })
+      }
+      return
+    }
+
+    // Execute the fee change
+    const feesUrl = `${getAutocratUrl()}/fees/execute`
+    const response = await fetch(feesUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        skillId: request.skillId,
+        params: request.params,
+      }),
+    })
+
+    const result = (await response.json()) as {
+      success: boolean
+      data?: { txHash: string }
+      error?: string
+    }
+
+    if (!result.success) {
+      if (callback) {
+        await callback({
+          text: `❌ Fee change failed: ${result.error ?? 'Unknown error'}`,
+          action: 'MODIFY_FEES',
+        })
+      }
+      return
+    }
+
+    const paramStr = Object.entries(request.params)
+      .map(([k, v]) => `${k}: ${v / 100}%`)
+      .join(', ')
+
+    if (callback) {
+      await callback({
+        text: `✅ CEO FEE UPDATE EXECUTED
+
+📊 Category: ${request.category.toUpperCase()}
+🔧 Changes: ${paramStr}
+
+📝 Transaction: ${result.data?.txHash?.slice(0, 16)}...
+
+The fee changes are now active across the network. All contracts reading from FeeConfig will use the new values.`,
+        action: 'MODIFY_FEES',
+      })
+    }
+  },
+}
+
+/**
+ * Action: View Fee Configuration
+ * Get current fee settings
+ */
+const viewFeesAction: Action = {
+  name: 'VIEW_FEES',
+  description: 'View current network fee configuration',
+  similes: ['show fees', 'get fees', 'current fees', 'fee config', 'fee settings'],
+  examples: [
+    [
+      {
+        name: 'user',
+        content: { text: 'Show me the current fee configuration' },
+      },
+      {
+        name: 'ceo',
+        content: { text: 'Here is the current network fee configuration...' },
+      },
+    ],
+  ],
+
+  validate: async (
+    _runtime: IAgentRuntime,
+    message: Memory,
+  ): Promise<boolean> => {
+    const content = message.content?.text?.toLowerCase() ?? ''
+    return (
+      (content.includes('fee') || content.includes('fees')) &&
+      (content.includes('show') ||
+        content.includes('view') ||
+        content.includes('get') ||
+        content.includes('current') ||
+        content.includes('what'))
+    )
+  },
+
+  handler: async (
+    _runtime: IAgentRuntime,
+    _message: Memory,
+    _state?: State,
+    _options?: HandlerOptions,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
+    const feesUrl = `${getAutocratUrl()}/fees/summary`
+
+    const response = await fetch(feesUrl)
+    if (!response.ok) {
+      if (callback) {
+        await callback({
+          text: '⚠️ Unable to fetch fee configuration.',
+          action: 'VIEW_FEES',
+        })
+      }
+      return
+    }
+
+    const data = (await response.json()) as {
+      success: boolean
+      summary: {
+        distribution: Record<string, string>
+        compute: Record<string, string>
+        storage: Record<string, string>
+        defi: Record<string, string>
+        infrastructure: Record<string, string>
+        marketplace: Record<string, string>
+        token: Record<string, string>
+      }
+    }
+
+    const s = data.summary
+
+    if (callback) {
+      await callback({
+        text: `💰 CURRENT NETWORK FEE CONFIGURATION
+
+📊 **Revenue Distribution**
+• App Developers: ${s.distribution.appDeveloperShare}
+• Liquidity Providers: ${s.distribution.liquidityProviderShare}
+• Contributor Pool: ${s.distribution.contributorPoolShare}
+
+🔄 **DeFi Fees**
+• Swap Protocol: ${s.defi.swapProtocolFee}
+• Bridge: ${s.defi.bridgeFee}
+• Cross-Chain Margin: ${s.defi.crossChainMargin}
+
+🖥️ **Compute Fees**
+• Inference: ${s.compute.inferenceFee}
+• Rental: ${s.compute.rentalFee}
+• Triggers: ${s.compute.triggerFee}
+
+🏪 **Marketplace Fees**
+• Bazaar Platform: ${s.marketplace.bazaarPlatform}
+• X402 Protocol: ${s.marketplace.x402Protocol}
+
+🪙 **Token Economics**
+• XLP Rewards: ${s.token.xlpRewardShare}
+• Protocol Treasury: ${s.token.protocolShare}
+• Token Burn: ${s.token.burnShare}
+
+As CEO, you can modify any of these by saying "set [category] fee to X%"`,
+        action: 'VIEW_FEES',
+      })
+    }
+  },
+}
+
+// ============================================================================
+// CEO Plugin
+// ============================================================================
+
 /**
  * CEO Plugin for ElizaOS
  * Provides all data and actions needed for AI CEO governance
@@ -318,7 +689,13 @@ export const ceoPlugin: Plugin = {
 
   providers: ceoProviders,
 
-  actions: [makeDecisionAction, requestResearchAction, getDeliberationAction],
+  actions: [
+    makeDecisionAction,
+    requestResearchAction,
+    getDeliberationAction,
+    modifyFeesAction,
+    viewFeesAction,
+  ],
 }
 
 export default ceoPlugin

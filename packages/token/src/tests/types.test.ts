@@ -135,9 +135,7 @@ describe('FeeComparison', () => {
 describe('SolanaIntegration', () => {
   test('should have Solana in mainnet chains', () => {
     const solanaChains = getSolanaChains(true)
-    const solana = solanaChains.find(
-      (c: { chainId: string | number }) => c.chainId === 'solana-mainnet',
-    )
+    const solana = solanaChains.find((c) => c.chainId === 'solana-mainnet')
     expect(solana).toBeDefined()
   })
 

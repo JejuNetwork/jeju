@@ -133,7 +133,7 @@ export type SolverLeaderboardEntry = z.infer<
 export type ChainStats = z.infer<typeof ChainStatsSchema>
 export type OIFStats = z.infer<typeof OIFStatsSchema>
 
-async function fetchJSON<T>(path: string, schema?: z.ZodSchema<T>): Promise<T> {
+async function fetchJSON<T>(path: string, schema?: z.ZodType<T>): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`)
   if (!res.ok)
     throw new Error(`Failed to fetch ${path}: ${res.status} ${res.statusText}`)

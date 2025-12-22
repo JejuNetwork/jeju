@@ -423,12 +423,6 @@ export class StaticAssetService {
         // Cache to disk and memory
         await this.cacheAsset(contentHash, asset)
         return asset
-      } catch (error) {
-        console.warn(
-          `[StaticAssets] Torrent fetch failed for ${assetPath}:`,
-          error,
-        )
-        throw error
       }
     }
 

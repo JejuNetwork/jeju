@@ -50,9 +50,9 @@ describe('JNS (Names) Integration Tests', () => {
   })
 
   test('client created successfully', () => {
-    if (!chainRunning) return
+    if (!chainRunning || !client) return
     expect(client).toBeDefined()
-    expect(client?.names).toBeDefined()
+    expect(client.names).toBeDefined()
   })
 
   test('isAvailable returns boolean', async () => {

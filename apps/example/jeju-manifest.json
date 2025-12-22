@@ -29,7 +29,7 @@
   "jns": {
     "name": "example.jeju",
     "description": "Decentralized App Template",
-    "url": "https://template.jejunetwork.org"
+    "url": "https://example.jejunetwork.org"
   },
   "healthCheck": {
     "url": "http://localhost:4500/health",

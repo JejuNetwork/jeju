@@ -139,13 +139,8 @@ export function startLocalCron(
 ): NodeJS.Timer {
   const match = ORCHESTRATOR_CRON.match(/^\*\/(\d+)/)
   const intervalMs = match ? parseInt(match[1], 10) * 1000 : 30_000
-  return setInterval(async () => {
-    try {
-      await callback()
-    } catch (error) {
-      console.error('[Trigger] Error:', error)
-      throw error
-    }
+  return setInterval(() => {
+    callback().catch((error) => console.error('[Trigger] Error:', error))
   }, intervalMs)
 }
 

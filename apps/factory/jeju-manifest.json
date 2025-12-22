@@ -176,7 +176,7 @@
       "enabled": true,
       "regions": ["global"],
       "cacheRules": [
-        { "pattern": "/_next/static/**", "ttl": 31536000, "immutable": true },
+        { "pattern": "/assets/**", "ttl": 31536000, "immutable": true },
         { "pattern": "/images/**", "ttl": 86400 },
         { "pattern": "/api/**", "ttl": 0 }
       ],

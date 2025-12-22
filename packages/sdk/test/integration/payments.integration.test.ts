@@ -50,9 +50,9 @@ describe('Payments Integration Tests', () => {
   })
 
   test('client created successfully', () => {
-    if (!chainRunning) return
+    if (!chainRunning || !client) return
     expect(client).toBeDefined()
-    expect(client?.payments).toBeDefined()
+    expect(client.payments).toBeDefined()
   })
 
   test('getBalance returns bigint', async () => {

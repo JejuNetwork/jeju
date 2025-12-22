@@ -447,6 +447,107 @@ All decisions are recorded with TEE attestation.`,
   },
 }
 
+// ============================================================================
+// Fee Configuration Provider
+// ============================================================================
+
+/**
+ * Provider: Fee Configuration
+ * Current network-wide fee settings that the CEO can modify
+ */
+export const feeConfigProvider: Provider = {
+  name: 'CEO_FEE_CONFIG',
+  description:
+    'Get current fee configuration across all network services - compute, storage, DeFi, marketplace, etc.',
+
+  get: async (
+    _runtime: IAgentRuntime,
+    _message: Memory,
+    _state: State,
+  ): Promise<ProviderResult> => {
+    // Fetch fee config from the autocrat server
+    const feesUrl = `${getAutocratUrl()}/fees/summary`
+
+    const response = await fetch(feesUrl)
+    if (!response.ok) {
+      return {
+        text: `⚠️ Unable to fetch fee configuration. Service may be initializing.`,
+      }
+    }
+
+    const data = (await response.json()) as {
+      success: boolean
+      summary: {
+        distribution: Record<string, string>
+        compute: Record<string, string>
+        storage: Record<string, string>
+        defi: Record<string, string>
+        infrastructure: Record<string, string>
+        marketplace: Record<string, string>
+        token: Record<string, string>
+        governance: { treasury: string; council: string; ceo: string }
+      }
+    }
+
+    if (!data.success) {
+      return { text: '⚠️ Fee configuration unavailable.' }
+    }
+
+    const s = data.summary
+
+    return {
+      text: `💰 NETWORK FEE CONFIGURATION
+
+📊 REVENUE DISTRIBUTION
+• App Developers: ${s.distribution.appDeveloperShare}
+• Liquidity Providers: ${s.distribution.liquidityProviderShare}
+• Contributor Pool: ${s.distribution.contributorPoolShare}
+
+🖥️ COMPUTE FEES
+• Inference Platform: ${s.compute.inferenceFee}
+• Rental Platform: ${s.compute.rentalFee}
+• Trigger Platform: ${s.compute.triggerFee}
+
+📦 STORAGE FEES
+• Upload: ${s.storage.uploadFee}
+• Retrieval: ${s.storage.retrievalFee}
+• Pinning: ${s.storage.pinningFee}
+
+🔄 DEFI FEES
+• Swap Protocol: ${s.defi.swapProtocolFee}
+• Bridge: ${s.defi.bridgeFee}
+• Cross-Chain Margin: ${s.defi.crossChainMargin}
+
+🏪 MARKETPLACE FEES
+• Bazaar Platform: ${s.marketplace.bazaarPlatform}
+• X402 Protocol: ${s.marketplace.x402Protocol}
+
+🪙 TOKEN ECONOMICS
+• XLP Reward Share: ${s.token.xlpRewardShare}
+• Protocol Share: ${s.token.protocolShare}
+• Burn Share: ${s.token.burnShare}
+• Bridge Fee Range: ${s.token.bridgeFeeRange}
+
+🏛️ GOVERNANCE
+• Treasury: ${s.governance.treasury.slice(0, 10)}...
+• Council: ${s.governance.council.slice(0, 10)}...
+• CEO: ${s.governance.ceo.slice(0, 10)}...
+
+💡 ACTIONS
+As CEO, you can modify any of these fees using the fee management skills:
+- set-distribution-fees: Change app/LP/contributor splits
+- set-compute-fees: Adjust inference and rental platform fees
+- set-defi-fees: Modify swap and bridge fees
+- set-marketplace-fees: Update bazaar and x402 fees
+- set-token-fees: Configure token economics`,
+    }
+  },
+}
+
+// ============================================================================
+// Export All Providers
+// ============================================================================
+
 export const ceoProviders: Provider[] = [
   governanceDashboardProvider,
   activeProposalsProvider,
@@ -455,4 +556,5 @@ export const ceoProviders: Provider[] = [
   treasuryProvider,
   historicalDecisionsProvider,
   mcpResourcesProvider,
+  feeConfigProvider,
 ]

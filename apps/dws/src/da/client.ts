@@ -12,7 +12,7 @@ import { expectJson } from '@jejunetwork/types'
 import type { Address, Hex, PublicClient } from 'viem'
 import { createPublicClient, http, toBytes, toHex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import type { ZodSchema } from 'zod'
+import { z } from 'zod'
 import { computeBlobId } from './commitment'
 import type {
   AvailabilityAttestation,
@@ -199,7 +199,7 @@ export class DAClient {
    * @param blobId - The blob ID to retrieve
    * @param schema - Optional Zod schema for validation. If provided, validates the parsed JSON.
    */
-  async retrieveJSON<T>(blobId: Hex, schema: ZodSchema<T>): Promise<T> {
+  async retrieveJSON<T>(blobId: Hex, schema: z.ZodType<T>): Promise<T> {
     const str = await this.retrieveString(blobId)
     return expectJson(str, schema, `DA blob ${blobId}`)
   }

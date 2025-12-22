@@ -11,12 +11,7 @@ import { Elysia, t } from 'elysia'
 import { createRLAIFCoordinator } from '../../rlaif/coordinator'
 import { createRulerScorer } from '../../rlaif/ruler-scorer'
 import { createTrajectoryStore } from '../../rlaif/trajectory-store'
-import {
-  type RLAIFRunConfig,
-  RLAlgorithm,
-  type RLTrajectoryMetadata,
-  type Trajectory,
-} from '../../rlaif/types'
+import { type RLAIFRunConfig, RLAlgorithm } from '../../rlaif/types'
 
 // Initialize services with Phala TEE support
 const coordinator = createRLAIFCoordinator({

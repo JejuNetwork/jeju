@@ -201,7 +201,7 @@ circuitBreaker.on('close', () =>
 
 async function request<T>(
   url: string,
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   options?: RequestInit,
 ): Promise<T> {
   const response = await circuitBreaker.fire(async () => {

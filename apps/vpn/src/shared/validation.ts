@@ -10,7 +10,7 @@ import type { z } from 'zod'
  * Expect a value to match schema, throw if invalid
  */
 export function expectValid<T>(
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   value: unknown,
   context?: string,
 ): T {

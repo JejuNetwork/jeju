@@ -24,6 +24,31 @@ contract MarginManager is IMarginManager, ReentrancyGuard, Ownable {
     
     // Accepted collateral tokens with haircut factors (in bps, 10000 = 100%)
     mapping(address => uint256) public collateralFactors;
+    
+    // SECURITY: Timelocks for critical changes
+    uint256 public constant ORACLE_CHANGE_DELAY = 24 hours;
+    uint256 public constant AUTH_CHANGE_DELAY = 12 hours;
+    
+    address public pendingOracle;
+    uint256 public oracleChangeTime;
+    
+    struct PendingAuthChange {
+        address contractAddr;
+        bool authorized;
+        uint256 executeAfter;
+    }
+    mapping(bytes32 => PendingAuthChange) public pendingAuthChanges;
+    
+    event OracleChangeProposed(address indexed newOracle, uint256 executeAfter);
+    event OracleChangeExecuted(address indexed oldOracle, address indexed newOracle);
+    event AuthChangeProposed(bytes32 indexed changeId, address contractAddr, bool authorized, uint256 executeAfter);
+    event AuthChangeExecuted(bytes32 indexed changeId, address contractAddr, bool authorized);
+    
+    error OracleChangePending();
+    error NoOracleChangePending();
+    error OracleChangeNotReady();
+    error AuthChangeNotFound();
+    error AuthChangeNotReady();
     address[] public acceptedTokensList;
     
     // Trader balances: trader => token => balance
@@ -44,12 +69,62 @@ contract MarginManager is IMarginManager, ReentrancyGuard, Ownable {
         _;
     }
 
-    function setAuthorizedContract(address contractAddr, bool authorized) external onlyOwner {
-        authorizedContracts[contractAddr] = authorized;
+    /// @notice Propose authorizing a contract - requires 12-hour delay
+    /// @dev SECURITY: Prevents instant access to all trader funds
+    function proposeAuthorizedContract(address contractAddr, bool authorized) public onlyOwner returns (bytes32 changeId) {
+        changeId = keccak256(abi.encodePacked(contractAddr, authorized, block.timestamp));
+        pendingAuthChanges[changeId] = PendingAuthChange({
+            contractAddr: contractAddr,
+            authorized: authorized,
+            executeAfter: block.timestamp + AUTH_CHANGE_DELAY
+        });
+        emit AuthChangeProposed(changeId, contractAddr, authorized, block.timestamp + AUTH_CHANGE_DELAY);
     }
     
+    /// @notice Execute pending authorization change
+    function executeAuthorizedContract(bytes32 changeId) external {
+        PendingAuthChange storage change = pendingAuthChanges[changeId];
+        if (change.executeAfter == 0) revert AuthChangeNotFound();
+        if (block.timestamp < change.executeAfter) revert AuthChangeNotReady();
+        
+        authorizedContracts[change.contractAddr] = change.authorized;
+        emit AuthChangeExecuted(changeId, change.contractAddr, change.authorized);
+        
+        delete pendingAuthChanges[changeId];
+    }
+    
+    /// @notice Legacy setAuthorizedContract - now requires timelock
+    function setAuthorizedContract(address contractAddr, bool authorized) external onlyOwner {
+        proposeAuthorizedContract(contractAddr, authorized);
+    }
+    
+    /// @notice Propose a new oracle - requires 24-hour delay
+    /// @dev SECURITY: Prevents instant oracle manipulation for collateral valuation
+    function proposePriceOracle(address _priceOracle) public onlyOwner {
+        require(_priceOracle != address(0), "Invalid oracle");
+        if (pendingOracle != address(0)) revert OracleChangePending();
+        
+        pendingOracle = _priceOracle;
+        oracleChangeTime = block.timestamp + ORACLE_CHANGE_DELAY;
+        emit OracleChangeProposed(_priceOracle, oracleChangeTime);
+    }
+    
+    /// @notice Execute oracle change after timelock
+    function executePriceOracleChange() external onlyOwner {
+        if (pendingOracle == address(0)) revert NoOracleChangePending();
+        if (block.timestamp < oracleChangeTime) revert OracleChangeNotReady();
+        
+        address oldOracle = address(priceOracle);
+        priceOracle = IPriceOracle(pendingOracle);
+        emit OracleChangeExecuted(oldOracle, pendingOracle);
+        
+        pendingOracle = address(0);
+        oracleChangeTime = 0;
+    }
+    
+    /// @notice Legacy setPriceOracle - now requires timelock
     function setPriceOracle(address _priceOracle) external onlyOwner {
-        priceOracle = IPriceOracle(_priceOracle);
+        proposePriceOracle(_priceOracle);
     }
     
     function addAcceptedToken(address token, uint256 collateralFactor) external onlyOwner {

@@ -19,12 +19,7 @@ import {
 import type { WorkerdWorkerDefinition } from '../src/workers/workerd/types'
 import { DEFAULT_WORKERD_CONFIG } from '../src/workers/workerd/types'
 
-// Test setup
-const backend = createBackendManager()
-let app: Elysia
-let workerdAvailable = false
-
-// Find workerd binary
+// Find workerd binary - MUST run synchronously at module load for skipIf to work
 function findWorkerd(): string | null {
   const isWindows = process.platform === 'win32'
   const binaryName = isWindows ? 'workerd.exe' : 'workerd'
@@ -49,21 +44,26 @@ function findWorkerd(): string | null {
   return null
 }
 
+// Detect workerd at module load time (required for test.skipIf to work correctly)
+const WORKERD_PATH = findWorkerd()
+const WORKERD_AVAILABLE = WORKERD_PATH !== null
+
+if (!WORKERD_AVAILABLE) {
+  console.log('[Test] workerd not found - run "bun run install:workerd" to install')
+  console.log('[Test] Integration tests will be skipped')
+} else {
+  console.log(`[Test] workerd found at: ${WORKERD_PATH}`)
+}
+
+// Test setup
+const backend = createBackendManager()
+let app: Elysia
+
 beforeAll(async () => {
-  const workerdPath = findWorkerd()
-  workerdAvailable = workerdPath !== null
-
-  if (!workerdAvailable) {
-    console.log(
-      '[Test] workerd not found - run "bun run install:workerd" to install',
-    )
-    console.log('[Test] Some tests will be skipped')
-  }
-
   const options: WorkerdRouterOptions = {
     backend,
     workerdConfig: {
-      binaryPath: workerdPath || '/usr/local/bin/workerd',
+      binaryPath: WORKERD_PATH || '/usr/local/bin/workerd',
       workDir: '/tmp/dws-workerd-test',
       portRange: { min: 40000, max: 45000 },
     },
@@ -293,7 +293,7 @@ describe('Types', () => {
 // =============================================================================
 
 describe('Workerd Integration', () => {
-  const skipIntegration = !workerdAvailable
+  const skipIntegration = !WORKERD_AVAILABLE
 
   test.skipIf(skipIntegration)(
     'deploy and invoke a simple worker',
@@ -313,7 +313,7 @@ export default {
 };`
 
       // Deploy worker
-      const deployRes = await app.request('/workerd', {
+      const deployRes = await request('/workerd', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -329,30 +329,27 @@ export default {
 
       expect(deployRes.status).toBe(201)
       const deployData = (await deployRes.json()) as {
-        id: string
+        workerId: string
         name: string
         status: string
       }
-      expect(deployData.id).toBeDefined()
+      expect(deployData.workerId).toBeDefined()
       expect(deployData.name).toBe('integration-test-worker')
 
       // Wait for worker to be ready
       await new Promise((r) => setTimeout(r, 2000))
 
       // Check worker status
-      const statusRes = await app.request(`/workerd/${deployData.id}`)
+      const statusRes = await request(`/workerd/${deployData.workerId}`)
       expect(statusRes.status).toBe(200)
       const statusData = (await statusRes.json()) as { status: string }
       expect(['active', 'deploying']).toContain(statusData.status)
 
       // Invoke worker
       if (statusData.status === 'active') {
-        const invokeRes = await app.request(
-          `/workerd/${deployData.id}/http/test`,
-          {
-            method: 'GET',
-          },
-        )
+        const invokeRes = await request(`/workerd/${deployData.workerId}/http/test`, {
+          method: 'GET',
+        })
 
         expect(invokeRes.status).toBe(200)
         const invokeData = (await invokeRes.json()) as {
@@ -366,7 +363,7 @@ export default {
       }
 
       // Clean up
-      const deleteRes = await app.request(`/workerd/${deployData.id}`, {
+      const deleteRes = await request(`/workerd/${deployData.workerId}`, {
         method: 'DELETE',
         headers: {
           'x-jeju-address': '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
@@ -389,7 +386,7 @@ export default {
   }
 };`
 
-    const deployRes = await app.request('/workerd', {
+    const deployRes = await request('/workerd', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -406,16 +403,16 @@ export default {
     })
 
     expect(deployRes.status).toBe(201)
-    const deployData = (await deployRes.json()) as { id: string }
+    const deployData = (await deployRes.json()) as { workerId: string }
 
     // Wait and then invoke
     await new Promise((r) => setTimeout(r, 2000))
 
-    const statusRes = await app.request(`/workerd/${deployData.id}`)
+    const statusRes = await request(`/workerd/${deployData.workerId}`)
     const statusData = (await statusRes.json()) as { status: string }
 
     if (statusData.status === 'active') {
-      const invokeRes = await app.request(`/workerd/${deployData.id}/http/`, {
+      const invokeRes = await request(`/workerd/${deployData.workerId}/http/`, {
         method: 'GET',
       })
 
@@ -429,7 +426,7 @@ export default {
     }
 
     // Cleanup
-    await app.request(`/workerd/${deployData.id}`, {
+    await request(`/workerd/${deployData.workerId}`, {
       method: 'DELETE',
       headers: {
         'x-jeju-address': '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
@@ -445,7 +442,7 @@ export default {
   }
 };`
 
-    const deployRes = await app.request('/workerd', {
+    const deployRes = await request('/workerd', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -458,24 +455,24 @@ export default {
     })
 
     expect(deployRes.status).toBe(201)
-    const deployData = (await deployRes.json()) as { id: string }
+    const deployData = (await deployRes.json()) as { workerId: string }
 
     await new Promise((r) => setTimeout(r, 2000))
 
     // Make a few invocations
     for (let i = 0; i < 3; i++) {
-      await app.request(`/workerd/${deployData.id}/http/`)
+      await request(`/workerd/${deployData.workerId}/http/`)
     }
 
     // Check metrics
-    const metricsRes = await app.request(`/workerd/${deployData.id}/metrics`)
+    const metricsRes = await request(`/workerd/${deployData.workerId}/metrics`)
     if (metricsRes.status === 200) {
       const metrics = (await metricsRes.json()) as { invocations: number }
       expect(metrics.invocations).toBeGreaterThanOrEqual(0)
     }
 
     // Cleanup
-    await app.request(`/workerd/${deployData.id}`, {
+    await request(`/workerd/${deployData.workerId}`, {
       method: 'DELETE',
       headers: {
         'x-jeju-address': '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',

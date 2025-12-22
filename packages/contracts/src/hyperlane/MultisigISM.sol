@@ -23,11 +23,28 @@ contract MultisigISM is Ownable2Step {
 
     // Default threshold
     uint8 public defaultThreshold;
+    
+    // SECURITY: Timelock for validator changes
+    uint256 public constant VALIDATOR_CHANGE_DELAY = 24 hours;
+    
+    struct PendingValidatorChange {
+        address validator;
+        bool isAddition; // true = add, false = remove
+        uint256 executeAfter;
+        bool executed;
+    }
+    mapping(bytes32 => PendingValidatorChange) public pendingValidatorChanges;
 
     event ValidatorAdded(address indexed validator);
     event ValidatorRemoved(address indexed validator);
     event ThresholdSet(uint32 indexed domain, uint8 threshold);
     event DefaultThresholdSet(uint8 threshold);
+    event ValidatorChangeProposed(bytes32 indexed changeId, address validator, bool isAddition, uint256 executeAfter);
+    event ValidatorChangeCancelled(bytes32 indexed changeId);
+    
+    error ChangeNotFound();
+    error ChangeNotReady();
+    error ChangeAlreadyExecuted();
 
     constructor(address _owner, address[] memory _validators, uint8 _threshold) Ownable(_owner) {
         require(_threshold <= _validators.length, "Threshold too high");
@@ -40,10 +57,42 @@ contract MultisigISM is Ownable2Step {
     }
 
     /**
-     * @notice Add a validator
+     * @notice Propose adding a validator - requires 24-hour delay
+     * @dev SECURITY: Prevents instant validator set manipulation
+     */
+    function proposeAddValidator(address _validator) external onlyOwner returns (bytes32 changeId) {
+        require(!isValidator[_validator], "Already validator");
+        
+        changeId = keccak256(abi.encodePacked(_validator, true, block.timestamp));
+        pendingValidatorChanges[changeId] = PendingValidatorChange({
+            validator: _validator,
+            isAddition: true,
+            executeAfter: block.timestamp + VALIDATOR_CHANGE_DELAY,
+            executed: false
+        });
+        
+        emit ValidatorChangeProposed(changeId, _validator, true, block.timestamp + VALIDATOR_CHANGE_DELAY);
+    }
+    
+    /**
+     * @notice Execute pending validator addition
+     */
+    function executeAddValidator(bytes32 changeId) external {
+        PendingValidatorChange storage change = pendingValidatorChanges[changeId];
+        if (change.executeAfter == 0) revert ChangeNotFound();
+        if (change.executed) revert ChangeAlreadyExecuted();
+        if (block.timestamp < change.executeAfter) revert ChangeNotReady();
+        if (!change.isAddition) revert ChangeNotFound();
+        
+        change.executed = true;
+        _addValidator(change.validator);
+    }
+    
+    /**
+     * @notice Legacy addValidator - now requires timelock
      */
     function addValidator(address _validator) external onlyOwner {
-        _addValidator(_validator);
+        proposeAddValidator(_validator);
     }
 
     function _addValidator(address _validator) internal {
@@ -54,9 +103,57 @@ contract MultisigISM is Ownable2Step {
     }
 
     /**
-     * @notice Remove a validator
+     * @notice Propose removing a validator - requires 24-hour delay
+     * @dev SECURITY: Prevents instant validator removal attacks
+     */
+    function proposeRemoveValidator(address _validator) external onlyOwner returns (bytes32 changeId) {
+        require(isValidator[_validator], "Not validator");
+        
+        changeId = keccak256(abi.encodePacked(_validator, false, block.timestamp));
+        pendingValidatorChanges[changeId] = PendingValidatorChange({
+            validator: _validator,
+            isAddition: false,
+            executeAfter: block.timestamp + VALIDATOR_CHANGE_DELAY,
+            executed: false
+        });
+        
+        emit ValidatorChangeProposed(changeId, _validator, false, block.timestamp + VALIDATOR_CHANGE_DELAY);
+    }
+    
+    /**
+     * @notice Execute pending validator removal
+     */
+    function executeRemoveValidator(bytes32 changeId) external {
+        PendingValidatorChange storage change = pendingValidatorChanges[changeId];
+        if (change.executeAfter == 0) revert ChangeNotFound();
+        if (change.executed) revert ChangeAlreadyExecuted();
+        if (block.timestamp < change.executeAfter) revert ChangeNotReady();
+        if (change.isAddition) revert ChangeNotFound();
+        
+        change.executed = true;
+        _removeValidatorInternal(change.validator);
+    }
+    
+    /**
+     * @notice Cancel pending validator change
+     */
+    function cancelValidatorChange(bytes32 changeId) external onlyOwner {
+        PendingValidatorChange storage change = pendingValidatorChanges[changeId];
+        if (change.executeAfter == 0) revert ChangeNotFound();
+        if (change.executed) revert ChangeAlreadyExecuted();
+        
+        delete pendingValidatorChanges[changeId];
+        emit ValidatorChangeCancelled(changeId);
+    }
+
+    /**
+     * @notice Legacy removeValidator - now requires timelock
      */
     function removeValidator(address _validator) external onlyOwner {
+        proposeRemoveValidator(_validator);
+    }
+    
+    function _removeValidatorInternal(address _validator) internal {
         require(isValidator[_validator], "Not validator");
 
         // Find and remove

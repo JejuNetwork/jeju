@@ -103,8 +103,8 @@ Be a neutral, reliable source of information. Don't editorialize - share facts a
   },
 
   modelPreferences: {
-    small: 'llama-3.1-8b',
-    large: 'llama-3.1-70b',
+    small: 'llama-3.1-8b-instant',
+    large: 'llama-3.3-70b-versatile',
   },
 
   mcpServers: ['org-tools', 'social-monitoring'],

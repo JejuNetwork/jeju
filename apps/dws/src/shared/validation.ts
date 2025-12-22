@@ -65,15 +65,18 @@ const ErrorResponseSchema = z.object({
 })
 
 export function validateBodyDirect<T>(
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   body: unknown,
   context?: string,
 ): T {
   return expectValid(schema, body ?? {}, context || 'Request body')
 }
 
+/**
+ * Validate request body with fail-fast
+ */
 export function validateBody<T>(
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   ctx: ElysiaContext,
   context?: string,
 ): T {
@@ -81,7 +84,7 @@ export function validateBody<T>(
 }
 
 export function validateQuery<T>(
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   ctx: ElysiaContext,
   context?: string,
 ): T {
@@ -93,7 +96,7 @@ export function validateQuery<T>(
 }
 
 export function validateQueryFromObj<T>(
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   queryObj: Record<string, string | undefined>,
   context?: string,
 ): T {
@@ -104,8 +107,11 @@ export function validateQueryFromObj<T>(
   return expectValid(schema, query, context || 'Query parameters')
 }
 
+/**
+ * Validate path parameters with fail-fast
+ */
 export function validateParams<T>(
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   ctx: ElysiaContext,
   context?: string,
 ): T {
@@ -113,7 +119,7 @@ export function validateParams<T>(
 }
 
 export function validateHeaders<T>(
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   ctx: ElysiaContext,
   context?: string,
 ): T {
@@ -130,10 +136,10 @@ export function createValidationDerive<
   TParams = never,
   THeaders = never,
 >(options: {
-  body?: z.ZodSchema<TBody>
-  query?: z.ZodSchema<TQuery>
-  params?: z.ZodSchema<TParams>
-  headers?: z.ZodSchema<THeaders>
+  body?: z.ZodType<TBody>
+  query?: z.ZodType<TQuery>
+  params?: z.ZodType<TParams>
+  headers?: z.ZodType<THeaders>
 }) {
   return (ctx: ElysiaContext) => {
     const result: {
